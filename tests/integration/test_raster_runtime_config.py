@@ -25,6 +25,7 @@ def configured(tmp_path):
         native_policy_sha256="a" * 64,
         raster_helper_sha256="b" * 64,
         composition_helper_sha256="c" * 64,
+        checkpoint_helper_sha256="d" * 64,
         reader_versions={name: "test" for name in ("pypdfium2", "pdfplumber", "pypdf", "Pillow")},
     )
     consent = dict(service.registry.resolve_profile(AUTH, "consent", body["consent_profile_id"]))

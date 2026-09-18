@@ -92,8 +92,8 @@ def test_each_legacy_schema_rejects_reserved_raster_field(schema, field):
         checkpoint_note_reviews({"schema": f"local_parser_checkpoint_v{schema}", field: "reserved"})
 
 
-def test_v5_parser_checkpoint_remains_unsupported():
+def test_v5_parser_checkpoint_requires_complete_raster_fields():
     from proofops.adapters.local.run_artifacts import checkpoint_note_reviews
 
-    with pytest.raises(ParseFailure, match="PARSER_CHECKPOINT_SCHEMA_UNSUPPORTED"):
+    with pytest.raises(ParseFailure, match="RASTER_OCR_CHECKPOINT_INVALID"):
         checkpoint_note_reviews({"schema": "local_parser_checkpoint_v5"})

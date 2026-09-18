@@ -12,6 +12,7 @@ import time
 from dataclasses import asdict, replace
 from hashlib import sha256
 from importlib.resources import files
+from pathlib import Path
 from types import SimpleNamespace
 from uuid import UUID, uuid4, uuid5
 
@@ -45,6 +46,8 @@ class LocalParserRunner:
         note_client=None,
         note_ledger=None,
         verify_paragraphs: bool = False,
+        raster_probe=None,
+        raster_ledger=None,
     ):
         if not uploads.local_synthetic or not isinstance(profile, ParserProfile):
             raise ValueError("local parser requires local storage and executable configuration")
@@ -57,6 +60,31 @@ class LocalParserRunner:
         self.note_ledger = (
             note_ledger if note_ledger is not None else getattr(note_client, "ledger", None)
         )
+        self.raster_probe, self.raster_ledger = raster_probe, raster_ledger
+
+    def _raster_enabled(self, snapshot):
+        raster_keys = {key for key in snapshot if key.startswith("raster_ocr_")}
+        if not raster_keys:
+            if self.raster_probe is not None or self.raster_ledger is not None:
+                raise ValueError("RASTER_OCR_RUNTIME_NOT_SUPPORTED")
+            return False
+        from proofops.adapters.local.upstage_parse import UpstageParseProbe
+
+        if (
+            not self.verify_paragraphs
+            or not isinstance(self.raster_probe, UpstageParseProbe)
+            or self.raster_ledger is None
+            or Path(self.raster_probe.ledger).resolve() != Path(self.raster_ledger).resolve()
+            or (
+                self.note_client is not None
+                and (
+                    self.note_ledger is None
+                    or Path(self.note_ledger).resolve() != Path(self.raster_ledger).resolve()
+                )
+            )
+        ):
+            raise ValueError("RASTER_OCR_RUNTIME_NOT_SUPPORTED")
+        return True
 
     def _note_policy(self):
         if self.note_client is None:
@@ -98,8 +126,7 @@ class LocalParserRunner:
             raise ValueError("NOTE_REVIEW_INPUT_MODE_CONFLICT")
         # No tenant discovery or implicit live-provider selection.
         snapshot = self.store.snapshot(tenant_id, run_id)
-        if any(key.startswith("raster_ocr_") for key in snapshot):
-            raise ValueError("RASTER_OCR_RUNTIME_NOT_SUPPORTED")
+        raster_enabled = self._raster_enabled(snapshot)
         run = self.store.jobs.get_run(tenant_id, run_id)
         native_policy = native_paragraph_policy() if self.verify_paragraphs else None
         if (
@@ -136,6 +163,9 @@ class LocalParserRunner:
                 usage = {"model_calls": 0, "parser_executions": 0, "artifact_reused": False}
                 policy = None
                 attempted = []
+                raster_attempted = []
+                raster_registrations = ()
+                raster_receipts = {}
 
                 def invoke(*args, **kwargs):
                     try:
@@ -222,6 +252,7 @@ class LocalParserRunner:
                         graph = replay_note_reviews(
                             pinned_notes, graph, source.content, tenant_id=tenant_id
                         )
+                    pre_native_graph = graph
                     native_receipt = None
                     if native_policy is not None:
                         from proofops.adapters.local.source_verification import (
@@ -234,6 +265,65 @@ class LocalParserRunner:
                         )
                         graph = replay_native_sources(
                             native_receipt, graph, source.content, tenant_id=tenant_id
+                        )
+                    raster_coverage = None
+                    raster_refs = None
+                    if raster_enabled:
+                        from proofops.adapters.local.raster_job_store import (
+                            raster_receipt,
+                            raster_requests,
+                        )
+                        from proofops.adapters.local.raster_visibility import (
+                            eligible_raster_sources,
+                        )
+
+                        from proofops_worker.raster_runtime import dispatch_authorized_raster
+
+                        pages = set(snapshot["selected_pages"])
+                        blocks = {block.source_id: block for block in pre_native_graph.blocks}
+                        eligible = tuple(
+                            sorted(
+                                source_id
+                                for source_id in eligible_raster_sources(native_receipt)
+                                if blocks[source_id].page_num in pages
+                            )
+                        )
+                        limits = snapshot["raster_ocr_policy"]
+                        for start in range(0, len(eligible), limits["max_pages"]):
+                            if start // limits["max_pages"] >= limits["max_calls"]:
+                                break
+                            ids = eligible[start : start + limits["max_pages"]]
+                            request, receipt = dispatch_authorized_raster(
+                                self,
+                                lease,
+                                pre_native_graph,
+                                native_receipt,
+                                ids,
+                                probe=self.raster_probe,
+                                ledger=self.raster_ledger,
+                            )
+                            raster_attempted.append(request["request_id"])
+                            if receipt is None:
+                                raise ValueError("RASTER_REQUEST_PENDING")
+                        raster_registrations = raster_requests(self.store.jobs, message)
+                        raster_receipts = {
+                            item["request"]["request_id"]: raster_receipt(
+                                self.store.jobs, message, item["request"]["request_id"]
+                            )
+                            for item in raster_registrations
+                        }
+                        if any(item is None for item in raster_receipts.values()):
+                            raise ValueError("RASTER_REQUEST_PENDING")
+                        from proofops.adapters.local.raster_checkpoint import replay_raster_records
+
+                        graph, raster_coverage, raster_refs = replay_raster_records(
+                            snapshot,
+                            message,
+                            native_receipt,
+                            pre_native_graph,
+                            source.content,
+                            raster_registrations,
+                            raster_receipts,
                         )
                     manifest = json.loads(raw_manifest)
                     unreadable = {
@@ -294,52 +384,96 @@ class LocalParserRunner:
                             native_paragraph_attestation=native_receipt,
                             native_paragraph_policy_sha256=canonical_hash(native_policy),
                         )
+                    if raster_enabled:
+                        payload.update(
+                            schema="local_parser_checkpoint_v5",
+                            graph_sha256=canonical_hash(asdict(graph)),
+                            raster_ocr_policy_sha256=canonical_hash(snapshot["raster_ocr_policy"]),
+                            raster_ocr_artifacts=raster_refs,
+                            raster_ocr_coverage=raster_coverage,
+                        )
                     return canonical_json(payload).encode(), usage
                 except (ParseFailure, UploadRejected) as exc:
                     raise StageFailure(str(exc), usage=usage) from None
                 except (OSError, ValueError, KeyError, TypeError):
                     raise StageFailure("PARSER_FAILED", usage=usage) from None
                 finally:
-                    identifiers = self.store.jobs.parser_note_requests(message)
+                    note_identifiers = self.store.jobs.parser_note_requests(message)
+                    if raster_enabled:
+                        from proofops.adapters.local.raster_job_store import raster_requests
+
+                        raster_registrations = raster_requests(self.store.jobs, message)
+                    raster_identifiers = (
+                        tuple(item["request"]["request_id"] for item in raster_registrations)
+                        if raster_enabled
+                        else ()
+                    )
+                    identifiers = tuple(dict.fromkeys(note_identifiers + raster_identifiers))
                     if policy is not None or identifiers:
                         recorded = {
                             identifier
                             for item in self.store.jobs.list_usage(tenant_id, run_id)
-                            for identifier in item.get("note_request_ids", [])
+                            for identifier in (
+                                item.get("note_request_ids", [])
+                                + item.get("raster_request_ids", [])
+                            )
                         }
                         unreported = [
                             identifier for identifier in identifiers if identifier not in recorded
                         ]
-                        usage.update(note_request_ids=[], note_attempted_calls=len(attempted))
+                        usage.update(
+                            note_request_ids=[],
+                            raster_request_ids=[],
+                            note_attempted_calls=len(attempted),
+                            raster_attempted_calls=len(raster_attempted),
+                        )
                         try:
                             from proofops.adapters.local.upstage import request_usage
 
                             returned = set(
                                 self.store.jobs.parser_note_requests(message, returned=True)
                             )
+                            returned.update(
+                                request_id
+                                for request_id, receipt in raster_receipts.items()
+                                if receipt is not None
+                            )
                             pending, finalized = [], []
                             # ponytail: per-request reads; batch if ledger latency matters.
                             for identifier in unreported:
-                                item = request_usage(self.note_ledger, [identifier])
+                                item = request_usage(
+                                    self.raster_ledger if raster_enabled else self.note_ledger,
+                                    [identifier],
+                                )
                                 if item["unsettled_calls"] or (
                                     not item["model_calls"] and identifier not in returned
                                 ):
                                     pending.append(identifier)
                                 else:
                                     finalized.append(identifier)
-                            usage.update(request_usage(self.note_ledger, finalized))
+                            ledger = self.raster_ledger if raster_enabled else self.note_ledger
+                            usage.update(request_usage(ledger, finalized))
                             if pending:
-                                usage["note_pending_request_ids"] = pending
-                                usage["note_pending_usage"] = request_usage(
-                                    self.note_ledger, pending
-                                )
-                            usage["note_request_ids"] = finalized
+                                usage["note_pending_request_ids"] = [
+                                    item for item in pending if item in note_identifiers
+                                ]
+                                usage["raster_pending_request_ids"] = [
+                                    item for item in pending if item in raster_identifiers
+                                ]
+                                usage["note_pending_usage"] = request_usage(ledger, pending)
+                            usage["note_request_ids"] = [
+                                item for item in finalized if item in note_identifiers
+                            ]
+                            usage["raster_request_ids"] = [
+                                item for item in finalized if item in raster_identifiers
+                            ]
                             if pending:
                                 raise StageFailure("NOTE_ACCOUNTING_PENDING", usage=usage)
                         except (ValueError, OSError, TypeError):
                             usage.update(request_usage(None, []))
                             usage.update(
                                 note_request_ids=[],
+                                raster_request_ids=[],
                                 note_pending_request_ids=unreported,
                                 note_pending_usage={"cost_with_vat_reserve_usd": "unknown"},
                             )

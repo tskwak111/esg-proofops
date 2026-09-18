@@ -61,7 +61,12 @@ def _detach(value):
 
 def validate_raster_policy(policy):
     """Validate trusted policy shape without filesystem/provider dependencies."""
-    hashes = ("native_policy_sha256", "raster_helper_sha256", "composition_helper_sha256")
+    hashes = (
+        "native_policy_sha256",
+        "raster_helper_sha256",
+        "composition_helper_sha256",
+        "checkpoint_helper_sha256",
+    )
     if (
         not isinstance(policy, Mapping)
         or set(policy) != {"schema", "mode", "max_pages", "max_calls", "reader_versions", *hashes}

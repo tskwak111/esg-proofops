@@ -470,3 +470,46 @@ The read-only shared usage reader distinguishes token-billed and page-billed
 settled receipts. Parse pages are reported separately; page receipts cannot claim
 complete measured token usage. Recorded monetary amounts and unknown reservations
 are retained. No refund or budget-reset path is added.
+
+#### Coordinated v5 parser publication and offline replay — 2026-09-19
+
+This supersedes the preparation-only/disabled-publication statements above.
+An explicitly injected `LocalParserRunner` may enable raster fallback only with
+native paragraph verification, a complete frozen raster snapshot, an actual
+UpstageParseProbe and its explicitly matching shared ledger. A simultaneous note
+client must use that same ledger. Public composition/CLI enablement remains pending.
+
+`local_parser_checkpoint_v5` extends v4 with exactly three raster fields:
+
+- `raster_ocr_policy_sha256`: the frozen current policy hash. The policy now also
+  pins `checkpoint_helper_sha256` for the offline replay implementation.
+- `raster_ocr_artifacts`: request-ID-sorted, unique objects containing exactly
+  `request_id`, `request_sha256`, and `receipt_sha256`, resolved from the scoped
+  server-side records. Every registered request must have a valid stored receipt.
+- `raster_ocr_coverage`: sorted unique lists named `eligible_source_ids`,
+  `requested_source_ids`, `corroborated_source_ids`, `unresolved_source_ids`, and
+  `failed_source_ids`. Corroborated is a subset of requested, requested a subset of
+  eligible, unresolved exactly eligible minus corroborated. Failed is empty in
+  this version: pending/failed transports prevent publication. Unrequested eligible
+  sources remain unresolved when the authorized batch/call limit is reached.
+
+The writer preserves the original pre-native graph and native-v2 receipt, replays
+native and independent raster evidence, then publishes the composed graph hash.
+The existing fenced commit transaction validates frozen policy, native linkage,
+all durable request/receipt references and coverage ownership. Readback resolves
+those same scoped records and independently recomputes coverage, composition and
+final graph identity against original PDF bytes, without contacting the provider.
+V5 replay is currently uncached; no cold/repeated-read speedup is claimed.
+
+V1-v4 continue to reject raster-prefixed fields. A raster-configured run cannot
+publish/read a downgraded v4 checkpoint. Older incomplete experimental raster
+policies require a fresh run with the complete policy; existing evidence is never
+rewritten. No SQL table/migration or new dependency is introduced. Rollback disables
+new raster runs but retains v5 readers and immutable receipts/reservations.
+
+The worker regression uses an actual generated PDF and OpenDataLoader parsing,
+forces a readable local OCR disagreement, and intercepts only the external HTTP
+response. It verifies paragraph recovery, page/call accounting, immutable
+publication and offline replay. Additional cases reject tampered coverage/receipt
+pins and retain ambiguous-response reservations without publication. This is
+integration evidence, not model accuracy or a real-report rollout result.

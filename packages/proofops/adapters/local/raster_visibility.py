@@ -26,6 +26,9 @@ def raster_ocr_policy(*, mode="standard", max_pages=10, max_calls=1):
         "native_policy_sha256": canonical_hash(native_paragraph_policy()),
         "raster_helper_sha256": sha256(Path(raster_ocr.__file__).read_bytes()).hexdigest(),
         "composition_helper_sha256": sha256(Path(__file__).read_bytes()).hexdigest(),
+        "checkpoint_helper_sha256": sha256(
+            Path(__file__).with_name("raster_checkpoint.py").read_bytes()
+        ).hexdigest(),
         "reader_versions": {
             "pypdfium2": version("pypdfium2"),
             "pdfplumber": version("pdfplumber"),

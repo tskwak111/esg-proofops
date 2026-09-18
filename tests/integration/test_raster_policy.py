@@ -21,6 +21,9 @@ def test_raster_ocr_policy_pins_real_helpers_and_reader_versions():
         "composition_helper_sha256": sha256(
             Path(raster_visibility.__file__).read_bytes()
         ).hexdigest(),
+        "checkpoint_helper_sha256": sha256(
+            Path(raster_visibility.__file__).with_name("raster_checkpoint.py").read_bytes()
+        ).hexdigest(),
         "reader_versions": {
             "pypdfium2": version("pypdfium2"),
             "pdfplumber": version("pdfplumber"),

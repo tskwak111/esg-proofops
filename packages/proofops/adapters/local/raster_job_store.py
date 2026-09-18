@@ -279,3 +279,71 @@ def raster_receipt(store: LocalSQLiteJobStore, message, request_id: str) -> dict
             raise ValueError("RASTER_RECEIPT_INTEGRITY_MISMATCH")
         _receipt(registered["request"], wrapper["receipt"])
         return wrapper
+
+
+def validate_raster_checkpoint_bindings(db, store, message, snapshot, envelope):
+    """Check published pointers against scoped immutable records in one transaction."""
+    from proofops.adapters.local.raster_visibility import eligible_raster_sources, raster_ocr_policy
+    from proofops.adapters.local.run_artifacts import checkpoint_raster
+
+    versioned = envelope.get("schema") == "local_parser_checkpoint_v5"
+    enabled = "raster_ocr_policy" in snapshot
+    if versioned != enabled:
+        raise ValueError("RASTER_CHECKPOINT_POLICY_MISMATCH")
+    if not enabled:
+        return
+    validate_raster_snapshot(snapshot)
+    refs, coverage = checkpoint_raster(envelope)
+    policy = snapshot["raster_ocr_policy"]
+    if (
+        policy
+        != raster_ocr_policy(
+            mode=policy["mode"], max_pages=policy["max_pages"], max_calls=policy["max_calls"]
+        )
+        or envelope["raster_ocr_policy_sha256"] != snapshot["raster_ocr_policy_hash"]
+        or envelope.get("native_paragraph_policy_sha256") != policy["native_policy_sha256"]
+    ):
+        raise ValueError("RASTER_CHECKPOINT_POLICY_MISMATCH")
+    native = envelope["native_paragraph_attestation"]
+    eligible = eligible_raster_sources(native)
+    if coverage["eligible_source_ids"] != sorted(eligible):
+        raise ValueError("RASTER_CHECKPOINT_COVERAGE_MISMATCH")
+    stored_refs, requested = [], set()
+    for row in db.execute(
+        "SELECT value FROM job_records WHERE tenant_id=? AND run_id=? AND kind=? "
+        "AND json_extract(CAST(value AS TEXT), '$.request.job_id')=? ORDER BY record_id",
+        (message.tenant_id, message.run_id, _REQUEST_KIND, message.job_id),
+    ):
+        registered = _registered(json.loads(row[0]))
+        request = registered["request"]
+        if (
+            request["native_attestation_sha256"] != canonical_hash(native)
+            or request["correspondence"]["graph_sha256"] != native["input_graph_sha256"]
+            or request["input_hash"] != message.input_hash
+            or request["policy_sha256"] != snapshot["raster_ocr_policy_hash"]
+            or request["eligible_source_ids"] != sorted(eligible)
+            or requested & set(request["requested_source_ids"])
+        ):
+            raise ValueError("RASTER_CHECKPOINT_REQUEST_MISMATCH")
+        requested.update(request["requested_source_ids"])
+        wrapper = store._get(
+            db, message.tenant_id, message.run_id, _RECEIPT_KIND, request["request_id"]
+        )
+        if wrapper["request_sha256"] != registered["request_sha256"] or wrapper[
+            "receipt_sha256"
+        ] != canonical_hash(wrapper["receipt"]):
+            raise ValueError("RASTER_RECEIPT_INTEGRITY_MISMATCH")
+        _receipt(request, wrapper["receipt"])
+        stored_refs.append(
+            dict(
+                request_id=request["request_id"],
+                request_sha256=registered["request_sha256"],
+                receipt_sha256=wrapper["receipt_sha256"],
+            )
+        )
+    if (
+        refs != stored_refs
+        or len(refs) > policy["max_calls"]
+        or coverage["requested_source_ids"] != sorted(requested)
+    ):
+        raise ValueError("RASTER_CHECKPOINT_INPUT_MISMATCH")

@@ -105,3 +105,14 @@ response retention without publication, and exact native+raster composition.
 Shared usage accounting now understands page billing. Still pending: coordinated
 v5 checkpoint writer/commit/readback with complete coverage, parser worker/root/CLI
 wiring, and fresh real-report evaluation. The legacy worker guard remains enabled.
+
+Coordinated v5 writer/store/reader is now implemented behind explicit worker
+injection. Frozen policy additionally pins the replay helper. A generated PDF with
+separate title/body exercises actual OpenDataLoader paragraph extraction, native
+geometry validation, fake-HTTP raster corroboration, fenced publication, page/call
+accounting and offline readback. A two-line-only PDF was classified as a heading;
+that remains a separate no-eligible-source regression rather than a false positive.
+Timeout and coverage/receipt tampering cases reject publication or readback.
+Still pending: composition/CLI enablement, full parse→extract→tag acceptance for
+this mode, fresh multi-report paid evaluation, and measured replay latency. Existing
+native/raster experimental evidence is not rewritten or relabelled as v5 output.
