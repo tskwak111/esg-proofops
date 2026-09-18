@@ -21,6 +21,41 @@ def normalized(text):
     return " ".join(normalize("NFC", text).split())
 
 
+def relation_diagnostic(records):
+    """Compare retained candidates, not semantic correctness or provider independence."""
+    validated = [r for r in records if r.get("status") == "validated_candidate"]
+    complete = len(records) == len(validated) == 3 and {r["replicate_id"] for r in records} == {
+        1,
+        2,
+        3,
+    }
+    differences = []
+    values = [r["values"] for r in validated]
+    for source_id in sorted(set().union(*(v.keys() for v in values))):
+        roles = [v.get(source_id, {}) for v in values]
+        for dimension in sorted(set().union(*(r.keys() for r in roles))):
+            selections = [
+                dict(present=dimension in role, value=role.get(dimension)) for role in roles
+            ]
+            if len({canonical_hash(v) for v in selections}) > 1:
+                differences.append(
+                    dict(
+                        source_id=source_id,
+                        dimension=dimension,
+                        replicas=[
+                            dict(replicate_id=record["replicate_id"], **selection)
+                            for record, selection in zip(validated, selections, strict=True)
+                        ],
+                    )
+                )
+    return dict(
+        all_three_validated=complete,
+        value_consensus=complete and len({canonical_hash(v) for v in values}) == 1,
+        records=[{k: v for k, v in r.items() if k != "values"} for r in records],
+        differences=differences,
+    )
+
+
 def audit(state):
     database = (Path(state) / "state.sqlite3").resolve()
     with sqlite3.connect(database.as_uri() + "?mode=ro", uri=True) as db:
@@ -45,7 +80,16 @@ def audit(state):
     assert checkpoint["synthetic"] is False and checkpoint["run_id"] == run_id
     counts = Counter()
     claims = []
+    relation_claims = []
     for item in checkpoint["claims"]:
+        if "relation_records" in item:
+            relation_claims.append(
+                dict(
+                    claim_id=item["claim_id"],
+                    reason=item.get("reason"),
+                    **relation_diagnostic(item["relation_records"]),
+                )
+            )
         review = item.get("review_inputs")
         if review is None:
             counts["claims_without_review"] += 1
@@ -115,6 +159,7 @@ def audit(state):
         additional_model_calls=0,
         counts=dict(counts),
         claims=claims,
+        relation_claims=relation_claims,
     )
 
 

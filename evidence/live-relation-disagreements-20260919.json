@@ -1,0 +1,2017 @@
+{
+  "schema": "live_tagging_blocker_audit_v1",
+  "runs": [
+    {
+      "run_id": "8833ff17-061a-4ade-8822-7bc0dc5fff50",
+      "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+      "checkpoint_sha256": "2e4cadb6cddb2870122727a19d244b350f8b3c34bb88b80e4717f0f3fceb8fef",
+      "state_path": ".local/developer-a-live-tagging-kb-source-repair",
+      "additional_model_calls": 0,
+      "counts": {
+        "claims_without_review": 2,
+        "raw_present_element_votes": 25,
+        "raw_present_to_unknown": 12,
+        "present_votes_with_no_relation_roles": 0,
+        "present_votes_with_literal_value_mismatch": 12,
+        "raw_present_to_present": 13
+      },
+      "claims": [
+        {
+          "claim_id": "81c5504e-832e-5de7-a88e-48426fe5aaae",
+          "quote": "채권 발행에 따라 조달된 자금은 녹색채권 관리체계에 따라 친환경 프로젝트 파이낸싱(PF), 저탄소 전환 대출 등 기후위기 완화 및 적응 활동에 전액 할당됩니다.",
+          "missing_required_claim_dimensions": [
+            "entity",
+            "metric",
+            "reporting_period"
+          ],
+          "relation_source_count": 2,
+          "present_votes": [
+            {
+              "replicate_id": 1,
+              "element_id": "M1",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [],
+              "literal_value_mismatch": true
+            },
+            {
+              "replicate_id": 1,
+              "element_id": "M2",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [],
+              "literal_value_mismatch": true
+            },
+            {
+              "replicate_id": 1,
+              "element_id": "M4",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [],
+              "literal_value_mismatch": true
+            },
+            {
+              "replicate_id": 2,
+              "element_id": "M1",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [],
+              "literal_value_mismatch": true
+            },
+            {
+              "replicate_id": 2,
+              "element_id": "M2",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [],
+              "literal_value_mismatch": true
+            },
+            {
+              "replicate_id": 2,
+              "element_id": "M4",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [],
+              "literal_value_mismatch": true
+            },
+            {
+              "replicate_id": 3,
+              "element_id": "M1",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [],
+              "literal_value_mismatch": true
+            },
+            {
+              "replicate_id": 3,
+              "element_id": "M2",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [],
+              "literal_value_mismatch": true
+            },
+            {
+              "replicate_id": 3,
+              "element_id": "M4",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [],
+              "literal_value_mismatch": true
+            }
+          ]
+        },
+        {
+          "claim_id": "0a31bf06-bbbc-58e0-b9ff-9367fcad672b",
+          "quote": "KB금융그룹은 기후 관련 위험의 모니터링 및 공시데이터의 체계적 관리를 위하여 그룹의 환경정보관리시스템 및 ESG정보공시시스템의 구축과 유지보수에 지속적으로 투자하고 있습니다.",
+          "missing_required_claim_dimensions": [
+            "metric",
+            "reporting_period"
+          ],
+          "relation_source_count": 4,
+          "present_votes": [
+            {
+              "replicate_id": 1,
+              "element_id": "M1",
+              "guarded_state": "present",
+              "missing_relation_source_ids": [],
+              "literal_value_mismatch": false
+            },
+            {
+              "replicate_id": 1,
+              "element_id": "M2",
+              "guarded_state": "present",
+              "missing_relation_source_ids": [],
+              "literal_value_mismatch": false
+            },
+            {
+              "replicate_id": 1,
+              "element_id": "M4",
+              "guarded_state": "present",
+              "missing_relation_source_ids": [],
+              "literal_value_mismatch": false
+            },
+            {
+              "replicate_id": 2,
+              "element_id": "M1",
+              "guarded_state": "present",
+              "missing_relation_source_ids": [],
+              "literal_value_mismatch": false
+            },
+            {
+              "replicate_id": 2,
+              "element_id": "M2",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [],
+              "literal_value_mismatch": true
+            },
+            {
+              "replicate_id": 2,
+              "element_id": "M4",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [],
+              "literal_value_mismatch": true
+            },
+            {
+              "replicate_id": 3,
+              "element_id": "M1",
+              "guarded_state": "present",
+              "missing_relation_source_ids": [],
+              "literal_value_mismatch": false
+            },
+            {
+              "replicate_id": 3,
+              "element_id": "M2",
+              "guarded_state": "present",
+              "missing_relation_source_ids": [],
+              "literal_value_mismatch": false
+            }
+          ]
+        },
+        {
+          "claim_id": "46f32a78-a481-5b6d-8de2-49a43773d9c0",
+          "quote": "이를 통해 그룹 전반의 온실가스 배출량을 실시간으로 관리함으로써 기후위기에 따른 운영위험을 최소화합니다.",
+          "missing_required_claim_dimensions": [
+            "entity",
+            "metric",
+            "reporting_period"
+          ],
+          "relation_source_count": 4,
+          "present_votes": [
+            {
+              "replicate_id": 2,
+              "element_id": "M1",
+              "guarded_state": "present",
+              "missing_relation_source_ids": [],
+              "literal_value_mismatch": false
+            },
+            {
+              "replicate_id": 2,
+              "element_id": "M2",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [],
+              "literal_value_mismatch": true
+            }
+          ]
+        },
+        {
+          "claim_id": "7bda98ae-d29f-522a-8982-aa216d5fe722",
+          "quote": "또한, 저탄소 경제로의 이행을 위해 고탄소 배출 산업 부문에 대한 익스포저를 점진적으로 조정하고 있으며, 녹색금융 및 전환금융 확대를 위해 기후금융 프로세스 고도화를 추진하고, 새로운 성장 분야인 재생에너지 및 저탄소 기술 스타트업에 대한 임팩트 투자를 지속 검토하고 있습니다.",
+          "missing_required_claim_dimensions": [
+            "entity",
+            "metric",
+            "reporting_period"
+          ],
+          "relation_source_count": 2,
+          "present_votes": [
+            {
+              "replicate_id": 1,
+              "element_id": "M1",
+              "guarded_state": "present",
+              "missing_relation_source_ids": [],
+              "literal_value_mismatch": false
+            },
+            {
+              "replicate_id": 2,
+              "element_id": "M1",
+              "guarded_state": "present",
+              "missing_relation_source_ids": [],
+              "literal_value_mismatch": false
+            },
+            {
+              "replicate_id": 2,
+              "element_id": "M2",
+              "guarded_state": "present",
+              "missing_relation_source_ids": [],
+              "literal_value_mismatch": false
+            },
+            {
+              "replicate_id": 3,
+              "element_id": "M1",
+              "guarded_state": "present",
+              "missing_relation_source_ids": [],
+              "literal_value_mismatch": false
+            },
+            {
+              "replicate_id": 3,
+              "element_id": "M2",
+              "guarded_state": "present",
+              "missing_relation_source_ids": [],
+              "literal_value_mismatch": false
+            },
+            {
+              "replicate_id": 3,
+              "element_id": "M4",
+              "guarded_state": "present",
+              "missing_relation_source_ids": [],
+              "literal_value_mismatch": false
+            }
+          ]
+        }
+      ],
+      "relation_claims": [
+        {
+          "claim_id": "808291cc-c954-5df8-bfc2-b0818298cd36",
+          "reason": "RELATION_TAGS_UNRESOLVED",
+          "all_three_validated": true,
+          "value_consensus": false,
+          "records": [
+            {
+              "raw_response_sha256": "714cb73d9335cb28be3e7be1a51b59a86647a6c7d15518f0dcb0b42158a99cfc",
+              "replicate_id": 1,
+              "request_id": "003da9ff-bf5e-5d43-bff0-ee4137f7847d",
+              "status": "validated_candidate"
+            },
+            {
+              "raw_response_sha256": "d23bdd4739b743b17ed78e5cdf824ac4bc567e274191ac9f09ede2df4f279c15",
+              "replicate_id": 2,
+              "request_id": "e4c73af9-273c-5483-b865-24baffb4b55e",
+              "status": "validated_candidate"
+            },
+            {
+              "raw_response_sha256": "6fbf4c186fcf9a053310838130a495f307e47ce31b8f52c74ffceef3f6146514",
+              "replicate_id": 3,
+              "request_id": "90593686-7e48-50a8-81ce-4ba9d392ce18",
+              "status": "validated_candidate"
+            }
+          ],
+          "differences": [
+            {
+              "source_id": "001453c3-83b1-51a3-bbc2-69dc12385a68",
+              "dimension": "boundary",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": true,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "001453c3-83b1-51a3-bbc2-69dc12385a68",
+              "dimension": "entity",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": true,
+                  "value": {
+                    "bbox": [
+                      45.354,
+                      36.660999999999945,
+                      508.315,
+                      45.78200000000004
+                    ],
+                    "char_end": 32,
+                    "char_start": 26,
+                    "document_version_id": "47a2050e-03f9-410c-aca3-9c6cb8192d00",
+                    "location_quality": "located",
+                    "page_num": 30,
+                    "parse_manifest_id": "291d35df-9c84-55ad-9712-3ad95c2b4f76",
+                    "printed_page_label": "30",
+                    "quote": "KB금융그룹",
+                    "raw_text_sha256": "136341d059484d5cb1a0679738df67d37ff7954a419c1fdc51ffc253f71f1e41",
+                    "source_id": "001453c3-83b1-51a3-bbc2-69dc12385a68",
+                    "verification_state": "verified"
+                  }
+                },
+                {
+                  "replicate_id": 2,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": true,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "001453c3-83b1-51a3-bbc2-69dc12385a68",
+              "dimension": "facility",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": true,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "001453c3-83b1-51a3-bbc2-69dc12385a68",
+              "dimension": "material",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": true,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "001453c3-83b1-51a3-bbc2-69dc12385a68",
+              "dimension": "product",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": true,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "001453c3-83b1-51a3-bbc2-69dc12385a68",
+              "dimension": "reporting_period",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": true,
+                  "value": {
+                    "bbox": [
+                      45.354,
+                      36.660999999999945,
+                      508.315,
+                      45.78200000000004
+                    ],
+                    "char_end": 25,
+                    "char_start": 21,
+                    "document_version_id": "47a2050e-03f9-410c-aca3-9c6cb8192d00",
+                    "location_quality": "located",
+                    "page_num": 30,
+                    "parse_manifest_id": "291d35df-9c84-55ad-9712-3ad95c2b4f76",
+                    "printed_page_label": "30",
+                    "quote": "2025",
+                    "raw_text_sha256": "136341d059484d5cb1a0679738df67d37ff7954a419c1fdc51ffc253f71f1e41",
+                    "source_id": "001453c3-83b1-51a3-bbc2-69dc12385a68",
+                    "verification_state": "verified"
+                  }
+                },
+                {
+                  "replicate_id": 2,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": true,
+                  "value": {
+                    "bbox": [
+                      45.354,
+                      36.660999999999945,
+                      508.315,
+                      45.78200000000004
+                    ],
+                    "char_end": 25,
+                    "char_start": 21,
+                    "document_version_id": "47a2050e-03f9-410c-aca3-9c6cb8192d00",
+                    "location_quality": "located",
+                    "page_num": 30,
+                    "parse_manifest_id": "291d35df-9c84-55ad-9712-3ad95c2b4f76",
+                    "printed_page_label": "30",
+                    "quote": "2025",
+                    "raw_text_sha256": "136341d059484d5cb1a0679738df67d37ff7954a419c1fdc51ffc253f71f1e41",
+                    "source_id": "001453c3-83b1-51a3-bbc2-69dc12385a68",
+                    "verification_state": "verified"
+                  }
+                }
+              ]
+            },
+            {
+              "source_id": "001453c3-83b1-51a3-bbc2-69dc12385a68",
+              "dimension": "scope",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": true,
+                  "value": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "claim_id": "81c5504e-832e-5de7-a88e-48426fe5aaae",
+          "reason": null,
+          "all_three_validated": true,
+          "value_consensus": true,
+          "records": [
+            {
+              "raw_response_sha256": "d23bdd4739b743b17ed78e5cdf824ac4bc567e274191ac9f09ede2df4f279c15",
+              "replicate_id": 1,
+              "request_id": "19131089-e52a-5496-ad90-7b950e64f1dc",
+              "status": "validated_candidate"
+            },
+            {
+              "raw_response_sha256": "d23bdd4739b743b17ed78e5cdf824ac4bc567e274191ac9f09ede2df4f279c15",
+              "replicate_id": 2,
+              "request_id": "5fbc4d62-7781-5669-a84f-6bdd489a9d77",
+              "status": "validated_candidate"
+            },
+            {
+              "raw_response_sha256": "d23bdd4739b743b17ed78e5cdf824ac4bc567e274191ac9f09ede2df4f279c15",
+              "replicate_id": 3,
+              "request_id": "063c6e66-5b2d-5ddd-b0e9-ed22c67c4a32",
+              "status": "validated_candidate"
+            }
+          ],
+          "differences": []
+        },
+        {
+          "claim_id": "0a31bf06-bbbc-58e0-b9ff-9367fcad672b",
+          "reason": null,
+          "all_three_validated": true,
+          "value_consensus": true,
+          "records": [
+            {
+              "raw_response_sha256": "cd6d7108528f75948333f8d3451c1f650f698aef88d0c19792d6d0a3a19547c9",
+              "replicate_id": 1,
+              "request_id": "c925e295-ccf5-5ce1-b802-a371ccc79f2a",
+              "status": "validated_candidate"
+            },
+            {
+              "raw_response_sha256": "cd6d7108528f75948333f8d3451c1f650f698aef88d0c19792d6d0a3a19547c9",
+              "replicate_id": 2,
+              "request_id": "54ff7ddb-15d9-5fc9-951b-ba9ac8dee03e",
+              "status": "validated_candidate"
+            },
+            {
+              "raw_response_sha256": "cd6d7108528f75948333f8d3451c1f650f698aef88d0c19792d6d0a3a19547c9",
+              "replicate_id": 3,
+              "request_id": "b987c33e-1413-54d3-954f-e4d2f6d8ed94",
+              "status": "validated_candidate"
+            }
+          ],
+          "differences": []
+        },
+        {
+          "claim_id": "46f32a78-a481-5b6d-8de2-49a43773d9c0",
+          "reason": null,
+          "all_three_validated": true,
+          "value_consensus": true,
+          "records": [
+            {
+              "raw_response_sha256": "57a67a4cda48b0191556f100ed24f7ffa6ec8dfa3d50cf5581ec8139371d2cf4",
+              "replicate_id": 1,
+              "request_id": "e0069ed8-6076-5284-8d74-dbacdc8d9796",
+              "status": "validated_candidate"
+            },
+            {
+              "raw_response_sha256": "57a67a4cda48b0191556f100ed24f7ffa6ec8dfa3d50cf5581ec8139371d2cf4",
+              "replicate_id": 2,
+              "request_id": "9a8a9d92-10d8-54b9-a77c-526f67413583",
+              "status": "validated_candidate"
+            },
+            {
+              "raw_response_sha256": "57a67a4cda48b0191556f100ed24f7ffa6ec8dfa3d50cf5581ec8139371d2cf4",
+              "replicate_id": 3,
+              "request_id": "98ba2ad3-1214-554b-b560-4eb873edb1f4",
+              "status": "validated_candidate"
+            }
+          ],
+          "differences": []
+        },
+        {
+          "claim_id": "7bda98ae-d29f-522a-8982-aa216d5fe722",
+          "reason": null,
+          "all_three_validated": true,
+          "value_consensus": true,
+          "records": [
+            {
+              "raw_response_sha256": "ebfdbc3d0082ea05fb8fd30a5e1b3d0297b44573ca9b6e6a9d259182751725c8",
+              "replicate_id": 1,
+              "request_id": "60a1fd65-5856-5a0b-af7f-36e846e9bcd1",
+              "status": "validated_candidate"
+            },
+            {
+              "raw_response_sha256": "ebfdbc3d0082ea05fb8fd30a5e1b3d0297b44573ca9b6e6a9d259182751725c8",
+              "replicate_id": 2,
+              "request_id": "f1b2bd02-1405-5b30-a990-b2d6cf3acca6",
+              "status": "validated_candidate"
+            },
+            {
+              "raw_response_sha256": "ebfdbc3d0082ea05fb8fd30a5e1b3d0297b44573ca9b6e6a9d259182751725c8",
+              "replicate_id": 3,
+              "request_id": "8028adac-4fc3-5d08-8224-08fb383d06a5",
+              "status": "validated_candidate"
+            }
+          ],
+          "differences": []
+        }
+      ]
+    },
+    {
+      "run_id": "2290d163-5b61-44ac-8c16-33fffc0eaa9f",
+      "source_sha256": "dc59b2b1c5bbf02e33bb901f94aef7cd984dc62547708e92aa1332ac550102e9",
+      "checkpoint_sha256": "437e5e6f8a31b2ce2da740ee5d75d78fd25d61dece230f356dea9d2e1c38e9c8",
+      "state_path": ".local/developer-a-live-tagging-doosan-source-repair",
+      "additional_model_calls": 0,
+      "counts": {
+        "claims_without_review": 11,
+        "raw_present_element_votes": 9,
+        "raw_present_to_unknown": 5,
+        "present_votes_with_no_relation_roles": 0,
+        "present_votes_with_literal_value_mismatch": 5,
+        "raw_present_to_present": 4
+      },
+      "claims": [
+        {
+          "claim_id": "355feae4-98be-5123-af09-7d9343dab504",
+          "quote": "두산밥캣은 기후변화에 따른 환경 변화의 심각성을 인지하여, 글로벌 ESG 위원회를 중심으로 하는 기후변화 대응 체계를 구축, 운영하고 있습니다.",
+          "missing_required_claim_dimensions": [
+            "metric",
+            "reporting_period"
+          ],
+          "relation_source_count": 4,
+          "present_votes": [
+            {
+              "replicate_id": 1,
+              "element_id": "M1",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [],
+              "literal_value_mismatch": true
+            },
+            {
+              "replicate_id": 1,
+              "element_id": "M2",
+              "guarded_state": "present",
+              "missing_relation_source_ids": [],
+              "literal_value_mismatch": false
+            },
+            {
+              "replicate_id": 1,
+              "element_id": "M5",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [],
+              "literal_value_mismatch": true
+            },
+            {
+              "replicate_id": 2,
+              "element_id": "M1",
+              "guarded_state": "present",
+              "missing_relation_source_ids": [],
+              "literal_value_mismatch": false
+            },
+            {
+              "replicate_id": 2,
+              "element_id": "M2",
+              "guarded_state": "present",
+              "missing_relation_source_ids": [],
+              "literal_value_mismatch": false
+            },
+            {
+              "replicate_id": 2,
+              "element_id": "M5",
+              "guarded_state": "present",
+              "missing_relation_source_ids": [],
+              "literal_value_mismatch": false
+            },
+            {
+              "replicate_id": 3,
+              "element_id": "M1",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [],
+              "literal_value_mismatch": true
+            },
+            {
+              "replicate_id": 3,
+              "element_id": "M2",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [],
+              "literal_value_mismatch": true
+            },
+            {
+              "replicate_id": 3,
+              "element_id": "M5",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [],
+              "literal_value_mismatch": true
+            }
+          ]
+        }
+      ],
+      "relation_claims": [
+        {
+          "claim_id": "e013748e-bab1-5856-91d6-0eb34d66a217",
+          "reason": "RELATION_TAGS_UNRESOLVED",
+          "all_three_validated": true,
+          "value_consensus": false,
+          "records": [
+            {
+              "raw_response_sha256": "938de9a0b4facc71bb5314214c2e09af63f25b61e1976e286a8a229608190a06",
+              "replicate_id": 1,
+              "request_id": "a46e753c-821f-5fb4-bf39-17ae302d167b",
+              "status": "validated_candidate"
+            },
+            {
+              "raw_response_sha256": "7475c80661877427c6a3dfb477f96ec03f05d610f2f1ad12fbb402752dd0380c",
+              "replicate_id": 2,
+              "request_id": "7b1afb15-487a-509d-9499-35ea30e759e1",
+              "status": "validated_candidate"
+            },
+            {
+              "raw_response_sha256": "4921e0a84402c01ddd1111d8ae1fa24a1d0147bac555300568729bec9ac27d90",
+              "replicate_id": 3,
+              "request_id": "bcc7e04f-d86b-545d-b685-b1140b35af65",
+              "status": "validated_candidate"
+            }
+          ],
+          "differences": [
+            {
+              "source_id": "55914185-244c-5f45-82f3-ee76148c50a0",
+              "dimension": "boundary",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": true,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "55914185-244c-5f45-82f3-ee76148c50a0",
+              "dimension": "facility",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": true,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "55914185-244c-5f45-82f3-ee76148c50a0",
+              "dimension": "material",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": true,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "55914185-244c-5f45-82f3-ee76148c50a0",
+              "dimension": "metric",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": true,
+                  "value": {
+                    "bbox": [
+                      630.568,
+                      187.66899999999998,
+                      777.195,
+                      224.77099999999996
+                    ],
+                    "char_end": 42,
+                    "char_start": 0,
+                    "document_version_id": "8edfcc83-b826-4edd-a004-71cfbfbfadbe",
+                    "location_quality": "located",
+                    "page_num": 27,
+                    "parse_manifest_id": "27b6c299-5d5c-5b93-9cf9-513e36755d13",
+                    "printed_page_label": "27",
+                    "quote": "기후변화 대응 목표 및 KPI 달성 현황 및 계획 점검 기후변화 리스크 점검",
+                    "raw_text_sha256": "94e77b49ca22780a31d7b9d529a98c68a465cde82a56739da31d3ff8bfa57c78",
+                    "source_id": "55914185-244c-5f45-82f3-ee76148c50a0",
+                    "verification_state": "verified"
+                  }
+                },
+                {
+                  "replicate_id": 3,
+                  "present": true,
+                  "value": {
+                    "bbox": [
+                      630.568,
+                      187.66899999999998,
+                      777.195,
+                      224.77099999999996
+                    ],
+                    "char_end": 30,
+                    "char_start": 0,
+                    "document_version_id": "8edfcc83-b826-4edd-a004-71cfbfbfadbe",
+                    "location_quality": "located",
+                    "page_num": 27,
+                    "parse_manifest_id": "27b6c299-5d5c-5b93-9cf9-513e36755d13",
+                    "printed_page_label": "27",
+                    "quote": "기후변화 대응 목표 및 KPI 달성 현황 및 계획 점검",
+                    "raw_text_sha256": "94e77b49ca22780a31d7b9d529a98c68a465cde82a56739da31d3ff8bfa57c78",
+                    "source_id": "55914185-244c-5f45-82f3-ee76148c50a0",
+                    "verification_state": "verified"
+                  }
+                }
+              ]
+            },
+            {
+              "source_id": "55914185-244c-5f45-82f3-ee76148c50a0",
+              "dimension": "product",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": true,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "55914185-244c-5f45-82f3-ee76148c50a0",
+              "dimension": "scope",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": true,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "8cd952df-0a18-5070-80f5-e774fe13fc2b",
+              "dimension": "boundary",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": true,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "8cd952df-0a18-5070-80f5-e774fe13fc2b",
+              "dimension": "facility",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": true,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "8cd952df-0a18-5070-80f5-e774fe13fc2b",
+              "dimension": "material",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": true,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "8cd952df-0a18-5070-80f5-e774fe13fc2b",
+              "dimension": "metric",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": true,
+                  "value": {
+                    "bbox": [
+                      815.796,
+                      213.33799999999997,
+                      876.328,
+                      244.77299999999997
+                    ],
+                    "char_end": 20,
+                    "char_start": 0,
+                    "document_version_id": "8edfcc83-b826-4edd-a004-71cfbfbfadbe",
+                    "location_quality": "located",
+                    "page_num": 27,
+                    "parse_manifest_id": "27b6c299-5d5c-5b93-9cf9-513e36755d13",
+                    "printed_page_label": "27",
+                    "quote": "2026 기후변화 대응 Plan 설정",
+                    "raw_text_sha256": "3e969363dba8f4fcbc53bb41e1df3b3dda0c5c8484fbdd12d073c22789f39df0",
+                    "source_id": "8cd952df-0a18-5070-80f5-e774fe13fc2b",
+                    "verification_state": "verified"
+                  }
+                },
+                {
+                  "replicate_id": 3,
+                  "present": true,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "8cd952df-0a18-5070-80f5-e774fe13fc2b",
+              "dimension": "product",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": true,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "8cd952df-0a18-5070-80f5-e774fe13fc2b",
+              "dimension": "reporting_period",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": true,
+                  "value": {
+                    "bbox": [
+                      815.796,
+                      213.33799999999997,
+                      876.328,
+                      244.77299999999997
+                    ],
+                    "char_end": 4,
+                    "char_start": 0,
+                    "document_version_id": "8edfcc83-b826-4edd-a004-71cfbfbfadbe",
+                    "location_quality": "located",
+                    "page_num": 27,
+                    "parse_manifest_id": "27b6c299-5d5c-5b93-9cf9-513e36755d13",
+                    "printed_page_label": "27",
+                    "quote": "2026",
+                    "raw_text_sha256": "3e969363dba8f4fcbc53bb41e1df3b3dda0c5c8484fbdd12d073c22789f39df0",
+                    "source_id": "8cd952df-0a18-5070-80f5-e774fe13fc2b",
+                    "verification_state": "verified"
+                  }
+                },
+                {
+                  "replicate_id": 2,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": true,
+                  "value": {
+                    "bbox": [
+                      815.796,
+                      213.33799999999997,
+                      876.328,
+                      244.77299999999997
+                    ],
+                    "char_end": 4,
+                    "char_start": 0,
+                    "document_version_id": "8edfcc83-b826-4edd-a004-71cfbfbfadbe",
+                    "location_quality": "located",
+                    "page_num": 27,
+                    "parse_manifest_id": "27b6c299-5d5c-5b93-9cf9-513e36755d13",
+                    "printed_page_label": "27",
+                    "quote": "2026",
+                    "raw_text_sha256": "3e969363dba8f4fcbc53bb41e1df3b3dda0c5c8484fbdd12d073c22789f39df0",
+                    "source_id": "8cd952df-0a18-5070-80f5-e774fe13fc2b",
+                    "verification_state": "verified"
+                  }
+                }
+              ]
+            },
+            {
+              "source_id": "8cd952df-0a18-5070-80f5-e774fe13fc2b",
+              "dimension": "scope",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": true,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "c4af7b32-ebfb-508b-be0d-069c940ae03a",
+              "dimension": "boundary",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": true,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "c4af7b32-ebfb-508b-be0d-069c940ae03a",
+              "dimension": "entity",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": true,
+                  "value": {
+                    "bbox": [
+                      292.045,
+                      441.74299999999994,
+                      362.119,
+                      467.41099999999994
+                    ],
+                    "char_end": 11,
+                    "char_start": 0,
+                    "document_version_id": "8edfcc83-b826-4edd-a004-71cfbfbfadbe",
+                    "location_quality": "located",
+                    "page_num": 27,
+                    "parse_manifest_id": "27b6c299-5d5c-5b93-9cf9-513e36755d13",
+                    "printed_page_label": "27",
+                    "quote": "글로벌 ESG 위원회",
+                    "raw_text_sha256": "9f0c5113a8107512d1d3c6cb74c46744d4b75c3536259c1a3c1ec6f1199f3bc0",
+                    "source_id": "c4af7b32-ebfb-508b-be0d-069c940ae03a",
+                    "verification_state": "verified"
+                  }
+                },
+                {
+                  "replicate_id": 3,
+                  "present": true,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "c4af7b32-ebfb-508b-be0d-069c940ae03a",
+              "dimension": "facility",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": true,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "c4af7b32-ebfb-508b-be0d-069c940ae03a",
+              "dimension": "material",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": true,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "c4af7b32-ebfb-508b-be0d-069c940ae03a",
+              "dimension": "product",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": true,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "c4af7b32-ebfb-508b-be0d-069c940ae03a",
+              "dimension": "scope",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": true,
+                  "value": {
+                    "bbox": [
+                      292.045,
+                      441.74299999999994,
+                      362.119,
+                      467.41099999999994
+                    ],
+                    "char_end": 11,
+                    "char_start": 0,
+                    "document_version_id": "8edfcc83-b826-4edd-a004-71cfbfbfadbe",
+                    "location_quality": "located",
+                    "page_num": 27,
+                    "parse_manifest_id": "27b6c299-5d5c-5b93-9cf9-513e36755d13",
+                    "printed_page_label": "27",
+                    "quote": "글로벌 ESG 위원회",
+                    "raw_text_sha256": "9f0c5113a8107512d1d3c6cb74c46744d4b75c3536259c1a3c1ec6f1199f3bc0",
+                    "source_id": "c4af7b32-ebfb-508b-be0d-069c940ae03a",
+                    "verification_state": "verified"
+                  }
+                }
+              ]
+            },
+            {
+              "source_id": "d3d4aabe-b732-508f-9379-c3fbc8391a5e",
+              "dimension": "boundary",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": true,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "d3d4aabe-b732-508f-9379-c3fbc8391a5e",
+              "dimension": "facility",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": true,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "d3d4aabe-b732-508f-9379-c3fbc8391a5e",
+              "dimension": "material",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": true,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "d3d4aabe-b732-508f-9379-c3fbc8391a5e",
+              "dimension": "product",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": true,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "d3d4aabe-b732-508f-9379-c3fbc8391a5e",
+              "dimension": "scope",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": true,
+                  "value": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "claim_id": "124f801e-6289-59c7-9aca-07e6aacbfeb4",
+          "reason": "RELATION_TAGS_UNRESOLVED",
+          "all_three_validated": true,
+          "value_consensus": false,
+          "records": [
+            {
+              "raw_response_sha256": "2a275f13d981e2cef9e01ce1c753325373bbecaa5300e96a7294f8d3e25ef302",
+              "replicate_id": 1,
+              "request_id": "2e2bd52f-d87e-581e-8e3e-fd1e0363dddf",
+              "status": "validated_candidate"
+            },
+            {
+              "raw_response_sha256": "847bbdc3b06dcb3ac913599face382d4fae2625018d942d256359d20c1a4a81c",
+              "replicate_id": 2,
+              "request_id": "f4be6419-1015-5033-bc95-582def5f6352",
+              "status": "validated_candidate"
+            },
+            {
+              "raw_response_sha256": "4dcd3397a5cb0af9e306ed23d8026da7958d2c589d7c79afdacd90285c324736",
+              "replicate_id": 3,
+              "request_id": "bc37cc93-8321-53fc-aa62-f315730af65a",
+              "status": "validated_candidate"
+            }
+          ],
+          "differences": [
+            {
+              "source_id": "55914185-244c-5f45-82f3-ee76148c50a0",
+              "dimension": "boundary",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": false,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "55914185-244c-5f45-82f3-ee76148c50a0",
+              "dimension": "facility",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": false,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "55914185-244c-5f45-82f3-ee76148c50a0",
+              "dimension": "material",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": false,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "55914185-244c-5f45-82f3-ee76148c50a0",
+              "dimension": "metric",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": true,
+                  "value": {
+                    "bbox": [
+                      630.568,
+                      187.66899999999998,
+                      777.195,
+                      224.77099999999996
+                    ],
+                    "char_end": 30,
+                    "char_start": 0,
+                    "document_version_id": "8edfcc83-b826-4edd-a004-71cfbfbfadbe",
+                    "location_quality": "located",
+                    "page_num": 27,
+                    "parse_manifest_id": "27b6c299-5d5c-5b93-9cf9-513e36755d13",
+                    "printed_page_label": "27",
+                    "quote": "기후변화 대응 목표 및 KPI 달성 현황 및 계획 점검",
+                    "raw_text_sha256": "94e77b49ca22780a31d7b9d529a98c68a465cde82a56739da31d3ff8bfa57c78",
+                    "source_id": "55914185-244c-5f45-82f3-ee76148c50a0",
+                    "verification_state": "verified"
+                  }
+                },
+                {
+                  "replicate_id": 3,
+                  "present": true,
+                  "value": {
+                    "bbox": [
+                      630.568,
+                      187.66899999999998,
+                      777.195,
+                      224.77099999999996
+                    ],
+                    "char_end": 30,
+                    "char_start": 0,
+                    "document_version_id": "8edfcc83-b826-4edd-a004-71cfbfbfadbe",
+                    "location_quality": "located",
+                    "page_num": 27,
+                    "parse_manifest_id": "27b6c299-5d5c-5b93-9cf9-513e36755d13",
+                    "printed_page_label": "27",
+                    "quote": "기후변화 대응 목표 및 KPI 달성 현황 및 계획 점검",
+                    "raw_text_sha256": "94e77b49ca22780a31d7b9d529a98c68a465cde82a56739da31d3ff8bfa57c78",
+                    "source_id": "55914185-244c-5f45-82f3-ee76148c50a0",
+                    "verification_state": "verified"
+                  }
+                }
+              ]
+            },
+            {
+              "source_id": "55914185-244c-5f45-82f3-ee76148c50a0",
+              "dimension": "product",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": false,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "55914185-244c-5f45-82f3-ee76148c50a0",
+              "dimension": "scope",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": false,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "8cd952df-0a18-5070-80f5-e774fe13fc2b",
+              "dimension": "boundary",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": false,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "8cd952df-0a18-5070-80f5-e774fe13fc2b",
+              "dimension": "facility",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": false,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "8cd952df-0a18-5070-80f5-e774fe13fc2b",
+              "dimension": "material",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": false,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "8cd952df-0a18-5070-80f5-e774fe13fc2b",
+              "dimension": "metric",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": true,
+                  "value": {
+                    "bbox": [
+                      815.796,
+                      213.33799999999997,
+                      876.328,
+                      244.77299999999997
+                    ],
+                    "char_end": 20,
+                    "char_start": 0,
+                    "document_version_id": "8edfcc83-b826-4edd-a004-71cfbfbfadbe",
+                    "location_quality": "located",
+                    "page_num": 27,
+                    "parse_manifest_id": "27b6c299-5d5c-5b93-9cf9-513e36755d13",
+                    "printed_page_label": "27",
+                    "quote": "2026 기후변화 대응 Plan 설정",
+                    "raw_text_sha256": "3e969363dba8f4fcbc53bb41e1df3b3dda0c5c8484fbdd12d073c22789f39df0",
+                    "source_id": "8cd952df-0a18-5070-80f5-e774fe13fc2b",
+                    "verification_state": "verified"
+                  }
+                }
+              ]
+            },
+            {
+              "source_id": "8cd952df-0a18-5070-80f5-e774fe13fc2b",
+              "dimension": "product",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": false,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "8cd952df-0a18-5070-80f5-e774fe13fc2b",
+              "dimension": "reporting_period",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": true,
+                  "value": {
+                    "bbox": [
+                      815.796,
+                      213.33799999999997,
+                      876.328,
+                      244.77299999999997
+                    ],
+                    "char_end": 4,
+                    "char_start": 0,
+                    "document_version_id": "8edfcc83-b826-4edd-a004-71cfbfbfadbe",
+                    "location_quality": "located",
+                    "page_num": 27,
+                    "parse_manifest_id": "27b6c299-5d5c-5b93-9cf9-513e36755d13",
+                    "printed_page_label": "27",
+                    "quote": "2026",
+                    "raw_text_sha256": "3e969363dba8f4fcbc53bb41e1df3b3dda0c5c8484fbdd12d073c22789f39df0",
+                    "source_id": "8cd952df-0a18-5070-80f5-e774fe13fc2b",
+                    "verification_state": "verified"
+                  }
+                },
+                {
+                  "replicate_id": 2,
+                  "present": true,
+                  "value": {
+                    "bbox": [
+                      815.796,
+                      213.33799999999997,
+                      876.328,
+                      244.77299999999997
+                    ],
+                    "char_end": 4,
+                    "char_start": 0,
+                    "document_version_id": "8edfcc83-b826-4edd-a004-71cfbfbfadbe",
+                    "location_quality": "located",
+                    "page_num": 27,
+                    "parse_manifest_id": "27b6c299-5d5c-5b93-9cf9-513e36755d13",
+                    "printed_page_label": "27",
+                    "quote": "2026",
+                    "raw_text_sha256": "3e969363dba8f4fcbc53bb41e1df3b3dda0c5c8484fbdd12d073c22789f39df0",
+                    "source_id": "8cd952df-0a18-5070-80f5-e774fe13fc2b",
+                    "verification_state": "verified"
+                  }
+                },
+                {
+                  "replicate_id": 3,
+                  "present": true,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "8cd952df-0a18-5070-80f5-e774fe13fc2b",
+              "dimension": "scope",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": false,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "d3d4aabe-b732-508f-9379-c3fbc8391a5e",
+              "dimension": "boundary",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": false,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "d3d4aabe-b732-508f-9379-c3fbc8391a5e",
+              "dimension": "facility",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": false,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "d3d4aabe-b732-508f-9379-c3fbc8391a5e",
+              "dimension": "material",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": false,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "d3d4aabe-b732-508f-9379-c3fbc8391a5e",
+              "dimension": "product",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": false,
+                  "value": null
+                }
+              ]
+            },
+            {
+              "source_id": "d3d4aabe-b732-508f-9379-c3fbc8391a5e",
+              "dimension": "scope",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": false,
+                  "value": null
+                },
+                {
+                  "replicate_id": 2,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": false,
+                  "value": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "claim_id": "9436c93e-2557-538a-89f6-c6c110d157ca",
+          "reason": "RELATION_TAGS_UNRESOLVED",
+          "all_three_validated": true,
+          "value_consensus": false,
+          "records": [
+            {
+              "raw_response_sha256": "9b373db41ea1b5bfbd3944e23d164ca372a1fd09b16b851d8032dfd59b30acf7",
+              "replicate_id": 1,
+              "request_id": "13674c7b-cc4b-5521-b0d6-cab17423d5a3",
+              "status": "validated_candidate"
+            },
+            {
+              "raw_response_sha256": "4dcd3397a5cb0af9e306ed23d8026da7958d2c589d7c79afdacd90285c324736",
+              "replicate_id": 2,
+              "request_id": "ea09d62f-4b64-5a26-babd-86b14d2a3275",
+              "status": "validated_candidate"
+            },
+            {
+              "raw_response_sha256": "9b373db41ea1b5bfbd3944e23d164ca372a1fd09b16b851d8032dfd59b30acf7",
+              "replicate_id": 3,
+              "request_id": "69c74507-f96a-51e2-854f-7d91ff3c6064",
+              "status": "validated_candidate"
+            }
+          ],
+          "differences": [
+            {
+              "source_id": "8cd952df-0a18-5070-80f5-e774fe13fc2b",
+              "dimension": "metric",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": true,
+                  "value": {
+                    "bbox": [
+                      815.796,
+                      213.33799999999997,
+                      876.328,
+                      244.77299999999997
+                    ],
+                    "char_end": 17,
+                    "char_start": 0,
+                    "document_version_id": "8edfcc83-b826-4edd-a004-71cfbfbfadbe",
+                    "location_quality": "located",
+                    "page_num": 27,
+                    "parse_manifest_id": "27b6c299-5d5c-5b93-9cf9-513e36755d13",
+                    "printed_page_label": "27",
+                    "quote": "2026 기후변화 대응 Plan",
+                    "raw_text_sha256": "3e969363dba8f4fcbc53bb41e1df3b3dda0c5c8484fbdd12d073c22789f39df0",
+                    "source_id": "8cd952df-0a18-5070-80f5-e774fe13fc2b",
+                    "verification_state": "verified"
+                  }
+                },
+                {
+                  "replicate_id": 2,
+                  "present": true,
+                  "value": {
+                    "bbox": [
+                      815.796,
+                      213.33799999999997,
+                      876.328,
+                      244.77299999999997
+                    ],
+                    "char_end": 20,
+                    "char_start": 0,
+                    "document_version_id": "8edfcc83-b826-4edd-a004-71cfbfbfadbe",
+                    "location_quality": "located",
+                    "page_num": 27,
+                    "parse_manifest_id": "27b6c299-5d5c-5b93-9cf9-513e36755d13",
+                    "printed_page_label": "27",
+                    "quote": "2026 기후변화 대응 Plan 설정",
+                    "raw_text_sha256": "3e969363dba8f4fcbc53bb41e1df3b3dda0c5c8484fbdd12d073c22789f39df0",
+                    "source_id": "8cd952df-0a18-5070-80f5-e774fe13fc2b",
+                    "verification_state": "verified"
+                  }
+                },
+                {
+                  "replicate_id": 3,
+                  "present": true,
+                  "value": {
+                    "bbox": [
+                      815.796,
+                      213.33799999999997,
+                      876.328,
+                      244.77299999999997
+                    ],
+                    "char_end": 17,
+                    "char_start": 0,
+                    "document_version_id": "8edfcc83-b826-4edd-a004-71cfbfbfadbe",
+                    "location_quality": "located",
+                    "page_num": 27,
+                    "parse_manifest_id": "27b6c299-5d5c-5b93-9cf9-513e36755d13",
+                    "printed_page_label": "27",
+                    "quote": "2026 기후변화 대응 Plan",
+                    "raw_text_sha256": "3e969363dba8f4fcbc53bb41e1df3b3dda0c5c8484fbdd12d073c22789f39df0",
+                    "source_id": "8cd952df-0a18-5070-80f5-e774fe13fc2b",
+                    "verification_state": "verified"
+                  }
+                }
+              ]
+            },
+            {
+              "source_id": "8cd952df-0a18-5070-80f5-e774fe13fc2b",
+              "dimension": "reporting_period",
+              "replicas": [
+                {
+                  "replicate_id": 1,
+                  "present": true,
+                  "value": {
+                    "bbox": [
+                      815.796,
+                      213.33799999999997,
+                      876.328,
+                      244.77299999999997
+                    ],
+                    "char_end": 4,
+                    "char_start": 0,
+                    "document_version_id": "8edfcc83-b826-4edd-a004-71cfbfbfadbe",
+                    "location_quality": "located",
+                    "page_num": 27,
+                    "parse_manifest_id": "27b6c299-5d5c-5b93-9cf9-513e36755d13",
+                    "printed_page_label": "27",
+                    "quote": "2026",
+                    "raw_text_sha256": "3e969363dba8f4fcbc53bb41e1df3b3dda0c5c8484fbdd12d073c22789f39df0",
+                    "source_id": "8cd952df-0a18-5070-80f5-e774fe13fc2b",
+                    "verification_state": "verified"
+                  }
+                },
+                {
+                  "replicate_id": 2,
+                  "present": true,
+                  "value": null
+                },
+                {
+                  "replicate_id": 3,
+                  "present": true,
+                  "value": {
+                    "bbox": [
+                      815.796,
+                      213.33799999999997,
+                      876.328,
+                      244.77299999999997
+                    ],
+                    "char_end": 4,
+                    "char_start": 0,
+                    "document_version_id": "8edfcc83-b826-4edd-a004-71cfbfbfadbe",
+                    "location_quality": "located",
+                    "page_num": 27,
+                    "parse_manifest_id": "27b6c299-5d5c-5b93-9cf9-513e36755d13",
+                    "printed_page_label": "27",
+                    "quote": "2026",
+                    "raw_text_sha256": "3e969363dba8f4fcbc53bb41e1df3b3dda0c5c8484fbdd12d073c22789f39df0",
+                    "source_id": "8cd952df-0a18-5070-80f5-e774fe13fc2b",
+                    "verification_state": "verified"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "claim_id": "355feae4-98be-5123-af09-7d9343dab504",
+          "reason": null,
+          "all_three_validated": true,
+          "value_consensus": true,
+          "records": [
+            {
+              "raw_response_sha256": "4d9c735d125032459cb01edc1823c51d53c19dc2bf04ab9843eed2840a3701ed",
+              "replicate_id": 1,
+              "request_id": "1094a59c-53db-5639-9c09-0ad631d836cb",
+              "status": "validated_candidate"
+            },
+            {
+              "raw_response_sha256": "4d9c735d125032459cb01edc1823c51d53c19dc2bf04ab9843eed2840a3701ed",
+              "replicate_id": 2,
+              "request_id": "43850a53-1727-5f20-b13d-d3af1737fc72",
+              "status": "validated_candidate"
+            },
+            {
+              "raw_response_sha256": "4d9c735d125032459cb01edc1823c51d53c19dc2bf04ab9843eed2840a3701ed",
+              "replicate_id": 3,
+              "request_id": "8f6b3e51-2e57-5993-9d2b-8979b360c627",
+              "status": "validated_candidate"
+            }
+          ],
+          "differences": []
+        }
+      ]
+    }
+  ]
+}

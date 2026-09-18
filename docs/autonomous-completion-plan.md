@@ -1078,3 +1078,32 @@ reported it as passed. Corrected formatting only, then separately verified exit0
 for full Ruff check, full format check (331files), and targeted cache test1passed.
 The earlier2553-test result is still recorded, but was never proof of formatting.
 No runtime logic changed in this formatting correction. New-head CI required.
+
+### 2026-09-19 · Inspect relation disagreement before changing the worker gate
+
+Extended the existing offline checkpoint auditor to include claims blocked before
+review publication. It compares complete retained SourceRefs per source/axis and
+preserves omitted dimensions separately from explicit null. It reports value
+agreement only; provider independence, PDF geometry and semantic correctness are
+not certified by this diagnostic. Runtime consensus and binding are unchanged.
+
+Hash-verified KB/Doosan checkpoints show four relation-blocked claims (one/three),
+all with three validated candidate responses. There are 7/44 differing source-axis
+entries, including optional-axis omission/null differences AND substantive entity,
+metric and reporting-period differences. Thus these are not merely equivalent
+JSON serialization variants. Doosan responses assign 2026 in a future plan to
+reporting_period and vary between committee entity/scope roles; these are semantic
+review concerns, not newly approved bindings. Do not normalize missing/null or
+accept a majority as a shortcut. Evidence:live-relation-disagreements-20260919.json.
+
+Next implementation must isolate unresolved external attribution while preserving
+local claim review, but retain authorization/receipt failures as hard failures.
+Currently relations() returns None for both kinds; merely deleting tag_runner's
+continue would conflate them. Inspect/define this distinction before changing the
+pipeline, and test external refs cannot become present through fallback. No
+runtime change or model call was made for this diagnosis.
+
+Diagnostic regression failed before implementation, then 10 targeted diagnostic/
+relation-worker tests passed (two existing deprecation warnings). Targeted Ruff
+and format checks each independently exited0. Prior head33fbff1 CI35396684579 has
+all six jobs completed successfully; last workflow-level poll was still in_progress.
