@@ -238,7 +238,7 @@ def test_preliminary_lease_loss_stops_remaining_spend(tmp_path, monkeypatch, inf
 def test_unanimous_claim_dimensions_bind_only_the_same_atomic_source(
     tmp_path, monkeypatch, missing_period
 ):
-    from proofops.application.evidence.binding import accept_binding
+    from proofops.application.evidence.binding import accept_binding, relation_tags_for
 
     from tests.acceptance.test_binding import DIMENSIONS, span
     from tests.acceptance.test_rules import pack
@@ -262,12 +262,12 @@ def test_unanimous_claim_dimensions_bind_only_the_same_atomic_source(
     monkeypatch.setattr(runtime.preliminary_transport._probe, "_post", post)
     _, context, relations = runtime.preliminary(claim, graph)
     source = claim.source_refs[0]
-    assert set(relations) == {source.source_id}
+    assert set(relations) == {f"{source.source_id}:{source.char_start}:{source.char_end}"}
     assert len(calls) == 3  # no extra relation call for the exact same atomic source
     assert accept_binding(
         context,
         span(source, "40%"),
-        relations[source.source_id],
+        relation_tags_for(span(source, "40%"), relations),
         original=graph,
         tenant_id=claim.tenant_id,
         rulepack=pack(),
@@ -281,7 +281,7 @@ def test_unanimous_claim_dimensions_bind_only_the_same_atomic_source(
         accept_binding(
             context,
             span(other, "40%"),
-            relations.get(other.source_id, {}),
+            relation_tags_for(span(other, "40%"), relations),
             original=graph,
             tenant_id=claim.tenant_id,
             rulepack=pack(),
@@ -292,7 +292,10 @@ def test_unanimous_claim_dimensions_bind_only_the_same_atomic_source(
 
 
 def test_partial_claim_does_not_lend_roles_to_other_text_in_same_block(tmp_path, monkeypatch):
-    from tests.acceptance.test_binding import DIMENSIONS
+    from proofops.application.evidence.binding import accept_binding, relation_tags_for
+
+    from tests.acceptance.test_binding import DIMENSIONS, span
+    from tests.acceptance.test_rules import pack
 
     runtime, claim, graph, _, _, _ = configured(tmp_path, monkeypatch)
     # The atom omits the final numeric text; the source block still contains it.
@@ -314,4 +317,21 @@ def test_partial_claim_does_not_lend_roles_to_other_text_in_same_block(tmp_path,
     monkeypatch.setattr(runtime.preliminary_transport._probe, "_post", post)
     result = runtime.preliminary(claim, graph)
     assert result is not None
-    assert result[2] == {}  # source_id alone cannot scope roles to a subspan
+    _, context, relations = result
+    inside = span(shortened, DIMENSIONS["metric"])
+    outside = span(source, "40%")
+    assert relation_tags_for(inside, relations)
+    assert relation_tags_for(outside, relations) == {}
+    for ref, expected in ((inside, "accepted"), (outside, "undetermined")):
+        assert (
+            accept_binding(
+                context,
+                ref,
+                relation_tags_for(ref, relations),
+                original=graph,
+                tenant_id=claim.tenant_id,
+                rulepack=pack(),
+                element_id="P1",
+            )
+            == expected
+        )

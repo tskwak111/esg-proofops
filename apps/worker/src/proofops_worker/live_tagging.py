@@ -10,6 +10,7 @@ from proofops.adapters.local.tag_store import tagging_settings
 from proofops.adapters.local.upstage import request_usage
 from proofops.application.authorization import AuthContext
 from proofops.application.budget import BudgetCall, BudgetExceeded, TokenUsage
+from proofops.application.evidence.binding import local_relation_tags
 from proofops.application.input_reservation import validate_capacity_policy
 from proofops.application.ports.jobs import LeaseLost
 from proofops.application.preflight import check_local_upstage_tagger
@@ -266,26 +267,5 @@ class LiveTaggingRuntime:
         if len(set(signatures)) != 1 or len(set(provider_ids)) != 3 or results[0].track is None:
             return None
         context = results[0].context
-        # These roles already passed three independent source-bound validations.
-        # The downstream map is keyed by source_id, so a partial atom must not
-        # lend its roles to unrelated text elsewhere in that same source block.
-        claim_ids = {source.source_id for source in claim.source_refs}
-        whole_sources = {
-            block.source_id: block.source_ref()
-            for block in graph.blocks
-            if block.source_id in claim_ids
-        }
-        relations = {
-            source.source_id: {
-                role: ref if ref is not None and ref.source_id == source.source_id else None
-                for role, ref in context.dimensions.items()
-            }
-            for source in claim.source_refs
-            if (source.char_start, source.char_end, source.quote)
-            == (
-                whole_sources[source.source_id].char_start,
-                whole_sources[source.source_id].char_end,
-                whole_sources[source.source_id].quote,
-            )
-        }
-        return results[0].track, context, relations
+        # Three validated replies supply roles, never approval for sibling text.
+        return results[0].track, context, local_relation_tags(context)

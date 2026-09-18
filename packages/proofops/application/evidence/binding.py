@@ -55,6 +55,57 @@ class ClaimContext:
         object.__setattr__(self, "dimensions", MappingProxyType(_dimensions(self.dimensions)))
 
 
+def local_relation_tags(context: ClaimContext) -> dict[str, dict[str, SourceRef | None]]:
+    """Retain validated claim roles only within each original atomic source span."""
+    return {
+        f"{source.source_id}:{source.char_start}:{source.char_end}": {
+            role: ref
+            if ref is not None
+            and ref.source_id == source.source_id
+            and source.char_start <= ref.char_start < ref.char_end <= source.char_end
+            else None
+            for role, ref in context.dimensions.items()
+        }
+        for source in context.claim.source_refs
+    }
+
+
+def relation_tags_for(
+    ref: SourceRef, relations: Mapping[str, Mapping[str, SourceRef | None]]
+) -> Mapping[str, SourceRef | None]:
+    """Resolve one unambiguous containing scope; retain legacy whole-source maps.
+
+    Scoped entries shadow legacy entries, including unresolved/malformed scopes.
+    Source verification and semantic attribution still belong to accept_binding.
+    """
+    scoped = [
+        (key, roles) for key, roles in relations.items() if key.startswith(ref.source_id + ":")
+    ]
+    if not scoped:
+        return relations.get(ref.source_id, {})
+    matches = []
+    for key, roles in scoped:
+        try:
+            source_id, begin, end = key.split(":")
+            start, stop = int(begin), int(end)
+        except ValueError:
+            return {}
+        if start < 0 or stop <= start or key != f"{source_id}:{start}:{stop}":
+            return {}
+        if start <= ref.char_start < ref.char_end <= stop:
+            if any(
+                role is not None
+                and (
+                    role.source_id != ref.source_id
+                    or not start <= role.char_start < role.char_end <= stop
+                )
+                for role in roles.values()
+            ):
+                return {}
+            matches.append(roles)
+    return matches[0] if len(matches) == 1 else {}
+
+
 def accept_binding(
     context: ClaimContext,
     ref: SourceRef,

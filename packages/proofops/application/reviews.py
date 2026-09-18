@@ -10,7 +10,7 @@ from unicodedata import normalize
 from uuid import NAMESPACE_URL, uuid5
 
 from proofops.application.authorization import AuthContext
-from proofops.application.evidence.binding import ClaimContext, accept_binding
+from proofops.application.evidence.binding import ClaimContext, accept_binding, relation_tags_for
 from proofops.application.evidence.citations import verify_source_ref
 from proofops.application.evidence.retrieval import EvidencePacket
 from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
@@ -284,7 +284,7 @@ class ReviewService:
                                 accept_binding(
                                     inputs.context,
                                     ref,
-                                    inputs.relation_tags.get(ref.source_id, {}),
+                                    relation_tags_for(ref, inputs.relation_tags),
                                     original=inputs.original,
                                     tenant_id=actor.tenant_id,
                                     rulepack=inputs.rulepack,

@@ -28,7 +28,7 @@ from proofops.application.budget import (
     record_usage,
     reserve_budget,
 )
-from proofops.application.evidence.binding import ClaimContext, accept_binding
+from proofops.application.evidence.binding import ClaimContext, accept_binding, relation_tags_for
 from proofops.application.evidence.citations import verify_source_ref
 from proofops.application.evidence.packet_guard import PacketMetadata, guard_untrusted_packet
 from proofops.application.evidence.retrieval import EvidencePacket, freeze_track_packet
@@ -519,7 +519,7 @@ def tag_replicates(
                         or accept_binding(
                             context,
                             verified,
-                            relation_tags.get(source.source_id, {}),
+                            relation_tags_for(verified, relation_tags),
                             original=original,
                             tenant_id=tenant_id,
                             rulepack=rulepack,
@@ -613,7 +613,7 @@ def tag_replicates(
                     },
                     track=track.track,
                     safe_harbor_category=track.safe_harbor_category,
-                    guard_version="tagging-010-v1",
+                    guard_version="tagging-010-v2-source-spans",
                 )
             ),
         )

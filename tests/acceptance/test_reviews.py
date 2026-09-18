@@ -450,3 +450,41 @@ def test_live_unapproved_rulepack_cannot_publish_human_grade(tmp_path):
         service.resolve_review(actor, review["review_id"], body, '"1"', str(uuid4()))
     assert error.value.status == 409
     assert service.store.history(TENANT, RUN, review["claim_id"]) == before
+
+
+@pytest.mark.parametrize("clipped,expected_status", [(False, 200), (True, 422)])
+def test_scoped_roles_are_enforced_by_tagging_and_human_review(
+    tmp_path, monkeypatch, clipped, expected_status
+):
+    from proofops.application.evidence.binding import local_relation_tags
+
+    from tests.acceptance.test_binding import span
+
+    original_setup = setup
+
+    def scoped_setup(path):
+        inputs = original_setup(path)
+        relations = local_relation_tags(inputs["context"])
+        if clipped:
+            source = inputs["context"].claim.source_refs[0]
+            values = next(iter(relations.values()))
+            relations = {f"{source.source_id}:0:{span(source, '40%').char_start}": values}
+        inputs["relation_tags"] = relations
+        return inputs
+
+    monkeypatch.setitem(workspace.__globals__, "setup", scoped_setup)
+    ws = workspace(tmp_path)
+    initial = ws[2].tag_runs[0].guarded.elements[0]
+    assert initial.state == ("unknown" if clipped else "present")
+    body = ws[4]
+    body["elements"][0].update(state="present", normalized_value="40%")
+    before = ws[1].store.history(TENANT, RUN, ws[3]["claim_id"])
+    response = post(ws, body=body)
+    assert response.status_code == expected_status, response.text
+    after = ws[1].store.history(TENANT, RUN, ws[3]["claim_id"])
+    if clipped:
+        assert after == before
+        assert "BINDING_REJECTED" in response.text
+    else:
+        assert len(after["tags"]) == 2
+        assert after["tags"][0] == before["tags"][0]

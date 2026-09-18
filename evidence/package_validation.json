@@ -1,9 +1,9 @@
 {
-  "checked_at": "2026-09-18T18:58:20.736549+00:00",
+  "checked_at": "2026-09-18T19:11:58.123131+00:00",
   "scope": "documentation, structured contracts and synthetic schema examples only",
   "status": "passed",
-  "checks_total": 838,
-  "passed": 838,
+  "checks_total": 839,
+  "passed": 839,
   "failed": 0,
   "counts": {
     "numbered_documents": 34,
@@ -275,6 +275,11 @@
     },
     {
       "name": "json:evidence/atomic-coverage-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/live-tagging-doosan-quotes-20260919.json",
       "passed": true,
       "detail": ""
     },

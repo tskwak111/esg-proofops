@@ -12,7 +12,9 @@ from hashlib import sha256
 from pathlib import Path
 from unicodedata import normalize
 
+from proofops.application.evidence.binding import relation_tags_for
 from proofops.domain.provenance import canonical_hash
+from proofops.domain.values import SourceRef
 
 
 def normalized(text):
@@ -58,6 +60,10 @@ def audit(state):
             for key in ("entity", "metric", "reporting_period")
             if not review["dimensions"].get(key)
         )
+        relations = {
+            key: {role: SourceRef(**ref) if ref else None for role, ref in roles.items()}
+            for key, roles in review["relation_tags"].items()
+        }
         entries = []
         for run in review["tag_runs"]:
             if not run["raw_response_json"] or not run["guarded"]:
@@ -73,7 +79,7 @@ def audit(state):
                 roles_missing = [
                     ref["source_id"]
                     for ref in refs
-                    if not review["relation_tags"].get(ref["source_id"])
+                    if not relation_tags_for(SourceRef(**ref), relations)
                 ]
                 mismatch = element["normalized_value"] is not None and not any(
                     normalized(element["normalized_value"]) == normalized(ref["quote"])

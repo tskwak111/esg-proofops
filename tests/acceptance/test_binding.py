@@ -414,3 +414,32 @@ def test_matching_metric_text_tagged_as_period_stays_undetermined():
     expected["reporting_period"] = expected["metric"]
     actual["reporting_period"] = actual["metric"]
     assert bind(graph, claim, refs[1], actual, dimensions=expected) == "undetermined"
+
+
+@pytest.mark.parametrize("case", ["inside", "outside", "overlap", "malformed", "escaped_role"])
+def test_scoped_relation_roles_cannot_escape_their_atomic_span(case):
+    from proofops.application.evidence.binding import relation_tags_for
+
+    _, _, refs = corpus()
+    source = refs[0]
+    value = span(source, "40%")
+    key = f"{source.source_id}:{source.char_start}:{source.char_end}"
+    relations = {key: tags(source)}
+    expected = tags(source)
+    if case == "outside":
+        relations = {f"{source.source_id}:0:{value.char_start}": tags(source)}
+        expected = {}
+    elif case == "overlap":
+        value = span(source, DIMENSIONS["metric"])
+        relations[f"{source.source_id}:0:{source.char_end - 1}"] = tags(source)
+        expected = {}
+    elif case == "malformed":
+        relations[f"{source.source_id}:bad:range"] = tags(source)
+        expected = {}
+    elif case == "escaped_role":
+        relations = {f"{source.source_id}:{value.char_start}:{value.char_end}": tags(source)}
+        expected = {}
+    # Legacy whole-block roles must never override a scoped rejection.
+    relations[source.source_id] = tags(source)
+    assert relation_tags_for(value, relations) == expected
+    assert relation_tags_for(value, {source.source_id: tags(source)}) == tags(source)

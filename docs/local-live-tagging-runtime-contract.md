@@ -104,15 +104,31 @@ provider attempts for completed receipts. Incomplete dispatched receipts stop.
 ## Atomic-source role reuse
 
 After all three preliminary replies agree, their verified literal dimension
-spans may supply relation tags for that same source block only when the atomic
-claim covers the entire block (exact character range and quote). This uses the
-already retained semantic-role receipts and adds no model call. The binding
-engine still checks all required/applicable dimensions, periods and allowed
-source scopes. Missing roles remain null/undetermined. Because the relation map
-is keyed by source_id rather than by subspan, partial-block claims deliberately
-supply no reused relation tags: otherwise roles could leak to a different claim
-in the same paragraph or cell. No other block, table or appendix candidate gains
-relation tags from this reuse. Cross-source role extraction remains separate work.
+spans supply relation tags keyed by `source_id:char_start:char_end`. The range
+is the original atomic claim source span (Unicode code points, end exclusive).
+Roles outside that source/span stay null. No additional model call is needed.
+This retains partial-atom roles without granting them to the whole paragraph.
+
+`relation_tags_for` is shared by automatic tagging and human review. A citation
+must be wholly contained by exactly one scoped entry, and every supplied role
+must itself be inside that entry. Overlapping matching entries, malformed ranges
+and role spans escaping the entry remain unresolved. Any scoped entry for a
+source shadows its legacy whole-source entry, including when no scope matches;
+legacy data cannot supply a fallback that bypasses the new boundary. Entries
+from another source cannot match. The binding engine still validates source
+identity, required/applicable dimensions, periods, table axes and allowed scope.
+No metric, period, entity or applicable-axis exemption is inferred.
+
+Existing immutable snapshots with source_id-only maps retain their previous
+lookup behavior. Before scoped maps, partial atoms supplied no relation roles;
+those historical snapshots are not rewritten. New maps use the existing string
+map field and need no public API or DB migration. Guarded cache signatures now
+pin `tagging-010-v2-source-spans`; raw provider requests/receipts are reusable
+only under their unchanged identity. Rolling back to old code cannot resolve
+new scoped entries (it stays unknown/rejected); use the updated reader for those
+reviews and preserve all prior revisions. No other paragraph, table or appendix
+candidate gains role tags from local reuse. Cross-source extraction and the
+management applicable-axis contract remain separate unresolved work.
 
 ## Native glyph paragraph verification
 

@@ -599,3 +599,47 @@ request/wire/response hashes, blocked-vote audit and replay is in
 Direct Codex quota: 74% used /26% remaining. Cross-source relationship extraction,
 management applicable-axis attribution, source coverage, independent gold and
 service release gates remain outstanding.
+
+### 2026-09-19 · Preserve roles within atomic claim spans
+
+The live preliminary stage no longer drops every partial-paragraph role map.
+After the same three independently validated replies agree, `local_relation_tags`
+retains roles under source_id:start:end keys. Both automated tagging and human
+review use one `relation_tags_for` resolver: exactly one containing scope, no
+role escaping that scope, no whole-source fallback once scoped keys exist.
+Old source_id-only maps preserve their behavior and stored revisions are not
+rewritten. The guarded-cache version is now tagging-010-v2-source-spans.
+
+This is a prerequisite for safe attribution, not the cross-source supplier.
+Null metric/period/entity values remain null and all original binding guards
+still apply. No domain applicability interpretation has been introduced.
+
+Real saved Doosan review replay: its claim occupies characters 0..71 of a
+233-character paragraph. The previously discarded literal entity span 43..47
+("두산밥캣") is retained for that atom by the new shared helper; the whole parent
+paragraph cannot borrow those roles. Metric and period remain null, so M1
+binding stays undetermined and the decision remains null. Original review inputs
+are unchanged and replay made zero additional model calls. Evidence:
+`evidence/local-relation-scope-replay-20260919.json`.
+
+Five scoped-lookup cases failed before implementation. Binding/tagging/live-worker
+checks: 124 passed. Human-review tests: 32 passed, 2 existing warnings; positive
+scoped reviews create a new revision while out-of-span edits return 422 with
+BINDING_REJECTED and do not change stored history. The test fixture initially
+patched a separately imported module instead of the executing fixture; corrected
+the fixture target, not the production guard. Existing offline audit output for
+both earlier Doosan/KB runs remains byte-identical after switching its lookup
+to the shared resolver. Ruff check/format, targeted mypy, build and package
+contract validation passed. Full-suite result is recorded after completion.
+
+Full local suite completed: 2478 passed, 7 skipped, 2 existing warnings in
+180.68s (`/tmp/proofops-span-roles-full-suite.txt`). Codex remains 74% used /26%
+remaining. No paid calls were made; shared ledger remains USD8.0412964000/20.
+
+Separately, prior-head CI 35383808290 completed with one failure in
+`test_opt_in_publishes_v4_and_replays_immutable_receipt`: parser returned failed
+instead of committed, with no useful root error in the existing assertion.
+Its supply-chain audit steps passed; failure was in the job's integration-test
+step (2237 passed, 1 failed, 1 skipped). Local success does not resolve this Linux
+CI failure. Capture underlying immutable job/attestation diagnostics before
+claiming a fix; do not weaken replay equality or retry until a green result.
