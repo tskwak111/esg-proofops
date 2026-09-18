@@ -17,7 +17,7 @@ def test_live_pilot_settings_have_independent_real_profiles():
     assert preliminary.binding.synthetic is tagging.binding.synthetic is False
     assert preliminary.model_id == tagging.model_id == "solar-pro4"
     assert preliminary.model_profile == "upstage-preliminary-source-quotes-v1"
-    assert tagging.model_profile == "upstage-compact-coverage-unicode-v2"
+    assert tagging.model_profile == "upstage-compact-source-quotes-v3"
     assert set(result) == {"preliminary_settings", "tagging_settings", "input_reservation_policy"}
 
 

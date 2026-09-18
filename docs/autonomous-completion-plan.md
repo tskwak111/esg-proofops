@@ -562,3 +562,40 @@ and format passed. Existing binding/tagging acceptance suites: 107 passed in
 3.64s (`/tmp/proofops-blocker-contract-tests.txt`). These tests verify the current
 contracts; they do not resolve the observed real-report blockers. No production
 runtime/prompt behavior was changed by this audit.
+
+### 2026-09-19 · Exact quote transport implemented and exercised
+
+New opt-in `upstage-compact-source-quotes-v3` lets the model select an exact
+unique subquote inside an existing evidence catalog entry. The server reuses
+`UpstageClaimExtractor._locate`, preserves provenance and enclosing bbox, and
+restores offsets. v1/v2 behavior and existing receipts remain unchanged. New
+local pilots use v3; source verification, normalized-value equality, attribution
+and rule authority are not relaxed. This addresses the compact-value bottleneck,
+not the missing relationship supplier or applicable-axis contract.
+
+Eight new cases failed before implementation (unsupported profile). Transport
+and downstream guard tests now confirm valid Korean subspans, malformed/absent/
+ambiguous quotes, no invented offsets, missing-role unknown, and replay without
+new calls. Full suite: 2471 passed, 7 skipped, 2 existing warnings, 185.16s
+(`/tmp/proofops-quote-profile-full-suite.txt`). Ruff check/format, targeted mypy,
+proofops build and documentation/contract validation passed. No dependencies,
+public DTOs, migrations or domain grading rules changed.
+
+Actual run `60d9f9c0-b9b8-49d7-a790-e417763a2ac6`, Doosan pages 27/97/110:
+12 extracted claims, 9 source-blocked and 3 candidate reviews; 8 extraction,
+9 preliminary and 9 element calls. All 9 element responses expanded successfully.
+Of 31 raw present element votes, 2 violate literal normalized-value equality;
+all 31 remain unknown because relationship roles are unavailable. In the prior
+v2 run this condition appeared in 20/33 votes, but fresh extraction/model replies
+mean this is not a controlled A/B or an accuracy estimate. M2/M5 in replica 1
+of one claim still summarize a whole selected sentence rather than selecting
+the value span, and M2 semantics require separate evaluation. No grade exists.
+
+One immutable review replayed successfully with zero additional calls. Pilot
+cost USD0.0227965650. Shared ledger: 1561 calls, USD8.0412964000/20 committed/
+reserved, original six unsettled unchanged. Evidence with raw expanded replies,
+request/wire/response hashes, blocked-vote audit and replay is in
+`evidence/live-tagging-doosan-quotes-20260919.json`. All invoked processes settled.
+Direct Codex quota: 74% used /26% remaining. Cross-source relationship extraction,
+management applicable-axis attribution, source coverage, independent gold and
+service release gates remain outstanding.

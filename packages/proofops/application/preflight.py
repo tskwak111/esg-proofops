@@ -463,6 +463,7 @@ def check_local_upstage_tagger(
     profile_valid = settings.model_profile in {
         "upstage-compact-ids-frozen-unicode-v1",
         "upstage-compact-coverage-unicode-v2",
+        "upstage-compact-source-quotes-v3",
     } or (
         settings.model_profile == "upstage-preliminary-source-quotes-v1"
         and settings.system_prompt == SYSTEM_PROMPT

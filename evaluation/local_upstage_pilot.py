@@ -58,7 +58,8 @@ def live_tagging_settings(max_calls: int) -> dict:
         "establish every element. Use present only for literal evidence of that element. "
         "Preserve unknown, conflict and unreadable conditions; a partial page selection "
         "cannot prove absence from the whole report. "
-        "evidence_refs contains catalog IDs. credited_from must be null: it is reserved "
+        "evidence_refs selects literal quotes from the evidence catalog using the transport "
+        "contract. credited_from must be null: it is reserved "
         "for server-validated cross-claim credit, not an evidence catalog ID. "
         "Return every requested element, with null for unsupported normalized values. "
         "No grades, legal conclusions, inferred numbers or invented evidence. "
@@ -76,7 +77,7 @@ def live_tagging_settings(max_calls: int) -> dict:
         ),
         (
             "tagging",
-            "upstage-compact-coverage-unicode-v2",
+            "upstage-compact-source-quotes-v3",
             element_prompt,
             (ROOT / "contracts/jsonschema/llm_tags.schema.json").read_text(),
             4096,

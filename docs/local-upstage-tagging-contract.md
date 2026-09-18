@@ -3,8 +3,10 @@
 This is an opt-in local transport plus evaluation checkpoint, not activation of
 production tagging. `UpstageTaggingTransport` accepts caller-owned UpstageProbe,
 TaggingSettings, tenant scope and a trusted per-dispatch authorization callback; it reads no credential/environment and chooses
-no deployment region. The existing LocalTagRunner still rejects non-synthetic
-transports. No API DTO or database migration is introduced.
+no deployment region. The LocalTagRunner composes this only through the explicitly authorized
+`upstage_local` runtime described in `local-live-tagging-runtime-contract.md`;
+ordinary synthetic runs retain their separate contract. No API DTO or database
+migration is introduced.
 
 ## Frozen input and compact wire format
 
@@ -178,3 +180,42 @@ The existing 16384-byte ceiling, cumulative USD20 ledger policy and USD1 per-cal
 reservation are unchanged; no budget policy migration or new monetary ledger.
 Rollback selects v1 for new settings and preserves all v2 receipts. No HTTP or
 SQLite schema change is introduced.
+
+## Exact source quote transport v3 — 2026-09-19
+
+`upstage-compact-source-quotes-v3` is an opt-in successor to v1/v2; new local
+pilots select it. The authorized local live runtime accepts all three profiles.
+Existing stored runs keep their original profile/settings and do not migrate.
+Rollback selects the prior profile for a new run; old receipts are never rewritten.
+No public API/DB schema or grading rule changes.
+
+The compact input catalog remains the same. In the model output each
+`evidence_refs` item is now exactly `{"id":"e0","quote":"40%"}`. The quote must
+be nonblank and occur exactly once in the selected catalog quote, including
+checking overlapping occurrences. Server restoration reuses the extractor's
+unique exact-quote locator; offsets are Unicode code points relative to the
+catalog source's original char_start. Only quote/char_start/char_end change.
+Tenant/document/parser identity, page, enclosing bbox, raw text hash and source
+quality are inherited, not provided by the model. The bbox remains the source
+block's region, not a newly inferred tight bounding box for the substring.
+
+Unknown IDs, repeated/missing quotations, additional fields, offsets and legacy
+string selections in v3 invalidate the expanded response. Paid usage remains
+settled and the original provider response is preserved. There is no retry or
+refund on invalid model output. v1/v2 retain exact original ID-only behavior.
+
+A non-null normalized_value still must equal one restored evidence quote under
+the existing NFC/whitespace comparison. The wire instructions now explain this:
+use an exact value span for numerical elements, and literal supporting context
+as additional selections when necessary; qualitative elements can retain null
+normalized_value. A paraphrase or substring without a matching selected quote
+is still rejected. Whole-quote selection remains possible when disambiguation
+requires it. v3 retains v2's hashed coverage summary and unknown absence state.
+
+This fixes the transport's inability to express subspans. It does not establish
+semantic correctness, make optional context mandatory, resolve applicable axes,
+supply cross-source relation tags or bypass citation/binding/rulepack guards.
+All current downstream checks run on the restored references. A synthetic
+end-to-end test accepts a literal 40% span when source and roles are verified,
+but keeps it unknown with missing roles; cached replay makes no new provider call.
+Real model results are recorded separately; unit success is not model accuracy.

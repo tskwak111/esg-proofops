@@ -26,6 +26,7 @@ from proofops_agent.upstage_extraction import UpstageClaimExtractor
 
 MODEL_PROFILE = "upstage-compact-ids-frozen-unicode-v1"
 COVERAGE_PROFILE = "upstage-compact-coverage-unicode-v2"
+QUOTE_PROFILE = "upstage-compact-source-quotes-v3"
 
 
 class UpstageTaggingTransport:
@@ -50,7 +51,7 @@ class UpstageTaggingTransport:
             or settings.model_id != probe.model
             or settings.model_profile
             not in (
-                {MODEL_PROFILE, COVERAGE_PROFILE}
+                {MODEL_PROFILE, COVERAGE_PROFILE, QUOTE_PROFILE}
                 if self.MODEL_PROFILE == MODEL_PROFILE
                 else {self.MODEL_PROFILE}
             )
@@ -61,6 +62,8 @@ class UpstageTaggingTransport:
             raise ValueError("UPSTAGE_TAGGING_AUTHORIZER_REQUIRED")
         if settings.model_profile == COVERAGE_PROFILE:
             self.TRANSPORT_VERSION = "compact-coverage-v2"
+        elif settings.model_profile == QUOTE_PROFILE:
+            self.TRANSPORT_VERSION = "compact-source-quotes-v3"
         self._authorize = authorize
         self._probe, self._settings, self._tenant = probe, settings, tenant_id
         self._receipts = Path(receipts)
@@ -153,7 +156,7 @@ class UpstageTaggingTransport:
             or not isinstance(user.get("untrusted_document_data"), dict)
         ):
             raise ValueError("UPSTAGE_TAGGING_PACKET_MISMATCH")
-        if settings.model_profile == COVERAGE_PROFILE:
+        if settings.model_profile in (COVERAGE_PROFILE, QUOTE_PROFILE):
             data = user["untrusted_document_data"]
             coverage = data.get("search_coverage", {})
             if (
@@ -186,6 +189,16 @@ class UpstageTaggingTransport:
         }
         schema = json.loads(settings.schema_json)
         schema["$defs"]["SourceRef"] = {"type": "string", "pattern": "^e[0-9]+$"}
+        if settings.model_profile == QUOTE_PROFILE:
+            schema["$defs"]["SourceRef"] = {
+                "type": "object",
+                "required": ["id", "quote"],
+                "additionalProperties": False,
+                "properties": {
+                    "id": {"type": "string", "enum": list(refs)},
+                    "quote": {"type": "string", "minLength": 1},
+                },
+            }
         allowed = user["untrusted_document_data"].get("allowed_elements")
         if (
             not isinstance(allowed, list)
@@ -200,12 +213,26 @@ class UpstageTaggingTransport:
         }
         schema["$defs"]["Element"]["properties"]["element_id"] = {"enum": allowed}
         schema["properties"]["elements"].update(minItems=len(allowed), maxItems=len(allowed))
-        wire_system = system.replace(settings.schema_json, canonical_json(schema), 1) + (
+        instructions = (
             "\nTransport contract compact-evidence-ids-v1: evidence_refs contains only "
             "evidence_catalog IDs such as e0. Select IDs; never repeat or alter source text, "
             "coordinates, offsets or verification state. The server restores those exactly."
         )
-        if settings.model_profile == COVERAGE_PROFILE:
+        if settings.model_profile == QUOTE_PROFILE:
+            instructions = (
+                "\nTransport contract compact-source-quotes-v3: each evidence_refs item is "
+                '{"id":"e0","quote":"exact source substring"}. Select an evidence_catalog '
+                "ID and a non-empty exact quote occurring only once within that catalog quote. "
+                "Include enough context to disambiguate repeated text. Never supply offsets, "
+                "coordinates or verification state; the server restores provenance. "
+                "A non-null normalized_value must equal one selected quote (NFC/whitespace "
+                "normalization only), never a paraphrase or summary. Use a precise value quote "
+                "for numerical elements and additional context quotes as needed; qualitative "
+                "elements may use null normalized_value while retaining literal evidence. "
+                "Exact quotation does not establish claim attribution or semantic sufficiency."
+            )
+        wire_system = system.replace(settings.schema_json, canonical_json(schema), 1) + instructions
+        if settings.model_profile in (COVERAGE_PROFILE, QUOTE_PROFILE):
             wire_system += (
                 "\nCoverage v2: omitted/unprocessed source counts and list hashes summarize "
                 "unseen identifiers retained by the server. Missing evidence remains unknown; "
@@ -213,6 +240,22 @@ class UpstageTaggingTransport:
             )
         wire_user = json.dumps(user, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         return wire_system, wire_user, refs, authorization
+
+    def _restore_ref(self, selection, refs: dict[str, dict]) -> dict:
+        if self._settings.model_profile != QUOTE_PROFILE:
+            return refs[selection]
+        if not isinstance(selection, dict) or set(selection) != {"id", "quote"}:
+            raise ValueError("invalid source quote selection")
+        quote = selection["quote"]
+        if not isinstance(quote, str) or not quote.strip():
+            raise ValueError("non-empty source quote required")
+        original = refs[selection["id"]]
+        span = UpstageClaimExtractor._locate(quote, original["quote"])
+        return original | dict(
+            quote=quote,
+            char_start=original["char_start"] + span["char_start"],
+            char_end=original["char_start"] + span["char_end"],
+        )
 
     def _invoke(self, request: dict) -> RawTagResponse:
         settings = self._settings
@@ -273,7 +316,7 @@ class UpstageTaggingTransport:
                     selected = element["evidence_refs"]
                     if not isinstance(selected, list):
                         raise ValueError("invalid references")
-                    element["evidence_refs"] = [refs[key] for key in selected]
+                    element["evidence_refs"] = [self._restore_ref(key, refs) for key in selected]
                 expanded = canonical_json(payload)
             except (ValueError, KeyError, TypeError, AttributeError):
                 expanded = None

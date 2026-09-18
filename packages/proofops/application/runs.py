@@ -241,6 +241,7 @@ class RunService:
                 not in {
                     "upstage-compact-ids-frozen-unicode-v1",
                     "upstage-compact-coverage-unicode-v2",
+                    "upstage-compact-source-quotes-v3",
                 }
             ):
                 raise RunRejected("CONFIG_GATE_BLOCKED")

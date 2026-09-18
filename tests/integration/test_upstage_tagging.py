@@ -470,10 +470,11 @@ def test_composition_can_reject_a_packet_outside_authorized_source(tmp_path, mon
     assert calls == [] and probe.summary()["calls"] == 0
 
 
-def test_coverage_summary_preserves_unknown_and_original_request(tmp_path, monkeypatch):
-    adapter, probe, calls, request = configured(
-        tmp_path, monkeypatch, "upstage-compact-coverage-unicode-v2"
-    )
+@pytest.mark.parametrize(
+    "profile", ["upstage-compact-coverage-unicode-v2", "upstage-compact-source-quotes-v3"]
+)
+def test_coverage_summary_preserves_unknown_and_original_request(tmp_path, monkeypatch, profile):
+    adapter, probe, calls, request = configured(tmp_path, monkeypatch, profile)
     user = json.loads(request["user_json"])
     coverage = dict(
         not_found_state="unknown",
@@ -505,3 +506,105 @@ def test_oversized_wire_rejected_during_count_before_receipt_or_reservation(tmp_
         adapter.count_input_tokens(request, counter=lambda *_: 1)
     assert not calls
     assert not list((tmp_path / "receipts").iterdir())
+
+
+@pytest.mark.parametrize(
+    "selection,quote,start,end",
+    [
+        ({"id": "e0", "quote": "40%"}, "40%", 109, 112),
+        ({"id": "e0", "quote": "회사A는 배출량 40% 감축"}, "회사A는 배출량 40% 감축", 100, 115),
+        ({"id": "e0", "quote": "감소"}, None, None, None),
+        ({"id": "e0", "quote": ""}, None, None, None),
+        ({"id": "e9", "quote": "40%"}, None, None, None),
+        ({"id": "e0", "quote": "40%", "char_start": 0}, None, None, None),
+        ("e0", None, None, None),
+    ],
+)
+def test_quote_profile_restores_only_unique_literal_subspans(
+    tmp_path, monkeypatch, selection, quote, start, end
+):
+    adapter, probe, calls, request = configured(
+        tmp_path, monkeypatch, "upstage-compact-source-quotes-v3"
+    )
+    original = setup(tmp_path)["packet"].to_dict()["evidence_candidates"][0]["source_refs"][0]
+    original.update(quote="회사A는 배출량 40% 감축", char_start=100, char_end=115)
+    user = json.loads(request["user_json"])
+    user["untrusted_document_data"]["evidence_candidates"] = [dict(source_refs=[original])]
+    request["user_json"] = json.dumps(user)
+    before = request["user_json"]
+
+    def post(body):
+        calls.append(body)
+        return dict(
+            id="quote-provider",
+            model=MODEL_PRO4,
+            usage=dict(prompt_tokens=20, completion_tokens=10),
+            choices=[
+                dict(
+                    finish_reason="stop",
+                    message=dict(
+                        content=json.dumps({"elements": [{"evidence_refs": [selection]}]})
+                    ),
+                )
+            ],
+        )
+
+    monkeypatch.setattr(probe, "_post", post)
+    response = adapter.invoke(request)
+    if quote is None:
+        assert response.raw_response_json is None
+        assert (
+            json.loads(response.provider_response_json)["validation_error"]
+            == "TAGGING_EVIDENCE_ID_INVALID"
+        )
+    else:
+        restored = json.loads(response.raw_response_json)["elements"][0]["evidence_refs"][0]
+        assert restored == original | dict(quote=quote, char_start=start, char_end=end)
+    assert request["user_json"] == before
+    assert probe.summary()["calls"] == 1 and probe.summary()["unsettled_calls"] == 0
+    assert len(calls) == 1
+
+
+def test_quote_profile_rejects_overlapping_ambiguous_quote(tmp_path, monkeypatch):
+    adapter, _, _, request = configured(tmp_path, monkeypatch, "upstage-compact-source-quotes-v3")
+    original = setup(tmp_path)["packet"].to_dict()["evidence_candidates"][0]["source_refs"][0]
+    original.update(quote="aaa", char_start=10, char_end=13)
+    with pytest.raises(ValueError):
+        adapter._restore_ref({"id": "e0", "quote": "aa"}, {"e0": original})
+
+
+@pytest.mark.parametrize("supply_roles,expected", [(True, "present"), (False, "unknown")])
+def test_quote_profile_passes_literal_value_guard_but_never_bypasses_binding(
+    tmp_path, monkeypatch, supply_roles, expected
+):
+    from tests.acceptance.test_tagging import execute
+
+    adapter, probe, calls, _ = configured(tmp_path, monkeypatch, "upstage-compact-source-quotes-v3")
+    inputs = setup(tmp_path)
+    responder = inputs["invoke"]
+    inputs.update(settings=adapter._settings, invoke=adapter.invoke, pricing=None)
+    if not supply_roles:
+        inputs["relation_tags"] = {}
+    inputs["count_input_tokens"] = lambda request: adapter.count_input_tokens(
+        request, counter=lambda *_: 20
+    )
+
+    def post(body):
+        calls.append(body)
+        user = json.loads(body["messages"][1]["content"])
+        payload = json.loads(responder(user).raw_response_json)
+        payload["elements"][0]["evidence_refs"] = [{"id": "e0", "quote": "40%"}]
+        return dict(
+            id="quote-" + str(user["replicate_id"]),
+            model=MODEL_PRO4,
+            usage=dict(prompt_tokens=20, completion_tokens=10),
+            choices=[dict(finish_reason="stop", message=dict(content=json.dumps(payload)))],
+        )
+
+    monkeypatch.setattr(probe, "_post", post)
+    runs = execute(inputs)
+    assert len(runs) == 3 and all(r.guarded.elements[0].state == expected for r in runs)
+    assert all(r.guarded.elements[0].evidence_refs[0].quote == "40%" for r in runs)
+    assert probe.summary()["calls"] == 3 and probe.summary()["unsettled_calls"] == 0
+    recovered = execute(inputs)
+    assert all(r.recovered for r in recovered) and len(calls) == 3
