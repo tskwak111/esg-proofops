@@ -1,0 +1,43 @@
+{
+  "schema": "native_spacing_fix_evaluation_v1",
+  "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+  "input_graph_sha256": "cff8d4ddea792801d23cabb039d2e40b97464f384bd08169619c8813d3c380a3",
+  "new_attestation_sha256": "db2ebd385aaaf33ccd0d006c27a14c343f61e99270aa2830162f2b09ae129664",
+  "glyph_verifier_sha256": "71da3f12656dc00bc6791d78aee83cda8ce2f233503b7f6320a8bc2e6b154685",
+  "physical_page": 30,
+  "additional_model_calls": 0,
+  "historical_receipts_changed": false,
+  "prior_unresolved_words": [
+    346,
+    347,
+    348,
+    349,
+    350,
+    366
+  ],
+  "new_unresolved_word_indices": [],
+  "target_source_id": "7441dba9-825a-5e90-af16-7d238f30bef7",
+  "target_status": "unresolved",
+  "target_reason": "rendered_text_unresolved",
+  "rendered_image_sha256": "998785c749be20154e346937909ad17b6698d684a7bd798bbcc1089563bb86b1",
+  "text_differences": [
+    {
+      "native": "에",
+      "rendered": "어"
+    },
+    {
+      "native": "을",
+      "rendered": "올"
+    },
+    {
+      "native": ",",
+      "rendered": "."
+    }
+  ],
+  "limitations": [
+    "Fresh offline attestation on hash-verified saved inputs; not published to historical run.",
+    "Glyph origins match but rendered OCR differs, so three claims remain unverified.",
+    "Table-text whitespace blocker not addressed.",
+    "Single real page plus synthetic operator tests, not general accuracy evidence."
+  ]
+}

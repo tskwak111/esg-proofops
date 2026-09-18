@@ -222,3 +222,23 @@ def test_invisible_text_geometry_is_not_visibility_evidence():
     with pdfium.PdfDocument(source) as document, closing(document[0]) as page:
         with closing(page.render()) as bitmap:
             assert all(bounds == (255, 255) for bounds in bitmap.to_pil().getextrema())
+
+
+@pytest.mark.parametrize("spacing", [-0.17, 0.17])
+def test_split_text_operators_preserve_character_spacing(spacing):
+    prefix = f"BT /F1 12 Tf {spacing} Tc 30 100 Td ".encode()
+    combined = geometry(pdf(prefix + b"(AB) Tj ET"))
+    split = geometry(pdf(prefix + b"(A) Tj (B) Tj ET"))
+    assert combined["status"] == split["status"] == "matched"
+    assert split["ink_bbox"] == pytest.approx(combined["ink_bbox"], abs=0.001)
+
+
+@pytest.mark.parametrize(
+    "operators", [b"[(A) 0 (B)] TJ", b"(A) Tj [] TJ (B) Tj", b"(A) Tj [0 (B)] TJ"]
+)
+def test_text_array_adjustments_do_not_duplicate_character_spacing(operators):
+    prefix = b"BT /F1 12 Tf -0.17 Tc 30 100 Td "
+    expected = geometry(pdf(prefix + b"(AB) Tj ET"))
+    actual = geometry(pdf(prefix + operators + b" ET"))
+    assert actual["status"] == "matched"
+    assert actual["ink_bbox"] == pytest.approx(expected["ink_bbox"], abs=0.001)

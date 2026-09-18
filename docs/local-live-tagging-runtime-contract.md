@@ -209,3 +209,22 @@ that cannot be represented without widening scope remain unresolved. Merge maps
 without replacing atomic scoped entries. Request envelopes keep the actual claim
 identity while the document data remains an evidence-source catalog. The helper
 alone must not cause a new paid call in an old run or unlock any grade.
+
+
+#### Native glyph spacing correction
+
+The native glyph matcher uses an isolated pdfminer layout aggregator that applies
+horizontal character spacing after each glyph, including the final glyph of a
+text-show operator. This corrects the pinned reader's missing advance across
+consecutive Tj operators. Original parser text, source boxes and native word
+indices remain unchanged. The corrected character inventory must match the
+original inventory exactly; each glyph still needs unique Unicode+origin
+agreement with PDFium at0.001pt. Duplicate origins and unsupported geometry stay
+unresolved, and rendered OCR verification remains mandatory. No process-global
+pdfminer monkeypatch or new dependency is used.
+
+The implementation is included in the existing glyph verifier hash and native
+paragraph policy pin. Existing attestations require their original code revision;
+create a new run/attestation for this correction, never rewrite old receipts.
+Rollback is the original pinned verifier. The independent diagnostic can be run
+with `uv run python evaluation/native_spacing_probe.py`.

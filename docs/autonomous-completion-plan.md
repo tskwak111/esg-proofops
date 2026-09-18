@@ -875,3 +875,38 @@ ambiguous/duplicate glyph adversarial cases before creating fresh attestations.
 CI35391924279 for1cd98fb remained in_progress (five jobs successful, integration
 still running) at this checkpoint; poll that run rather than launching another.
 Latest available Codex quota observation remained77%used at20:15UTC (not live).
+
+
+### 2026-09-19 · Fix split-Tj character spacing in native glyph matching
+
+Root cause reproduced with a minimal Helvetica PDF: with -0.17pt character
+spacing, one `(AB) Tj` gives matching B origins (37.834pt), whereas `(A) Tj (B) Tj`
+puts B at38.004pt in pdfminer and37.834pt in PDFium. The real KB stream similarly
+splits its line after `전` and `있`; its -0.02 spacing under8.5 scaling accounts
+for0.17pt. This is the pinned pdfminer between-character advance behavior, not a
+reason to increase coordinate tolerance. evaluation/native_spacing_probe.py is
+an independently runnable reproduction; its output is saved as evidence.
+
+Added an isolated layout aggregator inside the existing native glyph matcher:
+retain font decoding/text-state behavior, apply horizontal spacing after each
+character, and retain the original word inventory/text/font boxes. Corrected
+origins still require unique Unicode+origin PDFium matching at0.001pt. No global
+patch, dependency, fuzzy matching, OCR relaxation or domain change. Five added
+operator cases include positive/negative spacing, text arrays and empty arrays.
+Red:3failed,37passed. Green:40passed including duplicate glyph, altered origin,
+Unicode mismatch, page isolation and invisible-text diagnostics.
+
+Real source/candidate/manifest/input-graph hashes were verified before creating a
+fresh offline attestation. All six previously unmatched words now match (zero
+unresolved words on page30). The paragraph then reaches rendered verification,
+which correctly remains unresolved because OCR reads 에→어, 을→올 and comma→period.
+Thus the coordinate bug is fixed but three claims remain blocked; the table
+whitespace case also remains. No historical receipt or run was promoted/mutated.
+Evidence: native-spacing-fix-20260919.json. New runs are required because native
+policy hashes pin this implementation; rollback uses original pinned code.
+
+Full local suite:2545passed,7skipped,2existingwarnings,185.85s; Ruff and formatting
+passed; mypy183sources passed; proofops build passed; package checks passed.
+Logs:/tmp/proofops-spacing-*. No additional model calls. CI35391924279 for1cd98fb
+finished successfully; CI35392222827 for362420c still ran at inspection. Neither
+is evidence for this new spacing correction, which awaits its own CI.

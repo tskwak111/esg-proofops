@@ -1,9 +1,9 @@
 {
-  "checked_at": "2026-09-18T20:22:59.761144+00:00",
+  "checked_at": "2026-09-18T20:41:53.963755+00:00",
   "scope": "documentation, structured contracts and synthetic schema examples only",
   "status": "passed",
-  "checks_total": 847,
-  "passed": 847,
+  "checks_total": 851,
+  "passed": 851,
   "failed": 0,
   "counts": {
     "numbered_documents": 34,
@@ -95,6 +95,16 @@
     },
     {
       "name": "json:evidence/live-tagging-kb-schema-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/live-tagging-kb-source-blockers-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/native-spacing-fix-20260919.json",
       "passed": true,
       "detail": ""
     },
@@ -199,6 +209,11 @@
       "detail": ""
     },
     {
+      "name": "json:evidence/live-tagging-kb-relations-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
       "name": "json:evidence/live-tagging-blockers-20260919.json",
       "passed": true,
       "detail": ""
@@ -295,6 +310,11 @@
     },
     {
       "name": "json:evidence/live-tagging-doosan-baseline-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/native-spacing-probe-20260919.json",
       "passed": true,
       "detail": ""
     },

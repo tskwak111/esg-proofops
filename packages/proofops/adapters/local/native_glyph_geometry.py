@@ -5,6 +5,7 @@ import math
 from bisect import bisect_left
 from collections import Counter, defaultdict
 from contextlib import closing
+from copy import copy
 from ctypes import c_double
 from hashlib import sha256
 from importlib.metadata import version
@@ -14,6 +15,8 @@ import pdfplumber
 import pypdfium2 as pdfium
 import pypdfium2.raw as raw
 from pdfminer.pdfexceptions import PDFException
+from pdfminer.pdfinterp import PDFPageInterpreter
+from pdfplumber.page import PDFPageAggregatorWithMarkedContent
 from pdfplumber.utils.exceptions import PdfminerException
 
 from proofops.adapters.local.table_layout_context import validate_word_geometry
@@ -38,6 +41,72 @@ def _valid_box(box, width, height):
     )
 
 
+class _SpacingAggregator(PDFPageAggregatorWithMarkedContent):
+    """Apply horizontal character spacing after each glyph, including final Tj glyphs.
+
+    pdfminer's between-character implementation loses the final advance across
+    consecutive text-show operators. Keep its font decoding and text state; only
+    relocate the spacing advance. Vertical text retains the original path.
+    """
+
+    _horizontal_spacing = 0.0
+
+    def render_string_horizontal(
+        self,
+        seq,
+        matrix,
+        pos,
+        font,
+        fontsize,
+        scaling,
+        charspace,
+        wordspace,
+        rise,
+        dxscale,
+        ncs,
+        graphicstate,
+    ):
+        self._horizontal_spacing = charspace
+        try:
+            return super().render_string_horizontal(
+                seq,
+                matrix,
+                pos,
+                font,
+                fontsize,
+                scaling,
+                0,
+                wordspace,
+                rise,
+                dxscale,
+                ncs,
+                graphicstate,
+            )
+        finally:
+            self._horizontal_spacing = 0.0
+
+    def render_char(self, *args, **kwargs):
+        return super().render_char(*args, **kwargs) + self._horizontal_spacing
+
+
+def _spacing_origins(page):
+    # Preserve the original word indices/text/boxes. Only independently matched
+    # glyph origins use the corrected text-state advance; no global monkeypatch.
+    device = _SpacingAggregator(
+        page.pdf.rsrcmgr, pageno=page.page_number, laparams=page.pdf.laparams
+    )
+    PDFPageInterpreter(page.pdf.rsrcmgr, device).process_page(page.page_obj)
+    corrected = copy(page)
+    corrected.flush_cache()
+    corrected._layout = device.get_result()
+    original_chars, corrected_chars = page.chars, corrected.chars
+    if len(original_chars) != len(corrected_chars) or any(
+        a["text"] != b["text"] for a, b in zip(original_chars, corrected_chars, strict=True)
+    ):
+        raise ValueError("native spacing character inventory mismatch")
+    return {id(a): b["matrix"] for a, b in zip(original_chars, corrected_chars, strict=True)}
+
+
 def _match_words(page, textpage, indices):
     count = textpage.count_chars()
     if not 0 <= count <= MAX_CHARS or len(page.chars) > MAX_CHARS:
@@ -55,6 +124,7 @@ def _match_words(page, textpage, indices):
     for entries in inventory.values():
         entries.sort()
 
+    origins = _spacing_origins(page)
     mapped = {}
     for word_index in indices:
         word = words[word_index]
@@ -66,7 +136,7 @@ def _match_words(page, textpage, indices):
             continue
         char_indices, boxes = [], []
         for char in word["chars"]:
-            matrix = char["matrix"]
+            matrix = origins[id(char)]
             if (
                 len(char["text"]) != 1
                 or not char["upright"]
