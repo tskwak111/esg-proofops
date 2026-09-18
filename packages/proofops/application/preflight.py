@@ -458,6 +458,12 @@ def check_local_upstage_tagger(
         ),
         expected_role="tagger",
     )
+    from proofops.application.tagging.preliminary import SYSTEM_PROMPT
+
+    profile_valid = settings.model_profile == "upstage-compact-ids-frozen-unicode-v1" or (
+        settings.model_profile == "upstage-preliminary-source-quotes-v1"
+        and settings.system_prompt == SYSTEM_PROMPT
+    )
     pinned = (
         binding.get("schema") == "local_upstage_tagger_binding_v1"
         and binding.get("tagging_settings_sha256") == canonical_hash(asdict(settings))
@@ -465,7 +471,7 @@ def check_local_upstage_tagger(
         and settings.binding.role == "tagger"
         and settings.binding.synthetic is False
         and settings.model_id == binding.get("model_id")
-        and settings.model_profile == "upstage-compact-ids-frozen-unicode-v1"
+        and profile_valid
         and settings.region == "provider-managed-unverified"
         and type(settings.temperature) in (int, float)
         and settings.temperature == 0

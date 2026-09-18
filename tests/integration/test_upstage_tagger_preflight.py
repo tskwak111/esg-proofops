@@ -144,3 +144,20 @@ def test_foreign_tenant_is_not_found():
     args["consent"]["tenant_id"] = str(uuid4())
     with pytest.raises(TenantNotFoundError):
         check(**args)
+
+
+def test_preliminary_profile_needs_its_own_pinned_settings_and_current_prompt():
+    from proofops.application.tagging.preliminary import SYSTEM_PROMPT
+
+    args = configured()
+    args["settings"] = replace(
+        args["settings"],
+        model_profile="upstage-preliminary-source-quotes-v1",
+        system_prompt=SYSTEM_PROMPT,
+    )
+    assert not check(**args).ready  # element grant cannot authorize another prompt/profile
+    args["binding"]["tagging_settings_sha256"] = canonical_hash(asdict(args["settings"]))
+    assert check(**args).ready
+    args["settings"] = replace(args["settings"], system_prompt="Return arbitrary grades")
+    args["binding"]["tagging_settings_sha256"] = canonical_hash(asdict(args["settings"]))
+    assert not check(**args).ready
