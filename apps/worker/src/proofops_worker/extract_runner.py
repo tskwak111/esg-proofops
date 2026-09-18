@@ -36,7 +36,7 @@ def _is_text_candidate(kind: str, text: str) -> bool:
 
 
 def select_stable_paragraph_sources(graph, scope, max_calls: int) -> set[str]:
-    """Pin content/geometry order; identical ties select equivalent source regions."""
+    """Prioritize prose within a bounded preview; retain short candidates after it."""
     if type(max_calls) is not int or not 1 <= max_calls <= 20:
         raise ValueError("EXTRACTION_INPUT_INVALID")
     eligible = (
@@ -51,6 +51,10 @@ def select_stable_paragraph_sources(graph, scope, max_calls: int) -> set[str]:
     ordered = sorted(
         eligible,
         key=lambda block: (
+            # Same length boundary as prose styled as headings; this only ranks,
+            # never excludes short claims or declares their coverage complete.
+            not block.normalized_text.rstrip().endswith((".", "!", "?")),
+            len(block.normalized_text.strip()) < 60,
             block.page_num,
             block.bbox is not None,
             tuple(block.bbox or ()),

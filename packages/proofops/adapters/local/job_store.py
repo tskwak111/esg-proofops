@@ -414,6 +414,43 @@ class LocalSQLiteJobStore:
             )
             return None if raw is None else json.loads(raw)
 
+    def bind_parser_native_policy(self, lease, policy, *, now):
+        self._time(now)
+        message = lease.message
+        if message.stage != "parse":
+            raise ValueError("parser policy requires parse stage")
+        from proofops.adapters.local.run_artifacts import native_paragraph_policy
+
+        if policy is not None and policy != native_paragraph_policy():
+            raise ValueError("NATIVE_PARAGRAPH_POLICY_MISMATCH")
+        with self._transaction() as db:
+            if self._owned(db, lease, now) is None:
+                raise LeaseLost("LEASE_LOST")
+            raw = self._raw(
+                db, message.tenant_id, message.run_id, "parser_native_policy", message.job_id
+            )
+            if raw is not None:
+                if json.loads(raw) != policy:
+                    raise ValueError("NATIVE_PARAGRAPH_POLICY_MISMATCH")
+            else:
+                self._put(
+                    db,
+                    message.tenant_id,
+                    message.run_id,
+                    "parser_native_policy",
+                    message.job_id,
+                    policy,
+                    immutable=True,
+                )
+
+    def parser_native_policy(self, message):
+        with self._transaction() as db:
+            self._job(db, message)
+            raw = self._raw(
+                db, message.tenant_id, message.run_id, "parser_native_policy", message.job_id
+            )
+            return None if raw is None else json.loads(raw)
+
     def register_parser_note_request(self, lease, request_id, *, now):
         self._time(now)
         _require_uuid("request_id", request_id)
@@ -548,10 +585,46 @@ class LocalSQLiteJobStore:
                     db, message.tenant_id, message.run_id, "parser_note_policy", message.job_id
                 )
                 policy = None if policy_raw is None else json.loads(policy_raw)
+                native_raw = self._raw(
+                    db, message.tenant_id, message.run_id, "parser_native_policy", message.job_id
+                )
+                native_policy = None if native_raw is None else json.loads(native_raw)
+                if (
+                    native_raw is None
+                    and isinstance(envelope, dict)
+                    and envelope.get("schema") == "local_parser_checkpoint_v4"
+                ):
+                    raise ValueError("NATIVE_PARAGRAPH_INPUT_NOT_BOUND")
+                if native_policy is not None and (
+                    not isinstance(envelope, dict)
+                    or envelope.get("schema") != "local_parser_checkpoint_v4"
+                    or envelope.get("native_paragraph_policy_sha256")
+                    != canonical_hash(native_policy)
+                ):
+                    raise ValueError("NATIVE_PARAGRAPH_POLICY_MISMATCH")
+                if (
+                    isinstance(envelope, dict)
+                    and native_policy is None
+                    and (
+                        envelope.get("schema") == "local_parser_checkpoint_v4"
+                        or any(key.startswith("native_paragraph_") for key in envelope)
+                    )
+                ):
+                    raise ValueError("NATIVE_PARAGRAPH_POLICY_MISMATCH")
+                if native_policy is not None:
+                    from proofops.adapters.local.run_artifacts import (
+                        checkpoint_native_attestation,
+                    )
+
+                    if not isinstance(envelope, dict) or (
+                        checkpoint_native_attestation(envelope) is None
+                    ):
+                        raise ValueError("NATIVE_PARAGRAPH_CHECKPOINT_INPUT_MISMATCH")
                 if policy is not None and (
                     pinned is None
                     or not isinstance(envelope, dict)
-                    or envelope.get("schema") != "local_parser_checkpoint_v3"
+                    or envelope.get("schema")
+                    not in {"local_parser_checkpoint_v3", "local_parser_checkpoint_v4"}
                     or envelope.get("note_review_policy_sha256") != canonical_hash(policy)
                 ):
                     raise ValueError("NOTE_REVIEW_POLICY_MISMATCH")

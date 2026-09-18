@@ -15,6 +15,7 @@ from evaluation import cross_report_probe as probe
     "error",
     [
         "BUDGET_EXHAUSTED",
+        "DUPLICATE_PROBE_REQUEST",
         "PRICE_RECHECK_REQUIRED",
         "UPSTAGE_HTTP_429",
         "UPSTAGE_HTTP_503",
@@ -82,8 +83,11 @@ def test_probe_stops_after_first_shared_budget_or_provider_stop(tmp_path, monkey
     result = probe.run(tmp_path, "extract", invoke=True)
     assert len(calls) == 1
     assert result["status"] == "stopped" and result["error"] == error
-    assert result["selected_count"] == 2 and result["processed_count"] == 1
-    assert result["unknown_count"] == 1
+    assert result["selected_count"] == 2 and result["processed_count"] == 0
+    assert result["attempted_count"] == 1
+    assert result["unprocessed_count"] == 1
+    assert result["unknown_count"] == 2
+    assert result["processed_count"] + result["unknown_count"] == result["selected_count"]
     assert len(list(tmp_path.glob("extract-*/outcome-*.json"))) == 1
     pdf.write_bytes(b"changed")
     with pytest.raises(ValueError, match="original source changed"):

@@ -3,7 +3,28 @@
 The approved plan is docs/19_IMPLEMENTATION_PLAN.md and the dependency graph in
 contracts/task_catalog.json. This file records execution; it does not replace that plan.
 
-## Current coordination
+## Developer A resumption — 2026-09-18 KST
+
+Active team checkout: `.local/team-publication-20260918`, branch
+`feature/developer-a-service-validation`, Orca run `run_50a6bd1374a4`.
+Developer B files and frozen domain criteria are unchanged.
+
+The cumulative external-model authorization is USD20 (prior USD10 plus the
+user-authorized USD10 extension). The same durable ledger retains all prior
+expenses and six unresolved reservations. Budget/security and duplicate-cost
+regressions were repaired; actual Kakao/KB/Doosan development probes and a
+Kakao enhanced parse were run. These are not gold accuracy benchmarks.
+
+Native-source coordinate quantization falsely rejected KB text. A bounded
+0.001pt containment tolerance, still requiring exact native and rendered OCR
+agreement, raised source-confirmed blocks from 2 to 135 on the same selected
+three pages. Table relationships and unresolved conditions remain unapproved.
+See [execution evidence](../evidence/developer-a-validation-20260918.md) for
+commands, actual results, costs, limitations and opt-in immutable native-checkpoint
+worker integration. Real tagging runtime, independent domain gold and deployed
+service validation remain incomplete.
+
+## Earlier coordination records
 
 - Branch: feature/proofops-implementation
 - Preserved specification baseline: 348836e

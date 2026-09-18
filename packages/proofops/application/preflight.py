@@ -355,7 +355,7 @@ def check_local_upstage_binding(
         and binding.get("model_id") in ("solar-pro3", "solar-pro4")
         and model_hash_ok
         and binding.get("endpoint") == "https://api.upstage.ai/v1/chat/completions"
-        and binding.get("budget_limit_usd") == "10.00"
+        and binding.get("budget_limit_usd") in ("10.00", "20.00")
         and binding.get("fallback_bindings", []) == [],
     )
     hashes = consent.get("allowed_source_sha256")

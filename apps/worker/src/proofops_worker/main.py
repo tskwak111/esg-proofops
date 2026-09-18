@@ -34,9 +34,16 @@ def main() -> None:
         action="store_true",
         help="Automatically review tables with the shared authorized Upstage budget",
     )
+    arguments.add_argument(
+        "--verify-paragraphs",
+        action="store_true",
+        help="Verify native paragraph text against rendered PDF; parse stage only",
+    )
     options = arguments.parse_args()
     runner = None
     try:
+        if options.verify_paragraphs and options.stage != "parse":
+            raise ValueError("NATIVE_PARAGRAPHS_REQUIRE_PARSE_STAGE")
         if options.review_table_notes and options.note_review_artifact:
             raise ValueError("NOTE_REVIEW_INPUT_MODE_CONFLICT")
         if (
@@ -51,7 +58,9 @@ def main() -> None:
                 raise ValueError("NOTE_REVIEW_ARTIFACT_TOO_LARGE")
             artifacts.append(raw.decode("utf-8"))
         runner = build_composition(
-            stage=options.stage, review_table_notes=options.review_table_notes
+            stage=options.stage,
+            review_table_notes=options.review_table_notes,
+            verify_paragraphs=options.verify_paragraphs,
         )
         if artifacts:
             if not isinstance(runner, LocalParserRunner):

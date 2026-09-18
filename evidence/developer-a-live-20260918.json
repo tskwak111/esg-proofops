@@ -1,0 +1,286 @@
+{
+  "benchmark": "development_only_not_gold_accuracy",
+  "results": [
+    {
+      "company": "doosan",
+      "artifact": ".local/developer-a-validation/doosan/extract-35443e92-86ae-4d92-ba60-c8d52c07db18/summary.json",
+      "status": "evaluated",
+      "selected_count": 2,
+      "processed_count": 2,
+      "unknown_count": 0,
+      "claim_candidates": 0,
+      "usage": {
+        "model_calls": 2,
+        "reserved_calls": 2,
+        "settled_calls": 2,
+        "unsettled_calls": 0,
+        "input_tokens": 1205,
+        "output_tokens": 12,
+        "token_usage_complete": true,
+        "cost_with_vat_reserve_usd": "0.0002067450",
+        "committed_or_reserved_usd": "0.0002067450",
+        "unknown_reservation_cost_usd": null,
+        "extractor_calls": 2
+      },
+      "seconds": 1.0242403326556087,
+      "source_quality": "unverified",
+      "cost_usd": null
+    },
+    {
+      "company": "doosan",
+      "artifact": ".local/developer-a-validation/doosan/extract-7b608dff-51cc-4878-adec-07060f10511c/summary.json",
+      "status": "stopped",
+      "selected_count": 2,
+      "processed_count": 1,
+      "unknown_count": 1,
+      "claim_candidates": 0,
+      "usage": {
+        "model_calls": 1,
+        "reserved_calls": 1,
+        "settled_calls": 1,
+        "unsettled_calls": 0,
+        "input_tokens": 621,
+        "output_tokens": 36,
+        "token_usage_complete": true,
+        "cost_with_vat_reserve_usd": "0.0001262250",
+        "committed_or_reserved_usd": "0.0001262250",
+        "unknown_reservation_cost_usd": null,
+        "extractor_calls": 1
+      },
+      "seconds": 0.0020179999992251396,
+      "source_quality": "unverified",
+      "cost_usd": null,
+      "excluded_from_cost_aggregation": true,
+      "known_defect": "Historical successful request counted as current usage before duplicate-accounting fix; shared ledger had no new charge."
+    },
+    {
+      "company": "doosan",
+      "artifact": ".local/developer-a-validation/doosan/extract-f403056a-72f4-428d-97df-5d8faf1ef28c/summary.json",
+      "status": "evaluated",
+      "selected_count": 2,
+      "processed_count": 2,
+      "unknown_count": 0,
+      "claim_candidates": 1,
+      "usage": {
+        "model_calls": 2,
+        "reserved_calls": 2,
+        "settled_calls": 2,
+        "unsettled_calls": 0,
+        "input_tokens": 1252,
+        "output_tokens": 44,
+        "token_usage_complete": true,
+        "cost_with_vat_reserve_usd": "0.0002356200",
+        "committed_or_reserved_usd": "0.0002356200",
+        "unknown_reservation_cost_usd": null,
+        "extractor_calls": 2
+      },
+      "seconds": 1.0756335002370179,
+      "source_quality": "unverified",
+      "cost_usd": null
+    },
+    {
+      "company": "kakao",
+      "artifact": ".local/developer-a-validation/kakao/enhanced-a63f8c7c-a19d-46e6-8a56-6ca0a92e9bfb/summary.json",
+      "status": "parsed",
+      "selected_count": null,
+      "processed_count": null,
+      "unknown_count": null,
+      "claim_candidates": 0,
+      "usage": null,
+      "seconds": 15.156753791961819,
+      "source_quality": "unverified",
+      "cost_usd": "0.099"
+    },
+    {
+      "company": "kakao",
+      "artifact": ".local/developer-a-validation/kakao/extract-16328393-0d5a-46ab-af5b-d91d8266b2e9/summary.json",
+      "status": "evaluated",
+      "selected_count": 2,
+      "processed_count": 2,
+      "unknown_count": 0,
+      "claim_candidates": 5,
+      "usage": {
+        "model_calls": 2,
+        "reserved_calls": 2,
+        "settled_calls": 2,
+        "unsettled_calls": 0,
+        "input_tokens": 1413,
+        "output_tokens": 208,
+        "token_usage_complete": true,
+        "cost_with_vat_reserve_usd": "0.0003704250",
+        "committed_or_reserved_usd": "0.0003704250",
+        "unknown_reservation_cost_usd": null,
+        "extractor_calls": 2
+      },
+      "seconds": 2.1438731248490512,
+      "source_quality": "unverified",
+      "cost_usd": null
+    },
+    {
+      "company": "kb",
+      "artifact": ".local/developer-a-validation/kb/extract-186bd7e2-9ba8-4ccf-a707-0f8cd7a942fe/summary.json",
+      "status": "evaluated",
+      "selected_count": 2,
+      "processed_count": 2,
+      "unknown_count": 0,
+      "claim_candidates": 5,
+      "usage": {
+        "model_calls": 2,
+        "reserved_calls": 2,
+        "settled_calls": 2,
+        "unsettled_calls": 0,
+        "input_tokens": 1320,
+        "output_tokens": 120,
+        "token_usage_complete": true,
+        "cost_with_vat_reserve_usd": "0.000297000",
+        "committed_or_reserved_usd": "0.000297000",
+        "unknown_reservation_cost_usd": null,
+        "extractor_calls": 2
+      },
+      "seconds": 1.525065042078495,
+      "source_quality": "unverified",
+      "cost_usd": null
+    },
+    {
+      "company": "doosan",
+      "artifact": ".local/developer-a-validation/doosan/extract-d69456eb-44cb-4e96-a479-bbfb2728126c/summary.json",
+      "status": "stopped",
+      "selected_count": 2,
+      "processed_count": 1,
+      "unknown_count": 1,
+      "usage": {
+        "model_calls": 0,
+        "reserved_calls": 0,
+        "settled_calls": 0,
+        "unsettled_calls": 0,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "token_usage_complete": true,
+        "cost_with_vat_reserve_usd": "0",
+        "committed_or_reserved_usd": "0",
+        "unknown_reservation_cost_usd": null,
+        "extractor_calls": 0
+      },
+      "seconds": 0.001931833103299141,
+      "source_quality": "unverified",
+      "error": "DUPLICATE_PROBE_REQUEST",
+      "claim_candidates": 0
+    }
+  ],
+  "budget_checkpoint": {
+    "authorized_limit_usd": "20.00",
+    "committed_or_reserved_usd": "7.9347865900",
+    "total_call_rows": 1372,
+    "unsettled_rows": 6,
+    "new_call_rows_this_session": 13,
+    "session_increment_usd": "0.1008489900",
+    "recorded_at": "2026-09-18T12:57:43.761192+00:00"
+  },
+  "native_source_checks": [
+    {
+      "company": "kakao",
+      "artifact": ".local/developer-a-validation/kakao/native-attestation-1789736917674700000.json",
+      "verifier_sha256": "b43a999c56b3cb5205d9777b6f2e98dca55d874d8a87ae6b792edf9af3716391",
+      "receipt_sha256": "4aeb5aca6f56a1f3c98f37e7e3d013fb30a0ac403606284d5fcdd889a7dd1898",
+      "status": {
+        "unresolved": 373
+      },
+      "reasons": {
+        "interactive_visibility_requires_review": 128,
+        "relationship_validation_required": 245
+      },
+      "gold_accuracy": false
+    },
+    {
+      "company": "kb",
+      "artifact": ".local/developer-a-validation/kb/native-attestation-1789736920909930000.json",
+      "verifier_sha256": "b43a999c56b3cb5205d9777b6f2e98dca55d874d8a87ae6b792edf9af3716391",
+      "receipt_sha256": "fe1cb35ee395a6d575a6e9c53744f8c517a18e54ba92cc12f85c555e323bac2e",
+      "status": {
+        "unresolved": 472,
+        "verified": 2
+      },
+      "reasons": {
+        "relationship_validation_required": 280,
+        "clipped_or_rotated_words": 186,
+        "None": 2,
+        "text_mismatch": 3,
+        "rendered_text_unresolved": 3
+      },
+      "gold_accuracy": false
+    },
+    {
+      "company": "kb",
+      "artifact": ".local/developer-a-validation/kb/native-attestation-rounded-1789737231497754000.json",
+      "verifier_sha256": "4ad5b88c7c1d6773332cfb54bc3236dd6bdf8d7f4300ec3f4b91a577a81d2e18",
+      "receipt_sha256": "20825081a58d69a9dcd24884a7e5dd595c3d2a879eec9b93abbda60cbae6f9b5",
+      "status": {
+        "unresolved": 339,
+        "verified": 135
+      },
+      "reasons": {
+        "relationship_validation_required": 280,
+        "text_mismatch": 24,
+        "None": 135,
+        "rendered_text_unresolved": 28,
+        "clipped_or_rotated_words": 7
+      },
+      "gold_accuracy": false
+    },
+    {
+      "company": "doosan",
+      "artifact": ".local/developer-a-validation/doosan/native-attestation-1789736921040721000.json",
+      "verifier_sha256": "b43a999c56b3cb5205d9777b6f2e98dca55d874d8a87ae6b792edf9af3716391",
+      "receipt_sha256": "62540be41993b3b84581c1f01e9006b440654d17dd396f7343c1b9d5395186eb",
+      "status": {
+        "unresolved": 254
+      },
+      "reasons": {
+        "relationship_validation_required": 173,
+        "interactive_visibility_requires_review": 81
+      },
+      "gold_accuracy": false
+    }
+  ],
+  "service_native_pilot": {
+    "company": "kb",
+    "run_id": "4f16bfeb-c1cc-4a8a-94d9-47a29b226177",
+    "artifact": ".local/developer-a-service-kb-native/inspection-1789738233580410000.json",
+    "physical_pages": [
+      30
+    ],
+    "report_period": [
+      "2025-01-01",
+      "2025-12-31"
+    ],
+    "period_source_physical_page": 3,
+    "parse_status": "committed",
+    "checkpoint_schema": "local_parser_checkpoint_v4",
+    "source_blocks_verified": 29,
+    "source_blocks_unresolved": 109,
+    "extract_status": "committed",
+    "claims_http_status": 200,
+    "claims": 7,
+    "claim_source_quality": {
+      "verified": 2,
+      "unverified": 5
+    },
+    "tag_status": "blocked",
+    "tag_reasons": {
+      "TAGGING_RUNTIME_REQUIRED": 2,
+      "SOURCE_VALIDATION_REQUIRED": 5
+    },
+    "model_calls": 2,
+    "cost_usd": "0.000335610",
+    "observed_log_interval_seconds": 90.456925,
+    "gold_accuracy": false
+  },
+  "final_budget": {
+    "authorized_limit_usd": "20.00",
+    "committed_or_reserved_usd": "7.9351222000",
+    "total_call_rows": 1374,
+    "unsettled_rows": 6,
+    "new_call_rows_this_session": 15,
+    "session_increment_usd": "0.1011846000"
+  }
+}

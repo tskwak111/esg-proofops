@@ -112,7 +112,9 @@ def attest_native_sources(graph, source, *, tenant_id):
                 if wb[2] <= box[0] or wb[0] >= box[2] or wb[3] <= box[1] or wb[1] >= box[3]:
                     continue
                 if not word["upright"] or not (
-                    box[0] <= wb[0] < wb[2] <= box[2] and box[1] <= wb[1] < wb[3] <= box[3]
+                    # Parser coordinates are rounded to 0.001pt; allow only that quantization.
+                    box[0] - 0.001 <= wb[0] < wb[2] <= box[2] + 0.001
+                    and box[1] - 0.001 <= wb[1] < wb[3] <= box[3] + 0.001
                 ):
                     clipped = True
                 record["words"].append(dict(index=index, text=word["text"], bbox=wb))

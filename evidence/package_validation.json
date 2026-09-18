@@ -1,9 +1,9 @@
 {
-  "checked_at": "2026-09-18T07:08:39.134931+00:00",
+  "checked_at": "2026-09-18T13:33:15.009235+00:00",
   "scope": "documentation, structured contracts and synthetic schema examples only",
   "status": "passed",
-  "checks_total": 797,
-  "passed": 797,
+  "checks_total": 820,
+  "passed": 820,
   "failed": 0,
   "counts": {
     "numbered_documents": 34,
@@ -80,6 +80,11 @@
     },
     {
       "name": "json:evidence/upstage-tagging-diagnostics.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/developer-a-live-20260918.json",
       "passed": true,
       "detail": ""
     },
@@ -220,6 +225,11 @@
     },
     {
       "name": "json:evidence/section-pipeline-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/upstage-price-recheck-20260918.json",
       "passed": true,
       "detail": ""
     },
@@ -420,6 +430,111 @@
     },
     {
       "name": "json:handoff/2026-09-18/reference/manifest.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:handoff/team-v2/contract/example-policy.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:handoff/team-v2/contract/input.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:handoff/team-v2/contract/policy.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:handoff/team-v2/contract/example-output.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:handoff/team-v2/contract/output.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:handoff/team-v2/contract/example-input.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:handoff/team-v2/contract/v1/example-policy.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:handoff/team-v2/contract/v1/input.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:handoff/team-v2/contract/v1/policy.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:handoff/team-v2/contract/v1/example-output.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:handoff/team-v2/contract/v1/output.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:handoff/team-v2/contract/v1/example-input.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:handoff/team-v2/contract/examples/c1-different-entity-types.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:handoff/team-v2/contract/examples/c3-policy-unresolved.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:handoff/team-v2/contract/examples/c4-definition-and-method.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:handoff/team-v2/contract/examples/c2-same-period.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:handoff/team-v2/contract/examples/c4-search-incomplete.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:handoff/team-v2/contract/examples/c1-difference-no-explanation.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:handoff/team-v2/contract/examples/c1-same-entities.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:handoff/team-v2/contract/examples/c1-search-incomplete.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:handoff/team-v2/reference/manifest.json",
       "passed": true,
       "detail": ""
     },

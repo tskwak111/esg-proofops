@@ -2,6 +2,8 @@
 
 import json
 from dataclasses import asdict, replace
+from datetime import UTC as _UTC
+from datetime import datetime as _RealDatetime
 from uuid import UUID
 
 import pytest
@@ -11,6 +13,18 @@ from proofops.domain.provenance import canonical_hash
 from proofops_agent.upstage_tagging import MODEL_PROFILE, UpstageTaggingTransport
 
 from tests.acceptance.test_tagging import setup
+
+
+# Freeze the offline transport clock; worker authorization expiry remains real
+# relative to the existing fixture clock, including its explicit expiry test.
+@pytest.fixture(autouse=True)
+def _freeze_upstage_price_clock(monkeypatch):
+    class FixedDateTime(_RealDatetime):
+        @classmethod
+        def now(cls, tz=None):
+            return _RealDatetime(2026, 9, 10, tzinfo=_UTC).astimezone(tz)
+
+    monkeypatch.setattr("proofops.adapters.local.upstage.datetime", FixedDateTime)
 
 
 def configured(tmp_path, monkeypatch):

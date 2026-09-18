@@ -230,7 +230,7 @@ def test_probe_run_creation_rejects_missing_profile_without_bypass(tmp_path):
     [
         (0, "purpose", "production"),
         (0, "provider", "other"),
-        (0, "budget_limit_usd", "20.00"),
+        (0, "budget_limit_usd", "20.01"),
         (0, "expires_at", "2026-09-08T00:00:00Z"),
         (0, "role", "tagger"),
         (1, "allowed_source_sha256", ["b" * 64]),
@@ -368,3 +368,20 @@ def test_pro4_binding_requires_explicit_model_hash_even_for_preflight():
     assert check_local_upstage_binding(
         **args, model_sha256=_profile("solar-pro4").model_sha256
     ).ready
+
+
+@pytest.mark.parametrize(
+    "cap,accepted",
+    [("10.00", True), ("20.00", True), ("20.01", False), ("NaN", False), (20, False)],
+)
+def test_local_binding_accepts_only_user_authorized_caps(cap, accepted):
+    runtime, consent = profiles()
+    runtime["budget_limit_usd"] = cap
+    result = check_local_upstage_binding(
+        binding=runtime,
+        consent=consent,
+        auth=AUTH,
+        checked_at=NOW,
+        source_sha256="a" * 64,
+    )
+    assert result.ready is accepted

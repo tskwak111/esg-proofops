@@ -153,3 +153,31 @@ def test_native_page_outside_document_is_rejected():
     )
     with pytest.raises(ValueError, match="native page outside document"):
         attest_native_sources(fuse_candidates((batch,), tenant_id=TENANT), source, tenant_id=TENANT)
+
+
+@pytest.mark.parametrize("inset,expected", [(0.0005, "verified"), (0.002, "unresolved")])
+def test_bbox_rounding_tolerance_does_not_accept_real_clipping(monkeypatch, inset, expected):
+    from proofops.adapters.local import source_verification
+
+    calls = []
+
+    def rendered(page, box):
+        calls.append(box)
+        return dict(status="read", text="Page 1 emissions 1234 tCO2e")
+
+    monkeypatch.setattr(source_verification, "_rendered_text", rendered)
+    source = pdf()
+    batch = replace(
+        candidate(
+            "rounded",
+            [("P", "paragraph", "Page 1 emissions 1234 tCO2e", (72 + inset, 710, 300, 740), ())],
+        ),
+        source_sha256=sha256(source).hexdigest(),
+    )
+    record = source_verification.attest_native_sources(
+        fuse_candidates((batch,), tenant_id=TENANT), source, tenant_id=TENANT
+    )["records"][0]
+    assert record["status"] == expected
+    assert bool(calls) == (expected == "verified")
+    if expected == "unresolved":
+        assert record["reason"] == "clipped_or_rotated_words"

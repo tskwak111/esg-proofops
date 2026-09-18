@@ -15,7 +15,11 @@ from importlib.resources import files
 from types import SimpleNamespace
 from uuid import UUID, uuid4, uuid5
 
-from proofops.adapters.local.run_artifacts import load_run_graph, load_run_inputs
+from proofops.adapters.local.run_artifacts import (
+    load_run_graph,
+    load_run_inputs,
+    native_paragraph_policy,
+)
 from proofops.adapters.parsing.opendataloader import OpenDataLoaderParser, ParseFailure
 from proofops.application.ingest.graph_fusion import ParserProfile
 from proofops.application.ports.jobs import JobMessage, LeaseLost
@@ -40,11 +44,15 @@ class LocalParserRunner:
         clock=time.time,
         note_client=None,
         note_ledger=None,
+        verify_paragraphs: bool = False,
     ):
         if not uploads.local_synthetic or not isinstance(profile, ParserProfile):
             raise ValueError("local parser requires local storage and executable configuration")
+        if type(verify_paragraphs) is not bool:
+            raise ValueError("verify_paragraphs must be a boolean")
         self.store, self.uploads, self.parser = store, uploads, parser
         self.profile, self.telemetry, self.clock = profile, telemetry, clock
+        self.verify_paragraphs = verify_paragraphs
         self.note_client = note_client
         self.note_ledger = (
             note_ledger if note_ledger is not None else getattr(note_client, "ledger", None)
@@ -91,6 +99,13 @@ class LocalParserRunner:
         # No tenant discovery or implicit live-provider selection.
         self.store.snapshot(tenant_id, run_id)
         run = self.store.jobs.get_run(tenant_id, run_id)
+        native_policy = native_paragraph_policy() if self.verify_paragraphs else None
+        if (
+            "parse_job" in run
+            and self.store.jobs.parser_native_policy(JobMessage(**run["parse_job"]))
+            != native_policy
+        ):
+            raise ValueError("NATIVE_PARAGRAPH_ALREADY_PUBLISHED")
         if self.note_client is not None and "parse_job" in run:
             if (
                 self.store.jobs.parser_note_policy(JobMessage(**run["parse_job"]))
@@ -150,6 +165,9 @@ class LocalParserRunner:
                     if policy is not None and note_review_artifacts:
                         raise ValueError("NOTE_REVIEW_INPUT_MODE_CONFLICT")
                     self.store.jobs.bind_parser_note_policy(lease, policy, now=int(self.clock()))
+                    self.store.jobs.bind_parser_native_policy(
+                        lease, native_policy, now=int(self.clock())
+                    )
                     if policy is None:
                         pinned_notes = self.store.jobs.bind_parser_note_reviews(
                             lease, note_review_artifacts, now=int(self.clock())
@@ -202,6 +220,19 @@ class LocalParserRunner:
                         graph = replay_note_reviews(
                             pinned_notes, graph, source.content, tenant_id=tenant_id
                         )
+                    native_receipt = None
+                    if native_policy is not None:
+                        from proofops.adapters.local.source_verification import (
+                            attest_native_sources,
+                            replay_native_sources,
+                        )
+
+                        native_receipt = attest_native_sources(
+                            graph, source.content, tenant_id=tenant_id
+                        )
+                        graph = replay_native_sources(
+                            native_receipt, graph, source.content, tenant_id=tenant_id
+                        )
                     manifest = json.loads(raw_manifest)
                     unreadable = {
                         issue.page_num for issue in graph.issues if issue.state == "unreadable"
@@ -252,6 +283,14 @@ class LocalParserRunner:
                             runtime_note_review_artifacts=list(pinned_notes),
                             graph_sha256=canonical_hash(asdict(graph)),
                             note_review_policy_sha256=canonical_hash(policy),
+                        )
+                    if native_policy is not None:
+                        payload.update(
+                            schema="local_parser_checkpoint_v4",
+                            runtime_note_review_artifacts=list(pinned_notes or ()),
+                            graph_sha256=canonical_hash(asdict(graph)),
+                            native_paragraph_attestation=native_receipt,
+                            native_paragraph_policy_sha256=canonical_hash(native_policy),
                         )
                     return canonical_json(payload).encode(), usage
                 except (ParseFailure, UploadRejected) as exc:

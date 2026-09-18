@@ -25,7 +25,7 @@ def test_usage_settles_and_duplicate_cannot_bill_again(tmp_path, monkeypatch):
     assert json.loads(result["content"]) == {"ok": True}
     assert Decimal(result["cost_with_vat_reserve_usd"]) == Decimal("0.0000297")
     assert Decimal(client.summary()["committed_usd"]) == Decimal("0.0000297")
-    with pytest.raises(ValueError, match="duplicate"):
+    with pytest.raises(ValueError, match="DUPLICATE_PROBE_REQUEST"):
         client.complete("JSON only", "{}", request_id="one")
     assert "test-secret" not in repr(client)
 
@@ -244,7 +244,7 @@ def test_provider_response_survives_validation_and_restart(tmp_path, monkeypatch
     assert root.stat().st_mode & 0o777 == 0o700
     assert path.stat().st_mode & 0o777 == 0o600
     restarted = upstage.UpstageProbe("test-secret", ledger)
-    with pytest.raises(ValueError, match="duplicate"):
+    with pytest.raises(ValueError, match="DUPLICATE_PROBE_REQUEST"):
         restarted.complete("JSON", "{}", request_id=request_id)
     assert path.read_bytes() == archived
     assert restarted.summary()["unsettled_calls"] == (finish_reason != "stop")
