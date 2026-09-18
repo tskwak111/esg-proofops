@@ -325,3 +325,44 @@ Final regression for this checkpoint:
 → 2448 passed, 7 skipped, 2 existing deprecation warnings, 190.88 seconds.
 Log: /tmp/proofops-emptyform-full-suite.txt. The E2E scope here is the staging gate;
 real browser review and cloud runs remain not_run. No active paid calls remain.
+
+### Environmental claims versus assurance prose — 2026-09-19
+
+Changed only the real extractor prompt to distinguish company environmental
+claims from an assurance provider's engagement scope, procedures, limitations,
+exclusions and responsibilities. Actual company environmental claims remain
+eligible in appendix material and when mentioning assurance. No blanket page or
+keyword exclusion and no change to evidence retrieval or grade rules.
+
+A same-input comparison reused the eight retained Doosan source packets and ran
+one new Solar Pro3 response per packet under the new pinned prompt. The three
+assurance-only packets went from six claim candidates to zero. Eleven complete
+body claims in four other packets were preserved verbatim. The remaining input
+starts mid-quotation (a parser fragment); its new full-fragment response failed
+the existing paired-quotation validator and was retained as failure, not counted
+as a successful empty result. Initial evaluation stopped on this failure; resume
+loaded both existing receipts and called only the six unprocessed packets. No
+failed/incomplete request was retried. This is an assistant-reviewed development
+comparison, not independently labeled accuracy. Evidence:
+`evidence/extraction-assurance-ab-20260919.json`.
+
+Eight real calls cost USD0.0012429450; cumulative shared commitment/reservation
+is USD7.9786289050/20, 1468 calls, original six unsettled unchanged. Focused
+extractor/pilot config suite: 42 passed. Ruff check/format, targeted mypy and
+proofops-agent package build passed. Previous full suite (2448 passed) predates
+this prompt change; the focused suite covers its runtime/profile contract.
+New prompt hash requires new run settings; immutable earlier runs are unchanged.
+
+Investigated the Doosan paragraph coordinate failure using the already present
+native_word_ink_geometry module. The original pdfplumber font boxes for the
+preceding heading overlap the body rectangle although PDFium glyph ink boxes
+are wholly above it. This is a font-metric discrepancy, not a justification for
+widening the clipping tolerance. Diagnostic evidence is saved in
+`evidence/doosan-paragraph-geometry-20260919.json`; no source was promoted by it.
+Next: source-bound glyph selection plus rendered agreement under an explicit
+pinned policy, retaining hidden-text/overpaint/clipping rejection and old receipts.
+
+Ordinary Codex quota: 72% used /28% remaining. Antigravity.app and Antigravity
+IDE.app are installed, though antigravity is absent from PATH; absence of the
+CLI is not evidence of exhausted Antigravity credits. OpenCode's previous free
+usage rejection remains recorded. No worker or paid request is currently active.

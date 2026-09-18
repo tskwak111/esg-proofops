@@ -1,0 +1,409 @@
+{
+  "schema": "extraction_same_packet_comparison_v1",
+  "synthetic": false,
+  "profile": {
+    "model_sha256": "50ebece5e6cd52b750c8efdd0162418cac948d0b7376ceb00b91131935eead8f",
+    "prompt_sha256": "ffafe54d30da3c37c84ddbfe9551655f7635278fccb6aecb36582875c1a1499d",
+    "rule_sha256": "bd04e6799177e63eaae4f61c215b04d9b4648423f57ca44c59e7ad3bb9d2a4e9",
+    "synthetic": false,
+    "replicate_id": 1,
+    "extraction_epoch": 1
+  },
+  "baseline_state": ".local/developer-a-live-tagging-doosan-emptyform",
+  "state_path": ".local/developer-a-extraction-assurance-ab",
+  "cost": {
+    "model_calls": 8,
+    "reserved_calls": 8,
+    "settled_calls": 8,
+    "unsettled_calls": 0,
+    "input_tokens": 5929,
+    "output_tokens": 401,
+    "token_usage_complete": true,
+    "cost_with_vat_reserve_usd": "0.0012429450",
+    "committed_or_reserved_usd": "0.0012429450",
+    "unknown_reservation_cost_usd": null
+  },
+  "cases": [
+    {
+      "source_id": "5db252c3-639f-558a-931b-9d1245c50037",
+      "page": 110,
+      "text": "검증은 DNV에 제공된 두산밥캣의 데이터 및 정보가 완전하고, 충분하며, 사실이며, 중요한 왜곡 표시가 없다는 가정을 기반으로 실시되었습니다. 한편, 표본추출(샘플링)과 내부 통제 절차 및 시스템에 대한 기타 내재적 제한들로 인해 중대할 수 있는 오류 또는 불규칙성이 감지되지 않았을 수 있는 리스크가 불가피하게 존재합니다.",
+      "before": [
+        {
+          "char_end": 79,
+          "char_start": 0,
+          "kind": "claim",
+          "quote": "검증은 DNV에 제공된 두산밥캣의 데이터 및 정보가 완전하고, 충분하며, 사실이며, 중요한 왜곡 표시가 없다는 가정을 기반으로 실시되었습니다.",
+          "reason": null,
+          "topic_ids": [
+            "environment"
+          ]
+        },
+        {
+          "char_end": 181,
+          "char_start": 80,
+          "kind": "claim",
+          "quote": "한편, 표본추출(샘플링)과 내부 통제 절차 및 시스템에 대한 기타 내재적 제한들로 인해 중대할 수 있는 오류 또는 불규칙성이 감지되지 않았을 수 있는 리스크가 불가피하게 존재합니다.",
+          "reason": null,
+          "topic_ids": [
+            "environment"
+          ]
+        }
+      ],
+      "after": [],
+      "error": null
+    },
+    {
+      "source_id": "023ce8a7-88d5-57dc-8c59-2e4548c181ee",
+      "page": 27,
+      "text": "배출량 목표 수립’과 ‘2024년 온실가스 대응 계획 이행’을 포함하여, 기후변화 대응과 관련된 책임성과 추진력을 높이고 있습니다.",
+      "before": [
+        {
+          "char_end": 32,
+          "char_start": 13,
+          "kind": "claim",
+          "quote": "2024년 온실가스 대응 계획 이행",
+          "reason": null,
+          "topic_ids": [
+            "environment"
+          ]
+        }
+      ],
+      "after": [],
+      "error": "MODEL_SPAN_OR_SCHEMA_INVALID"
+    },
+    {
+      "source_id": "9cf78d13-0aa7-5869-89fe-cd399fb988aa",
+      "page": 27,
+      "text": "두산밥캣은 CSO와 CTO의 총괄 하에 각 지역의 Operation, Engineering, EHS(Environment, Health&Safety) 부서로 구성된 Climate Working Group을 운영하고 있습니다. Climate Working Group은 지역별 사업전략과 생산운영 분야의 전문가로 구성되어 있으며 각 지역에서 설정한 온실가스 감축 목표와 기후변화 대응 전략을 기반으로 실행 과제를 이행하고 있습니다. 특히 실제 배출량을 목표와 비교하여 지속적으로 모니터링하고 있으며, 해당 결과를 바탕으로 감축 계획을 마련하고 있습니다. 아울러 감축 계획의 이행 성과를 분기마다 ESG 코디네이터에게 보고하여 관리 체계를 강화하고 있습니다.",
+      "before": [
+        {
+          "char_end": 125,
+          "char_start": 0,
+          "kind": "claim",
+          "quote": "두산밥캣은 CSO와 CTO의 총괄 하에 각 지역의 Operation, Engineering, EHS(Environment, Health&Safety) 부서로 구성된 Climate Working Group을 운영하고 있습니다.",
+          "reason": null,
+          "topic_ids": [
+            "environment"
+          ]
+        },
+        {
+          "char_end": 239,
+          "char_start": 126,
+          "kind": "claim",
+          "quote": "Climate Working Group은 지역별 사업전략과 생산운영 분야의 전문가로 구성되어 있으며 각 지역에서 설정한 온실가스 감축 목표와 기후변화 대응 전략을 기반으로 실행 과제를 이행하고 있습니다.",
+          "reason": null,
+          "topic_ids": [
+            "environment"
+          ]
+        },
+        {
+          "char_end": 307,
+          "char_start": 240,
+          "kind": "claim",
+          "quote": "특히 실제 배출량을 목표와 비교하여 지속적으로 모니터링하고 있으며, 해당 결과를 바탕으로 감축 계획을 마련하고 있습니다.",
+          "reason": null,
+          "topic_ids": [
+            "environment"
+          ]
+        },
+        {
+          "char_end": 365,
+          "char_start": 308,
+          "kind": "claim",
+          "quote": "아울러 감축 계획의 이행 성과를 분기마다 ESG 코디네이터에게 보고하여 관리 체계를 강화하고 있습니다.",
+          "reason": null,
+          "topic_ids": [
+            "environment"
+          ]
+        }
+      ],
+      "after": [
+        {
+          "char_start": 0,
+          "char_end": 125,
+          "quote": "두산밥캣은 CSO와 CTO의 총괄 하에 각 지역의 Operation, Engineering, EHS(Environment, Health&Safety) 부서로 구성된 Climate Working Group을 운영하고 있습니다.",
+          "kind": "claim",
+          "reason": null,
+          "topic_ids": [
+            "environment"
+          ]
+        },
+        {
+          "char_start": 126,
+          "char_end": 239,
+          "quote": "Climate Working Group은 지역별 사업전략과 생산운영 분야의 전문가로 구성되어 있으며 각 지역에서 설정한 온실가스 감축 목표와 기후변화 대응 전략을 기반으로 실행 과제를 이행하고 있습니다.",
+          "kind": "claim",
+          "reason": null,
+          "topic_ids": [
+            "environment"
+          ]
+        },
+        {
+          "char_start": 240,
+          "char_end": 307,
+          "quote": "특히 실제 배출량을 목표와 비교하여 지속적으로 모니터링하고 있으며, 해당 결과를 바탕으로 감축 계획을 마련하고 있습니다.",
+          "kind": "claim",
+          "reason": null,
+          "topic_ids": [
+            "environment"
+          ]
+        },
+        {
+          "char_start": 308,
+          "char_end": 365,
+          "quote": "아울러 감축 계획의 이행 성과를 분기마다 ESG 코디네이터에게 보고하여 관리 체계를 강화하고 있습니다.",
+          "kind": "claim",
+          "reason": null,
+          "topic_ids": [
+            "environment"
+          ]
+        }
+      ],
+      "error": null
+    },
+    {
+      "source_id": "47f41832-a84c-50f7-bd7c-eb148703f7a8",
+      "page": 27,
+      "text": "CHRO ESG팀은 지역별 ESG 코디네이터와 협력하여 각 지역에서 추진 중인 기후변화 대응 전략과제의 이행 상황을 모니터링합니다. 또한 지역의 외부 환경 변화와 산업 특성, 이해관계자 요구 등을 반영하여 기후 관련 리스크와 기회 요인을 지속적으로 분석·검토합니다. 이 외에도 CHRO ESG팀은 전사 전략과제의 이행 현황과 함께 기후 리스크 및 기회 요인에 대한 검토 결과를 주요 ESG 이슈와 함께 분기 1회 정기적으로, 필요 시에는 수시로 글로벌 ESG 위원회에 보고하여 의사결정의 투명성과 신속성을 높이고 있습니다.",
+      "before": [
+        {
+          "char_end": 73,
+          "char_start": 0,
+          "kind": "claim",
+          "quote": "CHRO ESG팀은 지역별 ESG 코디네이터와 협력하여 각 지역에서 추진 중인 기후변화 대응 전략과제의 이행 상황을 모니터링합니다.",
+          "reason": null,
+          "topic_ids": [
+            "environment"
+          ]
+        },
+        {
+          "char_end": 148,
+          "char_start": 74,
+          "kind": "claim",
+          "quote": "또한 지역의 외부 환경 변화와 산업 특성, 이해관계자 요구 등을 반영하여 기후 관련 리스크와 기회 요인을 지속적으로 분석·검토합니다.",
+          "reason": null,
+          "topic_ids": [
+            "environment"
+          ]
+        },
+        {
+          "char_end": 292,
+          "char_start": 149,
+          "kind": "claim",
+          "quote": "이 외에도 CHRO ESG팀은 전사 전략과제의 이행 현황과 함께 기후 리스크 및 기회 요인에 대한 검토 결과를 주요 ESG 이슈와 함께 분기 1회 정기적으로, 필요 시에는 수시로 글로벌 ESG 위원회에 보고하여 의사결정의 투명성과 신속성을 높이고 있습니다.",
+          "reason": null,
+          "topic_ids": [
+            "environment"
+          ]
+        }
+      ],
+      "after": [
+        {
+          "char_start": 0,
+          "char_end": 73,
+          "quote": "CHRO ESG팀은 지역별 ESG 코디네이터와 협력하여 각 지역에서 추진 중인 기후변화 대응 전략과제의 이행 상황을 모니터링합니다.",
+          "kind": "claim",
+          "reason": null,
+          "topic_ids": [
+            "environment"
+          ]
+        },
+        {
+          "char_start": 74,
+          "char_end": 148,
+          "quote": "또한 지역의 외부 환경 변화와 산업 특성, 이해관계자 요구 등을 반영하여 기후 관련 리스크와 기회 요인을 지속적으로 분석·검토합니다.",
+          "kind": "claim",
+          "reason": null,
+          "topic_ids": [
+            "environment"
+          ]
+        },
+        {
+          "char_start": 149,
+          "char_end": 292,
+          "quote": "이 외에도 CHRO ESG팀은 전사 전략과제의 이행 현황과 함께 기후 리스크 및 기회 요인에 대한 검토 결과를 주요 ESG 이슈와 함께 분기 1회 정기적으로, 필요 시에는 수시로 글로벌 ESG 위원회에 보고하여 의사결정의 투명성과 신속성을 높이고 있습니다.",
+          "kind": "claim",
+          "reason": null,
+          "topic_ids": [
+            "environment"
+          ]
+        }
+      ],
+      "error": null
+    },
+    {
+      "source_id": "57cd35bb-bcb4-5833-83ba-fae2f79e2828",
+      "page": 110,
+      "text": "DNV는 보고된 재무 데이터, 거버넌스 및 관련 정보가 별도의 독립적인 법정 감사 프로세스의 적용을 받는 법정 공시 및 감사된 재무제표를 기반으로 한다는 점을 이해합니다. 재무 공개 및 데이터는 검증 범위에서 제외되었으며, 검증은 정의된 보고기간 내의 범위에 있는 데이터 및 정보로 제한되며 해당 기간 이외의 데이터는 검증 범위에 포함되지 않습니다.",
+      "before": [
+        {
+          "char_end": 95,
+          "char_start": 0,
+          "kind": "claim",
+          "quote": "DNV는 보고된 재무 데이터, 거버넌스 및 관련 정보가 별도의 독립적인 법정 감사 프로세스의 적용을 받는 법정 공시 및 감사된 재무제표를 기반으로 한다는 점을 이해합니다.",
+          "reason": null,
+          "topic_ids": [
+            "environment"
+          ]
+        },
+        {
+          "char_end": 195,
+          "char_start": 96,
+          "kind": "claim",
+          "quote": "재무 공개 및 데이터는 검증 범위에서 제외되었으며, 검증은 정의된 보고기간 내의 범위에 있는 데이터 및 정보로 제한되며 해당 기간 이외의 데이터는 검증 범위에 포함되지 않습니다.",
+          "reason": null,
+          "topic_ids": [
+            "environment"
+          ]
+        }
+      ],
+      "after": [],
+      "error": null
+    },
+    {
+      "source_id": "6cab2d81-4d75-5fd0-bc6c-9c4839f90e3b",
+      "page": 27,
+      "text": "글로벌 ESG 위원회는 기후변화와 관련된 리스크와 기회를 종합적으로 분석하여 두산밥캣의 기후변화 대응 방향을 설정하고 있습니다. 또한 글로벌 ESG 전략에 따라 마련된 기후변화 대응 목표를 달성하기 위하여 관련 과제와 KPI를 총괄적으로 관리하고 있습니다. 아울러 기후변화 관련 주요 논의사항을 이사회에 직접 보고하여 기후변화 대응 목표의 이행 수준을 체계적으로 관리하고, 전사적인 온실가스 감축을 추진하고 있습니다.",
+      "before": [
+        {
+          "char_end": 71,
+          "char_start": 0,
+          "kind": "claim",
+          "quote": "글로벌 ESG 위원회는 기후변화와 관련된 리스크와 기회를 종합적으로 분석하여 두산밥캣의 기후변화 대응 방향을 설정하고 있습니다.",
+          "reason": null,
+          "topic_ids": [
+            "environment"
+          ]
+        },
+        {
+          "char_end": 143,
+          "char_start": 72,
+          "kind": "claim",
+          "quote": "또한 글로벌 ESG 전략에 따라 마련된 기후변화 대응 목표를 달성하기 위하여 관련 과제와 KPI를 총괄적으로 관리하고 있습니다.",
+          "reason": null,
+          "topic_ids": [
+            "environment"
+          ]
+        },
+        {
+          "char_end": 233,
+          "char_start": 144,
+          "kind": "claim",
+          "quote": "아울러 기후변화 관련 주요 논의사항을 이사회에 직접 보고하여 기후변화 대응 목표의 이행 수준을 체계적으로 관리하고, 전사적인 온실가스 감축을 추진하고 있습니다.",
+          "reason": null,
+          "topic_ids": [
+            "environment"
+          ]
+        }
+      ],
+      "after": [
+        {
+          "char_start": 0,
+          "char_end": 71,
+          "quote": "글로벌 ESG 위원회는 기후변화와 관련된 리스크와 기회를 종합적으로 분석하여 두산밥캣의 기후변화 대응 방향을 설정하고 있습니다.",
+          "kind": "claim",
+          "reason": null,
+          "topic_ids": [
+            "environment"
+          ]
+        },
+        {
+          "char_start": 72,
+          "char_end": 143,
+          "quote": "또한 글로벌 ESG 전략에 따라 마련된 기후변화 대응 목표를 달성하기 위하여 관련 과제와 KPI를 총괄적으로 관리하고 있습니다.",
+          "kind": "claim",
+          "reason": null,
+          "topic_ids": [
+            "environment"
+          ]
+        },
+        {
+          "char_start": 144,
+          "char_end": 233,
+          "quote": "아울러 기후변화 관련 주요 논의사항을 이사회에 직접 보고하여 기후변화 대응 목표의 이행 수준을 체계적으로 관리하고, 전사적인 온실가스 감축을 추진하고 있습니다.",
+          "kind": "claim",
+          "reason": null,
+          "topic_ids": [
+            "environment"
+          ]
+        }
+      ],
+      "error": null
+    },
+    {
+      "source_id": "a405b98b-85a6-5bb7-9b79-72aea0907995",
+      "page": 27,
+      "text": "두산밥캣은 기후변화에 따른 환경 변화의 심각성을 인지하여, 글로벌 ESG 위원회를 중심으로 하는 기후변화 대응 체계를 구축, 운영하고 있습니다.",
+      "before": [
+        {
+          "char_end": 80,
+          "char_start": 0,
+          "kind": "claim",
+          "quote": "두산밥캣은 기후변화에 따른 환경 변화의 심각성을 인지하여, 글로벌 ESG 위원회를 중심으로 하는 기후변화 대응 체계를 구축, 운영하고 있습니다.",
+          "reason": null,
+          "topic_ids": [
+            "environment"
+          ]
+        }
+      ],
+      "after": [
+        {
+          "char_start": 0,
+          "char_end": 80,
+          "quote": "두산밥캣은 기후변화에 따른 환경 변화의 심각성을 인지하여, 글로벌 ESG 위원회를 중심으로 하는 기후변화 대응 체계를 구축, 운영하고 있습니다.",
+          "kind": "claim",
+          "reason": null,
+          "topic_ids": [
+            "environment"
+          ]
+        }
+      ],
+      "error": null
+    },
+    {
+      "source_id": "4e07b40e-a68e-5113-9b66-02bca67abf70",
+      "page": 110,
+      "text": "보고서에 언급된 회사의 파트너(공급업체, 협력사) 및 제3자의 지속가능경영, 성과 및 보고 관행 등은 본 검증의 범위에 포함되지 않았습니다. DNV는 검증 활동 중 외부 이해관계자 면담을 실시하지 않았습니다.",
+      "before": [
+        {
+          "char_end": 78,
+          "char_start": 0,
+          "kind": "claim",
+          "quote": "보고서에 언급된 회사의 파트너(공급업체, 협력사) 및 제3자의 지속가능경영, 성과 및 보고 관행 등은 본 검증의 범위에 포함되지 않았습니다.",
+          "reason": null,
+          "topic_ids": [
+            "environment"
+          ]
+        },
+        {
+          "char_end": 116,
+          "char_start": 79,
+          "kind": "claim",
+          "quote": "DNV는 검증 활동 중 외부 이해관계자 면담을 실시하지 않았습니다.",
+          "reason": null,
+          "topic_ids": [
+            "environment"
+          ]
+        }
+      ],
+      "after": [],
+      "error": null
+    }
+  ],
+  "limitations": [
+    "Single report development comparison, not independent gold or aggregate accuracy.",
+    "Same source packets, one fresh response per packet; stochastic model variation remains.",
+    "No evidence acceptance or grade implied by extracted claims.",
+    "Retained failures are not retried or counted as successful empty claims."
+  ],
+  "summary": {
+    "before_claims": 18,
+    "after_claims": 11,
+    "failed_packets": 1,
+    "assurance_context_candidates_before": 6,
+    "assurance_context_candidates_after": 0,
+    "unchanged_complete_body_claims": 11,
+    "assessment": "assistant development review; not independent adjudication"
+  }
+}

@@ -1,9 +1,9 @@
 {
-  "checked_at": "2026-09-18T18:04:16.644024+00:00",
+  "checked_at": "2026-09-18T18:11:03.648971+00:00",
   "scope": "documentation, structured contracts and synthetic schema examples only",
   "status": "passed",
-  "checks_total": 831,
-  "passed": 831,
+  "checks_total": 833,
+  "passed": 833,
   "failed": 0,
   "counts": {
     "numbered_documents": 34,
@@ -144,6 +144,11 @@
       "detail": ""
     },
     {
+      "name": "json:evidence/extraction-assurance-ab-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
       "name": "json:evidence/atomic-expanded-results.json",
       "passed": true,
       "detail": ""
@@ -210,6 +215,11 @@
     },
     {
       "name": "json:evidence/semantic-expanded-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/doosan-paragraph-geometry-20260919.json",
       "passed": true,
       "detail": ""
     },

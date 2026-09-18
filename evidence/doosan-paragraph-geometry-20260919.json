@@ -1,0 +1,84 @@
+{
+  "schema": "source_geometry_diagnostic_v1",
+  "source_sha256": "dc59b2b1c5bbf02e33bb901f94aef7cd984dc62547708e92aa1332ac550102e9",
+  "parse_manifest_id": "5dd81148-abc3-5731-901a-7375edfedf51",
+  "source_id": "47f41832-a84c-50f7-bd7c-eb148703f7a8",
+  "physical_page": 27,
+  "candidate_bbox": [
+    292.048,
+    267.71899999999994,
+    481.943,
+    437.45899999999995
+  ],
+  "candidate_text": "CHRO ESG팀은 지역별 ESG 코디네이터와 협력하여 각 지역에서 추진 중인 기후변화 대응 전략과제의 이행 상황을 모니터링합니다. 또한 지역의 외부 환경 변화와 산업 특성, 이해관계자 요구 등을 반영하여 기후 관련 리스크와 기회 요인을 지속적으로 분석·검토합니다. 이 외에도 CHRO ESG팀은 전사 전략과제의 이행 현황과 함께 기후 리스크 및 기회 요인에 대한 검토 결과를 주요 ESG 이슈와 함께 분기 1회 정기적으로, 필요 시에는 수시로 글로벌 ESG 위원회에 보고하여 의사결정의 투명성과 신속성을 높이고 있습니다.",
+  "native_ink_status": "matched",
+  "native_ink_proof_sha256": "75341ac6178a23295eaa54a35546f7b520c0f48ff414fbc93db58c1d9576e156",
+  "selected_heading_words": [
+    {
+      "native_word_index": 52,
+      "pdfium_char_indices": [
+        844,
+        845,
+        846,
+        847
+      ],
+      "font_bbox": [
+        292.0454,
+        266.41389999999996,
+        317.1644,
+        275.41389999999996
+      ],
+      "ink_bbox": [
+        292.5314025878906,
+        259.11488940429683,
+        316.67840576171875,
+        266.1169035644531
+      ]
+    },
+    {
+      "native_word_index": 53,
+      "pdfium_char_indices": [
+        849,
+        850,
+        851,
+        852
+      ],
+      "font_bbox": [
+        319.2344,
+        266.41389999999996,
+        344.4434,
+        275.41389999999996
+      ],
+      "ink_bbox": [
+        320.05340576171875,
+        258.3769133300781,
+        343.4353942871094,
+        266.6658842773437
+      ]
+    },
+    {
+      "native_word_index": 54,
+      "pdfium_char_indices": [
+        854
+      ],
+      "font_bbox": [
+        346.51339999999993,
+        266.41389999999996,
+        353.16439999999994,
+        275.41389999999996
+      ],
+      "ink_bbox": [
+        346.7834167480469,
+        259.11488940429683,
+        352.993408203125,
+        266.1169035644531
+      ]
+    }
+  ],
+  "finding": "Font metric boxes overlap the paragraph top while actual glyph boxes are entirely above it. Existing verifier includes preceding heading and rejects clipping/text mismatch.",
+  "decision": "No source-quality promotion. Reuse existing native_word_ink_geometry with a pinned verification policy and rendered text agreement in subsequent work.",
+  "limitations": [
+    "Diagnostic only; first affected paragraph investigated.",
+    "Tight glyph boxes alone do not prove visibility, semantic relation or source acceptance."
+  ]
+}
