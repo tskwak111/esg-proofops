@@ -1135,3 +1135,25 @@ Luna task_39c3a8054ede / ctx_ea50e6a7bd71 reviewed callers/binding/recovery/cach
 found no required changes; report:/tmp/proofops-relation-conflict-review.md.
 Worker settled, released and delivery_245f08e6e339 acknowledged. Actual fresh
 Doosan pilot is next; fake-HTTP results do not establish real semantic accuracy.
+
+### 2026-09-19 · Actual source-scoped relation pilot
+
+Fresh Doosan2025 run b94cf75c-b4c5-4a36-b891-afb12a0f17b9 at35df508 on
+physical27/97/110 completed with exit0. Twelve extracted claims, eight source
+validation blocks, four candidate reviews. Three reviews retain disputed external
+source maps (3/3/1 sources); every disputed map is null and no guarded present
+citation uses those disputed sources. This checks attribution, not semantic truth.
+Previous same-page run had one review and three relation blocks, but extraction
+was rerun, so this is a coverage observation rather than a paired accuracy trial.
+Raw42present votes became19present and23unknown;14 had literal-value mismatch.
+All decisions remain null under the unapproved candidate rulepack.
+
+Actual44modelcalls costUSD0.0379871250. Original shared ledger1751calls,
+USD9.1774240400 committed/reserved, seven unsettled retained. Evidence:
+live-tagging-doosan-relation-isolation-20260919.json. No code changed during the
+paid run. Source-validation failures and independently labeled semantic evaluation
+remain the next coverage/quality bottlenecks; this result is not production approval.
+All four saved review inputs also passed fresh-process offline composition replay
+with UpstageProbe.complete replaced by a failing sentinel (zero model calls).
+Replay results are embedded in the evidence file. Runtime-head CI35397822041:
+five jobs succeeded; supply-chain integration still running at last observation.
