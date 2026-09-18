@@ -11,6 +11,7 @@ from importlib.metadata import version
 from pathlib import Path
 
 import pdfplumber
+from pdfminer.pdftypes import resolve1
 
 from proofops.application.evidence import citations
 from proofops.application.evidence.citations import _normalized
@@ -69,6 +70,18 @@ def attest_native_sources(graph, source, *, tenant_id):
         raise ValueError("native source mismatch")
     records = []
     with pdfplumber.open(io.BytesIO(source)) as document:
+        form = resolve1(document.doc.catalog.get("AcroForm"))
+        # A default font dictionary with explicitly zero fields is not interactive.
+        # Unknown form features and malformed/missing field arrays stay unresolved.
+        empty_form = (
+            isinstance(form, dict)
+            and set(form) <= {"Fields", "DA", "DR"}
+            and isinstance(resolve1(form.get("Fields")), list)
+            and resolve1(form["Fields"]) == []
+        )
+        interactive = "OCProperties" in document.doc.catalog or (
+            "AcroForm" in document.doc.catalog and not empty_form
+        )
         for block in graph.blocks:
             record = dict(
                 source_id=block.source_id,
@@ -90,7 +103,7 @@ def attest_native_sources(graph, source, *, tenant_id):
                 raise ValueError("native page outside document")
             page = document.pages[block.page_num - 1]
             record["reason"] = "interactive_visibility_requires_review"
-            if any(key in document.doc.catalog for key in ("AcroForm", "OCProperties")) or any(
+            if interactive or any(
                 annotation.get("data", {}).get("AP") for annotation in (page.annots or [])
             ):
                 continue

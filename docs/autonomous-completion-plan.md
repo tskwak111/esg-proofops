@@ -277,3 +277,51 @@ completed cross-source relationship supplier or new real-report accuracy evidenc
 KB's partial-paragraph atoms remain unresolved as before. Follow-up must extract
 roles from other candidate sources with independent literal validation and receipt
 pins, then exercise other report layouts without relaxing the binding contract.
+
+### Doosan body/data/appendix pilot and empty-form guard — 2026-09-19
+
+Ran actual Solar Pro3 extraction and Solar Pro4 preliminary tagging on Doosan
+Bobcat physical pages 27, 97 and 110. Source report period is 2025; visual review
+confirmed climate governance prose, environmental data tables, and assurance
+limitations respectively. Page 110 is only the assurance continuation, not full
+appendix coverage. Source and raw receipts remain in the two new local states.
+
+Baseline run 16942e94-c59d-4186-af4a-e4cd42746edf extracted 18 candidates; all
+were blocked by source validation. Root cause at this gate: AcroForm presence
+blocked all 81 paragraph blocks even though the actual form contains Fields=[]
+and only default font/resource metadata. A failing regression reproduced this.
+The verifier now allows only explicit empty field arrays with the conservative
+Fields/DA/DR key allowlist. Missing/malformed arrays, actual fields, XFA, optional
+layers and annotation appearance guards remain blocked. Native text, clipping
+and rendered OCR checks still apply; empty metadata alone never verifies text.
+
+New run 32fd0f4e-b925-42c7-ab8e-d3230712555f verified 8 source paragraphs;
+52 still have clipped/rotated-word checks, 12 rendered-text mismatches and 9
+native-text mismatches. This is not 8 accepted claims. Of 18 extracted candidates,
+16 remained source-blocked and two assurance statements received null track from
+all three independent preliminary responses. No element calls, review or grade
+were produced. Model extraction incorrectly includes generic assurance prose as
+environmental claim candidates; fix scope/claim classification separately without
+dropping appendix evidence. Cross-source relationship extraction remains pending.
+
+Two pilots added 22 actual calls and USD0.0062201700. Shared ledger: 1460 calls,
+USD7.9773859600 committed/reserved of USD20; the original six unsettled calls are
+unchanged. Evidence: live-tagging-doosan-baseline-20260919.json and
+live-tagging-doosan-emptyform-20260919.json. These are development diagnostics,
+not independent gold or an accuracy benchmark. Last direct Codex quota read was
+71% used /29% remaining.
+
+Compatibility: verifier source hashes change with this fix. Existing attestations
+and run snapshots are not rewritten or reused under a new verifier policy; exact
+replay of old native attestations requires their original code revision (0ad1cf9
+for the baseline). New verifier runs use new state/manifest/receipt identities.
+Rollback reverts the verifier and starts no new-policy work, preserving artifacts.
+Focused native verification tests: 14 passed; targeted Ruff check/format and mypy
+passed. Documentation/contracts validator: 831 checks passed (not app evidence).
+Full application regression results are recorded after the running suite settles.
+
+Final regression for this checkpoint:
+`uv run pytest tests/unit tests/contracts tests/acceptance tests/integration tests/security tests/e2e/test_staging_gate.py -q`
+→ 2448 passed, 7 skipped, 2 existing deprecation warnings, 190.88 seconds.
+Log: /tmp/proofops-emptyform-full-suite.txt. The E2E scope here is the staging gate;
+real browser review and cloud runs remain not_run. No active paid calls remain.

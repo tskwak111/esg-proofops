@@ -1,0 +1,194 @@
+{
+  "schema": "live_tagging_pilot_evidence_v1",
+  "run_id": "16942e94-c59d-4186-af4a-e4cd42746edf",
+  "source_sha256": "dc59b2b1c5bbf02e33bb901f94aef7cd984dc62547708e92aa1332ac550102e9",
+  "selected_pages": [
+    27,
+    97,
+    110
+  ],
+  "state_path": ".local/developer-a-live-tagging-doosan",
+  "cost": {
+    "run_id": "16942e94-c59d-4186-af4a-e4cd42746edf",
+    "input_tokens": 5301,
+    "output_tokens": 574,
+    "attempt_count": 8,
+    "cache_hit_count": 0,
+    "amount": "0.0012535050",
+    "currency": "USD",
+    "pricing_snapshot_id": null,
+    "cost_status": "known"
+  },
+  "synthetic": false,
+  "claim_count": 18,
+  "claims_by_page": {
+    "27": 12,
+    "110": 6
+  },
+  "source_verification_reasons": {
+    "interactive_visibility_requires_review": 81,
+    "relationship_validation_required": 173
+  },
+  "tag_claims": [
+    {
+      "claim_id": "add831e4-a39c-5451-af2f-026a0fd5ec4b",
+      "decision": null,
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "review_inputs": null,
+      "status": "blocked",
+      "tag_runs": []
+    },
+    {
+      "claim_id": "c5c3cfb0-f94e-587b-8b24-729e8f669ae5",
+      "decision": null,
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "review_inputs": null,
+      "status": "blocked",
+      "tag_runs": []
+    },
+    {
+      "claim_id": "74e96bc3-cd0a-56c1-83e2-49c8ac8486d4",
+      "decision": null,
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "review_inputs": null,
+      "status": "blocked",
+      "tag_runs": []
+    },
+    {
+      "claim_id": "e2a11255-f823-53c2-a750-380726a5950f",
+      "decision": null,
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "review_inputs": null,
+      "status": "blocked",
+      "tag_runs": []
+    },
+    {
+      "claim_id": "1e71baee-e38b-58de-ac65-bf429edaba46",
+      "decision": null,
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "review_inputs": null,
+      "status": "blocked",
+      "tag_runs": []
+    },
+    {
+      "claim_id": "d441a209-ff6b-5d38-99a9-72f341df7b4e",
+      "decision": null,
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "review_inputs": null,
+      "status": "blocked",
+      "tag_runs": []
+    },
+    {
+      "claim_id": "52751063-d351-5c85-8628-5a3d517d28d6",
+      "decision": null,
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "review_inputs": null,
+      "status": "blocked",
+      "tag_runs": []
+    },
+    {
+      "claim_id": "6759df35-95f9-58d7-a653-1280ff8184f9",
+      "decision": null,
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "review_inputs": null,
+      "status": "blocked",
+      "tag_runs": []
+    },
+    {
+      "claim_id": "34c7adda-4987-5223-bd44-9b287a4d461b",
+      "decision": null,
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "review_inputs": null,
+      "status": "blocked",
+      "tag_runs": []
+    },
+    {
+      "claim_id": "1569ce87-2113-522c-ad70-0c5f5facf1b5",
+      "decision": null,
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "review_inputs": null,
+      "status": "blocked",
+      "tag_runs": []
+    },
+    {
+      "claim_id": "80f7ca95-6937-5dfe-a4ef-ed7f3db65800",
+      "decision": null,
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "review_inputs": null,
+      "status": "blocked",
+      "tag_runs": []
+    },
+    {
+      "claim_id": "e09c66b8-75cc-596b-a002-9e020c0fd68c",
+      "decision": null,
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "review_inputs": null,
+      "status": "blocked",
+      "tag_runs": []
+    },
+    {
+      "claim_id": "869c3a09-0d95-5d40-aa3b-d6901784b824",
+      "decision": null,
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "review_inputs": null,
+      "status": "blocked",
+      "tag_runs": []
+    },
+    {
+      "claim_id": "be22307b-a372-57d1-995b-fab4adbc45d5",
+      "decision": null,
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "review_inputs": null,
+      "status": "blocked",
+      "tag_runs": []
+    },
+    {
+      "claim_id": "f50272bd-a545-50f8-b90f-e9d3a296c267",
+      "decision": null,
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "review_inputs": null,
+      "status": "blocked",
+      "tag_runs": []
+    },
+    {
+      "claim_id": "549da319-1c3d-5714-b93c-6721ea387e6a",
+      "decision": null,
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "review_inputs": null,
+      "status": "blocked",
+      "tag_runs": []
+    },
+    {
+      "claim_id": "7311ef6c-9767-59cc-8904-b5d8b3111c74",
+      "decision": null,
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "review_inputs": null,
+      "status": "blocked",
+      "tag_runs": []
+    },
+    {
+      "claim_id": "b2006b58-8530-5a9a-9dfd-04a396078ac6",
+      "decision": null,
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "review_inputs": null,
+      "status": "blocked",
+      "tag_runs": []
+    }
+  ],
+  "visual_review": {
+    "pages": [
+      27,
+      97,
+      110
+    ],
+    "method": "assistant inspected rendered PDF pages",
+    "independent_gold": false
+  },
+  "root_cause": "PDF AcroForm explicitly has Fields=[], DA and DR only; old verifier blocks every paragraph on AcroForm presence.",
+  "limitations": [
+    "Selected pages only; appendix assurance statement begins before selected page 110.",
+    "Source text candidate is not semantic evidence or independent gold.",
+    "No preliminary or element calls because all claims failed source validation.",
+    "Assurance prose was extracted as environmental claims; scope filtering still needs correction."
+  ]
+}

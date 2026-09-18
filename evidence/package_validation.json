@@ -1,9 +1,9 @@
 {
-  "checked_at": "2026-09-18T17:37:36.533802+00:00",
+  "checked_at": "2026-09-18T18:04:16.644024+00:00",
   "scope": "documentation, structured contracts and synthetic schema examples only",
   "status": "passed",
-  "checks_total": 826,
-  "passed": 826,
+  "checks_total": 831,
+  "passed": 831,
   "failed": 0,
   "counts": {
     "numbered_documents": 34,
@@ -94,6 +94,11 @@
       "detail": ""
     },
     {
+      "name": "json:evidence/live-tagging-kb-schema-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
       "name": "json:evidence/preliminary-ensemble-20260919.json",
       "passed": true,
       "detail": ""
@@ -109,6 +114,11 @@
       "detail": ""
     },
     {
+      "name": "json:evidence/live-tagging-kb-baseline-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
       "name": "json:evidence/context-loop-review.json",
       "passed": true,
       "detail": ""
@@ -120,6 +130,11 @@
     },
     {
       "name": "json:evidence/legacy_inspection.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/live-tagging-kb-rubric-20260919.json",
       "passed": true,
       "detail": ""
     },
@@ -165,6 +180,11 @@
     },
     {
       "name": "json:evidence/table-role-guard-replay.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/live-tagging-doosan-emptyform-20260919.json",
       "passed": true,
       "detail": ""
     },
@@ -225,6 +245,11 @@
     },
     {
       "name": "json:evidence/atomic-coverage-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/live-tagging-doosan-baseline-20260919.json",
       "passed": true,
       "detail": ""
     },

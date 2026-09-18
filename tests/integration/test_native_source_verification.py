@@ -181,3 +181,46 @@ def test_bbox_rounding_tolerance_does_not_accept_real_clipping(monkeypatch, inse
     assert bool(calls) == (expected == "verified")
     if expected == "unresolved":
         assert record["reason"] == "clipped_or_rotated_words"
+
+
+@pytest.mark.parametrize("form_kind", ["empty", "field", "xfa", "missing", "malformed"])
+def test_empty_form_metadata_does_not_skip_native_and_rendered_checks(monkeypatch, form_kind):
+    from io import BytesIO
+
+    from proofops.adapters.local import source_verification
+    from pypdf import PdfReader, PdfWriter
+    from pypdf.generic import ArrayObject, DictionaryObject, NameObject, TextStringObject
+
+    writer = PdfWriter(clone_from=PdfReader(BytesIO(pdf())))
+    form = DictionaryObject({NameObject("/Fields"): ArrayObject()})
+    if form_kind == "field":
+        form[NameObject("/Fields")].append(DictionaryObject())
+    elif form_kind == "xfa":
+        form[NameObject("/XFA")] = ArrayObject()
+    elif form_kind == "missing":
+        del form[NameObject("/Fields")]
+    elif form_kind == "malformed":
+        form[NameObject("/Fields")] = TextStringObject("")
+    writer._root_object[NameObject("/AcroForm")] = writer._add_object(form)
+    out = BytesIO()
+    writer.write(out)
+    source = out.getvalue()
+    batch = replace(
+        candidate(
+            "empty-form",
+            [("P", "paragraph", "Page 1 emissions 1234 tCO2e", (70, 710, 300, 740), ())],
+        ),
+        source_sha256=sha256(source).hexdigest(),
+    )
+    calls = []
+
+    def rendered(page, box):
+        calls.append(box)
+        return dict(status="read", text="Page 1 emissions 1234 tCO2e")
+
+    monkeypatch.setattr(source_verification, "_rendered_text", rendered)
+    record = source_verification.attest_native_sources(
+        fuse_candidates((batch,), tenant_id=TENANT), source, tenant_id=TENANT
+    )["records"][0]
+    assert record["status"] == ("verified" if form_kind == "empty" else "unresolved")
+    assert bool(calls) == (form_kind == "empty")
