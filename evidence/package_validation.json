@@ -1,9 +1,9 @@
 {
-  "checked_at": "2026-09-18T14:38:12.110405+00:00",
+  "checked_at": "2026-09-18T15:40:23.629686+00:00",
   "scope": "documentation, structured contracts and synthetic schema examples only",
   "status": "passed",
-  "checks_total": 821,
-  "passed": 821,
+  "checks_total": 822,
+  "passed": 822,
   "failed": 0,
   "counts": {
     "numbered_documents": 34,
@@ -90,6 +90,11 @@
     },
     {
       "name": "json:evidence/parser_dependency_notices.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/preliminary-ensemble-20260919.json",
       "passed": true,
       "detail": ""
     },

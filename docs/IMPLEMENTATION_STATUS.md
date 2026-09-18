@@ -1,3 +1,11 @@
+## 2026-09-19 · 선행 분류 3회 평가 CLI와 실제 비교
+
+`evaluation/preliminary_probe.py`에 검증된 기존 파일럿의 선행 분류를 3회 비교하는
+명시적 실행 경로를 추가했다. 실제12회 호출에서 보완 전후 원문 인용 검증은 모두
+통과했으며, 분류 일관성이 개선됐으나 gold 정확도는 미측정이다. 서비스 태깅 활성화와
+등급 발행은 하지 않았다. 상세 제한·비용·명령·검증은
+[evidence/preliminary-ensemble-20260919.md](../evidence/preliminary-ensemble-20260919.md).
+
 # Implementation status
 
 The approved plan is docs/19_IMPLEMENTATION_PLAN.md and the dependency graph in
