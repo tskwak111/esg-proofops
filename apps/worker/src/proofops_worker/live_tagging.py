@@ -284,8 +284,18 @@ class LiveTaggingRuntime:
             self.relation_records,
             validate,
             retrieval_packet_sha256=packet.packet_sha256,
+            require_consensus=False,
         )
-        return results[0] if results is not None else None
+        if results is None:
+            return None
+        # A disputed source stays wholly unresolved; never combine roles from
+        # different replicas into a relationship that no replica proposed.
+        return {
+            source_id: roles
+            if all(result[source_id] == roles for result in results)
+            else {name: None for result in results for name in result[source_id]}
+            for source_id, roles in results[0].items()
+        }
 
     def _source_replicas(
         self,
@@ -298,6 +308,7 @@ class LiveTaggingRuntime:
         validate,
         *,
         retrieval_packet_sha256=None,
+        require_consensus=True,
     ):
         packet_hash = canonical_hash(packet)
         self.allow_packet(claim.claim_id, packet_hash)
@@ -395,6 +406,6 @@ class LiveTaggingRuntime:
                 return None
             finally:
                 self.account(request_id)
-        if len(set(signatures)) != 1 or len(set(provider_ids)) != 3:
+        if len(set(provider_ids)) != 3 or (require_consensus and len(set(signatures)) != 1):
             return None
         return results

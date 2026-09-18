@@ -1107,3 +1107,31 @@ Diagnostic regression failed before implementation, then 10 targeted diagnostic/
 relation-worker tests passed (two existing deprecation warnings). Targeted Ruff
 and format checks each independently exited0. Prior head33fbff1 CI35396684579 has
 all six jobs completed successfully; last workflow-level poll was still in_progress.
+
+### 2026-09-19 · Isolate external relation conflicts from local review
+
+Implemented source-level unanimity after three schema-validated responses with
+three distinct provider IDs. A disputed source's complete map becomes null across
+the union of supplied axes; no majority, axis mixing or missing/null normalization.
+All original candidate maps remain in relation_records. Existing binding rejects
+unresolved external attribution while scoped local claim roles retain precedence.
+Preliminary unanimity and authorization/packet/schema/receipt/provider failures
+still block. Existing immutable checkpoints and public API/DB schemas unchanged;
+only newly executed relation stages get the source-scoped behavior.
+
+Before implementation, two targeted regressions failed: semantic disagreement
+returned None and the real fake-HTTP pipeline blocked both claims. After the
+minimal runtime change, 22 relation/preliminary worker tests passed. New pipeline
+case loads published immutable inputs, proves local M1 binding accepted versus
+external undetermined, retains three relation/element replicas and null decisions,
+and verifies replay makes no calls (18 fake tagger calls total). No paid inference
+has yet measured the resulting review coverage. Full suite/reviewer pending.
+
+Validation:2555passed,7skipped,2existingwarnings in193.12s. Full Ruff and
+format checks independently passed after correcting one test import-order issue;
+mypy184sources, proofops build and package-contract validation passed. Full test
+log:/tmp/proofops-relation-conflict-suite.txt. Runtime code stayed fixed throughout.
+Luna task_39c3a8054ede / ctx_ea50e6a7bd71 reviewed callers/binding/recovery/cache,
+found no required changes; report:/tmp/proofops-relation-conflict-review.md.
+Worker settled, released and delivery_245f08e6e339 acknowledged. Actual fresh
+Doosan pilot is next; fake-HTTP results do not establish real semantic accuracy.

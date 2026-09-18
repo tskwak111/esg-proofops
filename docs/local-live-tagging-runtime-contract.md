@@ -175,13 +175,24 @@ atomic claims; this extension must not overwrite those local entries.
 
 Optional `relation_settings` and a distinct `relation_runtime` grant enable a
 receipt stage after retrieval and before element tagging. Each of three replicas
-reads the same ordered source catalog. Only matching validated role maps and
-three distinct provider request IDs proceed to the existing binding guard. Raw
+reads the same ordered source catalog. Three validated replies with distinct
+provider request IDs are required. Agreement is checked per whole source role
+map: a unanimous map proceeds to the existing binding guard; a disputed map
+retains the union of supplied axes with every value null. No majority vote or
+role-by-role synthesis can manufacture a relationship. Local scoped claim roles
+retain precedence, so a disputed external source does not block independent
+local review. Every cross-source present vote still needs the existing binding
+guard, which treats the null required roles as undetermined. Raw
 responses, request/packet/graph/prompt hashes and disagreements are retained;
 calls use the existing ledger, lease, capacity and reservation fences. Incomplete
 paid attempts stop without retry. A request belongs to the real claim and its
 frozen packet, never a fabricated evidence Claim. Relation failure leaves the
-claim with `RELATION_TAGS_UNRESOLVED`, without dispatching its element calls.
+claim with `RELATION_TAGS_UNRESOLVED`, without dispatching its element calls,
+when authorization, packet validation, receipt recovery, schema validation or
+provider independence fails. A validated semantic disagreement alone is retained
+in the three replica records and represented by unresolved external roles; it
+does not take that failure path. Preliminary track/dimension unanimity remains
+required. Existing published checkpoints are not recomputed or modified.
 No eligible external source means no relation call and no inferred absence.
 
 Compatibility: no new HTTP DTO or DB table. The optional frozen group contains
@@ -201,7 +212,7 @@ semantic tagging, not independent gold or rule approval.
 Integration acceptance must cover: revoked grant before reservation; frozen
 catalog/schema/settings mismatch; three genuinely distinct replica request IDs;
 malformed/partial/duplicate relation reply without invented defaults; disagreement
-without a silently accepted cross-source map; original budget accounting after
+without a silently accepted cross-source map while local review continues; original budget accounting after
 provider failure; immutable replay with no provider call; and existing local
 scope precedence. Select only original whole-source refs already represented in
 the frozen retrieval packet, never fetch omitted report pages implicitly. Sources

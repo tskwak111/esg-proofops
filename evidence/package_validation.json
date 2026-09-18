@@ -1,9 +1,9 @@
 {
-  "checked_at": "2026-09-18T21:13:51.897762+00:00",
+  "checked_at": "2026-09-18T21:35:47.189326+00:00",
   "scope": "documentation, structured contracts and synthetic schema examples only",
   "status": "passed",
-  "checks_total": 855,
-  "passed": 855,
+  "checks_total": 858,
+  "passed": 858,
   "failed": 0,
   "counts": {
     "numbered_documents": 34,
@@ -174,6 +174,11 @@
       "detail": ""
     },
     {
+      "name": "json:evidence/doosan-source-visual-diagnostic-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
       "name": "json:evidence/section-map-results.json",
       "passed": true,
       "detail": ""
@@ -244,6 +249,11 @@
       "detail": ""
     },
     {
+      "name": "json:evidence/live-tagging-doosan-source-repair-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
       "name": "json:evidence/semantic-expanded-diagnostics.json",
       "passed": true,
       "detail": ""
@@ -260,6 +270,11 @@
     },
     {
       "name": "json:evidence/semantic-clauses-review.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/live-relation-disagreements-20260919.json",
       "passed": true,
       "detail": ""
     },

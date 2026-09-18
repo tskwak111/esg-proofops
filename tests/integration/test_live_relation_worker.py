@@ -134,7 +134,13 @@ def test_relation_disagreement_or_malformed_response_is_not_binding(tmp_path, mo
         return result
 
     monkeypatch.setattr(runtime.preliminary_transport._probe, "_post", post)
-    assert runtime.relations(claim, packet) is None
+    result = runtime.relations(claim, packet)
+    if fault == "disagree":
+        assert result is not None
+        assert all(value is None for roles in result.values() for value in roles.values())
+        assert any("facility" in roles for roles in result.values())
+    else:
+        assert result is None
     assert len(calls) == usage["settled_calls"] == (1 if fault == "malformed" else 3)
 
 
@@ -181,3 +187,60 @@ def test_relation_stage_publishes_pinned_reviews_and_replays_without_calls(tmp_p
     assert reopened.run_once(tenant_id=tenant, run_id=run_id) == "needs_review"
     assert len(ctx["calls"]) == before
     assert ctx["tag_probe"].summary()["calls"] == 18
+
+
+def test_relation_conflict_keeps_local_review_but_never_binds_external_source(
+    tmp_path, monkeypatch
+):
+    from proofops.application.evidence.binding import accept_binding, relation_tags_for
+
+    from tests.integration.test_live_tagging_pipeline import _pipeline_setup
+
+    ctx = _pipeline_setup(tmp_path, monkeypatch, relation_stage=True)
+    probe = ctx["tag_probe"]
+    original = probe._post
+    relation_calls = 0
+
+    def post(body):
+        nonlocal relation_calls
+        response = original(body)
+        if body["messages"][0]["content"].startswith(SYSTEM_PROMPT):
+            relation_calls += 1
+            if relation_calls % 3 == 2:
+                payload = json.loads(response["choices"][0]["message"]["content"])
+                for row in payload["relations"]:
+                    row["dimensions"]["facility"] = None
+                response["choices"][0]["message"]["content"] = json.dumps(payload)
+        return response
+
+    monkeypatch.setattr(probe, "_post", post)
+    runner, tenant, run_id = ctx["tag_runner"], ctx["tenant"], ctx["run_id"]
+    assert runner.run_once(tenant_id=tenant, run_id=run_id) == "needs_review"
+    records = runner.tags.load_snapshot(tenant, run_id)["claims"]
+    assert len(records) == 2
+    for record in records:
+        assert "review_inputs" in record
+        inputs = runner.tags.load_inputs(tenant, run_id, record["claim_id"])
+        assert inputs.decision is None
+        assert len(record["relation_records"]) == len(record["tag_runs"]) == 3
+        for block in inputs.original.blocks:
+            ref = block.source_ref()
+            roles = relation_tags_for(ref, inputs.relation_tags)
+            state = accept_binding(
+                inputs.context,
+                ref,
+                roles,
+                original=inputs.original,
+                tenant_id=tenant,
+                rulepack=inputs.rulepack,
+                element_id="M1",
+            )
+            if ref.source_id in {r.source_id for r in inputs.context.claim.source_refs}:
+                assert state == "accepted"
+            else:
+                assert roles is not None and roles["facility"] is None
+                assert state == "undetermined"
+    before = len(ctx["calls"])
+    assert runner.run_once(tenant_id=tenant, run_id=run_id) == "needs_review"
+    assert len(ctx["calls"]) == before
+    assert probe.summary()["calls"] == 18
