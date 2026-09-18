@@ -1,7 +1,8 @@
 """Opt-in one-page document extraction; existing USD10 ledger, no automatic retries.
 
 Protocol/model: https://console.upstage.ai/docs/capabilities/extract/universal-extraction
-Price: https://www.upstage.ai/pricing/api checked 2026-09-13. Enhanced USD0.06/page
+Price: https://www.upstage.ai/pricing/api rechecked 2026-09-18 (rates unchanged).
+Enhanced USD0.06/page
 plus 10% VAT. Settlement uses the submitted one-page count at the requested mode
 rate, not token pricing or a claimed provider invoice. No production activation.
 """
@@ -72,7 +73,7 @@ class UpstageExtractProbe(UpstageParseProbe):
             media_type = "image/png"
         elif self._validate_pdf(pdf_bytes) != 1:
             raise ValueError("INVALID_PROBE_REQUEST")
-        if datetime.now(UTC) >= datetime(2026, 9, 16, tzinfo=UTC):
+        if datetime.now(UTC) >= datetime(2026, 9, 25, tzinfo=UTC):
             raise ValueError("PRICE_RECHECK_REQUIRED")
         if (
             not isinstance(request_id, str)

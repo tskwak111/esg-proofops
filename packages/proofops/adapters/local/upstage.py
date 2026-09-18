@@ -1,9 +1,12 @@
 """Bounded, opt-in Upstage text probe; independent of production model composition.
 
-One local SQLite ledger covers the user's cumulative USD 10 test authorization.
-Before each request, reserve USD 1 (deliberately much larger than these tiny
-requests at the pinned rates). Unknown/failed calls keep that reservation. No
-retries, tools, redirects, document uploads or credential logging are enabled.
+One local SQLite ledger covers the user's cumulative USD 10 base authorization.
+The base can be extended up to USD20 via authorize_additional_budget(); both base and
+any authorized extension are durably recorded in the ledger before any spending
+counts against the new limit.  Before each request, reserve USD 1 (deliberately
+much larger than these tiny requests at the pinned rates).  Unknown/failed calls
+keep that reservation.  No retries, tools, redirects, document uploads or
+credential logging are enabled.
 """
 
 from __future__ import annotations
@@ -13,7 +16,7 @@ import json
 import os
 import sqlite3
 from datetime import UTC, datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from proofops.application.budget import PricingSnapshot, TokenUsage, usage_cost
@@ -58,6 +61,8 @@ POLICY = {
 UPSTAGE_TRANSPORT_STOP_CODES = frozenset(
     {
         "BUDGET_EXHAUSTED",
+        "BUDGET_POLICY_MISMATCH",
+        "DUPLICATE_PROBE_REQUEST",
         "BUDGET_SETTLEMENT_INVALID",
         "PRICE_RECHECK_REQUIRED",
         "PROBE_REQUEST_TOO_LARGE",
@@ -150,6 +155,13 @@ class UpstageProbe:
                 "CREATE TABLE IF NOT EXISTS probe_calls (request_id TEXT PRIMARY KEY, "
                 "signature TEXT NOT NULL, committed TEXT NOT NULL, receipt TEXT)"
             )
+            # Each row records one explicit budget extension with audit reason and timestamp.
+            # The extension is additive to POLICY["limit_usd"]; rows are append-only.
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS probe_extensions "
+                "(id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "additional_usd TEXT NOT NULL, reason TEXT NOT NULL, authorized_at TEXT NOT NULL)"
+            )
             body = json.dumps(POLICY, sort_keys=True)
             db.execute("INSERT OR IGNORE INTO probe_policy VALUES (1, ?)", (body,))
             if db.execute("SELECT body FROM probe_policy WHERE id=1").fetchone()[0] != body:
@@ -159,6 +171,24 @@ class UpstageProbe:
         self._responses.mkdir(mode=0o700, exist_ok=True)
         self._responses.chmod(0o700)
 
+    def _authorized_limit(self, db) -> Decimal:
+        """Sum POLICY base limit plus all durable extension rows (called inside a transaction)."""
+        stored = db.execute("SELECT body FROM probe_policy WHERE id=1").fetchone()
+        if stored is None or stored[0] != json.dumps(POLICY, sort_keys=True):
+            raise ValueError("BUDGET_POLICY_MISMATCH")
+        try:
+            amounts = [
+                Decimal(row[0]) for row in db.execute("SELECT additional_usd FROM probe_extensions")
+            ]
+        except (InvalidOperation, TypeError, ValueError):
+            raise ValueError("BUDGET_POLICY_MISMATCH") from None
+        if any(not value.is_finite() or value <= 0 for value in amounts):
+            raise ValueError("BUDGET_POLICY_MISMATCH")
+        limit = Decimal(POLICY["limit_usd"]) + sum(amounts, Decimal(0))
+        if limit > Decimal("20.00"):
+            raise ValueError("BUDGET_POLICY_MISMATCH")
+        return limit
+
     @property
     def model(self) -> str:
         return self._model
@@ -166,13 +196,14 @@ class UpstageProbe:
     def _reserve(self, request_id, body):
         with sqlite3.connect(self.ledger, timeout=10) as db:
             db.execute("BEGIN IMMEDIATE")
+            authorized_limit = self._authorized_limit(db)
             if db.execute("SELECT 1 FROM probe_calls WHERE request_id=?", (request_id,)).fetchone():
-                raise ValueError("duplicate request; no automatic retries")
+                raise ValueError("DUPLICATE_PROBE_REQUEST")
             total = sum(
                 (Decimal(row[0]) for row in db.execute("SELECT committed FROM probe_calls")),
                 Decimal(0),
             )
-            if total + Decimal(POLICY["reservation_usd"]) > Decimal(POLICY["limit_usd"]):
+            if total + Decimal(POLICY["reservation_usd"]) > authorized_limit:
                 raise ValueError("BUDGET_EXHAUSTED")
             db.execute(
                 "INSERT INTO probe_calls VALUES (?, ?, ?, NULL)",
@@ -194,11 +225,44 @@ class UpstageProbe:
             if updated != 1:
                 raise ValueError("BUDGET_SETTLEMENT_INVALID")
 
+    def authorize_additional_budget(self, additional_usd: str, *, reason: str) -> dict:
+        """Append explicit authorization, preserving history and the USD20 ceiling."""
+        if not isinstance(additional_usd, str):
+            raise ValueError("AUTHORIZATION_AMOUNT_INVALID")
+        if not isinstance(reason, str) or not reason.strip() or len(reason) > 512:
+            raise ValueError("AUTHORIZATION_REASON_REQUIRED")
+        try:
+            amount = Decimal(additional_usd)
+        except InvalidOperation:
+            raise ValueError("AUTHORIZATION_AMOUNT_INVALID") from None
+        if not amount.is_finite() or amount <= 0:
+            raise ValueError("AUTHORIZATION_AMOUNT_INVALID")
+        stored_usd = format(amount, "f")
+        with sqlite3.connect(self.ledger, timeout=10) as db:
+            db.execute("BEGIN IMMEDIATE")
+            current_limit = self._authorized_limit(db)
+            if current_limit + amount > Decimal("20.00"):
+                raise ValueError("AUTHORIZATION_EXCEEDS_CEILING")
+            authorized_at = datetime.now(UTC).isoformat()
+            db.execute(
+                "INSERT INTO probe_extensions "
+                "(additional_usd, reason, authorized_at) VALUES (?,?,?)",
+                (stored_usd, reason.strip(), authorized_at),
+            )
+        return {
+            "previous_limit_usd": str(current_limit),
+            "additional_usd": stored_usd,
+            "authorized_at": authorized_at,
+            "reason": reason.strip(),
+        }
+
     def summary(self):
         with sqlite3.connect(self.ledger) as db:
             rows = db.execute("SELECT committed, receipt FROM probe_calls").fetchall()
+            authorized_limit = self._authorized_limit(db)
         return {
             "limit_usd": POLICY["limit_usd"],
+            "authorized_limit_usd": str(authorized_limit),
             "calls": len(rows),
             "unsettled_calls": sum(receipt is None for _, receipt in rows),
             "committed_usd": str(sum((Decimal(cost) for cost, _ in rows), Decimal(0))),
@@ -235,8 +299,12 @@ class UpstageProbe:
         max_tokens: int = 1024,
         json_mode: bool = False,
     ):
-        if datetime.now(UTC) >= datetime(2026, 9, 16, tzinfo=UTC):
+        # Pricing verified at https://www.upstage.ai/pricing/api on 2026-09-18 by coordinator:
+        # Pro3 $0.15/$0.60, Pro4 $0.30/$1.20 per M tokens (conservative, promotions ignored).
+        # Guard extended from 2026-09-16 to 2026-09-25.
+        if datetime.now(UTC) >= datetime(2026, 9, 25, tzinfo=UTC):
             raise ValueError("PRICE_RECHECK_REQUIRED")
+
         if (
             not isinstance(system, str)
             or not isinstance(user_json, str)

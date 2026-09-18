@@ -1,6 +1,8 @@
 """Bounded real extraction: fake transport, real worker and claim replay."""
 
 import json
+from datetime import UTC as _UTC
+from datetime import datetime as _RealDatetime
 from pathlib import Path
 from uuid import UUID, uuid4, uuid5
 
@@ -19,6 +21,18 @@ from proofops_worker.extract_runner import LocalExtractRunner
 from tests.acceptance.test_upload import TENANT
 
 MANIFEST = "44444444-4444-4444-8444-444444444444"
+
+
+# Freeze the offline transport clock; worker authorization expiry remains real
+# relative to the existing fixture clock, including its explicit expiry test.
+@pytest.fixture(autouse=True)
+def _freeze_upstage_price_clock(monkeypatch):
+    class FixedDateTime(_RealDatetime):
+        @classmethod
+        def now(cls, tz=None):
+            return _RealDatetime(2026, 9, 10, tzinfo=_UTC).astimezone(tz)
+
+    monkeypatch.setattr("proofops.adapters.local.upstage.datetime", FixedDateTime)
 
 
 class FakeProbe:

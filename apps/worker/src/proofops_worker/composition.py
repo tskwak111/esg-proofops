@@ -23,12 +23,16 @@ from proofops_worker.tag_runner import LocalTagRunner
 
 
 def build_composition(
-    *, stage: str = "parse", review_table_notes: bool = False
+    *, stage: str = "parse", review_table_notes: bool = False, verify_paragraphs: bool = False
 ) -> LocalParserRunner | LocalExtractRunner | LocalTagRunner:
+    if type(verify_paragraphs) is not bool or (verify_paragraphs and stage != "parse"):
+        raise ValueError("NATIVE_PARAGRAPHS_REQUIRE_PARSE_STAGE")
     if type(review_table_notes) is not bool or (review_table_notes and stage != "parse"):
         raise ValueError("NOTE_REVIEWS_REQUIRE_PARSE_STAGE")
     if stage not in {"parse", "extract", "tag"}:
         raise ValueError("STAGE_INVALID")
+    if stage == "tag" and os.environ.get("LOCAL_TAGGING_MODE") not in {None, "", "local_synthetic"}:
+        raise ValueError("LOCAL_TAGGING_MODE_UNSUPPORTED")
     if stage == "extract" and os.environ.get("LOCAL_EXTRACTION_MODE") not in {
         "local_synthetic",
         "upstage_probe",
@@ -62,6 +66,7 @@ def build_composition(
         uploads,
         OpenDataLoaderParser(database.parent / "parser-prepared"),
         profile=profile,
+        verify_paragraphs=verify_paragraphs,
         note_client=note_client,
         note_ledger=note_ledger,
         telemetry=Telemetry(

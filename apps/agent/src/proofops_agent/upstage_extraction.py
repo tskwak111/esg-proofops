@@ -56,8 +56,8 @@ _RULE_DESCRIPTOR = [
     "no-invented-offsets",
     "no-grades-or-labels",
     "literal-unicode-model-input-v1",
-    "bounded-paragraph-selection-page-bbox-text-v1",
-    "long-heading-text-candidates-60-codepoints-v1",
+    "bounded-paragraph-selection-prose-first-v2",
+    "sentence-terminal-then-60-codepoints-then-page-bbox-text-v2",
 ]
 
 _PROVIDER_METADATA_KEYS = (
@@ -179,6 +179,17 @@ class UpstageClaimExtractor:
             )
         except Exception as error:
             code = str(error) if isinstance(error, ValueError) else ""
+            # These guards run before reservation. In particular a duplicate ID
+            # must not make this operation inherit an older operation's spend.
+            if code in {
+                "DUPLICATE_PROBE_REQUEST",
+                "PRICE_RECHECK_REQUIRED",
+                "BUDGET_EXHAUSTED",
+                "BUDGET_POLICY_MISMATCH",
+                "PROBE_REQUEST_TOO_LARGE",
+                "INVALID_PROBE_REQUEST",
+            }:
+                self._request_ids.pop()
             self._fail(directory, packet_sha, request_id, code, transport=True)
         metadata = (
             {key: result[key] for key in (*_PROVIDER_METADATA_KEYS, "content") if key in result}

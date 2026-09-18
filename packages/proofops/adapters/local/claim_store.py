@@ -49,7 +49,8 @@ class LocalClaimStore:
     def __init__(self, store, uploads, parser):
         self.store, self.uploads, self.parser = store, uploads, parser
 
-    def _load(self, tenant_id, run_id):
+    def load_evidence(self, tenant_id, run_id):
+        """Replay once and return the mutually verified snapshot, claims and source graph."""
         snapshot = self.store.snapshot(tenant_id, run_id)
         run = self.store.jobs.get_run(tenant_id, run_id)
         if "extract_job" not in run:
@@ -96,13 +97,13 @@ class LocalClaimStore:
             != discovery_coverage(json.loads(parse_checkpoint)["coverage"], graph, discovery)
         ):
             raise ValueError("CLAIM_SNAPSHOT_REPLAY_MISMATCH")
-        return envelope, discovery
+        return envelope, discovery, graph
 
     def load_snapshot(self, tenant_id: str, run_id: str) -> dict:
-        return self._load(tenant_id, run_id)[0]
+        return self.load_evidence(tenant_id, run_id)[0]
 
     def load(self, tenant_id: str, run_id: str):
-        return self._load(tenant_id, run_id)[1]
+        return self.load_evidence(tenant_id, run_id)[1]
 
     def list(self, tenant_id: str, run_id: str):
         return self.load(tenant_id, run_id).claims

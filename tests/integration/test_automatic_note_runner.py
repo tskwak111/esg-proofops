@@ -256,7 +256,7 @@ def test_note_cli_mode_is_explicit_and_rejects_invalid_combinations(monkeypatch,
     monkeypatch.setattr("sys.argv", args)
     if mode == "automatic":
         main.main()
-        assert calls == [{"stage": "parse", "review_table_notes": True}]
+        assert calls == [{"stage": "parse", "review_table_notes": True, "verify_paragraphs": False}]
     else:
         with pytest.raises(SystemExit) as error:
             main.main()

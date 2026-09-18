@@ -1,0 +1,15 @@
+{
+  "checked_at": "2026-09-18",
+  "source": "https://www.upstage.ai/pricing/api",
+  "valid_before_utc": "2026-09-25T00:00:00Z",
+  "currency": "USD",
+  "rates_unchanged": true,
+  "solar_pro3_per_million": {"input": "0.15", "output": "0.60"},
+  "solar_pro4_per_million": {"input": "0.30", "output": "1.20"},
+  "document_parse_per_page": {"standard": "0.01", "enhanced": "0.03"},
+  "information_extract_per_page": {"enhanced": "0.06"},
+  "vat_reserve_multiplier": "1.10",
+  "discounts": "ignored conservatively",
+  "historical_receipts": "unchanged; original rate snapshots retained",
+  "authorization": "User approved additional USD10, cumulative USD20, 2026-09-18"
+}

@@ -31,7 +31,7 @@ def test_extract_one_page_shares_budget_and_preserves_raw_receipt(tmp_path, monk
     assert receipt["pages"] == 1 and receipt["mode"] == "enhanced"
     saved = client.ledger.parent / "extract-responses" / (canonical_hash("image-one") + ".json")
     assert json.loads(saved.read_text()) == response
-    with pytest.raises(ValueError, match="duplicate"):
+    with pytest.raises(ValueError, match="DUPLICATE_PROBE_REQUEST"):
         client.extract(make_pdf(1), SCHEMA, request_id="image-one")
 
 

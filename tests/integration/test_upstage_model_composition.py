@@ -61,3 +61,13 @@ def test_composition_selects_frozen_model_or_refuses_before_transport(tmp_path, 
         runner.uploads.close()
         runner.uploads.registry.close()
     assert ledger.read_bytes() == b""
+
+
+@pytest.mark.parametrize("mode", ["upstage_probe", "misspelled-mode"])
+def test_unsupported_tagging_mode_is_rejected_before_building_runtime(monkeypatch, mode):
+    from proofops_worker.composition import build_composition
+
+    monkeypatch.setenv("LOCAL_TAGGING_MODE", mode)
+    monkeypatch.delenv("LOCAL_PARSER_PROFILE_PATH", raising=False)
+    with pytest.raises(ValueError, match="LOCAL_TAGGING_MODE_UNSUPPORTED"):
+        build_composition(stage="tag")

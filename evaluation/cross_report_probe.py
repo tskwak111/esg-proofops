@@ -1,7 +1,8 @@
 """Bounded, opt-in cross-report development probes; no source approval or grading.
 
 Consumes existing selection.json + source-verified local parse manifests. Every run
-writes new receipts, never overwrites or retries a paid call. Shared USD10 ledger.
+writes new receipts, never overwrites or retries a paid call. Shared cumulative
+budget ledger; extensions require explicit authorization.
 """
 
 from __future__ import annotations
@@ -30,7 +31,7 @@ def save(path, data):
         json.dump(data, stream, ensure_ascii=False, indent=2)
 
 
-def run(folder: Path, action: str, *, invoke=False, max_calls=20):
+def run(folder: Path, action: str, *, invoke=False, max_calls=20, key_file: Path | None = None):
     if (
         type(max_calls) is not int
         or not 1 <= max_calls <= 20
@@ -74,7 +75,7 @@ def run(folder: Path, action: str, *, invoke=False, max_calls=20):
         raise ValueError("shared ledger required")
     key = next(
         line.split("=", 1)[1].strip().strip('"').strip("'")
-        for line in (ROOT / ".env.upstage.local").read_text().splitlines()
+        for line in (key_file or ROOT / ".env.upstage.local").read_text().splitlines()
         if line.startswith("UPSTAGE_API_KEY=")
     )
     out = folder / f"{action}-{uuid4()}"
@@ -137,8 +138,10 @@ def run(folder: Path, action: str, *, invoke=False, max_calls=20):
         summary = dict(
             status="stopped" if stop_error else "evaluated",
             selected_count=len(blocks),
-            processed_count=len(outcomes),
-            unknown_count=sum(o["status"] == "unknown" for o in outcomes),
+            attempted_count=len(outcomes),
+            processed_count=sum(o["status"] == "processed" for o in outcomes),
+            unprocessed_count=len(blocks) - len(outcomes),
+            unknown_count=len(blocks) - sum(o["status"] == "processed" for o in outcomes),
             outcomes=outcomes,
             usage=extractor.usage,
         )
@@ -154,7 +157,14 @@ if __name__ == "__main__":
     parser.add_argument("--folder", type=Path, required=True)
     parser.add_argument("--action", choices=["extract", "standard", "enhanced"], required=True)
     parser.add_argument("--invoke", action="store_true")
+    parser.add_argument("--key-file", type=Path)
     parser.add_argument("--max-calls", type=int, default=20)
     args = parser.parse_args()
-    result = run(args.folder, args.action, invoke=args.invoke, max_calls=args.max_calls)
+    result = run(
+        args.folder,
+        args.action,
+        invoke=args.invoke,
+        max_calls=args.max_calls,
+        key_file=args.key_file,
+    )
     print(json.dumps({k: v for k, v in result.items() if k != "outcomes"}, ensure_ascii=False))

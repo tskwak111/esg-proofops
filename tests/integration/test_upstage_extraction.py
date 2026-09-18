@@ -332,3 +332,37 @@ def test_invalid_quote_does_not_discard_exact_sibling_or_hide_uncovered_text(tmp
     assert any(e.state == "unknown" for e in result.exclusions)
     receipt = json.loads(next((tmp_path / "receipts").glob("*/result.json")).read_text())
     assert receipt["rejected_quote_indices"] == [0]
+
+
+@pytest.mark.parametrize("expired", [False, True])
+def test_duplicate_receipt_root_cannot_count_historical_spend(tmp_path, monkeypatch, expired):
+    from datetime import UTC, datetime
+
+    from proofops.adapters.local import upstage
+
+    from tests.integration.test_upstage_probe import response
+
+    now = [datetime(2026, 9, 18, tzinfo=UTC)]
+
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return now[0]
+
+    monkeypatch.setattr(upstage, "datetime", Clock)
+    probe = upstage.UpstageProbe("offline-key", tmp_path / "budget.sqlite3")
+    raw = response()
+    raw["choices"][0]["message"]["content"] = '{"claims": []}'
+    calls = []
+    monkeypatch.setattr(probe, "_post", lambda body: calls.append(body) or raw)
+    first, data = make_extractor(probe, tmp_path / "first")
+    first.extract(data)
+    if expired:
+        now[0] = datetime(2026, 9, 25, tzinfo=UTC)
+    second, _ = make_extractor(probe, tmp_path / "second")
+    code = "PRICE_RECHECK_REQUIRED" if expired else "DUPLICATE_PROBE_REQUEST"
+    with pytest.raises(ValueError, match=code):
+        second.extract(data)
+    assert len(calls) == 1
+    assert second.usage["model_calls"] == 0
+    assert second.usage["committed_or_reserved_usd"] == "0"

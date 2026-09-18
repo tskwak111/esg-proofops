@@ -167,7 +167,7 @@ def test_duplicate_request_keeps_original_and_no_retry(tmp_path, monkeypatch):
         pytest.fail("duplicate triggered network")
 
     monkeypatch.setattr(client, "_post_parse", fail)
-    with pytest.raises(ValueError, match="duplicate"):
+    with pytest.raises(ValueError, match="DUPLICATE_PROBE_REQUEST"):
         client.parse(pdf, request_id="dup-id", mode="standard")
     # committed only once
     assert Decimal(client.summary()["committed_usd"]) == Decimal("0.011")

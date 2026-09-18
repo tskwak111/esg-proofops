@@ -1,7 +1,8 @@
 """Authorized local PDF→real extraction→review pilot; no production or grading approval.
 
 Use --invoke explicitly for model calls; reuse a state directory to view stored results.
-All model calls share the pre-existing workspace USD 10 ledger. No automatic retries.
+All model calls share the existing ledger, extended explicitly to USD20 on 2026-09-18.
+No automatic retries.
 """
 
 from __future__ import annotations
@@ -26,12 +27,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--pdf", type=Path, required=True)
     parser.add_argument("--state", type=Path, required=True)
+    parser.add_argument("--key-file", type=Path, default=ROOT / ".env.upstage.local")
     parser.add_argument("--pages", default="1")
     parser.add_argument("--report-year", type=int, required=True)
     parser.add_argument("--period-start", required=True)
     parser.add_argument("--period-end", required=True)
     parser.add_argument("--max-calls", type=int, default=8)
     parser.add_argument("--model", choices=["solar-pro3", "solar-pro4"], default="solar-pro3")
+    parser.add_argument("--verify-paragraphs", action="store_true")
     parser.add_argument("--invoke", action="store_true")
     parser.add_argument("--serve", action="store_true")
     parser.add_argument("--port", type=int, default=8766)
@@ -133,7 +136,7 @@ def main():
             approved_at=approved_at,
             purpose="local_test",
             provider="upstage",
-            expires_at="2026-09-16T00:00:00Z",
+            expires_at="2026-09-25T00:00:00Z",
         )
         profiles = [
             (
@@ -155,7 +158,7 @@ def main():
                     role="extractor",
                     model_id=args.model,
                     endpoint="https://api.upstage.ai/v1/chat/completions",
-                    budget_limit_usd="10.00",
+                    budget_limit_usd="20.00",
                 ),
             ),
             (
@@ -247,8 +250,9 @@ def main():
             source_sha256=digest,
             selected_pages=pages,
             rulepack_approval=None,
-            authorization="user request 2026-09-12: actual model API integration",
+            authorization="user request 2026-09-18: actual model integration; cumulative USD20",
             production_ready=False,
+            verify_paragraphs=args.verify_paragraphs,
             model=args.model,
         )
         with manifest_path.open("x") as stream:
@@ -257,11 +261,13 @@ def main():
         manifest = json.loads(manifest_path.read_text())
         if manifest["source_sha256"] != digest:
             raise ValueError("pilot source changed")
+        if manifest.get("verify_paragraphs", False) != args.verify_paragraphs:
+            raise ValueError("pilot verification policy changed; create a new state directory")
         if manifest.get("model", "solar-pro3") != args.model:
             raise ValueError("pilot model changed; create a new state directory")
     run_id = manifest["run_id"]
     if args.invoke:
-        key_lines = (ROOT / ".env.upstage.local").read_text().splitlines()
+        key_lines = args.key_file.read_text().splitlines()
         key = next(
             line.split("=", 1)[1].strip().strip('"').strip("'")
             for line in key_lines
@@ -272,7 +278,9 @@ def main():
 
         try:
             for stage in ("parse", "extract", "tag"):
-                worker = build_composition(stage=stage)
+                worker = build_composition(
+                    stage=stage, verify_paragraphs=args.verify_paragraphs and stage == "parse"
+                )
                 outcome = worker.run_once(tenant_id=tenant, run_id=run_id)
                 print(stage, outcome, flush=True)
                 if outcome in {"failed", "retry", "discarded"}:

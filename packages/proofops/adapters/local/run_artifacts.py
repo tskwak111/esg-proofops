@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict
 from hashlib import sha256
+from importlib.resources import files
 from uuid import UUID, uuid5
 
 from proofops.adapters.parsing.opendataloader import ParseFailure
@@ -56,17 +57,29 @@ def load_run_inputs(store, uploads, *, tenant_id: str, run_id: str):
 def checkpoint_note_reviews(envelope):
     """Versioned checkpoint shape; legacy readers must never silently discard notes."""
     schema = envelope.get("schema")
+    if any(key.startswith("native_paragraph_") for key in envelope):
+        if schema != "local_parser_checkpoint_v4":
+            raise ParseFailure("NATIVE_PARAGRAPH_CHECKPOINT_INVALID")
     if schema == "local_parser_checkpoint_v1":
         if {"runtime_note_review_artifacts", "graph_sha256"} & envelope.keys():
             raise ParseFailure("NOTE_REVIEW_CHECKPOINT_INVALID")
         return ()
-    if schema not in {"local_parser_checkpoint_v2", "local_parser_checkpoint_v3"}:
+    if schema not in {
+        "local_parser_checkpoint_v2",
+        "local_parser_checkpoint_v3",
+        "local_parser_checkpoint_v4",
+    }:
         raise ParseFailure("PARSER_CHECKPOINT_SCHEMA_UNSUPPORTED")
     artifacts = envelope.get("runtime_note_review_artifacts")
     digest = envelope.get("graph_sha256")
+    if schema == "local_parser_checkpoint_v4" and artifacts is None:
+        artifacts = []
     if (
         not isinstance(artifacts, list)
-        or (not artifacts and schema != "local_parser_checkpoint_v3")
+        or (
+            not artifacts
+            and schema not in {"local_parser_checkpoint_v3", "local_parser_checkpoint_v4"}
+        )
         or any(not isinstance(item, str) for item in artifacts)
         or len(set(artifacts)) != len(artifacts)
         or not isinstance(digest, str)
@@ -75,6 +88,45 @@ def checkpoint_note_reviews(envelope):
     ):
         raise ParseFailure("NOTE_REVIEW_CHECKPOINT_INVALID")
     return tuple(artifacts)
+
+
+def native_paragraph_policy():
+    local = files("proofops.adapters.local")
+    return dict(
+        mode="paragraph_native_v1",
+        verifier_sha256=sha256(local.joinpath("source_verification.py").read_bytes()).hexdigest(),
+        rendered_reader_sha256=sha256(local.joinpath("native_ocr.swift").read_bytes()).hexdigest(),
+        normalization_sha256=sha256(
+            files("proofops.application.evidence").joinpath("citations.py").read_bytes()
+        ).hexdigest(),
+    )
+
+
+def checkpoint_native_attestation(envelope):
+    """Versioned native receipt shape; v1-v3 carry no native attestation."""
+    schema = envelope.get("schema")
+    if schema != "local_parser_checkpoint_v4":
+        if any(key.startswith("native_paragraph_") for key in envelope):
+            raise ParseFailure("NATIVE_PARAGRAPH_CHECKPOINT_INVALID")
+        return None
+    receipt = envelope.get("native_paragraph_attestation")
+    policy_digest = envelope.get("native_paragraph_policy_sha256")
+    if (
+        not isinstance(receipt, dict)
+        or receipt.get("schema") != "native_paragraph_attestation_v1"
+        or not isinstance(receipt.get("records"), list)
+        or not isinstance(receipt.get("artifact_sha256"), str)
+        or len(receipt["artifact_sha256"]) != 64
+        or any(c not in "0123456789abcdef" for c in receipt["artifact_sha256"])
+        or not isinstance(receipt.get("tenant_id"), str)
+        or not isinstance(receipt.get("document_version_id"), str)
+        or not isinstance(receipt.get("parse_manifest_id"), str)
+        or not isinstance(receipt.get("source_sha256"), str)
+        or not isinstance(receipt.get("input_graph_sha256"), str)
+        or policy_digest != canonical_hash(native_paragraph_policy())
+    ):
+        raise ParseFailure("NATIVE_PARAGRAPH_CHECKPOINT_INVALID")
+    return receipt
 
 
 def validate_automatic_note_reviews(graph, artifacts, policy, *, selected_pages=None):
@@ -138,11 +190,23 @@ def load_run_evidence(store, uploads, parser, *, tenant_id: str, run_id: str):
         raise ParseFailure("PARSE_NOT_PUBLISHED")
     envelope = json.loads(payload)
     note_reviews = checkpoint_note_reviews(envelope)
+    native_receipt = checkpoint_native_attestation(envelope)
     policy = store.jobs.parser_note_policy(message)
+    native_policy = store.jobs.parser_native_policy(message)
+    if native_policy is not None:
+        if (
+            envelope.get("schema") != "local_parser_checkpoint_v4"
+            or envelope.get("native_paragraph_policy_sha256") != canonical_hash(native_policy)
+            or native_receipt is None
+        ):
+            raise ParseFailure("NATIVE_PARAGRAPH_POLICY_MISMATCH")
+    elif envelope.get("schema") == "local_parser_checkpoint_v4" or (native_receipt is not None):
+        raise ParseFailure("NATIVE_PARAGRAPH_POLICY_MISMATCH")
     if policy is not None:
-        if envelope.get("schema") != "local_parser_checkpoint_v3" or envelope.get(
-            "note_review_policy_sha256"
-        ) != canonical_hash(policy):
+        if envelope.get("schema") not in {
+            "local_parser_checkpoint_v3",
+            "local_parser_checkpoint_v4",
+        } or envelope.get("note_review_policy_sha256") != canonical_hash(policy):
             raise ParseFailure("NOTE_REVIEW_POLICY_MISMATCH")
     elif (
         envelope.get("schema") == "local_parser_checkpoint_v3"
@@ -183,7 +247,16 @@ def load_run_evidence(store, uploads, parser, *, tenant_id: str, run_id: str):
             graph = replay_note_reviews(note_reviews, graph, source.content, tenant_id=tenant_id)
         except (ValueError, TypeError, KeyError):
             raise ParseFailure("NOTE_REVIEW_REPLAY_INVALID") from None
-    if note_reviews or policy is not None:
+    if native_receipt is not None:
+        from proofops.adapters.local.source_verification import replay_native_sources
+
+        try:
+            graph = replay_native_sources(
+                native_receipt, graph, source.content, tenant_id=tenant_id
+            )
+        except (ValueError, TypeError, KeyError):
+            raise ParseFailure("NATIVE_PARAGRAPH_REPLAY_INVALID") from None
+    if note_reviews or policy is not None or native_receipt is not None:
         if canonical_hash(asdict(graph)) != envelope["graph_sha256"]:
             raise ParseFailure("NOTE_REVIEW_GRAPH_MISMATCH")
     if policy is not None:
@@ -195,6 +268,7 @@ def load_run_evidence(store, uploads, parser, *, tenant_id: str, run_id: str):
         base_graph=base_graph,
         source=source,
         note_reviews=note_reviews,
+        native_attestation=native_receipt,
         input_hash=snapshot["input_hash"],
         parse_checkpoint_sha256=sha256(payload).hexdigest(),
     )
