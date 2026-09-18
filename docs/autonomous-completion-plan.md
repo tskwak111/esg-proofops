@@ -1211,3 +1211,44 @@ rebuild exact raster from original source/box, validate submission/provider/page
 pins, require existing exact text equality and all native geometry checks, replay
 without model calls. Do not reuse native auto-extracted PDF text as independent
 visibility evidence. The failed3crops and clipped heading still remain unresolved.
+
+### 2026-09-19 · Replay independent OCR against original pixels
+
+Added evaluation/raster_ocr.py, reusing existing PDF/image dependencies rather than
+adding an OCR stack. It constructs1..10lossless raster-only canonical paragraph
+crops, binds tenant/document/manifest/graph/source/versions and validates trusted
+request/receipt pins, provider identity, billing page map and unique element IDs.
+No network calls and no source-quality transition; native geometry approval is
+still separate. Caller pins must come from trusted immutable storage.
+
+New regression failed on missing module, then passed original raster preparation,
+byte stability, empty PDF text layer, tampered request/receipt/source/tenant,
+boolean page/billing IDs, duplicate element IDs and model mismatch. A provider
+transcription changing1234to1235 remains an exact-match failure. Existing original
+unverified graph stays unverified throughout.
+
+Actual saved Doosan four-page request reconstructed byte-for-byte identically.
+Each crop PNG hash and source mapping also matched the earlier submitted artifact.
+With UpstageParseProbe.parse replaced by a failing sentinel, saved-response replay
+retained1/4exact matches and made no API calls. Evidence:
+doosan-independent-raster-replay-20260919.json. This proves repeatable correspondence,
+not integration into live parser promotion or semantic accuracy.
+
+Luna review task_c27556d40dca / ctx_a3caf1f34d3c identified malformed JSON shapes,
+resource limits and strict PDF geometry checks; added controlled shape validation,
+200000-character total OCR text and existing1MiB raw-response caps, finite/nonboolean
+page geometry and padded raster bounds. Regression reproduced AttributeError on
+raw_response=null before the fix; now rejects malformed raw/usage/elements, list
+mode/model, oversize text/response and NaN/infinite/boolean page widths as ValueError.
+The exception previously stopped processing; it was not evidence acceptance, though
+its error classification was inadequate. Review's provider-page authenticity concern
+is a documented limitation: request/image reconstruction and trusted storage pins
+cannot establish a provider-side per-image cryptographic attestation that the API
+does not supply. Exact match is a comparison result only, not source verification.
+Report:/tmp/proofops-raster-replay-review.md. Worker released and delivery acknowledged.
+
+Final relevant suite43passed; expanded boundary regression separately passed.
+Full Ruff/format(335files) passed; full mypy185sources passed before boundary changes,
+and final helper mypy passed afterward. Actual four-crop byte-identical replay passed
+again with paid calls forbidden. Runtime parser/attestation policy was untouched;
+full app suite was not rerun for this evaluation-only helper. New-head CI required.

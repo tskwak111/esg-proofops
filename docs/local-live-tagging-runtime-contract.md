@@ -282,3 +282,33 @@ Cold simultaneous requests may repeat OCR. This intentionally avoids a new
 coordination service.64 entries is an entry bound, not a weighted byte budget;
 parser limits remain applicable. The measured warm replay gain is not a claim
 about first-request latency, full HTTP latency or multi-user throughput.
+
+#### Independent raster OCR correspondence experiment
+
+`evaluation/raster_ocr.py` prepares bounded lossless image-only PDF crops and
+replays an immutable provider receipt without network calls. It accepts 1..10
+whole canonical paragraph IDs, the original source bytes and tenant. Each crop
+uses216dpi, six white margin pixels, original top-left point coordinates and no
+expected-text prompt or text layer. Renderer/writer/image versions and the full
+graph/source/document/manifest identities are included in the request artifact.
+
+The caller must supply request/receipt SHA256 pins from trusted immutable storage;
+computing fresh pins from untrusted uploaded artifacts would not establish trust.
+Replay rebuilds the exact request from original pixels, checks the complete
+request, provider model, submitted PDF digest/length, page/billing identities and
+unique element IDs, and compares per-page text with existing exact normalization.
+A changed number remains a mismatch. Hashes establish artifact correspondence,
+not provider authenticity outside the trusted receipt boundary.
+
+This helper returns OCR correspondence only. It does not alter source quality,
+create a SourceRef, relax the native visibility/geometry gate or authorize present.
+It is not wired to the production parser or run DTO; there is no migration or
+change to existing native receipts. Production integration must first bind its
+receipt into the frozen parser policy and immutable checkpoint, restrict fallback
+to native-validated OCR failures, and preserve offline replay and old policies.
+
+The provider supplies page numbers, not per-image cryptographic attestations.
+`exact_normalized_match` therefore reports literal agreement with text returned
+for that page; it must never be interpreted as independent source approval or
+proof that a provider cannot hallucinate. Replay enforces200000total OCR characters,
+the transport's1MiB response ceiling and strict finite/nonboolean PDF geometry.
