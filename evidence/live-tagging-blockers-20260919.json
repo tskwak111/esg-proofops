@@ -1,0 +1,421 @@
+{
+  "schema": "live_tagging_blocker_audit_v1",
+  "runs": [
+    {
+      "run_id": "464650a9-350a-468e-8ee1-e3944a73eaee",
+      "source_sha256": "dc59b2b1c5bbf02e33bb901f94aef7cd984dc62547708e92aa1332ac550102e9",
+      "checkpoint_sha256": "c318b11e3aed7fb12a524627117b671a8b9b791025fa154c4296733a5e263202",
+      "state_path": ".local/developer-a-live-tagging-doosan-examples",
+      "additional_model_calls": 0,
+      "counts": {
+        "claims_without_review": 9,
+        "raw_present_element_votes": 33,
+        "raw_present_to_unknown": 33,
+        "present_votes_with_no_relation_roles": 33,
+        "present_votes_with_literal_value_mismatch": 20
+      },
+      "claims": [
+        {
+          "claim_id": "b6a9867f-1c8f-53cc-ad1a-08008f648fda",
+          "quote": "글로벌 ESG 위원회는 기후변화와 관련된 리스크와 기회를 종합적으로 분석하여 두산밥캣의 기후변화 대응 방향을 설정하고 있습니다.",
+          "missing_required_claim_dimensions": [
+            "metric",
+            "reporting_period"
+          ],
+          "relation_source_count": 0,
+          "present_votes": [
+            {
+              "replicate_id": 1,
+              "element_id": "M1",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [
+                "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594"
+              ],
+              "literal_value_mismatch": true
+            },
+            {
+              "replicate_id": 1,
+              "element_id": "M2",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [
+                "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                "69ee2f67-1b54-51f4-9d8c-d177484ab19b"
+              ],
+              "literal_value_mismatch": false
+            },
+            {
+              "replicate_id": 1,
+              "element_id": "M5",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [
+                "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594"
+              ],
+              "literal_value_mismatch": true
+            },
+            {
+              "replicate_id": 2,
+              "element_id": "M1",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [
+                "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594"
+              ],
+              "literal_value_mismatch": true
+            },
+            {
+              "replicate_id": 2,
+              "element_id": "M2",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [
+                "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                "69ee2f67-1b54-51f4-9d8c-d177484ab19b"
+              ],
+              "literal_value_mismatch": false
+            },
+            {
+              "replicate_id": 2,
+              "element_id": "M5",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [
+                "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594"
+              ],
+              "literal_value_mismatch": true
+            },
+            {
+              "replicate_id": 3,
+              "element_id": "M1",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [
+                "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594"
+              ],
+              "literal_value_mismatch": true
+            },
+            {
+              "replicate_id": 3,
+              "element_id": "M2",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [
+                "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                "69ee2f67-1b54-51f4-9d8c-d177484ab19b"
+              ],
+              "literal_value_mismatch": true
+            },
+            {
+              "replicate_id": 3,
+              "element_id": "M5",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [
+                "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594"
+              ],
+              "literal_value_mismatch": true
+            }
+          ]
+        },
+        {
+          "claim_id": "42e679a7-6652-5d84-87a1-64d21f30220b",
+          "quote": "또한 글로벌 ESG 전략에 따라 마련된 기후변화 대응 목표를 달성하기 위하여 관련 과제와 KPI를 총괄적으로 관리하고 있습니다.",
+          "missing_required_claim_dimensions": [
+            "entity",
+            "metric",
+            "reporting_period"
+          ],
+          "relation_source_count": 0,
+          "present_votes": [
+            {
+              "replicate_id": 1,
+              "element_id": "M1",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [
+                "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594"
+              ],
+              "literal_value_mismatch": false
+            },
+            {
+              "replicate_id": 1,
+              "element_id": "M2",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [
+                "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                "2659828d-6a83-554c-b08d-4e731f1220bf",
+                "08aaee6b-21c8-511f-9dd0-dafe621d0b06"
+              ],
+              "literal_value_mismatch": false
+            },
+            {
+              "replicate_id": 1,
+              "element_id": "M5",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [
+                "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594"
+              ],
+              "literal_value_mismatch": false
+            },
+            {
+              "replicate_id": 2,
+              "element_id": "M1",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [
+                "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594"
+              ],
+              "literal_value_mismatch": true
+            },
+            {
+              "replicate_id": 2,
+              "element_id": "M2",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [
+                "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                "2659828d-6a83-554c-b08d-4e731f1220bf"
+              ],
+              "literal_value_mismatch": true
+            },
+            {
+              "replicate_id": 2,
+              "element_id": "M5",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [
+                "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594"
+              ],
+              "literal_value_mismatch": true
+            },
+            {
+              "replicate_id": 3,
+              "element_id": "M1",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [
+                "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594"
+              ],
+              "literal_value_mismatch": false
+            },
+            {
+              "replicate_id": 3,
+              "element_id": "M2",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [
+                "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                "2659828d-6a83-554c-b08d-4e731f1220bf",
+                "08aaee6b-21c8-511f-9dd0-dafe621d0b06"
+              ],
+              "literal_value_mismatch": false
+            },
+            {
+              "replicate_id": 3,
+              "element_id": "M5",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [
+                "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594"
+              ],
+              "literal_value_mismatch": false
+            }
+          ]
+        },
+        {
+          "claim_id": "1f658926-9608-504b-8f5f-bda212606f2f",
+          "quote": "아울러 기후변화 관련 주요 논의사항을 이사회에 직접 보고하여 기후변화 대응 목표의 이행 수준을 체계적으로 관리하고, 전사적인 온실가스 감축을 추진하고 있습니다.",
+          "missing_required_claim_dimensions": [
+            "entity",
+            "metric",
+            "reporting_period"
+          ],
+          "relation_source_count": 0,
+          "present_votes": [
+            {
+              "replicate_id": 1,
+              "element_id": "M1",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [
+                "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594"
+              ],
+              "literal_value_mismatch": true
+            },
+            {
+              "replicate_id": 1,
+              "element_id": "M2",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [
+                "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594"
+              ],
+              "literal_value_mismatch": true
+            },
+            {
+              "replicate_id": 1,
+              "element_id": "M3",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [
+                "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594"
+              ],
+              "literal_value_mismatch": true
+            },
+            {
+              "replicate_id": 1,
+              "element_id": "M4",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [
+                "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594"
+              ],
+              "literal_value_mismatch": true
+            },
+            {
+              "replicate_id": 1,
+              "element_id": "M5",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [
+                "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594"
+              ],
+              "literal_value_mismatch": true
+            },
+            {
+              "replicate_id": 2,
+              "element_id": "M1",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [
+                "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594"
+              ],
+              "literal_value_mismatch": true
+            },
+            {
+              "replicate_id": 2,
+              "element_id": "M2",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [
+                "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                "2659828d-6a83-554c-b08d-4e731f1220bf"
+              ],
+              "literal_value_mismatch": true
+            },
+            {
+              "replicate_id": 2,
+              "element_id": "M3",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [
+                "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                "2659828d-6a83-554c-b08d-4e731f1220bf",
+                "08aaee6b-21c8-511f-9dd0-dafe621d0b06"
+              ],
+              "literal_value_mismatch": true
+            },
+            {
+              "replicate_id": 2,
+              "element_id": "M4",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [
+                "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594"
+              ],
+              "literal_value_mismatch": true
+            },
+            {
+              "replicate_id": 2,
+              "element_id": "M5",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [
+                "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594"
+              ],
+              "literal_value_mismatch": true
+            },
+            {
+              "replicate_id": 3,
+              "element_id": "M1",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [
+                "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594"
+              ],
+              "literal_value_mismatch": false
+            },
+            {
+              "replicate_id": 3,
+              "element_id": "M2",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [
+                "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                "2659828d-6a83-554c-b08d-4e731f1220bf",
+                "08aaee6b-21c8-511f-9dd0-dafe621d0b06"
+              ],
+              "literal_value_mismatch": false
+            },
+            {
+              "replicate_id": 3,
+              "element_id": "M3",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [
+                "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                "2659828d-6a83-554c-b08d-4e731f1220bf",
+                "08aaee6b-21c8-511f-9dd0-dafe621d0b06"
+              ],
+              "literal_value_mismatch": false
+            },
+            {
+              "replicate_id": 3,
+              "element_id": "M4",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [
+                "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594"
+              ],
+              "literal_value_mismatch": false
+            },
+            {
+              "replicate_id": 3,
+              "element_id": "M5",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [
+                "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594"
+              ],
+              "literal_value_mismatch": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "run_id": "9dadf939-ab63-4012-90a8-a9e0eba5167c",
+      "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+      "checkpoint_sha256": "a7f59555a7cad5a013440d7aa9f53455c3c0af760c436529bbd4f9841cf9aa19",
+      "state_path": ".local/developer-a-live-tagging-kb-rubric",
+      "additional_model_calls": 0,
+      "counts": {
+        "raw_present_element_votes": 3,
+        "raw_present_to_unknown": 3,
+        "present_votes_with_no_relation_roles": 3,
+        "present_votes_with_literal_value_mismatch": 3,
+        "claims_without_review": 5
+      },
+      "claims": [
+        {
+          "claim_id": "b40a45eb-ddef-5bde-acc8-4c6fd61da59a",
+          "quote": "KB금융그룹은 투자 계획을 실행하기 위한 자금을 ESG 채권 발행으로 조달하고 있습니다.",
+          "missing_required_claim_dimensions": [
+            "reporting_period"
+          ],
+          "relation_source_count": 0,
+          "present_votes": [
+            {
+              "replicate_id": 1,
+              "element_id": "M1",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [
+                "086b6576-1f8e-5d36-8394-506209ae9492"
+              ],
+              "literal_value_mismatch": true
+            },
+            {
+              "replicate_id": 2,
+              "element_id": "M1",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [
+                "086b6576-1f8e-5d36-8394-506209ae9492"
+              ],
+              "literal_value_mismatch": true
+            },
+            {
+              "replicate_id": 3,
+              "element_id": "M1",
+              "guarded_state": "unknown",
+              "missing_relation_source_ids": [
+                "086b6576-1f8e-5d36-8394-506209ae9492"
+              ],
+              "literal_value_mismatch": true
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -492,3 +492,73 @@ six unsettled unchanged. Evidence: live-tagging-doosan-examples-20260919.json.
 Wire sizes and immutable prompt/settings hashes are recorded there. All paid
 processes have settled; full source coverage, cross-source binding supplier,
 independent gold, browser integration and human rule authority remain outstanding.
+
+### 2026-09-19 · Offline attribution blocker audit (no paid calls)
+
+PR #6 CI is now green for all six checks, including supply-chain (run
+35381481660). Direct Codex quota remains 73% used /27% remaining. This is CI
+completion, not evidence that the model's claims are substantively accepted.
+
+`evidence/audit-live-tagging-blockers.py` reads the original SQLite stores in
+read-only mode, selects the checkpoint by the run's committed SHA-256, checks
+frozen packet hashes and compares stored raw/guarded replies. Reproduce with:
+
+```
+uv run python evidence/audit-live-tagging-blockers.py \
+  .local/developer-a-live-tagging-doosan-examples \
+  .local/developer-a-live-tagging-kb-rubric
+```
+
+Recorded output: `evidence/live-tagging-blockers-20260919.json`. This checks
+stored artifacts, not PDF geometry, independent semantic truth or full replay.
+It does not modify old revisions, call a model or change source/binding approval.
+
+Observed blockers (counts are replicate-element votes, not independent claims):
+
+- Doosan: all 33 raw `present` votes became `unknown`; all 33 cite sources with
+  no supplied relation roles. All three reviewed claims lack a reporting period
+  and metric; two also lack an explicit entity. Nine other claims have no review.
+- KB: all three raw `present` votes became `unknown`; all lack supplied relation
+  roles. Its one reviewed claim lacks a reporting period. Five claims have no review.
+- Independently, 20/33 Doosan and 3/3 KB raw `present` votes provide a non-null
+  normalized value unequal to every full cited quote after NFC/whitespace
+  normalization. This is an additional guard condition, not the observed first
+  rejection: binding short-circuits first. Fixing only role delivery would not
+  make these outputs accepted.
+
+The root paths are separate and must not be fixed by filling invented facts:
+
+1. `tag_runner.py` only obtains relation roles from preliminary output, before
+   retrieval. Partial-atom roles are intentionally not attached to an entire
+   source block; all four reviewed claims have an empty relation map. Add
+   source-span-specific relationship extraction/validation after retrieval,
+   with immutable settings, literal references, authorization and bounded calls.
+   Do not simulate a separate claim for each candidate or spread one atom's roles
+   across its whole paragraph. Cross-source entity/period/metric conflicts must
+   continue to reject and unresolved axes must remain explicit.
+2. `accept_binding` requires entity, metric and period before its local-claim
+   branch, including M1/M4. Original v2 §4.4–4.5 names management implementation
+   and boundary criteria without making a quantitative metric/date universal;
+   Master §5 still requires typed attribution. An applicable-axis/local-atom
+   contract is needed, with adversarial multi-entity/multi-year examples, before
+   altering acceptance. Missing fields are not blanket permission to bypass
+   attribution. No new interpretation or domain approval is claimed here.
+3. Compact evidence IDs restore the whole catalog SourceRef; the current pilot
+   prompt does not explain that a non-null normalized value must equal one full
+   restored quote. A short name/summarization therefore fails the service's
+   literal-value guard. For qualitative elements, a truthful null can preserve
+   evidence without inventing a value; numerical elements require an exact value
+   span. Fix the wire contract/prompt together, retaining old transport profiles
+   and immutable receipts. Validate with the same saved packets, then measure
+   real responses; do not relax exact-source checks to accept paraphrases.
+
+These observations change the next action: additional full PDF/model retries
+without resolving role delivery and the compact-value contract will not solve
+this bottleneck. No product acceptance or accuracy improvement is claimed for
+this diagnostic step.
+
+Validation: two executions of the offline audit were byte-identical; Ruff check
+and format passed. Existing binding/tagging acceptance suites: 107 passed in
+3.64s (`/tmp/proofops-blocker-contract-tests.txt`). These tests verify the current
+contracts; they do not resolve the observed real-report blockers. No production
+runtime/prompt behavior was changed by this audit.
