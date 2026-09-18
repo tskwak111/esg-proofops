@@ -910,3 +910,42 @@ passed; mypy183sources passed; proofops build passed; package checks passed.
 Logs:/tmp/proofops-spacing-*. No additional model calls. CI35391924279 for1cd98fb
 finished successfully; CI35392222827 for362420c still ran at inspection. Neither
 is evidence for this new spacing correction, which awaits its own CI.
+
+
+### 2026-09-19 · Rendered OCR margins: evaluate before enabling
+
+Compared the KB paragraph at216/288/360dpi without supplying expected text to OCR;
+all retained errors. Visual inspection confirmed the visible original matches
+native text. Blank6px/12px borders made the216dpi crop exact;24px still missed a
+comma. Evaluated fixed6px padding on73 previously readable crops across KB page30
+and the saved Doosan subset: KB baseline28/36, padded29/36; Doosan19/37→20/37.
+Always-padding improves four crops but regresses two, so it was rejected.
+
+Implemented one bounded, text-blind retry only after a nonempty readable mismatch.
+Already-exact reads retain their original result; empty/unavailable OCR gets no
+retry. Preserve original pixels/coordinates, both readings and image hashes;
+keep exact normalization and all native/source gates. Observed baseline-first
+policy gives51/73 exact versus47/73 baseline (computed from the two reads, not
+independent semantic accuracy). A fresh complete KB native attestation verifies
+the previously blocked paragraph, retaining two OCR attempts; historical runs
+and receipts remain untouched. No model/API calls or dependency changes.
+Evidence: native-ocr-padding-20260919.json. Full pipeline under new code not_run.
+
+Padding pixel-preservation test first failed; bounded-retry tests first failed
+2/4, then all29 native-source tests passed. The initial full-suite attempt used
+the rejected always-padding design; while it ran the verifier changed, provoking
+NATIVE_PARAGRAPH_CHECKPOINT_INVALID in one test. It was stopped (2018passed,
+1failed,7skipped), not counted as validation, and replaced with a fresh stable-code
+suite. This local test contamination does not explain the separate Linux failure.
+CI35392921961 at61f8dba: five jobs passed, native paragraph replay failed in
+supply-chain (2311passed,1failed,1skipped). Root cause unproven because pytest
+truncated both receipts. The test now prints an actual JSON diff on failure;
+assertions and replay requirements are unchanged. Await new-head CI before
+claiming cross-platform success.
+
+Final stable-code local validation:2550passed,7skipped,2existingwarnings in205.07s.
+After diagnostic-only test output changes, the targeted native-worker replay
+passed separately (1passed,11.06s). Ruff/format, mypy183sources, proofops build
+and package documentation/contracts checks passed. Logs:/tmp/proofops-padding-retry-*.
+The full source validator still needs fresh cross-report pipeline evaluation;
+no claim is made that historical blocked claims have changed or Linux CI is fixed.

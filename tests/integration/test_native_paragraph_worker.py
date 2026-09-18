@@ -9,6 +9,7 @@ claimed verified status). Tables/footnotes/binding/grades remain unresolved.
 import json
 from copy import deepcopy
 from dataclasses import asdict, replace
+from difflib import unified_diff
 from io import StringIO
 from uuid import uuid4
 
@@ -110,6 +111,20 @@ def test_opt_in_publishes_v4_and_replays_immutable_receipt(tmp_path, monkeypatch
         **service.store.jobs.pending_outbox(TENANT, run_id, now=now[0])[0]["message"]
     )
     outcome = runner.run_once(tenant_id=TENANT, run_id=run_id)
+    if outcome != "committed" and len(receipts) >= 2:
+        # Pytest truncates large assertion dicts; show only actual replay differences.
+        print("NATIVE_RECEIPT_REPLAY_DIFF")
+        print(
+            "".join(
+                unified_diff(
+                    json.dumps(receipts[0], sort_keys=True, indent=2).splitlines(keepends=True),
+                    json.dumps(receipts[1], sort_keys=True, indent=2).splitlines(keepends=True),
+                    fromfile="initial",
+                    tofile="replay",
+                    n=1,
+                )
+            )
+        )
     assert outcome == "committed", {
         "job_error": service.store.jobs.get_job(message)["error_code"],
         "native_attestations": receipts,

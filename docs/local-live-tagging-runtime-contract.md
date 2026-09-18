@@ -228,3 +228,17 @@ paragraph policy pin. Existing attestations require their original code revision
 create a new run/attestation for this correction, never rewrite old receipts.
 Rollback is the original pinned verifier. The independent diagnostic can be run
 with `uv run python evaluation/native_spacing_probe.py`.
+
+
+#### Bounded rendered OCR retry
+
+Keep the initial216dpi crop read. Only a nonempty readable mismatch triggers one
+second read with6px of blank white border; the original crop pixels and PDF
+coordinates remain unchanged. Do not supply the expected text, language
+correction, custom words or replacement punctuation to the OCR reader. Exact
+existing normalization is still required. No retry on an unavailable reader or
+empty reading. Store both responses in rendered_attempts and retain the selected
+reading under rendered; the full receipt hash covers padding, images and reads.
+Hidden text, clipping, uncertain native geometry and table relationships retain
+the existing gates. The verifier hash pins this behavior, so use a fresh run and
+retain the old code for old-receipt replay. No dependency or database migration.

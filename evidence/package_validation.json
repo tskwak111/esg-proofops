@@ -1,9 +1,9 @@
 {
-  "checked_at": "2026-09-18T20:41:53.963755+00:00",
+  "checked_at": "2026-09-18T20:50:06.666456+00:00",
   "scope": "documentation, structured contracts and synthetic schema examples only",
   "status": "passed",
-  "checks_total": 851,
-  "passed": 851,
+  "checks_total": 852,
+  "passed": 852,
   "failed": 0,
   "counts": {
     "numbered_documents": 34,
@@ -415,6 +415,11 @@
     },
     {
       "name": "json:evidence/semantic-isolated-review.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/native-ocr-padding-20260919.json",
       "passed": true,
       "detail": ""
     },

@@ -341,3 +341,70 @@ def test_unmapped_words_only_block_their_own_crop(monkeypatch, inside):
         fuse_candidates((batch,), tenant_id=TENANT), source, tenant_id=TENANT, geometry_mode="glyph"
     )
     assert receipt["records"][0]["status"] == ("unresolved" if inside else "verified")
+
+
+def test_ocr_padding_preserves_crop_pixels_and_original_coordinates(monkeypatch):
+    import json
+    from pathlib import Path
+    from types import SimpleNamespace
+
+    from PIL import Image
+    from proofops.adapters.local import source_verification
+
+    original = Image.new("RGB", (60, 60), "black")
+    page = SimpleNamespace(
+        width=20, height=20, to_image=lambda **kw: SimpleNamespace(original=original.copy())
+    )
+    seen = []
+
+    def recognize(command, **kwargs):
+        with Image.open(Path(command[-1])) as image:
+            seen.append(image.copy())
+        return SimpleNamespace(stdout=json.dumps({"text": "unchanged"}))
+
+    monkeypatch.setattr(source_verification.subprocess, "run", recognize)
+    result = source_verification._rendered_text(page, (2, 3, 12, 13), padding_px=6)
+    assert result["pixel_bbox"] == [6, 9, 36, 39]
+    assert result["padding_px"] == 6
+    assert seen[0].size == (42, 42)
+    assert seen[0].getpixel((0, 0)) == (255, 255, 255)
+    assert seen[0].crop((6, 6, 36, 36)).tobytes() == original.crop((6, 9, 36, 39)).tobytes()
+
+
+@pytest.mark.parametrize(
+    "first,second,expected,calls_expected",
+    [
+        ("Page 1 emissions 1234 tCO2e", "wrong", "verified", [0]),
+        ("Page 1 emissions 1235 tCO2e", "Page 1 emissions 1234 tCO2e", "verified", [0, 6]),
+        ("Page 1 emissions 1235 tCO2e", "Page 1 emissions 1235 tCO2e", "unresolved", [0, 6]),
+        ("", "Page 1 emissions 1234 tCO2e", "unresolved", [0]),
+    ],
+)
+def test_padding_retry_is_bounded_and_keeps_both_readings(
+    monkeypatch, first, second, expected, calls_expected
+):
+    from proofops.adapters.local import source_verification
+
+    calls = []
+
+    def rendered(page, box, *, padding_px=0):
+        calls.append(padding_px)
+        return dict(status="read", text=second if padding_px else first, padding_px=padding_px)
+
+    monkeypatch.setattr(source_verification, "_rendered_text", rendered)
+    source = pdf()
+    batch = replace(
+        candidate(
+            "spacing", [("P", "paragraph", "Page 1 emissions 1234 tCO2e", (70, 710, 300, 740), ())]
+        ),
+        source_sha256=sha256(source).hexdigest(),
+    )
+    record = source_verification.attest_native_sources(
+        fuse_candidates((batch,), tenant_id=TENANT), source, tenant_id=TENANT
+    )["records"][0]
+    assert record["status"] == expected
+    assert calls == calls_expected
+    if len(calls) == 2:
+        assert [r["text"] for r in record["rendered_attempts"]] == [first, second]
+    else:
+        assert "rendered_attempts" not in record

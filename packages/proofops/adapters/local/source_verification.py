@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pdfplumber
 from pdfminer.pdftypes import resolve1
+from PIL import ImageOps
 
 from proofops.adapters.local.native_glyph_geometry import native_word_ink_geometry
 from proofops.application.evidence import citations
@@ -20,7 +21,7 @@ from proofops.application.ingest.gri import _validate_graph
 from proofops.domain.provenance import canonical_hash
 
 
-def _rendered_text(page, box):
+def _rendered_text(page, box, *, padding_px=0):
     if page.width * page.height * 9 > 16_000_000:
         return dict(status="unresolved", reason="render_limit")
     try:
@@ -33,7 +34,9 @@ def _rendered_text(page, box):
             ]
             with image.crop(pixels) as crop:
                 buffer = io.BytesIO()
-                crop.save(buffer, format="PNG")
+                # Keep original pixels; blank margins prevent edge-touching OCR errors.
+                with ImageOps.expand(crop, border=padding_px, fill="white") as padded:
+                    padded.save(buffer, format="PNG")
         png = buffer.getvalue()
         with tempfile.TemporaryDirectory(prefix="proofops-source-") as folder:
             path = Path(folder) / "region.png"
@@ -52,6 +55,7 @@ def _rendered_text(page, box):
             image_sha256=sha256(png).hexdigest(),
             pixel_bbox=pixels,
             scale=3,
+            padding_px=padding_px,
             **result,
         )
     except (OSError, subprocess.SubprocessError, ValueError) as error:
@@ -176,6 +180,15 @@ def attest_native_sources(graph, source, *, tenant_id, geometry_mode="font"):
             record["reason"] = "clipped_or_rotated_words" if clipped else "text_mismatch"
             if not clipped and raw and _normalized(raw) == _normalized(candidate.source.raw_text):
                 rendered = _rendered_text(page, box)
+                if (
+                    rendered["status"] == "read"
+                    and rendered["text"]
+                    and _normalized(rendered["text"]) != _normalized(raw)
+                ):
+                    # One fixed, text-blind retry; retain both independent readings.
+                    retry = _rendered_text(page, box, padding_px=6)
+                    record["rendered_attempts"] = [rendered, retry]
+                    rendered = retry
                 record["rendered"] = rendered
                 record["reason"] = "rendered_text_unresolved"
                 if rendered["status"] == "read" and _normalized(rendered["text"]) == _normalized(
