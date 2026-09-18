@@ -47,3 +47,18 @@ def test_preliminary_schema_rejects_the_observed_live_string_dimension():
     jsonschema.validate(response, schema)
     response["dimensions"]["metric"] = None
     jsonschema.validate(response, schema)
+
+
+def test_element_prompt_contains_rule_names_and_field_semantics():
+    import yaml
+
+    from evaluation.local_upstage_pilot import ROOT
+
+    result = live_tagging_settings(12)
+    prompt = result["tagging_settings"]["system_prompt"]
+    elements = yaml.safe_load((ROOT / "config/rubric/elements.yaml").read_text())["elements"]
+    for element in elements:
+        assert element["id"] in prompt
+        assert element["name"] in prompt
+    assert "credited_from must be null" in prompt
+    assert "not an approval" in prompt

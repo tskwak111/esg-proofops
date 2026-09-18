@@ -1,0 +1,208 @@
+{
+  "schema": "live_tagging_pilot_evidence_v1",
+  "run_id": "9dadf939-ab63-4012-90a8-a9e0eba5167c",
+  "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+  "selected_pages": [
+    30
+  ],
+  "state_path": ".local/developer-a-live-tagging-kb-rubric",
+  "cost": {
+    "run_id": "9dadf939-ab63-4012-90a8-a9e0eba5167c",
+    "input_tokens": 33990,
+    "output_tokens": 2288,
+    "attempt_count": 17,
+    "cache_hit_count": 0,
+    "amount": "0.0132523050",
+    "currency": "USD",
+    "pricing_snapshot_id": null,
+    "cost_status": "known"
+  },
+  "tag_stage_status": "needs_review",
+  "review_count": 1,
+  "claims": [
+    {
+      "claim_id": "b40a45eb-ddef-5bde-acc8-4c6fd61da59a",
+      "status": "needs_review",
+      "reason": null,
+      "element_replies": [
+        {
+          "status": "needs_review",
+          "errors": [
+            "UNRESOLVED:M1",
+            "UNRESOLVED:M2",
+            "UNRESOLVED:M3",
+            "UNRESOLVED:M4",
+            "UNRESOLVED:M5",
+            "UNRESOLVED:M6"
+          ],
+          "raw_elements": [
+            {
+              "element_id": "M1",
+              "state": "present",
+              "credited_from": null
+            },
+            {
+              "element_id": "M2",
+              "state": "unknown",
+              "credited_from": null
+            },
+            {
+              "element_id": "M3",
+              "state": "unknown",
+              "credited_from": null
+            },
+            {
+              "element_id": "M4",
+              "state": "unknown",
+              "credited_from": null
+            },
+            {
+              "element_id": "M5",
+              "state": "unknown",
+              "credited_from": null
+            },
+            {
+              "element_id": "M6",
+              "state": "not_applicable",
+              "credited_from": null
+            }
+          ]
+        },
+        {
+          "status": "needs_review",
+          "errors": [
+            "UNRESOLVED:M1",
+            "UNRESOLVED:M2",
+            "UNRESOLVED:M3",
+            "UNRESOLVED:M4",
+            "UNRESOLVED:M5",
+            "UNRESOLVED:M6"
+          ],
+          "raw_elements": [
+            {
+              "element_id": "M1",
+              "state": "present",
+              "credited_from": null
+            },
+            {
+              "element_id": "M2",
+              "state": "unknown",
+              "credited_from": null
+            },
+            {
+              "element_id": "M3",
+              "state": "unknown",
+              "credited_from": null
+            },
+            {
+              "element_id": "M4",
+              "state": "unknown",
+              "credited_from": null
+            },
+            {
+              "element_id": "M5",
+              "state": "unknown",
+              "credited_from": null
+            },
+            {
+              "element_id": "M6",
+              "state": "not_applicable",
+              "credited_from": null
+            }
+          ]
+        },
+        {
+          "status": "needs_review",
+          "errors": [
+            "UNRESOLVED:M1",
+            "UNRESOLVED:M2",
+            "UNRESOLVED:M3",
+            "UNRESOLVED:M4",
+            "UNRESOLVED:M5",
+            "UNRESOLVED:M6"
+          ],
+          "raw_elements": [
+            {
+              "element_id": "M1",
+              "state": "present",
+              "credited_from": null
+            },
+            {
+              "element_id": "M2",
+              "state": "unknown",
+              "credited_from": null
+            },
+            {
+              "element_id": "M3",
+              "state": "unknown",
+              "credited_from": null
+            },
+            {
+              "element_id": "M4",
+              "state": "unknown",
+              "credited_from": null
+            },
+            {
+              "element_id": "M5",
+              "state": "unknown",
+              "credited_from": null
+            },
+            {
+              "element_id": "M6",
+              "state": "not_applicable",
+              "credited_from": null
+            }
+          ]
+        }
+      ],
+      "decision": null
+    },
+    {
+      "claim_id": "2dcf3a33-9329-5085-b3fb-2a5318fa3193",
+      "status": "blocked",
+      "reason": "PRELIMINARY_TAGS_UNRESOLVED",
+      "element_replies": [],
+      "decision": null
+    },
+    {
+      "claim_id": "2699b36c-8026-5f04-bb5a-a76496d0cfb1",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "element_replies": [],
+      "decision": null
+    },
+    {
+      "claim_id": "14286b6a-713b-501d-8f59-28de839fd2e4",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "element_replies": [],
+      "decision": null
+    },
+    {
+      "claim_id": "92dae73d-d595-56ef-9143-21b5cd92d80d",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "element_replies": [],
+      "decision": null
+    },
+    {
+      "claim_id": "0adc379b-796d-5e37-8c41-c99709e85763",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "element_replies": [],
+      "decision": null
+    }
+  ],
+  "settings_hashes": {
+    "preliminary_settings_hash": "516b7c910fd314c389c1678d80ed942d0bf0cc68462b655a82f121d863f0cec2",
+    "tagging_settings_hash": "36701420f431342bfbb5273d40701fdb0e98c7cfee679d548c180f148d639f3a",
+    "input_reservation_policy_hash": "6a04b102f358a4fdf722ed2f094f35f5a782fb04eb486e690144e8c2cb748e3f"
+  },
+  "limitations": [
+    "Single page and one claim with element calls; no independent accuracy metric",
+    "Fresh extraction may change candidate set; not a controlled benchmark",
+    "Raw present and not_applicable are model candidates, not accepted findings",
+    "Relationship tags and some required claim dimensions remain unresolved; no grade"
+  ],
+  "synthetic": false
+}

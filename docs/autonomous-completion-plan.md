@@ -221,3 +221,36 @@ additional layouts, and the missing relationship-tag supplier. Do not silently
 accept non-unanimous preliminary dimensions, upgrade unverified source spans,
 or equate a review candidate with established evidence. This single-page result
 is useful integration evidence, not service readiness or appendix coverage.
+
+### Rubric-aware pilot prompt — 2026-09-19
+
+Real response inspection found the prior pilot system prompt supplied IDs but no
+element meanings. One Solar Pro4 reply also used evidence catalog ID e0 in the
+UUID-valued credited_from field. Keep strict validation; do not repair either
+invalid credit or overbroad present assertions into accepted evidence.
+
+Pilot settings now embed the existing config/rubric/elements.yaml ID/name,
+requirement/trigger/source scopes and scope-approval state, preserving draft
+status. Instructions require independent element assessment and credited_from
+null (the server validates cross-claim credit). The complete prompt remains
+pinned in settings/runtime hashes. No domain definition or grading rule changed.
+A regression test first reproduced the missing definitions and now passes.
+
+Actual fresh run 9dadf939-ab63-4012-90a8-a9e0eba5167c: six extracted candidates,
+one review candidate; all three element replies structurally valid. Raw replies
+agreed on M1 present, M2–M5 unknown, M6 not_applicable. None is an accepted finding:
+relationship/context/application guards kept all unresolved and produced no grade.
+This is one tagged claim, not an accuracy benchmark or a controlled A/B result.
+Evidence: evidence/live-tagging-kb-rubric-20260919.json; complete raw receipts and
+pinned prompt remain in .local/developer-a-live-tagging-kb-rubric.
+
+17 actual calls cost USD0.0132523050 under the pinned conservative policy. Shared
+ledger now 1438 calls, original six unsettled calls unchanged, cumulative committed/
+reserved USD7.9711657900 of USD20. Focused pilot/config/transport suites: 39 passed;
+ruff check/format and pilot mypy passed. Latest direct Codex quota: 71% used,
+29% remaining; do not start new work at <=10% remaining.
+
+Next: source-backed relationship extraction and explicit handling of insufficient
+claim context under the frozen attribution contract, plus evaluation on another
+report layout. No invented entity/metric/period, no automatic draft-rule approval,
+and no loosening of source/semantic guards to inflate accepted-result counts.
