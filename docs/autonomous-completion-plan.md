@@ -60,3 +60,24 @@ literal source quotes, source-packet hash validation and inherited durable call
 receipts. Coordinator strengthened malformed-envelope tests to recompute the
 packet digest, proving rejection beyond a stale-hash check. Product runtime
 integration and source-aware authorization composition remain incomplete.
+
+## Runtime review decisions
+
+The independent review confirmed the blocking guards in RunService, local
+runtime configuration, run/tag stores, LocalTagRunner and review editing.
+Implementation must pin three distinct uses: extraction, preliminary and element
+tagging. Reuse TaggingSettings for the latter two; do not add a duplicate settings
+class or treat one extractor approval as authority for all calls.
+
+Do not adopt the review's proposed UTF-8-byte-count-plus-500 token ceiling: its
+chat-framing upper bound is unproved. A validated counter or explicitly specified
+conservative capacity-reservation contract is still needed. Actual provider usage
+must be retained separately from any pre-call reservation.
+
+Candidate-only processing must leave grades absent for an unapproved rulepack.
+Both initial publication and later human tag editing need that guard; setting
+`RuleContext.local_synthetic=True` for a real provider is forbidden. The existing
+`extraction_reference_only` snapshots keep their old extraction-only meaning.
+New candidate-tagging semantics need an explicit additive contract and rollback,
+including live extractor/preliminary/element composition, rather than requiring
+fabricated domain approval or silently changing old snapshot meaning.

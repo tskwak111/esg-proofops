@@ -53,4 +53,10 @@ transport or its tests. Real provider execution for this transport: `not_run`.
 
 OpenCode implemented the transport and its tests; coordinator integrated the
 shared authorization change, strengthened boundary tests and ran verification.
-Antigravity's independent runtime integration review remains a separate task.
+Antigravity completed an independent read-only runtime review. The coordinator
+accepted the traced integration blockers, but rejected the unproved byte-plus-500
+token ceiling and the proposed omission of independent preliminary binding pins.
+The proposal also conflicted on whether live extraction and tagging could
+coexist. It is not an approved implementation contract; the corrected constraints
+are recorded in `docs/autonomous-completion-plan.md`. Both workers were released
+and their external terminals closed after accepted lifecycle completion.
