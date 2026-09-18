@@ -1,4 +1,4 @@
-> **팀 개발 시작:** [2026-09-18 인수인계 패키지](handoff/2026-09-18/README.md)
+> **팀 개발 시작:** [전체 범위 상세 인수인계 v2](https://github.com/tskwak111/esg-proofops/tree/main/handoff/team-v2)
 > 개발자 A: 기존 ESG 파이프라인 / 개발자 B: 독립 DART·C1/C3 / 도메인: 원문 정답과 규칙.
 > 이 저장소는 기존 로컬 commit 254f228의 현재 파일 스냅샷에서 시작합니다. 기존 Git 이력은 포함하지 않습니다.
 > 새 팀 작업은 이 저장소를 clone하고 main에서 분기하세요. 기존 로컬 브랜치를 강제 push하지 마세요.
