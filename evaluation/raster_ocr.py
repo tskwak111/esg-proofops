@@ -15,7 +15,6 @@ from importlib.metadata import version
 import pdfplumber
 from PIL import ImageOps
 from proofops.adapters.local.upstage_parse import (
-    ALLOWED_MODELS,
     MAX_RESPONSE_BYTES,
     PARSE_MODEL_PINNED,
 )
@@ -203,7 +202,7 @@ def replay_raster_ocr(
         receipt.get("model") != PARSE_MODEL_PINNED
         or receipt.get("mode") not in {"standard", "enhanced"}
         or not isinstance(receipt.get("provider_model"), str)
-        or receipt.get("provider_model") not in ALLOWED_MODELS
+        or receipt.get("provider_model") != PARSE_MODEL_PINNED
         or raw.get("model") != receipt["provider_model"]
         or receipt.get("request_sha256") != canonical_hash(body)
         or receipt.get("response_sha256") != canonical_hash(raw)

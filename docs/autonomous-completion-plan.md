@@ -1285,3 +1285,43 @@ hashes. Report:/tmp/proofops-native-raster-visibility-review.md. Worker released
 delivery_564ac836b692 acknowledged. Full Ruff/format337files and targeted mypy
 passed; after the final input-shape/self-hash check, actual native/raster replay
 was rerun successfully. No production verifier file or existing receipt changed.
+
+### 2026-09-19 · Raster runtime plan and explicit image authorization
+
+Mapped the integration across local_runner publication, job_store fenced native
+policy and run_artifacts readback. Saved executable sequence in
+`docs/superpowers/plans/2026-09-19-raster-ocr-runtime.md`: separate preflight,
+frozen configuration/per-call checks, coordinated v5 publication/readback, then
+real cross-report validation. No new cloud service or library is needed.
+
+Implemented first gate in application/preflight.py using the existing common
+local approval checks with a private document-parse branch; public extractor and
+tagger gates are unchanged. Separate vision/schema/model/endpoint/mode/max-pages
+binding, explicit raster-upload consent, actual document rights/source, expiry,
+revocation and exact transport model hash are required. This is local-test-only;
+region/live-probe remain not_run. It does not yet dispatch a raster call.
+
+Initial19tests failed before implementation;20raster gate tests now pass including
+malformed/missing rights. Combined legacy/raster preflight suite82passed before
+that final extra boundary case. Full suite and independent plan/gate review pending.
+Full Ruff/format338files, mypy186sources, package build and contract validator passed
+independently. No API calls or ledger changes made in this step.
+
+Full suite completed:2581passed,7skipped,2existingwarnings in188.75s. Independent
+Luna review task_83e8f1c54749 / ctx_88c52ecf9888 identified integration requirements
+for selected-page scope, reserved legacy fields, mode/ownership/rights/helper pins
+and partial coverage. These are explicit in the plan's review decisions, not
+claimed implemented by the preflight-only step. Worker released and delivery
+acknowledged. Report:/tmp/proofops-raster-preflight-review.md; reviewer could not
+run pytest in its shell, so its report is static review, not test evidence.
+
+One concrete replay mismatch was fixed now: the separate raster preflight pins
+an exact model, but replay inherited generic transport alias acceptance. Added a
+regression showing document-parse alias was incorrectly accepted, then required
+provider-reported document-parse-260128 exactly in raster replay. Generic historical
+Document Parse/table adapters retain their own compatibility behavior. Added
+preflight/transport constant drift assertions without reversing dependencies.
+After this tightening,90targeted tests and full Ruff/format plus relevant mypy
+passed. The2581full-suite count precedes this final small change; exact-head CI
+still required. Actual four-page offline replay remains byte-identical with1exact
+match and zero API calls. All existing source/review/checkpoint data is unchanged.

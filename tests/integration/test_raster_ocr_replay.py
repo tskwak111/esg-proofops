@@ -71,7 +71,14 @@ def test_raster_request_and_receipt_replay_reject_tampering(monkeypatch):
         replay_raster_ocr(request, receipt, graph, source + b"changed", **pins)
     with pytest.raises(ValueError):
         replay_raster_ocr(request, receipt, graph, source, **(pins | dict(tenant_id=FOREIGN)))
-    for fault in ("wrong_page", "duplicate_element", "text_change", "model", "billing_bool"):
+    for fault in (
+        "wrong_page",
+        "duplicate_element",
+        "text_change",
+        "model",
+        "model_alias",
+        "billing_bool",
+    ):
         altered = deepcopy(receipt)
         raw = altered["raw_response"]
         if fault == "wrong_page":
@@ -82,6 +89,8 @@ def test_raster_request_and_receipt_replay_reject_tampering(monkeypatch):
             raw["elements"][0]["content"]["text"] = "Page 1 emissions 1235 tCO2e"
         elif fault == "model":
             raw["model"] = "wrong"
+        elif fault == "model_alias":
+            raw["model"] = altered["provider_model"] = "document-parse"
         else:
             raw["usage"]["standard"] = [True]
         altered["response_sha256"] = canonical_hash(raw)

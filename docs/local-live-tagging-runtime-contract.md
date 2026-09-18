@@ -335,3 +335,34 @@ preserve lease/budget cancellation, and validate both paths on publication and
 read. Rollback disables new external mode while retaining a reader capable of
 replaying its already-published receipts; it cannot drop fields into legacy v4.
 No DB migration or HTTP option has been introduced by this experiment.
+
+#### Local raster preflight contract (not yet wired to dispatch)
+
+`check_local_upstage_raster` validates trusted Registry-resolved runtime/consent
+profiles for local tests. Runtime schema:`local_upstage_raster_binding_v1`,
+role:`vision`, model:`document-parse-260128`, endpoint:
+`https://api.upstage.ai/v1/document-digitization`, mode:`standard|enhanced`,
+integer max_pages:1..10, accepts_images:true and image_input_verified:true.
+The profile has the same tenant, approval/expiry, purpose:local_test, provider,
+USD10/20 ceiling and no implicit fallback requirements as other local gates.
+Required model hash is canonical_hash of model/provider/transport with transport
+`UpstageParseProbe`; chat-model hashes and aliases do not authorize raster calls.
+
+Consent additionally requires allow_raster_upload:true. Both the actual source
+SHA256 and document-rights value must be allowed, with cross-tenant cache and
+AgentCore memory disabled. Missing/malformed rights are denied. Existing extractor
+and tagger public gates continue to accept only their original chat endpoints and
+models. Region attestation and live probe remain not_run; asking this pure gate to
+perform a live probe returns not-ready without making a call.
+
+This validates the grant's maximum page bound. Future per-call dispatch must also
+compare the prepared submission's actual page count/mode with that frozen bound;
+a passing preflight alone is not transport enforcement. Recheck registry revocation,
+expiration and source scope immediately before reserving or dispatching. No live
+worker path or public run DTO is enabled merely by adding this validator.
+
+Raster replay additionally requires the provider-reported model to equal the
+pinned `document-parse-260128`; the generic `document-parse` alias is rejected even
+if the stored transport request used the pinned model. Generic historical table
+parse adapter alias policy is unaffected. Contract tests compare raster preflight
+pins with transport model/page constants without importing adapters into application.

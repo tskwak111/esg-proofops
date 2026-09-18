@@ -325,6 +325,7 @@ def _check_local_upstage_binding(
     include_live_model_probe: bool,
     model_sha256: str | None,
     expected_role: str,
+    document_parse: bool = False,
 ) -> Preflight:
     if any(p.get("tenant_id") != auth.tenant_id for p in (binding, consent)):
         raise TenantNotFoundError("profile not found")
@@ -364,20 +365,27 @@ def _check_local_upstage_binding(
             and profile.get("provider") == "upstage",
         )
     model_id = binding.get("model_id")
-    model_hash_ok = model_id == "solar-pro3"
+    models = ("document-parse-260128",) if document_parse else ("solar-pro3", "solar-pro4")
+    transport = "UpstageParseProbe" if document_parse else "UpstageProbe"
+    endpoint = (
+        "https://api.upstage.ai/v1/document-digitization"
+        if document_parse
+        else "https://api.upstage.ai/v1/chat/completions"
+    )
+    model_hash_ok = not document_parse and model_id == "solar-pro3"
     if model_sha256 is not None:
         expected = (
-            canonical_hash({"model": model_id, "provider": "upstage", "transport": "UpstageProbe"})
-            if model_id in ("solar-pro3", "solar-pro4")
+            canonical_hash({"model": model_id, "provider": "upstage", "transport": transport})
+            if model_id in models
             else None
         )
         model_hash_ok = expected is not None and model_sha256 == expected
     add(
         "model_binding",
         binding.get("role") == expected_role
-        and binding.get("model_id") in ("solar-pro3", "solar-pro4")
+        and binding.get("model_id") in models
         and model_hash_ok
-        and binding.get("endpoint") == "https://api.upstage.ai/v1/chat/completions"
+        and binding.get("endpoint") == endpoint
         and binding.get("budget_limit_usd") in ("10.00", "20.00")
         and binding.get("fallback_bindings", []) == [],
     )
@@ -417,6 +425,61 @@ def _check_local_upstage_binding(
         hashlib.sha256(canonical_json(dict(binding)).encode("ascii")).hexdigest(),
         checked_at,
     )
+
+
+def check_local_upstage_raster(
+    *,
+    binding: Mapping[str, Any],
+    consent: Mapping[str, Any],
+    auth: AuthContext,
+    checked_at: str,
+    source_sha256: str,
+    document_rights: str,
+    model_sha256: str,
+    include_live_model_probe: bool = False,
+) -> Preflight:
+    """Separate local-test raster authorization; no network or deployment approval.
+
+    Profiles must be resolved from trusted tenant-scoped Registry storage. Text
+    grants never authorize image egress. Callers recheck immediately before spend.
+    """
+    if (
+        not isinstance(source_sha256, str)
+        or re.fullmatch(r"[0-9a-f]{64}", source_sha256) is None
+        or not _text(document_rights)
+        or document_rights == "*"
+    ):
+        raise ValueError("invalid local raster preflight input")
+    common = _check_local_upstage_binding(
+        binding=binding,
+        consent=consent,
+        auth=auth,
+        checked_at=checked_at,
+        source_sha256=source_sha256,
+        include_live_model_probe=include_live_model_probe,
+        model_sha256=model_sha256,
+        expected_role="vision",
+        document_parse=True,
+    )
+    valid = (
+        binding.get("schema") == "local_upstage_raster_binding_v1"
+        and binding.get("mode") in ("standard", "enhanced")
+        and type(binding.get("max_pages")) is int
+        and 1 <= binding["max_pages"] <= 10
+        and binding.get("accepts_images") is True
+        and binding.get("image_input_verified") is True
+        and consent.get("allow_raster_upload") is True
+        and isinstance(consent.get("allowed_document_rights"), list | tuple)
+        and document_rights in consent["allowed_document_rights"]
+    )
+    checks = common.checks + (
+        Check(
+            "raster_upload_scope",
+            "pass" if valid else "fail",
+            "explicit local raster scope" if valid else "local raster scope invalid",
+        ),
+    )
+    return Preflight(common.ready and valid, checks, common.binding_sha256, checked_at)
 
 
 def check_local_upstage_tagger(

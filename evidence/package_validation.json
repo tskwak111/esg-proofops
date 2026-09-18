@@ -1,9 +1,9 @@
 {
-  "checked_at": "2026-09-18T21:35:47.189326+00:00",
+  "checked_at": "2026-09-18T22:16:19.418570+00:00",
   "scope": "documentation, structured contracts and synthetic schema examples only",
   "status": "passed",
-  "checks_total": 858,
-  "passed": 858,
+  "checks_total": 863,
+  "passed": 863,
   "failed": 0,
   "counts": {
     "numbered_documents": 34,
@@ -85,6 +85,11 @@
     },
     {
       "name": "json:evidence/developer-a-live-20260918.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/doosan-independent-raster-ocr-20260919.json",
       "passed": true,
       "detail": ""
     },
@@ -304,6 +309,16 @@
       "detail": ""
     },
     {
+      "name": "json:evidence/doosan-independent-raster-replay-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/live-tagging-doosan-relation-isolation-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
       "name": "json:evidence/live-tagging-doosan-coverage-20260919.json",
       "passed": true,
       "detail": ""
@@ -409,6 +424,11 @@
       "detail": ""
     },
     {
+      "name": "json:evidence/ocr-punctuation-what-if-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
       "name": "json:evidence/parser-extraction-comparison.json",
       "passed": true,
       "detail": ""
@@ -440,6 +460,11 @@
     },
     {
       "name": "json:evidence/quantity-candidate-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/doosan-native-raster-visibility-20260919.json",
       "passed": true,
       "detail": ""
     },
