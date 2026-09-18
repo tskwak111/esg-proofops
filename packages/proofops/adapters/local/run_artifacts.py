@@ -93,7 +93,10 @@ def checkpoint_note_reviews(envelope):
 def native_paragraph_policy():
     local = files("proofops.adapters.local")
     return dict(
-        mode="paragraph_native_v1",
+        mode="paragraph_native_glyph_v2",
+        glyph_verifier_sha256=sha256(
+            local.joinpath("native_glyph_geometry.py").read_bytes()
+        ).hexdigest(),
         verifier_sha256=sha256(local.joinpath("source_verification.py").read_bytes()).hexdigest(),
         rendered_reader_sha256=sha256(local.joinpath("native_ocr.swift").read_bytes()).hexdigest(),
         normalization_sha256=sha256(
@@ -113,7 +116,7 @@ def checkpoint_native_attestation(envelope):
     policy_digest = envelope.get("native_paragraph_policy_sha256")
     if (
         not isinstance(receipt, dict)
-        or receipt.get("schema") != "native_paragraph_attestation_v1"
+        or receipt.get("schema") != "native_paragraph_attestation_v2"
         or not isinstance(receipt.get("records"), list)
         or not isinstance(receipt.get("artifact_sha256"), str)
         or len(receipt["artifact_sha256"]) != 64

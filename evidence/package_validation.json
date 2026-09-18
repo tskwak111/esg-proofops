@@ -1,9 +1,9 @@
 {
-  "checked_at": "2026-09-18T18:11:03.648971+00:00",
+  "checked_at": "2026-09-18T18:21:23.385257+00:00",
   "scope": "documentation, structured contracts and synthetic schema examples only",
   "status": "passed",
-  "checks_total": 833,
-  "passed": 833,
+  "checks_total": 834,
+  "passed": 834,
   "failed": 0,
   "counts": {
     "numbered_documents": 34,
@@ -230,6 +230,11 @@
     },
     {
       "name": "json:evidence/claim-dimension-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/live-tagging-doosan-glyph-20260919.json",
       "passed": true,
       "detail": ""
     },

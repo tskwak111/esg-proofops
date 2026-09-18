@@ -13,6 +13,7 @@ from pathlib import Path
 import pdfplumber
 from pdfminer.pdftypes import resolve1
 
+from proofops.adapters.local.native_glyph_geometry import native_word_ink_geometry
 from proofops.application.evidence import citations
 from proofops.application.evidence.citations import _normalized
 from proofops.application.ingest.gri import _validate_graph
@@ -59,8 +60,10 @@ def _rendered_text(page, box):
         )
 
 
-def attest_native_sources(graph, source, *, tenant_id):
+def attest_native_sources(graph, source, *, tenant_id, geometry_mode="font"):
     """Create a replayable receipt; caller stores it as a new immutable artifact."""
+    if geometry_mode not in {"font", "glyph"}:
+        raise ValueError("unsupported native geometry mode")
     _validate_graph(graph, tenant_id)
     if (
         not isinstance(source, bytes)
@@ -69,6 +72,7 @@ def attest_native_sources(graph, source, *, tenant_id):
     ):
         raise ValueError("native source mismatch")
     records = []
+    glyph_pages = {}
     with pdfplumber.open(io.BytesIO(source)) as document:
         form = resolve1(document.doc.catalog.get("AcroForm"))
         # A default font dictionary with explicitly zero fields is not interactive.
@@ -119,9 +123,46 @@ def attest_native_sources(graph, source, *, tenant_id):
                 or abs(page.height - geometry.height_pt) > 0.001
             ):
                 continue
+            words = page.extract_words()
+            glyph_boxes = {}
+            if geometry_mode == "glyph":
+                page_key = str(block.page_num)
+                if page_key not in glyph_pages:
+                    try:
+                        glyph_pages[page_key] = native_word_ink_geometry(
+                            source, block.page_num, list(range(len(words)))
+                        )
+                    except ValueError:
+                        glyph_pages[page_key] = dict(status="unresolved")
+                proof = glyph_pages[page_key]
+                record["reason"] = "glyph_geometry_unresolved"
+                if not isinstance(proof.get("matched_words"), list):
+                    continue
+                glyph_boxes = {
+                    w["native_word_index"]: w["ink_bbox"] for w in proof["matched_words"]
+                }
+                unresolved = set(proof.get("unresolved_word_indices", ()))
+                if set(glyph_boxes) | unresolved != set(range(len(words))):
+                    continue
+                # Unmapped words in this crop remain a blocker. Unrelated rotated
+                # navigation elsewhere on the page must not disable every paragraph.
+                if any(
+                    words[i]["x1"] > box[0]
+                    and words[i]["x0"] < box[2]
+                    and words[i]["bottom"] > box[1]
+                    and words[i]["top"] < box[3]
+                    for i in unresolved
+                ):
+                    continue
             clipped = False
-            for index, word in enumerate(page.extract_words()):
-                wb = [word["x0"], word["top"], word["x1"], word["bottom"]]
+            for index, word in enumerate(words):
+                if geometry_mode == "glyph" and index not in glyph_boxes:
+                    continue
+                wb = (
+                    glyph_boxes[index]
+                    if geometry_mode == "glyph"
+                    else [word["x0"], word["top"], word["x1"], word["bottom"]]
+                )
                 if wb[2] <= box[0] or wb[0] >= box[2] or wb[3] <= box[1] or wb[1] >= box[3]:
                     continue
                 if not word["upright"] or not (
@@ -161,13 +202,23 @@ def attest_native_sources(graph, source, *, tenant_id):
         scope="paragraph_native_and_rendered_text_only",
         coordinate_system="pdf_top_left_points",
     )
+    if geometry_mode == "glyph":
+        result.update(
+            schema="native_paragraph_attestation_v2",
+            geometry_mode="glyph",
+            glyph_geometry=glyph_pages,
+            glyph_verifier_sha256=sha256(
+                Path(__file__).with_name("native_glyph_geometry.py").read_bytes()
+            ).hexdigest(),
+        )
     result["artifact_sha256"] = canonical_hash(result)
     return result
 
 
 def replay_native_sources(receipt, graph, source, *, tenant_id):
     """Recompute against original bytes before returning a new source-quality view."""
-    expected = attest_native_sources(graph, source, tenant_id=tenant_id)
+    mode = "glyph" if receipt.get("schema") == "native_paragraph_attestation_v2" else "font"
+    expected = attest_native_sources(graph, source, tenant_id=tenant_id, geometry_mode=mode)
     if canonical_hash(receipt) != canonical_hash(expected):
         raise ValueError("native attestation mismatch")
     verified = {r["source_id"] for r in expected["records"] if r["status"] == "verified"}

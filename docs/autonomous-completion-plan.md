@@ -366,3 +366,48 @@ Ordinary Codex quota: 72% used /28% remaining. Antigravity.app and Antigravity
 IDE.app are installed, though antigravity is absent from PATH; absence of the
 CLI is not evidence of exhausted Antigravity credits. OpenCode's previous free
 usage rejection remains recorded. No worker or paid request is currently active.
+
+### Glyph-based source verification and multi-section tagging boundary — 2026-09-19
+
+Implemented the documented native glyph verification policy using the existing
+Unicode+origin mapping adapter. Font mode remains the standalone v1 default;
+the explicit worker --verify-paragraphs path now pins paragraph_native_glyph_v2,
+the glyph verifier hash, and a v2 immutable attestation. It selects tight glyph
+boxes, checks intersecting word containment and exact native text, then requires
+rendered crop OCR agreement. Unmapped words intersecting a crop block it; unmapped
+navigation elsewhere remains recorded without blocking all other paragraphs.
+All actual hidden/overpaint tests now run in both modes. Existing strict font-box
+clipping tests remain unchanged. No table or semantic-evidence approval is added.
+
+Actual Doosan glyph validation: 19 verified paragraph blocks (including labels),
+26 clipped/rotated, 18 rendered mismatches, 14 native mismatches and 4 unresolved
+glyph mappings. The 173 non-paragraph blocks still require relationship/table
+validation. The first whole-page-completeness experiment verified only 5 blocks;
+localized unmapped-word handling was then tested explicitly before final delivery.
+Standalone artifacts remain in .local/developer-a-doosan-glyph-verification and
+.local/developer-a-doosan-glyph-crop-verification. Neither rewrites old attestations.
+
+New actual pipeline run 6e650d77-da87-465a-9c99-54dd20ba07e5 (same physical pages
+27/97/110, new manifest and settings) extracted 11 claims, with 8 source-blocked
+and 2 preliminary-blocked. One candidate review was durably published, but its
+three element attempts failed: first PROBE_REQUEST_TOO_LARGE, then the transport
+stop fence. The shared probe request-byte ceiling prevents the multi-section
+packet plus rubric prompt from being sent. Do not count this as element-tagging
+success. Next resolve that bounded wire-size/packet-budget mismatch, retaining
+full receipt and evidence-scope semantics, then retest the same multi-section flow.
+
+15 real calls (8 extraction and 7 preliminary) cost USD0.0056413500. No successful
+paid element call. Shared ledger is 1483 calls, USD7.9842702550/20 committed or
+reserved, original six unsettled unchanged. Offline review-input replay passed
+with zero additional calls. Evidence: live-tagging-doosan-glyph-20260919.json.
+
+Final native source suite: 24 passed. Full unit/contract/acceptance/integration/
+security plus staging-gate suite: 2458 passed, 7 skipped, 2 existing warnings,
+189.29 seconds (/tmp/proofops-glyph-full-suite.txt). Ruff, targeted mypy and
+proofops package build passed. Actual browser review/cloud still not_run.
+
+Antigravity discovery: the installed IDE exposes
+/Applications/Antigravity IDE.app/Contents/Resources/app/bin/antigravity-ide;
+its documented chat subcommand accepts ask/edit/agent sessions in the UI. This
+is not yet a supervised Orca worker or proof of model availability/credit. No
+Antigravity task was dispatched and no Codex fallback worker was fabricated.

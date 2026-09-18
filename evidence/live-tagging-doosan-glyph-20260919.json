@@ -1,0 +1,195 @@
+{
+  "schema": "live_tagging_pilot_evidence_v1",
+  "run_id": "6e650d77-da87-465a-9c99-54dd20ba07e5",
+  "source_sha256": "dc59b2b1c5bbf02e33bb901f94aef7cd984dc62547708e92aa1332ac550102e9",
+  "selected_pages": [
+    27,
+    97,
+    110
+  ],
+  "state_path": ".local/developer-a-live-tagging-doosan-glyph",
+  "synthetic": false,
+  "cost": {
+    "run_id": "6e650d77-da87-465a-9c99-54dd20ba07e5",
+    "input_tokens": 16229,
+    "output_tokens": 1165,
+    "attempt_count": 15,
+    "cache_hit_count": 0,
+    "amount": "0.0056413500",
+    "currency": "USD",
+    "pricing_snapshot_id": null,
+    "cost_status": "known"
+  },
+  "claim_count": 11,
+  "source_verification_reasons": {
+    "relationship_validation_required": 173,
+    "rendered_text_unresolved": 18,
+    "verified": 19,
+    "clipped_or_rotated_words": 26,
+    "text_mismatch": 14,
+    "glyph_geometry_unresolved": 4
+  },
+  "native_policy_sha256": "2f68a213aa7c32ce25110bb57cb9dc5b03036d808956ffb417a243b85c07556e",
+  "tag_stage_status": "needs_review",
+  "claims": [
+    {
+      "claim_id": "c1a3a512-5eb1-5675-a835-9ae3b0fa204c",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "decision": null,
+      "preliminary_statuses": [],
+      "element_replies": []
+    },
+    {
+      "claim_id": "9f48971f-8f32-5606-bcd0-eab61df61674",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "decision": null,
+      "preliminary_statuses": [],
+      "element_replies": []
+    },
+    {
+      "claim_id": "ce94b650-c5ef-5a5c-ae1f-4679f76171f6",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "decision": null,
+      "preliminary_statuses": [],
+      "element_replies": []
+    },
+    {
+      "claim_id": "e591eb15-3bab-54aa-ac4a-82704442247b",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "decision": null,
+      "preliminary_statuses": [],
+      "element_replies": []
+    },
+    {
+      "claim_id": "92ebb8e4-e7d5-593f-b482-345f037b901b",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "decision": null,
+      "preliminary_statuses": [],
+      "element_replies": []
+    },
+    {
+      "claim_id": "b220b2e2-c87e-5aff-a443-5f8bfb2de34f",
+      "status": "blocked",
+      "reason": "PRELIMINARY_TAGS_UNRESOLVED",
+      "decision": null,
+      "preliminary_statuses": [
+        "validated_candidate",
+        "needs_review"
+      ],
+      "element_replies": []
+    },
+    {
+      "claim_id": "f80511e8-8dc0-53c6-b7a5-7ad2f380b10e",
+      "status": "needs_review",
+      "reason": null,
+      "decision": null,
+      "preliminary_statuses": [
+        "validated_candidate",
+        "validated_candidate",
+        "validated_candidate"
+      ],
+      "element_replies": [
+        {
+          "status": "model_failed",
+          "errors": [
+            "MODEL_UNAVAILABLE"
+          ],
+          "usage": {
+            "cache_read_tokens": null,
+            "cache_write_tokens": null,
+            "error_code": "PROBE_REQUEST_TOO_LARGE",
+            "input_tokens": null,
+            "latency_ms": 0,
+            "output_tokens": null,
+            "provider_request_id": null,
+            "status": "failed"
+          }
+        },
+        {
+          "status": "model_failed",
+          "errors": [
+            "MODEL_UNAVAILABLE"
+          ],
+          "usage": {
+            "cache_read_tokens": null,
+            "cache_write_tokens": null,
+            "error_code": "UPSTREAM_UNAVAILABLE",
+            "input_tokens": null,
+            "latency_ms": 0,
+            "output_tokens": null,
+            "provider_request_id": null,
+            "status": "failed"
+          }
+        },
+        {
+          "status": "model_failed",
+          "errors": [
+            "MODEL_UNAVAILABLE"
+          ],
+          "usage": {
+            "cache_read_tokens": null,
+            "cache_write_tokens": null,
+            "error_code": "UPSTREAM_UNAVAILABLE",
+            "input_tokens": null,
+            "latency_ms": 0,
+            "output_tokens": null,
+            "provider_request_id": null,
+            "status": "failed"
+          }
+        }
+      ]
+    },
+    {
+      "claim_id": "27d294cd-ea28-54a1-a1c9-51a4b74dd20e",
+      "status": "blocked",
+      "reason": "PRELIMINARY_TAGS_UNRESOLVED",
+      "decision": null,
+      "preliminary_statuses": [
+        "validated_candidate",
+        "needs_review"
+      ],
+      "element_replies": []
+    },
+    {
+      "claim_id": "0cedd925-d4f5-5253-bcd1-d074e6b79480",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "decision": null,
+      "preliminary_statuses": [],
+      "element_replies": []
+    },
+    {
+      "claim_id": "a513af7e-75a9-58b0-8e02-47209d1578c2",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "decision": null,
+      "preliminary_statuses": [],
+      "element_replies": []
+    },
+    {
+      "claim_id": "b30ba352-9cc4-5e65-b350-7ca8527fc983",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "decision": null,
+      "preliminary_statuses": [],
+      "element_replies": []
+    }
+  ],
+  "review_count": 1,
+  "offline_replay": {
+    "claim_id": "f80511e8-8dc0-53c6-b7a5-7ad2f380b10e",
+    "replay": "passed",
+    "additional_calls": 0
+  },
+  "limitations": [
+    "Selected 3-page development sample, not independent accuracy or full appendix coverage.",
+    "19 verified paragraph blocks include headings and navigation; not 19 claims.",
+    "8 source-blocked claims and 2 preliminary-blocked claims remain.",
+    "One candidate review contains three failed element attempts: first PROBE_REQUEST_TOO_LARGE, then upstream stop fence. No successful element response or accepted grade."
+  ]
+}

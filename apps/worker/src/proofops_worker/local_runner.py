@@ -228,7 +228,7 @@ class LocalParserRunner:
                         )
 
                         native_receipt = attest_native_sources(
-                            graph, source.content, tenant_id=tenant_id
+                            graph, source.content, tenant_id=tenant_id, geometry_mode="glyph"
                         )
                         graph = replay_native_sources(
                             native_receipt, graph, source.content, tenant_id=tenant_id

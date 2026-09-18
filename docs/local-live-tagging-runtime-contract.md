@@ -113,3 +113,20 @@ is keyed by source_id rather than by subspan, partial-block claims deliberately
 supply no reused relation tags: otherwise roles could leak to a different claim
 in the same paragraph or cell. No other block, table or appendix candidate gains
 relation tags from this reuse. Cross-source role extraction remains separate work.
+
+## Native glyph paragraph verification
+
+The explicit --verify-paragraphs worker path uses a pinned native glyph
+policy. Map every page word by Unicode and character origin with the existing
+native_word_ink_geometry adapter, then select words using their tight glyph boxes.
+Require a complete mapping of words intersecting the paragraph (unmapped words
+elsewhere remain recorded), containment of every intersecting mapped word,
+exact normalized source text, and independently rendered crop OCR agreement.
+No bbox expansion, fuzzy text matching, table approval or semantic attribution.
+Retain existing interactive/optional-layer and rendering guards. Unsupported,
+ambiguous, oversized or clipped inputs remain unresolved. Record the glyph proof,
+reader/code hashes and geometry mode in a v2 attestation; old standalone font-box
+attestations retain v1 semantics. New worker policies require new run state;
+old artifacts remain immutable and require their pinned original verifier for
+exact replay. Rollback disables the new worker policy and preserves all receipts.
+No API or database migration is required.
