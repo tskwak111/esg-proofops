@@ -254,3 +254,26 @@ Next: source-backed relationship extraction and explicit handling of insufficien
 claim context under the frozen attribution contract, plus evaluation on another
 report layout. No invented entity/metric/period, no automatic draft-rule approval,
 and no loosening of source/semantic guards to inflate accepted-result counts.
+
+### Atomic-source relation connection — 2026-09-19
+
+Connected unanimous preliminary role spans to the real worker's relation map for
+whole-block atomic claims. Previously the worker always returned an empty map,
+so even fully source-bound direct evidence with all required dimensions could
+never pass attribution. Existing accept_binding remains the only acceptance
+checker; no domain/grade rule changed and no additional model calls were added.
+
+Tests first reproduced the missing local binding, then a same-block subspan
+leakage case. The implementation now requires exact whole-source quote/range;
+it cannot reuse a partial claim's roles for other text sharing a source_id.
+Complete direct numeric evidence is accepted, missing reporting period remains
+undetermined, other-block evidence receives no roles, and partial atoms supply
+an empty map. Existing review/replay/cancellation pipeline tests still pass.
+
+Combined worker/pipeline/binding tests: 68 passed before one additional missing-
+period parameter; final worker suite 12 passed. Ruff check/format and mypy pass.
+No paid calls this checkpoint. This is only direct atomic-source reuse, not a
+completed cross-source relationship supplier or new real-report accuracy evidence.
+KB's partial-paragraph atoms remain unresolved as before. Follow-up must extract
+roles from other candidate sources with independent literal validation and receipt
+pins, then exercise other report layouts without relaxing the binding contract.

@@ -100,3 +100,16 @@ The example dates/pages are placeholders, not an inferred report scope. A select
 body page alone cannot establish appendix coverage. Results retain this partial
 scope. Reusing the same state reads/replays existing work; it must not create new
 provider attempts for completed receipts. Incomplete dispatched receipts stop.
+
+## Atomic-source role reuse
+
+After all three preliminary replies agree, their verified literal dimension
+spans may supply relation tags for that same source block only when the atomic
+claim covers the entire block (exact character range and quote). This uses the
+already retained semantic-role receipts and adds no model call. The binding
+engine still checks all required/applicable dimensions, periods and allowed
+source scopes. Missing roles remain null/undetermined. Because the relation map
+is keyed by source_id rather than by subspan, partial-block claims deliberately
+supply no reused relation tags: otherwise roles could leak to a different claim
+in the same paragraph or cell. No other block, table or appendix candidate gains
+relation tags from this reuse. Cross-source role extraction remains separate work.

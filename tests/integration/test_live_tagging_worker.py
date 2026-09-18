@@ -232,3 +232,86 @@ def test_preliminary_lease_loss_stops_remaining_spend(tmp_path, monkeypatch, inf
         runtime.preliminary(claim, graph)
     assert len(calls) == int(inflight)
     assert usage["settled_calls"] == int(inflight)
+
+
+@pytest.mark.parametrize("missing_period", [False, True])
+def test_unanimous_claim_dimensions_bind_only_the_same_atomic_source(
+    tmp_path, monkeypatch, missing_period
+):
+    from proofops.application.evidence.binding import accept_binding
+
+    from tests.acceptance.test_binding import DIMENSIONS, span
+    from tests.acceptance.test_rules import pack
+
+    runtime, claim, graph, calls, _, _ = configured(tmp_path, monkeypatch)
+    original = runtime.preliminary_transport._probe._post
+
+    def post(body):
+        response = original(body)
+        message = response["choices"][0]["message"]
+        value = json.loads(message["content"])
+        value["track"] = "performance"
+        value["dimensions"] = {
+            role: dict(source_index=0, quote=quote) for role, quote in DIMENSIONS.items()
+        }
+        if missing_period:
+            value["dimensions"]["reporting_period"] = None
+        message["content"] = json.dumps(value)
+        return response
+
+    monkeypatch.setattr(runtime.preliminary_transport._probe, "_post", post)
+    _, context, relations = runtime.preliminary(claim, graph)
+    source = claim.source_refs[0]
+    assert set(relations) == {source.source_id}
+    assert len(calls) == 3  # no extra relation call for the exact same atomic source
+    assert accept_binding(
+        context,
+        span(source, "40%"),
+        relations[source.source_id],
+        original=graph,
+        tenant_id=claim.tenant_id,
+        rulepack=pack(),
+        element_id="P1",
+    ) == ("undetermined" if missing_period else "accepted")
+    other = next(
+        block.source_ref() for block in graph.blocks if block.source_id != source.source_id
+    )
+    assert other.source_id not in relations
+    assert (
+        accept_binding(
+            context,
+            span(other, "40%"),
+            relations.get(other.source_id, {}),
+            original=graph,
+            tenant_id=claim.tenant_id,
+            rulepack=pack(),
+            element_id="P1",
+        )
+        == "undetermined"
+    )
+
+
+def test_partial_claim_does_not_lend_roles_to_other_text_in_same_block(tmp_path, monkeypatch):
+    from tests.acceptance.test_binding import DIMENSIONS
+
+    runtime, claim, graph, _, _, _ = configured(tmp_path, monkeypatch)
+    # The atom omits the final numeric text; the source block still contains it.
+    source = claim.source_refs[0]
+    shortened = replace(source, quote=source.quote[:-6], char_end=source.char_end - 6)
+    claim = replace(claim, quote=shortened.quote, source_refs=(shortened,))
+    original = runtime.preliminary_transport._probe._post
+
+    def post(body):
+        response = original(body)
+        message = response["choices"][0]["message"]
+        value = json.loads(message["content"])
+        value["dimensions"] = {
+            role: dict(source_index=0, quote=quote) for role, quote in DIMENSIONS.items()
+        }
+        message["content"] = json.dumps(value)
+        return response
+
+    monkeypatch.setattr(runtime.preliminary_transport._probe, "_post", post)
+    result = runtime.preliminary(claim, graph)
+    assert result is not None
+    assert result[2] == {}  # source_id alone cannot scope roles to a subspan
