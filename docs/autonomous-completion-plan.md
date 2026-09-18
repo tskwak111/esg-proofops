@@ -760,3 +760,20 @@ forced run_once to return failed: the original committed assertion now reports
 job_error/native_attestations instead of KeyError. Ruff check/format and
  git diff --check passed. This repairs failure observability; the intermittent
 original native receipt failure still requires evidence from CI.
+
+### 2026-09-19 · Immutable M3 review replay and transport failure diagnosis
+
+The new KB framework claim review loaded successfully through the actual local
+composition with UpstageProbe.complete replaced by a failing sentinel: no model
+call can occur in that check. This verifies saved-review reconstruction, not
+semantic accuracy. Evidence: live-tagging-kb-m3-replay-20260919.json.
+The other claim's invalid response contains a 40-character packet_sha256 rather
+than its actual frozen packet hash. The schema/identity guard correctly rejects
+it; stored responses were not repaired. A future versioned compact transport can
+remove model copying of server-owned identities, while retaining request/packet
+hash verification and immutable receipts. No v1-v3 transport behavior changed.
+The live runtime was also traced: preliminary() returns only local_relation_tags,
+then tag_runner retrieves other evidence but passes the same local map. Separate
+literal role extraction after retrieval remains required for cross-source joins.
+CI35388220142 at head18a563b still has its supply-chain integration step running;
+all five other jobs passed. No duplicate CI/model run was launched.
