@@ -643,3 +643,10 @@ Its supply-chain audit steps passed; failure was in the job's integration-test
 step (2237 passed, 1 failed, 1 skipped). Local success does not resolve this Linux
 CI failure. Capture underlying immutable job/attestation diagnostics before
 claiming a fix; do not weaken replay equality or retry until a green result.
+
+CI diagnostic follow-up: the failing worker test now retains the real attestation
+outputs and committed job error in its assertion message. No exception is
+swallowed, source status changed or assertion relaxed. The original attestor and
+replay still run. Native-worker suite: 12 passed locally, 2 existing warnings,
+43.09s; Ruff check/format passed. This is failure instrumentation, not a claim
+that the intermittent Linux failure is fixed.

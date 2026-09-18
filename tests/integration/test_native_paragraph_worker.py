@@ -92,12 +92,26 @@ def test_default_preserves_legacy_v1_checkpoint(tmp_path, monkeypatch):
 
 
 def test_opt_in_publishes_v4_and_replays_immutable_receipt(tmp_path, monkeypatch):
+    from proofops.adapters.local import source_verification
     from proofops.adapters.local.run_artifacts import load_run_evidence, native_paragraph_policy
     from proofops.application.ports.jobs import JobMessage
 
     service, run_id, runner, now, _ = runner_setup_native(tmp_path, monkeypatch, True)
-    assert runner.run_once(tenant_id=TENANT, run_id=run_id) == "committed"
+    attest = source_verification.attest_native_sources
+    receipts = []
+
+    def record_attestation(*args, **kwargs):
+        receipt = attest(*args, **kwargs)
+        receipts.append(receipt)
+        return receipt
+
+    monkeypatch.setattr(source_verification, "attest_native_sources", record_attestation)
+    outcome = runner.run_once(tenant_id=TENANT, run_id=run_id)
     message = JobMessage(**service.store.jobs.get_run(TENANT, run_id)["parse_job"])
+    assert outcome == "committed", {
+        "job_error": service.store.jobs.get_job(message)["error_code"],
+        "native_attestations": receipts,
+    }
     raw = service.store.jobs.read_checkpoint(message)
     envelope = json.loads(raw)
     assert envelope["schema"] == "local_parser_checkpoint_v4"
