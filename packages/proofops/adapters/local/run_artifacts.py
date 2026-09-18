@@ -251,10 +251,10 @@ def load_run_evidence(store, uploads, parser, *, tenant_id: str, run_id: str):
         except (ValueError, TypeError, KeyError):
             raise ParseFailure("NOTE_REVIEW_REPLAY_INVALID") from None
     if native_receipt is not None:
-        from proofops.adapters.local.source_verification import replay_native_sources
+        from proofops.adapters.local.native_replay_cache import replay_cached
 
         try:
-            graph = replay_native_sources(
+            graph = replay_cached(
                 native_receipt, graph, source.content, tenant_id=tenant_id
             )
         except (ValueError, TypeError, KeyError):

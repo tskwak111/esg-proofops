@@ -1001,3 +1001,40 @@ API reads took17632ms/17055ms, whereas cost read took2.9ms. Each graph read
 recomputes native/OCR attestation. A future bounded cache must retain tenant,
 source/graph/receipt/runtime pins and fail closed on changes; this performance
 problem is recorded, not claimed fixed by source-verification improvements.
+
+
+### 2026-09-19 · Reuse successful native replays for repeated reads
+
+CI35395097962 at a3d6674 completed successfully, including Linux integration;
+the unsupported-Vision guard is now verified on CI as well as local tests.
+
+Measured/reproduced the slow read boundary before optimizing. Added a64-entry
+process-local LRU of immutable verified-source ID sets, populated only after the
+existing complete native replay succeeds. Read-side load_run_evidence still
+validates committed pointers, source/manifest/policy and final graph hash. Key:
+tenant, actual source bytes hash, entire graph/receipt hashes, native policy code
+hashes, platform and reader versions. No persisted PDF/graph/receipt or new
+schema/dependency. First reads, restarts, changed inputs and eviction still
+perform complete replay. Parser publisher remains on the original direct path.
+
+New test failed before the helper existed, then passed actual replay, mutated
+receipt/source/tenant/graph/policy, immutable result and eviction cases. Related
+native-worker tests:13passed; final eviction-enhanced focused test passed.
+Actual KB native replay benchmark (fresh hash-verified offline attestation):
+cold16.586s; warm0.00847/0.00786/0.00800s. This measures only the native replay
+kernel, not full HTTP latency or throughput. No product model calls. Evidence:
+native-replay-cache-benchmark-20260919.json.
+
+Luna read-only review task_a8936afd3f30 / ctx_4128cfc144d7 found no required fix;
+report:/tmp/proofops-replay-cache-review.md. Explicit limits:64 entries is not a
+weighted memory budget; simultaneous cold requests may repeat OCR; runtime pins
+are not a universal OS/font environment fingerprint. Existing parser limits and
+process-local lifetime apply. No speculative distributed cache/coalescing added.
+Worker released/archived and delivery_7a69c31296f3 acknowledged; no reclaimable
+workers remain. New cache head still needs its own CI.
+
+Final cache local suite:2553passed,7skipped,2existingwarnings in188.28s.
+Ruff/format, mypy184sources, proofops build and package checks passed.
+Logs:/tmp/proofops-replay-cache-*. No required work is inferred complete solely
+from these tests; first-load latency, broader report/semantic evaluation and
+remaining relation/source blockers still need work.

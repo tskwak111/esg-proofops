@@ -251,3 +251,23 @@ its variable timeout/compile error into an immutable receipt. This does not add
 Linux OCR support or promote any source; native/text and receipt equality gates
 remain in force. The policy hash pins this change; historical runs keep their
 original verifier revision.
+
+
+#### Process-local native replay reuse
+
+Committed checkpoint/source/manifest/policy checks still run for every read.
+The first read of a native receipt independently recomputes it through the
+existing verifier. After success only, retain a frozenset of verified source IDs
+in a64-entry process-local LRU. Its key binds tenant, actual source bytes, entire
+graph, entire receipt, native policy code hashes, platform and reader versions.
+Changed inputs/runtime or eviction require another complete replay; failed
+replays are never cached. Returned graphs are reconstructed, and the caller
+still checks the published graph hash. No PDF/graph/receipt object is retained
+in the cache; no schema, database or receipt format changes. Rollback removes
+reader cache routing and restores unconditional replay. Historical receipts
+still require their original native verifier policy.
+
+Cold simultaneous requests may repeat OCR. This intentionally avoids a new
+coordination service.64 entries is an entry bound, not a weighted byte budget;
+parser limits remain applicable. The measured warm replay gain is not a claim
+about first-request latency, full HTTP latency or multi-user throughput.

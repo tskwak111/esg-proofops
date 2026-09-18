@@ -22,7 +22,12 @@
     "targeted": "31 passed"
   },
   "limitations": [
-    "New-head Linux CI pending.",
     "This identifies the recorded failure; it does not prove every historical CI failure had the same cause."
-  ]
+  ],
+  "verification_ci": {
+    "run_id": 35395097962,
+    "head": "a3d66741f3c342ad0622d65727f3e3d94345a8d3",
+    "status": "completed",
+    "conclusion": "success"
+  }
 }

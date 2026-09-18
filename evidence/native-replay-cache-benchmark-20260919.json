@@ -1,0 +1,32 @@
+{
+  "schema": "native_replay_cache_benchmark_v1",
+  "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+  "input_graph_sha256": "cff8d4ddea792801d23cabb039d2e40b97464f384bd08169619c8813d3c380a3",
+  "attestation_sha256": "94f39f998b9f2654d515c08d1359a5ef21a85c695ac882cfab7a3ac848b8c490",
+  "verifier_sha256": "e9062fb57f98ae0db3a90a2431328c65d315bee87a23c0d11898503f2fdb8fe0",
+  "physical_page": 30,
+  "cold_seconds": 16.586041207890958,
+  "warm_seconds": [
+    0.008466292172670364,
+    0.007855541072785854,
+    0.008000541012734175
+  ],
+  "model_calls": 0,
+  "limitations": [
+    "Native replay kernel timing only, not full HTTP latency or multi-user throughput.",
+    "Fresh offline attestation; existing historical runs not modified.",
+    "First process read still performs full replay."
+  ],
+  "cache_capacity_entries": 64,
+  "review": {
+    "task": "task_a8936afd3f30",
+    "dispatch": "ctx_4128cfc144d7",
+    "effective_model": "gpt-5.6-luna",
+    "required_findings": 0,
+    "limitations": [
+      "Entry count is bounded, not a separately weighted byte budget.",
+      "Concurrent cold requests can repeat OCR.",
+      "Process-local cache; first read and process restart still incur full replay."
+    ]
+  }
+}
