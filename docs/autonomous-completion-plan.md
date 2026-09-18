@@ -1157,3 +1157,30 @@ All four saved review inputs also passed fresh-process offline composition repla
 with UpstageProbe.complete replaced by a failing sentinel (zero model calls).
 Replay results are embedded in the evidence file. Runtime-head CI35397822041:
 five jobs succeeded; supply-chain integration still running at last observation.
+
+### 2026-09-19 · Bound the OCR punctuation repair hypothesis
+
+Runtime-head35df508 CI35397822041 completed successfully, including Linux
+supply-chain integration. No paid pilot remains live.
+
+Added read-only evidence/probe-ocr-punctuation.py. It resolves each run's committed
+parse-job artifact pointer in SQLite read-only mode, checks checkpoint hash/size
+and nested receipt hash, then compares retained native/OCR strings hypothetically.
+It does not run OCR, replay PDF geometry, rewrite any text/receipt, or promote any
+source. Built-in adversarial checks keep decimal/minus/percent/year/negation,
+Latin interior dots and prime-vs-apostrophe differences distinct.
+
+Actual saved receipts:KB36 readable crops, zero new hypothetical matches;
+Doosan38 readable crops, four new hypothetical matches (three quote-style-only,
+one Hangul-interior middle-dot/bullet). Paragraph records are not claim counts:
+these four potential crop matches do not establish recovery of four claims or
+any measured accuracy. Evidence:ocr-punctuation-what-if-20260919.json.
+
+Luna read-only review task_225ca8aa5787 / ctx_8917837f853f identified quote-direction,
+list-marker and immutable-replay risks. Recommendation is only a versioned display
+comparison until provenance/visibility policy and adversarial checks are resolved;
+never change citations._normalized or native text, and clipped heading remains
+unresolved. Report:/tmp/proofops-ocr-equivalence-review.md. Worker released and
+delivery_32d330ecf536 acknowledged. Production verifier is unchanged. Next actual
+repair should use a distinct pinned OCR-comparison contract or independent
+rendered-reader evidence, not silently normalize unresolved sources into verified.

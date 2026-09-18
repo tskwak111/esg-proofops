@@ -1,0 +1,62 @@
+{
+  "schema": "ocr_punctuation_what_if_v1",
+  "source_quality_changed": false,
+  "additional_model_calls": 0,
+  "limitations": [
+    "Counterfactual comparison of retained receipts only; not an approved normalization policy, PDF replay, semantic gold or proof of visibility."
+  ],
+  "runs": [
+    {
+      "run_id": "8833ff17-061a-4ade-8822-7bc0dc5fff50",
+      "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+      "checkpoint_sha256": "b12a693c6e2e1bb13b180f18d74b0b24ae2e03abf1ea769af05c593858f09908",
+      "receipt_sha256": "cf4700418cb3dae56433ee8bce0dd8ce4b3997b94c9c86d326ac42e1d2b8771b",
+      "counts": {
+        "records": 138,
+        "original_verified": 30,
+        "readable_rendered": 36,
+        "original_unresolved": 108
+      },
+      "hypothetical_changes": []
+    },
+    {
+      "run_id": "b94cf75c-b4c5-4a36-b891-afb12a0f17b9",
+      "source_sha256": "dc59b2b1c5bbf02e33bb901f94aef7cd984dc62547708e92aa1332ac550102e9",
+      "checkpoint_sha256": "c0176e1d23c35abbc7030561f00759b1a60a2e5110a3f47aa732c163a551108f",
+      "receipt_sha256": "a002443756b3a494491dc3e8bcfaa2be35a006cbdc1e1dff96fda5c711503130",
+      "counts": {
+        "records": 254,
+        "original_unresolved": 232,
+        "original_verified": 22,
+        "readable_rendered": 38,
+        "hypothetical_matches": 4
+      },
+      "hypothetical_changes": [
+        {
+          "source_id": "75997a11-d3e2-5b1c-9f11-5d67dd435056",
+          "original_reason": "rendered_text_unresolved",
+          "native": "CSO와 CTO는 Climate Working Group의 전반적인 활동을 총괄하며, 온실가스 감축 목표 달성을 위한 전사적 방향성과 우선순위를 설정합니다. 또한 두산밥캣은 CSO와 CTO의 KPI에 ‘2030 온실가스 감축 목표 달성을 위한 지역별",
+          "ocr": "CSO와 CTO는 Climate Working Group의 전반적인 활동을 총괄하며, 온실가스 감축 목표 달성을 위한 전사적 방향성과 우선순위를 설정합니다. 또한 두산밥캣은 CSO와 CTO의 KPI에 '2030 온실가스 감축 목표 달성을 위한 지역별"
+        },
+        {
+          "source_id": "a6b77338-c374-523e-97ad-8bffbf250e3f",
+          "original_reason": "rendered_text_unresolved",
+          "native": "CHRO ESG팀은 지역별 ESG 코디네이터와 협력하여 각 지역에서 추진 중인 기후변화 대응 전략과제의 이행 상황을 모니터링합니다. 또한 지역의 외부 환경 변화와 산업 특성, 이해관계자 요구 등을 반영하여 기후 관련 리스크와 기회 요인을 지속적으로 분석·검토합니다. 이 외에도 CHRO ESG팀은 전사 전략과제의 이행 현황과 함께 기후 리스크 및 기회 요인에 대한 검토 결과를 주요 ESG 이슈와 함께 분기 1회 정기적으로, 필요 시에는 수시로 글로벌 ESG 위원회에 보고하여 의사결정의 투명성과 신속성을 높이고 있습니다.",
+          "ocr": "CHRO ESG팀은 지역별 ESG 코디네이터와 협력하여 각 지역에서 추진 중인 기후변화 대응 전략과제의 이행 상황을 모니터링합니다. 또한 지역의 외부 환경 변화와 산업 특성, 이해관계자 요구 등을 반영하여 기후 관련 리스크와 기회 요인을 지속적으로 분석•검토합니다. 이 외에도 CHRO ESG팀은 전사 전략과제의 이행 현황과 함께 기후 리스크 및 기회 요인에 대한 검토 결과를 주요 ESG 이슈와 함께 분기 1회 정기적으로, 필요 시에는 수시로 글로벌 ESG 위원회에 보고하여 의사결정의 투명성과 신속성을 높이고 있습니다."
+        },
+        {
+          "source_id": "ecb8de33-f6af-5c42-9516-66a17f16b104",
+          "original_reason": "rendered_text_unresolved",
+          "native": "배출량 목표 수립’과 ‘2024년 온실가스 대응 계획 이행’을 포함하여, 기후변화 대응과 관련된 책임성과 추진력을 높이고 있습니다.",
+          "ocr": "배출량 목표 수립'과 '2024년 온실가스 대응 계획 이행'을 포함하여, 기후변화 대응과 관련된 책임성과 추진력을 높이고 있습니다."
+        },
+        {
+          "source_id": "3a6978a0-5aae-5f7d-8f04-e70f494f444d",
+          "original_reason": "rendered_text_unresolved",
+          "native": "두산밥캣는 보고서 내용에 모든 책임을 가지고 있으며, 여기에는 데이터 수집, 분석, 집계, 준비, 정보의 공정한 표시, 데이터에 중요한 왜곡이 없음을 보장하는 내부 통제의 설계, 구현 및 유지가 포함됩니다. DNV의 책임은 ‘검증 범위’에 기술된 관련 정보가 보고 요구사항에 따라 작성되었는지에 대한 제한적 확신을 제공하기 위해 업무를 계획 및 수행하고 이를 취합한 증거에 기반하여 독립적 검증의견서 형태로 회사에 보고하는 것입니다. 당사의 성명은 독립적 의견으로 간주되어야 하며, 회사의 경영진과 이해관계자에게 필요한 정보를 제공하기 위해 작성되었습니다. DNV는 본 의견서를 제외하고 보고서에 포함된 어떠한 진술이나 데이터의 작성에도 관여하지 않았습니다.",
+          "ocr": "두산밥캣는 보고서 내용에 모든 책임을 가지고 있으며, 여기에는 데이터 수집, 분석, 집계, 준비, 정보의 공정한 표시, 데이터에 중요한 왜곡이 없음을 보장하는 내부 통제의 설계, 구현 및 유지가 포함됩니다. DNV의 책임은 '검증 범위'에 기술된 관련 정보가 보고 요구사항에 따라 작성되었는지에 대한 제한적 확신을 제공하기 위해 업무를 계획 및 수행하고 이를 취합한 증거에 기반하여 독립적 검증의견서 형태로 회사에 보고하는 것입니다. 당사의 성명은 독립적 의견으로 간주되어야 하며, 회사의 경영진과 이해관계자에게 필요한 정보를 제공하기 위해 작성되었습니다. DNV는 본 의견서를 제외하고 보고서에 포함된 어떠한 진술이나 데이터의 작성에도 관여하지 않았습니다."
+        }
+      ]
+    }
+  ]
+}
