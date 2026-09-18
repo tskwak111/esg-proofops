@@ -1184,3 +1184,30 @@ unresolved. Report:/tmp/proofops-ocr-equivalence-review.md. Worker released and
 delivery_32d330ecf536 acknowledged. Production verifier is unchanged. Next actual
 repair should use a distinct pinned OCR-comparison contract or independent
 rendered-reader evidence, not silently normalize unresolved sources into verified.
+
+### 2026-09-19 · Independent raster OCR trial (actual external API)
+
+No tesseract/PaddleOCR executable is installed. Used the existing bounded
+UpstageParseProbe on the same original ledger instead of adding dependencies.
+Four Doosan paragraphs from the punctuation diagnostic were rendered at216dpi
+with6px white padding and embedded as lossless RGB/Flate image-only PDF pages.
+Verified source/graph/image/submission hashes, lossless image stream roundtrip,
+and zero extracted text on all four PDF pages; visually inspected the four crops.
+Only raster bytes were submitted; no native text or expected transcription prompt.
+
+One standard Document Parse call (document-parse-260128) returned a valid four-page
+receipt costingUSD0.044. Exact existing-normalization comparison:1/4matched.
+The CHRO paragraph containing 분석·검토 matched exactly, so independent OCR can
+corroborate this crop without punctuation folding. Other3 retain quote-style or
+spacing differences. These are selected failing crops, not an OCR accuracy sample.
+Raw response, page/source mapping, input/image/request/response hashes and exact
+diffs are retained in doosan-independent-raster-ocr-20260919.json. Input PDF and
+private receipt reside at.local/doosan-independent-raster-ocr. No source quality,
+claim/review checkpoint or production verifier was changed.
+
+Shared ledger1752calls,USD9.2214240400 committed/reserved,7unsettled unchanged.
+Next integration requires an explicit immutable rendered-reader receipt contract:
+rebuild exact raster from original source/box, validate submission/provider/page
+pins, require existing exact text equality and all native geometry checks, replay
+without model calls. Do not reuse native auto-extracted PDF text as independent
+visibility evidence. The failed3crops and clipped heading still remain unresolved.
