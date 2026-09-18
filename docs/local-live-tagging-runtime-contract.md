@@ -312,3 +312,26 @@ The provider supplies page numbers, not per-image cryptographic attestations.
 for that page; it must never be interpreted as independent source approval or
 proof that a provider cannot hallucinate. Replay enforces200000total OCR characters,
 the transport's1MiB response ceiling and strict finite/nonboolean PDF geometry.
+
+#### Experimental native + independent raster visibility composition
+
+`evaluation/native_raster_visibility.py` composes the existing native v2 replay
+with the pinned raster OCR replay into a new in-memory source view. Only records
+whose original recomputed native result is `rendered_text_unresolved`, with
+nonempty readable OCR, are eligible. Thus native text mismatch, clipping/rotation,
+missing glyph geometry, interactive visibility and unavailable/empty readers do
+not become eligible merely because an external response contains matching words.
+Selected ineligible sources reject the whole experiment. An eligible source
+changes to verified in the new view only on exact independent OCR agreement.
+Raw text, source IDs, coordinates and original graph remain unchanged. No grade
+or assurance attribution is produced.
+
+The experimental proof pins native/request/receipt hashes, source/document/
+manifest/tenant, input/output graph hashes and its composition code hash. It is
+NOT a supported published parser checkpoint. Old v1-v4 readers and job policies
+remain unchanged. Production wiring must use a new checkpoint/policy version,
+freeze the external transport authorization and artifact pointers before spend,
+preserve lease/budget cancellation, and validate both paths on publication and
+read. Rollback disables new external mode while retaining a reader capable of
+replaying its already-published receipts; it cannot drop fields into legacy v4.
+No DB migration or HTTP option has been introduced by this experiment.

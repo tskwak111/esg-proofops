@@ -1252,3 +1252,36 @@ Full Ruff/format(335files) passed; full mypy185sources passed before boundary ch
 and final helper mypy passed afterward. Actual four-crop byte-identical replay passed
 again with paid calls forbidden. Runtime parser/attestation policy was untouched;
 full app suite was not rerun for this evaluation-only helper. New-head CI required.
+
+### 2026-09-19 · Compose native gates with exact independent raster evidence
+
+Added experimental evaluation/native_raster_visibility.py. It first recomputes
+native glyph v2 attestation, restricts selected sources to nonempty/readable
+rendered_text_unresolved records, then validates independent raster replay.
+Only exact matches update quality in a NEW in-memory graph. Native failures,
+clipped words, mismatching OCR and forged native receipts stay excluded; original
+text/coordinates/graph are untouched. Experimental proof pins both input/output
+graphs, original source identity, all three evidence artifacts and policy code.
+This is deliberately not a parser checkpoint reader or transport authorization.
+
+Five regressions failed before the module existed, then passed: positive exact
+corroboration, native text mismatch, clipping, external numeric mismatch, forged
+native receipt. Relevant native/raster suite37passed; final proof self-hash
+assertion separately passed. No paid API calls were made. Actual saved Doosan
+source recomputation plus independent receipt replay yielded22→23verified source
+blocks in the experimental view, retaining1/4external exact matches. These are
+source blocks, not published claim results. All existing checkpoints remain fixed.
+Evidence:doosan-native-raster-visibility-20260919.json.
+
+Integration boundary identified: local_runner, job_store and run_artifacts all
+validate/pin native policy and v4 publication/readback. A real integration needs
+one new version across all three and explicit frozen external authorization;
+adding only a reader shortcut would violate checkpoint identity and replay.
+
+Luna review task_6b1d7f9b2400 / ctx_d272222f212a found no required bypass fix in
+the composed experimental path; it reiterated that production pins must be read
+from tenant-scoped immutable server storage, never accepted from caller-computed
+hashes. Report:/tmp/proofops-native-raster-visibility-review.md. Worker released and
+delivery_564ac836b692 acknowledged. Full Ruff/format337files and targeted mypy
+passed; after the final input-shape/self-hash check, actual native/raster replay
+was rerun successfully. No production verifier file or existing receipt changed.
