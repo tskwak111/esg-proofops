@@ -629,3 +629,26 @@ def test_tag_delivery_replays_verified_source_once_per_operation(tmp_path, monke
     # A new operation must still check source integrity, rather than use a stale cache.
     runner.tags.load_snapshot(TENANT, run_id)
     assert len(reads) == 2
+
+
+def test_unresolved_preliminary_is_claim_block_not_failed_job(tmp_path, monkeypatch):
+    service, run_id, runner, now, _ = verified_setup(tmp_path, monkeypatch)
+    runner.preliminary = lambda claim, graph: None
+    assert runner.run_once(tenant_id=TENANT, run_id=run_id) == "blocked"
+    assert runner.transport.requests == []
+    record = runner.tags.load_snapshot(TENANT, run_id)["claims"][0]
+    assert record["reason"] == "PRELIMINARY_TAGS_UNRESOLVED"
+    assert record["decision"] is None and record["tag_runs"] == []
+    assert runner.run_once(tenant_id=TENANT, run_id=run_id) == "blocked"
+
+
+def test_null_track_tuple_is_blocked_not_an_uncaught_exception(tmp_path, monkeypatch):
+    service, run_id, runner, now, _ = verified_setup(tmp_path, monkeypatch)
+    classify = runner.preliminary
+    runner.preliminary = lambda claim, graph: (None, *classify(claim, graph)[1:])
+    assert runner.run_once(tenant_id=TENANT, run_id=run_id) == "blocked"
+    assert runner.transport.requests == []
+    assert (
+        runner.tags.load_snapshot(TENANT, run_id)["claims"][0]["reason"]
+        == "PRELIMINARY_TAGS_UNRESOLVED"
+    )

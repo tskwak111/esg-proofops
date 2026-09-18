@@ -31,7 +31,7 @@ def configured(tmp_path, monkeypatch):
     inputs = setup(tmp_path)
     settings = replace(
         inputs["settings"],
-        binding=ModelBinding("local-test-tagger", "tagger", False),
+        binding=ModelBinding("00000000-0000-4000-8000-000000000001", "tagger", False),
         model_id=MODEL_PRO4,
         model_profile=MODEL_PROFILE,
         region="provider-managed-unverified",
@@ -49,8 +49,23 @@ def configured(tmp_path, monkeypatch):
         )
 
     monkeypatch.setattr(probe, "_post", post)
+    from proofops.application.preflight import check_local_upstage_tagger
+
+    from tests.integration.test_upstage_tagger_preflight import configured as approvals
+
+    authorization = approvals()
+    authorization.pop("settings")
+    authorization["binding"].update(
+        model_id=settings.model_id, tagging_settings_sha256=canonical_hash(asdict(settings))
+    )
     adapter = UpstageTaggingTransport(
-        probe, tmp_path / "receipts", settings=settings, tenant_id=inputs["tenant_id"]
+        probe,
+        tmp_path / "receipts",
+        settings=settings,
+        tenant_id=inputs["tenant_id"],
+        authorize=lambda selected, request: check_local_upstage_tagger(
+            settings=selected, **authorization
+        ),
     )
     request = dict(
         tenant_id=inputs["tenant_id"],
@@ -353,5 +368,103 @@ def test_transport_transform_profile_is_part_of_cache_identity(tmp_path, monkeyp
             tmp_path / "other-receipts",
             settings=replace(adapter._settings, model_profile="unpinned-wire-transform"),
             tenant_id=adapter._tenant,
+            authorize=adapter._authorize,
         )
     assert probe.summary()["calls"] == 0
+
+
+def test_revoked_authorization_blocks_before_ledger_or_counter(tmp_path, monkeypatch):
+    from proofops.application.preflight import Preflight, PreflightBlocked
+
+    adapter, probe, calls, request = configured(tmp_path, monkeypatch)
+    adapter._authorize = lambda settings, request: Preflight(
+        False, (), None, "2026-09-10T00:00:00Z"
+    )
+    with pytest.raises(PreflightBlocked, match="UPSTAGE_TAGGING_AUTHORIZATION_REQUIRED"):
+        adapter.invoke(request)
+    with pytest.raises(PreflightBlocked, match="UPSTAGE_TAGGING_AUTHORIZATION_REQUIRED"):
+        adapter.count_input_tokens(request, counter=lambda a, b: pytest.fail("must not count"))
+    assert calls == [] and probe.summary()["calls"] == 0
+    assert not (tmp_path / "receipts" / request["request_id"]).exists()
+
+
+def test_success_receipt_retains_dispatch_authorization(tmp_path, monkeypatch):
+    adapter, _, _, request = configured(tmp_path, monkeypatch)
+    expected = adapter._authorize(adapter._settings, request).to_dict()
+    adapter.invoke(request)
+    saved = json.loads((tmp_path / "receipts" / request["request_id"] / "request.json").read_text())
+    assert saved["authorization"] == expected
+
+
+def test_approval_expiry_between_count_and_invoke_blocks_spend(tmp_path, monkeypatch):
+    from proofops.application.preflight import PreflightBlocked, check_local_upstage_tagger
+
+    from tests.integration.test_upstage_tagger_preflight import configured as approvals
+
+    adapter, probe, calls, request = configured(tmp_path, monkeypatch)
+    args = approvals()
+    args.pop("settings")
+    args["binding"].update(
+        model_id=adapter._settings.model_id,
+        tagging_settings_sha256=canonical_hash(asdict(adapter._settings)),
+    )
+    adapter._authorize = lambda settings, request: check_local_upstage_tagger(
+        settings=settings, **args
+    )
+    assert adapter.count_input_tokens(request, counter=lambda a, b: 17) == 17
+    args["checked_at"] = args["binding"]["expires_at"]
+    with pytest.raises(PreflightBlocked):
+        adapter.invoke(request)
+    assert calls == [] and probe.summary()["calls"] == 0
+
+
+def test_extractor_only_preflight_cannot_authorize_tagger(tmp_path, monkeypatch):
+    from proofops.application.preflight import PreflightBlocked, check_local_upstage_binding
+
+    from tests.acceptance.test_preflight import AUTH, NOW
+    from tests.integration.test_upstage_runtime import profiles
+
+    adapter, probe, calls, request = configured(tmp_path, monkeypatch)
+    binding, consent = profiles()
+    ready = check_local_upstage_binding(
+        binding=binding, consent=consent, auth=AUTH, checked_at=NOW, source_sha256="a" * 64
+    )
+    assert ready.ready
+    adapter._authorize = lambda settings, request: ready
+    with pytest.raises(PreflightBlocked):
+        adapter.invoke(request)
+    assert calls == [] and probe.summary()["calls"] == 0
+
+
+def test_partial_approval_result_cannot_authorize_transport(tmp_path, monkeypatch):
+    from proofops.application.preflight import Check, Preflight, PreflightBlocked
+
+    adapter, probe, calls, request = configured(tmp_path, monkeypatch)
+    adapter._authorize = lambda *args: Preflight(
+        True,
+        (Check("tagging_settings", "pass", ""), Check("selected_document_rights", "pass", "")),
+        "a" * 64,
+        "2026-09-09T00:00:00Z",
+    )
+    with pytest.raises(PreflightBlocked):
+        adapter.invoke(request)
+    assert calls == [] and probe.summary()["calls"] == 0
+
+
+def test_composition_can_reject_a_packet_outside_authorized_source(tmp_path, monkeypatch):
+    from proofops.application.preflight import PreflightBlocked
+
+    adapter, probe, calls, request = configured(tmp_path, monkeypatch)
+    approved_packet = request["packet_sha256"]
+    previous = adapter._authorize
+
+    def authorize(settings, actual_request):
+        if actual_request["packet_sha256"] != approved_packet:
+            raise PreflightBlocked("PACKET_SCOPE_MISMATCH")
+        return previous(settings, actual_request)
+
+    adapter._authorize = authorize
+    changed = request | dict(packet_sha256="b" * 64)
+    with pytest.raises(PreflightBlocked, match="PACKET_SCOPE_MISMATCH"):
+        adapter.invoke(changed)
+    assert calls == [] and probe.summary()["calls"] == 0
