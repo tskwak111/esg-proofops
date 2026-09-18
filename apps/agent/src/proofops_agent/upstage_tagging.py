@@ -25,6 +25,7 @@ from proofops.domain.values import _require_sha256, _require_uuid, _source_ref_f
 from proofops_agent.upstage_extraction import UpstageClaimExtractor
 
 MODEL_PROFILE = "upstage-compact-ids-frozen-unicode-v1"
+COVERAGE_PROFILE = "upstage-compact-coverage-unicode-v2"
 
 
 class UpstageTaggingTransport:
@@ -47,12 +48,19 @@ class UpstageTaggingTransport:
             or not isinstance(settings, TaggingSettings)
             or settings.binding.synthetic
             or settings.model_id != probe.model
-            or settings.model_profile != self.MODEL_PROFILE
+            or settings.model_profile
+            not in (
+                {MODEL_PROFILE, COVERAGE_PROFILE}
+                if self.MODEL_PROFILE == MODEL_PROFILE
+                else {self.MODEL_PROFILE}
+            )
             or settings.region != "provider-managed-unverified"
         ):
             raise ValueError("UPSTAGE_TAGGING_BINDING_INVALID")
         if not callable(authorize):
             raise ValueError("UPSTAGE_TAGGING_AUTHORIZER_REQUIRED")
+        if settings.model_profile == COVERAGE_PROFILE:
+            self.TRANSPORT_VERSION = "compact-coverage-v2"
         self._authorize = authorize
         self._probe, self._settings, self._tenant = probe, settings, tenant_id
         self._receipts = Path(receipts)
@@ -74,6 +82,13 @@ class UpstageTaggingTransport:
         or tokenizer from another model is supplied here. No receipt or paid call.
         """
         system, user, _, _ = self._wire_request(request)
+        self._probe.request_body(
+            system,
+            user,
+            request_id=request["request_id"],
+            max_tokens=request["max_tokens"],
+            json_mode=True,
+        )
         return counter(system, user)
 
     def _authorize_request(self, request: dict) -> Preflight:
@@ -138,6 +153,24 @@ class UpstageTaggingTransport:
             or not isinstance(user.get("untrusted_document_data"), dict)
         ):
             raise ValueError("UPSTAGE_TAGGING_PACKET_MISMATCH")
+        if settings.model_profile == COVERAGE_PROFILE:
+            data = user["untrusted_document_data"]
+            coverage = data.get("search_coverage", {})
+            if (
+                not isinstance(coverage, dict)
+                or coverage.get("not_found_state", "unknown") != "unknown"
+            ):
+                raise ValueError("UPSTAGE_TAGGING_COVERAGE_INVALID")
+            summary: dict[str, str | int] = {"not_found_state": "unknown"}
+            for prefix in ("omitted", "unprocessed"):
+                ids = coverage.get(f"{prefix}_source_ids", [])
+                if not isinstance(ids, list):
+                    raise ValueError("UPSTAGE_TAGGING_COVERAGE_INVALID")
+                for identifier in ids:
+                    _require_uuid("coverage source_id", identifier)
+                summary[f"{prefix}_source_count"] = len(ids)
+                summary[f"{prefix}_source_ids_sha256"] = canonical_hash(ids)
+            data["search_coverage"] = summary
         refs: dict[str, dict] = {}
         for candidate in user["untrusted_document_data"].get("evidence_candidates", []):
             identifiers = []
@@ -172,6 +205,12 @@ class UpstageTaggingTransport:
             "evidence_catalog IDs such as e0. Select IDs; never repeat or alter source text, "
             "coordinates, offsets or verification state. The server restores those exactly."
         )
+        if settings.model_profile == COVERAGE_PROFILE:
+            wire_system += (
+                "\nCoverage v2: omitted/unprocessed source counts and list hashes summarize "
+                "unseen identifiers retained by the server. Missing evidence remains unknown; "
+                "neither a count nor a hash is evidence or proof of absence."
+            )
         wire_user = json.dumps(user, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         return wire_system, wire_user, refs, authorization
 

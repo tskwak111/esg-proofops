@@ -290,7 +290,7 @@ class UpstageProbe:
         finally:
             connection.close()
 
-    def complete(
+    def request_body(
         self,
         system: str,
         user_json: str,
@@ -332,6 +332,20 @@ class UpstageProbe:
             > POLICY["max_request_bytes"]
         ):
             raise ValueError("PROBE_REQUEST_TOO_LARGE")
+        return body
+
+    def complete(
+        self,
+        system: str,
+        user_json: str,
+        *,
+        request_id: str,
+        max_tokens: int = 1024,
+        json_mode: bool = False,
+    ):
+        body = self.request_body(
+            system, user_json, request_id=request_id, max_tokens=max_tokens, json_mode=json_mode
+        )
         self._reserve(request_id, body)
         try:
             data = self._post(body)

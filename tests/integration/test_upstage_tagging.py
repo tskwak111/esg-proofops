@@ -27,13 +27,13 @@ def _freeze_upstage_price_clock(monkeypatch):
     monkeypatch.setattr("proofops.adapters.local.upstage.datetime", FixedDateTime)
 
 
-def configured(tmp_path, monkeypatch):
+def configured(tmp_path, monkeypatch, model_profile=MODEL_PROFILE):
     inputs = setup(tmp_path)
     settings = replace(
         inputs["settings"],
         binding=ModelBinding("00000000-0000-4000-8000-000000000001", "tagger", False),
         model_id=MODEL_PRO4,
-        model_profile=MODEL_PROFILE,
+        model_profile=model_profile,
         region="provider-managed-unverified",
     )
     probe = UpstageProbe("test-not-a-key", tmp_path / "budget.sqlite3", model=MODEL_PRO4)
@@ -468,3 +468,40 @@ def test_composition_can_reject_a_packet_outside_authorized_source(tmp_path, mon
     with pytest.raises(PreflightBlocked, match="PACKET_SCOPE_MISMATCH"):
         adapter.invoke(changed)
     assert calls == [] and probe.summary()["calls"] == 0
+
+
+def test_coverage_summary_preserves_unknown_and_original_request(tmp_path, monkeypatch):
+    adapter, probe, calls, request = configured(
+        tmp_path, monkeypatch, "upstage-compact-coverage-unicode-v2"
+    )
+    user = json.loads(request["user_json"])
+    coverage = dict(
+        not_found_state="unknown",
+        omitted_source_ids=[],
+        unprocessed_source_ids=[str(UUID(int=i + 1)) for i in range(400)],
+    )
+    user["untrusted_document_data"]["search_coverage"] = coverage
+    request["user_json"] = json.dumps(user)
+    before = request["user_json"]
+    system, wire, _, _ = adapter._wire_request(request)
+    summary = json.loads(wire)["untrusted_document_data"]["search_coverage"]
+    assert summary["not_found_state"] == "unknown"
+    assert summary["unprocessed_source_count"] == 400
+    assert summary["unprocessed_source_ids_sha256"] == canonical_hash(
+        coverage["unprocessed_source_ids"]
+    )
+    assert "unprocessed_source_ids" not in summary
+    assert request["user_json"] == before
+    assert len(wire.encode()) < 2000
+    assert not calls
+
+
+def test_oversized_wire_rejected_during_count_before_receipt_or_reservation(tmp_path, monkeypatch):
+    adapter, probe, calls, request = configured(tmp_path, monkeypatch)
+    user = json.loads(request["user_json"])
+    user["untrusted_document_data"]["atomic_quote"] = "가" * 10000
+    request["user_json"] = json.dumps(user)
+    with pytest.raises(ValueError, match="PROBE_REQUEST_TOO_LARGE"):
+        adapter.count_input_tokens(request, counter=lambda *_: 1)
+    assert not calls
+    assert not list((tmp_path / "receipts").iterdir())

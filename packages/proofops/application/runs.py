@@ -237,7 +237,11 @@ class RunService:
                 raise RunRejected("CONFIG_GATE_BLOCKED")
             if (
                 preliminary.model_profile != "upstage-preliminary-source-quotes-v1"
-                or tagging.model_profile != "upstage-compact-ids-frozen-unicode-v1"
+                or tagging.model_profile
+                not in {
+                    "upstage-compact-ids-frozen-unicode-v1",
+                    "upstage-compact-coverage-unicode-v2",
+                }
             ):
                 raise RunRejected("CONFIG_GATE_BLOCKED")
             for pinned in (preliminary, tagging):

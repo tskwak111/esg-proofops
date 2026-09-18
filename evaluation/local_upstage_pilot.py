@@ -76,7 +76,7 @@ def live_tagging_settings(max_calls: int) -> dict:
         ),
         (
             "tagging",
-            "upstage-compact-ids-frozen-unicode-v1",
+            "upstage-compact-coverage-unicode-v2",
             element_prompt,
             (ROOT / "contracts/jsonschema/llm_tags.schema.json").read_text(),
             4096,

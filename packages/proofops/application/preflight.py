@@ -460,7 +460,10 @@ def check_local_upstage_tagger(
     )
     from proofops.application.tagging.preliminary import SYSTEM_PROMPT
 
-    profile_valid = settings.model_profile == "upstage-compact-ids-frozen-unicode-v1" or (
+    profile_valid = settings.model_profile in {
+        "upstage-compact-ids-frozen-unicode-v1",
+        "upstage-compact-coverage-unicode-v2",
+    } or (
         settings.model_profile == "upstage-preliminary-source-quotes-v1"
         and settings.system_prompt == SYSTEM_PROMPT
     )

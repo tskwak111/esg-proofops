@@ -411,3 +411,39 @@ Antigravity discovery: the installed IDE exposes
 its documented chat subcommand accepts ask/edit/agent sessions in the UI. This
 is not yet a supervised Orca worker or proof of model availability/credit. No
 Antigravity task was dispatched and no Codex fallback worker was fabricated.
+
+### Bounded coverage wire and early request-size gate — 2026-09-19
+
+The previous failed element request had 6505 UTF-8 system bytes and 11936 user
+bytes; about 10KB was the unprocessed-source UUID inventory, not evidence text.
+Added opt-in upstage-compact-coverage-unicode-v2: only those omitted/unprocessed
+ID lists become counts plus canonical hashes on the model wire. Original logical
+request/IDs stay in receipts, all evidence content stays intact, and not-found
+remains unknown. V1 wire/profile remains supported unchanged. The pilot opts into
+new profile/settings/runtime hashes; no old snapshot is rewritten.
+
+Extracted the existing probe request-body validation into one shared method and
+call it during input counting as well as dispatch. The exact existing 16KB JSON
+wire ceiling is now checked before run token reservation or receipt creation.
+USD20 ledger policy and per-call reserve are unchanged. Regression tests first
+failed for unsupported v2 and missing early oversized rejection, then passed.
+Focused transport/preflight/pilot/run-config suites: 95 passed. Full application
+suite plus security/staging gate: 2460 passed, 7 skipped, 2 existing warnings,
+189.45 seconds. Ruff check/format, five-file mypy, proofops and agent builds pass.
+
+Actual new run 4b92e9dd-cdb4-41fb-9d59-700b028b3ab8 used Doosan pages 27/97/110.
+It extracted 12 candidates; the source-verified claims all stopped at preliminary
+validation/consensus (a non-literal metric quote, a string instead of quote ref,
+and differing metric spans). Therefore this run produced no element invocation
+or review: the new wire profile has test evidence, but real provider element
+success remains unverified. Do not rerun until sampling produces a convenient
+success; improve the source-bound preliminary contract from these retained cases.
+Evidence: live-tagging-doosan-coverage-20260919.json, raw receipts in its state.
+
+17 actual extraction/preliminary calls cost USD0.0069577200. Shared ledger:
+1500 calls, USD7.9912279750/20 committed/reserved, six original unsettled calls
+unchanged. No paid process remains live. Next: prevent preliminary quote/schema
+errors with a bounded source-selection representation while preserving literal
+validation and uncertainty, then re-exercise cross-section element tagging and
+cross-source relationship extraction. Browser flow and independent gold remain
+outstanding; full goal is not complete.

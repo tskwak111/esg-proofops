@@ -153,3 +153,28 @@ This does not yet connect a real tagger to LocalTagRunner: separate extractor/ta
 run snapshots, token counter composition and durable preliminary/relationship
 suppliers remain required. No synthetic byte count is promoted to a real token
 count, no LLM computes a grade, and no rulepack or source guard is relaxed.
+
+## Coverage summary wire profile v2 — 2026-09-19
+
+New opt-in settings may select `upstage-compact-coverage-unicode-v2`. Existing v1
+settings retain their original wire contents. The real local pilot defaults to
+v2; its different model-profile/settings hash requires a distinct authorized
+runtime and new run state. Preliminary settings still use their separate profile.
+
+The observed three-page Doosan request contained about 10KB of unprocessed-source
+UUIDs, versus only 512 bytes of evidence catalog. For v2 only, omitted and
+unprocessed UUID lists become source counts plus canonical list SHA256 in the
+model wire. `not_found_state=unknown`, all actual evidence candidates/catalog
+quotes, claim/context and element definitions remain unchanged. The original
+logical request, complete identifier lists, packet hash and wire contents are
+retained in immutable receipts. Counts/hashes do not establish absence or coverage
+completion and cannot be selected as evidence. Invalid identifier arrays fail
+before a provider request. No evidence text is truncated.
+
+The shared UpstageProbe request-body validator now runs both during input
+reservation preparation and actual invocation, using identical UTF-8 JSON bytes.
+Oversized requests fail before token reservation/transport receipts/paid dispatch.
+The existing 16384-byte ceiling, cumulative USD20 ledger policy and USD1 per-call
+reservation are unchanged; no budget policy migration or new monetary ledger.
+Rollback selects v1 for new settings and preserves all v2 receipts. No HTTP or
+SQLite schema change is introduced.

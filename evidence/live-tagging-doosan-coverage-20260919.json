@@ -1,0 +1,38 @@
+{
+  "schema": "live_tagging_pilot_evidence_v1",
+  "run_id": "4b92e9dd-cdb4-41fb-9d59-700b028b3ab8",
+  "source_sha256": "dc59b2b1c5bbf02e33bb901f94aef7cd984dc62547708e92aa1332ac550102e9",
+  "selected_pages": [
+    27,
+    97,
+    110
+  ],
+  "state_path": ".local/developer-a-live-tagging-doosan-coverage",
+  "synthetic": false,
+  "cost": {
+    "run_id": "4b92e9dd-cdb4-41fb-9d59-700b028b3ab8",
+    "input_tokens": 19159,
+    "output_tokens": 1418,
+    "attempt_count": 17,
+    "cache_hit_count": 0,
+    "amount": "0.0069577200",
+    "currency": "USD",
+    "pricing_snapshot_id": null,
+    "cost_status": "known"
+  },
+  "claim_count": 12,
+  "tag_stage_status": "blocked",
+  "tagging_model_profile": "upstage-compact-coverage-unicode-v2",
+  "claim_reasons": {
+    "SOURCE_VALIDATION_REQUIRED": 9,
+    "PRELIMINARY_TAGS_UNRESOLVED": 3
+  },
+  "review_count": 0,
+  "element_calls": 0,
+  "limitations": [
+    "All three source-verified claims failed preliminary schema/quote/consensus checks.",
+    "This actual run did not exercise the new element wire against the provider; do not claim successful live element tagging.",
+    "Coverage summary and byte rejection are verified by transport tests; frozen source evidence is not truncated.",
+    "Selected-page development sample, no independent gold accuracy."
+  ]
+}
