@@ -364,3 +364,94 @@ def test_live_pipeline_publishes_candidate_review_and_replays(tmp_path, monkeypa
     assert len(calls) == extract_calls + 6
     assert service.cost(tenant, run_id)["attempt_count"] == before_attempts
     assert "1234 tCO2e" not in ctx["stream"].getvalue()
+
+
+def test_live_publication_crash_rolls_back_and_recovers_without_rebilling(tmp_path, monkeypatch):
+    from proofops.adapters.local.run_store import LocalSQLiteRunStore
+    from proofops_worker.tag_runner import LocalTagRunner
+
+    ctx = _pipeline_setup(tmp_path, monkeypatch)
+    runner, service = ctx["tag_runner"], ctx["service"]
+    tenant, run_id = ctx["tenant"], ctx["run_id"]
+    before_calls = len(ctx["calls"])
+    publish = runner.reviews.publish_transaction
+
+    def crash(db, inputs):
+        publish(db, inputs)
+        raise RuntimeError("injected crash after review publication")
+
+    monkeypatch.setattr(runner.reviews, "publish_transaction", crash)
+    with pytest.raises(RuntimeError, match="injected crash"):
+        runner.run_once(tenant_id=tenant, run_id=run_id)
+    assert len(ctx["calls"]) == before_calls + 6
+    assert "tag_job" not in service.store.jobs.get_run(tenant, run_id)
+    with service.store.jobs._transaction() as db:
+        for kind in (
+            "claim_head",
+            "tag_revision",
+            "decision_revision",
+            "review_head",
+            "review_inputs",
+        ):
+            assert service.store.jobs._all(db, tenant, run_id, kind) == []
+    billed = service.cost(tenant, run_id)
+    ctx["now"][0] += 1000
+    reopened = LocalTagRunner(
+        LocalSQLiteRunStore(service.store.path),
+        service.uploads,
+        runner.parser,
+        telemetry=runner.telemetry,
+        live_factory=runner.live_factory,
+        clock=runner.clock,
+    )
+    assert reopened.run_once(tenant_id=tenant, run_id=run_id) == "needs_review"
+    assert len(ctx["calls"]) == before_calls + 6
+    assert ctx["tag_probe"].summary()["calls"] == 6
+    after = service.cost(tenant, run_id)
+    assert after["attempt_count"] == billed["attempt_count"]
+    assert after["amount"] == billed["amount"]
+    claim = reopened.claims.list(tenant, run_id)[0]
+    inputs = reopened.tags.load_inputs(tenant, run_id, claim.claim_id)
+    assert all(receipt.recovered for receipt in inputs.tag_runs)
+    assert inputs.decision is None
+
+
+@pytest.mark.parametrize("inflight", [False, True])
+def test_live_cancellation_stops_calls_and_leaves_no_review(tmp_path, monkeypatch, inflight):
+    ctx = _pipeline_setup(tmp_path, monkeypatch)
+    runner, service = ctx["tag_runner"], ctx["service"]
+    tenant, run_id = ctx["tenant"], ctx["run_id"]
+    before_calls = len(ctx["calls"])
+
+    def cancel():
+        service.store.jobs.cancel_run(
+            tenant,
+            run_id,
+            expected_revision=service.store.jobs.get_run(tenant, run_id)["revision"],
+            idempotency_key=str(uuid4()),
+            reason="test cancellation",
+            actor_sub="test",
+            now=ctx["now"][0],
+        )
+
+    original = ctx["tag_probe"]._post
+
+    def post(body):
+        response = original(body)
+        cancel()
+        return response
+
+    if inflight:
+        monkeypatch.setattr(ctx["tag_probe"], "_post", post)
+    else:
+        cancel()
+    assert runner.run_once(tenant_id=tenant, run_id=run_id) == (
+        "discarded" if inflight else "cancelled"
+    )
+    assert len(ctx["calls"]) == before_calls + int(inflight)
+    assert runner.run_once(tenant_id=tenant, run_id=run_id) == "cancelled"
+    assert ctx["tag_probe"].summary()["calls"] == int(inflight)
+    assert ctx["tag_probe"].summary()["unsettled_calls"] == 0
+    with service.store.jobs._transaction() as db:
+        assert service.store.jobs._all(db, tenant, run_id, "review_head") == []
+        assert service.store.jobs._all(db, tenant, run_id, "decision_revision") == []

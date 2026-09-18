@@ -71,3 +71,32 @@ old snapshot replay; live-provider provenance; no grade from draft rules; comple
 and interrupted raw recovery; cancellation/lease fencing; tenant isolation; actual
 bounded PDF→preliminary→search→tag→review verification. Until those checks pass,
 this document is an implementation contract, not evidence of completion.
+
+## Explicit local pilot invocation
+
+`evaluation/local_upstage_pilot.py --live-tagging` prepares the independent
+Solar Pro4 preliminary/element settings and runtime grants using the existing
+user-authorized local-test registration path. It does not approve a rulepack.
+`--tagging-max-calls` (default 12, range 6..60) limits combined preliminary and
+element calls through the existing role budget. Extraction still has its separate
+`--max-calls` limit. Only `--invoke` enables provider calls; the original shared
+USD20 ledger remains authoritative even when configured token/call limits are
+larger. Start a new `--state` directory to change tagging mode or call limits;
+old extraction-only runs are never reinterpreted as tagged runs.
+
+Example (supply an existing authorized PDF and its actual reporting period):
+
+```sh
+uv run python evaluation/local_upstage_pilot.py \
+  --pdf /absolute/path/to/report.pdf --state .local/live-pilot \
+  --key-file /absolute/path/to/.env.upstage.local \
+  --pages 30 --report-year 2025 \
+  --period-start 2025-01-01 --period-end 2025-12-31 \
+  --model solar-pro3 --max-calls 8 --verify-paragraphs \
+  --live-tagging --tagging-max-calls 12 --invoke
+```
+
+The example dates/pages are placeholders, not an inferred report scope. A selected
+body page alone cannot establish appendix coverage. Results retain this partial
+scope. Reusing the same state reads/replays existing work; it must not create new
+provider attempts for completed receipts. Incomplete dispatched receipts stop.

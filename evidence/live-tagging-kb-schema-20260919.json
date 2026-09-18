@@ -1,0 +1,180 @@
+{
+  "schema": "live_tagging_pilot_evidence_v1",
+  "run_id": "f13f7338-0e59-4f26-b3be-cf7a4374b2d9",
+  "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+  "selected_pages": [
+    30
+  ],
+  "scope": "declared_subset",
+  "models": [
+    "solar-pro3",
+    "solar-pro4"
+  ],
+  "state_path": ".local/developer-a-live-tagging-kb-schema",
+  "cost": {
+    "run_id": "f13f7338-0e59-4f26-b3be-cf7a4374b2d9",
+    "input_tokens": 32738,
+    "output_tokens": 2472,
+    "attempt_count": 17,
+    "cache_hit_count": 0,
+    "amount": "0.0130840050",
+    "currency": "USD",
+    "pricing_snapshot_id": null,
+    "cost_status": "known"
+  },
+  "tag_stage_status": "needs_review",
+  "review_count": 1,
+  "claims": [
+    {
+      "claim_id": "193df331-5f8d-51e3-a8d4-6666f636e22a",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "preliminary_replicas": [],
+      "element_calls": 0,
+      "element_results": [],
+      "has_decision": false
+    },
+    {
+      "claim_id": "1e3b4a4e-a2c9-505f-b584-0cbce8918f8e",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "preliminary_replicas": [],
+      "element_calls": 0,
+      "element_results": [],
+      "has_decision": false
+    },
+    {
+      "claim_id": "c6e38aa1-aa07-5c53-90f7-95355f8fd456",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "preliminary_replicas": [],
+      "element_calls": 0,
+      "element_results": [],
+      "has_decision": false
+    },
+    {
+      "claim_id": "941b365f-764b-546c-afe4-038bb7c5506a",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "preliminary_replicas": [],
+      "element_calls": 0,
+      "element_results": [],
+      "has_decision": false
+    },
+    {
+      "claim_id": "3b5ffad7-956b-527e-aa2d-a0341710660d",
+      "status": "blocked",
+      "reason": "PRELIMINARY_TAGS_UNRESOLVED",
+      "preliminary_replicas": [
+        {
+          "replicate_id": 1,
+          "status": "validated_candidate",
+          "request_id": "3c98f404-e39a-592b-9910-0d3af1806829",
+          "raw_response_sha256": "e7021dbe666e9d47dde4a1bdc9aa49376fbf8f68c427fac8d8af0ccdf643917e",
+          "track": "management"
+        },
+        {
+          "replicate_id": 2,
+          "status": "validated_candidate",
+          "request_id": "9f8fc61d-5a9d-5419-9a12-68a1c7ffd270",
+          "raw_response_sha256": "8ac714f5c39b98195f133168face0fb7c4a7d9c4afcb631f0685d6257488ba5f",
+          "track": "management"
+        },
+        {
+          "replicate_id": 3,
+          "status": "validated_candidate",
+          "request_id": "0b2015d1-3fe6-59dd-97af-7fa7b10a7281",
+          "raw_response_sha256": "40583d8e2be6d352bc52b9aea3bb1c81548b6c0091d872a1ebcc7d810389b931",
+          "track": "management"
+        }
+      ],
+      "element_calls": 0,
+      "element_results": [],
+      "has_decision": false
+    },
+    {
+      "claim_id": "10ccab9d-6389-5b6c-b6ed-903046fe95f5",
+      "status": "needs_review",
+      "reason": null,
+      "preliminary_replicas": [
+        {
+          "replicate_id": 1,
+          "status": "validated_candidate",
+          "request_id": "2fca42a9-781d-51b6-a013-065a90f5a0e6",
+          "raw_response_sha256": "9dc12f3fdd484b6fc207ff05c3c55e6503e2fd98c703338b4cfe8bf776accd73",
+          "track": "management"
+        },
+        {
+          "replicate_id": 2,
+          "status": "validated_candidate",
+          "request_id": "d3b00414-4fc8-5e50-8cf6-7f240e0b2a54",
+          "raw_response_sha256": "9dc12f3fdd484b6fc207ff05c3c55e6503e2fd98c703338b4cfe8bf776accd73",
+          "track": "management"
+        },
+        {
+          "replicate_id": 3,
+          "status": "validated_candidate",
+          "request_id": "f779dc95-b59d-5253-9c69-e3b9264a2a22",
+          "raw_response_sha256": "fef740bdaddc24e1b94a9f6b0530d04add830372ba180a13d8e6b29174e44e7c",
+          "track": "management"
+        }
+      ],
+      "element_calls": 3,
+      "element_results": [
+        {
+          "status": "needs_review",
+          "errors": [
+            "UNRESOLVED:M1",
+            "UNRESOLVED:M2",
+            "UNRESOLVED:M3",
+            "UNRESOLVED:M4",
+            "UNRESOLVED:M5",
+            "UNRESOLVED:M6"
+          ]
+        },
+        {
+          "status": "invalid_response",
+          "errors": [
+            "LLM_SCHEMA_INVALID"
+          ]
+        },
+        {
+          "status": "needs_review",
+          "errors": [
+            "UNRESOLVED:M1",
+            "UNRESOLVED:M2",
+            "UNRESOLVED:M3",
+            "UNRESOLVED:M4",
+            "UNRESOLVED:M5",
+            "UNRESOLVED:M6"
+          ]
+        }
+      ],
+      "has_decision": false
+    }
+  ],
+  "settings_hashes": {
+    "preliminary_settings_hash": "c116b0550b3ab2624e927445dda7b39e42641b04c74e103a599bdbfa1be433e9",
+    "tagging_settings_hash": "4ede2292659ce67f5ca028ef0c04399cec336e2dc154315c91e4ed5451c3e3d4",
+    "input_reservation_policy_hash": "6a04b102f358a4fdf722ed2f094f35f5a782fb04eb486e690144e8c2cb748e3f"
+  },
+  "limitations": [
+    "Single body page; no appendix coverage",
+    "No independent gold accuracy measurement",
+    "Extraction produced a different candidate set than baseline: not a controlled accuracy comparison",
+    "4 claims require source validation",
+    "One verified claim has inconsistent dimension assignments across preliminary replicas",
+    "One element response failed JSON schema validation",
+    "Relationship tags remain unresolved; no grade"
+  ],
+  "synthetic": false,
+  "offline_replay": {
+    "run_id": "f13f7338-0e59-4f26-b3be-cf7a4374b2d9",
+    "claim_id": "10ccab9d-6389-5b6c-b6ed-903046fe95f5",
+    "review_id": "12c94a2b-c859-5a65-88ac-c8ba94968e8d",
+    "replay": "passed",
+    "additional_calls": 0,
+    "tag_runs": 3,
+    "decision": null
+  }
+}

@@ -179,3 +179,45 @@ with this real-mode harness; final-tree checks; extend explicit pilot config for
 separate preliminary/element bindings and run a bounded actual PDF pilot against
 the original USD20 ledger. Relationship tags remain unresolved (empty supplier),
 so this is still not a complete service or a claim of measured model accuracy.
+
+### Actual PDF/model pilot — 2026-09-19
+
+Added bounded --live-tagging / --tagging-max-calls options to the existing local
+pilot. No new ledger or allowance. Rollback/crash-after-publication and before/
+inflight cancellation tests pass on the real-mode worker with fake HTTP.
+
+Two fresh actual KB physical-page-30 runs used native source verification,
+Solar Pro3 extraction and Solar Pro4 preliminary/element transports:
+- Baseline 8db23077-5360-4e86-ba6b-f79d4e6a39b5: 8 extracted claims, 6 source-
+  unverified, 2 preliminary-blocked, 12 actual calls, USD0.0026942850. One claim
+  had track/dimension disagreement, another returned a string dimension instead
+  of the required source span. No element calls or review publication.
+- Explicit preliminary output-schema run f13f7338-0e59-4f26-b3be-cf7a4374b2d9:
+  6 claims, 4 source-unverified, 1 dimension-disagreement block, 1 review candidate
+  published after 3 preliminary + 3 element replies. 17 actual calls,
+  USD0.0130840050. One element reply failed schema validation; remaining guarded
+  elements stay unknown. No grade. Not a controlled accuracy comparison: the
+  extractor produced different candidates. No independent gold metric.
+
+Evidence: evidence/live-tagging-kb-{baseline,schema}-20260919.json. Local runtime
+state directories and immutable raw receipts retained. The schema run pins the
+exact schema text used at creation; later $defs deduplication of the contract
+file changes future settings hashes, not that stored run.
+Actual candidate replay after reopening succeeded with zero additional calls;
+review 12c94a2b-c859-5a65-88ac-c8ba94968e8d retains all three element receipts.
+Shared ledger now 1421 calls, six pre-existing unsettled calls unchanged, total
+committed/reserved USD7.9579134850 of USD20. Both pilots together USD0.0157782900.
+These figures use the existing conservative price policy, not an invoice.
+
+Validation: complete suite 2438 passed, 7 skipped, 2 existing warnings (198.83s,
+/tmp/proofops-live-tagging-final-suite.txt). After adding output-schema regression:
+11 focused pilot/pipeline tests passed; doc/contracts 826 checks passed. Final
+ruff check/format 321 files, mypy 180 files, four Python package builds passed.
+No actual cloud or deployment test. API claims/detail/cost reads were HTTP200;
+a real browser review workflow remains to verify.
+
+Next priorities: element schema failures, source-verification coverage across
+additional layouts, and the missing relationship-tag supplier. Do not silently
+accept non-unanimous preliminary dimensions, upgrade unverified source spans,
+or equate a review candidate with established evidence. This single-page result
+is useful integration evidence, not service readiness or appendix coverage.
