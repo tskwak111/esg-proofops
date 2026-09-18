@@ -151,3 +151,53 @@ attestations retain v1 semantics. New worker policies require new run state;
 old artifacts remain immutable and require their pinned original verifier for
 exact replay. Rollback disables the new worker policy and preserves all receipts.
 No API or database migration is required.
+
+## Cross-source role extraction extension (implementation in progress)
+
+The new internal `application/tagging/relations.py` boundary operates on verified
+whole canonical source refs selected from the frozen retrieval packet. It does
+not create Claims for evidence. Its indexed source catalog retains a graph hash,
+source-list hash, prompt hash, tenant and schema version. The model returns only
+one dimensions map per source index; entity/metric/reporting_period are required
+keys, unresolved values remain null, and supported extra axes are preserved.
+Literal selections use a catalog source index plus a unique exact quotation.
+Server code restores offsets and provenance. Grades, invented IDs, duplicate or
+missing source entries, unknown axes, unverified sources and partial-source
+catalog entries are rejected. Whole-source validation is required because the
+returned source_id maps otherwise risk widening partial evidence scope.
+
+This boundary verifies literal source existence, not semantic ownership. A table
+cell may reference an indexed header, but the existing accept_binding must still
+check table identity, row/column coverage, same-document identity, periods and
+all relevant axes. Model-proposed roles never certify those relationships. The
+current local scoped-role resolver continues to shadow whole-source maps for
+atomic claims; this extension must not overwrite those local entries.
+
+Runtime integration remains pending: add a separately authorized relation
+settings/runtime binding and immutable receipt stage after retrieval and before
+element tagging. Each replica reads the same ordered source catalog; only
+matching validated role maps may be supplied to the existing binding guard.
+Retain all raw responses and disagreements, count calls in the original ledger,
+reuse the existing lease/capacity/reservation fences, and stop incomplete paid
+attempts instead of retrying. One request/receipt is bound to the real claim and
+its frozen packet, never to a fabricated evidence Claim. Caller-scoped batching
+must not reuse authorization across unrelated tenant/document/packet scopes.
+
+Compatibility: this helper alone changes no HTTP DTO, DB table, run snapshot or
+live provider dispatch. Subsequent integration must use optional frozen settings
+and distinct grant hashes; snapshots without them keep the existing behavior.
+Old reviews remain immutable. Rollback disables the optional new stage and keeps
+its receipts; it cannot silently reinterpret those receipts as legacy inputs.
+No cloud/API call or service-level accuracy is established by helper tests.
+
+Integration acceptance must cover: revoked grant before reservation; frozen
+catalog/schema/settings mismatch; three genuinely distinct replica request IDs;
+malformed/partial/duplicate relation reply without invented defaults; disagreement
+without a silently accepted cross-source map; original budget accounting after
+provider failure; immutable replay with no provider call; and existing local
+scope precedence. Select only original whole-source refs already represented in
+the frozen retrieval packet, never fetch omitted report pages implicitly. Sources
+that cannot be represented without widening scope remain unresolved. Merge maps
+without replacing atomic scoped entries. Request envelopes keep the actual claim
+identity while the document data remains an evidence-source catalog. The helper
+alone must not cause a new paid call in an old run or unlock any grade.

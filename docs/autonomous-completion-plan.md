@@ -777,3 +777,35 @@ then tag_runner retrieves other evidence but passes the same local map. Separate
 literal role extraction after retrieval remains required for cross-source joins.
 CI35388220142 at head18a563b still has its supply-chain integration step running;
 all five other jobs passed. No duplicate CI/model run was launched.
+
+### 2026-09-19 · Literal cross-source role validation foundation
+
+CI35388220142 for18a563b finished successfully: all six jobs passed. Linux
+acceptance/integration:2251passed,1skipped; unit/contracts/staging-gate:232passed,
+7skipped. This does not establish the root cause of the earlier intermittent
+native-receipt failure; its diagnostic repair remains in place.
+
+Added application/tagging/relations.py: build a source-indexed request from
+verified whole canonical refs and validate exactly one dimensions map per source.
+Required entity/metric/reporting_period keys, literal unique quotes, nulls,
+provenance and all supported axes are retained. Partial/duplicate scopes, foreign
+identity, unverifiable sources, malformed selectors, missing/duplicate rows and
+grade fields are rejected. The existing preliminary literal-span parser is
+reused; its strict v1 offsets and v2 unique quotes remain compatible. No evidence
+Claim is fabricated, no provider is called, and the module does not grant binding
+or grade authority. Runtime integration is still pending, as explicitly specified
+in docs/local-live-tagging-runtime-contract.md.
+
+Orca task task_a25233efa853 / ctx_1cc64c44c6c0, effective gpt-5.6-terra medium,
+reported115 related tests passed, then was released/closed and acknowledged.
+Coordinator review caught type-before-access and duplicate-index issues, which
+were corrected before acceptance. Coordinator then strengthened source-hash
+assertion from length-only to exact restored-reference hash equality, changed
+the positive binding test to use an actually different table cell, added a
+wrong-row role borrowing rejection, and covered tenant/offset/required-role
+failures. Do not treat an agent report as broader test coverage than its code.
+Before the final four negative cases,155 targeted acceptance/transport/worker
+checks passed. Final full local suite:2507passed,7skipped,2existingwarnings in
+183.99s (/tmp/proofops-relations-full-suite.txt). Ruff check/format, targeted mypy,
+architecture validation, proofops build and package documentation/contracts checks
+passed. No additional model calls occurred in this implementation.

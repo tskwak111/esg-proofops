@@ -123,6 +123,52 @@ def preliminary_request(claim: Claim, graph: CanonicalDocumentGraph, *, tenant_i
     )
 
 
+def _literal_dimension_ref(
+    span: Mapping,
+    sources: tuple[SourceRef, ...],
+    graph: CanonicalDocumentGraph,
+    *,
+    tenant_id: str,
+    allow_offsets: bool,
+) -> SourceRef:
+    """Restore one model-selected, unique literal quote to trusted provenance."""
+    allowed = ({"source_index", "quote"}, {"source_index", "start", "end", "quote"})
+    if not isinstance(span, Mapping) or set(span) not in (
+        allowed if allow_offsets else allowed[:1]
+    ):
+        raise DomainValidationError("invalid preliminary source span")
+    index, quote = span["source_index"], span["quote"]
+    if type(index) is not int or not 0 <= index < len(sources) or not isinstance(quote, str):
+        raise DomainValidationError("invalid preliminary source selection")
+    if "start" in span:
+        start, end = span["start"], span["end"]
+    else:
+        start = sources[index].quote.find(quote)
+        if not quote or start < 0 or start != sources[index].quote.rfind(quote):
+            raise DomainValidationError("preliminary quote absent or ambiguous")
+        end = start + len(quote)
+    if (
+        any(type(value) is not int for value in (index, start, end))
+        or not 0 <= start < end <= len(sources[index].quote)
+        or sources[index].quote[start:end] != quote
+    ):
+        raise DomainValidationError("preliminary span outside literal claim source")
+    source = sources[index]
+    ref = verify_source_ref(
+        replace(
+            source,
+            char_start=source.char_start + start,
+            char_end=source.char_start + end,
+            quote=quote,
+        ),
+        graph,
+        tenant_id=tenant_id,
+    )
+    if ref.verification_state != "verified":
+        raise DomainValidationError("preliminary dimension validation required")
+    return ref
+
+
 def validate_preliminary(
     claim: Claim, graph: CanonicalDocumentGraph, response: Mapping, *, tenant_id: str
 ) -> PreliminaryClassification:
@@ -162,40 +208,7 @@ def validate_preliminary(
         if span is None:
             dimensions[name] = None
             continue
-        if not isinstance(span, Mapping) or set(span) not in (
-            {"source_index", "quote"},
-            {"source_index", "start", "end", "quote"},
-        ):
-            raise DomainValidationError("invalid preliminary source span")
-        index, quote = span["source_index"], span["quote"]
-        if type(index) is not int or not 0 <= index < len(sources) or not isinstance(quote, str):
-            raise DomainValidationError("invalid preliminary source selection")
-        if "start" in span:
-            # Explicit v1 offsets remain strict: never repair an incorrect model offset.
-            start, end = span["start"], span["end"]
-        else:
-            text = sources[index].quote
-            start = text.find(quote)
-            if not quote or start < 0 or start != text.rfind(quote):
-                raise DomainValidationError("preliminary quote absent or ambiguous")
-            end = start + len(quote)
-        if (
-            any(type(value) is not int for value in (index, start, end))
-            or not 0 <= index < len(sources)
-            or not 0 <= start < end <= len(sources[index].quote)
-            or sources[index].quote[start:end] != span["quote"]
-        ):
-            raise DomainValidationError("preliminary span outside literal claim source")
-        source = sources[index]
-        # Server restores all provenance/coordinates; the model cannot supply them.
-        ref = replace(
-            source,
-            char_start=source.char_start + start,
-            char_end=source.char_start + end,
-            quote=span["quote"],
+        dimensions[name] = _literal_dimension_ref(
+            span, sources, graph, tenant_id=tenant_id, allow_offsets=True
         )
-        ref = verify_source_ref(ref, graph, tenant_id=tenant_id)
-        if ref.verification_state != "verified":
-            raise DomainValidationError("preliminary dimension validation required")
-        dimensions[name] = ref
     return PreliminaryClassification(track, ClaimContext(claim, dimensions), confidence, category)
