@@ -57,6 +57,8 @@ def load_run_inputs(store, uploads, *, tenant_id: str, run_id: str):
 def checkpoint_note_reviews(envelope):
     """Versioned checkpoint shape; legacy readers must never silently discard notes."""
     schema = envelope.get("schema")
+    if any(key.startswith("raster_ocr_") for key in envelope):
+        raise ParseFailure("RASTER_OCR_CHECKPOINT_UNSUPPORTED")
     if any(key.startswith("native_paragraph_") for key in envelope):
         if schema != "local_parser_checkpoint_v4":
             raise ParseFailure("NATIVE_PARAGRAPH_CHECKPOINT_INVALID")

@@ -397,3 +397,43 @@ normal existing runs. Per-call revocation/policy checks, v5 artifact ownership,
 fenced publication and offline readback must ship together before removing this
 interim rejection. Rolling back this configuration stage means omitting both
 options on new runs; existing immutable snapshots must remain intact.
+
+#### Scoped raster request preparation (no dispatch yet)
+
+`proofops_worker.raster_runtime.prepare_authorized_raster` reloads the original
+uploaded bytes and immutable run input, verifies the active parse lease and
+run/document/manifest identity, and compares the frozen execution policy to the
+actual helper/reader versions. It resolves current runtime, consent and rights
+profiles and requires their artifact hashes to equal the frozen profiles before
+applying the source-scoped raster gate. Authorization and lease checks run again
+after native replay and rendering so a change during preparation is rejected.
+
+Only unique paragraph IDs within the exact selected_pages and frozen max_pages
+are accepted. A recomputed native-v2 receipt must establish readable OCR mismatch
+eligibility; mismatched native text, clipping and missing/unreadable readers remain
+ineligible. Preparation and offline composition share this eligibility predicate.
+
+The new `local_raster_ocr_request_v1` ownership envelope carries tenant/run/job,
+document/manifest, input/source/policy/native-receipt hashes, selected pages, mode
+and the full raster correspondence. Its deterministic request_id uses the job UUID
+and canonical envelope hash. Identical pixels from another job/run therefore do
+not share a request identity. No text layer or expected-text prompt is submitted.
+
+This helper performs no network call, budget reservation or publication. It must
+be called by future dispatch immediately before the fenced persistent request
+registration and shared-ledger reservation; the envelope itself is not a bearer
+permission. Persisted max_calls enforcement, receipts, v5 publication/readback and
+composition switches remain required before enabling the live fallback.
+
+Legacy parser checkpoint validation now rejects every `raster_ocr_` prefixed
+field through the shared `checkpoint_note_reviews` boundary used by both commit
+and read. v1-v4 cannot silently ignore policy/artifact/coverage metadata; bare v5
+also remains unsupported. A rejected commit publishes no checkpoint and enqueues
+no extraction job. Existing successful v1-v4 reads and writes remain unchanged.
+
+The request explicitly freezes max_pages/max_calls/submitted_pages and the sorted
+eligible and ordered requested source IDs. All are included in request_id hashing.
+The request's input_hash resolves to the scoped immutable run snapshot containing
+runtime/consent/rights artifacts; readers must verify that snapshot rather than
+accepting a request-supplied authorization claim. Max_calls is a frozen limit,
+not yet a persisted call counter in this preparation-only stage.

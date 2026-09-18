@@ -35,13 +35,9 @@ def raster_ocr_policy(*, mode="standard", max_pages=10, max_calls=1):
     }
 
 
-def corroborate_native_visibility(
-    native, request, receipt, graph, source, *, request_sha256, receipt_sha256, tenant_id
-):
-    if not isinstance(native, dict) or native.get("schema") != "native_paragraph_attestation_v2":
-        raise ValueError("NATIVE_GLYPH_ATTESTATION_REQUIRED")
-    baseline = replay_native_sources(native, graph, source, tenant_id=tenant_id)
-    eligible = {
+def eligible_raster_sources(native):
+    """Use only after replay_native_sources verifies the original receipt."""
+    return {
         row["source_id"]
         for row in native["records"]
         if row["status"] == "unresolved"
@@ -49,6 +45,15 @@ def corroborate_native_visibility(
         and row.get("rendered", {}).get("status") == "read"
         and row["rendered"].get("text", "").strip()
     }
+
+
+def corroborate_native_visibility(
+    native, request, receipt, graph, source, *, request_sha256, receipt_sha256, tenant_id
+):
+    if not isinstance(native, dict) or native.get("schema") != "native_paragraph_attestation_v2":
+        raise ValueError("NATIVE_GLYPH_ATTESTATION_REQUIRED")
+    baseline = replay_native_sources(native, graph, source, tenant_id=tenant_id)
+    eligible = eligible_raster_sources(native)
     readings = raster_ocr.replay_raster_ocr(
         request,
         receipt,

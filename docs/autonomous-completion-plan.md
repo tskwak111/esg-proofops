@@ -1350,3 +1350,44 @@ Full local suite completed:2611passed,7skipped,2existingwarnings in211.57s:
 Log:/tmp/proofops-raster-config-suite.txt. This validates software regressions,
 not whole-report accuracy or an enabled raster dispatch path. Cloud/model trials
 for this configuration stage remain not_run.
+
+### 2026-09-19 — scoped raster preparation and legacy downgrade rejection
+
+Added prepare_authorized_raster: reload immutable run/original PDF, compare
+run/job/document/manifest and actual execution policy, re-resolve current
+runtime/consent/rights, enforce exact selected pages and max_pages, replay native
+eligibility, and prepare a deterministic image-only request with job-scoped ID.
+Lease, policy and authorization are checked before and after rendering. A failing
+regression reproduced consent revocation during rendering being missed, then
+passed after the final authority check. No transport or reservation is enabled.
+
+Terra task_0ba27fee40fe / ctx_b4d8238bd382 added one shared checkpoint guard:
+any raster_ocr_ field rejects v1-v4 at commit/read; barev5 remains unsupported.
+It reported25newtests,65parser/native regressions and47rule tests passing. Review
+of the diff confirmed the existing shared boundary protects both paths without
+adding a duplicate store guard. Worker released and delivery acknowledged.
+
+Luna task_5cd2d066a9cf / ctx_55f9d02f1f28 reviewed preparation and passed13tests.
+Report:/tmp/proofops-raster-preparation-review.md. Accepted its plan-alignment
+finding: request now explicitly includes max_pages/max_calls/submitted_pages and
+eligible/requested source IDs, all included in request_id derivation. Added a
+regression that failed for missing max_pages, then passed with all count/set pins.
+Did not add a second pre-render ID: source_ids is a tuple, graph values are frozen,
+and final correspondence already pins graph/source/geometry/image bytes. Did not
+duplicate rights/consent/runtime profiles: request.input_hash binds the complete
+server-side immutable run snapshot, which already freezes all three artifacts;
+the review's mutable-snapshot premise does not match LocalSQLiteRunStore's
+immutable UPDATE/DELETE triggers. Future readback must resolve and verify this
+scoped snapshot, not trust the request envelope in isolation. Worker released.
+
+Focused coordinator preparation/policy/composition suite30passed. Full Ruff and
+format345files, mypy189sources, build and863documentation/contract checks passed
+before the final additive request fields; final focused checks follow. Prior
+9bd4946 CI35402227925 passed. No API calls or budget changes in this stage.
+
+Full suite:2649passed,7skipped,2existingwarnings in205.99s; log
+/tmp/proofops-raster-preparation-suite.txt. This run began before the final additive
+request fields; those fields passed the30focused tests plus repeated full
+Ruff/format and relevant mypy checks. Documentation/contracts863passed again.
+The live parser still rejects raster-configured runs until persistent request
+accounting and v5 writer/store/readback are integrated. No service-ready claim.

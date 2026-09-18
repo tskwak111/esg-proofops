@@ -87,3 +87,12 @@ job access until v5 is implemented. No paid calls were made in this stage.
 Still outstanding in step 2: composition/CLI wiring and immediate pre-dispatch
 revalidation. Steps 3 and 4 remain open. This checkpoint does not enable fallback
 in a real parser run or count the experimental recovered block as published.
+
+Step 2 now also has scoped request preparation with current Registry/profile,
+lease, policy/version, original bytes, selected pages and recomputed native
+eligibility checks before/after rendering. It makes no reservation/call. Step 3's
+legacy-field rejection is in place at the shared commit/read checkpoint boundary.
+Next implementation: fenced persistent ownership/request and receipt records with
+max_calls across retries; dispatch through shared ledger; coordinated v5
+publication and replay. Do not remove the worker's unsupported guard until that
+whole path has a fake-HTTP end-to-end regression and passes replay checks.
