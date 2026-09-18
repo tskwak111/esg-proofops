@@ -56,6 +56,20 @@ Output shape (replace claim_id and extract only dimensions present in the source
 "reporting_period":null}}
 Do not invent a metric to fill the schema. A non-null dimension must express
 that semantic role in the claim; unrelated words are not valid dimension values.
+Examples below illustrate roles and JSON shape; never copy their values into
+an unrelated claim. A management action is not itself a measured indicator.
+Source 0: 예시제조는 환경위원회를 운영하고 감축 과제의 이행을 점검합니다.
+track: management; dimensions: {"entity":{"source_index":0,"quote":"예시제조"},
+"metric":null,"reporting_period":null}
+Source 0: 예시제조의 2025년 온실가스 배출량은 120 tCO2e입니다.
+track: performance; dimensions: {"entity":{"source_index":0,"quote":"예시제조"},
+"metric":{"source_index":0,"quote":"온실가스 배출량"},
+"reporting_period":{"source_index":0,"quote":"2025년"}}
+A phrase about setting a direction, managing tasks or checking progress is an
+activity, not a metric name. Do not turn its verb into a noun to invent a metric.
+Before returning, check each non-null dimension: it is an object (never a bare
+string); its quote occurs verbatim and once in the supplied source; and it names
+the requested role. If any check fails, return null for that dimension.
 """
 _FIELDS = frozenset(("claim_id", "track", "safe_harbor_category", "track_confidence", "dimensions"))
 

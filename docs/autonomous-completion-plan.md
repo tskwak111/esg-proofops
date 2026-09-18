@@ -447,3 +447,48 @@ errors with a bounded source-selection representation while preserving literal
 validation and uncertainty, then re-exercise cross-section element tagging and
 cross-source relationship extraction. Browser flow and independent gold remain
 outstanding; full goal is not complete.
+
+### Preliminary role examples and controlled replay — 2026-09-19
+
+Kept source/schema validation and the three-response consensus requirement strict.
+Added small generic management/performance examples to the preliminary prompt:
+management activities need not have a metric, literal numeric indicator phrases
+use {source_index,quote}, and any non-literal/repeated/wrong-role quote must be
+null. No company-specific fix, automatic repair, majority relaxation or grade
+rule change. Examples use a fictional company, not a report-derived gold label.
+
+Ran one new three-call ensemble for each of the exact three verified Doosan
+claims that failed in the previous coverage pilot. All 9 responses passed the
+existing literal/schema validator; each claim's three classifications/dimensions
+agreed. Metric remained null for management prose; missing entity/period was not
+invented. This is an authorized standalone development diagnostic, not a new
+pipeline approval or independent accuracy metric. Original packets/responses
+and new packets/responses remain immutable; failures were not retried until pass.
+Evidence: preliminary-examples-ab-20260919.json. Nine calls cost USD0.006315210.
+
+Official reference inspected: UpstageAI/Solar-Pro4-Cookbook README capability
+guides describe schema-in-prompt/null handling and few-shot classification
+(https://github.com/UpstageAI/Solar-Pro4-Cookbook/blob/main/README.md).
+This does not establish provider-enforced JSON Schema for our chat endpoint;
+no unsupported response_format parameter or enforcement claim was introduced.
+
+Post-change preliminary/transport/config suites: 77 passed; live worker/pipeline/
+preflight suites: 51 passed, 2 existing warnings. Ruff check/format, targeted mypy
+and proofops package build passed. Prior full suite 2460 passed predates this
+prompt-only change. Direct Codex quota now 73% used /27% remaining.
+
+Actual pipeline follow-up run 464650a9-350a-468e-8ee1-e3944a73eaee used new
+settings/state with the same Doosan pages and a bounded 18-call tagging limit
+(to permit three independent 3+3 ensembles). All 9 preliminary and 9 element
+responses completed; element schema validation passed for all 9. Three immutable
+candidate reviews were published. All elements remain guarded unknown because
+attribution/applicability is unresolved; no grade was computed. Nine other claims
+remain source-blocked. This confirms actual v2 wire/provider integration, not
+semantic evidence acceptance. One saved review replayed with zero additional calls.
+
+26 calls including extraction cost USD0.0209566500. With the standalone comparison,
+shared ledger is now 1535 calls, USD8.0184998350/20 committed/reserved, original
+six unsettled unchanged. Evidence: live-tagging-doosan-examples-20260919.json.
+Wire sizes and immutable prompt/settings hashes are recorded there. All paid
+processes have settled; full source coverage, cross-source binding supplier,
+independent gold, browser integration and human rule authority remain outstanding.

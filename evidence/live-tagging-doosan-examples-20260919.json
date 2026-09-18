@@ -1,0 +1,1762 @@
+{
+  "schema": "live_tagging_pilot_evidence_v1",
+  "run_id": "464650a9-350a-468e-8ee1-e3944a73eaee",
+  "source_sha256": "dc59b2b1c5bbf02e33bb901f94aef7cd984dc62547708e92aa1332ac550102e9",
+  "selected_pages": [
+    27,
+    97,
+    110
+  ],
+  "state_path": ".local/developer-a-live-tagging-doosan-examples",
+  "synthetic": false,
+  "cost": {
+    "run_id": "464650a9-350a-468e-8ee1-e3944a73eaee",
+    "input_tokens": 44675,
+    "output_tokens": 5639,
+    "attempt_count": 26,
+    "cache_hit_count": 0,
+    "amount": "0.0209566500",
+    "currency": "USD",
+    "pricing_snapshot_id": null,
+    "cost_status": "known"
+  },
+  "claim_count": 12,
+  "review_count": 3,
+  "tag_stage_status": "needs_review",
+  "claims": [
+    {
+      "claim_id": "178606d7-c961-5fd8-a6f7-b93c58944124",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "decision": null,
+      "element_replies": []
+    },
+    {
+      "claim_id": "5a0b6a58-f8ca-5e2e-ad6b-cd4579092af6",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "decision": null,
+      "element_replies": []
+    },
+    {
+      "claim_id": "ec4ab64f-4fbf-54f6-8d2c-9be2c7dabf2c",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "decision": null,
+      "element_replies": []
+    },
+    {
+      "claim_id": "9ffc73aa-5772-5587-bde3-d98dcb6ec7c7",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "decision": null,
+      "element_replies": []
+    },
+    {
+      "claim_id": "27517153-0479-5e62-9fe5-362e074c6f35",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "decision": null,
+      "element_replies": []
+    },
+    {
+      "claim_id": "b6a9867f-1c8f-53cc-ad1a-08008f648fda",
+      "status": "needs_review",
+      "reason": null,
+      "decision": null,
+      "element_replies": [
+        {
+          "status": "needs_review",
+          "errors": [
+            "UNRESOLVED:M1",
+            "UNRESOLVED:M2",
+            "UNRESOLVED:M3",
+            "UNRESOLVED:M4",
+            "UNRESOLVED:M5",
+            "UNRESOLVED:M6"
+          ],
+          "raw_elements": [
+            {
+              "credited_from": null,
+              "element_id": "M1",
+              "evidence_refs": [
+                {
+                  "bbox": [
+                    292.048,
+                    459.71899999999994,
+                    481.95,
+                    597.4549999999999
+                  ],
+                  "char_end": 71,
+                  "char_start": 0,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "글로벌 ESG 위원회는 기후변화와 관련된 리스크와 기회를 종합적으로 분석하여 두산밥캣의 기후변화 대응 방향을 설정하고 있습니다.",
+                  "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                  "source_id": "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                  "verification_state": "verified"
+                }
+              ],
+              "normalized_value": "글로벌 ESG 위원회",
+              "reason_code": null,
+              "state": "present"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M2",
+              "evidence_refs": [
+                {
+                  "bbox": [
+                    292.048,
+                    459.71899999999994,
+                    481.95,
+                    597.4549999999999
+                  ],
+                  "char_end": 71,
+                  "char_start": 0,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "글로벌 ESG 위원회는 기후변화와 관련된 리스크와 기회를 종합적으로 분석하여 두산밥캣의 기후변화 대응 방향을 설정하고 있습니다.",
+                  "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                  "source_id": "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                  "verification_state": "verified"
+                },
+                {
+                  "bbox": [
+                    292.045,
+                    441.74299999999994,
+                    362.119,
+                    467.41099999999994
+                  ],
+                  "char_end": 11,
+                  "char_start": 0,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "글로벌 ESG 위원회",
+                  "raw_text_sha256": "9f0c5113a8107512d1d3c6cb74c46744d4b75c3536259c1a3c1ec6f1199f3bc0",
+                  "source_id": "69ee2f67-1b54-51f4-9d8c-d177484ab19b",
+                  "verification_state": "verified"
+                }
+              ],
+              "normalized_value": "글로벌 ESG 위원회",
+              "reason_code": null,
+              "state": "present"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M3",
+              "evidence_refs": [],
+              "normalized_value": null,
+              "reason_code": null,
+              "state": "unknown"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M4",
+              "evidence_refs": [],
+              "normalized_value": null,
+              "reason_code": null,
+              "state": "unknown"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M5",
+              "evidence_refs": [
+                {
+                  "bbox": [
+                    292.048,
+                    459.71899999999994,
+                    481.95,
+                    597.4549999999999
+                  ],
+                  "char_end": 71,
+                  "char_start": 0,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "글로벌 ESG 위원회는 기후변화와 관련된 리스크와 기회를 종합적으로 분석하여 두산밥캣의 기후변화 대응 방향을 설정하고 있습니다.",
+                  "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                  "source_id": "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                  "verification_state": "verified"
+                }
+              ],
+              "normalized_value": "글로벌 ESG 위원회",
+              "reason_code": null,
+              "state": "present"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M6",
+              "evidence_refs": [],
+              "normalized_value": null,
+              "reason_code": null,
+              "state": "not_applicable"
+            }
+          ],
+          "usage": {
+            "cache_read_tokens": 0,
+            "cache_write_tokens": 0,
+            "error_code": null,
+            "input_tokens": 2667,
+            "latency_ms": 19092,
+            "output_tokens": 471,
+            "provider_request_id": "da3ee974-61c7-4248-b17b-547671a54b2c",
+            "status": "succeeded"
+          }
+        },
+        {
+          "status": "needs_review",
+          "errors": [
+            "UNRESOLVED:M1",
+            "UNRESOLVED:M2",
+            "UNRESOLVED:M3",
+            "UNRESOLVED:M4",
+            "UNRESOLVED:M5",
+            "UNRESOLVED:M6"
+          ],
+          "raw_elements": [
+            {
+              "credited_from": null,
+              "element_id": "M1",
+              "evidence_refs": [
+                {
+                  "bbox": [
+                    292.048,
+                    459.71899999999994,
+                    481.95,
+                    597.4549999999999
+                  ],
+                  "char_end": 71,
+                  "char_start": 0,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "글로벌 ESG 위원회는 기후변화와 관련된 리스크와 기회를 종합적으로 분석하여 두산밥캣의 기후변화 대응 방향을 설정하고 있습니다.",
+                  "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                  "source_id": "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                  "verification_state": "verified"
+                }
+              ],
+              "normalized_value": "글로벌 ESG 위원회",
+              "reason_code": null,
+              "state": "present"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M2",
+              "evidence_refs": [
+                {
+                  "bbox": [
+                    292.048,
+                    459.71899999999994,
+                    481.95,
+                    597.4549999999999
+                  ],
+                  "char_end": 71,
+                  "char_start": 0,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "글로벌 ESG 위원회는 기후변화와 관련된 리스크와 기회를 종합적으로 분석하여 두산밥캣의 기후변화 대응 방향을 설정하고 있습니다.",
+                  "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                  "source_id": "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                  "verification_state": "verified"
+                },
+                {
+                  "bbox": [
+                    292.045,
+                    441.74299999999994,
+                    362.119,
+                    467.41099999999994
+                  ],
+                  "char_end": 11,
+                  "char_start": 0,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "글로벌 ESG 위원회",
+                  "raw_text_sha256": "9f0c5113a8107512d1d3c6cb74c46744d4b75c3536259c1a3c1ec6f1199f3bc0",
+                  "source_id": "69ee2f67-1b54-51f4-9d8c-d177484ab19b",
+                  "verification_state": "verified"
+                }
+              ],
+              "normalized_value": "글로벌 ESG 위원회",
+              "reason_code": null,
+              "state": "present"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M3",
+              "evidence_refs": [],
+              "normalized_value": null,
+              "reason_code": null,
+              "state": "unknown"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M4",
+              "evidence_refs": [],
+              "normalized_value": null,
+              "reason_code": null,
+              "state": "unknown"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M5",
+              "evidence_refs": [
+                {
+                  "bbox": [
+                    292.048,
+                    459.71899999999994,
+                    481.95,
+                    597.4549999999999
+                  ],
+                  "char_end": 71,
+                  "char_start": 0,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "글로벌 ESG 위원회는 기후변화와 관련된 리스크와 기회를 종합적으로 분석하여 두산밥캣의 기후변화 대응 방향을 설정하고 있습니다.",
+                  "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                  "source_id": "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                  "verification_state": "verified"
+                }
+              ],
+              "normalized_value": "글로벌 ESG 위원회",
+              "reason_code": null,
+              "state": "present"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M6",
+              "evidence_refs": [],
+              "normalized_value": null,
+              "reason_code": null,
+              "state": "not_applicable"
+            }
+          ],
+          "usage": {
+            "cache_read_tokens": 0,
+            "cache_write_tokens": 0,
+            "error_code": null,
+            "input_tokens": 2667,
+            "latency_ms": 11605,
+            "output_tokens": 471,
+            "provider_request_id": "ce58367f-4c09-4e89-82c4-743347d8e930",
+            "status": "succeeded"
+          }
+        },
+        {
+          "status": "needs_review",
+          "errors": [
+            "UNRESOLVED:M1",
+            "UNRESOLVED:M2",
+            "UNRESOLVED:M3",
+            "UNRESOLVED:M4",
+            "UNRESOLVED:M5",
+            "UNRESOLVED:M6"
+          ],
+          "raw_elements": [
+            {
+              "credited_from": null,
+              "element_id": "M1",
+              "evidence_refs": [
+                {
+                  "bbox": [
+                    292.048,
+                    459.71899999999994,
+                    481.95,
+                    597.4549999999999
+                  ],
+                  "char_end": 71,
+                  "char_start": 0,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "글로벌 ESG 위원회는 기후변화와 관련된 리스크와 기회를 종합적으로 분석하여 두산밥캣의 기후변화 대응 방향을 설정하고 있습니다.",
+                  "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                  "source_id": "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                  "verification_state": "verified"
+                }
+              ],
+              "normalized_value": "글로벌 ESG 위원회",
+              "reason_code": null,
+              "state": "present"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M2",
+              "evidence_refs": [
+                {
+                  "bbox": [
+                    292.048,
+                    459.71899999999994,
+                    481.95,
+                    597.4549999999999
+                  ],
+                  "char_end": 71,
+                  "char_start": 0,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "글로벌 ESG 위원회는 기후변화와 관련된 리스크와 기회를 종합적으로 분석하여 두산밥캣의 기후변화 대응 방향을 설정하고 있습니다.",
+                  "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                  "source_id": "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                  "verification_state": "verified"
+                },
+                {
+                  "bbox": [
+                    292.045,
+                    441.74299999999994,
+                    362.119,
+                    467.41099999999994
+                  ],
+                  "char_end": 11,
+                  "char_start": 0,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "글로벌 ESG 위원회",
+                  "raw_text_sha256": "9f0c5113a8107512d1d3c6cb74c46744d4b75c3536259c1a3c1ec6f1199f3bc0",
+                  "source_id": "69ee2f67-1b54-51f4-9d8c-d177484ab19b",
+                  "verification_state": "verified"
+                }
+              ],
+              "normalized_value": "기후변화 대응 방향 설정",
+              "reason_code": null,
+              "state": "present"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M3",
+              "evidence_refs": [],
+              "normalized_value": null,
+              "reason_code": null,
+              "state": "absent"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M4",
+              "evidence_refs": [],
+              "normalized_value": null,
+              "reason_code": null,
+              "state": "absent"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M5",
+              "evidence_refs": [
+                {
+                  "bbox": [
+                    292.048,
+                    459.71899999999994,
+                    481.95,
+                    597.4549999999999
+                  ],
+                  "char_end": 71,
+                  "char_start": 0,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "글로벌 ESG 위원회는 기후변화와 관련된 리스크와 기회를 종합적으로 분석하여 두산밥캣의 기후변화 대응 방향을 설정하고 있습니다.",
+                  "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                  "source_id": "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                  "verification_state": "verified"
+                }
+              ],
+              "normalized_value": "글로벌 ESG 위원회",
+              "reason_code": null,
+              "state": "present"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M6",
+              "evidence_refs": [],
+              "normalized_value": null,
+              "reason_code": null,
+              "state": "not_applicable"
+            }
+          ],
+          "usage": {
+            "cache_read_tokens": 0,
+            "cache_write_tokens": 0,
+            "error_code": null,
+            "input_tokens": 2667,
+            "latency_ms": 3695,
+            "output_tokens": 474,
+            "provider_request_id": "e7ac87fb-f25e-423f-b604-8623ac2e8f1b",
+            "status": "succeeded"
+          }
+        }
+      ]
+    },
+    {
+      "claim_id": "42e679a7-6652-5d84-87a1-64d21f30220b",
+      "status": "needs_review",
+      "reason": null,
+      "decision": null,
+      "element_replies": [
+        {
+          "status": "needs_review",
+          "errors": [
+            "UNRESOLVED:M1",
+            "UNRESOLVED:M2",
+            "UNRESOLVED:M3",
+            "UNRESOLVED:M4",
+            "UNRESOLVED:M5",
+            "UNRESOLVED:M6"
+          ],
+          "raw_elements": [
+            {
+              "credited_from": null,
+              "element_id": "M1",
+              "evidence_refs": [
+                {
+                  "bbox": [
+                    292.048,
+                    459.71899999999994,
+                    481.95,
+                    597.4549999999999
+                  ],
+                  "char_end": 143,
+                  "char_start": 72,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "또한 글로벌 ESG 전략에 따라 마련된 기후변화 대응 목표를 달성하기 위하여 관련 과제와 KPI를 총괄적으로 관리하고 있습니다.",
+                  "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                  "source_id": "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                  "verification_state": "verified"
+                }
+              ],
+              "normalized_value": null,
+              "reason_code": null,
+              "state": "present"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M2",
+              "evidence_refs": [
+                {
+                  "bbox": [
+                    292.048,
+                    459.71899999999994,
+                    481.95,
+                    597.4549999999999
+                  ],
+                  "char_end": 143,
+                  "char_start": 72,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "또한 글로벌 ESG 전략에 따라 마련된 기후변화 대응 목표를 달성하기 위하여 관련 과제와 KPI를 총괄적으로 관리하고 있습니다.",
+                  "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                  "source_id": "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                  "verification_state": "verified"
+                },
+                {
+                  "bbox": [
+                    630.568,
+                    187.66899999999998,
+                    777.195,
+                    224.77099999999996
+                  ],
+                  "char_end": 42,
+                  "char_start": 0,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "기후변화 대응 목표 및 KPI 달성 현황 및 계획 점검 기후변화 리스크 점검",
+                  "raw_text_sha256": "94e77b49ca22780a31d7b9d529a98c68a465cde82a56739da31d3ff8bfa57c78",
+                  "source_id": "2659828d-6a83-554c-b08d-4e731f1220bf",
+                  "verification_state": "verified"
+                },
+                {
+                  "bbox": [
+                    815.796,
+                    213.33799999999997,
+                    876.328,
+                    244.77299999999997
+                  ],
+                  "char_end": 20,
+                  "char_start": 0,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "2026 기후변화 대응 Plan 설정",
+                  "raw_text_sha256": "3e969363dba8f4fcbc53bb41e1df3b3dda0c5c8484fbdd12d073c22789f39df0",
+                  "source_id": "08aaee6b-21c8-511f-9dd0-dafe621d0b06",
+                  "verification_state": "verified"
+                }
+              ],
+              "normalized_value": null,
+              "reason_code": null,
+              "state": "present"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M3",
+              "evidence_refs": [],
+              "normalized_value": null,
+              "reason_code": null,
+              "state": "unknown"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M4",
+              "evidence_refs": [],
+              "normalized_value": null,
+              "reason_code": null,
+              "state": "absent"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M5",
+              "evidence_refs": [
+                {
+                  "bbox": [
+                    292.048,
+                    459.71899999999994,
+                    481.95,
+                    597.4549999999999
+                  ],
+                  "char_end": 143,
+                  "char_start": 72,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "또한 글로벌 ESG 전략에 따라 마련된 기후변화 대응 목표를 달성하기 위하여 관련 과제와 KPI를 총괄적으로 관리하고 있습니다.",
+                  "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                  "source_id": "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                  "verification_state": "verified"
+                }
+              ],
+              "normalized_value": null,
+              "reason_code": null,
+              "state": "present"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M6",
+              "evidence_refs": [],
+              "normalized_value": null,
+              "reason_code": null,
+              "state": "not_applicable"
+            }
+          ],
+          "usage": {
+            "cache_read_tokens": 0,
+            "cache_write_tokens": 0,
+            "error_code": null,
+            "input_tokens": 2596,
+            "latency_ms": 14597,
+            "output_tokens": 472,
+            "provider_request_id": "5c1bc6d8-47fb-49cd-95e9-242b7643fbd5",
+            "status": "succeeded"
+          }
+        },
+        {
+          "status": "needs_review",
+          "errors": [
+            "UNRESOLVED:M1",
+            "UNRESOLVED:M2",
+            "UNRESOLVED:M3",
+            "UNRESOLVED:M4",
+            "UNRESOLVED:M5",
+            "UNRESOLVED:M6"
+          ],
+          "raw_elements": [
+            {
+              "credited_from": null,
+              "element_id": "M1",
+              "evidence_refs": [
+                {
+                  "bbox": [
+                    292.048,
+                    459.71899999999994,
+                    481.95,
+                    597.4549999999999
+                  ],
+                  "char_end": 143,
+                  "char_start": 72,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "또한 글로벌 ESG 전략에 따라 마련된 기후변화 대응 목표를 달성하기 위하여 관련 과제와 KPI를 총괄적으로 관리하고 있습니다.",
+                  "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                  "source_id": "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                  "verification_state": "verified"
+                }
+              ],
+              "normalized_value": "글로벌 ESG 전략에 따라 마련된 기후변화 대응 목표 달성을 위한 관련 과제와 KPI 총괄 관리",
+              "reason_code": null,
+              "state": "present"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M2",
+              "evidence_refs": [
+                {
+                  "bbox": [
+                    292.048,
+                    459.71899999999994,
+                    481.95,
+                    597.4549999999999
+                  ],
+                  "char_end": 143,
+                  "char_start": 72,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "또한 글로벌 ESG 전략에 따라 마련된 기후변화 대응 목표를 달성하기 위하여 관련 과제와 KPI를 총괄적으로 관리하고 있습니다.",
+                  "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                  "source_id": "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                  "verification_state": "verified"
+                },
+                {
+                  "bbox": [
+                    630.568,
+                    187.66899999999998,
+                    777.195,
+                    224.77099999999996
+                  ],
+                  "char_end": 42,
+                  "char_start": 0,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "기후변화 대응 목표 및 KPI 달성 현황 및 계획 점검 기후변화 리스크 점검",
+                  "raw_text_sha256": "94e77b49ca22780a31d7b9d529a98c68a465cde82a56739da31d3ff8bfa57c78",
+                  "source_id": "2659828d-6a83-554c-b08d-4e731f1220bf",
+                  "verification_state": "verified"
+                }
+              ],
+              "normalized_value": "기후변화 대응 목표 및 KPI 달성 현황·계획 점검, 기후변화 리스크 점검",
+              "reason_code": null,
+              "state": "present"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M3",
+              "evidence_refs": [],
+              "normalized_value": null,
+              "reason_code": null,
+              "state": "unknown"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M4",
+              "evidence_refs": [],
+              "normalized_value": null,
+              "reason_code": null,
+              "state": "unknown"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M5",
+              "evidence_refs": [
+                {
+                  "bbox": [
+                    292.048,
+                    459.71899999999994,
+                    481.95,
+                    597.4549999999999
+                  ],
+                  "char_end": 143,
+                  "char_start": 72,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "또한 글로벌 ESG 전략에 따라 마련된 기후변화 대응 목표를 달성하기 위하여 관련 과제와 KPI를 총괄적으로 관리하고 있습니다.",
+                  "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                  "source_id": "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                  "verification_state": "verified"
+                }
+              ],
+              "normalized_value": "관련 과제와 KPI 총괄 관리 조직/거버넌스 언급(담당조직 명시 없음)",
+              "reason_code": null,
+              "state": "present"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M6",
+              "evidence_refs": [],
+              "normalized_value": null,
+              "reason_code": null,
+              "state": "not_applicable"
+            }
+          ],
+          "usage": {
+            "cache_read_tokens": 0,
+            "cache_write_tokens": 0,
+            "error_code": null,
+            "input_tokens": 2596,
+            "latency_ms": 22688,
+            "output_tokens": 569,
+            "provider_request_id": "c3590360-933d-4ac3-b71e-79c1f201926a",
+            "status": "succeeded"
+          }
+        },
+        {
+          "status": "needs_review",
+          "errors": [
+            "UNRESOLVED:M1",
+            "UNRESOLVED:M2",
+            "UNRESOLVED:M3",
+            "UNRESOLVED:M4",
+            "UNRESOLVED:M5",
+            "UNRESOLVED:M6"
+          ],
+          "raw_elements": [
+            {
+              "credited_from": null,
+              "element_id": "M1",
+              "evidence_refs": [
+                {
+                  "bbox": [
+                    292.048,
+                    459.71899999999994,
+                    481.95,
+                    597.4549999999999
+                  ],
+                  "char_end": 143,
+                  "char_start": 72,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "또한 글로벌 ESG 전략에 따라 마련된 기후변화 대응 목표를 달성하기 위하여 관련 과제와 KPI를 총괄적으로 관리하고 있습니다.",
+                  "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                  "source_id": "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                  "verification_state": "verified"
+                }
+              ],
+              "normalized_value": null,
+              "reason_code": null,
+              "state": "present"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M2",
+              "evidence_refs": [
+                {
+                  "bbox": [
+                    292.048,
+                    459.71899999999994,
+                    481.95,
+                    597.4549999999999
+                  ],
+                  "char_end": 143,
+                  "char_start": 72,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "또한 글로벌 ESG 전략에 따라 마련된 기후변화 대응 목표를 달성하기 위하여 관련 과제와 KPI를 총괄적으로 관리하고 있습니다.",
+                  "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                  "source_id": "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                  "verification_state": "verified"
+                },
+                {
+                  "bbox": [
+                    630.568,
+                    187.66899999999998,
+                    777.195,
+                    224.77099999999996
+                  ],
+                  "char_end": 42,
+                  "char_start": 0,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "기후변화 대응 목표 및 KPI 달성 현황 및 계획 점검 기후변화 리스크 점검",
+                  "raw_text_sha256": "94e77b49ca22780a31d7b9d529a98c68a465cde82a56739da31d3ff8bfa57c78",
+                  "source_id": "2659828d-6a83-554c-b08d-4e731f1220bf",
+                  "verification_state": "verified"
+                },
+                {
+                  "bbox": [
+                    815.796,
+                    213.33799999999997,
+                    876.328,
+                    244.77299999999997
+                  ],
+                  "char_end": 20,
+                  "char_start": 0,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "2026 기후변화 대응 Plan 설정",
+                  "raw_text_sha256": "3e969363dba8f4fcbc53bb41e1df3b3dda0c5c8484fbdd12d073c22789f39df0",
+                  "source_id": "08aaee6b-21c8-511f-9dd0-dafe621d0b06",
+                  "verification_state": "verified"
+                }
+              ],
+              "normalized_value": null,
+              "reason_code": null,
+              "state": "present"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M3",
+              "evidence_refs": [],
+              "normalized_value": null,
+              "reason_code": null,
+              "state": "absent"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M4",
+              "evidence_refs": [],
+              "normalized_value": null,
+              "reason_code": null,
+              "state": "absent"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M5",
+              "evidence_refs": [
+                {
+                  "bbox": [
+                    292.048,
+                    459.71899999999994,
+                    481.95,
+                    597.4549999999999
+                  ],
+                  "char_end": 143,
+                  "char_start": 72,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "또한 글로벌 ESG 전략에 따라 마련된 기후변화 대응 목표를 달성하기 위하여 관련 과제와 KPI를 총괄적으로 관리하고 있습니다.",
+                  "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                  "source_id": "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                  "verification_state": "verified"
+                }
+              ],
+              "normalized_value": null,
+              "reason_code": null,
+              "state": "present"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M6",
+              "evidence_refs": [],
+              "normalized_value": null,
+              "reason_code": null,
+              "state": "not_applicable"
+            }
+          ],
+          "usage": {
+            "cache_read_tokens": 0,
+            "cache_write_tokens": 0,
+            "error_code": null,
+            "input_tokens": 2596,
+            "latency_ms": 17933,
+            "output_tokens": 473,
+            "provider_request_id": "532efc1d-08a3-4a49-b771-c349c4822c6d",
+            "status": "succeeded"
+          }
+        }
+      ]
+    },
+    {
+      "claim_id": "1f658926-9608-504b-8f5f-bda212606f2f",
+      "status": "needs_review",
+      "reason": null,
+      "decision": null,
+      "element_replies": [
+        {
+          "status": "needs_review",
+          "errors": [
+            "UNRESOLVED:M1",
+            "UNRESOLVED:M2",
+            "UNRESOLVED:M3",
+            "UNRESOLVED:M4",
+            "UNRESOLVED:M5",
+            "UNRESOLVED:M6"
+          ],
+          "raw_elements": [
+            {
+              "credited_from": null,
+              "element_id": "M1",
+              "evidence_refs": [
+                {
+                  "bbox": [
+                    292.048,
+                    459.71899999999994,
+                    481.95,
+                    597.4549999999999
+                  ],
+                  "char_end": 233,
+                  "char_start": 144,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "아울러 기후변화 관련 주요 논의사항을 이사회에 직접 보고하여 기후변화 대응 목표의 이행 수준을 체계적으로 관리하고, 전사적인 온실가스 감축을 추진하고 있습니다.",
+                  "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                  "source_id": "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                  "verification_state": "verified"
+                }
+              ],
+              "normalized_value": "이사회 직접 보고 및 전사적 온실가스 감축 추진",
+              "reason_code": null,
+              "state": "present"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M2",
+              "evidence_refs": [
+                {
+                  "bbox": [
+                    292.048,
+                    459.71899999999994,
+                    481.95,
+                    597.4549999999999
+                  ],
+                  "char_end": 233,
+                  "char_start": 144,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "아울러 기후변화 관련 주요 논의사항을 이사회에 직접 보고하여 기후변화 대응 목표의 이행 수준을 체계적으로 관리하고, 전사적인 온실가스 감축을 추진하고 있습니다.",
+                  "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                  "source_id": "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                  "verification_state": "verified"
+                }
+              ],
+              "normalized_value": "기후변화 대응 목표 이행 수준 관리",
+              "reason_code": null,
+              "state": "present"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M3",
+              "evidence_refs": [
+                {
+                  "bbox": [
+                    292.048,
+                    459.71899999999994,
+                    481.95,
+                    597.4549999999999
+                  ],
+                  "char_end": 233,
+                  "char_start": 144,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "아울러 기후변화 관련 주요 논의사항을 이사회에 직접 보고하여 기후변화 대응 목표의 이행 수준을 체계적으로 관리하고, 전사적인 온실가스 감축을 추진하고 있습니다.",
+                  "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                  "source_id": "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                  "verification_state": "verified"
+                }
+              ],
+              "normalized_value": "이사회 보고 체계",
+              "reason_code": null,
+              "state": "present"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M4",
+              "evidence_refs": [
+                {
+                  "bbox": [
+                    292.048,
+                    459.71899999999994,
+                    481.95,
+                    597.4549999999999
+                  ],
+                  "char_end": 233,
+                  "char_start": 144,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "아울러 기후변화 관련 주요 논의사항을 이사회에 직접 보고하여 기후변화 대응 목표의 이행 수준을 체계적으로 관리하고, 전사적인 온실가스 감축을 추진하고 있습니다.",
+                  "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                  "source_id": "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                  "verification_state": "verified"
+                }
+              ],
+              "normalized_value": "체계적 관리 및 전사적 추진",
+              "reason_code": null,
+              "state": "present"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M5",
+              "evidence_refs": [
+                {
+                  "bbox": [
+                    292.048,
+                    459.71899999999994,
+                    481.95,
+                    597.4549999999999
+                  ],
+                  "char_end": 233,
+                  "char_start": 144,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "아울러 기후변화 관련 주요 논의사항을 이사회에 직접 보고하여 기후변화 대응 목표의 이행 수준을 체계적으로 관리하고, 전사적인 온실가스 감축을 추진하고 있습니다.",
+                  "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                  "source_id": "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                  "verification_state": "verified"
+                }
+              ],
+              "normalized_value": "이사회",
+              "reason_code": null,
+              "state": "present"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M6",
+              "evidence_refs": [],
+              "normalized_value": null,
+              "reason_code": null,
+              "state": "not_applicable"
+            }
+          ],
+          "usage": {
+            "cache_read_tokens": 0,
+            "cache_write_tokens": 0,
+            "error_code": null,
+            "input_tokens": 2608,
+            "latency_ms": 9759,
+            "output_tokens": 492,
+            "provider_request_id": "a8f630ea-f517-46db-b4e9-7b3ed535e1ef",
+            "status": "succeeded"
+          }
+        },
+        {
+          "status": "needs_review",
+          "errors": [
+            "UNRESOLVED:M1",
+            "UNRESOLVED:M2",
+            "UNRESOLVED:M3",
+            "UNRESOLVED:M4",
+            "UNRESOLVED:M5",
+            "UNRESOLVED:M6"
+          ],
+          "raw_elements": [
+            {
+              "credited_from": null,
+              "element_id": "M1",
+              "evidence_refs": [
+                {
+                  "bbox": [
+                    292.048,
+                    459.71899999999994,
+                    481.95,
+                    597.4549999999999
+                  ],
+                  "char_end": 233,
+                  "char_start": 144,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "아울러 기후변화 관련 주요 논의사항을 이사회에 직접 보고하여 기후변화 대응 목표의 이행 수준을 체계적으로 관리하고, 전사적인 온실가스 감축을 추진하고 있습니다.",
+                  "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                  "source_id": "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                  "verification_state": "verified"
+                }
+              ],
+              "normalized_value": "이사회 직접 보고 및 체계적 관리, 전사적 온실가스 감축 추진",
+              "reason_code": null,
+              "state": "present"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M2",
+              "evidence_refs": [
+                {
+                  "bbox": [
+                    292.048,
+                    459.71899999999994,
+                    481.95,
+                    597.4549999999999
+                  ],
+                  "char_end": 233,
+                  "char_start": 144,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "아울러 기후변화 관련 주요 논의사항을 이사회에 직접 보고하여 기후변화 대응 목표의 이행 수준을 체계적으로 관리하고, 전사적인 온실가스 감축을 추진하고 있습니다.",
+                  "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                  "source_id": "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                  "verification_state": "verified"
+                },
+                {
+                  "bbox": [
+                    630.568,
+                    187.66899999999998,
+                    777.195,
+                    224.77099999999996
+                  ],
+                  "char_end": 42,
+                  "char_start": 0,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "기후변화 대응 목표 및 KPI 달성 현황 및 계획 점검 기후변화 리스크 점검",
+                  "raw_text_sha256": "94e77b49ca22780a31d7b9d529a98c68a465cde82a56739da31d3ff8bfa57c78",
+                  "source_id": "2659828d-6a83-554c-b08d-4e731f1220bf",
+                  "verification_state": "verified"
+                }
+              ],
+              "normalized_value": "기후변화 대응 목표 이행 수준 및 KPI 달성 현황",
+              "reason_code": null,
+              "state": "present"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M3",
+              "evidence_refs": [
+                {
+                  "bbox": [
+                    292.048,
+                    459.71899999999994,
+                    481.95,
+                    597.4549999999999
+                  ],
+                  "char_end": 233,
+                  "char_start": 144,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "아울러 기후변화 관련 주요 논의사항을 이사회에 직접 보고하여 기후변화 대응 목표의 이행 수준을 체계적으로 관리하고, 전사적인 온실가스 감축을 추진하고 있습니다.",
+                  "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                  "source_id": "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                  "verification_state": "verified"
+                },
+                {
+                  "bbox": [
+                    630.568,
+                    187.66899999999998,
+                    777.195,
+                    224.77099999999996
+                  ],
+                  "char_end": 42,
+                  "char_start": 0,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "기후변화 대응 목표 및 KPI 달성 현황 및 계획 점검 기후변화 리스크 점검",
+                  "raw_text_sha256": "94e77b49ca22780a31d7b9d529a98c68a465cde82a56739da31d3ff8bfa57c78",
+                  "source_id": "2659828d-6a83-554c-b08d-4e731f1220bf",
+                  "verification_state": "verified"
+                },
+                {
+                  "bbox": [
+                    815.796,
+                    213.33799999999997,
+                    876.328,
+                    244.77299999999997
+                  ],
+                  "char_end": 20,
+                  "char_start": 0,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "2026 기후변화 대응 Plan 설정",
+                  "raw_text_sha256": "3e969363dba8f4fcbc53bb41e1df3b3dda0c5c8484fbdd12d073c22789f39df0",
+                  "source_id": "08aaee6b-21c8-511f-9dd0-dafe621d0b06",
+                  "verification_state": "verified"
+                }
+              ],
+              "normalized_value": "이사회 보고 및 기후변화 대응 Plan 설정",
+              "reason_code": null,
+              "state": "present"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M4",
+              "evidence_refs": [
+                {
+                  "bbox": [
+                    292.048,
+                    459.71899999999994,
+                    481.95,
+                    597.4549999999999
+                  ],
+                  "char_end": 233,
+                  "char_start": 144,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "아울러 기후변화 관련 주요 논의사항을 이사회에 직접 보고하여 기후변화 대응 목표의 이행 수준을 체계적으로 관리하고, 전사적인 온실가스 감축을 추진하고 있습니다.",
+                  "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                  "source_id": "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                  "verification_state": "verified"
+                }
+              ],
+              "normalized_value": "체계적 관리 및 전사적 감축 추진",
+              "reason_code": null,
+              "state": "present"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M5",
+              "evidence_refs": [
+                {
+                  "bbox": [
+                    292.048,
+                    459.71899999999994,
+                    481.95,
+                    597.4549999999999
+                  ],
+                  "char_end": 233,
+                  "char_start": 144,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "아울러 기후변화 관련 주요 논의사항을 이사회에 직접 보고하여 기후변화 대응 목표의 이행 수준을 체계적으로 관리하고, 전사적인 온실가스 감축을 추진하고 있습니다.",
+                  "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                  "source_id": "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                  "verification_state": "verified"
+                }
+              ],
+              "normalized_value": "이사회",
+              "reason_code": null,
+              "state": "present"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M6",
+              "evidence_refs": [],
+              "normalized_value": null,
+              "reason_code": null,
+              "state": "not_applicable"
+            }
+          ],
+          "usage": {
+            "cache_read_tokens": 0,
+            "cache_write_tokens": 0,
+            "error_code": null,
+            "input_tokens": 2608,
+            "latency_ms": 23844,
+            "output_tokens": 515,
+            "provider_request_id": "ab4ba5b3-edd8-4169-a06e-a38773c0f6b5",
+            "status": "succeeded"
+          }
+        },
+        {
+          "status": "needs_review",
+          "errors": [
+            "UNRESOLVED:M1",
+            "UNRESOLVED:M2",
+            "UNRESOLVED:M3",
+            "UNRESOLVED:M4",
+            "UNRESOLVED:M5",
+            "UNRESOLVED:M6"
+          ],
+          "raw_elements": [
+            {
+              "credited_from": null,
+              "element_id": "M1",
+              "evidence_refs": [
+                {
+                  "bbox": [
+                    292.048,
+                    459.71899999999994,
+                    481.95,
+                    597.4549999999999
+                  ],
+                  "char_end": 233,
+                  "char_start": 144,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "아울러 기후변화 관련 주요 논의사항을 이사회에 직접 보고하여 기후변화 대응 목표의 이행 수준을 체계적으로 관리하고, 전사적인 온실가스 감축을 추진하고 있습니다.",
+                  "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                  "source_id": "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                  "verification_state": "verified"
+                }
+              ],
+              "normalized_value": null,
+              "reason_code": null,
+              "state": "present"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M2",
+              "evidence_refs": [
+                {
+                  "bbox": [
+                    292.048,
+                    459.71899999999994,
+                    481.95,
+                    597.4549999999999
+                  ],
+                  "char_end": 233,
+                  "char_start": 144,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "아울러 기후변화 관련 주요 논의사항을 이사회에 직접 보고하여 기후변화 대응 목표의 이행 수준을 체계적으로 관리하고, 전사적인 온실가스 감축을 추진하고 있습니다.",
+                  "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                  "source_id": "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                  "verification_state": "verified"
+                },
+                {
+                  "bbox": [
+                    630.568,
+                    187.66899999999998,
+                    777.195,
+                    224.77099999999996
+                  ],
+                  "char_end": 42,
+                  "char_start": 0,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "기후변화 대응 목표 및 KPI 달성 현황 및 계획 점검 기후변화 리스크 점검",
+                  "raw_text_sha256": "94e77b49ca22780a31d7b9d529a98c68a465cde82a56739da31d3ff8bfa57c78",
+                  "source_id": "2659828d-6a83-554c-b08d-4e731f1220bf",
+                  "verification_state": "verified"
+                },
+                {
+                  "bbox": [
+                    815.796,
+                    213.33799999999997,
+                    876.328,
+                    244.77299999999997
+                  ],
+                  "char_end": 20,
+                  "char_start": 0,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "2026 기후변화 대응 Plan 설정",
+                  "raw_text_sha256": "3e969363dba8f4fcbc53bb41e1df3b3dda0c5c8484fbdd12d073c22789f39df0",
+                  "source_id": "08aaee6b-21c8-511f-9dd0-dafe621d0b06",
+                  "verification_state": "verified"
+                }
+              ],
+              "normalized_value": null,
+              "reason_code": null,
+              "state": "present"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M3",
+              "evidence_refs": [
+                {
+                  "bbox": [
+                    292.048,
+                    459.71899999999994,
+                    481.95,
+                    597.4549999999999
+                  ],
+                  "char_end": 233,
+                  "char_start": 144,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "아울러 기후변화 관련 주요 논의사항을 이사회에 직접 보고하여 기후변화 대응 목표의 이행 수준을 체계적으로 관리하고, 전사적인 온실가스 감축을 추진하고 있습니다.",
+                  "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                  "source_id": "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                  "verification_state": "verified"
+                },
+                {
+                  "bbox": [
+                    630.568,
+                    187.66899999999998,
+                    777.195,
+                    224.77099999999996
+                  ],
+                  "char_end": 42,
+                  "char_start": 0,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "기후변화 대응 목표 및 KPI 달성 현황 및 계획 점검 기후변화 리스크 점검",
+                  "raw_text_sha256": "94e77b49ca22780a31d7b9d529a98c68a465cde82a56739da31d3ff8bfa57c78",
+                  "source_id": "2659828d-6a83-554c-b08d-4e731f1220bf",
+                  "verification_state": "verified"
+                },
+                {
+                  "bbox": [
+                    815.796,
+                    213.33799999999997,
+                    876.328,
+                    244.77299999999997
+                  ],
+                  "char_end": 20,
+                  "char_start": 0,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "2026 기후변화 대응 Plan 설정",
+                  "raw_text_sha256": "3e969363dba8f4fcbc53bb41e1df3b3dda0c5c8484fbdd12d073c22789f39df0",
+                  "source_id": "08aaee6b-21c8-511f-9dd0-dafe621d0b06",
+                  "verification_state": "verified"
+                }
+              ],
+              "normalized_value": null,
+              "reason_code": null,
+              "state": "present"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M4",
+              "evidence_refs": [
+                {
+                  "bbox": [
+                    292.048,
+                    459.71899999999994,
+                    481.95,
+                    597.4549999999999
+                  ],
+                  "char_end": 233,
+                  "char_start": 144,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "아울러 기후변화 관련 주요 논의사항을 이사회에 직접 보고하여 기후변화 대응 목표의 이행 수준을 체계적으로 관리하고, 전사적인 온실가스 감축을 추진하고 있습니다.",
+                  "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                  "source_id": "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                  "verification_state": "verified"
+                }
+              ],
+              "normalized_value": null,
+              "reason_code": null,
+              "state": "present"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M5",
+              "evidence_refs": [
+                {
+                  "bbox": [
+                    292.048,
+                    459.71899999999994,
+                    481.95,
+                    597.4549999999999
+                  ],
+                  "char_end": 233,
+                  "char_start": 144,
+                  "document_version_id": "ba11c71e-2093-4275-a5ec-746fad9e0870",
+                  "location_quality": "located",
+                  "page_num": 27,
+                  "parse_manifest_id": "7865647a-a91d-5735-b949-8fa9fa4e563a",
+                  "printed_page_label": "27",
+                  "quote": "아울러 기후변화 관련 주요 논의사항을 이사회에 직접 보고하여 기후변화 대응 목표의 이행 수준을 체계적으로 관리하고, 전사적인 온실가스 감축을 추진하고 있습니다.",
+                  "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                  "source_id": "ebdb0f4b-1d6f-54a0-9075-ec6e4bb98594",
+                  "verification_state": "verified"
+                }
+              ],
+              "normalized_value": null,
+              "reason_code": null,
+              "state": "present"
+            },
+            {
+              "credited_from": null,
+              "element_id": "M6",
+              "evidence_refs": [],
+              "normalized_value": null,
+              "reason_code": null,
+              "state": "absent"
+            }
+          ],
+          "usage": {
+            "cache_read_tokens": 0,
+            "cache_write_tokens": 0,
+            "error_code": null,
+            "input_tokens": 2608,
+            "latency_ms": 13513,
+            "output_tokens": 381,
+            "provider_request_id": "f37fb364-ff6b-433a-88b4-9077fa300a89",
+            "status": "succeeded"
+          }
+        }
+      ]
+    },
+    {
+      "claim_id": "2ef527ef-5901-5d86-ae09-def5b33e590c",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "decision": null,
+      "element_replies": []
+    },
+    {
+      "claim_id": "dfd43293-25d2-594f-8e26-d05fcc0d7bd7",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "decision": null,
+      "element_replies": []
+    },
+    {
+      "claim_id": "27668a11-ff92-56ce-bd05-406249abe2a7",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "decision": null,
+      "element_replies": []
+    },
+    {
+      "claim_id": "5ab7c8a7-4f63-52ad-89e7-9cc14da80c5e",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "decision": null,
+      "element_replies": []
+    }
+  ],
+  "element_wire": [
+    {
+      "request_id": "f19e47b0-74c0-5af2-a7b0-18d7956a9531",
+      "transport_version": "compact-coverage-v2",
+      "system_user_utf8_bytes": 9236
+    },
+    {
+      "request_id": "17411a9f-bd03-5e7a-966c-390448bd7b60",
+      "transport_version": "compact-coverage-v2",
+      "system_user_utf8_bytes": 9311
+    },
+    {
+      "request_id": "07701f57-5f06-593b-873b-e7e6c233ab4f",
+      "transport_version": "compact-coverage-v2",
+      "system_user_utf8_bytes": 9311
+    },
+    {
+      "request_id": "c8ae8ce7-3b8f-538b-8170-41062c264534",
+      "transport_version": "compact-coverage-v2",
+      "system_user_utf8_bytes": 9311
+    },
+    {
+      "request_id": "96991b7e-2d90-5c0a-b198-ed6ded8293cf",
+      "transport_version": "compact-coverage-v2",
+      "system_user_utf8_bytes": 9061
+    },
+    {
+      "request_id": "640c84f8-0f2f-5cca-8d94-50f48a3bf32c",
+      "transport_version": "compact-coverage-v2",
+      "system_user_utf8_bytes": 9236
+    },
+    {
+      "request_id": "fc00375b-51fe-5fca-94e7-a1cc52a990a7",
+      "transport_version": "compact-coverage-v2",
+      "system_user_utf8_bytes": 9061
+    },
+    {
+      "request_id": "06d2de85-e834-53aa-9b58-fdc97598258b",
+      "transport_version": "compact-coverage-v2",
+      "system_user_utf8_bytes": 9061
+    },
+    {
+      "request_id": "767bfc08-08d4-579e-98c7-0eef319f4012",
+      "transport_version": "compact-coverage-v2",
+      "system_user_utf8_bytes": 9236
+    }
+  ],
+  "settings_hashes": {
+    "preliminary_settings_hash": "a1c072fa7383a3c3b37d557d7602c4bff91b59cc7c654b6b53b0a9ada25d3e37",
+    "tagging_settings_hash": "5855bce9dcdf1e47aefee3f970f427510831cff17d9b47d661bd5bb0e64ce5fc",
+    "input_reservation_policy_hash": "6a04b102f358a4fdf722ed2f094f35f5a782fb04eb486e690144e8c2cb748e3f"
+  },
+  "limitations": [
+    "Three selected pages, not full report or appendix coverage.",
+    "All nine element replies passed schema validation; unresolved attribution/applicability keeps every element unknown.",
+    "Nine other claims remain source-blocked; no accepted grade or independent accuracy metric.",
+    "Changed extraction can alter candidate sets; compare packet-level diagnostic separately."
+  ],
+  "offline_replay": {
+    "claim_id": "b6a9867f-1c8f-53cc-ad1a-08008f648fda",
+    "replay": "passed",
+    "additional_calls": 0
+  }
+}

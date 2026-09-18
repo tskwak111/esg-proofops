@@ -1,0 +1,695 @@
+{
+  "schema": "preliminary_same_claim_comparison_v1",
+  "baseline_run_id": "4b92e9dd-cdb4-41fb-9d59-700b028b3ab8",
+  "synthetic": false,
+  "state_path": ".local/developer-a-preliminary-examples-ab",
+  "cost": {
+    "model_calls": 9,
+    "reserved_calls": 9,
+    "settled_calls": 9,
+    "unsettled_calls": 0,
+    "input_tokens": 15441,
+    "output_tokens": 924,
+    "token_usage_complete": true,
+    "cost_with_vat_reserve_usd": "0.006315210",
+    "committed_or_reserved_usd": "0.006315210",
+    "unknown_reservation_cost_usd": null
+  },
+  "claims": [
+    {
+      "claim_id": "3a65a001-767f-5987-8e32-9a1401c215b8",
+      "quote": "글로벌 ESG 위원회는 기후변화와 관련된 리스크와 기회를 종합적으로 분석하여 두산밥캣의 기후변화 대응 방향을 설정하고 있습니다.",
+      "replies": [
+        {
+          "request_id": "8def9303-5640-4fa6-b2a2-be113b1ba0d1",
+          "replicate_id": 1,
+          "values": {
+            "track": {
+              "claim": {
+                "claim_id": "3a65a001-767f-5987-8e32-9a1401c215b8",
+                "tenant_id": "2e2d9c40-9dfb-4a8c-bcbb-9d7bd4302177",
+                "document_version_id": "55914ac5-25db-4f4e-bd50-e9fa37db2b6b",
+                "parse_manifest_id": "ea87d9d5-6c13-5ddd-b66c-667346f669b5",
+                "source_sha256": "dc59b2b1c5bbf02e33bb901f94aef7cd984dc62547708e92aa1332ac550102e9",
+                "quote": "글로벌 ESG 위원회는 기후변화와 관련된 리스크와 기회를 종합적으로 분석하여 두산밥캣의 기후변화 대응 방향을 설정하고 있습니다.",
+                "source_refs": [
+                  {
+                    "source_id": "a0e9a1ee-b9e6-58d9-ad2d-14c29f8b08aa",
+                    "document_version_id": "55914ac5-25db-4f4e-bd50-e9fa37db2b6b",
+                    "parse_manifest_id": "ea87d9d5-6c13-5ddd-b66c-667346f669b5",
+                    "page_num": 27,
+                    "printed_page_label": "27",
+                    "bbox": [
+                      292.048,
+                      459.71899999999994,
+                      481.95,
+                      597.4549999999999
+                    ],
+                    "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                    "quote": "글로벌 ESG 위원회는 기후변화와 관련된 리스크와 기회를 종합적으로 분석하여 두산밥캣의 기후변화 대응 방향을 설정하고 있습니다.",
+                    "char_start": 0,
+                    "char_end": 71,
+                    "location_quality": "located",
+                    "verification_state": "candidate"
+                  }
+                ],
+                "source_quality": "verified",
+                "topic_ids": [
+                  "environment"
+                ],
+                "receipt": {
+                  "source_id": "a0e9a1ee-b9e6-58d9-ad2d-14c29f8b08aa",
+                  "packet_sha256": "deccd451ab548829b69c29da2ed02953c57bb19c0a78549f0d2f53d58ecddc88",
+                  "response_sha256": "2bb30d69aaf1b87ee4e415250743847be563c5f12731cf4b2ad9d3d3fe101507",
+                  "raw_response_json": "{\"spans\":[{\"char_end\":71,\"char_start\":0,\"kind\":\"claim\",\"quote\":\"\\uae00\\ub85c\\ubc8c ESG \\uc704\\uc6d0\\ud68c\\ub294 \\uae30\\ud6c4\\ubcc0\\ud654\\uc640 \\uad00\\ub828\\ub41c \\ub9ac\\uc2a4\\ud06c\\uc640 \\uae30\\ud68c\\ub97c \\uc885\\ud569\\uc801\\uc73c\\ub85c \\ubd84\\uc11d\\ud558\\uc5ec \\ub450\\uc0b0\\ubc25\\ucea3\\uc758 \\uae30\\ud6c4\\ubcc0\\ud654 \\ub300\\uc751 \\ubc29\\ud5a5\\uc744 \\uc124\\uc815\\ud558\\uace0 \\uc788\\uc2b5\\ub2c8\\ub2e4.\",\"reason\":null,\"topic_ids\":[\"environment\"]},{\"char_end\":143,\"char_start\":72,\"kind\":\"claim\",\"quote\":\"\\ub610\\ud55c \\uae00\\ub85c\\ubc8c ESG \\uc804\\ub7b5\\uc5d0 \\ub530\\ub77c \\ub9c8\\ub828\\ub41c \\uae30\\ud6c4\\ubcc0\\ud654 \\ub300\\uc751 \\ubaa9\\ud45c\\ub97c \\ub2ec\\uc131\\ud558\\uae30 \\uc704\\ud558\\uc5ec \\uad00\\ub828 \\uacfc\\uc81c\\uc640 KPI\\ub97c \\ucd1d\\uad04\\uc801\\uc73c\\ub85c \\uad00\\ub9ac\\ud558\\uace0 \\uc788\\uc2b5\\ub2c8\\ub2e4.\",\"reason\":null,\"topic_ids\":[\"environment\"]},{\"char_end\":233,\"char_start\":144,\"kind\":\"claim\",\"quote\":\"\\uc544\\uc6b8\\ub7ec \\uae30\\ud6c4\\ubcc0\\ud654 \\uad00\\ub828 \\uc8fc\\uc694 \\ub17c\\uc758\\uc0ac\\ud56d\\uc744 \\uc774\\uc0ac\\ud68c\\uc5d0 \\uc9c1\\uc811 \\ubcf4\\uace0\\ud558\\uc5ec \\uae30\\ud6c4\\ubcc0\\ud654 \\ub300\\uc751 \\ubaa9\\ud45c\\uc758 \\uc774\\ud589 \\uc218\\uc900\\uc744 \\uccb4\\uacc4\\uc801\\uc73c\\ub85c \\uad00\\ub9ac\\ud558\\uace0, \\uc804\\uc0ac\\uc801\\uc778 \\uc628\\uc2e4\\uac00\\uc2a4 \\uac10\\ucd95\\uc744 \\ucd94\\uc9c4\\ud558\\uace0 \\uc788\\uc2b5\\ub2c8\\ub2e4.\",\"reason\":null,\"topic_ids\":[\"environment\"]}]}",
+                  "profile": {
+                    "model_sha256": "50ebece5e6cd52b750c8efdd0162418cac948d0b7376ceb00b91131935eead8f",
+                    "prompt_sha256": "ffafe54d30da3c37c84ddbfe9551655f7635278fccb6aecb36582875c1a1499d",
+                    "rule_sha256": "bd04e6799177e63eaae4f61c215b04d9b4648423f57ca44c59e7ad3bb9d2a4e9",
+                    "synthetic": false,
+                    "replicate_id": 1,
+                    "extraction_epoch": 1
+                  },
+                  "status": "processed"
+                },
+                "revision": 1
+              },
+              "track": "management",
+              "safe_harbor_category": null
+            },
+            "dimensions": {
+              "entity": {
+                "source_id": "a0e9a1ee-b9e6-58d9-ad2d-14c29f8b08aa",
+                "document_version_id": "55914ac5-25db-4f4e-bd50-e9fa37db2b6b",
+                "parse_manifest_id": "ea87d9d5-6c13-5ddd-b66c-667346f669b5",
+                "page_num": 27,
+                "printed_page_label": "27",
+                "bbox": [
+                  292.048,
+                  459.71899999999994,
+                  481.95,
+                  597.4549999999999
+                ],
+                "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                "quote": "두산밥캣",
+                "char_start": 43,
+                "char_end": 47,
+                "location_quality": "located",
+                "verification_state": "verified"
+              },
+              "metric": null,
+              "reporting_period": null
+            },
+            "safe_harbor_category": null
+          },
+          "error": null
+        },
+        {
+          "request_id": "4a320a00-6325-49da-9021-765d024bcce7",
+          "replicate_id": 2,
+          "values": {
+            "track": {
+              "claim": {
+                "claim_id": "3a65a001-767f-5987-8e32-9a1401c215b8",
+                "tenant_id": "2e2d9c40-9dfb-4a8c-bcbb-9d7bd4302177",
+                "document_version_id": "55914ac5-25db-4f4e-bd50-e9fa37db2b6b",
+                "parse_manifest_id": "ea87d9d5-6c13-5ddd-b66c-667346f669b5",
+                "source_sha256": "dc59b2b1c5bbf02e33bb901f94aef7cd984dc62547708e92aa1332ac550102e9",
+                "quote": "글로벌 ESG 위원회는 기후변화와 관련된 리스크와 기회를 종합적으로 분석하여 두산밥캣의 기후변화 대응 방향을 설정하고 있습니다.",
+                "source_refs": [
+                  {
+                    "source_id": "a0e9a1ee-b9e6-58d9-ad2d-14c29f8b08aa",
+                    "document_version_id": "55914ac5-25db-4f4e-bd50-e9fa37db2b6b",
+                    "parse_manifest_id": "ea87d9d5-6c13-5ddd-b66c-667346f669b5",
+                    "page_num": 27,
+                    "printed_page_label": "27",
+                    "bbox": [
+                      292.048,
+                      459.71899999999994,
+                      481.95,
+                      597.4549999999999
+                    ],
+                    "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                    "quote": "글로벌 ESG 위원회는 기후변화와 관련된 리스크와 기회를 종합적으로 분석하여 두산밥캣의 기후변화 대응 방향을 설정하고 있습니다.",
+                    "char_start": 0,
+                    "char_end": 71,
+                    "location_quality": "located",
+                    "verification_state": "candidate"
+                  }
+                ],
+                "source_quality": "verified",
+                "topic_ids": [
+                  "environment"
+                ],
+                "receipt": {
+                  "source_id": "a0e9a1ee-b9e6-58d9-ad2d-14c29f8b08aa",
+                  "packet_sha256": "deccd451ab548829b69c29da2ed02953c57bb19c0a78549f0d2f53d58ecddc88",
+                  "response_sha256": "2bb30d69aaf1b87ee4e415250743847be563c5f12731cf4b2ad9d3d3fe101507",
+                  "raw_response_json": "{\"spans\":[{\"char_end\":71,\"char_start\":0,\"kind\":\"claim\",\"quote\":\"\\uae00\\ub85c\\ubc8c ESG \\uc704\\uc6d0\\ud68c\\ub294 \\uae30\\ud6c4\\ubcc0\\ud654\\uc640 \\uad00\\ub828\\ub41c \\ub9ac\\uc2a4\\ud06c\\uc640 \\uae30\\ud68c\\ub97c \\uc885\\ud569\\uc801\\uc73c\\ub85c \\ubd84\\uc11d\\ud558\\uc5ec \\ub450\\uc0b0\\ubc25\\ucea3\\uc758 \\uae30\\ud6c4\\ubcc0\\ud654 \\ub300\\uc751 \\ubc29\\ud5a5\\uc744 \\uc124\\uc815\\ud558\\uace0 \\uc788\\uc2b5\\ub2c8\\ub2e4.\",\"reason\":null,\"topic_ids\":[\"environment\"]},{\"char_end\":143,\"char_start\":72,\"kind\":\"claim\",\"quote\":\"\\ub610\\ud55c \\uae00\\ub85c\\ubc8c ESG \\uc804\\ub7b5\\uc5d0 \\ub530\\ub77c \\ub9c8\\ub828\\ub41c \\uae30\\ud6c4\\ubcc0\\ud654 \\ub300\\uc751 \\ubaa9\\ud45c\\ub97c \\ub2ec\\uc131\\ud558\\uae30 \\uc704\\ud558\\uc5ec \\uad00\\ub828 \\uacfc\\uc81c\\uc640 KPI\\ub97c \\ucd1d\\uad04\\uc801\\uc73c\\ub85c \\uad00\\ub9ac\\ud558\\uace0 \\uc788\\uc2b5\\ub2c8\\ub2e4.\",\"reason\":null,\"topic_ids\":[\"environment\"]},{\"char_end\":233,\"char_start\":144,\"kind\":\"claim\",\"quote\":\"\\uc544\\uc6b8\\ub7ec \\uae30\\ud6c4\\ubcc0\\ud654 \\uad00\\ub828 \\uc8fc\\uc694 \\ub17c\\uc758\\uc0ac\\ud56d\\uc744 \\uc774\\uc0ac\\ud68c\\uc5d0 \\uc9c1\\uc811 \\ubcf4\\uace0\\ud558\\uc5ec \\uae30\\ud6c4\\ubcc0\\ud654 \\ub300\\uc751 \\ubaa9\\ud45c\\uc758 \\uc774\\ud589 \\uc218\\uc900\\uc744 \\uccb4\\uacc4\\uc801\\uc73c\\ub85c \\uad00\\ub9ac\\ud558\\uace0, \\uc804\\uc0ac\\uc801\\uc778 \\uc628\\uc2e4\\uac00\\uc2a4 \\uac10\\ucd95\\uc744 \\ucd94\\uc9c4\\ud558\\uace0 \\uc788\\uc2b5\\ub2c8\\ub2e4.\",\"reason\":null,\"topic_ids\":[\"environment\"]}]}",
+                  "profile": {
+                    "model_sha256": "50ebece5e6cd52b750c8efdd0162418cac948d0b7376ceb00b91131935eead8f",
+                    "prompt_sha256": "ffafe54d30da3c37c84ddbfe9551655f7635278fccb6aecb36582875c1a1499d",
+                    "rule_sha256": "bd04e6799177e63eaae4f61c215b04d9b4648423f57ca44c59e7ad3bb9d2a4e9",
+                    "synthetic": false,
+                    "replicate_id": 1,
+                    "extraction_epoch": 1
+                  },
+                  "status": "processed"
+                },
+                "revision": 1
+              },
+              "track": "management",
+              "safe_harbor_category": null
+            },
+            "dimensions": {
+              "entity": {
+                "source_id": "a0e9a1ee-b9e6-58d9-ad2d-14c29f8b08aa",
+                "document_version_id": "55914ac5-25db-4f4e-bd50-e9fa37db2b6b",
+                "parse_manifest_id": "ea87d9d5-6c13-5ddd-b66c-667346f669b5",
+                "page_num": 27,
+                "printed_page_label": "27",
+                "bbox": [
+                  292.048,
+                  459.71899999999994,
+                  481.95,
+                  597.4549999999999
+                ],
+                "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                "quote": "두산밥캣",
+                "char_start": 43,
+                "char_end": 47,
+                "location_quality": "located",
+                "verification_state": "verified"
+              },
+              "metric": null,
+              "reporting_period": null
+            },
+            "safe_harbor_category": null
+          },
+          "error": null
+        },
+        {
+          "request_id": "826e0ce4-c44b-49fc-81ed-aa903dd4802b",
+          "replicate_id": 3,
+          "values": {
+            "track": {
+              "claim": {
+                "claim_id": "3a65a001-767f-5987-8e32-9a1401c215b8",
+                "tenant_id": "2e2d9c40-9dfb-4a8c-bcbb-9d7bd4302177",
+                "document_version_id": "55914ac5-25db-4f4e-bd50-e9fa37db2b6b",
+                "parse_manifest_id": "ea87d9d5-6c13-5ddd-b66c-667346f669b5",
+                "source_sha256": "dc59b2b1c5bbf02e33bb901f94aef7cd984dc62547708e92aa1332ac550102e9",
+                "quote": "글로벌 ESG 위원회는 기후변화와 관련된 리스크와 기회를 종합적으로 분석하여 두산밥캣의 기후변화 대응 방향을 설정하고 있습니다.",
+                "source_refs": [
+                  {
+                    "source_id": "a0e9a1ee-b9e6-58d9-ad2d-14c29f8b08aa",
+                    "document_version_id": "55914ac5-25db-4f4e-bd50-e9fa37db2b6b",
+                    "parse_manifest_id": "ea87d9d5-6c13-5ddd-b66c-667346f669b5",
+                    "page_num": 27,
+                    "printed_page_label": "27",
+                    "bbox": [
+                      292.048,
+                      459.71899999999994,
+                      481.95,
+                      597.4549999999999
+                    ],
+                    "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                    "quote": "글로벌 ESG 위원회는 기후변화와 관련된 리스크와 기회를 종합적으로 분석하여 두산밥캣의 기후변화 대응 방향을 설정하고 있습니다.",
+                    "char_start": 0,
+                    "char_end": 71,
+                    "location_quality": "located",
+                    "verification_state": "candidate"
+                  }
+                ],
+                "source_quality": "verified",
+                "topic_ids": [
+                  "environment"
+                ],
+                "receipt": {
+                  "source_id": "a0e9a1ee-b9e6-58d9-ad2d-14c29f8b08aa",
+                  "packet_sha256": "deccd451ab548829b69c29da2ed02953c57bb19c0a78549f0d2f53d58ecddc88",
+                  "response_sha256": "2bb30d69aaf1b87ee4e415250743847be563c5f12731cf4b2ad9d3d3fe101507",
+                  "raw_response_json": "{\"spans\":[{\"char_end\":71,\"char_start\":0,\"kind\":\"claim\",\"quote\":\"\\uae00\\ub85c\\ubc8c ESG \\uc704\\uc6d0\\ud68c\\ub294 \\uae30\\ud6c4\\ubcc0\\ud654\\uc640 \\uad00\\ub828\\ub41c \\ub9ac\\uc2a4\\ud06c\\uc640 \\uae30\\ud68c\\ub97c \\uc885\\ud569\\uc801\\uc73c\\ub85c \\ubd84\\uc11d\\ud558\\uc5ec \\ub450\\uc0b0\\ubc25\\ucea3\\uc758 \\uae30\\ud6c4\\ubcc0\\ud654 \\ub300\\uc751 \\ubc29\\ud5a5\\uc744 \\uc124\\uc815\\ud558\\uace0 \\uc788\\uc2b5\\ub2c8\\ub2e4.\",\"reason\":null,\"topic_ids\":[\"environment\"]},{\"char_end\":143,\"char_start\":72,\"kind\":\"claim\",\"quote\":\"\\ub610\\ud55c \\uae00\\ub85c\\ubc8c ESG \\uc804\\ub7b5\\uc5d0 \\ub530\\ub77c \\ub9c8\\ub828\\ub41c \\uae30\\ud6c4\\ubcc0\\ud654 \\ub300\\uc751 \\ubaa9\\ud45c\\ub97c \\ub2ec\\uc131\\ud558\\uae30 \\uc704\\ud558\\uc5ec \\uad00\\ub828 \\uacfc\\uc81c\\uc640 KPI\\ub97c \\ucd1d\\uad04\\uc801\\uc73c\\ub85c \\uad00\\ub9ac\\ud558\\uace0 \\uc788\\uc2b5\\ub2c8\\ub2e4.\",\"reason\":null,\"topic_ids\":[\"environment\"]},{\"char_end\":233,\"char_start\":144,\"kind\":\"claim\",\"quote\":\"\\uc544\\uc6b8\\ub7ec \\uae30\\ud6c4\\ubcc0\\ud654 \\uad00\\ub828 \\uc8fc\\uc694 \\ub17c\\uc758\\uc0ac\\ud56d\\uc744 \\uc774\\uc0ac\\ud68c\\uc5d0 \\uc9c1\\uc811 \\ubcf4\\uace0\\ud558\\uc5ec \\uae30\\ud6c4\\ubcc0\\ud654 \\ub300\\uc751 \\ubaa9\\ud45c\\uc758 \\uc774\\ud589 \\uc218\\uc900\\uc744 \\uccb4\\uacc4\\uc801\\uc73c\\ub85c \\uad00\\ub9ac\\ud558\\uace0, \\uc804\\uc0ac\\uc801\\uc778 \\uc628\\uc2e4\\uac00\\uc2a4 \\uac10\\ucd95\\uc744 \\ucd94\\uc9c4\\ud558\\uace0 \\uc788\\uc2b5\\ub2c8\\ub2e4.\",\"reason\":null,\"topic_ids\":[\"environment\"]}]}",
+                  "profile": {
+                    "model_sha256": "50ebece5e6cd52b750c8efdd0162418cac948d0b7376ceb00b91131935eead8f",
+                    "prompt_sha256": "ffafe54d30da3c37c84ddbfe9551655f7635278fccb6aecb36582875c1a1499d",
+                    "rule_sha256": "bd04e6799177e63eaae4f61c215b04d9b4648423f57ca44c59e7ad3bb9d2a4e9",
+                    "synthetic": false,
+                    "replicate_id": 1,
+                    "extraction_epoch": 1
+                  },
+                  "status": "processed"
+                },
+                "revision": 1
+              },
+              "track": "management",
+              "safe_harbor_category": null
+            },
+            "dimensions": {
+              "entity": {
+                "source_id": "a0e9a1ee-b9e6-58d9-ad2d-14c29f8b08aa",
+                "document_version_id": "55914ac5-25db-4f4e-bd50-e9fa37db2b6b",
+                "parse_manifest_id": "ea87d9d5-6c13-5ddd-b66c-667346f669b5",
+                "page_num": 27,
+                "printed_page_label": "27",
+                "bbox": [
+                  292.048,
+                  459.71899999999994,
+                  481.95,
+                  597.4549999999999
+                ],
+                "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                "quote": "두산밥캣",
+                "char_start": 43,
+                "char_end": 47,
+                "location_quality": "located",
+                "verification_state": "verified"
+              },
+              "metric": null,
+              "reporting_period": null
+            },
+            "safe_harbor_category": null
+          },
+          "error": null
+        }
+      ],
+      "unanimous": true
+    },
+    {
+      "claim_id": "39555def-f06b-5139-895c-017ef2b51f8b",
+      "quote": "또한 글로벌 ESG 전략에 따라 마련된 기후변화 대응 목표를 달성하기 위하여 관련 과제와 KPI를 총괄적으로 관리하고 있습니다.",
+      "replies": [
+        {
+          "request_id": "a7e15658-5a1f-4a0c-8484-60e44b70ddf7",
+          "replicate_id": 1,
+          "values": {
+            "track": {
+              "claim": {
+                "claim_id": "39555def-f06b-5139-895c-017ef2b51f8b",
+                "tenant_id": "2e2d9c40-9dfb-4a8c-bcbb-9d7bd4302177",
+                "document_version_id": "55914ac5-25db-4f4e-bd50-e9fa37db2b6b",
+                "parse_manifest_id": "ea87d9d5-6c13-5ddd-b66c-667346f669b5",
+                "source_sha256": "dc59b2b1c5bbf02e33bb901f94aef7cd984dc62547708e92aa1332ac550102e9",
+                "quote": "또한 글로벌 ESG 전략에 따라 마련된 기후변화 대응 목표를 달성하기 위하여 관련 과제와 KPI를 총괄적으로 관리하고 있습니다.",
+                "source_refs": [
+                  {
+                    "source_id": "a0e9a1ee-b9e6-58d9-ad2d-14c29f8b08aa",
+                    "document_version_id": "55914ac5-25db-4f4e-bd50-e9fa37db2b6b",
+                    "parse_manifest_id": "ea87d9d5-6c13-5ddd-b66c-667346f669b5",
+                    "page_num": 27,
+                    "printed_page_label": "27",
+                    "bbox": [
+                      292.048,
+                      459.71899999999994,
+                      481.95,
+                      597.4549999999999
+                    ],
+                    "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                    "quote": "또한 글로벌 ESG 전략에 따라 마련된 기후변화 대응 목표를 달성하기 위하여 관련 과제와 KPI를 총괄적으로 관리하고 있습니다.",
+                    "char_start": 72,
+                    "char_end": 143,
+                    "location_quality": "located",
+                    "verification_state": "candidate"
+                  }
+                ],
+                "source_quality": "verified",
+                "topic_ids": [
+                  "environment"
+                ],
+                "receipt": {
+                  "source_id": "a0e9a1ee-b9e6-58d9-ad2d-14c29f8b08aa",
+                  "packet_sha256": "deccd451ab548829b69c29da2ed02953c57bb19c0a78549f0d2f53d58ecddc88",
+                  "response_sha256": "2bb30d69aaf1b87ee4e415250743847be563c5f12731cf4b2ad9d3d3fe101507",
+                  "raw_response_json": "{\"spans\":[{\"char_end\":71,\"char_start\":0,\"kind\":\"claim\",\"quote\":\"\\uae00\\ub85c\\ubc8c ESG \\uc704\\uc6d0\\ud68c\\ub294 \\uae30\\ud6c4\\ubcc0\\ud654\\uc640 \\uad00\\ub828\\ub41c \\ub9ac\\uc2a4\\ud06c\\uc640 \\uae30\\ud68c\\ub97c \\uc885\\ud569\\uc801\\uc73c\\ub85c \\ubd84\\uc11d\\ud558\\uc5ec \\ub450\\uc0b0\\ubc25\\ucea3\\uc758 \\uae30\\ud6c4\\ubcc0\\ud654 \\ub300\\uc751 \\ubc29\\ud5a5\\uc744 \\uc124\\uc815\\ud558\\uace0 \\uc788\\uc2b5\\ub2c8\\ub2e4.\",\"reason\":null,\"topic_ids\":[\"environment\"]},{\"char_end\":143,\"char_start\":72,\"kind\":\"claim\",\"quote\":\"\\ub610\\ud55c \\uae00\\ub85c\\ubc8c ESG \\uc804\\ub7b5\\uc5d0 \\ub530\\ub77c \\ub9c8\\ub828\\ub41c \\uae30\\ud6c4\\ubcc0\\ud654 \\ub300\\uc751 \\ubaa9\\ud45c\\ub97c \\ub2ec\\uc131\\ud558\\uae30 \\uc704\\ud558\\uc5ec \\uad00\\ub828 \\uacfc\\uc81c\\uc640 KPI\\ub97c \\ucd1d\\uad04\\uc801\\uc73c\\ub85c \\uad00\\ub9ac\\ud558\\uace0 \\uc788\\uc2b5\\ub2c8\\ub2e4.\",\"reason\":null,\"topic_ids\":[\"environment\"]},{\"char_end\":233,\"char_start\":144,\"kind\":\"claim\",\"quote\":\"\\uc544\\uc6b8\\ub7ec \\uae30\\ud6c4\\ubcc0\\ud654 \\uad00\\ub828 \\uc8fc\\uc694 \\ub17c\\uc758\\uc0ac\\ud56d\\uc744 \\uc774\\uc0ac\\ud68c\\uc5d0 \\uc9c1\\uc811 \\ubcf4\\uace0\\ud558\\uc5ec \\uae30\\ud6c4\\ubcc0\\ud654 \\ub300\\uc751 \\ubaa9\\ud45c\\uc758 \\uc774\\ud589 \\uc218\\uc900\\uc744 \\uccb4\\uacc4\\uc801\\uc73c\\ub85c \\uad00\\ub9ac\\ud558\\uace0, \\uc804\\uc0ac\\uc801\\uc778 \\uc628\\uc2e4\\uac00\\uc2a4 \\uac10\\ucd95\\uc744 \\ucd94\\uc9c4\\ud558\\uace0 \\uc788\\uc2b5\\ub2c8\\ub2e4.\",\"reason\":null,\"topic_ids\":[\"environment\"]}]}",
+                  "profile": {
+                    "model_sha256": "50ebece5e6cd52b750c8efdd0162418cac948d0b7376ceb00b91131935eead8f",
+                    "prompt_sha256": "ffafe54d30da3c37c84ddbfe9551655f7635278fccb6aecb36582875c1a1499d",
+                    "rule_sha256": "bd04e6799177e63eaae4f61c215b04d9b4648423f57ca44c59e7ad3bb9d2a4e9",
+                    "synthetic": false,
+                    "replicate_id": 1,
+                    "extraction_epoch": 1
+                  },
+                  "status": "processed"
+                },
+                "revision": 1
+              },
+              "track": "management",
+              "safe_harbor_category": null
+            },
+            "dimensions": {
+              "entity": null,
+              "metric": null,
+              "reporting_period": null
+            },
+            "safe_harbor_category": null
+          },
+          "error": null
+        },
+        {
+          "request_id": "cc4d2a7c-46fb-42ba-a926-951f7b99e9d9",
+          "replicate_id": 2,
+          "values": {
+            "track": {
+              "claim": {
+                "claim_id": "39555def-f06b-5139-895c-017ef2b51f8b",
+                "tenant_id": "2e2d9c40-9dfb-4a8c-bcbb-9d7bd4302177",
+                "document_version_id": "55914ac5-25db-4f4e-bd50-e9fa37db2b6b",
+                "parse_manifest_id": "ea87d9d5-6c13-5ddd-b66c-667346f669b5",
+                "source_sha256": "dc59b2b1c5bbf02e33bb901f94aef7cd984dc62547708e92aa1332ac550102e9",
+                "quote": "또한 글로벌 ESG 전략에 따라 마련된 기후변화 대응 목표를 달성하기 위하여 관련 과제와 KPI를 총괄적으로 관리하고 있습니다.",
+                "source_refs": [
+                  {
+                    "source_id": "a0e9a1ee-b9e6-58d9-ad2d-14c29f8b08aa",
+                    "document_version_id": "55914ac5-25db-4f4e-bd50-e9fa37db2b6b",
+                    "parse_manifest_id": "ea87d9d5-6c13-5ddd-b66c-667346f669b5",
+                    "page_num": 27,
+                    "printed_page_label": "27",
+                    "bbox": [
+                      292.048,
+                      459.71899999999994,
+                      481.95,
+                      597.4549999999999
+                    ],
+                    "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                    "quote": "또한 글로벌 ESG 전략에 따라 마련된 기후변화 대응 목표를 달성하기 위하여 관련 과제와 KPI를 총괄적으로 관리하고 있습니다.",
+                    "char_start": 72,
+                    "char_end": 143,
+                    "location_quality": "located",
+                    "verification_state": "candidate"
+                  }
+                ],
+                "source_quality": "verified",
+                "topic_ids": [
+                  "environment"
+                ],
+                "receipt": {
+                  "source_id": "a0e9a1ee-b9e6-58d9-ad2d-14c29f8b08aa",
+                  "packet_sha256": "deccd451ab548829b69c29da2ed02953c57bb19c0a78549f0d2f53d58ecddc88",
+                  "response_sha256": "2bb30d69aaf1b87ee4e415250743847be563c5f12731cf4b2ad9d3d3fe101507",
+                  "raw_response_json": "{\"spans\":[{\"char_end\":71,\"char_start\":0,\"kind\":\"claim\",\"quote\":\"\\uae00\\ub85c\\ubc8c ESG \\uc704\\uc6d0\\ud68c\\ub294 \\uae30\\ud6c4\\ubcc0\\ud654\\uc640 \\uad00\\ub828\\ub41c \\ub9ac\\uc2a4\\ud06c\\uc640 \\uae30\\ud68c\\ub97c \\uc885\\ud569\\uc801\\uc73c\\ub85c \\ubd84\\uc11d\\ud558\\uc5ec \\ub450\\uc0b0\\ubc25\\ucea3\\uc758 \\uae30\\ud6c4\\ubcc0\\ud654 \\ub300\\uc751 \\ubc29\\ud5a5\\uc744 \\uc124\\uc815\\ud558\\uace0 \\uc788\\uc2b5\\ub2c8\\ub2e4.\",\"reason\":null,\"topic_ids\":[\"environment\"]},{\"char_end\":143,\"char_start\":72,\"kind\":\"claim\",\"quote\":\"\\ub610\\ud55c \\uae00\\ub85c\\ubc8c ESG \\uc804\\ub7b5\\uc5d0 \\ub530\\ub77c \\ub9c8\\ub828\\ub41c \\uae30\\ud6c4\\ubcc0\\ud654 \\ub300\\uc751 \\ubaa9\\ud45c\\ub97c \\ub2ec\\uc131\\ud558\\uae30 \\uc704\\ud558\\uc5ec \\uad00\\ub828 \\uacfc\\uc81c\\uc640 KPI\\ub97c \\ucd1d\\uad04\\uc801\\uc73c\\ub85c \\uad00\\ub9ac\\ud558\\uace0 \\uc788\\uc2b5\\ub2c8\\ub2e4.\",\"reason\":null,\"topic_ids\":[\"environment\"]},{\"char_end\":233,\"char_start\":144,\"kind\":\"claim\",\"quote\":\"\\uc544\\uc6b8\\ub7ec \\uae30\\ud6c4\\ubcc0\\ud654 \\uad00\\ub828 \\uc8fc\\uc694 \\ub17c\\uc758\\uc0ac\\ud56d\\uc744 \\uc774\\uc0ac\\ud68c\\uc5d0 \\uc9c1\\uc811 \\ubcf4\\uace0\\ud558\\uc5ec \\uae30\\ud6c4\\ubcc0\\ud654 \\ub300\\uc751 \\ubaa9\\ud45c\\uc758 \\uc774\\ud589 \\uc218\\uc900\\uc744 \\uccb4\\uacc4\\uc801\\uc73c\\ub85c \\uad00\\ub9ac\\ud558\\uace0, \\uc804\\uc0ac\\uc801\\uc778 \\uc628\\uc2e4\\uac00\\uc2a4 \\uac10\\ucd95\\uc744 \\ucd94\\uc9c4\\ud558\\uace0 \\uc788\\uc2b5\\ub2c8\\ub2e4.\",\"reason\":null,\"topic_ids\":[\"environment\"]}]}",
+                  "profile": {
+                    "model_sha256": "50ebece5e6cd52b750c8efdd0162418cac948d0b7376ceb00b91131935eead8f",
+                    "prompt_sha256": "ffafe54d30da3c37c84ddbfe9551655f7635278fccb6aecb36582875c1a1499d",
+                    "rule_sha256": "bd04e6799177e63eaae4f61c215b04d9b4648423f57ca44c59e7ad3bb9d2a4e9",
+                    "synthetic": false,
+                    "replicate_id": 1,
+                    "extraction_epoch": 1
+                  },
+                  "status": "processed"
+                },
+                "revision": 1
+              },
+              "track": "management",
+              "safe_harbor_category": null
+            },
+            "dimensions": {
+              "entity": null,
+              "metric": null,
+              "reporting_period": null
+            },
+            "safe_harbor_category": null
+          },
+          "error": null
+        },
+        {
+          "request_id": "6b324254-5722-4714-b2f6-b079fe68c74d",
+          "replicate_id": 3,
+          "values": {
+            "track": {
+              "claim": {
+                "claim_id": "39555def-f06b-5139-895c-017ef2b51f8b",
+                "tenant_id": "2e2d9c40-9dfb-4a8c-bcbb-9d7bd4302177",
+                "document_version_id": "55914ac5-25db-4f4e-bd50-e9fa37db2b6b",
+                "parse_manifest_id": "ea87d9d5-6c13-5ddd-b66c-667346f669b5",
+                "source_sha256": "dc59b2b1c5bbf02e33bb901f94aef7cd984dc62547708e92aa1332ac550102e9",
+                "quote": "또한 글로벌 ESG 전략에 따라 마련된 기후변화 대응 목표를 달성하기 위하여 관련 과제와 KPI를 총괄적으로 관리하고 있습니다.",
+                "source_refs": [
+                  {
+                    "source_id": "a0e9a1ee-b9e6-58d9-ad2d-14c29f8b08aa",
+                    "document_version_id": "55914ac5-25db-4f4e-bd50-e9fa37db2b6b",
+                    "parse_manifest_id": "ea87d9d5-6c13-5ddd-b66c-667346f669b5",
+                    "page_num": 27,
+                    "printed_page_label": "27",
+                    "bbox": [
+                      292.048,
+                      459.71899999999994,
+                      481.95,
+                      597.4549999999999
+                    ],
+                    "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                    "quote": "또한 글로벌 ESG 전략에 따라 마련된 기후변화 대응 목표를 달성하기 위하여 관련 과제와 KPI를 총괄적으로 관리하고 있습니다.",
+                    "char_start": 72,
+                    "char_end": 143,
+                    "location_quality": "located",
+                    "verification_state": "candidate"
+                  }
+                ],
+                "source_quality": "verified",
+                "topic_ids": [
+                  "environment"
+                ],
+                "receipt": {
+                  "source_id": "a0e9a1ee-b9e6-58d9-ad2d-14c29f8b08aa",
+                  "packet_sha256": "deccd451ab548829b69c29da2ed02953c57bb19c0a78549f0d2f53d58ecddc88",
+                  "response_sha256": "2bb30d69aaf1b87ee4e415250743847be563c5f12731cf4b2ad9d3d3fe101507",
+                  "raw_response_json": "{\"spans\":[{\"char_end\":71,\"char_start\":0,\"kind\":\"claim\",\"quote\":\"\\uae00\\ub85c\\ubc8c ESG \\uc704\\uc6d0\\ud68c\\ub294 \\uae30\\ud6c4\\ubcc0\\ud654\\uc640 \\uad00\\ub828\\ub41c \\ub9ac\\uc2a4\\ud06c\\uc640 \\uae30\\ud68c\\ub97c \\uc885\\ud569\\uc801\\uc73c\\ub85c \\ubd84\\uc11d\\ud558\\uc5ec \\ub450\\uc0b0\\ubc25\\ucea3\\uc758 \\uae30\\ud6c4\\ubcc0\\ud654 \\ub300\\uc751 \\ubc29\\ud5a5\\uc744 \\uc124\\uc815\\ud558\\uace0 \\uc788\\uc2b5\\ub2c8\\ub2e4.\",\"reason\":null,\"topic_ids\":[\"environment\"]},{\"char_end\":143,\"char_start\":72,\"kind\":\"claim\",\"quote\":\"\\ub610\\ud55c \\uae00\\ub85c\\ubc8c ESG \\uc804\\ub7b5\\uc5d0 \\ub530\\ub77c \\ub9c8\\ub828\\ub41c \\uae30\\ud6c4\\ubcc0\\ud654 \\ub300\\uc751 \\ubaa9\\ud45c\\ub97c \\ub2ec\\uc131\\ud558\\uae30 \\uc704\\ud558\\uc5ec \\uad00\\ub828 \\uacfc\\uc81c\\uc640 KPI\\ub97c \\ucd1d\\uad04\\uc801\\uc73c\\ub85c \\uad00\\ub9ac\\ud558\\uace0 \\uc788\\uc2b5\\ub2c8\\ub2e4.\",\"reason\":null,\"topic_ids\":[\"environment\"]},{\"char_end\":233,\"char_start\":144,\"kind\":\"claim\",\"quote\":\"\\uc544\\uc6b8\\ub7ec \\uae30\\ud6c4\\ubcc0\\ud654 \\uad00\\ub828 \\uc8fc\\uc694 \\ub17c\\uc758\\uc0ac\\ud56d\\uc744 \\uc774\\uc0ac\\ud68c\\uc5d0 \\uc9c1\\uc811 \\ubcf4\\uace0\\ud558\\uc5ec \\uae30\\ud6c4\\ubcc0\\ud654 \\ub300\\uc751 \\ubaa9\\ud45c\\uc758 \\uc774\\ud589 \\uc218\\uc900\\uc744 \\uccb4\\uacc4\\uc801\\uc73c\\ub85c \\uad00\\ub9ac\\ud558\\uace0, \\uc804\\uc0ac\\uc801\\uc778 \\uc628\\uc2e4\\uac00\\uc2a4 \\uac10\\ucd95\\uc744 \\ucd94\\uc9c4\\ud558\\uace0 \\uc788\\uc2b5\\ub2c8\\ub2e4.\",\"reason\":null,\"topic_ids\":[\"environment\"]}]}",
+                  "profile": {
+                    "model_sha256": "50ebece5e6cd52b750c8efdd0162418cac948d0b7376ceb00b91131935eead8f",
+                    "prompt_sha256": "ffafe54d30da3c37c84ddbfe9551655f7635278fccb6aecb36582875c1a1499d",
+                    "rule_sha256": "bd04e6799177e63eaae4f61c215b04d9b4648423f57ca44c59e7ad3bb9d2a4e9",
+                    "synthetic": false,
+                    "replicate_id": 1,
+                    "extraction_epoch": 1
+                  },
+                  "status": "processed"
+                },
+                "revision": 1
+              },
+              "track": "management",
+              "safe_harbor_category": null
+            },
+            "dimensions": {
+              "entity": null,
+              "metric": null,
+              "reporting_period": null
+            },
+            "safe_harbor_category": null
+          },
+          "error": null
+        }
+      ],
+      "unanimous": true
+    },
+    {
+      "claim_id": "c2832d1e-b59a-58f6-84b6-a03a58030210",
+      "quote": "아울러 기후변화 관련 주요 논의사항을 이사회에 직접 보고하여 기후변화 대응 목표의 이행 수준을 체계적으로 관리하고, 전사적인 온실가스 감축을 추진하고 있습니다.",
+      "replies": [
+        {
+          "request_id": "c4930d0e-c264-4aa2-9fd6-cb81427b0ea4",
+          "replicate_id": 1,
+          "values": {
+            "track": {
+              "claim": {
+                "claim_id": "c2832d1e-b59a-58f6-84b6-a03a58030210",
+                "tenant_id": "2e2d9c40-9dfb-4a8c-bcbb-9d7bd4302177",
+                "document_version_id": "55914ac5-25db-4f4e-bd50-e9fa37db2b6b",
+                "parse_manifest_id": "ea87d9d5-6c13-5ddd-b66c-667346f669b5",
+                "source_sha256": "dc59b2b1c5bbf02e33bb901f94aef7cd984dc62547708e92aa1332ac550102e9",
+                "quote": "아울러 기후변화 관련 주요 논의사항을 이사회에 직접 보고하여 기후변화 대응 목표의 이행 수준을 체계적으로 관리하고, 전사적인 온실가스 감축을 추진하고 있습니다.",
+                "source_refs": [
+                  {
+                    "source_id": "a0e9a1ee-b9e6-58d9-ad2d-14c29f8b08aa",
+                    "document_version_id": "55914ac5-25db-4f4e-bd50-e9fa37db2b6b",
+                    "parse_manifest_id": "ea87d9d5-6c13-5ddd-b66c-667346f669b5",
+                    "page_num": 27,
+                    "printed_page_label": "27",
+                    "bbox": [
+                      292.048,
+                      459.71899999999994,
+                      481.95,
+                      597.4549999999999
+                    ],
+                    "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                    "quote": "아울러 기후변화 관련 주요 논의사항을 이사회에 직접 보고하여 기후변화 대응 목표의 이행 수준을 체계적으로 관리하고, 전사적인 온실가스 감축을 추진하고 있습니다.",
+                    "char_start": 144,
+                    "char_end": 233,
+                    "location_quality": "located",
+                    "verification_state": "candidate"
+                  }
+                ],
+                "source_quality": "verified",
+                "topic_ids": [
+                  "environment"
+                ],
+                "receipt": {
+                  "source_id": "a0e9a1ee-b9e6-58d9-ad2d-14c29f8b08aa",
+                  "packet_sha256": "deccd451ab548829b69c29da2ed02953c57bb19c0a78549f0d2f53d58ecddc88",
+                  "response_sha256": "2bb30d69aaf1b87ee4e415250743847be563c5f12731cf4b2ad9d3d3fe101507",
+                  "raw_response_json": "{\"spans\":[{\"char_end\":71,\"char_start\":0,\"kind\":\"claim\",\"quote\":\"\\uae00\\ub85c\\ubc8c ESG \\uc704\\uc6d0\\ud68c\\ub294 \\uae30\\ud6c4\\ubcc0\\ud654\\uc640 \\uad00\\ub828\\ub41c \\ub9ac\\uc2a4\\ud06c\\uc640 \\uae30\\ud68c\\ub97c \\uc885\\ud569\\uc801\\uc73c\\ub85c \\ubd84\\uc11d\\ud558\\uc5ec \\ub450\\uc0b0\\ubc25\\ucea3\\uc758 \\uae30\\ud6c4\\ubcc0\\ud654 \\ub300\\uc751 \\ubc29\\ud5a5\\uc744 \\uc124\\uc815\\ud558\\uace0 \\uc788\\uc2b5\\ub2c8\\ub2e4.\",\"reason\":null,\"topic_ids\":[\"environment\"]},{\"char_end\":143,\"char_start\":72,\"kind\":\"claim\",\"quote\":\"\\ub610\\ud55c \\uae00\\ub85c\\ubc8c ESG \\uc804\\ub7b5\\uc5d0 \\ub530\\ub77c \\ub9c8\\ub828\\ub41c \\uae30\\ud6c4\\ubcc0\\ud654 \\ub300\\uc751 \\ubaa9\\ud45c\\ub97c \\ub2ec\\uc131\\ud558\\uae30 \\uc704\\ud558\\uc5ec \\uad00\\ub828 \\uacfc\\uc81c\\uc640 KPI\\ub97c \\ucd1d\\uad04\\uc801\\uc73c\\ub85c \\uad00\\ub9ac\\ud558\\uace0 \\uc788\\uc2b5\\ub2c8\\ub2e4.\",\"reason\":null,\"topic_ids\":[\"environment\"]},{\"char_end\":233,\"char_start\":144,\"kind\":\"claim\",\"quote\":\"\\uc544\\uc6b8\\ub7ec \\uae30\\ud6c4\\ubcc0\\ud654 \\uad00\\ub828 \\uc8fc\\uc694 \\ub17c\\uc758\\uc0ac\\ud56d\\uc744 \\uc774\\uc0ac\\ud68c\\uc5d0 \\uc9c1\\uc811 \\ubcf4\\uace0\\ud558\\uc5ec \\uae30\\ud6c4\\ubcc0\\ud654 \\ub300\\uc751 \\ubaa9\\ud45c\\uc758 \\uc774\\ud589 \\uc218\\uc900\\uc744 \\uccb4\\uacc4\\uc801\\uc73c\\ub85c \\uad00\\ub9ac\\ud558\\uace0, \\uc804\\uc0ac\\uc801\\uc778 \\uc628\\uc2e4\\uac00\\uc2a4 \\uac10\\ucd95\\uc744 \\ucd94\\uc9c4\\ud558\\uace0 \\uc788\\uc2b5\\ub2c8\\ub2e4.\",\"reason\":null,\"topic_ids\":[\"environment\"]}]}",
+                  "profile": {
+                    "model_sha256": "50ebece5e6cd52b750c8efdd0162418cac948d0b7376ceb00b91131935eead8f",
+                    "prompt_sha256": "ffafe54d30da3c37c84ddbfe9551655f7635278fccb6aecb36582875c1a1499d",
+                    "rule_sha256": "bd04e6799177e63eaae4f61c215b04d9b4648423f57ca44c59e7ad3bb9d2a4e9",
+                    "synthetic": false,
+                    "replicate_id": 1,
+                    "extraction_epoch": 1
+                  },
+                  "status": "processed"
+                },
+                "revision": 1
+              },
+              "track": "management",
+              "safe_harbor_category": null
+            },
+            "dimensions": {
+              "entity": null,
+              "metric": null,
+              "reporting_period": null
+            },
+            "safe_harbor_category": null
+          },
+          "error": null
+        },
+        {
+          "request_id": "814e0e6f-f32e-4af4-8cf8-eca07d3f4378",
+          "replicate_id": 2,
+          "values": {
+            "track": {
+              "claim": {
+                "claim_id": "c2832d1e-b59a-58f6-84b6-a03a58030210",
+                "tenant_id": "2e2d9c40-9dfb-4a8c-bcbb-9d7bd4302177",
+                "document_version_id": "55914ac5-25db-4f4e-bd50-e9fa37db2b6b",
+                "parse_manifest_id": "ea87d9d5-6c13-5ddd-b66c-667346f669b5",
+                "source_sha256": "dc59b2b1c5bbf02e33bb901f94aef7cd984dc62547708e92aa1332ac550102e9",
+                "quote": "아울러 기후변화 관련 주요 논의사항을 이사회에 직접 보고하여 기후변화 대응 목표의 이행 수준을 체계적으로 관리하고, 전사적인 온실가스 감축을 추진하고 있습니다.",
+                "source_refs": [
+                  {
+                    "source_id": "a0e9a1ee-b9e6-58d9-ad2d-14c29f8b08aa",
+                    "document_version_id": "55914ac5-25db-4f4e-bd50-e9fa37db2b6b",
+                    "parse_manifest_id": "ea87d9d5-6c13-5ddd-b66c-667346f669b5",
+                    "page_num": 27,
+                    "printed_page_label": "27",
+                    "bbox": [
+                      292.048,
+                      459.71899999999994,
+                      481.95,
+                      597.4549999999999
+                    ],
+                    "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                    "quote": "아울러 기후변화 관련 주요 논의사항을 이사회에 직접 보고하여 기후변화 대응 목표의 이행 수준을 체계적으로 관리하고, 전사적인 온실가스 감축을 추진하고 있습니다.",
+                    "char_start": 144,
+                    "char_end": 233,
+                    "location_quality": "located",
+                    "verification_state": "candidate"
+                  }
+                ],
+                "source_quality": "verified",
+                "topic_ids": [
+                  "environment"
+                ],
+                "receipt": {
+                  "source_id": "a0e9a1ee-b9e6-58d9-ad2d-14c29f8b08aa",
+                  "packet_sha256": "deccd451ab548829b69c29da2ed02953c57bb19c0a78549f0d2f53d58ecddc88",
+                  "response_sha256": "2bb30d69aaf1b87ee4e415250743847be563c5f12731cf4b2ad9d3d3fe101507",
+                  "raw_response_json": "{\"spans\":[{\"char_end\":71,\"char_start\":0,\"kind\":\"claim\",\"quote\":\"\\uae00\\ub85c\\ubc8c ESG \\uc704\\uc6d0\\ud68c\\ub294 \\uae30\\ud6c4\\ubcc0\\ud654\\uc640 \\uad00\\ub828\\ub41c \\ub9ac\\uc2a4\\ud06c\\uc640 \\uae30\\ud68c\\ub97c \\uc885\\ud569\\uc801\\uc73c\\ub85c \\ubd84\\uc11d\\ud558\\uc5ec \\ub450\\uc0b0\\ubc25\\ucea3\\uc758 \\uae30\\ud6c4\\ubcc0\\ud654 \\ub300\\uc751 \\ubc29\\ud5a5\\uc744 \\uc124\\uc815\\ud558\\uace0 \\uc788\\uc2b5\\ub2c8\\ub2e4.\",\"reason\":null,\"topic_ids\":[\"environment\"]},{\"char_end\":143,\"char_start\":72,\"kind\":\"claim\",\"quote\":\"\\ub610\\ud55c \\uae00\\ub85c\\ubc8c ESG \\uc804\\ub7b5\\uc5d0 \\ub530\\ub77c \\ub9c8\\ub828\\ub41c \\uae30\\ud6c4\\ubcc0\\ud654 \\ub300\\uc751 \\ubaa9\\ud45c\\ub97c \\ub2ec\\uc131\\ud558\\uae30 \\uc704\\ud558\\uc5ec \\uad00\\ub828 \\uacfc\\uc81c\\uc640 KPI\\ub97c \\ucd1d\\uad04\\uc801\\uc73c\\ub85c \\uad00\\ub9ac\\ud558\\uace0 \\uc788\\uc2b5\\ub2c8\\ub2e4.\",\"reason\":null,\"topic_ids\":[\"environment\"]},{\"char_end\":233,\"char_start\":144,\"kind\":\"claim\",\"quote\":\"\\uc544\\uc6b8\\ub7ec \\uae30\\ud6c4\\ubcc0\\ud654 \\uad00\\ub828 \\uc8fc\\uc694 \\ub17c\\uc758\\uc0ac\\ud56d\\uc744 \\uc774\\uc0ac\\ud68c\\uc5d0 \\uc9c1\\uc811 \\ubcf4\\uace0\\ud558\\uc5ec \\uae30\\ud6c4\\ubcc0\\ud654 \\ub300\\uc751 \\ubaa9\\ud45c\\uc758 \\uc774\\ud589 \\uc218\\uc900\\uc744 \\uccb4\\uacc4\\uc801\\uc73c\\ub85c \\uad00\\ub9ac\\ud558\\uace0, \\uc804\\uc0ac\\uc801\\uc778 \\uc628\\uc2e4\\uac00\\uc2a4 \\uac10\\ucd95\\uc744 \\ucd94\\uc9c4\\ud558\\uace0 \\uc788\\uc2b5\\ub2c8\\ub2e4.\",\"reason\":null,\"topic_ids\":[\"environment\"]}]}",
+                  "profile": {
+                    "model_sha256": "50ebece5e6cd52b750c8efdd0162418cac948d0b7376ceb00b91131935eead8f",
+                    "prompt_sha256": "ffafe54d30da3c37c84ddbfe9551655f7635278fccb6aecb36582875c1a1499d",
+                    "rule_sha256": "bd04e6799177e63eaae4f61c215b04d9b4648423f57ca44c59e7ad3bb9d2a4e9",
+                    "synthetic": false,
+                    "replicate_id": 1,
+                    "extraction_epoch": 1
+                  },
+                  "status": "processed"
+                },
+                "revision": 1
+              },
+              "track": "management",
+              "safe_harbor_category": null
+            },
+            "dimensions": {
+              "entity": null,
+              "metric": null,
+              "reporting_period": null
+            },
+            "safe_harbor_category": null
+          },
+          "error": null
+        },
+        {
+          "request_id": "8c8af5eb-ebec-45c8-98fe-ca426b004ed0",
+          "replicate_id": 3,
+          "values": {
+            "track": {
+              "claim": {
+                "claim_id": "c2832d1e-b59a-58f6-84b6-a03a58030210",
+                "tenant_id": "2e2d9c40-9dfb-4a8c-bcbb-9d7bd4302177",
+                "document_version_id": "55914ac5-25db-4f4e-bd50-e9fa37db2b6b",
+                "parse_manifest_id": "ea87d9d5-6c13-5ddd-b66c-667346f669b5",
+                "source_sha256": "dc59b2b1c5bbf02e33bb901f94aef7cd984dc62547708e92aa1332ac550102e9",
+                "quote": "아울러 기후변화 관련 주요 논의사항을 이사회에 직접 보고하여 기후변화 대응 목표의 이행 수준을 체계적으로 관리하고, 전사적인 온실가스 감축을 추진하고 있습니다.",
+                "source_refs": [
+                  {
+                    "source_id": "a0e9a1ee-b9e6-58d9-ad2d-14c29f8b08aa",
+                    "document_version_id": "55914ac5-25db-4f4e-bd50-e9fa37db2b6b",
+                    "parse_manifest_id": "ea87d9d5-6c13-5ddd-b66c-667346f669b5",
+                    "page_num": 27,
+                    "printed_page_label": "27",
+                    "bbox": [
+                      292.048,
+                      459.71899999999994,
+                      481.95,
+                      597.4549999999999
+                    ],
+                    "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+                    "quote": "아울러 기후변화 관련 주요 논의사항을 이사회에 직접 보고하여 기후변화 대응 목표의 이행 수준을 체계적으로 관리하고, 전사적인 온실가스 감축을 추진하고 있습니다.",
+                    "char_start": 144,
+                    "char_end": 233,
+                    "location_quality": "located",
+                    "verification_state": "candidate"
+                  }
+                ],
+                "source_quality": "verified",
+                "topic_ids": [
+                  "environment"
+                ],
+                "receipt": {
+                  "source_id": "a0e9a1ee-b9e6-58d9-ad2d-14c29f8b08aa",
+                  "packet_sha256": "deccd451ab548829b69c29da2ed02953c57bb19c0a78549f0d2f53d58ecddc88",
+                  "response_sha256": "2bb30d69aaf1b87ee4e415250743847be563c5f12731cf4b2ad9d3d3fe101507",
+                  "raw_response_json": "{\"spans\":[{\"char_end\":71,\"char_start\":0,\"kind\":\"claim\",\"quote\":\"\\uae00\\ub85c\\ubc8c ESG \\uc704\\uc6d0\\ud68c\\ub294 \\uae30\\ud6c4\\ubcc0\\ud654\\uc640 \\uad00\\ub828\\ub41c \\ub9ac\\uc2a4\\ud06c\\uc640 \\uae30\\ud68c\\ub97c \\uc885\\ud569\\uc801\\uc73c\\ub85c \\ubd84\\uc11d\\ud558\\uc5ec \\ub450\\uc0b0\\ubc25\\ucea3\\uc758 \\uae30\\ud6c4\\ubcc0\\ud654 \\ub300\\uc751 \\ubc29\\ud5a5\\uc744 \\uc124\\uc815\\ud558\\uace0 \\uc788\\uc2b5\\ub2c8\\ub2e4.\",\"reason\":null,\"topic_ids\":[\"environment\"]},{\"char_end\":143,\"char_start\":72,\"kind\":\"claim\",\"quote\":\"\\ub610\\ud55c \\uae00\\ub85c\\ubc8c ESG \\uc804\\ub7b5\\uc5d0 \\ub530\\ub77c \\ub9c8\\ub828\\ub41c \\uae30\\ud6c4\\ubcc0\\ud654 \\ub300\\uc751 \\ubaa9\\ud45c\\ub97c \\ub2ec\\uc131\\ud558\\uae30 \\uc704\\ud558\\uc5ec \\uad00\\ub828 \\uacfc\\uc81c\\uc640 KPI\\ub97c \\ucd1d\\uad04\\uc801\\uc73c\\ub85c \\uad00\\ub9ac\\ud558\\uace0 \\uc788\\uc2b5\\ub2c8\\ub2e4.\",\"reason\":null,\"topic_ids\":[\"environment\"]},{\"char_end\":233,\"char_start\":144,\"kind\":\"claim\",\"quote\":\"\\uc544\\uc6b8\\ub7ec \\uae30\\ud6c4\\ubcc0\\ud654 \\uad00\\ub828 \\uc8fc\\uc694 \\ub17c\\uc758\\uc0ac\\ud56d\\uc744 \\uc774\\uc0ac\\ud68c\\uc5d0 \\uc9c1\\uc811 \\ubcf4\\uace0\\ud558\\uc5ec \\uae30\\ud6c4\\ubcc0\\ud654 \\ub300\\uc751 \\ubaa9\\ud45c\\uc758 \\uc774\\ud589 \\uc218\\uc900\\uc744 \\uccb4\\uacc4\\uc801\\uc73c\\ub85c \\uad00\\ub9ac\\ud558\\uace0, \\uc804\\uc0ac\\uc801\\uc778 \\uc628\\uc2e4\\uac00\\uc2a4 \\uac10\\ucd95\\uc744 \\ucd94\\uc9c4\\ud558\\uace0 \\uc788\\uc2b5\\ub2c8\\ub2e4.\",\"reason\":null,\"topic_ids\":[\"environment\"]}]}",
+                  "profile": {
+                    "model_sha256": "50ebece5e6cd52b750c8efdd0162418cac948d0b7376ceb00b91131935eead8f",
+                    "prompt_sha256": "ffafe54d30da3c37c84ddbfe9551655f7635278fccb6aecb36582875c1a1499d",
+                    "rule_sha256": "bd04e6799177e63eaae4f61c215b04d9b4648423f57ca44c59e7ad3bb9d2a4e9",
+                    "synthetic": false,
+                    "replicate_id": 1,
+                    "extraction_epoch": 1
+                  },
+                  "status": "processed"
+                },
+                "revision": 1
+              },
+              "track": "management",
+              "safe_harbor_category": null
+            },
+            "dimensions": {
+              "entity": null,
+              "metric": null,
+              "reporting_period": null
+            },
+            "safe_harbor_category": null
+          },
+          "error": null
+        }
+      ],
+      "unanimous": true
+    }
+  ],
+  "limitations": [
+    "Authorized standalone local model diagnostic, not a pipeline run or runtime/domain approval.",
+    "Same three retained verified claims; one independent three-call ensemble per claim, no retries.",
+    "Development cases, no independent gold or measured aggregate accuracy.",
+    "Original source/schema validators and consensus rule unchanged."
+  ]
+}

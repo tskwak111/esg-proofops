@@ -1,9 +1,9 @@
 {
-  "checked_at": "2026-09-18T18:29:03.810855+00:00",
+  "checked_at": "2026-09-18T18:39:22.135555+00:00",
   "scope": "documentation, structured contracts and synthetic schema examples only",
   "status": "passed",
-  "checks_total": 835,
-  "passed": 835,
+  "checks_total": 837,
+  "passed": 837,
   "failed": 0,
   "counts": {
     "numbered_documents": 34,
@@ -254,6 +254,11 @@
       "detail": ""
     },
     {
+      "name": "json:evidence/live-tagging-doosan-examples-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
       "name": "json:evidence/metric-split-results.json",
       "passed": true,
       "detail": ""
@@ -310,6 +315,11 @@
     },
     {
       "name": "json:evidence/retrieval-repair-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/preliminary-examples-ab-20260919.json",
       "passed": true,
       "detail": ""
     },
