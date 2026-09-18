@@ -611,3 +611,21 @@ def test_failed_delivery_recovery_acknowledges_without_repeating_work(tmp_path, 
     assert jobs.pending_outbox(TENANT, run_id, now=now[0]) == []
     assert runner.transport.requests == []
     assert jobs.read_checkpoint(message) is None
+
+
+def test_tag_delivery_replays_verified_source_once_per_operation(tmp_path, monkeypatch):
+    service, run_id, runner, _, _ = verified_setup(tmp_path, monkeypatch)
+    original = runner.parser.load_verified
+    reads = []
+
+    def checked(*args, **kwargs):
+        reads.append(kwargs["manifest_sha256"])
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(runner.parser, "load_verified", checked)
+    assert runner.run_once(tenant_id=TENANT, run_id=run_id) == "needs_review"
+    assert len(runner.transport.requests) == 3
+    assert len(reads) == 1
+    # A new operation must still check source integrity, rather than use a stale cache.
+    runner.tags.load_snapshot(TENANT, run_id)
+    assert len(reads) == 2

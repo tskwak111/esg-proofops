@@ -13,7 +13,6 @@ from uuid import UUID, uuid4, uuid5
 from proofops.adapters.cache.aws import ImmutableResponseCache
 from proofops.adapters.local.claim_store import LocalClaimStore
 from proofops.adapters.local.review_store import LocalSQLiteReviewStore
-from proofops.adapters.local.run_artifacts import load_run_graph
 from proofops.adapters.local.tag_cache import SQLiteImmutableCacheClient
 from proofops.adapters.local.tag_store import LocalTagStore, tag_pins, tagging_settings
 from proofops.application.evidence.retrieval import (
@@ -78,11 +77,7 @@ class LocalTagRunner:
     def _execute(self, lease, snapshot, usage):
         message = lease.message
         tenant, run_id = message.tenant_id, message.run_id
-        graph = load_run_graph(
-            self.store, self.uploads, self.parser, tenant_id=tenant, run_id=run_id
-        )
-        discovery = self.claims.load(tenant, run_id)
-        extraction = self.claims.load_snapshot(tenant, run_id)
+        extraction, discovery, graph = self.claims.load_evidence(tenant, run_id)
         run = self.store.jobs.get_run(tenant, run_id)
         if (message.input_hash, message.document_version_id) != (
             snapshot["input_hash"],

@@ -56,8 +56,8 @@ _RULE_DESCRIPTOR = [
     "no-invented-offsets",
     "no-grades-or-labels",
     "literal-unicode-model-input-v1",
-    "bounded-paragraph-selection-page-bbox-text-v1",
-    "long-heading-text-candidates-60-codepoints-v1",
+    "bounded-paragraph-selection-prose-first-v2",
+    "sentence-terminal-then-60-codepoints-then-page-bbox-text-v2",
 ]
 
 _PROVIDER_METADATA_KEYS = (

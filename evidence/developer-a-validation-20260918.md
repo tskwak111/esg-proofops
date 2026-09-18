@@ -19,7 +19,9 @@
   호출 수/비용은 0이다. 가격 만료 등 예약 이전 차단도 과거 비용을 가져오지 않는다.
 - 호출 수 제한이 있는 추출 미리보기에서 메뉴성 짧은 문구가 본문보다 앞서 비용을 소비했다.
   문장 종결 기호와 기존 60자 경계를 정렬 우선순위로 사용한다. 짧은 주장도 후보로 보존한다.
-  미처리 문장은 unknown이며 전수 처리·정답 판정으로 바꾸지 않는다. 완료된 기존 결과는 불변이다.
+  미처리 문장은 unknown이며 전수 처리·정답 판정으로 바꾸지 않는다. 완료된 기존 결과는 불변이다. 선택 순서 변경은 extraction rule descriptor v2로
+  구분한다. 과거 완료 결과는 저장된 profile/영수증으로 재생하며, 과거 미완료 작업은
+  새 프로필로 조용히 계속 실행하지 않고 profile mismatch로 차단한다.
 - 예산/공급자 오류로 조기 종료된 교차 보고서 평가가 시도 횟수를 처리 성공으로 세고
   미시도 문단을 unknown에서 누락하던 집계를 수정했다. attempted/processed/unprocessed를
   구분하고 selected = processed + unknown을 검사한다. 과거 결과 파일은 수정하지 않는다.
@@ -96,7 +98,8 @@ SOURCE_VALIDATION_REQUIRED 5개로 blocked이며 임의 등급을 만들지 않�
 
 ## 검증과 아직 남은 범위
 
-- Python 전체 회귀: 2,208 passed, 7 skipped (팀 체크아웃에 없는 legacy_reference snapshot), 2 warnings (194.12초). 최종 로그 `/tmp/proofops-release-final.txt`.
+- Python 전체 회귀: 2,209 passed, 7 skipped (팀 체크아웃에 없는 legacy_reference snapshot), 3 warnings (191.70초). 최종 로그 `/tmp/proofops-release-postreview.txt`.
+  경고는 Starlette 2건과 기존 병렬 lifecycle 테스트에서 Pydantic alias 1건이다.
 - Ruff, mypy 171개 소스, 웹 typecheck/build, 4개 Python 패키지 build 실행.
 - 문서·계약 검증과 별도로 앱 테스트를 실행했다. B 계약 3개 스키마/합성 8사례 통과.
 - 라이선스·비밀정보 스캔, pip-audit, pnpm audit 통과. 알려진 의존성 취약점 없음.
@@ -122,3 +125,19 @@ GPT-OSS 제안 중 확인 영수증을 저장하지 않는 방안은 재현성�
 추가 OpenCode Muse 1.3 Free 작업은 native checkpoint 연결을 구현했고, 코디네이터가
 완료 후 설정 변경·코드 pin·자동 각주 조합의 네 실패 사례를 추가로 재현하고 수정했다.
 완료·중단된 작업 터미널은 닫았다. 크레딧 소진 여부는 확인되지 않았다.
+
+## 후속 검토와 반복 원문 읽기 제거
+
+OpenCode Muse Spark 1.2 Free가 실제 태깅 연결의 8개 계약 병목을 조사했다.
+감사에서 제안한 특정 KB 주장 분류의 하드코딩과 미확인 토큰 수 우회는 채택하지 않았다.
+독립 extractor/tagger binding과 검증 가능한 선행 분류가 필요하다. 상세 내용은
+`live-tagging-contract-audit-20260918.md`의 코디네이터 검토를 따른다.
+
+태깅 1회에서 LocalClaimStore가 검증한 동일 graph를 별도로 두 번 더 읽는 중복을
+제거했다. 기존 검증 함수가 snapshot/discovery/graph를 함께 반환하고 워커가 재사용한다.
+영속 캐시나 검증 생략은 추가하지 않았다. 회귀 반례는 3회 읽기에서 실패했고,
+수정 후 한 번의 실행에서 1회, 새 조회에서는 다시 1회 검증함을 확인했다.
+관련 34개 회귀 통과. 실제 처리시간 개선 수치는 아직 별도 측정하지 않았다.
+
+변경된 extraction profile 이후에도 기존 KB v4 실행을 `--invoke` 없이 열어
+주장 7개와 HTTP200을 재확인했다. 과거 완료 결과 재생 때문에 모델을 다시 호출하지 않았다.
