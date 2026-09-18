@@ -513,3 +513,35 @@ response. It verifies paragraph recovery, page/call accounting, immutable
 publication and offline replay. Additional cases reject tampered coverage/receipt
 pins and retain ambiguous-response reservations without publication. This is
 integration evidence, not model accuracy or a real-report rollout result.
+
+#### Explicit worker and pilot activation — 2026-09-19
+
+Worker CLI now accepts `--raster-ocr` only with `--stage parse` and
+`--verify-paragraphs`; composition validates these options before creating runtime
+state. The option is off by default and requires the existing shared budget ledger.
+The probe is constructed only for an enabled parse worker. Extract/tag workers
+continue to use offline committed graph replay and never invoke raster OCR.
+
+Trusted local settings accept the all-or-none pair `raster_runtime_binding_id`
+and `raster_policy`, validated by the existing application policy contract. These
+are only available with explicit `LOCAL_EXTRACTION_MODE=upstage_probe`; they are
+not public HTTP request fields. Run creation still resolves independent Registry
+consent/rights/runtime artifacts, and dispatch rechecks current authority.
+
+The existing `evaluation.local_upstage_pilot` supports `--raster-ocr`,
+`--raster-max-pages` (default 4) and `--raster-max-calls` (default 1). Native paragraph
+verification is required. It registers a source-scoped local-test image consent
+and separate vision binding, freezes the current helper policy, and passes the
+worker option only at the parse stage. `--invoke` remains required for actual
+calls. A changed raster policy/options on restart require a new state directory;
+old results, receipts and reservations remain immutable. Authorization is limited
+to the user's existing local API-test scope and cumulative USD20 ledger.
+
+A generated-PDF integration now verifies the complete v5 parse→extract→tag chain
+with actual parser/transport/ledger code and fixed HTTP responses: one recovered
+paragraph reaches one verified-source claim and a candidate review after three
+preliminary and three element responses. One OCR + seven text requests use one
+shared test ledger. Offline reopened review reads and repeated stage consumption
+make no additional call or billing entry. Unknown tags remain unknown and an
+unapproved rulepack produces no decision. This demonstrates integration, not
+semantic accuracy of live model responses.

@@ -125,6 +125,16 @@ def live_tagging_settings(max_calls: int, *, relations: bool = False) -> dict:
     return settings
 
 
+def raster_settings(*, max_pages: int, max_calls: int) -> dict:
+    """Pin an explicit raster policy; registration and per-call consent remain separate."""
+    from proofops.adapters.local.raster_visibility import raster_ocr_policy
+
+    return dict(
+        raster_runtime_binding_id=str(uuid4()),
+        raster_policy=raster_ocr_policy(max_pages=max_pages, max_calls=max_calls),
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--pdf", type=Path, required=True)
@@ -137,6 +147,9 @@ def main():
     parser.add_argument("--max-calls", type=int, default=8)
     parser.add_argument("--model", choices=["solar-pro3", "solar-pro4"], default="solar-pro3")
     parser.add_argument("--verify-paragraphs", action="store_true")
+    parser.add_argument("--raster-ocr", action="store_true")
+    parser.add_argument("--raster-max-pages", type=int, default=4)
+    parser.add_argument("--raster-max-calls", type=int, default=1)
     parser.add_argument("--invoke", action="store_true")
     parser.add_argument("--live-tagging", action="store_true")
     parser.add_argument("--live-relations", action="store_true")
@@ -146,6 +159,13 @@ def main():
     args = parser.parse_args()
     if args.live_relations and not args.live_tagging:
         parser.error("--live-relations requires --live-tagging")
+    if args.raster_ocr and not args.verify_paragraphs:
+        parser.error("--raster-ocr requires --verify-paragraphs")
+    raster = (
+        raster_settings(max_pages=args.raster_max_pages, max_calls=args.raster_max_calls)
+        if args.raster_ocr
+        else {}
+    )
     pages = sorted(set(int(p) for p in args.pages.split(",")))
     if not 1 <= args.max_calls <= 20 or not pages or min(pages) < 1:
         parser.error("invalid declared pages/call limit")
@@ -184,6 +204,7 @@ def main():
                 ],
             ),
         )
+        settings.update(raster)
         if args.live_tagging:
             settings.update(
                 live_tagging_settings(args.tagging_max_calls, relations=args.live_relations)
@@ -297,6 +318,31 @@ def main():
                 ),
             ),
         ]
+        if args.raster_ocr:
+            from proofops.domain.provenance import canonical_hash
+
+            profiles[-1][2]["allow_raster_upload"] = True
+            profiles.append(
+                (
+                    "runtime",
+                    raster["raster_runtime_binding_id"],
+                    dict(
+                        common,
+                        runtime_binding_id=raster["raster_runtime_binding_id"],
+                        schema="local_upstage_raster_binding_v1",
+                        role="vision",
+                        model_id="document-parse-260128",
+                        endpoint="https://api.upstage.ai/v1/document-digitization",
+                        budget_limit_usd="20.00",
+                        mode="standard",
+                        max_pages=args.raster_max_pages,
+                        max_calls=args.raster_max_calls,
+                        accepts_images=True,
+                        image_input_verified=True,
+                        raster_policy_sha256=canonical_hash(raster["raster_policy"]),
+                    ),
+                )
+            )
         if args.live_tagging:
             from proofops.domain.provenance import canonical_hash
 
@@ -408,12 +454,18 @@ def main():
             live_tagging=args.live_tagging,
             tagging_max_calls=args.tagging_max_calls if args.live_tagging else None,
         )
+        if args.raster_ocr:
+            manifest.update(raster_ocr=True, raster_policy=raster["raster_policy"])
         if args.live_relations:
             manifest["live_relations"] = True
         with manifest_path.open("x") as stream:
             json.dump(manifest, stream, ensure_ascii=False, indent=2)
     else:
         manifest = json.loads(manifest_path.read_text())
+        if manifest.get("raster_ocr", False) != args.raster_ocr or (
+            args.raster_ocr and manifest.get("raster_policy") != raster["raster_policy"]
+        ):
+            raise ValueError("pilot raster policy changed; create a new state directory")
         if manifest.get("live_relations", False) != args.live_relations:
             raise ValueError("pilot relation policy changed; create a new state directory")
         if manifest.get("live_tagging", False) != args.live_tagging or (
@@ -440,7 +492,9 @@ def main():
         try:
             for stage in ("parse", "extract", "tag"):
                 worker = build_composition(
-                    stage=stage, verify_paragraphs=args.verify_paragraphs and stage == "parse"
+                    stage=stage,
+                    verify_paragraphs=args.verify_paragraphs and stage == "parse",
+                    raster_ocr=args.raster_ocr and stage == "parse",
                 )
                 outcome = worker.run_once(tenant_id=tenant, run_id=run_id)
                 print(stage, outcome, flush=True)

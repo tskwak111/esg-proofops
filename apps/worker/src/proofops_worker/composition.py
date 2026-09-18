@@ -23,8 +23,17 @@ from proofops_worker.tag_runner import LocalTagRunner
 
 
 def build_composition(
-    *, stage: str = "parse", review_table_notes: bool = False, verify_paragraphs: bool = False
+    *,
+    stage: str = "parse",
+    review_table_notes: bool = False,
+    verify_paragraphs: bool = False,
+    raster_ocr: bool = False,
 ) -> LocalParserRunner | LocalExtractRunner | LocalTagRunner:
+    if type(raster_ocr) is not bool or (
+        raster_ocr
+        and (type(verify_paragraphs) is not bool or not verify_paragraphs or stage != "parse")
+    ):
+        raise ValueError("RASTER_OCR_REQUIRE_NATIVE_PARSE_STAGE")
     if type(verify_paragraphs) is not bool or (verify_paragraphs and stage != "parse"):
         raise ValueError("NATIVE_PARAGRAPHS_REQUIRE_PARSE_STAGE")
     if type(review_table_notes) is not bool or (review_table_notes and stage != "parse"):
@@ -43,6 +52,9 @@ def build_composition(
         "upstage_probe",
     }:
         raise ValueError("EXPLICIT_LOCAL_SYNTHETIC_EXTRACTION_REQUIRED")
+    note_ledger = Path(__file__).resolve().parents[4] / ".local/upstage/budget.sqlite3"
+    if raster_ocr and not note_ledger.is_file():
+        raise ValueError("SHARED_BUDGET_LEDGER_REQUIRED")
     build_proofops_composition(
         app_env=os.environ.get("APP_ENV", "local"),
         model_adapter=os.environ.get("MODEL_ADAPTER", "synthetic"),
@@ -58,7 +70,6 @@ def build_composition(
     database.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     registry = Registry.sqlite(database)
     uploads = UploadService(database, database.parent / "objects", registry)
-    note_ledger = Path(__file__).resolve().parents[4] / ".local/upstage/budget.sqlite3"
     note_client = None
     if review_table_notes:
         from proofops.adapters.local.upstage import UpstageProbe
@@ -66,6 +77,11 @@ def build_composition(
         if not note_ledger.is_file():
             raise ValueError("SHARED_BUDGET_LEDGER_REQUIRED")
         note_client = UpstageProbe(os.environ.get("UPSTAGE_API_KEY", ""), note_ledger)
+    raster_probe = None
+    if raster_ocr:
+        from proofops.adapters.local.upstage_parse import UpstageParseProbe
+
+        raster_probe = UpstageParseProbe(os.environ.get("UPSTAGE_API_KEY", ""), note_ledger)
     runner = LocalParserRunner(
         LocalSQLiteRunStore(database),
         uploads,
@@ -74,6 +90,8 @@ def build_composition(
         verify_paragraphs=verify_paragraphs,
         note_client=note_client,
         note_ledger=note_ledger,
+        raster_probe=raster_probe,
+        raster_ledger=note_ledger if raster_ocr else None,
         telemetry=Telemetry(
             service="worker", env="local", stream=sys.stdout, hash_key=secrets.token_bytes(32)
         ),

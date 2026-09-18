@@ -102,3 +102,24 @@ def test_relation_pilot_settings_are_opt_in_and_have_their_own_output_schema():
     sample["relations"][0]["dimensions"]["grade"] = None
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.validate(sample, schema)
+
+
+def test_raster_pilot_settings_pin_explicit_policy():
+    from proofops.adapters.local.raster_visibility import raster_ocr_policy
+
+    from evaluation.local_upstage_pilot import raster_settings
+
+    settings = raster_settings(max_pages=4, max_calls=1)
+    assert set(settings) == {"raster_runtime_binding_id", "raster_policy"}
+    from uuid import UUID
+
+    assert str(UUID(settings["raster_runtime_binding_id"])) == settings["raster_runtime_binding_id"]
+    assert settings["raster_policy"] == raster_ocr_policy(max_pages=4, max_calls=1)
+
+
+@pytest.mark.parametrize("pages,calls", [(True, 1), (0, 1), (4, 0), (4, True)])
+def test_raster_pilot_settings_reject_invalid_limits(pages, calls):
+    from evaluation.local_upstage_pilot import raster_settings
+
+    with pytest.raises(ValueError):
+        raster_settings(max_pages=pages, max_calls=calls)

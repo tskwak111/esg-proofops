@@ -116,3 +116,13 @@ Timeout and coverage/receipt tampering cases reject publication or readback.
 Still pending: composition/CLI enablement, full parse→extract→tag acceptance for
 this mode, fresh multi-report paid evaluation, and measured replay latency. Existing
 native/raster experimental evidence is not rewritten or relabelled as v5 output.
+
+Worker CLI, trusted API runtime-file loader and pilot wiring are now implemented.
+The real-mode generated-PDF downstream acceptance passes through extraction,
+preliminary replicas, element replicas and immutable candidate review with one
+shared test ledger. A no-invoke CLI smoke created run
+`afb75bf3-1e68-4c28-92c8-493ba67a4e71` with separately frozen image consent, vision
+binding and current raster policy. Claims return 409 before parse/extract, as
+expected. Remaining step 4: fresh actual multi-report v5 calls, source-crop visual
+review, measured read latency and independent semantic gold. Earlier live pilots
+and the historical four-crop experiment do not substitute for that evaluation.

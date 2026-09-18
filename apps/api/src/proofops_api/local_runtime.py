@@ -8,11 +8,13 @@ import stat
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
 from proofops.application.budget import BudgetLimits, RoleLimit
 from proofops.application.claims import ExtractionProfile
 from proofops.application.ingest.graph_fusion import ParserProfile
 from proofops.application.ports.models import ModelBinding
+from proofops.application.runs import validate_raster_policy
 from proofops.application.supply_chain import verify_supply_chain
 from proofops.application.tagging.service import TaggingSettings
 
@@ -28,6 +30,8 @@ _SETTINGS_FIELDS = frozenset(
         "relation_settings",
         "input_reservation_policy",
         "extraction_limits",
+        "raster_runtime_binding_id",
+        "raster_policy",
     }
 )
 _REQUIRED_SETTINGS_FIELDS = frozenset({"build_root", "budget_limits"})
@@ -60,6 +64,7 @@ _EXTRACTION_FIELDS = frozenset(
         "extraction_epoch",
     }
 )
+_RASTER_FIELDS = frozenset({"raster_runtime_binding_id", "raster_policy"})
 
 
 def _invalid() -> ValueError:
@@ -203,6 +208,26 @@ def _extraction(value: object, *, synthetic=True) -> ExtractionProfile:
         raise _invalid() from None
 
 
+def _raster(settings: Mapping[str, Any], extraction_mode: str) -> dict[str, Any]:
+    present = _RASTER_FIELDS & set(settings)
+    if not present:
+        return {}
+    if present != _RASTER_FIELDS or extraction_mode != "upstage_probe":
+        raise _invalid()
+    binding_id = settings["raster_runtime_binding_id"]
+    try:
+        if (
+            not isinstance(binding_id, str)
+            or not binding_id
+            or str(UUID(binding_id)) != binding_id.lower()
+        ):
+            raise ValueError
+        policy = validate_raster_policy(settings["raster_policy"])
+    except (TypeError, ValueError):
+        raise _invalid() from None
+    return {"raster_runtime_binding_id": binding_id, "raster_policy": policy}
+
+
 def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
     """Return only trusted RunService kwargs; no config leaves its gate closed."""
     parser_path = env.get("LOCAL_PARSER_PROFILE_PATH")
@@ -235,6 +260,7 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         settings_path and not _REQUIRED_SETTINGS_FIELDS <= set(settings)
     ):
         raise _invalid()
+    runtime.update(_raster(settings, extraction_mode))
     if "build_root" in settings:
         root = settings["build_root"]
         if not isinstance(root, str) or not Path(root).is_absolute() or not Path(root).is_dir():
