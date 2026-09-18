@@ -1038,3 +1038,43 @@ Ruff/format, mypy184sources, proofops build and package checks passed.
 Logs:/tmp/proofops-replay-cache-*. No required work is inferred complete solely
 from these tests; first-load latency, broader report/semantic evaluation and
 remaining relation/source blockers still need work.
+
+
+### 2026-09-19 · Second-report actual pipeline and full HTTP measurement
+
+Ran one fresh Doosan Bobcat2025 pilot on physical27/97/110 at c4e85fc:
+2290d163-5b61-44ac-8c16-33fffc0eaa9f. Kept report period2025 after verifying the
+explicit About This Report statement on physical115. No runtime files changed
+while the paid run was active. Extraction cap8, total tagging cap60. Twelve
+claims: four source-verified, eight source-validation blocks; of the four, three
+relation disagreements and one candidate review. This exposes limited coverage;
+it is not a service-readiness or semantic-accuracy result. Raw9 present votes
+became4present and5unknown (all five literal-value mismatches). All three M3
+votes stayed unknown; generic DNV statement presence did not become global
+assurance approval in this published review.
+
+Actual35calls cost USD0.0216694500. Shared ledger1707calls,
+USD9.1394369150 committed/reserved, seven unsettled retained. Full local TestClient
+reads after the pipeline:claims197.56ms,first detail149.45ms,cost2.60ms. These are
+same-process warm reads, not cold startup or deployed throughput. Evidence:
+live-tagging-doosan-source-repair-20260919.json.
+
+Visually inspected original renders27/97/110. Roles differ:governance narrative,
+annual environmental metrics and assurance limitations/exclusions. Page97 shows
+reporting sites39/42/54 across2023-2025, so no like-for-like trend conclusion is
+inferred. Native blockers:one quote-style OCR mismatch, one middle-dot/bullet
+mismatch and one crop containing adjacent heading words. Exact differences,
+render hashes and scope cautions are recorded in doosan-source-visual-diagnostic-
+20260919.json. No punctuation folding, crop widening or source promotion applied.
+Next major limitation: relation-stage disagreement currently blocks an otherwise
+verified local claim. Inspect binding contracts before considering source-scoped
+uncertainty that can preserve independently supported local review elements.
+
+Correction to the preceding validation report: CI35395921655 at c4e85fc passed
+Linux supply-chain integration and four other jobs but failed Python format
+check on run_artifacts.py. The earlier local format log contained the same
+failure; my chained command execution masked its status and I incorrectly
+reported it as passed. Corrected formatting only, then separately verified exit0
+for full Ruff check, full format check (331files), and targeted cache test1passed.
+The earlier2553-test result is still recorded, but was never proof of formatting.
+No runtime logic changed in this formatting correction. New-head CI required.

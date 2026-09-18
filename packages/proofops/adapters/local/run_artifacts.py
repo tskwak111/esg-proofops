@@ -254,9 +254,7 @@ def load_run_evidence(store, uploads, parser, *, tenant_id: str, run_id: str):
         from proofops.adapters.local.native_replay_cache import replay_cached
 
         try:
-            graph = replay_cached(
-                native_receipt, graph, source.content, tenant_id=tenant_id
-            )
+            graph = replay_cached(native_receipt, graph, source.content, tenant_id=tenant_id)
         except (ValueError, TypeError, KeyError):
             raise ParseFailure("NATIVE_PARAGRAPH_REPLAY_INVALID") from None
     if note_reviews or policy is not None or native_receipt is not None:
