@@ -203,6 +203,7 @@ class LocalSQLiteUsageStore:
                         if original != candidate:
                             raise BudgetConflict("immutable reservation differs")
                         return False
+            self._check_provider_overrun(rows)
             prior_attempts = [
                 row["reservation"]["call"]["attempt"]
                 for row in rows
@@ -296,12 +297,27 @@ class LocalSQLiteUsageStore:
             )
             return True
 
+    @staticmethod
+    def _check_provider_overrun(rows) -> None:
+        # Retain actual usage; a broken count/output bound stops further spend.
+        for row in rows:
+            if row["ledger"] is None:
+                continue
+            for actual_key, reserved_key in (
+                ("input_tokens", "input_tokens"),
+                ("output_tokens", "max_output_tokens"),
+            ):
+                actual = row["ledger"]["usage"][actual_key]
+                if actual is not None and actual > row["reservation"][reserved_key]:
+                    raise BudgetExceeded("BUDGET_EXHAUSTED: provider usage exceeded reservation")
+
     def mark_dispatched(self, call: BudgetCall) -> bool:
         """CAS once immediately before provider invocation; never replay a dispatched attempt."""
         with self._transaction() as db:
             _, state, _ = self._attempt(db, call)
             if state != "reserved":
                 return False
+            self._check_provider_overrun(self._records(db, call.tenant_id, call.run_id))
             db.execute(
                 "UPDATE usage_attempts SET state='dispatched' "
                 "WHERE tenant_id=? AND run_id=? AND request_id=? AND attempt=?",

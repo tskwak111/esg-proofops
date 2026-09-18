@@ -187,6 +187,37 @@ def test_attempt_role_output_and_context_limits_apply_before_reserving(tmp_path)
         reserve(calls, replace(CALL, attempt=2), input_tokens=1, max_output_tokens=1)
 
 
+@pytest.mark.parametrize("field", ["input_tokens", "output_tokens"])
+def test_provider_overrun_fences_new_and_already_reserved_calls_after_restart(tmp_path, field):
+    path = tmp_path / "usage.sqlite"
+    store = seeded(path)
+    assert reserve(store)
+    queued = replace(CALL, request_id="already-reserved")
+    assert reserve_budget(
+        store, queued, input_tokens=100, max_output_tokens=100, pricing=PRICE, now=1
+    )
+    actual = replace(USAGE, **{field: 101})
+    ledger = record_usage(store, CALL, actual, now=2)
+    reopened = LocalSQLiteUsageStore(path)
+    # Preserve actual paid usage, including the part that exceeded reservation.
+    assert record_usage(reopened, CALL, actual, now=3) == ledger
+    assert cost_summary(reopened, TENANT, RUN)[field] == 101
+    assert not reserve(reopened)  # Exact duplicate remains idempotent.
+    with pytest.raises(BudgetExceeded, match="provider usage exceeded reservation"):
+        reserve(reopened, replace(CALL, request_id="new-call"))
+    with pytest.raises(BudgetExceeded, match="provider usage exceeded reservation"):
+        reopened.mark_dispatched(queued)
+    queued_row = next(
+        row
+        for row in reopened.cost_data(TENANT, RUN)
+        if row["reservation"]["call"]["request_id"] == queued.request_id
+    )
+    assert queued_row["state"] == "reserved"
+    # Other tenants are unaffected; no process-global stop flag.
+    reopened.create_budget(OTHER, RUN, VERSION, LIMITS)
+    assert reserve(reopened, replace(CALL, tenant_id=OTHER))
+
+
 def test_tenant_document_replica_and_request_hash_isolation(tmp_path):
     store = seeded(tmp_path / "usage.sqlite")
     store.create_budget(OTHER, RUN, VERSION, LIMITS)

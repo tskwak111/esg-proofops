@@ -29,6 +29,8 @@ MODEL_PROFILE = "upstage-compact-ids-frozen-unicode-v1"
 
 class UpstageTaggingTransport:
     synthetic = False
+    MODEL_PROFILE = MODEL_PROFILE
+    TRANSPORT_VERSION = "compact-evidence-ids-v1"
 
     def __init__(
         self,
@@ -45,7 +47,7 @@ class UpstageTaggingTransport:
             or not isinstance(settings, TaggingSettings)
             or settings.binding.synthetic
             or settings.model_id != probe.model
-            or settings.model_profile != MODEL_PROFILE
+            or settings.model_profile != self.MODEL_PROFILE
             or settings.region != "provider-managed-unverified"
         ):
             raise ValueError("UPSTAGE_TAGGING_BINDING_INVALID")
@@ -74,7 +76,7 @@ class UpstageTaggingTransport:
         system, user, _, _ = self._wire_request(request)
         return counter(system, user)
 
-    def _wire_request(self, request: dict) -> tuple[str, str, dict[str, dict], Preflight]:
+    def _authorize_request(self, request: dict) -> Preflight:
         settings = self._settings
         authorization = self._authorize(settings, request)
         if (
@@ -111,6 +113,11 @@ class UpstageTaggingTransport:
             or not 1 <= request["max_tokens"] <= settings.max_tokens
         ):
             raise ValueError("UPSTAGE_TAGGING_REQUEST_INVALID")
+        return authorization
+
+    def _wire_request(self, request: dict) -> tuple[str, str, dict[str, dict], Preflight]:
+        settings = self._settings
+        authorization = self._authorize_request(request)
         system = request["system_prompt"]
         prefix = settings.rendered_system + "\nValidated classification; tag only its elements: "
         if not isinstance(system, str) or not system.startswith(prefix):
@@ -197,7 +204,7 @@ class UpstageTaggingTransport:
                     wire_system=wire_system,
                     wire_user_json=wire_user,
                     wire_prompt_sha256=canonical_hash(wire_system),
-                    transport_version="compact-evidence-ids-v1",
+                    transport_version=self.TRANSPORT_VERSION,
                     evidence_refs=refs,
                     authorization=authorization.to_dict(),
                 )
