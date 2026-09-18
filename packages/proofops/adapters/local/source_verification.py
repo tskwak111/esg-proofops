@@ -4,6 +4,7 @@ import io
 import json
 import math
 import subprocess
+import sys
 import tempfile
 from dataclasses import asdict, replace
 from hashlib import sha256
@@ -22,6 +23,10 @@ from proofops.domain.provenance import canonical_hash
 
 
 def _rendered_text(page, box, *, padding_px=0):
+    if sys.platform != "darwin":
+        return dict(
+            status="unresolved", reason="rendered_reader_unavailable", error="UnsupportedPlatform"
+        )
     if page.width * page.height * 9 > 16_000_000:
         return dict(status="unresolved", reason="render_limit")
     try:

@@ -1,0 +1,1205 @@
+{
+  "schema": "live_source_repair_pilot_v1",
+  "run_id": "8833ff17-061a-4ade-8822-7bc0dc5fff50",
+  "code_head": "0b28f0e49d9a6fccaa57b5fb0ca94d2a8a89a37a",
+  "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+  "selected_pages": [
+    30
+  ],
+  "checkpoint_sha256": "2e4cadb6cddb2870122727a19d244b350f8b3c34bb88b80e4717f0f3fceb8fef",
+  "actual_model_calls": true,
+  "production_ready": false,
+  "rulepack_approval": null,
+  "cost": {
+    "run_id": "8833ff17-061a-4ade-8822-7bc0dc5fff50",
+    "input_tokens": 82853,
+    "output_tokens": 9707,
+    "attempt_count": 50,
+    "cache_hit_count": 0,
+    "amount": "0.0390675450",
+    "currency": "USD",
+    "pricing_snapshot_id": null,
+    "cost_status": "known"
+  },
+  "ledger": {
+    "calls": 1672,
+    "committed_or_reserved_usd": "9.1177674650",
+    "unsettled": 7
+  },
+  "source_verified_claims": 5,
+  "claims": [
+    {
+      "claim_id": "808291cc-c954-5df8-bfc2-b0818298cd36",
+      "status": "blocked",
+      "reason": "RELATION_TAGS_UNRESOLVED",
+      "has_review": false,
+      "relation_records": [
+        {
+          "raw_response_sha256": "714cb73d9335cb28be3e7be1a51b59a86647a6c7d15518f0dcb0b42158a99cfc",
+          "replicate_id": 1,
+          "request_id": "003da9ff-bf5e-5d43-bff0-ee4137f7847d",
+          "status": "validated_candidate",
+          "values": {
+            "001453c3-83b1-51a3-bbc2-69dc12385a68": {
+              "entity": {
+                "bbox": [
+                  45.354,
+                  36.660999999999945,
+                  508.315,
+                  45.78200000000004
+                ],
+                "char_end": 32,
+                "char_start": 26,
+                "document_version_id": "47a2050e-03f9-410c-aca3-9c6cb8192d00",
+                "location_quality": "located",
+                "page_num": 30,
+                "parse_manifest_id": "291d35df-9c84-55ad-9712-3ad95c2b4f76",
+                "printed_page_label": "30",
+                "quote": "KB금융그룹",
+                "raw_text_sha256": "136341d059484d5cb1a0679738df67d37ff7954a419c1fdc51ffc253f71f1e41",
+                "source_id": "001453c3-83b1-51a3-bbc2-69dc12385a68",
+                "verification_state": "verified"
+              },
+              "metric": null,
+              "reporting_period": {
+                "bbox": [
+                  45.354,
+                  36.660999999999945,
+                  508.315,
+                  45.78200000000004
+                ],
+                "char_end": 25,
+                "char_start": 21,
+                "document_version_id": "47a2050e-03f9-410c-aca3-9c6cb8192d00",
+                "location_quality": "located",
+                "page_num": 30,
+                "parse_manifest_id": "291d35df-9c84-55ad-9712-3ad95c2b4f76",
+                "printed_page_label": "30",
+                "quote": "2025",
+                "raw_text_sha256": "136341d059484d5cb1a0679738df67d37ff7954a419c1fdc51ffc253f71f1e41",
+                "source_id": "001453c3-83b1-51a3-bbc2-69dc12385a68",
+                "verification_state": "verified"
+              }
+            }
+          }
+        },
+        {
+          "raw_response_sha256": "d23bdd4739b743b17ed78e5cdf824ac4bc567e274191ac9f09ede2df4f279c15",
+          "replicate_id": 2,
+          "request_id": "e4c73af9-273c-5483-b865-24baffb4b55e",
+          "status": "validated_candidate",
+          "values": {
+            "001453c3-83b1-51a3-bbc2-69dc12385a68": {
+              "entity": null,
+              "metric": null,
+              "reporting_period": null
+            }
+          }
+        },
+        {
+          "raw_response_sha256": "6fbf4c186fcf9a053310838130a495f307e47ce31b8f52c74ffceef3f6146514",
+          "replicate_id": 3,
+          "request_id": "90593686-7e48-50a8-81ce-4ba9d392ce18",
+          "status": "validated_candidate",
+          "values": {
+            "001453c3-83b1-51a3-bbc2-69dc12385a68": {
+              "boundary": null,
+              "entity": null,
+              "facility": null,
+              "material": null,
+              "metric": null,
+              "product": null,
+              "reporting_period": {
+                "bbox": [
+                  45.354,
+                  36.660999999999945,
+                  508.315,
+                  45.78200000000004
+                ],
+                "char_end": 25,
+                "char_start": 21,
+                "document_version_id": "47a2050e-03f9-410c-aca3-9c6cb8192d00",
+                "location_quality": "located",
+                "page_num": 30,
+                "parse_manifest_id": "291d35df-9c84-55ad-9712-3ad95c2b4f76",
+                "printed_page_label": "30",
+                "quote": "2025",
+                "raw_text_sha256": "136341d059484d5cb1a0679738df67d37ff7954a419c1fdc51ffc253f71f1e41",
+                "source_id": "001453c3-83b1-51a3-bbc2-69dc12385a68",
+                "verification_state": "verified"
+              },
+              "scope": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "claim_id": "81c5504e-832e-5de7-a88e-48426fe5aaae",
+      "status": "needs_review",
+      "reason": null,
+      "has_review": true,
+      "relation_records": [
+        {
+          "raw_response_sha256": "d23bdd4739b743b17ed78e5cdf824ac4bc567e274191ac9f09ede2df4f279c15",
+          "replicate_id": 1,
+          "request_id": "19131089-e52a-5496-ad90-7b950e64f1dc",
+          "status": "validated_candidate",
+          "values": {
+            "df017372-bbf1-5482-8470-08ad01eb83be": {
+              "entity": null,
+              "metric": null,
+              "reporting_period": null
+            }
+          }
+        },
+        {
+          "raw_response_sha256": "d23bdd4739b743b17ed78e5cdf824ac4bc567e274191ac9f09ede2df4f279c15",
+          "replicate_id": 2,
+          "request_id": "5fbc4d62-7781-5669-a84f-6bdd489a9d77",
+          "status": "validated_candidate",
+          "values": {
+            "df017372-bbf1-5482-8470-08ad01eb83be": {
+              "entity": null,
+              "metric": null,
+              "reporting_period": null
+            }
+          }
+        },
+        {
+          "raw_response_sha256": "d23bdd4739b743b17ed78e5cdf824ac4bc567e274191ac9f09ede2df4f279c15",
+          "replicate_id": 3,
+          "request_id": "063c6e66-5b2d-5ddd-b0e9-ed22c67c4a32",
+          "status": "validated_candidate",
+          "values": {
+            "df017372-bbf1-5482-8470-08ad01eb83be": {
+              "entity": null,
+              "metric": null,
+              "reporting_period": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "claim_id": "0a31bf06-bbbc-58e0-b9ff-9367fcad672b",
+      "status": "needs_review",
+      "reason": null,
+      "has_review": true,
+      "relation_records": [
+        {
+          "raw_response_sha256": "cd6d7108528f75948333f8d3451c1f650f698aef88d0c19792d6d0a3a19547c9",
+          "replicate_id": 1,
+          "request_id": "c925e295-ccf5-5ce1-b802-a371ccc79f2a",
+          "status": "validated_candidate",
+          "values": {
+            "001453c3-83b1-51a3-bbc2-69dc12385a68": {
+              "boundary": null,
+              "entity": null,
+              "facility": null,
+              "material": null,
+              "metric": null,
+              "product": null,
+              "reporting_period": {
+                "bbox": [
+                  45.354,
+                  36.660999999999945,
+                  508.315,
+                  45.78200000000004
+                ],
+                "char_end": 25,
+                "char_start": 21,
+                "document_version_id": "47a2050e-03f9-410c-aca3-9c6cb8192d00",
+                "location_quality": "located",
+                "page_num": 30,
+                "parse_manifest_id": "291d35df-9c84-55ad-9712-3ad95c2b4f76",
+                "printed_page_label": "30",
+                "quote": "2025",
+                "raw_text_sha256": "136341d059484d5cb1a0679738df67d37ff7954a419c1fdc51ffc253f71f1e41",
+                "source_id": "001453c3-83b1-51a3-bbc2-69dc12385a68",
+                "verification_state": "verified"
+              },
+              "scope": null
+            },
+            "5ec2e7cd-b8c3-5713-b957-66a27671adf8": {
+              "boundary": null,
+              "entity": {
+                "bbox": [
+                  45.354,
+                  507.666,
+                  549.811,
+                  533.481
+                ],
+                "char_end": 6,
+                "char_start": 0,
+                "document_version_id": "47a2050e-03f9-410c-aca3-9c6cb8192d00",
+                "location_quality": "located",
+                "page_num": 30,
+                "parse_manifest_id": "291d35df-9c84-55ad-9712-3ad95c2b4f76",
+                "printed_page_label": "30",
+                "quote": "KB금융그룹",
+                "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                "source_id": "5ec2e7cd-b8c3-5713-b957-66a27671adf8",
+                "verification_state": "verified"
+              },
+              "facility": null,
+              "material": null,
+              "metric": {
+                "bbox": [
+                  45.354,
+                  507.666,
+                  549.811,
+                  533.481
+                ],
+                "char_end": 36,
+                "char_start": 27,
+                "document_version_id": "47a2050e-03f9-410c-aca3-9c6cb8192d00",
+                "location_quality": "located",
+                "page_num": 30,
+                "parse_manifest_id": "291d35df-9c84-55ad-9712-3ad95c2b4f76",
+                "printed_page_label": "30",
+                "quote": "ESG 채권 발행",
+                "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                "source_id": "5ec2e7cd-b8c3-5713-b957-66a27671adf8",
+                "verification_state": "verified"
+              },
+              "product": null,
+              "reporting_period": null,
+              "scope": null
+            },
+            "df017372-bbf1-5482-8470-08ad01eb83be": {
+              "boundary": null,
+              "entity": null,
+              "facility": null,
+              "material": null,
+              "metric": null,
+              "product": null,
+              "reporting_period": null,
+              "scope": null
+            }
+          }
+        },
+        {
+          "raw_response_sha256": "cd6d7108528f75948333f8d3451c1f650f698aef88d0c19792d6d0a3a19547c9",
+          "replicate_id": 2,
+          "request_id": "54ff7ddb-15d9-5fc9-951b-ba9ac8dee03e",
+          "status": "validated_candidate",
+          "values": {
+            "001453c3-83b1-51a3-bbc2-69dc12385a68": {
+              "boundary": null,
+              "entity": null,
+              "facility": null,
+              "material": null,
+              "metric": null,
+              "product": null,
+              "reporting_period": {
+                "bbox": [
+                  45.354,
+                  36.660999999999945,
+                  508.315,
+                  45.78200000000004
+                ],
+                "char_end": 25,
+                "char_start": 21,
+                "document_version_id": "47a2050e-03f9-410c-aca3-9c6cb8192d00",
+                "location_quality": "located",
+                "page_num": 30,
+                "parse_manifest_id": "291d35df-9c84-55ad-9712-3ad95c2b4f76",
+                "printed_page_label": "30",
+                "quote": "2025",
+                "raw_text_sha256": "136341d059484d5cb1a0679738df67d37ff7954a419c1fdc51ffc253f71f1e41",
+                "source_id": "001453c3-83b1-51a3-bbc2-69dc12385a68",
+                "verification_state": "verified"
+              },
+              "scope": null
+            },
+            "5ec2e7cd-b8c3-5713-b957-66a27671adf8": {
+              "boundary": null,
+              "entity": {
+                "bbox": [
+                  45.354,
+                  507.666,
+                  549.811,
+                  533.481
+                ],
+                "char_end": 6,
+                "char_start": 0,
+                "document_version_id": "47a2050e-03f9-410c-aca3-9c6cb8192d00",
+                "location_quality": "located",
+                "page_num": 30,
+                "parse_manifest_id": "291d35df-9c84-55ad-9712-3ad95c2b4f76",
+                "printed_page_label": "30",
+                "quote": "KB금융그룹",
+                "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                "source_id": "5ec2e7cd-b8c3-5713-b957-66a27671adf8",
+                "verification_state": "verified"
+              },
+              "facility": null,
+              "material": null,
+              "metric": {
+                "bbox": [
+                  45.354,
+                  507.666,
+                  549.811,
+                  533.481
+                ],
+                "char_end": 36,
+                "char_start": 27,
+                "document_version_id": "47a2050e-03f9-410c-aca3-9c6cb8192d00",
+                "location_quality": "located",
+                "page_num": 30,
+                "parse_manifest_id": "291d35df-9c84-55ad-9712-3ad95c2b4f76",
+                "printed_page_label": "30",
+                "quote": "ESG 채권 발행",
+                "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                "source_id": "5ec2e7cd-b8c3-5713-b957-66a27671adf8",
+                "verification_state": "verified"
+              },
+              "product": null,
+              "reporting_period": null,
+              "scope": null
+            },
+            "df017372-bbf1-5482-8470-08ad01eb83be": {
+              "boundary": null,
+              "entity": null,
+              "facility": null,
+              "material": null,
+              "metric": null,
+              "product": null,
+              "reporting_period": null,
+              "scope": null
+            }
+          }
+        },
+        {
+          "raw_response_sha256": "cd6d7108528f75948333f8d3451c1f650f698aef88d0c19792d6d0a3a19547c9",
+          "replicate_id": 3,
+          "request_id": "b987c33e-1413-54d3-954f-e4d2f6d8ed94",
+          "status": "validated_candidate",
+          "values": {
+            "001453c3-83b1-51a3-bbc2-69dc12385a68": {
+              "boundary": null,
+              "entity": null,
+              "facility": null,
+              "material": null,
+              "metric": null,
+              "product": null,
+              "reporting_period": {
+                "bbox": [
+                  45.354,
+                  36.660999999999945,
+                  508.315,
+                  45.78200000000004
+                ],
+                "char_end": 25,
+                "char_start": 21,
+                "document_version_id": "47a2050e-03f9-410c-aca3-9c6cb8192d00",
+                "location_quality": "located",
+                "page_num": 30,
+                "parse_manifest_id": "291d35df-9c84-55ad-9712-3ad95c2b4f76",
+                "printed_page_label": "30",
+                "quote": "2025",
+                "raw_text_sha256": "136341d059484d5cb1a0679738df67d37ff7954a419c1fdc51ffc253f71f1e41",
+                "source_id": "001453c3-83b1-51a3-bbc2-69dc12385a68",
+                "verification_state": "verified"
+              },
+              "scope": null
+            },
+            "5ec2e7cd-b8c3-5713-b957-66a27671adf8": {
+              "boundary": null,
+              "entity": {
+                "bbox": [
+                  45.354,
+                  507.666,
+                  549.811,
+                  533.481
+                ],
+                "char_end": 6,
+                "char_start": 0,
+                "document_version_id": "47a2050e-03f9-410c-aca3-9c6cb8192d00",
+                "location_quality": "located",
+                "page_num": 30,
+                "parse_manifest_id": "291d35df-9c84-55ad-9712-3ad95c2b4f76",
+                "printed_page_label": "30",
+                "quote": "KB금융그룹",
+                "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                "source_id": "5ec2e7cd-b8c3-5713-b957-66a27671adf8",
+                "verification_state": "verified"
+              },
+              "facility": null,
+              "material": null,
+              "metric": {
+                "bbox": [
+                  45.354,
+                  507.666,
+                  549.811,
+                  533.481
+                ],
+                "char_end": 36,
+                "char_start": 27,
+                "document_version_id": "47a2050e-03f9-410c-aca3-9c6cb8192d00",
+                "location_quality": "located",
+                "page_num": 30,
+                "parse_manifest_id": "291d35df-9c84-55ad-9712-3ad95c2b4f76",
+                "printed_page_label": "30",
+                "quote": "ESG 채권 발행",
+                "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                "source_id": "5ec2e7cd-b8c3-5713-b957-66a27671adf8",
+                "verification_state": "verified"
+              },
+              "product": null,
+              "reporting_period": null,
+              "scope": null
+            },
+            "df017372-bbf1-5482-8470-08ad01eb83be": {
+              "boundary": null,
+              "entity": null,
+              "facility": null,
+              "material": null,
+              "metric": null,
+              "product": null,
+              "reporting_period": null,
+              "scope": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "claim_id": "46f32a78-a481-5b6d-8de2-49a43773d9c0",
+      "status": "needs_review",
+      "reason": null,
+      "has_review": true,
+      "relation_records": [
+        {
+          "raw_response_sha256": "57a67a4cda48b0191556f100ed24f7ffa6ec8dfa3d50cf5581ec8139371d2cf4",
+          "replicate_id": 1,
+          "request_id": "e0069ed8-6076-5284-8d74-dbacdc8d9796",
+          "status": "validated_candidate",
+          "values": {
+            "001453c3-83b1-51a3-bbc2-69dc12385a68": {
+              "boundary": null,
+              "entity": null,
+              "facility": null,
+              "material": null,
+              "metric": null,
+              "product": null,
+              "reporting_period": {
+                "bbox": [
+                  45.354,
+                  36.660999999999945,
+                  508.315,
+                  45.78200000000004
+                ],
+                "char_end": 25,
+                "char_start": 21,
+                "document_version_id": "47a2050e-03f9-410c-aca3-9c6cb8192d00",
+                "location_quality": "located",
+                "page_num": 30,
+                "parse_manifest_id": "291d35df-9c84-55ad-9712-3ad95c2b4f76",
+                "printed_page_label": "30",
+                "quote": "2025",
+                "raw_text_sha256": "136341d059484d5cb1a0679738df67d37ff7954a419c1fdc51ffc253f71f1e41",
+                "source_id": "001453c3-83b1-51a3-bbc2-69dc12385a68",
+                "verification_state": "verified"
+              },
+              "scope": null
+            },
+            "5ec2e7cd-b8c3-5713-b957-66a27671adf8": {
+              "boundary": null,
+              "entity": {
+                "bbox": [
+                  45.354,
+                  507.666,
+                  549.811,
+                  533.481
+                ],
+                "char_end": 6,
+                "char_start": 0,
+                "document_version_id": "47a2050e-03f9-410c-aca3-9c6cb8192d00",
+                "location_quality": "located",
+                "page_num": 30,
+                "parse_manifest_id": "291d35df-9c84-55ad-9712-3ad95c2b4f76",
+                "printed_page_label": "30",
+                "quote": "KB금융그룹",
+                "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                "source_id": "5ec2e7cd-b8c3-5713-b957-66a27671adf8",
+                "verification_state": "verified"
+              },
+              "facility": null,
+              "material": null,
+              "metric": {
+                "bbox": [
+                  45.354,
+                  507.666,
+                  549.811,
+                  533.481
+                ],
+                "char_end": 36,
+                "char_start": 27,
+                "document_version_id": "47a2050e-03f9-410c-aca3-9c6cb8192d00",
+                "location_quality": "located",
+                "page_num": 30,
+                "parse_manifest_id": "291d35df-9c84-55ad-9712-3ad95c2b4f76",
+                "printed_page_label": "30",
+                "quote": "ESG 채권 발행",
+                "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                "source_id": "5ec2e7cd-b8c3-5713-b957-66a27671adf8",
+                "verification_state": "verified"
+              },
+              "product": null,
+              "reporting_period": null,
+              "scope": null
+            },
+            "df017372-bbf1-5482-8470-08ad01eb83be": {
+              "boundary": null,
+              "entity": null,
+              "facility": null,
+              "material": null,
+              "metric": null,
+              "product": null,
+              "reporting_period": null,
+              "scope": null
+            }
+          }
+        },
+        {
+          "raw_response_sha256": "57a67a4cda48b0191556f100ed24f7ffa6ec8dfa3d50cf5581ec8139371d2cf4",
+          "replicate_id": 2,
+          "request_id": "9a8a9d92-10d8-54b9-a77c-526f67413583",
+          "status": "validated_candidate",
+          "values": {
+            "001453c3-83b1-51a3-bbc2-69dc12385a68": {
+              "boundary": null,
+              "entity": null,
+              "facility": null,
+              "material": null,
+              "metric": null,
+              "product": null,
+              "reporting_period": {
+                "bbox": [
+                  45.354,
+                  36.660999999999945,
+                  508.315,
+                  45.78200000000004
+                ],
+                "char_end": 25,
+                "char_start": 21,
+                "document_version_id": "47a2050e-03f9-410c-aca3-9c6cb8192d00",
+                "location_quality": "located",
+                "page_num": 30,
+                "parse_manifest_id": "291d35df-9c84-55ad-9712-3ad95c2b4f76",
+                "printed_page_label": "30",
+                "quote": "2025",
+                "raw_text_sha256": "136341d059484d5cb1a0679738df67d37ff7954a419c1fdc51ffc253f71f1e41",
+                "source_id": "001453c3-83b1-51a3-bbc2-69dc12385a68",
+                "verification_state": "verified"
+              },
+              "scope": null
+            },
+            "5ec2e7cd-b8c3-5713-b957-66a27671adf8": {
+              "boundary": null,
+              "entity": {
+                "bbox": [
+                  45.354,
+                  507.666,
+                  549.811,
+                  533.481
+                ],
+                "char_end": 6,
+                "char_start": 0,
+                "document_version_id": "47a2050e-03f9-410c-aca3-9c6cb8192d00",
+                "location_quality": "located",
+                "page_num": 30,
+                "parse_manifest_id": "291d35df-9c84-55ad-9712-3ad95c2b4f76",
+                "printed_page_label": "30",
+                "quote": "KB금융그룹",
+                "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                "source_id": "5ec2e7cd-b8c3-5713-b957-66a27671adf8",
+                "verification_state": "verified"
+              },
+              "facility": null,
+              "material": null,
+              "metric": {
+                "bbox": [
+                  45.354,
+                  507.666,
+                  549.811,
+                  533.481
+                ],
+                "char_end": 36,
+                "char_start": 27,
+                "document_version_id": "47a2050e-03f9-410c-aca3-9c6cb8192d00",
+                "location_quality": "located",
+                "page_num": 30,
+                "parse_manifest_id": "291d35df-9c84-55ad-9712-3ad95c2b4f76",
+                "printed_page_label": "30",
+                "quote": "ESG 채권 발행",
+                "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                "source_id": "5ec2e7cd-b8c3-5713-b957-66a27671adf8",
+                "verification_state": "verified"
+              },
+              "product": null,
+              "reporting_period": null,
+              "scope": null
+            },
+            "df017372-bbf1-5482-8470-08ad01eb83be": {
+              "boundary": null,
+              "entity": null,
+              "facility": null,
+              "material": null,
+              "metric": null,
+              "product": null,
+              "reporting_period": null,
+              "scope": null
+            }
+          }
+        },
+        {
+          "raw_response_sha256": "57a67a4cda48b0191556f100ed24f7ffa6ec8dfa3d50cf5581ec8139371d2cf4",
+          "replicate_id": 3,
+          "request_id": "98ba2ad3-1214-554b-b560-4eb873edb1f4",
+          "status": "validated_candidate",
+          "values": {
+            "001453c3-83b1-51a3-bbc2-69dc12385a68": {
+              "boundary": null,
+              "entity": null,
+              "facility": null,
+              "material": null,
+              "metric": null,
+              "product": null,
+              "reporting_period": {
+                "bbox": [
+                  45.354,
+                  36.660999999999945,
+                  508.315,
+                  45.78200000000004
+                ],
+                "char_end": 25,
+                "char_start": 21,
+                "document_version_id": "47a2050e-03f9-410c-aca3-9c6cb8192d00",
+                "location_quality": "located",
+                "page_num": 30,
+                "parse_manifest_id": "291d35df-9c84-55ad-9712-3ad95c2b4f76",
+                "printed_page_label": "30",
+                "quote": "2025",
+                "raw_text_sha256": "136341d059484d5cb1a0679738df67d37ff7954a419c1fdc51ffc253f71f1e41",
+                "source_id": "001453c3-83b1-51a3-bbc2-69dc12385a68",
+                "verification_state": "verified"
+              },
+              "scope": null
+            },
+            "5ec2e7cd-b8c3-5713-b957-66a27671adf8": {
+              "boundary": null,
+              "entity": {
+                "bbox": [
+                  45.354,
+                  507.666,
+                  549.811,
+                  533.481
+                ],
+                "char_end": 6,
+                "char_start": 0,
+                "document_version_id": "47a2050e-03f9-410c-aca3-9c6cb8192d00",
+                "location_quality": "located",
+                "page_num": 30,
+                "parse_manifest_id": "291d35df-9c84-55ad-9712-3ad95c2b4f76",
+                "printed_page_label": "30",
+                "quote": "KB금융그룹",
+                "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                "source_id": "5ec2e7cd-b8c3-5713-b957-66a27671adf8",
+                "verification_state": "verified"
+              },
+              "facility": null,
+              "material": null,
+              "metric": {
+                "bbox": [
+                  45.354,
+                  507.666,
+                  549.811,
+                  533.481
+                ],
+                "char_end": 36,
+                "char_start": 27,
+                "document_version_id": "47a2050e-03f9-410c-aca3-9c6cb8192d00",
+                "location_quality": "located",
+                "page_num": 30,
+                "parse_manifest_id": "291d35df-9c84-55ad-9712-3ad95c2b4f76",
+                "printed_page_label": "30",
+                "quote": "ESG 채권 발행",
+                "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                "source_id": "5ec2e7cd-b8c3-5713-b957-66a27671adf8",
+                "verification_state": "verified"
+              },
+              "product": null,
+              "reporting_period": null,
+              "scope": null
+            },
+            "df017372-bbf1-5482-8470-08ad01eb83be": {
+              "boundary": null,
+              "entity": null,
+              "facility": null,
+              "material": null,
+              "metric": null,
+              "product": null,
+              "reporting_period": null,
+              "scope": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "claim_id": "7bda98ae-d29f-522a-8982-aa216d5fe722",
+      "status": "needs_review",
+      "reason": null,
+      "has_review": true,
+      "relation_records": [
+        {
+          "raw_response_sha256": "ebfdbc3d0082ea05fb8fd30a5e1b3d0297b44573ca9b6e6a9d259182751725c8",
+          "replicate_id": 1,
+          "request_id": "60a1fd65-5856-5a0b-af7f-36e846e9bcd1",
+          "status": "validated_candidate",
+          "values": {
+            "5ec2e7cd-b8c3-5713-b957-66a27671adf8": {
+              "boundary": null,
+              "entity": {
+                "bbox": [
+                  45.354,
+                  507.666,
+                  549.811,
+                  533.481
+                ],
+                "char_end": 6,
+                "char_start": 0,
+                "document_version_id": "47a2050e-03f9-410c-aca3-9c6cb8192d00",
+                "location_quality": "located",
+                "page_num": 30,
+                "parse_manifest_id": "291d35df-9c84-55ad-9712-3ad95c2b4f76",
+                "printed_page_label": "30",
+                "quote": "KB금융그룹",
+                "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                "source_id": "5ec2e7cd-b8c3-5713-b957-66a27671adf8",
+                "verification_state": "verified"
+              },
+              "facility": null,
+              "material": null,
+              "metric": {
+                "bbox": [
+                  45.354,
+                  507.666,
+                  549.811,
+                  533.481
+                ],
+                "char_end": 36,
+                "char_start": 27,
+                "document_version_id": "47a2050e-03f9-410c-aca3-9c6cb8192d00",
+                "location_quality": "located",
+                "page_num": 30,
+                "parse_manifest_id": "291d35df-9c84-55ad-9712-3ad95c2b4f76",
+                "printed_page_label": "30",
+                "quote": "ESG 채권 발행",
+                "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                "source_id": "5ec2e7cd-b8c3-5713-b957-66a27671adf8",
+                "verification_state": "verified"
+              },
+              "product": null,
+              "reporting_period": null,
+              "scope": null
+            }
+          }
+        },
+        {
+          "raw_response_sha256": "ebfdbc3d0082ea05fb8fd30a5e1b3d0297b44573ca9b6e6a9d259182751725c8",
+          "replicate_id": 2,
+          "request_id": "f1b2bd02-1405-5b30-a990-b2d6cf3acca6",
+          "status": "validated_candidate",
+          "values": {
+            "5ec2e7cd-b8c3-5713-b957-66a27671adf8": {
+              "boundary": null,
+              "entity": {
+                "bbox": [
+                  45.354,
+                  507.666,
+                  549.811,
+                  533.481
+                ],
+                "char_end": 6,
+                "char_start": 0,
+                "document_version_id": "47a2050e-03f9-410c-aca3-9c6cb8192d00",
+                "location_quality": "located",
+                "page_num": 30,
+                "parse_manifest_id": "291d35df-9c84-55ad-9712-3ad95c2b4f76",
+                "printed_page_label": "30",
+                "quote": "KB금융그룹",
+                "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                "source_id": "5ec2e7cd-b8c3-5713-b957-66a27671adf8",
+                "verification_state": "verified"
+              },
+              "facility": null,
+              "material": null,
+              "metric": {
+                "bbox": [
+                  45.354,
+                  507.666,
+                  549.811,
+                  533.481
+                ],
+                "char_end": 36,
+                "char_start": 27,
+                "document_version_id": "47a2050e-03f9-410c-aca3-9c6cb8192d00",
+                "location_quality": "located",
+                "page_num": 30,
+                "parse_manifest_id": "291d35df-9c84-55ad-9712-3ad95c2b4f76",
+                "printed_page_label": "30",
+                "quote": "ESG 채권 발행",
+                "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                "source_id": "5ec2e7cd-b8c3-5713-b957-66a27671adf8",
+                "verification_state": "verified"
+              },
+              "product": null,
+              "reporting_period": null,
+              "scope": null
+            }
+          }
+        },
+        {
+          "raw_response_sha256": "ebfdbc3d0082ea05fb8fd30a5e1b3d0297b44573ca9b6e6a9d259182751725c8",
+          "replicate_id": 3,
+          "request_id": "8028adac-4fc3-5d08-8224-08fb383d06a5",
+          "status": "validated_candidate",
+          "values": {
+            "5ec2e7cd-b8c3-5713-b957-66a27671adf8": {
+              "boundary": null,
+              "entity": {
+                "bbox": [
+                  45.354,
+                  507.666,
+                  549.811,
+                  533.481
+                ],
+                "char_end": 6,
+                "char_start": 0,
+                "document_version_id": "47a2050e-03f9-410c-aca3-9c6cb8192d00",
+                "location_quality": "located",
+                "page_num": 30,
+                "parse_manifest_id": "291d35df-9c84-55ad-9712-3ad95c2b4f76",
+                "printed_page_label": "30",
+                "quote": "KB금융그룹",
+                "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                "source_id": "5ec2e7cd-b8c3-5713-b957-66a27671adf8",
+                "verification_state": "verified"
+              },
+              "facility": null,
+              "material": null,
+              "metric": {
+                "bbox": [
+                  45.354,
+                  507.666,
+                  549.811,
+                  533.481
+                ],
+                "char_end": 36,
+                "char_start": 27,
+                "document_version_id": "47a2050e-03f9-410c-aca3-9c6cb8192d00",
+                "location_quality": "located",
+                "page_num": 30,
+                "parse_manifest_id": "291d35df-9c84-55ad-9712-3ad95c2b4f76",
+                "printed_page_label": "30",
+                "quote": "ESG 채권 발행",
+                "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                "source_id": "5ec2e7cd-b8c3-5713-b957-66a27671adf8",
+                "verification_state": "verified"
+              },
+              "product": null,
+              "reporting_period": null,
+              "scope": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "claim_id": "34721e99-fabf-59b6-98f0-e0a7ecdf33a9",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "has_review": false,
+      "relation_records": []
+    }
+  ],
+  "audit": {
+    "run_id": "8833ff17-061a-4ade-8822-7bc0dc5fff50",
+    "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+    "checkpoint_sha256": "2e4cadb6cddb2870122727a19d244b350f8b3c34bb88b80e4717f0f3fceb8fef",
+    "state_path": ".local/developer-a-live-tagging-kb-source-repair",
+    "additional_model_calls": 0,
+    "counts": {
+      "claims_without_review": 2,
+      "raw_present_element_votes": 25,
+      "raw_present_to_unknown": 12,
+      "present_votes_with_no_relation_roles": 0,
+      "present_votes_with_literal_value_mismatch": 12,
+      "raw_present_to_present": 13
+    },
+    "claims": [
+      {
+        "claim_id": "81c5504e-832e-5de7-a88e-48426fe5aaae",
+        "quote": "채권 발행에 따라 조달된 자금은 녹색채권 관리체계에 따라 친환경 프로젝트 파이낸싱(PF), 저탄소 전환 대출 등 기후위기 완화 및 적응 활동에 전액 할당됩니다.",
+        "missing_required_claim_dimensions": [
+          "entity",
+          "metric",
+          "reporting_period"
+        ],
+        "relation_source_count": 2,
+        "present_votes": [
+          {
+            "replicate_id": 1,
+            "element_id": "M1",
+            "guarded_state": "unknown",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": true
+          },
+          {
+            "replicate_id": 1,
+            "element_id": "M2",
+            "guarded_state": "unknown",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": true
+          },
+          {
+            "replicate_id": 1,
+            "element_id": "M4",
+            "guarded_state": "unknown",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": true
+          },
+          {
+            "replicate_id": 2,
+            "element_id": "M1",
+            "guarded_state": "unknown",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": true
+          },
+          {
+            "replicate_id": 2,
+            "element_id": "M2",
+            "guarded_state": "unknown",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": true
+          },
+          {
+            "replicate_id": 2,
+            "element_id": "M4",
+            "guarded_state": "unknown",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": true
+          },
+          {
+            "replicate_id": 3,
+            "element_id": "M1",
+            "guarded_state": "unknown",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": true
+          },
+          {
+            "replicate_id": 3,
+            "element_id": "M2",
+            "guarded_state": "unknown",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": true
+          },
+          {
+            "replicate_id": 3,
+            "element_id": "M4",
+            "guarded_state": "unknown",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": true
+          }
+        ]
+      },
+      {
+        "claim_id": "0a31bf06-bbbc-58e0-b9ff-9367fcad672b",
+        "quote": "KB금융그룹은 기후 관련 위험의 모니터링 및 공시데이터의 체계적 관리를 위하여 그룹의 환경정보관리시스템 및 ESG정보공시시스템의 구축과 유지보수에 지속적으로 투자하고 있습니다.",
+        "missing_required_claim_dimensions": [
+          "metric",
+          "reporting_period"
+        ],
+        "relation_source_count": 4,
+        "present_votes": [
+          {
+            "replicate_id": 1,
+            "element_id": "M1",
+            "guarded_state": "present",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": false
+          },
+          {
+            "replicate_id": 1,
+            "element_id": "M2",
+            "guarded_state": "present",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": false
+          },
+          {
+            "replicate_id": 1,
+            "element_id": "M4",
+            "guarded_state": "present",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": false
+          },
+          {
+            "replicate_id": 2,
+            "element_id": "M1",
+            "guarded_state": "present",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": false
+          },
+          {
+            "replicate_id": 2,
+            "element_id": "M2",
+            "guarded_state": "unknown",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": true
+          },
+          {
+            "replicate_id": 2,
+            "element_id": "M4",
+            "guarded_state": "unknown",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": true
+          },
+          {
+            "replicate_id": 3,
+            "element_id": "M1",
+            "guarded_state": "present",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": false
+          },
+          {
+            "replicate_id": 3,
+            "element_id": "M2",
+            "guarded_state": "present",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": false
+          }
+        ]
+      },
+      {
+        "claim_id": "46f32a78-a481-5b6d-8de2-49a43773d9c0",
+        "quote": "이를 통해 그룹 전반의 온실가스 배출량을 실시간으로 관리함으로써 기후위기에 따른 운영위험을 최소화합니다.",
+        "missing_required_claim_dimensions": [
+          "entity",
+          "metric",
+          "reporting_period"
+        ],
+        "relation_source_count": 4,
+        "present_votes": [
+          {
+            "replicate_id": 2,
+            "element_id": "M1",
+            "guarded_state": "present",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": false
+          },
+          {
+            "replicate_id": 2,
+            "element_id": "M2",
+            "guarded_state": "unknown",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": true
+          }
+        ]
+      },
+      {
+        "claim_id": "7bda98ae-d29f-522a-8982-aa216d5fe722",
+        "quote": "또한, 저탄소 경제로의 이행을 위해 고탄소 배출 산업 부문에 대한 익스포저를 점진적으로 조정하고 있으며, 녹색금융 및 전환금융 확대를 위해 기후금융 프로세스 고도화를 추진하고, 새로운 성장 분야인 재생에너지 및 저탄소 기술 스타트업에 대한 임팩트 투자를 지속 검토하고 있습니다.",
+        "missing_required_claim_dimensions": [
+          "entity",
+          "metric",
+          "reporting_period"
+        ],
+        "relation_source_count": 2,
+        "present_votes": [
+          {
+            "replicate_id": 1,
+            "element_id": "M1",
+            "guarded_state": "present",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": false
+          },
+          {
+            "replicate_id": 2,
+            "element_id": "M1",
+            "guarded_state": "present",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": false
+          },
+          {
+            "replicate_id": 2,
+            "element_id": "M2",
+            "guarded_state": "present",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": false
+          },
+          {
+            "replicate_id": 3,
+            "element_id": "M1",
+            "guarded_state": "present",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": false
+          },
+          {
+            "replicate_id": 3,
+            "element_id": "M2",
+            "guarded_state": "present",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": false
+          },
+          {
+            "replicate_id": 3,
+            "element_id": "M4",
+            "guarded_state": "present",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": false
+          }
+        ]
+      }
+    ]
+  },
+  "limitations": [
+    "One physical page; fresh extraction and increased tagging cap60 vs30, not controlled A/B or independent gold accuracy.",
+    "One source-validation block and one relation-disagreement block remain.",
+    "Four review records are candidate tags, not approved grades or semantic truth.",
+    "Cross-platform CI and full-report/table coverage remain incomplete."
+  ],
+  "offline_replay": {
+    "schema": "live_source_repair_replay_v1",
+    "run_id": "8833ff17-061a-4ade-8822-7bc0dc5fff50",
+    "model_calls_forbidden": true,
+    "results": [
+      {
+        "claim_id": "81c5504e-832e-5de7-a88e-48426fe5aaae",
+        "replay": "passed",
+        "decision": null
+      },
+      {
+        "claim_id": "0a31bf06-bbbc-58e0-b9ff-9367fcad672b",
+        "replay": "passed",
+        "decision": null
+      },
+      {
+        "claim_id": "46f32a78-a481-5b6d-8de2-49a43773d9c0",
+        "replay": "passed",
+        "decision": null
+      },
+      {
+        "claim_id": "7bda98ae-d29f-522a-8982-aa216d5fe722",
+        "replay": "passed",
+        "decision": null
+      }
+    ],
+    "limitations": [
+      "Offline immutable input validation; not semantic gold or grade approval."
+    ]
+  }
+}

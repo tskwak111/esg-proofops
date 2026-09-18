@@ -1,9 +1,9 @@
 {
-  "checked_at": "2026-09-18T20:50:06.666456+00:00",
+  "checked_at": "2026-09-18T21:03:53.951945+00:00",
   "scope": "documentation, structured contracts and synthetic schema examples only",
   "status": "passed",
-  "checks_total": 852,
-  "passed": 852,
+  "checks_total": 854,
+  "passed": 854,
   "failed": 0,
   "counts": {
     "numbered_documents": 34,
@@ -194,6 +194,11 @@
       "detail": ""
     },
     {
+      "name": "json:evidence/native-ocr-linux-replay-cause-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
       "name": "json:evidence/orchestration_tasks.json",
       "passed": true,
       "detail": ""
@@ -265,6 +270,11 @@
     },
     {
       "name": "json:evidence/live-tagging-doosan-glyph-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/live-tagging-kb-source-repair-20260919.json",
       "passed": true,
       "detail": ""
     },

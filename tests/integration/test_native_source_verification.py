@@ -351,6 +351,7 @@ def test_ocr_padding_preserves_crop_pixels_and_original_coordinates(monkeypatch)
     from PIL import Image
     from proofops.adapters.local import source_verification
 
+    monkeypatch.setattr(sys, "platform", "darwin")
     original = Image.new("RGB", (60, 60), "black")
     page = SimpleNamespace(
         width=20, height=20, to_image=lambda **kw: SimpleNamespace(original=original.copy())
@@ -408,3 +409,22 @@ def test_padding_retry_is_bounded_and_keeps_both_readings(
         assert [r["text"] for r in record["rendered_attempts"]] == [first, second]
     else:
         assert "rendered_attempts" not in record
+
+
+@pytest.mark.parametrize("platform", ["linux", "win32"])
+def test_unsupported_ocr_platform_does_not_render_or_launch_swift(monkeypatch, platform):
+    from types import SimpleNamespace
+
+    from proofops.adapters.local import source_verification
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("unsupported OCR platform attempted native execution")
+
+    monkeypatch.setattr(sys, "platform", platform)
+    monkeypatch.setattr(source_verification.subprocess, "run", forbidden)
+    page = SimpleNamespace(width=20, height=20, to_image=forbidden)
+    assert source_verification._rendered_text(page, (1, 1, 10, 10)) == {
+        "status": "unresolved",
+        "reason": "rendered_reader_unavailable",
+        "error": "UnsupportedPlatform",
+    }

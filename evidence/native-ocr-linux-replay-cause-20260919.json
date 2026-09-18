@@ -1,0 +1,28 @@
+{
+  "schema": "native_ocr_platform_replay_cause_v1",
+  "ci_run": 35393819544,
+  "head": "0b28f0e49d9a6fccaa57b5fb0ca94d2a8a89a37a",
+  "failing_test": "tests/integration/test_native_paragraph_worker.py::test_opt_in_publishes_v4_and_replays_immutable_receipt",
+  "diff": {
+    "path": "records[*].rendered.error",
+    "initial": "TimeoutExpired",
+    "replay": "CalledProcessError",
+    "shared_status": "unresolved",
+    "shared_reason": "rendered_reader_unavailable"
+  },
+  "consequence": "Full immutable receipt hashes differ; worker rejects replay with PARSER_FAILED.",
+  "change": "On non-darwin platforms return unresolved/rendered_reader_unavailable/UnsupportedPlatform before image rendering or Swift invocation.",
+  "preserved": [
+    "No source promotion or evidence absence.",
+    "Exact receipt equality remains required.",
+    "macOS OCR path and bounded retry remain."
+  ],
+  "tests": {
+    "red": "2 failed: unsupported linux/win32 attempted image/native execution",
+    "targeted": "31 passed"
+  },
+  "limitations": [
+    "New-head Linux CI pending.",
+    "This identifies the recorded failure; it does not prove every historical CI failure had the same cause."
+  ]
+}

@@ -949,3 +949,55 @@ passed separately (1passed,11.06s). Ruff/format, mypy183sources, proofops build
 and package documentation/contracts checks passed. Logs:/tmp/proofops-padding-retry-*.
 The full source validator still needs fresh cross-report pipeline evaluation;
 no claim is made that historical blocked claims have changed or Linux CI is fixed.
+
+
+### 2026-09-19 · Actual source-repair pipeline and independent replay review
+
+Executed exactly one fresh KB page30 run at0b28f0e with original shared USD20
+ledger:8833ff17-061a-4ade-8822-7bc0dc5fff50. Extraction cap8; total preliminary/
+relation/element cap60 (previous cap30). All product runtime files remained frozen
+through the live run. Six extracted claims, five source-verified (previous pilot
+two), four immutable candidate reviews (previous one). One table-text source block
+and one relation disagreement remain. Fresh extraction and different cap mean
+this is not controlled A/B. No grades, rulepack approval or semantic accuracy claim.
+50calls, USD0.0390675450. Shared ledger1672calls, USD9.1177674650 committed/reserved,
+seven unsettled retained. Evidence:live-tagging-kb-source-repair-20260919.json.
+Raw25 present element votes become13present and12unknown; all12 downgraded votes
+have literal-value mismatches. Candidate review availability is not correctness.
+
+Orca read-only review task_e663e95c2822 / ctx_c9fdde9278da ran with effective
+Codex gpt-5.6-terra medium, after the previously recorded external-provider limits.
+Report:/tmp/proofops-native-replay-review.md. Worker confirmed that old generic
+PARSER_FAILED and truncated receipts cannot establish root cause; OCR failure
+payloads and exact geometry are hypotheses until the new JSON diff is available.
+No code edits, tests or model calls from this worker. Released/archived then
+acknowledged delivery_b09d855aa480; no reclaimable workers remain.
+Latest observed Codex quota20:56UTC:79%used,21%remaining (stop threshold90%used).
+
+
+The four actual reviews reloaded successfully with UpstageProbe.complete replaced
+by a failing sentinel; results are embedded in the pilot evidence. No provider
+call occurred during replay. Only after replay finished was runtime edited again.
+
+CI35393819544 now supplies decisive evidence: the only receipt payload difference
+is rendered.error TimeoutExpired→CalledProcessError (plus the resulting artifact
+hash), with both reads unresolved/rendered_reader_unavailable. This explains that
+Linux failure: unsupported Swift Vision execution creates variable failure details
+that break exact replay. The smallest root fix is a non-darwin guard before image
+rendering/process launch, returning stable UnsupportedPlatform. Exact receipt
+comparison and unresolved source status remain; no Linux OCR or source approval
+is implied. Earlier failures are not all proven to share this cause.
+Two explicit linux/win32 tests failed before the guard and31 native-source tests
+passed after. Fake-render image padding test explicitly simulates supported macOS
+so it exercises pixel preservation on every CI platform. No existing assertions
+were removed. Source policy pins this revision; historical live run8833ff17 uses
+0b28f0e for replay. Evidence:native-ocr-linux-replay-cause-20260919.json.
+
+Final local platform-fix validation:2552passed,7skipped,2existingwarnings in193.36s;
+Ruff/format, mypy183sources, build and package checks passed. Logs:
+/tmp/proofops-ocr-platform-*. New-head Linux CI still required.
+Additional measured service bottleneck: the actual pilot's final claims/detail
+API reads took17632ms/17055ms, whereas cost read took2.9ms. Each graph read
+recomputes native/OCR attestation. A future bounded cache must retain tenant,
+source/graph/receipt/runtime pins and fail closed on changes; this performance
+problem is recorded, not claimed fixed by source-verification improvements.

@@ -242,3 +242,12 @@ reading under rendered; the full receipt hash covers padding, images and reads.
 Hidden text, clipping, uncertain native geometry and table relationships retain
 the existing gates. The verifier hash pins this behavior, so use a fresh run and
 retain the old code for old-receipt replay. No dependency or database migration.
+
+
+Apple Vision OCR is macOS-only. On other platforms, return the stable unresolved
+rendered_reader_unavailable / UnsupportedPlatform result before rendering or
+launching Swift. Do not attempt an unsupported compiler/framework and serialize
+its variable timeout/compile error into an immutable receipt. This does not add
+Linux OCR support or promote any source; native/text and receipt equality gates
+remain in force. The policy hash pins this change; historical runs keep their
+original verifier revision.
