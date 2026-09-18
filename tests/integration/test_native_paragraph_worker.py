@@ -106,8 +106,10 @@ def test_opt_in_publishes_v4_and_replays_immutable_receipt(tmp_path, monkeypatch
         return receipt
 
     monkeypatch.setattr(source_verification, "attest_native_sources", record_attestation)
+    message = JobMessage(
+        **service.store.jobs.pending_outbox(TENANT, run_id, now=now[0])[0]["message"]
+    )
     outcome = runner.run_once(tenant_id=TENANT, run_id=run_id)
-    message = JobMessage(**service.store.jobs.get_run(TENANT, run_id)["parse_job"])
     assert outcome == "committed", {
         "job_error": service.store.jobs.get_job(message)["error_code"],
         "native_attestations": receipts,

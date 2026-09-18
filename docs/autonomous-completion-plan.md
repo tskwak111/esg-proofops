@@ -750,3 +750,13 @@ results precede this prompt-only change. CI35386799967 failed2250passed/1failed:
 the native-worker failure diagnostic itself used success-only parse_job and
 raised KeyError, masking the original outcome. Original worker cause remains
 unproven; fixing diagnostic observability is the next bounded task.
+
+The diagnostic repair captures the existing parse JobMessage from the pending
+outbox before execution, rather than reading success-only run.parse_job after
+execution. Orca task task_b50ee1fd5e54 / ctx_63a2af5f7e96 used effective
+ gpt-5.6-luna medium, changed only the test, reported 12 native-worker tests
+passed (44.82s), then was released/closed and acknowledged. Coordinator also
+forced run_once to return failed: the original committed assertion now reports
+job_error/native_attestations instead of KeyError. Ruff check/format and
+ git diff --check passed. This repairs failure observability; the intermittent
+original native receipt failure still requires evidence from CI.
