@@ -3,6 +3,17 @@
 The approved plan is docs/19_IMPLEMENTATION_PLAN.md and the dependency graph in
 contracts/task_catalog.json. This file records execution; it does not replace that plan.
 
+## Developer A preliminary classification — 2026-09-18 KST
+
+Source-bound request/response validation and per-claim unresolved-track handling
+are implemented. Six authorized development model calls identified malformed
+JSON and bad character offsets; exact unique quote selection now maps positions
+locally. Two final KB candidates pass source/schema checks, but semantic role
+and track disagreements remain unapproved. This is not gold accuracy or live
+service tagging completion. Increment USD0.0021336150; shared committed/reserved
+USD7.9372558150 of USD20, with the same six old unsettled reservations.
+See [contract and verification](../evidence/preliminary-classification-20260918.md).
+
 ## Developer A resumption — 2026-09-18 KST
 
 Active team checkout: `.local/team-publication-20260918`, branch

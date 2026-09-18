@@ -111,7 +111,14 @@ class LocalTagRunner:
             if reason:
                 records.append(item)
                 continue
-            track, context, relation_tags = self.preliminary(claim, graph)
+            preliminary = self.preliminary(claim, graph)
+            track, context, relation_tags = (
+                (None, None, None) if preliminary is None else preliminary
+            )
+            if track is None:
+                item.update(reason="PRELIMINARY_TAGS_UNRESOLVED")
+                records.append(item)
+                continue
             if context.claim != claim or track.claim != claim:
                 raise ValueError("PRELIMINARY_CLAIM_MISMATCH")
             original_packet = retrieve_evidence(
