@@ -183,3 +183,14 @@ def test_parent_search_keeps_context_separate_and_rejects_false_parent():
     bad["span"]["quote"] = "invented"
     with pytest.raises(ValueError):
         search.search_with_parent(search.scope, child, bad)
+
+
+def test_section_search_uses_local_adapter_and_exposes_unparsed_evidence_pages():
+    from proofops.adapters.local.evidence_search import LocalEvidenceSearch
+
+    graph = graph_of(COMPOUND, "사회 본문", "배출량 데이터", "사회 데이터")
+    search = SectionSearch(graph, section_map(graph), tenant_id=TENANT)
+    assert isinstance(search, LocalEvidenceSearch)
+    assert search.missing_pages == (5,)
+    assert search.pages == frozenset((1, 3, 4))
+    assert search.coverage["evidence_candidate_pages"] == [1, 3, 4, 5]

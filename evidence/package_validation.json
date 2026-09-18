@@ -1,9 +1,9 @@
 {
-  "checked_at": "2026-09-18T15:40:23.629686+00:00",
+  "checked_at": "2026-09-18T16:09:07.139846+00:00",
   "scope": "documentation, structured contracts and synthetic schema examples only",
   "status": "passed",
-  "checks_total": 822,
-  "passed": 822,
+  "checks_total": 823,
+  "passed": 823,
   "failed": 0,
   "counts": {
     "numbered_documents": 34,
@@ -245,6 +245,11 @@
     },
     {
       "name": "json:evidence/measurement-role-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/local-evidence-search-20260919.json",
       "passed": true,
       "detail": ""
     },

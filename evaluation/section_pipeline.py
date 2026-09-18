@@ -6,14 +6,11 @@ Maps remain candidates, not approved scope or verified evidence. No network call
 
 import argparse
 import json
-import re
-from collections import Counter
 from dataclasses import asdict
-from hashlib import sha256
-from math import log1p
 from pathlib import Path
 
-from proofops.application.evidence.retrieval import SearchHit, SearchResult, SearchScope
+from proofops.adapters.local.evidence_search import LocalEvidenceSearch
+from proofops.adapters.local.evidence_search import search_terms as search_terms
 from proofops.application.ingest.gri import _validate_graph
 from proofops.domain.provenance import canonical_hash
 
@@ -139,18 +136,7 @@ def table_row_contexts(graph, source_id, *, tenant_id):
     return matches
 
 
-def search_terms(text):
-    """Korean bigrams and whole Latin/numeric tokens, for routing only."""
-    terms = []
-    for word in re.findall(r"[가-힣]+|[a-z]+|\d+(?:[.,]\d+)*", text.casefold()):
-        if re.fullmatch(r"[가-힣]+", word):
-            terms.extend(word[i : i + 2] for i in range(len(word) - 1))
-        else:
-            terms.append(word)
-    return terms
-
-
-class SectionSearch:
+class SectionSearch(LocalEvidenceSearch):
     """Existing EvidenceSearchPort over one immutable same-document graph.
 
     Lexical hits are candidate routes only; retrieve_evidence still checks sources,
@@ -159,24 +145,23 @@ class SectionSearch:
 
     def __init__(self, graph, mapped, *, tenant_id):
         self.coverage = validated_map(graph, mapped, tenant_id)
-        self.graph = graph
-        self.synthetic = any(batch.synthetic for batch in graph.candidates)
-        self.scope = SearchScope(
-            tenant_id,
-            graph.document_version_id,
-            graph.parse_manifest_id,
-            canonical_hash(dict(map=mapped["map_sha256"], search="korean-bigram-bm25-v2")),
+        available = {block.page_num for block in graph.blocks}
+        declared = frozenset(self.coverage["evidence_candidate_pages"])
+        self.missing_pages = tuple(sorted(declared - available))
+        super().__init__(
+            graph,
+            tenant_id=tenant_id,
+            pages=tuple(sorted(declared & available)),
+            index_generation=canonical_hash(
+                dict(map=mapped["map_sha256"], search="korean-bigram-bm25-v2")
+            ),
         )
-        self.pages = frozenset(self.coverage["evidence_candidate_pages"])
-        self.documents = [
-            (block, Counter(search_terms(block.normalized_text)))
-            for block in graph.blocks
-            if block.page_num in self.pages and block.normalized_text.strip()
-        ]
-        self.frequencies = Counter(term for _, terms in self.documents for term in terms)
-        self.average_length = sum(sum(c.values()) for _, c in self.documents) / max(
-            1, len(self.documents)
-        )
+
+    def search(self, scope, query, *, vector=None):
+        # Preserve this evaluation API's existing sanitized scope error.
+        if scope != self.scope:
+            raise ValueError("section search scope mismatch")
+        return super().search(scope, query, vector=vector)
 
     def search_with_parent(self, scope, claim, parent):
         """Two bounded review routes; parent text never becomes a claim dimension."""
@@ -205,36 +190,6 @@ class SectionSearch:
                 )
                 for role, c in (("claim_only", claim), ("parent_context_only", parent))
             ],
-        )
-
-    def search(self, scope, query, *, vector=None):
-        if scope != self.scope:
-            raise ValueError("section search scope mismatch")
-        if vector is not None:
-            return SearchResult(status="not_run")
-        terms = set(search_terms(query))
-        # ponytail: local BM25 scan; Korean bigrams route candidates, not semantic bindings.
-        ranked = []
-        for block, counts in self.documents:
-            length = sum(counts.values())
-            score = sum(
-                log1p(
-                    (len(self.documents) - self.frequencies[t] + 0.5) / (self.frequencies[t] + 0.5)
-                )
-                * counts[t]
-                * 2.2
-                / (counts[t] + 1.2 * (0.25 + 0.75 * length / self.average_length))
-                for t in sorted(terms & counts.keys())
-            )
-            if score:
-                ranked.append((-score, block.source_id, block))
-        ranked.sort(key=lambda item: item[:2])
-        return SearchResult(
-            tuple(
-                SearchHit(scope, block.source_id, sha256(block.raw_text.encode()).hexdigest())
-                for _, _, block in ranked[:20]
-            ),
-            "bounded",
         )
 
 

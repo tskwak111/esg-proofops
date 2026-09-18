@@ -1,3 +1,12 @@
+## 2026-09-19 · 로컬 근거 검색 어댑터 재사용
+
+기존 한글 BM25 검색을 `LocalEvidenceSearch`로 옮기고 섹션 평가/데모 경로에서
+재사용한다. 명시된 페이지와 문서·테넌트·파싱 버전을 검증하며, 파싱되지 않은
+근거 페이지를 별도로 보존한다. 실제3개 보고서9개 검색 경로를 확인했지만 후보의
+관련성 정확도나 원문 검증 완료를 의미하지 않는다. 실제 태깅 워커는 아직 연결 전이다.
+계약: [local-evidence-search-contract.md](local-evidence-search-contract.md).
+검증: [local-evidence-search-20260919.md](../evidence/local-evidence-search-20260919.md).
+
 ## 2026-09-19 · 선행 분류 3회 평가 CLI와 실제 비교
 
 `evaluation/preliminary_probe.py`에 검증된 기존 파일럿의 선행 분류를 3회 비교하는

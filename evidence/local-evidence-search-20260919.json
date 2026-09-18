@@ -1,0 +1,138 @@
+{
+  "kind": "routing_smoke_not_relevance_accuracy",
+  "model_calls": 0,
+  "published": false,
+  "reports": [
+    {
+      "report": "kakao",
+      "source_sha256": "43804a2d5eccfc6aa9c5b5480ec6714c7d07bea13ed68729c0af7a3b622ce76d",
+      "graph_sha256": "e6863ecbcaf63d5c67e2251abe00fe4ad68def168a82cc4a95f0fbd3fafe3824",
+      "pages": [
+        47,
+        114,
+        130
+      ],
+      "synthetic": false,
+      "results": [
+        {
+          "query": "온실가스 배출량",
+          "status": "bounded",
+          "hits": 20,
+          "pages": [
+            114,
+            130
+          ],
+          "unverified_hits": 20
+        },
+        {
+          "query": "환경 에너지 사용량",
+          "status": "bounded",
+          "hits": 20,
+          "pages": [
+            114,
+            130
+          ],
+          "unverified_hits": 20
+        },
+        {
+          "query": "검증 범위 보증",
+          "status": "bounded",
+          "hits": 20,
+          "pages": [
+            114,
+            130
+          ],
+          "unverified_hits": 20
+        }
+      ]
+    },
+    {
+      "report": "kb",
+      "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+      "graph_sha256": "0dc30b714b2c289db9c8d1c61208e831494074cd3249ff7e2902586b9b622f0a",
+      "pages": [
+        30,
+        46,
+        109
+      ],
+      "synthetic": false,
+      "results": [
+        {
+          "query": "온실가스 배출량",
+          "status": "bounded",
+          "hits": 20,
+          "pages": [
+            46,
+            109
+          ],
+          "unverified_hits": 20
+        },
+        {
+          "query": "환경 에너지 사용량",
+          "status": "bounded",
+          "hits": 20,
+          "pages": [
+            30,
+            46,
+            109
+          ],
+          "unverified_hits": 20
+        },
+        {
+          "query": "검증 범위 보증",
+          "status": "bounded",
+          "hits": 19,
+          "pages": [
+            46,
+            109
+          ],
+          "unverified_hits": 19
+        }
+      ]
+    },
+    {
+      "report": "doosan",
+      "source_sha256": "dc59b2b1c5bbf02e33bb901f94aef7cd984dc62547708e92aa1332ac550102e9",
+      "graph_sha256": "7a34150d464fd47a6b2529133ddec85bcb73c6affb48257354139ad4e7655039",
+      "pages": [
+        27,
+        97,
+        110
+      ],
+      "synthetic": false,
+      "results": [
+        {
+          "query": "온실가스 배출량",
+          "status": "bounded",
+          "hits": 20,
+          "pages": [
+            27,
+            97,
+            110
+          ],
+          "unverified_hits": 20
+        },
+        {
+          "query": "환경 에너지 사용량",
+          "status": "bounded",
+          "hits": 20,
+          "pages": [
+            27,
+            97
+          ],
+          "unverified_hits": 20
+        },
+        {
+          "query": "검증 범위 보증",
+          "status": "bounded",
+          "hits": 18,
+          "pages": [
+            97,
+            110
+          ],
+          "unverified_hits": 18
+        }
+      ]
+    }
+  ]
+}
