@@ -1,0 +1,507 @@
+{
+  "baseline": "3560ffe",
+  "scope": "development diagnostic; schema/source acceptance is not semantic accuracy",
+  "experiments": [
+    {
+      "mode": "v1",
+      "company": "naver",
+      "claims": 7,
+      "before": {
+        "limit_usd": "10.00",
+        "calls": 1247,
+        "unsettled_calls": 6,
+        "committed_usd": "7.2759331200"
+      },
+      "after": {
+        "limit_usd": "10.00",
+        "calls": 1249,
+        "unsettled_calls": 6,
+        "committed_usd": "7.2768274200"
+      },
+      "result_file_sha256": "1a4d696f6962ed0e733e70f7c1b5fa0b18f018ec2dad10ee1ce1f3e5524e8c61",
+      "requests": [
+        {
+          "request_id": "1798b89b-d4ae-4fe7-9bfe-f3424844b364",
+          "status": "passed",
+          "packet_sha256": "39beb93d0b655692b468b578df23a68e8c3aaa809fb1442610eb3926e3736b2d",
+          "wire_sha256": "e26805194c6477dd602e6a408523f7fbb3024f771c5158e0b23d9fd8bedd3ca8",
+          "prompt_sha256": "c0b79fcf3e3a6bca018b045bc43debbff94f0954393d7b589daca1f80dc706bc",
+          "contract_sha256": "4d58d599bc881a748a420aaa44dcad410bf39f4e74f809df1d98f8bf96ea426e",
+          "model": "solar-pro3",
+          "replica": 1,
+          "helper_sha256": "768a38c8f512d6b6c98c134f555fe944baf81e4a6f10a04ddfa80e8179e3e9da",
+          "graph_sha256": "8dbe48604fca7b509bd610d64a9f8371f39dfa2dc61ad5e3b6dd0eb53ef1323c",
+          "provider_model": "solar-pro3-260323",
+          "response_sha256": "f84c1f4e6c93906e139ba47ad9cbd2e6901aeb14f0581184cd7d496b5052c412",
+          "table_id": "2be4240b-ddd2-5a67-b579-0d9021b3d8e1",
+          "source_sha256": "75388f16c13739a671fd158c383502d81968fe587f2372ab0f9306f3d2c1a2c6",
+          "semantic_validation": "not_run"
+        },
+        {
+          "request_id": "58f6af49-4875-4ca1-9c6d-8cb22d55ffc7",
+          "status": "passed",
+          "packet_sha256": "b2601386d11a660d194c9d6a4ad3ca4eb09ad0aa66885b6cf15e14fed08fd6bf",
+          "wire_sha256": "b22eb32696634c344de9a85019db7cc3d7e1a961ea9804aaa5e49939a0b2c681",
+          "prompt_sha256": "c0b79fcf3e3a6bca018b045bc43debbff94f0954393d7b589daca1f80dc706bc",
+          "contract_sha256": "4d58d599bc881a748a420aaa44dcad410bf39f4e74f809df1d98f8bf96ea426e",
+          "model": "solar-pro3",
+          "replica": 1,
+          "helper_sha256": "768a38c8f512d6b6c98c134f555fe944baf81e4a6f10a04ddfa80e8179e3e9da",
+          "graph_sha256": "8dbe48604fca7b509bd610d64a9f8371f39dfa2dc61ad5e3b6dd0eb53ef1323c",
+          "provider_model": "solar-pro3-260323",
+          "response_sha256": "dbf13868ceb58197676a81043a8a720fed86e286d82b088d7a81d5825f14bc4d",
+          "table_id": "2be4240b-ddd2-5a67-b579-0d9021b3d8e1",
+          "source_sha256": "75388f16c13739a671fd158c383502d81968fe587f2372ab0f9306f3d2c1a2c6",
+          "semantic_validation": "not_run"
+        }
+      ]
+    },
+    {
+      "mode": "v1",
+      "company": "kb",
+      "claims": 8,
+      "before": {
+        "limit_usd": "10.00",
+        "calls": 1249,
+        "unsettled_calls": 6,
+        "committed_usd": "7.2768274200"
+      },
+      "after": {
+        "limit_usd": "10.00",
+        "calls": 1251,
+        "unsettled_calls": 6,
+        "committed_usd": "7.2780708600"
+      },
+      "result_file_sha256": "ac64d32eb8d8d7ca5b791a2a40ce28ed1804b6e4aff9a44b61a1623902ff6f89",
+      "requests": [
+        {
+          "request_id": "7c4cc6e2-1ded-4e9e-a113-08488617be3e",
+          "status": "passed",
+          "packet_sha256": "db9cba9423db524135be51db8b8411cf36fe85a88437adb665780236c90a1cc8",
+          "wire_sha256": "d2f2c4b82b211d045f3ed32673597a1fa94c25600d4c95524a49baaf6cea23a9",
+          "prompt_sha256": "c0b79fcf3e3a6bca018b045bc43debbff94f0954393d7b589daca1f80dc706bc",
+          "contract_sha256": "4d58d599bc881a748a420aaa44dcad410bf39f4e74f809df1d98f8bf96ea426e",
+          "model": "solar-pro3",
+          "replica": 1,
+          "helper_sha256": "768a38c8f512d6b6c98c134f555fe944baf81e4a6f10a04ddfa80e8179e3e9da",
+          "graph_sha256": "bc501c8e7cc0b392a38e557771adb91661ff85d9e492f48ce75f146771bdbc18",
+          "provider_model": "solar-pro3-260323",
+          "response_sha256": "572bcd9086d418be5ba22f9f683440eed3a5bfe26b7050938b2d13512f0c1464",
+          "table_id": "c7fc90b8-ff70-5eaf-8d44-bca3692019ff",
+          "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+          "semantic_validation": "not_run"
+        },
+        {
+          "request_id": "8dec45c0-69aa-406f-99bc-f77f74432bf7",
+          "status": "passed",
+          "packet_sha256": "35fff790d9b41599cd0424132a60729004ad1271ba0edd88e486ca3fbdd92858",
+          "wire_sha256": "0b05678b0cf1c7dcca83f3fb49f263af1a18a7c38e5df8ca332bc128eea6cc1a",
+          "prompt_sha256": "c0b79fcf3e3a6bca018b045bc43debbff94f0954393d7b589daca1f80dc706bc",
+          "contract_sha256": "4d58d599bc881a748a420aaa44dcad410bf39f4e74f809df1d98f8bf96ea426e",
+          "model": "solar-pro3",
+          "replica": 1,
+          "helper_sha256": "768a38c8f512d6b6c98c134f555fe944baf81e4a6f10a04ddfa80e8179e3e9da",
+          "graph_sha256": "bc501c8e7cc0b392a38e557771adb91661ff85d9e492f48ce75f146771bdbc18",
+          "provider_model": "solar-pro3-260323",
+          "response_sha256": "f156751fba1865ebf996aebc5feb976d4885d9edc0e751ec10d9fad73fa8a3d9",
+          "table_id": "96e762fe-c27f-51bd-90bf-08d8abed062a",
+          "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+          "semantic_validation": "not_run"
+        }
+      ]
+    },
+    {
+      "mode": "v1",
+      "company": "kia",
+      "claims": 8,
+      "before": {
+        "limit_usd": "10.00",
+        "calls": 1251,
+        "unsettled_calls": 6,
+        "committed_usd": "7.2780708600"
+      },
+      "after": {
+        "limit_usd": "10.00",
+        "calls": 1253,
+        "unsettled_calls": 6,
+        "committed_usd": "7.2787448850"
+      },
+      "result_file_sha256": "c6467ad7959a8d5b59bec0f011f470c1ae085c71a0232d3742b9b021e00ca664",
+      "requests": [
+        {
+          "request_id": "ad794786-93a3-42a3-b9e6-55713dce4457",
+          "status": "passed",
+          "packet_sha256": "3f5f0adc071b3fd04d480850fcd09f8faab24b97d474dcd8a9086bc2ce5bc29a",
+          "wire_sha256": "2c90b120af97aac22fb097d612f8363e0c786e4e2da1d146568a53726dbad931",
+          "prompt_sha256": "c0b79fcf3e3a6bca018b045bc43debbff94f0954393d7b589daca1f80dc706bc",
+          "contract_sha256": "4d58d599bc881a748a420aaa44dcad410bf39f4e74f809df1d98f8bf96ea426e",
+          "model": "solar-pro3",
+          "replica": 1,
+          "helper_sha256": "768a38c8f512d6b6c98c134f555fe944baf81e4a6f10a04ddfa80e8179e3e9da",
+          "graph_sha256": "580fb85200e8d9c3468039ad12ea0e17659182e9f99d93557d7eebc2dc58ffdf",
+          "provider_model": "solar-pro3-260323",
+          "response_sha256": "2a9333a6d48b9ff90a8d0a20bf81348e9f41c0b33a772ec84d4602c95333862c",
+          "table_id": "7a4d97c4-87ae-52ba-aca7-8f3b151ef6d2",
+          "source_sha256": "d0d814d98c4aeedbbdb2bf8631b8981ae5cde94dec32aa32c57510420274da1f",
+          "semantic_validation": "not_run"
+        },
+        {
+          "request_id": "c37a6fa4-36cc-4e7d-a811-419c1d68a4e9",
+          "status": "passed",
+          "packet_sha256": "01f7a6d48e7261f0e441c25f3c5be4dd03853744656b196e857d6d34f250b72c",
+          "wire_sha256": "bdb8ef34c4a9d562197273743f7e2d99f32c0792acb7ba4962bdc092235f0d9c",
+          "prompt_sha256": "c0b79fcf3e3a6bca018b045bc43debbff94f0954393d7b589daca1f80dc706bc",
+          "contract_sha256": "4d58d599bc881a748a420aaa44dcad410bf39f4e74f809df1d98f8bf96ea426e",
+          "model": "solar-pro3",
+          "replica": 1,
+          "helper_sha256": "768a38c8f512d6b6c98c134f555fe944baf81e4a6f10a04ddfa80e8179e3e9da",
+          "graph_sha256": "580fb85200e8d9c3468039ad12ea0e17659182e9f99d93557d7eebc2dc58ffdf",
+          "provider_model": "solar-pro3-260323",
+          "response_sha256": "01d0809981b47e71cef7b3ed3b6ad3c9ca27c47a41160fed38a8987f1d3a7f1d",
+          "table_id": "fed60a48-3b5d-57da-aad7-277588fc8fcb",
+          "source_sha256": "d0d814d98c4aeedbbdb2bf8631b8981ae5cde94dec32aa32c57510420274da1f",
+          "semantic_validation": "not_run"
+        }
+      ]
+    },
+    {
+      "mode": "v2",
+      "company": "naver",
+      "claims": 3,
+      "before": {
+        "limit_usd": "10.00",
+        "calls": 1253,
+        "unsettled_calls": 6,
+        "committed_usd": "7.2787448850"
+      },
+      "after": {
+        "limit_usd": "10.00",
+        "calls": 1255,
+        "unsettled_calls": 6,
+        "committed_usd": "7.2796596450"
+      },
+      "result_file_sha256": "d6f63f28bd4dcdf4533c3338433e80dfbf1cb77cfdb81245d42edd88b30a26d0",
+      "requests": [
+        {
+          "request_id": "94e04eaf-835e-4218-9caa-e23a3bd97fc6",
+          "status": "passed",
+          "packet_sha256": "d6ab7a6c2b6b19684da6a97752f32b56e3dc3c667e7e19e4ace062e79321fd09",
+          "wire_sha256": "3290792838658ed0ffeddbfdb40602cc4656f319f63f07e4c3e914497e2c880b",
+          "prompt_sha256": "4d7920299e770fd9bb36f878de3c1228b732ee6dd28609e20639558f57d20588",
+          "contract_sha256": "ae44670d1745ca05b918ccd2fa979922006fca5f2c643d2679b976dc6519533c",
+          "model": "solar-pro3",
+          "replica": 1,
+          "helper_sha256": "6115154ffc9131fcbf8fb19d848728960d7c6221caad8583c4a93c389132f137",
+          "graph_sha256": "8dbe48604fca7b509bd610d64a9f8371f39dfa2dc61ad5e3b6dd0eb53ef1323c",
+          "provider_model": "solar-pro3-260323",
+          "response_sha256": "e5dc88e98517fdb71bd9ad8a3a683b844c2f000d117da5c25ee517f21f195530",
+          "table_id": "2be4240b-ddd2-5a67-b579-0d9021b3d8e1",
+          "source_sha256": "75388f16c13739a671fd158c383502d81968fe587f2372ab0f9306f3d2c1a2c6",
+          "semantic_validation": "not_run"
+        },
+        {
+          "request_id": "21c1eea8-260b-4a79-9783-a0a77e159ec5",
+          "status": "passed",
+          "packet_sha256": "6adb03eb24a9346e55bc9829b15050f5947efbd8dcb271d547dbfab2311237f6",
+          "wire_sha256": "9fb35bc08bc057766ddda7f0f9c404b762d59e8eb5e50f376da2764dbd266b2c",
+          "prompt_sha256": "4d7920299e770fd9bb36f878de3c1228b732ee6dd28609e20639558f57d20588",
+          "contract_sha256": "ae44670d1745ca05b918ccd2fa979922006fca5f2c643d2679b976dc6519533c",
+          "model": "solar-pro3",
+          "replica": 1,
+          "helper_sha256": "6115154ffc9131fcbf8fb19d848728960d7c6221caad8583c4a93c389132f137",
+          "graph_sha256": "8dbe48604fca7b509bd610d64a9f8371f39dfa2dc61ad5e3b6dd0eb53ef1323c",
+          "provider_model": "solar-pro3-260323",
+          "response_sha256": "30f75175c038854c134c3194fa200213b2d7d11cb829069a985ff4016c913ed5",
+          "table_id": "2be4240b-ddd2-5a67-b579-0d9021b3d8e1",
+          "source_sha256": "75388f16c13739a671fd158c383502d81968fe587f2372ab0f9306f3d2c1a2c6",
+          "semantic_validation": "not_run"
+        }
+      ]
+    },
+    {
+      "mode": "v2",
+      "company": "kb",
+      "claims": 4,
+      "before": {
+        "limit_usd": "10.00",
+        "calls": 1255,
+        "unsettled_calls": 6,
+        "committed_usd": "7.2796596450"
+      },
+      "after": {
+        "limit_usd": "10.00",
+        "calls": 1257,
+        "unsettled_calls": 6,
+        "committed_usd": "7.2809090250"
+      },
+      "result_file_sha256": "983db4af273bc4405f607ab885e781129648686a29ffe4721612dea606ad38cd",
+      "requests": [
+        {
+          "request_id": "79467ab9-0c75-4826-82ab-c86d64b0cf14",
+          "status": "passed",
+          "packet_sha256": "6f0a90f5885951ee7cce9750332c0bc9bab1d739f8835c9be14f0764adb96edf",
+          "wire_sha256": "50060610b51f251df84c3f75308493a82e56c06415e0eadfcbed2c06f28ecbaa",
+          "prompt_sha256": "4d7920299e770fd9bb36f878de3c1228b732ee6dd28609e20639558f57d20588",
+          "contract_sha256": "ae44670d1745ca05b918ccd2fa979922006fca5f2c643d2679b976dc6519533c",
+          "model": "solar-pro3",
+          "replica": 1,
+          "helper_sha256": "6115154ffc9131fcbf8fb19d848728960d7c6221caad8583c4a93c389132f137",
+          "graph_sha256": "bc501c8e7cc0b392a38e557771adb91661ff85d9e492f48ce75f146771bdbc18",
+          "provider_model": "solar-pro3-260323",
+          "response_sha256": "18c8bc99ab4412682c43f532e829c9d2f7d69c1e482b53de6b61d3d2656c44c1",
+          "table_id": "c7fc90b8-ff70-5eaf-8d44-bca3692019ff",
+          "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+          "semantic_validation": "not_run"
+        },
+        {
+          "request_id": "ea646a0f-ca5b-4c01-8475-450f56b571fa",
+          "status": "passed",
+          "packet_sha256": "bd4075829261c97b41c04074ca8b4e53f504bea88d18fcac7d9954c0c250a145",
+          "wire_sha256": "cdd13735bcaeaf47d5b4ed882aa48b460e629ed5a333ff7bb63d68b942b91bdc",
+          "prompt_sha256": "4d7920299e770fd9bb36f878de3c1228b732ee6dd28609e20639558f57d20588",
+          "contract_sha256": "ae44670d1745ca05b918ccd2fa979922006fca5f2c643d2679b976dc6519533c",
+          "model": "solar-pro3",
+          "replica": 1,
+          "helper_sha256": "6115154ffc9131fcbf8fb19d848728960d7c6221caad8583c4a93c389132f137",
+          "graph_sha256": "bc501c8e7cc0b392a38e557771adb91661ff85d9e492f48ce75f146771bdbc18",
+          "provider_model": "solar-pro3-260323",
+          "response_sha256": "7983ba1aee4370b2eb9a628cec996ed344da02d50da67be82c96497cbe9de803",
+          "table_id": "96e762fe-c27f-51bd-90bf-08d8abed062a",
+          "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+          "semantic_validation": "not_run"
+        }
+      ]
+    },
+    {
+      "mode": "v2",
+      "company": "kia",
+      "claims": 3,
+      "before": {
+        "limit_usd": "10.00",
+        "calls": 1257,
+        "unsettled_calls": 6,
+        "committed_usd": "7.2809090250"
+      },
+      "after": {
+        "limit_usd": "10.00",
+        "calls": 1259,
+        "unsettled_calls": 6,
+        "committed_usd": "7.2816048300"
+      },
+      "result_file_sha256": "8dce7730e9d1a5b09335b95a004da1096a8921f9ea79ef6eeaeafe3ab4a27765",
+      "requests": [
+        {
+          "request_id": "e2c5f6d8-df4c-40fc-a7f4-7c8ad464e824",
+          "status": "passed",
+          "packet_sha256": "1c8a2900b067b6d431ff049638eb31bd6184a034837d8374a6c10bd361ab5c2c",
+          "wire_sha256": "b4b503d21e782b6ecff46c5eddc88dff34f80feed8e29cc96ada6b3ffd115e3e",
+          "prompt_sha256": "4d7920299e770fd9bb36f878de3c1228b732ee6dd28609e20639558f57d20588",
+          "contract_sha256": "ae44670d1745ca05b918ccd2fa979922006fca5f2c643d2679b976dc6519533c",
+          "model": "solar-pro3",
+          "replica": 1,
+          "helper_sha256": "6115154ffc9131fcbf8fb19d848728960d7c6221caad8583c4a93c389132f137",
+          "graph_sha256": "580fb85200e8d9c3468039ad12ea0e17659182e9f99d93557d7eebc2dc58ffdf",
+          "provider_model": "solar-pro3-260323",
+          "response_sha256": "efa1900fa25b40be261a2a3aab5a9f39d4275b3404a72bf338cc7064937f0fe2",
+          "table_id": "7a4d97c4-87ae-52ba-aca7-8f3b151ef6d2",
+          "source_sha256": "d0d814d98c4aeedbbdb2bf8631b8981ae5cde94dec32aa32c57510420274da1f",
+          "semantic_validation": "not_run"
+        },
+        {
+          "request_id": "2be6fe46-f8c5-4828-91fb-65a6b55ae265",
+          "status": "passed",
+          "packet_sha256": "bc05edc07318d5247f235315a55523b02a5038f37e535458cc95ee6f110674a0",
+          "wire_sha256": "5e600044abb83e5e91e709ee9e8802ac19cebcda644bf8d49e7efdac49f6baf9",
+          "prompt_sha256": "4d7920299e770fd9bb36f878de3c1228b732ee6dd28609e20639558f57d20588",
+          "contract_sha256": "ae44670d1745ca05b918ccd2fa979922006fca5f2c643d2679b976dc6519533c",
+          "model": "solar-pro3",
+          "replica": 1,
+          "helper_sha256": "6115154ffc9131fcbf8fb19d848728960d7c6221caad8583c4a93c389132f137",
+          "graph_sha256": "580fb85200e8d9c3468039ad12ea0e17659182e9f99d93557d7eebc2dc58ffdf",
+          "provider_model": "solar-pro3-260323",
+          "response_sha256": "3bb8203701211e965f08f0291452ff1f93b37cb9205098f1b726db6224a54b00",
+          "table_id": "fed60a48-3b5d-57da-aad7-277588fc8fcb",
+          "source_sha256": "d0d814d98c4aeedbbdb2bf8631b8981ae5cde94dec32aa32c57510420274da1f",
+          "semantic_validation": "not_run"
+        }
+      ]
+    },
+    {
+      "mode": "v2-pro4",
+      "company": "naver",
+      "claims": 6,
+      "before": {
+        "limit_usd": "10.00",
+        "calls": 1259,
+        "unsettled_calls": 6,
+        "committed_usd": "7.2816048300"
+      },
+      "after": {
+        "limit_usd": "10.00",
+        "calls": 1261,
+        "unsettled_calls": 6,
+        "committed_usd": "7.2833228100"
+      },
+      "result_file_sha256": "2f69dd6cdbd139bbde34f1329e763f3e95d46043d7a63b79a66d71138f9e5d46",
+      "requests": [
+        {
+          "request_id": "728cc913-9bc5-45ce-b294-d2fafb6322bd",
+          "status": "passed",
+          "packet_sha256": "d6ab7a6c2b6b19684da6a97752f32b56e3dc3c667e7e19e4ace062e79321fd09",
+          "wire_sha256": "3290792838658ed0ffeddbfdb40602cc4656f319f63f07e4c3e914497e2c880b",
+          "prompt_sha256": "4d7920299e770fd9bb36f878de3c1228b732ee6dd28609e20639558f57d20588",
+          "contract_sha256": "ae44670d1745ca05b918ccd2fa979922006fca5f2c643d2679b976dc6519533c",
+          "model": "solar-pro4",
+          "replica": 1,
+          "helper_sha256": "6115154ffc9131fcbf8fb19d848728960d7c6221caad8583c4a93c389132f137",
+          "graph_sha256": "8dbe48604fca7b509bd610d64a9f8371f39dfa2dc61ad5e3b6dd0eb53ef1323c",
+          "provider_model": "solar-pro4-260806",
+          "response_sha256": "2b51dcaf32b6f010ce9be5baab973d86028be5bceb6d63ecde54095bd07c86eb",
+          "table_id": "2be4240b-ddd2-5a67-b579-0d9021b3d8e1",
+          "source_sha256": "75388f16c13739a671fd158c383502d81968fe587f2372ab0f9306f3d2c1a2c6",
+          "semantic_validation": "not_run"
+        },
+        {
+          "request_id": "9181e1f0-0ac0-45e7-a8c6-23ef56dd771e",
+          "status": "passed",
+          "packet_sha256": "6adb03eb24a9346e55bc9829b15050f5947efbd8dcb271d547dbfab2311237f6",
+          "wire_sha256": "9fb35bc08bc057766ddda7f0f9c404b762d59e8eb5e50f376da2764dbd266b2c",
+          "prompt_sha256": "4d7920299e770fd9bb36f878de3c1228b732ee6dd28609e20639558f57d20588",
+          "contract_sha256": "ae44670d1745ca05b918ccd2fa979922006fca5f2c643d2679b976dc6519533c",
+          "model": "solar-pro4",
+          "replica": 1,
+          "helper_sha256": "6115154ffc9131fcbf8fb19d848728960d7c6221caad8583c4a93c389132f137",
+          "graph_sha256": "8dbe48604fca7b509bd610d64a9f8371f39dfa2dc61ad5e3b6dd0eb53ef1323c",
+          "provider_model": "solar-pro4-260806",
+          "response_sha256": "d8fd52983d6aaa678635eb05506b3e318ca2c75ac0ce202de25dd8caaf9b487a",
+          "table_id": "2be4240b-ddd2-5a67-b579-0d9021b3d8e1",
+          "source_sha256": "75388f16c13739a671fd158c383502d81968fe587f2372ab0f9306f3d2c1a2c6",
+          "semantic_validation": "not_run"
+        }
+      ]
+    },
+    {
+      "mode": "v2-pro4",
+      "company": "kb",
+      "claims": 5,
+      "before": {
+        "limit_usd": "10.00",
+        "calls": 1261,
+        "unsettled_calls": 6,
+        "committed_usd": "7.2833228100"
+      },
+      "after": {
+        "limit_usd": "10.00",
+        "calls": 1263,
+        "unsettled_calls": 6,
+        "committed_usd": "7.2856691100"
+      },
+      "result_file_sha256": "257d06a976b574c857314c1e72bfa4adf7dd769b9ce58beeb262eb8706b5ea80",
+      "requests": [
+        {
+          "request_id": "005cd919-c557-4fe4-9f25-37d6740c4665",
+          "status": "passed",
+          "packet_sha256": "6f0a90f5885951ee7cce9750332c0bc9bab1d739f8835c9be14f0764adb96edf",
+          "wire_sha256": "50060610b51f251df84c3f75308493a82e56c06415e0eadfcbed2c06f28ecbaa",
+          "prompt_sha256": "4d7920299e770fd9bb36f878de3c1228b732ee6dd28609e20639558f57d20588",
+          "contract_sha256": "ae44670d1745ca05b918ccd2fa979922006fca5f2c643d2679b976dc6519533c",
+          "model": "solar-pro4",
+          "replica": 1,
+          "helper_sha256": "6115154ffc9131fcbf8fb19d848728960d7c6221caad8583c4a93c389132f137",
+          "graph_sha256": "bc501c8e7cc0b392a38e557771adb91661ff85d9e492f48ce75f146771bdbc18",
+          "provider_model": "solar-pro4-260806",
+          "response_sha256": "8f9df8cc64f8c88175e7471ee8be0749611924518db5b0a746ec745fea8b0053",
+          "table_id": "c7fc90b8-ff70-5eaf-8d44-bca3692019ff",
+          "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+          "semantic_validation": "not_run"
+        },
+        {
+          "request_id": "4d7009e3-a51b-4294-8378-72cc89826dc7",
+          "status": "passed",
+          "packet_sha256": "bd4075829261c97b41c04074ca8b4e53f504bea88d18fcac7d9954c0c250a145",
+          "wire_sha256": "cdd13735bcaeaf47d5b4ed882aa48b460e629ed5a333ff7bb63d68b942b91bdc",
+          "prompt_sha256": "4d7920299e770fd9bb36f878de3c1228b732ee6dd28609e20639558f57d20588",
+          "contract_sha256": "ae44670d1745ca05b918ccd2fa979922006fca5f2c643d2679b976dc6519533c",
+          "model": "solar-pro4",
+          "replica": 1,
+          "helper_sha256": "6115154ffc9131fcbf8fb19d848728960d7c6221caad8583c4a93c389132f137",
+          "graph_sha256": "bc501c8e7cc0b392a38e557771adb91661ff85d9e492f48ce75f146771bdbc18",
+          "provider_model": "solar-pro4-260806",
+          "response_sha256": "4874853fc0ce62fc6ab2211220159f27de92851c1060c81f1fb0a9edac2d7bad",
+          "table_id": "96e762fe-c27f-51bd-90bf-08d8abed062a",
+          "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+          "semantic_validation": "not_run"
+        }
+      ]
+    },
+    {
+      "mode": "v2-pro4",
+      "company": "kia",
+      "claims": 1,
+      "before": {
+        "limit_usd": "10.00",
+        "calls": 1263,
+        "unsettled_calls": 6,
+        "committed_usd": "7.2856691100"
+      },
+      "after": {
+        "limit_usd": "10.00",
+        "calls": 1265,
+        "unsettled_calls": 6,
+        "committed_usd": "7.2868950600"
+      },
+      "result_file_sha256": "dcc98d578bc685e2a156434e12d69beaa548a9bc20ddd9334fce8da6e15d3c31",
+      "requests": [
+        {
+          "request_id": "8a5c466d-635f-465b-b036-435e00a318d4",
+          "status": "passed",
+          "packet_sha256": "1c8a2900b067b6d431ff049638eb31bd6184a034837d8374a6c10bd361ab5c2c",
+          "wire_sha256": "b4b503d21e782b6ecff46c5eddc88dff34f80feed8e29cc96ada6b3ffd115e3e",
+          "prompt_sha256": "4d7920299e770fd9bb36f878de3c1228b732ee6dd28609e20639558f57d20588",
+          "contract_sha256": "ae44670d1745ca05b918ccd2fa979922006fca5f2c643d2679b976dc6519533c",
+          "model": "solar-pro4",
+          "replica": 1,
+          "helper_sha256": "6115154ffc9131fcbf8fb19d848728960d7c6221caad8583c4a93c389132f137",
+          "graph_sha256": "580fb85200e8d9c3468039ad12ea0e17659182e9f99d93557d7eebc2dc58ffdf",
+          "provider_model": "solar-pro4-260806",
+          "response_sha256": "3a9c832b44d2fbb8204559aae1339f3749db69d2ae9be7db0a35ec46f845a059",
+          "table_id": "7a4d97c4-87ae-52ba-aca7-8f3b151ef6d2",
+          "source_sha256": "d0d814d98c4aeedbbdb2bf8631b8981ae5cde94dec32aa32c57510420274da1f",
+          "semantic_validation": "not_run"
+        },
+        {
+          "request_id": "7ee9c9cf-8243-45d6-b749-5f569d81b6bb",
+          "status": "passed",
+          "packet_sha256": "bc05edc07318d5247f235315a55523b02a5038f37e535458cc95ee6f110674a0",
+          "wire_sha256": "5e600044abb83e5e91e709ee9e8802ac19cebcda644bf8d49e7efdac49f6baf9",
+          "prompt_sha256": "4d7920299e770fd9bb36f878de3c1228b732ee6dd28609e20639558f57d20588",
+          "contract_sha256": "ae44670d1745ca05b918ccd2fa979922006fca5f2c643d2679b976dc6519533c",
+          "model": "solar-pro4",
+          "replica": 1,
+          "helper_sha256": "6115154ffc9131fcbf8fb19d848728960d7c6221caad8583c4a93c389132f137",
+          "graph_sha256": "580fb85200e8d9c3468039ad12ea0e17659182e9f99d93557d7eebc2dc58ffdf",
+          "provider_model": "solar-pro4-260806",
+          "response_sha256": "669a84c9d7175669ec91f6c507220ca676223453e7c59efe52c40266b70b2601",
+          "table_id": "fed60a48-3b5d-57da-aad7-277588fc8fcb",
+          "source_sha256": "d0d814d98c4aeedbbdb2bf8631b8981ae5cde94dec32aa32c57510420274da1f",
+          "semantic_validation": "not_run"
+        }
+      ]
+    }
+  ],
+  "cost_usd": "0.0109619400",
+  "images": {
+    "naver": {
+      "sha256": "38a6e449c4ece77cd5e4384b2509566537bd82c398cc162fc46785fdd164ece5",
+      "review": "coordinator direct visual inspection; not source approval"
+    },
+    "kb": {
+      "sha256": "eb0090b60837a0ae9907425b246307db276fec2ab928d78265500a682c2dc50e",
+      "review": "coordinator direct visual inspection; not source approval"
+    },
+    "kia": {
+      "sha256": "be59ee87c1afe205d3311ee696cf1f2682685ad6eb82acf6a04de3d9b17af5bd",
+      "review": "coordinator direct visual inspection; not source approval"
+    }
+  }
+}

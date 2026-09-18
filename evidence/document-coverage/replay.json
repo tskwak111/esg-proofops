@@ -1,0 +1,70 @@
+{
+  "mode": "stored_response_replay",
+  "paid_api_calls": 0,
+  "scope": "selected_native_table_cells_only",
+  "not_a_claim_recall_metric": true,
+  "results": [
+    {
+      "case": "kb-crop-0",
+      "binding_sha256": "3e2f18bf70ed5df3433e066378c01100a01e5f65ec8ec896a854e236c8bd07b9",
+      "linked": 3,
+      "unbound": 0,
+      "source_cells": 17,
+      "data_candidate_cells": 9,
+      "data_text_coverage": {
+        "not_returned": 6,
+        "full_text_returned": 3
+      },
+      "unresolved_cells": 0
+    },
+    {
+      "case": "kb-crop-1",
+      "binding_sha256": "04fd9115b0a7ef4750c6420e5702ed63bcea9b4948ba5b16a4772a18900d84e4",
+      "linked": 21,
+      "unbound": 0,
+      "source_cells": 31,
+      "data_candidate_cells": 20,
+      "data_text_coverage": {
+        "partial": 20
+      },
+      "unresolved_cells": 0
+    },
+    {
+      "case": "kia-crop-0",
+      "binding_sha256": "5e4b56e8b932b8be57240e866168ad2b531053bb47146af8721916ec4372a6ee",
+      "linked": 0,
+      "unbound": 0,
+      "source_cells": 15,
+      "data_candidate_cells": 8,
+      "data_text_coverage": {
+        "not_returned": 8
+      },
+      "unresolved_cells": 0
+    },
+    {
+      "case": "kia-crop-1",
+      "binding_sha256": "6c9afee2207ad8934705cad99426c1991b978d77ece22f64b3d676c7bbadf10b",
+      "linked": 0,
+      "unbound": 0,
+      "source_cells": 9,
+      "data_candidate_cells": 4,
+      "data_text_coverage": {
+        "not_returned": 4
+      },
+      "unresolved_cells": 0
+    },
+    {
+      "case": "naver-crop",
+      "binding_sha256": "1a8fa1579805d9736b924a5eef0e3f0d0dda32d5c0880d51c1b965b5090f6397",
+      "linked": 6,
+      "unbound": 1,
+      "source_cells": 9,
+      "data_candidate_cells": 4,
+      "data_text_coverage": {
+        "partial": 3,
+        "not_returned": 1
+      },
+      "unresolved_cells": 0
+    }
+  ]
+}

@@ -1,0 +1,474 @@
+{
+  "method": "coordinator-selected source-role hypotheses and review arithmetic only",
+  "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+  "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+  "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+  "source_sha256": "c6395dd2be7948d85fa2b52c6edb61367fa6610c6f389c2478b44cb4cfcb5bde",
+  "parent_claim_candidate": {
+    "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+    "span": {
+      "char_start": 129,
+      "char_end": 214,
+      "quote": "국내 사업장에서는 REC 및 녹색 프리미엄 등을 활용하여 약 93GWh의 재생에너지를 조달했으며, 이를 통해 약 4만 톤의 탄소 감축 효과를 얻었습니다."
+    },
+    "source_ref": {
+      "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+      "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+      "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+      "page_num": 25,
+      "printed_page_label": "25",
+      "bbox": [
+        53.813,
+        563.411,
+        788.443,
+        600.5869999999999
+      ],
+      "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+      "quote": "국내 사업장에서는 REC 및 녹색 프리미엄 등을 활용하여 약 93GWh의 재생에너지를 조달했으며, 이를 통해 약 4만 톤의 탄소 감축 효과를 얻었습니다.",
+      "char_start": 129,
+      "char_end": 214,
+      "location_quality": "located",
+      "verification_state": "candidate"
+    },
+    "source_quality": "unverified"
+  },
+  "cells": {
+    "scope2_metric": {
+      "source_ref": {
+        "source_id": "789b9be2-a7e0-53bc-9c43-ddec77724f18",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 97,
+        "printed_page_label": "97",
+        "bbox": [
+          38.25,
+          597.9675000000034,
+          153.0,
+          725.5300000000034
+        ],
+        "raw_text_sha256": "2940de175804a6ed5d9565b6aaafd5a87619fe9d7a88f7b37fccef3253ea49dd",
+        "quote": "Scope 2 배출량",
+        "char_start": 0,
+        "char_end": 11,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "source_quality": "unverified",
+      "parser_run_id": "e96ffc54-b77c-43f7-8e17-1c341a8ef228",
+      "table_native_id": "p97-t0",
+      "row": 10,
+      "column": 1
+    },
+    "emissions_year": {
+      "source_ref": {
+        "source_id": "d456e0c5-b1d7-5bc3-ac57-b8d7c7fd0f8b",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 97,
+        "printed_page_label": "97",
+        "bbox": [
+          689.25,
+          409.0447058823563,
+          804.0,
+          428.4756521739164
+        ],
+        "raw_text_sha256": "b2b2f104d32c638903e151a9b20d6e27b41d8c0c84cf8458738f83ca2f1dd744",
+        "quote": "2025",
+        "char_start": 0,
+        "char_end": 4,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "source_quality": "unverified",
+      "parser_run_id": "e96ffc54-b77c-43f7-8e17-1c341a8ef228",
+      "table_native_id": "p97-t0",
+      "row": 1,
+      "column": 6
+    },
+    "market_subject_basis": {
+      "source_ref": {
+        "source_id": "2d77d9b6-d7fb-5842-96b9-250deaa577ae",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 97,
+        "printed_page_label": "97",
+        "bbox": [
+          153.0,
+          619.3425000000034,
+          344.25,
+          640.7175000000034
+        ],
+        "raw_text_sha256": "30a131c2dd083c0ffc037267fccd7bebe0af5215dc14a187514ff900f3bf9a47",
+        "quote": "국내 (Market-based)",
+        "char_start": 0,
+        "char_end": 17,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "source_quality": "unverified",
+      "parser_run_id": "e96ffc54-b77c-43f7-8e17-1c341a8ef228",
+      "table_native_id": "p97-t0",
+      "row": 11,
+      "column": 2
+    },
+    "market_unit": {
+      "source_ref": {
+        "source_id": "ec474500-b24e-562d-a157-4a30ce72ee20",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 97,
+        "printed_page_label": "97",
+        "bbox": [
+          344.25,
+          619.3425000000034,
+          459.75,
+          640.7175000000034
+        ],
+        "raw_text_sha256": "5f679c4e9258f1c3a31500ea4e53345c396841b2fed2105f3762e304042de5cc",
+        "quote": "tCO e\n2",
+        "char_start": 0,
+        "char_end": 7,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "source_quality": "unverified",
+      "parser_run_id": "e96ffc54-b77c-43f7-8e17-1c341a8ef228",
+      "table_native_id": "p97-t0",
+      "row": 11,
+      "column": 3
+    },
+    "market_value": {
+      "source_ref": {
+        "source_id": "7f88a5a5-8216-5825-937c-0f8c24e035ca",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 97,
+        "printed_page_label": "97",
+        "bbox": [
+          689.25,
+          619.3425000000034,
+          804.0,
+          640.7175000000034
+        ],
+        "raw_text_sha256": "e132e3ee1ea468fec1d89716b57bece270fc6cace5a0af13adcfb520bdaaadd2",
+        "quote": "2,770,838",
+        "char_start": 0,
+        "char_end": 9,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "source_quality": "unverified",
+      "parser_run_id": "e96ffc54-b77c-43f7-8e17-1c341a8ef228",
+      "table_native_id": "p97-t0",
+      "row": 11,
+      "column": 6
+    },
+    "location_subject_basis": {
+      "source_ref": {
+        "source_id": "f2c605b3-5f16-5cca-b73a-0d6f5954d3f1",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 97,
+        "printed_page_label": "97",
+        "bbox": [
+          153.0,
+          640.7175000000034,
+          344.25,
+          661.7175000000034
+        ],
+        "raw_text_sha256": "5d3b5e23a0249c6857fca60284e45e33defc17043b1cda97fc97d8a9cf3c96fc",
+        "quote": "국내 (Location-based)",
+        "char_start": 0,
+        "char_end": 19,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "source_quality": "unverified",
+      "parser_run_id": "e96ffc54-b77c-43f7-8e17-1c341a8ef228",
+      "table_native_id": "p97-t0",
+      "row": 12,
+      "column": 2
+    },
+    "location_unit": {
+      "source_ref": {
+        "source_id": "137f0d33-6227-5f3b-9967-74f36e0e6d23",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 97,
+        "printed_page_label": "97",
+        "bbox": [
+          344.25,
+          640.7175000000034,
+          459.75,
+          661.7175000000034
+        ],
+        "raw_text_sha256": "5f679c4e9258f1c3a31500ea4e53345c396841b2fed2105f3762e304042de5cc",
+        "quote": "tCO e\n2",
+        "char_start": 0,
+        "char_end": 7,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "source_quality": "unverified",
+      "parser_run_id": "e96ffc54-b77c-43f7-8e17-1c341a8ef228",
+      "table_native_id": "p97-t0",
+      "row": 12,
+      "column": 3
+    },
+    "location_value": {
+      "source_ref": {
+        "source_id": "4036666d-1096-502b-85bc-5b35aac4d5fe",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 97,
+        "printed_page_label": "97",
+        "bbox": [
+          689.25,
+          640.7175000000034,
+          804.0,
+          661.7175000000034
+        ],
+        "raw_text_sha256": "e7fe1edb19546622419256d9cedb333e1ad5f5526abb468a9b6e1b63922f266b",
+        "quote": "2,813,566",
+        "char_start": 0,
+        "char_end": 9,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "source_quality": "unverified",
+      "parser_run_id": "e96ffc54-b77c-43f7-8e17-1c341a8ef228",
+      "table_native_id": "p97-t0",
+      "row": 12,
+      "column": 6
+    },
+    "renewable_metric": {
+      "source_ref": {
+        "source_id": "147a3781-1bca-5360-a88a-16afa6055f18",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 99,
+        "printed_page_label": "99",
+        "bbox": [
+          38.25,
+          433.22250000000804,
+          153.0,
+          496.59750000000804
+        ],
+        "raw_text_sha256": "09080adb2d60d3bea0495227a7d8896adb12268bf3754ba5c8e9545b27c4fc4c",
+        "quote": "재생 전력 소비량4)6)",
+        "char_start": 0,
+        "char_end": 13,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "source_quality": "unverified",
+      "parser_run_id": "e96ffc54-b77c-43f7-8e17-1c341a8ef228",
+      "table_native_id": "p99-t0",
+      "row": 15,
+      "column": 1
+    },
+    "energy_year": {
+      "source_ref": {
+        "source_id": "a6bea719-4f4e-5d91-ad7a-8e6bd09afd4c",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 99,
+        "printed_page_label": "99",
+        "bbox": [
+          689.25,
+          137.6452941176551,
+          804.0,
+          157.21434782609504
+        ],
+        "raw_text_sha256": "b2b2f104d32c638903e151a9b20d6e27b41d8c0c84cf8458738f83ca2f1dd744",
+        "quote": "2025",
+        "char_start": 0,
+        "char_end": 4,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "source_quality": "unverified",
+      "parser_run_id": "e96ffc54-b77c-43f7-8e17-1c341a8ef228",
+      "table_native_id": "p99-t0",
+      "row": 1,
+      "column": 6
+    },
+    "renewable_subject": {
+      "source_ref": {
+        "source_id": "51058839-2824-5776-a5f2-3c82ec8f04c4",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 99,
+        "printed_page_label": "99",
+        "bbox": [
+          153.0,
+          454.22250000000804,
+          344.25,
+          475.59750000000804
+        ],
+        "raw_text_sha256": "1583262fcc969a07bcc9ac1bdf5b73456da69854f48e3bed8f82c5bcd0a78b37",
+        "quote": "국내",
+        "char_start": 0,
+        "char_end": 2,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "source_quality": "unverified",
+      "parser_run_id": "e96ffc54-b77c-43f7-8e17-1c341a8ef228",
+      "table_native_id": "p99-t0",
+      "row": 16,
+      "column": 2
+    },
+    "renewable_unit": {
+      "source_ref": {
+        "source_id": "791e4342-2749-5133-a563-81442fbbdb26",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 99,
+        "printed_page_label": "99",
+        "bbox": [
+          344.25,
+          454.22250000000804,
+          459.75,
+          475.59750000000804
+        ],
+        "raw_text_sha256": "e7e9ff91320d78c4991bdbca8fa89f77dd27b96342f32117f370e87cde5f379d",
+        "quote": "MWh",
+        "char_start": 0,
+        "char_end": 3,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "source_quality": "unverified",
+      "parser_run_id": "e96ffc54-b77c-43f7-8e17-1c341a8ef228",
+      "table_native_id": "p99-t0",
+      "row": 16,
+      "column": 3
+    },
+    "renewable_value": {
+      "source_ref": {
+        "source_id": "3faca30c-da56-54f7-8820-afff067a83dc",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 99,
+        "printed_page_label": "99",
+        "bbox": [
+          689.25,
+          454.22250000000804,
+          804.0,
+          475.59750000000804
+        ],
+        "raw_text_sha256": "7acc684a848a9b954959fdd22493f48cf44eed028275b6b9999c7cade8956fc7",
+        "quote": "335",
+        "char_start": 0,
+        "char_end": 3,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "source_quality": "unverified",
+      "parser_run_id": "e96ffc54-b77c-43f7-8e17-1c341a8ef228",
+      "table_native_id": "p99-t0",
+      "row": 16,
+      "column": 6
+    }
+  },
+  "notes": [
+    {
+      "source_ref": {
+        "source_id": "03dd0045-783c-5f4e-85b4-5c1dacf44ce4",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 97,
+        "printed_page_label": "97",
+        "bbox": [
+          38.438,
+          806.9889999999999,
+          486.708,
+          816.4399999999998
+        ],
+        "raw_text_sha256": "ba3036f697ecb45840710b62906de99745aa67ff2deb30a6546f851db01fbe6b",
+        "quote": "6) Market-based Scope 2 배출량은 Location-based Scope 2 배출량에서 REC 및 녹색프리미엄 구매에 따른 감축량을 차감하여 산정합니다.",
+        "char_start": 0,
+        "char_end": 94,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "quality": "unverified"
+    },
+    {
+      "source_ref": {
+        "source_id": "8c3aa0ab-d380-5a97-b66a-697ee075c11a",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 99,
+        "printed_page_label": "99",
+        "bbox": [
+          38.438,
+          621.6189999999999,
+          303.419,
+          631.0699999999999
+        ],
+        "raw_text_sha256": "d67b25bb24a5b7bb43a6ee3c47ff8263cc32e5c8b5fd36f6c0a90eb638c3a791",
+        "quote": "6) 재생 전력 소비량은 REC 및 녹색프리미엄을 포함한 외부 조달 기준으로 산정합니다.",
+        "char_start": 0,
+        "char_end": 49,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "quality": "unverified"
+    },
+    {
+      "source_ref": {
+        "source_id": "a4642957-b1ff-519a-b384-1df023527fa5",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 99,
+        "printed_page_label": "99",
+        "bbox": [
+          38.438,
+          597.6189999999999,
+          413.62,
+          607.0699999999999
+        ],
+        "raw_text_sha256": "c7a040ec5bcb6b9a8b47ca4dd46fa8c5ae78805b7b2608abf44ba080583ce066",
+        "quote": "4) 전력 소비량(MWh)은 내부 산정 시 열량 기준(TJ)으로 환산(1 MWh = 3,600 MJ)하여 에너지 총 소비량에 반영합니다.",
+        "char_start": 0,
+        "char_end": 76,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "quality": "unverified"
+    }
+  ],
+  "calculations": {
+    "location_minus_market": "42728",
+    "calculation_status": "diagnostic_only",
+    "reported_energy_GWh": "93",
+    "reported_energy_in_MWh": "93000",
+    "table_energy_MWh": "335",
+    "numeric_engine_status": "not_run_unaccepted_binding",
+    "decision": null
+  },
+  "blockers": [
+    "unverified source quality; visual inspection is not an approved profile",
+    "no accepted claim/observation binding",
+    "claim period unspecified within parent span",
+    "carbon tons versus tCO2e not canonically bound",
+    "same-year Location/Market difference is not temporal reduction-rate kind",
+    "apparent energy value/unit difference; no MWh-to-TJ relabeling",
+    "metric/subject/basis/header hypotheses are not approved role tags"
+  ],
+  "renders": {
+    "97": {
+      "path": ".local/numeric-basis/p97.png",
+      "sha256": "b26c0972d5441abd1db6ef58734311dd828d75d956a9268ad15071d5c6844ca5"
+    },
+    "99": {
+      "path": ".local/numeric-basis/p99.png",
+      "sha256": "9fdb6b41e27bc5bf890630f0d04aa4f689d2fabddb3e1ecc2fa1c63cf815f1c9"
+    }
+  },
+  "new_model_calls": 0,
+  "binding_status": "undetermined",
+  "decision": null
+}

@@ -1,0 +1,90 @@
+{
+  "scope": "development diagnostic; not service acceptance",
+  "final_probe_rows": [
+    {
+      "company": "kia",
+      "page": 45,
+      "source_sha256": "d0d814d98c4aeedbbdb2bf8631b8981ae5cde94dec32aa32c57510420274da1f",
+      "packet_sha256": "aa8d58ae43271cc9d88d578606475917b42c8cc516d86b172a61289dd02d2c3f",
+      "request_ids": [
+        "cb9faaa8-1e35-48e4-b9b2-1b2f914baf39",
+        "a0dfe4da-7a13-463e-9d4a-65aba8811018"
+      ],
+      "notes": [
+        {
+          "quote": "데이터 커버리지 : 국내",
+          "target_quotes": [
+            "| 구분 | 단위 | 2024(목표) | 2024(실적) | 2025(목표) |\n| --- | --- | --- | --- | --- |\n| 폐기물 발생량 집약도 | ton/조 원 | 4,470 | 3,295 | 3,798 |\n| 폐기물 재활용률 | % | 95.0 | 93.5 | 95.0 |\n"
+          ],
+          "kind": "scope",
+          "association_status": "model_proposed",
+          "eligible_for_scoring": false
+        },
+        {
+          "quote": "1. 데이터 산출 가능한 차종(EV3, EV6, EV9) 한정",
+          "target_quotes": [
+            "제품 내 플라스틱 소재 총 사용량1"
+          ],
+          "kind": "scope",
+          "association_status": "model_proposed",
+          "eligible_for_scoring": false
+        },
+        {
+          "quote": "2. 데이터 산출 가능한 차종(EV3, EV6, EV9)의 평균",
+          "target_quotes": [
+            "재활용된 제품 내 플라스틱 원료의 비율2"
+          ],
+          "kind": "methodology",
+          "association_status": "model_proposed",
+          "eligible_for_scoring": false
+        }
+      ],
+      "coverage_status": "unknown",
+      "visual_review": "coordinator_original_pdf_inspection",
+      "grade": null
+    },
+    {
+      "company": "kb",
+      "page": 30,
+      "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+      "packet_sha256": "b2c599ccb8d2077d2575fd9a2c768a282837e57c99a41b3d3ca15e53d3483bdd",
+      "request_ids": [
+        "7011e186-8092-45c3-bb56-602f84173b86"
+      ],
+      "notes": [],
+      "coverage_status": "unknown",
+      "visual_review": "coordinator_original_pdf_inspection",
+      "grade": null
+    },
+    {
+      "company": "naver",
+      "page": 84,
+      "source_sha256": "75388f16c13739a671fd158c383502d81968fe587f2372ab0f9306f3d2c1a2c6",
+      "packet_sha256": "af2e6f37ad8a0f999f54a64f746643f9179d624c48b08d681972e5c7bb7349d8",
+      "request_ids": [
+        "11b21641-635a-4303-b153-ef80adaa65f6"
+      ],
+      "notes": [],
+      "coverage_status": "unknown",
+      "visual_review": "coordinator_original_pdf_inspection",
+      "grade": null
+    }
+  ],
+  "paid_calls_this_wave": 12,
+  "committed_before_usd": "7.6828950600",
+  "committed_after_usd": "7.6980694500",
+  "wave_cost_usd": "0.0151743900",
+  "unsettled_calls_preserved": 6,
+  "blocked_holdout": {
+    "company": "kakao",
+    "page": 114,
+    "reason": "PROBE_REQUEST_TOO_LARGE",
+    "billable_call": false
+  },
+  "not_run": [
+    "samsung-life holdout after transport stop",
+    "service numeric integration",
+    "automated semantic acceptance",
+    "independent accuracy benchmark"
+  ]
+}

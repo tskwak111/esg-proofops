@@ -1,0 +1,351 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Link, useSearchParams } from "react-router";
+import { SourceViewer } from "../../components/SourceViewer";
+import { StatusBadge } from "../../components/StatusBadge";
+import { ApiError, errorMessage, isSessionError, requestJson, type Session } from "../session/api";
+import {
+  ReviewWorkspace,
+  type Review,
+  type ReviewElement,
+  type ReviewResolution,
+  type ReviewSnapshot,
+  type SourceRef,
+} from "../reviews/ReviewWorkspace";
+
+type Track = "goal" | "performance" | "management";
+type ReviewStatus = "auto_confirmed" | "needs_review" | "human_confirmed";
+type Decision = {
+  decision_revision: number;
+  tag_revision: number;
+  decision_status: "decided" | "blocked_evidence" | "blocked_rule_gap" | "not_applicable" | "not_run";
+  evidence_grade: "E0" | "E1" | "E2" | "E3" | null;
+  label: "SUBSTANTIATED" | "INCOMPLETE" | "UNSUBSTANTIATED" | null;
+  sublabel: "PERF" | "IMPL" | null;
+  review_status: ReviewStatus;
+  missing_elements: string[];
+  rule_ids: string[];
+  rule_pack_sha256: string;
+  semantic_hash: string;
+  gap_ids: string[];
+};
+type ClaimSummary = {
+  claim_id: string;
+  page_num: number;
+  quote: string;
+  track: Track | null;
+  topic_ids: string[];
+  decision: Decision | null;
+  revision: number;
+};
+type ClaimPage = { items: ClaimSummary[]; next_cursor: string | null; snapshot_epoch: number | null };
+type Assurance = {
+  status: "covered" | "not_covered" | "undetermined";
+  level: "limited" | "reasonable" | "none" | null;
+  provider: string | null;
+  statement_id: string | null;
+  metric_match: "yes" | "no" | "unknown";
+  period_match: "yes" | "no" | "unknown";
+  boundary_match: "yes" | "no" | "unknown";
+  evidence_refs: SourceRef[];
+};
+type ClaimDetail = {
+  claim: ClaimSummary;
+  source_refs: SourceRef[];
+  elements: ReviewElement[];
+  assurance: Assurance;
+  replicate_request_ids: string[];
+  packet_sha256: string | null;
+  tag_status?: "tagged" | "untagged" | null;
+  suggestion: string | null;
+  basis_refs: Array<{
+    standard: string;
+    clause: string | null;
+    summary: string;
+    verification_status: "verified" | "unverified" | "unlicensed";
+  }>;
+};
+type LoadState = "loading" | "ready" | "pending" | "error";
+
+type CommonProps = {
+  apiBase?: string;
+  csrfToken: string;
+  tenantKey: string;
+  session: Session;
+  runId: string;
+  onSessionInvalid: () => void;
+  onDataChanged: () => void;
+};
+export type ClaimWorkspaceProps = CommonProps & { claimId?: string };
+
+const MAX_SNAPSHOT_PAGES = 20;
+const elementIds: Record<Track, string[]> = {
+  goal: Array.from({ length: 8 }, (_, index) => `G${index + 1}`),
+  performance: Array.from({ length: 6 }, (_, index) => `P${index + 1}`),
+  management: Array.from({ length: 6 }, (_, index) => `M${index + 1}`),
+};
+
+function completeElements(track: Track, elements: ReviewElement[]): ReviewElement[] {
+  return elementIds[track].map(element_id => elements.find(element => element.element_id === element_id) ?? {
+    element_id,
+    state: "unknown",
+    evidence_refs: [],
+    normalized_value: null,
+    credited_from: null,
+    reason_code: null,
+  });
+}
+
+async function allPages<T>(url: string, signal: AbortSignal): Promise<T[]> {
+  const items: T[] = [];
+  let cursor: string | null = null;
+  for (let page = 0; page < MAX_SNAPSHOT_PAGES; page += 1) {
+    const target = new URL(url, window.location.origin);
+    target.searchParams.set("limit", "100");
+    if (cursor) target.searchParams.set("cursor", cursor);
+    const result = await requestJson<{ items: T[]; next_cursor: string | null }>(target.toString(), { signal });
+    items.push(...result.items);
+    cursor = result.next_cursor;
+    if (!cursor) return items;
+  }
+  throw new Error("목록이 브라우저 검토 한도를 초과했습니다. 필터로 범위를 줄여 주세요.");
+}
+
+function pending(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 409;
+}
+
+function decisionText(decision: Decision | null): string {
+  if (!decision) return "판정 대기";
+  if (decision.decision_status !== "decided") return `미확정: ${decision.decision_status}`;
+  return `${decision.evidence_grade} · ${decision.label}${decision.sublabel ? ` (${decision.sublabel})` : ""}`;
+}
+
+function decisionTone(decision: Decision | null): "neutral" | "success" | "warning" | "danger" {
+  if (!decision || decision.decision_status !== "decided") return "warning";
+  if (decision.evidence_grade === "E3") return "success";
+  return decision.evidence_grade === "E0" ? "danger" : "warning";
+}
+
+export function ClaimWorkspace(props: ClaimWorkspaceProps) {
+  return props.claimId ? <ClaimDetailView {...props} claimId={props.claimId} /> : <ClaimList {...props} />;
+}
+
+function ClaimList({ apiBase = "", tenantKey, runId, onSessionInvalid }: ClaimWorkspaceProps) {
+  const [search, setSearch] = useSearchParams();
+  const [items, setItems] = useState<ClaimSummary[]>([]);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [state, setState] = useState<LoadState>("loading");
+  const [message, setMessage] = useState("");
+  const [moreBusy, setMoreBusy] = useState(false);
+  const controller = useRef<AbortController | null>(null);
+  const filterKey = ["track", "grade", "review_status"].map(key => search.get(key) ?? "").join(":");
+
+  const load = useCallback(async (nextCursor?: string) => {
+    controller.current?.abort();
+    const request = new AbortController();
+    controller.current = request;
+    if (nextCursor) setMoreBusy(true); else setState("loading");
+    setMessage("");
+    const target = new URL(`${apiBase}/v1/runs/${runId}/claims`, window.location.origin);
+    target.searchParams.set("limit", "50");
+    for (const key of ["track", "grade", "review_status"]) {
+      const value = search.get(key);
+      if (value) target.searchParams.set(key, value);
+    }
+    if (nextCursor) target.searchParams.set("cursor", nextCursor);
+    try {
+      const page = await requestJson<ClaimPage>(target.toString(), { signal: request.signal });
+      if (request.signal.aborted) return;
+      setItems(current => nextCursor ? [...current, ...page.items] : page.items);
+      setCursor(page.next_cursor);
+      setState("ready");
+    } catch (reason: unknown) {
+      if (request.signal.aborted) return;
+      if (isSessionError(reason)) return onSessionInvalid();
+      setState(pending(reason) ? "pending" : "error");
+      setMessage(pending(reason)
+        ? "주장 태깅과 무결성 검사가 아직 완료되지 않았습니다. 잠시 후 다시 확인해 주세요."
+        : errorMessage(reason, "주장 목록을 불러오지 못했습니다."));
+    } finally {
+      if (!request.signal.aborted) setMoreBusy(false);
+    }
+  }, [apiBase, filterKey, onSessionInvalid, runId, search]);
+
+  useEffect(() => {
+    setItems([]);
+    setCursor(null);
+    void load();
+    return () => controller.current?.abort();
+  }, [load, tenantKey]);
+
+  function setFilter(key: string, value: string) {
+    const next = new URLSearchParams(search);
+    if (value) next.set(key, value); else next.delete(key);
+    next.delete("cursor");
+    setSearch(next);
+  }
+
+  return <section aria-labelledby="claims-heading">
+    <h1 id="claims-heading">주장 검토 목록</h1>
+    <div aria-label="주장 필터" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+      <label>트랙 <select value={search.get("track") ?? ""} onChange={event => setFilter("track", event.target.value)}>
+        <option value="">전체</option><option value="goal">목표형</option><option value="performance">성과형</option><option value="management">관리체계형</option>
+      </select></label>
+      <label>등급 <select value={search.get("grade") ?? ""} onChange={event => setFilter("grade", event.target.value)}>
+        <option value="">전체</option>{["E0", "E1", "E2", "E3"].map(grade => <option key={grade}>{grade}</option>)}
+      </select></label>
+      <label>검토 상태 <select value={search.get("review_status") ?? ""} onChange={event => setFilter("review_status", event.target.value)}>
+        <option value="">전체</option><option value="auto_confirmed">자동 확인</option><option value="needs_review">검토 필요</option><option value="human_confirmed">사람 확인</option>
+      </select></label>
+    </div>
+    {state === "loading" ? <p role="status">주장 목록을 불러오는 중입니다.</p> : null}
+    {state === "pending" ? <p role="status">{message}</p> : null}
+    {state === "error" ? <p role="alert">{message} <button type="button" onClick={() => void load()}>다시 시도</button></p> : null}
+    {state === "ready" && items.length === 0 ? <p>현재 필터에 해당하는 주장이 없습니다. 필터를 해제하거나 분석 진행 상태를 확인해 주세요.</p> : null}
+    {items.length > 0 ? <table style={{ width: "100%" }}><thead><tr><th>쪽</th><th>주장</th><th>트랙</th><th>판정</th></tr></thead><tbody>
+      {items.map(item => <tr key={item.claim_id}><td>{item.page_num}</td><td><Link to={`/runs/${runId}/claims/${item.claim_id}`}>{item.quote}</Link></td><td>{item.track ?? "미분류"}</td><td><StatusBadge label={decisionText(item.decision)} tone={decisionTone(item.decision)} /></td></tr>)}
+    </tbody></table> : null}
+    {cursor ? <button type="button" disabled={moreBusy} onClick={() => void load(cursor)} style={{ minHeight: 44 }}>{moreBusy ? "불러오는 중…" : "더 보기"}</button> : null}
+  </section>;
+}
+
+function ClaimDetailView({ apiBase = "", csrfToken, tenantKey, runId, claimId = "", onSessionInvalid }: ClaimWorkspaceProps) {
+  const [detail, setDetail] = useState<ClaimDetail | null>(null);
+  const [state, setState] = useState<LoadState>("loading");
+  const [message, setMessage] = useState("");
+  const request = useRef<AbortController | null>(null);
+
+  const load = useCallback(async () => {
+    request.current?.abort();
+    const controller = new AbortController();
+    request.current = controller;
+    setState("loading"); setMessage("");
+    try {
+      const value = await requestJson<ClaimDetail>(`${apiBase}/v1/runs/${runId}/claims/${claimId}`, { signal: controller.signal });
+      if (controller.signal.aborted) return;
+      setDetail(value); setState("ready");
+    } catch (reason: unknown) {
+      if (controller.signal.aborted) return;
+      if (isSessionError(reason)) return onSessionInvalid();
+      setState(pending(reason) ? "pending" : "error");
+      setMessage(pending(reason) ? "이 주장의 태깅 결과가 아직 게시되지 않았습니다." : errorMessage(reason, "주장 상세를 불러오지 못했습니다."));
+    }
+  }, [apiBase, claimId, onSessionInvalid, runId]);
+
+  useEffect(() => {
+    setDetail(null);
+    void load();
+    return () => request.current?.abort();
+  }, [load, tenantKey]);
+
+  if (state === "loading") return <p role="status">주장 상세를 불러오는 중입니다.</p>;
+  if (state === "pending") return <p role="status">{message}</p>;
+  if (state === "error" || !detail) return <p role="alert">{message} <button type="button" onClick={() => void load()}>다시 시도</button></p>;
+  const decision = detail.claim.decision;
+  const untagged = detail.tag_status === "untagged" || detail.packet_sha256 === null;
+  return <section aria-labelledby="claim-heading">
+    <h1 id="claim-heading">주장 상세</h1>
+    <p><Link to={`/runs/${runId}/claims`}>주장 목록으로</Link></p>
+    {untagged ? <p role="status">추출만 완료되어 태깅을 기다리는 주장입니다. 원문은 아래에서 바로 검토할 수 있으며, 태깅 편집은 태그가 게시된 뒤에 가능합니다.</p> : null}
+    <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 3fr) minmax(280px, 2fr)", gap: 24 }}>
+      <SourceViewer apiBase={apiBase} csrfToken={csrfToken} runId={runId} sources={detail.source_refs} onSessionInvalid={onSessionInvalid} />
+      <section aria-labelledby="evidence-heading"><h2 id="evidence-heading">태깅과 판정</h2>
+        <p>{detail.claim.quote}</p><p>트랙: {detail.claim.track ?? "미분류"}</p><p>판정: <StatusBadge label={decisionText(decision)} tone={decisionTone(decision)} /></p>
+        {decision?.review_status ? <p>검토 상태: <StatusBadge label={decision.review_status} tone={decision.review_status === "human_confirmed" ? "success" : "warning"} /></p> : null}
+        {decision?.gap_ids.length ? <p>미정 규칙: {decision.gap_ids.join(", ")}</p> : null}
+        <h3>요소</h3>{detail.elements.length === 0 ? <p>{untagged ? "태깅 전이므로 표시할 요소가 없습니다. 태그가 게시되면 여기에 표시됩니다." : "표시할 요소가 없습니다."}</p> : <ul>{detail.elements.map(element => <li key={element.element_id}>{element.element_id}: {element.state} · 근거 {element.evidence_refs.length}개 · {element.credited_from ? "문서 전역" : "주장/표 직접"}</li>)}</ul>}
+        <h3>보증 연결</h3>{detail.assurance.status === "undetermined" ? <p>보증 범위를 확인할 수 없습니다. 보고서 전체가 보증되었다고 간주하지 않습니다.</p> : <p>{detail.assurance.status} · {detail.assurance.level ?? "수준 미확인"} · {detail.assurance.provider ?? "기관 미확인"}</p>}
+        {detail.suggestion ? <><h3>수정 제안</h3><p>{detail.suggestion}</p></> : null}
+        <h3>기준 근거</h3>{detail.basis_refs.length ? <ul>{detail.basis_refs.map((basis, index) => <li key={`${basis.standard}:${basis.clause}:${index}`}>{basis.standard} {basis.clause ?? "조항 미확정"}: {basis.summary} ({basis.verification_status})</li>)}</ul> : <p>표시할 검증된 기준 근거가 없습니다.</p>}
+        <details><summary>재현성 식별자</summary>{detail.packet_sha256 ? <p>Evidence packet: <code>{detail.packet_sha256}</code></p> : <p>Evidence packet: 태깅 전 (없음)</p>}{detail.replicate_request_ids.length ? <ul>{detail.replicate_request_ids.map(id => <li key={id}><code>{id}</code></li>)}</ul> : <p>재현 요청 식별자가 없습니다.{untagged ? " 태그가 게시되면 여기에 표시됩니다." : ""}</p>}</details>
+      </section>
+    </div>
+  </section>;
+}
+
+export function ReviewQueueWorkspace({ apiBase = "", tenantKey, session, runId, onSessionInvalid, onDataChanged, localSynthetic = false }: CommonProps & { localSynthetic?: boolean }) {
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [claims, setClaims] = useState<ClaimSummary[]>([]);
+  const [selected, setSelected] = useState("");
+  const [snapshot, setSnapshot] = useState<ReviewSnapshot | null>(null);
+  const [detail, setDetail] = useState<ClaimDetail | null>(null);
+  const [state, setState] = useState<LoadState>("loading");
+  const [message, setMessage] = useState("");
+  const controller = useRef<AbortController | null>(null);
+  const allowed = session.role === "reviewer" || session.role === "admin";
+
+  const latest = useCallback(async (reviewId: string, signal: AbortSignal): Promise<{ snapshot: ReviewSnapshot; detail: ClaimDetail }> => {
+    const [freshReviews, freshClaims] = await Promise.all([
+      allPages<Review>(`${apiBase}/v1/runs/${runId}/reviews`, signal),
+      allPages<ClaimSummary>(`${apiBase}/v1/runs/${runId}/claims`, signal),
+    ]);
+    const review = freshReviews.find(item => item.review_id === reviewId);
+    if (!review || !freshClaims.some(item => item.claim_id === review.claim_id)) throw new Error("최신 검토 항목을 찾을 수 없습니다.");
+    const claimDetail = await requestJson<ClaimDetail>(`${apiBase}/v1/runs/${runId}/claims/${review.claim_id}`, { signal });
+    if (!claimDetail.claim.track) throw new Error("트랙이 미확정되어 검토 편집기를 열 수 없습니다.");
+    return { snapshot: { review, track: claimDetail.claim.track, elements: completeElements(claimDetail.claim.track, claimDetail.elements) }, detail: claimDetail };
+  }, [apiBase, runId]);
+
+  const load = useCallback(async (preferred?: string) => {
+    controller.current?.abort();
+    const request = new AbortController();
+    controller.current = request;
+    setState("loading"); setMessage("");
+    try {
+      const [nextReviews, nextClaims] = await Promise.all([
+        allPages<Review>(`${apiBase}/v1/runs/${runId}/reviews`, request.signal),
+        allPages<ClaimSummary>(`${apiBase}/v1/runs/${runId}/claims`, request.signal),
+      ]);
+      if (request.signal.aborted) return;
+      setReviews(nextReviews); setClaims(nextClaims);
+      const id = preferred && nextReviews.some(item => item.review_id === preferred) ? preferred : nextReviews.find(item => item.status === "open")?.review_id ?? nextReviews[0]?.review_id ?? "";
+      setSelected(id);
+      if (!id) { setSnapshot(null); setDetail(null); setState("ready"); return; }
+      const value = await latest(id, request.signal);
+      if (request.signal.aborted) return;
+      setSnapshot(value.snapshot); setDetail(value.detail); setState("ready");
+    } catch (reason: unknown) {
+      if (request.signal.aborted) return;
+      if (isSessionError(reason)) return onSessionInvalid();
+      setState(pending(reason) ? "pending" : "error");
+      setMessage(pending(reason) ? "검토 큐와 태깅 스냅샷이 아직 준비되지 않았습니다." : errorMessage(reason, "검토 큐를 불러오지 못했습니다."));
+    }
+  }, [apiBase, latest, onSessionInvalid, runId]);
+
+  useEffect(() => {
+    if (allowed) void load(); else setState("ready");
+    return () => controller.current?.abort();
+  }, [allowed, load, tenantKey]);
+
+  async function choose(reviewId: string) {
+    setSelected(reviewId); setState("loading"); setMessage("");
+    const request = new AbortController();
+    controller.current?.abort(); controller.current = request;
+    try {
+      const value = await latest(reviewId, request.signal);
+      if (!request.signal.aborted) { setSnapshot(value.snapshot); setDetail(value.detail); setState("ready"); }
+    } catch (reason: unknown) {
+      if (request.signal.aborted) return;
+      if (isSessionError(reason)) return onSessionInvalid();
+      setState(pending(reason) ? "pending" : "error"); setMessage(errorMessage(reason, "검토 항목을 불러오지 못했습니다."));
+    }
+  }
+
+  function resolved(_result: ReviewResolution) {
+    onDataChanged();
+    void load(selected);
+  }
+
+  if (!allowed) return <section><h1>태깅 검토</h1><p role="alert">검토자 또는 관리자 권한이 필요합니다. 가짜 승인 화면은 제공하지 않습니다.</p></section>;
+  return <section aria-labelledby="review-queue-heading"><h1 id="review-queue-heading">검토 큐</h1>
+    {state === "loading" ? <p role="status">최신 주장과 검토 큐 스냅샷을 불러오는 중입니다.</p> : null}
+    {state === "pending" ? <p role="status">{message}</p> : null}
+    {state === "error" ? <p role="alert">{message} <button type="button" onClick={() => void load(selected)}>다시 시도</button></p> : null}
+    {state === "ready" && reviews.length === 0 ? <p>현재 검토 큐가 비어 있습니다.</p> : null}
+    {reviews.length ? <nav aria-label="검토 항목"><ul>{reviews.map(review => <li key={review.review_id}><button type="button" aria-current={selected === review.review_id ? "true" : undefined} onClick={() => void choose(review.review_id)}>{claims.find(claim => claim.claim_id === review.claim_id)?.quote ?? review.claim_id} · {review.status}</button></li>)}</ul></nav> : null}
+    {state === "ready" && snapshot && detail ? <ReviewWorkspace key={`${snapshot.review.review_id}:${snapshot.review.revision}`} {...snapshot} session={session}
+      sourceChoices={detail.source_refs} loadLatest={async () => (await latest(snapshot.review.review_id, new AbortController().signal)).snapshot}
+      onResolved={resolved} onSourceOpen={source => document.getElementById(`review-source-${source.source_id}`)?.focus()} localSynthetic={localSynthetic} /> : null}
+    {detail ? <section aria-label="검토 원문"><h2>접근 가능한 원문</h2>{detail.source_refs.map(source => <article key={source.source_id}><h3 id={`review-source-${source.source_id}`} tabIndex={-1}>{source.page_num}쪽</h3><p>{source.quote}</p><Link to={`/runs/${runId}/claims/${detail.claim.claim_id}`}>원문 PDF와 전체 상세 열기</Link></article>)}</section> : null}
+  </section>;
+}

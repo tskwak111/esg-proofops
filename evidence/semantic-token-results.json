@@ -1,0 +1,670 @@
+{
+  "receipt": {
+    "request_id": "f580c026-3c12-4d16-986f-8ebb55574ff0",
+    "prompt_sha256": "2f9c7cd13e4517359b4dee8480591324a4e07a94eccdc43010e902d14633440c",
+    "packet_sha256": "14281d2e0c531812df94ba6a45353588eab2ca954342812f266bca8a168291d1",
+    "wire_sha256": "fd3fac689b2841f687c8b457b0832c57476b5177c3cf59b22c84ab3fa42df720",
+    "model_sha256": "19a9c578c7fbb4130003220c9449283b44db32b1f9d848e4ce9263439c00ee24",
+    "rule_sha256": "c406709a091c9f8580914c6009de004e57707a81807c0f1d1291d1a8cd1f0062",
+    "replica": 1,
+    "decision": null,
+    "status": "failed",
+    "reason": "ValueError",
+    "unresolved_claim_ids": [
+      "q0",
+      "q1",
+      "q2",
+      "q3",
+      "q4",
+      "q5",
+      "q6",
+      "q7",
+      "q8",
+      "q9",
+      "q10",
+      "q11",
+      "q12"
+    ]
+  },
+  "budget": {
+    "before": {
+      "limit_usd": "10.00",
+      "calls": 90,
+      "unsettled_calls": 2,
+      "committed_usd": "2.0375252900"
+    },
+    "after": {
+      "limit_usd": "10.00",
+      "calls": 91,
+      "unsettled_calls": 2,
+      "committed_usd": "2.0385451550"
+    }
+  },
+  "provider_model": "solar-pro3-260323",
+  "raw_response": {
+    "claims": [
+      {
+        "id": "q0",
+        "dimensions": {
+          "entity": [
+            "t0",
+            "t1"
+          ],
+          "metric": [
+            "t2",
+            "t3"
+          ],
+          "boundary": [
+            "t4",
+            "t5"
+          ]
+        }
+      },
+      {
+        "id": "q1",
+        "dimensions": {
+          "entity": [
+            "t12",
+            "t13"
+          ],
+          "metric": [
+            "t20",
+            "t21"
+          ],
+          "boundary": [
+            "t24",
+            "t25"
+          ]
+        }
+      },
+      {
+        "id": "q2",
+        "dimensions": {
+          "entity": [
+            "t43",
+            "t44"
+          ],
+          "metric": [
+            "t47",
+            "t48"
+          ],
+          "boundary": [
+            "t56",
+            "t57"
+          ]
+        }
+      },
+      {
+        "id": "q3",
+        "dimensions": {
+          "entity": [
+            "t73",
+            "t74"
+          ],
+          "metric": [
+            "t76",
+            "t77"
+          ],
+          "boundary": [
+            "t78",
+            "t79"
+          ]
+        }
+      },
+      {
+        "id": "q4",
+        "dimensions": {
+          "entity": [
+            "t110",
+            "t111"
+          ],
+          "metric": [
+            "t115",
+            "t116"
+          ],
+          "boundary": [
+            "t117",
+            "t118"
+          ]
+        }
+      },
+      {
+        "id": "q5",
+        "dimensions": {
+          "entity": [
+            "t122",
+            "t123"
+          ],
+          "metric": [
+            "t144",
+            "t145"
+          ],
+          "boundary": [
+            "t135",
+            "t136"
+          ]
+        }
+      },
+      {
+        "id": "q6",
+        "dimensions": {
+          "entity": [
+            "t149",
+            "t150"
+          ],
+          "metric": [
+            "t160",
+            "t161"
+          ],
+          "boundary": [
+            "t154",
+            "t155"
+          ]
+        }
+      },
+      {
+        "id": "q7",
+        "dimensions": {
+          "entity": [
+            "t165",
+            "t166"
+          ],
+          "metric": [
+            "t175",
+            "t176"
+          ],
+          "boundary": [
+            "t177",
+            "t178"
+          ]
+        }
+      },
+      {
+        "id": "q8",
+        "dimensions": {
+          "entity": [
+            "t185",
+            "t186"
+          ],
+          "metric": [
+            "t193",
+            "t194"
+          ],
+          "boundary": [
+            "t187",
+            "t188"
+          ]
+        }
+      },
+      {
+        "id": "q9",
+        "dimensions": {
+          "entity": [
+            "t195",
+            "t196"
+          ],
+          "metric": [
+            "t200",
+            "t201"
+          ],
+          "boundary": [
+            "t197",
+            "t198"
+          ]
+        }
+      },
+      {
+        "id": "q10",
+        "dimensions": {
+          "entity": [
+            "t205",
+            "t206"
+          ],
+          "metric": [
+            "t213",
+            "t214"
+          ],
+          "boundary": [
+            "t207",
+            "t208"
+          ]
+        }
+      },
+      {
+        "id": "q11",
+        "dimensions": {
+          "entity": [
+            "t215",
+            "t216"
+          ],
+          "metric": [
+            "t212",
+            "t213"
+          ],
+          "boundary": [
+            "t217",
+            "t218"
+          ]
+        }
+      },
+      {
+        "id": "q12",
+        "dimensions": {
+          "entity": [
+            "t224",
+            "t225"
+          ],
+          "metric": [
+            "t228",
+            "t229"
+          ],
+          "boundary": [
+            "t226",
+            "t227"
+          ]
+        }
+      }
+    ]
+  },
+  "range_diagnostics": [
+    {
+      "claim_id": "q0",
+      "field": "entity",
+      "token_ids": [
+        "t0",
+        "t1"
+      ],
+      "own_claim_range_valid": true,
+      "quote": "LG화학은 2050년"
+    },
+    {
+      "claim_id": "q0",
+      "field": "metric",
+      "token_ids": [
+        "t2",
+        "t3"
+      ],
+      "own_claim_range_valid": true,
+      "quote": "넷제로(Net-Zero) 달성을"
+    },
+    {
+      "claim_id": "q0",
+      "field": "boundary",
+      "token_ids": [
+        "t4",
+        "t5"
+      ],
+      "own_claim_range_valid": true,
+      "quote": "목표로 2030년"
+    },
+    {
+      "claim_id": "q1",
+      "field": "entity",
+      "token_ids": [
+        "t12",
+        "t13"
+      ],
+      "own_claim_range_valid": true,
+      "quote": "향후 생산능력"
+    },
+    {
+      "claim_id": "q1",
+      "field": "metric",
+      "token_ids": [
+        "t20",
+        "t21"
+      ],
+      "own_claim_range_valid": true,
+      "quote": "배출량 증가"
+    },
+    {
+      "claim_id": "q1",
+      "field": "boundary",
+      "token_ids": [
+        "t24",
+        "t25"
+      ],
+      "own_claim_range_valid": true,
+      "quote": "Scope 1"
+    },
+    {
+      "claim_id": "q2",
+      "field": "entity",
+      "token_ids": [
+        "t43",
+        "t44"
+      ],
+      "own_claim_range_valid": true,
+      "quote": "이러한 사업"
+    },
+    {
+      "claim_id": "q2",
+      "field": "metric",
+      "token_ids": [
+        "t47",
+        "t48"
+      ],
+      "own_claim_range_valid": true,
+      "quote": "온실가스 감축"
+    },
+    {
+      "claim_id": "q2",
+      "field": "boundary",
+      "token_ids": [
+        "t56",
+        "t57"
+      ],
+      "own_claim_range_valid": true,
+      "quote": "전사 전략의"
+    },
+    {
+      "claim_id": "q3",
+      "field": "entity",
+      "token_ids": [
+        "t73",
+        "t74"
+      ],
+      "own_claim_range_valid": true,
+      "quote": "LG화학은 2030년까지"
+    },
+    {
+      "claim_id": "q3",
+      "field": "metric",
+      "token_ids": [
+        "t76",
+        "t77"
+      ],
+      "own_claim_range_valid": true,
+      "quote": "효율 개선,"
+    },
+    {
+      "claim_id": "q3",
+      "field": "boundary",
+      "token_ids": [
+        "t78",
+        "t79"
+      ],
+      "own_claim_range_valid": true,
+      "quote": "저탄소 연료·원료"
+    },
+    {
+      "claim_id": "q4",
+      "field": "entity",
+      "token_ids": [
+        "t110",
+        "t111"
+      ],
+      "own_claim_range_valid": true,
+      "quote": "LG화학은 사업장의"
+    },
+    {
+      "claim_id": "q4",
+      "field": "metric",
+      "token_ids": [
+        "t115",
+        "t116"
+      ],
+      "own_claim_range_valid": true,
+      "quote": "에너지 효율"
+    },
+    {
+      "claim_id": "q4",
+      "field": "boundary",
+      "token_ids": [
+        "t117",
+        "t118"
+      ],
+      "own_claim_range_valid": true,
+      "quote": "개선 활동을"
+    },
+    {
+      "claim_id": "q5",
+      "field": "entity",
+      "token_ids": [
+        "t122",
+        "t123"
+      ],
+      "own_claim_range_valid": true,
+      "quote": "주요 생산공정의"
+    },
+    {
+      "claim_id": "q5",
+      "field": "metric",
+      "token_ids": [
+        "t144",
+        "t145"
+      ],
+      "own_claim_range_valid": true,
+      "quote": "온실가스 배출"
+    },
+    {
+      "claim_id": "q5",
+      "field": "boundary",
+      "token_ids": [
+        "t135",
+        "t136"
+      ],
+      "own_claim_range_valid": true,
+      "quote": "통해 스팀"
+    },
+    {
+      "claim_id": "q6",
+      "field": "entity",
+      "token_ids": [
+        "t149",
+        "t150"
+      ],
+      "own_claim_range_valid": true,
+      "quote": "또한 전사"
+    },
+    {
+      "claim_id": "q6",
+      "field": "metric",
+      "token_ids": [
+        "t160",
+        "t161"
+      ],
+      "own_claim_range_valid": true,
+      "quote": "감축 실적을"
+    },
+    {
+      "claim_id": "q6",
+      "field": "boundary",
+      "token_ids": [
+        "t154",
+        "t155"
+      ],
+      "own_claim_range_valid": true,
+      "quote": "시스템(Net-Zero Portal)을"
+    },
+    {
+      "claim_id": "q7",
+      "field": "entity",
+      "token_ids": [
+        "t165",
+        "t166"
+      ],
+      "own_claim_range_valid": true,
+      "quote": "2025년에는 총"
+    },
+    {
+      "claim_id": "q7",
+      "field": "metric",
+      "token_ids": [
+        "t175",
+        "t176"
+      ],
+      "own_claim_range_valid": true,
+      "quote": "온실가스를 저감하였으며,"
+    },
+    {
+      "claim_id": "q7",
+      "field": "boundary",
+      "token_ids": [
+        "t177",
+        "t178"
+      ],
+      "own_claim_range_valid": true,
+      "quote": "주요 생산공정정에서"
+    },
+    {
+      "claim_id": "q8",
+      "field": "entity",
+      "token_ids": [
+        "t185",
+        "t186"
+      ],
+      "own_claim_range_valid": true,
+      "quote": "설비 운영"
+    },
+    {
+      "claim_id": "q8",
+      "field": "metric",
+      "token_ids": [
+        "t193",
+        "t194"
+      ],
+      "own_claim_range_valid": true,
+      "quote": "사용량 절감"
+    },
+    {
+      "claim_id": "q8",
+      "field": "boundary",
+      "token_ids": [
+        "t187",
+        "t188"
+      ],
+      "own_claim_range_valid": true,
+      "quote": "효율 향상을"
+    },
+    {
+      "claim_id": "q9",
+      "field": "entity",
+      "token_ids": [
+        "t195",
+        "t196"
+      ],
+      "own_claim_range_valid": true,
+      "quote": "설비 효율"
+    },
+    {
+      "claim_id": "q9",
+      "field": "metric",
+      "token_ids": [
+        "t200",
+        "t201"
+      ],
+      "own_claim_range_valid": true,
+      "quote": "개선 및"
+    },
+    {
+      "claim_id": "q9",
+      "field": "boundary",
+      "token_ids": [
+        "t197",
+        "t198"
+      ],
+      "own_claim_range_valid": true,
+      "quote": "개선 원심분리기"
+    },
+    {
+      "claim_id": "q10",
+      "field": "entity",
+      "token_ids": [
+        "t205",
+        "t206"
+      ],
+      "own_claim_range_valid": true,
+      "quote": "공정 열효율"
+    },
+    {
+      "claim_id": "q10",
+      "field": "metric",
+      "token_ids": [
+        "t213",
+        "t214"
+      ],
+      "own_claim_range_valid": true,
+      "quote": "배출 저감"
+    },
+    {
+      "claim_id": "q10",
+      "field": "boundary",
+      "token_ids": [
+        "t207",
+        "t208"
+      ],
+      "own_claim_range_valid": true,
+      "quote": "향상 및"
+    },
+    {
+      "claim_id": "q11",
+      "field": "entity",
+      "token_ids": [
+        "t215",
+        "t216"
+      ],
+      "own_claim_range_valid": true,
+      "quote": "열에너지 회수"
+    },
+    {
+      "claim_id": "q11",
+      "field": "metric",
+      "token_ids": [
+        "t212",
+        "t213"
+      ],
+      "own_claim_range_valid": false,
+      "quote": null
+    },
+    {
+      "claim_id": "q11",
+      "field": "boundary",
+      "token_ids": [
+        "t217",
+        "t218"
+      ],
+      "own_claim_range_valid": true,
+      "quote": "열교환기 설치"
+    },
+    {
+      "claim_id": "q12",
+      "field": "entity",
+      "token_ids": [
+        "t224",
+        "t225"
+      ],
+      "own_claim_range_valid": true,
+      "quote": "고효율 설비"
+    },
+    {
+      "claim_id": "q12",
+      "field": "metric",
+      "token_ids": [
+        "t228",
+        "t229"
+      ],
+      "own_claim_range_valid": true,
+      "quote": "냉각수 펌프"
+    },
+    {
+      "claim_id": "q12",
+      "field": "boundary",
+      "token_ids": [
+        "t226",
+        "t227"
+      ],
+      "own_claim_range_valid": true,
+      "quote": "적용을 통한"
+    }
+  ],
+  "token_count": 232,
+  "wire_bytes": 5797,
+  "interpretation": "whole response rejected; no source approval, semantic acceptance, grade or partial salvage",
+  "identity": {
+    "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+    "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+    "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+    "source_sha256": "c6395dd2be7948d85fa2b52c6edb61367fa6610c6f389c2478b44cb4cfcb5bde"
+  }
+}

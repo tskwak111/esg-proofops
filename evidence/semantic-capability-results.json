@@ -1,0 +1,655 @@
+{
+  "synthetic": true,
+  "human_adjudicated": false,
+  "all_null_baseline": [
+    {
+      "name": "element_precision",
+      "value": null,
+      "denominator": 0,
+      "status": "scored"
+    },
+    {
+      "name": "element_recall",
+      "value": 0.0,
+      "denominator": 8,
+      "status": "scored"
+    }
+  ],
+  "trials": [
+    {
+      "request_id": "935c563a-98be-4328-a570-dffd0bda3dd4",
+      "synthetic": true,
+      "json_mode": true,
+      "prompt_sha256": "be97f5b70ea7506e61c43d3541193588a2a23a1acd80d74c939e505b2eb2e24f",
+      "packet_sha256": "0185f86d506794bde8532148f03bfad38418a9404bb8054a77bb0a127f127ff4",
+      "cases_sha256": "528a85cf6485d64126e69c2f03dbc363997cfdf0a0fe1567d8e0fb83d7f73b74",
+      "rule_sha256": "82d93b4e3a11e1a18161bbde9dba6588b356bf324552142ca74f009d18fcb9c9",
+      "replica": 1,
+      "decision": null,
+      "response": {
+        "model": "solar-pro3",
+        "provider_request_id": "989f5859-60da-4899-ad5b-0e11c36a93ae",
+        "provider_model": "solar-pro3-260323",
+        "input_tokens": 550,
+        "output_tokens": 255,
+        "price_snapshot": {
+          "snapshot_id": "upstage-solar-pro3-2026-09-09",
+          "model_id": "solar-pro3",
+          "region": "provider-managed-unverified",
+          "captured_at": "2026-09-09T00:00:00Z",
+          "input_per_million": "0.15",
+          "output_per_million": "0.60",
+          "cache_read_per_million": null,
+          "cache_write_per_million": null
+        },
+        "cost_with_vat_reserve_usd": "0.000259050",
+        "response_sha256": "4e88395aaf364dc494001f52cb033d3976c5929fa4a1bf57cba44c6475a0049e",
+        "response_format": {
+          "type": "json_object"
+        },
+        "content": "{\n  \"claims\": [\n    {\n      \"id\": \"q0\",\n      \"dimensions\": {\n        \"entity\": \"한빛화학\",\n        \"metric\": \"온실가스 배출량\",\n        \"boundary\": \"국내 사업장\"\n      }\n    },\n    {\n      \"id\": \"q1\",\n      \"dimensions\": {\n        \"entity\": null,\n        \"metric\": \"온실가스 배출량\",\n        \"boundary\": null\n      }\n    },\n    {\n      \"id\": \"q2\",\n      \"dimensions\": {\n        \"entity\": \"새봄화학\",\n        \"metric\": \"용수 사용량\",\n        \"boundary\": \"해외 사업장\"\n      }\n    },\n    {\n      \"id\": \"q3\",\n      \"dimensions\": {\n        \"entity\": null,\n        \"metric\": null,\n        \"boundary\": null\n      }\n    },\n    {\n      \"id\": \"q4\",\n      \"dimensions\": {\n        \"entity\": null,\n        \"metric\": \"Scope 1 및 Scope 2 배출량\",\n        \"boundary\": null\n      }\n    },\n    {\n      \"id\": \"q5\",\n      \"dimensions\": {\n        \"entity\": null,\n        \"metric\": null,\n      \"boundary\": null\n      }\n    }\n  ]\n}"
+      },
+      "validation": "passed",
+      "positive_metrics": [
+        {
+          "name": "element_precision",
+          "value": 1.0,
+          "denominator": 8,
+          "status": "scored"
+        },
+        {
+          "name": "element_recall",
+          "value": 1.0,
+          "denominator": 8,
+          "status": "scored"
+        }
+      ],
+      "negative_null_correct": 10,
+      "negative_null_total": 10,
+      "exact_fields": 18,
+      "field_count": 18,
+      "tags": [
+        {
+          "id": "q0",
+          "source_id": "01891b96-57c5-5d97-bc3f-3ffc87e19dfd",
+          "claim_span": {
+            "char_start": 0,
+            "char_end": 29,
+            "quote": "한빛화학은 국내 사업장의 온실가스 배출량을 공개했다."
+          },
+          "source_quality": "unverified",
+          "dimensions": {
+            "entity": {
+              "state": "model_proposed",
+              "source_ref": {
+                "source_id": "01891b96-57c5-5d97-bc3f-3ffc87e19dfd",
+                "document_version_id": "33333333-3333-4333-8333-333333333333",
+                "parse_manifest_id": "44444444-4444-4444-8444-444444444444",
+                "page_num": 1,
+                "printed_page_label": null,
+                "bbox": [
+                  10.0,
+                  750.0,
+                  590.0,
+                  790.0
+                ],
+                "raw_text_sha256": "044e99377b0acc21889a8c0429fb231366324ed622f198c68ffeb0d9b7e2b0d1",
+                "quote": "한빛화학",
+                "char_start": 0,
+                "char_end": 4,
+                "location_quality": "located",
+                "verification_state": "candidate"
+              }
+            },
+            "metric": {
+              "state": "model_proposed",
+              "source_ref": {
+                "source_id": "01891b96-57c5-5d97-bc3f-3ffc87e19dfd",
+                "document_version_id": "33333333-3333-4333-8333-333333333333",
+                "parse_manifest_id": "44444444-4444-4444-8444-444444444444",
+                "page_num": 1,
+                "printed_page_label": null,
+                "bbox": [
+                  10.0,
+                  750.0,
+                  590.0,
+                  790.0
+                ],
+                "raw_text_sha256": "044e99377b0acc21889a8c0429fb231366324ed622f198c68ffeb0d9b7e2b0d1",
+                "quote": "온실가스 배출량",
+                "char_start": 14,
+                "char_end": 22,
+                "location_quality": "located",
+                "verification_state": "candidate"
+              }
+            },
+            "scope": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "unit": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "reporting_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "baseline_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "target_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "reported_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "baseline_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "target_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "scope2_basis": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "boundary": {
+              "state": "model_proposed",
+              "source_ref": {
+                "source_id": "01891b96-57c5-5d97-bc3f-3ffc87e19dfd",
+                "document_version_id": "33333333-3333-4333-8333-333333333333",
+                "parse_manifest_id": "44444444-4444-4444-8444-444444444444",
+                "page_num": 1,
+                "printed_page_label": null,
+                "bbox": [
+                  10.0,
+                  750.0,
+                  590.0,
+                  790.0
+                ],
+                "raw_text_sha256": "044e99377b0acc21889a8c0429fb231366324ed622f198c68ffeb0d9b7e2b0d1",
+                "quote": "국내 사업장",
+                "char_start": 6,
+                "char_end": 12,
+                "location_quality": "located",
+                "verification_state": "candidate"
+              }
+            }
+          },
+          "populated_fields": 3,
+          "review_reason": "semantic_review_required",
+          "binding_status": "undetermined"
+        },
+        {
+          "id": "q1",
+          "source_id": "f32c1e97-699a-571f-b5b1-d4fcb9c52f30",
+          "claim_span": {
+            "char_start": 0,
+            "char_end": 15,
+            "quote": "온실가스 배출량을 공개했다."
+          },
+          "source_quality": "unverified",
+          "dimensions": {
+            "entity": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "metric": {
+              "state": "model_proposed",
+              "source_ref": {
+                "source_id": "f32c1e97-699a-571f-b5b1-d4fcb9c52f30",
+                "document_version_id": "33333333-3333-4333-8333-333333333333",
+                "parse_manifest_id": "44444444-4444-4444-8444-444444444444",
+                "page_num": 2,
+                "printed_page_label": null,
+                "bbox": [
+                  10.0,
+                  750.0,
+                  590.0,
+                  790.0
+                ],
+                "raw_text_sha256": "21d688c71e54f85b2e280cc6de04b0fc43c7f3c278e585b3030f3df25e6f4fd6",
+                "quote": "온실가스 배출량",
+                "char_start": 0,
+                "char_end": 8,
+                "location_quality": "located",
+                "verification_state": "candidate"
+              }
+            },
+            "scope": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "unit": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "reporting_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "baseline_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "target_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "reported_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "baseline_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "target_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "scope2_basis": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "boundary": {
+              "state": "unknown",
+              "source_ref": null
+            }
+          },
+          "populated_fields": 1,
+          "review_reason": "semantic_review_required",
+          "binding_status": "undetermined"
+        },
+        {
+          "id": "q2",
+          "source_id": "2f1a3547-b3cb-5967-8deb-0191d72e82a2",
+          "claim_span": {
+            "char_start": 0,
+            "char_end": 27,
+            "quote": "새봄화학은 해외 사업장의 용수 사용량을 공개했다."
+          },
+          "source_quality": "unverified",
+          "dimensions": {
+            "entity": {
+              "state": "model_proposed",
+              "source_ref": {
+                "source_id": "2f1a3547-b3cb-5967-8deb-0191d72e82a2",
+                "document_version_id": "33333333-3333-4333-8333-333333333333",
+                "parse_manifest_id": "44444444-4444-4444-8444-444444444444",
+                "page_num": 3,
+                "printed_page_label": null,
+                "bbox": [
+                  10.0,
+                  750.0,
+                  590.0,
+                  790.0
+                ],
+                "raw_text_sha256": "7598a1ad4d4dafa1ed9a2f86c64481e925fac0c6f1dd5e030618f3912deea92e",
+                "quote": "새봄화학",
+                "char_start": 0,
+                "char_end": 4,
+                "location_quality": "located",
+                "verification_state": "candidate"
+              }
+            },
+            "metric": {
+              "state": "model_proposed",
+              "source_ref": {
+                "source_id": "2f1a3547-b3cb-5967-8deb-0191d72e82a2",
+                "document_version_id": "33333333-3333-4333-8333-333333333333",
+                "parse_manifest_id": "44444444-4444-4444-8444-444444444444",
+                "page_num": 3,
+                "printed_page_label": null,
+                "bbox": [
+                  10.0,
+                  750.0,
+                  590.0,
+                  790.0
+                ],
+                "raw_text_sha256": "7598a1ad4d4dafa1ed9a2f86c64481e925fac0c6f1dd5e030618f3912deea92e",
+                "quote": "용수 사용량",
+                "char_start": 14,
+                "char_end": 20,
+                "location_quality": "located",
+                "verification_state": "candidate"
+              }
+            },
+            "scope": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "unit": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "reporting_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "baseline_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "target_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "reported_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "baseline_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "target_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "scope2_basis": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "boundary": {
+              "state": "model_proposed",
+              "source_ref": {
+                "source_id": "2f1a3547-b3cb-5967-8deb-0191d72e82a2",
+                "document_version_id": "33333333-3333-4333-8333-333333333333",
+                "parse_manifest_id": "44444444-4444-4444-8444-444444444444",
+                "page_num": 3,
+                "printed_page_label": null,
+                "bbox": [
+                  10.0,
+                  750.0,
+                  590.0,
+                  790.0
+                ],
+                "raw_text_sha256": "7598a1ad4d4dafa1ed9a2f86c64481e925fac0c6f1dd5e030618f3912deea92e",
+                "quote": "해외 사업장",
+                "char_start": 6,
+                "char_end": 12,
+                "location_quality": "located",
+                "verification_state": "candidate"
+              }
+            }
+          },
+          "populated_fields": 3,
+          "review_reason": "semantic_review_required",
+          "binding_status": "undetermined"
+        },
+        {
+          "id": "q3",
+          "source_id": "8e23a47d-3535-5148-984f-d773cc6c10be",
+          "claim_span": {
+            "char_start": 0,
+            "char_end": 12,
+            "quote": "앞으로 노력하겠습니다."
+          },
+          "source_quality": "unverified",
+          "dimensions": {
+            "entity": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "metric": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "scope": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "unit": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "reporting_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "baseline_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "target_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "reported_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "baseline_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "target_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "scope2_basis": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "boundary": {
+              "state": "unknown",
+              "source_ref": null
+            }
+          },
+          "populated_fields": 0,
+          "review_reason": "all_dimensions_unknown",
+          "binding_status": "undetermined"
+        },
+        {
+          "id": "q4",
+          "source_id": "f83e6cb1-3260-54fa-8fcb-501ccaa84eb5",
+          "claim_span": {
+            "char_start": 0,
+            "char_end": 28,
+            "quote": "Scope 1 및 Scope 2 배출량을 공개했다."
+          },
+          "source_quality": "unverified",
+          "dimensions": {
+            "entity": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "metric": {
+              "state": "model_proposed",
+              "source_ref": {
+                "source_id": "f83e6cb1-3260-54fa-8fcb-501ccaa84eb5",
+                "document_version_id": "33333333-3333-4333-8333-333333333333",
+                "parse_manifest_id": "44444444-4444-4444-8444-444444444444",
+                "page_num": 5,
+                "printed_page_label": null,
+                "bbox": [
+                  10.0,
+                  750.0,
+                  590.0,
+                  790.0
+                ],
+                "raw_text_sha256": "adeb491cf614cbf58682b1a592b99e1edef6ee5a87446c9d926e7b7ce7973ac2",
+                "quote": "Scope 1 및 Scope 2 배출량",
+                "char_start": 0,
+                "char_end": 21,
+                "location_quality": "located",
+                "verification_state": "candidate"
+              }
+            },
+            "scope": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "unit": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "reporting_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "baseline_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "target_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "reported_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "baseline_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "target_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "scope2_basis": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "boundary": {
+              "state": "unknown",
+              "source_ref": null
+            }
+          },
+          "populated_fields": 1,
+          "review_reason": "semantic_review_required",
+          "binding_status": "undetermined"
+        },
+        {
+          "id": "q5",
+          "source_id": "a4c1f833-8c22-5cff-be2a-fc0106c0d3f8",
+          "claim_span": {
+            "char_start": 0,
+            "char_end": 23,
+            "quote": "향후 해외 사업 확장을 계획하고 있습니다."
+          },
+          "source_quality": "unverified",
+          "dimensions": {
+            "entity": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "metric": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "scope": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "unit": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "reporting_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "baseline_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "target_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "reported_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "baseline_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "target_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "scope2_basis": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "boundary": {
+              "state": "unknown",
+              "source_ref": null
+            }
+          },
+          "populated_fields": 0,
+          "review_reason": "all_dimensions_unknown",
+          "binding_status": "undetermined"
+        }
+      ],
+      "budget_before": {
+        "limit_usd": "10.00",
+        "calls": 91,
+        "unsettled_calls": 2,
+        "committed_usd": "2.0385451550"
+      },
+      "budget_after": {
+        "limit_usd": "10.00",
+        "calls": 92,
+        "unsettled_calls": 2,
+        "committed_usd": "2.0388042050"
+      }
+    },
+    {
+      "request_id": "7dad9107-bb1c-4671-b80c-2ffa443095d0",
+      "synthetic": true,
+      "json_mode": false,
+      "prompt_sha256": "be97f5b70ea7506e61c43d3541193588a2a23a1acd80d74c939e505b2eb2e24f",
+      "packet_sha256": "0185f86d506794bde8532148f03bfad38418a9404bb8054a77bb0a127f127ff4",
+      "cases_sha256": "528a85cf6485d64126e69c2f03dbc363997cfdf0a0fe1567d8e0fb83d7f73b74",
+      "rule_sha256": "82d93b4e3a11e1a18161bbde9dba6588b356bf324552142ca74f009d18fcb9c9",
+      "replica": 1,
+      "decision": null,
+      "response": {
+        "model": "solar-pro3",
+        "provider_request_id": "c86d199e-0762-42b3-9cfb-696e572a0523",
+        "provider_model": "solar-pro3-260323",
+        "input_tokens": 500,
+        "output_tokens": 128,
+        "price_snapshot": {
+          "snapshot_id": "upstage-solar-pro3-2026-09-09",
+          "model_id": "solar-pro3",
+          "region": "provider-managed-unverified",
+          "captured_at": "2026-09-09T00:00:00Z",
+          "input_per_million": "0.15",
+          "output_per_million": "0.60",
+          "cache_read_per_million": null,
+          "cache_write_per_million": null
+        },
+        "cost_with_vat_reserve_usd": "0.000166980",
+        "response_sha256": "670206c646b918b65f02fbcf53a76b4c6e92ac363fa7a84b23cf569eeee479f3",
+        "content": "{\"claims\":[{\"id\":\"q0\",\"dimensions\":{\"entity\":\"한빛화학\",\"metric\":null,\"boundary\":null}},{\"id\":\"q1\",\"dimensions\":{\"entity\":null,\"metric\":null,\"boundary\":null}},{\"id\":\"q2\",\"dimensions\":{\"entity\":\"새봄화학\",\"metric\":null,\"boundary\":null}},{\"id\":\"q3\",\"dimensions\":{\"entity\":null,\"metric\":null,\"boundary\":null}},{\"id\":\"q4\",\"dimensions\":{\"entity\":null,\"metric\":null,\"boundary\":null}},{\"id\":\"q5\",\"dimensions\":{\"entity\":null,\"metric\":null,\"boundary\":null}}]"
+      },
+      "validation": "failed",
+      "reason": "Expecting ',' delimiter: line 1 column 442 (char 441)",
+      "metrics_status": "not_scored_invalid_response",
+      "budget_before": {
+        "limit_usd": "10.00",
+        "calls": 92,
+        "unsettled_calls": 2,
+        "committed_usd": "2.0388042050"
+      },
+      "budget_after": {
+        "limit_usd": "10.00",
+        "calls": 93,
+        "unsettled_calls": 2,
+        "committed_usd": "2.0389711850"
+      }
+    }
+  ]
+}

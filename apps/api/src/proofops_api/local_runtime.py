@@ -1,0 +1,255 @@
+"""Explicit, local-only RunService configuration; absent input stays fail-closed."""
+
+from __future__ import annotations
+
+import json
+import math
+import stat
+from collections.abc import Mapping
+from pathlib import Path
+from typing import Any
+
+from proofops.application.budget import BudgetLimits, RoleLimit
+from proofops.application.claims import ExtractionProfile
+from proofops.application.ingest.graph_fusion import ParserProfile
+from proofops.application.ports.models import ModelBinding
+from proofops.application.supply_chain import verify_supply_chain
+from proofops.application.tagging.service import TaggingSettings
+
+_MANIFEST_ID = "00000000-0000-4000-8000-000000000000"
+_MAX_CONFIG_BYTES = 65_536
+_SETTINGS_FIELDS = frozenset(
+    {"build_root", "budget_limits", "extraction_profile", "tagging_settings", "extraction_limits"}
+)
+_REQUIRED_SETTINGS_FIELDS = frozenset({"build_root", "budget_limits"})
+_BUDGET_FIELDS = frozenset({"input_tokens", "output_tokens", "max_attempts", "roles"})
+_ROLE_FIELDS = frozenset(
+    {"role", "max_calls", "max_input_tokens", "max_output_tokens", "max_context_tokens"}
+)
+_REQUIRED_TAGGING_FIELDS = frozenset(
+    {
+        "binding",
+        "model_id",
+        "model_profile",
+        "region",
+        "system_prompt",
+        "schema_json",
+    }
+)
+_OPTIONAL_TAGGING_FIELDS = frozenset(
+    {"max_tokens", "temperature", "extraction_epoch", "max_response_bytes"}
+)
+_TAGGING_FIELDS = _REQUIRED_TAGGING_FIELDS | _OPTIONAL_TAGGING_FIELDS
+_BINDING_FIELDS = frozenset({"binding_id", "role", "synthetic"})
+_EXTRACTION_FIELDS = frozenset(
+    {
+        "model_sha256",
+        "prompt_sha256",
+        "rule_sha256",
+        "synthetic",
+        "replicate_id",
+        "extraction_epoch",
+    }
+)
+
+
+def _invalid() -> ValueError:
+    return ValueError("LOCAL_RUNTIME_CONFIG_INVALID")
+
+
+def _json_file(raw_path: str) -> dict[str, Any]:
+    if not isinstance(raw_path, str) or not raw_path:
+        raise _invalid()
+    try:
+        path = Path(raw_path)
+        status = path.stat()
+        if (
+            path.is_symlink()
+            or not stat.S_ISREG(status.st_mode)
+            or status.st_size > _MAX_CONFIG_BYTES
+        ):
+            raise _invalid()
+        with path.open("rb") as source:
+            raw = source.read(_MAX_CONFIG_BYTES + 1)
+        if len(raw) > _MAX_CONFIG_BYTES or len(raw) != status.st_size:
+            raise _invalid()
+        value = json.loads(raw, object_pairs_hook=_strict_object, parse_constant=_reject_constant)
+    except (OSError, UnicodeDecodeError, ValueError, json.JSONDecodeError):
+        raise _invalid() from None
+    if not isinstance(value, dict):
+        raise _invalid()
+    return value
+
+
+def _strict_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise _invalid()
+        result[key] = value
+    return result
+
+
+def _reject_constant(value: str) -> None:
+    raise _invalid()
+
+
+def _strict_int(value: object, *, minimum: int = 1, maximum: int = 2**63 - 1) -> int:
+    if type(value) is not int or not minimum <= value <= maximum:
+        raise _invalid()
+    return value
+
+
+def _budget(value: object) -> BudgetLimits:
+    if not isinstance(value, dict) or set(value) != _BUDGET_FIELDS:
+        raise _invalid()
+    roles = value["roles"]
+    if not isinstance(roles, list) or not 1 <= len(roles) <= 16:
+        raise _invalid()
+    if any(not isinstance(item, dict) or set(item) != _ROLE_FIELDS for item in roles):
+        raise _invalid()
+    try:
+        return BudgetLimits(
+            _strict_int(value["input_tokens"]),
+            _strict_int(value["output_tokens"]),
+            tuple(
+                RoleLimit(
+                    item["role"],
+                    _strict_int(item["max_calls"]),
+                    _strict_int(item["max_input_tokens"]),
+                    _strict_int(item["max_output_tokens"]),
+                    _strict_int(item["max_context_tokens"]),
+                )
+                for item in roles
+            ),
+            _strict_int(value["max_attempts"], maximum=3),
+        )
+    except (KeyError, TypeError, ValueError):
+        raise _invalid() from None
+
+
+def _tagging(value: object) -> TaggingSettings:
+    if (
+        not isinstance(value, dict)
+        or not _REQUIRED_TAGGING_FIELDS <= set(value)
+        or set(value) - _TAGGING_FIELDS
+    ):
+        raise _invalid()
+    binding = value["binding"]
+    if (
+        not isinstance(binding, dict)
+        or set(binding) != _BINDING_FIELDS
+        or binding.get("role") != "tagger"
+        or binding.get("synthetic") is not True
+    ):
+        raise _invalid()
+    try:
+        options = {key: value[key] for key in _OPTIONAL_TAGGING_FIELDS if key in value}
+        if "max_tokens" in options:
+            options["max_tokens"] = _strict_int(options["max_tokens"], maximum=1_048_576)
+        if "extraction_epoch" in options:
+            options["extraction_epoch"] = _strict_int(options["extraction_epoch"])
+        if "max_response_bytes" in options:
+            options["max_response_bytes"] = _strict_int(
+                options["max_response_bytes"], maximum=1_048_576
+            )
+        if "temperature" in options:
+            temperature = options["temperature"]
+            if (
+                type(temperature) not in (int, float)
+                or not math.isfinite(temperature)
+                or temperature != 0
+            ):
+                raise _invalid()
+            options["temperature"] = float(temperature)
+        fields = {key: value[key] for key in _REQUIRED_TAGGING_FIELDS if key != "binding"}
+        return TaggingSettings(ModelBinding(**binding), **(fields | options))
+    except (KeyError, TypeError, ValueError):
+        raise _invalid() from None
+
+
+def _extraction(value: object, *, synthetic=True) -> ExtractionProfile:
+    if (
+        not isinstance(value, dict)
+        or set(value) != _EXTRACTION_FIELDS
+        or value.get("synthetic") is not synthetic
+    ):
+        raise _invalid()
+    try:
+        return ExtractionProfile(**value)
+    except (TypeError, ValueError):
+        raise _invalid() from None
+
+
+def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
+    """Return only trusted RunService kwargs; no config leaves its gate closed."""
+    parser_path = env.get("LOCAL_PARSER_PROFILE_PATH")
+    settings_path = env.get("LOCAL_RUN_SETTINGS_PATH")
+    extraction_mode = env.get("LOCAL_EXTRACTION_MODE", "")
+    tagging_mode = env.get("LOCAL_TAGGING_MODE", "")
+    if not parser_path:
+        if settings_path or extraction_mode or tagging_mode:
+            raise _invalid()
+        return {}
+    if extraction_mode not in {"", "local_synthetic", "upstage_probe"} or tagging_mode not in {
+        "",
+        "local_synthetic",
+    }:
+        raise _invalid()
+    profile = _json_file(parser_path)
+    try:
+        parsed = ParserProfile(_MANIFEST_ID, **profile)
+    except (TypeError, ValueError):
+        raise _invalid() from None
+    if parsed.config_snapshot() != profile:
+        raise _invalid()
+    runtime: dict[str, Any] = {
+        "parser_profile": profile,
+        "parser_profile_hash": parsed.config_hash(),
+    }
+    settings = _json_file(settings_path) if settings_path else {}
+    if set(settings) - _SETTINGS_FIELDS or (
+        settings_path and not _REQUIRED_SETTINGS_FIELDS <= set(settings)
+    ):
+        raise _invalid()
+    if "build_root" in settings:
+        root = settings["build_root"]
+        if not isinstance(root, str) or not Path(root).is_absolute() or not Path(root).is_dir():
+            raise _invalid()
+        runtime["build_result"] = verify_supply_chain(
+            root_dir=root,
+            env={"ENABLE_LEGACY_PYMUPDF": env.get("ENABLE_LEGACY_PYMUPDF", "false")},
+        )
+    if "budget_limits" in settings:
+        runtime["budget_limits"] = _budget(settings["budget_limits"])
+    if extraction_mode:
+        if "extraction_profile" not in settings:
+            raise _invalid()
+        runtime["extraction_profile"] = _extraction(
+            settings["extraction_profile"], synthetic=extraction_mode != "upstage_probe"
+        )
+        runtime["extraction_mode"] = extraction_mode
+    elif "extraction_profile" in settings:
+        raise _invalid()
+    if extraction_mode == "upstage_probe":
+        limits = settings.get("extraction_limits")
+        if (
+            tagging_mode
+            or not isinstance(limits, dict)
+            or set(limits) != {"max_calls", "max_output_tokens"}
+        ):
+            raise _invalid()
+        runtime["extraction_limits"] = {
+            "max_calls": _strict_int(limits["max_calls"], maximum=20),
+            "max_output_tokens": _strict_int(limits["max_output_tokens"], maximum=1024),
+        }
+    elif "extraction_limits" in settings:
+        raise _invalid()
+    if tagging_mode:
+        if not extraction_mode or "tagging_settings" not in settings:
+            raise _invalid()
+        runtime["tagging_settings"] = _tagging(settings["tagging_settings"])
+        runtime["tagging_mode"] = tagging_mode
+    elif "tagging_settings" in settings:
+        raise _invalid()
+    return runtime

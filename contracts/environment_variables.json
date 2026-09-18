@@ -1,0 +1,317 @@
+[
+  {
+    "name": "APP_ENV",
+    "default": "local",
+    "required": "yes",
+    "environments": "all",
+    "description": "local/staging/production; production은 fake adapters 거부"
+  },
+  {
+    "name": "APP_ORIGIN",
+    "default": "http://localhost:5173",
+    "required": "yes",
+    "environments": "all",
+    "description": "허용 단일 웹 origin"
+  },
+  {
+    "name": "API_PUBLIC_BASE_URL",
+    "default": "http://localhost:8000",
+    "required": "yes",
+    "environments": "all",
+    "description": "BFF callback/API base"
+  },
+  {
+    "name": "AWS_REGION",
+    "default": "ap-northeast-2",
+    "required": "cloud",
+    "environments": "staging/production",
+    "description": "저장/API 기본 리전, 실제 account 확인"
+  },
+  {
+    "name": "MODEL_ALLOWED_PROCESSING_REGIONS",
+    "default": "",
+    "required": "live",
+    "environments": "all",
+    "description": "승인된 모델 처리 리전 CSV; 비어 있으면 외부 전송 차단"
+  },
+  {
+    "name": "AWS_PROFILE",
+    "default": "",
+    "required": "no",
+    "environments": "local",
+    "description": "개발자 credentials profile; production IAM role"
+  },
+  {
+    "name": "S3_ARTIFACT_BUCKET",
+    "default": "",
+    "required": "cloud",
+    "environments": "staging/production",
+    "description": "private 원본/파생물 bucket"
+  },
+  {
+    "name": "S3_QUARANTINE_BUCKET",
+    "default": "",
+    "required": "cloud",
+    "environments": "staging/production",
+    "description": "검증 전 업로드 bucket"
+  },
+  {
+    "name": "DDB_CORE_TABLE",
+    "default": "",
+    "required": "cloud",
+    "environments": "staging/production",
+    "description": "운영 core table"
+  },
+  {
+    "name": "DDB_AUDIT_TABLE",
+    "default": "",
+    "required": "cloud",
+    "environments": "staging/production",
+    "description": "append-only audit table"
+  },
+  {
+    "name": "SQS_JOB_QUEUE_URL",
+    "default": "",
+    "required": "cloud",
+    "environments": "staging/production",
+    "description": "stage queue URL"
+  },
+  {
+    "name": "SQS_DLQ_URL",
+    "default": "",
+    "required": "cloud",
+    "environments": "staging/production",
+    "description": "dead-letter queue"
+  },
+  {
+    "name": "KMS_KEY_ARN",
+    "default": "",
+    "required": "cloud",
+    "environments": "staging/production",
+    "description": "암호화 key ARN"
+  },
+  {
+    "name": "OPENSEARCH_ENDPOINT",
+    "default": "",
+    "required": "cloud",
+    "environments": "staging/production",
+    "description": "승인된 Serverless collection endpoint"
+  },
+  {
+    "name": "OPENSEARCH_INDEX_GENERATION",
+    "default": "proofops-chunks-v1",
+    "required": "yes",
+    "environments": "all",
+    "description": "임베딩1024d index generation"
+  },
+  {
+    "name": "COGNITO_USER_POOL_ID",
+    "default": "",
+    "required": "cloud",
+    "environments": "staging/production",
+    "description": "실재 user pool"
+  },
+  {
+    "name": "COGNITO_CLIENT_ID",
+    "default": "",
+    "required": "cloud",
+    "environments": "staging/production",
+    "description": "PKCE client ID"
+  },
+  {
+    "name": "COGNITO_DOMAIN",
+    "default": "",
+    "required": "cloud",
+    "environments": "staging/production",
+    "description": "Hosted UI issuer domain"
+  },
+  {
+    "name": "SESSION_SECRET_ARN",
+    "default": "",
+    "required": "cloud",
+    "environments": "staging/production",
+    "description": "세션/CSRF 서명 secret의 SecretsManager 참조"
+  },
+  {
+    "name": "CURSOR_SECRET_ARN",
+    "default": "",
+    "required": "cloud",
+    "environments": "staging/production",
+    "description": "pagination HMAC key 참조"
+  },
+  {
+    "name": "AGENTCORE_RUNTIME_ARN",
+    "default": "",
+    "required": "cloud",
+    "environments": "staging/production",
+    "description": "배포 runtime ARN"
+  },
+  {
+    "name": "MODEL_BINDINGS_PATH",
+    "default": "config/model_bindings.json",
+    "required": "live",
+    "environments": "all",
+    "description": "실계정 model capability snapshot 파일"
+  },
+  {
+    "name": "CONSENT_PROFILE_PATH",
+    "default": "config/consent_profile.json",
+    "required": "live",
+    "environments": "all",
+    "description": "문서권리·처리리전 승인 profile"
+  },
+  {
+    "name": "RULE_PACK_PATH",
+    "default": "config/rule_pack_manifest.yaml",
+    "required": "yes",
+    "environments": "all",
+    "description": "도메인 rule pack manifest"
+  },
+  {
+    "name": "PARSER_PROFILE_PATH",
+    "default": "config/parsing.yaml",
+    "required": "yes",
+    "environments": "all",
+    "description": "파서/geometry routing 설정"
+  },
+  {
+    "name": "LIMITS_PATH",
+    "default": "config/limits.yaml",
+    "required": "yes",
+    "environments": "all",
+    "description": "토큰·파일·작업 예산"
+  },
+  {
+    "name": "LOCAL_ARTIFACT_DIR",
+    "default": ".local/artifacts",
+    "required": "local",
+    "environments": "local",
+    "description": "로컬만 파일 artifact"
+  },
+  {
+    "name": "LOCAL_DATABASE_PATH",
+    "default": ".local/state.sqlite3",
+    "required": "local",
+    "environments": "local",
+    "description": "local integration용 상태"
+  },
+  {
+    "name": "MODEL_ADAPTER",
+    "default": "synthetic",
+    "required": "yes",
+    "environments": "all",
+    "description": "synthetic/bedrock; production은bedrock만"
+  },
+  {
+    "name": "ENABLE_HYBRID_PARSER",
+    "default": "false",
+    "required": "yes",
+    "environments": "all",
+    "description": "승인 benchmark 후true"
+  },
+  {
+    "name": "HYBRID_BACKEND_URL",
+    "default": "",
+    "required": "hybrid",
+    "environments": "all",
+    "description": "승인된 local/VPC backend만"
+  },
+  {
+    "name": "ENABLE_LEGACY_PYMUPDF",
+    "default": "false",
+    "required": "yes",
+    "environments": "all",
+    "description": "license gate 승인 시에만true"
+  },
+  {
+    "name": "ENABLE_AGENTCORE_MEMORY",
+    "default": "false",
+    "required": "yes",
+    "environments": "all",
+    "description": "P0 off; source truth가 아님"
+  },
+  {
+    "name": "ENABLE_ADVERTISING_MODE",
+    "default": "false",
+    "required": "yes",
+    "environments": "all",
+    "description": "전용 승인 rules 필요"
+  },
+  {
+    "name": "ENABLE_YEAR_COMPARISON",
+    "default": "false",
+    "required": "yes",
+    "environments": "all",
+    "description": "P1 feature flag"
+  },
+  {
+    "name": "ALLOW_LIVE_MODEL_TESTS",
+    "default": "false",
+    "required": "yes",
+    "environments": "all",
+    "description": "비용/동의 승인 후 수동enable"
+  },
+  {
+    "name": "OTEL_SERVICE_NAME",
+    "default": "proofops-local",
+    "required": "yes",
+    "environments": "all",
+    "description": "service명, 본문 capture비활성"
+  },
+  {
+    "name": "LOG_LEVEL",
+    "default": "INFO",
+    "required": "yes",
+    "environments": "all",
+    "description": "DEBUG여도 문서/secret logging금지"
+  },
+  {
+    "name": "RETENTION_POLICY_PATH",
+    "default": "config/retention.yaml",
+    "required": "yes",
+    "environments": "all",
+    "description": "실제 보존/삭제 설정"
+  },
+  {
+    "name": "LOCAL_PARSER_PROFILE_PATH",
+    "default": "",
+    "required": "local parser execution",
+    "environments": "local",
+    "description": "검증된 ParserProfile.config_snapshot JSON 경로; run에 동결된 hash와 일치해야 실행"
+  },
+  {
+    "name": "LOCAL_RUN_SETTINGS_PATH",
+    "default": "",
+    "required": "local configured run creation",
+    "environments": "local",
+    "description": "64 KiB 이하 명시적 로컬 실행 JSON: build_root, budget_limits와 선택적 extraction_profile/tagging_settings. 승인 생성·실제 모델 호출 권한을 부여하지 않음"
+  },
+  {
+    "name": "LOCAL_EXTRACTION_MODE",
+    "default": "",
+    "required": "local extraction execution",
+    "environments": "local",
+    "description": "명시적 local_synthetic만 허용; --stage extract와 동결 profile 필요"
+  },
+  {
+    "name": "LOCAL_TAGGING_MODE",
+    "default": "",
+    "required": "local tagging execution",
+    "environments": "local",
+    "description": "명시적 local_synthetic만 허용; --stage tag와 생성 시 동결한 태깅 설정 필요. 실제 모델 호출 승인으로 사용하지 않음"
+  },
+  {
+    "name": "VITE_API_BASE_URL",
+    "default": "",
+    "required": "no",
+    "environments": "web build",
+    "description": "공개 API base; 기본 same-origin BFF, 비밀값 금지"
+  },
+  {
+    "name": "VITE_UPLOAD_ORIGIN",
+    "default": "",
+    "required": "external upload",
+    "environments": "web build",
+    "description": "승인된 HTTPS 업로드 origin 하나; 빈 값은 same-origin local 전송만 허용"
+  }
+]

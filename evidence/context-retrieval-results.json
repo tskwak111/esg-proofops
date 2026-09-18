@@ -1,0 +1,627 @@
+{
+  "claim": {
+    "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+    "span": {
+      "char_start": 184,
+      "char_end": 214,
+      "quote": "이를 통해 약 4만 톤의 탄소 감축 효과를 얻었습니다."
+    },
+    "source_ref": {
+      "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+      "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+      "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+      "page_num": 25,
+      "printed_page_label": "25",
+      "bbox": [
+        53.813,
+        563.411,
+        788.443,
+        600.5869999999999
+      ],
+      "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+      "quote": "이를 통해 약 4만 톤의 탄소 감축 효과를 얻었습니다.",
+      "char_start": 184,
+      "char_end": 214,
+      "location_quality": "located",
+      "verification_state": "candidate"
+    },
+    "source_quality": "unverified"
+  },
+  "parent": {
+    "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+    "span": {
+      "char_start": 129,
+      "char_end": 214,
+      "quote": "국내 사업장에서는 REC 및 녹색 프리미엄 등을 활용하여 약 93GWh의 재생에너지를 조달했으며, 이를 통해 약 4만 톤의 탄소 감축 효과를 얻었습니다."
+    },
+    "source_ref": {
+      "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+      "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+      "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+      "page_num": 25,
+      "printed_page_label": "25",
+      "bbox": [
+        53.813,
+        563.411,
+        788.443,
+        600.5869999999999
+      ],
+      "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+      "quote": "국내 사업장에서는 REC 및 녹색 프리미엄 등을 활용하여 약 93GWh의 재생에너지를 조달했으며, 이를 통해 약 4만 톤의 탄소 감축 효과를 얻었습니다.",
+      "char_start": 129,
+      "char_end": 214,
+      "location_quality": "located",
+      "verification_state": "candidate"
+    },
+    "source_quality": "unverified"
+  },
+  "status": "candidate_only",
+  "binding_status": "undetermined",
+  "routes": [
+    {
+      "role": "claim_only",
+      "query": "이를 통해 약 4만 톤의 탄소 감축 효과를 얻었습니다.",
+      "hits": [
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+          "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+          "page": 25,
+          "quality": "unverified",
+          "preview": "2025년 기준, 영덕 풍력 프로젝트에 대한 PPA 체결을 완료했으며, 영양 풍력 등 추가적인 풍력 PPA 체결을 검토하고 있습니다. 또한 사업장 내 유휴 부지 및 공장 지붕 등을 활용한 태양광 발전설비 설치를 검토하고 있습니다. 국내 사업장에서는 REC 및 녹색 프리미엄 등을 활용하여"
+        },
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "53a8834a-3a7b-5196-9f6e-12e2eac60340",
+          "raw_text_sha256": "4591336441c21cc498147fded3ed3b5e03f5293610b6152c7a66219583c31a47",
+          "page": 25,
+          "quality": "unverified",
+          "preview": "LG화학은 여수 공장 Chloro-Alkali 공정에서 발생하는 부생수소를 NCC에 혼소하기 위한 설비를 구축하여 기존 화석연료 일부를 대체하고 있습니다. 이를 통해 2023년부터 2025년까지 누적 약 4만 톤의 온실가스를 감축하였습니다."
+        },
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "69e6e763-a134-504f-b52f-3859ad33af27",
+          "raw_text_sha256": "04cad35a69db46412eec5c93dc322443dc0137d748b2582ea93a55adf0ae9f88",
+          "page": 26,
+          "quality": "unverified",
+          "preview": "탄소 감축 설비 지원"
+        },
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "7f75639a-0fd6-50ac-8842-913f86d75aa3",
+          "raw_text_sha256": "79846edcf993b5cba7c429cbf50b665728da322e5b5fbe55f2688d169f3f337a",
+          "page": 26,
+          "quality": "unverified",
+          "preview": "탄소 감축 설비\n지원"
+        },
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "c20436b7-943f-509e-b4e7-ea18ca840f4c",
+          "raw_text_sha256": "4fdaaf69df7d08f32a6391a5c75a27b119be937d4e492036f9791c2647cef024",
+          "page": 49,
+          "quality": "unverified",
+          "preview": "※ 탄소고정량은 당사의 온실가스 감축 및 탄소상쇄 실적으로 사용되지 않습니다."
+        },
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "01aa7449-3bda-56e0-a2a7-3b36b31ed5be",
+          "raw_text_sha256": "eefee82de6f0059e94ea2334e8ef7402b99f40d0bdb28f4a2dcdefc9774fcf75",
+          "page": 26,
+          "quality": "unverified",
+          "preview": "탄소 감축 설비 지원 기준 수립 시\n참고"
+        },
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "43b3f5f3-4719-5d88-b614-e9b7722ba338",
+          "raw_text_sha256": "85206a825a84ada9cdfc6ac3427a6a197b2262da6036dedd56f830d9faada0d1",
+          "page": 26,
+          "quality": "unverified",
+          "preview": "탄소 감축 설비 지원 기준 수립 시 참고"
+        },
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "c1985bb1-93bd-5c30-9f76-58e68eb4f004",
+          "raw_text_sha256": "dc4a38b617eaeaeec2be443fca7d76ad9b30254e594ae98fac57fdb1435622cb",
+          "page": 16,
+          "quality": "unverified",
+          "preview": "탄소 감축 활성화 메커니즘"
+        },
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "1c6a5df3-e3b0-5247-a45d-5e1216fb4bea",
+          "raw_text_sha256": "f3c2d82c967840e94830bdb292142b6f9753ab2af8077cc6f890481d6b615098",
+          "page": 42,
+          "quality": "unverified",
+          "preview": "1) 공시 단위는 m³에서 ML(메가리터)로 변경되었습니다."
+        },
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "c21bb895-0e52-55ea-bdf4-3a370c97399b",
+          "raw_text_sha256": "f3c2d82c967840e94830bdb292142b6f9753ab2af8077cc6f890481d6b615098",
+          "page": 101,
+          "quality": "unverified",
+          "preview": "1) 공시 단위는 m³에서 ML(메가리터)로 변경되었습니다."
+        },
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "6c137f18-4853-565d-b0b0-8d3ee797e7c4",
+          "raw_text_sha256": "5e1d27127dd822132fa9616c8d41e18f7912dc82bb19cb52f8b0569d90009c78",
+          "page": 16,
+          "quality": "unverified",
+          "preview": "신규 감축 과제 공모\n사업본부 주도 탄소 감축 과제 발굴"
+        },
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "b4a8feaa-75c3-5362-b6ec-f662af83d0dc",
+          "raw_text_sha256": "6fb423c73f2d427d84e60534b277e870f6eae436f5fbe47a86b76c815675f732",
+          "page": 16,
+          "quality": "unverified",
+          "preview": "신규 감축 과제 공모\n사업본부 주도\n탄소 감축 과제 발굴"
+        },
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "42a5a22e-0e95-5dda-89d6-28bc52349f18",
+          "raw_text_sha256": "566c0fff8cc68887dd6a735316237de3acee4f43527947b19910d0cd742a1a0d",
+          "page": 24,
+          "quality": "unverified",
+          "preview": "기대 효과"
+        },
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "1d37d1f5-a4a3-5d8f-b72d-259c314f96fa",
+          "raw_text_sha256": "322fe38beeeb2f87c41488e6bf9b47709113bee8bb1391c7b1394200bca9e72a",
+          "page": 16,
+          "quality": "unverified",
+          "preview": "사업본부 주도 탄소 감축 과제 발굴"
+        },
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "7eea6b60-744a-57dc-abf4-257113343ee2",
+          "raw_text_sha256": "131a23a64a43378ac31953af8de298d543feedda575ce126dcab41ed699bbb92",
+          "page": 16,
+          "quality": "unverified",
+          "preview": "사업본부 주도\n탄소 감축 과제 발굴"
+        },
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "cbae1f88-a426-5653-a258-86a4c92c86af",
+          "raw_text_sha256": "131a23a64a43378ac31953af8de298d543feedda575ce126dcab41ed699bbb92",
+          "page": 16,
+          "quality": "unverified",
+          "preview": "사업본부 주도\n탄소 감축 과제 발굴"
+        },
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "5d28f300-5c9f-518a-9175-ecac6863504f",
+          "raw_text_sha256": "f40e66e16ee8fb68c737c053fd34f381a3f96a173b80e056641771bbbfbcec81",
+          "page": 105,
+          "quality": "unverified",
+          "preview": "※ 2023년, 2024년 복직자 수 데이터가 중복 집계되어 수정되었습니다."
+        },
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "70363a89-c4f2-5a59-92a6-92c60b49788d",
+          "raw_text_sha256": "caf9b460c9722ea9e1c6ff072f42d3839ec2848ecd170a2afe543510bea27ff0",
+          "page": 48,
+          "quality": "unverified",
+          "preview": "※ 2025년은 모니터링 및 효과분석, 잘피 이식 대상지 환경 관리를 하고 있습니다."
+        },
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "3804902b-5c27-56fc-bddf-9fca918870f7",
+          "raw_text_sha256": "ea22f6e9fbe45c579337ddf808462a7ea395b8094e361e05ca2387f508849ffb",
+          "page": 23,
+          "quality": "unverified",
+          "preview": "고객사 공급망 탄소 감축 및 LCA\n요구 강화"
+        },
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "46d09eb9-5b6c-5b55-9ab2-aec228667393",
+          "raw_text_sha256": "4460e3ce92382bf9a7deea36e22f5597b09cf98f9accd2c2724850b78ca57364",
+          "page": 17,
+          "quality": "unverified",
+          "preview": "고객사 공급망 탄소 감축 및 LCA 요구 강화"
+        }
+      ],
+      "status": "bounded"
+    },
+    {
+      "role": "parent_context_only",
+      "query": "국내 사업장에서는 REC 및 녹색 프리미엄 등을 활용하여 약 93GWh의 재생에너지를 조달했으며, 이를 통해 약 4만 톤의 탄소 감축 효과를 얻었습니다.",
+      "hits": [
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+          "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+          "page": 25,
+          "quality": "unverified",
+          "preview": "2025년 기준, 영덕 풍력 프로젝트에 대한 PPA 체결을 완료했으며, 영양 풍력 등 추가적인 풍력 PPA 체결을 검토하고 있습니다. 또한 사업장 내 유휴 부지 및 공장 지붕 등을 활용한 태양광 발전설비 설치를 검토하고 있습니다. 국내 사업장에서는 REC 및 녹색 프리미엄 등을 활용하여"
+        },
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "602645a2-aed2-5a3a-863f-13ce627c035e",
+          "raw_text_sha256": "18876fdb371e8e1b85c4627a4a6eea93ca08184f0a6f5c9d357ecb98e4c2f1f6",
+          "page": 25,
+          "quality": "unverified",
+          "preview": "LG화학은 전력 사용에 따른 간접 배출(Scope 2)을 저감하기 위해 국내외 사업장에 재생에너지를 도입하고 있습니다. 사업장별 전력 사용 구조를 고려하여 PPA, REC, 녹색 프리미엄 등 다양한 조달 방식을 활용하고 있으며, 사업장 단위의 에너지 효율 개선 활동을 통해 전력 사용량을"
+        },
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "0d9e4bc4-e959-5530-8f56-477203b3a76b",
+          "raw_text_sha256": "992618e26209f3f8210ef99778e6b4e79146201f20b1e8c03d38bc3f80c09440",
+          "page": 24,
+          "quality": "unverified",
+          "preview": "※ 감축 이행 계획은 사업 구조, 재생에너지 조달 환경 등에 의해 변경 될 수 있습니다."
+        },
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "41113336-c900-5c0a-adf9-77fd6bdd3b01",
+          "raw_text_sha256": "a5fd5aa4dc7fd10342ecf3a425d5bef9d80e9a103e6b3e4568700e2065d742d1",
+          "page": 25,
+          "quality": "unverified",
+          "preview": "재생에너지 조달 현황 T3 O4"
+        },
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "8c3aa0ab-d380-5a97-b66a-697ee075c11a",
+          "raw_text_sha256": "d67b25bb24a5b7bb43a6ee3c47ff8263cc32e5c8b5fd36f6c0a90eb638c3a791",
+          "page": 99,
+          "quality": "unverified",
+          "preview": "6) 재생 전력 소비량은 REC 및 녹색프리미엄을 포함한 외부 조달 기준으로 산정합니다."
+        },
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "e848782e-be98-5bb4-a174-7f42cce56d34",
+          "raw_text_sha256": "d67b25bb24a5b7bb43a6ee3c47ff8263cc32e5c8b5fd36f6c0a90eb638c3a791",
+          "page": 31,
+          "quality": "unverified",
+          "preview": "6) 재생 전력 소비량은 REC 및 녹색프리미엄을 포함한 외부 조달 기준으로 산정합니다."
+        },
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "0e60e487-ae71-54b6-b902-e9c2139662a3",
+          "raw_text_sha256": "b3b7a9017ca2c4151e1cfb45d7d1518ebe4a78472913722cbfe347b0c4217941",
+          "page": 24,
+          "quality": "unverified",
+          "preview": "재생에너지"
+        },
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "345613a2-797d-5f2c-b154-f5c3b14e6e79",
+          "raw_text_sha256": "b3b7a9017ca2c4151e1cfb45d7d1518ebe4a78472913722cbfe347b0c4217941",
+          "page": 24,
+          "quality": "unverified",
+          "preview": "재생에너지"
+        },
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "8181e142-fb38-5b19-9ea7-2b6986dc07f4",
+          "raw_text_sha256": "b3b7a9017ca2c4151e1cfb45d7d1518ebe4a78472913722cbfe347b0c4217941",
+          "page": 25,
+          "quality": "unverified",
+          "preview": "재생에너지"
+        },
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "0dd47c27-7dcf-5c18-acbd-06b225ad21ab",
+          "raw_text_sha256": "88d4cb60d180430c2746a4b7ba2fc90ef218019cc1b9df2be62978f55b455fd1",
+          "page": 31,
+          "quality": "unverified",
+          "preview": "5) 비재생 전력 소비량은 전체 전력 사용량에서 재생 전력 소비량(REC 및 녹색프리미엄)을 제외한 값으로 산정합니다."
+        },
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "3e8d3725-30aa-54eb-ba26-b6cb088f8c9f",
+          "raw_text_sha256": "88d4cb60d180430c2746a4b7ba2fc90ef218019cc1b9df2be62978f55b455fd1",
+          "page": 99,
+          "quality": "unverified",
+          "preview": "5) 비재생 전력 소비량은 전체 전력 사용량에서 재생 전력 소비량(REC 및 녹색프리미엄)을 제외한 값으로 산정합니다."
+        },
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "c2891da6-b62b-5650-8689-6e1f6d1582c8",
+          "raw_text_sha256": "cb2ee491ba2de983c3d63c6579ed4ebd5b4f0de973fd45a92ba83a56be302ede",
+          "page": 31,
+          "quality": "unverified",
+          "preview": "2) 에너지 총 소비량은 연료 소비량, 외부 스팀 소비량, 비재생 전력 소비량 및 재생 전력 중 REC 기반 외부 조달분을 합산하여 산정하며, 녹색프리미엄과 자가 발전 및 소비량은 포함하지 않습니다."
+        },
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "dccd24c9-ce5e-5a29-8ff7-ed0e589f2d27",
+          "raw_text_sha256": "cb2ee491ba2de983c3d63c6579ed4ebd5b4f0de973fd45a92ba83a56be302ede",
+          "page": 99,
+          "quality": "unverified",
+          "preview": "2) 에너지 총 소비량은 연료 소비량, 외부 스팀 소비량, 비재생 전력 소비량 및 재생 전력 중 REC 기반 외부 조달분을 합산하여 산정하며, 녹색프리미엄과 자가 발전 및 소비량은 포함하지 않습니다."
+        },
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "40fd73d0-3fe8-54f5-b12e-2816014537d5",
+          "raw_text_sha256": "3a37272e290e68d1ead3eb2f50788c8301df5d8f5b07c8960a19a26a81dd1dbb",
+          "page": 24,
+          "quality": "unverified",
+          "preview": "에너지 효율화, 저탄소 연료전환, 재생에너지 등"
+        },
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "7b3268a4-05ba-5f01-8fe1-fbaf3e146b66",
+          "raw_text_sha256": "860c1fcbca3192311a3d7c0b7c08c31973dc0c8a8b730a2d3a675433f04e4365",
+          "page": 24,
+          "quality": "unverified",
+          "preview": "재생에너지\tPPA, REC 등\n(태양광, 육상풍력)\t72%"
+        },
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "03dd0045-783c-5f4e-85b4-5c1dacf44ce4",
+          "raw_text_sha256": "ba3036f697ecb45840710b62906de99745aa67ff2deb30a6546f851db01fbe6b",
+          "page": 97,
+          "quality": "unverified",
+          "preview": "6) Market-based Scope 2 배출량은 Location-based Scope 2 배출량에서 REC 및 녹색프리미엄 구매에 따른 감축량을 차감하여 산정합니다."
+        },
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "44da2ae5-38d4-5bb9-8e36-cd9bed1c5e46",
+          "raw_text_sha256": "ba3036f697ecb45840710b62906de99745aa67ff2deb30a6546f851db01fbe6b",
+          "page": 29,
+          "quality": "unverified",
+          "preview": "6) Market-based Scope 2 배출량은 Location-based Scope 2 배출량에서 REC 및 녹색프리미엄 구매에 따른 감축량을 차감하여 산정합니다."
+        },
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "3b6168f0-39bd-5c04-9c74-b7e611326750",
+          "raw_text_sha256": "ab81d34b5fea611f95ba8757242194f7544b2be9587f1f689da4137e6a376438",
+          "page": 119,
+          "quality": "unverified",
+          "preview": "연료 및 에너지 관련 활동 – 국내 사업장에서 구매한 연료, 전력 및 스팀의 업스트림"
+        },
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "a95272b2-a8c2-5af8-8711-248738b07102",
+          "raw_text_sha256": "c2ed999e56b1107d4783372639382b33421293f55c50fa8e382d386feb85f106",
+          "page": 119,
+          "quality": "unverified",
+          "preview": "연료 및 에너지 관련 활동 – 국내 사업장에서 구매한 연료, 전력 및 스팀의 업스트림\t315,392"
+        },
+        {
+          "scope": {
+            "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+          },
+          "source_id": "2a290ac9-95a7-5e87-96a4-7821ef832ae5",
+          "raw_text_sha256": "e3141a8dbd96adefaeaa7b5bc277f99aabf3038a313c46434ea8c01f044f162d",
+          "page": 17,
+          "quality": "unverified",
+          "preview": "O4\t기회\t에너지원\t재생에너지 사용 확대 및 RE100 이행\t단기|중기|장기\t\t✓\t✓"
+        }
+      ],
+      "status": "bounded"
+    }
+  ],
+  "method": "parent-context-search-v1; independent routes, no merged production packet or accepted binding",
+  "scope": {
+    "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+    "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+    "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+    "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+  },
+  "source_sha256": "c6395dd2be7948d85fa2b52c6edb61367fa6610c6f389c2478b44cb4cfcb5bde",
+  "section_map_sha256": "cd4873be1c0667c167d04e882dc084f3bd26c23d49f2f4e09ce3603d4dd75fe3",
+  "implementation_sha256": "0b57d8e075e5e00042176594f113a197b3680b475f20476241a987b9f3bbf09e",
+  "target_footnote": {
+    "source_id": "03dd0045-783c-5f4e-85b4-5c1dacf44ce4",
+    "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+    "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+    "page_num": 97,
+    "printed_page_label": "97",
+    "bbox": [
+      38.438,
+      806.9889999999999,
+      486.708,
+      816.4399999999998
+    ],
+    "raw_text_sha256": "ba3036f697ecb45840710b62906de99745aa67ff2deb30a6546f851db01fbe6b",
+    "quote": "6) Market-based Scope 2 배출량은 Location-based Scope 2 배출량에서 REC 및 녹색프리미엄 구매에 따른 감축량을 차감하여 산정합니다.",
+    "char_start": 0,
+    "char_end": 94,
+    "location_quality": "located",
+    "verification_state": "candidate"
+  },
+  "new_model_calls": 0,
+  "decision": null
+}

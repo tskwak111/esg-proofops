@@ -1,0 +1,550 @@
+"""Pure audit-report projection over one immutable export snapshot."""
+
+from __future__ import annotations
+
+import json
+from collections.abc import Mapping
+from csv import writer
+from dataclasses import asdict
+from html import escape
+from io import StringIO
+from typing import Any
+
+from proofops.application.summaries import _validated_coverage
+from proofops.domain.rulepacks import canonical_json
+from proofops.domain.values import (
+    _require_sha256,
+    _require_strict_int,
+    _require_uuid,
+    _source_ref_from_dict,
+)
+
+_STATUSES = frozenset(
+    {"decided", "blocked_evidence", "blocked_rule_gap", "not_applicable", "not_run"}
+)
+_REVIEWS = frozenset({"auto_confirmed", "needs_review", "human_confirmed"})
+_LABELS = {
+    "E0": "UNSUBSTANTIATED",
+    "E1": "INCOMPLETE",
+    "E2": "INCOMPLETE",
+    "E3": "SUBSTANTIATED",
+}
+
+
+def _copy(value: Any) -> Any:
+    return json.loads(canonical_json(value))
+
+
+def _strings(value: object, name: str) -> list[str]:
+    if not isinstance(value, list | tuple) or any(
+        not isinstance(item, str) or not item for item in value
+    ):
+        raise ValueError(f"{name} must contain non-empty strings")
+    return list(value)
+
+
+def _basis_refs(value: object) -> list[dict[str, Any]]:
+    if not isinstance(value, list | tuple):
+        raise ValueError("basis_refs must be an array")
+    result = []
+    for item in value:
+        if isinstance(item, str):
+            try:
+                item = json.loads(item)
+            except json.JSONDecodeError as exc:
+                raise ValueError("basis_refs must contain valid JSON") from exc
+        if not isinstance(item, Mapping):
+            raise ValueError("basis_refs must contain objects")
+        basis = item.get("basis", item)
+        if not isinstance(basis, Mapping):
+            raise ValueError("basis reference is malformed")
+        clause = basis.get("clause")
+        status = basis.get("verification_status")
+        if clause is not None and not isinstance(clause, str):
+            raise ValueError("basis clause must be text or null")
+        if status not in ("verified", "unverified", "unlicensed"):
+            raise ValueError("basis verification status is required")
+        copied = _copy(item)
+        if "basis" in copied:
+            copied = {"element_id": copied.get("element_id"), **copied["basis"]}
+        result.append(copied)
+    return result
+
+
+def _source_refs(
+    value: object, document_version_id: str, parse_manifest_id: str | None
+) -> list[dict[str, Any]]:
+    if not isinstance(value, list | tuple):
+        raise ValueError("source_refs must be an array")
+    result = []
+    for ref in value:
+        if not isinstance(ref, Mapping):
+            raise ValueError("source_refs must contain objects")
+        source = _source_ref_from_dict(_copy(ref))
+        if (source.document_version_id, source.parse_manifest_id) != (
+            document_version_id,
+            parse_manifest_id,
+        ):
+            raise ValueError("source reference is outside the snapshot manifest")
+        copied = asdict(source)
+        copied["bbox"] = list(source.bbox) if source.bbox is not None else None
+        result.append(copied)
+    return result
+
+
+def _assurance(
+    value: object, document_version_id: str, parse_manifest_id: str | None
+) -> dict[str, Any]:
+    if value is None:
+        return {"status": "not_run"}
+    if not isinstance(value, Mapping):
+        raise ValueError("assurance must be an object or null")
+    copied = _copy(value)
+    if set(copied) != {
+        "status",
+        "level",
+        "provider",
+        "statement_id",
+        "metric_match",
+        "period_match",
+        "boundary_match",
+        "evidence_refs",
+    } or copied["status"] not in ("covered", "not_covered", "undetermined"):
+        raise ValueError("invalid assurance status")
+    if copied["level"] not in ("limited", "reasonable", "none", None):
+        raise ValueError("invalid assurance level")
+    if copied["provider"] is not None and not isinstance(copied["provider"], str):
+        raise ValueError("invalid assurance provider")
+    if copied["statement_id"] is not None:
+        _require_uuid("statement_id", copied["statement_id"])
+    if any(
+        copied[name] not in ("yes", "no", "unknown")
+        for name in (
+            "metric_match",
+            "period_match",
+            "boundary_match",
+        )
+    ):
+        raise ValueError("invalid assurance dimension match")
+    copied["evidence_refs"] = _source_refs(
+        copied["evidence_refs"], document_version_id, parse_manifest_id
+    )
+    return copied
+
+
+def _safe_harbor(
+    value: object,
+    claim_id: str,
+    document_version_id: str,
+    parse_manifest_id: str | None,
+) -> dict[str, Any]:
+    if value is None:
+        return {"status": "not_run"}
+    if not isinstance(value, Mapping):
+        raise ValueError("safe_harbor must be an object or null")
+    copied = _copy(value)
+    required = {
+        "claim_id",
+        "applicable",
+        "category",
+        "checklist",
+        "reasonable_basis_documented",
+        "legal_effect",
+        "mapping_status",
+        "gap_ids",
+    }
+    if (
+        set(copied) != required
+        or copied["claim_id"] != claim_id
+        or not (type(copied["applicable"]) is bool or copied["applicable"] is None)
+        or copied["legal_effect"] != "not_determined"
+        or copied["mapping_status"] not in ("approved", "unresolved")
+        or not isinstance(copied["checklist"], list)
+    ):
+        raise ValueError("safe_harbor does not match the immutable claim record")
+    _strings(copied["gap_ids"], "safe_harbor.gap_ids")
+    for item in copied["checklist"]:
+        if not isinstance(item, dict) or not isinstance(item.get("element_id"), str):
+            raise ValueError("safe_harbor checklist is malformed")
+        item["evidence_refs"] = _source_refs(
+            item.get("evidence_refs"), document_version_id, parse_manifest_id
+        )
+        if item.get("state") == "present" and not item["evidence_refs"]:
+            raise ValueError("source-less safe_harbor present is prohibited")
+    return copied
+
+
+def _provenance(
+    record: Mapping[str, object],
+    *,
+    tag_revision: int,
+    parse_manifest_id: str | None,
+    source_sha256: str,
+) -> dict[str, Any]:
+    if (
+        record.get("parse_manifest_id") != parse_manifest_id
+        or record.get("source_sha256") != source_sha256
+    ):
+        raise ValueError("claim provenance does not match the manifest")
+    model = record.get("model_sha256")
+    prompt = record.get("prompt_sha256")
+    replicas = record.get("replicate_hashes")
+    if not isinstance(replicas, list | tuple):
+        raise ValueError("replicate_hashes must be an array")
+    if tag_revision == 0:
+        if model is not None or prompt is not None or replicas:
+            raise ValueError("untagged claim cannot carry model provenance")
+        return {"model_sha256": None, "prompt_sha256": None, "replicate_hashes": []}
+    if len(replicas) != 3:
+        raise ValueError("tagged claim must preserve exactly three replicate hashes")
+    return {
+        "model_sha256": _require_sha256("model_sha256", model),
+        "prompt_sha256": _require_sha256("prompt_sha256", prompt),
+        "replicate_hashes": [_require_sha256("replicate_hash", value) for value in replicas],
+    }
+
+
+def _unfinished(
+    ref: Mapping[str, object],
+    record: Mapping[str, object] | None,
+    *,
+    tenant_id: str,
+    document_version_id: str,
+    parse_manifest_id: str | None,
+    source_sha256: str,
+) -> dict[str, Any]:
+    tag_revision = _require_strict_int("tag_revision", ref["tag_revision"])
+    result = {
+        "claim_id": ref["claim_id"],
+        "tag_revision": tag_revision,
+        "decision_revision": 0,
+        "decision_status": "not_run",
+        "evidence_grade": None,
+        "label": None,
+        "review_status": "needs_review",
+        "missing_elements": [],
+        "unresolved_elements": [],
+        "gap_ids": [],
+        "rule_pack_sha256": None,
+        "source_refs": [],
+        "source_status": "not_run",
+        "basis_refs": [],
+        "assurance": {"status": "not_run"},
+        "safe_harbor": {"status": "not_run"},
+        "suggestion": None,
+    }
+    if record is None:
+        if tag_revision:
+            raise ValueError("tagged unfinished claim must preserve its provenance record")
+        return result | {
+            "model_sha256": None,
+            "prompt_sha256": None,
+            "replicate_hashes": [],
+        }
+    if (
+        record.get("tenant_id") != tenant_id
+        or record.get("document_version_id") != document_version_id
+        or record.get("claim_id") != ref["claim_id"]
+        or record.get("tag_revision") != ref["tag_revision"]
+        or record.get("decision_revision") != 0
+        or record.get("decision_status") not in (None, "not_run")
+        or record.get("evidence_grade") is not None
+        or record.get("label") is not None
+    ):
+        raise ValueError("unfinished claim does not match the pinned revision")
+    sources = _source_refs(record.get("source_refs"), document_version_id, parse_manifest_id)
+    return (
+        result
+        | _provenance(
+            record,
+            tag_revision=tag_revision,
+            parse_manifest_id=parse_manifest_id,
+            source_sha256=source_sha256,
+        )
+        | {
+            "source_refs": sources,
+            "source_status": "available" if sources else "not_run",
+        }
+    )
+
+
+def build_report_model(
+    manifest: Mapping[str, object],
+    decisions: Mapping[str, Mapping[str, object] | None],
+) -> dict[str, Any]:
+    """Build report data without grading or inventing corrective values."""
+    if not isinstance(manifest, Mapping) or not isinstance(decisions, Mapping):
+        raise ValueError("snapshot manifest and decisions must be mappings")
+    tenant_id = _require_uuid("tenant_id", manifest.get("tenant_id"))
+    run_id = _require_uuid("run_id", manifest.get("run_id"))
+    document_version_id = _require_uuid("document_version_id", manifest.get("document_version_id"))
+    raw_parse_manifest_id = manifest.get("parse_manifest_id")
+    parse_manifest_id: str | None = None
+    if raw_parse_manifest_id is not None:
+        parse_manifest_id = _require_uuid("parse_manifest_id", raw_parse_manifest_id)
+    source_sha256 = _require_sha256("source_sha256", manifest.get("source_sha256"))
+    epoch = _require_strict_int("mutation_epoch", manifest.get("mutation_epoch"))
+    if epoch < 0:
+        raise ValueError("mutation_epoch must be non-negative")
+    generated_at = manifest.get("generated_at")
+    profile = manifest.get("execution_profile")
+    if not isinstance(generated_at, str) or not generated_at or not isinstance(profile, str):
+        raise ValueError("generated_at and execution_profile are required")
+    coverage = _validated_coverage(manifest.get("coverage"))
+    raw_hashes = manifest.get("rule_pack_hashes")
+    if not isinstance(raw_hashes, list | tuple) or not raw_hashes:
+        raise ValueError("rule_pack_hashes must be a non-empty array")
+    rule_pack_hashes = tuple(_require_sha256("rule_pack_sha256", value) for value in raw_hashes)
+    if len(set(rule_pack_hashes)) != len(rule_pack_hashes):
+        raise ValueError("rule_pack_hashes must be unique")
+    unverified_basis = manifest.get("unverified_basis")
+    if _require_strict_int("unverified_basis", unverified_basis) < 0:
+        raise ValueError("unverified_basis must be non-negative")
+
+    refs = manifest.get("claim_revision_refs")
+    if not isinstance(refs, list | tuple) or len(refs) != coverage["claims_discovered"]:
+        raise ValueError("claim revision refs must cover every discovered claim")
+    if parse_manifest_id is None and (refs or decisions):
+        raise ValueError("null parse manifest is valid only before any claim is discovered")
+    seen = set()
+    claims = []
+    for ref in refs:
+        if not isinstance(ref, Mapping) or set(ref) != {
+            "claim_id",
+            "tag_revision",
+            "decision_revision",
+        }:
+            raise ValueError("invalid claim revision reference")
+        claim_id = ref["claim_id"]
+        _require_uuid("claim_id", claim_id)
+        tag_revision = _require_strict_int("tag_revision", ref["tag_revision"])
+        decision_revision = _require_strict_int("decision_revision", ref["decision_revision"])
+        if (
+            claim_id in seen
+            or tag_revision < 0
+            or decision_revision < 0
+            or (decision_revision > 0 and tag_revision < 1)
+            or (tag_revision == 0 and decision_revision != 0)
+        ):
+            raise ValueError("invalid or duplicate claim revision reference")
+        seen.add(claim_id)
+        if claim_id not in decisions:
+            raise ValueError("snapshot decision is missing")
+        record = decisions[claim_id]
+        if decision_revision == 0:
+            claims.append(
+                _unfinished(
+                    ref,
+                    record,
+                    tenant_id=tenant_id,
+                    document_version_id=document_version_id,
+                    parse_manifest_id=parse_manifest_id,
+                    source_sha256=source_sha256,
+                )
+            )
+            continue
+        if not isinstance(record, Mapping):
+            raise ValueError("decision revision is missing")
+        if (
+            record.get("tenant_id") != tenant_id
+            or record.get("document_version_id") != document_version_id
+            or record.get("parse_manifest_id") != parse_manifest_id
+            or record.get("source_sha256") != source_sha256
+            or record.get("claim_id") != claim_id
+            or record.get("tag_revision") != tag_revision
+            or record.get("decision_revision") != decision_revision
+        ):
+            raise ValueError("decision does not match the pinned revision")
+        rule_hash = _require_sha256("rule_pack_sha256", record.get("rule_pack_sha256"))
+        if rule_hash not in rule_pack_hashes:
+            raise ValueError("decision rule pack is not pinned by the manifest")
+        status = record.get("decision_status")
+        grade = record.get("evidence_grade")
+        label = record.get("label")
+        if status not in _STATUSES:
+            raise ValueError("invalid decision status")
+        if status == "decided":
+            if grade not in _LABELS or label != _LABELS[grade]:
+                raise ValueError("decided claim needs the fixed grade and label")
+        elif grade is not None or label is not None:
+            raise ValueError("unfinished decision cannot carry a grade or label")
+        review = record.get("review_status")
+        if review not in _REVIEWS:
+            raise ValueError("invalid review status")
+        missing = _strings(record.get("missing_elements"), "missing_elements")
+        unresolved = _strings(record.get("unresolved_elements"), "unresolved_elements")
+        gaps = _strings(record.get("gap_ids"), "gap_ids")
+        basis = _basis_refs(record.get("basis_refs"))
+        sources = _source_refs(record.get("source_refs"), document_version_id, parse_manifest_id)
+        if status == "decided" and not sources:
+            raise ValueError("decided claim must preserve its source reference")
+        provenance = _provenance(
+            record,
+            tag_revision=tag_revision,
+            parse_manifest_id=parse_manifest_id,
+            source_sha256=source_sha256,
+        )
+        claims.append(
+            {
+                "claim_id": claim_id,
+                "tag_revision": tag_revision,
+                "decision_revision": decision_revision,
+                "decision_status": status,
+                "evidence_grade": grade,
+                "label": label,
+                "review_status": review,
+                "missing_elements": missing,
+                "unresolved_elements": unresolved,
+                "gap_ids": gaps,
+                "rule_pack_sha256": rule_hash,
+                "source_refs": sources,
+                "source_status": "available" if sources else "not_run",
+                "basis_refs": basis,
+                **provenance,
+                "assurance": _assurance(
+                    record.get("assurance"), document_version_id, parse_manifest_id
+                ),
+                "safe_harbor": _safe_harbor(
+                    record.get("safe_harbor"),
+                    claim_id,
+                    document_version_id,
+                    parse_manifest_id,
+                ),
+                "suggestion": (
+                    f"원문 근거로 다음 결손 요소를 보완하세요: {', '.join(missing)}."
+                    if missing
+                    else None
+                ),
+            }
+        )
+    if set(decisions) != seen:
+        raise ValueError("decisions contain claims outside the snapshot")
+    unfinished_count = sum(item["decision_status"] != "decided" for item in claims)
+    unverified_clause_count = sum(
+        basis.get("clause") is None or basis["verification_status"] != "verified"
+        for claim in claims
+        for basis in claim["basis_refs"]
+    )
+    if coverage["claims_decided"] != len(claims) - unfinished_count:
+        raise ValueError("coverage does not match the pinned decision statuses")
+    if unverified_basis != unverified_clause_count:
+        raise ValueError("manifest unverified basis count does not match decisions")
+    return {
+        "schema": "report_model_v1",
+        "tenant_id": tenant_id,
+        "run_id": run_id,
+        "document_version_id": document_version_id,
+        "parse_manifest_id": parse_manifest_id,
+        "source_sha256": source_sha256,
+        "snapshot_epoch": epoch,
+        "generated_at": generated_at,
+        "execution_profile": profile,
+        "rule_pack_hashes": list(rule_pack_hashes),
+        "coverage": coverage,
+        "unverified_basis": unverified_basis,
+        "partial": bool(not coverage["complete"] or unfinished_count or unverified_clause_count),
+        "unfinished_count": unfinished_count,
+        "unverified_clause_count": unverified_clause_count,
+        "claims": claims,
+    }
+
+
+def _csv_safe(value: object) -> str:
+    text = value if isinstance(value, str) else canonical_json(value)
+    return f"'{text}" if text.lstrip().startswith(("=", "+", "-", "@")) else text
+
+
+def render_report(model: Mapping[str, object], output_format: str) -> bytes:
+    """Render fixed report data with stdlib-only output escaping."""
+    if not isinstance(model, Mapping) or model.get("schema") != "report_model_v1":
+        raise ValueError("report_model_v1 is required")
+    if output_format == "json":
+        return canonical_json(model).encode()
+    claims = model.get("claims")
+    if not isinstance(claims, list) or any(not isinstance(item, Mapping) for item in claims):
+        raise ValueError("report claims are required")
+    if output_format == "csv":
+        fields = (
+            "claim_id",
+            "decision_status",
+            "evidence_grade",
+            "label",
+            "review_status",
+            "tag_revision",
+            "decision_revision",
+            "missing_elements",
+            "unresolved_elements",
+            "suggestion",
+            "source_pages",
+            "source_quotes",
+            "source_refs",
+            "basis_refs",
+            "assurance",
+            "safe_harbor",
+            "model_sha256",
+            "prompt_sha256",
+            "replicate_hashes",
+            "rule_pack_sha256",
+        )
+        stream = StringIO(newline="")
+        rows = writer(stream)
+        rows.writerow(fields)
+        for claim in claims:
+            sources = claim["source_refs"]
+            values = {
+                **claim,
+                "source_pages": [source["page_num"] for source in sources],
+                "source_quotes": "\n".join(source["quote"] for source in sources),
+            }
+            rows.writerow(_csv_safe(values.get(field)) for field in fields)
+        return stream.getvalue().encode()
+    if output_format == "html":
+        items = []
+        for claim in claims:
+            sources = (
+                "".join(
+                    f"<li>p.{source['page_num']}"
+                    f" [{', '.join(str(value) for value in source['bbox'])}]"
+                    f": {escape(source['quote'])}</li>"
+                    if source["bbox"] is not None
+                    else f"<li>p.{source['page_num']}: {escape(source['quote'])}</li>"
+                    for source in claim["source_refs"]
+                )
+                or "<li>원문 근거 위치 미실행</li>"
+            )
+            grade_label = (
+                f"{claim['evidence_grade']} / {claim['label']}"
+                if claim["evidence_grade"] is not None
+                else "미판정"
+            )
+            audit_details = escape(canonical_json(claim))
+            items.append(
+                "<section>"
+                f"<h2>{escape(claim['claim_id'])}</h2>"
+                f"<p>판정: {escape(grade_label)} ({escape(claim['decision_status'])})</p>"
+                f"<p>검토: {escape(claim['review_status'])} · "
+                f"tag revision {claim['tag_revision']} · decision revision "
+                f"{claim['decision_revision']}</p>"
+                f"<p>결손: {escape(', '.join(claim['missing_elements']) or '없음')} · "
+                f"미해결: {escape(', '.join(claim['unresolved_elements']) or '없음')} · "
+                f"gaps: {escape(', '.join(claim['gap_ids']) or '없음')}</p>"
+                f"<p>{escape(claim.get('suggestion') or '확정된 수정 제안 없음')}</p>"
+                f"<ul>{sources}</ul>"
+                f"<pre>{escape(canonical_json(claim['basis_refs']))}</pre>"
+                f"<pre>{escape(canonical_json(claim['assurance']))}</pre>"
+                f"<pre>{escape(canonical_json(claim['safe_harbor']))}</pre>"
+                f"<details><summary>감사 세부정보</summary><pre>{audit_details}</pre></details>"
+                "</section>"
+            )
+        status = "검토용 부분 리포트" if model.get("partial") else "완료 리포트"
+        coverage_details = escape(canonical_json(model["coverage"]))
+        return (
+            '<!doctype html><html lang="ko"><meta charset="utf-8">'
+            f"<title>감사 리포트</title><body><h1>감사 리포트</h1><p>{status}</p>"
+            f"<p>미완료 {model['unfinished_count']}건 · "
+            f"미확인 조항 {model['unverified_clause_count']}건</p>"
+            f"<details><summary>처리 범위</summary><pre>{coverage_details}</pre></details>"
+            + "".join(items)
+            + "</body></html>"
+        ).encode()
+    raise ValueError("output_format must be json, csv, or html")

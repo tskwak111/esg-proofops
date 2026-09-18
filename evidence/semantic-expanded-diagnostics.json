@@ -1,0 +1,55 @@
+{
+  "request_id": "c7c30748-e952-48aa-afe4-865b7cf1b876",
+  "original_rule_sha256": "6a3f0926183fdc1bc83896e5f44683a64fac0064e03abffc40b8164ef1d91e2f",
+  "errors": [
+    {
+      "id": "q0",
+      "field": "entity",
+      "quote": "null",
+      "reason": "not_unique_exact_quote_in_own_claim"
+    },
+    {
+      "id": "q1",
+      "field": "entity",
+      "quote": "null",
+      "reason": "not_unique_exact_quote_in_own_claim"
+    },
+    {
+      "id": "q1",
+      "field": "boundary",
+      "quote": "null",
+      "reason": "not_unique_exact_quote_in_own_claim"
+    },
+    {
+      "id": "q2",
+      "field": "boundary",
+      "quote": "null",
+      "reason": "not_unique_exact_quote_in_own_claim"
+    },
+    {
+      "id": "q3",
+      "field": "boundary",
+      "quote": "null",
+      "reason": "not_unique_exact_quote_in_own_claim"
+    }
+  ],
+  "semantic_review_examples": [
+    {
+      "id": "q0",
+      "field": "metric",
+      "quote": "4만 톤",
+      "issue": "quantity and unit, not metric name"
+    },
+    {
+      "id": "q0",
+      "field": "boundary",
+      "quote": "2023년부터 2025년까지",
+      "issue": "period, not organizational boundary"
+    },
+    {
+      "id": "q2",
+      "issue": "industrial-complex water supply must not be assumed to be company usage"
+    }
+  ],
+  "interpretation": "whole original response failed; diagnostics do not salvage or approve any fields"
+}

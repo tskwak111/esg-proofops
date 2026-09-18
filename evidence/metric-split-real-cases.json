@@ -1,0 +1,881 @@
+{
+  "coverage": "one report, selected E paragraphs p24/p25/p26/p46; no corpus accuracy claim",
+  "identity": {
+    "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+    "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+    "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+    "source_sha256": "c6395dd2be7948d85fa2b52c6edb61367fa6610c6f389c2478b44cb4cfcb5bde"
+  },
+  "input_selection": "11 pattern hits; p24/p26 repeated text retained as separate source locations",
+  "rule_sha256": "6a3f0926183fdc1bc83896e5f44683a64fac0064e03abffc40b8164ef1d91e2f",
+  "new_model_calls": 0,
+  "cases": [
+    {
+      "page": 24,
+      "source_id": "1c115c9f-6314-5690-8ef2-52d47cf67441",
+      "input_origin": "coordinator-selected diagnostic phrase, not new model extraction",
+      "phrase": "약 3만 톤의 온실가스",
+      "original_source_ref": {
+        "source_id": "1c115c9f-6314-5690-8ef2-52d47cf67441",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 24,
+        "printed_page_label": "24",
+        "bbox": [
+          38.438,
+          589.9369999999999,
+          367.501,
+          651.8219999999999
+        ],
+        "raw_text_sha256": "53eb467076b9c0925001d5d947c66cab4710ec2e4fc5e91c39922c5e732d63ed",
+        "quote": "약 3만 톤의 온실가스",
+        "char_start": 106,
+        "char_end": 118,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "packet_sha256": "d5940be42f78e0cf968e4c59a825600d0adcd533a88b0a77bca671d04dc1cc38",
+      "components": {
+        "state": "local_candidate",
+        "quantity": {
+          "source_id": "1c115c9f-6314-5690-8ef2-52d47cf67441",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 24,
+          "printed_page_label": "24",
+          "bbox": [
+            38.438,
+            589.9369999999999,
+            367.501,
+            651.8219999999999
+          ],
+          "raw_text_sha256": "53eb467076b9c0925001d5d947c66cab4710ec2e4fc5e91c39922c5e732d63ed",
+          "quote": "약 3만",
+          "char_start": 106,
+          "char_end": 110,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        "unit": {
+          "source_id": "1c115c9f-6314-5690-8ef2-52d47cf67441",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 24,
+          "printed_page_label": "24",
+          "bbox": [
+            38.438,
+            589.9369999999999,
+            367.501,
+            651.8219999999999
+          ],
+          "raw_text_sha256": "53eb467076b9c0925001d5d947c66cab4710ec2e4fc5e91c39922c5e732d63ed",
+          "quote": "톤",
+          "char_start": 111,
+          "char_end": 112,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        "metric": {
+          "source_id": "1c115c9f-6314-5690-8ef2-52d47cf67441",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 24,
+          "printed_page_label": "24",
+          "bbox": [
+            38.438,
+            589.9369999999999,
+            367.501,
+            651.8219999999999
+          ],
+          "raw_text_sha256": "53eb467076b9c0925001d5d947c66cab4710ec2e4fc5e91c39922c5e732d63ed",
+          "quote": "온실가스",
+          "char_start": 114,
+          "char_end": 118,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        }
+      },
+      "source_quality": "unverified",
+      "binding_status": "undetermined",
+      "reported_value_state": "unknown"
+    },
+    {
+      "page": 25,
+      "source_id": "53a8834a-3a7b-5196-9f6e-12e2eac60340",
+      "input_origin": "coordinator-selected diagnostic phrase, not new model extraction",
+      "phrase": "약 4만 톤의 온실가스",
+      "original_source_ref": {
+        "source_id": "53a8834a-3a7b-5196-9f6e-12e2eac60340",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 25,
+        "printed_page_label": "25",
+        "bbox": [
+          53.813,
+          304.66099999999994,
+          268.435,
+          356.0869999999999
+        ],
+        "raw_text_sha256": "4591336441c21cc498147fded3ed3b5e03f5293610b6152c7a66219583c31a47",
+        "quote": "약 4만 톤의 온실가스",
+        "char_start": 112,
+        "char_end": 124,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "packet_sha256": "68bea6759bdec4443ac13dc27be303e9a364cc2336a5a6af32d7bf666c0e3623",
+      "components": {
+        "state": "local_candidate",
+        "quantity": {
+          "source_id": "53a8834a-3a7b-5196-9f6e-12e2eac60340",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 25,
+          "printed_page_label": "25",
+          "bbox": [
+            53.813,
+            304.66099999999994,
+            268.435,
+            356.0869999999999
+          ],
+          "raw_text_sha256": "4591336441c21cc498147fded3ed3b5e03f5293610b6152c7a66219583c31a47",
+          "quote": "약 4만",
+          "char_start": 112,
+          "char_end": 116,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        "unit": {
+          "source_id": "53a8834a-3a7b-5196-9f6e-12e2eac60340",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 25,
+          "printed_page_label": "25",
+          "bbox": [
+            53.813,
+            304.66099999999994,
+            268.435,
+            356.0869999999999
+          ],
+          "raw_text_sha256": "4591336441c21cc498147fded3ed3b5e03f5293610b6152c7a66219583c31a47",
+          "quote": "톤",
+          "char_start": 117,
+          "char_end": 118,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        "metric": {
+          "source_id": "53a8834a-3a7b-5196-9f6e-12e2eac60340",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 25,
+          "printed_page_label": "25",
+          "bbox": [
+            53.813,
+            304.66099999999994,
+            268.435,
+            356.0869999999999
+          ],
+          "raw_text_sha256": "4591336441c21cc498147fded3ed3b5e03f5293610b6152c7a66219583c31a47",
+          "quote": "온실가스",
+          "char_start": 120,
+          "char_end": 124,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        }
+      },
+      "source_quality": "unverified",
+      "binding_status": "undetermined",
+      "reported_value_state": "unknown"
+    },
+    {
+      "page": 25,
+      "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+      "input_origin": "coordinator-selected diagnostic phrase, not new model extraction",
+      "phrase": "약 93GWh의 재생에너지",
+      "original_source_ref": {
+        "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 25,
+        "printed_page_label": "25",
+        "bbox": [
+          53.813,
+          563.411,
+          788.443,
+          600.5869999999999
+        ],
+        "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+        "quote": "약 93GWh의 재생에너지",
+        "char_start": 161,
+        "char_end": 175,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "packet_sha256": "4cb39765ec69a838f8fdaa43a4fd478b9948d6ce8523a4b77a886bbdddbce756",
+      "components": {
+        "state": "local_candidate",
+        "quantity": {
+          "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 25,
+          "printed_page_label": "25",
+          "bbox": [
+            53.813,
+            563.411,
+            788.443,
+            600.5869999999999
+          ],
+          "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+          "quote": "약 93",
+          "char_start": 161,
+          "char_end": 165,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        "unit": {
+          "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 25,
+          "printed_page_label": "25",
+          "bbox": [
+            53.813,
+            563.411,
+            788.443,
+            600.5869999999999
+          ],
+          "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+          "quote": "GWh",
+          "char_start": 165,
+          "char_end": 168,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        "metric": {
+          "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 25,
+          "printed_page_label": "25",
+          "bbox": [
+            53.813,
+            563.411,
+            788.443,
+            600.5869999999999
+          ],
+          "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+          "quote": "재생에너지",
+          "char_start": 170,
+          "char_end": 175,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        }
+      },
+      "source_quality": "unverified",
+      "binding_status": "undetermined",
+      "reported_value_state": "unknown"
+    },
+    {
+      "page": 25,
+      "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+      "input_origin": "coordinator-selected diagnostic phrase, not new model extraction",
+      "phrase": "약 4만 톤의 탄소 감축 효과",
+      "original_source_ref": {
+        "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 25,
+        "printed_page_label": "25",
+        "bbox": [
+          53.813,
+          563.411,
+          788.443,
+          600.5869999999999
+        ],
+        "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+        "quote": "약 4만 톤의 탄소 감축 효과",
+        "char_start": 190,
+        "char_end": 206,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "packet_sha256": "4cb39765ec69a838f8fdaa43a4fd478b9948d6ce8523a4b77a886bbdddbce756",
+      "components": {
+        "state": "local_candidate",
+        "quantity": {
+          "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 25,
+          "printed_page_label": "25",
+          "bbox": [
+            53.813,
+            563.411,
+            788.443,
+            600.5869999999999
+          ],
+          "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+          "quote": "약 4만",
+          "char_start": 190,
+          "char_end": 194,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        "unit": {
+          "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 25,
+          "printed_page_label": "25",
+          "bbox": [
+            53.813,
+            563.411,
+            788.443,
+            600.5869999999999
+          ],
+          "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+          "quote": "톤",
+          "char_start": 195,
+          "char_end": 196,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        "metric": {
+          "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 25,
+          "printed_page_label": "25",
+          "bbox": [
+            53.813,
+            563.411,
+            788.443,
+            600.5869999999999
+          ],
+          "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+          "quote": "탄소 감축 효과",
+          "char_start": 198,
+          "char_end": 206,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        }
+      },
+      "source_quality": "unverified",
+      "binding_status": "undetermined",
+      "reported_value_state": "unknown"
+    },
+    {
+      "page": 25,
+      "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+      "input_origin": "coordinator-selected diagnostic phrase, not new model extraction",
+      "phrase": "약 208GWh의 재생에너지",
+      "original_source_ref": {
+        "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 25,
+        "printed_page_label": "25",
+        "bbox": [
+          53.813,
+          563.411,
+          788.443,
+          600.5869999999999
+        ],
+        "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+        "quote": "약 208GWh의 재생에너지",
+        "char_start": 251,
+        "char_end": 266,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "packet_sha256": "4cb39765ec69a838f8fdaa43a4fd478b9948d6ce8523a4b77a886bbdddbce756",
+      "components": {
+        "state": "local_candidate",
+        "quantity": {
+          "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 25,
+          "printed_page_label": "25",
+          "bbox": [
+            53.813,
+            563.411,
+            788.443,
+            600.5869999999999
+          ],
+          "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+          "quote": "약 208",
+          "char_start": 251,
+          "char_end": 256,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        "unit": {
+          "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 25,
+          "printed_page_label": "25",
+          "bbox": [
+            53.813,
+            563.411,
+            788.443,
+            600.5869999999999
+          ],
+          "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+          "quote": "GWh",
+          "char_start": 256,
+          "char_end": 259,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        "metric": {
+          "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 25,
+          "printed_page_label": "25",
+          "bbox": [
+            53.813,
+            563.411,
+            788.443,
+            600.5869999999999
+          ],
+          "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+          "quote": "재생에너지",
+          "char_start": 261,
+          "char_end": 266,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        }
+      },
+      "source_quality": "unverified",
+      "binding_status": "undetermined",
+      "reported_value_state": "unknown"
+    },
+    {
+      "page": 25,
+      "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+      "input_origin": "coordinator-selected diagnostic phrase, not new model extraction",
+      "phrase": "약 13만 톤의 탄소 감축 효과",
+      "original_source_ref": {
+        "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 25,
+        "printed_page_label": "25",
+        "bbox": [
+          53.813,
+          563.411,
+          788.443,
+          600.5869999999999
+        ],
+        "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+        "quote": "약 13만 톤의 탄소 감축 효과",
+        "char_start": 273,
+        "char_end": 290,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "packet_sha256": "4cb39765ec69a838f8fdaa43a4fd478b9948d6ce8523a4b77a886bbdddbce756",
+      "components": {
+        "state": "local_candidate",
+        "quantity": {
+          "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 25,
+          "printed_page_label": "25",
+          "bbox": [
+            53.813,
+            563.411,
+            788.443,
+            600.5869999999999
+          ],
+          "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+          "quote": "약 13만",
+          "char_start": 273,
+          "char_end": 278,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        "unit": {
+          "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 25,
+          "printed_page_label": "25",
+          "bbox": [
+            53.813,
+            563.411,
+            788.443,
+            600.5869999999999
+          ],
+          "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+          "quote": "톤",
+          "char_start": 279,
+          "char_end": 280,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        "metric": {
+          "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 25,
+          "printed_page_label": "25",
+          "bbox": [
+            53.813,
+            563.411,
+            788.443,
+            600.5869999999999
+          ],
+          "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+          "quote": "탄소 감축 효과",
+          "char_start": 282,
+          "char_end": 290,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        }
+      },
+      "source_quality": "unverified",
+      "binding_status": "undetermined",
+      "reported_value_state": "unknown"
+    },
+    {
+      "page": 25,
+      "source_id": "af54c793-a4b7-51cd-8804-26f6ecf9c426",
+      "input_origin": "coordinator-selected diagnostic phrase, not new model extraction",
+      "phrase": "약 40만 톤의 온실가스",
+      "original_source_ref": {
+        "source_id": "af54c793-a4b7-51cd-8804-26f6ecf9c426",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 25,
+        "printed_page_label": "25",
+        "bbox": [
+          313.805,
+          359.41099999999994,
+          528.434,
+          410.0869999999999
+        ],
+        "raw_text_sha256": "085fd2abae1c9e58078aa0fbca46261d5d6da4a380aa3d322676fc790a7a3380",
+        "quote": "약 40만 톤의 온실가스",
+        "char_start": 93,
+        "char_end": 106,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "packet_sha256": "3fb49b8ee84f37e12eb41953789664275577efabf4a0e0b857aebef34d3535c7",
+      "components": {
+        "state": "local_candidate",
+        "quantity": {
+          "source_id": "af54c793-a4b7-51cd-8804-26f6ecf9c426",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 25,
+          "printed_page_label": "25",
+          "bbox": [
+            313.805,
+            359.41099999999994,
+            528.434,
+            410.0869999999999
+          ],
+          "raw_text_sha256": "085fd2abae1c9e58078aa0fbca46261d5d6da4a380aa3d322676fc790a7a3380",
+          "quote": "약 40만",
+          "char_start": 93,
+          "char_end": 98,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        "unit": {
+          "source_id": "af54c793-a4b7-51cd-8804-26f6ecf9c426",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 25,
+          "printed_page_label": "25",
+          "bbox": [
+            313.805,
+            359.41099999999994,
+            528.434,
+            410.0869999999999
+          ],
+          "raw_text_sha256": "085fd2abae1c9e58078aa0fbca46261d5d6da4a380aa3d322676fc790a7a3380",
+          "quote": "톤",
+          "char_start": 99,
+          "char_end": 100,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        "metric": {
+          "source_id": "af54c793-a4b7-51cd-8804-26f6ecf9c426",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 25,
+          "printed_page_label": "25",
+          "bbox": [
+            313.805,
+            359.41099999999994,
+            528.434,
+            410.0869999999999
+          ],
+          "raw_text_sha256": "085fd2abae1c9e58078aa0fbca46261d5d6da4a380aa3d322676fc790a7a3380",
+          "quote": "온실가스",
+          "char_start": 102,
+          "char_end": 106,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        }
+      },
+      "source_quality": "unverified",
+      "binding_status": "undetermined",
+      "reported_value_state": "unknown"
+    },
+    {
+      "page": 26,
+      "source_id": "2ca10560-3e23-5de1-98b9-a188efff4d8e",
+      "input_origin": "coordinator-selected diagnostic phrase, not new model extraction",
+      "phrase": "약 3만 톤의 온실가스",
+      "original_source_ref": {
+        "source_id": "2ca10560-3e23-5de1-98b9-a188efff4d8e",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 26,
+        "printed_page_label": "26",
+        "bbox": [
+          38.438,
+          641.0569999999999,
+          347.639,
+          702.1919999999999
+        ],
+        "raw_text_sha256": "53eb467076b9c0925001d5d947c66cab4710ec2e4fc5e91c39922c5e732d63ed",
+        "quote": "약 3만 톤의 온실가스",
+        "char_start": 106,
+        "char_end": 118,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "packet_sha256": "14a3591594fdb68693b5563a53b16d8726e1f0c534a2074a7428cb1cfd5bf73f",
+      "components": {
+        "state": "local_candidate",
+        "quantity": {
+          "source_id": "2ca10560-3e23-5de1-98b9-a188efff4d8e",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 26,
+          "printed_page_label": "26",
+          "bbox": [
+            38.438,
+            641.0569999999999,
+            347.639,
+            702.1919999999999
+          ],
+          "raw_text_sha256": "53eb467076b9c0925001d5d947c66cab4710ec2e4fc5e91c39922c5e732d63ed",
+          "quote": "약 3만",
+          "char_start": 106,
+          "char_end": 110,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        "unit": {
+          "source_id": "2ca10560-3e23-5de1-98b9-a188efff4d8e",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 26,
+          "printed_page_label": "26",
+          "bbox": [
+            38.438,
+            641.0569999999999,
+            347.639,
+            702.1919999999999
+          ],
+          "raw_text_sha256": "53eb467076b9c0925001d5d947c66cab4710ec2e4fc5e91c39922c5e732d63ed",
+          "quote": "톤",
+          "char_start": 111,
+          "char_end": 112,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        "metric": {
+          "source_id": "2ca10560-3e23-5de1-98b9-a188efff4d8e",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 26,
+          "printed_page_label": "26",
+          "bbox": [
+            38.438,
+            641.0569999999999,
+            347.639,
+            702.1919999999999
+          ],
+          "raw_text_sha256": "53eb467076b9c0925001d5d947c66cab4710ec2e4fc5e91c39922c5e732d63ed",
+          "quote": "온실가스",
+          "char_start": 114,
+          "char_end": 118,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        }
+      },
+      "source_quality": "unverified",
+      "binding_status": "undetermined",
+      "reported_value_state": "unknown"
+    },
+    {
+      "page": 26,
+      "source_id": "b3d9f8a8-7fe3-5a01-a95b-6f17e1e5e77d",
+      "input_origin": "coordinator-selected diagnostic phrase, not new model extraction",
+      "phrase": "35%의 에너지 절감",
+      "original_source_ref": {
+        "source_id": "b3d9f8a8-7fe3-5a01-a95b-6f17e1e5e77d",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 26,
+        "printed_page_label": "26",
+        "bbox": [
+          443.813,
+          249.9709999999999,
+          788.443,
+          356.14699999999993
+        ],
+        "raw_text_sha256": "488119c7422e33f2cd3f298c0614a635c40d6fa79931b19d5a28fbd60773569d",
+        "quote": "35%의 에너지 절감",
+        "char_start": 169,
+        "char_end": 180,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "packet_sha256": "9abe3b3d0ffd88b4addd404e51349db3228728828956433df66603344e576c0e",
+      "components": {
+        "state": "unresolved",
+        "reason": "unsupported_or_ambiguous_metric_phrase"
+      },
+      "source_quality": "unverified",
+      "binding_status": "undetermined",
+      "reported_value_state": "unknown"
+    },
+    {
+      "page": 26,
+      "source_id": "b3d9f8a8-7fe3-5a01-a95b-6f17e1e5e77d",
+      "input_origin": "coordinator-selected diagnostic phrase, not new model extraction",
+      "phrase": "50%의 투자비",
+      "original_source_ref": {
+        "source_id": "b3d9f8a8-7fe3-5a01-a95b-6f17e1e5e77d",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 26,
+        "printed_page_label": "26",
+        "bbox": [
+          443.813,
+          249.9709999999999,
+          788.443,
+          356.14699999999993
+        ],
+        "raw_text_sha256": "488119c7422e33f2cd3f298c0614a635c40d6fa79931b19d5a28fbd60773569d",
+        "quote": "50%의 투자비",
+        "char_start": 256,
+        "char_end": 264,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "packet_sha256": "9abe3b3d0ffd88b4addd404e51349db3228728828956433df66603344e576c0e",
+      "components": {
+        "state": "unresolved",
+        "reason": "unsupported_or_ambiguous_metric_phrase"
+      },
+      "source_quality": "unverified",
+      "binding_status": "undetermined",
+      "reported_value_state": "unknown"
+    },
+    {
+      "page": 46,
+      "source_id": "f6830e52-0895-51c0-8a1b-6c121dd96298",
+      "input_origin": "coordinator-selected diagnostic phrase, not new model extraction",
+      "phrase": "약 54만 톤의 산업용수",
+      "original_source_ref": {
+        "source_id": "f6830e52-0895-51c0-8a1b-6c121dd96298",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 46,
+        "printed_page_label": "46",
+        "bbox": [
+          38.438,
+          412.3069999999999,
+          803.816,
+          486.1919999999999
+        ],
+        "raw_text_sha256": "1a62eefd4017ffeaf3994647121b41c4c709fb81d30da1aad497ead4fd0152ad",
+        "quote": "약 54만 톤의 산업용수",
+        "char_start": 118,
+        "char_end": 131,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "packet_sha256": "85ac3b4aee8566ce30756c48cc341130ac6b1666960c70a1e7a8bb110c1ce9f6",
+      "components": {
+        "state": "local_candidate",
+        "quantity": {
+          "source_id": "f6830e52-0895-51c0-8a1b-6c121dd96298",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 46,
+          "printed_page_label": "46",
+          "bbox": [
+            38.438,
+            412.3069999999999,
+            803.816,
+            486.1919999999999
+          ],
+          "raw_text_sha256": "1a62eefd4017ffeaf3994647121b41c4c709fb81d30da1aad497ead4fd0152ad",
+          "quote": "약 54만",
+          "char_start": 118,
+          "char_end": 123,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        "unit": {
+          "source_id": "f6830e52-0895-51c0-8a1b-6c121dd96298",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 46,
+          "printed_page_label": "46",
+          "bbox": [
+            38.438,
+            412.3069999999999,
+            803.816,
+            486.1919999999999
+          ],
+          "raw_text_sha256": "1a62eefd4017ffeaf3994647121b41c4c709fb81d30da1aad497ead4fd0152ad",
+          "quote": "톤",
+          "char_start": 124,
+          "char_end": 125,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        "metric": {
+          "source_id": "f6830e52-0895-51c0-8a1b-6c121dd96298",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 46,
+          "printed_page_label": "46",
+          "bbox": [
+            38.438,
+            412.3069999999999,
+            803.816,
+            486.1919999999999
+          ],
+          "raw_text_sha256": "1a62eefd4017ffeaf3994647121b41c4c709fb81d30da1aad497ead4fd0152ad",
+          "quote": "산업용수",
+          "char_start": 127,
+          "char_end": 131,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        }
+      },
+      "source_quality": "unverified",
+      "binding_status": "undetermined",
+      "reported_value_state": "unknown"
+    }
+  ]
+}

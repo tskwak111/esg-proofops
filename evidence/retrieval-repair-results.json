@@ -1,0 +1,1482 @@
+{
+  "method": "offline same-graph lexical v1 versus Korean bigram BM25 v2; targeted routing diagnostics, not gold accuracy",
+  "search_scope": {
+    "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+    "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+    "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+    "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+  },
+  "source_sha256": "c6395dd2be7948d85fa2b52c6edb61367fa6610c6f389c2478b44cb4cfcb5bde",
+  "section_map_sha256": "cd4873be1c0667c167d04e882dc084f3bd26c23d49f2f4e09ce3603d4dd75fe3",
+  "implementation_sha256": "cc278433e3042d6d2e07d14ca60876560658a12b07469f3e74c9e96b6b19d035",
+  "new_model_calls": 0,
+  "claim_acceptance": false,
+  "source_quality_approval": false,
+  "decision": null,
+  "full_artifact": ".local/retrieval-repair/full-results.json",
+  "full_artifact_sha256": "2f301771c27295fb538c421b44ba2db3396062329fb84f146f30bb7fb6dab1a3",
+  "cases": [
+    {
+      "query": "온실가스를 감축하였습니다.",
+      "before_source_ids": [
+        "53a8834a-3a7b-5196-9f6e-12e2eac60340",
+        "14b938b4-a671-5cbc-87b0-a863642f8a87",
+        "1c115c9f-6314-5690-8ef2-52d47cf67441",
+        "2ca10560-3e23-5de1-98b9-a188efff4d8e"
+      ],
+      "before_pages": [
+        24,
+        25,
+        26
+      ],
+      "after_source_ids": [
+        "21d10a20-4a10-5c40-8a1b-f12eb83f11d4",
+        "373a656e-2e8c-54e8-8414-7f06f9c29e1b",
+        "dc6c1813-1ebb-58fd-a65d-8cc677b7bbec",
+        "f7e188e8-9c08-5858-a956-7ab10efc96a6",
+        "387dcbaf-55b7-55ec-99de-59ca6efac082",
+        "44753fa8-f1db-5a14-b4bc-a4d94d11bdd0",
+        "4e12f1b2-2b4f-5c1e-b609-169244ea62a4",
+        "6e780fbf-4860-53f4-a86a-8e9ac459bac1",
+        "add92939-4c0b-585f-a5ec-c2a475935eaa",
+        "d4afebf6-480e-5559-b0ab-21e65cb89fa7",
+        "5ff615e3-e01d-5f07-a958-5914d2ba64bd",
+        "5ec25772-73a6-55c4-8104-f434abca9816",
+        "53a8834a-3a7b-5196-9f6e-12e2eac60340",
+        "94f671c8-ed6a-53f8-a87f-ba9a8dae8627",
+        "049662ec-30d7-5f62-aa92-baa2091a7727",
+        "51cc5586-55a8-5f78-bd13-f3a21d0a132c",
+        "aedca0ff-6fc2-572c-b0f9-c0707e7d1857",
+        "f5e1d8d2-f0ea-5834-a90e-3a60c82cfc7d",
+        "2f89b2ff-3347-531d-819b-a53d6e6a14be",
+        "c4285cea-5d78-509a-bc7d-149025f88ee6"
+      ],
+      "after_pages": [
+        24,
+        25,
+        29,
+        31,
+        97,
+        113,
+        115,
+        118
+      ]
+    },
+    {
+      "query": "재생에너지를 조달했으며",
+      "before_source_ids": [
+        "9472aedb-8736-5b50-896e-754c044f557d",
+        "602645a2-aed2-5a3a-863f-13ce627c035e"
+      ],
+      "before_pages": [
+        25
+      ],
+      "after_source_ids": [
+        "0e60e487-ae71-54b6-b902-e9c2139662a3",
+        "345613a2-797d-5f2c-b154-f5c3b14e6e79",
+        "8181e142-fb38-5b19-9ea7-2b6986dc07f4",
+        "41113336-c900-5c0a-adf9-77fd6bdd3b01",
+        "40fd73d0-3fe8-54f5-b12e-2816014537d5",
+        "5db6b3e9-9d6b-5a15-b4ab-74fffdd78be3",
+        "0d9e4bc4-e959-5530-8f56-477203b3a76b",
+        "9472aedb-8736-5b50-896e-754c044f557d",
+        "7b3268a4-05ba-5f01-8fe1-fbaf3e146b66",
+        "2a290ac9-95a7-5e87-96a4-7821ef832ae5",
+        "edb325bc-28e0-5062-babb-23c88fe5f8c4",
+        "93953f79-7c22-50db-8e21-580514688edc",
+        "e67c5180-8616-58c5-8a48-65cdcd500f9f",
+        "f8f005ac-5bd3-5b27-add9-ad3663e6b954",
+        "733f83a9-7d72-54ce-aaa3-35e9f5b65bf4",
+        "0c5f8b96-42c6-50cd-8824-53f20089e887",
+        "99dc0d01-0622-5915-afbb-2005c254e6d9",
+        "b796b576-bda8-5953-ac87-8e44fc12147b",
+        "dc4ceb88-ee64-5c8d-a6fa-34dd98407f11",
+        "74c73926-85de-58d3-9596-df8d86b7fb58"
+      ],
+      "after_pages": [
+        17,
+        24,
+        25,
+        31,
+        99,
+        113,
+        115
+      ]
+    },
+    {
+      "query": "연간 약 4,000만 m³의 공업용수를 사용하며",
+      "before_source_ids": [
+        "f6830e52-0895-51c0-8a1b-6c121dd96298",
+        "1c21f2ce-128a-5040-8614-51b8ea0ed5b7",
+        "6c0f3216-46c5-54b3-ac03-58795e62e002",
+        "1d583373-e786-5a5e-a654-1b84df3c00aa",
+        "6960b859-616c-547b-b14f-fed964398b4e",
+        "af54c793-a4b7-51cd-8804-26f6ecf9c426",
+        "088d9d09-ed12-5bb5-9e69-5ed9412f7c47",
+        "1f390a38-0b6b-5c47-a00f-524081aa5403",
+        "2546ac26-8c6f-5d84-ac67-0b6aa4a4fbbd",
+        "2f89b2ff-3347-531d-819b-a53d6e6a14be",
+        "36ce6b59-6d76-56b7-be4c-8d4d5b70209f",
+        "3bd3af26-93c6-5597-9ecb-5e9c471bd039",
+        "4a30404c-6fe7-50a2-b1e3-634477a55a6f",
+        "53a8834a-3a7b-5196-9f6e-12e2eac60340",
+        "541ee7bb-ca10-5a51-9e50-aed2199a549d",
+        "6fce0f66-a067-500c-9172-167fffa9155f",
+        "769dfc80-b4b8-5315-8ec4-eb1e74ec9f0f",
+        "7a5fa6a2-d79a-5653-a90f-5b347d83481e",
+        "81169ba5-9daf-58dd-aabf-e4937fb157b0",
+        "92bb4c85-aea8-578a-a4b7-f791c9e5002f"
+      ],
+      "before_pages": [
+        18,
+        23,
+        25,
+        28,
+        37,
+        38,
+        44,
+        45,
+        46,
+        47,
+        98,
+        102,
+        105,
+        112,
+        113
+      ],
+      "after_source_ids": [
+        "6d72d4e9-f795-5754-9a51-ecd469db8eb2",
+        "5a647a1b-9d48-535c-bbe9-9dd3c024e643",
+        "f3408024-d934-5307-a977-92c1547227d7",
+        "24e18b16-35e1-5a01-bc9d-a1a8e780eacf",
+        "5befbae4-9df6-5a0b-8b99-937325024ad1",
+        "5ca21772-3e6b-5ec6-af6c-ee69e49cfd94",
+        "69989469-0d51-582a-ba67-e8ab0fda3865",
+        "b14892f5-b1db-5cec-b986-db3160302cc8",
+        "c69b848d-a23a-529c-98e8-c29f842afff9",
+        "984b2d64-3b05-5b8b-8b32-117c1d2ee3a5",
+        "a7631637-2ea3-5412-924e-3527557dc9c7",
+        "88be08f2-245d-587d-abe8-53b96559ac22",
+        "0dd946b0-8e40-5c19-9e2f-99e583085ed4",
+        "17c25993-50a8-5f40-94c4-784ae949dc14",
+        "2c01c34a-f197-5090-a567-a911f3286c20",
+        "92a240b3-aa75-58a2-8abf-d370aadd637a",
+        "d7e42ff2-6e08-5369-bd82-0d9229230a03",
+        "5b08db94-0c0e-58ff-8fd6-ef88adc54b76",
+        "6f89c8f9-3fdb-5f08-b7ad-7e46193ed826",
+        "be1a20de-b086-5a37-b387-f717eecc9a40"
+      ],
+      "after_pages": [
+        42,
+        43,
+        47,
+        101,
+        112
+      ]
+    },
+    {
+      "query": "이를 통해 2023년부터 2025년까지 누적 약 4만 톤의 온실가스를 감축하였습니다.",
+      "before_source_ids": [
+        "53a8834a-3a7b-5196-9f6e-12e2eac60340",
+        "9472aedb-8736-5b50-896e-754c044f557d",
+        "1c115c9f-6314-5690-8ef2-52d47cf67441",
+        "1d583373-e786-5a5e-a654-1b84df3c00aa",
+        "2ca10560-3e23-5de1-98b9-a188efff4d8e",
+        "af54c793-a4b7-51cd-8804-26f6ecf9c426",
+        "f6830e52-0895-51c0-8a1b-6c121dd96298",
+        "5840d032-bbb6-52a4-827f-f26d19119898",
+        "927a0dfa-9485-522d-a479-36af61196c42",
+        "b3d9f8a8-7fe3-5a01-a95b-6f17e1e5e77d",
+        "02e69a36-69ee-5039-905d-a178a252f824",
+        "0dadf0e3-9d1f-5ddb-9e5d-ecb34ebfcf90",
+        "14b938b4-a671-5cbc-87b0-a863642f8a87",
+        "32ae97f9-e49d-5a02-9c57-45cbf4579e8b",
+        "3e10f7da-7d7f-584e-a242-86cc75a42539",
+        "4f98315e-0e72-59f5-93ac-f25cc2f1c525",
+        "5e6868d7-f7ba-537c-a720-4639f5355a81",
+        "687f1b93-01b3-5a4e-a3c6-fbb54fb30662",
+        "6c0f3216-46c5-54b3-ac03-58795e62e002",
+        "6fa1c5cd-d01d-5bdd-bf2a-9cba2b8de641"
+      ],
+      "before_pages": [
+        16,
+        24,
+        25,
+        26,
+        33,
+        35,
+        40,
+        46,
+        47,
+        48,
+        98
+      ],
+      "after_source_ids": [
+        "53a8834a-3a7b-5196-9f6e-12e2eac60340",
+        "387dcbaf-55b7-55ec-99de-59ca6efac082",
+        "21d10a20-4a10-5c40-8a1b-f12eb83f11d4",
+        "373a656e-2e8c-54e8-8414-7f06f9c29e1b",
+        "dc6c1813-1ebb-58fd-a65d-8cc677b7bbec",
+        "f7e188e8-9c08-5858-a956-7ab10efc96a6",
+        "d52da00b-e80d-52cc-87b5-e15d911bd6f7",
+        "2f89b2ff-3347-531d-819b-a53d6e6a14be",
+        "c4285cea-5d78-509a-bc7d-149025f88ee6",
+        "44753fa8-f1db-5a14-b4bc-a4d94d11bdd0",
+        "4e12f1b2-2b4f-5c1e-b609-169244ea62a4",
+        "6e780fbf-4860-53f4-a86a-8e9ac459bac1",
+        "add92939-4c0b-585f-a5ec-c2a475935eaa",
+        "d4afebf6-480e-5559-b0ab-21e65cb89fa7",
+        "5ff615e3-e01d-5f07-a958-5914d2ba64bd",
+        "5ec25772-73a6-55c4-8104-f434abca9816",
+        "0dff3fd1-d318-5963-91ce-e6cab624ee3b",
+        "94f671c8-ed6a-53f8-a87f-ba9a8dae8627",
+        "049662ec-30d7-5f62-aa92-baa2091a7727",
+        "51cc5586-55a8-5f78-bd13-f3a21d0a132c"
+      ],
+      "after_pages": [
+        24,
+        25,
+        29,
+        31,
+        97,
+        104,
+        113,
+        115,
+        118
+      ]
+    },
+    {
+      "query": "국내 사업장에서는 REC 및 녹색 프리미엄 등을 활용하여 약 93GWh의 재생에너지를 조달했으며, 이를 통해 약 4만 톤의 탄소 감축 효과를 얻었습니다.",
+      "before_source_ids": [
+        "9472aedb-8736-5b50-896e-754c044f557d",
+        "5840d032-bbb6-52a4-827f-f26d19119898",
+        "1c115c9f-6314-5690-8ef2-52d47cf67441",
+        "2ca10560-3e23-5de1-98b9-a188efff4d8e",
+        "32ae97f9-e49d-5a02-9c57-45cbf4579e8b",
+        "53a8834a-3a7b-5196-9f6e-12e2eac60340",
+        "5e6868d7-f7ba-537c-a720-4639f5355a81",
+        "602645a2-aed2-5a3a-863f-13ce627c035e",
+        "03dd0045-783c-5f4e-85b4-5c1dacf44ce4",
+        "1f390a38-0b6b-5c47-a00f-524081aa5403",
+        "418ee06d-2af1-595e-8ee7-6f0737cb865e",
+        "44da2ae5-38d4-5bb9-8e36-cd9bed1c5e46",
+        "4c130779-09f0-54a9-ba9c-86718eabbe83",
+        "92a72448-c0a4-5e85-9b14-0315cfa33ce5",
+        "af54c793-a4b7-51cd-8804-26f6ecf9c426",
+        "b1d10664-84dd-5226-b5ac-544afcdd65df",
+        "f6830e52-0895-51c0-8a1b-6c121dd96298",
+        "088d9d09-ed12-5bb5-9e69-5ed9412f7c47",
+        "0a1b1834-69f2-5751-ab5c-f701470a0af7",
+        "0dadf0e3-9d1f-5ddb-9e5d-ecb34ebfcf90"
+      ],
+      "before_pages": [
+        16,
+        23,
+        24,
+        25,
+        26,
+        28,
+        29,
+        32,
+        38,
+        40,
+        46,
+        97
+      ],
+      "after_source_ids": [
+        "9472aedb-8736-5b50-896e-754c044f557d",
+        "602645a2-aed2-5a3a-863f-13ce627c035e",
+        "0d9e4bc4-e959-5530-8f56-477203b3a76b",
+        "41113336-c900-5c0a-adf9-77fd6bdd3b01",
+        "8c3aa0ab-d380-5a97-b66a-697ee075c11a",
+        "e848782e-be98-5bb4-a174-7f42cce56d34",
+        "0e60e487-ae71-54b6-b902-e9c2139662a3",
+        "345613a2-797d-5f2c-b154-f5c3b14e6e79",
+        "8181e142-fb38-5b19-9ea7-2b6986dc07f4",
+        "0dd47c27-7dcf-5c18-acbd-06b225ad21ab",
+        "3e8d3725-30aa-54eb-ba26-b6cb088f8c9f",
+        "c2891da6-b62b-5650-8689-6e1f6d1582c8",
+        "dccd24c9-ce5e-5a29-8ff7-ed0e589f2d27",
+        "40fd73d0-3fe8-54f5-b12e-2816014537d5",
+        "7b3268a4-05ba-5f01-8fe1-fbaf3e146b66",
+        "03dd0045-783c-5f4e-85b4-5c1dacf44ce4",
+        "44da2ae5-38d4-5bb9-8e36-cd9bed1c5e46",
+        "3b6168f0-39bd-5c04-9c74-b7e611326750",
+        "a95272b2-a8c2-5af8-8711-248738b07102",
+        "2a290ac9-95a7-5e87-96a4-7821ef832ae5"
+      ],
+      "after_pages": [
+        17,
+        24,
+        25,
+        29,
+        31,
+        97,
+        99,
+        119
+      ]
+    },
+    {
+      "query": "여수국가산업단지는 국내 최대 규모의 석유화학 집적 단지로, 일평균 약 54만 톤의 산업용수가 공급됩니다.",
+      "before_source_ids": [
+        "f6830e52-0895-51c0-8a1b-6c121dd96298",
+        "1f390a38-0b6b-5c47-a00f-524081aa5403",
+        "36ce6b59-6d76-56b7-be4c-8d4d5b70209f",
+        "68277a68-bfa7-5e45-823e-71d640c6ccb9",
+        "9472aedb-8736-5b50-896e-754c044f557d",
+        "af54c793-a4b7-51cd-8804-26f6ecf9c426",
+        "b3d9f8a8-7fe3-5a01-a95b-6f17e1e5e77d",
+        "088d9d09-ed12-5bb5-9e69-5ed9412f7c47",
+        "151e9f2a-a5d1-558a-a8a6-986f93ee762e",
+        "1860aec2-e6f4-5030-8179-b520973a393a",
+        "1c115c9f-6314-5690-8ef2-52d47cf67441",
+        "1c21f2ce-128a-5040-8614-51b8ea0ed5b7",
+        "1d583373-e786-5a5e-a654-1b84df3c00aa",
+        "2ca10560-3e23-5de1-98b9-a188efff4d8e",
+        "32ae97f9-e49d-5a02-9c57-45cbf4579e8b",
+        "4c130779-09f0-54a9-ba9c-86718eabbe83",
+        "53a8834a-3a7b-5196-9f6e-12e2eac60340",
+        "5840d032-bbb6-52a4-827f-f26d19119898",
+        "6af53702-eedc-54d0-a00d-096bd3a5a35e",
+        "6fce0f66-a067-500c-9172-167fffa9155f"
+      ],
+      "before_pages": [
+        18,
+        23,
+        24,
+        25,
+        26,
+        28,
+        33,
+        38,
+        45,
+        46,
+        98,
+        105
+      ],
+      "after_source_ids": [
+        "4c609563-8cd5-5cd4-bd48-c0348dc54dd0",
+        "550b9df6-f57f-50ca-a3ef-6f6af05e4fbd",
+        "91fa52aa-015f-588e-861c-9a3dea937453",
+        "c976190e-6e33-5b00-90e5-afe6de92a9f5",
+        "017bf6d0-9e91-597c-b005-29c6f318fba4",
+        "e42909ef-7442-5bbb-892e-f3bbffe021b5",
+        "f6830e52-0895-51c0-8a1b-6c121dd96298",
+        "5204fa3c-bd38-5386-8c0a-682ca4f6a91c",
+        "ebc31a1e-14ae-5d36-8223-60b3e2f87092",
+        "8106957a-bca2-5ff6-889d-8626d45cfeb2",
+        "890ee2eb-5628-5903-be76-eea1ed4d2fcb",
+        "0feea402-19f8-58c4-9d73-53d230eacfa7",
+        "1b239da2-5298-5fb7-9eb9-707ed7ed0255",
+        "e760f32d-ee3b-5f25-976a-17f699b26cb0",
+        "b49e915d-f7b2-5677-9dfc-559afd7a57fe",
+        "e1f10266-5acb-5808-9949-0163ad441253",
+        "01fa6a45-6391-59e8-8318-15d101a9d67b",
+        "af54c793-a4b7-51cd-8804-26f6ecf9c426",
+        "c2e5e9ff-3a9e-594e-89a9-ce59835d5ed5",
+        "9be912df-9e79-567a-9115-ea40abfe1bf6"
+      ],
+      "after_pages": [
+        23,
+        25,
+        26,
+        46,
+        48,
+        108,
+        115
+      ]
+    },
+    {
+      "query": "여수공장은 연간 약 4,000만 m³의 공업용수를 사용하며 이를 처리 후 남해(광양만)로 방류하고 있습니다.",
+      "before_source_ids": [
+        "f6830e52-0895-51c0-8a1b-6c121dd96298",
+        "6c0f3216-46c5-54b3-ac03-58795e62e002",
+        "1c21f2ce-128a-5040-8614-51b8ea0ed5b7",
+        "1d583373-e786-5a5e-a654-1b84df3c00aa",
+        "1f390a38-0b6b-5c47-a00f-524081aa5403",
+        "927a0dfa-9485-522d-a479-36af61196c42",
+        "af54c793-a4b7-51cd-8804-26f6ecf9c426",
+        "088d9d09-ed12-5bb5-9e69-5ed9412f7c47",
+        "5840d032-bbb6-52a4-827f-f26d19119898",
+        "5869e54b-b973-5c5c-8f18-15cfe10a3fe8",
+        "6960b859-616c-547b-b14f-fed964398b4e",
+        "9472aedb-8736-5b50-896e-754c044f557d",
+        "d059949d-7682-5570-9aba-7a3fea0b683b",
+        "06283412-7262-52d2-857c-2d135deacdd0",
+        "0dadf0e3-9d1f-5ddb-9e5d-ecb34ebfcf90",
+        "2546ac26-8c6f-5d84-ac67-0b6aa4a4fbbd",
+        "32ae97f9-e49d-5a02-9c57-45cbf4579e8b",
+        "4f98315e-0e72-59f5-93ac-f25cc2f1c525",
+        "53a8834a-3a7b-5196-9f6e-12e2eac60340",
+        "541ee7bb-ca10-5a51-9e50-aed2199a549d"
+      ],
+      "before_pages": [
+        16,
+        23,
+        24,
+        25,
+        26,
+        33,
+        34,
+        37,
+        38,
+        40,
+        45,
+        46,
+        47,
+        48,
+        112
+      ],
+      "after_source_ids": [
+        "f6830e52-0895-51c0-8a1b-6c121dd96298",
+        "6c0f3216-46c5-54b3-ac03-58795e62e002",
+        "a4268769-5f35-5f64-a1ed-ee64e6ecf0f7",
+        "eef22364-fd2b-57ef-89ce-1c050b82e22b",
+        "1d583373-e786-5a5e-a654-1b84df3c00aa",
+        "3c5dce24-fbb6-5100-a028-5445f94fa56f",
+        "dff24d86-4e70-57cf-8f8d-319ce687d151",
+        "af54c793-a4b7-51cd-8804-26f6ecf9c426",
+        "6d72d4e9-f795-5754-9a51-ecd469db8eb2",
+        "6f89c8f9-3fdb-5f08-b7ad-7e46193ed826",
+        "be1a20de-b086-5a37-b387-f717eecc9a40",
+        "a6f02efd-1263-5a5c-bac3-487f1b981fcc",
+        "5a647a1b-9d48-535c-bbe9-9dd3c024e643",
+        "f3408024-d934-5307-a977-92c1547227d7",
+        "efbea79c-ee34-5b3d-8013-ddb1d9eba48d",
+        "4c19c48c-8f0e-5778-b050-194a389c7250",
+        "a2215b4e-e686-5f42-8f0c-55aff0b01ad1",
+        "06283412-7262-52d2-857c-2d135deacdd0",
+        "dfaa09a2-ce12-587f-8a68-c3299f4d80dc",
+        "96944ef0-0169-55be-8d26-1e75a10cecc7"
+      ],
+      "after_pages": [
+        25,
+        38,
+        42,
+        44,
+        46,
+        47,
+        101,
+        102,
+        113
+      ]
+    }
+  ],
+  "sources": {
+    "53a8834a-3a7b-5196-9f6e-12e2eac60340": {
+      "page": 25,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "LG화학은 여수 공장 Chloro-Alkali 공정에서 발생하는 부생수소를 NCC에 혼소하기 위한 설비를 구축하여 기존 화석연료 일부를 대체하고 있습니다. 이를 통해 2023년부터 2025년까지 누적 약 4만 톤의 온실가스를 감축하였습니다.",
+      "source_ref_sha256": "134dd7a1862f1f419da3711150f0d57e704d0e5c5e567b6561b0ae95834a5cb3"
+    },
+    "14b938b4-a671-5cbc-87b0-a863642f8a87": {
+      "page": 26,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "LG화학은 이산화탄소(CO₂)와 메탄(CH₄)을 활용하여 화학제품의 기초 원료인 합성가스를 생산하는 DRM(Dry Reforming of Methane) 기술을 개발하고 있습니다. DRM 기술은 두 종류의 온실가스를 동시에 전환할 수 있는 탄소 저감 기술로, 생산된 합성가스는 화학제품 ",
+      "source_ref_sha256": "4ed5276a7024274cdeff2db9bd4911108796ef495a9fb066e089809c865ad4fc"
+    },
+    "1c115c9f-6314-5690-8ef2-52d47cf67441": {
+      "page": 24,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "또한 전사 탄소 통합 관리 시스템(Net-Zero Portal)을 활용하여 과제별 추진 현황과 감축 실적을 체계적으로 관리하고 있습니다. 2025년에는 총 8건의 에너지 효율화 과제를 통해 약 3만 톤의 온실가스를 저감하였으며, 주요 생산공정정에서 추진한 에너지 효율화 사례는 다음과 같",
+      "source_ref_sha256": "ae3289f59644aa6c373677be4dacd02102969cb2aeab8abbcfab3ba9ab765c4c"
+    },
+    "2ca10560-3e23-5de1-98b9-a188efff4d8e": {
+      "page": 26,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "또한 전사 탄소 통합 관리 시스템(Net-Zero Portal)을 활용하여 과제별 추진 현황과 감축 실적을 체계적으로 관리하고 있습니다. 2025년에는 총 8건의 에너지 효율화 과제를 통해 약 3만 톤의 온실가스를 저감하였으며, 주요 생산공정정에서 추진한 에너지 효율화 사례는 다음과 같",
+      "source_ref_sha256": "30d6ecd6674e43cd355dd82235e54cc73b0ee887cf08f400e4434d3bfd1584b1"
+    },
+    "21d10a20-4a10-5c40-8a1b-f12eb83f11d4": {
+      "page": 31,
+      "kind": "table_cell",
+      "quality": "unverified",
+      "preview": "1. 온실가스 감축",
+      "source_ref_sha256": "7497ab55fb08a311bc4d3d366908c96c4182cb95b68d94869eaf8dabc40613e3"
+    },
+    "373a656e-2e8c-54e8-8414-7f06f9c29e1b": {
+      "page": 115,
+      "kind": "table_cell",
+      "quality": "unverified",
+      "preview": "온실가스 감축 전략",
+      "source_ref_sha256": "f47796e6b669d23ef232dd35038f3b41376369c5d22a694cbe0286e45ce21468"
+    },
+    "dc6c1813-1ebb-58fd-a65d-8cc677b7bbec": {
+      "page": 24,
+      "kind": "heading",
+      "quality": "unverified",
+      "preview": "온실가스 감축 전략",
+      "source_ref_sha256": "744806206687684411168b38fb48a150fb7d53d096ebd7e474c89594a8e431be"
+    },
+    "f7e188e8-9c08-5858-a956-7ab10efc96a6": {
+      "page": 115,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "온실가스 감축 전략",
+      "source_ref_sha256": "d74e8ce242c66950e9bc7ea2466d2cff57d029a80deaddc6234d81ad63794246"
+    },
+    "387dcbaf-55b7-55ec-99de-59ca6efac082": {
+      "page": 118,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "2025 년도 온실가스 배출 데이터 및 기록들을 취합 수준에서 검증하였습니다.",
+      "source_ref_sha256": "28211ae05817863c1b7fd5bc5b852f2a3c216d0bb0ca5a08a1d34c7098b0c290"
+    },
+    "44753fa8-f1db-5a14-b4bc-a4d94d11bdd0": {
+      "page": 118,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "온실가스 배출 데이터 및 기록 관리 책임이 있는 핵심 인원들과 면담하였습니다.",
+      "source_ref_sha256": "3d772770c6fc356f1e8f50ccf59042b9ece3ced564442fea8a6679e0914aba4e"
+    },
+    "4e12f1b2-2b4f-5c1e-b609-169244ea62a4": {
+      "page": 113,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "Scope 1 & 2 배출량 온실가스·에너지 관리 온실가스 감축 전략",
+      "source_ref_sha256": "c786b743d1e41b81d1e6f2c16c3605d6b39920743ca732364a93993a930b67e5"
+    },
+    "6e780fbf-4860-53f4-a86a-8e9ac459bac1": {
+      "page": 113,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "Scope 1 & 2 배출량 온실가스·에너지 관리 온실가스 감축 전략",
+      "source_ref_sha256": "8201335433b541bfaa0f3e267afdd427b80102cdbf58bac9a00184e7c628315f"
+    },
+    "add92939-4c0b-585f-a5ec-c2a475935eaa": {
+      "page": 113,
+      "kind": "table_cell",
+      "quality": "unverified",
+      "preview": "Scope 1 & 2 배출량\n온실가스·에너지 관리\n온실가스 감축 전략",
+      "source_ref_sha256": "dac85ba1f4dabc88705f894c5a9690fe7260b2c0aa697e8abd30eb02b491c538"
+    },
+    "d4afebf6-480e-5559-b0ab-21e65cb89fa7": {
+      "page": 113,
+      "kind": "table_cell",
+      "quality": "unverified",
+      "preview": "Scope 1 & 2 배출량\n온실가스·에너지 관리\n온실가스 감축 전략",
+      "source_ref_sha256": "840d66ea2682fe6b9fde861e1f48a4b73d11023beff4bc821fd7f93e1fa86084"
+    },
+    "5ff615e3-e01d-5f07-a958-5914d2ba64bd": {
+      "page": 97,
+      "kind": "heading",
+      "quality": "unverified",
+      "preview": "온실가스",
+      "source_ref_sha256": "7f78ed33065a53913989d28bc95d01deea27e3bdf97525156f1b1730a1c93e1f"
+    },
+    "5ec25772-73a6-55c4-8104-f434abca9816": {
+      "page": 31,
+      "kind": "table_row",
+      "quality": "unverified",
+      "preview": "1. 온실가스 감축\t가. 산업\t(1) 온실가스 감축 핵심기술 활용을 위한 제조\t213,330\t11,240\t22,600",
+      "source_ref_sha256": "306da0932d116289f66ec647196eef0e415fe90c03224a704dff2e8638af195c"
+    },
+    "94f671c8-ed6a-53f8-a87f-ba9a8dae8627": {
+      "page": 113,
+      "kind": "table_row",
+      "quality": "unverified",
+      "preview": "305-2\t에너지 간접 온실가스 배출량 (Scope 2)\tScope 1 & 2 배출량\n온실가스·에너지 관리\n온실가스 감축 전략",
+      "source_ref_sha256": "0e0e434ff6ace84600ad0551bc3cb996407d7a89dba7d041ad161772e8986fdb"
+    },
+    "049662ec-30d7-5f62-aa92-baa2091a7727": {
+      "page": 29,
+      "kind": "heading",
+      "quality": "unverified",
+      "preview": "온실가스 배출량",
+      "source_ref_sha256": "98420549d0617df86c513016f8cff4fa8bf11bc5ebbe6f0a770a78f67439414e"
+    },
+    "51cc5586-55a8-5f78-bd13-f3a21d0a132c": {
+      "page": 113,
+      "kind": "table_cell",
+      "quality": "unverified",
+      "preview": "온실가스 배출량",
+      "source_ref_sha256": "cc7b66c271ec3cf2df20400c35fbb0499c53012d0484e6f301d81a7fab8e45fc"
+    },
+    "aedca0ff-6fc2-572c-b0f9-c0707e7d1857": {
+      "page": 115,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "온실가스 배출량",
+      "source_ref_sha256": "3fb23cceb94d66d5c513f30fdfd2037c4054b0b56ac435db0981a937c46b22b9"
+    },
+    "f5e1d8d2-f0ea-5834-a90e-3a60c82cfc7d": {
+      "page": 115,
+      "kind": "table_cell",
+      "quality": "unverified",
+      "preview": "온실가스 배출량",
+      "source_ref_sha256": "1bec00a1d3d948ebbd93993630dd90fdc5b1a459bb9a36b8e024acd4da6d7047"
+    },
+    "2f89b2ff-3347-531d-819b-a53d6e6a14be": {
+      "page": 113,
+      "kind": "table_row",
+      "quality": "unverified",
+      "preview": "305-4\t온실가스 배출 집약도\t온실가스 배출량",
+      "source_ref_sha256": "629ff8abf37d68e21d654af9b05031c33274bb5bbf77fa6c776f9828007a4885"
+    },
+    "c4285cea-5d78-509a-bc7d-149025f88ee6": {
+      "page": 113,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "305-4 온실가스 배출 집약도 온실가스 배출량",
+      "source_ref_sha256": "444c9c8f618898aa7b954af400c53d9183f74e153cbeee5a458279e464998792"
+    },
+    "9472aedb-8736-5b50-896e-754c044f557d": {
+      "page": 25,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "2025년 기준, 영덕 풍력 프로젝트에 대한 PPA 체결을 완료했으며, 영양 풍력 등 추가적인 풍력 PPA 체결을 검토하고 있습니다. 또한 사업장 내 유휴 부지 및 공장 지붕 등을 활용한 태양광 발전설비 설치를 검토하고 있습니다. 국내 사업장에서는 REC 및 녹색 프리미엄 등을 활용하여",
+      "source_ref_sha256": "559e0147bc4658c09dd02b5c4f51a147718b895b05136193c6a9dee283adef89"
+    },
+    "602645a2-aed2-5a3a-863f-13ce627c035e": {
+      "page": 25,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "LG화학은 전력 사용에 따른 간접 배출(Scope 2)을 저감하기 위해 국내외 사업장에 재생에너지를 도입하고 있습니다. 사업장별 전력 사용 구조를 고려하여 PPA, REC, 녹색 프리미엄 등 다양한 조달 방식을 활용하고 있으며, 사업장 단위의 에너지 효율 개선 활동을 통해 전력 사용량을",
+      "source_ref_sha256": "59bba17ffb92268afebc662ab125b130ea0b0876a7ac4c3c029df34a46b76455"
+    },
+    "0e60e487-ae71-54b6-b902-e9c2139662a3": {
+      "page": 24,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "재생에너지",
+      "source_ref_sha256": "67e436bf24cfd65ecb364c71bec61e49cbcfcadcee3d90dcae27f35f30a0d0d0"
+    },
+    "345613a2-797d-5f2c-b154-f5c3b14e6e79": {
+      "page": 24,
+      "kind": "table_cell",
+      "quality": "unverified",
+      "preview": "재생에너지",
+      "source_ref_sha256": "f215e7811cf141303039bdf2be1f5f7f4d44183b709b60ee8df610b94e98f9c7"
+    },
+    "8181e142-fb38-5b19-9ea7-2b6986dc07f4": {
+      "page": 25,
+      "kind": "heading",
+      "quality": "unverified",
+      "preview": "재생에너지",
+      "source_ref_sha256": "fedc167b3aa47819bde27579f9c15e87d0a6b3d10be06156dd327453ab648a93"
+    },
+    "41113336-c900-5c0a-adf9-77fd6bdd3b01": {
+      "page": 25,
+      "kind": "heading",
+      "quality": "unverified",
+      "preview": "재생에너지 조달 현황 T3 O4",
+      "source_ref_sha256": "b12e1bc4a05ab6963819558a3e05c109c17a3f07689e14918ae53f89a6d0d09f"
+    },
+    "40fd73d0-3fe8-54f5-b12e-2816014537d5": {
+      "page": 24,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "에너지 효율화, 저탄소 연료전환, 재생에너지 등",
+      "source_ref_sha256": "5bc893b1c4fb7b4472132d9c1919f222bee7d88f167adf4f655bb4ad239798e3"
+    },
+    "5db6b3e9-9d6b-5a15-b4ab-74fffdd78be3": {
+      "page": 17,
+      "kind": "table_cell",
+      "quality": "unverified",
+      "preview": "재생에너지 사용 확대 및 RE100 이행",
+      "source_ref_sha256": "81a14450f142d383cffa695cd4f6da996387773046f6471fc8b51e201ebfad6f"
+    },
+    "0d9e4bc4-e959-5530-8f56-477203b3a76b": {
+      "page": 24,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "※ 감축 이행 계획은 사업 구조, 재생에너지 조달 환경 등에 의해 변경 될 수 있습니다.",
+      "source_ref_sha256": "3319091eb383482059840cfc912f3fa446ba227e58430ce9abf33b01e3235753"
+    },
+    "7b3268a4-05ba-5f01-8fe1-fbaf3e146b66": {
+      "page": 24,
+      "kind": "table_row",
+      "quality": "unverified",
+      "preview": "재생에너지\tPPA, REC 등\n(태양광, 육상풍력)\t72%",
+      "source_ref_sha256": "f0bef2621e0e0f9c6da0ae2c811dba20880e6c5500f5c6ba0917b8c9a2888ab9"
+    },
+    "2a290ac9-95a7-5e87-96a4-7821ef832ae5": {
+      "page": 17,
+      "kind": "table_row",
+      "quality": "unverified",
+      "preview": "O4\t기회\t에너지원\t재생에너지 사용 확대 및 RE100 이행\t단기|중기|장기\t\t✓\t✓",
+      "source_ref_sha256": "bbbf2734f4c4b1e84ea091860c664fd3f33738bd8b0fe327a29388ed38146514"
+    },
+    "edb325bc-28e0-5062-babb-23c88fe5f8c4": {
+      "page": 17,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "O4 기회 에너지원 재생에너지 사용 확대 및 RE100 이행 단기|중기|장기 ✓ ✓",
+      "source_ref_sha256": "48b6b5a801e626308cb1bf3d9282105f6a5b5536c71bf6ad1fb5f0bcdc0c95f9"
+    },
+    "93953f79-7c22-50db-8e21-580514688edc": {
+      "page": 115,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "(3) 재생 가능 에너지 비율",
+      "source_ref_sha256": "9610a2d2e603c6383078d92d3f1903f032f8a9e38b7aeadb198577cfeea1be3d"
+    },
+    "e67c5180-8616-58c5-8a48-65cdcd500f9f": {
+      "page": 24,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "에너지",
+      "source_ref_sha256": "276b562fa5573b7c88b9cfe8f4453ea7c988b44d015d2437dbed95fd89f33d88"
+    },
+    "f8f005ac-5bd3-5b27-add9-ad3663e6b954": {
+      "page": 99,
+      "kind": "heading",
+      "quality": "unverified",
+      "preview": "에너지",
+      "source_ref_sha256": "cef9231d0ef8f9b42494519d440f9ed98306587f7cb21bdfdcbd4bf77ed95819"
+    },
+    "733f83a9-7d72-54ce-aaa3-35e9f5b65bf4": {
+      "page": 115,
+      "kind": "table_cell",
+      "quality": "unverified",
+      "preview": "(1) 총 에너지 소비량\n(2) 그리드 전력 비율\n(3) 재생 가능 에너지 비율\n(4) 총 자가 발전량",
+      "source_ref_sha256": "edeffe6166e63e2a33611d09cedc208f1d008b788d4d4a1f5fb17b1b9773ad36"
+    },
+    "0c5f8b96-42c6-50cd-8824-53f20089e887": {
+      "page": 115,
+      "kind": "table_cell",
+      "quality": "unverified",
+      "preview": "에너지 관리",
+      "source_ref_sha256": "abbedd3dcafce6e823f34e8e11dc8987632a600caca1205ce342db4f986f17f7"
+    },
+    "99dc0d01-0622-5915-afbb-2005c254e6d9": {
+      "page": 17,
+      "kind": "table_cell",
+      "quality": "unverified",
+      "preview": "에너지원",
+      "source_ref_sha256": "e5beded480e0f9630778b5872bc9016578725bc7e896e9e0f5567d94beb40563"
+    },
+    "b796b576-bda8-5953-ac87-8e44fc12147b": {
+      "page": 31,
+      "kind": "table_cell",
+      "quality": "unverified",
+      "preview": "나. 발전·에너지",
+      "source_ref_sha256": "b53dbc6a0b01f58580a80b151425f6f18ef06f2a8441ea1f3b6f0d1d4cb63174"
+    },
+    "dc4ceb88-ee64-5c8d-a6fa-34dd98407f11": {
+      "page": 113,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "302-1 조직 내 에너지 소비량 에너지 사용량 302-3 에너지 집약도 에너지 사용량",
+      "source_ref_sha256": "45dcf51afe12b059efadae658b4003273994d8a1f0a95b20560b283a91c9ab10"
+    },
+    "74c73926-85de-58d3-9596-df8d86b7fb58": {
+      "page": 113,
+      "kind": "table_row",
+      "quality": "unverified",
+      "preview": "GRI 302: 에너지 2016\t302-1\t조직 내 에너지 소비량\t에너지 사용량",
+      "source_ref_sha256": "c86235b063951f5a86db222ad97017cb724efe0baa65e8f116798ad2af63066e"
+    },
+    "f6830e52-0895-51c0-8a1b-6c121dd96298": {
+      "page": 46,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "여수공장은 전라남도 여수시 여수국가산업단지 내에서 기초화학물질(석유화학 제품군, NCC·PE·PVC·ABS 등) 제조 공정을 운영하고 있습니다. 여수국가산업단지는 국내 최대 규모의 석유화학 집적 단지로, 일평균 약 54만 톤의 산업용수가 공급됩니다. 여수공장은 연간 약 4,000만 m³",
+      "source_ref_sha256": "6f187d3552dfca36ac13673b02050fa27bf806f2c2894da6c7925a2fdf90ab34"
+    },
+    "1c21f2ce-128a-5040-8614-51b8ea0ed5b7": {
+      "page": 45,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "여수공장은 보호지역 인접, 법정 보호종 서식, 높은 수자원 의존도 등 복합적인 자연 리스크 특성을 보유하고 있습니다. 반경 8km 이내에는 환경보전해역·국립공원 등 법정 보호지역이 분포하고 있으며, 25종의 법정 보호종이 서식하는 입지 특성을 보입니다. 한편, 산업용수 사용량은 여수 지",
+      "source_ref_sha256": "a0e54f340607a7d97b08e5315719a8debc7e360d800614b237ff7e80aea33baa"
+    },
+    "6c0f3216-46c5-54b3-ac03-58795e62e002": {
+      "page": 47,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "여수공장의 주요 취수원은 주암댐이며, 공업용수 사용 후 처리수는 남해(광양만)로 방류됩니다. 연간 산업용수 사용량은 약 4,000만 m³, 폐수 방류량은 약 1,000만 m³입니다. WRI Aqueduct 4.0 기준 주암댐 유역의 Baseline Water Stress(BWS) 등급은",
+      "source_ref_sha256": "e216a91962089c9983158404b76d2d88a6c75ac0d1d5812874b03b941b9c2e9b"
+    },
+    "1d583373-e786-5a5e-a654-1b84df3c00aa": {
+      "page": 25,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "연간 약 4만 톤 규모의 바이오 납사를 NCC 원료로 사용하여 화석 기반 납사를 대체하고 있으며, 이를 통해 생산 과정에서의 온실가스 배출 저감에 기여하고 있습니다.",
+      "source_ref_sha256": "37be6cc5d151e543939d4cd3982f8a0ba9b1aa13323c04deef90220070b02bf8"
+    },
+    "6960b859-616c-547b-b14f-fed964398b4e": {
+      "page": 112,
+      "kind": "table",
+      "quality": "unverified",
+      "preview": "구분\tGRI 번호\t지표명\t보고 위치\n조직 및 보고 관행\t2-1\t조직 세부 정보\t일반 현황, 사업보고서-I.\n2-2\t지속가능경영 보고 시 포함된 사업장 정보\t사업보고서-XII-4., 홈페이지\n2-3\t보고기간, 주기 및 문의처\t보고 개요\n2-4\t정정 사항\tScope 1·2 배출량, 근로자 ",
+      "source_ref_sha256": "99faebe10ece10f413dfd81c80731556407fff270d249962c3784992a7bb3d90"
+    },
+    "af54c793-a4b7-51cd-8804-26f6ecf9c426": {
+      "page": 25,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "해당 발전소는 폐목재를 우드칩 형태로 가공하여 연료로 활용하며, 2027년 가동 후 생산된 전력 및 스팀은 여수 화치 공장에 공급될 예정입니다. 이를 통해 연간 최대 약 40만 톤의 온실가스 저감이 기대됩니다.",
+      "source_ref_sha256": "c4af7f3b528aab045a358b6c8c76179498863fbfd0e6164f9ae04f2c3d55d648"
+    },
+    "088d9d09-ed12-5bb5-9e69-5ed9412f7c47": {
+      "page": 23,
+      "kind": "table",
+      "quality": "unverified",
+      "preview": "코드\t구분\t리스크 요인\t설명\t예상 재무영향\nT1\t시장\t고객사 공급망 탄소 감축 및 LCA\n요구 강화\t글로벌 주요 고객사의 RE100·SBTi 가입 확대로 Scope 3 감축 및\nLCA 기반 탄소발자국 데이터 요구가 증가할 것으로 예상됩니다.\n이에 미대응 시 단가 인하, 계약 갱신 제약 ",
+      "source_ref_sha256": "4add2b64063b0ab4bd925b4c45c83d43a44869f098083fb556a8426d5ccfe033"
+    },
+    "1f390a38-0b6b-5c47-a00f-524081aa5403": {
+      "page": 38,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "LG화학은 전사 ESG 경영의 일환으로 폐기물 배출 저감과 재활용 확대를 지속적으로 추진하고 있습니다. 이러한 노력의 일환으로 2022년 국내 석유화학 업계 최초로 폐기물 매립 제로(Zero Waste to Landfill, ZWTL) 국제 인증을 취득하였으며, 이후 2023년 중국 광",
+      "source_ref_sha256": "802249371eaac72fae23b5d8750d4758293dfc91d2f57c082f344a9ddb5cd0be"
+    },
+    "2546ac26-8c6f-5d84-ac67-0b6aa4a4fbbd": {
+      "page": 37,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "LLG화학은 정부의 미세먼지 저감 정책에 선제적으로 참여하며, 지역 대기 환경 개선을 추진하고 있습니다. 2019년부터 영산강유역환경청과 ‘미세먼지 계절관리제 이행을 위한 자발적 협약’을 체결해 이행해 왔으며, 2024년에는 남부권 기업체와 함께 ‘제6차 미세먼지 계절관리제(2024년 ",
+      "source_ref_sha256": "a99b7c8b4fa1cbfd896208245d1106e17693417ae28048c01197ffcadb758fec"
+    },
+    "36ce6b59-6d76-56b7-be4c-8d4d5b70209f": {
+      "page": 18,
+      "kind": "table",
+      "quality": "unverified",
+      "preview": "구분\t내용\n분석 대상\t국내 5개 사업장 (서울, 여수, 대산, 청주, 익산)\n해외 5개 사업장 (톈진(Tianjin), 우시(Wuxi), 닝보(Ningbo), 하이퐁(Hai Phong), 브로츠와프(Wroclaw))\n시나리오\tIPCC AR6 SSP1-2.6 / SSP2-4.5 / SSP",
+      "source_ref_sha256": "d5950054b5d927b1cda8571153ab65d09973d668593ce858c66a6b6d5995a77d"
+    },
+    "3bd3af26-93c6-5597-9ecb-5e9c471bd039": {
+      "page": 102,
+      "kind": "table",
+      "quality": "unverified",
+      "preview": "폐기물 발생 및 재활용\t단위\t2023\t2024\t2025\n총 폐기물 발생량\t합계\t톤\t248,035\t242,684\t192,385\n총 발생 집약도1)\t톤/백만 원\t0.0121\t0.0109\t0.0089\n일반 폐기물 배출량\t합계\t톤\t125,042\t103,013\t85,648\n재활용2)\t톤\t97,6",
+      "source_ref_sha256": "343bb4d906044c832449728427e9a7b002191f4d588cc70d6bdad12e9d880c64"
+    },
+    "4a30404c-6fe7-50a2-b1e3-634477a55a6f": {
+      "page": 105,
+      "kind": "table_row",
+      "quality": "unverified",
+      "preview": "노동 인권 및 단체 협약\t단위\t2023\t2024\t2025",
+      "source_ref_sha256": "dce24243ff479515ca8c3053fd3d2e29d5479a3c46daf86c08b7c58c3c365055"
+    },
+    "541ee7bb-ca10-5a51-9e50-aed2199a549d": {
+      "page": 46,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "여수공장 반경 15km 이내에 총 20개의 법정 보호지역이 분포하며, 이 중 반경 10km 이내에 야생생물보호구역, 상수원보호구역, 환경보전해역, 국립공원 4개 유형의 보호지역이 위치합니다. 공장 방류처인 광양만은 「환경정책기본법」에 따라 환경부가 지정한 환경보전해역으로, 수질오염물질 ",
+      "source_ref_sha256": "3f539950381e8f8d6f5e56a2b0585534ffba4f766062ad586bb73839b8b78962"
+    },
+    "6fce0f66-a067-500c-9172-167fffa9155f": {
+      "page": 98,
+      "kind": "table",
+      "quality": "unverified",
+      "preview": "카테고리명\t산정 방법론\t활동 데이터\nCategory 1 구매한 제품 및 서비스\t평균값 기반 산정\n(일부 공급업체 제공 데이터 반영)\t석유화학 및 첨단소재 주요 원재료(원재료, 제품, 반제품, 상품\n등)에 대한 전표 기준 구매량\nCategory 2 자본재\t비용 기반 산정\t취득 또는 대체한",
+      "source_ref_sha256": "c98310a37696849532a909fb9a4c06cfe6304b90ee917f61ac9657e52fc97f8f"
+    },
+    "769dfc80-b4b8-5315-8ec4-eb1e74ec9f0f": {
+      "page": 105,
+      "kind": "table",
+      "quality": "unverified",
+      "preview": "노동 인권 및 단체 협약\t단위\t2023\t2024\t2025\n노동조합(국내)\t가입 대상 인원\t명\t6,799\t6,309\t5,516\n가입 인원\t명\t5,279\t5,037\t4,714\n가입률\t%\t78\t79.8\t85.5\n단체협약(국내)\t적용률\t%\t100\t100\t100",
+      "source_ref_sha256": "be3f6a7c8a505f7784e8b621712be36b60aaf2f128c622a529db0c98b29cf905"
+    },
+    "7a5fa6a2-d79a-5653-a90f-5b347d83481e": {
+      "page": 105,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "노동 인권 및 단체 협약 단위 2023 2024 2025",
+      "source_ref_sha256": "3b98b519abd469077a53a40833ad047c8cf5a38915221a436c5ed85ef805b2d6"
+    },
+    "81169ba5-9daf-58dd-aabf-e4937fb157b0": {
+      "page": 44,
+      "kind": "table",
+      "quality": "unverified",
+      "preview": "폐기물 발생 및 재활용\t단위\t2023\t2024\t2025\n총 폐기물 발생량\t합계\t톤\t248,035\t242,684\t192,385\n총 발생 집약도1)\t톤/백만 원\t0.0121\t0.0109\t0.0089\n일반 폐기물 배출량\t합계\t톤\t125,042\t103,013\t85,648\n재활용2)\t톤\t97,6",
+      "source_ref_sha256": "f65ef65794805e80dcbdae2970a8dbecc9e314f1d424121cea27ba3f1dc537b7"
+    },
+    "92bb4c85-aea8-578a-a4b7-f791c9e5002f": {
+      "page": 28,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "LG화학은 제품 전 과정에서 발생하는 환경 영향을 관리하기 위해 ISO 14040(Environmental management — Life cycle assessment — Principles and framework), 14044(Environmental management — Lif",
+      "source_ref_sha256": "842771995f01d6dabfaec9afc017262a5737c6f8bb733a46dc43c033aea9e710"
+    },
+    "6d72d4e9-f795-5754-9a51-ecd469db8eb2": {
+      "page": 47,
+      "kind": "table_row",
+      "quality": "unverified",
+      "preview": "M\t용수 사용량 (Water use)",
+      "source_ref_sha256": "76fea5f7fd2323dacafdfae435ae72dda11fe8d271c534681bfac69bb09836af"
+    },
+    "5a647a1b-9d48-535c-bbe9-9dd3c024e643": {
+      "page": 42,
+      "kind": "table_cell",
+      "quality": "unverified",
+      "preview": "용수 사용량",
+      "source_ref_sha256": "e4e1eead11c97606c1b93f26170d23103b62ef81872754a86448ed85d5391fed"
+    },
+    "f3408024-d934-5307-a977-92c1547227d7": {
+      "page": 101,
+      "kind": "table_cell",
+      "quality": "unverified",
+      "preview": "용수 사용량",
+      "source_ref_sha256": "7615621cac98f9cdf6fcbd201fdcc0151887fbf98edc41630076eb6b96c9e0e7"
+    },
+    "24e18b16-35e1-5a01-bc9d-a1a8e780eacf": {
+      "page": 42,
+      "kind": "table_cell",
+      "quality": "unverified",
+      "preview": "용수 취수·배출·사용량",
+      "source_ref_sha256": "a8483a36bfd8db37a7cda4b000f57ec5258e98ad389289759a15a7ae318c6c48"
+    },
+    "5befbae4-9df6-5a0b-8b99-937325024ad1": {
+      "page": 42,
+      "kind": "heading",
+      "quality": "unverified",
+      "preview": "용수 취수·배출·사용량",
+      "source_ref_sha256": "371b4fb981d682c936ad7649cabb5de2ac720d3369aecc6644d0bd0e8ae701ac"
+    },
+    "5ca21772-3e6b-5ec6-af6c-ee69e49cfd94": {
+      "page": 47,
+      "kind": "table_cell",
+      "quality": "unverified",
+      "preview": "용수 사용량 (Water use)",
+      "source_ref_sha256": "b30a2bf8dedcbaf81792d6637685dda3ed516a769cf555740b7145d873591c3a"
+    },
+    "69989469-0d51-582a-ba67-e8ab0fda3865": {
+      "page": 101,
+      "kind": "table_cell",
+      "quality": "unverified",
+      "preview": "용수 취수·배출·사용량",
+      "source_ref_sha256": "c89c2b05bd96db81670833022dcb68176c9d53ef6f2dcfff5458cd93e589e782"
+    },
+    "b14892f5-b1db-5cec-b986-db3160302cc8": {
+      "page": 43,
+      "kind": "table_cell",
+      "quality": "unverified",
+      "preview": "용수 사용량(전체 지역)",
+      "source_ref_sha256": "3f821c7947edfe993bbf7e10d61a1bbb837fab8bf46c4ee16c68fbde39c7d436"
+    },
+    "c69b848d-a23a-529c-98e8-c29f842afff9": {
+      "page": 43,
+      "kind": "table_cell",
+      "quality": "unverified",
+      "preview": "용수 사용량(Water Stress)",
+      "source_ref_sha256": "4ff57e0128ad12803dd3dde517762857e6ebad2ad8df6c4cbe1866c2e82a2fc1"
+    },
+    "984b2d64-3b05-5b8b-8b32-117c1d2ee3a5": {
+      "page": 42,
+      "kind": "table_row",
+      "quality": "unverified",
+      "preview": "용수 사용량\t합계\tML\t50,879\t50,473\t43,947",
+      "source_ref_sha256": "bdf852738525e6f5082760f5b8ceffad293ab578347a4985b2d59e1b92c6bb7b"
+    },
+    "a7631637-2ea3-5412-924e-3527557dc9c7": {
+      "page": 101,
+      "kind": "table_row",
+      "quality": "unverified",
+      "preview": "용수 사용량\t합계\tML\t50,879\t50,473\t43,947",
+      "source_ref_sha256": "02069752f4bbed00a739542d79de6492c441bf8166b1d1aead29f1b2b36b181b"
+    },
+    "88be08f2-245d-587d-abe8-53b96559ac22": {
+      "page": 47,
+      "kind": "table_row",
+      "quality": "unverified",
+      "preview": "M\t용수 정화 (Water purification)",
+      "source_ref_sha256": "651530c26718b0b763efcfac17a262bc92f688c9b8d8b01e01bdbed106f1ae5d"
+    },
+    "0dd946b0-8e40-5c19-9e2f-99e583085ed4": {
+      "page": 43,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "용수 사용량(전체 지역) 합계 ML 43,947 0 43,947 용수 사용량(Water Stress) 합계 ML 34,082 0 34,082",
+      "source_ref_sha256": "3d07a693f18e0a9d685096203816e8fc526fef3b6a78c08567b7c5d0e5bad303"
+    },
+    "17c25993-50a8-5f40-94c4-784ae949dc14": {
+      "page": 42,
+      "kind": "table_row",
+      "quality": "unverified",
+      "preview": "용수 취수·배출·사용량\t단위1)\t2023\t2024\t2025",
+      "source_ref_sha256": "a039262463cf605727d2b87a19988a01c2132e949ea956e7727abb5f899a58b3"
+    },
+    "2c01c34a-f197-5090-a567-a911f3286c20": {
+      "page": 101,
+      "kind": "table_row",
+      "quality": "unverified",
+      "preview": "용수 취수·배출·사용량\t단위1)\t2023\t2024\t2025",
+      "source_ref_sha256": "614e3b87aa22ca0c3a502d220231a663240b051133d35063d88e4a0a037e1ae5"
+    },
+    "92a240b3-aa75-58a2-8abf-d370aadd637a": {
+      "page": 43,
+      "kind": "table_row",
+      "quality": "unverified",
+      "preview": "용수 사용량(전체 지역)\t합계\tML\t43,947\t0\t43,947",
+      "source_ref_sha256": "c4ebc036dd798ac479de451c37e1b4c34e339b030293f4a61133cd215cd4da8e"
+    },
+    "d7e42ff2-6e08-5369-bd82-0d9229230a03": {
+      "page": 43,
+      "kind": "table_row",
+      "quality": "unverified",
+      "preview": "용수 사용량(Water Stress)\t합계\tML\t34,082\t0\t34,082",
+      "source_ref_sha256": "5dae01209e9b31e74528109af3d7a219665e9f4c0404523d29ceda7ba13fd447"
+    },
+    "5b08db94-0c0e-58ff-8fd6-ef88adc54b76": {
+      "page": 112,
+      "kind": "table_cell",
+      "quality": "unverified",
+      "preview": "연간 총 보상의 비율",
+      "source_ref_sha256": "fdf026e631ffec1aa9fdd21a78d12cef214de5f453c8f059fd2333d8dd0987e9"
+    },
+    "6f89c8f9-3fdb-5f08-b7ad-7e46193ed826": {
+      "page": 101,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "※ 공업용수 저장소를 운영하고 있으나, 이는 공정 운영을 위한 일반적인 저장시설이며, 중대한 물 관련 영향을 주는 별도 물 저장시설은 운영하고 있지 않습니다.",
+      "source_ref_sha256": "5d7f5dfc28adc55acac8f650b2e422ac8896adce0c5079c341e3f29b402e0f99"
+    },
+    "be1a20de-b086-5a37-b387-f717eecc9a40": {
+      "page": 42,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "※ 공업용수 저장소를 운영하고 있으나, 이는 공정 운영을 위한 일반적인 저장시설이며, 중대한 물 관련 영향을 주는 별도 물 저장시설은 운영하고 있지 않습니다.",
+      "source_ref_sha256": "3e00137f9ddbb63d027a77e445db5c7b618d8fac2848b8f81fdf2123ca7d8f8e"
+    },
+    "5840d032-bbb6-52a4-827f-f26d19119898": {
+      "page": 26,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "LG화학은 기후변화 규제 강화에 따른 잠재적 재무 리스크를 선제적으로 관리하고, 의사결정의 불확실성을 최소화하기 위해 내부 탄소가격 제도(Internal Carbon Pricing, ICP)를 도입하여 운영하고 있습니다. 당사의 내부탄소가격은 파리기후협약 목표 달성을 위한 미래 탄소 가",
+      "source_ref_sha256": "efc88e407e951f2ce4ad29f8355893f2bc2a4137b207ebf0ebeda934ae0d37ee"
+    },
+    "927a0dfa-9485-522d-a479-36af61196c42": {
+      "page": 48,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "잘피 이식은 기존 군락과의 연결성을 고려하여 추진되고 있습니다. 완도군 소안면 인근 해역에서 채취한 잘피를 이식지로 운반한 후, 육상 전처리 과정을 거쳐 해저 퇴적물에 이식하는 방식으로 수행됩니다. 2023년부터 2024년까지 2년간 총 7만 주의 잘피를 전라남도 여수 대경도 인근 해역",
+      "source_ref_sha256": "e404fbd5c3af30371d86dbfcd6ccb9814fc5ef7f0abf3f43c8bd62ee18489464"
+    },
+    "b3d9f8a8-7fe3-5a01-a95b-6f17e1e5e77d": {
+      "page": 26,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "LG화학은 석유화학 공정에서 높은 에너지 소비 비중을 차지하는 증류 공정의 효율 개선을 위해 저에너지 고효율 증류 기술을 개발하고 있습니다. 해당 기술은 증류탑 내부의 기체와 액체의 접촉 효율을 극대화하고 재혼합을 최소화하여 분리 성능을 향상시키는 것을 핵심으로 합니다. 이를 통해 기존",
+      "source_ref_sha256": "c22b8e8b3a079d2656beb80e3083ccdb51358210c9ea5360b4d1b546c6f14cc7"
+    },
+    "02e69a36-69ee-5039-905d-a178a252f824": {
+      "page": 35,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "LG화학은 엔지니어링 플라스틱(EP) 분야에서 축적된 재활용 소재 기술력과 품질 신뢰성을 기반으로 친환경 제품 포트폴리오를 지속적으로 확대하고 있으며, 관련 규격 대응 및 인증 확보를 병행하고 있습니다. 특히 2025년에는 OBP(Ocean Bound Plastic) 및 BCB(Bio-",
+      "source_ref_sha256": "3f9fcdbf9f48c0b242c2bdd8083ba2df4a1e054917052a0d18d829522b37e473"
+    },
+    "0dadf0e3-9d1f-5ddb-9e5d-ecb34ebfcf90": {
+      "page": 40,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "환경영향평가는 사업의 성격과 규모에 따라 전략환경영향평가(Strategic Environmental Assessment, SEA)와 환경영향평가(Environmental Impact Assessment, EIA)로 구분하여 수행하고 있으며, 가스터빈 발전기(Gas Turbine Gene",
+      "source_ref_sha256": "83db84ff489f352f117002352b36e1f35974b2dd2056550ad3559b05496c2db3"
+    },
+    "32ae97f9-e49d-5a02-9c57-45cbf4579e8b": {
+      "page": 24,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "LG화학은 2050년 넷제로(Net-Zero) 달성을 목표로 2030년 온실가스 감축 로드맵을 수립하여 추진하고 있습니다. 향후 생산능력 확대 및 글로벌 사업 확장에 따른 배출량 증가 요인에도 불구하고, Scope 1 및 Scope 2 배출량을 기준연도(2019년, 951만 tCO₂e)",
+      "source_ref_sha256": "f6170ad4ab0ce8abac23d1d00acbfa00d0c5e2015dc4a57573c3d8439a01f3e8"
+    },
+    "3e10f7da-7d7f-584e-a242-86cc75a42539": {
+      "page": 33,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "LG화학은 글로벌 배터리 소재 기업으로서 전기차 확산에 따라 증가하는 폐배터리의 자원화를 위해 배터리 재활용 사업을 추진하고 있습니다. 배터리는 회수 및 재활용 과정을 거쳐 리튬, 니켈, 코발트 등 핵심 금속을 포함한 재활용 원료로 전환되며, 배터리 소재 생산에 다시 활용될 수 있습니다",
+      "source_ref_sha256": "85ad4a2824fc6f22f15b4482e2b7f99503cf32972125f8ce112100f33934c405"
+    },
+    "4f98315e-0e72-59f5-93ac-f25cc2f1c525": {
+      "page": 16,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "경영진은 이사회에서 승인된 전략을 기반으로 온실가스 감축 및 에너지 전환 관련 과제와 투자 실행을 총괄하고 있습니다. 경영전략그룹 산하 지속가능담당 조직을 중심으로 전사 기후변화 대응 전략을 수립· 운영하고 있으며, 사업본부는 배출 구조에 기반한 감축 과제 실행을 담당하고 있습니다. C",
+      "source_ref_sha256": "c41e205c3695fb7d7d7d4de18f63f6e8cbcd4e4f6acf87d8115096687e7633bc"
+    },
+    "5e6868d7-f7ba-537c-a720-4639f5355a81": {
+      "page": 16,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "LG화학은 데이터 기반 의사결정 체계를 통해 기후변화 대응 활동을 사업 전략과 투자 의사결정에 반영하고 있습니다. 전사 탄소 통합 관리 시스템(Net-Zero Portal)을 구축하여 온실가스 배출량, 에너지 사용량 및 사업 계획을 통합 관리하고 있으며, 이를 기반으로 배출 전망(Bus",
+      "source_ref_sha256": "bef934c403358984c0b8900f8fa0052de8569f84061100716abdfd487d69aceb"
+    },
+    "687f1b93-01b3-5a4e-a3c6-fbb54fb30662": {
+      "page": 26,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "LG화학은 사업장의 공정 특성을 고려한 에너지 효율 개선 활동을 지속적으로 추진하고 있습니다. 주요 생산공정의 운전 조건 최적화, 고효율 설비 도입, 폐열 회수 시스템 구축 등을 통해 스팀 및 전력 사용량을 절감하고 있으며, 이를 통해 온실가스 배출 저감을 달성하고 있습니다.",
+      "source_ref_sha256": "dd2f0a79d327ea031bb035a51557aad35abca05c39a615cce6b2857acf942e68"
+    },
+    "6fa1c5cd-d01d-5bdd-bf2a-9cba2b8de641": {
+      "page": 98,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "향후 Scope 3 배출량 산정 범위를 국내 사업장에서 해외 사업장까지 단계적으로 확대할 계획이며, 이를 통해 Scope 3 배출량 관리의 완전성과 일관성을 지속적으로 제고하고자 합니다.",
+      "source_ref_sha256": "7d61ece61072a7db2b8a62d97f46e5064deddc208964d3f86b5d54b4af6e6ae8"
+    },
+    "d52da00b-e80d-52cc-87b5-e15d911bd6f7": {
+      "page": 104,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "※ 2025년부터 전사 기준으로 인력 구성 관리 범위를 확대함에 따라 성별·연령·고용형태 등 세부 구성은 2025년부터 산정하였습니다.",
+      "source_ref_sha256": "42b9164a70b1e7688c967c3cb174bfd9af93cd28ca9dde36dfca153a0422e90e"
+    },
+    "0dff3fd1-d318-5963-91ce-e6cab624ee3b": {
+      "page": 118,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "온실가스 배출량 계산에 사용된 파라미터가 인정받는 출처로부터 참조되었는지 검토하였습니다.",
+      "source_ref_sha256": "c582b2d7b56cf0b70b74bcd2e3e1cb03f2b16a2b8bb2d3bf4f4dea95f2231416"
+    },
+    "03dd0045-783c-5f4e-85b4-5c1dacf44ce4": {
+      "page": 97,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "6) Market-based Scope 2 배출량은 Location-based Scope 2 배출량에서 REC 및 녹색프리미엄 구매에 따른 감축량을 차감하여 산정합니다.",
+      "source_ref_sha256": "4dccdd6ba5e038ab2b41ad1bd05766b9a9815fb9feff9f941af8711d224fb2dd"
+    },
+    "418ee06d-2af1-595e-8ee7-6f0737cb865e": {
+      "page": 16,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "LG화학은 기후변화가 사업 전반에 미치는 영향을 핵심 경영 이슈로 인식하고, 2050년 Net-Zero 달성을 목표로 온실가스 감축 및 저탄소 경영 체계 전환을 추진하고 있습니다. Scope 1 및 Scope 2 배출을 중심으로 감축 활동을 추진하고 있으며, 전과정평가(LCA), Sco",
+      "source_ref_sha256": "e15f729a3c7ce9ab4eb4c4030082d12c6bfa6382468edec718b6903c819ca0b9"
+    },
+    "44da2ae5-38d4-5bb9-8e36-cd9bed1c5e46": {
+      "page": 29,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "6) Market-based Scope 2 배출량은 Location-based Scope 2 배출량에서 REC 및 녹색프리미엄 구매에 따른 감축량을 차감하여 산정합니다.",
+      "source_ref_sha256": "f624cb5afa18423170003dc6c38137591cc982dac61880815ca89777b99bb037"
+    },
+    "4c130779-09f0-54a9-ba9c-86718eabbe83": {
+      "page": 28,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "또한 축적된 데이터와 석유화학 및 첨단소재 공정에 대한 LCA 수행 경험을 기반으로, 전사 LCA 데이터 관리 시스템인 제품 탄소발자국 관리 시스템(Carbon footprint Analysis and Management Platform, CAMP)을 구축하였습니다. 2025년 기준 국",
+      "source_ref_sha256": "db00e24b2746310c90fb5c78eece3cc7c2bfcc1c4826b24c0c36ee53fee24770"
+    },
+    "92a72448-c0a4-5e85-9b14-0315cfa33ce5": {
+      "page": 32,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "LG화학은 지속가능한 성장을 견인할 전략으로 순환경제를 전사적으로 추진하고 있으며, 이를 통해 기후변화 대응과 자원 고갈에 따른 원자재 불확실성 등 주요 리스크를 완화하는 동시에 글로벌 순환경제 규제 대응 기반의 신규 시장 기회를 창출하고 있습니다(→ 기후 리스크·기회 목록). 순환경제",
+      "source_ref_sha256": "284fdc865c6b4d5257d1289ec3d1c8f570f1863d434f9e553885d3e8867b3330"
+    },
+    "b1d10664-84dd-5226-b5ac-544afcdd65df": {
+      "page": 28,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "LG화학은 LCA 데이터를 활용하여 제품 환경 영향 분석 및 시뮬레이션을 수행하고 있으며, 고객 요구에 따른 제품 환경성 정보 제공 및 분석 대응을 수행하고 있습니다. 2025년 기준 467건의 LCA/PCF 데이터를 제공하였습니다. 또한 협력회사와의 협업을 통해 공급망 내 LCA 수행",
+      "source_ref_sha256": "9c5f1d7a8897cb320fa556ab205ca73ace5d6b0a9a62ec5e1906a3e7d776c885"
+    },
+    "0a1b1834-69f2-5751-ab5c-f701470a0af7": {
+      "page": 23,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "글로벌 주요 고객사의 RE100·SBTi 가입 확대로 Scope 3 감축 및 LCA 기반 탄소발자국 데이터 요구가 증가할 것으로 예상됩니다. 이에 미대응 시 단가 인하, 계약 갱신 제약 및 수주 기회 축소가 발생할 수 있습니다.",
+      "source_ref_sha256": "5e766c9ea8bd3343fb91005869ec6bc1c6d88c23e33475f02394a70acdb9f75e"
+    },
+    "8c3aa0ab-d380-5a97-b66a-697ee075c11a": {
+      "page": 99,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "6) 재생 전력 소비량은 REC 및 녹색프리미엄을 포함한 외부 조달 기준으로 산정합니다.",
+      "source_ref_sha256": "795ebea76d030e45154d86f23a48dc14df7a45f2b3d21e88c70894811ece2476"
+    },
+    "e848782e-be98-5bb4-a174-7f42cce56d34": {
+      "page": 31,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "6) 재생 전력 소비량은 REC 및 녹색프리미엄을 포함한 외부 조달 기준으로 산정합니다.",
+      "source_ref_sha256": "b9e025831c7bedc4ecaa68417718ad5d11597b338ec8f4a7100eea7525e58add"
+    },
+    "0dd47c27-7dcf-5c18-acbd-06b225ad21ab": {
+      "page": 31,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "5) 비재생 전력 소비량은 전체 전력 사용량에서 재생 전력 소비량(REC 및 녹색프리미엄)을 제외한 값으로 산정합니다.",
+      "source_ref_sha256": "abd796571ebbe440945a9ebb0f3feaaf4a9444ebc83e89d681d3f3a75a0b8574"
+    },
+    "3e8d3725-30aa-54eb-ba26-b6cb088f8c9f": {
+      "page": 99,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "5) 비재생 전력 소비량은 전체 전력 사용량에서 재생 전력 소비량(REC 및 녹색프리미엄)을 제외한 값으로 산정합니다.",
+      "source_ref_sha256": "b1655a9d3a142fdcacd402b6c913cb7e1b5c17680cc007d2b665bf617cd8a45a"
+    },
+    "c2891da6-b62b-5650-8689-6e1f6d1582c8": {
+      "page": 31,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "2) 에너지 총 소비량은 연료 소비량, 외부 스팀 소비량, 비재생 전력 소비량 및 재생 전력 중 REC 기반 외부 조달분을 합산하여 산정하며, 녹색프리미엄과 자가 발전 및 소비량은 포함하지 않습니다.",
+      "source_ref_sha256": "c50a42ecfb37abf10f6da953b73d7647fdac82c95fa54577660f3dda5a151b48"
+    },
+    "dccd24c9-ce5e-5a29-8ff7-ed0e589f2d27": {
+      "page": 99,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "2) 에너지 총 소비량은 연료 소비량, 외부 스팀 소비량, 비재생 전력 소비량 및 재생 전력 중 REC 기반 외부 조달분을 합산하여 산정하며, 녹색프리미엄과 자가 발전 및 소비량은 포함하지 않습니다.",
+      "source_ref_sha256": "7b19687bfa213e660b969fdb27195ef09a364cbdd108bf9167123ecf32792a88"
+    },
+    "3b6168f0-39bd-5c04-9c74-b7e611326750": {
+      "page": 119,
+      "kind": "table_cell",
+      "quality": "unverified",
+      "preview": "연료 및 에너지 관련 활동 – 국내 사업장에서 구매한 연료, 전력 및 스팀의 업스트림",
+      "source_ref_sha256": "123ff0f74f66991c136c32cf91efd3fe5510170413f95826fa81db57cc596480"
+    },
+    "a95272b2-a8c2-5af8-8711-248738b07102": {
+      "page": 119,
+      "kind": "table_row",
+      "quality": "unverified",
+      "preview": "연료 및 에너지 관련 활동 – 국내 사업장에서 구매한 연료, 전력 및 스팀의 업스트림\t315,392",
+      "source_ref_sha256": "ee0ffddec4f83f3b8956d8600bd743b29a4f31e12606fd58bf4f6e9b1134ec4d"
+    },
+    "68277a68-bfa7-5e45-823e-71d640c6ccb9": {
+      "page": 33,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "HVO는 폐식용유 등 재생 가능한 식물성 오일에 수소를 첨가해 생산하는 바이오 오일로, 기존 화석연료 대비 온실가스 배출량이 낮고 저온에서도 얼지 않는 특성을 지니고 있습니다. 이와 같은 특성으로 지속가능항공유(Sustainable Aviation Fuel, SAF), 바이오디젤(Bio",
+      "source_ref_sha256": "ab12649d2e1e25c90313eea7d93be2f1c0848cfb3345a518910a432621d25ca7"
+    },
+    "151e9f2a-a5d1-558a-a8a6-986f93ee762e": {
+      "page": 18,
+      "kind": "table_row",
+      "quality": "unverified",
+      "preview": "산출 지표\t위험도(위해도 X 노출도 X 취약성)\n연평균손실(EAL), 최대잠재손실(PML)",
+      "source_ref_sha256": "431a01f6be7fda8e9579e8f8d3647e4852bddc7bf1d93b8429cde48b2d23ddc7"
+    },
+    "1860aec2-e6f4-5030-8179-b520973a393a": {
+      "page": 33,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "LG화학은 국내 최초로 바이오매스 밸런스(Bio-Mass Balance) 기술을 적용한 지속가능한 소재인 BCB(Bio-Circular Balanced) 제품을 개발했습니다. BCB 제품은 재생 가능한 식물성 기름에서 추출한 바이오 재생 원료(Bio-Renewable Feedstock)",
+      "source_ref_sha256": "2f3133b4373e8ef1d9e2aa5f36ee949bbb8a9b857a0059771b22c5c4db3ccd99"
+    },
+    "6af53702-eedc-54d0-a00d-096bd3a5a35e": {
+      "page": 105,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "※ 본 데이터는 국내 기준으로 산정하였습니다. 해외 생산법인 17개 중 8개 법인에 노동조합이 조직되어 있으며, 현재 1개 법인과 단체협약 체결을 위한 교섭이 진행 중입니다(2026년 6월 기준). 보고연도 기준 해외 법인에서 체결된 단체협약은 없습니다.",
+      "source_ref_sha256": "b06f7fceffda468bf2cd01fd65e307c4095faf1bc591d9132d638acccf035dcb"
+    },
+    "4c609563-8cd5-5cd4-bd48-c0348dc54dd0": {
+      "page": 46,
+      "kind": "table_cell",
+      "quality": "unverified",
+      "preview": "여수국가\n산업단지",
+      "source_ref_sha256": "5d6f1b8c2221d75b4c2eff95bfbd3ac414a9c1fe8e9891a72e2442f40a77e513"
+    },
+    "550b9df6-f57f-50ca-a3ef-6f6af05e4fbd": {
+      "page": 46,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "여수국가 산업단지",
+      "source_ref_sha256": "57ab019a9d472057f3a981d60c3977b5dd15ddcb095085f80eb5575239b2e740"
+    },
+    "91fa52aa-015f-588e-861c-9a3dea937453": {
+      "page": 46,
+      "kind": "table_row",
+      "quality": "unverified",
+      "preview": "소재 지역\t여수국가\n산업단지\t대산\n산업단지\t나주시\n일반산업단지\t청주시\n흥덕구\t익산시\n용제동",
+      "source_ref_sha256": "0903d09b1aade72598da19c1d7c35ec74075afaac39f20c8047fe5e087edf138"
+    },
+    "c976190e-6e33-5b00-90e5-afe6de92a9f5": {
+      "page": 48,
+      "kind": "heading",
+      "quality": "unverified",
+      "preview": "산업단지로 인한 해양생태계 변화",
+      "source_ref_sha256": "86024a47a73d3e329d104bf5fa08fc99f60c9f3ccb9e7cbe1c0ac7000d7488f2"
+    },
+    "017bf6d0-9e91-597c-b005-29c6f318fba4": {
+      "page": 46,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "대산 산업단지",
+      "source_ref_sha256": "66ca9099c20101c7852da0a2dfc347de6c0a4cd69c99fb0a346878409f70dfb6"
+    },
+    "e42909ef-7442-5bbb-892e-f3bbffe021b5": {
+      "page": 46,
+      "kind": "table_cell",
+      "quality": "unverified",
+      "preview": "대산\n산업단지",
+      "source_ref_sha256": "0f1d60bdfd78b9ca1f7514615b35bf7c6a14954422aea17e3af3c034740539c4"
+    },
+    "5204fa3c-bd38-5386-8c0a-682ca4f6a91c": {
+      "page": 46,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "나주시 일반산업단지",
+      "source_ref_sha256": "f1440437f91032ab39b736f4da6babd929f41fdfbbd6e383f6080a844ba98cd8"
+    },
+    "ebc31a1e-14ae-5d36-8223-60b3e2f87092": {
+      "page": 46,
+      "kind": "table_cell",
+      "quality": "unverified",
+      "preview": "나주시\n일반산업단지",
+      "source_ref_sha256": "e3d5326f5ba41437c4bbf22ac614937bf3adbf0afa14f00bdff6929a6a686314"
+    },
+    "8106957a-bca2-5ff6-889d-8626d45cfeb2": {
+      "page": 26,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "석유화학 산업 감축 수단 관련 의견 제시",
+      "source_ref_sha256": "66dfd51c18c33d3632a2d79fd21582fc88b63527f28a2ddd78a32c7e2fa23c17"
+    },
+    "890ee2eb-5628-5903-be76-eea1ed4d2fcb": {
+      "page": 26,
+      "kind": "table_cell",
+      "quality": "unverified",
+      "preview": "석유화학 산업 감축\n수단 관련 의견 제시",
+      "source_ref_sha256": "2795c7c07eb212f9011071003e854213249c0d74e59226b2be81722c9636e2e6"
+    },
+    "0feea402-19f8-58c4-9d73-53d230eacfa7": {
+      "page": 108,
+      "kind": "table_cell",
+      "quality": "unverified",
+      "preview": "석유화학 사업 부문",
+      "source_ref_sha256": "e7b6038d92525b6b800b829c5394494350a3a8def9af7c47dd8ebdf27e06a0c0"
+    },
+    "1b239da2-5298-5fb7-9eb9-707ed7ed0255": {
+      "page": 46,
+      "kind": "table",
+      "quality": "unverified",
+      "preview": "구분\t여수공장\n기초화학물질\t대산공장\n고분자 수지\t나주공장\n기초화학물질\t청주공장\n고분자 수지\t익산공장\n기타화학제품\n소재 지역\t여수국가\n산업단지\t대산\n산업단지\t나주시\n일반산업단지\t청주시\n흥덕구\t익산시\n용제동\n민감 위치\n(Sensitive Location)\tHigh\tHigh\tMedium\tMe",
+      "source_ref_sha256": "3d3f86ce657c75e11b91e892f1174c70f64e52cb51b19c92e789c8a814f0a89c"
+    },
+    "e760f32d-ee3b-5f25-976a-17f699b26cb0": {
+      "page": 108,
+      "kind": "table_row",
+      "quality": "unverified",
+      "preview": "석유화학 사업 부문\t백만 원\t17,228,591\t18,638,014\t17,568,310",
+      "source_ref_sha256": "dd56d31cdb0f88587bef23f62953fc96154bde1bfe04ca033a1bd5eceb36616e"
+    },
+    "b49e915d-f7b2-5677-9dfc-559afd7a57fe": {
+      "page": 23,
+      "kind": "table_cell",
+      "quality": "unverified",
+      "preview": "전력의 계통운영비 증가 및 재생에너지 확대에 따른 비용이 산업용\n전기요금으로 전가될 수 있습니다. 전력 의존도가 높은 석유화학 및\n전지재료 공정 특성상 매출원가 상승이 예상됩니다.",
+      "source_ref_sha256": "acb818be919e494dac6577c3cb793cbf90e074ecbf7f0e51577a617ad11ecd4d"
+    },
+    "e1f10266-5acb-5808-9949-0163ad441253": {
+      "page": 23,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "전력의 계통운영비 증가 및 재생에너지 확대에 따른 비용이 산업용 전기요금으로 전가될 수 있습니다. 전력 의존도가 높은 석유화학 및 전지재료 공정 특성상 매출원가 상승이 예상됩니다.",
+      "source_ref_sha256": "51a23c8df2e203e680ce1ad0ee9dd201d6e2634feaec902dbe04cc45e72aaab3"
+    },
+    "01fa6a45-6391-59e8-8318-15d101a9d67b": {
+      "page": 26,
+      "kind": "table_row",
+      "quality": "unverified",
+      "preview": "2035 NDC 설정\t석유화학 산업 감축\n수단 관련 의견 제시\t민관 합동 토론회 참여\t2035 NDC 수립 시 참고",
+      "source_ref_sha256": "0265e31409a3e603ec20be6cdf98c68642615bb7be0f1b365db83ec0bcd2df6d"
+    },
+    "c2e5e9ff-3a9e-594e-89a9-ce59835d5ed5": {
+      "page": 115,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "0.67% (석유화학, 첨단소재, 생명과학 사업부문 실적 기준 )",
+      "source_ref_sha256": "c47925d3bb90b70311d750da48d2b118dce0a296a232e5f841b720406f4f4f5f"
+    },
+    "9be912df-9e79-567a-9115-ea40abfe1bf6": {
+      "page": 115,
+      "kind": "table_cell",
+      "quality": "unverified",
+      "preview": "0.67%\n(석유화학, 첨단소재, 생명과학 사업부문 실적 기준2))",
+      "source_ref_sha256": "25b1c3803cac010556b47110461239985e42c28234b037e7b1f6382448766730"
+    },
+    "5869e54b-b973-5c5c-8f18-15cfe10a3fe8": {
+      "page": 33,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "LG화학은 기계적 재활용으로 처리하기 어려운 복합재질 및 저품질 폐플라스틱을 대상으로 화학적 재활용 사업을 추진하고 있습니다. 화학적 재활용은 혼합·저급 플라스틱을 화학적으로 분해해 열분해유의 형태로 회수, 이를 재활용 원료로 사용하는 재활용 방식입니다. 이는 기존 재활용 플라스틱의 품",
+      "source_ref_sha256": "962ed18ccf3b6371276cb74300bcae5ed7d1087e3e7a3fd7b6a2c527891c197a"
+    },
+    "d059949d-7682-5570-9aba-7a3fea0b683b": {
+      "page": 34,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "배터리 순환 체계는 폐배터리 회수에서 시작됩니다. 다양한 채널을 통해 회수된 폐배터리는 물리적 파쇄 및 분쇄 등의 전처리 공정을 거쳐 리사이클 중간재인 블랙매스로 전환됩니다. LG화학은 해당 블랙매스를 공급받아 양극재 생산에 활용 가능한 금속을 회수하는 후처리 공정을 운영합니다. 회수된",
+      "source_ref_sha256": "9edc0f0a387c889d8a85883ad6c0e6bb2b3a0355c6f207af6ebb1651ba3da838"
+    },
+    "06283412-7262-52d2-857c-2d135deacdd0": {
+      "page": 38,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "각 사업장에서는 폐수처리 시설을 통해 공정에서 발생한 폐수를 물리적·화학적·생물학적 처리 과정을 거쳐 관리하고 있으며, 처리된 폐수는 수질 분석을 통해 기준 준수 여부를 확인한 후 배출하고 있습니다. 폐수 처리 효율과 설비 운영 상태는 정기적으로 점검되며, 자체 처리가 어려운 일부 고농",
+      "source_ref_sha256": "8c1b6ca1e2cff2e460c9c21c1d865aa709f43c61b9d106d4d15fa30ebf2fd39d"
+    },
+    "a4268769-5f35-5f64-a1ed-ee64e6ecf0f7": {
+      "page": 46,
+      "kind": "table_cell",
+      "quality": "unverified",
+      "preview": "여수공장\n기초화학물질",
+      "source_ref_sha256": "55ce04ae19619952b432228f05ff9a3973b78ee13e4d70e2f6ae21777f0492c2"
+    },
+    "eef22364-fd2b-57ef-89ce-1c050b82e22b": {
+      "page": 46,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "여수공장 기초화학물질",
+      "source_ref_sha256": "bbb040b969058830ec8d4866ad481b7974e66560f41479235e9656f51b9c1b18"
+    },
+    "3c5dce24-fbb6-5100-a028-5445f94fa56f": {
+      "page": 113,
+      "kind": "table_cell",
+      "quality": "unverified",
+      "preview": "GRI 303: 용수 및 방류수 2018",
+      "source_ref_sha256": "7b664d6bc9a0d202558d6000829159ef49b4d0e96014118f50aac10719714c2b"
+    },
+    "dff24d86-4e70-57cf-8f8d-319ce687d151": {
+      "page": 113,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "GRI 303: 용수 및 방류수 2018",
+      "source_ref_sha256": "d8076924fdcb2ca95f50650ed397f117c2288c1182e3eab2b1c4ff88cbea2cca"
+    },
+    "a6f02efd-1263-5a5c-bac3-487f1b981fcc": {
+      "page": 46,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "1) 여수공장 반경 15km 내, 유형별 대표 법정보호지역 기준",
+      "source_ref_sha256": "cb865ff11fee0edf40d69c0eb1e986d3df662e7927d77b49d7dcf3614caf2be2"
+    },
+    "efbea79c-ee34-5b3d-8013-ddb1d9eba48d": {
+      "page": 46,
+      "kind": "table_row",
+      "quality": "unverified",
+      "preview": "구분\t여수공장\n기초화학물질\t대산공장\n고분자 수지\t나주공장\n기초화학물질\t청주공장\n고분자 수지\t익산공장\n기타화학제품",
+      "source_ref_sha256": "632054bb13dcb532a6924c1de2427715546f922bffe6d8cd94d03b782c3b75f3"
+    },
+    "4c19c48c-8f0e-5778-b050-194a389c7250": {
+      "page": 102,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "※ 2025년 기준 여수(화치), 청주(분리막), 광저우, 톈진, 충칭 등 총 5개 사업장에서 ZWTL 인증을 유지하고 있습니다.",
+      "source_ref_sha256": "bf70b9c82d67d643f598ce21998946836a5f03e08c0effc239c3213d246529e0"
+    },
+    "a2215b4e-e686-5f42-8f0c-55aff0b01ad1": {
+      "page": 44,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "※ 2025년 기준 여수(화치), 청주(분리막), 광저우, 톈진, 충칭 등 총 5개 사업장에서 ZWTL 인증을 유지하고 있습니다.",
+      "source_ref_sha256": "0b2e6d7fa09ad2e693c57a554fe575ece726c30de9e4adf7da494ce3bf72f5b7"
+    },
+    "dfaa09a2-ce12-587f-8a68-c3299f4d80dc": {
+      "page": 25,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "LG화학은 화석연료 기반 원료 사용을 줄이기 위해 바이오 원료 적용을 확대하고 있습니다.",
+      "source_ref_sha256": "1af22211d18b1e0d7c33aa9ae28ce87ff4b788d7890e02e083227dc12939ec5a"
+    },
+    "96944ef0-0169-55be-8d26-1e75a10cecc7": {
+      "page": 46,
+      "kind": "paragraph",
+      "quality": "unverified",
+      "preview": "여수공장 반경 1km 반경 5km 보호지역 (WDPA) KBA 핵심지역 람사르 습지",
+      "source_ref_sha256": "56c38baa4159dd2e44e366a101c090ca8adb56037b0258dead623feeaad094d5"
+    }
+  }
+}

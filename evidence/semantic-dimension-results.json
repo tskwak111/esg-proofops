@@ -1,0 +1,356 @@
+{
+  "purpose": "semantic extraction development trials; no evidence acceptance or grade",
+  "trials": [
+    {
+      "name": "semantics",
+      "receipt": {
+        "request_id": "470bc014-dea7-4c52-8184-1d59bd21389f",
+        "prompt_sha256": "be97f5b70ea7506e61c43d3541193588a2a23a1acd80d74c939e505b2eb2e24f",
+        "packet_sha256": "14281d2e0c531812df94ba6a45353588eab2ca954342812f266bca8a168291d1",
+        "wire_sha256": "fdb0430ffe5ba7c46fbf195c87749d90365cd6b0e00d53a4c96a087650f03f80",
+        "model_sha256": "19a9c578c7fbb4130003220c9449283b44db32b1f9d848e4ce9263439c00ee24",
+        "rule_sha256": "7519878a396cdfaf202b9135910a57d0f863189620479f109de969678ba762b6",
+        "replica": 1,
+        "decision": null,
+        "status": "failed",
+        "reason": "ValueError",
+        "unresolved_claim_ids": [
+          "q0",
+          "q1",
+          "q2",
+          "q3",
+          "q4",
+          "q5",
+          "q6",
+          "q7",
+          "q8",
+          "q9",
+          "q10",
+          "q11",
+          "q12"
+        ]
+      },
+      "raw_response": {
+        "claims": [
+          {
+            "id": "q0",
+            "dimensions": {
+              "entity": "LG화학",
+              "metric": null,
+              "boundary": null
+            }
+          },
+          {
+            "id": "q1",
+            "dimensions": {
+              "entity": "LG화학",
+              "metric": "Scope 1 및 Scope 2 배출량",
+              "boundary": null
+            }
+          },
+          {
+            "id": "q2",
+            "dimensions": {
+              "entity": "LG화학",
+              "metric": null,
+              "boundary": null
+            }
+          },
+          {
+            "id": "q3",
+            "dimensions": {
+              "entity": "LG화학",
+              "metric": "온실가스",
+              "boundary": null
+            }
+          },
+          {
+            "id": "q4",
+            "dimensions": {
+              "entity": "LG화학",
+              "metric": null,
+              "boundary": null
+            }
+          },
+          {
+            "id": "q5",
+            "dimensions": {
+              "entity": "LG화학",
+              "metric": "온실가스 배출",
+              "boundary": null
+            }
+          },
+          {
+            "id": "q6",
+            "dimensions": {
+              "entity": "LG화학",
+              "metric": null,
+              "boundary": null
+            }
+          },
+          {
+            "id": "q7",
+            "dimensions": {
+              "entity": "LG화학",
+              "metric": "온실가스",
+              "boundary": null
+            }
+          },
+          {
+            "id": "q8",
+            "dimensions": {
+              "entity": "LG화학",
+              "metric": "전력 및 스팀 사용량",
+              "boundary": null
+            }
+          },
+          {
+            "id": "q9",
+            "dimensions": {
+              "entity": "LG화학",
+              "metric": null,
+              "boundary": null
+            }
+          },
+          {
+            "id": "q10",
+            "dimensions": {
+              "entity": "LG화학",
+              "metric": "온실가스 배출",
+              "boundary": null
+            }
+          },
+          {
+            "id": "q11",
+            "dimensions": {
+              "entity": "LG화학",
+              "metric": "온실가스 배출",
+              "boundary": null
+            }
+          },
+          {
+            "id": "q12",
+            "dimensions": {
+              "entity": "LG화학",
+              "metric": null,
+              "boundary": null
+            }
+          }
+        ]
+      },
+      "provider_model": "solar-pro3-260323",
+      "identity": {
+        "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "source_sha256": "c6395dd2be7948d85fa2b52c6edb61367fa6610c6f389c2478b44cb4cfcb5bde"
+      },
+      "claim_count": 13,
+      "quote_validation_errors": [
+        {
+          "id": "q1",
+          "field": "entity",
+          "quote": "LG화학",
+          "reason": "not_unique_exact_quote_in_own_claim"
+        },
+        {
+          "id": "q2",
+          "field": "entity",
+          "quote": "LG화학",
+          "reason": "not_unique_exact_quote_in_own_claim"
+        },
+        {
+          "id": "q3",
+          "field": "metric",
+          "quote": "온실가스",
+          "reason": "not_unique_exact_quote_in_own_claim"
+        },
+        {
+          "id": "q5",
+          "field": "entity",
+          "quote": "LG화학",
+          "reason": "not_unique_exact_quote_in_own_claim"
+        },
+        {
+          "id": "q6",
+          "field": "entity",
+          "quote": "LG화학",
+          "reason": "not_unique_exact_quote_in_own_claim"
+        },
+        {
+          "id": "q7",
+          "field": "entity",
+          "quote": "LG화학",
+          "reason": "not_unique_exact_quote_in_own_claim"
+        },
+        {
+          "id": "q8",
+          "field": "entity",
+          "quote": "LG화학",
+          "reason": "not_unique_exact_quote_in_own_claim"
+        },
+        {
+          "id": "q9",
+          "field": "entity",
+          "quote": "LG화학",
+          "reason": "not_unique_exact_quote_in_own_claim"
+        },
+        {
+          "id": "q10",
+          "field": "entity",
+          "quote": "LG화학",
+          "reason": "not_unique_exact_quote_in_own_claim"
+        },
+        {
+          "id": "q11",
+          "field": "entity",
+          "quote": "LG화학",
+          "reason": "not_unique_exact_quote_in_own_claim"
+        },
+        {
+          "id": "q11",
+          "field": "metric",
+          "quote": "온실가스 배출",
+          "reason": "not_unique_exact_quote_in_own_claim"
+        },
+        {
+          "id": "q12",
+          "field": "entity",
+          "quote": "LG화학",
+          "reason": "not_unique_exact_quote_in_own_claim"
+        }
+      ],
+      "budget": {
+        "before": {
+          "limit_usd": "10.00",
+          "calls": 88,
+          "unsettled_calls": 2,
+          "committed_usd": "2.0368969700"
+        },
+        "after": {
+          "limit_usd": "10.00",
+          "calls": 89,
+          "unsettled_calls": 2,
+          "committed_usd": "2.0374053350"
+        }
+      },
+      "interpretation": "entire batch rejected; no partial salvage"
+    },
+    {
+      "name": "semantics-isolated",
+      "receipt": {
+        "request_id": "2af7c831-228f-4ceb-9d13-67fe786f53f5",
+        "prompt_sha256": "be97f5b70ea7506e61c43d3541193588a2a23a1acd80d74c939e505b2eb2e24f",
+        "packet_sha256": "90df8544b7a1a1092a2eb39acc961df3f8431e9d0dadf9ae38f9c8f16d209eb6",
+        "wire_sha256": "e07412cfe1ac76c52f2e890bffa31737c0471b21552a0e86a642da5cccf47608",
+        "model_sha256": "19a9c578c7fbb4130003220c9449283b44db32b1f9d848e4ce9263439c00ee24",
+        "rule_sha256": "7519878a396cdfaf202b9135910a57d0f863189620479f109de969678ba762b6",
+        "replica": 1,
+        "decision": null,
+        "status": "passed",
+        "tags": [
+          {
+            "id": "q0",
+            "source_id": "32ae97f9-e49d-5a02-9c57-45cbf4579e8b",
+            "claim_span": {
+              "char_start": 69,
+              "char_end": 223,
+              "quote": "향후 생산능력 확대 및 글로벌 사업 확장에 따른 배출량 증가 요인에도 불구하고, Scope 1 및 Scope 2 배출량을 기준연도(2019년, 951만 tCO₂e) 수준으로 관리하는 탄소중립 성장(Carbon Neutral Growth)을 2030년 목표로 설정하고 있습니다."
+            },
+            "source_quality": "unverified",
+            "dimensions": {
+              "entity": {
+                "state": "unknown",
+                "source_ref": null
+              },
+              "metric": {
+                "state": "unknown",
+                "source_ref": null
+              },
+              "scope": {
+                "state": "unknown",
+                "source_ref": null
+              },
+              "unit": {
+                "state": "unknown",
+                "source_ref": null
+              },
+              "reporting_period": {
+                "state": "unknown",
+                "source_ref": null
+              },
+              "baseline_period": {
+                "state": "unknown",
+                "source_ref": null
+              },
+              "target_period": {
+                "state": "unknown",
+                "source_ref": null
+              },
+              "reported_value": {
+                "state": "unknown",
+                "source_ref": null
+              },
+              "baseline_value": {
+                "state": "unknown",
+                "source_ref": null
+              },
+              "target_value": {
+                "state": "unknown",
+                "source_ref": null
+              },
+              "scope2_basis": {
+                "state": "unknown",
+                "source_ref": null
+              },
+              "boundary": {
+                "state": "unknown",
+                "source_ref": null
+              }
+            },
+            "populated_fields": 0,
+            "review_reason": "all_dimensions_unknown",
+            "binding_status": "undetermined"
+          }
+        ],
+        "provider_model_sha256": "62b1bac0088e6664d7d0fec38e1bf42240e844236bf917f7adc7fa331524df1b"
+      },
+      "raw_response": {
+        "claims": [
+          {
+            "id": "q0",
+            "dimensions": {
+              "entity": null,
+              "metric": null,
+              "boundary": null
+            }
+          }
+        ]
+      },
+      "provider_model": "solar-pro3-260323",
+      "identity": {
+        "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "source_sha256": "c6395dd2be7948d85fa2b52c6edb61367fa6610c6f389c2478b44cb4cfcb5bde"
+      },
+      "claim_count": 1,
+      "quote_validation_errors": [],
+      "budget": {
+        "before": {
+          "limit_usd": "10.00",
+          "calls": 89,
+          "unsettled_calls": 2,
+          "committed_usd": "2.0374053350"
+        },
+        "after": {
+          "limit_usd": "10.00",
+          "calls": 90,
+          "unsettled_calls": 2,
+          "committed_usd": "2.0375252900"
+        }
+      },
+      "interpretation": "schema/source checks pass but all dimensions unknown; metric extraction not demonstrated"
+    }
+  ]
+}

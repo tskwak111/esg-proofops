@@ -1,0 +1,137 @@
+{
+  "name": "performance-short-fewshot",
+  "request_id": "28dc3da8-a155-43fd-824b-9ba1e56c3998",
+  "prompt_sha256": "d1f05e6d268006af913acb84f3216fb297cc32c5ad9c03b68e1beedb2d8fbc28",
+  "packet_sha256": "c9d8b9f0a0bd7d25a0ee1215f52d7414d5de8df57d5d679693ab73ddf2abdf93",
+  "wire_sha256": "2164a88d6bbaa07281c7891bd0c0ce483e2eeea5460f8391c34c3ccca8042035",
+  "examples_sha256": "867398a68a70b9fbb452709323f0b47bdbff44a6e1220b9b7e085f26ec7fd2ce",
+  "replica": 1,
+  "decision": null,
+  "budget_before": {
+    "limit_usd": "10.00",
+    "calls": 97,
+    "unsettled_calls": 2,
+    "committed_usd": "2.0394387950"
+  },
+  "status": "passed",
+  "response": {
+    "model": "solar-pro3",
+    "provider_request_id": "e6773496-9548-4400-89a4-78b34f0f4fb0",
+    "provider_model": "solar-pro3-260323",
+    "input_tokens": 628,
+    "output_tokens": 32,
+    "price_snapshot": {
+      "snapshot_id": "upstage-solar-pro3-2026-09-09",
+      "model_id": "solar-pro3",
+      "region": "provider-managed-unverified",
+      "captured_at": "2026-09-09T00:00:00Z",
+      "input_per_million": "0.15",
+      "output_per_million": "0.60",
+      "cache_read_per_million": null,
+      "cache_write_per_million": null
+    },
+    "cost_with_vat_reserve_usd": "0.000124740",
+    "response_sha256": "bf20c6775a29ba474fa4760fa761b9c912225bfbe916c7bdf2a1080f074b1d86",
+    "response_format": {
+      "type": "json_object"
+    },
+    "content": "{\"claims\":[{\"id\":\"q0\",\"dimensions\":{\"entity\":null,\"metric\":\"약 3만 톤의 온실가스\", \"boundary\":null}}] }"
+  },
+  "tags": [
+    {
+      "id": "q0",
+      "source_id": "1c115c9f-6314-5690-8ef2-52d47cf67441",
+      "claim_span": {
+        "char_start": 77,
+        "char_end": 127,
+        "quote": "2025년에는 총 8건의 에너지 효율화 과제를 통해 약 3만 톤의 온실가스를 저감하였으며,"
+      },
+      "source_quality": "unverified",
+      "dimensions": {
+        "entity": {
+          "state": "unknown",
+          "source_ref": null
+        },
+        "metric": {
+          "state": "model_proposed",
+          "source_ref": {
+            "source_id": "1c115c9f-6314-5690-8ef2-52d47cf67441",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "page_num": 24,
+            "printed_page_label": "24",
+            "bbox": [
+              38.438,
+              589.9369999999999,
+              367.501,
+              651.8219999999999
+            ],
+            "raw_text_sha256": "53eb467076b9c0925001d5d947c66cab4710ec2e4fc5e91c39922c5e732d63ed",
+            "quote": "약 3만 톤의 온실가스",
+            "char_start": 106,
+            "char_end": 118,
+            "location_quality": "located",
+            "verification_state": "candidate"
+          }
+        },
+        "scope": {
+          "state": "unknown",
+          "source_ref": null
+        },
+        "unit": {
+          "state": "unknown",
+          "source_ref": null
+        },
+        "reporting_period": {
+          "state": "unknown",
+          "source_ref": null
+        },
+        "baseline_period": {
+          "state": "unknown",
+          "source_ref": null
+        },
+        "target_period": {
+          "state": "unknown",
+          "source_ref": null
+        },
+        "reported_value": {
+          "state": "unknown",
+          "source_ref": null
+        },
+        "baseline_value": {
+          "state": "unknown",
+          "source_ref": null
+        },
+        "target_value": {
+          "state": "unknown",
+          "source_ref": null
+        },
+        "scope2_basis": {
+          "state": "unknown",
+          "source_ref": null
+        },
+        "boundary": {
+          "state": "unknown",
+          "source_ref": null
+        }
+      },
+      "populated_fields": 1,
+      "review_reason": "semantic_review_required",
+      "binding_status": "undetermined"
+    }
+  ],
+  "provider_model_sha256": "62b1bac0088e6664d7d0fec38e1bf42240e844236bf917f7adc7fa331524df1b",
+  "budget_after": {
+    "limit_usd": "10.00",
+    "calls": 98,
+    "unsettled_calls": 2,
+    "committed_usd": "2.0395635350"
+  },
+  "validation_receipt": {
+    "rule_sha256": "7519878a396cdfaf202b9135910a57d0f863189620479f109de969678ba762b6",
+    "hash_recorded_after_call": true,
+    "validator": "evaluation.claim_dimensions.validate_semantics",
+    "semantic_status": "metric_span_includes_quantity_and_unit; review_required",
+    "binding_status": "undetermined"
+  }
+}

@@ -1,0 +1,79 @@
+{
+  "execution_mode": "exact archived request replay; no new model call",
+  "original_request_id": "9454e107-02bb-4f80-ac20-5df4b95aa18d",
+  "replay_records": [
+    {
+      "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+      "request_id": "77486ab9-97a3-400a-bec3-df4415462969",
+      "packet_sha256": "2cef84329962104305e9e4affb7a09901a2055cf999be81a1de6d1cb24b38fa9",
+      "application_packet_sha256": "ef23047657a4ce9a6a3ac51f9f466185006506f91b7fe85d2e4238faea748ef0",
+      "status": "passed",
+      "replay_of_request_id": "9454e107-02bb-4f80-ac20-5df4b95aa18d",
+      "provider_model_sha256": "62b1bac0088e6664d7d0fec38e1bf42240e844236bf917f7adc7fa331524df1b",
+      "spans": 1,
+      "targets": [
+        {
+          "char_start": 129,
+          "char_end": 214,
+          "quote": "국내 사업장에서는 REC 및 녹색 프리미엄 등을 활용하여 약 93GWh의 재생에너지를 조달했으며, 이를 통해 약 4만 톤의 탄소 감축 효과를 얻었습니다.",
+          "coverage": "full_text_returned",
+          "returned_spans": [
+            {
+              "char_start": 129,
+              "char_end": 214,
+              "quote": "국내 사업장에서는 REC 및 녹색 프리미엄 등을 활용하여 약 93GWh의 재생에너지를 조달했으며, 이를 통해 약 4만 톤의 탄소 감축 효과를 얻었습니다.",
+              "kind": "claim",
+              "reason": null,
+              "topic_ids": [
+                "environment"
+              ]
+            }
+          ],
+          "unreturned_spans": []
+        }
+      ]
+    }
+  ],
+  "measurement_candidates": [
+    {
+      "id": "n0",
+      "claim_id": "q0",
+      "kind": "value",
+      "quote": "약 93GWh",
+      "char_start": 32,
+      "char_end": 39,
+      "context": "국내 사업장에서는 REC 및 녹색 프리미엄 등을 활용하여 약 93GWh의 재생에너지를 조달했으며, 이를 통해 약 4만 톤의 탄소 감축 효과를 얻었습니다.",
+      "allowed_roles": [
+        "baseline_value",
+        "reported_value",
+        "target_value",
+        "unknown"
+      ]
+    },
+    {
+      "id": "n1",
+      "claim_id": "q0",
+      "kind": "value",
+      "quote": "약 4만 톤",
+      "char_start": 61,
+      "char_end": 67,
+      "context": "국내 사업장에서는 REC 및 녹색 프리미엄 등을 활용하여 약 93GWh의 재생에너지를 조달했으며, 이를 통해 약 4만 톤의 탄소 감축 효과를 얻었습니다.",
+      "allowed_roles": [
+        "baseline_value",
+        "reported_value",
+        "target_value",
+        "unknown"
+      ]
+    }
+  ],
+  "coverage": "full_text_returned",
+  "atomicity": "not_split_two_measurements_remain",
+  "binding_status": "undetermined",
+  "decision": null,
+  "semantic_notes": [
+    "First assertion reports renewable energy procurement; second carbon reduction effect.",
+    "Domestic-business scope is explicit at the start; second clause refers back with 이를 통해.",
+    "No scope inheritance or causal explanation of model behavior is accepted."
+  ],
+  "next": "Do not treat one returned span as proven atomic; multi-assertion representation/context attribution still needs work."
+}

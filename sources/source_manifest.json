@@ -1,0 +1,28 @@
+{
+  "captured_date": "2026-09-08",
+  "domain_source": {
+    "path": "sources/PROJECT_DOMAIN_V2_ORIGINAL.md",
+    "original_filename": "ESG_ProofOps_AAA_최종_계획서_완전검증본.md",
+    "sha256": "0f9d7e3495d1bc6330ee4ffd2bb644ce8189c89e91dd5f9ae4c720b9ffaebc6a",
+    "version": "2.0",
+    "date": "2026-09-07"
+  },
+  "package_request": {
+    "path": "sources/DEVELOPMENT_PACKAGE_REQUEST_ORIGINAL.md",
+    "sha256": "1a2b4fcdd5affdbc5bd305a1706e5d195ea665023b83cc57391b8ad701d8c381"
+  },
+  "user_override": "도메인 변경 및 일반 사업성 비판 금지. 치명적인 구현·파이프라인 문제만 구조적으로 보완.",
+  "legacy_repository": {
+    "url": "https://github.com/tskwak111/esg-evidence-audit",
+    "commit": "70da628a401b89b5ea2c08ee4243523ce99acb50",
+    "inspection": "selected_source_static_review",
+    "runtime_tests_executed": false
+  },
+  "opendataloader": {
+    "url": "https://github.com/opendataloader-project/opendataloader-pdf",
+    "release": "v2.5.7",
+    "published_at": "2026-09-01T06:15:57Z",
+    "release_api_checked": true,
+    "installed_or_benchmarked": false
+  }
+}

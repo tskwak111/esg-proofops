@@ -1,0 +1,545 @@
+{
+  "parent_packet_sha256": "18f1f314a1b8c9f9db3aba0b04909b6535164d3cf0c822cfffb6e96e7e14907a",
+  "selection": {
+    "claims": [
+      {
+        "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+        "span": {
+          "char_start": 129,
+          "char_end": 214,
+          "quote": "국내 사업장에서는 REC 및 녹색 프리미엄 등을 활용하여 약 93GWh의 재생에너지를 조달했으며, 이를 통해 약 4만 톤의 탄소 감축 효과를 얻었습니다."
+        },
+        "source_ref": {
+          "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 25,
+          "printed_page_label": "25",
+          "bbox": [
+            53.813,
+            563.411,
+            788.443,
+            600.5869999999999
+          ],
+          "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+          "quote": "국내 사업장에서는 REC 및 녹색 프리미엄 등을 활용하여 약 93GWh의 재생에너지를 조달했으며, 이를 통해 약 4만 톤의 탄소 감축 효과를 얻었습니다.",
+          "char_start": 129,
+          "char_end": 214,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        "source_quality": "unverified"
+      }
+    ]
+  },
+  "discovery": {
+    "scope": {
+      "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+      "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+      "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+      "mode": "declared_subset",
+      "selected_pages": [
+        25
+      ]
+    },
+    "source_sha256": "c6395dd2be7948d85fa2b52c6edb61367fa6610c6f389c2478b44cb4cfcb5bde",
+    "claims": [
+      {
+        "claim_id": "973e507f-0416-5b09-8c46-d06e37c0caf5",
+        "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "source_sha256": "c6395dd2be7948d85fa2b52c6edb61367fa6610c6f389c2478b44cb4cfcb5bde",
+        "quote": "국내 사업장에서는 REC 및 녹색 프리미엄 등을 활용하여 약 93GWh의 재생에너지를 조달했으며, 이를 통해 약 4만 톤의 탄소 감축 효과를 얻었습니다.",
+        "source_refs": [
+          {
+            "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "page_num": 25,
+            "printed_page_label": "25",
+            "bbox": [
+              53.813,
+              563.411,
+              788.443,
+              600.5869999999999
+            ],
+            "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+            "quote": "국내 사업장에서는 REC 및 녹색 프리미엄 등을 활용하여 약 93GWh의 재생에너지를 조달했으며, 이를 통해 약 4만 톤의 탄소 감축 효과를 얻었습니다.",
+            "char_start": 129,
+            "char_end": 214,
+            "location_quality": "located",
+            "verification_state": "candidate"
+          }
+        ],
+        "source_quality": "unverified",
+        "topic_ids": [
+          "environment"
+        ],
+        "receipt": {
+          "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+          "packet_sha256": "ef23047657a4ce9a6a3ac51f9f466185006506f91b7fe85d2e4238faea748ef0",
+          "response_sha256": "d4bf065db3874ad6d701445bc1def432d8224d463f62a7ba576d18c8e9795e59",
+          "raw_response_json": "{\"spans\":[{\"char_end\":214,\"char_start\":129,\"kind\":\"claim\",\"quote\":\"\\uad6d\\ub0b4 \\uc0ac\\uc5c5\\uc7a5\\uc5d0\\uc11c\\ub294 REC \\ubc0f \\ub179\\uc0c9 \\ud504\\ub9ac\\ubbf8\\uc5c4 \\ub4f1\\uc744 \\ud65c\\uc6a9\\ud558\\uc5ec \\uc57d 93GWh\\uc758 \\uc7ac\\uc0dd\\uc5d0\\ub108\\uc9c0\\ub97c \\uc870\\ub2ec\\ud588\\uc73c\\uba70, \\uc774\\ub97c \\ud1b5\\ud574 \\uc57d 4\\ub9cc \\ud1a4\\uc758 \\ud0c4\\uc18c \\uac10\\ucd95 \\ud6a8\\uacfc\\ub97c \\uc5bb\\uc5c8\\uc2b5\\ub2c8\\ub2e4.\",\"reason\":null,\"topic_ids\":[\"environment\"]}]}",
+          "profile": {
+            "model_sha256": "19a9c578c7fbb4130003220c9449283b44db32b1f9d848e4ce9263439c00ee24",
+            "prompt_sha256": "d15be7996edcd10e1cde9114afcbf0bed8e7b63c779fe1a1bf953a2b7c91eaef",
+            "rule_sha256": "23a1491380984988a57bc13b46d9d4fc54fb33b7a96d7e41ecccec0024e66d26",
+            "synthetic": false,
+            "replicate_id": 1,
+            "extraction_epoch": 1
+          },
+          "status": "processed"
+        },
+        "revision": 1
+      }
+    ],
+    "processed_source_ids": [
+      "116c377c-86e9-543c-bc9f-c13af8f4a814",
+      "11f73847-bd02-5dd3-970c-33579c25d6a7",
+      "1d583373-e786-5a5e-a654-1b84df3c00aa",
+      "2ca56307-2106-569d-a2bb-3869ffa01d2a",
+      "39454f78-ab1f-5038-a0d1-77ab7d4f3310",
+      "41113336-c900-5c0a-adf9-77fd6bdd3b01",
+      "44d6532c-8461-5dfb-9998-002e09be4b85",
+      "53a8834a-3a7b-5196-9f6e-12e2eac60340",
+      "5baa01ed-e7da-57c9-a0d6-e12fe1122f4d",
+      "602645a2-aed2-5a3a-863f-13ce627c035e",
+      "604afb24-eef6-5a2d-ab6a-21806909fd10",
+      "68add0f7-1d45-52ff-8657-469a0b64337e",
+      "8181e142-fb38-5b19-9ea7-2b6986dc07f4",
+      "89bdfc39-df24-526f-9eac-8d637e3120ac",
+      "8dab330b-5432-5035-8211-9c0fd2920caf",
+      "9472aedb-8736-5b50-896e-754c044f557d",
+      "9865d59f-4cb5-523b-a806-c6ab727a6b22",
+      "9fb74b70-16be-5a76-a0d6-ae8666708b80",
+      "a925f8f2-dfb0-5aea-a533-44631a39722f",
+      "af54c793-a4b7-51cd-8804-26f6ecf9c426",
+      "b4b10784-d960-588c-b7d6-85b3351efab8",
+      "c6fb17ba-fba1-5f90-a154-127baacdfa45",
+      "dfaa09a2-ce12-587f-8a68-c3299f4d80dc",
+      "ea340889-dc17-586c-8a3b-2fb7c13998c3"
+    ],
+    "receipts": [
+      {
+        "source_id": "116c377c-86e9-543c-bc9f-c13af8f4a814",
+        "packet_sha256": "a2d2d0065311f0f21de343ae5aeb44c8bda496e81d51a19d9206c716f2e18b94",
+        "response_sha256": "eac37af36fc66060051c18bb348d041120c91acef83d9831d463adb12355272e",
+        "raw_response_json": "{\"spans\":[{\"char_end\":30,\"char_start\":0,\"kind\":\"unknown\",\"quote\":\"1-\\uac00-(1) \\uc628\\uc2e4\\uac00\\uc2a4 \\uac10\\ucd95 \\ud575\\uc2ec\\uae30\\uc220 \\ud65c\\uc6a9\\uc744 \\uc704\\ud55c \\uc81c\\uc870\",\"reason\":\"not_selected_for_atomic_pilot\",\"topic_ids\":[]}]}",
+        "profile": {
+          "model_sha256": "19a9c578c7fbb4130003220c9449283b44db32b1f9d848e4ce9263439c00ee24",
+          "prompt_sha256": "d15be7996edcd10e1cde9114afcbf0bed8e7b63c779fe1a1bf953a2b7c91eaef",
+          "rule_sha256": "23a1491380984988a57bc13b46d9d4fc54fb33b7a96d7e41ecccec0024e66d26",
+          "synthetic": false,
+          "replicate_id": 1,
+          "extraction_epoch": 1
+        },
+        "status": "processed"
+      },
+      {
+        "source_id": "11f73847-bd02-5dd3-970c-33579c25d6a7",
+        "packet_sha256": "9638053ac7f7290b2873c12e0f9177c2761bc078870e38bacdd814aea2f457bc",
+        "response_sha256": "b6e955d8d5a56dad34528c2a5df5e00a547ab7f5f3fe12115cafe241cec31b48",
+        "raw_response_json": "{\"spans\":[{\"char_end\":12,\"char_start\":0,\"kind\":\"unknown\",\"quote\":\"\\uc800\\ud0c4\\uc18c \\uc5f0\\ub8cc\\u00b7\\uc6d0\\ub8cc \\uc804\\ud658\",\"reason\":\"not_selected_for_atomic_pilot\",\"topic_ids\":[]}]}",
+        "profile": {
+          "model_sha256": "19a9c578c7fbb4130003220c9449283b44db32b1f9d848e4ce9263439c00ee24",
+          "prompt_sha256": "d15be7996edcd10e1cde9114afcbf0bed8e7b63c779fe1a1bf953a2b7c91eaef",
+          "rule_sha256": "23a1491380984988a57bc13b46d9d4fc54fb33b7a96d7e41ecccec0024e66d26",
+          "synthetic": false,
+          "replicate_id": 1,
+          "extraction_epoch": 1
+        },
+        "status": "processed"
+      },
+      {
+        "source_id": "1d583373-e786-5a5e-a654-1b84df3c00aa",
+        "packet_sha256": "98674a14b547587d0b98531ea788062ec568c7df62c13b201e7e0efdedbe2e09",
+        "response_sha256": "17b3ebe11f6c01657b168d983bc8e65c98a8c05908cce93b010ca0bc94e4fb31",
+        "raw_response_json": "{\"spans\":[{\"char_end\":92,\"char_start\":0,\"kind\":\"unknown\",\"quote\":\"\\uc5f0\\uac04 \\uc57d 4\\ub9cc \\ud1a4 \\uaddc\\ubaa8\\uc758 \\ubc14\\uc774\\uc624 \\ub0a9\\uc0ac\\ub97c NCC \\uc6d0\\ub8cc\\ub85c \\uc0ac\\uc6a9\\ud558\\uc5ec \\ud654\\uc11d \\uae30\\ubc18 \\ub0a9\\uc0ac\\ub97c \\ub300\\uccb4\\ud558\\uace0 \\uc788\\uc73c\\uba70, \\uc774\\ub97c \\ud1b5\\ud574 \\uc0dd\\uc0b0 \\uacfc\\uc815\\uc5d0\\uc11c\\uc758 \\uc628\\uc2e4\\uac00\\uc2a4 \\ubc30\\ucd9c \\uc800\\uac10\\uc5d0 \\uae30\\uc5ec\\ud558\\uace0 \\uc788\\uc2b5\\ub2c8\\ub2e4.\",\"reason\":\"not_selected_for_atomic_pilot\",\"topic_ids\":[]}]}",
+        "profile": {
+          "model_sha256": "19a9c578c7fbb4130003220c9449283b44db32b1f9d848e4ce9263439c00ee24",
+          "prompt_sha256": "d15be7996edcd10e1cde9114afcbf0bed8e7b63c779fe1a1bf953a2b7c91eaef",
+          "rule_sha256": "23a1491380984988a57bc13b46d9d4fc54fb33b7a96d7e41ecccec0024e66d26",
+          "synthetic": false,
+          "replicate_id": 1,
+          "extraction_epoch": 1
+        },
+        "status": "processed"
+      },
+      {
+        "source_id": "2ca56307-2106-569d-a2bb-3869ffa01d2a",
+        "packet_sha256": "bb2240396bf8707b68acfc9dffac32c9f7a7eb6509bda7d60f6272170a23f35b",
+        "response_sha256": "eac37af36fc66060051c18bb348d041120c91acef83d9831d463adb12355272e",
+        "raw_response_json": "{\"spans\":[{\"char_end\":30,\"char_start\":0,\"kind\":\"unknown\",\"quote\":\"1-\\uac00-(1) \\uc628\\uc2e4\\uac00\\uc2a4 \\uac10\\ucd95 \\ud575\\uc2ec\\uae30\\uc220 \\ud65c\\uc6a9\\uc744 \\uc704\\ud55c \\uc81c\\uc870\",\"reason\":\"not_selected_for_atomic_pilot\",\"topic_ids\":[]}]}",
+        "profile": {
+          "model_sha256": "19a9c578c7fbb4130003220c9449283b44db32b1f9d848e4ce9263439c00ee24",
+          "prompt_sha256": "d15be7996edcd10e1cde9114afcbf0bed8e7b63c779fe1a1bf953a2b7c91eaef",
+          "rule_sha256": "23a1491380984988a57bc13b46d9d4fc54fb33b7a96d7e41ecccec0024e66d26",
+          "synthetic": false,
+          "replicate_id": 1,
+          "extraction_epoch": 1
+        },
+        "status": "processed"
+      },
+      {
+        "source_id": "39454f78-ab1f-5038-a0d1-77ab7d4f3310",
+        "packet_sha256": "7fa66eef18a5eaa289e9c5894ba814b8d1542be9a9cb2c2aeae83eea339d9b30",
+        "response_sha256": "706406576d9fcd5b738fc82c8b57a6d20ff1ae2b0028f70b8b477470baa3b9fc",
+        "raw_response_json": "{\"spans\":[{\"char_end\":13,\"char_start\":0,\"kind\":\"unknown\",\"quote\":\"K-\\ud0dd\\uc18c\\ub178\\ubbf8 \\ub179\\uc0c9\\uacbd\\uc81c\\ud65c\\ub3d9\",\"reason\":\"not_selected_for_atomic_pilot\",\"topic_ids\":[]}]}",
+        "profile": {
+          "model_sha256": "19a9c578c7fbb4130003220c9449283b44db32b1f9d848e4ce9263439c00ee24",
+          "prompt_sha256": "d15be7996edcd10e1cde9114afcbf0bed8e7b63c779fe1a1bf953a2b7c91eaef",
+          "rule_sha256": "23a1491380984988a57bc13b46d9d4fc54fb33b7a96d7e41ecccec0024e66d26",
+          "synthetic": false,
+          "replicate_id": 1,
+          "extraction_epoch": 1
+        },
+        "status": "processed"
+      },
+      {
+        "source_id": "41113336-c900-5c0a-adf9-77fd6bdd3b01",
+        "packet_sha256": "187f9d5a59a667b347b54ce5b6c5840ff89d133935ade665acb30f536e2402ea",
+        "response_sha256": "b1272b3008f926f0a3e92206e0129558b2af35e4ba368ecdfbe7ab4704bc93a7",
+        "raw_response_json": "{\"spans\":[{\"char_end\":17,\"char_start\":0,\"kind\":\"unknown\",\"quote\":\"\\uc7ac\\uc0dd\\uc5d0\\ub108\\uc9c0 \\uc870\\ub2ec \\ud604\\ud669 T3 O4\",\"reason\":\"not_selected_for_atomic_pilot\",\"topic_ids\":[]}]}",
+        "profile": {
+          "model_sha256": "19a9c578c7fbb4130003220c9449283b44db32b1f9d848e4ce9263439c00ee24",
+          "prompt_sha256": "d15be7996edcd10e1cde9114afcbf0bed8e7b63c779fe1a1bf953a2b7c91eaef",
+          "rule_sha256": "23a1491380984988a57bc13b46d9d4fc54fb33b7a96d7e41ecccec0024e66d26",
+          "synthetic": false,
+          "replicate_id": 1,
+          "extraction_epoch": 1
+        },
+        "status": "processed"
+      },
+      {
+        "source_id": "44d6532c-8461-5dfb-9998-002e09be4b85",
+        "packet_sha256": "bb82737da85a5f102d865c44a3186a0eb3c580f2484cec244e4cff26b8cce5c8",
+        "response_sha256": "db01ea4177dafb1f9d75a86fc09198283532fe1d7f5c931bafc115f7491205ff",
+        "raw_response_json": "{\"spans\":[{\"char_end\":146,\"char_start\":0,\"kind\":\"unknown\",\"quote\":\"\\ub610\\ud55c \\uc5d0\\ub2c8\\ub77c\\uc774\\ube0c(Enilive)\\uc640 \\ud569\\uc791\\ubc95\\uc778\\uc744 \\uc124\\ub9bd\\ud558\\uc5ec \\ud3d0\\uc2dd\\uc6a9\\uc720 (Used Cooking Oil, UCO) \\uae30\\ubc18 HVO \\uc0dd\\uc0b0\\uc744 \\ucd94\\uc9c4\\ud558\\uace0 \\uc788\\uc2b5\\ub2c8\\ub2e4. \\uae00\\ub85c\\ubc8c \\ud30c\\ud2b8\\ub108\\uc2ed\\uc744 \\ud1b5\\ud574 \\uc548\\uc815\\uc801\\uc778 \\ubc14\\uc774\\uc624 \\uc6d0\\ub8cc \\uacf5\\uae09 \\uccb4\\uacc4\\ub97c \\ud655\\ubcf4\\ud558\\uace0, \\ubc14\\uc774\\uc624 \\ub0a9\\uc0ac \\uc801\\uc6a9\\uc744 \\uc9c0\\uc18d\\uc801\\uc73c\\ub85c \\ud655\\ub300\\ud560 \\uacc4\\ud68d\\uc785\\ub2c8\\ub2e4.\",\"reason\":\"not_selected_for_atomic_pilot\",\"topic_ids\":[]}]}",
+        "profile": {
+          "model_sha256": "19a9c578c7fbb4130003220c9449283b44db32b1f9d848e4ce9263439c00ee24",
+          "prompt_sha256": "d15be7996edcd10e1cde9114afcbf0bed8e7b63c779fe1a1bf953a2b7c91eaef",
+          "rule_sha256": "23a1491380984988a57bc13b46d9d4fc54fb33b7a96d7e41ecccec0024e66d26",
+          "synthetic": false,
+          "replicate_id": 1,
+          "extraction_epoch": 1
+        },
+        "status": "processed"
+      },
+      {
+        "source_id": "53a8834a-3a7b-5196-9f6e-12e2eac60340",
+        "packet_sha256": "88022ff7aa1c5dbe4dd89f138691aa28b9774306ca1f2f58afa5e6eff4ab738c",
+        "response_sha256": "d0fe3187dc94bf50b45bb4c64a91fec6eb27ce9fa8c75c23151b85bcc6ffa254",
+        "raw_response_json": "{\"spans\":[{\"char_end\":134,\"char_start\":0,\"kind\":\"unknown\",\"quote\":\"LG\\ud654\\ud559\\uc740 \\uc5ec\\uc218 \\uacf5\\uc7a5 Chloro-Alkali \\uacf5\\uc815\\uc5d0\\uc11c \\ubc1c\\uc0dd\\ud558\\ub294 \\ubd80\\uc0dd\\uc218\\uc18c\\ub97c NCC\\uc5d0 \\ud63c\\uc18c\\ud558\\uae30 \\uc704\\ud55c \\uc124\\ube44\\ub97c \\uad6c\\ucd95\\ud558\\uc5ec \\uae30\\uc874 \\ud654\\uc11d\\uc5f0\\ub8cc \\uc77c\\ubd80\\ub97c \\ub300\\uccb4\\ud558\\uace0 \\uc788\\uc2b5\\ub2c8\\ub2e4. \\uc774\\ub97c \\ud1b5\\ud574 2023\\ub144\\ubd80\\ud130 2025\\ub144\\uae4c\\uc9c0 \\ub204\\uc801 \\uc57d 4\\ub9cc \\ud1a4\\uc758 \\uc628\\uc2e4\\uac00\\uc2a4\\ub97c \\uac10\\ucd95\\ud558\\uc600\\uc2b5\\ub2c8\\ub2e4.\",\"reason\":\"not_selected_for_atomic_pilot\",\"topic_ids\":[]}]}",
+        "profile": {
+          "model_sha256": "19a9c578c7fbb4130003220c9449283b44db32b1f9d848e4ce9263439c00ee24",
+          "prompt_sha256": "d15be7996edcd10e1cde9114afcbf0bed8e7b63c779fe1a1bf953a2b7c91eaef",
+          "rule_sha256": "23a1491380984988a57bc13b46d9d4fc54fb33b7a96d7e41ecccec0024e66d26",
+          "synthetic": false,
+          "replicate_id": 1,
+          "extraction_epoch": 1
+        },
+        "status": "processed"
+      },
+      {
+        "source_id": "5baa01ed-e7da-57c9-a0d6-e12fe1122f4d",
+        "packet_sha256": "81bd31ea976eb4dbf9780303ff174d840c8a01a79ce1138e38963ad1b7b4dd9b",
+        "response_sha256": "1ea1392790c717557ec4f2f3b3c83229a4ed1aa31f4850667397fc2508ac7134",
+        "raw_response_json": "{\"spans\":[{\"char_end\":93,\"char_start\":0,\"kind\":\"unknown\",\"quote\":\"\\ubc14\\uc774\\uc624\\ub9e4\\uc2a4\\ub294 \\uc11d\\ud0c4 \\ub300\\ube44 \\uc628\\uc2e4\\uac00\\uc2a4 \\ubc30\\ucd9c\\ub7c9\\uc774 \\ub0ae\\uc740 \\uc5f0\\ub8cc\\ub85c\\uc11c \\uc11d\\ud0c4\\uc744 \\ub300\\uccb4\\ud558\\uc5ec \\ud0c4\\uc18c \\uc800\\uac10\\uc774 \\uac00\\ub2a5\\ud560 \\ubfd0\\ub9cc \\uc544\\ub2c8\\ub77c, \\uc804\\ub825 \\ubc0f \\uc2a4\\ud300\\uc744 \\ud6a8\\uc728\\uc801\\uc73c\\ub85c \\uc0dd\\uc0b0\\ud560 \\uc218 \\uc788\\ub294 \\uc7ac\\uc0dd\\uc5d0\\ub108\\uc9c0\\uc6d0\\uc785\\ub2c8\\ub2e4.\",\"reason\":\"not_selected_for_atomic_pilot\",\"topic_ids\":[]}]}",
+        "profile": {
+          "model_sha256": "19a9c578c7fbb4130003220c9449283b44db32b1f9d848e4ce9263439c00ee24",
+          "prompt_sha256": "d15be7996edcd10e1cde9114afcbf0bed8e7b63c779fe1a1bf953a2b7c91eaef",
+          "rule_sha256": "23a1491380984988a57bc13b46d9d4fc54fb33b7a96d7e41ecccec0024e66d26",
+          "synthetic": false,
+          "replicate_id": 1,
+          "extraction_epoch": 1
+        },
+        "status": "processed"
+      },
+      {
+        "source_id": "602645a2-aed2-5a3a-863f-13ce627c035e",
+        "packet_sha256": "87b6720cbc200fc62257cc40ea5d9b2c4d34ee27ec7adfeb9b1bc65b799b7c11",
+        "response_sha256": "683bdb6ecc38914eb6f85357a760dfea8c7d6bd997199766b859b48025a6a0c8",
+        "raw_response_json": "{\"spans\":[{\"char_end\":172,\"char_start\":0,\"kind\":\"unknown\",\"quote\":\"LG\\ud654\\ud559\\uc740 \\uc804\\ub825 \\uc0ac\\uc6a9\\uc5d0 \\ub530\\ub978 \\uac04\\uc811 \\ubc30\\ucd9c(Scope 2)\\uc744 \\uc800\\uac10\\ud558\\uae30 \\uc704\\ud574 \\uad6d\\ub0b4\\uc678 \\uc0ac\\uc5c5\\uc7a5\\uc5d0 \\uc7ac\\uc0dd\\uc5d0\\ub108\\uc9c0\\ub97c \\ub3c4\\uc785\\ud558\\uace0 \\uc788\\uc2b5\\ub2c8\\ub2e4. \\uc0ac\\uc5c5\\uc7a5\\ubcc4 \\uc804\\ub825 \\uc0ac\\uc6a9 \\uad6c\\uc870\\ub97c \\uace0\\ub824\\ud558\\uc5ec PPA, REC, \\ub179\\uc0c9 \\ud504\\ub9ac\\ubbf8\\uc5c4 \\ub4f1 \\ub2e4\\uc591\\ud55c \\uc870\\ub2ec \\ubc29\\uc2dd\\uc744 \\ud65c\\uc6a9\\ud558\\uace0 \\uc788\\uc73c\\uba70, \\uc0ac\\uc5c5\\uc7a5 \\ub2e8\\uc704\\uc758 \\uc5d0\\ub108\\uc9c0 \\ud6a8\\uc728 \\uac1c\\uc120 \\ud65c\\ub3d9\\uc744 \\ud1b5\\ud574 \\uc804\\ub825 \\uc0ac\\uc6a9\\ub7c9\\uc744 \\ucd5c\\uc801\\ud654\\ud558\\uace0 \\uc788\\uc2b5\\ub2c8\\ub2e4.\",\"reason\":\"not_selected_for_atomic_pilot\",\"topic_ids\":[]}]}",
+        "profile": {
+          "model_sha256": "19a9c578c7fbb4130003220c9449283b44db32b1f9d848e4ce9263439c00ee24",
+          "prompt_sha256": "d15be7996edcd10e1cde9114afcbf0bed8e7b63c779fe1a1bf953a2b7c91eaef",
+          "rule_sha256": "23a1491380984988a57bc13b46d9d4fc54fb33b7a96d7e41ecccec0024e66d26",
+          "synthetic": false,
+          "replicate_id": 1,
+          "extraction_epoch": 1
+        },
+        "status": "processed"
+      },
+      {
+        "source_id": "604afb24-eef6-5a2d-ab6a-21806909fd10",
+        "packet_sha256": "f59f6ccdb6f4a30767f59406678f3e9f2dba7290e55fe2630bba76d4bda0e341",
+        "response_sha256": "706406576d9fcd5b738fc82c8b57a6d20ff1ae2b0028f70b8b477470baa3b9fc",
+        "raw_response_json": "{\"spans\":[{\"char_end\":13,\"char_start\":0,\"kind\":\"unknown\",\"quote\":\"K-\\ud0dd\\uc18c\\ub178\\ubbf8 \\ub179\\uc0c9\\uacbd\\uc81c\\ud65c\\ub3d9\",\"reason\":\"not_selected_for_atomic_pilot\",\"topic_ids\":[]}]}",
+        "profile": {
+          "model_sha256": "19a9c578c7fbb4130003220c9449283b44db32b1f9d848e4ce9263439c00ee24",
+          "prompt_sha256": "d15be7996edcd10e1cde9114afcbf0bed8e7b63c779fe1a1bf953a2b7c91eaef",
+          "rule_sha256": "23a1491380984988a57bc13b46d9d4fc54fb33b7a96d7e41ecccec0024e66d26",
+          "synthetic": false,
+          "replicate_id": 1,
+          "extraction_epoch": 1
+        },
+        "status": "processed"
+      },
+      {
+        "source_id": "68add0f7-1d45-52ff-8657-469a0b64337e",
+        "packet_sha256": "f0088d56ae335ebb1b541ac6192c3adfcd1e3e0e0af791c553fb0cf9cdaa49d5",
+        "response_sha256": "706406576d9fcd5b738fc82c8b57a6d20ff1ae2b0028f70b8b477470baa3b9fc",
+        "raw_response_json": "{\"spans\":[{\"char_end\":13,\"char_start\":0,\"kind\":\"unknown\",\"quote\":\"K-\\ud0dd\\uc18c\\ub178\\ubbf8 \\ub179\\uc0c9\\uacbd\\uc81c\\ud65c\\ub3d9\",\"reason\":\"not_selected_for_atomic_pilot\",\"topic_ids\":[]}]}",
+        "profile": {
+          "model_sha256": "19a9c578c7fbb4130003220c9449283b44db32b1f9d848e4ce9263439c00ee24",
+          "prompt_sha256": "d15be7996edcd10e1cde9114afcbf0bed8e7b63c779fe1a1bf953a2b7c91eaef",
+          "rule_sha256": "23a1491380984988a57bc13b46d9d4fc54fb33b7a96d7e41ecccec0024e66d26",
+          "synthetic": false,
+          "replicate_id": 1,
+          "extraction_epoch": 1
+        },
+        "status": "processed"
+      },
+      {
+        "source_id": "8181e142-fb38-5b19-9ea7-2b6986dc07f4",
+        "packet_sha256": "fde4851b7b79846b2036af9ba5d3ed96f10ec67099c2b6d12bb0e8674cfe8926",
+        "response_sha256": "32bf01d39615884cf64bf8ad119e68981ae120ebb2fc0836cd65b3a10a6458ec",
+        "raw_response_json": "{\"spans\":[{\"char_end\":5,\"char_start\":0,\"kind\":\"unknown\",\"quote\":\"\\uc7ac\\uc0dd\\uc5d0\\ub108\\uc9c0\",\"reason\":\"not_selected_for_atomic_pilot\",\"topic_ids\":[]}]}",
+        "profile": {
+          "model_sha256": "19a9c578c7fbb4130003220c9449283b44db32b1f9d848e4ce9263439c00ee24",
+          "prompt_sha256": "d15be7996edcd10e1cde9114afcbf0bed8e7b63c779fe1a1bf953a2b7c91eaef",
+          "rule_sha256": "23a1491380984988a57bc13b46d9d4fc54fb33b7a96d7e41ecccec0024e66d26",
+          "synthetic": false,
+          "replicate_id": 1,
+          "extraction_epoch": 1
+        },
+        "status": "processed"
+      },
+      {
+        "source_id": "89bdfc39-df24-526f-9eac-8d637e3120ac",
+        "packet_sha256": "89b119c7e0e35f1bff19a0bd278e0cef56f27db6e2fcce3a5244159afec83e83",
+        "response_sha256": "d71b50d863ea4dfae8ebbb259a06530e3b55a7a0405c02c5d46dc6ccf5100eb5",
+        "raw_response_json": "{\"spans\":[{\"char_end\":11,\"char_start\":0,\"kind\":\"unknown\",\"quote\":\"\\ubc14\\uc774\\uc624\\ub9e4\\uc2a4 T3 O4\",\"reason\":\"not_selected_for_atomic_pilot\",\"topic_ids\":[]}]}",
+        "profile": {
+          "model_sha256": "19a9c578c7fbb4130003220c9449283b44db32b1f9d848e4ce9263439c00ee24",
+          "prompt_sha256": "d15be7996edcd10e1cde9114afcbf0bed8e7b63c779fe1a1bf953a2b7c91eaef",
+          "rule_sha256": "23a1491380984988a57bc13b46d9d4fc54fb33b7a96d7e41ecccec0024e66d26",
+          "synthetic": false,
+          "replicate_id": 1,
+          "extraction_epoch": 1
+        },
+        "status": "processed"
+      },
+      {
+        "source_id": "8dab330b-5432-5035-8211-9c0fd2920caf",
+        "packet_sha256": "1680d71e4c9e7706a88b1c89dd874c426ca950213425e8afc9b581d2d2c51452",
+        "response_sha256": "da57c0dd09632ab7fad23d02bcb918cb37fd117a4abe8b08ee6f96422780af78",
+        "raw_response_json": "{\"spans\":[{\"char_end\":15,\"char_start\":0,\"kind\":\"unknown\",\"quote\":\"\\ubc14\\uc774\\uc624 \\uc6d0\\ub8cc T2 T6 O2\",\"reason\":\"not_selected_for_atomic_pilot\",\"topic_ids\":[]}]}",
+        "profile": {
+          "model_sha256": "19a9c578c7fbb4130003220c9449283b44db32b1f9d848e4ce9263439c00ee24",
+          "prompt_sha256": "d15be7996edcd10e1cde9114afcbf0bed8e7b63c779fe1a1bf953a2b7c91eaef",
+          "rule_sha256": "23a1491380984988a57bc13b46d9d4fc54fb33b7a96d7e41ecccec0024e66d26",
+          "synthetic": false,
+          "replicate_id": 1,
+          "extraction_epoch": 1
+        },
+        "status": "processed"
+      },
+      {
+        "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+        "packet_sha256": "ef23047657a4ce9a6a3ac51f9f466185006506f91b7fe85d2e4238faea748ef0",
+        "response_sha256": "d4bf065db3874ad6d701445bc1def432d8224d463f62a7ba576d18c8e9795e59",
+        "raw_response_json": "{\"spans\":[{\"char_end\":214,\"char_start\":129,\"kind\":\"claim\",\"quote\":\"\\uad6d\\ub0b4 \\uc0ac\\uc5c5\\uc7a5\\uc5d0\\uc11c\\ub294 REC \\ubc0f \\ub179\\uc0c9 \\ud504\\ub9ac\\ubbf8\\uc5c4 \\ub4f1\\uc744 \\ud65c\\uc6a9\\ud558\\uc5ec \\uc57d 93GWh\\uc758 \\uc7ac\\uc0dd\\uc5d0\\ub108\\uc9c0\\ub97c \\uc870\\ub2ec\\ud588\\uc73c\\uba70, \\uc774\\ub97c \\ud1b5\\ud574 \\uc57d 4\\ub9cc \\ud1a4\\uc758 \\ud0c4\\uc18c \\uac10\\ucd95 \\ud6a8\\uacfc\\ub97c \\uc5bb\\uc5c8\\uc2b5\\ub2c8\\ub2e4.\",\"reason\":null,\"topic_ids\":[\"environment\"]}]}",
+        "profile": {
+          "model_sha256": "19a9c578c7fbb4130003220c9449283b44db32b1f9d848e4ce9263439c00ee24",
+          "prompt_sha256": "d15be7996edcd10e1cde9114afcbf0bed8e7b63c779fe1a1bf953a2b7c91eaef",
+          "rule_sha256": "23a1491380984988a57bc13b46d9d4fc54fb33b7a96d7e41ecccec0024e66d26",
+          "synthetic": false,
+          "replicate_id": 1,
+          "extraction_epoch": 1
+        },
+        "status": "processed"
+      },
+      {
+        "source_id": "9865d59f-4cb5-523b-a806-c6ab727a6b22",
+        "packet_sha256": "f9ab24dfaf06c075a95bcc248da4da5e961c4c9fed0924c87d9d455a584a3994",
+        "response_sha256": "96a26819050159ab78bd99776887f323f07472594f8ce25f46aa04fc8207d843",
+        "raw_response_json": "{\"spans\":[{\"char_end\":34,\"char_start\":0,\"kind\":\"unknown\",\"quote\":\"1-\\ub098-(4) \\uc561\\ud654\\ucc9c\\uc5f0\\uac00\\uc2a4(LNG) \\uae30\\ubc18 \\uc218\\uc18c(\\ube14\\ub8e8\\uc218\\uc18c) \\uc81c\\uc870\",\"reason\":\"not_selected_for_atomic_pilot\",\"topic_ids\":[]}]}",
+        "profile": {
+          "model_sha256": "19a9c578c7fbb4130003220c9449283b44db32b1f9d848e4ce9263439c00ee24",
+          "prompt_sha256": "d15be7996edcd10e1cde9114afcbf0bed8e7b63c779fe1a1bf953a2b7c91eaef",
+          "rule_sha256": "23a1491380984988a57bc13b46d9d4fc54fb33b7a96d7e41ecccec0024e66d26",
+          "synthetic": false,
+          "replicate_id": 1,
+          "extraction_epoch": 1
+        },
+        "status": "processed"
+      },
+      {
+        "source_id": "9fb74b70-16be-5a76-a0d6-ae8666708b80",
+        "packet_sha256": "02b3aa51190c25439f999ce93b389c777eabf98e81556c20b087424b465ac22a",
+        "response_sha256": "ef0c239c3ca61461fdfb0f29044682a7aa2553f7269465b79dd9bf0a671f5d94",
+        "raw_response_json": "{\"spans\":[{\"char_end\":11,\"char_start\":0,\"kind\":\"unknown\",\"quote\":\"\\uc218\\uc18c T8 T9 O5\",\"reason\":\"not_selected_for_atomic_pilot\",\"topic_ids\":[]}]}",
+        "profile": {
+          "model_sha256": "19a9c578c7fbb4130003220c9449283b44db32b1f9d848e4ce9263439c00ee24",
+          "prompt_sha256": "d15be7996edcd10e1cde9114afcbf0bed8e7b63c779fe1a1bf953a2b7c91eaef",
+          "rule_sha256": "23a1491380984988a57bc13b46d9d4fc54fb33b7a96d7e41ecccec0024e66d26",
+          "synthetic": false,
+          "replicate_id": 1,
+          "extraction_epoch": 1
+        },
+        "status": "processed"
+      },
+      {
+        "source_id": "a925f8f2-dfb0-5aea-a533-44631a39722f",
+        "packet_sha256": "3c562ad4107ca830aff7502144816f03d72731ce279c40bdc0bdcbb6b0572902",
+        "response_sha256": "f974f5c826d9ebbc893ad3cd57d75e283152ac4de65e359514c39878a070877a",
+        "raw_response_json": "{\"spans\":[{\"char_end\":82,\"char_start\":0,\"kind\":\"unknown\",\"quote\":\"LG\\ud654\\ud559\\uc740 \\uae30\\uc874 \\uc11d\\ud0c4 \\uae30\\ubc18 \\uc5f4\\ubcd1\\ud569\\ubc1c\\uc804 \\uc804\\ub825 \\ubc0f \\uc2a4\\ud300\\uc744 \\ubc14\\uc774\\uc624\\ub9e4\\uc2a4 \\uae30\\ubc18\\uc73c\\ub85c \\uc804\\ud658\\ud558\\uae30 \\uc704\\ud574 GS EPS\\uc640 \\ud569\\uc791\\ubc95\\uc778 TW\\ubc14\\uc774\\uc624\\ub9e4\\uc2a4\\uc5d0\\ub108\\uc9c0\\ub97c \\uc124\\ub9bd\\ud558\\uc600\\uc2b5\\ub2c8\\ub2e4.\",\"reason\":\"not_selected_for_atomic_pilot\",\"topic_ids\":[]}]}",
+        "profile": {
+          "model_sha256": "19a9c578c7fbb4130003220c9449283b44db32b1f9d848e4ce9263439c00ee24",
+          "prompt_sha256": "d15be7996edcd10e1cde9114afcbf0bed8e7b63c779fe1a1bf953a2b7c91eaef",
+          "rule_sha256": "23a1491380984988a57bc13b46d9d4fc54fb33b7a96d7e41ecccec0024e66d26",
+          "synthetic": false,
+          "replicate_id": 1,
+          "extraction_epoch": 1
+        },
+        "status": "processed"
+      },
+      {
+        "source_id": "af54c793-a4b7-51cd-8804-26f6ecf9c426",
+        "packet_sha256": "14f83f3b8dbab8f213ceac0f68e3d58b9f3e8a62f9795aac04be0cc6c89b295c",
+        "response_sha256": "321585bb3f9a25b96a29de2e69acc9bb39077792c9c9815719e646f4f8b855a7",
+        "raw_response_json": "{\"spans\":[{\"char_end\":117,\"char_start\":0,\"kind\":\"unknown\",\"quote\":\"\\ud574\\ub2f9 \\ubc1c\\uc804\\uc18c\\ub294 \\ud3d0\\ubaa9\\uc7ac\\ub97c \\uc6b0\\ub4dc\\uce69 \\ud615\\ud0dc\\ub85c \\uac00\\uacf5\\ud558\\uc5ec \\uc5f0\\ub8cc\\ub85c \\ud65c\\uc6a9\\ud558\\uba70, 2027\\ub144 \\uac00\\ub3d9 \\ud6c4 \\uc0dd\\uc0b0\\ub41c \\uc804\\ub825 \\ubc0f \\uc2a4\\ud300\\uc740 \\uc5ec\\uc218 \\ud654\\uce58 \\uacf5\\uc7a5\\uc5d0 \\uacf5\\uae09\\ub420 \\uc608\\uc815\\uc785\\ub2c8\\ub2e4. \\uc774\\ub97c \\ud1b5\\ud574 \\uc5f0\\uac04 \\ucd5c\\ub300 \\uc57d 40\\ub9cc \\ud1a4\\uc758 \\uc628\\uc2e4\\uac00\\uc2a4 \\uc800\\uac10\\uc774 \\uae30\\ub300\\ub429\\ub2c8\\ub2e4.\",\"reason\":\"not_selected_for_atomic_pilot\",\"topic_ids\":[]}]}",
+        "profile": {
+          "model_sha256": "19a9c578c7fbb4130003220c9449283b44db32b1f9d848e4ce9263439c00ee24",
+          "prompt_sha256": "d15be7996edcd10e1cde9114afcbf0bed8e7b63c779fe1a1bf953a2b7c91eaef",
+          "rule_sha256": "23a1491380984988a57bc13b46d9d4fc54fb33b7a96d7e41ecccec0024e66d26",
+          "synthetic": false,
+          "replicate_id": 1,
+          "extraction_epoch": 1
+        },
+        "status": "processed"
+      },
+      {
+        "source_id": "b4b10784-d960-588c-b7d6-85b3351efab8",
+        "packet_sha256": "8d8c2edf480d75c9bdd4952aab2fe1a772147d4c6cd65bf5752c8111d341edaa",
+        "response_sha256": "415a0be6b2430d859e9cba34fcf326b5f9b4491ccdc9f1156d8563a1d89dc6a1",
+        "raw_response_json": "{\"spans\":[{\"char_end\":90,\"char_start\":0,\"kind\":\"unknown\",\"quote\":\"NCC(Naphtha Cracking Center)\\ub294 \\uc11d\\uc720\\ud654\\ud559 \\uc0b0\\uc5c5\\uc758 \\ub300\\ud45c\\uc801\\uc778 \\ud0c4\\uc18c \\ub2e4\\ubc30\\ucd9c \\uacf5\\uc815\\uc73c\\ub85c, \\uac10\\ucd95\\uc744 \\uc704\\ud574\\uc11c\\ub294 \\uae30\\uc220\\uc801\\u00b7\\uacbd\\uc81c\\uc801 \\uc81c\\uc57d\\uc774 \\ud070 \\ub09c\\uac10\\ucd95 \\ubd84\\uc57c\\uc785\\ub2c8\\ub2e4.\",\"reason\":\"not_selected_for_atomic_pilot\",\"topic_ids\":[]}]}",
+        "profile": {
+          "model_sha256": "19a9c578c7fbb4130003220c9449283b44db32b1f9d848e4ce9263439c00ee24",
+          "prompt_sha256": "d15be7996edcd10e1cde9114afcbf0bed8e7b63c779fe1a1bf953a2b7c91eaef",
+          "rule_sha256": "23a1491380984988a57bc13b46d9d4fc54fb33b7a96d7e41ecccec0024e66d26",
+          "synthetic": false,
+          "replicate_id": 1,
+          "extraction_epoch": 1
+        },
+        "status": "processed"
+      },
+      {
+        "source_id": "c6fb17ba-fba1-5f90-a154-127baacdfa45",
+        "packet_sha256": "3c79d2cf219e09a309169f4dfa279f56f0598901c6797636e7413601fd69b98e",
+        "response_sha256": "2d54c1e80b0e41b6f98c299a73a87072a11d391134d6360dac19d71f7cf2d13c",
+        "raw_response_json": "{\"spans\":[{\"char_end\":71,\"char_start\":0,\"kind\":\"unknown\",\"quote\":\"\\ub610\\ud55c \\ub300\\uc0b0 NCC\\uc5d0\\uc11c\\ub294 \\ubd80\\uc0dd \\uba54\\ud0c4 \\uae30\\ubc18 \\uc218\\uc18c \\uc0dd\\uc0b0 \\ubc0f CCU \\uc5f0\\uacc4 \\uc124\\ube44\\ub97c \\uad6c\\ucd95 \\uc911\\uc774\\uba70, 2027\\ub144\\ubd80\\ud130 \\uc801\\uc6a9\\uc744 \\ud655\\ub300\\ud560 \\uc608\\uc815\\uc785\\ub2c8\\ub2e4.\",\"reason\":\"not_selected_for_atomic_pilot\",\"topic_ids\":[]}]}",
+        "profile": {
+          "model_sha256": "19a9c578c7fbb4130003220c9449283b44db32b1f9d848e4ce9263439c00ee24",
+          "prompt_sha256": "d15be7996edcd10e1cde9114afcbf0bed8e7b63c779fe1a1bf953a2b7c91eaef",
+          "rule_sha256": "23a1491380984988a57bc13b46d9d4fc54fb33b7a96d7e41ecccec0024e66d26",
+          "synthetic": false,
+          "replicate_id": 1,
+          "extraction_epoch": 1
+        },
+        "status": "processed"
+      },
+      {
+        "source_id": "dfaa09a2-ce12-587f-8a68-c3299f4d80dc",
+        "packet_sha256": "6cfa91c4ced858973a9784d2833c71f74b7bfeedec539c3d143a6553d47ee017",
+        "response_sha256": "128c3c61b3b266a296d7e2cdb914349c083a922ae318e7c4874c0b8d46317909",
+        "raw_response_json": "{\"spans\":[{\"char_end\":49,\"char_start\":0,\"kind\":\"unknown\",\"quote\":\"LG\\ud654\\ud559\\uc740 \\ud654\\uc11d\\uc5f0\\ub8cc \\uae30\\ubc18 \\uc6d0\\ub8cc \\uc0ac\\uc6a9\\uc744 \\uc904\\uc774\\uae30 \\uc704\\ud574 \\ubc14\\uc774\\uc624 \\uc6d0\\ub8cc \\uc801\\uc6a9\\uc744 \\ud655\\ub300\\ud558\\uace0 \\uc788\\uc2b5\\ub2c8\\ub2e4.\",\"reason\":\"not_selected_for_atomic_pilot\",\"topic_ids\":[]}]}",
+        "profile": {
+          "model_sha256": "19a9c578c7fbb4130003220c9449283b44db32b1f9d848e4ce9263439c00ee24",
+          "prompt_sha256": "d15be7996edcd10e1cde9114afcbf0bed8e7b63c779fe1a1bf953a2b7c91eaef",
+          "rule_sha256": "23a1491380984988a57bc13b46d9d4fc54fb33b7a96d7e41ecccec0024e66d26",
+          "synthetic": false,
+          "replicate_id": 1,
+          "extraction_epoch": 1
+        },
+        "status": "processed"
+      },
+      {
+        "source_id": "ea340889-dc17-586c-8a3b-2fb7c13998c3",
+        "packet_sha256": "0a2e68538b6d9e439a8f94f6e169f6ae2da307b20690a63b29a5b6b1cc47a0ec",
+        "response_sha256": "5af6052c6c28ede90f3ef4ea9b809c374b4752e769f7649a9b774baf510b82fb",
+        "raw_response_json": "{\"spans\":[{\"char_end\":199,\"char_start\":0,\"kind\":\"unknown\",\"quote\":\"\\uc800\\ud0c4\\uc18c \\uc5f0\\ub8cc \\ubc0f \\uc6d0\\ub8cc \\uc804\\ud658\\uc740 \\uc81c\\uc870 \\uacf5\\uc815 \\ub0b4 \\uc9c1\\uc811 \\ubc30\\ucd9c(Scope 1)\\uc744 \\uadfc\\ubcf8\\uc801\\uc73c\\ub85c \\uc800\\uac10\\ud558\\uae30 \\uc704\\ud55c \\ud575\\uc2ec \\uc804\\ub7b5\\uc785\\ub2c8\\ub2e4. LG\\ud654\\ud559\\uc740 \\uae30\\uc874 \\ud654\\uc11d\\uc5f0\\ub8cc \\uae30\\ubc18 \\uc5d0\\ub108\\uc9c0\\ub97c \\ubc14\\uc774\\uc624\\ub9e4\\uc2a4 \\uc5f4\\ubcd1\\ud569\\ubc1c\\uc804 \\ub4f1 \\uc7ac\\uc0dd \\uc5f0\\ub8cc\\ub85c \\ub300\\uccb4\\ud558\\uace0, \\ub0a9\\uc0ac \\ubd84\\ud574\\ub85c(Naphtha Cracking Center, NCC) \\ub0b4 \\uc218\\uc18c \\ud63c\\uc18c\\uc640 \\uc800\\ud0c4\\uc18c \\uc6d0\\ub8cc \\ud22c\\uc785 \\ud655\\ub300\\ub97c \\uc704\\ud55c \\uae30\\uc220 \\uc804\\ud658\\uc744 \\uc120\\uc81c\\uc801\\uc73c\\ub85c \\ucd94\\uc9c4\\ud558\\uace0 \\uc788\\uc2b5\\ub2c8\\ub2e4.\",\"reason\":\"not_selected_for_atomic_pilot\",\"topic_ids\":[]}]}",
+        "profile": {
+          "model_sha256": "19a9c578c7fbb4130003220c9449283b44db32b1f9d848e4ce9263439c00ee24",
+          "prompt_sha256": "d15be7996edcd10e1cde9114afcbf0bed8e7b63c779fe1a1bf953a2b7c91eaef",
+          "rule_sha256": "23a1491380984988a57bc13b46d9d4fc54fb33b7a96d7e41ecccec0024e66d26",
+          "synthetic": false,
+          "replicate_id": 1,
+          "extraction_epoch": 1
+        },
+        "status": "processed"
+      }
+    ],
+    "synthetic": false,
+    "exclusions_summary": {
+      "count": 8005,
+      "sha256": "f48df82524b877310ac21caa2c9bf9c18ce048b9b045e7014c06be2f551d2e9d"
+    },
+    "quality_issues_summary": {
+      "count": 222,
+      "sha256": "42357f2922dc2cf5163811a7aad194891cec280113093759aa125c84848d2a45"
+    }
+  },
+  "records": [
+    {
+      "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+      "request_id": "9454e107-02bb-4f80-ac20-5df4b95aa18d",
+      "packet_sha256": "2cef84329962104305e9e4affb7a09901a2055cf999be81a1de6d1cb24b38fa9",
+      "application_packet_sha256": "ef23047657a4ce9a6a3ac51f9f466185006506f91b7fe85d2e4238faea748ef0",
+      "status": "passed",
+      "provider_model_sha256": "62b1bac0088e6664d7d0fec38e1bf42240e844236bf917f7adc7fa331524df1b",
+      "spans": 1,
+      "targets": [
+        {
+          "char_start": 129,
+          "char_end": 214,
+          "quote": "국내 사업장에서는 REC 및 녹색 프리미엄 등을 활용하여 약 93GWh의 재생에너지를 조달했으며, 이를 통해 약 4만 톤의 탄소 감축 효과를 얻었습니다.",
+          "coverage": "full_text_returned",
+          "returned_spans": [
+            {
+              "char_start": 129,
+              "char_end": 214,
+              "quote": "국내 사업장에서는 REC 및 녹색 프리미엄 등을 활용하여 약 93GWh의 재생에너지를 조달했으며, 이를 통해 약 4만 톤의 탄소 감축 효과를 얻었습니다.",
+              "kind": "claim",
+              "reason": null,
+              "topic_ids": [
+                "environment"
+              ]
+            }
+          ],
+          "unreturned_spans": []
+        }
+      ]
+    }
+  ],
+  "budget_before": {
+    "limit_usd": "10.00",
+    "calls": 99,
+    "unsettled_calls": 2,
+    "committed_usd": "2.0398232450"
+  },
+  "budget_after": {
+    "limit_usd": "10.00",
+    "calls": 100,
+    "unsettled_calls": 2,
+    "committed_usd": "2.0400143150"
+  },
+  "decision": null,
+  "full_discovery_artifact": {
+    "path": ".local/atomic-expanded/live/discovery.json",
+    "sha256": "080f8ebd36b655cb8ee791c617f119073f5dbc3cac323d0b098438f9578efc21",
+    "note": "Full immutable local discovery retained; compact review omits verbose deferrals and graph quality issues."
+  }
+}

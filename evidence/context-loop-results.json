@@ -1,0 +1,2050 @@
+{
+  "measured_at": "2026-09-12T15:40:23.897183+00:00",
+  "development_only": true,
+  "human_gold": false,
+  "source_quality": "unverified",
+  "runtime_promotion": "local_opt_in_only",
+  "comparison_limitations": [
+    "Five developer-selected company samples; 20 frozen paragraphs each, not entire-report accuracy.",
+    "Agent labels are non-blind diagnostic suggestions, not independent gold.",
+    "Exact quote validation checks copying, not semantic assertion quality or evidence attribution.",
+    "Multiple experiments reused the same development inputs; no held-out accuracy estimate."
+  ],
+  "ledger": {
+    "path": ".local/upstage/budget.sqlite3",
+    "limit_usd": "10.00",
+    "calls": 1145,
+    "unsettled": 5,
+    "committed_or_reserved_usd": "6.0124487450"
+  },
+  "runs": [
+    {
+      "report": "doosan",
+      "variant": "context",
+      "artifact": ".local/context-loop/doosan/context-2747d23e-8e78-4539-887b-366cb0da47c4/summary.json",
+      "sha256": "b8db377351b6b3dba36670b6363ec553e3f404cf543165667519db2310475fde",
+      "calls": 20,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.0077368500",
+      "input_tokens": 42158,
+      "output_tokens": 1183,
+      "provider_models": [
+        "solar-pro3-260323"
+      ],
+      "claim_spans": 28,
+      "unknown_sources": 4,
+      "failed_packets": null,
+      "seconds": 24.322703999932855,
+      "stop_error": null,
+      "agent_diagnostic_counts": [
+        {
+          "agent_label": "ambiguous",
+          "model_state": "selected",
+          "count": 2
+        },
+        {
+          "agent_label": "assertion",
+          "model_state": "selected",
+          "count": 6
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "empty",
+          "count": 1
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "selected",
+          "count": 7
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "unknown",
+          "count": 4
+        }
+      ]
+    },
+    {
+      "report": "doosan",
+      "variant": "context-v2",
+      "artifact": ".local/context-loop/doosan/context-v2-3cdee8b1-6b19-4837-8973-43d3a9aa7377/summary.json",
+      "sha256": "5de26fa97edc6b13b832cf2bb583fb0f26b58c8d40ea6b33d969400d221aa6be",
+      "calls": 20,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.0083742450",
+      "input_tokens": 45593,
+      "output_tokens": 1290,
+      "provider_models": [
+        "solar-pro3-260323"
+      ],
+      "claim_spans": 18,
+      "unknown_sources": 5,
+      "failed_packets": null,
+      "seconds": 22.25588362501003,
+      "stop_error": null,
+      "agent_diagnostic_counts": [
+        {
+          "agent_label": "ambiguous",
+          "model_state": "selected",
+          "count": 2
+        },
+        {
+          "agent_label": "assertion",
+          "model_state": "selected",
+          "count": 5
+        },
+        {
+          "agent_label": "assertion",
+          "model_state": "unknown",
+          "count": 1
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "empty",
+          "count": 4
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "selected",
+          "count": 4
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "unknown",
+          "count": 4
+        }
+      ]
+    },
+    {
+      "report": "doosan",
+      "variant": "korean",
+      "artifact": ".local/context-loop/doosan/korean-dee22de4-543f-4ac1-9c50-45bf1c9946c7/summary.json",
+      "sha256": "b6217e4b277b5381bb0d81a311b7dbcb020758676596c20e8fe8d65e7e297b2d",
+      "calls": 20,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.0040038900",
+      "input_tokens": 21454,
+      "output_tokens": 703,
+      "provider_models": [
+        "solar-pro3-260323"
+      ],
+      "claim_spans": 25,
+      "unknown_sources": 0,
+      "failed_packets": null,
+      "seconds": 15.445623124949634,
+      "stop_error": null,
+      "agent_diagnostic_counts": [
+        {
+          "agent_label": "ambiguous",
+          "model_state": "selected",
+          "count": 2
+        },
+        {
+          "agent_label": "assertion",
+          "model_state": "selected",
+          "count": 6
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "empty",
+          "count": 3
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "selected",
+          "count": 9
+        }
+      ]
+    },
+    {
+      "report": "doosan",
+      "variant": "pro4",
+      "artifact": ".local/context-loop/doosan/pro4-9ebc6625-4329-4c76-9449-0da63ae9c3b0/summary.json",
+      "sha256": "1edac96b9ebf4fc387b296a4b42be38f2324781d53880a967ad7766163d6e5a1",
+      "calls": 6,
+      "unsettled": 2,
+      "committed_or_reserved_usd": "2.002345970",
+      "input_tokens": 2221,
+      "output_tokens": 1222,
+      "provider_models": [
+        "solar-pro4-260806"
+      ],
+      "claim_spans": 0,
+      "unknown_sources": 2,
+      "failed_packets": null,
+      "seconds": 142.8594269999303,
+      "stop_error": "UPSTAGE_RECEIPT_INVALID_RESERVATION_RETAINED",
+      "agent_diagnostic_counts": [
+        {
+          "agent_label": "assertion",
+          "model_state": "unknown",
+          "count": 2
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "empty",
+          "count": 4
+        }
+      ]
+    },
+    {
+      "report": "doosan",
+      "variant": "pro4-compact",
+      "artifact": ".local/context-loop/doosan/pro4-compact-024f45d4-1f9b-4eb8-8623-1f1303a371af/summary.json",
+      "sha256": "25cc6b145ec87d49ebed918db04ce7b20b434a0d61ee679bdf150d864aa1c31d",
+      "calls": 20,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.015413970",
+      "input_tokens": 43593,
+      "output_tokens": 779,
+      "provider_models": [
+        "solar-pro4-260806"
+      ],
+      "claim_spans": 16,
+      "unknown_sources": 2,
+      "failed_packets": null,
+      "seconds": 38.618310041958466,
+      "stop_error": null,
+      "agent_diagnostic_counts": [
+        {
+          "agent_label": "ambiguous",
+          "model_state": "empty",
+          "count": 1
+        },
+        {
+          "agent_label": "ambiguous",
+          "model_state": "selected",
+          "count": 1
+        },
+        {
+          "agent_label": "assertion",
+          "model_state": "selected",
+          "count": 6
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "empty",
+          "count": 10
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "unknown",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "report": "doosan",
+      "variant": "pro4-context",
+      "artifact": ".local/context-loop/doosan/pro4-context-5f70b77d-0688-4634-8536-ee171b5d9d06/summary.json",
+      "sha256": "d41561d65fcac6075f1e982985909d6a88392a6039af062ea544814a217bcd71",
+      "calls": 20,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.015209370",
+      "input_tokens": 44173,
+      "output_tokens": 479,
+      "provider_models": [
+        "solar-pro4-260806"
+      ],
+      "claim_spans": 14,
+      "unknown_sources": 0,
+      "failed_packets": null,
+      "seconds": 25.49581720912829,
+      "stop_error": null,
+      "agent_diagnostic_counts": [
+        {
+          "agent_label": "ambiguous",
+          "model_state": "empty",
+          "count": 1
+        },
+        {
+          "agent_label": "ambiguous",
+          "model_state": "selected",
+          "count": 1
+        },
+        {
+          "agent_label": "assertion",
+          "model_state": "empty",
+          "count": 1
+        },
+        {
+          "agent_label": "assertion",
+          "model_state": "selected",
+          "count": 5
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "empty",
+          "count": 12
+        }
+      ]
+    },
+    {
+      "report": "doosan",
+      "variant": "pro4-default",
+      "artifact": ".local/context-loop/doosan/pro4-default-8319a50c-6623-42cc-b7f3-bc456755d345/summary.json",
+      "sha256": "314371f5b04a4675d1ccba327cb578524463ce6e9916931c9ff3168b6d81f447",
+      "calls": 20,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.004368870",
+      "input_tokens": 11335,
+      "output_tokens": 476,
+      "provider_models": [
+        "solar-pro4-260806"
+      ],
+      "claim_spans": 15,
+      "unknown_sources": 0,
+      "failed_packets": null,
+      "seconds": 15.128894624998793,
+      "stop_error": null,
+      "agent_diagnostic_counts": [
+        {
+          "agent_label": "ambiguous",
+          "model_state": "empty",
+          "count": 1
+        },
+        {
+          "agent_label": "ambiguous",
+          "model_state": "selected",
+          "count": 1
+        },
+        {
+          "agent_label": "assertion",
+          "model_state": "empty",
+          "count": 1
+        },
+        {
+          "agent_label": "assertion",
+          "model_state": "selected",
+          "count": 5
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "empty",
+          "count": 12
+        }
+      ]
+    },
+    {
+      "report": "doosan",
+      "variant": "sentences",
+      "artifact": ".local/context-loop/doosan/sentences-bb9bbcac-1648-4d87-a129-c353d42b9b1b/summary.json",
+      "sha256": "ddbb3ded37cbbaa7eb91d396387ea764a789da78059de6f24f962ec454975d14",
+      "calls": 6,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.0009862050",
+      "input_tokens": 5573,
+      "output_tokens": 101,
+      "provider_models": [
+        "solar-pro3-260323"
+      ],
+      "claim_spans": 20,
+      "unknown_sources": null,
+      "failed_packets": 0,
+      "seconds": 5.53,
+      "stop_error": null,
+      "agent_diagnostic_counts": []
+    },
+    {
+      "report": "doosan",
+      "variant": "solar-pro3",
+      "artifact": ".local/context-loop/doosan/unseen-pages/solar-pro3-aa4ce6f8-1aa5-42ed-b0e0-b84a2d495928/summary.json",
+      "sha256": "2b9dfb839c2262ac33f2ba71ef638225310dc4a567fd96c48bf62600e10dae15",
+      "calls": 12,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.0019219200",
+      "input_tokens": 8184,
+      "output_tokens": 866,
+      "provider_models": [
+        "solar-pro3-260323"
+      ],
+      "claim_spans": 22,
+      "unknown_sources": 1,
+      "failed_packets": null,
+      "seconds": 11.501951792044565,
+      "stop_error": null,
+      "agent_diagnostic_counts": []
+    },
+    {
+      "report": "doosan",
+      "variant": "solar-pro4",
+      "artifact": ".local/context-loop/doosan/unseen-pages/solar-pro4-2c7ed43d-ea9f-4880-a61d-123c11625f8f/summary.json",
+      "sha256": "45903b1d9e7128447cb9ad1bdbcc1e17ccbeb264595243029ef802cc65d6a30f",
+      "calls": 12,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.003476220",
+      "input_tokens": 7314,
+      "output_tokens": 805,
+      "provider_models": [
+        "solar-pro4-260806"
+      ],
+      "claim_spans": 25,
+      "unknown_sources": 0,
+      "failed_packets": null,
+      "seconds": 15.489112749928609,
+      "stop_error": null,
+      "agent_diagnostic_counts": []
+    },
+    {
+      "report": "doosan",
+      "variant": "baseline",
+      "artifact": ".local/cross-report-wave/doosan/extract-8d2a075d-d4cf-43cb-a788-8cf377e9c673/summary.json",
+      "sha256": "a2a1697daf9cc5cd4285d533109f6307b726406a595206b1ca83b2fd5a9d7156",
+      "calls": 20,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.0024134550",
+      "input_tokens": 12463,
+      "output_tokens": 541,
+      "provider_models": [
+        "solar-pro3-260323"
+      ],
+      "claim_spans": 16,
+      "unknown_sources": 0,
+      "failed_packets": null,
+      "seconds": 14.879031958058476,
+      "stop_error": null,
+      "agent_diagnostic_counts": [
+        {
+          "agent_label": "ambiguous",
+          "model_state": "empty",
+          "count": 1
+        },
+        {
+          "agent_label": "ambiguous",
+          "model_state": "selected",
+          "count": 1
+        },
+        {
+          "agent_label": "assertion",
+          "model_state": "selected",
+          "count": 6
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "empty",
+          "count": 12
+        }
+      ]
+    },
+    {
+      "report": "kia",
+      "variant": "atomic",
+      "artifact": ".local/context-loop/kia/atomic-5bd7a748-6ba1-4c8e-a0d3-26fa34b5d5a0/summary.json",
+      "sha256": "514aa5338a4ba27998288687d0bbc9c1ac002db5f8251e4936607627a0131ca4",
+      "calls": 15,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.0026568300",
+      "input_tokens": 13654,
+      "output_tokens": 612,
+      "provider_models": [
+        "solar-pro3-260323"
+      ],
+      "claim_spans": 25,
+      "unknown_sources": null,
+      "failed_packets": null,
+      "seconds": null,
+      "stop_error": null,
+      "agent_diagnostic_counts": []
+    },
+    {
+      "report": "kia",
+      "variant": "context",
+      "artifact": ".local/context-loop/kia/context-089e10be-bd2b-44c0-b163-f6bbcf338e0f/summary.json",
+      "sha256": "47e7c8f01c8d926b39214f9663e6a6a32d0421b9d2ed2e71cfa1dc88c1a26c66",
+      "calls": 20,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.0078000450",
+      "input_tokens": 43057,
+      "output_tokens": 1054,
+      "provider_models": [
+        "solar-pro3-260323"
+      ],
+      "claim_spans": 30,
+      "unknown_sources": 2,
+      "failed_packets": null,
+      "seconds": 23.3251970410347,
+      "stop_error": null,
+      "agent_diagnostic_counts": [
+        {
+          "agent_label": "ambiguous",
+          "model_state": "selected",
+          "count": 2
+        },
+        {
+          "agent_label": "assertion",
+          "model_state": "selected",
+          "count": 10
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "selected",
+          "count": 6
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "unknown",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "report": "kia",
+      "variant": "context-v2",
+      "artifact": ".local/context-loop/kia/context-v2-c4f92a6a-110a-45cc-9aa3-ff1313d4b6cb/summary.json",
+      "sha256": "f21418e7af1b172ba97b0d48c224bd5b87dbbd9e8801aa84aafb59d7b9a6e87d",
+      "calls": 20,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.0084549300",
+      "input_tokens": 46374,
+      "output_tokens": 1217,
+      "provider_models": [
+        "solar-pro3-260323"
+      ],
+      "claim_spans": 24,
+      "unknown_sources": 6,
+      "failed_packets": null,
+      "seconds": 16.818516874918714,
+      "stop_error": null,
+      "agent_diagnostic_counts": [
+        {
+          "agent_label": "ambiguous",
+          "model_state": "selected",
+          "count": 2
+        },
+        {
+          "agent_label": "assertion",
+          "model_state": "selected",
+          "count": 9
+        },
+        {
+          "agent_label": "assertion",
+          "model_state": "unknown",
+          "count": 1
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "selected",
+          "count": 3
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "unknown",
+          "count": 5
+        }
+      ]
+    },
+    {
+      "report": "kia",
+      "variant": "korean",
+      "artifact": ".local/context-loop/kia/korean-c218f4a2-b78f-4b34-9d9f-301643f07a4f/summary.json",
+      "sha256": "d24b593267dd3b65702b6ac403e4766fb9607d599690fe605430c16122517613",
+      "calls": 20,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.0040799550",
+      "input_tokens": 21727,
+      "output_tokens": 750,
+      "provider_models": [
+        "solar-pro3-260323"
+      ],
+      "claim_spans": 23,
+      "unknown_sources": 1,
+      "failed_packets": null,
+      "seconds": 15.811065000016242,
+      "stop_error": null,
+      "agent_diagnostic_counts": [
+        {
+          "agent_label": "ambiguous",
+          "model_state": "selected",
+          "count": 2
+        },
+        {
+          "agent_label": "assertion",
+          "model_state": "selected",
+          "count": 9
+        },
+        {
+          "agent_label": "assertion",
+          "model_state": "unknown",
+          "count": 1
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "empty",
+          "count": 1
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "selected",
+          "count": 7
+        }
+      ]
+    },
+    {
+      "report": "kia",
+      "variant": "pro4-compact",
+      "artifact": ".local/context-loop/kia/pro4-compact-5f7ced57-a01e-4a7e-95de-9adeb2b7cf52/summary.json",
+      "sha256": "c3d360976ff3bf880e361e8f825431e8e18d9d6d4ebf69b0ae08cabd8ef1a7c9",
+      "calls": 20,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.015720540",
+      "input_tokens": 44374,
+      "output_tokens": 816,
+      "provider_models": [
+        "solar-pro4-260806"
+      ],
+      "claim_spans": 22,
+      "unknown_sources": 3,
+      "failed_packets": null,
+      "seconds": 23.81998254195787,
+      "stop_error": null,
+      "agent_diagnostic_counts": [
+        {
+          "agent_label": "ambiguous",
+          "model_state": "selected",
+          "count": 2
+        },
+        {
+          "agent_label": "assertion",
+          "model_state": "selected",
+          "count": 10
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "empty",
+          "count": 3
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "selected",
+          "count": 2
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "unknown",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "report": "kia",
+      "variant": "pro4-context",
+      "artifact": ".local/context-loop/kia/pro4-context-714ba0c4-1791-4a2c-b006-88c56555d0a4/summary.json",
+      "sha256": "f63dd2fcae1af5beca5a8113c6b80ea1bd4b7ace79d46db3657cbe6a88dfe752",
+      "calls": 20,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.015753540",
+      "input_tokens": 44954,
+      "output_tokens": 696,
+      "provider_models": [
+        "solar-pro4-260806"
+      ],
+      "claim_spans": 17,
+      "unknown_sources": 1,
+      "failed_packets": null,
+      "seconds": 19.53892791713588,
+      "stop_error": null,
+      "agent_diagnostic_counts": [
+        {
+          "agent_label": "ambiguous",
+          "model_state": "empty",
+          "count": 2
+        },
+        {
+          "agent_label": "assertion",
+          "model_state": "empty",
+          "count": 1
+        },
+        {
+          "agent_label": "assertion",
+          "model_state": "selected",
+          "count": 9
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "empty",
+          "count": 7
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "unknown",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "report": "kia",
+      "variant": "pro4-default",
+      "artifact": ".local/context-loop/kia/pro4-default-93cf02e7-bf67-4d97-9fe4-b0f6eff7883e/summary.json",
+      "sha256": "cec2202d3d39eb4b1eb826ad0afd1a52c8b4e087db779cbe444463a32e4bdb34",
+      "calls": 20,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.004453350",
+      "input_tokens": 11491,
+      "output_tokens": 501,
+      "provider_models": [
+        "solar-pro4-260806"
+      ],
+      "claim_spans": 13,
+      "unknown_sources": 0,
+      "failed_packets": null,
+      "seconds": 29.66423241700977,
+      "stop_error": null,
+      "agent_diagnostic_counts": [
+        {
+          "agent_label": "ambiguous",
+          "model_state": "empty",
+          "count": 2
+        },
+        {
+          "agent_label": "assertion",
+          "model_state": "empty",
+          "count": 5
+        },
+        {
+          "agent_label": "assertion",
+          "model_state": "selected",
+          "count": 5
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "empty",
+          "count": 8
+        }
+      ]
+    },
+    {
+      "report": "kia",
+      "variant": "sentences",
+      "artifact": ".local/context-loop/kia/sentences-4bfdb19d-0582-4740-a112-4c4b128c68ab/summary.json",
+      "sha256": "a2de864191a78683e63e0181e13acf3dbb3718b11ad297bd17bc040626b493e6",
+      "calls": 5,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.0008962800",
+      "input_tokens": 4996,
+      "output_tokens": 109,
+      "provider_models": [
+        "solar-pro3-260323"
+      ],
+      "claim_spans": 25,
+      "unknown_sources": null,
+      "failed_packets": 0,
+      "seconds": 3.617,
+      "stop_error": null,
+      "agent_diagnostic_counts": []
+    },
+    {
+      "report": "kia",
+      "variant": "solar-pro3",
+      "artifact": ".local/context-loop/kia/unseen-pages/solar-pro3-31baebb2-6a71-4501-87c5-c9b4735452fe/summary.json",
+      "sha256": "f2afdeddfe76951fab25a4e3354591f85ce69ebd6f0b27b57f77f195272f2900",
+      "calls": 12,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.0022199100",
+      "input_tokens": 8582,
+      "output_tokens": 1218,
+      "provider_models": [
+        "solar-pro3-260323"
+      ],
+      "claim_spans": 33,
+      "unknown_sources": 0,
+      "failed_packets": null,
+      "seconds": 13.361094207968563,
+      "stop_error": null,
+      "agent_diagnostic_counts": []
+    },
+    {
+      "report": "kia",
+      "variant": "solar-pro4",
+      "artifact": ".local/context-loop/kia/unseen-pages/solar-pro4-bb336892-0027-4959-91df-0e2988b435ba/summary.json",
+      "sha256": "14a14bbfc7b13c8c79af9100ca5d2da45b771ca120527ccd2476747f13e3b904",
+      "calls": 12,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.003828990",
+      "input_tokens": 7731,
+      "output_tokens": 968,
+      "provider_models": [
+        "solar-pro4-260806"
+      ],
+      "claim_spans": 27,
+      "unknown_sources": 0,
+      "failed_packets": null,
+      "seconds": 19.74696237500757,
+      "stop_error": null,
+      "agent_diagnostic_counts": []
+    },
+    {
+      "report": "kia",
+      "variant": "baseline",
+      "artifact": ".local/cross-report-wave/kia/extract-c0bdd0e2-a8fc-4b08-81d4-026356520766/summary.json",
+      "sha256": "9bc199131749452be088c979273fb6942e5f36ce915fa3cd915d45ac2b2fb1f2",
+      "calls": 20,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.0025009050",
+      "input_tokens": 12637,
+      "output_tokens": 630,
+      "provider_models": [
+        "solar-pro3-260323"
+      ],
+      "claim_spans": 17,
+      "unknown_sources": 1,
+      "failed_packets": null,
+      "seconds": 14.89450233289972,
+      "stop_error": null,
+      "agent_diagnostic_counts": [
+        {
+          "agent_label": "ambiguous",
+          "model_state": "selected",
+          "count": 2
+        },
+        {
+          "agent_label": "assertion",
+          "model_state": "selected",
+          "count": 9
+        },
+        {
+          "agent_label": "assertion",
+          "model_state": "unknown",
+          "count": 1
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "empty",
+          "count": 7
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "selected",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "report": "kb",
+      "variant": "atomic",
+      "artifact": ".local/context-loop/kb/atomic-f514ab74-25ae-4413-9f32-1bade4121c21/summary.json",
+      "sha256": "ffa8b56d0a68e58f4a4965e81dca0980da3d7150980898ad95b898ddeebbd5f2",
+      "calls": 14,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.0022255200",
+      "input_tokens": 12156,
+      "output_tokens": 333,
+      "provider_models": [
+        "solar-pro3-260323"
+      ],
+      "claim_spans": 17,
+      "unknown_sources": null,
+      "failed_packets": null,
+      "seconds": null,
+      "stop_error": null,
+      "agent_diagnostic_counts": []
+    },
+    {
+      "report": "kb",
+      "variant": "context",
+      "artifact": ".local/context-loop/kb/context-eece38f4-3880-4549-a770-b8218d0a67dd/summary.json",
+      "sha256": "9f58cbc1ea7e4136516a7e39445436bf93e298ba87944c2cf17e3d850e0e1fd1",
+      "calls": 20,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.0071857500",
+      "input_tokens": 40386,
+      "output_tokens": 791,
+      "provider_models": [
+        "solar-pro3-260323"
+      ],
+      "claim_spans": 20,
+      "unknown_sources": 6,
+      "failed_packets": null,
+      "seconds": 15.699582791887224,
+      "stop_error": null,
+      "agent_diagnostic_counts": [
+        {
+          "agent_label": "ambiguous",
+          "model_state": "selected",
+          "count": 4
+        },
+        {
+          "agent_label": "assertion",
+          "model_state": "selected",
+          "count": 4
+        },
+        {
+          "agent_label": "assertion",
+          "model_state": "unknown",
+          "count": 2
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "selected",
+          "count": 6
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "unknown",
+          "count": 4
+        }
+      ]
+    },
+    {
+      "report": "kb",
+      "variant": "context-v2",
+      "artifact": ".local/context-loop/kb/context-v2-90db38d1-3e0e-43b5-8819-e59e3a1fb062/summary.json",
+      "sha256": "b6d90e04cd7097a392bca1b368375a7ff6d4e49a30f7aac3538cd507a137f881",
+      "calls": 20,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.0076655700",
+      "input_tokens": 44038,
+      "output_tokens": 605,
+      "provider_models": [
+        "solar-pro3-260323"
+      ],
+      "claim_spans": 10,
+      "unknown_sources": 9,
+      "failed_packets": null,
+      "seconds": 13.360167917096987,
+      "stop_error": null,
+      "agent_diagnostic_counts": [
+        {
+          "agent_label": "ambiguous",
+          "model_state": "selected",
+          "count": 2
+        },
+        {
+          "agent_label": "ambiguous",
+          "model_state": "unknown",
+          "count": 2
+        },
+        {
+          "agent_label": "assertion",
+          "model_state": "selected",
+          "count": 5
+        },
+        {
+          "agent_label": "assertion",
+          "model_state": "unknown",
+          "count": 1
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "empty",
+          "count": 3
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "selected",
+          "count": 1
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "unknown",
+          "count": 6
+        }
+      ]
+    },
+    {
+      "report": "kb",
+      "variant": "korean",
+      "artifact": ".local/context-loop/kb/korean-761a723a-4528-4c07-a9ed-7c3a927f2768/summary.json",
+      "sha256": "0ab4e041c0733b9634b281ad5ffceacf69ed6822def90135237394a39fae9767",
+      "calls": 20,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.0038101800",
+      "input_tokens": 21256,
+      "output_tokens": 459,
+      "provider_models": [
+        "solar-pro3-260323"
+      ],
+      "claim_spans": 17,
+      "unknown_sources": 0,
+      "failed_packets": null,
+      "seconds": 13.581012916984037,
+      "stop_error": null,
+      "agent_diagnostic_counts": [
+        {
+          "agent_label": "ambiguous",
+          "model_state": "selected",
+          "count": 4
+        },
+        {
+          "agent_label": "assertion",
+          "model_state": "selected",
+          "count": 6
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "empty",
+          "count": 7
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "selected",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "report": "kb",
+      "variant": "pro4-compact",
+      "artifact": ".local/context-loop/kb/pro4-compact-992d5ad6-e77b-4132-9acf-4d7ac12e79ba/summary.json",
+      "sha256": "42c27820d73283faed3c510edad8b405fc1dfed96feb9005fa4f8b4818dc8114",
+      "calls": 20,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.014378100",
+      "input_tokens": 42038,
+      "output_tokens": 383,
+      "provider_models": [
+        "solar-pro4-260806"
+      ],
+      "claim_spans": 15,
+      "unknown_sources": 3,
+      "failed_packets": null,
+      "seconds": 32.691655084025115,
+      "stop_error": null,
+      "agent_diagnostic_counts": [
+        {
+          "agent_label": "ambiguous",
+          "model_state": "empty",
+          "count": 1
+        },
+        {
+          "agent_label": "ambiguous",
+          "model_state": "selected",
+          "count": 3
+        },
+        {
+          "agent_label": "assertion",
+          "model_state": "selected",
+          "count": 6
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "empty",
+          "count": 7
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "unknown",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "report": "kb",
+      "variant": "pro4-context",
+      "artifact": ".local/context-loop/kb/pro4-context-fec5632c-5877-4f7f-9e03-84262c597267/summary.json",
+      "sha256": "4873e8234b636b832820c0d54500ef697bb3b4d9fada1ec2267174dc58241da4",
+      "calls": 20,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.014424300",
+      "input_tokens": 42618,
+      "output_tokens": 273,
+      "provider_models": [
+        "solar-pro4-260806"
+      ],
+      "claim_spans": 6,
+      "unknown_sources": 0,
+      "failed_packets": null,
+      "seconds": 17.72910758294165,
+      "stop_error": null,
+      "agent_diagnostic_counts": [
+        {
+          "agent_label": "ambiguous",
+          "model_state": "empty",
+          "count": 4
+        },
+        {
+          "agent_label": "assertion",
+          "model_state": "empty",
+          "count": 3
+        },
+        {
+          "agent_label": "assertion",
+          "model_state": "selected",
+          "count": 3
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "empty",
+          "count": 10
+        }
+      ]
+    },
+    {
+      "report": "kb",
+      "variant": "pro4-default",
+      "artifact": ".local/context-loop/kb/pro4-default-b7fb615d-d4d4-41a7-8503-31cce8af849c/summary.json",
+      "sha256": "bf15968ffd2c402d50707b196cad16a403946c9c9c994be8af8c1bb02a3ff469",
+      "calls": 20,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.004057020",
+      "input_tokens": 11206,
+      "output_tokens": 272,
+      "provider_models": [
+        "solar-pro4-260806"
+      ],
+      "claim_spans": 6,
+      "unknown_sources": 0,
+      "failed_packets": null,
+      "seconds": 12.113911708816886,
+      "stop_error": null,
+      "agent_diagnostic_counts": [
+        {
+          "agent_label": "ambiguous",
+          "model_state": "empty",
+          "count": 4
+        },
+        {
+          "agent_label": "assertion",
+          "model_state": "empty",
+          "count": 3
+        },
+        {
+          "agent_label": "assertion",
+          "model_state": "selected",
+          "count": 3
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "empty",
+          "count": 10
+        }
+      ]
+    },
+    {
+      "report": "kb",
+      "variant": "sentences",
+      "artifact": ".local/context-loop/kb/sentences-d413e1b5-e50e-4545-94b1-bec1012004c1/summary.json",
+      "sha256": "32a71fe4bc5cac9762b34279849591569b8e0943c722abec0d0f878b03edce17",
+      "calls": 7,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.0010652400",
+      "input_tokens": 6040,
+      "output_tokens": 104,
+      "provider_models": [
+        "solar-pro3-260323"
+      ],
+      "claim_spans": 17,
+      "unknown_sources": null,
+      "failed_packets": 0,
+      "seconds": 4.964,
+      "stop_error": null,
+      "agent_diagnostic_counts": []
+    },
+    {
+      "report": "kb",
+      "variant": "solar-pro3",
+      "artifact": ".local/context-loop/kb/unseen-pages/solar-pro3-ba6c9df6-3402-4f35-96f3-06a4fabf7eda/summary.json",
+      "sha256": "49c98411b3326f6cfaf1ef5e5b123f3eea27b1f21d42d6bcaacba4c14989d139",
+      "calls": 9,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.0013749450",
+      "input_tokens": 6093,
+      "output_tokens": 560,
+      "provider_models": [
+        "solar-pro3-260323"
+      ],
+      "claim_spans": 12,
+      "unknown_sources": 0,
+      "failed_packets": null,
+      "seconds": 9.422168124932796,
+      "stop_error": null,
+      "agent_diagnostic_counts": []
+    },
+    {
+      "report": "kb",
+      "variant": "solar-pro4",
+      "artifact": ".local/context-loop/kb/unseen-pages/solar-pro4-f9cb319e-3306-4c05-9324-64ca8e152f98/summary.json",
+      "sha256": "a46bbfc326c1194c5448a69b1c6ceb8aeb6fc6e559354e0e72469bba28b4be38",
+      "calls": 9,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.002450910",
+      "input_tokens": 5455,
+      "output_tokens": 493,
+      "provider_models": [
+        "solar-pro4-260806"
+      ],
+      "claim_spans": 10,
+      "unknown_sources": 0,
+      "failed_packets": null,
+      "seconds": 22.45464437501505,
+      "stop_error": null,
+      "agent_diagnostic_counts": []
+    },
+    {
+      "report": "kb",
+      "variant": "baseline",
+      "artifact": ".local/cross-report-wave/kb/extract-caddac76-86a7-439c-aa76-0041745242a4/summary.json",
+      "sha256": "544c2906a15067064d238117529a8cef68b57ff55c5bf4f507ce162e3ce015a9",
+      "calls": 20,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.0022725450",
+      "input_tokens": 12353,
+      "output_tokens": 355,
+      "provider_models": [
+        "solar-pro3-260323"
+      ],
+      "claim_spans": 14,
+      "unknown_sources": 0,
+      "failed_packets": null,
+      "seconds": 13.50236237491481,
+      "stop_error": null,
+      "agent_diagnostic_counts": [
+        {
+          "agent_label": "ambiguous",
+          "model_state": "empty",
+          "count": 2
+        },
+        {
+          "agent_label": "ambiguous",
+          "model_state": "selected",
+          "count": 2
+        },
+        {
+          "agent_label": "assertion",
+          "model_state": "selected",
+          "count": 6
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "empty",
+          "count": 10
+        }
+      ]
+    },
+    {
+      "report": "kakao",
+      "variant": "atomic",
+      "artifact": ".local/context-loop/kakao/atomic-549f5322-b760-4c93-bdf8-dad488756a52/summary.json",
+      "sha256": "a9c5599207ea2c73e97e76b10a207155042504c79e5ce83973dc8d29a23fdcbe",
+      "calls": 17,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.0031422600",
+      "input_tokens": 15724,
+      "output_tokens": 830,
+      "provider_models": [
+        "solar-pro3-260323"
+      ],
+      "claim_spans": 25,
+      "unknown_sources": null,
+      "failed_packets": null,
+      "seconds": null,
+      "stop_error": null,
+      "agent_diagnostic_counts": []
+    },
+    {
+      "report": "kakao",
+      "variant": "context",
+      "artifact": ".local/context-loop/kakao/context-3520dc07-2405-44c9-8485-5c6b87972bfe/summary.json",
+      "sha256": "1578380f7d3670d91a104bee24eaa112682342fd332dc33102b99a0dbb8b1eff",
+      "calls": 20,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.0078815550",
+      "input_tokens": 43455,
+      "output_tokens": 1078,
+      "provider_models": [
+        "solar-pro3-260323"
+      ],
+      "claim_spans": 35,
+      "unknown_sources": 1,
+      "failed_packets": null,
+      "seconds": 18.135114416945726,
+      "stop_error": null,
+      "agent_diagnostic_counts": [
+        {
+          "agent_label": "assertion",
+          "model_state": "selected",
+          "count": 2
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "selected",
+          "count": 17
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "unknown",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "report": "kakao",
+      "variant": "context-v2",
+      "artifact": ".local/context-loop/kakao/context-v2-7883ac8b-8349-499a-bef7-e02406197e7c/summary.json",
+      "sha256": "e2b6fec81d219df7ae310cef04f41a25ec3f19f012aee90ff8c48bc19f6a8582",
+      "calls": 20,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.0083420700",
+      "input_tokens": 46610,
+      "output_tokens": 987,
+      "provider_models": [
+        "solar-pro3-260323"
+      ],
+      "claim_spans": 23,
+      "unknown_sources": 2,
+      "failed_packets": null,
+      "seconds": 23.194074583007023,
+      "stop_error": null,
+      "agent_diagnostic_counts": [
+        {
+          "agent_label": "assertion",
+          "model_state": "selected",
+          "count": 2
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "empty",
+          "count": 5
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "selected",
+          "count": 11
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "unknown",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "report": "kakao",
+      "variant": "korean",
+      "artifact": ".local/context-loop/kakao/korean-28ea3bc0-9c3b-491f-9233-b0a28736e7f9/summary.json",
+      "sha256": "baeab2594f57ef26a41934ba6a0eabaf9a37c30bb234333f3b7345f699fdfb4a",
+      "calls": 20,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.0042010650",
+      "input_tokens": 21865,
+      "output_tokens": 899,
+      "provider_models": [
+        "solar-pro3-260323"
+      ],
+      "claim_spans": 26,
+      "unknown_sources": 0,
+      "failed_packets": null,
+      "seconds": 14.202110750135034,
+      "stop_error": null,
+      "agent_diagnostic_counts": [
+        {
+          "agent_label": "assertion",
+          "model_state": "selected",
+          "count": 2
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "empty",
+          "count": 4
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "selected",
+          "count": 14
+        }
+      ]
+    },
+    {
+      "report": "kakao",
+      "variant": "pro4-compact",
+      "artifact": ".local/context-loop/kakao/pro4-compact-1b96fc62-f21e-40cf-b42a-0128dfac0812/summary.json",
+      "sha256": "2944bba306cf44c2f2f1fb45236f113a7bb0fa63ad51e5b1951a561f6942e221",
+      "calls": 20,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.015325860",
+      "input_tokens": 44610,
+      "output_tokens": 458,
+      "provider_models": [
+        "solar-pro4-260806"
+      ],
+      "claim_spans": 10,
+      "unknown_sources": 0,
+      "failed_packets": null,
+      "seconds": 23.993797042174265,
+      "stop_error": null,
+      "agent_diagnostic_counts": [
+        {
+          "agent_label": "assertion",
+          "model_state": "selected",
+          "count": 2
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "empty",
+          "count": 18
+        }
+      ]
+    },
+    {
+      "report": "kakao",
+      "variant": "pro4-context",
+      "artifact": ".local/context-loop/kakao/pro4-context-573e79a3-27a1-4906-9451-780fcaccdfba/summary.json",
+      "sha256": "1a6183b739aaa7a28b5153d300de11361f392496a8202856f3e2e05daf4138a3",
+      "calls": 20,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.015544980",
+      "input_tokens": 45190,
+      "output_tokens": 479,
+      "provider_models": [
+        "solar-pro4-260806"
+      ],
+      "claim_spans": 11,
+      "unknown_sources": 0,
+      "failed_packets": null,
+      "seconds": 20.558478915831074,
+      "stop_error": null,
+      "agent_diagnostic_counts": [
+        {
+          "agent_label": "assertion",
+          "model_state": "selected",
+          "count": 2
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "empty",
+          "count": 18
+        }
+      ]
+    },
+    {
+      "report": "kakao",
+      "variant": "pro4-default",
+      "artifact": ".local/context-loop/kakao/pro4-default-e1f0e54a-aec8-42a8-be65-e4cb9d3575c0/summary.json",
+      "sha256": "7980b18702ef51413b00aedd8bc26af58060777f3044ad04f81923b61f1e3148",
+      "calls": 20,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.004476780",
+      "input_tokens": 11662,
+      "output_tokens": 476,
+      "provider_models": [
+        "solar-pro4-260806"
+      ],
+      "claim_spans": 10,
+      "unknown_sources": 0,
+      "failed_packets": null,
+      "seconds": 13.781013250118122,
+      "stop_error": null,
+      "agent_diagnostic_counts": [
+        {
+          "agent_label": "assertion",
+          "model_state": "selected",
+          "count": 2
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "empty",
+          "count": 18
+        }
+      ]
+    },
+    {
+      "report": "kakao",
+      "variant": "sentences",
+      "artifact": ".local/context-loop/kakao/sentences-1176c1cc-787e-44b2-98c0-d49a87e167bb/summary.json",
+      "sha256": "cf3b36ffadf18dcabf791af96941b1b88feae5dcc6e6d540c4d914a980bffd59",
+      "calls": 5,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.0009792750",
+      "input_tokens": 5435,
+      "output_tokens": 125,
+      "provider_models": [
+        "solar-pro3-260323"
+      ],
+      "claim_spans": 26,
+      "unknown_sources": null,
+      "failed_packets": 0,
+      "seconds": 3.925,
+      "stop_error": null,
+      "agent_diagnostic_counts": []
+    },
+    {
+      "report": "kakao",
+      "variant": "solar-pro3",
+      "artifact": ".local/context-loop/kakao/unseen-pages/solar-pro3-42835d41-b924-4095-8c54-37414406dd82/summary.json",
+      "sha256": "4ede38c8faa8c605553866b7cdc85c6f6bd611a15db68adc5871ee1ab6f82811",
+      "calls": 10,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.0019608600",
+      "input_tokens": 7220,
+      "output_tokens": 1166,
+      "provider_models": [
+        "solar-pro3-260323"
+      ],
+      "claim_spans": 30,
+      "unknown_sources": 1,
+      "failed_packets": null,
+      "seconds": 12.08311091689393,
+      "stop_error": null,
+      "agent_diagnostic_counts": []
+    },
+    {
+      "report": "kakao",
+      "variant": "solar-pro4",
+      "artifact": ".local/context-loop/kakao/unseen-pages/solar-pro4-7741fedf-765c-44f1-aaaa-67651ce70a73/summary.json",
+      "sha256": "9786a51ee8ec4612cc19569e7e8187a2b12d89686c113f2eaba8df1a935498b9",
+      "calls": 10,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.003408900",
+      "input_tokens": 6498,
+      "output_tokens": 958,
+      "provider_models": [
+        "solar-pro4-260806"
+      ],
+      "claim_spans": 24,
+      "unknown_sources": 1,
+      "failed_packets": null,
+      "seconds": 26.12915987498127,
+      "stop_error": null,
+      "agent_diagnostic_counts": []
+    },
+    {
+      "report": "kakao",
+      "variant": "baseline",
+      "artifact": ".local/cross-report-wave/kakao/extract-a0507b70-949b-4222-ab11-467f3dfc6e64/summary.json",
+      "sha256": "99afe90332a0eb9ef122a7fe3e46c0ba1a6c3d5edc772bf78a8f3a25d5905375",
+      "calls": 20,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.0024540450",
+      "input_tokens": 12817,
+      "output_tokens": 514,
+      "provider_models": [
+        "solar-pro3-260323"
+      ],
+      "claim_spans": 13,
+      "unknown_sources": 0,
+      "failed_packets": null,
+      "seconds": 17.50223895907402,
+      "stop_error": null,
+      "agent_diagnostic_counts": [
+        {
+          "agent_label": "assertion",
+          "model_state": "selected",
+          "count": 2
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "empty",
+          "count": 17
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "selected",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "report": "naver",
+      "variant": "atomic",
+      "artifact": ".local/context-loop/naver/atomic-9439fed9-f23e-470b-a493-91f5c118cb57/summary.json",
+      "sha256": "69745263535943e54c17726b3f16bf7d1b998005c887d548189439b675d010b2",
+      "calls": 14,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.0022118250",
+      "input_tokens": 12137,
+      "output_tokens": 317,
+      "provider_models": [
+        "solar-pro3-260323"
+      ],
+      "claim_spans": 14,
+      "unknown_sources": null,
+      "failed_packets": null,
+      "seconds": null,
+      "stop_error": null,
+      "agent_diagnostic_counts": []
+    },
+    {
+      "report": "naver",
+      "variant": "context",
+      "artifact": ".local/context-loop/naver/context-aa9a26a4-34b0-41f9-b5c9-9432f80bdeb7/summary.json",
+      "sha256": "8da2ab2c2788199392821793e066e52a6f6fb61ac0c0aa479660e246f974048d",
+      "calls": 20,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.0070674450",
+      "input_tokens": 40505,
+      "output_tokens": 582,
+      "provider_models": [
+        "solar-pro3-260323"
+      ],
+      "claim_spans": 17,
+      "unknown_sources": 3,
+      "failed_packets": null,
+      "seconds": 16.68366316705942,
+      "stop_error": null,
+      "agent_diagnostic_counts": []
+    },
+    {
+      "report": "naver",
+      "variant": "context-v2",
+      "artifact": ".local/context-loop/naver/context-v2-e67d35db-abeb-46f7-b361-d77b906d175b/summary.json",
+      "sha256": "8aa6e755368616a15588b1d00a95a58e0e6adf881df6b697923c450d9ec44013",
+      "calls": 20,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.0076903200",
+      "input_tokens": 44116,
+      "output_tokens": 623,
+      "provider_models": [
+        "solar-pro3-260323"
+      ],
+      "claim_spans": 13,
+      "unknown_sources": 6,
+      "failed_packets": null,
+      "seconds": 14.39935191697441,
+      "stop_error": null,
+      "agent_diagnostic_counts": []
+    },
+    {
+      "report": "naver",
+      "variant": "baseline",
+      "artifact": ".local/context-loop/naver/extract-de691c9b-b835-46a6-94eb-e5d9bfae482e/summary.json",
+      "sha256": "5a3250acf10ef31ca735e765cb2f730f4ad38a4127f8e54a2f165bdcbfd2c63d",
+      "calls": 20,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.0023240250",
+      "input_tokens": 12453,
+      "output_tokens": 408,
+      "provider_models": [
+        "solar-pro3-260323"
+      ],
+      "claim_spans": 14,
+      "unknown_sources": 1,
+      "failed_packets": null,
+      "seconds": 12.962812916142866,
+      "stop_error": null,
+      "agent_diagnostic_counts": []
+    },
+    {
+      "report": "naver",
+      "variant": "korean",
+      "artifact": ".local/context-loop/naver/korean-96c8e7ef-f7e5-4f41-b80f-9d9088767feb/summary.json",
+      "sha256": "404a5459cd6bc254e6076816592d3f8eadad1e8e72d27fc5a8706fd04ad6cc17",
+      "calls": 20,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.0038570400",
+      "input_tokens": 21300,
+      "output_tokens": 519,
+      "provider_models": [
+        "solar-pro3-260323"
+      ],
+      "claim_spans": 17,
+      "unknown_sources": 1,
+      "failed_packets": null,
+      "seconds": 14.063442541984841,
+      "stop_error": null,
+      "agent_diagnostic_counts": []
+    },
+    {
+      "report": "naver",
+      "variant": "pro4-compact",
+      "artifact": ".local/context-loop/naver/pro4-compact-44b7d4ea-acd2-48c4-8904-b536ca487c62/summary.json",
+      "sha256": "20adf4589f2b021db72a4e65900f9edf45b0a9454ab7ac1d793c4b33d66195dc",
+      "calls": 20,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.014586000",
+      "input_tokens": 42116,
+      "output_tokens": 521,
+      "provider_models": [
+        "solar-pro4-260806"
+      ],
+      "claim_spans": 14,
+      "unknown_sources": 4,
+      "failed_packets": null,
+      "seconds": 27.81579575012438,
+      "stop_error": null,
+      "agent_diagnostic_counts": []
+    },
+    {
+      "report": "naver",
+      "variant": "pro4-context",
+      "artifact": ".local/context-loop/naver/pro4-context-36195cb4-61ae-4c6c-bf35-4235699377c3/summary.json",
+      "sha256": "c74a8e9c2108270462c1bd315082e61d0a549438ae694764c036b82752b557ac",
+      "calls": 20,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.014729880",
+      "input_tokens": 42696,
+      "output_tokens": 485,
+      "provider_models": [
+        "solar-pro4-260806"
+      ],
+      "claim_spans": 11,
+      "unknown_sources": 2,
+      "failed_packets": null,
+      "seconds": 28.115770291071385,
+      "stop_error": null,
+      "agent_diagnostic_counts": []
+    },
+    {
+      "report": "naver",
+      "variant": "pro4-default",
+      "artifact": ".local/context-loop/naver/pro4-default-8e0ed988-c048-4468-804a-a75e898604c7/summary.json",
+      "sha256": "df55d4fa82a5d37a65147fa216e7b523df54cd2bad8f642dfed36cd92eabe671",
+      "calls": 20,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.004155360",
+      "input_tokens": 11292,
+      "output_tokens": 325,
+      "provider_models": [
+        "solar-pro4-260806"
+      ],
+      "claim_spans": 11,
+      "unknown_sources": 0,
+      "failed_packets": null,
+      "seconds": 24.583724583033472,
+      "stop_error": null,
+      "agent_diagnostic_counts": []
+    },
+    {
+      "report": "naver",
+      "variant": "sentences",
+      "artifact": ".local/context-loop/naver/sentences-1dc2ff0e-6f3d-413a-b99d-a6bff25de665/summary.json",
+      "sha256": "b7f23d032ff1936dc39fa56091082fe2f68af3552cb0b48000c512c106c9e49c",
+      "calls": 4,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.0007116450",
+      "input_tokens": 4025,
+      "output_tokens": 72,
+      "provider_models": [
+        "solar-pro3-260323"
+      ],
+      "claim_spans": 14,
+      "unknown_sources": null,
+      "failed_packets": 0,
+      "seconds": 4.595,
+      "stop_error": null,
+      "agent_diagnostic_counts": []
+    },
+    {
+      "report": "naver",
+      "variant": "solar-pro3",
+      "artifact": ".local/context-loop/naver/unseen-pages/solar-pro3-76976415-6fad-40e1-a554-54a4bd9d228b/summary.json",
+      "sha256": "f01d26ef9bff24b36e6cfb6b9a1a95ef47e75ae28194aa57de33b31123bacb09",
+      "calls": 10,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.0012505350",
+      "input_tokens": 6483,
+      "output_tokens": 274,
+      "provider_models": [
+        "solar-pro3-260323"
+      ],
+      "claim_spans": 7,
+      "unknown_sources": 0,
+      "failed_packets": null,
+      "seconds": 8.099692333023995,
+      "stop_error": null,
+      "agent_diagnostic_counts": []
+    },
+    {
+      "report": "naver",
+      "variant": "solar-pro4",
+      "artifact": ".local/context-loop/naver/unseen-pages/solar-pro4-87f639c1-220e-4a66-a9f5-e5e1b9649e44/summary.json",
+      "sha256": "b155e54891f5a7e47c64d4241a9cce26fd45fe4b7493615f762797e0b0f13228",
+      "calls": 10,
+      "unsettled": 0,
+      "committed_or_reserved_usd": "0.002210010",
+      "input_tokens": 5773,
+      "output_tokens": 231,
+      "provider_models": [
+        "solar-pro4-260806"
+      ],
+      "claim_spans": 6,
+      "unknown_sources": 0,
+      "failed_packets": null,
+      "seconds": 9.537847083061934,
+      "stop_error": null,
+      "agent_diagnostic_counts": []
+    }
+  ],
+  "runtime_default_changed": false,
+  "opt_in_runtime_model": "solar-pro4",
+  "service_ready": false,
+  "wave_start_ledger": {
+    "calls": 310,
+    "unsettled": 3,
+    "committed_or_reserved_usd": "3.6945506700"
+  },
+  "section_maps": [
+    {
+      "report": "doosan",
+      "artifact": ".local/context-loop/doosan/sections-v8.json",
+      "map_sha256": "b881491e5871adbb7abac4c4d7087196f3775b5ebddd0f6bfa5e18df0c3a9711",
+      "source_sha256": "dc59b2b1c5bbf02e33bb901f94aef7cd984dc62547708e92aa1332ac550102e9",
+      "claim_candidate_pages": 13,
+      "evidence_candidate_pages": 32,
+      "conflict_pages": 3,
+      "quality": "unverified"
+    },
+    {
+      "report": "kia",
+      "artifact": ".local/context-loop/kia/sections-v8.json",
+      "map_sha256": "239d0db27b7dce8dbbf82db2625b65de7d40b74425903468faf313f4d7f8636e",
+      "source_sha256": "d0d814d98c4aeedbbdb2bf8631b8981ae5cde94dec32aa32c57510420274da1f",
+      "claim_candidate_pages": 32,
+      "evidence_candidate_pages": 63,
+      "conflict_pages": 2,
+      "quality": "unverified"
+    },
+    {
+      "report": "kb",
+      "artifact": ".local/context-loop/kb/sections-v8.json",
+      "map_sha256": "46b1e8c9aaebf4c89ae752ba6ba82c29213b7e61cfa78bca261d4b1e593a1daa",
+      "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+      "claim_candidate_pages": 48,
+      "evidence_candidate_pages": 72,
+      "conflict_pages": 0,
+      "quality": "unverified"
+    },
+    {
+      "report": "kakao",
+      "artifact": ".local/context-loop/kakao/sections-v8.json",
+      "map_sha256": "2cbfc51ebb1c7c697a46ad7869424b57e49836dae9475f73ebff76defaad84c1",
+      "source_sha256": "43804a2d5eccfc6aa9c5b5480ec6714c7d07bea13ed68729c0af7a3b622ce76d",
+      "claim_candidate_pages": 9,
+      "evidence_candidate_pages": 38,
+      "conflict_pages": 0,
+      "quality": "unverified"
+    },
+    {
+      "report": "naver",
+      "artifact": ".local/context-loop/naver/sections-v8.json",
+      "map_sha256": "cf7de07436a1583c4dc33511a067b3530c20f154125a126f21a845e01640231b",
+      "source_sha256": "75388f16c13739a671fd158c383502d81968fe587f2372ab0f9306f3d2c1a2c6",
+      "claim_candidate_pages": 29,
+      "evidence_candidate_pages": 56,
+      "conflict_pages": 1,
+      "quality": "unverified"
+    }
+  ],
+  "additional_parse_attempts": [
+    {
+      "report": "orion",
+      "status": "failed",
+      "seconds": 0.7777896670158952,
+      "error": "PDF_INVALID"
+    },
+    {
+      "report": "naver",
+      "status": "parsed",
+      "seconds": 3.275806332938373,
+      "blocks": 215,
+      "paragraphs": 30,
+      "sample_bytes": 268583
+    },
+    {
+      "report": "posco",
+      "status": "failed",
+      "seconds": 0.40111979213543236,
+      "error": "PDF_INVALID"
+    }
+  ],
+  "unseen_page_parses": [
+    {
+      "report": "doosan",
+      "status": "parsed",
+      "pages": [
+        37,
+        40,
+        43
+      ],
+      "blocks": 81,
+      "selected_paragraphs": 12,
+      "seconds": 1.9302854591514915
+    },
+    {
+      "report": "kia",
+      "status": "parsed",
+      "pages": [
+        30,
+        38,
+        45
+      ],
+      "blocks": 155,
+      "selected_paragraphs": 12,
+      "seconds": 2.074849459109828
+    },
+    {
+      "report": "kb",
+      "status": "parsed",
+      "pages": [
+        28,
+        40,
+        52
+      ],
+      "blocks": 832,
+      "selected_paragraphs": 9,
+      "seconds": 2.34373762505129
+    },
+    {
+      "report": "kakao",
+      "status": "parsed",
+      "pages": [
+        46,
+        49,
+        51
+      ],
+      "blocks": 162,
+      "selected_paragraphs": 10,
+      "seconds": 1.6088067500386387
+    },
+    {
+      "report": "naver",
+      "status": "parsed",
+      "pages": [
+        90,
+        184,
+        191
+      ],
+      "blocks": 284,
+      "selected_paragraphs": 10,
+      "seconds": 2.609848333057016
+    }
+  ],
+  "unseen_page_agent_diagnostic": {
+    "input": ".local/context-loop/unseen-review-input.json",
+    "labels": ".local/context-loop/unseen-review-labels.json",
+    "labels_sha256": "54f94d69623f059a4aaa2d93bd7e2a8da0e13dddd38effd52ea0d2bb8206c497",
+    "method": "Worker instructed to label input only and reported model-output blinding; not human gold or independently audited blinding.",
+    "counts": {
+      "solar-pro3": [
+        {
+          "agent_label": "ambiguous",
+          "model_state": "selected",
+          "count": 7
+        },
+        {
+          "agent_label": "assertion",
+          "model_state": "selected",
+          "count": 27
+        },
+        {
+          "agent_label": "assertion",
+          "model_state": "unknown",
+          "count": 2
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "empty",
+          "count": 14
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "selected",
+          "count": 3
+        }
+      ],
+      "solar-pro4": [
+        {
+          "agent_label": "ambiguous",
+          "model_state": "empty",
+          "count": 1
+        },
+        {
+          "agent_label": "ambiguous",
+          "model_state": "selected",
+          "count": 6
+        },
+        {
+          "agent_label": "assertion",
+          "model_state": "selected",
+          "count": 28
+        },
+        {
+          "agent_label": "assertion",
+          "model_state": "unknown",
+          "count": 1
+        },
+        {
+          "agent_label": "nonassertion",
+          "model_state": "empty",
+          "count": 17
+        }
+      ]
+    }
+  },
+  "service_pilots": [
+    {
+      "report": "naver",
+      "artifact": ".local/context-loop/naver/service-pro4/inspection-1789227482660192000.json",
+      "sha256": "191f7d66bc3d91b534d7b540758d22f9a1a862a4a09df540f0f3fe392473f887",
+      "run_id": "0c71dbb7-31ae-4784-9bfc-85af1ec6a3ed",
+      "source_sha256": "75388f16c13739a671fd158c383502d81968fe587f2372ab0f9306f3d2c1a2c6",
+      "pages": [
+        90
+      ],
+      "model": "solar-pro4",
+      "claims_http_status": 200,
+      "claims": 3,
+      "detail_http_status": 200,
+      "cost": {
+        "run_id": "0c71dbb7-31ae-4784-9bfc-85af1ec6a3ed",
+        "input_tokens": 4424,
+        "output_tokens": 128,
+        "attempt_count": 8,
+        "cache_hit_count": 0,
+        "amount": "0.001628880",
+        "currency": "USD",
+        "pricing_snapshot_id": null,
+        "cost_status": "known"
+      },
+      "tag_status": "untagged",
+      "grades_computed": false
+    },
+    {
+      "report": "kia",
+      "artifact": ".local/context-loop/kia/service-pro4/inspection-1789227454833157000.json",
+      "sha256": "5c27b2f8753f7dbf0da022ef7388a5b41560c4e48a2a0f3804d816db0a7a156a",
+      "run_id": "51241897-c3ff-42e5-822c-e809a2f9ed1f",
+      "source_sha256": "d0d814d98c4aeedbbdb2bf8631b8981ae5cde94dec32aa32c57510420274da1f",
+      "pages": [
+        45
+      ],
+      "model": "solar-pro4",
+      "claims_http_status": 200,
+      "claims": 7,
+      "detail_http_status": 200,
+      "cost": {
+        "run_id": "51241897-c3ff-42e5-822c-e809a2f9ed1f",
+        "input_tokens": 4509,
+        "output_tokens": 291,
+        "attempt_count": 8,
+        "cache_hit_count": 0,
+        "amount": "0.001872090",
+        "currency": "USD",
+        "pricing_snapshot_id": null,
+        "cost_status": "known"
+      },
+      "tag_status": "untagged",
+      "grades_computed": false
+    }
+  ],
+  "validator_provenance_correction": {
+    "loaded_validator_sha256": "b75dd8e044eaaea2251df5786a7561b2bcb27bbcbc0706295da87e592be79a43",
+    "source": "first plan hash at process start; Python module loaded once, no hot reload",
+    "affected_plans": [
+      ".local/context-loop/naver/unseen-pages/solar-pro4-87f639c1-220e-4a66-a9f5-e5e1b9649e44/plan.json"
+    ],
+    "reason": "One late plan read changed on-disk validator hash while process retained prior imported validator. Original results/plans preserved; current guard replay is separate."
+  },
+  "quote_guard_replay": {
+    "artifact": ".local/context-loop/quote-guard-replay.json",
+    "sha256": "74ffe849688d8837d6ebeb5af8deaba53e5dcd854f5035270cf286fcc2a5a3b6",
+    "validator_sha256": "491ced23cf63e0c09216d9d6eec5cb487e566086510be0b52b8117c6cd1049c7",
+    "network_calls": 0,
+    "total": 206,
+    "newly_unknown": [
+      {
+        "summary": ".local/context-loop/naver/pro4-default-8e0ed988-c048-4468-804a-a75e898604c7/summary.json",
+        "source_id": "4879ddb9-cbed-5cb8-8e73-1c4ef6fdca23",
+        "original_status": "processed",
+        "status": "unknown",
+        "error": "claim quote cuts a token boundary"
+      }
+    ]
+  },
+  "orchestration": {
+    "run_id": "run_436abc222c05",
+    "providers": [
+      "OpenCode Muse Spark 1.3 Free",
+      "OpenCode Muse Spark 1.2 Free"
+    ],
+    "codex_workers_spawned": 0
+  }
+}

@@ -1,0 +1,1317 @@
+{
+  "request_id": "63e79b38-3ce5-4332-89b4-8716cf1d8226",
+  "prompt_sha256": "734e6daedbbe0bccba8d54c1847f78bc0bdd97c1331f3fbed4d3f620b8f89dfe",
+  "rule_sha256": "8bb1dc4943fc93705b906436cf3798d198e8a8ced4198e6cedf1405868b27856",
+  "provider_model_sha256": "62b1bac0088e6664d7d0fec38e1bf42240e844236bf917f7adc7fa331524df1b",
+  "packet_sha256": "749782c5a2395ee0d748fc6a632d375e8321010c492ab4c916cbc6c8a8afa9ae",
+  "reviews": [
+    {
+      "id": "q0",
+      "source_id": "32ae97f9-e49d-5a02-9c57-45cbf4579e8b",
+      "claim_span": {
+        "char_start": 69,
+        "char_end": 223,
+        "quote": "향후 생산능력 확대 및 글로벌 사업 확장에 따른 배출량 증가 요인에도 불구하고, Scope 1 및 Scope 2 배출량을 기준연도(2019년, 951만 tCO₂e) 수준으로 관리하는 탄소중립 성장(Carbon Neutral Growth)을 2030년 목표로 설정하고 있습니다."
+      },
+      "dimensions": {
+        "entity": {
+          "state": "unknown",
+          "source_ref": null,
+          "request_id": null
+        },
+        "metric": {
+          "state": "unknown",
+          "source_ref": null,
+          "request_id": null
+        },
+        "scope": {
+          "state": "model_proposed",
+          "source_ref": {
+            "source_id": "32ae97f9-e49d-5a02-9c57-45cbf4579e8b",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "page_num": 24,
+            "printed_page_label": "24",
+            "bbox": [
+              38.438,
+              138.4369999999999,
+              803.816,
+              212.3219999999999
+            ],
+            "raw_text_sha256": "402c08ed4de00cd2ab1096f715f77b6e5b20b555b252d4268d559873b971a111",
+            "quote": "Scope 1 및 Scope 2",
+            "char_start": 114,
+            "char_end": 131,
+            "location_quality": "located",
+            "verification_state": "candidate"
+          },
+          "request_id": "64cb4537-38c0-43e9-8ce9-fb9d7aad6396"
+        },
+        "unit": {
+          "state": "model_proposed",
+          "source_ref": {
+            "source_id": "32ae97f9-e49d-5a02-9c57-45cbf4579e8b",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "page_num": 24,
+            "printed_page_label": "24",
+            "bbox": [
+              38.438,
+              138.4369999999999,
+              803.816,
+              212.3219999999999
+            ],
+            "raw_text_sha256": "402c08ed4de00cd2ab1096f715f77b6e5b20b555b252d4268d559873b971a111",
+            "quote": "tCO₂e",
+            "char_start": 154,
+            "char_end": 159,
+            "location_quality": "located",
+            "verification_state": "candidate"
+          },
+          "request_id": "64cb4537-38c0-43e9-8ce9-fb9d7aad6396"
+        },
+        "reporting_period": {
+          "state": "unknown",
+          "source_ref": null,
+          "request_id": null
+        },
+        "baseline_period": {
+          "state": "model_proposed",
+          "source_ref": {
+            "source_id": "32ae97f9-e49d-5a02-9c57-45cbf4579e8b",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "page_num": 24,
+            "printed_page_label": "24",
+            "bbox": [
+              38.438,
+              138.4369999999999,
+              803.816,
+              212.3219999999999
+            ],
+            "raw_text_sha256": "402c08ed4de00cd2ab1096f715f77b6e5b20b555b252d4268d559873b971a111",
+            "quote": "2019년",
+            "char_start": 142,
+            "char_end": 147,
+            "location_quality": "located",
+            "verification_state": "candidate"
+          },
+          "request_id": "5bca8f8e-faff-4314-b87d-45759920f00e"
+        },
+        "target_period": {
+          "state": "model_proposed",
+          "source_ref": {
+            "source_id": "32ae97f9-e49d-5a02-9c57-45cbf4579e8b",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "page_num": 24,
+            "printed_page_label": "24",
+            "bbox": [
+              38.438,
+              138.4369999999999,
+              803.816,
+              212.3219999999999
+            ],
+            "raw_text_sha256": "402c08ed4de00cd2ab1096f715f77b6e5b20b555b252d4268d559873b971a111",
+            "quote": "2030년",
+            "char_start": 203,
+            "char_end": 208,
+            "location_quality": "located",
+            "verification_state": "candidate"
+          },
+          "request_id": "5bca8f8e-faff-4314-b87d-45759920f00e"
+        },
+        "reported_value": {
+          "state": "unknown",
+          "source_ref": null,
+          "request_id": null
+        },
+        "baseline_value": {
+          "state": "model_proposed",
+          "source_ref": {
+            "source_id": "32ae97f9-e49d-5a02-9c57-45cbf4579e8b",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "page_num": 24,
+            "printed_page_label": "24",
+            "bbox": [
+              38.438,
+              138.4369999999999,
+              803.816,
+              212.3219999999999
+            ],
+            "raw_text_sha256": "402c08ed4de00cd2ab1096f715f77b6e5b20b555b252d4268d559873b971a111",
+            "quote": "951만 tCO₂e",
+            "char_start": 149,
+            "char_end": 159,
+            "location_quality": "located",
+            "verification_state": "candidate"
+          },
+          "request_id": "64cb4537-38c0-43e9-8ce9-fb9d7aad6396"
+        },
+        "target_value": {
+          "state": "unknown",
+          "source_ref": null,
+          "request_id": null
+        },
+        "scope2_basis": {
+          "state": "unknown",
+          "source_ref": null,
+          "request_id": null
+        },
+        "boundary": {
+          "state": "unknown",
+          "source_ref": null,
+          "request_id": null
+        }
+      },
+      "binding_status": "undetermined",
+      "review_only": true,
+      "measurement_role": {
+        "value": "emissions_level",
+        "state": "model_proposed",
+        "source_ref": {
+          "source_id": "32ae97f9-e49d-5a02-9c57-45cbf4579e8b",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 24,
+          "printed_page_label": "24",
+          "bbox": [
+            38.438,
+            138.4369999999999,
+            803.816,
+            212.3219999999999
+          ],
+          "raw_text_sha256": "402c08ed4de00cd2ab1096f715f77b6e5b20b555b252d4268d559873b971a111",
+          "quote": "향후 생산능력 확대 및 글로벌 사업 확장에 따른 배출량 증가 요인에도 불구하고, Scope 1 및 Scope 2 배출량을 기준연도(2019년, 951만 tCO₂e) 수준으로 관리하는 탄소중립 성장(Carbon Neutral Growth)을 2030년 목표로 설정하고 있습니다.",
+          "char_start": 69,
+          "char_end": 223,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        }
+      },
+      "measurement_request_id": "63e79b38-3ce5-4332-89b4-8716cf1d8226",
+      "comparison_ready": false,
+      "unresolved_dimensions": [
+        "entity",
+        "metric",
+        "reporting_period",
+        "reported_value",
+        "target_value",
+        "scope2_basis",
+        "boundary"
+      ],
+      "source_quality": "unverified"
+    },
+    {
+      "id": "q1",
+      "source_id": "1c115c9f-6314-5690-8ef2-52d47cf67441",
+      "claim_span": {
+        "char_start": 77,
+        "char_end": 164,
+        "quote": "2025년에는 총 8건의 에너지 효율화 과제를 통해 약 3만 톤의 온실가스를 저감하였으며, 주요 생산공정정에서 추진한 에너지 효율화 사례는 다음과 같습니다."
+      },
+      "dimensions": {
+        "entity": {
+          "state": "unknown",
+          "source_ref": null,
+          "request_id": null
+        },
+        "metric": {
+          "state": "unknown",
+          "source_ref": null,
+          "request_id": null
+        },
+        "scope": {
+          "state": "unknown",
+          "source_ref": null,
+          "request_id": null
+        },
+        "unit": {
+          "state": "model_proposed",
+          "source_ref": {
+            "source_id": "1c115c9f-6314-5690-8ef2-52d47cf67441",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "page_num": 24,
+            "printed_page_label": "24",
+            "bbox": [
+              38.438,
+              589.9369999999999,
+              367.501,
+              651.8219999999999
+            ],
+            "raw_text_sha256": "53eb467076b9c0925001d5d947c66cab4710ec2e4fc5e91c39922c5e732d63ed",
+            "quote": "톤",
+            "char_start": 111,
+            "char_end": 112,
+            "location_quality": "located",
+            "verification_state": "candidate"
+          },
+          "request_id": "64cb4537-38c0-43e9-8ce9-fb9d7aad6396"
+        },
+        "reporting_period": {
+          "state": "model_proposed",
+          "source_ref": {
+            "source_id": "1c115c9f-6314-5690-8ef2-52d47cf67441",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "page_num": 24,
+            "printed_page_label": "24",
+            "bbox": [
+              38.438,
+              589.9369999999999,
+              367.501,
+              651.8219999999999
+            ],
+            "raw_text_sha256": "53eb467076b9c0925001d5d947c66cab4710ec2e4fc5e91c39922c5e732d63ed",
+            "quote": "2025년",
+            "char_start": 77,
+            "char_end": 82,
+            "location_quality": "located",
+            "verification_state": "candidate"
+          },
+          "request_id": "5bca8f8e-faff-4314-b87d-45759920f00e"
+        },
+        "baseline_period": {
+          "state": "unknown",
+          "source_ref": null,
+          "request_id": null
+        },
+        "target_period": {
+          "state": "unknown",
+          "source_ref": null,
+          "request_id": null
+        },
+        "reported_value": {
+          "state": "model_proposed",
+          "source_ref": {
+            "source_id": "1c115c9f-6314-5690-8ef2-52d47cf67441",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "page_num": 24,
+            "printed_page_label": "24",
+            "bbox": [
+              38.438,
+              589.9369999999999,
+              367.501,
+              651.8219999999999
+            ],
+            "raw_text_sha256": "53eb467076b9c0925001d5d947c66cab4710ec2e4fc5e91c39922c5e732d63ed",
+            "quote": "약 3만 톤",
+            "char_start": 106,
+            "char_end": 112,
+            "location_quality": "located",
+            "verification_state": "candidate"
+          },
+          "request_id": "64cb4537-38c0-43e9-8ce9-fb9d7aad6396"
+        },
+        "baseline_value": {
+          "state": "unknown",
+          "source_ref": null,
+          "request_id": null
+        },
+        "target_value": {
+          "state": "unknown",
+          "source_ref": null,
+          "request_id": null
+        },
+        "scope2_basis": {
+          "state": "unknown",
+          "source_ref": null,
+          "request_id": null
+        },
+        "boundary": {
+          "state": "unknown",
+          "source_ref": null,
+          "request_id": null
+        }
+      },
+      "binding_status": "undetermined",
+      "review_only": true,
+      "measurement_role": {
+        "value": "emissions_change",
+        "state": "model_proposed",
+        "source_ref": {
+          "source_id": "1c115c9f-6314-5690-8ef2-52d47cf67441",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 24,
+          "printed_page_label": "24",
+          "bbox": [
+            38.438,
+            589.9369999999999,
+            367.501,
+            651.8219999999999
+          ],
+          "raw_text_sha256": "53eb467076b9c0925001d5d947c66cab4710ec2e4fc5e91c39922c5e732d63ed",
+          "quote": "2025년에는 총 8건의 에너지 효율화 과제를 통해 약 3만 톤의 온실가스를 저감하였으며, 주요 생산공정정에서 추진한 에너지 효율화 사례는 다음과 같습니다.",
+          "char_start": 77,
+          "char_end": 164,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        }
+      },
+      "measurement_request_id": "63e79b38-3ce5-4332-89b4-8716cf1d8226",
+      "comparison_ready": false,
+      "unresolved_dimensions": [
+        "entity",
+        "metric",
+        "scope",
+        "baseline_period",
+        "target_period",
+        "baseline_value",
+        "target_value",
+        "scope2_basis",
+        "boundary"
+      ],
+      "source_quality": "unverified"
+    }
+  ],
+  "table_observation_refs": [
+    {
+      "observation_id": "be21fb2b-0ad2-58a2-992c-79dd27a97d02",
+      "metric_raw": "Scope 1·2 배출량",
+      "period": "2023",
+      "quality": "unverified",
+      "source_refs": [
+        {
+          "source_id": "02a04a48-e302-5264-81de-c8f3fb6fc225",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            459.75,
+            409.0447058823563,
+            574.5,
+            428.4756521739164
+          ],
+          "raw_text_sha256": "d398b29d3dbbb9bf201d4c7e1c19ff9d43c15fd45a0cec46fbe9885ec3f6e97f",
+          "quote": "2023",
+          "char_start": 0,
+          "char_end": 4,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        {
+          "source_id": "2a4a8d61-d5ef-5a16-b162-24c5ac74937b",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            344.25,
+            428.4756521739164,
+            459.75,
+            449.4675000000034
+          ],
+          "raw_text_sha256": "5f679c4e9258f1c3a31500ea4e53345c396841b2fed2105f3762e304042de5cc",
+          "quote": "tCO e\n2",
+          "char_start": 0,
+          "char_end": 7,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        {
+          "source_id": "42566894-e66c-5b87-a0d1-f7fc58460381",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            38.25,
+            428.4756521739164,
+            153.0,
+            513.2175000000034
+          ],
+          "raw_text_sha256": "d0a6ca9739a5ae97a2b1724e52e30b042109d960433406050591116ec4c41b19",
+          "quote": "Scope 1·2 배출량",
+          "char_start": 0,
+          "char_end": 13,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        {
+          "source_id": "d2791147-66c6-5386-b819-c1fca5c47d02",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            153.0,
+            428.4756521739164,
+            344.25,
+            449.4675000000034
+          ],
+          "raw_text_sha256": "e0587f75ed317902e7232eba2a472d198bd4102a61a8692f371fbe60adeeeabc",
+          "quote": "글로벌",
+          "char_start": 0,
+          "char_end": 3,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        {
+          "source_id": "dbcc0fa2-4de5-5c37-b204-d40e487a87f8",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            459.75,
+            428.4756521739164,
+            574.5,
+            449.4675000000034
+          ],
+          "raw_text_sha256": "5c3dcd10d792c865e725bb0793ebe06d2b0dd7a3f4bffe9e87e2cb65d21ada61",
+          "quote": "9,079,127",
+          "char_start": 0,
+          "char_end": 9,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        }
+      ]
+    },
+    {
+      "observation_id": "cf1d4418-5a11-52eb-96e1-aebe4dabb1a0",
+      "metric_raw": "Scope 1·2 배출량",
+      "period": "2024",
+      "quality": "unverified",
+      "source_refs": [
+        {
+          "source_id": "2a4a8d61-d5ef-5a16-b162-24c5ac74937b",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            344.25,
+            428.4756521739164,
+            459.75,
+            449.4675000000034
+          ],
+          "raw_text_sha256": "5f679c4e9258f1c3a31500ea4e53345c396841b2fed2105f3762e304042de5cc",
+          "quote": "tCO e\n2",
+          "char_start": 0,
+          "char_end": 7,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        {
+          "source_id": "42566894-e66c-5b87-a0d1-f7fc58460381",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            38.25,
+            428.4756521739164,
+            153.0,
+            513.2175000000034
+          ],
+          "raw_text_sha256": "d0a6ca9739a5ae97a2b1724e52e30b042109d960433406050591116ec4c41b19",
+          "quote": "Scope 1·2 배출량",
+          "char_start": 0,
+          "char_end": 13,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        {
+          "source_id": "a5dbeac8-2d01-5f94-9207-f712f661b295",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            574.5,
+            428.4756521739164,
+            689.25,
+            449.4675000000034
+          ],
+          "raw_text_sha256": "6791d02ebb2103f66d249577b11118d5a05ffdfba855fbb929f0fb9b31c791c4",
+          "quote": "9,335,444",
+          "char_start": 0,
+          "char_end": 9,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        {
+          "source_id": "d2791147-66c6-5386-b819-c1fca5c47d02",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            153.0,
+            428.4756521739164,
+            344.25,
+            449.4675000000034
+          ],
+          "raw_text_sha256": "e0587f75ed317902e7232eba2a472d198bd4102a61a8692f371fbe60adeeeabc",
+          "quote": "글로벌",
+          "char_start": 0,
+          "char_end": 3,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        {
+          "source_id": "e1ab9fdc-406d-5bd2-8c73-2357914b3e95",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            574.5,
+            409.0447058823563,
+            689.25,
+            428.4756521739164
+          ],
+          "raw_text_sha256": "6557739a67283a8de383fc5c0997fbec7c5721a46f28f3235fc9607598d9016b",
+          "quote": "2024",
+          "char_start": 0,
+          "char_end": 4,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        }
+      ]
+    },
+    {
+      "observation_id": "838103aa-896b-5229-93e2-7749520de928",
+      "metric_raw": "Scope 1·2 배출량",
+      "period": "2025",
+      "quality": "unverified",
+      "source_refs": [
+        {
+          "source_id": "2a4a8d61-d5ef-5a16-b162-24c5ac74937b",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            344.25,
+            428.4756521739164,
+            459.75,
+            449.4675000000034
+          ],
+          "raw_text_sha256": "5f679c4e9258f1c3a31500ea4e53345c396841b2fed2105f3762e304042de5cc",
+          "quote": "tCO e\n2",
+          "char_start": 0,
+          "char_end": 7,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        {
+          "source_id": "42566894-e66c-5b87-a0d1-f7fc58460381",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            38.25,
+            428.4756521739164,
+            153.0,
+            513.2175000000034
+          ],
+          "raw_text_sha256": "d0a6ca9739a5ae97a2b1724e52e30b042109d960433406050591116ec4c41b19",
+          "quote": "Scope 1·2 배출량",
+          "char_start": 0,
+          "char_end": 13,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        {
+          "source_id": "8b35f81e-415c-5610-8f2d-b9591fd464d8",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            689.25,
+            428.4756521739164,
+            804.0,
+            449.4675000000034
+          ],
+          "raw_text_sha256": "6cfc74809cadf4eaac7f9ce40bd873a7d4d8fe137b6fad5f7368dbe38e27bc20",
+          "quote": "8,889,779",
+          "char_start": 0,
+          "char_end": 9,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        {
+          "source_id": "d2791147-66c6-5386-b819-c1fca5c47d02",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            153.0,
+            428.4756521739164,
+            344.25,
+            449.4675000000034
+          ],
+          "raw_text_sha256": "e0587f75ed317902e7232eba2a472d198bd4102a61a8692f371fbe60adeeeabc",
+          "quote": "글로벌",
+          "char_start": 0,
+          "char_end": 3,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        {
+          "source_id": "d456e0c5-b1d7-5bc3-ac57-b8d7c7fd0f8b",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            689.25,
+            409.0447058823563,
+            804.0,
+            428.4756521739164
+          ],
+          "raw_text_sha256": "b2b2f104d32c638903e151a9b20d6e27b41d8c0c84cf8458738f83ca2f1dd744",
+          "quote": "2025",
+          "char_start": 0,
+          "char_end": 4,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        }
+      ]
+    },
+    {
+      "observation_id": "98ef0a51-9742-5dc7-9395-0f85c0f37abc",
+      "metric_raw": "Scope 1 배출량",
+      "period": "2023",
+      "quality": "unverified",
+      "source_refs": [
+        {
+          "source_id": "02a04a48-e302-5264-81de-c8f3fb6fc225",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            459.75,
+            409.0447058823563,
+            574.5,
+            428.4756521739164
+          ],
+          "raw_text_sha256": "d398b29d3dbbb9bf201d4c7e1c19ff9d43c15fd45a0cec46fbe9885ec3f6e97f",
+          "quote": "2023",
+          "char_start": 0,
+          "char_end": 4,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        {
+          "source_id": "34dd824c-df69-5cec-9e50-3c96a1f7ff29",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            38.25,
+            513.2175000000034,
+            153.0,
+            597.9675000000034
+          ],
+          "raw_text_sha256": "463b0eb5f8d2d75a50fda1a1d809e892d5c16fef683ec9d98e9acd35bc82b8c6",
+          "quote": "Scope 1 배출량",
+          "char_start": 0,
+          "char_end": 11,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        {
+          "source_id": "a90e6cfe-65e8-5e71-b9d2-13139a504ee7",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            344.25,
+            513.2175000000034,
+            459.75,
+            534.5925000000034
+          ],
+          "raw_text_sha256": "5f679c4e9258f1c3a31500ea4e53345c396841b2fed2105f3762e304042de5cc",
+          "quote": "tCO e\n2",
+          "char_start": 0,
+          "char_end": 7,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        {
+          "source_id": "cb76d8ed-48a1-5bb1-a338-8ddcb9296e2e",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            459.75,
+            513.2175000000034,
+            574.5,
+            534.5925000000034
+          ],
+          "raw_text_sha256": "7f7243dd9b83f0b94a8a38dd94d6f06aeb9a8fca662b61f39937a445fe8e49ed",
+          "quote": "5,188,120",
+          "char_start": 0,
+          "char_end": 9,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        {
+          "source_id": "e08dee4f-9d26-57d8-a2d9-f080ea108ed7",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            153.0,
+            513.2175000000034,
+            344.25,
+            534.5925000000034
+          ],
+          "raw_text_sha256": "e0587f75ed317902e7232eba2a472d198bd4102a61a8692f371fbe60adeeeabc",
+          "quote": "글로벌",
+          "char_start": 0,
+          "char_end": 3,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        }
+      ]
+    },
+    {
+      "observation_id": "8b9bb712-c215-5099-a815-ed20e427987d",
+      "metric_raw": "Scope 1 배출량",
+      "period": "2024",
+      "quality": "unverified",
+      "source_refs": [
+        {
+          "source_id": "34dd824c-df69-5cec-9e50-3c96a1f7ff29",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            38.25,
+            513.2175000000034,
+            153.0,
+            597.9675000000034
+          ],
+          "raw_text_sha256": "463b0eb5f8d2d75a50fda1a1d809e892d5c16fef683ec9d98e9acd35bc82b8c6",
+          "quote": "Scope 1 배출량",
+          "char_start": 0,
+          "char_end": 11,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        {
+          "source_id": "42d73728-82ae-5c0e-84be-19acde99609d",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            574.5,
+            513.2175000000034,
+            689.25,
+            534.5925000000034
+          ],
+          "raw_text_sha256": "2b46de1e8ede469b63d6154c3de13d934daaf54b8e9e285e0f876ae6380813d0",
+          "quote": "5,659,154",
+          "char_start": 0,
+          "char_end": 9,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        {
+          "source_id": "a90e6cfe-65e8-5e71-b9d2-13139a504ee7",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            344.25,
+            513.2175000000034,
+            459.75,
+            534.5925000000034
+          ],
+          "raw_text_sha256": "5f679c4e9258f1c3a31500ea4e53345c396841b2fed2105f3762e304042de5cc",
+          "quote": "tCO e\n2",
+          "char_start": 0,
+          "char_end": 7,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        {
+          "source_id": "e08dee4f-9d26-57d8-a2d9-f080ea108ed7",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            153.0,
+            513.2175000000034,
+            344.25,
+            534.5925000000034
+          ],
+          "raw_text_sha256": "e0587f75ed317902e7232eba2a472d198bd4102a61a8692f371fbe60adeeeabc",
+          "quote": "글로벌",
+          "char_start": 0,
+          "char_end": 3,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        {
+          "source_id": "e1ab9fdc-406d-5bd2-8c73-2357914b3e95",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            574.5,
+            409.0447058823563,
+            689.25,
+            428.4756521739164
+          ],
+          "raw_text_sha256": "6557739a67283a8de383fc5c0997fbec7c5721a46f28f3235fc9607598d9016b",
+          "quote": "2024",
+          "char_start": 0,
+          "char_end": 4,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        }
+      ]
+    },
+    {
+      "observation_id": "9aa19086-7089-5a13-9d15-e91221564f78",
+      "metric_raw": "Scope 1 배출량",
+      "period": "2025",
+      "quality": "unverified",
+      "source_refs": [
+        {
+          "source_id": "34dd824c-df69-5cec-9e50-3c96a1f7ff29",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            38.25,
+            513.2175000000034,
+            153.0,
+            597.9675000000034
+          ],
+          "raw_text_sha256": "463b0eb5f8d2d75a50fda1a1d809e892d5c16fef683ec9d98e9acd35bc82b8c6",
+          "quote": "Scope 1 배출량",
+          "char_start": 0,
+          "char_end": 11,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        {
+          "source_id": "a90e6cfe-65e8-5e71-b9d2-13139a504ee7",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            344.25,
+            513.2175000000034,
+            459.75,
+            534.5925000000034
+          ],
+          "raw_text_sha256": "5f679c4e9258f1c3a31500ea4e53345c396841b2fed2105f3762e304042de5cc",
+          "quote": "tCO e\n2",
+          "char_start": 0,
+          "char_end": 7,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        {
+          "source_id": "ba9f0d4a-6d47-5aac-b8a6-4a78a7d25c0e",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            689.25,
+            513.2175000000034,
+            804.0,
+            534.5925000000034
+          ],
+          "raw_text_sha256": "94268051809c26a0c43e24ee011fa5f66b677ff4e25db768044db9df329e8031",
+          "quote": "5,142,284",
+          "char_start": 0,
+          "char_end": 9,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        {
+          "source_id": "d456e0c5-b1d7-5bc3-ac57-b8d7c7fd0f8b",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            689.25,
+            409.0447058823563,
+            804.0,
+            428.4756521739164
+          ],
+          "raw_text_sha256": "b2b2f104d32c638903e151a9b20d6e27b41d8c0c84cf8458738f83ca2f1dd744",
+          "quote": "2025",
+          "char_start": 0,
+          "char_end": 4,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        {
+          "source_id": "e08dee4f-9d26-57d8-a2d9-f080ea108ed7",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            153.0,
+            513.2175000000034,
+            344.25,
+            534.5925000000034
+          ],
+          "raw_text_sha256": "e0587f75ed317902e7232eba2a472d198bd4102a61a8692f371fbe60adeeeabc",
+          "quote": "글로벌",
+          "char_start": 0,
+          "char_end": 3,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        }
+      ]
+    },
+    {
+      "observation_id": "1e912a1e-0c96-53a8-a7ed-fd4d6b816842",
+      "metric_raw": "Scope 2 배출량",
+      "period": "2023",
+      "quality": "unverified",
+      "source_refs": [
+        {
+          "source_id": "02a04a48-e302-5264-81de-c8f3fb6fc225",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            459.75,
+            409.0447058823563,
+            574.5,
+            428.4756521739164
+          ],
+          "raw_text_sha256": "d398b29d3dbbb9bf201d4c7e1c19ff9d43c15fd45a0cec46fbe9885ec3f6e97f",
+          "quote": "2023",
+          "char_start": 0,
+          "char_end": 4,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        {
+          "source_id": "64e97131-73eb-5c40-bb63-b16153dc1fca",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            153.0,
+            597.9675000000034,
+            344.25,
+            619.3425000000034
+          ],
+          "raw_text_sha256": "e0587f75ed317902e7232eba2a472d198bd4102a61a8692f371fbe60adeeeabc",
+          "quote": "글로벌",
+          "char_start": 0,
+          "char_end": 3,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        {
+          "source_id": "73025fa2-6ad3-507b-b982-f016b37f0f30",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            459.75,
+            597.9675000000034,
+            574.5,
+            619.3425000000034
+          ],
+          "raw_text_sha256": "7d5fa7bacc31b499f01b94b605dd4a8f8873419f0d633dc24a26974250ff9895",
+          "quote": "3,891,007",
+          "char_start": 0,
+          "char_end": 9,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        {
+          "source_id": "77be4774-7b56-543c-ab73-137d56dd92ab",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            344.25,
+            597.9675000000034,
+            459.75,
+            619.3425000000034
+          ],
+          "raw_text_sha256": "5f679c4e9258f1c3a31500ea4e53345c396841b2fed2105f3762e304042de5cc",
+          "quote": "tCO e\n2",
+          "char_start": 0,
+          "char_end": 7,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        {
+          "source_id": "789b9be2-a7e0-53bc-9c43-ddec77724f18",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            38.25,
+            597.9675000000034,
+            153.0,
+            725.5300000000034
+          ],
+          "raw_text_sha256": "2940de175804a6ed5d9565b6aaafd5a87619fe9d7a88f7b37fccef3253ea49dd",
+          "quote": "Scope 2 배출량",
+          "char_start": 0,
+          "char_end": 11,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        }
+      ]
+    },
+    {
+      "observation_id": "e3bbf329-e4fe-5eba-9393-5f109e6f3cbb",
+      "metric_raw": "Scope 2 배출량",
+      "period": "2024",
+      "quality": "unverified",
+      "source_refs": [
+        {
+          "source_id": "0c8a7609-e5b3-5cb8-be96-d391968bf9e9",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            574.5,
+            597.9675000000034,
+            689.25,
+            619.3425000000034
+          ],
+          "raw_text_sha256": "cc256097f22ddf1f8a6ffd4a3cb1112d6e5c03f1f2c50da1c03d3fa49e12eb54",
+          "quote": "3,676,290",
+          "char_start": 0,
+          "char_end": 9,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        {
+          "source_id": "64e97131-73eb-5c40-bb63-b16153dc1fca",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            153.0,
+            597.9675000000034,
+            344.25,
+            619.3425000000034
+          ],
+          "raw_text_sha256": "e0587f75ed317902e7232eba2a472d198bd4102a61a8692f371fbe60adeeeabc",
+          "quote": "글로벌",
+          "char_start": 0,
+          "char_end": 3,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        {
+          "source_id": "77be4774-7b56-543c-ab73-137d56dd92ab",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            344.25,
+            597.9675000000034,
+            459.75,
+            619.3425000000034
+          ],
+          "raw_text_sha256": "5f679c4e9258f1c3a31500ea4e53345c396841b2fed2105f3762e304042de5cc",
+          "quote": "tCO e\n2",
+          "char_start": 0,
+          "char_end": 7,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        {
+          "source_id": "789b9be2-a7e0-53bc-9c43-ddec77724f18",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            38.25,
+            597.9675000000034,
+            153.0,
+            725.5300000000034
+          ],
+          "raw_text_sha256": "2940de175804a6ed5d9565b6aaafd5a87619fe9d7a88f7b37fccef3253ea49dd",
+          "quote": "Scope 2 배출량",
+          "char_start": 0,
+          "char_end": 11,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        {
+          "source_id": "e1ab9fdc-406d-5bd2-8c73-2357914b3e95",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            574.5,
+            409.0447058823563,
+            689.25,
+            428.4756521739164
+          ],
+          "raw_text_sha256": "6557739a67283a8de383fc5c0997fbec7c5721a46f28f3235fc9607598d9016b",
+          "quote": "2024",
+          "char_start": 0,
+          "char_end": 4,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        }
+      ]
+    },
+    {
+      "observation_id": "67251673-2be4-545b-a9c5-25a44217a601",
+      "metric_raw": "Scope 2 배출량",
+      "period": "2025",
+      "quality": "unverified",
+      "source_refs": [
+        {
+          "source_id": "64945984-edf0-571b-ac83-24998b8c5a64",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            689.25,
+            597.9675000000034,
+            804.0,
+            619.3425000000034
+          ],
+          "raw_text_sha256": "9ebb57d7f9b525673b640a254ae03aaad09a86880edf254a8745bfc4aaa0b5a8",
+          "quote": "3,747,495",
+          "char_start": 0,
+          "char_end": 9,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        {
+          "source_id": "64e97131-73eb-5c40-bb63-b16153dc1fca",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            153.0,
+            597.9675000000034,
+            344.25,
+            619.3425000000034
+          ],
+          "raw_text_sha256": "e0587f75ed317902e7232eba2a472d198bd4102a61a8692f371fbe60adeeeabc",
+          "quote": "글로벌",
+          "char_start": 0,
+          "char_end": 3,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        {
+          "source_id": "77be4774-7b56-543c-ab73-137d56dd92ab",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            344.25,
+            597.9675000000034,
+            459.75,
+            619.3425000000034
+          ],
+          "raw_text_sha256": "5f679c4e9258f1c3a31500ea4e53345c396841b2fed2105f3762e304042de5cc",
+          "quote": "tCO e\n2",
+          "char_start": 0,
+          "char_end": 7,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        {
+          "source_id": "789b9be2-a7e0-53bc-9c43-ddec77724f18",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            38.25,
+            597.9675000000034,
+            153.0,
+            725.5300000000034
+          ],
+          "raw_text_sha256": "2940de175804a6ed5d9565b6aaafd5a87619fe9d7a88f7b37fccef3253ea49dd",
+          "quote": "Scope 2 배출량",
+          "char_start": 0,
+          "char_end": 11,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        {
+          "source_id": "d456e0c5-b1d7-5bc3-ac57-b8d7c7fd0f8b",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 97,
+          "printed_page_label": "97",
+          "bbox": [
+            689.25,
+            409.0447058823563,
+            804.0,
+            428.4756521739164
+          ],
+          "raw_text_sha256": "b2b2f104d32c638903e151a9b20d6e27b41d8c0c84cf8458738f83ca2f1dd744",
+          "quote": "2025",
+          "char_start": 0,
+          "char_end": 4,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        }
+      ]
+    }
+  ],
+  "comparison_note": "Review only: p97 selected rows describe emissions levels; project reduction amounts require compatible change/project evidence. No canonical metric alias, entity boundary, source approval or binding accepted.",
+  "budget": {
+    "before": {
+      "limit_usd": "10.00",
+      "calls": 87,
+      "unsettled_calls": 2,
+      "committed_usd": "2.0367664550"
+    },
+    "after": {
+      "limit_usd": "10.00",
+      "calls": 88,
+      "unsettled_calls": 2,
+      "committed_usd": "2.0368969700"
+    }
+  },
+  "additional_committed_usd": "0.0001305150",
+  "decision": null
+}

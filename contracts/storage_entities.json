@@ -1,0 +1,163 @@
+[
+  {
+    "name": "Tenant",
+    "pk": "T#{t}",
+    "sk": "META",
+    "fields": "name:S!, status:S!=active, created_at:TS!, updated_at:TS!, schema_version:N!=1",
+    "notes": "테넌트 설정; 물리 삭제는 retention 작업만"
+  },
+  {
+    "name": "Membership",
+    "pk": "T#{t}",
+    "sk": "MEMBER#{user}",
+    "fields": "user_sub:S!, role:Enum(viewer|editor|reviewer|admin)!, status:Enum(active|revoked)!, revision:N!=1",
+    "notes": "테넌트별 PK/SK unique; 모든 권한 검사에 사용"
+  },
+  {
+    "name": "Session",
+    "pk": "SESSION#{hash(sid)}",
+    "sk": "META",
+    "fields": "user_sub:S!, active_tenant_id:UUID?, encrypted_refresh_token:BIN!, csrf_hash:S!, expires_at:N!, revision:N!=1",
+    "notes": "로그인 때 생성, 8시간 절대 만료/30분 idle; TTL은 청소용"
+  },
+  {
+    "name": "Document",
+    "pk": "T#{t}",
+    "sk": "DOC#{d}",
+    "fields": "document_id:UUID!, company_id:UUID!, title:S!, document_type:Enum(sustainability_report|annual_report_section)!, latest_version_id:UUID?, deleted_at:TS?, revision:N!=1",
+    "notes": "회사·문서 logical entity; latest pointer 변경은 CAS"
+  },
+  {
+    "name": "Upload",
+    "pk": "T#{t}#UPLOAD#{u}",
+    "sk": "META",
+    "fields": "document_id:UUID!, upload_id:UUID!, original_filename:S!, expected_size:N!, expected_sha256:SHA!, s3_quarantine_key:S!, status:Enum(pending|validating|accepted|rejected|expired)!, expires_at:N!",
+    "notes": "원본 파일명은 표시용, S3 key는 서버가 생성"
+  },
+  {
+    "name": "DocumentVersion",
+    "pk": "T#{t}#DOC#{d}",
+    "sk": "VER#{v}",
+    "fields": "version_id:UUID!, s3_key:S!, s3_version_id:S!, sha256:SHA!, size_bytes:N!, page_count:N!, company_id:UUID!, report_year:N!, industry_code:S?, industry_system:Enum(gics|sasb|custom|unknown)!, consolidation_scope:S?, statement_period:Map!, rights_profile_id:UUID!, status:S!",
+    "notes": "파일 bytes와 metadata snapshot 불변; 수정은 새 버전"
+  },
+  {
+    "name": "Run",
+    "pk": "T#{t}#RUN#{r}",
+    "sk": "META",
+    "fields": "run_id:UUID!, document_version_id:UUID!, mode:Enum(disclosure|advertising)!, scope:Enum(full|declared_subset)!, selected_pages:L<N>?, rule_pack_id:UUID!, rule_pack_sha256:SHA!, parser_profile_hash:SHA!, model_binding_hash:SHA!, status:Enum(queued|running|partial|completed|failed|cancelled)!, mutation_epoch:N!=0, revision:N!=1, counters:Map!, manifest_ref:ArtifactRef?",
+    "notes": "epoch은 claim/tag/decision/head와 같은 transaction에서 증가"
+  },
+  {
+    "name": "StageJob",
+    "pk": "T#{t}#RUN#{r}",
+    "sk": "JOB#{stage}#{shard}",
+    "fields": "job_id:UUID!, input_hash:SHA!, stage:S!, shard:S!, status:Enum(pending|leased|succeeded|failed|cancelled)!, attempt:N!=0, fencing_token:N!=0, lease_owner:S?, lease_until:N?, heartbeat_at:TS?, artifact_ref:ArtifactRef?, error_code:S?",
+    "notes": "동일 stage/shard/input hash unique. worker conditional write 필수"
+  },
+  {
+    "name": "Outbox",
+    "pk": "T#{t}#RUN#{r}",
+    "sk": "OUTBOX#{event_id}",
+    "fields": "event_id:UUID!, event_type:S!, payload_ref:ArtifactRef?, job_id:UUID!, status:Enum(pending|sent)!, next_attempt_at:N!, attempts:N!=0",
+    "notes": "GSI queue bucket=OUTBOX#{hash(event_id)%16}, due_at 정렬"
+  },
+  {
+    "name": "Claim",
+    "pk": "T#{t}#RUN#{r}",
+    "sk": "CLAIM#{c}",
+    "fields": "claim_id:UUID!, source_ref:ArtifactRef!, claim_artifact_ref:ArtifactRef!, track:S?, head_tag_revision:N?, head_decision_revision:N?, review_status:Enum(auto_confirmed|needs_review|human_confirmed)!, decision_status:S!, revision:N!=1",
+    "notes": "원문과 전체 배열은 S3; 목록에 필요한 필드만 inline"
+  },
+  {
+    "name": "TagRun",
+    "pk": "T#{t}#RUN#{r}#CLAIM#{c}",
+    "sk": "REPLICA#{packet_hash}#{i}",
+    "fields": "packet_sha256:SHA!, replicate_id:Enum(1|2|3)!, request_signature:SHA!, raw_ref:ArtifactRef!, guarded_ref:ArtifactRef?, status:S!, provider_request_id:S?, usage:Map!",
+    "notes": "같은 replica의 재시도와 다른 replica를 구분"
+  },
+  {
+    "name": "TagRevision",
+    "pk": "T#{t}#RUN#{r}#CLAIM#{c}",
+    "sk": "TAG#{zero_pad(rev,10)}",
+    "fields": "tag_revision:N!, packet_sha256:SHA!, elements_ref:ArtifactRef!, source_hash:SHA!, origin:Enum(consensus|human)!, reviewer_sub:S?, review_reason:S?, created_at:TS!",
+    "notes": "immutable; 사람이 변경해도 기존 revision 유지"
+  },
+  {
+    "name": "DecisionRevision",
+    "pk": "T#{t}#RUN#{r}#CLAIM#{c}",
+    "sk": "DECISION#{zero_pad(rev,10)}",
+    "fields": "decision_revision:N!, tag_revision:N!, rule_pack_sha256:SHA!, engine_version:S!, semantic_hash:SHA!, evidence_grade:Enum(E0|E1|E2|E3)?, label:Enum(SUBSTANTIATED|INCOMPLETE|UNSUBSTANTIATED)?, sublabel:Enum(PERF|IMPL)?, decision_status:S!, artifact_ref:ArtifactRef!",
+    "notes": "완전 decision은 S3, 조회 필드 inline; null은 미산출"
+  },
+  {
+    "name": "Review",
+    "pk": "T#{t}#RUN#{r}",
+    "sk": "REVIEW#{q}",
+    "fields": "review_id:UUID!, claim_id:UUID!, status:Enum(open|resolved|superseded)!, revision:N!=1, reason_codes:L<S>!, base_tag_revision:N!, resolved_by:S?, resolved_at:TS?, resolution_ref:ArtifactRef?",
+    "notes": "review_id locator도 같은 transaction 생성; 낡은 태깅 기준 확정 금지"
+  },
+  {
+    "name": "RulePack",
+    "pk": "T#{t}",
+    "sk": "RULEPACK#{id}",
+    "fields": "rule_pack_id:UUID!, artifact_ref:ArtifactRef!, sha256:SHA!, ontology_version:S!, version:S!, effective_date:Date!, mode:S!, status:Enum(draft|validated|active|retired)!, approved_by:S?, approved_at:TS?",
+    "notes": "루브릭 콘텐츠 불변; 상태/활성 pointer만 revision CAS"
+  },
+  {
+    "name": "ExportSnapshot",
+    "pk": "T#{t}#RUN#{r}",
+    "sk": "EXPORT#{id}",
+    "fields": "export_id:UUID!, snapshot_epoch:N!, claim_revision_refs:L<ArtifactRef>!, state:Enum(queued|building|ready|failed)!, format:L<S>!, manifest_ref:ArtifactRef?, partial:BOOL!, errors:L<S>!",
+    "notes": "대량 revision 목록은 S3 snapshot manifest로 옮김"
+  },
+  {
+    "name": "UsageLedger",
+    "pk": "T#{t}#RUN#{r}",
+    "sk": "USAGE#{request_id}#{attempt}",
+    "fields": "request_id:S!, attempt:N!, role:S!, model_id:S!, input_tokens:N?, output_tokens:N?, cache_read_tokens:N?, latency_ms:N!, cost_decimal:S?, pricing_snapshot_id:S?, status:S!",
+    "notes": "실패·재시도도 기록; 가격 없음=null"
+  },
+  {
+    "name": "Idempotency",
+    "pk": "T#{t}#IDEMPOTENCY",
+    "sk": "{route_hash}#{key_hash}",
+    "fields": "request_hash:SHA!, response_status:N!, response_ref:ArtifactRef?, response_inline:Map?, resource_id:UUID?, expires_at:N!",
+    "notes": "24시간 같은 키+다른 body409; 인증정보는 hash 입력 제외"
+  },
+  {
+    "name": "ArtifactPointer",
+    "pk": "T#{t}#RUN#{r}",
+    "sk": "ARTIFACT#{type}#{id}",
+    "fields": "artifact_id:UUID!, kind:S!, ref:ArtifactRef!, schema_version:S!, content_sha256:SHA!, status:S!",
+    "notes": "SourceArtifact/ParseManifest/Observation/IndexEntry/AssuranceStatement/EvidencePacket/CheckResult/Comparison/SafeHarborRecord/Evaluation의 통일 metadata 저장"
+  },
+  {
+    "name": "DeletionRequest",
+    "pk": "T#{t}#DOC#{d}",
+    "sk": "DELETE#{id}",
+    "fields": "deletion_id:UUID!, status:Enum(requested|running|blocked_retention|completed|failed)!, manifest_ref:ArtifactRef!, requested_by:S!, requested_at:TS!, completed_at:TS?",
+    "notes": "삭제되지 않은 version/cache/index가 있으면 completed 금지"
+  },
+  {
+    "name": "AuditEvent [Audit table]",
+    "pk": "T#{t}#RUN#{r}",
+    "sk": "EVENT#{zero_pad(sequence,15)}",
+    "fields": "sequence:N!, event_id:UUID!, actor_sub:S!, action:S!, target_id:S!, before_hash:SHA?, after_hash:SHA!, previous_event_hash:SHA?, event_hash:SHA!, timestamp:TS!, reason:S?",
+    "notes": "HEAD record와 CAS 동시 기록, append-only IAM"
+  },
+  {
+    "name": "Company",
+    "pk": "T#{tenant_id}",
+    "sk": "COMPANY#{company_id}",
+    "fields": "company_id:UUID!, legal_name:S!, registration_identifier:S?, aliases:L<S>!, revision:N!=1, created_at:TS!, updated_at:TS!",
+    "notes": "Same-tenant existence required before Document creation; names alone do not merge entities."
+  },
+  {
+    "name": "ApprovedProfile",
+    "pk": "T#{tenant_id}",
+    "sk": "PROFILE#{kind}#{id}",
+    "fields": "id:UUID!, kind:Enum(rights|consent|runtime)!, status:S!, version:S!, artifact_ref:ArtifactRef!, sha256:SHA!, approved_by:S?, approved_at:TS?",
+    "notes": "RightsProfile/ConsentProfile/RuntimeBinding metadata; API emits only non-secret choices."
+  }
+]

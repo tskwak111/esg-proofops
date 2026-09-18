@@ -1,0 +1,297 @@
+{
+  "reviewer_kind": "agent",
+  "reviewer_id": "codex-source-visual-review",
+  "reviewed_on": "2026-09-13",
+  "input_sha256": "d8febe94e42dfde1cc4ae0f5a1f293b1600991635e1df16885e3d24f4ad5455d",
+  "source_sha256": "1c3eca7bf45db58db419eae0d11e2f86d14e257b65568cead2eadb85aa288717",
+  "method": "Rendered original PDF at scale 2; source-specific semantic review, not human gold, production approval or measured general accuracy.",
+  "page_images": [
+    {
+      "page": 205,
+      "sha256": "2aaf6df8a2a8238f0d9efe78f6a30e8c7cac6deeb5da512dfeabb8e2d4ce9417"
+    },
+    {
+      "page": 259,
+      "sha256": "959509e3dbf6a3b69519af1a853d636169dc34a0e27babd5ebfdd4d966153940"
+    },
+    {
+      "page": 74,
+      "sha256": "17f05799a6f468563f57918291c84618cc3199489a5f32f7996c9eeec30975e0"
+    },
+    {
+      "page": 75,
+      "sha256": "fb6f422fd7935a8e6372f14c59f4191eb314134698dc38e24147ddff99f8347b"
+    },
+    {
+      "page": 76,
+      "sha256": "16192ae859ef0f4bdbb8159f8ab0e892fa3efa6291d1b986ccb170a24fb87f15"
+    }
+  ],
+  "claims": {
+    "31f9585c-2383-5b19-bd73-ec2b9db1ff8e": {
+      "note": "75쪽 원본과 문장이 일치한다(공백·첨자 정규화 기준). 2030 감축률과 2050 목표를 분리해 판단해야 한다. 같은 쪽 도표에는 국가·전환부문·전력그룹사·한전 별도가 구분된다. 76쪽 276.2→149.4는 전환부문이며 한전 별도에 대입하지 않는다.",
+      "candidates": {
+        "d24b2f56-fbdb-59b7-8773-41be0319ac49": {
+          "status": "self_quote",
+          "reason": "같은 추진목표 문단의 자기 반복이다."
+        },
+        "09d37637-e577-5fa5-baf0-7307bd580bbe": {
+          "status": "partial_support",
+          "reason": "76쪽은 국가 전환부문 목표 276.2→149.4→0이다. 2030/2050 목표 문맥을 뒷받침하지만 한국전력 별도 배출량과 동일한 경계가 아니다."
+        },
+        "c6f8a869-963c-5900-a113-26aa35994a55": {
+          "status": "context",
+          "reason": "목표 설정의 배경이다. 회사별 기준연도 배출량이나 달성 실적을 제시하지 않는다."
+        },
+        "d60363e9-7202-587d-bbbf-d086ff1daed1": {
+          "status": "partial_support",
+          "reason": "75쪽 도표 각주는 국가 전환부문 45.9% 목표를 반영했다고 설명한다. 보고서가 인용하는 정책 근거이며 규제 사실을 별도로 검증한 것은 아니다."
+        },
+        "41764e1e-ae2b-5b18-aa7b-418853a7f926": {
+          "status": "context",
+          "reason": "2050 비전 제목이다. 구체적인 기준연도·지표 경계는 별도 도표가 필요하다."
+        },
+        "27d4de0a-2c79-5a0d-be12-64fd14280407": {
+          "status": "insufficient",
+          "reason": "도표 범례만 있고 해당 막대의 값·대상이 빠져 있다."
+        },
+        "526cb715-a9e4-56e5-a186-0d0edaa0296a": {
+          "status": "insufficient",
+          "reason": "서로 다른 막대 대상의 이름만 추출됐다."
+        },
+        "158ba4e7-f65e-58af-bd80-fb4e8047b2b9": {
+          "status": "context",
+          "reason": "실행 전략의 존재를 설명하지만 2030 감축률의 수치 근거는 아니다."
+        },
+        "4d2446e9-2b59-55af-8be5-523428362133": {
+          "status": "partial_support",
+          "reason": "75쪽 공동 비전 설명은 전력그룹의 2050 탄소중립 목표 표명을 뒷받침한다. 달성이나 한전 별도 배출 실적을 뜻하지 않는다."
+        },
+        "e567df50-766e-5ced-b8a4-49e1c9aa580c": {
+          "status": "insufficient",
+          "reason": "도표 제목과 단위뿐이다. 4개 대상의 막대값·범례가 모두 필요하다."
+        },
+        "b8e055d6-3d2f-53bc-a143-16cc462f297e": {
+          "status": "unrelated",
+          "reason": "2024년 배출량 검증 절차다. 2030/2050 목표의 검증이 아니다."
+        },
+        "f54a9d5e-e9fc-5bf7-a6aa-5d49b09b8d91": {
+          "status": "context",
+          "reason": "추진전략의 이름이다. 목표 숫자의 근거로 쓰지 않는다."
+        },
+        "c5fe4cda-51ea-5de0-a4c2-4909396f81b1": {
+          "status": "unrelated",
+          "reason": "2024년 명세서 원시자료 검증이다. 장기 목표에 대한 보증이 아니다."
+        },
+        "f65a9d1a-6cc1-5ceb-8296-814a0498c46f": {
+          "status": "duplicate",
+          "reason": "같은 전력 생산 탈탄소화 전략 제목의 반복이다."
+        },
+        "81528233-86d1-5b86-a52e-400a9a505d56": {
+          "status": "context",
+          "reason": "전략체계 제목이다. 아래 도표 문맥을 함께 봐야 한다."
+        },
+        "2d6ef731-01d1-5854-8fdf-84ac5a4de385": {
+          "status": "insufficient",
+          "reason": "로고·도표 문자들이 겹쳐 잘못 추출됐다. 원본은 서로 다른 기관과 역할을 구분한다."
+        },
+        "3771331f-74c1-5079-953a-bac52f9c4a18": {
+          "status": "unrelated",
+          "reason": "검증인 및 경영진 책임 범위다. 목표의 입증 자료가 아니다."
+        },
+        "3c29fa52-dffb-5d4a-a31a-a11f73152fa3": {
+          "status": "context",
+          "reason": "페이지 제목으로만 활용한다."
+        },
+        "9bd47e6e-c849-5621-808f-7e93536f1ae1": {
+          "status": "unrelated",
+          "reason": "검증 대상은 2024년 직접·에너지 간접 배출과 에너지 사용이다. 장기 목표와 경계가 다르다."
+        },
+        "0d41d0bc-5f24-59eb-8183-528f556c8f6a": {
+          "status": "context",
+          "reason": "추진과제 담당 조직 지정은 실행체계 문맥이다. 목표 수치 자체를 검증하지 않는다."
+        }
+      }
+    },
+    "de9950ea-12c3-51ef-96a4-35b07883342b": {
+      "note": "75쪽 원본과 문장이 일치한다. 이의는 앞의 감축목표를 가리킨다. 비전·전략체계와 이행경로를 명확히 할 계획이라는 미래 진술을 분리한다. 75·76쪽으로 비전 및 전략체계는 확인하되, 세부 연도별 배출목표 완료로 해석하지 않는다.",
+      "candidates": {
+        "d24b2f56-fbdb-59b7-8773-41be0319ac49": {
+          "status": "self_quote",
+          "reason": "같은 추진목표 문단의 자기 반복이다. 이의가 가리키는 목표의 문맥은 보존한다."
+        },
+        "13b4385a-e08f-5828-ae0b-45632c6a4bf5": {
+          "status": "partial_support",
+          "reason": "76쪽 재생에너지 지역·연도별 목표량과 설비계획 수립 과제다. 일부 실행방안의 근거이나 배출부문별 감축 경로·연도별 배출목표 전체가 확정됐다는 증거는 아니다."
+        },
+        "bd212666-8c0d-52c6-b34a-6962637334fb": {
+          "status": "context",
+          "reason": "효율적 전기화 과제 이름이다. 실행계획의 방향만 알 수 있다."
+        },
+        "1dd089ac-fc2e-5ce3-ac76-698e9438b9c7": {
+          "status": "insufficient",
+          "reason": "도표 제목만 있다."
+        },
+        "2e7fec32-ff99-55bb-b385-a347750ad531": {
+          "status": "insufficient",
+          "reason": "도표 제목만 있다."
+        },
+        "158ba4e7-f65e-58af-bd80-fb4e8047b2b9": {
+          "status": "partial_support",
+          "reason": "76쪽 본문이 6대 분야 45개 과제의 전략체계 수립을 명시한다. 구체적인 연도별 배출 경로 공개와는 구분한다."
+        },
+        "968ca3ab-fd87-56f9-9da3-c17107dd5715": {
+          "status": "insufficient",
+          "reason": "소제목만 있다."
+        },
+        "81528233-86d1-5b86-a52e-400a9a505d56": {
+          "status": "context",
+          "reason": "전략체계 도표의 제목이다."
+        },
+        "e567df50-766e-5ced-b8a4-49e1c9aa580c": {
+          "status": "insufficient",
+          "reason": "감축목표 도표의 제목·단위뿐이다."
+        },
+        "c6f8a869-963c-5900-a113-26aa35994a55": {
+          "status": "context",
+          "reason": "국가적 추진 배경이며 회사 실행계획의 세부 근거가 아니다."
+        },
+        "1cc5eff0-5e77-5734-aa2b-e5c2b43fa528": {
+          "status": "context",
+          "reason": "전력공급 질적 개선의 뜻을 설명하는 각주다. 회사별 연도 이행경로가 아니다."
+        },
+        "a2d44c55-3198-51d7-a7ff-979978913c11": {
+          "status": "insufficient",
+          "reason": "그룹 명칭만 있다."
+        },
+        "fd8d9e9a-652f-5595-9a9f-f7096f35d4f5": {
+          "status": "context",
+          "reason": "공동 비전의 제목이다. 완전한 설명과 함께 본다."
+        },
+        "4d2446e9-2b59-55af-8be5-523428362133": {
+          "status": "partial_support",
+          "reason": "75쪽 본문에 ZERO for Green 공동 선포가 명시되어 비전 선포 부분을 뒷받침한다. 미래의 세부 계획이 이미 완료됐다고 해석하지 않는다."
+        },
+        "4d38d08f-74f0-5bcc-8c40-e3f8897e4c12": {
+          "status": "context",
+          "reason": "세부 과제 이름으로 전략 방향만 제공한다."
+        },
+        "b01cf0dd-e9d1-565e-9c20-6d13cecbc382": {
+          "status": "context",
+          "reason": "세부 과제 이름으로 전략 방향만 제공한다."
+        },
+        "d60363e9-7202-587d-bbbf-d086ff1daed1": {
+          "status": "context",
+          "reason": "감축목표의 정책적 출처에 관한 보고서 각주다. 연도별 이행경로의 증거는 아니다."
+        },
+        "992f1e9c-1576-5d64-b4f7-24e90bdad9e8": {
+          "status": "context",
+          "reason": "세부 과제 이름으로 전략 방향만 제공한다."
+        },
+        "41764e1e-ae2b-5b18-aa7b-418853a7f926": {
+          "status": "context",
+          "reason": "2050 비전의 제목이다."
+        },
+        "3d94963c-c477-5db7-b021-227594aec38e": {
+          "status": "context",
+          "reason": "RE100 지원 과제다. 모든 주요 배출부문 연도별 이행경로를 제시하지는 않는다."
+        }
+      }
+    },
+    "8e7a2f66-0bd3-5110-9d23-ee46d1a499eb": {
+      "note": "75쪽 원본과 문장이 일치한다(첨자 정규화 기준). 기존 20개 후보에는 SF6 비율을 입증할 자료가 없다. 추가로 원본 74쪽 좌상단의 수소활용 SF6 분해기술 실증 설명·준공식 사진을 시각 확인해 활동 부분의 보강 자료를 찾았다. 사진 현수막은 2025년 5월 29일이다. 약 46%는 분자·분모·기준기간이 확인되지 않아 수치 입증을 보류한다. 2024년 Scope 총계를 그 분모로 임의 사용하지 않는다.",
+      "candidates": {
+        "d24b2f56-fbdb-59b7-8773-41be0319ac49": {
+          "status": "self_quote",
+          "reason": "같은 SF6 주장을 포함한 문단이다. 비율의 독립 계산 근거는 아니다."
+        },
+        "f39da735-2302-5137-a4b8-20b971798c47": {
+          "status": "unrelated",
+          "reason": "총계 반올림 주석으로 SF6 가스별 비중을 설명하지 않는다."
+        },
+        "2ba7dcb4-b4b3-5164-b71a-ad8394edfc6f": {
+          "status": "unrelated",
+          "reason": "검증 의뢰자를 밝히는 문구다."
+        },
+        "c6f8a869-963c-5900-a113-26aa35994a55": {
+          "status": "unrelated",
+          "reason": "전환부문과 국제적 추진 배경이며 SF6 활동·비율 근거가 아니다."
+        },
+        "09d37637-e577-5fa5-baf0-7307bd580bbe": {
+          "status": "unrelated",
+          "reason": "국가 전환부문 전체 배출 목표다. SF6 가스별 비율이나 활동과 대상이 다르다."
+        },
+        "2149c0b6-cc2b-58e5-856f-aebb3d02cfb8": {
+          "status": "insufficient",
+          "reason": "회사명 또는 로고의 문자 단편이다. SF6 지표·분모·연도·활동을 제시하지 않는다."
+        },
+        "660f0281-2661-54bf-b46e-b2517ffe6926": {
+          "status": "insufficient",
+          "reason": "회사명 또는 로고의 문자 단편이다. SF6 지표·분모·연도·활동을 제시하지 않는다."
+        },
+        "b8262d01-8b0a-548d-bfc6-32e4478bb9c0": {
+          "status": "insufficient",
+          "reason": "회사명 또는 로고의 문자 단편이다. SF6 지표·분모·연도·활동을 제시하지 않는다."
+        },
+        "b9f3c339-3eaf-5106-b831-7697dadb9e1c": {
+          "status": "insufficient",
+          "reason": "회사명 또는 로고의 문자 단편이다. SF6 지표·분모·연도·활동을 제시하지 않는다."
+        },
+        "3f30d16d-7b1a-53f8-91f1-d07b900a08c7": {
+          "status": "insufficient",
+          "reason": "회사명 또는 로고의 문자 단편이다. SF6 지표·분모·연도·활동을 제시하지 않는다."
+        },
+        "941b2058-e177-51bf-a789-47e8991ccd73": {
+          "status": "insufficient",
+          "reason": "회사명 또는 로고의 문자 단편이다. SF6 지표·분모·연도·활동을 제시하지 않는다."
+        },
+        "b8e055d6-3d2f-53bc-a143-16cc462f297e": {
+          "status": "unrelated",
+          "reason": "검증 과정의 직원 면담으로 SF6 비율·감축 활동을 특정하지 않는다."
+        },
+        "158ba4e7-f65e-58af-bd80-fb4e8047b2b9": {
+          "status": "context",
+          "reason": "일반 탄소중립 전략체계다. SF6에 한정한 감축 활동의 직접 근거가 아니다."
+        },
+        "55086bab-4b29-52cb-af14-1ae4f862f6e0": {
+          "status": "insufficient",
+          "reason": "Scope별 표의 행 이름만 추출되고 숫자가 없다. 원본 205쪽에도 가스별 SF6 비율 분모·분자는 없다."
+        },
+        "4199791b-04ed-54b4-a407-46ddad79807f": {
+          "status": "insufficient",
+          "reason": "로고 문자가 여러 줄로 잘못 섞였다."
+        },
+        "c4bf9790-4cff-5d5f-84c5-57fea3373909": {
+          "status": "duplicate",
+          "reason": "앞의 깨진 로고 추출과 중복이다."
+        },
+        "2d6ef731-01d1-5854-8fdf-84ac5a4de385": {
+          "status": "insufficient",
+          "reason": "로고·기관 문자가 혼합된 추출 오류다."
+        },
+        "ca1d4a4f-f689-573f-885c-ac81c67a1978": {
+          "status": "insufficient",
+          "reason": "배출량 검증 표의 범위 이름만 있다. 원본 259쪽 총계도 SF6 비중을 제공하지 않는다."
+        },
+        "c45b4c82-8a35-5437-8ed0-17cf41ea5f1f": {
+          "status": "unrelated",
+          "reason": "CCU 기술 설명과 기관 로고가 혼합된 단편이다. SF6 감축 근거가 아니다."
+        },
+        "fb151c70-4f8b-508f-b7f5-4d292329bc87": {
+          "status": "duplicate",
+          "reason": "앞의 혼합 문자 추출과 중복이다."
+        }
+      }
+    }
+  },
+  "tables": {
+    "3": {
+      "role": "data",
+      "note": "205쪽 원본과 대조: 한국전력/한국수력원자력 구분 및 표시 숫자·음수·각주가 일치한다. 한전2024 Scope1 639,296·Scope2 234,537은 259쪽 검증표와 일치한다. 두 반올림 수치의 합873,833과 검증 총계873,712의 차이는 남겨둔다. 원본에 소수점 처리 주석은 있지만 이 차이를 그 주석만으로 해소했다고 인정하지 않는다. SF6 비율이나 감축 활동의 근거로 이 표를 대체 사용하지 않는다. *단순정정/**과년도 오류정정 수치는 현재 자동 숫자 후보에서 보류된다."
+    },
+    "6": {
+      "role": "data",
+      "note": "205쪽 원본과 대조: 한국남동발전·한국중부발전·한국서부발전의 회사 구분, Scope별 수치 및 각주가 일치한다. 이 회사들의 값을 한전 별도 값으로 연결하지 않는다. *수치의 정정 주석을 원본과 함께 읽는다. 전체값을 SF6 비중이나 한전 별도의 장기목표 달성 증거로 사용하지 않는다."
+    }
+  }
+}

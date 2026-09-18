@@ -1,0 +1,4012 @@
+{
+  "checked_at": "2026-09-18T07:08:39.134931+00:00",
+  "scope": "documentation, structured contracts and synthetic schema examples only",
+  "status": "passed",
+  "checks_total": 797,
+  "passed": 797,
+  "failed": 0,
+  "counts": {
+    "numbered_documents": 34,
+    "requirements": 43,
+    "tasks": 46,
+    "api_operations": 50,
+    "rule_vectors": 28,
+    "edge_vectors": 24
+  },
+  "not_executed": [
+    "legacy_repository_test_suite",
+    "PDF_parsing_benchmark",
+    "implemented_rule_engine_tests",
+    "live_Bedrock_inference",
+    "AWS_deployment",
+    "legal_clause_verification"
+  ],
+  "failures": [],
+  "checks": [
+    {
+      "name": "numbered_docs_00_to_33",
+      "passed": true,
+      "detail": "34"
+    },
+    {
+      "name": "required:README.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "required:AGENTS.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "required:CODEX_START_PROMPT.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "required:.env.example",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "required:contracts/openapi.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:PACKAGE_MANIFEST.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:sbom.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:package.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:infra/cdk/package.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:infra/cdk/tsconfig.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/upstage-tagging-diagnostics.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/parser_dependency_notices.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/semantic-review-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/context-loop-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/context-loop-review.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/context-retrieval-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/legacy_inspection.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/metric-split-real-cases.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/atomic-expanded-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/clause-context-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/numeric-basis-review.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/section-map-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/semantic-dimension-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/local-upstage-service-pilot.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/orchestration_tasks.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/table-role-guard-replay.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/semantic-context-fewshot.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/semantic-context-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/semantic-capability-cases.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/semantic-expanded-diagnostics.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/semantic-expanded-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/semantic-clauses-review.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/claim-dimension-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/semantic-isolated-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/metric-split-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/table-recovery-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/atomic-coverage-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/atomic-expanded-review.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/section-pipeline-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/measurement-role-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/semantic-capability-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/semantic-context-cases.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/retrieval-repair-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/parser-extraction-comparison.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/service-loop-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/atomic-recovery-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/cross-report-service-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/semantic-token-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/table-role-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/quantity-candidate-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/semantic-isolated-review.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/table-context/cross-report.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/source-binding/replay.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/table-note-review/note-discriminator-evaluation.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/table-note-review/automatic-worker-live.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/table-note-review/unresolved-note-evaluation.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/table-note-review/unseen-layout-evaluation.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/complex-table-roles/layout-comparison.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/complex-table-roles/live-comparison.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/document-atomic/schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/document-atomic/live-comparison.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/table-notes/probe-summary.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/dense-note-input/probe-summary.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/agent-visual-review/samsung-life-table-context-v2.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/agent-visual-review/samsung-life.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/agent-visual-review/kepco-table-context-v2.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/agent-visual-review/kepco.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/agent-visual-review/table-context-replay.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/table-atomic-claims/live-comparison.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/document-coverage/replay.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:config/consent_profile.example.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:config/model_bindings.example.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:handoff/2026-09-18/contract/example-policy.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:handoff/2026-09-18/contract/input.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:handoff/2026-09-18/contract/policy.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:handoff/2026-09-18/contract/example-output.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:handoff/2026-09-18/contract/output.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:handoff/2026-09-18/contract/example-input.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:handoff/2026-09-18/reference/manifest.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:contracts/task_execution_order.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:contracts/environment_variables.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:contracts/task_catalog.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:contracts/api_operations.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:contracts/storage_entities.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:contracts/domain_gaps.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:contracts/requirement_catalog.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:contracts/jsonschema/document_graph.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:contracts/jsonschema/api_models.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:contracts/jsonschema/llm_tags.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:sources/source_manifest.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:sources/external_sources.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:fixtures/api_examples.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:fixtures/document_graph_example.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:fixtures/edge_cases.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:fixtures/rule_cases.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:fixtures/llm_tags_example.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:fixtures/table_notes/legacy-resolved-review.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:apps/web/package.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:apps/web/tsconfig.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "yaml:pnpm-lock.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "yaml:pnpm-workspace.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "yaml:config/retention.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "config_version:config/retention.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "yaml:config/limits.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "config_version:config/limits.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "yaml:config/rule_pack_manifest.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "config_version:config/rule_pack_manifest.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "yaml:config/parsing.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "config_version:config/parsing.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "yaml:config/crosswalk.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "config_version:config/crosswalk.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "yaml:config/assurance/issa5000.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "config_version:config/assurance/issa5000.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "yaml:config/assurance/isae3000.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "config_version:config/assurance/isae3000.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "yaml:config/assurance/aa1000as_v3.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "config_version:config/assurance/aa1000as_v3.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "yaml:config/sasb/industry_map.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "config_version:config/sasb/industry_map.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "yaml:config/regulatory/safe_harbor.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "config_version:config/regulatory/safe_harbor.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "yaml:config/regulatory/timeline.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "config_version:config/regulatory/timeline.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "yaml:config/advertising/moe_notice.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "config_version:config/advertising/moe_notice.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "yaml:config/advertising/kftc_guideline.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "config_version:config/advertising/kftc_guideline.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "yaml:config/rubric/goal.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "config_version:config/rubric/goal.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "yaml:config/rubric/management.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "config_version:config/rubric/management.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "yaml:config/rubric/elements.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "config_version:config/rubric/elements.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "yaml:config/rubric/exceptions.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "config_version:config/rubric/exceptions.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "yaml:config/rubric/performance.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "config_version:config/rubric/performance.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "yaml:config/standards/iso_14021.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "config_version:config/standards/iso_14021.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "yaml:config/standards/ghg_protocol.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "config_version:config/standards/ghg_protocol.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "yaml:config/standards/iso_14064_1.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "config_version:config/standards/iso_14064_1.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "yaml:config/standards/kssb.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "config_version:config/standards/kssb.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "yaml:config/standards/ifrs_s1_s2.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "config_version:config/standards/ifrs_s1_s2.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "yaml:config/standards/kesg_v2.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "config_version:config/standards/kesg_v2.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "yaml:contracts/openapi.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "source_sha256:domain_source",
+      "passed": true,
+      "detail": "0f9d7e3495d1bc6330ee4ffd2bb644ce8189c89e91dd5f9ae4c720b9ffaebc6a"
+    },
+    {
+      "name": "source_sha256:package_request",
+      "passed": true,
+      "detail": "1a2b4fcdd5affdbc5bd305a1706e5d195ea665023b83cc57391b8ad701d8c381"
+    },
+    {
+      "name": "honest_legacy_execution_flag",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_version",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/Session",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/Error",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/TenantSelect",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/DocumentPage",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/Document",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/DocumentCreate",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/UploadTicket",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/VersionCreate",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/DocumentVersionPage",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/JobAccepted",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/UploadComplete",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/DocumentVersion",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/RunPage",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/Run",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/RunCreate",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/ActionReason",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/RescoreCreate",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/ClaimSummaryPage",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/ClaimDetail",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/SourceRef",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/Download",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/QualityIssuePage",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/ObservationPage",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/AssuranceMatchPage",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/SafeHarborRecordPage",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/Summary",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/AuditEventPage",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/Cost",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/ReviewPage",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/ReviewResolution",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/ReviewResolve",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/Export",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/ExportCreate",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/ComparisonCreate",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/Comparison",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/RulePackPage",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/RulePack",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/Preflight",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/PreflightRequest",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/Evaluation",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/DeletionRequest",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/Health",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/CompanyPage",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/Company",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/CompanyCreate",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/RuntimeOptions",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/SourceConditionEnvelope",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/SourceConditionPublish",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/SourceConditionDisplay",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/SourceAnnotationResult",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/SourceAnnotationWrite",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/SourceObservationPreviewResponse",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/SourceObservationPreviewRequest",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/Coverage",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/Bbox",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/Decision",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/ClaimSummary",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/Element",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/AssuranceMatch",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/Review",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/QualityIssue",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/Observation",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/SafeHarborRecord",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/AuditEvent",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/SourceConditionRevision",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/SourceConditionFragment",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/CanonicalFragment",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/NativeFragment",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/SourceConditionState",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/SourceClassification",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/SourceCitation",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/SourceOwnership",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/SourceCondition",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/SourceOwnershipTarget",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/ObservationSourceHolds",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:session_read",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:tenant_switch",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "csrf:tenant_switch",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:logout",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "csrf:logout",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:documents_list",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:document_create",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "csrf:document_create",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "idempotency:document_create",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:document_get",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:version_create",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "csrf:version_create",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "idempotency:version_create",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:versions_list",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:upload_complete",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "csrf:upload_complete",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "idempotency:upload_complete",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:version_get",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:runs_list",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:run_create",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "csrf:run_create",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "idempotency:run_create",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:run_get",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:run_cancel",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "csrf:run_cancel",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "idempotency:run_cancel",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:run_retry",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "csrf:run_retry",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "idempotency:run_retry",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:rescore",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "csrf:rescore",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "idempotency:rescore",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:rescore_get",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:claims_list",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:claim_get",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:source_get",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:source_view",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "csrf:source_view",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:quality_get",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:observations_get",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:assurance_get",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:safe_harbor_get",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:summary_get",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:audit_get",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:cost_get",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:reviews_list",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:review_resolve",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "csrf:review_resolve",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "idempotency:review_resolve",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:export_create",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "csrf:export_create",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "idempotency:export_create",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:export_get",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:export_download",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "csrf:export_download",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:comparison_create",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "csrf:comparison_create",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "idempotency:comparison_create",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:comparison_get",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:rulepacks_list",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:rulepack_activate",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "csrf:rulepack_activate",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "idempotency:rulepack_activate",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:preflight",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "csrf:preflight",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "idempotency:preflight",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:evaluation_get",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:document_delete",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "csrf:document_delete",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "idempotency:document_delete",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:liveness",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:readiness",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:companies_list",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:company_create",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "csrf:company_create",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "idempotency:company_create",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:runtime_options",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:source_condition_publish",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "csrf:source_condition_publish",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:source_condition_get",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:source_condition_view",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:source_condition_resolve",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "csrf:source_condition_resolve",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "idempotency:source_condition_resolve",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:source_observations_preview",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "csrf:source_observations_preview",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "unique_operation_ids",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "unique_requirement_ids",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "unique_task_ids",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:FR-001",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:FR-001:/v1/documents",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:FR-001:/v1/documents/{document_id}/versions",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:FR-001",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:FR-002",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:FR-002:/v1/runs/{run_id}/sources/{source_id}",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:FR-002",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:FR-003",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:FR-003:/v1/runs/{run_id}/quality",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:FR-003",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:FR-004",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:FR-004:/v1/runs/{run_id}/observations",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:FR-004",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:FR-005",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:FR-005:/v1/runs/{run_id}/claims/{claim_id}",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:FR-005",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:FR-006",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:FR-006:/v1/runs/{run_id}/quality",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:FR-006",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:FR-007",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:FR-007:/v1/runs/{run_id}/assurance",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:FR-007",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:FR-008",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:FR-008:/v1/runs/{run_id}/claims",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:FR-008",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:FR-009",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:FR-009:/v1/runs/{run_id}/claims/{claim_id}",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:FR-009",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:FR-010",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:FR-010:/v1/runs/{run_id}/claims/{claim_id}",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:FR-010",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:FR-011",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:FR-011:/v1/runs/{run_id}/claims/{claim_id}",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:FR-011",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:FR-012",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:FR-012:/v1/runs/{run_id}/sources/{source_id}",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:FR-012",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:FR-013",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:FR-013:/v1/runs/{run_id}/claims/{claim_id}",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:FR-013",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:FR-014",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:FR-014:/v1/runs/{run_id}/claims/{claim_id}",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:FR-014",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:FR-015",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:FR-015:/v1/runs/{run_id}/claims/{claim_id}",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:FR-015",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:FR-016",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:FR-016:/v1/runs/{run_id}/safe-harbor",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:FR-016",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:FR-017",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:FR-017:/v1/runs/{run_id}/summary",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:FR-017",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:FR-018",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:FR-018:/v1/runs/{run_id}/summary",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:FR-018",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:FR-019",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:FR-019:/v1/reviews/{review_id}/resolve",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:FR-019",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:FR-020",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:FR-020:/v1/runs/{run_id}/rescores",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:FR-020",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:FR-021",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:FR-021:/v1/runs/{run_id}/exports",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:FR-021",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:FR-022",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:FR-022:/v1/runs/{run_id}/audit",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:FR-022",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:FR-023",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:FR-023:/v1/runs/{run_id}/comparisons",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:FR-023",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:FR-024",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:FR-024:/v1/runs",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:FR-024",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:FR-025",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:FR-025:/v1/rule-packs/{rule_pack_id}/activate",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:FR-025",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:FR-026",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:FR-026:/v1/runs/{run_id}/summary",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:FR-026",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:FR-027",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:FR-027:/v1/runs/{run_id}",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:FR-027",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:FR-028",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:FR-028:/v1/runs/{run_id}/cancel",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:FR-028:/v1/runs/{run_id}/retry",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:FR-028",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:FR-029",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:FR-029:/v1/preflight",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:FR-029",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:FR-030",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:FR-030:/v1/runs/{run_id}/cost",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:FR-030",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:FR-031",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:FR-031:/v1/exports/{export_id}",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:FR-031:/v1/exports/{export_id}/download",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:FR-031",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:FR-032",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:FR-032:/v1/evaluations/{evaluation_id}",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:FR-032",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:NFR-001",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:NFR-001:/v1/runs/{run_id}/audit",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:NFR-001",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:NFR-002",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:NFR-002:/v1/health/ready",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:NFR-002",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:NFR-003",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:NFR-003:/v1/runs/{run_id}/cost",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:NFR-003",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:NFR-004",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:NFR-004:/v1/runs/{run_id}/claims",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:NFR-004",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:SEC-001",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:SEC-001:/v1/session",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:SEC-001:/v1/session/tenant",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:SEC-001",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:SEC-002",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:SEC-002:/v1/uploads/{upload_id}/complete",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:SEC-002",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:SEC-003",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:SEC-003:/v1/preflight",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:SEC-003",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:SEC-004",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:SEC-004:/v1/documents/{document_id}/deletion-requests",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:SEC-004",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:SEC-005",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:SEC-005:/v1/auth/logout",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:SEC-005",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:SEC-006",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:SEC-006:/v1/preflight",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:SEC-006",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_task:FR-033",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:FR-033:/v1/companies",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_api:FR-033:/v1/runtime-options",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "requirement_test:FR-033",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-000",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-000",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-000",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-001",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-001",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-001",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-002",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-002",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-002",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-003",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-003",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-003",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-004",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-004",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-004",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-005",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-005",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-005",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-006",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-006",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-006",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-007",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-007",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-007",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-008",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-008",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-008",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-009",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-009",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-009",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-010",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-010",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-010",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-011",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-011",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-011",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-012",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-012",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-012",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-013",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-013",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-013",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-014",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-014",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-014",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-015",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-015",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-015",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-016",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-016",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-016",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-017",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-017",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-017",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-018",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-018",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-018",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-019",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-019",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-019",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-020",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-020",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-020",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-021",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-021",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-021",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-022",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-022",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-022",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-023",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-023",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-023",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-024",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-024",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-024",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-025",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-025",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-025",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-026",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-026",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-026",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-027",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-027",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-027",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-028",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-028",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-028",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-029",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-029",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-029",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-030",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-030",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-030",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-031",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-031",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-031",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-032",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-032",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-032",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-033",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-033",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-033",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-034",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-034",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-034",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-035",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-035",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-035",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-036",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-036",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-036",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-037",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-037",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-037",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-038",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-038",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-038",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-039",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-039",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-039",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-040",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-040",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-040",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-041",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-041",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-041",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-042",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-042",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-042",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-043",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-043",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-043",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-044",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-044",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-044",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_deps:TASK-045",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_requirements:TASK-045",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_contract:TASK-045",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_order_membership",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-000",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-002",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-025",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-037",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-042",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-043",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-014",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-017",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-018",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-029",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-033",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-038",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-041",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-045",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-001",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-015",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-016",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-022",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-024",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-028",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-003",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-030",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-004",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-006",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-007",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-008",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-035",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-005",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-009",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-011",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-012",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-027",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-013",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-039",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-010",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-019",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-032",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-020",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-026",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-021",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-034",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-036",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-023",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-031",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-040",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "task_topological:TASK-044",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:FR-001",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:FR-002",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:FR-003",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:FR-004",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:FR-005",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:FR-006",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:FR-007",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:FR-008",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:FR-009",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:FR-010",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:FR-011",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:FR-012",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:FR-013",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:FR-014",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:FR-015",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:FR-016",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:FR-017",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:FR-018",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:FR-019",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:FR-020",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:FR-021",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:FR-022",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:FR-023",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:FR-024",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:FR-025",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:FR-026",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:FR-027",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:FR-028",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:FR-029",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:FR-030",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:FR-031",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:FR-032",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:NFR-001",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:NFR-002",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:NFR-003",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:NFR-004",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:SEC-001",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:SEC-002",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:SEC-003",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:SEC-004",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:SEC-005",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:SEC-006",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "trace_row:FR-033",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "schema_meta:document_graph.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "schema_refs:document_graph.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "schema_meta:api_models.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "schema_refs:api_models.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "schema_meta:llm_tags.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "schema_refs:llm_tags.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "valid_example:SourceRef",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "valid_example:Element",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "valid_example:Decision",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "valid_example:RunCreate",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "valid_example:CompanyCreate",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "valid_example:llm_tags",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "valid_example:document_graph",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "graph_edge_integrity_example",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "negative:LLM_grade_field_rejected",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "negative:present_without_source_rejected",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "negative:replicate_out_of_range_rejected",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "negative:blocked_decision_with_grade_rejected",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "negative:grade_label_mismatch_rejected",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "negative:full_mode_subset_rejected",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "negative:subset_requires_pages",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rule_fixture_unique_ids",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rule_fixture_shape:FX-RULE-001",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rule_fixture_shape:FX-RULE-002",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rule_fixture_shape:FX-RULE-003",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rule_fixture_shape:FX-RULE-004",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rule_fixture_shape:FX-RULE-005",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rule_fixture_shape:FX-RULE-006",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rule_fixture_shape:FX-RULE-007",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rule_fixture_shape:FX-RULE-008",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rule_fixture_shape:FX-RULE-009",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rule_fixture_shape:FX-RULE-010",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rule_fixture_shape:FX-RULE-011",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rule_fixture_shape:FX-RULE-012",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rule_fixture_shape:FX-RULE-013",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rule_fixture_shape:FX-RULE-014",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rule_fixture_shape:FX-RULE-015",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rule_fixture_shape:FX-RULE-016",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rule_fixture_shape:FX-RULE-017",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rule_fixture_shape:FX-RULE-018",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rule_fixture_shape:FX-RULE-019",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rule_fixture_shape:FX-RULE-020",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rule_fixture_shape:FX-RULE-021",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rule_fixture_shape:FX-RULE-022",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rule_fixture_shape:FX-RULE-023",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rule_fixture_shape:FX-RULE-024",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rule_fixture_shape:FX-RULE-025",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rule_fixture_shape:FX-RULE-026",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rule_fixture_shape:FX-RULE-027",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rule_fixture_shape:FX-RULE-028",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rule_fixtures_not_claimed_runtime_tests",
+      "passed": true,
+      "detail": "shape checks only, not execution of future rule engine"
+    },
+    {
+      "name": "rulepack_path:rubric/elements.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rulepack_path:rubric/goal.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rulepack_path:rubric/performance.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rulepack_path:rubric/management.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rulepack_path:rubric/exceptions.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rulepack_path:regulatory/safe_harbor.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rulepack_path:regulatory/timeline.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rulepack_path:crosswalk.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rulepack_path:sasb/industry_map.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:APP_ENV",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:APP_ORIGIN",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:API_PUBLIC_BASE_URL",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:AWS_REGION",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:MODEL_ALLOWED_PROCESSING_REGIONS",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:AWS_PROFILE",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:S3_ARTIFACT_BUCKET",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:S3_QUARANTINE_BUCKET",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:DDB_CORE_TABLE",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:DDB_AUDIT_TABLE",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:SQS_JOB_QUEUE_URL",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:SQS_DLQ_URL",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:KMS_KEY_ARN",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:OPENSEARCH_ENDPOINT",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:OPENSEARCH_INDEX_GENERATION",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:COGNITO_USER_POOL_ID",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:COGNITO_CLIENT_ID",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:COGNITO_DOMAIN",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:SESSION_SECRET_ARN",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:CURSOR_SECRET_ARN",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:AGENTCORE_RUNTIME_ARN",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:MODEL_BINDINGS_PATH",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:CONSENT_PROFILE_PATH",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:RULE_PACK_PATH",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:PARSER_PROFILE_PATH",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:LIMITS_PATH",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:LOCAL_ARTIFACT_DIR",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:LOCAL_DATABASE_PATH",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:MODEL_ADAPTER",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:ENABLE_HYBRID_PARSER",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:HYBRID_BACKEND_URL",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:ENABLE_LEGACY_PYMUPDF",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:ENABLE_AGENTCORE_MEMORY",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:ENABLE_ADVERTISING_MODE",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:ENABLE_YEAR_COMPARISON",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:ALLOW_LIVE_MODEL_TESTS",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:OTEL_SERVICE_NAME",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:LOG_LEVEL",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:RETENTION_POLICY_PATH",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:LOCAL_PARSER_PROFILE_PATH",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:LOCAL_RUN_SETTINGS_PATH",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:LOCAL_EXTRACTION_MODE",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:LOCAL_TAGGING_MODE",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:VITE_API_BASE_URL",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "env_declared:VITE_UPLOAD_ORIGIN",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "md_link:README.md:docs/IMPLEMENTATION_STATUS.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "md_link:README.md:docs/00_MASTER_SPEC.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "md_link:README.md:docs/26_LEGACY_REUSE_AUDIT.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "md_link:README.md:docs/27_PARSING_AND_PROVENANCE.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "md_link:README.md:docs/28_RULE_ENGINE_CONTRACT.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "md_link:README.md:docs/31_DOMAIN_IMPLEMENTATION_GAPS.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "md_link:README.md:docs/19_IMPLEMENTATION_PLAN.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "md_link:README.md:docs/20_TASK_BREAKDOWN.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "md_link:README.md:contracts/openapi.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "md_link:README.md:docs/32_REQUIREMENT_TRACEABILITY.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "md_link:README.md:docs/17_ENV_CONFIG.md",
+      "passed": true,
+      "detail": ""
+    }
+  ]
+}

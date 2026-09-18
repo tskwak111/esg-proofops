@@ -1,0 +1,62 @@
+{
+  "synthetic": true,
+  "annotation_author": "coordinator",
+  "human_adjudicated": false,
+  "purpose": "development capability check, not corpus gold or grade accuracy",
+  "cases": [
+    {
+      "id": "q0",
+      "text": "한빛화학은 국내 사업장의 온실가스 배출량을 공개했다.",
+      "expected": {
+        "entity": "한빛화학",
+        "metric": "온실가스 배출량",
+        "boundary": "국내 사업장"
+      }
+    },
+    {
+      "id": "q1",
+      "text": "온실가스 배출량을 공개했다.",
+      "expected": {
+        "entity": null,
+        "metric": "온실가스 배출량",
+        "boundary": null
+      }
+    },
+    {
+      "id": "q2",
+      "text": "새봄화학은 해외 사업장의 용수 사용량을 공개했다.",
+      "expected": {
+        "entity": "새봄화학",
+        "metric": "용수 사용량",
+        "boundary": "해외 사업장"
+      }
+    },
+    {
+      "id": "q3",
+      "text": "앞으로 노력하겠습니다.",
+      "expected": {
+        "entity": null,
+        "metric": null,
+        "boundary": null
+      }
+    },
+    {
+      "id": "q4",
+      "text": "Scope 1 및 Scope 2 배출량을 공개했다.",
+      "expected": {
+        "entity": null,
+        "metric": "Scope 1 및 Scope 2 배출량",
+        "boundary": null
+      }
+    },
+    {
+      "id": "q5",
+      "text": "향후 해외 사업 확장을 계획하고 있습니다.",
+      "expected": {
+        "entity": null,
+        "metric": null,
+        "boundary": null
+      }
+    }
+  ]
+}

@@ -1,0 +1,1135 @@
+# Implementation status
+
+The approved plan is docs/19_IMPLEMENTATION_PLAN.md and the dependency graph in
+contracts/task_catalog.json. This file records execution; it does not replace that plan.
+
+## Current coordination
+
+- Branch: feature/proofops-implementation
+- Preserved specification baseline: 348836e
+- Implementation Orca run: run_1fab520152cb
+- Corpus repair Orca run: run_37f538200824
+- Geometry review Orca run: run_42162c31c4d6 (Kiro; completed and terminal closed)
+- TASK-000: accepted, OpenCode Muse Spark 1.3 Free plus coordinator integration
+  (task_4999213ced2c). 30 bootstrap/validator tests pass after packaging regression;
+  Python/web builds and lint/type checks pass.
+- Critical contract review: completed, Kiro Claude Sonnet 5 (task_9640be673d5b);
+  coordinator decisions in evidence/contract_review_resolution.md.
+- Legacy access inventory: completed, OpenCode Muse Spark 1.2 Free (task_5b9a9dac5b22).
+  Exact-SHA snapshot hashes independently verified; reuse rights remain unresolved.
+  Antigravity launch was stopped at its workspace trust gate; no task executed there.
+- All 46 catalog tasks registered with original dependencies in Orca; ID mapping
+  is evidence/orchestration_tasks.json. Completion still requires coordinator validation.
+- Coordinator owns Git, shared contracts, integration, and acceptance decisions.
+- Workers have explicit disjoint file ownership. No worker commits or pushes.
+
+### Separate native marker ownership proposals — 2026-09-14 KST
+
+Samsung Life121 now has12 proposed note owners after3 actual Solar Pro4 calls.
+Native separate marker/base words retain characters, indices and geometry;
+unique external-note column alignment prevents repeated1)/2) markers crossing
+between tables. Marker/word boundaries block substring matches, and nearly tied
+native bases remain ambiguous. All target cells remain unlocated and ineligible
+for scoring: this is a proposal improvement, not accepted numeric evidence.
+
+Orca Muse reviewed the changes; reproduced substring failures were fixed and
+wrong-row geometry rejection was verified. Exact current-runtime archived-call
+replay retains all12 links. Kakao6/Kia3/KB0/Naver0 source controls retain their
+prior proposals. See `evidence/separate-note-markers/verification.md`.
+This turn spentUSD0.0133359600; shared committed/reservedUSD7.8063598300,
+same6 old unsettled reservations. Final suite1837 passed; Ruff/mypy/build pass.
+Service wiring and condition acceptance remain open.
+
+### Dense-page discovery partition — 2026-09-14 KST
+
+Samsung Life121 now completes actual Solar Pro4 extraction with12 source-linked
+note groups in2 paid calls, all393 native fragments included and both4-line
+conditions intact. Oversized requests subdivide by table-column gaps or bounded
+adaptive overlap; source IDs/coordinates remain whole. Native hanging-indent
+normalization repairs the observed continuation split. No ownership is approved.
+Kia3/Kakao6/KB0/Naver0 cached-source controls remain unchanged. Current-runtime
+exact request/response replay matches the final live Samsung result.
+
+Orca Muse reviewed the changes and found a small-count split limitation, now
+fixed and regression-tested. Long disjoint boundary interpretations remain a
+known ceiling; coverage stays unknown. See
+`evidence/dense-note-partition/verification.md` for receipts, checks and unresolved
+service integration. This turn spentUSD0.0219304800; shared committed/reserved
+USD7.7930238700, same6 old unsettled reservations. Final full suite:1831 passed,
+2 existing warnings; Ruff/mypy/build pass. Goal remains active.
+
+### Bound-field footnote retention — 2026-09-14 KST
+
+The shared observation normalizer now inherits graph footnotes from the table,
+value cell and explicitly bound fields, including metric/year/boundary cells.
+Unrelated header columns remain context only. Both inferred and explicit binding
+paths use this one collection; native note blocks and source refs remain intact.
+The numeric checker also consults bound-field note edges in immutable lineage,
+so stripping observation footnote text cannot authorize an unconditional check.
+Unknown prose conditions still produce `footnote_conditions_unresolved`.
+
+Normalizer identity is version3; existing observations/reports are not rewritten.
+No API/DB or domain grading contract changes. No model calls were needed.
+Orca Muse Spark1.3 Free independently confirmed the pre-fix omission and warned
+against table-wide sibling-year inheritance (task `task_c68bfa2dcd97`, dispatch
+`ctx_aaecde39a1ff`); coordinator implemented and tested the shared fix. The worker
+settled, was released, and its external terminal was closed.
+
+Fail-first run:5 failures/99 passes. Focused final run:133 passes, including
+2024/2025 isolation in both normalization paths. Ruff, mypy162 files and all4
+Python package builds pass. Full suite:1823 passed,2 existing warnings,115.88s;
+see `evidence/note-inheritance/verification.md`.
+This fixes downstream retention, not note semantic acceptance or service wiring:
+`check_numeric_consistency` still has no app/evaluation caller. The broader
+service-readiness goal remains active.
+
+### Dense-page note input and parser recovery — 2026-09-14 KST
+
+Compact UTF-8 transport now measures the exact bytes sent under the unchanged16KB
+and USD10 policy. Rich geometry is retained after compact-input regressions were
+found and reverted. Final Kia3 links and KB/Naver negative controls pass original
+inspection; external one-page parser recovery gives Kakao6 retained notes and4
+correct metric-owner proposals, with2 title notes unknown. Samsung Life remains
+blocked in the final rich-input path and failed compact experiments are recorded.
+No note association or numeric result is accepted for scoring, and the unchanged
+service goal remains active. Full suite1816 passed. See
+[dense-page diagnostics](../evidence/dense-note-input/verification.md).
+
+### Native note extraction and ownership trial — 2026-09-14 KST
+
+Two-stage Solar Pro4 extraction now retains Kia physical45 domestic coverage,
+vehicle-limited plastic use, and vehicle-average recycling conditions and proposes
+the correct table/metric targets in the final visual-checked trial. Initial wrong
+bindings and schema failures were reproduced and retained. Native typography and
+unique numbered-marker checks constrain ownership, with source-pinned packets
+and no evidence approval. KB/Naver negative pages were also inspected; a dense
+Kakao holdout hit the existing request-size cap before billing. The goal remains
+active: broader positive coverage, bounded dense-page requests and actual service
+numeric integration are unfinished. See [note trial](../evidence/table-notes/verification.md).
+
+### Downstream unresolved-note admission — 2026-09-14 KST
+
+The numeric-check library now consults original table/cell footnote lineage and
+return not_computable when qualification text lacks accepted interpretation.
+Plain supported unit notes remain computable. Missing footnote metadata, changed
+table IDs and rewritten parent roots cannot silently evade the gate. This closes
+an unsafe consistent result, but automated note ownership/condition extraction
+remains unfinished. Repository search also found no direct application caller of
+check_numeric_consistency, so service integration is not proven. See
+[numeric note checkpoint](../evidence/numeric-note-admission/verification.md).
+
+### Crop-external context and unit-note safety — 2026-09-14 KST
+
+Source-bound outside-page context now accompanies table crops and table-role packets.
+Scoped/unsupported unit notes no longer become numeric scale conversions in either
+production normalization path; normalizer identity version2 preserves revision
+separation. Cross-report54 table instances retain context, six with rotated outside
+text explicitly unreadable. Semantic note ownership is still unresolved, so the
+service-readiness goal remains active. See
+[checkpoint verification](../evidence/table-context/verification.md).
+
+### Document extraction omission accounting — 2026-09-13 KST
+
+Image-extraction rebinding now enumerates untouched and partially quoted source
+cells using the same lexical gap calculation as text extraction. Header/row-heading
+context is distinguished from data candidates; conflicted or unselected native
+cells remain explicit unresolved entries with original candidates. Replaying five
+stored table responses yields45 data-candidate cells:19 without bound quotes,
+23 with residual text,3 fully quoted. This is not claim recall or evidence absence;
+residuals include numeric-only cells, status words and bullet punctuation. See
+[coverage verification](../evidence/document-coverage/verification.md).
+
+### Document-source binding guards — 2026-09-13 KST
+
+Quotation glyph alignment now preserves original/source and model quotes separately;
+competing source cells cannot disappear during span validation; leading merged
+header rows are excluded. Stored responses across Naver/KB/Kia yield30 linked and1
+ambiguous proposal (previously29/2), with no additional paid API calls or approved
+facts. Muse Spark1.3 Free independently reviewed the binding path. See
+[source-binding verification](../evidence/source-binding/verification.md).
+
+### Cropped document-image extraction — 2026-09-13 KST
+
+Added a bounded Information Extract PDF/PNG probe sharing the existing ledger,
+source-bound table crops and same-row exact quote rebinding. Six real calls compare
+one whole PDF page with five table PNGs across Naver/KB/Kia. The cropped Naver image
+separates progress from PPA; KB's missing budget plan returns; Kia numeric-only
+tables produce no narrative claims. These are development diagnostics, not service
+accuracy.29 quotes match parser sources and2 remain unbound; no fact approval.
+Expanded source view also corrects the prior KB diagnosis: `개발 개발` is in the
+original, not introduced by the parser. Cost USD0.396; shared committed/reserved
+USD7.68289506 / USD10. See
+[document-input verification](../evidence/document-atomic/verification.md).
+
+### Atomic table claim extraction — 2026-09-13 KST
+
+Added an opt-in external-model path extracting multiple exact claim spans from
+selected table cells, with one row per request, original context, packet rebinding
+and unknown coverage gaps. Outputs reuse the existing dimension-input contract.
+18 real calls across Naver/KB/Kia compare Pro3 prompts and Pro4. Pro4 preserves
+Naver's goal period and separates six candidates, but status attachment, omitted
+plans and metric-label false positives remain. Source-span acceptance is not
+semantic accuracy; no production grading activation. Full suite1,772 passed;
+final focused suite31 passed. Cost USD0.01096194; shared committed/reserved
+USD7.28689506 / USD10. See
+[atomic extraction verification](../evidence/table-atomic-claims/verification.md).
+
+### Original table layout context — 2026-09-13 KST
+
+Optional role-pilot PDF word geometry preserves the separate Naver progress and
+PPA text positions. Three-report local replay covers five selected tables without
+clipped words. One actual Pro3 call still misclassified the mixed cell and was
+rejected; KB exceeded the request limit before reservation. Geometry recovery is
+working for this sample, but atomic semantic targets remain open. Cost
+USD0.000578655; shared committed/reserved USD7.275933120 / USD10.
+See [layout verification](../evidence/complex-table-roles/layout-verification.md).
+
+### Complex table role path and live model comparison — 2026-09-13 KST
+
+Orca run run_f4e52cd85f8f completed independent review and coordinator fixes.
+Final suite:1,759 passed. Multirow header context now reaches role tagging; expected effects and mixed
+progress cannot escape validation by switching role names. Six real Pro3/Pro4
+calls exposed unreliable semantics; final replay rejects5/6 packets (not an
+accuracy score). Source vision found Naver KPI progress moved into a PPA bullet
+by both parser modes. Geometry-aware separation remains open; no production
+approval. Cost USD0.00320925; shared committed/reserved USD7.275354465 / USD10.
+See [complex-table verification](../evidence/complex-table-roles/verification.md).
+
+### Table footnote and context recovery — 2026-09-13 KST
+
+Orca run run_ce66cb6b7654 coordinated a Muse Spark 1.3 Free read-only review
+and coordinator implementation. Explicit year/star footnotes, region/market
+columns and preceding metric rows are now preserved as unverified context.
+Five-report replay recovered 71 additional numeric candidates (Samsung52, KEPCO19);
+Kia stayed stable and KB/Naver unsupported layouts remain deferred. Full suite:
+1,751 passed. No semantic parent or source was approved and no paid API was called.
+See [table-context verification](../evidence/agent-visual-review/table-context-verification.md).
+New demos: `.local/report-demo/table-context-v2/{samsung-life,kepco}/index.html`.
+
+### Agent visual review of the report demo — 2026-09-13 KST
+
+Directly inspected nine original PDF page images, five claims, 100 lexical
+candidates and five parser tables across Samsung Life and KEPCO. Source-bound
+agent annotations now prioritize 11 partially supporting candidates, explain the
+other 89, and exclude one navigation menu from data rendering. Footnote/hierarchy,
+reporting-boundary, SF6-share and unresolved total differences remain explicit;
+no source or rule decision was approved. See
+[evidence/agent-visual-review/verification.md](../evidence/agent-visual-review/verification.md).
+Reviewed demos: `.local/report-demo/agent-reviewed/{samsung-life,kepco}/index.html`.
+
+### Source-linked local report demo — 2026-09-13 KST
+
+Added a reproducible archived-extraction → scoped search → guarded retrieval →
+source-linked HTML replay. Samsung Life2 claims and KEPCO3 claims connect to source
+PDFs and structured table candidates. Fixed KEPCO E routing where an unclassified
+fallback heading conflicted with an explicit TOC anchor; map policy9 retains real
+conflicts. These are selected-page development replays, not whole-report inference
+or a production tagging activation. Decisions remain null with explicit reasons.
+See `evidence/source-linked-demo-verification.md` for reproduction and limits.
+
+### Table attribution and source-review diagnostics — 2026-09-13 KST
+
+Fixed partial merged-span acceptance in shared claim/evidence attribution. Added
+candidate-only table discovery with explicit year/unit/metric and hierarchical
+context, plus frozen source review and an offline annotation screen. Three actual
+parser calls succeeded (USD0.033); six-company archives yielded296 numeric
+candidates. Separate agent review is26/28 exact agreement on reviewed development
+cases, with10 additional cases unreviewed; human accuracy remains unknown.
+Production table activation and independent PDF/human validation remain open.
+See `evidence/table-attribution-review-verification.md` for scope and checks.
+
+### Tagging wire-input accounting prerequisite — 2026-09-13 KST
+
+Token preflight and Upstage dispatch now share the validated compact-wire builder.
+Non-synthetic tagging requires a request-aware counter; missing/invalid counts
+stop before spending, while cache recovery avoids recounting or redispatch.
+Six archived Samsung Life/KEPCO wire requests replay unchanged offline. No paid
+calls or tokenizer dependency were added. Official Pro3 tokenizer metadata alone
+does not establish the Pro4 chat-input counting contract, so real worker activation
+remains closed. Muse Spark1.3 free reviewed blockers and the implementation;
+see `evidence/tagging-wire-accounting-verification.md` for scope and checks.
+
+### PDF click-action compatibility and provider response archive — 2026-09-13 KST
+
+Fixed Hyundai Steel ingestion rejection by distinguishing Widget mouse-down/up
+actions from automatic PDF events. Original E body/data/appendix pages17/113/138
+now parse into316 blocks;42 remain unlocated and none are source-verified.
+Samsung Life and KEPCO selected pages also replayed successfully. One actual
+Upstage call returned3 exact claim spans from one Hyundai paragraph. Provider
+JSON is now privately preserved before completion validation, including invalid
+receipts; no unknown reservation was refunded. Kiro was exhausted; Muse Spark1.3
+free completed the baseline review. Real worker/API tagging and semantic accuracy
+gates remain open. See `evidence/pdf-gesture-and-upstage-receipts-verification.md`.
+
+### Real Upstage tagging transport and new-report diagnostics — 2026-09-13 KST
+
+Added caller-authorized compact-ID element transport with frozen classification,
+immutable raw/expanded receipts, one monetary ledger, durable failure stops and
+local concurrency fencing. Fixed long prose headings being omitted by both real
+extraction routing gates; source type and quality remain unchanged. New Samsung
+Life/KEPCO E body + data + assurance packets each produced three complete, matching
+replicas after separate classification. These are unverified model proposals, not
+measured semantic accuracy or grades. Hyundai Steel ingestion still rejects its
+Print actions. Actual non-synthetic worker/API tagging composition, source quality
+and independent gold evaluation remain open. See
+`docs/local-upstage-tagging-contract.md` and `evidence/upstage-tagging-verification.md`.
+
+### Reporting-period syntax guard — 2026-09-13 KST
+
+Reproduced identical invalid-period tags passing numeric comparison and evidence
+attribution. Shared pure period syntax validation now keeps unsupported periods
+not_comparable/undetermined; raw normalized observations remain unchanged.
+Supported formats and remaining semantic limits are documented in
+`docs/reporting-period-validation-contract.md`; actual service element tagging
+and independent accuracy remain open. See `evidence/period-validation-verification.md`.
+
+### Full-span numeric binding guard — 2026-09-13 KST
+
+Explicit numeric bindings now require complete merged-value row/column coverage;
+previously only the starting coordinate was checked. Two failing regressions and
+fully covered controls verify rejection/acceptance. Nine cached LG Chem fixture
+observations replay unchanged, including IDs and source refs, all unverified.
+See `evidence/numeric-binding-verification.md`. This does not complete table
+semantic extraction, source approval or actual Upstage element tagging.
+
+### Semantic diagnostic and partial extraction — 2026-09-13 KST
+
+Orca run_2913ca7db124: Kiro source-only30-paragraph review and separate table
+review; Antigravity review not_run after three CLI readiness failures. Thirty real
+Pro4 calls settled across five development reports. Baseline29 processed/1unknown;
+offline replay after partial-quote validation retained one exact sibling previously
+lost to a rewritten quote. Uncovered text remains unknown.1640 tests passed.
+Cumulative committed/reservedUSD6.1699600550 includes five unresolvedUSD1
+reservations. Agent agreement is not accuracy; independent gold and actual
+Upstage element-tagging service composition remain open. See
+`evidence/semantic-review-verification.md` for selection limitations and evidence.
+
+### Sentence/table context loop — 2026-09-13 KST
+
+Orca run_b5fe34ddbe68 completed three Muse Free audit/review tasks. Fixed new-profile
+cut-quotation rejection, merged-header coverage, repeated-cell row attribution,
+header IDs, row order and target-only prompts. Replayed381 responses (152 source
+IDs); six cut-quotation outputs became unknown. Twenty actual table-role calls
+settled; final5/5 tables/64 target cells passed structural checks only.1639 tests
+passed. Cumulative committed/reservedUSD6.1627026950 includes five unresolvedUSD1
+reservations. Real element-tagging service composition and independent semantic
+accuracy remain open. See `evidence/service-loop-verification.md`.
+
+### External table recovery — 2026-09-13 KST
+
+Six actual standard/enhanced parser calls on Kia/KB/NAVER recovered five unique
+tables/81 cells. Added an original-bound, evaluation-only candidate converter with
+no inferred cell coordinates or source approval. Numeric observations remain zero;
+runtime integration and evidence attribution are still open. Cumulative ledger
+USD6.1444487450 includes five unresolved USD1 reservations (1151 calls). See
+`evidence/table-recovery-verification.md` and `evidence/table-recovery-results.json`.
+
+### Multi-report context/model loop — 2026-09-13 KST
+
+Orca `run_436abc222c05` (Muse Spark1.3/1.2 Free) completed matched five-company
+prompt/context comparisons,53 new-page comparisons and two actual Pro4 local
+upload/extraction/API trials. Added835 calls; cumulative committed/reserved
+USD6.0124487450 includes5 unresolved USD1 reservations, withinUSD10. Pro3 remains
+default; Pro4 is a separately bound opt-in route. Context prompts were not promoted.
+Fixed scattered E TOC scope, Kia circularity regression, mid-word/numeric quote
+truncation and continuation after billing-unknown failures. All1609 tests pass.
+Tagging remains blocked in the real pilot, source quality candidate/unverified;
+independent accuracy and service release are not established. See
+`evidence/context-loop-verification.md` and `evidence/context-loop-results.json`.
+
+### Cross-report service evaluation — 2026-09-12 KST
+
+Orca `run_c113b48f36e3` (Muse Spark 1.3/1.2 Free) tested five additional companies;
+four parsed, CJ rejected an automatic Print action. 160 real extraction calls and
+six external parser calls (18 pages) settled; added USD0.3513762450, cumulative
+reserved/settled USD3.6945506700 of USD10, three older reservations unresolved.
+Fixed UUID-dependent bounded selection and rotated/multicolumn TOC navigation.
+A stricter prompt had mixed results and was not promoted; external parser defaults
+also remain unchanged. 1531 full-suite tests plus three new probe safety tests pass.
+Source/attribution quality and independent accuracy remain unapproved/unmeasured;
+service readiness is not achieved. See evidence/cross-report-service-evaluation.md.
+
+### Actual local Upstage service integration — 2026-09-12 KST
+
+Orca `run_19e25886bdaa` (Muse Spark 1.3/1.2 Free plus coordinator) connected local
+upload → real extraction → untagged review/source preview. Frozen source-specific
+consent, call/token caps and the existing USD10 ledger are enforced; draft rulepacks
+are extraction references only. 24 real calls settled, added USD0.0030239550;
+cumulative settled/reserved USD3.3431744250 includes three old unsettled reservations.
+Matched eight-packet prompt comparison removed six title/code proposals but retained
+one industry-background false positive. 1523 tests pass; no production readiness claim.
+See evidence/local-upstage-service-pilot.md and its JSON for checks, artifacts and gaps.
+
+### Real parser/extractor service-readiness checkpoint — 2026-09-12 KST
+
+Orca run `run_8231e1378ba3`: Muse Spark 1.3 Free audited integration/input security
+and implemented the extractor; Muse Spark 1.2 Free implemented the parser probe;
+a final Muse 1.3 review was dispositioned by the coordinator. All tasks settled,
+external terminals released and explicitly closed; coordinator integrated fixes.
+
+Added bounded Upstage parsing and injectable source-bound extraction using the
+existing cumulative USD 10 ledger. Three-report comparison found useful API table
+recovery but also wrong label/value alignment; local parser stays default. Fixed
+literal Unicode model input: same three paragraphs went from all rejected to
+7/4/2 source-exact proposals. This is development evidence, not recall/accuracy.
+Cumulative committed/reserved USD 3.3401504700, including three unresolved USD 1
+reservations; no budget increase, grade approval or production deployment.
+
+Fixed budget/429 hard-stop classification, missing-mode settlement, lost-reservation
+success, private parser archives and model-output failure handling as unknown.
+Final verification: 1,496 pytest passes (2 warnings, 97.17s); Ruff, 132-file mypy,
+web TypeScript/Vite build, architecture/license checks and pip-audit passed.
+Package validator 735/735 checks documents/contracts only. Real-model browser E2E
+is not_run. API/worker composition, run usage accounting, evidence/tagging and
+review UI integration remain incomplete; **service readiness is not achieved**.
+See `evidence/parser-extraction-comparison.md`, `evidence/upstage-adapter-review.md`
+and `docs/service-readiness-plan.md` for measured outcomes and next gates.
+
+### Expected-effect table-role guard — 2026-09-12 KST
+
+Reproduced three adversarial changes to the archived p24 table response: the old
+validator accepted achieved-result proposals citing only `기대 효과`. Added a
+literal same-column header guard and blocked bypass by omitting that header from
+model-selected basis IDs. Original nine proposals remain unchanged and all three
+mutations are rejected; source quality remains unverified and bindings undetermined.
+OpenCode Muse Spark 1.3 Free completed implementation and a coordinator-requested
+bypass fix after Kiro exited before execution. Future evaluation receipts use
+contract v4; no live model calls or prior receipt rewrites. Full Python suite:
+1,461 passed (three warnings); lint/type/build/supply-chain checks passed. See
+`evidence/table-role-guard-verification.md` and `table-role-guard-replay.json`.
+
+### Actual table numeric-basis review — 2026-09-12 KST
+
+Pinned 13 original p97/p99 cells and three notes, with original page renders.
+Domestic 2025 Scope2 Location minus Market is 42,728 as diagnostic arithmetic;
+it is not an accepted match to the p25 approximately 4만 톤 statement. The PDF
+itself displays domestic renewable electricity 335 MWh, while p25 says 93GWh:
+recorded an apparent source value/unit issue without relabeling units or grading.
+Claim year/binding and source quality remain unresolved. Muse Free guard audit
+completed; 118 numeric/binding tests and exact-source replay passed. No new model
+cost or application code change. See `evidence/numeric-basis-verification.md`.
+
+### Source-bound parent-context search route — 2026-09-12 KST
+
+Added an opt-in two-route review search: the own child and its validated same-source
+parent are searched separately, with up to 20 hits each. The actual p25 parent
+recovers p97 REC/green-premium methodology, p99 data and p119 appendix routes.
+Parent terms are search context only; no scope/year/entity inheritance, source
+approval or numeric/evidence binding. Muse Spark Free reviewed ranking crowding;
+unsafe cross-location text deduplication was not adopted. Six focused tests and
+actual-source replay passed. No additional model cost. See
+`evidence/context-retrieval-verification.md` and `context-retrieval-results.json`.
+
+### Paired child-clause context probe — 2026-09-10 KST
+
+Reused the two exact p25 child candidates, each with/without parent context.
+The context-off runs produced separate local quantity/unit/metric components for
+renewable procurement and carbon reduction effect. Parent context did not recover
+missing entity/boundary and caused one quantity-only metric rejection. No atomic
+Claim, entity inheritance or evidence acceptance. Renewable metric search reaches
+p99 data; carbon-effect metric search remains E-only in its bounded top 20.
+25 focused tests and four archived-source replays passed. Cumulative committed/
+reserved $2.041168325 / $10, including two previously unsettled calls.
+See `evidence/semantic-clauses-verification.md` and `semantic-clauses-review.json`.
+
+### Single-claim probe and period-as-boundary rejection — 2026-09-10 KST
+
+Four original p25/p46 sentences were sent separately with the same prior few-shot
+prompt/model/settings. String-null errors disappeared in this probe, but semantic
+role mistakes persisted. Reproduced and fixed the shared guard accepting a pure
+year/range as organizational boundary; archived replay now rejects that response.
+Other source-exact proposals remain unresolved, including a receiving-water-body
+boundary and industrial-complex/company attribution. No automatic binding or grade.
+25 focused tests pass; cumulative committed/reserved $2.040592145 / $10, with two
+previously unsettled calls. See `evidence/semantic-isolated-verification.md`.
+
+### Korean evidence-search routing repair — 2026-09-10 KST
+
+Reproduced two local search defects: Korean particles hid data/appendix matches,
+and numeric substrings matched unrelated values. SectionSearch now uses Korean
+bigrams and whole Latin/numeric tokens with BM25 ranking, within the same bounded
+E + all ESG DATA + all APPENDIX scope. The index generation versions this change.
+Real-source diagnostics recover related p97/99/101 data and p118 verification
+routes, without accepted bindings or source-quality promotion. Two Muse Free
+audits completed; semantic model capability remains unresolved, and proposed
+string-null coercion/batch salvage were rejected. No additional API cost.
+See `evidence/retrieval-repair-verification.md` and `retrieval-repair-results.json`.
+
+### Parent-preserving local clause candidates — 2026-09-10 KST
+
+Added a narrow opt-in evaluation splitter for one comma + `이를 통해` connector
+with supported quantities on both sides. The original parent and SourceRef stay
+intact; each child has exact offsets and a parent reference. Back-reference
+attribution remains unresolved, with no entity/boundary/year inheritance,
+accepted atomic Claim or grading change. Muse Spark 1.3 Free reviewed edge cases;
+the worker completed and its terminal was closed. No additional API cost.
+See `evidence/clause-context-verification.md` and `clause-context-results.json`.
+
+### Atomic extraction before dimensions: compound retained — 2026-09-10 KST
+
+Reused the existing atomic extractor on the p25 renewable procurement/carbon
+reduction sentence, with paragraph context and exact target restriction. One
+live call and exact archived replay both returned the whole compound sentence.
+Text coverage is full, but two measurement assertions remain; no successful
+decomposition or downstream semantic tagging is claimed. Shared domestic scope
+and the second clause's back-reference remain an attribution problem to resolve.
+23 focused atomic/claim tests and request/source replay checks passed.
+Cumulative committed/reserved $2.040014315 / $10, including two unsettled calls.
+See `evidence/atomic-expanded-verification.md`, results and review artifacts.
+
+### Expanded model extraction and quantity-as-metric rejection — 2026-09-10 KST
+
+One same-prompt few-shot call on four additional original p25/p46 sentences failed:
+five fields used string null, and manual review found quantities as metrics and
+a period as organizational boundary. All four remain unresolved, without salvage.
+Added a shared source-exact guard rejecting metrics that are only a supported
+amount/unit or unit. Twenty-two focused tests pass; this guards malformed roles
+but does not establish usable model recall or accepted evidence links.
+Cumulative committed/reserved $2.039823245 / $10, including two unsettled calls.
+See `evidence/semantic-expanded-verification.md`, results and diagnostics.
+
+### Numeric range endpoint repair during real-source audit — 2026-09-10 KST
+
+Expanded local split probes to 11 selected E-section source locations. Found the
+quantity extractor truncating 20~50% to 50% and 20~35% to 35%. The shared extractor
+now suppresses unsupported range endpoints; the splitter checks the complete
+amount against the original block, preventing source-local substring bypasses.
+These are coordinator-selected diagnostic phrases, not new model extractions or
+corpus accuracy measurements. Unknown/source/binding states and grades preserved.
+No new API calls; model budget unchanged at $2.039563535 / $10.
+See `evidence/metric-split-range-verification.md` and `evidence/metric-split-real-cases.json`.
+
+### Literal metric/quantity/unit splitting — 2026-09-10 KST
+
+Added an opt-in evaluation helper that preserves model tags and adds source-bound
+component candidates only for a supported single-quantity genitive phrase. Actual
+archived p24 response now yields `약 3만` / `톤` / `온실가스` with separate original
+SourceRefs. Source unverified, entity/boundary unknown, binding undetermined remain.
+Muse Spark 1.3 Free reviewed ambiguity edges; nested attribution stays unresolved.
+19 focused tests and archived-source replay passed. No new model calls; committed/
+reserved budget unchanged at $2.039563535 / $10. No production grading change.
+See `evidence/metric-split-verification.md` and `evidence/metric-split-results.json`.
+
+### Matched report context and few-shot probe — 2026-09-10 KST
+
+Two LG Chem p24 targets were each sent whole and as shorter original spans,
+one claim per call with fixed prompt/model/settings. All four returned all-null
+semantic dimensions; this truncation did not remedy the omissions. A separate
+same-input few-shot trial recovered `약 3만 톤의 온실가스` while entity/boundary
+stayed null. The phrase still mixes quantity/unit with the metric, so precise
+metric extraction and binding remain unresolved. No product code or grade changed.
+Offline source/hash replay covers the four paired calls and the prompt variant.
+Cumulative committed/reserved $2.039563535 / $10, including two unsettled calls.
+See `evidence/semantic-context-verification.md` and its cases/results/fewshot/replay.
+
+### Controlled semantic capability and agent review — 2026-09-10 KST
+
+Six coordinator-authored synthetic cases now separate explicit extraction (8 facts)
+from required nulls (10). One JSON-mode trial matched all 18; the same input without
+JSON mode returned malformed JSON and was rejected. This is not report accuracy
+or proof of a reliable fix. No product inference or grade changed.
+OpenCode Muse Spark 1.3 Free completed read-only review under run_c517efae4a61;
+failed Kiro/default OpenCode attempts and the completed terminal were cleaned up.
+Offline replay and 58 focused claim/binding tests passed. Next useful experiment:
+matched real-report short clause versus whole sentence; still not_run.
+Cumulative committed/reserved $2.038971185 / $10, including two unsettled calls.
+See `evidence/semantic-capability-verification.md` and its cases/results/replay.
+
+### Source token selection trial — 2026-09-09 KST
+
+Added opt-in local token IDs and own-claim range validation for semantic extraction.
+The 13-claim real trial still failed: a metric referenced another claim, while
+manual review found incorrect source-local entity/boundary roles. No partial
+salvage or accepted binding. Source selection alone does not solve semantic tagging;
+the experiment is not promoted into product inference. Existing grades unchanged.
+Cumulative committed/reserved $2.038545155 / $10, including two unsettled calls.
+See `evidence/semantic-token-verification.md` and `evidence/semantic-token-results.json`.
+
+### Semantic dimension extraction guard and trials — 2026-09-09 KST
+
+Added restricted entity/metric/boundary extraction with the existing own-claim
+source validator. A 13-claim Upstage trial borrowed company names across claims
+and failed validation; the complete response remains unresolved. An isolated
+target trial returned all null, so usable metric extraction is not demonstrated.
+No binding, numeric comparison, source approval or grade was accepted. Regression
+guards cover adjacent-claim entity/boundary borrowing and extra fields.
+Cumulative committed/reserved $2.037525290 / $10, including two unsettled calls.
+See `evidence/semantic-dimension-verification.md` and `evidence/semantic-dimension-results.json`.
+
+### Measurement meaning review — 2026-09-09 KST
+
+Added source-bound whole-claim measurement-role proposals. One real Upstage trial
+distinguished a baseline-level emissions target from project emissions savings.
+A review artifact joins prior period/quantity proposals with request provenance
+and records p97 annual emissions observations; it does not automate semantic matching.
+Canonical metric and unstated entity/boundary remain unknown, sources unverified,
+bindings undetermined. No numeric comparison or grade was accepted.
+Full local suite: 1,437 passed; lint, types, builds, architecture and supply chain passed.
+Cumulative committed/reserved $2.036896970 / $10 including two earlier unsettled calls.
+See `evidence/measurement-role-verification.md` and `evidence/measurement-role-results.json`.
+
+### Scope / unit / value candidates — 2026-09-09 KST
+
+Added local literal candidates plus restricted model-role tagging for Scope/unit/
+unit-bearing values. One real call over two p24 sentences classified five candidates:
+Scope 1+2, tCO₂e, baseline 951만 tCO₂e; and 톤, reported 약 3만 톤. Unstated
+Scope/entity/metric remain unknown; tons are not converted to CO2e. A review-only
+join with previous period tags preserves per-field request provenance, not revisions.
+Guards reject counts/years as quantities, word/unit collisions, percentage-point
+truncation and unsupported partial Scope ranges. No accepted binding or grade.
+Cumulative committed/reserved $2.036766455 / $10 including two earlier unsettled calls.
+See `evidence/quantity-candidate-verification.md` and `evidence/quantity-candidate-results.json`.
+
+### Claim dimensions: period candidates validated — 2026-09-09 KST
+
+General free-form dimension extraction failed semantic/source checks in three
+Upstage trials (all null, copied descriptions, malformed/fabricated output). These
+results were preserved and not used for binding. A narrower fourth trial tagged
+local year candidates correctly for the two p24 targets: baseline 2019, target
+2030, reporting 2025. Exact source refs and unknown remaining fields are retained.
+No general metric/Scope/unit success, accepted binding, numeric comparison or grade
+is claimed. Four calls added $0.000982410; cumulative committed/reserved
+$2.036561360 / $10 including two earlier unsettled calls. Details:
+`evidence/claim-dimension-verification.md`, `evidence/claim-dimension-results.json`.
+
+### Table-role tagging pilot — 2026-09-09 KST
+
+Added an opt-in local tagging runner using source-bound table context. One Upstage
+call over three p24 rows/nine cells proposed 3 categories, 3 activity descriptions
+and 3 expected effects; none were reported results. Activity descriptions are not
+proof of completed actions. Guards enforce complete cell coverage and same-column
+header references, without evidence approval or grading. Prior claims stay immutable.
+All sources remain unverified and bindings undetermined. Test suite: 1,431 passing;
+stricter header regression plus archived real-response revalidation also pass.
+Cumulative committed/reserved $2.035578950 / $10, including two earlier unsettled calls.
+See `evidence/table-role-verification.md` and `evidence/table-role-results.json`.
+
+### Missing-target recovery and table-row context — 2026-09-09 KST
+
+A separate target-only Upstage trial recovered the omitted K-taxonomy sentence
+verbatim after a paragraph-context retry failed source/range validation. One case
+is not an accuracy benchmark; default paragraph input remains unchanged. Previous
+artifacts/revisions remain immutable. Two calls added $0.000461010; cumulative
+committed/reserved $2.035189880 / $10 including two earlier unsettled calls.
+
+The five short OD paragraph fragments now have literal same-page table-row context
+candidates from p24-t2, with source refs, row cells and first-row context. These are
+unverified/undetermined candidates, not new graph edges or approved bindings.
+Zero-/one-based parser rows are supported. See `evidence/atomic-recovery-verification.md`
+and `evidence/atomic-recovery-results.json` for exact results and limitations.
+
+### Atomic target coverage and offline replay — 2026-09-09 KST
+
+CLI target artifacts now require matching original quote/range/source-ref/quality.
+Per-target coverage separates model-omitted sentences from untargeted context;
+exact request replay validates archived responses without network fallback or new
+replica claims. LG Chem replay: 12 returned targets, one omitted K-taxonomy target.
+This detects incompleteness; semantic extraction quality is not improved/measured.
+Twelve claims traversed existing section-scoped evidence retrieval: no verified
+candidates or bindings, unresolved sources retained as unknown. No model spending.
+Orca Muse Spark review completed and terminal closed. Details and review resolution:
+`evidence/atomic-coverage-verification.md`, `evidence/atomic-coverage-results.json`.
+
+### Source-exact atomic pilot — 2026-09-09 KST
+
+Added a local range-bound atomic extraction runner, reusing the existing claim and
+quote-validation contracts. Full paragraph context is retained; context-only quotes
+are rejected. Two real 8-call Upstage trials are immutable. Latest: 12 candidates
+from 13 selected sentences; exact spans pass, but a management sentence is omitted
+and compounds remain. Atomicity/completeness are not established.
+
+Muse Spark 1.3 Free reviewed claim/table/assurance boundaries; coordinator visually
+checked p4/p24/p97 and corrected the suggested chart rounding match. Nine explicit
+p97 table observations were replayed through the existing normalizer, all unverified.
+No accepted binding or grade. Cumulative committed/reserved $2.034728870 / $10,
+including two earlier unsettled calls. See `evidence/atomic-pilot-verification.md`.
+
+### Section-scoped local pipeline — 2026-09-09 KST
+
+KB KSSB now resolves small TOC link labels to physical destinations: E p17–64,
+Appendix p89–112. Other uncertain sections stay unknown; no printed-page offset
+is assumed. Named and explicit-array destinations are supported; external actions
+are ignored, unsupported geometry and unlabeled links are recorded. Previous four
+report ranges remain stable under policy v4; older maps remain immutable.
+
+`evaluation/section_pipeline.py` binds map hash, policy and source hash to a
+tenant-authorized graph. It supplies existing `ClaimScope`/all-text claim batches
+and an `EvidenceSearchPort` implementation covering all selected data/appendix.
+Missing and uncertain pages remain explicit. This is an opt-in local candidate
+pipeline; production full-discovery behavior and evidence approval are unchanged.
+
+LG Chem E+DATA+APPENDIX were parsed into one fresh 57-page manifest: 8,004 canonical
+blocks, 222 quality issues, fast_preview. E planning yields 237 batches / 1,892
+eligible text blocks; 3,001 structural/unlocated/conflicted blocks remain deferred.
+Both selected claim and evidence page sets have zero missing pages. Two Upstage
+request batches produced 13 sentence candidates for bounded same-document search;
+atomicity and bindings remain unreviewed/undetermined, with no grade or label.
+Additional settled estimate $0.000505065; cumulative committed/reserved $2.031915125
+including two earlier unsettled calls. No ledger reset.
+
+Orca `run_6bfec16d56c9`, Muse Spark 1.3 Free review `task_cec4af508e21`, completed
+and terminal closed. Details: `evidence/section-pipeline-verification.md` and
+`evidence/section-pipeline-results.json`. Next: semantic claim decomposition,
+table/figure source validation, and metric/year/boundary-aware evidence binding.
+
+### Earlier report-specific scope study — 2026-09-09 KST
+
+`evaluation/report_sections.py` now produces source-hashed local section candidates
+from PDF outlines/named destinations or large chapter headings. Claim candidates
+cover E narrative; evidence candidates include E plus ALL ESG DATA and APPENDIX.
+Top-level context keeps ESG DATA/Social and ESG DATA/Glossary in evidence scope.
+No product pipeline filter is changed; unknown/conflict and other candidate pages
+remain explicit, and source quality is unverified. Section-opening dividers remain
+included for later claim/non-claim extraction.
+
+Five local reports were inspected. LG Chem, Hanwha Aerospace, Samsung SDI and
+Samsung Electronics yield plausible chapter ranges checked against sampled PDF
+boundaries. KB KSSB remains entirely unknown under this conservative detector;
+the agent's text review locates climate p17–64 and Appendix p89–111, but those
+observations are not automatically promoted to an approved map. Next: resolve
+TOC links and smaller topic headings for that layout, then connect reviewed maps
+to the existing context-preserving claim batches and evidence search.
+
+Orca Run `run_81088e9c6905`: OpenCode Muse Spark 1.3 Free report review and code
+review completed; Kiro's first launch ended at dispatch input, not credit exhaustion.
+Both completed worker terminals were closed. No Upstage calls in this scope study.
+See `evidence/section-map-verification.md`, `evidence/section-map-results.json`
+and `evidence/section-map-worker-review.md` for results and limitations.
+
+### Current cross-topic prefilter review — 2026-09-09 KST
+
+Expanded the existing LG Chem p24 development case to recycling p33, water/waste
+p38 and biodiversity p48, with actual PDF layout inspection. The lexical preview
+does not consistently save meaningful cost: initial paired trials saved 9.55%,
+0.26% and 16.41%, respectively. The p33 filtered result was partial due to a
+mutated UUID response, so its candidate count is not a recall measurement.
+Definitions, regulatory background and diagram labels were selected as candidates
+in both input modes. The next extraction work should send E narrative broadly;
+lexical filtering remains an opt-in experiment. Precision/recall remain unmeasured.
+
+Fixed two observed technical issues: the OD adapter now visits `list items` and
+preserves their native source/parent links as paragraph candidates; the local
+comparison runner exposes short packet-local sentence IDs, retaining an explicit
+map to original IDs and rejecting unknown/duplicate replies. The missing p48
+continuation was recovered from identical archived OD JSON. A new p48 parse and
+six real short-ID calls passed, including all three sentences in the recovered
+paragraph; original PDF/old manifest/replay remain unchanged. That new parse has
+different block boundaries, so its scores are not a controlled before/after
+comparison with the original 20-page batch. Details: `evidence/prefilter-cross-topic-review.md`.
+
+### Previous local sentence prefilter comparison — 2026-09-09 KST
+
+The user approved local sentence/paragraph preselection before paid model calls.
+`evaluation.prefilter_comparison` now compares all eligible text blocks against
+an opt-in lexical preview, preserving adjacent context and deferred unknowns.
+The model selects locally assigned sentence IDs; Python resolves exact original
+spans. These are sentence candidates, **not yet atomic claims**. The existing
+full claim discovery path is unchanged. No BERT/embedding dependency was added.
+
+LG Chem physical p24: all-text 51 blocks/7 calls versus filtered 31 blocks/4 calls;
+all 11 final calls passed ID/source validation. Input tokens 10,384 → 6,970;
+estimated settled cost including the allowance $0.0023357400 → $0.0016509900.
+25 versus 21 sentence candidates, 21 exact matches; three baseline candidates
+were in locally deferred sources and one differed despite its source being sent.
+This is one development page, not gold recall or corpus accuracy. Prefiltering
+is not promoted to the production/default path. Atomic decomposition, evidence
+retrieval over all ESG DATA/APPENDIX, and three-replica tagging remain separate.
+See `evidence/local-prefilter-verification.md` for failures, artifacts and checks.
+
+### Previous Upstage live probe — 2026-09-09 KST
+
+User selected low-cost API models instead of Bedrock and authorized USD 10 total
+for testing. The local probe now calls Upstage Solar Pro 3 (observed provider
+version solar-pro3-260323), using the ignored `.env.upstage.local` key file and
+one durable `.local/upstage/budget.sqlite3` ledger. Authentication/JSON smoke
+passed. A real LG Chem p24 paragraph produced four claim candidates with exact
+original quote/offset validation. This is one paragraph, not recall/atomicity
+acceptance, three-replica tagging, full E/DATA/APPENDIX processing or a grade.
+Existing API/worker production model composition is unchanged; no AWS was called.
+Details, cost reservations and test results: `evidence/upstage-live-verification.md`.
+
+### Previous E/appendix case checkpoint — 2026-09-09 KST
+
+The authorized first real-report E/appendix case now runs on LG Chem physical
+pages 24 (E narrative), 97 (E data) and 117 (assurance). Existing declared-subset
+claim scope excludes appendix pages from claim discovery. Explicit offline span
+fixtures identify two claims; new source-cell role bindings normalize nine actual
+appendix values while retaining malformed raw units and unverified source quality.
+Automatic table normalization still returns zero for this selected case. Retrieval
+searches the selected appendix but admits zero verified evidence candidates;
+the pure rules engine returns blocked_evidence / null grade for both claims.
+This is a reproducible offline integration/guard case, not live semantic tagging,
+full E-section coverage, or proof of accepted claim-to-appendix attribution.
+Run: `evaluation/e_scope_case.py`; results/limits: `evidence/e-scope-verification.md`.
+Kiro source review completed in `run_593a2a208ae4`; owned terminal closed.
+
+### Previous geometry checkpoint — 2026-09-09 KST
+
+The 8 geometry failures are recovered: the 21 relevant PDFs were rerun and all
+returned 3-page sample parses (63 pages). Invalid geometry is preserved as an
+unreadable issue, excluded from numeric evidence and citations; authenticated
+source previews remain available without a highlight. All 99 invalid candidates
+are retained. LG Chem's full 119 pages also passed in six separate bounded batches.
+Original 50 hashes and 17 legacy manifests remain unchanged. Remaining 29 input
+rejections retain their preceding results; they were not rerun in this geometry scope.
+Broad regression: 1382 passed before the final GRI guard; final related scope:
+32 passed after it. These scopes overlap. Actual sample normalization yielded
+no numeric observations, so parse completion does not establish usable table data
+or extraction accuracy. Full-corpus, vision and cloud/model acceptance remain open.
+See `evidence/corpus-geometry-verification.md` for commands and limits.
+
+### Previous real-corpus parser checkpoint — 2026-09-09 KST
+
+Input inspection and versioned table-cell fusion repairs are locally verified.
+The same 50 original PDFs now return 3-page sample parses for 13 documents (39 pages),
+up from 4 documents. All original hashes are unchanged; old and new manifests replay.
+Remaining: 23 input rejections, 8 geometry failures, 3 resource-limit rejections,
+2 encrypted PDFs and 1 oversized PDF. All returned graphs remain fast_preview.
+Full-page parsing, independent gold accuracy, vision and actual cloud/model acceptance
+remain incomplete. Commands, results and provider cleanup are recorded in
+`evidence/corpus-repair-verification.md`; this does not change the catalog's domain gates.
+
+### Prior local checkpoint — 2026-09-09 KST
+
+No active or unsettled workers remain. The final comparison, export, retention and
+deployment workers' managed terminals were released before acknowledgement; historical
+external/transferred terminal records were not treated as permission to close other
+sessions. No GitHub push, cloud mutation or live product-model call was performed.
+
+The local application connects document upload, real PDF parsing and source navigation,
+guarded synthetic extraction/tagging, deterministic rules, review/rescore, summaries,
+immutable report exports and explicit prior-year comparison. All **45 canonical API
+operations** are mounted and checked against the fixed operation IDs. This is local
+implementation acceptance; real extraction accuracy and operational readiness are unproven.
+
+TASK-023 backend is accepted in **a223d19**, and its workspace in **b0c8588**. The workspace passed
+controlled browser privacy/retry checks and the actual mounted browser/API flow. Missing
+approved prior artifacts persist a truthful `not_run` result with no invented changes.
+TASK-040 is accepted locally in **14b0caf** and **486d9f5**: a deletion request immediately
+hides the document and related reads, revokes old download access and fences running jobs;
+physical deletion remains blocked without an approved retention policy.
+
+The broad backend run passed **1326 tests**; the subsequent final comparison scope passed
+18 and the offline deployment gate passed 29 (overlapping scopes are not summed).
+Lint/type checks, Python/web builds, dependency audits and actual browser flows passed.
+Exact commands, limits and results: **evidence/local-final-verification.md**.
+
+**TASK-044 remains blocked and incomplete.** Its offline evidence verifier is implemented,
+but a deployable AWS entrypoint, production adapter wiring and actual staging/recovery
+acceptance are still outstanding. They are not replaced by the local SQLite implementation
+or synthetic evidence. Required human inputs are listed at the end of this document;
+external evidence requirements are in **docs/DEPLOYMENT_EVIDENCE.md**.
+
+### Execution history
+
+The entries below preserve earlier checkpoints. Their references to pending work describe
+the state at that checkpoint; the final local checkpoint above is the current status.
+
+TASK-021 report rendering is accepted in **1ac5151**, and TASK-036 accessibility
+and summary refresh in **757161d** plus coordinator regression **a1a18b6**.
+Reports preserve unknown/missing revisions and exact provenance; no grading runs
+during rendering. Real browser keyboard review/source flows and delayed action
+scope changes were checked.
+
+TASK-031 and routed export UI are accepted in **4d86acf**. The coordinator reran
+15 export/composition tests, lint/type checks and the web build, then exercised
+the actual mounted report form and private ZIP download in the same-origin
+browser harness. Unfinished final reports are blocked, partial exports persist,
+download bytes match the authorized SHA, and missing CSRF is rejected. Separate
+tests cover review/rescore snapshot races and immutable old ZIPs. Workers
+ctx_b66c61d48190 and ctx_8789889d20b2 were released before acknowledgement.
+Details and exact commands: evidence/task-031.md and evidence/local-export-web.md.
+
+Run start/progress UI is accepted in 71bbc5e after actual upload/run browser
+verification and a coordinator regression for retry polling and stale actions
+after tenant/run replacement. TypeScript/Vite build passes. Worker ctx_8f42fdf16eb3
+was released before acknowledgement. Evidence: evidence/local-run-web.md.
+TASK-032's first worker was released; its preliminary tests did not cover wrong
+source bindings or selective denominators. Repair task task_26b2050f9724 supplied
+the accepted missing checks, as recorded below.
+
+TASK-032's repair is accepted in 5ec9d30 after 13 focused tests, Ruff and mypy.
+Nested label snapshots are immutable; wrong binding tuples score incorrectly;
+unresolved gold grades remain explicit and company manifests bind evaluation.
+Worker ctx_05f1ee955daf transferred to CLI/API integration before acknowledgement.
+
+Local tag execution and TASK-019 review integration passed 118 related tests.
+The actual generated PDF remains unverified/fast_preview and ends in a truthful
+blocked partial state with zero calls. A separately verified synthetic corpus
+proves three distinct calls, durable recovery and fenced checkpoint/review/audit
+publication. Actual claim-detail HTTP integration passed two cases; composition,
+source and fixed-contract checks passed 32. Unknown human tags retain null grades.
+Worker ctx_699532a3fe76 was released; ctx_1b92852a3b89 transferred to TASK-020
+before acknowledgement. Review browser integration is still downstream work.
+Catalog worker ctx_efba68e8a756 transferred to bounded-storage reuse repair before
+acknowledgement; its initial list tests do not establish final acceptance.
+
+Coordinator accepted durable local tagging/reviews, bounded shared catalog lists,
+source page preview, rules-only rescore and evaluation CLI/API in **8be891a**.
+The combined source/catalog/review/claim scope passed 41 tests; the later catalog
+compatibility case brings its own scoped count to 7. Rescore acceptance passed
+42 tests. Evaluator/CLI integration passed 25 tests after a failed-first growing
+file regression replaced an unbounded read with a 1 MiB ceiling. Source preview
+checks real PNG rendering and CropBox/rotation while retaining private tickets.
+Catalog, rescore, evaluation and preview workers were released before acknowledgement.
+Explicit local configuration loader and preflight wiring passed 15 focused
+checks after bounded-read and missing-wiring regressions. Runtime worker
+ctx_55c855b31d08 was released before acknowledgement.
+API composition mounting is verified separately (auth plus foreign/missing reads),
+with web integration still in progress. TASK-026 summary acceptance passed 9
+tests, including real changed-pack rescore through HTTP and rejection of a head
+without the exact immutable receipt. Its worker transferred to TASK-021 before
+acknowledgement; original run and prior decision snapshots remain untouched. No cloud/model/rights
+approval or production readiness is inferred from these local results.
+
+Latest revision coverage repair passed 9 coordinator integration tests. One SQL
+refresh in the existing transaction updates review/rescore counts, preserving
+processed totals, unheaded blocked work, page/chunk coverage, immutable checkpoints
+and partial status. Actor/CAS/audit rollback checks preserve prior counts.
+Worker ctx_39a9e81ca23f was released before acknowledgement.
+
+TASK-034's worker was released before acknowledgement. Coordinator replaced its
+initial separate-DB health probe with a shared-DB burst of 20 summary readers
+after two real run acceptances. Corrected load/fencing tests passed 2 cases;
+read p95 was 75.1 ms and acceptance p95 9.0 ms for that local, zero-claim fixture.
+This is not a populated-corpus, network, steady-state or production SLO result.
+Actual operation IDs are also checked against the fixed OpenAPI contract.
+
+Routed claim/review web integration is accepted in **bf8037a**, including real
+Orca browser checks for a concurrent review 412, preserved draft, CSRF rejection,
+candidate-source page preview without a false highlight, and tenant clearing.
+That worker transferred directly to TASK-036 before acknowledgement.
+Analysis reads are accepted in **75557b1**; 49 combined analysis/composition/rescore
+tests and scoped lint/type checks passed. The existing changed-safe-harbor-checklist
+retag gate passed an additional focused check. The analysis worker was released.
+
+At the earlier checkpoint, **39 of 45 canonical API operations** were mounted with their
+fixed operation IDs; export (3), comparison (2), and deletion request (1) remain
+downstream. `uv run --no-sync pytest tests/unit tests/contracts tests/integration
+tests/security -q --tb=short` passed **225 tests in 49.81 s**, with two upstream
+deprecation warnings. This broad local checkpoint excludes report acceptance
+and active frontend changes; it is not final release or live-model evidence.
+
+Muse Spark 1.2 and 1.3 returned rate-limit errors; the continuing 1.2 attempts
+explicitly reported free usage exceeded with an eight-hour retry. The affected
+five dispatches were fenced, their exact coordinator-created terminals closed,
+and released before the Codex replacements started. Kiro completed the provenance
+and initial authentication work. Earlier incomplete green counts do not establish
+acceptance; authentication was accepted only after separate critical repair.
+
+Orca reported `agent_prompt_stalled` for the two Kiro dispatches, although
+both exact processes received their briefs and completed their work. Their
+worker_done messages were accepted; both coordinator-created terminals were
+released and explicitly closed. No duplicate editors were launched on the
+observation failure.
+
+TASK-025's validation/activation foundation is accepted after repair
+(task_7b6531fc3d59) and coordinator regression checks: 38 rulepack and 29 contract
+tests pass. Immutable IDs, snapshot hashing, deep immutability, null rejection and
+CLI path containment were checked. Its worker is released and closed. Dependent
+domain implementation may proceed; the completed HTTP/admin persistence follow-up is recorded below.
+The follow-up `task_83ba709dad52` is now accepted (866e4ae): actual admin HTTP,
+durable CAS activation, immutable run snapshots and 24-hour idempotency. Its worker
+was released before acknowledgement. Root 0d3a709 connects active pack choices to
+the durable activation pointer across API instances without stale copies.
+
+TASK-017 pure industry resolver is accepted after nullable CompanyContext integration
+checks (6 industry + 29 package contract tests). Worker ctx_f19e355a1b26 was released
+and its supervised terminal closed. Real mapping approval remains unresolved;
+summary route composition is downstream work.
+
+TASK-014 general ladders are accepted (47 focused tests; commit 3250537).
+Worker ctx_9842c99abcc9 was released and closed. Source/tenant binding,
+uncertainty influence, immutable inputs, pinned YAML and fixed v1 projection
+were checked. TASK-015/016 supply the dedicated exception/record paths.
+
+TASK-015 exceptions are accepted (47 exception + 47 general tests; a94b600).
+Its worker transferred to TASK-024 before acknowledgement. Actual source AND
+absence, product caps and unresolved upper-grade behavior are covered.
+
+TASK-016 safe-harbor records are accepted (10 focused tests; f33bd69), retaining
+uncertainty and GAP-001 without inventing legal effect or numeric grades.
+TASK-024 mode gating is accepted (43 focused tests; 5d8d1c6), preventing an
+unapproved advertising template from falling through to disclosure rules.
+Both workers were released and closed before acknowledgement.
+
+TASK-002 provenance is accepted (21 focused tests; a2a028a). Four rotations,
+CropBox extents and Korean normalization mapping are checked. Actual renderer
+comparison, raw artifact persistence and source HTTP navigation are downstream.
+
+TASK-018 is accepted after three coordinator malformed-entry regressions
+(14 regulatory + 38 rulepack + 29 contract tests; e476264). Empty end dates
+cannot silently become unlimited periods. Its worker transferred to TASK-037
+repair, task_7d5794a24f09, which is now accepted.
+
+TASK-037 is accepted (27 auth + 29 contract tests; e249a13). First tenant
+selection, atomic competing rotations, expired/revoked rejection and hash-only
+session storage are verified through actual HTTP. The repair worker transferred
+directly to TASK-041. Actual Cognito/DynamoDB sessions remain not_run.
+
+TASK-033 is accepted after repair and two coordinator regressions (8 focused +
+29 contract tests; cce23d9). Canonical namespace hashing prevents delimiter
+collisions; raw artifacts explicitly bind request id, replica and epoch.
+Only the local conditional cache boundary is verified; distributed cache
+transactions/revocation and versioned cloud objects remain not_run.
+
+TASK-038 local PDF verification is accepted (26 focused tests; 3750a3d, 1d67f82).
+Actual bounded parsing, immutable promotion and seven network-disabled Linux
+container cases are recorded in evidence/task-038.md. No cloud provisioning or
+customer PDF processing occurred. Both TASK-033/038 workers were released and
+their exact supervised terminals closed before acknowledgement.
+
+TASK-041 browser session security is accepted after coordinator Origin and CORS
+regressions (69 session/auth/contract checks; ad747b5). An absent configured
+origin denies mutations; request Host is never an origin approval. Worker released.
+
+TASK-045 durable registry is accepted after a separate SQLite interleaving repair
+(12 focused checks; c8fdec7). Concurrent app instances retain each other's writes;
+approved profiles require their full verified artifact. Repair worker released.
+Root composition now checks actual HTTP activation-to-runtime-options visibility.
+
+TASK-029 preflight and guarded invocation are accepted (63 focused checks;
+02849af). Missing region consent, profile approval or build attestation blocks
+readiness. Actual product-model calls remain not_run. Worker released.
+
+TASK-028 and TASK-022 durable audit integration are accepted (ac10860): coordinator
+ran 54 job/audit/cost checks. Append-only events and canonical hash-chain heads join
+the caller transaction, including cancel/retry, with rollback and separate-connection
+race checks. Both workers were transferred or released before acknowledgement.
+Run lifecycle HTTP integration is accepted (1dc125f); no completed pipeline is claimed yet.
+
+TASK-030 is accepted (3fb91fe): 25 focused checks cover atomic reservations,
+immutable pricing/attempt/usage, guarded retries and exact Decimal costs. Unknown
+usage/cost remain unknown. Its worker transferred directly to TASK-035.
+
+TASK-001 is accepted (d36d83f): 13 focused checks cover actual multipart bytes,
+immutable local source versions, durable validation jobs, quarantine verification,
+head ordering and transactional audit/idempotency. Its worker transferred to TASK-003.
+The upload/session UI passed an actual composed-API browser upload and requires approved rights, consent and runtime (evidence/task-001-web.md).
+
+OIDC boundary integration is accepted (8f6f636): actual signed-token verification,
+local HTTP token/JWKS exchange, PKCE/state/nonce, replay and refresh-cipher storage
+boundaries passed 80 coordinator auth/security/composition checks. Unconfigured
+login returns 503; no real Cognito account, KMS deployment or human approval is invented.
+
+TASK-003 is locally accepted: nine actual OpenDataLoader/pdfplumber parsing tests
+cover tables, physical page selection, rotation/CropBox mapping, immutable candidates
+and unresolved conflicts. Worker released before acknowledgement. Vision/model
+validation remains not_run; graph quality stays fast_preview.
+
+TASK-035 is locally accepted: 16 observability tests plus composed request-ID and
+HTTP-error classification regressions pass. The API uses sanitized structured
+logging and server-generated correlation. Local parser execution now uses the worker telemetry hook; cloud exporter remains not_run. Worker released.
+
+TASK-004/006/007/008 pure normalization, GRI candidates, assurance scope and claim
+extraction are accepted (64d104d). TASK-009/011/012/027/039 scoped retrieval, track
+candidate validation, literal citations, coverage and prompt/tool boundaries are
+accepted (f0c3ea6); root combined acceptance/API/security check: 124 passed.
+These functions do not establish a completed live inference pipeline.
+
+Local parser execution is accepted (a8d33e7): actual OpenDataLoader/pdfplumber,
+immutable full config pins, crash replay, fence/cancel protection and atomic parse
+coverage/extract outbox. Root parser/lifecycle/job/telemetry regression: 94 passed.
+Parse completion remains current_stage=extract and run.complete=false. New source
+and quality HTTP reads use committed manifests and pass tenant/corruption/cursor
+checks. Extraction execution is accepted below.
+
+TASK-005 initial output failed important review; repair is accepted (df4ead4):
+68 numeric cases including exact recurring rational reductions, verified spans,
+explicit non-overlapping sums and correct periods. TASK-013 attribution is accepted
+(1b2f945), 50 source-bound product/year/table checks. Local extraction is accepted
+(6750c04), 23 actual parser/extractor/replay checks; claim summary HTTP integration
+passes while detail remains explicitly pending until tagging is published. All finished workers were released before ACK; their
+catalog completed state alone does not establish root acceptance.
+
+Source/quality/claims API integration and bounded local request controls are accepted
+(5b155f1): actual immutable parser/extraction reads, signed cursor filters/epochs,
+server-session identity limits, bounded JSON bodies, no-store and strong tenant checks.
+Root combined acceptance: 136 tests, Ruff and mypy across all 17 API source files pass.
+The request-control worker was released before ACK. Limits remain process-local;
+normal non-local composition is still gated. Claim detail remains pending tagging.
+
+TASK-010 is accepted after explicit complete-track packet and malformed provider
+receipt repairs (88cf2a3): root tagging/retrieval/prompt-injection verification passed
+80 tests, Ruff and checked-body mypy on five source files. Both original and selected
+packets are retained; unknown/failed/P4/P6 votes cannot invent attestations. The exact
+worker terminal transferred to the local tag executor before ACK. Initial revision
+storage and worker/API composition remain in progress with TASK-019.
+Run creation now optionally freezes full local tagging settings (7e0a7b7); all 37
+lifecycle checks passed with approved runtime identity/output-limit guards and replay
+preservation. Missing settings never implicitly enable tagging for existing runs.
+
+
+TASK-042 build-time supply-chain gate is accepted (42 focused tests; 0511611).
+Worker released and closed. Typed IAM policy is locally executed, not deployed.
+
+TASK-043 frozen legacy characterization is accepted after fresh-checkout repair
+task_ee8232449b6b (15 tests, commit 5bc6d2b). Frozen graph/parser functions run
+with a minimal model import shim; no full upstream parser run is claimed.
+Missing ignored snapshots skip only dependent checks; runtime exclusion still
+runs. Final worker ctx_462e78f5df49 was released and closed.
+
+Dependency remediation commit 99777bd updates the audited vulnerable Python
+versions. The locked-requirements audit now exits 0, and 62 auth/contract/legacy
+checks pass. See evidence/dependencies-task042.md; release/cloud checks remain
+separate and not_run.
+
+Minimal pypdf parsing extra is pinned for the worker (59949f8); synthetic PDF
+write/read, refreshed SBOM and strict vulnerability audit pass. Security behavior
+is verified in TASK-038. See evidence/dependencies-task038.md.
+
+OpenDataLoader 2.5.7 and keg-only Java 21 are installed for TASK-003 (1170930).
+An actual synthetic PDF produced JSON and Markdown using Java 21. This proves
+local invocation only; geometry/corpus behavior still requires the parser task.
+
+The upload POST parser is pinned and audited (625266f). Actual multipart parsing,
+file-count rejection, refreshed SBOM and strict vulnerability audit pass; see
+evidence/dependencies-task001.md. This alone does not establish upload acceptance.
+
+Shared package manifests, locks, public DTOs and contracts remain coordinator-owned.
+New directories under domain/application/adapters are included recursively in wheels;
+editable imports use live source. No per-subpackage manifest edits are necessary.
+Workers use `uv run --no-sync` during concurrent edits; dependency changes are serialized.
+
+## Quality and authorization
+
+User requests fast autonomous implementation and review of critical/important issues.
+Keep source binding, uncertainty states, deterministic rules, immutable revisions,
+tenant isolation, concurrency control, and relevant runnable checks. Defer cosmetic
+refactoring and duplicate review cycles. Reuse existing architecture and task plans.
+
+Human-only domain decisions GAP-001 through GAP-010 remain unresolved. Implement
+their prescribed per-claim gates. Do not block unrelated implementation on approval.
+Product Bedrock calls, AWS mutations, GitHub push, legal approval, and customer-data
+processing remain not_run until their explicit authorization and inputs exist.
+Coding-agent use through the requested Kiro/OpenCode/Antigravity providers is authorized.
+
+## Checkpoints
+
+1. Bootstrap and synthetic source-to-rules-to-JSON path.
+2. Actual local PDF parsing and source navigation with fixture tags.
+3. Live product inference and independent evaluation only when authorized.
+4. Implement review, rescore and immutable export now; actual human decisions and staging mutations remain deferred.
+
+TASK-000 and the local implementation checkpoints above are complete. Actual staging,
+production runtime wiring, human approvals and representative-data evaluation remain open.
+Package validation is not application testing; see evidence/task000.md for actual checks.
+
+## Deferred inputs and human decisions
+
+These gates defer the affected operation, not unrelated local implementation.
+
+| Input / decision | Work that proceeds now | Operation still deferred |
+|---|---|---|
+| Approved GAP-001–007 interpretation and boundary examples | Explicit source ladders, nullable results, per-claim gap gates, synthetic tests | Automatic decisions for unresolved combinations |
+| Verified clause references, rights, timeline and industry mapping (GAP-008–010) | Metadata validation, unverified/undetermined states, denominator handling | Official clause/legal assertions and approved applicability |
+| Approved PDF corpus with company, reporting period, origin, rights and document hash | Generated fixtures, local parser/provenance implementation | Customer-data processing and representative corpus evaluation |
+| Independent source-anchored annotations and adjudication | Annotation format, company-level split isolation, evaluation code | Real accuracy claims; synthetic rule cases are not gold data |
+| Account model bindings, allowed processing regions, consent, quota and cost ceiling | Fail-closed preflight, synthetic adapters, adapter contract tests | Product Bedrock calls and cross-region document transfer |
+| Deployment account, region, domain, OIDC/IAM and rollout authorization | Infrastructure code and local checks | AWS mutation, live restore/load evidence and release |
+| Approved retention duration, legal-hold rules and backup deletion policy | Immediate access tombstones, blocked deletion receipts, local recovery checks | Physical production deletion and backup expiry certification |
+| Legacy and parser redistribution approval where rights are unresolved | Exact-SHA inventory, clean implementation, reuse exclusion checks | Copying restricted implementation into deployable artifacts |
+
+The initial evaluation target in docs/14 requires at least 100 gold claims,
+200 elements, 100 numeric tuples and 50 assurance negatives. These are proposed
+evaluation minimums, not data currently available or measured performance.

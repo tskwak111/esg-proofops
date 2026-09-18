@@ -1,0 +1,148 @@
+{
+  "baseline": "dcd0508",
+  "model_calls": 0,
+  "metric": "literal_candidate_recovery_not_accuracy",
+  "reports": [
+    {
+      "company": "samsung-life",
+      "receipt_file_sha256": "1bd1464e7d867414862df2fc5aa4befbd32394c9a0697b97ca42f0bf37a7f8f0",
+      "tables": [
+        {
+          "table_id": 5,
+          "html_sha256": "b76c80edf2e8f4a9e542d1421ca36692e7c73ed3298b9d6e9bcdea8de9f547a2",
+          "before_status": "candidate_only",
+          "after_status": "candidate_only",
+          "before": {
+            "candidate": 41,
+            "non_numeric_value": 37
+          },
+          "after": {
+            "candidate": 93,
+            "non_numeric_value": 37
+          }
+        },
+        {
+          "table_id": 8,
+          "html_sha256": "499750a67d75b6e89e1906d70fbf545b0cd4b5fddf9071c45cf0cca4ed8d04dc",
+          "before_status": "candidate_only",
+          "after_status": "candidate_only",
+          "before": {
+            "candidate": 46,
+            "non_numeric_value": 14
+          },
+          "after": {
+            "candidate": 46,
+            "non_numeric_value": 14
+          }
+        },
+        {
+          "table_id": 10,
+          "html_sha256": "dd2b3e78288754dd96658b3964384e7ffaa289d468379ac91a97523910fc453c",
+          "before_status": "unsupported_layout",
+          "after_status": "unsupported_layout",
+          "before": {},
+          "after": {}
+        }
+      ]
+    },
+    {
+      "company": "kepco",
+      "receipt_file_sha256": "54ed0a92cbb2b8a9707b0aa760aad6395a472e7ee21c27f05a671151b4921e58",
+      "tables": [
+        {
+          "table_id": 3,
+          "html_sha256": "69be3dee313b93ac7b506122570c6f27e57e16194896e0dbc4cded76332d0f18",
+          "before_status": "candidate_only",
+          "after_status": "candidate_only",
+          "before": {
+            "candidate": 48,
+            "non_numeric_value": 6
+          },
+          "after": {
+            "candidate": 52,
+            "non_numeric_value": 2
+          }
+        },
+        {
+          "table_id": 6,
+          "html_sha256": "6464d1e6aaf6e11c734d9c78cb85429e36a5b8013675a5c09ab21e8939110e9e",
+          "before_status": "candidate_only",
+          "after_status": "candidate_only",
+          "before": {
+            "candidate": 66,
+            "non_numeric_value": 15
+          },
+          "after": {
+            "candidate": 81
+          }
+        }
+      ]
+    },
+    {
+      "company": "kia",
+      "receipt_file_sha256": "319934955ebd690519e4225b3741bc6f5fb2668432685473b310a8f75f3957b2",
+      "tables": [
+        {
+          "table_id": 10,
+          "html_sha256": "1e79e4b07e8b5c580836bc2f853003518bc82b0f000bab4fef3991d04dd130a7",
+          "before_status": "candidate_only",
+          "after_status": "candidate_only",
+          "before": {
+            "candidate": 6
+          },
+          "after": {
+            "candidate": 6
+          }
+        },
+        {
+          "table_id": 13,
+          "html_sha256": "6adbedd14bd6e5af4123ed4a1a22dec5679a4ed8c834eb75224fc1c28c6fddf4",
+          "before_status": "candidate_only",
+          "after_status": "candidate_only",
+          "before": {
+            "candidate": 2
+          },
+          "after": {
+            "candidate": 2
+          }
+        }
+      ]
+    },
+    {
+      "company": "kb",
+      "receipt_file_sha256": "91591cd9bad2a0598ef77cdc78121299f105d24a8f2ef9c680655172d79da664",
+      "tables": [
+        {
+          "table_id": 5,
+          "html_sha256": "a1f086fcb307e849e22ae775d61d5d268f95f6a00cc2c7a847e99e374c2564f1",
+          "before_status": "unsupported_layout",
+          "after_status": "unsupported_layout",
+          "before": {},
+          "after": {}
+        },
+        {
+          "table_id": 9,
+          "html_sha256": "885151ab2c5de1239e5fa931bda96864b4087da059c5a69745957307501d7101",
+          "before_status": "unsupported_layout",
+          "after_status": "unsupported_layout",
+          "before": {},
+          "after": {}
+        }
+      ]
+    },
+    {
+      "company": "naver",
+      "receipt_file_sha256": "1845494070aae7166224f9533b0973734ba28b609d4594f20df93e4fdd2a7548",
+      "tables": [
+        {
+          "table_id": 8,
+          "html_sha256": "e30363b7ca02b94712c51aa6b435ac0701f3617d92915cff9b8e04f5c1ed38d1",
+          "before_status": "unsupported_layout",
+          "after_status": "unsupported_layout",
+          "before": {},
+          "after": {}
+        }
+      ]
+    }
+  ]
+}

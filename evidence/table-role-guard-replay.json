@@ -1,0 +1,154 @@
+{
+  "packet_sha256": "4e9c9f17afe9030f2ffea8da13099713403ccfee98afbcb2839c2158c4a468f9",
+  "response_sha256": "cbf3cacd01d0d780de266bf98e5fefd7b64aa118f750b288ff8fb343e781f4b7",
+  "original_tags_preserved": 9,
+  "mutated_cases": [
+    {
+      "cell_id": "c2",
+      "source_ref": {
+        "source_id": "d0ba7397-5dfb-540b-8002-80298d084864",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 24,
+        "printed_page_label": "24",
+        "bbox": [
+          649.5,
+          591.1575000000021,
+          804.0,
+          624.1575000000021
+        ],
+        "raw_text_sha256": "ee7d117f794077e8876f0cb6d6002f7765edc553e1c75817542c0b9c4d8826a3",
+        "quote": "동력 손실 저감을 통한 전력 사용량 절감",
+        "char_start": 0,
+        "char_end": 22,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "basis_refs": [
+        {
+          "source_id": "42a5a22e-0e95-5dda-89d6-28bc52349f18",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 24,
+          "printed_page_label": "24",
+          "bbox": [
+            649.5,
+            505.7200000000021,
+            804.0,
+            525.1575000000021
+          ],
+          "raw_text_sha256": "566c0fff8cc68887dd6a735316237de3acee4f43527947b19910d0cd742a1a0d",
+          "quote": "기대 효과",
+          "char_start": 0,
+          "char_end": 5,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        }
+      ],
+      "mutation": "expected_effect -> reported_result",
+      "before": "model_proposal_accepted",
+      "after": "rejected",
+      "rejection_reason": "reported_result blocked by expected-effect same-column header"
+    },
+    {
+      "cell_id": "c8",
+      "source_ref": {
+        "source_id": "76b1dded-4850-5d2f-9bb9-77d942bf02a0",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 24,
+        "printed_page_label": "24",
+        "bbox": [
+          649.5,
+          558.1575000000021,
+          804.0,
+          591.1575000000021
+        ],
+        "raw_text_sha256": "66b533db70b47dd95ce110d48d32d2360dbe9b360c9c33877a65b991ba7f8980",
+        "quote": "공정 열효율 향상 및 폐에너지 재활용을\n통한 온실가스 배출 저감",
+        "char_start": 0,
+        "char_end": 35,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "basis_refs": [
+        {
+          "source_id": "42a5a22e-0e95-5dda-89d6-28bc52349f18",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 24,
+          "printed_page_label": "24",
+          "bbox": [
+            649.5,
+            505.7200000000021,
+            804.0,
+            525.1575000000021
+          ],
+          "raw_text_sha256": "566c0fff8cc68887dd6a735316237de3acee4f43527947b19910d0cd742a1a0d",
+          "quote": "기대 효과",
+          "char_start": 0,
+          "char_end": 5,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        }
+      ],
+      "mutation": "expected_effect -> reported_result",
+      "before": "model_proposal_accepted",
+      "after": "rejected",
+      "rejection_reason": "reported_result blocked by expected-effect same-column header"
+    },
+    {
+      "cell_id": "c14",
+      "source_ref": {
+        "source_id": "d4173c93-9497-5725-8fc9-e279d1789534",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 24,
+        "printed_page_label": "24",
+        "bbox": [
+          649.5,
+          525.1575000000021,
+          804.0,
+          558.1575000000021
+        ],
+        "raw_text_sha256": "0fadbcadc46202022ad2b731d29ed230b8d7b7e7600c5ba8377315ee76fa969f",
+        "quote": "설비 운영 효율 향상을 통한 전력 및 스팀\n사용량 절감",
+        "char_start": 0,
+        "char_end": 30,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "basis_refs": [
+        {
+          "source_id": "42a5a22e-0e95-5dda-89d6-28bc52349f18",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 24,
+          "printed_page_label": "24",
+          "bbox": [
+            649.5,
+            505.7200000000021,
+            804.0,
+            525.1575000000021
+          ],
+          "raw_text_sha256": "566c0fff8cc68887dd6a735316237de3acee4f43527947b19910d0cd742a1a0d",
+          "quote": "기대 효과",
+          "char_start": 0,
+          "char_end": 5,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        }
+      ],
+      "mutation": "expected_effect -> reported_result",
+      "before": "model_proposal_accepted",
+      "after": "rejected",
+      "rejection_reason": "reported_result blocked by expected-effect same-column header"
+    }
+  ],
+  "live_model_calls": 0,
+  "source_quality": "unverified",
+  "binding_status": "undetermined",
+  "grade": null,
+  "validator_file_sha256": "fb966f5abe3d172057c4438f9d130adefc7c146b45003808cab1cfeffe298f26",
+  "revalidation_contract_version": 4
+}

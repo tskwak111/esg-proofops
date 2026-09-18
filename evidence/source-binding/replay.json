@@ -1,0 +1,57 @@
+{
+  "mode": "stored_response_replay",
+  "paid_api_calls": 0,
+  "scope": "candidate_source_binding_only",
+  "results": [
+    {
+      "case": "kb-crop-0",
+      "response_sha256": "870036fa2ecf3bac7cb3f9e8d5572edaae468ef067968f02c385c0b34f3b5d0b",
+      "native_snapshot_sha256": "21f55f0561f03748746c462c2e2dbd276920242ba04301ecebcac93ed94c8e05",
+      "binding_sha256": "36983a56c923063a357821edd19387b755f20530c8817d272bcd204b20ed37f9",
+      "linked": 3,
+      "unbound": 0,
+      "glyph_aligned": 0,
+      "eligible_for_scoring": 0
+    },
+    {
+      "case": "kb-crop-1",
+      "response_sha256": "5a78ffcab285539c88016f9ccf4e89d736f6d43de6fd0fa2449ca2b3876cc99a",
+      "native_snapshot_sha256": "21f55f0561f03748746c462c2e2dbd276920242ba04301ecebcac93ed94c8e05",
+      "binding_sha256": "6099a13e8ec4f62da404045353c45632dd91441e4c3b3ef1d38c10b03d1dc389",
+      "linked": 21,
+      "unbound": 0,
+      "glyph_aligned": 0,
+      "eligible_for_scoring": 0
+    },
+    {
+      "case": "kia-crop-0",
+      "response_sha256": "cc431b5c9650109d1922d2d643107295ad0a35dfb5e6939d046a8422d9ce12d1",
+      "native_snapshot_sha256": "8a5e8a8997eb6e60f10c44495b7f709f10442a0bbe44c637db7fbcee9f3f0e90",
+      "binding_sha256": "6fe14c189fd1610bc217e0db36f157784628829c0166ce85b6eefb33fe1d56de",
+      "linked": 0,
+      "unbound": 0,
+      "glyph_aligned": 0,
+      "eligible_for_scoring": 0
+    },
+    {
+      "case": "kia-crop-1",
+      "response_sha256": "fc8734f00ffbfc69869125afea3f60483e491fc9b1a7d38de7abeea856a2819d",
+      "native_snapshot_sha256": "8a5e8a8997eb6e60f10c44495b7f709f10442a0bbe44c637db7fbcee9f3f0e90",
+      "binding_sha256": "6fe14c189fd1610bc217e0db36f157784628829c0166ce85b6eefb33fe1d56de",
+      "linked": 0,
+      "unbound": 0,
+      "glyph_aligned": 0,
+      "eligible_for_scoring": 0
+    },
+    {
+      "case": "naver-crop",
+      "response_sha256": "4017651428445289db415b1b43b51767f3271d0c3368077e69cc71d4fd9ca263",
+      "native_snapshot_sha256": "4634e6972c11617f970ecd3cbaacccab040cffa5bb01727ca96fe1896a5593d2",
+      "binding_sha256": "aeb2d64e398c245780e426ea9d44f9647fdce0d20cbc3d0f6e6fe7b92965933c",
+      "linked": 6,
+      "unbound": 1,
+      "glyph_aligned": 1,
+      "eligible_for_scoring": 0
+    }
+  ]
+}

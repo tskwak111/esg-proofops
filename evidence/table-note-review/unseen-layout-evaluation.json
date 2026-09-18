@@ -1,0 +1,118 @@
+{
+  "schema": "source_note_holdout_evaluation_v1",
+  "implementation_commit": "738b5dc",
+  "reference_scope": "original native text and rendered page, fixed before live invocation; not domain ownership approval",
+  "reports": [
+    {
+      "report": "lg-chem",
+      "physical_page": 97,
+      "source_sha256": "c6395dd2be7948d85fa2b52c6edb61367fa6610c6f389c2478b44cb4cfcb5bde",
+      "reference_sha256": "953c26c0cf0da905e906ff59a28d36ca2a6be9e9b67f58fc4cd2c7acdba51783",
+      "reference_path": ".local/note-review-integration/holdout-lg-reference/reference.json",
+      "worker_result_path": ".local/note-review-integration/automatic-worker-holdout-v1/result.json",
+      "worker_result_sha256": "f9331d63c1dda53031eb7164c5dfacaee923e1ad7511be334d7c5ce353d78dc5",
+      "reference_notes": 7,
+      "predicted_notes": 7,
+      "exact_word_set_matches": 7,
+      "missing_notes": 0,
+      "extra_notes": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "canonical_tables": 1,
+      "model_calls": 2,
+      "replay_without_calls": true,
+      "model_proposed_links": 1,
+      "eligible_for_scoring": 0
+    },
+    {
+      "report": "samsung-electronics",
+      "physical_page": 72,
+      "source_sha256": "342a99a14d7c32b4e66cbbf977cc89dc79044ccc7c5e71367fb476c14538c8c5",
+      "reference_sha256": "f86aa5940d418b3fe0ff45cf64369ae726a9c575a38bd02aaa77566f7f31fefa",
+      "reference_path": ".local/note-review-integration/holdout-se-reference/source-reference.json",
+      "worker_result_path": ".local/note-review-integration/automatic-worker-holdout-se-v1/result.json",
+      "worker_result_sha256": "e04e96d5e6f1b7c87db867c96c13f2540ac6b37a4cd427013230b432dc346c05",
+      "reference_notes": 5,
+      "predicted_notes": 0,
+      "exact_word_set_matches": 0,
+      "missing_notes": 5,
+      "extra_notes": 0,
+      "precision": null,
+      "recall": 0.0,
+      "canonical_tables": 0,
+      "model_calls": 0,
+      "replay_without_calls": true,
+      "model_proposed_links": 0,
+      "eligible_for_scoring": 0
+    }
+  ],
+  "ledger": {
+    "calls": 1345,
+    "unsettled_calls": 6,
+    "committed_usd": "7.8206777050"
+  },
+  "limitation": "Two selected pages, not whole-report/corpus accuracy. Samsung zero-table result is an extraction miss, not proof of no footnotes.",
+  "samsung_fix_iterations": [
+    {
+      "iteration": "v2",
+      "result_path": ".local/note-review-integration/automatic-worker-holdout-se-v2/samsung-electronics/note-reviews/18f1d49d-c89a-45c0-a495-e8e4294a93ae/baf2a8bc-c101-43ae-a16e-59cb3905ef83/72/result.json",
+      "result_sha256": "595aa56895a828b9babc5c2321e8d956122e563b8602a275398129498c0b1a23",
+      "status": "source_bound_proposals",
+      "expected_notes": 5,
+      "predicted_notes": 11,
+      "exact_word_set_matches": 4,
+      "missing_notes": 1,
+      "extra_notes": 7,
+      "model_calls": 1,
+      "replay_without_calls": true,
+      "scoring_eligible": 0
+    },
+    {
+      "iteration": "v3",
+      "result_path": ".local/note-review-integration/automatic-worker-holdout-se-v3/samsung-electronics/note-reviews/b0b97021-71ce-4255-9ee2-19745cca4172/c0c3b247-6849-48cc-9b9f-1d320b6602d9/72/result.json",
+      "result_sha256": "c144133e05ec17fe5a82bd44a1c16c4e51f771e758a928774ac89dfacbd04482",
+      "status": "source_bound_proposals",
+      "expected_notes": 5,
+      "predicted_notes": 11,
+      "exact_word_set_matches": 5,
+      "missing_notes": 0,
+      "extra_notes": 6,
+      "model_calls": 1,
+      "replay_without_calls": true,
+      "scoring_eligible": 0
+    },
+    {
+      "iteration": "v4",
+      "result_path": ".local/note-review-integration/automatic-worker-holdout-se-v4/samsung-electronics/note-reviews/23cd09e5-f1da-46bf-9509-64d36ea5a913/21452468-7a10-4910-a218-fdbb60b5d4ea/72/result.json",
+      "result_sha256": "2abbaf89f68a9043abb88a7d36db4b150045822b29479ebf7d580b64413858b2",
+      "status": "source_bound_proposals",
+      "expected_notes": 5,
+      "predicted_notes": 4,
+      "exact_word_set_matches": 3,
+      "missing_notes": 2,
+      "extra_notes": 1,
+      "model_calls": 2,
+      "replay_without_calls": true,
+      "scoring_eligible": 0
+    },
+    {
+      "iteration": "v5",
+      "result_path": ".local/note-review-integration/automatic-worker-holdout-se-v5/samsung-electronics/note-reviews/6311fa8f-57d1-4c7d-8548-f7895e9be7da/59fa0dc3-b7d7-4ae3-b513-a2e293058f18/72/result.json",
+      "result_sha256": "59935e7d8049a02ec726e0528e48f2e9f2cee6ff23419afd12d804045d466c26",
+      "status": "source_bound_proposals",
+      "expected_notes": 5,
+      "predicted_notes": 5,
+      "exact_word_set_matches": 5,
+      "missing_notes": 0,
+      "extra_notes": 0,
+      "model_calls": 2,
+      "replay_without_calls": true,
+      "scoring_eligible": 0
+    }
+  ],
+  "latest_ledger": {
+    "calls": 1351,
+    "unsettled_calls": 6,
+    "committed_usd": "7.8283551550"
+  }
+}

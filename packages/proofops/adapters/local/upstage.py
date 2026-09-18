@@ -1,0 +1,330 @@
+"""Bounded, opt-in Upstage text probe; independent of production model composition.
+
+One local SQLite ledger covers the user's cumulative USD 10 test authorization.
+Before each request, reserve USD 1 (deliberately much larger than these tiny
+requests at the pinned rates). Unknown/failed calls keep that reservation. No
+retries, tools, redirects, document uploads or credential logging are enabled.
+"""
+
+from __future__ import annotations
+
+import http.client
+import json
+import os
+import sqlite3
+from datetime import UTC, datetime
+from decimal import Decimal
+from pathlib import Path
+
+from proofops.application.budget import PricingSnapshot, TokenUsage, usage_cost
+from proofops.domain.provenance import canonical_hash
+
+MODEL = "solar-pro3"
+MODEL_PRO4 = "solar-pro4"
+PRICE = PricingSnapshot(
+    "upstage-solar-pro3-2026-09-09",
+    MODEL,
+    "provider-managed-unverified",
+    "2026-09-09T00:00:00Z",
+    Decimal("0.15"),
+    Decimal("0.60"),
+)
+# Source: https://www.upstage.ai/pricing/api (2026-09-09); prices exclude 10% VAT.
+# Conservative undiscounted Pro4 snapshot; promotions ignored.
+PRICE_PRO4 = PricingSnapshot(
+    "upstage-solar-pro4-2026-09-12",
+    MODEL_PRO4,
+    "provider-managed-unverified",
+    "2026-09-12T00:00:00Z",
+    Decimal("0.30"),
+    Decimal("1.20"),
+)
+_PRICES = {MODEL: PRICE, MODEL_PRO4: PRICE_PRO4}
+POLICY = {
+    "limit_usd": "10.00",
+    "reservation_usd": "1.00",
+    "price": PRICE.to_dict(),
+    "vat_allowance": "1.10",
+    "max_request_bytes": 16384,
+    "max_output_tokens": 4096,
+}
+
+# Shared fail-closed contract: every code here means the current operation must
+# not make another billable call (reservation retained/unsettled, ledger
+# exhausted/invalid, or request cannot proceed without re-authorization).
+# Valid-usage malformed model content (MODEL_SPAN_OR_SCHEMA_INVALID etc.) is
+# NOT in this set and stays unknown-and-continue. UPSTREAM_UNAVAILABLE is the
+# extractor-sanitized unknown transport failure; it also halts.
+UPSTAGE_TRANSPORT_STOP_CODES = frozenset(
+    {
+        "BUDGET_EXHAUSTED",
+        "BUDGET_SETTLEMENT_INVALID",
+        "PRICE_RECHECK_REQUIRED",
+        "PROBE_REQUEST_TOO_LARGE",
+        "UPSTAGE_REQUEST_FAILED",
+        "UPSTAGE_RECEIPT_INVALID_RESERVATION_RETAINED",
+        "UPSTREAM_UNAVAILABLE",
+        *(f"UPSTAGE_HTTP_{n}" for n in (400, 401, 403, 404, 429, 500, 502, 503)),
+    }
+)
+
+
+def _zero_request_usage() -> dict:
+    return {
+        "model_calls": 0,
+        "reserved_calls": 0,
+        "settled_calls": 0,
+        "unsettled_calls": 0,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "token_usage_complete": True,
+        "cost_with_vat_reserve_usd": "0",
+        "committed_or_reserved_usd": "0",
+        "unknown_reservation_cost_usd": None,
+    }
+
+
+def request_usage(ledger, request_ids) -> dict:
+    """Shared read-only accounting over supplied request IDs.
+
+    Counts only distinct supplied IDs with a ledger reservation; IDs without
+    a reservation (e.g. preflight rejections) are ignored. Unsettled
+    reservations stay unknown while their reservation remains in
+    ``committed_or_reserved_usd``. Never aggregates global ledger totals.
+    The ledger is opened read-only so a missing ledger cannot create a file;
+    empty ID lists return zero without opening the ledger.
+    """
+    identifiers = list(dict.fromkeys(request_ids))
+    if not identifiers:
+        return _zero_request_usage()
+    if ledger is None:
+        raise ValueError("ACCOUNTING_UNAVAILABLE")
+    try:
+        uri = Path(ledger).resolve().as_uri() + "?mode=ro"
+        entries = []
+        with sqlite3.connect(uri, uri=True) as db:
+            for identifier in identifiers:
+                row = db.execute(
+                    "SELECT committed, receipt FROM probe_calls WHERE request_id=?",
+                    (identifier,),
+                ).fetchone()
+                if row is not None:
+                    entries.append((Decimal(row[0]), json.loads(row[1]) if row[1] else None))
+    except (sqlite3.Error, ValueError, TypeError, OSError):
+        raise ValueError("ACCOUNTING_UNAVAILABLE") from None
+    settled = [receipt for _, receipt in entries if receipt is not None]
+    unknown = len(entries) - len(settled)
+    cost = sum((amount for amount, _ in entries), Decimal(0))
+    return {
+        "model_calls": len(entries),
+        "reserved_calls": len(entries),
+        "settled_calls": len(settled),
+        "unsettled_calls": unknown,
+        "input_tokens": sum(receipt["input_tokens"] for receipt in settled),
+        "output_tokens": sum(receipt["output_tokens"] for receipt in settled),
+        "token_usage_complete": not unknown,
+        "cost_with_vat_reserve_usd": "unknown" if unknown else str(cost),
+        "committed_or_reserved_usd": str(cost),
+        "unknown_reservation_cost_usd": "unknown" if unknown else None,
+    }
+
+
+class UpstageProbe:
+    """Local development transport; not a production source-quality attestation."""
+
+    def __init__(self, api_key: str, ledger: Path, *, model: str = MODEL):
+        if not isinstance(model, str) or model not in _PRICES:
+            raise ValueError("UNSUPPORTED_MODEL")
+        if not api_key or any(c.isspace() for c in api_key):
+            raise ValueError("UPSTAGE_API_KEY_MISSING_OR_INVALID")
+        self._model = model
+        self._price = _PRICES[model]
+        self._api_key = api_key
+        self.ledger = ledger
+        ledger.parent.mkdir(parents=True, exist_ok=True)
+        with sqlite3.connect(ledger) as db:
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS probe_policy (id INTEGER PRIMARY KEY, body TEXT)"
+            )
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS probe_calls (request_id TEXT PRIMARY KEY, "
+                "signature TEXT NOT NULL, committed TEXT NOT NULL, receipt TEXT)"
+            )
+            body = json.dumps(POLICY, sort_keys=True)
+            db.execute("INSERT OR IGNORE INTO probe_policy VALUES (1, ?)", (body,))
+            if db.execute("SELECT body FROM probe_policy WHERE id=1").fetchone()[0] != body:
+                raise ValueError("BUDGET_POLICY_MISMATCH")
+        ledger.chmod(0o600)
+        self._responses = ledger.with_name(ledger.name + ".responses")
+        self._responses.mkdir(mode=0o700, exist_ok=True)
+        self._responses.chmod(0o700)
+
+    @property
+    def model(self) -> str:
+        return self._model
+
+    def _reserve(self, request_id, body):
+        with sqlite3.connect(self.ledger, timeout=10) as db:
+            db.execute("BEGIN IMMEDIATE")
+            if db.execute("SELECT 1 FROM probe_calls WHERE request_id=?", (request_id,)).fetchone():
+                raise ValueError("duplicate request; no automatic retries")
+            total = sum(
+                (Decimal(row[0]) for row in db.execute("SELECT committed FROM probe_calls")),
+                Decimal(0),
+            )
+            if total + Decimal(POLICY["reservation_usd"]) > Decimal(POLICY["limit_usd"]):
+                raise ValueError("BUDGET_EXHAUSTED")
+            db.execute(
+                "INSERT INTO probe_calls VALUES (?, ?, ?, NULL)",
+                (request_id, canonical_hash(body), POLICY["reservation_usd"]),
+            )
+
+    def _settle(self, request_id, cost, receipt):
+        with sqlite3.connect(self.ledger) as db:
+            updated = db.execute(
+                "UPDATE probe_calls SET committed=?, receipt=? "
+                "WHERE request_id=? AND receipt IS NULL AND committed=?",
+                (
+                    str(cost),
+                    json.dumps(receipt, sort_keys=True),
+                    request_id,
+                    POLICY["reservation_usd"],
+                ),
+            ).rowcount
+            if updated != 1:
+                raise ValueError("BUDGET_SETTLEMENT_INVALID")
+
+    def summary(self):
+        with sqlite3.connect(self.ledger) as db:
+            rows = db.execute("SELECT committed, receipt FROM probe_calls").fetchall()
+        return {
+            "limit_usd": POLICY["limit_usd"],
+            "calls": len(rows),
+            "unsettled_calls": sum(receipt is None for _, receipt in rows),
+            "committed_usd": str(sum((Decimal(cost) for cost, _ in rows), Decimal(0))),
+        }
+
+    def _post(self, body):
+        connection = http.client.HTTPSConnection("api.upstage.ai", timeout=60)
+        try:
+            connection.request(
+                "POST",
+                "/v1/chat/completions",
+                body=json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode("utf-8"),
+                headers={
+                    "Authorization": "Bearer " + self._api_key,
+                    "Content-Type": "application/json",
+                },
+            )
+            response = connection.getresponse()
+            if response.status != 200:
+                raise ValueError(f"UPSTAGE_HTTP_{response.status}")
+            raw = response.read(1_048_577)
+            if len(raw) > 1_048_576:
+                raise ValueError("UPSTAGE_RESPONSE_TOO_LARGE")
+            return json.loads(raw)
+        finally:
+            connection.close()
+
+    def complete(
+        self,
+        system: str,
+        user_json: str,
+        *,
+        request_id: str,
+        max_tokens: int = 1024,
+        json_mode: bool = False,
+    ):
+        if datetime.now(UTC) >= datetime(2026, 9, 16, tzinfo=UTC):
+            raise ValueError("PRICE_RECHECK_REQUIRED")
+        if (
+            not isinstance(system, str)
+            or not isinstance(user_json, str)
+            or not isinstance(request_id, str)
+            or not 1 <= len(request_id) <= 128
+            or type(max_tokens) is not int
+            or not 1 <= max_tokens <= 4096
+            or type(json_mode) is not bool
+        ):
+            raise ValueError("INVALID_PROBE_REQUEST")
+        body = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user_json},
+            ],
+            "max_tokens": max_tokens,
+            "temperature": 0,
+            "stream": False,
+        }
+        if json_mode:
+            body["response_format"] = {"type": "json_object"}
+        if (
+            len(json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+            > POLICY["max_request_bytes"]
+        ):
+            raise ValueError("PROBE_REQUEST_TOO_LARGE")
+        self._reserve(request_id, body)
+        try:
+            data = self._post(body)
+            # Preserve decoded HTTP-200 JSON before validating usage/content.
+            # Hash the caller ID so it cannot become a filesystem path.
+            path = self._responses / (canonical_hash(request_id) + ".json")
+            with os.fdopen(
+                os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w"
+            ) as stream:
+                json.dump({"request_id": request_id, "provider_response": data}, stream)
+                stream.flush()
+                os.fsync(stream.fileno())
+        except Exception as error:
+            # Do not expose exception bodies/headers which may echo a credential.
+            code = str(error)
+            if code not in {f"UPSTAGE_HTTP_{n}" for n in (400, 401, 403, 404, 429, 500, 502, 503)}:
+                code = "UPSTAGE_REQUEST_FAILED"
+            raise ValueError(code) from None
+        try:
+            native = data["usage"]
+            usage = TokenUsage(
+                native["prompt_tokens"],
+                native["completion_tokens"],
+                0,
+                0,
+                0,
+                "succeeded",
+                data["id"],
+            )
+            if usage.input_tokens is None or usage.output_tokens is None:
+                raise ValueError("unknown token usage")
+            cost = Decimal(usage_cost(usage, self._price.to_dict())) * Decimal("1.10")
+            choice = data["choices"][0]
+            content = choice["message"]["content"]
+            allowed_models = (
+                (MODEL, "solar-pro3-260323")
+                if self.model == MODEL
+                else (MODEL_PRO4, "solar-pro4-260806")
+            )
+            if (
+                data["model"] not in allowed_models
+                or choice["finish_reason"] != "stop"
+                or not isinstance(content, str)
+                or not content.strip()
+                or usage.output_tokens > max_tokens
+                or cost > Decimal("1.00")
+            ):
+                raise ValueError("invalid provider completion")
+        except (KeyError, TypeError, ValueError, IndexError):
+            raise ValueError("UPSTAGE_RECEIPT_INVALID_RESERVATION_RETAINED") from None
+        receipt = {
+            "model": self.model,
+            "provider_request_id": data["id"],
+            "provider_model": data["model"],
+            "input_tokens": usage.input_tokens,
+            "output_tokens": usage.output_tokens,
+            "price_snapshot": self._price.to_dict(),
+            "cost_with_vat_reserve_usd": str(cost),
+            "response_sha256": canonical_hash(data),
+        }
+        if json_mode:
+            receipt["response_format"] = {"type": "json_object"}
+        self._settle(request_id, cost, receipt)
+        return {**receipt, "content": content}

@@ -1,0 +1,61 @@
+{
+  "date": "2026-09-12",
+  "orchestration_run": "run_19e25886bdaa",
+  "production_ready": false,
+  "run_scope": "LG Chem sample page 1 = original physical page 25; no data/appendix matching in this pilot",
+  "runs": [
+    {
+      "run_id": "cc767514-612f-4ddd-899c-1c56b45229d3",
+      "source_sha256": "5b0038a48eca57d4be5c54535e070d40fcda389cbe7f7e6b73960d8ca0e5ff19",
+      "physical_sample_pages": [
+        1
+      ],
+      "claims": 18,
+      "claims_http_status": 200,
+      "detail_http_status": 200,
+      "inspection_path": ".local/upstage-service-pilot/inspection-1789221023359561000.json",
+      "inspection_sha256": "bb1e65f1122656982922e793e1b993917fd5ca47b1121a351bd9b1ddfc3ce20a"
+    },
+    {
+      "run_id": "49b441af-180d-4fd0-85c9-2f16fa8856f4",
+      "source_sha256": "5b0038a48eca57d4be5c54535e070d40fcda389cbe7f7e6b73960d8ca0e5ff19",
+      "physical_sample_pages": [
+        1
+      ],
+      "claims": 12,
+      "claims_http_status": 200,
+      "detail_http_status": 200,
+      "inspection_path": ".local/upstage-service-pilot-v2/inspection-1789221410122922000.json",
+      "inspection_sha256": "b48daf8a4df04bbda9a387f107effe17b0cddb1e3f76aa0eeea9744570eb26cb"
+    }
+  ],
+  "actual_calls_this_wave": 24,
+  "new_unsettled_calls": 0,
+  "additional_committed_usd": "0.0030239550",
+  "cumulative_committed_or_reserved_usd": "3.3431744250",
+  "cumulative_unsettled_calls": 3,
+  "budget_limit_usd": "10",
+  "matched_packet_comparison": {
+    "path": ".local/upstage-service-pilot-matched/comparison.json",
+    "sha256": "f4df14822fa12af1ac3200795fe2a221c182eb5e6ee2cb6a89feb0964d386acb",
+    "packets": 8,
+    "old_proposals": 18,
+    "new_proposals": 9,
+    "observation": "Six label/code proposals removed; one general industry description remains. Development inspection, no gold precision/recall."
+  },
+  "browser": {
+    "claim_list": true,
+    "untagged_detail": true,
+    "source_preview": true,
+    "png_size": [
+      1413,
+      1999
+    ],
+    "unverified_highlight": false
+  },
+  "limitations": [
+    "Paragraph scheduling currently sorts source UUIDs, so a new manifest can change the bounded subset. Only matched packets are a valid prompt comparison.",
+    "Source verification, E/data/appendix evidence matching and grades remain blocked/unmeasured.",
+    "Local harness authentication is not deployment authentication."
+  ]
+}

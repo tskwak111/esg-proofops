@@ -1,0 +1,242 @@
+{
+  "date": "2026-09-13 KST",
+  "scope": "evaluation-only; no automatic evidence acceptance",
+  "unique_tables": 5,
+  "unique_cells": 81,
+  "rows": [
+    {
+      "company": "kia",
+      "mode": "standard",
+      "original_page": 45,
+      "live": {
+        "status": "parsed",
+        "request_id": "c5ab7409-d0a1-4ad7-8b71-bc408f32679e",
+        "seconds": 5.773149125045165,
+        "cost_usd": "0.011"
+      },
+      "conversion": {
+        "status": "candidate_only",
+        "tables": 2,
+        "cells": 24,
+        "located_cells": 0,
+        "verified": 0,
+        "observations": 0,
+        "source_sha256": "d0d814d98c4aeedbbdb2bf8631b8981ae5cde94dec32aa32c57510420274da1f",
+        "parse_manifest_id": "f65543fb-622d-483b-aebb-a4b5b30d009b",
+        "provider_response_sha256": "6233beebe31f8e8676b7d181601757c14f30e5259ad483bba295ccc3f8e0e2bb",
+        "converter_sha256": "d1a51e6816bcf85360a75d2f99c56802527631c9edd397e683aa82262046396d",
+        "html_parser_sha256": "c8aec6c945b0a2a7fba61c189133dee33c8cf565d6b64ab5b8d1bfedcdb3dc49"
+      },
+      "artifact": ".local/table-recovery/kia/standard/candidates-c7b9289e-ea82-4afc-9b10-535ca9177974"
+    },
+    {
+      "company": "kia",
+      "mode": "enhanced",
+      "original_page": 45,
+      "live": {
+        "status": "parsed",
+        "request_id": "879fcfad-e7c6-45df-af56-5c577c4747ec",
+        "seconds": 7.695841291919351,
+        "cost_usd": "0.033"
+      },
+      "conversion": {
+        "status": "candidate_only",
+        "tables": 2,
+        "cells": 24,
+        "located_cells": 0,
+        "verified": 0,
+        "observations": 0,
+        "source_sha256": "d0d814d98c4aeedbbdb2bf8631b8981ae5cde94dec32aa32c57510420274da1f",
+        "parse_manifest_id": "ccdc7bf4-2909-4e35-bde3-fc60edf4b017",
+        "provider_response_sha256": "c22e64eaef22b45b7a3c600afa425d1824cefcf1aea6c40ef23338cff424019c",
+        "converter_sha256": "d1a51e6816bcf85360a75d2f99c56802527631c9edd397e683aa82262046396d",
+        "html_parser_sha256": "c8aec6c945b0a2a7fba61c189133dee33c8cf565d6b64ab5b8d1bfedcdb3dc49"
+      },
+      "artifact": ".local/table-recovery/kia/enhanced/candidates-1e861248-fc70-46af-8d9c-a4b28f9b847f"
+    },
+    {
+      "company": "kb",
+      "mode": "standard",
+      "original_page": 30,
+      "live": {
+        "status": "parsed",
+        "request_id": "e0ed3297-5425-4473-b629-d988ca4563f9",
+        "seconds": 6.5710578330326825,
+        "cost_usd": "0.011"
+      },
+      "conversion": {
+        "status": "candidate_only",
+        "tables": 2,
+        "cells": 48,
+        "located_cells": 0,
+        "verified": 0,
+        "observations": 0,
+        "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+        "parse_manifest_id": "8eefcffe-f3b6-411c-8314-527fd8467c4e",
+        "provider_response_sha256": "a9057b3b12af85a3628ef6011000e2f77db7f407c3418b2dbb8dd4e9bc864dca",
+        "converter_sha256": "d1a51e6816bcf85360a75d2f99c56802527631c9edd397e683aa82262046396d",
+        "html_parser_sha256": "c8aec6c945b0a2a7fba61c189133dee33c8cf565d6b64ab5b8d1bfedcdb3dc49"
+      },
+      "artifact": ".local/table-recovery/kb/standard/candidates-d396733c-df06-46cf-a55a-1955728434b5"
+    },
+    {
+      "company": "kb",
+      "mode": "enhanced",
+      "original_page": 30,
+      "live": {
+        "status": "parsed",
+        "request_id": "8d1d98bf-365a-455b-af15-7f9c0cf594b3",
+        "seconds": 9.610542334150523,
+        "cost_usd": "0.033"
+      },
+      "conversion": {
+        "status": "candidate_only",
+        "tables": 2,
+        "cells": 48,
+        "located_cells": 0,
+        "verified": 0,
+        "observations": 0,
+        "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+        "parse_manifest_id": "24972f3b-3517-478b-a734-bb86ce3ebb92",
+        "provider_response_sha256": "caf3a3287fec0f747a872774cb5f3a51e809073f7b260cce1ab239bb7b8cd492",
+        "converter_sha256": "d1a51e6816bcf85360a75d2f99c56802527631c9edd397e683aa82262046396d",
+        "html_parser_sha256": "c8aec6c945b0a2a7fba61c189133dee33c8cf565d6b64ab5b8d1bfedcdb3dc49"
+      },
+      "artifact": ".local/table-recovery/kb/enhanced/candidates-e5fb678b-93d4-4cbd-9e90-13d291a4e6dd"
+    },
+    {
+      "company": "naver",
+      "mode": "standard",
+      "original_page": 84,
+      "live": {
+        "status": "parsed",
+        "request_id": "4cd1dff2-64e2-403d-a9f2-0872f6304868",
+        "seconds": 5.566342708887532,
+        "cost_usd": "0.011"
+      },
+      "conversion": {
+        "status": "candidate_only",
+        "tables": 1,
+        "cells": 9,
+        "located_cells": 0,
+        "verified": 0,
+        "observations": 0,
+        "source_sha256": "75388f16c13739a671fd158c383502d81968fe587f2372ab0f9306f3d2c1a2c6",
+        "parse_manifest_id": "743be3dd-7efd-444d-878d-84aaf9411c2f",
+        "provider_response_sha256": "fcac791006a7b4bf901bb46d49f6c29c39b15a2e08233c0516b24100342a9444",
+        "converter_sha256": "d1a51e6816bcf85360a75d2f99c56802527631c9edd397e683aa82262046396d",
+        "html_parser_sha256": "c8aec6c945b0a2a7fba61c189133dee33c8cf565d6b64ab5b8d1bfedcdb3dc49"
+      },
+      "artifact": ".local/table-recovery/naver/standard/candidates-9effaa5b-f6e8-4672-82b5-90079339f597"
+    },
+    {
+      "company": "naver",
+      "mode": "enhanced",
+      "original_page": 84,
+      "live": {
+        "status": "parsed",
+        "request_id": "777a9269-4bc5-434d-85ec-bead890fb462",
+        "seconds": 7.654903250047937,
+        "cost_usd": "0.033"
+      },
+      "conversion": {
+        "status": "candidate_only",
+        "tables": 1,
+        "cells": 9,
+        "located_cells": 0,
+        "verified": 0,
+        "observations": 0,
+        "source_sha256": "75388f16c13739a671fd158c383502d81968fe587f2372ab0f9306f3d2c1a2c6",
+        "parse_manifest_id": "ac275d02-2df0-440a-8636-8da6289e11f7",
+        "provider_response_sha256": "188fa744cab73727d2abc10fcb68c2bb16d816147cfbb97ad780582dc5b6bbd6",
+        "converter_sha256": "d1a51e6816bcf85360a75d2f99c56802527631c9edd397e683aa82262046396d",
+        "html_parser_sha256": "c8aec6c945b0a2a7fba61c189133dee33c8cf565d6b64ab5b8d1bfedcdb3dc49"
+      },
+      "artifact": ".local/table-recovery/naver/enhanced/candidates-8f68625f-6943-45bb-bc2b-03147be7e85c"
+    }
+  ],
+  "budget": {
+    "calls": 1151,
+    "unsettled": 5,
+    "committed_reserved_usd": "6.1444487450",
+    "wave_cost_usd": "0.132"
+  },
+  "limitations": [
+    "not human gold or accuracy benchmark",
+    "same provider family across both modes",
+    "no cell bounding boxes",
+    "no numeric observations produced",
+    "no production parser integration"
+  ],
+  "glyph_location_diagnostics": {
+    "scope": "Whitespace-flexible literal matching inside actual table regions; no graph/quality mutation, no accuracy claim",
+    "runs": [
+      {
+        "mode": "geometric",
+        "result_path": ".local/table-recovery/location-probe.json",
+        "result_sha256": "dceaf85cb90b9c36808a2c2ec27c1f553ed5dd15e3da076a90664611de45e845",
+        "script_path": ".local/table-recovery/locate_probe.py",
+        "script_sha256": "f872ef5dee4eaf4c8c0b761ab95a62e2089ca3cf7d5173983645b192d03dfee7",
+        "companies": [
+          {
+            "company": "kia",
+            "original_page": 45,
+            "cells": 24,
+            "unique_literal_match": 22,
+            "ambiguous": 2,
+            "unmatched": 0
+          },
+          {
+            "company": "kb",
+            "original_page": 30,
+            "cells": 48,
+            "unique_literal_match": 21,
+            "ambiguous": 4,
+            "unmatched": 23
+          },
+          {
+            "company": "naver",
+            "original_page": 84,
+            "cells": 9,
+            "unique_literal_match": 3,
+            "ambiguous": 0,
+            "unmatched": 6
+          }
+        ]
+      },
+      {
+        "mode": "text_flow",
+        "result_path": ".local/table-recovery/location-probe-text-flow.json",
+        "result_sha256": "6bb05b4e39855921707daa77d61335391f093c1c857bbc325f5946ad01c879c6",
+        "script_path": ".local/table-recovery/locate_probe_text_flow.py",
+        "script_sha256": "cb5eaff5ccbeb350e57aed6ecf8537ff95640cf81ca9cfc75fe96c8acd5ec48d",
+        "companies": [
+          {
+            "company": "kia",
+            "original_page": 45,
+            "cells": 24,
+            "unique_literal_match": 22,
+            "ambiguous": 2,
+            "unmatched": 0
+          },
+          {
+            "company": "kb",
+            "original_page": 30,
+            "cells": 48,
+            "unique_literal_match": 44,
+            "ambiguous": 4,
+            "unmatched": 0
+          },
+          {
+            "company": "naver",
+            "original_page": 84,
+            "cells": 9,
+            "unique_literal_match": 7,
+            "ambiguous": 1,
+            "unmatched": 1
+          }
+        ]
+      }
+    ]
+  }
+}

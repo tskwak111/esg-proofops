@@ -1,0 +1,229 @@
+{
+  "status": "local_candidate_pipeline",
+  "reports": [
+    {
+      "report": "hanwha-map",
+      "source_sha256": "ddd0858100c039f5c1a9dda2ad2bc5a50fd3a119c02d6f9bff106af5e7b9610c",
+      "map_sha256": "e8c98168b2db964e585e98431cef7f674cd16ca68e43cab53545d69ed41ef728",
+      "method": "pdf_navigation",
+      "claim_ranges": [
+        [
+          21,
+          35
+        ]
+      ],
+      "evidence_ranges": [
+        [
+          21,
+          35
+        ],
+        [
+          87,
+          114
+        ]
+      ],
+      "unknown_ranges": [
+        [
+          1,
+          3
+        ],
+        [
+          13,
+          20
+        ]
+      ],
+      "conflict_pages": [],
+      "issues": []
+    },
+    {
+      "report": "kb-map",
+      "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+      "map_sha256": "fef7b0a2253fbc46f7dede948ce8c70b7ffed30bfc202c0b8d5ea33a16ac8f03",
+      "method": "toc_links",
+      "claim_ranges": [
+        [
+          17,
+          64
+        ]
+      ],
+      "evidence_ranges": [
+        [
+          17,
+          64
+        ],
+        [
+          89,
+          112
+        ]
+      ],
+      "unknown_ranges": [
+        [
+          1,
+          16
+        ],
+        [
+          65,
+          88
+        ]
+      ],
+      "conflict_pages": [],
+      "issues": [
+        {
+          "kind": "unlabeled_toc_link",
+          "page": 5,
+          "destination_page": 1
+        },
+        {
+          "kind": "unlabeled_toc_link",
+          "page": 5,
+          "destination_page": 5
+        }
+      ]
+    },
+    {
+      "report": "lg-map",
+      "source_sha256": "c6395dd2be7948d85fa2b52c6edb61367fa6610c6f389c2478b44cb4cfcb5bde",
+      "map_sha256": "cd4873be1c0667c167d04e882dc084f3bd26c23d49f2f4e09ce3603d4dd75fe3",
+      "method": "pdf_navigation",
+      "claim_ranges": [
+        [
+          16,
+          49
+        ]
+      ],
+      "evidence_ranges": [
+        [
+          16,
+          49
+        ],
+        [
+          97,
+          119
+        ]
+      ],
+      "unknown_ranges": [
+        [
+          1,
+          2
+        ]
+      ],
+      "conflict_pages": [],
+      "issues": []
+    },
+    {
+      "report": "sdi-map",
+      "source_sha256": "ad80a96597cf388709d06417b950b122a701a822477c77d59994c7a28065b138",
+      "map_sha256": "360f256bd659860fffeae0bb33e01633f83b5d45d2f65857ffdca355e8bab14f",
+      "method": "large_heading_fallback",
+      "claim_ranges": [
+        [
+          31,
+          48
+        ]
+      ],
+      "evidence_ranges": [
+        [
+          31,
+          48
+        ],
+        [
+          111,
+          139
+        ]
+      ],
+      "unknown_ranges": [
+        [
+          1,
+          3
+        ]
+      ],
+      "conflict_pages": [],
+      "issues": []
+    },
+    {
+      "report": "sec-map",
+      "source_sha256": "342a99a14d7c32b4e66cbbf977cc89dc79044ccc7c5e71367fb476c14538c8c5",
+      "map_sha256": "d0aaddd3d0698582545768084fa8ab4e31a071e09013e9b19aa30e95b0c301dd",
+      "method": "large_heading_fallback",
+      "claim_ranges": [
+        [
+          10,
+          33
+        ]
+      ],
+      "evidence_ranges": [
+        [
+          10,
+          33
+        ],
+        [
+          61,
+          87
+        ]
+      ],
+      "unknown_ranges": [
+        [
+          1,
+          2
+        ],
+        [
+          5,
+          9
+        ]
+      ],
+      "conflict_pages": [],
+      "issues": []
+    }
+  ],
+  "lg_parse": {
+    "manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+    "selected_pages": 57,
+    "canonical_blocks": 8004,
+    "quality_issues": 222,
+    "validation_profile": "fast_preview"
+  },
+  "lg_plan": {
+    "packets": 237,
+    "eligible_blocks": 1892,
+    "source_blocks": 4893,
+    "deferred_reasons": {
+      "unlocated": 92,
+      "structure_requires_separate_review": 2897,
+      "conflicted": 12
+    },
+    "missing_claim_pages": [],
+    "missing_evidence_pages": []
+  },
+  "live_sample": {
+    "status": "passed",
+    "selected_packet_indices": [
+      159,
+      164
+    ],
+    "total_planned_packets": 237,
+    "tested_packets": 2,
+    "claim_candidates": 13,
+    "atomicity": "not_reviewed",
+    "section_map_sha256": "cd4873be1c0667c167d04e882dc084f3bd26c23d49f2f4e09ce3603d4dd75fe3",
+    "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+    "links_with_hits": 13,
+    "budget_before": {
+      "limit_usd": "10.00",
+      "calls": 61,
+      "unsettled_calls": 2,
+      "committed_usd": "2.0314100600"
+    },
+    "budget_after": {
+      "limit_usd": "10.00",
+      "calls": 63,
+      "unsettled_calls": 2,
+      "committed_usd": "2.0319151250"
+    },
+    "input_tokens": 2813,
+    "output_tokens": 62,
+    "settled_cost_usd": "0.0005050650",
+    "decision": null,
+    "candidates_with_data_or_appendix_hits": 7,
+    "binding_status": "undetermined"
+  }
+}

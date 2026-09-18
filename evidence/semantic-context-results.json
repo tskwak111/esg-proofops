@@ -1,0 +1,459 @@
+{
+  "trials": [
+    {
+      "name": "goal-whole",
+      "request_id": "3cc3a5c8-254e-4b40-ad2b-b6ed44833097",
+      "packet_sha256": "2c6e2148b73d7268c42170544686c788f8b420ee94f5cec573057f5b78c8a91c",
+      "wire_sha256": "e07412cfe1ac76c52f2e890bffa31737c0471b21552a0e86a642da5cccf47608",
+      "prompt_sha256": "be97f5b70ea7506e61c43d3541193588a2a23a1acd80d74c939e505b2eb2e24f",
+      "rule_sha256": "7519878a396cdfaf202b9135910a57d0f863189620479f109de969678ba762b6",
+      "configured_model": "solar-pro3",
+      "replica": 1,
+      "decision": null,
+      "status": "passed",
+      "budget_before": {
+        "limit_usd": "10.00",
+        "calls": 93,
+        "unsettled_calls": 2,
+        "committed_usd": "2.0389711850"
+      },
+      "response": {
+        "model": "solar-pro3",
+        "provider_request_id": "854792a3-9e29-406e-88cd-a4a4c853d2c9",
+        "provider_model": "solar-pro3-260323",
+        "input_tokens": 539,
+        "output_tokens": 47,
+        "price_snapshot": {
+          "snapshot_id": "upstage-solar-pro3-2026-09-09",
+          "model_id": "solar-pro3",
+          "region": "provider-managed-unverified",
+          "captured_at": "2026-09-09T00:00:00Z",
+          "input_per_million": "0.15",
+          "output_per_million": "0.60",
+          "cache_read_per_million": null,
+          "cache_write_per_million": null
+        },
+        "cost_with_vat_reserve_usd": "0.0001199550",
+        "response_sha256": "092fbf3164f7c79d8c38b5ae4b5b7748be9bbdbbb00b4cb3c89a5d0f65426ef4",
+        "response_format": {
+          "type": "json_object"
+        },
+        "content": "{\n  \"claims\": [\n    {\n      \"id\": \"q0\",\n      \"dimensions\": {\n        \"entity\": null,\n        \"metric\": null,\n        \"boundary\": null\n      }\n    }\n  ]\n}"
+      },
+      "tags": [
+        {
+          "id": "q0",
+          "source_id": "32ae97f9-e49d-5a02-9c57-45cbf4579e8b",
+          "claim_span": {
+            "char_start": 69,
+            "char_end": 223,
+            "quote": "향후 생산능력 확대 및 글로벌 사업 확장에 따른 배출량 증가 요인에도 불구하고, Scope 1 및 Scope 2 배출량을 기준연도(2019년, 951만 tCO₂e) 수준으로 관리하는 탄소중립 성장(Carbon Neutral Growth)을 2030년 목표로 설정하고 있습니다."
+          },
+          "source_quality": "unverified",
+          "dimensions": {
+            "entity": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "metric": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "scope": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "unit": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "reporting_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "baseline_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "target_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "reported_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "baseline_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "target_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "scope2_basis": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "boundary": {
+              "state": "unknown",
+              "source_ref": null
+            }
+          },
+          "populated_fields": 0,
+          "review_reason": "all_dimensions_unknown",
+          "binding_status": "undetermined"
+        }
+      ],
+      "provider_model_sha256": "62b1bac0088e6664d7d0fec38e1bf42240e844236bf917f7adc7fa331524df1b",
+      "budget_after": {
+        "limit_usd": "10.00",
+        "calls": 94,
+        "unsettled_calls": 2,
+        "committed_usd": "2.0390911400"
+      }
+    },
+    {
+      "name": "goal-short",
+      "request_id": "bdaea73c-f02d-4dc4-9abe-c1b5cb1898f6",
+      "packet_sha256": "4de2a2e9700c9659834190a1e844b9513aaa92f2080546c5fc9ff7b8f6665f45",
+      "wire_sha256": "feaab68980d9a9bc66c518141eb8c58947bf419a4ec447f14ff09ec7159bfd48",
+      "prompt_sha256": "be97f5b70ea7506e61c43d3541193588a2a23a1acd80d74c939e505b2eb2e24f",
+      "rule_sha256": "7519878a396cdfaf202b9135910a57d0f863189620479f109de969678ba762b6",
+      "configured_model": "solar-pro3",
+      "replica": 1,
+      "decision": null,
+      "status": "passed",
+      "budget_before": {
+        "limit_usd": "10.00",
+        "calls": 94,
+        "unsettled_calls": 2,
+        "committed_usd": "2.0390911400"
+      },
+      "response": {
+        "model": "solar-pro3",
+        "provider_request_id": "de18569d-8aba-4cd1-b838-b7728ee8866e",
+        "provider_model": "solar-pro3-260323",
+        "input_tokens": 525,
+        "output_tokens": 47,
+        "price_snapshot": {
+          "snapshot_id": "upstage-solar-pro3-2026-09-09",
+          "model_id": "solar-pro3",
+          "region": "provider-managed-unverified",
+          "captured_at": "2026-09-09T00:00:00Z",
+          "input_per_million": "0.15",
+          "output_per_million": "0.60",
+          "cache_read_per_million": null,
+          "cache_write_per_million": null
+        },
+        "cost_with_vat_reserve_usd": "0.0001176450",
+        "response_sha256": "8a92740bad3ae9b3a8816e579914c01446dda67b0bc091beaadcdb815255e6bd",
+        "response_format": {
+          "type": "json_object"
+        },
+        "content": "{\n  \"claims\": [\n    {\n      \"id\": \"q0\",\n      \"dimensions\": {\n        \"entity\": null,\n        \"metric\": null,\n        \"boundary\": null\n      }\n    }\n  ]\n}"
+      },
+      "tags": [
+        {
+          "id": "q0",
+          "source_id": "32ae97f9-e49d-5a02-9c57-45cbf4579e8b",
+          "claim_span": {
+            "char_start": 114,
+            "char_end": 223,
+            "quote": "Scope 1 및 Scope 2 배출량을 기준연도(2019년, 951만 tCO₂e) 수준으로 관리하는 탄소중립 성장(Carbon Neutral Growth)을 2030년 목표로 설정하고 있습니다."
+          },
+          "source_quality": "unverified",
+          "dimensions": {
+            "entity": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "metric": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "scope": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "unit": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "reporting_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "baseline_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "target_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "reported_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "baseline_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "target_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "scope2_basis": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "boundary": {
+              "state": "unknown",
+              "source_ref": null
+            }
+          },
+          "populated_fields": 0,
+          "review_reason": "all_dimensions_unknown",
+          "binding_status": "undetermined"
+        }
+      ],
+      "provider_model_sha256": "62b1bac0088e6664d7d0fec38e1bf42240e844236bf917f7adc7fa331524df1b",
+      "budget_after": {
+        "limit_usd": "10.00",
+        "calls": 95,
+        "unsettled_calls": 2,
+        "committed_usd": "2.0392087850"
+      }
+    },
+    {
+      "name": "performance-whole",
+      "request_id": "8a47d5a1-384c-4a43-aef8-fd63ade23b2d",
+      "packet_sha256": "e55d69af116deeec2a49c8c45ed16b4bd8c96f61313e49a23fe4a5968db8dfd8",
+      "wire_sha256": "3807a680fbe845a5cf19823d4d409bb232467d7866b40296508c61ef6293c32b",
+      "prompt_sha256": "be97f5b70ea7506e61c43d3541193588a2a23a1acd80d74c939e505b2eb2e24f",
+      "rule_sha256": "7519878a396cdfaf202b9135910a57d0f863189620479f109de969678ba762b6",
+      "configured_model": "solar-pro3",
+      "replica": 1,
+      "decision": null,
+      "status": "passed",
+      "budget_before": {
+        "limit_usd": "10.00",
+        "calls": 95,
+        "unsettled_calls": 2,
+        "committed_usd": "2.0392087850"
+      },
+      "response": {
+        "model": "solar-pro3",
+        "provider_request_id": "c205503e-cb6d-4d06-a0b9-044369781b1c",
+        "provider_model": "solar-pro3-260323",
+        "input_tokens": 514,
+        "output_tokens": 47,
+        "price_snapshot": {
+          "snapshot_id": "upstage-solar-pro3-2026-09-09",
+          "model_id": "solar-pro3",
+          "region": "provider-managed-unverified",
+          "captured_at": "2026-09-09T00:00:00Z",
+          "input_per_million": "0.15",
+          "output_per_million": "0.60",
+          "cache_read_per_million": null,
+          "cache_write_per_million": null
+        },
+        "cost_with_vat_reserve_usd": "0.000115830",
+        "response_sha256": "5fc1736576efa2413ce2980c1e2c82a002db1b4d1cf5e85d0b8b054119722ffc",
+        "response_format": {
+          "type": "json_object"
+        },
+        "content": "{\n  \"claims\": [\n    {\n      \"id\": \"q0\",\n      \"dimensions\": {\n        \"entity\": null,\n        \"metric\": null,\n        \"boundary\": null\n      }\n    }\n  ]\n}"
+      },
+      "tags": [
+        {
+          "id": "q0",
+          "source_id": "1c115c9f-6314-5690-8ef2-52d47cf67441",
+          "claim_span": {
+            "char_start": 77,
+            "char_end": 164,
+            "quote": "2025년에는 총 8건의 에너지 효율화 과제를 통해 약 3만 톤의 온실가스를 저감하였으며, 주요 생산공정정에서 추진한 에너지 효율화 사례는 다음과 같습니다."
+          },
+          "source_quality": "unverified",
+          "dimensions": {
+            "entity": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "metric": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "scope": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "unit": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "reporting_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "baseline_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "target_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "reported_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "baseline_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "target_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "scope2_basis": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "boundary": {
+              "state": "unknown",
+              "source_ref": null
+            }
+          },
+          "populated_fields": 0,
+          "review_reason": "all_dimensions_unknown",
+          "binding_status": "undetermined"
+        }
+      ],
+      "provider_model_sha256": "62b1bac0088e6664d7d0fec38e1bf42240e844236bf917f7adc7fa331524df1b",
+      "budget_after": {
+        "limit_usd": "10.00",
+        "calls": 96,
+        "unsettled_calls": 2,
+        "committed_usd": "2.0393246150"
+      }
+    },
+    {
+      "name": "performance-short",
+      "request_id": "2a70a618-74d9-4633-bf7d-7857affda89a",
+      "packet_sha256": "c9d8b9f0a0bd7d25a0ee1215f52d7414d5de8df57d5d679693ab73ddf2abdf93",
+      "wire_sha256": "2164a88d6bbaa07281c7891bd0c0ce483e2eeea5460f8391c34c3ccca8042035",
+      "prompt_sha256": "be97f5b70ea7506e61c43d3541193588a2a23a1acd80d74c939e505b2eb2e24f",
+      "rule_sha256": "7519878a396cdfaf202b9135910a57d0f863189620479f109de969678ba762b6",
+      "configured_model": "solar-pro3",
+      "replica": 1,
+      "decision": null,
+      "status": "passed",
+      "budget_before": {
+        "limit_usd": "10.00",
+        "calls": 96,
+        "unsettled_calls": 2,
+        "committed_usd": "2.0393246150"
+      },
+      "response": {
+        "model": "solar-pro3",
+        "provider_request_id": "997b9529-b844-4f12-acf0-d81d254ef3ca",
+        "provider_model": "solar-pro3-260323",
+        "input_tokens": 504,
+        "output_tokens": 47,
+        "price_snapshot": {
+          "snapshot_id": "upstage-solar-pro3-2026-09-09",
+          "model_id": "solar-pro3",
+          "region": "provider-managed-unverified",
+          "captured_at": "2026-09-09T00:00:00Z",
+          "input_per_million": "0.15",
+          "output_per_million": "0.60",
+          "cache_read_per_million": null,
+          "cache_write_per_million": null
+        },
+        "cost_with_vat_reserve_usd": "0.000114180",
+        "response_sha256": "668a58f5ba306c0fad75f225edb3e36e1781e4820a68af178adaad2fef6ca0eb",
+        "response_format": {
+          "type": "json_object"
+        },
+        "content": "{\n  \"claims\": [\n    {\n      \"id\": \"q0\",\n      \"dimensions\": {\n        \"entity\": null,\n        \"metric\": null,\n        \"boundary\": null\n      }\n    }\n  ]\n}"
+      },
+      "tags": [
+        {
+          "id": "q0",
+          "source_id": "1c115c9f-6314-5690-8ef2-52d47cf67441",
+          "claim_span": {
+            "char_start": 77,
+            "char_end": 127,
+            "quote": "2025년에는 총 8건의 에너지 효율화 과제를 통해 약 3만 톤의 온실가스를 저감하였으며,"
+          },
+          "source_quality": "unverified",
+          "dimensions": {
+            "entity": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "metric": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "scope": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "unit": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "reporting_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "baseline_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "target_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "reported_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "baseline_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "target_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "scope2_basis": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "boundary": {
+              "state": "unknown",
+              "source_ref": null
+            }
+          },
+          "populated_fields": 0,
+          "review_reason": "all_dimensions_unknown",
+          "binding_status": "undetermined"
+        }
+      ],
+      "provider_model_sha256": "62b1bac0088e6664d7d0fec38e1bf42240e844236bf917f7adc7fa331524df1b",
+      "budget_after": {
+        "limit_usd": "10.00",
+        "calls": 97,
+        "unsettled_calls": 2,
+        "committed_usd": "2.0394387950"
+      }
+    }
+  ],
+  "source_quality": "unverified",
+  "binding_status": "undetermined",
+  "decision": null
+}

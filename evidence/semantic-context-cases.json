@@ -1,0 +1,236 @@
+{
+  "synthetic": false,
+  "human_adjudicated": false,
+  "parent_packet_sha256": "14281d2e0c531812df94ba6a45353588eab2ca954342812f266bca8a168291d1",
+  "cases": [
+    {
+      "name": "goal-whole",
+      "pair": "goal",
+      "context": "whole",
+      "parent_span": {
+        "char_start": 69,
+        "char_end": 223,
+        "quote": "향후 생산능력 확대 및 글로벌 사업 확장에 따른 배출량 증가 요인에도 불구하고, Scope 1 및 Scope 2 배출량을 기준연도(2019년, 951만 tCO₂e) 수준으로 관리하는 탄소중립 성장(Carbon Neutral Growth)을 2030년 목표로 설정하고 있습니다."
+      },
+      "packet": {
+        "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "source_sha256": "c6395dd2be7948d85fa2b52c6edb61367fa6610c6f389c2478b44cb4cfcb5bde",
+        "untrusted_document_data": {
+          "claims": [
+            {
+              "id": "q0",
+              "text": "향후 생산능력 확대 및 글로벌 사업 확장에 따른 배출량 증가 요인에도 불구하고, Scope 1 및 Scope 2 배출량을 기준연도(2019년, 951만 tCO₂e) 수준으로 관리하는 탄소중립 성장(Carbon Neutral Growth)을 2030년 목표로 설정하고 있습니다."
+            }
+          ]
+        },
+        "candidate_artifact": {
+          "claims": [
+            {
+              "source_id": "32ae97f9-e49d-5a02-9c57-45cbf4579e8b",
+              "span": {
+                "char_start": 69,
+                "char_end": 223,
+                "quote": "향후 생산능력 확대 및 글로벌 사업 확장에 따른 배출량 증가 요인에도 불구하고, Scope 1 및 Scope 2 배출량을 기준연도(2019년, 951만 tCO₂e) 수준으로 관리하는 탄소중립 성장(Carbon Neutral Growth)을 2030년 목표로 설정하고 있습니다."
+              },
+              "source_ref": {
+                "source_id": "32ae97f9-e49d-5a02-9c57-45cbf4579e8b",
+                "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+                "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+                "page_num": 24,
+                "printed_page_label": "24",
+                "bbox": [
+                  38.438,
+                  138.4369999999999,
+                  803.816,
+                  212.3219999999999
+                ],
+                "raw_text_sha256": "402c08ed4de00cd2ab1096f715f77b6e5b20b555b252d4268d559873b971a111",
+                "quote": "향후 생산능력 확대 및 글로벌 사업 확장에 따른 배출량 증가 요인에도 불구하고, Scope 1 및 Scope 2 배출량을 기준연도(2019년, 951만 tCO₂e) 수준으로 관리하는 탄소중립 성장(Carbon Neutral Growth)을 2030년 목표로 설정하고 있습니다.",
+                "char_start": 69,
+                "char_end": 223,
+                "location_quality": "located",
+                "verification_state": "candidate"
+              },
+              "source_quality": "unverified"
+            }
+          ]
+        }
+      },
+      "interpretation": "diagnostic source subspan, not a new atomic-claim revision"
+    },
+    {
+      "name": "goal-short",
+      "pair": "goal",
+      "context": "short",
+      "parent_span": {
+        "char_start": 69,
+        "char_end": 223,
+        "quote": "향후 생산능력 확대 및 글로벌 사업 확장에 따른 배출량 증가 요인에도 불구하고, Scope 1 및 Scope 2 배출량을 기준연도(2019년, 951만 tCO₂e) 수준으로 관리하는 탄소중립 성장(Carbon Neutral Growth)을 2030년 목표로 설정하고 있습니다."
+      },
+      "packet": {
+        "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "source_sha256": "c6395dd2be7948d85fa2b52c6edb61367fa6610c6f389c2478b44cb4cfcb5bde",
+        "untrusted_document_data": {
+          "claims": [
+            {
+              "id": "q0",
+              "text": "Scope 1 및 Scope 2 배출량을 기준연도(2019년, 951만 tCO₂e) 수준으로 관리하는 탄소중립 성장(Carbon Neutral Growth)을 2030년 목표로 설정하고 있습니다."
+            }
+          ]
+        },
+        "candidate_artifact": {
+          "claims": [
+            {
+              "source_id": "32ae97f9-e49d-5a02-9c57-45cbf4579e8b",
+              "span": {
+                "char_start": 114,
+                "char_end": 223,
+                "quote": "Scope 1 및 Scope 2 배출량을 기준연도(2019년, 951만 tCO₂e) 수준으로 관리하는 탄소중립 성장(Carbon Neutral Growth)을 2030년 목표로 설정하고 있습니다."
+              },
+              "source_ref": {
+                "source_id": "32ae97f9-e49d-5a02-9c57-45cbf4579e8b",
+                "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+                "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+                "page_num": 24,
+                "printed_page_label": "24",
+                "bbox": [
+                  38.438,
+                  138.4369999999999,
+                  803.816,
+                  212.3219999999999
+                ],
+                "raw_text_sha256": "402c08ed4de00cd2ab1096f715f77b6e5b20b555b252d4268d559873b971a111",
+                "quote": "Scope 1 및 Scope 2 배출량을 기준연도(2019년, 951만 tCO₂e) 수준으로 관리하는 탄소중립 성장(Carbon Neutral Growth)을 2030년 목표로 설정하고 있습니다.",
+                "char_start": 114,
+                "char_end": 223,
+                "location_quality": "located",
+                "verification_state": "candidate"
+              },
+              "source_quality": "unverified"
+            }
+          ]
+        }
+      },
+      "interpretation": "diagnostic source subspan, not a new atomic-claim revision"
+    },
+    {
+      "name": "performance-whole",
+      "pair": "performance",
+      "context": "whole",
+      "parent_span": {
+        "char_start": 77,
+        "char_end": 164,
+        "quote": "2025년에는 총 8건의 에너지 효율화 과제를 통해 약 3만 톤의 온실가스를 저감하였으며, 주요 생산공정정에서 추진한 에너지 효율화 사례는 다음과 같습니다."
+      },
+      "packet": {
+        "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "source_sha256": "c6395dd2be7948d85fa2b52c6edb61367fa6610c6f389c2478b44cb4cfcb5bde",
+        "untrusted_document_data": {
+          "claims": [
+            {
+              "id": "q0",
+              "text": "2025년에는 총 8건의 에너지 효율화 과제를 통해 약 3만 톤의 온실가스를 저감하였으며, 주요 생산공정정에서 추진한 에너지 효율화 사례는 다음과 같습니다."
+            }
+          ]
+        },
+        "candidate_artifact": {
+          "claims": [
+            {
+              "source_id": "1c115c9f-6314-5690-8ef2-52d47cf67441",
+              "span": {
+                "char_start": 77,
+                "char_end": 164,
+                "quote": "2025년에는 총 8건의 에너지 효율화 과제를 통해 약 3만 톤의 온실가스를 저감하였으며, 주요 생산공정정에서 추진한 에너지 효율화 사례는 다음과 같습니다."
+              },
+              "source_ref": {
+                "source_id": "1c115c9f-6314-5690-8ef2-52d47cf67441",
+                "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+                "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+                "page_num": 24,
+                "printed_page_label": "24",
+                "bbox": [
+                  38.438,
+                  589.9369999999999,
+                  367.501,
+                  651.8219999999999
+                ],
+                "raw_text_sha256": "53eb467076b9c0925001d5d947c66cab4710ec2e4fc5e91c39922c5e732d63ed",
+                "quote": "2025년에는 총 8건의 에너지 효율화 과제를 통해 약 3만 톤의 온실가스를 저감하였으며, 주요 생산공정정에서 추진한 에너지 효율화 사례는 다음과 같습니다.",
+                "char_start": 77,
+                "char_end": 164,
+                "location_quality": "located",
+                "verification_state": "candidate"
+              },
+              "source_quality": "unverified"
+            }
+          ]
+        }
+      },
+      "interpretation": "diagnostic source subspan, not a new atomic-claim revision"
+    },
+    {
+      "name": "performance-short",
+      "pair": "performance",
+      "context": "short",
+      "parent_span": {
+        "char_start": 77,
+        "char_end": 164,
+        "quote": "2025년에는 총 8건의 에너지 효율화 과제를 통해 약 3만 톤의 온실가스를 저감하였으며, 주요 생산공정정에서 추진한 에너지 효율화 사례는 다음과 같습니다."
+      },
+      "packet": {
+        "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "source_sha256": "c6395dd2be7948d85fa2b52c6edb61367fa6610c6f389c2478b44cb4cfcb5bde",
+        "untrusted_document_data": {
+          "claims": [
+            {
+              "id": "q0",
+              "text": "2025년에는 총 8건의 에너지 효율화 과제를 통해 약 3만 톤의 온실가스를 저감하였으며,"
+            }
+          ]
+        },
+        "candidate_artifact": {
+          "claims": [
+            {
+              "source_id": "1c115c9f-6314-5690-8ef2-52d47cf67441",
+              "span": {
+                "char_start": 77,
+                "char_end": 127,
+                "quote": "2025년에는 총 8건의 에너지 효율화 과제를 통해 약 3만 톤의 온실가스를 저감하였으며,"
+              },
+              "source_ref": {
+                "source_id": "1c115c9f-6314-5690-8ef2-52d47cf67441",
+                "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+                "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+                "page_num": 24,
+                "printed_page_label": "24",
+                "bbox": [
+                  38.438,
+                  589.9369999999999,
+                  367.501,
+                  651.8219999999999
+                ],
+                "raw_text_sha256": "53eb467076b9c0925001d5d947c66cab4710ec2e4fc5e91c39922c5e732d63ed",
+                "quote": "2025년에는 총 8건의 에너지 효율화 과제를 통해 약 3만 톤의 온실가스를 저감하였으며,",
+                "char_start": 77,
+                "char_end": 127,
+                "location_quality": "located",
+                "verification_state": "candidate"
+              },
+              "source_quality": "unverified"
+            }
+          ]
+        }
+      },
+      "interpretation": "diagnostic source subspan, not a new atomic-claim revision"
+    }
+  ],
+  "scope": "two p24 development targets only; not a corpus accuracy evaluation"
+}

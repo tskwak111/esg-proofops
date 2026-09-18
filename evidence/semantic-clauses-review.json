@@ -1,0 +1,1033 @@
+{
+  "method": "two local child candidates, paired parent context on/off; same system/model/settings; no accepted atomicity, binding or grade",
+  "full_artifact": ".local/semantic-clauses/results.json",
+  "full_artifact_sha256": "7770cacbfa86c04efdadd9cda07f0bb197c75aa6e59b8d554fd14a3e7056b05b",
+  "new_model_calls": 4,
+  "additional_committed_usd": "0.0005761800",
+  "budget": {
+    "limit_usd": "10.00",
+    "calls": 108,
+    "unsettled_calls": 2,
+    "committed_usd": "2.0411683250"
+  },
+  "source_sha256": "c6395dd2be7948d85fa2b52c6edb61367fa6610c6f389c2478b44cb4cfcb5bde",
+  "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+  "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+  "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+  "reviews": [
+    {
+      "request_id": "28af08b0-06bf-4ef6-9527-8d01f82ca6c6",
+      "child_index": 0,
+      "parent_context_included": false,
+      "prompt_sha256": "d1f05e6d268006af913acb84f3216fb297cc32c5ad9c03b68e1beedb2d8fbc28",
+      "packet_sha256": "912417d973a0c4ab5b12c152c6052bea6b3630e08d8f76e32b86ef2f1a36f043",
+      "wire_sha256": "f3e5d6b0e94a6836bb1262f95eb73e39a18a88d8cb9fbd538a28107b8d238ea6",
+      "rule_sha256": "ecbeb44571af12a3d12bbbe68304905cef4d55c5448c27c6b193a020a22c8c73",
+      "parent_source_ref": {
+        "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 25,
+        "printed_page_label": "25",
+        "bbox": [
+          53.813,
+          563.411,
+          788.443,
+          600.5869999999999
+        ],
+        "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+        "quote": "국내 사업장에서는 REC 및 녹색 프리미엄 등을 활용하여 약 93GWh의 재생에너지를 조달했으며, 이를 통해 약 4만 톤의 탄소 감축 효과를 얻었습니다.",
+        "char_start": 129,
+        "char_end": 214,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "status": "source_schema_passed",
+      "atomicity": "not_approved",
+      "original_response": {
+        "model": "solar-pro3",
+        "provider_request_id": "e61aa4dc-5ef8-4c37-81c7-6b51092633a0",
+        "provider_model": "solar-pro3-260323",
+        "input_tokens": 624,
+        "output_tokens": 56,
+        "price_snapshot": {
+          "snapshot_id": "upstage-solar-pro3-2026-09-09",
+          "model_id": "solar-pro3",
+          "region": "provider-managed-unverified",
+          "captured_at": "2026-09-09T00:00:00Z",
+          "input_per_million": "0.15",
+          "output_per_million": "0.60",
+          "cache_read_per_million": null,
+          "cache_write_per_million": null
+        },
+        "cost_with_vat_reserve_usd": "0.000139920",
+        "response_sha256": "92dea73d420a4defe1d582e7988fa6dce83b0046de716ae206adc52712ac2361",
+        "response_format": {
+          "type": "json_object"
+        },
+        "content": "{\n  \"claims\": [\n    {\n      \"id\": \"q0\",\n      \"dimensions\": {\n        \"entity\": \"국내 사업장\",\n        \"metric\": \"약 93GWh의 재생에너지\",\n        \"boundary\": null\n      }\n    }\n  ]\n}"
+      },
+      "semantic_status": "unresolved",
+      "binding_status": "undetermined",
+      "decision": null,
+      "tags": [
+        {
+          "id": "q0",
+          "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+          "claim_span": {
+            "char_start": 129,
+            "char_end": 183,
+            "quote": "국내 사업장에서는 REC 및 녹색 프리미엄 등을 활용하여 약 93GWh의 재생에너지를 조달했으며,"
+          },
+          "source_quality": "unverified",
+          "dimensions": {
+            "entity": {
+              "state": "model_proposed",
+              "source_ref": {
+                "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+                "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+                "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+                "page_num": 25,
+                "printed_page_label": "25",
+                "bbox": [
+                  53.813,
+                  563.411,
+                  788.443,
+                  600.5869999999999
+                ],
+                "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+                "quote": "국내 사업장",
+                "char_start": 129,
+                "char_end": 135,
+                "location_quality": "located",
+                "verification_state": "candidate"
+              }
+            },
+            "metric": {
+              "state": "model_proposed",
+              "source_ref": {
+                "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+                "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+                "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+                "page_num": 25,
+                "printed_page_label": "25",
+                "bbox": [
+                  53.813,
+                  563.411,
+                  788.443,
+                  600.5869999999999
+                ],
+                "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+                "quote": "약 93GWh의 재생에너지",
+                "char_start": 161,
+                "char_end": 175,
+                "location_quality": "located",
+                "verification_state": "candidate"
+              }
+            },
+            "scope": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "unit": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "reporting_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "baseline_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "target_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "reported_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "baseline_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "target_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "scope2_basis": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "boundary": {
+              "state": "unknown",
+              "source_ref": null
+            }
+          },
+          "populated_fields": 2,
+          "review_reason": "semantic_review_required",
+          "binding_status": "undetermined",
+          "metric_components": {
+            "state": "local_candidate",
+            "quantity": {
+              "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+              "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+              "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+              "page_num": 25,
+              "printed_page_label": "25",
+              "bbox": [
+                53.813,
+                563.411,
+                788.443,
+                600.5869999999999
+              ],
+              "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+              "quote": "약 93",
+              "char_start": 161,
+              "char_end": 165,
+              "location_quality": "located",
+              "verification_state": "candidate"
+            },
+            "unit": {
+              "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+              "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+              "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+              "page_num": 25,
+              "printed_page_label": "25",
+              "bbox": [
+                53.813,
+                563.411,
+                788.443,
+                600.5869999999999
+              ],
+              "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+              "quote": "GWh",
+              "char_start": 165,
+              "char_end": 168,
+              "location_quality": "located",
+              "verification_state": "candidate"
+            },
+            "metric": {
+              "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+              "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+              "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+              "page_num": 25,
+              "printed_page_label": "25",
+              "bbox": [
+                53.813,
+                563.411,
+                788.443,
+                600.5869999999999
+              ],
+              "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+              "quote": "재생에너지",
+              "char_start": 170,
+              "char_end": 175,
+              "location_quality": "located",
+              "verification_state": "candidate"
+            }
+          }
+        }
+      ],
+      "search": {
+        "query": "재생에너지",
+        "scope": {
+          "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+        },
+        "hits": [
+          {
+            "source_id": "0e60e487-ae71-54b6-b902-e9c2139662a3",
+            "page": 24,
+            "kind": "paragraph",
+            "quality": "unverified",
+            "preview": "재생에너지",
+            "raw_text_sha256": "b3b7a9017ca2c4151e1cfb45d7d1518ebe4a78472913722cbfe347b0c4217941"
+          },
+          {
+            "source_id": "345613a2-797d-5f2c-b154-f5c3b14e6e79",
+            "page": 24,
+            "kind": "table_cell",
+            "quality": "unverified",
+            "preview": "재생에너지",
+            "raw_text_sha256": "b3b7a9017ca2c4151e1cfb45d7d1518ebe4a78472913722cbfe347b0c4217941"
+          },
+          {
+            "source_id": "8181e142-fb38-5b19-9ea7-2b6986dc07f4",
+            "page": 25,
+            "kind": "heading",
+            "quality": "unverified",
+            "preview": "재생에너지",
+            "raw_text_sha256": "b3b7a9017ca2c4151e1cfb45d7d1518ebe4a78472913722cbfe347b0c4217941"
+          },
+          {
+            "source_id": "40fd73d0-3fe8-54f5-b12e-2816014537d5",
+            "page": 24,
+            "kind": "paragraph",
+            "quality": "unverified",
+            "preview": "에너지 효율화, 저탄소 연료전환, 재생에너지 등",
+            "raw_text_sha256": "3a37272e290e68d1ead3eb2f50788c8301df5d8f5b07c8960a19a26a81dd1dbb"
+          },
+          {
+            "source_id": "5db6b3e9-9d6b-5a15-b4ab-74fffdd78be3",
+            "page": 17,
+            "kind": "table_cell",
+            "quality": "unverified",
+            "preview": "재생에너지 사용 확대 및 RE100 이행",
+            "raw_text_sha256": "fdf535abe7e5bbcbcfb08e7e39d7e5d7a0a2416c57b85b3a7df16fff89e74875"
+          },
+          {
+            "source_id": "41113336-c900-5c0a-adf9-77fd6bdd3b01",
+            "page": 25,
+            "kind": "heading",
+            "quality": "unverified",
+            "preview": "재생에너지 조달 현황 T3 O4",
+            "raw_text_sha256": "a5fd5aa4dc7fd10342ecf3a425d5bef9d80e9a103e6b3e4568700e2065d742d1"
+          },
+          {
+            "source_id": "7b3268a4-05ba-5f01-8fe1-fbaf3e146b66",
+            "page": 24,
+            "kind": "table_row",
+            "quality": "unverified",
+            "preview": "재생에너지\tPPA, REC 등\n(태양광, 육상풍력)\t72%",
+            "raw_text_sha256": "860c1fcbca3192311a3d7c0b7c08c31973dc0c8a8b730a2d3a675433f04e4365"
+          },
+          {
+            "source_id": "2a290ac9-95a7-5e87-96a4-7821ef832ae5",
+            "page": 17,
+            "kind": "table_row",
+            "quality": "unverified",
+            "preview": "O4\t기회\t에너지원\t재생에너지 사용 확대 및 RE100 이행\t단기|중기|장기\t\t✓\t✓",
+            "raw_text_sha256": "e3141a8dbd96adefaeaa7b5bc277f99aabf3038a313c46434ea8c01f044f162d"
+          },
+          {
+            "source_id": "edb325bc-28e0-5062-babb-23c88fe5f8c4",
+            "page": 17,
+            "kind": "paragraph",
+            "quality": "unverified",
+            "preview": "O4 기회 에너지원 재생에너지 사용 확대 및 RE100 이행 단기|중기|장기 ✓ ✓",
+            "raw_text_sha256": "c0d802bf6c276a30784a03c34f0f080988eb8f534f938a1f72a22dbf1b21cd2c"
+          },
+          {
+            "source_id": "93953f79-7c22-50db-8e21-580514688edc",
+            "page": 115,
+            "kind": "paragraph",
+            "quality": "unverified",
+            "preview": "(3) 재생 가능 에너지 비율",
+            "raw_text_sha256": "46829dba0f0225feda4e1b411607feec96766b33333421b66c318e846b4fd430"
+          },
+          {
+            "source_id": "0d9e4bc4-e959-5530-8f56-477203b3a76b",
+            "page": 24,
+            "kind": "paragraph",
+            "quality": "unverified",
+            "preview": "※ 감축 이행 계획은 사업 구조, 재생에너지 조달 환경 등에 의해 변경 될 수 있습니다.",
+            "raw_text_sha256": "992618e26209f3f8210ef99778e6b4e79146201f20b1e8c03d38bc3f80c09440"
+          },
+          {
+            "source_id": "e67c5180-8616-58c5-8a48-65cdcd500f9f",
+            "page": 24,
+            "kind": "paragraph",
+            "quality": "unverified",
+            "preview": "에너지",
+            "raw_text_sha256": "f3a496101d171e81cb453191225dfb67f0ef6527ef835890b09fd3f5eef815ec"
+          },
+          {
+            "source_id": "f8f005ac-5bd3-5b27-add9-ad3663e6b954",
+            "page": 99,
+            "kind": "heading",
+            "quality": "unverified",
+            "preview": "에너지",
+            "raw_text_sha256": "f3a496101d171e81cb453191225dfb67f0ef6527ef835890b09fd3f5eef815ec"
+          },
+          {
+            "source_id": "733f83a9-7d72-54ce-aaa3-35e9f5b65bf4",
+            "page": 115,
+            "kind": "table_cell",
+            "quality": "unverified",
+            "preview": "(1) 총 에너지 소비량\n(2) 그리드 전력 비율\n(3) 재생 가능 에너지 비율\n(4) 총 자가 발전량",
+            "raw_text_sha256": "3e4e96a0d4c8599327e628573739c544416c636ecb46c446b441a19f88a4417f"
+          },
+          {
+            "source_id": "0c5f8b96-42c6-50cd-8824-53f20089e887",
+            "page": 115,
+            "kind": "table_cell",
+            "quality": "unverified",
+            "preview": "에너지 관리",
+            "raw_text_sha256": "e50c88b699eb309e432bd343d1b1a7946c734276725b1316f567aa6b27cf5748"
+          },
+          {
+            "source_id": "99dc0d01-0622-5915-afbb-2005c254e6d9",
+            "page": 17,
+            "kind": "table_cell",
+            "quality": "unverified",
+            "preview": "에너지원",
+            "raw_text_sha256": "a4bf691078bd0a59d92aba4c6152c6360de3014691d373dd4bea6af86c694bd6"
+          },
+          {
+            "source_id": "b796b576-bda8-5953-ac87-8e44fc12147b",
+            "page": 31,
+            "kind": "table_cell",
+            "quality": "unverified",
+            "preview": "나. 발전·에너지",
+            "raw_text_sha256": "f7870b9adfa15b8b9f02106a48bdcf8a2a1ab9b29b2cbc2807ec64f1b31f6504"
+          },
+          {
+            "source_id": "dc4ceb88-ee64-5c8d-a6fa-34dd98407f11",
+            "page": 113,
+            "kind": "paragraph",
+            "quality": "unverified",
+            "preview": "302-1 조직 내 에너지 소비량 에너지 사용량 302-3 에너지 집약도 에너지 사용량",
+            "raw_text_sha256": "d369e3b358783e6a2d20e8d75f767266f8659e05c17f34bfd1040735dcf9eaf3"
+          },
+          {
+            "source_id": "74c73926-85de-58d3-9596-df8d86b7fb58",
+            "page": 113,
+            "kind": "table_row",
+            "quality": "unverified",
+            "preview": "GRI 302: 에너지 2016\t302-1\t조직 내 에너지 소비량\t에너지 사용량",
+            "raw_text_sha256": "4a4787ace8b3e53a408fcf61170c62ccd86da4356ca43c51c49a6d18fef9eed5"
+          },
+          {
+            "source_id": "0412f5cc-5a69-5a1d-8fb7-a101c2b110e8",
+            "page": 113,
+            "kind": "table_row",
+            "quality": "unverified",
+            "preview": "302-3\t에너지 집약도\t에너지 사용량",
+            "raw_text_sha256": "0949cab636ad6354fc70dc980332ee877030537a3fd229c1e80688813f6b7b93"
+          }
+        ]
+      }
+    },
+    {
+      "request_id": "2e8ac93b-450c-40a6-b692-96c5f3415d93",
+      "child_index": 0,
+      "parent_context_included": true,
+      "prompt_sha256": "d1f05e6d268006af913acb84f3216fb297cc32c5ad9c03b68e1beedb2d8fbc28",
+      "packet_sha256": "912417d973a0c4ab5b12c152c6052bea6b3630e08d8f76e32b86ef2f1a36f043",
+      "wire_sha256": "746bf9b3732fd0ace7fcdb22d67853daa02cc246e4bf3f5ef33894024d3b2bab",
+      "rule_sha256": "ecbeb44571af12a3d12bbbe68304905cef4d55c5448c27c6b193a020a22c8c73",
+      "parent_source_ref": {
+        "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 25,
+        "printed_page_label": "25",
+        "bbox": [
+          53.813,
+          563.411,
+          788.443,
+          600.5869999999999
+        ],
+        "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+        "quote": "국내 사업장에서는 REC 및 녹색 프리미엄 등을 활용하여 약 93GWh의 재생에너지를 조달했으며, 이를 통해 약 4만 톤의 탄소 감축 효과를 얻었습니다.",
+        "char_start": 129,
+        "char_end": 214,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "status": "failed",
+      "atomicity": "not_approved",
+      "original_response": {
+        "model": "solar-pro3",
+        "provider_request_id": "87371f01-12bf-410f-99b3-8fb677e5c4c3",
+        "provider_model": "solar-pro3-260323",
+        "input_tokens": 688,
+        "output_tokens": 52,
+        "price_snapshot": {
+          "snapshot_id": "upstage-solar-pro3-2026-09-09",
+          "model_id": "solar-pro3",
+          "region": "provider-managed-unverified",
+          "captured_at": "2026-09-09T00:00:00Z",
+          "input_per_million": "0.15",
+          "output_per_million": "0.60",
+          "cache_read_per_million": null,
+          "cache_write_per_million": null
+        },
+        "cost_with_vat_reserve_usd": "0.000147840",
+        "response_sha256": "0d75f516a92c92d89b3db6c4e51f3608ad5683cb05caca7a0e27d119d8852066",
+        "response_format": {
+          "type": "json_object"
+        },
+        "content": "{\n  \"claims\": [\n    {\n      \"id\": \"q0\",\n      \"dimensions\": {\n        \"entity\": \"국내 사업장\",\n        \"metric\": \"93GWh\",\n        \"boundary\": null\n      }\n    }\n  ]\n}"
+      },
+      "semantic_status": "unresolved",
+      "binding_status": "undetermined",
+      "decision": null,
+      "rejection": "metric cannot be only an amount or unit"
+    },
+    {
+      "request_id": "dd6b0e60-092b-4b63-9821-9537561d2c89",
+      "child_index": 1,
+      "parent_context_included": false,
+      "prompt_sha256": "d1f05e6d268006af913acb84f3216fb297cc32c5ad9c03b68e1beedb2d8fbc28",
+      "packet_sha256": "06a724829cfc112f97d3de1c933697d39e37dac1a91dcc4de665ccf6127b3166",
+      "wire_sha256": "0a8b179d5dfe6954b0c376ec4a6b38840b41566c97f114f0d78416c904981974",
+      "rule_sha256": "ecbeb44571af12a3d12bbbe68304905cef4d55c5448c27c6b193a020a22c8c73",
+      "parent_source_ref": {
+        "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 25,
+        "printed_page_label": "25",
+        "bbox": [
+          53.813,
+          563.411,
+          788.443,
+          600.5869999999999
+        ],
+        "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+        "quote": "국내 사업장에서는 REC 및 녹색 프리미엄 등을 활용하여 약 93GWh의 재생에너지를 조달했으며, 이를 통해 약 4만 톤의 탄소 감축 효과를 얻었습니다.",
+        "char_start": 129,
+        "char_end": 214,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "status": "source_schema_passed",
+      "atomicity": "not_approved",
+      "original_response": {
+        "model": "solar-pro3",
+        "provider_request_id": "331a6bc4-9988-41e9-a48f-ddf365b23fdc",
+        "provider_model": "solar-pro3-260323",
+        "input_tokens": 618,
+        "output_tokens": 56,
+        "price_snapshot": {
+          "snapshot_id": "upstage-solar-pro3-2026-09-09",
+          "model_id": "solar-pro3",
+          "region": "provider-managed-unverified",
+          "captured_at": "2026-09-09T00:00:00Z",
+          "input_per_million": "0.15",
+          "output_per_million": "0.60",
+          "cache_read_per_million": null,
+          "cache_write_per_million": null
+        },
+        "cost_with_vat_reserve_usd": "0.000138930",
+        "response_sha256": "3607f5ca4633278986dec1ca46b5c12b57ec97e191a73c7872d534b02c2e681c",
+        "response_format": {
+          "type": "json_object"
+        },
+        "content": "{\n  \"claims\": [\n    {\n      \"id\": \"q0\",\n      \"dimensions\": {\n        \"entity\": null,\n        \"metric\": \"약 4만 톤의 탄소 감축 효과\",\n        \"boundary\": null\n      }\n    }\n  ]\n}"
+      },
+      "semantic_status": "unresolved",
+      "binding_status": "undetermined",
+      "decision": null,
+      "tags": [
+        {
+          "id": "q0",
+          "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+          "claim_span": {
+            "char_start": 184,
+            "char_end": 214,
+            "quote": "이를 통해 약 4만 톤의 탄소 감축 효과를 얻었습니다."
+          },
+          "source_quality": "unverified",
+          "dimensions": {
+            "entity": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "metric": {
+              "state": "model_proposed",
+              "source_ref": {
+                "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+                "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+                "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+                "page_num": 25,
+                "printed_page_label": "25",
+                "bbox": [
+                  53.813,
+                  563.411,
+                  788.443,
+                  600.5869999999999
+                ],
+                "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+                "quote": "약 4만 톤의 탄소 감축 효과",
+                "char_start": 190,
+                "char_end": 206,
+                "location_quality": "located",
+                "verification_state": "candidate"
+              }
+            },
+            "scope": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "unit": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "reporting_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "baseline_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "target_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "reported_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "baseline_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "target_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "scope2_basis": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "boundary": {
+              "state": "unknown",
+              "source_ref": null
+            }
+          },
+          "populated_fields": 1,
+          "review_reason": "semantic_review_required",
+          "binding_status": "undetermined",
+          "metric_components": {
+            "state": "local_candidate",
+            "quantity": {
+              "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+              "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+              "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+              "page_num": 25,
+              "printed_page_label": "25",
+              "bbox": [
+                53.813,
+                563.411,
+                788.443,
+                600.5869999999999
+              ],
+              "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+              "quote": "약 4만",
+              "char_start": 190,
+              "char_end": 194,
+              "location_quality": "located",
+              "verification_state": "candidate"
+            },
+            "unit": {
+              "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+              "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+              "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+              "page_num": 25,
+              "printed_page_label": "25",
+              "bbox": [
+                53.813,
+                563.411,
+                788.443,
+                600.5869999999999
+              ],
+              "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+              "quote": "톤",
+              "char_start": 195,
+              "char_end": 196,
+              "location_quality": "located",
+              "verification_state": "candidate"
+            },
+            "metric": {
+              "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+              "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+              "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+              "page_num": 25,
+              "printed_page_label": "25",
+              "bbox": [
+                53.813,
+                563.411,
+                788.443,
+                600.5869999999999
+              ],
+              "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+              "quote": "탄소 감축 효과",
+              "char_start": 198,
+              "char_end": 206,
+              "location_quality": "located",
+              "verification_state": "candidate"
+            }
+          }
+        }
+      ],
+      "search": {
+        "query": "탄소 감축 효과",
+        "scope": {
+          "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "index_generation": "839a7b6126c0d2f8d6d0b210b92291276d03770ffd17643df381d9be71eafb64"
+        },
+        "hits": [
+          {
+            "source_id": "69e6e763-a134-504f-b52f-3859ad33af27",
+            "page": 26,
+            "kind": "paragraph",
+            "quality": "unverified",
+            "preview": "탄소 감축 설비 지원",
+            "raw_text_sha256": "04cad35a69db46412eec5c93dc322443dc0137d748b2582ea93a55adf0ae9f88"
+          },
+          {
+            "source_id": "7f75639a-0fd6-50ac-8842-913f86d75aa3",
+            "page": 26,
+            "kind": "table_cell",
+            "quality": "unverified",
+            "preview": "탄소 감축 설비\n지원",
+            "raw_text_sha256": "79846edcf993b5cba7c429cbf50b665728da322e5b5fbe55f2688d169f3f337a"
+          },
+          {
+            "source_id": "01aa7449-3bda-56e0-a2a7-3b36b31ed5be",
+            "page": 26,
+            "kind": "table_cell",
+            "quality": "unverified",
+            "preview": "탄소 감축 설비 지원 기준 수립 시\n참고",
+            "raw_text_sha256": "eefee82de6f0059e94ea2334e8ef7402b99f40d0bdb28f4a2dcdefc9774fcf75"
+          },
+          {
+            "source_id": "43b3f5f3-4719-5d88-b614-e9b7722ba338",
+            "page": 26,
+            "kind": "paragraph",
+            "quality": "unverified",
+            "preview": "탄소 감축 설비 지원 기준 수립 시 참고",
+            "raw_text_sha256": "85206a825a84ada9cdfc6ac3427a6a197b2262da6036dedd56f830d9faada0d1"
+          },
+          {
+            "source_id": "c1985bb1-93bd-5c30-9f76-58e68eb4f004",
+            "page": 16,
+            "kind": "paragraph",
+            "quality": "unverified",
+            "preview": "탄소 감축 활성화 메커니즘",
+            "raw_text_sha256": "dc4a38b617eaeaeec2be443fca7d76ad9b30254e594ae98fac57fdb1435622cb"
+          },
+          {
+            "source_id": "6c137f18-4853-565d-b0b0-8d3ee797e7c4",
+            "page": 16,
+            "kind": "unknown",
+            "quality": "unverified",
+            "preview": "신규 감축 과제 공모\n사업본부 주도 탄소 감축 과제 발굴",
+            "raw_text_sha256": "5e1d27127dd822132fa9616c8d41e18f7912dc82bb19cb52f8b0569d90009c78"
+          },
+          {
+            "source_id": "b4a8feaa-75c3-5362-b6ec-f662af83d0dc",
+            "page": 16,
+            "kind": "table",
+            "quality": "unverified",
+            "preview": "신규 감축 과제 공모\n사업본부 주도\n탄소 감축 과제 발굴",
+            "raw_text_sha256": "6fb423c73f2d427d84e60534b277e870f6eae436f5fbe47a86b76c815675f732"
+          },
+          {
+            "source_id": "42a5a22e-0e95-5dda-89d6-28bc52349f18",
+            "page": 24,
+            "kind": "table_cell",
+            "quality": "unverified",
+            "preview": "기대 효과",
+            "raw_text_sha256": "566c0fff8cc68887dd6a735316237de3acee4f43527947b19910d0cd742a1a0d"
+          },
+          {
+            "source_id": "1d37d1f5-a4a3-5d8f-b72d-259c314f96fa",
+            "page": 16,
+            "kind": "paragraph",
+            "quality": "unverified",
+            "preview": "사업본부 주도 탄소 감축 과제 발굴",
+            "raw_text_sha256": "322fe38beeeb2f87c41488e6bf9b47709113bee8bb1391c7b1394200bca9e72a"
+          },
+          {
+            "source_id": "7eea6b60-744a-57dc-abf4-257113343ee2",
+            "page": 16,
+            "kind": "table_cell",
+            "quality": "unverified",
+            "preview": "사업본부 주도\n탄소 감축 과제 발굴",
+            "raw_text_sha256": "131a23a64a43378ac31953af8de298d543feedda575ce126dcab41ed699bbb92"
+          },
+          {
+            "source_id": "cbae1f88-a426-5653-a258-86a4c92c86af",
+            "page": 16,
+            "kind": "table_row",
+            "quality": "unverified",
+            "preview": "사업본부 주도\n탄소 감축 과제 발굴",
+            "raw_text_sha256": "131a23a64a43378ac31953af8de298d543feedda575ce126dcab41ed699bbb92"
+          },
+          {
+            "source_id": "3804902b-5c27-56fc-bddf-9fca918870f7",
+            "page": 23,
+            "kind": "table_cell",
+            "quality": "unverified",
+            "preview": "고객사 공급망 탄소 감축 및 LCA\n요구 강화",
+            "raw_text_sha256": "ea22f6e9fbe45c579337ddf808462a7ea395b8094e361e05ca2387f508849ffb"
+          },
+          {
+            "source_id": "46d09eb9-5b6c-5b55-9ab2-aec228667393",
+            "page": 17,
+            "kind": "table_cell",
+            "quality": "unverified",
+            "preview": "고객사 공급망 탄소 감축 및 LCA 요구 강화",
+            "raw_text_sha256": "4460e3ce92382bf9a7deea36e22f5597b09cf98f9accd2c2724850b78ca57364"
+          },
+          {
+            "source_id": "b4f1adb0-dd93-52e3-9d45-f92768e703ca",
+            "page": 23,
+            "kind": "paragraph",
+            "quality": "unverified",
+            "preview": "고객사 공급망 탄소 감축 및 LCA 요구 강화",
+            "raw_text_sha256": "4460e3ce92382bf9a7deea36e22f5597b09cf98f9accd2c2724850b78ca57364"
+          },
+          {
+            "source_id": "b5ae43dc-38e5-53c3-a77a-7627fbf4baec",
+            "page": 26,
+            "kind": "table_row",
+            "quality": "unverified",
+            "preview": "탄소 감축 설비\n지원\t지원 기준 관련 의견\n제시\t관계부처 협의 참여\t탄소 감축 설비 지원 기준 수립 시\n참고",
+            "raw_text_sha256": "2bac459b9b132facf9c4a135f9b9b95ee3dc3be741e47ffd8e02f8bea405d511"
+          },
+          {
+            "source_id": "bb84f917-e84a-5fdc-a8fc-ccc0666c0ca9",
+            "page": 24,
+            "kind": "heading",
+            "quality": "unverified",
+            "preview": "구분 주요 활동 기대 효과",
+            "raw_text_sha256": "81d09de007b489c4eb2f4092306c4252621b13d6ada7410a963a5ade0cc31f6d"
+          },
+          {
+            "source_id": "c5d6c515-9d22-5b09-811e-a79b0729912c",
+            "page": 24,
+            "kind": "table_row",
+            "quality": "unverified",
+            "preview": "구분\t주요 활동\t기대 효과",
+            "raw_text_sha256": "2252d6c9928c3062c61b41c9cf3e16dd1b25ada25a5b2ba66b852784012b0be3"
+          },
+          {
+            "source_id": "c20436b7-943f-509e-b4e7-ea18ca840f4c",
+            "page": 49,
+            "kind": "paragraph",
+            "quality": "unverified",
+            "preview": "※ 탄소고정량은 당사의 온실가스 감축 및 탄소상쇄 실적으로 사용되지 않습니다.",
+            "raw_text_sha256": "4fdaaf69df7d08f32a6391a5c75a27b119be937d4e492036f9791c2647cef024"
+          },
+          {
+            "source_id": "52f44cc2-f8e9-5a63-a079-45a0bec2f8b6",
+            "page": 24,
+            "kind": "table_cell",
+            "quality": "unverified",
+            "preview": "보조 감축 수단\n· 전기 분해로\n화석연료 대신 전기로 가열\n· CCU 등\n탄소 포집·활용",
+            "raw_text_sha256": "d46592ae4d3c1f5ecd9ac8d532cd890fa86997d6a47319ab66518bf2be317800"
+          },
+          {
+            "source_id": "a7c05b53-f4bd-5b2d-8ad9-74180a16f8d2",
+            "page": 24,
+            "kind": "table",
+            "quality": "unverified",
+            "preview": "\t\t\t보조 감축 수단\n· 전기 분해로\n화석연료 대신 전기로 가열\n· CCU 등\n탄소 포집·활용",
+            "raw_text_sha256": "8f5414dd8a7e42f54199fac44262215f12ea9b72397fa6a37ad0d16dac07b9ae"
+          }
+        ]
+      }
+    },
+    {
+      "request_id": "c6aaac1b-c9f1-49dd-9b6a-b657e1414cb5",
+      "child_index": 1,
+      "parent_context_included": true,
+      "prompt_sha256": "d1f05e6d268006af913acb84f3216fb297cc32c5ad9c03b68e1beedb2d8fbc28",
+      "packet_sha256": "06a724829cfc112f97d3de1c933697d39e37dac1a91dcc4de665ccf6127b3166",
+      "wire_sha256": "8d561d730804fbe7ba61dc569ce99c5754305aec6a07e530a4dc4b8298e2adc3",
+      "rule_sha256": "ecbeb44571af12a3d12bbbe68304905cef4d55c5448c27c6b193a020a22c8c73",
+      "parent_source_ref": {
+        "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 25,
+        "printed_page_label": "25",
+        "bbox": [
+          53.813,
+          563.411,
+          788.443,
+          600.5869999999999
+        ],
+        "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+        "quote": "국내 사업장에서는 REC 및 녹색 프리미엄 등을 활용하여 약 93GWh의 재생에너지를 조달했으며, 이를 통해 약 4만 톤의 탄소 감축 효과를 얻었습니다.",
+        "char_start": 129,
+        "char_end": 214,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "status": "source_schema_passed",
+      "atomicity": "not_approved",
+      "original_response": {
+        "model": "solar-pro3",
+        "provider_request_id": "765ae9e1-83f1-432d-b0f6-84faf88081c0",
+        "provider_model": "solar-pro3-260323",
+        "input_tokens": 682,
+        "output_tokens": 56,
+        "price_snapshot": {
+          "snapshot_id": "upstage-solar-pro3-2026-09-09",
+          "model_id": "solar-pro3",
+          "region": "provider-managed-unverified",
+          "captured_at": "2026-09-09T00:00:00Z",
+          "input_per_million": "0.15",
+          "output_per_million": "0.60",
+          "cache_read_per_million": null,
+          "cache_write_per_million": null
+        },
+        "cost_with_vat_reserve_usd": "0.000149490",
+        "response_sha256": "ba040334badec9e7a89c898f6c0cbd224fcaa611a1f841656620019f5e8a2d2c",
+        "response_format": {
+          "type": "json_object"
+        },
+        "content": "{\n  \"claims\": [\n    {\n      \"id\": \"q0\",\n      \"dimensions\": {\n        \"entity\": null,\n        \"metric\": \"약 4만 톤의 탄소 감축 효과\",\n        \"boundary\": null\n      }\n    }\n  ]\n}"
+      },
+      "semantic_status": "unresolved",
+      "binding_status": "undetermined",
+      "decision": null,
+      "tags": [
+        {
+          "id": "q0",
+          "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+          "claim_span": {
+            "char_start": 184,
+            "char_end": 214,
+            "quote": "이를 통해 약 4만 톤의 탄소 감축 효과를 얻었습니다."
+          },
+          "source_quality": "unverified",
+          "dimensions": {
+            "entity": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "metric": {
+              "state": "model_proposed",
+              "source_ref": {
+                "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+                "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+                "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+                "page_num": 25,
+                "printed_page_label": "25",
+                "bbox": [
+                  53.813,
+                  563.411,
+                  788.443,
+                  600.5869999999999
+                ],
+                "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+                "quote": "약 4만 톤의 탄소 감축 효과",
+                "char_start": 190,
+                "char_end": 206,
+                "location_quality": "located",
+                "verification_state": "candidate"
+              }
+            },
+            "scope": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "unit": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "reporting_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "baseline_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "target_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "reported_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "baseline_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "target_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "scope2_basis": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "boundary": {
+              "state": "unknown",
+              "source_ref": null
+            }
+          },
+          "populated_fields": 1,
+          "review_reason": "semantic_review_required",
+          "binding_status": "undetermined",
+          "metric_components": {
+            "state": "local_candidate",
+            "quantity": {
+              "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+              "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+              "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+              "page_num": 25,
+              "printed_page_label": "25",
+              "bbox": [
+                53.813,
+                563.411,
+                788.443,
+                600.5869999999999
+              ],
+              "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+              "quote": "약 4만",
+              "char_start": 190,
+              "char_end": 194,
+              "location_quality": "located",
+              "verification_state": "candidate"
+            },
+            "unit": {
+              "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+              "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+              "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+              "page_num": 25,
+              "printed_page_label": "25",
+              "bbox": [
+                53.813,
+                563.411,
+                788.443,
+                600.5869999999999
+              ],
+              "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+              "quote": "톤",
+              "char_start": 195,
+              "char_end": 196,
+              "location_quality": "located",
+              "verification_state": "candidate"
+            },
+            "metric": {
+              "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+              "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+              "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+              "page_num": 25,
+              "printed_page_label": "25",
+              "bbox": [
+                53.813,
+                563.411,
+                788.443,
+                600.5869999999999
+              ],
+              "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+              "quote": "탄소 감축 효과",
+              "char_start": 198,
+              "char_end": 206,
+              "location_quality": "located",
+              "verification_state": "candidate"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

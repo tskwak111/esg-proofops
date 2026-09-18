@@ -1,0 +1,36 @@
+{
+  "execution_mode": "archived_response_replay",
+  "live_model_calls": 0,
+  "section_map_sha256": "cd4873be1c0667c167d04e882dc084f3bd26c23d49f2f4e09ce3603d4dd75fe3",
+  "targets": 13,
+  "text_coverage": {
+    "full_text_returned": 12,
+    "not_returned": 1
+  },
+  "unreturned": [
+    {
+      "source_id": "32ae97f9-e49d-5a02-9c57-45cbf4579e8b",
+      "char_start": 287,
+      "char_end": 406,
+      "quote": "이러한 사업 환경을 고려하여 온실가스 감축 과제는 기후 리스크 및 기회 대응을 위한 전사 전략의 일환으로 추진되고 있으며, 녹색 금융 및 투자 기준에 부합하도록 K-택소노미 분류 체계와 연계하여 관리하고 있습니다.",
+      "coverage": "not_returned",
+      "returned_spans": [],
+      "unreturned_spans": [
+        {
+          "char_start": 287,
+          "char_end": 406,
+          "quote": "이러한 사업 환경을 고려하여 온실가스 감축 과제는 기후 리스크 및 기회 대응을 위한 전사 전략의 일환으로 추진되고 있으며, 녹색 금융 및 투자 기준에 부합하도록 K-택소노미 분류 체계와 연계하여 관리하고 있습니다.",
+          "state": "unknown"
+        }
+      ]
+    }
+  ],
+  "claims": 12,
+  "evidence_packets": 12,
+  "approved_evidence_candidates": 0,
+  "candidate_binding_states": {},
+  "coverage_summary_sha256": "8ad9880c45b098ff24f21f2bfc4123e2bf010ca570b6e60d2e89b965dd906177",
+  "evidence_packets_sha256": "0e5f57211098267be4226ee2d27d7a9e85e1682bf27be9beb99337a7de2c5c69",
+  "semantic_completeness": "not_measured",
+  "decision": null
+}

@@ -1,0 +1,130 @@
+[
+  {
+    "id": "S01",
+    "title": "OpenDataLoader release API v2.5.7",
+    "url": "https://api.github.com/repos/opendataloader-project/opendataloader-pdf/releases/latest",
+    "checked_date": "2026-09-08",
+    "summary": "GitHub GET 확인: v2.5.7, published2026-09-01. 설치/benchmark 미실행.",
+    "kind": "primary_official_documentation_or_repository"
+  },
+  {
+    "id": "S02",
+    "title": "OpenDataLoader tagged README",
+    "url": "https://github.com/opendataloader-project/opendataloader-pdf/blob/v2.5.7/README.md",
+    "checked_date": "2026-09-08",
+    "summary": "Java11+/Python3.10+, JSON bbox/Markdown, Apache2.0. 이번검토는taggedREADME1–150행.",
+    "kind": "primary_official_documentation_or_repository"
+  },
+  {
+    "id": "S03",
+    "title": "OpenDataLoader hybrid mode",
+    "url": "https://opendataloader.org/docs/hybrid-mode",
+    "checked_date": "2026-09-08",
+    "summary": "docling-fast와선택적hybrid/OCR, 기본hybrid off. 그림설명은정확수치판독보장아님.",
+    "kind": "primary_official_documentation_or_repository"
+  },
+  {
+    "id": "S04",
+    "title": "OpenDataLoader JSON output schema",
+    "url": "https://opendataloader.org/docs/reference/json-schema",
+    "checked_date": "2026-09-08",
+    "summary": "hierarchical kids/page number/table rows/cells. 실제version native bbox는adapterfixture에서검증.",
+    "kind": "primary_official_documentation_or_repository"
+  },
+  {
+    "id": "S05",
+    "title": "Amazon Textract limits/languages",
+    "url": "https://docs.aws.amazon.com/textract/latest/dg/limits-document.html",
+    "checked_date": "2026-09-08",
+    "summary": "공식지원언어목록에한국어없음. 한국어주력fallback으로선정하지않음.",
+    "kind": "primary_official_documentation_or_repository"
+  },
+  {
+    "id": "S06",
+    "title": "PyMuPDF license/features",
+    "url": "https://pymupdf.readthedocs.io/en/latest/about.html",
+    "checked_date": "2026-09-08",
+    "summary": "AGPL 또는commercial license 선택. 사용조건검토후optionaladapter.",
+    "kind": "primary_official_documentation_or_repository"
+  },
+  {
+    "id": "S07",
+    "title": "AgentCore regions",
+    "url": "https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/agentcore-regions.html",
+    "checked_date": "2026-09-08",
+    "summary": "기능별regionavailability가다르므로계정preflight필수.",
+    "kind": "primary_official_documentation_or_repository"
+  },
+  {
+    "id": "S08",
+    "title": "AgentCore cross-region processing",
+    "url": "https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/cross-region-inference.html",
+    "checked_date": "2026-09-08",
+    "summary": "Memory/evaluation의처리리전검토. 저장리전과추론리전동일가정금지.",
+    "kind": "primary_official_documentation_or_repository"
+  },
+  {
+    "id": "S09",
+    "title": "Bedrock structured output",
+    "url": "https://docs.aws.amazon.com/bedrock/latest/userguide/structured-output.html",
+    "checked_date": "2026-09-08",
+    "summary": "구조화응답지원과내용정확성은별개. 모델별기능확인.",
+    "kind": "primary_official_documentation_or_repository"
+  },
+  {
+    "id": "S10",
+    "title": "Strands structured output",
+    "url": "https://strandsagents.com/docs/user-guide/concepts/agents/structured-output/",
+    "checked_date": "2026-09-08",
+    "summary": "구조화모델출력계약사용. SDK실제lock/version smoke필수.",
+    "kind": "primary_official_documentation_or_repository"
+  },
+  {
+    "id": "S11",
+    "title": "AWS DynamoDB overview/constraints",
+    "url": "https://docs.aws.amazon.com/prescriptive-guidance/latest/modernization-rdbms-dynamodb/overview.html",
+    "checked_date": "2026-09-08",
+    "summary": "item400KB,transaction제약. 큰artifact는S3에분리.",
+    "kind": "primary_official_documentation_or_repository"
+  },
+  {
+    "id": "S12",
+    "title": "Titan embeddings parameters",
+    "url": "https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-titan-embed-text.html",
+    "checked_date": "2026-09-08",
+    "summary": "Titan Text EmbeddingsV2의modelID와1024/512/256dimension. 본설계1024baseline.",
+    "kind": "primary_official_documentation_or_repository"
+  },
+  {
+    "id": "S13",
+    "title": "대회 공개 페이지",
+    "url": "https://ku-aws-challenge.framer.ai/",
+    "checked_date": "2026-09-08",
+    "summary": "고려대×AWS 공모전과AWS LLM 활용 안내. 표시월일의연도/허용서비스전체는미확정이므로2026마감확정근거로사용안함.",
+    "kind": "primary_official_documentation_or_repository"
+  },
+  {
+    "id": "S14",
+    "title": "AgentCore VPC connectivity",
+    "url": "https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/agentcore-vpc.html",
+    "checked_date": "2026-09-08",
+    "summary": "private connectivity는해당region/feature설정검증필요.",
+    "kind": "primary_official_documentation_or_repository"
+  },
+  {
+    "id": "S15",
+    "title": "AgentCore long-running operations",
+    "url": "https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-long-run.html",
+    "checked_date": "2026-09-08",
+    "summary": "runtime장기실행기능과별개로DDB/SQS를durable workflow정본으로설계.",
+    "kind": "primary_official_documentation_or_repository"
+  },
+  {
+    "id": "S16",
+    "title": "OpenDataLoader v2.5.7 schema.json",
+    "url": "https://github.com/opendataloader-project/opendataloader-pdf/blob/v2.5.7/schema.json",
+    "checked_date": "2026-09-08",
+    "summary": "직접 열람 1–180행. boundingBox=[left,bottom,right,top], page number=1-indexed. blob c797f3386bd6f633b9009bea675f82348ea442c9.",
+    "kind": "primary_repository_schema"
+  }
+]

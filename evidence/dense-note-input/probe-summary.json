@@ -1,0 +1,133 @@
+{
+  "scope": "selected-page diagnostic, not service acceptance",
+  "rows": [
+    {
+      "company": "kia",
+      "page": 45,
+      "source_sha256": "d0d814d98c4aeedbbdb2bf8631b8981ae5cde94dec32aa32c57510420274da1f",
+      "packet_sha256": "aa8d58ae43271cc9d88d578606475917b42c8cc516d86b172a61289dd02d2c3f",
+      "request_ids": [
+        "813600ac-dbeb-4718-9edc-c7a8898db22f",
+        "c82dd292-5354-4793-a78a-c9342da9cba0"
+      ],
+      "notes": [
+        {
+          "quote": "데이터 커버리지 : 국내",
+          "targets": [
+            "| 구분 | 단위 | 2024(목표) | 2024(실적) | 2025(목표) |\n| --- | --- | --- | --- | --- |\n| 폐기물 발생량 집약도 | ton/조 원 | 4,470 | 3,295 | 3,798 |\n| 폐기물 재활용률 | % | 95.0 | 93.5 | 95.0 |\n"
+          ],
+          "association": "model_proposed"
+        },
+        {
+          "quote": "1. 데이터 산출 가능한 차종(EV3, EV6, EV9) 한정",
+          "targets": [
+            "제품 내 플라스틱 소재 총 사용량1"
+          ],
+          "association": "model_proposed"
+        },
+        {
+          "quote": "2. 데이터 산출 가능한 차종(EV3, EV6, EV9)의 평균",
+          "targets": [
+            "재활용된 제품 내 플라스틱 원료의 비율2"
+          ],
+          "association": "model_proposed"
+        }
+      ],
+      "semantic_acceptance": false,
+      "current_source_replay": "passed"
+    },
+    {
+      "company": "kb",
+      "page": 30,
+      "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+      "packet_sha256": "b2c599ccb8d2077d2575fd9a2c768a282837e57c99a41b3d3ca15e53d3483bdd",
+      "request_ids": [
+        "9e81c89b-93ef-47d5-9e18-21abb9119ef3"
+      ],
+      "notes": [],
+      "semantic_acceptance": false,
+      "current_source_replay": "passed"
+    },
+    {
+      "company": "naver",
+      "page": 84,
+      "source_sha256": "75388f16c13739a671fd158c383502d81968fe587f2372ab0f9306f3d2c1a2c6",
+      "packet_sha256": "af2e6f37ad8a0f999f54a64f746643f9179d624c48b08d681972e5c7bb7349d8",
+      "request_ids": [
+        "9b367940-3f5f-4e14-8a49-53fb9022a4f2"
+      ],
+      "notes": [],
+      "semantic_acceptance": false,
+      "current_source_replay": "passed"
+    },
+    {
+      "company": "kakao",
+      "page": 114,
+      "source_sha256": "43804a2d5eccfc6aa9c5b5480ec6714c7d07bea13ed68729c0af7a3b622ce76d",
+      "packet_sha256": "e7cab63b4a589614790ab663ebb9d164e1add771b0c05ef982c309cd90a1a120",
+      "request_ids": [
+        "4e5fdfbd-c7d2-43cc-939f-cea69f1a0a2d",
+        "3f9c48c9-4128-4019-a34a-7d0d018ba9b4"
+      ],
+      "notes": [
+        {
+          "quote": "4) 에너지 사용량의 합계는 정수 단위로 절사",
+          "targets": [],
+          "association": "unknown"
+        },
+        {
+          "quote": "1) 괄호 안 수치는 Scope 3 배출량 내 비중을 의미",
+          "targets": [
+            "Scope 3 배출량1)"
+          ],
+          "association": "model_proposed"
+        },
+        {
+          "quote": "5) 전 력 사용량의 간접 에너지 환산 시, 온실가스·에너지 목표관리제 명세서 작성 기준에 따라 국가 고유 발열량 환산계수 중 전력(소비기준) 환산 계수(9.6MJ/ kWh)를 적용함",
+          "targets": [
+            "간접 에너지 사용량5)"
+          ],
+          "association": "model_proposed"
+        },
+        {
+          "quote": "2) 연결 온실가스 배출량을 별도 공시함에 따라 2024년부터 중복된 계열사 배출량을 제외",
+          "targets": [
+            "15. 투자2)"
+          ],
+          "association": "model_proposed"
+        },
+        {
+          "quote": "3) 목표관리제 대상 사업장은 데이터센터 안산 1개소",
+          "targets": [],
+          "association": "unknown"
+        },
+        {
+          "quote": "6) GJ 단위 기준 재생에너지 사용량: 2023년 38,405 GJ, 2024년 99,284 GJ, 2025년 281,825 GJ",
+          "targets": [
+            "합계6)"
+          ],
+          "association": "model_proposed"
+        }
+      ],
+      "semantic_acceptance": false,
+      "current_source_replay": "passed"
+    }
+  ],
+  "samsung_life": {
+    "page": 121,
+    "final_rich_geometry_path": "request_size_blocked_before_billing",
+    "rejected_compact_experiment": {
+      "original_notes_visual_count": 12,
+      "correct_note_candidates": 11,
+      "missing_note": "5) KTX, 버스, 자가용, 지하철 기준",
+      "false_candidate": "363",
+      "association_accepted": false
+    }
+  },
+  "paid_calls_this_turn": 36,
+  "committed_reserved_before_usd": "7.6980694500",
+  "committed_reserved_after_usd": "7.7710933900",
+  "new_settled_cost_usd": "0.0730239400",
+  "old_unsettled_calls_preserved": 6,
+  "goal_status": "active"
+}

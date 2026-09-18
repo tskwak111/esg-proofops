@@ -1,0 +1,33 @@
+:root {
+  --focus-ring: #075985;
+  --status-neutral: #475569;
+  --status-success: #166534;
+  --status-warning: #854d0e;
+  --status-danger: #991b1b;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+
+button,
+select,
+textarea,
+input:not([type="checkbox"]):not([type="radio"]) {
+  min-height: 44px;
+}
+
+.status-badge {
+  color: var(--status-neutral);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.status-badge[data-tone="success"] { color: var(--status-success); }
+.status-badge[data-tone="warning"] { color: var(--status-warning); }
+.status-badge[data-tone="danger"] { color: var(--status-danger); }
+
+@media (forced-colors: active) {
+  .status-badge { color: CanvasText; }
+}

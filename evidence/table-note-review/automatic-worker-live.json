@@ -1,0 +1,139 @@
+{
+  "before": {
+    "calls": 1334,
+    "unsettled_calls": 6,
+    "committed_usd": "7.8065947900"
+  },
+  "after": {
+    "calls": 1336,
+    "unsettled_calls": 6,
+    "committed_usd": "7.8090884350"
+  },
+  "reports": [
+    {
+      "report": "kia",
+      "run_id": "d5606c26-0bbd-49d0-a79b-4f04cd7760f1",
+      "tenant_id": "81c5a2ad-d08e-4c6d-8993-cea74f22cc88",
+      "selected_pages": [
+        45
+      ],
+      "source_sha256": "d0d814d98c4aeedbbdb2bf8631b8981ae5cde94dec32aa32c57510420274da1f",
+      "worker_exit": 0,
+      "run_status": "running",
+      "usage": [
+        {
+          "artifact_reused": false,
+          "committed_or_reserved_usd": "0.0006822750",
+          "cost_with_vat_reserve_usd": "0.0006822750",
+          "input_tokens": 3771,
+          "model_calls": 1,
+          "note_attempted_calls": 1,
+          "note_request_ids": [
+            "67e85b23-26bf-4331-837d-b9dd0d2a14ea"
+          ],
+          "output_tokens": 91,
+          "parser_executions": 1,
+          "reserved_calls": 1,
+          "settled_calls": 1,
+          "token_usage_complete": true,
+          "unknown_reservation_cost_usd": null,
+          "unsettled_calls": 0
+        }
+      ],
+      "schema": "local_parser_checkpoint_v3",
+      "table_count": 3,
+      "notes": 3,
+      "review_statuses": [
+        "source_bound_proposals"
+      ],
+      "coverage_statuses": [
+        "unknown"
+      ],
+      "decisions": [
+        null
+      ],
+      "review_issue_count": 3,
+      "graph_sha256": "fd630d74565eb296c2f1d7ece646b636d37dd711a16d6ae783194d69951e33eb",
+      "replay_without_calls": true
+    },
+    {
+      "report": "kakao",
+      "run_id": "3bb4ce1f-7a73-4c41-9b32-c83591fae8dd",
+      "tenant_id": "c7212af1-b2ca-4f51-86d6-5b978b8f3641",
+      "selected_pages": [
+        114
+      ],
+      "source_sha256": "43804a2d5eccfc6aa9c5b5480ec6714c7d07bea13ed68729c0af7a3b622ce76d",
+      "worker_exit": 0,
+      "run_status": "running",
+      "usage": [
+        {
+          "artifact_reused": false,
+          "committed_or_reserved_usd": "0.001811370",
+          "cost_with_vat_reserve_usd": "0.001811370",
+          "input_tokens": 10034,
+          "model_calls": 1,
+          "note_attempted_calls": 1,
+          "note_request_ids": [
+            "514901c4-6c69-4d9a-98be-154cd97d336c"
+          ],
+          "output_tokens": 236,
+          "parser_executions": 1,
+          "reserved_calls": 1,
+          "settled_calls": 1,
+          "token_usage_complete": true,
+          "unknown_reservation_cost_usd": null,
+          "unsettled_calls": 0
+        }
+      ],
+      "schema": "local_parser_checkpoint_v3",
+      "table_count": 3,
+      "notes": 6,
+      "review_statuses": [
+        "source_bound_proposals"
+      ],
+      "coverage_statuses": [
+        "unknown"
+      ],
+      "decisions": [
+        null
+      ],
+      "review_issue_count": 3,
+      "graph_sha256": "90ac0006eb7b271d91d79193b4a4bc7fb8c20631669a2d2ef44bdf45700f8fc0",
+      "replay_without_calls": true
+    },
+    {
+      "report": "samsung-life",
+      "run_id": "a8dc445c-4a2f-4398-9ddb-04b3d9f9df24",
+      "tenant_id": "766a1390-2ee2-4a3b-9d8f-42fd3d890d84",
+      "selected_pages": [
+        121
+      ],
+      "source_sha256": "87f9d259732981d6c3d86a7c247f52b91a6bcb174af1210972cbac2ac89571b2",
+      "worker_exit": 1,
+      "run_status": "failed",
+      "usage": [
+        {
+          "artifact_reused": false,
+          "committed_or_reserved_usd": "0",
+          "cost_with_vat_reserve_usd": "0",
+          "input_tokens": 0,
+          "model_calls": 0,
+          "note_attempted_calls": 0,
+          "note_request_ids": [],
+          "output_tokens": 0,
+          "parser_executions": 1,
+          "reserved_calls": 0,
+          "settled_calls": 0,
+          "token_usage_complete": true,
+          "unknown_reservation_cost_usd": null,
+          "unsettled_calls": 0
+        }
+      ]
+    }
+  ],
+  "scope": "Real uploaded PDF -> parser worker CLI -> automatic Upstage note discovery -> immutable checkpoint/replay. No claim grade or note ownership approval.",
+  "delta_usd": "0.0024936450",
+  "visual_review": "Agent inspected rendered original pages: Kia table coverage note plus two vehicle-scope footnotes, Kakao six numbered footnotes match extracted source spans. This is a small targeted check, not a corpus accuracy estimate.",
+  "known_failure": "Samsung Life page 121: two canonical table blocks have winner=None; table_layout_context rejects located unconflicted table required, so no note request/checkpoint. Failure retained for follow-up."
+}

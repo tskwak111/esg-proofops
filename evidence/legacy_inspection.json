@@ -1,0 +1,97 @@
+{
+  "repository": "tskwak111/esg-evidence-audit",
+  "commit": "70da628a401b89b5ea2c08ee4243523ce99acb50",
+  "method": "GitHub connector read / static inspection",
+  "executed_tests": false,
+  "full_repository_audit": false,
+  "task_043": {
+    "characterization_test": {
+      "command": "uv run pytest tests/unit/test_legacy_characterization.py -q",
+      "result": "15 passed",
+      "executed": true,
+      "scope": "local snapshot model-shim execution and ProofOps runtime import-exclusion guards; no upstream pipeline execution"
+    },
+    "legacy_runtime_tests": {
+      "executed": false,
+      "status": "not_run",
+      "reason": "No upstream pipeline was executed. The read-only snapshot has no upstream test suite or installable package; snapshot-dependent characterization checks skip only when the ignored local snapshot is absent."
+    },
+    "selected_migration": {
+      "copied_files": [],
+      "status": "deferred",
+      "reason": "No explicit upstream repository license or reuse approval is recorded; the pure hashing pattern remains a future candidate, not copied code."
+    }
+  },
+  "files": [
+    {
+      "path": "README.md",
+      "read_range": "all",
+      "blob_sha": null,
+      "finding": "project status, silver and policy replay caveats",
+      "url": "https://github.com/tskwak111/esg-evidence-audit/blob/70da628a401b89b5ea2c08ee4243523ce99acb50/README.md"
+    },
+    {
+      "path": "docs/research_v4/ARCHITECTURE.md",
+      "read_range": "tool-visible content; tail may be truncated",
+      "blob_sha": null,
+      "finding": "architecture overview and module inventory; not proof all consumers enabled guards",
+      "url": "https://github.com/tskwak111/esg-evidence-audit/blob/70da628a401b89b5ea2c08ee4243523ce99acb50/docs/research_v4/ARCHITECTURE.md"
+    },
+    {
+      "path": "esg_pipeline/research_v4/parser_adapters.py",
+      "read_range": "all",
+      "blob_sha": "67073c83de884e1ee243b69d3756302a9d3d6cdd",
+      "finding": "parser adapters and missing bbox fallback",
+      "url": "https://github.com/tskwak111/esg-evidence-audit/blob/70da628a401b89b5ea2c08ee4243523ce99acb50/esg_pipeline/research_v4/parser_adapters.py"
+    },
+    {
+      "path": "esg_pipeline/research_v4/graph_ensemble.py",
+      "read_range": "1-300 (whole file in returned range)",
+      "blob_sha": "3a4da7b46c18639a9381d912a00d8b13ecb9c15d",
+      "finding": "dedupe alias and bbox-free text key",
+      "url": "https://github.com/tskwak111/esg-evidence-audit/blob/70da628a401b89b5ea2c08ee4243523ce99acb50/esg_pipeline/research_v4/graph_ensemble.py"
+    },
+    {
+      "path": "esg_pipeline/research_v4/document_graph.py",
+      "read_range": "1-290 (whole file in returned range)",
+      "blob_sha": "23882dea4a5787c5d7f9ba67c00fe380b6aa3774",
+      "finding": "graph models and source schema",
+      "url": "https://github.com/tskwak111/esg-evidence-audit/blob/70da628a401b89b5ea2c08ee4243523ce99acb50/esg_pipeline/research_v4/document_graph.py"
+    },
+    {
+      "path": "esg_pipeline/research_v4/evidence_bundle.py",
+      "read_range": "1-270 (whole file in returned range)",
+      "blob_sha": "37ee5933847bef97fcc34ceab0c7a6b0598c5cbf",
+      "finding": "source allowlists and gold exclusion",
+      "url": "https://github.com/tskwak111/esg-evidence-audit/blob/70da628a401b89b5ea2c08ee4243523ce99acb50/esg_pipeline/research_v4/evidence_bundle.py"
+    },
+    {
+      "path": "esg_pipeline/research_v4/run_signature.py",
+      "read_range": "1-230",
+      "blob_sha": "8bf94a7025daa4d0e807809e50bc7d986a08d55a",
+      "finding": "canonical hashing and source/request/postprocess identity",
+      "url": "https://github.com/tskwak111/esg-evidence-audit/blob/70da628a401b89b5ea2c08ee4243523ce99acb50/esg_pipeline/research_v4/run_signature.py"
+    },
+    {
+      "path": "esg_pipeline/research_v4/content_cache.py",
+      "read_range": "1-240",
+      "blob_sha": "c4f393b21e396533846ca52156063533ae005df1",
+      "finding": "cache schema/status and local locking",
+      "url": "https://github.com/tskwak111/esg-evidence-audit/blob/70da628a401b89b5ea2c08ee4243523ce99acb50/esg_pipeline/research_v4/content_cache.py"
+    },
+    {
+      "path": "esg_pipeline/research_v4/evidence_grader.py",
+      "read_range": "1-220",
+      "blob_sha": "21bc0d644d4e2e7c760465e1351c24cd6752966c",
+      "finding": "method OR verification; target e2 ANY shortcut",
+      "url": "https://github.com/tskwak111/esg-evidence-audit/blob/70da628a401b89b5ea2c08ee4243523ce99acb50/esg_pipeline/research_v4/evidence_grader.py"
+    },
+    {
+      "path": "esg_pipeline/research_v4/llm_extraction_adapter.py",
+      "read_range": "1-200",
+      "blob_sha": "0bb111466713af27b5991fa154b59a00b6c99b3b",
+      "finding": "strict optional guards, extraction without grade",
+      "url": "https://github.com/tskwak111/esg-evidence-audit/blob/70da628a401b89b5ea2c08ee4243523ce99acb50/esg_pipeline/research_v4/llm_extraction_adapter.py"
+    }
+  ]
+}

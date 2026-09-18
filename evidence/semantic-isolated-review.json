@@ -1,0 +1,45 @@
+{
+  "new_model_calls": 4,
+  "additional_committed_usd": "0.0005778300",
+  "budget": {
+    "limit_usd": "10.00",
+    "calls": 104,
+    "unsettled_calls": 2,
+    "committed_usd": "2.0405921450"
+  },
+  "guard_sha256": "ecbeb44571af12a3d12bbbe68304905cef4d55c5448c27c6b193a020a22c8c73",
+  "reviews": [
+    {
+      "request_id": "a68066c0-135b-4d97-92e4-7865c9cdc724",
+      "validation_after_guard": "rejected",
+      "semantic_status": "unresolved",
+      "review": "Reporting period misclassified as organizational boundary: reject. Metric quote improves but full response is not salvaged.",
+      "binding_status": "undetermined",
+      "decision": null
+    },
+    {
+      "request_id": "b768df7f-f3a7-4ea1-b58c-024996a6f920",
+      "validation_after_guard": "source_schema_passed",
+      "semantic_status": "unresolved",
+      "review": "Compound sentence still has two measurements; generic domestic-business entity and procurement metric require review, no atomicity acceptance.",
+      "binding_status": "undetermined",
+      "decision": null
+    },
+    {
+      "request_id": "84edd8ad-4631-48fa-93ed-1dcda6c5f400",
+      "validation_after_guard": "source_schema_passed",
+      "semantic_status": "unresolved",
+      "review": "Industrial-complex supply is not reporting-company consumption. Metric still mixes rate/amount/unit and substance.",
+      "binding_status": "undetermined",
+      "decision": null
+    },
+    {
+      "request_id": "e44f65d6-021b-46ac-a0ac-71f50a02b93e",
+      "validation_after_guard": "source_schema_passed",
+      "semantic_status": "unresolved",
+      "review": "Receiving water body is not organizational boundary. Metric still includes time qualifier, quantity/unit and verb.",
+      "binding_status": "undetermined",
+      "decision": null
+    }
+  ]
+}

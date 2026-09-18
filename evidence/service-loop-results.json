@@ -1,0 +1,459 @@
+{
+  "date": "2026-09-13 KST",
+  "orchestration_run": "run_b5fe34ddbe68",
+  "experiments": [
+    {
+      "name": "table-roles",
+      "calls": 5,
+      "structurally_valid": 3,
+      "rows": [
+        {
+          "table": "kb-table-5",
+          "request_id": "0fe0d9c5-ad1e-4acd-b5e8-85ba31299b49",
+          "packet_sha256": "f55538f897267f4a08f046812facbc1dd03b6677739684322ea60e2a1da32b35",
+          "prompt_sha256": "9276bb465f01b3dfb1bbc17285bcff48f44769c901680d539b97dd8d8045fd50",
+          "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+          "parse_manifest_id": "84bcfc32-b4a7-415d-93a1-13ea78d0ae97",
+          "response_sha256": "1561d7bf63e1e01b064705676cb4c0bc7ef6e7183dcdccf23ef8e6e6731d2de3",
+          "provider_model": "solar-pro4-260806",
+          "cost_usd": "0.001710720",
+          "status": "model_proposed",
+          "error": null,
+          "roles": {
+            "category": 5,
+            "activity_description": 10,
+            "expected_effect": 10,
+            "unknown": 3
+          },
+          "artifact": ".local/service-loop/table-roles/kb-table-5"
+        },
+        {
+          "table": "kb-table-9",
+          "request_id": "c0079094-2acd-4aec-8324-ace1e008136a",
+          "packet_sha256": "18213ccd15dc39eefa913f39088632377c0999fa575737f72160c64abb2d732f",
+          "prompt_sha256": "9276bb465f01b3dfb1bbc17285bcff48f44769c901680d539b97dd8d8045fd50",
+          "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+          "parse_manifest_id": "84bcfc32-b4a7-415d-93a1-13ea78d0ae97",
+          "response_sha256": "f19fbd4c3a165e651255938ef4d31d6fbf3ac141d0c716ebc5b2f050e6e97b25",
+          "provider_model": "solar-pro4-260806",
+          "cost_usd": "0.000975150",
+          "status": "unknown",
+          "error": "invalid cell/role/header attribution",
+          "roles": {},
+          "artifact": ".local/service-loop/table-roles/kb-table-9"
+        },
+        {
+          "table": "kia-table-10",
+          "request_id": "21be4970-e025-44a2-b14d-ed58569ac51c",
+          "packet_sha256": "87ec15079aaa719cf7d311bd830b525edc6506ce580298126ad689184aab51a9",
+          "prompt_sha256": "9276bb465f01b3dfb1bbc17285bcff48f44769c901680d539b97dd8d8045fd50",
+          "source_sha256": "d0d814d98c4aeedbbdb2bf8631b8981ae5cde94dec32aa32c57510420274da1f",
+          "parse_manifest_id": "4c6821fe-5b64-42cc-a2a0-13441ca4f2d0",
+          "response_sha256": "bdad1e4c57b2720859727dde8cdd0f3ae8d7f642170a454c6032c94037721b40",
+          "provider_model": "solar-pro4-260806",
+          "cost_usd": "0.000714120",
+          "status": "model_proposed",
+          "error": null,
+          "roles": {
+            "category": 2,
+            "unknown": 2,
+            "expected_effect": 4,
+            "reported_result": 2
+          },
+          "artifact": ".local/service-loop/table-roles/kia-table-10"
+        },
+        {
+          "table": "kia-table-13",
+          "request_id": "93f886bb-47a6-4e7a-8ff6-46796532d1db",
+          "packet_sha256": "e5aaa609d983aa64f0ca9a661534e2fd9016cb31f16d7cf482d647b84cfb9541",
+          "prompt_sha256": "9276bb465f01b3dfb1bbc17285bcff48f44769c901680d539b97dd8d8045fd50",
+          "source_sha256": "d0d814d98c4aeedbbdb2bf8631b8981ae5cde94dec32aa32c57510420274da1f",
+          "parse_manifest_id": "4c6821fe-5b64-42cc-a2a0-13441ca4f2d0",
+          "response_sha256": "1c75970b3a143305e882f3d9a6584964bdf893936decec5193be81b7ca4eb525",
+          "provider_model": "solar-pro4-260806",
+          "cost_usd": "0.000504240",
+          "status": "model_proposed",
+          "error": null,
+          "roles": {
+            "activity_description": 2,
+            "unknown": 4
+          },
+          "artifact": ".local/service-loop/table-roles/kia-table-13"
+        },
+        {
+          "table": "naver-table-8",
+          "request_id": "1917900e-aba9-423d-8f72-69e624f27ede",
+          "packet_sha256": "ac946087e211de6aca88fce8757af056befb5019b10f9002371bd0602e2f1619",
+          "prompt_sha256": "9276bb465f01b3dfb1bbc17285bcff48f44769c901680d539b97dd8d8045fd50",
+          "source_sha256": "75388f16c13739a671fd158c383502d81968fe587f2372ab0f9306f3d2c1a2c6",
+          "parse_manifest_id": "f3b01b30-5b63-4675-a571-49758d9c2a1a",
+          "response_sha256": "0d9d78bffee7fb136cca9c5c3b1e71d61a9a8d1ec8047f9ed99cf4986064d3f9",
+          "provider_model": "solar-pro4-260806",
+          "cost_usd": "0.000543510",
+          "status": "unknown",
+          "error": "invalid cell/role/header attribution",
+          "roles": {},
+          "artifact": ".local/service-loop/table-roles/naver-table-8"
+        }
+      ]
+    },
+    {
+      "name": "table-roles-v2",
+      "calls": 5,
+      "structurally_valid": 5,
+      "rows": [
+        {
+          "table": "kb-table-5",
+          "request_id": "456bb82b-f8b6-4a48-9622-366d50bee0fd",
+          "packet_sha256": "5c0765df8c11579c7ee5bd0b2fc75cf3b2f693b25e167bfbd888c4d53086ea16",
+          "prompt_sha256": "9276bb465f01b3dfb1bbc17285bcff48f44769c901680d539b97dd8d8045fd50",
+          "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+          "parse_manifest_id": "db9c5ca4-b2d0-4dc6-a960-ad7e3c127c9f",
+          "response_sha256": "8d32f3562ae47945443beafa21f817aee6c6b221ec570fc1bfa084a01ec31a4c",
+          "provider_model": "solar-pro4-260806",
+          "cost_usd": "0.001759230",
+          "status": "model_proposed",
+          "error": null,
+          "roles": {
+            "category": 5,
+            "activity_description": 5,
+            "expected_effect": 15,
+            "unknown": 3
+          },
+          "artifact": ".local/service-loop/table-roles-v2/kb-table-5"
+        },
+        {
+          "table": "kb-table-9",
+          "request_id": "2b5d1ec5-2397-44eb-afbf-3f13112a86ed",
+          "packet_sha256": "39d833a621e53274adc4beb68b12fb3b2c11794f17bd97e77f4db8e5cd59aaf1",
+          "prompt_sha256": "9276bb465f01b3dfb1bbc17285bcff48f44769c901680d539b97dd8d8045fd50",
+          "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+          "parse_manifest_id": "db9c5ca4-b2d0-4dc6-a960-ad7e3c127c9f",
+          "response_sha256": "a8f1d8a290dea7108d2254ff9453914a0087716a2b930143f19bc7d6c700e7a3",
+          "provider_model": "solar-pro4-260806",
+          "cost_usd": "0.000980760",
+          "status": "model_proposed",
+          "error": null,
+          "roles": {
+            "activity_description": 3,
+            "unknown": 11
+          },
+          "artifact": ".local/service-loop/table-roles-v2/kb-table-9"
+        },
+        {
+          "table": "kia-table-10",
+          "request_id": "bd574443-873e-4464-8228-5c3f36dfd8b3",
+          "packet_sha256": "367ad5770880bd9b7cb7877b5a38ef20647e3201e7832c0cc07b4cea37f35ed2",
+          "prompt_sha256": "9276bb465f01b3dfb1bbc17285bcff48f44769c901680d539b97dd8d8045fd50",
+          "source_sha256": "d0d814d98c4aeedbbdb2bf8631b8981ae5cde94dec32aa32c57510420274da1f",
+          "parse_manifest_id": "165288b4-c3db-4e12-ae52-f5b6a769449a",
+          "response_sha256": "b8e87878f965fab3fe4a72647bb7e85b091eb7f5bd5f050c55e41dfeaf55e174",
+          "provider_model": "solar-pro4-260806",
+          "cost_usd": "0.000734250",
+          "status": "model_proposed",
+          "error": null,
+          "roles": {
+            "category": 2,
+            "unknown": 8
+          },
+          "artifact": ".local/service-loop/table-roles-v2/kia-table-10"
+        },
+        {
+          "table": "kia-table-13",
+          "request_id": "55c10faf-0b5e-481e-bd3a-bc534606a926",
+          "packet_sha256": "06c4084a8425cecdd6531aeb836e30343536adb3d8dfc5719bdd68fdbfd39820",
+          "prompt_sha256": "9276bb465f01b3dfb1bbc17285bcff48f44769c901680d539b97dd8d8045fd50",
+          "source_sha256": "d0d814d98c4aeedbbdb2bf8631b8981ae5cde94dec32aa32c57510420274da1f",
+          "parse_manifest_id": "165288b4-c3db-4e12-ae52-f5b6a769449a",
+          "response_sha256": "dbdf1a2b9bab4dd3eeb29f0d84598f9f796f5899e50b5edf7e003ca813ef1ad2",
+          "provider_model": "solar-pro4-260806",
+          "cost_usd": "0.000517440",
+          "status": "model_proposed",
+          "error": null,
+          "roles": {
+            "category": 2,
+            "unknown": 4
+          },
+          "artifact": ".local/service-loop/table-roles-v2/kia-table-13"
+        },
+        {
+          "table": "naver-table-8",
+          "request_id": "b9a7c7b5-57ab-4122-bafb-0cd974dac254",
+          "packet_sha256": "3c4af0716602b5d2c78c2d700a0eedbf1ea6319cc6d97051247dcba3c4c8277d",
+          "prompt_sha256": "9276bb465f01b3dfb1bbc17285bcff48f44769c901680d539b97dd8d8045fd50",
+          "source_sha256": "75388f16c13739a671fd158c383502d81968fe587f2372ab0f9306f3d2c1a2c6",
+          "parse_manifest_id": "552ede1f-6c26-4d85-80ab-3224ae40caaa",
+          "response_sha256": "3c8437ceeca80a7f32dd0c528bfebe43d254ed1cf5931cddb2d16aee48d395d1",
+          "provider_model": "solar-pro4-260806",
+          "cost_usd": "0.000563640",
+          "status": "model_proposed",
+          "error": null,
+          "roles": {
+            "category": 2,
+            "activity_description": 2,
+            "reported_result": 2
+          },
+          "artifact": ".local/service-loop/table-roles-v2/naver-table-8"
+        }
+      ]
+    },
+    {
+      "name": "table-roles-v3",
+      "calls": 5,
+      "structurally_valid": 3,
+      "rows": [
+        {
+          "table": "kb-table-5",
+          "request_id": "07727274-1405-4c5b-99bc-baca2fa709f4",
+          "packet_sha256": "325a0d5648054c0e5bb85986ea8277f72d60c0bc45e37660a39803589ae9f30b",
+          "prompt_sha256": "9276bb465f01b3dfb1bbc17285bcff48f44769c901680d539b97dd8d8045fd50",
+          "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+          "parse_manifest_id": "9dd14643-cd78-4e18-8a6d-cf0848e04e98",
+          "response_sha256": "757e3fe467c2765e9b8140eade83b23554f64659d1686f455fc34d4d6d47231b",
+          "provider_model": "solar-pro4-260806",
+          "cost_usd": "0.001815990",
+          "status": "unknown",
+          "error": "invalid cell/role/header attribution",
+          "roles": {},
+          "artifact": ".local/service-loop/table-roles-v3/kb-table-5"
+        },
+        {
+          "table": "kb-table-9",
+          "request_id": "6346a2c9-9604-46a6-9e10-3fbdd3204c13",
+          "packet_sha256": "9724aea91da891980c58516ddd57effe7465d077716e74c0ac9a9c21c6645d17",
+          "prompt_sha256": "9276bb465f01b3dfb1bbc17285bcff48f44769c901680d539b97dd8d8045fd50",
+          "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+          "parse_manifest_id": "9dd14643-cd78-4e18-8a6d-cf0848e04e98",
+          "response_sha256": "f579aad4ba31699a8527d9beb97a3368e1187e9264cd4e104eb3c6a5bea0e4f5",
+          "provider_model": "solar-pro4-260806",
+          "cost_usd": "0.001058640",
+          "status": "unknown",
+          "error": "invalid cell/role/header attribution",
+          "roles": {},
+          "artifact": ".local/service-loop/table-roles-v3/kb-table-9"
+        },
+        {
+          "table": "kia-table-10",
+          "request_id": "933dda8c-c628-43dc-8e10-e3884a3d63c7",
+          "packet_sha256": "caa0796b3d75ff7f1f8a7022cd1a1b3e18d842d1aa51aeee6e1560ea30b0e6be",
+          "prompt_sha256": "9276bb465f01b3dfb1bbc17285bcff48f44769c901680d539b97dd8d8045fd50",
+          "source_sha256": "d0d814d98c4aeedbbdb2bf8631b8981ae5cde94dec32aa32c57510420274da1f",
+          "parse_manifest_id": "11d1bb51-f7a4-4e04-bfae-865f638dcdc8",
+          "response_sha256": "7057e592cbd067cb128a8085baf5147b57a810e8f2a3a7c94b26ab5244578ef7",
+          "provider_model": "solar-pro4-260806",
+          "cost_usd": "0.000729630",
+          "status": "model_proposed",
+          "error": null,
+          "roles": {
+            "category": 2,
+            "unknown": 8
+          },
+          "artifact": ".local/service-loop/table-roles-v3/kia-table-10"
+        },
+        {
+          "table": "kia-table-13",
+          "request_id": "f74be813-9839-4e80-856e-4b883975cc3e",
+          "packet_sha256": "5cdca32d13c672395edbd620f03f8640a891394fca07323d02128e20e51bf9a5",
+          "prompt_sha256": "9276bb465f01b3dfb1bbc17285bcff48f44769c901680d539b97dd8d8045fd50",
+          "source_sha256": "d0d814d98c4aeedbbdb2bf8631b8981ae5cde94dec32aa32c57510420274da1f",
+          "parse_manifest_id": "11d1bb51-f7a4-4e04-bfae-865f638dcdc8",
+          "response_sha256": "151868629a536571c893fbdaf78536028895954dcafae1b66f3a139b5e6e6591",
+          "provider_model": "solar-pro4-260806",
+          "cost_usd": "0.000515460",
+          "status": "model_proposed",
+          "error": null,
+          "roles": {
+            "category": 2,
+            "unknown": 4
+          },
+          "artifact": ".local/service-loop/table-roles-v3/kia-table-13"
+        },
+        {
+          "table": "naver-table-8",
+          "request_id": "78af2ed3-b84e-4817-80d9-0c58c438b712",
+          "packet_sha256": "162816e172f7a2cc96bcad34a97ef8f5e29b59188e74200bd3744e4b5643bbf7",
+          "prompt_sha256": "9276bb465f01b3dfb1bbc17285bcff48f44769c901680d539b97dd8d8045fd50",
+          "source_sha256": "75388f16c13739a671fd158c383502d81968fe587f2372ab0f9306f3d2c1a2c6",
+          "parse_manifest_id": "77b8cf7c-cfb3-46b1-8a36-f141bd7a800b",
+          "response_sha256": "2bd29680d5d9c5a337e0b605cb35c473602c25a64d970ed4508a46260cdc5260",
+          "provider_model": "solar-pro4-260806",
+          "cost_usd": "0.000561990",
+          "status": "model_proposed",
+          "error": null,
+          "roles": {
+            "category": 2,
+            "activity_description": 2,
+            "reported_result": 2
+          },
+          "artifact": ".local/service-loop/table-roles-v3/naver-table-8"
+        }
+      ]
+    },
+    {
+      "name": "table-roles-v4",
+      "calls": 5,
+      "structurally_valid": 5,
+      "rows": [
+        {
+          "table": "kb-table-5",
+          "request_id": "6659dcb4-0b93-47b5-8b6b-74c8e72c69f0",
+          "packet_sha256": "3e5aa315de050ff90ae98188ef7004c3f8ea6018f4e730c17bf6deec9426ad20",
+          "prompt_sha256": "14db0d13c7168330764acf03fcf60d8ed594bf54cb8d9cdc11b158bbd81f10b0",
+          "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+          "parse_manifest_id": "37b5b8db-f65c-4dec-af31-dd5ae822c34f",
+          "response_sha256": "fe34309dc9049fd082a454125cd67725a172a21772197f3a4fffe302ec46c723",
+          "provider_model": "solar-pro4-260806",
+          "cost_usd": "0.001756260",
+          "status": "model_proposed",
+          "error": null,
+          "roles": {
+            "unknown": 3,
+            "category": 5,
+            "activity_description": 10,
+            "expected_effect": 10
+          },
+          "artifact": ".local/service-loop/table-roles-v4/kb-table-5"
+        },
+        {
+          "table": "kb-table-9",
+          "request_id": "a1663cf1-04f0-4b6a-97e6-683e315414af",
+          "packet_sha256": "e3b0a8021db92d268afd581b8bdd1b4cd8530b594ff56191a5a5ccb5279b9500",
+          "prompt_sha256": "14db0d13c7168330764acf03fcf60d8ed594bf54cb8d9cdc11b158bbd81f10b0",
+          "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+          "parse_manifest_id": "37b5b8db-f65c-4dec-af31-dd5ae822c34f",
+          "response_sha256": "648462505dc82a89f40e8e941f352abbdab075edd8dae1f96bb784f14be23713",
+          "provider_model": "solar-pro4-260806",
+          "cost_usd": "0.000984390",
+          "status": "model_proposed",
+          "error": null,
+          "roles": {
+            "unknown": 2,
+            "category": 9,
+            "activity_description": 3
+          },
+          "artifact": ".local/service-loop/table-roles-v4/kb-table-9"
+        },
+        {
+          "table": "kia-table-10",
+          "request_id": "bf1b72a2-ac6a-481a-9a7d-1cecb0d0b880",
+          "packet_sha256": "12be5edfc3301d936c513e6621719e3b8e455b37977b4959e3a5e6aedb0dad0f",
+          "prompt_sha256": "14db0d13c7168330764acf03fcf60d8ed594bf54cb8d9cdc11b158bbd81f10b0",
+          "source_sha256": "d0d814d98c4aeedbbdb2bf8631b8981ae5cde94dec32aa32c57510420274da1f",
+          "parse_manifest_id": "a301653e-0d57-4bfe-8744-f99cbbae5735",
+          "response_sha256": "43186963ae7fa0f13620e2ab9b3fe0d504c5bd792f84270ffac76536c5e068e0",
+          "provider_model": "solar-pro4-260806",
+          "cost_usd": "0.000742830",
+          "status": "model_proposed",
+          "error": null,
+          "roles": {
+            "category": 2,
+            "unknown": 8
+          },
+          "artifact": ".local/service-loop/table-roles-v4/kia-table-10"
+        },
+        {
+          "table": "kia-table-13",
+          "request_id": "d7b4ffea-45e9-4f0d-ad28-edd018a560c7",
+          "packet_sha256": "ea61d94e1c737318acec474370692e55d1ff2ca2a9e221b4b19eef2bd7f5dcfa",
+          "prompt_sha256": "14db0d13c7168330764acf03fcf60d8ed594bf54cb8d9cdc11b158bbd81f10b0",
+          "source_sha256": "d0d814d98c4aeedbbdb2bf8631b8981ae5cde94dec32aa32c57510420274da1f",
+          "parse_manifest_id": "a301653e-0d57-4bfe-8744-f99cbbae5735",
+          "response_sha256": "5077128dc9f957b375740d26395e0e5dd8ca49d2bd38212584b1e963e7e262ce",
+          "provider_model": "solar-pro4-260806",
+          "cost_usd": "0.000513480",
+          "status": "model_proposed",
+          "error": null,
+          "roles": {
+            "category": 2,
+            "unknown": 4
+          },
+          "artifact": ".local/service-loop/table-roles-v4/kia-table-13"
+        },
+        {
+          "table": "naver-table-8",
+          "request_id": "4d2824a2-63cc-4fc8-9a16-81b2f5164d4d",
+          "packet_sha256": "175aa56530786633b56e059ad339567a50674542f54081ee4b77825b0cd315f4",
+          "prompt_sha256": "14db0d13c7168330764acf03fcf60d8ed594bf54cb8d9cdc11b158bbd81f10b0",
+          "source_sha256": "75388f16c13739a671fd158c383502d81968fe587f2372ab0f9306f3d2c1a2c6",
+          "parse_manifest_id": "262dba39-bf92-45ac-9ba9-eefbc5f5fd7f",
+          "response_sha256": "e4ff8d7447522397268045c559977c6de5296d04ddf5ed39dab8ab81893ff2e0",
+          "provider_model": "solar-pro4-260806",
+          "cost_usd": "0.000572220",
+          "status": "model_proposed",
+          "error": null,
+          "roles": {
+            "category": 2,
+            "activity_description": 2,
+            "reported_result": 2
+          },
+          "artifact": ".local/service-loop/table-roles-v4/naver-table-8"
+        }
+      ]
+    }
+  ],
+  "quotation_replay": {
+    "artifact": ".local/service-loop/quotation-replay.json",
+    "sha256": "97bb8f0ef6d7644c7dc4f29be6ed6e4fb668ea21682e4eafc39c6894fe8ef58a",
+    "responses": 381,
+    "unique_sources": 152,
+    "changed": [
+      {
+        "origin": ".local/context-loop/doosan/pro4-default-8319a50c-6623-42cc-b7f3-bc456755d345/aa58e7d8-3e45-4653-8d1e-3ef014c80ee8/response.json",
+        "source_id": "e3df7c39-1ed2-5357-9182-b028b9c2e85a",
+        "text_sha256": "4c3d518a3f71573739c0c4a14f23e0b4360cf13c4117db5ff617f2d26087087b",
+        "before": "processed",
+        "after": "claim overlaps an unclosed source quotation"
+      },
+      {
+        "origin": ".local/context-loop/doosan/pro4-default-8319a50c-6623-42cc-b7f3-bc456755d345/7eff0c70-ffd6-43e3-ba40-4788d1272571/response.json",
+        "source_id": "f2b13d60-195a-5a62-91d6-b6c6ff7626ce",
+        "text_sha256": "1088a76fb939a6d41a1c95d99941ba96bb7c019b1ebff8795fd001fa49409f50",
+        "before": "processed",
+        "after": "claim overlaps an unclosed source quotation"
+      },
+      {
+        "origin": ".local/cross-report-wave/doosan/extract-4d79c07f-fa90-475e-9a8d-0e80ce50bcbe/outcome-007.json",
+        "source_id": "e3df7c39-1ed2-5357-9182-b028b9c2e85a",
+        "text_sha256": "4c3d518a3f71573739c0c4a14f23e0b4360cf13c4117db5ff617f2d26087087b",
+        "before": "processed",
+        "after": "claim overlaps an unclosed source quotation"
+      },
+      {
+        "origin": ".local/cross-report-wave/doosan/extract-4d79c07f-fa90-475e-9a8d-0e80ce50bcbe/outcome-010.json",
+        "source_id": "f2b13d60-195a-5a62-91d6-b6c6ff7626ce",
+        "text_sha256": "1088a76fb939a6d41a1c95d99941ba96bb7c019b1ebff8795fd001fa49409f50",
+        "before": "processed",
+        "after": "claim overlaps an unclosed source quotation"
+      },
+      {
+        "origin": ".local/cross-report-wave/doosan/extract-8d2a075d-d4cf-43cb-a788-8cf377e9c673/outcome-007.json",
+        "source_id": "e3df7c39-1ed2-5357-9182-b028b9c2e85a",
+        "text_sha256": "4c3d518a3f71573739c0c4a14f23e0b4360cf13c4117db5ff617f2d26087087b",
+        "before": "processed",
+        "after": "claim overlaps an unclosed source quotation"
+      },
+      {
+        "origin": ".local/cross-report-wave/doosan/extract-8d2a075d-d4cf-43cb-a788-8cf377e9c673/outcome-010.json",
+        "source_id": "f2b13d60-195a-5a62-91d6-b6c6ff7626ce",
+        "text_sha256": "1088a76fb939a6d41a1c95d99941ba96bb7c019b1ebff8795fd001fa49409f50",
+        "before": "processed",
+        "after": "claim overlaps an unclosed source quotation"
+      }
+    ],
+    "notes": "Repeated calls/source paragraphs, not independent accuracy observations; old receipts are unchanged."
+  },
+  "budget": {
+    "calls": 1171,
+    "unsettled": 5,
+    "committed_reserved_usd": "6.1627026950",
+    "new_calls": 20,
+    "new_settled_estimate_usd": "0.018253950"
+  },
+  "limitations": [
+    "No human gold or verified element attribution",
+    "Table roles remain model_proposed/undetermined",
+    "Real Upstage element tagging service composition remains unimplemented",
+    "Quote guard detects only explicit paired-quotation truncation; not general grammar",
+    "Initial transient SourceArtifact document/object identity correction is in .local/service-loop/table-roles/provenance-correction.json"
+  ]
+}

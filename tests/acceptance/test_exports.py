@@ -1,0 +1,381 @@
+"""AT-031: real local SQLite/HTTP exports over explicit synthetic parser/tag fixtures."""
+
+import json
+import sqlite3
+from dataclasses import asdict, replace
+from hashlib import sha256
+from io import BytesIO
+from uuid import uuid4
+from zipfile import ZipFile
+
+import pytest
+from proofops.application.authorization import MembershipRecord
+
+from tests.integration.test_local_tag_runner import TENANT
+from tests.integration.test_revision_coverage import prepare_rescore, resolve, workspace
+from tests.integration.test_run_lifecycle import validate
+
+
+def exports(tmp_path, monkeypatch, *, store_type=None):
+    try:
+        from proofops.adapters.local.export_store import LocalExportStore
+        from proofops.application.exports import ExportService
+        from proofops_api.routers.exports import build_exports_router
+    except ImportError as exc:
+        pytest.fail(f"Export implementation missing: {exc}")
+    ws = workspace(tmp_path, monkeypatch)
+    store = (store_type or LocalExportStore)(ws["service"].store, ws["runner"].claims)
+    service = ExportService(store)
+    now = [__import__("time").time()]
+    ws["http"].app.include_router(
+        build_exports_router(
+            service, ws["auth"], allowed_origin="https://testserver", clock=lambda: now[0]
+        )
+    )
+    ws.update(exports=service, export_store=store, now=now)
+    return ws
+
+
+def create(ws, **changes):
+    return ws["http"].post(
+        f'/v1/runs/{ws["run"]}/exports',
+        json=dict(formats=["json", "csv", "html"], allow_partial=True) | changes,
+    )
+
+
+def archive(ws, result):
+    download = ws["http"].post(f'/v1/exports/{result["export_id"]}/download')
+    assert download.status_code == 200, download.text
+    validate("Download", download.json())
+    content = ws["http"].get(download.json()["url"])
+    assert content.status_code == 200, content.text
+    assert sha256(content.content).hexdigest() == download.json()["sha256"]
+    return ZipFile(BytesIO(content.content)), download.json(), content.content
+
+
+def test_real_http_bundle_manifest_provenance_idempotency_and_immutable_reopen(
+    tmp_path, monkeypatch
+):
+    ws = exports(tmp_path, monkeypatch)
+    resolve(ws)
+    response = create(ws)
+    assert response.status_code == 202, response.text
+    result = response.json()
+    validate("Export", result)
+    assert result["state"] == "ready" and result["partial"] is True
+    bundle, _, before = archive(ws, result)
+    assert set(bundle.namelist()) == {"manifest.json", "report.json", "report.csv", "report.html"}
+    manifest = json.loads(bundle.read("manifest.json"))
+    model = json.loads(bundle.read("report.json"))
+    assert sha256(bundle.read("manifest.json")).hexdigest() == result["manifest_sha256"]
+    assert manifest["execution_profile"] == model["execution_profile"] == "local-synthetic-only"
+    claim = model["claims"][0]
+    assert claim["tag_revision"] == 2 and claim["decision_revision"] == 1
+    assert claim["replicate_hashes"] == list(ws["tags"].replicate_hashes)
+    assert claim["source_refs"] and claim["source_refs"][0]["bbox"]
+    assert create(ws).json() == result
+    assert create(ws, formats=["json"]).status_code == 409
+    # Real rules-only rescore changes current heads, never the old report or audit event.
+    store, body, captured, decisions = prepare_rescore(ws)
+    store.commit(ws["actor"], ws["run"], body, captured, decisions)
+    reopened = type(ws["export_store"])(ws["service"].store, ws["runner"].claims)
+    assert reopened.get(TENANT, result["export_id"]) == result
+    assert archive(ws, result)[2] == before
+    with sqlite3.connect(ws["jobs"].path) as db:
+        for action in ("UPDATE job_records SET value=value", "DELETE FROM job_records"):
+            with pytest.raises(sqlite3.IntegrityError):
+                db.execute(action + " WHERE kind='export_snapshot'")
+        with pytest.raises(sqlite3.IntegrityError):
+            db.execute(
+                "INSERT OR REPLACE INTO job_records SELECT * FROM job_records "
+                "WHERE kind='export_artifact'"
+            )
+
+
+def test_review_during_capture_retries_only_snapshot_then_renders_frozen_revisions(
+    tmp_path, monkeypatch
+):
+    ws = exports(tmp_path, monkeypatch)
+    store = ws["export_store"]
+    original = store.capture
+    captures = []
+
+    def capture(*args):
+        result = original(*args)
+        captures.append(result)
+        if len(captures) == 1:
+            # Actual guarded human resolution, not a mocked revision or LLM decision.
+            inputs = ws["original"]
+            ws["runner"].reviews.resolve_review(
+                ws["actor"],
+                ws["review"]["review_id"],
+                dict(
+                    base_tag_revision=1,
+                    track="performance",
+                    reason="원문 태깅 확인",
+                    elements=[asdict(e) for e in inputs.consensus.candidate_elements],
+                ),
+                '"1"',
+                str(uuid4()),
+            )
+        return result
+
+    monkeypatch.setattr(store, "capture", capture)
+    response = create(ws)
+    assert response.status_code == 202, response.text
+    bundle, _, _ = archive(ws, response.json())
+    assert len(captures) == 2
+    report = json.loads(bundle.read("report.json"))
+    assert report["snapshot_epoch"] == ws["jobs"].get_run(TENANT, ws["run"])["mutation_epoch"]
+    assert report["claims"][0]["tag_revision"] == 2
+    assert report["claims"][0]["decision_revision"] == 1
+    assert report["claims"][0]["label"] is None
+    with ws["jobs"]._transaction() as db:
+        assert len(ws["jobs"]._all(db, TENANT, ws["run"], "export_snapshot")) == 1
+        assert (
+            db.execute(
+                "SELECT COUNT(*) FROM job_records WHERE tenant_id=? AND run_id=? "
+                "AND kind='export_artifact'",
+                (TENANT, ws["run"]),
+            ).fetchone()[0]
+            == 1
+        )
+
+
+def test_continuously_busy_snapshot_is_durably_requeued_and_poll_resumes(tmp_path, monkeypatch):
+    ws = exports(tmp_path, monkeypatch)
+    store = ws["export_store"]
+    original = store.capture
+    calls = []
+
+    def capture(*args):
+        captured = original(*args)
+        calls.append(captured)
+        with ws["jobs"]._transaction() as db:
+            run = ws["jobs"]._get(db, TENANT, ws["run"], "run", "META")
+            ws["jobs"]._bump_run(db, run)
+        return captured
+
+    monkeypatch.setattr(store, "capture", capture)
+    response = create(ws)
+    assert response.status_code == 202, response.text
+    result = response.json()
+    assert result["state"] == "queued" and result["manifest_sha256"] is None
+    assert len(calls) == 4  # Initial attempt plus at most three retries.
+    assert ws["http"].post(f'/v1/exports/{result["export_id"]}/download').status_code == 409
+    with ws["jobs"]._transaction() as db:
+        assert not ws["jobs"]._all(db, TENANT, ws["run"], "export_snapshot")
+        state = ws["jobs"]._get(db, TENANT, ws["run"], "export_state", result["export_id"])
+        assert state["errors"] == ["EXPORT_SNAPSHOT_BUSY"]
+    monkeypatch.setattr(store, "capture", original)
+    ws["now"][0] += 6
+    resumed = ws["http"].get(f'/v1/exports/{result["export_id"]}')
+    assert resumed.status_code == 200 and resumed.json()["state"] == "ready"
+    archive(ws, resumed.json())
+
+
+def test_partial_gate_request_validation_and_tenant_revocation_download_expiry(
+    tmp_path, monkeypatch
+):
+    ws = exports(tmp_path, monkeypatch)
+    final = create(ws, allow_partial=False)
+    assert final.status_code == 409 and final.json()["error"]["code"] == "REPORT_NOT_FINALIZABLE"
+    for body in ({"formats": ["pdf"]}, {"formats": ["json", "json"]}, {"allow_partial": "true"}):
+        assert create(ws, **body).status_code == 422
+    ws["http"].headers["Idempotency-Key"] = str(uuid4())
+    result = create(ws).json()
+    _, ticket, _ = archive(ws, result)
+    assert ws["http"].get(ticket["url"] + "x").status_code in (403, 422)
+    ws["now"][0] += 301
+    assert ws["http"].get(ticket["url"]).status_code == 403
+    ws["now"][0] -= 301
+    ws["auth"].memberships.put(MembershipRecord(TENANT, "admin-user", "viewer", "revoked"))
+    assert ws["http"].get(ticket["url"]).status_code == 404
+
+
+def test_cross_tenant_export_and_csrf_fail_closed(tmp_path, monkeypatch):
+    ws = exports(tmp_path, monkeypatch)
+    result = create(ws).json()
+    _, ticket, _ = archive(ws, result)
+    ws["http"].headers["X-CSRF-Token"] = "invalid"
+    assert create(ws).status_code == 403
+    assert ws["http"].post(f'/v1/exports/{result["export_id"]}/download').status_code == 403
+    session = ws["auth"].sessions.get("admin-session")
+    foreign = str(uuid4())
+    ws["auth"].memberships.put(MembershipRecord(foreign, "admin-user", "viewer", "active"))
+    ws["auth"].sessions.put(replace(session, active_tenant_id=foreign))
+    assert ws["http"].get(f'/v1/exports/{result["export_id"]}').status_code == 404
+    assert ws["http"].get(ticket["url"]).status_code in (403, 404)
+
+
+def test_preparse_partial_and_untagged_sources_remain_honest(tmp_path, monkeypatch):
+    from proofops.adapters.local.claim_store import LocalClaimStore
+    from proofops.adapters.local.export_store import LocalExportStore
+    from proofops.application.exports import ExportService
+    from proofops_api.routers.exports import build_exports_router
+
+    from tests.integration.test_local_extract_runner import extraction_setup
+    from tests.integration.test_run_lifecycle import client, setup
+
+    (tmp_path / "queued").mkdir()
+    (tmp_path / "extracted").mkdir()
+    service, body = setup(tmp_path / "queued")
+    http, auth = client(service)
+    run = http.post("/v1/runs", json=body).json()
+    store = LocalExportStore(service.store, LocalClaimStore(service.store, service.uploads, None))
+    http.app.include_router(
+        build_exports_router(ExportService(store), auth, allowed_origin="https://testserver")
+    )
+    ws = {"http": http, "run": run["run_id"]}
+    result = create(ws).json()
+    bundle, _, _ = archive(ws, result)
+    report = json.loads(bundle.read("report.json"))
+    assert report["parse_manifest_id"] is None and report["claims"] == []
+    assert report["partial"] is True and report["coverage"]["pages_processed"] == 0
+
+    service, run_id, runner, _, _ = extraction_setup(tmp_path / "extracted", monkeypatch)
+    assert runner.run_once(tenant_id=TENANT, run_id=run_id) == "committed"
+    claims = LocalClaimStore(service.store, service.uploads, runner.parser)
+    http, auth = client(service)
+    store = LocalExportStore(service.store, claims)
+    http.app.include_router(
+        build_exports_router(ExportService(store), auth, allowed_origin="https://testserver")
+    )
+    ws = {"http": http, "run": run_id}
+    response = create(ws)
+    assert response.status_code == 202, response.text
+    report = json.loads(archive(ws, response.json())[0].read("report.json"))
+    claim = report["claims"][0]
+    assert claim["tag_revision"] == claim["decision_revision"] == 0
+    assert claim["model_sha256"] is None and claim["label"] is None
+    assert claim["source_refs"] == json.loads(
+        json.dumps([asdict(ref) for ref in claims.list(TENANT, run_id)[0].source_refs])
+    )
+    assert claim["source_refs"][0]["verification_state"] != "verified"
+
+
+def test_artifact_corruption_and_other_user_ticket_are_rejected(tmp_path, monkeypatch):
+    ws = exports(tmp_path, monkeypatch)
+    response = create(ws).json()
+    _, ticket, _ = archive(ws, response)
+    session = ws["auth"].sessions.get("admin-session")
+    ws["auth"].memberships.put(MembershipRecord(TENANT, "other-user", "viewer", "active"))
+    ws["auth"].sessions.put(replace(session, user_sub="other-user"))
+    assert ws["http"].get(ticket["url"]).status_code == 403
+    ws["auth"].sessions.put(session)
+    with sqlite3.connect(ws["jobs"].path) as db:
+        # Explicit storage corruption bypasses the normal immutable write guard.
+        db.execute("DROP TRIGGER export_immutable_update")
+        db.execute(
+            "UPDATE job_records SET value=? WHERE tenant_id=? AND run_id=? "
+            "AND kind='export_artifact'",
+            (b"corrupt", TENANT, ws["run"]),
+        )
+    content = ws["http"].get(ticket["url"])
+    assert content.status_code == 409
+    assert content.json()["error"]["code"] == "EXPORT_INTEGRITY_FAILED"
+    assert ws["http"].post(f'/v1/exports/{response["export_id"]}/download').status_code == 409
+
+
+def test_failed_export_has_pollable_fixed_metadata_and_no_artifact(tmp_path, monkeypatch):
+    ws = exports(tmp_path, monkeypatch)
+    failed = create(ws, allow_partial=False)
+    assert failed.status_code == 409
+    with ws["jobs"]._transaction() as db:
+        result = ws["jobs"]._all(db, TENANT, ws["run"], "export_state")[0]["response"]
+        assert not ws["jobs"]._all(db, TENANT, ws["run"], "export_snapshot")
+    response = ws["http"].get(f'/v1/exports/{result["export_id"]}')
+    assert response.status_code == 200, response.text
+    validate("Export", response.json())
+    assert response.json()["state"] == "failed"
+
+
+def test_new_rescore_export_uses_valid_lineage_and_cannot_mix_tag_head(tmp_path, monkeypatch):
+    ws = exports(tmp_path, monkeypatch)
+    resolve(ws)
+    store, body, captured, decisions = prepare_rescore(ws)
+    store.commit(ws["actor"], ws["run"], body, captured, decisions)
+    response = create(ws)
+    assert response.status_code == 202, response.text
+    report = json.loads(archive(ws, response.json())[0].read("report.json"))
+    claim = report["claims"][0]
+    assert claim["tag_revision"] == 2 and claim["decision_revision"] == 2
+    assert claim["decision_status"] == "blocked_rule_gap" and claim["label"] is None
+    with ws["jobs"]._transaction() as db:
+        ws["jobs"]._put(
+            db,
+            TENANT,
+            ws["run"],
+            "claim_head",
+            ws["review"]["claim_id"],
+            dict(tag_revision=1, decision_revision=2),
+        )
+    ws["http"].headers["Idempotency-Key"] = str(uuid4())
+    mixed = create(ws)
+    assert mixed.status_code == 409 and mixed.json()["error"]["code"] == "EXPORT_INTEGRITY_FAILED"
+
+
+def test_render_limit_failure_persists_failed_state_without_publishing_bytes(tmp_path, monkeypatch):
+    import proofops.application.exports as module
+
+    ws = exports(tmp_path, monkeypatch)
+    monkeypatch.setattr(module, "MAX_EXPORT_BYTES", 100)
+    failed = create(ws)
+    assert failed.status_code == 409 and failed.json()["error"]["code"] == "EXPORT_SIZE_LIMIT"
+    with ws["jobs"]._transaction() as db:
+        assert (
+            db.execute("SELECT COUNT(*) FROM job_records WHERE kind='export_artifact'").fetchone()[
+                0
+            ]
+            == 0
+        )
+
+
+def test_mutation_after_freeze_does_not_recapture_or_change_pinned_report(tmp_path, monkeypatch):
+    ws = exports(tmp_path, monkeypatch)
+    original = ws["export_store"].freeze
+
+    def freeze(*args):
+        committed = original(*args)
+        if committed:
+            resolve(ws)
+        return committed
+
+    monkeypatch.setattr(ws["export_store"], "freeze", freeze)
+    response = create(ws)
+    assert response.status_code == 202, response.text
+    report = json.loads(archive(ws, response.json())[0].read("report.json"))
+    assert report["claims"][0]["tag_revision"] == 1
+    assert report["claims"][0]["decision_revision"] == 0
+    assert report["snapshot_epoch"] < ws["jobs"].get_run(TENANT, ws["run"])["mutation_epoch"]
+    assert report["claims"][0]["label"] is None
+
+
+def test_idempotency_accepts_contract_strings_and_invalid_json_is_422(tmp_path, monkeypatch):
+    ws = exports(tmp_path, monkeypatch)
+    ws["http"].headers["Idempotency-Key"] = "synthetic-export-request-0001"
+    response = create(ws)
+    assert response.status_code == 202, response.text
+    bad = ws["http"].post(
+        f'/v1/runs/{ws["run"]}/exports',
+        content=b"{broken",
+        headers={"Content-Type": "application/json"},
+    )
+    assert bad.status_code == 422
+
+
+def test_capture_size_limit_rejects_before_snapshot_or_report_publication(tmp_path, monkeypatch):
+    import proofops.adapters.local.export_store as module
+
+    ws = exports(tmp_path, monkeypatch)
+    monkeypatch.setattr(module, "MAX_EXPORT_BYTES", 100)
+    failed = create(ws)
+    assert failed.status_code == 409 and failed.json()["error"]["code"] == "EXPORT_SIZE_LIMIT"
+    with ws["jobs"]._transaction() as db:
+        assert not ws["jobs"]._all(db, TENANT, ws["run"], "export_snapshot")
+        assert (
+            db.execute("SELECT COUNT(*) FROM job_records WHERE kind='export_artifact'").fetchone()[
+                0
+            ]
+            == 0
+        )

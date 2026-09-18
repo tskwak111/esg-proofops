@@ -1,0 +1,145 @@
+{
+  "method": "local diagnostic candidates; not accepted atomic claims",
+  "new_model_calls": 0,
+  "original_atomic_request_id": "9454e107-02bb-4f80-ac20-5df4b95aa18d",
+  "original_artifact": "evidence/atomic-expanded-results.json",
+  "original_artifact_sha256": "2eb627a29b33ca045b96c64a5d48d06b14e08988718f17132e7b07bb2e6519e7",
+  "candidate_rule_sha256": "af79af79e5998b1d5d6f7e19fe62882b7d9e7f6cb873bd7d4e1a9ace86f4de75",
+  "reviews": [
+    {
+      "parent": {
+        "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+        "span": {
+          "char_start": 129,
+          "char_end": 214,
+          "quote": "국내 사업장에서는 REC 및 녹색 프리미엄 등을 활용하여 약 93GWh의 재생에너지를 조달했으며, 이를 통해 약 4만 톤의 탄소 감축 효과를 얻었습니다."
+        },
+        "source_ref": {
+          "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 25,
+          "printed_page_label": "25",
+          "bbox": [
+            53.813,
+            563.411,
+            788.443,
+            600.5869999999999
+          ],
+          "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+          "quote": "국내 사업장에서는 REC 및 녹색 프리미엄 등을 활용하여 약 93GWh의 재생에너지를 조달했으며, 이를 통해 약 4만 톤의 탄소 감축 효과를 얻었습니다.",
+          "char_start": 129,
+          "char_end": 214,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        },
+        "source_quality": "unverified"
+      },
+      "children": [
+        {
+          "id": "q0:c0",
+          "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+          "span": {
+            "char_start": 129,
+            "char_end": 183,
+            "quote": "국내 사업장에서는 REC 및 녹색 프리미엄 등을 활용하여 약 93GWh의 재생에너지를 조달했으며,"
+          },
+          "source_ref": {
+            "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "page_num": 25,
+            "printed_page_label": "25",
+            "bbox": [
+              53.813,
+              563.411,
+              788.443,
+              600.5869999999999
+            ],
+            "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+            "quote": "국내 사업장에서는 REC 및 녹색 프리미엄 등을 활용하여 약 93GWh의 재생에너지를 조달했으며,",
+            "char_start": 129,
+            "char_end": 183,
+            "location_quality": "located",
+            "verification_state": "candidate"
+          },
+          "source_quality": "unverified",
+          "parent_source_ref": {
+            "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "page_num": 25,
+            "printed_page_label": "25",
+            "bbox": [
+              53.813,
+              563.411,
+              788.443,
+              600.5869999999999
+            ],
+            "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+            "quote": "국내 사업장에서는 REC 및 녹색 프리미엄 등을 활용하여 약 93GWh의 재생에너지를 조달했으며, 이를 통해 약 4만 톤의 탄소 감축 효과를 얻었습니다.",
+            "char_start": 129,
+            "char_end": 214,
+            "location_quality": "located",
+            "verification_state": "candidate"
+          },
+          "context_relation": "parent_context_only",
+          "binding_status": "undetermined",
+          "eligible_for_scoring": false
+        },
+        {
+          "id": "q0:c1",
+          "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+          "span": {
+            "char_start": 184,
+            "char_end": 214,
+            "quote": "이를 통해 약 4만 톤의 탄소 감축 효과를 얻었습니다."
+          },
+          "source_ref": {
+            "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "page_num": 25,
+            "printed_page_label": "25",
+            "bbox": [
+              53.813,
+              563.411,
+              788.443,
+              600.5869999999999
+            ],
+            "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+            "quote": "이를 통해 약 4만 톤의 탄소 감축 효과를 얻었습니다.",
+            "char_start": 184,
+            "char_end": 214,
+            "location_quality": "located",
+            "verification_state": "candidate"
+          },
+          "source_quality": "unverified",
+          "parent_source_ref": {
+            "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "page_num": 25,
+            "printed_page_label": "25",
+            "bbox": [
+              53.813,
+              563.411,
+              788.443,
+              600.5869999999999
+            ],
+            "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+            "quote": "국내 사업장에서는 REC 및 녹색 프리미엄 등을 활용하여 약 93GWh의 재생에너지를 조달했으며, 이를 통해 약 4만 톤의 탄소 감축 효과를 얻었습니다.",
+            "char_start": 129,
+            "char_end": 214,
+            "location_quality": "located",
+            "verification_state": "candidate"
+          },
+          "context_relation": "unresolved_backreference",
+          "binding_status": "undetermined",
+          "eligible_for_scoring": false
+        }
+      ],
+      "state": "local_candidates_require_review"
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "source_sha256": "c6395dd2be7948d85fa2b52c6edb61367fa6610c6f389c2478b44cb4cfcb5bde",
+  "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+  "paragraph_trial": {
+    "requests": 1,
+    "claims": 0,
+    "status": "failed"
+  },
+  "target_only_trial": {
+    "requests": 1,
+    "claims": 1,
+    "status": "passed",
+    "quote": "이러한 사업 환경을 고려하여 온실가스 감축 과제는 기후 리스크 및 기회 대응을 위한 전사 전략의 일환으로 추진되고 있으며, 녹색 금융 및 투자 기준에 부합하도록 K-택소노미 분류 체계와 연계하여 관리하고 있습니다."
+  },
+  "table_contexts": {
+    "2adb2e35-d2e8-58a8-b96a-8a74710b1010": [
+      {
+        "table_id": "cd503c03-cfb2-5029-8c2b-c30213c4f7a0",
+        "row": 4,
+        "cells": 3,
+        "first_row_quotes": [
+          "구분",
+          "주요 활동",
+          "기대 효과"
+        ],
+        "binding_status": "undetermined"
+      }
+    ],
+    "578612a7-9e9f-5cbb-95f4-bc81275775a6": [
+      {
+        "table_id": "cd503c03-cfb2-5029-8c2b-c30213c4f7a0",
+        "row": 3,
+        "cells": 3,
+        "first_row_quotes": [
+          "구분",
+          "주요 활동",
+          "기대 효과"
+        ],
+        "binding_status": "undetermined"
+      }
+    ],
+    "657cd272-d9de-5896-924e-7ee5afe14950": [
+      {
+        "table_id": "cd503c03-cfb2-5029-8c2b-c30213c4f7a0",
+        "row": 3,
+        "cells": 3,
+        "first_row_quotes": [
+          "구분",
+          "주요 활동",
+          "기대 효과"
+        ],
+        "binding_status": "undetermined"
+      }
+    ],
+    "74e46a77-af71-5c77-a740-24066e90e845": [
+      {
+        "table_id": "cd503c03-cfb2-5029-8c2b-c30213c4f7a0",
+        "row": 2,
+        "cells": 3,
+        "first_row_quotes": [
+          "구분",
+          "주요 활동",
+          "기대 효과"
+        ],
+        "binding_status": "undetermined"
+      }
+    ],
+    "f2d74546-3bd1-596d-9578-af6c833ed254": [
+      {
+        "table_id": "cd503c03-cfb2-5029-8c2b-c30213c4f7a0",
+        "row": 2,
+        "cells": 3,
+        "first_row_quotes": [
+          "구분",
+          "주요 활동",
+          "기대 효과"
+        ],
+        "binding_status": "undetermined"
+      }
+    ]
+  },
+  "table_context_sha256": "c28f6f93b66341e0667f31dcc878acf9584e8af5308d78a491911ac858a05d9c",
+  "decision": null
+}

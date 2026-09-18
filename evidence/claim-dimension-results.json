@@ -1,0 +1,245 @@
+{
+  "trials": [
+    {
+      "path": "first",
+      "status": "passed"
+    },
+    {
+      "path": "second",
+      "status": "failed"
+    },
+    {
+      "path": "plain-json",
+      "status": "failed"
+    },
+    {
+      "path": "periods",
+      "status": "passed"
+    }
+  ],
+  "validated_period_tags": [
+    {
+      "id": "q0",
+      "source_id": "32ae97f9-e49d-5a02-9c57-45cbf4579e8b",
+      "claim_span": {
+        "char_start": 69,
+        "char_end": 223,
+        "quote": "향후 생산능력 확대 및 글로벌 사업 확장에 따른 배출량 증가 요인에도 불구하고, Scope 1 및 Scope 2 배출량을 기준연도(2019년, 951만 tCO₂e) 수준으로 관리하는 탄소중립 성장(Carbon Neutral Growth)을 2030년 목표로 설정하고 있습니다."
+      },
+      "source_quality": "unverified",
+      "dimensions": {
+        "entity": {
+          "state": "unknown",
+          "source_ref": null
+        },
+        "metric": {
+          "state": "unknown",
+          "source_ref": null
+        },
+        "scope": {
+          "state": "unknown",
+          "source_ref": null
+        },
+        "unit": {
+          "state": "unknown",
+          "source_ref": null
+        },
+        "reporting_period": {
+          "state": "unknown",
+          "source_ref": null
+        },
+        "baseline_period": {
+          "state": "model_proposed",
+          "source_ref": {
+            "source_id": "32ae97f9-e49d-5a02-9c57-45cbf4579e8b",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "page_num": 24,
+            "printed_page_label": "24",
+            "bbox": [
+              38.438,
+              138.4369999999999,
+              803.816,
+              212.3219999999999
+            ],
+            "raw_text_sha256": "402c08ed4de00cd2ab1096f715f77b6e5b20b555b252d4268d559873b971a111",
+            "quote": "2019년",
+            "char_start": 142,
+            "char_end": 147,
+            "location_quality": "located",
+            "verification_state": "candidate"
+          }
+        },
+        "target_period": {
+          "state": "model_proposed",
+          "source_ref": {
+            "source_id": "32ae97f9-e49d-5a02-9c57-45cbf4579e8b",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "page_num": 24,
+            "printed_page_label": "24",
+            "bbox": [
+              38.438,
+              138.4369999999999,
+              803.816,
+              212.3219999999999
+            ],
+            "raw_text_sha256": "402c08ed4de00cd2ab1096f715f77b6e5b20b555b252d4268d559873b971a111",
+            "quote": "2030년",
+            "char_start": 203,
+            "char_end": 208,
+            "location_quality": "located",
+            "verification_state": "candidate"
+          }
+        },
+        "reported_value": {
+          "state": "unknown",
+          "source_ref": null
+        },
+        "baseline_value": {
+          "state": "unknown",
+          "source_ref": null
+        },
+        "target_value": {
+          "state": "unknown",
+          "source_ref": null
+        },
+        "scope2_basis": {
+          "state": "unknown",
+          "source_ref": null
+        },
+        "boundary": {
+          "state": "unknown",
+          "source_ref": null
+        }
+      },
+      "populated_fields": 2,
+      "review_reason": "semantic_review_required",
+      "binding_status": "undetermined"
+    },
+    {
+      "id": "q1",
+      "source_id": "1c115c9f-6314-5690-8ef2-52d47cf67441",
+      "claim_span": {
+        "char_start": 77,
+        "char_end": 164,
+        "quote": "2025년에는 총 8건의 에너지 효율화 과제를 통해 약 3만 톤의 온실가스를 저감하였으며, 주요 생산공정정에서 추진한 에너지 효율화 사례는 다음과 같습니다."
+      },
+      "source_quality": "unverified",
+      "dimensions": {
+        "entity": {
+          "state": "unknown",
+          "source_ref": null
+        },
+        "metric": {
+          "state": "unknown",
+          "source_ref": null
+        },
+        "scope": {
+          "state": "unknown",
+          "source_ref": null
+        },
+        "unit": {
+          "state": "unknown",
+          "source_ref": null
+        },
+        "reporting_period": {
+          "state": "model_proposed",
+          "source_ref": {
+            "source_id": "1c115c9f-6314-5690-8ef2-52d47cf67441",
+            "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+            "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+            "page_num": 24,
+            "printed_page_label": "24",
+            "bbox": [
+              38.438,
+              589.9369999999999,
+              367.501,
+              651.8219999999999
+            ],
+            "raw_text_sha256": "53eb467076b9c0925001d5d947c66cab4710ec2e4fc5e91c39922c5e732d63ed",
+            "quote": "2025년",
+            "char_start": 77,
+            "char_end": 82,
+            "location_quality": "located",
+            "verification_state": "candidate"
+          }
+        },
+        "baseline_period": {
+          "state": "unknown",
+          "source_ref": null
+        },
+        "target_period": {
+          "state": "unknown",
+          "source_ref": null
+        },
+        "reported_value": {
+          "state": "unknown",
+          "source_ref": null
+        },
+        "baseline_value": {
+          "state": "unknown",
+          "source_ref": null
+        },
+        "target_value": {
+          "state": "unknown",
+          "source_ref": null
+        },
+        "scope2_basis": {
+          "state": "unknown",
+          "source_ref": null
+        },
+        "boundary": {
+          "state": "unknown",
+          "source_ref": null
+        }
+      },
+      "populated_fields": 1,
+      "review_reason": "semantic_review_required",
+      "binding_status": "undetermined"
+    }
+  ],
+  "prompt_sha256": "5493e8245b1a753bbf92fe056de1f3c26a4700ae5614dcea732276a809a92b1b",
+  "rule_sha256": "0b67d22cf866d6da4c191fb04ca3e5f23c7b8c6260634860518bc922463f0ca1",
+  "provider_model_sha256": "62b1bac0088e6664d7d0fec38e1bf42240e844236bf917f7adc7fa331524df1b",
+  "request_id": "5bca8f8e-faff-4314-b87d-45759920f00e",
+  "period_review": [
+    {
+      "claim_id": "q0",
+      "role": "baseline_period",
+      "quote": "2019년",
+      "year_only_matches": [],
+      "binding_status": "undetermined",
+      "note": "Nine selected p97 observations only; year overlap is not a metric/entity/unit match or evidence approval"
+    },
+    {
+      "claim_id": "q0",
+      "role": "target_period",
+      "quote": "2030년",
+      "year_only_matches": [],
+      "binding_status": "undetermined",
+      "note": "Nine selected p97 observations only; year overlap is not a metric/entity/unit match or evidence approval"
+    },
+    {
+      "claim_id": "q1",
+      "role": "reporting_period",
+      "quote": "2025년",
+      "year_only_matches": [
+        "838103aa-896b-5229-93e2-7749520de928",
+        "9aa19086-7089-5a13-9d15-e91221564f78",
+        "67251673-2be4-545b-a9c5-25a44217a601"
+      ],
+      "binding_status": "undetermined",
+      "note": "Nine selected p97 observations only; year overlap is not a metric/entity/unit match or evidence approval"
+    }
+  ],
+  "additional_committed_usd": "0.0009824100",
+  "budget": {
+    "limit_usd": "10.00",
+    "calls": 86,
+    "unsettled_calls": 2,
+    "committed_usd": "2.0365613600"
+  },
+  "semantic_accuracy": "not_measured",
+  "decision": null
+}

@@ -1,0 +1,212 @@
+{
+  "reviewer_kind": "agent",
+  "reviewer_id": "codex-source-visual-review",
+  "reviewed_on": "2026-09-13",
+  "input_sha256": "74e978c252e18264d103134f715fc2cc6b6b9abfab59231e47efb2a8008db53f",
+  "source_sha256": "87f9d259732981d6c3d86a7c247f52b91a6bcb174af1210972cbac2ac89571b2",
+  "method": "Rendered original PDF at scale 2; source-specific semantic review, not human gold, production approval or measured general accuracy.",
+  "page_images": [
+    {
+      "page": 121,
+      "sha256": "9bebd3a66ce57c3b18b84af33e91744bd7d592e0a5f6102656d325ab893a56fb"
+    },
+    {
+      "page": 138,
+      "sha256": "5388eed062a7a3755994e3475e7b9ccc9875d7dd84de611ba9a35a6f678a5d1c"
+    },
+    {
+      "page": 23,
+      "sha256": "e72d243734f92b708c9893a7fa25a46ea8620ef3e0fcb64521c84c9055f58e99"
+    },
+    {
+      "page": 24,
+      "sha256": "c867224a48f8cef8556b7dc0ddce246d2ad412f930c1c41bc5942a6388ed7ccd"
+    }
+  ],
+  "claims": {
+    "e053812b-8b88-5a90-86c7-53eb986a3bd7": {
+      "note": "23쪽 원본과 문장이 일치한다(공백 정규화 기준). 전략 수립·노력 지속이라는 복합 주장이다. 24쪽 대응방안은 일부 보강 자료이나 121쪽 배출량·138쪽 보증만으로 활동 전체의 이행을 입증할 수 없다.",
+      "candidates": {
+        "eefffe5b-2dca-5d5f-b8b6-e2cecf7a1ce5": {
+          "status": "self_quote",
+          "reason": "주장 두 문장이 담긴 같은 원문이다. 독립적인 보강 근거로 세지 않는다."
+        },
+        "9c982119-84a6-55d4-aaf0-d0043b568154": {
+          "status": "partial_support",
+          "reason": "24쪽 정책/법률 위험 대응방안에 로드맵 수립 및 RE100 이행이 명시된다. 대응방안의 존재를 뒷받침하지만 지속적 이행 성과까지 입증하지 않는다."
+        },
+        "d2127da0-690b-5494-abd1-32b6de4d9705": {
+          "status": "duplicate",
+          "reason": "앞 후보와 동일한 문구의 다른 파서 결과다. 두 개의 독립 근거로 세지 않는다."
+        },
+        "0d7c00eb-975e-5182-a935-b6ae097b69a8": {
+          "status": "unrelated",
+          "reason": "2024년 배출량 검증 수행의 서문이다. 전략 수립·에너지 전환 활동의 검증 의견이 아니다."
+        },
+        "dacf870d-52fe-54bb-9477-c6834cda40de": {
+          "status": "insufficient",
+          "reason": "절 제목만 있고 실무진의 구체적 활동은 빠져 있다."
+        },
+        "765e1457-4bab-504b-8178-da520fab477d": {
+          "status": "unrelated",
+          "reason": "배출량 산정 적정성에 관한 의견이다. 감축 활동의 실재나 성과까지 보증하지 않는다."
+        },
+        "613d6a52-a392-5f0b-b594-629de55e437e": {
+          "status": "context",
+          "reason": "23쪽 ESG사무국의 기능이다. 추출문에 기후변화의 비정상적인 공백이 있으며 조직 이름도 빠져 있어 원본 도표와 함께 읽어야 한다."
+        },
+        "b8504a5d-b6f5-597c-8520-61bcb55f6f37": {
+          "status": "duplicate",
+          "reason": "같은 ESG사무국 기능의 중복 추출이다."
+        },
+        "b8a3bc40-744a-562b-a9a0-0935a7cf2a01": {
+          "status": "context",
+          "reason": "기회 분석의 예상 효과다. 이미 달성한 재생에너지 전환 실적이 아니다. 오른쪽 대응방안 열도 이 후보에서 누락됐다."
+        },
+        "6e33010c-7c36-541c-a9fb-501a07d64d7c": {
+          "status": "unrelated",
+          "reason": "배출량 산정 가정·추정 공시에 관한 검증 의견이다. 주장한 대응 활동과는 검증 대상이 다르다."
+        },
+        "64b93c22-8553-5489-894d-76ed61e8876f": {
+          "status": "insufficient",
+          "reason": "집약도 제목만 있으며 수치·연도·대상·단위가 없다."
+        },
+        "8b5fb6b9-5d04-59c3-a53b-5f01ccb21b1b": {
+          "status": "duplicate",
+          "reason": "집약도 제목의 중복이다."
+        },
+        "7ade002d-3cce-5def-a114-22be55a09594": {
+          "status": "insufficient",
+          "reason": "Scope 1·2와 Scope 3 표 제목이다. 두 표의 숫자와 보고 경계가 있어야 한다."
+        },
+        "b8702f97-9d37-5a32-8304-baf395f94445": {
+          "status": "insufficient",
+          "reason": "ESG사무국 기능 중 일부가 잘린 문구다. 원본의 완전한 기능 설명이 필요하다."
+        },
+        "0c3a69a4-40c8-5388-8c39-17a2841758f0": {
+          "status": "insufficient",
+          "reason": "회사명만으로는 활동·지표·연도·값을 알 수 없다. 원본 표의 Scope와 연도 헤더를 함께 읽어야 한다."
+        },
+        "1e217610-1371-540c-9963-8e7823edf102": {
+          "status": "insufficient",
+          "reason": "회사명만으로는 활동·지표·연도·값을 알 수 없다. 원본 표의 Scope와 연도 헤더를 함께 읽어야 한다."
+        },
+        "2297a04b-f1fe-5705-8760-ec7532f98462": {
+          "status": "insufficient",
+          "reason": "회사명만으로는 활동·지표·연도·값을 알 수 없다. 원본 표의 Scope와 연도 헤더를 함께 읽어야 한다."
+        },
+        "229ddd24-b7cf-5bf0-91fb-d9d24b5983ec": {
+          "status": "insufficient",
+          "reason": "회사명만으로는 활동·지표·연도·값을 알 수 없다. 원본 표의 Scope와 연도 헤더를 함께 읽어야 한다."
+        },
+        "2d62ec96-1b41-53fa-b0ed-dd59453d2512": {
+          "status": "insufficient",
+          "reason": "회사명만으로는 활동·지표·연도·값을 알 수 없다. 원본 표의 Scope와 연도 헤더를 함께 읽어야 한다."
+        },
+        "bc696b12-f36e-50cf-a5c9-8b64fd6f6870": {
+          "status": "insufficient",
+          "reason": "회사명만으로는 활동·지표·연도·값을 알 수 없다. 원본 표의 Scope와 연도 헤더를 함께 읽어야 한다."
+        }
+      }
+    },
+    "73640d88-3c5b-5962-801c-3330a3a525fe": {
+      "note": "23쪽 원본과 문장이 일치한다. 또한의 선행 주체는 삼성생명이다. CRO·RM파트·위원회 역할로 체계 존재는 뒷받침되지만 강화의 전후 비교와 저탄소 사회 기여 성과는 별도 근거가 필요하다.",
+      "candidates": {
+        "eefffe5b-2dca-5d5f-b8b6-e2cecf7a1ce5": {
+          "status": "self_quote",
+          "reason": "같은 주장 원문 반복이다. 또한의 선행 문맥은 제공하지만 독립 근거는 아니다."
+        },
+        "b0ed5774-0e08-5562-8bea-4bd364e19331": {
+          "status": "insufficient",
+          "reason": "리스크 관리 기능 문구가 잘렸고 담당 조직도 없다."
+        },
+        "15a48f33-6a41-5e37-ab69-14264405e0c2": {
+          "status": "context",
+          "reason": "리스크 관리 기능 단편이다. CRO/RM 등 어느 조직에 속하는지 도표의 상위 상자와 함께 봐야 한다."
+        },
+        "2e41806c-ae03-5930-a951-bf20235997c6": {
+          "status": "duplicate",
+          "reason": "동일한 기능 문구의 중복 추출이다."
+        },
+        "34988ba3-bbeb-5660-98de-8d016e825977": {
+          "status": "duplicate",
+          "reason": "공백만 다른 동일한 기능 문구다."
+        },
+        "d1619122-0097-539c-95cc-17831eef2a5e": {
+          "status": "partial_support",
+          "reason": "23쪽 RM파트 상자에 기후변화/사회 리스크 관리 기능이 있다. 체계 존재의 일부 근거이며 과거보다 강화됐다는 변화까지 입증하지 않는다."
+        },
+        "ac9256fb-007c-5f16-9ffe-51d9c721fa0f": {
+          "status": "context",
+          "reason": "24쪽 에너지 전환 기회의 예상 효과다. 기후리스크 식별·대응 체계의 운영 증거는 아니다."
+        },
+        "4beaa18d-1e3b-506c-8d20-1116f1b5dd7b": {
+          "status": "partial_support",
+          "reason": "23쪽 경영진 역할에 CRO의 위험 식별·평가·관리·모니터링이 명시된다. 체계 존재를 뒷받침하나 강화 정도나 사회 전환 기여 성과는 입증하지 않는다."
+        },
+        "f16497a7-51d6-58e7-8ec7-5f5f33288353": {
+          "status": "unrelated",
+          "reason": "배출량 보증의 한계 문구다. 기후리스크 관리 체계에 대한 검증이 아니다."
+        },
+        "9e1c4c97-7251-5283-97b2-e5cf616629e4": {
+          "status": "insufficient",
+          "reason": "리스크 유형 제목만 있다."
+        },
+        "ef385889-f724-5466-b480-45139f12d41f": {
+          "status": "insufficient",
+          "reason": "리스크 유형 제목만 있다."
+        },
+        "3d9d3366-221e-5a9f-a267-8180a17bc7e5": {
+          "status": "context",
+          "reason": "위원회 기능의 단편이다. 해당 위원회의 구성·역할 설명을 함께 봐야 한다."
+        },
+        "3611f768-4337-5e9d-9c4d-ce4ef778a157": {
+          "status": "insufficient",
+          "reason": "리스크 유형 제목만 있다."
+        },
+        "6718dfe5-23f6-59ec-9c18-92c7632349bb": {
+          "status": "insufficient",
+          "reason": "투자 리스크 관리 단편으로 주체·운영 방식이 없다."
+        },
+        "543fab56-3502-50ed-a6ec-646c09dea70e": {
+          "status": "context",
+          "reason": "재무심사P 상자의 기능이다. 담당 조직과 상위 도표를 함께 읽어야 한다."
+        },
+        "e80a9e17-5d2d-5d9a-b13b-fe64d059a7ee": {
+          "status": "duplicate",
+          "reason": "같은 재무심사 기능 문구의 중복이다."
+        },
+        "21ac5997-f70b-598e-bef5-7033071ce4f1": {
+          "status": "partial_support",
+          "reason": "23쪽 위험관리위원회의 구성과 기후리스크 심의·의사결정 역할이 명시된다. 체계 존재의 일부 근거다."
+        },
+        "431b5e05-2a5b-5140-8f49-137ae5a7e826": {
+          "status": "partial_support",
+          "reason": "24쪽 위험 분류가 제시되어 식별 체계의 일부를 뒷받침한다. TCFD 언급 자체를 외부 인증으로 취급하지 않는다."
+        },
+        "4d8bd018-f692-5e2b-b541-4dd45c501acd": {
+          "status": "context",
+          "reason": "위험관리위원회 도표의 구성·기능이다. 앞의 완전한 위원회 설명과 같은 제도이므로 별개 성과로 세지 않는다."
+        },
+        "6f58ad79-d001-5bd5-b405-1a07827183fa": {
+          "status": "duplicate",
+          "reason": "같은 위원회 상자의 중복 추출이다."
+        }
+      }
+    }
+  },
+  "tables": {
+    "5": {
+      "role": "data",
+      "note": "121쪽 원본과 대조: 주요 수치·열 배치는 일치하나 각주가 앞쪽으로 이동했다(2023 집약도 2.26의 각주4, 2024 시장의 각주2). 2024는 지역/시장 기준을 반드시 구분한다. 현재 숫자 후보는 각주 붙은 2024 헤더를 보류하며 회사 하위행의 Scope 상위문맥이 빠져 완성된 지표 귀속으로 인정하지 않는다. 2024 지역 총계 66,717과 138쪽 검증 총계 62,083의 차이 4,634는 별도 검증 삼성카드이다. 원본 각주의 연결범위 변경·반올림 설명도 보존해야 한다."
+    },
+    "8": {
+      "role": "data",
+      "note": "121쪽 원본과 대조: Cat1 2024 1,654, 복사용지 1,553, 용수 101; Cat2 42, PC본체14·노트북5·모니터22·태블릿0.3; Cat15 27,709,111 등 표시값은 일치한다. 각주 배치가 이동했고 하위 품목의 Cat1/Cat2 부모문맥은 숫자 후보에 빠진다. 정수 총계와 소수 하위값을 강제로 일치시키거나 전체 Scope3 합산의 완전성을 가정하지 않는다. 138쪽 검증의 Scope3는 삼성생명보험 주식회사 경계다."
+    },
+    "10": {
+      "role": "navigation",
+      "note": "121쪽 오른쪽 탐색 메뉴이다. ESG 데이터 표가 아니다. 원시 파서 결과는 JSON에 보존한다."
+    }
+  }
+}

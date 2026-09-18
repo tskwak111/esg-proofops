@@ -1,0 +1,486 @@
+{
+  "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+  "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+  "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+  "source_sha256": "c6395dd2be7948d85fa2b52c6edb61367fa6610c6f389c2478b44cb4cfcb5bde",
+  "request_id": "6a4f88fe-8bd9-4eaa-9986-d23d7e3e24c9",
+  "packet_sha256": "4e9c9f17afe9030f2ffea8da13099713403ccfee98afbcb2839c2158c4a468f9",
+  "prompt_sha256": "21d993d920620a90dd08b2e571f6c72fadb3c06f3b6fc4d202a837a9358de6f7",
+  "provider_model_sha256": "62b1bac0088e6664d7d0fec38e1bf42240e844236bf917f7adc7fa331524df1b",
+  "response_sha256": "cbf3cacd01d0d780de266bf98e5fefd7b64aa118f750b288ff8fb343e781f4b7",
+  "revalidation_contract_sha256": "9b9e7fac202dfed2d6427cae537b81f3c7b08db3ca6955c51f04da9a3124b12b",
+  "rows": 3,
+  "role_counts": {
+    "category": 3,
+    "activity_description": 3,
+    "expected_effect": 3
+  },
+  "tags": [
+    {
+      "cell_id": "c0",
+      "role": "category",
+      "basis_ids": [
+        "c3"
+      ],
+      "source_ref": {
+        "source_id": "e64b830c-c8ad-55b5-96d4-89ae98ec4558",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 24,
+        "printed_page_label": "24",
+        "bbox": [
+          385.5,
+          591.1575000000021,
+          490.5,
+          624.1575000000021
+        ],
+        "raw_text_sha256": "fafa30622e9cb74da0202ca856aa92c39fca71eeef6d13efc4e877e1aa82fffb",
+        "quote": "동력 최적화",
+        "char_start": 0,
+        "char_end": 6,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "source_quality": "unverified",
+      "basis_refs": [
+        {
+          "source_id": "494ee4b7-05eb-5efa-a4f8-c2f9e75013a0",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 24,
+          "printed_page_label": "24",
+          "bbox": [
+            385.5,
+            505.7200000000021,
+            490.5,
+            525.1575000000021
+          ],
+          "raw_text_sha256": "d8ba487317ac4e370c544ff11fee92077c5dfe235d14d8d93e213e278685f7be",
+          "quote": "구분",
+          "char_start": 0,
+          "char_end": 2,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        }
+      ],
+      "tag_status": "model_proposed",
+      "binding_status": "undetermined"
+    },
+    {
+      "cell_id": "c1",
+      "role": "activity_description",
+      "basis_ids": [
+        "c4"
+      ],
+      "source_ref": {
+        "source_id": "9905566a-2fd0-530e-b6dc-a48cdac868bf",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 24,
+        "printed_page_label": "24",
+        "bbox": [
+          490.5,
+          591.1575000000021,
+          649.5,
+          624.1575000000021
+        ],
+        "raw_text_sha256": "a0c507c4d887a1092b39c50e20945d09d3860469217df6b5b0a9abb6e78ccbe7",
+        "quote": "고효율 설비 적용을 통한 냉각수 펌프 운영\n최적화",
+        "char_start": 0,
+        "char_end": 27,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "source_quality": "unverified",
+      "basis_refs": [
+        {
+          "source_id": "218346ec-ef2a-51b1-8f98-b0991dd396fe",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 24,
+          "printed_page_label": "24",
+          "bbox": [
+            490.5,
+            505.7200000000021,
+            649.5,
+            525.1575000000021
+          ],
+          "raw_text_sha256": "82cb6e0525293fd05cc02373c42a89af88c8f777ba09607ff5b689c7bb43df12",
+          "quote": "주요 활동",
+          "char_start": 0,
+          "char_end": 5,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        }
+      ],
+      "tag_status": "model_proposed",
+      "binding_status": "undetermined"
+    },
+    {
+      "cell_id": "c2",
+      "role": "expected_effect",
+      "basis_ids": [
+        "c5"
+      ],
+      "source_ref": {
+        "source_id": "d0ba7397-5dfb-540b-8002-80298d084864",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 24,
+        "printed_page_label": "24",
+        "bbox": [
+          649.5,
+          591.1575000000021,
+          804.0,
+          624.1575000000021
+        ],
+        "raw_text_sha256": "ee7d117f794077e8876f0cb6d6002f7765edc553e1c75817542c0b9c4d8826a3",
+        "quote": "동력 손실 저감을 통한 전력 사용량 절감",
+        "char_start": 0,
+        "char_end": 22,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "source_quality": "unverified",
+      "basis_refs": [
+        {
+          "source_id": "42a5a22e-0e95-5dda-89d6-28bc52349f18",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 24,
+          "printed_page_label": "24",
+          "bbox": [
+            649.5,
+            505.7200000000021,
+            804.0,
+            525.1575000000021
+          ],
+          "raw_text_sha256": "566c0fff8cc68887dd6a735316237de3acee4f43527947b19910d0cd742a1a0d",
+          "quote": "기대 효과",
+          "char_start": 0,
+          "char_end": 5,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        }
+      ],
+      "tag_status": "model_proposed",
+      "binding_status": "undetermined"
+    },
+    {
+      "cell_id": "c6",
+      "role": "category",
+      "basis_ids": [
+        "c9"
+      ],
+      "source_ref": {
+        "source_id": "c7bc24ef-ac18-5ebc-b553-382be87ab7aa",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 24,
+        "printed_page_label": "24",
+        "bbox": [
+          385.5,
+          558.1575000000021,
+          490.5,
+          591.1575000000021
+        ],
+        "raw_text_sha256": "1431b831d8e72f56fbab62ad51911a32397b8e33a1c94535f34f55eb46aa8e99",
+        "quote": "열에너지 회수",
+        "char_start": 0,
+        "char_end": 7,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "source_quality": "unverified",
+      "basis_refs": [
+        {
+          "source_id": "494ee4b7-05eb-5efa-a4f8-c2f9e75013a0",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 24,
+          "printed_page_label": "24",
+          "bbox": [
+            385.5,
+            505.7200000000021,
+            490.5,
+            525.1575000000021
+          ],
+          "raw_text_sha256": "d8ba487317ac4e370c544ff11fee92077c5dfe235d14d8d93e213e278685f7be",
+          "quote": "구분",
+          "char_start": 0,
+          "char_end": 2,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        }
+      ],
+      "tag_status": "model_proposed",
+      "binding_status": "undetermined"
+    },
+    {
+      "cell_id": "c7",
+      "role": "activity_description",
+      "basis_ids": [
+        "c10"
+      ],
+      "source_ref": {
+        "source_id": "14241f34-b45b-564e-9290-bbc819e5525f",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 24,
+        "printed_page_label": "24",
+        "bbox": [
+          490.5,
+          558.1575000000021,
+          649.5,
+          591.1575000000021
+        ],
+        "raw_text_sha256": "db5b94d27c877032afdc306f10bd82a41ef975ffd89a8b1c02a03de74d2015ea",
+        "quote": "열교환기 설치 및 폐증기 회수 시스템 구축",
+        "char_start": 0,
+        "char_end": 23,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "source_quality": "unverified",
+      "basis_refs": [
+        {
+          "source_id": "218346ec-ef2a-51b1-8f98-b0991dd396fe",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 24,
+          "printed_page_label": "24",
+          "bbox": [
+            490.5,
+            505.7200000000021,
+            649.5,
+            525.1575000000021
+          ],
+          "raw_text_sha256": "82cb6e0525293fd05cc02373c42a89af88c8f777ba09607ff5b689c7bb43df12",
+          "quote": "주요 활동",
+          "char_start": 0,
+          "char_end": 5,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        }
+      ],
+      "tag_status": "model_proposed",
+      "binding_status": "undetermined"
+    },
+    {
+      "cell_id": "c8",
+      "role": "expected_effect",
+      "basis_ids": [
+        "c11"
+      ],
+      "source_ref": {
+        "source_id": "76b1dded-4850-5d2f-9bb9-77d942bf02a0",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 24,
+        "printed_page_label": "24",
+        "bbox": [
+          649.5,
+          558.1575000000021,
+          804.0,
+          591.1575000000021
+        ],
+        "raw_text_sha256": "66b533db70b47dd95ce110d48d32d2360dbe9b360c9c33877a65b991ba7f8980",
+        "quote": "공정 열효율 향상 및 폐에너지 재활용을\n통한 온실가스 배출 저감",
+        "char_start": 0,
+        "char_end": 35,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "source_quality": "unverified",
+      "basis_refs": [
+        {
+          "source_id": "42a5a22e-0e95-5dda-89d6-28bc52349f18",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 24,
+          "printed_page_label": "24",
+          "bbox": [
+            649.5,
+            505.7200000000021,
+            804.0,
+            525.1575000000021
+          ],
+          "raw_text_sha256": "566c0fff8cc68887dd6a735316237de3acee4f43527947b19910d0cd742a1a0d",
+          "quote": "기대 효과",
+          "char_start": 0,
+          "char_end": 5,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        }
+      ],
+      "tag_status": "model_proposed",
+      "binding_status": "undetermined"
+    },
+    {
+      "cell_id": "c12",
+      "role": "category",
+      "basis_ids": [
+        "c15"
+      ],
+      "source_ref": {
+        "source_id": "3dd108ad-88d7-5383-87f4-14e821135d19",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 24,
+        "printed_page_label": "24",
+        "bbox": [
+          385.5,
+          525.1575000000021,
+          490.5,
+          558.1575000000021
+        ],
+        "raw_text_sha256": "c9142e3de4f22442730210bf33cc467a77d5dc06df1d11b5bc7ab4487ac22217",
+        "quote": "설비 효율 개선",
+        "char_start": 0,
+        "char_end": 8,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "source_quality": "unverified",
+      "basis_refs": [
+        {
+          "source_id": "494ee4b7-05eb-5efa-a4f8-c2f9e75013a0",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 24,
+          "printed_page_label": "24",
+          "bbox": [
+            385.5,
+            505.7200000000021,
+            490.5,
+            525.1575000000021
+          ],
+          "raw_text_sha256": "d8ba487317ac4e370c544ff11fee92077c5dfe235d14d8d93e213e278685f7be",
+          "quote": "구분",
+          "char_start": 0,
+          "char_end": 2,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        }
+      ],
+      "tag_status": "model_proposed",
+      "binding_status": "undetermined"
+    },
+    {
+      "cell_id": "c13",
+      "role": "activity_description",
+      "basis_ids": [
+        "c16"
+      ],
+      "source_ref": {
+        "source_id": "8a7d5705-733d-559a-9698-758e1fb7ede7",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 24,
+        "printed_page_label": "24",
+        "bbox": [
+          490.5,
+          525.1575000000021,
+          649.5,
+          558.1575000000021
+        ],
+        "raw_text_sha256": "8b1f6b2d2f6b1179578e41e3f76e88b49dad2a454e1fa41b4d27de66adab6cb5",
+        "quote": "원심분리기 성능 개선 및 운전 조건 최적화",
+        "char_start": 0,
+        "char_end": 23,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "source_quality": "unverified",
+      "basis_refs": [
+        {
+          "source_id": "218346ec-ef2a-51b1-8f98-b0991dd396fe",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 24,
+          "printed_page_label": "24",
+          "bbox": [
+            490.5,
+            505.7200000000021,
+            649.5,
+            525.1575000000021
+          ],
+          "raw_text_sha256": "82cb6e0525293fd05cc02373c42a89af88c8f777ba09607ff5b689c7bb43df12",
+          "quote": "주요 활동",
+          "char_start": 0,
+          "char_end": 5,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        }
+      ],
+      "tag_status": "model_proposed",
+      "binding_status": "undetermined"
+    },
+    {
+      "cell_id": "c14",
+      "role": "expected_effect",
+      "basis_ids": [
+        "c17"
+      ],
+      "source_ref": {
+        "source_id": "d4173c93-9497-5725-8fc9-e279d1789534",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "page_num": 24,
+        "printed_page_label": "24",
+        "bbox": [
+          649.5,
+          525.1575000000021,
+          804.0,
+          558.1575000000021
+        ],
+        "raw_text_sha256": "0fadbcadc46202022ad2b731d29ed230b8d7b7e7600c5ba8377315ee76fa969f",
+        "quote": "설비 운영 효율 향상을 통한 전력 및 스팀\n사용량 절감",
+        "char_start": 0,
+        "char_end": 30,
+        "location_quality": "located",
+        "verification_state": "candidate"
+      },
+      "source_quality": "unverified",
+      "basis_refs": [
+        {
+          "source_id": "42a5a22e-0e95-5dda-89d6-28bc52349f18",
+          "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+          "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+          "page_num": 24,
+          "printed_page_label": "24",
+          "bbox": [
+            649.5,
+            505.7200000000021,
+            804.0,
+            525.1575000000021
+          ],
+          "raw_text_sha256": "566c0fff8cc68887dd6a735316237de3acee4f43527947b19910d0cd742a1a0d",
+          "quote": "기대 효과",
+          "char_start": 0,
+          "char_end": 5,
+          "location_quality": "located",
+          "verification_state": "candidate"
+        }
+      ],
+      "tag_status": "model_proposed",
+      "binding_status": "undetermined"
+    }
+  ],
+  "budget": {
+    "before": {
+      "limit_usd": "10.00",
+      "calls": 81,
+      "unsettled_calls": 2,
+      "committed_usd": "2.0351898800"
+    },
+    "after": {
+      "limit_usd": "10.00",
+      "calls": 82,
+      "unsettled_calls": 2,
+      "committed_usd": "2.0355789500"
+    }
+  },
+  "semantic_accuracy": "not_measured",
+  "decision": null
+}

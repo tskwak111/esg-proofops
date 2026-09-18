@@ -1,0 +1,266 @@
+{
+  "status": "development_comparison_only",
+  "human_verified": false,
+  "production_ready": false,
+  "source_quality_approved": false,
+  "cases": [
+    {
+      "name": "lgchem",
+      "selection": {
+        "name": "lgchem",
+        "original_path": "기업보고서/배터리 에너지/LGChem_Sustainability_Report_2025_KOR.pdf",
+        "original_sha256": "c6395dd2be7948d85fa2b52c6edb61367fa6610c6f389c2478b44cb4cfcb5bde",
+        "physical_pages": [
+          25,
+          97,
+          99
+        ],
+        "subset_sha256": "5b0038a48eca57d4be5c54535e070d40fcda389cbe7f7e6b73960d8ca0e5ff19",
+        "tenant_id": "b490d4e4-0192-426c-9dff-c6c7b8c498d3",
+        "document_id": "7e13a19e-ec99-4413-93ee-0a91de1775e7",
+        "document_version_id": "35d03dcb-c9d0-40d6-a3d1-8f9dc7322ee1",
+        "parse_manifest_id": "62919374-bd2d-4273-85b4-7a1f793b8c14",
+        "source_quality": "unverified"
+      },
+      "parser": {
+        "standard": {
+          "status": "parsed",
+          "elapsed_seconds": 7.074509457917884,
+          "pages": 3,
+          "provider_model": "document-parse-260128",
+          "cost_usd": "0.033",
+          "request_id": "114c8cc3-c75a-4908-aa24-96f447e44c4d",
+          "budget_after": {
+            "limit_usd": "10.00",
+            "calls": 109,
+            "unsettled_calls": 2,
+            "committed_usd": "2.0741683250"
+          },
+          "source_quality": "unverified"
+        },
+        "enhanced": {
+          "status": "parsed",
+          "elapsed_seconds": 9.825007583014667,
+          "pages": 3,
+          "provider_model": "document-parse-260128",
+          "cost_usd": "0.099",
+          "request_id": "56802adc-3cb3-4414-a922-15befb7d0aac",
+          "budget_after": {
+            "limit_usd": "10.00",
+            "calls": 111,
+            "unsettled_calls": 2,
+            "committed_usd": "2.2061683250"
+          },
+          "source_quality": "unverified"
+        }
+      },
+      "extraction": {
+        "escaped_input": {
+          "status": "unresolved",
+          "elapsed_seconds": 1.6552806249819696,
+          "budget": {
+            "limit_usd": "10.00",
+            "calls": 115,
+            "unsettled_calls": 3,
+            "committed_usd": "3.3385011300"
+          },
+          "claim_count": 0,
+          "artifact_path": ".local/parser-comparison/lgchem/extraction-result.json",
+          "artifact_sha256": "326eed1ae69de4f600e90fee2f8fd8696886fbec1e220e7779331688a01b862a",
+          "source_ref_sha256": "1a5e4f859e18356f67f301c64d0c6a3846fe55c9adb2d615cd5bb97201688104"
+        },
+        "literal_unicode_input": {
+          "status": "source_validated_proposals",
+          "elapsed_seconds": 1.1080036249477416,
+          "budget": {
+            "limit_usd": "10.00",
+            "calls": 118,
+            "unsettled_calls": 3,
+            "committed_usd": "3.3398151900"
+          },
+          "claim_count": 7,
+          "artifact_path": ".local/parser-comparison/lgchem/extraction-result-unicode.json",
+          "artifact_sha256": "8ea20b6212db397ec6cfbc5d6a5e8430ead22a02130af3ec62a0969a962d1403",
+          "source_ref_sha256": "1a5e4f859e18356f67f301c64d0c6a3846fe55c9adb2d615cd5bb97201688104"
+        }
+      }
+    },
+    {
+      "name": "hanwha-content",
+      "selection": {
+        "name": "hanwha-content",
+        "original_path": "기업보고서/배터리 에너지/Hanwha_Aerospace_Sustainability_Report_2025.pdf",
+        "original_sha256": "ddd0858100c039f5c1a9dda2ad2bc5a50fd3a119c02d6f9bff106af5e7b9610c",
+        "physical_pages": [
+          28,
+          90,
+          110
+        ],
+        "subset_sha256": "61368867449f1b36b0b5d8078e955d97fd44b1692cad256126a1c3014fcf65d3",
+        "tenant_id": "f77f96b2-3054-4e7f-9211-11e0574468e2",
+        "document_id": "751bb534-0f5f-4a74-ae83-2f78e2252a7b",
+        "document_version_id": "29e9496d-57bf-492a-a892-078309289f8f",
+        "parse_manifest_id": "86eae993-5651-4775-a2f7-0793dc9f1a4e",
+        "source_quality": "unverified",
+        "derivation": {
+          "parent_subset_sha256": "aeb791b0d4d730114274f5a7011c66a1a9a31cb38ac68b391c411e1635563742",
+          "removed_actions": [
+            {
+              "subset_page": 1,
+              "trigger": "/D",
+              "subtype": "/URI"
+            }
+          ],
+          "purpose": "explicit content-only parser comparison, original unchanged",
+          "same_render_pixels_at_scale_1_3": [
+            true,
+            true,
+            true
+          ]
+        }
+      },
+      "parser": {
+        "standard": {
+          "status": "parsed",
+          "elapsed_seconds": 6.783450708957389,
+          "pages": 3,
+          "provider_model": "document-parse-260128",
+          "cost_usd": "0.033",
+          "request_id": "5f355f01-a6fb-4c2d-8fe1-fa51596c26b7",
+          "budget_after": {
+            "limit_usd": "10.00",
+            "calls": 111,
+            "unsettled_calls": 3,
+            "committed_usd": "3.1071683250"
+          },
+          "source_quality": "unverified"
+        },
+        "enhanced": {
+          "status": "failed",
+          "error_type": "ValueError",
+          "reason": "UPSTAGE_HTTP_429",
+          "elapsed_seconds": 0.18761641695164144,
+          "request_id": "d89a1e82-de80-42d8-b327-8c3feb2f45d3",
+          "budget_after": {
+            "limit_usd": "10.00",
+            "calls": 114,
+            "unsettled_calls": 4,
+            "committed_usd": "4.2391683250"
+          },
+          "source_quality": "unverified"
+        }
+      },
+      "extraction": {
+        "escaped_input": {
+          "status": "unresolved",
+          "elapsed_seconds": 5.671330834040418,
+          "budget": {
+            "limit_usd": "10.00",
+            "calls": 116,
+            "unsettled_calls": 3,
+            "committed_usd": "3.3394231500"
+          },
+          "claim_count": 0,
+          "artifact_path": ".local/parser-comparison/hanwha-content/extraction-result.json",
+          "artifact_sha256": "71597b939099c6f290936f7d5c977b69c295136ee37a7e2a5e4d7e97fe029489",
+          "source_ref_sha256": "ff7807915ca3b839f2d72af734a84a47f0cd64bb5588538d756ed2954f004a2f"
+        },
+        "literal_unicode_input": {
+          "status": "source_validated_proposals",
+          "elapsed_seconds": 2.4791006247978657,
+          "budget": {
+            "limit_usd": "10.00",
+            "calls": 119,
+            "unsettled_calls": 3,
+            "committed_usd": "3.3400143450"
+          },
+          "claim_count": 4,
+          "artifact_path": ".local/parser-comparison/hanwha-content/extraction-result-unicode.json",
+          "artifact_sha256": "ce8a94689876946ff65078b0774e8b7bce54b3a36ea5072e3c659b1edb76a35e",
+          "source_ref_sha256": "ff7807915ca3b839f2d72af734a84a47f0cd64bb5588538d756ed2954f004a2f"
+        }
+      }
+    },
+    {
+      "name": "sdi",
+      "selection": {
+        "name": "sdi",
+        "original_path": "기업보고서/배터리 에너지/Samsung_SDI_Sustainability_Report_2025_KR_fn.pdf",
+        "original_sha256": "ad80a96597cf388709d06417b950b122a701a822477c77d59994c7a28065b138",
+        "physical_pages": [
+          35,
+          115,
+          126
+        ],
+        "subset_sha256": "ed2a99973384c321a0867a533fb971fc2d4874a7cff93fa0acab2eca421c5408",
+        "tenant_id": "40a7e41e-0a25-4dfc-bed2-651a5f26faa3",
+        "document_id": "5d051e03-4e1f-49ac-ad2d-5373cbca782d",
+        "document_version_id": "050e25c4-05b8-4c32-ae30-ba013bb364eb",
+        "parse_manifest_id": "b096651f-09d7-4141-aa91-e5a692f3411b",
+        "source_quality": "unverified"
+      },
+      "parser": {
+        "standard": {
+          "status": "parsed",
+          "elapsed_seconds": 7.801105333026499,
+          "pages": 3,
+          "provider_model": "document-parse-260128",
+          "cost_usd": "0.033",
+          "request_id": "08610231-c2cd-426b-b4aa-c729528c8f78",
+          "budget_after": {
+            "limit_usd": "10.00",
+            "calls": 112,
+            "unsettled_calls": 2,
+            "committed_usd": "2.2391683250"
+          },
+          "source_quality": "unverified"
+        },
+        "enhanced": {
+          "status": "parsed",
+          "elapsed_seconds": 21.8790865840856,
+          "pages": 3,
+          "provider_model": "document-parse-260128",
+          "cost_usd": "0.099",
+          "request_id": "22706aa2-b9ff-4e38-810a-dc7401f3efdc",
+          "budget_after": {
+            "limit_usd": "10.00",
+            "calls": 114,
+            "unsettled_calls": 3,
+            "committed_usd": "3.3381683250"
+          },
+          "source_quality": "unverified"
+        }
+      },
+      "extraction": {
+        "escaped_input": {
+          "status": "unresolved",
+          "elapsed_seconds": 1.5029700000304729,
+          "budget": {
+            "limit_usd": "10.00",
+            "calls": 117,
+            "unsettled_calls": 3,
+            "committed_usd": "3.3396308850"
+          },
+          "claim_count": 0,
+          "artifact_path": ".local/parser-comparison/sdi/extraction-result.json",
+          "artifact_sha256": "5e7506576aac28b4e1de3c4218e0d7e9e6dc3655d0ce08500fbcfb10aa2f0ef4",
+          "source_ref_sha256": "759471bc52372ab73cb0b49fa3b8f1ca795c7edf3a964ffab657a4a33368b184"
+        },
+        "literal_unicode_input": {
+          "status": "source_validated_proposals",
+          "elapsed_seconds": 1.453377583064139,
+          "budget": {
+            "limit_usd": "10.00",
+            "calls": 120,
+            "unsettled_calls": 3,
+            "committed_usd": "3.3401504700"
+          },
+          "claim_count": 2,
+          "artifact_path": ".local/parser-comparison/sdi/extraction-result-unicode.json",
+          "artifact_sha256": "d20d943b1209956399c4312e159843419d7fea34fef292de62f5f741ae420033",
+          "source_ref_sha256": "759471bc52372ab73cb0b49fa3b8f1ca795c7edf3a964ffab657a4a33368b184"
+        }
+      }
+    }
+  ]
+}

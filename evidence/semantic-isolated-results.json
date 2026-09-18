@@ -1,0 +1,841 @@
+{
+  "method": "same prior few-shot prompt and four original sentences; one claim per request instead of batch; no coercion or batch salvage",
+  "new_model_calls": 4,
+  "budget_before": {
+    "limit_usd": "10.00",
+    "calls": 100,
+    "unsettled_calls": 2,
+    "committed_usd": "2.0400143150"
+  },
+  "budget_after": {
+    "limit_usd": "10.00",
+    "calls": 104,
+    "unsettled_calls": 2,
+    "committed_usd": "2.0405921450"
+  },
+  "records": [
+    {
+      "request_id": "a68066c0-135b-4d97-92e4-7865c9cdc724",
+      "original_batch_request_id": "c7c30748-e952-48aa-afe4-865b7cf1b876",
+      "original_claim_id": "q0",
+      "replica": 1,
+      "configured_model": "solar-pro3",
+      "prompt_sha256": "d1f05e6d268006af913acb84f3216fb297cc32c5ad9c03b68e1beedb2d8fbc28",
+      "packet_sha256": "ef04bf60d544c6c112c34e0089221c953b7b99a8269b7403106682fc772580fa",
+      "wire_sha256": "d4f66d62cf95d4df44dacae1e0268fc24aa9a737aa1b461993398b6b3e9a1753",
+      "rule_sha256": "af79af79e5998b1d5d6f7e19fe62882b7d9e7f6cb873bd7d4e1a9ace86f4de75",
+      "packet": {
+        "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "source_sha256": "c6395dd2be7948d85fa2b52c6edb61367fa6610c6f389c2478b44cb4cfcb5bde",
+        "untrusted_document_data": {
+          "claims": [
+            {
+              "id": "q0",
+              "text": "이를 통해 2023년부터 2025년까지 누적 약 4만 톤의 온실가스를 감축하였습니다."
+            }
+          ]
+        },
+        "candidate_artifact": {
+          "claims": [
+            {
+              "source_id": "53a8834a-3a7b-5196-9f6e-12e2eac60340",
+              "span": {
+                "char_start": 87,
+                "char_end": 134,
+                "quote": "이를 통해 2023년부터 2025년까지 누적 약 4만 톤의 온실가스를 감축하였습니다."
+              },
+              "source_ref": {
+                "source_id": "53a8834a-3a7b-5196-9f6e-12e2eac60340",
+                "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+                "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+                "page_num": 25,
+                "printed_page_label": "25",
+                "bbox": [
+                  53.813,
+                  304.66099999999994,
+                  268.435,
+                  356.0869999999999
+                ],
+                "raw_text_sha256": "4591336441c21cc498147fded3ed3b5e03f5293610b6152c7a66219583c31a47",
+                "quote": "이를 통해 2023년부터 2025년까지 누적 약 4만 톤의 온실가스를 감축하였습니다.",
+                "char_start": 87,
+                "char_end": 134,
+                "location_quality": "located",
+                "verification_state": "candidate"
+              },
+              "source_quality": "unverified"
+            }
+          ]
+        }
+      },
+      "decision": null,
+      "status": "source_schema_passed",
+      "response": {
+        "model": "solar-pro3",
+        "provider_request_id": "3ca64ede-9ea3-48d1-8777-9de15a2a0730",
+        "provider_model": "solar-pro3-260323",
+        "input_tokens": 630,
+        "output_tokens": 59,
+        "price_snapshot": {
+          "snapshot_id": "upstage-solar-pro3-2026-09-09",
+          "model_id": "solar-pro3",
+          "region": "provider-managed-unverified",
+          "captured_at": "2026-09-09T00:00:00Z",
+          "input_per_million": "0.15",
+          "output_per_million": "0.60",
+          "cache_read_per_million": null,
+          "cache_write_per_million": null
+        },
+        "cost_with_vat_reserve_usd": "0.000142890",
+        "response_sha256": "17fe8a903ee0f223a6bbf5a70f6899f40e2472fc5f5d04aced55e7680774f9cb",
+        "response_format": {
+          "type": "json_object"
+        },
+        "content": "{\n  \"claims\": [\n    {\n      \"id\": \"q0\",\n      \"dimensions\": {\n        \"entity\": null,\n        \"metric\": \"온실가스\",\n        \"boundary\": \"2023년부터 2025년까지\"\n      }\n    }\n  ]\n}"
+      },
+      "tags": [
+        {
+          "id": "q0",
+          "source_id": "53a8834a-3a7b-5196-9f6e-12e2eac60340",
+          "claim_span": {
+            "char_start": 87,
+            "char_end": 134,
+            "quote": "이를 통해 2023년부터 2025년까지 누적 약 4만 톤의 온실가스를 감축하였습니다."
+          },
+          "source_quality": "unverified",
+          "dimensions": {
+            "entity": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "metric": {
+              "state": "model_proposed",
+              "source_ref": {
+                "source_id": "53a8834a-3a7b-5196-9f6e-12e2eac60340",
+                "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+                "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+                "page_num": 25,
+                "printed_page_label": "25",
+                "bbox": [
+                  53.813,
+                  304.66099999999994,
+                  268.435,
+                  356.0869999999999
+                ],
+                "raw_text_sha256": "4591336441c21cc498147fded3ed3b5e03f5293610b6152c7a66219583c31a47",
+                "quote": "온실가스",
+                "char_start": 120,
+                "char_end": 124,
+                "location_quality": "located",
+                "verification_state": "candidate"
+              }
+            },
+            "scope": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "unit": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "reporting_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "baseline_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "target_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "reported_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "baseline_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "target_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "scope2_basis": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "boundary": {
+              "state": "model_proposed",
+              "source_ref": {
+                "source_id": "53a8834a-3a7b-5196-9f6e-12e2eac60340",
+                "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+                "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+                "page_num": 25,
+                "printed_page_label": "25",
+                "bbox": [
+                  53.813,
+                  304.66099999999994,
+                  268.435,
+                  356.0869999999999
+                ],
+                "raw_text_sha256": "4591336441c21cc498147fded3ed3b5e03f5293610b6152c7a66219583c31a47",
+                "quote": "2023년부터 2025년까지",
+                "char_start": 93,
+                "char_end": 108,
+                "location_quality": "located",
+                "verification_state": "candidate"
+              }
+            }
+          },
+          "populated_fields": 2,
+          "review_reason": "semantic_review_required",
+          "binding_status": "undetermined",
+          "metric_components": {
+            "state": "unresolved",
+            "reason": "unsupported_or_ambiguous_metric_phrase"
+          }
+        }
+      ]
+    },
+    {
+      "request_id": "b768df7f-f3a7-4ea1-b58c-024996a6f920",
+      "original_batch_request_id": "c7c30748-e952-48aa-afe4-865b7cf1b876",
+      "original_claim_id": "q1",
+      "replica": 1,
+      "configured_model": "solar-pro3",
+      "prompt_sha256": "d1f05e6d268006af913acb84f3216fb297cc32c5ad9c03b68e1beedb2d8fbc28",
+      "packet_sha256": "d03f2b656b32a9f1ef54da278fd3b7881cf265d984c3083a2d18beaa78c8057a",
+      "wire_sha256": "378be103f917bd4d0fc3bfe96da79139382e7b3ba08973f11919ee99cbdf076f",
+      "rule_sha256": "af79af79e5998b1d5d6f7e19fe62882b7d9e7f6cb873bd7d4e1a9ace86f4de75",
+      "packet": {
+        "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "source_sha256": "c6395dd2be7948d85fa2b52c6edb61367fa6610c6f389c2478b44cb4cfcb5bde",
+        "untrusted_document_data": {
+          "claims": [
+            {
+              "id": "q0",
+              "text": "국내 사업장에서는 REC 및 녹색 프리미엄 등을 활용하여 약 93GWh의 재생에너지를 조달했으며, 이를 통해 약 4만 톤의 탄소 감축 효과를 얻었습니다."
+            }
+          ]
+        },
+        "candidate_artifact": {
+          "claims": [
+            {
+              "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+              "span": {
+                "char_start": 129,
+                "char_end": 214,
+                "quote": "국내 사업장에서는 REC 및 녹색 프리미엄 등을 활용하여 약 93GWh의 재생에너지를 조달했으며, 이를 통해 약 4만 톤의 탄소 감축 효과를 얻었습니다."
+              },
+              "source_ref": {
+                "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+                "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+                "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+                "page_num": 25,
+                "printed_page_label": "25",
+                "bbox": [
+                  53.813,
+                  563.411,
+                  788.443,
+                  600.5869999999999
+                ],
+                "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+                "quote": "국내 사업장에서는 REC 및 녹색 프리미엄 등을 활용하여 약 93GWh의 재생에너지를 조달했으며, 이를 통해 약 4만 톤의 탄소 감축 효과를 얻었습니다.",
+                "char_start": 129,
+                "char_end": 214,
+                "location_quality": "located",
+                "verification_state": "candidate"
+              },
+              "source_quality": "unverified"
+            }
+          ]
+        }
+      },
+      "decision": null,
+      "status": "source_schema_passed",
+      "response": {
+        "model": "solar-pro3",
+        "provider_request_id": "d1b8c68e-03d9-41c7-97a3-fcbf2bd74f28",
+        "provider_model": "solar-pro3-260323",
+        "input_tokens": 638,
+        "output_tokens": 56,
+        "price_snapshot": {
+          "snapshot_id": "upstage-solar-pro3-2026-09-09",
+          "model_id": "solar-pro3",
+          "region": "provider-managed-unverified",
+          "captured_at": "2026-09-09T00:00:00Z",
+          "input_per_million": "0.15",
+          "output_per_million": "0.60",
+          "cache_read_per_million": null,
+          "cache_write_per_million": null
+        },
+        "cost_with_vat_reserve_usd": "0.000142230",
+        "response_sha256": "cd185835cc29250ed184c09fa0505809820022307b23a9a6ef971b3e75e1ca1d",
+        "response_format": {
+          "type": "json_object"
+        },
+        "content": "{\n  \"claims\": [\n    {\n      \"id\": \"q0\",\n      \"dimensions\": {\n        \"entity\": \"국내 사업장\",\n        \"metric\": \"약 93GWh의 재생에너지\",\n        \"boundary\": null\n      }\n    }\n  ]\n}"
+      },
+      "tags": [
+        {
+          "id": "q0",
+          "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+          "claim_span": {
+            "char_start": 129,
+            "char_end": 214,
+            "quote": "국내 사업장에서는 REC 및 녹색 프리미엄 등을 활용하여 약 93GWh의 재생에너지를 조달했으며, 이를 통해 약 4만 톤의 탄소 감축 효과를 얻었습니다."
+          },
+          "source_quality": "unverified",
+          "dimensions": {
+            "entity": {
+              "state": "model_proposed",
+              "source_ref": {
+                "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+                "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+                "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+                "page_num": 25,
+                "printed_page_label": "25",
+                "bbox": [
+                  53.813,
+                  563.411,
+                  788.443,
+                  600.5869999999999
+                ],
+                "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+                "quote": "국내 사업장",
+                "char_start": 129,
+                "char_end": 135,
+                "location_quality": "located",
+                "verification_state": "candidate"
+              }
+            },
+            "metric": {
+              "state": "model_proposed",
+              "source_ref": {
+                "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+                "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+                "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+                "page_num": 25,
+                "printed_page_label": "25",
+                "bbox": [
+                  53.813,
+                  563.411,
+                  788.443,
+                  600.5869999999999
+                ],
+                "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+                "quote": "약 93GWh의 재생에너지",
+                "char_start": 161,
+                "char_end": 175,
+                "location_quality": "located",
+                "verification_state": "candidate"
+              }
+            },
+            "scope": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "unit": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "reporting_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "baseline_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "target_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "reported_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "baseline_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "target_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "scope2_basis": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "boundary": {
+              "state": "unknown",
+              "source_ref": null
+            }
+          },
+          "populated_fields": 2,
+          "review_reason": "semantic_review_required",
+          "binding_status": "undetermined",
+          "metric_components": {
+            "state": "local_candidate",
+            "quantity": {
+              "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+              "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+              "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+              "page_num": 25,
+              "printed_page_label": "25",
+              "bbox": [
+                53.813,
+                563.411,
+                788.443,
+                600.5869999999999
+              ],
+              "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+              "quote": "약 93",
+              "char_start": 161,
+              "char_end": 165,
+              "location_quality": "located",
+              "verification_state": "candidate"
+            },
+            "unit": {
+              "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+              "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+              "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+              "page_num": 25,
+              "printed_page_label": "25",
+              "bbox": [
+                53.813,
+                563.411,
+                788.443,
+                600.5869999999999
+              ],
+              "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+              "quote": "GWh",
+              "char_start": 165,
+              "char_end": 168,
+              "location_quality": "located",
+              "verification_state": "candidate"
+            },
+            "metric": {
+              "source_id": "9472aedb-8736-5b50-896e-754c044f557d",
+              "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+              "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+              "page_num": 25,
+              "printed_page_label": "25",
+              "bbox": [
+                53.813,
+                563.411,
+                788.443,
+                600.5869999999999
+              ],
+              "raw_text_sha256": "7c86025ae1cd862a00a9e753c3be587d3bf6570e86e049d62b0ec678e227eccb",
+              "quote": "재생에너지",
+              "char_start": 170,
+              "char_end": 175,
+              "location_quality": "located",
+              "verification_state": "candidate"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "request_id": "84edd8ad-4631-48fa-93ed-1dcda6c5f400",
+      "original_batch_request_id": "c7c30748-e952-48aa-afe4-865b7cf1b876",
+      "original_claim_id": "q2",
+      "replica": 1,
+      "configured_model": "solar-pro3",
+      "prompt_sha256": "d1f05e6d268006af913acb84f3216fb297cc32c5ad9c03b68e1beedb2d8fbc28",
+      "packet_sha256": "fc0e48b2bc4056bdcc32560466e0f0f3d963b761fd45d2ee51c70d2e32cd85e5",
+      "wire_sha256": "9ca580420496e768d51a91e03d9e92dadb8b5ed4218829054108113c1b5b2e7e",
+      "rule_sha256": "af79af79e5998b1d5d6f7e19fe62882b7d9e7f6cb873bd7d4e1a9ace86f4de75",
+      "packet": {
+        "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "source_sha256": "c6395dd2be7948d85fa2b52c6edb61367fa6610c6f389c2478b44cb4cfcb5bde",
+        "untrusted_document_data": {
+          "claims": [
+            {
+              "id": "q0",
+              "text": "여수국가산업단지는 국내 최대 규모의 석유화학 집적 단지로, 일평균 약 54만 톤의 산업용수가 공급됩니다."
+            }
+          ]
+        },
+        "candidate_artifact": {
+          "claims": [
+            {
+              "source_id": "f6830e52-0895-51c0-8a1b-6c121dd96298",
+              "span": {
+                "char_start": 81,
+                "char_end": 139,
+                "quote": "여수국가산업단지는 국내 최대 규모의 석유화학 집적 단지로, 일평균 약 54만 톤의 산업용수가 공급됩니다."
+              },
+              "source_ref": {
+                "source_id": "f6830e52-0895-51c0-8a1b-6c121dd96298",
+                "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+                "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+                "page_num": 46,
+                "printed_page_label": "46",
+                "bbox": [
+                  38.438,
+                  412.3069999999999,
+                  803.816,
+                  486.1919999999999
+                ],
+                "raw_text_sha256": "1a62eefd4017ffeaf3994647121b41c4c709fb81d30da1aad497ead4fd0152ad",
+                "quote": "여수국가산업단지는 국내 최대 규모의 석유화학 집적 단지로, 일평균 약 54만 톤의 산업용수가 공급됩니다.",
+                "char_start": 81,
+                "char_end": 139,
+                "location_quality": "located",
+                "verification_state": "candidate"
+              },
+              "source_quality": "unverified"
+            }
+          ]
+        }
+      },
+      "decision": null,
+      "status": "source_schema_passed",
+      "response": {
+        "model": "solar-pro3",
+        "provider_request_id": "183043d3-13e6-4fec-a951-ae75b131147b",
+        "provider_model": "solar-pro3-260323",
+        "input_tokens": 629,
+        "output_tokens": 60,
+        "price_snapshot": {
+          "snapshot_id": "upstage-solar-pro3-2026-09-09",
+          "model_id": "solar-pro3",
+          "region": "provider-managed-unverified",
+          "captured_at": "2026-09-09T00:00:00Z",
+          "input_per_million": "0.15",
+          "output_per_million": "0.60",
+          "cache_read_per_million": null,
+          "cache_write_per_million": null
+        },
+        "cost_with_vat_reserve_usd": "0.0001433850",
+        "response_sha256": "ba7291f631c7d5a34cf8f928a38f8caf6e5aa739388d8f7eb9ca87a06a2cf2e6",
+        "response_format": {
+          "type": "json_object"
+        },
+        "content": "{\n  \"claims\": [\n    {\n      \"id\": \"q0\",\n      \"dimensions\": {\n        \"entity\": \"여수국가산업단지\",\n        \"metric\": \"일평균 약 54만 톤의 산업용수\",\n        \"boundary\": null\n      }\n    }\n  ]\n}"
+      },
+      "tags": [
+        {
+          "id": "q0",
+          "source_id": "f6830e52-0895-51c0-8a1b-6c121dd96298",
+          "claim_span": {
+            "char_start": 81,
+            "char_end": 139,
+            "quote": "여수국가산업단지는 국내 최대 규모의 석유화학 집적 단지로, 일평균 약 54만 톤의 산업용수가 공급됩니다."
+          },
+          "source_quality": "unverified",
+          "dimensions": {
+            "entity": {
+              "state": "model_proposed",
+              "source_ref": {
+                "source_id": "f6830e52-0895-51c0-8a1b-6c121dd96298",
+                "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+                "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+                "page_num": 46,
+                "printed_page_label": "46",
+                "bbox": [
+                  38.438,
+                  412.3069999999999,
+                  803.816,
+                  486.1919999999999
+                ],
+                "raw_text_sha256": "1a62eefd4017ffeaf3994647121b41c4c709fb81d30da1aad497ead4fd0152ad",
+                "quote": "여수국가산업단지",
+                "char_start": 81,
+                "char_end": 89,
+                "location_quality": "located",
+                "verification_state": "candidate"
+              }
+            },
+            "metric": {
+              "state": "model_proposed",
+              "source_ref": {
+                "source_id": "f6830e52-0895-51c0-8a1b-6c121dd96298",
+                "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+                "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+                "page_num": 46,
+                "printed_page_label": "46",
+                "bbox": [
+                  38.438,
+                  412.3069999999999,
+                  803.816,
+                  486.1919999999999
+                ],
+                "raw_text_sha256": "1a62eefd4017ffeaf3994647121b41c4c709fb81d30da1aad497ead4fd0152ad",
+                "quote": "일평균 약 54만 톤의 산업용수",
+                "char_start": 114,
+                "char_end": 131,
+                "location_quality": "located",
+                "verification_state": "candidate"
+              }
+            },
+            "scope": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "unit": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "reporting_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "baseline_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "target_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "reported_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "baseline_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "target_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "scope2_basis": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "boundary": {
+              "state": "unknown",
+              "source_ref": null
+            }
+          },
+          "populated_fields": 2,
+          "review_reason": "semantic_review_required",
+          "binding_status": "undetermined",
+          "metric_components": {
+            "state": "unresolved",
+            "reason": "unsupported_or_ambiguous_metric_phrase"
+          }
+        }
+      ]
+    },
+    {
+      "request_id": "e44f65d6-021b-46ac-a0ac-71f50a02b93e",
+      "original_batch_request_id": "c7c30748-e952-48aa-afe4-865b7cf1b876",
+      "original_claim_id": "q3",
+      "replica": 1,
+      "configured_model": "solar-pro3",
+      "prompt_sha256": "d1f05e6d268006af913acb84f3216fb297cc32c5ad9c03b68e1beedb2d8fbc28",
+      "packet_sha256": "3712df1bafb89af29cc721a4b2d53e1311b2b5bc61fc1302806df3cfd7719603",
+      "wire_sha256": "5274eec6401a29987332f7d8a5b7f0fe74140454dd46c4f0ef75e7eb1c6ac44f",
+      "rule_sha256": "af79af79e5998b1d5d6f7e19fe62882b7d9e7f6cb873bd7d4e1a9ace86f4de75",
+      "packet": {
+        "tenant_id": "8d68ee8c-317f-437f-85a8-dfd60f011edf",
+        "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+        "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+        "source_sha256": "c6395dd2be7948d85fa2b52c6edb61367fa6610c6f389c2478b44cb4cfcb5bde",
+        "untrusted_document_data": {
+          "claims": [
+            {
+              "id": "q0",
+              "text": "여수공장은 연간 약 4,000만 m³의 공업용수를 사용하며 이를 처리 후 남해(광양만)로 방류하고 있습니다."
+            }
+          ]
+        },
+        "candidate_artifact": {
+          "claims": [
+            {
+              "source_id": "f6830e52-0895-51c0-8a1b-6c121dd96298",
+              "span": {
+                "char_start": 140,
+                "char_end": 200,
+                "quote": "여수공장은 연간 약 4,000만 m³의 공업용수를 사용하며 이를 처리 후 남해(광양만)로 방류하고 있습니다."
+              },
+              "source_ref": {
+                "source_id": "f6830e52-0895-51c0-8a1b-6c121dd96298",
+                "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+                "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+                "page_num": 46,
+                "printed_page_label": "46",
+                "bbox": [
+                  38.438,
+                  412.3069999999999,
+                  803.816,
+                  486.1919999999999
+                ],
+                "raw_text_sha256": "1a62eefd4017ffeaf3994647121b41c4c709fb81d30da1aad497ead4fd0152ad",
+                "quote": "여수공장은 연간 약 4,000만 m³의 공업용수를 사용하며 이를 처리 후 남해(광양만)로 방류하고 있습니다.",
+                "char_start": 140,
+                "char_end": 200,
+                "location_quality": "located",
+                "verification_state": "candidate"
+              },
+              "source_quality": "unverified"
+            }
+          ]
+        }
+      },
+      "decision": null,
+      "status": "source_schema_passed",
+      "response": {
+        "model": "solar-pro3",
+        "provider_request_id": "b1d46d52-6f83-4f27-9d7a-7d938c9aeced",
+        "provider_model": "solar-pro3-260323",
+        "input_tokens": 633,
+        "output_tokens": 68,
+        "price_snapshot": {
+          "snapshot_id": "upstage-solar-pro3-2026-09-09",
+          "model_id": "solar-pro3",
+          "region": "provider-managed-unverified",
+          "captured_at": "2026-09-09T00:00:00Z",
+          "input_per_million": "0.15",
+          "output_per_million": "0.60",
+          "cache_read_per_million": null,
+          "cache_write_per_million": null
+        },
+        "cost_with_vat_reserve_usd": "0.0001493250",
+        "response_sha256": "d64130b23c3c04a7b2fea359a027ee5bc12f2be83a0e71f51f2aff07d8afa5a0",
+        "response_format": {
+          "type": "json_object"
+        },
+        "content": "{\n  \"claims\": [\n    {\n      \"id\": \"q0\",\n      \"dimensions\": {\n        \"entity\": \"여수공장\",\n        \"metric\": \"연간 약 4,000만 m³의 공업용수를 사용\",\n        \"boundary\": \"남해(광양만)\"\n      }\n    }\n  ]\n}"
+      },
+      "tags": [
+        {
+          "id": "q0",
+          "source_id": "f6830e52-0895-51c0-8a1b-6c121dd96298",
+          "claim_span": {
+            "char_start": 140,
+            "char_end": 200,
+            "quote": "여수공장은 연간 약 4,000만 m³의 공업용수를 사용하며 이를 처리 후 남해(광양만)로 방류하고 있습니다."
+          },
+          "source_quality": "unverified",
+          "dimensions": {
+            "entity": {
+              "state": "model_proposed",
+              "source_ref": {
+                "source_id": "f6830e52-0895-51c0-8a1b-6c121dd96298",
+                "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+                "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+                "page_num": 46,
+                "printed_page_label": "46",
+                "bbox": [
+                  38.438,
+                  412.3069999999999,
+                  803.816,
+                  486.1919999999999
+                ],
+                "raw_text_sha256": "1a62eefd4017ffeaf3994647121b41c4c709fb81d30da1aad497ead4fd0152ad",
+                "quote": "여수공장",
+                "char_start": 140,
+                "char_end": 144,
+                "location_quality": "located",
+                "verification_state": "candidate"
+              }
+            },
+            "metric": {
+              "state": "model_proposed",
+              "source_ref": {
+                "source_id": "f6830e52-0895-51c0-8a1b-6c121dd96298",
+                "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+                "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+                "page_num": 46,
+                "printed_page_label": "46",
+                "bbox": [
+                  38.438,
+                  412.3069999999999,
+                  803.816,
+                  486.1919999999999
+                ],
+                "raw_text_sha256": "1a62eefd4017ffeaf3994647121b41c4c709fb81d30da1aad497ead4fd0152ad",
+                "quote": "연간 약 4,000만 m³의 공업용수를 사용",
+                "char_start": 146,
+                "char_end": 170,
+                "location_quality": "located",
+                "verification_state": "candidate"
+              }
+            },
+            "scope": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "unit": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "reporting_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "baseline_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "target_period": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "reported_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "baseline_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "target_value": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "scope2_basis": {
+              "state": "unknown",
+              "source_ref": null
+            },
+            "boundary": {
+              "state": "model_proposed",
+              "source_ref": {
+                "source_id": "f6830e52-0895-51c0-8a1b-6c121dd96298",
+                "document_version_id": "8b505a31-7aa4-458b-bb2b-bf373b9ada98",
+                "parse_manifest_id": "1aaf9890-eaef-4898-812c-0718a63036a7",
+                "page_num": 46,
+                "printed_page_label": "46",
+                "bbox": [
+                  38.438,
+                  412.3069999999999,
+                  803.816,
+                  486.1919999999999
+                ],
+                "raw_text_sha256": "1a62eefd4017ffeaf3994647121b41c4c709fb81d30da1aad497ead4fd0152ad",
+                "quote": "남해(광양만)",
+                "char_start": 181,
+                "char_end": 188,
+                "location_quality": "located",
+                "verification_state": "candidate"
+              }
+            }
+          },
+          "populated_fields": 3,
+          "review_reason": "semantic_review_required",
+          "binding_status": "undetermined",
+          "metric_components": {
+            "state": "unresolved",
+            "reason": "unsupported_or_ambiguous_metric_phrase"
+          }
+        }
+      ]
+    }
+  ],
+  "decision": null
+}

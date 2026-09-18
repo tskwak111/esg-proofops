@@ -1,0 +1,913 @@
+{
+  "review_id": "context-loop-review",
+  "reviewer": "OpenCode Muse Spark 1.3 Free",
+  "development_only": true,
+  "production_grading": false,
+  "human_approval_claim": false,
+  "precision_claim": false,
+  "quality_verified_claim": false,
+  "frozen_target_count": 80,
+  "baseline": {
+    "doosan": {
+      "summary": ".local/cross-report-wave/doosan/extract-8d2a075d-d4cf-43cb-a788-8cf377e9c673/summary.json",
+      "selection_manifest": ".local/cross-report-wave/doosan/selection.json",
+      "paragraphs": ".local/cross-report-wave/doosan/paragraphs.json"
+    },
+    "kia": {
+      "summary": ".local/cross-report-wave/kia/extract-c0bdd0e2-a8fc-4b08-81d4-026356520766/summary.json",
+      "selection_manifest": ".local/cross-report-wave/kia/selection.json",
+      "paragraphs": ".local/cross-report-wave/kia/paragraphs.json"
+    },
+    "kb": {
+      "summary": ".local/cross-report-wave/kb/extract-caddac76-86a7-439c-aa76-0041745242a4/summary.json",
+      "selection_manifest": ".local/cross-report-wave/kb/selection.json",
+      "paragraphs": ".local/cross-report-wave/kb/paragraphs.json"
+    },
+    "kakao": {
+      "summary": ".local/cross-report-wave/kakao/extract-a0507b70-949b-4222-ab11-467f3dfc6e64/summary.json",
+      "selection_manifest": ".local/cross-report-wave/kakao/selection.json",
+      "paragraphs": ".local/cross-report-wave/kakao/paragraphs.json"
+    }
+  },
+  "method": "non_blind_agent_development_review: reviewer inspected target text, same-page neighbors and baseline outputs together. No independent gold or unbiased accuracy estimate.",
+  "items": [
+    {
+      "source_id": "08a85f8b-4abb-5a96-aaa9-548b702ea8b1",
+      "report": "kakao",
+      "page": 47,
+      "target_sha256": "1603bf13481c4a1b3d5e66770c6a2292a7e71b4c65a79288fcb881c113c0f8bd",
+      "decision": "assertion",
+      "reason": "서비스 제공·리스크 영향·시나리오 분석 수행·분석 결과·재무영향 추정이 다문장으로 진술됨.",
+      "expected_claim_quotes": [
+        "기후변화로 인한 기온 상승과 자연재해는 데이터센터 운영 중단으로 이어질 수 있으며, 서비스 안정성 저하 및 이용자 피해 등 연쇄적인 파급효과를 초래할 가능성이 있습니다.",
+        "2025년에 주요 사업장을 대상으로 물리적 리스크 시나리오 분석을 수행하고, 그 결과를 기반으로 관련 리스크를 관리하고 있습니다.",
+        "국내 4개 사업장(데이터센터 안산, 제주 오피스, 판교 아지트, 용인 AI 캠퍼스)에 저탄소 시나리오(SSP1-2.6)와 고탄소 시나리오(SSP5-8.5)를 적용해 2030년과 2050년의 폭염일수, 강수량, 평균기온을 분석했습니다.",
+        "분석 결과, 폭염일수 증가와 평균기온 상승으로 인한 데이터센터 냉방 부담 및 전력 사용량 증가가 주요 리스크로 확인되었습니다.",
+        "2050년까지 누적 기준 재무적 영향은 2025년 매출액 대비 0.1% 미만의 비용 증가 수준으로 추정되며, 현재 재무구조 내에서 흡수 가능한 범위로 평가되었습니다."
+      ],
+      "baseline_note": "agree"
+    },
+    {
+      "source_id": "08c475e0-a030-5065-a8ff-0e9b3c9ae47e",
+      "report": "kia",
+      "page": 24,
+      "target_sha256": "ab04e65587fcbf4444c5ef079075b50fc405a9f0a3164058308125dca6ae73e4",
+      "decision": "nonassertion",
+      "reason": "비전 슬로건으로 검증 가능한 진술이 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "09e69b01-18ed-5df7-86bd-52a7a7331949",
+      "report": "kia",
+      "page": 24,
+      "target_sha256": "0d2be7f3afd0daf480c15c2cfcc56f47fd391c116acf8531d82aef9c6d9a6734",
+      "decision": "nonassertion",
+      "reason": "기간 구분 라벨로 명제가 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "0c39804c-2651-58fe-8a6a-4b245b08448d",
+      "report": "doosan",
+      "page": 27,
+      "target_sha256": "e601b7f7a25625c916e262dc7f4ed027ef581cb831965729e1f699eb090af5da",
+      "decision": "nonassertion",
+      "reason": "목차·머리말 성격의 보고서 탐색 문구로 회사 진술 명제가 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "0c413b43-04e4-5420-84e7-78b1e6ec29d3",
+      "report": "kb",
+      "page": 30,
+      "target_sha256": "5ca85d443d47a1891d4c39385c9f5bf4c7aae47023ed119e0a52ce773bcccf03",
+      "decision": "assertion",
+      "reason": "투자 확대·기술 도입의 구체적 실행 항목을 진술함.",
+      "expected_claim_quotes": [
+        "재생에너지 발전설비 투자 확대 및 친환경 기술 도입"
+      ],
+      "baseline_note": "agree"
+    },
+    {
+      "source_id": "0ee16643-a31f-58c5-9b7a-98f29edd1d36",
+      "report": "kb",
+      "page": 30,
+      "target_sha256": "3f8f9a9fd8c296aebed77ce537ab2e715ffd31b9b9d4d17c6345a691557b1707",
+      "decision": "ambiguous",
+      "reason": "효과 성격의 일반 문구로 독립 명제가 없어 주장 확정이 어려우므로 유보.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span:효과 문구에 span 없음은 타당"
+    },
+    {
+      "source_id": "0f68744e-f87c-52cc-a415-f5f9e3b13b6d",
+      "report": "doosan",
+      "page": 27,
+      "target_sha256": "dafdfc0ed7c46b041daa0efa8e1fc41fce07a6233df74435489018877e2f8ea9",
+      "decision": "nonassertion",
+      "reason": "키워드 나열 조각으로 주어·서술어 명제가 없어 회사 주장으로 볼 수 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "12ca60b3-de27-5e74-a092-70590359df3c",
+      "report": "kb",
+      "page": 30,
+      "target_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+      "decision": "assertion",
+      "reason": "ESG 채권 조달과 자금 전액 할당의 2개 완전 문장이 자금 운용을 진술함.",
+      "expected_claim_quotes": [
+        "KB금융그룹은 투자 계획을 실행하기 위한 자금을 ESG 채권 발행으로 조달하고 있습니다.",
+        "채권 발행에 따라 조달된 자금은 녹색채권 관리체계에 따라 친환경 프로젝트 파이낸싱(PF), 저탄소 전환 대출 등 기후위기 완화 및 적응 활동에 전액 할당됩니다."
+      ],
+      "baseline_note": "agree"
+    },
+    {
+      "source_id": "13799942-5729-58c5-96de-ea31427ab11f",
+      "report": "kb",
+      "page": 30,
+      "target_sha256": "5cf2792b3fab357833fbe130aac4664a39e2eb340f49e0ec1d6938e6494f94dc",
+      "decision": "nonassertion",
+      "reason": "단일 명사로 명제가 성립하지 않음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "182124ff-8359-55d5-b447-8ea53148c9b7",
+      "report": "kia",
+      "page": 24,
+      "target_sha256": "7d9129fc44dcbbf576c249ef7009b09b0fc97f8875ab373845f36c1d31e4d8bc",
+      "decision": "assertion",
+      "reason": "조달 수단이 명시된 재생에너지 조치 항목으로 실행 내용을 진술함.",
+      "expected_claim_quotes": [
+        "재생에너지 구매(PPA, REC1)"
+      ],
+      "baseline_note": "agree"
+    },
+    {
+      "source_id": "19b947ac-3997-5691-be8f-33f9469cefdd",
+      "report": "kakao",
+      "page": 47,
+      "target_sha256": "b445646b8af339469cb49e7f324abdccde8d602c49ba7c51e03efbdbec3bf008",
+      "decision": "assertion",
+      "reason": "프리쿨링 도입·전략 회복탄력성·재해 대비·삼중화 설비의 5개 문장이 대응 조치를 진술함.",
+      "expected_claim_quotes": [
+        "카카오 데이터센터는 고효율 프리쿨링(Free-cooling) 시스템을 도입하여 외기 조건이 유리한 구간에서는 프리쿨링을 활용하고 고온 환경에서는 기계식 냉방과 병행하여 운용하는 구조를 갖추고 있습니다.",
+        "이에 따라 폭염일수 증가와 평균기온 상승에도 불구하고 카카오의 비즈니스 운영 전략은 다양한 기후 시나리오 하에서 안정적으로 유지될 수 있으며, 전반적인 전략의 회복탄력성 또한 충분한 수준으로 판단됩니다.",
+        "아울러 카카오는 발생가능한 자연재해에 대한 재무영향을 최소화할 수 있도록 대비 체계를 구축하고 있습니다.",
+        "데이터센터 안산은 태풍 상륙 시 강풍 피해를 고려한 안전 설계와 침수 피해를 예방하기 위한 건물 구조 및 시설 배치를 적용하여 각종 재난 상황에서도 무중단 운영이 가능하도록 설계되었습니다.",
+        "또한 재해 발생 시에도 24시간 중단 없이 운영될 수 있도록 핵심적인 전력, 통신, 냉방 설비를 모두 삼중화하고, 재난 대응 설비를 완비했습니다."
+      ],
+      "baseline_note": "agree"
+    },
+    {
+      "source_id": "1f42a0ef-bd57-5612-b155-d4c9fe8f64b6",
+      "report": "kb",
+      "page": 30,
+      "target_sha256": "07bf5f62b3b931ba1f5d57c0cd40a2f3d7cdb83dd656bbaa8fbc3fdd6c8f2ed2",
+      "decision": "ambiguous",
+      "reason": "시스템 고도화 활동 라벨로 표 행 문맥 없이는 주장력이 불확실하므로 유보.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span:단독 라벨에 span 없음은 타당"
+    },
+    {
+      "source_id": "20d12889-6a6a-54a6-8ecc-b2c802413f81",
+      "report": "kakao",
+      "page": 47,
+      "target_sha256": "505bac4141619e623a673396812ac07274b46ec011be0646b7b9b618fe075aac",
+      "decision": "nonassertion",
+      "reason": "수치 셀 조각으로 명제가 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "217c9f99-2af5-5ede-b4c2-815169b189c7",
+      "report": "kakao",
+      "page": 47,
+      "target_sha256": "942f4da10216cbe9a69a4d6f98973fe07932de38166d0ee2471dd783d9970fc7",
+      "decision": "nonassertion",
+      "reason": "수치 셀 조각으로 명제가 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "25796c77-cf74-5260-9b91-f20f3cae858f",
+      "report": "doosan",
+      "page": 27,
+      "target_sha256": "eb718472b6dd9a26782b805f6e05441201945262c0de4948364151ca8dab2c92",
+      "decision": "nonassertion",
+      "reason": "단일 약어 라벨로 명제 내용이 없어 주장으로 볼 수 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "28edf712-d092-583e-b042-d839904e13b7",
+      "report": "doosan",
+      "page": 27,
+      "target_sha256": "5007d7ce822060ec70120f94c8998702c9d78b0c7b3e9290a0af99b5fb2026b7",
+      "decision": "nonassertion",
+      "reason": "지표 라벨 조각으로 주장 명제가 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "2936f9eb-a203-5862-825c-5eda14a8177d",
+      "report": "kia",
+      "page": 24,
+      "target_sha256": "bf3fc89d02277ec3b3e39558c8759d5c2fc8507c51da4bd2a6e0fc2035a3791a",
+      "decision": "assertion",
+      "reason": "해외·국내 연도가 명시된 정량 목표 항목으로 목표 주장을 진술함.",
+      "expected_claim_quotes": [
+        "사업장 RE100 달성 (해외 2030년, 국내 2040년)"
+      ],
+      "baseline_note": "agree"
+    },
+    {
+      "source_id": "296c3615-03c3-5c7d-874f-db4e3f39e21d",
+      "report": "kakao",
+      "page": 47,
+      "target_sha256": "d7d4a0a915c7496a4d6e9d5019c77ae47adcc4aeefdde9793e4f8e77c7224cd2",
+      "decision": "nonassertion",
+      "reason": "수치 셀 조각으로 명제가 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "2bf43eed-a163-5ac8-9499-946b00b2890e",
+      "report": "doosan",
+      "page": 27,
+      "target_sha256": "d5fd9c7897f6910feb9158b5b640e6f1445cb2fb216e07a3b986f6993f8f7f01",
+      "decision": "nonassertion",
+      "reason": "가치 슬로건 나열로 검증 가능한 회사 진술이 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "323912e1-9409-5d09-9eef-8aaff07fc3a6",
+      "report": "kb",
+      "page": 30,
+      "target_sha256": "b46fa208d9de21d2daf1d3d628ad78496cf201f655b89b8ab8612c28faf47c3b",
+      "decision": "nonassertion",
+      "reason": "단일 명사로 명제가 성립하지 않음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "34891203-956c-5441-88b5-a28434622198",
+      "report": "kakao",
+      "page": 47,
+      "target_sha256": "50aefeb51888376f144c1cc4594d31deddaa8c83bf74cb3f03a983f415dffc80",
+      "decision": "nonassertion",
+      "reason": "리스크 유형 범례 라벨 나열로 진술 명제가 없어 주장으로 볼 수 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "baseline_fp:범례 라벨 3개를 주장으로 인용"
+    },
+    {
+      "source_id": "39d0c6a6-a7c0-5841-8ab2-3db80f421113",
+      "report": "kia",
+      "page": 24,
+      "target_sha256": "e0378bca1723e7530e7b365fce59c1e078f6cbe31e3fb040abd3878a339bb516",
+      "decision": "ambiguous",
+      "reason": "절차적 안건 라벨로 구체적 명제가 없어 주장 여부를 확인할 수 없으므로 유보.",
+      "expected_claim_quotes": [],
+      "baseline_note": "baseline_fp:절차 라벨을 주장으로 인용"
+    },
+    {
+      "source_id": "3bd85fd0-bdab-50c6-9222-6d59e1d25c71",
+      "report": "doosan",
+      "page": 27,
+      "target_sha256": "dc824d3f8c5d332b61994e513636ef40256abb05b1173e423c49c53fff8dd9c5",
+      "decision": "assertion",
+      "reason": "회사 주체의 거버넌스 체계 구축·운영 진술이 완전한 문장으로 서술됨.",
+      "expected_claim_quotes": [
+        "두산밥캣은 기후변화에 따른 환경 변화의 심각성을 인지하여, 글로벌 ESG 위원회를 중심으로 하는 기후변화 대응 체계를 구축, 운영하고 있습니다."
+      ],
+      "baseline_note": "agree"
+    },
+    {
+      "source_id": "41ac6d25-b958-58de-8c17-ea010e6e5411",
+      "report": "kakao",
+      "page": 47,
+      "target_sha256": "6573f93a09c59a89e24f79755349e4b8ecfdbff954209475baf5bfe0fd4f4843",
+      "decision": "nonassertion",
+      "reason": "절 표제 조각으로 진술 명제가 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "4356ffc8-a160-5d8e-904d-4a635e29c119",
+      "report": "doosan",
+      "page": 27,
+      "target_sha256": "b1717d68853f27698202ed8123f78d6fb353e4b94458b09063a097557bf57e6c",
+      "decision": "nonassertion",
+      "reason": "조직도 박스 라벨 나열로 서술어가 없어 독립 명제가 아님.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "49c63d25-29c9-53ce-8511-1b8369aa9f94",
+      "report": "doosan",
+      "page": 27,
+      "target_sha256": "09a218b8ec87b6b6cf5bb82ff06693e2b6201477a5b0c8cb10238877e40e2495",
+      "decision": "assertion",
+      "reason": "운영 주체·감축 목표 이행·모니터링·보고의 4개 완전 문장이 회사 활동을 진술함.",
+      "expected_claim_quotes": [
+        "두산밥캣은 CSO와 CTO의 총괄 하에 각 지역의 Operation, Engineering, EHS(Environment, Health&Safety) 부서로 구성된 Climate Working Group을 운영하고 있습니다.",
+        "Climate Working Group은 지역별 사업전략과 생산운영 분야의 전문가로 구성되어 있으며 각 지역에서 설정한 온실가스 감축 목표와 기후변화 대응 전략을 기반으로 실행 과제를 이행하고 있습니다.",
+        "특히 실제 배출량을 목표와 비교하여 지속적으로 모니터링하고 있으며, 해당 결과를 바탕으로 감축 계획을 마련하고 있습니다.",
+        "아울러 감축 계획의 이행 성과를 분기마다 ESG 코디네이터에게 보고하여 관리 체계를 강화하고 있습니다."
+      ],
+      "baseline_note": "agree"
+    },
+    {
+      "source_id": "4ae4cd94-f992-584a-8e7d-94819f1015da",
+      "report": "kia",
+      "page": 24,
+      "target_sha256": "58a21d08e77c3f1d806771db66b9750ae6efaff55f3a46f2609cefbe886f3286",
+      "decision": "assertion",
+      "reason": "로드맵 수립·재생에너지 확대·수소 도입·Scope3 감축·상쇄크레딧 확보 등 회사 계획이 다문장으로 진술됨.",
+      "expected_claim_quotes": [
+        "기아는 2045년까지 전 가치사슬 전반에서 탄소중립을 달성하기 위해 단계별·영역별 중장기 로드맵을 수립하고 이를 기반으로 체계적인 실행 전략을 추진하고 있습니다.",
+        "단기적으로는 2025년까지 주요 사업장의 재생에너지 사용 비율을 확대하고, 생산공정의 에너지 효율 개선을 통해 온실가스 배출을 감축할 계획입니다.",
+        "중장기적으로는 친환경 에너지 (청정수소, 바이오가스 등)를 단계적으로 도입해, 사업장의 근본적인 탄소중립을 실현할 것입니다.",
+        "Scope 3 영역에서는 공급망 전반과 차량 사용 단계의 감축전략을 중심으로 접근하고 있습니다.",
+        "지속적으로 차량 연비 개선 기술을 개발하고 친환경 차량 판매 확대를 통해 사용 단계 배출을 줄이는 한편, 2030년 이전 기아 양산차 최초로 탄소저감 철강을 적용하는 등 부품·소재 단위의 감축활동도 본격화 할 것입니다.",
+        "아울러, 감축 한계를 보완하기 위해 국내외 배출권거래제와 연계한 친환경 프로젝트 추진을 통해 탄소상쇄크레딧을 확보하는 방안도 병행 추진하겠습니다.",
+        "기아는 이와 같은 전략적 로드맵과 실행 기반을 통해, 글로벌 수준의 감축 기준에 부합하는 실질적인 성과를 창출함은 물론 기후위기 대응에 있어 책임 있는 탄소중립 여정을 지속해 나가겠습니다."
+      ],
+      "baseline_note": "baseline_partial:마지막 책임 이행 문장 미인용"
+    },
+    {
+      "source_id": "4dab68f1-2849-54ce-afa4-7e7d385ed6b7",
+      "report": "kb",
+      "page": 30,
+      "target_sha256": "a1b307102d94a97f5e7bd288bdbccfd70524cf5138cdb2ce1e2abb99ab07f023",
+      "decision": "nonassertion",
+      "reason": "표 행머리 조각으로 명제가 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "4f5a10b8-6350-55d4-8f35-7120eb6a6d63",
+      "report": "doosan",
+      "page": 27,
+      "target_sha256": "4158c25ee8c595971a1bcdd717b59b745568b9a81e9a958b47f44eed5a14bbe0",
+      "decision": "nonassertion",
+      "reason": "소제목 성격의 항목 라벨로 진술 명제가 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "4f6b3e06-babf-5364-818b-233c0ee65fba",
+      "report": "kakao",
+      "page": 47,
+      "target_sha256": "7314dd74e0a7ee8f8c5cce9bb0c2ded3cc50364316b2f01eb765b6e48d08e309",
+      "decision": "nonassertion",
+      "reason": "수치 셀 조각으로 명제가 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "6072ff76-035a-5b74-bc6a-a01763383b10",
+      "report": "doosan",
+      "page": 27,
+      "target_sha256": "a258b30f88c30650e73073d5bdde5cfcc6987100ae62d37789e5c46a0d85b7c6",
+      "decision": "nonassertion",
+      "reason": "단일 단어로 명제가 성립하지 않음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "641a18e3-5c06-51bc-9862-e6d61ba2275a",
+      "report": "kia",
+      "page": 24,
+      "target_sha256": "8ec951b5264576f674edcea5e551463e48a536b27d757f47e9d98380f228841e",
+      "decision": "assertion",
+      "reason": "소재 감축 실행 항목으로 조치 내용을 진술함.",
+      "expected_claim_quotes": [
+        "탄소저감 소재 적용 확대"
+      ],
+      "baseline_note": "agree"
+    },
+    {
+      "source_id": "64b1a60b-6e50-5ebd-bca3-d72368fa73b8",
+      "report": "kia",
+      "page": 24,
+      "target_sha256": "054e7c6bf69c31d3022109b4294cd5cd22c698be8a70bc8c69869660177c4d04",
+      "decision": "assertion",
+      "reason": "연도·범위·비율이 명시된 전동화 목표 항목임.",
+      "expected_claim_quotes": [
+        "2040 주요 시장 전동화 100%"
+      ],
+      "baseline_note": "agree"
+    },
+    {
+      "source_id": "6cfbe9e4-908a-536e-8798-989126038ae5",
+      "report": "kb",
+      "page": 30,
+      "target_sha256": "afde9ff9257097d44157a6898f519c062a2df87c49a7509fee6005af401f7de2",
+      "decision": "nonassertion",
+      "reason": "표 행머리 조각으로 명제가 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "6d88f939-2b92-59d0-83ee-eda315c380fd",
+      "report": "doosan",
+      "page": 27,
+      "target_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+      "decision": "assertion",
+      "reason": "위원회 분석·관리·보고의 3개 완전 문장이 대응 방향과 감축 추진을 진술함.",
+      "expected_claim_quotes": [
+        "글로벌 ESG 위원회는 기후변화와 관련된 리스크와 기회를 종합적으로 분석하여 두산밥캣의 기후변화 대응 방향을 설정하고 있습니다.",
+        "또한 글로벌 ESG 전략에 따라 마련된 기후변화 대응 목표를 달성하기 위하여 관련 과제와 KPI를 총괄적으로 관리하고 있습니다.",
+        "아울러 기후변화 관련 주요 논의사항을 이사회에 직접 보고하여 기후변화 대응 목표의 이행 수준을 체계적으로 관리하고, 전사적인 온실가스 감축을 추진하고 있습니다."
+      ],
+      "baseline_note": "agree"
+    },
+    {
+      "source_id": "6dd003ba-24b8-5043-844f-7a7cd36c1060",
+      "report": "kb",
+      "page": 30,
+      "target_sha256": "494ae0a4069991efe4f55a461042d73821ec67ccd2822b3bc15acc444659c6e5",
+      "decision": "nonassertion",
+      "reason": "표 행머리 조각으로 명제가 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "6e778404-67c5-5a20-b0fc-36a5088462aa",
+      "report": "kakao",
+      "page": 47,
+      "target_sha256": "5daf6b8282b9e58a56a7a549011ace0e8072d19849c74952eb5f59e1b483e3fa",
+      "decision": "nonassertion",
+      "reason": "단위 표기 조각으로 명제가 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "6ef96ce5-5360-5f0f-b784-0332b98e4c07",
+      "report": "kia",
+      "page": 24,
+      "target_sha256": "7cd8f82a32dd3dd1c9a2981598d080ef3ec413825d8c1831f6d9caa029720d1f",
+      "decision": "nonassertion",
+      "reason": "일반 용어 정의 각주로 회사 행위 진술이 없어 주장으로 볼 수 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "baseline_fp:용어 정의문을 주장으로 인용"
+    },
+    {
+      "source_id": "707674c0-cc93-5576-baaf-c73fd48b01e3",
+      "report": "kakao",
+      "page": 47,
+      "target_sha256": "2cb2b68ca27fdfbfefe2a58ec1c929c48cdebc6789a274cb08b59ab007453856",
+      "decision": "nonassertion",
+      "reason": "수치 셀 조각으로 명제가 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "71c6e13d-19d4-5c01-9c05-b8b872677dfe",
+      "report": "kakao",
+      "page": 47,
+      "target_sha256": "0c6141bba4b31af057f69fc4c63fc65f35a7acfc5afeeb2360b21d02cb046117",
+      "decision": "nonassertion",
+      "reason": "시나리오 범례 라벨로 명제가 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "736ef9b5-229c-524d-94e5-0c2b126806c8",
+      "report": "kb",
+      "page": 30,
+      "target_sha256": "153a2e9621b1f819016d4578fd58131688acf9cd58334ab231ad72ce91ccacca",
+      "decision": "nonassertion",
+      "reason": "단일 명사로 명제가 성립하지 않음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "7d65506e-50e3-5e1d-87b3-5d302f91272a",
+      "report": "kakao",
+      "page": 47,
+      "target_sha256": "0c6141bba4b31af057f69fc4c63fc65f35a7acfc5afeeb2360b21d02cb046117",
+      "decision": "nonassertion",
+      "reason": "시나리오 범례 라벨로 명제가 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "7efa10f8-6bb6-5a98-9627-7d2df626b18f",
+      "report": "kia",
+      "page": 24,
+      "target_sha256": "3cf90cf3bbe0e6f9c81629f60782252d902a244243f6cb8a33f2ad565c1436a1",
+      "decision": "nonassertion",
+      "reason": "기간 구분 라벨로 명제가 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "7fec9593-9b67-5bac-8b20-a1b77fd30991",
+      "report": "kia",
+      "page": 24,
+      "target_sha256": "fe74f0b073679efd365470ceff40dccfd9949d6980c87da4db783f523d1cd72c",
+      "decision": "ambiguous",
+      "reason": "행정 절차 라벨로 명제 내용이 없어 주장 여부를 확인할 수 없으므로 유보.",
+      "expected_claim_quotes": [],
+      "baseline_note": "baseline_fp:절차 라벨을 주장으로 인용"
+    },
+    {
+      "source_id": "8595fb7d-e7b8-5126-aa42-ae8cf7b19c91",
+      "report": "kb",
+      "page": 30,
+      "target_sha256": "77dc3f6f8659b6638a2a7d9d4a7831b8ed0651e900406b4422cbf682742d5092",
+      "decision": "nonassertion",
+      "reason": "분야명 나열로 진술 명제가 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "8fee9a80-aa2e-5a5c-ba22-05d873a838f1",
+      "report": "kb",
+      "page": 30,
+      "target_sha256": "136341d059484d5cb1a0679738df67d37ff7954a419c1fdc51ffc253f71f1e41",
+      "decision": "nonassertion",
+      "reason": "목차·표제 성격의 탐색 문구로 회사 진술이 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "932fc336-8954-5b53-b7a7-ede188d3ba7b",
+      "report": "doosan",
+      "page": 27,
+      "target_sha256": "e492e534b3dab57b654cfa97bcec7a425d1c5840ba8cca4646ce611aca33ad45",
+      "decision": "assertion",
+      "reason": "모니터링·분석·보고의 3개 완전 문장이 ESG팀 활동을 구체적으로 진술함.",
+      "expected_claim_quotes": [
+        "CHRO ESG팀은 지역별 ESG 코디네이터와 협력하여 각 지역에서 추진 중인 기후변화 대응 전략과제의 이행 상황을 모니터링합니다.",
+        "또한 지역의 외부 환경 변화와 산업 특성, 이해관계자 요구 등을 반영하여 기후 관련 리스크와 기회 요인을 지속적으로 분석·검토합니다.",
+        "이 외에도 CHRO ESG팀은 전사 전략과제의 이행 현황과 함께 기후 리스크 및 기회 요인에 대한 검토 결과를 주요 ESG 이슈와 함께 분기 1회 정기적으로, 필요 시에는 수시로 글로벌 ESG 위원회에 보고하여 의사결정의 투명성과 신속성을 높이고 있습니다."
+      ],
+      "baseline_note": "agree"
+    },
+    {
+      "source_id": "9ae59cf8-2b6b-541c-9f66-1eda1ad404f2",
+      "report": "doosan",
+      "page": 27,
+      "target_sha256": "1835ec90b6092bc5460320d39f00cc96f01d6796748e1711f2ad01e001cea607",
+      "decision": "nonassertion",
+      "reason": "차트 항목 라벨로 회사 진술 명제가 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "9b375cdd-75e6-516e-bfaa-dc6b29c0424f",
+      "report": "kia",
+      "page": 24,
+      "target_sha256": "81686d05d6a406aa7e65bfddeb5cdb62d11f62fa00494e0793e9cbbbc3350666",
+      "decision": "nonassertion",
+      "reason": "로드맵 단계명 라벨로 명제 진술이 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "9fe918f2-464d-507c-a7da-2e1bc3416a65",
+      "report": "doosan",
+      "page": 27,
+      "target_sha256": "299a03b1d559b695ba3adba8b5a7b6d6e5b583f26bd0ea57f9d99caafe2596e8",
+      "decision": "nonassertion",
+      "reason": "단일 단어로 명제가 성립하지 않음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "a40e00bf-2ea5-5d68-b987-f6d0d330c4d6",
+      "report": "kia",
+      "page": 24,
+      "target_sha256": "eca2fc469398a55f8e418ebfc4945085714668ea0bc3581550120434d9f2a66a",
+      "decision": "assertion",
+      "reason": "협력사 대응 역량 강화라는 구체적 실행 항목을 진술함.",
+      "expected_claim_quotes": [
+        "협력사 탄소중립 대응 역량 강화"
+      ],
+      "baseline_note": "agree"
+    },
+    {
+      "source_id": "a82626e6-1896-54e9-a4ea-56c65cd7f896",
+      "report": "kakao",
+      "page": 47,
+      "target_sha256": "71badb3fa620762ab4f986dc84b0c7f4438be20af1ff06a4f134198126ae4648",
+      "decision": "nonassertion",
+      "reason": "수치 셀 조각으로 명제가 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "a961cff8-26b5-5ebb-96bc-4d17f55d3a3c",
+      "report": "kakao",
+      "page": 47,
+      "target_sha256": "4cb25310301a3bb1175a0f6e13b2ba52514291eb87f4d5187dabfadd9bcba0f7",
+      "decision": "nonassertion",
+      "reason": "수치 셀 조각으로 명제가 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "aae23535-9505-5fa2-8834-5564546a92cb",
+      "report": "doosan",
+      "page": 27,
+      "target_sha256": "7e985056d707ae87941f06ad6253925a9108ea67b76383c10d0955f68c8fec6a",
+      "decision": "nonassertion",
+      "reason": "SDG 번호 라벨 나열로 명제 서술이 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "ab386c96-8e08-5cdc-80b3-8639a66219e2",
+      "report": "kb",
+      "page": 30,
+      "target_sha256": "c2f8423d04aeb3a8960e9a151088c4cf8a7862b45bdb8a8ad3dc9c242fc44721",
+      "decision": "assertion",
+      "reason": "환경 부문 공급 확대 항목으로 실행 내용을 진술함.",
+      "expected_claim_quotes": [
+        "ESG금융상품 환경 부문 공급 확대"
+      ],
+      "baseline_note": "agree"
+    },
+    {
+      "source_id": "af0b9e7a-0d4b-5c92-8aa8-b87c0b4f32ea",
+      "report": "kia",
+      "page": 24,
+      "target_sha256": "69db8c9e2e18d38dd0d4d86b2db9a81ebf392f69e9afa6f35296977516f0444a",
+      "decision": "assertion",
+      "reason": "연도·지역·비율이 명시된 전동화 목표 항목임.",
+      "expected_claim_quotes": [
+        "2035 유럽 전동화 100%"
+      ],
+      "baseline_note": "agree"
+    },
+    {
+      "source_id": "afbbd5fb-ea6c-5cbf-b165-24e6bee41859",
+      "report": "kakao",
+      "page": 47,
+      "target_sha256": "75648f1ec328fc0a807f37b16aedc98075190fe76b710a28b74089ca0f07f5fe",
+      "decision": "nonassertion",
+      "reason": "사업장 약어 풀이 각주로 진술 명제가 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "b90ec234-134f-58f9-a838-5d96e25ecafa",
+      "report": "kia",
+      "page": 24,
+      "target_sha256": "6414ddc8c3ea7e7976007b627800b63c10847749d725f27d421a5b6f58f8b5b5",
+      "decision": "assertion",
+      "reason": "지역·비율이 명시된 전동화 목표 항목으로 목표 주장을 진술함.",
+      "expected_claim_quotes": [
+        "유럽 및 주요 시장 전동화 100%"
+      ],
+      "baseline_note": "agree"
+    },
+    {
+      "source_id": "bb9020ca-273d-5631-aa7e-47e266f31ee4",
+      "report": "kb",
+      "page": 30,
+      "target_sha256": "f676c61cc5e20f0338dbb272d23784e72696461ed0055a0a960e5ecb0b08d575",
+      "decision": "ambiguous",
+      "reason": "효과 성격의 일반 문구로 주체·서술어 명제가 없어 주장 확정이 어려우므로 유보.",
+      "expected_claim_quotes": [],
+      "baseline_note": "baseline_fp:일반 문구를 주장으로 인용"
+    },
+    {
+      "source_id": "c1742a3d-660d-5ce3-b4bb-26c3e0ba03e6",
+      "report": "kakao",
+      "page": 47,
+      "target_sha256": "f720049b4c85f65d86ebd263988116da8a967fbaca7332afb1bcb5a793ee3e9e",
+      "decision": "nonassertion",
+      "reason": "수치 셀 조각으로 명제가 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "c263219a-e658-5384-908f-384848755bd5",
+      "report": "kakao",
+      "page": 47,
+      "target_sha256": "c4a6a5d076e4d5c3fd97cba5d924aee1ca4b6f676c0672a590b0e1cdddef797e",
+      "decision": "nonassertion",
+      "reason": "그래프 주석 조각으로 명제가 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "c3e0ce1c-885f-5d85-bd3e-d179f2d211f9",
+      "report": "kb",
+      "page": 30,
+      "target_sha256": "33f7d675b13bfcde1d2f0f1214df370d338a8a52581dff55eb02c7dd12a2c322",
+      "decision": "assertion",
+      "reason": "시스템 투자·배출량 관리·익스포저 조정·기후금융 추진이 완전 문장으로 진술됨.",
+      "expected_claim_quotes": [
+        "KB금융그룹은 기후 관련 위험의 모니터링 및 공시데이터의 체계적 관리를 위하여 그룹의 환경정보관리시스템 및 ESG정보공시시스템의 구축과 유지보수에 지속적으로 투자하고 있습니다.",
+        "이를 통해 그룹 전반의 온실가스 배출량을 실시간으로 관리함으로써 기후위기에 따른 운영위험을 최소화합니다.",
+        "또한, 저탄소 경제로의 이행을 위해 고탄소 배출 산업 부문에 대한 익스포저를 점진적으로 조정하고 있으며",
+        "녹색금융 및 전환금융 확대를 위해 기후금융 프로세스 고도화를 추진하고",
+        "새로운 성장 분야인 재생에너지 및 저탄소 기술 스타트업에 대한 임팩트 투자를 지속 검토하고 있습니다."
+      ],
+      "baseline_note": "agree"
+    },
+    {
+      "source_id": "c3e1ca47-983f-55ef-9047-435c0f5ac14f",
+      "report": "kia",
+      "page": 24,
+      "target_sha256": "dfba80e62757d29047000fc8f75aebe5c60f65dda25761f5d52bd5ea2852f83b",
+      "decision": "nonassertion",
+      "reason": "연도+명사 표제 조각으로 서술어가 없어 주장으로 볼 수 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "ca0ddb30-b1ba-5322-881f-0de83e70528f",
+      "report": "kb",
+      "page": 30,
+      "target_sha256": "d84c56cbd700552507dea23851236c49abce179646eb3ec62cc322e5baed116d",
+      "decision": "ambiguous",
+      "reason": "일반 사업 다각화 문구로 회사 주체 명제가 없어 기후 주장으로 확정할 수 없으므로 유보.",
+      "expected_claim_quotes": [],
+      "baseline_note": "baseline_fp:일반 문구를 주장으로 인용"
+    },
+    {
+      "source_id": "cc2c0056-98e5-54c7-9c16-cb69138cc2f0",
+      "report": "kakao",
+      "page": 47,
+      "target_sha256": "5f5fab41cf5b69672067d529c9fa9e554834fd8d2fbf641d79643534054a554e",
+      "decision": "nonassertion",
+      "reason": "수치 셀 조각으로 명제가 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "ce1c601a-f29a-5f7f-9914-528f29d5ed9c",
+      "report": "kb",
+      "page": 30,
+      "target_sha256": "4e1d8197ceca8474230a7c66e6bed08b8c7b172f90bedcbf92a0cc33a5000ca7",
+      "decision": "assertion",
+      "reason": "금융상품 확대·포트폴리오 구축의 2개 실행 항목을 진술함.",
+      "expected_claim_quotes": [
+        "친환경 금융상품 및 서비스 확대",
+        "저탄소 자산 포트폴리오 구축"
+      ],
+      "baseline_note": "agree"
+    },
+    {
+      "source_id": "d17b3e86-c89b-5191-ac9a-4f31d75fe683",
+      "report": "kb",
+      "page": 30,
+      "target_sha256": "4ee85fd44963698b1a8650f266096d17f6bb507c87e4f878ea0b0128ebd449fc",
+      "decision": "assertion",
+      "reason": "투자 행위 항목으로 동일 페이지 투자 문맥에서 실행 내용을 진술함.",
+      "expected_claim_quotes": [
+        "재생에너지 발전설비 투자"
+      ],
+      "baseline_note": "agree"
+    },
+    {
+      "source_id": "d8f5bd1b-f532-5e63-8a7e-f5b796c20ab3",
+      "report": "doosan",
+      "page": 27,
+      "target_sha256": "9f0c5113a8107512d1d3c6cb74c46744d4b75c3536259c1a3c1ec6f1199f3bc0",
+      "decision": "nonassertion",
+      "reason": "단일 조직명 조각으로 주장 명제가 아님.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "e3df7c39-1ed2-5357-9182-b028b9c2e85a",
+      "report": "doosan",
+      "page": 27,
+      "target_sha256": "4c3d518a3f71573739c0c4a14f23e0b4360cf13c4117db5ff617f2d26087087b",
+      "decision": "assertion",
+      "reason": "첫 문장은 총괄·방향 설정의 완전한 주장이나 뒷부분이 '지역별'에서 절단되어 불완전함.",
+      "expected_claim_quotes": [
+        "CSO와 CTO는 Climate Working Group의 전반적인 활동을 총괄하며, 온실가스 감축 목표 달성을 위한 전사적 방향성과 우선순위를 설정합니다."
+      ],
+      "baseline_note": "baseline_fp:두번째 quote는 절단된 불완전 문장 인용"
+    },
+    {
+      "source_id": "e4e8114b-8cea-579b-b940-90a62f16cebb",
+      "report": "doosan",
+      "page": 27,
+      "target_sha256": "824ce85f51b2f9548c427a562cae5879e4bd81a1b6db0b7b1f9ea7701f1ec166",
+      "decision": "assertion",
+      "reason": "연도·산출물이 명시된 다이어그램 과제 항목으로 동일 페이지 전략 문맥에서 계획 주장으로 읽힘.",
+      "expected_claim_quotes": [
+        "2025년 기후변화 관련 KPI 수립 및 국제 규제·기준과의 정합성 확보"
+      ],
+      "baseline_note": "agree"
+    },
+    {
+      "source_id": "e738110e-21e4-5230-a9f4-6a760da23dfc",
+      "report": "kia",
+      "page": 24,
+      "target_sha256": "f6867e98f479221df4576da188a5941c78cb1142bf9815e22fece1bce1beee1a",
+      "decision": "nonassertion",
+      "reason": "전략 단계 표제로 독립된 진술 명제가 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "eb990bb4-f616-5df2-b19b-5c86bf9087fa",
+      "report": "kakao",
+      "page": 47,
+      "target_sha256": "a6f6a0de5076d63faf25026be4c50d6e613c4583a8c2e4ac4ac0e8b75527749c",
+      "decision": "nonassertion",
+      "reason": "시나리오 범례 라벨로 명제가 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "ed10a978-8443-5a1e-a38a-741e7ada2141",
+      "report": "kia",
+      "page": 24,
+      "target_sha256": "0e679b34bb5eb2e55498d10caa5bc92385c512b68dd1879e094a008a5c54bf9f",
+      "decision": "assertion",
+      "reason": "로드맵 문맥에서 자체발전 도입 조치 항목으로 구체적 실행 내용을 진술함.",
+      "expected_claim_quotes": [
+        "국내외 사업장 태양광 자체발전"
+      ],
+      "baseline_note": "agree"
+    },
+    {
+      "source_id": "f27112bb-5b5c-5267-aeb6-aa5cc3ca597c",
+      "report": "kb",
+      "page": 30,
+      "target_sha256": "107b1b51f6ed2db1b00985b6e2718a2f55e0a7638c0a1f499b51c88889c92260",
+      "decision": "nonassertion",
+      "reason": "표 구분 라벨로 명제가 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "f2b13d60-195a-5a62-91d6-b6c6ff7626ce",
+      "report": "doosan",
+      "page": 27,
+      "target_sha256": "1088a76fb939a6d41a1c95d99941ba96bb7c019b1ebff8795fd001fa49409f50",
+      "decision": "ambiguous",
+      "reason": "앞 문단 절단문의 계속 절편으로 주어가 없어 단독 명제가 불완전하므로 판정 유보.",
+      "expected_claim_quotes": [],
+      "baseline_note": "baseline_fp:명사구 2개를 독립 주장처럼 인용"
+    },
+    {
+      "source_id": "f4953441-d519-5060-a020-f5b3420c12f5",
+      "report": "doosan",
+      "page": 27,
+      "target_sha256": "12d4c5c4a68d3f8ccb1f4ac94773f69b919f023749bb38ba5c8d48a9ce0c2a4c",
+      "decision": "ambiguous",
+      "reason": "'및'으로 끝나는 절단 항목명으로 완전한 명제를 확인할 수 없어 판정 유보.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span:미완성 조각에 span 없음은 타당"
+    },
+    {
+      "source_id": "f583ffaf-5442-5e96-ae4b-4b6f693ece4b",
+      "report": "kb",
+      "page": 30,
+      "target_sha256": "b2b2802271ace0be7328eb3badb568de6bc793a7bcb7e0007ec066807f9bd909",
+      "decision": "nonassertion",
+      "reason": "단일 명사로 명제가 성립하지 않음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "f857f020-953e-5094-a1d5-c127e6b5a3c2",
+      "report": "kia",
+      "page": 24,
+      "target_sha256": "9b8d39b66c47f3aa11a4267bede0641a8838bd62244404e015387ac4f7fa66e9",
+      "decision": "assertion",
+      "reason": "선언 이후 추진 실적·2025년 전략 재정비·Scope별 감축 계획이 완전 문장으로 진술됨.",
+      "expected_claim_quotes": [
+        "기아는 2021년 ‘2045년 탄소중립’을 선언한 이후, 재생에너지 전환, 전동화 확대, 공급망 탄소 감축 등 전방위적인 감축과제를 단계적으로 추진해 왔습니다.",
+        "특히, 최근 글로벌 규제 강화와 국제 기준 변화에 부합하기 위해 기아는 2025년을 전략적 전환점으로 삼아 기존 탄소중립 전략을 전면 재정비하고 있습니다.",
+        "Scope 3 영역에서는 친환경 차량 비중 확대, 탄소저감 소재 적용, 공급망 내 감축활동 강화를 통해 가치사슬 전반의 감축체계를 체계적으로 정교화 하겠습니다."
+      ],
+      "baseline_note": "baseline_miss:오류 상태로 span 없음"
+    },
+    {
+      "source_id": "f902103e-a532-5019-83eb-02ff8e60088c",
+      "report": "kakao",
+      "page": 47,
+      "target_sha256": "63ef5a63ebc9c808c3b32b7e1a612ab481b49ef8f54e5533228891d2a0b74afd",
+      "decision": "nonassertion",
+      "reason": "수치 셀 조각으로 명제가 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    },
+    {
+      "source_id": "fc6f58b3-036d-55c3-ac7f-e0d21eaed24f",
+      "report": "kia",
+      "page": 24,
+      "target_sha256": "6c842d927fe3877c3d0dafd6716584693aae0b20df00a996e50fcbac247de595",
+      "decision": "nonassertion",
+      "reason": "목차 성격의 보고서 탐색 문구로 회사 진술이 없음.",
+      "expected_claim_quotes": [],
+      "baseline_note": "agree_no_span"
+    }
+  ],
+  "blind_review": false
+}

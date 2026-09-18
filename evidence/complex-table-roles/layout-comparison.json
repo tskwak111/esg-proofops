@@ -1,0 +1,93 @@
+{
+  "baseline": "11cff6b",
+  "contract_version": 11,
+  "scope": "selected table layout diagnostic; not semantic accuracy",
+  "reports": {
+    "kb": {
+      "packet_sha256": "2da5927dfabbd47e991d85c48c8a371919355bcc917da2b4aaf2a2954a067f49",
+      "tables": [
+        {
+          "page": 30,
+          "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+          "word_count": 56,
+          "fragment_count": 20,
+          "clipped_word_count": 0
+        },
+        {
+          "page": 30,
+          "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+          "word_count": 265,
+          "fragment_count": 64,
+          "clipped_word_count": 0
+        }
+      ],
+      "request_id": "b8097852-c3f4-424c-833f-7200ed7cb74b",
+      "status": "failed",
+      "reason": "PROBE_REQUEST_TOO_LARGE",
+      "before": {
+        "limit_usd": "10.00",
+        "calls": 1246,
+        "unsettled_calls": 6,
+        "committed_usd": "7.2753544650"
+      },
+      "after": {
+        "limit_usd": "10.00",
+        "calls": 1246,
+        "unsettled_calls": 6,
+        "committed_usd": "7.2753544650"
+      },
+      "prompt_sha256": "c75396e8267594a4e1d59c44dcbaf71f30872443fb9da987aed1f071aa5c8c54",
+      "wire_sha256": "47ea5be8f0edbfa27cb75c9f7fbfd864c8eb1d62aa610a463d18adc75cf70b78"
+    },
+    "naver": {
+      "packet_sha256": "b62d0a555b3a1cec7666c26e141aab3d71e2eddb71dce8e4c376b57dbec3a206",
+      "tables": [
+        {
+          "page": 84,
+          "source_sha256": "75388f16c13739a671fd158c383502d81968fe587f2372ab0f9306f3d2c1a2c6",
+          "word_count": 105,
+          "fragment_count": 24,
+          "clipped_word_count": 0
+        }
+      ],
+      "request_id": "03960ea7-0829-4498-bf58-6e813b40eb14",
+      "status": "failed",
+      "reason": "mixed progress requires unknown; split claims first",
+      "before": {
+        "limit_usd": "10.00",
+        "calls": 1246,
+        "unsettled_calls": 6,
+        "committed_usd": "7.2753544650"
+      },
+      "after": {
+        "limit_usd": "10.00",
+        "calls": 1247,
+        "unsettled_calls": 6,
+        "committed_usd": "7.2759331200"
+      },
+      "prompt_sha256": "c75396e8267594a4e1d59c44dcbaf71f30872443fb9da987aed1f071aa5c8c54",
+      "wire_sha256": "4225cb79942740110d955177b7322d35549f720b753e78bcefafdcdcba16c858",
+      "response_sha256": "dafa712e9d5fbd9927a15861ee0a4dfa34e8d01ed67553e59fb3497eb677412a"
+    },
+    "kia": {
+      "packet_sha256": "27dd76c1878578df8cd1c3026d095d1c8281ffe7e28f92e467ecae557336abfe",
+      "tables": [
+        {
+          "page": 45,
+          "source_sha256": "d0d814d98c4aeedbbdb2bf8631b8981ae5cde94dec32aa32c57510420274da1f",
+          "word_count": 19,
+          "fragment_count": 13,
+          "clipped_word_count": 0
+        },
+        {
+          "page": 45,
+          "source_sha256": "d0d814d98c4aeedbbdb2bf8631b8981ae5cde94dec32aa32c57510420274da1f",
+          "word_count": 19,
+          "fragment_count": 9,
+          "clipped_word_count": 0
+        }
+      ],
+      "model_status": "not_run"
+    }
+  }
+}

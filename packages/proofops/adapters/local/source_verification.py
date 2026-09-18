@@ -1,0 +1,165 @@
+"""Original-PDF paragraph attestations; no table/footnote binding or grade approval."""
+
+import io
+import json
+import math
+import subprocess
+import tempfile
+from dataclasses import asdict, replace
+from hashlib import sha256
+from importlib.metadata import version
+from pathlib import Path
+
+import pdfplumber
+
+from proofops.application.evidence import citations
+from proofops.application.evidence.citations import _normalized
+from proofops.application.ingest.gri import _validate_graph
+from proofops.domain.provenance import canonical_hash
+
+
+def _rendered_text(page, box):
+    if page.width * page.height * 9 > 16_000_000:
+        return dict(status="unresolved", reason="render_limit")
+    try:
+        with page.to_image(resolution=216).original as image:
+            pixels = [
+                math.floor(box[0] * 3),
+                math.floor(box[1] * 3),
+                math.ceil(box[2] * 3),
+                math.ceil(box[3] * 3),
+            ]
+            with image.crop(pixels) as crop:
+                buffer = io.BytesIO()
+                crop.save(buffer, format="PNG")
+        png = buffer.getvalue()
+        with tempfile.TemporaryDirectory(prefix="proofops-source-") as folder:
+            path = Path(folder) / "region.png"
+            path.write_bytes(png)
+            output = subprocess.run(
+                ["swift", str(Path(__file__).with_name("native_ocr.swift")), str(path)],
+                check=True,
+                capture_output=True,
+                timeout=30,
+            )
+        result = json.loads(output.stdout)
+        if not isinstance(result.get("text"), str) or len(result["text"]) > 200000:
+            raise ValueError("invalid rendered text")
+        return dict(
+            status="read",
+            image_sha256=sha256(png).hexdigest(),
+            pixel_bbox=pixels,
+            scale=3,
+            **result,
+        )
+    except (OSError, subprocess.SubprocessError, ValueError) as error:
+        return dict(
+            status="unresolved", reason="rendered_reader_unavailable", error=type(error).__name__
+        )
+
+
+def attest_native_sources(graph, source, *, tenant_id):
+    """Create a replayable receipt; caller stores it as a new immutable artifact."""
+    _validate_graph(graph, tenant_id)
+    if (
+        not isinstance(source, bytes)
+        or len(source) > 100 * 1024 * 1024
+        or sha256(source).hexdigest() != graph.source_sha256
+    ):
+        raise ValueError("native source mismatch")
+    records = []
+    with pdfplumber.open(io.BytesIO(source)) as document:
+        for block in graph.blocks:
+            record = dict(
+                source_id=block.source_id,
+                status="unresolved",
+                reason="relationship_validation_required",
+                words=[],
+            )
+            records.append(record)
+            if block.kind != "paragraph":
+                continue
+            record["reason"] = "source_quality_unresolved"
+            if block.quality != "unverified" or block.winner is None:
+                continue
+            candidate = block.candidates[block.winner]
+            if not any(candidate in batch.blocks for batch in graph.candidates):
+                raise ValueError("native candidate provenance mismatch")
+            box, geometry = candidate.bbox, candidate.geometry
+            if not 1 <= block.page_num <= len(document.pages):
+                raise ValueError("native page outside document")
+            page = document.pages[block.page_num - 1]
+            record["reason"] = "interactive_visibility_requires_review"
+            if any(key in document.doc.catalog for key in ("AcroForm", "OCProperties")) or any(
+                annotation.get("data", {}).get("AP") for annotation in (page.annots or [])
+            ):
+                continue
+            record["reason"] = "geometry_unsupported"
+            if (
+                box is None
+                or candidate.has_invalid_geometry
+                or page.rotation
+                or geometry.rotation
+                or tuple(page.bbox[:2]) != (0, 0)
+                or tuple(geometry.crop_box[:2]) != (0, 0)
+                or abs(page.width - geometry.width_pt) > 0.001
+                or abs(page.height - geometry.height_pt) > 0.001
+            ):
+                continue
+            clipped = False
+            for index, word in enumerate(page.extract_words()):
+                wb = [word["x0"], word["top"], word["x1"], word["bottom"]]
+                if wb[2] <= box[0] or wb[0] >= box[2] or wb[3] <= box[1] or wb[1] >= box[3]:
+                    continue
+                if not word["upright"] or not (
+                    box[0] <= wb[0] < wb[2] <= box[2] and box[1] <= wb[1] < wb[3] <= box[3]
+                ):
+                    clipped = True
+                record["words"].append(dict(index=index, text=word["text"], bbox=wb))
+            raw = " ".join(w["text"] for w in record["words"])
+            record["reason"] = "clipped_or_rotated_words" if clipped else "text_mismatch"
+            if not clipped and raw and _normalized(raw) == _normalized(candidate.source.raw_text):
+                rendered = _rendered_text(page, box)
+                record["rendered"] = rendered
+                record["reason"] = "rendered_text_unresolved"
+                if rendered["status"] == "read" and _normalized(rendered["text"]) == _normalized(
+                    raw
+                ):
+                    record.update(status="verified", reason=None)
+    result = dict(
+        schema="native_paragraph_attestation_v1",
+        reader="pdfplumber",
+        reader_version=version("pdfplumber"),
+        renderer_version=version("pypdfium2"),
+        rendered_reader_sha256=sha256(
+            Path(__file__).with_name("native_ocr.swift").read_bytes()
+        ).hexdigest(),
+        text_reader_version=version("pdfminer.six"),
+        verifier_sha256=sha256(Path(__file__).read_bytes()).hexdigest(),
+        normalization_sha256=sha256(Path(citations.__file__).read_bytes()).hexdigest(),
+        tenant_id=tenant_id,
+        document_version_id=graph.document_version_id,
+        parse_manifest_id=graph.parse_manifest_id,
+        source_sha256=graph.source_sha256,
+        input_graph_sha256=canonical_hash(asdict(graph)),
+        records=records,
+        scope="paragraph_native_and_rendered_text_only",
+        coordinate_system="pdf_top_left_points",
+    )
+    result["artifact_sha256"] = canonical_hash(result)
+    return result
+
+
+def replay_native_sources(receipt, graph, source, *, tenant_id):
+    """Recompute against original bytes before returning a new source-quality view."""
+    expected = attest_native_sources(graph, source, tenant_id=tenant_id)
+    if canonical_hash(receipt) != canonical_hash(expected):
+        raise ValueError("native attestation mismatch")
+    verified = {r["source_id"] for r in expected["records"] if r["status"] == "verified"}
+    return replace(
+        graph,
+        blocks=tuple(
+            replace(block, quality="verified") if block.source_id in verified else block
+            for block in graph.blocks
+        ),
+    )
