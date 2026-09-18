@@ -1,9 +1,9 @@
 {
-  "checked_at": "2026-09-18T22:47:31.481578+00:00",
+  "checked_at": "2026-09-18T23:00:59.712935+00:00",
   "scope": "documentation, structured contracts and synthetic schema examples only",
   "status": "passed",
-  "checks_total": 863,
-  "passed": 863,
+  "checks_total": 864,
+  "passed": 864,
   "failed": 0,
   "counts": {
     "numbered_documents": 34,
@@ -350,6 +350,11 @@
     },
     {
       "name": "json:evidence/live-tagging-doosan-baseline-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/raster-page-usage-replay-20260919.json",
       "passed": true,
       "detail": ""
     },

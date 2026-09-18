@@ -437,3 +437,36 @@ The request's input_hash resolves to the scoped immutable run snapshot containin
 runtime/consent/rights artifacts; readers must verify that snapshot rather than
 accepting a request-supplied authorization claim. Max_calls is a frozen limit,
 not yet a persisted call counter in this preparation-only stage.
+
+#### Durable raster dispatch records (checkpoint publication still disabled)
+
+`raster_job_store` reuses the existing SQLite job_records transaction/ownership
+boundary. `raster_request` records contain the full scoped request, its hash and
+original lease owner/fencing token. Registration validates the immutable snapshot,
+manifest identity, request UUID, policy/mode/limits, selected pages and submitted
+correspondence. The max_calls count is checked across the run inside the same
+transaction, including registrations with unknown or failed transport results.
+An exact duplicate returns false, retaining the original ownership; it cannot
+initiate another HTTP call. No new table or SQL schema version is introduced.
+
+`raster_receipt` binds the stored request hash to the full provider receipt and
+receipt hash. Only the lease that registered the request may retain its response,
+including a late response after expiry; this does not authorize publication.
+Foreign ownership and mismatched immutable responses are rejected. Reads remain
+scoped to the registered job and verify the stored hashes.
+
+`dispatch_authorized_raster` checks that the supplied probe uses the expected
+shared ledger, prepares under current authority, registers once, renews the lease,
+and invokes the existing bounded UpstageParseProbe. A completed request reuses its
+saved receipt. A registration without a valid stored receipt raises
+RASTER_REQUEST_PENDING and is never automatically resent, even if the first
+process crashed before dispatch or the provider outcome is unknown. This
+conservative case requires explicit reconciliation, not a fresh reservation ID.
+The returned receipt is private input for offline visibility composition; the
+existing parser worker still rejects raster mode until v5 publication/readback
+and coverage are implemented together.
+
+The read-only shared usage reader distinguishes token-billed and page-billed
+settled receipts. Parse pages are reported separately; page receipts cannot claim
+complete measured token usage. Recorded monetary amounts and unknown reservations
+are retained. No refund or budget-reset path is added.

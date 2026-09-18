@@ -144,6 +144,26 @@ def prepare_raster_ocr(graph, source, source_ids, *, tenant_id):
     )
 
 
+def validate_raster_billing(usage, mode, pages):
+    """The pinned raster mode must account for every submitted page exactly once."""
+    if (
+        not isinstance(usage, dict)
+        or mode not in ("standard", "enhanced")
+        or type(pages) is not int
+        or not 1 <= pages <= 10
+    ):
+        raise ValueError("RASTER_BILLING_PAGES_INVALID")
+    billed = usage.get(mode)
+    other = usage.get("enhanced" if mode == "standard" else "standard", [])
+    if (
+        not isinstance(billed, list)
+        or any(type(p) is not int for p in billed)
+        or sorted(billed) != list(range(1, pages + 1))
+        or other != []
+    ):
+        raise ValueError("RASTER_BILLING_PAGES_INVALID")
+
+
 def replay_raster_ocr(
     request, receipt, graph, source, *, request_sha256, receipt_sha256, tenant_id
 ):
@@ -210,15 +230,7 @@ def replay_raster_ocr(
         or receipt["pages"] != pages
     ):
         raise ValueError("RASTER_PROVIDER_RECEIPT_INVALID")
-    billed = usage.get(receipt["mode"])
-    other = usage.get("enhanced" if receipt["mode"] == "standard" else "standard", [])
-    if (
-        not isinstance(billed, list)
-        or any(type(p) is not int for p in billed)
-        or sorted(billed) != list(range(1, pages + 1))
-        or other != []
-    ):
-        raise ValueError("RASTER_BILLING_PAGES_INVALID")
+    validate_raster_billing(usage, receipt["mode"], pages)
     texts, ids = {p: [] for p in range(1, pages + 1)}, set()
     for e in elements:
         if (

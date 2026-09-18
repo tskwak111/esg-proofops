@@ -131,3 +131,40 @@ def prepare_authorized_raster(runner, lease, graph, native, source_ids):
     # Rendering may outlive authority or policy; recheck before handing off.
     authorize()
     return data, request
+
+
+def dispatch_authorized_raster(runner, lease, graph, native, source_ids, *, probe, ledger):
+    """One durable request, at most one dispatch; ambiguous requests stay pending.
+
+    Returns trusted stored request/receipt for later offline composition. This
+    does not publish a checkpoint or promote any source/claim quality.
+    """
+    from pathlib import Path
+
+    from proofops.adapters.local.raster_job_store import (
+        finish_raster_request,
+        raster_receipt,
+        register_raster_request,
+    )
+    from proofops.adapters.local.upstage_parse import UpstageParseProbe
+
+    if (
+        not isinstance(probe, UpstageParseProbe)
+        or Path(probe.ledger).resolve() != Path(ledger).resolve()
+    ):
+        raise ValueError("RASTER_LEDGER_MISMATCH")
+    data, request = prepare_authorized_raster(runner, lease, graph, native, source_ids)
+    jobs = runner.store.jobs
+    created = register_raster_request(jobs, lease, request, now=int(runner.clock()))
+    if created:
+        # The shared transport reserves before HTTP. A crash/unknown response
+        # leaves the durable registration in place and never authorizes a retry.
+        jobs.heartbeat(lease, now=int(runner.clock()), lease_seconds=300)
+        receipt = probe.parse(data, request_id=request["request_id"], mode=request["mode"])
+        finish_raster_request(jobs, lease, request["request_id"], receipt)
+    saved = raster_receipt(jobs, lease.message, request["request_id"])
+    if saved is None:
+        raise ValueError("RASTER_REQUEST_PENDING")
+    if not jobs.can_call(lease, now=int(runner.clock())):
+        raise LeaseLost("LEASE_LOST")
+    return request, saved

@@ -1391,3 +1391,44 @@ request fields; those fields passed the30focused tests plus repeated full
 Ruff/format and relevant mypy checks. Documentation/contracts863passed again.
 The live parser still rejects raster-configured runs until persistent request
 accounting and v5 writer/store/readback are integrated. No service-ready claim.
+
+### 2026-09-19 — durable raster dispatch and page-billed accounting
+
+Terra task_be67ac6b6f53 / ctx_efa450339aa3 implemented scoped immutable
+raster_request/raster_receipt records over existing job_records. Registration
+checks snapshot/request identities and atomically limits registrations across the
+run; exact duplicates never redispatch. Original lease owners can retain late
+receipts, but no checkpoint is published. Coordinator review requested stored
+request-hash recomputation and full message validation, now implemented. After
+worker release, coordinator added explicit concurrent duplicate/different-request
+races and strict billing-page mode validation shared with offline raster replay.
+Four malformed billing cases failed before the shared validator and pass afterward.
+
+Luna task_58627bfa9dee / ctx_5f119b7efc5c fixed request_usage for page-billed
+Document Parse receipts without treating absent token measurements as complete.
+Mixed token/page/unknown reservations retain costs and pending amounts. Coordinator
+added corrupt amount/model/token regressions: list-valued model/provider IDs
+initially leaked TypeError, then failed closed as ACCOUNTING_UNAVAILABLE after
+shape validation. Both workers released and deliveries acknowledged.
+
+Coordinator dispatch integration uses the real UpstageParseProbe/shared ledger
+with an intercepted HTTP method (no paid calls). It proves one call/one reservation,
+no resend of ambiguous timeout, late own receipt retained without publication,
+wrong-ledger rejection, persisted receipt reuse after store restart and a new
+fencing token, and exact native+raster source composition.15store/dispatch tests
+passed;28transport/accounting/dispatch tests passed before final billing/race tests.
+Ruff import-order failure in test_raster_dispatch was fixed, then full Ruff passed.
+Format349files, mypy190sources and package build passed. Full suite pending below.
+
+Read-only replay of the actual saved Doosan raster request confirms4billed pages,
+USD0.044, token_usage_complete=false. Evidence:raster-page-usage-replay-20260919.json.
+Provider methods forbidden during replay; zero API calls/ledger writes. Shared
+ledger remains1752calls,USD9.2214240400 committed/reserved,7unsettled. Priorb435b03
+CI35403078623 passed. The live parser is still disabled for raster mode until
+coordinated v5 checkpoint publication/readback and coverage are implemented.
+
+Full application regression suite completed:2672passed,7skipped,2existingwarnings
+in199.96s (unit/contracts/acceptance/integration/security/staging E2E gate), log
+/tmp/proofops-raster-dispatch-suite.txt.864documentation/contract checks passed.
+The worktree's only change during this run was test import ordering; runtime code
+was stable. No workers await release (19released;3historical retained records).

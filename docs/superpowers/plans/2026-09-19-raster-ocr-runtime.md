@@ -96,3 +96,12 @@ Next implementation: fenced persistent ownership/request and receipt records wit
 max_calls across retries; dispatch through shared ledger; coordinated v5
 publication and replay. Do not remove the worker's unsupported guard until that
 whole path has a fake-HTTP end-to-end regression and passes replay checks.
+
+Durable request/receipt ownership is now implemented in raster_job_store using
+existing job_records transactions. Dispatch uses one registration, expected shared
+ledger and existing bounded transport, with no resend of pending requests. Fake
+HTTP integration verifies receipt reuse after a new lease/store instance, late
+response retention without publication, and exact native+raster composition.
+Shared usage accounting now understands page billing. Still pending: coordinated
+v5 checkpoint writer/commit/readback with complete coverage, parser worker/root/CLI
+wiring, and fresh real-report evaluation. The legacy worker guard remains enabled.
