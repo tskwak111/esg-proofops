@@ -303,6 +303,29 @@ def check_local_upstage_binding(
     per-call worker must still supply the frozen profile hash so an invalid or
     missing profile can never become an omitted bypass.
     """
+    return _check_local_upstage_binding(
+        binding=binding,
+        consent=consent,
+        auth=auth,
+        checked_at=checked_at,
+        source_sha256=source_sha256,
+        include_live_model_probe=include_live_model_probe,
+        model_sha256=model_sha256,
+        expected_role="extractor",
+    )
+
+
+def _check_local_upstage_binding(
+    *,
+    binding: Mapping[str, Any],
+    consent: Mapping[str, Any],
+    auth: AuthContext,
+    checked_at: str,
+    source_sha256: str | None,
+    include_live_model_probe: bool,
+    model_sha256: str | None,
+    expected_role: str,
+) -> Preflight:
     if any(p.get("tenant_id") != auth.tenant_id for p in (binding, consent)):
         raise TenantNotFoundError("profile not found")
     now = _timestamp(checked_at)
@@ -351,7 +374,7 @@ def check_local_upstage_binding(
         model_hash_ok = expected is not None and model_sha256 == expected
     add(
         "model_binding",
-        binding.get("role") == "extractor"
+        binding.get("role") == expected_role
         and binding.get("model_id") in ("solar-pro3", "solar-pro4")
         and model_hash_ok
         and binding.get("endpoint") == "https://api.upstage.ai/v1/chat/completions"
@@ -393,4 +416,74 @@ def check_local_upstage_binding(
         tuple(checks),
         hashlib.sha256(canonical_json(dict(binding)).encode("ascii")).hexdigest(),
         checked_at,
+    )
+
+
+def check_local_upstage_tagger(
+    *,
+    binding: Mapping[str, Any],
+    consent: Mapping[str, Any],
+    auth: AuthContext,
+    checked_at: str,
+    source_sha256: str,
+    document_rights: str,
+    settings,
+) -> Preflight:
+    """Separate local tagger approval, not worker activation or token authorization.
+
+    A trusted registry binding must pin the entire TaggingSettings value. The
+    caller must independently enforce source validation, run token accounting,
+    the shared USD ledger and lease/cancellation fences before every dispatch.
+    Legacy extractor bindings never authorize this role and are not rewritten.
+    """
+    from proofops.application.tagging.service import TaggingSettings
+
+    if (
+        not isinstance(settings, TaggingSettings)
+        or not isinstance(source_sha256, str)
+        or not re.fullmatch(r"[0-9a-f]{64}", source_sha256)
+        or not _text(document_rights)
+        or document_rights == "*"
+    ):
+        raise ValueError("invalid local tagger preflight input")
+    common = _check_local_upstage_binding(
+        binding=binding,
+        consent=consent,
+        auth=auth,
+        checked_at=checked_at,
+        source_sha256=source_sha256,
+        include_live_model_probe=False,
+        model_sha256=canonical_hash(
+            dict(model=settings.model_id, provider="upstage", transport="UpstageProbe")
+        ),
+        expected_role="tagger",
+    )
+    pinned = (
+        binding.get("schema") == "local_upstage_tagger_binding_v1"
+        and binding.get("tagging_settings_sha256") == canonical_hash(asdict(settings))
+        and settings.binding.binding_id == binding.get("runtime_binding_id")
+        and settings.binding.role == "tagger"
+        and settings.binding.synthetic is False
+        and settings.model_id == binding.get("model_id")
+        and settings.model_profile == "upstage-compact-ids-frozen-unicode-v1"
+        and settings.region == "provider-managed-unverified"
+        and type(settings.temperature) in (int, float)
+        and settings.temperature == 0
+        and type(settings.max_tokens) is int
+        and 1 <= settings.max_tokens <= 4096
+        and type(settings.extraction_epoch) is int
+        and settings.extraction_epoch > 0
+    )
+    rights = consent.get("allowed_document_rights")
+    authorized_rights = isinstance(rights, list | tuple) and document_rights in rights
+    checks = common.checks + (
+        Check("tagging_settings", "pass" if pinned else "fail", "frozen local tagger settings"),
+        Check(
+            "selected_document_rights",
+            "pass" if authorized_rights else "fail",
+            "exact local document rights approval",
+        ),
+    )
+    return Preflight(
+        common.ready and pinned and authorized_rights, checks, common.binding_sha256, checked_at
     )

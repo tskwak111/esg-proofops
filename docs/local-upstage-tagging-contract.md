@@ -2,7 +2,7 @@
 
 This is an opt-in local transport plus evaluation checkpoint, not activation of
 production tagging. `UpstageTaggingTransport` accepts caller-owned UpstageProbe,
-TaggingSettings and tenant scope; it reads no credential/environment and chooses
+TaggingSettings, tenant scope and a trusted per-dispatch authorization callback; it reads no credential/environment and chooses
 no deployment region. The existing LocalTagRunner still rejects non-synthetic
 transports. No API DTO or database migration is introduced.
 
@@ -38,7 +38,9 @@ produces no usable expanded response; valid billed usage remains settled.
 
 ## Budget, failure and recovery
 
-Real evaluations use only `.local/upstage/budget.sqlite3`, cumulative USD10.
+Real evaluations use only `.local/upstage/budget.sqlite3`, cumulative USD20
+(prior USD10 plus the explicit 2026-09-18 USD10 extension, including old expenses
+and unsettled reservations; never reset the ledger).
 UpstageProbe reserves/settles once per request. Never create another monetary
 ledger to extend the budget. The generic tagging service's run usage store may
 serve as a token/dispatch gate with pricing=None, but is not a second USD authority.
@@ -99,3 +101,55 @@ profile hashes the new routing rule, so new runs have distinct provenance.
 Source-quality approval, actual worker/API non-synthetic tagging composition,
 semantic gold/holdout thresholds and production deployment remain open. See
 `evidence/upstage-tagging-verification.md` for measured diagnostics and failures.
+
+
+## Separate local tagger approval — 2026-09-18
+
+`check_local_upstage_tagger` is a pure approval check, separate from the existing
+extractor-only `check_local_upstage_binding`. It requires a concrete source hash
+and exact document-rights ID, an approved/unexpired tenant-scoped Upstage tagger
+binding, and schema `local_upstage_tagger_binding_v1`. That binding contains
+`tagging_settings_sha256 = canonical_hash(asdict(settings))`, pinning the entire
+TaggingSettings value (binding/model/profile/region/prompt/output schema/output
+cap/temperature/epoch/response limit). It does not accept an extractor grant.
+The provider endpoint and shared USD10/USD20 policy vocabulary are reused, not
+the extractor identity or optional-source legacy semantics.
+
+The tagger must be non-synthetic, bound by the same UUID/model ID, use the existing
+compact-wire model profile and provider-managed-unverified region, temperature0,
+strict integer output cap1..4096 and positive integer extraction epoch. A settings
+hash match does not override these limits. Source membership and selected rights
+are checked against the consent allowlists. Processing regions and live probe
+remain not_run; local approval is not deployment approval.
+
+`UpstageTaggingTransport(..., authorize=callback)` now requires a trusted composition
+callback taking `(settings, request)` and returning this preflight.
+It must resolve the request packet hash to its trusted source/rights snapshot,
+then resolve trusted approval/consent artifacts and the current time on each
+invocation, never return a cached `ready=True` or accept model/request-body grants.
+The callback is executable composition code, not a serialized snapshot field.
+The transport cannot reconstruct source bytes/rights from model-visible text;
+passing an unrelated approved source hash is forbidden. This packet-to-source
+resolution remains required in the future worker composition.
+Full approval artifacts must remain in the caller's frozen audit inputs.
+
+Both input counting and invocation independently call the callback before token
+counting/paid reservation. All eight required local tagger checks must pass. An invalid/blocked, incomplete
+or extractor-only preflight raises
+`UPSTAGE_TAGGING_AUTHORIZATION_REQUIRED`; no model request directory or ledger
+reservation is created. A success receipt adds the complete preflight result
+(binding SHA256, checked_at and checks) as `authorization`, preserving the exact
+model wire content and existing model/profile/cache identities.
+
+This is a deliberate internal Python constructor compatibility change. All tracked
+call sites (two integration fixture construction sites) supply the callback. Other
+local diagnostic callers must migrate by supplying the actual trusted tagger check;
+there is no allow-all fallback. Existing receipts are not rewritten and synthetic
+service composition is unchanged. No API DTO or database migration is introduced.
+Rollback must disable real tagger callers before restoring the old constructor;
+retain all approval and request/response artifacts and the shared ledger.
+
+This does not yet connect a real tagger to LocalTagRunner: separate extractor/tagger
+run snapshots, token counter composition and durable preliminary/relationship
+suppliers remain required. No synthetic byte count is promoted to a real token
+count, no LLM computes a grade, and no rulepack or source guard is relaxed.

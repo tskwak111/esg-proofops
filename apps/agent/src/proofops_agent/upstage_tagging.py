@@ -16,6 +16,7 @@ from time import monotonic_ns
 
 from proofops.adapters.local.upstage import UPSTAGE_TRANSPORT_STOP_CODES, UpstageProbe
 from proofops.application.budget import TokenUsage
+from proofops.application.preflight import Preflight, PreflightBlocked
 from proofops.application.tagging.service import RawTagResponse, TaggingSettings
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
@@ -30,7 +31,13 @@ class UpstageTaggingTransport:
     synthetic = False
 
     def __init__(
-        self, probe: UpstageProbe, receipts: Path, *, settings: TaggingSettings, tenant_id: str
+        self,
+        probe: UpstageProbe,
+        receipts: Path,
+        *,
+        settings: TaggingSettings,
+        tenant_id: str,
+        authorize: Callable[[TaggingSettings, dict], Preflight],
     ):
         _require_uuid("tenant_id", tenant_id)
         if (
@@ -42,6 +49,9 @@ class UpstageTaggingTransport:
             or settings.region != "provider-managed-unverified"
         ):
             raise ValueError("UPSTAGE_TAGGING_BINDING_INVALID")
+        if not callable(authorize):
+            raise ValueError("UPSTAGE_TAGGING_AUTHORIZER_REQUIRED")
+        self._authorize = authorize
         self._probe, self._settings, self._tenant = probe, settings, tenant_id
         self._receipts = Path(receipts)
         self._receipts.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -61,11 +71,29 @@ class UpstageTaggingTransport:
         The counter must include model chat framing; no character/byte estimate
         or tokenizer from another model is supplied here. No receipt or paid call.
         """
-        system, user, _ = self._wire_request(request)
+        system, user, _, _ = self._wire_request(request)
         return counter(system, user)
 
-    def _wire_request(self, request: dict) -> tuple[str, str, dict[str, dict]]:
+    def _wire_request(self, request: dict) -> tuple[str, str, dict[str, dict], Preflight]:
         settings = self._settings
+        authorization = self._authorize(settings, request)
+        if (
+            not isinstance(authorization, Preflight)
+            or authorization.ready is not True
+            or any(check.status == "fail" for check in authorization.checks)
+            or not {
+                "runtime_approval",
+                "consent_approval",
+                "model_binding",
+                "document_scope",
+                "document_rights",
+                "data_consent",
+                "tagging_settings",
+                "selected_document_rights",
+            }
+            <= {check.name for check in authorization.checks if check.status == "pass"}
+        ):
+            raise PreflightBlocked("UPSTAGE_TAGGING_AUTHORIZATION_REQUIRED")
         for name in ("tenant_id", "claim_id", "request_id"):
             _require_uuid(name, request[name])
         for name in ("packet_sha256", "request_signature"):
@@ -138,12 +166,12 @@ class UpstageTaggingTransport:
             "coordinates, offsets or verification state. The server restores those exactly."
         )
         wire_user = json.dumps(user, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-        return wire_system, wire_user, refs
+        return wire_system, wire_user, refs, authorization
 
     def _invoke(self, request: dict) -> RawTagResponse:
         settings = self._settings
         system = request["system_prompt"]
-        wire_system, wire_user, refs = self._wire_request(request)
+        wire_system, wire_user, refs, authorization = self._wire_request(request)
         stop = self._receipts / "transport-stop.json"
         # ponytail: bounded local operation; index receipts if ensembles grow large.
         incomplete = any(
@@ -171,6 +199,7 @@ class UpstageTaggingTransport:
                     wire_prompt_sha256=canonical_hash(wire_system),
                     transport_version="compact-evidence-ids-v1",
                     evidence_refs=refs,
+                    authorization=authorization.to_dict(),
                 )
             ),
         )

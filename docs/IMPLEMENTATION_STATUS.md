@@ -3,6 +3,15 @@
 The approved plan is docs/19_IMPLEMENTATION_PLAN.md and the dependency graph in
 contracts/task_catalog.json. This file records execution; it does not replace that plan.
 
+## Developer A tagger authorization — 2026-09-18 KST
+
+Added a separate local tagger preflight with full settings hash and mandatory
+source/rights scope. The real transport requires a trusted callback before each
+count/invoke, rejects extractor-only approvals, and retains the dispatch approval
+in its receipt. Expiry between counting and invoking is covered without model
+spend. No real calls or budget change in this increment; service runtime/token
+composition remains blocked. See [verification](../evidence/tagger-authorization-20260918.md).
+
 ## Developer A preliminary classification — 2026-09-18 KST
 
 Source-bound request/response validation and per-claim unresolved-track handling
