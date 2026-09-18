@@ -19,6 +19,7 @@ from proofops.application.preflight import (
     combine_build_checks,
 )
 from proofops.application.registry import RegistryNotFound, artifact_sha256
+from proofops.application.tagging.relations import SYSTEM_PROMPT as RELATION_SYSTEM_PROMPT
 from proofops.application.tagging.service import TaggingSettings
 from proofops.application.uploads_security import UploadRejected
 from proofops.domain.provenance import canonical_hash
@@ -74,6 +75,7 @@ class RunService:
         tagging_settings: TaggingSettings | None = None,
         tagging_mode: str | None = None,
         preliminary_settings: TaggingSettings | None = None,
+        relation_settings: TaggingSettings | None = None,
         input_reservation_policy=None,
         budget_limits=None,
         allowed_regions=(),
@@ -105,6 +107,8 @@ class RunService:
             preliminary_settings, TaggingSettings
         ):
             raise ValueError("trusted preliminary TaggingSettings required")
+        if relation_settings is not None and not isinstance(relation_settings, TaggingSettings):
+            raise ValueError("trusted relation TaggingSettings required")
         if input_reservation_policy is not None and not isinstance(
             input_reservation_policy, Mapping
         ):
@@ -116,6 +120,7 @@ class RunService:
         self.extraction_limits = _detach(extraction_limits)
         self.tagging_settings, self.tagging_mode = tagging_settings, tagging_mode
         self.preliminary_settings = preliminary_settings
+        self.relation_settings = relation_settings
         self.input_reservation_policy = (
             _detach(dict(input_reservation_policy))
             if input_reservation_policy is not None
@@ -227,13 +232,18 @@ class RunService:
             raise RunRejected("CONFIG_GATE_BLOCKED")
         tagging = self.tagging_settings
         live_tagging = self.tagging_mode == "upstage_local"
+        if self.relation_settings is not None and not live_tagging:
+            raise RunRejected("CONFIG_GATE_BLOCKED")
         if live_tagging:
             if self.extraction_mode != "upstage_probe":
                 raise RunRejected("CONFIG_GATE_BLOCKED")
             preliminary = self.preliminary_settings
+            relation = self.relation_settings
             if not isinstance(preliminary, TaggingSettings) or not isinstance(
                 tagging, TaggingSettings
             ):
+                raise RunRejected("CONFIG_GATE_BLOCKED")
+            if relation is not None and not isinstance(relation, TaggingSettings):
                 raise RunRejected("CONFIG_GATE_BLOCKED")
             if (
                 preliminary.model_profile != "upstage-preliminary-source-quotes-v1"
@@ -245,7 +255,13 @@ class RunService:
                 }
             ):
                 raise RunRejected("CONFIG_GATE_BLOCKED")
-            for pinned in (preliminary, tagging):
+            if relation is not None and (
+                relation.model_profile != "upstage-relation-source-quotes-v1"
+                or relation.system_prompt != RELATION_SYSTEM_PROMPT
+            ):
+                raise RunRejected("CONFIG_GATE_BLOCKED")
+            pinned_settings = (preliminary, tagging) + ((relation,) if relation is not None else ())
+            for pinned in pinned_settings:
                 if (
                     pinned.binding.synthetic is not False
                     or pinned.binding.role != "tagger"
@@ -265,23 +281,29 @@ class RunService:
                 tagging_runtime = _detach(
                     self.registry.resolve_profile(auth, "runtime", tagging.binding.binding_id)
                 )
+                relation_runtime = (
+                    _detach(
+                        self.registry.resolve_profile(auth, "runtime", relation.binding.binding_id)
+                    )
+                    if relation is not None
+                    else None
+                )
             except RegistryNotFound:
                 raise RunRejected("CONFIG_GATE_BLOCKED") from None
-            if (
-                len(
-                    {
-                        body["runtime_binding_id"],
-                        preliminary.binding.binding_id,
-                        tagging.binding.binding_id,
-                    }
-                )
-                != 3
-            ):
+            if len(
+                {
+                    body["runtime_binding_id"],
+                    preliminary.binding.binding_id,
+                    tagging.binding.binding_id,
+                    *((relation.binding.binding_id,) if relation is not None else ()),
+                }
+            ) != 3 + (relation is not None):
                 raise RunRejected("CONFIG_GATE_BLOCKED")
-            for pinned, bound_runtime in (
+            runtime_pairs = [
                 (preliminary, preliminary_runtime),
                 (tagging, tagging_runtime),
-            ):
+            ] + ([(relation, relation_runtime)] if relation is not None else [])
+            for pinned, bound_runtime in runtime_pairs:
                 if (
                     pinned.binding.binding_id != bound_runtime.get("runtime_binding_id")
                     or bound_runtime.get("input_reservation_policy_sha256") != policy_hash
@@ -299,7 +321,7 @@ class RunService:
                     raise RunRejected("CONFIG_GATE_BLOCKED")
             from proofops.application.input_reservation import validate_capacity_policy
 
-            for pinned in (preliminary, tagging):
+            for pinned in pinned_settings:
                 try:
                     upper = validate_capacity_policy(
                         policy,
@@ -370,6 +392,13 @@ class RunService:
                 input_reservation_policy=dict(policy),
                 input_reservation_policy_hash=policy_hash,
             )
+            if relation is not None:
+                snapshot.update(
+                    relation_settings=asdict(relation),
+                    relation_settings_hash=canonical_hash(asdict(relation)),
+                    relation_runtime=relation_runtime,
+                    relation_runtime_artifact_hash=artifact_sha256(relation_runtime),
+                )
         return self.store.create(auth, body, key, snapshot, self.budget_limits, now=now)
 
     def get(self, tenant_id, run_id):

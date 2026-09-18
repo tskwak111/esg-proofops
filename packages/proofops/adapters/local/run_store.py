@@ -104,6 +104,17 @@ class LocalSQLiteRunStore:
             if replay is not None:
                 return replay
             try:
+                relation_fields = (
+                    "relation_settings",
+                    "relation_settings_hash",
+                    "relation_runtime",
+                    "relation_runtime_artifact_hash",
+                )
+                relation_present = [field in snapshot for field in relation_fields]
+                if any(relation_present) and (
+                    not all(relation_present) or snapshot.get("tagging_mode") != "upstage_local"
+                ):
+                    raise ValueError("relation snapshot requires complete upstage_local group")
                 if snapshot.get("tagging_mode") == "upstage_local":
                     if (
                         snapshot.get("extraction_mode") != "upstage_probe"
@@ -119,6 +130,11 @@ class LocalSQLiteRunStore:
                             frozen
                         ):
                             raise ValueError("live tagging snapshot identity mismatch")
+                    if "relation_settings" in snapshot and (
+                        canonical_hash(snapshot["relation_settings"])
+                        != snapshot["relation_settings_hash"]
+                    ):
+                        raise ValueError("live tagging relation snapshot identity mismatch")
                     for label, frozen in (
                         ("preliminary_runtime", "preliminary_runtime_artifact_hash"),
                         ("tagging_runtime", "tagging_runtime_artifact_hash"),
@@ -127,6 +143,12 @@ class LocalSQLiteRunStore:
                             snapshot[label]
                         ) != snapshot.get(frozen):
                             raise ValueError("live tagging runtime identity mismatch")
+                    if (
+                        "relation_runtime" in snapshot
+                        and artifact_sha256(snapshot["relation_runtime"])
+                        != snapshot["relation_runtime_artifact_hash"]
+                    ):
+                        raise ValueError("live tagging relation runtime identity mismatch")
                     rulepack = self.rulepacks.extraction_snapshot_transaction(
                         db, tenant, body["mode"], body["rule_pack_id"]
                     )
@@ -143,7 +165,11 @@ class LocalSQLiteRunStore:
                     else:
                         snapshot = dict(snapshot, rulepack_use="candidate_tagging_reference_only")
                 elif snapshot.get("extraction_mode") == "upstage_probe":
-                    if snapshot.get("tagging_settings") or body["mode"] != "disclosure":
+                    if (
+                        snapshot.get("tagging_settings")
+                        or snapshot.get("relation_settings")
+                        or body["mode"] != "disclosure"
+                    ):
                         raise ValueError("extraction-only runtime required")
                     rulepack = self.rulepacks.extraction_snapshot_transaction(
                         db, tenant, body["mode"], body["rule_pack_id"]

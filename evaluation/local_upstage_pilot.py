@@ -23,13 +23,15 @@ import yaml  # type: ignore[import-untyped]
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def live_tagging_settings(max_calls: int) -> dict:
+def live_tagging_settings(max_calls: int, *, relations: bool = False) -> dict:
     """Explicit bounded pilot config; grants are registered separately by main."""
     from proofops.application.input_reservation import solar_pro4_capacity_policy
     from proofops.application.ports.models import ModelBinding
     from proofops.application.tagging.preliminary import SYSTEM_PROMPT
     from proofops.application.tagging.service import TaggingSettings
 
+    if type(relations) is not bool:
+        raise ValueError("relation stage must be explicit boolean")
     if type(max_calls) is not int or not 6 <= max_calls <= 60:
         raise ValueError("live tagging requires 6..60 bounded calls")
     rubric = yaml.safe_load((ROOT / "config/rubric/elements.yaml").read_text())
@@ -79,7 +81,7 @@ def live_tagging_settings(max_calls: int) -> dict:
         + json.dumps(reference, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     )
     settings = {}
-    for prefix, profile, prompt, schema, output in (
+    profiles: tuple[tuple[str, str, str, str, int], ...] = (
         (
             "preliminary",
             "upstage-preliminary-source-quotes-v1",
@@ -94,7 +96,20 @@ def live_tagging_settings(max_calls: int) -> dict:
             (ROOT / "contracts/jsonschema/llm_tags.schema.json").read_text(),
             4096,
         ),
-    ):
+    )
+    if relations:
+        from proofops.application.tagging.relations import SYSTEM_PROMPT as RELATION_PROMPT
+
+        profiles += (
+            (
+                "relation",
+                "upstage-relation-source-quotes-v1",
+                RELATION_PROMPT,
+                (ROOT / "contracts/jsonschema/source_relations.schema.json").read_text(),
+                4096,
+            ),
+        )
+    for prefix, profile, prompt, schema, output in profiles:
         settings[prefix + "_settings"] = asdict(
             TaggingSettings(
                 ModelBinding(str(uuid4()), "tagger", False),
@@ -124,10 +139,13 @@ def main():
     parser.add_argument("--verify-paragraphs", action="store_true")
     parser.add_argument("--invoke", action="store_true")
     parser.add_argument("--live-tagging", action="store_true")
+    parser.add_argument("--live-relations", action="store_true")
     parser.add_argument("--tagging-max-calls", type=int, default=12)
     parser.add_argument("--serve", action="store_true")
     parser.add_argument("--port", type=int, default=8766)
     args = parser.parse_args()
+    if args.live_relations and not args.live_tagging:
+        parser.error("--live-relations requires --live-tagging")
     pages = sorted(set(int(p) for p in args.pages.split(",")))
     if not 1 <= args.max_calls <= 20 or not pages or min(pages) < 1:
         parser.error("invalid declared pages/call limit")
@@ -167,7 +185,9 @@ def main():
             ),
         )
         if args.live_tagging:
-            settings.update(live_tagging_settings(args.tagging_max_calls))
+            settings.update(
+                live_tagging_settings(args.tagging_max_calls, relations=args.live_relations)
+            )
             bound = settings["input_reservation_policy"]["reservation_input_tokens"]
             settings["budget_limits"]["input_tokens"] += bound * args.tagging_max_calls
             settings["budget_limits"]["output_tokens"] += 4096 * args.tagging_max_calls
@@ -281,7 +301,9 @@ def main():
             from proofops.domain.provenance import canonical_hash
 
             settings = json.loads((state / "settings.json").read_text())
-            for prefix in ("preliminary", "tagging"):
+            for prefix in ("preliminary", "tagging") + (
+                ("relation",) if args.live_relations else ()
+            ):
                 pinned = settings[prefix + "_settings"]
                 identifier = pinned["binding"]["binding_id"]
                 profiles.append(
@@ -386,10 +408,14 @@ def main():
             live_tagging=args.live_tagging,
             tagging_max_calls=args.tagging_max_calls if args.live_tagging else None,
         )
+        if args.live_relations:
+            manifest["live_relations"] = True
         with manifest_path.open("x") as stream:
             json.dump(manifest, stream, ensure_ascii=False, indent=2)
     else:
         manifest = json.loads(manifest_path.read_text())
+        if manifest.get("live_relations", False) != args.live_relations:
+            raise ValueError("pilot relation policy changed; create a new state directory")
         if manifest.get("live_tagging", False) != args.live_tagging or (
             args.live_tagging and manifest.get("tagging_max_calls") != args.tagging_max_calls
         ):

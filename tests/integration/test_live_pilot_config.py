@@ -62,3 +62,43 @@ def test_element_prompt_contains_rule_names_and_field_semantics():
         assert element["name"] in prompt
     assert "credited_from must be null" in prompt
     assert "not an approval" in prompt
+
+
+def test_relation_pilot_settings_are_opt_in_and_have_their_own_output_schema():
+    import json
+
+    import jsonschema
+    from proofops.application.tagging.relations import SYSTEM_PROMPT
+
+    assert "relation_settings" not in live_tagging_settings(12)
+    result = live_tagging_settings(18, relations=True)
+    relation = result["relation_settings"]
+    assert relation["model_profile"] == "upstage-relation-source-quotes-v1"
+    assert relation["system_prompt"] == SYSTEM_PROMPT
+    assert (
+        len(
+            {
+                result[p + "_settings"]["binding"]["binding_id"]
+                for p in ("preliminary", "tagging", "relation")
+            }
+        )
+        == 3
+    )
+    schema = json.loads(relation["schema_json"])
+    jsonschema.Draft202012Validator.check_schema(schema)
+    sample = {
+        "relations": [
+            {
+                "source_index": 0,
+                "dimensions": {
+                    "entity": None,
+                    "metric": None,
+                    "reporting_period": None,
+                },
+            }
+        ]
+    }
+    jsonschema.validate(sample, schema)
+    sample["relations"][0]["dimensions"]["grade"] = None
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(sample, schema)

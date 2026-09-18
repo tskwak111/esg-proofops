@@ -66,6 +66,7 @@ def _fake_post_factory(calls):
     """
 
     from proofops.application.tagging.preliminary import SYSTEM_PROMPT as PRELIM_SYSTEM
+    from proofops.application.tagging.relations import SYSTEM_PROMPT as RELATION_SYSTEM
     from proofops_agent.upstage_extraction import SYSTEM_PROMPT as EXTRACT_SYSTEM
 
     def post(body):
@@ -82,6 +83,19 @@ def _fake_post_factory(calls):
             payload = json.loads(user_raw)
             text = payload["untrusted_document_data"]["text"].strip()
             content = json.dumps({"claims": [text]}, ensure_ascii=False)
+        elif system.startswith(RELATION_SYSTEM):
+            envelope = json.loads(user_raw)
+            content = json.dumps(
+                dict(
+                    relations=[
+                        dict(
+                            source_index=source["source_index"],
+                            dimensions=dict(entity=None, metric=None, reporting_period=None),
+                        )
+                        for source in envelope["untrusted_document_data"]["sources"]
+                    ]
+                )
+            )
         elif system.startswith(PRELIM_SYSTEM):
             envelope = json.loads(user_raw)
             content = json.dumps(
@@ -142,7 +156,7 @@ def _fake_post_factory(calls):
     return post
 
 
-def _pipeline_setup(tmp_path, monkeypatch):
+def _pipeline_setup(tmp_path, monkeypatch, *, relation_stage=False):
     """Build a genuine upstage_local run plus parse/extract checkpoints."""
     from proofops.application.rulepacks import RulePackRecord
     from proofops_worker.extract_runner import LocalExtractRunner
@@ -156,6 +170,10 @@ def _pipeline_setup(tmp_path, monkeypatch):
 
     monkeypatch.setattr(lifecycle, "pdf", lambda count: pdf())
     service, body, _, _ = _live_service(tmp_path)
+    if relation_stage:
+        from tests.integration.test_relation_runtime_config import _relation
+
+        service.relation_settings = _relation(service)
     tenant = AUTH.tenant_id
     from proofops.application.registry import Registry
 
@@ -198,6 +216,29 @@ def _pipeline_setup(tmp_path, monkeypatch):
         # quality claim: this entire adapter and its verification are mocked.
         def parse(self, source, profile, *, tenant_id):
             graph = super().parse(source, profile, tenant_id=tenant_id)
+            if relation_stage:
+                from proofops.application.ingest.graph_fusion import fuse_candidates
+
+                batch = graph.candidates[0]
+                candidate = batch.blocks[0]
+                text = candidate.source.raw_text + " Supporting context."
+                extra = replace(
+                    candidate,
+                    source=replace(
+                        candidate.source,
+                        source_native_id="external-context",
+                        native_bbox=(72, 600, 550, 640),
+                        raw_text=text,
+                        char_end=len(text),
+                    ),
+                )
+                graph = fuse_candidates(
+                    (replace(batch, blocks=batch.blocks + (extra,)),), tenant_id=tenant_id
+                )
+                graph = replace(
+                    graph,
+                    blocks=tuple(replace(block, quality="verified") for block in graph.blocks),
+                )
             return replace(
                 graph,
                 candidates=tuple(replace(batch, synthetic=False) for batch in graph.candidates),

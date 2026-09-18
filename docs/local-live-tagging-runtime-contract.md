@@ -152,7 +152,7 @@ old artifacts remain immutable and require their pinned original verifier for
 exact replay. Rollback disables the new worker policy and preserves all receipts.
 No API or database migration is required.
 
-## Cross-source role extraction extension (implementation in progress)
+## Opt-in cross-source role extraction
 
 The new internal `application/tagging/relations.py` boundary operates on verified
 whole canonical source refs selected from the frozen retrieval packet. It does
@@ -173,22 +173,30 @@ all relevant axes. Model-proposed roles never certify those relationships. The
 current local scoped-role resolver continues to shadow whole-source maps for
 atomic claims; this extension must not overwrite those local entries.
 
-Runtime integration remains pending: add a separately authorized relation
-settings/runtime binding and immutable receipt stage after retrieval and before
-element tagging. Each replica reads the same ordered source catalog; only
-matching validated role maps may be supplied to the existing binding guard.
-Retain all raw responses and disagreements, count calls in the original ledger,
-reuse the existing lease/capacity/reservation fences, and stop incomplete paid
-attempts instead of retrying. One request/receipt is bound to the real claim and
-its frozen packet, never to a fabricated evidence Claim. Caller-scoped batching
-must not reuse authorization across unrelated tenant/document/packet scopes.
+Optional `relation_settings` and a distinct `relation_runtime` grant enable a
+receipt stage after retrieval and before element tagging. Each of three replicas
+reads the same ordered source catalog. Only matching validated role maps and
+three distinct provider request IDs proceed to the existing binding guard. Raw
+responses, request/packet/graph/prompt hashes and disagreements are retained;
+calls use the existing ledger, lease, capacity and reservation fences. Incomplete
+paid attempts stop without retry. A request belongs to the real claim and its
+frozen packet, never a fabricated evidence Claim. Relation failure leaves the
+claim with `RELATION_TAGS_UNRESOLVED`, without dispatching its element calls.
+No eligible external source means no relation call and no inferred absence.
 
-Compatibility: this helper alone changes no HTTP DTO, DB table, run snapshot or
-live provider dispatch. Subsequent integration must use optional frozen settings
-and distinct grant hashes; snapshots without them keep the existing behavior.
-Old reviews remain immutable. Rollback disables the optional new stage and keeps
-its receipts; it cannot silently reinterpret those receipts as legacy inputs.
-No cloud/API call or service-level accuracy is established by helper tests.
+Compatibility: no new HTTP DTO or DB table. The optional frozen group contains
+`relation_settings`, `relation_settings_hash`, `relation_runtime` and
+`relation_runtime_artifact_hash`; partial groups are rejected. Snapshots without
+these keys keep existing behavior and pins. Both live configuration and the
+store enforce the opt-in mode; the grant is distinct from extractor, preliminary
+and element grants. Old reviews remain immutable. Rollback disables the stage
+for new runs and retains the updated reader and original receipts for new-format
+snapshots. It must not drop relation pins and reinterpret them as legacy inputs.
+Use `--live-tagging --live-relations --tagging-max-calls N` for a fresh pilot state;
+the total tagger call cap includes preliminary, relation and element calls.
+Schema: `contracts/jsonschema/source_relations.schema.json`. Transport profile:
+`upstage-relation-source-quotes-v1`. A model-bound result remains candidate
+semantic tagging, not independent gold or rule approval.
 
 Integration acceptance must cover: revoked grant before reservation; frozen
 catalog/schema/settings mismatch; three genuinely distinct replica request IDs;

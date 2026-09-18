@@ -1,9 +1,9 @@
 {
-  "checked_at": "2026-09-18T20:05:11.570305+00:00",
+  "checked_at": "2026-09-18T20:22:59.761144+00:00",
   "scope": "documentation, structured contracts and synthetic schema examples only",
   "status": "passed",
-  "checks_total": 844,
-  "passed": 844,
+  "checks_total": 847,
+  "passed": 847,
   "failed": 0,
   "counts": {
     "numbered_documents": 34,
@@ -695,6 +695,11 @@
     },
     {
       "name": "json:contracts/jsonschema/llm_tags.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:contracts/jsonschema/source_relations.schema.json",
       "passed": true,
       "detail": ""
     },
@@ -3690,6 +3695,16 @@
     },
     {
       "name": "schema_refs:llm_tags.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "schema_meta:source_relations.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "schema_refs:source_relations.schema.json",
       "passed": true,
       "detail": ""
     },

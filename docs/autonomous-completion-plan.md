@@ -809,3 +809,48 @@ checks passed. Final full local suite:2507passed,7skipped,2existingwarnings in
 183.99s (/tmp/proofops-relations-full-suite.txt). Ruff check/format, targeted mypy,
 architecture validation, proofops build and package documentation/contracts checks
 passed. No additional model calls occurred in this implementation.
+
+
+### 2026-09-19 · Optional live relation runtime and actual pilot
+
+Connected the source-relations-v1 validator through a separately authorized
+Upstage relation profile, optional frozen configuration/pins, source-stage receipt
+recovery and a three-replica worker stage before element tagging. Reuses the
+existing transport and source-replica loop. Only whole verified references already
+in the retrieval packet are eligible; local claim roles retain precedence.
+Incomplete or disagreeing relation responses block this claim without assigning
+absence. Existing snapshots without the optional group retain their old path.
+Pilot opt-in: --live-tagging --live-relations; the tagging cap includes all stages.
+No HTTP/DB migration or new dependency. Disabling the option requires a fresh run;
+existing immutable revisions and receipts are preserved.
+
+Orca transport task task_9b4aaa27e28e (Terra) and configuration task
+task_ebea57653f7d (Luna) completed and were released/acknowledged. Coordinator
+review reproduced and corrected two faults before acceptance: the relation wire
+must retain the rendered JSON schema instructions, and extraction-only mode must
+reject supplied relation settings rather than silently ignore them. Additional
+checks cover profile/prompt/model/grant mismatches, optional pins and immutable
+replay; the synthetic pipeline exercises 18 tagger requests across two claims.
+
+Final local validation: 2540 passed, 7 skipped, 2 existing warnings (181.53s);
+Ruff and formatting passed; mypy passed for 182 source files; build passed;
+package documentation/contracts validator passed 847 checks. Logs are under
+/tmp/proofops-relations-runtime-*. Existing-head CI35389820972 passed, but does
+not cover these uncommitted runtime changes. No broad accuracy claim follows.
+
+Actual pilot f079a78d-7830-42c0-b7a5-094057d8d8da completed, KB2025 physical
+page30: 23 provider attempts, USD0.0125277900. Six claims: four blocked by source
+validation, one blocked by disagreeing relation replicas, one reached review.
+All six relation replies passed literal-shape validation; one claim disagreed
+on header entity/year roles and the other agreed on all-null roles. Successful
+cross-source attribution is therefore NOT demonstrated. In the remaining review,
+eight raw present votes became two present and six unknown; the latter six had
+literal-value mismatches. This is a fresh narrow pilot, not controlled A/B or gold
+accuracy. No grade emitted. Evidence: live-tagging-kb-relations-20260919.json.
+Shared ledger: 1622 calls, USD9.0786999200 committed/reserved, seven unsettled
+retained without reset/refund, within the existing USD20 ceiling.
+
+Next priorities remain source verification coverage, preventing irrelevant header
+retrieval, semantic element precision and representative independent gold data.
+The optional relation path works mechanically but is not ready as a default:
+strict whole-map agreement can block otherwise usable local evidence.

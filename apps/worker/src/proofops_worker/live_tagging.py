@@ -11,14 +11,17 @@ from proofops.adapters.local.upstage import request_usage
 from proofops.application.authorization import AuthContext
 from proofops.application.budget import BudgetCall, BudgetExceeded, TokenUsage
 from proofops.application.evidence.binding import local_relation_tags
+from proofops.application.evidence.citations import verify_source_ref
 from proofops.application.input_reservation import validate_capacity_policy
 from proofops.application.ports.jobs import LeaseLost
 from proofops.application.preflight import check_local_upstage_tagger
 from proofops.application.registry import Registry, artifact_sha256
 from proofops.application.tagging.preliminary import preliminary_request, validate_preliminary
+from proofops.application.tagging.relations import relation_request, validate_relations
 from proofops.application.tagging.service import RawTagResponse
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
+from proofops.domain.values import _source_ref_from_dict
 from proofops_agent.upstage_preliminary import UpstagePreliminaryTransport
 from proofops_agent.upstage_tagging import UpstageTaggingTransport
 
@@ -55,6 +58,10 @@ class LiveTaggingRuntime:
         )
         self.allowed_packets = set()
         self.preliminary_records = {}
+        self.relation_records = {}
+        self.relation_settings = (
+            tagging_settings(snapshot, relation=True) if "relation_settings" in snapshot else None
+        )
         self.request_ids = set()
         self.previously_accounted = {
             identifier
@@ -75,6 +82,16 @@ class LiveTaggingRuntime:
             tenant_id=graph.tenant_id,
             authorize=self._authorize,
         )
+        if self.relation_settings is not None:
+            from proofops_agent.upstage_relations import UpstageRelationsTransport
+
+            self.relation_transport = UpstageRelationsTransport(
+                probe,
+                self.receipts / "relation",
+                settings=self.relation_settings,
+                tenant_id=graph.tenant_id,
+                authorize=self._authorize,
+            )
         self._capacity(self.settings.model_id)
 
     def _capacity(self, model_id):
@@ -92,10 +109,19 @@ class LiveTaggingRuntime:
 
     def _authorize(self, settings, request):
         self._fence()
-        prefix = "preliminary" if settings == self.preliminary_settings else "tagging"
-        if settings != getattr(
-            self, "preliminary_settings" if prefix == "preliminary" else "settings"
-        ):
+        prefix = next(
+            (
+                name
+                for name, selected in (
+                    ("preliminary", self.preliminary_settings),
+                    ("tagging", self.settings),
+                    ("relation", self.relation_settings),
+                )
+                if selected is not None and settings == selected
+            ),
+            None,
+        )
+        if prefix is None:
             raise ValueError("LIVE_TAGGING_SETTINGS_MISMATCH")
         if (request.get("claim_id"), request.get("packet_sha256")) not in self.allowed_packets:
             raise ValueError("LIVE_TAGGING_PACKET_NOT_AUTHORIZED")
@@ -156,14 +182,130 @@ class LiveTaggingRuntime:
 
     def preliminary(self, claim, graph):
         packet = preliminary_request(claim, graph, tenant_id=self.auth.tenant_id)
+
+        def validate(raw):
+            result = validate_preliminary(claim, graph, raw, tenant_id=self.auth.tenant_id)
+            return result, dict(
+                track=asdict(result.track) if result.track else None,
+                dimensions={
+                    key: asdict(value) if value else None
+                    for key, value in result.context.dimensions.items()
+                },
+                safe_harbor_category=result.safe_harbor_category,
+            )
+
+        results = self._source_replicas(
+            "preliminary",
+            claim,
+            packet,
+            self.preliminary_settings,
+            self.preliminary_transport,
+            self.preliminary_records,
+            validate,
+        )
+        if results is None or results[0].track is None:
+            return None
+        context = results[0].context
+        return results[0].track, context, local_relation_tags(context)
+
+    def relations(self, claim, packet):
+        """Tag only verified external sources already present in this frozen packet."""
+        self.relation_records[claim.claim_id] = []
+        if self.relation_settings is None:
+            return {}
+        try:
+            data = packet.to_dict()
+            expected = dict(
+                tenant_id=self.auth.tenant_id,
+                run_id=self.snapshot["run_id"],
+                claim_id=claim.claim_id,
+                document_version_id=self.graph.document_version_id,
+                parse_manifest_id=self.graph.parse_manifest_id,
+                source_sha256=self.graph.source_sha256,
+                graph_sha256=canonical_hash(asdict(self.graph)),
+                status="candidate",
+            )
+            if any(data.get(key) != value for key, value in expected.items()):
+                raise ValueError("RELATION_PACKET_MISMATCH")
+            if (
+                claim.tenant_id,
+                claim.document_version_id,
+                claim.parse_manifest_id,
+                claim.source_sha256,
+            ) != (
+                self.auth.tenant_id,
+                self.graph.document_version_id,
+                self.graph.parse_manifest_id,
+                self.graph.source_sha256,
+            ):
+                raise ValueError("RELATION_CLAIM_MISMATCH")
+            local = {ref.source_id for ref in claim.source_refs}
+            blocks = {block.source_id: block for block in self.graph.blocks}
+            selected = {}
+            for candidate in data["evidence_candidates"]:
+                for raw in candidate["source_refs"]:
+                    ref = _source_ref_from_dict(raw)
+                    if ref.source_id in local:
+                        continue
+                    source = verify_source_ref(ref, self.graph, tenant_id=self.auth.tenant_id)
+                    block = blocks.get(ref.source_id)
+                    if source.verification_state != "verified" or block is None:
+                        continue
+                    canonical = verify_source_ref(
+                        block.source_ref(), self.graph, tenant_id=self.auth.tenant_id
+                    )
+                    if source != canonical or source.quote != ref.quote:
+                        continue  # Never widen a selected substring to its parent paragraph.
+                    selected[ref.source_id] = source
+            sources = tuple(selected.values())
+            if not sources:
+                return {}
+            envelope = relation_request(sources, self.graph, tenant_id=self.auth.tenant_id) | {
+                "claim_id": claim.claim_id,
+                "retrieval_packet_sha256": packet.packet_sha256,
+            }
+        except (ValueError, KeyError, TypeError, AttributeError):
+            return None
+
+        def validate(raw):
+            roles = validate_relations(sources, self.graph, raw, tenant_id=self.auth.tenant_id)
+            values = {
+                sid: {name: asdict(ref) if ref else None for name, ref in dimensions.items()}
+                for sid, dimensions in roles.items()
+            }
+            return roles, values
+
+        results = self._source_replicas(
+            "relation",
+            claim,
+            envelope,
+            self.relation_settings,
+            self.relation_transport,
+            self.relation_records,
+            validate,
+            retrieval_packet_sha256=packet.packet_sha256,
+        )
+        return results[0] if results is not None else None
+
+    def _source_replicas(
+        self,
+        prefix,
+        claim,
+        packet,
+        settings,
+        transport,
+        record_store,
+        validate,
+        *,
+        retrieval_packet_sha256=None,
+    ):
         packet_hash = canonical_hash(packet)
         self.allow_packet(claim.claim_id, packet_hash)
-        settings = self.preliminary_settings
         records, results, signatures, provider_ids = [], [], [], []
-        self.preliminary_records[claim.claim_id] = records
+        record_store[claim.claim_id] = records
         for replica in (1, 2, 3):
             request_id = str(
-                uuid5(UUID(self.lease.message.job_id), f"preliminary:{claim.claim_id}:{replica}")
+                uuid5(UUID(self.lease.message.job_id), f"{prefix}:{claim.claim_id}:{replica}")
             )
             request = dict(
                 tenant_id=self.auth.tenant_id,
@@ -181,11 +323,13 @@ class LiveTaggingRuntime:
                 max_tokens=settings.max_tokens,
                 input_reservation_policy_sha256=self.snapshot["input_reservation_policy_hash"],
             )
+            if retrieval_packet_sha256 is not None:
+                request["retrieval_packet_sha256"] = retrieval_packet_sha256
             request["request_signature"] = canonical_hash(request)
             call = BudgetCall(
                 self.auth.tenant_id,
                 self.snapshot["run_id"],
-                graph.document_version_id,
+                self.graph.document_version_id,
                 request_id,
                 1,
                 "tagger",
@@ -195,11 +339,11 @@ class LiveTaggingRuntime:
                 request["request_signature"],
                 replica,
             )
-            directory = self.receipts / "preliminary" / request_id
+            directory = self.receipts / prefix / request_id
             record = dict(request_id=request_id, replicate_id=replica, status="unresolved")
             records.append(record)
             try:
-                capacity = self.preliminary_transport.count_input_tokens(
+                capacity = transport.count_input_tokens(
                     request, counter=lambda system, user: self._capacity(settings.model_id)
                 )
                 if directory.exists():
@@ -208,7 +352,7 @@ class LiveTaggingRuntime:
                         retained["request"] != request
                         or not (directory / "response.json").is_file()
                     ):
-                        raise ValueError("PRELIMINARY_RECEIPT_INCOMPLETE_OR_MISMATCH")
+                        raise ValueError(prefix.upper() + "_RECEIPT_INCOMPLETE_OR_MISMATCH")
                     raw = json.loads((directory / "response.json").read_text())
                     response = RawTagResponse(**(raw | {"usage": TokenUsage(**raw["usage"])}))
                 else:
@@ -219,11 +363,11 @@ class LiveTaggingRuntime:
                         pricing=None,
                         now=int(self.runner.clock()),
                     ):
-                        raise ValueError("PRELIMINARY_PENDING_CALL")
+                        raise ValueError(prefix.upper() + "_PENDING_CALL")
                     self._fence()
                     if not self.runner.store.usage.mark_dispatched(call):
-                        raise ValueError("PRELIMINARY_PENDING_CALL")
-                    response = self.preliminary_transport.invoke(request)
+                        raise ValueError(prefix.upper() + "_PENDING_CALL")
+                    response = transport.invoke(request)
                 self.runner.store.usage.record_usage(
                     call, response.usage, now=int(self.runner.clock())
                 )
@@ -232,28 +376,15 @@ class LiveTaggingRuntime:
                     or response.usage.status != "succeeded"
                     or not response.raw_response_json
                 ):
-                    raise ValueError("PRELIMINARY_PROVIDER_FAILED")
-                result = validate_preliminary(
-                    claim,
-                    graph,
-                    json.loads(response.raw_response_json),
-                    tenant_id=self.auth.tenant_id,
-                )
-                values = dict(
-                    track=asdict(result.track) if result.track else None,
-                    dimensions={
-                        key: asdict(value) if value else None
-                        for key, value in result.context.dimensions.items()
-                    },
-                    safe_harbor_category=result.safe_harbor_category,
-                )
+                    raise ValueError(prefix.upper() + "_PROVIDER_FAILED")
+                result, values = validate(json.loads(response.raw_response_json))
                 record.update(
                     status="validated_candidate",
                     values=values,
                     raw_response_sha256=canonical_hash(response.raw_response_json),
                 )
                 if not response.usage.provider_request_id:
-                    raise ValueError("PRELIMINARY_PROVIDER_ID_REQUIRED")
+                    raise ValueError(prefix.upper() + "_PROVIDER_ID_REQUIRED")
                 results.append(result)
                 signatures.append(canonical_hash(values))
                 provider_ids.append(response.usage.provider_request_id)
@@ -264,8 +395,6 @@ class LiveTaggingRuntime:
                 return None
             finally:
                 self.account(request_id)
-        if len(set(signatures)) != 1 or len(set(provider_ids)) != 3 or results[0].track is None:
+        if len(set(signatures)) != 1 or len(set(provider_ids)) != 3:
             return None
-        context = results[0].context
-        # Three validated replies supply roles, never approval for sibling text.
-        return results[0].track, context, local_relation_tags(context)
+        return results

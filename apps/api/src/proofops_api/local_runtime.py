@@ -25,6 +25,7 @@ _SETTINGS_FIELDS = frozenset(
         "extraction_profile",
         "tagging_settings",
         "preliminary_settings",
+        "relation_settings",
         "input_reservation_policy",
         "extraction_limits",
     }
@@ -276,6 +277,10 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
                 settings["preliminary_settings"], synthetic=False
             )
             runtime["tagging_settings"] = _tagging(settings["tagging_settings"], synthetic=False)
+            if "relation_settings" in settings:
+                runtime["relation_settings"] = _tagging(
+                    settings["relation_settings"], synthetic=False
+                )
             runtime["input_reservation_policy"] = _reservation_policy(
                 settings["input_reservation_policy"]
             )
@@ -290,10 +295,12 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
             raise _invalid()
         runtime["tagging_settings"] = _tagging(settings["tagging_settings"])
         runtime["tagging_mode"] = tagging_mode
-    elif "tagging_settings" in settings:
+    elif "tagging_settings" in settings or "relation_settings" in settings:
         raise _invalid()
     if tagging_mode != "upstage_local" and (
-        "preliminary_settings" in settings or "input_reservation_policy" in settings
+        "preliminary_settings" in settings
+        or "relation_settings" in settings
+        or "input_reservation_policy" in settings
     ):
         raise _invalid()
     return runtime

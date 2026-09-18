@@ -458,15 +458,24 @@ def check_local_upstage_tagger(
         ),
         expected_role="tagger",
     )
-    from proofops.application.tagging.preliminary import SYSTEM_PROMPT
+    from proofops.application.tagging.preliminary import SYSTEM_PROMPT as PRELIMINARY_SYSTEM_PROMPT
+    from proofops.application.tagging.relations import SYSTEM_PROMPT as RELATIONS_SYSTEM_PROMPT
 
-    profile_valid = settings.model_profile in {
-        "upstage-compact-ids-frozen-unicode-v1",
-        "upstage-compact-coverage-unicode-v2",
-        "upstage-compact-source-quotes-v3",
-    } or (
-        settings.model_profile == "upstage-preliminary-source-quotes-v1"
-        and settings.system_prompt == SYSTEM_PROMPT
+    profile_valid = (
+        settings.model_profile
+        in {
+            "upstage-compact-ids-frozen-unicode-v1",
+            "upstage-compact-coverage-unicode-v2",
+            "upstage-compact-source-quotes-v3",
+        }
+        or (
+            settings.model_profile == "upstage-preliminary-source-quotes-v1"
+            and settings.system_prompt == PRELIMINARY_SYSTEM_PROMPT
+        )
+        or (
+            settings.model_profile == "upstage-relation-source-quotes-v1"
+            and settings.system_prompt == RELATIONS_SYSTEM_PROMPT
+        )
     )
     pinned = (
         binding.get("schema") == "local_upstage_tagger_binding_v1"

@@ -163,6 +163,18 @@ class LocalTagRunner:
             packet = freeze_track_packet(original_packet, track=track, rulepack=rulepack)
             if live is not None:
                 live.allow_packet(claim.claim_id, packet.packet_sha256)
+                if snapshot.get("relation_settings") is not None:
+                    external_roles = live.relations(claim, packet)
+                    item["relation_records"] = live.relation_records.get(claim.claim_id, [])
+                    if external_roles is None:
+                        item.update(
+                            reason="RELATION_TAGS_UNRESOLVED",
+                            original_packet=original_packet.to_dict(),
+                        )
+                        records.append(item)
+                        continue
+                    # Atomic scoped roles keep precedence over any whole-source map.
+                    relation_tags = {**external_roles, **relation_tags}
 
             def invoke(request):
                 # The budget service records actual completed usage even if the fence is
