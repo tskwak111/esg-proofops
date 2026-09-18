@@ -711,3 +711,42 @@ processes settled. Evidence: live-tagging-kb-local-attribution-20260919.json.
 Remaining major work includes cross-source relationship extraction, semantic
 false positives/value-format errors, source/table coverage, independent gold,
 and human rule/deployment authority. The full goal is not complete.
+
+### 2026-09-19 · M3 framework-name semantic correction (bounded evaluation)
+
+Observed baseline: KB page30's green-bond framework sentence was labeled M3
+present in three raw replies, although it states allocation under a framework,
+not external verification. Literal-value guards previously rejected those votes;
+that formatting rejection must not be mistaken for semantic correctness.
+The pilot prompt now distinguishes named means (M1) from an explicit external
+verification action (M3), with fictional contrasting examples. No new required
+provider-name/assurance-level fields, keyword guard, grading rule, or source
+approval was added. P4 assurance coverage remains distinct. New runs receive
+new prompt hashes; old reviews are immutable.
+
+Actual fresh subset run `56c9ff6e-5cda-4448-8164-1c0c63bff89c`: 6 extracted
+claims, 4 without review, 2 candidate reviews; 20 model calls, USD0.0142553400.
+For the exact framework sentence, all three raw and guarded M3 states are
+unknown; M1 remains present in all three. Two M3 unknown responses still attach
+an irrelevant page heading. M2 present and one M4 present are NOT independently
+validated domain truth. A different claim has one LLM_SCHEMA_INVALID response.
+Fresh extraction means this is not a controlled same-packet A/B or an accuracy
+benchmark. No grade was produced. Raw/guarded replies and provenance are in
+`evidence/live-tagging-kb-m3-prompt-20260919.json`.
+
+A standalone fictional positive/negative diagnostic stopped on its first
+Upstage HTTP400. No response was validated, no automatic retry occurred, and its
+USD1 reservation remains in the original ledger. Positive-case sensitivity is
+not established. Total ledger: 1599 calls, USD9.0661721300 committed/reserved of
+USD20, 7 unsettled (the original 6 plus this request). Do not refund/reset these
+reservations without provider reconciliation. The API error's root cause is
+unproven; product pipeline calls in the separate run succeeded.
+
+Read-only semantic review: Orca task task_af5d4263faa9, dispatch
+ctx_793dd23fe5af, effective gpt-5.6-luna, medium; succeeded and released before
+acknowledgment. It supports the M1/M3 distinction, not gold-label/domain approval.
+Targeted pilot/transport tests were rerun: 48 passed. Earlier full2484 test
+results precede this prompt-only change. CI35386799967 failed2250passed/1failed:
+the native-worker failure diagnostic itself used success-only parse_job and
+raised KeyError, masking the original outcome. Original worker cause remains
+unproven; fixing diagnostic observability is the next bounded task.

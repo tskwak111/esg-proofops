@@ -1,9 +1,9 @@
 {
-  "checked_at": "2026-09-18T19:28:31.510123+00:00",
+  "checked_at": "2026-09-18T19:48:35.983416+00:00",
   "scope": "documentation, structured contracts and synthetic schema examples only",
   "status": "passed",
-  "checks_total": 840,
-  "passed": 840,
+  "checks_total": 843,
+  "passed": 843,
   "failed": 0,
   "counts": {
     "numbered_documents": 34,
@@ -214,6 +214,11 @@
       "detail": ""
     },
     {
+      "name": "json:evidence/local-direct-attribution-replay-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
       "name": "json:evidence/semantic-expanded-diagnostics.json",
       "passed": true,
       "detail": ""
@@ -304,6 +309,11 @@
       "detail": ""
     },
     {
+      "name": "json:evidence/live-tagging-kb-local-attribution-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
       "name": "json:evidence/measurement-role-results.json",
       "passed": true,
       "detail": ""
@@ -330,6 +340,11 @@
     },
     {
       "name": "json:evidence/retrieval-repair-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/live-tagging-kb-m3-prompt-20260919.json",
       "passed": true,
       "detail": ""
     },
