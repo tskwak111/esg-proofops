@@ -143,7 +143,7 @@ def test_raster_request_and_receipt_replay_reject_tampering(monkeypatch):
     from contextlib import nullcontext
     from types import SimpleNamespace
 
-    import evaluation.raster_ocr as raster
+    import proofops.adapters.local.raster_ocr as raster
 
     for width in (float("nan"), float("inf"), True):
         fake = SimpleNamespace(

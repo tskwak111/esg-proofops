@@ -1325,3 +1325,28 @@ After this tightening,90targeted tests and full Ruff/format plus relevant mypy
 passed. The2581full-suite count precedes this final small change; exact-head CI
 still required. Actual four-page offline replay remains byte-identical with1exact
 match and zero API calls. All existing source/review/checkpoint data is unchanged.
+
+### 2026-09-19 — raster adapter/configuration checkpoint
+
+Terra task_94073dbe7943 moved preparation/replay and visibility composition into
+local adapters with evaluation compatibility exports; policy pins actual helper
+bytes and installed readers. Coordinator added trusted optional RunService
+configuration, Registry preflight, immutable complete policy/grant group and
+store tamper rejection. A malformed grant regression reproduced AttributeError
+before the shape check; the worker regression reproduced unintended legacy job
+access before the explicit unsupported-runtime guard. Both were fixed without
+changing existing native/semantic verification. This is partial plan step 2;
+per-call authorization, v5 publication/readback and rollout trials remain open.
+
+Focused coordinator suite:35passed. Independent Luna task_e9ec54a38dd2 /
+ctx_b7dd4025900b found no actionable defects and ran38configuration/preflight
+tests successfully; report /tmp/proofops-raster-config-review.md. Both workers
+released and deliveries acknowledged. Full Ruff/format342files, mypy188sources,
+package build and863documentation/contract checks passed. No paid calls or ledger
+changes. Previous07f6a85 CI35401139089 passed. Full current-suite result follows.
+
+Full local suite completed:2611passed,7skipped,2existingwarnings in211.57s:
+`uv run pytest tests/unit tests/contracts tests/acceptance tests/integration tests/security tests/e2e/test_staging_gate.py -q`.
+Log:/tmp/proofops-raster-config-suite.txt. This validates software regressions,
+not whole-report accuracy or an enabled raster dispatch path. Cloud/model trials
+for this configuration stage remain not_run.

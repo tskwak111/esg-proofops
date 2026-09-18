@@ -97,7 +97,9 @@ class LocalParserRunner:
         if note_review_artifacts and self.note_client is not None:
             raise ValueError("NOTE_REVIEW_INPUT_MODE_CONFLICT")
         # No tenant discovery or implicit live-provider selection.
-        self.store.snapshot(tenant_id, run_id)
+        snapshot = self.store.snapshot(tenant_id, run_id)
+        if any(key.startswith("raster_ocr_") for key in snapshot):
+            raise ValueError("RASTER_OCR_RUNTIME_NOT_SUPPORTED")
         run = self.store.jobs.get_run(tenant_id, run_id)
         native_policy = native_paragraph_policy() if self.verify_paragraphs else None
         if (

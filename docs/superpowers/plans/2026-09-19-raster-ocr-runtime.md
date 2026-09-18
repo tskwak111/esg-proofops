@@ -77,3 +77,13 @@ Files: `apps/worker/src/proofops_worker/local_runner.py`, `adapters/local/job_st
 - Freeze both raster/composition helper code hashes and renderer/writer/image versions before reservation. Include those pins in extended replay-cache keys and final graph identity. Preflight authorization does not replace this execution policy.
 - Persist eligible/requested/corroborated/unresolved/failed source sets in coverage; omitted eligible sources remain unresolved. Partial batches and budget exhaustion must not imply absence.
 - Application preflight must not import adapter implementations to share constants. Add contract tests against transport pins/page bounds to detect drift while preserving dependency direction.
+
+## Implementation checkpoint — 2026-09-19
+
+Step 1 is implemented. Step 2 has adapter migration and optional complete
+run-snapshot policy/grant freezing, including creation-time Registry preflight
+and store integrity checks. Existing workers reject this optional group before
+job access until v5 is implemented. No paid calls were made in this stage.
+Still outstanding in step 2: composition/CLI wiring and immediate pre-dispatch
+revalidation. Steps 3 and 4 remain open. This checkpoint does not enable fallback
+in a real parser run or count the experimental recovered block as published.

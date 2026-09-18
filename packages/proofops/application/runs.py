@@ -14,6 +14,7 @@ from proofops.application.claims import ExtractionProfile
 from proofops.application.ingest.graph_fusion import ParserProfile
 from proofops.application.preflight import (
     check_local_upstage_binding,
+    check_local_upstage_raster,
     check_local_upstage_tagger,
     check_runtime_binding,
     combine_build_checks,
@@ -23,7 +24,7 @@ from proofops.application.tagging.relations import SYSTEM_PROMPT as RELATION_SYS
 from proofops.application.tagging.service import TaggingSettings
 from proofops.application.uploads_security import UploadRejected
 from proofops.domain.provenance import canonical_hash
-from proofops.domain.values import _require_sha256
+from proofops.domain.values import _require_sha256, _require_uuid
 
 
 class RunRejected(ValueError):
@@ -58,6 +59,61 @@ def _detach(value):
     return value
 
 
+def validate_raster_policy(policy):
+    """Validate trusted policy shape without filesystem/provider dependencies."""
+    hashes = ("native_policy_sha256", "raster_helper_sha256", "composition_helper_sha256")
+    if (
+        not isinstance(policy, Mapping)
+        or set(policy) != {"schema", "mode", "max_pages", "max_calls", "reader_versions", *hashes}
+        or policy["schema"] != "local_raster_ocr_policy_v1"
+        or policy["mode"] not in ("standard", "enhanced")
+        or type(policy["max_pages"]) is not int
+        or not 1 <= policy["max_pages"] <= 10
+        or type(policy["max_calls"]) is not int
+        or not 1 <= policy["max_calls"] <= 20
+        or not isinstance(policy["reader_versions"], Mapping)
+        or set(policy["reader_versions"]) != {"pypdfium2", "pdfplumber", "pypdf", "Pillow"}
+        or any(not isinstance(v, str) or not v.strip() for v in policy["reader_versions"].values())
+    ):
+        raise ValueError("RASTER_POLICY_INVALID")
+    for name in hashes:
+        _require_sha256(name, policy[name])
+    return _detach(policy)
+
+
+def validate_raster_snapshot(snapshot):
+    fields = {
+        "raster_ocr_policy",
+        "raster_ocr_policy_hash",
+        "raster_ocr_runtime",
+        "raster_ocr_runtime_artifact_hash",
+    }
+    present = {k for k in snapshot if k.startswith("raster_ocr_")}
+    if not present:
+        return
+    if (
+        present != fields
+        or snapshot.get("extraction_mode") != "upstage_probe"
+        or snapshot.get("mode") != "disclosure"
+        or snapshot.get("scope") != "declared_subset"
+    ):
+        raise ValueError("RASTER_SNAPSHOT_INVALID")
+    policy = validate_raster_policy(snapshot["raster_ocr_policy"])
+    grant = snapshot["raster_ocr_runtime"]
+    if (
+        not isinstance(grant, Mapping)
+        or canonical_hash(policy) != snapshot["raster_ocr_policy_hash"]
+        or artifact_sha256(grant) != snapshot["raster_ocr_runtime_artifact_hash"]
+        or grant.get("raster_policy_sha256") != snapshot["raster_ocr_policy_hash"]
+        or grant.get("mode") != policy["mode"]
+        or type(grant.get("max_pages")) is not int
+        or not policy["max_pages"] <= grant["max_pages"] <= 10
+        or type(grant.get("max_calls")) is not int
+        or not policy["max_calls"] <= grant["max_calls"] <= 20
+    ):
+        raise ValueError("RASTER_SNAPSHOT_INVALID")
+
+
 class RunService:
     """Root supplies trusted parser/budget/build config; absent config fails closed."""
 
@@ -76,6 +132,8 @@ class RunService:
         tagging_mode: str | None = None,
         preliminary_settings: TaggingSettings | None = None,
         relation_settings: TaggingSettings | None = None,
+        raster_runtime_binding_id: str | None = None,
+        raster_policy=None,
         input_reservation_policy=None,
         budget_limits=None,
         allowed_regions=(),
@@ -121,6 +179,15 @@ class RunService:
         self.tagging_settings, self.tagging_mode = tagging_settings, tagging_mode
         self.preliminary_settings = preliminary_settings
         self.relation_settings = relation_settings
+        if (raster_runtime_binding_id is None) != (raster_policy is None):
+            raise ValueError("complete raster configuration required")
+        if raster_runtime_binding_id is not None:
+            _require_uuid("raster_runtime_binding_id", raster_runtime_binding_id)
+            raster_policy = validate_raster_policy(raster_policy)
+        self.raster_runtime_binding_id, self.raster_policy = (
+            raster_runtime_binding_id,
+            raster_policy,
+        )
         self.input_reservation_policy = (
             _detach(dict(input_reservation_policy))
             if input_reservation_policy is not None
@@ -205,6 +272,47 @@ class RunService:
         )
         if not preflight.ready or rights_id not in consent["allowed_document_rights"]:
             raise RunRejected("CONFIG_GATE_BLOCKED")
+        raster_snapshot = {}
+        if self.raster_runtime_binding_id is not None or self.raster_policy is not None:
+            try:
+                _require_uuid("raster_runtime_binding_id", self.raster_runtime_binding_id)
+                raster_policy = validate_raster_policy(self.raster_policy)
+                raster_runtime = _detach(
+                    self.registry.resolve_profile(auth, "runtime", self.raster_runtime_binding_id)
+                )
+                raster_preflight = check_local_upstage_raster(
+                    binding=raster_runtime,
+                    consent=consent,
+                    auth=auth,
+                    checked_at=timestamp,
+                    source_sha256=document["sha256"],
+                    document_rights=rights_id,
+                    model_sha256=canonical_hash(
+                        dict(
+                            model="document-parse-260128",
+                            provider="upstage",
+                            transport="UpstageParseProbe",
+                        )
+                    ),
+                )
+                if not raster_preflight.ready:
+                    raise ValueError("RASTER_PREFLIGHT_BLOCKED")
+                raster_snapshot = dict(
+                    raster_ocr_policy=raster_policy,
+                    raster_ocr_policy_hash=canonical_hash(raster_policy),
+                    raster_ocr_runtime=raster_runtime,
+                    raster_ocr_runtime_artifact_hash=artifact_sha256(raster_runtime),
+                )
+                validate_raster_snapshot(
+                    dict(
+                        raster_snapshot,
+                        extraction_mode=self.extraction_mode,
+                        mode=body["mode"],
+                        scope=body["scope"],
+                    )
+                )
+            except (RegistryNotFound, ValueError, KeyError, TypeError):
+                raise RunRejected("CONFIG_GATE_BLOCKED") from None
         if (self.extraction_profile is not None or self.extraction_mode is not None) and (
             not isinstance(self.extraction_profile, ExtractionProfile)
             or (self.extraction_profile.synthetic, self.extraction_mode)
@@ -399,6 +507,7 @@ class RunService:
                     relation_runtime=relation_runtime,
                     relation_runtime_artifact_hash=artifact_sha256(relation_runtime),
                 )
+        snapshot.update(raster_snapshot)
         return self.store.create(auth, body, key, snapshot, self.budget_limits, now=now)
 
     def get(self, tenant_id, run_id):

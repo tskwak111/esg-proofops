@@ -32,7 +32,7 @@ from proofops.application.mode_gate import select_mode_rulepack
 from proofops.application.ports.jobs import JobConflict, JobMessage
 from proofops.application.registry import artifact_sha256
 from proofops.application.rulepacks import RunSnapshot
-from proofops.application.runs import RunRejected
+from proofops.application.runs import RunRejected, validate_raster_snapshot
 from proofops.domain.audit import ChangeSet
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
@@ -104,6 +104,7 @@ class LocalSQLiteRunStore:
             if replay is not None:
                 return replay
             try:
+                validate_raster_snapshot(snapshot)
                 relation_fields = (
                     "relation_settings",
                     "relation_settings_hash",

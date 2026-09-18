@@ -366,3 +366,34 @@ pinned `document-parse-260128`; the generic `document-parse` alias is rejected e
 if the stored transport request used the pinned model. Generic historical table
 parse adapter alias policy is unaffected. Contract tests compare raster preflight
 pins with transport model/page constants without importing adapters into application.
+
+#### Frozen raster configuration (dispatch still disabled)
+
+The reusable raster preparation/replay and visibility functions now live in
+`proofops.adapters.local.raster_ocr` and `raster_visibility`. Evaluation modules
+re-export these functions for compatibility; runtime code does not import evaluation.
+Historical receipts retain their original helper hashes and are not rewritten.
+
+`RunService` accepts a trusted composition-only pair, `raster_runtime_binding_id`
+and `raster_policy`. It resolves the separate vision grant through the tenant's
+Registry and checks source/right/image consent before creating a run. The snapshot
+freezes exactly four raster fields: `raster_ocr_policy`, `raster_ocr_policy_hash`,
+`raster_ocr_runtime`, and `raster_ocr_runtime_artifact_hash`. Partial groups, extra
+reserved fields, invalid shapes and hash/mode/limit mismatches are rejected at
+store creation. Only disclosure/upstage_probe/declared_subset context is allowed.
+Existing selected_pages remains part of the immutable run input.
+
+Policy schema `local_raster_ocr_policy_v1` contains mode, strict integer max_pages
+(1..10), max_calls (1..20), native policy SHA256, both helper SHA256s, and installed
+pypdfium2/pdfplumber/pypdf/Pillow versions. Grant limits must cover policy limits;
+its raster_policy_sha256 must match. These limits are not authorization to spend
+without the existing shared USD20 ledger and per-call revalidation.
+
+This change has no public DTO, SQL migration, API composition switch or enabled
+OCR worker path. The existing parser worker explicitly raises
+`RASTER_OCR_RUNTIME_NOT_SUPPORTED` before job access for a raster-configured run.
+It cannot silently publish a legacy checkpoint. Leave both options absent for
+normal existing runs. Per-call revocation/policy checks, v5 artifact ownership,
+fenced publication and offline readback must ship together before removing this
+interim rejection. Rolling back this configuration stage means omitting both
+options on new runs; existing immutable snapshots must remain intact.
