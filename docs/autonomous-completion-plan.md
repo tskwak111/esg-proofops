@@ -854,3 +854,24 @@ Next priorities remain source verification coverage, preventing irrelevant heade
 retrieval, semantic element precision and representative independent gold data.
 The optional relation path works mechanically but is not ready as a default:
 strict whole-map agreement can block otherwise usable local evidence.
+
+
+### 2026-09-19 · Diagnose the four KB source-validation blocks offline
+
+Read the saved native attestation rather than re-running paid extraction. Three
+blocked claims share paragraph7441dba9; six native words (346-350,366) fail glyph
+origin matching. A direct pdfplumber/PDFium character inspection found approximately
+0.17024pt horizontal disagreement after the first character in the affected spans,
+versus the pinned0.001pt tolerance. The underlying font/PDF cause is not established;
+nearest character is not a valid replacement for unique provenance matching.
+The fourth blocked claim is a table-text paragraph: parser `녹색채권` versus native
+word reconstruction `녹 색채권`. Neither case reached rendered OCR verification.
+Saved source/parse/attestation hashes and exact mismatches in
+live-tagging-kb-source-blockers-20260919.json. No source quality, verifier code,
+normalization, tolerance or immutable receipt changed; no model calls made.
+This identifies concrete blockers rather than resolving them. Next diagnostic:
+trace the native width/advance disagreement and validate any correction against
+ambiguous/duplicate glyph adversarial cases before creating fresh attestations.
+CI35391924279 for1cd98fb remained in_progress (five jobs successful, integration
+still running) at this checkpoint; poll that run rather than launching another.
+Latest available Codex quota observation remained77%used at20:15UTC (not live).
