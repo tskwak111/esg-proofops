@@ -613,7 +613,7 @@ def tag_replicates(
                     },
                     track=track.track,
                     safe_harbor_category=track.safe_harbor_category,
-                    guard_version="tagging-010-v2-source-spans",
+                    guard_version="tagging-010-v3-local-identity",
                 )
             ),
         )

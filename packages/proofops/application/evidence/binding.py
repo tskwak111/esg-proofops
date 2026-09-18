@@ -40,7 +40,7 @@ def _dimensions(values: Mapping[str, SourceRef | None]) -> dict[str, SourceRef |
 class ClaimContext:
     """Literal dimension spans within the atomic claim or its explicit table row.
 
-    Entity/metric/period are required for automatic attribution. The upstream
+    Entity/metric/period are required for cross-source attribution. The upstream
     semantic tagger supplies every applicable product/material/facility/Scope/
     boundary axis; a supplied null is unresolved, never not_applicable. Missing
     semantic roles cannot be inferred from document-wide word occurrence.
@@ -72,7 +72,7 @@ def local_relation_tags(context: ClaimContext) -> dict[str, dict[str, SourceRef 
 
 def relation_tags_for(
     ref: SourceRef, relations: Mapping[str, Mapping[str, SourceRef | None]]
-) -> Mapping[str, SourceRef | None]:
+) -> Mapping[str, SourceRef | None] | None:
     """Resolve one unambiguous containing scope; retain legacy whole-source maps.
 
     Scoped entries shadow legacy entries, including unresolved/malformed scopes.
@@ -89,9 +89,9 @@ def relation_tags_for(
             source_id, begin, end = key.split(":")
             start, stop = int(begin), int(end)
         except ValueError:
-            return {}
+            return None
         if start < 0 or stop <= start or key != f"{source_id}:{start}:{stop}":
-            return {}
+            return None
         if start <= ref.char_start < ref.char_end <= stop:
             if any(
                 role is not None
@@ -101,15 +101,15 @@ def relation_tags_for(
                 )
                 for role in roles.values()
             ):
-                return {}
+                return None
             matches.append(roles)
-    return matches[0] if len(matches) == 1 else {}
+    return matches[0] if len(matches) == 1 else None
 
 
 def accept_binding(
     context: ClaimContext,
     ref: SourceRef,
-    relation_tags: Mapping[str, SourceRef | None],
+    relation_tags: Mapping[str, SourceRef | None] | None,
     *,
     original: CanonicalDocumentGraph,
     tenant_id: str,
@@ -118,7 +118,8 @@ def accept_binding(
 ) -> BindingState:
     """Check source identity, literal roles, table coordinates and allowed scope.
 
-    A matching quote alone cannot accept attribution. Same-row context may
+    Exact local containment establishes literal attribution, not semantic element
+    sufficiency. Cross-source matching requires typed roles. Same-row context may
     supply literal dimensions; a column header needs an explicit table_parent
     edge from the selected cell. Incomplete coordinates and unresolved GAP-004
     links stay undetermined; aliases and cross-page table joins are not inferred.
@@ -141,7 +142,7 @@ def accept_binding(
     definition = next((item for item in definitions if item["id"] == element_id), None)
     if definition is None:
         raise DomainValidationError("unknown element")
-    evidence_dimensions = _dimensions(relation_tags)
+    evidence_dimensions = _dimensions(relation_tags) if relation_tags is not None else {}
     blocks = {block.source_id: block for block in original.blocks}
     if len(blocks) != len(original.blocks) or any(
         edge.source_id not in blocks or edge.target_id not in blocks for edge in original.edges
@@ -168,7 +169,7 @@ def accept_binding(
         if state == "rejected":
             return state
         unresolved |= state == "undetermined"
-    if unresolved:
+    if unresolved or relation_tags is None:
         return "undetermined"
 
     def selected(source: SourceRef):
@@ -229,6 +230,9 @@ def accept_binding(
             return "accepted"
         return "rejected"
 
+    scopes = definition["source_scopes"]
+    local = any(contains(source, ref) for source in claim.source_refs)
+    direct = local and "local_claim" in scopes
     names = (
         set(context.dimensions)
         | set(evidence_dimensions)
@@ -236,35 +240,43 @@ def accept_binding(
     )
     for name in sorted(names):
         expected, actual = context.dimensions.get(name), evidence_dimensions.get(name)
-        if expected is None or actual is None:
+        explicit_axis_unknown = name not in {"entity", "metric", "reporting_period"} and (
+            (name in context.dimensions and expected is None)
+            or (name in evidence_dimensions and actual is None)
+        )
+        if (expected is None or actual is None) and (not direct or explicit_axis_unknown):
             unresolved = True
             continue
-        states = (checked(expected), checked(actual))
+        states = [checked(value) for value in (expected, actual) if value is not None]
         if "rejected" in states:
             return "rejected"
         if "undetermined" in states:
             unresolved = True
             continue
-        claim_states = [
-            attributed(expected, s, atomic=True, dimension=name) for s in claim.source_refs
-        ]
-        evidence_state = attributed(actual, ref, atomic=False, dimension=name)
-        if evidence_state == "rejected" or all(s == "rejected" for s in claim_states):
+        for value, in_claim in ((expected, True), (actual, direct)):
+            if value is None:
+                continue  # Local identity does not invent the missing semantic role.
+            targets = claim.source_refs if in_claim else (ref,)
+            role_states = [
+                attributed(value, target, atomic=in_claim, dimension=name) for target in targets
+            ]
+            if all(state == "rejected" for state in role_states):
+                return "rejected"
+            if "accepted" not in role_states:
+                unresolved = True
+            if name == "reporting_period" and not is_supported_period(value.quote):
+                unresolved = True
+        if (
+            expected is not None
+            and actual is not None
+            and (normalize("NFC", expected.quote).strip() != normalize("NFC", actual.quote).strip())
+        ):
             return "rejected"
-        if evidence_state == "undetermined" or "accepted" not in claim_states:
-            unresolved = True
-        if normalize("NFC", expected.quote).strip() != normalize("NFC", actual.quote).strip():
-            return "rejected"
-        if name == "reporting_period" and not is_supported_period(expected.quote):
-            unresolved = True
     if unresolved:
         return "undetermined"
-
-    scopes = definition["source_scopes"]
-    local = any(contains(source, ref) for source in claim.source_refs)
-    tables = [source for source in claim.source_refs if same_table(source, ref)]
-    if local and "local_claim" in scopes:
+    if direct:
         return "accepted"
+    tables = [source for source in claim.source_refs if same_table(source, ref)]
     if tables and "same_table" in scopes:
         candidate = selected(ref)
         if any(

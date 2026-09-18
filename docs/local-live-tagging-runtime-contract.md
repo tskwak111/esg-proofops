@@ -115,15 +115,20 @@ must itself be inside that entry. Overlapping matching entries, malformed ranges
 and role spans escaping the entry remain unresolved. Any scoped entry for a
 source shadows its legacy whole-source entry, including when no scope matches;
 legacy data cannot supply a fallback that bypasses the new boundary. Entries
-from another source cannot match. The binding engine still validates source
-identity, required/applicable dimensions, periods, table axes and allowed scope.
-No metric, period, entity or applicable-axis exemption is inferred.
+from another source cannot match. The resolver returns None for a known unresolved scope, distinct from an empty
+map when no relation roles were supplied. The binding engine never treats that
+unresolved marker as permission for local attribution. It validates supplied
+roles, periods, explicit unresolved additional axes and allowed scope. Verified
+exact local containment does not require separate entity/metric/period join
+keys; other-source/table attribution still requires them. Missing values remain
+null and no applicability or semantic element decision is inferred. See the
+technical distinction in docs/28_RULE_ENGINE_CONTRACT.md.
 
 Existing immutable snapshots with source_id-only maps retain their previous
 lookup behavior. Before scoped maps, partial atoms supplied no relation roles;
 those historical snapshots are not rewritten. New maps use the existing string
 map field and need no public API or DB migration. Guarded cache signatures now
-pin `tagging-010-v2-source-spans`; raw provider requests/receipts are reusable
+pin `tagging-010-v3-local-identity`; raw provider requests/receipts are reusable
 only under their unchanged identity. Rolling back to old code cannot resolve
 new scoped entries (it stays unknown/rejected); use the updated reader for those
 reviews and preserve all prior revisions. No other paragraph, table or appendix

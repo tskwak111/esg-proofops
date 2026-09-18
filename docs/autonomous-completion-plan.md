@@ -650,3 +650,64 @@ swallowed, source status changed or assertion relaxed. The original attestor and
 replay still run. Native-worker suite: 12 passed locally, 2 existing warnings,
 43.09s; Ruff check/format passed. This is failure instrumentation, not a claim
 that the intermittent Linux failure is fixed.
+
+### 2026-09-19 · Direct local attribution separated from cross-source joins
+
+Orca review task task_30c1f60f1646 / dispatch ctx_533c1ee5d514 used the requested
+fallback Codex gpt-5.6-terra, medium (requested/effective/provider matched). The
+read-only worker cited original v2 §4.1/4.4/§6 and found that a mandatory literal
+entity/metric/reporting-period triple for every local claim is an implementation
+inference, not an explicit domain requirement. Coordinator independently checked
+those passages. The worker made no edits or API calls, reported succeeded, and
+was released/closed before acknowledgment; no reclaimable worker remains. This
+is technical review, not human domain approval or gold-label authority.
+
+`accept_binding` now distinguishes verified literal containment in the same
+atomic claim (only when the element allows local_claim) from joining another
+paragraph/table/appendix source. Local identity does not require the three join
+keys; it does not populate missing fields. Every supplied role is still checked,
+including when its counterpart is absent. Conflicts, invalid periods, forged or
+out-of-claim roles fail. Explicit unknown additional axes still block. A scoped
+role resolver now returns None for a known unresolved scope, distinct from an
+empty map for unprovided roles, so local identity cannot bypass the scope guard.
+Other-source requirements and numeric/year global prohibitions remain unchanged.
+No grading rulepack or source quality approval changed. Guarded-cache version:
+`tagging-010-v3-local-identity`; old reviews keep their stored guarded results.
+
+Four new local/forged-role cases failed before implementation. Tests of the old
+blanket local join requirement were replaced with explicit direct-local versus
+cross-source cases; original product-null, forged evidence, other-year/product,
+scoped-review rejection and unresolved-source assertions remain enforced. Added
+local role-conflict/invalid-period checks. Full local suite: 2484 passed, 7
+skipped, 2 existing warnings, 196.82s. Ruff check/format, targeted mypy, build and
+package contract validation passed. Logs: /tmp/proofops-local-attribution-*.
+
+Saved Doosan review replay preserves the original unknown review, but evaluating
+its same validated 0..71 atomic claim under the new pure binding function now
+accepts local M1 attribution. Entity remains literal; metric/period remain null;
+the 233-character parent cannot borrow its roles. This component replay creates
+no revision or grade. Evidence: local-direct-attribution-replay-20260919.json.
+An initial diagnostic's global ledger-count assertion raced the separate KB paid
+run; it was rerun only after that process settled. No model retry was performed
+by that offline diagnostic, and the serialized rerun used zero additional calls.
+
+CI for the preceding diagnostic head a51252f (run 35385082818) completed all six
+checks successfully. The earlier intermittent native-worker failure was not
+reproduced; its underlying cause is still unproven. Do not call it fixed based
+on one successful run. The improved failure receipt instrumentation remains.
+
+Actual KB follow-up (same physical page 30, fresh declared-subset run)
+`b5857267-1b2c-4df7-a818-2ddf67d4094e`: 6 claims, 4 source-blocked, 1 preliminary
+unresolved, 1 candidate review. The literal named means "녹색채권 관리체계" is M1
+present in all three guarded element replies. Nine other raw present votes remain
+unknown for literal-value mismatch. No grade or rule approval exists. This is a
+successful component/pipeline example, not independent semantic accuracy or full
+report coverage, and fresh extraction prevents treating earlier KB runs as a
+controlled A/B. The published review replayed with zero additional model calls.
+
+17 actual calls cost USD0.0106203900. Shared ledger: 1578 calls,
+USD8.0519167900/20 committed/reserved; original 6 unsettled unchanged. All paid
+processes settled. Evidence: live-tagging-kb-local-attribution-20260919.json.
+Remaining major work includes cross-source relationship extraction, semantic
+false positives/value-format errors, source/table coverage, independent gold,
+and human rule/deployment authority. The full goal is not complete.

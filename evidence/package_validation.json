@@ -1,9 +1,9 @@
 {
-  "checked_at": "2026-09-18T19:11:58.123131+00:00",
+  "checked_at": "2026-09-18T19:28:31.510123+00:00",
   "scope": "documentation, structured contracts and synthetic schema examples only",
   "status": "passed",
-  "checks_total": 839,
-  "passed": 839,
+  "checks_total": 840,
+  "passed": 840,
   "failed": 0,
   "counts": {
     "numbered_documents": 34,
@@ -315,6 +315,11 @@
     },
     {
       "name": "json:evidence/semantic-capability-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/local-relation-scope-replay-20260919.json",
       "passed": true,
       "detail": ""
     },

@@ -217,5 +217,8 @@ semantic correctness, make optional context mandatory, resolve applicable axes,
 supply cross-source relation tags or bypass citation/binding/rulepack guards.
 All current downstream checks run on the restored references. A synthetic
 end-to-end test accepts a literal 40% span when source and roles are verified,
-but keeps it unknown with missing roles; cached replay makes no new provider call.
+while unknown scoped attribution still blocks it; cached replay makes no new
+provider call. Under the later local-identity binding contract, missing join keys
+alone do not block a verified quote inside its own atomic claim; cross-source
+matching and explicit unresolved axes retain their checks.
 Real model results are recorded separately; unit success is not model accuracy.

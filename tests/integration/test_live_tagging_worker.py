@@ -264,15 +264,18 @@ def test_unanimous_claim_dimensions_bind_only_the_same_atomic_source(
     source = claim.source_refs[0]
     assert set(relations) == {f"{source.source_id}:{source.char_start}:{source.char_end}"}
     assert len(calls) == 3  # no extra relation call for the exact same atomic source
-    assert accept_binding(
-        context,
-        span(source, "40%"),
-        relation_tags_for(span(source, "40%"), relations),
-        original=graph,
-        tenant_id=claim.tenant_id,
-        rulepack=pack(),
-        element_id="P1",
-    ) == ("undetermined" if missing_period else "accepted")
+    assert (
+        accept_binding(
+            context,
+            span(source, "40%"),
+            relation_tags_for(span(source, "40%"), relations),
+            original=graph,
+            tenant_id=claim.tenant_id,
+            rulepack=pack(),
+            element_id="P1",
+        )
+        == "accepted"
+    )
     other = next(
         block.source_ref() for block in graph.blocks if block.source_id != source.source_id
     )
@@ -321,7 +324,7 @@ def test_partial_claim_does_not_lend_roles_to_other_text_in_same_block(tmp_path,
     inside = span(shortened, DIMENSIONS["metric"])
     outside = span(source, "40%")
     assert relation_tags_for(inside, relations)
-    assert relation_tags_for(outside, relations) == {}
+    assert relation_tags_for(outside, relations) is None
     for ref, expected in ((inside, "accepted"), (outside, "undetermined")):
         assert (
             accept_binding(

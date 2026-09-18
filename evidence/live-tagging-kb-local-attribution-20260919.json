@@ -1,0 +1,1108 @@
+{
+  "schema": "local_attribution_live_pilot_v1",
+  "synthetic": false,
+  "run_id": "b5857267-1b2c-4df7-a818-2ddf67d4094e",
+  "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+  "selected_pages": [
+    30
+  ],
+  "state_path": ".local/developer-a-live-tagging-kb-local-attribution",
+  "cost": {
+    "run_id": "b5857267-1b2c-4df7-a818-2ddf67d4094e",
+    "input_tokens": 23739,
+    "output_tokens": 2939,
+    "attempt_count": 17,
+    "cache_hit_count": 0,
+    "amount": "0.0106203900",
+    "currency": "USD",
+    "pricing_snapshot_id": null,
+    "cost_status": "known"
+  },
+  "audit": {
+    "run_id": "b5857267-1b2c-4df7-a818-2ddf67d4094e",
+    "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+    "checkpoint_sha256": "88a19bf2728d180518d1d0f85eff02c0c4352a1051c8983717ea5edd4832955f",
+    "state_path": ".local/developer-a-live-tagging-kb-local-attribution",
+    "additional_model_calls": 0,
+    "counts": {
+      "claims_without_review": 5,
+      "raw_present_element_votes": 12,
+      "raw_present_to_present": 3,
+      "present_votes_with_no_relation_roles": 0,
+      "present_votes_with_literal_value_mismatch": 9,
+      "raw_present_to_unknown": 9
+    },
+    "claims": [
+      {
+        "claim_id": "4a29cfe6-c9be-5068-a4b5-e6087e70f2ef",
+        "quote": "채권 발행에 따라 조달된 자금은 녹색채권 관리체계에 따라 친환경 프로젝트 파이낸싱(PF), 저탄소 전환 대출 등 기후위기 완화 및 적응 활동에 전액 할당됩니다.",
+        "missing_required_claim_dimensions": [
+          "entity",
+          "metric",
+          "reporting_period"
+        ],
+        "relation_source_count": 1,
+        "present_votes": [
+          {
+            "replicate_id": 1,
+            "element_id": "M1",
+            "guarded_state": "present",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": false
+          },
+          {
+            "replicate_id": 1,
+            "element_id": "M2",
+            "guarded_state": "unknown",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": true
+          },
+          {
+            "replicate_id": 1,
+            "element_id": "M3",
+            "guarded_state": "unknown",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": true
+          },
+          {
+            "replicate_id": 1,
+            "element_id": "M4",
+            "guarded_state": "unknown",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": true
+          },
+          {
+            "replicate_id": 2,
+            "element_id": "M1",
+            "guarded_state": "present",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": false
+          },
+          {
+            "replicate_id": 2,
+            "element_id": "M2",
+            "guarded_state": "unknown",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": true
+          },
+          {
+            "replicate_id": 2,
+            "element_id": "M3",
+            "guarded_state": "unknown",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": true
+          },
+          {
+            "replicate_id": 2,
+            "element_id": "M4",
+            "guarded_state": "unknown",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": true
+          },
+          {
+            "replicate_id": 3,
+            "element_id": "M1",
+            "guarded_state": "present",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": false
+          },
+          {
+            "replicate_id": 3,
+            "element_id": "M2",
+            "guarded_state": "unknown",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": true
+          },
+          {
+            "replicate_id": 3,
+            "element_id": "M3",
+            "guarded_state": "unknown",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": true
+          },
+          {
+            "replicate_id": 3,
+            "element_id": "M4",
+            "guarded_state": "unknown",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": true
+          }
+        ]
+      }
+    ]
+  },
+  "claims": [
+    {
+      "claim_id": "ecf1f0b6-f2bc-57e9-9f00-d09e3602d8a2",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "decision": null,
+      "tag_runs": []
+    },
+    {
+      "claim_id": "cb94085f-178c-5ab8-b793-fdafaa8a0159",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "decision": null,
+      "tag_runs": []
+    },
+    {
+      "claim_id": "ad554051-b155-560e-a83d-d3573e7d4f85",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "decision": null,
+      "tag_runs": []
+    },
+    {
+      "claim_id": "e5e440e3-f3cf-54ad-b201-ecde9b8d2ff1",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "decision": null,
+      "tag_runs": []
+    },
+    {
+      "claim_id": "8f583949-27a4-539a-8256-3dfb504aab50",
+      "status": "blocked",
+      "reason": "PRELIMINARY_TAGS_UNRESOLVED",
+      "decision": null,
+      "tag_runs": []
+    },
+    {
+      "claim_id": "4a29cfe6-c9be-5068-a4b5-e6087e70f2ef",
+      "status": "needs_review",
+      "reason": null,
+      "decision": null,
+      "tag_runs": [
+        {
+          "request": {
+            "extraction_epoch": 1,
+            "namespace": {
+              "consent_profile": "bc1e0948-640d-42c3-80b1-afb8cd0d5c6a",
+              "document_version_id": "14486489-5ff8-4b93-9442-281f980b3e15",
+              "role": "tagger",
+              "tenant_id": "0a0e0b09-62c3-461f-808b-ba73cdc1fe07"
+            },
+            "replicate_id": 1,
+            "request_id": "75edcf2e-c6c9-569c-a1e6-37ac489f9729",
+            "request_signature": "af454f181be04d78d44aec710d30a60badd147fd111c1a2940c4b22e6e53c7ff"
+          },
+          "synthetic": false,
+          "status": "needs_review",
+          "errors": [
+            "UNRESOLVED:M2",
+            "UNRESOLVED:M3",
+            "UNRESOLVED:M4",
+            "UNRESOLVED:M5",
+            "UNRESOLVED:M6"
+          ],
+          "model_sha256": "e789990ca857acc0a4ea34eb77560896ea0f7beffce960939451f4680abe454e",
+          "prompt_sha256": "0234a5556d54c4eddfb0785e04cd12155df2ae50f6a5fac9b55a112c1e7e3654",
+          "raw_tags": {
+            "claim_id": "4a29cfe6-c9be-5068-a4b5-e6087e70f2ef",
+            "elements": [
+              {
+                "credited_from": null,
+                "element_id": "M1",
+                "evidence_refs": [
+                  {
+                    "bbox": [
+                      45.354,
+                      507.666,
+                      549.811,
+                      533.481
+                    ],
+                    "char_end": 139,
+                    "char_start": 50,
+                    "document_version_id": "14486489-5ff8-4b93-9442-281f980b3e15",
+                    "location_quality": "located",
+                    "page_num": 30,
+                    "parse_manifest_id": "32a6682f-65fc-54e8-94f5-96eb8ae89449",
+                    "printed_page_label": "30",
+                    "quote": "채권 발행에 따라 조달된 자금은 녹색채권 관리체계에 따라 친환경 프로젝트 파이낸싱(PF), 저탄소 전환 대출 등 기후위기 완화 및 적응 활동에 전액 할당됩니다.",
+                    "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                    "source_id": "af37e18b-e89e-502e-9ef4-c8790c826de3",
+                    "verification_state": "verified"
+                  }
+                ],
+                "normalized_value": "채권 발행에 따라 조달된 자금은 녹색채권 관리체계에 따라 친환경 프로젝트 파이낸싱(PF), 저탄소 전환 대출 등 기후위기 완화 및 적응 활동에 전액 할당됩니다.",
+                "reason_code": null,
+                "state": "present"
+              },
+              {
+                "credited_from": null,
+                "element_id": "M2",
+                "evidence_refs": [
+                  {
+                    "bbox": [
+                      45.354,
+                      507.666,
+                      549.811,
+                      533.481
+                    ],
+                    "char_end": 139,
+                    "char_start": 50,
+                    "document_version_id": "14486489-5ff8-4b93-9442-281f980b3e15",
+                    "location_quality": "located",
+                    "page_num": 30,
+                    "parse_manifest_id": "32a6682f-65fc-54e8-94f5-96eb8ae89449",
+                    "printed_page_label": "30",
+                    "quote": "채권 발행에 따라 조달된 자금은 녹색채권 관리체계에 따라 친환경 프로젝트 파이낸싱(PF), 저탄소 전환 대출 등 기후위기 완화 및 적응 활동에 전액 할당됩니다.",
+                    "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                    "source_id": "af37e18b-e89e-502e-9ef4-c8790c826de3",
+                    "verification_state": "verified"
+                  }
+                ],
+                "normalized_value": "친환경 프로젝트 파이낸싱(PF), 저탄소 전환 대출 등 기후위기 완화 및 적응 활동",
+                "reason_code": null,
+                "state": "present"
+              },
+              {
+                "credited_from": null,
+                "element_id": "M3",
+                "evidence_refs": [
+                  {
+                    "bbox": [
+                      45.354,
+                      507.666,
+                      549.811,
+                      533.481
+                    ],
+                    "char_end": 139,
+                    "char_start": 50,
+                    "document_version_id": "14486489-5ff8-4b93-9442-281f980b3e15",
+                    "location_quality": "located",
+                    "page_num": 30,
+                    "parse_manifest_id": "32a6682f-65fc-54e8-94f5-96eb8ae89449",
+                    "printed_page_label": "30",
+                    "quote": "채권 발행에 따라 조달된 자금은 녹색채권 관리체계에 따라 친환경 프로젝트 파이낸싱(PF), 저탄소 전환 대출 등 기후위기 완화 및 적응 활동에 전액 할당됩니다.",
+                    "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                    "source_id": "af37e18b-e89e-502e-9ef4-c8790c826de3",
+                    "verification_state": "verified"
+                  }
+                ],
+                "normalized_value": "녹색채권 관리체계",
+                "reason_code": null,
+                "state": "present"
+              },
+              {
+                "credited_from": null,
+                "element_id": "M4",
+                "evidence_refs": [
+                  {
+                    "bbox": [
+                      45.354,
+                      507.666,
+                      549.811,
+                      533.481
+                    ],
+                    "char_end": 139,
+                    "char_start": 50,
+                    "document_version_id": "14486489-5ff8-4b93-9442-281f980b3e15",
+                    "location_quality": "located",
+                    "page_num": 30,
+                    "parse_manifest_id": "32a6682f-65fc-54e8-94f5-96eb8ae89449",
+                    "printed_page_label": "30",
+                    "quote": "채권 발행에 따라 조달된 자금은 녹색채권 관리체계에 따라 친환경 프로젝트 파이낸싱(PF), 저탄소 전환 대출 등 기후위기 완화 및 적응 활동에 전액 할당됩니다.",
+                    "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                    "source_id": "af37e18b-e89e-502e-9ef4-c8790c826de3",
+                    "verification_state": "verified"
+                  }
+                ],
+                "normalized_value": "전액 할당",
+                "reason_code": null,
+                "state": "present"
+              },
+              {
+                "credited_from": null,
+                "element_id": "M5",
+                "evidence_refs": [],
+                "normalized_value": null,
+                "reason_code": null,
+                "state": "unknown"
+              },
+              {
+                "credited_from": null,
+                "element_id": "M6",
+                "evidence_refs": [],
+                "normalized_value": null,
+                "reason_code": null,
+                "state": "not_applicable"
+              }
+            ],
+            "packet_sha256": "a33cccac1a4aeade5bdcc7e565202952343c6de31ce5a433a33b4ff14c29818b",
+            "replicate_id": 1,
+            "safe_harbor_category": null,
+            "superlative_quote": null,
+            "track": "management",
+            "warnings": []
+          },
+          "guarded_tags": {
+            "claim_id": "4a29cfe6-c9be-5068-a4b5-e6087e70f2ef",
+            "elements": [
+              {
+                "credited_from": null,
+                "element_id": "M1",
+                "evidence_refs": [
+                  {
+                    "bbox": [
+                      45.354,
+                      507.666,
+                      549.811,
+                      533.481
+                    ],
+                    "char_end": 139,
+                    "char_start": 50,
+                    "document_version_id": "14486489-5ff8-4b93-9442-281f980b3e15",
+                    "location_quality": "located",
+                    "page_num": 30,
+                    "parse_manifest_id": "32a6682f-65fc-54e8-94f5-96eb8ae89449",
+                    "printed_page_label": "30",
+                    "quote": "채권 발행에 따라 조달된 자금은 녹색채권 관리체계에 따라 친환경 프로젝트 파이낸싱(PF), 저탄소 전환 대출 등 기후위기 완화 및 적응 활동에 전액 할당됩니다.",
+                    "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                    "source_id": "af37e18b-e89e-502e-9ef4-c8790c826de3",
+                    "verification_state": "verified"
+                  }
+                ],
+                "normalized_value": "채권 발행에 따라 조달된 자금은 녹색채권 관리체계에 따라 친환경 프로젝트 파이낸싱(PF), 저탄소 전환 대출 등 기후위기 완화 및 적응 활동에 전액 할당됩니다.",
+                "reason_code": null,
+                "state": "present"
+              },
+              {
+                "credited_from": null,
+                "element_id": "M2",
+                "evidence_refs": [
+                  {
+                    "bbox": [
+                      45.354,
+                      507.666,
+                      549.811,
+                      533.481
+                    ],
+                    "char_end": 139,
+                    "char_start": 50,
+                    "document_version_id": "14486489-5ff8-4b93-9442-281f980b3e15",
+                    "location_quality": "located",
+                    "page_num": 30,
+                    "parse_manifest_id": "32a6682f-65fc-54e8-94f5-96eb8ae89449",
+                    "printed_page_label": "30",
+                    "quote": "채권 발행에 따라 조달된 자금은 녹색채권 관리체계에 따라 친환경 프로젝트 파이낸싱(PF), 저탄소 전환 대출 등 기후위기 완화 및 적응 활동에 전액 할당됩니다.",
+                    "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                    "source_id": "af37e18b-e89e-502e-9ef4-c8790c826de3",
+                    "verification_state": "verified"
+                  }
+                ],
+                "normalized_value": null,
+                "reason_code": null,
+                "state": "unknown"
+              },
+              {
+                "credited_from": null,
+                "element_id": "M3",
+                "evidence_refs": [
+                  {
+                    "bbox": [
+                      45.354,
+                      507.666,
+                      549.811,
+                      533.481
+                    ],
+                    "char_end": 139,
+                    "char_start": 50,
+                    "document_version_id": "14486489-5ff8-4b93-9442-281f980b3e15",
+                    "location_quality": "located",
+                    "page_num": 30,
+                    "parse_manifest_id": "32a6682f-65fc-54e8-94f5-96eb8ae89449",
+                    "printed_page_label": "30",
+                    "quote": "채권 발행에 따라 조달된 자금은 녹색채권 관리체계에 따라 친환경 프로젝트 파이낸싱(PF), 저탄소 전환 대출 등 기후위기 완화 및 적응 활동에 전액 할당됩니다.",
+                    "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                    "source_id": "af37e18b-e89e-502e-9ef4-c8790c826de3",
+                    "verification_state": "verified"
+                  }
+                ],
+                "normalized_value": null,
+                "reason_code": null,
+                "state": "unknown"
+              },
+              {
+                "credited_from": null,
+                "element_id": "M4",
+                "evidence_refs": [
+                  {
+                    "bbox": [
+                      45.354,
+                      507.666,
+                      549.811,
+                      533.481
+                    ],
+                    "char_end": 139,
+                    "char_start": 50,
+                    "document_version_id": "14486489-5ff8-4b93-9442-281f980b3e15",
+                    "location_quality": "located",
+                    "page_num": 30,
+                    "parse_manifest_id": "32a6682f-65fc-54e8-94f5-96eb8ae89449",
+                    "printed_page_label": "30",
+                    "quote": "채권 발행에 따라 조달된 자금은 녹색채권 관리체계에 따라 친환경 프로젝트 파이낸싱(PF), 저탄소 전환 대출 등 기후위기 완화 및 적응 활동에 전액 할당됩니다.",
+                    "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                    "source_id": "af37e18b-e89e-502e-9ef4-c8790c826de3",
+                    "verification_state": "verified"
+                  }
+                ],
+                "normalized_value": null,
+                "reason_code": null,
+                "state": "unknown"
+              },
+              {
+                "credited_from": null,
+                "element_id": "M5",
+                "evidence_refs": [],
+                "normalized_value": null,
+                "reason_code": null,
+                "state": "unknown"
+              },
+              {
+                "credited_from": null,
+                "element_id": "M6",
+                "evidence_refs": [],
+                "normalized_value": null,
+                "reason_code": null,
+                "state": "unknown"
+              }
+            ],
+            "packet_sha256": "a33cccac1a4aeade5bdcc7e565202952343c6de31ce5a433a33b4ff14c29818b",
+            "replicate_id": 1,
+            "safe_harbor_category": null,
+            "superlative_quote": null,
+            "track": "management",
+            "warnings": []
+          }
+        },
+        {
+          "request": {
+            "extraction_epoch": 1,
+            "namespace": {
+              "consent_profile": "bc1e0948-640d-42c3-80b1-afb8cd0d5c6a",
+              "document_version_id": "14486489-5ff8-4b93-9442-281f980b3e15",
+              "role": "tagger",
+              "tenant_id": "0a0e0b09-62c3-461f-808b-ba73cdc1fe07"
+            },
+            "replicate_id": 2,
+            "request_id": "0cef2df5-4bb9-5613-a579-5248a1d0be76",
+            "request_signature": "ef005f9ad868a97b8aec4fdbede48bde722cd7ab6474884c08257ab67ba22257"
+          },
+          "synthetic": false,
+          "status": "needs_review",
+          "errors": [
+            "UNRESOLVED:M2",
+            "UNRESOLVED:M3",
+            "UNRESOLVED:M4",
+            "UNRESOLVED:M5",
+            "UNRESOLVED:M6"
+          ],
+          "model_sha256": "e789990ca857acc0a4ea34eb77560896ea0f7beffce960939451f4680abe454e",
+          "prompt_sha256": "0234a5556d54c4eddfb0785e04cd12155df2ae50f6a5fac9b55a112c1e7e3654",
+          "raw_tags": {
+            "claim_id": "4a29cfe6-c9be-5068-a4b5-e6087e70f2ef",
+            "elements": [
+              {
+                "credited_from": null,
+                "element_id": "M1",
+                "evidence_refs": [
+                  {
+                    "bbox": [
+                      45.354,
+                      507.666,
+                      549.811,
+                      533.481
+                    ],
+                    "char_end": 139,
+                    "char_start": 50,
+                    "document_version_id": "14486489-5ff8-4b93-9442-281f980b3e15",
+                    "location_quality": "located",
+                    "page_num": 30,
+                    "parse_manifest_id": "32a6682f-65fc-54e8-94f5-96eb8ae89449",
+                    "printed_page_label": "30",
+                    "quote": "채권 발행에 따라 조달된 자금은 녹색채권 관리체계에 따라 친환경 프로젝트 파이낸싱(PF), 저탄소 전환 대출 등 기후위기 완화 및 적응 활동에 전액 할당됩니다.",
+                    "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                    "source_id": "af37e18b-e89e-502e-9ef4-c8790c826de3",
+                    "verification_state": "verified"
+                  }
+                ],
+                "normalized_value": "채권 발행에 따라 조달된 자금은 녹색채권 관리체계에 따라 친환경 프로젝트 파이낸싱(PF), 저탄소 전환 대출 등 기후위기 완화 및 적응 활동에 전액 할당됩니다.",
+                "reason_code": null,
+                "state": "present"
+              },
+              {
+                "credited_from": null,
+                "element_id": "M2",
+                "evidence_refs": [
+                  {
+                    "bbox": [
+                      45.354,
+                      507.666,
+                      549.811,
+                      533.481
+                    ],
+                    "char_end": 139,
+                    "char_start": 50,
+                    "document_version_id": "14486489-5ff8-4b93-9442-281f980b3e15",
+                    "location_quality": "located",
+                    "page_num": 30,
+                    "parse_manifest_id": "32a6682f-65fc-54e8-94f5-96eb8ae89449",
+                    "printed_page_label": "30",
+                    "quote": "채권 발행에 따라 조달된 자금은 녹색채권 관리체계에 따라 친환경 프로젝트 파이낸싱(PF), 저탄소 전환 대출 등 기후위기 완화 및 적응 활동에 전액 할당됩니다.",
+                    "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                    "source_id": "af37e18b-e89e-502e-9ef4-c8790c826de3",
+                    "verification_state": "verified"
+                  }
+                ],
+                "normalized_value": "친환경 프로젝트 파이낸싱(PF), 저탄소 전환 대출 등 기후위기 완화 및 적응 활동",
+                "reason_code": null,
+                "state": "present"
+              },
+              {
+                "credited_from": null,
+                "element_id": "M3",
+                "evidence_refs": [
+                  {
+                    "bbox": [
+                      45.354,
+                      507.666,
+                      549.811,
+                      533.481
+                    ],
+                    "char_end": 139,
+                    "char_start": 50,
+                    "document_version_id": "14486489-5ff8-4b93-9442-281f980b3e15",
+                    "location_quality": "located",
+                    "page_num": 30,
+                    "parse_manifest_id": "32a6682f-65fc-54e8-94f5-96eb8ae89449",
+                    "printed_page_label": "30",
+                    "quote": "채권 발행에 따라 조달된 자금은 녹색채권 관리체계에 따라 친환경 프로젝트 파이낸싱(PF), 저탄소 전환 대출 등 기후위기 완화 및 적응 활동에 전액 할당됩니다.",
+                    "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                    "source_id": "af37e18b-e89e-502e-9ef4-c8790c826de3",
+                    "verification_state": "verified"
+                  }
+                ],
+                "normalized_value": "녹색채권 관리체계",
+                "reason_code": null,
+                "state": "present"
+              },
+              {
+                "credited_from": null,
+                "element_id": "M4",
+                "evidence_refs": [
+                  {
+                    "bbox": [
+                      45.354,
+                      507.666,
+                      549.811,
+                      533.481
+                    ],
+                    "char_end": 139,
+                    "char_start": 50,
+                    "document_version_id": "14486489-5ff8-4b93-9442-281f980b3e15",
+                    "location_quality": "located",
+                    "page_num": 30,
+                    "parse_manifest_id": "32a6682f-65fc-54e8-94f5-96eb8ae89449",
+                    "printed_page_label": "30",
+                    "quote": "채권 발행에 따라 조달된 자금은 녹색채권 관리체계에 따라 친환경 프로젝트 파이낸싱(PF), 저탄소 전환 대출 등 기후위기 완화 및 적응 활동에 전액 할당됩니다.",
+                    "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                    "source_id": "af37e18b-e89e-502e-9ef4-c8790c826de3",
+                    "verification_state": "verified"
+                  }
+                ],
+                "normalized_value": "전액 할당",
+                "reason_code": null,
+                "state": "present"
+              },
+              {
+                "credited_from": null,
+                "element_id": "M5",
+                "evidence_refs": [],
+                "normalized_value": null,
+                "reason_code": null,
+                "state": "unknown"
+              },
+              {
+                "credited_from": null,
+                "element_id": "M6",
+                "evidence_refs": [],
+                "normalized_value": null,
+                "reason_code": null,
+                "state": "unknown"
+              }
+            ],
+            "packet_sha256": "a33cccac1a4aeade5bdcc7e565202952343c6de31ce5a433a33b4ff14c29818b",
+            "replicate_id": 2,
+            "safe_harbor_category": null,
+            "superlative_quote": null,
+            "track": "management",
+            "warnings": []
+          },
+          "guarded_tags": {
+            "claim_id": "4a29cfe6-c9be-5068-a4b5-e6087e70f2ef",
+            "elements": [
+              {
+                "credited_from": null,
+                "element_id": "M1",
+                "evidence_refs": [
+                  {
+                    "bbox": [
+                      45.354,
+                      507.666,
+                      549.811,
+                      533.481
+                    ],
+                    "char_end": 139,
+                    "char_start": 50,
+                    "document_version_id": "14486489-5ff8-4b93-9442-281f980b3e15",
+                    "location_quality": "located",
+                    "page_num": 30,
+                    "parse_manifest_id": "32a6682f-65fc-54e8-94f5-96eb8ae89449",
+                    "printed_page_label": "30",
+                    "quote": "채권 발행에 따라 조달된 자금은 녹색채권 관리체계에 따라 친환경 프로젝트 파이낸싱(PF), 저탄소 전환 대출 등 기후위기 완화 및 적응 활동에 전액 할당됩니다.",
+                    "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                    "source_id": "af37e18b-e89e-502e-9ef4-c8790c826de3",
+                    "verification_state": "verified"
+                  }
+                ],
+                "normalized_value": "채권 발행에 따라 조달된 자금은 녹색채권 관리체계에 따라 친환경 프로젝트 파이낸싱(PF), 저탄소 전환 대출 등 기후위기 완화 및 적응 활동에 전액 할당됩니다.",
+                "reason_code": null,
+                "state": "present"
+              },
+              {
+                "credited_from": null,
+                "element_id": "M2",
+                "evidence_refs": [
+                  {
+                    "bbox": [
+                      45.354,
+                      507.666,
+                      549.811,
+                      533.481
+                    ],
+                    "char_end": 139,
+                    "char_start": 50,
+                    "document_version_id": "14486489-5ff8-4b93-9442-281f980b3e15",
+                    "location_quality": "located",
+                    "page_num": 30,
+                    "parse_manifest_id": "32a6682f-65fc-54e8-94f5-96eb8ae89449",
+                    "printed_page_label": "30",
+                    "quote": "채권 발행에 따라 조달된 자금은 녹색채권 관리체계에 따라 친환경 프로젝트 파이낸싱(PF), 저탄소 전환 대출 등 기후위기 완화 및 적응 활동에 전액 할당됩니다.",
+                    "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                    "source_id": "af37e18b-e89e-502e-9ef4-c8790c826de3",
+                    "verification_state": "verified"
+                  }
+                ],
+                "normalized_value": null,
+                "reason_code": null,
+                "state": "unknown"
+              },
+              {
+                "credited_from": null,
+                "element_id": "M3",
+                "evidence_refs": [
+                  {
+                    "bbox": [
+                      45.354,
+                      507.666,
+                      549.811,
+                      533.481
+                    ],
+                    "char_end": 139,
+                    "char_start": 50,
+                    "document_version_id": "14486489-5ff8-4b93-9442-281f980b3e15",
+                    "location_quality": "located",
+                    "page_num": 30,
+                    "parse_manifest_id": "32a6682f-65fc-54e8-94f5-96eb8ae89449",
+                    "printed_page_label": "30",
+                    "quote": "채권 발행에 따라 조달된 자금은 녹색채권 관리체계에 따라 친환경 프로젝트 파이낸싱(PF), 저탄소 전환 대출 등 기후위기 완화 및 적응 활동에 전액 할당됩니다.",
+                    "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                    "source_id": "af37e18b-e89e-502e-9ef4-c8790c826de3",
+                    "verification_state": "verified"
+                  }
+                ],
+                "normalized_value": null,
+                "reason_code": null,
+                "state": "unknown"
+              },
+              {
+                "credited_from": null,
+                "element_id": "M4",
+                "evidence_refs": [
+                  {
+                    "bbox": [
+                      45.354,
+                      507.666,
+                      549.811,
+                      533.481
+                    ],
+                    "char_end": 139,
+                    "char_start": 50,
+                    "document_version_id": "14486489-5ff8-4b93-9442-281f980b3e15",
+                    "location_quality": "located",
+                    "page_num": 30,
+                    "parse_manifest_id": "32a6682f-65fc-54e8-94f5-96eb8ae89449",
+                    "printed_page_label": "30",
+                    "quote": "채권 발행에 따라 조달된 자금은 녹색채권 관리체계에 따라 친환경 프로젝트 파이낸싱(PF), 저탄소 전환 대출 등 기후위기 완화 및 적응 활동에 전액 할당됩니다.",
+                    "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                    "source_id": "af37e18b-e89e-502e-9ef4-c8790c826de3",
+                    "verification_state": "verified"
+                  }
+                ],
+                "normalized_value": null,
+                "reason_code": null,
+                "state": "unknown"
+              },
+              {
+                "credited_from": null,
+                "element_id": "M5",
+                "evidence_refs": [],
+                "normalized_value": null,
+                "reason_code": null,
+                "state": "unknown"
+              },
+              {
+                "credited_from": null,
+                "element_id": "M6",
+                "evidence_refs": [],
+                "normalized_value": null,
+                "reason_code": null,
+                "state": "unknown"
+              }
+            ],
+            "packet_sha256": "a33cccac1a4aeade5bdcc7e565202952343c6de31ce5a433a33b4ff14c29818b",
+            "replicate_id": 2,
+            "safe_harbor_category": null,
+            "superlative_quote": null,
+            "track": "management",
+            "warnings": []
+          }
+        },
+        {
+          "request": {
+            "extraction_epoch": 1,
+            "namespace": {
+              "consent_profile": "bc1e0948-640d-42c3-80b1-afb8cd0d5c6a",
+              "document_version_id": "14486489-5ff8-4b93-9442-281f980b3e15",
+              "role": "tagger",
+              "tenant_id": "0a0e0b09-62c3-461f-808b-ba73cdc1fe07"
+            },
+            "replicate_id": 3,
+            "request_id": "bbcca81a-aaf6-5028-b9dd-0c4250d249c9",
+            "request_signature": "6ae87987edb7436c8fe97b6bde368583db37985d03317693792e73b2754dfa0d"
+          },
+          "synthetic": false,
+          "status": "needs_review",
+          "errors": [
+            "UNRESOLVED:M2",
+            "UNRESOLVED:M3",
+            "UNRESOLVED:M4",
+            "UNRESOLVED:M5",
+            "UNRESOLVED:M6"
+          ],
+          "model_sha256": "e789990ca857acc0a4ea34eb77560896ea0f7beffce960939451f4680abe454e",
+          "prompt_sha256": "0234a5556d54c4eddfb0785e04cd12155df2ae50f6a5fac9b55a112c1e7e3654",
+          "raw_tags": {
+            "claim_id": "4a29cfe6-c9be-5068-a4b5-e6087e70f2ef",
+            "elements": [
+              {
+                "credited_from": null,
+                "element_id": "M1",
+                "evidence_refs": [
+                  {
+                    "bbox": [
+                      45.354,
+                      507.666,
+                      549.811,
+                      533.481
+                    ],
+                    "char_end": 139,
+                    "char_start": 50,
+                    "document_version_id": "14486489-5ff8-4b93-9442-281f980b3e15",
+                    "location_quality": "located",
+                    "page_num": 30,
+                    "parse_manifest_id": "32a6682f-65fc-54e8-94f5-96eb8ae89449",
+                    "printed_page_label": "30",
+                    "quote": "채권 발행에 따라 조달된 자금은 녹색채권 관리체계에 따라 친환경 프로젝트 파이낸싱(PF), 저탄소 전환 대출 등 기후위기 완화 및 적응 활동에 전액 할당됩니다.",
+                    "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                    "source_id": "af37e18b-e89e-502e-9ef4-c8790c826de3",
+                    "verification_state": "verified"
+                  }
+                ],
+                "normalized_value": "채권 발행에 따라 조달된 자금은 녹색채권 관리체계에 따라 친환경 프로젝트 파이낸싱(PF), 저탄소 전환 대출 등 기후위기 완화 및 적응 활동에 전액 할당됩니다.",
+                "reason_code": null,
+                "state": "present"
+              },
+              {
+                "credited_from": null,
+                "element_id": "M2",
+                "evidence_refs": [
+                  {
+                    "bbox": [
+                      45.354,
+                      507.666,
+                      549.811,
+                      533.481
+                    ],
+                    "char_end": 139,
+                    "char_start": 50,
+                    "document_version_id": "14486489-5ff8-4b93-9442-281f980b3e15",
+                    "location_quality": "located",
+                    "page_num": 30,
+                    "parse_manifest_id": "32a6682f-65fc-54e8-94f5-96eb8ae89449",
+                    "printed_page_label": "30",
+                    "quote": "채권 발행에 따라 조달된 자금은 녹색채권 관리체계에 따라 친환경 프로젝트 파이낸싱(PF), 저탄소 전환 대출 등 기후위기 완화 및 적응 활동에 전액 할당됩니다.",
+                    "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                    "source_id": "af37e18b-e89e-502e-9ef4-c8790c826de3",
+                    "verification_state": "verified"
+                  }
+                ],
+                "normalized_value": "친환경 프로젝트 파이낸싱(PF), 저탄소 전환 대출 등 기후위기 완화 및 적응 활동",
+                "reason_code": null,
+                "state": "present"
+              },
+              {
+                "credited_from": null,
+                "element_id": "M3",
+                "evidence_refs": [
+                  {
+                    "bbox": [
+                      45.354,
+                      507.666,
+                      549.811,
+                      533.481
+                    ],
+                    "char_end": 139,
+                    "char_start": 50,
+                    "document_version_id": "14486489-5ff8-4b93-9442-281f980b3e15",
+                    "location_quality": "located",
+                    "page_num": 30,
+                    "parse_manifest_id": "32a6682f-65fc-54e8-94f5-96eb8ae89449",
+                    "printed_page_label": "30",
+                    "quote": "채권 발행에 따라 조달된 자금은 녹색채권 관리체계에 따라 친환경 프로젝트 파이낸싱(PF), 저탄소 전환 대출 등 기후위기 완화 및 적응 활동에 전액 할당됩니다.",
+                    "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                    "source_id": "af37e18b-e89e-502e-9ef4-c8790c826de3",
+                    "verification_state": "verified"
+                  }
+                ],
+                "normalized_value": "녹색채권 관리체계",
+                "reason_code": null,
+                "state": "present"
+              },
+              {
+                "credited_from": null,
+                "element_id": "M4",
+                "evidence_refs": [
+                  {
+                    "bbox": [
+                      45.354,
+                      507.666,
+                      549.811,
+                      533.481
+                    ],
+                    "char_end": 139,
+                    "char_start": 50,
+                    "document_version_id": "14486489-5ff8-4b93-9442-281f980b3e15",
+                    "location_quality": "located",
+                    "page_num": 30,
+                    "parse_manifest_id": "32a6682f-65fc-54e8-94f5-96eb8ae89449",
+                    "printed_page_label": "30",
+                    "quote": "채권 발행에 따라 조달된 자금은 녹색채권 관리체계에 따라 친환경 프로젝트 파이낸싱(PF), 저탄소 전환 대출 등 기후위기 완화 및 적응 활동에 전액 할당됩니다.",
+                    "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                    "source_id": "af37e18b-e89e-502e-9ef4-c8790c826de3",
+                    "verification_state": "verified"
+                  }
+                ],
+                "normalized_value": "전액 할당",
+                "reason_code": null,
+                "state": "present"
+              },
+              {
+                "credited_from": null,
+                "element_id": "M5",
+                "evidence_refs": [],
+                "normalized_value": null,
+                "reason_code": null,
+                "state": "unknown"
+              },
+              {
+                "credited_from": null,
+                "element_id": "M6",
+                "evidence_refs": [],
+                "normalized_value": null,
+                "reason_code": null,
+                "state": "unknown"
+              }
+            ],
+            "packet_sha256": "a33cccac1a4aeade5bdcc7e565202952343c6de31ce5a433a33b4ff14c29818b",
+            "replicate_id": 3,
+            "safe_harbor_category": null,
+            "superlative_quote": null,
+            "track": "management",
+            "warnings": []
+          },
+          "guarded_tags": {
+            "claim_id": "4a29cfe6-c9be-5068-a4b5-e6087e70f2ef",
+            "elements": [
+              {
+                "credited_from": null,
+                "element_id": "M1",
+                "evidence_refs": [
+                  {
+                    "bbox": [
+                      45.354,
+                      507.666,
+                      549.811,
+                      533.481
+                    ],
+                    "char_end": 139,
+                    "char_start": 50,
+                    "document_version_id": "14486489-5ff8-4b93-9442-281f980b3e15",
+                    "location_quality": "located",
+                    "page_num": 30,
+                    "parse_manifest_id": "32a6682f-65fc-54e8-94f5-96eb8ae89449",
+                    "printed_page_label": "30",
+                    "quote": "채권 발행에 따라 조달된 자금은 녹색채권 관리체계에 따라 친환경 프로젝트 파이낸싱(PF), 저탄소 전환 대출 등 기후위기 완화 및 적응 활동에 전액 할당됩니다.",
+                    "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                    "source_id": "af37e18b-e89e-502e-9ef4-c8790c826de3",
+                    "verification_state": "verified"
+                  }
+                ],
+                "normalized_value": "채권 발행에 따라 조달된 자금은 녹색채권 관리체계에 따라 친환경 프로젝트 파이낸싱(PF), 저탄소 전환 대출 등 기후위기 완화 및 적응 활동에 전액 할당됩니다.",
+                "reason_code": null,
+                "state": "present"
+              },
+              {
+                "credited_from": null,
+                "element_id": "M2",
+                "evidence_refs": [
+                  {
+                    "bbox": [
+                      45.354,
+                      507.666,
+                      549.811,
+                      533.481
+                    ],
+                    "char_end": 139,
+                    "char_start": 50,
+                    "document_version_id": "14486489-5ff8-4b93-9442-281f980b3e15",
+                    "location_quality": "located",
+                    "page_num": 30,
+                    "parse_manifest_id": "32a6682f-65fc-54e8-94f5-96eb8ae89449",
+                    "printed_page_label": "30",
+                    "quote": "채권 발행에 따라 조달된 자금은 녹색채권 관리체계에 따라 친환경 프로젝트 파이낸싱(PF), 저탄소 전환 대출 등 기후위기 완화 및 적응 활동에 전액 할당됩니다.",
+                    "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                    "source_id": "af37e18b-e89e-502e-9ef4-c8790c826de3",
+                    "verification_state": "verified"
+                  }
+                ],
+                "normalized_value": null,
+                "reason_code": null,
+                "state": "unknown"
+              },
+              {
+                "credited_from": null,
+                "element_id": "M3",
+                "evidence_refs": [
+                  {
+                    "bbox": [
+                      45.354,
+                      507.666,
+                      549.811,
+                      533.481
+                    ],
+                    "char_end": 139,
+                    "char_start": 50,
+                    "document_version_id": "14486489-5ff8-4b93-9442-281f980b3e15",
+                    "location_quality": "located",
+                    "page_num": 30,
+                    "parse_manifest_id": "32a6682f-65fc-54e8-94f5-96eb8ae89449",
+                    "printed_page_label": "30",
+                    "quote": "채권 발행에 따라 조달된 자금은 녹색채권 관리체계에 따라 친환경 프로젝트 파이낸싱(PF), 저탄소 전환 대출 등 기후위기 완화 및 적응 활동에 전액 할당됩니다.",
+                    "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                    "source_id": "af37e18b-e89e-502e-9ef4-c8790c826de3",
+                    "verification_state": "verified"
+                  }
+                ],
+                "normalized_value": null,
+                "reason_code": null,
+                "state": "unknown"
+              },
+              {
+                "credited_from": null,
+                "element_id": "M4",
+                "evidence_refs": [
+                  {
+                    "bbox": [
+                      45.354,
+                      507.666,
+                      549.811,
+                      533.481
+                    ],
+                    "char_end": 139,
+                    "char_start": 50,
+                    "document_version_id": "14486489-5ff8-4b93-9442-281f980b3e15",
+                    "location_quality": "located",
+                    "page_num": 30,
+                    "parse_manifest_id": "32a6682f-65fc-54e8-94f5-96eb8ae89449",
+                    "printed_page_label": "30",
+                    "quote": "채권 발행에 따라 조달된 자금은 녹색채권 관리체계에 따라 친환경 프로젝트 파이낸싱(PF), 저탄소 전환 대출 등 기후위기 완화 및 적응 활동에 전액 할당됩니다.",
+                    "raw_text_sha256": "842a3edf746959d13ce6cdcc6513f2264f6e73dedd4813b5f05a30a6084f8ad0",
+                    "source_id": "af37e18b-e89e-502e-9ef4-c8790c826de3",
+                    "verification_state": "verified"
+                  }
+                ],
+                "normalized_value": null,
+                "reason_code": null,
+                "state": "unknown"
+              },
+              {
+                "credited_from": null,
+                "element_id": "M5",
+                "evidence_refs": [],
+                "normalized_value": null,
+                "reason_code": null,
+                "state": "unknown"
+              },
+              {
+                "credited_from": null,
+                "element_id": "M6",
+                "evidence_refs": [],
+                "normalized_value": null,
+                "reason_code": null,
+                "state": "unknown"
+              }
+            ],
+            "packet_sha256": "a33cccac1a4aeade5bdcc7e565202952343c6de31ce5a433a33b4ff14c29818b",
+            "replicate_id": 3,
+            "safe_harbor_category": null,
+            "superlative_quote": null,
+            "track": "management",
+            "warnings": []
+          }
+        }
+      ]
+    }
+  ],
+  "replay": {
+    "claim_id": "4a29cfe6-c9be-5068-a4b5-e6087e70f2ef",
+    "replay": "passed",
+    "additional_calls": 0,
+    "verified_present_element": "M1",
+    "replicas": 3,
+    "decision": null
+  },
+  "shared_ledger": {
+    "calls": 1578,
+    "unsettled_calls": 6,
+    "committed_or_reserved_usd": "8.0519167900",
+    "authorized_limit_usd": "20"
+  },
+  "limitations": [
+    "One KB page, six claims, one candidate review; not full-report coverage or independent accuracy.",
+    "M1 accepted across three replies; nine other raw-present votes fail literal-value matching.",
+    "Four claims source-blocked and one preliminary-unresolved; no grade or rule approval.",
+    "Fresh extractor/model outputs: not a controlled comparison to previous KB runs."
+  ]
+}

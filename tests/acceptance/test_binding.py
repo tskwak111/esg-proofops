@@ -317,10 +317,10 @@ def test_real_retrieval_packet_to_binding_preserves_candidate_revision():
     assert all(b["state"] == "undetermined" for b in data["candidate_bindings"])
 
 
-def test_empty_or_missing_required_roles_never_accept():
+def test_cross_source_empty_or_missing_required_roles_never_accept():
     graph, claim, refs = corpus()
-    assert bind(graph, claim, refs[0], {}, dimensions={}) == "undetermined"
-    assert bind(graph, claim, refs[0], tags(refs[0]) | {"reporting_period": None}) == "undetermined"
+    assert bind(graph, claim, refs[1], {}, dimensions={}) == "undetermined"
+    assert bind(graph, claim, refs[1], tags(refs[1]) | {"reporting_period": None}) == "undetermined"
 
 
 def test_explicit_same_column_header_edge_is_required():
@@ -428,18 +428,50 @@ def test_scoped_relation_roles_cannot_escape_their_atomic_span(case):
     expected = tags(source)
     if case == "outside":
         relations = {f"{source.source_id}:0:{value.char_start}": tags(source)}
-        expected = {}
+        expected = None
     elif case == "overlap":
         value = span(source, DIMENSIONS["metric"])
         relations[f"{source.source_id}:0:{source.char_end - 1}"] = tags(source)
-        expected = {}
+        expected = None
     elif case == "malformed":
         relations[f"{source.source_id}:bad:range"] = tags(source)
-        expected = {}
+        expected = None
     elif case == "escaped_role":
         relations = {f"{source.source_id}:{value.char_start}:{value.char_end}": tags(source)}
-        expected = {}
+        expected = None
     # Legacy whole-block roles must never override a scoped rejection.
     relations[source.source_id] = tags(source)
     assert relation_tags_for(value, relations) == expected
     assert relation_tags_for(value, {source.source_id: tags(source)}) == tags(source)
+
+
+@pytest.mark.parametrize("element", ["M1", "G1", "P1"])
+def test_verified_atomic_local_evidence_does_not_need_cross_source_join_keys(element):
+    graph, claim, refs = corpus()
+    local = span(refs[0], "40%" if element != "G1" else "2025")
+    # This tests attribution only; semantic sufficiency is still element tagging.
+    assert bind(graph, claim, local, {}, dimensions={}, element_id=element) == "accepted"
+    assert bind(graph, claim, refs[1], {}, dimensions={}, element_id=element) == "undetermined"
+
+
+def test_local_optional_role_is_still_verified_when_its_counterpart_is_null():
+    graph, claim, refs = corpus()
+    local = span(refs[0], "40%")
+    forged = replace(span(refs[0], "회사A"), quote="forged")
+    assert bind(graph, claim, local, {"entity": forged}, dimensions={}) == "rejected"
+    # A matching word from another source must not be borrowed as a local role.
+    graph = change_candidate(graph, refs[1].source_id, table_native_id=None)
+    assert (
+        bind(graph, claim, local, {"entity": span(refs[1], "회사A")}, dimensions={}) == "rejected"
+    )
+
+
+@pytest.mark.parametrize(
+    "role,quote,expected",
+    [("entity", "제품A", "rejected"), ("reporting_period", "함유비율", "undetermined")],
+)
+def test_direct_local_identity_does_not_hide_conflicting_or_invalid_roles(role, quote, expected):
+    graph, claim, refs = corpus()
+    values = {role: span(refs[0], quote)}
+    dimensions = {} if role == "reporting_period" else {"entity": span(refs[0], "회사A")}
+    assert bind(graph, claim, span(refs[0], "40%"), values, dimensions=dimensions) == expected

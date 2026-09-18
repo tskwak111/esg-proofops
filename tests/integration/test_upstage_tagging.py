@@ -573,7 +573,7 @@ def test_quote_profile_rejects_overlapping_ambiguous_quote(tmp_path, monkeypatch
         adapter._restore_ref({"id": "e0", "quote": "aa"}, {"e0": original})
 
 
-@pytest.mark.parametrize("supply_roles,expected", [(True, "present"), (False, "unknown")])
+@pytest.mark.parametrize("supply_roles,expected", [(True, "present"), (False, "present")])
 def test_quote_profile_passes_literal_value_guard_but_never_bypasses_binding(
     tmp_path, monkeypatch, supply_roles, expected
 ):
