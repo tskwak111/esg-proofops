@@ -30,6 +30,7 @@ from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
 
 from proofops_worker.consumer import StageFailure, consume_job
+from proofops_worker.extract_runner import paragraph_priority
 from proofops_worker.telemetry import observe_job
 
 
@@ -283,9 +284,12 @@ class LocalParserRunner:
                         blocks = {block.source_id: block for block in pre_native_graph.blocks}
                         eligible = tuple(
                             sorted(
-                                source_id
-                                for source_id in eligible_raster_sources(native_receipt)
-                                if blocks[source_id].page_num in pages
+                                (
+                                    source_id
+                                    for source_id in eligible_raster_sources(native_receipt)
+                                    if blocks[source_id].page_num in pages
+                                ),
+                                key=lambda source_id: paragraph_priority(blocks[source_id]),
                             )
                         )
                         limits = snapshot["raster_ocr_policy"]

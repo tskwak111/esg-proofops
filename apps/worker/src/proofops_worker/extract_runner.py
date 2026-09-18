@@ -35,6 +35,19 @@ def _is_text_candidate(kind: str, text: str) -> bool:
     return kind == "paragraph" or (kind == "heading" and len(text.strip()) >= 60)
 
 
+def paragraph_priority(block):
+    """Stable prose/page ordering for bounded extraction and raster recovery."""
+    # ponytail: routing heuristic only; no claim or absence classification.
+    return (
+        not block.normalized_text.rstrip().endswith((".", "!", "?")),
+        len(block.normalized_text.strip()) < 60,
+        block.page_num,
+        block.bbox is not None,
+        tuple(block.bbox or ()),
+        block.normalized_text,
+    )
+
+
 def select_stable_paragraph_sources(graph, scope, max_calls: int) -> set[str]:
     """Prioritize prose within a bounded preview; retain short candidates after it."""
     if type(max_calls) is not int or not 1 <= max_calls <= 20:
@@ -48,19 +61,7 @@ def select_stable_paragraph_sources(graph, scope, max_calls: int) -> set[str]:
         and _is_text_candidate(block.kind, block.normalized_text)
         and block.normalized_text.strip()
     )
-    ordered = sorted(
-        eligible,
-        key=lambda block: (
-            # Same length boundary as prose styled as headings; this only ranks,
-            # never excludes short claims or declares their coverage complete.
-            not block.normalized_text.rstrip().endswith((".", "!", "?")),
-            len(block.normalized_text.strip()) < 60,
-            block.page_num,
-            block.bbox is not None,
-            tuple(block.bbox or ()),
-            block.normalized_text,
-        ),
-    )
+    ordered = sorted(eligible, key=paragraph_priority)
     return {block.source_id for block in ordered[:max_calls]}
 
 

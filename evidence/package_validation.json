@@ -1,9 +1,9 @@
 {
-  "checked_at": "2026-09-18T23:30:05.428754+00:00",
+  "checked_at": "2026-09-18T23:49:24.686298+00:00",
   "scope": "documentation, structured contracts and synthetic schema examples only",
   "status": "passed",
-  "checks_total": 864,
-  "passed": 864,
+  "checks_total": 866,
+  "passed": 866,
   "failed": 0,
   "counts": {
     "numbered_documents": 34,
@@ -170,6 +170,11 @@
     },
     {
       "name": "json:evidence/clause-context-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/raster-v5-two-report-live-20260919.json",
       "passed": true,
       "detail": ""
     },
@@ -440,6 +445,11 @@
     },
     {
       "name": "json:evidence/service-loop-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/raster-prose-priority-replay-20260919.json",
       "passed": true,
       "detail": ""
     },

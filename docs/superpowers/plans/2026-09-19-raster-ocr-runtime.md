@@ -126,3 +126,13 @@ binding and current raster policy. Claims return 409 before parse/extract, as
 expected. Remaining step 4: fresh actual multi-report v5 calls, source-crop visual
 review, measured read latency and independent semantic gold. Earlier live pilots
 and the historical four-crop experiment do not substitute for that evaluation.
+
+Actual fresh v5 pilots at 8cd099c are recorded in
+`evidence/raster-v5-two-report-live-20260919.{md,json}`. Doosan (27/97/110) and KB
+(30) both published candidate reviews, but strict raster corroboration was 0/4
+for each. One text request remains unsettled; shared ledger USD10.3554877500,
+8 unsettled, with no retries/refunds. Repeated offline Doosan reads took49.632s
+and51.253s with identical graph hashes. Bounded selection by random run-derived
+source IDs was replaced with extraction's stable prose/page priority; no claim of
+improved live recovery until a fresh trial. Next concrete bottleneck is repeated
+v5 replay; preserve all tenant/source/graph/receipt/policy/version pins in any cache.

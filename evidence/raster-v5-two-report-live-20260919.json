@@ -1,0 +1,176 @@
+{
+  "schema": "raster_v5_live_evaluation_v1",
+  "code_commit": "8cd099c848bf04dfdb548ac7848ebfe14b67ecc8",
+  "reports": [
+    {
+      "report": "doosan",
+      "run_id": "64b35e34-1d1f-40f7-8a14-e110145e6940",
+      "source_sha256": "dc59b2b1c5bbf02e33bb901f94aef7cd984dc62547708e92aa1332ac550102e9",
+      "selected_pages": [
+        27,
+        97,
+        110
+      ],
+      "raster_coverage": {
+        "corroborated_source_ids": 0,
+        "eligible_source_ids": 16,
+        "failed_source_ids": 0,
+        "requested_source_ids": 4,
+        "unresolved_source_ids": 16
+      },
+      "native_verified_blocks": 22,
+      "claims": 12,
+      "candidate_reviews": 3,
+      "claim_status_counts": {
+        "blocked": 9,
+        "needs_review": 3
+      },
+      "non_null_decisions": 0,
+      "model_calls": 34,
+      "unsettled_calls": 1,
+      "committed_or_reserved_usd": "1.0602231300",
+      "raster_requests": [
+        {
+          "request_id": "4579a580-0154-59b6-a7c4-414f0288afa9",
+          "request_sha256": "970139e8c7cc780c2d8842d219b842d51c2b7487a859fb508b505fc4352785b4",
+          "submitted_pages": 4
+        }
+      ],
+      "raster_receipt_hashes": [
+        "828b4738d022c346abae427a3e722bb62d6e3270df27dd07b5256f9e60ab2a2f"
+      ],
+      "stage_observations": [
+        {
+          "stage": "PARSE",
+          "code": "OK",
+          "latency_ms": 129522.62354129925
+        },
+        {
+          "stage": "EXTRACT",
+          "code": "OK",
+          "latency_ms": 55443.64137481898
+        },
+        {
+          "stage": "TAG",
+          "code": "OK",
+          "latency_ms": 176723.54850033298
+        }
+      ]
+    },
+    {
+      "report": "kb",
+      "run_id": "4b9a3f9b-5d2f-4381-bcc8-6eb4efce07ee",
+      "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+      "selected_pages": [
+        30
+      ],
+      "raster_coverage": {
+        "corroborated_source_ids": 0,
+        "eligible_source_ids": 5,
+        "failed_source_ids": 0,
+        "requested_source_ids": 4,
+        "unresolved_source_ids": 5
+      },
+      "native_verified_blocks": 30,
+      "claims": 6,
+      "candidate_reviews": 3,
+      "claim_status_counts": {
+        "needs_review": 3,
+        "blocked": 3
+      },
+      "non_null_decisions": 0,
+      "model_calls": 39,
+      "unsettled_calls": 0,
+      "committed_or_reserved_usd": "0.0738405800",
+      "raster_requests": [
+        {
+          "request_id": "0ca3ae73-c180-5fa0-ba9e-628cdd01196b",
+          "request_sha256": "5143cb779b86ca430f5ffec01abbf89c22627d50816601d2677e21e6758a8a45",
+          "submitted_pages": 4
+        }
+      ],
+      "raster_receipt_hashes": [
+        "51f9c576afd32885eb8059f172b4ba269138f50319799ee7e7c7ad48a1aba515"
+      ],
+      "stage_observations": [
+        {
+          "stage": "PARSE",
+          "code": "OK",
+          "latency_ms": 96053.37791703641
+        },
+        {
+          "stage": "EXTRACT",
+          "code": "OK",
+          "latency_ms": 41994.90362498909
+        },
+        {
+          "stage": "TAG",
+          "code": "OK",
+          "latency_ms": 163750.21679187194
+        }
+      ]
+    }
+  ],
+  "semantic_gold": "not_run",
+  "production_ready": false,
+  "limitations": [
+    "Declared page subsets, not whole reports.",
+    "Fresh model calls are not a controlled accuracy comparison.",
+    "Read latency measured on a shared host while the KB pilot also ran.",
+    "Exact normalized OCR agreement is visibility corroboration, not semantic correctness."
+  ],
+  "ledger_after": {
+    "calls": 1825,
+    "committed_or_reserved_usd": "10.3554877500",
+    "unsettled_calls": 8
+  },
+  "ledger_before": {
+    "calls": 1752,
+    "committed_or_reserved_usd": "9.2214240400",
+    "unsettled_calls": 7
+  },
+  "doosan_offline_reads": [
+    {
+      "read": 1,
+      "elapsed_seconds": 49.632,
+      "graph_sha256": "0bb49fc25eb79f6a778b0397ea6eba7a799c33b97196dcd032629af0dcfea0b1",
+      "verified_blocks": 22
+    },
+    {
+      "read": 2,
+      "elapsed_seconds": 51.253,
+      "graph_sha256": "0bb49fc25eb79f6a778b0397ea6eba7a799c33b97196dcd032629af0dcfea0b1",
+      "verified_blocks": 22
+    }
+  ],
+  "visual_checks": [
+    {
+      "file": "doosan-request3.png",
+      "sha256": "a389da8a16761097fabd0f137b6e3f2f2f11a595ee60b52b98591bbf18e598fb"
+    },
+    {
+      "file": "doosan-page27.png",
+      "sha256": "c04b88aab3814807a98210926476d37e40409a7cc95facbc99160581fb184da1"
+    },
+    {
+      "file": "kb-page30.png",
+      "sha256": "1db6f5f439bfa947de73188a40ba19213535435b468bb1e88ddcf0115b79ccb1"
+    },
+    {
+      "file": "kb-request4.png",
+      "sha256": "12d13b76069c0c8a0f058ab973fdb5e705a6ec281aa458c83044f14bb0dd7f03"
+    },
+    {
+      "file": "kb-request3.png",
+      "sha256": "02f28c0723b62e8d9a65905e5df7cdb372e8b344b821bf908f2d4f4b10b27c77"
+    },
+    {
+      "file": "kb-request2.png",
+      "sha256": "510f98bb61f647a48b7a306b6359d28306ebce1475afdf31036f9ed0bc7c3b75"
+    },
+    {
+      "file": "kb-request1.png",
+      "sha256": "e6ae23882f0604cc9e83e1add901b1c970beeb014a945bd9b918b9ccb3bd04d0"
+    }
+  ]
+}
