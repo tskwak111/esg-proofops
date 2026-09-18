@@ -78,6 +78,13 @@ class TaggingSettings:
     def rendered_system(self) -> str:
         return self.system_prompt + "\nOutput JSON schema:\n" + self.schema_json
 
+    def system_for_track(self, track: str, safe_harbor_category: str | None) -> str:
+        return (
+            self.rendered_system
+            + "\nValidated classification; tag only its elements: "
+            + canonical_json(dict(track=track, safe_harbor_category=safe_harbor_category))
+        )
+
     @property
     def model_sha256(self) -> str:
         return canonical_hash(
@@ -194,11 +201,7 @@ def tag_replicates(
         claim.source_sha256,
     ) != (original.document_version_id, original.parse_manifest_id, original.source_sha256):
         raise DomainValidationError("claim/original source identity or quality mismatch")
-    rendered_system = (
-        settings.rendered_system
-        + "\nValidated classification; tag only its elements: "
-        + canonical_json(dict(track=track.track, safe_harbor_category=track.safe_harbor_category))
-    )
+    rendered_system = settings.system_for_track(track.track, track.safe_harbor_category)
     prompt_sha256 = canonical_hash(rendered_system)
     expected = dict(
         tenant_id=tenant_id,

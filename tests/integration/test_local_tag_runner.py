@@ -652,3 +652,19 @@ def test_null_track_tuple_is_blocked_not_an_uncaught_exception(tmp_path, monkeyp
         runner.tags.load_snapshot(TENANT, run_id)["claims"][0]["reason"]
         == "PRELIMINARY_TAGS_UNRESOLVED"
     )
+
+
+def test_checkpoint_cannot_mislabel_execution_provenance(tmp_path, monkeypatch):
+    service, run_id, runner, _, _ = verified_setup(tmp_path, monkeypatch)
+    execute = runner._execute
+
+    def wrong_marker(*args):
+        payload, publications = execute(*args)
+        envelope = json.loads(payload)
+        envelope["synthetic"] = False
+        return json.dumps(envelope).encode(), publications
+
+    monkeypatch.setattr(runner, "_execute", wrong_marker)
+    with pytest.raises(ValueError, match="TAG_CHECKPOINT_INVALID"):
+        runner.run_once(tenant_id=TENANT, run_id=run_id)
+    assert "tag_job" not in service.store.jobs.get_run(TENANT, run_id)

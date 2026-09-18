@@ -12,6 +12,7 @@ from uuid import UUID, uuid4, uuid5
 
 from proofops.adapters.cache.aws import ImmutableResponseCache
 from proofops.adapters.local.claim_store import LocalClaimStore
+from proofops.adapters.local.evidence_search import LocalEvidenceSearch
 from proofops.adapters.local.review_store import LocalSQLiteReviewStore
 from proofops.adapters.local.tag_cache import SQLiteImmutableCacheClient
 from proofops.adapters.local.tag_store import LocalTagStore, tag_pins, tagging_settings
@@ -54,6 +55,7 @@ class LocalTagRunner:
         telemetry,
         transport=None,
         preliminary=None,
+        live_factory=None,
         clock=time.time,
     ):
         if not uploads.local_synthetic:
@@ -68,6 +70,7 @@ class LocalTagRunner:
             clock,
         )
         self.claims = LocalClaimStore(store, uploads, parser)
+        self.live_factory = live_factory
         self.tags = LocalTagStore(store, uploads, parser)
         self.cache = ImmutableResponseCache(SQLiteImmutableCacheClient(store.path))
         self.reviews = ReviewService(
@@ -87,6 +90,23 @@ class LocalTagRunner:
         envelope = tag_pins(snapshot, extraction, run["claim_snapshot_sha256"])
         rulepack = RulePackSnapshot(**snapshot["rulepack"])
         settings = tagging_settings(snapshot) if snapshot.get("tagging_settings") else None
+        live = None
+        transport, preliminary_supplier = self.transport, self.preliminary
+        if snapshot.get("tagging_mode") == "upstage_local":
+            if self.live_factory is None:
+                raise ValueError("LIVE_TAGGING_RUNTIME_REQUIRED")
+            live = self.live_factory(self, snapshot, graph, lease, usage)
+            if live.synthetic is not False:
+                raise ValueError("LIVE_TAGGING_PROVENANCE_REQUIRED")
+            transport, preliminary_supplier = live, live.preliminary
+        search = _LocalClaimSearch()
+        generation = "local-atomic-only-v1"
+        if live is not None:
+            pages = sorted(set(snapshot["selected_pages"]) & {b.page_num for b in graph.blocks})
+            generation = "local-lexical-v1:" + snapshot["input_hash"]
+            search = LocalEvidenceSearch(
+                graph, tenant_id=tenant, pages=pages, index_generation=generation
+            )
         records, publications = [], []
         for claim in discovery.claims:
             if not self.store.jobs.can_call(lease, now=int(self.clock())):
@@ -95,9 +115,9 @@ class LocalTagRunner:
                 "SOURCE_VALIDATION_REQUIRED"
                 if claim.source_quality != "verified"
                 else "TAGGING_RUNTIME_REQUIRED"
-                if settings is None or self.transport is None
+                if settings is None or transport is None
                 else "PRELIMINARY_TAGS_REQUIRED"
-                if self.preliminary is None
+                if preliminary_supplier is None
                 else None
             )
             item = dict(
@@ -111,7 +131,9 @@ class LocalTagRunner:
             if reason:
                 records.append(item)
                 continue
-            preliminary = self.preliminary(claim, graph)
+            preliminary = preliminary_supplier(claim, graph)
+            if live is not None:
+                item["preliminary_records"] = live.preliminary_records.get(claim.claim_id, [])
             track, context, relation_tags = (
                 (None, None, None) if preliminary is None else preliminary
             )
@@ -124,13 +146,13 @@ class LocalTagRunner:
             original_packet = retrieve_evidence(
                 claim,
                 graph,
-                _LocalClaimSearch(),
+                search,
                 tenant_id=tenant,
                 run_id=run_id,
-                index_generation="local-atomic-only-v1",
+                index_generation=generation,
                 rulepack=rulepack,
                 document_context={},
-                token_counter=self.transport.token_counter,
+                token_counter=transport.token_counter,
             )
             if original_packet.to_dict()["status"] != "candidate":
                 item.update(
@@ -139,6 +161,8 @@ class LocalTagRunner:
                 records.append(item)
                 continue
             packet = freeze_track_packet(original_packet, track=track, rulepack=rulepack)
+            if live is not None:
+                live.allow_packet(claim.claim_id, packet.packet_sha256)
 
             def invoke(request):
                 # The budget service records actual completed usage even if the fence is
@@ -149,8 +173,9 @@ class LocalTagRunner:
                     self.store.jobs.heartbeat(lease, now=int(self.clock()), lease_seconds=300)
                 except LeaseLost:
                     raise _TagFenceLost() from None
-                usage["synthetic_calls"] += 1
-                return self.transport.invoke(request)
+                if live is None:
+                    usage["synthetic_calls"] += 1
+                return transport.invoke(request)
 
             runner = self
 
@@ -183,9 +208,13 @@ class LocalTagRunner:
                 tenant_id=tenant,
                 ensemble_id=str(uuid5(UUID(message.job_id), claim.claim_id)),
                 consent_profile=snapshot["consent"]["consent_profile_id"],
-                token_counter=self.transport.token_counter,
+                token_counter=transport.token_counter,
+                count_input_tokens=live.count_input_tokens if live is not None else None,
                 now=lambda: int(self.clock()),
             )
+            if live is not None:
+                for tag_run in tag_runs:
+                    live.account(tag_run.request.request_id)
             if not self.store.jobs.can_call(lease, now=int(self.clock())):
                 raise LeaseLost("LEASE_LOST")
             consensus = form_consensus(
@@ -197,11 +226,12 @@ class LocalTagRunner:
                 claim.claim_id,
                 packet.packet_sha256,
                 mode=snapshot["mode"],
-                local_synthetic=True,
+                local_synthetic=live is None,
             )
             decision = (
                 evaluate(consensus.confirmed_tags, rule_context, rulepack)
                 if consensus.confirmed_tags
+                and snapshot.get("rulepack_use") != "candidate_tagging_reference_only"
                 else None
             )
             inputs = ReviewInputs(
@@ -247,7 +277,7 @@ class LocalTagRunner:
                 claims_needs_review=len(records) - decided,
                 complete=False,
             ),
-            synthetic=True,
+            synthetic=live is None,
         )
         return canonical_json(envelope).encode(), publications
 

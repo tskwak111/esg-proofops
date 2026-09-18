@@ -188,7 +188,17 @@ class ReviewService:
             status="open",
             revision=1,
             base_tag_revision=inputs.tag_revision,
-            reason_codes=list(inputs.consensus.reasons),
+            reason_codes=list(inputs.consensus.reasons)
+            + (
+                []
+                if inputs.rule_context.local_synthetic
+                or (
+                    inputs.rulepack.status == "active"
+                    and inputs.rulepack.approved_by
+                    and inputs.rulepack.approved_at
+                )
+                else ["RULEPACK_APPROVAL_REQUIRED"]
+            ),
         )
         return review
 
@@ -216,6 +226,12 @@ class ReviewService:
             inputs = self.load_inputs(actor.tenant_id, target["run_id"], target["claim_id"])
         except KeyError:
             raise ReviewRejected("REVIEW_INPUT_UNAVAILABLE", 409) from None
+        if not inputs.rule_context.local_synthetic and not (
+            inputs.rulepack.status == "active"
+            and inputs.rulepack.approved_by
+            and inputs.rulepack.approved_at
+        ):
+            raise ReviewRejected("RULEPACK_APPROVAL_REQUIRED", 409)
 
         def build(review, initial, decision_revision):
             inputs.validate()

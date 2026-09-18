@@ -88,3 +88,94 @@ Both initial publication and later human tag editing need that guard; setting
 New candidate-tagging semantics need an explicit additive contract and rollback,
 including live extractor/preliminary/element composition, rather than requiring
 fabricated domain approval or silently changing old snapshot meaning.
+
+## Live tagging checkpoint — 2026-09-19
+
+Direct ordinary Codex quota read: 69% used / 31% remaining. No new paid product
+calls during this checkpoint. Focused runtime configuration, live transport,
+capacity policy and review tests: 106 passed (two existing deprecation warnings).
+Ruff check/format: passed, 318 files. Mypy: passed, 180 files; untyped function
+bodies retain the existing coverage limitation.
+
+Found and fixed a configuration authorization gap: independently valid preliminary
+and element settings could be exchanged between pipeline roles. A regression test
+first reproduced acceptance; explicit profile-role validation now rejects it.
+Added checks that disagreeing preliminary replies or repeated provider IDs never
+form consensus, while retaining all three actual usage records. Unapproved live
+rulepacks return RULEPACK_APPROVAL_REQUIRED before human resolution can publish a
+grade; the review service test verifies unchanged revision history.
+
+Next blocking integration defect (not resolved by those tests):
+LocalSQLiteReviewStore.publish_transaction still explicitly rejects every
+non-synthetic RuleContext. The new live worker therefore cannot yet publish its
+candidate review end to end. Extend this boundary using the immutable authorized
+run snapshot and matching source/settings/receipt pins, not by simply removing
+its synthetic guard. Add real-mode worker publication/reopen and cancellation/
+incomplete-receipt recovery tests before attempting the bounded real-PDF pilot.
+The focused review-service test is not evidence of live review-store publication.
+The whole pipeline remains incomplete; no service-readiness or accuracy claim.
+
+### Review publication boundary follow-up — 2026-09-19
+
+The unconditional synthetic-only publication rejection has been replaced for
+explicit live runs with immutable run-snapshot validation. The store checks the
+snapshot hash, tenant/run/document/source identity, complete rulepack hash,
+settings/runtime policy pins (existing tagging_settings validator), each receipt's
+real marker and model/prompt hashes. Candidate-reference runs cannot save a
+decision. No new table, external API call, or domain approval was introduced.
+
+Local review persistence fixtures verify publish, idempotent re-publication,
+reopen, and rejection with no review head written for missing snapshot, source,
+mode, snapshot hash, synthetic receipt, model and prompt mismatches. These are
+controlled persistence fixtures, not real-provider quality or end-to-end evidence.
+The initial publication fixture also caught JSON tuple/list representation drift;
+rulepack identity now compares canonical hashes rather than Python containers.
+
+Validation: combined focused suites 133 passed before two additional model/prompt
+negative cases; final publication suite 8 passed. Ruff check and format passed
+(319 files), mypy passed (180 files), architecture verifier passed. Whole suite,
+builds, real-mode worker publication/recovery and bounded actual PDF pilot remain
+pending for this uncommitted live-tagging branch. Next action: genuine run-created
+snapshot → parse/extract checkpoint → live-mode fake-HTTP worker → review replay;
+then real provider pilot only after those transactional checks pass.
+
+### Worker-to-review integration — 2026-09-19
+
+OpenCode Muse Spark 1.3 Free task task_48d6e6eceeae / ctx_d605146b813e drafted
+an integration test but exhausted free quota (visible retry ~6h37m) before
+validation. Coordinator interrupted retry, exited the agent to a confirmed shell,
+abandoned the unfinished dispatch, released and closed its external terminal;
+then corrected and ran the test. No active worker/editor remains for this task.
+This is coordinator-completed work, not a successful worker report.
+
+The test now creates an actual RunService upstage_local snapshot and SQLite
+registry, runs parse/extract/tag workers, publishes candidate review, reopens
+and replays it without another HTTP request or another billed attempt. Source
+verification/native provenance and all provider HTTP replies are explicit test
+fixtures; this is transactional integration evidence, NOT real-PDF/model accuracy.
+It makes 1 fake extractor call + 3 preliminary + 3 element calls, with distinct
+receipts and no grade under the unapproved rulepack.
+
+Integration found two defects missed by isolated fixtures: registry metadata is
+nested MappingProxyType, which artifact_sha256 previously could not serialize;
+and review publication must check the classification-appended prompt hash, not
+just the base prompt hash. The shared registry JSON encoder now supports Mapping
+without changing ordinary JSON hashes; TaggingSettings.system_for_track reuses
+the exact existing prompt construction for invocation and publication validation.
+Also pinned checkpoint synthetic provenance and propagated LeaseLost separately
+from ordinary preliminary validation failures. Tests cover incomplete receipts
+(no automatic rebilling) and lease loss before/during a call.
+
+Validation: full suite before the final registry/prompt corrections: 2424 passed,
+7 skipped, 2 existing warnings, 201.26s (/tmp/proofops-live-tagging-suite.txt).
+After final corrections: 139 focused tests passed, including new whole worker
+pipeline and publication tests. Ruff check/format (320 files), mypy (180 files)
+passed; doc/contracts 823 checks, license gate, all four Python builds and web
+type/build passed during this checkpoint. A full final-tree rerun remains needed.
+Codex direct quota: 70% used / 30% remaining. No paid product calls this wave.
+
+Next: verify crash-after-publication rollback and interrupted worker recovery
+with this real-mode harness; final-tree checks; extend explicit pilot config for
+separate preliminary/element bindings and run a bounded actual PDF pilot against
+the original USD20 ledger. Relationship tags remain unresolved (empty supplier),
+so this is still not a complete service or a claim of measured model accuracy.

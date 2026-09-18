@@ -467,3 +467,15 @@ def test_http_registry_authorizes_roles_and_returns_only_approved_options() -> N
     assert [item["id"] for item in options.json()["rights_profiles"]] == [RIGHTS_A]
     assert [item["id"] for item in options.json()["runtime_bindings"]] == [RUNTIME_A]
     assert denied.status_code == 403
+
+
+def test_artifact_hash_accepts_nested_immutable_registry_metadata():
+    from types import MappingProxyType
+
+    from proofops.application.registry import artifact_sha256
+
+    raw = {"name": "환경", "nested": [{"active": True}], "number": 2}
+    frozen = MappingProxyType(
+        {"name": "환경", "nested": (MappingProxyType({"active": True}),), "number": 2}
+    )
+    assert artifact_sha256(frozen) == artifact_sha256(raw)

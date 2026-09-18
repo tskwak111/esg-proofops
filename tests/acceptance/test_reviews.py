@@ -430,3 +430,23 @@ def test_durable_input_loader_runs_before_write_transaction(tmp_path):
 
     ws[1].load_inputs = load_inputs
     assert post(ws).status_code == 200
+
+
+def test_live_unapproved_rulepack_cannot_publish_human_grade(tmp_path):
+    from proofops.application.reviews import ReviewRejected
+
+    _, service, inputs, review, body, _, _ = workspace(tmp_path)
+    inputs = replace(
+        inputs,
+        rule_context=replace(inputs.rule_context, local_synthetic=False),
+        rulepack=replace(inputs.rulepack, status="draft", approved_by=None, approved_at=None),
+    )
+    # Exercise the service authority gate independently of the publication adapter.
+    service.load_inputs = lambda tenant, run, claim: inputs
+    assert "RULEPACK_APPROVAL_REQUIRED" in service._review(inputs)["reason_codes"]
+    before = service.store.history(TENANT, RUN, review["claim_id"])
+    actor = AuthContext("reviewer", TENANT, "reviewer", frozenset({"viewer", "reviewer"}), "test")
+    with pytest.raises(ReviewRejected, match="RULEPACK_APPROVAL_REQUIRED") as error:
+        service.resolve_review(actor, review["review_id"], body, '"1"', str(uuid4()))
+    assert error.value.status == 409
+    assert service.store.history(TENANT, RUN, review["claim_id"]) == before

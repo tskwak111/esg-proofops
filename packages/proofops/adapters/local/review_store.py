@@ -1,4 +1,4 @@
-"""Local-synthetic review persistence in the existing job_records transaction.
+"""Local review persistence in the existing job_records transaction.
 
 Schema v1 adds kinds, immutable triggers and a version marker only. Existing
 readers ignore these kinds; rollback stops review writers/routes and retains all
@@ -374,6 +374,51 @@ class LocalSQLiteReviewStore:
                 self.jobs._bump_run(db, self._run(db, tenant, run_id))
             return result
 
+    def _validate_live_publication(self, db, inputs):
+        from proofops.adapters.local.tag_store import tagging_settings
+
+        try:
+            if not db.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='run_snapshots'"
+            ).fetchone():
+                raise ValueError("missing run snapshot")
+            row = db.execute(
+                "SELECT payload FROM run_snapshots WHERE tenant_id=? AND run_id=?",
+                (inputs.context.claim.tenant_id, inputs.run_id),
+            ).fetchone()
+            frozen = json.loads(row[0]) if row else {}
+            settings = tagging_settings(frozen)
+            packet = inputs.packet.to_dict()
+            prompt_hash = canonical_hash(
+                settings.system_for_track(packet["track"], packet["safe_harbor_category"])
+            )
+            if (
+                frozen.get("tagging_mode") != "upstage_local"
+                or canonical_hash({k: v for k, v in frozen.items() if k != "input_hash"})
+                != frozen.get("input_hash")
+                or frozen["tenant_id"] != inputs.original.tenant_id
+                or frozen["run_id"] != inputs.run_id
+                or frozen["document"]["version_id"] != inputs.original.document_version_id
+                or frozen["document"]["sha256"] != inputs.original.source_sha256
+                or canonical_hash(frozen["rulepack"]) != canonical_hash(asdict(inputs.rulepack))
+                or frozen.get("rulepack_use")
+                not in {"candidate_tagging_reference_only", "approved_grading"}
+                or (
+                    frozen["rulepack_use"] == "candidate_tagging_reference_only"
+                    and inputs.decision is not None
+                )
+                or not inputs.tag_runs
+                or any(
+                    receipt.synthetic is not False
+                    or receipt.model_sha256 != settings.model_sha256
+                    or receipt.prompt_sha256 != prompt_hash
+                    for receipt in inputs.tag_runs
+                )
+            ):
+                raise ValueError("live publication pins mismatch")
+        except (KeyError, TypeError, ValueError):
+            raise ReviewRejected("REVIEW_INPUT_MISMATCH", 409) from None
+
     def publish_transaction(self, db, inputs, review):
         """Join the fenced tag checkpoint transaction; no commit or epoch bump."""
         if not db.in_transaction:
@@ -381,11 +426,10 @@ class LocalSQLiteReviewStore:
         tenant, run_id, claim_id = inputs.context.claim.tenant_id, inputs.run_id, review["claim_id"]
         snapshot = inputs.snapshot()
         run = self._run(db, tenant, run_id)
-        if (
-            not inputs.rule_context.local_synthetic
-            or run["document_version_id"] != inputs.original.document_version_id
-        ):
+        if run["document_version_id"] != inputs.original.document_version_id:
             raise ReviewRejected("REVIEW_INPUT_MISMATCH", 409)
+        if not inputs.rule_context.local_synthetic:
+            self._validate_live_publication(db, inputs)
         prior = self.jobs._raw(db, tenant, run_id, "review_head", review["review_id"])
         if prior:
             stored = self.jobs._get(db, tenant, run_id, "review_inputs", review["review_id"])

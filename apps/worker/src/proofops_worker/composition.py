@@ -31,7 +31,12 @@ def build_composition(
         raise ValueError("NOTE_REVIEWS_REQUIRE_PARSE_STAGE")
     if stage not in {"parse", "extract", "tag"}:
         raise ValueError("STAGE_INVALID")
-    if stage == "tag" and os.environ.get("LOCAL_TAGGING_MODE") not in {None, "", "local_synthetic"}:
+    if stage == "tag" and os.environ.get("LOCAL_TAGGING_MODE") not in {
+        None,
+        "",
+        "local_synthetic",
+        "upstage_local",
+    }:
         raise ValueError("LOCAL_TAGGING_MODE_UNSUPPORTED")
     if stage == "extract" and os.environ.get("LOCAL_EXTRACTION_MODE") not in {
         "local_synthetic",
@@ -77,6 +82,30 @@ def build_composition(
     if stage == "tag":
         from proofops_agent.synthetic_tagging import SyntheticTaggingTransport
 
+        live_factory = None
+        if os.environ.get("LOCAL_TAGGING_MODE") == "upstage_local":
+            from proofops.adapters.local.upstage import MODEL_PRO4, UpstageProbe
+
+            from proofops_worker.live_tagging import LiveTaggingRuntime
+
+            if not note_ledger.is_file():
+                raise ValueError("SHARED_BUDGET_LEDGER_REQUIRED")
+            probe = UpstageProbe(
+                os.environ.get("UPSTAGE_API_KEY", ""), note_ledger, model=MODEL_PRO4
+            )
+
+            def live_factory(owner, snapshot, graph, lease, usage):
+                return LiveTaggingRuntime(
+                    owner,
+                    snapshot,
+                    graph,
+                    lease,
+                    usage,
+                    probe=probe,
+                    ledger=note_ledger,
+                    receipts=database.parent / "tagging-receipts" / snapshot["run_id"],
+                )
+
         return LocalTagRunner(
             runner.store,
             runner.uploads,
@@ -85,6 +114,7 @@ def build_composition(
             transport=SyntheticTaggingTransport()
             if os.environ.get("LOCAL_TAGGING_MODE") == "local_synthetic"
             else None,
+            live_factory=live_factory,
         )
     if stage == "extract":
         from proofops_agent.extraction import SyntheticClaimExtractor

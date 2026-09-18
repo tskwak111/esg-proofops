@@ -14,6 +14,7 @@ from proofops.application.claims import ExtractionProfile
 from proofops.application.ingest.graph_fusion import ParserProfile
 from proofops.application.preflight import (
     check_local_upstage_binding,
+    check_local_upstage_tagger,
     check_runtime_binding,
     combine_build_checks,
 )
@@ -28,6 +29,24 @@ class RunRejected(ValueError):
     def __init__(self, code: str, status: int = 409):
         super().__init__(code)
         self.code, self.status = code, status
+
+
+_LIVE_TAGGING_MODEL = "solar-pro4"
+
+
+def _capacity_accommodated(limits: BudgetLimits | None, upper: int, output_cap: int) -> bool:
+    """Role budgets must cover the reserved input upper bound plus the output cap."""
+    if limits is None:
+        return False
+    candidates = [role for role in limits.roles if role.role == "tagger"]
+    if not candidates:
+        return False
+    return any(
+        role.max_input_tokens >= upper
+        and role.max_output_tokens >= output_cap
+        and role.max_context_tokens >= upper + output_cap
+        for role in candidates
+    )
 
 
 def _detach(value):
@@ -54,6 +73,8 @@ class RunService:
         extraction_limits=None,
         tagging_settings: TaggingSettings | None = None,
         tagging_mode: str | None = None,
+        preliminary_settings: TaggingSettings | None = None,
+        input_reservation_policy=None,
         budget_limits=None,
         allowed_regions=(),
         build_result=None,
@@ -80,12 +101,26 @@ class RunService:
             parser_profile = MappingProxyType(parser_profile)
         if budget_limits is not None and not isinstance(budget_limits, BudgetLimits):
             raise ValueError("trusted BudgetLimits required")
+        if preliminary_settings is not None and not isinstance(
+            preliminary_settings, TaggingSettings
+        ):
+            raise ValueError("trusted preliminary TaggingSettings required")
+        if input_reservation_policy is not None and not isinstance(
+            input_reservation_policy, Mapping
+        ):
+            raise ValueError("trusted input reservation policy required")
         self.store, self.uploads, self.registry = store, uploads, registry
         self.parser_profile_hash, self.budget_limits = parser_profile_hash, budget_limits
         self.parser_profile = parser_profile
         self.extraction_profile, self.extraction_mode = extraction_profile, extraction_mode
         self.extraction_limits = _detach(extraction_limits)
         self.tagging_settings, self.tagging_mode = tagging_settings, tagging_mode
+        self.preliminary_settings = preliminary_settings
+        self.input_reservation_policy = (
+            _detach(dict(input_reservation_policy))
+            if input_reservation_policy is not None
+            else None
+        )
         self.allowed_regions, self.build_result = tuple(allowed_regions), build_result
         self.clock = clock
         self.local_synthetic = True
@@ -173,10 +208,13 @@ class RunService:
             raise RunRejected("CONFIG_GATE_BLOCKED")
         if self.extraction_mode == "upstage_probe":
             limits = self.extraction_limits
+            live_tagging = self.tagging_mode == "upstage_local"
             if (
                 body["scope"] != "declared_subset"
-                or self.tagging_settings is not None
-                or self.tagging_mode is not None
+                or (
+                    not live_tagging
+                    and (self.tagging_settings is not None or self.tagging_mode is not None)
+                )
                 or not isinstance(limits, dict)
                 or set(limits) != {"max_calls", "max_output_tokens"}
                 or type(limits["max_calls"]) is not int
@@ -188,7 +226,86 @@ class RunService:
         elif self.extraction_limits is not None:
             raise RunRejected("CONFIG_GATE_BLOCKED")
         tagging = self.tagging_settings
-        if (tagging is not None or self.tagging_mode is not None) and (
+        live_tagging = self.tagging_mode == "upstage_local"
+        if live_tagging:
+            if self.extraction_mode != "upstage_probe":
+                raise RunRejected("CONFIG_GATE_BLOCKED")
+            preliminary = self.preliminary_settings
+            if not isinstance(preliminary, TaggingSettings) or not isinstance(
+                tagging, TaggingSettings
+            ):
+                raise RunRejected("CONFIG_GATE_BLOCKED")
+            if (
+                preliminary.model_profile != "upstage-preliminary-source-quotes-v1"
+                or tagging.model_profile != "upstage-compact-ids-frozen-unicode-v1"
+            ):
+                raise RunRejected("CONFIG_GATE_BLOCKED")
+            for pinned in (preliminary, tagging):
+                if (
+                    pinned.binding.synthetic is not False
+                    or pinned.binding.role != "tagger"
+                    or pinned.model_id != _LIVE_TAGGING_MODEL
+                    or type(pinned.max_tokens) is not int
+                    or not 1 <= pinned.max_tokens <= 4096
+                ):
+                    raise RunRejected("CONFIG_GATE_BLOCKED")
+            policy = self.input_reservation_policy
+            if not isinstance(policy, dict) or not policy:
+                raise RunRejected("CONFIG_GATE_BLOCKED")
+            policy_hash = canonical_hash(policy)
+            try:
+                preliminary_runtime = _detach(
+                    self.registry.resolve_profile(auth, "runtime", preliminary.binding.binding_id)
+                )
+                tagging_runtime = _detach(
+                    self.registry.resolve_profile(auth, "runtime", tagging.binding.binding_id)
+                )
+            except RegistryNotFound:
+                raise RunRejected("CONFIG_GATE_BLOCKED") from None
+            if (
+                len(
+                    {
+                        body["runtime_binding_id"],
+                        preliminary.binding.binding_id,
+                        tagging.binding.binding_id,
+                    }
+                )
+                != 3
+            ):
+                raise RunRejected("CONFIG_GATE_BLOCKED")
+            for pinned, bound_runtime in (
+                (preliminary, preliminary_runtime),
+                (tagging, tagging_runtime),
+            ):
+                if (
+                    pinned.binding.binding_id != bound_runtime.get("runtime_binding_id")
+                    or bound_runtime.get("input_reservation_policy_sha256") != policy_hash
+                ):
+                    raise RunRejected("CONFIG_GATE_BLOCKED")
+                if not check_local_upstage_tagger(
+                    binding=bound_runtime,
+                    consent=consent,
+                    auth=auth,
+                    checked_at=timestamp,
+                    source_sha256=document["sha256"],
+                    document_rights=rights_id,
+                    settings=pinned,
+                ).ready:
+                    raise RunRejected("CONFIG_GATE_BLOCKED")
+            from proofops.application.input_reservation import validate_capacity_policy
+
+            for pinned in (preliminary, tagging):
+                try:
+                    upper = validate_capacity_policy(
+                        policy,
+                        model_id=pinned.model_id,
+                        checked_at=datetime.fromtimestamp(created_time, UTC),
+                    )
+                except ValueError:
+                    raise RunRejected("CONFIG_GATE_BLOCKED") from None
+                if not _capacity_accommodated(self.budget_limits, upper, pinned.max_tokens):
+                    raise RunRejected("CONFIG_GATE_BLOCKED")
+        elif (tagging is not None or self.tagging_mode is not None) and (
             not isinstance(tagging, TaggingSettings)
             or self.tagging_mode != "local_synthetic"
             or self.extraction_profile is None
@@ -233,6 +350,20 @@ class RunService:
                 tagging_settings=asdict(tagging),
                 tagging_settings_hash=canonical_hash(asdict(tagging)),
                 tagging_mode=self.tagging_mode,
+            )
+        if live_tagging:
+            assert isinstance(preliminary, TaggingSettings)
+            assert isinstance(tagging, TaggingSettings)
+            assert isinstance(policy, dict)
+            snapshot.update(
+                preliminary_settings=asdict(preliminary),
+                preliminary_settings_hash=canonical_hash(asdict(preliminary)),
+                preliminary_runtime=preliminary_runtime,
+                preliminary_runtime_artifact_hash=artifact_sha256(preliminary_runtime),
+                tagging_runtime=tagging_runtime,
+                tagging_runtime_artifact_hash=artifact_sha256(tagging_runtime),
+                input_reservation_policy=dict(policy),
+                input_reservation_policy_hash=policy_hash,
             )
         return self.store.create(auth, body, key, snapshot, self.budget_limits, now=now)
 
