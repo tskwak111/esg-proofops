@@ -158,6 +158,27 @@ def consensus(runs, inputs):
     )
 
 
+def test_actual_token_overrun_stops_remaining_replicas_and_retains_raw_recovery(tmp_path):
+    inputs = setup(tmp_path)
+    responder = inputs["invoke"]
+
+    def overrun(request):
+        response = responder(request)
+        return replace(response, usage=replace(response.usage, input_tokens=101))
+
+    inputs["invoke"] = overrun
+    runs = execute(inputs)
+    assert len(responder.requests) == 1
+    assert [run.status for run in runs[1:]] == ["budget_exhausted", "budget_exhausted"]
+    assert runs[0].usage.input_tokens == 101 and runs[0].raw_response_json
+    assert consensus(runs, inputs).confirmed_tags is None
+    recovered = execute(inputs)
+    assert len(responder.requests) == 1
+    assert recovered[0].recovered
+    assert recovered[0].raw_response_json == runs[0].raw_response_json
+    assert [run.status for run in recovered[1:]] == ["budget_exhausted", "budget_exhausted"]
+
+
 def test_three_distinct_calls_same_frozen_packet_and_raw_recovery_only(tmp_path):
     inputs = setup(tmp_path)
     before = inputs["packet"].payload_json

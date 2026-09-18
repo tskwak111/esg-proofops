@@ -12,6 +12,13 @@ When remaining usage reaches 10% or less, start no new work; finish bounded
 verification, save changes and handoff state, release workers, then stop. Do not
 mark the full objective complete or spend reset credits automatically. A cached
 quota timestamp is not a fresh measurement; session limits may be unavailable.
+For a stale Orca cache, use local `codex app-server --stdio`: initialize a client,
+send `initialized`, then read `account/rateLimits/read` with
+`excludeResetCreditDetails=true` and `supportsLunaReserve=false`. Terminate that
+read-only server after the reply; never start a model thread or spend reset
+credits. Inspect the ordinary `codex` limit, not a separate reserve-model bucket.
+Direct read on 2026-09-18 16:40 UTC: 68% used / 32% remaining (weekly), ordinary
+usage allowed. This is a dated observation, not an indefinitely current value.
 
 ## Remaining completion evidence
 

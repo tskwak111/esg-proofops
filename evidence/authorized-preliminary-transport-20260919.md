@@ -60,3 +60,31 @@ The proposal also conflicted on whether live extraction and tagging could
 coexist. It is not an approved implementation contract; the corrected constraints
 are recorded in `docs/autonomous-completion-plan.md`. Both workers were released
 and their external terminals closed after accepted lifecycle completion.
+
+## Follow-up: provider usage overrun fence
+
+Previously, provider usage above a call's reservation could still permit later
+calls when aggregate run limits had headroom. Two input/output regression cases
+failed before the fix. The shared SQLite usage store now checks settled actuals
+before a new reservation and again within the dispatch transaction. Actual usage
+and raw responses remain immutable and recoverable; duplicate reservation replay
+does not dispatch again. Unknown usage retains the existing reservation policy.
+The fence is scoped to the tenant/run and persists across process restart.
+
+This is not a tokenizer replacement or a guarantee that an already-dispatched
+network request can be revoked. No new API fields, DB migration or dependency.
+Rollback removes the checks without altering any receipt/ledger data, but restores
+the previous risk of continued spending after an underestimated reservation.
+
+Validation: `uv run pytest tests/acceptance/test_cost.py -q` passed 27 cases;
+OpenCode independently reviewed the store and reran those cases with no reported
+correctness gaps. The coordinator additionally verified remaining replica stops,
+raw recovery and lack of fabricated ensemble consensus in `test_tagging.py`.
+The final focused run across test_cost, test_tagging, test_local_tag_runner and
+test_run_lifecycle passed 139 cases. Full unit/contract/acceptance/integration/
+security/staging-gate run passed 2337, skipped 7, with two existing deprecation
+warnings in 191.74 s (`/tmp/proofops-budget-overrun-suite.txt`). Its collection
+preceded the final one added tagging test, covered by the 139-case focused run.
+Ruff (313 formatted files), mypy (178 files), architecture, documentation/contracts
+(823 checks), supply-chain gate, four Python package builds and web type/build all
+passed. Real provider calls and AWS: `not_run`; additional product API spend: zero.
