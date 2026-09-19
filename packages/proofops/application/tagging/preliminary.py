@@ -41,6 +41,11 @@ text that occurs exactly once there. The server calculates its character offsets
 If the desired quote is repeated, return null instead of guessing its position.
 Never borrow from another claim, document metadata,
 report year, or general knowledge. A target year is not a reporting period.
+Reporting period means the time interval to which the asserted activity or result
+applies. Reporting or meeting frequency (분기 1회, 매월, annually, quarterly) alone
+is not a reporting period; return null when only frequency is stated. Keep an
+explicit observation period such as 2025년 1분기 or 2024년 when it applies to the
+claim, even if the same sentence also specifies a reporting frequency.
 Entity means the reporting organization or organizational unit, not an arbitrary
 grammatical subject such as money, projects, products, or emissions. If the
 organization is not literally named in this atomic source, entity is null.

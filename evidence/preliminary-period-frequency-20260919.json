@@ -1,0 +1,182 @@
+{
+  "schema": "reporting_period_frequency_diagnostic_v1",
+  "baseline_code": "b74a92f",
+  "baseline_prompt_sha256": "f88cc297a2c531914a10d80badaeb0080d1cb258f46eabad7d834cea74059324",
+  "candidate_prompt_sha256": "7237cccf4035a56d5cdf4fe0133d254e2fe54c65fc8f7f5552c9c4c9ec395429",
+  "cases": [
+    {
+      "id": "actual_quarterly_reporting",
+      "text": "이 외에도 CHRO ESG팀은 전사 전략과제의 이행 현황과 함께 기후 리스크 및 기회 요인에 대한 검토 결과를 주요 ESG 이슈와 함께 분기 1회 정기적으로, 필요 시에는 수시로 글로벌 ESG 위원회에 보고하여 의사결정의 투명성과 신속성을 높이고 있습니다.",
+      "period": null,
+      "synthetic": false
+    },
+    {
+      "id": "quarterly_observation",
+      "text": "예시제조의 2025년 1분기 온실가스 배출량은 120 tCO2e입니다.",
+      "period": "2025년 1분기",
+      "synthetic": true
+    },
+    {
+      "id": "annual_observation_with_frequency",
+      "text": "예시제조는 2024년 온실가스 배출량을 매월 점검하였으며 연간 총 배출량은 120 tCO2e입니다.",
+      "period": "2024년",
+      "synthetic": true
+    },
+    {
+      "id": "monthly_frequency_only",
+      "text": "예시제조는 온실가스 감축 과제의 이행 현황을 매월 환경위원회에 보고합니다.",
+      "period": null,
+      "synthetic": true
+    }
+  ],
+  "rows": [
+    {
+      "case_id": "actual_quarterly_reporting",
+      "replica": 1,
+      "request_id": "d0f14e90-947a-4e0b-bf63-41d4ff0af05c",
+      "period_quote": null,
+      "expected_period": null,
+      "match": true,
+      "synthetic": false
+    },
+    {
+      "case_id": "actual_quarterly_reporting",
+      "replica": 2,
+      "request_id": "0bdad798-029f-4a23-94d9-5cd6757c0fa8",
+      "period_quote": null,
+      "expected_period": null,
+      "match": true,
+      "synthetic": false
+    },
+    {
+      "case_id": "actual_quarterly_reporting",
+      "replica": 3,
+      "request_id": "cc837d5f-927a-4047-b8e0-3b20858b3913",
+      "period_quote": null,
+      "expected_period": null,
+      "match": true,
+      "synthetic": false
+    },
+    {
+      "case_id": "quarterly_observation",
+      "replica": 1,
+      "request_id": "db1fe75c-60bb-46f3-b2bb-5f2e544e9a37",
+      "period_quote": "2025년 1분기",
+      "expected_period": "2025년 1분기",
+      "match": true,
+      "synthetic": true
+    },
+    {
+      "case_id": "quarterly_observation",
+      "replica": 2,
+      "request_id": "f2d172ed-296c-4f6f-bb0b-278575f6a002",
+      "period_quote": "2025년 1분기",
+      "expected_period": "2025년 1분기",
+      "match": true,
+      "synthetic": true
+    },
+    {
+      "case_id": "quarterly_observation",
+      "replica": 3,
+      "request_id": "421cf6bb-25fd-4f79-9080-9e8ad0d7feb7",
+      "period_quote": "2025년 1분기",
+      "expected_period": "2025년 1분기",
+      "match": true,
+      "synthetic": true
+    },
+    {
+      "case_id": "annual_observation_with_frequency",
+      "replica": 1,
+      "request_id": "4b3a7f4b-e5b6-46cc-9505-ddaa59b07d2c",
+      "period_quote": "2024년",
+      "expected_period": "2024년",
+      "match": true,
+      "synthetic": true
+    },
+    {
+      "case_id": "annual_observation_with_frequency",
+      "replica": 2,
+      "request_id": "c9e19759-3b1d-4504-8ae1-3689946c587c",
+      "period_quote": "2024년",
+      "expected_period": "2024년",
+      "match": true,
+      "synthetic": true
+    },
+    {
+      "case_id": "annual_observation_with_frequency",
+      "replica": 3,
+      "request_id": "e5e832b4-0f20-4e1c-89cb-45f3e22d45c7",
+      "period_quote": "2024년",
+      "expected_period": "2024년",
+      "match": true,
+      "synthetic": true
+    },
+    {
+      "case_id": "monthly_frequency_only",
+      "replica": 1,
+      "request_id": "96f68103-7a74-4afe-a672-a3ba4e5d02e0",
+      "period_quote": null,
+      "expected_period": null,
+      "match": true,
+      "synthetic": true
+    },
+    {
+      "case_id": "monthly_frequency_only",
+      "replica": 2,
+      "request_id": "2e638547-ca08-4a3c-8a11-37c44f1b69bd",
+      "period_quote": null,
+      "expected_period": null,
+      "match": true,
+      "synthetic": true
+    },
+    {
+      "case_id": "monthly_frequency_only",
+      "replica": 3,
+      "request_id": "92d88e88-0d7b-4913-ad73-c1ccbd1bd4d5",
+      "period_quote": null,
+      "expected_period": null,
+      "match": true,
+      "synthetic": true
+    }
+  ],
+  "usage": {
+    "model_calls": 12,
+    "reserved_calls": 12,
+    "settled_calls": 12,
+    "unsettled_calls": 0,
+    "input_tokens": 15178,
+    "output_tokens": 1202,
+    "token_usage_complete": true,
+    "cost_with_vat_reserve_usd": "0.006595380",
+    "committed_or_reserved_usd": "0.006595380",
+    "unknown_reservation_cost_usd": null
+  },
+  "all_matched": true,
+  "published": false,
+  "reviewer_kind": "agent",
+  "human_accuracy": null,
+  "baseline_actual_periods": [
+    null,
+    "분기 1회",
+    "분기 1회"
+  ],
+  "compatibility": {
+    "existing_claim_list_http": 200,
+    "existing_first_detail_http": 200,
+    "existing_cost_http": 200,
+    "all_three_bodies_equal_before_and_after": true,
+    "old_claim_decisions_modified": false
+  },
+  "budget": {
+    "calls": 1899,
+    "committed_or_reserved_usd": "11.4558179250",
+    "unsettled": 9,
+    "cap_usd": "20"
+  },
+  "limitations": [
+    "One actual source claim and three authored controls",
+    "Three responses per case are consistency checks, not independent semantic gold",
+    "Shadow transport diagnostic; no graph or source proof was created for authored controls",
+    "Existing blocked claim remains blocked; no old revision was overwritten"
+  ]
+}

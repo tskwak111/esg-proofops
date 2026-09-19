@@ -1,9 +1,9 @@
 {
-  "checked_at": "2026-09-19T00:15:40.382946+00:00",
+  "checked_at": "2026-09-19T00:23:45.101022+00:00",
   "scope": "documentation, structured contracts and synthetic schema examples only",
   "status": "passed",
-  "checks_total": 869,
-  "passed": 869,
+  "checks_total": 870,
+  "passed": 870,
   "failed": 0,
   "counts": {
     "numbered_documents": 34,
@@ -160,6 +160,11 @@
     },
     {
       "name": "json:evidence/live-tagging-kb-rubric-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/preliminary-period-frequency-20260919.json",
       "passed": true,
       "detail": ""
     },

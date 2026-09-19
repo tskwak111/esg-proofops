@@ -157,3 +157,12 @@ Cold profiling confirms duplicate native replay and 114 local OCR invocations;
 see `evidence/native-cold-replay-profile-20260919.{md,json}`. A compiled reader
 is only an isolated parity experiment, not a runtime change. Address frozen
 policy compatibility before changing pinned replay helpers or prompts.
+
+At user-requested stopping point, the reporting-period/frequency prompt fix is
+bounded to the observed preliminary disagreement. One real source sentence and
+three authored controls matched expected period quotes in 12/12 shadow replies;
+this is not gold accuracy. Existing list/detail/cost bodies stayed identical.
+Evidence: `evidence/preliminary-period-frequency-20260919.{md,json}`. Original
+blocked revision remains unchanged; no new full-pipeline run was started.
+User requested finishing this work and stopping; do not start the remaining
+cold-replay optimization, extra report trials or worker dispatch without resumption.
