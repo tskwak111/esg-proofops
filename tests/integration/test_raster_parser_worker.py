@@ -187,23 +187,29 @@ def test_raster_timeout_retains_reservation_without_publishing(tmp_path, monkeyp
     assert usage[-1]["note_pending_usage"]["unsettled_calls"] == 1
 
 
-@pytest.mark.parametrize("tamper", ["coverage", "receipt"])
+@pytest.mark.parametrize("tamper", ["coverage", "receipt", "graph"])
 def test_v5_reader_rejects_changed_publication(tmp_path, monkeypatch, tamper):
     service, runner, lease, probe, calls = setup_worker(tmp_path, monkeypatch, heading=True)
     identity = dict(tenant_id=lease.message.tenant_id, run_id=lease.message.run_id)
     assert runner.run_once(**identity) == "committed"
+    # Warm any expensive replay cache before altering the publication envelope.
+    runner.load_graph(**identity)
     payload = json.loads(service.store.jobs.read_checkpoint(lease.message))
     if tamper == "coverage":
         # Still structurally valid, but disagrees with the independently replayed receipt.
         coverage = payload["raster_ocr_coverage"]
         coverage["unresolved_source_ids"] = coverage["eligible_source_ids"]
         coverage["corroborated_source_ids"] = []
-    else:
+    elif tamper == "receipt":
         payload["raster_ocr_artifacts"][0]["receipt_sha256"] = "0" * 64
+    else:
+        payload["graph_sha256"] = "0" * 64
     monkeypatch.setattr(
         service.store.jobs, "read_checkpoint", lambda *a, **k: json.dumps(payload).encode()
     )
     monkeypatch.setattr(probe, "parse", lambda *a, **k: pytest.fail("reader invoked provider"))
-    with pytest.raises(ValueError, match="RASTER_.*(INVALID|MISMATCH)"):
+    with pytest.raises(
+        ValueError, match="(RASTER_.*(INVALID|MISMATCH)|NOTE_REVIEW_GRAPH_MISMATCH)"
+    ):
         runner.load_graph(**identity)
     assert len(calls) == 1

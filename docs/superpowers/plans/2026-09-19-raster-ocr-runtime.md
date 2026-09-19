@@ -136,3 +136,13 @@ and51.253s with identical graph hashes. Bounded selection by random run-derived
 source IDs was replaced with extraction's stable prose/page priority; no claim of
 improved live recovery until a fresh trial. Next concrete bottleneck is repeated
 v5 replay; preserve all tenant/source/graph/receipt/policy/version pins in any cache.
+
+Follow-up evidence: `evidence/raster-cache-prose-live-20260919.{md,json}`.
+Bounded process-local v5 cache reduces observed warm reads to 0.144–0.173s,
+with durable binding/coverage/reference/final-graph checks retained every read.
+Cold reads remain 51–53s. A fresh four-crop parse-only prose-priority call recovered
+one paragraph (previous selection zero); 15 eligible sources remain unresolved.
+Original recovered crop visually checked; independent semantic gold is absent.
+Shared ledger USD10.3994877500 / USD20, eight unsettled. Next: representative
+scope/claim evaluation and cold replay cost; do not relax exact text matching
+merely to improve recovery counts. New trial extraction/tagging remains not_run.

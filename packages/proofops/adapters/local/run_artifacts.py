@@ -329,7 +329,7 @@ def load_run_evidence(store, uploads, parser, *, tenant_id: str, run_id: str):
         except (ValueError, TypeError, KeyError):
             raise ParseFailure("NOTE_REVIEW_REPLAY_INVALID") from None
     if envelope.get("schema") == "local_parser_checkpoint_v5":
-        from proofops.adapters.local.raster_checkpoint import replay_raster_records
+        from proofops.adapters.local.native_replay_cache import replay_raster_cached
         from proofops.adapters.local.raster_job_store import raster_receipt, raster_requests
 
         registrations = raster_requests(store.jobs, message)
@@ -340,7 +340,7 @@ def load_run_evidence(store, uploads, parser, *, tenant_id: str, run_id: str):
             for row in registrations
         }
         try:
-            graph, raster_coverage, raster_refs = replay_raster_records(
+            graph, raster_coverage, raster_refs = replay_raster_cached(
                 snapshot, message, native_receipt, graph, source.content, registrations, receipts
             )
             if (

@@ -499,7 +499,14 @@ The existing fenced commit transaction validates frozen policy, native linkage,
 all durable request/receipt references and coverage ownership. Readback resolves
 those same scoped records and independently recomputes coverage, composition and
 final graph identity against original PDF bytes, without contacting the provider.
-V5 replay is currently uncached; no cold/repeated-read speedup is claimed.
+V5 readers cache up to 64 successful replays per process, keyed by the full
+snapshot/job, source and graph hashes, native receipt, durable registrations and
+receipts, current policy/helper and reader versions (including pdfminer.six),
+and platform. Cached metadata is returned in fresh containers. Durable binding
+checks and envelope coverage/reference/final-graph comparisons still execute
+on every read. Failed replays are not cached; cold reads remain expensive.
+Measured cold/warm observations are recorded in
+`evidence/raster-cache-prose-live-20260919.{md,json}`.
 
 V1-v4 continue to reject raster-prefixed fields. A raster-configured run cannot
 publish/read a downgraded v4 checkpoint. Older incomplete experimental raster

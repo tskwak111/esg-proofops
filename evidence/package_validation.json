@@ -1,9 +1,9 @@
 {
-  "checked_at": "2026-09-18T23:49:24.686298+00:00",
+  "checked_at": "2026-09-19T00:05:47.425227+00:00",
   "scope": "documentation, structured contracts and synthetic schema examples only",
   "status": "passed",
-  "checks_total": 866,
-  "passed": 866,
+  "checks_total": 867,
+  "passed": 867,
   "failed": 0,
   "counts": {
     "numbered_documents": 34,
@@ -275,6 +275,11 @@
     },
     {
       "name": "json:evidence/doosan-paragraph-geometry-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/raster-cache-prose-live-20260919.json",
       "passed": true,
       "detail": ""
     },

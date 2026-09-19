@@ -1,0 +1,98 @@
+{
+  "schema": "raster_cache_and_prose_trial_v1",
+  "date": "2026-09-19",
+  "base_commit": "9d03c628824df971f9e6ba36a293b69a73eb4d3d",
+  "network_forbidden_on_reads": true,
+  "measurements": [
+    {
+      "state": "doosan-raster-v5",
+      "run_id": "64b35e34-1d1f-40f7-8a14-e110145e6940",
+      "seconds": [
+        51.002,
+        0.173
+      ],
+      "graph_sha256": "0bb49fc25eb79f6a778b0397ea6eba7a799c33b97196dcd032629af0dcfea0b1",
+      "verified_blocks": 22,
+      "evidence_keys": [
+        "graph",
+        "base_graph",
+        "source",
+        "note_reviews",
+        "native_attestation",
+        "input_hash",
+        "parse_checkpoint_sha256"
+      ]
+    },
+    {
+      "state": "doosan-raster-prose-v5",
+      "run_id": "a06437ae-209b-4a6e-83b6-0c4221fab899",
+      "seconds": [
+        52.752,
+        0.144
+      ],
+      "graph_sha256": "ca2e0d15e8230f6af0c58bde62a07307ea6b0c5d7e8b4daf91b5c4a89090c4b6",
+      "verified_blocks": 23,
+      "evidence_keys": [
+        "graph",
+        "base_graph",
+        "source",
+        "note_reviews",
+        "native_attestation",
+        "input_hash",
+        "parse_checkpoint_sha256"
+      ]
+    }
+  ],
+  "trial": {
+    "run_id": "a06437ae-209b-4a6e-83b6-0c4221fab899",
+    "source_sha256": "dc59b2b1c5bbf02e33bb901f94aef7cd984dc62547708e92aa1332ac550102e9",
+    "selected_pages": [
+      27,
+      97,
+      110
+    ],
+    "stage": "parse_only",
+    "parse_seconds": 132.926,
+    "raster_coverage": {
+      "corroborated_source_ids": 1,
+      "eligible_source_ids": 16,
+      "failed_source_ids": 0,
+      "requested_source_ids": 4,
+      "unresolved_source_ids": 15
+    },
+    "artifacts": [
+      {
+        "receipt_sha256": "015ae09dc0e0b7acb03ae50e0f81e3fcf4e81976e68c3579f692cb1835653c72",
+        "request_id": "5db3ca60-ad77-503a-8cfb-d1132d951a12",
+        "request_sha256": "598270f790e7833467808c52f04586c3411a46590050ca9b07e2224c3aa52b3a"
+      }
+    ],
+    "paid_calls": 1,
+    "submitted_pages": 4,
+    "settled_usd": "0.044",
+    "extraction": "not_run",
+    "tagging": "not_run",
+    "remaining_mismatches": [
+      "curly versus straight quotes: page27 continuation",
+      "curly versus straight quotes: page110 assurance",
+      "navigation order and OCR noise: page27"
+    ],
+    "visual_review": {
+      "file": "private/doosan-prose-request2.png",
+      "sha256": "6dd94d10b85ed39d68bc84c2de6c69c4cda0815381101bfd322d07f3c0d03142",
+      "result": "CHRO paragraph matches visible original crop; semantic truth not assessed"
+    }
+  },
+  "budget": {
+    "calls": 1826,
+    "committed_or_reserved_usd": "10.3994877500",
+    "unsettled_calls": 8,
+    "cap_usd": "20"
+  },
+  "limitations": [
+    "Two single cold/warm measurements on one report; not a throughput benchmark",
+    "Cold reads still require about 51\u201353 seconds",
+    "One of four selected crops corroborated; not a general accuracy estimate",
+    "No independent domain gold or production approval"
+  ]
+}
