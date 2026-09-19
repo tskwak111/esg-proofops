@@ -10,7 +10,6 @@ from hashlib import sha256
 
 from proofops.adapters.cache.aws import CacheNamespace, CacheRequest
 from proofops.adapters.local.claim_store import LocalClaimStore
-from proofops.adapters.local.run_artifacts import load_run_graph
 from proofops.application.budget import TokenUsage
 from proofops.application.evidence.binding import ClaimContext
 from proofops.application.evidence.retrieval import freeze_packet
@@ -228,10 +227,8 @@ class LocalTagStore:
         if item is None or item.get("review_inputs") is None:
             raise KeyError("tagged claim not published")
         raw = item["review_inputs"]
-        claim = self.claims.get(tenant_id, run_id, claim_id)
-        graph = load_run_graph(
-            self.store, self.uploads, self.parser, tenant_id=tenant_id, run_id=run_id
-        )
+        _, discovery, graph = self.claims.load_evidence(tenant_id, run_id)
+        claim = next(c for c in discovery.claims if c.claim_id == claim_id)
         rulepack = RulePackSnapshot(**self.store.snapshot(tenant_id, run_id)["rulepack"])
         packet = freeze_packet({k: v for k, v in raw["packet"].items() if k != "packet_sha256"})
         original_packet = freeze_packet(

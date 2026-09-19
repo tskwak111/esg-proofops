@@ -721,14 +721,15 @@ class LocalSQLiteJobStore:
                 and "parse_job" in run
                 and (
                     not isinstance(envelope, dict)
-                    or envelope.get("schema") != "local_extract_checkpoint_v1"
+                    or envelope.get("schema")
+                    not in {"local_extract_checkpoint_v1", "local_extract_checkpoint_v2"}
                 )
             ):
                 raise ValueError("local extract requires versioned claim snapshot")
-            if (
-                isinstance(envelope, dict)
-                and envelope.get("schema") == "local_extract_checkpoint_v1"
-            ):
+            if isinstance(envelope, dict) and envelope.get("schema") in {
+                "local_extract_checkpoint_v1",
+                "local_extract_checkpoint_v2",
+            }:
                 from proofops.adapters.local.claim_store import validate_extract_commit
 
                 validate_extract_commit(db, self, run, message, envelope, next_job)

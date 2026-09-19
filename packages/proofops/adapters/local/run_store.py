@@ -105,6 +105,16 @@ class LocalSQLiteRunStore:
                 return replay
             try:
                 validate_raster_snapshot(snapshot)
+                if "claim_source_policy" in snapshot:
+                    from proofops.adapters.local.claim_source_verification import (
+                        claim_source_policy,
+                    )
+
+                    if (
+                        snapshot["claim_source_policy"] != claim_source_policy()
+                        or snapshot.get("extraction_mode") != "upstage_probe"
+                    ):
+                        raise ValueError("claim source policy mismatch")
                 relation_fields = (
                     "relation_settings",
                     "relation_settings_hash",

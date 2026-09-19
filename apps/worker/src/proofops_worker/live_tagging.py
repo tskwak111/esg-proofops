@@ -11,7 +11,7 @@ from proofops.adapters.local.upstage import request_usage
 from proofops.application.authorization import AuthContext
 from proofops.application.budget import BudgetCall, BudgetExceeded, TokenUsage
 from proofops.application.evidence.binding import local_relation_tags
-from proofops.application.evidence.citations import verify_source_ref
+from proofops.application.evidence.span_citations import verify_source_ref
 from proofops.application.input_reservation import validate_capacity_policy
 from proofops.application.ports.jobs import LeaseLost
 from proofops.application.preflight import check_local_upstage_tagger

@@ -552,3 +552,94 @@ shared test ledger. Offline reopened review reads and repeated stage consumption
 make no additional call or billing entry. Unknown tags remain unknown and an
 unapproved rulepack produces no decision. This demonstrates integration, not
 semantic accuracy of live model responses.
+
+## Claim-scoped original-source verification (2026-09-19)
+
+The local pilot accepts `--verify-claim-spans`. Its trusted settings contain
+`claim_source_policy_v2`, frozen into the run input hash; HTTP request bodies
+cannot supply source approvals. The policy pins the span verifier/citation code
+the existing claim boundary validator, and the native paragraph reader policy. Missing policy retains the old
+behavior. Invalid or changed policy fails closed.
+
+Opted-in extraction publishes `local_extract_checkpoint_v2`: the original
+`discovery` remains intact and `claim_source_attestation` is added to the same
+fenced immutable checkpoint. Its receipt pins source/version/tenant/manifest,
+base graph, original SourceRefs, rendered crop/glyph proofs and policy hashes.
+The reader recomputes this receipt before deriving a claim-quality view.
+`local_extract_checkpoint_v1`, parser v1-v5, their hashes and revisions are not
+rewritten. There is no DB table or public DTO migration. Rollback disables new
+span-policy runs and retains a compatible reader for already published v2 runs;
+older readers must not receive v2 checkpoints. Future verifier revisions must
+retain this policy's implementation for replay or introduce a separate version.
+
+A valid claim span must be at its original raw offsets and occur uniquely in
+both native paragraph text and crop OCR, without cutting an alphanumeric token.
+Paragraph geometry, glyph visibility, source identity and native text agreement
+remain required. Numeric/year corrections, fuzzy matching, whitespace removal,
+signed/decimal/grouped-number truncation, percent-to-percentage-point substitutions,
+input forms, optional content, and overlapping appearance annotations are not
+allowed. Recognized pushbutton-only forms may be ignored only outside the crop.
+
+`SpanVerifiedGraph` carries only replayed approved spans and the receipt digest.
+The paragraph stays unverified. Citation consumers may use the approved span or
+a contained exact subspan; whole-paragraph/global evidence remains gated.
+Retrieval, preliminary tagging, relation/element guards, human review and rescore
+use the same wrapper. Claim source verification does not establish evidence
+binding, approve domain rules, or produce a grade. The pilot remains partial.
+
+Checks: `tests/acceptance/test_claim_span_citations.py` and
+`tests/integration/test_claim_source_verification.py`, plus existing citation,
+retrieval, extract/tag runner and runtime regressions. Actual PDF/API evidence is
+recorded separately from synthetic transport and source-candidate tests.
+
+The frozen `claim_source_verification_v1.py` reader replays the first local v1
+receipt with its original hash. New runs require v2; only these exact known
+policies can be reopened. An attested paragraph claim does not inherit table
+evidence from a layout-only parent. Its table relations remain in the source
+graph, and table cells/headers still require their own verification and binding.
+
+### Bounded implementation evidence (2026-09-19)
+
+The same 61 stored claims on selected pages from five reports were replayed against
+original PDF crops with the v2 policy, without further model calls:
+
+| Report | Claims | Previously verified | Verified after span replay |
+| --- | ---: | ---: | ---: |
+| Kia | 15 | 7 | 7 |
+| Kakao | 16 | 0 | 10 |
+| NAVER | 5 | 0 | 3 |
+| Doosan | 12 | 7 | 8 |
+| KB | 13 | 7 | 8 |
+| Total | 61 | 21 | 36 |
+
+These counts measure source-text correspondence on selected inputs, not extraction
+recall, gold-label accuracy, full-report coverage or grading quality. Nine of the
+15 additional verified claims are on the selected E-body pages.
+
+Two separate real Kakao runs on physical pages 47/114/130 each extracted 14 claims
+and verified nine. The first produced one review candidate; the second produced
+none before the final layout-issue fix (five preliminary-tag blocks, four evidence
+packet blocks, five unverified-source blocks). The second run used a 2024 document
+period while the baseline/first run used 2025, so their tagging counts are not a
+controlled before/after comparison. Source comparison above uses unchanged claims.
+
+Final offline replay uses the saved second run, original PDF, local lexical search,
+and the actual byte-based packet size bound. All nine verified claim spans can
+form candidate evidence packets after the layout fix. Existing immutable tag
+results are not rewritten. Relation/element model calls after that final fix are
+**not_run**; a candidate packet is not an accepted evidence binding or final review.
+The five unresolved source claims and preliminary disagreement remain limitations.
+
+Verification: initial integrated suite 2739 passed/7 skipped; subsequent v2/runtime/
+security checks 170 passed; final layout/retrieval/tagging regressions 104 passed.
+Ruff, mypy, architecture checks, package contracts and `pnpm --filter proofops-web
+build` passed. The initial `uv build` attempt was not the repository's build command
+and failed at root package auto-discovery; no packaging changes were introduced.
+Historical v1 source receipts reopened successfully without model calls. No cloud
+deployment or approved-rule grading was tested. Shared probe ledger after both live
+runs: 2165 entries, USD11.840111065 committed/reserved of USD20, including nine
+historical unsettled entries. New calls in this work: 73 entries, USD0.047248245.
+
+Local reproducibility artifacts: `.local/claim-spans-comparison-v2/`,
+`.local/claim-spans-kakao-live-v1/`, `.local/claim-spans-kakao-live-v2/`,
+`.local/claim-spans-layout-replay.log`, and `.local/claim-spans-layout-checks.log`.

@@ -11,7 +11,7 @@ from math import isfinite
 
 from proofops.application.claims import Claim
 from proofops.application.evidence.binding import ClaimContext
-from proofops.application.evidence.citations import verify_source_ref
+from proofops.application.evidence.span_citations import verify_source_ref
 from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
 from proofops.application.tagging.tracks import TrackCandidate, validate_track_candidates
 from proofops.domain.errors import DomainValidationError

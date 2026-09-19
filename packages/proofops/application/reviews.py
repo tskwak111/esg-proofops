@@ -11,8 +11,8 @@ from uuid import NAMESPACE_URL, uuid5
 
 from proofops.application.authorization import AuthContext
 from proofops.application.evidence.binding import ClaimContext, accept_binding, relation_tags_for
-from proofops.application.evidence.citations import verify_source_ref
 from proofops.application.evidence.retrieval import EvidencePacket
+from proofops.application.evidence.span_citations import verify_source_ref
 from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
 from proofops.application.tagging.consensus import ConsensusResult, form_consensus
 from proofops.application.tagging.service import TagRun

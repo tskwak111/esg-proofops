@@ -9,12 +9,12 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from hashlib import sha256
 from typing import Any, Protocol
 
 from proofops.application.claims import Claim
-from proofops.application.evidence.citations import verify_source_ref
+from proofops.application.evidence.span_citations import SpanVerifiedGraph, verify_source_ref
 from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
 from proofops.application.ingest.gri import IndexEntry, _validate_graph
 from proofops.application.tagging.tracks import TrackCandidate, validate_track_candidates
@@ -24,6 +24,40 @@ from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import RulePackSnapshot, canonical_json
 from proofops.domain.rules.engine import MAPPINGS
 from proofops.domain.values import _require_sha256, _require_uuid
+
+
+def attested_prose_ids(original, refs):
+    if not isinstance(original, SpanVerifiedGraph):
+        return set()
+    blocks = {b.source_id: b for b in original.blocks}
+    return {
+        ref.source_id
+        for ref in refs
+        if ref.source_id in blocks
+        and blocks[ref.source_id].kind == "paragraph"
+        and blocks[ref.source_id].quality == "unverified"
+        and verify_source_ref(ref, original, tenant_id=original.tenant_id).verification_state
+        == "verified"
+    }
+
+
+def evidence_issue_ids(original, source_ids, refs):
+    # Only atomic prose skips layout ancestry. Direct issues and table evidence
+    # retain the numeric guard; the original graph and its issues stay intact.
+    atomic_ids = attested_prose_ids(original, refs)
+    scoped = (
+        replace(
+            original,
+            edges=tuple(
+                edge
+                for edge in original.edges
+                if edge.relation != "table_parent" or edge.source_id not in atomic_ids
+            ),
+        )
+        if atomic_ids
+        else original
+    )
+    return unresolved_source_issue_ids(scoped, source_ids)
 
 
 @dataclass(frozen=True, slots=True)
@@ -246,7 +280,11 @@ def retrieve_evidence(
         return visited
 
     table_roots = {sid: {p for p in ancestors(sid) if blocks[p].kind == "table"} for sid in blocks}
-    claim_tables = set().union(*(table_roots[sid] for sid in claim_ids))
+    # Attested prose is an atomic source, not proof of a parser-assigned table.
+    span_prose_ids = attested_prose_ids(original, claim_refs)
+    claim_tables = set().union(
+        *(table_roots[sid] for sid in claim_ids if sid not in span_prose_ids)
+    )
     claim_sections = set().union(*(sections.get(sid, set()) for sid in claim_ids))
     lineage_ids = [
         sid
@@ -330,15 +368,16 @@ def retrieve_evidence(
             else "global_bound"
         )
         elements = [item["id"] for item in definitions if source_scope in item["source_scopes"]]
-        if unassigned_note_ids(original, source_id) or unresolved_source_issue_ids(
-            original, {source_id}
+        source_refs = [ref for ref in claim_refs if ref.source_id == source_id]
+        if unassigned_note_ids(original, source_id) or evidence_issue_ids(
+            original, {source_id}, source_refs
         ):
             coverage["unprocessed_source_ids"].append(source_id)
             blocked = blocked or source_scope in ("local_claim", "same_table")
             continue
         # No GAP-004 explicit_link expansion. Parent/header/footnote lineage is
         # context, never proof of subject/period/metric/row binding.
-        bundle_ids = {source_id} | ancestors(source_id)
+        bundle_ids = {source_id} | (set() if source_id in span_prose_ids else ancestors(source_id))
         bundle_ids.update(
             edge.source_id
             for edge in original.edges
@@ -353,11 +392,18 @@ def retrieve_evidence(
         refs = []
         for sid in [source_id] + sorted(bundle_ids - {source_id}):
             b = blocks[sid]
-            if b.winner is None or b.quality != "verified":
-                break
             selected = (
                 [ref for ref in claim_refs if ref.source_id == sid] if sid in claim_ids else []
             )
+            if b.winner is None or (
+                b.quality != "verified"
+                and not (
+                    b.quality == "unverified"
+                    and selected
+                    and all(ref.verification_state == "verified" for ref in selected)
+                )
+            ):
+                break
             checked = selected or [verify_source_ref(b.source_ref(), original, tenant_id=tenant_id)]
             if any(ref.verification_state != "verified" for ref in checked):
                 break

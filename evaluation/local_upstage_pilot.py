@@ -147,6 +147,7 @@ def main():
     parser.add_argument("--max-calls", type=int, default=8)
     parser.add_argument("--model", choices=["solar-pro3", "solar-pro4"], default="solar-pro3")
     parser.add_argument("--verify-paragraphs", action="store_true")
+    parser.add_argument("--verify-claim-spans", action="store_true")
     parser.add_argument("--raster-ocr", action="store_true")
     parser.add_argument("--raster-max-pages", type=int, default=4)
     parser.add_argument("--raster-max-calls", type=int, default=1)
@@ -205,6 +206,10 @@ def main():
             ),
         )
         settings.update(raster)
+        if args.verify_claim_spans:
+            from proofops.adapters.local.claim_source_verification import claim_source_policy
+
+            settings["claim_source_policy"] = claim_source_policy()
         if args.live_tagging:
             settings.update(
                 live_tagging_settings(args.tagging_max_calls, relations=args.live_relations)
@@ -450,6 +455,7 @@ def main():
             authorization="user request 2026-09-18: actual model integration; cumulative USD20",
             production_ready=False,
             verify_paragraphs=args.verify_paragraphs,
+            verify_claim_spans=args.verify_claim_spans,
             model=args.model,
             live_tagging=args.live_tagging,
             tagging_max_calls=args.tagging_max_calls if args.live_tagging else None,
@@ -474,6 +480,8 @@ def main():
             raise ValueError("pilot tagging policy changed; create a new state directory")
         if manifest["source_sha256"] != digest:
             raise ValueError("pilot source changed")
+        if manifest.get("verify_claim_spans", False) != args.verify_claim_spans:
+            parser.error("Existing state has a different claim span policy")
         if manifest.get("verify_paragraphs", False) != args.verify_paragraphs:
             raise ValueError("pilot verification policy changed; create a new state directory")
         if manifest.get("model", "solar-pro3") != args.model:

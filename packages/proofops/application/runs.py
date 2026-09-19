@@ -133,6 +133,7 @@ class RunService:
         extraction_profile: ExtractionProfile | None = None,
         extraction_mode: str | None = None,
         extraction_limits=None,
+        claim_source_policy=None,
         tagging_settings: TaggingSettings | None = None,
         tagging_mode: str | None = None,
         preliminary_settings: TaggingSettings | None = None,
@@ -181,6 +182,14 @@ class RunService:
         self.parser_profile = parser_profile
         self.extraction_profile, self.extraction_mode = extraction_profile, extraction_mode
         self.extraction_limits = _detach(extraction_limits)
+        if claim_source_policy is not None and (
+            not isinstance(claim_source_policy, Mapping)
+            or claim_source_policy.get("schema")
+            not in {"claim_source_policy_v1", "claim_source_policy_v2"}
+            or extraction_mode != "upstage_probe"
+        ):
+            raise ValueError("invalid claim source policy")
+        self.claim_source_policy = _detach(claim_source_policy)
         self.tagging_settings, self.tagging_mode = tagging_settings, tagging_mode
         self.preliminary_settings = preliminary_settings
         self.relation_settings = relation_settings
@@ -485,6 +494,8 @@ class RunService:
             )
         if self.extraction_mode == "upstage_probe":
             snapshot["extraction_limits"] = dict(self.extraction_limits)
+        if self.claim_source_policy is not None:
+            snapshot["claim_source_policy"] = _detach(self.claim_source_policy)
         if tagging is not None:
             snapshot.update(
                 tagging_settings=asdict(tagging),

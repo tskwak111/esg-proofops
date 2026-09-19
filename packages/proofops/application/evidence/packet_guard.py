@@ -10,7 +10,7 @@ preflight and output-schema guards for every invocation.
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field, replace
 
-from proofops.application.evidence.citations import verify_source_ref
+from proofops.application.evidence.span_citations import verify_source_ref
 from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
 from proofops.application.ports.models import ModelBinding
 from proofops.domain.errors import DomainValidationError

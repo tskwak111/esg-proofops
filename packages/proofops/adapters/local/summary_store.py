@@ -63,7 +63,8 @@ class LocalSummaryStore:
             raise ValueError("claim snapshot is malformed") from exc
         frozen_rule = snapshot["rulepack"]["sha256"]
         if (
-            envelope.get("schema") != "local_extract_checkpoint_v1"
+            envelope.get("schema")
+            not in {"local_extract_checkpoint_v1", "local_extract_checkpoint_v2"}
             or envelope.get("tenant_id") != run["tenant_id"]
             or envelope.get("run_id") != run["run_id"]
             or envelope.get("document_version_id") != run["document_version_id"]

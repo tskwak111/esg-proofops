@@ -30,6 +30,7 @@ _SETTINGS_FIELDS = frozenset(
         "relation_settings",
         "input_reservation_policy",
         "extraction_limits",
+        "claim_source_policy",
         "raster_runtime_binding_id",
         "raster_policy",
     }
@@ -261,6 +262,16 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
     ):
         raise _invalid()
     runtime.update(_raster(settings, extraction_mode))
+    if "claim_source_policy" in settings:
+        from proofops.adapters.local.claim_source_verification import claim_source_reader
+
+        if extraction_mode != "upstage_probe":
+            raise _invalid()
+        try:
+            claim_source_reader(settings["claim_source_policy"])
+        except ValueError:
+            raise _invalid() from None
+        runtime["claim_source_policy"] = settings["claim_source_policy"]
     if "build_root" in settings:
         root = settings["build_root"]
         if not isinstance(root, str) or not Path(root).is_absolute() or not Path(root).is_dir():

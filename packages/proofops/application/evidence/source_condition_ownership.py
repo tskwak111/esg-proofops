@@ -1,6 +1,6 @@
 """Factual ownership only; original graph, inputs and review revisions are unchanged."""
 
-from proofops.application.evidence.citations import verify_source_ref
+from proofops.application.evidence.span_citations import verify_source_ref
 from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
 from proofops.domain.errors import DomainValidationError
 from proofops.domain.provenance import canonical_hash

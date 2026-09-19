@@ -150,7 +150,7 @@ class RescoreService:
         from dataclasses import replace
 
         from proofops.application.authorization import AuthContext
-        from proofops.application.evidence.citations import verify_source_ref
+        from proofops.application.evidence.span_citations import verify_source_ref
         from proofops.domain.rules.engine import ConfirmedFact
         from proofops.domain.values import _require_uuid, _source_ref_from_dict
 

@@ -97,6 +97,23 @@ class LocalClaimStore:
             != discovery_coverage(json.loads(parse_checkpoint)["coverage"], graph, discovery)
         ):
             raise ValueError("CLAIM_SNAPSHOT_REPLAY_MISMATCH")
+        if "claim_source_policy" in snapshot:
+            from proofops.adapters.local.claim_source_verification import claim_source_reader
+            from proofops.adapters.local.run_artifacts import load_run_inputs
+
+            reader = claim_source_reader(snapshot["claim_source_policy"])
+            _, source, _ = load_run_inputs(
+                self.store, self.uploads, tenant_id=tenant_id, run_id=run_id
+            )
+            discovery, graph = reader.replay_claim_spans(
+                envelope["claim_source_attestation"],
+                graph,
+                source.content,
+                discovery,
+                tenant_id=tenant_id,
+            )
+        elif "claim_source_attestation" in envelope:
+            raise ValueError("UNPINNED_CLAIM_SOURCE_ATTESTATION")
         return envelope, discovery, graph
 
     def load_snapshot(self, tenant_id: str, run_id: str) -> dict:
@@ -204,7 +221,9 @@ class LocalClaimStore:
 
 def snapshot_pins(snapshot, graph, profile, parse_checkpoint):
     return dict(
-        schema="local_extract_checkpoint_v1",
+        schema="local_extract_checkpoint_v2"
+        if "claim_source_policy" in snapshot
+        else "local_extract_checkpoint_v1",
         tenant_id=snapshot["tenant_id"],
         run_id=snapshot["run_id"],
         document_version_id=graph.document_version_id,
@@ -275,6 +294,25 @@ def validate_extract_commit(db, jobs, run, message, envelope, next_job):
         validation_profile="fast_preview",
         vision_status="not_run",
     )
+    if "claim_source_policy" in snapshot:
+        receipt = envelope.get("claim_source_attestation", {})
+        if (
+            envelope.get("schema") != "local_extract_checkpoint_v2"
+            or receipt.get("policy") != snapshot["claim_source_policy"]
+            or receipt.get("graph_sha256") != envelope.get("graph_sha256")
+            or receipt.get("artifact_sha256")
+            != canonical_hash({k: v for k, v in receipt.items() if k != "artifact_sha256"})
+            or any(
+                receipt.get(k) != envelope.get(k)
+                for k in ("tenant_id", "document_version_id", "parse_manifest_id", "source_sha256")
+            )
+        ):
+            raise ValueError("CLAIM_SOURCE_ATTESTATION_INVALID")
+    elif (
+        "claim_source_attestation" in envelope
+        or envelope.get("schema") != "local_extract_checkpoint_v1"
+    ):
+        raise ValueError("UNPINNED_CLAIM_SOURCE_ATTESTATION")
     represented = set(discovery["processed_source_ids"]) | {
         item["source_id"] for item in discovery["exclusions"]
     }

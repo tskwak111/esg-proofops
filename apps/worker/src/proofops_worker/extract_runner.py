@@ -203,6 +203,23 @@ class LocalExtractRunner:
                         synthetic=discovery.synthetic,
                         coverage=coverage,
                     )
+                    if "claim_source_policy" in snapshot:
+                        from proofops.adapters.local.claim_source_verification import (
+                            attest_claim_spans,
+                            claim_source_policy,
+                            discovery_refs,
+                        )
+                        from proofops.adapters.local.run_artifacts import load_run_inputs
+
+                        if snapshot["claim_source_policy"] != claim_source_policy():
+                            raise ValueError("CLAIM_SOURCE_POLICY_MISMATCH")
+                        _, source, _ = load_run_inputs(
+                            self.store, self.uploads, tenant_id=tenant_id, run_id=run_id
+                        )
+                        self.store.jobs.heartbeat(lease, now=int(self.clock()), lease_seconds=300)
+                        payload["claim_source_attestation"] = attest_claim_spans(
+                            graph, source.content, discovery_refs(discovery), tenant_id=tenant_id
+                        )
                     return canonical_json(payload).encode(), usage
                 except LeaseLost:
                     raise StageFailure("LEASE_LOST", usage=usage) from None

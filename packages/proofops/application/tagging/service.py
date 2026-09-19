@@ -29,14 +29,18 @@ from proofops.application.budget import (
     reserve_budget,
 )
 from proofops.application.evidence.binding import ClaimContext, accept_binding, relation_tags_for
-from proofops.application.evidence.citations import verify_source_ref
 from proofops.application.evidence.packet_guard import PacketMetadata, guard_untrusted_packet
-from proofops.application.evidence.retrieval import EvidencePacket, freeze_track_packet
+from proofops.application.evidence.retrieval import (
+    EvidencePacket,
+    evidence_issue_ids,
+    freeze_track_packet,
+)
+from proofops.application.evidence.span_citations import verify_source_ref
 from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
 from proofops.application.ports.models import ModelBinding
 from proofops.application.tagging.tracks import TrackCandidate
 from proofops.domain.errors import DomainValidationError
-from proofops.domain.numeric import unassigned_note_ids, unresolved_source_issue_ids
+from proofops.domain.numeric import unassigned_note_ids
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import RulePackSnapshot, canonical_json
 from proofops.domain.values import LlmTags, SourceRef, _require_uuid, llm_tags_from_dict
@@ -273,7 +277,7 @@ def tag_replicates(
         raise DomainValidationError("verified packet evidence required")
     source_ids = {ref.source_id for ref in approved_refs}
     source_ids.update(ref.source_id for ref in claim.source_refs)
-    if unresolved_source_issue_ids(original, source_ids):
+    if evidence_issue_ids(original, source_ids, [*approved_refs, *claim.source_refs]):
         raise DomainValidationError("open source issue requires review")
     # Explicit data allowlist: no prior votes, gold, tools or model-selected policy.
     user_data = {
