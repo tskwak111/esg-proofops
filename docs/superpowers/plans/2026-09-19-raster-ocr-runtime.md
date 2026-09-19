@@ -146,3 +146,14 @@ Original recovered crop visually checked; independent semantic gold is absent.
 Shared ledger USD10.3994877500 / USD20, eight unsettled. Next: representative
 scope/claim evaluation and cold replay cost; do not relax exact text matching
 merely to improve recovery counts. New trial extraction/tagging remains not_run.
+
+The prose trial subsequently completed actual extraction/tagging at 7ab0d3b:
+12 claims, seven claims with verified source text, six candidate reviews, six blocked, no grades.
+Two recovered-paragraph claims reached review; its third failed preliminary
+consensus (`null` versus `분기 1회` reporting-period quotes). Evidence:
+`evidence/raster-prose-downstream-live-20260919.{md,json}`. Shared ledger now
+USD11.4492225450, nine unsettled; no retry/refund. CI35408172756 passed.
+Cold profiling confirms duplicate native replay and 114 local OCR invocations;
+see `evidence/native-cold-replay-profile-20260919.{md,json}`. A compiled reader
+is only an isolated parity experiment, not a runtime change. Address frozen
+policy compatibility before changing pinned replay helpers or prompts.

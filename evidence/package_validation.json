@@ -1,9 +1,9 @@
 {
-  "checked_at": "2026-09-19T00:05:47.425227+00:00",
+  "checked_at": "2026-09-19T00:15:40.382946+00:00",
   "scope": "documentation, structured contracts and synthetic schema examples only",
   "status": "passed",
-  "checks_total": 867,
-  "passed": 867,
+  "checks_total": 869,
+  "passed": 869,
   "failed": 0,
   "counts": {
     "numbered_documents": 34,
@@ -124,6 +124,11 @@
       "detail": ""
     },
     {
+      "name": "json:evidence/raster-prose-downstream-live-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
       "name": "json:evidence/context-loop-results.json",
       "passed": true,
       "detail": ""
@@ -135,6 +140,11 @@
     },
     {
       "name": "json:evidence/context-loop-review.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/native-cold-replay-profile-20260919.json",
       "passed": true,
       "detail": ""
     },
