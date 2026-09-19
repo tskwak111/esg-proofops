@@ -1,0 +1,84 @@
+{
+  "schema": "native_cold_replay_profile_v1",
+  "source_trial": "doosan-raster-v5",
+  "total_profile_seconds": 52.92,
+  "calls": [
+    {
+      "file": "source_verification.py",
+      "function": "replay_native_sources",
+      "calls": 2,
+      "cumulative_seconds": 51.892,
+      "self_seconds": 0.0
+    },
+    {
+      "file": "source_verification.py",
+      "function": "_rendered_text",
+      "calls": 114,
+      "cumulative_seconds": 46.963,
+      "self_seconds": 0.013
+    },
+    {
+      "file": "source_verification.py",
+      "function": "attest_native_sources",
+      "calls": 2,
+      "cumulative_seconds": 51.871,
+      "self_seconds": 0.034
+    },
+    {
+      "file": "raster_visibility.py",
+      "function": "corroborate_native_visibility",
+      "calls": 1,
+      "cumulative_seconds": 26.009,
+      "self_seconds": 0.001
+    },
+    {
+      "file": "raster_checkpoint.py",
+      "function": "replay_raster_records",
+      "calls": 1,
+      "cumulative_seconds": 52.165,
+      "self_seconds": 0.001
+    }
+  ],
+  "compiled_reader_experiment": {
+    "compile_seconds": 5.0178,
+    "swift_sha256": "0136208b3c4cb65e7bc3f2b7bc126949940fea234952eb9fc81374dde064fefa",
+    "image_sha256": "6dd94d10b85ed39d68bc84c2de6c69c4cda0815381101bfd322d07f3c0d03142",
+    "all_outputs_equal": true,
+    "medians": {
+      "script": 0.5391,
+      "compiled": 0.2611
+    },
+    "timings": [
+      {
+        "mode": "script",
+        "seconds": 0.6251
+      },
+      {
+        "mode": "script",
+        "seconds": 0.4571
+      },
+      {
+        "mode": "script",
+        "seconds": 0.5391
+      },
+      {
+        "mode": "compiled",
+        "seconds": 0.6821
+      },
+      {
+        "mode": "compiled",
+        "seconds": 0.2611
+      },
+      {
+        "mode": "compiled",
+        "seconds": 0.2548
+      }
+    ],
+    "limitation": "one crop, three runs per mode; not integrated"
+  },
+  "limitations": [
+    "Profile timings overlap and must not be summed",
+    "Compiled-reader experiment not integrated",
+    "Changing policy-pinned helpers requires explicit frozen-checkpoint compatibility handling"
+  ]
+}

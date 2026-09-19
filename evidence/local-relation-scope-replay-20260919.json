@@ -1,0 +1,50 @@
+{
+  "schema": "local_relation_scope_replay_v1",
+  "run_id": "60d9f9c0-b9b8-49d7-a790-e417763a2ac6",
+  "claim_id": "05f28ea2-bc8c-5cf8-ac3f-41dd97c7b2a2",
+  "source_sha256": "dc59b2b1c5bbf02e33bb901f94aef7cd984dc62547708e92aa1332ac550102e9",
+  "saved_review_replay": "passed",
+  "additional_model_calls": 0,
+  "original_relations_preserved": true,
+  "original_relation_count": 0,
+  "derived_relations": {
+    "8ca3a5bc-5b6c-56f3-b5be-4cdfae92ea68:0:71": {
+      "entity": {
+        "source_id": "8ca3a5bc-5b6c-56f3-b5be-4cdfae92ea68",
+        "document_version_id": "f8c50d2f-e673-4711-9b80-fdde31a17801",
+        "parse_manifest_id": "8c4e6d7d-d976-5243-9b5b-235f3092ad5e",
+        "page_num": 27,
+        "printed_page_label": "27",
+        "bbox": [
+          292.048,
+          459.71899999999994,
+          481.95,
+          597.4549999999999
+        ],
+        "raw_text_sha256": "f6fe792b26008fb383c11eef2927c1cc879af2093ac4f6331c96e65ef40cb186",
+        "quote": "두산밥캣",
+        "char_start": 43,
+        "char_end": 47,
+        "location_quality": "located",
+        "verification_state": "verified"
+      },
+      "metric": null,
+      "reporting_period": null
+    }
+  },
+  "claim_span": [
+    0,
+    71
+  ],
+  "parent_span": [
+    0,
+    233
+  ],
+  "parent_cannot_borrow_roles": true,
+  "binding_state": "undetermined",
+  "decision": null,
+  "limitations": [
+    "Derived offline through the same helper used after unanimous preliminary validation; not a new live run or published revision.",
+    "Metric and period remain null. No cross-source relation inference or management applicability decision."
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "schema": "native_spacing_probe_v1",
+  "versions": {
+    "pdfminer.six": "20260107",
+    "pdfplumber": "0.11.10",
+    "pypdfium2": "5.13.0"
+  },
+  "samples": [
+    {
+      "split_tj": false,
+      "pdfminer_b_x": 37.834,
+      "pdfium_b_x": 37.83399963378906,
+      "difference_pt": 3.6621094068323146e-07
+    },
+    {
+      "split_tj": true,
+      "pdfminer_b_x": 38.004000000000005,
+      "pdfium_b_x": 37.83399963378906,
+      "difference_pt": 0.1700003662109424
+    }
+  ],
+  "split_spacing_disagrees": true,
+  "source_quality_changed": false,
+  "additional_model_calls": 0
+}

@@ -1,0 +1,34 @@
+{
+  "schema": "raster_ocr_offline_replay_v1",
+  "source_sha256": "dc59b2b1c5bbf02e33bb901f94aef7cd984dc62547708e92aa1332ac550102e9",
+  "request_sha256": "85d51fd79a6cf8b05c6d3bdfeddf0e776a8681e3a4c0d115bd9daf1418368b51",
+  "receipt_sha256": "012b4351de802842e4ceae601b8cd7727bb3ca41310d809fb54f6ab971607202",
+  "submitted_pdf_byte_identical": true,
+  "model_calls_forbidden": true,
+  "source_quality_changed": false,
+  "results": [
+    {
+      "source_id": "75997a11-d3e2-5b1c-9f11-5d67dd435056",
+      "external_ocr": "CSO와 CTO는 Climate Working Group의 전반적인 활동을 총괄하며, 온실가스 감축목표 달성을 위한 전사적 방향성과우선순위를 설정합니다. 또한두산밥캣은CSO와 CTO의KPI에'2030온실가스감축 목표 달성을위한지역별",
+      "exact_normalized_match": false
+    },
+    {
+      "source_id": "a6b77338-c374-523e-97ad-8bffbf250e3f",
+      "external_ocr": "CHRO ESG팀은 지역별 ESG 코디네이터와 협력하여\n각 지역에서 추진 중인 기후변화 대응 전략과제의 이행\n상황을 모니터링합니다. 또한 지역의 외부 환경 변화와\n산업 특성, 이해관계자 요구 등을 반영하여 기후 관련\n리스크와 기회 요인을 지속적으로 분석·검토합니다. 이\n외에도 CHRO ESG팀은 전사 전략과제의 이행 현황과\n함께 기후 리스크 및 기회 요인에 대한 검토 결과를 주요\nESG 이슈와 함께 분기 1회 정기적으로, 필요 시에는\n수시로 글로벌 ESG 위원회에 보고하여 의사결정의\n투명성과 신속성을 높이고 있습니다.",
+      "exact_normalized_match": true
+    },
+    {
+      "source_id": "ecb8de33-f6af-5c42-9516-66a17f16b104",
+      "external_ocr": "배출량 목표 수립'과 '2024년 온실가스 대응 계획 이행'을 포함하여, 기후변화 대응과 관련된 책임성과 추진력을 높이고 있습니다.",
+      "exact_normalized_match": false
+    },
+    {
+      "source_id": "3a6978a0-5aae-5f7d-8f04-e70f494f444d",
+      "external_ocr": "두산밥캣는 보고서 내용에 모든 책임을 가지고 있으며, 여기에는 데이터 수집, 분석, 집계, 준비, 정보의 공정한 표시,\n데이터에 중요한 왜곡이 없음을 보장하는 내부 통제의 설계, 구현 및 유지가 포함됩니다.\nDNV의 책임은 '검증 범위'에 기술된 관련 정보가 보고 요구사항에 따라 작성되었는지에 대한 제한적 확신을 제공하기\n위해 업무를 계획 및 수행하고 이를 취합한 증거에 기반하여 독립적 검증의견서 형태로 회사에 보고하는 것입니다.\n당사의 성명은 독립적 의견으로 간주되어야 하며, 회사의 경영진과 이해관계자에게 필요한 정보를 제공하기 위해\n작성되었습니다. DNV는 본 의견서를 제외하고 보고서에 포함된 어떠한 진술이나 데이터의 작성에도 관여하지\n않았습니다.",
+      "exact_normalized_match": false
+    }
+  ],
+  "limitations": [
+    "Correspondence only; no native/source/semantic approval."
+  ]
+}

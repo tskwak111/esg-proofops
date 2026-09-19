@@ -10,7 +10,7 @@ from unicodedata import normalize
 from uuid import NAMESPACE_URL, uuid5
 
 from proofops.application.authorization import AuthContext
-from proofops.application.evidence.binding import ClaimContext, accept_binding
+from proofops.application.evidence.binding import ClaimContext, accept_binding, relation_tags_for
 from proofops.application.evidence.citations import verify_source_ref
 from proofops.application.evidence.retrieval import EvidencePacket
 from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
@@ -188,7 +188,17 @@ class ReviewService:
             status="open",
             revision=1,
             base_tag_revision=inputs.tag_revision,
-            reason_codes=list(inputs.consensus.reasons),
+            reason_codes=list(inputs.consensus.reasons)
+            + (
+                []
+                if inputs.rule_context.local_synthetic
+                or (
+                    inputs.rulepack.status == "active"
+                    and inputs.rulepack.approved_by
+                    and inputs.rulepack.approved_at
+                )
+                else ["RULEPACK_APPROVAL_REQUIRED"]
+            ),
         )
         return review
 
@@ -216,6 +226,12 @@ class ReviewService:
             inputs = self.load_inputs(actor.tenant_id, target["run_id"], target["claim_id"])
         except KeyError:
             raise ReviewRejected("REVIEW_INPUT_UNAVAILABLE", 409) from None
+        if not inputs.rule_context.local_synthetic and not (
+            inputs.rulepack.status == "active"
+            and inputs.rulepack.approved_by
+            and inputs.rulepack.approved_at
+        ):
+            raise ReviewRejected("RULEPACK_APPROVAL_REQUIRED", 409)
 
         def build(review, initial, decision_revision):
             inputs.validate()
@@ -268,7 +284,7 @@ class ReviewService:
                                 accept_binding(
                                     inputs.context,
                                     ref,
-                                    inputs.relation_tags.get(ref.source_id, {}),
+                                    relation_tags_for(ref, inputs.relation_tags),
                                     original=inputs.original,
                                     tenant_id=actor.tenant_id,
                                     rulepack=inputs.rulepack,

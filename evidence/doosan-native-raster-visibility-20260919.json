@@ -1,0 +1,30 @@
+{
+  "schema": "native_raster_visibility_evaluation_v1",
+  "attestation": {
+    "schema": "experimental_native_raster_visibility_v1",
+    "tenant_id": "d81cd830-15ca-4aef-aeb4-4965cd207466",
+    "document_version_id": "23f885c3-c3e8-44cf-80cb-652bc60bf75d",
+    "parse_manifest_id": "b0cc7560-3281-5d39-ab72-0a51331e81b1",
+    "source_sha256": "dc59b2b1c5bbf02e33bb901f94aef7cd984dc62547708e92aa1332ac550102e9",
+    "input_graph_sha256": "0809e34ee82a555e4918bf32a0c2dcb97334d192e0a1844b060b6b1df049db29",
+    "output_graph_sha256": "cbbbe43d15d03b62813d550be9826c155e2fdcba00dcb688aa64adf8e559c512",
+    "policy_sha256": "b5f12c5c8a10af3500912391cfc738fe0627e34874f05c1b87ef52c64adb7801",
+    "native_attestation_sha256": "89ae7ee841a4125bf1c5fd30be21edabd483bb40c0c70b9c32394c991715a5fd",
+    "request_sha256": "85d51fd79a6cf8b05c6d3bdfeddf0e776a8681e3a4c0d115bd9daf1418368b51",
+    "receipt_sha256": "012b4351de802842e4ceae601b8cd7727bb3ca41310d809fb54f6ab971607202",
+    "corroborated_source_ids": [
+      "a6b77338-c374-523e-97ad-8bffbf250e3f"
+    ],
+    "artifact_sha256": "dcc3a26de8f3e4081f9a252c5477924ab2f023c201c6e83cfbcb2313e7804243"
+  },
+  "evaluation": {
+    "published_checkpoints_changed": false,
+    "additional_model_calls": 0,
+    "baseline_verified_sources": 22,
+    "combined_verified_sources": 23,
+    "limitations": [
+      "Experimental in-memory source view only; production checkpoint/authorization integration not implemented.",
+      "No claim semantic or grade approval."
+    ]
+  }
+}

@@ -1,0 +1,125 @@
+"""Pilot config must create distinct real bindings without granting rule authority."""
+
+import pytest
+from proofops.application.ports.models import ModelBinding
+from proofops.application.tagging.service import TaggingSettings
+
+from evaluation.local_upstage_pilot import live_tagging_settings
+
+
+def test_live_pilot_settings_have_independent_real_profiles():
+    result = live_tagging_settings(12)
+    preliminary, tagging = (
+        TaggingSettings(**(result[key] | {"binding": ModelBinding(**result[key]["binding"])}))
+        for key in ("preliminary_settings", "tagging_settings")
+    )
+    assert preliminary.binding.binding_id != tagging.binding.binding_id
+    assert preliminary.binding.synthetic is tagging.binding.synthetic is False
+    assert preliminary.model_id == tagging.model_id == "solar-pro4"
+    assert preliminary.model_profile == "upstage-preliminary-source-quotes-v1"
+    assert tagging.model_profile == "upstage-compact-source-quotes-v3"
+    assert set(result) == {"preliminary_settings", "tagging_settings", "input_reservation_policy"}
+
+
+@pytest.mark.parametrize("calls", [True, 0, 5, 61, 12.5])
+def test_live_pilot_rejects_invalid_call_limit(calls):
+    with pytest.raises(ValueError):
+        live_tagging_settings(calls)
+
+
+def test_preliminary_schema_rejects_the_observed_live_string_dimension():
+    import json
+
+    import jsonschema
+
+    schema = json.loads(live_tagging_settings(12)["preliminary_settings"]["schema_json"])
+    jsonschema.Draft202012Validator.check_schema(schema)
+    response = dict(
+        claim_id="11111111-1111-4111-8111-111111111111",
+        track="management",
+        safe_harbor_category=None,
+        track_confidence=0.8,
+        dimensions=dict(entity=None, metric="project description", reporting_period=None),
+    )
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(response, schema)
+    response["dimensions"]["metric"] = dict(source_index=0, quote="emissions")
+    jsonschema.validate(response, schema)
+    response["dimensions"]["metric"] = None
+    jsonschema.validate(response, schema)
+
+
+def test_element_prompt_contains_rule_names_and_field_semantics():
+    import yaml
+
+    from evaluation.local_upstage_pilot import ROOT
+
+    result = live_tagging_settings(12)
+    prompt = result["tagging_settings"]["system_prompt"]
+    elements = yaml.safe_load((ROOT / "config/rubric/elements.yaml").read_text())["elements"]
+    for element in elements:
+        assert element["id"] in prompt
+        assert element["name"] in prompt
+    assert "credited_from must be null" in prompt
+    assert "not an approval" in prompt
+
+
+def test_relation_pilot_settings_are_opt_in_and_have_their_own_output_schema():
+    import json
+
+    import jsonschema
+    from proofops.application.tagging.relations import SYSTEM_PROMPT
+
+    assert "relation_settings" not in live_tagging_settings(12)
+    result = live_tagging_settings(18, relations=True)
+    relation = result["relation_settings"]
+    assert relation["model_profile"] == "upstage-relation-source-quotes-v1"
+    assert relation["system_prompt"] == SYSTEM_PROMPT
+    assert (
+        len(
+            {
+                result[p + "_settings"]["binding"]["binding_id"]
+                for p in ("preliminary", "tagging", "relation")
+            }
+        )
+        == 3
+    )
+    schema = json.loads(relation["schema_json"])
+    jsonschema.Draft202012Validator.check_schema(schema)
+    sample = {
+        "relations": [
+            {
+                "source_index": 0,
+                "dimensions": {
+                    "entity": None,
+                    "metric": None,
+                    "reporting_period": None,
+                },
+            }
+        ]
+    }
+    jsonschema.validate(sample, schema)
+    sample["relations"][0]["dimensions"]["grade"] = None
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(sample, schema)
+
+
+def test_raster_pilot_settings_pin_explicit_policy():
+    from proofops.adapters.local.raster_visibility import raster_ocr_policy
+
+    from evaluation.local_upstage_pilot import raster_settings
+
+    settings = raster_settings(max_pages=4, max_calls=1)
+    assert set(settings) == {"raster_runtime_binding_id", "raster_policy"}
+    from uuid import UUID
+
+    assert str(UUID(settings["raster_runtime_binding_id"])) == settings["raster_runtime_binding_id"]
+    assert settings["raster_policy"] == raster_ocr_policy(max_pages=4, max_calls=1)
+
+
+@pytest.mark.parametrize("pages,calls", [(True, 1), (0, 1), (4, 0), (4, True)])
+def test_raster_pilot_settings_reject_invalid_limits(pages, calls):
+    from evaluation.local_upstage_pilot import raster_settings
+
+    with pytest.raises(ValueError):
+        raster_settings(max_pages=pages, max_calls=calls)

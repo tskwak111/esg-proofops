@@ -1,0 +1,286 @@
+{
+  "schema": "live_relation_runtime_evaluation_v1",
+  "run_id": "f079a78d-7830-42c0-b7a5-094057d8d8da",
+  "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+  "selected_pages": [
+    30
+  ],
+  "checkpoint_sha256": "d21f6c2940b6aa10fe073359104c3618813e141b9143563806c01d7d4c9d8a86",
+  "actual_model_calls": true,
+  "synthetic": false,
+  "production_ready": false,
+  "rulepack_approval": null,
+  "cost": {
+    "run_id": "f079a78d-7830-42c0-b7a5-094057d8d8da",
+    "input_tokens": 30654,
+    "output_tokens": 2657,
+    "attempt_count": 23,
+    "cache_hit_count": 0,
+    "amount": "0.0125277900",
+    "currency": "USD",
+    "pricing_snapshot_id": null,
+    "cost_status": "known"
+  },
+  "ledger": {
+    "calls": 1622,
+    "committed_or_reserved_usd": "9.0786999200",
+    "unsettled": 7
+  },
+  "claims": [
+    {
+      "claim_id": "b6bfb702-a5a9-5608-a594-c9b4bd360a85",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "has_review": false,
+      "relation_records": []
+    },
+    {
+      "claim_id": "00506fe5-4e25-571b-8590-f88266117be4",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "has_review": false,
+      "relation_records": []
+    },
+    {
+      "claim_id": "428ff069-2f26-56e7-8a0f-2889b26514e8",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "has_review": false,
+      "relation_records": []
+    },
+    {
+      "claim_id": "d3dea811-6cb3-5109-82dc-e3073909883a",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "has_review": false,
+      "relation_records": []
+    },
+    {
+      "claim_id": "645048a2-438f-538d-8e2b-9217ac598e85",
+      "status": "blocked",
+      "reason": "RELATION_TAGS_UNRESOLVED",
+      "has_review": false,
+      "relation_records": [
+        {
+          "raw_response_sha256": "d23bdd4739b743b17ed78e5cdf824ac4bc567e274191ac9f09ede2df4f279c15",
+          "replicate_id": 1,
+          "request_id": "acbf0768-6f99-5743-b459-4ef0e665d7fe",
+          "status": "validated_candidate",
+          "values": {
+            "d0b4e23f-e519-54a0-8465-466b8d807e44": {
+              "entity": null,
+              "metric": null,
+              "reporting_period": null
+            }
+          }
+        },
+        {
+          "raw_response_sha256": "12f824325ddd54c41888d1e7129a734f34827394fff79f52a39a5f6f9e99cd55",
+          "replicate_id": 2,
+          "request_id": "611df801-b8c7-580e-adb2-f7f3ec161c75",
+          "status": "validated_candidate",
+          "values": {
+            "d0b4e23f-e519-54a0-8465-466b8d807e44": {
+              "boundary": null,
+              "entity": {
+                "bbox": [
+                  45.354,
+                  36.660999999999945,
+                  508.315,
+                  45.78200000000004
+                ],
+                "char_end": 32,
+                "char_start": 26,
+                "document_version_id": "117325a4-2947-4ef2-8fc4-12e6887e096d",
+                "location_quality": "located",
+                "page_num": 30,
+                "parse_manifest_id": "edf70f22-836d-5501-9d7d-9dddc661cf6c",
+                "printed_page_label": "30",
+                "quote": "KB금융그룹",
+                "raw_text_sha256": "136341d059484d5cb1a0679738df67d37ff7954a419c1fdc51ffc253f71f1e41",
+                "source_id": "d0b4e23f-e519-54a0-8465-466b8d807e44",
+                "verification_state": "verified"
+              },
+              "facility": null,
+              "material": null,
+              "metric": null,
+              "product": null,
+              "reporting_period": {
+                "bbox": [
+                  45.354,
+                  36.660999999999945,
+                  508.315,
+                  45.78200000000004
+                ],
+                "char_end": 25,
+                "char_start": 21,
+                "document_version_id": "117325a4-2947-4ef2-8fc4-12e6887e096d",
+                "location_quality": "located",
+                "page_num": 30,
+                "parse_manifest_id": "edf70f22-836d-5501-9d7d-9dddc661cf6c",
+                "printed_page_label": "30",
+                "quote": "2025",
+                "raw_text_sha256": "136341d059484d5cb1a0679738df67d37ff7954a419c1fdc51ffc253f71f1e41",
+                "source_id": "d0b4e23f-e519-54a0-8465-466b8d807e44",
+                "verification_state": "verified"
+              },
+              "scope": null
+            }
+          }
+        },
+        {
+          "raw_response_sha256": "d23bdd4739b743b17ed78e5cdf824ac4bc567e274191ac9f09ede2df4f279c15",
+          "replicate_id": 3,
+          "request_id": "f159a967-55b9-57eb-aec5-d7addbb9df86",
+          "status": "validated_candidate",
+          "values": {
+            "d0b4e23f-e519-54a0-8465-466b8d807e44": {
+              "entity": null,
+              "metric": null,
+              "reporting_period": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "claim_id": "256edd6c-33c8-5dbd-9a5a-bb14f59c9d57",
+      "status": "needs_review",
+      "reason": null,
+      "has_review": true,
+      "relation_records": [
+        {
+          "raw_response_sha256": "d23bdd4739b743b17ed78e5cdf824ac4bc567e274191ac9f09ede2df4f279c15",
+          "replicate_id": 1,
+          "request_id": "d398f2de-d449-50a2-90c4-9bb7a8fd3ac3",
+          "status": "validated_candidate",
+          "values": {
+            "19d91e8e-7d02-578a-926a-a92ff559939e": {
+              "entity": null,
+              "metric": null,
+              "reporting_period": null
+            }
+          }
+        },
+        {
+          "raw_response_sha256": "d23bdd4739b743b17ed78e5cdf824ac4bc567e274191ac9f09ede2df4f279c15",
+          "replicate_id": 2,
+          "request_id": "0228080c-459e-5063-8164-07f09ea62187",
+          "status": "validated_candidate",
+          "values": {
+            "19d91e8e-7d02-578a-926a-a92ff559939e": {
+              "entity": null,
+              "metric": null,
+              "reporting_period": null
+            }
+          }
+        },
+        {
+          "raw_response_sha256": "d23bdd4739b743b17ed78e5cdf824ac4bc567e274191ac9f09ede2df4f279c15",
+          "replicate_id": 3,
+          "request_id": "67a61a1e-363f-558e-aa18-5ca08d0bf007",
+          "status": "validated_candidate",
+          "values": {
+            "19d91e8e-7d02-578a-926a-a92ff559939e": {
+              "entity": null,
+              "metric": null,
+              "reporting_period": null
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "audit": {
+    "run_id": "f079a78d-7830-42c0-b7a5-094057d8d8da",
+    "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+    "checkpoint_sha256": "d21f6c2940b6aa10fe073359104c3618813e141b9143563806c01d7d4c9d8a86",
+    "state_path": ".local/developer-a-live-tagging-kb-relations",
+    "additional_model_calls": 0,
+    "counts": {
+      "claims_without_review": 5,
+      "raw_present_element_votes": 8,
+      "raw_present_to_present": 2,
+      "present_votes_with_no_relation_roles": 0,
+      "present_votes_with_literal_value_mismatch": 6,
+      "raw_present_to_unknown": 6
+    },
+    "claims": [
+      {
+        "claim_id": "256edd6c-33c8-5dbd-9a5a-bb14f59c9d57",
+        "quote": "채권 발행에 따라 조달된 자금은 녹색채권 관리체계에 따라 친환경 프로젝트 파이낸싱(PF), 저탄소 전환 대출 등 기후위기 완화 및 적응 활동에 전액 할당됩니다.",
+        "missing_required_claim_dimensions": [
+          "entity",
+          "metric",
+          "reporting_period"
+        ],
+        "relation_source_count": 2,
+        "present_votes": [
+          {
+            "replicate_id": 1,
+            "element_id": "M1",
+            "guarded_state": "present",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": false
+          },
+          {
+            "replicate_id": 1,
+            "element_id": "M2",
+            "guarded_state": "present",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": false
+          },
+          {
+            "replicate_id": 2,
+            "element_id": "M1",
+            "guarded_state": "unknown",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": true
+          },
+          {
+            "replicate_id": 2,
+            "element_id": "M2",
+            "guarded_state": "unknown",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": true
+          },
+          {
+            "replicate_id": 2,
+            "element_id": "M4",
+            "guarded_state": "unknown",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": true
+          },
+          {
+            "replicate_id": 3,
+            "element_id": "M1",
+            "guarded_state": "unknown",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": true
+          },
+          {
+            "replicate_id": 3,
+            "element_id": "M2",
+            "guarded_state": "unknown",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": true
+          },
+          {
+            "replicate_id": 3,
+            "element_id": "M4",
+            "guarded_state": "unknown",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": true
+          }
+        ]
+      }
+    ]
+  },
+  "limitations": [
+    "One physical page of one report; fresh extraction, not controlled A/B or accuracy benchmark.",
+    "Four claims blocked by source validation; no source approval inferred.",
+    "One claim blocked by differing relation replicas; literal role validation is not semantic approval.",
+    "Agreed relation roles were all null; successful cross-source attribution not demonstrated.",
+    "No grade emitted; draft rulepack remains unapproved."
+  ]
+}

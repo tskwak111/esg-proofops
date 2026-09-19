@@ -1,0 +1,25 @@
+{
+  "schema": "raster_page_usage_replay_v1",
+  "request_id": "doosan-raster-ocr-20260919-v1",
+  "usage": {
+    "model_calls": 1,
+    "reserved_calls": 1,
+    "settled_calls": 1,
+    "unsettled_calls": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "token_usage_complete": false,
+    "cost_with_vat_reserve_usd": "0.044",
+    "committed_or_reserved_usd": "0.044",
+    "unknown_reservation_cost_usd": null,
+    "document_parse_pages": 4
+  },
+  "shared_ledger": {
+    "calls": 1752,
+    "committed_or_reserved_usd": "9.2214240400",
+    "unsettled_calls": 7
+  },
+  "provider_calls": 0,
+  "ledger_writes": 0,
+  "accounting_code_sha256": "00c38a287d1821762d72f79d629c04273b4854574f27e5843aa9eedcb57e28d8"
+}

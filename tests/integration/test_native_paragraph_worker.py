@@ -9,6 +9,7 @@ claimed verified status). Tables/footnotes/binding/grades remain unresolved.
 import json
 from copy import deepcopy
 from dataclasses import asdict, replace
+from difflib import unified_diff
 from io import StringIO
 from uuid import uuid4
 
@@ -92,19 +93,50 @@ def test_default_preserves_legacy_v1_checkpoint(tmp_path, monkeypatch):
 
 
 def test_opt_in_publishes_v4_and_replays_immutable_receipt(tmp_path, monkeypatch):
+    from proofops.adapters.local import source_verification
     from proofops.adapters.local.run_artifacts import load_run_evidence, native_paragraph_policy
     from proofops.application.ports.jobs import JobMessage
 
     service, run_id, runner, now, _ = runner_setup_native(tmp_path, monkeypatch, True)
-    assert runner.run_once(tenant_id=TENANT, run_id=run_id) == "committed"
-    message = JobMessage(**service.store.jobs.get_run(TENANT, run_id)["parse_job"])
+    attest = source_verification.attest_native_sources
+    receipts = []
+
+    def record_attestation(*args, **kwargs):
+        receipt = attest(*args, **kwargs)
+        receipts.append(receipt)
+        return receipt
+
+    monkeypatch.setattr(source_verification, "attest_native_sources", record_attestation)
+    message = JobMessage(
+        **service.store.jobs.pending_outbox(TENANT, run_id, now=now[0])[0]["message"]
+    )
+    outcome = runner.run_once(tenant_id=TENANT, run_id=run_id)
+    if outcome != "committed" and len(receipts) >= 2:
+        # Pytest truncates large assertion dicts; show only actual replay differences.
+        print("NATIVE_RECEIPT_REPLAY_DIFF")
+        print(
+            "".join(
+                unified_diff(
+                    json.dumps(receipts[0], sort_keys=True, indent=2).splitlines(keepends=True),
+                    json.dumps(receipts[1], sort_keys=True, indent=2).splitlines(keepends=True),
+                    fromfile="initial",
+                    tofile="replay",
+                    n=1,
+                )
+            )
+        )
+    assert outcome == "committed", {
+        "job_error": service.store.jobs.get_job(message)["error_code"],
+        "native_attestations": receipts,
+    }
     raw = service.store.jobs.read_checkpoint(message)
     envelope = json.loads(raw)
     assert envelope["schema"] == "local_parser_checkpoint_v4"
     assert service.store.jobs.parser_native_policy(message) == native_paragraph_policy()
     assert envelope["native_paragraph_policy_sha256"] == canonical_hash(native_paragraph_policy())
     receipt = envelope["native_paragraph_attestation"]
-    assert receipt["schema"] == "native_paragraph_attestation_v1"
+    assert receipt["schema"] == "native_paragraph_attestation_v2"
+    assert receipt["geometry_mode"] == "glyph"
     assert receipt["scope"] == "paragraph_native_and_rendered_text_only"
     assert receipt["records"], "unresolved receipts persist; records must not vanish"
     # Immutable receipt: recompute-and-compare replay, then stable across reopen.
@@ -316,7 +348,12 @@ def test_native_policy_pins_verifier_sources(tmp_path, monkeypatch):
     receipt = json.loads(service.store.jobs.read_checkpoint(message))[
         "native_paragraph_attestation"
     ]
-    for key in ("verifier_sha256", "normalization_sha256", "rendered_reader_sha256"):
+    for key in (
+        "verifier_sha256",
+        "normalization_sha256",
+        "rendered_reader_sha256",
+        "glyph_verifier_sha256",
+    ):
         assert policy[key] == receipt[key]
     from proofops_worker import local_runner
 

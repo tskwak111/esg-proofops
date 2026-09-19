@@ -1,0 +1,217 @@
+{
+  "schema": "live_source_repair_pilot_v1",
+  "code_head": "c4e85fc708e616798a5aba36c2ad8560d8e66db5",
+  "run_id": "2290d163-5b61-44ac-8c16-33fffc0eaa9f",
+  "source_sha256": "dc59b2b1c5bbf02e33bb901f94aef7cd984dc62547708e92aa1332ac550102e9",
+  "selected_pages": [
+    27,
+    97,
+    110
+  ],
+  "checkpoint_sha256": "437e5e6f8a31b2ce2da740ee5d75d78fd25d61dece230f356dea9d2e1c38e9c8",
+  "actual_model_calls": true,
+  "production_ready": false,
+  "rulepack_approval": null,
+  "cost": {
+    "run_id": "2290d163-5b61-44ac-8c16-33fffc0eaa9f",
+    "input_tokens": 48269,
+    "output_tokens": 5282,
+    "attempt_count": 35,
+    "cache_hit_count": 0,
+    "amount": "0.0216694500",
+    "currency": "USD",
+    "pricing_snapshot_id": null,
+    "cost_status": "known"
+  },
+  "ledger": {
+    "calls": 1707,
+    "committed_or_reserved_usd": "9.1394369150",
+    "unsettled": 7
+  },
+  "source_verified_claims": 4,
+  "claims": [
+    {
+      "claim_id": "8237939a-63dc-5110-8ef5-9659dc9feafc",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "has_review": false
+    },
+    {
+      "claim_id": "56d85640-1e7e-5d38-96f8-8d6687f3419e",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "has_review": false
+    },
+    {
+      "claim_id": "93a147d3-bbd7-5180-abad-22ae025b34b2",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "has_review": false
+    },
+    {
+      "claim_id": "82755714-74dd-51ed-a52f-0d3b96e1de14",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "has_review": false
+    },
+    {
+      "claim_id": "e013748e-bab1-5856-91d6-0eb34d66a217",
+      "status": "blocked",
+      "reason": "RELATION_TAGS_UNRESOLVED",
+      "has_review": false
+    },
+    {
+      "claim_id": "124f801e-6289-59c7-9aca-07e6aacbfeb4",
+      "status": "blocked",
+      "reason": "RELATION_TAGS_UNRESOLVED",
+      "has_review": false
+    },
+    {
+      "claim_id": "9436c93e-2557-538a-89f6-c6c110d157ca",
+      "status": "blocked",
+      "reason": "RELATION_TAGS_UNRESOLVED",
+      "has_review": false
+    },
+    {
+      "claim_id": "57a148c9-81a3-5836-8e27-c432c2f043ae",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "has_review": false
+    },
+    {
+      "claim_id": "edc41768-e996-523d-aba5-ce35b0b251a8",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "has_review": false
+    },
+    {
+      "claim_id": "2ad98ea2-5b89-5b47-8410-8664a2cf2808",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "has_review": false
+    },
+    {
+      "claim_id": "7b1de683-8918-5ea0-8743-1234e8c3f2f7",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "has_review": false
+    },
+    {
+      "claim_id": "355feae4-98be-5123-af09-7d9343dab504",
+      "status": "needs_review",
+      "reason": null,
+      "has_review": true
+    }
+  ],
+  "api_latency_ms": {
+    "claims": 197.55733292549849,
+    "first_claim_detail": 149.45391565561295,
+    "cost": 2.6004170067608356
+  },
+  "audit": {
+    "run_id": "2290d163-5b61-44ac-8c16-33fffc0eaa9f",
+    "source_sha256": "dc59b2b1c5bbf02e33bb901f94aef7cd984dc62547708e92aa1332ac550102e9",
+    "checkpoint_sha256": "437e5e6f8a31b2ce2da740ee5d75d78fd25d61dece230f356dea9d2e1c38e9c8",
+    "state_path": ".local/developer-a-live-tagging-doosan-source-repair",
+    "additional_model_calls": 0,
+    "counts": {
+      "claims_without_review": 11,
+      "raw_present_element_votes": 9,
+      "raw_present_to_unknown": 5,
+      "present_votes_with_no_relation_roles": 0,
+      "present_votes_with_literal_value_mismatch": 5,
+      "raw_present_to_present": 4
+    },
+    "claims": [
+      {
+        "claim_id": "355feae4-98be-5123-af09-7d9343dab504",
+        "quote": "두산밥캣은 기후변화에 따른 환경 변화의 심각성을 인지하여, 글로벌 ESG 위원회를 중심으로 하는 기후변화 대응 체계를 구축, 운영하고 있습니다.",
+        "missing_required_claim_dimensions": [
+          "metric",
+          "reporting_period"
+        ],
+        "relation_source_count": 4,
+        "present_votes": [
+          {
+            "replicate_id": 1,
+            "element_id": "M1",
+            "guarded_state": "unknown",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": true
+          },
+          {
+            "replicate_id": 1,
+            "element_id": "M2",
+            "guarded_state": "present",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": false
+          },
+          {
+            "replicate_id": 1,
+            "element_id": "M5",
+            "guarded_state": "unknown",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": true
+          },
+          {
+            "replicate_id": 2,
+            "element_id": "M1",
+            "guarded_state": "present",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": false
+          },
+          {
+            "replicate_id": 2,
+            "element_id": "M2",
+            "guarded_state": "present",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": false
+          },
+          {
+            "replicate_id": 2,
+            "element_id": "M5",
+            "guarded_state": "present",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": false
+          },
+          {
+            "replicate_id": 3,
+            "element_id": "M1",
+            "guarded_state": "unknown",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": true
+          },
+          {
+            "replicate_id": 3,
+            "element_id": "M2",
+            "guarded_state": "unknown",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": true
+          },
+          {
+            "replicate_id": 3,
+            "element_id": "M5",
+            "guarded_state": "unknown",
+            "missing_relation_source_ids": [],
+            "literal_value_mismatch": true
+          }
+        ]
+      }
+    ]
+  },
+  "limitations": [
+    "Three selected physical pages of one additional report, not full-report or independent gold accuracy.",
+    "HTTP measurements are same-process local TestClient after the pipeline, not cold API startup or deployed multi-user throughput.",
+    "No grades or global assurance approval inferred."
+  ],
+  "assurance_check": {
+    "review_count": 1,
+    "M3_states_all_three_replicas": [
+      "unknown",
+      "unknown",
+      "unknown"
+    ],
+    "global_assurance_approval": false,
+    "limitations": "Only the published management claim was examined; no general assurance-linking accuracy claim."
+  }
+}

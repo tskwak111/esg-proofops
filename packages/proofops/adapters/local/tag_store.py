@@ -18,6 +18,7 @@ from proofops.application.ports.jobs import JobMessage
 from proofops.application.ports.models import ModelBinding
 from proofops.application.reviews import ReviewInputs
 from proofops.application.tagging.consensus import form_consensus
+from proofops.application.tagging.relations import SYSTEM_PROMPT as RELATION_SYSTEM_PROMPT
 from proofops.application.tagging.service import TaggingSettings, TagRun
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import RulePackSnapshot
@@ -25,9 +26,40 @@ from proofops.domain.rules.engine import RuleContext, evaluate
 from proofops.domain.values import SourceRef, llm_tags_from_dict
 
 
-def tagging_settings(snapshot):
-    raw = snapshot["tagging_settings"]
+def tagging_settings(snapshot, *, preliminary=False, relation=False):
+    if preliminary and relation:
+        raise ValueError("TAGGING_PROFILE_MISMATCH")
+    prefix = "relation" if relation else "preliminary" if preliminary else "tagging"
+    if prefix + "_settings" not in snapshot:
+        raise ValueError("TAGGING_PROFILE_MISMATCH")
+    raw = snapshot[prefix + "_settings"]
     settings = TaggingSettings(**(raw | {"binding": ModelBinding(**raw["binding"])}))
+    if snapshot.get("tagging_mode") == "upstage_local":
+        from proofops.application.registry import artifact_sha256
+
+        runtime = snapshot[prefix + "_runtime"]
+        if (
+            canonical_hash(asdict(settings)) != snapshot[prefix + "_settings_hash"]
+            or artifact_sha256(runtime) != snapshot[prefix + "_runtime_artifact_hash"]
+            or settings.binding.synthetic is not False
+            or settings.binding.binding_id != runtime["runtime_binding_id"]
+            or settings.binding.role != "tagger"
+            or settings.model_id != runtime["model_id"]
+            or runtime.get("tagging_settings_sha256") != canonical_hash(asdict(settings))
+            or runtime.get("input_reservation_policy_sha256")
+            != snapshot["input_reservation_policy_hash"]
+            or canonical_hash(snapshot["input_reservation_policy"])
+            != snapshot["input_reservation_policy_hash"]
+        ):
+            raise ValueError("TAGGING_PROFILE_MISMATCH")
+        if relation and (
+            settings.model_profile != "upstage-relation-source-quotes-v1"
+            or settings.system_prompt != RELATION_SYSTEM_PROMPT
+        ):
+            raise ValueError("TAGGING_PROFILE_MISMATCH")
+        return settings
+    if preliminary or relation:
+        raise ValueError("PRELIMINARY_PROFILE_UNSUPPORTED")
     runtime = snapshot["runtime"]
     if (
         canonical_hash(asdict(settings)) != snapshot["tagging_settings_hash"]
@@ -45,8 +77,9 @@ def tagging_settings(snapshot):
 
 
 def tag_pins(snapshot, extraction, extraction_hash):
-    return dict(
+    pins = dict(
         schema="local_tag_checkpoint_v1",
+        synthetic=snapshot.get("tagging_mode") != "upstage_local",
         **{
             key: extraction[key]
             for key in (
@@ -74,6 +107,44 @@ def tag_pins(snapshot, extraction, extraction_hash):
         validation_profile="fast_preview",
         vision_status="not_run",
     )
+    if snapshot.get("tagging_mode") == "upstage_local":
+        pins.update(
+            **{
+                key: snapshot[key]
+                for key in (
+                    "preliminary_settings",
+                    "preliminary_settings_hash",
+                    "preliminary_runtime",
+                    "preliminary_runtime_artifact_hash",
+                    "tagging_runtime",
+                    "tagging_runtime_artifact_hash",
+                    "input_reservation_policy",
+                    "input_reservation_policy_hash",
+                    "rulepack_use",
+                )
+            }
+        )
+        relation_keys = (
+            "relation_settings",
+            "relation_settings_hash",
+            "relation_runtime",
+            "relation_runtime_artifact_hash",
+        )
+        if any(key in snapshot for key in relation_keys):
+            if not all(key in snapshot for key in relation_keys):
+                raise ValueError("TAG_CHECKPOINT_PIN_MISMATCH")
+            pins.update({key: snapshot[key] for key in relation_keys})
+    elif any(
+        key in snapshot
+        for key in (
+            "relation_settings",
+            "relation_settings_hash",
+            "relation_runtime",
+            "relation_runtime_artifact_hash",
+        )
+    ):
+        raise ValueError("TAG_CHECKPOINT_PIN_MISMATCH")
+    return pins
 
 
 def validate_tag_commit(db, jobs, run, message, envelope, next_job):
@@ -202,6 +273,7 @@ class LocalTagStore:
         decision = (
             evaluate(consensus.confirmed_tags, rule_context, rulepack)
             if consensus.confirmed_tags
+            and envelope.get("rulepack_use") != "candidate_tagging_reference_only"
             else None
         )
         inputs = ReviewInputs(

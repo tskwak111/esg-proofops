@@ -592,12 +592,14 @@ class LocalSQLiteJobStore:
                 if (
                     native_raw is None
                     and isinstance(envelope, dict)
-                    and envelope.get("schema") == "local_parser_checkpoint_v4"
+                    and envelope.get("schema")
+                    in {"local_parser_checkpoint_v4", "local_parser_checkpoint_v5"}
                 ):
                     raise ValueError("NATIVE_PARAGRAPH_INPUT_NOT_BOUND")
                 if native_policy is not None and (
                     not isinstance(envelope, dict)
-                    or envelope.get("schema") != "local_parser_checkpoint_v4"
+                    or envelope.get("schema")
+                    not in {"local_parser_checkpoint_v4", "local_parser_checkpoint_v5"}
                     or envelope.get("native_paragraph_policy_sha256")
                     != canonical_hash(native_policy)
                 ):
@@ -606,7 +608,8 @@ class LocalSQLiteJobStore:
                     isinstance(envelope, dict)
                     and native_policy is None
                     and (
-                        envelope.get("schema") == "local_parser_checkpoint_v4"
+                        envelope.get("schema")
+                        in {"local_parser_checkpoint_v4", "local_parser_checkpoint_v5"}
                         or any(key.startswith("native_paragraph_") for key in envelope)
                     )
                 ):
@@ -624,7 +627,11 @@ class LocalSQLiteJobStore:
                     pinned is None
                     or not isinstance(envelope, dict)
                     or envelope.get("schema")
-                    not in {"local_parser_checkpoint_v3", "local_parser_checkpoint_v4"}
+                    not in {
+                        "local_parser_checkpoint_v3",
+                        "local_parser_checkpoint_v4",
+                        "local_parser_checkpoint_v5",
+                    }
                     or envelope.get("note_review_policy_sha256") != canonical_hash(policy)
                 ):
                     raise ValueError("NOTE_REVIEW_POLICY_MISMATCH")
@@ -703,6 +710,11 @@ class LocalSQLiteJobStore:
                     != coverage["pages_total"] - len(snapshot["selected_pages"])
                 ):
                     raise ValueError("parse coverage differs from frozen run selection")
+                from proofops.adapters.local.raster_job_store import (
+                    validate_raster_checkpoint_bindings,
+                )
+
+                validate_raster_checkpoint_bindings(db, self, message, snapshot, envelope)
                 run.update(current_stage="extract", coverage=coverage, parse_job=asdict(message))
             if (
                 message.stage == "extract"

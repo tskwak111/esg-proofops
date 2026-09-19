@@ -718,10 +718,21 @@ def _detached_artifact(artifact: Mapping[str, object]) -> dict[str, object]:
     return loaded
 
 
+def _json_mapping(value: object) -> dict:
+    if isinstance(value, Mapping):
+        return dict(value)
+    raise TypeError("unsupported JSON value")
+
+
 def _canonical_json(value: Mapping[str, object]) -> bytes:
     try:
         return json.dumps(
-            value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
+            value,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+            default=_json_mapping,
         ).encode("utf-8")
     except (TypeError, ValueError) as exc:
         raise ValueError("artifact must be finite JSON data") from exc

@@ -14,14 +14,17 @@ from proofops.application.claims import ExtractionProfile
 from proofops.application.ingest.graph_fusion import ParserProfile
 from proofops.application.preflight import (
     check_local_upstage_binding,
+    check_local_upstage_raster,
+    check_local_upstage_tagger,
     check_runtime_binding,
     combine_build_checks,
 )
 from proofops.application.registry import RegistryNotFound, artifact_sha256
+from proofops.application.tagging.relations import SYSTEM_PROMPT as RELATION_SYSTEM_PROMPT
 from proofops.application.tagging.service import TaggingSettings
 from proofops.application.uploads_security import UploadRejected
 from proofops.domain.provenance import canonical_hash
-from proofops.domain.values import _require_sha256
+from proofops.domain.values import _require_sha256, _require_uuid
 
 
 class RunRejected(ValueError):
@@ -30,12 +33,90 @@ class RunRejected(ValueError):
         self.code, self.status = code, status
 
 
+_LIVE_TAGGING_MODEL = "solar-pro4"
+
+
+def _capacity_accommodated(limits: BudgetLimits | None, upper: int, output_cap: int) -> bool:
+    """Role budgets must cover the reserved input upper bound plus the output cap."""
+    if limits is None:
+        return False
+    candidates = [role for role in limits.roles if role.role == "tagger"]
+    if not candidates:
+        return False
+    return any(
+        role.max_input_tokens >= upper
+        and role.max_output_tokens >= output_cap
+        and role.max_context_tokens >= upper + output_cap
+        for role in candidates
+    )
+
+
 def _detach(value):
     if isinstance(value, Mapping):
         return {key: _detach(item) for key, item in value.items()}
     if isinstance(value, list | tuple):
         return [_detach(item) for item in value]
     return value
+
+
+def validate_raster_policy(policy):
+    """Validate trusted policy shape without filesystem/provider dependencies."""
+    hashes = (
+        "native_policy_sha256",
+        "raster_helper_sha256",
+        "composition_helper_sha256",
+        "checkpoint_helper_sha256",
+    )
+    if (
+        not isinstance(policy, Mapping)
+        or set(policy) != {"schema", "mode", "max_pages", "max_calls", "reader_versions", *hashes}
+        or policy["schema"] != "local_raster_ocr_policy_v1"
+        or policy["mode"] not in ("standard", "enhanced")
+        or type(policy["max_pages"]) is not int
+        or not 1 <= policy["max_pages"] <= 10
+        or type(policy["max_calls"]) is not int
+        or not 1 <= policy["max_calls"] <= 20
+        or not isinstance(policy["reader_versions"], Mapping)
+        or set(policy["reader_versions"]) != {"pypdfium2", "pdfplumber", "pypdf", "Pillow"}
+        or any(not isinstance(v, str) or not v.strip() for v in policy["reader_versions"].values())
+    ):
+        raise ValueError("RASTER_POLICY_INVALID")
+    for name in hashes:
+        _require_sha256(name, policy[name])
+    return _detach(policy)
+
+
+def validate_raster_snapshot(snapshot):
+    fields = {
+        "raster_ocr_policy",
+        "raster_ocr_policy_hash",
+        "raster_ocr_runtime",
+        "raster_ocr_runtime_artifact_hash",
+    }
+    present = {k for k in snapshot if k.startswith("raster_ocr_")}
+    if not present:
+        return
+    if (
+        present != fields
+        or snapshot.get("extraction_mode") != "upstage_probe"
+        or snapshot.get("mode") != "disclosure"
+        or snapshot.get("scope") != "declared_subset"
+    ):
+        raise ValueError("RASTER_SNAPSHOT_INVALID")
+    policy = validate_raster_policy(snapshot["raster_ocr_policy"])
+    grant = snapshot["raster_ocr_runtime"]
+    if (
+        not isinstance(grant, Mapping)
+        or canonical_hash(policy) != snapshot["raster_ocr_policy_hash"]
+        or artifact_sha256(grant) != snapshot["raster_ocr_runtime_artifact_hash"]
+        or grant.get("raster_policy_sha256") != snapshot["raster_ocr_policy_hash"]
+        or grant.get("mode") != policy["mode"]
+        or type(grant.get("max_pages")) is not int
+        or not policy["max_pages"] <= grant["max_pages"] <= 10
+        or type(grant.get("max_calls")) is not int
+        or not policy["max_calls"] <= grant["max_calls"] <= 20
+    ):
+        raise ValueError("RASTER_SNAPSHOT_INVALID")
 
 
 class RunService:
@@ -54,6 +135,11 @@ class RunService:
         extraction_limits=None,
         tagging_settings: TaggingSettings | None = None,
         tagging_mode: str | None = None,
+        preliminary_settings: TaggingSettings | None = None,
+        relation_settings: TaggingSettings | None = None,
+        raster_runtime_binding_id: str | None = None,
+        raster_policy=None,
+        input_reservation_policy=None,
         budget_limits=None,
         allowed_regions=(),
         build_result=None,
@@ -80,12 +166,38 @@ class RunService:
             parser_profile = MappingProxyType(parser_profile)
         if budget_limits is not None and not isinstance(budget_limits, BudgetLimits):
             raise ValueError("trusted BudgetLimits required")
+        if preliminary_settings is not None and not isinstance(
+            preliminary_settings, TaggingSettings
+        ):
+            raise ValueError("trusted preliminary TaggingSettings required")
+        if relation_settings is not None and not isinstance(relation_settings, TaggingSettings):
+            raise ValueError("trusted relation TaggingSettings required")
+        if input_reservation_policy is not None and not isinstance(
+            input_reservation_policy, Mapping
+        ):
+            raise ValueError("trusted input reservation policy required")
         self.store, self.uploads, self.registry = store, uploads, registry
         self.parser_profile_hash, self.budget_limits = parser_profile_hash, budget_limits
         self.parser_profile = parser_profile
         self.extraction_profile, self.extraction_mode = extraction_profile, extraction_mode
         self.extraction_limits = _detach(extraction_limits)
         self.tagging_settings, self.tagging_mode = tagging_settings, tagging_mode
+        self.preliminary_settings = preliminary_settings
+        self.relation_settings = relation_settings
+        if (raster_runtime_binding_id is None) != (raster_policy is None):
+            raise ValueError("complete raster configuration required")
+        if raster_runtime_binding_id is not None:
+            _require_uuid("raster_runtime_binding_id", raster_runtime_binding_id)
+            raster_policy = validate_raster_policy(raster_policy)
+        self.raster_runtime_binding_id, self.raster_policy = (
+            raster_runtime_binding_id,
+            raster_policy,
+        )
+        self.input_reservation_policy = (
+            _detach(dict(input_reservation_policy))
+            if input_reservation_policy is not None
+            else None
+        )
         self.allowed_regions, self.build_result = tuple(allowed_regions), build_result
         self.clock = clock
         self.local_synthetic = True
@@ -165,6 +277,47 @@ class RunService:
         )
         if not preflight.ready or rights_id not in consent["allowed_document_rights"]:
             raise RunRejected("CONFIG_GATE_BLOCKED")
+        raster_snapshot = {}
+        if self.raster_runtime_binding_id is not None or self.raster_policy is not None:
+            try:
+                _require_uuid("raster_runtime_binding_id", self.raster_runtime_binding_id)
+                raster_policy = validate_raster_policy(self.raster_policy)
+                raster_runtime = _detach(
+                    self.registry.resolve_profile(auth, "runtime", self.raster_runtime_binding_id)
+                )
+                raster_preflight = check_local_upstage_raster(
+                    binding=raster_runtime,
+                    consent=consent,
+                    auth=auth,
+                    checked_at=timestamp,
+                    source_sha256=document["sha256"],
+                    document_rights=rights_id,
+                    model_sha256=canonical_hash(
+                        dict(
+                            model="document-parse-260128",
+                            provider="upstage",
+                            transport="UpstageParseProbe",
+                        )
+                    ),
+                )
+                if not raster_preflight.ready:
+                    raise ValueError("RASTER_PREFLIGHT_BLOCKED")
+                raster_snapshot = dict(
+                    raster_ocr_policy=raster_policy,
+                    raster_ocr_policy_hash=canonical_hash(raster_policy),
+                    raster_ocr_runtime=raster_runtime,
+                    raster_ocr_runtime_artifact_hash=artifact_sha256(raster_runtime),
+                )
+                validate_raster_snapshot(
+                    dict(
+                        raster_snapshot,
+                        extraction_mode=self.extraction_mode,
+                        mode=body["mode"],
+                        scope=body["scope"],
+                    )
+                )
+            except (RegistryNotFound, ValueError, KeyError, TypeError):
+                raise RunRejected("CONFIG_GATE_BLOCKED") from None
         if (self.extraction_profile is not None or self.extraction_mode is not None) and (
             not isinstance(self.extraction_profile, ExtractionProfile)
             or (self.extraction_profile.synthetic, self.extraction_mode)
@@ -173,10 +326,13 @@ class RunService:
             raise RunRejected("CONFIG_GATE_BLOCKED")
         if self.extraction_mode == "upstage_probe":
             limits = self.extraction_limits
+            live_tagging = self.tagging_mode == "upstage_local"
             if (
                 body["scope"] != "declared_subset"
-                or self.tagging_settings is not None
-                or self.tagging_mode is not None
+                or (
+                    not live_tagging
+                    and (self.tagging_settings is not None or self.tagging_mode is not None)
+                )
                 or not isinstance(limits, dict)
                 or set(limits) != {"max_calls", "max_output_tokens"}
                 or type(limits["max_calls"]) is not int
@@ -188,7 +344,108 @@ class RunService:
         elif self.extraction_limits is not None:
             raise RunRejected("CONFIG_GATE_BLOCKED")
         tagging = self.tagging_settings
-        if (tagging is not None or self.tagging_mode is not None) and (
+        live_tagging = self.tagging_mode == "upstage_local"
+        if self.relation_settings is not None and not live_tagging:
+            raise RunRejected("CONFIG_GATE_BLOCKED")
+        if live_tagging:
+            if self.extraction_mode != "upstage_probe":
+                raise RunRejected("CONFIG_GATE_BLOCKED")
+            preliminary = self.preliminary_settings
+            relation = self.relation_settings
+            if not isinstance(preliminary, TaggingSettings) or not isinstance(
+                tagging, TaggingSettings
+            ):
+                raise RunRejected("CONFIG_GATE_BLOCKED")
+            if relation is not None and not isinstance(relation, TaggingSettings):
+                raise RunRejected("CONFIG_GATE_BLOCKED")
+            if (
+                preliminary.model_profile != "upstage-preliminary-source-quotes-v1"
+                or tagging.model_profile
+                not in {
+                    "upstage-compact-ids-frozen-unicode-v1",
+                    "upstage-compact-coverage-unicode-v2",
+                    "upstage-compact-source-quotes-v3",
+                }
+            ):
+                raise RunRejected("CONFIG_GATE_BLOCKED")
+            if relation is not None and (
+                relation.model_profile != "upstage-relation-source-quotes-v1"
+                or relation.system_prompt != RELATION_SYSTEM_PROMPT
+            ):
+                raise RunRejected("CONFIG_GATE_BLOCKED")
+            pinned_settings = (preliminary, tagging) + ((relation,) if relation is not None else ())
+            for pinned in pinned_settings:
+                if (
+                    pinned.binding.synthetic is not False
+                    or pinned.binding.role != "tagger"
+                    or pinned.model_id != _LIVE_TAGGING_MODEL
+                    or type(pinned.max_tokens) is not int
+                    or not 1 <= pinned.max_tokens <= 4096
+                ):
+                    raise RunRejected("CONFIG_GATE_BLOCKED")
+            policy = self.input_reservation_policy
+            if not isinstance(policy, dict) or not policy:
+                raise RunRejected("CONFIG_GATE_BLOCKED")
+            policy_hash = canonical_hash(policy)
+            try:
+                preliminary_runtime = _detach(
+                    self.registry.resolve_profile(auth, "runtime", preliminary.binding.binding_id)
+                )
+                tagging_runtime = _detach(
+                    self.registry.resolve_profile(auth, "runtime", tagging.binding.binding_id)
+                )
+                relation_runtime = (
+                    _detach(
+                        self.registry.resolve_profile(auth, "runtime", relation.binding.binding_id)
+                    )
+                    if relation is not None
+                    else None
+                )
+            except RegistryNotFound:
+                raise RunRejected("CONFIG_GATE_BLOCKED") from None
+            if len(
+                {
+                    body["runtime_binding_id"],
+                    preliminary.binding.binding_id,
+                    tagging.binding.binding_id,
+                    *((relation.binding.binding_id,) if relation is not None else ()),
+                }
+            ) != 3 + (relation is not None):
+                raise RunRejected("CONFIG_GATE_BLOCKED")
+            runtime_pairs = [
+                (preliminary, preliminary_runtime),
+                (tagging, tagging_runtime),
+            ] + ([(relation, relation_runtime)] if relation is not None else [])
+            for pinned, bound_runtime in runtime_pairs:
+                if (
+                    pinned.binding.binding_id != bound_runtime.get("runtime_binding_id")
+                    or bound_runtime.get("input_reservation_policy_sha256") != policy_hash
+                ):
+                    raise RunRejected("CONFIG_GATE_BLOCKED")
+                if not check_local_upstage_tagger(
+                    binding=bound_runtime,
+                    consent=consent,
+                    auth=auth,
+                    checked_at=timestamp,
+                    source_sha256=document["sha256"],
+                    document_rights=rights_id,
+                    settings=pinned,
+                ).ready:
+                    raise RunRejected("CONFIG_GATE_BLOCKED")
+            from proofops.application.input_reservation import validate_capacity_policy
+
+            for pinned in pinned_settings:
+                try:
+                    upper = validate_capacity_policy(
+                        policy,
+                        model_id=pinned.model_id,
+                        checked_at=datetime.fromtimestamp(created_time, UTC),
+                    )
+                except ValueError:
+                    raise RunRejected("CONFIG_GATE_BLOCKED") from None
+                if not _capacity_accommodated(self.budget_limits, upper, pinned.max_tokens):
+                    raise RunRejected("CONFIG_GATE_BLOCKED")
+        elif (tagging is not None or self.tagging_mode is not None) and (
             not isinstance(tagging, TaggingSettings)
             or self.tagging_mode != "local_synthetic"
             or self.extraction_profile is None
@@ -234,6 +491,28 @@ class RunService:
                 tagging_settings_hash=canonical_hash(asdict(tagging)),
                 tagging_mode=self.tagging_mode,
             )
+        if live_tagging:
+            assert isinstance(preliminary, TaggingSettings)
+            assert isinstance(tagging, TaggingSettings)
+            assert isinstance(policy, dict)
+            snapshot.update(
+                preliminary_settings=asdict(preliminary),
+                preliminary_settings_hash=canonical_hash(asdict(preliminary)),
+                preliminary_runtime=preliminary_runtime,
+                preliminary_runtime_artifact_hash=artifact_sha256(preliminary_runtime),
+                tagging_runtime=tagging_runtime,
+                tagging_runtime_artifact_hash=artifact_sha256(tagging_runtime),
+                input_reservation_policy=dict(policy),
+                input_reservation_policy_hash=policy_hash,
+            )
+            if relation is not None:
+                snapshot.update(
+                    relation_settings=asdict(relation),
+                    relation_settings_hash=canonical_hash(asdict(relation)),
+                    relation_runtime=relation_runtime,
+                    relation_runtime_artifact_hash=artifact_sha256(relation_runtime),
+                )
+        snapshot.update(raster_snapshot)
         return self.store.create(auth, body, key, snapshot, self.budget_limits, now=now)
 
     def get(self, tenant_id, run_id):

@@ -1,0 +1,185 @@
+{
+  "schema": "live_relation_isolation_pilot_v1",
+  "code_head": "35df508201f7dffacd437c462a85e21ef98f1a0e",
+  "run_id": "b94cf75c-b4c5-4a36-b891-afb12a0f17b9",
+  "source_sha256": "dc59b2b1c5bbf02e33bb901f94aef7cd984dc62547708e92aa1332ac550102e9",
+  "selected_pages": [
+    27,
+    97,
+    110
+  ],
+  "checkpoint_sha256": "f58ab11a760ac666b93a6b3ebb768f279d4526df4ab935addb3c2fda9f9f204e",
+  "production_ready": false,
+  "rulepack_approval": null,
+  "actual_model_calls": true,
+  "cost": {
+    "run_id": "b94cf75c-b4c5-4a36-b891-afb12a0f17b9",
+    "input_tokens": 75704,
+    "output_tokens": 10793,
+    "attempt_count": 44,
+    "cache_hit_count": 0,
+    "amount": "0.0379871250",
+    "currency": "USD",
+    "pricing_snapshot_id": null,
+    "cost_status": "known"
+  },
+  "ledger": {
+    "calls": 1751,
+    "committed_or_reserved_usd": "9.1774240400",
+    "unsettled": 7
+  },
+  "counts": {
+    "SOURCE_VALIDATION_REQUIRED": 8,
+    "needs_review": 4
+  },
+  "claims": [
+    {
+      "claim_id": "ff4fad2c-bd50-5143-962d-2cb1d1bc0309",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "has_review": false,
+      "decision": null
+    },
+    {
+      "claim_id": "0036b7b6-40db-591a-97fb-af13c3b08099",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "has_review": false,
+      "decision": null
+    },
+    {
+      "claim_id": "c9e06ac9-646a-50bf-8cd4-4729fb675ec7",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "has_review": false,
+      "decision": null
+    },
+    {
+      "claim_id": "aea8b5b6-0e0f-523c-9b5e-556271dc3c8a",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "has_review": false,
+      "decision": null
+    },
+    {
+      "claim_id": "7caa3180-ea02-5db4-af04-215b07d02534",
+      "status": "needs_review",
+      "reason": null,
+      "has_review": true,
+      "decision": null,
+      "disputed_source_ids": []
+    },
+    {
+      "claim_id": "dad7b0f4-3b9c-50f7-bd12-1c7b28168aab",
+      "status": "needs_review",
+      "reason": null,
+      "has_review": true,
+      "decision": null,
+      "disputed_source_ids": [
+        "1aa5aeaf-579b-5d24-b02f-5b903dce3c62",
+        "42ca3de7-db61-50b0-8c2a-fe4a61db8929",
+        "8c57eb71-3204-513c-9dfa-6a0d7b53553b"
+      ]
+    },
+    {
+      "claim_id": "aef2d1ef-1c40-5bf1-b986-c80564297575",
+      "status": "needs_review",
+      "reason": null,
+      "has_review": true,
+      "decision": null,
+      "disputed_source_ids": [
+        "1686aed4-9719-568b-99cd-307669cb8c12",
+        "42ca3de7-db61-50b0-8c2a-fe4a61db8929",
+        "8c57eb71-3204-513c-9dfa-6a0d7b53553b"
+      ]
+    },
+    {
+      "claim_id": "b81cdf96-8329-5d4d-9f10-c530935f0cbd",
+      "status": "needs_review",
+      "reason": null,
+      "has_review": true,
+      "decision": null,
+      "disputed_source_ids": [
+        "1686aed4-9719-568b-99cd-307669cb8c12"
+      ]
+    },
+    {
+      "claim_id": "d3fe8a60-94aa-501e-adf8-0019caff41d8",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "has_review": false,
+      "decision": null
+    },
+    {
+      "claim_id": "f3ee2328-0c98-5b4a-8cd1-6063e7a1d272",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "has_review": false,
+      "decision": null
+    },
+    {
+      "claim_id": "f3672bbc-8366-5273-9ec7-9f2d64181e40",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "has_review": false,
+      "decision": null
+    },
+    {
+      "claim_id": "f638bbf9-74e8-5bf6-a632-110c57da0136",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "has_review": false,
+      "decision": null
+    }
+  ],
+  "guard_audit": {
+    "claims_without_review": 8,
+    "raw_present_element_votes": 42,
+    "raw_present_to_present": 19,
+    "present_votes_with_no_relation_roles": 0,
+    "present_votes_with_literal_value_mismatch": 14,
+    "raw_present_to_unknown": 23
+  },
+  "limitations": [
+    "Fresh extraction, not a controlled paired accuracy trial.",
+    "Source validation and semantic correctness remain separate; no independent gold labels.",
+    "Three sampled pages only; no whole-report service-readiness claim.",
+    "Assertions check discarded conflicting external roles and guarded citations, not the meaning of accepted local elements."
+  ],
+  "offline_replay": {
+    "schema": "live_source_repair_replay_v1",
+    "run_id": "b94cf75c-b4c5-4a36-b891-afb12a0f17b9",
+    "model_calls_forbidden": true,
+    "results": [
+      {
+        "claim_id": "7caa3180-ea02-5db4-af04-215b07d02534",
+        "replay": "passed",
+        "decision": null
+      },
+      {
+        "claim_id": "dad7b0f4-3b9c-50f7-bd12-1c7b28168aab",
+        "replay": "passed",
+        "decision": null
+      },
+      {
+        "claim_id": "aef2d1ef-1c40-5bf1-b986-c80564297575",
+        "replay": "passed",
+        "decision": null
+      },
+      {
+        "claim_id": "b81cdf96-8329-5d4d-9f10-c530935f0cbd",
+        "replay": "passed",
+        "decision": null
+      }
+    ],
+    "limitations": [
+      "Offline immutable input validation; not semantic gold or grade approval."
+    ]
+  },
+  "disputed_source_guard_check": {
+    "all_disputed_role_values_null": true,
+    "no_guarded_present_citations_use_disputed_sources": true,
+    "reviews_checked": 4,
+    "reviews_with_disputed_sources": 3
+  }
+}

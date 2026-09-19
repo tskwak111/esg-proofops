@@ -30,8 +30,9 @@ from proofops.adapters.local.job_store import (
 from proofops.adapters.local.rulepack_store import RulePackSqliteStore
 from proofops.application.mode_gate import select_mode_rulepack
 from proofops.application.ports.jobs import JobConflict, JobMessage
+from proofops.application.registry import artifact_sha256
 from proofops.application.rulepacks import RunSnapshot
-from proofops.application.runs import RunRejected
+from proofops.application.runs import RunRejected, validate_raster_snapshot
 from proofops.domain.audit import ChangeSet
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
@@ -103,8 +104,73 @@ class LocalSQLiteRunStore:
             if replay is not None:
                 return replay
             try:
-                if snapshot.get("extraction_mode") == "upstage_probe":
-                    if snapshot.get("tagging_settings") or body["mode"] != "disclosure":
+                validate_raster_snapshot(snapshot)
+                relation_fields = (
+                    "relation_settings",
+                    "relation_settings_hash",
+                    "relation_runtime",
+                    "relation_runtime_artifact_hash",
+                )
+                relation_present = [field in snapshot for field in relation_fields]
+                if any(relation_present) and (
+                    not all(relation_present) or snapshot.get("tagging_mode") != "upstage_local"
+                ):
+                    raise ValueError("relation snapshot requires complete upstage_local group")
+                if snapshot.get("tagging_mode") == "upstage_local":
+                    if (
+                        snapshot.get("extraction_mode") != "upstage_probe"
+                        or body["mode"] != "disclosure"
+                    ):
+                        raise ValueError("live tagging requires disclosure probe context")
+                    for label, frozen in (
+                        ("preliminary_settings", "preliminary_settings_hash"),
+                        ("tagging_settings", "tagging_settings_hash"),
+                        ("input_reservation_policy", "input_reservation_policy_hash"),
+                    ):
+                        if label not in snapshot or canonical_hash(snapshot[label]) != snapshot.get(
+                            frozen
+                        ):
+                            raise ValueError("live tagging snapshot identity mismatch")
+                    if "relation_settings" in snapshot and (
+                        canonical_hash(snapshot["relation_settings"])
+                        != snapshot["relation_settings_hash"]
+                    ):
+                        raise ValueError("live tagging relation snapshot identity mismatch")
+                    for label, frozen in (
+                        ("preliminary_runtime", "preliminary_runtime_artifact_hash"),
+                        ("tagging_runtime", "tagging_runtime_artifact_hash"),
+                    ):
+                        if label not in snapshot or artifact_sha256(
+                            snapshot[label]
+                        ) != snapshot.get(frozen):
+                            raise ValueError("live tagging runtime identity mismatch")
+                    if (
+                        "relation_runtime" in snapshot
+                        and artifact_sha256(snapshot["relation_runtime"])
+                        != snapshot["relation_runtime_artifact_hash"]
+                    ):
+                        raise ValueError("live tagging relation runtime identity mismatch")
+                    rulepack = self.rulepacks.extraction_snapshot_transaction(
+                        db, tenant, body["mode"], body["rule_pack_id"]
+                    )
+                    if (
+                        rulepack.status == "active"
+                        and rulepack.approved_by
+                        and rulepack.approved_at
+                    ):
+                        rulepack = self.rulepacks.active_snapshot_transaction(
+                            db, tenant, body["mode"], body["rule_pack_id"]
+                        )
+                        select_mode_rulepack(body["mode"], rulepack, tenant_id=tenant)
+                        snapshot = dict(snapshot, rulepack_use="approved_grading")
+                    else:
+                        snapshot = dict(snapshot, rulepack_use="candidate_tagging_reference_only")
+                elif snapshot.get("extraction_mode") == "upstage_probe":
+                    if (
+                        snapshot.get("tagging_settings")
+                        or snapshot.get("relation_settings")
+                        or body["mode"] != "disclosure"
+                    ):
                         raise ValueError("extraction-only runtime required")
                     rulepack = self.rulepacks.extraction_snapshot_transaction(
                         db, tenant, body["mode"], body["rule_pack_id"]

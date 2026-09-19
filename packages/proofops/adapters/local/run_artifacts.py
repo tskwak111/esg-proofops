@@ -12,6 +12,7 @@ from proofops.adapters.parsing.opendataloader import ParseFailure
 from proofops.application.ingest.graph_fusion import ParserProfile, SourceArtifact
 from proofops.application.ports.jobs import JobMessage
 from proofops.domain.provenance import canonical_hash
+from proofops.domain.values import _require_sha256, _require_uuid
 
 
 def load_run_inputs(store, uploads, *, tenant_id: str, run_id: str):
@@ -54,11 +55,74 @@ def load_run_inputs(store, uploads, *, tenant_id: str, run_id: str):
     return snapshot, source, profile
 
 
+def checkpoint_raster(envelope):
+    fields = {"raster_ocr_policy_sha256", "raster_ocr_artifacts", "raster_ocr_coverage"}
+    present = {key for key in envelope if key.startswith("raster_ocr_")}
+    if envelope.get("schema") != "local_parser_checkpoint_v5":
+        if present:
+            raise ParseFailure("RASTER_OCR_CHECKPOINT_UNSUPPORTED")
+        return None
+    try:
+        if present != fields:
+            raise ValueError("incomplete raster checkpoint")
+        _require_sha256("raster_ocr_policy_sha256", envelope["raster_ocr_policy_sha256"])
+        refs, coverage = envelope["raster_ocr_artifacts"], envelope["raster_ocr_coverage"]
+        names = {
+            "eligible_source_ids",
+            "requested_source_ids",
+            "corroborated_source_ids",
+            "unresolved_source_ids",
+            "failed_source_ids",
+        }
+        if (
+            not isinstance(refs, list)
+            or len(refs) > 20
+            or not isinstance(coverage, dict)
+            or set(coverage) != names
+        ):
+            raise ValueError("invalid raster coverage")
+        for values in coverage.values():
+            if (
+                not isinstance(values, list)
+                or any(not isinstance(v, str) or not v for v in values)
+                or values != sorted(set(values))
+            ):
+                raise ValueError("invalid source set")
+        sets = {key: set(values) for key, values in coverage.items()}
+        if (
+            not sets["corroborated_source_ids"]
+            <= sets["requested_source_ids"]
+            <= sets["eligible_source_ids"]
+            or sets["unresolved_source_ids"]
+            != sets["eligible_source_ids"] - sets["corroborated_source_ids"]
+            or sets["failed_source_ids"]
+        ):
+            raise ValueError("invalid raster coverage")
+        identifiers = []
+        for ref in refs:
+            if not isinstance(ref, dict) or set(ref) != {
+                "request_id",
+                "request_sha256",
+                "receipt_sha256",
+            }:
+                raise ValueError("invalid raster reference")
+            _require_uuid("request_id", ref["request_id"])
+            _require_sha256("request_sha256", ref["request_sha256"])
+            _require_sha256("receipt_sha256", ref["receipt_sha256"])
+            identifiers.append(ref["request_id"])
+        if identifiers != sorted(set(identifiers)):
+            raise ValueError("duplicate/unordered raster references")
+    except (ValueError, KeyError, TypeError):
+        raise ParseFailure("RASTER_OCR_CHECKPOINT_INVALID") from None
+    return refs, coverage
+
+
 def checkpoint_note_reviews(envelope):
     """Versioned checkpoint shape; legacy readers must never silently discard notes."""
     schema = envelope.get("schema")
+    checkpoint_raster(envelope)
     if any(key.startswith("native_paragraph_") for key in envelope):
-        if schema != "local_parser_checkpoint_v4":
+        if schema not in {"local_parser_checkpoint_v4", "local_parser_checkpoint_v5"}:
             raise ParseFailure("NATIVE_PARAGRAPH_CHECKPOINT_INVALID")
     if schema == "local_parser_checkpoint_v1":
         if {"runtime_note_review_artifacts", "graph_sha256"} & envelope.keys():
@@ -68,17 +132,23 @@ def checkpoint_note_reviews(envelope):
         "local_parser_checkpoint_v2",
         "local_parser_checkpoint_v3",
         "local_parser_checkpoint_v4",
+        "local_parser_checkpoint_v5",
     }:
         raise ParseFailure("PARSER_CHECKPOINT_SCHEMA_UNSUPPORTED")
     artifacts = envelope.get("runtime_note_review_artifacts")
     digest = envelope.get("graph_sha256")
-    if schema == "local_parser_checkpoint_v4" and artifacts is None:
+    if schema in {"local_parser_checkpoint_v4", "local_parser_checkpoint_v5"} and artifacts is None:
         artifacts = []
     if (
         not isinstance(artifacts, list)
         or (
             not artifacts
-            and schema not in {"local_parser_checkpoint_v3", "local_parser_checkpoint_v4"}
+            and schema
+            not in {
+                "local_parser_checkpoint_v3",
+                "local_parser_checkpoint_v4",
+                "local_parser_checkpoint_v5",
+            }
         )
         or any(not isinstance(item, str) for item in artifacts)
         or len(set(artifacts)) != len(artifacts)
@@ -93,7 +163,10 @@ def checkpoint_note_reviews(envelope):
 def native_paragraph_policy():
     local = files("proofops.adapters.local")
     return dict(
-        mode="paragraph_native_v1",
+        mode="paragraph_native_glyph_v2",
+        glyph_verifier_sha256=sha256(
+            local.joinpath("native_glyph_geometry.py").read_bytes()
+        ).hexdigest(),
         verifier_sha256=sha256(local.joinpath("source_verification.py").read_bytes()).hexdigest(),
         rendered_reader_sha256=sha256(local.joinpath("native_ocr.swift").read_bytes()).hexdigest(),
         normalization_sha256=sha256(
@@ -105,7 +178,7 @@ def native_paragraph_policy():
 def checkpoint_native_attestation(envelope):
     """Versioned native receipt shape; v1-v3 carry no native attestation."""
     schema = envelope.get("schema")
-    if schema != "local_parser_checkpoint_v4":
+    if schema not in {"local_parser_checkpoint_v4", "local_parser_checkpoint_v5"}:
         if any(key.startswith("native_paragraph_") for key in envelope):
             raise ParseFailure("NATIVE_PARAGRAPH_CHECKPOINT_INVALID")
         return None
@@ -113,7 +186,7 @@ def checkpoint_native_attestation(envelope):
     policy_digest = envelope.get("native_paragraph_policy_sha256")
     if (
         not isinstance(receipt, dict)
-        or receipt.get("schema") != "native_paragraph_attestation_v1"
+        or receipt.get("schema") != "native_paragraph_attestation_v2"
         or not isinstance(receipt.get("records"), list)
         or not isinstance(receipt.get("artifact_sha256"), str)
         or len(receipt["artifact_sha256"]) != 64
@@ -191,21 +264,29 @@ def load_run_evidence(store, uploads, parser, *, tenant_id: str, run_id: str):
     envelope = json.loads(payload)
     note_reviews = checkpoint_note_reviews(envelope)
     native_receipt = checkpoint_native_attestation(envelope)
+    from proofops.adapters.local.raster_job_store import validate_raster_checkpoint_bindings
+
+    with store.jobs._transaction() as db:
+        validate_raster_checkpoint_bindings(db, store.jobs, message, snapshot, envelope)
     policy = store.jobs.parser_note_policy(message)
     native_policy = store.jobs.parser_native_policy(message)
     if native_policy is not None:
         if (
-            envelope.get("schema") != "local_parser_checkpoint_v4"
+            envelope.get("schema")
+            not in {"local_parser_checkpoint_v4", "local_parser_checkpoint_v5"}
             or envelope.get("native_paragraph_policy_sha256") != canonical_hash(native_policy)
             or native_receipt is None
         ):
             raise ParseFailure("NATIVE_PARAGRAPH_POLICY_MISMATCH")
-    elif envelope.get("schema") == "local_parser_checkpoint_v4" or (native_receipt is not None):
+    elif envelope.get("schema") in {"local_parser_checkpoint_v4", "local_parser_checkpoint_v5"} or (
+        native_receipt is not None
+    ):
         raise ParseFailure("NATIVE_PARAGRAPH_POLICY_MISMATCH")
     if policy is not None:
         if envelope.get("schema") not in {
             "local_parser_checkpoint_v3",
             "local_parser_checkpoint_v4",
+            "local_parser_checkpoint_v5",
         } or envelope.get("note_review_policy_sha256") != canonical_hash(policy):
             raise ParseFailure("NOTE_REVIEW_POLICY_MISMATCH")
     elif (
@@ -247,13 +328,33 @@ def load_run_evidence(store, uploads, parser, *, tenant_id: str, run_id: str):
             graph = replay_note_reviews(note_reviews, graph, source.content, tenant_id=tenant_id)
         except (ValueError, TypeError, KeyError):
             raise ParseFailure("NOTE_REVIEW_REPLAY_INVALID") from None
-    if native_receipt is not None:
-        from proofops.adapters.local.source_verification import replay_native_sources
+    if envelope.get("schema") == "local_parser_checkpoint_v5":
+        from proofops.adapters.local.native_replay_cache import replay_raster_cached
+        from proofops.adapters.local.raster_job_store import raster_receipt, raster_requests
+
+        registrations = raster_requests(store.jobs, message)
+        receipts = {
+            row["request"]["request_id"]: raster_receipt(
+                store.jobs, message, row["request"]["request_id"]
+            )
+            for row in registrations
+        }
+        try:
+            graph, raster_coverage, raster_refs = replay_raster_cached(
+                snapshot, message, native_receipt, graph, source.content, registrations, receipts
+            )
+            if (
+                raster_coverage != envelope["raster_ocr_coverage"]
+                or raster_refs != envelope["raster_ocr_artifacts"]
+            ):
+                raise ValueError("raster replay differs")
+        except (ValueError, TypeError, KeyError):
+            raise ParseFailure("RASTER_OCR_REPLAY_INVALID") from None
+    elif native_receipt is not None:
+        from proofops.adapters.local.native_replay_cache import replay_cached
 
         try:
-            graph = replay_native_sources(
-                native_receipt, graph, source.content, tenant_id=tenant_id
-            )
+            graph = replay_cached(native_receipt, graph, source.content, tenant_id=tenant_id)
         except (ValueError, TypeError, KeyError):
             raise ParseFailure("NATIVE_PARAGRAPH_REPLAY_INVALID") from None
     if note_reviews or policy is not None or native_receipt is not None:

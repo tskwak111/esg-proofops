@@ -1,0 +1,106 @@
+{
+  "schema": "native_ocr_padding_policy_evaluation_v1",
+  "comparison_sha256": "e2e13d8d5d27283cff682e0e6549c45a01c227cffc20d4e69e0d269a38793e18",
+  "additional_model_calls": 0,
+  "historical_receipts_changed": false,
+  "runs": [
+    {
+      "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+      "baseline_attestation_sha256": "db2ebd385aaaf33ccd0d006c27a14c343f61e99270aa2830162f2b09ae129664",
+      "tested_readable_crops": 36,
+      "baseline_exact": 28,
+      "always_padded_exact": 29,
+      "always_padded_regressions": 1,
+      "retry_policy_exact": 30,
+      "changed_crops": [
+        {
+          "source_id": "19f6b0be-d291-5d57-a221-3e797da6cc75",
+          "page": 30,
+          "baseline_exact": false,
+          "padded_exact": true,
+          "baseline_image_sha256": "7863e7e3af44a0449fbba64738088586d99c0ce38b6dbb2d6f1fc80015e633a2",
+          "padded_image_sha256": "eebd04b97ec8b6f9197440508f04a875b35030dfdc8d5c27784e6e869709ff72"
+        },
+        {
+          "source_id": "62e216f9-fa18-56eb-a910-66bac5d79459",
+          "page": 30,
+          "baseline_exact": true,
+          "padded_exact": false,
+          "baseline_image_sha256": "29f7e38429c5df3b7cbefe490ca72516de0f756dafdcbbdf83ac930079a87ead",
+          "padded_image_sha256": "f9202f1ce679f03785b478f0d029f0b4c8580100c7c8a64afc9fd982bad117ec"
+        },
+        {
+          "source_id": "7441dba9-825a-5e90-af16-7d238f30bef7",
+          "page": 30,
+          "baseline_exact": false,
+          "padded_exact": true,
+          "baseline_image_sha256": "998785c749be20154e346937909ad17b6698d684a7bd798bbcc1089563bb86b1",
+          "padded_image_sha256": "f35388d7d4c471e4c4109730182fc703e2d57138164c008a7aaf00893f1b921c"
+        }
+      ]
+    },
+    {
+      "source_sha256": "dc59b2b1c5bbf02e33bb901f94aef7cd984dc62547708e92aa1332ac550102e9",
+      "baseline_attestation_sha256": "6eed9cc26c924bfee70f0d5f045fe2b109f617129ef8f4967dd89b468cecd1f2",
+      "tested_readable_crops": 37,
+      "baseline_exact": 19,
+      "always_padded_exact": 20,
+      "always_padded_regressions": 1,
+      "retry_policy_exact": 21,
+      "changed_crops": [
+        {
+          "source_id": "232a1b19-6540-5f89-bfbf-d3cc9e2a26c1",
+          "page": 27,
+          "baseline_exact": false,
+          "padded_exact": true,
+          "baseline_image_sha256": "df776c07fc6a8f98487272ebc0c7b8806d2102a0fc4a72d44a0fdf9f8b43f61a",
+          "padded_image_sha256": "b8204dce2c3789835df6a389f997457683f5c9ebcf00a269c2d21509c076b1f8"
+        },
+        {
+          "source_id": "5be9e410-73a9-5b98-b692-c39ed56c7f44",
+          "page": 110,
+          "baseline_exact": true,
+          "padded_exact": false,
+          "baseline_image_sha256": "07ba6b066a6c8e61a5645f32f2165d0ede16e78f0d72cdf6c01f69ef6f3c2c0f",
+          "padded_image_sha256": "c9ad0eede811c21def149a5ad5ed23e530e31a53a8341bf6d08143f87c10b2fc"
+        },
+        {
+          "source_id": "5f89ad12-fbe3-5628-bf5f-9a604e375bb1",
+          "page": 110,
+          "baseline_exact": false,
+          "padded_exact": true,
+          "baseline_image_sha256": "db3c0eab3807fbbbbb78e9e6e8a8737b05ab4e2c63e5798484ffc0ac370279fe",
+          "padded_image_sha256": "0cf1b99c9c6db44141b08dda845b372da38c487d04092e9b67ec4471e05ef3d5"
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "Two selected report subsets; only previously readable OCR crops tested.",
+    "Exact agreement with native text is not independent semantic gold.",
+    "KB baseline uses fresh spacing-corrected diagnostic; Doosan uses saved historical attestation.",
+    "Retry-policy comparison is computed from both observed reads; fresh full native attestation executed for KB target only.",
+    "No new paid extraction/tagging pipeline or historical claim promotion."
+  ],
+  "fresh_kb_attestation": {
+    "input_graph_sha256": "cff8d4ddea792801d23cabb039d2e40b97464f384bd08169619c8813d3c380a3",
+    "artifact_sha256": "96659c90a4b6c16db223219ea7b5c0656cf74d4a97f9a40dbf6ba08e753be13a",
+    "verifier_sha256": "a04eeba49ccc2a28672074ee709950b388e608e1aabe56000c2537e19a435dbe",
+    "glyph_verifier_sha256": "71da3f12656dc00bc6791d78aee83cda8ce2f233503b7f6320a8bc2e6b154685",
+    "source_id": "7441dba9-825a-5e90-af16-7d238f30bef7",
+    "status": "verified",
+    "reason": null,
+    "ocr_attempts": [
+      {
+        "image_sha256": "998785c749be20154e346937909ad17b6698d684a7bd798bbcc1089563bb86b1",
+        "padding_px": 0,
+        "text_sha256": "7506d9d5f453fc6c295344a00187ce1aada5966090ce83cc6e89f1106204a05b"
+      },
+      {
+        "image_sha256": "f35388d7d4c471e4c4109730182fc703e2d57138164c008a7aaf00893f1b921c",
+        "padding_px": 6,
+        "text_sha256": "33f7d675b13bfcde1d2f0f1214df370d338a8a52581dff55eb02c7dd12a2c322"
+      }
+    ]
+  }
+}

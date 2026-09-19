@@ -1,9 +1,9 @@
 {
-  "checked_at": "2026-09-18T16:45:40.329386+00:00",
+  "checked_at": "2026-09-19T00:23:45.101022+00:00",
   "scope": "documentation, structured contracts and synthetic schema examples only",
   "status": "passed",
-  "checks_total": 823,
-  "passed": 823,
+  "checks_total": 870,
+  "passed": 870,
   "failed": 0,
   "counts": {
     "numbered_documents": 34,
@@ -89,7 +89,27 @@
       "detail": ""
     },
     {
+      "name": "json:evidence/doosan-independent-raster-ocr-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
       "name": "json:evidence/parser_dependency_notices.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/live-tagging-kb-schema-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/live-tagging-kb-source-blockers-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/native-spacing-fix-20260919.json",
       "passed": true,
       "detail": ""
     },
@@ -104,12 +124,27 @@
       "detail": ""
     },
     {
+      "name": "json:evidence/raster-prose-downstream-live-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
       "name": "json:evidence/context-loop-results.json",
       "passed": true,
       "detail": ""
     },
     {
+      "name": "json:evidence/live-tagging-kb-baseline-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
       "name": "json:evidence/context-loop-review.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/native-cold-replay-profile-20260919.json",
       "passed": true,
       "detail": ""
     },
@@ -124,7 +159,22 @@
       "detail": ""
     },
     {
+      "name": "json:evidence/live-tagging-kb-rubric-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/preliminary-period-frequency-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
       "name": "json:evidence/metric-split-real-cases.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/extraction-assurance-ab-20260919.json",
       "passed": true,
       "detail": ""
     },
@@ -139,7 +189,17 @@
       "detail": ""
     },
     {
+      "name": "json:evidence/raster-v5-two-report-live-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
       "name": "json:evidence/numeric-basis-review.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/doosan-source-visual-diagnostic-20260919.json",
       "passed": true,
       "detail": ""
     },
@@ -154,7 +214,17 @@
       "detail": ""
     },
     {
+      "name": "json:evidence/live-tagging-kb-m3-replay-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
       "name": "json:evidence/local-upstage-service-pilot.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/native-ocr-linux-replay-cause-20260919.json",
       "passed": true,
       "detail": ""
     },
@@ -165,6 +235,21 @@
     },
     {
       "name": "json:evidence/table-role-guard-replay.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/live-tagging-doosan-emptyform-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/live-tagging-kb-relations-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/live-tagging-blockers-20260919.json",
       "passed": true,
       "detail": ""
     },
@@ -184,6 +269,16 @@
       "detail": ""
     },
     {
+      "name": "json:evidence/local-direct-attribution-replay-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/live-tagging-doosan-source-repair-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
       "name": "json:evidence/semantic-expanded-diagnostics.json",
       "passed": true,
       "detail": ""
@@ -194,12 +289,37 @@
       "detail": ""
     },
     {
+      "name": "json:evidence/doosan-paragraph-geometry-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/raster-cache-prose-live-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
       "name": "json:evidence/semantic-clauses-review.json",
       "passed": true,
       "detail": ""
     },
     {
+      "name": "json:evidence/live-relation-disagreements-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
       "name": "json:evidence/claim-dimension-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/live-tagging-doosan-glyph-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/live-tagging-kb-source-repair-20260919.json",
       "passed": true,
       "detail": ""
     },
@@ -210,6 +330,26 @@
     },
     {
       "name": "json:evidence/semantic-isolated-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/doosan-independent-raster-replay-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/live-tagging-doosan-relation-isolation-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/live-tagging-doosan-coverage-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/live-tagging-doosan-examples-20260919.json",
       "passed": true,
       "detail": ""
     },
@@ -229,6 +369,26 @@
       "detail": ""
     },
     {
+      "name": "json:evidence/live-tagging-doosan-quotes-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/live-tagging-doosan-baseline-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/raster-page-usage-replay-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/native-spacing-probe-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
       "name": "json:evidence/atomic-expanded-review.json",
       "passed": true,
       "detail": ""
@@ -240,6 +400,11 @@
     },
     {
       "name": "json:evidence/upstage-price-recheck-20260918.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/live-tagging-kb-local-attribution-20260919.json",
       "passed": true,
       "detail": ""
     },
@@ -259,6 +424,16 @@
       "detail": ""
     },
     {
+      "name": "json:evidence/native-replay-cache-benchmark-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/local-relation-scope-replay-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
       "name": "json:evidence/semantic-context-cases.json",
       "passed": true,
       "detail": ""
@@ -269,12 +444,32 @@
       "detail": ""
     },
     {
+      "name": "json:evidence/live-tagging-kb-m3-prompt-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/preliminary-examples-ab-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/ocr-punctuation-what-if-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
       "name": "json:evidence/parser-extraction-comparison.json",
       "passed": true,
       "detail": ""
     },
     {
       "name": "json:evidence/service-loop-results.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/raster-prose-priority-replay-20260919.json",
       "passed": true,
       "detail": ""
     },
@@ -304,7 +499,17 @@
       "detail": ""
     },
     {
+      "name": "json:evidence/doosan-native-raster-visibility-20260919.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
       "name": "json:evidence/semantic-isolated-review.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:evidence/native-ocr-padding-20260919.json",
       "passed": true,
       "detail": ""
     },
@@ -589,6 +794,11 @@
       "detail": ""
     },
     {
+      "name": "json:contracts/jsonschema/preliminary_tags.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
       "name": "json:contracts/jsonschema/document_graph.schema.json",
       "passed": true,
       "detail": ""
@@ -600,6 +810,11 @@
     },
     {
       "name": "json:contracts/jsonschema/llm_tags.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:contracts/jsonschema/source_relations.schema.json",
       "passed": true,
       "detail": ""
     },
@@ -3559,6 +3774,16 @@
       "detail": ""
     },
     {
+      "name": "schema_meta:preliminary_tags.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "schema_refs:preliminary_tags.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
       "name": "schema_meta:document_graph.schema.json",
       "passed": true,
       "detail": ""
@@ -3585,6 +3810,16 @@
     },
     {
       "name": "schema_refs:llm_tags.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "schema_meta:source_relations.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "schema_refs:source_relations.schema.json",
       "passed": true,
       "detail": ""
     },

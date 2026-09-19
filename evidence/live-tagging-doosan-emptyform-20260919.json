@@ -1,0 +1,343 @@
+{
+  "schema": "live_tagging_pilot_evidence_v1",
+  "run_id": "32fd0f4e-b925-42c7-ab8e-d3230712555f",
+  "source_sha256": "dc59b2b1c5bbf02e33bb901f94aef7cd984dc62547708e92aa1332ac550102e9",
+  "selected_pages": [
+    27,
+    97,
+    110
+  ],
+  "state_path": ".local/developer-a-live-tagging-doosan-emptyform",
+  "synthetic": false,
+  "cost": {
+    "run_id": "32fd0f4e-b925-42c7-ab8e-d3230712555f",
+    "input_tokens": 14104,
+    "output_tokens": 1186,
+    "attempt_count": 14,
+    "cache_hit_count": 0,
+    "amount": "0.0049666650",
+    "currency": "USD",
+    "pricing_snapshot_id": null,
+    "cost_status": "known"
+  },
+  "claim_count": 18,
+  "source_verification_reasons": {
+    "relationship_validation_required": 173,
+    "rendered_text_unresolved": 12,
+    "clipped_or_rotated_words": 52,
+    "verified": 8,
+    "text_mismatch": 9
+  },
+  "tag_stage_status": "blocked",
+  "claim_status_reasons": {
+    "SOURCE_VALIDATION_REQUIRED": 16,
+    "PRELIMINARY_TAGS_UNRESOLVED": 2
+  },
+  "review_count": 0,
+  "settings_hashes": {
+    "preliminary_settings_hash": "ee22cb2ecf2409927ae528db4e5e5b021f26e5333948a4a4be4c2a934423d70e",
+    "tagging_settings_hash": "328ef38b7fddf70c889a01ead7b17f3e99ba0e3981ce2460d96fa0dbb266c39a",
+    "input_reservation_policy_hash": "6a04b102f358a4fdf722ed2f094f35f5a782fb04eb486e690144e8c2cb748e3f"
+  },
+  "claims": [
+    {
+      "claim_id": "deb91652-2dbc-5eac-9f4a-2843c0d1fea0",
+      "decision": null,
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "review_inputs": null,
+      "status": "blocked",
+      "tag_runs": []
+    },
+    {
+      "claim_id": "f3fb3bab-0025-5d45-a26f-7282c75cfbb4",
+      "decision": null,
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "review_inputs": null,
+      "status": "blocked",
+      "tag_runs": []
+    },
+    {
+      "claim_id": "9585ca08-b8db-50b8-9786-c7f166d79d1e",
+      "decision": null,
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "review_inputs": null,
+      "status": "blocked",
+      "tag_runs": []
+    },
+    {
+      "claim_id": "50d57bc7-89ae-5acf-8026-0a726a5a906a",
+      "decision": null,
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "review_inputs": null,
+      "status": "blocked",
+      "tag_runs": []
+    },
+    {
+      "claim_id": "38cd1624-d07a-5a38-ad06-ae773ea9358f",
+      "decision": null,
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "review_inputs": null,
+      "status": "blocked",
+      "tag_runs": []
+    },
+    {
+      "claim_id": "a686da6b-4949-5972-9866-5add7aa91df0",
+      "decision": null,
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "review_inputs": null,
+      "status": "blocked",
+      "tag_runs": []
+    },
+    {
+      "claim_id": "9c99b3ba-ba27-5704-8a05-2d8bc92e914d",
+      "decision": null,
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "review_inputs": null,
+      "status": "blocked",
+      "tag_runs": []
+    },
+    {
+      "claim_id": "15cd7344-0938-590c-9b81-b04e90d2bee9",
+      "decision": null,
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "review_inputs": null,
+      "status": "blocked",
+      "tag_runs": []
+    },
+    {
+      "claim_id": "425de715-3907-5fdd-8eb7-77da7eb09c1b",
+      "decision": null,
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "review_inputs": null,
+      "status": "blocked",
+      "tag_runs": []
+    },
+    {
+      "claim_id": "e62a647d-b84a-5f6c-88ff-28cecbc4c8fe",
+      "decision": null,
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "review_inputs": null,
+      "status": "blocked",
+      "tag_runs": []
+    },
+    {
+      "claim_id": "57121c13-d51c-560c-bd56-372f213b3b4a",
+      "decision": null,
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "review_inputs": null,
+      "status": "blocked",
+      "tag_runs": []
+    },
+    {
+      "claim_id": "38289230-23d7-5f9f-98d2-37a5cdff7495",
+      "decision": null,
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "review_inputs": null,
+      "status": "blocked",
+      "tag_runs": []
+    },
+    {
+      "claim_id": "fc2a2618-2e11-537a-a9b6-1fec73d5e0a7",
+      "decision": null,
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "review_inputs": null,
+      "status": "blocked",
+      "tag_runs": []
+    },
+    {
+      "claim_id": "3f63caf5-3714-5197-a66b-aded830982da",
+      "decision": null,
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "review_inputs": null,
+      "status": "blocked",
+      "tag_runs": []
+    },
+    {
+      "claim_id": "254a35bd-0909-538b-b449-8b098b7c59f2",
+      "decision": null,
+      "preliminary_records": [
+        {
+          "raw_response_sha256": "cadb8075b5642e674fadbee8fa9e08cd9c33b53bfdfe2dedcdc1eef7d29286a9",
+          "replicate_id": 1,
+          "request_id": "720a98f7-aed2-58cf-9785-9f3e3dd89f48",
+          "status": "validated_candidate",
+          "values": {
+            "dimensions": {
+              "entity": null,
+              "metric": null,
+              "reporting_period": null
+            },
+            "safe_harbor_category": null,
+            "track": null
+          }
+        },
+        {
+          "raw_response_sha256": "cadb8075b5642e674fadbee8fa9e08cd9c33b53bfdfe2dedcdc1eef7d29286a9",
+          "replicate_id": 2,
+          "request_id": "4e330c3f-e660-5bff-8cf7-bfed47216a84",
+          "status": "validated_candidate",
+          "values": {
+            "dimensions": {
+              "entity": null,
+              "metric": null,
+              "reporting_period": null
+            },
+            "safe_harbor_category": null,
+            "track": null
+          }
+        },
+        {
+          "raw_response_sha256": "cadb8075b5642e674fadbee8fa9e08cd9c33b53bfdfe2dedcdc1eef7d29286a9",
+          "replicate_id": 3,
+          "request_id": "e53af2d5-26ce-5ce1-ad94-84b8ea450afb",
+          "status": "validated_candidate",
+          "values": {
+            "dimensions": {
+              "entity": null,
+              "metric": null,
+              "reporting_period": null
+            },
+            "safe_harbor_category": null,
+            "track": null
+          }
+        }
+      ],
+      "reason": "PRELIMINARY_TAGS_UNRESOLVED",
+      "review_inputs": null,
+      "status": "blocked",
+      "tag_runs": []
+    },
+    {
+      "claim_id": "442e1a15-3273-52a9-a2a8-4c27731e31be",
+      "decision": null,
+      "preliminary_records": [
+        {
+          "raw_response_sha256": "feec3ac0c1bbf2db29c21263b48678ce18cf0d3ad67426ab279d5198169a411c",
+          "replicate_id": 1,
+          "request_id": "9f23a765-02e0-5222-9a45-6baabb351c47",
+          "status": "validated_candidate",
+          "values": {
+            "dimensions": {
+              "entity": null,
+              "metric": null,
+              "reporting_period": {
+                "bbox": [
+                  42.52,
+                  251.73299999999995,
+                  463.587,
+                  325.46099999999996
+                ],
+                "char_end": 137,
+                "char_start": 129,
+                "document_version_id": "a0967f2e-2c48-44d6-842a-c117411659b9",
+                "location_quality": "located",
+                "page_num": 110,
+                "parse_manifest_id": "5dd81148-abc3-5731-901a-7375edfedf51",
+                "printed_page_label": "110",
+                "quote": "정의된 보고기간",
+                "raw_text_sha256": "b8795cf8e48e39e67ed6fc7a18af6e69a4fc2b41dfddbda01cc1edfda328ada6",
+                "source_id": "57cd35bb-bcb4-5833-83ba-fae2f79e2828",
+                "verification_state": "verified"
+              }
+            },
+            "safe_harbor_category": null,
+            "track": null
+          }
+        },
+        {
+          "raw_response_sha256": "feec3ac0c1bbf2db29c21263b48678ce18cf0d3ad67426ab279d5198169a411c",
+          "replicate_id": 2,
+          "request_id": "3ca62a46-7c11-506c-b76d-4b676d91d2c9",
+          "status": "validated_candidate",
+          "values": {
+            "dimensions": {
+              "entity": null,
+              "metric": null,
+              "reporting_period": {
+                "bbox": [
+                  42.52,
+                  251.73299999999995,
+                  463.587,
+                  325.46099999999996
+                ],
+                "char_end": 137,
+                "char_start": 129,
+                "document_version_id": "a0967f2e-2c48-44d6-842a-c117411659b9",
+                "location_quality": "located",
+                "page_num": 110,
+                "parse_manifest_id": "5dd81148-abc3-5731-901a-7375edfedf51",
+                "printed_page_label": "110",
+                "quote": "정의된 보고기간",
+                "raw_text_sha256": "b8795cf8e48e39e67ed6fc7a18af6e69a4fc2b41dfddbda01cc1edfda328ada6",
+                "source_id": "57cd35bb-bcb4-5833-83ba-fae2f79e2828",
+                "verification_state": "verified"
+              }
+            },
+            "safe_harbor_category": null,
+            "track": null
+          }
+        },
+        {
+          "raw_response_sha256": "feec3ac0c1bbf2db29c21263b48678ce18cf0d3ad67426ab279d5198169a411c",
+          "replicate_id": 3,
+          "request_id": "19310188-1fba-5809-a666-b194eae4ec2d",
+          "status": "validated_candidate",
+          "values": {
+            "dimensions": {
+              "entity": null,
+              "metric": null,
+              "reporting_period": {
+                "bbox": [
+                  42.52,
+                  251.73299999999995,
+                  463.587,
+                  325.46099999999996
+                ],
+                "char_end": 137,
+                "char_start": 129,
+                "document_version_id": "a0967f2e-2c48-44d6-842a-c117411659b9",
+                "location_quality": "located",
+                "page_num": 110,
+                "parse_manifest_id": "5dd81148-abc3-5731-901a-7375edfedf51",
+                "printed_page_label": "110",
+                "quote": "정의된 보고기간",
+                "raw_text_sha256": "b8795cf8e48e39e67ed6fc7a18af6e69a4fc2b41dfddbda01cc1edfda328ada6",
+                "source_id": "57cd35bb-bcb4-5833-83ba-fae2f79e2828",
+                "verification_state": "verified"
+              }
+            },
+            "safe_harbor_category": null,
+            "track": null
+          }
+        }
+      ],
+      "reason": "PRELIMINARY_TAGS_UNRESOLVED",
+      "review_inputs": null,
+      "status": "blocked",
+      "tag_runs": []
+    },
+    {
+      "claim_id": "5bf51de5-9e4b-51b7-9a45-0ee170f207c0",
+      "decision": null,
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "review_inputs": null,
+      "status": "blocked",
+      "tag_runs": []
+    },
+    {
+      "claim_id": "38cceefa-5667-5354-bf89-e4f358b025a7",
+      "decision": null,
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "review_inputs": null,
+      "status": "blocked",
+      "tag_runs": []
+    }
+  ],
+  "limitations": [
+    "8 verified source paragraphs, not 8 accepted claims.",
+    "16 claims still blocked by source validation; two assurance claims receive null track in all three independent preliminary responses.",
+    "No element tagging, accepted evidence, grade, or independent accuracy measurement.",
+    "Selected pages only; page 110 is the continuation of the assurance statement.",
+    "Old parse attestations retain their old verifier hash; replay requires the corresponding code version, not rewriting receipts."
+  ]
+}

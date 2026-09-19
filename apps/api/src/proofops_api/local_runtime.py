@@ -8,18 +8,31 @@ import stat
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
 from proofops.application.budget import BudgetLimits, RoleLimit
 from proofops.application.claims import ExtractionProfile
 from proofops.application.ingest.graph_fusion import ParserProfile
 from proofops.application.ports.models import ModelBinding
+from proofops.application.runs import validate_raster_policy
 from proofops.application.supply_chain import verify_supply_chain
 from proofops.application.tagging.service import TaggingSettings
 
 _MANIFEST_ID = "00000000-0000-4000-8000-000000000000"
 _MAX_CONFIG_BYTES = 65_536
 _SETTINGS_FIELDS = frozenset(
-    {"build_root", "budget_limits", "extraction_profile", "tagging_settings", "extraction_limits"}
+    {
+        "build_root",
+        "budget_limits",
+        "extraction_profile",
+        "tagging_settings",
+        "preliminary_settings",
+        "relation_settings",
+        "input_reservation_policy",
+        "extraction_limits",
+        "raster_runtime_binding_id",
+        "raster_policy",
+    }
 )
 _REQUIRED_SETTINGS_FIELDS = frozenset({"build_root", "budget_limits"})
 _BUDGET_FIELDS = frozenset({"input_tokens", "output_tokens", "max_attempts", "roles"})
@@ -51,6 +64,7 @@ _EXTRACTION_FIELDS = frozenset(
         "extraction_epoch",
     }
 )
+_RASTER_FIELDS = frozenset({"raster_runtime_binding_id", "raster_policy"})
 
 
 def _invalid() -> ValueError:
@@ -128,7 +142,7 @@ def _budget(value: object) -> BudgetLimits:
         raise _invalid() from None
 
 
-def _tagging(value: object) -> TaggingSettings:
+def _tagging(value: object, *, synthetic: bool = True) -> TaggingSettings:
     if (
         not isinstance(value, dict)
         or not _REQUIRED_TAGGING_FIELDS <= set(value)
@@ -140,7 +154,7 @@ def _tagging(value: object) -> TaggingSettings:
         not isinstance(binding, dict)
         or set(binding) != _BINDING_FIELDS
         or binding.get("role") != "tagger"
-        or binding.get("synthetic") is not True
+        or binding.get("synthetic") is not synthetic
     ):
         raise _invalid()
     try:
@@ -168,6 +182,19 @@ def _tagging(value: object) -> TaggingSettings:
         raise _invalid() from None
 
 
+def _reservation_policy(value: object) -> dict[str, Any]:
+    """Freeze an explicit capacity reservation; absence stays fail-closed downstream."""
+    if not isinstance(value, dict) or not value:
+        raise _invalid()
+    try:
+        frozen = json.loads(json.dumps(value, sort_keys=True))
+    except (TypeError, ValueError):
+        raise _invalid() from None
+    if not isinstance(frozen, dict) or frozen != dict(value):
+        raise _invalid()
+    return frozen
+
+
 def _extraction(value: object, *, synthetic=True) -> ExtractionProfile:
     if (
         not isinstance(value, dict)
@@ -179,6 +206,26 @@ def _extraction(value: object, *, synthetic=True) -> ExtractionProfile:
         return ExtractionProfile(**value)
     except (TypeError, ValueError):
         raise _invalid() from None
+
+
+def _raster(settings: Mapping[str, Any], extraction_mode: str) -> dict[str, Any]:
+    present = _RASTER_FIELDS & set(settings)
+    if not present:
+        return {}
+    if present != _RASTER_FIELDS or extraction_mode != "upstage_probe":
+        raise _invalid()
+    binding_id = settings["raster_runtime_binding_id"]
+    try:
+        if (
+            not isinstance(binding_id, str)
+            or not binding_id
+            or str(UUID(binding_id)) != binding_id.lower()
+        ):
+            raise ValueError
+        policy = validate_raster_policy(settings["raster_policy"])
+    except (TypeError, ValueError):
+        raise _invalid() from None
+    return {"raster_runtime_binding_id": binding_id, "raster_policy": policy}
 
 
 def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
@@ -194,6 +241,7 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
     if extraction_mode not in {"", "local_synthetic", "upstage_probe"} or tagging_mode not in {
         "",
         "local_synthetic",
+        "upstage_local",
     }:
         raise _invalid()
     profile = _json_file(parser_path)
@@ -212,6 +260,7 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         settings_path and not _REQUIRED_SETTINGS_FIELDS <= set(settings)
     ):
         raise _invalid()
+    runtime.update(_raster(settings, extraction_mode))
     if "build_root" in settings:
         root = settings["build_root"]
         if not isinstance(root, str) or not Path(root).is_absolute() or not Path(root).is_dir():
@@ -234,7 +283,7 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
     if extraction_mode == "upstage_probe":
         limits = settings.get("extraction_limits")
         if (
-            tagging_mode
+            tagging_mode not in ("", "upstage_local")
             or not isinstance(limits, dict)
             or set(limits) != {"max_calls", "max_output_tokens"}
         ):
@@ -243,13 +292,41 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
             "max_calls": _strict_int(limits["max_calls"], maximum=20),
             "max_output_tokens": _strict_int(limits["max_output_tokens"], maximum=1024),
         }
+        if tagging_mode == "upstage_local":
+            if (
+                "preliminary_settings" not in settings
+                or "tagging_settings" not in settings
+                or "input_reservation_policy" not in settings
+            ):
+                raise _invalid()
+            runtime["preliminary_settings"] = _tagging(
+                settings["preliminary_settings"], synthetic=False
+            )
+            runtime["tagging_settings"] = _tagging(settings["tagging_settings"], synthetic=False)
+            if "relation_settings" in settings:
+                runtime["relation_settings"] = _tagging(
+                    settings["relation_settings"], synthetic=False
+                )
+            runtime["input_reservation_policy"] = _reservation_policy(
+                settings["input_reservation_policy"]
+            )
+            runtime["tagging_mode"] = tagging_mode
     elif "extraction_limits" in settings:
         raise _invalid()
-    if tagging_mode:
+    if tagging_mode == "upstage_local":
+        if extraction_mode != "upstage_probe":
+            raise _invalid()
+    elif tagging_mode:
         if not extraction_mode or "tagging_settings" not in settings:
             raise _invalid()
         runtime["tagging_settings"] = _tagging(settings["tagging_settings"])
         runtime["tagging_mode"] = tagging_mode
-    elif "tagging_settings" in settings:
+    elif "tagging_settings" in settings or "relation_settings" in settings:
+        raise _invalid()
+    if tagging_mode != "upstage_local" and (
+        "preliminary_settings" in settings
+        or "relation_settings" in settings
+        or "input_reservation_policy" in settings
+    ):
         raise _invalid()
     return runtime

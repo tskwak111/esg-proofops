@@ -39,11 +39,21 @@ def main() -> None:
         action="store_true",
         help="Verify native paragraph text against rendered PDF; parse stage only",
     )
+    arguments.add_argument(
+        "--raster-ocr",
+        action="store_true",
+        help=(
+            "Use authorized raster OCR fallback; requires native paragraph verification "
+            "and parse stage"
+        ),
+    )
     options = arguments.parse_args()
     runner = None
     try:
         if options.verify_paragraphs and options.stage != "parse":
             raise ValueError("NATIVE_PARAGRAPHS_REQUIRE_PARSE_STAGE")
+        if options.raster_ocr and (not options.verify_paragraphs or options.stage != "parse"):
+            raise ValueError("RASTER_OCR_REQUIRE_NATIVE_PARSE_STAGE")
         if options.review_table_notes and options.note_review_artifact:
             raise ValueError("NOTE_REVIEW_INPUT_MODE_CONFLICT")
         if (
@@ -61,6 +71,7 @@ def main() -> None:
             stage=options.stage,
             review_table_notes=options.review_table_notes,
             verify_paragraphs=options.verify_paragraphs,
+            raster_ocr=options.raster_ocr,
         )
         if artifacts:
             if not isinstance(runner, LocalParserRunner):

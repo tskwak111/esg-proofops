@@ -1,0 +1,554 @@
+# Local live tagging contract — 2026-09-19
+
+Implement the already-authorized local Upstage test pipeline. This does not
+authorize deployment or resolve domain gaps. USD20 remains cumulative in the
+original shared probe ledger. Old synthetic and extraction-only runs retain
+their immutable meanings and replay contracts.
+
+## Configuration and snapshots
+
+New explicit `LOCAL_TAGGING_MODE=upstage_local` requires
+`LOCAL_EXTRACTION_MODE=upstage_probe`, declared page subsets, independently
+pinned `preliminary_settings` and `tagging_settings` (existing TaggingSettings).
+The existing `runtime` is the extractor binding. Resolve the other two runtime
+artifacts from their settings binding IDs under the same authenticated tenant;
+never accept a raw client-provided approval. Freeze `preliminary_runtime` and
+`tagging_runtime` plus their artifact hashes and each settings hash. Validate
+each against the exact document source hash, rights and current consent using
+the existing tagger preflight. Pin distinct binding IDs for all three uses.
+
+Missing, wrong-role, mismatched, expired, cross-tenant or revoked artifacts stop
+new paid dispatch. Worker source replay must reproduce the original graph/claim
+and every model request must carry the pinned settings and source packet. Persist
+raw provider receipts, replica identities and validation results before reuse.
+Only exact completed requests may recover; unknown dispatched calls never retry.
+
+## Rule authority
+
+Structurally valid draft/validated rule content can guide extraction and tagging
+as `rulepack_use=candidate_tagging_reference_only`. This marker is distinct from
+legacy `extraction_reference_only`. Such runs never evaluate or publish a grade;
+they retain candidate tags and review inputs with real-provider provenance.
+Human resolution requiring grading is explicitly blocked until rule authority
+is supplied, rather than returning a server error or fake synthetic decision.
+An approved active pack selected through the existing grading gate may use the
+normal deterministic evaluation path. No invented approval or domain criteria.
+
+## Worker and evidence
+
+For a verified claim, obtain three independently validated preliminary replies.
+Only a matching non-null track and source-bound dimensions allow element tagging;
+disagreement remains needs-review. Use same-document LocalEvidenceSearch over
+available declared pages, preserving missing-page coverage. Search hits do not
+prove semantic binding; unprovided relationship tags remain undetermined.
+Freeze one complete track packet for the three element calls. Publish via the
+existing job lease, immutable tag checkpoint and review transaction. Record real
+calls as real, including interrupted attempts; never set local_synthetic for them.
+
+## Token reservations
+
+No fabricated chat tokenizer or UTF-8-plus-constant estimate. A provider-context
+capacity may be used only as an explicitly documented conservative reservation,
+not as an actual token count: record its model, source, capture/expiry and hash in
+the runtime artifacts/receipts. Reserve the full proven input upper bound plus
+the output cap using the existing budget store; actual usage is always provider
+usage. Configure operational role/context reservation limits to accommodate that
+upper bound, without representing them as the provider's exact context window.
+The overrun fence stops subsequent dispatch if actual usage exceeds reservation.
+The probe's fixed USD reservation and original shared ledger remain independent.
+Until a valid policy is present the real path stays closed.
+
+## Compatibility, migration and rollback
+
+No new HTTP request fields or SQLite tables: optional internal config/snapshot
+keys only. Absent new mode/keys preserves existing wire hashes and replay. New
+checkpoints pin the new settings and execution mode. Disable upstage_local to
+stop creation/dispatch; keep snapshots, raw receipts, ledger and read access.
+Do not rewrite old runs to adopt the new mode or reuse their execution authority.
+
+Acceptance includes failure-before-spend for bad authorization/source/policy;
+old snapshot replay; live-provider provenance; no grade from draft rules; complete
+and interrupted raw recovery; cancellation/lease fencing; tenant isolation; actual
+bounded PDF→preliminary→search→tag→review verification. Until those checks pass,
+this document is an implementation contract, not evidence of completion.
+
+## Explicit local pilot invocation
+
+`evaluation/local_upstage_pilot.py --live-tagging` prepares the independent
+Solar Pro4 preliminary/element settings and runtime grants using the existing
+user-authorized local-test registration path. It does not approve a rulepack.
+`--tagging-max-calls` (default 12, range 6..60) limits combined preliminary and
+element calls through the existing role budget. Extraction still has its separate
+`--max-calls` limit. Only `--invoke` enables provider calls; the original shared
+USD20 ledger remains authoritative even when configured token/call limits are
+larger. Start a new `--state` directory to change tagging mode or call limits;
+old extraction-only runs are never reinterpreted as tagged runs.
+
+Example (supply an existing authorized PDF and its actual reporting period):
+
+```sh
+uv run python evaluation/local_upstage_pilot.py \
+  --pdf /absolute/path/to/report.pdf --state .local/live-pilot \
+  --key-file /absolute/path/to/.env.upstage.local \
+  --pages 30 --report-year 2025 \
+  --period-start 2025-01-01 --period-end 2025-12-31 \
+  --model solar-pro3 --max-calls 8 --verify-paragraphs \
+  --live-tagging --tagging-max-calls 12 --invoke
+```
+
+The example dates/pages are placeholders, not an inferred report scope. A selected
+body page alone cannot establish appendix coverage. Results retain this partial
+scope. Reusing the same state reads/replays existing work; it must not create new
+provider attempts for completed receipts. Incomplete dispatched receipts stop.
+
+## Atomic-source role reuse
+
+After all three preliminary replies agree, their verified literal dimension
+spans supply relation tags keyed by `source_id:char_start:char_end`. The range
+is the original atomic claim source span (Unicode code points, end exclusive).
+Roles outside that source/span stay null. No additional model call is needed.
+This retains partial-atom roles without granting them to the whole paragraph.
+
+`relation_tags_for` is shared by automatic tagging and human review. A citation
+must be wholly contained by exactly one scoped entry, and every supplied role
+must itself be inside that entry. Overlapping matching entries, malformed ranges
+and role spans escaping the entry remain unresolved. Any scoped entry for a
+source shadows its legacy whole-source entry, including when no scope matches;
+legacy data cannot supply a fallback that bypasses the new boundary. Entries
+from another source cannot match. The resolver returns None for a known unresolved scope, distinct from an empty
+map when no relation roles were supplied. The binding engine never treats that
+unresolved marker as permission for local attribution. It validates supplied
+roles, periods, explicit unresolved additional axes and allowed scope. Verified
+exact local containment does not require separate entity/metric/period join
+keys; other-source/table attribution still requires them. Missing values remain
+null and no applicability or semantic element decision is inferred. See the
+technical distinction in docs/28_RULE_ENGINE_CONTRACT.md.
+
+Existing immutable snapshots with source_id-only maps retain their previous
+lookup behavior. Before scoped maps, partial atoms supplied no relation roles;
+those historical snapshots are not rewritten. New maps use the existing string
+map field and need no public API or DB migration. Guarded cache signatures now
+pin `tagging-010-v3-local-identity`; raw provider requests/receipts are reusable
+only under their unchanged identity. Rolling back to old code cannot resolve
+new scoped entries (it stays unknown/rejected); use the updated reader for those
+reviews and preserve all prior revisions. No other paragraph, table or appendix
+candidate gains role tags from local reuse. Cross-source extraction and the
+management applicable-axis contract remain separate unresolved work.
+
+## Native glyph paragraph verification
+
+The explicit --verify-paragraphs worker path uses a pinned native glyph
+policy. Map every page word by Unicode and character origin with the existing
+native_word_ink_geometry adapter, then select words using their tight glyph boxes.
+Require a complete mapping of words intersecting the paragraph (unmapped words
+elsewhere remain recorded), containment of every intersecting mapped word,
+exact normalized source text, and independently rendered crop OCR agreement.
+No bbox expansion, fuzzy text matching, table approval or semantic attribution.
+Retain existing interactive/optional-layer and rendering guards. Unsupported,
+ambiguous, oversized or clipped inputs remain unresolved. Record the glyph proof,
+reader/code hashes and geometry mode in a v2 attestation; old standalone font-box
+attestations retain v1 semantics. New worker policies require new run state;
+old artifacts remain immutable and require their pinned original verifier for
+exact replay. Rollback disables the new worker policy and preserves all receipts.
+No API or database migration is required.
+
+## Opt-in cross-source role extraction
+
+The new internal `application/tagging/relations.py` boundary operates on verified
+whole canonical source refs selected from the frozen retrieval packet. It does
+not create Claims for evidence. Its indexed source catalog retains a graph hash,
+source-list hash, prompt hash, tenant and schema version. The model returns only
+one dimensions map per source index; entity/metric/reporting_period are required
+keys, unresolved values remain null, and supported extra axes are preserved.
+Literal selections use a catalog source index plus a unique exact quotation.
+Server code restores offsets and provenance. Grades, invented IDs, duplicate or
+missing source entries, unknown axes, unverified sources and partial-source
+catalog entries are rejected. Whole-source validation is required because the
+returned source_id maps otherwise risk widening partial evidence scope.
+
+This boundary verifies literal source existence, not semantic ownership. A table
+cell may reference an indexed header, but the existing accept_binding must still
+check table identity, row/column coverage, same-document identity, periods and
+all relevant axes. Model-proposed roles never certify those relationships. The
+current local scoped-role resolver continues to shadow whole-source maps for
+atomic claims; this extension must not overwrite those local entries.
+
+Optional `relation_settings` and a distinct `relation_runtime` grant enable a
+receipt stage after retrieval and before element tagging. Each of three replicas
+reads the same ordered source catalog. Three validated replies with distinct
+provider request IDs are required. Agreement is checked per whole source role
+map: a unanimous map proceeds to the existing binding guard; a disputed map
+retains the union of supplied axes with every value null. No majority vote or
+role-by-role synthesis can manufacture a relationship. Local scoped claim roles
+retain precedence, so a disputed external source does not block independent
+local review. Every cross-source present vote still needs the existing binding
+guard, which treats the null required roles as undetermined. Raw
+responses, request/packet/graph/prompt hashes and disagreements are retained;
+calls use the existing ledger, lease, capacity and reservation fences. Incomplete
+paid attempts stop without retry. A request belongs to the real claim and its
+frozen packet, never a fabricated evidence Claim. Relation failure leaves the
+claim with `RELATION_TAGS_UNRESOLVED`, without dispatching its element calls,
+when authorization, packet validation, receipt recovery, schema validation or
+provider independence fails. A validated semantic disagreement alone is retained
+in the three replica records and represented by unresolved external roles; it
+does not take that failure path. Preliminary track/dimension unanimity remains
+required. Existing published checkpoints are not recomputed or modified.
+No eligible external source means no relation call and no inferred absence.
+
+Compatibility: no new HTTP DTO or DB table. The optional frozen group contains
+`relation_settings`, `relation_settings_hash`, `relation_runtime` and
+`relation_runtime_artifact_hash`; partial groups are rejected. Snapshots without
+these keys keep existing behavior and pins. Both live configuration and the
+store enforce the opt-in mode; the grant is distinct from extractor, preliminary
+and element grants. Old reviews remain immutable. Rollback disables the stage
+for new runs and retains the updated reader and original receipts for new-format
+snapshots. It must not drop relation pins and reinterpret them as legacy inputs.
+Use `--live-tagging --live-relations --tagging-max-calls N` for a fresh pilot state;
+the total tagger call cap includes preliminary, relation and element calls.
+Schema: `contracts/jsonschema/source_relations.schema.json`. Transport profile:
+`upstage-relation-source-quotes-v1`. A model-bound result remains candidate
+semantic tagging, not independent gold or rule approval.
+
+Integration acceptance must cover: revoked grant before reservation; frozen
+catalog/schema/settings mismatch; three genuinely distinct replica request IDs;
+malformed/partial/duplicate relation reply without invented defaults; disagreement
+without a silently accepted cross-source map while local review continues; original budget accounting after
+provider failure; immutable replay with no provider call; and existing local
+scope precedence. Select only original whole-source refs already represented in
+the frozen retrieval packet, never fetch omitted report pages implicitly. Sources
+that cannot be represented without widening scope remain unresolved. Merge maps
+without replacing atomic scoped entries. Request envelopes keep the actual claim
+identity while the document data remains an evidence-source catalog. The helper
+alone must not cause a new paid call in an old run or unlock any grade.
+
+
+#### Native glyph spacing correction
+
+The native glyph matcher uses an isolated pdfminer layout aggregator that applies
+horizontal character spacing after each glyph, including the final glyph of a
+text-show operator. This corrects the pinned reader's missing advance across
+consecutive Tj operators. Original parser text, source boxes and native word
+indices remain unchanged. The corrected character inventory must match the
+original inventory exactly; each glyph still needs unique Unicode+origin
+agreement with PDFium at0.001pt. Duplicate origins and unsupported geometry stay
+unresolved, and rendered OCR verification remains mandatory. No process-global
+pdfminer monkeypatch or new dependency is used.
+
+The implementation is included in the existing glyph verifier hash and native
+paragraph policy pin. Existing attestations require their original code revision;
+create a new run/attestation for this correction, never rewrite old receipts.
+Rollback is the original pinned verifier. The independent diagnostic can be run
+with `uv run python evaluation/native_spacing_probe.py`.
+
+
+#### Bounded rendered OCR retry
+
+Keep the initial216dpi crop read. Only a nonempty readable mismatch triggers one
+second read with6px of blank white border; the original crop pixels and PDF
+coordinates remain unchanged. Do not supply the expected text, language
+correction, custom words or replacement punctuation to the OCR reader. Exact
+existing normalization is still required. No retry on an unavailable reader or
+empty reading. Store both responses in rendered_attempts and retain the selected
+reading under rendered; the full receipt hash covers padding, images and reads.
+Hidden text, clipping, uncertain native geometry and table relationships retain
+the existing gates. The verifier hash pins this behavior, so use a fresh run and
+retain the old code for old-receipt replay. No dependency or database migration.
+
+
+Apple Vision OCR is macOS-only. On other platforms, return the stable unresolved
+rendered_reader_unavailable / UnsupportedPlatform result before rendering or
+launching Swift. Do not attempt an unsupported compiler/framework and serialize
+its variable timeout/compile error into an immutable receipt. This does not add
+Linux OCR support or promote any source; native/text and receipt equality gates
+remain in force. The policy hash pins this change; historical runs keep their
+original verifier revision.
+
+
+#### Process-local native replay reuse
+
+Committed checkpoint/source/manifest/policy checks still run for every read.
+The first read of a native receipt independently recomputes it through the
+existing verifier. After success only, retain a frozenset of verified source IDs
+in a64-entry process-local LRU. Its key binds tenant, actual source bytes, entire
+graph, entire receipt, native policy code hashes, platform and reader versions.
+Changed inputs/runtime or eviction require another complete replay; failed
+replays are never cached. Returned graphs are reconstructed, and the caller
+still checks the published graph hash. No PDF/graph/receipt object is retained
+in the cache; no schema, database or receipt format changes. Rollback removes
+reader cache routing and restores unconditional replay. Historical receipts
+still require their original native verifier policy.
+
+Cold simultaneous requests may repeat OCR. This intentionally avoids a new
+coordination service.64 entries is an entry bound, not a weighted byte budget;
+parser limits remain applicable. The measured warm replay gain is not a claim
+about first-request latency, full HTTP latency or multi-user throughput.
+
+#### Independent raster OCR correspondence experiment
+
+`evaluation/raster_ocr.py` prepares bounded lossless image-only PDF crops and
+replays an immutable provider receipt without network calls. It accepts 1..10
+whole canonical paragraph IDs, the original source bytes and tenant. Each crop
+uses216dpi, six white margin pixels, original top-left point coordinates and no
+expected-text prompt or text layer. Renderer/writer/image versions and the full
+graph/source/document/manifest identities are included in the request artifact.
+
+The caller must supply request/receipt SHA256 pins from trusted immutable storage;
+computing fresh pins from untrusted uploaded artifacts would not establish trust.
+Replay rebuilds the exact request from original pixels, checks the complete
+request, provider model, submitted PDF digest/length, page/billing identities and
+unique element IDs, and compares per-page text with existing exact normalization.
+A changed number remains a mismatch. Hashes establish artifact correspondence,
+not provider authenticity outside the trusted receipt boundary.
+
+This helper returns OCR correspondence only. It does not alter source quality,
+create a SourceRef, relax the native visibility/geometry gate or authorize present.
+It is not wired to the production parser or run DTO; there is no migration or
+change to existing native receipts. Production integration must first bind its
+receipt into the frozen parser policy and immutable checkpoint, restrict fallback
+to native-validated OCR failures, and preserve offline replay and old policies.
+
+The provider supplies page numbers, not per-image cryptographic attestations.
+`exact_normalized_match` therefore reports literal agreement with text returned
+for that page; it must never be interpreted as independent source approval or
+proof that a provider cannot hallucinate. Replay enforces200000total OCR characters,
+the transport's1MiB response ceiling and strict finite/nonboolean PDF geometry.
+
+#### Experimental native + independent raster visibility composition
+
+`evaluation/native_raster_visibility.py` composes the existing native v2 replay
+with the pinned raster OCR replay into a new in-memory source view. Only records
+whose original recomputed native result is `rendered_text_unresolved`, with
+nonempty readable OCR, are eligible. Thus native text mismatch, clipping/rotation,
+missing glyph geometry, interactive visibility and unavailable/empty readers do
+not become eligible merely because an external response contains matching words.
+Selected ineligible sources reject the whole experiment. An eligible source
+changes to verified in the new view only on exact independent OCR agreement.
+Raw text, source IDs, coordinates and original graph remain unchanged. No grade
+or assurance attribution is produced.
+
+The experimental proof pins native/request/receipt hashes, source/document/
+manifest/tenant, input/output graph hashes and its composition code hash. It is
+NOT a supported published parser checkpoint. Old v1-v4 readers and job policies
+remain unchanged. Production wiring must use a new checkpoint/policy version,
+freeze the external transport authorization and artifact pointers before spend,
+preserve lease/budget cancellation, and validate both paths on publication and
+read. Rollback disables new external mode while retaining a reader capable of
+replaying its already-published receipts; it cannot drop fields into legacy v4.
+No DB migration or HTTP option has been introduced by this experiment.
+
+#### Local raster preflight contract (not yet wired to dispatch)
+
+`check_local_upstage_raster` validates trusted Registry-resolved runtime/consent
+profiles for local tests. Runtime schema:`local_upstage_raster_binding_v1`,
+role:`vision`, model:`document-parse-260128`, endpoint:
+`https://api.upstage.ai/v1/document-digitization`, mode:`standard|enhanced`,
+integer max_pages:1..10, accepts_images:true and image_input_verified:true.
+The profile has the same tenant, approval/expiry, purpose:local_test, provider,
+USD10/20 ceiling and no implicit fallback requirements as other local gates.
+Required model hash is canonical_hash of model/provider/transport with transport
+`UpstageParseProbe`; chat-model hashes and aliases do not authorize raster calls.
+
+Consent additionally requires allow_raster_upload:true. Both the actual source
+SHA256 and document-rights value must be allowed, with cross-tenant cache and
+AgentCore memory disabled. Missing/malformed rights are denied. Existing extractor
+and tagger public gates continue to accept only their original chat endpoints and
+models. Region attestation and live probe remain not_run; asking this pure gate to
+perform a live probe returns not-ready without making a call.
+
+This validates the grant's maximum page bound. Future per-call dispatch must also
+compare the prepared submission's actual page count/mode with that frozen bound;
+a passing preflight alone is not transport enforcement. Recheck registry revocation,
+expiration and source scope immediately before reserving or dispatching. No live
+worker path or public run DTO is enabled merely by adding this validator.
+
+Raster replay additionally requires the provider-reported model to equal the
+pinned `document-parse-260128`; the generic `document-parse` alias is rejected even
+if the stored transport request used the pinned model. Generic historical table
+parse adapter alias policy is unaffected. Contract tests compare raster preflight
+pins with transport model/page constants without importing adapters into application.
+
+#### Frozen raster configuration (dispatch still disabled)
+
+The reusable raster preparation/replay and visibility functions now live in
+`proofops.adapters.local.raster_ocr` and `raster_visibility`. Evaluation modules
+re-export these functions for compatibility; runtime code does not import evaluation.
+Historical receipts retain their original helper hashes and are not rewritten.
+
+`RunService` accepts a trusted composition-only pair, `raster_runtime_binding_id`
+and `raster_policy`. It resolves the separate vision grant through the tenant's
+Registry and checks source/right/image consent before creating a run. The snapshot
+freezes exactly four raster fields: `raster_ocr_policy`, `raster_ocr_policy_hash`,
+`raster_ocr_runtime`, and `raster_ocr_runtime_artifact_hash`. Partial groups, extra
+reserved fields, invalid shapes and hash/mode/limit mismatches are rejected at
+store creation. Only disclosure/upstage_probe/declared_subset context is allowed.
+Existing selected_pages remains part of the immutable run input.
+
+Policy schema `local_raster_ocr_policy_v1` contains mode, strict integer max_pages
+(1..10), max_calls (1..20), native policy SHA256, both helper SHA256s, and installed
+pypdfium2/pdfplumber/pypdf/Pillow versions. Grant limits must cover policy limits;
+its raster_policy_sha256 must match. These limits are not authorization to spend
+without the existing shared USD20 ledger and per-call revalidation.
+
+This change has no public DTO, SQL migration, API composition switch or enabled
+OCR worker path. The existing parser worker explicitly raises
+`RASTER_OCR_RUNTIME_NOT_SUPPORTED` before job access for a raster-configured run.
+It cannot silently publish a legacy checkpoint. Leave both options absent for
+normal existing runs. Per-call revocation/policy checks, v5 artifact ownership,
+fenced publication and offline readback must ship together before removing this
+interim rejection. Rolling back this configuration stage means omitting both
+options on new runs; existing immutable snapshots must remain intact.
+
+#### Scoped raster request preparation (no dispatch yet)
+
+`proofops_worker.raster_runtime.prepare_authorized_raster` reloads the original
+uploaded bytes and immutable run input, verifies the active parse lease and
+run/document/manifest identity, and compares the frozen execution policy to the
+actual helper/reader versions. It resolves current runtime, consent and rights
+profiles and requires their artifact hashes to equal the frozen profiles before
+applying the source-scoped raster gate. Authorization and lease checks run again
+after native replay and rendering so a change during preparation is rejected.
+
+Only unique paragraph IDs within the exact selected_pages and frozen max_pages
+are accepted. A recomputed native-v2 receipt must establish readable OCR mismatch
+eligibility; mismatched native text, clipping and missing/unreadable readers remain
+ineligible. Preparation and offline composition share this eligibility predicate.
+
+The new `local_raster_ocr_request_v1` ownership envelope carries tenant/run/job,
+document/manifest, input/source/policy/native-receipt hashes, selected pages, mode
+and the full raster correspondence. Its deterministic request_id uses the job UUID
+and canonical envelope hash. Identical pixels from another job/run therefore do
+not share a request identity. No text layer or expected-text prompt is submitted.
+
+This helper performs no network call, budget reservation or publication. It must
+be called by future dispatch immediately before the fenced persistent request
+registration and shared-ledger reservation; the envelope itself is not a bearer
+permission. Persisted max_calls enforcement, receipts, v5 publication/readback and
+composition switches remain required before enabling the live fallback.
+
+Legacy parser checkpoint validation now rejects every `raster_ocr_` prefixed
+field through the shared `checkpoint_note_reviews` boundary used by both commit
+and read. v1-v4 cannot silently ignore policy/artifact/coverage metadata; bare v5
+also remains unsupported. A rejected commit publishes no checkpoint and enqueues
+no extraction job. Existing successful v1-v4 reads and writes remain unchanged.
+
+The request explicitly freezes max_pages/max_calls/submitted_pages and the sorted
+eligible and ordered requested source IDs. All are included in request_id hashing.
+The request's input_hash resolves to the scoped immutable run snapshot containing
+runtime/consent/rights artifacts; readers must verify that snapshot rather than
+accepting a request-supplied authorization claim. Max_calls is a frozen limit,
+not yet a persisted call counter in this preparation-only stage.
+
+#### Durable raster dispatch records (checkpoint publication still disabled)
+
+`raster_job_store` reuses the existing SQLite job_records transaction/ownership
+boundary. `raster_request` records contain the full scoped request, its hash and
+original lease owner/fencing token. Registration validates the immutable snapshot,
+manifest identity, request UUID, policy/mode/limits, selected pages and submitted
+correspondence. The max_calls count is checked across the run inside the same
+transaction, including registrations with unknown or failed transport results.
+An exact duplicate returns false, retaining the original ownership; it cannot
+initiate another HTTP call. No new table or SQL schema version is introduced.
+
+`raster_receipt` binds the stored request hash to the full provider receipt and
+receipt hash. Only the lease that registered the request may retain its response,
+including a late response after expiry; this does not authorize publication.
+Foreign ownership and mismatched immutable responses are rejected. Reads remain
+scoped to the registered job and verify the stored hashes.
+
+`dispatch_authorized_raster` checks that the supplied probe uses the expected
+shared ledger, prepares under current authority, registers once, renews the lease,
+and invokes the existing bounded UpstageParseProbe. A completed request reuses its
+saved receipt. A registration without a valid stored receipt raises
+RASTER_REQUEST_PENDING and is never automatically resent, even if the first
+process crashed before dispatch or the provider outcome is unknown. This
+conservative case requires explicit reconciliation, not a fresh reservation ID.
+The returned receipt is private input for offline visibility composition; the
+existing parser worker still rejects raster mode until v5 publication/readback
+and coverage are implemented together.
+
+The read-only shared usage reader distinguishes token-billed and page-billed
+settled receipts. Parse pages are reported separately; page receipts cannot claim
+complete measured token usage. Recorded monetary amounts and unknown reservations
+are retained. No refund or budget-reset path is added.
+
+#### Coordinated v5 parser publication and offline replay — 2026-09-19
+
+This supersedes the preparation-only/disabled-publication statements above.
+An explicitly injected `LocalParserRunner` may enable raster fallback only with
+native paragraph verification, a complete frozen raster snapshot, an actual
+UpstageParseProbe and its explicitly matching shared ledger. A simultaneous note
+client must use that same ledger. Public composition/CLI enablement remains pending.
+
+`local_parser_checkpoint_v5` extends v4 with exactly three raster fields:
+
+- `raster_ocr_policy_sha256`: the frozen current policy hash. The policy now also
+  pins `checkpoint_helper_sha256` for the offline replay implementation.
+- `raster_ocr_artifacts`: request-ID-sorted, unique objects containing exactly
+  `request_id`, `request_sha256`, and `receipt_sha256`, resolved from the scoped
+  server-side records. Every registered request must have a valid stored receipt.
+- `raster_ocr_coverage`: sorted unique lists named `eligible_source_ids`,
+  `requested_source_ids`, `corroborated_source_ids`, `unresolved_source_ids`, and
+  `failed_source_ids`. Corroborated is a subset of requested, requested a subset of
+  eligible, unresolved exactly eligible minus corroborated. Failed is empty in
+  this version: pending/failed transports prevent publication. Unrequested eligible
+  sources remain unresolved when the authorized batch/call limit is reached.
+
+The writer preserves the original pre-native graph and native-v2 receipt, replays
+native and independent raster evidence, then publishes the composed graph hash.
+The existing fenced commit transaction validates frozen policy, native linkage,
+all durable request/receipt references and coverage ownership. Readback resolves
+those same scoped records and independently recomputes coverage, composition and
+final graph identity against original PDF bytes, without contacting the provider.
+V5 readers cache up to 64 successful replays per process, keyed by the full
+snapshot/job, source and graph hashes, native receipt, durable registrations and
+receipts, current policy/helper and reader versions (including pdfminer.six),
+and platform. Cached metadata is returned in fresh containers. Durable binding
+checks and envelope coverage/reference/final-graph comparisons still execute
+on every read. Failed replays are not cached; cold reads remain expensive.
+Measured cold/warm observations are recorded in
+`evidence/raster-cache-prose-live-20260919.{md,json}`.
+
+V1-v4 continue to reject raster-prefixed fields. A raster-configured run cannot
+publish/read a downgraded v4 checkpoint. Older incomplete experimental raster
+policies require a fresh run with the complete policy; existing evidence is never
+rewritten. No SQL table/migration or new dependency is introduced. Rollback disables
+new raster runs but retains v5 readers and immutable receipts/reservations.
+
+The worker regression uses an actual generated PDF and OpenDataLoader parsing,
+forces a readable local OCR disagreement, and intercepts only the external HTTP
+response. It verifies paragraph recovery, page/call accounting, immutable
+publication and offline replay. Additional cases reject tampered coverage/receipt
+pins and retain ambiguous-response reservations without publication. This is
+integration evidence, not model accuracy or a real-report rollout result.
+
+#### Explicit worker and pilot activation — 2026-09-19
+
+Worker CLI now accepts `--raster-ocr` only with `--stage parse` and
+`--verify-paragraphs`; composition validates these options before creating runtime
+state. The option is off by default and requires the existing shared budget ledger.
+The probe is constructed only for an enabled parse worker. Extract/tag workers
+continue to use offline committed graph replay and never invoke raster OCR.
+
+Trusted local settings accept the all-or-none pair `raster_runtime_binding_id`
+and `raster_policy`, validated by the existing application policy contract. These
+are only available with explicit `LOCAL_EXTRACTION_MODE=upstage_probe`; they are
+not public HTTP request fields. Run creation still resolves independent Registry
+consent/rights/runtime artifacts, and dispatch rechecks current authority.
+
+The existing `evaluation.local_upstage_pilot` supports `--raster-ocr`,
+`--raster-max-pages` (default 4) and `--raster-max-calls` (default 1). Native paragraph
+verification is required. It registers a source-scoped local-test image consent
+and separate vision binding, freezes the current helper policy, and passes the
+worker option only at the parse stage. `--invoke` remains required for actual
+calls. A changed raster policy/options on restart require a new state directory;
+old results, receipts and reservations remain immutable. Authorization is limited
+to the user's existing local API-test scope and cumulative USD20 ledger.
+
+A generated-PDF integration now verifies the complete v5 parse→extract→tag chain
+with actual parser/transport/ledger code and fixed HTTP responses: one recovered
+paragraph reaches one verified-source claim and a candidate review after three
+preliminary and three element responses. One OCR + seven text requests use one
+shared test ledger. Offline reopened review reads and repeated stage consumption
+make no additional call or billing entry. Unknown tags remain unknown and an
+unapproved rulepack produces no decision. This demonstrates integration, not
+semantic accuracy of live model responses.

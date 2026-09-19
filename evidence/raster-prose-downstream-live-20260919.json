@@ -1,0 +1,79 @@
+{
+  "schema": "raster_prose_downstream_live_v1",
+  "code_commit": "7ab0d3bf9a6b3a76eba16a28bb97b620f5b24253",
+  "run_id": "a06437ae-209b-4a6e-83b6-0c4221fab899",
+  "claims": 12,
+  "verified_claims": 7,
+  "statuses": {
+    "blocked": 6,
+    "needs_review": 6
+  },
+  "blocked_reasons": {
+    "SOURCE_VALIDATION_REQUIRED": 5,
+    "PRELIMINARY_TAGS_UNRESOLVED": 1
+  },
+  "non_null_decisions": 0,
+  "recovered_paragraph_claims": [
+    {
+      "claim_id": "93bff20d-61fb-5f88-b244-ca7a9f172f07",
+      "status": "needs_review",
+      "reason": null
+    },
+    {
+      "claim_id": "71cb5501-6588-51cc-bf0d-3c6f4b2b6b4c",
+      "status": "needs_review",
+      "reason": null
+    },
+    {
+      "claim_id": "7f3ae847-4c02-5c71-bbee-b6573f51013e",
+      "status": "blocked",
+      "reason": "PRELIMINARY_TAGS_UNRESOLVED"
+    }
+  ],
+  "candidate_reviews": 6,
+  "stages": [
+    {
+      "stage": "extract",
+      "outcome": "committed",
+      "seconds": 55.315
+    },
+    {
+      "stage": "tag",
+      "outcome": "needs_review",
+      "seconds": 254.808
+    }
+  ],
+  "api": {
+    "claims": 200,
+    "first_claim_detail": 200,
+    "cost": 200,
+    "returned_claims": 12,
+    "cost_status": "partial"
+  },
+  "budget": {
+    "total_calls": 1887,
+    "committed_or_reserved_usd": "11.4492225450",
+    "unsettled": 9,
+    "additional_downstream_calls": 61,
+    "additional_downstream_committed_or_reserved_usd": "1.0497347950",
+    "cap_usd": "20"
+  },
+  "period_conflict": {
+    "claim_id": "7f3ae847-4c02-5c71-bbee-b6573f51013e",
+    "reporting_period_quotes": [
+      null,
+      "분기 1회",
+      "분기 1회"
+    ],
+    "all_preliminary_replicas_validated": true
+  },
+  "ci": {
+    "run_id": 35408172756,
+    "conclusion": "success"
+  },
+  "limitations": [
+    "Fresh stochastic trial, not a controlled accuracy comparison",
+    "Two recovered-source claims became candidate reviews; total review gain also includes another existing verified claim",
+    "No final grades; domain gold remains absent"
+  ]
+}

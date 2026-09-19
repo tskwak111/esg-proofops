@@ -1,0 +1,136 @@
+{
+  "schema": "live_tagging_pilot_evidence_v1",
+  "run_id": "8db23077-5360-4e86-ba6b-f79d4e6a39b5",
+  "source_sha256": "498e5db603e72bd488d0fbaf0cedaa122ef29e16e63da903f6d88a2086b35a8a",
+  "selected_pages": [
+    30
+  ],
+  "scope": "declared_subset",
+  "models": [
+    "solar-pro3",
+    "solar-pro4"
+  ],
+  "state_path": ".local/developer-a-live-tagging-kb",
+  "cost": {
+    "run_id": "8db23077-5360-4e86-ba6b-f79d4e6a39b5",
+    "input_tokens": 8687,
+    "output_tokens": 615,
+    "attempt_count": 12,
+    "cache_hit_count": 0,
+    "amount": "0.0026942850",
+    "currency": "USD",
+    "pricing_snapshot_id": null,
+    "cost_status": "known"
+  },
+  "tag_stage_status": "blocked",
+  "claims": [
+    {
+      "claim_id": "8c910db9-8ede-57de-b177-67f313cd13ad",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "preliminary_replicas": [],
+      "element_calls": 0,
+      "has_decision": false
+    },
+    {
+      "claim_id": "43f9df96-08d9-5789-a4ac-a237fca8ca11",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "preliminary_replicas": [],
+      "element_calls": 0,
+      "has_decision": false
+    },
+    {
+      "claim_id": "574d32d4-8cbc-53da-a2e7-c2f777464945",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "preliminary_replicas": [],
+      "element_calls": 0,
+      "has_decision": false
+    },
+    {
+      "claim_id": "5c2be430-4ba9-5f58-8094-af88c909a212",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "preliminary_replicas": [],
+      "element_calls": 0,
+      "has_decision": false
+    },
+    {
+      "claim_id": "063504d5-19d1-5bbc-a070-46987d25c118",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "preliminary_replicas": [],
+      "element_calls": 0,
+      "has_decision": false
+    },
+    {
+      "claim_id": "e4301523-4dfe-5a33-b25d-712e92328ad1",
+      "status": "blocked",
+      "reason": "SOURCE_VALIDATION_REQUIRED",
+      "preliminary_replicas": [],
+      "element_calls": 0,
+      "has_decision": false
+    },
+    {
+      "claim_id": "70daebcb-1c20-526f-a087-11b924289c6f",
+      "status": "blocked",
+      "reason": "PRELIMINARY_TAGS_UNRESOLVED",
+      "preliminary_replicas": [
+        {
+          "replicate_id": 1,
+          "status": "validated_candidate",
+          "request_id": "a33ca31e-79e5-546b-9cbd-4f7c58e3d25a",
+          "raw_response_sha256": "38472256c5025a0376aef2987b362a97e98a2417055068c875270a1d8834dcb8",
+          "track": null
+        },
+        {
+          "replicate_id": 2,
+          "status": "validated_candidate",
+          "request_id": "71867f9b-07a3-5ce3-845f-5501d723a463",
+          "raw_response_sha256": "2b0d563270b14fcb38753a483ac390b366d7d59461cf93753dd508575045d307",
+          "track": "management"
+        },
+        {
+          "replicate_id": 3,
+          "status": "validated_candidate",
+          "request_id": "2b268b04-8b5c-5642-a9b3-a7f542d4fce2",
+          "raw_response_sha256": "8ef3ee3e5e66b8683dcda7865834563a6d343e9cf0bba7e2d47c3eb69a87c477",
+          "track": "management"
+        }
+      ],
+      "element_calls": 0,
+      "has_decision": false
+    },
+    {
+      "claim_id": "e5ca0b5f-799c-5a64-ad68-72562231a4b4",
+      "status": "blocked",
+      "reason": "PRELIMINARY_TAGS_UNRESOLVED",
+      "preliminary_replicas": [
+        {
+          "replicate_id": 1,
+          "status": "needs_review",
+          "request_id": "c42f6e30-8640-50f0-b81e-5e32ca4e7fa1",
+          "raw_response_sha256": null,
+          "track": null
+        }
+      ],
+      "element_calls": 0,
+      "has_decision": false
+    }
+  ],
+  "settings_hashes": {
+    "preliminary_settings_hash": "1875b12210c972c25d1e9234ec05cc3b1f29cbaa0f3880f1c1aba6df814fa0e4",
+    "tagging_settings_hash": "70da23f8eb9ec34abc2daba822ced342da9e2fa241cd3f15bfcce951eb9b88fc",
+    "input_reservation_policy_hash": "6a04b102f358a4fdf722ed2f094f35f5a782fb04eb486e690144e8c2cb748e3f"
+  },
+  "limitations": [
+    "Single body page; no appendix coverage",
+    "No independent gold accuracy measurement",
+    "6 claims require source validation",
+    "First verified claim lacks unanimous classification",
+    "Second verified claim produced an invalid string dimension",
+    "No element calls, no review publication, no grade"
+  ],
+  "synthetic": false
+}

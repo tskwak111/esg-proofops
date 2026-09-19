@@ -1,0 +1,78 @@
+{
+  "schema": "doosan_visual_diagnostic_v1",
+  "source_sha256": "dc59b2b1c5bbf02e33bb901f94aef7cd984dc62547708e92aa1332ac550102e9",
+  "method": "assistant visual inspection of original PDF renders; not independent gold or source promotion",
+  "pages": [
+    {
+      "physical_page": 27,
+      "render_sha256": "fb1788b22d594331827482777cb6c6baf51f9e80337fdab4fd0fa45313401c69"
+    },
+    {
+      "physical_page": 97,
+      "render_sha256": "4f4ac87d08fac310ec2e7b727c1850af9b02c67168c1028d8a39b2492e5da53b"
+    },
+    {
+      "physical_page": 110,
+      "render_sha256": "d1c3b62249482edcec0a24d0b62b3222aa821413d7e489b6650c73930c78d572"
+    }
+  ],
+  "observations": {
+    "27": "Climate governance narrative spans columns; some sentences continue in a different column.",
+    "97": {
+      "scope_1_2_total_tco2eq": {
+        "2023": "150071.4",
+        "2024": "135784.1",
+        "2025": "154196.7"
+      },
+      "reporting_sites": {
+        "2023": 39,
+        "2024": 42,
+        "2025": 54
+      },
+      "caution": "Scope changes are visible; no comparable-boundary trend conclusion is established."
+    },
+    "110": "DNV limitations explicitly exclude partner/third-party performance and financial disclosures; statement presence alone does not verify every metric."
+  },
+  "source_blockers": [
+    {
+      "source_id": "1df0be19-4c3a-55da-8016-e59ebb6b9e82",
+      "reason": "rendered_text_unresolved",
+      "text_differences": [
+        {
+          "native": "’",
+          "ocr": "'"
+        },
+        {
+          "native": "‘",
+          "ocr": "'"
+        },
+        {
+          "native": "’",
+          "ocr": "'"
+        }
+      ]
+    },
+    {
+      "source_id": "25ca842c-6d54-5a68-b7a2-891c3f4839c5",
+      "reason": "rendered_text_unresolved",
+      "text_differences": [
+        {
+          "native": "·",
+          "ocr": "•"
+        }
+      ]
+    },
+    {
+      "source_id": "81a4a947-6298-5f42-a366-c7ecc85ef9f2",
+      "reason": "clipped_or_rotated_words",
+      "text_differences": []
+    }
+  ],
+  "report_period_metadata": "Original physical page115 explicitly states2025-01-01 through2025-12-31; no report-year inference used.",
+  "additional_model_calls": 0,
+  "source_quality_changed": false,
+  "limitations": [
+    "This is diagnosis and visual transcription, not adjudicated gold labels.",
+    "No punctuation equivalence or crop expansion has been applied."
+  ]
+}

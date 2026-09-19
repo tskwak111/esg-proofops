@@ -114,24 +114,70 @@ def request_usage(ledger, request_ids) -> dict:
                     (identifier,),
                 ).fetchone()
                 if row is not None:
-                    entries.append((Decimal(row[0]), json.loads(row[1]) if row[1] else None))
-    except (sqlite3.Error, ValueError, TypeError, OSError):
+                    amount = Decimal(row[0])
+                    if not amount.is_finite() or amount < 0:
+                        raise ValueError("invalid committed amount")
+                    entries.append((amount, json.loads(row[1]) if row[1] else None))
+    except (sqlite3.Error, ValueError, TypeError, OSError, InvalidOperation):
         raise ValueError("ACCOUNTING_UNAVAILABLE") from None
     settled = [receipt for _, receipt in entries if receipt is not None]
     unknown = len(entries) - len(settled)
     cost = sum((amount for amount, _ in entries), Decimal(0))
-    return {
+    input_tokens = output_tokens = document_parse_pages = 0
+    has_parse_receipt = False
+    for receipt in settled:
+        if not isinstance(receipt, dict) or any(
+            key in receipt and not isinstance(receipt[key], str)
+            for key in ("model", "provider_model")
+        ):
+            raise ValueError("ACCOUNTING_UNAVAILABLE")
+        parse_models = {"document-parse-260128", "document-parse"}
+        if receipt.get("model") in parse_models or receipt.get("provider_model") in parse_models:
+            if (
+                receipt.get("model") not in parse_models
+                or receipt.get("provider_model") not in parse_models
+                or "input_tokens" in receipt
+                or "output_tokens" in receipt
+                or type(receipt.get("pages")) is not int
+                or receipt["pages"] < 1
+                or not isinstance(receipt.get("usage"), dict)
+                or type(receipt["usage"].get("pages")) is not int
+                or receipt["usage"]["pages"] != receipt["pages"]
+            ):
+                raise ValueError("ACCOUNTING_UNAVAILABLE")
+            document_parse_pages += receipt["pages"]
+            has_parse_receipt = True
+            continue
+        has_input = "input_tokens" in receipt
+        has_output = "output_tokens" in receipt
+        if has_input or has_output:
+            if (
+                not (has_input and has_output)
+                or type(receipt["input_tokens"]) is not int
+                or type(receipt["output_tokens"]) is not int
+                or receipt["input_tokens"] < 0
+                or receipt["output_tokens"] < 0
+            ):
+                raise ValueError("ACCOUNTING_UNAVAILABLE")
+            input_tokens += receipt["input_tokens"]
+            output_tokens += receipt["output_tokens"]
+            continue
+        raise ValueError("ACCOUNTING_UNAVAILABLE")
+    result = {
         "model_calls": len(entries),
         "reserved_calls": len(entries),
         "settled_calls": len(settled),
         "unsettled_calls": unknown,
-        "input_tokens": sum(receipt["input_tokens"] for receipt in settled),
-        "output_tokens": sum(receipt["output_tokens"] for receipt in settled),
-        "token_usage_complete": not unknown,
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "token_usage_complete": not unknown and not has_parse_receipt,
         "cost_with_vat_reserve_usd": "unknown" if unknown else str(cost),
         "committed_or_reserved_usd": str(cost),
         "unknown_reservation_cost_usd": "unknown" if unknown else None,
     }
+    if has_parse_receipt:
+        result["document_parse_pages"] = document_parse_pages
+    return result
 
 
 class UpstageProbe:
@@ -290,7 +336,7 @@ class UpstageProbe:
         finally:
             connection.close()
 
-    def complete(
+    def request_body(
         self,
         system: str,
         user_json: str,
@@ -332,6 +378,20 @@ class UpstageProbe:
             > POLICY["max_request_bytes"]
         ):
             raise ValueError("PROBE_REQUEST_TOO_LARGE")
+        return body
+
+    def complete(
+        self,
+        system: str,
+        user_json: str,
+        *,
+        request_id: str,
+        max_tokens: int = 1024,
+        json_mode: bool = False,
+    ):
+        body = self.request_body(
+            system, user_json, request_id=request_id, max_tokens=max_tokens, json_mode=json_mode
+        )
         self._reserve(request_id, body)
         try:
             data = self._post(body)

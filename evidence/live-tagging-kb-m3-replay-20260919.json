@@ -1,0 +1,47 @@
+{
+  "schema": "live_tagging_replay_diagnostic_v1",
+  "replay": {
+    "schema": "m3_immutable_review_replay_v1",
+    "run_id": "56c9ff6e-5cda-4448-8164-1c0c63bff89c",
+    "claim_id": "38bf8600-10c9-51f4-9440-41ce8e19e164",
+    "replay": "passed",
+    "model_calls_forbidden": true,
+    "snapshot_keys": [
+      "schema",
+      "run_id",
+      "claim",
+      "dimensions",
+      "original",
+      "rulepack",
+      "rule_context",
+      "packet",
+      "packet_sha256",
+      "original_packet",
+      "original_packet_sha256",
+      "tag_runs",
+      "consensus",
+      "relation_tags",
+      "tag_revision",
+      "decision",
+      "execution_profile"
+    ],
+    "limitations": [
+      "Offline load succeeded with UpstageProbe.complete forbidden; no semantic correctness or new grade claim."
+    ]
+  },
+  "invalid_response_findings": [
+    {
+      "claim_id": "42484b2c-8340-5e6c-b2cb-966ba94d5b89",
+      "replicate_id": 1,
+      "status": "invalid_response",
+      "returned_packet_sha256": "6912663f14db550dee383f648df727961f6ce54d",
+      "expected_packet_sha256": "6912663f14db550dee383f648df7279619c347ce1cef022776d230861f6ce54d",
+      "returned_length": 40,
+      "expected_length": 64
+    }
+  ],
+  "limitations": [
+    "Packet identity failure is correctly rejected; no repair of the stored response or new grade.",
+    "Future server-owned transport metadata needs explicit versioning and tests; current v1-v3 behavior unchanged."
+  ]
+}

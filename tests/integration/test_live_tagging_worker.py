@@ -1,0 +1,340 @@
+"""Real-provider composition with fake HTTP; no paid calls or domain approvals."""
+
+import json
+from dataclasses import asdict, replace
+from datetime import UTC, datetime
+from pathlib import Path
+from types import SimpleNamespace
+from uuid import UUID
+
+import pytest
+from proofops.adapters.aws.usage import LocalSQLiteUsageStore
+from proofops.application.budget import BudgetLimits, RoleLimit
+from proofops.application.input_reservation import solar_pro4_capacity_policy
+from proofops.application.registry import artifact_sha256
+from proofops.domain.provenance import canonical_hash
+from proofops_worker.live_tagging import LiveTaggingRuntime
+
+
+def configured(tmp_path, monkeypatch):
+    from tests.integration.test_upstage_preliminary_transport import configured as transport_setup
+    from tests.integration.test_upstage_tagger_preflight import configured as approvals
+
+    adapter, probe, calls, _, _, claim, graph = transport_setup(tmp_path, monkeypatch)
+    preliminary = replace(
+        adapter._settings, binding=replace(adapter._settings.binding, binding_id=str(UUID(int=500)))
+    )
+    settings = replace(
+        preliminary,
+        binding=replace(preliminary.binding, binding_id=str(UUID(int=501))),
+        model_profile="upstage-compact-ids-frozen-unicode-v1",
+        system_prompt="Tag only.",
+        schema_json=Path("contracts/jsonschema/llm_tags.schema.json").read_text(),
+    )
+    policy = solar_pro4_capacity_policy()
+    authorization = approvals()
+    consent = dict(
+        authorization["consent"],
+        approved_at="2026-09-18T00:00:00Z",
+        expires_at="2026-09-25T00:00:00Z",
+        allowed_source_sha256=[graph.source_sha256],
+    )
+    runtimes = {}
+    for prefix, selected in (("preliminary", preliminary), ("tagging", settings)):
+        runtimes[prefix] = dict(
+            authorization["binding"],
+            runtime_binding_id=selected.binding.binding_id,
+            model_id=selected.model_id,
+            tagging_settings_sha256=canonical_hash(asdict(selected)),
+            input_reservation_policy_sha256=canonical_hash(policy),
+            approved_at="2026-09-18T00:00:00Z",
+            expires_at="2026-09-25T00:00:00Z",
+        )
+    rights = {"rights_profile_id": "report-test", "tenant_id": graph.tenant_id}
+    snapshot = dict(
+        tenant_id=graph.tenant_id,
+        run_id=str(UUID(int=700)),
+        tagging_mode="upstage_local",
+        document=dict(
+            version_id=graph.document_version_id,
+            sha256=graph.source_sha256,
+            metadata=dict(rights_profile_id="report-test"),
+        ),
+        consent=consent,
+        rights=rights,
+        input_reservation_policy=policy,
+        input_reservation_policy_hash=canonical_hash(policy),
+    )
+    for prefix, selected in (("preliminary", preliminary), ("tagging", settings)):
+        snapshot.update(
+            {
+                prefix + "_settings": asdict(selected),
+                prefix + "_settings_hash": canonical_hash(asdict(selected)),
+                prefix + "_runtime": runtimes[prefix],
+                prefix + "_runtime_artifact_hash": artifact_sha256(runtimes[prefix]),
+            }
+        )
+    snapshot["input_hash"] = canonical_hash(snapshot)
+    profiles = {("runtime", r["runtime_binding_id"]): r for r in runtimes.values()} | {
+        ("consent", consent["consent_profile_id"]): consent,
+        ("rights", "report-test"): rights,
+    }
+    registry = SimpleNamespace(
+        resolve_profile=lambda auth, kind, identifier: profiles[(kind, identifier)]
+    )
+    monkeypatch.setattr("proofops_worker.live_tagging.Registry.sqlite", lambda path: registry)
+    budget = LocalSQLiteUsageStore(tmp_path / "usage.sqlite3")
+    bound = policy["reservation_input_tokens"]
+    budget.create_budget(
+        graph.tenant_id,
+        snapshot["run_id"],
+        graph.document_version_id,
+        BudgetLimits(bound * 6, 6144, (RoleLimit("tagger", 6, bound, 1024, bound + 1024),)),
+    )
+    jobs = SimpleNamespace(
+        can_call=lambda *a, **k: True, heartbeat=lambda *a, **k: None, list_usage=lambda *a: []
+    )
+    runner = SimpleNamespace(
+        store=SimpleNamespace(path=tmp_path / "app.sqlite3", usage=budget, jobs=jobs),
+        clock=lambda: datetime(2026, 9, 19, tzinfo=UTC).timestamp(),
+    )
+    lease = SimpleNamespace(message=SimpleNamespace(job_id=str(UUID(int=701))))
+    usage = {}
+    runtime = LiveTaggingRuntime(
+        runner,
+        snapshot,
+        graph,
+        lease,
+        usage,
+        probe=probe,
+        ledger=tmp_path / "budget.sqlite3",
+        receipts=tmp_path / "live",
+    )
+
+    def post(body):
+        calls.append(body)
+        return dict(
+            id=f"provider-{len(calls)}",
+            model=settings.model_id,
+            usage=dict(prompt_tokens=20, completion_tokens=10),
+            choices=[
+                dict(
+                    finish_reason="stop",
+                    message=dict(
+                        content=json.dumps(
+                            dict(
+                                claim_id=claim.claim_id,
+                                track="management",
+                                safe_harbor_category=None,
+                                track_confidence=0.8,
+                                dimensions=dict(entity=None, metric=None, reporting_period=None),
+                            )
+                        )
+                    ),
+                )
+            ],
+        )
+
+    monkeypatch.setattr(probe, "_post", post)
+    return runtime, claim, graph, calls, profiles, usage
+
+
+def test_live_preliminary_uses_three_distinct_receipts_and_recovers_without_calls(
+    tmp_path, monkeypatch
+):
+    runtime, claim, graph, calls, _, usage = configured(tmp_path, monkeypatch)
+    result = runtime.preliminary(claim, graph)
+    assert result is not None and result[0].track == "management"
+    assert runtime.synthetic is False and len(calls) == 3
+    assert usage["model_calls"] == usage["settled_calls"] == 3
+    assert usage["input_tokens"] == 60
+    assert len({r["request_id"] for r in runtime.preliminary_records[claim.claim_id]}) == 3
+    assert runtime.preliminary(claim, graph) == result
+    assert len(calls) == 3
+    ledger = runtime.runner.store.usage.ledger(graph.tenant_id, runtime.snapshot["run_id"])
+    assert len(ledger) == 3 and all(r["usage"]["input_tokens"] == 20 for r in ledger)
+
+
+def test_revoked_runtime_stops_before_spend(tmp_path, monkeypatch):
+    runtime, claim, graph, calls, profiles, usage = configured(tmp_path, monkeypatch)
+    key = ("runtime", runtime.preliminary_settings.binding.binding_id)
+    profiles[key] = dict(profiles[key], status="revoked")
+    assert runtime.preliminary(claim, graph) is None
+    assert calls == [] and usage["model_calls"] == 0
+
+
+def test_expired_policy_stops_before_spend(tmp_path, monkeypatch):
+    runtime, claim, graph, calls, _, usage = configured(tmp_path, monkeypatch)
+    runtime.runner.clock = lambda: datetime(2026, 9, 25, tzinfo=UTC).timestamp()
+    assert runtime.preliminary(claim, graph) is None
+    assert calls == [] and usage["model_calls"] == 0
+
+
+def test_foreign_packet_cannot_use_capacity_callback(tmp_path, monkeypatch):
+    runtime, _, _, calls, _, _ = configured(tmp_path, monkeypatch)
+    with pytest.raises(ValueError, match="PACKET_NOT_AUTHORIZED"):
+        runtime.count_input_tokens({"claim_id": str(UUID(int=900)), "packet_sha256": "a" * 64})
+    assert calls == []
+
+
+@pytest.mark.parametrize("fault", ["disagreement", "duplicate_provider_id"])
+def test_preliminary_requires_independent_matching_replies(tmp_path, monkeypatch, fault):
+    runtime, claim, graph, calls, _, usage = configured(tmp_path, monkeypatch)
+    original = runtime.preliminary_transport._probe._post
+
+    def post(body):
+        response = original(body)
+        if fault == "duplicate_provider_id":
+            response["id"] = "same-provider-request"
+        elif len(calls) == 2:
+            message = response["choices"][0]["message"]
+            content = json.loads(message["content"])
+            content["track"] = "performance"
+            message["content"] = json.dumps(content)
+        return response
+
+    monkeypatch.setattr(runtime.preliminary_transport._probe, "_post", post)
+    assert runtime.preliminary(claim, graph) is None
+    assert len(calls) == usage["settled_calls"] == 3
+    assert usage["input_tokens"] == 60
+
+
+def test_incomplete_preliminary_receipt_never_retries_paid_request(tmp_path, monkeypatch):
+    runtime, claim, graph, calls, _, _ = configured(tmp_path, monkeypatch)
+    assert runtime.preliminary(claim, graph) is not None
+    first = runtime.preliminary_records[claim.claim_id][0]["request_id"]
+    (runtime.receipts / "preliminary" / first / "response.json").unlink()
+    assert runtime.preliminary(claim, graph) is None
+    assert len(calls) == 3
+    assert runtime.preliminary_records[claim.claim_id][0]["status"] == "needs_review"
+
+
+@pytest.mark.parametrize("inflight", [False, True])
+def test_preliminary_lease_loss_stops_remaining_spend(tmp_path, monkeypatch, inflight):
+    from proofops.application.ports.jobs import LeaseLost
+
+    runtime, claim, graph, calls, _, usage = configured(tmp_path, monkeypatch)
+    original = runtime.preliminary_transport._probe._post
+
+    def revoke():
+        runtime.runner.store.jobs.can_call = lambda *a, **k: False
+
+    def post(body):
+        response = original(body)
+        revoke()
+        return response
+
+    if inflight:
+        monkeypatch.setattr(runtime.preliminary_transport._probe, "_post", post)
+    else:
+        revoke()
+    with pytest.raises(LeaseLost):
+        runtime.preliminary(claim, graph)
+    assert len(calls) == int(inflight)
+    assert usage["settled_calls"] == int(inflight)
+
+
+@pytest.mark.parametrize("missing_period", [False, True])
+def test_unanimous_claim_dimensions_bind_only_the_same_atomic_source(
+    tmp_path, monkeypatch, missing_period
+):
+    from proofops.application.evidence.binding import accept_binding, relation_tags_for
+
+    from tests.acceptance.test_binding import DIMENSIONS, span
+    from tests.acceptance.test_rules import pack
+
+    runtime, claim, graph, calls, _, _ = configured(tmp_path, monkeypatch)
+    original = runtime.preliminary_transport._probe._post
+
+    def post(body):
+        response = original(body)
+        message = response["choices"][0]["message"]
+        value = json.loads(message["content"])
+        value["track"] = "performance"
+        value["dimensions"] = {
+            role: dict(source_index=0, quote=quote) for role, quote in DIMENSIONS.items()
+        }
+        if missing_period:
+            value["dimensions"]["reporting_period"] = None
+        message["content"] = json.dumps(value)
+        return response
+
+    monkeypatch.setattr(runtime.preliminary_transport._probe, "_post", post)
+    _, context, relations = runtime.preliminary(claim, graph)
+    source = claim.source_refs[0]
+    assert set(relations) == {f"{source.source_id}:{source.char_start}:{source.char_end}"}
+    assert len(calls) == 3  # no extra relation call for the exact same atomic source
+    assert (
+        accept_binding(
+            context,
+            span(source, "40%"),
+            relation_tags_for(span(source, "40%"), relations),
+            original=graph,
+            tenant_id=claim.tenant_id,
+            rulepack=pack(),
+            element_id="P1",
+        )
+        == "accepted"
+    )
+    other = next(
+        block.source_ref() for block in graph.blocks if block.source_id != source.source_id
+    )
+    assert other.source_id not in relations
+    assert (
+        accept_binding(
+            context,
+            span(other, "40%"),
+            relation_tags_for(span(other, "40%"), relations),
+            original=graph,
+            tenant_id=claim.tenant_id,
+            rulepack=pack(),
+            element_id="P1",
+        )
+        == "undetermined"
+    )
+
+
+def test_partial_claim_does_not_lend_roles_to_other_text_in_same_block(tmp_path, monkeypatch):
+    from proofops.application.evidence.binding import accept_binding, relation_tags_for
+
+    from tests.acceptance.test_binding import DIMENSIONS, span
+    from tests.acceptance.test_rules import pack
+
+    runtime, claim, graph, _, _, _ = configured(tmp_path, monkeypatch)
+    # The atom omits the final numeric text; the source block still contains it.
+    source = claim.source_refs[0]
+    shortened = replace(source, quote=source.quote[:-6], char_end=source.char_end - 6)
+    claim = replace(claim, quote=shortened.quote, source_refs=(shortened,))
+    original = runtime.preliminary_transport._probe._post
+
+    def post(body):
+        response = original(body)
+        message = response["choices"][0]["message"]
+        value = json.loads(message["content"])
+        value["dimensions"] = {
+            role: dict(source_index=0, quote=quote) for role, quote in DIMENSIONS.items()
+        }
+        message["content"] = json.dumps(value)
+        return response
+
+    monkeypatch.setattr(runtime.preliminary_transport._probe, "_post", post)
+    result = runtime.preliminary(claim, graph)
+    assert result is not None
+    _, context, relations = result
+    inside = span(shortened, DIMENSIONS["metric"])
+    outside = span(source, "40%")
+    assert relation_tags_for(inside, relations)
+    assert relation_tags_for(outside, relations) is None
+    for ref, expected in ((inside, "accepted"), (outside, "undetermined")):
+        assert (
+            accept_binding(
+                context,
+                ref,
+                relation_tags_for(ref, relations),
+                original=graph,
+                tenant_id=claim.tenant_id,
+                rulepack=pack(),
+                element_id="P1",
+            )
+            == expected
+        )

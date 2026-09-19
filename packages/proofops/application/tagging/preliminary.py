@@ -41,6 +41,11 @@ text that occurs exactly once there. The server calculates its character offsets
 If the desired quote is repeated, return null instead of guessing its position.
 Never borrow from another claim, document metadata,
 report year, or general knowledge. A target year is not a reporting period.
+Reporting period means the time interval to which the asserted activity or result
+applies. Reporting or meeting frequency (분기 1회, 매월, annually, quarterly) alone
+is not a reporting period; return null when only frequency is stated. Keep an
+explicit observation period such as 2025년 1분기 or 2024년 when it applies to the
+claim, even if the same sentence also specifies a reporting frequency.
 Entity means the reporting organization or organizational unit, not an arbitrary
 grammatical subject such as money, projects, products, or emissions. If the
 organization is not literally named in this atomic source, entity is null.
@@ -56,6 +61,20 @@ Output shape (replace claim_id and extract only dimensions present in the source
 "reporting_period":null}}
 Do not invent a metric to fill the schema. A non-null dimension must express
 that semantic role in the claim; unrelated words are not valid dimension values.
+Examples below illustrate roles and JSON shape; never copy their values into
+an unrelated claim. A management action is not itself a measured indicator.
+Source 0: 예시제조는 환경위원회를 운영하고 감축 과제의 이행을 점검합니다.
+track: management; dimensions: {"entity":{"source_index":0,"quote":"예시제조"},
+"metric":null,"reporting_period":null}
+Source 0: 예시제조의 2025년 온실가스 배출량은 120 tCO2e입니다.
+track: performance; dimensions: {"entity":{"source_index":0,"quote":"예시제조"},
+"metric":{"source_index":0,"quote":"온실가스 배출량"},
+"reporting_period":{"source_index":0,"quote":"2025년"}}
+A phrase about setting a direction, managing tasks or checking progress is an
+activity, not a metric name. Do not turn its verb into a noun to invent a metric.
+Before returning, check each non-null dimension: it is an object (never a bare
+string); its quote occurs verbatim and once in the supplied source; and it names
+the requested role. If any check fails, return null for that dimension.
 """
 _FIELDS = frozenset(("claim_id", "track", "safe_harbor_category", "track_confidence", "dimensions"))
 
@@ -109,6 +128,52 @@ def preliminary_request(claim: Claim, graph: CanonicalDocumentGraph, *, tenant_i
     )
 
 
+def _literal_dimension_ref(
+    span: Mapping,
+    sources: tuple[SourceRef, ...],
+    graph: CanonicalDocumentGraph,
+    *,
+    tenant_id: str,
+    allow_offsets: bool,
+) -> SourceRef:
+    """Restore one model-selected, unique literal quote to trusted provenance."""
+    allowed = ({"source_index", "quote"}, {"source_index", "start", "end", "quote"})
+    if not isinstance(span, Mapping) or set(span) not in (
+        allowed if allow_offsets else allowed[:1]
+    ):
+        raise DomainValidationError("invalid preliminary source span")
+    index, quote = span["source_index"], span["quote"]
+    if type(index) is not int or not 0 <= index < len(sources) or not isinstance(quote, str):
+        raise DomainValidationError("invalid preliminary source selection")
+    if "start" in span:
+        start, end = span["start"], span["end"]
+    else:
+        start = sources[index].quote.find(quote)
+        if not quote or start < 0 or start != sources[index].quote.rfind(quote):
+            raise DomainValidationError("preliminary quote absent or ambiguous")
+        end = start + len(quote)
+    if (
+        any(type(value) is not int for value in (index, start, end))
+        or not 0 <= start < end <= len(sources[index].quote)
+        or sources[index].quote[start:end] != quote
+    ):
+        raise DomainValidationError("preliminary span outside literal claim source")
+    source = sources[index]
+    ref = verify_source_ref(
+        replace(
+            source,
+            char_start=source.char_start + start,
+            char_end=source.char_start + end,
+            quote=quote,
+        ),
+        graph,
+        tenant_id=tenant_id,
+    )
+    if ref.verification_state != "verified":
+        raise DomainValidationError("preliminary dimension validation required")
+    return ref
+
+
 def validate_preliminary(
     claim: Claim, graph: CanonicalDocumentGraph, response: Mapping, *, tenant_id: str
 ) -> PreliminaryClassification:
@@ -148,40 +213,7 @@ def validate_preliminary(
         if span is None:
             dimensions[name] = None
             continue
-        if not isinstance(span, Mapping) or set(span) not in (
-            {"source_index", "quote"},
-            {"source_index", "start", "end", "quote"},
-        ):
-            raise DomainValidationError("invalid preliminary source span")
-        index, quote = span["source_index"], span["quote"]
-        if type(index) is not int or not 0 <= index < len(sources) or not isinstance(quote, str):
-            raise DomainValidationError("invalid preliminary source selection")
-        if "start" in span:
-            # Explicit v1 offsets remain strict: never repair an incorrect model offset.
-            start, end = span["start"], span["end"]
-        else:
-            text = sources[index].quote
-            start = text.find(quote)
-            if not quote or start < 0 or start != text.rfind(quote):
-                raise DomainValidationError("preliminary quote absent or ambiguous")
-            end = start + len(quote)
-        if (
-            any(type(value) is not int for value in (index, start, end))
-            or not 0 <= index < len(sources)
-            or not 0 <= start < end <= len(sources[index].quote)
-            or sources[index].quote[start:end] != span["quote"]
-        ):
-            raise DomainValidationError("preliminary span outside literal claim source")
-        source = sources[index]
-        # Server restores all provenance/coordinates; the model cannot supply them.
-        ref = replace(
-            source,
-            char_start=source.char_start + start,
-            char_end=source.char_start + end,
-            quote=span["quote"],
+        dimensions[name] = _literal_dimension_ref(
+            span, sources, graph, tenant_id=tenant_id, allow_offsets=True
         )
-        ref = verify_source_ref(ref, graph, tenant_id=tenant_id)
-        if ref.verification_state != "verified":
-            raise DomainValidationError("preliminary dimension validation required")
-        dimensions[name] = ref
     return PreliminaryClassification(track, ClaimContext(claim, dimensions), confidence, category)
