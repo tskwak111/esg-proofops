@@ -56,6 +56,13 @@ class ReviewRejected(ValueError):
 # rulepack-activation prefix pattern (``ai-delegated-review:<operator>``) so a
 # machine-driven revision can never be mistaken for an independent human
 # confirmation. Old ``human``/``consensus`` rows stay valid and immutable.
+#
+# R24: a bounded correction for a safe-harbor category the tagging headers agree
+# on but the reviewed source does not support. v1 REMOVES a wrong non-null
+# category only; adding or replacing one would assert a regulatory
+# classification the reviewed refs do not establish, so it is refused as
+# unsupported until a concrete need exists. The policy name states the scope.
+CATEGORY_POLICY_V1 = "claim_category_removal_v1"
 AI_DELEGATED_ORIGIN = "ai_delegated"
 AI_DELEGATED_REVIEW_STATUS = "ai_delegated_confirmed"
 AI_DELEGATED_REVIEWER_PREFIX = "ai-delegated-review:"
@@ -333,13 +340,7 @@ def _review_safe_harbor(inputs: ReviewInputs, review: Any):
     ):
         raise ReviewRejected("SAFE_HARBOR_REVIEW_INVALID")
 
-    packet_refs: dict[str, tuple[dict, str]] = {}
-    for raw in packet.get("claim_source_refs", []):
-        packet_refs[canonical_hash(raw)] = (raw, "local_claim")
-    for candidate in packet.get("evidence_candidates", []):
-        scope = candidate.get("source_scope")
-        for raw in candidate.get("source_refs", []):
-            packet_refs.setdefault(canonical_hash(raw), (raw, scope))
+    packet_refs = _packet_ref_index(packet)
 
     facts, seen, verified_refs = [], set(), []
     for item in review["facts"]:
@@ -413,6 +414,125 @@ def _review_safe_harbor(inputs: ReviewInputs, review: Any):
     return facts, receipt
 
 
+def _packet_ref_index(packet: Mapping[str, Any]) -> dict[str, tuple[dict, str]]:
+    """Index the immutable packet's own references by canonical hash and scope."""
+    packet_refs: dict[str, tuple[dict, str]] = {}
+    for raw in packet.get("claim_source_refs", []):
+        packet_refs[canonical_hash(raw)] = (raw, "local_claim")
+    for candidate in packet.get("evidence_candidates", []):
+        scope = candidate.get("source_scope")
+        for raw in candidate.get("source_refs", []):
+            packet_refs.setdefault(canonical_hash(raw), (raw, scope))
+    return packet_refs
+
+
+def _review_category(inputs: ReviewInputs, track: str, review: Any):
+    """Validate an explicit removal of a wrong safe-harbor category; create no fact.
+
+    The request must PIN what the models and the frozen packet actually said:
+    the observed category is checked against every guarded tag-run header and
+    against the packet value, so this is not an override that ignores those
+    checks. Nothing here rewrites a header, a packet or a replica hash, and no
+    ``ConfirmedFact`` is produced -- a category is a classification header, not
+    an observed fact. Returns ``(corrected_category, receipt, superseded_names)``.
+    """
+    if not isinstance(review, dict) or set(review) != {
+        "policy",
+        "input_snapshot_sha256",
+        "track",
+        "observed_category",
+        "corrected_category",
+        "claim_source_refs",
+        "basis_refs",
+        "source_authority",
+        "reason",
+    }:
+        raise ReviewRejected("CATEGORY_REVIEW_INVALID")
+    config = inputs.rulepack.file_content("regulatory/safe_harbor.yaml")
+    checklists = config.get("category_checklists") or {}
+    observed = review["observed_category"]
+    if (
+        review["policy"] != CATEGORY_POLICY_V1
+        or review["track"] != track
+        or review["input_snapshot_sha256"] != canonical_hash(inputs.snapshot())
+        # Only a category this pinned regulatory config defines can be removed;
+        # an unknown name is escalated instead of silently dropped.
+        or not isinstance(observed, str)
+        or observed not in checklists
+        or not isinstance(review["claim_source_refs"], list)
+        or not isinstance(review["basis_refs"], list)
+        or not review["basis_refs"]
+        or any(
+            not isinstance(text, str) or not 5 <= len(text.strip()) <= 1000
+            for text in (review["source_authority"], review["reason"])
+        )
+    ):
+        raise ReviewRejected("CATEGORY_REVIEW_INVALID")
+    if review["corrected_category"] is not None:
+        raise ReviewRejected("CATEGORY_CORRECTION_UNSUPPORTED")
+    packet = inputs.packet.to_dict()
+    headers = {
+        run.guarded.safe_harbor_category for run in inputs.tag_runs if run.guarded is not None
+    }
+    if headers != {observed} or packet.get("safe_harbor_category") != observed:
+        raise ReviewRejected("CATEGORY_REVIEW_OBSERVED_MISMATCH", 409)
+    claim = inputs.context.claim
+    # A category is a property of the whole atomic claim, so the replayed loader
+    # refs must match exactly; caller-selected subquotes are refused.
+    if not claim.source_refs or canonical_hash(review["claim_source_refs"]) != canonical_hash(
+        [asdict(ref) for ref in claim.source_refs]
+    ):
+        raise ReviewRejected("WHOLE_CLAIM_REQUIRED")
+    claim_refs = tuple(
+        verify_source_ref(ref, inputs.original, tenant_id=claim.tenant_id)
+        for ref in claim.source_refs
+    )
+    if any(ref.verification_state != "verified" for ref in claim_refs):
+        raise ReviewRejected("CATEGORY_SOURCE_REJECTED")
+    packet_refs = _packet_ref_index(packet)
+    basis_refs = []
+    for raw in review["basis_refs"]:
+        match = packet_refs.get(canonical_hash(raw)) if isinstance(raw, dict) else None
+        if match is None or match[1] not in ("local_claim", "same_table"):
+            raise ReviewRejected("CATEGORY_SOURCE_REJECTED")
+        checked = verify_source_ref(
+            _source_ref_from_dict(raw), inputs.original, tenant_id=claim.tenant_id
+        )
+        if checked.verification_state != "verified":
+            raise ReviewRejected("CATEGORY_SOURCE_REJECTED")
+        basis_refs.append(asdict(checked))
+    receipt = {
+        "request": review,
+        "identity": {
+            "tenant_id": claim.tenant_id,
+            "document_version_id": claim.document_version_id,
+            "claim_id": claim.claim_id,
+            "run_id": inputs.run_id,
+            "parse_manifest_id": inputs.original.parse_manifest_id,
+            "source_sha256": inputs.original.source_sha256,
+            "graph_sha256": canonical_hash(asdict(inputs.original)),
+            "claim_sha256": canonical_hash(asdict(claim)),
+            "packet_sha256": inputs.packet.packet_sha256,
+            "original_packet_sha256": inputs.original_packet.packet_sha256,
+            "rulepack_sha256": inputs.rulepack.sha256,
+            "input_snapshot_sha256": canonical_hash(inputs.snapshot()),
+        },
+        "observed_category": observed,
+        "corrected_category": None,
+        # The models' own words stay recorded next to the correction.
+        "observed_tag_run_headers": [
+            run.guarded.safe_harbor_category for run in inputs.tag_runs if run.guarded is not None
+        ],
+        "observed_packet_safe_harbor_category": packet.get("safe_harbor_category"),
+        "superseded_checklist_items": [
+            name for name in checklists.get(observed, ()) if isinstance(name, str)
+        ],
+        "verified_claim_source_refs": [asdict(ref) for ref in claim_refs],
+        "verified_basis_refs": basis_refs,
+    }
+    return None, receipt, tuple(receipt["superseded_checklist_items"])
+
+
 class ReviewService:
     def __init__(self, store: ReviewStore, *, load_inputs: Callable[[str, str, str], ReviewInputs]):
         self.store, self.load_inputs = store, load_inputs
@@ -449,13 +569,28 @@ class ReviewService:
     def publish_transaction(self, connection, inputs: ReviewInputs, review_id: str | None = None):
         return self.store.publish_transaction(connection, inputs, self._review(inputs, review_id))
 
-    def resolve_review(self, actor, review_id, body, if_match, idempotency_key, *, reopen=False):
+    def resolve_review(
+        self,
+        actor,
+        review_id,
+        body,
+        if_match,
+        idempotency_key,
+        *,
+        category_review=None,
+        reopen=False,
+    ):
         """Default human route: provenance is always human, never caller-chosen.
 
         ``reopen=True`` is the explicit human re-review action for a review that
         was already resolved: it produces the next immutable tag/decision/review
         revisions on the CURRENT head and never mutates or reverts the prior
         ones. The default (``reopen=False``) still refuses a resolved review.
+
+        ``category_review`` is a trusted backend-only keyword (the HTTP router
+        never supplies it), so the HTTP request contract is unchanged. A human
+        re-review still CARRIES and re-validates a prior correction receipt
+        without supplying anything.
         """
         return self._resolve_with_provenance(
             actor,
@@ -467,6 +602,7 @@ class ReviewService:
             review_status=HUMAN_REVIEW_STATUS,
             reviewer_sub=None,
             extra_tag=None,
+            category_review=category_review,
             reopen=reopen,
         )
 
@@ -482,6 +618,7 @@ class ReviewService:
         delegation_authority: str,
         applicability_review: dict | None = None,
         safe_harbor_review: dict | None = None,
+        category_review: dict | None = None,
         reopen: bool = False,
     ):
         """Trusted backend-only operation for explicit user-delegated AI review.
@@ -522,6 +659,7 @@ class ReviewService:
             },
             applicability_review=applicability_review,
             safe_harbor_review=safe_harbor_review,
+            category_review=category_review,
             reopen=reopen,
         )
 
@@ -539,6 +677,7 @@ class ReviewService:
         extra_tag,
         applicability_review=None,
         safe_harbor_review=None,
+        category_review=None,
         reopen=False,
     ):
         if not isinstance(actor, AuthContext) or not actor.has_capability("reviewer"):
@@ -588,6 +727,7 @@ class ReviewService:
             # reproduces the same honest decision (e.g. M5/M6 exclusion).
             carried_applicability = None
             carried_safe_harbor = None
+            carried_category = None
             # Preserve the ORIGINAL attestation ancestry across chained carries:
             # if the prior receipt already recorded a ``carried_from`` we keep it,
             # otherwise the immediate prior tag's provenance is the origin. This
@@ -599,6 +739,7 @@ class ReviewService:
             }
             applicability_ancestry = prior_provenance
             safe_harbor_ancestry = prior_provenance
+            category_ancestry = prior_provenance
             if reopen:
                 prior_applicability = initial.get("applicability_review")
                 if isinstance(prior_applicability, dict):
@@ -610,11 +751,19 @@ class ReviewService:
                     carried_safe_harbor = prior_safe_harbor.get("request")
                     if isinstance(prior_safe_harbor.get("carried_from"), dict):
                         safe_harbor_ancestry = prior_safe_harbor["carried_from"]
+                prior_category = initial.get("category_review")
+                if isinstance(prior_category, dict):
+                    carried_category = prior_category.get("request")
+                    if isinstance(prior_category.get("carried_from"), dict):
+                        category_ancestry = prior_category["carried_from"]
             effective_applicability = (
                 applicability_review if applicability_review is not None else carried_applicability
             )
             effective_safe_harbor = (
                 safe_harbor_review if safe_harbor_review is not None else carried_safe_harbor
+            )
+            effective_category = (
+                category_review if category_review is not None else carried_category
             )
             # Provenance of a carried (not re-supplied) attestation stays the
             # original reviewer's, never relabelled as the current actor. A human
@@ -624,6 +773,7 @@ class ReviewService:
                 applicability_review is None and carried_applicability is not None
             )
             safe_harbor_carried = safe_harbor_review is None and carried_safe_harbor is not None
+            category_carried = category_review is None and carried_category is not None
             base = inputs.consensus.confirmed_tags
             facts = {f.name: f for f in base.facts} if base else {}
             previous_names = {
@@ -636,6 +786,20 @@ class ReviewService:
             # A changed track requires fresh applicability, never inherited trigger tags.
             if body["track"] != inputs.packet.to_dict()["track"]:
                 previous_names |= trigger_names
+            # A category correction and a category checklist attestation cannot
+            # coexist in one revision: the checklist documents the very category
+            # being removed. Fail closed for a freshly supplied AND for a carried
+            # safe-harbor review instead of dropping either one silently.
+            corrected_category, category_receipt = (None, None)
+            if effective_category is not None:
+                if effective_safe_harbor is not None:
+                    raise ReviewRejected("CATEGORY_REVIEW_CONFLICTS_SAFE_HARBOR", 409)
+                corrected_category, category_receipt, superseded_items = _review_category(
+                    inputs, body["track"], effective_category
+                )
+                # Exclude only the removed category's checklist names from the NEW
+                # fact basis. The prior revision keeps them verbatim and immutable.
+                previous_names |= set(superseded_items)
             reviewed_facts, applicability_receipt = ([], None)
             if effective_applicability is not None:
                 reviewed_facts, applicability_receipt = _review_applicability(
@@ -757,6 +921,10 @@ class ReviewService:
             if len(headers) != 1:
                 raise ReviewRejected("CATEGORY_REVIEW_REQUIRED", 409)
             category, superlative = next(iter(headers))
+            if category_receipt is not None:
+                # Only the confirmed classification changes; the observed headers
+                # above stay pinned in the receipt and in ``inputs``.
+                category = corrected_category
             first = inputs.tag_runs[0]
             confirmed = ConfirmedTags(
                 actor.tenant_id,
@@ -804,6 +972,10 @@ class ReviewService:
                         "carried_from": safe_harbor_ancestry,
                     }
                 tag["safe_harbor_review"] = safe_harbor_receipt
+            if category_receipt is not None:
+                if category_carried and category_ancestry:
+                    category_receipt = {**category_receipt, "carried_from": category_ancestry}
+                tag["category_review"] = category_receipt
             if extra_tag:
                 tag.update(extra_tag)
             return tag, dict(
@@ -816,13 +988,18 @@ class ReviewService:
                 trusted_options["applicability_review"] = applicability_review
             if safe_harbor_review is not None:
                 trusted_options["safe_harbor_review"] = safe_harbor_review
+            if category_review is not None:
+                trusted_options["category_review"] = category_review
+            # Every supplied trusted option joins the retry identity on EVERY
+            # callable surface, not only when an AI provenance label is present:
+            # a same-key retry with a changed receipt must conflict, never replay.
+            # With no trusted option the identity stays the exact legacy shape so
+            # stored receipts still replay byte-for-byte.
+            retry_identity = dict(extra_tag or {}, **trusted_options) if trusted_options else {}
             return self.store.resolve(
                 actor,
                 review_id,
-                # Include trusted options in retry identity after strict HTTP parsing.
-                body | {"_trusted_ai_review": dict(**extra_tag, **trusted_options)}
-                if extra_tag and trusted_options
-                else body,
+                body | {"_trusted_ai_review": retry_identity} if retry_identity else body,
                 int(if_match[1:-1]),
                 idempotency_key,
                 build,
