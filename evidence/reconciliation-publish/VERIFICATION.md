@@ -47,7 +47,8 @@ policy approval. C3 thresholds/account mapping, open domain decisions, held-out
 accuracy evaluation and production deployment are not completed by this PR.
 
 CI runs the offline release checks and actual Java parser regression on Ubuntu,
-Windows and macOS 15 (Apple Silicon and Intel). Java 21 is installed for the
+Windows and macOS 15 (Apple Silicon). Intel macOS verification was excluded
+from this handoff at the user's request. Java 21 is installed for the
 runner's architecture. The PR checks and linked Actions runs are the authoritative
 remote result for each commit; this document records local evidence only.
 

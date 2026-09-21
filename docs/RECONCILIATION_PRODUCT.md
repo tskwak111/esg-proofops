@@ -103,8 +103,9 @@ $env:PYTHONUTF8 = '1'
 uv run --no-sync python -m pytest tests/acceptance/test_parsing.py tests/integration/test_local_tag_runner.py -q
 ```
 
-GitHub CI는 Windows·Linux·macOS 15(Apple Silicon 및 Intel)에서 대조 검증 및
+GitHub CI는 Windows·Linux·macOS 15(Apple Silicon)에서 대조 검증 및
 위 실제 Java 파서 회귀 검사를 실행한다. Java 21은 러너 아키텍처에 맞게 설치한다.
+Intel macOS 검증은 이번 전달 범위에서 제외한다.
 
 ### 개발자 A: macOS 시작
 
