@@ -352,6 +352,17 @@ def test_busy_operation_does_not_dispatch(tmp_path, monkeypatch):
     assert not calls and probe.summary()["calls"] == 0
 
 
+def test_missing_platform_lock_never_dispatches_or_reserves(tmp_path, monkeypatch):
+    import sys
+
+    adapter, probe, calls, request = configured(tmp_path, monkeypatch)
+    monkeypatch.setitem(sys.modules, "fcntl", None)
+    with pytest.raises(ModuleNotFoundError, match="fcntl"):
+        adapter.invoke(request)
+    assert not calls and probe.summary()["calls"] == 0
+    assert not list((tmp_path / "receipts").iterdir())
+
+
 def test_unfrozen_classification_is_rejected_before_paid_tagging(tmp_path, monkeypatch):
     adapter, probe, calls, request = configured(tmp_path, monkeypatch)
     request["system_prompt"] = adapter._settings.rendered_system

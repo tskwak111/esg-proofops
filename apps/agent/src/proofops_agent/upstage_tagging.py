@@ -7,7 +7,6 @@ Receipts are immutable; a failed/unknown transport durably stops this operation.
 
 from __future__ import annotations
 
-import fcntl
 import json
 from collections.abc import Callable
 from dataclasses import asdict
@@ -212,6 +211,9 @@ class UpstageTaggingTransport:
         return self._resume is None or self._resume.allows(self._receipts)
 
     def invoke(self, request: dict) -> RawTagResponse:
+        # Offline workers can load on Windows; paid dispatch still requires this lock.
+        import fcntl
+
         # One operation per receipt root; the shared USD ledger also fences all roots.
         with (self._receipts / ".operation.lock").open("a") as lock:
             try:

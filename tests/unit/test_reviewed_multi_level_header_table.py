@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import json
 from copy import deepcopy
+from hashlib import sha256
 from pathlib import Path
 
 import pytest
@@ -35,6 +36,7 @@ from proofops.application.tagging.table_sources import (
     ROW_QUALIFIER,
     table_structural_sources,
 )
+from pypdf import PdfWriter
 
 from evaluation.table_layout_review import review_layout
 
@@ -282,9 +284,14 @@ def test_second_reviewed_layout_reuses_the_same_axis_path_on_its_own_page():
     assert any(item.ref.verification_state == "verified" for item in result.verified)
 
 
-def test_span_and_unit_source_guards_fail_closed():
+def test_span_and_unit_source_guards_fail_closed(tmp_path):
     """Portable: malformed opt-in input must stop the tool, never widen a cell."""
     base = _spec(P29)
+    source = tmp_path / "grid.pdf"
+    writer = PdfWriter()
+    writer.add_blank_page(width=1000, height=800)
+    writer.write(source)
+    base.update(source_sha256=sha256(source.read_bytes()).hexdigest(), physical_page=1)
     for mutate, message in (
         (lambda s: s["colspans"].append([0, 3, 2]), "overlapping reviewed spans"),
         (lambda s: s["rowspans"].append([0, 3, 2]), "overlapping reviewed spans"),
@@ -300,4 +307,4 @@ def test_span_and_unit_source_guards_fail_closed():
         spec = deepcopy(base)
         mutate(spec)
         with pytest.raises(ValueError, match=message):
-            review_layout(LOTTE, spec)
+            review_layout(source, spec)

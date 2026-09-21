@@ -89,6 +89,33 @@ uv run pytest tests/unit tests/contracts tests/acceptance tests/integration test
 기존 실행 재조회 집계는 `.local/old-run-replay-results.json`에 있다.
 운영 상태나 전체 보고서를 GitHub에 올리기 위해 복사하지 않았다.
 
+## PR #8 CI 복구 (2026-09-21)
+
+최초 GitHub 실행 `35607412390`의 Python 실패 2건은 로컬 보고서/실행 기록 의존성이었고,
+Windows 실패는 공통 worker의 import 경로가 Unix 전용 `fcntl`을 즉시 읽어서 발생했다.
+`fcntl`은 실제 유료 태깅 호출 안에서만 읽도록 옮겼다. 기존 POSIX 잠금은 그대로이며,
+잠금 모듈이 없는 플랫폼에서는 유료 호출·예약·영수증 생성 전에 거절된다.
+이는 Windows 오프라인 대조 경로의 복구이며 Windows 유료 태깅 지원 추가가 아니다.
+
+실보고서 5개사의 기존 assertion은 유지하고 해당 로컬 기록이 없는 checkout에서만
+그 역사적 사례 검사를 제외한다. 별도 임시 PDF/JSON으로 `missing`/`parse_only`/`ok`,
+미실행 단계, 페이지 중복 이력, 실제 해시 계산과 파일 변경·삭제 거절을 검사한다.
+표 격자 오류 검사는 생성한 PDF를 사용하여 기존 10개 오류 assertion을 CI에서도 실행한다.
+원문 검증기·규칙·API/DB 계약과 기존 결과는 변경하지 않았다.
+
+관련 검사 67개 통과(태깅·복구·잠금 부재/경합·임시 입력), 변경 파일 lint/format 및
+태깅 transport type 검사 통과. 로그는 `.local/ci-recovery-20260921/`에 보관한다.
+Python CI와 같은 범위의 로컬 실행은 382 통과/45 제외였다(로컬 실자료 사례 포함).
+기존 FastAPI/Starlette deprecation warning 2건은 남아 있다. 실행 명령:
+
+```sh
+uv run pytest tests/unit/test_pipeline_recovery.py tests/unit/test_tagging_platform.py tests/unit/test_reviewed_multi_level_header_table.py::test_span_and_unit_source_guards_fail_closed tests/integration/test_upstage_tagging.py tests/integration/test_tag_recovery.py -q
+DEVELOPER_DIR=/Library/Developer/CommandLineTools uv run pytest tests/unit tests/contracts tests/e2e/test_staging_gate.py -q
+uv run ruff check apps/agent/src/proofops_agent/upstage_tagging.py tests/unit/test_pipeline_recovery.py tests/unit/test_tagging_platform.py tests/unit/test_reviewed_multi_level_header_table.py tests/integration/test_upstage_tagging.py
+uv run ruff format --check apps/agent/src/proofops_agent/upstage_tagging.py tests/unit/test_pipeline_recovery.py tests/unit/test_tagging_platform.py tests/unit/test_reviewed_multi_level_header_table.py tests/integration/test_upstage_tagging.py
+uv run mypy apps/agent/src/proofops_agent/upstage_tagging.py
+```
+
 ## 남은 제한
 
 - 데이터 담당자의 최종 기준·크로스워크와 C3 임계값/계정 매핑은 아직 확정되지 않았다.
