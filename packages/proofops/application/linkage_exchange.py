@@ -49,6 +49,7 @@ from typing import Any
 
 from proofops.application.claims import Claim
 from proofops.domain.errors import DomainValidationError
+from proofops.domain.reconciliation.common import validate_packet
 from proofops.domain.rules.engine import ConfirmedFact, ConfirmedTags
 from proofops.domain.values import SourceRef, _require_sha256, _require_uuid
 
@@ -331,6 +332,16 @@ def _verified_triggers(tags: ConfirmedTags) -> tuple[VerifiedTrigger, ...]:
             VerifiedTrigger(fact.name, trigger_element, fact.evidence_refs, fact.normalized_value)
         )
     return tuple(sorted(triggers, key=lambda t: t.fact_name))
+
+
+def _context_to_contract_dict(context: C3Context | C4Context | None) -> dict[str, Any] | None:
+    """Emit tuple-backed context fields as arrays required by the packet contract."""
+    if context is None:
+        return None
+    return {
+        key: list(value) if isinstance(value, tuple) else value
+        for key, value in asdict(context).items()
+    }
 
 
 def build_packet(
@@ -637,7 +648,7 @@ def build_packet(
         ),
         comparability="unknown",
         explanation=dict(source_id=None, search_complete=False),
-        c3_context=asdict(financial_context.c3_context) if financial_context.c3_context else None,
+        c3_context=_context_to_contract_dict(financial_context.c3_context),
         claim=dict(
             track=tags.track,
             quote=claim_source.quote,
@@ -655,6 +666,16 @@ def build_packet(
             failed_document_ids=[],
             receipt_id=None,
         ),
-        c4_context=asdict(financial_context.c4_context) if financial_context.c4_context else None,
+        c4_context=_context_to_contract_dict(financial_context.c4_context),
     )
+    # Reject malformed typed values at the producer boundary using B's validator.
+    try:
+        validate_packet(packet)
+    except DomainValidationError as exc:
+        return BlockedPacket(
+            claim.claim_id,
+            item,
+            "invalid_reconciliation_packet",
+            f"packet violates the shared reconciliation contract: {exc}",
+        )
     return packet
