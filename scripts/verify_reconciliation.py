@@ -24,6 +24,8 @@ RECONCILIATION_PATHS = (
     "evaluation/reconciliation_fixtures.py",
     "evaluation/reconciliation_collect.py",
     "evaluation/reconciliation_prepare.py",
+    "evaluation/reconciliation_source_audit.py",
+    "evaluation/reconciliation_benchmark.py",
 )
 PRODUCT_PATHS = (
     "packages/proofops/application/uploads_security.py",
@@ -33,6 +35,7 @@ PRODUCT_PATHS = (
 )
 NEW_SOURCE_PATHS = (
     "scripts/verify_reconciliation.py",
+    "scripts/check_reconciliation_readiness.py",
     "tests/reconciliation/test_release_verifier.py",
 )
 
@@ -216,13 +219,20 @@ class ReleaseVerifier:
             *RECONCILIATION_PATHS,
             *PRODUCT_PATHS,
             "scripts/verify_reconciliation.py",
+            "scripts/check_reconciliation_readiness.py",
             "tests/reconciliation",
         ]
         self.command("ruff_check", ["-m", "ruff", "check", *lint_paths])
         self.command("ruff_format", ["-m", "ruff", "format", "--check", *lint_paths])
         self.command(
             "mypy",
-            ["-m", "mypy", *RECONCILIATION_PATHS, "scripts/verify_reconciliation.py"],
+            [
+                "-m",
+                "mypy",
+                *RECONCILIATION_PATHS,
+                "scripts/verify_reconciliation.py",
+                "scripts/check_reconciliation_readiness.py",
+            ],
         )
         self.command(
             "product_mypy",
