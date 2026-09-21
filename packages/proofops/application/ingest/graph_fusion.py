@@ -463,17 +463,21 @@ def fuse_candidates(
         return a is not None and b is not None and _matches(a, b, fusion_version=fusion_version)
 
     groups: list[list[tuple[CandidateBatch, CandidateBlock]]] = []
+    # ponytail: pairwise local region alignment, scanned per (physical page, kind) bucket because
+    # _matches rejects that pair first and every group is homogeneous in it; global group creation
+    # order and the first-matching-group choice are unchanged. Same-page cost is still quadratic.
+    buckets: dict[tuple[int, str], list[list[tuple[CandidateBatch, CandidateBlock]]]] = {}
     aliases: dict[tuple[str, str], str] = {}
-    # ponytail: pairwise local region alignment; spatial indexing if measured large graphs need it.
     for batch in ordered:
         for block in sorted(
             batch.blocks,
             key=lambda block: (block.source.physical_page, block.source.source_native_id),
         ):
+            bucket = buckets.setdefault((block.source.physical_page, block.kind), [])
             group = next(
                 (
                     group
-                    for group in groups
+                    for group in bucket
                     if all(
                         _matches(item, block, fusion_version=fusion_version)
                         and compatible_tables(item_batch, item, batch, block)
@@ -483,7 +487,9 @@ def fuse_candidates(
                 None,
             )
             if group is None:
-                groups.append([(batch, block)])
+                group = [(batch, block)]
+                groups.append(group)
+                bucket.append(group)
             else:
                 group.append((batch, block))
     blocks, issues = [], []
