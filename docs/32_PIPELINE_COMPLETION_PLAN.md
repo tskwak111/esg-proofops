@@ -673,3 +673,13 @@ R00의 충돌·호환성 경계를 필요한 범위만 정리한 뒤 R01 비교�
 - 구현·검토 완료(2026-09-22): API는 분류 불명/필드·차원 충돌/응답 미완료를 구분하며, 응답 개수가 없는 과거 기록은 중립 안내를 사용한다. 실제 R19 checkpoint를 읽기 전용으로 대조해 불명8/충돌1을 확인했다(`R20-naver/review-projection.json`). Kiro 관련210검사·lint·type(221파일)·architecture 통과 후, 조정자의 마지막 안내 수정에 대해 `.venv/bin/python -m pytest tests/integration/test_claim_api.py -q` 9통과, 변경 Python 파일 `ruff check`, `mypy apps/api/src/proofops_api/routers/claims.py`, `git diff --check` 통과. 전체4천여검사·새 유료 end-to-end run·AWS 검증은 not_run이다. 관리 worker 완료 수신 후 release 및 이번에 생성한 터미널 종료, reclaimable0을 확인했다.
 - 실제 추가 호출4건 전부 정산 USD0.002433090. 공용 사용·예약 USD17.234563047200000000059/20, 과거 미정산13건 유지. 원래 run·PDF·claim/태깅/판정 revision은 변경하지 않았다. 실험은 새 결과를 서비스에 게시하지 않았다.
 - 로컬 증거는 ROOT `outputs/agent-results/R20-naver/extraction-probe/`의 manifest·요청·응답·summary, `R20-naver/page90.png`, `R20-naver-diagnosis.md`다. 예비 태깅의 의미 분류, 전체 보고서 완주, 독립 평가와 최종 정책은 이번 소표본 추출 실험으로 해결되지 않았다.
+
+### R21 · 분류 실험과 검토 큐 누락 보완 (2026-09-22)
+
+- Kiro 원문·실제 요청 대조에서 체계 구축/시뮬레이션 구현 두 주장 모두 S&P 분석 수행 문맥을 이미 받았음을 확인했다. 기존 프롬프트도 문맥을 통한 트랙 해석을 허용한다. 따라서 단순한 문맥 부재·문맥 사용 금지를 원인으로 확정했던 초기 가설은 철회했다. 모델링 결과 주장에는 가정/분석 결과 표제의 일부 문맥이 빠져 있지만, 이것만으로 원인이나 정답 트랙을 확정하지 않는다.
+- 동일한 실제 입력4건에 기존/명확화 프롬프트 각1회, 총8회 호출했다. 기존은4건 모두 track=null, 명확화는 체계 구축1건만 management/0.6, 나머지3건은 null이었다. 기존의 과거 세 응답에도 management가2회 있었으므로 개선·합의·정확도 입증이 아니다. 새 분류 프롬프트는 제품에 편입하지 않았다. 결과는 ROOT `outputs/agent-results/R21-track-probe/summary.json`과 같은 폴더의 요청·응답·manifest에 보존한다.
+- 8회 모두 정산, 추가 USD0.010065660. 공용 사용·예약 USD17.244628707200000000059/20, 과거 미정산13건 그대로다. 기존 PDF/run/태깅/판정 revision과 서비스 게시 결과는 변경하지 않았다.
+- 실제 R19 데이터베이스를 읽기 전용으로 확인했다: 주장10건, 선행분류 보류9건, 원문 보류1건, `review_inputs` 보유0건, `review_head`0건(`outputs/agent-results/R21-review-gap.json`). worker는 선행분류 보류 시 검토 입력 게시 이전에 종료하고, UI는 reviews가 없으면 빈 큐만 표시했다. 기존 주장 상세의 보류 안내는 편집 가능한 수동 분류 경로가 아니다.
+- UI 보완 완료: 기존 claims/reviews 응답으로 검토 미등록·미판정 주장을 구해 개수·페이지·인용문과 기존 상세 링크를 표시한다. 이미 검토에 등록됐거나 판정된 주장은 제외하고, 기존 검토 편집기와 함께 표시한다. 원문 검증 통과나 특정 보류 원인을 단정하지 않으며 아직 편집할 수 없음을 안내한다. API/DB/권한·태깅 게시 가드는 변경하지 않았다.
+- 검증: 새 `tests/e2e/review_queue_gap_check.mjs`를 작업용 Vite/Orca 브라우저에서 실행하여 수정 전 미표시 실패, 수정 후 미등록 목록·혼합 상태의 기존 편집기·중복/판정 완료 제외·실제 빈 큐·중립 안내를 확인했다. 혼합 상태는 새 React key로 다시 마운트하고 목록 내부에 한정해 검증한다. `pnpm build`(tsc --noEmit + Vite), `git diff --check` 통과. 이는 mock API를 사용한 실제 브라우저 회귀이며 실제 원본10건의 UI end-to-end 판정 검증은 아니다. 전체 Python 검사는 UI 수정 범위에 필요하지 않아 반복하지 않았다. Kiro의 조사·보완·구현3개 Task 완료, 마지막 worker release→생성 터미널 종료→delivery ack, reclaimable0 확인.
+- 수동 선행분류 확정은 여전히 미구현이다. `ReviewService`는 트랙별 매핑과 유효한 검토 입력을 필요로 하고 live 검토 게시에는 실제 태깅 영수증 가드가 있다. 빈 합의나 가짜 태깅으로 검토를 게시하지 않는다. 후속 구현에는 사람/AI 위임 출처, 불변 분류 revision, If-Match 경합, 재처리 연결의 계약을 먼저 정해야 한다. 전체 보고서 완주·독립 gold·최종 정책 검증도 이번 범위에서 not_run이다.

@@ -428,12 +428,25 @@ export function ReviewQueueWorkspace({ apiBase = "", tenantKey, session, runId, 
   }
 
   if (!allowed) return <section><h1>태깅 검토</h1><p role="alert">검토자 또는 관리자 권한이 필요합니다. 가짜 승인 화면은 제공하지 않습니다.</p></section>;
+  // Claims that are undecided and not yet on the review queue (no Review row and
+  // no decided Decision) are hidden by the queue alone. Surface them read-only so
+  // a reviewer can open the existing claim detail for source and hold reason. The
+  // set spans several blocked states (e.g. preliminary track unresolved, source
+  // span unverified), so the copy stays neutral and does not assert a single cause.
+  const reviewedClaimIds = new Set(reviews.map(review => review.claim_id));
+  const unregistered = claims.filter(claim =>
+    !reviewedClaimIds.has(claim.claim_id) &&
+    (claim.decision === null || claim.decision.decision_status !== "decided"));
   return <section aria-labelledby="review-queue-heading"><h1 id="review-queue-heading">검토 큐</h1>
     {state === "loading" ? <p role="status">최신 주장과 검토 큐 스냅샷을 불러오는 중입니다.</p> : null}
     {state === "pending" ? <p role="status">{message}</p> : null}
     {state === "error" ? <p role="alert">{message} <button type="button" onClick={() => void load(selected)}>다시 시도</button></p> : null}
-    {state === "ready" && reviews.length === 0 ? <p>현재 검토 큐가 비어 있습니다.</p> : null}
+    {state === "ready" && reviews.length === 0 && unregistered.length === 0 ? <p>현재 검토 큐가 비어 있습니다.</p> : null}
     {reviews.length ? <nav aria-label="검토 항목"><ul>{reviews.map(review => <li key={review.review_id}><button type="button" aria-current={selected === review.review_id ? "true" : undefined} onClick={() => void choose(review.review_id)}>{claims.find(claim => claim.claim_id === review.claim_id)?.quote ?? review.claim_id} · {reviewQueueStatusText[review.status]}</button></li>)}</ul></nav> : null}
+    {state === "ready" && unregistered.length ? <section aria-labelledby="unregistered-heading"><h2 id="unregistered-heading">검토 큐에 아직 오르지 않은 미판정 주장 ({unregistered.length}건)</h2>
+      <p role="status">아직 검토 항목으로 등록되지 않은 미판정 주장입니다. 상세에서 원문과 처리 상태·보류 사유를 확인하세요. 아직 태깅 검토에서 편집할 수 없습니다.</p>
+      <ul>{unregistered.map(claim => <li key={claim.claim_id}>{claim.page_num}쪽 · <Link to={`/runs/${runId}/claims/${claim.claim_id}`}>{claim.quote}</Link></li>)}</ul>
+    </section> : null}
     {state === "ready" && snapshot && detail ? <ReviewWorkspace key={`${snapshot.review.review_id}:${snapshot.review.revision}`} {...snapshot} session={session}
       sourceChoices={detail.source_refs} loadLatest={async () => (await latest(snapshot.review.review_id, new AbortController().signal)).snapshot}
       onResolved={resolved} onSourceOpen={source => document.getElementById(`review-source-${source.source_id}`)?.focus()} localSynthetic={localSynthetic} /> : null}
