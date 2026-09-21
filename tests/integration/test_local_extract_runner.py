@@ -65,7 +65,7 @@ def extraction_setup(tmp_path, monkeypatch, *, extractor=None):
 
     monkeypatch.setattr(lifecycle, "setup", setup)
     service, run_id, parser, now, stream = runner_setup(tmp_path, monkeypatch)
-    assert parser.run_once(tenant_id=TENANT, run_id=run_id) == "committed"
+    assert parser.run_once(tenant_id=TENANT, run_id=run_id) == "committed", stream.getvalue()
     runner = LocalExtractRunner(
         service.store,
         service.uploads,
