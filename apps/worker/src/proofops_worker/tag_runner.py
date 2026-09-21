@@ -36,6 +36,7 @@ from proofops.domain.rules.engine import RuleContext, evaluate
 
 from proofops_worker.consumer import StageFailure, with_lease_heartbeat
 from proofops_worker.tag_recovery import TagRecovery
+from proofops_worker.tag_reprocess import TagReprocess
 from proofops_worker.telemetry import observe_job
 
 
@@ -129,7 +130,7 @@ class LocalTagRunner:
             LocalSQLiteReviewStore(store.jobs), load_inputs=self.tags.load_inputs
         )
 
-    def _execute(self, lease, snapshot, usage, recovery=None):
+    def _execute(self, lease, snapshot, usage, recovery=None, reprocess=None):
         message = lease.message
         tenant, run_id = message.tenant_id, message.run_id
         extraction, discovery, graph = self.claims.load_evidence(tenant, run_id)
@@ -192,6 +193,17 @@ class LocalTagRunner:
             ):
                 records.append(recovery.carry_forward(claim.claim_id))
                 continue
+            # A manual-classification reprocess attempts exactly its one authorized
+            # claim and carries every other committed claim forward verbatim: no
+            # reprocessing, no new call and no second publication of an already
+            # immutable revision. The target claim is also carried forward untouched
+            # once the bound can no longer finish it, so the stage never publishes a
+            # half-tagged claim.
+            if reprocess is not None and (
+                claim.claim_id not in reprocess.claim_ids or not reprocess.can_attempt_claim()
+            ):
+                records.append(reprocess.carry_forward(claim.claim_id))
+                continue
             raw_candidate_review = None
             if raw_search is not None and _source_traceable(claim, graph):
                 raw_candidate_review = collect_raw_candidate_review(raw_search, claim.quote)
@@ -217,17 +229,62 @@ class LocalTagRunner:
             # Paid preliminary replicas stay behind the source-quality gate; an
             # unverified source never buys model calls to make progress.
             if reason is None:
-                preliminary = preliminary_supplier(claim, graph)
-                if live is not None:
-                    item["preliminary_records"] = live.preliminary_records.get(claim.claim_id, [])
-                    item["preliminary_agreement"] = live.preliminary_agreement(claim.claim_id)
-                track, context, relation_tags = (
-                    (None, None, None) if preliminary is None else preliminary
-                )
-                if track is None:
-                    reason = "PRELIMINARY_TAGS_UNRESOLVED"
-                elif context.claim != claim or track.claim != claim:
-                    raise ValueError("PRELIMINARY_CLAIM_MISMATCH")
+                if reprocess is not None and claim.claim_id in reprocess.claim_ids:
+                    # A manual-classification reprocess supplies the reviewer's
+                    # recorded, source-verified classification instead of a model
+                    # preliminary call. The element stage below still runs its real
+                    # replicas under the pinned run mode, so no grade is invented and
+                    # no model vote is fabricated. The prior preliminary_records /
+                    # preliminary_agreement of the blocked stage are preserved on the
+                    # carried record for every other claim; this target claim records
+                    # the distinct reviewed classification instead.
+                    from proofops.application.evidence.binding import local_relation_tags
+                    from proofops.application.tagging.manual_classification import (
+                        ClassificationRejected,
+                        classification_override,
+                    )
+
+                    try:
+                        classified = classification_override(
+                            reprocess.classification, claim, graph, tenant_id=tenant
+                        )
+                    except ClassificationRejected as error:
+                        raise ValueError("REPROCESS_CLASSIFICATION_INVALID") from error
+                    track, context = classified.track, classified.context
+                    relation_tags = local_relation_tags(context)
+                    # Preserve the prior blocked stage's original preliminary provenance
+                    # for this claim; the reviewed classification is additive, never a
+                    # replacement of what the model replicas actually recorded.
+                    prior = reprocess.carry_forward(claim.claim_id)
+                    if "preliminary_records" in prior:
+                        item["preliminary_records"] = prior["preliminary_records"]
+                    if "preliminary_agreement" in prior:
+                        item["preliminary_agreement"] = prior["preliminary_agreement"]
+                    item["reviewed_classification"] = dict(
+                        classification_id=reprocess.plan.classification_id,
+                        classification_sha256=reprocess.plan.classification_sha256,
+                        origin=reprocess.classification.get("origin"),
+                        classified_by=reprocess.classification.get("classified_by"),
+                        review_origin=reprocess.classification.get("review_origin"),
+                        track=track.track,
+                        safe_harbor_category=classified.safe_harbor_category,
+                    )
+                    if context.claim != claim or track.claim != claim:
+                        raise ValueError("PRELIMINARY_CLAIM_MISMATCH")
+                else:
+                    preliminary = preliminary_supplier(claim, graph)
+                    if live is not None:
+                        item["preliminary_records"] = live.preliminary_records.get(
+                            claim.claim_id, []
+                        )
+                        item["preliminary_agreement"] = live.preliminary_agreement(claim.claim_id)
+                    track, context, relation_tags = (
+                        (None, None, None) if preliminary is None else preliminary
+                    )
+                    if track is None:
+                        reason = "PRELIMINARY_TAGS_UNRESOLVED"
+                    elif context.claim != claim or track.claim != claim:
+                        raise ValueError("PRELIMINARY_CLAIM_MISMATCH")
             # Local, no-model candidate retrieval runs before the source and
             # consensus stops, so a blocked claim still reaches review with its
             # traceable candidates and the recorded reasons instead of nothing.
@@ -427,6 +484,8 @@ class LocalTagRunner:
             # Auditable record of what this operation actually attempted, carried and
             # spent, kept beside the stage it committed.
             envelope["recovery"] = recovery.summary()
+        if reprocess is not None:
+            envelope["reprocess"] = reprocess.summary()
         return canonical_json(envelope).encode(), publications
 
     def run_once(self, *, tenant_id: str, run_id: str) -> str:
@@ -444,6 +503,14 @@ class LocalTagRunner:
             recovery = TagRecovery.load(self.store, self.tags, message)
             if recovery is not None:
                 recovery.verify_published(self.store)
+            # A manual-classification reprocess is loaded the same way and is mutually
+            # exclusive with a recovery on the same message (each has its own shard and
+            # job id, so only one plan kind ever matches a given message).
+            reprocess = TagReprocess.load(self.store, self.tags, message)
+            if reprocess is not None:
+                reprocess.verify_published(self.store)
+            if recovery is not None and reprocess is not None:
+                raise ValueError("TAG_JOB_PLAN_AMBIGUOUS")
             lease = jobs.claim_job(
                 message, owner="local-tag:" + str(uuid4()), now=int(self.clock()), lease_seconds=300
             )
@@ -463,13 +530,19 @@ class LocalTagRunner:
             publications = []
 
             def operation(owned):
-                # An explicit recovery job carries its own acknowledged, bounded
+                # An explicit recovery or reprocess job carries its own bounded
                 # authorization, visible to the live runtime only while it runs.
                 # Ordinary jobs have none, so nothing about their stop, receipt or
                 # budget behavior changes.
-                self.resume = None if recovery is None else recovery.resume
+                self.resume = (
+                    recovery.resume
+                    if recovery is not None
+                    else reprocess.resume
+                    if reprocess is not None
+                    else None
+                )
                 try:
-                    payload, prepared = self._execute(owned, snapshot, usage, recovery)
+                    payload, prepared = self._execute(owned, snapshot, usage, recovery, reprocess)
                 finally:
                     self.resume = None
                 publications.extend(prepared)
@@ -523,6 +596,8 @@ class LocalTagRunner:
             jobs.record_usage(lease, usage)
 
             def publish(db):
+                if reprocess is not None:
+                    reprocess.verify_publication(self.store, db)
                 for inputs in publications:
                     self.reviews.publish_transaction(db, inputs)
                 pending = jobs._get(db, tenant_id, run_id, "outbox", event["event_id"])

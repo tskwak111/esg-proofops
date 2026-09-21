@@ -5096,6 +5096,271 @@ paths:
       x-minimum-role: viewer
       x-idempotency-required: false
       x-rate-limit: 60/min/user
+  /v1/runs/{run_id}/claims/{claim_id}/classification:
+    get:
+      summary: Get Classification
+      operationId: claim_classification_get
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Run Id
+      - name: claim_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Claim Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClassificationView'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden or CSRF failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found or tenant mismatch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict / gate blocked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '412':
+          description: Stale revision
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Schema or domain validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate/budget limit
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Dependency unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      x-minimum-role: viewer
+      x-idempotency-required: false
+      x-rate-limit: 120/min/user
+    post:
+      summary: Create Classification
+      operationId: claim_classification_create
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Run Id
+      - name: claim_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Claim Id
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+          maxLength: 128
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+          pattern: ^"[a-f0-9]{64}"$
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClassificationAccepted'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden or CSRF failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found or tenant mismatch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict / gate blocked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '412':
+          description: Stale revision
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Schema or domain validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate/budget limit
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Dependency unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      x-minimum-role: reviewer
+      x-idempotency-required: true
+      x-rate-limit: 10/min/user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                track:
+                  enum:
+                  - goal
+                  - performance
+                  - management
+                  title: Track
+                  type: string
+                safe_harbor_category:
+                  anyOf:
+                  - enum:
+                    - forward_looking
+                    - emissions_estimate
+                    - third_party_information
+                    type: string
+                  - type: 'null'
+                  title: Safe Harbor Category
+                dimensions:
+                  additionalProperties:
+                    anyOf:
+                    - additionalProperties: false
+                      properties:
+                        source_index:
+                          minimum: 0
+                          title: Source Index
+                          type: integer
+                        quote:
+                          minLength: 1
+                          title: Quote
+                          type: string
+                        start:
+                          anyOf:
+                          - minimum: 0
+                            type: integer
+                          - type: 'null'
+                          title: Start
+                        end:
+                          anyOf:
+                          - minimum: 1
+                            type: integer
+                          - type: 'null'
+                          title: End
+                      required:
+                      - source_index
+                      - quote
+                      title: ClassificationSpan
+                      type: object
+                    - type: 'null'
+                  propertyNames:
+                    enum:
+                    - entity
+                    - metric
+                    - reporting_period
+                    - facility
+                    - scope
+                    - product
+                    - material
+                    - boundary
+                  title: Dimensions
+                  type: object
+                reason:
+                  maxLength: 1000
+                  minLength: 5
+                  title: Reason
+                  type: string
+              required:
+              - track
+              - safe_harbor_category
+              - dimensions
+              - reason
+              title: ClassificationRequest
+              type: object
 components:
   securitySchemes:
     sessionCookie:
@@ -7628,7 +7893,6 @@ components:
       - preview_sha256
       title: SourceObservationPreviewResponse
       type: object
-
     ObservationSourceHolds:
       additionalProperties: false
       properties:
@@ -7994,3 +8258,129 @@ components:
       - binding_state
       - document_role
       title: SourceRef
+    ClassificationAccepted:
+      properties:
+        schema_version:
+          type: integer
+          const: 1
+          title: Schema Version
+        classification:
+          additionalProperties: true
+          type: object
+          title: Classification
+        reprocess_job:
+          additionalProperties: true
+          type: object
+          title: Reprocess Job
+      additionalProperties: false
+      type: object
+      required:
+      - schema_version
+      - classification
+      - reprocess_job
+      title: ClassificationAccepted
+    ClassificationSource:
+      properties:
+        source_index:
+          type: integer
+          title: Source Index
+        quote:
+          type: string
+          title: Quote
+        source_ref:
+          $ref: '#/components/schemas/SourceRef'
+      additionalProperties: false
+      type: object
+      required:
+      - source_index
+      - quote
+      - source_ref
+      title: ClassificationSource
+    ClassificationView:
+      properties:
+        schema_version:
+          type: integer
+          const: 1
+          title: Schema Version
+        run_id:
+          type: string
+          format: uuid
+          title: Run Id
+        claim_id:
+          type: string
+          format: uuid
+          title: Claim Id
+        eligible:
+          type: boolean
+          title: Eligible
+        ineligible_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ineligible Reason
+        blocked_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Blocked Reason
+        etag:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Etag
+        sources:
+          items:
+            $ref: '#/components/schemas/ClassificationSource'
+          type: array
+          title: Sources
+        dimension_axes:
+          items:
+            type: string
+          type: array
+          title: Dimension Axes
+        preliminary_agreement:
+          additionalProperties: true
+          type: object
+          title: Preliminary Agreement
+        current_classification:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Current Classification
+        pending_job:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Pending Job
+        allowed_tracks:
+          items:
+            type: string
+          type: array
+          title: Allowed Tracks
+        allowed_safe_harbor_categories:
+          items:
+            anyOf:
+            - type: string
+            - type: 'null'
+          type: array
+          title: Allowed Safe Harbor Categories
+      additionalProperties: false
+      type: object
+      required:
+      - schema_version
+      - run_id
+      - claim_id
+      - eligible
+      - ineligible_reason
+      - blocked_reason
+      - etag
+      - sources
+      - dimension_axes
+      - preliminary_agreement
+      - current_classification
+      - pending_job
+      - allowed_tracks
+      - allowed_safe_harbor_categories
+      title: ClassificationView

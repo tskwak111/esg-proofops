@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { SourceViewer } from "../../components/SourceViewer";
 import { StatusBadge } from "../../components/StatusBadge";
+import { PreliminaryClassification } from "./PreliminaryClassification";
 import { ApiError, errorMessage, isSessionError, requestJson, type Session } from "../session/api";
 import {
   ReviewWorkspace,
@@ -271,7 +272,7 @@ function ClaimList({ apiBase = "", tenantKey, runId, onSessionInvalid }: ClaimWo
   </section>;
 }
 
-function ClaimDetailView({ apiBase = "", csrfToken, tenantKey, runId, claimId = "", onSessionInvalid }: ClaimWorkspaceProps) {
+function ClaimDetailView({ apiBase = "", csrfToken, tenantKey, session, runId, claimId = "", onSessionInvalid }: ClaimWorkspaceProps) {
   const [detail, setDetail] = useState<ClaimDetail | null>(null);
   const [state, setState] = useState<LoadState>("loading");
   const [message, setMessage] = useState("");
@@ -326,6 +327,7 @@ function ClaimDetailView({ apiBase = "", csrfToken, tenantKey, runId, claimId = 
         <h3>보증 연결</h3>{detail.assurance.status === "undetermined" ? <p>보증 범위를 확인할 수 없습니다. 보고서 전체가 보증되었다고 간주하지 않습니다.</p> : <p>{detail.assurance.status === "covered" ? "보증 범위 안" : "보증 범위 밖"} · {detail.assurance.level ?? "수준 미확인"} · {detail.assurance.provider ?? "기관 미확인"}</p>}
         {detail.suggestion ? <><h3>수정 제안</h3><p>{detail.suggestion}</p></> : null}
         <h3>기준 근거</h3>{detail.basis_refs.length ? <ul>{detail.basis_refs.map((basis, index) => <li key={`${basis.standard}:${basis.clause}:${index}`}>{basis.standard} {basis.clause ?? "조항 미확정"}: {basis.summary} ({basisVerificationText[basis.verification_status]})</li>)}</ul> : <p>표시할 검증된 기준 근거가 없습니다.</p>}
+        <PreliminaryClassification apiBase={apiBase} runId={runId} claimId={claimId} untagged={untagged} session={session} onSessionInvalid={onSessionInvalid} />
         {projection && projection.schema_version === 1 ? <section aria-labelledby="review-projection-heading"><h3 id="review-projection-heading">검토 중인 후보 (미확정)</h3>
           <p role="status">이 후보는 참고용이며 최종 판정이나 태그 편집에 그대로 반영되지 않습니다. 자체 원문 검증을 통과해야 합니다.</p>
           {projection.blocked_reason ? <p>보류 사유: {projection.blocked_reason}</p> : null}
