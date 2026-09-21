@@ -259,7 +259,9 @@ def test_review_projection_raw_candidates_and_guards(tmp_path, monkeypatch):
     - Compatibility: old checkpoints without raw_candidate_review default to empty list.
     """
     import copy
+
     from proofops_api.routers.claims import build_claims_router
+
     from tests.integration.test_local_tag_runner import verified_setup
 
     service, run_id, runner, now, _ = verified_setup(tmp_path, monkeypatch)
@@ -348,7 +350,6 @@ def test_review_projection_raw_candidates_and_guards(tmp_path, monkeypatch):
     filtered_resp = http.get(f"/v1/runs/{run_id}/claims/{claim_id}")
     assert filtered_resp.status_code == 200
     assert len(filtered_resp.json()["review_projection"]["raw_candidates"]) == 0
-
 
     record.pop("raw_candidate_review")
     legacy = http.get(f"/v1/runs/{run_id}/claims/{claim_id}")

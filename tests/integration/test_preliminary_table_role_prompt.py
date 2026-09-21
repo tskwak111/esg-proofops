@@ -86,9 +86,9 @@ def test_role_resolution_changes_only_the_pinned_prompt_hash():
 
 def test_the_default_table_envelope_is_unchanged_and_the_flag_must_be_boolean():
     graph, claim, _ = table_corpus()
-    assert preliminary_table_request(
-        claim, graph, tenant_id=TENANT
-    ) == preliminary_table_request(claim, graph, tenant_id=TENANT, role_resolution=False)
+    assert preliminary_table_request(claim, graph, tenant_id=TENANT) == preliminary_table_request(
+        claim, graph, tenant_id=TENANT, role_resolution=False
+    )
     with pytest.raises(DomainValidationError):
         preliminary_table_request(claim, graph, tenant_id=TENANT, role_resolution="yes")
 
@@ -229,8 +229,7 @@ def _live_cases():
     proposal = json.loads((LIVE / "proposal-used.json").read_text())
     packets = {case["case_id"]: case["packet"] for case in proposal["cases"]}
     return [
-        (item["case_id"], item["response"], packets[item["case_id"]])
-        for item in summary["results"]
+        (item["case_id"], item["response"], packets[item["case_id"]]) for item in summary["results"]
     ]
 
 

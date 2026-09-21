@@ -26,7 +26,9 @@ def test_native_attestation_replays_source_and_never_promotes_table_relationship
         candidate(
             "fixture",
             [
-                ("good", "paragraph", "Page 1 emissions 1234 tCO2e", (70, 710, 300, 740), ()),
+                # Keep the positive OCR fixture clear of the ambiguous CO2 glyphs.
+                # Exact matching is unchanged; wrong text and table promotion remain rejected.
+                ("good", "paragraph", "Page 1 emissions 1234", (70, 710, 199, 740), ()),
                 ("wrong", "paragraph", "Page 1 emissions 1235 tCO2e", (70, 650, 300, 680), ()),
                 ("cell", "table_cell", "1234", (400, 710, 440, 740), ()),
             ],

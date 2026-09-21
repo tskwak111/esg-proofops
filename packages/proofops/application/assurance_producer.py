@@ -156,9 +156,7 @@ def locate_field_quote(
         raise DomainValidationError(f"unknown assurance field: {field}")
     _require_boundary_matches_graph(graph, boundary)
     if source_id not in boundary.source_ids:
-        raise DomainValidationError(
-            "quote source_id is outside the declared opinion boundary"
-        )
+        raise DomainValidationError("quote source_id is outside the declared opinion boundary")
     if not isinstance(quote, str) or not quote.strip():
         raise DomainValidationError("assurance field quote must be a nonempty string")
     blocks = {b.source_id: b for b in graph.blocks}

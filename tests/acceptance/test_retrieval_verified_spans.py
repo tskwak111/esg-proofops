@@ -43,7 +43,10 @@ def attested_span(graph, *, quote=SPAN_QUOTE):
     start = raw.index(quote)
     ref = block.source_ref()
     return replace(
-        ref, quote=quote, char_start=start, char_end=start + len(quote),
+        ref,
+        quote=quote,
+        char_start=start,
+        char_end=start + len(quote),
         verification_state="verified",
     )
 
@@ -115,15 +118,16 @@ def test_expanded_span_beyond_attested_offsets_is_rejected():
     scoped = span_verified_graph(graph, (span,), "e" * 64)
     block = external_block(scoped)
     wider = replace(
-        span, quote=block.raw_text, char_start=0, char_end=len(block.raw_text),
+        span,
+        quote=block.raw_text,
+        char_start=0,
+        char_end=len(block.raw_text),
     )
     from proofops.application.evidence.span_citations import verify_source_ref
 
     assert verify_source_ref(wider, scoped, tenant_id=TENANT).verification_state == "rejected"
     data = retrieve(scoped, claim).to_dict()
-    candidate = next(
-        c for c in data["evidence_candidates"] if c["source_id"] == block.source_id
-    )
+    candidate = next(c for c in data["evidence_candidates"] if c["source_id"] == block.source_id)
     assert [ref["quote"] for ref in candidate["source_refs"]] == [SPAN_QUOTE]
 
 
@@ -136,11 +140,17 @@ def test_disjoint_verified_spans_are_admitted_deterministically():
     a_start = raw.index("2030")
     b_start = raw.index("40%")
     span_a = replace(
-        ref, quote="2030", char_start=a_start, char_end=a_start + 4,
+        ref,
+        quote="2030",
+        char_start=a_start,
+        char_end=a_start + 4,
         verification_state="verified",
     )
     span_b = replace(
-        ref, quote="40%", char_start=b_start, char_end=b_start + 3,
+        ref,
+        quote="40%",
+        char_start=b_start,
+        char_end=b_start + 3,
         verification_state="verified",
     )
     # Insert out of order; admission must be deterministic by char offsets.
@@ -148,9 +158,7 @@ def test_disjoint_verified_spans_are_admitted_deterministically():
     admitted = independently_attested_span_refs(scoped, block.source_id, tenant_id=TENANT)
     assert [r.quote for r in admitted] == ["2030", "40%"]
     data = retrieve(scoped, claim).to_dict()
-    candidate = next(
-        c for c in data["evidence_candidates"] if c["source_id"] == block.source_id
-    )
+    candidate = next(c for c in data["evidence_candidates"] if c["source_id"] == block.source_id)
     quotes = [ref["quote"] for ref in candidate["source_refs"]]
     assert quotes == ["2030", "40%"]
     assert raw not in quotes
@@ -199,7 +207,10 @@ def test_attested_span_ignores_unrelated_unverified_table_ancestor():
     quote = "methodology"
     start = raw.index(quote)
     span = replace(
-        para.source_ref(), quote=quote, char_start=start, char_end=start + len(quote),
+        para.source_ref(),
+        quote=quote,
+        char_start=start,
+        char_end=start + len(quote),
         verification_state="verified",
     )
     scoped = span_verified_graph(graph, (span,), "e" * 64)
@@ -215,4 +226,3 @@ def test_attested_span_ignores_unrelated_unverified_table_ancestor():
     assert raw not in quotes
     # Table ancestor is neither promoted nor merged into the atomic prose candidate.
     assert all(ref["source_id"] == para.source_id for ref in candidate["source_refs"])
-

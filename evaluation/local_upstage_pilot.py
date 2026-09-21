@@ -599,9 +599,7 @@ def main():
         if requested_preliminary_role and not args.preliminary_table_role:
             parser.error("--resume cannot add preliminary table role resolution; create a new run")
         if requested_render_resolution and not args.claim_span_render_resolution:
-            parser.error(
-                "--resume cannot add claim-span render resolution; create a new run"
-            )
+            parser.error("--resume cannot add claim-span render resolution; create a new run")
         if requested_bullet_spacing and not args.claim_span_bullet_spacing:
             parser.error("--resume cannot add claim-span bullet spacing; create a new run")
     elif (
@@ -1089,10 +1087,7 @@ def main():
             raise ValueError("pilot claim-page scope changed; create a new state directory")
         if manifest.get("verify_claim_spans", False) != args.verify_claim_spans:
             parser.error("Existing state has a different claim span policy")
-        if (
-            manifest.get("claim_span_render_resolution", False)
-            != args.claim_span_render_resolution
-        ):
+        if manifest.get("claim_span_render_resolution", False) != args.claim_span_render_resolution:
             parser.error("Existing state has a different claim span render-resolution policy")
         if manifest.get("claim_span_bullet_spacing", False) != args.claim_span_bullet_spacing:
             parser.error("Existing state has a different claim span bullet-spacing policy")

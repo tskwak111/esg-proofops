@@ -226,12 +226,14 @@ def test_the_pilot_pins_the_wrapper_policy_only_on_an_explicit_new_run_opt_in():
     import evaluation.local_upstage_pilot as pilot
     from tests.unit.test_extraction_source_id_wiring import _args
 
-    assert pilot.claim_source_policy_for(
-        Namespace(claim_span_render_resolution=True)
-    ) == wrapper.claim_source_policy()
-    assert pilot.claim_source_policy_for(
-        Namespace(claim_span_render_resolution=False)
-    ) == base.claim_source_policy()
+    assert (
+        pilot.claim_source_policy_for(Namespace(claim_span_render_resolution=True))
+        == wrapper.claim_source_policy()
+    )
+    assert (
+        pilot.claim_source_policy_for(Namespace(claim_span_render_resolution=False))
+        == base.claim_source_policy()
+    )
 
     # The flag is restored from a stored run and defaults off for a legacy one,
     # so an operator cannot add it to an existing run on --resume.

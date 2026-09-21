@@ -1,15 +1,15 @@
 {
-  "checked_at": "2026-09-19T00:23:45.101022+00:00",
+  "checked_at": "2026-09-21T13:24:49.361826+00:00",
   "scope": "documentation, structured contracts and synthetic schema examples only",
   "status": "passed",
-  "checks_total": 870,
-  "passed": 870,
+  "checks_total": 951,
+  "passed": 951,
   "failed": 0,
   "counts": {
-    "numbered_documents": 34,
+    "numbered_documents": 35,
     "requirements": 43,
     "tasks": 46,
-    "api_operations": 50,
+    "api_operations": 57,
     "rule_vectors": 28,
     "edge_vectors": 24
   },
@@ -26,7 +26,7 @@
     {
       "name": "numbered_docs_00_to_33",
       "passed": true,
-      "detail": "34"
+      "detail": "35"
     },
     {
       "name": "required:README.md",
@@ -794,6 +794,81 @@
       "detail": ""
     },
     {
+      "name": "json:contracts/reconciliation/example-policy.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:contracts/reconciliation/input.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:contracts/reconciliation/policy.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:contracts/reconciliation/collection_manifest.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:contracts/reconciliation/example-output.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:contracts/reconciliation/output.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:contracts/reconciliation/example-input.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:contracts/reconciliation/examples/c1-different-entity-types.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:contracts/reconciliation/examples/c3-policy-unresolved.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:contracts/reconciliation/examples/c4-definition-and-method.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:contracts/reconciliation/examples/c2-same-period.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:contracts/reconciliation/examples/c4-search-incomplete.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:contracts/reconciliation/examples/c1-difference-no-explanation.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:contracts/reconciliation/examples/c1-same-entities.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:contracts/reconciliation/examples/c1-search-incomplete.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
       "name": "json:contracts/jsonschema/preliminary_tags.schema.json",
       "passed": true,
       "detail": ""
@@ -815,6 +890,21 @@
     },
     {
       "name": "json:contracts/jsonschema/source_relations.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:packages/proofops/application/reconciliation/schemas/input.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:packages/proofops/application/reconciliation/schemas/policy.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:packages/proofops/application/reconciliation/schemas/output.schema.json",
       "passed": true,
       "detail": ""
     },
@@ -855,6 +945,126 @@
     },
     {
       "name": "json:fixtures/table_notes/legacy-resolved-review.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:outputs/agent-results/R19-kb-native-differences.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:outputs/agent-results/R19-bullet-spacing.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:outputs/agent-fixtures/linkage-contract/example-policy.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:outputs/agent-fixtures/linkage-contract/example-collection-manifest.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:outputs/agent-fixtures/linkage-contract/input.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:outputs/agent-fixtures/linkage-contract/policy.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:outputs/agent-fixtures/linkage-contract/collection_manifest.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:outputs/agent-fixtures/linkage-contract/example-output.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:outputs/agent-fixtures/linkage-contract/output.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:outputs/agent-fixtures/linkage-contract/example-input.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:outputs/agent-fixtures/linkage-contract/v1/example-policy.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:outputs/agent-fixtures/linkage-contract/v1/input.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:outputs/agent-fixtures/linkage-contract/v1/policy.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:outputs/agent-fixtures/linkage-contract/v1/example-output.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:outputs/agent-fixtures/linkage-contract/v1/output.schema.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:outputs/agent-fixtures/linkage-contract/v1/example-input.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:outputs/agent-fixtures/linkage-contract/examples/c1-different-entity-types.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:outputs/agent-fixtures/linkage-contract/examples/c3-policy-unresolved.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:outputs/agent-fixtures/linkage-contract/examples/c4-definition-and-method.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:outputs/agent-fixtures/linkage-contract/examples/c2-same-period.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:outputs/agent-fixtures/linkage-contract/examples/c4-search-incomplete.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:outputs/agent-fixtures/linkage-contract/examples/c1-difference-no-explanation.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:outputs/agent-fixtures/linkage-contract/examples/c1-same-entities.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "json:outputs/agent-fixtures/linkage-contract/examples/c1-search-incomplete.json",
       "passed": true,
       "detail": ""
     },
@@ -925,6 +1135,56 @@
     },
     {
       "name": "config_version:config/crosswalk.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "yaml:config/accounting/ifrs_s1_connectivity.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "config_version:config/accounting/ifrs_s1_connectivity.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "yaml:config/accounting/audit_standard_720.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "config_version:config/accounting/audit_standard_720.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "yaml:config/accounting/reconciliation_rules.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "config_version:config/accounting/reconciliation_rules.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "yaml:config/accounting/kifrs_1110.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "config_version:config/accounting/kifrs_1110.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "yaml:config/accounting/kifrs_1036_1037.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "config_version:config/accounting/kifrs_1036_1037.yaml",
       "passed": true,
       "detail": ""
     },
@@ -1120,6 +1380,11 @@
     },
     {
       "name": "yaml:contracts/openapi.yaml",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "yaml:contracts/reconciliation/product.openapi.yaml",
       "passed": true,
       "detail": ""
     },
@@ -1409,6 +1674,21 @@
       "detail": ""
     },
     {
+      "name": "openapi_ref:#/components/schemas/ReconciliationCaseList",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/ReconciliationCaseDetail",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/ReconciliationRevisionSnapshot",
+      "passed": true,
+      "detail": ""
+    },
+    {
       "name": "openapi_ref:#/components/schemas/Coverage",
       "passed": true,
       "detail": ""
@@ -1435,6 +1715,16 @@
     },
     {
       "name": "openapi_ref:#/components/schemas/AssuranceMatch",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/ReviewProjection",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/RawCandidate",
       "passed": true,
       "detail": ""
     },
@@ -1515,6 +1805,21 @@
     },
     {
       "name": "openapi_ref:#/components/schemas/ObservationSourceHolds",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/ReconciliationSourceRef",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/ReconciliationLatestResult",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "openapi_ref:#/components/schemas/ReconciliationReconciliationResult",
       "passed": true,
       "detail": ""
     },
@@ -1945,6 +2250,71 @@
     },
     {
       "name": "csrf:source_observations_preview",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:reconciliation_list",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:reconciliation_case_get",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:reconciliation_review",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "csrf:reconciliation_review",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "idempotency:reconciliation_review",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:reconciliation_policy_approval",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "csrf:reconciliation_policy_approval",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "idempotency:reconciliation_policy_approval",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:reconciliation_evaluate",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "csrf:reconciliation_evaluate",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "idempotency:reconciliation_evaluate",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:reconciliation_revision_get",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "path_params:reconciliation_source_content",
       "passed": true,
       "detail": ""
     },
@@ -4319,6 +4689,11 @@
       "detail": ""
     },
     {
+      "name": "env_declared:DART_API_KEY",
+      "passed": true,
+      "detail": ""
+    },
+    {
       "name": "md_link:README.md:docs/IMPLEMENTATION_STATUS.md",
       "passed": true,
       "detail": ""
@@ -4370,6 +4745,36 @@
     },
     {
       "name": "md_link:README.md:docs/17_ENV_CONFIG.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "md_link:docs/32_PIPELINE_COMPLETION_PLAN.md:00_MASTER_SPEC.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "md_link:docs/32_PIPELINE_COMPLETION_PLAN.md:26_LEGACY_REUSE_AUDIT.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "md_link:docs/32_PIPELINE_COMPLETION_PLAN.md:27_PARSING_AND_PROVENANCE.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "md_link:docs/32_PIPELINE_COMPLETION_PLAN.md:28_RULE_ENGINE_CONTRACT.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "md_link:docs/32_PIPELINE_COMPLETION_PLAN.md:31_DOMAIN_IMPLEMENTATION_GAPS.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "md_link:docs/32_PIPELINE_COMPLETION_PLAN.md:20_TASK_BREAKDOWN.md",
       "passed": true,
       "detail": ""
     }

@@ -258,9 +258,7 @@ class LiveTaggingRuntime:
             # role-resolution profile differs only in its prompt, so it reuses
             # this same validator without a new schema or a new source rule.
             result = (
-                validate_preliminary_table_sources(
-                    claim, graph, raw, tenant_id=self.auth.tenant_id
-                )
+                validate_preliminary_table_sources(claim, graph, raw, tenant_id=self.auth.tenant_id)
                 if table
                 else validate_preliminary(claim, graph, raw, tenant_id=self.auth.tenant_id)
             )

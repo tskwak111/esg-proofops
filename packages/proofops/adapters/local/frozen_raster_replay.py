@@ -46,7 +46,6 @@ from proofops.adapters.local.run_artifacts import (
     accepted_native_policy_digests,
     raster_policy_matches_accepted,
 )
-from proofops.domain.provenance import canonical_hash
 
 _LOCAL = Path(__file__).parent
 
@@ -108,9 +107,7 @@ def _load_private_raster_modules(native_policy):
     )
 
     def _pinned_replay_native_sources(receipt, graph, source, *, tenant_id):
-        return replay_native_with_policy(
-            native_policy, receipt, graph, source, tenant_id=tenant_id
-        )
+        return replay_native_with_policy(native_policy, receipt, graph, source, tenant_id=tenant_id)
 
     # Rebind only on this private instance; the shared, live module used by
     # every other run/tenant is untouched. `raster_ocr_policy()` reads

@@ -391,8 +391,7 @@ def test_linkless_toc_repeated_nav_header_negative(tmp_path):
     # Page 1: TOC with repeated nav
     s1 = DecodedStreamObject()
     s1.set_data(
-        nav
-        + b"BT /F1 15 Tf 40 700 Td (Contents) Tj ET "
+        nav + b"BT /F1 15 Tf 40 700 Td (Contents) Tj ET "
         b"BT /F1 10 Tf 40 650 Td (Social) Tj 300 0 Td (3) Tj ET"
     )
     w.pages[0][NameObject("/Contents")] = w._add_object(s1)

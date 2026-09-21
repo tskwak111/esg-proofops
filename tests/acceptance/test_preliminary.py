@@ -43,8 +43,17 @@ def context_corpus():
         return CandidateBlock(
             kind,
             NativeSource(
-                VERSION, MANIFEST, RUN, native_id, page, None, bbox,
-                "pdf_bottom_left_points", text, 0, len(text),
+                VERSION,
+                MANIFEST,
+                RUN,
+                native_id,
+                page,
+                None,
+                bbox,
+                "pdf_bottom_left_points",
+                text,
+                0,
+                len(text),
             ),
             PageGeometry(600, 800, 0, (0, 0, 600, 800)),
         )
@@ -56,8 +65,17 @@ def context_corpus():
         block("heading", "fragment", 2, (10, 750, 500, 780), fragment_text),
     )
     batch = CandidateBatch(
-        TENANT, VERSION, MANIFEST, "a" * 64, RUN, "synthetic", "1", "synthetic", "b" * 64,
-        candidates, synthetic=True,
+        TENANT,
+        VERSION,
+        MANIFEST,
+        "a" * 64,
+        RUN,
+        "synthetic",
+        "1",
+        "synthetic",
+        "b" * 64,
+        candidates,
+        synthetic=True,
     )
     graph = fuse_candidates((batch,), tenant_id=TENANT)
     graph = replace(graph, blocks=tuple(replace(b, quality="verified") for b in graph.blocks))
@@ -66,7 +84,10 @@ def context_corpus():
         return next(b for b in graph.blocks if b.sources[0].source_native_id == native_id)
 
     body, heading, neighbor, fragment = (
-        find("body"), find("heading"), find("neighbor"), find("fragment")
+        find("body"),
+        find("heading"),
+        find("neighbor"),
+        find("fragment"),
     )
     graph = replace(
         graph, edges=(CanonicalEdge(body.source_id, heading.source_id, "section_parent"),)
@@ -83,11 +104,21 @@ def context_corpus():
     )
     profile = ExtractionProfile("c" * 64, "d" * 64, pack().sha256, True)
     claim = Claim(
-        OTHER, TENANT, VERSION, MANIFEST, graph.source_sha256, atomic, (claim_ref,), "verified",
-        (), ExtractionReceipt(claim_ref.source_id, "f" * 64, None, None, profile, "ok"),
+        OTHER,
+        TENANT,
+        VERSION,
+        MANIFEST,
+        graph.source_sha256,
+        atomic,
+        (claim_ref,),
+        "verified",
+        (),
+        ExtractionReceipt(claim_ref.source_id, "f" * 64, None, None, profile, "ok"),
     )
-    return graph, claim, dict(
-        body=body, heading=heading, neighbor=neighbor, fragment=fragment, atomic=atomic
+    return (
+        graph,
+        claim,
+        dict(body=body, heading=heading, neighbor=neighbor, fragment=fragment, atomic=atomic),
     )
 
 
@@ -387,8 +418,17 @@ def test_table_row_excluded_from_nearby_context():
         return CandidateBlock(
             kind,
             NativeSource(
-                VERSION, MANIFEST, RUN, native_id, page, None, bbox,
-                "pdf_bottom_left_points", text, 0, len(text),
+                VERSION,
+                MANIFEST,
+                RUN,
+                native_id,
+                page,
+                None,
+                bbox,
+                "pdf_bottom_left_points",
+                text,
+                0,
+                len(text),
             ),
             PageGeometry(600, 800, 0, (0, 0, 600, 800)),
         )
@@ -398,8 +438,17 @@ def test_table_row_excluded_from_nearby_context():
         block("table_row", "row2", 1, (10, 650, 500, 680), row_text),
     )
     batch = CandidateBatch(
-        TENANT, VERSION, MANIFEST, "a" * 64, RUN, "synthetic", "1", "synthetic", "b" * 64,
-        candidates, synthetic=True,
+        TENANT,
+        VERSION,
+        MANIFEST,
+        "a" * 64,
+        RUN,
+        "synthetic",
+        "1",
+        "synthetic",
+        "b" * 64,
+        candidates,
+        synthetic=True,
     )
     graph = fuse_candidates((batch,), tenant_id=TENANT)
     graph = replace(graph, blocks=tuple(replace(b, quality="verified") for b in graph.blocks))
@@ -408,8 +457,16 @@ def test_table_row_excluded_from_nearby_context():
     claim_ref = body.source_ref()
     profile = ExtractionProfile("c" * 64, "d" * 64, pack().sha256, True)
     claim = Claim(
-        OTHER, TENANT, VERSION, MANIFEST, graph.source_sha256, body_text, (claim_ref,),
-        "verified", (), ExtractionReceipt(claim_ref.source_id, "f" * 64, None, None, profile, "ok"),
+        OTHER,
+        TENANT,
+        VERSION,
+        MANIFEST,
+        graph.source_sha256,
+        body_text,
+        (claim_ref,),
+        "verified",
+        (),
+        ExtractionReceipt(claim_ref.source_id, "f" * 64, None, None, profile, "ok"),
     )
     request = preliminary_request(claim, graph, tenant_id=TENANT, include_context=True)
     context_ids = {b["source_id"] for b in request["untrusted_document_data"]["context_blocks"]}
@@ -476,9 +533,15 @@ def test_title_or_incomplete_fragment_target_stays_unextracted_even_with_nearby_
     fragment = fixture["fragment"]
     profile = ExtractionProfile("c" * 64, "d" * 64, pack().sha256, True)
     fragment_claim = Claim(
-        OTHER, TENANT, fragment.sources[0].document_version_id,
-        fragment.sources[0].parse_manifest_id, graph.source_sha256,
-        fragment.normalized_text, (fragment.source_ref(),), "verified", (),
+        OTHER,
+        TENANT,
+        fragment.sources[0].document_version_id,
+        fragment.sources[0].parse_manifest_id,
+        graph.source_sha256,
+        fragment.normalized_text,
+        (fragment.source_ref(),),
+        "verified",
+        (),
         ExtractionReceipt(fragment.source_id, "f" * 64, None, None, profile, "ok"),
     )
     raw = dict(
@@ -549,7 +612,5 @@ def test_old_packet_unchanged_when_context_flag_absent_from_call_site():
         claim_sha256=legacy_style_call["claim_sha256"],
         graph_sha256=legacy_style_call["graph_sha256"],
         prompt_sha256=legacy_style_call["prompt_sha256"],
-        untrusted_document_data=dict(
-            sources=[dict(source_index=0, text=fixture["atomic"])]
-        ),
+        untrusted_document_data=dict(sources=[dict(source_index=0, text=fixture["atomic"])]),
     )

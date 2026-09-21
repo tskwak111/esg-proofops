@@ -75,7 +75,13 @@ def test_curly_quote_paragraph_is_rendered_text_unresolved_by_base_verifier():
     from proofops.adapters.local.source_verification import attest_native_sources
 
     raw_bytes = (
-        bytes([_LDQUO]) + b"quoted value" + bytes([_RDQUO]) + b" and " + bytes([_LSQUO]) + b"single" + bytes([_RSQUO])
+        bytes([_LDQUO])
+        + b"quoted value"
+        + bytes([_RDQUO])
+        + b" and "
+        + bytes([_LSQUO])
+        + b"single"
+        + bytes([_RSQUO])
     )
     source, box = _quote_pdf(raw_bytes)
     raw_text = "\u201cquoted value\u201d and \u2018single\u2019"
@@ -107,7 +113,13 @@ def test_typography_wrapper_promotes_only_the_quote_mismatch():
     from proofops.adapters.local.source_verification import attest_native_sources
 
     raw_bytes = (
-        bytes([_LDQUO]) + b"quoted value" + bytes([_RDQUO]) + b" and " + bytes([_LSQUO]) + b"single" + bytes([_RSQUO])
+        bytes([_LDQUO])
+        + b"quoted value"
+        + bytes([_RDQUO])
+        + b" and "
+        + bytes([_LSQUO])
+        + b"single"
+        + bytes([_RSQUO])
     )
     source, box = _quote_pdf(raw_bytes)
     raw_text = "\u201cquoted value\u201d and \u2018single\u2019"
@@ -137,9 +149,7 @@ def test_typography_wrapper_promotes_only_the_quote_mismatch():
 
     unwrapped = replay_native_sources(receipt, graph, source, tenant_id=TENANT)
     assert all(b.quality == "unverified" for b in unwrapped.blocks)
-    assert (
-        attest_native_sources(graph, source, tenant_id=TENANT, geometry_mode="glyph") == receipt
-    )
+    assert attest_native_sources(graph, source, tenant_id=TENANT, geometry_mode="glyph") == receipt
 
 
 def test_typography_wrapper_never_promotes_a_real_wrong_word_or_number():

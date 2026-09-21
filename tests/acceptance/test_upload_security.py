@@ -627,9 +627,7 @@ def test_hide_targeting_array_of_own_fields_on_gesture_is_accepted(tmp_path):
     writer.add_blank_page(width=600, height=800)
     action = _hide_action(
         target=None,
-        target_override=ArrayObject(
-            [TextStringObject("field.a"), TextStringObject("field.b")]
-        ),
+        target_override=ArrayObject([TextStringObject("field.a"), TextStringObject("field.b")]),
     )
     _widget_with_down_action(writer, action)
     output = BytesIO()

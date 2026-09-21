@@ -224,9 +224,7 @@ def _kia_kb_naver_baseline(slug: str, display_name: str) -> CompanyBaseline:
             source_sha256="",
             pages=[],
             status="missing",
-            reason=(
-                f"expected receipt not found under {FIVE_REPORT_DIR.relative_to(ROOT)}"
-            ),
+            reason=(f"expected receipt not found under {FIVE_REPORT_DIR.relative_to(ROOT)}"),
             receipt_source=None,
             stage_counts={},
             development_pool=True,
@@ -247,7 +245,7 @@ def _kia_kb_naver_baseline(slug: str, display_name: str) -> CompanyBaseline:
         "baseline_commit": _read_json(FIVE_REPORT_COMPARISON).get("baseline_commit"),
     }
     pages = list(pilot["selected_pages"])
-    exposure = [
+    exposure: list[dict[str, Any]] = [
         {
             "run": str(FIVE_REPORT_COMPARISON.relative_to(ROOT)),
             "pages": pages,
@@ -343,9 +341,7 @@ def _lotte_api_comparison() -> dict[str, Any] | None:
         "visual_adjudication": "completed",
     }
     if result.get("status") not in ("provider_succeeded", None):
-        comparison["api_errors"].append(
-            {"field": "status", "value": result.get("status")}
-        )
+        comparison["api_errors"].append({"field": "status", "value": result.get("status")})
     if API_LOTTE_VISUAL_REVIEW.exists():
         review_text = API_LOTTE_VISUAL_REVIEW.read_text(encoding="utf-8")
         comparison["visual_review_path"] = str(API_LOTTE_VISUAL_REVIEW.relative_to(ROOT))
@@ -441,9 +437,6 @@ def _kia_api_comparison() -> dict[str, Any] | None:
             "external parser."
         )
     return comparison
-
-
-
 
 
 def _lotte_baseline() -> CompanyBaseline:
@@ -909,8 +902,7 @@ def external_parser_targets(manifest: dict[str, Any]) -> list[dict[str, Any]]:
             "source_sha256": c["source_sha256"],
             "pages": c["pages"],
             "already_has_api_comparison": bool(
-                isinstance(c.get("stage_counts"), dict)
-                and "api_comparison" in c["stage_counts"]
+                isinstance(c.get("stage_counts"), dict) and "api_comparison" in c["stage_counts"]
             ),
         }
         for c in manifest["companies"]

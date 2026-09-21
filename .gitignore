@@ -27,3 +27,10 @@ outputs/handoff-packages/
 
 # Local dependency directories and worktree symlinks
 **/node_modules
+**/.venv
+
+# Native reader compiler cache
+/scratch/
+
+# Private customer corpus; never publish real report PDFs
+/outputs/agent-fixtures/*.pdf

@@ -113,7 +113,9 @@ def graph_of_kinds(kinds, source_sha=None, doc_version=None, parse_manifest=None
     return fuse_candidates((batch,), tenant_id=TENANT)
 
 
-def real_setup(tmp_path, monkeypatch, *, limit=2, probe=None, claim_pages=None, extractor_factory=None):
+def real_setup(
+    tmp_path, monkeypatch, *, limit=2, probe=None, claim_pages=None, extractor_factory=None
+):
     from proofops.application.registry import artifact_sha256
 
     from tests.integration import test_run_lifecycle as lifecycle

@@ -61,17 +61,35 @@ def _two_opinion_graph():
         CandidateBlock(
             "paragraph",
             NativeSource(
-                VERSION, MANIFEST, RUN, name, i + 1, None, (10, 10, 300, 40),
-                "pdf_bottom_left_points", text, 0, len(text),
+                VERSION,
+                MANIFEST,
+                RUN,
+                name,
+                i + 1,
+                None,
+                (10, 10, 300, 40),
+                "pdf_bottom_left_points",
+                text,
+                0,
+                len(text),
             ),
             PageGeometry(600, 800, 0, (0, 0, 600, 800)),
         )
         for i, (name, text) in enumerate(texts.items())
     )
     batch = CandidateBatch(
-        TENANT, VERSION, MANIFEST, "a" * 64, RUN,
-        "synthetic", "fixture-v1", "synthetic", "b" * 64,
-        blocks, (), synthetic=True,
+        TENANT,
+        VERSION,
+        MANIFEST,
+        "a" * 64,
+        RUN,
+        "synthetic",
+        "fixture-v1",
+        "synthetic",
+        "b" * 64,
+        blocks,
+        (),
+        synthetic=True,
     )
     graph = fuse_candidates((batch,), tenant_id=TENANT)
     graph = replace(graph, blocks=tuple(replace(b, quality="verified") for b in graph.blocks))
@@ -146,9 +164,15 @@ def test_build_tagged_fields_end_to_end_feeds_real_extract_assurance_and_covers(
     tagged = build_tagged_fields(graph, boundary, field_quotes)
     selected_refs = tuple(ref for refs in tagged.values() for ref in refs)
     statement = extract_assurance(
-        graph, selected_refs, BINDING,
-        tagged_fields=tagged, tenant_id=TENANT, statement_id=STATEMENT,
-        model_sha256="c" * 64, prompt_sha256="d" * 64, replicate_id=1,
+        graph,
+        selected_refs,
+        BINDING,
+        tagged_fields=tagged,
+        tenant_id=TENANT,
+        statement_id=STATEMENT,
+        model_sha256="c" * 64,
+        prompt_sha256="d" * 64,
+        replicate_id=1,
     )
     assert statement.provider == "삼일회계법인"
     assert statement.level == "limited"
@@ -179,9 +203,15 @@ def test_wrong_period_claim_is_not_covered_not_fabricated():
     tagged = build_tagged_fields(graph, boundary, field_quotes)
     selected_refs = tuple(ref for refs in tagged.values() for ref in refs)
     statement = extract_assurance(
-        graph, selected_refs, BINDING,
-        tagged_fields=tagged, tenant_id=TENANT, statement_id=STATEMENT,
-        model_sha256="c" * 64, prompt_sha256="d" * 64, replicate_id=1,
+        graph,
+        selected_refs,
+        BINDING,
+        tagged_fields=tagged,
+        tenant_id=TENANT,
+        statement_id=STATEMENT,
+        model_sha256="c" * 64,
+        prompt_sha256="d" * 64,
+        replicate_id=1,
     )
     # Claim asks about a DIFFERENT period (2023) than the statement covers (2024).
     match = match_assurance(
@@ -223,15 +253,33 @@ def _graph_with_irregular_whitespace_block():
     block = CandidateBlock(
         "paragraph",
         NativeSource(
-            VERSION, MANIFEST, RUN, "irregular", 1, None, (10, 10, 300, 40),
-            "pdf_bottom_left_points", text, 0, len(text),
+            VERSION,
+            MANIFEST,
+            RUN,
+            "irregular",
+            1,
+            None,
+            (10, 10, 300, 40),
+            "pdf_bottom_left_points",
+            text,
+            0,
+            len(text),
         ),
         PageGeometry(600, 800, 0, (0, 0, 600, 800)),
     )
     batch = CandidateBatch(
-        TENANT, VERSION, MANIFEST, "a" * 64, RUN,
-        "synthetic", "fixture-v1", "synthetic", "b" * 64,
-        (block,), (), synthetic=True,
+        TENANT,
+        VERSION,
+        MANIFEST,
+        "a" * 64,
+        RUN,
+        "synthetic",
+        "fixture-v1",
+        "synthetic",
+        "b" * 64,
+        (block,),
+        (),
+        synthetic=True,
     )
     graph = fuse_candidates((batch,), tenant_id=TENANT)
     graph = replace(graph, blocks=tuple(replace(b, quality="verified") for b in graph.blocks))
@@ -253,14 +301,10 @@ def test_locate_field_quote_returns_exact_raw_slice_across_irregular_whitespace(
 
     # Prove the old code path actually mis-cites on this fixture (i.e. this
     # is a real regression case, not one that happens to pass either way).
-    old_bug_ref = graph.blocks[0].source_ref(
-        normalized_char_start=start, normalized_char_end=end
-    )
+    old_bug_ref = graph.blocks[0].source_ref(normalized_char_start=start, normalized_char_end=end)
     assert old_bug_ref.quote != quote, "fixture must reproduce the raw/normalized offset bug"
 
-    ref = locate_field_quote(
-        graph, boundary, field="provider", source_id=source_id, quote=quote
-    )
+    ref = locate_field_quote(graph, boundary, field="provider", source_id=source_id, quote=quote)
     assert (ref.char_start, ref.char_end) == (start, end)
     assert ref.quote == quote == text[start:end]
     from hashlib import sha256

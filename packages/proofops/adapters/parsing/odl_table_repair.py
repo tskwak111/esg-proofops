@@ -16,7 +16,7 @@ from __future__ import annotations
 import copy
 import math
 import unicodedata
-from typing import Any
+from typing import Any, cast
 
 _EPS = 0.001  # ODL coordinates round to three decimal places.
 _MIN_GAP = 0.5
@@ -72,10 +72,11 @@ def locate_auxiliary_cells(
             try:
                 from proofops.adapters.local.native_glyph_geometry import native_word_ink_geometry
 
-                ink_res = native_word_ink_geometry(source, int(page), list(range(len(words))))
+                ink_res = native_word_ink_geometry(
+                    source, int(cast(Any, page)), list(range(len(words)))
+                )
                 matched_map = {
-                    m["native_word_index"]: m["ink_bbox"]
-                    for m in ink_res.get("matched_words", [])
+                    m["native_word_index"]: m["ink_bbox"] for m in ink_res.get("matched_words", [])
                 }
                 unresolved_set = set(ink_res.get("unresolved_word_indices", []))
                 for idx, w in enumerate(words):
@@ -245,7 +246,7 @@ def _norm_words(words_by_page: Any, page: Any) -> list[dict] | None:
             or not text.strip()
         ):
             continue
-        entry = {"bbox": [float(v) for v in box], "text": text}
+        entry: dict[str, Any] = {"bbox": [float(v) for v in box], "text": text}
         if "ink_bbox" in w and _is_finite_box(w["ink_bbox"]):
             entry["ink_bbox"] = [float(v) for v in w["ink_bbox"]]
         if "resolved" in w:

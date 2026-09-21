@@ -41,7 +41,9 @@ CLAIM = "66666666-6666-4666-8666-666666666666"
 SR_SOURCE = "77777777-7777-4777-8777-777777777777"
 
 ROOT_CONTRACT_DIR = Path("/Users/ss020/Dev/ESG_ProofOps/handoff/team-v3/contract")
-FIXTURE_CONTRACT_DIR = Path(__file__).resolve().parents[2] / "outputs/agent-fixtures/linkage-contract"
+FIXTURE_CONTRACT_DIR = (
+    Path(__file__).resolve().parents[2] / "outputs/agent-fixtures/linkage-contract"
+)
 
 try:
     with (ROOT_CONTRACT_DIR / "validate.py").open("rb"):
@@ -521,8 +523,12 @@ def test_version_mismatch_rejects():
 
 def test_all_trigger_evidence_refs_preserved_and_deduplicated():
     """Finding 2: trigger fact evidence refs are preserved in sources[]."""
-    ref1 = _source_ref(source_id="11111111-aaaa-4aaa-8aaa-aaaaaaaaaaaa", page_num=2, quote="인용문 1")
-    ref2 = _source_ref(source_id="22222222-bbbb-4bbb-8bbb-bbbbbbbbbbbb", page_num=3, quote="인용문 2")
+    ref1 = _source_ref(
+        source_id="11111111-aaaa-4aaa-8aaa-aaaaaaaaaaaa", page_num=2, quote="인용문 1"
+    )
+    ref2 = _source_ref(
+        source_id="22222222-bbbb-4bbb-8bbb-bbbbbbbbbbbb", page_num=3, quote="인용문 2"
+    )
     tags = _confirmed_tags(
         facts=(
             ConfirmedFact(
@@ -623,4 +629,3 @@ def test_return_reader_rejects_network_path_and_bad_tenant_version(tmp_path):
             tenant_id="00000000-0000-4000-8000-000000000000",
             financial_local_paths={},
         )
-

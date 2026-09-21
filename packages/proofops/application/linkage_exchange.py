@@ -380,7 +380,8 @@ def build_packet(
             claim.claim_id,
             item,
             "company_mismatch",
-            f"financial_context company_id ({financial_context.company_id}) does not match trusted company_id ({company_id})",
+            f"financial_context company_id ({financial_context.company_id}) does not match "
+            f"trusted company_id ({company_id})",
         )
     if period_start and period_end and period_start > period_end:
         return BlockedPacket(
@@ -398,7 +399,8 @@ def build_packet(
             claim.claim_id,
             item,
             "period_mismatch",
-            f"financial_period_start ({financial_context.financial_period_start}) must be <= financial_period_end ({financial_context.financial_period_end})",
+            f"financial_period_start ({financial_context.financial_period_start}) must be "
+            f"<= financial_period_end ({financial_context.financial_period_end})",
         )
     if tags is None or not tags.facts:
         return BlockedPacket(
@@ -416,7 +418,8 @@ def build_packet(
             claim.claim_id,
             item,
             "version_mismatch",
-            f"confirmed tags document_version_id ({tags.document_version_id}) does not match claim document_version_id ({claim.document_version_id})",
+            f"confirmed tags document_version_id ({tags.document_version_id}) does not "
+            f"match claim document_version_id ({claim.document_version_id})",
         )
     trigger_elements = _verified_triggers(tags)
     if not trigger_elements:
@@ -433,7 +436,8 @@ def build_packet(
             claim.claim_id,
             item,
             "no_matching_item_trigger",
-            f"no confirmed present fact matches trigger requirements for {item} (expected one of {allowed_triggers})",
+            f"no confirmed present fact matches trigger requirements for {item} (expected "
+            f"one of {allowed_triggers})",
         )
     primary_trigger = matching_triggers[0]
 
@@ -460,7 +464,8 @@ def build_packet(
                     claim.claim_id,
                     item,
                     "ambiguous_source_duplicate",
-                    f"source_id {source_id} cited with conflicting quote or locator on same block; refusing to silently discard evidence",
+                    f"source_id {source_id} cited with conflicting quote or locator on same "
+                    f"block; refusing to silently discard evidence",
                 )
             return None
         seen_sources[source_id] = (quote, locator)
@@ -481,11 +486,14 @@ def build_packet(
                 claim.claim_id,
                 item,
                 "version_mismatch",
-                f"claim source ref document_version_id ({ref.document_version_id}) does not match claim document_version_id ({sustainability_document_version})",
+                f"claim source ref document_version_id ({ref.document_version_id}) does "
+                f"not match claim document_version_id ({sustainability_document_version})",
             )
         sr_source_id = "sr-" + ref.source_id
         loc = f"physical_page={ref.page_num};source_id={ref.source_id}"
-        err = _record_source(sr_source_id, sustainability_document_version, claim.source_sha256, loc, ref.quote)
+        err = _record_source(
+            sr_source_id, sustainability_document_version, claim.source_sha256, loc, ref.quote
+        )
         if err is not None:
             return err
 
@@ -496,16 +504,22 @@ def build_packet(
     # discard exactly the evidence B is meant to review.
     for trigger in trigger_elements:
         for ref in trigger.evidence_refs:
-            if ref.document_version_id and ref.document_version_id != sustainability_document_version:
+            if (
+                ref.document_version_id
+                and ref.document_version_id != sustainability_document_version
+            ):
                 return BlockedPacket(
                     claim.claim_id,
                     item,
                     "version_mismatch",
-                    f"trigger evidence ref document_version_id ({ref.document_version_id}) does not match claim document_version_id ({sustainability_document_version})",
+                    f"trigger evidence ref document_version_id ({ref.document_version_id}) "
+                    f"does not match claim document_version_id ({sustainability_document_version})",
                 )
             trig_source_id = "sr-" + ref.source_id
             loc = f"physical_page={ref.page_num};source_id={ref.source_id}"
-            err = _record_source(trig_source_id, sustainability_document_version, claim.source_sha256, loc, ref.quote)
+            err = _record_source(
+                trig_source_id, sustainability_document_version, claim.source_sha256, loc, ref.quote
+            )
             if err is not None:
                 return err
 
@@ -549,7 +563,8 @@ def build_packet(
             claim.claim_id,
             item,
             "unsupported_trigger_value",
-            f"trigger {primary_trigger.trigger_element!r} has unsupported kind {sustainability_kind!r} or no "
+            f"trigger {primary_trigger.trigger_element!r} has unsupported kind "
+            f"{sustainability_kind!r} or no "
             "normalized_value on its confirmed fact; refusing to assert a fabricated "
             "normalized sustainability value",
         )

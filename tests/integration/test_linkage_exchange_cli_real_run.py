@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
-import sys
 from pathlib import Path
 
 from tests.integration.test_local_extract_runner import extraction_setup
@@ -74,9 +73,7 @@ def test_build_packet_against_real_committed_run_blocks_without_financial_contex
     assert "blocked" in captured.out
 
 
-def test_build_packet_cli_rejects_untrusted_company_id_override(
-    tmp_path, monkeypatch, capsys
-):
+def test_build_packet_cli_rejects_untrusted_company_id_override(tmp_path, monkeypatch, capsys):
     import subprocess
 
     real_run = subprocess.run

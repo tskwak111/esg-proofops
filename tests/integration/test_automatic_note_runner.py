@@ -261,6 +261,7 @@ def test_note_cli_mode_is_explicit_and_rejects_invalid_combinations(monkeypatch,
                 "stage": "parse",
                 "review_table_notes": True,
                 "verify_paragraphs": False,
+                "native_typography_tolerance": False,
                 "raster_ocr": False,
             }
         ]

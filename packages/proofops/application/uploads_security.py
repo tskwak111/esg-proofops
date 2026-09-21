@@ -432,9 +432,7 @@ def _inspect(path: str, limits: PdfLimits) -> int:
                     return False
                 return True
             if isinstance(target, ArrayObject):
-                return len(target) > 0 and all(
-                    is_internal_hide_target(entry) for entry in target
-                )
+                return len(target) > 0 and all(is_internal_hide_target(entry) for entry in target)
             return False
 
         def reject_dangerous_action_chain(

@@ -128,14 +128,16 @@ def validate_raw_candidate(
 
     Enforces:
     - tenant_id matches pinned graph tenant
-    - no accepted or verified labels (raw candidate status must be unconfirmed, unverified, or candidate)
+    - no accepted or verified labels (raw candidate status must be unconfirmed, unverified, or
+      candidate)
     - exact document_version_id and parse_manifest_id match
     - candidate provenance (document_version_id, parse_manifest_id, physical_page) match graph
     - location_quality is strictly located
     - bbox is finite and exactly equals canonical bbox
     - printed_page_label and verification_state match canonical ref
     - raw_text_sha256 exactly matches block raw text sha256
-    - strict non-empty literal raw text span (bool offsets rejected, 0 <= start < end <= len(raw_text))
+    - strict non-empty literal raw text span (bool offsets rejected, 0 <= start < end <=
+      len(raw_text))
     - literal quote exactly matches raw_text[start:end]
     """
     if not isinstance(cand, dict):
@@ -174,10 +176,7 @@ def validate_raw_candidate(
     except Exception:
         return False
     # Exact location quality
-    if (
-        ref_dict.get("location_quality") != "located"
-        or canonical_ref.location_quality != "located"
-    ):
+    if ref_dict.get("location_quality") != "located" or canonical_ref.location_quality != "located":
         return False
     # Exact bbox equality
     ref_bbox = ref_dict.get("bbox")

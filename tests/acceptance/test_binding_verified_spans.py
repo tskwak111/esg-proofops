@@ -183,7 +183,5 @@ def test_expanded_ref_beyond_attested_span_is_not_verified():
         verification_state="verified",
     )
     scoped = _scoped(graph, refs[0].source_id, partial)
-    wider = replace(
-        partial, quote=block.raw_text, char_start=0, char_end=len(block.raw_text)
-    )
+    wider = replace(partial, quote=block.raw_text, char_start=0, char_end=len(block.raw_text))
     assert verify_source_ref(wider, scoped, tenant_id=TENANT).verification_state == "rejected"

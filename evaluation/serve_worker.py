@@ -27,7 +27,6 @@ import logging
 import threading
 import time
 from collections.abc import Callable
-
 from typing import Any
 
 from proofops_worker.extract_batch import run_batches
@@ -77,9 +76,10 @@ def eligible_runs(runs_service, tenant_id: str) -> list[dict]:
     while True:
         page = runs_service.list(tenant_id, cursor=cursor, limit=100)
         for run in page["items"]:
-            if run["status"] in {"queued", "running"} and run.get(
-                "current_stage", "parse"
-            ) in _STAGES:
+            if (
+                run["status"] in {"queued", "running"}
+                and run.get("current_stage", "parse") in _STAGES
+            ):
                 eligible.append(run)
         cursor = page.get("next_cursor")
         if not cursor:

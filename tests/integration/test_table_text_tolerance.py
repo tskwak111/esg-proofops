@@ -16,6 +16,8 @@ def test_optional_tolerance_preserves_legacy_identity_and_binds_explicit_value()
     profile = ParserProfile(MANIFEST)
     legacy = asdict(profile)
     legacy.pop("table_text_y_tolerance", None)
+    legacy.pop("table_source_policy_sha256", None)
+    legacy.pop("table_structure_repair", None)
     assert profile.invocation_snapshot() == legacy
     config = {k: v for k, v in legacy.items() if k not in {"parse_manifest_id", "physical_pages"}}
     assert profile.config_snapshot() == config

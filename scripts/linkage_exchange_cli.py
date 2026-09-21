@@ -29,7 +29,9 @@ import sys
 from pathlib import Path
 
 ROOT_CONTRACT_DIR = Path(__file__).resolve().parents[3] / "handoff/team-v3/contract"
-LOCAL_FIXTURE_CONTRACT_DIR = Path(__file__).resolve().parents[1] / "outputs/agent-fixtures/linkage-contract"
+LOCAL_FIXTURE_CONTRACT_DIR = (
+    Path(__file__).resolve().parents[1] / "outputs/agent-fixtures/linkage-contract"
+)
 
 
 def resolve_contract_dir(contract_dir: str | Path | None = None) -> Path:
@@ -148,9 +150,12 @@ def _cmd_build_packet(args: argparse.Namespace) -> int:
         )
         return 1
 
-    # Finding 1: trusted company must derive from uploads.version_snapshot(tenant,claim.document_version_id)->document_id
-    # then uploads.get_document(tenant,document_id). A CLI --trusted-company-id argument is NOT trusted.
-    # Use actual frozen report period, not arbitrary CLI replacement. Company/doc/version/period mismatches reject.
+    # Finding 1: trusted company must derive from
+    # uploads.version_snapshot(tenant,claim.document_version_id)->document_id
+    # then uploads.get_document(tenant,document_id). A CLI --trusted-company-id argument is
+    # NOT trusted.
+    # Use actual frozen report period, not arbitrary CLI replacement.
+    # Company/doc/version/period mismatches reject.
     try:
         snap = uploads.version_snapshot(args.tenant_id, claim.document_version_id)
         doc_id = snap.get("document_id")
@@ -195,7 +200,8 @@ def _cmd_build_packet(args: argparse.Namespace) -> int:
                 {
                     "execution_state": "blocked",
                     "reason": "company_mismatch",
-                    "detail": f"CLI --trusted-company-id ({cli_trusted_co}) does not match trusted company ({trusted_company_id}) from uploads store",
+                    "detail": f"CLI --trusted-company-id ({cli_trusted_co}) does not match "
+                    "trusted company ({trusted_company_id}) from uploads store",
                 },
                 ensure_ascii=False,
                 indent=2,
@@ -210,7 +216,8 @@ def _cmd_build_packet(args: argparse.Namespace) -> int:
                 {
                     "execution_state": "blocked",
                     "reason": "period_mismatch",
-                    "detail": f"CLI --period-start ({cli_period_start}) does not match frozen period_start ({frozen_period_start}) from uploads store",
+                    "detail": f"CLI --period-start ({cli_period_start}) does not match "
+                    "frozen period_start ({frozen_period_start}) from uploads store",
                 },
                 ensure_ascii=False,
                 indent=2,
@@ -225,7 +232,8 @@ def _cmd_build_packet(args: argparse.Namespace) -> int:
                 {
                     "execution_state": "blocked",
                     "reason": "period_mismatch",
-                    "detail": f"CLI --period-end ({cli_period_end}) does not match frozen period_end ({frozen_period_end}) from uploads store",
+                    "detail": f"CLI --period-end ({cli_period_end}) does not match frozen "
+                    "period_end ({frozen_period_end}) from uploads store",
                 },
                 ensure_ascii=False,
                 indent=2,
@@ -241,7 +249,8 @@ def _cmd_build_packet(args: argparse.Namespace) -> int:
                     {
                         "execution_state": "blocked",
                         "reason": "period_mismatch",
-                        "detail": f"CLI argument --sr-published-at ({cli_published_at}) is not an approved trusted publication source",
+                        "detail": f"CLI argument --sr-published-at ({cli_published_at}) "
+                        "is not an approved trusted publication source",
                     },
                     ensure_ascii=False,
                     indent=2,
@@ -334,11 +343,7 @@ def _cmd_verify_return(args: argparse.Namespace) -> int:
 
     errors = validate_return(args.input, args.policy, args.output)
     if errors:
-        print(
-            json.dumps(
-                {"status": "rejected", "errors": errors}, ensure_ascii=False, indent=2
-            )
-        )
+        print(json.dumps({"status": "rejected", "errors": errors}, ensure_ascii=False, indent=2))
         return 1
 
     if args.skip_byte_verification:
@@ -424,7 +429,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     build.add_argument(
         "--financial-local-paths",
-        help="path to a JSON {source_id: local_path} map for non-sustainability sources (required for non-synthetic ready packet byte verification)",
+        help=(
+            "path to a JSON {source_id: local_path} map for non-sustainability sources "
+            "(required for non-synthetic ready packet byte verification)"
+        ),
     )
     build.add_argument("--contract-dir", default=str(CONTRACT_DIR_DEFAULT))
     build.set_defaults(func=_cmd_build_packet)

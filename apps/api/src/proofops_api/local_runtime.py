@@ -316,11 +316,14 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
             tagging_mode not in ("", "upstage_local")
             or not isinstance(limits, dict)
             or set(limits)
-            not in ({"max_calls", "max_output_tokens"}, {
-                "max_calls",
-                "max_output_tokens",
-                "claim_pages",
-            })
+            not in (
+                {"max_calls", "max_output_tokens"},
+                {
+                    "max_calls",
+                    "max_output_tokens",
+                    "claim_pages",
+                },
+            )
         ):
             raise _invalid()
         runtime["extraction_limits"] = {
@@ -333,9 +336,7 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
             pages = limits["claim_pages"]
             if not isinstance(pages, list) or not pages or sorted(set(pages)) != pages:
                 raise _invalid()
-            runtime["extraction_limits"]["claim_pages"] = [
-                _strict_int(page) for page in pages
-            ]
+            runtime["extraction_limits"]["claim_pages"] = [_strict_int(page) for page in pages]
         if tagging_mode == "upstage_local":
             if (
                 "preliminary_settings" not in settings

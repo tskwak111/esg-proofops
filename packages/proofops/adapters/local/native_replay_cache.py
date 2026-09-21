@@ -165,12 +165,12 @@ def replay_raster_cached(
     snapshot, message, native, graph, source, registrations, receipts, *, native_policy=None
 ):
     """Reuse a completed v5 replay without relaxing its durable read checks."""
-    from proofops.adapters.local.raster_checkpoint import replay_raster_records
-    from proofops.adapters.local.raster_visibility import raster_ocr_policy
     from proofops.adapters.local.frozen_raster_replay import (
         raster_policy_requires_pinned_native,
         replay_raster_records_frozen,
     )
+    from proofops.adapters.local.raster_checkpoint import replay_raster_records
+    from proofops.adapters.local.raster_visibility import raster_ocr_policy
 
     policy = raster_ocr_policy(
         mode=snapshot["raster_ocr_policy"]["mode"],

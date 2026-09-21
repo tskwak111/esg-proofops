@@ -41,6 +41,19 @@ line-length = 100
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
 
+# Archived readers and receipt wrappers are byte-hashed into persisted policies.
+# Style-only rewrites would invalidate existing evidence; lint logic still applies.
+[tool.ruff.lint.per-file-ignores]
+"packages/proofops/adapters/local/_frozen_verifiers/native_paragraph_glyph_v2_cpu_swift/native_glyph_geometry.py" = ["I001"]
+"packages/proofops/adapters/local/_frozen_verifiers/native_paragraph_glyph_v2_cpu_swift/source_verification.py" = ["I001"]
+
+[tool.ruff.format]
+exclude = [
+  "packages/proofops/adapters/local/_frozen_verifiers/**",
+  "packages/proofops/adapters/local/claim_span_bullet_alignment.py",
+  "packages/proofops/adapters/local/claim_span_render_resolution.py",
+]
+
 [tool.mypy]
 python_version = "3.12"
 strict = false

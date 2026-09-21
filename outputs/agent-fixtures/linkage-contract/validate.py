@@ -137,14 +137,20 @@ def validate_return(input_path, policy_path, output_path):
     for field in PROHIBITED_RESULT_FIELDS:
         if isinstance(result, dict) and field in result:
             errors.append(
-                {"where": f"output:{field}", "error": "prohibited_field",
-                 "detail": "grade/label fields are not allowed in a reconciliation return"}
+                {
+                    "where": f"output:{field}",
+                    "error": "prohibited_field",
+                    "detail": "grade/label fields are not allowed in a reconciliation return",
+                }
             )
     for doc_name, doc in (("input", packet), ("output", result)):
         if isinstance(doc, dict) and doc.get("item") == "C5":
             errors.append(
-                {"where": f"{doc_name}:item", "error": "prohibited_item",
-                 "detail": "C5 is not an accepted reconciliation item"}
+                {
+                    "where": f"{doc_name}:item",
+                    "error": "prohibited_item",
+                    "detail": "C5 is not an accepted reconciliation item",
+                }
             )
 
     # 2. Schema validation of each document.
@@ -164,13 +170,19 @@ def validate_return(input_path, policy_path, output_path):
     # 4. Claim / item linkage between packet and result.
     if result["claim_id"] != packet["identity"]["claim_id"]:
         errors.append(
-            {"where": "output:claim_id", "error": "linkage",
-             "detail": "result claim_id does not match packet identity.claim_id"}
+            {
+                "where": "output:claim_id",
+                "error": "linkage",
+                "detail": "result claim_id does not match packet identity.claim_id",
+            }
         )
     if result["item"] != packet["item"]:
         errors.append(
-            {"where": "output:item", "error": "linkage",
-             "detail": "result item does not match packet item"}
+            {
+                "where": "output:item",
+                "error": "linkage",
+                "detail": "result item does not match packet item",
+            }
         )
 
     # 5. Packet / policy hash re-computation (do not trust submitted hashes).
@@ -178,13 +190,19 @@ def validate_return(input_path, policy_path, output_path):
     expected_policy = digest(policy)
     if result["packet_sha256"] != expected_packet:
         errors.append(
-            {"where": "output:packet_sha256", "error": "hash_mismatch",
-             "detail": f"expected {expected_packet}"}
+            {
+                "where": "output:packet_sha256",
+                "error": "hash_mismatch",
+                "detail": f"expected {expected_packet}",
+            }
         )
     if result["policy_sha256"] != expected_policy:
         errors.append(
-            {"where": "output:policy_sha256", "error": "hash_mismatch",
-             "detail": f"expected {expected_policy}"}
+            {
+                "where": "output:policy_sha256",
+                "error": "hash_mismatch",
+                "detail": f"expected {expected_policy}",
+            }
         )
 
     # 6. Output source IDs must be a subset of the packet's declared sources.
@@ -192,14 +210,20 @@ def validate_return(input_path, policy_path, output_path):
     unknown = [sid for sid in result["source_ids"] if sid not in packet_source_ids]
     if unknown:
         errors.append(
-            {"where": "output:source_ids", "error": "unknown_source",
-             "detail": f"source ids not present in packet: {sorted(unknown)}"}
+            {
+                "where": "output:source_ids",
+                "error": "unknown_source",
+                "detail": f"source ids not present in packet: {sorted(unknown)}",
+            }
         )
     exp_src = result.get("explanation_source_id")
     if exp_src is not None and exp_src not in packet_source_ids:
         errors.append(
-            {"where": "output:explanation_source_id", "error": "unknown_source",
-             "detail": "explanation source id not present in packet"}
+            {
+                "where": "output:explanation_source_id",
+                "error": "unknown_source",
+                "detail": "explanation source id not present in packet",
+            }
         )
 
     return errors

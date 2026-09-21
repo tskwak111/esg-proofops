@@ -649,9 +649,7 @@ def test_review_rulepack_cli_promotes_draft_and_real_evaluate_decides_with_local
     root = Path(__file__).resolve().parents[2]
     config_dir = root / "config"
     manifest = yaml.safe_load((config_dir / "rule_pack_manifest.yaml").read_text())
-    files = {
-        path: yaml.safe_load((config_dir / path).read_text()) for path in manifest["files"]
-    }
+    files = {path: yaml.safe_load((config_dir / path).read_text()) for path in manifest["files"]}
     manifest.update(
         rule_pack_id=PACK_A, tenant_id=TENANT_A, status="draft", approved_by=None, approved_at=None
     )
@@ -697,9 +695,18 @@ def test_review_rulepack_cli_promotes_draft_and_real_evaluate_decides_with_local
         )
 
     source = SourceRef(
-        RUN_A, RUN_A, RUN_A, 1, None, (1, 1, 10, 10), "a" * 64,
-        "SYNTHETIC-FIXTURE-QUOTE (test fixture, not real document text)", 0, 18,
-        "located", "verified",
+        RUN_A,
+        RUN_A,
+        RUN_A,
+        1,
+        None,
+        (1, 1, 10, 10),
+        "a" * 64,
+        "SYNTHETIC-FIXTURE-QUOTE (test fixture, not real document text)",
+        0,
+        18,
+        "located",
+        "verified",
     )
 
     def fixture_fact(name: str, state: str = "present") -> ConfirmedFact:

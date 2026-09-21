@@ -9,6 +9,14 @@ import pytest
 from evaluation.table_layout_review import review_layout
 
 
+# The exact customer-report regression remains runnable locally; PDFs are private.
+@pytest.mark.skipif(
+    not all(
+        (Path(__file__).resolve().parents[2] / "outputs/agent-fixtures" / f"{name}.pdf").exists()
+        for name in ("lotte", "kia")
+    ),
+    reason="customer PDFs are local-only; run with the private corpus to verify these layouts",
+)
 def test_two_reviewed_layouts_and_source_boundary_holds():
     root = Path(__file__).resolve().parents[2]
     results = {}

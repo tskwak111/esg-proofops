@@ -155,9 +155,7 @@ class LocalAssuranceStore:
                     )
                 return statement.semantic_hash
             try:
-                self.runs.jobs._put(
-                    db, tenant_id, run_id, _KIND, _KEY, payload, immutable=True
-                )
+                self.runs.jobs._put(db, tenant_id, run_id, _KIND, _KEY, payload, immutable=True)
             except sqlite3.IntegrityError as exc:  # pragma: no cover - race guard
                 raise AssurancePublicationConflict(
                     "a different assurance statement is already published"

@@ -205,7 +205,8 @@ def verify_sustainability_source(
         content = uploads.read_original(tenant_id, document_version_id)
     except Exception as exc:
         raise LinkageVerificationError(
-            f"sustainability source read failed for tenant {tenant_id} version {document_version_id}: {exc}"
+            f"sustainability source read failed for tenant {tenant_id} version "
+            f"{document_version_id}: {exc}"
         ) from exc
     actual = sha256(content).hexdigest()
     if actual != expected_sha256:
@@ -244,7 +245,8 @@ def verify_packet_sources(
     packet_tenant = packet.get("identity", {}).get("tenant_id")
     if packet_tenant != tenant_id:
         raise LinkageVerificationError(
-            f"tenant_mismatch: packet tenant {packet_tenant!r} does not match expected {tenant_id!r}"
+            f"tenant_mismatch: packet tenant {packet_tenant!r} does not match expected "
+            f"{tenant_id!r}"
         )
     sustainability_version = packet.get("identity", {}).get("sustainability_document_version")
     if not sustainability_version:
@@ -255,7 +257,9 @@ def verify_packet_sources(
     for entry in packet.get("sources", []):
         source_id = entry.get("source_id")
         if not source_id or source_id in seen_ids:
-            raise LinkageVerificationError(f"duplicate or missing source_id in packet sources: {source_id!r}")
+            raise LinkageVerificationError(
+                f"duplicate or missing source_id in packet sources: {source_id!r}"
+            )
         seen_ids.add(source_id)
         if source_id.startswith("sr-"):
             doc_version = entry.get("document_id")

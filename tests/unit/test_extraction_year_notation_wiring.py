@@ -76,7 +76,8 @@ def test_resume_cannot_add_year_notation_to_a_legacy_run(tmp_path, monkeypatch):
         [
             "local_upstage_pilot",
             "--resume",
-            "--state", str(state),
+            "--state",
+            str(state),
             "--extraction-year-notation",
         ],
     )
@@ -107,7 +108,8 @@ def test_resume_cannot_add_extraction_context_to_a_legacy_run(tmp_path, monkeypa
         [
             "local_upstage_pilot",
             "--resume",
-            "--state", str(state),
+            "--state",
+            str(state),
             "--extraction-context",
         ],
     )

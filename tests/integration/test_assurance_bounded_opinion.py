@@ -36,8 +36,12 @@ RUN = "55555555-5555-4555-8555-555555555555"
 BINDING = ModelBinding("synthetic-assurance", "assurance", True)
 
 FIXTURE_REQUEST = (
-    Path(__file__).resolve().parents[2] / "outputs" / "agent-fixtures"
-    / "kia-assurance-sized-request" / "9e1e46d4-b365-4748-ad76-3e060d18badd" / "request.json"
+    Path(__file__).resolve().parents[2]
+    / "outputs"
+    / "agent-fixtures"
+    / "kia-assurance-sized-request"
+    / "9e1e46d4-b365-4748-ad76-3e060d18badd"
+    / "request.json"
 )
 
 
@@ -84,17 +88,35 @@ def _graph_from_texts(texts: dict[str, str]):
         CandidateBlock(
             "paragraph",
             NativeSource(
-                VERSION, MANIFEST, RUN, name, i + 1, None, (10, 10, 300, 40),
-                "pdf_bottom_left_points", text, 0, len(text),
+                VERSION,
+                MANIFEST,
+                RUN,
+                name,
+                i + 1,
+                None,
+                (10, 10, 300, 40),
+                "pdf_bottom_left_points",
+                text,
+                0,
+                len(text),
             ),
             PageGeometry(600, 800, 0, (0, 0, 600, 800)),
         )
         for i, (name, text) in enumerate(texts.items())
     )
     batch = CandidateBatch(
-        TENANT, VERSION, MANIFEST, "a" * 64, RUN,
-        "synthetic", "fixture-v1", "synthetic", "b" * 64,
-        blocks, (), synthetic=True,
+        TENANT,
+        VERSION,
+        MANIFEST,
+        "a" * 64,
+        RUN,
+        "synthetic",
+        "fixture-v1",
+        "synthetic",
+        "b" * 64,
+        blocks,
+        (),
+        synthetic=True,
     )
     graph = fuse_candidates((batch,), tenant_id=TENANT)
     graph = replace(graph, blocks=tuple(replace(b, quality="verified") for b in graph.blocks))
@@ -158,9 +180,7 @@ def test_actual_kia_126_blocks_split_within_limit_and_include_all(tmp_path):
     assert len(probe.calls) == 2
     assert len(probe.calls) <= MAX_ASSURANCE_BATCHES
     for call in probe.calls:
-        size = _transport_body_len(
-            SYSTEM_PROMPT, call["user_json"], "solar-pro3", 2048
-        )
+        size = _transport_body_len(SYSTEM_PROMPT, call["user_json"], "solar-pro3", 2048)
         assert size <= MAX_ASSURANCE_REQUEST_BYTES
     # All 126 blocks are sent exactly once, in declared order.
     seen: list[str] = []
@@ -289,9 +309,15 @@ def test_conflicting_period_across_batches_stays_unresolved(tmp_path):
     assert len(tagged["reporting_period"]) == 2
     selected = tuple(ref for refs in tagged.values() for ref in refs)
     statement = extract_assurance(
-        graph, selected, BINDING, tagged_fields=tagged, tenant_id=TENANT,
-        statement_id=STATEMENT, model_sha256=extractor.model_sha256,
-        prompt_sha256=extractor.prompt_sha256, replicate_id=1,
+        graph,
+        selected,
+        BINDING,
+        tagged_fields=tagged,
+        tenant_id=TENANT,
+        statement_id=STATEMENT,
+        model_sha256=extractor.model_sha256,
+        prompt_sha256=extractor.prompt_sha256,
+        replicate_id=1,
     )
     assert statement.reporting_period is None
     assert "reporting_period" in statement.unresolved_fields

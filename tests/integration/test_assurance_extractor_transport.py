@@ -85,17 +85,35 @@ def _graph_and_boundary():
         CandidateBlock(
             "paragraph",
             NativeSource(
-                VERSION, MANIFEST, RUN, name, i + 1, None, (10, 10, 300, 40),
-                "pdf_bottom_left_points", text, 0, len(text),
+                VERSION,
+                MANIFEST,
+                RUN,
+                name,
+                i + 1,
+                None,
+                (10, 10, 300, 40),
+                "pdf_bottom_left_points",
+                text,
+                0,
+                len(text),
             ),
             PageGeometry(600, 800, 0, (0, 0, 600, 800)),
         )
         for i, (name, text) in enumerate(TEXTS.items())
     )
     batch = CandidateBatch(
-        TENANT, VERSION, MANIFEST, "a" * 64, RUN,
-        "synthetic", "fixture-v1", "synthetic", "b" * 64,
-        blocks, (), synthetic=True,
+        TENANT,
+        VERSION,
+        MANIFEST,
+        "a" * 64,
+        RUN,
+        "synthetic",
+        "fixture-v1",
+        "synthetic",
+        "b" * 64,
+        blocks,
+        (),
+        synthetic=True,
     )
     graph = fuse_candidates((batch,), tenant_id=TENANT)
     graph = replace(graph, blocks=tuple(replace(b, quality="verified") for b in graph.blocks))
@@ -137,9 +155,14 @@ def test_well_formed_response_publishes_covered_statement(tmp_path):
 
     selected_refs = tuple(ref for refs in tagged.values() for ref in refs)
     statement = extract_assurance(
-        graph, selected_refs, BINDING,
-        tagged_fields=tagged, tenant_id=TENANT, statement_id=STATEMENT,
-        model_sha256=extractor.model_sha256, prompt_sha256=extractor.prompt_sha256,
+        graph,
+        selected_refs,
+        BINDING,
+        tagged_fields=tagged,
+        tenant_id=TENANT,
+        statement_id=STATEMENT,
+        model_sha256=extractor.model_sha256,
+        prompt_sha256=extractor.prompt_sha256,
         replicate_id=1,
     )
     assert statement.provider == "삼일회계법인"
@@ -160,9 +183,7 @@ def test_well_formed_response_publishes_covered_statement(tmp_path):
 
 def test_cross_block_quote_index_outside_boundary_is_rejected(tmp_path):
     graph, boundary, _by_native = _graph_and_boundary()
-    content = json.dumps(
-        {"fields": {"provider": [{"source_index": 99, "quote": "삼일회계법인"}]}}
-    )
+    content = json.dumps({"fields": {"provider": [{"source_index": 99, "quote": "삼일회계법인"}]}})
     probe = FakeProbe(content)
     extractor = UpstageAssuranceExtractor(probe, tmp_path / "receipts")
     with pytest.raises(ValueError, match="ASSURANCE_SPAN_OR_SCHEMA_INVALID"):
@@ -181,9 +202,7 @@ def test_unknown_field_name_from_model_is_rejected(tmp_path):
     # be durably retained for review/replay even though it failed schema
     # validation — losing it here would make a bad model response
     # unreviewable and unreplayable.
-    raw_response = json.loads(
-        (tmp_path / "receipts" / REQUEST / "raw_response.json").read_text()
-    )
+    raw_response = json.loads((tmp_path / "receipts" / REQUEST / "raw_response.json").read_text())
     assert raw_response["content"] == content
     assert raw_response["provider_request_id"] == "fake-provider-id"
 

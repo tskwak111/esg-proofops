@@ -95,11 +95,14 @@ def test_batch_loop_stops_on_temporary_or_ownership_halt(status):
 
 
 @pytest.mark.parametrize("outcome", ["idle", "ignored"])
-@pytest.mark.parametrize("batch_result", [
-    {"status": "no_revision"},
-    {"status": "committed", "pending_after": ["unprocessed"], "stop_code": "BUDGET_EXHAUSTED"},
-    {"status": "committed", "pending_after": ["unprocessed"]},
-])
+@pytest.mark.parametrize(
+    "batch_result",
+    [
+        {"status": "no_revision"},
+        {"status": "committed", "pending_after": ["unprocessed"], "stop_code": "BUDGET_EXHAUSTED"},
+        {"status": "committed", "pending_after": ["unprocessed"]},
+    ],
+)
 def test_restart_without_complete_extraction_never_tags(monkeypatch, outcome, batch_result):
     from proofops_worker import composition, extract_batch
 
@@ -118,8 +121,11 @@ def test_restart_without_complete_extraction_never_tags(monkeypatch, outcome, ba
     monkeypatch.setattr(composition, "build_composition", build)
     monkeypatch.setattr(extract_batch, "run_batches", lambda *_, **__: [batch_result])
     args = SimpleNamespace(
-        verify_paragraphs=False, native_quote_typography=False, raster_ocr=False,
-        extraction_total_calls=16, max_calls=8,
+        verify_paragraphs=False,
+        native_quote_typography=False,
+        raster_ocr=False,
+        extraction_total_calls=16,
+        max_calls=8,
     )
     result = run_live_stages(args, tenant_id="tenant", run_id="run")
     assert visited == ["parse", "extract"]
@@ -145,8 +151,11 @@ def test_single_batch_resume_requires_a_published_extract(monkeypatch, outcome):
 
     monkeypatch.setattr(composition, "build_composition", build)
     args = SimpleNamespace(
-        verify_paragraphs=False, native_quote_typography=False, raster_ocr=False,
-        extraction_total_calls=None, max_calls=8,
+        verify_paragraphs=False,
+        native_quote_typography=False,
+        raster_ocr=False,
+        extraction_total_calls=None,
+        max_calls=8,
     )
     result = run_live_stages(args, tenant_id="tenant", run_id="run")
     assert visited == ["parse", "extract"]

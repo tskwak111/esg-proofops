@@ -37,6 +37,7 @@ def test_native_verification_cli_rejects_nonparse_before_composition(monkeypatch
                 stage="parse",
                 review_table_notes=False,
                 verify_paragraphs=True,
+                native_typography_tolerance=False,
                 raster_ocr=False,
             )
         ]
@@ -81,7 +82,13 @@ def test_raster_ocr_cli_forwards_explicit_native_parse_opt_in(monkeypatch):
     main.main()
 
     assert calls == [
-        dict(stage="parse", review_table_notes=False, verify_paragraphs=True, raster_ocr=True)
+        dict(
+            stage="parse",
+            review_table_notes=False,
+            verify_paragraphs=True,
+            native_typography_tolerance=False,
+            raster_ocr=True,
+        )
     ]
 
 

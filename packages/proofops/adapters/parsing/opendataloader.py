@@ -897,9 +897,7 @@ def _child(work: Path) -> None:
             located, receipts = locate_auxiliary_cells(
                 nodes, words_by_page, source=source_pdf_bytes
             )
-            (work / "auxiliary.json").write_bytes(
-                _json(dict(kids=located, cell_locate=receipts))
-            )
+            (work / "auxiliary.json").write_bytes(_json(dict(kids=located, cell_locate=receipts)))
 
 
 if __name__ == "__main__":

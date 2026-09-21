@@ -148,9 +148,9 @@ def test_real_target_is_kept_and_a_bare_category_cell_selects_nothing(tmp_path):
     _, bare = id_extractor(tmp_path / "bare", json.dumps({"sentence_ids": []}))
     # An empty selection is not an absence finding: the source stays uncovered
     # and its coverage is decided downstream, exactly as for quote mode.
-    assert bare.extract(
-        packet(bare, text=BARE_CATEGORY, source_id=BARE_CATEGORY_SOURCE_ID)
-    ) == {"spans": []}
+    assert bare.extract(packet(bare, text=BARE_CATEGORY, source_id=BARE_CATEGORY_SOURCE_ID)) == {
+        "spans": []
+    }
 
 
 @pytest.mark.parametrize(

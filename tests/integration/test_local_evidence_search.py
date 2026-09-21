@@ -182,6 +182,7 @@ def test_collect_raw_candidate_review_unverified_table_positive_and_guards():
     """
     import copy
     from uuid import UUID, uuid5
+
     from proofops.adapters.local.evidence_search import (
         collect_raw_candidate_review,
         validate_raw_candidate,
@@ -192,6 +193,7 @@ def test_collect_raw_candidate_review_unverified_table_positive_and_guards():
         fuse_candidates,
     )
     from proofops.domain.documents import NativeSource, PageGeometry
+
     from tests.acceptance.test_claims import MANIFEST, VERSION
 
     run = str(uuid5(UUID(MANIFEST), "synthetic-parser"))
@@ -321,9 +323,10 @@ def test_collect_raw_candidate_review_unverified_table_positive_and_guards():
     assert validate_raw_candidate(table_cand, graph, tenant_id=TENANT)
 
     # Guard: retrieve_evidence filters out unverified sources from original_packet
-    from proofops.application.claims import discover_atomic_claims, ClaimScope
-    from proofops_agent.extraction import SyntheticClaimExtractor
+    from proofops.application.claims import ClaimScope, discover_atomic_claims
     from proofops.application.evidence.retrieval import retrieve_evidence
+    from proofops_agent.extraction import SyntheticClaimExtractor
+
     from tests.acceptance.test_rules import pack
 
     claims_discovery = discover_atomic_claims(
@@ -343,6 +346,7 @@ def test_collect_raw_candidate_review_unverified_table_positive_and_guards():
             token_counter=len,
         ).to_dict()
         # The unverified table block MUST NOT be promoted to evidence_candidates
-        table_sources = [c for c in packet["evidence_candidates"] if c["source_id"] == table_block.source_id]
+        table_sources = [
+            c for c in packet["evidence_candidates"] if c["source_id"] == table_block.source_id
+        ]
         assert len(table_sources) == 0
-
