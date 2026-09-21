@@ -231,6 +231,30 @@ class RulePackSqliteStore:
             ).fetchone()
         return None if row is None else str(row["rule_pack_id"])
 
+    def get_pack_with_files(
+        self, tenant_id: str, rule_pack_id: str
+    ) -> tuple[RulePackRecord, dict[str, Any]]:
+        """Read-only lookup of the exact stored record + files for one pack id.
+
+        Used by the local coordinator review CLI to fetch a candidate pack
+        by id without duplicating `_load_registry`'s tenant-wide scan and
+        without ever mutating the row in place (packs are immutable by
+        (tenant_id, rule_pack_id); promotion requires a new pack id).
+        """
+        with self._read() as connection:
+            row = connection.execute(
+                """SELECT r.record_json, r.files_json
+                   FROM rulepack_heads h
+                   JOIN rulepack_revisions r USING (tenant_id, rule_pack_id, revision)
+                   WHERE h.tenant_id=? AND h.rule_pack_id=?""",
+                (tenant_id, rule_pack_id),
+            ).fetchone()
+        if row is None:
+            raise RulePackNotFound("rule pack not found")
+        record = RulePackRecord.from_dict(json.loads(row["record_json"]))
+        files = json.loads(row["files_json"])
+        return record, files
+
     def extraction_snapshot_transaction(self, connection, tenant_id, mode, rule_pack_id):
         """Pin validated content for extraction only; do not activate or approve rules."""
         from proofops.application.rulepacks import validate_rulepack
@@ -387,65 +411,207 @@ class RulePackSqliteStore:
             except LookupError as exc:
                 raise RulePackNotFound("rule pack not found") from exc
 
-            before = {pack.rule_pack_id: pack for pack in registry.packs}
-            response_revision = current_revision
-            for pack in updated.packs:
-                if before[pack.rule_pack_id] == pack:
-                    continue
-                revision = revisions[pack.rule_pack_id] + 1
-                connection.execute(
-                    "INSERT INTO rulepack_revisions VALUES (?, ?, ?, ?, ?)",
-                    (
-                        tenant_id,
-                        pack.rule_pack_id,
-                        revision,
-                        canonical_json(pack.to_dict()),
-                        canonical_json(files_by_id[pack.rule_pack_id]),
-                    ),
-                )
-                changed = connection.execute(
-                    """UPDATE rulepack_heads SET revision=?
-                       WHERE tenant_id=? AND rule_pack_id=? AND revision=?""",
-                    (revision, tenant_id, pack.rule_pack_id, revisions[pack.rule_pack_id]),
-                )
-                if changed.rowcount != 1:
-                    raise StaleRulePackRevision(revisions[pack.rule_pack_id])
-                if pack.rule_pack_id == rule_pack_id:
-                    response_revision = revision
+            return self._commit_activation(
+                connection,
+                tenant_id=tenant_id,
+                rule_pack_id=rule_pack_id,
+                registry=registry,
+                updated=updated,
+                record=record,
+                files_by_id=files_by_id,
+                revisions=revisions,
+                current_revision=current_revision,
+                key_hash=key_hash,
+                request_hash=request_hash,
+                now=now,
+            )
 
-            activated = updated.get_pack(tenant_id, rule_pack_id)
-            connection.execute(
-                """INSERT INTO rulepack_active_pointers VALUES (?, ?, ?)
-                   ON CONFLICT(tenant_id, mode) DO UPDATE SET rule_pack_id=excluded.rule_pack_id""",
-                (tenant_id, activated.mode, rule_pack_id),
-            )
-            body = _project_rule_pack(activated)
-            connection.execute(
-                "INSERT INTO rulepack_activation_events VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                (
-                    tenant_id,
-                    self._id_factory(),
+    def record_ai_delegated_review(
+        self,
+        *,
+        tenant_id: str,
+        rule_pack_id: str,
+        expected_revision: int,
+        idempotency_key: str,
+        reviewer: str,
+        reviewed_at: str,
+        source_authority: str,
+        note: str,
+        gap_ids: Collection[str],
+        now: float,
+    ) -> StoredActivation:
+        """Store-level path for AT-R07: coordinator/admin-boundary AI-delegated
+
+        review that activates a real (non-synthetic) run default without a
+        human `approved_by`. Mirrors `activate()`'s CAS/idempotency/append-
+        only structure exactly; the only different step is which application
+        function computes the new registry state.
+        """
+        from proofops.application.rulepacks import record_ai_delegated_review as _record
+
+        route = _ROUTE + "#ai-delegated-review"
+        request_hash = hashlib.sha256(
+            canonical_json(
+                {
+                    "rule_pack_id": rule_pack_id,
+                    "reviewer": reviewer,
+                    "reviewed_at": reviewed_at,
+                    "source_authority": source_authority,
+                    "note": note,
+                }
+            ).encode("ascii")
+        ).hexdigest()
+        key_hash = hashlib.sha256(idempotency_key.encode()).hexdigest()
+
+        with self._transaction() as connection:
+            replay = connection.execute(
+                """SELECT request_hash, response_json, response_revision, expires_at
+                   FROM rulepack_idempotency_records
+                   WHERE tenant_id=? AND route=? AND key_hash=?""",
+                (tenant_id, route, key_hash),
+            ).fetchone()
+            if replay is not None:
+                if float(replay["expires_at"]) > now:
+                    if replay["request_hash"] != request_hash:
+                        raise IdempotencyConflict(
+                            "idempotency key was already used for another request"
+                        )
+                    return StoredActivation(
+                        body=json.loads(replay["response_json"]),
+                        revision=int(replay["response_revision"]),
+                    )
+                connection.execute(
+                    """DELETE FROM rulepack_idempotency_records
+                       WHERE tenant_id=? AND route=? AND key_hash=?""",
+                    (tenant_id, route, key_hash),
+                )
+
+            head = connection.execute(
+                "SELECT revision FROM rulepack_heads WHERE tenant_id=? AND rule_pack_id=?",
+                (tenant_id, rule_pack_id),
+            ).fetchone()
+            if head is None:
+                raise RulePackNotFound("rule pack not found")
+            current_revision = int(head["revision"])
+            if current_revision != expected_revision:
+                raise StaleRulePackRevision(current_revision)
+
+            registry, files_by_id, revisions = self._load_registry(connection, tenant_id)
+            try:
+                updated, record, provenance = _record(
+                    registry,
                     rule_pack_id,
-                    record.actor,
-                    record.reason,
-                    record.before_pack_id,
-                    record.after_pack_id,
-                    datetime.fromtimestamp(now, tz=UTC).isoformat().replace("+00:00", "Z"),
-                ),
+                    tenant_id,
+                    reviewer=reviewer,
+                    reviewed_at=reviewed_at,
+                    source_authority=source_authority,
+                    note=note,
+                    files_content=files_by_id[rule_pack_id],
+                    gap_ids=gap_ids,
+                )
+            except LookupError as exc:
+                raise RulePackNotFound("rule pack not found") from exc
+            del provenance  # already encoded into record.reason by the application layer
+
+            return self._commit_activation(
+                connection,
+                tenant_id=tenant_id,
+                rule_pack_id=rule_pack_id,
+                registry=registry,
+                updated=updated,
+                record=record,
+                files_by_id=files_by_id,
+                revisions=revisions,
+                current_revision=current_revision,
+                key_hash=key_hash,
+                request_hash=request_hash,
+                now=now,
+                route=route,
             )
+
+    def _commit_activation(
+        self,
+        connection,
+        *,
+        tenant_id: str,
+        rule_pack_id: str,
+        registry: RulePackRegistry,
+        updated: RulePackRegistry,
+        record,
+        files_by_id: dict[str, dict[str, Any]],
+        revisions: dict[str, int],
+        current_revision: int,
+        key_hash: str,
+        request_hash: str,
+        now: float,
+        route: str = _ROUTE,
+    ) -> StoredActivation:
+        """Shared append-only tail for both human and AI-delegated activation.
+
+        Writes a new immutable revision only for packs that actually changed,
+        advances the (tenant, mode) active pointer, appends one activation
+        event, and records one idempotency response. No historic row is
+        mutated; a stale expected_revision still raises before any write.
+        """
+        before = {pack.rule_pack_id: pack for pack in registry.packs}
+        response_revision = current_revision
+        for pack in updated.packs:
+            if before[pack.rule_pack_id] == pack:
+                continue
+            revision = revisions[pack.rule_pack_id] + 1
             connection.execute(
-                "INSERT INTO rulepack_idempotency_records VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO rulepack_revisions VALUES (?, ?, ?, ?, ?)",
                 (
                     tenant_id,
-                    _ROUTE,
-                    key_hash,
-                    request_hash,
-                    canonical_json(body),
-                    response_revision,
-                    now + 86_400,
+                    pack.rule_pack_id,
+                    revision,
+                    canonical_json(pack.to_dict()),
+                    canonical_json(files_by_id[pack.rule_pack_id]),
                 ),
             )
-            return StoredActivation(body=body, revision=response_revision)
+            changed = connection.execute(
+                """UPDATE rulepack_heads SET revision=?
+                   WHERE tenant_id=? AND rule_pack_id=? AND revision=?""",
+                (revision, tenant_id, pack.rule_pack_id, revisions[pack.rule_pack_id]),
+            )
+            if changed.rowcount != 1:
+                raise StaleRulePackRevision(revisions[pack.rule_pack_id])
+            if pack.rule_pack_id == rule_pack_id:
+                response_revision = revision
+
+        activated = updated.get_pack(tenant_id, rule_pack_id)
+        connection.execute(
+            """INSERT INTO rulepack_active_pointers VALUES (?, ?, ?)
+               ON CONFLICT(tenant_id, mode) DO UPDATE SET rule_pack_id=excluded.rule_pack_id""",
+            (tenant_id, activated.mode, rule_pack_id),
+        )
+        body = _project_rule_pack(activated)
+        connection.execute(
+            "INSERT INTO rulepack_activation_events VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                tenant_id,
+                self._id_factory(),
+                rule_pack_id,
+                record.actor,
+                record.reason,
+                record.before_pack_id,
+                record.after_pack_id,
+                datetime.fromtimestamp(now, tz=UTC).isoformat().replace("+00:00", "Z"),
+            ),
+        )
+        connection.execute(
+            "INSERT INTO rulepack_idempotency_records VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (
+                tenant_id,
+                route,
+                key_hash,
+                request_hash,
+                canonical_json(body),
+                response_revision,
+                now + 86_400,
+            ),
+        )
+        return StoredActivation(body=body, revision=response_revision)
 
     @staticmethod
     def _load_registry(

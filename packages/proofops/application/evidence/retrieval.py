@@ -23,7 +23,7 @@ from proofops.domain.numeric import unassigned_note_ids, unresolved_source_issue
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import RulePackSnapshot, canonical_json
 from proofops.domain.rules.engine import MAPPINGS
-from proofops.domain.values import _require_sha256, _require_uuid
+from proofops.domain.values import SourceRef, _require_sha256, _require_uuid
 
 
 def attested_prose_ids(original, refs):
@@ -39,6 +39,35 @@ def attested_prose_ids(original, refs):
         and verify_source_ref(ref, original, tenant_id=original.tenant_id).verification_state
         == "verified"
     }
+
+
+def independently_attested_span_refs(original, source_id, *, tenant_id):
+    """Verified external paragraph spans for one unverified atomic prose block.
+
+    Admits only the exact independently replayed spans recorded in the trusted
+    SpanVerifiedGraph, never the unverified paragraph remainder. Each stored span
+    must re-verify (tenant/document/manifest/geometry/raw-offset) via the shared
+    span verifier and point at this block. Deterministic by (char_start, char_end).
+    Returns () when the graph is not span-verified or the block stays unverified.
+    """
+    if not isinstance(original, SpanVerifiedGraph):
+        return ()
+    block = next((b for b in original.blocks if b.source_id == source_id), None)
+    if block is None or block.kind != "paragraph" or block.quality != "unverified":
+        return ()
+    admitted: list[SourceRef] = []
+    seen: set[tuple[int, int]] = set()
+    for span in sorted(original.verified_spans, key=lambda s: (s.char_start, s.char_end)):
+        if span.source_id != source_id or span.verification_state != "verified":
+            continue
+        key = (span.char_start, span.char_end)
+        if key in seen:
+            continue
+        checked = verify_source_ref(span, original, tenant_id=tenant_id)
+        if checked.verification_state == "verified":
+            seen.add(key)
+            admitted.append(checked)
+    return tuple(admitted)
 
 
 def evidence_issue_ids(original, source_ids, refs):
@@ -135,6 +164,11 @@ def freeze_track_packet(
     """
     data = packet.to_dict()
     claim = track.claim
+    if data.get("status") != "candidate":
+        # Retrieval already refused this evidence (unverified claim source or an
+        # unresolved bundle). A recorded blocked packet stays a review diagnostic
+        # and can never be selected for tagging, grading or binding.
+        raise DomainValidationError("blocked evidence packet cannot select a track")
     validate_track_candidates(
         [claim],
         [
@@ -204,7 +238,10 @@ def retrieve_evidence(
     """GRI → section/table → lexical20/vector20 → canonical dedupe/RRF60.
 
     One bounded global round (at most two permitted by the contract), twelve
-    whole snippets, no silent cell/header splitting. Composition injects the
+    whole snippets, no silent cell/header splitting. A bundle that would exceed
+    the bound keeps its own ref and reuses exact context refs already admitted
+    verbatim (recorded in coverage) instead of being omitted; byte counts use
+    the stored JSON. Composition injects the
     selected model's tokenizer; retrieval never calls an embedding/model API.
     """
     _require_uuid("run_id", run_id)
@@ -286,6 +323,68 @@ def retrieve_evidence(
         *(table_roots[sid] for sid in claim_ids if sid not in span_prose_ids)
     )
     claim_sections = set().union(*(sections.get(sid, set()) for sid in claim_ids))
+
+    # ponytail: no semantic header roles exist yet. Retain every preceding row
+    # as possible context; deeper rows can still exceed the budget until explicit
+    # header associations are available. Never infer that excluded rows are absent.
+    row_context_excluded: set[str] = set()
+    context_only_ids: set[str] = set()
+    if claim_verified and len(claim_ids) == len(claim_tables) == 1:
+        target, table_id = claim_ids[0], next(iter(claim_tables))
+        members = {sid for sid in blocks if table_id in table_roots[sid]}
+        structural = {sid for sid in members if blocks[sid].kind in ("table_row", "table_cell")}
+        rows = {sid for sid in structural if blocks[sid].kind == "table_row"}
+        cells = structural - rows
+        positioned = {
+            sid: blocks[sid].candidates[blocks[sid].winner]
+            for sid in structural
+            if blocks[sid].winner is not None and blocks[sid].quality == "verified"
+        }
+        if (
+            target in rows
+            and len(structural) > 12
+            and blocks[table_id].quality == "verified"
+            and set(positioned) == structural
+            and all(type(c.row_number) is int and c.row_number > 0 for c in positioned.values())
+            and len({positioned[sid].row_number for sid in rows}) == len(rows)
+            and all(parents.get(sid) == {table_id} for sid in rows)
+            and all(
+                table_roots[sid] == {table_id}
+                and len(ancestors(sid) & rows) == 1
+                and positioned[next(iter(ancestors(sid) & rows))].row_number
+                == positioned[sid].row_number
+                and all(
+                    type(value) is int and value > 0
+                    for value in (
+                        positioned[sid].column_number,
+                        positioned[sid].column_span,
+                        positioned[sid].row_span,
+                    )
+                )
+                for sid in cells
+            )
+            and all(any(row in ancestors(cell) for cell in cells) for row in rows)
+        ):
+            last_row = positioned[target].row_number
+            context_members = {sid for sid in structural if positioned[sid].row_number <= last_row}
+            # Exclude later rows and their descendants. For kept cells, only
+            # exact duplicate prose is context-only; distinct nearby prose stays.
+            later = structural - context_members
+            row_context_excluded = later | {
+                sid
+                for sid in members - structural
+                if ancestors(sid) & later
+                or (
+                    blocks[sid].kind in ("paragraph", "heading")
+                    and any(
+                        blocks[sid].raw_text == blocks[cell].raw_text
+                        for cell in ancestors(sid) & cells & context_members
+                    )
+                )
+            }
+            # The full table ref remains mandatory ancestry context, but is not
+            # an independently taggable candidate in this row-scoped packet.
+            context_only_ids = {table_id}
     lineage_ids = [
         sid
         for sid in blocks
@@ -321,6 +420,9 @@ def retrieve_evidence(
         not_found_state="unknown",
         omitted_source_ids=[],
         unprocessed_source_ids=[],
+        deduplicated_source_refs={},
+        row_context_excluded_source_ids=sorted(row_context_excluded),
+        context_only_source_ids=sorted(context_only_ids),
         source_quality={sid: b.quality for sid, b in blocks.items() if b.quality != "verified"},
         lexical_status="not_run",
         vector_status="not_run",
@@ -359,6 +461,8 @@ def retrieve_evidence(
     used_tokens = 0
     blocked = not claim_verified
     for source_id in dict.fromkeys(order):
+        if source_id in row_context_excluded | context_only_ids:
+            continue
         block = blocks[source_id]
         source_scope = (
             "local_claim"
@@ -368,7 +472,17 @@ def retrieve_evidence(
             else "global_bound"
         )
         elements = [item["id"] for item in definitions if source_scope in item["source_scopes"]]
-        source_refs = [ref for ref in claim_refs if ref.source_id == source_id]
+        # An external hit whose paragraph stays unverified but contains an
+        # independently attested span is admitted as that exact span only, as an
+        # atomic prose source without parser-assigned table/section ancestry.
+        external_spans = (
+            independently_attested_span_refs(original, source_id, tenant_id=tenant_id)
+            if source_id not in claim_ids
+            else ()
+        )
+        source_refs = [ref for ref in claim_refs if ref.source_id == source_id] or list(
+            external_spans
+        )
         if unassigned_note_ids(original, source_id) or evidence_issue_ids(
             original, {source_id}, source_refs
         ):
@@ -377,7 +491,8 @@ def retrieve_evidence(
             continue
         # No GAP-004 explicit_link expansion. Parent/header/footnote lineage is
         # context, never proof of subject/period/metric/row binding.
-        bundle_ids = {source_id} | (set() if source_id in span_prose_ids else ancestors(source_id))
+        atomic = source_id in span_prose_ids or bool(external_spans)
+        bundle_ids = {source_id} | (set() if atomic else ancestors(source_id))
         bundle_ids.update(
             edge.source_id
             for edge in original.edges
@@ -393,7 +508,11 @@ def retrieve_evidence(
         for sid in [source_id] + sorted(bundle_ids - {source_id}):
             b = blocks[sid]
             selected = (
-                [ref for ref in claim_refs if ref.source_id == sid] if sid in claim_ids else []
+                [ref for ref in claim_refs if ref.source_id == sid]
+                if sid in claim_ids
+                else list(external_spans)
+                if sid == source_id and external_spans
+                else []
             )
             if b.winner is None or (
                 b.quality != "verified"
@@ -409,15 +528,50 @@ def retrieve_evidence(
                 break
             refs.extend(checked)
         else:
+            full_refs = [asdict(ref) for ref in refs]
             candidate = dict(
                 source_id=source_id,
                 source_scope=source_scope,
                 allowed_elements=elements,
-                source_refs=[asdict(ref) for ref in refs],
+                source_refs=full_refs,
             )
             tokens = token_counter(canonical_json(candidate))
             if type(tokens) is not int or tokens < 0:
                 raise DomainValidationError("token counter must return a nonnegative integer")
+            if context_only_ids or not (
+                tokens <= 1600 and used_tokens + tokens <= max_tokens and len(candidates) < 12
+            ):
+                # Scoped rows compact shared context before it starves later cells.
+                # Otherwise compact only oversized bundles, preserving legacy packets.
+                # Store shared table/row/header
+                # context once per packet instead of omitting verified evidence.
+                # Drop only exact refs already admitted verbatim in an earlier
+                # candidate, after all quality/ancestry/verification gates above.
+                # The candidate always keeps its own ref; the union of quotes is
+                # preserved and byte counts use the stored JSON. Oversized
+                # bundles that still do not fit are omitted whole, as before.
+                admitted = {canonical_json(ref) for c in candidates for ref in c["source_refs"]}
+                kept = [full_refs[0]]
+                dropped = []
+                for ref in full_refs[1:]:
+                    if canonical_json(ref) in admitted:
+                        dropped.append(ref["source_id"])
+                    else:
+                        kept.append(ref)
+                        admitted.add(canonical_json(ref))
+                if dropped:
+                    candidate["source_refs"] = kept
+                    tokens = token_counter(canonical_json(candidate))
+                    if type(tokens) is not int or tokens < 0:
+                        raise DomainValidationError(
+                            "token counter must return a nonnegative integer"
+                        )
+                    if (
+                        tokens <= 1600
+                        and used_tokens + tokens <= max_tokens
+                        and len(candidates) < 12
+                    ):
+                        coverage["deduplicated_source_refs"][source_id] = sorted(set(dropped))
             if tokens <= 1600 and used_tokens + tokens <= max_tokens and len(candidates) < 12:
                 candidates.append(candidate)
                 used_tokens += tokens

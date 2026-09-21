@@ -7,7 +7,11 @@ from pathlib import Path
 
 from proofops.adapters.local.catalog_pages import initialize, page
 from proofops.adapters.local.run_artifacts import load_run_graph
-from proofops.application.assurance import ClaimContext, match_assurance
+from proofops.application.assurance import (
+    ClaimContext,
+    claim_context_from_review_inputs,
+    match_assurance,
+)
 from proofops.application.ingest.normalize import normalize_tables
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rules.engine import ConfirmedFact, ConfirmedTags
@@ -28,7 +32,7 @@ class LocalAnalysisStore:
 
     kind = "local-synthetic-only"
 
-    def __init__(self, runs, uploads, parser, claims, tags=None):
+    def __init__(self, runs, uploads, parser, claims, tags=None, assurance=None):
         paths = {Path(runs.path).resolve(), Path(claims.store.path).resolve()}
         if tags is not None:
             paths.add(Path(tags.store.path).resolve())
@@ -36,6 +40,9 @@ class LocalAnalysisStore:
             raise ValueError("runs, claims and tags must share one local database")
         self.runs, self.uploads, self.parser = runs, uploads, parser
         self.claims, self.tags = claims, tags
+        # Optional source-validated assurance replay. When absent the matcher
+        # keeps receiving None and every claim stays "undetermined".
+        self.assurance_store = assurance
 
     def _continuation(self, tenant_id, run_id, endpoint, cursor, limit, now):
         with self.runs.jobs._transaction() as db:
@@ -106,10 +113,33 @@ class LocalAnalysisStore:
         epoch = self.runs.get(tenant_id, run_id)["mutation_epoch"]
         discovery = self.claims.load(tenant_id, run_id)
         claims = self._ordered_claims(discovery.claims)
-        matches = [
-            match_assurance(
-                None,
-                ClaimContext(
+        # One published source-validated opinion per run (or None). The identical
+        # matcher runs for every claim with source-validated preliminary dimensions;
+        # unavailable dimensions stay undetermined.
+        statement = (
+            self.assurance_store.load(tenant_id, run_id)
+            if self.assurance_store is not None
+            else None
+        )
+
+        def _claim_context(claim):
+            try:
+                review_inputs = (
+                    self.tags.load_inputs(tenant_id, run_id, claim.claim_id)
+                    if self.tags is not None
+                    else None
+                )
+            except Exception:
+                review_inputs = None
+            try:
+                return claim_context_from_review_inputs(
+                    review_inputs,
+                    tenant_id=claim.tenant_id,
+                    document_version_id=claim.document_version_id,
+                    claim_id=claim.claim_id,
+                )
+            except Exception:
+                return ClaimContext(
                     tenant_id,
                     claim.document_version_id,
                     claim.claim_id,
@@ -117,10 +147,9 @@ class LocalAnalysisStore:
                     None,
                     (),
                     (),
-                ),
-            ).to_dict()
-            for claim in claims
-        ]
+                )
+
+        matches = [match_assurance(statement, _claim_context(claim)).to_dict() for claim in claims]
         return self._first_page(
             tenant_id,
             run_id,

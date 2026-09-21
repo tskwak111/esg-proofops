@@ -42,9 +42,9 @@ LEVELS = {
 MATCH_RULES = {
     "version": "task-007-v1",
     "scope": "exact-nfc-subset",
-    "period": "exact-four-digit-year",
+    "period": "exact-year-literal-yyyy-yyyy년-yyyy년도",
     "unknown": "undetermined",
-    "exclusion": "explicit-dimension-first",
+    "exclusion": "explicit-dimension-first-exact-year-or-unresolved",
     "multiple_scope_axes": "undetermined-without-scoped-extraction",
     "levels": LEVELS,
 }
@@ -329,11 +329,147 @@ def _subset(claim_values: Sequence[str], covered: Sequence[str]) -> str:
     return "yes" if {_text(v) for v in claim_values} <= {_text(v) for v in covered} else "no"
 
 
+def _normalize_year(value: str | None) -> str | None:
+    """Match-time exact single-year literal: YYYY, YYYY년, or YYYY 년도/년도.
+
+    Returns the four-digit year for exactly those three literal shapes and
+    None otherwise (ranges, extra prose, fiscal labels stay unknown). Stored
+    statement/claim fields are never rewritten; this applies only to the
+    comparison comparands.
+    """
+    if not isinstance(value, str):
+        return None
+    text = _text(value)
+    if re.fullmatch(r"[0-9]{4}", text):
+        return text
+    match = re.fullmatch(r"([0-9]{4})년", text)
+    if match:
+        return match.group(1)
+    match = re.fullmatch(r"([0-9]{4})\s*년도", text)
+    if match:
+        return match.group(1)
+    return None
+
+
+def _validated_dimension_text(ref, *, claim, original, tenant_id: str) -> str | None:
+    """Return the literal dimension quote when it is source-bound to this claim.
+
+    Accepts only a SourceRef that (a) carries this claim's document/manifest
+    identity, (b) sits inside one of the claim's own atomic source spans
+    (same source_id and char containment), and (c) re-verifies against the
+    trusted original graph (page/bbox/quote/hash/offsets). Anything else --
+    foreign source_id, out-of-claim span, unverified/unlocated citation --
+    returns None so the matcher stays unknown instead of guessing.
+    """
+    try:
+        if ref is None:
+            return None
+        if not isinstance(ref, SourceRef):
+            return None
+        if (ref.document_version_id, ref.parse_manifest_id) != (
+            claim.document_version_id,
+            claim.parse_manifest_id,
+        ):
+            return None
+        text = _text(ref.quote) if isinstance(ref.quote, str) else ""
+        if not text:
+            return None
+        contained = False
+        for source in claim.source_refs:
+            if (
+                source.source_id == ref.source_id
+                and source.document_version_id == ref.document_version_id
+                and source.parse_manifest_id == ref.parse_manifest_id
+                and source.char_start <= ref.char_start < ref.char_end <= source.char_end
+            ):
+                contained = True
+                break
+        if not contained:
+            return None
+        from proofops.application.evidence.span_citations import verify_source_ref
+
+        checked = verify_source_ref(ref, original, tenant_id=tenant_id)
+        if checked.verification_state != "verified" or checked.quote != ref.quote:
+            return None
+        return text
+    except Exception:
+        return None
+
+
+def _normalize_reporting_period(text: str | None) -> str | None:
+    """Retain the literal period; map only an exact explicit single-year token.
+
+    Exact `YYYY`, `YYYY년`, or `YYYY 년도`/`YYYY년도` maps to `YYYY` at the
+    claim-context build step (the stored SourceRef keeps the original quote).
+    Ranges, multi-year phrases, or inferred years return literally so
+    `match_assurance` keeps them `unknown`.
+    """
+    if text is None:
+        return None
+    year = _normalize_year(text)
+    return year if year is not None else text
+
+
+def claim_context_from_review_inputs(review_inputs, *, tenant_id, document_version_id, claim_id):
+    """Build an assurance ClaimContext from validated preliminary dimensions.
+
+    Reads only `review_inputs.context.dimensions` (entity/metric/
+    reporting_period/facility) already loaded via LocalTagStore.load_inputs;
+    never regex-guesses entity/metric names or run-global dates from text.
+    Each ref must re-verify against `review_inputs.original` and sit inside
+    the claim's own atomic span; invalid/missing refs degrade to None/() so
+    matching stays undetermined. An empty facility tuple is preserved as-is
+    (never universal coverage). On any absent or mismatched inputs the empty
+    context is returned.
+    """
+    try:
+        empty = ClaimContext(tenant_id, document_version_id, claim_id, None, None, (), ())
+    except Exception:
+        return None
+    if review_inputs is None:
+        return empty
+    try:
+        context = review_inputs.context
+        claim = context.claim
+        dimensions = context.dimensions
+        original = review_inputs.original
+        if claim.claim_id != claim_id:
+            return empty
+        if (claim.tenant_id, claim.document_version_id) != (tenant_id, document_version_id):
+            return empty
+        if not isinstance(dimensions, Mapping):
+            return empty
+        tid = claim.tenant_id
+        metric = _validated_dimension_text(
+            dimensions.get("metric"), claim=claim, original=original, tenant_id=tid
+        )
+        period_raw = _validated_dimension_text(
+            dimensions.get("reporting_period"), claim=claim, original=original, tenant_id=tid
+        )
+        entity = _validated_dimension_text(
+            dimensions.get("entity"), claim=claim, original=original, tenant_id=tid
+        )
+        facility = _validated_dimension_text(
+            dimensions.get("facility"), claim=claim, original=original, tenant_id=tid
+        )
+        period = _normalize_reporting_period(period_raw)
+        entities = (entity,) if entity else ()
+        facilities = (facility,) if facility else ()
+        return ClaimContext(
+            tenant_id, document_version_id, claim_id, metric, period, entities, facilities
+        )
+    except Exception:
+        return empty
+
+
 def match_assurance(statement: AssuranceStatement | None, claim: ClaimContext) -> AssuranceMatch:
     """Match one opinion at a time; never merge providers or promote assurance level.
 
-    ponytail: exact names and four-digit years only; approved alias/period
-    normalization can extend this when supplied, without fuzzy scope expansion.
+    Period compares exact single-year literals only (YYYY, YYYY년, YYYY 년도),
+    normalized at match time on both comparands without rewriting stored
+    fields; ranges and extra prose stay unknown. ponytail: exact names only;
+    approved alias normalization can extend this when supplied, without fuzzy
+    scope expansion.
     """
     metric = period = boundary = "unknown"
     status = "undetermined"
@@ -345,11 +481,12 @@ def match_assurance(statement: AssuranceStatement | None, claim: ClaimContext) -
         ):
             raise DomainValidationError("assurance/claim tenant or document version mismatch")
         metric = _subset((claim.metric,) if claim.metric else (), statement.covered_metrics)
-        if all(
-            value and re.fullmatch(r"[0-9]{4}", value)
-            for value in (claim.reporting_period, statement.reporting_period)
-        ):
-            period = "yes" if claim.reporting_period == statement.reporting_period else "no"
+        claim_year = _normalize_year(claim.reporting_period) if claim.reporting_period else None
+        statement_year = (
+            _normalize_year(statement.reporting_period) if statement.reporting_period else None
+        )
+        if claim_year is not None and statement_year is not None:
+            period = "yes" if claim_year == statement_year else "no"
         entity = _subset(claim.entities, statement.entities)
         facility = _subset(claim.facilities, statement.facilities)
         boundary = (
@@ -369,8 +506,12 @@ def match_assurance(statement: AssuranceStatement | None, claim: ClaimContext) -
                 (claim.facilities, statement.excluded_facilities),
             )
         )
-        uncertain = statement.unresolved_fields or any(
-            name == "explicit_exclusions" for name, _ in statement.explicit_exclusions
+        excluded_years = tuple(_normalize_year(value) for value in statement.excluded_periods)
+        excluded = excluded or (claim_year is not None and claim_year in excluded_years)
+        uncertain = (
+            statement.unresolved_fields
+            or any(year is None for year in excluded_years)
+            or any(name == "explicit_exclusions" for name, _ in statement.explicit_exclusions)
         )
         if "scope_group" in statement.unresolved_fields:
             reasons.append("ambiguous_scope_group")

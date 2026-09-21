@@ -6,6 +6,7 @@ import json
 import os
 import secrets
 import sys
+from dataclasses import asdict
 from pathlib import Path
 
 from proofops.adapters.local.run_store import LocalSQLiteRunStore
@@ -27,8 +28,13 @@ def build_composition(
     stage: str = "parse",
     review_table_notes: bool = False,
     verify_paragraphs: bool = False,
+    native_typography_tolerance: bool = False,
     raster_ocr: bool = False,
 ) -> LocalParserRunner | LocalExtractRunner | LocalTagRunner:
+    if type(native_typography_tolerance) is not bool or (
+        native_typography_tolerance and (not verify_paragraphs or stage != "parse" or raster_ocr)
+    ):
+        raise ValueError("NATIVE_TYPOGRAPHY_REQUIRE_NATIVE_PARSE_WITHOUT_RASTER")
     if type(raster_ocr) is not bool or (
         raster_ocr
         and (type(verify_paragraphs) is not bool or not verify_paragraphs or stage != "parse")
@@ -88,6 +94,7 @@ def build_composition(
         OpenDataLoaderParser(database.parent / "parser-prepared"),
         profile=profile,
         verify_paragraphs=verify_paragraphs,
+        native_typography_tolerance=native_typography_tolerance,
         note_client=note_client,
         note_ledger=note_ledger,
         raster_probe=raster_probe,
@@ -140,7 +147,11 @@ def build_composition(
         extractor: ClaimExtractorPort = SyntheticClaimExtractor()
         if os.environ.get("LOCAL_EXTRACTION_MODE") == "upstage_probe":
             from proofops.adapters.local.upstage import MODEL, MODEL_PRO4, UpstageProbe
-            from proofops_agent.upstage_extraction import UpstageClaimExtractor, _profile
+            from proofops_agent.upstage_extraction import (
+                UpstageClaimExtractor,
+                _profile,
+                _profile_with_options,
+            )
 
             # The existing user-authorized ledger must exist; never mint another allowance.
             ledger = Path(__file__).resolve().parents[4] / ".local/upstage/budget.sqlite3"
@@ -163,11 +174,42 @@ def build_composition(
             )
             if model is None:
                 raise ValueError("EXTRACTION_PROFILE_MISMATCH")
-            extractor = UpstageClaimExtractor(
-                UpstageProbe(os.environ.get("UPSTAGE_API_KEY", ""), ledger, model=model),
-                database.parent / "extraction-receipts",
-                max_tokens=maximum,
-            )
+            year_notation = settings.get("extraction_year_notation") is True
+            context_opt_in = settings.get("extraction_context") is True
+            table_context_opt_in = settings.get("extraction_table_context") is True
+            source_ids_opt_in = settings.get("extraction_source_ids") is True
+            if year_notation or context_opt_in or source_ids_opt_in:
+                # New-run opt-in only: the frozen settings must carry the exact
+                # option-combination profile hash, otherwise fail closed.
+                if frozen_profile != asdict(
+                    _profile_with_options(
+                        model,
+                        year_notation=year_notation,
+                        extraction_context=context_opt_in,
+                        extraction_table_context=table_context_opt_in,
+                        source_ids=source_ids_opt_in,
+                    )
+                ):
+                    raise ValueError("EXTRACTION_PROFILE_MISMATCH")
+                extractor = UpstageClaimExtractor(
+                    UpstageProbe(os.environ.get("UPSTAGE_API_KEY", ""), ledger, model=model),
+                    database.parent / "extraction-receipts",
+                    max_tokens=maximum,
+                    extraction_year_notation=year_notation,
+                    extraction_context=context_opt_in,
+                    extraction_table_context=table_context_opt_in,
+                    extraction_source_ids=source_ids_opt_in,
+                )
+            elif table_context_opt_in:
+                # Table context is a refinement of the context profile; it can
+                # never be enabled on its own.
+                raise ValueError("EXTRACTION_PROFILE_MISMATCH")
+            else:
+                extractor = UpstageClaimExtractor(
+                    UpstageProbe(os.environ.get("UPSTAGE_API_KEY", ""), ledger, model=model),
+                    database.parent / "extraction-receipts",
+                    max_tokens=maximum,
+                )
         return LocalExtractRunner(
             runner.store,
             runner.uploads,

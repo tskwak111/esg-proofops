@@ -531,6 +531,300 @@ def test_active_pack_reader_uses_durable_pointer_after_reopen(tmp_path: Path) ->
     assert active[0].status == "active"
 
 
+def test_ai_delegated_review_store_path_makes_pack_eligible_for_real_run_active_snapshot(
+    tmp_path: Path,
+) -> None:
+    """AT-R07 positive, real (non-synthetic) store path: an unapproved pack
+    that only went through `record_ai_delegated_review` becomes readable via
+    `active_snapshot_transaction`, the exact call `run_store.create()` uses to
+    decide `rulepack_use="approved_grading"` for a real (non-candidate) run.
+    """
+    from proofops.adapters.local.rulepack_store import RulePackSqliteStore
+
+    path = tmp_path / "state.sqlite3"
+    store = RulePackSqliteStore(path)
+    store.add_pack(replace(_pack(), approved_by=None, approved_at=None), _files())
+
+    stored = store.record_ai_delegated_review(
+        tenant_id=TENANT_A,
+        rule_pack_id=PACK_A,
+        expected_revision=1,
+        idempotency_key="ai-review-key-1",
+        reviewer="coordinator@orca.local",
+        reviewed_at="2026-09-20T10:00:00Z",
+        source_authority="user delegation 2026-09-20",
+        note="R07 AI-delegated project review of explicit ladder",
+        gap_ids=GAP_IDS,
+        now=1_000.0,
+    )
+    assert stored.body["status"] == "active"
+
+    reopened = RulePackSqliteStore(path)
+    assert reopened.list_active_packs(TENANT_A)[0].rule_pack_id == PACK_A
+
+    with reopened._transaction() as connection:
+        snapshot = reopened.active_snapshot_transaction(connection, TENANT_A, "disclosure", PACK_A)
+    assert snapshot.approved_by == "ai-delegated-review:coordinator@orca.local"
+    assert snapshot.status == "active"
+
+
+def test_ai_delegated_review_store_path_rejects_stale_revision_and_idempotency_replay_conflict(
+    tmp_path: Path,
+) -> None:
+    """Negative: a stale expected_revision is rejected before any write, and
+    reusing the same idempotency key with a different request is rejected --
+    matching the guarantees `activate()` already gives human activation."""
+    from proofops.adapters.local.rulepack_store import (
+        IdempotencyConflict,
+        RulePackSqliteStore,
+        StaleRulePackRevision,
+    )
+
+    store = RulePackSqliteStore(tmp_path / "state.sqlite3")
+    store.add_pack(replace(_pack(), approved_by=None, approved_at=None), _files())
+
+    with pytest.raises(StaleRulePackRevision):
+        store.record_ai_delegated_review(
+            tenant_id=TENANT_A,
+            rule_pack_id=PACK_A,
+            expected_revision=2,
+            idempotency_key="ai-review-key-stale",
+            reviewer="coordinator@orca.local",
+            reviewed_at="2026-09-20T10:00:00Z",
+            source_authority="user delegation 2026-09-20",
+            note="stale revision attempt",
+            gap_ids=GAP_IDS,
+            now=1_000.0,
+        )
+
+    store.record_ai_delegated_review(
+        tenant_id=TENANT_A,
+        rule_pack_id=PACK_A,
+        expected_revision=1,
+        idempotency_key="ai-review-key-2",
+        reviewer="coordinator@orca.local",
+        reviewed_at="2026-09-20T10:00:00Z",
+        source_authority="user delegation 2026-09-20",
+        note="first grant",
+        gap_ids=GAP_IDS,
+        now=1_000.0,
+    )
+    with pytest.raises(IdempotencyConflict):
+        store.record_ai_delegated_review(
+            tenant_id=TENANT_A,
+            rule_pack_id=PACK_A,
+            expected_revision=2,
+            idempotency_key="ai-review-key-2",
+            reviewer="someone-else@orca.local",
+            reviewed_at="2026-09-20T11:00:00Z",
+            source_authority="user delegation 2026-09-20",
+            note="conflicting replay",
+            gap_ids=GAP_IDS,
+            now=1_500.0,
+        )
+
+
+def test_review_rulepack_cli_promotes_draft_and_real_evaluate_decides_with_local_synthetic_false(
+    tmp_path: Path,
+) -> None:
+    """AT-R07 end-to-end proof, exercised through the CLI's own `main()`:
+
+    a draft pack that never had a human `approved_by` is promoted to a new
+    validated pack id and activated via AI-delegated review, and the
+    resulting active pack -- read through the same `active_snapshot_transaction`
+    call `run_store.create()` uses -- lets `domain.rules.engine.evaluate()`
+    reach `decision_status="decided"` with `RuleContext(local_synthetic=False)`.
+    This proves the real (non-synthetic-flag) gate is open, not merely that
+    an `active`/`approved_by` field is truthy; the tags below are an
+    explicitly-labelled synthetic fixture, not a claim about real-document
+    accuracy or about any GAP being resolved.
+    """
+    import runpy
+
+    import yaml
+    from proofops.adapters.local.rulepack_store import RulePackSqliteStore
+    from proofops.domain.rules.engine import ConfirmedFact, ConfirmedTags, RuleContext, evaluate
+    from proofops.domain.values import SourceRef
+
+    root = Path(__file__).resolve().parents[2]
+    config_dir = root / "config"
+    manifest = yaml.safe_load((config_dir / "rule_pack_manifest.yaml").read_text())
+    files = {
+        path: yaml.safe_load((config_dir / path).read_text()) for path in manifest["files"]
+    }
+    manifest.update(
+        rule_pack_id=PACK_A, tenant_id=TENANT_A, status="draft", approved_by=None, approved_at=None
+    )
+    manifest["sha256"] = compute_pack_sha256(manifest, files)
+
+    db_path = tmp_path / "state.sqlite3"
+    RulePackSqliteStore(db_path).add_pack(RulePackRecord.from_dict(manifest), files)
+
+    module = runpy.run_path(str(root / "scripts" / "review_rulepack.py"))
+    exit_code = module["main"](
+        [
+            "--state-db",
+            str(db_path),
+            "--tenant-id",
+            TENANT_A,
+            "--rule-pack-id",
+            PACK_A,
+            "--reviewer",
+            "coordinator@orca.local",
+            "--reviewed-at",
+            "2026-09-20T10:00:00Z",
+            "--source-authority",
+            "user delegation 2026-09-20",
+            "--note",
+            "AT-R07 end-to-end CLI proof",
+            "--apply",
+            "--now",
+            "1000.0",
+        ]
+    )
+    assert exit_code == 0
+
+    store = RulePackSqliteStore(db_path)
+    active = store.list_active_packs(TENANT_A)
+    assert len(active) == 1
+    new_pack_id = active[0].rule_pack_id
+    assert new_pack_id != PACK_A  # promoted to a NEW id, draft row untouched
+    assert active[0].approved_by == "ai-delegated-review:coordinator@orca.local"
+
+    with store._transaction() as connection:
+        snapshot = store.active_snapshot_transaction(
+            connection, TENANT_A, "disclosure", new_pack_id
+        )
+
+    source = SourceRef(
+        RUN_A, RUN_A, RUN_A, 1, None, (1, 1, 10, 10), "a" * 64,
+        "SYNTHETIC-FIXTURE-QUOTE (test fixture, not real document text)", 0, 18,
+        "located", "verified",
+    )
+
+    def fixture_fact(name: str, state: str = "present") -> ConfirmedFact:
+        return ConfirmedFact(
+            name=name,
+            state=state,
+            evidence_refs=(source,) if state == "present" else (),
+            source_tenant_id=TENANT_A,
+            citation_verified=state == "present",
+            binding_accepted=state == "present",
+            search_coverage_verified=state == "absent",
+            source_scope="local_claim",
+            normalized_value=None,
+        )
+
+    present = (
+        "target_year",
+        "target_metric",
+        "baseline_year",
+        "baseline_value",
+        "scope",
+        "org_boundary",
+        "current_progress",
+        "transition_plan",
+    )
+    absent = ("offset_or_carbon_neutral_claim", "science_based_claim")
+    tags = ConfirmedTags(
+        tenant_id=TENANT_A,
+        document_version_id=RUN_A,
+        claim_id=RUN_A,
+        track="goal",
+        facts=(
+            tuple(fixture_fact(n) for n in present)
+            + tuple(fixture_fact(n, "absent") for n in absent)
+        ),
+        tag_revision=1,
+        packet_sha256="b" * 64,
+        model_sha256="c" * 64,
+        prompt_sha256="d" * 64,
+        replicate_hashes=("1" * 64, "2" * 64, "3" * 64),
+        ontology_version=snapshot.ontology_version,
+    )
+    context = RuleContext(
+        tenant_id=TENANT_A,
+        document_version_id=RUN_A,
+        claim_id=RUN_A,
+        packet_sha256="b" * 64,
+        local_synthetic=False,  # the real (non-synthetic) evaluation path
+    )
+
+    decision = evaluate(tags, context, snapshot)
+
+    assert context.local_synthetic is False
+    assert decision.decision_status == "decided"
+    assert decision.evidence_grade == "E3"
+    assert decision.label == "SUBSTANTIATED"
+    assert decision.rule_pack_sha256 == snapshot.sha256
+    # This claim triggers none of the GAP-003 conditional elements
+    # (G7/G8), so no unresolved GAP blocks this particular decision --
+    # that is not a claim that any GAP is resolved project-wide.
+    assert decision.gap_ids == ()
+
+
+def test_promote_and_review_pack_helper_gives_new_run_active_pack_opt_in(
+    tmp_path: Path,
+) -> None:
+    """The composition helper other callers (e.g. a pilot's new-run path)
+    can call instead of `store.add_pack(draft, files)` to opt a single run
+    into AI-delegated review: it returns a new (validated, active) pack id,
+    never mutates the original draft record, and the result is readable via
+    `active_snapshot_transaction` -- the same call `run_store.create()` uses
+    to decide `rulepack_use`."""
+    import runpy
+
+    import yaml
+    from proofops.adapters.local.rulepack_store import RulePackSqliteStore
+
+    root = Path(__file__).resolve().parents[2]
+    module = runpy.run_path(str(root / "scripts" / "review_rulepack.py"))
+    promote_and_review_pack = module["promote_and_review_pack"]
+
+    config_dir = root / "config"
+    manifest = yaml.safe_load((config_dir / "rule_pack_manifest.yaml").read_text())
+    files = {path: yaml.safe_load((config_dir / path).read_text()) for path in manifest["files"]}
+    draft_pack_id = PACK_A
+    manifest.update(
+        rule_pack_id=draft_pack_id,
+        tenant_id=TENANT_A,
+        status="draft",
+        approved_by=None,
+        approved_at=None,
+    )
+    manifest["sha256"] = compute_pack_sha256(manifest, files)
+    draft_record = RulePackRecord.from_dict(manifest)
+
+    store = RulePackSqliteStore(tmp_path / "state.sqlite3")
+    new_pack_id = promote_and_review_pack(
+        store,
+        tenant_id=TENANT_A,
+        draft_pack=draft_record,
+        files=files,
+        reviewer="coordinator@orca.local",
+        reviewed_at="2026-09-20T10:00:00Z",
+        source_authority="user delegation 2026-09-20",
+        note="pilot new-run opt-in",
+        now=1_000.0,
+    )
+
+    assert new_pack_id != draft_pack_id
+    original, _ = store.get_pack_with_files(TENANT_A, draft_pack_id)
+    assert original.status == "draft"  # the original draft row is untouched
+    assert original.approved_by is None
+
+    active = store.list_active_packs(TENANT_A)
+    assert len(active) == 1
+    assert active[0].rule_pack_id == new_pack_id
+    assert active[0].approved_by == "ai-delegated-review:coordinator@orca.local"
+
+    with store._transaction() as connection:
+        snapshot = store.active_snapshot_transaction(
+            connection, TENANT_A, "disclosure", new_pack_id
+        )
+    assert snapshot.status == "active"
+
+
 def test_generated_openapi_matches_activation_contract(tmp_path: Path) -> None:
     client, _store, _csrf_token = _client(tmp_path)
     operation = client.app.openapi()["paths"]["/v1/rule-packs/{rule_pack_id}/activate"]["post"]

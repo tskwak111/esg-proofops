@@ -283,3 +283,75 @@ def test_settings_reject_duplicate_json_keys(tmp_path: Path) -> None:
                 "LOCAL_RUN_SETTINGS_PATH": str(settings_path),
             }
         )
+
+
+def _probe_extraction_profile() -> dict[str, object]:
+    profile = dict(_extraction_profile())
+    profile["synthetic"] = False
+    return profile
+
+
+def test_run_settings_accept_approved_extraction_opt_ins(tmp_path: Path) -> None:
+    """R03d/R03f/R14: the pilot-written year/context/source-id flags validate."""
+    from proofops_api.local_runtime import load_local_runtime
+
+    parser_path = _write_json(tmp_path / "parser.json", _parser_snapshot())
+    settings_path = _write_json(
+        tmp_path / "run.json",
+        {
+            "build_root": str(tmp_path),
+            "budget_limits": _budget_limits(),
+            "extraction_profile": _probe_extraction_profile(),
+            "extraction_limits": {"max_calls": 2, "max_output_tokens": 128},
+            "extraction_year_notation": True,
+            "extraction_context": True,
+            "extraction_source_ids": True,
+        },
+    )
+    runtime = load_local_runtime(
+        {
+            "LOCAL_PARSER_PROFILE_PATH": str(parser_path),
+            "LOCAL_RUN_SETTINGS_PATH": str(settings_path),
+            "LOCAL_EXTRACTION_MODE": "upstage_probe",
+        }
+    )
+    assert runtime["extraction_mode"] == "upstage_probe"
+    assert runtime["extraction_profile"].synthetic is False
+
+
+@pytest.mark.parametrize(
+    "settings,mode",
+    [
+        ({"extraction_year_notation": False}, "upstage_probe"),
+        ({"extraction_year_notation": "yes"}, "upstage_probe"),
+        ({"extraction_context": 1}, "upstage_probe"),
+        ({"extraction_source_ids": False}, "upstage_probe"),
+        ({"extraction_source_ids": "yes"}, "upstage_probe"),
+        ({"extraction_source_ids": True}, "local_synthetic"),
+        ({"extraction_year_notation": True}, "local_synthetic"),
+        ({"extraction_context": True}, "local_synthetic"),
+        ({"extraction_context": True}, ""),
+    ],
+)
+def test_run_settings_reject_bad_extraction_opt_ins(
+    tmp_path: Path, settings: dict, mode: str
+) -> None:
+    """Non-True values, or opt-ins outside the real probe mode, fail closed."""
+    from proofops_api.local_runtime import load_local_runtime
+
+    parser_path = _write_json(tmp_path / "parser.json", _parser_snapshot())
+    base = {
+        "build_root": str(tmp_path),
+        "budget_limits": _budget_limits(),
+        "extraction_profile": _probe_extraction_profile(),
+        "extraction_limits": {"max_calls": 2, "max_output_tokens": 128},
+    }
+    base.update(settings)
+    settings_path = _write_json(tmp_path / "run.json", base)
+    env = {
+        "LOCAL_PARSER_PROFILE_PATH": str(parser_path),
+        "LOCAL_RUN_SETTINGS_PATH": str(settings_path),
+        "LOCAL_EXTRACTION_MODE": mode,
+    }
+    with pytest.raises(ValueError, match="LOCAL_RUNTIME_CONFIG_INVALID"):
+        load_local_runtime(env)

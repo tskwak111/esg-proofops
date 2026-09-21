@@ -271,6 +271,68 @@ class UpstageProbe:
             if updated != 1:
                 raise ValueError("BUDGET_SETTLEMENT_INVALID")
 
+    def is_recorded_output_truncation(self, request: dict, *, request_id: str) -> bool:
+        """Read-only classification; never release reservations or reuse partial content."""
+        try:
+            if request["request_id"] != request_id:
+                return False
+            body = self.request_body(
+                request["system_prompt"],
+                request["user_json"],
+                request_id=request_id,
+                max_tokens=request["max_tokens"],
+                json_mode=request["json_mode"],
+            )
+            with sqlite3.connect(self.ledger.resolve().as_uri() + "?mode=ro", uri=True) as db:
+                self._authorized_limit(db)
+                row = db.execute(
+                    "SELECT signature, committed, receipt FROM probe_calls WHERE request_id=?",
+                    (request_id,),
+                ).fetchone()
+            if row != (canonical_hash(body), POLICY["reservation_usd"], None):
+                return False
+            saved = json.loads(
+                (self._responses / (canonical_hash(request_id) + ".json")).read_text()
+            )
+            if saved["request_id"] != request_id:
+                return False
+            data = saved["provider_response"]
+            usage = TokenUsage(
+                data["usage"]["prompt_tokens"],
+                data["usage"]["completion_tokens"],
+                0,
+                0,
+                0,
+                "succeeded",
+                data["id"],
+            )
+            if usage.input_tokens is None or usage.output_tokens is None:
+                return False
+            cost = Decimal(usage_cost(usage, self._price.to_dict())) * Decimal("1.10")
+            allowed = (
+                (MODEL, "solar-pro3-260323")
+                if self.model == MODEL
+                else (MODEL_PRO4, "solar-pro4-260806")
+            )
+            choice = data["choices"][0]
+            return (
+                data["model"] in allowed
+                and choice["finish_reason"] == "length"
+                and isinstance(choice["message"]["content"], str)
+                and 0 < usage.output_tokens <= request["max_tokens"]
+                and cost <= Decimal(POLICY["reservation_usd"])
+            )
+        except (
+            OSError,
+            sqlite3.Error,
+            KeyError,
+            TypeError,
+            ValueError,
+            IndexError,
+            InvalidOperation,
+        ):
+            return False
+
     def authorize_additional_budget(self, additional_usd: str, *, reason: str) -> dict:
         """Append explicit authorization, preserving history and the USD20 ceiling."""
         if not isinstance(additional_usd, str):

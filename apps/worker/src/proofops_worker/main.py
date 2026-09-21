@@ -40,6 +40,11 @@ def main() -> None:
         help="Verify native paragraph text against rendered PDF; parse stage only",
     )
     arguments.add_argument(
+        "--native-quote-typography",
+        action="store_true",
+        help="Use versioned quote typography comparison; requires --verify-paragraphs",
+    )
+    arguments.add_argument(
         "--raster-ocr",
         action="store_true",
         help=(
@@ -71,6 +76,7 @@ def main() -> None:
             stage=options.stage,
             review_table_notes=options.review_table_notes,
             verify_paragraphs=options.verify_paragraphs,
+            native_typography_tolerance=options.native_quote_typography,
             raster_ocr=options.raster_ocr,
         )
         if artifacts:

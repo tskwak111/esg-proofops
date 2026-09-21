@@ -22,7 +22,9 @@ from proofops.domain.values import (
 _STATUSES = frozenset(
     {"decided", "blocked_evidence", "blocked_rule_gap", "not_applicable", "not_run"}
 )
-_REVIEWS = frozenset({"auto_confirmed", "needs_review", "human_confirmed"})
+_REVIEWS = frozenset(
+    {"auto_confirmed", "needs_review", "human_confirmed", "ai_delegated_confirmed"}
+)
 _LABELS = {
     "E0": "UNSUBSTANTIATED",
     "E1": "INCOMPLETE",

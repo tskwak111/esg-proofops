@@ -27,8 +27,8 @@ Rules enforced (fail-closed, refs docs/31):
 - unresolved_gap_ids must all exist in the gap registry (GAP-xxx).
 - GAP-008: a basis with a clause number claimed "verified" without
   verified_by/verified_at evidence is rejected; unverified stays unverified.
-- GAP-001: safe-harbor grade/reasonable-basis mappings must be null until an
-  approved mapping exists.
+- GAP-001: grade mapping stays null; only the versioned AI-delegated project
+  checklist completeness policy may produce a reasonable-basis boolean.
 - GAP-009: automatic legal applicability must stay disabled.
 - Registry identity is (tenant_id, rule_pack_id): identical replay is
   idempotent, a changed record under an existing ID is rejected.
@@ -45,6 +45,7 @@ from typing import Any
 from uuid import UUID
 
 from proofops.domain.rulepacks import pack_content_hash
+from proofops.domain.rules.safe_harbor import CHECKLIST_POLICY_V1
 
 MODES = ("disclosure", "advertising")
 STATUSES = ("draft", "validated", "active", "retired")
@@ -57,6 +58,190 @@ DEMO_LIMITS = (
     "no legal-effect or immunity claim",
     "local synthetic use only; never customer activation",
 )
+
+REVIEW_ORIGIN_AI_DELEGATED = "ai_project_interpretation"
+_APPROVER_PREFIX = "ai-delegated-review:"
+
+
+def _is_tz_aware_iso(value: object) -> bool:
+    """Reject blank strings, naive datetimes, and non-ISO formats.
+
+    Deliberately stricter than "any non-empty string": a reviewed_at that
+    cannot be traced to a real point in time is not an audit trail.
+    """
+    if not isinstance(value, str) or not value.strip():
+        return False
+    try:
+        from datetime import datetime as _datetime
+
+        parsed = _datetime.fromisoformat(value)
+    except ValueError:
+        return False
+    return parsed.tzinfo is not None and parsed.tzinfo.utcoffset(parsed) is not None
+
+
+@dataclass(frozen=True, slots=True)
+class ReviewProvenance:
+    """Structured, hash-bound record of an AI-delegated project review.
+
+    Encoded as canonical JSON inside the existing free-text `reason` field
+    consumed by `activate_rulepack`/the local store's activation event log,
+    so no new table/column is required. Never produced for a self-approving
+    caller: `reviewer` must be supplied by the admin/coordinator call
+    boundary, not derived from the pack or defaulted.
+    """
+
+    review_origin: str
+    reviewer: str
+    reviewed_at: str
+    source_authority: str
+    pack_sha256: str
+    note: str
+
+    def to_reason(self) -> str:
+        import json as _json
+
+        return "review_provenance:" + _json.dumps(
+            {
+                "review_origin": self.review_origin,
+                "reviewer": self.reviewer,
+                "reviewed_at": self.reviewed_at,
+                "source_authority": self.source_authority,
+                "pack_sha256": self.pack_sha256,
+                "note": self.note,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+
+    @classmethod
+    def from_reason(cls, reason: str) -> ReviewProvenance | None:
+        """Parse a reason string back into provenance; unknown-format => None.
+
+        Legacy/human activation reasons that do not carry this prefix, or
+        that carry a malformed/wrong-typed payload, parse to None (unknown
+        reviewer). Fields are never coerced with `str()`: a non-string value
+        is treated as malformed, not silently stringified into something
+        that looks valid. `review_origin` must match the one known origin
+        this module produces, and `pack_sha256` must be a real sha256 hex
+        string -- neither is accepted as "whatever text was stored".
+        """
+        import json as _json
+
+        prefix = "review_provenance:"
+        if not reason.startswith(prefix):
+            return None
+        try:
+            data = _json.loads(reason[len(prefix) :])
+        except ValueError:
+            return None
+        required = {
+            "review_origin",
+            "reviewer",
+            "reviewed_at",
+            "source_authority",
+            "pack_sha256",
+            "note",
+        }
+        if not isinstance(data, dict) or set(data) != required:
+            return None
+        if any(not isinstance(data[key], str) or not data[key].strip() for key in required):
+            return None
+        if data["review_origin"] != REVIEW_ORIGIN_AI_DELEGATED:
+            return None
+        if not _is_sha256(data["pack_sha256"]):
+            return None
+        if not _is_tz_aware_iso(data["reviewed_at"]):
+            return None
+        return cls(**{key: data[key] for key in required})
+
+
+def record_ai_delegated_review(
+    registry: RulePackRegistry,
+    rule_pack_id: str,
+    tenant_id: str,
+    *,
+    reviewer: str,
+    reviewed_at: str,
+    source_authority: str,
+    note: str,
+    files_content: Mapping[str, Any],
+    gap_ids: Collection[str],
+) -> tuple[RulePackRegistry, ActivationRecord, ReviewProvenance]:
+    """Grant real-run activation for an AI-delegated project review.
+
+    This does not replace human `activate_rulepack`; it is a second, equally
+    explicit path for the coordinator/admin call boundary to record that a
+    human has not reviewed the pack but the project owner has delegated
+    domain interpretation to the coordinator for this exact pack content.
+
+    Guards (fail-closed, no self-approval):
+    - `reviewer`, `source_authority`, `note` must be non-blank strings after
+      stripping whitespace; the caller (admin/coordinator boundary) supplies
+      them explicitly. This function has no ambient clock and invents no
+      default reviewer.
+    - `reviewed_at` must be a timezone-aware ISO 8601 timestamp (a naive
+      local time or an empty/garbage string is rejected, not accepted as
+      "any non-blank string").
+    - The target pack must be `status == "validated"` and carry no existing
+      human `approved_by` (a human approval is never silently overwritten by
+      an AI-delegated one).
+    - `validate_rulepack` must still pass: unresolved GAP-008/GAP-001/GAP-009
+      fail-closed rules are unchanged, so no legal/official-verified claim or
+      safe-harbor grade mapping can slip in through this path.
+    - The resulting `approved_by` is prefixed `ai-delegated-review:` so it is
+      grep-distinguishable from a human approver string everywhere it is read
+      (activation events, run snapshots, exports).
+    - `activate_rulepack` itself is called unmodified: its existing
+      `approved_by and approved_at` requirement, tenant isolation, retired/
+      draft rejection, and immutable-pack-hash checks all still apply.
+    """
+    if not (reviewer or "").strip():
+        raise ValueError("AI-delegated review requires a non-blank reviewer")
+    if not (source_authority or "").strip():
+        raise ValueError("AI-delegated review requires a non-blank source_authority")
+    if not (note or "").strip():
+        raise ValueError("AI-delegated review requires a non-blank note")
+    if not _is_tz_aware_iso(reviewed_at):
+        raise ValueError(
+            "AI-delegated review requires a timezone-aware ISO 8601 reviewed_at "
+            "(naive/local timestamps are rejected)"
+        )
+    pack = registry.get_pack(tenant_id, rule_pack_id)
+    if pack.status != "validated":
+        raise ValueError("only status=validated packs can receive an AI-delegated review")
+    if pack.approved_by:
+        raise ValueError("pack already has a human approved_by; AI-delegated review refused")
+
+    provenance = ReviewProvenance(
+        review_origin=REVIEW_ORIGIN_AI_DELEGATED,
+        reviewer=reviewer,
+        reviewed_at=reviewed_at,
+        source_authority=source_authority,
+        pack_sha256=pack.sha256,
+        note=note,
+    )
+    reviewed_pack = replace(
+        pack,
+        approved_by=_APPROVER_PREFIX + reviewer,
+        approved_at=reviewed_at,
+    )
+    registry_with_review = RulePackRegistry(
+        packs=tuple(reviewed_pack if p is pack else p for p in registry.packs),
+        runs=registry.runs,
+        active=registry.active,
+    )
+    updated, record = activate_rulepack(
+        registry_with_review,
+        rule_pack_id,
+        tenant_id,
+        actor=reviewer,
+        reason=provenance.to_reason(),
+        files_content=files_content,
+        gap_ids=gap_ids,
+    )
+    return updated, record, provenance
+
 
 _REQUIRED_PACK_KEYS = (
     "rule_pack_id",
@@ -264,8 +449,31 @@ def validate_rulepack(
     if isinstance(safe_harbor, Mapping):
         if safe_harbor.get("grade_mapping") is not None:
             errors.append("grade_mapping requires an approved mapping (GAP-001: mapping is null)")
-        if safe_harbor.get("reasonable_basis_boolean_mapping") is not None:
-            errors.append("reasonable_basis_boolean_mapping requires an approved mapping (GAP-001)")
+        mapping = safe_harbor.get("reasonable_basis_boolean_mapping")
+        if mapping not in (None, CHECKLIST_POLICY_V1):
+            errors.append("unsupported reasonable_basis_boolean_mapping (GAP-001)")
+        elif mapping == CHECKLIST_POLICY_V1:
+            review = safe_harbor.get("checklist_policy_review")
+            if not isinstance(review, Mapping) or not (
+                review.get("policy_identifier") == CHECKLIST_POLICY_V1
+                and review.get("review_origin") == REVIEW_ORIGIN_AI_DELEGATED
+                and review.get("source_section") == "4.6"
+                and review.get("gap_id") == "GAP-001"
+                and _is_sha256(review.get("before_sha256"))
+                and _is_tz_aware_iso(review.get("reviewed_at"))
+                and all(
+                    isinstance(review.get(key), str) and review[key].strip()
+                    for key in ("reviewer", "source_authority", "note", "before_version")
+                )
+                and review.get("before_version") != pack.get("version")
+                and isinstance(review.get("boundary_vectors"), list)
+                and review["boundary_vectors"]
+            ):
+                errors.append("checklist policy requires versioned AI review provenance (GAP-001)")
+            if not isinstance(unresolved, list) or "GAP-001" not in unresolved:
+                errors.append("checklist policy does not resolve grade mapping (GAP-001)")
+            if safe_harbor.get("legal_effect") != "not_determined":
+                errors.append("checklist policy cannot determine legal effect (GAP-009)")
 
     # GAP-009: no automatic legal applicability.
     timeline = files_content.get("regulatory/timeline.yaml")

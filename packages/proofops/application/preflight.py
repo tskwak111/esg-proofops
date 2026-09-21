@@ -521,6 +521,11 @@ def check_local_upstage_tagger(
         ),
         expected_role="tagger",
     )
+    from proofops.application.tagging.preliminary import (
+        CONTEXT_SYSTEM_SUFFIX,
+        TABLE_ROLE_SYSTEM_SUFFIX,
+        TABLE_SYSTEM_SUFFIX,
+    )
     from proofops.application.tagging.preliminary import SYSTEM_PROMPT as PRELIMINARY_SYSTEM_PROMPT
     from proofops.application.tagging.relations import SYSTEM_PROMPT as RELATIONS_SYSTEM_PROMPT
 
@@ -534,6 +539,28 @@ def check_local_upstage_tagger(
         or (
             settings.model_profile == "upstage-preliminary-source-quotes-v1"
             and settings.system_prompt == PRELIMINARY_SYSTEM_PROMPT
+        )
+        or (
+            settings.model_profile == "upstage-preliminary-source-quotes-context-v1"
+            and settings.system_prompt == PRELIMINARY_SYSTEM_PROMPT + CONTEXT_SYSTEM_SUFFIX
+        )
+        or (
+            # R12 opt-in: context prompt plus the table-source suffix, pinned as
+            # one pair so neither half can be swapped independently.
+            settings.model_profile == "upstage-preliminary-source-quotes-table-v1"
+            and settings.system_prompt
+            == PRELIMINARY_SYSTEM_PROMPT + CONTEXT_SYSTEM_SUFFIX + TABLE_SYSTEM_SUFFIX
+        )
+        or (
+            # R16 opt-in: the same table pair plus the role-resolution suffix,
+            # pinned as one longer chain so the shorter table prompt can never
+            # be sent under this profile and vice versa.
+            settings.model_profile == "upstage-preliminary-source-quotes-table-role-v1"
+            and settings.system_prompt
+            == PRELIMINARY_SYSTEM_PROMPT
+            + CONTEXT_SYSTEM_SUFFIX
+            + TABLE_SYSTEM_SUFFIX
+            + TABLE_ROLE_SYSTEM_SUFFIX
         )
         or (
             settings.model_profile == "upstage-relation-source-quotes-v1"

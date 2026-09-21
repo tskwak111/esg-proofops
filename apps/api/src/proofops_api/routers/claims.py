@@ -14,7 +14,7 @@ from fastapi.responses import JSONResponse
 from fastapi.security import APIKeyCookie
 from proofops.adapters.local.catalog_pages import CatalogCapacityExceeded, InvalidCatalogCursor
 from proofops.application.assurance import ClaimContext as AssuranceContext
-from proofops.application.assurance import match_assurance
+from proofops.application.assurance import claim_context_from_review_inputs, match_assurance
 from proofops.application.runs import RunRejected
 from proofops.domain.provenance import canonical_hash
 from proofops_api.auth import (
@@ -32,7 +32,38 @@ from pydantic import Field
 
 Track = Literal["goal", "performance", "management"]
 Grade = Literal["E0", "E1", "E2", "E3"]
-ReviewStatus = Literal["auto_confirmed", "needs_review", "human_confirmed"]
+ReviewStatus = Literal[
+    "auto_confirmed", "needs_review", "human_confirmed", "ai_delegated_confirmed"
+]
+
+# Suggested next action per worker blocked_reason code (tag_runner.py). Text
+# only; never changes what is blocked or bypasses the source-verification gate.
+_BLOCKED_ACTION_TEXT: dict[str, str] = {
+    "DOMAIN_RULEPACK_UNAPPROVED": (
+        "이 실행의 규칙집은 검토 전입니다. 검토가 완료된 규칙집으로 새 판정을 실행해 주세요."
+    ),
+    "CONSENSUS_UNRESOLVED": (
+        "태깅 결과가 일치하지 않습니다. 원문과 항목별 응답을 비교해 태깅을 검토해 주세요."
+    ),
+    "RELATION_TAGS_UNRESOLVED": (
+        "주장과 근거의 연결이 확정되지 않았습니다. 연도·대상·범위를 확인해 주세요."
+    ),
+    "SOURCE_VALIDATION_REQUIRED": "원문 근거 검증을 다시 확인해 주세요.",
+    "TAGGING_RUNTIME_REQUIRED": (
+        "태깅 모델 런타임이 아직 연결되지 않았습니다. 운영 설정을 확인해 주세요."
+    ),
+    "PRELIMINARY_TAGS_REQUIRED": (
+        "예비 태깅 런타임이 아직 연결되지 않았습니다. 운영 설정을 확인해 주세요."
+    ),
+    "PRELIMINARY_TAGS_UNRESOLVED": (
+        "예비 태깅 복제본이 합의에 이르지 못했습니다. 다시 태깅을 시도해 주세요."
+    ),
+    "SOURCE_LOCATION_REQUIRED": "이 주장의 원문 위치를 다시 파싱하거나 범위를 추가해 주세요.",
+    "RULEPACK_CATALOG_REQUIRED": (
+        "이 실행에 승인된 요소 카탈로그(rubric)가 없습니다. 규칙집을 확인해 주세요."
+    ),
+    "EVIDENCE_PACKET_BLOCKED": "근거 패킷이 차단되었습니다. 근거 검색 범위를 다시 확인해 주세요.",
+}
 
 
 class ClaimSummary(StrictDTO):
@@ -69,6 +100,40 @@ class BasisRef(StrictDTO):
     verification_status: Literal["verified", "unverified", "unlicensed"]
 
 
+class FieldAgreement(StrictDTO):
+    field_id: str
+    status: Literal["agreed", "conflict", "unresolved"]
+    replicate_values: list[object]
+
+
+class RawCandidate(StrictDTO):
+    source_ref: SourceRef
+    status: Literal["candidate", "unverified", "unconfirmed"]
+    reason: str | None = None
+
+
+class ReviewProjection(StrictDTO):
+    """Additive, read-only view of a blocked/in-progress tagging attempt.
+
+    Sourced from `LocalTagStore.load_snapshot(...)["claims"][i]`: `reason`,
+    `original_packet.evidence_candidates[].source_refs[].quote`,
+    `preliminary_agreement.fields`/`.dimensions`, and `raw_candidate_review.candidates`.
+    Never a substitute for ConfirmedTags or an accepted binding: nothing here can feed the final
+    grade or the tag-edit endpoint without its own source verification.
+    `schema_version` lets the UI reject payloads it does not recognize
+    instead of guessing at an unfamiliar shape. Older records that predate
+    `original_packet`/`preliminary_agreement`/`raw_candidate_review` still report `blocked_reason`
+    alone with empty candidates/fields.
+    """
+
+    schema_version: Literal[1] = 1
+    candidate_snippets: list[str]
+    blocked_reason: str | None
+    blocked_action: str | None
+    field_agreements: list[FieldAgreement]
+    raw_candidates: list[RawCandidate] = Field(default_factory=list)
+
+
 class ClaimDetail(StrictDTO):
     claim: ClaimSummary
     source_refs: list[SourceRef]
@@ -79,9 +144,11 @@ class ClaimDetail(StrictDTO):
     suggestion: str | None
     basis_refs: list[BasisRef]
     tag_status: Literal["tagged", "untagged"] | None = None
+    rulepack_approved_by: str | None = None
+    review_projection: ReviewProjection | None = None
 
 
-def build_claims_router(claims, auth_store, *, tags=None, clock=time.time):
+def build_claims_router(claims, auth_store, *, tags=None, assurance=None, clock=time.time):
     router = APIRouter(
         responses=_ERROR_RESPONSES,
         dependencies=[
@@ -110,6 +177,106 @@ def build_claims_router(claims, auth_store, *, tags=None, clock=time.time):
         if limited is not None:
             return limited
         return claims.load(auth.tenant_id, run_id)
+
+    def rulepack_approved_by(tenant_id, run_id):
+        # Best-effort, read-only projection of the run's pinned rulepack
+        # approver so the UI can label AI-delegated review distinctly from a
+        # human approval. Absence of a snapshot/field must not raise.
+        try:
+            return store.snapshot(tenant_id, run_id)["rulepack"].get("approved_by")
+        except (ValueError, KeyError, sqlite3.DatabaseError):
+            return None
+
+    def review_projection(tenant_id, run_id, claim_id):
+        # Read-only projection of a blocked/in-progress tagging attempt from
+        # LocalTagStore.load_snapshot(...)["claims"][i]. A tag stage that
+        # never started (no "tag_job" on the run) has nothing to project, so
+        # that specific KeyError degrades to None; any other integrity
+        # failure (checkpoint hash/pin mismatch) is a real error and must
+        # propagate to the caller's failure() handling, not be hidden as an
+        # absent projection.
+        if tags is None:
+            return None
+        try:
+            envelope = tags.load_snapshot(tenant_id, run_id)
+        except KeyError as exc:
+            if exc.args == ("tag_job",):
+                return None
+            raise
+        item = next((c for c in envelope["claims"] if c["claim_id"] == claim_id), None)
+        if item is None:
+            return None
+        blocked_reason = item.get("reason")
+        has_projection_fields = (
+            "original_packet" in item
+            or "preliminary_agreement" in item
+            or "raw_candidate_review" in item
+        )
+        if blocked_reason is None and not has_projection_fields:
+            # Older record predating this projection: nothing additive to show.
+            return None
+        original_packet = item.get("original_packet") or {}
+        snippets = [
+            ref.get("quote", "")
+            for candidate in original_packet.get("evidence_candidates", [])
+            for ref in candidate.get("source_refs", [])
+            if ref.get("quote")
+        ]
+        agreement = item.get("preliminary_agreement") or {}
+        agreements = [
+            dict(
+                field_id=field_id,
+                status=entry["state"],
+                replicate_values=entry["replicate_values"],
+            )
+            for group in ("fields", "dimensions")
+            for field_id, entry in (agreement.get(group) or {}).items()
+            if isinstance(entry, dict)
+            and entry.get("state") in ("agreed", "conflict", "unresolved")
+        ]
+        raw_review = item.get("raw_candidate_review")
+        raw_candidates = []
+        if raw_review is not None:
+            if not isinstance(raw_review, dict) or raw_review.get("schema_version") != 1:
+                raise RunRejected("ARTIFACT_UNAVAILABLE", 409)
+            raw_candidates_list = raw_review.get("candidates")
+            if not isinstance(raw_candidates_list, list):
+                raise RunRejected("ARTIFACT_UNAVAILABLE", 409)
+            for cand in raw_candidates_list:
+                if not isinstance(cand, dict):
+                    continue
+                cand_status = cand.get("status")
+                # Candidates never carry accepted or verified labels.
+                if cand_status in ("accepted", "verified") or cand_status not in (
+                    "candidate",
+                    "unverified",
+                    "unconfirmed",
+                ):
+                    continue
+                sref = cand.get("source_ref")
+                if not isinstance(sref, dict):
+                    continue
+                try:
+                    ref = SourceRef.model_validate_json(json.dumps(sref))
+                except ValueError:
+                    continue
+                if ref.location_quality != "located" or ref.bbox is None:
+                    continue
+                raw_candidates.append(
+                    dict(
+                        source_ref=sref,
+                        status=cand_status,
+                        reason=cand.get("reason"),
+                    )
+                )
+        return dict(
+            schema_version=1,
+            candidate_snippets=snippets,
+            blocked_reason=blocked_reason,
+            blocked_action=_BLOCKED_ACTION_TEXT.get(blocked_reason),
+            field_agreements=agreements,
+            raw_candidates=raw_candidates,
+        )
 
     def failure(exc):
         if isinstance(exc, InvalidCatalogCursor):
@@ -221,30 +388,65 @@ def build_claims_router(claims, auth_store, *, tags=None, clock=time.time):
             if claim is None:
                 raise RunRejected("RESOURCE_NOT_FOUND", 404)
             current = claims.current_tag(claim.tenant_id, str(run_id), claim.claim_id)
-            assurance = match_assurance(
-                None,
-                AssuranceContext(
-                    claim.tenant_id, claim.document_version_id, claim.claim_id, None, None, (), ()
-                ),
+            # Replay the run's published source-validated assurance opinion (or
+            # None) so detail and the analysis list feed the identical matcher.
+            # Claim scope comes only from validated preliminary dimensions
+            # loaded via LocalTagStore.load_inputs through the shared helper;
+            # missing/invalid context degrades to None/() (undetermined).
+            statement = (
+                assurance.load(claim.tenant_id, str(run_id)) if assurance is not None else None
             )
+
+            def _assurance_context():
+                try:
+                    review_inputs = (
+                        tags.load_inputs(claim.tenant_id, str(run_id), claim.claim_id)
+                        if tags is not None
+                        else None
+                    )
+                except Exception:
+                    review_inputs = None
+                try:
+                    return claim_context_from_review_inputs(
+                        review_inputs,
+                        tenant_id=claim.tenant_id,
+                        document_version_id=claim.document_version_id,
+                        claim_id=claim.claim_id,
+                    )
+                except Exception:
+                    return AssuranceContext(
+                        claim.tenant_id,
+                        claim.document_version_id,
+                        claim.claim_id,
+                        None,
+                        None,
+                        (),
+                        (),
+                    )
+
+            match = match_assurance(statement, _assurance_context())
             if current is None:
                 # Extraction-only review: tagging not yet published. Return the
                 # original extraction refs without inventing tag artifacts
                 # (no elements, replicate ids, or tag packet) and without an
                 # ETag, so no tag edits can be conditioned until a tag exists.
-                # Dedicated assurance extraction has not been published in this
-                # local path; the matcher preserves that absence as undetermined.
+                # Assurance reflects the run's published statement when present;
+                # otherwise the matcher preserves the absence as undetermined.
                 summary = claims.summary(claim, None)
                 body = dict(
                     claim=summary,
                     source_refs=[asdict(ref) for ref in claim.source_refs],
                     elements=[],
-                    assurance=assurance.to_dict(),
+                    assurance=match.to_dict(),
                     replicate_request_ids=[],
                     packet_sha256=None,
                     suggestion=None,
                     basis_refs=[],
                     tag_status="untagged",
+                    rulepack_approved_by=rulepack_approved_by(claim.tenant_id, str(run_id)),
+                    review_projection=review_projection(
+                        claim.tenant_id, str(run_id), claim.claim_id
+                    ),
                 )
                 return JSONResponse(
                     ClaimDetail.model_validate_json(json.dumps(body)).model_dump(mode="json"),
@@ -255,18 +457,20 @@ def build_claims_router(claims, auth_store, *, tags=None, clock=time.time):
             inputs = tags.load_inputs(claim.tenant_id, str(run_id), claim.claim_id)
             tag = current["tag"]
             summary = claims.summary(claim, current)
-            # Dedicated assurance extraction has not been published in this local path.
-            # The existing matcher preserves that absence as undetermined.
+            # Assurance reflects the run's published statement when present;
+            # otherwise the matcher preserves the absence as undetermined.
             body = dict(
                 claim=summary,
                 source_refs=[asdict(ref) for ref in claim.source_refs],
                 elements=tag["elements"],
-                assurance=assurance.to_dict(),
+                assurance=match.to_dict(),
                 replicate_request_ids=[run.request.request_id for run in inputs.tag_runs],
                 packet_sha256=inputs.packet.packet_sha256,
                 suggestion=None,
                 basis_refs=[],
                 tag_status="tagged",
+                rulepack_approved_by=rulepack_approved_by(claim.tenant_id, str(run_id)),
+                review_projection=review_projection(claim.tenant_id, str(run_id), claim.claim_id),
             )
             return JSONResponse(
                 ClaimDetail.model_validate_json(json.dumps(body)).model_dump(mode="json"),

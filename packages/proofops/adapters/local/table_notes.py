@@ -11,6 +11,11 @@ from proofops.adapters.local.table_layout_context import (
 from proofops.domain.provenance import canonical_hash
 
 CONTRACT = dict(version=3, context="same_page_native_pdf", ownership="model_proposed")
+# Missing PDF word spacing must not turn a numbered qualification into unrestricted
+# ownership. Bare decimals stay outside this grammar; native raised-marker proof is
+# still required by marker_targets below.
+COVERAGE_NOTE_START = re.compile(r"(?i)^(?:데이터\s*커버리지|data\s+coverage)\s*[:：]")
+NUMBERED_NOTE_START = re.compile(r"^([1-9][0-9]?)[.)](?:\s+|(?=[^\W\d_])|(?=\d{4}년))")
 KINDS = frozenset(
     {"scope", "aggregation", "methodology", "restatement", "unit", "other", "unknown"}
 )
@@ -199,8 +204,24 @@ def _aligned_tables(fragment_ids, packet):
         for t in packet["layout_sources"]
         if t["bbox"] is not None
         and all(
-            t["bbox"][0] <= b[0] < b[2] <= t["bbox"][2]
+            t["bbox"][0] - 2 * (b[3] - b[1]) <= b[0] < b[2] <= t["bbox"][2] + 2 * (b[3] - b[1])
             and (b[3] <= t["bbox"][1] or b[1] >= t["bbox"][3])
+            for b in boxes
+        )
+    }
+
+
+def _near_tables(fragment_ids, packet):
+    fragments = {f["id"]: f for f in packet["untrusted_document_data"]["fragments"]}
+    boxes = [fragments[i]["bbox"] for i in fragment_ids]
+    # ponytail: two text heights cover ink/grid offsets; distant notes stay unresolved.
+    return {
+        t["table_id"]
+        for t in packet["layout_sources"]
+        if t["bbox"] is not None
+        and all(
+            t["bbox"][0] - 2 * (b[3] - b[1]) <= b[0] < b[2] <= t["bbox"][2] + 2 * (b[3] - b[1])
+            and max(t["bbox"][1] - b[3], b[1] - t["bbox"][3], 0) <= 2 * (b[3] - b[1])
             for b in boxes
         )
     }
@@ -220,31 +241,28 @@ def marker_targets(fragment_ids, packet):
         return []  # A bare value/marker is not an interpretable qualification.
     if any(t["bbox"] is None for t in packet.get("layout_sources", [])):
         return []  # Discover source notes, but unresolved table structure cannot own them.
-    if any(
-        re.match(r"(?i)^(?:데이터\s*커버리지|data\s+coverage)\s*[:：]", fragments[i]["text"])
-        for i in fragment_ids
-    ):
+    if any(COVERAGE_NOTE_START.match(fragments[i]["text"]) for i in fragment_ids):
         aligned = _aligned_tables(fragment_ids, packet)
         return (
             [t["id"] for t in data["targets"] if t["kind"] == "table" and t["source_id"] in aligned]
-            if len(aligned) == 1
+            if len(aligned) == 1 and aligned <= _near_tables(fragment_ids, packet)
             else []
         )
     markers = {
-        match[1]
-        for i in fragment_ids
-        if (match := re.match(r"^([1-9][0-9]?)[.)]\s", fragments[i]["text"]))
+        match[1] for i in fragment_ids if (match := NUMBERED_NOTE_START.match(fragments[i]["text"]))
     }
     if not markers:
         return None
     if len(markers) != 1:
         return []
     marker, targets = next(iter(markers)), set()
-    aligned = _aligned_tables(fragment_ids, packet)
+    aligned = _near_tables(fragment_ids, packet)
+    if len(aligned) != 1:
+        return []
     for table in packet["layout_sources"]:
-        if len(aligned) == 1 and table["table_id"] not in aligned:
+        if table["table_id"] not in aligned:
             continue
-        for pair in table.get("separate_markers", []) if len(aligned) == 1 else []:
+        for pair in table.get("separate_markers", []):
             suffix = pair["marker"]["text"]
             base = re.escape(pair["base"]["text"].strip()).replace(r"\ ", r"\s*")
             if suffix != marker + ")":
@@ -450,15 +468,24 @@ def replay_note_reviews(artifacts, graph, source, *, tenant_id):
             "1b705722e36c0860ef19728743ef8167c7c2ee78cd8f4d59bdae6d6c24d27994",
             "15c7631eadc03d440673b6bd4fc506a2acb385d87b610d45b91d6d3428fc6cc5",
         )
-        if raw["packet"]["contract"] == {**CONTRACT, "version": 2} and (
-            stored in (direct_children, page_preview)
-            or (
-                "native_page_context" not in raw["packet"]
-                and (
-                    stored == previous
-                    or (
-                        stored == legacy
-                        and all(t["bbox"] is not None for t in raw["packet"]["layout_sources"])
+        previous_spacing = raw["packet"]["contract"] == CONTRACT and stored == (
+            "e89854b5e54c5af4450a053fc3939249be3642dc1a84f663845782bf3ca95b6c",
+            "15c7631eadc03d440673b6bd4fc506a2acb385d87b610d45b91d6d3428fc6cc5",
+        )
+        # Old metadata is retained only AFTER the current source/marker validator
+        # above succeeds. Previously unrestricted wrong targets therefore reject.
+        if previous_spacing or (
+            raw["packet"]["contract"] == {**CONTRACT, "version": 2}
+            and (
+                stored in (direct_children, page_preview)
+                or (
+                    "native_page_context" not in raw["packet"]
+                    and (
+                        stored == previous
+                        or (
+                            stored == legacy
+                            and all(t["bbox"] is not None for t in raw["packet"]["layout_sources"])
+                        )
                     )
                 )
             )

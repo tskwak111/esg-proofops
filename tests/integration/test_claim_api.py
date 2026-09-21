@@ -129,3 +129,228 @@ def test_published_tags_and_human_revision_are_read_through_real_claim_api(tmp_p
     assert listed.status_code == 200, listed.text
     validate("ClaimSummaryPage", listed.json())
     assert listed.json()["items"] == [latest["claim"]]
+
+
+def test_review_projection_reflects_real_pinned_tag_checkpoint_reason(tmp_path, monkeypatch):
+    """review_projection must read the actual worker checkpoint, not a mock.
+
+    A claim whose replicates never reach consensus is published with
+    reason="CONSENSUS_UNRESOLVED" and no original_packet/preliminary_agreement
+    (those are only set on the earlier blocked-before-tagging paths). The
+    claims API must still surface that real reason and must not invent
+    candidates or field agreements the checkpoint never recorded.
+    """
+    from proofops_api.routers.claims import build_claims_router
+
+    from tests.integration.test_local_tag_runner import verified_setup
+
+    service, run_id, runner, now, _ = verified_setup(tmp_path, monkeypatch)
+    http, auth = client(service)
+    http.app.include_router(
+        build_claims_router(runner.claims, auth, tags=runner.tags, clock=lambda: now[0])
+    )
+    assert runner.run_once(tenant_id=TENANT, run_id=run_id) == "needs_review"
+    envelope = runner.tags.load_snapshot(TENANT, run_id)
+    record = envelope["claims"][0]
+    assert record["reason"] == "CONSENSUS_UNRESOLVED"
+    assert "original_packet" not in record and "preliminary_agreement" not in record
+    claim_id = record["claim_id"]
+    detail = http.get(f"/v1/runs/{run_id}/claims/{claim_id}")
+    assert detail.status_code == 200, detail.text
+    validate("ClaimDetail", detail.json())
+    projection = detail.json()["review_projection"]
+    assert projection is not None
+    assert projection["schema_version"] == 1
+    assert projection["blocked_reason"] == "CONSENSUS_UNRESOLVED"
+    assert projection["candidate_snippets"] == []
+    assert projection["field_agreements"] == []
+
+
+def test_review_projection_absent_before_tag_stage_starts(tmp_path, monkeypatch):
+    """A run whose tag stage never started has nothing to project (None), and
+    that specific absence must not be confused with a real checkpoint
+    integrity failure, which must still raise instead of degrading to None."""
+    from proofops.adapters.local.tag_store import LocalTagStore
+    from proofops_api.routers.claims import build_claims_router
+
+    service, run_id, runner, now, _ = extraction_setup(tmp_path, monkeypatch)
+    tags = LocalTagStore(runner.store, runner.uploads, runner.parser)
+    http, auth = client(service)
+    http.app.include_router(
+        build_claims_router(runner.claims, auth, tags=tags, clock=lambda: now[0])
+    )
+    assert runner.run_once(tenant_id=TENANT, run_id=run_id) == "committed"
+    claim_id = runner.claims.list(TENANT, run_id)[0].claim_id
+    detail = http.get(f"/v1/runs/{run_id}/claims/{claim_id}")
+    assert detail.status_code == 200, detail.text
+    validate("ClaimDetail", detail.json())
+    assert detail.json()["tag_status"] == "untagged"
+    assert detail.json()["review_projection"] is None
+
+
+def test_review_projection_surfaces_real_blocked_candidate_quotes(tmp_path, monkeypatch):
+    """A claim blocked on unresolved preliminary tagging still has a real,
+    traceable candidate packet (per test_local_tag_runner's
+    test_unresolved_preliminary_is_claim_block_not_failed_job). The API must
+    surface the actual candidate quotes from that checkpoint, not invent or
+    upgrade them, and the claim must stay in the untagged/blocked branch."""
+    from proofops_api.routers.claims import build_claims_router
+
+    from tests.integration.test_local_tag_runner import verified_setup
+
+    service, run_id, runner, now, _ = verified_setup(tmp_path, monkeypatch)
+    runner.preliminary = lambda claim, graph: None
+    http, auth = client(service)
+    http.app.include_router(
+        build_claims_router(runner.claims, auth, tags=runner.tags, clock=lambda: now[0])
+    )
+    assert runner.run_once(tenant_id=TENANT, run_id=run_id) == "blocked"
+    record = runner.tags.load_snapshot(TENANT, run_id)["claims"][0]
+    assert record["reason"] == "PRELIMINARY_TAGS_UNRESOLVED"
+    expected_quotes = [
+        ref["quote"]
+        for candidate in record["original_packet"]["evidence_candidates"]
+        for ref in candidate["source_refs"]
+    ]
+    assert expected_quotes
+    detail = http.get(f"/v1/runs/{run_id}/claims/{record['claim_id']}")
+    assert detail.status_code == 200, detail.text
+    validate("ClaimDetail", detail.json())
+    assert detail.json()["tag_status"] == "untagged"
+    projection = detail.json()["review_projection"]
+    assert projection is not None
+    assert projection["schema_version"] == 1
+    assert projection["blocked_reason"] == "PRELIMINARY_TAGS_UNRESOLVED"
+    assert projection["candidate_snippets"] == expected_quotes
+    assert projection["field_agreements"] == []
+
+
+def test_review_projection_does_not_swallow_checkpoint_integrity_mismatch(tmp_path, monkeypatch):
+    """A genuine tag-checkpoint integrity failure (hash mismatch) must still
+    surface as an error response, not silently degrade to review_projection=None
+    the way a merely-not-started tag stage does."""
+    from proofops_api.routers.claims import build_claims_router
+
+    from tests.integration.test_local_tag_runner import verified_setup
+
+    service, run_id, runner, now, _ = verified_setup(tmp_path, monkeypatch)
+    http, auth = client(service)
+    http.app.include_router(
+        build_claims_router(runner.claims, auth, tags=runner.tags, clock=lambda: now[0])
+    )
+    assert runner.run_once(tenant_id=TENANT, run_id=run_id) == "needs_review"
+    claim_id = runner.tags.load_snapshot(TENANT, run_id)["claims"][0]["claim_id"]
+    jobs = service.store.jobs
+    with jobs._transaction() as db:
+        run = jobs._get(db, TENANT, run_id, "run", "META")
+        run["tag_snapshot_sha256"] = "0" * 64
+        jobs._put(db, TENANT, run_id, "run", "META", run)
+    detail = http.get(f"/v1/runs/{run_id}/claims/{claim_id}")
+    assert detail.status_code == 409, detail.text
+    assert detail.json()["error"]["code"] == "ARTIFACT_UNAVAILABLE"
+
+
+def test_review_projection_raw_candidates_and_guards(tmp_path, monkeypatch):
+    """R04 integration: structured raw_candidates surfaced in ReviewProjection.
+
+    - Positive: unverified table candidate surfaced with status/reason and SourceRef.
+    - Negative: tampered ref / invalid shape filtered from projection.
+    - Confirmed grade guard: unverified candidate never changes elements or decision grade.
+    - Compatibility: old checkpoints without raw_candidate_review default to empty list.
+    """
+    import copy
+    from proofops_api.routers.claims import build_claims_router
+    from tests.integration.test_local_tag_runner import verified_setup
+
+    service, run_id, runner, now, _ = verified_setup(tmp_path, monkeypatch)
+    http, auth = client(service)
+    http.app.include_router(
+        build_claims_router(runner.claims, auth, tags=runner.tags, clock=lambda: now[0])
+    )
+    assert runner.run_once(tenant_id=TENANT, run_id=run_id) == "needs_review"
+    envelope = runner.tags.load_snapshot(TENANT, run_id)
+    record = envelope["claims"][0]
+    claim_id = record["claim_id"]
+
+    # 1. Base response validates ClaimDetail schema
+    detail = http.get(f"/v1/runs/{run_id}/claims/{claim_id}")
+    assert detail.status_code == 200, detail.text
+    validate("ClaimDetail", detail.json())
+    projection = detail.json()["review_projection"]
+    assert projection is not None
+    assert projection["schema_version"] == 1
+    assert "raw_candidates" in projection
+    assert isinstance(projection["raw_candidates"], list)
+
+    # 2. Inject an unverified candidate into checkpoint and verify read-only surface
+    source_ref = copy.deepcopy(detail.json()["source_refs"][0])
+    source_ref["verification_state"] = "candidate"
+    sample_candidate = {
+        "source_ref": source_ref,
+        "status": "unverified",
+        "reason": "UNVERIFIED_SOURCE",
+    }
+    tampered_candidate = {
+        "source_ref": dict(source_ref, bbox=None, location_quality="unlocated"),
+        "status": "unverified",
+        "reason": "UNVERIFIED_SOURCE",
+    }
+    record["raw_candidate_review"] = {
+        "schema_version": 1,
+        "candidates": [sample_candidate, tampered_candidate],
+    }
+    envelope["claims"][0] = record
+
+    # Exercise the API projection at its trusted read boundary; committed
+    # checkpoint/receipt integrity is covered by the storage tests.
+    monkeypatch.setattr(runner.tags, "load_snapshot", lambda tenant, run: envelope)
+
+    detail_with_candidates = http.get(f"/v1/runs/{run_id}/claims/{claim_id}")
+    assert detail_with_candidates.status_code == 200, detail_with_candidates.text
+    validate("ClaimDetail", detail_with_candidates.json())
+
+    proj2 = detail_with_candidates.json()["review_projection"]
+    assert proj2 is not None
+    # Valid unverified candidate is surfaced
+    assert len(proj2["raw_candidates"]) == 1
+    surfaced = proj2["raw_candidates"][0]
+    assert surfaced["status"] == "unverified"
+    assert surfaced["reason"] == "UNVERIFIED_SOURCE"
+    assert surfaced["source_ref"]["source_id"] == source_ref["source_id"]
+
+    # Confirmed grade guard: unverified candidate is NEVER promoted to elements or confirmed tags
+    body = detail_with_candidates.json()
+    assert body["elements"] == detail.json()["elements"]
+    # Grade and decision status remain identical to baseline
+    assert body["claim"]["decision"] == detail.json()["claim"]["decision"]
+
+    # 3. Unknown schema version must reject with 409, never silently display
+    record["raw_candidate_review"] = {
+        "schema_version": 99,
+        "candidates": [sample_candidate],
+    }
+    envelope["claims"][0] = record
+
+    unknown_resp = http.get(f"/v1/runs/{run_id}/claims/{claim_id}")
+    assert unknown_resp.status_code == 409
+    assert unknown_resp.json()["error"]["code"] == "ARTIFACT_UNAVAILABLE"
+
+    # 4. Prohibited accepted/verified labels are filtered out
+    record["raw_candidate_review"] = {
+        "schema_version": 1,
+        "candidates": [
+            dict(sample_candidate, status="verified"),
+            dict(sample_candidate, status="accepted"),
+        ],
+    }
+    envelope["claims"][0] = record
+
+    filtered_resp = http.get(f"/v1/runs/{run_id}/claims/{claim_id}")
+    assert filtered_resp.status_code == 200
+    assert len(filtered_resp.json()["review_projection"]["raw_candidates"]) == 0
+
+
+    record.pop("raw_candidate_review")
+    legacy = http.get(f"/v1/runs/{run_id}/claims/{claim_id}")
+    assert legacy.status_code == 200
+    assert legacy.json()["review_projection"]["raw_candidates"] == []

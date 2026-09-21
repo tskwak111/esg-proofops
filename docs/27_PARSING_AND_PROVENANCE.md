@@ -113,6 +113,27 @@ GRI 행은 indicator_code, printed_page_refs, resolved_physical_pages, link_text
 
 보증은 provider, standard_raw, standard_canonical(optional), level, reporting_period, entities, facilities, covered_metrics, explicit_exclusions, source_refs 를 추출한다. 기관명만 있으면 covered 가 아니다. 보증 대상 지표·대상 기간·경계가 클레임과 맞아야 하며 명확한 제외는 not_covered, 해석 불가능은 undetermined 다. 여러 보증서가 있으면 연결을 각각 유지하고 가장 높은 수준을 임의로 전사 확장하지 않는다.
 
+### 자동 헤더 앞 제목 행 처리 (2026-09-20)
+
+`normalize_tables`는 표의 전체 관측 열 폭을 덮는 단일 셀 제목 행만 건너뛰고
+뒤의 명시적 헤더를 사용한다. 여러 행 병합 제목과 0/1 기반 좌표를 동일하게
+처리하며, 부분 폭 제목·겹침·헤더 불명확은 기존 미해결 처리를 유지한다.
+제목 셀은 원문 참조에 보존하지만 단위·Scope·지표를 추측하는 데 사용하지 않는다.
+기존에 지원하던 제목 없는 표의 observation ID, API/DB 형태 및 검증 게이트는
+유지한다. 새 관측값도 unverified이며, 기존 저장 revision을 다시 쓰지 않는다.
+rollback은 이전 구현으로 되돌리며 신규 제목 표 지원만 중단한다.
+
+### 다단 헤더의 의미 누락 차단 (2026-09-20)
+
+자동 정규화는 하나의 연도 헤더 아래 여러 값 열이 있거나 명시적 행 병합으로
+추가 헤더 층이 존재할 때, 지원되는 Scope 2 산정방식 외의 하위 역할을
+임의로 생략하지 않는다. 해당 표는 `table_layout_unresolved`로 남긴다.
+셀 역할 지정 경로도 연도 헤더와 값 사이의 동일 열에 해석되지 않은 문자 셀이
+있으면 연결을 거부한다. 앞선 숫자/결측 데이터 행은 이 차단 대상이 아니다.
+목표·실적 축 자체를 확정하는 기능은 아직 없으며, 값의 실제 달성 여부를 추론하지 않는다.
+공개 API/DB 변경은 없고 역할 지정 거부는 기존 422 계약을 사용한다.
+기존 저장 revision/보고서는 수정하지 않는다. rollback은 코드 복원으로 수행한다.
+
 ### 명시적 셀 역할을 통한 정규화
 
 `normalize_table_bindings`는 비정형 헤더의 구조화 추출 결과를 받는 내부 경로다.
@@ -170,3 +191,72 @@ job record를 재사용하므로 공개 API·DB column migration은 없다. Roll
 실측과 한계는 `evidence/table-note-review/unseen-layout-evaluation.json` 및
 `page-note-coverage-contract.md`에 기록한다. 이 결과는 원문 도메인·귀속 승인이나
 전체 보고서 서비스 품질의 확정이 아니다.
+
+### 선택형 로컬 표 원문 검증 (`native_table_source_v1`)
+
+`ParserProfile.table_source_policy_sha256`가 있는 새 parse만 기존 native PDF와
+macOS Apple Vision 셀 OCR을 대조한다. 로컬 실행은 `--verify-tables`로 켠다.
+네트워크 호출/새 dependency/공개 API 또는 DB column 변경은 없다. 미설정 profile은
+새 키를 snapshot에서 생략해 기존 config hash와 manifest 읽기를 유지한다.
+
+확인 범위는 **병합 없는 완전한 직사각형 표의 문자와 셀 배치**다. 각 셀의 행·열,
+같은 행/열 좌표 정렬, 표/행 텍스트 일치, native 문자 누락·잘림, 렌더링 OCR의
+문자 일치를 모두 요구한다. 테이블당 4~40셀, 실행당 최대 96셀 OCR로 제한한다.
+원문 충돌, 미확정 각주, 지원하지 않는 회전/CropBox, 미지원 OCR 플랫폼은 보류한다.
+셀 바깥 단위·캡션·각주는 승인하지 않는다. 숫자/연도의 원문 일치는 해당 주장의
+지표·기간·경계에 귀속된다는 뜻이 아니며 기존 binding과 규칙엔진을 그대로 거친다.
+
+원래 `graph.json`, candidates, quality는 그대로 저장한다. 별도 `table-source.json`에
+원본·테넌트·문서버전·manifest·입력 graph·검증 코드/reader 해시와 셀별 렌더링 기록을
+남기고 기존 manifest artifact 해시에 포함한다. parse 반환 및 load_verified에서
+동일 원문으로 재생한 뒤 통과한 table/row/cell만 새 graph view에서 verified로 바꾼다.
+해당 표의 `table_vision_not_run`만 해소하며 다른 issue나 기존 revision은 수정하지 않는다.
+전체 validation_profile은 fast_preview이고, 전체 비전 검증 완료를 뜻하지 않는다.
+
+Rollback은 새 opt-in 생성 중단이다. 새 manifest를 읽으려면 당시 pinned verifier
+코드/reader 버전이 필요하며, hash 불일치는 차단한다. 이전 manifest/receipt를
+새 코드에 맞춰 덮어쓰지 않는다. merge/다단 헤더와 외부 단위 귀속은 후속 파싱 작업이다.
+
+### ODL 첫 행의 헤더·데이터 분리 (로컬 opt-in)
+
+`ParserProfile.table_structure_repair="odl_header_v1"` 또는 pilot의
+`--repair-table-headers`는 ODL 첫 행의 각 셀에 heading/paragraph가 함께 있는
+경우만 분리한다. 원문 native 단어 전체 포함·문자 일치·공통 수평 간격을 확인하며,
+경계에 걸친 단어, 일부 열만 분리 가능, 미해석 자식은 전체 표를 그대로 둔다.
+좌표 반올림 오차는 0.001pt만 허용한다. 병합 단위의 row span은 유지하고 텍스트를
+다른 행에 복제하지 않는다. 회전·CropBox 이동, 중첩 표, 일반 다단 헤더는 대상 밖이다.
+
+`source.json` 원본은 보존하며 `source-repaired.json`과 `table-repair.json`에 새 구조,
+원래/새 셀 ID·좌표 연결, 원본 JSON의 canonical serialization 해시를 보관한다.
+후보는 새 구조로 생성하되 parser family는 같고 verified로 승격하지 않는다.
+모든 산출물의 실제 파일 해시는 기존 manifest에 별도로 기록·재생 검증한다.
+옵션 미설정 시 기존 config hash/행동을 유지한다. 새 manifest만 사용하며 기존
+실행은 다시 쓰지 않는다. API/DB migration은 없다. Rollback은 옵션을 끄고,
+새 profile reader를 유지하거나 해당 실행을 구버전에 배정하지 않는 방식이다.
+
+실제 LG p32 및 HMM p124의 총 3개 표에서 새 헤더/첫 데이터 40셀의 native 문자
+일치를 확인했다. LG p122 및 다른 복잡한 표는 여전히 미해결이고, 병합 셀의
+입증 승인·주장 귀속·전체 파싱 정확도를 이 결과로 승인하지 않는다.
+
+### 병합 표 검증과 표 부모 보존 (로컬 opt-in v2)
+
+`--repair-table-headers`의 새 실행은 `odl_header_v2`를 사용한다. v1의 헤더 분리에
+더해 복구한 표의 bbox 없는 행은 기존 셀 bbox의 합집합으로 위치를 기록한다.
+원래 셀 ID·새 행 bbox는 receipt에 보존하며, 기존 v1 실행은 재작성하지 않는다.
+
+이 옵션의 새 parser manifest는 `fusion_version=4`다. 표 하위 블록을 합칠 때
+부모 표 영역도 기존 후보 매칭 기준을 통과해야 한다. 완전한 표와 일부 열만 잡힌
+보조 표는 같은 위치의 숫자가 있더라도 별개 후보로 남는다. 원시 후보와 충돌을
+삭제하지 않으며, v1/v2/v3 manifest는 종전 알고리즘으로 읽는다.
+
+`--verify-merged-tables`는 기존 `--verify-tables`와 상호 배타적인 새 검증 정책이다.
+`merged_table_verification.py`는 명시적 span의 유한·완전·비중복 격자, 정방향 행/열,
+행 문자와 부모 연결, 모든 native 문자의 유일한 셀 포함, 원문 문자와 렌더링 OCR의
+일치를 확인한다. 좌표 반올림 오차는 최대 0.001pt, 셀 40개·OCR 96회 한도를 유지한다.
+작은 반전색 헤더를 위해 OCR 입력에 흰 여백 24px를 붙이며 원문 픽셀은 바꾸지 않는다.
+셀·검증된 행·표만 품질을 승격하고 하위 paragraph/heading은 자동 승격하지 않는다.
+숫자·단위의 의미적 주장 귀속이나 등급은 이 경로의 승인 대상이 아니다.
+
+v1 검증 파일과 정책 해시는 유지한다. parser는 저장된 policy hash로 v1/v2를
+선택하며 알 수 없는 정책은 거부한다. DB/API migration 없음. Rollback은 새 옵션
+배정 중단과 v4/v2 reader 유지이며, 구버전 reader에 새 산출물을 배정하지 않는다.

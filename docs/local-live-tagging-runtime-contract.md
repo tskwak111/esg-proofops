@@ -643,3 +643,12 @@ historical unsettled entries. New calls in this work: 73 entries, USD0.047248245
 Local reproducibility artifacts: `.local/claim-spans-comparison-v2/`,
 `.local/claim-spans-kakao-live-v1/`, `.local/claim-spans-kakao-live-v2/`,
 `.local/claim-spans-layout-replay.log`, and `.local/claim-spans-layout-checks.log`.
+
+
+## Bounded stopped-stage recovery (2026-09-21)
+
+`proofops_worker.tag_recovery_cli inspect|authorize` creates no model request. `authorize` is dry unless `--confirm` is supplied; it records one immutable `tag_recovery` authorization and `tag_recovery_proof` in the existing `job_records` table and enqueues a new TAG job on the same run. No DDL/API migration is required. Authorization is within the user's existing model budget and does not widen the immutable run limits.
+
+The exact old stop request IDs must be acknowledged. Unknown outcomes and their reservations remain unresolved; receipts, stop files and old revisions are retained. Only blocked claims whose recorded preliminary attempts are all proven never sent may be attempted. Mixed paid/suppressed sets are held because this recovery regenerates a whole replica set. The job reserves capacity for up to nine requests per claim; the job-wide bound is recounted from durable ledger/receipt IDs after restart. One pending/leased recovery per lineage is enforced in the authorization transaction. A new provider failure stops the remaining work and adds a distinct stop record.
+
+Compatibility: new optional checkpoint recovery metadata and record kinds are additive. **Do not let an older worker consume a pending recovery job:** it cannot interpret the authorization and may execute the ordinary TAG path. Rollback requires stopping consumers and isolating/draining recovery jobs before switching binaries; keep the authorization, proofs, old results, ledger and stop records. Disabling new authorizations alone does not isolate already-enqueued jobs.

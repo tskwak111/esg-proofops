@@ -6,6 +6,7 @@ This pure guard returns a binding state; callers retain the input tag receipt,
 model/prompt/rule hashes, replica and graph with that state in a new revision.
 """
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
@@ -24,6 +25,29 @@ BindingState = Literal["accepted", "undetermined", "rejected"]
 _DIMENSIONS = frozenset(
     ("entity", "metric", "reporting_period", "facility", "scope", "product", "material", "boundary")
 )
+
+
+# These cues demand sourced roles; they never establish semantic agreement.
+# ponytail: explicit Korean/English cues only; broader paraphrases need semantic tagging.
+_AXIS_CUES = {
+    "boundary": re.compile(
+        r"(?<![가-힣])(?:연결(?=\s*(?:기준|범위|실체|재무|환경|배출|대상|$))"
+        r"|별도(?=\s*(?:기준|범위|재무|환경|배출|대상|$)))"
+        r"|\b(?:consolidated|standalone|separate)(?=\s+(?:basis|boundary|financial|emissions)|$)",
+        re.IGNORECASE,
+    ),
+    "scope": re.compile(
+        r"\bscopes?\s*[123](?:\s*(?:&|,|/|및|and|[-–+·])\s*(?:scope\s*)?[123])*(?!\d)",
+        re.IGNORECASE,
+    ),
+}
+
+
+def _axis_cues(text: str, axis: str) -> set[str]:
+    return {
+        "".join(match.group().casefold().split())
+        for match in _AXIS_CUES[axis].finditer(normalize("NFC", text))
+    }
 
 
 def _dimensions(values: Mapping[str, SourceRef | None]) -> dict[str, SourceRef | None]:
@@ -156,10 +180,18 @@ def accept_binding(
         ) or source.source_id not in blocks:
             return "rejected"
         block = blocks[source.source_id]
-        if block.quality != "verified" or block.winner is None:
-            return "undetermined"
+        if block.winner is None:
+            return "undetermined"  # conflicted/missing winner stays blocked
         result = verify_source_ref(source, original, tenant_id=tenant_id)
-        return "accepted" if result.verification_state == "verified" else "rejected"
+        if result.verification_state == "verified":
+            # verified block, or an unverified block whose trusted verified span
+            # exactly contains this ref (span-aware verifier, no block promotion).
+            return "accepted"
+        if block.quality != "verified":
+            # ordinary unverified/unlocated block without a trusted verified span:
+            # unresolved source quality, not a source-identity rejection.
+            return "undetermined"
+        return "rejected"
 
     if not claim.source_refs or claim.quote != " ".join(s.quote for s in claim.source_refs):
         return "rejected"
@@ -233,6 +265,17 @@ def accept_binding(
     scopes = definition["source_scopes"]
     local = any(contains(source, ref) for source in claim.source_refs)
     direct = local and "local_claim" in scopes
+    if not direct:
+        # A numeric subspan may omit its boundary qualifier: inspect its containing
+        # canonical block too. Multiple contexts conservatively require review.
+        for text, roles in (
+            (claim.quote, context.dimensions),
+            (blocks[ref.source_id].source_ref().quote, evidence_dimensions),
+        ):
+            for axis in _AXIS_CUES:
+                role = roles.get(axis)
+                if not _axis_cues(text, axis) <= _axis_cues(role.quote if role else "", axis):
+                    unresolved = True
     names = (
         set(context.dimensions)
         | set(evidence_dimensions)

@@ -95,6 +95,81 @@ def configured(tmp_path, monkeypatch):
     return adapter, probe, calls, request, envelope, claim, graph
 
 
+def configured_with_context(tmp_path, monkeypatch):
+    """Same real wire as ``configured``, but the context-bearing profile/prompt."""
+    from proofops_agent.upstage_preliminary import CONTEXT_MODEL_PROFILE, CONTEXT_TRANSPORT_VERSION
+
+    from tests.acceptance.test_preliminary import context_corpus
+
+    graph, claim, _ = context_corpus()
+    envelope = preliminary_request(claim, graph, tenant_id=TENANT, include_context=True)
+    context_prompt = SYSTEM_PROMPT + _context_suffix()
+    settings = TaggingSettings(
+        ModelBinding("00000000-0000-4000-8000-000000000001", "tagger", False),
+        MODEL_PRO4,
+        CONTEXT_MODEL_PROFILE,
+        "provider-managed-unverified",
+        context_prompt,
+        json.dumps({"type": "object"}),
+        max_tokens=1024,
+    )
+    probe = UpstageProbe("test-not-a-key", tmp_path / "budget.sqlite3", model=MODEL_PRO4)
+    calls = []
+
+    def post(body):
+        calls.append(body)
+        return dict(
+            id="fixture-provider",
+            model=MODEL_PRO4,
+            usage=dict(prompt_tokens=20, completion_tokens=10),
+            choices=[dict(finish_reason="stop", message=dict(content="{}"))],
+        )
+
+    monkeypatch.setattr(probe, "_post", post)
+    from proofops.application.preflight import check_local_upstage_tagger
+
+    from tests.integration.test_upstage_tagger_preflight import configured as approvals
+
+    authorization = approvals()
+    authorization.pop("settings")
+    authorization["binding"].update(
+        model_id=settings.model_id, tagging_settings_sha256=canonical_hash(asdict(settings))
+    )
+    adapter = UpstagePreliminaryTransport(
+        probe,
+        tmp_path / "receipts",
+        settings=settings,
+        tenant_id=TENANT,
+        authorize=lambda selected, request: check_local_upstage_tagger(
+            settings=selected, **authorization
+        ),
+    )
+    assert adapter.TRANSPORT_VERSION == CONTEXT_TRANSPORT_VERSION
+    request = dict(
+        tenant_id=TENANT,
+        claim_id=claim.claim_id,
+        packet_sha256=canonical_hash(envelope),
+        replicate_id=1,
+        request_id=str(UUID(int=988)),
+        request_signature=canonical_hash("fixture"),
+        binding=asdict(settings.binding),
+        model_id=settings.model_id,
+        model_profile=settings.model_profile,
+        region=settings.region,
+        system_prompt=settings.rendered_system,
+        temperature=0,
+        max_tokens=100,
+    )
+    request["user_json"] = json.dumps(envelope, ensure_ascii=False)
+    return adapter, probe, calls, request, envelope, claim, graph
+
+
+def _context_suffix():
+    from proofops.application.tagging.preliminary import CONTEXT_SYSTEM_SUFFIX
+
+    return CONTEXT_SYSTEM_SUFFIX
+
+
 def valid_response_content(claim):
     return json.dumps(
         dict(
@@ -343,4 +418,79 @@ def test_composition_can_reject_a_packet_outside_authorized_source(tmp_path, mon
     changed = dict(request, packet_sha256="b" * 64)
     with pytest.raises(PreflightBlocked, match="PACKET_SCOPE_MISMATCH"):
         adapter.invoke(changed)
+    assert calls == [] and probe.summary()["calls"] == 0
+
+
+# --- R03b: real wire round-trip for the opt-in context-bearing profile ---
+
+
+def test_context_profile_real_invoke_roundtrip_with_full_provenance(tmp_path, monkeypatch):
+    adapter, probe, calls, request, envelope, claim, graph = configured_with_context(
+        tmp_path, monkeypatch
+    )
+    content = valid_response_content(claim)
+
+    def post(body):
+        calls.append(body)
+        sent = json.loads(body["messages"][1]["content"])
+        # bbox round-trips tuple->list through JSON; compare via re-serialization.
+        assert sent == json.loads(json.dumps(envelope))
+        assert sent["schema"] == "preliminary-source-quotes-context-v1"
+        data = sent["untrusted_document_data"]
+        assert set(data) == {"sources", "context_blocks", "omitted_source_ids"}
+        roles = {b["role"] for b in data["context_blocks"]}
+        assert roles == {"parent_paragraph", "heading", "nearby"}
+        for block in data["context_blocks"]:
+            assert block["source_id"] and block["page_num"] >= 1
+            assert block["quality"] in ("verified", "unverified")
+            assert isinstance(block["source_ref"], dict)
+        return dict(
+            id="fixture-provider",
+            model=MODEL_PRO4,
+            usage=dict(prompt_tokens=20, completion_tokens=10),
+            choices=[dict(finish_reason="stop", message=dict(content=content))],
+        )
+
+    monkeypatch.setattr(probe, "_post", post)
+    result = adapter.invoke(request)
+    assert result.synthetic is False
+    assert result.usage.status == "succeeded"
+    assert len(calls) == 1
+    from proofops.application.tagging.preliminary import validate_preliminary
+
+    validated = validate_preliminary(
+        claim, graph, json.loads(result.raw_response_json), tenant_id=TENANT
+    )
+    assert validated.track.track == "performance"
+    assert validated.context.dimensions["entity"].quote == "회사A"
+
+
+def test_context_profile_rejects_a_legacy_shaped_packet_and_vice_versa(tmp_path, monkeypatch):
+    adapter, probe, calls, request, _, _, _ = configured_with_context(tmp_path, monkeypatch)
+    # A legacy (no context_blocks) envelope sent under the context profile is rejected.
+    legacy_shaped = dict(request)
+    from tests.acceptance.test_binding import corpus as legacy_corpus
+
+    legacy_graph, legacy_claim, _ = legacy_corpus()
+    legacy_envelope = preliminary_request(legacy_claim, legacy_graph, tenant_id=TENANT)
+    legacy_shaped["user_json"] = json.dumps(legacy_envelope, ensure_ascii=False)
+    legacy_shaped["packet_sha256"] = canonical_hash(legacy_envelope)
+    with pytest.raises(ValueError, match="UPSTAGE_PRELIMINARY_PACKET_INVALID"):
+        adapter.invoke(legacy_shaped)
+    assert calls == [] and probe.summary()["calls"] == 0
+
+
+def test_legacy_profile_rejects_a_context_shaped_packet(tmp_path, monkeypatch):
+    from tests.acceptance.test_preliminary import context_corpus
+
+    adapter, probe, calls, request, _, claim, graph = configured(tmp_path, monkeypatch)
+    context_graph, context_claim, _ = context_corpus()
+    context_envelope = preliminary_request(
+        context_claim, context_graph, tenant_id=TENANT, include_context=True
+    )
+    smuggled = dict(request)
+    smuggled["user_json"] = json.dumps(context_envelope, ensure_ascii=False)
+    smuggled["packet_sha256"] = canonical_hash(context_envelope)
+    with pytest.raises(ValueError, match="UPSTAGE_PRELIMINARY_PACKET_INVALID"):
+        adapter.invoke(smuggled)
     assert calls == [] and probe.summary()["calls"] == 0

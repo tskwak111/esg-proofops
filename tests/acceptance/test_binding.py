@@ -27,9 +27,10 @@ DIMENSIONS = dict(
 )
 
 
-def corpus(**other_dimensions):
-    texts = [" | ".join(DIMENSIONS.values()) + " | 40%"]
-    texts.append(" | ".join((DIMENSIONS | other_dimensions).values()) + " | 40%")
+def corpus(*, claim_dimensions=None, **other_dimensions):
+    values = DIMENSIONS | (claim_dimensions or {})
+    texts = [" | ".join(values.values()) + " | 40%"]
+    texts.append(" | ".join((values | other_dimensions).values()) + " | 40%")
     candidates = tuple(
         CandidateBlock(
             "table_cell",
@@ -475,3 +476,81 @@ def test_direct_local_identity_does_not_hide_conflicting_or_invalid_roles(role, 
     values = {role: span(refs[0], quote)}
     dimensions = {} if role == "reporting_period" else {"entity": span(refs[0], "회사A")}
     assert bind(graph, claim, span(refs[0], "40%"), values, dimensions=dimensions) == expected
+
+
+@pytest.mark.parametrize(
+    "axis,value,element_id",
+    [
+        ("boundary", "연결 기준", "P3"),
+        ("boundary", "별도 환경 데이터", "P1"),
+        ("boundary", "consolidated basis", "P3"),
+        ("scope", "Scope 2", "P1"),
+    ],
+)
+def test_omitted_explicit_axis_cannot_accept_cross_source_evidence(axis, value, element_id):
+    graph, claim, refs = corpus(**{axis: value})
+    expected, actual = tags(refs[0]), tags(refs[1], DIMENSIONS | {axis: value})
+    expected.pop(axis)
+    actual.pop(axis)
+    assert (
+        bind(graph, claim, span(refs[1], "40%"), actual, dimensions=expected, element_id=element_id)
+        == "undetermined"
+    )
+
+
+@pytest.mark.parametrize("scope", ["Scope 1 & 2", "Scope 1+2", "Scope 1·2", "Scope 1·Scope 2"])
+def test_incomplete_scope_span_cannot_hide_an_untagged_scope(scope):
+    graph, claim, refs = corpus(scope=scope)
+    # Both tag maps claim Scope 1, despite the evidence explicitly including Scope 2.
+    assert bind(graph, claim, span(refs[1], "40%"), tags(refs[1])) == "undetermined"
+
+
+@pytest.mark.parametrize("scope", ["Scope 1", "Scope 1+2", "Scope 1·2", "Scope 1·Scope 2"])
+def test_explicit_scope_with_complete_matching_roles_still_binds(scope):
+    values = DIMENSIONS | {"scope": scope}
+    graph, claim, refs = corpus(claim_dimensions={"scope": scope})
+    assert (
+        bind(
+            graph,
+            claim,
+            span(refs[1], "40%"),
+            tags(refs[1], values),
+            dimensions=tags(refs[0], values),
+        )
+        == "accepted"
+    )
+    # Literal containment does not require cross-source role extraction.
+    assert bind(graph, claim, span(refs[0], "40%"), {}, dimensions={}) == "accepted"
+
+
+@pytest.mark.parametrize("boundary_tag", [None, "국내", "별도"])
+def test_consolidated_claim_never_accepts_separate_boundary_even_if_tags_omit_it(boundary_tag):
+    expected_values = DIMENSIONS | {"boundary": "국내 연결 기준"}
+    actual_values = DIMENSIONS | {"boundary": "국내 별도 기준"}
+    graph, claim, refs = corpus(
+        claim_dimensions={"boundary": expected_values["boundary"]},
+        boundary=actual_values["boundary"],
+    )
+    expected, actual = tags(refs[0], expected_values), tags(refs[1], actual_values)
+    if boundary_tag is None:
+        expected.pop("boundary")
+        actual.pop("boundary")
+    else:
+        expected["boundary"] = span(refs[0], "연결" if boundary_tag == "별도" else "국내")
+        actual["boundary"] = span(refs[1], boundary_tag)
+    result = bind(graph, claim, span(refs[1], "40%"), actual, dimensions=expected)
+    assert result == ("rejected" if boundary_tag == "별도" else "undetermined")
+
+
+@pytest.mark.parametrize("element_id", ["P1", "P3", "G4", "M3"])
+def test_complete_consolidated_boundary_preserves_allowed_local_or_global_evidence(element_id):
+    values = DIMENSIONS | {"boundary": "연결 기준"}
+    graph, claim, refs = corpus(claim_dimensions={"boundary": "연결 기준"})
+    expected, actual = tags(refs[0], values), tags(refs[1], values)
+    expected["boundary"], actual["boundary"] = span(refs[0], "연결"), span(refs[1], "연결")
+    if element_id != "P1":
+        graph = change_candidate(graph, refs[1].source_id, kind="paragraph", table_native_id=None)
+    assert (
+        bind(graph, claim, refs[1], actual, dimensions=expected, element_id=element_id)
+        == "accepted"
+    )

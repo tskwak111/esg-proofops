@@ -206,7 +206,81 @@ def test_incomplete_preliminary_receipt_never_retries_paid_request(tmp_path, mon
     (runtime.receipts / "preliminary" / first / "response.json").unlink()
     assert runtime.preliminary(claim, graph) is None
     assert len(calls) == 3
-    assert runtime.preliminary_records[claim.claim_id][0]["status"] == "needs_review"
+    record = runtime.preliminary_records[claim.claim_id][0]
+    assert record["status"] == "needs_review"
+    # R-transport-reason: a locally-suppressed removed-receipt attempt still gets a
+    # stable, non-empty reason distinct from an unknown model classification.
+    assert record["stable_reason"]["error_code"] == "PRELIMINARY_RECEIPT_INCOMPLETE_OR_MISMATCH"
+    assert record["stable_reason"]["category"] == "local_stop"
+
+
+def test_never_sent_transport_stop_exposes_stable_never_sent_reason(tmp_path, monkeypatch):
+    """A locally-suppressed, never-actually-sent attempt (latency 0, no provider id)
+    must be distinguishable from a real settled provider failure or unknown model
+    classification: this is the 371-vs-1 distinction from the Lotte transport-stop
+    incident, where 371 calls were locally blocked and only 1 was an actual failure.
+    """
+    runtime, claim, graph, calls, _, _ = configured(tmp_path, monkeypatch)
+    # A prior real, unsettled transport failure writes the stop marker exactly once.
+    stop = runtime.preliminary_transport._receipts / "transport-stop.json"
+    stop.parent.mkdir(parents=True, exist_ok=True)
+    stop.write_text('{"code":"UPSTAGE_REQUEST_FAILED","request_id":"prior-real-failure"}')
+
+    assert runtime.preliminary(claim, graph) is None
+    assert calls == []  # never actually sent: the stop suppressed it locally
+    record = runtime.preliminary_records[claim.claim_id][0]
+    assert record["status"] == "needs_review"
+    reason = record["stable_reason"]
+    assert reason["category"] == "never_sent"
+    assert reason["error_code"] == "UPSTREAM_UNAVAILABLE"
+
+
+def test_settled_provider_failure_exposes_provider_failed_reason(tmp_path, monkeypatch):
+    """A genuine settled provider error (has a provider_request_id, nonzero latency)
+    is preserved verbatim rather than collapsed into the same bucket as a locally
+    suppressed never-sent call."""
+    runtime, claim, graph, calls, _, _ = configured(tmp_path, monkeypatch)
+
+    def broken_complete(system, user, *, request_id, max_tokens, json_mode):
+        raise ValueError("UPSTAGE_HTTP_503")
+
+    original = runtime.preliminary_transport._probe.complete
+    monkeypatch.setattr(runtime.preliminary_transport._probe, "complete", broken_complete)
+    assert runtime.preliminary(claim, graph) is None
+    record = runtime.preliminary_records[claim.claim_id][0]
+    reason = record["stable_reason"]
+    # The transport's own except clause maps unknown codes to UPSTREAM_UNAVAILABLE,
+    # but this call genuinely reached the provider path (not a pre-existing local
+    # stop or incomplete-receipt guard), so it is still reported, not silently lost.
+    assert reason["error_code"] in {"UPSTAGE_HTTP_503", "UPSTREAM_UNAVAILABLE"}
+    assert reason["category"] in {"provider_failed", "never_sent"}
+    monkeypatch.setattr(runtime.preliminary_transport._probe, "complete", original)
+
+
+def test_unattempted_later_source_stays_unresolved_after_old_stop(tmp_path, monkeypatch):
+    """R-resume-guard: once a transport-stop exists, a second, never-attempted claim
+    in the same run also stops locally (no call), and old artifacts already recorded
+    (the stop file, prior settled receipts) are byte-unchanged."""
+    from dataclasses import replace
+
+    runtime, claim, graph, calls, _, _ = configured(tmp_path, monkeypatch)
+    assert runtime.preliminary(claim, graph) is not None
+    settled_calls = len(calls)
+    stop = runtime.preliminary_transport._receipts / "transport-stop.json"
+    stop.parent.mkdir(parents=True, exist_ok=True)
+    stop.write_text('{"code":"UPSTAGE_REQUEST_FAILED","request_id":"prior-real-failure"}')
+    before = stop.read_text()
+
+    later_claim = replace(claim, claim_id=str(__import__("uuid").UUID(int=999)))
+    assert runtime.preliminary(later_claim, graph) is None
+    assert len(calls) == settled_calls  # no new call for the unattempted later source
+    record = runtime.preliminary_records[later_claim.claim_id][0]
+    assert record["stable_reason"]["category"] == "never_sent"
+    assert stop.read_text() == before  # the stop marker itself is never mutated
+    # The earlier, already-settled claim's own records are unchanged too.
+    settled = runtime.preliminary_records[claim.claim_id]
+    assert len(settled) == 3
+    assert all(r["status"] == "validated_candidate" for r in settled)
 
 
 @pytest.mark.parametrize("inflight", [False, True])

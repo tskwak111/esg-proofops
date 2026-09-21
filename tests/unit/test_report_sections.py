@@ -273,3 +273,146 @@ def test_unclassified_large_heading_does_not_override_explicit_toc_role():
     assert build_map(4, anchors)["conflict_pages"] == [2, 3, 4]
     anchors[0]["path"] = ["Green in Action"]
     assert build_map(4, anchors[:1])["unknown_pages"] == [1, 2, 3, 4]
+
+
+def test_orion_actual_linkless_toc_resolves_e_narrative_and_evidence():
+    from pathlib import Path
+
+    from evaluation.report_sections import inspect
+
+    orion_pdf = Path("outputs/agent-fixtures/orion.pdf")
+    if not orion_pdf.exists():
+        pytest.skip("outputs/agent-fixtures/orion.pdf not present")
+
+    res = inspect(orion_pdf)
+    assert res["method"] == "toc_text_fallback"
+    assert res["claim_candidate_pages"] == list(range(68, 83))
+    evidence = set(res["evidence_candidate_pages"])
+    assert set(range(68, 83)) <= evidence
+    assert {91, 92} <= evidence
+    assert set(range(93, 108)) <= evidence
+    assert set(range(108, 117)) <= evidence
+
+    # Relative tiers stop E narrative at Social 83
+    sec_roles = {
+        s["start_page"]: (s["role"], [a["title"] for a in s["anchors"]]) for s in res["sections"]
+    }
+    assert sec_roles[68][0] == "e_narrative" and "친환경 경영" in sec_roles[68][1]
+    assert sec_roles[73][0] == "e_narrative" and "기후변화 대응" in sec_roles[73][1]
+    assert sec_roles[80][0] == "e_narrative" and "환경영향 저감" in sec_roles[80][1]
+    assert sec_roles[82][0] == "e_narrative" and "생물다양성" in sec_roles[82][1]
+    assert sec_roles[83][0] == "other" and "사회공헌" in sec_roles[83][1]
+    assert sec_roles[91][0] == "appendix" and "대외평가·수상" in sec_roles[91][1]
+    assert sec_roles[93][0] == "esg_data" and "ESG DATA" in sec_roles[93][1]
+    assert sec_roles[108][0] == "appendix" and "GRI Standards Index" in sec_roles[108][1]
+    assert res["issues"] == []
+
+
+def test_linkless_toc_wrong_offset_remains_unknown(tmp_path):
+    from pypdf import PdfWriter
+    from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
+
+    from evaluation.report_sections import inspect
+
+    def make_font(writer):
+        font = DictionaryObject(
+            {
+                NameObject("/Type"): NameObject("/Font"),
+                NameObject("/Subtype"): NameObject("/Type1"),
+                NameObject("/BaseFont"): NameObject("/Helvetica"),
+            }
+        )
+        return DictionaryObject({NameObject("/Font"): DictionaryObject({NameObject("/F1"): font})})
+
+    w = PdfWriter()
+    for _ in range(5):
+        w.add_blank_page(600, 800)
+    for p in w.pages:
+        p[NameObject("/Resources")] = make_font(w)
+
+    # Page 1: TOC claims Environment is at page 3, Social at page 5
+    s1 = DecodedStreamObject()
+    s1.set_data(
+        b"BT /F1 15 Tf 40 700 Td (Contents) Tj ET "
+        b"BT /F1 10 Tf 40 650 Td (Environment) Tj 300 0 Td (3) Tj ET "
+        b"0 -30 Td (Social) Tj 300 0 Td (5) Tj ET"
+    )
+    w.pages[0][NameObject("/Contents")] = w._add_object(s1)
+
+    # Page 3 has mismatched heading 'Different Topic' (wrong offset)
+    s3 = DecodedStreamObject()
+    s3.set_data(b"BT /F1 16 Tf 40 650 Td (Different Topic) Tj ET")
+    w.pages[2][NameObject("/Contents")] = w._add_object(s3)
+
+    # Page 5 has valid heading 'Social'
+    s5 = DecodedStreamObject()
+    s5.set_data(b"BT /F1 16 Tf 40 650 Td (Social) Tj ET")
+    w.pages[4][NameObject("/Contents")] = w._add_object(s5)
+
+    pdf = tmp_path / "wrong_offset.pdf"
+    w.write(pdf)
+
+    res = inspect(pdf)
+    assert res["method"] == "toc_text_fallback"
+    assert res["claim_candidate_pages"] == []
+    assert any(
+        issue["kind"] == "toc_text_unverified_destination" and issue["printed_page"] == 3
+        for issue in res["issues"]
+    )
+    # Destination page 3 remains unknown
+    assert 3 in res["unknown_pages"]
+
+
+def test_linkless_toc_repeated_nav_header_negative(tmp_path):
+    from pypdf import PdfWriter
+    from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
+
+    from evaluation.report_sections import inspect
+
+    def make_font(writer):
+        font = DictionaryObject(
+            {
+                NameObject("/Type"): NameObject("/Font"),
+                NameObject("/Subtype"): NameObject("/Type1"),
+                NameObject("/BaseFont"): NameObject("/Helvetica"),
+            }
+        )
+        return DictionaryObject({NameObject("/Font"): DictionaryObject({NameObject("/F1"): font})})
+
+    w = PdfWriter()
+    for _ in range(4):
+        w.add_blank_page(600, 800)
+    for p in w.pages:
+        p[NameObject("/Resources")] = make_font(w)
+
+    # Running header at top of every page containing nav tokens
+    nav = b"BT /F1 8 Tf 40 760 Td (Company Report Environment Social Appendix) Tj ET "
+
+    # Page 1: TOC with repeated nav
+    s1 = DecodedStreamObject()
+    s1.set_data(
+        nav
+        + b"BT /F1 15 Tf 40 700 Td (Contents) Tj ET "
+        b"BT /F1 10 Tf 40 650 Td (Social) Tj 300 0 Td (3) Tj ET"
+    )
+    w.pages[0][NameObject("/Contents")] = w._add_object(s1)
+
+    # Page 2: Repeated nav, body text only
+    s2 = DecodedStreamObject()
+    s2.set_data(nav + b"BT /F1 10 Tf 40 650 Td (Regular body text without heading) Tj ET")
+    w.pages[1][NameObject("/Contents")] = w._add_object(s2)
+
+    # Page 3: Repeated nav, true heading Social 16pt
+    s3 = DecodedStreamObject()
+    s3.set_data(nav + b"BT /F1 16 Tf 40 650 Td (Social) Tj ET")
+    w.pages[2][NameObject("/Contents")] = w._add_object(s3)
+
+    pdf = tmp_path / "repeated_nav.pdf"
+    w.write(pdf)
+
+    res = inspect(pdf)
+    assert res["method"] == "toc_text_fallback"
+    # Repeated nav does NOT cause false Environment claim candidates
+    assert res["claim_candidate_pages"] == []
+    assert res["other_candidate_pages"] == [3, 4]
+    assert 1 in res["unknown_pages"] and 2 in res["unknown_pages"]

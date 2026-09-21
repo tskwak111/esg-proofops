@@ -1,6 +1,7 @@
 """Bounded real extraction: fake transport, real worker and claim replay."""
 
 import json
+import sqlite3
 from datetime import UTC as _UTC
 from datetime import datetime as _RealDatetime
 from pathlib import Path
@@ -112,7 +113,7 @@ def graph_of_kinds(kinds, source_sha=None, doc_version=None, parse_manifest=None
     return fuse_candidates((batch,), tenant_id=TENANT)
 
 
-def real_setup(tmp_path, monkeypatch, *, limit=2, probe=None):
+def real_setup(tmp_path, monkeypatch, *, limit=2, probe=None, claim_pages=None, extractor_factory=None):
     from proofops.application.registry import artifact_sha256
 
     from tests.integration import test_run_lifecycle as lifecycle
@@ -120,14 +121,21 @@ def real_setup(tmp_path, monkeypatch, *, limit=2, probe=None):
     from tests.integration.test_upstage_runtime import profiles
 
     probe = probe or FakeProbe('{"claims":[]}')
-    extractor = UpstageClaimExtractor(probe, tmp_path / "receipts")
+    extractor = (
+        extractor_factory(probe, tmp_path / "receipts")
+        if extractor_factory is not None
+        else UpstageClaimExtractor(probe, tmp_path / "receipts")
+    )
     original = lifecycle.setup
 
     def setup(directory):
         service, body = original(directory)
         service.extraction_mode = "upstage_probe"
         service.extraction_profile = extractor.profile
-        service.extraction_limits = dict(max_calls=limit, max_output_tokens=1024)
+        limits = dict(max_calls=limit, max_output_tokens=1024)
+        if claim_pages is not None:
+            limits["claim_pages"] = list(claim_pages)
+        service.extraction_limits = limits
         body.update(scope="declared_subset", selected_pages=[1, 2, 3])
         pair = profiles()
         document = service.uploads.version_snapshot(TENANT, body["document_version_id"])
@@ -262,6 +270,120 @@ def test_hard_stop_and_unsettled_accounting(tmp_path, monkeypatch, code, reserve
     assert cost["attempt_count"] == reserved
     if reserved:
         assert usage["cost_with_vat_reserve_usd"] == "unknown"
+
+
+def test_claim_pages_narrows_discovery_but_not_evidence(tmp_path, monkeypatch):
+    """Narrowed claim scope keeps the full parsed graph for evidence/retrieval.
+
+    Frozen ``extraction_limits.claim_pages=[2]`` restricts the model extractor to
+    page 2 only, yet the mutually verified ``load_evidence`` graph still contains
+    every selected page (1, 2, 3). The extractor never sees the excluded pages.
+    """
+    probe = FakeProbe('{"claims":["carbon emission"]}')
+    service, run_id, runner, now, probe = real_setup(
+        tmp_path, monkeypatch, limit=20, probe=probe, claim_pages=[2]
+    )
+    # Blocks land on pages i%3+1 -> pages 1, 2, 3; 3 blocks per page.
+    inject_graph(monkeypatch, service, run_id, ["paragraph"] * 9)
+    assert runner.run_once(tenant_id=TENANT, run_id=run_id) == "committed"
+
+    envelope, discovery, graph = runner.claims.load_evidence(TENANT, run_id)
+    # Discovery scope narrowed to the claim page subset.
+    assert discovery.scope.selected_pages == (2,)
+    # The parsed evidence graph stays broad: all three pages remain available for
+    # retrieval and downstream evidence, not just the claim page.
+    assert {block.page_num for block in graph.blocks} == {1, 2, 3}
+    # The extractor was only ever invoked for the in-scope page. Off-scope blocks
+    # are excluded before any packet is built, so they never reach the model.
+    page_of = {block.source_id: block.page_num for block in graph.blocks}
+    assert {page_of[sid] for sid in discovery.processed_source_ids} == {2}
+    assert len(probe.calls) == sum(1 for b in graph.blocks if b.page_num == 2)
+    # Off-claim-page blocks are recorded as out-of-scope exclusions, never claims.
+    off_scope = [e for e in discovery.exclusions if e.reason == "outside_declared_subset"]
+    assert {e.page_num for e in off_scope} == {1, 3}
+    assert len(discovery.claims) == 3
+    assert all(claim.source_refs[0].page_num == 2 for claim in discovery.claims)
+    from proofops.adapters.local.evidence_search import LocalEvidenceSearch
+
+    search = LocalEvidenceSearch(
+        graph, tenant_id=TENANT, pages=[1, 2, 3], index_generation="scope-test"
+    )
+    hits = search.search(search.scope, "carbon emission").hits
+    assert {page_of[hit.source_id] for hit in hits} == {1, 2, 3}
+    # Coverage does not assert the whole parsed set was extracted.
+    assert envelope["coverage"]["chunks_discovered"] == len(graph.blocks)
+    assert envelope["coverage"]["chunks_processed"] < len(graph.blocks)
+
+    # Immutable replay is stable across a fresh store handle.
+    reopened = LocalClaimStore(
+        LocalSQLiteRunStore(service.store.path), service.uploads, runner.parser
+    )
+    assert reopened.load(TENANT, run_id) == discovery
+
+
+def test_frozen_claim_pages_mutation_fails_before_model_call(tmp_path, monkeypatch):
+    """Widening a saved scope fails the real graph loader, before a paid call."""
+    from proofops.domain.provenance import canonical_hash
+
+    service, run_id, runner, now, probe = real_setup(
+        tmp_path, monkeypatch, limit=20, claim_pages=[2]
+    )
+    snapshot = service.store.snapshot(TENANT, run_id)
+    frozen = {key: value for key, value in snapshot.items() if key != "input_hash"}
+    assert canonical_hash(frozen) == snapshot["input_hash"]
+    snapshot["extraction_limits"]["claim_pages"] = [1, 2, 3]
+    with sqlite3.connect(service.store.path) as db:
+        with pytest.raises(sqlite3.IntegrityError, match="immutable run snapshot"):
+            db.execute(
+                "UPDATE run_snapshots SET payload=? WHERE tenant_id=? AND run_id=?",
+                (json.dumps(snapshot), TENANT, run_id),
+            )
+    # Also simulate a corrupt read, without bypassing the actual graph loader.
+    monkeypatch.setattr(service.store, "snapshot", lambda *args: snapshot)
+    assert runner.run_once(tenant_id=TENANT, run_id=run_id) == "failed"
+    assert not probe.calls
+
+
+@pytest.mark.parametrize(
+    "limits",
+    [
+        {"max_calls": 2, "max_output_tokens": 1024, "claim_pages": [4]},  # out of scope
+        {"max_calls": 2, "max_output_tokens": 1024, "claim_pages": [2, 4]},  # partly out
+        {"max_calls": 2, "max_output_tokens": 1024, "claim_pages": []},  # empty
+        {"max_calls": 2, "max_output_tokens": 1024, "claim_pages": [2, 2]},  # duplicate
+        {"max_calls": 2, "max_output_tokens": 1024, "claim_pages": [3, 2]},  # unsorted
+        {"max_calls": 2, "max_output_tokens": 1024, "claim_pages": [True, 2]},  # bool
+        {"max_calls": 2, "max_output_tokens": 1024, "claim_pages": "2"},  # not a list
+        {"max_calls": 2, "max_output_tokens": 1024, "claim_pages": [1, 2, 3, 4]},  # widen
+    ],
+)
+def test_malformed_claim_pages_bounds_rejected(limits):
+    """Out-of-scope, non-canonical, or widening frozen claim pages fail closed.
+
+    Validated directly at the shared trust-boundary helper against the broad
+    ``selected_pages`` ``[1, 2, 3]``; RunService, the worker and replay all route
+    through this before any model call.
+    """
+    from proofops.application.claim_scope import claim_pages_for, validate_extraction_limits
+
+    with pytest.raises(ValueError):
+        validate_extraction_limits(limits, [1, 2, 3])
+    with pytest.raises(ValueError):
+        claim_pages_for(limits, [1, 2, 3])
+
+
+def test_valid_and_absent_claim_pages_accepted():
+    """A canonical subset resolves to itself; absent limits keep legacy scope."""
+    from proofops.application.claim_scope import claim_pages_for, validate_extraction_limits
+
+    legacy = {"max_calls": 2, "max_output_tokens": 1024}
+    scoped = {"max_calls": 2, "max_output_tokens": 1024, "claim_pages": [2]}
+    validate_extraction_limits(legacy, [1, 2, 3])
+    validate_extraction_limits(scoped, [1, 2, 3])
+    assert claim_pages_for(scoped, [1, 2, 3]) == [2]
+    assert claim_pages_for(legacy, [1, 2, 3]) == [1, 2, 3]
+    # The local-synthetic legacy path passes no extraction_limits at all.
+    assert claim_pages_for(None, [1, 2, 3]) == [1, 2, 3]
 
 
 def test_expired_authorization_blocks_transport(tmp_path, monkeypatch):

@@ -201,6 +201,7 @@ def _inspect(path: str, limits: PdfLimits) -> int:
     from pypdf import PdfReader, apply_configuration
     from pypdf.generic import (
         ArrayObject,
+        BooleanObject,
         DictionaryObject,
         IndirectObject,
         PdfObject,
@@ -275,12 +276,19 @@ def _inspect(path: str, limits: PdfLimits) -> int:
             "/XFA",
         }
         # Inert by allowlist: pure in-viewer navigation with no code execution,
-        # filesystem, or network access. /URI is data-only (never fetched by
-        # this checker) and is allowed only for explicit click triggers such as
-        # annotation/outline /A; automatic /AA events and /OpenAction stay rejected. The Widget
-        # mouse-down/up exception is explicitly checked at its /AA call site.
+        # filesystem, or network access. /Named and /GoTo are in-viewer
+        # navigation and remain inert even for automatic triggers. /URI (data
+        # only, never fetched here) and /Hide are only allowed for explicit
+        # user-gesture triggers -- annotation/outline /A and Widget mouse
+        # down/up /AA D//U -- never for automatic /OpenAction or automatic /AA
+        # events, which stay rejected. /Hide toggles visibility of this
+        # document's own annotations/form fields (ISO 32000-1 Table 210 /
+        # PDF 1.7 Table 8.60): its /T names an annotation dictionary, a text
+        # field name string, or an array of those, and its optional /H is a
+        # boolean; it never resolves a file, URL, or embedded target. The
+        # Widget mouse-down/up exception is applied at its /AA call site.
         inert_action_subtypes = {"/Named", "/GoTo"}
-        user_gesture_inert_subtypes = inert_action_subtypes | {"/URI"}
+        user_gesture_inert_subtypes = inert_action_subtypes | {"/URI", "/Hide"}
         inert_named_destinations = {
             "/NextPage",
             "/PrevPage",
@@ -310,6 +318,37 @@ def _inspect(path: str, limits: PdfLimits) -> int:
                 return isinstance(page_target, DictionaryObject) and str(
                     page_target.get("/Type", "")
                 ) in {"/Page", "/Pages"}
+            return False
+
+        def is_internal_hide_target(target: object) -> bool:
+            """A /Hide /T names this document's own field(s)/annotation(s)
+            (PDF 1.7 Table 8.60): a text field-name string, an annotation
+            dictionary reference, or an array mixing those. An annotation
+            dictionary is validated by its own /Type /Annot (its /F is the
+            integer annotation-flags entry, NOT an external file specification,
+            so /F is legal here); a file-specification-shaped dict or any
+            forbidden construct is rejected. Nothing here is ever resolved,
+            fetched, or executed."""
+            if isinstance(target, IndirectObject):
+                target = target.get_object()
+            if isinstance(target, str):
+                return True
+            if isinstance(target, DictionaryObject):
+                if forbidden.intersection(target.keys()):
+                    return False
+                # Only a genuine annotation dictionary is an acceptable object
+                # target; /FS or /EF mark a file specification, never a hide
+                # target, and an /F without /Type /Annot is treated as a
+                # file-spec shape rather than annotation flags.
+                if {"/FS", "/EF"}.intersection(target.keys()):
+                    return False
+                if str(target.get("/Type", "")) != "/Annot":
+                    return False
+                return True
+            if isinstance(target, ArrayObject):
+                return len(target) > 0 and all(
+                    is_internal_hide_target(entry) for entry in target
+                )
             return False
 
         def reject_dangerous_action_chain(
@@ -376,6 +415,22 @@ def _inspect(path: str, limits: PdfLimits) -> int:
                     raise UploadRejected("PDF_INVALID")
             elif subtype_name == "/URI" and "/URI" not in action:
                 raise UploadRejected("PDF_INVALID")
+            elif subtype_name == "/Hide":
+                # /Hide only toggles visibility of this document's own fields
+                # /annotations and is permitted solely under a user gesture (it
+                # is absent from inert_action_subtypes, so an automatic
+                # /OpenAction or automatic /AA event carrying /Hide is rejected
+                # before reaching here). Its /T must name an annotation dict, a
+                # text field-name string, or an array of those; a /Hide with no
+                # /T is a malformed no-op and a /T shaped like a file
+                # specification is not a legitimate hide target. Its optional
+                # /H, when present, is a boolean. No target is ever resolved,
+                # fetched, or executed by this checker.
+                hidden_flag = action.get("/H")
+                if hidden_flag is not None and not isinstance(hidden_flag, BooleanObject):
+                    raise UploadRejected("PDF_INVALID")
+                if "/T" not in action or not is_internal_hide_target(action.get("/T")):
+                    raise UploadRejected("PDF_INVALID")
             if "/Next" in action:
                 reject_dangerous_action_chain(
                     action.get("/Next"),

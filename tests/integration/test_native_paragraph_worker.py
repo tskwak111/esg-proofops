@@ -362,3 +362,134 @@ def test_native_policy_pins_verifier_sources(tmp_path, monkeypatch):
     )
     with pytest.raises(ValueError, match="NATIVE_PARAGRAPH_ALREADY_PUBLISHED"):
         runner.run_once(tenant_id=TENANT, run_id=run_id)
+
+
+def test_typography_tolerance_opt_in_never_changes_checkpoint_or_old_defaults(
+    tmp_path, monkeypatch
+):
+    """R02c: the new opt-in flag must be a pure additive side artifact.
+
+    Same input, same native policy: with the flag off (default) and on, the
+    published checkpoint (schema, native_paragraph_attestation,
+    native_paragraph_policy_sha256, graph_sha256) must be byte-identical,
+    because this fixture's synthetic text has no curly quotes to promote and
+    -- independent of that -- the wrapper must never feed the checkpoint at
+    all. Only `runner.last_typography_proof` differs.
+    """
+    from proofops.application.ports.jobs import JobMessage
+    from proofops_worker.local_runner import LocalParserRunner
+
+    baseline_dir = tmp_path / "baseline"
+    opted_dir = tmp_path / "opted"
+    baseline_dir.mkdir()
+    opted_dir.mkdir()
+
+    baseline_service, baseline_run_id, baseline_runner, *_ = runner_setup_native(
+        baseline_dir, monkeypatch, True
+    )
+    assert baseline_runner.last_typography_proof is None
+    assert baseline_runner.run_once(tenant_id=TENANT, run_id=baseline_run_id) == "committed"
+    baseline_message = JobMessage(
+        **baseline_service.store.jobs.get_run(TENANT, baseline_run_id)["parse_job"]
+    )
+    baseline_checkpoint = baseline_service.store.jobs.read_checkpoint(baseline_message)
+    assert baseline_runner.last_typography_proof is None  # no eligible records in this fixture
+
+    opted_service, opted_run_id, opted_runner, *_ = runner_setup_native(
+        opted_dir, monkeypatch, True
+    )
+    opted_runner.native_typography_tolerance = True
+    assert opted_runner.run_once(tenant_id=TENANT, run_id=opted_run_id) == "committed"
+    opted_message = JobMessage(
+        **opted_service.store.jobs.get_run(TENANT, opted_run_id)["parse_job"]
+    )
+    opted_checkpoint = opted_service.store.jobs.read_checkpoint(opted_message)
+    baseline_envelope = json.loads(baseline_checkpoint)
+    opted_envelope = json.loads(opted_checkpoint)
+    # Explicit allowlist of fields the opt-in flag could plausibly influence.
+    # Everything else (run/tenant/document/manifest ids, source/graph hashes
+    # transitively keyed by them) legitimately differs across two
+    # independent runs and is not a claim this test makes.
+    for key in (
+        "schema",
+        "native_paragraph_policy_sha256",
+        "stage_status",
+        "downstream_status",
+        "validation_profile",
+        "vision_status",
+    ):
+        assert opted_envelope.get(key) == baseline_envelope.get(key), key
+    baseline_receipt = baseline_envelope["native_paragraph_attestation"]
+    opted_receipt = opted_envelope["native_paragraph_attestation"]
+    for key in ("schema", "geometry_mode", "scope", "coordinate_system", "reader"):
+        assert opted_receipt.get(key) == baseline_receipt.get(key), key
+
+    # Same fixture, same records-by-status/reason shape either way.
+    def status_reasons(receipt):
+        return sorted((r["status"], r.get("reason")) for r in receipt["records"])
+
+    assert status_reasons(opted_receipt) == status_reasons(baseline_receipt)
+    # The actually-verified block set (what matters for grading) is the same
+    # regardless of the opt-in flag on this fixture, since it has no
+    # quote-typography-only mismatches to promote.
+    baseline_graph = baseline_runner.load_graph(tenant_id=TENANT, run_id=baseline_run_id)
+    opted_graph = opted_runner.load_graph(tenant_id=TENANT, run_id=opted_run_id)
+
+    def verified_kinds(graph):
+        return sorted(block.kind for block in graph.blocks if block.quality == "verified")
+
+    assert verified_kinds(opted_graph) == verified_kinds(baseline_graph)
+    # No eligible curly-quote records in this table-only fixture, so the
+    # proof records zero promotions -- but it must still have run and pinned
+    # its own wrapper policy independent of the base checkpoint.
+    proof = opted_runner.last_typography_proof
+    assert proof is not None
+    assert proof["schema"] == "native_paragraph_typography_proof_v1"
+    assert proof["promoted_source_ids"] == []
+
+    # Producer -> checkpoint -> load_run_graph for the opt-in wrapper itself:
+    # the checkpoint carries the separately hashed wrapper policy + proof, the
+    # base receipt/policy/graph fields keep their v4 shape, and the reader
+    # recomputes the identical proof instead of trusting the stored one.
+    from proofops.adapters.local.native_paragraph_typography import (
+        native_paragraph_typography_policy,
+    )
+
+    expected_wrapper = native_paragraph_typography_policy()
+    assert opted_envelope["native_paragraph_typography_policy_sha256"] == canonical_hash(
+        expected_wrapper
+    )
+    assert opted_envelope["schema"] == baseline_envelope["schema"] == "local_parser_checkpoint_v4"
+    stored_proof = opted_envelope["native_paragraph_typography_proof"]
+    assert stored_proof["artifact_sha256"] == proof["artifact_sha256"]
+    assert stored_proof["promoted_source_ids"] == []
+    opted_evidence = load_run_evidence(
+        opted_service.store,
+        opted_service.uploads,
+        opted_runner.parser,
+        tenant_id=TENANT,
+        run_id=opted_run_id,
+    )
+    assert opted_evidence["typography_proof"]["artifact_sha256"] == proof["artifact_sha256"]
+    assert "native_paragraph_typography_policy_sha256" not in baseline_envelope
+
+    with pytest.raises(ValueError, match="native_typography_tolerance requires verify_paragraphs"):
+        LocalParserRunner(
+            opted_runner.store,
+            opted_runner.uploads,
+            opted_runner.parser,
+            profile=opted_runner.profile,
+            telemetry=opted_runner.telemetry,
+            verify_paragraphs=False,
+            native_typography_tolerance=True,
+        )
+    with pytest.raises(ValueError, match="native_typography_tolerance must be a boolean"):
+        LocalParserRunner(
+            opted_runner.store,
+            opted_runner.uploads,
+            opted_runner.parser,
+            profile=opted_runner.profile,
+            telemetry=opted_runner.telemetry,
+            verify_paragraphs=True,
+            native_typography_tolerance="yes",
+        )

@@ -1,11 +1,17 @@
 """Same-page footnote extraction with exact native-PDF context; proposed links only."""
 
 import json
-import re
 from hashlib import sha256
 from importlib.resources import files
 
-from proofops.adapters.local.table_notes import CONTRACT, marker_targets, prepare, validate
+from proofops.adapters.local.table_notes import (
+    CONTRACT,
+    COVERAGE_NOTE_START,
+    NUMBERED_NOTE_START,
+    marker_targets,
+    prepare,
+    validate,
+)
 from proofops.domain.provenance import canonical_hash
 
 SYSTEM = (
@@ -51,10 +57,16 @@ def _save_immutable_json(path, value):
 def join_note_lines(notes, fragments):
     """Normalize proposed note layout; never approve ownership or condition meaning."""
     by_id = {f["id"]: f for f in fragments}
+    covered = {i for note in notes for i in note["fragment_ids"]}
+    notes = list(notes) + [
+        dict(fragment_ids=[f["id"]], target_ids=[], kind="unknown")
+        for f in fragments
+        if f["id"] not in covered and COVERAGE_NOTE_START.match(f["text"])
+    ]
     expanded = []
     for note in notes:
         ids = sorted(note["fragment_ids"], key=lambda i: by_id[i]["bbox"][1::-1])
-        markers = [re.match(r"^([1-9][0-9]?)[.)]\s", by_id[i]["text"]) for i in ids]
+        markers = [NUMBERED_NOTE_START.match(by_id[i]["text"]) for i in ids]
         numbers = [m[1] for m in markers if m]
         if (
             len(numbers) > 1
@@ -76,14 +88,14 @@ def join_note_lines(notes, fragments):
             continue  # Numeric/marker-only selections remain unassigned, coverage unknown.
         first = by_id[ids[0]]
         parents = []
-        if not any(re.match(r"^[1-9][0-9]?[.)]\s", by_id[i]["text"]) for i in ids):
+        if not any(NUMBERED_NOTE_START.match(by_id[i]["text"]) for i in ids):
             for parent in joined:
                 anchor = by_id[parent["fragment_ids"][0]]
                 last = by_id[parent["fragment_ids"][-1]]
                 height = last["bbox"][3] - last["bbox"][1]
                 # ponytail: hanging-indent geometry only; ambiguous/unindented prose stays separate.
                 if (
-                    re.match(r"^[1-9][0-9]?[.)]\s", anchor["text"])
+                    NUMBERED_NOTE_START.match(anchor["text"])
                     and 0 < first["bbox"][0] - anchor["bbox"][0] <= 2 * height
                     and 0 <= first["bbox"][1] - last["bbox"][3] <= height
                     and all(abs(by_id[i]["bbox"][0] - first["bbox"][0]) <= height for i in ids)
@@ -294,9 +306,7 @@ def run(graph, source, table_ids, client, output, *, tenant_id, page=None):
             fragments = {f["id"]: f["text"] for f in data["fragments"]}
             notes = []
             for n in payload["notes"]:
-                markers = [
-                    re.match(r"^([1-9][0-9]?)[.)]\s", fragments[i]) for i in n["fragment_ids"]
-                ]
+                markers = [NUMBERED_NOTE_START.match(fragments[i]) for i in n["fragment_ids"]]
                 # Only split complete individual numbered lines; never move a continuation.
                 if (
                     len(markers) > 1

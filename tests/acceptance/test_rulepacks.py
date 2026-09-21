@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import ast
 import copy
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -676,3 +677,208 @@ def test_demo_grant_does_not_activate_and_draft_still_blocked():
             files_content=_files_content(),
             gap_ids=GAP_IDS,
         )
+
+
+# --- AT-R07: audited AI-delegated project review activation path ---
+
+
+def test_ai_delegated_review_activates_validated_pack_for_real_runs():
+    """Positive: an unapproved, validated pack becomes the real (tenant, mode)
+    default through the AI-delegated review path, distinguishably from a
+    human approver, and existing running-run snapshots stay untouched."""
+    from proofops.application.rulepacks import record_ai_delegated_review
+
+    registry = RulePackRegistry.empty().with_pack(
+        RulePackRecord.from_dict(_pack_dict(approved_by=None, approved_at=None))
+    )
+    registry, record, provenance = record_ai_delegated_review(
+        registry,
+        PACK_1,
+        TENANT_A,
+        reviewer="coordinator@orca.local",
+        reviewed_at="2026-09-20T10:00:00Z",
+        source_authority="user delegation 2026-09-20",
+        note="R07 AI-delegated project review of explicit ladder",
+        files_content=_files_content(),
+        gap_ids=GAP_IDS,
+    )
+
+    activated = registry.get_pack(TENANT_A, PACK_1)
+    assert activated.status == "active"
+    assert registry.active_pack_id(TENANT_A, "disclosure") == PACK_1
+    assert activated.approved_by == "ai-delegated-review:coordinator@orca.local"
+    assert activated.approved_by != "coordinator@orca.local"  # never bare/human-looking
+    assert provenance.review_origin == "ai_project_interpretation"
+    assert provenance.pack_sha256 == activated.sha256
+    assert provenance.source_authority == "user delegation 2026-09-20"
+    assert record.after_pack_id == PACK_1
+
+
+def test_ai_delegated_review_rejects_empty_reviewer_no_self_approval():
+    """Negative: no reviewer identity supplied => rejected outright, not
+    silently defaulted to some ambient/self identity."""
+    from proofops.application.rulepacks import record_ai_delegated_review
+
+    registry = RulePackRegistry.empty().with_pack(
+        RulePackRecord.from_dict(_pack_dict(approved_by=None, approved_at=None))
+    )
+    with pytest.raises(ValueError, match="reviewer"):
+        record_ai_delegated_review(
+            registry,
+            PACK_1,
+            TENANT_A,
+            reviewer="",
+            reviewed_at="2026-09-20T10:00:00Z",
+            source_authority="user delegation 2026-09-20",
+            note="missing reviewer",
+            files_content=_files_content(),
+            gap_ids=GAP_IDS,
+        )
+
+
+def test_ai_delegated_review_never_overwrites_existing_human_approval():
+    """Negative: a pack that already carries a human approved_by is refused,
+    never silently re-stamped with an AI-delegated reviewer."""
+    from proofops.application.rulepacks import record_ai_delegated_review
+
+    registry = RulePackRegistry.empty().with_pack(RulePackRecord.from_dict(_pack_dict()))
+    with pytest.raises(ValueError, match="already has a human approved_by"):
+        record_ai_delegated_review(
+            registry,
+            PACK_1,
+            TENANT_A,
+            reviewer="coordinator@orca.local",
+            reviewed_at="2026-09-20T10:00:00Z",
+            source_authority="user delegation 2026-09-20",
+            note="attempted override",
+            files_content=_files_content(),
+            gap_ids=GAP_IDS,
+        )
+
+
+def test_ai_delegated_review_rejects_cross_tenant_pack_without_leak():
+    """Negative: reviewing tenant B's pack id from tenant A's call still gets
+    the uniform not-found, matching human activation's tenant isolation."""
+    from proofops.application.rulepacks import record_ai_delegated_review
+
+    other = RulePackRecord.from_dict(_pack_dict(approved_by=None, approved_at=None))
+    other_b = replace(other, tenant_id=TENANT_B)
+    registry = RulePackRegistry.empty().with_pack(other_b)
+    with pytest.raises(LookupError, match="not found"):
+        record_ai_delegated_review(
+            registry,
+            PACK_1,
+            TENANT_A,
+            reviewer="coordinator@orca.local",
+            reviewed_at="2026-09-20T10:00:00Z",
+            source_authority="user delegation 2026-09-20",
+            note="cross tenant attempt",
+            files_content=_files_content(),
+            gap_ids=GAP_IDS,
+        )
+
+
+def test_ai_delegated_review_reason_provenance_round_trips_and_legacy_reason_is_unknown():
+    """The structured provenance is recoverable from the activation reason
+    (proving it flows through the same field human activation already uses),
+    while an ordinary human activation reason parses to None (unknown
+    reviewer), never auto-upgraded to reviewed."""
+    from proofops.application.rulepacks import ReviewProvenance, record_ai_delegated_review
+
+    registry = RulePackRegistry.empty().with_pack(
+        RulePackRecord.from_dict(_pack_dict(approved_by=None, approved_at=None))
+    )
+    _, record, provenance = record_ai_delegated_review(
+        registry,
+        PACK_1,
+        TENANT_A,
+        reviewer="coordinator@orca.local",
+        reviewed_at="2026-09-20T10:00:00Z",
+        source_authority="user delegation 2026-09-20",
+        note="round trip check",
+        files_content=_files_content(),
+        gap_ids=GAP_IDS,
+    )
+    parsed = ReviewProvenance.from_reason(record.reason)
+    assert parsed == provenance
+    assert ReviewProvenance.from_reason("go live v1") is None
+
+
+def test_ai_delegated_review_rejects_blank_and_naive_datetime_fields():
+    """Negative: whitespace-only strings are treated as blank (not merely
+    falsy-checked), and a reviewed_at without timezone info is rejected --
+    a naive local time is not an audit-grade timestamp."""
+    from proofops.application.rulepacks import record_ai_delegated_review
+
+    registry = RulePackRegistry.empty().with_pack(
+        RulePackRecord.from_dict(_pack_dict(approved_by=None, approved_at=None))
+    )
+    with pytest.raises(ValueError, match="reviewer"):
+        record_ai_delegated_review(
+            registry,
+            PACK_1,
+            TENANT_A,
+            reviewer="   ",
+            reviewed_at="2026-09-20T10:00:00Z",
+            source_authority="user delegation 2026-09-20",
+            note="whitespace-only reviewer",
+            files_content=_files_content(),
+            gap_ids=GAP_IDS,
+        )
+    with pytest.raises(ValueError, match="reviewed_at"):
+        record_ai_delegated_review(
+            registry,
+            PACK_1,
+            TENANT_A,
+            reviewer="coordinator@orca.local",
+            reviewed_at="2026-09-20T10:00:00",  # naive, no offset/Z
+            source_authority="user delegation 2026-09-20",
+            note="naive timestamp",
+            files_content=_files_content(),
+            gap_ids=GAP_IDS,
+        )
+    with pytest.raises(ValueError, match="reviewed_at"):
+        record_ai_delegated_review(
+            registry,
+            PACK_1,
+            TENANT_A,
+            reviewer="coordinator@orca.local",
+            reviewed_at="not-a-date",
+            source_authority="user delegation 2026-09-20",
+            note="garbage timestamp",
+            files_content=_files_content(),
+            gap_ids=GAP_IDS,
+        )
+
+
+def test_review_provenance_from_reason_rejects_malformed_without_coercion():
+    """from_reason must not str()-coerce a malformed payload into something
+    that looks valid: wrong-typed fields, an unknown review_origin, and a
+    non-sha256 pack_sha256 must all parse to None, not a fabricated record."""
+    import json as _json
+
+    from proofops.application.rulepacks import ReviewProvenance
+
+    base = {
+        "review_origin": "ai_project_interpretation",
+        "reviewer": "coordinator@orca.local",
+        "reviewed_at": "2026-09-20T10:00:00Z",
+        "source_authority": "user delegation 2026-09-20",
+        "pack_sha256": "a" * 64,
+        "note": "ok",
+    }
+
+    def reason_for(**overrides):
+        data = {**base, **overrides}
+        return "review_provenance:" + _json.dumps(data)
+
+    # A non-string field (e.g. reviewer as an int) must not be str()-coerced into "123".
+    assert ReviewProvenance.from_reason(reason_for(reviewer=123)) is None
+    # An unknown/forged review_origin must not be accepted as this module's known origin.
+    assert ReviewProvenance.from_reason(reason_for(review_origin="human_expert_verified")) is None
+    # A pack_sha256 that is not a real sha256 hex string must not be accepted.
+    assert ReviewProvenance.from_reason(reason_for(pack_sha256="not-a-hash")) is None
+    # A naive reviewed_at embedded in an otherwise well-formed payload is still rejected.
+    assert ReviewProvenance.from_reason(reason_for(reviewed_at="2026-09-20T10:00:00")) is None
+    # The well-formed baseline parses successfully (control case).
+    assert ReviewProvenance.from_reason(reason_for()) == ReviewProvenance(**base)

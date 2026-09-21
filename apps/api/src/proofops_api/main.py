@@ -74,6 +74,7 @@ def create_app() -> FastAPI:
             composition.claims,
             composition.auth_store,
             tags=composition.tags,
+            assurance=composition.assurance,
         )
     )
     app.include_router(

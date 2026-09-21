@@ -37,6 +37,20 @@ const trackElements: Record<Track, string[]> = {
   management: Array.from({ length: 6 }, (_, i) => `M${i + 1}`),
 };
 const states: ReviewElement["state"][] = ["present", "absent", "unknown", "conflict", "not_applicable"];
+const stateText: Record<ReviewElement["state"], string> = {
+  present: "충족(present)",
+  absent: "결여(absent)",
+  unknown: "미상(unknown)",
+  conflict: "상충(conflict)",
+  not_applicable: "적용 제외(not_applicable)",
+};
+const decisionStatusText: Record<string, string> = {
+  decided: "판정 완료",
+  blocked_evidence: "미판정 · 원문 근거 미확인",
+  blocked_rule_gap: "미판정 · 규칙집 공백",
+  not_applicable: "적용 제외",
+  not_run: "미판정 · 태깅 미완료",
+};
 const sourceKey = (source: SourceRef) => `${source.source_id}:${source.char_start}:${source.char_end}`;
 
 export function ReviewWorkspace(props: Props) {
@@ -59,7 +73,8 @@ function Editor(props: Props) {
   const live = useRef(true);
   const key = useRef<{ payload: string; value: string } | null>(null);
   const dirty = !saved && (reason !== "" || track !== base.track || JSON.stringify(elements) !== JSON.stringify(base.elements));
-  const editable = ["reviewer", "admin"].includes(props.session.role ?? "") && base.review.status === "open" && !saved;
+  const approvalPending = !props.localSynthetic && base.review.reason_codes.includes("RULEPACK_APPROVAL_REQUIRED");
+  const editable = !approvalPending && ["reviewer", "admin"].includes(props.session.role ?? "") && base.review.status === "open" && !saved;
   const sources = [...new Map([...props.elements.flatMap(e => e.evidence_refs), ...(props.sourceChoices ?? [])].map(s => [sourceKey(s), s])).values()];
   const changed = elements.filter(e => JSON.stringify(e) !== JSON.stringify(base.elements.find(old => old.element_id === e.element_id)));
 
@@ -114,9 +129,10 @@ function Editor(props: Props) {
     {props.localSynthetic && <p>로컬 합성 자료 검증 — 실제 모델 결과가 아닙니다.</p>}
     <p>원문 근거와 태깅을 수정하면 규칙엔진이 새 판정을 계산합니다.</p>
     {base.review.reason_codes.length > 0 && <p>검토 사유: {base.review.reason_codes.join(", ")}</p>}
-    {!editable && !saved && <p>검토자 권한과 열린 검토 항목이 필요합니다.</p>}
+    {approvalPending && <p role="status">규칙집 승인이 필요해 태깅 확정·재채점이 보류되었습니다. 현재 태그와 원문을 검토하고 부분 결과로 내보낼 수 있습니다.</p>}
+    {!editable && !saved && !approvalPending && <p>검토자 권한과 열린 검토 항목이 필요합니다.</p>}
     {error && <p role="alert">{error}</p>}
-    {saved && <p role="status">태깅 revision {saved.new_tag_revision} 저장됨. 판정: {saved.decision.decision_status}
+    {saved && <p role="status">태깅 revision {saved.new_tag_revision} 저장됨. 판정: {decisionStatusText[saved.decision.decision_status] ?? saved.decision.decision_status}
       {saved.decision.gap_ids.length > 0 && ` · 미정 규칙: ${saved.decision.gap_ids.join(", ")}`}</p>}
     {stale && <section aria-label="충돌 비교">
       <h3>서버 최신 태깅과 내 초안</h3>
@@ -124,8 +140,8 @@ function Editor(props: Props) {
       {latest && <>
         <p>서버 revision {latest.review.revision} · {latest.review.status} · 트랙 {latest.track}</p>
         <table><thead><tr><th>요소</th><th>서버</th><th>내 초안</th></tr></thead><tbody>
-          {elements.map(e => <tr key={e.element_id}><th>{e.element_id}</th>
-            <td>{latest.elements.find(old => old.element_id === e.element_id)?.state ?? "미수집"}</td><td>{e.state}</td></tr>)}
+          {elements.map(e => { const server = latest.elements.find(old => old.element_id === e.element_id)?.state; return <tr key={e.element_id}><th>{e.element_id}</th>
+            <td>{server ? stateText[server] : "미수집"}</td><td>{stateText[e.state]}</td></tr>; })}
         </tbody></table>
         <details><summary>근거와 값 전체 비교</summary><pre>{JSON.stringify({ server: latest.elements, draft: elements }, null, 2)}</pre></details>
         <button type="button" disabled={latest.review.status !== "open"} onClick={() => {
@@ -145,7 +161,7 @@ function Editor(props: Props) {
         {elements.map((element, index) => <fieldset key={element.element_id}>
           <legend>{element.element_id}</legend>
           <label>상태 <select value={element.state} onChange={event => update(index, { state: event.target.value as ReviewElement["state"] })}>
-            {states.map(state => <option key={state}>{state}</option>)}
+            {states.map(state => <option key={state} value={state}>{stateText[state]}</option>)}
           </select></label>
           <label>원문 값 <input value={element.normalized_value ?? ""} onChange={event => update(index, { normalized_value: event.target.value || null })} /></label>
           <fieldset><legend>근거 선택</legend>
@@ -166,7 +182,7 @@ function Editor(props: Props) {
     <dialog ref={dialog} aria-labelledby="review-confirm-title" onClose={() => confirmButton.current?.focus()}>
       <h3 id="review-confirm-title">태깅 변경 후 재채점</h3>
       <p>트랙: {base.track} → {track}</p>
-      <ul>{changed.map(e => <li key={e.element_id}>{e.element_id}: {base.elements.find(old => old.element_id === e.element_id)?.state ?? "미수집"} → {e.state} · 근거 {e.evidence_refs.length}개</li>)}</ul>
+      <ul>{changed.map(e => { const prev = base.elements.find(old => old.element_id === e.element_id)?.state; return <li key={e.element_id}>{e.element_id}: {prev ? stateText[prev] : "미수집"} → {stateText[e.state]} · 근거 {e.evidence_refs.length}개</li>; })}</ul>
       <p>{reason}</p><p>기존 revision은 보존되며, 미정 규칙은 확정 뒤에도 남을 수 있습니다.</p>
       <button type="button" onClick={() => dialog.current?.close()}>취소</button>
       <button type="button" onClick={save}>태깅 확정 및 재채점</button>

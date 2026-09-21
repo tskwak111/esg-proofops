@@ -45,6 +45,40 @@ class ParseFailure(ValueError):
     """Sanitized error code only; no parser stderr, PDF text, or private path."""
 
 
+def _table_verifier(policy_hash):
+    from proofops.adapters.local import table_source_verification as legacy
+
+    if policy_hash == legacy.policy_sha256():
+        return legacy
+    from proofops.adapters.local import merged_table_verification as merged
+
+    if policy_hash == merged.policy_sha256():
+        return merged
+    from proofops.adapters.local import selected_cell_table_verification as selected
+
+    if policy_hash == selected.policy_sha256():
+        return selected
+    raise ParseFailure("TABLE_SOURCE_POLICY_MISMATCH")
+
+
+def _locates_auxiliary_cells(profile):
+    """Only the selected-cell policy asks for ink-tight auxiliary cell boxes.
+
+    Pinning that policy in the parser profile IS the new source version: existing
+    runs keep their own policy and their artifacts are never rewritten.
+    """
+    policy_hash = (
+        profile.get("table_source_policy_sha256")
+        if isinstance(profile, dict)
+        else profile.table_source_policy_sha256
+    )
+    if policy_hash is None:
+        return False
+    from proofops.adapters.local import selected_cell_table_verification as selected
+
+    return policy_hash == selected.policy_sha256()
+
+
 def _json(value: object) -> bytes:
     return json.dumps(
         value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
@@ -315,13 +349,18 @@ class OpenDataLoaderParser(ParserPort):
                 raw = json.loads((work / "source.json").read_bytes())
                 if raw.get("number of pages") != verified.page_count:
                     raise ParseFailure("PARSER_PAGE_MAPPING_INVALID")
+                if profile.table_structure_repair is not None:
+                    raw = json.loads((work / "source-repaired.json").read_bytes())
                 candidates = [_batch(raw, geometries, source, profile, profile_hash)]
                 if profile.table_auxiliary:
                     auxiliary = json.loads((work / "auxiliary.json").read_bytes())
                     candidates.append(
                         _batch(auxiliary, geometries, source, profile, profile_hash, auxiliary=True)
                     )
-                graph = fuse_candidates(tuple(candidates), tenant_id=tenant_id, fusion_version=3)
+                fusion_version = 4 if profile.table_structure_repair == "odl_header_v2" else 3
+                graph = fuse_candidates(
+                    tuple(candidates), tenant_id=tenant_id, fusion_version=fusion_version
+                )
             except DomainValidationError:
                 raise ParseFailure("PARSER_GEOMETRY_INVALID") from None
             except (KeyError, TypeError, json.JSONDecodeError):
@@ -332,6 +371,14 @@ class OpenDataLoaderParser(ParserPort):
             (work / "candidates.json").write_bytes(
                 _json([asdict(batch) for batch in graph.candidates])
             )
+            returned_graph = graph
+            if profile.table_source_policy_sha256 is not None:
+                verifier = _table_verifier(profile.table_source_policy_sha256)
+                receipt = verifier.attest_tables(graph, source.content, tenant_id=tenant_id)
+                (work / "table-source.json").write_bytes(_json(receipt))
+                returned_graph = verifier.replay_tables(
+                    receipt, graph, source.content, tenant_id=tenant_id
+                )
             (work / "source.pdf").unlink()
             (work / "request.json").unlink()
             artifacts = {
@@ -344,7 +391,7 @@ class OpenDataLoaderParser(ParserPort):
             jar = files("opendataloader_pdf").joinpath("jar", "opendataloader-pdf-cli.jar")
             manifest = dict(
                 schema_version="1",
-                fusion_version=3,
+                fusion_version=fusion_version,
                 tenant_id=tenant_id,
                 document_id=source.document_id,
                 document_version_id=source.document_version_id,
@@ -384,7 +431,7 @@ class OpenDataLoaderParser(ParserPort):
                 os.rename(work, final)
             except OSError:
                 raise ParseFailure("PARSE_MANIFEST_EXISTS") from None
-            return graph
+            return returned_graph
 
     def load_verified(
         self,
@@ -446,6 +493,14 @@ class OpenDataLoaderParser(ParserPort):
             }
             if profile.table_auxiliary:
                 required.add("auxiliary.json")
+            if profile.table_structure_repair is not None:
+                required.update({"source-repaired.json", "table-repair.json"})
+            elif {"source-repaired.json", "table-repair.json"} & artifacts.keys():
+                raise ValueError("unconfigured table repair")
+            if profile.table_source_policy_sha256 is not None:
+                required.add("table-source.json")
+            elif "table-source.json" in artifacts:
+                raise ValueError("unconfigured table attestation")
             if not required <= artifacts.keys():
                 raise ValueError("missing artifacts")
             values = {}
@@ -460,12 +515,12 @@ class OpenDataLoaderParser(ParserPort):
                 data = path.read_bytes()
                 if sha256(data).hexdigest() != digest:
                     raise ValueError("artifact hash")
-                if name in {"graph.json", "quality.json", "candidates.json"}:
+                if name in {"graph.json", "quality.json", "candidates.json", "table-source.json"}:
                     values[name] = json.loads(data)
             candidates = candidates_from_snapshot(values["candidates.json"])
             # Existing immutable manifests predate fusion versioning.
             fusion_version = manifest.get("fusion_version", 1)
-            if type(fusion_version) is not int or fusion_version not in (1, 2, 3):
+            if type(fusion_version) is not int or fusion_version not in (1, 2, 3, 4):
                 raise ValueError("unsupported fusion version")
             graph = fuse_candidates(candidates, tenant_id=tenant_id, fusion_version=fusion_version)
             if graph.to_dict() != values["graph.json"] or (
@@ -512,6 +567,11 @@ class OpenDataLoaderParser(ParserPort):
                 for b in candidates
             ]:
                 raise ValueError("parser run mismatch")
+            if profile.table_source_policy_sha256 is not None:
+                verifier = _table_verifier(profile.table_source_policy_sha256)
+                restored = verifier.replay_tables(
+                    values["table-source.json"], restored, source.content, tenant_id=tenant_id
+                )
             return restored
         except (OSError, ValueError, KeyError, TypeError):
             raise ParseFailure("PARSER_ARTIFACT_INTEGRITY_MISMATCH") from None
@@ -611,6 +671,45 @@ def _child(work: Path) -> None:
         hybrid="off",
         quiet=True,
     )
+    if profile.get("table_structure_repair") in ("odl_header_v1", "odl_header_v2"):
+        import pdfplumber
+        from proofops.adapters.parsing.odl_table_repair import repair_stacked_headers
+
+        # Unsupported page transforms remain untouched, never guessed.
+        words_by_page = {}
+        with pdfplumber.open(work / "source.pdf") as document:
+            for number in selected:
+                info = geometries[str(number)]
+                crop, media = info["crop"], info["media"]
+                if crop != media or crop["rotation"] or crop["crop_box"][:2] != (0, 0):
+                    continue
+                page = document.pages[number - 1]
+                words_by_page[number] = [
+                    {
+                        "text": word["text"],
+                        "bbox": [
+                            word["x0"],
+                            page.height - word["bottom"],
+                            word["x1"],
+                            page.height - word["top"],
+                        ],
+                    }
+                    for word in page.extract_words()
+                ]
+        raw = json.loads((work / "source.json").read_bytes())
+        repaired, receipts = repair_stacked_headers(
+            raw, words_by_page, locate_rows=profile["table_structure_repair"] == "odl_header_v2"
+        )
+        (work / "source-repaired.json").write_bytes(_json(repaired))
+        (work / "table-repair.json").write_bytes(
+            _json(
+                dict(
+                    version=profile["table_structure_repair"],
+                    source_json_sha256=sha256(_json(raw)).hexdigest(),
+                    receipts=receipts,
+                )
+            )
+        )
     if profile["table_auxiliary"]:
         import pdfplumber
 
@@ -669,6 +768,47 @@ def _child(work: Path) -> None:
                         )
                     )
         (work / "auxiliary.json").write_bytes(_json(dict(kids=nodes)))
+        if _locates_auxiliary_cells(profile):
+            from proofops.adapters.local.native_glyph_geometry import native_word_ink_geometry
+            from proofops.adapters.parsing.odl_table_repair import locate_auxiliary_cells
+
+            # pdfplumber assigns a slot's text by ink midpoint, so a detected slot
+            # can hold text its own box does not contain. Snap each slot onto the
+            # ink it owns; a table whose ownership is not exact stays untouched.
+            words_by_page = {}
+            source_pdf_bytes = (work / "source.pdf").read_bytes()
+            with pdfplumber.open(work / "source.pdf") as document:
+                for number in selected:
+                    page = document.pages[number - 1]
+                    raw_words = page.extract_words()
+                    if not raw_words:
+                        continue
+                    word_indices = list(range(len(raw_words)))
+                    try:
+                        ink_res = native_word_ink_geometry(source_pdf_bytes, number, word_indices)
+                        matched_map = {
+                            m["native_word_index"]: m["ink_bbox"]
+                            for m in ink_res.get("matched_words", [])
+                        }
+                        unresolved_set = set(ink_res.get("unresolved_word_indices", []))
+                    except Exception:
+                        matched_map = {}
+                        unresolved_set = set(word_indices)
+                    words_by_page[number] = [
+                        {
+                            "text": word["text"],
+                            "bbox": [word["x0"], word["top"], word["x1"], word["bottom"]],
+                            "ink_bbox": matched_map.get(idx),
+                            "resolved": idx in matched_map and idx not in unresolved_set,
+                        }
+                        for idx, word in enumerate(raw_words)
+                    ]
+            located, receipts = locate_auxiliary_cells(
+                nodes, words_by_page, source=source_pdf_bytes
+            )
+            (work / "auxiliary.json").write_bytes(
+                _json(dict(kids=located, cell_locate=receipts))
+            )
 
 
 if __name__ == "__main__":

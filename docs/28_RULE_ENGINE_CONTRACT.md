@@ -20,6 +20,14 @@
 
 자동 확정 판정과 최종 본문 표현은 명시된 필수/조건부 루브릭의 해석을 넘어가지 않는다. 등급에 영향을 주는 미정 조합은 internal ladder candidate 만 남기고 공개 grade 는 blocked_rule_gap 으로 유지한다.
 
+R07b: 별도 checklist 경로의 `reasonable_basis_boolean_mapping=null`은 기존 결과를
+그대로 보존한다. 명시적 새 pack의 `project_checklist_completeness_v1`만 검증된
+비어 있지 않은 전체 present → true / 검증된 any absent → false / 나머지 → null을
+계산한다(31장 제한 채택). API/DB 필드 변경·migration은 없다. E/label, 법적 효력,
+grade mapping 미정 상태는 유지한다. 롤백은 새 실행을 기존 null pack에 고정하며
+이미 생성된 파생 pack·revision은 삭제/덮어쓰지 않는다. 구버전 reader는 새 policy를
+거부하므로 해당 실행은 호환 reader에 남겨야 한다.
+
 ## 3. 사다리 truth table
 | 트랙 | E0 | E1 | E2 | E3 |
 |---|---|---|---|---|
@@ -75,3 +83,24 @@ not_applicable로 바꾸지 않는다.
 그대로 거친다. 다른 연도/제품 수치를 차용하거나 숫자·목표연도를 문서 전역에서
 끌어오는 것은 허용하지 않는다. LLM의 등급 결정, 새 조항/루브릭 기준, 도메인 승인,
 기존 revision 변경은 이 기술 구분에 포함되지 않는다.
+
+### R07c: 위임 AI의 원자 주장 조건부 적용 검토
+
+기존 로컬 `resolve_ai_delegated_review(..., applicability_review=...)` 및
+`scripts/review_ai_delegated.py --applicability-review-json <파일> --apply`만
+`local_claim_applicability_v1` 검토를 받는다. 별도 JSON은 `policy`,
+`input_snapshot_sha256`, `track`, `claim_source_refs`, `source_authority`,
+`triggers`만 포함한다. 각 trigger는 `name/value/reason`이며 value는 true/false/null이다.
+이름은 고정 rulepack의 해당 track 조건부 trigger와 지원된 다섯 claim trigger의
+교집합이다. 누락·null은 false가 아니다. HTTP 수정 body는 기존 4키를 유지한다.
+
+trusted loader가 원문 provenance를 재생하고, 검토 refs가 원자 주장 전체 refs와
+정확히 같으며 모든 span이 재검증된 경우에만 적용한다. false의 coverage는
+`local_claim` 안에서 "이 주장이 해당 내용을 주장하는가"의 검토이며 보고서 전체
+근거 부재를 뜻하지 않는다. 일반 요소 absent/N/A 생성 권한은 추가하지 않는다.
+track 변경 시 기존 trigger를 제거한다. 판정·excluded_elements는 기존 Python
+engine이 계산한다. 검토 요청·검증 span·claim/graph/source/packet/rulepack/input 해시,
+AI 검토자·위임·사유·출처는 새 immutable tag revision 및 기존 audit hash에 묶인다.
+If-Match와 idempotency는 유지하며 새 option도 재시도 identity에 포함한다.
+공개 DTO/DB migration은 없다. 미사용 경로와 기존 revision은 유지하고 rollback은
+새 option 사용 중단이다. 독립 human/gold 확인으로 취급하지 않는다.

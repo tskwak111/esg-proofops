@@ -340,7 +340,7 @@ def test_fusion_version_gate_keeps_v1_legacy_and_v2_semantic_context():
     assert len(scoped) == 2  # scope=A vs scope=B stays separate under v2
 
     single = candidate("A", [("A1", "table_cell", "17", (10, 10, 100, 30), ())])
-    for bad in (0, 4, -1, "2", None, True):
+    for bad in (0, 5, -1, "2", None, True):
         with pytest.raises(ValueError, match="fusion version"):
             fuse_candidates((single,), tenant_id=TENANT, fusion_version=bad)
 
@@ -570,3 +570,37 @@ def test_actual_blank_page_and_resource_limits_do_not_become_successful_evidence
             )
         assert not (tmp_path / TENANT / VERSION / identifier).exists()
     assert not list(tmp_path.rglob(".parse-*"))
+
+
+def test_v4_keeps_same_location_cells_in_incompatible_parent_tables_separate():
+    from dataclasses import replace
+
+    from proofops.application.ingest.graph_fusion import fuse_candidates
+
+    left = candidate(
+        "primary",
+        [
+            ("T", "table", "metric year value", (10, 100, 400, 400), ()),
+            ("C", "table_cell", "25", (100, 200, 150, 230), ()),
+        ],
+        [("C", "T", "table_parent")],
+    )
+    right = candidate(
+        "partial",
+        [
+            ("T", "table", "value only", (90, 190, 160, 240), ()),
+            ("C", "table_cell", "25", (100, 200, 150, 230), ()),
+        ],
+        [("C", "T", "table_parent")],
+    )
+
+    def scoped(batch):
+        return replace(batch, blocks=tuple(replace(b, table_native_id="T") for b in batch.blocks))
+
+    left, right = scoped(left), scoped(right)
+    legacy = fuse_candidates((left, right), tenant_id=TENANT, fusion_version=3)
+    assert len([b for b in legacy.blocks if b.kind == "table_cell"]) == 1
+    fixed = fuse_candidates((left, right), tenant_id=TENANT, fusion_version=4)
+    cells = [b for b in fixed.blocks if b.kind == "table_cell"]
+    assert len(cells) == 2
+    assert all(len([e for e in fixed.edges if e.source_id == c.source_id]) == 1 for c in cells)

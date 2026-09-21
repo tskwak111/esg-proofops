@@ -7,6 +7,7 @@ from dataclasses import asdict
 from hashlib import sha256
 
 from proofops.adapters.local.run_artifacts import load_run_graph
+from proofops.application.claim_scope import claim_pages_for
 from proofops.application.claims import ClaimScope, ExtractionProfile, discover_atomic_claims
 from proofops.application.ports.jobs import JobMessage
 from proofops.domain.provenance import canonical_hash
@@ -22,12 +23,24 @@ def extraction_profile(snapshot):
 
 
 def claim_scope(snapshot, graph):
+    """Discovery scope for the extractor only; the parsed graph/evidence stay broad.
+
+    When ``extraction_limits.claim_pages`` is frozen, discovery narrows to that
+    subset of ``selected_pages``; retrieval/evidence keep the full parsed graph.
+    An absent key preserves the exact legacy scope, hash and replay.
+    """
+    if snapshot["scope"] == "declared_subset":
+        pages = tuple(
+            claim_pages_for(snapshot.get("extraction_limits"), snapshot["selected_pages"])
+        )
+    else:
+        pages = ()
     return ClaimScope(
         graph.tenant_id,
         graph.document_version_id,
         graph.parse_manifest_id,
         snapshot["scope"],
-        tuple(snapshot["selected_pages"]) if snapshot["scope"] == "declared_subset" else (),
+        pages,
     )
 
 
@@ -84,7 +97,6 @@ class LocalClaimStore:
         expected = snapshot_pins(snapshot, graph, profile, parse_checkpoint)
         if any(envelope.get(key) != value for key, value in expected.items()):
             raise ValueError("CLAIM_SNAPSHOT_INPUT_MISMATCH")
-        # ponytail: full replay per read; cache by immutable digest if read latency requires it.
         discovery = discover_atomic_claims(
             graph,
             claim_scope(snapshot, graph),
@@ -98,18 +110,21 @@ class LocalClaimStore:
         ):
             raise ValueError("CLAIM_SNAPSHOT_REPLAY_MISMATCH")
         if "claim_source_policy" in snapshot:
-            from proofops.adapters.local.claim_source_verification import claim_source_reader
+            from proofops.adapters.local.claim_source_policies import claim_source_reader
+            from proofops.adapters.local.native_replay_cache import replay_claims_cached
             from proofops.adapters.local.run_artifacts import load_run_inputs
 
             reader = claim_source_reader(snapshot["claim_source_policy"])
             _, source, _ = load_run_inputs(
                 self.store, self.uploads, tenant_id=tenant_id, run_id=run_id
             )
-            discovery, graph = reader.replay_claim_spans(
-                envelope["claim_source_attestation"],
-                graph,
-                source.content,
-                discovery,
+            discovery, graph = replay_claims_cached(
+                reader=reader,
+                policy=snapshot["claim_source_policy"],
+                receipt=envelope["claim_source_attestation"],
+                graph=graph,
+                source=source.content,
+                discovery=discovery,
                 tenant_id=tenant_id,
             )
         elif "claim_source_attestation" in envelope:
@@ -246,7 +261,37 @@ def snapshot_pins(snapshot, graph, profile, parse_checkpoint):
     )
 
 
-def validate_extract_commit(db, jobs, run, message, envelope, next_job):
+def guard_extract_continuation(db, jobs, run, *, now, supersede=False):
+    """Check downstream ownership under the extraction lease/publication transaction."""
+    tenant, run_id = run["tenant_id"], run["run_id"]
+    if (
+        "tag_job" in run
+        or run.get("tag_stage_status") is not None
+        or run.get("status") in ("partial", "completed")
+        or db.execute(
+            "SELECT 1 FROM job_records WHERE tenant_id=? AND run_id=? "
+            "AND kind IN ('tag_revision', 'review_revision', 'claim_head', 'review_head') LIMIT 1",
+            (tenant, run_id),
+        ).fetchone()
+        is not None
+    ):
+        raise ValueError("TAG_PUBLICATION_CONFLICT")
+    tags = [job for job in jobs._all(db, tenant, run_id, "job") if job["message"]["stage"] == "tag"]
+    if any(job["status"] == "leased" and job["lease_until"] > now for job in tags):
+        raise ValueError("TAG_LEASE_CONFLICT")
+    if not supersede:
+        return
+    for job in tags:
+        if job["status"] in {"pending", "leased"}:
+            job.update(status="superseded", fencing_token=job["fencing_token"] + 1)
+            jobs._save_job(db, JobMessage(**job["message"]), job)
+    for event in jobs._all(db, tenant, run_id, "outbox"):
+        if event.get("status") == "pending" and event.get("message", {}).get("stage") == "tag":
+            event["status"] = "superseded"
+            jobs._put(db, tenant, run_id, "outbox", event["event_id"], event)
+
+
+def validate_extract_commit(db, jobs, run, message, envelope, next_job, *, now):
     """Validate publication pins inside the same transaction as checkpoint/outbox."""
     row = db.execute(
         "SELECT payload FROM run_snapshots WHERE tenant_id=? AND run_id=?",
@@ -342,10 +387,15 @@ def validate_extract_commit(db, jobs, run, message, envelope, next_job):
             document_version_id=message.document_version_id,
             parse_manifest_id=parsed["parse_manifest_id"],
             mode=snapshot["scope"],
-            selected_pages=snapshot["selected_pages"] if snapshot["scope"] != "full" else [],
+            selected_pages=claim_pages_for(
+                snapshot.get("extraction_limits"), snapshot["selected_pages"]
+            )
+            if snapshot["scope"] != "full"
+            else [],
         )
     ):
         raise ValueError("invalid local extract checkpoint")
+    guard_extract_continuation(db, jobs, run, now=now, supersede=True)
 
 
 def discovery_coverage(parsed_coverage, graph, discovery):
@@ -357,4 +407,93 @@ def discovery_coverage(parsed_coverage, graph, discovery):
         claims_decided=0,
         claims_needs_review=len(discovery.claims),
         complete=False,
+    )
+
+
+# A deferred source was answered locally, without a model call: it carries one
+# unknown span over its whole text. ``beyond_extraction_limit`` and
+# ``extraction_budget_stop`` stay eligible for a later batch;
+# ``non_paragraph_kind`` is a routing skip, not a pending item.
+DEFERRED_LIMIT_REASON = "beyond_extraction_limit"
+DEFERRED_BUDGET_REASON = "extraction_budget_stop"
+DEFERRED_KIND_REASON = "non_paragraph_kind"
+DEFERRED_REASONS = frozenset((DEFERRED_LIMIT_REASON, DEFERRED_BUDGET_REASON, DEFERRED_KIND_REASON))
+
+
+def deferred_payload(text: str, reason: str) -> dict:
+    """The local, model-free answer for a source outside this batch."""
+    if reason not in DEFERRED_REASONS:
+        raise ValueError("EXTRACTION_INPUT_INVALID")
+    return {
+        "spans": [
+            dict(
+                char_start=0,
+                char_end=len(text),
+                quote=text,
+                kind="unknown",
+                reason=reason,
+                topic_ids=[],
+            )
+        ]
+    }
+
+
+def _deferred_reason(raw_response_json):
+    """Return the deferred reason of a stored receipt payload, else ``None``."""
+    try:
+        spans = json.loads(raw_response_json)["spans"]
+    except (TypeError, ValueError, KeyError):
+        return None
+    if len(spans) != 1:
+        return None
+    span = spans[0]
+    reason = span.get("reason")
+    if span.get("kind") == "unknown" and reason in DEFERRED_REASONS:
+        return reason
+    return None
+
+
+def extraction_batch_state(envelope):
+    """Exact per-source state of a stored extraction revision, from receipts only.
+
+    ``model_processed`` are the sources a batch actually spent a model call on and
+    whose stored payload may be replayed instead of re-charged. ``pending`` are the
+    sources that were answered locally because they were outside the batch window
+    or after a budget stop, so they remain eligible. Nothing here is inferred from
+    text: every set comes from the stored receipt payloads and exclusions.
+    """
+    discovery = envelope["discovery"]
+    model_processed, pending, skipped, failed, stops = {}, {}, set(), set(), {}
+    failed_receipts = {}
+    for receipt in discovery["receipts"]:
+        source_id = receipt["source_id"]
+        if receipt["status"] == "failed":
+            failed.add(source_id)
+            failed_receipts[source_id] = receipt
+            continue
+        reason = _deferred_reason(receipt["raw_response_json"])
+        if reason is None:
+            model_processed[source_id] = receipt
+        elif reason == DEFERRED_KIND_REASON:
+            skipped.add(source_id)
+        else:
+            pending[source_id] = receipt
+            if reason == DEFERRED_BUDGET_REASON:
+                stops[source_id] = reason
+    excluded = {
+        item["source_id"]
+        for item in discovery["exclusions"]
+        if item["source_id"] not in model_processed
+        and item["source_id"] not in pending
+        and item["source_id"] not in skipped
+        and item["source_id"] not in failed
+    }
+    return dict(
+        model_processed=model_processed,
+        pending=pending,
+        skipped_non_paragraph=skipped,
+        failed=failed,
+        failed_receipts=failed_receipts,
+        budget_stopped=stops,
+        excluded=excluded,
     )

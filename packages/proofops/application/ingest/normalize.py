@@ -367,9 +367,40 @@ def normalize_tables(graph: CanonicalDocumentGraph, *, tenant_id: str) -> Normal
                     if (row, col) in grid and grid[row, col] != cell:
                         overlap = True
                     grid[row, col] = cell
+        # Skip only unambiguous leading full-width single-cell title rows above the
+        # explicit header. A skippable row must be a lone cell
+        # whose span fills the entire observed table width; any other leading layout (partial
+        # captions, overlaps, multiple cells) keeps the earliest row as the header so
+        # ambiguous tables still fail closed below. Titles never supply header roles.
+        first_col = min(col for _, col in grid)
+        columns = {col for _, col in grid}
+        title_rows: set[int] = set()
+        titles: list[CanonicalBlock] = []
         header_row = min(row for row, _ in grid)
+        while not overlap:
+            band = {col: cell for (row, col), cell in grid.items() if row == header_row}
+            distinct = set(band.values())
+            if len(distinct) != 1 or set(band) != columns:
+                break
+            title = next(iter(distinct))
+            span = title.candidates[0]
+            if (
+                span.column_number != first_col
+                or (span.column_span or 1) != len(columns)
+                or span.row_number != header_row
+            ):
+                break
+            title_rows.update(range(header_row, header_row + (span.row_span or 1)))
+            titles.append(title)
+            header_row += span.row_span or 1
+            if header_row not in {row for row, _ in grid}:
+                # A title with nothing beneath it is not a promotable header layout.
+                header_row = min(row for row, _ in grid)
+                title_rows.clear()
+                titles.clear()
+                break
         headers = {col: cell for (row, col), cell in grid.items() if row == header_row}
-        header_rows = {header_row}
+        header_rows = {header_row} | title_rows
         basis_headers = {}
         next_row = {col: cell for (row, col), cell in grid.items() if row == header_row + 1}
         basis_values = {"시장기반", "위치기반", "market-based", "location-based"}
@@ -399,8 +430,27 @@ def normalize_tables(graph: CanonicalDocumentGraph, *, tenant_id: str) -> Normal
             else set()
         )
         value_columns |= metric_columns
+        # Shared year columns require supported subheaders; preserve unknown roles.
+        owners: dict[str, set[int]] = {}
+        for col in value_columns:
+            owners.setdefault(headers[col].source_id, set()).add(col)
+        unresolved_second_level = any(
+            len(cols) > 1 and any(col not in basis_headers for col in cols)
+            for cols in owners.values()
+        )
+        header_end = max(
+            h.candidates[0].row_number + (h.candidates[0].row_span or 1) for h in headers.values()
+        )
+        unresolved_second_level |= any(
+            header_row < r < header_end
+            and r not in header_rows
+            and col in value_columns
+            and cell not in headers.values()
+            for (r, col), cell in grid.items()
+        )
         if (
             overlap
+            or unresolved_second_level
             or len(fields.values()) != len(set(fields.values()))
             or not value_columns
             or ("metric_raw" not in fields.values() and not metric_columns)
@@ -434,7 +484,7 @@ def normalize_tables(graph: CanonicalDocumentGraph, *, tenant_id: str) -> Normal
                     col,
                     grid[row, col],
                     bound,
-                    list(headers.values()),
+                    [*headers.values(), *titles],
                 )
                 observations.append(item)
                 if item.value_state in ("conflict", "unreadable"):
@@ -494,6 +544,18 @@ def normalize_table_bindings(
             raise ValueError("binding cell alignment disagrees")
         return block, next(iter(positions))
 
+    # Keep intervals: expanding every cell span would allocate up to a million
+    # entries per cell. An omitted text tier cannot be treated as a prior value.
+    table_cells = [
+        location(block.source_id)
+        for block in graph.blocks
+        if block.kind == "table_cell"
+        and any(
+            (candidate.source.parser_run_id, candidate.table_native_id) in parents
+            for candidate in block.candidates
+        )
+    ]
+
     observations = []
     issues = list(graph.issues)
     seen = set()
@@ -519,6 +581,14 @@ def normalize_table_bindings(
                 and c <= col
                 and col + value_cs <= c + cs
             )
+            if year_header and any(
+                r + rs <= other_row < row
+                and other_col < col + value_cs
+                and col < other_col + other_cs
+                and _value(other.raw_text, None)[3] not in ("value", "missing")
+                for other, (other_row, other_col, _other_rs, other_cs) in table_cells
+            ):
+                raise ValueError("year header binding omits an intervening table level")
             if not same_row and not year_header:
                 raise ValueError("binding crosses value row/column")
             if role != "value_raw":

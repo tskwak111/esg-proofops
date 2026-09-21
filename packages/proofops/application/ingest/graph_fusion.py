@@ -91,6 +91,8 @@ class ParserProfile:
     memory_bytes: int = 768 * 1024 * 1024
     table_auxiliary: bool = True
     table_text_y_tolerance: float | None = None
+    table_source_policy_sha256: str | None = None
+    table_structure_repair: str | None = None
 
     def __post_init__(self):
         _require_uuid("parse_manifest_id", self.parse_manifest_id)
@@ -116,6 +118,10 @@ class ParserProfile:
         if type(self.table_auxiliary) is not bool:
             raise ValueError("table_auxiliary must be boolean")
 
+        if self.table_source_policy_sha256 is not None:
+            _hash(self.table_source_policy_sha256)
+        if self.table_structure_repair not in (None, "odl_header_v1", "odl_header_v2"):
+            raise ValueError("unsupported table structure repair")
         tolerance = self.table_text_y_tolerance
         if tolerance is not None and (
             isinstance(tolerance, bool)
@@ -130,6 +136,10 @@ class ParserProfile:
         values = asdict(self)
         if self.table_text_y_tolerance is None:
             values.pop("table_text_y_tolerance")
+        if self.table_source_policy_sha256 is None:
+            values.pop("table_source_policy_sha256")
+        if self.table_structure_repair is None:
+            values.pop("table_structure_repair")
         return values
 
     def config_snapshot(self) -> dict:
@@ -415,7 +425,7 @@ def fuse_candidates(
 ) -> CanonicalDocumentGraph:
     if not candidates:
         raise ValueError("no parser candidates; parser failure is not an empty successful graph")
-    if type(fusion_version) is not int or fusion_version not in (1, 2, 3):
+    if type(fusion_version) is not int or fusion_version not in (1, 2, 3, 4):
         raise ValueError("unsupported fusion version")
     if fusion_version < 3 and any(
         block.has_invalid_geometry for batch in candidates for block in batch.blocks
@@ -436,6 +446,22 @@ def fuse_candidates(
             raise ValueError("duplicate parser run")
         seen_runs.add(batch.parser_run_id)
     ordered = sorted(candidates, key=lambda batch: (batch.parser_name, batch.parser_run_id))
+    table_lookup = {
+        (batch.parser_run_id, block.source.source_native_id): block
+        for batch in candidates
+        for block in batch.blocks
+        if block.kind == "table"
+    }
+
+    def compatible_tables(left_batch, left, right_batch, right):
+        if fusion_version < 4 or left.kind == "table":
+            return True
+        if left.table_native_id is None and right.table_native_id is None:
+            return True
+        a = table_lookup.get((left_batch.parser_run_id, left.table_native_id))
+        b = table_lookup.get((right_batch.parser_run_id, right.table_native_id))
+        return a is not None and b is not None and _matches(a, b, fusion_version=fusion_version)
+
     groups: list[list[tuple[CandidateBatch, CandidateBlock]]] = []
     aliases: dict[tuple[str, str], str] = {}
     # ponytail: pairwise local region alignment; spatial indexing if measured large graphs need it.
@@ -449,7 +475,9 @@ def fuse_candidates(
                     group
                     for group in groups
                     if all(
-                        _matches(item, block, fusion_version=fusion_version) for _, item in group
+                        _matches(item, block, fusion_version=fusion_version)
+                        and compatible_tables(item_batch, item, batch, block)
+                        for item_batch, item in group
                     )
                 ),
                 None,

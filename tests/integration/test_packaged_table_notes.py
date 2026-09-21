@@ -89,6 +89,19 @@ def test_note_artifact_replay_preserves_original_and_registers_table_issue(detec
             (artifact,), graph, source, tenant_id="22222222-2222-4222-8222-222222222222"
         )
 
+    previous = json.loads(artifact)
+    previous["validator_sha256"] = (
+        "e89854b5e54c5af4450a053fc3939249be3642dc1a84f663845782bf3ca95b6c"
+    )
+    previous["artifact_sha256"] = canonical_hash(
+        {k: v for k, v in previous.items() if k != "artifact_sha256"}
+    )
+    historical = canonical_json(previous)
+    assert (
+        replay_note_reviews((historical,), graph, source, tenant_id=TENANT).blocks == graph.blocks
+    )
+    assert canonical_json(previous) == historical
+
 
 def test_packaged_note_extraction_owns_prompts_and_run_without_evaluation_imports():
     import inspect

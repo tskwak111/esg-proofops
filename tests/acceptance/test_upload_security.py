@@ -18,6 +18,7 @@ from proofops.application.uploads_security import (
 from pypdf import PdfWriter
 from pypdf.generic import (
     ArrayObject,
+    BooleanObject,
     DecodedStreamObject,
     DictionaryObject,
     NameObject,
@@ -550,3 +551,209 @@ def test_gesture_actions_require_click_and_safe_chain(tmp_path, action_first, ac
     else:
         with pytest.raises(UploadRejected, match="PDF_INVALID"):
             vault.verify_and_promote(item, PdfLimits(), tenant_id=item.tenant_id)
+
+
+# --- NEW-REPORT-FLOW repair regression tests -------------------------------
+# Real corpus finding (LOTTE CHEMICAL 2025 ESG Report, non-encrypted, native
+# text, 149 pages): the file carries /Hide actions whose bearers are all
+# /Type /Annot /Subtype /Widget annotations triggered by a mouse-down /AA /D
+# gesture (8 Hide->Hide /Next chains, 2 single /Hide). /Hide toggles visibility
+# of this document's own form fields/annotations only -- no code, file, or
+# network access. The free-floating /Type /Action xref scan reached these and
+# rejected the whole document as PDF_INVALID solely because /Hide was on no
+# allowlist, blocking UploadService.complete before any model call.
+#
+# Fix: /Hide is permitted ONLY for explicit user gestures (annotation/outline
+# /A and Widget mouse down/up /AA D//U) and for the structural /Type /Action
+# scan; it is NOT in inert_action_subtypes, so automatic /OpenAction and
+# automatic /AA events carrying /Hide stay rejected. /T must name an annotation
+# dict / text field-name string / array of those; optional /H is boolean; a
+# /Next chain is walked exactly as before. Fixtures are generated (no real PDF
+# committed).
+
+
+def _hide_action(target="field.a", *, hidden=False, next_action=None, target_override=None):
+    entries = {
+        NameObject("/Type"): NameObject("/Action"),
+        NameObject("/S"): NameObject("/Hide"),
+        NameObject("/H"): BooleanObject(hidden),
+    }
+    if target_override is not None:
+        entries[NameObject("/T")] = target_override
+    elif target is not None:
+        entries[NameObject("/T")] = TextStringObject(target)
+    if next_action is not None:
+        entries[NameObject("/Next")] = next_action
+    return DictionaryObject(entries)
+
+
+def _widget_with_down_action(writer, action):
+    # Reproduce the real report's bearer: a /Widget annotation firing /Hide on
+    # its mouse-down (/AA /D) user gesture.
+    from pypdf.annotations import Link
+
+    writer.add_annotation(0, Link(rect=(0, 0, 100, 100), url="https://example.invalid"))
+    annotation = writer.pages[0]["/Annots"][-1].get_object()
+    del annotation[NameObject("/A")]
+    annotation[NameObject("/Subtype")] = NameObject("/Widget")
+    annotation[NameObject("/AA")] = DictionaryObject({NameObject("/D"): action})
+    return annotation
+
+
+def test_hide_on_widget_mouse_down_gesture_is_accepted(tmp_path):
+    # Positive regression: the exact real-report shape -- a /Widget /AA /D
+    # gesture firing a Hide->Hide /Next chain over internal field names.
+    writer = PdfWriter()
+    writer.add_blank_page(width=600, height=800)
+    chained = _hide_action(
+        target="field.a",
+        hidden=False,
+        next_action=_hide_action(target="field.b", hidden=True),
+    )
+    _widget_with_down_action(writer, chained)
+    output = BytesIO()
+    writer.write(output)
+    item = source(output.getvalue())
+    result = LocalUploadVault(tmp_path).verify_and_promote(
+        item, PdfLimits(), tenant_id="00000000-0000-4000-8000-000000000001"
+    )
+    assert result.source == item
+
+
+def test_hide_targeting_array_of_own_fields_on_gesture_is_accepted(tmp_path):
+    # /Hide /T may be an array of field-name strings; still fully internal and
+    # still only under a user gesture.
+    writer = PdfWriter()
+    writer.add_blank_page(width=600, height=800)
+    action = _hide_action(
+        target=None,
+        target_override=ArrayObject(
+            [TextStringObject("field.a"), TextStringObject("field.b")]
+        ),
+    )
+    _widget_with_down_action(writer, action)
+    output = BytesIO()
+    writer.write(output)
+    item = source(output.getvalue())
+    result = LocalUploadVault(tmp_path).verify_and_promote(
+        item, PdfLimits(), tenant_id="00000000-0000-4000-8000-000000000001"
+    )
+    assert result.source == item
+
+
+def test_automatic_openaction_hide_is_rejected(tmp_path):
+    # Negative regression (core guard): /Hide fired automatically on document
+    # open must stay rejected -- it is not inert-for-automatic-triggers.
+    writer = PdfWriter()
+    writer.add_blank_page(width=600, height=800)
+    writer.root_object[NameObject("/OpenAction")] = _hide_action(target="field.a")
+    output = BytesIO()
+    writer.write(output)
+    with pytest.raises(UploadRejected, match="PDF_INVALID"):
+        LocalUploadVault(tmp_path).verify_and_promote(
+            source(output.getvalue()),
+            PdfLimits(),
+            tenant_id="00000000-0000-4000-8000-000000000001",
+        )
+
+
+def test_automatic_catalog_aa_hide_is_rejected(tmp_path):
+    # Negative regression: /Hide in an automatic document-level /AA event
+    # (not a Widget mouse gesture) must stay rejected.
+    writer = PdfWriter()
+    writer.add_blank_page(width=600, height=800)
+    writer.root_object[NameObject("/AA")] = DictionaryObject(
+        {NameObject("/WC"): _hide_action(target="field.a")}
+    )
+    output = BytesIO()
+    writer.write(output)
+    with pytest.raises(UploadRejected, match="PDF_INVALID"):
+        LocalUploadVault(tmp_path).verify_and_promote(
+            source(output.getvalue()),
+            PdfLimits(),
+            tenant_id="00000000-0000-4000-8000-000000000001",
+        )
+
+
+def test_hide_without_target_on_gesture_is_rejected(tmp_path):
+    # Negative regression: a /Hide with no /T is malformed and stays rejected
+    # even under a valid gesture trigger.
+    writer = PdfWriter()
+    writer.add_blank_page(width=600, height=800)
+    _widget_with_down_action(writer, _hide_action(target=None))
+    output = BytesIO()
+    writer.write(output)
+    with pytest.raises(UploadRejected, match="PDF_INVALID"):
+        LocalUploadVault(tmp_path).verify_and_promote(
+            source(output.getvalue()),
+            PdfLimits(),
+            tenant_id="00000000-0000-4000-8000-000000000001",
+        )
+
+
+def test_hide_with_filespec_shaped_target_on_gesture_is_rejected(tmp_path):
+    # Negative regression: a /Hide whose /T is a file-specification-shaped dict
+    # (a /Filespec carrying /F) is not a legitimate in-document hide target and
+    # must not be laundered through the /Hide allowance.
+    writer = PdfWriter()
+    writer.add_blank_page(width=600, height=800)
+    filespec = DictionaryObject(
+        {
+            NameObject("/Type"): NameObject("/Filespec"),
+            NameObject("/F"): TextStringObject("../../etc/passwd"),
+        }
+    )
+    _widget_with_down_action(writer, _hide_action(target=None, target_override=filespec))
+    output = BytesIO()
+    writer.write(output)
+    with pytest.raises(UploadRejected, match="PDF_INVALID"):
+        LocalUploadVault(tmp_path).verify_and_promote(
+            source(output.getvalue()),
+            PdfLimits(),
+            tenant_id="00000000-0000-4000-8000-000000000001",
+        )
+
+
+def test_hide_chaining_to_dangerous_next_on_gesture_is_rejected(tmp_path):
+    # Negative regression: /Hide is inert, but a dangerous action hidden behind
+    # its /Next chain must still be rejected (fail-closed traversal unchanged).
+    writer = PdfWriter()
+    writer.add_blank_page(width=600, height=800)
+    dangerous_next = DictionaryObject(
+        {
+            NameObject("/S"): NameObject("/JavaScript"),
+            NameObject("/JS"): TextStringObject("evil()"),
+        }
+    )
+    _widget_with_down_action(writer, _hide_action(target="field.a", next_action=dangerous_next))
+    output = BytesIO()
+    writer.write(output)
+    with pytest.raises(UploadRejected, match="PDF_INVALID"):
+        LocalUploadVault(tmp_path).verify_and_promote(
+            source(output.getvalue()),
+            PdfLimits(),
+            tenant_id="00000000-0000-4000-8000-000000000001",
+        )
+
+
+def test_hide_with_nonboolean_H_on_gesture_is_rejected(tmp_path):
+    # Negative regression: /H must be a boolean when present.
+    writer = PdfWriter()
+    writer.add_blank_page(width=600, height=800)
+    action = DictionaryObject(
+        {
+            NameObject("/Type"): NameObject("/Action"),
+            NameObject("/S"): NameObject("/Hide"),
+            NameObject("/T"): TextStringObject("field.a"),
+            NameObject("/H"): TextStringObject("true"),  # wrong type
+        }
+    )
+    _widget_with_down_action(writer, action)
+    output = BytesIO()
+    writer.write(output)
+    with pytest.raises(UploadRejected, match="PDF_INVALID"):
+        LocalUploadVault(tmp_path).verify_and_promote(
+            source(output.getvalue()),
+            PdfLimits(),
+            tenant_id="00000000-0000-4000-8000-000000000001",
+        )

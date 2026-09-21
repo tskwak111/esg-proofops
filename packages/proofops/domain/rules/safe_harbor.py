@@ -1,8 +1,7 @@
 """Pure safe-harbor evidence record path (TASK-016 / FR-016).
 
-GAP-001 leaves both grading and reasonable-basis mappings unapproved.  This
-module therefore records the pinned checklist and evidence states without
-producing an E grade, legal conclusion, or boolean reasonable-basis result.
+GAP-001 leaves grading unresolved. An explicitly pinned project policy can
+report checklist documentation completeness, never legal protection or E grade.
 """
 
 from __future__ import annotations
@@ -16,6 +15,7 @@ from proofops.domain.rules.engine import ConfirmedTags, RuleContext, _validate_i
 from proofops.domain.values import ElementState, SourceRef
 
 MappingStatus = Literal["approved", "unresolved"]
+CHECKLIST_POLICY_V1 = "project_checklist_completeness_v1"
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,7 +72,7 @@ def record_safe_harbor(
     context: RuleContext,
     pack: RulePackSnapshot,
 ) -> SafeHarborRecord:
-    """Record the category checklist without crossing unresolved GAP-001."""
+    """Record the pinned checklist; grade/legal mapping stays unresolved."""
     _validate_inputs(tags, context, pack)
     category = tags.safe_harbor_category
     if category is None:
@@ -100,17 +100,22 @@ def record_safe_harbor(
         )
         for name in expected
     )
-    if (
-        config.get("grade_mapping") is not None
-        or config.get("reasonable_basis_boolean_mapping") is not None
-    ):
+    mapping = config.get("reasonable_basis_boolean_mapping")
+    if config.get("grade_mapping") is not None or mapping not in (None, CHECKLIST_POLICY_V1):
         raise DomainValidationError("GAP-001 approved mapping contract is not implemented")
+    documented: bool | None = None
+    if mapping == CHECKLIST_POLICY_V1:
+        if any(item.state == "absent" for item in checklist):
+            # ConfirmedFact rejects absence without verified search coverage.
+            documented = False
+        elif checklist and all(item.state == "present" for item in checklist):
+            documented = True
     return SafeHarborRecord(
         tags.claim_id,
         True,
         category,
         checklist,
-        None,
+        documented,
         "not_determined",
         "unresolved",
         ("GAP-001",),

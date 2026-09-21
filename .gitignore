@@ -24,3 +24,6 @@ coverage/
 # Team data stays out of source control
 기업보고서/
 outputs/handoff-packages/
+
+# Local dependency directories and worktree symlinks
+**/node_modules

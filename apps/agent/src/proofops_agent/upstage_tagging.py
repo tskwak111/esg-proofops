@@ -28,6 +28,128 @@ MODEL_PROFILE = "upstage-compact-ids-frozen-unicode-v1"
 COVERAGE_PROFILE = "upstage-compact-coverage-unicode-v2"
 QUOTE_PROFILE = "upstage-compact-source-quotes-v3"
 
+# The only transport error codes that a locally suppressed, pre-dispatch outcome is
+# allowed to carry. This is an explicit allow-list, never an inference from timing:
+# a genuinely fast provider failure can round its latency to 0ms and can be missing
+# a provider_request_id, so zero metadata alone proves nothing about billing.
+#
+# The decisive evidence is structural rather than numeric. Every short-circuit in
+# `_invoke` returns *before* `directory.mkdir()`, and `invoke`'s lock contention
+# returns before `_invoke` runs at all, so a suppressed request leaves no receipt
+# directory whatsoever. A request that reached `self._probe.complete` always has
+# one, because its `request.json` is written first. Absence of a receipt directory
+# therefore proves the provider was never contacted; this allow-list only stops an
+# unrelated settled failure from being read as a suppression.
+NEVER_SENT_ERROR_CODES = frozenset({"UPSTREAM_UNAVAILABLE"})
+SUPPRESSED_ERROR_CODE = "UPSTREAM_UNAVAILABLE"
+
+
+class TransportResume:
+    """Explicitly acknowledged, bounded re-arm of a stopped receipt root.
+
+    A stop is never deleted, rewritten or bypassed. Arming requires that every
+    durable failure the root already holds is acknowledged by its exact
+    ``request_id``: an acknowledged outcome stays unresolved and is never
+    retried, and its receipt, stop file and ledger row are left untouched. Only
+    a bounded number of *new* ``request_id`` values is then authorized, counted
+    across every root this authorization covers.
+
+    The bound is **job-wide and durable, not per process**. The caller passes
+    ``already_dispatched``, recomputed from the receipt tree and the ledger
+    against the baseline pinned when the authorization was written, so a crashed
+    or restarted recovery resumes with the remainder of its original allowance
+    instead of being handed a fresh one. ``remaining`` therefore starts at
+    ``max_new_requests - already_dispatched`` and a fully spent authorization
+    cannot be constructed at all.
+
+    The first new provider failure calls :meth:`disarm`, which withdraws the
+    whole remaining allowance immediately, and the failure also leaves its own
+    failed receipt and stop record behind. A later process that arms the same
+    root therefore finds an unacknowledged durable failure and refuses again,
+    so the stop survives process restarts without a blanket retry.
+    """
+
+    def __init__(
+        self,
+        *,
+        acknowledged_failures,
+        max_new_requests: int,
+        already_dispatched: int = 0,
+        expected_root: Path | None = None,
+    ) -> None:
+        if not isinstance(acknowledged_failures, frozenset):
+            raise ValueError("TRANSPORT_RESUME_ACKNOWLEDGEMENT_REQUIRED")
+        for identifier in sorted(acknowledged_failures):
+            _require_uuid("acknowledged_failure", identifier)
+        if type(max_new_requests) is not int or not 1 <= max_new_requests <= 200:
+            raise ValueError("TRANSPORT_RESUME_BOUND_INVALID")
+        if type(already_dispatched) is not int or already_dispatched < 0:
+            raise ValueError("TRANSPORT_RESUME_HISTORY_INVALID")
+        if already_dispatched >= max_new_requests:
+            raise ValueError("TRANSPORT_RESUME_ALLOWANCE_ALREADY_SPENT")
+        self.acknowledged_failures = acknowledged_failures
+        self.max_new_requests = max_new_requests
+        self.already_dispatched = already_dispatched
+        self.remaining = max_new_requests - already_dispatched
+        self.expected_root = None if expected_root is None else Path(expected_root)
+        self.dispatched: set[str] = set()
+        self._armed: dict[str, bool] = {}
+
+    def _scan(self, receipts: Path) -> bool:
+        """Is every durable failure already in this root explicitly acknowledged?
+
+        An unreadable receipt, a receipt without a response and any settled
+        non-succeeded response all count as unresolved, so a root is armed only
+        when the operator named each of them. No file here is written or moved.
+        """
+        # ponytail: bounded local operation; index receipts if ensembles grow large.
+        found: set[str] = set()
+        try:
+            children = sorted(receipts.iterdir())
+        except OSError:
+            return False
+        for child in children:
+            if child.is_dir():
+                response = child / "response.json"
+                if not response.is_file():
+                    return False
+                try:
+                    usage = json.loads(response.read_text())["usage"]
+                    status = usage["status"]
+                except (OSError, ValueError, KeyError, TypeError):
+                    return False
+                if status != "succeeded":
+                    found.add(child.name)
+            elif child.name.startswith("transport-stop") and child.name.endswith(".json"):
+                try:
+                    found.add(json.loads(child.read_text())["request_id"])
+                except (OSError, ValueError, KeyError, TypeError):
+                    return False
+        return found <= self.acknowledged_failures
+
+    def armed(self, receipts: Path) -> bool:
+        key = str(receipts)
+        if key not in self._armed:
+            self._armed[key] = self._scan(receipts)
+        return self._armed[key]
+
+    def allows(self, receipts: Path) -> bool:
+        return self.remaining > 0 and self.armed(receipts)
+
+    def consume(self, receipts: Path, request_id: str) -> None:
+        _require_uuid("request_id", request_id)
+        if request_id in self.dispatched:
+            return
+        if not self.allows(receipts):
+            raise PreflightBlocked("TRANSPORT_RESUME_ALLOWANCE_EXHAUSTED")
+        self.dispatched.add(request_id)
+        self.remaining -= 1
+
+    def disarm(self, receipts: Path) -> None:
+        """Withdraw the whole allowance on the first new failure; never widen it."""
+        self._armed[str(receipts)] = False
+        self.remaining = 0
+
 
 class UpstageTaggingTransport:
     synthetic = False
@@ -42,6 +164,7 @@ class UpstageTaggingTransport:
         settings: TaggingSettings,
         tenant_id: str,
         authorize: Callable[[TaggingSettings, dict], Preflight],
+        resume: TransportResume | None = None,
     ):
         _require_uuid("tenant_id", tenant_id)
         if (
@@ -60,14 +183,33 @@ class UpstageTaggingTransport:
             raise ValueError("UPSTAGE_TAGGING_BINDING_INVALID")
         if not callable(authorize):
             raise ValueError("UPSTAGE_TAGGING_AUTHORIZER_REQUIRED")
+        if resume is not None and not isinstance(resume, TransportResume):
+            raise ValueError("UPSTAGE_TAGGING_RESUME_INVALID")
         if settings.model_profile == COVERAGE_PROFILE:
             self.TRANSPORT_VERSION = "compact-coverage-v2"
         elif settings.model_profile == QUOTE_PROFILE:
             self.TRANSPORT_VERSION = "compact-source-quotes-v3"
         self._authorize = authorize
         self._probe, self._settings, self._tenant = probe, settings, tenant_id
+        self._resume = resume
         self._receipts = Path(receipts)
         self._receipts.mkdir(parents=True, exist_ok=True, mode=0o700)
+
+    def _stopped(self) -> bool:
+        return (self._receipts / "transport-stop.json").exists() or any(
+            self._receipts.glob("transport-stop.*.json")
+        )
+
+    def may_dispatch(self) -> bool:
+        """Is one more *new* billable request inside the caller's explicit bound?
+
+        Without a resume authorization this is always True, so ordinary
+        operation, its stop behavior and its receipt replay are unchanged: the
+        stop check inside :meth:`_invoke` remains the only gate. With one, a
+        caller can ask before reserving budget, so an exhausted or withdrawn
+        allowance costs no reservation and no settled ledger row.
+        """
+        return self._resume is None or self._resume.allows(self._receipts)
 
     def invoke(self, request: dict) -> RawTagResponse:
         # One operation per receipt root; the shared USD ledger also fences all roots.
@@ -75,7 +217,8 @@ class UpstageTaggingTransport:
             try:
                 fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError:
-                return self._failed("UPSTREAM_UNAVAILABLE", 0)
+                # Returns before _invoke, so no receipt directory is ever created.
+                return self._failed(SUPPRESSED_ERROR_CODE, 0)
             return self._invoke(request)
 
     def count_input_tokens(self, request: dict, *, counter: Callable[[str, str], int]) -> int:
@@ -267,8 +410,20 @@ class UpstageTaggingTransport:
             child.is_dir() and not (child / "response.json").exists()
             for child in self._receipts.iterdir()
         )
-        if stop.exists() or incomplete:
-            return self._failed("UPSTREAM_UNAVAILABLE", 0)
+        # A stopped root stays stopped unless an explicit acknowledged authorization
+        # re-arms it for a bounded number of new requests; the stop itself is never
+        # read as permission and never removed.
+        permitted = (
+            not self._stopped() if self._resume is None else self._resume.allows(self._receipts)
+        )
+        if incomplete or not permitted:
+            # Returns before directory.mkdir(), so no receipt directory is created
+            # and the provider is provably never contacted for this request_id.
+            return self._failed(SUPPRESSED_ERROR_CODE, 0)
+        if self._resume is not None:
+            # Count the new request before any receipt exists, so an exhausted
+            # allowance can never leave an incomplete receipt behind.
+            self._resume.consume(self._receipts, request["request_id"])
         directory = self._receipts / request["request_id"]
         try:
             directory.mkdir(mode=0o700)
@@ -308,6 +463,17 @@ class UpstageTaggingTransport:
             # Exclusive creation prevents overwriting an earlier failure receipt.
             if not stop.exists():
                 write(stop, canonical_json(dict(code=code, request_id=request["request_id"])))
+            else:
+                # An acknowledged stop is immutable, so this new failure is
+                # recorded beside it: the next process to arm this root finds an
+                # unacknowledged durable failure and refuses again.
+                chained = self._receipts / f"transport-stop.{request['request_id']}.json"
+                if not chained.exists():
+                    write(
+                        chained, canonical_json(dict(code=code, request_id=request["request_id"]))
+                    )
+            if self._resume is not None:
+                self._resume.disarm(self._receipts)
             response = self._failed(code, (monotonic_ns() - started) // 1_000_000)
         else:
             try:

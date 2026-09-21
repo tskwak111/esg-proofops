@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from proofops.adapters.local.analysis_store import LocalAnalysisStore
+from proofops.adapters.local.assurance_store import LocalAssuranceStore
 from proofops.adapters.local.claim_store import LocalClaimStore
 from proofops.adapters.local.comparison_store import LocalComparisonStore
 from proofops.adapters.local.evaluation_store import LocalEvaluationStore
@@ -63,6 +64,7 @@ class ApiComposition:
     summaries: LocalSummaryStore
     evaluations: LocalEvaluationStore
     analysis: LocalAnalysisStore
+    assurance: LocalAssuranceStore
     exports: ExportService
     retention: LocalRetentionStore
     comparisons: LocalComparisonStore
@@ -129,6 +131,7 @@ def build_composition() -> ApiComposition:
     parser = OpenDataLoaderParser(database_path.parent / "parser-prepared")
     tags = LocalTagStore(runs.store, uploads, parser)
     claims = LocalClaimStore(runs.store, uploads, parser)
+    assurance = LocalAssuranceStore(runs.store, uploads, parser)
     return ApiComposition(
         proofops=proofops_composition,
         auth_store=auth_store,
@@ -146,7 +149,8 @@ def build_composition() -> ApiComposition:
         rescores=RescoreService(LocalSQLiteRescoreStore(runs.store), load_inputs=tags.load_inputs),
         summaries=LocalSummaryStore(runs.store, claims),
         evaluations=LocalEvaluationStore(database_path),
-        analysis=LocalAnalysisStore(runs.store, uploads, parser, claims, tags),
+        analysis=LocalAnalysisStore(runs.store, uploads, parser, claims, tags, assurance=assurance),
+        assurance=assurance,
         exports=ExportService(LocalExportStore(runs.store, claims)),
         retention=LocalRetentionStore(uploads),
         comparisons=LocalComparisonStore(

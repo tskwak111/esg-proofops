@@ -1,14 +1,18 @@
 """Local tag integration: actual PDF gate and separate explicit synthetic verified corpus."""
 
 import json
+import threading
+import time as time_module
 from dataclasses import asdict, replace
 from pathlib import Path
 from uuid import uuid4
 
 import pytest
-from proofops.application.ports.jobs import JobMessage
+from proofops.application.ports.jobs import JobMessage, LeaseLost
 from proofops.application.ports.models import ModelBinding
+from proofops.application.reviews import ReviewInputs
 from proofops.application.tagging.service import TaggingSettings
+from proofops_worker import tag_runner as tag_runner_module
 
 from tests.acceptance.test_preflight import binding
 from tests.integration.test_local_extract_runner import TENANT, extraction_setup
@@ -307,6 +311,21 @@ def verified_setup(tmp_path, monkeypatch):
     return service, run_id, runner, now, stream
 
 
+def test_needs_review_records_explicit_consensus_reason_not_none(tmp_path, monkeypatch):
+    # Regression: unconfirmed consensus previously published needs_review with
+    # reason=None, losing the "why". A validated (approved_grading) rulepack whose
+    # replicates stay unknown must report CONSENSUS_UNRESOLVED, not a domain gate.
+    service, run_id, runner, now, _ = verified_setup(tmp_path, monkeypatch)
+    assert runner.run_once(tenant_id=TENANT, run_id=run_id) == "needs_review"
+    envelope = runner.tags.load_snapshot(TENANT, run_id)
+    assert envelope.get("rulepack_use") != "candidate_tagging_reference_only"
+    record = envelope["claims"][0]
+    assert record["status"] == "needs_review"
+    assert record["decision"] is None
+    assert record["reason"] == "CONSENSUS_UNRESOLVED"
+    assert record["review_inputs"] is not None
+
+
 def test_verified_synthetic_three_calls_publish_initial_review_and_reopen(tmp_path, monkeypatch):
     from proofops.adapters.local.run_store import LocalSQLiteRunStore
     from proofops_worker.tag_runner import LocalTagRunner
@@ -457,6 +476,112 @@ def test_tag_publication_fence_and_durable_recovery(tmp_path, monkeypatch, bound
         assert len({run.request.request_signature for run in inputs.tag_runs}) == 3
         assert jobs.get_job(message)["fencing_token"] == 2
         assert jobs.get_run(TENANT, run_id)["mutation_epoch"] == before["mutation_epoch"] + 3
+
+
+@pytest.mark.parametrize("keepalive", [False, True])
+def test_tag_operation_over_lease_publication_depends_on_lease_keepalive(
+    tmp_path, monkeypatch, keepalive
+):
+    """R10 recovery (Lotte TAG failure): a post-call step that outlives the
+    job's lease must not silently discard a batch whose model calls already
+    succeeded and were already paid for.
+
+    The recorded failure was not a stuck provider call (each replica call
+    fenced and returned well within its own timeout); it was the job's total
+    wall time across many claims and calls exceeding the 300s lease with only
+    point heartbeats taken immediately before each call. Nothing renews the
+    lease *during* a slow step between two calls, so the lease can expire
+    before the eventual commit's own ownership fence runs, discarding
+    already-completed, already-billed replica responses with no clean
+    failure reason.
+
+    ``ReviewInputs.validate`` stands in for that post-call bottleneck: it runs
+    once per claim after all three replica calls, right before publication.
+    This is red on ``keepalive=False`` (bypassing the fix, matching the
+    unpatched behavior) and green on ``keepalive=True`` (the fix applied),
+    proving the keepalive changes the outcome rather than test timing alone.
+    An independently invalidated lease (a real renewal failure) must still
+    block publication in both cases.
+    """
+    service, run_id, runner, now, _ = verified_setup(tmp_path, monkeypatch)
+    jobs = service.store.jobs
+
+    if not keepalive:
+        # Bypass the fix: run the tag operation directly, without the
+        # keepalive wrapper run_once normally applies around it.
+        monkeypatch.setattr(
+            tag_runner_module,
+            "with_lease_heartbeat",
+            lambda store, lease, clock, operation: operation(lease),
+        )
+
+    # Wall-clock-driven runner clock: any heartbeat renews in real time,
+    # matching production timing rather than a manually-advanced integer clock.
+    started = time_module.monotonic()
+    base_now = now[0]
+    runner.clock = lambda: base_now + time_module.monotonic() - started
+
+    original_claim_job = jobs.claim_job
+
+    def short_lease_claim_job(message, *, owner, now, lease_seconds):
+        return original_claim_job(message, owner=owner, now=now, lease_seconds=2)
+
+    monkeypatch.setattr(jobs, "claim_job", short_lease_claim_job)
+
+    # Cap every heartbeat's grant at this test's own short lease window so the
+    # reproduction reflects "the post-call step outlasts the lease" rather
+    # than being masked by the production 300s renewal request.
+    original_heartbeat = jobs.heartbeat
+
+    def capped_heartbeat(lease, *, now, lease_seconds):
+        return original_heartbeat(lease, now=now, lease_seconds=min(lease_seconds, 2))
+
+    monkeypatch.setattr(jobs, "heartbeat", capped_heartbeat)
+
+    original_validate = ReviewInputs.validate
+
+    def slow_validate(self):
+        # Stands in for the real bottleneck (a step after the last model call
+        # that outlasts the batch's lease window before publication).
+        time_module.sleep(2.5)
+        return original_validate(self)
+
+    monkeypatch.setattr(ReviewInputs, "validate", slow_validate)
+
+    status = runner.run_once(tenant_id=TENANT, run_id=run_id)
+    monkeypatch.setattr(ReviewInputs, "validate", original_validate)
+    elapsed = time_module.monotonic() - started
+    assert elapsed > 2
+    assert len(runner.transport.requests) == 3
+
+    if keepalive:
+        assert status == "needs_review"
+        assert runner.claims.list(TENANT, run_id)
+        record = runner.tags.load_snapshot(TENANT, run_id)["claims"][0]
+        assert record["tag_runs"] and len(record["tag_runs"]) == 3
+    else:
+        assert status == "discarded"
+        assert "tag_job" not in jobs.get_run(TENANT, run_id)
+
+    assert not any(t.name.startswith("lease-heartbeat:") for t in threading.enumerate())
+
+    # Independently: a real renewal failure (lease invalidated by another
+    # actor, or by simple staleness) must still block publication even with
+    # the keepalive wrapper. This exercises the same job-store invariant the
+    # fix relies on (StageFailure on a genuinely lost lease), independent of
+    # this run's own tag delivery so it holds whether or not that delivery
+    # already committed.
+    monkeypatch.setattr(jobs, "heartbeat", original_heartbeat)
+    from tests.acceptance.test_jobs import MESSAGE, seeded
+
+    isolated = seeded(tmp_path / "isolated-lease-jobs.sqlite")
+    stale_message = replace(MESSAGE, job_id=str(uuid4()), stage="tag", shard="replica-lease-check")
+    isolated.enqueue(stale_message, now=0)
+    stale_lease = isolated.claim_job(stale_message, owner="orphan", now=0, lease_seconds=300)
+    assert stale_lease is not None
+    with pytest.raises(LeaseLost):
+        isolated.heartbeat(stale_lease, now=301, lease_seconds=300)
+    assert not isolated.commit_job(stale_lease, payload=b"stale", now=301)
 
 
 @pytest.mark.parametrize(
@@ -639,7 +764,122 @@ def test_unresolved_preliminary_is_claim_block_not_failed_job(tmp_path, monkeypa
     record = runner.tags.load_snapshot(TENANT, run_id)["claims"][0]
     assert record["reason"] == "PRELIMINARY_TAGS_UNRESOLVED"
     assert record["decision"] is None and record["tag_runs"] == []
+    # The consensus stop is downstream of local candidate retrieval, so review
+    # still receives the traceable candidates and their recorded reasons.
+    packet = record["original_packet"]
+    assert packet["status"] == "candidate"
+    assert packet["claim_id"] == record["claim_id"]
+    assert [c["source_id"] for c in packet["evidence_candidates"]] == [
+        ref["source_id"] for ref in packet["claim_source_refs"]
+    ]
+    assert packet["search_coverage"]["lexical_status"] == "bounded"
+    assert "retrieval_packet_sha256" not in packet  # never frozen to a track
+    assert record["review_inputs"] is None
     assert runner.run_once(tenant_id=TENANT, run_id=run_id) == "blocked"
+
+
+def test_unverified_source_reaches_bounded_candidates_without_model_or_decision(
+    tmp_path, monkeypatch
+):
+    """A source-traceable but unverified claim must not look like no information.
+
+    The same verified corpus is read back with fast_preview source quality, which
+    is the state the real Lotte run published before span verification recovered.
+    """
+    service, run_id, runner, now, _ = verified_setup(tmp_path, monkeypatch)
+    original = runner.claims.load_evidence
+
+    def downgraded(tenant_id, target):
+        extraction, discovery, graph = original(tenant_id, target)
+        claims = tuple(replace(claim, source_quality="unverified") for claim in discovery.claims)
+        return extraction, replace(discovery, claims=claims), graph
+
+    monkeypatch.setattr(runner.claims, "load_evidence", downgraded)
+    assert runner.run_once(tenant_id=TENANT, run_id=run_id) == "blocked"
+    assert runner.transport.requests == []
+    assert service.cost(TENANT, run_id)["attempt_count"] == 0
+    record = runner.tags.load_snapshot(TENANT, run_id)["claims"][0]
+    assert record["reason"] == "SOURCE_VALIDATION_REQUIRED"
+    assert record["status"] == "blocked"
+    assert record["tag_runs"] == [] and record["decision"] is None
+    assert record["review_inputs"] is None
+    packet = record["original_packet"]
+    # Bounded candidates for review, but the packet stays blocked_evidence so no
+    # track packet, tag, present state or grade can ever be built from it.
+    assert packet["status"] == "blocked_evidence"
+    assert packet["evidence_candidates"]
+    assert all(b["state"] == "undetermined" for b in packet["candidate_bindings"])
+    from proofops.application.evidence.retrieval import freeze_packet, freeze_track_packet
+    from proofops.application.tagging.tracks import TrackCandidate
+    from proofops.domain.errors import DomainValidationError
+    from proofops.domain.rulepacks import RulePackSnapshot
+
+    _, discovery, _ = downgraded(TENANT, run_id)
+    rulepack = RulePackSnapshot(**service.store.snapshot(TENANT, run_id)["rulepack"])
+    with pytest.raises(DomainValidationError):
+        freeze_track_packet(
+            freeze_packet({k: v for k, v in packet.items() if k != "packet_sha256"}),
+            track=TrackCandidate(discovery.claims[0], "performance", None),
+            rulepack=rulepack,
+        )
+
+
+def test_fabricated_raw_quote_never_reaches_retrieval_search_or_a_model(tmp_path, monkeypatch):
+    """A ref that no longer matches the pinned parsed text is not traceable.
+
+    verify_source_ref returns rejected rather than raising, so the candidate path
+    checks locatability itself: no search, no GRI routing, no packet, no model.
+    """
+    from proofops_worker import tag_runner as module
+
+    service, run_id, runner, now, _ = verified_setup(tmp_path, monkeypatch)
+    original = runner.claims.load_evidence
+
+    def fabricated(tenant_id, target):
+        extraction, discovery, graph = original(tenant_id, target)
+        claims = []
+        for claim in discovery.claims:
+            refs = tuple(replace(ref, quote=ref.quote + " 9999 tCO2e") for ref in claim.source_refs)
+            claims.append(
+                replace(
+                    claim,
+                    source_quality="unverified",
+                    source_refs=refs,
+                    quote=" ".join(ref.quote for ref in refs),
+                )
+            )
+        return extraction, replace(discovery, claims=tuple(claims)), graph
+
+    monkeypatch.setattr(runner.claims, "load_evidence", fabricated)
+    monkeypatch.setattr(
+        module,
+        "retrieve_evidence",
+        lambda *a, **k: pytest.fail("fabricated quote must not reach retrieval"),
+    )
+    assert runner.run_once(tenant_id=TENANT, run_id=run_id) == "blocked"
+    assert runner.transport.requests == []
+    assert service.cost(TENANT, run_id)["attempt_count"] == 0
+    record = runner.tags.load_snapshot(TENANT, run_id)["claims"][0]
+    assert record["reason"] == "SOURCE_VALIDATION_REQUIRED"
+    assert record["candidate_retrieval"] == "SOURCE_LOCATION_REQUIRED"
+    assert "original_packet" not in record
+    assert record["decision"] is None and record["review_inputs"] is None
+
+
+def test_foreign_tenant_claim_is_rejected_before_any_retrieval_or_request(tmp_path, monkeypatch):
+    service, run_id, runner, now, _ = verified_setup(tmp_path, monkeypatch)
+    original = runner.claims.load_evidence
+
+    def foreign(tenant_id, target):
+        extraction, discovery, graph = original(tenant_id, target)
+        claims = tuple(replace(claim, tenant_id=str(uuid4())) for claim in discovery.claims)
+        return extraction, replace(discovery, claims=claims), graph
+
+    monkeypatch.setattr(runner.claims, "load_evidence", foreign)
+    assert runner.run_once(tenant_id=TENANT, run_id=run_id) == "failed"
+    assert runner.transport.requests == []
+    assert service.cost(TENANT, run_id)["attempt_count"] == 0
+    assert "tag_job" not in service.store.jobs.get_run(TENANT, run_id)
 
 
 def test_null_track_tuple_is_blocked_not_an_uncaught_exception(tmp_path, monkeypatch):

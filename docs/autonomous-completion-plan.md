@@ -1,4 +1,8 @@
-# Autonomous completion plan — active, 2026-09-19
+# Autonomous completion plan — historical checkpoints, 2026-09-19
+
+> **현재 개발 계획:** [전체 파이프라인 완성 개발 계획](32_PIPELINE_COMPLETION_PLAN.md).
+> 이 파일은 당시 구현·검증·사용량 관찰 기록이다. 아래 미완료 목록이나 공급자 순서를
+> 현재 상태로 단정하지 않는다. 현재 계획의 역할·예산·중단 조건을 적용한다.
 
 Objective: implement and verify all work possible under existing user authorization,
 not merely finish another diagnostic. External product calls share the original

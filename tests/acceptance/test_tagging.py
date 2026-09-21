@@ -831,3 +831,39 @@ def test_table_issue_rechecked_when_all_table_candidates_are_omitted(tmp_path):
         execute(inputs)
     assert inputs["invoke"].requests == []
     assert cost_summary(inputs["usage_store"], TENANT, RUN)["attempt_count"] == 0
+
+
+@pytest.mark.parametrize("omit_scope", [False, True])
+def test_unanimous_model_present_cannot_hide_omitted_cross_source_scope(tmp_path, omit_scope):
+    inputs = setup(tmp_path)
+    graph, claim, refs = corpus()
+    data = inputs["packet"].to_dict()
+    data.pop("packet_sha256")
+    data["graph_sha256"] = canonical_hash(asdict(graph))
+    data["evidence_candidates"].append(
+        dict(
+            source_id=refs[1].source_id,
+            source_scope="same_table",
+            allowed_elements=["P1"],
+            source_refs=[asdict(refs[1])],
+        )
+    )
+    expected, actual = tags(refs[0]), tags(refs[1])
+    if omit_scope:
+        expected.pop("scope")
+        actual.pop("scope")
+    inputs.update(
+        packet=freeze_packet(data),
+        original=graph,
+        context=replace(inputs["context"], dimensions=expected),
+        relation_tags={refs[1].source_id: actual},
+    )
+    inputs["invoke"].source = span(refs[1], "40%")
+    runs = execute(inputs)
+    assert all(json.loads(r.raw_response_json)["elements"][0]["state"] == "present" for r in runs)
+    assert all(
+        r.guarded.elements[0].state == ("unknown" if omit_scope else "present") for r in runs
+    )
+    result = consensus(runs, inputs)
+    assert result.candidate_elements[0].state == ("unknown" if omit_scope else "present")
+    assert result.confirmed_tags is None

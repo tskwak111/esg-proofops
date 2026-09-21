@@ -210,19 +210,38 @@ def _read_paragraph(document, source, block, interactive, glyphs):
         for i in missing
     ):
         return dict(status="unresolved", reason="glyph_geometry_unresolved")
-    selected = []
+    selected, crossing = [], []
     for index, word in enumerate(words):
         if index not in boxes:
             continue
         wb = boxes[index]
         if wb[2] <= box[0] or wb[0] >= box[2] or wb[3] <= box[1] or wb[1] >= box[3]:
             continue
-        if not word["upright"] or not (
+        entry = dict(index=index, text=word["text"], bbox=wb)
+        if word["upright"] and (
+            # Parser coordinates are rounded to 0.001pt; allow only that quantization.
             box[0] - 0.001 <= wb[0] < wb[2] <= box[2] + 0.001
             and box[1] - 0.001 <= wb[1] < wb[3] <= box[3] + 0.001
         ):
-            return dict(status="unresolved", reason="clipped_or_rotated_words")
-        selected.append(dict(index=index, text=word["text"], bbox=wb))
+            selected.append(entry)
+        else:
+            crossing.append(entry)
+    # A word that crosses the pinned box is tolerated only when it carries no ink
+    # on any line of this paragraph: its glyph ink must lie wholly above or wholly
+    # below the ink of the contained words. That is the neighbouring heading or
+    # bullet line whose taller glyphs reach into the box margin. Anything sharing
+    # the paragraph's own inked rows is this paragraph's text continuing outside
+    # the box, so the crop is clipped and stays unresolved. No tolerance is
+    # widened and no glyph outside the box is ever read as claim text.
+    if crossing and (
+        not selected
+        or any(
+            entry["bbox"][1] < max(w["bbox"][3] for w in selected)
+            and entry["bbox"][3] > min(w["bbox"][1] for w in selected)
+            for entry in crossing
+        )
+    ):
+        return dict(status="unresolved", reason="clipped_or_rotated_words")
     raw = " ".join(w["text"] for w in selected)
     if not raw or _normalized(raw) != _normalized(block.raw_text):
         return dict(status="unresolved", reason="text_mismatch")
@@ -239,6 +258,7 @@ def _read_paragraph(document, source, block, interactive, glyphs):
         if rendered.get("status") == "read"
         else "rendered_reader_unavailable",
         words=selected,
+        neighbor_words=crossing,
         rendered=rendered,
         rendered_attempts=attempts,
         glyph_geometry=proof,
@@ -289,8 +309,15 @@ def claim_source_reader(policy):
 
     if policy == claim_source_policy():
         return sys.modules[__name__]
-    from proofops.adapters.local import claim_source_verification_v1
+    from proofops.adapters.local import (
+        claim_source_verification_v1,
+        claim_source_verification_v2,
+    )
 
-    if policy == claim_source_verification_v1.claim_source_policy():
-        return claim_source_verification_v1
+    # Vendored byte-identical predecessors. Each reproduces the policy it is
+    # pinned to from its own source bytes, so a stored run keeps replaying under
+    # the verifier that produced it instead of the current one.
+    for frozen in (claim_source_verification_v2, claim_source_verification_v1):
+        if policy == frozen.claim_source_policy():
+            return frozen
     raise ValueError("CLAIM_SOURCE_POLICY_MISMATCH")

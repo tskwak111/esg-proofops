@@ -161,3 +161,30 @@ def test_preliminary_profile_needs_its_own_pinned_settings_and_current_prompt():
     args["settings"] = replace(args["settings"], system_prompt="Return arbitrary grades")
     args["binding"]["tagging_settings_sha256"] = canonical_hash(asdict(args["settings"]))
     assert not check(**args).ready
+
+
+def test_preliminary_context_profile_requires_exact_context_prompt():
+    from proofops.application.tagging.preliminary import CONTEXT_SYSTEM_SUFFIX, SYSTEM_PROMPT
+
+    args = configured()
+    # The legacy prompt alone must not authorize the context profile.
+    args["settings"] = replace(
+        args["settings"],
+        model_profile="upstage-preliminary-source-quotes-context-v1",
+        system_prompt=SYSTEM_PROMPT,
+    )
+    args["binding"]["tagging_settings_sha256"] = canonical_hash(asdict(args["settings"]))
+    assert not check(**args).ready
+    # The exact context prompt (legacy + additive suffix, never a mutated
+    # legacy prompt) authorizes it.
+    args["settings"] = replace(
+        args["settings"], system_prompt=SYSTEM_PROMPT + CONTEXT_SYSTEM_SUFFIX
+    )
+    args["binding"]["tagging_settings_sha256"] = canonical_hash(asdict(args["settings"]))
+    assert check(**args).ready
+    # The legacy profile does not accept the context prompt either.
+    args["settings"] = replace(
+        args["settings"], model_profile="upstage-preliminary-source-quotes-v1"
+    )
+    args["binding"]["tagging_settings_sha256"] = canonical_hash(asdict(args["settings"]))
+    assert not check(**args).ready

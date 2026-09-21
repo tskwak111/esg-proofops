@@ -12,6 +12,10 @@ from proofops.application.claims import ClaimScope
 from proofops.application.ingest.gri import _validate_graph
 from proofops.domain.provenance import canonical_hash
 
+# Re-export: the boundary policy now lives in production so the real extraction
+# adapter can reuse it without importing evaluation. Behaviour is unchanged.
+from proofops.domain.sentences import sentence_spans as sentence_spans
+
 MAX_PACKET_BYTES = 11_000  # Leaves room for the probe's system prompt/16 KiB envelope.
 MAX_TARGETS = 8  # More requests, but avoids observed omissions/source-ID mixups in long batches.
 SIGNAL = (
@@ -35,19 +39,6 @@ SYSTEM = (
     "descriptions and definitions. Select a compound sentence as one candidate; a later step "
     "will separate atomic claims. Do not infer missing company assertions from unrelated context."
 )
-
-
-def sentence_spans(text):
-    """Conservative local boundaries; retain the entire paragraph for model context."""
-    # ponytail: punctuation boundaries only; add Korean segmentation if measured errors warrant it.
-    return [
-        (
-            match.start() + len(match[0]) - len(match[0].lstrip()),
-            match.end() - len(match[0]) + len(match[0].rstrip()),
-        )
-        for match in re.finditer(r".+?(?:[.!?](?=\s|$)|\n+|$)", text, re.S)
-        if match[0].strip()
-    ]
 
 
 def prepare(graph, *, tenant_id, pages, mode="filtered"):

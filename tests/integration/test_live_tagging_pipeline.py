@@ -346,6 +346,7 @@ def test_live_pipeline_publishes_candidate_review_and_replays(tmp_path, monkeypa
     assert envelope["stage_status"] == "needs_review"
     assert envelope["rulepack_use"] == "candidate_tagging_reference_only"
     (record,) = envelope["claims"]
+    assert record["reason"] == "DOMAIN_RULEPACK_UNAPPROVED"
     assert record["claim_id"] == claim_id
     assert len(record["tag_runs"]) == 3
     assert record["decision"] is None  # draft rulepack => no grade
@@ -404,6 +405,81 @@ def test_live_pipeline_publishes_candidate_review_and_replays(tmp_path, monkeypa
     assert reopened.run_once(tenant_id=tenant, run_id=run_id) == "needs_review"
     assert len(calls) == extract_calls + 6
     assert service.cost(tenant, run_id)["attempt_count"] == before_attempts
+    assert "1234 tCO2e" not in ctx["stream"].getvalue()
+
+
+def test_category_only_preliminary_disagreement_keeps_track_retrieval_and_needs_review(
+    tmp_path, monkeypatch
+):
+    """Three replicas agree on the track and differ only on the safe-harbor category.
+
+    That must stay an explicit needs-review with field-level evidence of what was
+    agreed, plus the local candidate retrieval, instead of looking like no
+    information. The unagreed category must read as a conflict, never as null.
+    """
+    from proofops.application.tagging.preliminary import SYSTEM_PROMPT as PRELIM_SYSTEM
+
+    ctx = _pipeline_setup(tmp_path, monkeypatch)
+    service, tenant, run_id = ctx["service"], ctx["tenant"], ctx["run_id"]
+    runner, calls = ctx["tag_runner"], ctx["calls"]
+    extract_calls = len(calls)
+    fake_post = ctx["tag_probe"]._post
+    preliminary_calls = []
+
+    def varied(body):
+        response = fake_post(body)
+        if body["messages"][0]["content"].startswith(PRELIM_SYSTEM):
+            preliminary_calls.append(body)
+            content = json.loads(response["choices"][0]["message"]["content"])
+            content["safe_harbor_category"] = (
+                "forward_looking" if len(preliminary_calls) == 3 else None
+            )
+            response["choices"][0]["message"]["content"] = json.dumps(content, ensure_ascii=False)
+        return response
+
+    monkeypatch.setattr(ctx["tag_probe"], "_post", varied)
+    assert runner.run_once(tenant_id=tenant, run_id=run_id) == "blocked"
+    # Only the three preliminary replicas ran; no element tagging was purchased.
+    assert len(preliminary_calls) == 3
+    assert len(calls) == extract_calls + 3
+    assert ctx["tag_probe"].summary()["calls"] == 3
+    assert ctx["tag_probe"].summary()["unsettled_calls"] == 0
+
+    (record,) = runner.tags.load_snapshot(tenant, run_id)["claims"]
+    assert record["reason"] == "PRELIMINARY_TAGS_UNRESOLVED"
+    assert record["tag_runs"] == [] and record["decision"] is None
+    assert record["review_inputs"] is None
+    assert len(record["preliminary_records"]) == 3
+    assert all(r["status"] == "validated_candidate" for r in record["preliminary_records"])
+
+    agreement = record["preliminary_agreement"]
+    assert agreement["schema"] == "preliminary_field_agreement_v1"
+    assert agreement["validated_replicates"] == 3
+    assert agreement["fields"]["track"] == dict(
+        state="agreed",
+        replicate_values=["management"] * 3,
+        distinct_count=1,
+    )
+    category = agreement["fields"]["safe_harbor_category"]
+    assert category["state"] == "conflict"
+    assert category["replicate_values"] == [None, None, "forward_looking"]
+    assert category["distinct_count"] == 2
+    assert all(
+        agreement["dimensions"][axis]["state"] == "agreed"
+        for axis in ("entity", "metric", "reporting_period")
+    )
+
+    packet = record["original_packet"]
+    assert packet["status"] == "candidate" and packet["evidence_candidates"]
+    assert packet["claim_id"] == record["claim_id"]
+    assert "track" not in packet and "retrieval_packet_sha256" not in packet
+
+    with pytest.raises(KeyError):
+        runner.tags.load_inputs(tenant, run_id, record["claim_id"])
+    from proofops.adapters.local.review_store import LocalSQLiteReviewStore
+
+    history = LocalSQLiteReviewStore(service.store.jobs).history(tenant, run_id, record["claim_id"])
+    assert history["tags"] == [] and history["decisions"] == []
     assert "1234 tCO2e" not in ctx["stream"].getvalue()
 
 

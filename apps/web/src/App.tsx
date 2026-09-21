@@ -141,7 +141,7 @@ function DocumentFlow(props: DocumentFlowProps) {
 
 function RunNav({ runId }: { runId: string }) {
   return <nav aria-label="실행 화면"><ul style={{ display: "flex", gap: 16, listStyle: "none", padding: 0 }}>
-    <li><Link to={`/runs/${runId}`}>진행</Link></li><li><Link to={`/runs/${runId}/claims`}>주장</Link></li><li><Link to={`/runs/${runId}/reviews`}>검토 큐</Link></li><li><Link to={`/runs/${runId}/report`}>보고서</Link></li>
+    <li><Link to="/documents/new">새 분석</Link></li><li><Link to={`/runs/${runId}`}>진행</Link></li><li><Link to={`/runs/${runId}/claims`}>주장</Link></li><li><Link to={`/runs/${runId}/reviews`}>검토 큐</Link></li><li><Link to={`/runs/${runId}/report`}>보고서</Link></li>
     <li><Link to={`/runs/${runId}/comparison`}>연도 비교</Link></li>
   </ul></nav>;
 }

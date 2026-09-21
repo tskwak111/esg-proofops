@@ -255,6 +255,10 @@ class RescoreService:
             api = decision.to_api_dict()
             if tag["origin"] == "human":
                 api["review_status"] = "human_confirmed"
+            elif tag["origin"] == "ai_delegated":
+                # Preserve the honest AI-delegated label across rescores; never
+                # promote machine-driven work to a human confirmation.
+                api["review_status"] = "ai_delegated_confirmed"
             prepared[claim_id] = dict(
                 decision_revision=decision.decision_revision,
                 decision=asdict(decision),

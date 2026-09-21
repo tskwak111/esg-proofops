@@ -394,7 +394,8 @@ def test_two_stage_notes_send_all_context_then_only_detected_notes(tmp_path):
 
 
 @pytest.mark.parametrize("suffix", ["", ")"])
-def test_numbered_note_requires_unique_native_raised_marker_target(suffix, tmp_path):
+@pytest.mark.parametrize("separator", [" ", ""])
+def test_numbered_note_requires_unique_native_raised_marker_target(suffix, separator, tmp_path):
     from io import BytesIO
 
     from pypdf import PdfReader, PdfWriter
@@ -409,7 +410,10 @@ def test_numbered_note_requires_unique_native_raised_marker_target(suffix, tmp_p
         b"BT /F1 12 Tf 100 400 Td (Metric) Tj /F1 7 Tf 4 Ts (1"
         + suffix.replace(")", r"\)").encode()
         + b") Tj "
-        + b"0 Ts /F1 12 Tf 0 -40 Td (1. domestic only) Tj 0 -20 Td (2. mean only) Tj ET"
+        + (
+            f"0 Ts /F1 12 Tf 0 -40 Td (1.{separator}domestic only) Tj "
+            "0 -20 Td (2. mean only) Tj ET"
+        ).encode()
     )
     writer.pages[0][NameObject("/Contents")] = writer._add_object(stream)
     output = BytesIO()
@@ -426,7 +430,7 @@ def test_numbered_note_requires_unique_native_raised_marker_target(suffix, tmp_p
     tid = next(b.source_id for b in graph.blocks if b.kind == "table")
     packet = prepare(graph, source, [tid], tenant_id=TENANT)
     data = packet["untrusted_document_data"]
-    f = next(f for f in data["fragments"] if f["text"] == "1. domestic only")
+    f = next(f for f in data["fragments"] if f["text"] == f"1.{separator}domestic only")
     wrong = next(t["id"] for t in data["targets"] if t["kind"] == "table")
     right = next(t["id"] for t in data["targets"] if t["text"] == "Metric1" + suffix)
 
@@ -705,6 +709,9 @@ def test_repeated_separate_markers_are_scoped_to_the_notes_table_column(cell_tex
     packet["layout_sources"] = packet["layout_sources"][:1]
     packet["untrusted_document_data"]["fragments"][0]["bbox"] = [10, 200, 480, 206]
     assert marker_targets(["f"], packet) == []
+    # A repeated marker far below another table cannot borrow this table's marker.
+    packet["untrusted_document_data"]["fragments"][0]["bbox"] = [10, 500, 180, 506]
+    assert marker_targets(["f"], packet) == []
 
 
 @pytest.mark.parametrize("text", ["11)Metric", "SubMetric1)"])
@@ -967,3 +974,28 @@ def test_note_inventory_keeps_invalid_nested_ancestry_unresolved(shape):
     data = prepare(graph, source, [tid], tenant_id=TENANT)["untrusted_document_data"]
     assert cell.source_id in data["unresolved_source_ids"]
     assert cell.source_id not in {t["source_id"] for t in data["targets"]}
+
+
+def test_compact_note_marker_grammar_does_not_reinterpret_decimal_values():
+    from proofops.adapters.local.table_notes import NUMBERED_NOTE_START
+
+    assert NUMBERED_NOTE_START.match("1.2024년부터 산정 범위 변경")[1] == "1"
+    assert NUMBERED_NOTE_START.match("2)국내 사업장만 포함")[1] == "2"
+    assert NUMBERED_NOTE_START.match("1.5 tCO2eq") is None
+    assert NUMBERED_NOTE_START.match("2024년 배출량") is None
+
+
+def test_explicit_coverage_survives_model_omission_without_inventing_a_binding():
+    from proofops.adapters.local.note_extraction import join_note_lines
+
+    fragments = [
+        dict(id="a", text="데이터 커버리지 : 국내+해외 생산공장", bbox=[10, 10, 190, 16]),
+        dict(id="b", text="Data coverage: overseas sites", bbox=[310, 10, 490, 16]),
+        dict(id="c", text="We improve data coverage", bbox=[10, 30, 190, 36]),
+    ]
+    existing = [dict(fragment_ids=["a"], target_ids=[], kind="unknown")]
+    notes = join_note_lines(existing, fragments)
+    assert notes == [
+        dict(fragment_ids=["a"], target_ids=[], kind="unknown"),
+        dict(fragment_ids=["b"], target_ids=[], kind="unknown"),
+    ]

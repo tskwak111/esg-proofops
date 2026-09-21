@@ -234,20 +234,31 @@ def discover_candidates_from_cells(cells) -> dict:
     """Same candidate discovery for an already parsed, source-matched table."""
     from proofops.application.ingest.normalize import _HEADERS
 
-    first = [c for c in cells if c["row"] == 0]
-    metrics = [c for c in first if c["text"].strip().lower() in (*_HEADERS["metric_raw"], "구분")]
-    units = [c for c in first if c["text"].strip().lower() in _HEADERS["unit_raw"]]
-    years = [c for c in first if period_qualifier(c["text"])["year"] is not None]
     result: dict = dict(
         status="unsupported_layout", candidates=[], deferred_cells=[], eligible_for_scoring=False
     )
+    width = max(c["column"] + c["column_span"] for c in cells)
+    # Skip only unambiguous full-width title/caption rows above the explicit header.
+    # A skipped row must be a single cell spanning the whole table at column 0; any
+    # other leading layout keeps the conservative deferral (no header is guessed).
+    header_row, row = 0, 0
+    while True:
+        band = [c for c in cells if c["row"] == row]
+        if len(band) == 1 and band[0]["column"] == 0 and band[0]["column_span"] == width:
+            row += band[0]["row_span"] or 1
+            header_row = row
+            continue
+        break
+    first = [c for c in cells if c["row"] == header_row]
+    metrics = [c for c in first if c["text"].strip().lower() in (*_HEADERS["metric_raw"], "구분")]
+    units = [c for c in first if c["text"].strip().lower() in _HEADERS["unit_raw"]]
+    years = [c for c in first if period_qualifier(c["text"])["year"] is not None]
     if len(metrics) != 1 or len(units) != 1 or not years:
         result["deferred_cells"] = [cell_key(c) for c in cells]
         return result
     bindings, contexts = [], []
-    width = max(c["column"] + c["column_span"] for c in cells)
     for value in cells:
-        if value["row"] == 0:
+        if value["row"] <= header_row:
             continue
         period = [h for h in years if _year_header_cover(h, value)]
         metric = [
@@ -260,7 +271,7 @@ def discover_candidates_from_cells(cells) -> dict:
         unit = [c for c in cells if c["column"] == units[0]["column"] and _same_row_cover(c, value)]
         if len(period) == len(unit) == 1 and metric:
             metric.sort(key=lambda c: c["column"])
-            if unit[0]["row"] == 0 or metric[-1]["row"] == 0:
+            if unit[0]["row"] == header_row or metric[-1]["row"] == header_row:
                 continue  # Multirow column headings are not data values.
             bindings.append(
                 dict(
@@ -273,7 +284,10 @@ def discover_candidates_from_cells(cells) -> dict:
             sections = [
                 c
                 for c in cells
-                if c["column"] == 0 and c["column_span"] == width and 0 < c["row"] < value["row"]
+                if c["column"] == 0
+                and c["column_span"] == width
+                and c["row"] < value["row"]
+                and c["row"] != header_row
             ]
             contexts.append(
                 dict(

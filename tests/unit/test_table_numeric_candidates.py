@@ -388,3 +388,67 @@ def test_previous_metric_rows_are_context_not_inferred_parent_and_stop_at_compan
     assert b["context_status"] == "requires_semantic_review"
     assert c["preceding_row_headers"] == []
     assert [h["text"] for h in c["section_headers"]] == ["회사B"]
+
+
+def test_explicit_header_after_full_width_title_row_is_discovered():
+    """A full-width title/caption row above the explicit header must not defer the table.
+
+    Real reports frequently place a spanning title on the first physical row and
+    the metric/unit/year header on the next. The header row is still explicit;
+    only the leading full-width caption rows are skipped. Nothing is promoted:
+    every candidate stays unverified and ineligible for scoring.
+    """
+    from evaluation.table_numeric_candidates import discover_table_candidates
+
+    html = (
+        "<table>"
+        '<tr><td colspan="4">2024년 온실가스 배출량 현황</td></tr>'
+        "<tr><td>구분</td><td>단위</td><td>2023</td><td>2024</td></tr>"
+        "<tr><td>Scope 1</td><td>톤</td><td>100</td><td>110</td></tr>"
+        "<tr><td>Scope 2</td><td>톤</td><td>200</td><td>220</td></tr>"
+        "</table>"
+    )
+    result = discover_table_candidates(html)
+    assert result["status"] == "candidate_only"
+    assert [c["value"]["decimal"] for c in result["candidates"]] == [
+        "100",
+        "110",
+        "200",
+        "220",
+    ]
+    assert [c["headers"]["metric_raw"]["text"] for c in result["candidates"]] == [
+        "Scope 1",
+        "Scope 1",
+        "Scope 2",
+        "Scope 2",
+    ]
+    # The spanning title is preceding context for every data row, never a data value.
+    assert all(
+        c["section_headers"] and c["section_headers"][0]["text"] == "2024년 온실가스 배출량 현황"
+        for c in result["candidates"]
+    )
+    assert not result["eligible_for_scoring"]
+    assert all(not c["verified"] for c in result["candidates"])
+    # The title cell itself is never emitted as a value binding.
+    assert "r0c0" not in {c["value"]["key"] for c in result["candidates"]}
+
+
+def test_non_full_width_row_before_header_still_defers_no_fabrication():
+    """A leading row that is not a single full-width caption must not be skipped.
+
+    Skipping only applies to unambiguous full-width title/caption rows. Any other
+    leading layout keeps the conservative deferral instead of guessing a header.
+    """
+    from evaluation.table_numeric_candidates import discover_table_candidates
+
+    html = (
+        "<table>"
+        "<tr><td>메모</td><td>비고</td><td>연도</td></tr>"
+        "<tr><td>구분</td><td>단위</td><td>2024</td></tr>"
+        "<tr><td>Scope 1</td><td>톤</td><td>100</td></tr>"
+        "</table>"
+    )
+    result = discover_table_candidates(html)
+    assert result["status"] == "unsupported_layout"
+    assert result["candidates"] == []
+    assert not result["eligible_for_scoring"]

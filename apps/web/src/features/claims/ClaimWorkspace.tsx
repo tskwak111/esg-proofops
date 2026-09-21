@@ -13,7 +13,7 @@ import {
 } from "../reviews/ReviewWorkspace";
 
 type Track = "goal" | "performance" | "management";
-type ReviewStatus = "auto_confirmed" | "needs_review" | "human_confirmed";
+type ReviewStatus = "auto_confirmed" | "needs_review" | "human_confirmed" | "ai_delegated_confirmed";
 type Decision = {
   decision_revision: number;
   tag_revision: number;
@@ -48,6 +48,24 @@ type Assurance = {
   boundary_match: "yes" | "no" | "unknown";
   evidence_refs: SourceRef[];
 };
+type FieldAgreement = {
+  field_id: string;
+  status: "agreed" | "conflict" | "unresolved";
+  replicate_values: unknown[];
+};
+type ReviewCandidate = {
+  source_ref: SourceRef;
+  status: "candidate" | "unverified" | "unconfirmed";
+  reason: string | null;
+};
+type ReviewProjection = {
+  schema_version: 1;
+  candidate_snippets: string[];
+  blocked_reason: string | null;
+  blocked_action: string | null;
+  field_agreements: FieldAgreement[];
+  raw_candidates?: ReviewCandidate[];
+};
 type ClaimDetail = {
   claim: ClaimSummary;
   source_refs: SourceRef[];
@@ -63,6 +81,8 @@ type ClaimDetail = {
     summary: string;
     verification_status: "verified" | "unverified" | "unlicensed";
   }>;
+  rulepack_approved_by?: string | null;
+  review_projection?: ReviewProjection | null;
 };
 type LoadState = "loading" | "ready" | "pending" | "error";
 
@@ -114,14 +134,56 @@ function pending(error: unknown): boolean {
   return error instanceof ApiError && error.status === 409;
 }
 
+const pendingDecisionText: Record<Exclude<Decision["decision_status"], "decided">, string> = {
+  blocked_evidence: "미판정 · 원문 근거가 확인되지 않음",
+  blocked_rule_gap: "미판정 · 규칙 적용 결과가 갈리거나 규칙집에 정한 기준이 없음",
+  not_applicable: "적용 제외",
+  not_run: "아직 판정하지 않음",
+};
+
+const reviewStatusText: Record<ReviewStatus, string> = {
+  auto_confirmed: "자동 확인",
+  needs_review: "검토 필요",
+  human_confirmed: "사람 확인",
+  ai_delegated_confirmed: "AI 검토(위임·사람 아님)",
+};
+
+const basisVerificationText: Record<ClaimDetail["basis_refs"][number]["verification_status"], string> = {
+  verified: "검증된 기준",
+  unverified: "미검증 기준(원문 대조 전)",
+  unlicensed: "라이선스 미확인 기준",
+};
+
+const elementStateText: Record<ReviewElement["state"], string> = {
+  present: "충족(present)",
+  absent: "결여(absent)",
+  unknown: "미상(unknown)",
+  conflict: "상충(conflict)",
+  not_applicable: "적용 제외(not_applicable)",
+};
+
+const trackText: Record<Track, string> = {
+  goal: "목표형",
+  performance: "성과형",
+  management: "관리체계형",
+};
+
+const fieldAgreementText: Record<FieldAgreement["status"], string> = {
+  agreed: "합의됨",
+  conflict: "상충",
+  unresolved: "미해결",
+};
+
 function decisionText(decision: Decision | null): string {
-  if (!decision) return "판정 대기";
-  if (decision.decision_status !== "decided") return `미확정: ${decision.decision_status}`;
+  if (!decision) return "판정 미확정 · 상세 확인";
+  if (decision.decision_status !== "decided") return pendingDecisionText[decision.decision_status];
   return `${decision.evidence_grade} · ${decision.label}${decision.sublabel ? ` (${decision.sublabel})` : ""}`;
 }
 
 function decisionTone(decision: Decision | null): "neutral" | "success" | "warning" | "danger" {
-  if (!decision || decision.decision_status !== "decided") return "warning";
+  if (!decision) return "warning";
+  if (decision.decision_status === "not_applicable") return "neutral";
+  if (decision.decision_status !== "decided") return "warning";
   if (decision.evidence_grade === "E3") return "success";
   return decision.evidence_grade === "E0" ? "danger" : "warning";
 }
@@ -195,7 +257,7 @@ function ClaimList({ apiBase = "", tenantKey, runId, onSessionInvalid }: ClaimWo
         <option value="">전체</option>{["E0", "E1", "E2", "E3"].map(grade => <option key={grade}>{grade}</option>)}
       </select></label>
       <label>검토 상태 <select value={search.get("review_status") ?? ""} onChange={event => setFilter("review_status", event.target.value)}>
-        <option value="">전체</option><option value="auto_confirmed">자동 확인</option><option value="needs_review">검토 필요</option><option value="human_confirmed">사람 확인</option>
+        <option value="">전체</option><option value="auto_confirmed">자동 확인</option><option value="needs_review">검토 필요</option><option value="human_confirmed">사람 확인</option><option value="ai_delegated_confirmed">AI 검토(위임·사람 아님)</option>
       </select></label>
     </div>
     {state === "loading" ? <p role="status">주장 목록을 불러오는 중입니다.</p> : null}
@@ -203,7 +265,7 @@ function ClaimList({ apiBase = "", tenantKey, runId, onSessionInvalid }: ClaimWo
     {state === "error" ? <p role="alert">{message} <button type="button" onClick={() => void load()}>다시 시도</button></p> : null}
     {state === "ready" && items.length === 0 ? <p>현재 필터에 해당하는 주장이 없습니다. 필터를 해제하거나 분석 진행 상태를 확인해 주세요.</p> : null}
     {items.length > 0 ? <table style={{ width: "100%" }}><thead><tr><th>쪽</th><th>주장</th><th>트랙</th><th>판정</th></tr></thead><tbody>
-      {items.map(item => <tr key={item.claim_id}><td>{item.page_num}</td><td><Link to={`/runs/${runId}/claims/${item.claim_id}`}>{item.quote}</Link></td><td>{item.track ?? "미분류"}</td><td><StatusBadge label={decisionText(item.decision)} tone={decisionTone(item.decision)} /></td></tr>)}
+      {items.map(item => <tr key={item.claim_id}><td>{item.page_num}</td><td><Link to={`/runs/${runId}/claims/${item.claim_id}`}>{item.quote}</Link></td><td>{item.track ? trackText[item.track] : "미분류"}</td><td><StatusBadge label={decisionText(item.decision)} tone={decisionTone(item.decision)} /></td></tr>)}
     </tbody></table> : null}
     {cursor ? <button type="button" disabled={moreBusy} onClick={() => void load(cursor)} style={{ minHeight: 44 }}>{moreBusy ? "불러오는 중…" : "더 보기"}</button> : null}
   </section>;
@@ -243,25 +305,54 @@ function ClaimDetailView({ apiBase = "", csrfToken, tenantKey, runId, claimId = 
   if (state === "error" || !detail) return <p role="alert">{message} <button type="button" onClick={() => void load()}>다시 시도</button></p>;
   const decision = detail.claim.decision;
   const untagged = detail.tag_status === "untagged" || detail.packet_sha256 === null;
+  const track = detail.claim.track;
+  const elements = track ? completeElements(track, detail.elements) : detail.elements;
+  const projection = detail.review_projection;
   return <section aria-labelledby="claim-heading">
     <h1 id="claim-heading">주장 상세</h1>
     <p><Link to={`/runs/${runId}/claims`}>주장 목록으로</Link></p>
-    {untagged ? <p role="status">추출만 완료되어 태깅을 기다리는 주장입니다. 원문은 아래에서 바로 검토할 수 있으며, 태깅 편집은 태그가 게시된 뒤에 가능합니다.</p> : null}
+    {untagged ? <p role="status">태깅 결과가 게시되지 않은 주장입니다. 처리 대기뿐 아니라 원문 검증 문제로 보류된 경우도 포함합니다. 아래에서 원문을 확인할 수 있으며, 태깅 편집은 태그가 게시된 뒤에 가능합니다.</p> : null}
     <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 3fr) minmax(280px, 2fr)", gap: 24 }}>
       <SourceViewer apiBase={apiBase} csrfToken={csrfToken} runId={runId} sources={detail.source_refs} onSessionInvalid={onSessionInvalid} />
       <section aria-labelledby="evidence-heading"><h2 id="evidence-heading">태깅과 판정</h2>
-        <p>{detail.claim.quote}</p><p>트랙: {detail.claim.track ?? "미분류"}</p><p>판정: <StatusBadge label={decisionText(decision)} tone={decisionTone(decision)} /></p>
-        {decision?.review_status ? <p>검토 상태: <StatusBadge label={decision.review_status} tone={decision.review_status === "human_confirmed" ? "success" : "warning"} /></p> : null}
-        {decision?.gap_ids.length ? <p>미정 규칙: {decision.gap_ids.join(", ")}</p> : null}
-        <h3>요소</h3>{detail.elements.length === 0 ? <p>{untagged ? "태깅 전이므로 표시할 요소가 없습니다. 태그가 게시되면 여기에 표시됩니다." : "표시할 요소가 없습니다."}</p> : <ul>{detail.elements.map(element => <li key={element.element_id}>{element.element_id}: {element.state} · 근거 {element.evidence_refs.length}개 · {element.credited_from ? "문서 전역" : "주장/표 직접"}</li>)}</ul>}
-        <h3>보증 연결</h3>{detail.assurance.status === "undetermined" ? <p>보증 범위를 확인할 수 없습니다. 보고서 전체가 보증되었다고 간주하지 않습니다.</p> : <p>{detail.assurance.status} · {detail.assurance.level ?? "수준 미확인"} · {detail.assurance.provider ?? "기관 미확인"}</p>}
+        <p>{detail.claim.quote}</p><p>트랙: {track ? trackText[track] : "미분류"}</p><p>판정: <StatusBadge label={decisionText(decision)} tone={decisionTone(decision)} /></p>
+        {decision?.review_status ? <p>검토 상태: <StatusBadge label={reviewStatusText[decision.review_status]} tone={decision.review_status === "human_confirmed" ? "success" : "warning"} /></p> : null}
+        {decision?.gap_ids.length ? <p>규칙 판정 보류(다음 규칙 항목이 갈리거나 정의되지 않음): {decision.gap_ids.join(", ")}</p> : null}
+        {decision?.missing_elements.length ? <p>아직 충족이 확인되지 않은 요소: {decision.missing_elements.join(", ")}</p> : null}
+        {detail.rulepack_approved_by?.startsWith("ai-delegated-review:")
+          ? <p role="status">이 판정에 쓰인 규칙집은 AI 프로젝트 검토(사람 전문가 승인 아님)로 활성화되었습니다.</p>
+          : null}
+        <h3>요소</h3>{elements.length === 0 ? <p>{untagged ? "태깅 전이므로 표시할 요소가 없습니다. 태그가 게시되면 여기에 표시됩니다." : "표시할 요소가 없습니다."}</p> : <ul>{elements.map(element => <li key={element.element_id}>{element.element_id}: {elementStateText[element.state]} · 근거 {element.evidence_refs.length}개 · {element.credited_from ? "문서 전역" : "주장/표 직접"}</li>)}</ul>}
+        <h3>보증 연결</h3>{detail.assurance.status === "undetermined" ? <p>보증 범위를 확인할 수 없습니다. 보고서 전체가 보증되었다고 간주하지 않습니다.</p> : <p>{detail.assurance.status === "covered" ? "보증 범위 안" : "보증 범위 밖"} · {detail.assurance.level ?? "수준 미확인"} · {detail.assurance.provider ?? "기관 미확인"}</p>}
         {detail.suggestion ? <><h3>수정 제안</h3><p>{detail.suggestion}</p></> : null}
-        <h3>기준 근거</h3>{detail.basis_refs.length ? <ul>{detail.basis_refs.map((basis, index) => <li key={`${basis.standard}:${basis.clause}:${index}`}>{basis.standard} {basis.clause ?? "조항 미확정"}: {basis.summary} ({basis.verification_status})</li>)}</ul> : <p>표시할 검증된 기준 근거가 없습니다.</p>}
+        <h3>기준 근거</h3>{detail.basis_refs.length ? <ul>{detail.basis_refs.map((basis, index) => <li key={`${basis.standard}:${basis.clause}:${index}`}>{basis.standard} {basis.clause ?? "조항 미확정"}: {basis.summary} ({basisVerificationText[basis.verification_status]})</li>)}</ul> : <p>표시할 검증된 기준 근거가 없습니다.</p>}
+        {projection && projection.schema_version === 1 ? <section aria-labelledby="review-projection-heading"><h3 id="review-projection-heading">검토 중인 후보 (미확정)</h3>
+          <p role="status">이 후보는 참고용이며 최종 판정이나 태그 편집에 그대로 반영되지 않습니다. 자체 원문 검증을 통과해야 합니다.</p>
+          {projection.blocked_reason ? <p>보류 사유: {projection.blocked_reason}</p> : null}
+          {projection.blocked_action ? <p>다음 행동: {projection.blocked_action}</p> : null}
+          {projection.candidate_snippets.length ? <ul>{projection.candidate_snippets.map((snippet, index) => <li key={index}>{snippet}</li>)}</ul> : null}
+          {projection.field_agreements.length ? <ul>{projection.field_agreements.map(field => <li key={field.field_id}>{field.field_id}: {fieldAgreementText[field.status]} ({field.replicate_values.map(value => typeof value === "string" ? value : JSON.stringify(value)).join(" / ")})</li>)}</ul> : null}
+          {projection.raw_candidates && projection.raw_candidates.length ? <section aria-labelledby="raw-candidates-heading">
+            <h4 id="raw-candidates-heading">미검증 근거 후보</h4>
+            <p role="status">원문 검색으로 발견된 미검증 근거 후보입니다. 정식 근거로 채택되지 않았으며 판정 등급에 반영되지 않습니다.</p>
+            <ul>{projection.raw_candidates.map((cand, index) => <li key={`${cand.source_ref.source_id}:${index}`}>
+              <p><strong>원문 {cand.source_ref.page_num}쪽</strong> · {cand.status === "unverified" ? "미검증 근거 후보" : cand.status}{cand.reason ? ` (${cand.reason})` : ""}</p>
+              <p>{cand.source_ref.quote}</p>
+              <button type="button" onClick={() => document.getElementById(`review-source-${cand.source_ref.source_id}`)?.focus()}>원문 {cand.source_ref.page_num}쪽 보기</button>
+            </li>)}</ul>
+          </section> : null}
+        </section> : null}
         <details><summary>재현성 식별자</summary>{detail.packet_sha256 ? <p>Evidence packet: <code>{detail.packet_sha256}</code></p> : <p>Evidence packet: 태깅 전 (없음)</p>}{detail.replicate_request_ids.length ? <ul>{detail.replicate_request_ids.map(id => <li key={id}><code>{id}</code></li>)}</ul> : <p>재현 요청 식별자가 없습니다.{untagged ? " 태그가 게시되면 여기에 표시됩니다." : ""}</p>}</details>
       </section>
     </div>
   </section>;
 }
+
+const reviewQueueStatusText: Record<Review["status"], string> = {
+  open: "검토 대기",
+  resolved: "검토 완료",
+  superseded: "대체됨",
+};
 
 export function ReviewQueueWorkspace({ apiBase = "", tenantKey, session, runId, onSessionInvalid, onDataChanged, localSynthetic = false }: CommonProps & { localSynthetic?: boolean }) {
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -342,7 +433,7 @@ export function ReviewQueueWorkspace({ apiBase = "", tenantKey, session, runId, 
     {state === "pending" ? <p role="status">{message}</p> : null}
     {state === "error" ? <p role="alert">{message} <button type="button" onClick={() => void load(selected)}>다시 시도</button></p> : null}
     {state === "ready" && reviews.length === 0 ? <p>현재 검토 큐가 비어 있습니다.</p> : null}
-    {reviews.length ? <nav aria-label="검토 항목"><ul>{reviews.map(review => <li key={review.review_id}><button type="button" aria-current={selected === review.review_id ? "true" : undefined} onClick={() => void choose(review.review_id)}>{claims.find(claim => claim.claim_id === review.claim_id)?.quote ?? review.claim_id} · {review.status}</button></li>)}</ul></nav> : null}
+    {reviews.length ? <nav aria-label="검토 항목"><ul>{reviews.map(review => <li key={review.review_id}><button type="button" aria-current={selected === review.review_id ? "true" : undefined} onClick={() => void choose(review.review_id)}>{claims.find(claim => claim.claim_id === review.claim_id)?.quote ?? review.claim_id} · {reviewQueueStatusText[review.status]}</button></li>)}</ul></nav> : null}
     {state === "ready" && snapshot && detail ? <ReviewWorkspace key={`${snapshot.review.review_id}:${snapshot.review.revision}`} {...snapshot} session={session}
       sourceChoices={detail.source_refs} loadLatest={async () => (await latest(snapshot.review.review_id, new AbortController().signal)).snapshot}
       onResolved={resolved} onSourceOpen={source => document.getElementById(`review-source-${source.source_id}`)?.focus()} localSynthetic={localSynthetic} /> : null}

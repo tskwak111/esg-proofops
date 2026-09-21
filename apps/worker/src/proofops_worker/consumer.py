@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from random import random
+from threading import Event, Thread
 from typing import Any
 
 from proofops.application.ports.jobs import JobLease, JobMessage, JobRepository, LeaseLost
@@ -20,6 +21,44 @@ class StageFailure(Exception):
         self.error_code = error_code
         self.usage = usage
         self.retry_after = retry_after
+
+
+def with_lease_heartbeat(store, lease, clock, operation):
+    """Renew only this lease for the duration of a long operation.
+
+    A single heartbeat taken before an expensive step (for example claim-span
+    attestation growing with the run's accumulated processed count) does not
+    cover work that outlives the lease window: the lease can expire while the
+    step is still running, and the eventual commit is then silently discarded
+    even though the operation itself succeeded. This starts a background
+    keepalive that re-heartbeats on a short cadence for exactly the duration of
+    ``operation``, so the lease stays valid until the caller's own commit-time
+    fencing check runs. Any renewal failure (lease lost/fenced out) fails the
+    operation closed instead of letting a stale lease publish.
+    """
+    lease_seconds = max(1, lease.lease_until - int(clock()))
+    stopped, failed = Event(), Event()
+
+    def keepalive():
+        while not stopped.wait(min(30, lease_seconds / 3)):
+            try:
+                store.heartbeat(lease, now=int(clock()), lease_seconds=lease_seconds)
+            except Exception:
+                failed.set()
+                return
+
+    thread = Thread(target=keepalive, name=f"lease-heartbeat:{lease.message.job_id}")
+    thread.start()
+    try:
+        payload, usage = operation(lease)
+    finally:
+        stopped.set()
+        thread.join()
+    # Join before checking, including a renewal racing with operation completion.
+    # The consumer's commit still performs the final ownership/cancellation fence.
+    if failed.is_set():
+        raise StageFailure("LEASE_HEARTBEAT_FAILED", usage=usage)
+    return payload, usage
 
 
 def claim_job(

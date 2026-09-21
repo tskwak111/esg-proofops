@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { errorMessage, isSessionError, requestJson } from "../session/api";
+import { ApiError, errorMessage, isSessionError, requestJson } from "../session/api";
 import type { RuntimeOptions, UploadSelection } from "../upload/CompanySelector";
 import type { ReadyDocumentVersion } from "../upload/UploadForm";
 import type { RunSnapshot } from "./RunProgress";
@@ -9,6 +9,12 @@ type Preflight = {
   checks: Array<{ name: string; status: "pass" | "fail" | "not_run"; reason: string }>;
   binding_sha256: string | null;
   checked_at: string;
+};
+
+type LocalSubmission = {
+  worker_enabled: boolean;
+  candidate_rule_pack_id: string | null;
+  selected_pages: number[];
 };
 
 type Props = {
@@ -53,6 +59,9 @@ export function RunForm({
   const [scope, setScope] = useState<"full" | "declared_subset">("full");
   const [pageText, setPageText] = useState("");
   const [rulePackId, setRulePackId] = useState("");
+  const [local, setLocal] = useState<LocalSubmission | null>(null);
+  const [localLoading, setLocalLoading] = useState(true);
+  const [localError, setLocalError] = useState(false);
   const [phase, setPhase] = useState("준비된 문서 버전의 분석 범위를 확인해 주세요.");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -66,10 +75,38 @@ export function RunForm({
     options.rule_packs.some((pack) => pack.status === "active" && pack.mode === "advertising");
 
   useEffect(() => {
+    const request = new AbortController();
+    setLocal(null); setLocalLoading(true); setLocalError(false);
+    requestJson<LocalSubmission>(`${apiBase}/local/submission`, { signal: request.signal })
+      .then(value => {
+        if (request.signal.aborted) return;
+        if (typeof value.worker_enabled !== "boolean" ||
+            !(value.candidate_rule_pack_id === null || typeof value.candidate_rule_pack_id === "string") ||
+            !Array.isArray(value.selected_pages) || !value.selected_pages.every(p => Number.isInteger(p) && p > 0)) {
+          throw new Error("로컬 실행 설정을 확인할 수 없습니다.");
+        }
+        setLocal(value);
+        if (value.selected_pages.length) {
+          setScope("declared_subset"); setPageText(value.selected_pages.join(","));
+        }
+      })
+      .catch(reason => {
+        if (request.signal.aborted) return;
+        if (isSessionError(reason)) onSessionInvalid();
+        if (!(reason instanceof ApiError && reason.status === 404)) setLocalError(true);
+      })
+      .finally(() => { if (!request.signal.aborted) setLocalLoading(false); });
+    return () => request.abort();
+  }, [apiBase, tenantKey, version.version_id, onSessionInvalid]);
+
+  const candidatePackId = mode === "disclosure" ? local?.candidate_rule_pack_id : null;
+  const localBlocked = localLoading || localError || local?.worker_enabled === false;
+  useEffect(() => {
+    if (rulePackId === candidatePackId && candidatePackId) return;
     if (!activePacks.some((pack) => pack.rule_pack_id === rulePackId)) {
-      setRulePackId(activePacks[0]?.rule_pack_id ?? "");
+      setRulePackId(activePacks[0]?.rule_pack_id ?? candidatePackId ?? "");
     }
-  }, [activePacks, rulePackId]);
+  }, [activePacks, candidatePackId, rulePackId]);
 
   useEffect(() => {
     controller.current?.abort();
@@ -86,7 +123,7 @@ export function RunForm({
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (inFlight.current) return;
+    if (inFlight.current || localBlocked) return;
     if (!canRun) {
       setError("분석 전 사전 점검은 관리자 권한이 필요합니다.");
       return;
@@ -96,7 +133,7 @@ export function RunForm({
       return;
     }
     if (!selection.consentProfileId || !selection.runtimeBindingId || !rulePackId) {
-      setError("승인된 동의, 실행 환경과 현재 모드의 활성 규칙집을 선택해 주세요.");
+      setError("승인된 동의·실행 환경과 사용할 규칙집을 선택해 주세요.");
       return;
     }
     let pages: number[] | undefined;
@@ -200,12 +237,17 @@ export function RunForm({
         </select>
         {!advertisingReady ? <p role="status">광고 문구 검토는 승인된 전용 규칙집이 없어 시작할 수 없습니다.</p> : null}
 
-        <label htmlFor="rule-pack">활성 규칙집</label>
-        <select id="rule-pack" value={rulePackId} onChange={(event) => setRulePackId(event.target.value)} disabled={activePacks.length === 0} required>
+        {localLoading ? <p role="status">실행 가능 상태를 확인하고 있습니다.</p> : null}
+        {localError ? <p role="alert">로컬 실행 상태를 확인하지 못했습니다. 화면을 새로고침해 주세요.</p> : null}
+        {local?.worker_enabled === false ? <p role="status">현재는 저장 결과 열람 모드입니다. 분석 워커를 켠 뒤 새 분석을 시작할 수 있습니다.</p> : null}
+        <label htmlFor="rule-pack">규칙집</label>
+        <select id="rule-pack" value={rulePackId} onChange={(event) => setRulePackId(event.target.value)} disabled={activePacks.length === 0 && !candidatePackId} required>
           <option value="">현재 모드의 활성 규칙집을 선택하세요</option>
+          {candidatePackId && !activePacks.some(pack => pack.rule_pack_id === candidatePackId) ? <option value={candidatePackId}>초안 기준 · 태깅만 수행 / 등급 보류</option> : null}
           {activePacks.map((pack) => <option key={pack.rule_pack_id} value={pack.rule_pack_id}>{pack.version}</option>)}
         </select>
-        {activePacks.length === 0 ? <p role="status">현재 모드에 사용할 활성 규칙집이 없습니다.</p> : null}
+        {activePacks.length === 0 && !candidatePackId ? <p role="status">현재 모드에 사용할 활성 규칙집이 없습니다.</p> : null}
+        {rulePackId === candidatePackId && candidatePackId ? <p role="status">초안은 추출·태깅 참고용입니다. 승인 전에는 등급과 검토 수정 확정을 보류합니다.</p> : null}
 
         <label htmlFor="run-scope">분석 범위</label>
         <select id="run-scope" value={scope} onChange={(event) => setScope(event.target.value as typeof scope)}>
@@ -228,7 +270,7 @@ export function RunForm({
             <p id="selected-pages-help">PDF 파일의 1부터 {version.page_count ?? "확인된 마지막"} 페이지까지, 중복 없이 오름차순으로 입력하세요.</p>
           </>
         ) : null}
-        <button type="submit" disabled={!canRun || version.page_count === null || !rulePackId || !selection.consentProfileId || !selection.runtimeBindingId} style={{ minHeight: 44 }}>
+        <button type="submit" disabled={localBlocked || !canRun || version.page_count === null || !rulePackId || !selection.consentProfileId || !selection.runtimeBindingId} style={{ minHeight: 44 }}>
           {busy ? "확인 중…" : "사전 점검 후 분석 시작"}
         </button>
       </fieldset>

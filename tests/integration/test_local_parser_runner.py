@@ -60,7 +60,7 @@ def test_manifest_binds_fusion_version_and_replays_legacy_without_rewriting(tmp_
     assert manifest["fusion_version"] == 3
     assert parser.load_verified(item, profile, tenant_id=TENANT) == graph
     path.chmod(0o600)
-    for invalid in (4, "3", True, None):
+    for invalid in (5, "3", True, None):
         path.write_text(json.dumps({**manifest, "fusion_version": invalid}))
         with pytest.raises(ParseFailure, match="PARSER_ARTIFACT_INTEGRITY_MISMATCH"):
             parser.load_verified(item, profile, tenant_id=TENANT)

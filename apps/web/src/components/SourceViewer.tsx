@@ -109,7 +109,9 @@ export function SourceViewer({ apiBase = "", csrfToken, runId, sources, onSessio
           left: `${bbox![0] / preview.width! * 100}%`, top: `${bbox![1] / preview.height! * 100}%`,
           width: `${(bbox![2] - bbox![0]) / preview.width! * 100}%`, height: `${(bbox![3] - bbox![1]) / preview.height! * 100}%` }} /> : null}
       </div>
-      {!canHighlight ? <p>검증된 좌표가 없어 하이라이트하지 않습니다.</p> : null}
+      {!canHighlight ? <p>{preview?.source.verification_state === "verified"
+        ? "인용 문구는 검증되었지만, 이 페이지 미리보기의 좌표 앵커는 확인되지 않아 하이라이트를 표시하지 않습니다. 아래 인용문과 원본 PDF로 위치를 확인해 주세요."
+        : "검증된 좌표가 없어 하이라이트하지 않습니다."}</p> : null}
       <p><a href={preview.originalUrl} target="_blank" rel="noopener noreferrer">원본 PDF 새 탭에서 열기</a></p>
       <details><summary>접근 가능한 원문 텍스트</summary><p>{preview.source.quote}</p></details>
     </section> : null}

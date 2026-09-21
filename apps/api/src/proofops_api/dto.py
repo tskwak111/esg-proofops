@@ -113,7 +113,9 @@ class Decision(_StrictDTO):
     evidence_grade: Literal["E0", "E1", "E2", "E3"] | None
     label: Literal["SUBSTANTIATED", "INCOMPLETE", "UNSUBSTANTIATED"] | None
     sublabel: Literal["PERF", "IMPL"] | None = None
-    review_status: Literal["auto_confirmed", "needs_review", "human_confirmed"]
+    review_status: Literal[
+        "auto_confirmed", "needs_review", "human_confirmed", "ai_delegated_confirmed"
+    ]
     missing_elements: tuple[str, ...] = ()
     rule_ids: tuple[str, ...] = ()
     rule_pack_sha256: str

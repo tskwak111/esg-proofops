@@ -320,6 +320,13 @@ class LocalSQLiteJobStore:
                 or (job["status"] == "leased" and job["lease_until"] <= now)
             ):
                 return None
+            if message.stage == "extract" and "extract_job" in run:
+                from proofops.adapters.local.claim_store import guard_extract_continuation
+
+                try:
+                    guard_extract_continuation(db, self, run, now=now, supersede=True)
+                except ValueError:
+                    return None
             job.update(
                 status="leased",
                 lease_owner=owner,
@@ -732,7 +739,7 @@ class LocalSQLiteJobStore:
             }:
                 from proofops.adapters.local.claim_store import validate_extract_commit
 
-                validate_extract_commit(db, self, run, message, envelope, next_job)
+                validate_extract_commit(db, self, run, message, envelope, next_job, now=now)
                 run.update(
                     current_stage="tag",
                     coverage=envelope["coverage"],

@@ -284,7 +284,10 @@ def raster_receipt(store: LocalSQLiteJobStore, message, request_id: str) -> dict
 def validate_raster_checkpoint_bindings(db, store, message, snapshot, envelope):
     """Check published pointers against scoped immutable records in one transaction."""
     from proofops.adapters.local.raster_visibility import eligible_raster_sources, raster_ocr_policy
-    from proofops.adapters.local.run_artifacts import checkpoint_raster
+    from proofops.adapters.local.run_artifacts import (
+        checkpoint_raster,
+        raster_policy_matches_accepted,
+    )
 
     versioned = envelope.get("schema") == "local_parser_checkpoint_v5"
     enabled = "raster_ocr_policy" in snapshot
@@ -296,10 +299,7 @@ def validate_raster_checkpoint_bindings(db, store, message, snapshot, envelope):
     refs, coverage = checkpoint_raster(envelope)
     policy = snapshot["raster_ocr_policy"]
     if (
-        policy
-        != raster_ocr_policy(
-            mode=policy["mode"], max_pages=policy["max_pages"], max_calls=policy["max_calls"]
-        )
+        not raster_policy_matches_accepted(policy, raster_ocr_policy)
         or envelope["raster_ocr_policy_sha256"] != snapshot["raster_ocr_policy_hash"]
         or envelope.get("native_paragraph_policy_sha256") != policy["native_policy_sha256"]
     ):

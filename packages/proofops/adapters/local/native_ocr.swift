@@ -1,6 +1,8 @@
 import Foundation
 import Vision
 let request = VNRecognizeTextRequest()
+// Headless local workers can hang on the GPU path; keep receipt generation on CPU.
+request.usesCPUOnly = true
 request.recognitionLevel = .accurate
 request.usesLanguageCorrection = false
 let supported = try request.supportedRecognitionLanguages()
@@ -12,6 +14,7 @@ request.recognitionLanguages = languages
 try VNImageRequestHandler(url: URL(fileURLWithPath: CommandLine.arguments[1])).perform([request])
 let result: [String: Any] = [
     "reader": "Apple Vision",
+    "compute": "cpu",
     "revision": request.revision,
     "os": ProcessInfo.processInfo.operatingSystemVersionString,
     "languages": languages,

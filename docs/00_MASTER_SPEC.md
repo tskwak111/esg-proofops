@@ -87,3 +87,17 @@ P0 구현과 실서비스 공개는 다르다. 대회 실증은 권리가 확인
 ## 8. 완료 기준
 
 `25_DEFINITION_OF_DONE.md`를 따른다. 도메인 등급 재현성, 원문 위치 왕복, 타 테넌트 차단, 세 번의 실질적으로 별개 태깅 기록, 검토 충돌 처리, 부분 실패 표시, 리포트 스냅샷 일관성은 타협하지 않는 출시 게이트다. 이 개발 패키지 자체의 검증과 실제 구현·AWS 실증 검증은 구분한다.
+
+## 9. v2.2 연계(C군) 추가분 — v2.0 위에 additive (2026-09-20 R00)
+
+**이 절은 v2.0 도메인을 덮어쓰지 않는다.** 1~8장의 G/P/M 사다리·라벨·세이프하버·보증·산업·유예 계약은 그대로 유지된다. 아래는 사용자가 반영을 요청한 원문 v2.2(`ROOT handoff/team-v3/reference/PROJECT_V2_2.md` §3.7/4.5/4.10, `RECONCILIATION_SPEC.md`)의 **추가 요구**만 기록한다.
+
+- **범위**: C1~C5는 지속가능성 공시 클레임과 같은 기업·같은 기간 재무제표(DART 조회, B 담당)를 대조해 "차이를 설명하는 문구가 공시에 있는가"만 판정한다. C군은 별도 `reconciliation[]` 축으로 출력하며 `label`/`evidence_grade`에 절대 반영하지 않는다(v2.2 §4.10).
+- **status 값은 `matched`/`needs_explanation`/`not_applicable` 세 값만.** `mismatch`/`error`류 값을 추가하지 않는다.
+- **1단계 구현 순서는 C1·C3만.** C2·C4는 최종 범위에 포함하되 구현 순서는 후순위. **C5는 런타임 진입을 차단**하며(회계 판단 개입, 오탐 위험) 착수하지 않는다 — 이는 P1 보류가 아니라 명시적 실행 차단이다.
+- **소유**: C1~C5의 domain/adapters/DART 연동 구현은 개발자 B 담당(`ROOT handoff/team-v3/contract/CONTRACT.md`). A는 기존 G/P/M 등급 계약이 C군에 오염되지 않는 경계만 보증한다.
+- **현재 코드 상태**: A가 확인 가능한 공유 저장소 기준(commit ff61f41, `ROOT handoff/team-v3/SOURCE_RECONCILIATION.md`)으로는 `domain/reconciliation`, `application/reconciliation`, `adapters/dart`, `config/accounting`가 아직 보이지 않는다. 이는 **A가 접근 가능한 범위의 마지막 공유 상태**이며, B의 로컬/미공유 작업이 실제로 없다는 뜻은 아니다(`SOURCE_RECONCILIATION.md`: "B의 아직 공유되지 않은 작업 상태도 추정하지 않습니다"). 계약·예제는 존재하며 구현 완료로 표시하지 않는다.
+- **회계 판단 경계**: "설명이 확인되지 않았다"까지만 산출하며 인식·금액·분류의 적정성, 추정·가정의 합리성은 판단하지 않는다(v2.2 §4.10 경계선 표). 조항은 `source-supplied`로 기록하고 `verified`를 임의 부여하지 않는다.
+- **미해결 항목**: 동일 개수-다른 집합 경계(원문 count-only 경로 vs 내부 exact-set 계약), C3 5.0 임계값의 실 적용치, `not_applicable`(판단 근거 불충분)과 기술적 `blocked`(수집/판독 실패)의 구분 표현은 `ROOT handoff/team-v3/OPEN_DECISIONS.md`의 DEC-C1/DEC-C3/DEC-STATUS로 남아 있으며 이 문서가 대신 결정하지 않는다.
+
+이 절 작성으로 C군 구현이 완료됐다고 표시하지 않는다. 실제 조항 대조·B 통합 검증은 `32_PIPELINE_COMPLETION_PLAN.md` R08을 따른다.

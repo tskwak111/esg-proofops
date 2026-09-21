@@ -16,14 +16,44 @@ from proofops.application.input_reservation import validate_capacity_policy
 from proofops.application.ports.jobs import LeaseLost
 from proofops.application.preflight import check_local_upstage_tagger
 from proofops.application.registry import Registry, artifact_sha256
-from proofops.application.tagging.preliminary import preliminary_request, validate_preliminary
+from proofops.application.tagging.preliminary import (
+    preliminary_request,
+    preliminary_table_request,
+    validate_preliminary,
+    validate_preliminary_table_sources,
+)
 from proofops.application.tagging.relations import relation_request, validate_relations
 from proofops.application.tagging.service import RawTagResponse
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
 from proofops.domain.values import _source_ref_from_dict
 from proofops_agent.upstage_preliminary import UpstagePreliminaryTransport
-from proofops_agent.upstage_tagging import UpstageTaggingTransport
+from proofops_agent.upstage_tagging import (
+    NEVER_SENT_ERROR_CODES,
+    TransportResume,
+    UpstageTaggingTransport,
+)
+
+# The local stop conditions this module raises itself, per replica prefix. Recording
+# only these keeps a durable record free of arbitrary exception text while still
+# naming the exact condition that stopped the operation.
+_LOCAL_STOP_SUFFIXES = (
+    "_RECEIPT_INCOMPLETE_OR_MISMATCH",
+    "_PENDING_CALL",
+    "_PROVIDER_FAILED",
+    "_PROVIDER_ID_REQUIRED",
+    "_RECOVERY_ALLOWANCE_EXHAUSTED",
+)
+LOCAL_STOP_CODE = "LOCAL_STOP"
+
+
+def _local_stop_code(prefix, error):
+    """Map a local stop to a stable code; never echo an unrecognized message."""
+    known = {prefix.upper() + suffix for suffix in _LOCAL_STOP_SUFFIXES}
+    text = str(error)
+    if text in known:
+        return text
+    return prefix.upper() + "_" + LOCAL_STOP_CODE + ":" + type(error).__name__
 
 
 class LiveTaggingRuntime:
@@ -50,6 +80,20 @@ class LiveTaggingRuntime:
             usage,
         )
         self.ledger, self.receipts = ledger, Path(receipts)
+        # An acknowledged bounded resume authorization, when the owning runner is
+        # executing an explicit recovery job. None in ordinary operation, which
+        # keeps every stop, receipt and budget behavior exactly as it was.
+        self.resume = getattr(runner, "resume", None)
+        if self.resume is not None:
+            if not isinstance(self.resume, TransportResume):
+                raise ValueError("LIVE_TAGGING_RESUME_INVALID")
+            if (
+                self.resume.expected_root is not None
+                and self.resume.expected_root.resolve() != self.receipts.resolve()
+            ):
+                # An authorization is bound to the exact receipt tree it was proven
+                # against; it can never be applied to a different local state.
+                raise ValueError("LIVE_TAGGING_RESUME_ROOT_MISMATCH")
         self.settings = tagging_settings(snapshot)
         self.preliminary_settings = tagging_settings(snapshot, preliminary=True)
         self.registry = Registry.sqlite(runner.store.path)
@@ -74,6 +118,7 @@ class LiveTaggingRuntime:
             settings=self.settings,
             tenant_id=graph.tenant_id,
             authorize=self._authorize,
+            resume=self.resume,
         )
         self.preliminary_transport = UpstagePreliminaryTransport(
             probe,
@@ -81,6 +126,7 @@ class LiveTaggingRuntime:
             settings=self.preliminary_settings,
             tenant_id=graph.tenant_id,
             authorize=self._authorize,
+            resume=self.resume,
         )
         if self.relation_settings is not None:
             from proofops_agent.upstage_relations import UpstageRelationsTransport
@@ -91,6 +137,7 @@ class LiveTaggingRuntime:
                 settings=self.relation_settings,
                 tenant_id=graph.tenant_id,
                 authorize=self._authorize,
+                resume=self.resume,
             )
         self._capacity(self.settings.model_id)
 
@@ -164,6 +211,11 @@ class LiveTaggingRuntime:
 
     def count_input_tokens(self, request):
         # Validate the actual wire and current authority before reserving its upper bound.
+        # A withdrawn or exhausted recovery allowance stops here, before any
+        # reservation: tag_replicates records TAGGING_INPUT_COUNT_INVALID and
+        # moves on without buying a call or settling a ledger row.
+        if not self.element_transport.may_dispatch():
+            raise ValueError("TAGGING_RECOVERY_ALLOWANCE_EXHAUSTED")
         return self.element_transport.count_input_tokens(
             request, counter=lambda system, user: self._capacity(self.settings.model_id)
         )
@@ -181,10 +233,37 @@ class LiveTaggingRuntime:
             self.account(request["request_id"])
 
     def preliminary(self, claim, graph):
-        packet = preliminary_request(claim, graph, tenant_id=self.auth.tenant_id)
+        profile = self.preliminary_settings.model_profile
+        role_table = profile == "upstage-preliminary-source-quotes-table-role-v1"
+        table = profile == "upstage-preliminary-source-quotes-table-v1" or role_table
+        if table:
+            packet = preliminary_table_request(
+                claim,
+                graph,
+                tenant_id=self.auth.tenant_id,
+                role_resolution=role_table,
+            )
+        else:
+            packet = preliminary_request(
+                claim,
+                graph,
+                tenant_id=self.auth.tenant_id,
+                include_context=profile == "upstage-preliminary-source-quotes-context-v1",
+            )
 
         def validate(raw):
-            result = validate_preliminary(claim, graph, raw, tenant_id=self.auth.tenant_id)
+            # The table profile recomputes its own quotable source tuple from
+            # claim+graph; the legacy validator stays the only path for the two
+            # older profiles, so stored responses replay unchanged. The R16
+            # role-resolution profile differs only in its prompt, so it reuses
+            # this same validator without a new schema or a new source rule.
+            result = (
+                validate_preliminary_table_sources(
+                    claim, graph, raw, tenant_id=self.auth.tenant_id
+                )
+                if table
+                else validate_preliminary(claim, graph, raw, tenant_id=self.auth.tenant_id)
+            )
             return result, dict(
                 track=asdict(result.track) if result.track else None,
                 dimensions={
@@ -207,6 +286,63 @@ class LiveTaggingRuntime:
             return None
         context = results[0].context
         return results[0].track, context, local_relation_tags(context)
+
+    def preliminary_agreement(self, claim_id):
+        """Field-level replica agreement for review only; never a tag, state or grade.
+
+        Reads the replica records this run already stored and compares each
+        asserted field on its own, because the replica signature covers the whole
+        classification: one differing field otherwise hides what every replica
+        did agree on. A field is agreed only when all three validated replicas
+        returned the identical literal value, conflict when validated values
+        differ, and unresolved when a replica is missing or did not report that
+        axis. A null category against a non-null one is a conflict: it is never
+        reported as null or not applicable, so an unagreed safe-harbor category
+        cannot reach the rule engine as a fact.
+        """
+        records = self.preliminary_records.get(claim_id, [])
+        validated = [
+            record["values"] for record in records if record["status"] == "validated_candidate"
+        ]
+
+        def state(reported):
+            distinct = {canonical_json(value) for value in reported}
+            return dict(
+                state="unresolved"
+                if len(validated) != 3 or len(reported) != len(validated)
+                else "agreed"
+                if len(distinct) == 1
+                else "conflict",
+                replicate_values=reported,
+                distinct_count=len(distinct),
+            )
+
+        axes = sorted({axis for values in validated for axis in values["dimensions"]})
+        return dict(
+            schema="preliminary_field_agreement_v1",
+            claim_id=claim_id,
+            replicates=len(records),
+            validated_replicates=len(validated),
+            fields=dict(
+                # The literal asserted track, separate from the category candidate.
+                track=state(
+                    [values["track"]["track"] if values["track"] else None for values in validated]
+                ),
+                safe_harbor_category=state(
+                    [values["safe_harbor_category"] for values in validated]
+                ),
+            ),
+            dimensions={
+                axis: state(
+                    [
+                        values["dimensions"][axis]
+                        for values in validated
+                        if axis in values["dimensions"]
+                    ]
+                )
+                for axis in axes
+            },
+        )
 
     def relations(self, claim, packet):
         """Tag only verified external sources already present in this frozen packet."""
@@ -353,6 +489,7 @@ class LiveTaggingRuntime:
             directory = self.receipts / prefix / request_id
             record = dict(request_id=request_id, replicate_id=replica, status="unresolved")
             records.append(record)
+            response = None
             try:
                 capacity = transport.count_input_tokens(
                     request, counter=lambda system, user: self._capacity(settings.model_id)
@@ -367,6 +504,11 @@ class LiveTaggingRuntime:
                     raw = json.loads((directory / "response.json").read_text())
                     response = RawTagResponse(**(raw | {"usage": TokenUsage(**raw["usage"])}))
                 else:
+                    # A withdrawn or exhausted recovery allowance stops before the
+                    # reservation, so no budget is held and no ledger row settles
+                    # for a request this operation is no longer authorized to send.
+                    if not transport.may_dispatch():
+                        raise ValueError(prefix.upper() + "_RECOVERY_ALLOWANCE_EXHAUSTED")
                     if not self.runner.store.usage.reserve_budget(
                         call,
                         input_tokens=capacity,
@@ -401,8 +543,41 @@ class LiveTaggingRuntime:
                 provider_ids.append(response.usage.provider_request_id)
             except LeaseLost:
                 raise
-            except (ValueError, OSError, KeyError, TypeError, BudgetExceeded):
-                record["status"] = "needs_review"
+            except (ValueError, OSError, KeyError, TypeError, BudgetExceeded) as error:
+                # Never collapse the actual outcome to a bare "needs_review": a
+                # provider error_code (e.g. UPSTREAM_UNAVAILABLE) means this specific
+                # attempt was never actually sent (locally suppressed, latency 0ms,
+                # no provider_request_id); that is a distinct, stable fact from a
+                # real settled provider failure or a local/authorization/budget stop
+                # raised before any transport call. Both are surfaced here so a
+                # never-sent attempt is never misread as an unknown model outcome.
+                usage = getattr(response, "usage", None)
+                settled_code = getattr(usage, "error_code", None)
+                record.update(
+                    status="needs_review",
+                    stable_reason=dict(
+                        # "never_sent" requires the transport's own explicitly
+                        # known local-suppression code, not merely a zero latency:
+                        # a fast real failure can also round to 0ms and lack a
+                        # provider id. The durable proof that no call happened is
+                        # the absent receipt directory, checked by the recovery
+                        # classifier; this label only reports the transport's
+                        # settled code without reinterpreting it.
+                        category="never_sent"
+                        if usage is not None
+                        and usage.status == "failed"
+                        and settled_code in NEVER_SENT_ERROR_CODES
+                        and usage.provider_request_id is None
+                        and usage.latency_ms == 0
+                        else "provider_failed"
+                        if usage is not None and usage.status == "failed"
+                        else "local_stop",
+                        # Stable internal codes only. An unrecognized exception
+                        # never leaks its message text into a durable record.
+                        error_code=settled_code or _local_stop_code(prefix, error),
+                        detail=None,
+                    ),
+                )
                 return None
             finally:
                 self.account(request_id)

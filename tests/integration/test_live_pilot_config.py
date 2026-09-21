@@ -21,10 +21,15 @@ def test_live_pilot_settings_have_independent_real_profiles():
     assert set(result) == {"preliminary_settings", "tagging_settings", "input_reservation_policy"}
 
 
-@pytest.mark.parametrize("calls", [True, 0, 5, 61, 12.5])
+@pytest.mark.parametrize("calls", [True, 0, 5, 2001, 12.5])
 def test_live_pilot_rejects_invalid_call_limit(calls):
     with pytest.raises(ValueError):
         live_tagging_settings(calls)
+
+
+@pytest.mark.parametrize("calls", [6, 48, 2000])
+def test_live_pilot_accepts_full_report_call_limit(calls):
+    assert live_tagging_settings(calls)["tagging_settings"]["max_tokens"] == 4096
 
 
 def test_preliminary_schema_rejects_the_observed_live_string_dimension():
@@ -104,6 +109,32 @@ def test_relation_pilot_settings_are_opt_in_and_have_their_own_output_schema():
         jsonschema.validate(sample, schema)
 
 
+def test_preliminary_context_pilot_settings_are_opt_in_with_distinct_profile_and_prompt():
+    from proofops.application.tagging.preliminary import CONTEXT_SYSTEM_SUFFIX, SYSTEM_PROMPT
+
+    default = live_tagging_settings(12)
+    assert default["preliminary_settings"]["model_profile"] == (
+        "upstage-preliminary-source-quotes-v1"
+    )
+    assert default["preliminary_settings"]["system_prompt"] == SYSTEM_PROMPT
+
+    result = live_tagging_settings(12, preliminary_context=True)
+    preliminary = result["preliminary_settings"]
+    assert preliminary["model_profile"] == "upstage-preliminary-source-quotes-context-v1"
+    assert preliminary["system_prompt"] == SYSTEM_PROMPT + CONTEXT_SYSTEM_SUFFIX
+    # Everything else (tagging profile, binding independence) stays unaffected.
+    assert result["tagging_settings"]["model_profile"] == "upstage-compact-source-quotes-v3"
+    assert (
+        preliminary["binding"]["binding_id"] != result["tagging_settings"]["binding"]["binding_id"]
+    )
+
+
+@pytest.mark.parametrize("value", [1, "yes", None])
+def test_preliminary_context_flag_must_be_a_real_boolean(value):
+    with pytest.raises(ValueError):
+        live_tagging_settings(12, preliminary_context=value)
+
+
 def test_raster_pilot_settings_pin_explicit_policy():
     from proofops.adapters.local.raster_visibility import raster_ocr_policy
 
@@ -123,3 +154,19 @@ def test_raster_pilot_settings_reject_invalid_limits(pages, calls):
 
     with pytest.raises(ValueError):
         raster_settings(max_pages=pages, max_calls=calls)
+
+
+def test_extraction_batch_and_run_budget_are_separate_and_bounded():
+    from evaluation.local_upstage_pilot import extraction_budget_settings
+
+    legacy = extraction_budget_settings(8)
+    assert legacy["roles"][0]["max_calls"] == 8
+    assert legacy["input_tokens"] == 100000
+    assert legacy["output_tokens"] == 30000
+    continued = extraction_budget_settings(8, 40)
+    assert continued["roles"][0]["max_calls"] == 40
+    assert continued["input_tokens"] == 4000000
+    assert continued["output_tokens"] == 40960
+    for invalid in (True, 0, 7, 2001, 8.5):
+        with pytest.raises(ValueError, match="extraction total"):
+            extraction_budget_settings(8, invalid)

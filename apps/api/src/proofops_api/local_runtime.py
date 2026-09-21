@@ -25,6 +25,10 @@ _SETTINGS_FIELDS = frozenset(
         "build_root",
         "budget_limits",
         "extraction_profile",
+        "extraction_year_notation",
+        "extraction_context",
+        "extraction_table_context",
+        "extraction_source_ids",
         "tagging_settings",
         "preliminary_settings",
         "relation_settings",
@@ -263,7 +267,7 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         raise _invalid()
     runtime.update(_raster(settings, extraction_mode))
     if "claim_source_policy" in settings:
-        from proofops.adapters.local.claim_source_verification import claim_source_reader
+        from proofops.adapters.local.claim_source_policies import claim_source_reader
 
         if extraction_mode != "upstage_probe":
             raise _invalid()
@@ -280,6 +284,21 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
             root_dir=root,
             env={"ENABLE_LEGACY_PYMUPDF": env.get("ENABLE_LEGACY_PYMUPDF", "false")},
         )
+    for flag in (
+        "extraction_year_notation",
+        "extraction_context",
+        "extraction_table_context",
+        "extraction_source_ids",
+    ):
+        # Approved extraction opt-ins (R03d/R03f/R12/R14): explicit True only, and
+        # only with the real probe mode. Validated here so the gate never rejects
+        # a pilot-written value; the worker composition (not this runtime dict)
+        # reconstructs the matching extractor profile from the settings file.
+        if flag in settings and (settings[flag] is not True or extraction_mode != "upstage_probe"):
+            raise _invalid()
+    if "extraction_table_context" in settings and settings.get("extraction_context") is not True:
+        # Table context refines the context profile; alone it has no wire.
+        raise _invalid()
     if "budget_limits" in settings:
         runtime["budget_limits"] = _budget(settings["budget_limits"])
     if extraction_mode:
@@ -296,13 +315,27 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         if (
             tagging_mode not in ("", "upstage_local")
             or not isinstance(limits, dict)
-            or set(limits) != {"max_calls", "max_output_tokens"}
+            or set(limits)
+            not in ({"max_calls", "max_output_tokens"}, {
+                "max_calls",
+                "max_output_tokens",
+                "claim_pages",
+            })
         ):
             raise _invalid()
         runtime["extraction_limits"] = {
             "max_calls": _strict_int(limits["max_calls"], maximum=20),
             "max_output_tokens": _strict_int(limits["max_output_tokens"], maximum=1024),
         }
+        if "claim_pages" in limits:
+            # Structural check only; RunService verifies claim_pages ⊆ selected_pages
+            # once the run body's declared subset is known.
+            pages = limits["claim_pages"]
+            if not isinstance(pages, list) or not pages or sorted(set(pages)) != pages:
+                raise _invalid()
+            runtime["extraction_limits"]["claim_pages"] = [
+                _strict_int(page) for page in pages
+            ]
         if tagging_mode == "upstage_local":
             if (
                 "preliminary_settings" not in settings

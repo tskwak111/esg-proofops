@@ -10,6 +10,7 @@ from types import MappingProxyType
 from typing import Any
 
 from proofops.application.budget import BudgetLimits, cost_summary
+from proofops.application.claim_scope import validate_extraction_limits
 from proofops.application.claims import ExtractionProfile
 from proofops.application.ingest.graph_fusion import ParserProfile
 from proofops.application.preflight import (
@@ -185,7 +186,16 @@ class RunService:
         if claim_source_policy is not None and (
             not isinstance(claim_source_policy, Mapping)
             or claim_source_policy.get("schema")
-            not in {"claim_source_policy_v1", "claim_source_policy_v2"}
+            not in {
+                "claim_source_policy_v1",
+                "claim_source_policy_v2",
+                # Opt-in render-resolution wrapper (R13/R15). Its own distinct
+                # schema; the adapter refuses any policy it cannot reproduce.
+                "claim_span_render_resolution_policy_v1",
+                # Opt-in bullet-alignment wrapper (R19), which wraps the one
+                # above rather than replacing it. Same refusal guarantee.
+                "claim_span_bullet_alignment_policy_v1",
+            }
             or extraction_mode != "upstage_probe"
         ):
             raise ValueError("invalid claim source policy")
@@ -336,20 +346,17 @@ class RunService:
         if self.extraction_mode == "upstage_probe":
             limits = self.extraction_limits
             live_tagging = self.tagging_mode == "upstage_local"
-            if (
-                body["scope"] != "declared_subset"
-                or (
-                    not live_tagging
-                    and (self.tagging_settings is not None or self.tagging_mode is not None)
-                )
-                or not isinstance(limits, dict)
-                or set(limits) != {"max_calls", "max_output_tokens"}
-                or type(limits["max_calls"]) is not int
-                or not 1 <= limits["max_calls"] <= 20
-                or type(limits["max_output_tokens"]) is not int
-                or not 1 <= limits["max_output_tokens"] <= 1024
+            if body["scope"] != "declared_subset" or (
+                not live_tagging
+                and (self.tagging_settings is not None or self.tagging_mode is not None)
             ):
                 raise RunRejected("CONFIG_GATE_BLOCKED")
+            # ``pages`` is the validated broad declared subset; claim_pages must be
+            # a subset of it and never widens the parse/evidence scope.
+            try:
+                validate_extraction_limits(limits, pages)
+            except ValueError:
+                raise RunRejected("CONFIG_GATE_BLOCKED") from None
         elif self.extraction_limits is not None:
             raise RunRejected("CONFIG_GATE_BLOCKED")
         tagging = self.tagging_settings
@@ -367,15 +374,19 @@ class RunService:
                 raise RunRejected("CONFIG_GATE_BLOCKED")
             if relation is not None and not isinstance(relation, TaggingSettings):
                 raise RunRejected("CONFIG_GATE_BLOCKED")
-            if (
-                preliminary.model_profile != "upstage-preliminary-source-quotes-v1"
-                or tagging.model_profile
-                not in {
-                    "upstage-compact-ids-frozen-unicode-v1",
-                    "upstage-compact-coverage-unicode-v2",
-                    "upstage-compact-source-quotes-v3",
-                }
-            ):
+            if preliminary.model_profile not in {
+                "upstage-preliminary-source-quotes-v1",
+                "upstage-preliminary-source-quotes-context-v1",
+                # R12/R16 opt-in table pairs. The profile↔prompt welding for
+                # every name here is enforced by ``check_local_upstage_tagger``
+                # below, so this set only names the accepted profiles.
+                "upstage-preliminary-source-quotes-table-v1",
+                "upstage-preliminary-source-quotes-table-role-v1",
+            } or tagging.model_profile not in {
+                "upstage-compact-ids-frozen-unicode-v1",
+                "upstage-compact-coverage-unicode-v2",
+                "upstage-compact-source-quotes-v3",
+            }:
                 raise RunRejected("CONFIG_GATE_BLOCKED")
             if relation is not None and (
                 relation.model_profile != "upstage-relation-source-quotes-v1"

@@ -407,6 +407,91 @@ def test_scope_note_normalization_preserves_roles_and_conflicts_in_both_paths(
             assert item.value_decimal is None and result.conflicts
 
 
+def test_leading_full_width_title_row_is_skipped_before_explicit_header():
+    # A lone full-width caption above the header must not be mistaken for the header;
+    # the real header row drives binding and the title is preserved only as context.
+    batch = table(
+        [
+            ["온실가스 배출량 현황", None, None],
+            ["지표", "연도", "값"],
+            ["배출량", "2025", "1,234"],
+            ["배출량", "2024", "5,678"],
+        ],
+        spans={(0, 0): (1, 3)},
+    )
+    result = normalize(batch)
+    assert {(o.metric_raw, o.reporting_period, o.value_decimal) for o in result.observations} == {
+        ("배출량", "2025", "1234"),
+        ("배출량", "2024", "5678"),
+    }
+    for item in result.observations:
+        # Title is never promoted into a metric/unit/scope, only kept as provenance.
+        assert item.unit_raw is None and item.scope is None
+        assert "온실가스 배출량 현황" in {ref.quote for ref in item.source_refs}
+    assert not result.conflicts
+
+
+def test_leading_title_row_survives_metric_rename_and_row_shift():
+    # Same skip must hold when the metric label differs and extra title rows shift data.
+    batch = table(
+        [
+            ["2025 지속가능경영 부록", None, None, None],
+            ["대상 데이터", None, None, None],
+            ["항목", "기간", "단위", "값"],
+            ["총배출량", "2025", "tCO2e", "42"],
+        ],
+        spans={(0, 0): (1, 4), (1, 0): (1, 4)},
+    )
+    result = normalize(batch)
+    (item,) = result.observations
+    assert (item.metric_raw, item.reporting_period, item.unit_canonical, item.value_decimal) == (
+        "총배출량",
+        "2025",
+        "tCO2e",
+        "42",
+    )
+    quotes = {ref.quote for ref in item.source_refs}
+    assert {"2025 지속가능경영 부록", "대상 데이터"} <= quotes
+
+
+def test_partial_width_leading_caption_is_not_skipped_and_fails_closed():
+    # A caption spanning only part of the width is ambiguous; do not guess a header.
+    batch = table(
+        [
+            ["부분 제목", None, "값"],
+            ["지표", "연도", "값"],
+            ["배출량", "2025", "1"],
+        ],
+        spans={(0, 0): (1, 2)},
+    )
+    result = normalize(batch)
+    assert not result.observations
+    assert any(issue.kind == "table_layout_unresolved" for issue in result.conflicts)
+
+
+def test_full_width_title_without_following_rows_fails_closed():
+    # A title with nothing beneath it is not a promotable header layout.
+    batch = table([["제목만 있는 표", None, None]], spans={(0, 0): (1, 3)})
+    result = normalize(batch)
+    assert not result.observations
+    assert any(issue.kind == "table_layout_unresolved" for issue in result.conflicts)
+
+
+def test_full_width_title_over_non_header_body_still_fails_closed():
+    # Skipping the title must still leave an unrecognizable header to reject.
+    batch = table(
+        [
+            ["표 제목", None],
+            ["opaque", "header"],
+            ["something", "123"],
+        ],
+        spans={(0, 0): (1, 2)},
+    )
+    result = normalize(batch)
+    assert not result.observations
+    assert any(issue.kind == "table_layout_unresolved" for issue in result.conflicts)
+
+
 def test_scope_note_on_one_year_cannot_supply_other_year():
     batch = table([["지표", "2024", "2025"], ["배출량", "1", "2"]], footnote="Scope: Scope 1")
     batch = replace(
@@ -420,3 +505,174 @@ def test_scope_note_on_one_year_cannot_supply_other_year():
         "2024": "Scope 1",
         "2025": None,
     }
+
+
+@pytest.mark.parametrize("offset", [0, 1, 7])
+def test_title_rowspan_and_coordinate_origin_do_not_change_field_mapping(offset):
+    batch = table(
+        [
+            ["arbitrary caption", None, None],
+            [None, None, None],
+            ["metric", "year", "value"],
+            ["water", "2024", "17"],
+        ],
+        spans={(0, 0): (2, 3)},
+    )
+    batch = replace(
+        batch,
+        blocks=tuple(
+            replace(b, row_number=b.row_number + offset, column_number=b.column_number + offset)
+            if b.kind == "table_cell"
+            else b
+            for b in batch.blocks
+        ),
+    )
+    result = normalize(batch)
+    (item,) = result.observations
+    assert (item.metric_raw, item.reporting_period, item.value_decimal) == ("water", "2024", "17")
+    assert (item.row, item.column) == (3 + offset, 2 + offset)
+    assert item.quality == "unverified" and not result.conflicts
+
+
+def test_multilevel_target_actual_second_header_is_not_flattened_to_bare_year():
+    # A year spanning a 목표/실적 (target/actual) sub-header carries a second-level
+    # semantic the normalizer cannot represent. It must NOT silently emit both body
+    # values as identical bare-year observations; it fails closed as unresolved.
+    batch = table(
+        [
+            ["지표", "2025", None],
+            [None, "목표", "실적"],
+            ["배출량", "10", "20"],
+        ],
+        spans={(0, 0): (2, 1), (0, 1): (1, 2)},
+    )
+    result = normalize(batch)
+    assert not result.observations
+    assert any(issue.kind == "table_layout_unresolved" for issue in result.conflicts)
+
+
+def test_bare_merged_year_over_two_values_without_second_level_fails_closed():
+    # A single merged year over two distinct value columns, with no second-level
+    # header to disambiguate them, is the same ambiguous flattening and must not
+    # produce two duplicate bare-year observations.
+    batch = table(
+        [["지표", "2025", None], ["배출량", "10", "20"]],
+        spans={(0, 1): (1, 2)},
+    )
+    result = normalize(batch)
+    assert not result.observations
+    assert any(issue.kind == "table_layout_unresolved" for issue in result.conflicts)
+
+
+def test_scope2_basis_second_level_header_remains_supported_contrast():
+    # Contrast: the ONE recognized second-level header (Scope 2 measurement basis)
+    # still resolves both sub-columns into distinct supported observations.
+    batch = table(
+        [
+            ["지표", "사업장", "2025", None],
+            [None, None, "시장기반", "위치기반"],
+            ["배출량", "서울", "10", "20"],
+        ],
+        spans={(0, 0): (2, 1), (0, 1): (2, 1), (0, 2): (1, 2)},
+    )
+    result = normalize(batch)
+    assert {(o.reporting_period, o.scope2_basis, o.value_decimal) for o in result.observations} == {
+        ("2025", "시장기반", "10"),
+        ("2025", "위치기반", "20"),
+    }
+    assert not result.conflicts
+
+
+def test_ordinary_distinct_year_columns_still_normalize():
+    # Plain (non-merged) year columns are unaffected by the second-level guard.
+    result = normalize(table([["지표", "2024", "2025"], ["배출량", "1", "2"]]))
+    assert {(o.reporting_period, o.value_decimal) for o in result.observations} == {
+        ("2024", "1"),
+        ("2025", "2"),
+    }
+    assert not result.conflicts
+
+
+def test_explicit_binding_year_header_omitting_intervening_level_is_rejected():
+    # Sibling explicit path: choosing the merged bare-year header + a body value while
+    # omitting the intervening 목표/실적 header reaches the same demonstrated loss.
+    # It must fail closed (ValueError) rather than emit a bare-year observation.
+    from proofops.application.ingest.normalize import normalize_table_bindings
+
+    batch = table(
+        [
+            ["지표", "2025", None],
+            [None, "목표", "실적"],
+            ["배출량", "10", "20"],
+        ],
+        spans={(0, 0): (2, 1), (0, 1): (1, 2)},
+    )
+    graph = fuse_candidates((batch,), tenant_id=TENANT)
+    ids = {b.candidates[0].source.source_native_id: b.source_id for b in graph.blocks}
+    for value_key in ("r2c1", "r2c2"):
+        with pytest.raises(ValueError):
+            normalize_table_bindings(
+                graph,
+                table_id=ids["T"],
+                tenant_id=TENANT,
+                bindings=(
+                    dict(
+                        metric_raw=ids["r2c0"],
+                        reporting_period=ids["r0c1"],
+                        value_raw=ids[value_key],
+                    ),
+                ),
+            )
+
+
+def test_explicit_binding_direct_year_column_header_still_supported_contrast():
+    # Contrast: a year column header directly above its value (no intervening level)
+    # remains a supported explicit binding in both wide-year columns.
+    from proofops.application.ingest.normalize import normalize_table_bindings
+
+    batch = table([["지표", "2024", "2025"], ["배출량", "1", "2"]])
+    graph = fuse_candidates((batch,), tenant_id=TENANT)
+    ids = {b.candidates[0].source.source_native_id: b.source_id for b in graph.blocks}
+    result = normalize_table_bindings(
+        graph,
+        table_id=ids["T"],
+        tenant_id=TENANT,
+        bindings=(
+            dict(metric_raw=ids["r1c0"], reporting_period=ids["r0c1"], value_raw=ids["r1c1"]),
+            dict(metric_raw=ids["r1c0"], reporting_period=ids["r0c2"], value_raw=ids["r1c2"]),
+        ),
+    )
+    assert {(o.reporting_period, o.value_decimal) for o in result.observations} == {
+        ("2024", "1"),
+        ("2025", "2"),
+    }
+
+
+def test_unmerged_year_headers_do_not_discard_spanned_header_tier():
+    result = normalize(
+        table(
+            [["지표", "2025", "2025"], [None, "목표", "실적"], ["water", "10", "20"]],
+            spans={(0, 0): (2, 1)},
+        )
+    )
+    assert not result.observations
+    assert any(i.kind == "table_layout_unresolved" for i in result.conflicts)
+
+
+@pytest.mark.parametrize("preceding_value", ["1", "-", "10 tCO2e"])
+def test_explicit_year_header_can_cross_prior_numeric_data_rows(preceding_value):
+    from proofops.application.ingest.normalize import normalize_table_bindings
+
+    graph = fuse_candidates(
+        (table([["지표", "2025"], ["energy", preceding_value], ["water", "20"]]),), tenant_id=TENANT
+    )
+    ids = {b.candidates[0].source.source_native_id: b.source_id for b in graph.blocks}
+    result = normalize_table_bindings(
+        graph,
+        table_id=ids["T"],
+        tenant_id=TENANT,
+        bindings=(
+            dict(metric_raw=ids["r2c0"], reporting_period=ids["r0c1"], value_raw=ids["r2c1"]),
+        ),
+    )
+    assert result.observations[0].value_decimal == "20"

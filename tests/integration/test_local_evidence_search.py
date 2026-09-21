@@ -173,3 +173,176 @@ def test_far_page_numeric_hit_does_not_gain_direct_evidence_scope():
     assert "P1" not in candidate["allowed_elements"]
     assert all(b["state"] == "undetermined" for b in packet["candidate_bindings"])
     assert packet["search_coverage"]["not_found_state"] == "unknown"
+
+
+def test_collect_raw_candidate_review_unverified_table_positive_and_guards():
+    """R04 positive: unverified table is surfaced in raw_candidate_review.
+
+    Gated from retrieve_evidence and downstream confirmed tags.
+    """
+    import copy
+    from uuid import UUID, uuid5
+    from proofops.adapters.local.evidence_search import (
+        collect_raw_candidate_review,
+        validate_raw_candidate,
+    )
+    from proofops.application.ingest.graph_fusion import (
+        CandidateBatch,
+        CandidateBlock,
+        fuse_candidates,
+    )
+    from proofops.domain.documents import NativeSource, PageGeometry
+    from tests.acceptance.test_claims import MANIFEST, VERSION
+
+    run = str(uuid5(UUID(MANIFEST), "synthetic-parser"))
+    p_text = "당사는 온실가스 배출량을 매년 공시합니다."
+    t_text = "2023년 온실가스 배출량 표: Scope 1 1234 tCO2e, Scope 2 5678 tCO2e"
+    batch = CandidateBatch(
+        TENANT,
+        VERSION,
+        MANIFEST,
+        "a" * 64,
+        run,
+        "synthetic-text",
+        "1",
+        "synthetic",
+        "b" * 64,
+        (
+            CandidateBlock(
+                "paragraph",
+                NativeSource(
+                    VERSION,
+                    MANIFEST,
+                    run,
+                    "p1",
+                    1,
+                    None,
+                    (10, 10, 590, 50),
+                    "pdf_bottom_left_points",
+                    p_text,
+                    0,
+                    len(p_text),
+                ),
+                PageGeometry(600, 800, 0, (0, 0, 600, 800)),
+            ),
+            CandidateBlock(
+                "table",
+                NativeSource(
+                    VERSION,
+                    MANIFEST,
+                    run,
+                    "t1",
+                    2,
+                    None,
+                    (10, 60, 590, 400),
+                    "pdf_bottom_left_points",
+                    t_text,
+                    0,
+                    len(t_text),
+                ),
+                PageGeometry(600, 800, 0, (0, 0, 600, 800)),
+            ),
+        ),
+        synthetic=True,
+    )
+    graph = fuse_candidates((batch,), tenant_id=TENANT)
+    table_block = next(b for b in graph.blocks if b.kind == "table")
+    assert table_block.quality == "unverified"
+
+    search = make_search(graph)
+    review = collect_raw_candidate_review(search, "온실가스 배출량")
+
+    assert review["schema_version"] == 1
+    candidates = review["candidates"]
+    assert len(candidates) >= 1
+
+    table_cand = next(c for c in candidates if c["source_ref"]["page_num"] == 2)
+    assert table_cand["status"] == "unverified"
+    assert table_cand["reason"] == "UNVERIFIED_SOURCE"
+    assert table_cand["source_ref"]["location_quality"] == "located"
+    assert table_cand["source_ref"]["bbox"] is not None
+    assert "1234 tCO2e" in table_cand["source_ref"]["quote"]
+
+    # Negative 1: Identity mismatch (tampered document_version_id / tenant_id)
+    tampered_id = copy.deepcopy(table_cand)
+    tampered_id["source_ref"]["document_version_id"] = "99999999-9999-4999-8999-999999999999"
+    assert not validate_raw_candidate(tampered_id, graph, tenant_id=TENANT)
+    assert not validate_raw_candidate(table_cand, graph, tenant_id=OTHER)
+
+    # Negative 2: Tampered raw_text_sha256
+    tampered_hash = copy.deepcopy(table_cand)
+    tampered_hash["source_ref"]["raw_text_sha256"] = "f" * 64
+    assert not validate_raw_candidate(tampered_hash, graph, tenant_id=TENANT)
+
+    # Negative 3: Tampered quote
+    tampered_quote = copy.deepcopy(table_cand)
+    tampered_quote["source_ref"]["quote"] = "조작된 배출량"
+    assert not validate_raw_candidate(tampered_quote, graph, tenant_id=TENANT)
+
+    # Negative 4: Unlocated geometry or tampered bbox coordinates
+    unlocated = copy.deepcopy(table_cand)
+    unlocated["source_ref"]["location_quality"] = "unlocated"
+    unlocated["source_ref"]["bbox"] = None
+    assert not validate_raw_candidate(unlocated, graph, tenant_id=TENANT)
+
+    tampered_bbox = copy.deepcopy(table_cand)
+    tampered_bbox["source_ref"]["bbox"] = (10.0, 60.0, 590.0, 999.0)
+    assert not validate_raw_candidate(tampered_bbox, graph, tenant_id=TENANT)
+
+    # Negative 5: Accepted label prohibited (must stay unconfirmed/unverified)
+    tampered_status = copy.deepcopy(table_cand)
+    tampered_status["status"] = "verified"
+    assert not validate_raw_candidate(tampered_status, graph, tenant_id=TENANT)
+    tampered_status["status"] = "accepted"
+    assert not validate_raw_candidate(tampered_status, graph, tenant_id=TENANT)
+
+    # Negative 6: Bool offset rejected
+    bool_offset = copy.deepcopy(table_cand)
+    bool_offset["source_ref"]["char_start"] = True
+    assert not validate_raw_candidate(bool_offset, graph, tenant_id=TENANT)
+
+    # Negative 7: Empty span rejected (start == end)
+    empty_span = copy.deepcopy(table_cand)
+    empty_span["source_ref"]["char_start"] = 5
+    empty_span["source_ref"]["char_end"] = 5
+    empty_span["source_ref"]["quote"] = ""
+    assert not validate_raw_candidate(empty_span, graph, tenant_id=TENANT)
+
+    # Negative 8: Mismatched printed_page_label and verification_state
+    mismatched_label = copy.deepcopy(table_cand)
+    mismatched_label["source_ref"]["printed_page_label"] = "99"
+    assert not validate_raw_candidate(mismatched_label, graph, tenant_id=TENANT)
+
+    mismatched_vstate = copy.deepcopy(table_cand)
+    mismatched_vstate["source_ref"]["verification_state"] = "verified"
+    assert not validate_raw_candidate(mismatched_vstate, graph, tenant_id=TENANT)
+
+    # Positive control: valid candidate passes
+    assert validate_raw_candidate(table_cand, graph, tenant_id=TENANT)
+
+    # Guard: retrieve_evidence filters out unverified sources from original_packet
+    from proofops.application.claims import discover_atomic_claims, ClaimScope
+    from proofops_agent.extraction import SyntheticClaimExtractor
+    from proofops.application.evidence.retrieval import retrieve_evidence
+    from tests.acceptance.test_rules import pack
+
+    claims_discovery = discover_atomic_claims(
+        graph, ClaimScope(TENANT, VERSION, MANIFEST), extractor=SyntheticClaimExtractor()
+    )
+    if claims_discovery.claims:
+        claim = claims_discovery.claims[0]
+        packet = retrieve_evidence(
+            claim,
+            graph,
+            search,
+            tenant_id=TENANT,
+            run_id="55555555-5555-4555-8555-555555555555",
+            index_generation=search.scope.index_generation,
+            rulepack=pack(),
+            document_context={},
+            token_counter=len,
+        ).to_dict()
+        # The unverified table block MUST NOT be promoted to evidence_candidates
+        table_sources = [c for c in packet["evidence_candidates"] if c["source_id"] == table_block.source_id]
+        assert len(table_sources) == 0
+

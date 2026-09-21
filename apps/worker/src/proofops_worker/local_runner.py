@@ -29,9 +29,19 @@ from proofops.application.uploads_security import UploadRejected
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
 
-from proofops_worker.consumer import StageFailure, consume_job
+from proofops_worker.consumer import StageFailure, consume_job, with_lease_heartbeat
 from proofops_worker.extract_runner import paragraph_priority
 from proofops_worker.telemetry import observe_job
+
+
+def _with_parser_heartbeat(store, lease, clock, operation):
+    """Renew only this local parser's lease; any renewal failure blocks publication."""
+    try:
+        return with_lease_heartbeat(store, lease, clock, operation)
+    except StageFailure as failure:
+        if failure.error_code == "LEASE_HEARTBEAT_FAILED":
+            raise StageFailure("PARSER_HEARTBEAT_FAILED", usage=failure.usage) from None
+        raise
 
 
 class LocalParserRunner:
@@ -49,14 +59,27 @@ class LocalParserRunner:
         verify_paragraphs: bool = False,
         raster_probe=None,
         raster_ledger=None,
+        native_typography_tolerance: bool = False,
     ):
         if not uploads.local_synthetic or not isinstance(profile, ParserProfile):
             raise ValueError("local parser requires local storage and executable configuration")
         if type(verify_paragraphs) is not bool:
             raise ValueError("verify_paragraphs must be a boolean")
+        if type(native_typography_tolerance) is not bool:
+            raise ValueError("native_typography_tolerance must be a boolean")
+        if native_typography_tolerance and not verify_paragraphs:
+            raise ValueError("native_typography_tolerance requires verify_paragraphs")
         self.store, self.uploads, self.parser = store, uploads, parser
         self.profile, self.telemetry, self.clock = profile, telemetry, clock
         self.verify_paragraphs = verify_paragraphs
+        # Opt-in only; default False keeps every existing run's checkpoint,
+        # verified-block set, and downstream grade byte-identical. When set,
+        # this never mutates the stored native_paragraph_attestation receipt
+        # or its policy hash -- it only additionally records a separately
+        # hashed, separately versioned proof on this instance (see
+        # native_paragraph_typography.py) after the unchanged base replay.
+        self.native_typography_tolerance = native_typography_tolerance
+        self.last_typography_proof = None
         self.note_client = note_client
         self.note_ledger = (
             note_ledger if note_ledger is not None else getattr(note_client, "ledger", None)
@@ -184,6 +207,11 @@ class LocalParserRunner:
 
                 try:
                     snapshot, source, profile = self._inputs(tenant_id, run_id)
+                    if raster_enabled and self.native_typography_tolerance:
+                        # The v5 raster replay path discards typography
+                        # promotions, so committing both would publish a
+                        # checkpoint no reader can reproduce. Fail closed.
+                        raise StageFailure("NATIVE_TYPOGRAPHY_RASTER_UNSUPPORTED", usage=usage)
                     if (
                         message.tenant_id,
                         message.run_id,
@@ -264,9 +292,26 @@ class LocalParserRunner:
                         native_receipt = attest_native_sources(
                             graph, source.content, tenant_id=tenant_id, geometry_mode="glyph"
                         )
-                        graph = replay_native_sources(
-                            native_receipt, graph, source.content, tenant_id=tenant_id
-                        )
+                        if self.native_typography_tolerance:
+                            from proofops.adapters.local.native_paragraph_typography import (
+                                apply_typography_tolerance,
+                            )
+
+                            # The tolerance wrapper recomputes the base replay
+                            # itself, so it must see the attested-input graph,
+                            # not the already-replayed one: replay receipts pin
+                            # `input_graph_sha256`, and a replayed graph never
+                            # reproduces its own input receipt.
+                            graph, self.last_typography_proof = apply_typography_tolerance(
+                                native_receipt,
+                                graph,
+                                source.content,
+                                tenant_id=tenant_id,
+                            )
+                        else:
+                            graph = replay_native_sources(
+                                native_receipt, graph, source.content, tenant_id=tenant_id
+                            )
                     raster_coverage = None
                     raster_refs = None
                     if raster_enabled:
@@ -388,6 +433,17 @@ class LocalParserRunner:
                             native_paragraph_attestation=native_receipt,
                             native_paragraph_policy_sha256=canonical_hash(native_policy),
                         )
+                        if self.native_typography_tolerance:
+                            from proofops.adapters.local.native_paragraph_typography import (
+                                native_paragraph_typography_policy,
+                            )
+
+                            payload.update(
+                                native_paragraph_typography_policy_sha256=canonical_hash(
+                                    native_paragraph_typography_policy()
+                                ),
+                                native_paragraph_typography_proof=self.last_typography_proof,
+                            )
                     if raster_enabled:
                         payload.update(
                             schema="local_parser_checkpoint_v5",
@@ -492,7 +548,9 @@ class LocalParserRunner:
                 operation=lambda lease: observe_job(
                     self.telemetry,
                     lease,
-                    operation,
+                    lambda active_lease: _with_parser_heartbeat(
+                        self.store.jobs, active_lease, self.clock, operation
+                    ),
                     context=TraceContext.new(
                         tenant_id=tenant_id, run_id=run_id, job_id=message.job_id
                     ),

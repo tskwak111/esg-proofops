@@ -174,6 +174,116 @@ def _draft_pack(service, tenant: str):
     return pack
 
 
+def _preliminary_chain(variant: str) -> tuple[str, str]:
+    """Profile/prompt pair for an opt-in preliminary variant, as pinned in preflight."""
+
+    from proofops.application.tagging.preliminary import (
+        CONTEXT_SYSTEM_SUFFIX,
+        SYSTEM_PROMPT,
+        TABLE_ROLE_SYSTEM_SUFFIX,
+        TABLE_SYSTEM_SUFFIX,
+    )
+
+    context = SYSTEM_PROMPT + CONTEXT_SYSTEM_SUFFIX
+    table = context + TABLE_SYSTEM_SUFFIX
+    return {
+        "context": ("upstage-preliminary-source-quotes-context-v1", context),
+        "table": ("upstage-preliminary-source-quotes-table-v1", table),
+        "table_role": (
+            "upstage-preliminary-source-quotes-table-role-v1",
+            table + TABLE_ROLE_SYSTEM_SUFFIX,
+        ),
+    }[variant]
+
+
+def _pin_preliminary(service, preliminary, profile: str, prompt: str):
+    pinned = replace(
+        preliminary,
+        binding=ModelBinding(str(uuid4()), "tagger", False),
+        model_profile=profile,
+        system_prompt=prompt,
+    )
+    _register(
+        service,
+        "runtime",
+        _tagger_binding(pinned.binding.binding_id, pinned),
+        "runtime_binding_id",
+    )
+    service.preliminary_settings = pinned
+    return pinned
+
+
+@pytest.mark.parametrize("variant", ["table", "table_role"])
+def test_table_preliminary_profiles_create_a_real_mode_run_over_http(tmp_path, variant):
+    """R12/R16 opt-in pairs must pass the create-run gate, not only preflight."""
+
+    from tests.integration.test_run_lifecycle import client
+
+    service, body, preliminary, _ = _live_service(tmp_path)
+    profile, prompt = _preliminary_chain(variant)
+    pinned = _pin_preliminary(service, preliminary, profile, prompt)
+    http, _auth = client(service)
+    response = http.post("/v1/runs", json=body)
+    assert response.status_code == 202, response.text
+    snapshot = service.store.snapshot(AUTH.tenant_id, response.json()["run_id"])
+    assert snapshot["preliminary_settings"]["model_profile"] == pinned.model_profile
+    assert snapshot["preliminary_settings"]["system_prompt"] == prompt
+
+
+@pytest.mark.parametrize("variant", ["table", "table_role"])
+def test_table_preliminary_profiles_reject_mismatched_prompts(tmp_path, variant):
+    """The profile stays welded to its own prompt chain; neither half may be swapped."""
+
+    from proofops.application.runs import RunRejected
+
+    service, body, preliminary, _ = _live_service(tmp_path)
+    profile, _prompt = _preliminary_chain(variant)
+    other = "table_role" if variant == "table" else "table"
+    _pin_preliminary(service, preliminary, profile, _preliminary_chain(other)[1])
+    with pytest.raises(RunRejected, match="CONFIG_GATE_BLOCKED"):
+        service.create(AUTH, body, str(uuid4()))
+
+
+def test_unknown_preliminary_profile_stays_rejected(tmp_path):
+    from proofops.application.runs import RunRejected
+
+    service, body, preliminary, _ = _live_service(tmp_path)
+    _, prompt = _preliminary_chain("table_role")
+    _pin_preliminary(
+        service, preliminary, "upstage-preliminary-source-quotes-table-role-v2", prompt
+    )
+    with pytest.raises(RunRejected, match="CONFIG_GATE_BLOCKED"):
+        service.create(AUTH, body, str(uuid4()))
+
+
+def test_context_preliminary_profile_can_create_a_real_mode_run(tmp_path):
+    from dataclasses import replace
+
+    from proofops.application.tagging.preliminary import CONTEXT_SYSTEM_SUFFIX, SYSTEM_PROMPT
+
+    service, body, preliminary, _ = _live_service(tmp_path)
+    context = replace(
+        preliminary,
+        binding=ModelBinding(str(uuid4()), "tagger", False),
+        model_profile="upstage-preliminary-source-quotes-context-v1",
+        system_prompt=SYSTEM_PROMPT + CONTEXT_SYSTEM_SUFFIX,
+    )
+    _register(
+        service,
+        "runtime",
+        _tagger_binding(context.binding.binding_id, context),
+        "runtime_binding_id",
+    )
+    service.preliminary_settings = context
+    created = service.create(AUTH, body, str(uuid4()))
+    assert (
+        service.store.snapshot(AUTH.tenant_id, created["run_id"])["preliminary_settings"][
+            "model_profile"
+        ]
+        == context.model_profile
+    )
+
+
 # --- config loading ---
 
 

@@ -1572,6 +1572,7 @@ paths:
           - auto_confirmed
           - needs_review
           - human_confirmed
+          - ai_delegated_confirmed
   /v1/runs/{run_id}/claims/{claim_id}:
     get:
       operationId: claim_get
@@ -5016,6 +5017,7 @@ components:
           - auto_confirmed
           - needs_review
           - human_confirmed
+          - ai_delegated_confirmed
         missing_elements:
           type: array
           items:
@@ -5250,6 +5252,14 @@ components:
             - clause
             - summary
             - verification_status
+        rulepack_approved_by:
+          anyOf:
+          - type: string
+          - type: 'null'
+        review_projection:
+          anyOf:
+          - $ref: '#/components/schemas/ReviewProjection'
+          - type: 'null'
       required:
       - claim
       - source_refs
@@ -5259,6 +5269,76 @@ components:
       - packet_sha256
       - suggestion
       - basis_refs
+    ReviewProjection:
+      type: object
+      additionalProperties: false
+      properties:
+        schema_version:
+          type: integer
+          enum:
+          - 1
+        candidate_snippets:
+          type: array
+          items:
+            type: string
+        blocked_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+        blocked_action:
+          anyOf:
+          - type: string
+          - type: 'null'
+        field_agreements:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              field_id:
+                type: string
+              status:
+                type: string
+                enum:
+                - agreed
+                - conflict
+                - unresolved
+              replicate_values:
+                type: array
+                items: true
+            required:
+            - field_id
+            - status
+            - replicate_values
+        raw_candidates:
+          type: array
+          items:
+            $ref: '#/components/schemas/RawCandidate'
+      required:
+      - candidate_snippets
+      - blocked_reason
+      - blocked_action
+      - field_agreements
+    RawCandidate:
+      type: object
+      additionalProperties: false
+      properties:
+        source_ref:
+          $ref: '#/components/schemas/SourceRef'
+        status:
+          type: string
+          enum:
+          - candidate
+          - unverified
+          - unconfirmed
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+      required:
+      - source_ref
+      - status
+      - reason
     Review:
       type: object
       additionalProperties: false
