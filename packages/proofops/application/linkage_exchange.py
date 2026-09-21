@@ -66,7 +66,30 @@ FACT_KINDS = (
 # trigger name). This maps EXACT fact ids, never an arbitrary/unknown field
 # name: a fact whose name is not one of these keys contributes no trigger,
 # regardless of its state. See `_verified_triggers`.
+#
+# `org_boundary` is the CANONICAL fact name every real producer emits for the
+# organisational-boundary element (`management.M2` and `goal.G4` in
+# packages/proofops/domain/rules/; `config/rubric/{management,goal}.yaml` name
+# the same primitive). The contract's own conversion note
+# (handoff/team-v2/contract/SCHEMA_GUIDE.md: "organizational_boundary: 기존
+# org_boundary/calculation_boundary의 검증된 조직경계 내용을 확인해 생성") makes it
+# the source of the `organizational_boundary` trigger, so this is a spelling
+# alias for one identical element -- not a widening of what counts as a
+# boundary. Without it an accepted M2/G4 review was silently dropped here. The
+# older `organizational_boundary` key is kept so any pre-existing stored fact
+# under that spelling keeps resolving.
+#
+# Deliberately NOT mapped, and left as explicit gaps rather than guesses:
+#   * `calculation_boundary` (`performance.P3`) -- a calculation boundary is not
+#     proven to be an organisational boundary; the contract requires the
+#     organisational content to be confirmed first.
+#   * `scope` (`goal.G4`'s other primitive, i.e. GHG Scope 1/2/3) -- the
+#     contract forbids creating `implementation_scope` from a generic scope or
+#     region mention, and no producer emits `implementation_scope` itself.
+#   * `currency_amount` / `revenue_share` -- no producer emits these fact names
+#     at all, and no approved currency/revenue primitive exists to alias.
 TRIGGER_TAG_MAP: dict[str, str] = {
+    "org_boundary": "organizational_boundary",
     "organizational_boundary": "organizational_boundary",
     "implementation_scope": "implementation_scope",
     "quantitative_or_qualified_ordinal": "quantitative_value",

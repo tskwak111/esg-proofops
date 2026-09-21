@@ -24,11 +24,13 @@ from pathlib import Path
 import pytest
 from proofops.application.claims import Claim, ExtractionProfile, ExtractionReceipt
 from proofops.application.linkage_exchange import (
+    TRIGGER_TAG_MAP,
     BlockedPacket,
     C3Context,
     FinancialContext,
     FinancialFact,
     FinancialSource,
+    _verified_triggers,
     build_packet,
 )
 from proofops.domain.rules.engine import ConfirmedFact, ConfirmedTags
@@ -386,6 +388,65 @@ def test_no_verified_trigger_blocks_when_fact_not_present():
     result = _build(tags=unresolved_tags)
     assert isinstance(result, BlockedPacket)
     assert result.reason == "no_verified_trigger"
+
+
+def test_the_canonical_org_boundary_fact_name_maps_to_the_contract_trigger():
+    """`org_boundary` is what management.M2/goal.G4 actually emit.
+
+    The older `organizational_boundary` spelling stays mapped (every other case
+    in this module still uses it), and neither spelling changes the verification
+    guards a trigger has to clear.
+    """
+    canonical = _confirmed_tags(
+        facts=(
+            ConfirmedFact(
+                name="org_boundary",
+                state="present",
+                evidence_refs=(_source_ref(),),
+                source_tenant_id=TENANT,
+                citation_verified=True,
+                binding_accepted=True,
+                search_coverage_verified=False,
+                normalized_value='["A","B"]',
+            ),
+        )
+    )
+    assert TRIGGER_TAG_MAP["org_boundary"] == "organizational_boundary"
+    assert TRIGGER_TAG_MAP["organizational_boundary"] == "organizational_boundary"
+    triggers = _verified_triggers(canonical)
+    assert [(t.fact_name, t.trigger_element) for t in triggers] == [
+        ("org_boundary", "organizational_boundary")
+    ]
+
+
+def test_an_unproven_boundary_or_scope_primitive_stays_an_explicit_gap():
+    """No blind widening: a calculation boundary or a GHG `scope` is not a trigger.
+
+    `calculation_boundary` (performance.P3) and `scope` (goal.G4's other
+    primitive) are deliberately absent from the map, so a present+verified fact
+    under either name still produces no trigger at all.
+    """
+    for name in ("calculation_boundary", "scope"):
+        assert name not in TRIGGER_TAG_MAP
+        assert (
+            _verified_triggers(
+                _confirmed_tags(
+                    facts=(
+                        ConfirmedFact(
+                            name=name,
+                            state="present",
+                            evidence_refs=(_source_ref(),),
+                            source_tenant_id=TENANT,
+                            citation_verified=True,
+                            binding_accepted=True,
+                            search_coverage_verified=False,
+                            normalized_value="Scope 1",
+                        ),
+                    )
+                )
+            )
+            == ()
+        )
 
 
 def test_c3_requires_c3_context():
