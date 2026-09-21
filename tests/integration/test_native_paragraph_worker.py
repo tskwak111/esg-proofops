@@ -92,15 +92,26 @@ def test_default_preserves_legacy_v1_checkpoint(tmp_path, monkeypatch):
 
 
 def test_opt_in_publishes_v4_and_replays_immutable_receipt(tmp_path, monkeypatch):
+    from proofops.adapters.local import source_verification
     from proofops.adapters.local.run_artifacts import load_run_evidence, native_paragraph_policy
     from proofops.application.ports.jobs import JobMessage
 
+    rendered_reads = []
+    render = source_verification._rendered_text
+
+    def observed_render(*args, **kwargs):
+        result = render(*args, **kwargs)
+        rendered_reads.append(result)
+        return result
+
+    monkeypatch.setattr(source_verification, "_rendered_text", observed_render)
     service, run_id, runner, now, stream = runner_setup_native(tmp_path, monkeypatch, True)
     pending = JobMessage(
         **service.store.jobs.pending_outbox(TENANT, run_id, now=now[0])[0]["message"]
     )
     assert runner.run_once(tenant_id=TENANT, run_id=run_id) == "committed", (
         service.store.jobs.get_job(pending).get("error_code"),
+        rendered_reads,
         stream.getvalue(),
     )
     message = JobMessage(**service.store.jobs.get_run(TENANT, run_id)["parse_job"])
