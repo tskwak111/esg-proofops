@@ -512,12 +512,17 @@ class LocalSQLiteReviewStore:
         )
         return review
 
-    def resolve(self, actor, review_id, body, expected, key, build):
+    def resolve(self, actor, review_id, body, expected, key, build, *, reopen=False):
         with self.jobs._transaction() as db:
             review = self._lookup(db, actor.tenant_id, review_id)
             tenant, run_id, claim_id = actor.tenant_id, review["run_id"], review["claim_id"]
             replay_key = canonical_hash([actor.user_sub, "review_resolve", key])
-            request_hash = canonical_hash([review_id, body, expected])
+            # Preserve the exact legacy identity for the ordinary resolve so old
+            # stored idempotency receipts still replay byte-for-byte. Only the
+            # new explicit re-review action extends the identity with a marker.
+            request_hash = canonical_hash(
+                [review_id, body, expected, "reopen"] if reopen else [review_id, body, expected]
+            )
             replay_row = db.execute(
                 """SELECT value FROM job_records WHERE tenant_id=?
                 AND kind='review_idempotency' AND record_id=?""",
@@ -530,14 +535,25 @@ class LocalSQLiteReviewStore:
                     raise ReviewRejected("IDEMPOTENCY_CONFLICT", 409)
                 return previous["response"]
             head = self.jobs._get(db, tenant, run_id, "claim_head", claim_id)
-            if (
-                review["revision"] != expected
-                or review["status"] != "open"
-                or (
-                    body["base_tag_revision"] != review["base_tag_revision"]
-                    or head["tag_revision"] != body["base_tag_revision"]
+            # Two explicit lifecycle transitions, both strict-CAS on the review
+            # revision and both anchored to the CURRENT tag head (never a stale
+            # base). A resolved review can only be improved through an explicit
+            # ``reopen`` action, never a silent second resolve; an open review can
+            # only be resolved through the ordinary (non-reopen) path.
+            if reopen:
+                valid = (
+                    review["revision"] == expected
+                    and review["status"] == "resolved"
+                    and body["base_tag_revision"] == head["tag_revision"]
                 )
-            ):
+            else:
+                valid = (
+                    review["revision"] == expected
+                    and review["status"] == "open"
+                    and body["base_tag_revision"] == review["base_tag_revision"]
+                    and head["tag_revision"] == body["base_tag_revision"]
+                )
+            if not valid:
                 raise ReviewRejected("STALE_REVIEW_REVISION", 412)
             initial = self.jobs._get(
                 db, tenant, run_id, "tag_revision", f'{claim_id}:{head["tag_revision"]:010}'
@@ -600,7 +616,7 @@ class LocalSQLiteReviewStore:
                     tenant,
                     run_id,
                     actor.user_sub,
-                    "review_resolved",
+                    "review_rereviewed" if reopen else "review_resolved",
                     review_id,
                     canonical_hash(initial),
                     canonical_hash(dict(tag=tag, decision=decision)),

@@ -28,6 +28,36 @@ cd /Users/ss020/Dev/ESG_ProofOps/.local/team-publication-20260918
   --port 8795
 ```
 
+### 서버 없이 상태만 확인 — `--no-serve` (부분 결과·재개 명시)
+
+`--no-serve`를 붙이면 서버를 띄우지 않고 저장된 실행 상태만 확인합니다. 실행기는 pilot이
+스스로 출력한 `pipeline_outcome`(stage·status)를 **그대로** 보이고, pilot이 저장한
+이번 실행에서 새로 저장된 `inspection-*.json`을 **읽어** 반환된 주장 페이지의 등급 확정·보류·적용 제외 수를
+표시합니다. 이는 전체 보고서 건수가 아니며 다음 페이지가 있으면 별도로 알립니다. 로그는 느린 원문 재생 중에도 실시간으로 출력합니다. pending 주장이 하나라도 있으면 다음을 명시합니다.
+
+- **REMAINING**: 아직 규칙엔진 등급이 없는 주장 수를 정확히 보고합니다. 생성된 ZIP이나 열린
+  검토 화면은 **부분 결과**이며 보고서 완료가 아닙니다.
+- 주장 상세에서 원문 검증·선행분류·요소 태깅·규칙 보류 사유를 확인하고 해당 단계부터 보완합니다.
+  실제 모델 호출에는 기존 공용 USD20 장부가 적용됩니다. 읽기 전용 재개는 채점하지 않습니다.
+- 결과를 다시 브라우저로 여는 **읽기 전용 재개 명령**(항상 `--resume --serve`, 유료 `--invoke` 아님)을 출력합니다.
+
+pilot 상태를 재분류하거나 보증 상태를 단정하지 않으며, 상태 줄을 찾지 못하면 완료 상태를
+만들어 내지 않고 저장된 `inspection-*.json`을 직접 확인하도록 안내합니다.
+
+## 개발자 B 재무 연계 반환 검증 — `linkage_exchange_cli.py verify-return`
+
+개발자 B가 실제로 생성한 반환 3종(packet/policy/result)이 있으면 기존 `handoff/team-v3/contract/validate.py`의 구조 검증에 더해 원문 바이트 대조까지 수행합니다. 인터페이스는 지금 실행 가능합니다.
+
+```bash
+cd /Users/ss020/Dev/ESG_ProofOps/.local/ab-integration-20260921
+PYTHONPATH=. .venv/bin/python scripts/linkage_exchange_cli.py verify-return \
+  --input <packet.json> --policy <policy.json> --output <result.json> \
+  --database-path <trusted-run-state>
+```
+
+- 합성 예시로 구조 검증만 실행하려면 `--skip-byte-verification`를 붙이고 `outputs/agent-fixtures/linkage-contract/`의 예시 triple을 사용합니다. 이는 **합성 확인**이며 실제 반환 검증이 아닙니다.
+- 실제 B가 생성한 input/policy/output와 재무 원문 로컬 경로가 없으면 실제 반환 검증은 **not_run**으로 남깁니다. 예시·템플릿을 실제 반환으로 표시하지 않습니다.
+
 ## 새로운 PDF 분석 — 실제 API 호출
 
 프로젝트 최상위의 `analyze_report.command`로 새 보고서를 실행할 수 있습니다. 아래 명령은 **입력 계획만 확인**하며 모델 호출·상태 생성이 없습니다. PDF 경로·물리 페이지·보고기간은 실제 문서에 맞게 입력합니다.

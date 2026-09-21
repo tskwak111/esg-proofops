@@ -2610,6 +2610,116 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/ReviewResolve'
+  /v1/reviews/{review_id}/re-review:
+    post:
+      operationId: review_re_review
+      summary: review_re_review
+      description: >-
+        Explicit re-review of an already-resolved review. Additive to
+        review_resolve with identical guards (reviewer role, session cookie,
+        CSRF, strict If-Match on the current review revision, Idempotency-Key).
+        Targets the current tag head and appends the next immutable
+        tag/decision/review revisions; prior revisions and exports are never
+        mutated. Provenance stays human on this HTTP route. Returns 412
+        STALE_REVIEW_REVISION when the review is still open (use review_resolve)
+        or when the supplied base tag revision is not the current head.
+      x-minimum-role: reviewer
+      x-rate-limit: 10/min/user
+      x-idempotency-required: true
+      security:
+      - sessionCookie: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewResolution'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden or CSRF failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found or tenant mismatch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict / gate blocked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '412':
+          description: Stale revision or review still open
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Schema or domain validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate/budget limit
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Dependency unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - name: review_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+          maxLength: 128
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+          pattern: ^"[1-9][0-9]*"$
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewResolve'
   /v1/runs/{run_id}/exports:
     post:
       operationId: export_create

@@ -376,7 +376,7 @@ export function ReviewQueueWorkspace({ apiBase = "", tenantKey, session, runId, 
     if (!review || !freshClaims.some(item => item.claim_id === review.claim_id)) throw new Error("최신 검토 항목을 찾을 수 없습니다.");
     const claimDetail = await requestJson<ClaimDetail>(`${apiBase}/v1/runs/${runId}/claims/${review.claim_id}`, { signal });
     if (!claimDetail.claim.track) throw new Error("트랙이 미확정되어 검토 편집기를 열 수 없습니다.");
-    return { snapshot: { review, track: claimDetail.claim.track, elements: completeElements(claimDetail.claim.track, claimDetail.elements) }, detail: claimDetail };
+    return { snapshot: { review, track: claimDetail.claim.track, elements: completeElements(claimDetail.claim.track, claimDetail.elements), headTagRevision: claimDetail.claim.decision?.tag_revision ?? review.base_tag_revision }, detail: claimDetail };
   }, [apiBase, runId]);
 
   const load = useCallback(async (preferred?: string) => {

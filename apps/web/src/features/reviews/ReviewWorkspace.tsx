@@ -18,7 +18,13 @@ export type Review = {
   review_id: string; run_id: string; claim_id: string; status: "open" | "resolved" | "superseded";
   revision: number; base_tag_revision: number; reason_codes: string[];
 };
-export type ReviewSnapshot = { review: Review; track: Track; elements: ReviewElement[] };
+export type ReviewSnapshot = {
+  review: Review; track: Track; elements: ReviewElement[];
+  // Current tag head revision for this claim. Carried in the snapshot so a
+  // stale-recovery refresh rebases the re-review base onto the fresh head
+  // instead of a guessed value derived from the (frozen) review base.
+  headTagRevision?: number;
+};
 export type ReviewResolution = {
   review: Review; new_tag_revision: number;
   decision: { decision_status: string; evidence_grade: string | null; label: string | null; gap_ids: string[] };
@@ -59,7 +65,7 @@ export function ReviewWorkspace(props: Props) {
 }
 
 function Editor(props: Props) {
-  const [base, setBase] = useState<ReviewSnapshot>(() => structuredClone({ review: props.review, track: props.track, elements: props.elements }));
+  const [base, setBase] = useState<ReviewSnapshot>(() => structuredClone({ review: props.review, track: props.track, elements: props.elements, headTagRevision: props.headTagRevision }));
   const [track, setTrack] = useState(props.track);
   const [elements, setElements] = useState(() => structuredClone(props.elements));
   const [reason, setReason] = useState("");
@@ -68,13 +74,20 @@ function Editor(props: Props) {
   const [latest, setLatest] = useState<ReviewSnapshot | null>(null);
   const [stale, setStale] = useState(false);
   const [saved, setSaved] = useState<ReviewResolution | null>(null);
+  const [reReviewing, setReReviewing] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null);
   const confirmButton = useRef<HTMLButtonElement>(null);
   const live = useRef(true);
   const key = useRef<{ payload: string; value: string } | null>(null);
   const dirty = !saved && (reason !== "" || track !== base.track || JSON.stringify(elements) !== JSON.stringify(base.elements));
   const approvalPending = !props.localSynthetic && base.review.reason_codes.includes("RULEPACK_APPROVAL_REQUIRED");
-  const editable = !approvalPending && ["reviewer", "admin"].includes(props.session.role ?? "") && base.review.status === "open" && !saved;
+  const canReview = !approvalPending && ["reviewer", "admin"].includes(props.session.role ?? "") && !saved;
+  // A resolved review can only be edited after an explicit re-review action; it
+  // is never silently mutated. The current tag head (carried in the snapshot) is
+  // the re-review base — never a guessed value from the frozen review base.
+  const headTagRevision = base.headTagRevision ?? base.review.base_tag_revision;
+  const canStartReReview = canReview && base.review.status === "resolved" && !reReviewing;
+  const editable = canReview && (base.review.status === "open" || reReviewing);
   const sources = [...new Map([...props.elements.flatMap(e => e.evidence_refs), ...(props.sourceChoices ?? [])].map(s => [sourceKey(s), s])).values()];
   const changed = elements.filter(e => JSON.stringify(e) !== JSON.stringify(base.elements.find(old => old.element_id === e.element_id)));
 
@@ -101,15 +114,20 @@ function Editor(props: Props) {
   async function save() {
     dialog.current?.close();
     setBusy(true); setError("");
-    const payload = JSON.stringify({ base_tag_revision: base.review.base_tag_revision, track, elements, reason });
+    const reReview = reReviewing && base.review.status === "resolved";
+    const baseTagRevision = reReview ? headTagRevision : base.review.base_tag_revision;
+    const endpoint = reReview
+      ? `/v1/reviews/${base.review.review_id}/re-review`
+      : `/v1/reviews/${base.review.review_id}/resolve`;
+    const payload = JSON.stringify({ base_tag_revision: baseTagRevision, track, elements, reason });
     if (key.current?.payload !== payload) key.current = { payload, value: crypto.randomUUID() };
     try {
-      const result = await requestJson<ReviewResolution>(`/v1/reviews/${base.review.review_id}/resolve`, {
+      const result = await requestJson<ReviewResolution>(endpoint, {
         method: "POST", headers: { "Content-Type": "application/json", "X-CSRF-Token": props.session.csrf_token,
           "If-Match": `"${base.review.revision}"`, "Idempotency-Key": key.current!.value }, body: payload,
       });
       if (!live.current) return;
-      setSaved(result); props.onResolved(result);
+      setSaved(result); setReReviewing(false); props.onResolved(result);
     } catch (failure) {
       if (!live.current) return;
       if (failure instanceof ApiError && failure.status === 412) {
@@ -130,7 +148,12 @@ function Editor(props: Props) {
     <p>원문 근거와 태깅을 수정하면 규칙엔진이 새 판정을 계산합니다.</p>
     {base.review.reason_codes.length > 0 && <p>검토 사유: {base.review.reason_codes.join(", ")}</p>}
     {approvalPending && <p role="status">규칙집 승인이 필요해 태깅 확정·재채점이 보류되었습니다. 현재 태그와 원문을 검토하고 부분 결과로 내보낼 수 있습니다.</p>}
-    {!editable && !saved && !approvalPending && <p>검토자 권한과 열린 검토 항목이 필요합니다.</p>}
+    {!editable && !saved && !approvalPending && !canStartReReview && <p>검토자 권한과 열린 검토 항목이 필요합니다.</p>}
+    {canStartReReview && <section aria-label="재검토 시작">
+      <p role="status">이 검토 항목은 이미 확정(resolved)되었습니다. 기존 revision은 보존되며, 재검토는 현재 태깅 head 기준으로 다음 revision을 생성합니다.</p>
+      <button type="button" onClick={() => { setReReviewing(true); setError(""); key.current = null; }}>재검토 시작</button>
+    </section>}
+    {reReviewing && <p role="status">재검토 중 — 현재 태깅 head(revision {headTagRevision}) 기준으로 새 revision을 만듭니다. 이전 판정·내보내기는 변경되지 않습니다.</p>}
     {error && <p role="alert">{error}</p>}
     {saved && <p role="status">태깅 revision {saved.new_tag_revision} 저장됨. 판정: {decisionStatusText[saved.decision.decision_status] ?? saved.decision.decision_status}
       {saved.decision.gap_ids.length > 0 && ` · 미정 규칙: ${saved.decision.gap_ids.join(", ")}`}</p>}
@@ -144,8 +167,13 @@ function Editor(props: Props) {
             <td>{server ? stateText[server] : "미수집"}</td><td>{stateText[e.state]}</td></tr>; })}
         </tbody></table>
         <details><summary>근거와 값 전체 비교</summary><pre>{JSON.stringify({ server: latest.elements, draft: elements }, null, 2)}</pre></details>
-        <button type="button" disabled={latest.review.status !== "open"} onClick={() => {
-          setBase(structuredClone(latest)); setStale(false); setError(""); key.current = null;
+        <button type="button" disabled={latest.review.status === "superseded"} onClick={() => {
+          setBase(structuredClone(latest));
+          // Rebase onto the fresh head. If the latest is resolved we stay in
+          // re-review mode against the new head revision; if it re-opened we
+          // return to the ordinary resolve flow.
+          setReReviewing(latest.review.status === "resolved");
+          setStale(false); setError(""); key.current = null;
         }}>차이를 확인했습니다. 내 초안을 새 기준에서 다시 검토</button>
       </>}
     </section>}

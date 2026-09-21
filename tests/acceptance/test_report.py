@@ -244,6 +244,99 @@ def test_suggestion_names_only_missing_elements_and_never_fills_values():
     assert model["claims"][2]["suggestion"] is None
 
 
+def test_review_action_guides_unresolved_work_without_replacing_suggestion():
+    """review_action is a distinct, additive follow-up for unresolved/not-run/blocked
+    claims. It preserves suggestion (verified-missing only), keeps source/claim links,
+    and never invents numbers, grades, or legal facts."""
+    model = build_report_model(manifest(), decisions())
+    decided, blocked, not_run = model["claims"]
+
+    # suggestion keeps its exact original meaning and value.
+    assert decided["suggestion"] == "원문 근거로 다음 결손 요소를 보완하세요: G3, G4."
+    assert blocked["suggestion"] is None and not_run["suggestion"] is None
+
+    # A fully decided claim with missing elements already covered by suggestion:
+    # review_action still surfaces its distinct outstanding reasons (domain gap,
+    # assurance not covered is not "not_run" here so excluded) without a grade.
+    decided_action = decided["review_action"]
+    assert "unresolved_evidence" not in decided_action["reasons"]
+    assert "domain_gap" in decided_action["reasons"]
+    assert decided_action["gap_ids"] == ["GAP-005"]
+    assert "판정 보류" not in " ".join(decided_action["checks"])
+    assert "basis_validation_pending" in decided_action["reasons"]
+    assert decided_action["claim_id"] == CLAIMS[0]
+    assert decided_action["source_pages"] == [34]
+    assert all(
+        value not in " ".join(decided_action["checks"])
+        for value in ("2020", "2030", "40%", "E1", "E3")
+    )
+
+    # blocked_rule_gap: unresolved elements + unverified basis + gap + no source.
+    # (assurance here is "undetermined" and safe_harbor is a real record, so those
+    # "not_run" reasons must NOT fire — uncertainty is not converted to not-run.)
+    action = blocked["review_action"]
+    assert action is not None
+    assert action["reasons"][0] == "unresolved_evidence"
+    assert set(action["reasons"]) == {
+        "unresolved_evidence",
+        "source_location_missing",
+        "basis_validation_pending",
+        "domain_gap",
+    }
+    assert "assurance_not_run" not in action["reasons"]
+    assert "safe_harbor_not_run" not in action["reasons"]
+    assert action["unresolved_elements"] == ["P6"]
+    assert action["gap_ids"] == ["GAP-003"]
+    assert action["source_pages"] == []
+    assert action["claim_id"] == CLAIMS[1]
+    # Never invents a grade, number, or legal effect.
+    joined = " ".join(action["checks"])
+    assert all(token not in joined for token in ("E0", "E1", "E2", "E3", "위반", "달성"))
+    # unresolved must not be reworded into absent/verified-missing.
+    assert "결손" not in joined
+
+    # not_run (untagged) claim: classification/processing is the outstanding work.
+    action = not_run["review_action"]
+    assert action is not None
+    assert "not_processed" in action["reasons"]
+    assert action["claim_id"] == CLAIMS[2]
+    assert action["source_pages"] == [2]
+
+
+def test_review_action_is_null_only_when_no_outstanding_review_remains():
+    """A decided claim with sources, no missing/unresolved elements, no gaps, and
+    completed assurance/safe_harbor has no review_action."""
+    snapshot, revisions = manifest(), decisions()
+    revisions[CLAIMS[0]]["missing_elements"] = []
+    revisions[CLAIMS[0]]["gap_ids"] = []
+    revisions[CLAIMS[0]]["basis_refs"] = []
+    revisions[CLAIMS[0]]["assurance"] = {
+        "status": "covered",
+        "level": "limited",
+        "provider": "Synthetic provider",
+        "statement_id": "66666666-6666-4666-8666-666666666666",
+        "metric_match": "yes",
+        "period_match": "yes",
+        "boundary_match": "yes",
+        "evidence_refs": [source_ref()],
+    }
+    revisions[CLAIMS[0]]["safe_harbor"] = {
+        "claim_id": CLAIMS[0],
+        "applicable": True,
+        "category": "emissions_estimate",
+        "checklist": [],
+        "reasonable_basis_documented": True,
+        "legal_effect": "not_determined",
+        "mapping_status": "approved",
+        "gap_ids": [],
+    }
+    snapshot["unverified_basis"] = 1  # only CLAIMS[1] retains an unverified clause
+
+    decided = build_report_model(snapshot, revisions)["claims"][0]
+    assert decided["review_action"] is None
+    assert decided["suggestion"] is None
+
+
 @pytest.mark.parametrize(
     "change",
     [
@@ -438,6 +531,13 @@ def test_stdlib_renderers_escape_html_and_guard_csv_formulas():
     quote = rows[1][rows[0].index("source_quotes")]
     assert quote.startswith("'") and not quote.startswith("=")
     assert json.loads(rows[1][rows[0].index("source_refs")]) == model["claims"][0]["source_refs"]
+    # review_action is an additive column; blocked claim carries a follow-up, and the
+    # decided claim's action (missing G3/G4 already in suggestion) surfaces its gap check.
+    assert "review_action" in rows[0]
+    blocked_action = rows[2][rows[0].index("review_action")]
+    assert json.loads(blocked_action) == model["claims"][1]["review_action"]
+    action_html = render_report(model, "html").decode()
+    assert "다음 검토 작업:" in action_html and "미해결 요소의 원문 근거 귀속을 확인" in action_html
     with pytest.raises(ValueError):
         render_report(model, "pdf")
 
@@ -456,7 +556,7 @@ const report=REPORT;
 const html=renderToStaticMarkup(React.createElement(ReportPreview,{report}));
 for (const text of ["검토용 부분 리포트","미완료 2건","판독 불가 1쪽","미처리 1쪽",
 "p.34","G3, G4","조항 미확인","보증 범위 밖","세이프하버 미실행",MODEL,PROMPT,
-"규칙 공백으로 미판정"])
+"규칙 공백으로 미판정", "다음 검토 작업", "기준 조항의 대응"] )
   assert.ok(html.includes(text), text);
 console.log("ReportPreview audit-state checks passed");
 """.replace("REACT", json.dumps(str(root / "apps/web/node_modules/react/index.js")))

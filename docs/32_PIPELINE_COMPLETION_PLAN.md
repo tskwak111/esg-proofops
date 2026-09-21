@@ -11,6 +11,8 @@
 
 **문서의 역할:** 이 파일은 현재 개발 순서·산출물·완료 기준의 단일 계획이다. `service-readiness-plan.md`와 `autonomous-completion-plan.md`의 날짜별 내용은 실행 이력이다. 이 계획은 기존 도메인 계약이나 미확정 규칙을 덮어쓰지 않는다. 날짜별 일정 대신 의존성과 완료 결과로 관리한다.
 
+**현재 실행 지시 · 2026-09-22 R24:** 사용자 요청에 따라 실제 검토자의 전체 흐름을 다섯 단계로 진행한다. Kiro → Antigravity → OpenCode(Muse Spark 1.3 Free)의 실제 한도 소진을 확인한 뒤에만 Codex sol/terra/luna worker를 사용한다. 지연·로그인 장애를 크레딧 소진으로 간주하지 않는다. Codex 사용률 **80%** 도달 시 신규 작업을 시작하지 않고 진행 중 작업을 마무리한다(아래 과거 50%/60% 등 기준보다 우선). 시작 확인 사용률61%. 공용 Upstage 누적 USD20 한도와 과거 미정산 예약은 그대로 유지한다.
+
 **최신 통합 상태 · 2026-09-21:** 개발자 B의 PR #7을 수령해 A 파이프라인과 통합한
 [PR #8](https://github.com/tskwak111/esg-proofops/pull/8)이 현재 코드 기준이다.
 아래 날짜별 기록의 “B 미수령”은 당시 상태이며, 최종 도메인 기준·크로스워크와 C3 정책,
@@ -694,3 +696,19 @@ R00의 충돌·호환성 경계를 필요한 범위만 정리한 뒤 R01 비교�
 - 추가 비용 `$0.005182980`, 공유 사용·예약 `$17.249811687200000000059 / $20`, 기존 미정산13건 유지. 원본 DB 해시·기존 receipt 바이트·다른9개 주장·대상 과거 선행분류 기록 불변 비교 통과. 선행분류 보류8건과 원문 보류1건은 남아 있다. 결과는 ROOT `outputs/agent-results/R22-review/{isolation,before,accepted,acceptance,http-readback}.json`에 기록했다. 유료 재실행 없이 이 격리본에서 후속 요소 검토를 이어갈 수 있다.
 - 검증: 관련 unit/integration/recovery/runner 검사81개 통과; 별도 API composition2개 통과. 변경 Python lint, mypy6개 모듈, architecture 검사 통과. 작업용 실제 브라우저에서 `preliminary_classification_check`, `claim_workspace_check`, `review_queue_gap_check` 통과(mock API); `pnpm build`(tsc/Vite) 통과. OpenAPI와 실제 mounted route 일치; `validate_package.py`968항목은 문서·계약 검사만 의미한다. 전체 보고서 완주·독립 gold·AWS 배포는 not_run, GitHub push도 하지 않았다.
 - 다음 실제 사용자 결과: 생성된 요소 검토1건에서 검증된 원문으로 요소를 확정하고 기존 Python 규칙→부분 보고서 경로를 확인한다. 남은8건 분류는 대표1건의 결과를 검토한 뒤 진행하며, 원문 보류1건을 분류 보류로 바꾸지 않는다. B 실제 반환/최종 기준·crosswalk 미수령도 계속 별도 제약이다.
+
+
+### R24 · 실제 검토 전 과정에서 확인한 후속 작업 (2026-09-22, 진행 중)
+
+- 기존 네이버·롯데·기아·KB 원문 10사례를 단계별 입력/산출물로 대조했다. 실제 원문·저장 모델 결과·위임 AI 검토·Python 판정·HTTP 내보내기를 구분했으며 독립 human gold가 아니다. 근거: ROOT `outputs/reviewer-walkthrough-20260922/REPORT.md`, `workpapers.json`, `stage-io.json`, `validation.json`.
+- 보고서 `review_action`을 JSON/CSV/HTML 및 선택적 React preview에 추가했다. 확정 결손에만 쓰는 `suggestion`은 유지한다. 조정자가 에이전트 초안의 기준 조항/원문 혼동과 gap 존재만으로 판정 보류를 단정하는 문구를 수정했다. `test_report.py`21통과·변경 lint/type 통과. 기존 ZIP을 고치지 않고 새 멱등 키로 실제 세 run의 새 ZIP 생성·다운로드200: 네이버10/롯데12/KB23주장 전부 후속 안내 포함, 등급0·기존 revision 불변. 실행 증거 ROOT `outputs/agent-results/R24/exports/validation.json`; 재내보내기 시간7.501/4.824/21.308초는 모델 처리 시간이 아니다.
+- 기존 `local_claim_applicability_v1` 경로로 네이버 N1·KB B1 원자 주장 전체를 검토하여 M5/M6 트리거 false를 명시 기록한 별도 격리본을 만들었다. M1 present, M2/M3/M4 unknown, M5/M6 excluded, 등급null; 새 모델0·원본/과거 revision 불변. 근거 ROOT `outputs/agent-results/R24/{naver,kb}-applicability-result.json`. 원문 전역 부재나 자동 적용성 판단으로 주장하지 않는다.
+- 이미 resolved 처리된 보류 주장의 보완 경로를 추가했다. 명시적 재검토 API/UI/AI 위임 CLI는 현재 tag head와 If-Match를 확인하고 새 revision만 기록한다. 이전 적용성·safe-harbor 입력을 재검증하며 AI 출처를 후속 사람 검토로 세탁하지 않는다. 실제 네이버 격리본에서 CLI tag revision3·M5/M6 제외 유지·등급null·새 모델0 확인. 브라우저 실제 App/React에서 재검토→412 초안 보존→새 head 기준 재제출→반복 재검토 통과(mock HTTP); 실제 HTTP와 저장 검사는 별도 통과했다.
+- 로컬 demo가 이번 실행의 결과만 요약하고, 부분 페이지를 전체 건수로 표시하지 않으며, 진행 로그를 즉시 전달하도록 수정했다. 실제 네이버 읽기 경로는 10건 중 등급0·보류10과 pipeline not_run을 표시한다.
+- 현재 source-ID/assertion 프롬프트를 실제 기아·KB 원문 4선정 입력에 실행했다: 각주·단독 제목은 주장0, 기아 2045 목표1, KB 시스템 투자 문단3문장 복원. 4호출 `$0.002296470`, 원래 source ID 및 인용 일치; 선정 AI 사례이며 전체 정확도 또는 독립 gold가 아니다. ROOT `outputs/agent-results/R24/live-claim-check/evaluation.json`.
+- 문맥 실험은 제품 반영하지 않았다. 일반적인 인접 문장 확장으로 네이버 사업장3/4는 도달했지만 모델0/4·시나리오0/2, 메뉴·중복·KB의 다른 투자 항목이 섞였다. 회사명/모델명 하드코딩 초안도 철회했다. 정확한 parser/graph 계보 누락 원인을 별도 조사 중이며 검증되지 않은 문맥을 근거로 승격하지 않는다.
+- HMM의 원문 보고기간2025를 확인한 새 실제 실행에서 선택3페이지·120추출 호출 후 주장14, 대기255가 남았다. 추출 호출 제한에 도달한 부분 결과이며 공용 USD20 소진과 다르다. 격리본의 정상 태깅 worker 1회는95.533초 후 needs_review; 원본 DB 불변. 별도 실제 검토/내보내기를 진행 중이다. 네이버도 주장 후보29페이지·근거56페이지로 넓힌 실행을 시작했으며 전체244페이지 완료로 표시하지 않는다.
+- 통합 검증: 관련 review/report/applicability/safe-harbor/AI CLI/demo/contract 검사123개 통과, 변경 Python lint/mypy6개 모듈·웹 typecheck/build 통과. 테스트 수는 모델 정확도가 아니다. B 실제 입력 준비·독립 사람 gold·전체 보고서 완주·AWS는 아직 완료로 표시하지 않는다. 공용 사용/예약 `$17.370393027200000000059 / $20`(네이버 확장 시작 직전), 기존 미정산13건 유지. Codex 주간 사용률63% 관측; Kiro 한도 소진은 관찰되지 않아 타 제공자로 전환하지 않았다.
+- 재검토 API는 추가 경로이며 기존 resolve 멱등 해시는 그대로다. 두 HTTP 경로는 같은 인증/CSRF/속도/본문 크기 가드를 공유한다. DB migration 없이 기존 불변 revision 구조를 쓰며, 롤백은 새 경로와 `reopen` 쓰기만 비활성화하고 생성 이력은 보존한다. AI→사람→사람 재검토의 적용성 및 safe-harbor 출처 유지 회귀 검사도 통과했다.
+- 별도 세션·내보내기·프롬프트 주입·예산 보호 검사42개와 architecture 검사 통과. 문서/계약 검사는971항목 통과(앱 또는 모델 정확도 아님). 독립 Kiro 코드 검토는 중요/치명 결함 없이 승인했다. ROOT `outputs/agent-results/R24/integration-review.md`. GitHub push/AWS 변경은 하지 않았다.
+- B 재무 입력은 원문 p2·219–223의 FY2025/보고기간/연결 범위/재무표 인용을 준비하고, 미연결 상태와 외부 식별자·승인 기준 부재를 구분했다. 현재 AI 검토 tag revision3의 M1 present는 C1–C4 트리거가 아니므로 실제 builder는 `missing_financial_context`를 반환한다. 합성 context를 쓴 별도 음성 검사는 `no_verified_trigger`이며 실제 재무 대사 완료로 주장하지 않는다. ROOT `outputs/agent-results/R24/financial-readiness/source-pinned-readiness.json`.

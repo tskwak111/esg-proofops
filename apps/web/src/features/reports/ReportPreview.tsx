@@ -60,6 +60,14 @@ type ReportClaim = {
   assurance: StatusRecord;
   safe_harbor: SafeHarborRecord;
   suggestion: string | null;
+  review_action?: {
+    claim_id: string;
+    reasons: string[];
+    checks: string[];
+    unresolved_elements: string[];
+    gap_ids: string[];
+    source_pages: number[];
+  } | null;
 };
 
 export type ReportModel = {
@@ -168,6 +176,12 @@ export function ReportPreview({ report }: { report: ReportModel }) {
             <p>원문 근거 위치 미실행</p>
           )}
           {claim.suggestion ? <p>수정 제안: {claim.suggestion}</p> : <p>확정된 수정 제안 없음</p>}
+          {claim.review_action?.checks.length ? (
+            <section aria-label="다음 검토 작업">
+              <h3>다음 검토 작업</h3>
+              <ul>{claim.review_action.checks.map((check, index) => <li key={index}>{check}</li>)}</ul>
+            </section>
+          ) : null}
           {claim.unresolved_elements.length ? (
             <p>미해결 요소: {claim.unresolved_elements.join(", ")}</p>
           ) : null}

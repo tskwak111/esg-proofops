@@ -170,6 +170,8 @@ class ReviewStore(Protocol):
         expected: int,
         key: str,
         build: Callable,
+        *,
+        reopen: bool = False,
     ) -> dict: ...
 
 
@@ -447,8 +449,14 @@ class ReviewService:
     def publish_transaction(self, connection, inputs: ReviewInputs, review_id: str | None = None):
         return self.store.publish_transaction(connection, inputs, self._review(inputs, review_id))
 
-    def resolve_review(self, actor, review_id, body, if_match, idempotency_key):
-        """Default human route: provenance is always human, never caller-chosen."""
+    def resolve_review(self, actor, review_id, body, if_match, idempotency_key, *, reopen=False):
+        """Default human route: provenance is always human, never caller-chosen.
+
+        ``reopen=True`` is the explicit human re-review action for a review that
+        was already resolved: it produces the next immutable tag/decision/review
+        revisions on the CURRENT head and never mutates or reverts the prior
+        ones. The default (``reopen=False``) still refuses a resolved review.
+        """
         return self._resolve_with_provenance(
             actor,
             review_id,
@@ -459,6 +467,7 @@ class ReviewService:
             review_status=HUMAN_REVIEW_STATUS,
             reviewer_sub=None,
             extra_tag=None,
+            reopen=reopen,
         )
 
     def resolve_ai_delegated_review(
@@ -473,6 +482,7 @@ class ReviewService:
         delegation_authority: str,
         applicability_review: dict | None = None,
         safe_harbor_review: dict | None = None,
+        reopen: bool = False,
     ):
         """Trusted backend-only operation for explicit user-delegated AI review.
 
@@ -483,6 +493,11 @@ class ReviewService:
         guards (source/binding/If-Match/engine) also apply here. Optional
         applicability and safe-harbor reviews are separately pinned and cannot
         authorize ordinary element absence or a caller-supplied grade.
+
+        ``reopen=True`` is the explicit re-review action for an already-resolved
+        review; it stays honestly ``ai_delegated`` and produces the next
+        immutable revisions on the current head, never a ``human`` label and
+        never a silent mutation of a prior revision.
         """
         if not isinstance(delegated_reviewer, str) or not delegated_reviewer.strip():
             raise ReviewRejected("VALIDATION_ERROR")
@@ -507,6 +522,7 @@ class ReviewService:
             },
             applicability_review=applicability_review,
             safe_harbor_review=safe_harbor_review,
+            reopen=reopen,
         )
 
     def _resolve_with_provenance(
@@ -523,6 +539,7 @@ class ReviewService:
         extra_tag,
         applicability_review=None,
         safe_harbor_review=None,
+        reopen=False,
     ):
         if not isinstance(actor, AuthContext) or not actor.has_capability("reviewer"):
             raise ReviewRejected("FORBIDDEN", 403)
@@ -550,8 +567,63 @@ class ReviewService:
 
         def build(review, initial, decision_revision):
             inputs.validate()
-            if canonical_hash(inputs.snapshot()) != canonical_hash(initial["inputs"]):
+            # ``initial`` is the current tag head: the consensus tag (carries the
+            # full ``inputs`` snapshot) on the first resolve, or a prior reviewed
+            # tag (carries only ``input_snapshot_sha256``) on an explicit
+            # re-review. Both must pin the same immutable loader snapshot, so a
+            # re-review can never silently rebind to different inputs.
+            initial_snapshot_sha256 = (
+                canonical_hash(initial["inputs"])
+                if "inputs" in initial
+                else initial.get("input_snapshot_sha256")
+            )
+            if canonical_hash(inputs.snapshot()) != initial_snapshot_sha256:
                 raise ReviewRejected("REVIEW_INPUT_MISMATCH", 409)
+            # On an explicit re-review the fact base is the ORIGINAL consensus,
+            # but any prior reviewed applicability/safe-harbor attestation on the
+            # current head must be carried forward and re-validated (never
+            # silently reverted). Re-supplied reviews override the carried ones;
+            # when the caller omits them we replay the prior receipt's exact
+            # request through the same guard chain so an unchanged re-review
+            # reproduces the same honest decision (e.g. M5/M6 exclusion).
+            carried_applicability = None
+            carried_safe_harbor = None
+            # Preserve the ORIGINAL attestation ancestry across chained carries:
+            # if the prior receipt already recorded a ``carried_from`` we keep it,
+            # otherwise the immediate prior tag's provenance is the origin. This
+            # stops a human->human re-review from erasing an AI-delegated ancestor.
+            prior_provenance = {
+                k: initial[k]
+                for k in ("origin", "reviewer_sub", "review_origin", "delegated_reviewer")
+                if k in initial
+            }
+            applicability_ancestry = prior_provenance
+            safe_harbor_ancestry = prior_provenance
+            if reopen:
+                prior_applicability = initial.get("applicability_review")
+                if isinstance(prior_applicability, dict):
+                    carried_applicability = prior_applicability.get("request")
+                    if isinstance(prior_applicability.get("carried_from"), dict):
+                        applicability_ancestry = prior_applicability["carried_from"]
+                prior_safe_harbor = initial.get("safe_harbor_review")
+                if isinstance(prior_safe_harbor, dict):
+                    carried_safe_harbor = prior_safe_harbor.get("request")
+                    if isinstance(prior_safe_harbor.get("carried_from"), dict):
+                        safe_harbor_ancestry = prior_safe_harbor["carried_from"]
+            effective_applicability = (
+                applicability_review if applicability_review is not None else carried_applicability
+            )
+            effective_safe_harbor = (
+                safe_harbor_review if safe_harbor_review is not None else carried_safe_harbor
+            )
+            # Provenance of a carried (not re-supplied) attestation stays the
+            # original reviewer's, never relabelled as the current actor. A human
+            # HTTP re-review therefore cannot present an inherited AI-delegated
+            # applicability/safe-harbor receipt as freshly human-attested.
+            applicability_carried = (
+                applicability_review is None and carried_applicability is not None
+            )
+            safe_harbor_carried = safe_harbor_review is None and carried_safe_harbor is not None
             base = inputs.consensus.confirmed_tags
             facts = {f.name: f for f in base.facts} if base else {}
             previous_names = {
@@ -565,15 +637,15 @@ class ReviewService:
             if body["track"] != inputs.packet.to_dict()["track"]:
                 previous_names |= trigger_names
             reviewed_facts, applicability_receipt = ([], None)
-            if applicability_review is not None:
+            if effective_applicability is not None:
                 reviewed_facts, applicability_receipt = _review_applicability(
-                    inputs, body["track"], applicability_review
+                    inputs, body["track"], effective_applicability
                 )
                 previous_names |= {f.name for f in reviewed_facts}
             safe_harbor_facts, safe_harbor_receipt = ([], None)
-            if safe_harbor_review is not None:
+            if effective_safe_harbor is not None:
                 safe_harbor_facts, safe_harbor_receipt = _review_safe_harbor(
-                    inputs, safe_harbor_review
+                    inputs, effective_safe_harbor
                 )
                 previous_names |= {f.name for f in safe_harbor_facts}
             new_facts = [f for n, f in facts.items() if n not in previous_names] + reviewed_facts
@@ -716,11 +788,21 @@ class ReviewService:
                 origin=origin,
                 reviewer_sub=reviewer_sub if reviewer_sub is not None else actor.user_sub,
                 review_reason=body["reason"],
-                input_snapshot_sha256=canonical_hash(initial["inputs"]),
+                input_snapshot_sha256=initial_snapshot_sha256,
             )
             if applicability_receipt is not None:
+                if applicability_carried and applicability_ancestry:
+                    applicability_receipt = {
+                        **applicability_receipt,
+                        "carried_from": applicability_ancestry,
+                    }
                 tag["applicability_review"] = applicability_receipt
             if safe_harbor_receipt is not None:
+                if safe_harbor_carried and safe_harbor_ancestry:
+                    safe_harbor_receipt = {
+                        **safe_harbor_receipt,
+                        "carried_from": safe_harbor_ancestry,
+                    }
                 tag["safe_harbor_review"] = safe_harbor_receipt
             if extra_tag:
                 tag.update(extra_tag)
@@ -744,6 +826,7 @@ class ReviewService:
                 int(if_match[1:-1]),
                 idempotency_key,
                 build,
+                reopen=reopen,
             )
         except KeyError:
             raise ReviewRejected("REVIEW_INPUT_UNAVAILABLE", 409) from None

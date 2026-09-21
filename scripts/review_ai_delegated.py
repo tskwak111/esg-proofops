@@ -25,6 +25,9 @@ R07b checklist policy. It accepts only the configured category items and exact
 verified refs from the immutable evidence packet; it does not enable the policy
 or change old runs.
 
+Use ``--re-review --apply`` to append a revision to a resolved review. The
+correction must name the current tag revision; prior records remain immutable.
+
 Provenance honesty: the new tag revision records
 ``reviewer_sub="ai-delegated-review:<operator>"``,
 ``origin="ai_delegated"`` and ``review_status="ai_delegated_confirmed"``,
@@ -82,6 +85,9 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         "--if-match", default=None, help='e.g. "1"; default reads current revision.'
     )
     parser.add_argument("--idempotency-key", required=True)
+    parser.add_argument(
+        "--re-review", action="store_true", help="Explicitly re-review a resolved item."
+    )
     parser.add_argument(
         "--apply",
         action="store_true",
@@ -201,6 +207,7 @@ def main(argv: list[str] | None = None) -> int:
         "revision": review["revision"],
         "base_tag_revision": review["base_tag_revision"],
         "if_match": if_match,
+        "re_review": args.re_review,
         "element_count": len(body["elements"]) if isinstance(body.get("elements"), list) else 0,
         "applicability_review": applicability_review,
         "safe_harbor_review": safe_harbor_review,
@@ -241,6 +248,7 @@ def main(argv: list[str] | None = None) -> int:
             delegation_authority=args.delegation_authority,
             applicability_review=applicability_review,
             safe_harbor_review=safe_harbor_review,
+            reopen=args.re_review,
         )
     except Exception as exc:  # noqa: BLE001
         code = getattr(exc, "code", type(exc).__name__)
