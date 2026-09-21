@@ -46,8 +46,9 @@ locally. The real-company draft remains blocked pending human source review and
 policy approval. C3 thresholds/account mapping, open domain decisions, held-out
 accuracy evaluation and production deployment are not completed by this PR.
 
-CI runs the offline release checks and actual Java parser regression on both
-Ubuntu and Windows. The PR checks and linked Actions runs are the authoritative
+CI runs the offline release checks and actual Java parser regression on Ubuntu,
+Windows and macOS 15 (Apple Silicon and Intel). Java 21 is installed for the
+runner's architecture. The PR checks and linked Actions runs are the authoritative
 remote result for each commit; this document records local evidence only.
 
 No API key, local environment file, raw company report, generated delivery ZIP,

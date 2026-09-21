@@ -103,7 +103,38 @@ $env:PYTHONUTF8 = '1'
 uv run --no-sync python -m pytest tests/acceptance/test_parsing.py tests/integration/test_local_tag_runner.py -q
 ```
 
-GitHub CI는 Windows와 Linux에서 대조 검증 및 위 실제 Java 파서 회귀 검사를 실행한다.
+GitHub CI는 Windows·Linux·macOS 15(Apple Silicon 및 Intel)에서 대조 검증 및
+위 실제 Java 파서 회귀 검사를 실행한다. Java 21은 러너 아키텍처에 맞게 설치한다.
+
+### 개발자 A: macOS 시작
+
+Homebrew가 설치된 터미널에서 다음을 실행한다. `brew --prefix`를 사용하므로
+Apple Silicon의 `/opt/homebrew`와 Intel의 `/usr/local`을 하드코딩하지 않는다.
+
+```bash
+brew install uv node@22 openjdk@21
+export PATH="$(brew --prefix node@22)/bin:$PATH"
+npm install -g pnpm@10.0.0
+export JAVA_HOME="$(brew --prefix openjdk@21)/libexec/openjdk.jdk/Contents/Home"
+export PROOFOPS_TEST_JAVA="$JAVA_HOME/bin/java"
+export PYTHONUTF8=1
+
+# 저장소를 받은 뒤 해당 브랜치에서 실행
+git fetch origin
+git switch feature/developer-b-reconciliation
+uv sync --locked
+pnpm install --frozen-lockfile
+uv run --no-sync python scripts/verify_reconciliation.py --output .local/mac-check-1 --timeout-seconds 600
+uv run --no-sync python -m pytest tests/acceptance/test_parsing.py tests/integration/test_local_tag_runner.py -q
+pnpm --filter proofops-web typecheck
+pnpm --filter proofops-web build
+```
+
+검증 출력 경로는 매 실행마다 새 이름을 사용한다. macOS의 zsh/bash에서 위 DART
+명령 예시를 실행할 때 PowerShell의 줄 연결 문자(백틱)를 `\`로 바꾸거나 한 줄로
+입력한다. `.env.dart.local`은 A의 Mac에서 별도로 생성하고 발급 키를 입력한다.
+키 파일을 Git 또는 전달 패키지로 공유하지 않는다. 실제 수집만 키가 필요하며
+합성 입력·오프라인 CI는 키 없이 실행한다.
 이 경로는 합성 테스트 PDF를 사용하며 API 키나 실제 모델 호출이 필요하지 않다.
 
 실제 HTTP 브라우저 검증은 빌드 후 테스트 전용 서버에 대해 실행한다.

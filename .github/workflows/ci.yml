@@ -44,7 +44,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, windows-2022]
+        os: [ubuntu-24.04, windows-2022, macos-15, macos-15-intel]
     runs-on: ${{ matrix.os }}
     permissions:
       contents: read
@@ -55,13 +55,17 @@ jobs:
           python-version: "3.12"
       - uses: astral-sh/setup-uv@445689ea25e0de0a23313031f5fe577c74ae45a1
       - run: uv sync --locked
-      - name: Select the runner's Java 21 for real parser regression
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Select Java 21 for real parser regression
         shell: python
         run: |
           import os
           import pathlib
           import sys
-          java = pathlib.Path(os.environ["JAVA_HOME_21_X64"]) / "bin" / ("java.exe" if sys.platform == "win32" else "java")
+          java = pathlib.Path(os.environ["JAVA_HOME"]) / "bin" / ("java.exe" if sys.platform == "win32" else "java")
           assert java.is_file(), "Java 21 must be available"
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as stream:
               stream.write(f"PROOFOPS_TEST_JAVA={java}\n")
