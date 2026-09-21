@@ -313,5 +313,12 @@
     "required": "external upload",
     "environments": "web build",
     "description": "승인된 HTTPS 업로드 origin 하나; 빈 값은 same-origin local 전송만 허용"
+  },
+  {
+    "name": "DART_API_KEY",
+    "default": "",
+    "required": "DART live collection only",
+    "environments": "collection CLI",
+    "description": "DART 수집 CLI의 프로세스 환경변수로만 주입. 자동 .env 로딩 없음. 키가 없으면 live 수집 거부; 합성 검증에는 불필요. 명령행·로그·소스 관리에 실제 키를 넣지 않음"
   }
 ]
