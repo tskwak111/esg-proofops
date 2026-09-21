@@ -195,6 +195,9 @@ class RunService:
                 # Opt-in bullet-alignment wrapper (R19), which wraps the one
                 # above rather than replacing it. Same refusal guarantee.
                 "claim_span_bullet_alignment_policy_v1",
+                # Opt-in rendered-side-only typography wrapper (R24), which
+                # wraps the one above. Same refusal guarantee.
+                "claim_span_typography_policy_v1",
             }
             or extraction_mode != "upstage_probe"
         ):

@@ -324,6 +324,7 @@ def build_pilot_argv(
     tagging_max_calls: int = TAGGING_MAX_CALLS,
     verify_selected_cells: bool = False,
     native_quote_typography: bool = False,
+    claim_span_typography: bool = False,
     live_relations: bool = False,
     preliminary_context: bool = False,
     ai_project_review: bool = False,
@@ -371,6 +372,12 @@ def build_pilot_argv(
         argv += ["--extraction-total-calls", str(extraction_total_calls)]
     if native_quote_typography:
         argv.append("--native-quote-typography")
+    if claim_span_typography:
+        argv += [
+            "--claim-span-render-resolution",
+            "--claim-span-bullet-spacing",
+            "--claim-span-typography",
+        ]
     if live_relations:
         argv.append("--live-relations")
     if preliminary_context:
@@ -459,6 +466,7 @@ def plan_run(args: argparse.Namespace) -> dict:
     _validate_extraction_total(EXTRACTION_MAX_CALLS, extraction_total_calls)
     verify_selected_cells = bool(getattr(args, "verify_selected_cells", False))
     native_quote_typography = bool(getattr(args, "native_quote_typography", False))
+    claim_span_typography = bool(getattr(args, "claim_span_typography", False))
     live_relations = bool(getattr(args, "live_relations", False))
     preliminary_context = bool(getattr(args, "preliminary_context", False))
     ai_project_review = bool(getattr(args, "ai_project_review", False))
@@ -482,6 +490,7 @@ def plan_run(args: argparse.Namespace) -> dict:
         tagging_max_calls=tagging_max_calls,
         verify_selected_cells=verify_selected_cells,
         native_quote_typography=native_quote_typography,
+        claim_span_typography=claim_span_typography,
         live_relations=live_relations,
         preliminary_context=preliminary_context,
         ai_project_review=ai_project_review,
@@ -506,6 +515,7 @@ def plan_run(args: argparse.Namespace) -> dict:
         "tagging_max_calls": tagging_max_calls,
         "verify_selected_cells": verify_selected_cells,
         "native_quote_typography": native_quote_typography,
+        "claim_span_typography": claim_span_typography,
         "live_relations": live_relations,
         "preliminary_context": preliminary_context,
         "ai_project_review": ai_project_review,
@@ -553,6 +563,7 @@ def print_plan(plan: dict) -> None:
         pilot_opts.append(f"extraction-total-calls={plan['extraction_total_calls']}")
     for flag in (
         "native_quote_typography",
+        "claim_span_typography",
         "live_relations",
         "preliminary_context",
         "ai_project_review",
@@ -665,6 +676,12 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Pass the pilot's --native-quote-typography (requires its built-in "
         "--verify-paragraphs without raster OCR, which this launcher always uses).",
+    )
+    parser.add_argument(
+        "--claim-span-typography",
+        action="store_true",
+        help="Opt a new run into rendered quote/middle-dot comparison, including "
+        "the required render-resolution and bullet-spacing wrappers.",
     )
     parser.add_argument(
         "--live-relations",
