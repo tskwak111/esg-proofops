@@ -1,5 +1,10 @@
 # Developer B publication verification — 2026-09-21
 
+Subsequent real-source review, account-mapping drafts, company-separated evaluation
+and deployment preparation are recorded in
+[the completion report](../reconciliation-completion/VERIFICATION.md).
+The results below preserve the earlier publication checkpoint.
+
 This change delivers C1–C4 rules, original-source verification, blocked outcomes
 for unresolved policy, DART collection/preparation, CLI tools and a local
 authenticated review API/SQLite/React workflow. C5 remains disabled and the

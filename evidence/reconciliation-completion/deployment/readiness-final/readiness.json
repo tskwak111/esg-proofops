@@ -1,0 +1,783 @@
+{
+  "schema_version": "reconciliation-deployment-readiness-1",
+  "generated_at": "2026-09-21T13:49:32.489710+00:00",
+  "repository": "esg-proofops",
+  "product_scope": "local API + SQLite + React; no cloud deployment exists",
+  "tool_authority": {
+    "deploys": false,
+    "calls_aws": false,
+    "calls_models": false,
+    "network_egress": false,
+    "installs_dependencies": false,
+    "reads_real_env_files": false,
+    "prints_credentials": false
+  },
+  "host": {
+    "sys_platform": "win32",
+    "machine": "amd64",
+    "python": "3.12.13"
+  },
+  "gates": {
+    "local_deployment": {
+      "checks": 24,
+      "passed": 24,
+      "blocked": 0,
+      "failed": 0,
+      "not_run": 0,
+      "ready": true,
+      "blocking_checks": [],
+      "unattempted_checks": []
+    },
+    "local_verification": {
+      "checks": 3,
+      "passed": 3,
+      "blocked": 0,
+      "failed": 0,
+      "not_run": 0,
+      "ready": true,
+      "blocking_checks": [],
+      "unattempted_checks": []
+    },
+    "cloud_deployment": {
+      "checks": 6,
+      "passed": 0,
+      "blocked": 4,
+      "failed": 0,
+      "not_run": 2,
+      "ready": false,
+      "blocking_checks": [
+        "repository.cloud_artifacts",
+        "configuration.cloud_variables",
+        "configuration.live_model_artifacts",
+        "cloud.local_only_boundary"
+      ],
+      "unattempted_checks": [
+        "cloud.staging_gate_inputs",
+        "cloud.live_operations"
+      ]
+    }
+  },
+  "summary": {
+    "total": 33,
+    "passed": 27,
+    "blocked": 4,
+    "failed": 0,
+    "not_run": 2
+  },
+  "external_inputs_required": [
+    "A container definition and an executable IaC entrypoint; the current product ships as a local process only.",
+    "An approved config/model_bindings.json and config/consent_profile.json produced by the account owner.",
+    "Real account values for: AGENTCORE_RUNTIME_ARN, COGNITO_CLIENT_ID, COGNITO_DOMAIN, COGNITO_USER_POOL_ID, CURSOR_SECRET_ARN, DDB_AUDIT_TABLE, DDB_CORE_TABLE, KMS_KEY_ARN, OPENSEARCH_ENDPOINT, S3_ARTIFACT_BUCKET, S3_QUARANTINE_BUCKET, SESSION_SECRET_ARN, SQS_DLQ_URL, SQS_JOB_QUEUE_URL. None may be invented here.",
+    "Real cloud adapters, an account, approved bindings and a deployment decision. No part of that exists in this repository."
+  ],
+  "findings": [
+    {
+      "check": "toolchain.ci_pins",
+      "category": "toolchain",
+      "target": "local_deployment",
+      "status": "passed",
+      "blocking": false,
+      "summary": "toolchain versions were taken from the committed CI workflow",
+      "detail": {
+        "pins": {
+          "python": "3.12",
+          "java": "21",
+          "pnpm": "10.0.0",
+          "node": "22"
+        },
+        "source": ".github/workflows/ci.yml"
+      },
+      "external_input": null
+    },
+    {
+      "check": "platform.supported",
+      "category": "platform",
+      "target": "local_deployment",
+      "status": "passed",
+      "blocking": false,
+      "summary": "host platform is inside the supported set",
+      "detail": {
+        "sys_platform": "win32",
+        "machine": "amd64",
+        "python": "3.12.13"
+      },
+      "external_input": null
+    },
+    {
+      "check": "toolchain.python",
+      "category": "toolchain",
+      "target": "local_deployment",
+      "status": "passed",
+      "blocking": false,
+      "summary": "running interpreter satisfies the declared minimum",
+      "detail": {
+        "running": "3.12.13",
+        "declared_minimum": "3.12"
+      },
+      "external_input": null
+    },
+    {
+      "check": "toolchain.uv",
+      "category": "toolchain",
+      "target": "local_deployment",
+      "status": "passed",
+      "blocking": false,
+      "summary": "uv is available; no comparable CI pin was found",
+      "detail": {
+        "ci_pin": null,
+        "resolved": true,
+        "error": null,
+        "output": "uv 0.11.28 (ebf0f43d7 2026-07-07 x86_64-pc-windows-msvc)",
+        "detected_version": "0.11.28"
+      },
+      "external_input": null
+    },
+    {
+      "check": "toolchain.node",
+      "category": "toolchain",
+      "target": "local_deployment",
+      "status": "passed",
+      "blocking": false,
+      "summary": "node major version matches the CI pin",
+      "detail": {
+        "ci_pin": "22",
+        "resolved": true,
+        "error": null,
+        "output": "v22.23.2",
+        "detected_version": "22.23.2"
+      },
+      "external_input": null
+    },
+    {
+      "check": "toolchain.pnpm",
+      "category": "toolchain",
+      "target": "local_deployment",
+      "status": "passed",
+      "blocking": false,
+      "summary": "pnpm major version matches the CI pin",
+      "detail": {
+        "ci_pin": "10.0.0",
+        "resolved": true,
+        "error": null,
+        "output": "10.0.0",
+        "detected_version": "10.0.0"
+      },
+      "external_input": null
+    },
+    {
+      "check": "toolchain.java",
+      "category": "toolchain",
+      "target": "local_verification",
+      "status": "passed",
+      "blocking": false,
+      "summary": "resolved Java major version matches the CI pin",
+      "detail": {
+        "resolved_from": "PATH",
+        "ci_pin": "21",
+        "error": null,
+        "output": "java version \"21.0.2\" 2024-01-16 LTS\nJava(TM) SE Runtime Environment (build 21.0.2+13-LTS-58)\nJava HotSpot(TM) 64-Bit Server VM (build 21.0.2+13-LTS-58, mixed mode, sharing)",
+        "detected_version": "21.0.2"
+      },
+      "external_input": null
+    },
+    {
+      "check": "repository.required_paths",
+      "category": "repository",
+      "target": "local_deployment",
+      "status": "passed",
+      "blocking": false,
+      "summary": "every required product, contract and configuration file is present",
+      "detail": {
+        "required": 24,
+        "missing": [],
+        "empty": []
+      },
+      "external_input": null
+    },
+    {
+      "check": "repository.cloud_artifacts",
+      "category": "repository",
+      "target": "cloud_deployment",
+      "status": "blocked",
+      "blocking": true,
+      "summary": "no container image or deployable stack entrypoint exists in this repository",
+      "detail": {
+        "searched": [
+          "Dockerfile",
+          "apps/api/Dockerfile",
+          "apps/worker/Dockerfile",
+          "apps/agent/Dockerfile",
+          "docker-compose.yml",
+          "compose.yaml",
+          "infra/cdk/cdk.json",
+          "infra/cdk/bin/app.ts"
+        ],
+        "present": []
+      },
+      "external_input": "A container definition and an executable IaC entrypoint; the current product ships as a local process only."
+    },
+    {
+      "check": "configuration.env_contract",
+      "category": "configuration",
+      "target": "local_deployment",
+      "status": "passed",
+      "blocking": false,
+      "summary": "every documented variable appears in the example with the documented default",
+      "detail": {
+        "documented": 46,
+        "in_example": 46,
+        "undocumented_in_spec": [],
+        "missing_from_example": [],
+        "default_mismatch": []
+      },
+      "external_input": null
+    },
+    {
+      "check": "configuration.local_profile",
+      "category": "configuration",
+      "target": "local_deployment",
+      "status": "passed",
+      "blocking": false,
+      "summary": "the example profile is local, synthetic and loopback-only",
+      "detail": {
+        "expected": {
+          "APP_ENV": "local",
+          "MODEL_ADAPTER": "synthetic"
+        },
+        "unexpected": {},
+        "origins": {
+          "APP_ORIGIN": "http://localhost:5173",
+          "API_PUBLIC_BASE_URL": "http://localhost:8000",
+          "VITE_API_BASE_URL": ""
+        },
+        "remote": []
+      },
+      "external_input": null
+    },
+    {
+      "check": "configuration.cloud_variables",
+      "category": "configuration",
+      "target": "cloud_deployment",
+      "status": "blocked",
+      "blocking": true,
+      "summary": "14 of 15 cloud-required variables are unset, so no cloud target exists",
+      "detail": {
+        "cloud_variables": [
+          "AGENTCORE_RUNTIME_ARN",
+          "AWS_REGION",
+          "COGNITO_CLIENT_ID",
+          "COGNITO_DOMAIN",
+          "COGNITO_USER_POOL_ID",
+          "CURSOR_SECRET_ARN",
+          "DDB_AUDIT_TABLE",
+          "DDB_CORE_TABLE",
+          "KMS_KEY_ARN",
+          "OPENSEARCH_ENDPOINT",
+          "S3_ARTIFACT_BUCKET",
+          "S3_QUARANTINE_BUCKET",
+          "SESSION_SECRET_ARN",
+          "SQS_DLQ_URL",
+          "SQS_JOB_QUEUE_URL"
+        ],
+        "supplied": [
+          "AWS_REGION"
+        ],
+        "absent": [
+          "AGENTCORE_RUNTIME_ARN",
+          "COGNITO_CLIENT_ID",
+          "COGNITO_DOMAIN",
+          "COGNITO_USER_POOL_ID",
+          "CURSOR_SECRET_ARN",
+          "DDB_AUDIT_TABLE",
+          "DDB_CORE_TABLE",
+          "KMS_KEY_ARN",
+          "OPENSEARCH_ENDPOINT",
+          "S3_ARTIFACT_BUCKET",
+          "S3_QUARANTINE_BUCKET",
+          "SESSION_SECRET_ARN",
+          "SQS_DLQ_URL",
+          "SQS_JOB_QUEUE_URL"
+        ],
+        "values_emitted": false
+      },
+      "external_input": "Real account values for: AGENTCORE_RUNTIME_ARN, COGNITO_CLIENT_ID, COGNITO_DOMAIN, COGNITO_USER_POOL_ID, CURSOR_SECRET_ARN, DDB_AUDIT_TABLE, DDB_CORE_TABLE, KMS_KEY_ARN, OPENSEARCH_ENDPOINT, S3_ARTIFACT_BUCKET, S3_QUARANTINE_BUCKET, SESSION_SECRET_ARN, SQS_DLQ_URL, SQS_JOB_QUEUE_URL. None may be invented here."
+    },
+    {
+      "check": "configuration.live_model_artifacts",
+      "category": "configuration",
+      "target": "cloud_deployment",
+      "status": "blocked",
+      "blocking": true,
+      "summary": "no approved model binding or consent profile exists, only examples",
+      "detail": {
+        "artifacts": {
+          "config/model_bindings.json": {
+            "approved_artifact_present": false,
+            "example_present": true
+          },
+          "config/consent_profile.json": {
+            "approved_artifact_present": false,
+            "example_present": true
+          }
+        },
+        "present": []
+      },
+      "external_input": "An approved config/model_bindings.json and config/consent_profile.json produced by the account owner."
+    },
+    {
+      "check": "configuration.real_env_files",
+      "category": "configuration",
+      "target": "local_deployment",
+      "status": "passed",
+      "blocking": false,
+      "summary": "real environment files were detected by existence only and never opened",
+      "detail": {
+        "files": {
+          ".env": {
+            "present": false,
+            "read_by_this_tool": false
+          },
+          ".env.local": {
+            "present": false,
+            "read_by_this_tool": false
+          },
+          ".env.dart.local": {
+            "present": true,
+            "read_by_this_tool": false
+          },
+          ".env.production": {
+            "present": false,
+            "read_by_this_tool": false
+          }
+        }
+      },
+      "external_input": null
+    },
+    {
+      "check": "configuration.example_secrets",
+      "category": "configuration",
+      "target": "local_deployment",
+      "status": "passed",
+      "blocking": false,
+      "summary": "no credential-named variable carries a value in the committed example",
+      "detail": {
+        "secret_named_variables": [
+          "AGENTCORE_RUNTIME_ARN",
+          "CURSOR_SECRET_ARN",
+          "DART_API_KEY",
+          "KMS_KEY_ARN",
+          "SESSION_SECRET_ARN"
+        ],
+        "populated": [],
+        "values_emitted": false
+      },
+      "external_input": null
+    },
+    {
+      "check": "configuration.loopback_ports",
+      "category": "configuration",
+      "target": "local_deployment",
+      "status": "passed",
+      "blocking": false,
+      "summary": "both documented loopback ports can be bound on this host",
+      "detail": {
+        "ports": {
+          "api": 8000,
+          "web": 5173
+        },
+        "occupied": [],
+        "outbound_connections": 0
+      },
+      "external_input": null
+    },
+    {
+      "check": "database.schema_initializes",
+      "category": "database",
+      "target": "local_deployment",
+      "status": "passed",
+      "blocking": false,
+      "summary": "a real store created the reconciliation schema at the declared version",
+      "detail": {
+        "schema_version_rows": [
+          1
+        ],
+        "module_schema_version": 1,
+        "store_kind": "local-synthetic-only",
+        "objects_before": 27,
+        "objects_after": 41,
+        "immutable_tables_declared": [
+          "reconciliation_case",
+          "reconciliation_revision",
+          "reconciliation_source",
+          "reconciliation_idempotency"
+        ]
+      },
+      "external_input": null
+    },
+    {
+      "check": "database.additive_only",
+      "category": "database",
+      "target": "local_deployment",
+      "status": "passed",
+      "blocking": false,
+      "summary": "reconciliation adds only reconciliation_-prefixed objects and changes none",
+      "detail": {
+        "added": [
+          "reconciliation_case",
+          "reconciliation_case_no_delete",
+          "reconciliation_case_no_update",
+          "reconciliation_head",
+          "reconciliation_idempotency",
+          "reconciliation_idempotency_no_delete",
+          "reconciliation_idempotency_no_update",
+          "reconciliation_revision",
+          "reconciliation_revision_no_delete",
+          "reconciliation_revision_no_update",
+          "reconciliation_schema",
+          "reconciliation_source",
+          "reconciliation_source_no_delete",
+          "reconciliation_source_no_update"
+        ],
+        "removed": [],
+        "changed_existing": [],
+        "added_outside_prefix": []
+      },
+      "external_input": null
+    },
+    {
+      "check": "database.immutability",
+      "category": "database",
+      "target": "local_deployment",
+      "status": "passed",
+      "blocking": false,
+      "summary": "every immutable table refused a real update and delete attempt",
+      "detail": {
+        "tables": {
+          "reconciliation_case": {
+            "UPDATE": true,
+            "DELETE": true
+          },
+          "reconciliation_revision": {
+            "UPDATE": true,
+            "DELETE": true
+          },
+          "reconciliation_source": {
+            "UPDATE": true,
+            "DELETE": true
+          },
+          "reconciliation_idempotency": {
+            "UPDATE": true,
+            "DELETE": true
+          }
+        },
+        "unprotected": []
+      },
+      "external_input": null
+    },
+    {
+      "check": "database.unknown_version_rejected",
+      "category": "database",
+      "target": "local_deployment",
+      "status": "passed",
+      "blocking": false,
+      "summary": "an unknown reconciliation schema version is refused instead of migrated",
+      "detail": {
+        "planted_version": 2,
+        "rejection_code": "UNSUPPORTED_RECONCILIATION_SCHEMA",
+        "http_status": 409
+      },
+      "external_input": null
+    },
+    {
+      "check": "backup.online_copy",
+      "category": "backup_restore",
+      "target": "local_deployment",
+      "status": "passed",
+      "blocking": false,
+      "summary": "an online database backup and artifact copy reproduced every row and byte",
+      "detail": {
+        "method": "sqlite3.Connection.backup + shutil.copytree",
+        "row_counts": {
+          "reconciliation_case": {
+            "source": 2,
+            "backup": 2
+          },
+          "reconciliation_revision": {
+            "source": 2,
+            "backup": 2
+          },
+          "reconciliation_source": {
+            "source": 3,
+            "backup": 3
+          },
+          "reconciliation_idempotency": {
+            "source": 1,
+            "backup": 1
+          }
+        },
+        "backup_integrity_check": "ok",
+        "backup_schema_version_rows": [
+          1
+        ],
+        "artifact_files": 2,
+        "artifact_digests_match": true,
+        "row_count_mismatch": []
+      },
+      "external_input": null
+    },
+    {
+      "check": "restore.rehearsal",
+      "category": "backup_restore",
+      "target": "local_deployment",
+      "status": "passed",
+      "blocking": false,
+      "summary": "a restored case reread through get_case, revision and source_content matched the live original byte for byte",
+      "detail": {
+        "compared_against": "live",
+        "read_through": [
+          "get_case",
+          "revision",
+          "source_content"
+        ],
+        "case_id_known": true,
+        "restored_revision": 1,
+        "restored_revision_sha256": "1941ad80167bf71f449f12832971111caf387bbde05f38d99202bf8729704282",
+        "restored_sources": [
+          "fs-scope",
+          "sr-scope"
+        ],
+        "product_reads_differing_from_live": [],
+        "tables_differing_from_live": [],
+        "artifact_files": 2,
+        "artifact_paths_differing_from_live": [],
+        "source_bytes_match": true,
+        "reopened_by_real_store": true
+      },
+      "external_input": null
+    },
+    {
+      "check": "rollback.data_independence",
+      "category": "rollback",
+      "target": "local_deployment",
+      "status": "passed",
+      "blocking": false,
+      "summary": "no existing table depends on a reconciliation table; disabling leaves data readable",
+      "detail": {
+        "reconciliation_objects": 14,
+        "existing_objects": 27,
+        "existing_objects_referencing_reconciliation": [],
+        "reconciliation_objects_referencing_existing": []
+      },
+      "external_input": null
+    },
+    {
+      "check": "application.wiring",
+      "category": "application",
+      "target": "local_deployment",
+      "status": "passed",
+      "blocking": false,
+      "summary": "the real application assembles against a throwaway database and exposes its routes",
+      "detail": {
+        "total_routes": 59,
+        "required_routes_missing": [],
+        "sandbox_files_created": [
+          "reconciliation-artifacts",
+          "state.sqlite3"
+        ],
+        "repository_state_touched": false
+      },
+      "external_input": null
+    },
+    {
+      "check": "rollback.surface_is_bounded",
+      "category": "rollback",
+      "target": "local_deployment",
+      "status": "passed",
+      "blocking": false,
+      "summary": "the surface is one API router mount, one store wiring and one web feature",
+      "detail": {
+        "api_router_mounts": 1,
+        "api_router_imports": 1,
+        "composition_store_references": 3,
+        "web_feature_references": 1,
+        "web_feature_directory": "apps/web/src/features/reconciliation"
+      },
+      "external_input": null
+    },
+    {
+      "check": "verification.release_verifier_inputs",
+      "category": "verification",
+      "target": "local_verification",
+      "status": "passed",
+      "blocking": false,
+      "summary": "every path and synthetic case the release verifier gates on is present",
+      "detail": {
+        "declared_paths": 17,
+        "missing_paths": [],
+        "synthetic_cases": 8,
+        "expected_synthetic_cases": 8,
+        "verifier_executed_here": false
+      },
+      "external_input": null
+    },
+    {
+      "check": "verification.test_inventory",
+      "category": "verification",
+      "target": "local_verification",
+      "status": "passed",
+      "blocking": false,
+      "summary": "every suite the release gate runs is present; execution is a separate command",
+      "detail": {
+        "reconciliation_test_modules": 26,
+        "modules": [
+          "test_benchmark.py",
+          "test_c1.py",
+          "test_c2.py",
+          "test_c3.py",
+          "test_c4.py",
+          "test_candidates.py",
+          "test_cli.py",
+          "test_collection_cli.py",
+          "test_dart.py",
+          "test_dart_client_boundary.py",
+          "test_engine.py",
+          "test_identity.py",
+          "test_integration.py",
+          "test_policy.py",
+          "test_product_http.py",
+          "test_product_import.py",
+          "test_product_store.py",
+          "test_reader_boundary.py",
+          "test_readiness.py",
+          "test_release_verifier.py",
+          "test_restore_roundtrip.py",
+          "test_service.py",
+          "test_source_audit.py",
+          "test_sources.py",
+          "test_windows_parser.py",
+          "test_windows_upload.py"
+        ],
+        "missing_gate_suites": [],
+        "tests_executed_here": false
+      },
+      "external_input": null
+    },
+    {
+      "check": "contract.route_parity",
+      "category": "contract",
+      "target": "local_deployment",
+      "status": "passed",
+      "blocking": false,
+      "summary": "every served route is declared in the contract fragment and vice versa",
+      "detail": {
+        "served": [
+          "GET /v1/reconciliation/cases/{case_id}",
+          "GET /v1/reconciliation/cases/{case_id}/revisions/{revision}",
+          "GET /v1/reconciliation/cases/{case_id}/sources/{source_id}/content",
+          "GET /v1/runs/{run_id}/claims/{claim_id}/reconciliation",
+          "POST /v1/reconciliation/cases/{case_id}/evaluate",
+          "POST /v1/reconciliation/cases/{case_id}/policy-approval",
+          "POST /v1/reconciliation/cases/{case_id}/review"
+        ],
+        "undocumented": [],
+        "unimplemented": []
+      },
+      "external_input": null
+    },
+    {
+      "check": "contract.examples_validate",
+      "category": "contract",
+      "target": "local_deployment",
+      "status": "passed",
+      "blocking": false,
+      "summary": "every published example validates against the strict output schema",
+      "detail": {
+        "examples": 8,
+        "outcomes": {
+          "c1-difference-no-explanation": "completed/needs_explanation",
+          "c1-different-entity-types": "completed/not_applicable",
+          "c1-same-entities": "completed/matched",
+          "c1-search-incomplete": "blocked/None",
+          "c2-same-period": "completed/matched",
+          "c3-policy-unresolved": "blocked/None",
+          "c4-definition-and-method": "completed/matched",
+          "c4-search-incomplete": "blocked/None"
+        },
+        "invalid": []
+      },
+      "external_input": null
+    },
+    {
+      "check": "frontend.build_inputs",
+      "category": "frontend",
+      "target": "local_deployment",
+      "status": "passed",
+      "blocking": false,
+      "summary": "the web workspace has its scripts, lockfile and installed dependencies",
+      "detail": {
+        "scripts": [
+          "build",
+          "dev",
+          "preview",
+          "typecheck"
+        ],
+        "has_build": true,
+        "has_typecheck": true,
+        "lockfile": true,
+        "node_modules_present": true,
+        "previous_build_present": true,
+        "pnpm_pin": "10.0.0",
+        "missing_scripts": []
+      },
+      "external_input": null
+    },
+    {
+      "check": "cloud.local_only_boundary",
+      "category": "cloud",
+      "target": "cloud_deployment",
+      "status": "blocked",
+      "blocking": true,
+      "summary": "the product refuses staging and production by design; it is local-only today",
+      "detail": {
+        "composition": {
+          "local": "accepted",
+          "staging": "refused",
+          "production": "refused"
+        }
+      },
+      "external_input": "Real cloud adapters, an account, approved bindings and a deployment decision. No part of that exists in this repository."
+    },
+    {
+      "check": "cloud.staging_gate_inputs",
+      "category": "cloud",
+      "target": "cloud_deployment",
+      "status": "not_run",
+      "blocking": false,
+      "summary": "the staging evidence gate has no bundle to verify and was not executed",
+      "detail": {
+        "gate_script": "infra/cdk/staging_gate.py",
+        "gate_script_present": true,
+        "manifest_present": false,
+        "approval_present": false,
+        "gate_executed_here": false
+      },
+      "external_input": "A staging evidence bundle and a detached approval from the protected review channel, produced by whoever holds the account."
+    },
+    {
+      "check": "cloud.live_operations",
+      "category": "cloud",
+      "target": "cloud_deployment",
+      "status": "not_run",
+      "blocking": false,
+      "summary": "no AWS call, model invocation, deployment or DART collection was attempted",
+      "detail": {
+        "aws_api_calls": 0,
+        "model_invocations": 0,
+        "outbound_network_calls": 0,
+        "dependency_installations": 0,
+        "files_written_outside_output_and_temp": 0
+      },
+      "external_input": "An authorized operator performs any live operation, not this tool."
+    }
+  ]
+}

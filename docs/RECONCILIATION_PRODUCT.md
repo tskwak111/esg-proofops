@@ -82,6 +82,13 @@ C3 정책에 임계값이나 허용 계정이 없으면 관리자 승인만으�
 
 ## 검증·호환성
 
+실제 원문 재검증·C1–C4 출처 관찰·계정 매핑 초안은
+[RECONCILIATION_SOURCE_REVIEW.md](RECONCILIATION_SOURCE_REVIEW.md),
+기업을 분리한 출처 평가 절차는
+[RECONCILIATION_EVALUATION.md](RECONCILIATION_EVALUATION.md),
+실행 환경 점검·백업·복구·운영 배포 전제는
+[RECONCILIATION_DEPLOYMENT.md](RECONCILIATION_DEPLOYMENT.md)를 따른다.
+
 ```powershell
 uv run --no-sync python scripts/verify_reconciliation.py --output .local/product-check
 pnpm --filter proofops-web typecheck
