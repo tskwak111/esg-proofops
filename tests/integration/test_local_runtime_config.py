@@ -319,6 +319,33 @@ def test_run_settings_accept_approved_extraction_opt_ins(tmp_path: Path) -> None
     assert runtime["extraction_profile"].synthetic is False
 
 
+def test_run_settings_accept_the_assertion_prompt_opt_in(tmp_path: Path) -> None:
+    """R20 fix 2: assertion prompt validates when paired with source-ids in probe mode."""
+    from proofops_api.local_runtime import load_local_runtime
+
+    parser_path = _write_json(tmp_path / "parser.json", _parser_snapshot())
+    settings_path = _write_json(
+        tmp_path / "run.json",
+        {
+            "build_root": str(tmp_path),
+            "budget_limits": _budget_limits(),
+            "extraction_profile": _probe_extraction_profile(),
+            "extraction_limits": {"max_calls": 2, "max_output_tokens": 128},
+            "extraction_source_ids": True,
+            "extraction_assertion_prompt": True,
+        },
+    )
+    runtime = load_local_runtime(
+        {
+            "LOCAL_PARSER_PROFILE_PATH": str(parser_path),
+            "LOCAL_RUN_SETTINGS_PATH": str(settings_path),
+            "LOCAL_EXTRACTION_MODE": "upstage_probe",
+        }
+    )
+    assert runtime["extraction_mode"] == "upstage_probe"
+    assert runtime["extraction_profile"].synthetic is False
+
+
 @pytest.mark.parametrize(
     "settings,mode",
     [
@@ -331,6 +358,12 @@ def test_run_settings_accept_approved_extraction_opt_ins(tmp_path: Path) -> None
         ({"extraction_year_notation": True}, "local_synthetic"),
         ({"extraction_context": True}, "local_synthetic"),
         ({"extraction_context": True}, ""),
+        # R20 fix 2: assertion prompt is a real-probe opt-in that requires
+        # source-id selection; every invalid shape fails closed.
+        ({"extraction_assertion_prompt": "yes", "extraction_source_ids": True}, "upstage_probe"),
+        ({"extraction_assertion_prompt": False, "extraction_source_ids": True}, "upstage_probe"),
+        ({"extraction_assertion_prompt": True, "extraction_source_ids": True}, "local_synthetic"),
+        ({"extraction_assertion_prompt": True}, "upstage_probe"),
     ],
 )
 def test_run_settings_reject_bad_extraction_opt_ins(

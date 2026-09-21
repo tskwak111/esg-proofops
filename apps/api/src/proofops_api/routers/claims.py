@@ -56,7 +56,7 @@ _BLOCKED_ACTION_TEXT: dict[str, str] = {
         "예비 태깅 런타임이 아직 연결되지 않았습니다. 운영 설정을 확인해 주세요."
     ),
     "PRELIMINARY_TAGS_UNRESOLVED": (
-        "예비 태깅 복제본이 합의에 이르지 못했습니다. 다시 태깅을 시도해 주세요."
+        "예비 태깅 결과를 확정할 수 없습니다. 원문과 항목별 응답을 검토해 주세요."
     ),
     "SOURCE_LOCATION_REQUIRED": "이 주장의 원문 위치를 다시 파싱하거나 범위를 추가해 주세요.",
     "RULEPACK_CATALOG_REQUIRED": (
@@ -64,6 +64,53 @@ _BLOCKED_ACTION_TEXT: dict[str, str] = {
     ),
     "EVIDENCE_PACKET_BLOCKED": "근거 패킷이 차단되었습니다. 근거 검색 범위를 다시 확인해 주세요.",
 }
+
+_PRELIMINARY_UNRESOLVED_ACTION = {
+    "agreed": (
+        "세 차례 분석 모두 주장 유형을 정하지 못했습니다. "
+        "원문 문맥과 주장 내용을 확인한 뒤 태깅을 검토해 주세요."
+    ),
+    "conflict": (
+        "예비 태깅 복제본의 응답이 서로 다릅니다. 항목별 응답을 비교해 태깅을 검토해 주세요."
+    ),
+    "incomplete": (
+        "예비 태깅에 필요한 응답이 모두 확인되지 않았습니다. 응답 상태를 검토해 주세요."
+    ),
+    "unknown": _BLOCKED_ACTION_TEXT["PRELIMINARY_TAGS_UNRESOLVED"],
+}
+
+
+def _preliminary_unresolved_action(agreement):
+    """Explain stored agreement without changing the blocked state or decision."""
+    if not isinstance(agreement, dict):
+        return _PRELIMINARY_UNRESOLVED_ACTION["unknown"]
+    validated = agreement.get("validated_replicates")
+    # Missing legacy counts cannot establish either completeness or agreement.
+    if type(validated) is not int or not 0 <= validated <= 3:
+        return _PRELIMINARY_UNRESOLVED_ACTION["unknown"]
+    if validated < 3:
+        return _PRELIMINARY_UNRESOLVED_ACTION["incomplete"]
+    fields = agreement.get("fields")
+    dimensions = agreement.get("dimensions")
+    states = [
+        entry.get("state")
+        for group in (fields, dimensions)
+        if isinstance(group, dict)
+        for entry in group.values()
+        if isinstance(entry, dict)
+    ]
+    if "conflict" in states:
+        return _PRELIMINARY_UNRESOLVED_ACTION["conflict"]
+    if "unresolved" in states:
+        return _PRELIMINARY_UNRESOLVED_ACTION["incomplete"]
+    track = fields.get("track") if isinstance(fields, dict) else None
+    if (
+        isinstance(track, dict)
+        and track.get("state") == "agreed"
+        and track.get("replicate_values") == [None, None, None]
+    ):
+        return _PRELIMINARY_UNRESOLVED_ACTION["agreed"]
+    return _PRELIMINARY_UNRESOLVED_ACTION["unknown"]
 
 
 class ClaimSummary(StrictDTO):
@@ -273,7 +320,11 @@ def build_claims_router(claims, auth_store, *, tags=None, assurance=None, clock=
             schema_version=1,
             candidate_snippets=snippets,
             blocked_reason=blocked_reason,
-            blocked_action=_BLOCKED_ACTION_TEXT.get(blocked_reason),
+            blocked_action=(
+                _preliminary_unresolved_action(item.get("preliminary_agreement"))
+                if blocked_reason == "PRELIMINARY_TAGS_UNRESOLVED"
+                else _BLOCKED_ACTION_TEXT.get(blocked_reason)
+            ),
             field_agreements=agreements,
             raw_candidates=raw_candidates,
         )

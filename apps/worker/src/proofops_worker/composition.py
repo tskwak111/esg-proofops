@@ -178,6 +178,7 @@ def build_composition(
             context_opt_in = settings.get("extraction_context") is True
             table_context_opt_in = settings.get("extraction_table_context") is True
             source_ids_opt_in = settings.get("extraction_source_ids") is True
+            assertion_prompt_opt_in = settings.get("extraction_assertion_prompt") is True
             if year_notation or context_opt_in or source_ids_opt_in:
                 # New-run opt-in only: the frozen settings must carry the exact
                 # option-combination profile hash, otherwise fail closed.
@@ -188,6 +189,7 @@ def build_composition(
                         extraction_context=context_opt_in,
                         extraction_table_context=table_context_opt_in,
                         source_ids=source_ids_opt_in,
+                        assertion_prompt=assertion_prompt_opt_in,
                     )
                 ):
                     raise ValueError("EXTRACTION_PROFILE_MISMATCH")
@@ -199,10 +201,11 @@ def build_composition(
                     extraction_context=context_opt_in,
                     extraction_table_context=table_context_opt_in,
                     extraction_source_ids=source_ids_opt_in,
+                    extraction_assertion_prompt=assertion_prompt_opt_in,
                 )
-            elif table_context_opt_in:
-                # Table context is a refinement of the context profile; it can
-                # never be enabled on its own.
+            elif table_context_opt_in or assertion_prompt_opt_in:
+                # Table context refines the context profile and the assertion
+                # prompt refines source-ID selection; neither can stand alone.
                 raise ValueError("EXTRACTION_PROFILE_MISMATCH")
             else:
                 extractor = UpstageClaimExtractor(

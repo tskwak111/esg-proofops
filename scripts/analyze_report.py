@@ -330,6 +330,7 @@ def build_pilot_argv(
     extraction_year_notation: bool = False,
     extraction_context: bool = False,
     extraction_source_ids: bool = False,
+    extraction_assertion_prompt: bool = False,
     parser_max_output_bytes: int | None = None,
 ) -> list[str]:
     """Assemble the exact argv driving ``evaluation.local_upstage_pilot``."""
@@ -382,6 +383,8 @@ def build_pilot_argv(
         argv.append("--extraction-context")
     if extraction_source_ids:
         argv.append("--extraction-source-ids")
+    if extraction_assertion_prompt:
+        argv.append("--extraction-assertion-prompt")
     if claim_pages is not None:
         argv += ["--claim-pages", ",".join(str(page) for page in claim_pages)]
     if invoke:
@@ -462,6 +465,7 @@ def plan_run(args: argparse.Namespace) -> dict:
     extraction_year_notation = bool(getattr(args, "extraction_year_notation", False))
     extraction_context = bool(getattr(args, "extraction_context", False))
     extraction_source_ids = bool(getattr(args, "extraction_source_ids", False))
+    extraction_assertion_prompt = bool(getattr(args, "extraction_assertion_prompt", False))
     argv = build_pilot_argv(
         pdf=pdf,
         pages=pages,
@@ -484,6 +488,7 @@ def plan_run(args: argparse.Namespace) -> dict:
         extraction_year_notation=extraction_year_notation,
         extraction_context=extraction_context,
         extraction_source_ids=extraction_source_ids,
+        extraction_assertion_prompt=extraction_assertion_prompt,
         parser_max_output_bytes=parser_max_output_bytes,
     )
     return {
@@ -708,6 +713,12 @@ def build_parser() -> argparse.ArgumentParser:
         "the span is restored from the original offsets. Exact-source matching is "
         "unchanged; a selected sentence is a whole source sentence (atomicity "
         "unreviewed); off by default.",
+    )
+    parser.add_argument(
+        "--extraction-assertion-prompt",
+        action="store_true",
+        help="Require the selected source sentence itself to assert a claim. "
+        "Requires --extraction-source-ids; off by default.",
     )
     parser.add_argument(
         "--invoke",

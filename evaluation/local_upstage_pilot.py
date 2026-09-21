@@ -292,6 +292,7 @@ def apply_resume_metadata(args, saved: dict) -> None:
     args.extraction_context = bool(saved.get("extraction_context", False))
     args.extraction_table_context = bool(saved.get("extraction_table_context", False))
     args.extraction_source_ids = bool(saved.get("extraction_source_ids", False))
+    args.extraction_assertion_prompt = bool(saved.get("extraction_assertion_prompt", False))
     if saved.get("tagging_max_calls"):
         args.tagging_max_calls = saved["tagging_max_calls"]
     saved_total = saved.get("extraction_total_calls")
@@ -540,6 +541,12 @@ def main():
         "context instead of the nearest numeric neighbours. Requires "
         "--extraction-context; pins its own extraction rule/prompt hash.",
     )
+    parser.add_argument(
+        "--extraction-assertion-prompt",
+        action="store_true",
+        help="Require the selected source sentence itself to assert a claim. "
+        "Requires --extraction-source-ids; new-run opt-in, pinned on --resume.",
+    )
     parser.add_argument("--tagging-max-calls", type=int, default=12)
     parser.add_argument("--serve", action="store_true")
     parser.add_argument(
@@ -578,6 +585,7 @@ def main():
         requested_context = args.extraction_context
         requested_table_context = args.extraction_table_context
         requested_source_ids = args.extraction_source_ids
+        requested_assertion_prompt = args.extraction_assertion_prompt
         requested_preliminary_table = args.preliminary_table_context
         requested_preliminary_role = args.preliminary_table_role
         requested_render_resolution = args.claim_span_render_resolution
@@ -594,6 +602,8 @@ def main():
             parser.error("--resume cannot add extraction table context; create a new run")
         if requested_source_ids and not args.extraction_source_ids:
             parser.error("--resume cannot add extraction source-id selection; create a new run")
+        if requested_assertion_prompt and not args.extraction_assertion_prompt:
+            parser.error("--resume cannot add extraction assertion prompt; create a new run")
         if requested_preliminary_table and not args.preliminary_table_context:
             parser.error("--resume cannot add preliminary table context; create a new run")
         if requested_preliminary_role and not args.preliminary_table_role:
@@ -624,6 +634,8 @@ def main():
         parser.error("--claim-span-bullet-spacing requires --claim-span-render-resolution")
     if args.extraction_table_context and not args.extraction_context:
         parser.error("--extraction-table-context requires --extraction-context")
+    if args.extraction_assertion_prompt and not args.extraction_source_ids:
+        parser.error("--extraction-assertion-prompt requires --extraction-source-ids")
     if args.raster_ocr and not args.verify_paragraphs:
         parser.error("--raster-ocr requires --verify-paragraphs")
     if args.native_quote_typography and (not args.verify_paragraphs or args.raster_ocr):
@@ -689,6 +701,7 @@ def main():
                     extraction_context=args.extraction_context,
                     extraction_table_context=args.extraction_table_context,
                     source_ids=args.extraction_source_ids,
+                    assertion_prompt=args.extraction_assertion_prompt,
                 )
             )
         else:
@@ -711,6 +724,8 @@ def main():
             settings["extraction_table_context"] = True
         if args.extraction_source_ids:
             settings["extraction_source_ids"] = True
+        if args.extraction_assertion_prompt:
+            settings["extraction_assertion_prompt"] = True
         settings.update(raster)
         if args.verify_claim_spans:
             settings["claim_source_policy"] = claim_source_policy_for(args)
@@ -1027,6 +1042,8 @@ def main():
             manifest["extraction_table_context"] = True
         if args.extraction_source_ids:
             manifest["extraction_source_ids"] = True
+        if args.extraction_assertion_prompt:
+            manifest["extraction_assertion_prompt"] = True
         with manifest_path.open("x") as stream:
             json.dump(manifest, stream, ensure_ascii=False, indent=2)
     else:
