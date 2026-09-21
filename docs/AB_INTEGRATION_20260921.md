@@ -116,6 +116,25 @@ uv run ruff format --check apps/agent/src/proofops_agent/upstage_tagging.py test
 uv run mypy apps/agent/src/proofops_agent/upstage_tagging.py
 ```
 
+## main 병합 전 최종 검증 (2026-09-21)
+
+사용자가 로컬 검증 후 병합·push를 승인했다. 코드 기준 `d5d01fe`에서 전체 로컬
+검사를 실행해 **3,934 통과 / 57 제외 / 경고 3건**, 종료 코드 0을 확인했다.
+소요 시간은 356.79초이며 제외 항목을 통과로 계산하지 않는다.
+
+```sh
+DEVELOPER_DIR=/Library/Developer/CommandLineTools .venv/bin/python -m pytest -q
+```
+
+로그는 `.local/main-integration-20260921/pytest.log`에 있다. Orca orchestration의
+Kiro 읽기 전용 검토에서도 동결 검증기, 비용·잠금 가드, 테스트 assertion,
+테넌트·revision 경계를 확인했고 검토 범위 내 병합 차단 결함은 없었다.
+검토 완료 후 worker를 해제하고 터미널 프로세스를 종료했다.
+
+GitHub Actions는 무료 실행 시간 2,000분을 모두 사용했다. 최신 실행
+`35608871145`는 작업 단계가 시작되지 않았으므로 원격 CI와 최신 Windows 검증은
+`not_run`이다. 로컬 통과는 원격 통과나 모델 정확도·운영 준비 완료를 뜻하지 않는다.
+
 ## 남은 제한
 
 - 데이터 담당자의 최종 기준·크로스워크와 C3 임계값/계정 매핑은 아직 확정되지 않았다.
@@ -124,5 +143,4 @@ uv run mypy apps/agent/src/proofops_agent/upstage_tagging.py
   이번 통합은 그 정확도 병목을 해결했다고 주장하지 않는다.
 - 실제 기업 DART 수집→보고서 대조의 정확도 평가, 전체 보고서 완주,
   독립 gold 평가, 운영 배포는 이번 범위에서 실행하지 않았다.
-- PR은 검토 가능한 Draft이며 main 병합은 별도 단계다. B PR #7을 중복 병합하기 전에
-  이 통합 PR에 해당 커밋이 포함되어 있음을 확인한다.
+- B PR #7의 tip `55e3e06`은 이 통합 이력에 포함되어 있으므로 중복 병합하지 않는다.

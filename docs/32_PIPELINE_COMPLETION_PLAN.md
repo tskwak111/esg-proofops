@@ -11,6 +11,14 @@
 
 **문서의 역할:** 이 파일은 현재 개발 순서·산출물·완료 기준의 단일 계획이다. `service-readiness-plan.md`와 `autonomous-completion-plan.md`의 날짜별 내용은 실행 이력이다. 이 계획은 기존 도메인 계약이나 미확정 규칙을 덮어쓰지 않는다. 날짜별 일정 대신 의존성과 완료 결과로 관리한다.
 
+**최신 통합 상태 · 2026-09-21:** 개발자 B의 PR #7을 수령해 A 파이프라인과 통합한
+[PR #8](https://github.com/tskwak111/esg-proofops/pull/8)이 현재 코드 기준이다.
+아래 날짜별 기록의 “B 미수령”은 당시 상태이며, 최종 도메인 기준·크로스워크와 C3 정책,
+실보고서의 트랙/근거 보류·전체 완주·독립 gold 평가는 여전히 남아 있다.
+사용자는 로컬 검증 후 병합·push를 승인했다. GitHub Actions 무료 2,000분은 소진돼
+원격 CI는 미실행이며 로컬 통과를 원격 통과로 표시하지 않는다.
+통합 검증·호환성·재현 방법은 [A+B 통합 기록](AB_INTEGRATION_20260921.md)을 따른다.
+
 **2026-09-20 후속 실행 지시:** 사용자는 계획의 작업을 순차적으로 계속 실행하고, 가능한 코딩을 Kiro(Opus/Sonnet) → Antigravity(Opus/Gemini 3.8 Flash) → OpenCode(MuseSpark1.3/MiMo) 순으로 위임하도록 지시했다. 실제 제공 모델 ID/가용성은 공급자에서 확인한다. 도메인 판단도 조정자가 원문·사례에 근거해 수행하도록 위임했으므로, AI가 선택한 프로젝트 해석과 승인 기록을 남기며 진행한다. 이를 독립 전문가 gold·공식 기준 원문 검증·법적 효력 확인으로 가장하지 않는다. **Codex 중단 기준은 최신 재개 지시에 따라 잔여50%로 변경**되었으며 이전10% 지시보다 우선한다.
 
 ### 현재 실행 기록 · 2026-09-20
@@ -58,7 +66,7 @@ Orca run `run_da368bec0794`의 Kiro Opus5/Sonnet5 작업을 사용했다. 신규
 ### 1.1 작업 위치
 
 - ROOT: `/Users/ss020/Dev/ESG_ProofOps` — 원문, 기업보고서, 인계 패키지, 실행 래퍼, 일부 평가 산출물.
-- APP: `/Users/ss020/Dev/ESG_ProofOps/.local/team-publication-20260918` — 현재 실제 앱 checkout. 이 문서의 코드·테스트 경로는 별도 표시가 없으면 APP 기준이다.
+- APP: 이 문서를 포함한 최신 앱 checkout. 현재 통합 작업 위치는 `/Users/ss020/Dev/ESG_ProofOps/.local/ab-integration-20260921`이다. 코드·테스트 경로는 별도 표시가 없으면 APP 기준이다. 아래 과거 실행 기록의 APP은 기존 `/Users/ss020/Dev/ESG_ProofOps/.local/team-publication-20260918`을 가리키며, 그 작업본·산출물은 이동하거나 덮어쓰지 않는다.
 - Python 명령은 APP의 `.venv/bin/python`을 사용한다. 현재 작업 트리에 미커밋 변경이 있으므로 시작 시 diff와 담당 파일을 확인하고 다른 작업을 덮어쓰지 않는다. 전체 `git add .`, 자동 push, 작업 트리 초기화를 하지 않는다.
 - 원격 main과 로컬 구현이 같다고 가정하지 않는다. 통합/납품 시 실제 commit과 미커밋 patch의 식별값을 기록한다.
 
