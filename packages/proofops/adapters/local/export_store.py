@@ -14,7 +14,13 @@ from uuid import uuid4
 from proofops.adapters.local.audit_store import append_audit_transaction, read_audit_head
 from proofops.adapters.local.run_artifacts import load_run_graph
 from proofops.adapters.local.summary_store import LocalSummaryStore
-from proofops.application.exports import MAX_EXPORT_BYTES, ExportRejected, timestamp
+from proofops.application.exports import (
+    MAX_EXPORT_BYTES,
+    REVISION_RECORDS_V2,
+    ExportRejected,
+    encode_revision_record,
+    timestamp,
+)
 from proofops.application.reporting import _basis_refs, build_report_model
 from proofops.domain.audit import ChangeSet
 from proofops.domain.provenance import canonical_hash
@@ -243,7 +249,8 @@ class LocalExportStore:
                         record["review_status"] = decision["api"]["review_status"]
                         hashes.add(record["rule_pack_sha256"])
                     # Preserve all observed states and evidence, never convert uncertainty.
-                    raw_record = dict(tag=tag, decision=decision, original_inputs=inputs)
+                    # The original packet is stored once only when its bytes are identical.
+                    raw_record = encode_revision_record(tag, decision, inputs)
                 captured_bytes += len(canonical_json([record, raw_record]).encode())
                 if captured_bytes > MAX_EXPORT_BYTES:
                     raise ExportRejected("EXPORT_SIZE_LIMIT")
@@ -273,6 +280,7 @@ class LocalExportStore:
                 model_binding_hash=snapshot["model_binding_hash"],
                 parser_profile_hash=snapshot["parser_profile_hash"],
                 revision_records=raw_records,
+                revision_records_encoding=REVISION_RECORDS_V2,
             )
             return dict(manifest=manifest, decisions=records)
 
