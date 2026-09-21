@@ -328,10 +328,10 @@ function ClaimDetailView({ apiBase = "", csrfToken, tenantKey, session, runId, c
         {detail.suggestion ? <><h3>수정 제안</h3><p>{detail.suggestion}</p></> : null}
         <h3>기준 근거</h3>{detail.basis_refs.length ? <ul>{detail.basis_refs.map((basis, index) => <li key={`${basis.standard}:${basis.clause}:${index}`}>{basis.standard} {basis.clause ?? "조항 미확정"}: {basis.summary} ({basisVerificationText[basis.verification_status]})</li>)}</ul> : <p>표시할 검증된 기준 근거가 없습니다.</p>}
         <PreliminaryClassification apiBase={apiBase} runId={runId} claimId={claimId} untagged={untagged} session={session} onSessionInvalid={onSessionInvalid} />
-        {projection && projection.schema_version === 1 ? <section aria-labelledby="review-projection-heading"><h3 id="review-projection-heading">검토 중인 후보 (미확정)</h3>
-          <p role="status">이 후보는 참고용이며 최종 판정이나 태그 편집에 그대로 반영되지 않습니다. 자체 원문 검증을 통과해야 합니다.</p>
-          {projection.blocked_reason ? <p>보류 사유: {projection.blocked_reason}</p> : null}
-          {projection.blocked_action ? <p>다음 행동: {projection.blocked_action}</p> : null}
+        {projection && projection.schema_version === 1 ? <section aria-labelledby="review-projection-heading"><h3 id="review-projection-heading">모델 태깅 당시 후보 (미확정)</h3>
+          <p role="status">모델 태깅 당시의 미확정 기록입니다. 현재 검토 결과는 위의 태깅과 판정에 표시됩니다. 후보를 채택하려면 원문 검증을 통과해야 합니다.</p>
+          {projection.blocked_reason ? <p>태깅 당시 보류 사유: {projection.blocked_reason}</p> : null}
+          {projection.blocked_action ? <p>태깅 당시 안내: {projection.blocked_action}</p> : null}
           {projection.candidate_snippets.length ? <ul>{projection.candidate_snippets.map((snippet, index) => <li key={index}>{snippet}</li>)}</ul> : null}
           {projection.field_agreements.length ? <ul>{projection.field_agreements.map(field => <li key={field.field_id}>{field.field_id}: {fieldAgreementText[field.status]} ({field.replicate_values.map(value => typeof value === "string" ? value : JSON.stringify(value)).join(" / ")})</li>)}</ul> : null}
           {projection.raw_candidates && projection.raw_candidates.length ? <section aria-labelledby="raw-candidates-heading">
