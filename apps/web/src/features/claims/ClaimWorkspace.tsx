@@ -136,7 +136,7 @@ function pending(error: unknown): boolean {
 }
 
 const pendingDecisionText: Record<Exclude<Decision["decision_status"], "decided">, string> = {
-  blocked_evidence: "미판정 · 원문 근거가 확인되지 않음",
+  blocked_evidence: "미판정 · 입증 요소 확인 필요",
   blocked_rule_gap: "미판정 · 규칙 적용 결과가 갈리거나 규칙집에 정한 기준이 없음",
   not_applicable: "적용 제외",
   not_run: "아직 판정하지 않음",

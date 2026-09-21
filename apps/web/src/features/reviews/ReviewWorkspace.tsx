@@ -52,7 +52,7 @@ const stateText: Record<ReviewElement["state"], string> = {
 };
 const decisionStatusText: Record<string, string> = {
   decided: "판정 완료",
-  blocked_evidence: "미판정 · 원문 근거 미확인",
+  blocked_evidence: "미판정 · 입증 요소 확인 필요",
   blocked_rule_gap: "미판정 · 규칙집 공백",
   not_applicable: "적용 제외",
   not_run: "미판정 · 태깅 미완료",
