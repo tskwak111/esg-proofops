@@ -13,12 +13,13 @@ import re
 import shutil
 import subprocess
 import sys
+from contextlib import contextmanager
 from dataclasses import asdict, replace
 from hashlib import sha256
 from importlib.metadata import version
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from time import monotonic
+from time import monotonic, sleep
 from typing import Any
 from uuid import UUID, uuid4, uuid5
 
@@ -301,8 +302,7 @@ class OpenDataLoaderParser(ParserPort):
             raise ParseFailure("PAGE_SELECTION_INVALID")
         profile_hash = sha256(_json(profile.invocation_snapshot())).hexdigest()
         final.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        with TemporaryDirectory(prefix=".parse-", dir=final.parent) as temporary:
-            work = Path(temporary)
+        with _parser_work_directory(final.parent) as work:
             (work / "source.pdf").write_bytes(source.content)
             (work / "request.json").write_bytes(
                 _json(dict(profile=profile.invocation_snapshot(), selected=selected))
@@ -545,20 +545,61 @@ class OpenDataLoaderParser(ParserPort):
                     if process.returncode:
                         raise ParseFailure("PARSER_FAILED")
                 finally:
-                    isolation.terminate_tree(process)
-                    kill_and_reap(process)
+                    try:
+                        isolation.terminate_tree(process)
+                    finally:
+                        kill_and_reap(process)
         except IsolationUnavailable:
             raise ParseFailure("PARSER_ISOLATION_UNAVAILABLE") from None
         finally:
             isolation.close()
 
 
+def _cleanup_parser_work(temporary, parent: Path, *, timeout_seconds: float = 15) -> None:
+    deadline = monotonic() + timeout_seconds
+    parent = parent.resolve()
+    while True:
+        target = Path(temporary.name).resolve()
+        if target.parent != parent or not target.name.startswith(".parse-"):
+            raise ValueError("parser cleanup target outside its artifact parent")
+        try:
+            temporary.cleanup()
+            return
+        except PermissionError:
+            # Job termination is asynchronous. Windows may retain a descendant's
+            # file handles briefly even after the job's active count reaches zero.
+            # Retry only this owned scratch directory, with a fixed deadline.
+            if sys.platform != "win32" or monotonic() >= deadline:
+                raise
+            sleep(0.01)
+
+
+@contextmanager
+def _parser_work_directory(parent: Path):
+    temporary = TemporaryDirectory(prefix=".parse-", dir=parent)
+    try:
+        yield Path(temporary.name)
+    finally:
+        _cleanup_parser_work(temporary, parent)
+
+
 def _output_bytes(work: Path) -> int:
-    return sum(
-        path.stat().st_size
-        for path in work.iterdir()
-        if path.is_file() and path.name != "source.pdf"
-    )
+    import stat
+
+    total = 0
+    for path in work.iterdir():
+        if path.name == "source.pdf":
+            continue
+        try:
+            metadata = path.stat()
+        except FileNotFoundError:
+            # The JVM can remove a temporary PDF between enumeration and stat.
+            # A removed file consumes no output bytes; other I/O failures remain
+            # errors rather than silently disabling the limit.
+            continue
+        if stat.S_ISREG(metadata.st_mode):
+            total += metadata.st_size
+    return total
 
 
 def _check_limits(isolation, process, work: Path, profile) -> None:

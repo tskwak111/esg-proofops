@@ -292,8 +292,10 @@ class WindowsJobIsolation:
             # it may never have reached the job: terminating the job alone would
             # leave it alive and waiting on it would block forever. Terminate the
             # process by its own handle as well, and never wait unbounded.
-            self.terminate_tree(process)
-            kill_and_reap(process)
+            try:
+                self.terminate_tree(process)
+            finally:
+                kill_and_reap(process)
             raise
         return process
 
@@ -352,7 +354,8 @@ class WindowsJobIsolation:
         """Kill the launcher and every descendant, whatever state they are in."""
         del process
         if self._job:
-            self._kernel.TerminateJobObject(self._job, 1)
+            if not self._kernel.TerminateJobObject(self._job, 1):
+                raise IsolationUnavailable("terminate_job_failed")
 
     def close(self) -> None:
         if self._job:

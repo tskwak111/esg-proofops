@@ -34,6 +34,34 @@ the documented UTF-8 invocation passed. Failed/intermediate logs remain local.
 
 ## Review boundaries
 
+### CI failures diagnosed and corrected
+
+Additional CI diagnostics identified two concrete causes after the initial local
+checks: Windows output sampling raced with the JVM deleting a temporary PDF;
+Ubuntu invoked the macOS-only Apple Vision Swift script, so a cold compilation
+timeout and a subsequent unavailable-framework error produced different receipts.
+
+Output accounting now takes one stat per entry and ignores only files already
+removed. Permission errors still fail. Windows cleanup retries temporary handle
+release failures for at most 15 seconds, and validates the exact resolved parent
+and generated `.parse-` name before removing scratch data. Tests cover a real
+descendant holding a file, cleanup deadlines and refusal to delete an unowned
+directory. Process reaping runs even if job termination reports an error.
+
+Non-macOS native OCR now returns a deterministic unresolved/UnsupportedPlatform
+receipt without invoking Swift. Original-byte/receipt comparison is unchanged;
+no unresolved source is promoted. The macOS reader path is unchanged. Intel
+macOS investigation was stopped at the user's request and remains out of scope.
+Native paragraph receipts pin the verifier source hash: receipts from an older
+verifier are not rewritten or silently accepted by the changed verifier. Retain
+the matching software version for historical replay or create a new verification
+run while preserving the old receipt.
+
+The final focused Windows regression passed 66 tests, including real Java
+parsing/tagging, resource containment and the new race/platform cases. The
+native source/paragraph suite also passed locally (the Apple Vision positive
+case is platform-specific). Linux-target mypy passed for 205 source files.
+
 Claude Opus handled the Windows parser lane under Orca supervision. Master
 review found and corrected suspended-child cleanup, failure injection, child-only
 resource limits, post-exit output enforcement and Linux-target typing issues.

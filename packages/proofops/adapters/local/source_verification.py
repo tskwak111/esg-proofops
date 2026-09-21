@@ -4,6 +4,7 @@ import io
 import json
 import math
 import subprocess
+import sys
 import tempfile
 from dataclasses import asdict, replace
 from hashlib import sha256
@@ -19,6 +20,15 @@ from proofops.domain.provenance import canonical_hash
 
 
 def _rendered_text(page, box):
+    if sys.platform != "darwin":
+        # Apple Vision is unavailable here even if a Swift compiler is installed.
+        # Do not let a cold compiler timeout and a subsequent import error create
+        # different receipts for the same unavailable reader.
+        return dict(
+            status="unresolved",
+            reason="rendered_reader_unavailable",
+            error="UnsupportedPlatform",
+        )
     if page.width * page.height * 9 > 16_000_000:
         return dict(status="unresolved", reason="render_limit")
     try:

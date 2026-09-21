@@ -13,6 +13,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 
 import pytest
@@ -20,6 +21,8 @@ from proofops.adapters.parsing.opendataloader import (
     OpenDataLoaderParser,
     ParseFailure,
     _child_environment,
+    _cleanup_parser_work,
+    _output_bytes,
 )
 from proofops.adapters.parsing.windows_isolation import (
     MAX_ACTIVE_PROCESSES,
@@ -34,6 +37,36 @@ WINDOWS = sys.platform == "win32"
 windows_only = pytest.mark.skipif(not WINDOWS, reason="Job Objects exist only on Windows")
 
 MEGABYTE = 1024 * 1024
+
+
+def test_output_accounting_tolerates_a_jvm_temp_file_removed_during_sampling(tmp_path, monkeypatch):
+    transient = tmp_path / "tmp_pdf_file.pdf"
+    transient.write_bytes(b"temporary")
+    (tmp_path / "result.json").write_bytes(b"output")
+    original = Path.stat
+
+    def removed_during_stat(path, *args, **kwargs):
+        if path == transient:
+            transient.unlink(missing_ok=True)
+        return original(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", removed_during_stat)
+    assert _output_bytes(tmp_path) == len(b"output")
+
+
+def test_output_accounting_does_not_hide_permission_errors(tmp_path, monkeypatch):
+    result = tmp_path / "result.json"
+    result.write_bytes(b"output")
+    original = Path.stat
+
+    def denied(path, *args, **kwargs):
+        if path == result:
+            raise PermissionError("injected output read failure")
+        return original(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", denied)
+    with pytest.raises(PermissionError):
+        _output_bytes(tmp_path)
 
 
 def profile(*, timeout_seconds=5.0, memory_bytes=512 * MEGABYTE, max_output_bytes=MEGABYTE):
@@ -250,6 +283,62 @@ def test_close_is_idempotent():
     isolation = process_isolation(memory_bytes=64 * MEGABYTE, cpu_seconds=2)
     isolation.close()
     isolation.close()
+
+
+@windows_only
+def test_parser_scratch_cleanup_waits_for_terminated_descendant_file_handles(tmp_path):
+    temporary = TemporaryDirectory(prefix=".parse-", dir=tmp_path)
+    work = Path(temporary.name)
+    held = work / "held.bin"
+    marker = work / "ready.txt"
+    child = (
+        f"stream = open({str(held)!r}, 'wb')\n"
+        "stream.write(b'held'); stream.flush()\n"
+        f"open({str(marker)!r}, 'w').write('ready')\n"
+        "import time; time.sleep(600)\n"
+    )
+    launcher = (
+        "import subprocess, sys, time\n"
+        f"subprocess.Popen([sys.executable, '-I', '-c', {child!r}])\n"
+        "time.sleep(600)\n"
+    )
+    isolation = WindowsJobIsolation(memory_bytes=512 * MEGABYTE, cpu_seconds=600)
+    process = isolation.spawn(python(launcher), cwd=tmp_path, env=child_environment())
+    try:
+        wait_for_file(marker)
+        with pytest.raises(PermissionError):
+            held.unlink()
+        isolation.terminate_tree(process)
+        _cleanup_parser_work(temporary, tmp_path)
+        assert not work.exists()
+    finally:
+        isolation.terminate_tree(process)
+        kill_and_reap(process)
+        isolation.close()
+        temporary.cleanup()
+
+
+def test_parser_scratch_cleanup_never_deletes_an_unowned_directory(tmp_path):
+    outside = tmp_path / "important"
+    outside.mkdir()
+
+    def forbidden_cleanup():
+        raise AssertionError("unowned directory must not be removed")
+
+    temporary = SimpleNamespace(name=str(outside), cleanup=forbidden_cleanup)
+    with pytest.raises(ValueError, match="outside its artifact parent"):
+        _cleanup_parser_work(temporary, tmp_path)
+    assert outside.is_dir()
+
+
+@windows_only
+def test_parser_scratch_cleanup_has_a_deadline_even_if_a_handle_stays_locked(tmp_path):
+    def denied():
+        raise PermissionError("still locked")
+
+    temporary = SimpleNamespace(name=str(tmp_path / ".parse-locked"), cleanup=denied)
+    with pytest.raises(PermissionError, match="still locked"):
+        _cleanup_parser_work(temporary, tmp_path, timeout_seconds=0)
 
 
 # --------------------------------------------------------------------------- #
