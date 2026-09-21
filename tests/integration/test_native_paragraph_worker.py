@@ -95,8 +95,8 @@ def test_opt_in_publishes_v4_and_replays_immutable_receipt(tmp_path, monkeypatch
     from proofops.adapters.local.run_artifacts import load_run_evidence, native_paragraph_policy
     from proofops.application.ports.jobs import JobMessage
 
-    service, run_id, runner, now, _ = runner_setup_native(tmp_path, monkeypatch, True)
-    assert runner.run_once(tenant_id=TENANT, run_id=run_id) == "committed"
+    service, run_id, runner, now, stream = runner_setup_native(tmp_path, monkeypatch, True)
+    assert runner.run_once(tenant_id=TENANT, run_id=run_id) == "committed", stream.getvalue()
     message = JobMessage(**service.store.jobs.get_run(TENANT, run_id)["parse_job"])
     raw = service.store.jobs.read_checkpoint(message)
     envelope = json.loads(raw)

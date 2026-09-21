@@ -72,7 +72,7 @@ jobs:
       - name: Developer B offline release checks and GPM regression
         run: uv run --no-sync python scripts/verify_reconciliation.py --output .local/reconciliation-ci --timeout-seconds 600
       - name: Real Java parser and local tagging regression
-        run: uv run --no-sync python -m pytest tests/acceptance/test_parsing.py tests/integration/test_local_tag_runner.py -q
+        run: uv run --no-sync python -m pytest tests/acceptance/test_parsing.py tests/integration/test_local_tag_runner.py tests/integration/test_native_paragraph_worker.py -q
       - name: Preserve verification evidence, including failures
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
