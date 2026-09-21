@@ -65,7 +65,13 @@ def extraction_setup(tmp_path, monkeypatch, *, extractor=None):
 
     monkeypatch.setattr(lifecycle, "setup", setup)
     service, run_id, parser, now, stream = runner_setup(tmp_path, monkeypatch)
-    assert parser.run_once(tenant_id=TENANT, run_id=run_id) == "committed", stream.getvalue()
+    message = JobMessage(
+        **service.store.jobs.pending_outbox(TENANT, run_id, now=now[0])[0]["message"]
+    )
+    assert parser.run_once(tenant_id=TENANT, run_id=run_id) == "committed", (
+        service.store.jobs.get_job(message).get("error_code"),
+        stream.getvalue(),
+    )
     runner = LocalExtractRunner(
         service.store,
         service.uploads,
