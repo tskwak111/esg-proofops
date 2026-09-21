@@ -731,3 +731,5 @@ R00의 충돌·호환성 경계를 필요한 범위만 정리한 뒤 R01 비교�
 - 검토 입력4건(G2, G1/G2, P1, P1)을 원문과 대조해 준비했다. 현재 API의 `normalized_value`는 전체 근거 인용과 같아야 하므로 읽기용 수치 요약을 별도로 유지한다. 검증된 전체 span 안의 더 짧은 인용은 기존 `span_citations` 경로가 지원하며 실제 실행 시 검증 후 파생할 수 있다. 이 조서는 아직 앱 태깅 결과가 아니다. ROOT `outputs/agent-results/R24/naver-goal-performance-inputs/review-inputs.json`.
 
 - 대량 NAVER 검토 속도의 근본 원인인 graph fusion의 전체 그룹 반복 탐색을 페이지·종류별 탐색으로 줄였다. 동일한 NAVER/KB 입력에서 모든 지원 버전의 전체 graph·ID·근거·오류 결과가 기존과 같았다(legacy가 거절한 입력은 그대로 거절). NAVER fusion 중앙값3.599→1.141초, 실제 동일261주장 snapshot의 반복 claims API5.497→2.729초. 최초 원문 검증은170.932초로 여전히 병목이며 UI 지연·모델 정확도 개선으로 확대 해석하지 않는다. 기존 manifest/정책은 보존하고 관련180검사·변경 lint/type을 확인했다. ROOT `outputs/agent-results/R24/graph-fusion-performance/results.json`.
+
+- 같은 비교 안에서 재계산하던 bbox를 지역 변수로 한 번만 읽도록 추가 개선했다. 별도 캐시/필드 없이 기존 단락 조건과 None 거절 순서를 유지했다. 독립적으로 로드한 직전 commit6d8e213 전체 모듈과 NAVER/KB 모든 지원 버전의 graph가 동일했다. 동일 NAVER fusion 중앙값1.123→0.631초, warm graph 읽기1.613→1.123초(각2회 중 최솟값); HTTP/최초 원문 검증 시간은 다시 측정하지 않았다. 관련202검사·변경 lint/type 통과, 조정자11검사 추가 확인. ROOT `outputs/agent-results/R24/graph-fusion-performance/pairwise-bbox/results.json`.

@@ -10,6 +10,7 @@ Every supported fusion version is exercised; nothing here asserts parsing accura
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import asdict
 
 import pytest
@@ -17,6 +18,7 @@ from proofops.application.ingest.graph_fusion import (
     CandidateBatch,
     CandidateBlock,
     CandidateEdge,
+    _matches,
     candidates_from_snapshot,
     fuse_candidates,
 )
@@ -269,3 +271,47 @@ def test_unsupported_fusion_version_is_still_rejected():
     for version in (0, 5, True, 3.0):
         with pytest.raises(ValueError, match="unsupported fusion version"):
             fuse_candidates((only,), tenant_id=TENANT, fusion_version=version)
+
+
+def count_bbox_reads(monkeypatch) -> Counter[str]:
+    """Count CandidateBlock.bbox property evaluations per block, keeping the real value."""
+    original = CandidateBlock.bbox
+    counts: Counter[str] = Counter()
+
+    def fget(self):
+        counts[self.source.source_native_id] += 1
+        return original.fget(self)
+
+    monkeypatch.setattr(CandidateBlock, "bbox", property(fget))
+    return counts
+
+
+def test_matches_projects_each_operand_bbox_once_and_keeps_short_circuiting(monkeypatch):
+    """`bbox` recomputes the canonical projection on every read, so `_matches` must read it
+    once per operand (it used to read each one twice: guard, then IoU) and must still not
+    read it at all when kind or page already rejects the pair, nor read the right operand
+    when the left one has no canonical bbox."""
+    left = batch(
+        "A",
+        [
+            ("a-p1", 1, "paragraph", "text", (0, 0, 100, 100), (), None),
+            ("a-p2", 2, "paragraph", "text", (0, 0, 100, 100), (), None),
+            ("a-h1", 1, "heading", "text", (0, 0, 100, 100), (), None),
+            ("a-unlocated", 1, "paragraph", "text", None, (), None),
+        ],
+    )
+    right = batch("B", [("b-p1", 1, "paragraph", "text", (0, 0, 100, 95), (), None)])
+    blocks = {block.source.source_native_id: block for block in left.blocks + right.blocks}
+    assert blocks["a-unlocated"].bbox is None and blocks["a-p1"].bbox is not None
+    counts = count_bbox_reads(monkeypatch)
+    for version in SUPPORTED:
+        counts.clear()  # IoU 0.95 -> a real match, both operands projected exactly once
+        assert _matches(blocks["a-p1"], blocks["b-p1"], fusion_version=version) is True
+        assert counts == {"a-p1": 1, "b-p1": 1}, (version, counts)
+        for rejected_first in ("a-p2", "a-h1"):  # page / kind mismatch touches no bbox
+            counts.clear()
+            assert _matches(blocks[rejected_first], blocks["b-p1"], fusion_version=version) is False
+            assert counts == {}, (version, rejected_first, counts)
+        counts.clear()  # unlocated left: read once, right operand never evaluated
+        assert _matches(blocks["a-unlocated"], blocks["b-p1"], fusion_version=version) is False
+        assert counts == {"a-unlocated": 1}, (version, counts)

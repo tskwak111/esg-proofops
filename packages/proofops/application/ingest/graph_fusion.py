@@ -388,8 +388,11 @@ def _matches(left: CandidateBlock, right: CandidateBlock, *, fusion_version: int
     if (
         left.kind != right.kind
         or left.source.physical_page != right.source.physical_page
-        or left.bbox is None
-        or right.bbox is None
+        # bbox is a recomputing property: bind each operand's value once here and reuse it
+        # for the IoU below. Short-circuiting is unchanged -- a kind/page mismatch still
+        # projects neither bbox, and an unlocated/invalid left never evaluates right.
+        or (a := left.bbox) is None
+        or (b := right.bbox) is None
     ):
         return False
     left_context, right_context = left.context, right.context
@@ -410,7 +413,6 @@ def _matches(left: CandidateBlock, right: CandidateBlock, *, fusion_version: int
     if left_context != right_context:
         # v1 legacy: parser-assigned row/column numbers must agree for every kind.
         return False
-    a, b = left.bbox, right.bbox
     intersection = max(0, min(a[2], b[2]) - max(a[0], b[0])) * max(
         0, min(a[3], b[3]) - max(a[1], b[1])
     )
