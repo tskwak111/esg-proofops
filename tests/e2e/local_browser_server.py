@@ -13,6 +13,7 @@ from dataclasses import asdict
 from datetime import UTC, datetime
 from hashlib import sha256
 from pathlib import Path
+from typing import Any
 from uuid import uuid4
 
 from fastapi import Request
@@ -28,8 +29,15 @@ USER = "local-browser-fixture-user"
 RIGHTS = "33333333-3333-4333-8333-333333333333"
 
 
-def build_app(*, database: Path, dist: Path, origin: str, include_prior_version: bool = False):
-    review_fixture: dict[str, str] = {}
+def build_app(
+    *,
+    database: Path,
+    dist: Path,
+    origin: str,
+    include_prior_version: bool = False,
+    include_reconciliation: bool = False,
+):
+    review_fixture: dict[str, Any] = {}
     os.environ.update(
         APP_ENV="local",
         MODEL_ADAPTER="synthetic",
@@ -70,6 +78,7 @@ def build_app(*, database: Path, dist: Path, origin: str, include_prior_version:
         from proofops.adapters.local.claim_store import LocalClaimStore
         from proofops.adapters.local.comparison_store import LocalComparisonStore
         from proofops.adapters.local.export_store import LocalExportStore
+        from proofops.adapters.local.reconciliation_store import LocalReconciliationStore
         from proofops.adapters.local.rescore_store import LocalSQLiteRescoreStore
         from proofops.adapters.local.review_store import LocalSQLiteReviewStore
         from proofops.adapters.local.summary_store import LocalSummaryStore
@@ -201,6 +210,17 @@ def build_app(*, database: Path, dist: Path, origin: str, include_prior_version:
         object.__setattr__(composition, "parser", fixture_parser)
         object.__setattr__(composition, "claims", claims)
         object.__setattr__(composition, "tags", tags)
+        object.__setattr__(
+            composition,
+            "reconciliation",
+            LocalReconciliationStore(
+                database,
+                database.parent / "reconciliation-artifacts",
+                run_store=composition.runs.store,
+                claims=claims,
+                tags=tags,
+            ),
+        )
         object.__setattr__(
             composition, "summaries", LocalSummaryStore(composition.runs.store, claims)
         )
@@ -405,6 +425,13 @@ def build_app(*, database: Path, dist: Path, origin: str, include_prior_version:
         review_id=review["review_id"],
         document_version_id=version["version_id"],
     )
+    if include_reconciliation:
+        from tests.e2e.reconciliation_fixture import seed_reconciliation_cases
+
+        cases = seed_reconciliation_cases(
+            composition, fixture_auth, run_id, review["claim_id"], database.parent / "drafts"
+        )
+        review_fixture["reconciliation_case_ids"] = [case["case_id"] for case in cases]
 
     @app.get("/__e2e/login", include_in_schema=False)
     def fixture_login() -> RedirectResponse:
@@ -512,6 +539,7 @@ def main() -> None:
     parser.add_argument("--database", type=Path, required=True)
     parser.add_argument("--dist", type=Path, default=ROOT / "apps/web/dist")
     parser.add_argument("--include-prior-version", action="store_true")
+    parser.add_argument("--include-reconciliation", action="store_true")
     args = parser.parse_args()
     display_host = f"[{args.host}]" if ":" in args.host else args.host
     origin = args.origin or f"http://{display_host}:{args.port}"
@@ -523,6 +551,7 @@ def main() -> None:
             dist=args.dist,
             origin=origin,
             include_prior_version=args.include_prior_version,
+            include_reconciliation=args.include_reconciliation,
         ),
         host=args.host,
         port=args.port,

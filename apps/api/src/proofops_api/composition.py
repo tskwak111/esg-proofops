@@ -22,6 +22,7 @@ from proofops.adapters.local.claim_store import LocalClaimStore
 from proofops.adapters.local.comparison_store import LocalComparisonStore
 from proofops.adapters.local.evaluation_store import LocalEvaluationStore
 from proofops.adapters.local.export_store import LocalExportStore
+from proofops.adapters.local.reconciliation_store import LocalReconciliationStore
 from proofops.adapters.local.rescore_store import LocalSQLiteRescoreStore
 from proofops.adapters.local.retention_store import LocalRetentionStore
 from proofops.adapters.local.review_store import LocalSQLiteReviewStore
@@ -66,6 +67,7 @@ class ApiComposition:
     exports: ExportService
     retention: LocalRetentionStore
     comparisons: LocalComparisonStore
+    reconciliation: LocalReconciliationStore
     app_origin: str | None
     allowed_processing_regions: tuple[str, ...]
 
@@ -156,5 +158,12 @@ def build_composition() -> ApiComposition:
             enabled=os.environ.get("ENABLE_YEAR_COMPARISON", "false") == "true",
         ),
         app_origin=os.environ.get("APP_ORIGIN"),
+        reconciliation=LocalReconciliationStore(
+            database_path,
+            database_path.parent / "reconciliation-artifacts",
+            run_store=runs.store,
+            claims=claims,
+            tags=tags,
+        ),
         allowed_processing_regions=allowed_regions,
     )

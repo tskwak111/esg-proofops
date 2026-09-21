@@ -2,6 +2,7 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { BrowserRouter, Link, Navigate, Route, Routes, useNavigate, useParams } from "react-router";
 import { ClaimWorkspace, ReviewQueueWorkspace } from "./features/claims/ClaimWorkspace";
 import { ComparisonWorkspace } from "./features/comparison/ComparisonWorkspace";
+import { ReconciliationWorkspace } from "./features/reconciliation/ReconciliationWorkspace";
 import { RunSummary, type Summary } from "./features/dashboard/RunSummary";
 import { ExportWorkspace } from "./features/reports/ExportWorkspace";
 import { RunForm } from "./features/runs/RunForm";
@@ -104,6 +105,7 @@ function SessionApp() {
         <Route path="/runs/:runId" element={<RunHome session={session} tenantKey={session.tenant_id} initialRun={createdRun} onSessionInvalid={invalidateSession} />} />
         <Route path="/runs/:runId/claims" element={<RunClaims session={session} onSessionInvalid={invalidateSession} onDataChanged={changed} />} />
         <Route path="/runs/:runId/claims/:claimId" element={<RunClaims session={session} onSessionInvalid={invalidateSession} onDataChanged={changed} />} />
+        <Route path="/runs/:runId/claims/:claimId/reconciliation" element={<RunReconciliation session={session} onSessionInvalid={invalidateSession} />} />
         <Route path="/runs/:runId/reviews" element={<RunReviews key={`reviews:${dataRevision}`} session={session} onSessionInvalid={invalidateSession} onDataChanged={changed} />} />
         <Route path="/runs/:runId/report" element={<RunReport session={session} onSessionInvalid={invalidateSession} />} />
         <Route path="/runs/:runId/comparison" element={<RunComparison session={session} onSessionInvalid={invalidateSession} />} />
@@ -196,8 +198,15 @@ function RunHome({ session, tenantKey, initialRun, onSessionInvalid }: { session
 
 function RunClaims({ session, onSessionInvalid, onDataChanged }: { session: Session; onSessionInvalid: () => void; onDataChanged: () => void }) {
   const { runId = "", claimId } = useParams();
-  return <><RunNav runId={runId} /><ClaimWorkspace apiBase={API_BASE} csrfToken={session.csrf_token} tenantKey={session.tenant_id!} session={session} runId={runId} claimId={claimId}
+  return <><RunNav runId={runId} />{claimId ? <p><Link to={`/runs/${runId}/claims/${claimId}/reconciliation`}>공시 원문 대조 · C1–C4 검토</Link></p> : null}<ClaimWorkspace apiBase={API_BASE} csrfToken={session.csrf_token} tenantKey={session.tenant_id!} session={session} runId={runId} claimId={claimId}
     onSessionInvalid={onSessionInvalid} onDataChanged={onDataChanged} /></>;
+}
+
+function RunReconciliation({ session, onSessionInvalid }: { session: Session; onSessionInvalid: () => void }) {
+  const { runId = "", claimId = "" } = useParams();
+  return <><RunNav runId={runId} /><p><Link to={`/runs/${runId}/claims/${claimId}`}>주장 상세로 돌아가기</Link></p>
+    <ReconciliationWorkspace key={`${session.tenant_id}:${runId}:${claimId}`} apiBase={API_BASE}
+      runId={runId} claimId={claimId} session={session} onSessionInvalid={onSessionInvalid} /></>;
 }
 
 function RunReport({ session, onSessionInvalid }: { session: Session; onSessionInvalid: () => void }) {

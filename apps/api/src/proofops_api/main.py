@@ -23,6 +23,7 @@ from proofops_api.routers.deletion import build_deletion_router
 from proofops_api.routers.documents import build_documents_router
 from proofops_api.routers.evaluations import build_evaluations_router
 from proofops_api.routers.exports import build_exports_router
+from proofops_api.routers.reconciliation import build_reconciliation_router
 from proofops_api.routers.registry import build_registry_router
 from proofops_api.routers.rescores import build_rescores_router
 from proofops_api.routers.reviews import build_reviews_router
@@ -92,6 +93,11 @@ def create_app() -> FastAPI:
     app.include_router(build_summaries_router(composition.summaries, composition.auth_store))
     app.include_router(build_evaluations_router(composition.evaluations, composition.auth_store))
     app.include_router(build_analysis_router(composition.analysis, composition.auth_store))
+    app.include_router(
+        build_reconciliation_router(
+            composition.reconciliation, composition.auth_store, allowed_origin=app_origin or ""
+        )
+    )
     app.include_router(
         build_source_conditions_router(
             composition.source_conditions, composition.auth_store, allowed_origin=app_origin or ""

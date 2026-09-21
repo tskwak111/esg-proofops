@@ -92,20 +92,20 @@ for p in project_files(".json"):
         continue
     try:
         json.loads(p.read_text(encoding="utf-8"))
-        check("json:" + str(p.relative_to(ROOT)), True)
+        check("json:" + p.relative_to(ROOT).as_posix(), True)
     except (ValueError, OSError) as exc:
-        check("json:" + str(p.relative_to(ROOT)), False, str(exc))
+        check("json:" + p.relative_to(ROOT).as_posix(), False, str(exc))
 for p in project_files(".yaml"):
     try:
         val = yaml.safe_load(p.read_text(encoding="utf-8"))
-        check("yaml:" + str(p.relative_to(ROOT)), isinstance(val, dict))
+        check("yaml:" + p.relative_to(ROOT).as_posix(), isinstance(val, dict))
         if p.is_relative_to(ROOT / "config"):
             check(
-                "config_version:" + str(p.relative_to(ROOT)),
+                "config_version:" + p.relative_to(ROOT).as_posix(),
                 bool(val.get("version") and val.get("effective_date")),
             )
     except (ValueError, yaml.YAMLError, OSError) as exc:
-        check("yaml:" + str(p.relative_to(ROOT)), False, str(exc))
+        check("yaml:" + p.relative_to(ROOT).as_posix(), False, str(exc))
 
 manifest = load("sources/source_manifest.json")
 for k in ["domain_source", "package_request"]:
@@ -253,7 +253,7 @@ for p in [ROOT / "README.md", *numbered]:
         if re.match(r"^[a-z]+://", target) or target.startswith("#"):
             continue
         candidate = (p.parent / unquote(target.split("#", 1)[0])).resolve()
-        check("md_link:" + str(p.relative_to(ROOT)) + ":" + target, candidate.exists())
+        check("md_link:" + p.relative_to(ROOT).as_posix() + ":" + target, candidate.exists())
 
 # De-duplicate repeated reference checks for a readable report.
 checks = list({c["name"]: c for c in checks}.values())
