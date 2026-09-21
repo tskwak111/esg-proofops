@@ -107,6 +107,12 @@ def attest_claims(*, reader, graph, source, refs, tenant_id, cache):
     would be refused at load time. The separate replay cache in
     ``native_replay_cache`` is keyed on the whole receipt and stays usable for
     both readers.
+
+    A wrapper receipt is therefore recomputed in full here and then remembered
+    whole, not composed: ``remember_wrapper_attestation`` stores these exact
+    canonical bytes so the strict replay that immediately follows the batch
+    publication can match them instead of repeating the same whole-ref read.
+    The published bytes are unchanged either way.
     """
     if cache and reader not in _wrappers():
         from proofops.adapters.local.native_replay_cache import attest_claims_cached
@@ -114,4 +120,16 @@ def attest_claims(*, reader, graph, source, refs, tenant_id, cache):
         return attest_claims_cached(
             reader=reader, graph=graph, source=source, refs=refs, tenant_id=tenant_id
         )
-    return reader.attest_claim_spans(graph, source, tuple(refs), tenant_id=tenant_id)
+    receipt = reader.attest_claim_spans(graph, source, tuple(refs), tenant_id=tenant_id)
+    if cache:
+        from proofops.adapters.local.native_replay_cache import remember_wrapper_attestation
+
+        remember_wrapper_attestation(
+            reader=reader,
+            policy=reader.claim_source_policy(),
+            graph=graph,
+            source=source,
+            tenant_id=tenant_id,
+            receipt=receipt,
+        )
+    return receipt
