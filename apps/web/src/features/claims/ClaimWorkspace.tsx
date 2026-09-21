@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
-import { SourceViewer } from "../../components/SourceViewer";
+import { SourceViewer, type SourceOpenRequest } from "../../components/SourceViewer";
 import { StatusBadge } from "../../components/StatusBadge";
 import { PreliminaryClassification } from "./PreliminaryClassification";
 import { ApiError, errorMessage, isSessionError, requestJson, type Session } from "../session/api";
@@ -276,6 +276,7 @@ function ClaimDetailView({ apiBase = "", csrfToken, tenantKey, session, runId, c
   const [detail, setDetail] = useState<ClaimDetail | null>(null);
   const [state, setState] = useState<LoadState>("loading");
   const [message, setMessage] = useState("");
+  const [sourceOpen, setSourceOpen] = useState<SourceOpenRequest | null>(null);
   const request = useRef<AbortController | null>(null);
 
   const load = useCallback(async () => {
@@ -297,6 +298,7 @@ function ClaimDetailView({ apiBase = "", csrfToken, tenantKey, session, runId, c
 
   useEffect(() => {
     setDetail(null);
+    setSourceOpen(null);
     void load();
     return () => request.current?.abort();
   }, [load, tenantKey]);
@@ -314,7 +316,7 @@ function ClaimDetailView({ apiBase = "", csrfToken, tenantKey, session, runId, c
     <p><Link to={`/runs/${runId}/claims`}>주장 목록으로</Link></p>
     {untagged ? <p role="status">태깅 결과가 게시되지 않은 주장입니다. 처리 대기뿐 아니라 원문 검증 문제로 보류된 경우도 포함합니다. 아래에서 원문을 확인할 수 있으며, 태깅 편집은 태그가 게시된 뒤에 가능합니다.</p> : null}
     <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 3fr) minmax(280px, 2fr)", gap: 24 }}>
-      <SourceViewer apiBase={apiBase} csrfToken={csrfToken} runId={runId} sources={detail.source_refs} onSessionInvalid={onSessionInvalid} />
+      <SourceViewer key={`${tenantKey}:${runId}:${claimId}`} apiBase={apiBase} csrfToken={csrfToken} runId={runId} sources={detail.source_refs} openRequest={sourceOpen} onSessionInvalid={onSessionInvalid} />
       <section aria-labelledby="evidence-heading"><h2 id="evidence-heading">태깅과 판정</h2>
         <p>{detail.claim.quote}</p><p>트랙: {track ? trackText[track] : "미분류"}</p><p>판정: <StatusBadge label={decisionText(decision)} tone={decisionTone(decision)} /></p>
         {decision?.review_status ? <p>검토 상태: <StatusBadge label={reviewStatusText[decision.review_status]} tone={decision.review_status === "human_confirmed" ? "success" : "warning"} /></p> : null}
@@ -333,14 +335,16 @@ function ClaimDetailView({ apiBase = "", csrfToken, tenantKey, session, runId, c
           {projection.blocked_reason ? <p>태깅 당시 보류 사유: {projection.blocked_reason}</p> : null}
           {projection.blocked_action ? <p>태깅 당시 안내: {projection.blocked_action}</p> : null}
           {projection.candidate_snippets.length ? <ul>{projection.candidate_snippets.map((snippet, index) => <li key={index}>{snippet}</li>)}</ul> : null}
-          {projection.field_agreements.length ? <ul>{projection.field_agreements.map(field => <li key={field.field_id}>{field.field_id}: {fieldAgreementText[field.status]} ({field.replicate_values.map(value => typeof value === "string" ? value : JSON.stringify(value)).join(" / ")})</li>)}</ul> : null}
+          {projection.field_agreements.length ? <details><summary>모델 응답 필드 상세 ({projection.field_agreements.length}개)</summary>
+            <ul>{projection.field_agreements.map(field => <li key={field.field_id}>{field.field_id}: {fieldAgreementText[field.status]} ({field.replicate_values.map(value => typeof value === "string" ? value : JSON.stringify(value)).join(" / ")})</li>)}</ul>
+          </details> : null}
           {projection.raw_candidates && projection.raw_candidates.length ? <section aria-labelledby="raw-candidates-heading">
             <h4 id="raw-candidates-heading">미검증 근거 후보</h4>
             <p role="status">원문 검색으로 발견된 미검증 근거 후보입니다. 정식 근거로 채택되지 않았으며 판정 등급에 반영되지 않습니다.</p>
             <ul>{projection.raw_candidates.map((cand, index) => <li key={`${cand.source_ref.source_id}:${index}`}>
               <p><strong>원문 {cand.source_ref.page_num}쪽</strong> · {cand.status === "unverified" ? "미검증 근거 후보" : cand.status}{cand.reason ? ` (${cand.reason})` : ""}</p>
               <p>{cand.source_ref.quote}</p>
-              <button type="button" onClick={() => document.getElementById(`review-source-${cand.source_ref.source_id}`)?.focus()}>원문 {cand.source_ref.page_num}쪽 보기</button>
+              <button type="button" onClick={() => setSourceOpen(current => ({ source: cand.source_ref, nonce: (current?.nonce ?? 0) + 1 }))}>원문 {cand.source_ref.page_num}쪽 보기</button>
             </li>)}</ul>
           </section> : null}
         </section> : null}
