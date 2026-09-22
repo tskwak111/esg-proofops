@@ -481,6 +481,52 @@ DART filing with its 접수번호) or authorization for B to collect the DART si
 new immutable path. Nothing was collected, no DART or paid call was made, and no
 identifier was copied into a B database.
 
+## Developer A real-company delivery checked (2026-09-22, KST evening)
+
+A superseded the diagnostic package with `developer-b-real-company/` (kept outside
+Git): a **new registration of 네이버 주식회사 (DART:00266961)** with a real run and
+claims, two operator-draft cases (C1, C2), three claim records, `integration.patch`,
+`policy-source.md`, `normalization-review.json`, `verification.json`, `files.json`.
+A's covering note states plainly that `local_synthetic=true` remains, that the cases
+are draft-level, and that this is **not** a request to mark B-F01 complete. B agrees.
+
+| Check | Result |
+|---|---|
+| `files.json` SHA-256 (23 files) | 23/23 match |
+| Identity chain | tenant `3f4101d1…`, company `81a4606a…`, run `9aaf0254…`, claim `405ea5ec…` (p185, `source_quality verified`, `tag_revision 2`, M1/M2 present, M3–M6 unknown, AI-delegated review), SR version `74bb8e2c…` (`75388f16…`), FS version `e2deea33…` (`1cd29568…`, 제27기 연결감사보고서) |
+| Packet identity vs `identities.json` | C1 and C2: tenant/company/claim/sustainability_document_version all equal; schema 1.1; `synthetic: true` |
+| Canonical hashes under B's contract | C1 packet `6e592d17…`, C2 packet `863ffe25…`, policy `8937247e…` — **byte-identical to the values A stored** in `observed-case.json`, so A's store and B's `canonical_sha256` agree |
+| Policy | `approved: false`, `synthetic_only: true`, no approver/hash; draft version `r25-local-integration-draft-1`, `source_policy_sha256` = sha256 of the enclosed `policy-source.md` (`29ef6330…`) |
+| A's stored result | both cases `revision 2`, `blocked / null / [policy_unapproved]`, review `pending`, coverage unconfirmed, search `not_run` |
+| B re-execution on this machine | `application.reconcile` + `FileSourceReader` raised `artifact_not_found` for both cases (CLI exit 2, `input_or_authorization_rejected`): the two NAVER PDFs are not on this machine and were not in the package. **No B verdict was produced**; nothing was fabricated to get past the reader |
+| `integration.patch` | Applies cleanly to this branch. The reconciliation hunks (`application/reconciliation/sources.py`, `tests/reconciliation/test_sources.py`) were integrated as `8fcff4d`: opt-in `page:N:whitespace-v1` PDF locator, exact whitespace collapse only, ambiguity refused, legacy literal path unchanged, verifier not receipt-hashed. `test_sources.py` 7 passed, `tests/reconciliation` 552 passed, ruff/mypy clean. The pilot script, docs/27 and live-pilot test hunks are A's and were left for A's branch. PR #9 does not touch these files |
+| Rows for tenant `3f4101d1…` in B-local databases | 0 (expected; A's `.local/r25-naver-real-company/state.sqlite3` holds them) |
+
+Substantive reading of the two drafts, for the case table rather than for a verdict:
+
+- **C1** binds the SR scope sentences on p2 and the FS phrase "네이버 주식회사와 그
+  종속회사"; both `normalized: null` because neither text enumerates a verified legal
+  entity set (`normalization-review.json`). With an approved policy the engine would
+  next stop at `value_unresolved`; the DEC-C1 proposal (no count-only matching, set
+  difference through the explanation path) is exactly what this case needs, and A's
+  `entity_set` input is still outstanding.
+- **C2** compares an activity month ("2025년 1월", the agreement date on p185) with the
+  FS reporting year. A's own review marks comparability `unknown` and warns not to
+  equate the two or label the gap unexplained. Under DEC-PERIOD this is a period
+  reference of a different kind, not a reporting-period statement, and `rcept_no`,
+  `published_at` and `available_on` are all null. It stays a draft until A supplies a
+  claim that states the SR measurement period, or the coordinator decides the
+  activity-month reading. A has said it will restate C2 as engine-basis period input.
+- The claim itself is the biodiversity partnership sentence; it carries an
+  `organizational_boundary` trigger only. It remains the only reviewed claim.
+
+**Status after this delivery:** B-F01 "실제 정책 적용·최종 판정" and "실자료 앱·출력·재현"
+remain 외부입력대기. What changed is that a real-company registration with a run and a
+verified claim now exists in A's environment and its draft packets pass B's identity,
+schema and hash checks. What has not changed: the anchored documents are
+`local_synthetic: true`, no policy is approved, no originals are available to B,
+search is not run, and the two drafts do not yet carry evaluable C1/C2 facts.
+
 ## Remaining work, split by owner
 
 Developer A / coordinator: supply, per company to be evaluated, a verified
