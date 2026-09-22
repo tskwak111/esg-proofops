@@ -542,6 +542,17 @@ def test_stdlib_renderers_escape_html_and_guard_csv_formulas():
         render_report(model, "pdf")
 
 
+def test_unrun_html_reports_unevaluated_lists_and_keeps_raw_data_in_audit_details():
+    model = build_report_model(manifest(), decisions())
+    html = render_report(model, "html").decode()
+    section = next(part for part in html.split("<section>") if f"<h2>{CLAIMS[2]}</h2>" in part)
+    summary, audit = section.split("<details>", 1)
+    assert "결손: 미평가 · 미해결: 미평가 · gaps: 미평가" in summary
+    assert "<pre>" not in summary
+    assert all(key in audit for key in ("basis_refs", "assurance", "safe_harbor"))
+    assert json.loads(render_report(model, "json")) == model
+
+
 def test_report_preview_renders_partial_and_unverified_states(tmp_path):
     root = Path(__file__).resolve().parents[2]
     esbuild = next((root / "node_modules/.pnpm").glob("esbuild@*/node_modules/esbuild/bin/esbuild"))

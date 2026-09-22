@@ -591,6 +591,7 @@ def render_report(model: Mapping[str, object], output_format: str) -> bytes:
                 else "미판정"
             )
             audit_details = escape(canonical_json(claim))
+            empty_result = "미평가" if claim["decision_status"] == "not_run" else "없음"
             action = claim.get("review_action")
             if action:
                 action_html = (
@@ -607,15 +608,12 @@ def render_report(model: Mapping[str, object], output_format: str) -> bytes:
                 f"<p>검토: {escape(claim['review_status'])} · "
                 f"tag revision {claim['tag_revision']} · decision revision "
                 f"{claim['decision_revision']}</p>"
-                f"<p>결손: {escape(', '.join(claim['missing_elements']) or '없음')} · "
-                f"미해결: {escape(', '.join(claim['unresolved_elements']) or '없음')} · "
-                f"gaps: {escape(', '.join(claim['gap_ids']) or '없음')}</p>"
+                f"<p>결손: {escape(', '.join(claim['missing_elements']) or empty_result)} · "
+                f"미해결: {escape(', '.join(claim['unresolved_elements']) or empty_result)} · "
+                f"gaps: {escape(', '.join(claim['gap_ids']) or empty_result)}</p>"
                 f"<p>{escape(claim.get('suggestion') or '확정된 수정 제안 없음')}</p>"
                 f"{action_html}"
                 f"<ul>{sources}</ul>"
-                f"<pre>{escape(canonical_json(claim['basis_refs']))}</pre>"
-                f"<pre>{escape(canonical_json(claim['assurance']))}</pre>"
-                f"<pre>{escape(canonical_json(claim['safe_harbor']))}</pre>"
                 f"<details><summary>감사 세부정보</summary><pre>{audit_details}</pre></details>"
                 "</section>"
             )
