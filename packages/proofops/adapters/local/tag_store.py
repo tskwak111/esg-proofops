@@ -207,27 +207,32 @@ class LocalTagStore:
         self.store, self.uploads, self.parser = store, uploads, parser
         self.claims = LocalClaimStore(store, uploads, parser)
 
-    def load_snapshot(self, tenant_id, run_id):
+    def _load_snapshot_with_evidence(self, tenant_id, run_id):
+        # Share the evidence replay used to verify the tag checkpoint pins.
         run = self.store.jobs.get_run(tenant_id, run_id)
         message = JobMessage(**run["tag_job"])
         payload = self.store.jobs.read_checkpoint(message)
         if payload is None or sha256(payload).hexdigest() != run["tag_snapshot_sha256"]:
             raise ValueError("TAG_CHECKPOINT_HASH_MISMATCH")
         envelope = json.loads(payload)
-        extraction = self.claims.load_snapshot(tenant_id, run_id)
+        evidence = self.claims.load_evidence(tenant_id, run_id)
+        extraction = evidence[0]
         snapshot = self.store.snapshot(tenant_id, run_id)
         expected = tag_pins(snapshot, extraction, run["claim_snapshot_sha256"])
         if any(envelope.get(k) != v for k, v in expected.items()):
             raise ValueError("TAG_CHECKPOINT_PIN_MISMATCH")
-        return envelope
+        return envelope, evidence
+
+    def load_snapshot(self, tenant_id, run_id):
+        return self._load_snapshot_with_evidence(tenant_id, run_id)[0]
 
     def load_inputs(self, tenant_id, run_id, claim_id):
-        envelope = self.load_snapshot(tenant_id, run_id)
+        envelope, evidence = self._load_snapshot_with_evidence(tenant_id, run_id)
         item = next((item for item in envelope["claims"] if item["claim_id"] == claim_id), None)
         if item is None or item.get("review_inputs") is None:
             raise KeyError("tagged claim not published")
         raw = item["review_inputs"]
-        _, discovery, graph = self.claims.load_evidence(tenant_id, run_id)
+        _, discovery, graph = evidence
         claim = next(c for c in discovery.claims if c.claim_id == claim_id)
         rulepack = RulePackSnapshot(**self.store.snapshot(tenant_id, run_id)["rulepack"])
         packet = freeze_packet({k: v for k, v in raw["packet"].items() if k != "packet_sha256"})

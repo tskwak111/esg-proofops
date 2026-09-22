@@ -448,15 +448,19 @@ def build_claims_router(claims, auth_store, *, tags=None, assurance=None, clock=
                 assurance.load(claim.tenant_id, str(run_id)) if assurance is not None else None
             )
 
+            # Reuse one verified read; only untagged context is best-effort.
+            try:
+                review_inputs = (
+                    tags.load_inputs(claim.tenant_id, str(run_id), claim.claim_id)
+                    if tags is not None
+                    else None
+                )
+            except Exception:
+                if current is not None and tags is not None:
+                    raise
+                review_inputs = None
+
             def _assurance_context():
-                try:
-                    review_inputs = (
-                        tags.load_inputs(claim.tenant_id, str(run_id), claim.claim_id)
-                        if tags is not None
-                        else None
-                    )
-                except Exception:
-                    review_inputs = None
                 try:
                     return claim_context_from_review_inputs(
                         review_inputs,
@@ -505,7 +509,8 @@ def build_claims_router(claims, auth_store, *, tags=None, assurance=None, clock=
                 )
             if tags is None:
                 raise RunRejected("TAGGING_NOT_PUBLISHED")
-            inputs = tags.load_inputs(claim.tenant_id, str(run_id), claim.claim_id)
+            assert review_inputs is not None
+            inputs = review_inputs
             tag = current["tag"]
             summary = claims.summary(claim, current)
             # Assurance reflects the run's published statement when present;
