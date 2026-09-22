@@ -421,6 +421,21 @@ and nothing listening on 4193 or 4194.
 Remote CI is `not_run`. GitHub Actions free minutes were exhausted at handover and
 nothing here was executed on a runner. Local passes are not CI passes.
 
+*Update 2026-09-22 (KST), after the repository was made public:* the PR #10 run
+was re-executed on GitHub-hosted runners. Every job passed except
+`reconciliation (ubuntu-24.04)`, whose release gate failed 6 of the new row-span
+tests with `TypeError: sequence item 0: expected str instance, int found` raised
+inside `html/parser.py` on the runner's CPython 3.12.14. Root cause: 3.12.14 added
+a private `HTMLParser._pending` buffer that `close()` joins as strings, and the
+DART projection parser kept its ROWSPAN bookkeeping under the same attribute
+name; 3.12.13, used locally, has no such attribute. Fixed in `8f85070` by renaming
+the subclass state to `_rowspan_pending`. The failure was reproduced locally by
+placing the unmodified 3.12.14 `html` package ahead of the standard library
+(6 failed / 16 passed on the pre-fix code) and the fix verified the same way
+(22/22, and `tests/reconciliation` 551 passed under both parsers). No candidate,
+hash, locator or verdict changes. The remote result for the fixed commit is
+recorded on the PR itself.
+
 ## Final status table
 
 | 작업 | 상태 | 실제 확인 결과 | 미해제 조건·담당 | 증거 |
