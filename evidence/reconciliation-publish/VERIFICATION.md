@@ -527,6 +527,45 @@ schema and hash checks. What has not changed: the anchored documents are
 `local_synthetic: true`, no policy is approved, no originals are available to B,
 search is not run, and the two drafts do not yet carry evaluable C1/C2 facts.
 
+## Domain-expert first submission and Kia FY2024 financial collection (2026-09-22, KST evening)
+
+The domain expert's first submission (`작성해서_제출/`, kept outside Git) covers one
+company only, Kia (DOC-034, SR sha `d0d814d9…`): 5 claims, 34 elements, 3 numeric checks,
+4 assurance rows, 24 standards (22 source-checked), 8 crosswalk rows, 3 rule questions.
+`reconciliation.csv` is still the empty template and the expert states it starts once
+developer B supplies the financial originals. `rules.csv` lists REC-001…008 (the DEC-C1 /
+DEC-C3 / DEC-PERIOD / DEC-COVERAGE questions) all `unresolved`; `acceptance.csv` keeps
+the <0.05 / ≥0.98 targets as `proposed`. **No expected C1–C4 result and no policy approval
+were delivered**, so the B-F03 accuracy denominator stays 0. The three teams are on three
+companies (A: NAVER, B: Samsung, expert: Kia); B therefore collected Kia so the expert
+can start.
+
+Collection (DART free API, `DART_API_KEY` from the ignored env file, no paid call):
+
+| Item | Value |
+|---|---|
+| Company | 기아(주) `00106641`, 000270, December year-end |
+| Filing list receipt | `list.json` 2025-01-01..2025-12-31, type A: 사업보고서 `20250306000691` (2025-03-06, `정연`) and [기재정정] `20250313001390` (2025-03-13, `연`); response sha recorded in `filings-receipt.json` |
+| Pinned primary | `20250313001390` (corrected filing), CFS, 11011 → `kia-fs-2024-20250313001390`: statements `171c4bb9…` 134,132 B, document ZIP `c7064e00…` 368,362 B, XBRL ZIP `27f28eca…` 919,995 B, all `retrieved` |
+| Superseded original | `20250306000691` → document `5c052c95…` and XBRL `5bf3d1e5…` retrieved; **statements `collection_or_identity_failed`** because the statements API answers for the corrected receipt only — the collector's identity guard, not a defect |
+| Store | `.local/dart-live-kia-2024/` (new immutable path, nothing overwritten) |
+| Candidates | default bound: 623 (500 + 123 row spans), 623/623 re-verified; at the 2,000 maximum: 2,200 (2,000 + 200 row spans), `truncated: true`; search coverage is therefore not complete |
+
+Facts located in the full derived projections (document member 143,547 chars, statements
+114,302, XBRL 190,924) and packaged for the expert in
+`developer-b-kia-financial-20260922/` (outside Git; README, `facts.json`, the three derived
+texts, manifests, `files.json`), every one of the 11 sources re-validated through
+`FileSourceReader`:
+
+- **C2** cover row span `chars:7869:8162` — `사업연도 2024년 01월 01일 부터 2024년 12월 31일 까지` in one quote (the B-DEF-01 row-span path on a second real company).
+- **C1** summary table rows (상장/비상장/합계 spans): 연결대상회사수 기초 24 / 기말 24, 주요종속회사수 23 — **counts only**; the legal-entity list '상세표-1' is an attachment not present in the collected XML member. XBRL note sentences add an overseas-sales-subsidiary enumeration and the "지배력이 있으나 소규모 종속기업으로 관계기업투자 분류" exception, a real DEC-C1 boundary case.
+- **C3** 당기 시설·설비 투자 합계 33,985억원, 2025 예상투자 42,672억원 (R&D excluded), consolidated cash-flow 유형자산의 취득 3,485,121백만원 (제81기).
+- **C4**: the filing contains no 친환경차/하이브리드 wording (전기차 ×2, 전동화 ×3); the classification definition for DOC034-C03 must come from the SR itself.
+
+No verdict, policy, expected value or SR binding was produced; the Kia SR PDF is not on
+this machine (`기업보고서/` is absent), so no Kia packet can be assembled until the expert
+or coordinator provides it or the reconciliation.csv rows.
+
 ## Remaining work, split by owner
 
 Developer A / coordinator: supply, per company to be evaluated, a verified
