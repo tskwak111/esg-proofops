@@ -29,6 +29,7 @@ _SETTINGS_FIELDS = frozenset(
         "extraction_context",
         "extraction_table_context",
         "extraction_source_ids",
+        "extraction_assertion_prompt",
         "tagging_settings",
         "preliminary_settings",
         "relation_settings",
@@ -289,8 +290,9 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         "extraction_context",
         "extraction_table_context",
         "extraction_source_ids",
+        "extraction_assertion_prompt",
     ):
-        # Approved extraction opt-ins (R03d/R03f/R12/R14): explicit True only, and
+        # Approved extraction opt-ins (R03d/R03f/R12/R14/R20): explicit True only, and
         # only with the real probe mode. Validated here so the gate never rejects
         # a pilot-written value; the worker composition (not this runtime dict)
         # reconstructs the matching extractor profile from the settings file.
@@ -298,6 +300,12 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
             raise _invalid()
     if "extraction_table_context" in settings and settings.get("extraction_context") is not True:
         # Table context refines the context profile; alone it has no wire.
+        raise _invalid()
+    if (
+        "extraction_assertion_prompt" in settings
+        and settings.get("extraction_source_ids") is not True
+    ):
+        # The assertion prompt refines source-ID selection; alone it has no wire.
         raise _invalid()
     if "budget_limits" in settings:
         runtime["budget_limits"] = _budget(settings["budget_limits"])

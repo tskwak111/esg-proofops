@@ -119,6 +119,18 @@ SOURCE_ID_CONTEXT_SUFFIX = (
     "They exist only to help you judge whether a short or incomplete-looking supplied "
     "sentence is a genuine company claim or only a title, label or measure name."
 )
+# Append only when opted in, preserving existing prompt bytes and receipt hashes.
+ASSERTION_SYSTEM_SUFFIX = (
+    " Apply the assertion requirement to the selected source sentence itself. "
+    "Context may explain a predicate already present but cannot supply a missing "
+    "predicate or turn a risk/topic heading into an assertion. A phrase naming a "
+    "hazard, damage category, topic or collaborator alone does not assert that "
+    "an event occurred or that the company acted. Return no sentence_ids for it. "
+    "Do not reject Korean noun-ending disclosures merely because they omit a "
+    "conjugated verb: implementation of a specified system, or a stated modeled "
+    "finding, can be a claim when its own text asserts that content. Keep source "
+    "sentences unchanged; do not classify tracks, assign grades, or infer tense."
+)
 
 _RULE_DESCRIPTOR = [
     "unique-exact-quote-v2-overlapping-occurrences",
@@ -270,6 +282,8 @@ _TABLE_CONTEXT_RULE_ENTRY = "extraction-table-context-v1"
 # sentence ids; spans are restored from the original source offsets and still
 # validated by the frozen span validator. Nothing about quote matching is relaxed.
 _SOURCE_ID_RULE_ENTRY = "extraction-source-id-selection-v1"
+# Distinguish assertion-mode receipts from the original source-ID policy.
+_ASSERTION_RULE_ENTRY = "extraction-assertion-prompt-v1"
 # Bounded input/output for the ID wire: a source offering more sentences than
 # this is not served under this profile (its coverage stays unknown) rather than
 # sending an unbounded id list the model could truncate.
@@ -285,18 +299,29 @@ def _context_system_prompt(*, extraction_context: bool, extraction_table_context
 
 
 def _system_prompt(
-    *, extraction_context: bool, extraction_table_context: bool, source_ids: bool
+    *,
+    extraction_context: bool,
+    extraction_table_context: bool,
+    source_ids: bool,
+    assertion_prompt: bool = False,
 ) -> str:
     """The exact prompt sent for an option combination; legacy shapes untouched."""
     if not source_ids:
+        # The assertion suffix only refines source-ID mode; it is never a suffix
+        # of the quote-copy prompt. Callers guarantee this, but stay defensive.
         return _context_system_prompt(
             extraction_context=extraction_context,
             extraction_table_context=extraction_table_context,
         )
     if not extraction_context:
-        return SOURCE_ID_SYSTEM_PROMPT
-    prompt = SOURCE_ID_SYSTEM_PROMPT + SOURCE_ID_CONTEXT_SUFFIX
-    return prompt + TABLE_CONTEXT_SYSTEM_SUFFIX if extraction_table_context else prompt
+        prompt = SOURCE_ID_SYSTEM_PROMPT
+    else:
+        prompt = SOURCE_ID_SYSTEM_PROMPT + SOURCE_ID_CONTEXT_SUFFIX
+        if extraction_table_context:
+            prompt = prompt + TABLE_CONTEXT_SYSTEM_SUFFIX
+    # Appended last, after the whole source-ID(+context/table) prompt, exactly
+    # as proven on the wire; the base bytes above are never mutated.
+    return prompt + ASSERTION_SYSTEM_SUFFIX if assertion_prompt else prompt
 
 
 def _profile_with_options(
@@ -306,6 +331,7 @@ def _profile_with_options(
     extraction_context: bool = False,
     extraction_table_context: bool = False,
     source_ids: bool = False,
+    assertion_prompt: bool = False,
 ) -> ExtractionProfile:
     """Versioned extraction profile for an explicit option combination.
 
@@ -325,10 +351,19 @@ def _profile_with_options(
         raise ValueError("UPSTAGE_MODEL_MISMATCH")
     if any(
         type(value) is not bool
-        for value in (year_notation, extraction_context, extraction_table_context, source_ids)
+        for value in (
+            year_notation,
+            extraction_context,
+            extraction_table_context,
+            source_ids,
+            assertion_prompt,
+        )
     ):
         raise ValueError("UPSTAGE_PROFILE_OPTION_INVALID")
     if extraction_table_context and not extraction_context:
+        raise ValueError("UPSTAGE_PROFILE_OPTION_INVALID")
+    if assertion_prompt and not source_ids:
+        # The assertion suffix only refines source-ID mode; it has no wire alone.
         raise ValueError("UPSTAGE_PROFILE_OPTION_INVALID")
     descriptor = [*_RULE_DESCRIPTOR]
     if year_notation:
@@ -339,6 +374,8 @@ def _profile_with_options(
         descriptor.append(_TABLE_CONTEXT_RULE_ENTRY)
     if source_ids:
         descriptor.append(_SOURCE_ID_RULE_ENTRY)
+    if assertion_prompt:
+        descriptor.append(_ASSERTION_RULE_ENTRY)
     return ExtractionProfile(
         model_sha256=canonical_hash(
             {"model": model, "provider": "upstage", "transport": "UpstageProbe"}
@@ -348,6 +385,7 @@ def _profile_with_options(
                 extraction_context=extraction_context,
                 extraction_table_context=extraction_table_context,
                 source_ids=source_ids,
+                assertion_prompt=assertion_prompt,
             )
         ),
         rule_sha256=canonical_hash(descriptor),
@@ -368,6 +406,7 @@ class UpstageClaimExtractor:
         extraction_context: bool = False,
         extraction_table_context: bool = False,
         extraction_source_ids: bool = False,
+        extraction_assertion_prompt: bool = False,
     ) -> None:
         if not callable(getattr(probe, "complete", None)):
             raise ValueError("UPSTAGE_PROBE_REQUIRED")
@@ -381,12 +420,19 @@ class UpstageClaimExtractor:
             raise ValueError("UPSTAGE_EXTRACTION_TABLE_CONTEXT_INVALID")
         if type(extraction_source_ids) is not bool:
             raise ValueError("UPSTAGE_EXTRACTION_SOURCE_IDS_INVALID")
+        if type(extraction_assertion_prompt) is not bool or (
+            extraction_assertion_prompt and not extraction_source_ids
+        ):
+            # The assertion suffix only refines source-ID selection; enabling it
+            # without source-IDs (or with a non-bool) fails closed before any call.
+            raise ValueError("UPSTAGE_EXTRACTION_ASSERTION_PROMPT_INVALID")
         profile = _profile_with_options(
             getattr(probe, "model", UPSTAGE_MODEL),
             year_notation=extraction_year_notation,
             extraction_context=extraction_context,
             extraction_table_context=extraction_table_context,
             source_ids=extraction_source_ids,
+            assertion_prompt=extraction_assertion_prompt,
         )
         if type(max_tokens) is not int or not 1 <= max_tokens <= 4096:
             raise ValueError("UPSTAGE_MAX_TOKENS_INVALID")
@@ -400,6 +446,7 @@ class UpstageClaimExtractor:
         self._context = extraction_context
         self._table_context = extraction_table_context
         self._source_ids = extraction_source_ids
+        self._assertion_prompt = extraction_assertion_prompt
         self._request_ids: list[tuple[str, str]] = []
 
     def _validate_spans(self, payload: dict, text: str):
@@ -913,6 +960,7 @@ class UpstageClaimExtractor:
             extraction_context=self._context,
             extraction_table_context=self._table_context,
             source_ids=True,
+            assertion_prompt=self._assertion_prompt,
         )
         user_data: dict[str, Any] = {
             "tenant_id": packet["tenant_id"],

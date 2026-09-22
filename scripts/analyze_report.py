@@ -324,12 +324,14 @@ def build_pilot_argv(
     tagging_max_calls: int = TAGGING_MAX_CALLS,
     verify_selected_cells: bool = False,
     native_quote_typography: bool = False,
+    claim_span_typography: bool = False,
     live_relations: bool = False,
     preliminary_context: bool = False,
     ai_project_review: bool = False,
     extraction_year_notation: bool = False,
     extraction_context: bool = False,
     extraction_source_ids: bool = False,
+    extraction_assertion_prompt: bool = False,
     parser_max_output_bytes: int | None = None,
 ) -> list[str]:
     """Assemble the exact argv driving ``evaluation.local_upstage_pilot``."""
@@ -370,6 +372,12 @@ def build_pilot_argv(
         argv += ["--extraction-total-calls", str(extraction_total_calls)]
     if native_quote_typography:
         argv.append("--native-quote-typography")
+    if claim_span_typography:
+        argv += [
+            "--claim-span-render-resolution",
+            "--claim-span-bullet-spacing",
+            "--claim-span-typography",
+        ]
     if live_relations:
         argv.append("--live-relations")
     if preliminary_context:
@@ -382,6 +390,8 @@ def build_pilot_argv(
         argv.append("--extraction-context")
     if extraction_source_ids:
         argv.append("--extraction-source-ids")
+    if extraction_assertion_prompt:
+        argv.append("--extraction-assertion-prompt")
     if claim_pages is not None:
         argv += ["--claim-pages", ",".join(str(page) for page in claim_pages)]
     if invoke:
@@ -456,12 +466,14 @@ def plan_run(args: argparse.Namespace) -> dict:
     _validate_extraction_total(EXTRACTION_MAX_CALLS, extraction_total_calls)
     verify_selected_cells = bool(getattr(args, "verify_selected_cells", False))
     native_quote_typography = bool(getattr(args, "native_quote_typography", False))
+    claim_span_typography = bool(getattr(args, "claim_span_typography", False))
     live_relations = bool(getattr(args, "live_relations", False))
     preliminary_context = bool(getattr(args, "preliminary_context", False))
     ai_project_review = bool(getattr(args, "ai_project_review", False))
     extraction_year_notation = bool(getattr(args, "extraction_year_notation", False))
     extraction_context = bool(getattr(args, "extraction_context", False))
     extraction_source_ids = bool(getattr(args, "extraction_source_ids", False))
+    extraction_assertion_prompt = bool(getattr(args, "extraction_assertion_prompt", False))
     argv = build_pilot_argv(
         pdf=pdf,
         pages=pages,
@@ -478,12 +490,14 @@ def plan_run(args: argparse.Namespace) -> dict:
         tagging_max_calls=tagging_max_calls,
         verify_selected_cells=verify_selected_cells,
         native_quote_typography=native_quote_typography,
+        claim_span_typography=claim_span_typography,
         live_relations=live_relations,
         preliminary_context=preliminary_context,
         ai_project_review=ai_project_review,
         extraction_year_notation=extraction_year_notation,
         extraction_context=extraction_context,
         extraction_source_ids=extraction_source_ids,
+        extraction_assertion_prompt=extraction_assertion_prompt,
         parser_max_output_bytes=parser_max_output_bytes,
     )
     return {
@@ -501,6 +515,7 @@ def plan_run(args: argparse.Namespace) -> dict:
         "tagging_max_calls": tagging_max_calls,
         "verify_selected_cells": verify_selected_cells,
         "native_quote_typography": native_quote_typography,
+        "claim_span_typography": claim_span_typography,
         "live_relations": live_relations,
         "preliminary_context": preliminary_context,
         "ai_project_review": ai_project_review,
@@ -548,6 +563,7 @@ def print_plan(plan: dict) -> None:
         pilot_opts.append(f"extraction-total-calls={plan['extraction_total_calls']}")
     for flag in (
         "native_quote_typography",
+        "claim_span_typography",
         "live_relations",
         "preliminary_context",
         "ai_project_review",
@@ -662,6 +678,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--verify-paragraphs without raster OCR, which this launcher always uses).",
     )
     parser.add_argument(
+        "--claim-span-typography",
+        action="store_true",
+        help="Opt a new run into rendered quote/middle-dot comparison, including "
+        "the required render-resolution and bullet-spacing wrappers.",
+    )
+    parser.add_argument(
         "--live-relations",
         "--evidence-relations",
         dest="live_relations",
@@ -708,6 +730,12 @@ def build_parser() -> argparse.ArgumentParser:
         "the span is restored from the original offsets. Exact-source matching is "
         "unchanged; a selected sentence is a whole source sentence (atomicity "
         "unreviewed); off by default.",
+    )
+    parser.add_argument(
+        "--extraction-assertion-prompt",
+        action="store_true",
+        help="Require the selected source sentence itself to assert a claim. "
+        "Requires --extraction-source-ids; off by default.",
     )
     parser.add_argument(
         "--invoke",

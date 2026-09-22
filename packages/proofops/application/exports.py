@@ -3,12 +3,62 @@
 from datetime import UTC, datetime
 from hashlib import sha256
 from io import BytesIO
-from zipfile import ZIP_STORED, ZipFile, ZipInfo
+from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 from proofops.application.reporting import build_report_model, render_report
 from proofops.domain.rulepacks import canonical_json
 
 MAX_EXPORT_BYTES = 32 * 1024 * 1024
+
+# manifest.revision_records encodings. A manifest without the field is the original
+# v1 layout that always inlined original_inputs; every already-frozen export keeps
+# reading unchanged because decode_revision_record still accepts that layout.
+REVISION_RECORDS_V1 = "inline_original_inputs_v1"
+REVISION_RECORDS_V2 = "shared_original_inputs_v2"
+SHARED_ORIGINAL_INPUTS = "tag.inputs"
+
+
+def encode_revision_record(tag, decision, inputs):
+    """Keep every observed byte, storing the original input packet once when it is identical.
+
+    The second copy is dropped only when the canonical bytes of ``tag["inputs"]`` and the
+    revision-1 packet are equal, so unequal packets are always both preserved verbatim.
+    """
+    record = dict(tag=tag, decision=decision)
+    stored = tag.get("inputs") if isinstance(tag, dict) else None
+    if stored is not None and canonical_json(stored) == canonical_json(inputs):
+        record["original_inputs_ref"] = SHARED_ORIGINAL_INPUTS
+        return record
+    record["original_inputs"] = inputs
+    return record
+
+
+def decode_revision_record(record, *, encoding=REVISION_RECORDS_V1):
+    """Restore the byte-identical inline record, dispatching on the manifest encoding.
+
+    Callers pass ``manifest.get("revision_records_encoding", REVISION_RECORDS_V1)`` so a
+    legacy manifest stays v1 and an unknown encoding is refused instead of guessed.
+    """
+    if encoding not in (REVISION_RECORDS_V1, REVISION_RECORDS_V2):
+        raise ValueError("unsupported revision_records encoding")
+    if not isinstance(record, dict):
+        raise ValueError("revision record must be an object")
+    reference = record.get("original_inputs_ref")
+    if reference is None:
+        if "original_inputs_ref" in record or "original_inputs" not in record:
+            raise ValueError("revision record is missing original_inputs")
+        return dict(record)
+    if encoding != REVISION_RECORDS_V2:
+        raise ValueError("original_inputs reference is not valid for this encoding")
+    if reference != SHARED_ORIGINAL_INPUTS or "original_inputs" in record:
+        raise ValueError("unsupported original_inputs reference")
+    tag = record.get("tag")
+    if not isinstance(tag, dict) or not isinstance(tag.get("inputs"), dict):
+        raise ValueError("original_inputs reference has no tag.inputs target")
+    restored = dict(record)
+    restored.pop("original_inputs_ref")
+    restored["original_inputs"] = tag["inputs"]
+    return restored
 
 
 class ExportRejected(ValueError):
@@ -36,13 +86,21 @@ def build_export(snapshot, formats):
     model = build_report_model(snapshot["manifest"], snapshot["decisions"])
     manifest = canonical_json(snapshot["manifest"]).encode()
     stream = BytesIO()
-    with ZipFile(stream, "w", compression=ZIP_STORED) as bundle:
+    # Deflate keeps the preserved provenance whole while the artifact stays inside the
+    # unchanged 32 MiB cap; every ZIP reader handles it and frozen artifacts are untouched.
+    with ZipFile(stream, "w", compression=ZIP_DEFLATED) as bundle:
         for fmt in ("manifest", *formats):
             name = "manifest.json" if fmt == "manifest" else f"report.{fmt}"
             content = manifest if fmt == "manifest" else render_report(model, fmt)
+            # Pre-write guard: every raw member must fit the cap next to the bytes already
+            # archived. Deflate can add overhead on incompressible input, so this is not a
+            # proof about the archive; the final check below measures the actual ZIP.
             if stream.tell() + len(content) > MAX_EXPORT_BYTES:
                 raise ExportRejected("EXPORT_SIZE_LIMIT")
-            bundle.writestr(ZipInfo(name), content)
+            # ZipInfo() defaults to ZIP_STORED and overrides the ZipFile compression.
+            info = ZipInfo(name)
+            info.compress_type = ZIP_DEFLATED
+            bundle.writestr(info, content)
     content = stream.getvalue()
     if len(content) > MAX_EXPORT_BYTES:
         raise ExportRejected("EXPORT_SIZE_LIMIT")

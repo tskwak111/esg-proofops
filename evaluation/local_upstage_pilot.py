@@ -218,7 +218,11 @@ def claim_source_policy_for(args):
     Existing runs and their stored receipts are untouched either way; rolling
     back is simply not passing the flag on a future run.
     """
-    if getattr(args, "claim_span_bullet_spacing", False):
+    if getattr(args, "claim_span_typography", False):
+        # Wraps the bullet-alignment wrapper, so it ADDS to both inner
+        # recoveries rather than replacing either; the CLI requires the chain.
+        from proofops.adapters.local.claim_span_typography import claim_source_policy
+    elif getattr(args, "claim_span_bullet_spacing", False):
         # Wraps the render-resolution wrapper, so it ADDS to that recovery
         # rather than replacing it; the CLI already requires both flags.
         from proofops.adapters.local.claim_span_bullet_alignment import claim_source_policy
@@ -282,6 +286,7 @@ def apply_resume_metadata(args, saved: dict) -> None:
     args.verify_claim_spans = bool(saved.get("verify_claim_spans", False))
     args.claim_span_render_resolution = bool(saved.get("claim_span_render_resolution", False))
     args.claim_span_bullet_spacing = bool(saved.get("claim_span_bullet_spacing", False))
+    args.claim_span_typography = bool(saved.get("claim_span_typography", False))
     args.raster_ocr = bool(saved.get("raster_ocr", False))
     args.live_tagging = bool(saved.get("live_tagging", False))
     args.live_relations = bool(saved.get("live_relations", False))
@@ -292,6 +297,7 @@ def apply_resume_metadata(args, saved: dict) -> None:
     args.extraction_context = bool(saved.get("extraction_context", False))
     args.extraction_table_context = bool(saved.get("extraction_table_context", False))
     args.extraction_source_ids = bool(saved.get("extraction_source_ids", False))
+    args.extraction_assertion_prompt = bool(saved.get("extraction_assertion_prompt", False))
     if saved.get("tagging_max_calls"):
         args.tagging_max_calls = saved["tagging_max_calls"]
     saved_total = saved.get("extraction_total_calls")
@@ -448,6 +454,22 @@ def main():
         "unchanged.",
     )
     parser.add_argument(
+        "--claim-span-typography",
+        action="store_true",
+        help="Opt-in (R24), NEW-run only (never applies on --resume or an "
+        "existing state directory): additionally re-check a claim span the "
+        "wrapped verifiers already READ successfully but left unresolved only "
+        "because the rendered reader spells the document's own typography "
+        "differently. The native gate stays the base verifier's UNFOLDED "
+        "unique-quote check; a finite five-entry fold (the shipped curly-quote "
+        "map plus U+00B7 -> U+2022) is applied to the rendered text and the "
+        "quote only. No digit, space, case, dash, subscript or fuzzy "
+        "normalization, and the token-boundary refusal is not relaxed. "
+        "Requires --claim-span-bullet-spacing, whose recovery it preserves and "
+        "wraps. Pins its own policy and receipt schema; existing runs and "
+        "receipts are unchanged.",
+    )
+    parser.add_argument(
         "--claim-span-render-resolution",
         action="store_true",
         help="Opt-in (R13/R15), NEW-run only (never applies on --resume or an "
@@ -540,6 +562,12 @@ def main():
         "context instead of the nearest numeric neighbours. Requires "
         "--extraction-context; pins its own extraction rule/prompt hash.",
     )
+    parser.add_argument(
+        "--extraction-assertion-prompt",
+        action="store_true",
+        help="Require the selected source sentence itself to assert a claim. "
+        "Requires --extraction-source-ids; new-run opt-in, pinned on --resume.",
+    )
     parser.add_argument("--tagging-max-calls", type=int, default=12)
     parser.add_argument("--serve", action="store_true")
     parser.add_argument(
@@ -578,10 +606,12 @@ def main():
         requested_context = args.extraction_context
         requested_table_context = args.extraction_table_context
         requested_source_ids = args.extraction_source_ids
+        requested_assertion_prompt = args.extraction_assertion_prompt
         requested_preliminary_table = args.preliminary_table_context
         requested_preliminary_role = args.preliminary_table_role
         requested_render_resolution = args.claim_span_render_resolution
         requested_bullet_spacing = args.claim_span_bullet_spacing
+        requested_typography = args.claim_span_typography
         try:
             apply_resume_metadata(args, json.loads(resume_manifest.read_text()))
         except ValueError as exc:
@@ -594,6 +624,8 @@ def main():
             parser.error("--resume cannot add extraction table context; create a new run")
         if requested_source_ids and not args.extraction_source_ids:
             parser.error("--resume cannot add extraction source-id selection; create a new run")
+        if requested_assertion_prompt and not args.extraction_assertion_prompt:
+            parser.error("--resume cannot add extraction assertion prompt; create a new run")
         if requested_preliminary_table and not args.preliminary_table_context:
             parser.error("--resume cannot add preliminary table context; create a new run")
         if requested_preliminary_role and not args.preliminary_table_role:
@@ -602,6 +634,8 @@ def main():
             parser.error("--resume cannot add claim-span render resolution; create a new run")
         if requested_bullet_spacing and not args.claim_span_bullet_spacing:
             parser.error("--resume cannot add claim-span bullet spacing; create a new run")
+        if requested_typography and not args.claim_span_typography:
+            parser.error("--resume cannot add claim-span typography; create a new run")
     elif (
         args.pdf is None
         or args.report_year is None
@@ -622,8 +656,14 @@ def main():
     if args.claim_span_bullet_spacing and not args.claim_span_render_resolution:
         # Refused rather than silently overriding one recovery with the other.
         parser.error("--claim-span-bullet-spacing requires --claim-span-render-resolution")
+    if args.claim_span_typography and not args.claim_span_bullet_spacing:
+        # Same reason: the typography wrapper wraps the bullet wrapper's own
+        # rendered read, so it cannot replace it.
+        parser.error("--claim-span-typography requires --claim-span-bullet-spacing")
     if args.extraction_table_context and not args.extraction_context:
         parser.error("--extraction-table-context requires --extraction-context")
+    if args.extraction_assertion_prompt and not args.extraction_source_ids:
+        parser.error("--extraction-assertion-prompt requires --extraction-source-ids")
     if args.raster_ocr and not args.verify_paragraphs:
         parser.error("--raster-ocr requires --verify-paragraphs")
     if args.native_quote_typography and (not args.verify_paragraphs or args.raster_ocr):
@@ -689,6 +729,7 @@ def main():
                     extraction_context=args.extraction_context,
                     extraction_table_context=args.extraction_table_context,
                     source_ids=args.extraction_source_ids,
+                    assertion_prompt=args.extraction_assertion_prompt,
                 )
             )
         else:
@@ -711,6 +752,8 @@ def main():
             settings["extraction_table_context"] = True
         if args.extraction_source_ids:
             settings["extraction_source_ids"] = True
+        if args.extraction_assertion_prompt:
+            settings["extraction_assertion_prompt"] = True
         settings.update(raster)
         if args.verify_claim_spans:
             settings["claim_source_policy"] = claim_source_policy_for(args)
@@ -1017,6 +1060,8 @@ def main():
             manifest["claim_span_render_resolution"] = True
         if args.claim_span_bullet_spacing:
             manifest["claim_span_bullet_spacing"] = True
+        if args.claim_span_typography:
+            manifest["claim_span_typography"] = True
         if args.native_quote_typography:
             manifest["native_quote_typography"] = True
         if args.extraction_year_notation:
@@ -1027,6 +1072,8 @@ def main():
             manifest["extraction_table_context"] = True
         if args.extraction_source_ids:
             manifest["extraction_source_ids"] = True
+        if args.extraction_assertion_prompt:
+            manifest["extraction_assertion_prompt"] = True
         with manifest_path.open("x") as stream:
             json.dump(manifest, stream, ensure_ascii=False, indent=2)
     else:
@@ -1091,6 +1138,8 @@ def main():
             parser.error("Existing state has a different claim span render-resolution policy")
         if manifest.get("claim_span_bullet_spacing", False) != args.claim_span_bullet_spacing:
             parser.error("Existing state has a different claim span bullet-spacing policy")
+        if manifest.get("claim_span_typography", False) != args.claim_span_typography:
+            parser.error("Existing state has a different claim span typography policy")
         if manifest.get("verify_paragraphs", False) != args.verify_paragraphs:
             raise ValueError("pilot verification policy changed; create a new state directory")
         if manifest.get("model", "solar-pro3") != args.model:

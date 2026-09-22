@@ -49,6 +49,7 @@ from typing import Any
 
 from proofops.application.claims import Claim
 from proofops.domain.errors import DomainValidationError
+from proofops.domain.reconciliation.common import validate_packet
 from proofops.domain.rules.engine import ConfirmedFact, ConfirmedTags
 from proofops.domain.values import SourceRef, _require_sha256, _require_uuid
 
@@ -66,7 +67,30 @@ FACT_KINDS = (
 # trigger name). This maps EXACT fact ids, never an arbitrary/unknown field
 # name: a fact whose name is not one of these keys contributes no trigger,
 # regardless of its state. See `_verified_triggers`.
+#
+# `org_boundary` is the CANONICAL fact name every real producer emits for the
+# organisational-boundary element (`management.M2` and `goal.G4` in
+# packages/proofops/domain/rules/; `config/rubric/{management,goal}.yaml` name
+# the same primitive). The contract's own conversion note
+# (handoff/team-v2/contract/SCHEMA_GUIDE.md: "organizational_boundary: 기존
+# org_boundary/calculation_boundary의 검증된 조직경계 내용을 확인해 생성") makes it
+# the source of the `organizational_boundary` trigger, so this is a spelling
+# alias for one identical element -- not a widening of what counts as a
+# boundary. Without it an accepted M2/G4 review was silently dropped here. The
+# older `organizational_boundary` key is kept so any pre-existing stored fact
+# under that spelling keeps resolving.
+#
+# Deliberately NOT mapped, and left as explicit gaps rather than guesses:
+#   * `calculation_boundary` (`performance.P3`) -- a calculation boundary is not
+#     proven to be an organisational boundary; the contract requires the
+#     organisational content to be confirmed first.
+#   * `scope` (`goal.G4`'s other primitive, i.e. GHG Scope 1/2/3) -- the
+#     contract forbids creating `implementation_scope` from a generic scope or
+#     region mention, and no producer emits `implementation_scope` itself.
+#   * `currency_amount` / `revenue_share` -- no producer emits these fact names
+#     at all, and no approved currency/revenue primitive exists to alias.
 TRIGGER_TAG_MAP: dict[str, str] = {
+    "org_boundary": "organizational_boundary",
     "organizational_boundary": "organizational_boundary",
     "implementation_scope": "implementation_scope",
     "quantitative_or_qualified_ordinal": "quantitative_value",
@@ -308,6 +332,16 @@ def _verified_triggers(tags: ConfirmedTags) -> tuple[VerifiedTrigger, ...]:
             VerifiedTrigger(fact.name, trigger_element, fact.evidence_refs, fact.normalized_value)
         )
     return tuple(sorted(triggers, key=lambda t: t.fact_name))
+
+
+def _context_to_contract_dict(context: C3Context | C4Context | None) -> dict[str, Any] | None:
+    """Emit tuple-backed context fields as arrays required by the packet contract."""
+    if context is None:
+        return None
+    return {
+        key: list(value) if isinstance(value, tuple) else value
+        for key, value in asdict(context).items()
+    }
 
 
 def build_packet(
@@ -614,7 +648,7 @@ def build_packet(
         ),
         comparability="unknown",
         explanation=dict(source_id=None, search_complete=False),
-        c3_context=asdict(financial_context.c3_context) if financial_context.c3_context else None,
+        c3_context=_context_to_contract_dict(financial_context.c3_context),
         claim=dict(
             track=tags.track,
             quote=claim_source.quote,
@@ -632,6 +666,16 @@ def build_packet(
             failed_document_ids=[],
             receipt_id=None,
         ),
-        c4_context=asdict(financial_context.c4_context) if financial_context.c4_context else None,
+        c4_context=_context_to_contract_dict(financial_context.c4_context),
     )
+    # Reject malformed typed values at the producer boundary using B's validator.
+    try:
+        validate_packet(packet)
+    except DomainValidationError as exc:
+        return BlockedPacket(
+            claim.claim_id,
+            item,
+            "invalid_reconciliation_packet",
+            f"packet violates the shared reconciliation contract: {exc}",
+        )
     return packet

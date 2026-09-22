@@ -206,6 +206,74 @@ def _provenance(
     }
 
 
+# Human-readable "what to check next" text per reason. These describe review work,
+# never a grade, number, or legal conclusion. `suggestion` still owns verified-missing
+# elements; review_action covers the remaining unresolved / not-run / blocked states.
+_REVIEW_CHECKS = {
+    "not_processed": (
+        "판정이 아직 실행되지 않았습니다. "
+        "주장 상세에서 원문 검증·분류·태깅 상태를 확인하고 미완료 단계를 진행하세요."
+    ),
+    "unresolved_evidence": "미해결 요소의 원문 근거 귀속을 확인(absent 단정 금지): ",
+    "basis_validation_pending": (
+        "기준 조항의 대응이 미확인입니다. 승인된 기준 원문과 해당 요소의 대응을 확인하세요."
+    ),
+    "source_location_missing": "확정된 원문 위치가 없습니다. 근거 페이지·좌표를 먼저 확보하세요.",
+    "assurance_not_run": "보증 대조 미실행. 보증서 기관·기간·지표·경계를 대조하세요.",
+    "safe_harbor_not_run": "세이프하버 점검 미실행. 적용 여부와 체크리스트를 검토하세요.",
+    "domain_gap": "아직 확정되지 않은 규칙 항목을 확인하고 해당 판정에 미치는 영향을 검토하세요: ",
+}
+
+
+def _review_action(claim: dict[str, Any]) -> dict[str, Any] | None:
+    """Project a distinct, source-preserving follow-up for unresolved review work.
+
+    Additive to `suggestion` (verified-missing only). Returns None when a decided
+    claim has no outstanding review reason. Never converts unknown/unresolved into
+    absent and never invents numbers, grades, or legal facts.
+    """
+    reasons: list[str] = []
+    checks: list[str] = []
+    status = claim["decision_status"]
+    unresolved: list[str] = claim["unresolved_elements"]
+    gaps: list[str] = claim["gap_ids"]
+    if status == "not_run":
+        reasons.append("not_processed")
+        checks.append(_REVIEW_CHECKS["not_processed"])
+    if unresolved:
+        reasons.append("unresolved_evidence")
+        checks.append(_REVIEW_CHECKS["unresolved_evidence"] + ", ".join(unresolved))
+    if claim["source_status"] == "not_run" and status != "not_run":
+        reasons.append("source_location_missing")
+        checks.append(_REVIEW_CHECKS["source_location_missing"])
+    unverified_basis = any(
+        basis.get("clause") is None or basis.get("verification_status") != "verified"
+        for basis in claim["basis_refs"]
+    )
+    if unverified_basis:
+        reasons.append("basis_validation_pending")
+        checks.append(_REVIEW_CHECKS["basis_validation_pending"])
+    if claim["assurance"].get("status") == "not_run":
+        reasons.append("assurance_not_run")
+        checks.append(_REVIEW_CHECKS["assurance_not_run"])
+    if claim["safe_harbor"].get("status") == "not_run":
+        reasons.append("safe_harbor_not_run")
+        checks.append(_REVIEW_CHECKS["safe_harbor_not_run"])
+    if gaps:
+        reasons.append("domain_gap")
+        checks.append(_REVIEW_CHECKS["domain_gap"] + ", ".join(gaps))
+    if not reasons:
+        return None
+    return {
+        "claim_id": claim["claim_id"],
+        "reasons": reasons,
+        "checks": checks,
+        "unresolved_elements": list(unresolved),
+        "gap_ids": list(gaps),
+        "source_pages": [source["page_num"] for source in claim["source_refs"]],
+    }
+
+
 def _unfinished(
     ref: Mapping[str, object],
     record: Mapping[str, object] | None,
@@ -421,6 +489,8 @@ def build_report_model(
         )
     if set(decisions) != seen:
         raise ValueError("decisions contain claims outside the snapshot")
+    for claim in claims:
+        claim["review_action"] = _review_action(claim)
     unfinished_count = sum(item["decision_status"] != "decided" for item in claims)
     unverified_clause_count = sum(
         basis.get("clause") is None or basis["verification_status"] != "verified"
@@ -477,6 +547,7 @@ def render_report(model: Mapping[str, object], output_format: str) -> bytes:
             "missing_elements",
             "unresolved_elements",
             "suggestion",
+            "review_action",
             "source_pages",
             "source_quotes",
             "source_refs",
@@ -520,6 +591,16 @@ def render_report(model: Mapping[str, object], output_format: str) -> bytes:
                 else "미판정"
             )
             audit_details = escape(canonical_json(claim))
+            empty_result = "미평가" if claim["decision_status"] == "not_run" else "없음"
+            action = claim.get("review_action")
+            if action:
+                action_html = (
+                    '<div class="review-action"><p>다음 검토 작업:</p><ul>'
+                    + "".join(f"<li>{escape(check)}</li>" for check in action["checks"])
+                    + "</ul></div>"
+                )
+            else:
+                action_html = "<p>자동 생성된 후속 검토 안내 없음</p>"
             items.append(
                 "<section>"
                 f"<h2>{escape(claim['claim_id'])}</h2>"
@@ -527,14 +608,12 @@ def render_report(model: Mapping[str, object], output_format: str) -> bytes:
                 f"<p>검토: {escape(claim['review_status'])} · "
                 f"tag revision {claim['tag_revision']} · decision revision "
                 f"{claim['decision_revision']}</p>"
-                f"<p>결손: {escape(', '.join(claim['missing_elements']) or '없음')} · "
-                f"미해결: {escape(', '.join(claim['unresolved_elements']) or '없음')} · "
-                f"gaps: {escape(', '.join(claim['gap_ids']) or '없음')}</p>"
+                f"<p>결손: {escape(', '.join(claim['missing_elements']) or empty_result)} · "
+                f"미해결: {escape(', '.join(claim['unresolved_elements']) or empty_result)} · "
+                f"gaps: {escape(', '.join(claim['gap_ids']) or empty_result)}</p>"
                 f"<p>{escape(claim.get('suggestion') or '확정된 수정 제안 없음')}</p>"
+                f"{action_html}"
                 f"<ul>{sources}</ul>"
-                f"<pre>{escape(canonical_json(claim['basis_refs']))}</pre>"
-                f"<pre>{escape(canonical_json(claim['assurance']))}</pre>"
-                f"<pre>{escape(canonical_json(claim['safe_harbor']))}</pre>"
                 f"<details><summary>감사 세부정보</summary><pre>{audit_details}</pre></details>"
                 "</section>"
             )

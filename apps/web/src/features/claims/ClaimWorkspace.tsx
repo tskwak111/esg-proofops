@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
-import { SourceViewer } from "../../components/SourceViewer";
+import { SourceViewer, type SourceOpenRequest } from "../../components/SourceViewer";
 import { StatusBadge } from "../../components/StatusBadge";
+import { PreliminaryClassification } from "./PreliminaryClassification";
 import { ApiError, errorMessage, isSessionError, requestJson, type Session } from "../session/api";
 import {
   ReviewWorkspace,
@@ -135,7 +136,7 @@ function pending(error: unknown): boolean {
 }
 
 const pendingDecisionText: Record<Exclude<Decision["decision_status"], "decided">, string> = {
-  blocked_evidence: "미판정 · 원문 근거가 확인되지 않음",
+  blocked_evidence: "미판정 · 입증 요소 확인 필요",
   blocked_rule_gap: "미판정 · 규칙 적용 결과가 갈리거나 규칙집에 정한 기준이 없음",
   not_applicable: "적용 제외",
   not_run: "아직 판정하지 않음",
@@ -271,10 +272,11 @@ function ClaimList({ apiBase = "", tenantKey, runId, onSessionInvalid }: ClaimWo
   </section>;
 }
 
-function ClaimDetailView({ apiBase = "", csrfToken, tenantKey, runId, claimId = "", onSessionInvalid }: ClaimWorkspaceProps) {
+function ClaimDetailView({ apiBase = "", csrfToken, tenantKey, session, runId, claimId = "", onSessionInvalid }: ClaimWorkspaceProps) {
   const [detail, setDetail] = useState<ClaimDetail | null>(null);
   const [state, setState] = useState<LoadState>("loading");
   const [message, setMessage] = useState("");
+  const [sourceOpen, setSourceOpen] = useState<SourceOpenRequest | null>(null);
   const request = useRef<AbortController | null>(null);
 
   const load = useCallback(async () => {
@@ -296,6 +298,7 @@ function ClaimDetailView({ apiBase = "", csrfToken, tenantKey, runId, claimId = 
 
   useEffect(() => {
     setDetail(null);
+    setSourceOpen(null);
     void load();
     return () => request.current?.abort();
   }, [load, tenantKey]);
@@ -313,7 +316,7 @@ function ClaimDetailView({ apiBase = "", csrfToken, tenantKey, runId, claimId = 
     <p><Link to={`/runs/${runId}/claims`}>주장 목록으로</Link></p>
     {untagged ? <p role="status">태깅 결과가 게시되지 않은 주장입니다. 처리 대기뿐 아니라 원문 검증 문제로 보류된 경우도 포함합니다. 아래에서 원문을 확인할 수 있으며, 태깅 편집은 태그가 게시된 뒤에 가능합니다.</p> : null}
     <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 3fr) minmax(280px, 2fr)", gap: 24 }}>
-      <SourceViewer apiBase={apiBase} csrfToken={csrfToken} runId={runId} sources={detail.source_refs} onSessionInvalid={onSessionInvalid} />
+      <SourceViewer key={`${tenantKey}:${runId}:${claimId}`} apiBase={apiBase} csrfToken={csrfToken} runId={runId} sources={detail.source_refs} openRequest={sourceOpen} onSessionInvalid={onSessionInvalid} />
       <section aria-labelledby="evidence-heading"><h2 id="evidence-heading">태깅과 판정</h2>
         <p>{detail.claim.quote}</p><p>트랙: {track ? trackText[track] : "미분류"}</p><p>판정: <StatusBadge label={decisionText(decision)} tone={decisionTone(decision)} /></p>
         {decision?.review_status ? <p>검토 상태: <StatusBadge label={reviewStatusText[decision.review_status]} tone={decision.review_status === "human_confirmed" ? "success" : "warning"} /></p> : null}
@@ -322,23 +325,26 @@ function ClaimDetailView({ apiBase = "", csrfToken, tenantKey, runId, claimId = 
         {detail.rulepack_approved_by?.startsWith("ai-delegated-review:")
           ? <p role="status">이 판정에 쓰인 규칙집은 AI 프로젝트 검토(사람 전문가 승인 아님)로 활성화되었습니다.</p>
           : null}
-        <h3>요소</h3>{elements.length === 0 ? <p>{untagged ? "태깅 전이므로 표시할 요소가 없습니다. 태그가 게시되면 여기에 표시됩니다." : "표시할 요소가 없습니다."}</p> : <ul>{elements.map(element => <li key={element.element_id}>{element.element_id}: {elementStateText[element.state]} · 근거 {element.evidence_refs.length}개 · {element.credited_from ? "문서 전역" : "주장/표 직접"}</li>)}</ul>}
+        <h3>요소</h3>{elements.length === 0 ? <p>{untagged ? "태깅 전이므로 표시할 요소가 없습니다. 태그가 게시되면 여기에 표시됩니다." : "표시할 요소가 없습니다."}</p> : <ul>{elements.map(element => <li key={element.element_id}>{element.element_id}: {elementStateText[element.state]} · 근거 {element.evidence_refs.length}개</li>)}</ul>}
         <h3>보증 연결</h3>{detail.assurance.status === "undetermined" ? <p>보증 범위를 확인할 수 없습니다. 보고서 전체가 보증되었다고 간주하지 않습니다.</p> : <p>{detail.assurance.status === "covered" ? "보증 범위 안" : "보증 범위 밖"} · {detail.assurance.level ?? "수준 미확인"} · {detail.assurance.provider ?? "기관 미확인"}</p>}
         {detail.suggestion ? <><h3>수정 제안</h3><p>{detail.suggestion}</p></> : null}
         <h3>기준 근거</h3>{detail.basis_refs.length ? <ul>{detail.basis_refs.map((basis, index) => <li key={`${basis.standard}:${basis.clause}:${index}`}>{basis.standard} {basis.clause ?? "조항 미확정"}: {basis.summary} ({basisVerificationText[basis.verification_status]})</li>)}</ul> : <p>표시할 검증된 기준 근거가 없습니다.</p>}
-        {projection && projection.schema_version === 1 ? <section aria-labelledby="review-projection-heading"><h3 id="review-projection-heading">검토 중인 후보 (미확정)</h3>
-          <p role="status">이 후보는 참고용이며 최종 판정이나 태그 편집에 그대로 반영되지 않습니다. 자체 원문 검증을 통과해야 합니다.</p>
-          {projection.blocked_reason ? <p>보류 사유: {projection.blocked_reason}</p> : null}
-          {projection.blocked_action ? <p>다음 행동: {projection.blocked_action}</p> : null}
+        <PreliminaryClassification apiBase={apiBase} runId={runId} claimId={claimId} untagged={untagged} session={session} onSessionInvalid={onSessionInvalid} />
+        {projection && projection.schema_version === 1 ? <section aria-labelledby="review-projection-heading"><h3 id="review-projection-heading">모델 태깅 당시 후보 (미확정)</h3>
+          <p role="status">모델 태깅 당시의 미확정 기록입니다. 현재 검토 결과는 위의 태깅과 판정에 표시됩니다. 후보를 채택하려면 원문 검증을 통과해야 합니다.</p>
+          {projection.blocked_reason ? <p>태깅 당시 보류 사유: {projection.blocked_reason}</p> : null}
+          {projection.blocked_action ? <p>태깅 당시 안내: {projection.blocked_action}</p> : null}
           {projection.candidate_snippets.length ? <ul>{projection.candidate_snippets.map((snippet, index) => <li key={index}>{snippet}</li>)}</ul> : null}
-          {projection.field_agreements.length ? <ul>{projection.field_agreements.map(field => <li key={field.field_id}>{field.field_id}: {fieldAgreementText[field.status]} ({field.replicate_values.map(value => typeof value === "string" ? value : JSON.stringify(value)).join(" / ")})</li>)}</ul> : null}
+          {projection.field_agreements.length ? <details><summary>모델 응답 필드 상세 ({projection.field_agreements.length}개)</summary>
+            <ul>{projection.field_agreements.map(field => <li key={field.field_id}>{field.field_id}: {fieldAgreementText[field.status]} ({field.replicate_values.map(value => typeof value === "string" ? value : JSON.stringify(value)).join(" / ")})</li>)}</ul>
+          </details> : null}
           {projection.raw_candidates && projection.raw_candidates.length ? <section aria-labelledby="raw-candidates-heading">
             <h4 id="raw-candidates-heading">미검증 근거 후보</h4>
             <p role="status">원문 검색으로 발견된 미검증 근거 후보입니다. 정식 근거로 채택되지 않았으며 판정 등급에 반영되지 않습니다.</p>
             <ul>{projection.raw_candidates.map((cand, index) => <li key={`${cand.source_ref.source_id}:${index}`}>
               <p><strong>원문 {cand.source_ref.page_num}쪽</strong> · {cand.status === "unverified" ? "미검증 근거 후보" : cand.status}{cand.reason ? ` (${cand.reason})` : ""}</p>
               <p>{cand.source_ref.quote}</p>
-              <button type="button" onClick={() => document.getElementById(`review-source-${cand.source_ref.source_id}`)?.focus()}>원문 {cand.source_ref.page_num}쪽 보기</button>
+              <button type="button" onClick={() => setSourceOpen(current => ({ source: cand.source_ref, nonce: (current?.nonce ?? 0) + 1 }))}>원문 {cand.source_ref.page_num}쪽 보기</button>
             </li>)}</ul>
           </section> : null}
         </section> : null}
@@ -374,7 +380,7 @@ export function ReviewQueueWorkspace({ apiBase = "", tenantKey, session, runId, 
     if (!review || !freshClaims.some(item => item.claim_id === review.claim_id)) throw new Error("최신 검토 항목을 찾을 수 없습니다.");
     const claimDetail = await requestJson<ClaimDetail>(`${apiBase}/v1/runs/${runId}/claims/${review.claim_id}`, { signal });
     if (!claimDetail.claim.track) throw new Error("트랙이 미확정되어 검토 편집기를 열 수 없습니다.");
-    return { snapshot: { review, track: claimDetail.claim.track, elements: completeElements(claimDetail.claim.track, claimDetail.elements) }, detail: claimDetail };
+    return { snapshot: { review, track: claimDetail.claim.track, elements: completeElements(claimDetail.claim.track, claimDetail.elements), headTagRevision: claimDetail.claim.decision?.tag_revision ?? review.base_tag_revision }, detail: claimDetail };
   }, [apiBase, runId]);
 
   const load = useCallback(async (preferred?: string) => {
@@ -428,12 +434,25 @@ export function ReviewQueueWorkspace({ apiBase = "", tenantKey, session, runId, 
   }
 
   if (!allowed) return <section><h1>태깅 검토</h1><p role="alert">검토자 또는 관리자 권한이 필요합니다. 가짜 승인 화면은 제공하지 않습니다.</p></section>;
+  // Claims that are undecided and not yet on the review queue (no Review row and
+  // no decided Decision) are hidden by the queue alone. Surface them read-only so
+  // a reviewer can open the existing claim detail for source and hold reason. The
+  // set spans several blocked states (e.g. preliminary track unresolved, source
+  // span unverified), so the copy stays neutral and does not assert a single cause.
+  const reviewedClaimIds = new Set(reviews.map(review => review.claim_id));
+  const unregistered = claims.filter(claim =>
+    !reviewedClaimIds.has(claim.claim_id) &&
+    (claim.decision === null || claim.decision.decision_status !== "decided"));
   return <section aria-labelledby="review-queue-heading"><h1 id="review-queue-heading">검토 큐</h1>
     {state === "loading" ? <p role="status">최신 주장과 검토 큐 스냅샷을 불러오는 중입니다.</p> : null}
     {state === "pending" ? <p role="status">{message}</p> : null}
     {state === "error" ? <p role="alert">{message} <button type="button" onClick={() => void load(selected)}>다시 시도</button></p> : null}
-    {state === "ready" && reviews.length === 0 ? <p>현재 검토 큐가 비어 있습니다.</p> : null}
+    {state === "ready" && reviews.length === 0 && unregistered.length === 0 ? <p>현재 검토 큐가 비어 있습니다.</p> : null}
     {reviews.length ? <nav aria-label="검토 항목"><ul>{reviews.map(review => <li key={review.review_id}><button type="button" aria-current={selected === review.review_id ? "true" : undefined} onClick={() => void choose(review.review_id)}>{claims.find(claim => claim.claim_id === review.claim_id)?.quote ?? review.claim_id} · {reviewQueueStatusText[review.status]}</button></li>)}</ul></nav> : null}
+    {state === "ready" && unregistered.length ? <section aria-labelledby="unregistered-heading"><h2 id="unregistered-heading">검토 큐에 아직 오르지 않은 미판정 주장 ({unregistered.length}건)</h2>
+      <p role="status">아직 검토 항목으로 등록되지 않은 미판정 주장입니다. 상세에서 원문과 처리 상태·보류 사유를 확인하세요. 아직 태깅 검토에서 편집할 수 없습니다.</p>
+      <ul>{unregistered.map(claim => <li key={claim.claim_id}>{claim.page_num}쪽 · <Link to={`/runs/${runId}/claims/${claim.claim_id}`}>{claim.quote}</Link></li>)}</ul>
+    </section> : null}
     {state === "ready" && snapshot && detail ? <ReviewWorkspace key={`${snapshot.review.review_id}:${snapshot.review.revision}`} {...snapshot} session={session}
       sourceChoices={detail.source_refs} loadLatest={async () => (await latest(snapshot.review.review_id, new AbortController().signal)).snapshot}
       onResolved={resolved} onSourceOpen={source => document.getElementById(`review-source-${source.source_id}`)?.focus()} localSynthetic={localSynthetic} /> : null}

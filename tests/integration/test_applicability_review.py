@@ -130,6 +130,30 @@ def test_reviewed_false_excludes_and_engine_grades_immutable_management(tmp_path
         resolve(ws, review)
     assert stale.value.status == 412
 
+    # Chained human re-reviews retain the original AI applicability attestation.
+    for revision in (2, 3):
+        prior = service.store.history(TENANT, RUN, ws[3]["claim_id"])
+        repeated = service.resolve_review(
+            _actor(),
+            ws[3]["review_id"],
+            ws[4] | {"base_tag_revision": revision},
+            f'"{revision}"',
+            str(uuid4()),
+            reopen=True,
+        )
+        current = service.store.history(TENANT, RUN, ws[3]["claim_id"])
+        assert current["tags"][:-1] == prior["tags"]
+        assert current["decisions"][:-1] == prior["decisions"]
+        assert repeated["decision"]["evidence_grade"] == "E3"
+        assert set(current["decisions"][-1]["decision"]["excluded_elements"]) == {"M5", "M6"}
+        carried = current["tags"][-1]
+        assert carried["origin"] == "human"
+        assert carried["applicability_review"]["request"] == review
+        assert carried["applicability_review"]["carried_from"]["origin"] == "ai_delegated"
+        assert carried["applicability_review"]["carried_from"]["delegated_reviewer"] == (
+            "coordinator@orca.local"
+        )
+
 
 @pytest.mark.parametrize("value", [None, True])
 def test_unknown_or_true_trigger_with_unknown_element_remains_held(tmp_path, monkeypatch, value):

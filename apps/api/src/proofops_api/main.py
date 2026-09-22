@@ -18,6 +18,7 @@ from proofops_api.oidc import build_oidc_router
 from proofops_api.preflight import build_preflight_router
 from proofops_api.routers.analysis import build_analysis_router
 from proofops_api.routers.claims import build_claims_router
+from proofops_api.routers.classification import build_classification_router
 from proofops_api.routers.comparisons import build_comparisons_router
 from proofops_api.routers.deletion import build_deletion_router
 from proofops_api.routers.documents import build_documents_router
@@ -92,6 +93,11 @@ def create_app() -> FastAPI:
         )
     )
     app.include_router(build_summaries_router(composition.summaries, composition.auth_store))
+    app.include_router(
+        build_classification_router(
+            composition.classifications, composition.auth_store, allowed_origin=app_origin or ""
+        )
+    )
     app.include_router(build_evaluations_router(composition.evaluations, composition.auth_store))
     app.include_router(build_analysis_router(composition.analysis, composition.auth_store))
     app.include_router(

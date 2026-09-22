@@ -60,6 +60,35 @@ def _args(pdf, **overrides):
     return Namespace(**base)
 
 
+@pytest.mark.parametrize("enabled", [False, True])
+def test_claim_typography_option_reaches_pilot_with_required_wrappers(pdf, tmp_path, enabled):
+    args = ar.build_parser().parse_args(
+        [
+            "--pdf",
+            str(pdf),
+            "--pages",
+            "1,2",
+            "--report-year",
+            "2024",
+            "--period-start",
+            "2024-01-01",
+            "--period-end",
+            "2024-12-31",
+            "--state",
+            str(tmp_path / "typography"),
+        ]
+        + (["--claim-span-typography"] if enabled else [])
+    )
+    plan = ar.plan_run(args)
+    assert plan["claim_span_typography"] is enabled
+    for flag in (
+        "--claim-span-typography",
+        "--claim-span-bullet-spacing",
+        "--claim-span-render-resolution",
+    ):
+        assert (flag in plan["argv"]) is enabled
+
+
 def _make_named_destination_pdf(path: Path, entries: list[tuple[str, int]]) -> Path:
     """Small real PDF with named destinations so ``evaluation.report_sections``
     can classify sections without any outline/TOC parsing edge cases.
