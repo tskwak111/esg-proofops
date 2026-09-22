@@ -254,7 +254,9 @@ class _DartTextProjectionParser(HTMLParser):
         self._opened = 0
         self._logical_rows = 0
         self._current: dict[int, int] = {}
-        self._pending: dict[int, int] = {}
+        # Named to stay clear of HTMLParser's own private state: CPython 3.12.14
+        # introduced ``HTMLParser._pending`` and ``close()`` joins it as strings.
+        self._rowspan_pending: dict[int, int] = {}
         self._row_of: dict[int, int] = {}
         self._promised: dict[int, int] = {}
         self._attached: dict[int, int] = {}
@@ -292,7 +294,9 @@ class _DartTextProjectionParser(HTMLParser):
                 return
             if 2 <= declared <= MAX_DECLARED_ROWSPAN:
                 parent = self._instances[-2]
-                self._pending[parent] = max(self._pending.get(parent, 0), declared - 1)
+                self._rowspan_pending[parent] = max(
+                    self._rowspan_pending.get(parent, 0), declared - 1
+                )
                 row = self._row_of.get(self._instances[-1])
                 if row is not None:
                     # The declaration starts at the row holding this cell, which is
@@ -307,8 +311,8 @@ class _DartTextProjectionParser(HTMLParser):
         self._opened += 1
         parent = self._instances[-1] if self._instances else 0
         if tag == "tr":
-            if self._pending.get(parent, 0) > 0:
-                self._pending[parent] -= 1
+            if self._rowspan_pending.get(parent, 0) > 0:
+                self._rowspan_pending[parent] -= 1
             else:
                 self._logical_rows += 1
                 self._current[parent] = self._logical_rows
