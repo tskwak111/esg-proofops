@@ -209,9 +209,7 @@ def test_resume_cannot_add_the_assertion_prompt_to_a_legacy_run(tmp_path, monkey
 def test_the_new_run_assertion_profile_matches_what_composition_reconstructs():
     from proofops_agent.upstage_extraction import _profile_with_options
 
-    frozen = asdict(
-        _profile_with_options("solar-pro3", source_ids=True, assertion_prompt=True)
-    )
+    frozen = asdict(_profile_with_options("solar-pro3", source_ids=True, assertion_prompt=True))
     assert frozen != asdict(_profile_with_options("solar-pro3", source_ids=True))
     settings = {"extraction_source_ids": True, "extraction_assertion_prompt": True}
     assert frozen == asdict(
@@ -242,9 +240,7 @@ def test_analyze_report_passes_the_assertion_flag_through_to_the_pilot_argv():
         serve=False,
         port=8000,
     )
-    argv = build_pilot_argv(
-        **common, extraction_source_ids=True, extraction_assertion_prompt=True
-    )
+    argv = build_pilot_argv(**common, extraction_source_ids=True, extraction_assertion_prompt=True)
     assert "--extraction-assertion-prompt" in argv
     assert "--extraction-assertion-prompt" not in build_pilot_argv(
         **common, extraction_source_ids=True

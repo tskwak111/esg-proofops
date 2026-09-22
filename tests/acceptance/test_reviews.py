@@ -591,9 +591,12 @@ def test_re_review_cross_tenant_hidden_and_csrf_required(tmp_path):
         "tag_revision"
     ]
     body = ws[4] | {"base_tag_revision": head_tag_revision, "reason": "재검토 권한 검사"}
-    assert re_review(
-        ws, body=body, headers=ws[5] | {"If-Match": '"2"', "X-CSRF-Token": "wrong"}
-    ).status_code == 403
+    assert (
+        re_review(
+            ws, body=body, headers=ws[5] | {"If-Match": '"2"', "X-CSRF-Token": "wrong"}
+        ).status_code
+        == 403
+    )
     from dataclasses import replace
     from uuid import uuid4
 
@@ -624,9 +627,14 @@ def test_re_review_human_route_cannot_forge_ai_metadata(tmp_path):
         "review_origin": "ai_project_interpretation",
         "delegated_reviewer": "attacker",
     }
-    assert re_review(
-        ws, body=forged, headers=ws[5] | {"If-Match": '"2"', "Idempotency-Key": "rr-forge-00000001"}
-    ).status_code == 422
+    assert (
+        re_review(
+            ws,
+            body=forged,
+            headers=ws[5] | {"If-Match": '"2"', "Idempotency-Key": "rr-forge-00000001"},
+        ).status_code
+        == 422
+    )
     # A clean re-review stays honestly human.
     clean = ws[4] | {"base_tag_revision": head_tag_revision, "reason": "정상 재검토"}
     ok = re_review(

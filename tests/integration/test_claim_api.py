@@ -415,9 +415,7 @@ def _agreement(track_values, *, validated=3, replicates=3, dimensions=None):
     )
 
 
-def test_preliminary_unresolved_action_distinguishes_agreed_conflict_missing(
-    tmp_path, monkeypatch
-):
+def test_preliminary_unresolved_action_distinguishes_agreed_conflict_missing(tmp_path, monkeypatch):
     """R20 fix 1: PRELIMINARY_TAGS_UNRESOLVED must not always say "retry".
 
     - All three validated replicas agreed (e.g. all null): advise reviewing the
@@ -479,9 +477,7 @@ def test_preliminary_unresolved_action_distinguishes_agreed_conflict_missing(
     )
     assert dim_conflict["blocked_action"] == conflict_action
     assert dim_conflict["blocked_action"] != agreed_action
-    metric_field = next(
-        f for f in dim_conflict["field_agreements"] if f["field_id"] == "metric"
-    )
+    metric_field = next(f for f in dim_conflict["field_agreements"] if f["field_id"] == "metric")
     assert metric_field["status"] == "conflict"
 
     legacy = _agreement([None, None, None])
@@ -491,9 +487,7 @@ def test_preliminary_unresolved_action_distinguishes_agreed_conflict_missing(
     assert "3건 미만" not in legacy_action
     incomplete_axis = _agreement([None, None, None], dimensions={"metric": [None]})
     assert "3건 미만" not in project_with(incomplete_axis)["blocked_action"]
-    assert "확정할 수 없습니다" in project_with(
-        _agreement(["management"] * 3)
-    )["blocked_action"]
+    assert "확정할 수 없습니다" in project_with(_agreement(["management"] * 3))["blocked_action"]
 
     # The generic fallback must never reuse the old blind-retry wording.
     for action in (agreed_action, conflict_action, missing_action):

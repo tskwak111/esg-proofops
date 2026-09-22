@@ -173,8 +173,6 @@ def test_composition_builds_the_assertion_extractor_from_settings(tmp_path, monk
 
 def test_composition_rejects_assertion_prompt_without_source_ids(tmp_path, monkeypatch):
     """A lone assertion opt-in (no source-ids) fails closed before any transport."""
-    composition = _extract_env(
-        tmp_path, monkeypatch, {"extraction_assertion_prompt": True}
-    )
+    composition = _extract_env(tmp_path, monkeypatch, {"extraction_assertion_prompt": True})
     with pytest.raises(ValueError, match="EXTRACTION_PROFILE_MISMATCH"):
         composition.build_composition(stage="extract")

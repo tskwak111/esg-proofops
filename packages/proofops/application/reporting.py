@@ -595,7 +595,7 @@ def render_report(model: Mapping[str, object], output_format: str) -> bytes:
             action = claim.get("review_action")
             if action:
                 action_html = (
-                    "<div class=\"review-action\"><p>다음 검토 작업:</p><ul>"
+                    '<div class="review-action"><p>다음 검토 작업:</p><ul>'
                     + "".join(f"<li>{escape(check)}</li>" for check in action["checks"])
                     + "</ul></div>"
                 )

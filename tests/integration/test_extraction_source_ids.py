@@ -409,9 +409,7 @@ def test_assertion_receipt_rejects_replay_under_the_wrong_profile(tmp_path):
     # A plain source-ID extractor over the SAME receipt directory recomputes a
     # different request id (its prompt differs), so it never serves this receipt.
     plain_probe = FakeProbe(REAL_PRO4_ID_RESPONSE)
-    plain = UpstageClaimExtractor(
-        plain_probe, tmp_path / "shared", extraction_source_ids=True
-    )
+    plain = UpstageClaimExtractor(plain_probe, tmp_path / "shared", extraction_source_ids=True)
     plain.extract(packet(plain))
     # Two distinct request ids -> two distinct receipt directories, no crossover.
     assert probe.calls[0]["request_id"] != plain_probe.calls[0]["request_id"]
