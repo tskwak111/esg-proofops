@@ -82,3 +82,372 @@ remote result for each commit; this document records local evidence only.
 
 No API key, local environment file, raw company report, generated delivery ZIP,
 or historical audit directory belongs to this publication.
+
+# 2026-09-22 follow-up — real-source validation on the integrated main
+
+This section records the B-F01/B-F02/B-F03/B-F04 follow-up. It does not replace
+or rewrite anything above it. **Collection success, fact extraction, policy
+approval, a real-company verdict, independent accuracy and production readiness
+are separate results and are reported separately below.**
+
+## Baseline, branch and environment
+
+Work happened in a new worktree on branch `koregy/developer-b-followup-20260922`,
+created from `origin/main` at `ca75df592345fb412cd1593c29a0f5c506f81fe3`.
+`git merge-base --is-ancestor ca75df5 origin/main` returned 0 and `origin/main`
+is that exact commit. At the time the worker wrote this section the changes were
+uncommitted. The coordinator then committed them on 2026-09-22 (KST) in two steps
+on the same branch: the adapter fix and its regressions in
+`04b8a39b3c6d1e584d2338234c7f21adcf53a225` (the last commit whose contents the
+gate table below was executed against), followed by this report, the B-F02
+proposals and the regenerated package-validation evidence in the commit that
+carries this sentence. Integration into `main` remains the coordinator's step.
+Changed files:
+
+```
+ packages/proofops/adapters/dart/candidates.py   | 246 +++++++++++++++-
+ tests/reconciliation/test_candidates.py         | 285 +++++++++++++++++-
+ evidence/reconciliation-publish/VERIFICATION.md | 334 +++++++++++++++++++
+ docs/DEVELOPER_B_POLICY_PROPOSALS.md            | new (B-F02 proposals, unapproved)
+```
+
+The adapter diff is confined to the text-projection parser, the new row-span
+helper and the catalogue bounds; no other region of the file moved.
+
+Environment: Windows 11 Pro 10.0.26200.9457; Python 3.12.13 in a checkout-local
+`.venv` built by `uv sync --locked` (no `.venv` shared with another checkout);
+Java 21.0.2 as the default `java`, so `PROOFOPS_TEST_JAVA` was not needed;
+Node v22.23.2 through fnm; pnpm 10.0.0; `PYTHONUTF8=1` for every Python command.
+Playwright is not a repository dependency: `playwright-core` 1.56.1 was installed
+outside the repository and selected with `PROOFOPS_PLAYWRIGHT_MODULE`, driving the
+installed Edge through `PROOFOPS_BROWSER_CHANNEL=msedge`.
+
+**Application external API usage this session: 0 paid model calls, 0 AWS calls,
+0 new DART requests, 0 cost.** That accounting covers the product's own outbound
+calls only; it is not a claim that the assistant subscription used to do the work
+is free. The existing
+Samsung FY2024, Ottogi FY2024 and Dongsuh FY2024 collections were re-used read-only
+from the original checkout; no original bytes, database or key are published here.
+
+## Real originals actually re-verified (B-F01 step 1)
+
+Every artifact below was re-hashed in this run and matched its manifest.
+
+| Source | Identity | SHA-256 (prefix) | Bytes | Result |
+|---|---|---|---|---|
+| Samsung statements JSON | `00126380` FY2024 `20250311001085` CFS | `02ba3366` | 106,589 | match |
+| Samsung document ZIP | same | `606ffc72` | 676,026 | match |
+| Samsung XBRL ZIP | same | `695395de` | 759,807 | match |
+| Samsung SR PDF | `samsung-sr-2025-kor`, 87 pages, published 2025-06-27 | `342a99a1` | 5,649,767 | match |
+
+The SR is the 2025-published report whose page 86 states the measured period as
+"2024년 1월1일부터 2024년 12월 31일까지"; the financial side is FY2024 filed
+2025-03-11. The publication year was not used as the fiscal year. The issuer's own
+disclosure listing for that report is
+<https://www.samsung.com/sec/ir/reports-disclosures/public-disclosure/3587/>; the
+`2025-06-27` publication date recorded in the SR source manifest comes from that
+page, not from the local download timestamp.
+
+Candidate preparation was then re-run from those originals with
+`evaluation.reconciliation_prepare` into fresh output directories. Every candidate
+source in each catalogue was independently re-read through the shipped
+`FileSourceReader` and re-checked for exact quote, locator and artifact hash:
+
+| Company | Candidates | Re-verified | Failures |
+|---|---|---|---|
+| Samsung `00126380` / `20250311001085` | 2,001 (2,000 DART + 1 operator SR) | 2,001 | 0 |
+| Ottogi `00141529` / `20250318000979` | 2,000 | 2,000 | 0 |
+| Dongsuh `00144395` / `20251210000195` | 2,000 | 2,000 | 0 |
+
+Total 6,001/6,001. These counts are the **pre-row-span catalogue**; the row-span
+work described under B-DEF-01 below adds new candidates on top of them and does
+not change any of the 6,001.
+
+Four real-byte probes were run: **three negative probes, all rejected, plus one
+positive control that still verified** — a single flipped byte in a copied derived
+artifact → `artifact_hash_mismatch`; an Ottogi source read through Samsung's
+artifact manifest → `document_not_manifested`; a locator shifted by one character
+→ `quote_mismatch`; and the untouched source as the control → verified. The
+control is not a fourth rejection.
+
+**Search coverage is not complete and is not claimed to be.** An independent count
+with the shipped projection parser found 59,053 text elements across the 3 XML
+members of the Samsung document ZIP, 19,070 across the 6 XBRL members, plus 213
+statement rows — about 78,336. The catalogue keeps 2,000 of them (document 894 /
+XBRL 893 / statements 213), roughly 2.6%, and reports `truncated: true` with
+`trust.search_complete: false`.
+
+## Real case table (B-F01/B-F03)
+
+Expected values below were written by this AI developer from the contract text and
+are **AI review material (silver), not independent gold**. No case was registered
+in a product database, because no verified developer A claim exists for these
+companies (see "Missing developer A input"). Verdicts were produced by
+`evaluation.reconciliation_cli`, which calls the application `reconcile`; the pure
+`evaluate` entry point was not called directly for any of these results.
+
+| case_id | 기업 | FY | 접수번호 | SR 버전 | C항목 | 개발/평가 구분 | 기대 execution_state/status | 실제 execution_state/status | reason_codes | 원문 참조 | 기대값 검토 출처 | 결함/외부입력/정상보류 | 처리시간 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| RSV-20260922-SEC-C2 (legacy offline placeholder probe) | 삼성전자 | 2024 | 20250311001085 | `samsung-sr-2025-kor` `342a99a1` | C2 | 개발 중 사용 | blocked / null | blocked / null | `policy_unapproved` | SR page:86 quote; DART cover `사업연도` row, derived `chars:304:597` | B 기술 검토 (AI, silver) | 정상보류 + 외부입력 (정책 미승인 **및** 등록 claim·source 전제 미충족) | prepare 59s + reconcile 1s |
+| RSV-20260922-SEC-C2-REGISTERED | 삼성전자 | 2024 | 20250311001085 | `samsung-sr-2025-kor` `342a99a1` | C2 | 평가 | not_run | **not_run** | — | — | — | 외부입력 (등록 claim 없음) | — |
+| RSV-20260922-OTT-PREP | 오뚜기 | 2024 | 20250318000979 | 없음 | — | 이전 턴 열람 (reuse) | prepare 성공, 판정 not_run | prepare exit 0, 판정 not_run | — | 2,000 후보 전부 byte/locator 재검증 | B 기술 검토 (AI, silver) | 외부입력 (SR·claim 없음) | 105s |
+| RSV-20260922-DSH-PREP | 동서 | 2024 | 20251210000195 | 없음 | — | 이전 턴 열람 (reuse) | prepare 성공, 판정 not_run | prepare exit 0, 판정 not_run | — | 2,000 후보 전부 byte/locator 재검증 | B 기술 검토 (AI, silver) | 외부입력 (SR·claim 없음) | 56s |
+| RSV-20260922-DSH-REJECT | 동서 | 2024 | 20250313000532 | 없음 | — | 이전 턴 열람 (reuse) | 거부 (수집 실패) | exit 2, `collection_identity_or_status_mismatch`, 출력 폴더 미생성 | — | manifest의 `statements` 아티팩트 `collection_or_identity_failed` | B 기술 검토 (AI, silver) | 정상보류 (수집 실패) | <1s |
+
+Ottogi and Dongsuh were already inspected by master/Sol in the previous turn at
+`060c69b`. They are **re-used material, not a fresh independent hold-out**, and
+their exact-source matches are not semantic C1–C4 gold. No genuinely unused
+company was evaluated in this follow-up.
+
+The Samsung row is a **legacy offline placeholder probe**, not a registered case.
+Its `tenant_id`/`company_id`/`claim_id` are placeholder UUIDs carried over from the
+earlier offline probe (`aaaaaaaa-…`, `bbbbbbbb-…`, `cccccccc-…`). The probe proves
+the engine path, nothing about a real company. **Evaluation of a registered claim
+is `not_run`**, and the policy gate is not the only thing missing: there is no
+registered `run_id`/`claim_id`, no claim-side verified source binding and no
+reviewed snapshot for this company, so even an approved policy would not let this
+case be evaluated today.
+
+Reproducibility: `prepare` + `reconcile` were run three times from the same
+originals into three fresh directories. All three produced a byte-identical result
+object, `packet_sha256 6b13086c…`, `policy_sha256 bcd010a0…`.
+
+## Denominators
+
+- Cases with an evaluable expected **semantic** result (matched /
+  needs_explanation / not_applicable): **0**. Agreement rate: **N/A (denominator 0)**.
+- Wrong `needs_explanation` among cases expected not to need an explanation:
+  **N/A (denominator 0)**.
+- Wrong `matched` among cases expected to be `needs_explanation`:
+  **N/A (denominator 0)**.
+- Of 4 real inputs: 1 blocked, 3 not_run. Decomposition — missing external input 2
+  (no SR and no verified claim for Ottogi/Dongsuh), unapproved policy 1, collection
+  failure 1, **code defect 0**.
+- Execution-state expectations that matched the observed behaviour: 4/4. This is an
+  execution-path check, not accuracy.
+- Collection: **0 new DART requests this session.** The fixed request unit is one
+  receipt, (corp_code, FY, rcept_no). The denominator is **4 re-used receipt-level
+  inputs**: Samsung `20250311001085`, Ottogi `20250318000979` and Dongsuh
+  `20251210000195` complete, plus the original Dongsuh `20250313000532` whose
+  collection failed. At artifact level that is **11 of 12** `retrieved`, the twelfth
+  being the failed Dongsuh `statements`. This is not a 98% collection-rate claim.
+- False-positive rate on normal differences: not measurable this round
+  (denominator 0). The "<5%" figure remains a target, not an achieved number.
+
+## Missing developer A input (exact identifiers)
+
+`reconciliation_import` needs a real run of the same tenant/company/document
+version plus an existing verified claim. A GitHub/main inventory was checked
+read-only. What exists and what does not:
+
+- `evidence/section-map-results.json` (tracked on main) contains the **same Samsung
+  SR bytes**, `source_sha256 342a99a14d7c32b4e66cbbf977cc89dc79044ccc7c5e71367fb476c14538c8c5`,
+  87 pages, `status: "candidate_only"`, `map_sha256 08dbee38…`. It is a section map,
+  **not a verified claim**, and carries no `tenant_id`, `company_id`, `run_id`,
+  `claim_id` or `document_version_id`.
+- Real A identifiers do exist, but for other documents:
+  `evidence/live-tagging-kb-baseline-20260919.json` (`run_id 8db23077-5360-4e86-ba6b-f79d4e6a39b5`,
+  every listed claim `blocked` / `SOURCE_VALIDATION_REQUIRED`),
+  `evidence/live-tagging-kb-local-attribution-20260919.json`
+  (`run_id b5857267-1b2c-4df7-a818-2ddf67d4094e`, `tenant_id 0a0e0b09-62c3-461f-808b-ba73cdc1fe07`),
+  `evidence/raster-prose-downstream-live-20260919.json`
+  (`run_id a06437ae-209b-4a6e-83b6-0c4221fab899`, `verified_claims: 7`, `non_null_decisions: 0`),
+  `evidence/preliminary-examples-ab-20260919.json`
+  (`tenant_id 2e2d9c40-9dfb-4a8c-bcbb-9d7bd4302177`, Doosan Bobcat claims).
+- Those documents are Doosan / KB / Naver. The DART+SR material is Samsung /
+  Ottogi / Dongsuh. **The two sets do not overlap**, so binding them would mix
+  companies, which the handover forbids.
+- The product databases reachable from this machine are empty of real runs:
+  the original checkout's `.local/state.sqlite3` has 0 rows in `run_snapshots`
+  and `reconciliation_case`; the only populated ones
+  (`.local/reconciliation-http-5`, `.local/reconciliation-http-final`) hold 4
+  synthetic cases with `synthetic=1` under tenant `11111111-…`.
+
+Still required from A / the coordinator, per company to be evaluated:
+`tenant_id`, `company_id`, `run_id`, `claim_id`, the claim/tag input revision that
+produced it, the verified source proof for that claim, and the matching
+`document_version_id` for the SR that B already holds. Credentials and whole
+production databases are explicitly not wanted.
+
+Also still missing: a non-synthetic policy record with its approver, role, scope
+and approval state. Flipping `synthetic_only` on the synthetic policy is not an
+acceptable substitute, and no approval was fabricated.
+
+## Defects
+
+**B-DEF-01 (fixed in the adapter; option (a) implemented).** On real DART documents
+a reporting period is split across table cells, so no per-cell candidate carried a
+complete period and a C2 financial period could only be reached either by writing a
+`normalized` value whose end date was not inside the cited quote, or by staying at
+`blocked / value_unresolved` forever.
+
+*Correction to the first version of this section:* it described the Samsung cover as
+one `<TR>` holding all five cells. The original bytes say otherwise. The cover
+states the period across **two `<TR>` elements bound by an explicit
+`ROWSPAN="2"`** on the label cell — `<TD ROWSPAN="2" ...>사업연도</TD>` with
+`<TU AUNIT="PERIODFROM" AUNITVALUE="20240101">2024년 01월 01일</TU><TD>부터</TD>`
+in the first row and
+`<TU AUNIT="PERIODTO" AUNITVALUE="20241231">2024년 12월 31일</TU><TD>까지</TD>`
+in the second.
+
+The adapter now emits an additional `document_row_span` candidate: an exact,
+contiguous slice of the **already-written** derived projection covering one
+disclosed row. A row is one `<tr>`, or the consecutive `<tr>` siblings the markup
+itself binds with `ROWSPAN`. The guards are deliberately strict — only a
+well-formed `ROWSPAN` between 2 and `MAX_DECLARED_ROWSPAN` (8) declared on a cell
+tag (`td`/`te`/`th`/`tu`) directly inside the open row may bind rows; a row is
+spanned only when every one of its disclosed cells appears in a single contiguous
+run, so a row interrupted by a nested table, shortened by the quote-length filter
+or cut by the candidate bound is skipped entirely rather than published as a
+partial "complete" row; a declaration left unsatisfied when `</TBODY>` or the end
+of the member arrives — `ROWSPAN="3"` with only two rows present — drops its whole
+group, so a malformed row is never published as a complete one; an over-long span
+is skipped rather than trimmed. A `ROWSPAN` declared on a later row of a group is
+measured from *that* row, so `ROWSPAN="3"` on the second row of a group reaches the
+fourth row and three rows still count as incomplete. Rows are never joined merely
+because they are adjacent. In every one of those refusals the individual cell
+candidates remain available, so nothing that existed before is lost.
+
+Nothing existing moved. The derived artifact bytes, their hashes, every existing
+candidate id, source id and locator, the frozen reader, the result schemas and all
+trust guards are unchanged; the spans carry `verification_state: "candidate"` and
+an empty `normalization_suggestions`, so nothing is auto-approved or normalized.
+Row spans have their own bound (`max_row_span_candidates`, default 200) outside
+`max_candidates`, so they cannot displace an element candidate.
+
+Demonstrated on the real Samsung FY2024 document (`.local/b-followup-rowspan-final`,
+re-run on the converged code):
+span `samsung-fs-2024-20250311001085:document:b0682fd46de5:row:9-13`, artifact
+`e1b4a2f4…`, locator `chars:304:597`, cells
+`['사업연도', '2024년 01월 01일', '부터', '2024년 12월 31일', '까지']`. **Both
+dates are inside one quote**, the locator slice equals the quote byte for byte, and
+all 200 emitted spans re-verified through `FileSourceReader` (200/200). The
+pre-existing 2,001 candidates, the artifact index and `packet.json` are byte-identical
+to the pre-row-span run, and `reconcile` still returns the same result object
+(`packet_sha256 6b13086c…`, `blocked / null / policy_unapproved`). The catalogue
+total goes from 2,001 to 2,201; the 6,001-source re-verification figure above is
+the pre-row-span number and is unaffected.
+
+Seven regression tests cover it: the split-period positive, the never-join-two-rows and preservation check, the nested-table interruption, the malformed/oversized/non-cell ROWSPAN variants, the bound-cut row, the unsatisfied declaration at `</TBODY>` and at end of member, and the later-row declaration arithmetic.
+
+This closes the extraction half of B-DEF-01. It does **not** decide the operator's
+normalization: turning that quote into a period value is still a reviewer action
+under DEC-PERIOD, and no normalization is suggested or approved by the adapter.
+
+**B-DEF-02 (fixed).** The prepared catalogue reported `limits.max_candidates: 2000`
+while holding 2,001 candidates, because operator sustainability sources are added
+after the DART bound is applied and the operator bound was not recorded anywhere.
+Only a real, bound-filling collection exposes it. `add_operator_sr_sources` now
+reports `max_operator_sources` and an `operator_source_count` counted from the
+catalogue itself, so repeated additions stay truthful. Two regression tests cover
+the single-add invariant and repeated addition. Verified on real data: the Samsung
+catalogue now reports
+`{max_candidates: 2000, truncated: true, max_operator_sources: 100, operator_source_count: 1}`
+for its 2,001 entries. No verdict, hash, schema field or trust boundary changed.
+
+Neither finding changed error, hold or processing-time behaviour for any case
+above; the before/after timings are the same within noise, and the Samsung C2
+result object is unchanged.
+
+Both defects are now closed in the adapter. What remains open around them is not a
+defect but an external input: the operator normalization under DEC-PERIOD, and the
+registered claim and approved policy listed below.
+
+## Local gates actually executed (B-F04)
+
+All of the following ran on the final working tree, on Windows, with
+`PYTHONUTF8=1` and a fresh output directory per run. Skips are not counted as
+passes.
+
+| Command | Exit | Result | Evidence |
+|---|---|---|---|
+| `uv run --no-sync python scripts/verify_reconciliation.py --output .local/b-followup-release-final --timeout-seconds 600` | 0 | 15/15 gates; its pytest gate 700 passed, 0 skipped, 3 warnings, 113.4s | `.local/b-followup-release-final/checks.json` |
+| `uv run --no-sync python -m pytest tests/reconciliation/test_windows_parser.py tests/reconciliation/test_windows_upload.py tests/acceptance/test_parsing.py tests/integration/test_local_tag_runner.py tests/unit/test_tagging_platform.py -q` | 0 | 75 passed, 0 skipped, 2 warnings, 80.1s | `.local/b-followup-windows-pytest-03.log` |
+| `pnpm --filter proofops-web typecheck` | 0 | tsc clean | — |
+| `pnpm --filter proofops-web build` | 0 | vite build, 54 modules | `apps/web/dist` |
+| `uv run --no-sync python -m pytest tests/reconciliation -q` | 0 | 551 passed, 0 skipped (7 new row-span/limit regressions) | changed-scope run |
+| `ruff check` / `ruff format --check` / `mypy` on the two changed files | 0 / 0 / 0 | clean | — |
+| `uv run --no-sync python scripts/validate_package.py` | 0 | 961 checks passed, 0 failed (documentation/contract scope only) | `.local/b-followup-validate-01.log` |
+
+That validator rewrites `evidence/package_validation.json` and
+`evidence/package_validation.txt` as a side effect; the count rises from 951 to 961
+because the new proposals document is checked. The worker reverted those two
+generated files to `HEAD`; the coordinator regenerated them at commit time with
+the same command (`961 | passed: 961 | failed: 0`) so the tracked evidence matches
+the delivered tree.
+
+Earlier full runs at intermediate states are kept for comparison and history:
+`.local/b-followup-release-01` (15/15, 691 passed) before any change,
+`-02` (692 passed) after the first limits fix, `-03` (693 passed) at the first
+delivery, and `-04`/`-05` during the row-span review iterations.
+
+The Windows five-file set, `pnpm typecheck`, `pnpm build` and the browser check
+were **not re-run** for the row-span change. That change is confined to
+`packages/proofops/adapters/dart/candidates.py`, which none of those suites
+imports or exercises: the Windows set covers the parser containment, upload,
+parsing-acceptance, local tag runner and tagging platform paths, and the web and
+browser checks cover the React workspace against the local HTTP server. Their
+recorded exit codes above therefore still describe the delivered tree; re-running
+them would only repeat an unchanged result.
+
+Browser verification used a separate terminal, loopback only and a new database:
+
+```powershell
+uv run --no-sync python -X utf8 -m tests.e2e.local_browser_server --host 127.0.0.1 --port 4194 \
+  --origin http://localhost:4194 --database .local/b-followup-browser-02/state.sqlite3 --include-reconciliation
+node scripts/check_reconciliation_browser.mjs http://localhost:4194 .local/b-followup-browser-evidence-03
+```
+
+Exit 0, `status: passed`, with C1 `matched/same_verified_entity_set`,
+C2 `matched/same_period`, C4 `matched/classification_basis_present`,
+C3 `blocked/policy_unapproved`, plus source-download hashes, an immutable old
+revision, idempotent replay, the stale-review notice and no page errors.
+**This browser run is a synthetic functional check** (`synthetic: true`) and is
+reported separately from the real-data work above; it says nothing about
+real-company accuracy.
+
+Two earlier browser attempts failed and the logs are kept. Both were harness
+preconditions, not product defects: re-running against the already-exercised
+database on port 4193 failed at `check_reconciliation_browser.mjs:38` because the
+C1 case had already been evaluated, and re-using an existing evidence directory
+failed at line 14 with "Evidence output already exists" — the harness refuses to
+overwrite evidence, which is the intended behaviour.
+
+Both test servers were stopped afterwards: PIDs 21668 and 28356 for the port 4193
+run and PIDs 13684 and 16240 for the port 4194 run (`uv run` plus its child
+interpreter in each case). A final check found no `local_browser_server` process
+and nothing listening on 4193 or 4194.
+
+Remote CI is `not_run`. GitHub Actions free minutes were exhausted at handover and
+nothing here was executed on a runner. Local passes are not CI passes.
+
+## Final status table
+
+| 작업 | 상태 | 실제 확인 결과 | 미해제 조건·담당 | 증거 |
+|---|---|---|---|---|
+| B-F01 원문·후보·사실 검토 | 완료 | 실제 원본 4건 해시 일치, 후보 6,001건(row-span 이전 기준) 전부 exact quote/locator/hash 재검증, 음성 3건 거부 + 대조군 1건 정상 검증, 3회 재현 동일. row-span 추가 후 삼성 카탈로그는 2,201건이며 신규 span 200/200 재검증 | — | 위 표, `.local/b-followup-real-01`, `-02`, `-final`, `b-followup-timing-02`, `b-followup-rowspan-final` |
+| B-F01 실제 정책 적용·최종 판정 | 외부입력대기 | 실제 C2가 `reconcile`에서 `blocked/policy_unapproved`로 정상 보류. 의미 판정 0건 | 실제 승인 정책(승인자·범위·해시) — 기준/데이터 담당, A | `samsung-result-01/02.json` |
+| B-F01 실자료 앱·출력·재현 | 외부입력대기 | 등록된 A claim이 없어 실자료 케이스를 제품 DB에 등록하지 못함. 앱 경로는 합성 입력으로만 확인 | tenant/company/run/claim/revision — A | 미싱 입력 절, 합성 브라우저 결과 |
+| B-F02 정책 결정안 | 완료(제안) | DEC-C1 / DEC-C3 / DEC-STATUS / DEC-PERIOD / DEC-COVERAGE 5건, 실제 사례·반례·미확정점 포함. 승인 0건 | 승인 주체 결정 — 사용자/기준 담당 | [B-F02 정책 결정안](../../docs/DEVELOPER_B_POLICY_PROPOSALS.md) |
+| B-F03 실제 사례 평가·결함 수정 | 부분완료 | 실사례 5행(등록 claim 평가 1행은 not_run), 결함 2건 모두 수정 + 회귀 9개(B-DEF-01 7, B-DEF-02 2). 의미 정확도 분모 0 | 검증된 claim, SR, 미사용 기업 2곳 — A/조정자 | 사례표, B-DEF-01/02 |
+| B-F04 Windows 최종 검증 | 완료 | 15/15 게이트(최종 700 통과), Windows 5종 75 통과, `tests/reconciliation` 551 통과, 0 제외, typecheck/build 통과, 합성 브라우저 통과. Windows/web/browser는 이번 어댑터 변경과 무관하여 재실행하지 않음(사유 기재) | — | 위 게이트 표 |
+| 원격 CI | 미실행 | Actions 무료 한도 소진, 최종 커밋 미실행 | 한도 회복 후 재실행 — 조정자 | — |
+
+## Remaining work, split by owner
+
+Developer A / coordinator: supply, per company to be evaluated, a verified
+`tenant_id`/`company_id`/`run_id`/`claim_id` with its input revision and source
+proof, bound to a document version B already holds; obtain a real, non-synthetic
+policy record with approver, scope and approval state; nominate two genuinely
+unused companies with SRs if a hold-out check is wanted; re-run the platform
+checks on the final commit once CI minutes return; commit, integrate and publish.
+B-DEF-01 no longer needs a coordinator decision — the extraction half is
+implemented in the B adapter, and what is left of it is the reviewer's
+normalization call under DEC-PERIOD.
+
+Developer B, once those arrive: register the real case through
+`reconciliation_import`, walk the review → policy-approval → evaluate → previous
+revision → source download → JSON export path in the app on real data, and report
+the real verdict with its denominators. Until then the correct statement remains
+**product path verified / real-company verdict pending**, not a completed
+real-company evaluation.
