@@ -47,8 +47,8 @@ KB 최신 부분 산출물은 ROOT `outputs/agent-results/R24/kb-available-revie
 
 공급자/자원 정리: 이번 R24는 Kiro 실제 실행으로 진행했으며, 연결 타임아웃·일시 응답 오류를 크레딧 소진으로 바꾸어 기록하지 않았다. Kiro 소진이 확인되지 않아 Antigravity/OpenCode로 순서를 건너뛰거나 Codex sol/terra/luna worker를 시작하지 않았다. 마지막 Orca 사용량 갱신(2026-09-22 00:24:10 UTC)에서 Codex 주간78%를 확인했다. 관리 대상 작업은 모두 종료했고 해당 Kiro 터미널과 부모가 띄운 검증용 서버/브라우저만 정리했다. 원본 작업 폴더와 결과 파일은 유지한다.
 
-**통합 기준선 · 2026-09-21 (이후 R24 로컬 커밋은 별도):** 개발자 B의 PR #7을 수령해 A 파이프라인과 통합한
-[PR #8](https://github.com/tskwak111/esg-proofops/pull/8)이 A+B 통합 기준선이다. 현재 로컬 작업은 그 이후 R24 커밋을 포함하며, 이를 원격 반영 완료로 표시하지 않는다.
+**통합 기준선 · 2026-09-21 (후속 R24는 PR #9):** 개발자 B의 PR #7을 수령해 A 파이프라인과 통합한
+[PR #8](https://github.com/tskwak111/esg-proofops/pull/8)이 A+B 통합 기준선이다. 그 이후 R24 코드는 `feature/naver-preliminary-review-20260921` 브랜치로 push하고 [Draft PR #9](https://github.com/tskwak111/esg-proofops/pull/9)에 보존했다. main 병합·운영 배포 완료는 아니며 검토용 PR 상태다.
 아래 날짜별 기록의 “B 미수령”은 당시 상태이며, 최종 도메인 기준·크로스워크와 C3 정책,
 실보고서의 트랙/근거 보류·전체 완주·독립 gold 평가는 여전히 남아 있다.
 사용자는 로컬 검증 후 병합·push를 승인했다. GitHub Actions 무료 2,000분은 소진돼
