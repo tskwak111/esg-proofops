@@ -448,6 +448,39 @@ recorded on the PR itself.
 | B-F04 Windows 최종 검증 | 완료 | 15/15 게이트(최종 700 통과), Windows 5종 75 통과, `tests/reconciliation` 551 통과, 0 제외, typecheck/build 통과, 합성 브라우저 통과. Windows/web/browser는 이번 어댑터 변경과 무관하여 재실행하지 않음(사유 기재) | — | 위 게이트 표 |
 | 원격 CI | 미실행 | Actions 무료 한도 소진, 최종 커밋 미실행 | 한도 회복 후 재실행 — 조정자 | — |
 
+## Developer A identity delivery checked (2026-09-22, KST afternoon)
+
+Developer A delivered `developer-b-inputs-20260922/` (README, `identities.json`,
+three `claim-*.json`, `files.json`). It is kept outside Git as a delivery package;
+only this summary is recorded. What was verified read-only:
+
+| Check | Result |
+|---|---|
+| `files.json` SHA-256 of the 4 JSON files | 4/4 match |
+| Existing review chain IDs | tenant `05176751…`, company `86f61841…`, run `5b5445d9…`, 3 claims (`ce7e85bf…` p185, `9542052a…` p186, `9f4127b3…` p190), `tag_revision 2`, `decision_revision 1`, `source_quality verified`, document version `50156f94…`, source sha `75388f16…` (NAVER 2025 통합보고서) |
+| Registered company of that run | `실제 보고서 검토 시험` (demo registration), `local_synthetic: true` |
+| Real NAVER registration (`8f660eef…` / `4df47fae…`, DART:00266961) | 2 documents `ready` (통합보고서 `75388f16…`, 연결감사보고서 `1cd29568…`), **`run_id` and `claim_id` null**, `real_company_reconciliation_ready: false` |
+| Rows for either tenant in B-local databases | 0 in `.local/state.sqlite3`, `.local/reconciliation-http-final`, `b-followup-browser-02` (as A's README predicts) |
+| NAVER originals on this machine | **none**: no file hashes to `75388f16…` or `1cd29568…`; the only large PDF present is the Samsung SR `342a99a1…`. No NAVER DART collection (corp `00266961`) exists in B's stores |
+| C1–C4 applicability of the 3 claims | **none**: all three are management-track biodiversity/partnership statements (topic `environment`, p185/186/190). None states a consolidation scope (C1), a reporting period (C2), a CAPEX/investment commitment (C3) or a product/activity classification (C4). Per the follow-up §6-3 they stay 미평가 rather than being forced into a case |
+
+Against `register_case` in `reconciliation_store.py` the delivered chain would satisfy
+`tenant_id`, `claim_id`, `sustainability_document_version` and `source_quality`, and
+`company_id` would have to be the demo company `86f61841…`; the anchored document is
+`local_synthetic: true`, so any packet registered on it would be `synthetic: true`
+and could never be reported as a real-company verdict. The real NAVER registration
+cannot be registered at all until A produces a run and verified claims through the
+normal pipeline. **Consequently B-F01 "실제 정책 적용·최종 판정" and "실자료 앱·출력·재현"
+remain 외부입력대기; this delivery changes the identifiers B knows, not the status.**
+
+Still required from A for a NAVER case: a run and verified claims bound to
+`4df47fae…` / `f65386eb…` (SR) with `local_synthetic: false`, at least one claim that
+actually carries a C1/C2/C3/C4 fact, the C1 `entity_set` and C2 `implementation_scope`
+inputs A's README lists as incomplete, and either the NAVER originals (SR PDF and the
+DART filing with its 접수번호) or authorization for B to collect the DART side into a
+new immutable path. Nothing was collected, no DART or paid call was made, and no
+identifier was copied into a B database.
+
 ## Remaining work, split by owner
 
 Developer A / coordinator: supply, per company to be evaluated, a verified
