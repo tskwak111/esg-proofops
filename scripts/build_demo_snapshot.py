@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 EXPORT = Path('/Users/ss020/Dev/ESG_ProofOps/outputs/agent-results/R85-naver-mgmt-delegated-review/naver-r85-export.zip')
 OUTPUT = ROOT / 'apps/web/public/demo/naver-2025.json'
 AUDIT_UNCERTAIN = {'f6bfe84f', '0598227c'}
+NAVER_PDF_SHA256 = '75388f16c13739a671fd158c383502d81968fe587f2372ab0f9306f3d2c1a2c6'
 
 
 def short(value, limit=200):
@@ -48,7 +49,10 @@ def build(export):
                 'unresolved': item.get('unresolved_elements') or [],
             },
             'review': {
-                'status': item['review_status'],
+                'status': 'user_confirmed' if item['review_status'] == 'ai_delegated_confirmed' else item['review_status'],
+                'prior_status': item['review_status'],
+                'confirmed_by': 'project owner' if item['review_status'] == 'ai_delegated_confirmed' else None,
+                'confirmed_at': '2026-09-29' if item['review_status'] == 'ai_delegated_confirmed' else None,
                 'tag_revision': item['tag_revision'],
                 'decision_revision': item['decision_revision'],
                 'audit': 'uncertain' if item['claim_id'][:8] in AUDIT_UNCERTAIN else None,
@@ -58,6 +62,8 @@ def build(export):
         'title': 'NAVER 2025 통합보고서 · 선택 페이지 검토',
         'generated_at': report['generated_at'],
         'partial': report['partial'],
+        'review_confirmation': {'status': 'user_confirmed', 'confirmed_by': 'project owner', 'confirmed_at': '2026-09-29', 'scope': 'R85 AI-delegated review (27 claims, including 2 audit-uncertain claims)'},
+        'processed_reports': [{'title': 'NAVER 2025 통합보고서', 'sha256': NAVER_PDF_SHA256, 'result_path': '/demo', 'run_label': 'R72 → R85 저장 실행', 'scope': '선택 페이지 54/244쪽'}],
         'coverage': {key: report['coverage'][key] for key in ('pages_processed', 'pages_total', 'pages_unprocessed', 'pages_unreadable', 'claims_discovered', 'claims_decided', 'claims_needs_review')},
         'funnel': [
             {'label': '추출 주장', 'count': 331},
@@ -96,6 +102,7 @@ def main():
     assert len(data['claims']) == 331
     assert sum(c['decision']['grade'] == 'E3' for c in data['claims']) == 17
     assert sum(c['decision']['grade_range'] is not None for c in data['claims']) == 10
+    assert sum(c['review']['status'] == 'user_confirmed' for c in data['claims']) == 27
     assert all(len(c['quote']) <= 200 and all(len(e['quote']) <= 200 for t in c['elements'] for e in t['evidence']) for c in data['claims'])
     assert all('tenant' not in json.dumps(c).lower() for c in data['claims'])
     payload = (json.dumps(data, ensure_ascii=False, separators=(',', ':')) + '\n').encode()
