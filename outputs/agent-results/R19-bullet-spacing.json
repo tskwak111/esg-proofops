@@ -1,15 +1,14 @@
 {
   "id": "R19-bullet-spacing",
   "status": "evidence_only_no_production_edit",
-  "produced_by": "worker term_8c9289b4-b98b-4178-bd67-18feb492e9d4 / task_e53e1719a2b8",
   "paid_calls": 0,
   "network_calls": 0,
   "production_files_modified": [],
   "scope": "pipeline source completeness only; no semantic accuracy, no grade, no plan/performance redefinition",
   "run": {
     "run_id": "d5f7908d-4bfb-4b62-a799-729e874a92aa",
-    "state": "/Users/ss020/Dev/ESG_ProofOps/.local/pipeline-recovery-20260921/naver-r17-complete",
-    "source_path": "/Users/ss020/Dev/ESG_ProofOps/기업보고서/통신 인터넷/NAVER_2025_통합보고서.pdf",
+    "state": "local pilot state (not included)",
+    "source_path": "NAVER report PDF (not included)",
     "source_sha256": "75388f16c13739a671fd158c383502d81968fe587f2372ab0f9306f3d2c1a2c6",
     "source_sha256_recomputed_matches_pilot": true,
     "physical_page": 90,

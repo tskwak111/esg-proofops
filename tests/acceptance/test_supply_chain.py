@@ -111,7 +111,7 @@ def _approved_license_yaml() -> str:
   - name: pymupdf
     decision: approved
     license: commercial
-    approved_by: legal@proofops.example
+    approved_by: legal-approver
     approved_at: '2026-09-08'
     source: https://pymupdf.readthedocs.io/en/latest/about.html
 """

@@ -37,7 +37,7 @@ export function buildReplayModel(snapshot: unknown): ReplayModel {
   const coverage = record(root.coverage);
   const demoCoverage = record(root.demo_coverage);
   const run = record(root.run);
-  const elapsed = record(run.r72_elapsed_seconds);
+  const elapsed = record(run.model_elapsed_seconds);
   const funnel = (Array.isArray(root.funnel) ? root.funnel : []).map(item => {
     const row = record(item);
     return { label: string(row.label), count: number(row.count) };
@@ -88,8 +88,8 @@ export function buildReplayModel(snapshot: unknown): ReplayModel {
     claimsDecided,
     claimsDisplayGraded,
     displayCounts,
-    paidCalls: number(run.r72_paid_calls ?? run.paid_calls),
-    costUsd: number(run.r72_cost_usd ?? run.cost_usd),
+    paidCalls: number(run.model_paid_calls ?? run.paid_calls),
+    costUsd: number(run.model_cost_usd ?? run.cost_usd),
     parseSeconds: number(elapsed.parse_extraction),
     taggingSeconds: number(elapsed.tagging),
     demoPass: demoCount === null ? null : { label: string(demo.label) ?? "시연 통과", count: demoCount },

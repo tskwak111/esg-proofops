@@ -35,13 +35,10 @@ from proofops_agent.upstage_relations import UpstageRelationsTransport
 from proofops_agent.upstage_tagging import UpstageTaggingTransport
 
 ROOT = Path(__file__).resolve().parents[1]
-STATE = ROOT.parent / "a1-naver-full"
-LEDGER = ROOT.parent / "upstage" / "budget.sqlite3"
-KEY_FILE = ROOT.parent.parent / ".env.upstage.local"
-EXPORT = (
-    ROOT.parent.parent
-    / "outputs/agent-results/R85-naver-mgmt-delegated-review/naver-r85-export.zip"
-)
+STATE: Path
+LEDGER: Path
+KEY_FILE: Path
+EXPORT: Path
 CAP = Decimal("23.00")
 
 
@@ -370,6 +367,11 @@ def main():
     parser.add_argument("--force-unclassified", action="store_true")
     parser.add_argument("--regrade-only", action="store_true")
     parser.add_argument("--self-check", action="store_true")
+    parser.add_argument("--state", type=Path, help="Writable copy of the pilot state")
+    parser.add_argument("--source-state", type=Path, help="Original read-only pilot state")
+    parser.add_argument("--ledger", type=Path, help="Upstage budget ledger")
+    parser.add_argument("--key-file", type=Path, help="Local Upstage key file for --invoke")
+    parser.add_argument("--export", type=Path, help="Reviewed export ZIP for --regrade-only")
     args = parser.parse_args()
     if args.self_check:
 
@@ -398,7 +400,15 @@ def main():
                 assert str(error) == "BUDGET_EXHAUSTED"
         print("self-check passed")
         return
-    if STATE.resolve() == (ROOT.parent / "r85-naver-review").resolve():
+    if not (args.state and args.source_state and args.ledger):
+        parser.error("--state, --source-state, and --ledger are required")
+    if args.invoke and not args.key_file:
+        parser.error("--key-file is required with --invoke")
+    if args.regrade_only and not args.export:
+        parser.error("--export is required with --regrade-only")
+    global STATE, LEDGER, KEY_FILE, EXPORT
+    STATE, LEDGER, KEY_FILE, EXPORT = args.state, args.ledger, args.key_file, args.export
+    if STATE.resolve() == args.source_state.resolve():
         raise SystemExit("refusing to edit reviewed source")
     snapshot, checkpoint = read_state()
     pack = RulePackSnapshot(**snapshot["rulepack"])

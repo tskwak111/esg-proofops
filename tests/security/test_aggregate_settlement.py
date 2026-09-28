@@ -44,7 +44,7 @@ def fixture(tmp_path):
                 "2026-09-09",
                 "key-a",
                 "ESG",
-                "private@example.test",
+                "private-operator",
                 "api",
                 "payg",
                 "",
@@ -63,7 +63,7 @@ def fixture(tmp_path):
                 "2026-09-25",
                 "key-b",
                 "ESG",
-                "private@example.test",
+                "private-operator",
                 "api",
                 "payg",
                 "",
@@ -109,7 +109,7 @@ def test_aggregate_dry_run_apply_idempotent_and_budget(tmp_path, capsys):
             == 2
         )
         audit_raw = db.execute("SELECT audit FROM probe_aggregate_bounds").fetchone()[0]
-        assert "private@example.test" not in audit_raw
+        assert "private-operator" not in audit_raw
         audit = json.loads(audit_raw)
         assert audit["affected_request_ids"] == ["one", "two"]
         assert audit["key_scope"] == "all"

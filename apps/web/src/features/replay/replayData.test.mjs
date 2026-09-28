@@ -15,10 +15,10 @@ test("saved NAVER run becomes a complete replay without inventing counts", () =>
   assert.equal(model.claimsDecided, snapshot.coverage.claims_decided);
   assert.deepEqual(model.displayCounts, { confirmed: 17, estimated: 255, sourceUnverified: 59 });
   assert.deepEqual(model.demoPassStats, { calls: 788, costUsd: 0.65384, seconds: 3013.5 });
-  assert.equal(model.paidCalls, snapshot.run.r72_paid_calls);
-  assert.equal(model.costUsd, snapshot.run.r72_cost_usd);
-  assert.equal(model.parseSeconds, snapshot.run.r72_elapsed_seconds.parse_extraction);
-  assert.equal(model.taggingSeconds, snapshot.run.r72_elapsed_seconds.tagging);
+  assert.equal(model.paidCalls, snapshot.run.model_paid_calls);
+  assert.equal(model.costUsd, snapshot.run.model_cost_usd);
+  assert.equal(model.parseSeconds, snapshot.run.model_elapsed_seconds.parse_extraction);
+  assert.equal(model.taggingSeconds, snapshot.run.model_elapsed_seconds.tagging);
   assert.equal(replayDuration(model.stages), 37700);
   assert.equal(stageAt(model.stages, replayDuration(model.stages)).index, 9);
 });

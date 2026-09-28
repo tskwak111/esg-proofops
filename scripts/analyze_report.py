@@ -53,20 +53,19 @@ from hashlib import sha256
 from pathlib import Path
 from uuid import uuid4
 
-# scripts/ -> TEAM checkout (owns evaluation.local_upstage_pilot).
+# scripts/ -> repository root (owns evaluation.local_upstage_pilot).
 TEAM_ROOT = Path(__file__).resolve().parents[1]
 # Direct script launch puts scripts/, not the checkout, on the import path.
 if str(TEAM_ROOT) not in sys.path:
     sys.path.insert(0, str(TEAM_ROOT))
-# Published root command lives two levels up; the default report-runs area and the
-# shared Upstage budget ledger both live under that root.
-PROJECT_ROOT = TEAM_ROOT.parent.parent
+# Local run state and the key file live under the repository root.
+PROJECT_ROOT = TEAM_ROOT
 DEFAULT_RUNS_DIR = PROJECT_ROOT / ".local" / "report-runs"
 DEFAULT_KEY_FILE = PROJECT_ROOT / ".env.upstage.local"
 # The pilot reads/writes this shared cumulative ledger; --invoke requires it to exist.
 BUDGET_LEDGER = TEAM_ROOT / ".local" / "upstage" / "budget.sqlite3"
 # Where auto-scope proposals are persisted for review; never auto-applied silently.
-AUTO_SCOPE_DIR = PROJECT_ROOT / "outputs" / "pipeline-recovery-20260920" / "auto-scope"
+AUTO_SCOPE_DIR = PROJECT_ROOT / ".local" / "auto-scope"
 
 MODEL = "solar-pro3"
 EXTRACTION_MAX_CALLS = 8

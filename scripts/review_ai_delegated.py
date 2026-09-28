@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Local trusted CLI for AI-delegated tag review (R09).
+"""Local trusted CLI for delegated tag review.
 
 This is the ONLY path that records ``origin=ai_delegated`` /
 ``review_status=ai_delegated_confirmed``. It never exposes an HTTP endpoint
@@ -21,11 +21,11 @@ What it does, in order:
    source/binding/If-Match/engine guards as the human route.
 
 ``--safe-harbor-review-json`` is an opt-in input for runs already pinned to the
-R07b checklist policy. It accepts only the configured category items and exact
+opt-in checklist policy. It accepts only the configured category items and exact
 verified refs from the immutable evidence packet; it does not enable the policy
 or change old runs.
 
-``--category-review-json`` (R24) is an opt-in correction that REMOVES a
+``--category-review-json`` is an opt-in correction that REMOVES a
 safe-harbor category the frozen packet and every guarded tag-run header agree
 on but the reviewed source does not support. It never adds or replaces a
 category, never rewrites a header/packet/replica hash and creates no fact. The
@@ -84,7 +84,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--safe-harbor-review-json",
-        help="Explicit category checklist facts; the run must use the R07b opt-in pack.",
+        help="Explicit category checklist facts; the run must use the opt-in pack.",
     )
     parser.add_argument(
         "--category-review-json",
@@ -96,7 +96,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument(
         "--delegated-reviewer",
         required=True,
-        help="Trusted local operator id, e.g. coordinator@orca.local.",
+        help="Trusted local operator identifier.",
     )
     parser.add_argument(
         "--delegation-authority",

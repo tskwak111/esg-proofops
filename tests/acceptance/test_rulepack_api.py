@@ -50,7 +50,7 @@ def _pack(
     tenant_id: str = TENANT_A,
     pack_id: str = PACK_A,
     status: str = "validated",
-    approved_by: str | None = "domain-owner@example.test",
+    approved_by: str | None = "domain-owner",
 ) -> RulePackRecord:
     files = _files()
     data: dict[str, object] = {
@@ -350,7 +350,7 @@ def test_missing_or_short_idempotency_key_uses_contract_error_shape(
     "payload",
     [
         {"reason": "no"},
-        {"reason": "valid reason", "approved_by": "invented@example.test"},
+        {"reason": "valid reason", "approved_by": "other-operator"},
     ],
     ids=["reason-too-short", "approval-injection"],
 )
@@ -550,7 +550,7 @@ def test_ai_delegated_review_store_path_makes_pack_eligible_for_real_run_active_
         rule_pack_id=PACK_A,
         expected_revision=1,
         idempotency_key="ai-review-key-1",
-        reviewer="coordinator@orca.local",
+        reviewer="review-operator",
         reviewed_at="2026-09-20T10:00:00Z",
         source_authority="user delegation 2026-09-20",
         note="R07 AI-delegated project review of explicit ladder",
@@ -564,7 +564,7 @@ def test_ai_delegated_review_store_path_makes_pack_eligible_for_real_run_active_
 
     with reopened._transaction() as connection:
         snapshot = reopened.active_snapshot_transaction(connection, TENANT_A, "disclosure", PACK_A)
-    assert snapshot.approved_by == "ai-delegated-review:coordinator@orca.local"
+    assert snapshot.approved_by == "ai-delegated-review:review-operator"
     assert snapshot.status == "active"
 
 
@@ -589,7 +589,7 @@ def test_ai_delegated_review_store_path_rejects_stale_revision_and_idempotency_r
             rule_pack_id=PACK_A,
             expected_revision=2,
             idempotency_key="ai-review-key-stale",
-            reviewer="coordinator@orca.local",
+            reviewer="review-operator",
             reviewed_at="2026-09-20T10:00:00Z",
             source_authority="user delegation 2026-09-20",
             note="stale revision attempt",
@@ -602,7 +602,7 @@ def test_ai_delegated_review_store_path_rejects_stale_revision_and_idempotency_r
         rule_pack_id=PACK_A,
         expected_revision=1,
         idempotency_key="ai-review-key-2",
-        reviewer="coordinator@orca.local",
+        reviewer="review-operator",
         reviewed_at="2026-09-20T10:00:00Z",
         source_authority="user delegation 2026-09-20",
         note="first grant",
@@ -615,7 +615,7 @@ def test_ai_delegated_review_store_path_rejects_stale_revision_and_idempotency_r
             rule_pack_id=PACK_A,
             expected_revision=2,
             idempotency_key="ai-review-key-2",
-            reviewer="someone-else@orca.local",
+            reviewer="other-reviewer",
             reviewed_at="2026-09-20T11:00:00Z",
             source_authority="user delegation 2026-09-20",
             note="conflicting replay",
@@ -668,7 +668,7 @@ def test_review_rulepack_cli_promotes_draft_and_real_evaluate_decides_with_local
             "--rule-pack-id",
             PACK_A,
             "--reviewer",
-            "coordinator@orca.local",
+            "review-operator",
             "--reviewed-at",
             "2026-09-20T10:00:00Z",
             "--source-authority",
@@ -687,7 +687,7 @@ def test_review_rulepack_cli_promotes_draft_and_real_evaluate_decides_with_local
     assert len(active) == 1
     new_pack_id = active[0].rule_pack_id
     assert new_pack_id != PACK_A  # promoted to a NEW id, draft row untouched
-    assert active[0].approved_by == "ai-delegated-review:coordinator@orca.local"
+    assert active[0].approved_by == "ai-delegated-review:review-operator"
 
     with store._transaction() as connection:
         snapshot = store.active_snapshot_transaction(
@@ -808,7 +808,7 @@ def test_promote_and_review_pack_helper_gives_new_run_active_pack_opt_in(
         tenant_id=TENANT_A,
         draft_pack=draft_record,
         files=files,
-        reviewer="coordinator@orca.local",
+        reviewer="review-operator",
         reviewed_at="2026-09-20T10:00:00Z",
         source_authority="user delegation 2026-09-20",
         note="pilot new-run opt-in",
@@ -823,7 +823,7 @@ def test_promote_and_review_pack_helper_gives_new_run_active_pack_opt_in(
     active = store.list_active_packs(TENANT_A)
     assert len(active) == 1
     assert active[0].rule_pack_id == new_pack_id
-    assert active[0].approved_by == "ai-delegated-review:coordinator@orca.local"
+    assert active[0].approved_by == "ai-delegated-review:review-operator"
 
     with store._transaction() as connection:
         snapshot = store.active_snapshot_transaction(

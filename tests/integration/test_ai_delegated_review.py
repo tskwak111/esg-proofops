@@ -84,7 +84,7 @@ def test_ai_delegated_review_honest_label_source_rejection_and_conflict(tmp_path
         json.loads(json.dumps(body)),
         '"1"',
         f"ai-delegated-key-{uuid4().hex[:8]}",
-        delegated_reviewer="coordinator@orca.local",
+        delegated_reviewer="review-operator",
         delegation_authority="user delegation 2026-09-20",
     )
     assert result["decision"]["review_status"] == "ai_delegated_confirmed"
@@ -95,7 +95,7 @@ def test_ai_delegated_review_honest_label_source_rejection_and_conflict(tmp_path
     assert len(after["tags"]) == 2
     ai_tag = after["tags"][1]
     assert ai_tag["origin"] == "ai_delegated"
-    assert ai_tag["reviewer_sub"] == "ai-delegated-review:coordinator@orca.local"
+    assert ai_tag["reviewer_sub"] == "ai-delegated-review:review-operator"
     assert ai_tag["review_reason"] == body["reason"]
     assert ai_tag.get("review_origin") == "ai_project_interpretation"
     assert ai_tag.get("delegation_authority") == "user delegation 2026-09-20"
@@ -127,7 +127,7 @@ def test_ai_delegated_review_honest_label_source_rejection_and_conflict(tmp_path
             forged,
             '"1"',
             f"ai-delegated-key-{uuid4().hex[:8]}",
-            delegated_reviewer="coordinator@orca.local",
+            delegated_reviewer="review-operator",
             delegation_authority="user delegation 2026-09-20",
         )
         raise AssertionError("forged source must be rejected")
@@ -143,7 +143,7 @@ def test_ai_delegated_review_honest_label_source_rejection_and_conflict(tmp_path
             json.loads(json.dumps(body)),
             '"1"',
             f"ai-delegated-key-{uuid4().hex[:8]}",
-            delegated_reviewer="coordinator@orca.local",
+            delegated_reviewer="review-operator",
             delegation_authority="user delegation 2026-09-20",
         )
         raise AssertionError("stale revision must conflict")
