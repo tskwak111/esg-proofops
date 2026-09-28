@@ -85,6 +85,8 @@ try {
   await waitFor('!!document.querySelector(".menu-toggle")');
   await evaluate('document.querySelector(".menu-toggle").click()');
   await waitFor('document.querySelector(".menu-toggle").getAttribute("aria-expanded") === "true"');
+  await evaluate('document.querySelector("#site-menu a").click()');
+  await waitFor('document.querySelector(".menu-toggle").getAttribute("aria-expanded") === "false"');
   console.log("queue selection, claim review mode, and mobile menu: ok");
   if (shots) {
     await call("Emulation.setDeviceMetricsOverride", { width: 1400, height: 900, deviceScaleFactor: 1, mobile: false });

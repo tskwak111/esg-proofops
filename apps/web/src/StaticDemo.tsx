@@ -17,7 +17,7 @@ type Claim = {
   id: string; page: number | null; track: string | null; quote: string; source_verified: boolean;
   review_bucket?: string; demo_mode?: boolean; mode?: string | null; pipeline_status?: string;
   elements: Element[];
-  decision: { grade: string | null; label: string | null; display_grade?: string | null; display_note?: string | null; estimated?: boolean; grade_range: { floor: string; ceiling: string; open_elements: string[] } | null; status: string; missing: string[]; unresolved: string[] };
+  decision: { grade: string | null; label: string | null; display_grade?: string | null; display_label?: string | null; display_note?: string | null; estimated?: boolean; grade_range: { floor: string; ceiling: string; open_elements: string[] } | null; status: string; missing: string[]; unresolved: string[] };
   review: { status: string; tag_revision: number; decision_revision: number; audit: string | null };
 };
 type Snapshot = {
@@ -55,7 +55,7 @@ export function StaticDemo() {
     <header className="site-header"><div className="site-header-inner">
       <Link className="brand" to="/" aria-label="ProofOps 홈"><img src="/logo-mark.svg" alt="" /> ProofOps</Link>
       <button className="menu-toggle" type="button" aria-expanded={menuOpen} aria-controls="site-menu" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? "닫기" : "메뉴"}<span aria-hidden="true">{menuOpen ? "×" : "☰"}</span></button>
-      <nav id="site-menu" className={menuOpen ? "open" : ""} aria-label="주요 메뉴"><Link to="/">소개</Link><Link to="/analyze">보고서 분석</Link><Link to="/analyze/replay">처리 과정</Link><Link to="/demo">결과 보기</Link><Link to="/report/naver">보고서</Link><Link to="/live">실시간 체험</Link></nav>
+      <nav id="site-menu" className={menuOpen ? "open" : ""} aria-label="주요 메뉴" onClick={() => setMenuOpen(false)}><Link to="/">소개</Link><Link to="/analyze">보고서 분석</Link><Link to="/analyze/replay">처리 과정</Link><Link to="/demo">결과 보기</Link><Link to="/report/naver">보고서</Link><Link to="/live">실시간 체험</Link></nav>
       <Link className="header-cta" to="/demo">데모 열기 <span aria-hidden="true">↗</span></Link>
     </div></header>
     {isLive ? <LiveClaim /> : error ? <main className="static-main"><section className="surface"><h1>데모 데이터를 불러오지 못했습니다</h1><p>잠시 후 새로고침해 주세요.</p></section></main> :
@@ -120,7 +120,7 @@ function Landing({ data }: { data: Snapshot }) {
 }
 
 function gradeText(claim: Claim) {
-  if (claim.decision.display_note) return claim.decision.grade ? `${claim.decision.grade} 추정` : claim.decision.display_note;
+  if (claim.decision.display_note) return claim.decision.display_grade ? `${claim.decision.display_grade} 추정` : claim.decision.display_note;
   if (claim.decision.grade) return claim.decision.grade;
   if (claim.decision.display_grade) return `${claim.decision.display_grade} 추정`;
   const range = claim.decision.grade_range;
@@ -142,7 +142,7 @@ function gradeWhy(claim: Claim) {
     .filter(element => element.state === "present" && element.evidence.length > 0)
     .map(element => `${element.id} ${elementLabels[element.id] || "요소"}는 ${element.evidence.slice(0, 3).map(ref => `p.${ref.page ?? "?"} “${ref.quote.slice(0, 65)}”`).join(" · ")}에서 확인`);
   const evidence = confirmed.length ? `${confirmed.join(", ")}됐습니다. ` : claim.source_verified ? "연결된 확인 근거가 아직 없습니다. " : "원문 검증이 남아 있습니다. ";
-  if (decision.display_note) return `${evidence}${decision.grade ? `${decision.grade}는 시연 모드의 추정 등급입니다. ` : ""}${decision.display_note === "원문 미검증" ? "원문 검증이 남아 있습니다." : "미해결 요소는 검토 단계로 넘겼습니다."}`;
+  if (decision.display_note) return `${decision.display_grade ? `${decision.display_grade}${decision.display_label ? ` (${decision.display_label})` : ""}는 시연 모드의 추정 등급입니다. ` : ""}${decision.display_note === "원문 미검증" ? "원문 검증이 남아 있습니다." : `${evidence}미해결 요소는 검토 단계로 넘겼습니다.`}`;
   if (decision.grade) {
     const next = decision.grade === "E0" ? "E1" : decision.grade === "E1" ? "E2" : decision.grade === "E2" ? "E3" : null;
     const missing = next && ladder?.[next].filter(id => !claim.elements.some(element => element.id === id && element.state === "present" && element.evidence.length));
@@ -157,9 +157,9 @@ function queueFor(claim: Claim): Queue {
   const bucket = claim.review_bucket;
   if (bucket === "decided" || bucket === "estimated" || bucket === "unverified" || bucket === "unclassified") return bucket;
   if (claim.decision.display_note === "원문 미검증" || !claim.source_verified) return "unverified";
+  if (claim.decision.grade && !claim.decision.estimated) return "decided";
   if (claim.decision.display_note === "추정") return "estimated";
   if (claim.decision.estimated || claim.decision.display_grade) return "estimated";
-  if (claim.decision.grade) return "decided";
   if (claim.decision.grade_range) return "estimated";
   return "unclassified";
 }
@@ -190,7 +190,7 @@ function Demo({ data }: { data: Snapshot }) {
     if (status !== "all" && claim.decision.status !== status) return false;
     return !search || `${claim.quote} ${claim.id} ${claim.page ?? ""}`.toLowerCase().includes(search.toLowerCase());
   }).sort((a, b) => (gradeOrder[a.decision.grade || a.decision.display_grade || a.decision.grade_range?.floor || ""] ?? 4) - (gradeOrder[b.decision.grade || b.decision.display_grade || b.decision.grade_range?.floor || ""] ?? 4) || (a.page ?? 9999) - (b.page ?? 9999)), [data.claims, queue, track, grade, status, search]);
-  const counts = { decided: data.claims.filter(c => queueFor(c) === "decided").length, range: data.claims.filter(c => queueFor(c) === "estimated").length, pending: data.claims.filter(c => queueFor(c) === "unverified" || queueFor(c) === "unclassified").length, displayedEstimate: data.claims.filter(c => queueFor(c) === "estimated" || (queueFor(c) === "unverified" && !!c.decision.grade)).length };
+  const counts = { decided: data.claims.filter(c => queueFor(c) === "decided").length, range: data.claims.filter(c => queueFor(c) === "estimated").length, pending: data.claims.filter(c => queueFor(c) === "unverified" || queueFor(c) === "unclassified").length, displayedEstimate: data.claims.filter(c => !c.decision.grade && !!c.decision.display_grade).length };
   const queueCounts = Object.fromEntries(queues.map(name => [name, data.claims.filter(claim => queueFor(claim) === name).length])) as Record<Queue, number>;
   return <main className="static-main demo-main"><div className="breadcrumb"><Link to="/">홈</Link><span>/</span> 실제 검토 결과</div><CompanyTabs selected="naver" />
     <section className="demo-heading"><div><p className="eyebrow">CASE STUDY · 2025</p><h1>NAVER 공시 검토 결과</h1><p>실제 보고서에서 추출한 주장과 원문 근거, 규칙 판정을 탐색할 수 있습니다.</p><div className="badges"><span className="badge amber">선택 페이지 {data.coverage.pages_processed}/{data.coverage.pages_total}쪽</span><span className="badge blue">{confirmationText}</span><span className="badge blue">시연 모드</span></div><Link className="report-link" to="/report/naver">검토 보고서 보기 ↗</Link></div><div className="heading-side"><span>RUN STATUS</span><strong>위임 검토 27건 확인 <i /></strong><small>실행 기록 {new Date(data.generated_at).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" })}</small></div></section>
@@ -216,7 +216,7 @@ function ClaimDetail({ claim, queue }: { claim: Claim | null; queue: Queue }) {
     <div className="detail-actions"><button type="button" aria-pressed={reviewMode} onClick={() => setReviewMode(!reviewMode)}>검토 모드 {reviewMode ? "닫기" : "열기"}</button><Link to={`/report/naver`}>보고서 ↗</Link></div>
     {reviewMode && <ReviewSimulator claim={claim} />}
     <div className="why-panel"><h4>왜 이 등급인가 <GuideHelp topic="grade" /></h4><p>{gradeWhy(claim)}</p></div>
-    <div className="decision-panel"><span>{d.display_note ? `시연 모드 · ${d.display_note}` : claim.mode ? "시연 모드 · 규칙엔진 결과" : `저장된 규칙엔진 결과 · ${claim.review.status === "user_confirmed" ? confirmationText : "처리 단계 대기"}`}</span><strong>{gradeText(claim)} <GuideHelp topic={d.grade_range ? "range" : "grade"} /></strong><p>{d.label || statusText[d.status] || d.status} <GuideHelp topic="label" /></p>{claim.review.audit === "uncertain" ? <div className="audit-alert">독립 읽기 검토에서 당시 추가 점검 대상으로 분류 · 사용자 확인 완료 (2026-09-29)</div> : null}</div>
+    <div className="decision-panel"><span>{d.display_note ? `시연 모드 · ${d.display_note}` : claim.mode ? "시연 모드 · 규칙엔진 결과" : `저장된 규칙엔진 결과 · ${claim.review.status === "user_confirmed" ? confirmationText : "처리 단계 대기"}`}</span><strong>{gradeText(claim)} <GuideHelp topic={d.grade_range ? "range" : "grade"} /></strong><p>{d.label || d.display_label || statusText[d.status] || d.status} <GuideHelp topic="label" /></p>{claim.review.audit === "uncertain" ? <div className="audit-alert">독립 읽기 검토에서 당시 추가 점검 대상으로 분류 · 사용자 확인 완료 (2026-09-29)</div> : null}</div>
     <div className="detail-block"><h4>요소별 근거 <GuideHelp topic="state" /></h4>{claim.elements.length ? <div className="element-table-wrap"><table className="element-table"><thead><tr><th>요소</th><th>상태</th><th>근거 문구</th></tr></thead><tbody>{claim.elements.map(element => <tr key={element.id}><th scope="row"><b>{element.id}</b><span>{elementLabels[element.id] || element.id}</span></th><td><span className={`element-state ${element.state}`}>{!claim.source_verified && element.state === "present" ? "원문 미검증" : stateText[element.state] || element.state}</span></td><td>{element.evidence.length ? element.evidence.map((ref, index) => <p key={index}><small>p.{ref.page ?? "?"}</small> “{ref.quote}”</p>) : <span className="no-evidence">연결된 근거 문구 없음</span>}</td></tr>)}</tbody></table></div> : <p className="caption">요소 태깅 전입니다. 빈 요소를 absent로 보지 않습니다.</p>}</div>
     <div className="provenance"><span className="badge blue">{claim.review.status === "user_confirmed" ? confirmationText : claim.mode ? "시연 모드 · 검토 대상" : "처리 단계 대기"}</span><p>태깅 revision {claim.review.tag_revision} · 판정 revision {claim.review.decision_revision}</p><small>주장 ID {claim.id.slice(0, 8)}…</small></div>
   </aside>;
