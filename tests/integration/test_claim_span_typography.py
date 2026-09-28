@@ -3,7 +3,7 @@
 Scope, deliberately narrow. The end-to-end demonstration on real original
 bytes (8 refs, 2 reports, both rendered paths, real OCR refusals, the boundary
 case) is the separate fresh proof under
-``outputs/agent-results/R24/typography-wrapper/``; these checks cover what a
+``tests/fixtures/pipeline/typography-wrapper/``; these checks cover what a
 proof run cannot: the fold table's shape, the two read paths, the gate's
 asymmetry, the receipt pins, strict replay refusal, and that the three older
 policies and the byte-pinned reader files are untouched.
@@ -499,10 +499,9 @@ def test_the_older_policies_and_their_receipts_are_unchanged(monkeypatch):
 
     pinned = json.loads(
         (
-            Path(__file__).resolve().parents[4]
-            / "outputs/agent-results/R24/typography-original-proof/results.json"
+            Path(__file__).resolve().parents[2] / "tests/fixtures/pipeline/reader-hashes.json"
         ).read_text()
-    )["code_hashes"]["readers"]
+    )
     for name, digest in pinned.items():
         path = Path(citations.__file__) if name == "citations.py" else LOCAL / name
         assert sha256(path.read_bytes()).hexdigest() == digest, name

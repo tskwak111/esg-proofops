@@ -2,8 +2,8 @@
 
 No network, no key, no ledger: every model answer here is a byte-copy of an
 actual stored Upstage response from the root's own R13 experiments
-(``outputs/agent-results/R13-cross-model/solar-pro4/receipts`` and
-``outputs/agent-results/R13-id-selection``), replayed through a fake transport.
+(``tests/fixtures/pipeline/cross-model/solar-pro4/receipts`` and
+``tests/fixtures/pipeline/source-id-selection``), replayed through a fake transport.
 
 The regression these tests exist for is a real observed loss: solar-pro4 chose
 the right Lotte achievement sentence but retyped ``2023 년`` as ``2023년``, so

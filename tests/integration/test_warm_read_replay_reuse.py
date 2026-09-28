@@ -1,6 +1,6 @@
 """R24 warm-detail replay reuse — call-count guards + behaviour equivalence.
 
-Root cause fix (measured in outputs/agent-results/R24/current-read-fix):
+Root cause fix (measured in tests/fixtures/pipeline/current-read-fix):
 
 * ``LocalTagStore.load_inputs`` replayed ``LocalClaimStore.load_evidence`` twice
   per call — once inside ``load_snapshot`` (envelope only) and once again for the

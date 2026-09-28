@@ -1,6 +1,6 @@
 """Inspect immutable live-tagging checkpoints offline; never infer source approval.
 
-Usage: uv run python evidence/audit-live-tagging-blockers.py STATE_DIRECTORY [...]
+Usage: uv run python scripts/audit_live_tagging_blockers.py STATE_DIRECTORY [...]
 This verifies checkpoint/packet hashes, not PDF geometry or semantic correctness.
 """
 

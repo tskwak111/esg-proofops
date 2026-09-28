@@ -57,7 +57,7 @@ TABLE_SHA = "54131ba6b4c48cbc9c47db8f77ca1ae3a0de946b0f7732809c051b447f233611"
 # The prompt hash the coordinator's four real solar-pro4 calls actually used.
 ROLE_SHA = "19eeb93ef1d1067832f2dd96d5bdd3047d73cb6dbc200cd9b5b5296bbf848263"
 
-LIVE = Path(__file__).resolve().parents[2] / "outputs/agent-results/R16-live-table"
+LIVE = Path(__file__).resolve().parents[2] / "tests/fixtures/pipeline/table-role-resolution"
 
 
 def test_the_existing_prompt_chains_keep_their_pinned_bytes():

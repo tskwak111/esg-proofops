@@ -44,7 +44,7 @@ pilot 상태를 재분류하거나 보증 상태를 단정하지 않으며, 상�
 
 ## 개발자 B 재무 연계 반환 검증 — `linkage_exchange_cli.py verify-return`
 
-재무 연계 반환 3종(packet/policy/result)이 있으면 포함된 `outputs/agent-fixtures/linkage-contract/validate.py`의 구조 검증에 더해 원문 바이트 대조까지 수행합니다.
+재무 연계 반환 3종(packet/policy/result)이 있으면 포함된 `tests/fixtures/linkage-contract/validate.py`의 구조 검증에 더해 원문 바이트 대조까지 수행합니다.
 
 ```bash
 PYTHONPATH=. uv run python scripts/linkage_exchange_cli.py verify-return \
@@ -52,7 +52,7 @@ PYTHONPATH=. uv run python scripts/linkage_exchange_cli.py verify-return \
   --database-path <trusted-run-state>
 ```
 
-- 합성 예시로 구조 검증만 실행하려면 `--skip-byte-verification`를 붙이고 `outputs/agent-fixtures/linkage-contract/`의 예시 triple을 사용합니다. 이는 **합성 확인**이며 실제 반환 검증이 아닙니다.
+- 합성 예시로 구조 검증만 실행하려면 `--skip-byte-verification`를 붙이고 `tests/fixtures/linkage-contract/`의 예시 triple을 사용합니다. 이는 **합성 확인**이며 실제 반환 검증이 아닙니다.
 - 실제 B가 생성한 input/policy/output와 재무 원문 로컬 경로가 없으면 실제 반환 검증은 **not_run**으로 남깁니다. 예시·템플릿을 실제 반환으로 표시하지 않습니다.
 
 ## 새로운 PDF 분석 — 실제 API 호출

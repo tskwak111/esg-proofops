@@ -29,7 +29,7 @@ import sys
 from pathlib import Path
 
 LOCAL_FIXTURE_CONTRACT_DIR = (
-    Path(__file__).resolve().parents[1] / "outputs/agent-fixtures/linkage-contract"
+    Path(__file__).resolve().parents[1] / "tests/fixtures/linkage-contract"
 )
 
 

@@ -1,6 +1,6 @@
 """Native admission of a reviewed table depends on ink-true cell geometry.
 
-The reviewed rectangles in ``R02g-layout-review`` are drawn on the extractor's
+The reviewed rectangles in ``reviewed-table-layout`` are drawn on the extractor's
 word boxes.  On ``lotte.pdf`` page 117 those boxes sit about 6pt below the glyph
 ink they describe, so no reviewed rectangle contained its own text and the
 existing selected-cell verifier refused every candidate.
@@ -28,9 +28,9 @@ from proofops.adapters.local.reviewed_table import artifact_from_review, normali
 from proofops.adapters.local.selected_cell_table_verification import attest_tables
 
 APP = Path(__file__).resolve().parents[2]
-REVIEW = APP / "outputs/agent-results/R02g-layout-review/lotte-candidates.json"
-PDF = APP / "outputs/agent-fixtures/lotte.pdf"
-OTHER_PDF = APP / "outputs/agent-fixtures/kia.pdf"
+REVIEW = APP / "tests/fixtures/pipeline/reviewed-table-layout/lotte-candidates.json"
+PDF = APP / "tests/fixtures/source-documents/lotte.pdf"
+OTHER_PDF = APP / "tests/fixtures/source-documents/kia.pdf"
 
 local_inputs = pytest.mark.skipif(
     not (REVIEW.exists() and PDF.exists() and OTHER_PDF.exists()),

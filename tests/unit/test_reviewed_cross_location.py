@@ -28,9 +28,9 @@ from proofops.adapters.local.reviewed_claim_bridge import (
 from proofops.adapters.local.reviewed_table import graph_from_review
 
 APP = Path(__file__).resolve().parents[2]
-CASE_DIR = APP / "outputs/agent-results/R06i-cross-location"
+CASE_DIR = APP / "tests/fixtures/pipeline/cross-location"
 CASES = CASE_DIR / "cases.json"
-PDF = APP / "outputs/agent-fixtures/kia.pdf"
+PDF = APP / "tests/fixtures/source-documents/kia.pdf"
 
 
 def _cell(raw_text, bbox, row, column):

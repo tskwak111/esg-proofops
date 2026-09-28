@@ -1,7 +1,7 @@
 """Explicit, execution-only helper: a compiled-binary alternative to invoking
 `swift <script>.swift <image>` as a fresh script-mode process per call.
 
-Root cause (measured 2026-09-21, see outputs/agent-results/R09f-cold-native.md):
+Root cause (measured 2026-09-21, see tests/fixtures/pipeline/cold-native.md):
 `_rendered_text` in the pinned `source_verification.py` spawns a brand-new
 `swift native_ocr.swift <image>` process per rendered-text read. Script-mode
 `swift` recompiles the source on every invocation; a precompiled binary of the
