@@ -11,7 +11,7 @@ assert(reviewId && detailId);
 const routes = [
   ["home", "/", ".hero"], ["analyze", "/analyze", ".analyze-main"],
   ["replay", "/analyze/replay", ".replay-page"], ["naver", "/demo", ".demo-main"],
-  ["claim", `/demo/${detailId}`, ".claim-detail"], ["kia", "/demo/kia", ".kia-case"],
+  ["claim", `/demo/${detailId}#claims`, ".claim-detail"], ["kia", "/demo/kia", ".kia-case"],
   ["review", `/review/${reviewId}`, ".review-sim"],
   ["report-naver", "/report/naver", ".audit-page"],
   ["report-kia", "/report/kia", ".audit-page"],
@@ -59,7 +59,7 @@ try {
     await call("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: size === "mobile" });
     for (const [name, path, selector] of routes) {
       await call("Page.navigate", { url: `${base}${path}` });
-      await waitFor(`location.pathname === ${JSON.stringify(path)} && !!document.querySelector(${JSON.stringify(selector)})`);
+      await waitFor(`location.pathname === ${JSON.stringify(path.split("#")[0])} && !!document.querySelector(${JSON.stringify(selector)})`);
       await new Promise(resolve => setTimeout(resolve, 350));
       const state = await evaluate(`({text: document.body.innerText, overflow: document.documentElement.scrollWidth > innerWidth})`);
       assert(!state.text.includes("불러오지 못했습니다"), `${path}: loading error`);
@@ -71,6 +71,29 @@ try {
       }
       console.log(`${size} ${path}: ok`);
     }
+  }
+  await call("Page.navigate", { url: `${base}/demo` });
+  await waitFor('document.querySelectorAll(".queue-tabs button").length === 4');
+  await evaluate('document.querySelectorAll(".queue-tabs button")[1].click()');
+  await waitFor('document.querySelectorAll(".queue-tabs button")[1].getAttribute("aria-selected") === "true"');
+  assert(await evaluate('document.querySelectorAll(".claim-list .claim-item").length > 0'), "estimated queue has claims");
+  await evaluate('document.querySelector(".claim-list .claim-item").click()');
+  await waitFor('location.search.includes("queue=estimated") && !!document.querySelector(".claim-detail .detail-actions")');
+  await evaluate('document.querySelector(".detail-actions button").click()');
+  await waitFor('!!document.querySelector(".claim-detail .review-sim")');
+  await call("Page.navigate", { url: `${base}/` });
+  await waitFor('!!document.querySelector(".menu-toggle")');
+  await evaluate('document.querySelector(".menu-toggle").click()');
+  await waitFor('document.querySelector(".menu-toggle").getAttribute("aria-expanded") === "true"');
+  console.log("queue selection, claim review mode, and mobile menu: ok");
+  if (shots) {
+    await call("Emulation.setDeviceMetricsOverride", { width: 1400, height: 900, deviceScaleFactor: 1, mobile: false });
+    await call("Page.navigate", { url: `${base}/demo#claims` });
+    await waitFor('!!document.querySelector(".claims-section")');
+    await evaluate('document.querySelector(".claims-section").scrollIntoView()');
+    await new Promise(resolve => setTimeout(resolve, 250));
+    const shot = await call("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
+    await writeFile(`${shots}/naver-queue-desktop.png`, Buffer.from(shot.data, "base64"));
   }
 } finally {
   socket.close();
