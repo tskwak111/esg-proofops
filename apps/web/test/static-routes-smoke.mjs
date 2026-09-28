@@ -94,6 +94,15 @@ try {
     await new Promise(resolve => setTimeout(resolve, 250));
     const shot = await call("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
     await writeFile(`${shots}/naver-queue-desktop.png`, Buffer.from(shot.data, "base64"));
+    for (const [size, width, height] of [["desktop", 1400, 900], ["mobile", 390, 844]]) {
+      await call("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: size === "mobile" });
+      await call("Page.navigate", { url: `${base}/analyze/replay` });
+      await waitFor('!!document.querySelector(".replay-hero-bottom button")');
+      await evaluate('document.querySelector(".replay-hero-bottom button").click()');
+      await waitFor('document.body.innerText.includes("재생 완료")');
+      const finished = await call("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
+      await writeFile(`${shots}/replay-finished-${size}.png`, Buffer.from(finished.data, "base64"));
+    }
   }
 } finally {
   socket.close();

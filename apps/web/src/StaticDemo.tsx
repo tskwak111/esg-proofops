@@ -35,7 +35,7 @@ type Snapshot = {
 const trackText: Record<string, string> = { management: "관리체계", goal: "목표", performance: "성과" };
 const stateText: Record<string, string> = { present: "근거 확인", absent: "근거 없음", unknown: "미확인", conflict: "근거 충돌", unreadable: "판독 불가", not_applicable: "비적용" };
 const statusText: Record<string, string> = { decided: "규칙 판정", blocked_evidence: "근거 보류", blocked_rule_gap: "규칙 보류", not_run: "미판정", unclassified: "미분류", source_unverified: "원문 미검증", tagged: "태깅 완료" };
-const confirmationText = "AI 위임 검토 → 사용자 확인 완료 (2026-09-29)";
+const confirmationText = "위임 검토 27건 사용자 확인 (2026-09-29)";
 
 export function StaticDemo() {
   const location = useLocation();
@@ -60,7 +60,7 @@ export function StaticDemo() {
     </div></header>
     {isLive ? <LiveClaim /> : error ? <main className="static-main"><section className="surface"><h1>데모 데이터를 불러오지 못했습니다</h1><p>잠시 후 새로고침해 주세요.</p></section></main> :
       !data ? <main className="static-main loading-main" role="status" aria-label="검토 결과 불러오는 중"><div className="skeleton skeleton-title" /><div className="skeleton skeleton-card" /><div className="skeleton skeleton-card" /></main> :
-      <Routes><Route path="/" element={<Landing data={data} />} /><Route path="/analyze" element={<Analyze data={data} />} /><Route path={replayPath} element={<ReplayPage snapshot={data} />} /><Route path="/demo" element={<Demo data={data} />} /><Route path="/demo/:claimId" element={<Demo data={data} />} /><Route path={kiaRoute.path} element={<><CompanyTabs selected="kia" /><kiaRoute.Component /></>} /><Route path={reviewRoutePath} element={<ReviewPage claims={data.claims} />} /><Route path={auditReportRoute.path} element={<AuditReportPage />} /><Route path="*" element={<NotFound />} /></Routes>}
+      <Routes><Route path="/" element={<Landing data={data} />} /><Route path="/analyze" element={<Analyze data={data} />} /><Route path={replayPath} element={<ReplayPage snapshot={data} />} /><Route path="/demo" element={<Demo data={data} />} /><Route path="/demo/:claimId" element={<Demo data={data} />} /><Route path={kiaRoute.path} element={<><div className="kia-route-toolbar"><CompanyTabs selected="kia" /><Link to="/report/kia">기아 검토 보고서 ↗</Link></div><kiaRoute.Component /></>} /><Route path={reviewRoutePath} element={<ReviewPage claims={data.claims} />} /><Route path={auditReportRoute.path} element={<AuditReportPage />} /><Route path="*" element={<NotFound />} /></Routes>}
     <footer className="site-footer"><div><strong>ProofOps</strong><span>공시 문장의 근거를 읽을 수 있는 검토 기록으로.</span></div><span>고려대학교 × AWS AI Innovators Challenge · 팀 정보 추후 입력</span></footer>
   </div>;
 }
@@ -137,14 +137,14 @@ const ladderElements: Record<string, Record<string, string[]>> = {
 function gradeWhy(claim: Claim) {
   const decision = claim.decision;
   const ladder = ladderElements[claim.track || ""];
-  const required = decision.grade && ladder?.[decision.grade];
+  const required = decision.grade === "E0" ? [] : decision.grade && ladder?.[decision.grade];
   const confirmed = (claim.source_verified ? (ladder ? claim.elements.filter(element => (required || ladder.E3).includes(element.id)) : claim.elements.slice(0, 3)) : [])
     .filter(element => element.state === "present" && element.evidence.length > 0)
     .map(element => `${element.id} ${elementLabels[element.id] || "요소"}는 ${element.evidence.slice(0, 3).map(ref => `p.${ref.page ?? "?"} “${ref.quote.slice(0, 65)}”`).join(" · ")}에서 확인`);
   const evidence = confirmed.length ? `${confirmed.join(", ")}됐습니다. ` : claim.source_verified ? "연결된 확인 근거가 아직 없습니다. " : "원문 검증이 남아 있습니다. ";
   if (decision.display_note) return `${evidence}${decision.grade ? `${decision.grade}는 시연 모드의 추정 등급입니다. ` : ""}${decision.display_note === "원문 미검증" ? "원문 검증이 남아 있습니다." : "미해결 요소는 검토 단계로 넘겼습니다."}`;
   if (decision.grade) {
-    const next = decision.grade === "E1" ? "E2" : decision.grade === "E2" ? "E3" : null;
+    const next = decision.grade === "E0" ? "E1" : decision.grade === "E1" ? "E2" : decision.grade === "E2" ? "E3" : null;
     const missing = next && ladder?.[next].filter(id => !claim.elements.some(element => element.id === id && element.state === "present" && element.evidence.length));
     return `${trackText[claim.track || ""] || "해당"} 주장입니다. ${evidence}${claim.mode ? "시연 모드 " : "저장된 "}규칙 판정은 ${decision.grade}${decision.label ? ` (${decision.label})` : ""}입니다. ${next ? `${next}로 올라가려면 ${missing?.length ? missing.map(id => `${id} ${elementLabels[id]}`).join("·") + " 근거가 더 필요합니다." : "추가 규칙 요건을 충족해야 합니다."}` : "현재 사다리의 최상위 등급입니다."}`;
   }
@@ -193,7 +193,7 @@ function Demo({ data }: { data: Snapshot }) {
   const counts = { decided: data.claims.filter(c => queueFor(c) === "decided").length, range: data.claims.filter(c => queueFor(c) === "estimated").length, pending: data.claims.filter(c => queueFor(c) === "unverified" || queueFor(c) === "unclassified").length, displayedEstimate: data.claims.filter(c => queueFor(c) === "estimated" || (queueFor(c) === "unverified" && !!c.decision.grade)).length };
   const queueCounts = Object.fromEntries(queues.map(name => [name, data.claims.filter(claim => queueFor(claim) === name).length])) as Record<Queue, number>;
   return <main className="static-main demo-main"><div className="breadcrumb"><Link to="/">홈</Link><span>/</span> 실제 검토 결과</div><CompanyTabs selected="naver" />
-    <section className="demo-heading"><div><p className="eyebrow">CASE STUDY · 2025</p><h1>NAVER 공시 검토 결과</h1><p>실제 보고서에서 추출한 주장과 원문 근거, 규칙 판정을 탐색할 수 있습니다.</p><div className="badges"><span className="badge amber">선택 페이지 {data.coverage.pages_processed}/{data.coverage.pages_total}쪽</span><span className="badge blue">{confirmationText}</span><span className="badge blue">시연 모드</span></div><Link className="report-link" to="/report/naver">검토 보고서 보기 ↗</Link></div><div className="heading-side"><span>RUN STATUS</span><strong>검토 사용자 확인 완료 <i /></strong><small>실행 기록 {new Date(data.generated_at).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" })}</small></div></section>
+    <section className="demo-heading"><div><p className="eyebrow">CASE STUDY · 2025</p><h1>NAVER 공시 검토 결과</h1><p>실제 보고서에서 추출한 주장과 원문 근거, 규칙 판정을 탐색할 수 있습니다.</p><div className="badges"><span className="badge amber">선택 페이지 {data.coverage.pages_processed}/{data.coverage.pages_total}쪽</span><span className="badge blue">{confirmationText}</span><span className="badge blue">시연 모드</span></div><Link className="report-link" to="/report/naver">검토 보고서 보기 ↗</Link></div><div className="heading-side"><span>RUN STATUS</span><strong>위임 검토 27건 확인 <i /></strong><small>실행 기록 {new Date(data.generated_at).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" })}</small></div></section>
     <section className="metrics" aria-label="실행 요약"><div><span>추출 주장</span><strong>{data.coverage.claims_discovered}<small>건</small></strong><p>선택 페이지의 원자 주장</p></div><div><span>원문 검증</span><strong>{data.funnel[1].count}<small>건</small></strong><p>처리 단계 기록</p></div><div><span>확정 판정</span><strong>{counts.decided}<small>건</small></strong><p>Python 규칙엔진</p></div><div><span>추정 등급</span><strong>{counts.displayedEstimate}<small>건</small></strong><p>시연 모드 · 검토 대상</p></div></section>
     <section className="overview-grid"><div className="surface funnel-card"><div className="card-heading"><div><p className="eyebrow">PROCESS FUNNEL</p><h2>처리 흐름</h2></div><span>추출 → 태깅 → 판정</span></div><div className="funnel-list">{data.funnel.map((step, index) => <div className="funnel-row" key={step.label}><span className="step-name"><b>{String(index + 1).padStart(2, "0")}</b>{step.label}</span><div className="bar-track"><div style={{ width: `${Math.max(step.count / data.coverage.claims_discovered * 100, 3)}%` }} /></div><strong>{step.count}</strong></div>)}</div><p className="caption">{data.funnel_source}</p></div>
       <div className="surface grade-card"><p className="eyebrow">DECISION DISTRIBUTION</p><h2>등급과 보류 <GuideHelp topic="grade" /><GuideHelp topic="range" /></h2><div className="grade-bars"><div><span><b>확정</b> 규칙 판정</span><strong>{counts.decided}</strong></div><div className="grade-line e3"><i style={{ width: `${counts.decided / data.claims.length * 100}%` }} /></div><div><span><b>추정</b> 검토 대상</span><strong>{counts.range}</strong></div><div className="grade-line range"><i style={{ width: `${counts.range / data.claims.length * 100}%` }} /></div><div><span><b>나머지</b> 확인 대기</span><strong>{counts.pending}</strong></div><div className="grade-line pending"><i style={{ width: `${counts.pending / data.claims.length * 100}%` }} /></div></div><p className="caption">전체 {data.claims.length}건 중 확정 판정과 추정 등급을 구분해 표시합니다.</p></div></section>
