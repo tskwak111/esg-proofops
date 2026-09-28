@@ -62,8 +62,8 @@ def build(export):
         'title': 'NAVER 2025 통합보고서 · 선택 페이지 검토',
         'generated_at': report['generated_at'],
         'partial': report['partial'],
-        'review_confirmation': {'status': 'user_confirmed', 'confirmed_by': 'project owner', 'confirmed_at': '2026-09-29', 'scope': 'R85 AI-delegated review (27 claims, including 2 audit-uncertain claims)'},
-        'processed_reports': [{'title': 'NAVER 2025 통합보고서', 'sha256': NAVER_PDF_SHA256, 'result_path': '/demo', 'run_label': 'R72 → R85 저장 실행', 'scope': '선택 페이지 54/244쪽'}],
+        'review_confirmation': {'status': 'user_confirmed', 'confirmed_by': 'project owner', 'confirmed_at': '2026-09-29', 'scope': '위임 검토 27건(독립 점검에서 추가 점검 대상으로 분류된 2건 포함)'},
+        'processed_reports': [{'title': 'NAVER 2025 통합보고서', 'sha256': NAVER_PDF_SHA256, 'result_path': '/demo', 'run_label': '모델 실행 → 위임 검토 결과', 'scope': '선택 페이지 54/244쪽'}],
         'coverage': {key: report['coverage'][key] for key in ('pages_processed', 'pages_total', 'pages_unprocessed', 'pages_unreadable', 'claims_discovered', 'claims_decided', 'claims_needs_review')},
         'funnel': [
             {'label': '추출 주장', 'count': 331},
@@ -71,13 +71,13 @@ def build(export):
             {'label': '예비 분류 합의', 'count': 60},
             {'label': '관계 시도', 'count': 60},
             {'label': '요소 태그 발행', 'count': 36},
-            {'label': 'R85 위임 검토', 'count': 27},
+            {'label': '위임 검토', 'count': 27},
             {'label': '규칙 판정 기록', 'count': 17},
         ],
-        'funnel_source': 'R72 유료 실행 단계와 R85 복사본 위임 검토 결과; 단계별 시점이 다릅니다.',
+        'funnel_source': '모델 실행의 유료 호출 단계와 복사본 위임 검토 결과; 단계별 시점이 다릅니다.',
         'run': {
             'model_ids': ['solar-pro4'],
-            'model_note': 'R72 고정 실행 설정: solar-pro4 (추출·예비분류·관계·태깅).',
+            'model_note': '모델 실행 설정: solar-pro4 (추출·예비분류·관계·태깅).',
             'model_binding_hash': manifest.get('model_binding_hash'),
             'rule_pack_id': 'e498dfd1-2b6c-4b30-b66d-ec014423ab9b',
             'rule_pack_name': 'proofops-domain-v2.0-impl2',
@@ -88,7 +88,7 @@ def build(export):
             'r85_review_seconds': 412.3,
             'r85_model_calls': 0,
         },
-        'audit': {'agreed': 15, 'disagreed': 0, 'uncertain': 2, 'scope': 'R85 E3 17건 독립 읽기 검토'},
+        'audit': {'agreed': 15, 'disagreed': 0, 'uncertain': 2, 'scope': 'E3 17건 독립 점검'},
         'claims': claims,
     }
 
