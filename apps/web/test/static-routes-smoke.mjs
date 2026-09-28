@@ -7,6 +7,8 @@ const shots = process.argv[2];
 const data = await (await fetch(`${base}/demo/naver-2025.json`)).json();
 const reviewId = data.claims.find(claim => claim.track)?.id;
 const detailId = data.claims.find(claim => claim.decision.grade)?.id;
+const confirmedCount = data.claims.filter(claim => claim.decision.grade).length;
+const demoCount = data.claims.filter(claim => !claim.decision.grade && claim.decision.display_grade).length;
 assert(reviewId && detailId);
 const routes = [
   ["home", "/", ".hero"], ["analyze", "/analyze", ".analyze-main"],
@@ -74,6 +76,7 @@ try {
   }
   await call("Page.navigate", { url: `${base}/demo` });
   await waitFor('document.querySelectorAll(".queue-tabs button").length === 4');
+  assert.equal(await evaluate('Number(document.querySelector(".queue-tabs button span").textContent)'), confirmedCount, "confirmed queue count");
   await evaluate('document.querySelectorAll(".queue-tabs button")[1].click()');
   await waitFor('document.querySelectorAll(".queue-tabs button")[1].getAttribute("aria-selected") === "true"');
   assert(await evaluate('document.querySelectorAll(".claim-list .claim-item").length > 0'), "estimated queue has claims");
@@ -87,6 +90,9 @@ try {
   await waitFor('document.querySelector(".menu-toggle").getAttribute("aria-expanded") === "true"');
   await evaluate('document.querySelector("#site-menu a").click()');
   await waitFor('document.querySelector(".menu-toggle").getAttribute("aria-expanded") === "false"');
+  await call("Page.navigate", { url: `${base}/report/naver` });
+  await waitFor('!!document.querySelector(".audit-summary")');
+  if (data.demo_mode) assert(await evaluate(`document.querySelector(".audit-summary").innerText.includes(${JSON.stringify(`시연 등급 ${demoCount}건`)})`), "report separates demo grades");
   console.log("queue selection, claim review mode, and mobile menu: ok");
   if (shots) {
     await call("Emulation.setDeviceMetricsOverride", { width: 1400, height: 900, deviceScaleFactor: 1, mobile: false });
