@@ -140,6 +140,8 @@ def build(export, demo_results=None):
         "claims": claims,
     }
     if demo_results:
+        result["demo_mode"] = True
+        result["run"]["demo_mode"] = True
         result["generated_at"] = demo_results.get("finished_at", result["generated_at"])
         by_id = demo_results["claims"]
         for claim in claims:
