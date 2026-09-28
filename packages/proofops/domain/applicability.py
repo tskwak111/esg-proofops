@@ -1,4 +1,4 @@
-"""Pure industry-topic applicability resolution (TASK-017 / FR-017).
+"""Pure industry-topic applicability resolution.
 
 GAP-010 deliberately supplies no real GICS-to-SASB mapping.  This module only
 applies a caller-supplied, versioned mapping marked verified; all absent or

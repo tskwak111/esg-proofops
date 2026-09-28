@@ -1,4 +1,4 @@
-"""Same-document retrieval and immutable packets (TASK-011).
+"""Same-document retrieval and immutable packets.
 
 The graph must be a trusted tenant-authorized SourceStore snapshot, never a v1
 client projection. Search indexes route candidates; original bytes and quality

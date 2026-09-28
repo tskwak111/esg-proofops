@@ -1,1 +1,1 @@
-"""proofops-worker package (TASK-000 baseline)."""
+"""proofops-worker package."""

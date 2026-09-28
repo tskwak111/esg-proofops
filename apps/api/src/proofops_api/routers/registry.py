@@ -1,4 +1,4 @@
-"""HTTP boundary for the TASK-045 company and runtime-option registry."""
+"""HTTP boundary for the company and runtime-option registry."""
 
 from __future__ import annotations
 

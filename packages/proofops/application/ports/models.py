@@ -1,4 +1,4 @@
-"""Model ports (TASK-000 baseline). Pure protocols; no I/O."""
+"""Model ports. Pure protocols; no I/O."""
 
 from __future__ import annotations
 

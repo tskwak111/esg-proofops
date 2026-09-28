@@ -1,4 +1,4 @@
-"""TASK-030: immutable budget inputs and exact, price-snapshot-based cost projection.
+"""Immutable budget inputs and exact, price-snapshot-based cost projection.
 
 Token counts are supplied by the model tokenizer/provider, never estimated from
 characters here. input_tokens is total input including cache read/write tokens;

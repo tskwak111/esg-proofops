@@ -1,4 +1,4 @@
-"""Typed immutable domain values (TASK-000 baseline).
+"""Typed immutable domain values.
 
 Pure module: stdlib only (dataclasses/typing/math/uuid). No AWS SDK, no
 network, no file access, no environment variables, no scripts/legacy/sources

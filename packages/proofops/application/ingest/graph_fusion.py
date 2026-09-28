@@ -1,4 +1,4 @@
-"""Immutable parser candidates and conservative graph fusion (TASK-003).
+"""Immutable parser candidates and conservative graph fusion.
 
 The fixed v1 graph projection cannot carry conflict state. Consumers must retain
 this internal graph/quality envelope; unresolved blocks have no selected text.

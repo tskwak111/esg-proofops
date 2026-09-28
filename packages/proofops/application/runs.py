@@ -196,13 +196,13 @@ class RunService:
             not in {
                 "claim_source_policy_v1",
                 "claim_source_policy_v2",
-                # Opt-in render-resolution wrapper (R13/R15). Its own distinct
+                # Opt-in render-resolution wrapper. Its own distinct
                 # schema; the adapter refuses any policy it cannot reproduce.
                 "claim_span_render_resolution_policy_v1",
-                # Opt-in bullet-alignment wrapper (R19), which wraps the one
+                # Opt-in bullet-alignment wrapper, which wraps the one
                 # above rather than replacing it. Same refusal guarantee.
                 "claim_span_bullet_alignment_policy_v1",
-                # Opt-in rendered-side-only typography wrapper (R24), which
+                # Opt-in rendered-side-only typography wrapper, which
                 # wraps the one above. Same refusal guarantee.
                 "claim_span_typography_policy_v1",
             }
@@ -413,7 +413,7 @@ class RunService:
             if preliminary.model_profile not in {
                 "upstage-preliminary-source-quotes-v1",
                 "upstage-preliminary-source-quotes-context-v1",
-                # R12/R16 opt-in table pairs. The profile↔prompt welding for
+                # Opt-in table pairs. The profile↔prompt welding for
                 # every name here is enforced by ``check_local_upstage_tagger``
                 # below, so this set only names the accepted profiles.
                 "upstage-preliminary-source-quotes-table-v1",
@@ -421,7 +421,7 @@ class RunService:
                 "upstage-preliminary-source-quotes-table-role-v1-position-v1",
                 "upstage-preliminary-source-quotes-table-role-v2-p2",
                 "upstage-preliminary-source-quotes-table-role-v2-p2-position-v1",
-                # R34 opt-in goal-role profile; requires table-role and its deps.
+                # opt-in goal-role profile; requires table-role and its deps.
                 "upstage-preliminary-source-quotes-goal-role-v1",
                 "upstage-preliminary-source-quotes-actor-role-v1",
                 "upstage-preliminary-source-quotes-actor-role-v2",

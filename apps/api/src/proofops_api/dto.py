@@ -1,4 +1,4 @@
-"""API DTO boundary (TASK-000 baseline).
+"""API DTO boundary.
 
 Pydantic v2 strict, frozen, extra-forbidding models mirroring the fixed
 machine-readable contract (contracts/jsonschema/api_models.schema.json).

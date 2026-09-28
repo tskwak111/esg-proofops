@@ -1,4 +1,4 @@
-"""Ingest application services (TASK-002+): geometry canonicalization etc."""
+"""Ingest application services: geometry canonicalization etc."""
 
 from proofops.application.ingest import geometry
 

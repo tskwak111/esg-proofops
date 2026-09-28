@@ -1,4 +1,4 @@
-"""Source-backed assurance extraction and deterministic scope matching (TASK-007).
+"""Source-backed assurance extraction and deterministic scope matching.
 
 `tagged_fields` is an extraction/tagging result, never an LLM coverage decision.
 The trusted internal graph comes from the tenant-scoped source store; a v1

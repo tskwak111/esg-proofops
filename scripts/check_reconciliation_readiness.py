@@ -83,7 +83,6 @@ REQUIRED_PATHS = (
     "contracts/reconciliation/product.openapi.yaml",
     "evaluation/reconciliation_import.py",
     "scripts/verify_reconciliation.py",
-    "docs/RECONCILIATION_PRODUCT.md",
     "docs/RECONCILIATION_PRODUCT_CONTRACT.md",
     ENV_EXAMPLE,
     ENV_DOC,

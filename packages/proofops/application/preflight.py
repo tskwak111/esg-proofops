@@ -1,4 +1,4 @@
-"""TASK-029: evaluate trusted, tenant-scoped approval snapshots without I/O.
+"""Evaluate trusted, tenant-scoped approval snapshots without I/O.
 
 Inputs are server-resolved ApprovedProfile artifacts, never request-body
 assertions of approval. Account permission/routing/schema/image evidence must
@@ -258,7 +258,7 @@ def check_runtime_binding(
 
 
 def combine_build_checks(result: Preflight, build: SupplyChainResult | None) -> Preflight:
-    """Compose TASK-042 build evidence; never run build tooling in an API image.
+    """Compose build evidence; never run build tooling in an API image.
 
     Composition supplies a build-time verifier result for its immutable image.
     Missing attestation is not_run and cannot imply deployment readiness.
@@ -552,14 +552,14 @@ def check_local_upstage_tagger(
             and settings.system_prompt == PRELIMINARY_SYSTEM_PROMPT + CONTEXT_SYSTEM_SUFFIX
         )
         or (
-            # R12 opt-in: context prompt plus the table-source suffix, pinned as
+            # opt-in: context prompt plus the table-source suffix, pinned as
             # one pair so neither half can be swapped independently.
             settings.model_profile == "upstage-preliminary-source-quotes-table-v1"
             and settings.system_prompt
             == PRELIMINARY_SYSTEM_PROMPT + CONTEXT_SYSTEM_SUFFIX + TABLE_SYSTEM_SUFFIX
         )
         or (
-            # R16 opt-in: the same table pair plus the role-resolution suffix,
+            # opt-in: the same table pair plus the role-resolution suffix,
             # pinned as one longer chain so the shorter table prompt can never
             # be sent under this profile and vice versa.
             settings.model_profile == "upstage-preliminary-source-quotes-table-role-v1"
@@ -591,7 +591,7 @@ def check_local_upstage_tagger(
             and settings.system_prompt == P2_SYSTEM_PROMPT
         )
         or (
-            # R34 opt-in: the table-role chain plus the goal-role suffix, pinned
+            # opt-in: the table-role chain plus the goal-role suffix, pinned
             # as one longer chain so neither the table-role prompt nor any older
             # prompt can be sent under this profile and vice versa. Requires
             # preliminary_table_role=True and its dependencies.

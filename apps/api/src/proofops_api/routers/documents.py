@@ -1,4 +1,4 @@
-"""TASK-001 v1 boundary and explicit local-only multipart POST transport."""
+"""Version 1 boundary and explicit local-only multipart POST transport."""
 
 from __future__ import annotations
 

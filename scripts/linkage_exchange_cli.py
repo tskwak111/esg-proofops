@@ -1,4 +1,4 @@
-"""CLI for the A-side developer-B C1-C4 linkage exchange (R08a).
+"""CLI for C1-C4 linkage exchange.
 
 Two subcommands:
 
@@ -6,12 +6,11 @@ Two subcommands:
                  claim + the confirmed tags of its LATEST ACCEPTED immutable
                  tag head, plus a caller-supplied JSON FinancialContext file.
                  Writes the packet JSON, or a blocked/not_run report, to
-                 stdout. Never calls developer B's engine and never invents
+                 stdout. Never calls the reconciliation engine or invents
                  identity/financial fields.
 
-  verify-return  Structurally validate a real (or synthetic) developer-B
-                 return triple (packet, policy, result) using the EXISTING
-                 handoff/team-v3/contract/validate.py::validate_return, then
+  verify-return  Structurally validate a return triple (packet, policy,
+                 result) using the included contract validator, then
                  additionally byte-verify every sources[] entry against real
                  opened local bytes (sustainability side via the app's own
                  UploadService, financial side via explicit caller-supplied
@@ -29,7 +28,6 @@ import json
 import sys
 from pathlib import Path
 
-ROOT_CONTRACT_DIR = Path(__file__).resolve().parents[3] / "handoff/team-v3/contract"
 LOCAL_FIXTURE_CONTRACT_DIR = (
     Path(__file__).resolve().parents[1] / "outputs/agent-fixtures/linkage-contract"
 )
@@ -43,11 +41,6 @@ def resolve_contract_dir(contract_dir: str | Path | None = None) -> Path:
                 return p
         except (PermissionError, OSError, FileNotFoundError):
             pass
-    try:
-        with (ROOT_CONTRACT_DIR / "validate.py").open("rb"):
-            return ROOT_CONTRACT_DIR
-    except (PermissionError, OSError, FileNotFoundError):
-        pass
     return LOCAL_FIXTURE_CONTRACT_DIR
 
 
@@ -82,7 +75,7 @@ def _validate_packet_shape(packet: dict, *, contract_dir: Path | str) -> list[di
     """Structural-only schema check, reusing validate.py's own schema loader.
 
     This CLI (not the pure application module) owns filesystem access to
-    `handoff/team-v3/contract/*.schema.json`; it imports `validate.py`
+    the included contract schemas; it imports `validate.py`
     directly so the SAME schema-loading code path (and any future change to
     it) is used rather than a duplicated copy.
     """

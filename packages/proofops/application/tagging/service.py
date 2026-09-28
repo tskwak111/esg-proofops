@@ -1,4 +1,4 @@
-"""Three source-guarded invocations over one immutable evidence packet (TASK-010).
+"""Three source-guarded invocations over one immutable evidence packet.
 
 Composition supplies an authorized transport, scoped cache, durable usage store,
 model tokenizer and clock. No credentials, model IDs, approvals or prices are

@@ -160,7 +160,7 @@ class LocalUploadVault:
     """Synthetic local adapter: private root, atomic create-only promotion, no AWS calls.
 
     Use only with a service-owned root; uploaders must never have filesystem access.
-    TASK-001 owns upload state/CAS and the production versioned S3 adapter.
+    Upload state/CAS and the production versioned S3 adapter remain separate.
     """
 
     def __init__(self, root: Path):

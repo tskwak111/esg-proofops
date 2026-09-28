@@ -1,4 +1,4 @@
-"""Source-backed, deterministic claim attribution (FR-013 / TASK-013).
+"""Source-backed, deterministic claim attribution.
 
 Inputs are internal immutable claim/tag revisions and a tenant-authorized original
 snapshot. Relation tags assign semantic roles to literal SourceRefs, never grades.

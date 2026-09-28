@@ -1,4 +1,4 @@
-"""TASK-009/013: bounded, literal preliminary classification, never grading.
+"""Bounded, literal preliminary classification, never grading.
 
 Only trusted, tenant-authorized canonical graphs enter this boundary. Validation
 proves source existence, not the model's semantic classification accuracy. Callers
@@ -59,7 +59,7 @@ TABLE_SYSTEM_SUFFIX = (
     "certify that the cell defines the metric, the population or the period, so read the "
     "cell text itself and return null when it does not literally state that role."
 )
-# R16 additive suffix, appended AFTER TABLE_SYSTEM_SUFFIX so all three constants
+# additive suffix, appended AFTER TABLE_SYSTEM_SUFFIX so all three constants
 # above keep their exact bytes and their pinned hashes. It only resolves an
 # ordering conflict that made the table suffix unusable in practice: the frozen
 # prompt above is written for a prose claim and scopes every role to the single
@@ -103,7 +103,7 @@ TABLE_ROLE_SYSTEM_SUFFIX = (
     'with source 3 instead "2099(목표)", reporting_period is null and track is '
     "not performance."
 )
-# R34 additive suffix, appended AFTER TABLE_ROLE_SYSTEM_SUFFIX so all four
+# additive suffix, appended AFTER TABLE_ROLE_SYSTEM_SUFFIX so all four
 # constants above keep their exact bytes and their pinned hashes. It only
 # clarifies goal-track metric extraction when source 0 states a named company
 # target or target standard (e.g. RE100, carbon-neutrality); it adds no wire
@@ -204,7 +204,7 @@ Before returning, check each non-null dimension: it is an object (never a bare
 string); its quote occurs verbatim and once in the supplied source; and it names
 the requested role. If any check fails, return null for that dimension.
 """
-# R63: the R61 P1 wording substitutes only classification guidance in the
+# the P1 wording substitutes only classification guidance in the
 # table-role prompt. Historical prompt constants above remain byte-identical.
 _P1_TRACK = (
     "Classify sentence nature, not its topic or evidence completeness. Goal: the company "
@@ -613,13 +613,13 @@ def preliminary_table_request(
     prefixed context block instead, and an unresolvable lineage appends nothing
     and records ``lineage="unresolved"`` rather than inventing a row or column.
 
-    ``role_resolution`` (R16) is opt-in and changes ONLY ``prompt_sha256``: the
+    ``role_resolution`` is opt-in and changes ONLY ``prompt_sha256``: the
     wire shape, the source list, the index space and both policies stay
     byte-identical, because the difference is purely the additive prompt suffix
     that resolves the atomic-source/table-axis conflict. Omitting it reproduces
     the existing table envelope exactly.
 
-    ``goal_role`` (R34) is opt-in and requires ``role_resolution=True``. It
+    ``goal_role`` is opt-in and requires ``role_resolution=True``. It
     appends ``GOAL_ROLE_SYSTEM_SUFFIX`` after ``TABLE_ROLE_SYSTEM_SUFFIX`` in
     the prompt hash ONLY; the wire shape, source list, index space, and both
     policies are byte-identical to the role-resolution envelope. Omitting it

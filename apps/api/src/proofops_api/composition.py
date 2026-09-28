@@ -1,9 +1,8 @@
-"""Composition wiring for the API service (TASK-000 baseline; TASK-037 adds
-the session/tenant auth_store).
+"""Composition wiring for the API service and session/tenant auth store.
 
 Reads process config at the boundary and builds the explicit composition.
 Non-local environments fail closed instead of serving fake results: the
-in-memory auth_store is local-only, matching every other TASK-000 local
+in-memory auth_store is local-only, matching every other local
 adapter. Real Cognito + DynamoDB-backed session/membership stores are not
 wired here; APP_ENV=staging/production already fails closed in
 proofops.composition.build_composition before this module's auth wiring

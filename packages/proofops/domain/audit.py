@@ -1,4 +1,4 @@
-"""Pure immutable audit events and hash-chain verification (TASK-022)."""
+"""Pure immutable audit events and hash-chain verification."""
 
 from __future__ import annotations
 

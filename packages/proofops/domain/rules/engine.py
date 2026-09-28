@@ -1,4 +1,4 @@
-"""Pure pinned-pack evaluator for the explicit general ladders (TASK-014).
+"""Pure pinned-pack evaluator for the explicit general ladders.
 
 Confirmed facts are an internal, trusted citation/binding boundary, never raw LLM
 output. Source checks here verify the retained attestations; upstream citation

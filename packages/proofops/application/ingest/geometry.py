@@ -1,15 +1,14 @@
-"""Native -> canonical source-ref geometry (TASK-002).
+"""Native -> canonical source-ref geometry.
 
 `canonicalize_source_ref :: NativeSource + PageGeometry -> SourceRef`
-(docs/20_TASK_BREAKDOWN.md TASK-002, docs/07_API_SPEC.md,
-docs/27_PARSING_AND_PROVENANCE.md §3-4).
+(see docs/27_PARSING_AND_PROVENANCE.md §3-4).
 
 This module is application-layer, not domain: it is allowed to depend on the
 domain values it assembles, but still takes no I/O, no environment, and no
 adapter/network dependencies -- geometry math and text normalization are
 pure functions of their inputs.
 
-Output shape reuse (per coordinator guidance): the richer internal
+The richer internal
 provenance fields fixed by docs/27 (native_bbox, native_coordinate_system,
 affine, raw/normalized text distinction) live on `NativeSource`/
 `PageGeometry` and are not re-exported here as new public API surface. The

@@ -201,8 +201,7 @@ issue는 미인식 표가 있는 것으로 확정하는 표 block이나 ownershi
 새 정책을 구버전으로 읽어 검토 완료로 바꾸지 않는다. checkpoint v3와 기존 opaque
 job record를 재사용하므로 공개 API·DB column migration은 없다. Rollback은 새
 정책 생성 중단과 해당 정책 reader 유지가 필요하며, 미지원 reader는 명시적으로 거부한다.
-실측과 한계는 `evidence/table-note-review/unseen-layout-evaluation.json` 및
-`page-note-coverage-contract.md`에 기록한다. 이 결과는 원문 도메인·귀속 승인이나
+이 검사는 원문 도메인·귀속 승인이나
 전체 보고서 서비스 품질의 확정이 아니다.
 
 ### 선택형 로컬 표 원문 검증 (`native_table_source_v1`)

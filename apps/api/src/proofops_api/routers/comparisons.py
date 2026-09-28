@@ -1,4 +1,4 @@
-"""TASK-023 comparison HTTP boundary over immutable local artifacts."""
+"""Comparison HTTP boundary over immutable local artifacts."""
 
 from __future__ import annotations
 

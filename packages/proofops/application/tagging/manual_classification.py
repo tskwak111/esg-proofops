@@ -1,4 +1,4 @@
-"""R22 bounded manual preliminary classification: reviewer input, never a grade.
+"""Bounded manual preliminary classification: reviewer input, never a grade.
 
 Pure validator. An authorized reviewer (or an explicitly delegated local AI method)
 supplies the preliminary track/category/dimension source spans for a source-verified

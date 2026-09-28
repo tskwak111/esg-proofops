@@ -1,4 +1,4 @@
-"""Conservative table normalization, with immutable source bindings (TASK-004).
+"""Conservative table normalization, with immutable source bindings.
 
 Recognizes explicit long-form headers and year columns. Unsupported layouts
 remain issues for review. No cross-table/page merging, fuzzy semantic tagging,

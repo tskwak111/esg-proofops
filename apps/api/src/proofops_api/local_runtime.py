@@ -314,7 +314,7 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         "extraction_complete_selection",
         "extraction_content_bounds",
     ):
-        # Approved extraction opt-ins (R03d/R03f/R12/R14/R20): explicit True only, and
+        # Approved extraction opt-ins: explicit True only, and
         # only with the real probe mode. Validated here so the gate never rejects
         # a pilot-written value; the worker composition (not this runtime dict)
         # reconstructs the matching extractor profile from the settings file.

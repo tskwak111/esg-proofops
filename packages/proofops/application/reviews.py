@@ -67,7 +67,7 @@ class ReviewRejected(ValueError):
 # machine-driven revision can never be mistaken for an independent human
 # confirmation. Old ``human``/``consensus`` rows stay valid and immutable.
 #
-# R24: a bounded correction for a safe-harbor category the tagging headers agree
+# a bounded correction for a safe-harbor category the tagging headers agree
 # on but the reviewed source does not support. v1 REMOVES a wrong non-null
 # category only; adding or replacing one would assert a regulatory
 # classification the reviewed refs do not establish, so it is refused as

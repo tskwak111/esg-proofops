@@ -305,8 +305,8 @@ class LiveTaggingRuntime:
         def validate(raw):
             # The table profile recomputes its own quotable source tuple from
             # claim+graph; the legacy validator stays the only path for the two
-            # older profiles, so stored responses replay unchanged. The R16
-            # role-resolution profile and the R34 goal-role profile differ only
+            # older profiles, so stored responses replay unchanged. The
+            # role-resolution profile and the goal-role profile differ only
             # in their prompt, so they reuse this same validator without a new
             # schema or a new source rule.
             result = (

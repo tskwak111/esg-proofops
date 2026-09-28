@@ -1,17 +1,14 @@
-"""A-side linkage-exchange packet builder for the developer-B C1-C4 contract (R08a).
+"""Linkage-exchange packet builder for the C1-C4 contract.
 
-This module builds the OUTBOUND side of `handoff/team-v3/contract/` schema
-1.1: turning a trusted local run's confirmed claim/tags into the
+This module builds the outbound side of schema 1.1, turning a trusted
+local run's confirmed claim/tags into the
 sustainability half of a packet, combined with a caller-supplied, fully
 explicit `FinancialContext` for the financial half. It does not implement
-B's `evaluate`/`reconcile` engine (that stays developer B's, per CONTRACT.md
-"B 엔진을 A가 중복 구현하지 않는다") and it does not compute or store any E
+the `evaluate`/`reconcile` engine and it does not compute or store any E
 grade/label — those stay entirely on the existing rules-engine path.
 
-Pure module: no filesystem, no network. Schema loading/validation against
-`handoff/team-v3/contract/*.schema.json` is intentionally NOT done here (a
-pure `application/` module must not reach into an external ROOT filesystem
-path); that belongs to `scripts/linkage_exchange_cli.py`, which loads the
+Pure module: no filesystem, no network. Schema validation belongs to
+`scripts/linkage_exchange_cli.py`, which loads the
 existing schemas and calls `validate.py`'s own validator. This module only
 returns a plain dict shaped like the contract; the CLI is responsible for
 schema-validating it.
@@ -63,17 +60,15 @@ FACT_KINDS = (
     "unknown",
 )
 
-# CONTRACT.md's A-owned trigger mapping (existing tag id -> new C-item
-# trigger name). This maps EXACT fact ids, never an arbitrary/unknown field
+# Trigger mapping from existing fact ids to C-item names. It maps exact fact
+# ids, never an arbitrary/unknown field
 # name: a fact whose name is not one of these keys contributes no trigger,
 # regardless of its state. See `_verified_triggers`.
 #
 # `org_boundary` is the CANONICAL fact name every real producer emits for the
 # organisational-boundary element (`management.M2` and `goal.G4` in
 # packages/proofops/domain/rules/; `config/rubric/{management,goal}.yaml` name
-# the same primitive). The contract's own conversion note
-# (handoff/team-v2/contract/SCHEMA_GUIDE.md: "organizational_boundary: 기존
-# org_boundary/calculation_boundary의 검증된 조직경계 내용을 확인해 생성") makes it
+# the same primitive). Verified organisational content makes it
 # the source of the `organizational_boundary` trigger, so this is a spelling
 # alias for one identical element -- not a widening of what counts as a
 # boundary. Without it an accepted M2/G4 review was silently dropped here. The
@@ -110,7 +105,7 @@ TRIGGER_TO_FACT_KIND: dict[str, str] = {
     "revenue_share": "classification",
 }
 
-# CONTRACT.md / RECONCILIATION_SPEC item-specific trigger rules:
+# Item-specific trigger rules:
 # C1: boundary / scope (entity_set, facility_set)
 # C2: quantitative performance trigger; compare explicit source-bound periods.
 #     Fact normalized_value remains a source literal; C2PeriodContext carries ISO dates.

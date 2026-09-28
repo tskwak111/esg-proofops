@@ -1,4 +1,4 @@
-"""Build-time supply-chain gate (TASK-042/SEC-006); no cloud/model calls.
+"""Build-time supply-chain gate; no cloud/model calls.
 
 Consumes trusted repository artifacts, never request-supplied approval records.
 SBOM is a lock inventory, not legal approval or deployed-image attestation.
@@ -20,7 +20,7 @@ from urllib.parse import quote, urlparse
 
 _SBOM_CANDIDATES = ("sbom.json", "bom.json", "sbom.cdx.json", "evidence/sbom.json")
 _IGNORE_DIRS = {".git", ".venv", "node_modules", ".local", "__pycache__"}
-# ponytail: common credential signatures only; add broader image scanning in TASK-044.
+# ponytail: common credential signatures only; expand scanning if coverage requires it.
 _SECRET_PATTERNS = (
     re.compile(r"(?:AKIA|ASIA)[0-9A-Z]{16}"),
     re.compile(r"-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----"),

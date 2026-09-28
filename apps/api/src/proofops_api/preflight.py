@@ -1,4 +1,4 @@
-"""TASK-029 HTTP boundary, using tenant-resolved immutable approval artifacts.
+"""HTTP boundary, using tenant-resolved immutable approval artifacts.
 
 This local router's replay/rate state is process-local. Non-local composition
 must supply durable request control before enabling the endpoint. A successful

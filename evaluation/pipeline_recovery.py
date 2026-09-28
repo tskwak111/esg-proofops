@@ -39,7 +39,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-ROOT = Path("/Users/ss020/Dev/ESG_ProofOps")
+ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / ".local/team-publication-20260918"
 
 FIVE_REPORT_DIR = APP / ".local/five-report-outcome-20260919"

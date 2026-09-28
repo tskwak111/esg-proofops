@@ -1,9 +1,9 @@
-"""Immutable pure-domain RulePack snapshot (TASK-025 repair, FR-025).
+"""Immutable pure-domain RulePack snapshot.
 
 Stdlib only. This module never imports proofops.application (dependency
 direction is application -> domain). It retains the verified configuration
 content itself as canonical JSON payloads -- never a mutable external
-file pointer -- so TASK-014's pure rules engine can evaluate pinned
+file pointer -- so the pure rules engine can evaluate pinned
 explicit ladders deterministically.
 
 Hashing is deterministic and NaN-hostile: canonical JSON (sorted keys,

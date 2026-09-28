@@ -195,7 +195,7 @@ class ClaimBinding:
     reported_value_ref: SourceRef | None = None
     binding_accepted: bool = False
     aggregation: AggregationRelation | None = None
-    # R30: same-period different-product relative reduction needs an explicitly
+    # same-period different-product relative reduction needs an explicitly
     # accepted baseline product dimension plus verified source spans for both the
     # current and baseline product literals. These are never inferred from numbers.
     baseline_subject: str | None = None

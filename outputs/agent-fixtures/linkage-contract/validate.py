@@ -23,9 +23,7 @@ from jsonschema import Draft202012Validator, FormatChecker
 
 ROOT = Path(__file__).parent
 
-# Fields that must never appear in a reconciliation return: this contract forbids
-# evidence grades / labels leaking back through the linkage result (see CONTRACT.md
-# "결과에 기존 evidence_grade/label 필드는 허용하지 않는다").
+# Reconciliation returns must not include evidence grades or labels.
 PROHIBITED_RESULT_FIELDS = (
     "evidence_grade",
     "grade",

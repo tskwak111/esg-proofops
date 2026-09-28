@@ -1,6 +1,6 @@
 # 개발자 A 제출용 로컬 실행
 
-개발자 B의 DART·C1~C4 연계 판정은 포함하지 않습니다. 실제 PDF를 입력받아 파싱·주장 추출·근거 검증·모델 태깅을 수행하고, Python 규칙엔진의 판정 또는 보류를 검토·내보내는 로컬 흐름입니다. 승인되지 않은 규칙집으로 최종 등급을 만들지 않습니다.
+이 실행기는 공시 주장 분석 흐름을 보여줍니다. 재무 대사는 별도 로컬 연계 경로에서 처리합니다. 실제 PDF를 입력받아 파싱·주장 추출·근거 검증·모델 태깅을 수행하고, Python 규칙엔진의 판정 또는 보류를 검토·내보내는 로컬 흐름입니다. 승인되지 않은 규칙집으로 최종 등급을 만들지 않습니다.
 
 ## 저장된 실제 결과 열기 — API 비용 없음
 
@@ -44,7 +44,7 @@ pilot 상태를 재분류하거나 보증 상태를 단정하지 않으며, 상�
 
 ## 개발자 B 재무 연계 반환 검증 — `linkage_exchange_cli.py verify-return`
 
-개발자 B가 실제로 생성한 반환 3종(packet/policy/result)이 있으면 기존 `handoff/team-v3/contract/validate.py`의 구조 검증에 더해 원문 바이트 대조까지 수행합니다. 인터페이스는 지금 실행 가능합니다.
+재무 연계 반환 3종(packet/policy/result)이 있으면 포함된 `outputs/agent-fixtures/linkage-contract/validate.py`의 구조 검증에 더해 원문 바이트 대조까지 수행합니다.
 
 ```bash
 PYTHONPATH=. uv run python scripts/linkage_exchange_cli.py verify-return \
@@ -131,7 +131,7 @@ uv run python -m evaluation.local_upstage_pilot \
 - 서버는 127.0.0.1에만 연결합니다. 로그인 URL은 프로세스별 임시 비밀값이며 `browser.json`에 0600 권한으로 저장됩니다. CSRF·If-Match와 원문 해시 검증을 유지합니다.
 - 제출용 로컬 실행이며, 외부 배포·전체 보고서 자동 범위 선택·전문가 정확도 검증의 완료를 뜻하지 않습니다.
 
-공개 가능한 부분 실행 결과와 제한은 [실행 기록](../evidence/developer-a-validation-20260918.md)과 [재생 기록](../evidence/source-linked-demo-verification.md)을 참고합니다.
+저장된 결과는 원문 검증 범위와 보류 상태를 함께 확인해야 합니다.
 
 ## 로컬 웹 워커 연결 계약 (추가)
 

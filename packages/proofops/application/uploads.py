@@ -1,4 +1,4 @@
-"""TASK-001 local upload service: real PDF verification, synthetic SQLite/filesystem storage.
+"""Local upload service: real PDF verification, synthetic SQLite/filesystem storage.
 
 No S3 identity is invented. Production must supply approved versioned storage and
 job transport; this service is mounted only by local-synthetic composition.

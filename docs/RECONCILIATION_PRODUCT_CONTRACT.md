@@ -60,12 +60,7 @@ assertions must be distinguishable from verified result sources in the UI.
 
 ## Ownership and acceptance
 
-Claude Opus owns the new store and router, product HTTP/storage tests and its
-OpenAPI fragment. Codex Sol owns candidate extraction, review-bundle preparation
-and tests. Gemini owns the new React workspace and isolated browser checks.
-Master owns composition/main/App wiring, combined contracts, local importer/demo,
-real DART trial, regression, final browser verification and evidence. No subworkers.
-Shared files are edited only by master. Ask coordinator before changing interfaces.
+공시 파이프라인과 재무 대사 연계는 동일한 신뢰 경계를 사용한다.
 
 Acceptance: actual HTTP authorization/CSRF/CAS/idempotency, immutable replay,
 cross-tenant/source-tamper rejection, unchanged GPM, reviewed vs pending behavior,

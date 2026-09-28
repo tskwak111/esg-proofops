@@ -1,4 +1,4 @@
-"""Tenant-scoped company and approved execution-option registry (TASK-045).
+"""Tenant-scoped company and approved execution-option registry.
 
 The optional SQLite store is local-only. Production must supply its approved
 durable adapters before composition can serve traffic.
