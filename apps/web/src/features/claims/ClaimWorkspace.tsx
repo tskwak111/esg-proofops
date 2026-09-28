@@ -71,10 +71,7 @@ type ReviewProjection = {
   field_agreements: FieldAgreement[];
   raw_candidates?: ReviewCandidate[];
 };
-// Optional read projection of the trusted local AI review (policy
-// facility_section_context_v1). Origin is always an AI delegation, never human
-// gold. numeric_check stays on hold: no same-scope bound table observation means
-// P6 unknown/needs_review, never a grade pass. Old responses omit this field.
+// Optional review context; P6 stays on hold without a same-scope table observation.
 type ReviewedContextConsidered = { source_ref: SourceRef; status: string };
 type ReviewedContext = {
   origin: "ai_delegated";
@@ -223,7 +220,6 @@ const fieldAgreementText: Record<FieldAgreement["status"], string> = {
   unresolved: "미해결",
 };
 
-// Reviewed-context dimension labels for the AI-delegated review read projection.
 const reviewedDimensionText: Record<keyof ReviewedContext["dimensions"], string> = {
   facility: "사업장",
   reporting_period: "보고기간",
@@ -254,12 +250,6 @@ function decisionTone(decision: Decision | null): "neutral" | "success" | "warni
   return decision.evidence_grade === "E0" ? "danger" : "warning";
 }
 
-// Small read-only projection of the trusted local AI review. It shows the
-// reviewed facility/period/metric and value+unit with source quote and page,
-// states honestly that provenance is an AI delegation (not human gold), and
-// keeps P6 on hold (never a grade pass). It reads only from the optional
-// claim-detail field, issues no network requests, adds no editing controls,
-// and relies on React's default escaping. Old/missing responses render nothing.
 export function ReviewedContextSection({ context }: { context: ReviewedContext }) {
   const dimensionKeys = ["facility", "reporting_period", "metric", "value", "unit"] as const;
   const excludedCount = context.numeric_check.considered.filter(

@@ -32,7 +32,7 @@ export function App() {
 function SessionApp() {
   const navigate = useNavigate();
   const location = useLocation();
-  const publicPage = location.pathname === "/" || location.pathname.startsWith("/demo") || location.pathname === "/live";
+  const publicPage = location.pathname === "/" || ["/demo", "/analyze", "/review", "/report", "/live"].some(path => location.pathname === path || location.pathname.startsWith(`${path}/`));
   const [staticMode, setStaticMode] = useState(import.meta.env.VITE_DEMO_STATIC === "true");
   const [session, setSession] = useState<Session | null>(null);
   const [sessionStatus, setSessionStatus] = useState<"loading" | "ready" | "missing" | "error">("loading");

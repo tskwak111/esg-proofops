@@ -66,13 +66,18 @@ def test_fake_pipeline_and_guards(monkeypatch):
         live.run_claim({"claim": claim}, access_code="wrong", call_model=fake)
     assert error.value.code == "ACCESS_DENIED" and not called
     result = live.run_claim({"claim": claim}, access_code="local-only", call_model=fake)
-    assert len(called) == 2
+    assert len(called) == 4
+    assert result["replicas"] == 3
+    assert result["steps"][1]["replicas"] == 3
+    assert result["steps"][1]["model"] == "solar-pro4"
     assert result["decision"]["decision_status"] == "blocked_evidence"
     assert result["decision"]["evidence_grade"] is None
     assert result["decision"]["label"] is None
     assert result["decision"]["grade_range"]["floor"] == "E1"
     assert result["decision"]["grade_range"]["ceiling"] == "E3"
     assert result["decision"]["review_status"] == "needs_review"
+    assert result["display_grade"]["grade"] == "E1"
+    assert result["display_grade"]["estimated"]
     assert result["fact_assembly"] == "partial-facts-v1"
     assert "E3까지" in result["explanation"]
     assert result["steps"][1]["elements"][0]["engine_state"] in ("unknown", "present")
@@ -110,6 +115,49 @@ def test_unmatched_quote_stays_unknown(monkeypatch):
     assert all(
         item["engine_state"] == "unknown" and item["quote"] is None
         for item in result["steps"][1]["elements"]
+    )
+
+
+def test_context_quote_and_majority_vote(monkeypatch):
+    monkeypatch.setenv("DEMO_ACCESS_CODE", "local-only")
+    calls = []
+
+    def fake(system, user, max_tokens):
+        calls.append(user)
+        content = (
+            {"claim_id": user["claim_id"], "track": "goal", "safe_harbor_category": None}
+            if "sources" in user
+            else {
+                "elements": [
+                    {"name": "target_year", "state": "present", "quote": "2030년"},
+                    {"name": "scope", "state": "present", "quote": "Scope 1·2"}
+                    if len(calls) != 3
+                    else {"name": "scope", "state": "unknown", "quote": None},
+                    {"name": "method", "state": "present", "quote": "없는 문구"},
+                ]
+            }
+        )
+        return {
+            "choices": [{"message": {"content": json.dumps(content)}}],
+            "usage": {"prompt_tokens": 100, "completion_tokens": 40},
+        }
+
+    result = live.run_claim(
+        {
+            "claim": "2030년 배출 감축",
+            "context": "사업장 Scope 1·2 배출량을 줄이겠습니다.",
+            "page_label": "86",
+        },
+        access_code="local-only",
+        call_model=fake,
+    )
+    elements = {item["name"]: item for item in result["steps"][1]["elements"]}
+    assert len(calls) == 4
+    assert elements["scope"]["engine_state"] == "present"
+    assert elements["scope"]["quote_source"] == "context"
+    assert elements["target_year"]["quote_source"] == "claim"
+    assert result["source"]["context_sha256"] == live._hash(
+        "사업장 Scope 1·2 배출량을 줄이겠습니다."
     )
 
 
@@ -228,7 +276,10 @@ def test_http_handler_with_fake_model(monkeypatch):
     monkeypatch.setenv("DEMO_ACCESS_CODE", "local-only")
 
     def fake(system, user, max_tokens):
-        content = {"claim_id": user["claim_id"], "track": None, "safe_harbor_category": None}
+        content = (
+            {"claim_id": user["claim_id"], "track": None, "safe_harbor_category": None}
+            if "sources" in user else {"elements": []}
+        )
         return {
             "choices": [{"message": {"content": json.dumps(content)}}],
             "usage": {"prompt_tokens": 100, "completion_tokens": 40},
@@ -247,8 +298,42 @@ def test_http_handler_with_fake_model(monkeypatch):
         )
         with urllib.request.urlopen(request, timeout=2) as response:
             assert response.status == 200
-            assert json.load(response)["status"] == "needs_review"
+            result = json.load(response)
+            assert result["status"] == "needs_review"
+            assert result["steps"][0]["track_inferred"]
+            assert result["steps"][0]["track"] == "goal"
+            assert result["display_grade"]["grade"]
     finally:
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
+
+
+def test_slow_classification_uses_one_tagging_replica(monkeypatch):
+    monkeypatch.setenv("DEMO_ACCESS_CODE", "local-only")
+    original = live._step
+    calls = []
+
+    def fake(system, user, max_tokens):
+        calls.append(user)
+        content = (
+            {"claim_id": user["claim_id"], "track": "goal", "safe_harbor_category": None}
+            if "sources" in user else {"elements": []}
+        )
+        return {
+            "choices": [{"message": {"content": json.dumps(content)}}],
+            "usage": {"prompt_tokens": 100, "completion_tokens": 40},
+        }
+
+    def slow_step(*args):
+        result = original(*args)
+        if "sources" in args[2]:
+            return result[0], result[1], 31_000, result[3], result[4]
+        return result
+
+    monkeypatch.setattr(live, "_step", slow_step)
+    result = live.run_claim(
+        {"claim": "2030년 감축 목표"}, access_code="local-only", call_model=fake
+    )
+    assert len(calls) == 2
+    assert result["replicas"] == 1
