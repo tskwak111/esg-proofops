@@ -60,8 +60,8 @@ try {
   assert(await evalText('document.body.innerText.includes("한 문장 실시간 체험하기")'));
   await upload(sourcePdf);
   await waitFor('document.body.innerText.includes("이미 분석된 보고서입니다")');
-  assert(await evalText('document.body.innerText.includes("캐시 즉시")'));
-  await waitFor('location.pathname === "/demo"');
+  assert(await evalText('document.body.innerText.includes("저장된 처리 기록")'));
+  await waitFor('location.pathname === "/analyze/replay"');
   assert.equal(requests.filter(request => request.method !== "GET").length, 0, "PDF must not be sent to a server");
   await call("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
   for (const [route, selector] of [["/", ".hero"], ["/demo", ".demo-main"], ["/demo/c3430427-80a9-57e4-a87a-ec9f6f1017a3", ".why-panel"], ["/analyze", ".analyze-main"], ["/live", ".live-main"]]) {

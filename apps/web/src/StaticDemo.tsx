@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Route, Routes, useLocation, useNavigate, useParams } from "react-router";
 import { LiveClaim } from "./features/live/LiveClaim";
+import { ReplayPage } from "./features/replay/route";
+import { kiaRoute } from "./features/kia/route";
+import ReviewPage from "./features/reviewsim/route";
+import ReviewSimulator from "./features/reviewsim/ReviewSimulator";
+import AuditReportPage from "./features/auditreport/AuditReportPage";
+import { auditReportRoute } from "./features/auditreport/route";
 import { DecisionGuide, GuideHelp } from "./DecisionGuide";
 import { elementLabels } from "./features/labels";
 import "./static-demo.css";
@@ -9,8 +15,9 @@ type Evidence = { page: number | null; quote: string };
 type Element = { id: string; state: string; evidence: Evidence[] };
 type Claim = {
   id: string; page: number | null; track: string | null; quote: string; source_verified: boolean;
+  review_bucket?: string; demo_mode?: boolean;
   elements: Element[];
-  decision: { grade: string | null; label: string | null; grade_range: { floor: string; ceiling: string; open_elements: string[] } | null; status: string; missing: string[]; unresolved: string[] };
+  decision: { grade: string | null; label: string | null; display_grade?: string | null; estimated?: boolean; grade_range: { floor: string; ceiling: string; open_elements: string[] } | null; status: string; missing: string[]; unresolved: string[] };
   review: { status: string; tag_revision: number; decision_revision: number; audit: string | null };
 };
 type Snapshot = {
@@ -30,9 +37,11 @@ const statusText: Record<string, string> = { decided: "규칙 판정", blocked_e
 const confirmationText = "AI 위임 검토 → 사용자 확인 완료 (2026-09-29)";
 
 export function StaticDemo() {
-  const isLive = useLocation().pathname === "/live";
+  const location = useLocation();
+  const isLive = location.pathname === "/live";
   const [data, setData] = useState<Snapshot | null>(null);
   const [error, setError] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => {
     const controller = new AbortController();
     fetch(`${import.meta.env.BASE_URL}demo/naver-2025.json`, { signal: controller.signal })
@@ -40,18 +49,24 @@ export function StaticDemo() {
       .then(setData).catch(() => { if (!controller.signal.aborted) setError(true); });
     return () => controller.abort();
   }, []);
+  useEffect(() => setMenuOpen(false), [location.pathname]);
   return <div className="demo-site">
     <header className="site-header"><div className="site-header-inner">
-      <Link className="brand" to="/" aria-label="ProofOps 홈"><span className="brand-mark">P<span>◦</span></span> ProofOps</Link>
-      <nav aria-label="주요 메뉴"><Link to="/">소개</Link><Link to="/analyze">보고서 분석</Link><Link to="/demo">실제 결과 보기</Link><Link to="/live">실시간 체험</Link></nav>
+      <Link className="brand" to="/" aria-label="ProofOps 홈"><img src="/logo-mark.svg" alt="" /> ProofOps</Link>
+      <button className="menu-toggle" type="button" aria-expanded={menuOpen} aria-controls="site-menu" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? "닫기" : "메뉴"}<span aria-hidden="true">{menuOpen ? "×" : "☰"}</span></button>
+      <nav id="site-menu" className={menuOpen ? "open" : ""} aria-label="주요 메뉴"><Link to="/">소개</Link><Link to="/analyze">보고서 분석</Link><Link to="/analyze/replay">처리 과정</Link><Link to="/demo">결과 보기</Link><Link to="/report/naver">보고서</Link><Link to="/live">실시간 체험</Link></nav>
       <Link className="header-cta" to="/demo">데모 열기 <span aria-hidden="true">↗</span></Link>
     </div></header>
     {isLive ? <LiveClaim /> : error ? <main className="static-main"><section className="surface"><h1>데모 데이터를 불러오지 못했습니다</h1><p>잠시 후 새로고침해 주세요.</p></section></main> :
-      !data ? <main className="static-main"><p role="status">실제 검토 결과를 불러오는 중입니다…</p></main> :
-      <Routes><Route path="/" element={<Landing data={data} />} /><Route path="/analyze" element={<Analyze data={data} />} /><Route path="/demo" element={<Demo data={data} />} /><Route path="/demo/:claimId" element={<Demo data={data} />} /><Route path="*" element={<Landing data={data} />} /></Routes>}
-    <footer className="site-footer"><div><strong>ProofOps</strong><span>공시 문장의 근거를 읽을 수 있는 검토 기록으로.</span></div><span>부분 실행(선택 페이지 54/244쪽) · {confirmationText}</span></footer>
+      !data ? <main className="static-main loading-main" role="status" aria-label="검토 결과 불러오는 중"><div className="skeleton skeleton-title" /><div className="skeleton skeleton-card" /><div className="skeleton skeleton-card" /></main> :
+      <Routes><Route path="/" element={<Landing data={data} />} /><Route path="/analyze" element={<Analyze data={data} />} /><Route path="/analyze/replay" element={<ReplayPage snapshot={data} />} /><Route path="/demo" element={<Demo data={data} />} /><Route path="/demo/:claimId" element={<Demo data={data} />} /><Route path={kiaRoute.path} element={<><CompanyTabs selected="kia" /><kiaRoute.Component /></>} /><Route path="/review/:claimId" element={<ReviewPage claims={data.claims} />} /><Route path={auditReportRoute.path} element={<AuditReportPage />} /><Route path="*" element={<NotFound />} /></Routes>}
+    <footer className="site-footer"><div><strong>ProofOps</strong><span>공시 문장의 근거를 읽을 수 있는 검토 기록으로.</span></div><span>고려대학교 × AWS AI Innovators Challenge · 팀 정보 추후 입력</span></footer>
   </div>;
 }
+
+function NotFound() { return <main className="static-main not-found"><p className="eyebrow">404 / PAGE NOT FOUND</p><h1>페이지를 찾을 수 없습니다.</h1><p>주소를 확인하거나 검토 결과로 돌아가세요.</p><Link className="primary-link" to="/demo">결과 보기 ↗</Link></main>; }
+
+function CompanyTabs({ selected }: { selected: "naver" | "kia" }) { return <nav className="company-tabs" aria-label="기업 선택"><Link to="/demo" aria-current={selected === "naver" ? "page" : undefined}>NAVER</Link><Link to="/demo/kia" aria-current={selected === "kia" ? "page" : undefined}>기아</Link></nav>; }
 
 const pipeline = ["PDF 파싱", "주장 추출", "원문 검증", "사전분류 · 태깅", "규칙엔진 등급", "검토", "보고서"];
 
@@ -61,7 +76,7 @@ function Analyze({ data }: { data: Snapshot }) {
   const [result, setResult] = useState<{ name: string; matched: boolean; message: string } | null>(null);
   useEffect(() => {
     if (!result?.matched) return;
-    const timer = window.setTimeout(() => navigate("/demo"), 2500);
+    const timer = window.setTimeout(() => navigate("/analyze/replay"), 2500);
     return () => window.clearTimeout(timer);
   }, [result, navigate]);
 
@@ -82,7 +97,7 @@ function Analyze({ data }: { data: Snapshot }) {
   return <main className="static-main analyze-main"><div className="breadcrumb"><Link to="/">홈</Link><span>/</span> 보고서 분석</div>
     <section className="analyze-heading"><p className="eyebrow">REPORT ANALYSIS</p><h1>이미 처리한 보고서라면,<br />결과를 바로 불러옵니다.</h1><p>PDF의 SHA-256 지문을 이 브라우저에서 계산해 저장된 실행 기록과 대조합니다. 파일은 서버로 전송되지 않습니다.</p></section>
     <section className="analyze-grid"><div className="surface analyze-upload"><h2>PDF 보고서 선택</h2><p>파일을 놓거나 눌러 선택하세요.</p><label className="drop-zone" onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); void inspect(event.dataTransfer.files[0]); }}><span aria-hidden="true">↥</span><strong>{busy ? "파일 지문 계산 중…" : "PDF 파일을 여기에 놓기"}</strong><small>또는 클릭해 파일 선택 · PDF는 이 브라우저 안에서만 읽습니다</small><input type="file" accept=".pdf,application/pdf" aria-label="분석할 PDF 선택" disabled={busy} onChange={event => { void inspect(event.target.files?.[0]); event.target.value = ""; }} /></label>
-      {result && <div className={`analyze-result ${result.matched ? "match" : "no-match"}`} role="status"><small>{result.name}</small><h3>{result.message}</h3>{result.matched ? <><p>{data.processed_reports[0].run_label} · {data.processed_reports[0].scope}</p><p>원래 모델 파이프라인 약 6.3시간 + 로컬 후처리 약 4분 → 캐시 즉시</p><p>저장된 실행 결과의 재생이며 새 분석이나 전체 보고서 판정이 아닙니다.</p><Link to="/demo">저장된 결과 바로 보기 ↗</Link><small>잠시 후 자동으로 결과 페이지로 이동합니다.</small></> : <><p>전체 보고서 분석은 로컬 파이프라인에서 진행되며, 수 시간이 걸리고 유료 모델 호출이 발생합니다.</p><Link to="/live">한 문장 실시간 체험하기 ↗</Link></>}</div>}
+      {result && <div className={`analyze-result ${result.matched ? "match" : "no-match"}`} role="status"><small>{result.name}</small><h3>{result.message}</h3>{result.matched ? <><p>{data.processed_reports[0].run_label} · {data.processed_reports[0].scope}</p><p>저장된 처리 기록을 바로 재생합니다.</p><Link to="/analyze/replay">처리 과정 보기 ↗</Link><small>잠시 후 처리 과정으로 이동합니다.</small></> : <><p>새 보고서 분석은 별도 실행으로 진행됩니다.</p><Link to="/live">한 문장 실시간 체험하기 ↗</Link></>}</div>}
     </div><aside className="surface analyze-info"><p className="eyebrow">SAVED RUN</p><h2>NAVER 2025 통합보고서</h2><p>저장된 모델 실행 → 위임 검토 결과를 다시 보여줍니다. AI 위임 검토 27건은 프로젝트 소유자가 2026-09-29 확인했습니다.</p><div><span>처리 범위</span><strong>선택 페이지 54 / 244쪽</strong></div><div><span>원자 주장</span><strong>{data.coverage.claims_discovered}건</strong></div><div><span>규칙 판정</span><strong>{data.coverage.claims_decided}건</strong></div><p className="analyze-note">일치하는 PDF만 저장된 결과에 연결됩니다. 새로운 PDF는 자동으로 모델에 보내지 않습니다.</p></aside></section>
   </main>;
 }
@@ -90,13 +105,14 @@ function Analyze({ data }: { data: Snapshot }) {
 function Landing({ data }: { data: Snapshot }) {
   return <main className="static-main">
     <section className="hero"><div className="hero-copy"><p className="eyebrow"><span className="live-dot" /> ESG EVIDENCE REVIEW</p>
-      <h1>공시의 모든 문장에<br /><em>근거의 경로</em>를 만듭니다.</h1>
-      <p className="hero-lead">지속가능성 보고서의 주장을 원문과 연결하고, 검토가 필요한 지점을 먼저 보여주는 입증 검토 도구입니다.</p>
+      <h1>공시 문장 하나마다<br /><em>근거를 연결합니다.</em></h1>
+      <p className="hero-lead">긴 지속가능성 보고서에서 환경 주장을 찾아 원문 근거, 규칙 판정, 검토 기록까지 이어 보여줍니다.</p>
       <div className="hero-actions"><Link className="primary-link" to="/demo">NAVER 실제 결과 살펴보기 <span>↗</span></Link><Link to="/live">실시간 체험 ↗</Link><a href="#how">작동 방식 ↓</a></div>
-      <p className="hero-footnote">부분 실행(선택 페이지 54/244쪽) · {confirmationText}</p>
+      <p className="hero-footnote">NAVER 2025 보고서 선택 페이지 검토 · 시연 모드</p>
     </div><div className="hero-visual" aria-label="NAVER 실행 결과 미리보기"><div className="mock-top"><span className="mock-dots">● ● ●</span><span>PROOFOPS / REVIEW</span><span>↗</span></div><div className="mock-body"><div className="mock-label">SAVED CASE <span>01 / NAVER</span></div><h2>주장에서 근거까지,<br />한 화면에서.</h2><div className="mock-claim"><span className="tiny-label">공시 원문 · p.84</span><p>“Operation(환경운영부서)과 Internal Carbon Pricing TF(내부탄소가격제 조직) 운영”</p></div><div className="mock-result"><span className="tiny-label">규칙엔진 판정 · 저장된 실행 결과</span><strong>E3 <span>SUBSTANTIATED</span> <GuideHelp topic="grade" /><GuideHelp topic="label" /></strong><span className="mock-proof">✓ 원문 위치 확인 &nbsp; ✓ 요소 근거 연결</span></div><div className="mock-bottom">추출 → 검증 → 태깅 → 규칙 판정 <span>↗</span></div></div></div></section>
     <section className="intro-grid"><div><p className="eyebrow">THE PROBLEM</p><h2>공시는 길고,<br />검토 시간은 짧습니다.</h2><p>한 문장에 여러 주장이 섞이고, 숫자와 설명은 보고서 곳곳에 흩어집니다. 근거를 찾는 과정이 보이지 않으면 검토도 반복됩니다.</p></div><div><p className="eyebrow">OUR APPROACH</p><h2>문장과 근거를<br />함께 기록합니다.</h2><p>주장을 나누고 원문 위치를 확인한 다음, 요소별 근거와 미해결 상태를 남깁니다. 검토자는 판정의 입력부터 확인할 수 있습니다.</p></div></section>
     <section className="pipeline-section" id="how"><div className="section-top"><p className="eyebrow">HOW IT WORKS</p><h2>읽기부터 보고서까지, 7단계</h2><p>모델은 추출과 태깅을 돕고, 등급과 라벨은 고정된 Python 규칙엔진이 계산합니다.</p></div><ol className="pipeline">{pipeline.map((stage, index) => <li key={stage}><span>{String(index + 1).padStart(2, "0")}</span><strong>{stage}</strong></li>)}</ol></section>
+    <section className="service-flow"><div className="section-top"><p className="eyebrow">SERVICE FLOW</p><h2>서비스 흐름</h2><p>처리 과정을 살펴보고, 주장별 근거를 확인한 뒤 검토와 보고서까지 이어가세요.</p></div><div className="flow-links"><Link to="/analyze/replay"><span>01</span><strong>처리 과정 재생</strong><small>PDF에서 판정까지</small></Link><Link to="/demo"><span>02</span><strong>결과 탐색</strong><small>주장과 근거 보기</small></Link><Link to={`/review/${data.claims.find(claim => claim.track)?.id || data.claims[0]?.id}`}><span>03</span><strong>검토 체험</strong><small>태깅 수정 흐름</small></Link><Link to="/report/naver"><span>04</span><strong>보고서</strong><small>검토 결과 정리</small></Link><Link to="/live"><span>05</span><strong>실시간 체험</strong><small>한 문장 분석</small></Link></div></section>
     <section className="principles"><div className="section-top"><p className="eyebrow">DESIGN PRINCIPLES</p><h2>판정의 이유를 남기는 세 가지 원칙</h2></div><div className="principle-grid"><article><span>01</span><h3>등급은 규칙엔진이</h3><p>LLM은 주장과 근거를 읽고 태깅합니다. 등급·라벨은 기록된 규칙팩으로 재현합니다.</p></article><article><span>02</span><h3>모름은 부재가 아닙니다</h3><p>unknown, conflict, 판독 불가는 그대로 드러냅니다. 미확인을 E0로 계산하지 않습니다.</p></article><article><span>03</span><h3>원문까지 추적합니다</h3><p>근거 문구와 물리 페이지를 연결합니다. 검증된 원문 없이 present를 인정하지 않습니다.</p></article></div></section>
     <section className="landing-cta"><div><p className="eyebrow">REAL CASE / NAVER 2025</p><h2>실제 331개 주장 중<br />어디까지 검토됐을까요?</h2><p>처리 흐름과 판정·보류를 구분해 확인해 보세요.</p></div><div><div className="cta-number">{data.coverage.claims_decided}<span> / {data.coverage.claims_discovered}</span></div><p>규칙 판정 기록 / 추출 주장</p><Link className="primary-link light" to="/demo">결과 직접 살펴보기 ↗</Link></div></section>
   </main>;
@@ -104,6 +120,7 @@ function Landing({ data }: { data: Snapshot }) {
 
 function gradeText(claim: Claim) {
   if (claim.decision.grade) return claim.decision.grade;
+  if (claim.decision.display_grade) return `${claim.decision.display_grade} 추정`;
   const range = claim.decision.grade_range;
   if (range) return `${range.floor}–${range.ceiling} 가능`;
   return "미판정";
@@ -132,36 +149,54 @@ function gradeWhy(claim: Claim) {
   return `${evidence}${decision.status === "not_run" ? "이 주장에는 규칙 판정이 실행되지 않았으므로 등급과 라벨이 없습니다." : `${statusText[decision.status] || "미해결 상태"}로 확정 등급을 계산하지 않았습니다.`}`;
 }
 
+type Queue = "decided" | "estimated" | "unverified" | "unclassified";
+function queueFor(claim: Claim): Queue {
+  const bucket = claim.review_bucket;
+  if (bucket === "decided" || bucket === "estimated" || bucket === "unverified" || bucket === "unclassified") return bucket;
+  if (claim.decision.grade) return "decided";
+  if (claim.decision.display_grade || claim.decision.estimated || claim.decision.grade_range) return "estimated";
+  if (!claim.source_verified) return "unverified";
+  return "unclassified";
+}
+const queueLabels: Record<Queue, string> = { decided: "판정 완료", estimated: "추정 등급", unverified: "원문 미검증", unclassified: "미분류" };
+const queues = Object.keys(queueLabels) as Queue[];
+const gradeOrder: Record<string, number> = { E3: 0, E2: 1, E1: 2, E0: 3 };
+
 function Demo({ data }: { data: Snapshot }) {
   const { claimId } = useParams();
-  const { hash } = useLocation();
+  const { hash, search: routeSearch } = useLocation();
   const [track, setTrack] = useState("all");
   const [grade, setGrade] = useState("all");
   const [status, setStatus] = useState("all");
   const [search, setSearch] = useState("");
   const [limit, setLimit] = useState(25);
-  const [decidedOnly, setDecidedOnly] = useState(false);
-  const selected = data.claims.find(claim => claim.id === claimId) || null;
+  const [queue, setQueue] = useState<Queue>(() => {
+    const requested = new URLSearchParams(routeSearch).get("queue");
+    return queues.includes(requested as Queue) ? requested as Queue : queueFor(data.claims.find(claim => claim.id === claimId) || data.claims.find(claim => claim.decision.grade) || data.claims[0]);
+  });
+  const selected = data.claims.find(claim => claim.id === claimId && queueFor(claim) === queue) || null;
   useEffect(() => { if (hash === "#claims") document.getElementById("claims")?.scrollIntoView(); }, [hash, claimId]);
   const filtered = useMemo(() => data.claims.filter(claim => {
-    if (decidedOnly && claim.decision.status !== "decided") return false;
+    if (queueFor(claim) !== queue) return false;
     if (track !== "all" && (claim.track || "unknown") !== track) return false;
     if (grade === "E3" && claim.decision.grade !== "E3") return false;
     if (grade === "range" && !claim.decision.grade_range) return false;
     if (grade === "none" && (claim.decision.grade || claim.decision.grade_range)) return false;
     if (status !== "all" && claim.decision.status !== status) return false;
     return !search || `${claim.quote} ${claim.id} ${claim.page ?? ""}`.toLowerCase().includes(search.toLowerCase());
-  }), [data.claims, decidedOnly, track, grade, status, search]);
-  const counts = { decided: data.claims.filter(c => c.decision.grade).length, range: data.claims.filter(c => c.decision.grade_range).length, pending: data.claims.filter(c => !c.decision.grade && !c.decision.grade_range).length };
-  return <main className="static-main demo-main"><div className="breadcrumb"><Link to="/">홈</Link><span>/</span> 실제 검토 결과</div>
-    <section className="demo-heading"><div><p className="eyebrow">CASE STUDY · 2025</p><h1>NAVER 공시 검토 결과</h1><p>실제 보고서에서 추출한 주장과 원문 근거, 규칙 판정을 탐색할 수 있습니다.</p><div className="badges"><span className="badge amber">부분 실행(선택 페이지 54/244쪽)</span><span className="badge blue">{confirmationText}</span><span className="badge blue">저장된 실행 결과 재생</span></div></div><div className="heading-side"><span>RUN STATUS</span><strong>검토 사용자 확인 완료 <i /></strong><small>실행 기록 {new Date(data.generated_at).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" })}</small></div></section>
+  }).sort((a, b) => (gradeOrder[a.decision.grade || a.decision.display_grade || a.decision.grade_range?.floor || ""] ?? 4) - (gradeOrder[b.decision.grade || b.decision.display_grade || b.decision.grade_range?.floor || ""] ?? 4) || (a.page ?? 9999) - (b.page ?? 9999)), [data.claims, queue, track, grade, status, search]);
+  const counts = { decided: data.claims.filter(c => queueFor(c) === "decided").length, range: data.claims.filter(c => queueFor(c) === "estimated").length, pending: data.claims.filter(c => queueFor(c) === "unverified" || queueFor(c) === "unclassified").length };
+  const queueCounts = Object.fromEntries(queues.map(name => [name, data.claims.filter(claim => queueFor(claim) === name).length])) as Record<Queue, number>;
+  return <main className="static-main demo-main"><div className="breadcrumb"><Link to="/">홈</Link><span>/</span> 실제 검토 결과</div><CompanyTabs selected="naver" />
+    <section className="demo-heading"><div><p className="eyebrow">CASE STUDY · 2025</p><h1>NAVER 공시 검토 결과</h1><p>실제 보고서에서 추출한 주장과 원문 근거, 규칙 판정을 탐색할 수 있습니다.</p><div className="badges"><span className="badge amber">선택 페이지 {data.coverage.pages_processed}/{data.coverage.pages_total}쪽</span><span className="badge blue">{confirmationText}</span><span className="badge blue">시연 모드</span></div><Link className="report-link" to="/report/naver">검토 보고서 보기 ↗</Link></div><div className="heading-side"><span>RUN STATUS</span><strong>검토 사용자 확인 완료 <i /></strong><small>실행 기록 {new Date(data.generated_at).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" })}</small></div></section>
     <section className="metrics" aria-label="실행 요약"><div><span>추출 주장</span><strong>{data.coverage.claims_discovered}<small>건</small></strong><p>선택 페이지의 원자 주장</p></div><div><span>원문 검증</span><strong>{data.funnel[1].count}<small>건</small></strong><p>모델 실행 단계 기록</p></div><div><span>판정 기록</span><strong>{counts.decided}<small>건</small></strong><p>Python 규칙엔진</p></div><div><span>판정 미완료</span><strong>{data.coverage.claims_needs_review}<small>건</small></strong><p>미판정과 보류 포함</p></div></section>
     <section className="overview-grid"><div className="surface funnel-card"><div className="card-heading"><div><p className="eyebrow">PROCESS FUNNEL</p><h2>처리 흐름</h2></div><span>모델 실행 → 위임 검토</span></div><div className="funnel-list">{data.funnel.map((step, index) => <div className="funnel-row" key={step.label}><span className="step-name"><b>{String(index + 1).padStart(2, "0")}</b>{step.label}</span><div className="bar-track"><div style={{ width: `${Math.max(step.count / 331 * 100, 3)}%` }} /></div><strong>{step.count}</strong></div>)}</div><p className="caption">{data.funnel_source}</p></div>
-      <div className="surface grade-card"><p className="eyebrow">DECISION DISTRIBUTION</p><h2>등급과 보류 <GuideHelp topic="grade" /><GuideHelp topic="range" /></h2><div className="grade-bars"><div><span><b>E3</b> 규칙 판정</span><strong>{counts.decided}</strong></div><div className="grade-line e3"><i style={{ width: `${counts.decided / data.claims.length * 100}%` }} /></div><div><span><b>범위</b> 근거 보류</span><strong>{counts.range}</strong></div><div className="grade-line range"><i style={{ width: `${counts.range / data.claims.length * 100}%` }} /></div><div><span><b>미판정</b> 처리 전</span><strong>{counts.pending}</strong></div><div className="grade-line pending"><i style={{ width: `${counts.pending / data.claims.length * 100}%` }} /></div></div><p className="caption">막대는 전체 {data.claims.length}건 기준입니다. 판정된 {counts.decided}건의 등급은 모두 E3이며, 범위 {counts.range}건은 확정 등급이 아닙니다.</p></div></section>
-    <section className="notice"><strong>검토 범위 안내</strong><p>244쪽 중 처리 54쪽, 미처리 187쪽, 판독 불가 3쪽입니다. 전체 보고서의 정확도나 공시 적합성을 뜻하지 않습니다. 독립 읽기 검토에서 E3 17건 중 15건 동의, 2건은 당시 추가 점검 대상으로 분류됐으며, 17건 모두 프로젝트 소유자가 2026-09-29 확인했습니다. <a href="https://www.navercorp.com/esg/esgReports" target="_blank" rel="noopener noreferrer">NAVER 공식 보고서 ↗</a></p></section>
-    <section className="claims-section" id="claims"><div className="card-heading"><div><p className="eyebrow">EVIDENCE EXPLORER</p><h2>주장별 검토</h2><p>문장을 선택해 원문 페이지와 요소별 근거를 확인하세요.</p></div><span>{filtered.length} / {data.claims.length}건</span></div>
-      <div className="filters"><label>검색<input value={search} onChange={event => { setSearch(event.target.value); setLimit(25); }} placeholder="문장, ID, 페이지 검색" /></label><label>트랙 <GuideHelp topic="track" /><select value={track} onChange={event => { setTrack(event.target.value); setLimit(25); }}><option value="all">전체 트랙</option><option value="management">관리체계</option><option value="goal">목표</option><option value="performance">성과</option><option value="unknown">분류 미합의</option></select></label><label>등급 <GuideHelp topic="grade" /><select value={grade} onChange={event => { setGrade(event.target.value); setLimit(25); }}><option value="all">전체 등급</option><option value="E3">E3 확정</option><option value="range">등급 범위</option><option value="none">미판정</option></select></label><label>상태 <GuideHelp topic="state" /><select value={status} onChange={event => { setStatus(event.target.value); setLimit(25); }}><option value="all">전체 상태</option><option value="decided">규칙 판정</option><option value="blocked_evidence">근거 보류</option><option value="not_run">미판정</option></select></label></div><div className="quick-filters"><button type="button" className={decidedOnly ? "active" : ""} aria-pressed={decidedOnly} onClick={() => { setDecidedOnly(!decidedOnly); setLimit(25); }}>판정된 {counts.decided}건</button><span title="목표·성과·관리체계 트랙의 태깅 합의가 아직 없어 규칙 판정을 실행하지 않은 주장입니다.">분류 미합의 ⓘ</span></div>
-      <div className="claims-layout"><div className="claim-list" aria-label="주장 목록">{filtered.slice(0, limit).map(claim => <Link className={`claim-item ${selected?.id === claim.id ? "selected" : ""}`} to={`/demo/${claim.id}#claims`} key={claim.id}><div className="claim-item-top"><span>p.{claim.page ?? "?"} · {claim.track ? trackText[claim.track] : <span title="트랙 태깅 합의 전">분류 미합의 ⓘ</span>}</span><span className={`mini-status ${claim.decision.grade ? "good" : claim.decision.grade_range ? "warn" : "muted"}`}>{gradeText(claim)}</span></div><p>{claim.quote}</p><small>{statusText[claim.decision.status] || claim.decision.status}{claim.review.audit === "uncertain" ? " · 사용자 확인 완료" : ""}</small></Link>)}{filtered.length === 0 ? <p className="empty">조건에 맞는 주장이 없습니다.</p> : null}{filtered.length > limit ? <button className="more-button" onClick={() => setLimit(limit + 25)}>더 보기 ({filtered.length - limit}건 남음)</button> : null}</div><ClaimDetail claim={selected} /></div>
+      <div className="surface grade-card"><p className="eyebrow">DECISION DISTRIBUTION</p><h2>등급과 보류 <GuideHelp topic="grade" /><GuideHelp topic="range" /></h2><div className="grade-bars"><div><span><b>확정</b> 규칙 판정</span><strong>{counts.decided}</strong></div><div className="grade-line e3"><i style={{ width: `${counts.decided / data.claims.length * 100}%` }} /></div><div><span><b>추정</b> 검토 대상</span><strong>{counts.range}</strong></div><div className="grade-line range"><i style={{ width: `${counts.range / data.claims.length * 100}%` }} /></div><div><span><b>나머지</b> 확인 대기</span><strong>{counts.pending}</strong></div><div className="grade-line pending"><i style={{ width: `${counts.pending / data.claims.length * 100}%` }} /></div></div><p className="caption">전체 {data.claims.length}건 중 확정 판정과 추정 등급을 구분해 표시합니다.</p></div></section>
+    <section className="notice"><strong>검토 범위</strong><p>{data.coverage.pages_total}쪽 중 {data.coverage.pages_processed}쪽 처리 · {data.coverage.pages_unreadable}쪽 판독 불가 · 추정 등급은 시연 모드로 표시합니다. <a href="https://www.navercorp.com/esg/esgReports" target="_blank" rel="noopener noreferrer">NAVER 공식 보고서 ↗</a></p></section>
+    <section className="claims-section" id="claims"><div className="card-heading"><div><p className="eyebrow">REVIEW QUEUE</p><h2>검토 큐</h2><p>상태를 선택하고 문장을 열어 원문과 요소별 근거를 확인하세요.</p></div><span>{filtered.length} / {data.claims.length}건</span></div>
+      <div className="queue-tabs" role="tablist" aria-label="검토 상태">{queues.map(name => <button type="button" role="tab" aria-selected={queue === name} key={name} onClick={() => { setQueue(name); setGrade("all"); setStatus("all"); setLimit(25); }}>{queueLabels[name]} <span>{queueCounts[name]}</span></button>)}</div>
+      <div className="filters"><label>검색<input value={search} onChange={event => { setSearch(event.target.value); setLimit(25); }} placeholder="문장, ID, 페이지 검색" /></label><label>트랙 <GuideHelp topic="track" /><select value={track} onChange={event => { setTrack(event.target.value); setLimit(25); }}><option value="all">전체 트랙</option><option value="management">관리체계</option><option value="goal">목표</option><option value="performance">성과</option><option value="unknown">분류 미합의</option></select></label><label>등급 <GuideHelp topic="grade" /><select value={grade} onChange={event => { setGrade(event.target.value); setLimit(25); }}><option value="all">전체 등급</option><option value="E3">E3</option><option value="range">추정</option><option value="none">미판정</option></select></label><label>상태 <GuideHelp topic="state" /><select value={status} onChange={event => { setStatus(event.target.value); setLimit(25); }}><option value="all">전체 상태</option><option value="decided">규칙 판정</option><option value="blocked_evidence">근거 보류</option><option value="not_run">미판정</option></select></label></div>
+      <div className="claims-layout"><div className="claim-list" aria-label="주장 목록">{filtered.slice(0, limit).map(claim => <Link className={`claim-item ${selected?.id === claim.id ? "selected" : ""}`} to={`/demo/${claim.id}?queue=${queue}#claims`} key={claim.id}><div className="claim-item-top"><span>p.{claim.page ?? "?"} · {claim.track ? trackText[claim.track] : <span title="트랙 태깅 합의 전">분류 미합의 ⓘ</span>}</span><span className={`mini-status ${claim.decision.grade ? "good" : claim.decision.grade_range ? "warn" : "muted"}`}>{gradeText(claim)}</span></div><p>{claim.quote}</p><small>{statusText[claim.decision.status] || claim.decision.status}{claim.review.audit === "uncertain" ? " · 사용자 확인 완료" : ""}</small></Link>)}{filtered.length === 0 ? <p className="empty">조건에 맞는 주장이 없습니다.</p> : null}{filtered.length > limit ? <button className="more-button" onClick={() => setLimit(limit + 25)}>더 보기 ({filtered.length - limit}건 남음)</button> : null}</div><ClaimDetail key={selected?.id || "empty"} claim={selected} /></div>
     </section>
     <DecisionGuide />
     <section className="method-note"><h2>실행 기록</h2><div><p><strong>규칙팩</strong> {data.run.rule_pack_name} ({data.run.rule_pack_id.slice(0, 8)}…) · <code>{data.run.rule_pack_hash.slice(0, 16)}…</code></p><p><strong>모델</strong> {data.run.model_note}</p><p><strong>모델 실행 비용·시간</strong> 유료 호출 {data.run.r72_paid_calls.toLocaleString()}회 / ${data.run.r72_cost_usd.toFixed(6)} · 파싱·추출 {Math.round(data.run.r72_elapsed_seconds.parse_extraction / 60).toLocaleString()}분, 태깅 {Math.round(data.run.r72_elapsed_seconds.tagging / 60)}분, 로컬 후처리 {Math.round(data.run.r72_elapsed_seconds.local_postprocess / 60)}분</p><p><strong>위임 검토</strong> {Math.round(data.run.r85_review_seconds)}초 · 신규 모델 호출 {data.run.r85_model_calls}건</p></div></section>
@@ -169,9 +204,12 @@ function Demo({ data }: { data: Snapshot }) {
 }
 
 function ClaimDetail({ claim }: { claim: Claim | null }) {
+  const [reviewMode, setReviewMode] = useState(false);
   if (!claim) return <aside className="claim-detail"><div className="detail-empty"><span>↖</span><h3>주장을 선택하세요</h3><p>왼쪽 목록에서 문장을 선택하면 근거와 판정 경로를 볼 수 있습니다.</p></div></aside>;
   const d = claim.decision;
   return <aside className="claim-detail"><div className="detail-top"><div><p className="eyebrow">CLAIM DETAIL · p.{claim.page ?? "?"}</p><h3>주장과 판정 근거</h3></div><Link to="/demo#claims" aria-label="상세 닫기">×</Link></div><div className="source-quote"><span>보고서 원문 · p.{claim.page ?? "?"}</span><blockquote>“{claim.quote}”</blockquote><small>{claim.source_verified ? "원문 인용 검증 기록 있음" : "원문 검증 기록 없음"}</small></div>
+    <div className="detail-actions"><button type="button" aria-pressed={reviewMode} onClick={() => setReviewMode(!reviewMode)}>검토 모드 {reviewMode ? "닫기" : "열기"}</button><Link to={`/report/naver`}>보고서 ↗</Link></div>
+    {reviewMode && <ReviewSimulator claim={claim} />}
     <div className="why-panel"><h4>왜 이 등급인가 <GuideHelp topic="grade" /></h4><p>{gradeWhy(claim)}</p></div>
     <div className="decision-panel"><span>저장된 규칙엔진 결과 · {claim.review.status === "user_confirmed" ? confirmationText : "처리 단계 대기"}</span><strong>{gradeText(claim)} <GuideHelp topic={d.grade_range ? "range" : "grade"} /></strong><p>{d.label || statusText[d.status] || d.status} <GuideHelp topic="label" /></p>{claim.review.audit === "uncertain" ? <div className="audit-alert">독립 읽기 검토에서 당시 추가 점검 대상으로 분류 · 사용자 확인 완료 (2026-09-29)</div> : null}</div>
     <div className="detail-block"><h4>요소별 근거 <GuideHelp topic="state" /></h4>{claim.elements.length ? <div className="element-table-wrap"><table className="element-table"><thead><tr><th>요소</th><th>상태</th><th>원문 근거</th></tr></thead><tbody>{claim.elements.map(element => <tr key={element.id}><th scope="row"><b>{element.id}</b><span>{elementLabels[element.id] || element.id}</span></th><td><span className={`element-state ${element.state}`}>{stateText[element.state] || element.state}</span></td><td>{element.evidence.length ? element.evidence.map((ref, index) => <p key={index}><small>p.{ref.page ?? "?"}</small> “{ref.quote}”</p>) : <span className="no-evidence">연결된 원문 근거 없음</span>}</td></tr>)}</tbody></table></div> : <p className="caption">요소 태깅 전입니다. 빈 요소를 absent로 보지 않습니다.</p>}</div>

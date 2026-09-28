@@ -1,0 +1,77 @@
+import assert from "node:assert/strict";
+import { mkdir, writeFile } from "node:fs/promises";
+
+const base = process.env.PROOFOPS_BASE_URL || "http://127.0.0.1:4173";
+const chrome = process.env.PROOFOPS_CHROME_URL || "http://127.0.0.1:9229";
+const shots = process.argv[2];
+const data = await (await fetch(`${base}/demo/naver-2025.json`)).json();
+const reviewId = data.claims.find(claim => claim.track)?.id;
+const detailId = data.claims.find(claim => claim.decision.grade)?.id;
+assert(reviewId && detailId);
+const routes = [
+  ["home", "/", ".hero"], ["analyze", "/analyze", ".analyze-main"],
+  ["replay", "/analyze/replay", ".replay-page"], ["naver", "/demo", ".demo-main"],
+  ["claim", `/demo/${detailId}`, ".claim-detail"], ["kia", "/demo/kia", ".kia-case"],
+  ["review", `/review/${reviewId}`, ".review-sim"],
+  ["report-naver", "/report/naver", ".audit-page"],
+  ["report-kia", "/report/kia", ".audit-page"],
+  ["live", "/live", ".live-main"], ["404", "/missing-page", ".not-found"],
+];
+const targets = await (await fetch(`${chrome}/json`)).json();
+const target = targets.find(item => item.type === "page");
+assert(target, "Chrome page target required");
+const socket = new WebSocket(target.webSocketDebuggerUrl);
+await new Promise((resolve, reject) => { socket.onopen = resolve; socket.onerror = reject; });
+let id = 0;
+const pending = new Map();
+socket.onmessage = ({ data }) => {
+  const message = JSON.parse(data);
+  if (message.id && pending.has(message.id)) {
+    const { resolve, reject } = pending.get(message.id);
+    pending.delete(message.id);
+    message.error ? reject(new Error(message.error.message)) : resolve(message.result);
+  }
+};
+function call(method, params = {}) {
+  return new Promise((resolve, reject) => {
+    const key = ++id;
+    pending.set(key, { resolve, reject });
+    socket.send(JSON.stringify({ id: key, method, params }));
+  });
+}
+async function evaluate(expression) {
+  const reply = await call("Runtime.evaluate", { expression, returnByValue: true });
+  if (reply.exceptionDetails) throw new Error(reply.exceptionDetails.text);
+  return reply.result.value;
+}
+async function waitFor(expression) {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    if (await evaluate(expression)) return;
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  throw new Error(`Timed out: ${expression}`);
+}
+
+try {
+  if (shots) await mkdir(shots, { recursive: true });
+  await call("Page.enable");
+  for (const [size, width, height] of [["desktop", 1400, 900], ["mobile", 390, 844]]) {
+    await call("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: size === "mobile" });
+    for (const [name, path, selector] of routes) {
+      await call("Page.navigate", { url: `${base}${path}` });
+      await waitFor(`location.pathname === ${JSON.stringify(path)} && !!document.querySelector(${JSON.stringify(selector)})`);
+      await new Promise(resolve => setTimeout(resolve, 350));
+      const state = await evaluate(`({text: document.body.innerText, overflow: document.documentElement.scrollWidth > innerWidth})`);
+      assert(!state.text.includes("불러오지 못했습니다"), `${path}: loading error`);
+      assert(!state.overflow, `${path}: ${width}px horizontal overflow`);
+      assert(state.text.length > 80, `${path}: empty page`);
+      if (shots) {
+        const shot = await call("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
+        await writeFile(`${shots}/${name}-${size}.png`, Buffer.from(shot.data, "base64"));
+      }
+      console.log(`${size} ${path}: ok`);
+    }
+  }
+} finally {
+  socket.close();
+}
