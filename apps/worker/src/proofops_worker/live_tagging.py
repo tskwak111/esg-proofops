@@ -671,7 +671,7 @@ class LiveTaggingRuntime:
             return records, results, signatures, provider_ids, False
 
         workers = (
-            min(getattr(self.runner, "max_workers", 1), 3)
+            min(getattr(self, "replica_workers", getattr(self.runner, "max_workers", 1)), 3)
             if settings.model_id == "openai/gpt-6-luna" and settings.wire_policy_version == 2
             else 1
         )
