@@ -55,6 +55,70 @@ def setup_run(tmp_path, monkeypatch, *, paragraphs=5, limit=2, probe=None, extra
     return service, run_id, runner, now, probe, graph
 
 
+def test_prefetched_fallback_calls_base_extractor_once(tmp_path, monkeypatch):
+    service, run_id, runner, _, probe, _ = setup_run(
+        tmp_path, monkeypatch, paragraphs=2, limit=2
+    )
+    probe.model = "openai/gpt-6-luna"  # select the prefetch path with a fake transport
+    original = extract_runner_module.prefetch_packets
+
+    def partially_prefetched(packets, invoke, *, max_workers):
+        return original(packets[:1], invoke, max_workers=max_workers)
+
+    monkeypatch.setattr(extract_runner_module, "prefetch_packets", partially_prefetched)
+    assert runner.run_once(tenant_id=TENANT, run_id=run_id) == "committed"
+    assert len(probe.calls) == 2
+
+
+def test_slow_sixteen_worker_prefetch_keeps_extract_lease(tmp_path, monkeypatch):
+    from proofops.adapters.local import upstage as upstage_module
+
+    monkeypatch.setitem(upstage_module.POLICY, "limit_usd", "20.00")
+    service, run_id, runner, now, probe, _ = setup_run(
+        tmp_path, monkeypatch, paragraphs=16, limit=16
+    )
+    probe.model = "openai/gpt-6-luna"
+    original_post = probe._client._post
+    active = peak = 0
+    lock = threading.Lock()
+
+    def slow_post(body):
+        nonlocal active, peak
+        with lock:
+            active += 1
+            peak = max(peak, active)
+        try:
+            time_module.sleep(2.5)
+            return original_post(body)
+        finally:
+            with lock:
+                active -= 1
+
+    probe._client._post = slow_post
+    started = time_module.monotonic()
+    runner.clock = lambda: now[0] + time_module.monotonic() - started
+    original_consume = extract_runner_module.consume_job
+
+    def short_lease(*args, **kwargs):
+        kwargs["lease_seconds"] = 2
+        return original_consume(*args, **kwargs)
+
+    monkeypatch.setattr(extract_runner_module, "consume_job", short_lease)
+    original_heartbeat = service.store.jobs.heartbeat
+    monkeypatch.setattr(
+        service.store.jobs,
+        "heartbeat",
+        lambda lease, *, now, lease_seconds: original_heartbeat(
+            lease, now=now, lease_seconds=min(lease_seconds, 2)
+        ),
+    )
+
+    outcome = runner.run_once(tenant_id=TENANT, run_id=run_id)
+    assert outcome == "committed", (outcome, peak, len(probe.calls))
+    assert peak == 16 and len(probe.calls) == 16
+    assert not any(t.name.startswith("lease-heartbeat:") for t in threading.enumerate())
+
+
 def test_two_bounded_batches_cover_every_source_without_repeating_a_call(tmp_path, monkeypatch):
     service, run_id, runner, now, probe, graph = setup_run(tmp_path, monkeypatch, paragraphs=5)
     assert runner.run_once(tenant_id=TENANT, run_id=run_id) == "committed"
