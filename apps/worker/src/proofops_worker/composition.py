@@ -89,10 +89,17 @@ def build_composition(
         from proofops.adapters.local.upstage_parse import UpstageParseProbe
 
         raster_probe = UpstageParseProbe(os.environ.get("UPSTAGE_API_KEY", ""), note_ledger)
+    upstage_probe = None
+    if profile.parser_mode == "upstage":
+        from proofops.adapters.local.upstage_parse import UpstageParseProbe
+
+        if not note_ledger.is_file():
+            raise ValueError("SHARED_BUDGET_LEDGER_REQUIRED")
+        upstage_probe = UpstageParseProbe(os.environ.get("UPSTAGE_API_KEY", ""), note_ledger)
     runner = LocalParserRunner(
         LocalSQLiteRunStore(database),
         uploads,
-        OpenDataLoaderParser(database.parent / "parser-prepared"),
+        OpenDataLoaderParser(database.parent / "parser-prepared", upstage_probe=upstage_probe),
         profile=profile,
         verify_paragraphs=verify_paragraphs,
         native_typography_tolerance=native_typography_tolerance,

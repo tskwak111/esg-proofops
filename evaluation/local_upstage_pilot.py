@@ -400,6 +400,8 @@ def apply_resume_metadata(args, saved: dict) -> None:
     if requested_output_limit is not None and requested_output_limit != saved_output_limit:
         raise ValueError("--resume cannot change parser-max-output-bytes; create a new run")
     args.parser_max_output_bytes = parser_output_limit(saved_output_limit)
+    args.vision_parse = saved.get("vision_parse", "off")
+    args.parser = saved.get("parser_mode", "local")
     args.model = saved.get("model", args.model)
     args.llm_provider = "openrouter" if args.model == "openai/gpt-6-luna" else "upstage"
     args.verify_paragraphs = bool(saved.get("verify_paragraphs", False))
@@ -536,6 +538,8 @@ def main():
     parser.add_argument("--state", type=Path, required=True)
     parser.add_argument("--key-file", type=Path)
     parser.add_argument("--pages", default="1")
+    parser.add_argument("--vision-parse", choices=("auto", "all", "off"))
+    parser.add_argument("--parser", choices=("upstage", "local"), default="upstage")
     parser.add_argument("--report-year", type=int)
     parser.add_argument("--period-start")
     parser.add_argument("--period-end")
@@ -770,6 +774,10 @@ def main():
     )
     parser.add_argument("--port", type=int, default=8766)
     args = parser.parse_args()
+    if args.vision_parse is None:
+        args.vision_parse = "auto" if args.parser == "upstage" else "off"
+    if args.parser == "upstage" and args.vision_parse == "all":
+        parser.error("--vision-parse all requires --parser local")
     if not args.resume:
         if args.llm_provider == "openrouter":
             if args.model is not None:
@@ -978,6 +986,8 @@ def main():
                 else None
             ),
             table_structure_repair="odl_header_v2" if args.repair_table_headers else None,
+            vision_parse=args.vision_parse,
+            parser_mode=args.parser,
         )
         (state / "parser.json").write_text(json.dumps(config.config_snapshot()))
         if (
@@ -1170,6 +1180,8 @@ def main():
                 ),
             ),
         ]
+        if args.vision_parse != "off" or args.parser == "upstage":
+            profiles[-1][2]["allow_raster_upload"] = True
         if args.raster_ocr:
             from proofops.domain.provenance import canonical_hash
 
@@ -1331,6 +1343,8 @@ def main():
             selected_pages=pages,
             claim_pages=claim_pages,
             parser_max_output_bytes=parser_output_limit(args.parser_max_output_bytes),
+            vision_parse=args.vision_parse,
+            parser_mode=args.parser,
             extraction_batch_calls=args.max_calls,
             extraction_total_calls=args.extraction_total_calls,
             rulepack_approval="ai_delegated_review" if args.ai_project_review else None,
@@ -1397,6 +1411,10 @@ def main():
             json.dump(manifest, stream, ensure_ascii=False, indent=2)
     else:
         manifest = json.loads(manifest_path.read_text())
+        if manifest.get("vision_parse", "off") != args.vision_parse:
+            raise ValueError("pilot vision parse policy changed; create a new state directory")
+        if manifest.get("parser_mode", "local") != args.parser:
+            raise ValueError("pilot parser mode changed; create a new state directory")
         if manifest.get("capacity_refresh", False) != getattr(args, "capacity_refresh", False):
             raise ValueError("pilot capacity refresh policy changed; create a new state directory")
         if args.extraction_total_calls is not None and (
@@ -1493,10 +1511,26 @@ def main():
             if line.startswith(key_name + "=")
         )
         os.environ[key_name] = key
+        if args.parser == "upstage" and key_name != "UPSTAGE_API_KEY":
+            os.environ["UPSTAGE_API_KEY"] = next(
+                line.split("=", 1)[1].strip().strip('"').strip("'")
+                for line in (ROOT / ".env.upstage.local").read_text().splitlines()
+                if line.startswith("UPSTAGE_API_KEY=")
+            )
+        if args.vision_parse != "off" and key_name != "OPENROUTER_API_KEY":
+            os.environ["OPENROUTER_API_KEY"] = next(
+                line.split("=", 1)[1].strip().strip('"').strip("'")
+                for line in (ROOT / ".env.openrouter.local").read_text().splitlines()
+                if line.startswith("OPENROUTER_API_KEY=")
+            )
         try:
             pipeline_outcome = run_live_stages(args, tenant_id=tenant, run_id=run_id)
         finally:
             os.environ.pop(key_name, None)
+            if key_name != "OPENROUTER_API_KEY":
+                os.environ.pop("OPENROUTER_API_KEY", None)
+            if key_name != "UPSTAGE_API_KEY":
+                os.environ.pop("UPSTAGE_API_KEY", None)
     # run_live_stages can run for hours (many extraction/tagging batches); the
     # fixture session minted at process start has a fixed absolute+idle TTL
     # (see SessionRecord above) and can expire well before inspection. Re-mint
@@ -1613,6 +1647,18 @@ def main():
                 for line in key_lines
                 if line.startswith(key_name + "=")
             )
+            if args.parser == "upstage" and key_name != "UPSTAGE_API_KEY":
+                os.environ["UPSTAGE_API_KEY"] = next(
+                    line.split("=", 1)[1].strip().strip('"').strip("'")
+                    for line in (ROOT / ".env.upstage.local").read_text().splitlines()
+                    if line.startswith("UPSTAGE_API_KEY=")
+                )
+            if args.vision_parse != "off" and key_name != "OPENROUTER_API_KEY":
+                os.environ["OPENROUTER_API_KEY"] = next(
+                    line.split("=", 1)[1].strip().strip('"').strip("'")
+                    for line in (ROOT / ".env.openrouter.local").read_text().splitlines()
+                    if line.startswith("OPENROUTER_API_KEY=")
+                )
             from proofops_worker.composition import build_composition
 
             from evaluation.serve_worker import start_background

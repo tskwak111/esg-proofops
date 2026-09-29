@@ -332,6 +332,9 @@ class RunService:
         )
         if not preflight.ready or rights_id not in consent["allowed_document_rights"]:
             raise RunRejected("CONFIG_GATE_BLOCKED")
+        if (self.parser_profile.get("parser_mode") == "upstage"
+                and consent.get("allow_raster_upload") is not True):
+            raise RunRejected("CONFIG_GATE_BLOCKED")
         raster_snapshot = {}
         if self.raster_runtime_binding_id is not None or self.raster_policy is not None:
             try:
