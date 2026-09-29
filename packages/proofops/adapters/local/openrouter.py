@@ -9,7 +9,7 @@ import sqlite3
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
-from jsonschema import Draft202012Validator, ValidationError
+from jsonschema import Draft202012Validator, FormatChecker, ValidationError
 
 from proofops.domain.provenance import canonical_hash
 
@@ -161,7 +161,9 @@ class OpenRouterProbe:
             system, user_json, request_id=request_id, max_tokens=max_tokens, json_mode=json_mode
         )
         validator = (
-            Draft202012Validator(json.loads(schema_json)) if schema_json is not None else None
+            Draft202012Validator(json.loads(schema_json), format_checker=FormatChecker())
+            if schema_json is not None
+            else None
         )
         with sqlite3.connect(self.ledger, timeout=10) as db:
             db.execute("BEGIN IMMEDIATE")
