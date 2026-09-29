@@ -1,12 +1,13 @@
 import json
 import sqlite3
 import time
+from dataclasses import asdict
 from threading import Lock
 
 import pytest
 from proofops.adapters.local.openrouter import MODEL, OpenRouterProbe
 from proofops.domain.provenance import canonical_hash
-from proofops_agent.upstage_extraction import _profile
+from proofops_agent.upstage_extraction import UpstageClaimExtractor, _profile
 from proofops_worker.extract_runner import prefetch_packets
 
 SCHEMA = json.dumps(
@@ -43,6 +44,36 @@ def test_luna_request_receipt_and_distinct_model_identity(tmp_path, monkeypatch)
     assert probe.summary()["committed_usd"] == "0.001"
     assert _profile(MODEL).model_sha256 != _profile("solar-pro4").model_sha256
     assert _profile(MODEL).prompt_sha256 == _profile("solar-pro4").prompt_sha256
+
+
+def test_luna_extraction_receipt_replays_under_frozen_identity(tmp_path, monkeypatch):
+    probe = OpenRouterProbe("test-key", tmp_path / "budget.sqlite3")
+    sent = []
+    content = '{"claims":["회사는 2030년까지 배출량을 20% 줄이기로 했다."]}'
+    monkeypatch.setattr(probe, "_post", lambda body: sent.append(body) or response(content))
+    extractor = UpstageClaimExtractor(probe, tmp_path / "receipts")
+    packet = {
+        "tenant_id": "b490d4e4-0192-426c-9dff-c6c7b8c498d3",
+        "document_version_id": "35d03dcb-c9d0-40d6-a3d1-8f9dc7322ee1",
+        "parse_manifest_id": "62919374-bd2d-4273-85b4-7a1f793b8c14",
+        "source_sha256": "c6395dd2be7948d85fa2b52c6edb61367fa6610c6f389c2478b44cb4cfcb5bde",
+        "extraction_profile": asdict(extractor.profile),
+        "untrusted_document_data": {
+            "source_id": "11111111-2222-4333-8444-555555555555",
+            "page_num": 25,
+            "kind": "paragraph",
+            "text": "회사는 2030년까지 배출량을 20% 줄이기로 했다. 일반 산업 설명이다.",
+        },
+    }
+    first = extractor.extract(packet)
+    assert extractor.extract(packet) == first
+    assert len(sent) == 1
+    receipt_dir = next(path for path in (tmp_path / "receipts").iterdir() if path.is_dir())
+    raw = json.loads((receipt_dir / "raw_response.json").read_text())
+    assert raw["provider"] == "openrouter"
+    assert raw["model"] == MODEL
+    result = json.loads((receipt_dir / "result.json").read_text())
+    assert result["profile"] == asdict(extractor.profile)
 
 
 def test_invalid_schema_retries_once_and_settles_both_costs(tmp_path, monkeypatch):
