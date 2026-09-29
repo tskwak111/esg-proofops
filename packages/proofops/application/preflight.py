@@ -397,7 +397,21 @@ def _check_local_upstage_binding(
             if model_id in models
             else None
         )
-        model_hash_ok = expected is not None and model_sha256 == expected
+        accepted = {expected} if expected is not None else set()
+        if expected is not None and openrouter:
+            from proofops.adapters.local.openrouter import WIRE_POLICY
+
+            accepted.add(
+                canonical_hash(
+                    {
+                        "model": model_id,
+                        "provider": "openrouter",
+                        "transport": transport,
+                        "wire_policy": WIRE_POLICY,
+                    }
+                )
+            )
+        model_hash_ok = model_sha256 in accepted
     add(
         "model_binding",
         binding.get("role") == expected_role
