@@ -697,17 +697,18 @@ class LocalExtractRunner:
                             )
                             for block in candidates
                         ]
+                        base_extractor = selected_extractor
                         paid = prefetch_packets(
-                            packets, selected_extractor.extract, max_workers=self.max_workers
+                            packets, base_extractor.extract, max_workers=self.max_workers
                         )
 
                         class PrefetchedExtractor:
-                            profile = selected_extractor.profile
+                            profile = base_extractor.profile
 
                             def extract(self, packet):
                                 source_id = packet["untrusted_document_data"]["source_id"]
                                 if source_id not in paid:
-                                    return selected_extractor.extract(packet)
+                                    return base_extractor.extract(packet)
                                 answer = paid[source_id]
                                 if isinstance(answer, Exception):
                                     raise answer
