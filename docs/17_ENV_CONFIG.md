@@ -36,6 +36,8 @@
 | `LOCAL_ARTIFACT_DIR` | `.local/artifacts` | local | local | 로컬만 파일 artifact |
 | `LOCAL_DATABASE_PATH` | `.local/state.sqlite3` | local | local | local integration 용 상태 |
 | `MODEL_ADAPTER` | `synthetic` | yes | all | synthetic/bedrock; production 은 bedrock 만 |
+| `MODEL_ALLOWED_PROCESSING_REGIONS` | `빈 값` | configured model run | all | 승인 profile의 처리 리전과 대조할 쉼표 구분 허용 목록; 빈 값으로 실제 모델 실행을 승인하지 않음 |
+| `DART_API_KEY` | `빈 값` | DART collection | local | OpenDART 수집 CLI가 프로세스 환경에서 읽는 키; 실제 값은 Git에 넣지 않음 |
 | `ENABLE_HYBRID_PARSER` | `false` | yes | all | 승인 benchmark 후 true |
 | `HYBRID_BACKEND_URL` | `빈 값` | hybrid | all | 승인된 local/VPC backend 만 |
 | `ENABLE_LEGACY_PYMUPDF` | `false` | yes | all | license gate 승인 시에만 true |

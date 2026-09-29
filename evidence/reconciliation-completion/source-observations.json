@@ -1,0 +1,68 @@
+{
+  "schema_version": "reconciliation-source-observations-1",
+  "observations": [
+    {
+      "source_id": "samsung-c1-p86",
+      "document_id": "samsung-sr-2025-kor",
+      "artifact_sha256": "342a99a14d7c32b4e66cbbf977cc89dc79044ccc7c5e71367fb476c14538c8c5",
+      "locator": "page:86",
+      "item": "C1",
+      "quote_sha256": "f42a8e0a11bedabf6eb1fc4808ea9a7c03be67306e035d2f5b39056394607378",
+      "literal_verification": "passed",
+      "visual_review": "master_agent_pdfium_render",
+      "render_sha256": "3a0fa049ce6a7f6aa2b4a7fc3ce245608a29f1f3895044b4a8128c4ce94f8394",
+      "human_approval": false
+    },
+    {
+      "source_id": "samsung-c2-p68",
+      "document_id": "samsung-sr-2025-kor",
+      "artifact_sha256": "342a99a14d7c32b4e66cbbf977cc89dc79044ccc7c5e71367fb476c14538c8c5",
+      "locator": "page:68",
+      "item": "C2",
+      "quote_sha256": "4f1d69b2154c1733e9f30254841c9ec6cd81b8fd3a5ee1af7470c5aa1c6bdc56",
+      "literal_verification": "passed",
+      "visual_review": "master_agent_pdfium_render",
+      "render_sha256": "6c0e1ab6448a71fa21266874b41754b4ff9e22056648a2861dbb9b9701015ca5",
+      "human_approval": false
+    },
+    {
+      "source_id": "samsung-c3-p8",
+      "document_id": "samsung-sr-2025-kor",
+      "artifact_sha256": "342a99a14d7c32b4e66cbbf977cc89dc79044ccc7c5e71367fb476c14538c8c5",
+      "locator": "page:8",
+      "item": "C3",
+      "quote_sha256": "6998d96e11a4cab77f5aac617f621ae576fb830c9b85458fb9116690e87922e5",
+      "literal_verification": "passed",
+      "visual_review": "master_agent_pdfium_render",
+      "render_sha256": "18e634c22d64d68c8fb7dcf9a6169c32c073d310583b2998f2e1acb9d6d40d2b",
+      "human_approval": false
+    },
+    {
+      "source_id": "samsung-c4-p84",
+      "document_id": "samsung-sr-2025-kor",
+      "artifact_sha256": "342a99a14d7c32b4e66cbbf977cc89dc79044ccc7c5e71367fb476c14538c8c5",
+      "locator": "page:84",
+      "item": "C4",
+      "quote_sha256": "55697f17796e936cbc86934645ce2d70c355d5a09191dae84e0316da4748a09e",
+      "literal_verification": "passed",
+      "visual_review": "master_agent_pdfium_render",
+      "render_sha256": "7939764f5c3d32445f96bce797751e076bdf650216e00fa7947fe80615b4cf3f",
+      "human_approval": false
+    },
+    {
+      "source_id": "samsung-c4-footnote-p84",
+      "document_id": "samsung-sr-2025-kor",
+      "artifact_sha256": "342a99a14d7c32b4e66cbbf977cc89dc79044ccc7c5e71367fb476c14538c8c5",
+      "locator": "page:84",
+      "item": "C4-footnote",
+      "quote_sha256": "34e71ebfb1c9ecf2edabeb8720ad79a5d0466b8bcafe77e9758ff7df2432cf17",
+      "literal_verification": "passed",
+      "visual_review": "master_agent_pdfium_render",
+      "render_sha256": "7939764f5c3d32445f96bce797751e076bdf650216e00fa7947fe80615b4cf3f",
+      "human_approval": false
+    }
+  ],
+  "authenticated_review_created": false,
+  "coverage_complete": false,
+  "notes_document": "docs/RECONCILIATION_SOURCE_REVIEW.md"
+}
