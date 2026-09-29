@@ -989,6 +989,7 @@ def main():
             table_structure_repair="odl_header_v2" if args.repair_table_headers else None,
             vision_parse=args.vision_parse,
             parser_mode=args.parser,
+            upstage_glyph_boxes=args.parser == "upstage",
         )
         (state / "parser.json").write_text(json.dumps(config.config_snapshot()))
         if (

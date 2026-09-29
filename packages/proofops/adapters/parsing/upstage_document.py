@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import math
+from bisect import bisect_right
 from collections import Counter
 from hashlib import sha256
 from uuid import uuid4
@@ -73,6 +74,7 @@ def candidate_batch(source, profile, selected, batches, *, mode: str, config_has
     failed_html, low_grounding = set(), set()
     with pdfplumber.open(io.BytesIO(source.content)) as document:
         page_words = {p: document.pages[p - 1].extract_words() for p in selected}
+        page_ink = {}
         headings = {p: "" for p in selected}
         cell_counts = {p: [0, 0] for p in selected}
 
@@ -99,6 +101,45 @@ def candidate_batch(source, profile, selected, batches, *, mode: str, config_has
                 if plain and provider_box is not None
                 else (None, None)
             )
+            glyph_box = False
+            if box is not None and kind == "paragraph" and profile.upstage_glyph_boxes:
+                from proofops.adapters.local.native_glyph_geometry import native_word_ink_geometry
+
+                words = page_words[page_num]
+                if page_num not in page_ink:
+                    try:
+                        proof = native_word_ink_geometry(
+                            source.content, page_num, list(range(len(words)))
+                        )
+                        page_ink[page_num] = {
+                            item["native_word_index"]: item["ink_bbox"]
+                            for item in proof["matched_words"]
+                        }
+                    except (KeyError, ValueError):
+                        page_ink[page_num] = {}
+                ends, size = [], 0
+                for word in words:
+                    size += len(compact(word["text"]))
+                    ends.append(size)
+                first = bisect_right(ends, offset)
+                last = bisect_right(ends, offset + len(compact(text)) - 1)
+                if (
+                    (first == 0 or ends[first - 1] == offset)
+                    and ends[last] == offset + len(compact(text))
+                    and all(index in page_ink[page_num] for index in range(first, last + 1))
+                ):
+                    ink = [page_ink[page_num][index] for index in range(first, last + 1)]
+                    # The pinned verifier compares its own native word stream.
+                    # Preserve the exact glyph-matched characters and numbers;
+                    # only whitespace follows that stream's word boundaries.
+                    text = " ".join(words[index]["text"] for index in range(first, last + 1))
+                    box = (
+                        min(item[0] for item in ink),
+                        min(item[1] for item in ink),
+                        max(item[2] for item in ink),
+                        max(item[3] for item in ink),
+                    )
+                    glyph_box = True
             if derived_box is not None and plain:
                 box, offset = derived_box, None
             if box is None:
@@ -135,6 +176,8 @@ def candidate_batch(source, profile, selected, batches, *, mode: str, config_has
                     else ("derived_from_native_cells",)
                 )
             )
+            if glyph_box:
+                context += ("native_glyph_ink_box",)
             native = NativeSource(
                 source.document_version_id,
                 profile.parse_manifest_id,
