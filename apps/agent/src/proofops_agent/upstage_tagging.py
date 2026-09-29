@@ -555,6 +555,8 @@ class UpstageTaggingTransport:
             response = self._failed(code, (monotonic_ns() - started) // 1_000_000)
         else:
             try:
+                if receipt.get("schema_valid") is False:
+                    raise ValueError("provider schema invalid")
                 payload = json.loads(receipt["content"])
                 for element in payload.get("elements", []):
                     selected = element["evidence_refs"]

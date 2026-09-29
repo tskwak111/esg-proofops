@@ -6,6 +6,7 @@ from threading import Lock
 
 import pytest
 from proofops.adapters.local.openrouter import MODEL, OpenRouterProbe
+from proofops.application.claims import ExtractionOutputError
 from proofops.domain.provenance import canonical_hash
 from proofops_agent.upstage_extraction import UpstageClaimExtractor, _profile
 from proofops_worker.extract_runner import prefetch_packets
@@ -81,6 +82,13 @@ def test_luna_extraction_receipt_replays_under_frozen_identity(tmp_path, monkeyp
     }
     result = json.loads((receipt_dir / "result.json").read_text())
     assert result["profile"] == asdict(extractor.profile)
+
+    invalid_probe = OpenRouterProbe("test-key", tmp_path / "invalid.sqlite3")
+    monkeypatch.setattr(invalid_probe, "_post", lambda body: response('{"claims":"wrong"}'))
+    invalid_extractor = UpstageClaimExtractor(invalid_probe, tmp_path / "invalid-receipts")
+    with pytest.raises(ExtractionOutputError, match="MODEL_SPAN_OR_SCHEMA_INVALID"):
+        invalid_extractor.extract(packet)
+    assert invalid_probe.summary()["committed_usd"] == "0.002"
 
 
 def test_invalid_schema_retries_once_and_settles_both_costs(tmp_path, monkeypatch):

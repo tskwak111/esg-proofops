@@ -736,6 +736,8 @@ class UpstageClaimExtractor:
             else {"invalid_transport_type": type(result).__name__}
         )
         self._write(directory / "raw_response.json", canonical_json(metadata))
+        if isinstance(result, dict) and result.get("schema_valid") is False:
+            self._fail(directory, packet_sha, request_id, "MODEL_SPAN_OR_SCHEMA_INVALID")
         if not isinstance(result, dict) or not isinstance(result.get("content"), str):
             self._fail(directory, packet_sha, request_id, "MODEL_SPAN_OR_SCHEMA_INVALID")
         try:
