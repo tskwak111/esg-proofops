@@ -27,7 +27,7 @@ from proofops.adapters.local.run_artifacts import load_run_graph
 from proofops.adapters.local.upstage import UPSTAGE_TRANSPORT_STOP_CODES
 from proofops.adapters.parsing.opendataloader import ParseFailure
 from proofops.application.authorization import AuthContext
-from proofops.application.claim_scope import validate_extraction_limits
+from proofops.application.claim_scope import MAX_EXTRACTION_BATCH_CALLS, validate_extraction_limits
 from proofops.application.claims import (
     ClaimExtractorPort,
     ExtractionOutputError,
@@ -86,13 +86,12 @@ def select_batch_paragraph_sources(
 ) -> set[str]:
     """Next bounded window of eligible prose sources, skipping completed ones.
 
-    The ordering is exactly ``paragraph_priority`` and the per-batch bound is
-    unchanged; continuation advances by excluding the sources a previous batch
-    already model-processed, never by raising the bound. ``completed`` carries
+    The ordering is exactly ``paragraph_priority``; continuation excludes sources
+    a previous batch already model-processed. ``completed`` carries
     exact source identifiers, so a source is never processed twice and a source
     that was merely deferred stays eligible.
     """
-    if type(max_calls) is not int or not 1 <= max_calls <= 20:
+    if type(max_calls) is not int or not 1 <= max_calls <= MAX_EXTRACTION_BATCH_CALLS:
         raise ValueError("EXTRACTION_INPUT_INVALID")
     eligible = (
         block
@@ -329,7 +328,7 @@ class LocalExtractRunner:
             raise ValueError("EXTRACTION_PROFILE_MISMATCH")
         frozen_calls = (limits or {}).get("max_calls", 1)
         if max_calls is not None:
-            if type(max_calls) is not int or not 1 <= max_calls <= 20:
+            if type(max_calls) is not int or not 1 <= max_calls <= MAX_EXTRACTION_BATCH_CALLS:
                 raise ValueError("EXTRACTION_INPUT_INVALID")
             if max_calls > frozen_calls:
                 raise ValueError("EXTRACTION_INPUT_INVALID")
