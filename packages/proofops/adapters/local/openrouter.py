@@ -59,6 +59,7 @@ class OpenRouterProbe:
         self.ledger.chmod(0o600)
         self._responses = self.ledger.with_name(self.ledger.name + ".responses")
         self._responses.mkdir(mode=0o700, exist_ok=True)
+        self._responses.chmod(0o700)
 
     def _total(self, db):
         if db.execute("SELECT body FROM probe_policy WHERE id=1").fetchone() != (
