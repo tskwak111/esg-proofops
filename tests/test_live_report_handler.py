@@ -91,3 +91,16 @@ def test_selected_kia_page_with_fake_transports(monkeypatch):
     assert result["claims"][0]["decision"] is not None
     assert calls == list(report.MAX_MODEL_TOKENS)
     assert result["cost_usd"] == pytest.approx(0.0112)
+
+    def hallucinated(system, user, cap):
+        assert cap == report.MAX_MODEL_TOKENS[0]  # no tagging without source verification
+        return {
+            "claims": [{"block": 0, "quote": "보고서에 없는 환경 주장", "track": "management"}]
+        }, 0.0001
+
+    unverified = report.run_report(
+        pdf, [26], access_code="secret", parse=lambda _: parsed, model=hallucinated
+    )["claims"][0]
+    assert unverified["source_verified"] is False
+    assert unverified["decision"] is None
+    assert unverified["blocked_reason"] == "원문 대조 필요"
