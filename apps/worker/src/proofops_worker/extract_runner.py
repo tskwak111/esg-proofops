@@ -49,7 +49,7 @@ def _is_text_candidate(kind: str, text: str) -> bool:
     return kind == "paragraph" or (kind == "heading" and len(text.strip()) >= 60)
 
 
-def prefetch_packets(packets, invoke, *, max_workers=8):
+def prefetch_packets(packets, invoke, *, max_workers=16):
     """Run paid packets concurrently; replay their outcomes in source order."""
 
     def settle(packet):
@@ -227,12 +227,23 @@ class _ContinuingExtractor:
 
 class LocalExtractRunner:
     def __init__(
-        self, store, uploads, parser, *, extractor: ClaimExtractorPort, telemetry, clock=time.time
+        self,
+        store,
+        uploads,
+        parser,
+        *,
+        extractor: ClaimExtractorPort,
+        telemetry,
+        clock=time.time,
+        max_workers=16,
     ):
         if not uploads.local_synthetic:
             raise ValueError("local extraction requires local storage")
+        if type(max_workers) is not int or not 1 <= max_workers <= 16:
+            raise ValueError("EXTRACTION_CONCURRENCY_INVALID")
         self.store, self.uploads, self.parser = store, uploads, parser
         self.extractor, self.telemetry, self.clock = extractor, telemetry, clock
+        self.max_workers = max_workers
         self.claims = LocalClaimStore(store, uploads, parser)
 
     def _publication_payload(
@@ -448,7 +459,7 @@ class LocalExtractRunner:
                         for block in candidates[:remaining]
                     ]
 
-                    paid = prefetch_packets(packets, live.extract)
+                    paid = prefetch_packets(packets, live.extract, max_workers=self.max_workers)
                     sync_usage()
 
                     class PrefetchedLive:
@@ -544,14 +555,16 @@ class LocalExtractRunner:
             def operation(lease):
                 usage = {"model_calls": 0, "extractor_calls": 0}
                 is_real, since, manifest_id = False, 0, None
+                usage_lock = Lock()
 
                 def sync_usage():
                     if is_real:
-                        usage.update(
-                            self.extractor.cumulative_usage(
-                                since=since, parse_manifest_id=manifest_id
+                        with usage_lock:
+                            usage.update(
+                                self.extractor.cumulative_usage(
+                                    since=since, parse_manifest_id=manifest_id
+                                )
                             )
-                        )
 
                 try:
                     profile = extraction_profile(snapshot)
@@ -645,15 +658,64 @@ class LocalExtractRunner:
                                 )
                                 if not authorization.ready:
                                     raise ValueError("LOCAL_TEST_AUTHORIZATION_INVALID")
-                            self.calls += 1
-                            usage["extractor_calls"] += 1
+                            with usage_lock:
+                                self.calls += 1
+                                usage["extractor_calls"] += 1
                             try:
                                 return live_extractor.extract(packet)
                             finally:
                                 sync_usage()
 
+                    selected_extractor = FencedExtractor()
+                    if (
+                        is_real
+                        and getattr(getattr(self.extractor, "_probe", None), "model", None)
+                        == "openai/gpt-6-luna"
+                    ):
+                        scope = claim_scope(snapshot, graph)
+                        candidates = sorted(
+                            (
+                                block
+                                for block in graph.blocks
+                                if block.source_id in eligible_sources
+                            ),
+                            key=lambda block: (block.page_num, block.source_id),
+                        )
+                        packets = [
+                            dict(
+                                tenant_id=scope.tenant_id,
+                                document_version_id=scope.document_version_id,
+                                parse_manifest_id=scope.parse_manifest_id,
+                                source_sha256=graph.source_sha256,
+                                extraction_profile=asdict(profile),
+                                untrusted_document_data=dict(
+                                    source_id=block.source_id,
+                                    page_num=block.page_num,
+                                    kind=block.kind,
+                                    text=block.normalized_text,
+                                ),
+                            )
+                            for block in candidates
+                        ]
+                        paid = prefetch_packets(
+                            packets, selected_extractor.extract, max_workers=self.max_workers
+                        )
+
+                        class PrefetchedExtractor:
+                            profile = selected_extractor.profile
+
+                            def extract(self, packet):
+                                source_id = packet["untrusted_document_data"]["source_id"]
+                                if source_id not in paid:
+                                    return selected_extractor.extract(packet)
+                                answer = paid[source_id]
+                                if isinstance(answer, Exception):
+                                    raise answer
+                                return answer
+
+                        selected_extractor = PrefetchedExtractor()
                     discovery = discover_atomic_claims(
-                        graph, claim_scope(snapshot, graph), extractor=FencedExtractor()
+                        graph, claim_scope(snapshot, graph), extractor=selected_extractor
                     )
                     current = self.store.jobs.get_run(tenant_id, run_id)
                     checkpoint = self.store.jobs.read_checkpoint(JobMessage(**current["parse_job"]))

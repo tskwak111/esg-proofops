@@ -165,11 +165,14 @@ class LocalTagRunner:
         preliminary=None,
         live_factory=None,
         clock=time.time,
+        max_workers=16,
     ):
         if not uploads.local_synthetic:
             raise ValueError("local tagging requires local storage")
         if transport is not None and getattr(transport, "synthetic", None) is not True:
             raise ValueError("explicit synthetic transport required")
+        if type(max_workers) is not int or not 1 <= max_workers <= 16:
+            raise ValueError("TAGGING_CONCURRENCY_INVALID")
         self.store, self.uploads, self.parser = store, uploads, parser
         self.telemetry, self.transport, self.preliminary, self.clock = (
             telemetry,
@@ -180,6 +183,7 @@ class LocalTagRunner:
         # Set only while an explicit recovery job is executing, so the live runtime
         # can read the bounded acknowledged authorization for its transports.
         self.resume = None
+        self.max_workers = max_workers
         self.claims = LocalClaimStore(store, uploads, parser)
         self.live_factory = live_factory
         self.tags = LocalTagStore(store, uploads, parser)
@@ -542,6 +546,13 @@ class LocalTagRunner:
                 token_counter=transport.token_counter,
                 count_input_tokens=live.count_input_tokens if live is not None else None,
                 now=lambda: int(self.clock()),
+                max_workers=(
+                    self.max_workers
+                    if live is not None
+                    and settings.model_id == "openai/gpt-6-luna"
+                    and settings.wire_policy_version == 2
+                    else 1
+                ),
             )
             if live is not None:
                 for tag_run in tag_runs:

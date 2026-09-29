@@ -302,6 +302,7 @@ def live_tagging_settings(
                 prompt,
                 schema,
                 max_tokens=output,
+                wire_policy_version=2 if model_id == "openai/gpt-6-luna" else 1,
             )
         )
     if model_id == "openai/gpt-6-luna":
@@ -953,7 +954,7 @@ def main():
     digest = sha256(source).hexdigest()
     origin = f"http://localhost:{args.port}"
     from proofops.application.ingest.graph_fusion import ParserProfile
-    from proofops_agent.upstage_extraction import _profile
+    from proofops_agent.upstage_extraction import _profile_with_options
 
     if not manifest_path.exists():
         from proofops.adapters.local.table_source_verification import policy_sha256 as table_policy
@@ -987,8 +988,6 @@ def main():
             or args.extraction_source_ids
             or args.extraction_content_bounds
         ):
-            from proofops_agent.upstage_extraction import _profile_with_options
-
             extraction_profile = asdict(
                 _profile_with_options(
                     args.model,
@@ -1000,10 +999,16 @@ def main():
                     complete_selection=args.extraction_complete_selection,
                     extraction_content_bounds=args.extraction_content_bounds,
                     position_order=args.position_context_order,
+                    wire_policy_version=2 if args.model == "openai/gpt-6-luna" else 1,
                 )
             )
         else:
-            extraction_profile = asdict(_profile(args.model))
+            extraction_profile = asdict(
+                _profile_with_options(
+                    args.model,
+                    wire_policy_version=2 if args.model == "openai/gpt-6-luna" else 1,
+                )
+            )
         settings = dict(
             build_root=str(ROOT),
             extraction_profile=extraction_profile,
