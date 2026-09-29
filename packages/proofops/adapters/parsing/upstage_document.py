@@ -96,20 +96,37 @@ def candidate_batch(source, profile, selected, batches, *, mode: str, config_has
                 raise ValueError("UPSTAGE_ELEMENT_INVALID")
             page = document.pages[page_num - 1]
             plain = page.rotation == 0 and tuple(page.cropbox[:2]) == (0, 0)
+            stream = list(enumerate(page_words[page_num]))
             box, offset = (
-                _ground(text, page_words[page_num], provider_box)
+                _ground(text, [word for _, word in stream], provider_box)
                 if plain and provider_box is not None
                 else (None, None)
             )
+            if box is None and plain and provider_box is not None and profile.upstage_region_words:
+                # Multi-column pages interleave lines in the page-wide word order,
+                # so a multi-line paragraph is not contiguous there. The verifier
+                # reads only the words inside the box in native order; ground in
+                # that same stream. Exact characters, numbers and uniqueness rules
+                # are unchanged.
+                stream = [
+                    (index, word)
+                    for index, word in enumerate(page_words[page_num])
+                    if provider_box[0] - 2 <= word["x0"]
+                    and word["x1"] <= provider_box[2] + 2
+                    and provider_box[1] - 2 <= word["top"]
+                    and word["bottom"] <= provider_box[3] + 2
+                ]
+                box, offset = _ground(text, [word for _, word in stream], provider_box)
             glyph_box = False
             if box is not None and kind == "paragraph" and profile.upstage_glyph_boxes:
                 from proofops.adapters.local.native_glyph_geometry import native_word_ink_geometry
 
-                words = page_words[page_num]
+                all_words = page_words[page_num]
+                words = [word for _, word in stream]
                 if page_num not in page_ink:
                     try:
                         proof = native_word_ink_geometry(
-                            source.content, page_num, list(range(len(words)))
+                            source.content, page_num, list(range(len(all_words)))
                         )
                         page_ink[page_num] = {
                             item["native_word_index"]: item["ink_bbox"]
@@ -126,9 +143,9 @@ def candidate_batch(source, profile, selected, batches, *, mode: str, config_has
                 if (
                     (first == 0 or ends[first - 1] == offset)
                     and ends[last] == offset + len(compact(text))
-                    and all(index in page_ink[page_num] for index in range(first, last + 1))
+                    and all(stream[k][0] in page_ink[page_num] for k in range(first, last + 1))
                 ):
-                    ink = [page_ink[page_num][index] for index in range(first, last + 1)]
+                    ink = [page_ink[page_num][stream[k][0]] for k in range(first, last + 1)]
                     # The pinned verifier compares its own native word stream.
                     # Preserve the exact glyph-matched characters and numbers;
                     # only whitespace follows that stream's word boundaries.

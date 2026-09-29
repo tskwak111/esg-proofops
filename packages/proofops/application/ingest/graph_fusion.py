@@ -96,6 +96,7 @@ class ParserProfile:
     vision_parse: str = "off"
     parser_mode: str = "local"
     upstage_glyph_boxes: bool = False
+    upstage_region_words: bool = False
 
     def __post_init__(self):
         _require_uuid("parse_manifest_id", self.parse_manifest_id)
@@ -133,6 +134,10 @@ class ParserProfile:
             self.upstage_glyph_boxes and self.parser_mode != "upstage"
         ):
             raise ValueError("upstage glyph boxes require upstage parser")
+        if type(self.upstage_region_words) is not bool or (
+            self.upstage_region_words and self.parser_mode != "upstage"
+        ):
+            raise ValueError("upstage region words require upstage parser")
         tolerance = self.table_text_y_tolerance
         if tolerance is not None and (
             isinstance(tolerance, bool)
@@ -157,6 +162,8 @@ class ParserProfile:
             values.pop("parser_mode")
         if not self.upstage_glyph_boxes:
             values.pop("upstage_glyph_boxes")
+        if not self.upstage_region_words:
+            values.pop("upstage_region_words")
         return values
 
     def config_snapshot(self) -> dict:

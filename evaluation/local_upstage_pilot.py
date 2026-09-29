@@ -990,6 +990,7 @@ def main():
             vision_parse=args.vision_parse,
             parser_mode=args.parser,
             upstage_glyph_boxes=args.parser == "upstage",
+            upstage_region_words=args.parser == "upstage",
         )
         (state / "parser.json").write_text(json.dumps(config.config_snapshot()))
         if (
