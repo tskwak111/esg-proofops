@@ -1,0 +1,1 @@
+The browser page picker uses pdf-lib 1.17.1 (MIT License). The exact dependency and transitive versions are recorded in pnpm-lock.yaml. Source: https://github.com/Hopding/pdf-lib/blob/master/LICENSE.md
