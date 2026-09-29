@@ -13,6 +13,7 @@ from dataclasses import asdict
 from pathlib import Path
 from time import monotonic_ns
 
+from proofops.adapters.local.openrouter import OpenRouterProbe
 from proofops.adapters.local.upstage import UPSTAGE_TRANSPORT_STOP_CODES, UpstageProbe
 from proofops.application.budget import TokenUsage
 from proofops.application.preflight import Preflight, PreflightBlocked
@@ -169,7 +170,7 @@ class UpstageTaggingTransport:
     ):
         _require_uuid("tenant_id", tenant_id)
         if (
-            not isinstance(probe, UpstageProbe)
+            not isinstance(probe, UpstageProbe | OpenRouterProbe)
             or not isinstance(settings, TaggingSettings)
             or settings.binding.synthetic
             or settings.model_id != probe.model
@@ -527,6 +528,11 @@ class UpstageTaggingTransport:
                 request_id=request["request_id"],
                 max_tokens=request["max_tokens"],
                 json_mode=True,
+                **(
+                    {"schema_json": settings.schema_json}
+                    if isinstance(self._probe, OpenRouterProbe)
+                    else {}
+                ),
             )
         except Exception as error:
             code = str(error)

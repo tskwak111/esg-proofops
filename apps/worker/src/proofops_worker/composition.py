@@ -59,6 +59,7 @@ def build_composition(
     }:
         raise ValueError("EXPLICIT_LOCAL_SYNTHETIC_EXTRACTION_REQUIRED")
     note_ledger = Path(__file__).resolve().parents[4] / ".local/upstage/budget.sqlite3"
+    luna_ledger = Path(__file__).resolve().parents[4] / ".local/openrouter/budget.sqlite3"
     if raster_ocr and not note_ledger.is_file():
         raise ValueError("SHARED_BUDGET_LEDGER_REQUIRED")
     build_proofops_composition(
@@ -109,17 +110,24 @@ def build_composition(
 
         live_factory = None
         if os.environ.get("LOCAL_TAGGING_MODE") == "upstage_local":
+            from proofops.adapters.local.openrouter import MODEL as LUNA_MODEL
+            from proofops.adapters.local.openrouter import OpenRouterProbe
             from proofops.adapters.local.upstage import MODEL_PRO4, UpstageProbe
 
             from proofops_worker.live_tagging import LiveTaggingRuntime
 
-            if not note_ledger.is_file():
-                raise ValueError("SHARED_BUDGET_LEDGER_REQUIRED")
-            probe = UpstageProbe(
-                os.environ.get("UPSTAGE_API_KEY", ""), note_ledger, model=MODEL_PRO4
-            )
-
             def live_factory(owner, snapshot, graph, lease, usage):
+                model = snapshot["tagging_settings"]["model_id"]
+                if model == LUNA_MODEL:
+                    ledger = luna_ledger
+                    probe = OpenRouterProbe(os.environ.get("OPENROUTER_API_KEY", ""), ledger)
+                elif model == MODEL_PRO4:
+                    if not note_ledger.is_file():
+                        raise ValueError("SHARED_BUDGET_LEDGER_REQUIRED")
+                    ledger = note_ledger
+                    probe = UpstageProbe(os.environ.get("UPSTAGE_API_KEY", ""), ledger, model=model)
+                else:
+                    raise ValueError("TAGGING_MODEL_UNSUPPORTED")
                 return LiveTaggingRuntime(
                     owner,
                     snapshot,
@@ -127,7 +135,7 @@ def build_composition(
                     lease,
                     usage,
                     probe=probe,
-                    ledger=note_ledger,
+                    ledger=ledger,
                     receipts=database.parent / "tagging-receipts" / snapshot["run_id"],
                 )
 
@@ -146,6 +154,8 @@ def build_composition(
 
         extractor: ClaimExtractorPort = SyntheticClaimExtractor()
         if os.environ.get("LOCAL_EXTRACTION_MODE") == "upstage_probe":
+            from proofops.adapters.local.openrouter import MODEL as LUNA_MODEL
+            from proofops.adapters.local.openrouter import OpenRouterProbe
             from proofops.adapters.local.upstage import MODEL, MODEL_PRO4, UpstageProbe
             from proofops_agent.upstage_extraction import (
                 UpstageClaimExtractor,
@@ -155,8 +165,6 @@ def build_composition(
 
             # The existing user-authorized ledger must exist; never mint another allowance.
             ledger = Path(__file__).resolve().parents[4] / ".local/upstage/budget.sqlite3"
-            if not ledger.is_file():
-                raise ValueError("SHARED_BUDGET_LEDGER_REQUIRED")
             settings_path = os.environ.get("LOCAL_RUN_SETTINGS_PATH")
             if not settings_path:
                 raise ValueError("LOCAL_RUN_SETTINGS_REQUIRED")
@@ -169,11 +177,21 @@ def build_composition(
                 raise ValueError("EXTRACTION_PROFILE_MISMATCH")
             frozen_model_hash = frozen_profile.get("model_sha256")
             model = next(
-                (m for m in (MODEL, MODEL_PRO4) if _profile(m).model_sha256 == frozen_model_hash),
+                (
+                    m
+                    for m in (MODEL, MODEL_PRO4, LUNA_MODEL)
+                    if _profile(m).model_sha256 == frozen_model_hash
+                ),
                 None,
             )
             if model is None:
                 raise ValueError("EXTRACTION_PROFILE_MISMATCH")
+            if model == LUNA_MODEL:
+                probe = OpenRouterProbe(os.environ.get("OPENROUTER_API_KEY", ""), luna_ledger)
+            else:
+                if not ledger.is_file():
+                    raise ValueError("SHARED_BUDGET_LEDGER_REQUIRED")
+                probe = UpstageProbe(os.environ.get("UPSTAGE_API_KEY", ""), ledger, model=model)
             year_notation = settings.get("extraction_year_notation") is True
             context_opt_in = settings.get("extraction_context") is True
             table_context_opt_in = settings.get("extraction_table_context") is True
@@ -204,7 +222,7 @@ def build_composition(
                 ):
                     raise ValueError("EXTRACTION_PROFILE_MISMATCH")
                 extractor = UpstageClaimExtractor(
-                    UpstageProbe(os.environ.get("UPSTAGE_API_KEY", ""), ledger, model=model),
+                    probe,
                     database.parent / "extraction-receipts",
                     max_tokens=maximum,
                     extraction_year_notation=year_notation,
@@ -229,7 +247,7 @@ def build_composition(
                 raise ValueError("EXTRACTION_PROFILE_MISMATCH")
             else:
                 extractor = UpstageClaimExtractor(
-                    UpstageProbe(os.environ.get("UPSTAGE_API_KEY", ""), ledger, model=model),
+                    probe,
                     database.parent / "extraction-receipts",
                     max_tokens=maximum,
                 )

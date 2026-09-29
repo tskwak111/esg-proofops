@@ -185,7 +185,7 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
         else:
             raise ValueError("UPSTAGE_TAGGING_BINDING_INVALID")
         if (
-            not isinstance(probe, UpstageProbe)
+            not isinstance(probe, self._probe_type())
             or not isinstance(settings, TaggingSettings)
             or settings.binding.synthetic
             or settings.model_id != probe.model
@@ -225,9 +225,9 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
 
     @staticmethod
     def _probe_type():
-        from proofops.adapters.local.upstage import UpstageProbe
+        from proofops.adapters.local.openrouter import OpenRouterProbe
 
-        return UpstageProbe
+        return (UpstageProbe, OpenRouterProbe)
 
     def bound_context(self, packet: dict) -> dict:
         """Fit optional whole context blocks BEFORE packet hashing/authorization.

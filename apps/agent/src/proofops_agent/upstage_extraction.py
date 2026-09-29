@@ -168,6 +168,7 @@ _RULE_DESCRIPTOR = [
 ]
 
 _PROVIDER_METADATA_KEYS = (
+    "provider",
     "model",
     "provider_request_id",
     "provider_model",
@@ -175,17 +176,26 @@ _PROVIDER_METADATA_KEYS = (
     "output_tokens",
     "price_snapshot",
     "cost_with_vat_reserve_usd",
+    "cost_source",
+    "attempts",
+    "schema_valid",
     "response_sha256",
     "response_format",
 )
 
 
 def _profile(model: str = UPSTAGE_MODEL) -> ExtractionProfile:
-    if model not in (UPSTAGE_MODEL, MODEL_PRO4):
+    from proofops.adapters.local.openrouter import MODEL as LUNA_MODEL
+
+    if model not in (UPSTAGE_MODEL, MODEL_PRO4, LUNA_MODEL):
         raise ValueError("UPSTAGE_MODEL_MISMATCH")
     return ExtractionProfile(
         model_sha256=canonical_hash(
-            {"model": model, "provider": "upstage", "transport": "UpstageProbe"}
+            {
+                "model": model,
+                "provider": "openrouter" if model == LUNA_MODEL else "upstage",
+                "transport": "OpenRouterProbe" if model == LUNA_MODEL else "UpstageProbe",
+            }
         ),
         prompt_sha256=canonical_hash(SYSTEM_PROMPT),
         rule_sha256=canonical_hash(_RULE_DESCRIPTOR),
@@ -387,7 +397,9 @@ def _profile_with_options(
     ``assertion_prompt`` and pins its own rule entry and prompt suffix, so a
     complete-selection run can never replay an assertion-only receipt.
     """
-    if model not in (UPSTAGE_MODEL, MODEL_PRO4):
+    from proofops.adapters.local.openrouter import MODEL as LUNA_MODEL
+
+    if model not in (UPSTAGE_MODEL, MODEL_PRO4, LUNA_MODEL):
         raise ValueError("UPSTAGE_MODEL_MISMATCH")
     if any(
         type(value) is not bool
@@ -437,7 +449,11 @@ def _profile_with_options(
         descriptor.append(CONTEXT_POSITION_ORDER)
     return ExtractionProfile(
         model_sha256=canonical_hash(
-            {"model": model, "provider": "upstage", "transport": "UpstageProbe"}
+            {
+                "model": model,
+                "provider": "openrouter" if model == LUNA_MODEL else "upstage",
+                "transport": "OpenRouterProbe" if model == LUNA_MODEL else "UpstageProbe",
+            }
         ),
         prompt_sha256=canonical_hash(
             _system_prompt(
@@ -659,12 +675,34 @@ class UpstageClaimExtractor:
         self._write(directory / "request.json", canonical_json(request_body))
         self._request_ids.append((packet["parse_manifest_id"], request_id))
         try:
+            from proofops.adapters.local.openrouter import OpenRouterProbe
+
+            schema = (
+                {
+                    "type": "object",
+                    "properties": {"sentence_ids": {"type": "array", "items": {"type": "string"}}},
+                    "required": ["sentence_ids"],
+                    "additionalProperties": False,
+                }
+                if self._source_ids
+                else {
+                    "type": "object",
+                    "properties": {"claims": {"type": "array", "items": {"type": "string"}}},
+                    "required": ["claims"],
+                    "additionalProperties": False,
+                }
+            )
             result = self._probe.complete(
                 system_prompt,
                 user_json,
                 request_id=request_id,
                 max_tokens=self._max_tokens,
                 json_mode=True,
+                **(
+                    {"schema_json": json.dumps(schema)}
+                    if isinstance(self._probe, OpenRouterProbe)
+                    else {}
+                ),
             )
         except Exception as error:
             code = str(error) if isinstance(error, ValueError) else ""
@@ -678,7 +716,7 @@ class UpstageClaimExtractor:
                 "PROBE_REQUEST_TOO_LARGE",
                 "INVALID_PROBE_REQUEST",
             }:
-                self._request_ids.pop()
+                self._request_ids.remove((packet["parse_manifest_id"], request_id))
             self._fail(directory, packet_sha, request_id, code, transport=True)
         metadata = (
             {key: result[key] for key in (*_PROVIDER_METADATA_KEYS, "content") if key in result}

@@ -154,6 +154,14 @@ class LiveTaggingRuntime:
         self._capacity(self.settings.model_id)
 
     def _capacity(self, model_id):
+        if model_id == "openai/gpt-6-luna":
+            from proofops.adapters.local.openrouter import (
+                validate_capacity_policy as validate_luna_capacity,
+            )
+
+            return validate_luna_capacity(
+                self.snapshot["input_reservation_policy"], model_id=model_id
+            )
         return validate_capacity_policy(
             self.snapshot["input_reservation_policy"],
             model_id=model_id,

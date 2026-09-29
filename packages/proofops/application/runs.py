@@ -38,7 +38,7 @@ class RunRejected(ValueError):
         self.code, self.status = code, status
 
 
-_LIVE_TAGGING_MODEL = "solar-pro4"
+_LIVE_TAGGING_MODELS = ("solar-pro4", "openai/gpt-6-luna")
 
 
 def _capacity_accommodated(limits: BudgetLimits | None, upper: int, output_cap: int) -> bool:
@@ -443,7 +443,7 @@ class RunService:
                 if (
                     pinned.binding.synthetic is not False
                     or pinned.binding.role != "tagger"
-                    or pinned.model_id != _LIVE_TAGGING_MODEL
+                    or pinned.model_id not in _LIVE_TAGGING_MODELS
                     or type(pinned.max_tokens) is not int
                     or not 1 <= pinned.max_tokens <= 4096
                 ):
@@ -497,14 +497,21 @@ class RunService:
                     settings=pinned,
                 ).ready:
                     raise RunRejected("CONFIG_GATE_BLOCKED")
+            from proofops.adapters.local.openrouter import (
+                validate_capacity_policy as validate_luna_capacity,
+            )
             from proofops.application.input_reservation import validate_capacity_policy
 
             for pinned in pinned_settings:
                 try:
-                    upper = validate_capacity_policy(
-                        policy,
-                        model_id=pinned.model_id,
-                        checked_at=datetime.fromtimestamp(created_time, UTC),
+                    upper = (
+                        validate_luna_capacity(policy, model_id=pinned.model_id)
+                        if pinned.model_id == "openai/gpt-6-luna"
+                        else validate_capacity_policy(
+                            policy,
+                            model_id=pinned.model_id,
+                            checked_at=datetime.fromtimestamp(created_time, UTC),
+                        )
                     )
                 except ValueError:
                     raise RunRejected("CONFIG_GATE_BLOCKED") from None
