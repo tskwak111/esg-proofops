@@ -249,23 +249,32 @@ def run_report(pdf: bytes, pages: list[int], *, access_code: str, parse=None, mo
     except (ValueError, KeyError, TypeError) as exc:
         raise LiveError(502, "PARSE_INVALID") from exc
     with pdfplumber.open(io.BytesIO(pdf)) as document:
-        native = [
-            " ".join(word["text"] for word in page.extract_words()) for page in document.pages
-        ]
+        native = [page.extract_words() for page in document.pages]
     by_page = {page: [] for page in pages}
     for block in batch.blocks:
         if (
             block.kind == "paragraph"
             and block.source.raw_text.strip()
             and "vision_only" not in block.context
+            and block.bbox is not None
             and len(block.source.raw_text) <= 1800
         ):
+            x0, y0, x1, y1 = block.bbox
+            region = [
+                word["text"]
+                for word in native[block.source.physical_page - 1]
+                if x0 - 3 <= word["x0"]
+                and word["x1"] <= x1 + 3
+                and y0 - 3 <= word["top"]
+                and word["bottom"] <= y1 + 3
+            ]
             by_page[pages[block.source.physical_page - 1]].append(
                 {
                     "page": pages[block.source.physical_page - 1],
                     "text": block.source.raw_text,
                     "pdf_page": block.source.physical_page,
                     "source_id": str(uuid4()),
+                    "native_text": " ".join(region),
                 }
             )
     for candidates in by_page.values():
@@ -309,7 +318,7 @@ def run_report(pdf: bytes, pages: list[int], *, access_code: str, parse=None, mo
         quote = item.get("quote")
         if not isinstance(quote, str) or not 1 <= len(quote) <= 500:
             raise LiveError(502, "EXTRACTION_INVALID")
-        verified = verify_quote(quote, block["text"], native[block["pdf_page"] - 1])
+        verified = verify_quote(quote, block["text"], block["native_text"])
         track = item.get("track")
         if track not in (*MAPPINGS, None, "null"):
             track = None
@@ -383,7 +392,7 @@ def run_report(pdf: bytes, pages: list[int], *, access_code: str, parse=None, mo
             verified = (
                 item.get("state") == "present"
                 and isinstance(quote, str)
-                and verify_quote(quote, block["text"], native[block["pdf_page"] - 1])
+                and verify_quote(quote, block["text"], block["native_text"])
             )
             allowed = "local_claim" in definitions[element_ids[name]]["source_scopes"]
             if verified and allowed:
