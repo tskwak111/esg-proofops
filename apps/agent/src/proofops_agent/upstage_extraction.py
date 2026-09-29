@@ -673,10 +673,22 @@ class UpstageClaimExtractor:
             return self._replay_receipt(directory, packet, packet_sha, request_id, context_graph)
         self._write(directory / "packet.json", canonical_json(packet))
         self._write(directory / "request.json", canonical_json(request_body))
+        from proofops.adapters.local.openrouter import OpenRouterProbe
+
+        if isinstance(self._probe, OpenRouterProbe):
+            self._write(
+                directory / "identity.json",
+                canonical_json(
+                    {
+                        "provider": "openrouter",
+                        "model": self._probe.model,
+                        "model_sha256": self._profile.model_sha256,
+                        "prompt_sha256": self._profile.prompt_sha256,
+                    }
+                ),
+            )
         self._request_ids.append((packet["parse_manifest_id"], request_id))
         try:
-            from proofops.adapters.local.openrouter import OpenRouterProbe
-
             schema = (
                 {
                     "type": "object",

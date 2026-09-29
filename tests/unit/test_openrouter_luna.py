@@ -70,8 +70,15 @@ def test_luna_extraction_receipt_replays_under_frozen_identity(tmp_path, monkeyp
     assert len(sent) == 1
     receipt_dir = next(path for path in (tmp_path / "receipts").iterdir() if path.is_dir())
     raw = json.loads((receipt_dir / "raw_response.json").read_text())
+    identity = json.loads((receipt_dir / "identity.json").read_text())
     assert raw["provider"] == "openrouter"
     assert raw["model"] == MODEL
+    assert identity == {
+        "provider": "openrouter",
+        "model": MODEL,
+        "model_sha256": extractor.profile.model_sha256,
+        "prompt_sha256": extractor.profile.prompt_sha256,
+    }
     result = json.loads((receipt_dir / "result.json").read_text())
     assert result["profile"] == asdict(extractor.profile)
 
