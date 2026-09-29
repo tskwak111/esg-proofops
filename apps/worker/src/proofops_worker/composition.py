@@ -46,6 +46,12 @@ def build_composition(
         raise ValueError("NOTE_REVIEWS_REQUIRE_PARSE_STAGE")
     if stage not in {"parse", "extract", "tag"}:
         raise ValueError("STAGE_INVALID")
+    try:
+        max_workers = int(os.environ.get("LOCAL_LLM_MAX_WORKERS", "16"))
+    except ValueError:
+        raise ValueError("LOCAL_LLM_CONFIGURATION_INVALID") from None
+    if not 1 <= max_workers <= 16:
+        raise ValueError("LOCAL_LLM_CONFIGURATION_INVALID")
     if stage == "tag" and os.environ.get("LOCAL_TAGGING_MODE") not in {
         None,
         "",
@@ -127,7 +133,13 @@ def build_composition(
                 model = snapshot["tagging_settings"]["model_id"]
                 if model == LUNA_MODEL:
                     ledger = luna_ledger
-                    probe = OpenRouterProbe(os.environ.get("OPENROUTER_API_KEY", ""), ledger)
+                    probe = OpenRouterProbe(
+                        os.environ.get("OPENROUTER_API_KEY", ""),
+                        ledger,
+                        wire_policy_version=snapshot["tagging_settings"].get(
+                            "wire_policy_version", 1
+                        ),
+                    )
                 elif model == MODEL_PRO4:
                     if not note_ledger.is_file():
                         raise ValueError("SHARED_BUDGET_LEDGER_REQUIRED")
@@ -155,6 +167,7 @@ def build_composition(
             if os.environ.get("LOCAL_TAGGING_MODE") == "local_synthetic"
             else None,
             live_factory=live_factory,
+            max_workers=max_workers,
         )
     if stage == "extract":
         from proofops_agent.extraction import SyntheticClaimExtractor
@@ -166,7 +179,6 @@ def build_composition(
             from proofops.adapters.local.upstage import MODEL, MODEL_PRO4, UpstageProbe
             from proofops_agent.upstage_extraction import (
                 UpstageClaimExtractor,
-                _profile,
                 _profile_with_options,
             )
 
@@ -183,18 +195,29 @@ def build_composition(
             if not isinstance(frozen_profile, dict):
                 raise ValueError("EXTRACTION_PROFILE_MISMATCH")
             frozen_model_hash = frozen_profile.get("model_sha256")
-            model = next(
+            model_match = next(
                 (
-                    m
-                    for m in (MODEL, MODEL_PRO4, LUNA_MODEL)
-                    if _profile(m).model_sha256 == frozen_model_hash
+                    (m, version)
+                    for m, version in (
+                        (MODEL, 1),
+                        (MODEL_PRO4, 1),
+                        (LUNA_MODEL, 1),
+                        (LUNA_MODEL, 2),
+                    )
+                    if _profile_with_options(m, wire_policy_version=version).model_sha256
+                    == frozen_model_hash
                 ),
                 None,
             )
-            if model is None:
+            if model_match is None:
                 raise ValueError("EXTRACTION_PROFILE_MISMATCH")
+            model, wire_policy_version = model_match
             if model == LUNA_MODEL:
-                probe = OpenRouterProbe(os.environ.get("OPENROUTER_API_KEY", ""), luna_ledger)
+                probe = OpenRouterProbe(
+                    os.environ.get("OPENROUTER_API_KEY", ""),
+                    luna_ledger,
+                    wire_policy_version=wire_policy_version,
+                )
             else:
                 if not ledger.is_file():
                     raise ValueError("SHARED_BUDGET_LEDGER_REQUIRED")
@@ -225,6 +248,7 @@ def build_composition(
                         complete_selection=complete_selection_opt_in,
                         extraction_content_bounds=content_bounds_opt_in,
                         position_order=position_order,
+                        wire_policy_version=wire_policy_version,
                     )
                 ):
                     raise ValueError("EXTRACTION_PROFILE_MISMATCH")
@@ -264,5 +288,6 @@ def build_composition(
             runner.parser,
             extractor=extractor,
             telemetry=runner.telemetry,
+            max_workers=max_workers,
         )
     return runner
