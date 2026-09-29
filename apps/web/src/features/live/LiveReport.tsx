@@ -121,7 +121,7 @@ export function LiveReport({ file }: { file: File }) {
       <ol>{result.claims.map((claim, index) => <li key={`${claim.page}-${index}`}>
         <div className="live-report-claim-head"><strong>{claim.page}쪽 · {claim.track ? tracks[claim.track] || claim.track : "분류 검토 필요"}</strong><span>{claim.source_verified ? "원문 확인" : "원문 대조 필요"}</span></div>
         <blockquote>{claim.quote}</blockquote>
-        {claim.decision?.evidence_grade ? <p>규칙 판정 {claim.decision.evidence_grade}</p> : claim.decision?.grade_range ? <p>가능 범위 {claim.decision.grade_range.floor}–{claim.decision.grade_range.ceiling} · 검토 필요</p> : <p>{claim.blocked_reason || "판정 검토 필요"}</p>}
+        {claim.decision?.decision_status === "blocked_rule_gap" ? <p>{claim.blocked_reason}</p> : claim.decision?.evidence_grade ? <p>규칙 판정 {claim.decision.evidence_grade}</p> : claim.decision?.grade_range ? <p>가능 범위 {claim.decision.grade_range.floor}–{claim.decision.grade_range.ceiling} · 검토 필요</p> : <p>{claim.blocked_reason || "판정 검토 필요"}</p>}
         {claim.elements.length > 0 && <details><summary>요소와 근거</summary><ul>{claim.elements.map(element => <li key={element.name}><strong>{getElementLabel(element.element_id)}</strong> · {element.state === "present" ? "근거 확인" : "미확인"}{element.quote && <q>{element.quote}</q>}</li>)}</ul></details>}
       </li>)}</ol>
     </div>}

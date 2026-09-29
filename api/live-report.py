@@ -477,7 +477,12 @@ def run_report(pdf: bytes, pages: list[int], *, access_code: str, parse=None, mo
         reviewable, _ = reviewable_decision(decision, PARTIAL_FACTS_V1, "needs_review")
         claim["decision"] = (reviewable or decision).to_api_dict()
         if claim["decision"]["decision_status"] != "decided":
-            claim["blocked_reason"] = "추가 근거 또는 규칙 검토 필요"
+            gaps = claim["decision"]["gap_ids"]
+            claim["blocked_reason"] = (
+                "미정 규칙 " + ", ".join(gaps) + " 때문에 등급을 확정할 수 없습니다."
+                if gaps
+                else "추가 근거 확인 후 등급을 검토해야 합니다."
+            )
     return {
         "claims": claims,
         "pages": pages,
