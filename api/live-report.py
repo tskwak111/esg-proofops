@@ -7,6 +7,7 @@ import io
 import json
 import math
 import os
+import re
 import sys
 import urllib.error
 import urllib.request
@@ -47,6 +48,10 @@ MAX_CLAIMS = 5
 MAX_INPUT_CHARS = 12_000
 MAX_MODEL_CALLS = 2
 MAX_MODEL_TOKENS = (1200, 1800)
+ENV_TERMS = re.compile(
+    r"온실가스|배출|Scope|탄소|재생에너지|RE100|에너지|용수|폐기물|기후|TCFD|감축|목표",
+    re.I,
+)
 # 10 standard pages at $0.011 (VAT included), plus bounded Luna input/output.
 MAX_MODEL_USD = 0.013
 MAX_REQUEST_USD = 0.123
@@ -247,7 +252,7 @@ def run_report(pdf: bytes, pages: list[int], *, access_code: str, parse=None, mo
         native = [
             " ".join(word["text"] for word in page.extract_words()) for page in document.pages
         ]
-    blocks = []
+    by_page = {page: [] for page in pages}
     for block in batch.blocks:
         if (
             block.kind == "paragraph"
@@ -255,7 +260,7 @@ def run_report(pdf: bytes, pages: list[int], *, access_code: str, parse=None, mo
             and "vision_only" not in block.context
             and len(block.source.raw_text) <= 1800
         ):
-            blocks.append(
+            by_page[pages[block.source.physical_page - 1]].append(
                 {
                     "page": pages[block.source.physical_page - 1],
                     "text": block.source.raw_text,
@@ -263,12 +268,21 @@ def run_report(pdf: bytes, pages: list[int], *, access_code: str, parse=None, mo
                     "source_id": str(uuid4()),
                 }
             )
-        if len(blocks) >= MAX_BLOCKS or sum(len(x["text"]) for x in blocks) >= 9000:
-            break
+    for candidates in by_page.values():
+        candidates.sort(
+            key=lambda item: (-len(ENV_TERMS.findall(item["text"])), -len(item["text"]))
+        )
+    blocks = []
+    while len(blocks) < MAX_BLOCKS and any(by_page.values()):
+        for page in pages:
+            if by_page[page] and len(blocks) < MAX_BLOCKS:
+                candidate = by_page[page].pop(0)
+                if sum(len(item["text"]) for item in blocks) + len(candidate["text"]) <= 9000:
+                    blocks.append(candidate)
     if not blocks:
         return {
             "claims": [],
-            "notice": "원문 대조 필요",
+            "notice": "원문 대조 필요 · 최대 16개 문단 검토",
             "pages": pages,
             "duration_ms": round((monotonic() - started) * 1000),
             "cost_usd": round(len(pages) * 0.011, 6),
@@ -458,7 +472,7 @@ def run_report(pdf: bytes, pages: list[int], *, access_code: str, parse=None, mo
     return {
         "claims": claims,
         "pages": pages,
-        "notice": "사용자 최종 검토 전",
+        "notice": "사용자 최종 검토 전 · 최대 16개 문단에서 주장 5건 추출",
         "tagging_passes": 1 if tag_user["claims"] else 0,
         "parse_metrics": metrics,
         "cost_usd": round(len(pages) * 0.011 + cost1 + cost2, 6),
