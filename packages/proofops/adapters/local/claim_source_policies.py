@@ -57,10 +57,16 @@ def _typography():
     return claim_span_typography
 
 
+def _glyph_alignment():
+    from proofops.adapters.local import glyph_alignment_verification
+
+    return glyph_alignment_verification
+
+
 def _wrappers():
     """Every wrapper module, outermost first. Additive: the base verifier's own
     dispatch is untouched and each wrapper keeps its own distinct policy."""
-    return (_typography(), _bullet_alignment(), _render_resolution())
+    return (_glyph_alignment(), _typography(), _bullet_alignment(), _render_resolution())
 
 
 def claim_source_reader(policy):
@@ -75,6 +81,11 @@ def claim_source_reader(policy):
     from proofops.adapters.local import claim_source_verification as base
 
     if isinstance(policy, Mapping):
+        if policy.get("profile") == _glyph_alignment().PROFILE:
+            wrapper = _glyph_alignment()
+            if policy != wrapper.claim_source_policy():
+                raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")
+            return wrapper
         for schema, module in (
             (TYPOGRAPHY_POLICY_SCHEMA, _typography),
             (BULLET_ALIGNMENT_POLICY_SCHEMA, _bullet_alignment),

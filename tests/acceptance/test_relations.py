@@ -184,3 +184,40 @@ def test_literal_catalog_roles_still_require_and_can_pass_existing_binding():
     raw["relations"][1]["dimensions"]["entity"]["source_index"] = 0
     roles = validate(refs, graph, raw)
     assert bind(graph, claim, span(refs[1], "40%"), roles[refs[1].source_id]) == "rejected"
+
+
+@pytest.mark.parametrize("element_id", ["P1", "G1", "G2", "G3", "G5"])
+def test_occurrence_ids_do_not_override_global_numeric_or_year_veto(element_id):
+    from tests.acceptance.test_binding import change_candidate
+    from tests.integration.test_r108_relation_occurrence import packet, response, selected, validate
+
+    graph, claim, refs = corpus()
+    graph = change_candidate(graph, refs[1].source_id, kind="paragraph", table_native_id=None)
+    request = packet(refs, graph)
+    raw = response(request)
+    raw["relations"][1]["dimensions"] = {
+        role: selected(request, 1, quote) for role, quote in DIMENSIONS.items()
+    }
+    roles = validate(refs, graph, raw)
+    assert (
+        bind(graph, claim, refs[1], roles[refs[1].source_id], element_id=element_id) == "rejected"
+    )
+
+
+def test_occurrence_position_does_not_certify_reporting_period_role():
+    from tests.acceptance.test_binding import tags
+    from tests.integration.test_r108_relation_occurrence import packet, response, selected, validate
+
+    graph, claim, refs = corpus()
+    request = packet(refs, graph)
+    raw = response(request)
+    raw["relations"][1]["dimensions"] = {
+        role: selected(request, 1, quote) for role, quote in DIMENSIONS.items()
+    }
+    raw["relations"][1]["dimensions"]["reporting_period"] = selected(request, 1, "함유비율")
+    roles = validate(refs, graph, raw)
+    expected = tags(refs[0])
+    expected["reporting_period"] = expected["metric"]
+    assert (
+        bind(graph, claim, refs[1], roles[refs[1].source_id], dimensions=expected) == "undetermined"
+    )
