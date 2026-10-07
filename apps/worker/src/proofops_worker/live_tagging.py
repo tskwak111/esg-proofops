@@ -26,6 +26,7 @@ from proofops.application.tagging.preliminary import (
     validate_preliminary_table_sources,
 )
 from proofops.application.tagging.relations import (
+    OCCURRENCE_PROFILE,
     RelationValidationError,
     relation_request,
     validate_relations,
@@ -144,9 +145,17 @@ class LiveTaggingRuntime:
             resume=self.resume,
         )
         if self.relation_settings is not None:
-            from proofops_agent.upstage_relations import UpstageRelationsTransport
+            from proofops_agent.upstage_relations import (
+                UpstageOccurrenceRelationsTransport,
+                UpstageRelationsTransport,
+            )
 
-            self.relation_transport = UpstageRelationsTransport(
+            transport = (
+                UpstageOccurrenceRelationsTransport
+                if self.relation_settings.model_profile == OCCURRENCE_PROFILE
+                else UpstageRelationsTransport
+            )
+            self.relation_transport = transport(
                 probe,
                 self.receipts / "relation",
                 settings=self.relation_settings,
@@ -458,7 +467,12 @@ class LiveTaggingRuntime:
             sources = tuple(selected.values())
             if not sources:
                 return {}
-            envelope = relation_request(sources, self.graph, tenant_id=self.auth.tenant_id) | {
+            envelope = relation_request(
+                sources,
+                self.graph,
+                tenant_id=self.auth.tenant_id,
+                profile=self.relation_settings.model_profile,
+            ) | {
                 "claim_id": claim.claim_id,
                 "retrieval_packet_sha256": packet.packet_sha256,
             }
@@ -466,7 +480,13 @@ class LiveTaggingRuntime:
             return None
 
         def validate(raw):
-            roles = validate_relations(sources, self.graph, raw, tenant_id=self.auth.tenant_id)
+            roles = validate_relations(
+                sources,
+                self.graph,
+                raw,
+                tenant_id=self.auth.tenant_id,
+                profile=self.relation_settings.model_profile,
+            )
             values = {
                 sid: {name: asdict(ref) if ref else None for name, ref in dimensions.items()}
                 for sid, dimensions in roles.items()

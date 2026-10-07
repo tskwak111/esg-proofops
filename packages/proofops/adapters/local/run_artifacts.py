@@ -531,7 +531,16 @@ def load_run_evidence(store, uploads, parser, *, tenant_id: str, run_id: str):
         validate_automatic_note_reviews(
             graph, note_reviews, policy, selected_pages=profile.physical_pages
         )
+    from proofops.adapters.local.receipt_environment_compat import (
+        receipt_read_metadata,
+        table_read_metadata,
+    )
+
+    compatibility = [table_read_metadata(graph)]
+    if native_receipt is not None:
+        compatibility.append(receipt_read_metadata(native_receipt))
     return dict(
+        receipt_read_compatibility=[item for item in compatibility if item is not None],
         graph=graph,
         base_graph=base_graph,
         source=source,

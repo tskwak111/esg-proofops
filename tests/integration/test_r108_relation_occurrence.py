@@ -140,8 +140,8 @@ def configured_transport(tmp_path, monkeypatch):
     )
 
     def authorize(selected, request):
-        # Transport-only fixture: production preflight intentionally still blocks
-        # this profile until its owner integrates the new pinned allow-list.
+        # Transport-only fixture: its inherited legacy schema is intentionally
+        # rejected by production preflight; the exact v2 schema is tested separately.
         from proofops.application.preflight import Check, Preflight
 
         assert selected == settings and request["model_profile"] == OCCURRENCE_PROFILE

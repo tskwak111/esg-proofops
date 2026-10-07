@@ -94,6 +94,7 @@ def live_tagging_settings(
     *,
     model_id: str = "solar-pro4",
     relations: bool = False,
+    relation_profile: str = "source-quotes-v1",
     preliminary_context: bool = False,
     preliminary_table_context: bool = False,
     preliminary_table_role: bool = False,
@@ -130,6 +131,10 @@ def live_tagging_settings(
         or type(capacity_refresh) is not bool
     ):
         raise ValueError("relation/preliminary-context stage must be explicit boolean")
+    if relation_profile not in {"source-quotes-v1", "occurrence-v2"}:
+        raise ValueError("unknown relation profile")
+    if relation_profile != "source-quotes-v1" and not relations:
+        raise ValueError("relation profile requires live relations")
     if preliminary_table_context and not preliminary_context:
         raise ValueError("preliminary table context requires preliminary context")
     if preliminary_table_role and not preliminary_table_context:
@@ -283,14 +288,26 @@ def live_tagging_settings(
         ),
     )
     if relations:
-        from proofops.application.tagging.relations import SYSTEM_PROMPT as RELATION_PROMPT
+        from proofops.application.tagging.relations import (
+            LEGACY_PROFILE,
+            OCCURRENCE_PROFILE,
+            relation_prompt,
+        )
 
+        selected_profile = (
+            OCCURRENCE_PROFILE if relation_profile == "occurrence-v2" else LEGACY_PROFILE
+        )
+        relation_schema = (
+            ROOT / "prompts/source_relations_occurrence_v2.schema.json"
+            if relation_profile == "occurrence-v2"
+            else ROOT / "contracts/jsonschema/source_relations.schema.json"
+        )
         profiles += (
             (
                 "relation",
-                "upstage-relation-source-quotes-v1",
-                RELATION_PROMPT,
-                (ROOT / "contracts/jsonschema/source_relations.schema.json").read_text(),
+                selected_profile,
+                relation_prompt(selected_profile),
+                relation_schema.read_text(),
                 4096,
             ),
         )
@@ -345,6 +362,13 @@ def claim_source_policy_for(args):
     Existing runs and their stored receipts are untouched either way; rolling
     back is simply not passing the flag on a future run.
     """
+    profile = getattr(args, "claim_source_profile", None)
+    if profile == "glyph-alignment-v1":
+        from proofops.adapters.local.glyph_alignment_verification import claim_source_policy
+
+        return claim_source_policy()
+    if profile is not None:
+        raise ValueError("unknown claim source profile")
     if getattr(args, "claim_span_typography", False):
         # Wraps the bullet-alignment wrapper, so it ADDS to both inner
         # recoveries rather than replacing either; the CLI requires the chain.
@@ -371,6 +395,15 @@ def apply_resume_metadata(args, saved: dict) -> None:
     rejected exactly as before. Raises ``ValueError`` on a conflicting explicit
     override so callers can surface a clear CLI error.
     """
+    for field, default in (
+        ("relation_profile", "source-quotes-v1"),
+        ("claim_source_profile", None),
+    ):
+        requested = getattr(args, field, None)
+        stored = saved.get(field, default)
+        if requested is not None and requested != stored:
+            raise ValueError(f"existing pilot {field} profile changed; create a new run")
+        setattr(args, field, stored)
     if args.pdf is not None and Path(saved["source_path"]) != args.pdf.resolve():
         raise ValueError("--resume ignores conflicting explicit --pdf; omit it")
     if args.pdf is None:
@@ -666,6 +699,16 @@ def main():
     parser.add_argument("--live-tagging", action="store_true")
     parser.add_argument("--live-relations", action="store_true")
     parser.add_argument(
+        "--relation-profile",
+        choices=["source-quotes-v1", "occurrence-v2"],
+        help="Pin a relation contract for a NEW run; requires --live-relations.",
+    )
+    parser.add_argument(
+        "--claim-source-profile",
+        choices=["glyph-alignment-v1"],
+        help="Pin glyph alignment for a NEW run; requires --verify-claim-spans.",
+    )
+    parser.add_argument(
         "--compact-element-wire",
         action="store_true",
         help="Opt-in v5 element wire; pins a distinct model/cache identity for new runs.",
@@ -804,6 +847,15 @@ def main():
         parser.error(str(exc))
     resume_state = args.state.resolve()
     resume_manifest = resume_state / "pilot.json"
+    if resume_manifest.exists():
+        saved = json.loads(resume_manifest.read_text())
+        for field, default in (
+            ("relation_profile", "source-quotes-v1"),
+            ("claim_source_profile", None),
+        ):
+            requested = getattr(args, field)
+            if requested is not None and requested != saved.get(field, default):
+                parser.error(f"existing pilot {field} profile changed; create a new run")
     try:
         company_body = pilot_company_body(
             args.company_name,
@@ -884,6 +936,12 @@ def main():
         or (args.period_end is None)
     ):
         parser.error("--pdf, --report-year, --period-start and --period-end are required")
+    if args.relation_profile is None:
+        args.relation_profile = "source-quotes-v1"
+    if args.relation_profile != "source-quotes-v1" and not args.live_relations:
+        parser.error("--relation-profile requires --live-relations")
+    if args.claim_source_profile is not None and not args.verify_claim_spans:
+        parser.error("--claim-source-profile requires --verify-claim-spans")
     if args.key_file is None:
         args.key_file = ROOT / (
             ".env.openrouter.local" if args.llm_provider == "openrouter" else ".env.upstage.local"
@@ -1064,6 +1122,7 @@ def main():
                     if args.llm_provider == "openrouter"
                     else "solar-pro4",
                     relations=args.live_relations,
+                    relation_profile=args.relation_profile,
                     preliminary_context=args.preliminary_context,
                     preliminary_table_context=args.preliminary_table_context,
                     preliminary_table_role=args.preliminary_table_role,
@@ -1372,6 +1431,10 @@ def main():
         )
         if args.raster_ocr:
             manifest.update(raster_ocr=True, raster_policy=raster["raster_policy"])
+        if args.relation_profile != "source-quotes-v1":
+            manifest["relation_profile"] = args.relation_profile
+        if args.claim_source_profile is not None:
+            manifest["claim_source_profile"] = args.claim_source_profile
         if args.live_relations:
             manifest["live_relations"] = True
         if args.preliminary_context:
@@ -1436,6 +1499,10 @@ def main():
             args.raster_ocr and manifest.get("raster_policy") != raster["raster_policy"]
         ):
             raise ValueError("pilot raster policy changed; create a new state directory")
+        if manifest.get("relation_profile", "source-quotes-v1") != args.relation_profile:
+            raise ValueError("pilot relation profile changed; create a new state directory")
+        if manifest.get("claim_source_profile") != args.claim_source_profile:
+            raise ValueError("pilot claim source profile changed; create a new state directory")
         if manifest.get("live_relations", False) != args.live_relations:
             raise ValueError("pilot relation policy changed; create a new state directory")
         if manifest.get("preliminary_context", False) != args.preliminary_context:

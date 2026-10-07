@@ -19,10 +19,10 @@ from proofops.application.preflight import (
     check_local_upstage_tagger,
     check_runtime_binding,
     combine_build_checks,
+    relation_settings_contract_valid,
 )
 from proofops.application.registry import RegistryNotFound, artifact_sha256
 from proofops.application.tagging.consensus import PARTIAL_FACTS_V1
-from proofops.application.tagging.relations import SYSTEM_PROMPT as RELATION_SYSTEM_PROMPT
 from proofops.application.tagging.report_level_link import (
     validate_config as validate_report_level_link,
 )
@@ -438,10 +438,7 @@ class RunService:
                 "upstage-compact-source-quotes-v5",
             }:
                 raise RunRejected("CONFIG_GATE_BLOCKED")
-            if relation is not None and (
-                relation.model_profile != "upstage-relation-source-quotes-v1"
-                or relation.system_prompt != RELATION_SYSTEM_PROMPT
-            ):
+            if relation is not None and not relation_settings_contract_valid(relation):
                 raise RunRejected("CONFIG_GATE_BLOCKED")
             pinned_settings = (preliminary, tagging) + ((relation,) if relation is not None else ())
             for pinned in pinned_settings:

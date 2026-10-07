@@ -15,9 +15,9 @@ from proofops.application.evidence.binding import ClaimContext
 from proofops.application.evidence.retrieval import freeze_packet
 from proofops.application.ports.jobs import JobMessage
 from proofops.application.ports.models import ModelBinding
+from proofops.application.preflight import relation_settings_contract_valid
 from proofops.application.reviews import ReviewInputs
 from proofops.application.tagging.consensus import form_consensus, reviewable_decision
-from proofops.application.tagging.relations import SYSTEM_PROMPT as RELATION_SYSTEM_PROMPT
 from proofops.application.tagging.report_level_link import replay_report_level_link, strict_fallback
 from proofops.application.tagging.service import TaggingSettings, TagRun
 from proofops.domain.provenance import canonical_hash
@@ -52,10 +52,7 @@ def tagging_settings(snapshot, *, preliminary=False, relation=False):
             != snapshot["input_reservation_policy_hash"]
         ):
             raise ValueError("TAGGING_PROFILE_MISMATCH")
-        if relation and (
-            settings.model_profile != "upstage-relation-source-quotes-v1"
-            or settings.system_prompt != RELATION_SYSTEM_PROMPT
-        ):
+        if relation and not relation_settings_contract_valid(settings):
             raise ValueError("TAGGING_PROFILE_MISMATCH")
         return settings
     if preliminary or relation:
@@ -433,8 +430,18 @@ class LocalTagStore:
             record["status"] != "verified" for record in receipt["records"]
         ):
             raise ValueError("CONTEXT_SOURCE_REJECTED")
-        if stored_receipt is not None and canonical_hash(receipt) != canonical_hash(stored_receipt):
-            raise ValueError("CONTEXT_SOURCE_REPLAY_MISMATCH")
+        if stored_receipt is not None:
+            from proofops.adapters.local.receipt_environment_compat import (
+                compare_receipts,
+                read_profile,
+            )
+
+            try:
+                compare_receipts(stored_receipt, receipt, profile=read_profile())
+            except ValueError:
+                raise ValueError("CONTEXT_SOURCE_REPLAY_MISMATCH") from None
+            # Historical supplemental span identity is part of the frozen tag.
+            receipt = stored_receipt
         scoped = span_verified_graph(
             graph,
             (

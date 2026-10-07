@@ -710,6 +710,7 @@ def native_attested_layout(
     """
     reviews = (review, *tuple(also))
     graph, native_ids = graph_from_review(review, source, tenant_id=tenant_id, also=also)
+    from proofops.adapters.local.receipt_environment_compat import replay_receipt
     from proofops.adapters.local.selected_cell_table_verification import (
         attest_tables,
         replay_tables,
@@ -732,8 +733,8 @@ def native_attested_layout(
             }
         )
         receipt = requested.attest_tables(graph, source, selected_values, tenant_id=tenant_id)
-        promoted = requested.replay_tables(
-            receipt, graph, source, selected_values, tenant_id=tenant_id
+        promoted = replay_receipt(
+            requested.replay_tables, receipt, graph, source, selected_values, tenant_id=tenant_id
         )
         if verify_context:
             # Existing context reader revalidates its own legacy header proof;
@@ -741,7 +742,7 @@ def native_attested_layout(
             header_receipt = attest_tables(graph, source, tenant_id=tenant_id)
     else:
         receipt = attest_tables(graph, source, tenant_id=tenant_id)
-        promoted = replay_tables(receipt, graph, source, tenant_id=tenant_id)
+        promoted = replay_receipt(replay_tables, receipt, graph, source, tenant_id=tenant_id)
         header_receipt = receipt
     canonical = {
         candidate.source.source_native_id: block.source_id
@@ -778,8 +779,14 @@ def native_attested_layout(
             proof = attest_context_cells(
                 graph, source, batch, tenant_id=tenant_id, header_receipt=header_receipt
             )
-            checked = replay_context_cells(
-                proof, graph, source, batch, tenant_id=tenant_id, header_receipt=header_receipt
+            checked = replay_receipt(
+                replay_context_cells,
+                proof,
+                graph,
+                source,
+                batch,
+                tenant_id=tenant_id,
+                header_receipt=header_receipt,
             )
             verified = {block.source_id for block in checked.blocks if block.quality == "verified"}
             promoted = replace(

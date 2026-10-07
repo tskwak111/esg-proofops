@@ -514,6 +514,32 @@ def check_local_upstage_raster(
     return Preflight(common.ready and valid, checks, common.binding_sha256, checked_at)
 
 
+def relation_settings_contract_valid(settings) -> bool:
+    """Read-old/write-new relation contracts, independent of permission or budget."""
+    from proofops.application.tagging.relations import (
+        LEGACY_PROFILE,
+        OCCURRENCE_PROFILE,
+        OCCURRENCE_SYSTEM_PROMPT,
+        SYSTEM_PROMPT,
+    )
+
+    if settings.model_profile == LEGACY_PROFILE:
+        return settings.system_prompt == SYSTEM_PROMPT
+    if (
+        settings.model_profile != OCCURRENCE_PROFILE
+        or settings.system_prompt != OCCURRENCE_SYSTEM_PROMPT
+    ):
+        return False
+    # Pin the complete JSON contract in prompts/source_relations_occurrence_v2.schema.json.
+    # Canonical hashing accepts formatting changes, never additional schema fields.
+    try:
+        return canonical_hash(json.loads(settings.schema_json)) == (
+            "e0816f3942a8c4a044873e677f8966a1be3c4c4da7d341b2c38a0a5027a6f6f0"
+        )
+    except (TypeError, ValueError):
+        return False
+
+
 def check_local_upstage_tagger(
     *,
     binding: Mapping[str, Any],
@@ -570,7 +596,6 @@ def check_local_upstage_tagger(
         TABLE_SYSTEM_SUFFIX,
     )
     from proofops.application.tagging.preliminary import SYSTEM_PROMPT as PRELIMINARY_SYSTEM_PROMPT
-    from proofops.application.tagging.relations import SYSTEM_PROMPT as RELATIONS_SYSTEM_PROMPT
 
     profile_valid = (
         settings.model_profile
@@ -662,10 +687,7 @@ def check_local_upstage_tagger(
             + ACTOR_ROLE_SYSTEM_SUFFIX
             + PERIOD_ROLE_SYSTEM_SUFFIX
         )
-        or (
-            settings.model_profile == "upstage-relation-source-quotes-v1"
-            and settings.system_prompt == RELATIONS_SYSTEM_PROMPT
-        )
+        or relation_settings_contract_valid(settings)
     )
     pinned = (
         binding.get("schema") == "local_upstage_tagger_binding_v1"

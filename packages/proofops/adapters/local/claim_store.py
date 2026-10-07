@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+from contextvars import ContextVar
+from copy import deepcopy
 from dataclasses import asdict
 from hashlib import sha256
 
@@ -61,6 +63,11 @@ class _RecordedExtractor:
 class LocalClaimStore:
     def __init__(self, store, uploads, parser):
         self.store, self.uploads, self.parser = store, uploads, parser
+        self._read_compatibility: ContextVar[list] = ContextVar("claim_receipt_read", default=[])
+
+    @property
+    def receipt_read_compatibility(self):
+        return deepcopy(self._read_compatibility.get())
 
     def load_evidence(self, tenant_id, run_id, *, for_extraction=False):
         """Replay once; extraction reuses the parse graph without claim-span annotations.
@@ -149,6 +156,15 @@ class LocalClaimStore:
             )
         ):
             raise ValueError("CLAIM_SNAPSHOT_HEAD_CHANGED")
+        from proofops.adapters.local.receipt_environment_compat import (
+            receipt_read_metadata,
+            table_read_metadata,
+        )
+
+        compatibility = [table_read_metadata(graph)]
+        if "claim_source_attestation" in envelope:
+            compatibility.append(receipt_read_metadata(envelope["claim_source_attestation"]))
+        self._read_compatibility.set([item for item in compatibility if item is not None])
         return envelope, discovery, parse_graph if for_extraction else graph
 
     def load_snapshot(self, tenant_id: str, run_id: str) -> dict:

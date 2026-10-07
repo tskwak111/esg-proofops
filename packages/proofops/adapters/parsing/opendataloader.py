@@ -851,9 +851,19 @@ class OpenDataLoaderParser(ParserPort):
                 raise ValueError("parser run mismatch")
             if profile.table_source_policy_sha256 is not None:
                 verifier = _table_verifier(profile.table_source_policy_sha256)
-                restored = verifier.replay_tables(
-                    values["table-source.json"], restored, source.content, tenant_id=tenant_id
+                from proofops.adapters.local.receipt_environment_compat import (
+                    record_table_read,
+                    replay_receipt,
                 )
+
+                restored = replay_receipt(
+                    verifier.replay_tables,
+                    values["table-source.json"],
+                    restored,
+                    source.content,
+                    tenant_id=tenant_id,
+                )
+                record_table_read(values["table-source.json"], restored)
             return restored
         except (OSError, ValueError, KeyError, TypeError):
             raise ParseFailure("PARSER_ARTIFACT_INTEGRITY_MISMATCH") from None

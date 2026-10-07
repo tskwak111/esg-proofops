@@ -168,7 +168,11 @@ def _load_frozen_verifier(bundle: dict) -> ModuleType:
 def replay_native_sources_frozen(bundle, receipt, graph, source, *, tenant_id):
     """Re-execute the pinned historical verifier to reproduce and replay the receipt."""
     frozen_sv = _load_frozen_verifier(bundle)
-    return frozen_sv.replay_native_sources(receipt, graph, source, tenant_id=tenant_id)
+    from proofops.adapters.local.receipt_environment_compat import replay_receipt
+
+    return replay_receipt(
+        frozen_sv.replay_native_sources, receipt, graph, source, tenant_id=tenant_id
+    )
 
 
 def replay_native_with_policy(stored_policy, receipt, graph, source, *, tenant_id):
