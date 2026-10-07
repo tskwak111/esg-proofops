@@ -62,8 +62,13 @@ class LocalClaimStore:
     def __init__(self, store, uploads, parser):
         self.store, self.uploads, self.parser = store, uploads, parser
 
-    def load_evidence(self, tenant_id, run_id):
-        """Replay once and return the mutually verified snapshot, claims and source graph."""
+    def load_evidence(self, tenant_id, run_id, *, for_extraction=False):
+        """Replay once; extraction reuses the parse graph without claim-span annotations.
+
+        The default graph retains verified claim spans for evidence consumers. The
+        extraction view preserves the original graph hash for new checkpoints;
+        both views require the full receipt replay and fresh head checks.
+        """
         snapshot = self.store.snapshot(tenant_id, run_id)
         run = self.store.jobs.get_run(tenant_id, run_id)
         if "extract_job" not in run:
@@ -90,6 +95,7 @@ class LocalClaimStore:
         graph = load_run_graph(
             self.store, self.uploads, self.parser, tenant_id=tenant_id, run_id=run_id
         )
+        parse_graph = graph
         profile = extraction_profile(snapshot)
         parse_checkpoint = self.store.jobs.read_checkpoint(JobMessage(**run["parse_job"]))
         if parse_checkpoint is None:
@@ -129,7 +135,21 @@ class LocalClaimStore:
             )
         elif "claim_source_attestation" in envelope:
             raise ValueError("UNPINNED_CLAIM_SOURCE_ATTESTATION")
-        return envelope, discovery, graph
+        # Verification can be slow. Recheck access and the immutable pointers
+        # before returning a graph from the head observed at the start.
+        self.store.snapshot(tenant_id, run_id)
+        current = self.store.jobs.get_run(tenant_id, run_id)
+        if any(
+            current.get(key) != run.get(key)
+            for key in (
+                "extract_job",
+                "parse_job",
+                "claim_snapshot_sha256",
+                "cancellation_requested",
+            )
+        ):
+            raise ValueError("CLAIM_SNAPSHOT_HEAD_CHANGED")
+        return envelope, discovery, parse_graph if for_extraction else graph
 
     def load_snapshot(self, tenant_id: str, run_id: str) -> dict:
         return self.load_evidence(tenant_id, run_id)[0]

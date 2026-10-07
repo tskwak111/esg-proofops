@@ -45,9 +45,11 @@ function numberHeader(response: Response, name: string): number | null {
 }
 
 function locationLabel(source: SourceRef): string {
-  if (source.location_quality === "unlocated") return "위치 없음";
-  if (source.location_quality === "unreadable") return "판독 불가";
-  return source.verification_state === "verified" ? "인용문 검증됨" : "위치 후보";
+  const location = source.location_quality === "unlocated" ? "위치 없음 (unlocated)"
+    : source.location_quality === "unreadable" ? "판독 불가 (unreadable)" : "위치 있음";
+  const verification = source.verification_state === "verified" ? "인용문 검증됨 (verified)"
+    : source.verification_state === "rejected" ? "인용 검증 거절 (rejected)" : "인용 후보 (candidate)";
+  return `${location} · ${verification}`;
 }
 
 export function SourceViewer({ apiBase = "", csrfToken, runId, sources, openRequest = null, onSessionInvalid }: Props) {
@@ -55,6 +57,7 @@ export function SourceViewer({ apiBase = "", csrfToken, runId, sources, openRequ
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const request = useRef<AbortController | null>(null);
+  const returnFocus = useRef<HTMLElement | null>(null);
   const previewRef = useRef<HTMLElement | null>(null);
   // Nonce of the last request acted on. Seeded from the current request so a
   // remount (claim or tenant change) starts clean instead of replaying the
@@ -73,6 +76,7 @@ export function SourceViewer({ apiBase = "", csrfToken, runId, sources, openRequ
   }
 
   async function openSource(source: SourceRef) {
+    returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     request.current?.abort();
     const controller = new AbortController();
     request.current = controller;
@@ -132,7 +136,13 @@ export function SourceViewer({ apiBase = "", csrfToken, runId, sources, openRequ
     </article>)}
     {message ? <p role="alert">{message}</p> : null}
     {preview ? <section aria-label="선택한 원문 위치" ref={previewRef} tabIndex={-1}>
-      <p>PDF {preview.source.page_num}쪽 미리보기</p>
+      <button type="button" onClick={() => {
+        request.current?.abort();
+        setBusy(false);
+        setPreview(null);
+        returnFocus.current?.focus();
+      }}>원문 미리보기 닫기 · 검토로 돌아가기</button>
+      <p>PDF {preview.source.page_num}쪽 미리보기 · {locationLabel(preview.source)}</p>
       {sources.some(source => source.source_id === preview.source.source_id) ? null
         : <p>이 미리보기는 정식 근거로 채택되지 않은 후보 위치입니다. 이 위치를 여는 것만으로 근거가 채택되거나 판정이 바뀌지 않습니다.</p>}
       <div style={{ position: "relative", width: "100%" }}>

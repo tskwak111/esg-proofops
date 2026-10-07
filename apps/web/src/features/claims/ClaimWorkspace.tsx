@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { SourceViewer, type SourceOpenRequest } from "../../components/SourceViewer";
 import { StatusBadge } from "../../components/StatusBadge";
+import { ReviewCandidatePanel } from "./ReviewCandidatePanel";
 import { PreliminaryClassification } from "./PreliminaryClassification";
 import { ApiError, errorMessage, isSessionError, requestJson, type Session } from "../session/api";
 import {
@@ -278,7 +279,7 @@ export function ReviewedContextSection({ context }: { context: ReviewedContext }
 function RawCandidatesList({ candidates, onSourceOpen }: { candidates: ReviewCandidate[]; onSourceOpen: (source: SourceRef) => void }) {
   if (candidates.length === 0) return <p>표시할 근거 후보가 아직 없습니다.</p>;
   return <ul>{candidates.map((cand, index) => <li key={`${cand.source_ref.source_id}:${index}`}>
-    <p><strong>원문 {cand.source_ref.page_num}쪽</strong> · {cand.status === "unverified" ? "미검증 근거 후보" : "검토 후보 · 항목 연결 미확정"}{cand.reason && cand.status !== "unverified" ? ` (${cand.reason})` : ""}</p>
+    <p><strong>원문 {cand.source_ref.page_num}쪽</strong> · {cand.status === "unverified" ? "미검증 근거 후보" : "검토 후보 · 항목 연결 미확정"}{cand.reason ? ` (${cand.reason})` : ""}</p>
     <p>{cand.source_ref.quote}</p>
     <button type="button" onClick={() => onSourceOpen(cand.source_ref)}>원문 {cand.source_ref.page_num}쪽 보기</button>
   </li>)}</ul>;
@@ -324,6 +325,7 @@ export function PartialClaimSummary({
         {action}
       </p>
 
+      {projection?.blocked_reason ? <p>보류 사유: {projection.blocked_reason}</p> : null}
       <h4>추출된 항목 (present)</h4>
       {presentElements.length > 0 ? (
         <ul>
@@ -474,7 +476,9 @@ function ClaimDetailView({ apiBase = "", csrfToken, tenantKey, session, runId, c
     <h1 id="claim-heading">주장 상세</h1>
     <p><Link to={`/runs/${runId}/claims`}>주장 목록으로</Link></p>
     {untagged ? <p role="status">태깅 결과가 게시되지 않은 주장입니다. 처리 대기, 원문 검증 또는 주장 분류가 보류된 경우가 포함됩니다. 아래에서 원문을 확인할 수 있으며, 태깅 편집은 태그가 게시된 뒤에 가능합니다.</p> : null}
-    <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 3fr) minmax(280px, 2fr)", gap: 24 }}>
+    <ReviewCandidatePanel sources={detail.source_refs} candidateCount={projection?.raw_candidates?.length ?? 0}
+      replicaCount={detail.replicate_request_ids.length} decisionStatus={decision?.decision_status ?? null} />
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))", gap: 24 }}>
       <SourceViewer key={`${tenantKey}:${runId}:${claimId}`} apiBase={apiBase} csrfToken={csrfToken} runId={runId} sources={detail.source_refs} openRequest={sourceOpen} onSessionInvalid={onSessionInvalid} />
       <section aria-labelledby="evidence-heading"><h2 id="evidence-heading">태깅과 판정</h2>
         <PartialClaimSummary decision={decision} elements={elements} rawCandidates={projection?.raw_candidates ?? []} projection={projection} onSourceOpen={source => setSourceOpen(current => ({ source, nonce: (current?.nonce ?? 0) + 1 }))} />
@@ -487,6 +491,7 @@ function ClaimDetailView({ apiBase = "", csrfToken, tenantKey, session, runId, c
           : null}
         <details><summary>전체 항목 상세 ({elements.length}개)</summary>{elements.length === 0 ? <p>{untagged ? "게시된 요소가 없습니다. 원문 검증 또는 분류가 보류된 경우 추가 검토가 필요합니다." : "표시할 요소가 없습니다."}</p> : <ul>{elements.map(element => <li key={element.element_id}>
           {getElementLabel(element.element_id)}: {elementStateText[element.state]} · 근거 {element.evidence_refs.length}개
+          {element.reason_code ? <p>요소 검토 사유: {element.reason_code}</p> : null}
           {element.normalized_value !== null ? <p>값: {element.normalized_value}</p> : null}
           {element.evidence_refs.length ? <details data-element-evidence={element.element_id}>
             <summary>{element.element_id} 근거 내용</summary>

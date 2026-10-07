@@ -313,7 +313,19 @@ class LocalExtractRunner:
             )
         # Strict verification of the prior revision before any receipt is reused:
         # this replays every stored receipt against the frozen pins and graph.
-        prior_envelope, _, _ = self.claims.load_evidence(tenant_id, run_id)
+        prior_envelope, _, graph = self.claims.load_evidence(tenant_id, run_id, for_extraction=True)
+        # Fence the original continuation head again after the potentially slow
+        # receipt replay, including downstream publication/active tag leases.
+        with self.store.jobs._transaction() as db:
+            current = self.store.jobs._get(db, tenant_id, run_id, "run", "META")
+            if any(
+                current.get(key) != run.get(key)
+                for key in ("extract_job", "parse_job", "claim_snapshot_sha256")
+            ):
+                raise ValueError("CLAIM_SNAPSHOT_HEAD_CHANGED")
+            if current["cancellation_requested"]:
+                return dict(status="cancelled")
+            guard_extract_continuation(db, self.store.jobs, current, now=int(self.clock()))
         state = extraction_batch_state(prior_envelope)
         profile = extraction_profile(snapshot)
         limits = snapshot.get("extraction_limits")
@@ -336,9 +348,6 @@ class LocalExtractRunner:
         else:
             batch_calls = frozen_calls
         total_budget = _extractor_role_budget(snapshot)
-        graph = load_run_graph(
-            self.store, self.uploads, self.parser, tenant_id=tenant_id, run_id=run_id
-        )
         scope = claim_scope(snapshot, graph)
         prior_charged = len(state["model_processed"]) + len(state["failed"])
         usage_records = self.store.jobs.list_usage(tenant_id, run_id)
