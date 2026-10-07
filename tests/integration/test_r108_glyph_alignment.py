@@ -41,6 +41,117 @@ def check(r=None, **kwargs):
     )
 
 
+def hangul_reading(left, right):
+    texts = ["회사", left, right]
+    boxes = [[0, 0, 15, 10], [20, 0, 28, 10], [29, 0, 45, 10]]
+    first = list(range(len(texts[0])))
+    left_start = len(texts[0]) + 1  # The genuine space after "회사" has a glyph index.
+    indices = [first, list(range(left_start, left_start + len(left)))]
+    indices.append(list(range(left_start + len(left), left_start + len(left) + len(right))))
+    words = [
+        dict(index=i, text=text, bbox=box)
+        for i, (text, box) in enumerate(zip(texts, boxes, strict=True))
+    ]
+    native = " ".join(texts[:2]) + " " + texts[2]
+    rendered = " ".join(texts[:2]) + texts[2]
+    return native, dict(
+        reason="rendered_quote_unresolved",
+        words=words,
+        rendered=dict(status="read", text=rendered),
+        glyph_geometry=dict(
+            source_sha256="a" * 64,
+            physical_page=1,
+            matched_words=[
+                dict(native_word_index=w["index"], ink_bbox=w["bbox"], pdfium_char_indices=idx)
+                for w, idx in zip(words, indices, strict=True)
+            ],
+        ),
+    )
+
+
+def set_word_box(reading, index, box):
+    reading["words"][index]["bbox"] = box
+    reading["glyph_geometry"]["matched_words"][index]["ink_bbox"] = box
+
+
+@pytest.mark.parametrize(("left", "right"), [("네", "이버"), ("환", "경")])
+def test_hangul_artificial_space_at_line_end_uses_left_control(left, right):
+    native, r = hangul_reading(left, right)
+    result = verifier.align_reading(
+        native=native,
+        quote=f"{left} {right}",
+        reading=r,
+        page_num=1,
+        bbox=[0, 0, 100, 12],
+        source_sha256="a" * 64,
+    )
+    assert result["status"] == "verified"
+    assert result["aligned_quote"] == left + right
+
+
+@pytest.mark.parametrize(("left_control", "right_control"), [(2, 4), (4, 2)])
+def test_hangul_artificial_space_uses_real_controls_on_both_sides(left_control, right_control):
+    texts = ["회사", "네", "이버", "보고서"]
+    left_start = 15 + left_control
+    right_start = left_start + len(texts[1]) * 5 + 1
+    report_start = right_start + len(texts[2]) * 8 + right_control
+    boxes = [
+        [0, 0, 15, 10],
+        [left_start, 0, left_start + 5, 10],
+        [right_start, 0, right_start + 16, 10],
+        [report_start, 0, report_start + 22, 10],
+    ]
+    indices = [[0, 1], [3], [4, 5], [7, 8, 9]]
+    words = [
+        dict(index=i, text=text, bbox=box)
+        for i, (text, box) in enumerate(zip(texts, boxes, strict=True))
+    ]
+    native = "회사 네 이버 보고서"
+    r = dict(
+        reason="rendered_quote_unresolved",
+        words=words,
+        rendered=dict(status="read", text="회사 네이버 보고서"),
+        glyph_geometry=dict(
+            source_sha256="a" * 64,
+            physical_page=1,
+            matched_words=[
+                dict(native_word_index=w["index"], ink_bbox=w["bbox"], pdfium_char_indices=idx)
+                for w, idx in zip(words, indices, strict=True)
+            ],
+        ),
+    )
+    result = verifier.align_reading(
+        native=native,
+        quote="네 이버",
+        reading=r,
+        page_num=1,
+        bbox=[0, 0, 100, 12],
+        source_sha256="a" * 64,
+    )
+    assert result["status"] == "verified"
+    assert result["boundaries"][0]["minimum_control_gap_pt"] == min(left_control, right_control)
+
+
+@pytest.mark.parametrize(
+    ("gap", "expected"), [(1.99, "verified"), (2.0, "verified"), (2.01, "unresolved")]
+)
+def test_gap_height_ratio_boundary(gap, expected):
+    r = reading()
+    set_word_box(r, 1, [5 + gap, 0, 30, 10])
+    assert check(r)["status"] == expected
+
+
+@pytest.mark.parametrize(
+    ("control_gap", "expected"),
+    [(1.499, "unresolved"), (1.5, "unresolved"), (1.501, "verified")],
+)
+def test_real_space_ratio_boundary(control_gap, expected):
+    r = reading()
+    set_word_box(r, 1, [6, 0, 30, 10])
+    set_word_box(r, 2, [30 + control_gap, 0, 54, 10])
+    assert check(r)["status"] == expected
+
+
 def test_artificial_space_requires_glyph_proof_and_reversible_offset():
     result = check()
     assert result["status"] == "verified"

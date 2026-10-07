@@ -47,10 +47,14 @@ def _box_valid(box):
     )
 
 
-def _same_line(left, right):
+def _same_row(left, right):
     a, b = left["bbox"], right["bbox"]
     overlap = min(a[3], b[3]) - max(a[1], b[1])
-    return overlap >= 0.8 * max(a[3] - a[1], b[3] - b[1]) and b[0] >= a[2]
+    return overlap >= 0.8 * max(a[3] - a[1], b[3] - b[1])
+
+
+def _same_line(left, right):
+    return _same_row(left, right) and right["bbox"][0] >= left["bbox"][2]
 
 
 def align_reading(*, native, quote, reading, page_num, bbox, source_sha256):
@@ -131,7 +135,7 @@ def align_reading(*, native, quote, reading, page_num, bbox, source_sha256):
                 b["bbox"][0] - a["bbox"][2]
                 for j, (a, b) in enumerate(zip(words, words[1:]))
                 if _same_line(a, b)
-                and _same_line(left, b)
+                and _same_row(left, a)
                 and indices[j + 1][0] > indices[j][-1] + 1
             ]
             if (

@@ -287,3 +287,21 @@ def test_published_prompt_schema_and_catalog_bounds():
         relation_occurrence_catalog(identity, "가" * 8193)
     with pytest.raises(DomainValidationError, match="RELATION_CATALOG_LIMIT"):
         relation_occurrence_catalog(identity, "word " * 513)
+
+
+def test_occurrence_catalog_candidate_limit_fails_without_truncation():
+    from proofops.application.ingest.span_alignment import SourceIdentity
+    from proofops.application.tagging.relations import relation_occurrence_catalog
+
+    graph, _, refs = corpus()
+    identity = SourceIdentity(
+        TENANT,
+        graph.document_version_id,
+        refs[0].source_id,
+        graph.parse_manifest_id,
+        "a" * 64,
+        "b" * 64,
+        1,
+    )
+    with pytest.raises(DomainValidationError, match="RELATION_CATALOG_LIMIT"):
+        relation_occurrence_catalog(identity, "가" * 92)
