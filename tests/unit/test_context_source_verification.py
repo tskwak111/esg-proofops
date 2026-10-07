@@ -114,7 +114,7 @@ def test_pinned_reader_verifies_paragraph_and_records_policy_for_replay(monkeypa
         assert recorded_policy == policy
         return verified
 
-    monkeypatch.setattr(claim_source_policies, "claim_source_reader", configured_reader)
+    monkeypatch.setattr(claim_source_policies, "publication_reader", configured_reader)
 
     default = receipt("claim_source_attestation_v1", (refs[0],))
     default["records"][0]["status"] = "unresolved"
@@ -160,7 +160,7 @@ def test_table_only_ref_keeps_table_receipt_when_run_pins_paragraph_reader(monke
             "table-only refs must not call the paragraph reader"
         )
     )
-    monkeypatch.setattr(claim_source_policies, "claim_source_reader", lambda _: configured)
+    monkeypatch.setattr(claim_source_policies, "publication_reader", lambda _: configured)
 
     _, actual = store.verify_context_sources(inputs, (refs[1],))
 
@@ -208,6 +208,7 @@ def test_only_explicit_replay_uses_stored_reader(monkeypatch):
         return legacy_reader if policy == legacy_policy else pinned_reader
 
     monkeypatch.setattr(claim_source_policies, "claim_source_reader", dispatch)
+    monkeypatch.setattr(claim_source_policies, "publication_reader", dispatch)
     _, fresh = store.verify_context_sources(inputs, (refs[0],))
     assert fresh["policy"] == pinned_policy
     assert selected == [pinned_policy]

@@ -240,10 +240,10 @@ def _stored_context_reader(
             raise ValueError("CONTEXT_SOURCE_REPLAY_MISMATCH") from None
     else:
         tag = published_tag
-        if (
-            not isinstance(tag, dict)
-            or (tag.get("confirmed_tags") or {}).get("claim_id") != claim.claim_id
-        ):
+        if not isinstance(tag, dict):
+            raise ValueError("CONTEXT_SOURCE_REPLAY_MISMATCH")
+        tag_claim = tag.get("confirmed_tags") or (tag.get("inputs") or {}).get("claim") or {}
+        if tag_claim.get("claim_id") != claim.claim_id:
             raise ValueError("CONTEXT_SOURCE_REPLAY_MISMATCH")
 
     ref_hash = canonical_hash([dict(asdict(ref), verification_state="candidate") for ref in refs])
@@ -305,7 +305,11 @@ class LocalTagStore:
     def verify_context_sources(
         self, inputs, refs, *, replay_receipt=None, pinned_run_snapshot=None, published_tag=None
     ):
-        """Source-only supplementary span attestations; never mutate frozen inputs."""
+        """Publish under current policy, or replay an explicitly stored receipt.
+
+        Historical readers are selected only after storage and ref binding have
+        been checked. Frozen inputs and the saved receipt identity stay intact.
+        """
         from dataclasses import replace
 
         from proofops.adapters.local.claim_source_policies import attest_claims
@@ -355,9 +359,16 @@ class LocalTagStore:
                     published_tag=published_tag,
                 )
             if reader_policy is not None:
-                from proofops.adapters.local.claim_source_policies import claim_source_reader
+                from proofops.adapters.local.claim_source_policies import (
+                    claim_source_reader,
+                    publication_reader,
+                )
 
-                reader = claim_source_reader(reader_policy)
+                reader = (
+                    claim_source_reader(reader_policy)
+                    if stored_receipt is not None
+                    else publication_reader(reader_policy)
+                )
         elif replay_receipt is not None:
             raise ValueError("CONTEXT_SOURCE_REPLAY_MISMATCH")
         if reader is None:
@@ -627,11 +638,20 @@ class LocalTagStore:
             link_receipts,
         )
         inputs.validate()
-        for receipt in link_receipts:
-            refs = tuple(SourceRef(**ref) for ref in receipt["refs"])
-            _, replayed = self.verify_context_sources(inputs, refs)
-            if canonical_hash(replayed) != canonical_hash(receipt["source_receipt"]):
-                raise ValueError("REPORT_LEVEL_LINK_REPLAY_MISMATCH")
         if _tag_replay_hash(inputs.snapshot()) != _tag_replay_hash(raw):
             raise ValueError("TAG_REPLAY_MISMATCH")
+        for receipt in link_receipts:
+            refs = tuple(SourceRef(**ref) for ref in receipt["refs"])
+            # raw came from the hash/pin-checked checkpoint or initial immutable
+            # revision above, and its complete replay has now been validated.
+            # Bind to that publication rather than a potentially newer tag head.
+            _, replayed = self.verify_context_sources(
+                inputs,
+                refs,
+                replay_receipt=receipt["source_receipt"],
+                pinned_run_snapshot=snapshot,
+                published_tag=dict(inputs=raw, report_level_review=link_receipts),
+            )
+            if canonical_hash(replayed) != canonical_hash(receipt["source_receipt"]):
+                raise ValueError("REPORT_LEVEL_LINK_REPLAY_MISMATCH")
         return inputs
