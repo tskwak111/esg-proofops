@@ -141,3 +141,79 @@ def test_table_metadata_is_bound_to_context_and_graph():
         assert context.run(table_read_metadata, graph)["environment_drift"]
         assert context.run(table_read_metadata, foreign) is None
         assert Context().run(table_read_metadata, graph) is None
+
+
+def claim_receipt(os):
+    readings = {
+        source_id: dict(
+            rendered=dict(
+                status="read",
+                reader="Apple Vision",
+                os=os,
+                text=source_id,
+                image_sha256="pixels",
+            )
+        )
+        for source_id in ("first", "second")
+    }
+    value = dict(
+        schema="claim_source_attestation_v1",
+        readings=readings,
+        records=[
+            dict(ref=dict(source_id=source_id), reading_sha256=canonical_hash(reading))
+            for source_id, reading in readings.items()
+        ],
+    )
+    value["artifact_sha256"] = canonical_hash(value)
+    return value
+
+
+def rehash(value):
+    value["artifact_sha256"] = canonical_hash(
+        {key: item for key, item in value.items() if key != "artifact_sha256"}
+    )
+
+
+@pytest.mark.parametrize("side", ["stored", "current"])
+@pytest.mark.parametrize("mutation", ["stale", "wrong_source", "missing_source"])
+def test_each_reading_digest_binds_its_own_source_before_comparison(side, mutation):
+    saved, current = claim_receipt("old"), claim_receipt("new")
+    target = saved if side == "stored" else current
+    other = current if side == "stored" else saved
+    if mutation == "stale":
+        target["records"][0]["reading_sha256"] = other["records"][0]["reading_sha256"]
+    elif mutation == "wrong_source":
+        target["records"][0]["reading_sha256"] = target["records"][1]["reading_sha256"]
+    else:
+        target["records"][0]["ref"]["source_id"] = "missing"
+    rehash(target)
+    with pytest.raises(ValueError, match="RECEIPT_DERIVED_HASH_MISMATCH"):
+        compare_receipts(saved, current, profile=PROFILE)
+
+
+def test_exact_receipt_still_requires_internal_digest_integrity():
+    saved = claim_receipt("old")
+    saved["records"][0]["reading_sha256"] = saved["records"][1]["reading_sha256"]
+    rehash(saved)
+    for profile in (PROFILE, "strict-v1"):
+        with pytest.raises(ValueError, match="RECEIPT_DERIVED_HASH_MISMATCH"):
+            compare_receipts(saved, deepcopy(saved), profile=profile)
+
+
+@pytest.mark.parametrize("side", ["stored", "current"])
+def test_glyph_rendered_digest_cannot_borrow_another_sources_hash(side):
+    saved, current = claim_receipt("old"), claim_receipt("new")
+    for value in (saved, current):
+        value["schema"] = "glyph_alignment_attestation_v1"
+        value["glyph_alignments"] = {
+            "0": dict(rendered_read_sha256=canonical_hash(value["readings"]["first"]["rendered"]))
+        }
+        rehash(value)
+    assert compare_receipts(saved, current, profile=PROFILE)["environment_drift"]
+    target = saved if side == "stored" else current
+    target["glyph_alignments"]["0"]["rendered_read_sha256"] = canonical_hash(
+        target["readings"]["second"]["rendered"]
+    )
+    rehash(target)
+    with pytest.raises(ValueError, match="RECEIPT_DERIVED_HASH_MISMATCH"):
+        compare_receipts(saved, current, profile=PROFILE)

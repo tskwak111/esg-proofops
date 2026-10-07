@@ -127,49 +127,102 @@ def _layers(receipt):
         )
 
 
-def _derived_pairs(saved, current):
-    """Actual canonical preimages on BOTH sides; never ignore a changed digest."""
-    pairs = set()
+def _pointer(path, key):
+    return path + "/" + str(key).replace("~", "~0").replace("/", "~1")
 
-    def walk(old, new):
-        if isinstance(old, dict) and isinstance(new, dict) and old.keys() == new.keys():
-            if "artifact_sha256" in old:
-                for value in (old, new):
-                    if value["artifact_sha256"] != canonical_hash(
-                        {k: v for k, v in value.items() if k != "artifact_sha256"}
-                    ):
-                        raise ValueError("RECEIPT_DERIVED_HASH_MISMATCH")
-                pairs.add((old["artifact_sha256"], new["artifact_sha256"]))
-                if old.get("schema") in {
-                    "claim_span_render_resolution_attestation_v1",
-                    "claim_span_bullet_alignment_attestation_v1",
-                    "claim_span_typography_attestation_v1",
-                }:
-                    for (field, a), (other, b) in zip(_layers(old), _layers(new), strict=True):
-                        if field != other or (old[field], new[field]) != (
-                            canonical_hash(a),
-                            canonical_hash(b),
-                        ):
-                            raise ValueError("RECEIPT_DERIVED_HASH_MISMATCH")
-                        pairs.add((old[field], new[field]))
-            # Actual reading/renderer objects; hashes of arbitrary content do not qualify.
-            if "rendered" in old or (old.get("reader") == "Apple Vision" and "image_sha256" in old):
-                pairs.add((canonical_hash(old), canonical_hash(new)))
-            for key in old:
-                walk(old[key], new[key])
-        elif isinstance(old, list | tuple) and isinstance(new, list | tuple):
-            for a, b in zip(old, new):
-                walk(a, b)
 
-    walk(saved, current)
-    # Each receipt digest covers its complete preimage, including the real OS.
-    for value in (saved, current):
-        if value.get("artifact_sha256") != canonical_hash(
-            {k: v for k, v in value.items() if k != "artifact_sha256"}
-        ):
+def _derived_hashes(receipt):
+    """Validate each digest against its own schema-bound preimage, even if equal.
+
+    Paths, rather than a global set of digest values, bind the two receipts'
+    corresponding references. A hash from an unrelated reading cannot qualify.
+    """
+    hashes = {}
+
+    def bind(value, field, preimage, path):
+        digest = canonical_hash(preimage)
+        if value[field] != digest:
             raise ValueError("RECEIPT_DERIVED_HASH_MISMATCH")
-    pairs.add((saved["artifact_sha256"], current["artifact_sha256"]))
-    return pairs
+        hashes[_pointer(path, field)] = digest
+
+    def walk(value, path=""):
+        if isinstance(value, dict):
+            if "artifact_sha256" in value:
+                bind(
+                    value,
+                    "artifact_sha256",
+                    {k: v for k, v in value.items() if k != "artifact_sha256"},
+                    path,
+                )
+            schema = value.get("schema")
+            if schema in {
+                "claim_span_render_resolution_attestation_v1",
+                "claim_span_bullet_alignment_attestation_v1",
+                "claim_span_typography_attestation_v1",
+            }:
+                for field, lower in _layers(value):
+                    bind(value, field, lower, path)
+            if "readings" in value:
+                readings = value["readings"]
+                for field in (
+                    "records",
+                    "base_records",
+                    "baseline_records",
+                    "bullet_alignment_records",
+                ):
+                    for index, record in enumerate(value.get(field, ())):
+                        if "reading_sha256" in record:
+                            source_id = record.get("ref", record).get("source_id")
+                            bind(
+                                record,
+                                "reading_sha256",
+                                readings[source_id],
+                                _pointer(_pointer(path, field), index),
+                            )
+                if schema == "claim_span_typography_attestation_v1":
+                    for index, entry in value["typography_reads"].items():
+                        source_id = value["records"][int(index)]["ref"]["source_id"]
+                        if entry["source_id"] != source_id:
+                            raise ValueError("RECEIPT_DERIVED_HASH_MISMATCH")
+                        if entry["path"] == "bullet_alignment_rendered_read":
+                            rendered = value["bullet_alignments"][source_id].get("rendered")
+                        elif entry["path"] == "base_rendered_read":
+                            rendered = readings[source_id].get("rendered")
+                        elif entry["path"] == "no_rendered_read":
+                            rendered = None
+                        else:
+                            raise ValueError("RECEIPT_DERIVED_HASH_MISMATCH")
+                        if rendered is None:
+                            if entry["rendered_read_sha256"] is not None:
+                                raise ValueError("RECEIPT_DERIVED_HASH_MISMATCH")
+                        else:
+                            bind(
+                                entry,
+                                "rendered_read_sha256",
+                                rendered,
+                                _pointer(_pointer(path, "typography_reads"), index),
+                            )
+                if schema == "glyph_alignment_attestation_v1":
+                    for index, entry in value["glyph_alignments"].items():
+                        if "rendered_read_sha256" in entry:
+                            source_id = value["records"][int(index)]["ref"]["source_id"]
+                            bind(
+                                entry,
+                                "rendered_read_sha256",
+                                readings[source_id]["rendered"],
+                                _pointer(_pointer(path, "glyph_alignments"), index),
+                            )
+            for key, item in value.items():
+                walk(item, _pointer(path, key))
+        elif isinstance(value, list | tuple):
+            for index, item in enumerate(value):
+                walk(item, _pointer(path, index))
+
+    try:
+        walk(receipt)
+    except (KeyError, IndexError, TypeError) as error:
+        raise ValueError("RECEIPT_DERIVED_HASH_MISMATCH") from error
+    return hashes
 
 
 def compare_receipts(saved, current, *, profile=STRICT):
@@ -178,17 +231,18 @@ def compare_receipts(saved, current, *, profile=STRICT):
         raise ValueError("RECEIPT_READ_PROFILE_UNKNOWN")
     old_hash, new_hash = canonical_hash(saved), canonical_hash(current)
     drift = []
+    old_derived = _derived_hashes(saved)
+    new_derived = _derived_hashes(current)
     if old_hash != new_hash:
         if profile == STRICT:
             raise ValueError("RECEIPT_CONTENT_MISMATCH")
-        pairs = _derived_pairs(saved, current)
 
         def compare(old, new, path=""):
             if isinstance(old, dict) and isinstance(new, dict):
                 if old.keys() != new.keys():
                     raise ValueError("RECEIPT_CONTENT_MISMATCH")
                 for key in old:
-                    here = path + "/" + key.replace("~", "~0").replace("/", "~1")
+                    here = _pointer(path, key)
                     if canonical_hash(old[key]) == canonical_hash(new[key]):
                         continue
                     if (
@@ -206,7 +260,8 @@ def compare_receipts(saved, current, *, profile=STRICT):
                         key in _DERIVED_FIELDS
                         and isinstance(old[key], str)
                         and isinstance(new[key], str)
-                        and (old[key], new[key]) in pairs
+                        and old_derived.get(here) == old[key]
+                        and new_derived.get(here) == new[key]
                     ):
                         continue
                     else:

@@ -363,3 +363,292 @@ def test_fresh_wrapper_proof_retains_its_canonical_integrity(monkeypatch):
         {k: v for k, v in proof.items() if k != "artifact_sha256"}
     )
     assert receipt_read_metadata(saved, profile=PROFILE)["environment_drift"]
+
+
+@pytest.fixture
+def os_drift_claim(monkeypatch):
+    from proofops.adapters.local import claim_source_verification as base
+    from proofops.adapters.local import native_replay_cache as cache
+    from proofops.adapters.local import receipt_environment_compat as compat
+    from proofops.adapters.local import selected_cell_table_verification as cell
+
+    from tests.integration.test_batch_attestation_cache import discovery_for
+    from tests.integration.test_claim_span_typography import RENDERED_TEXT, dot_inputs
+
+    source, graph, ref = dot_inputs()
+    state = ["old"]
+
+    def reading(*args, **kwargs):
+        return dict(
+            status="read",
+            text=RENDERED_TEXT,
+            reader="Apple Vision",
+            os=state[0],
+            revision=3,
+            image_sha256="pixels",
+            scale=11,
+        )
+
+    monkeypatch.setattr(base, "_rendered_text", reading)
+    monkeypatch.setattr(cell, "_rendered_cell", reading)
+    monkeypatch.setenv(compat.PROFILE_ENV, PROFILE)
+    for entries in (cache._claim_replays, cache._claim_attestations, cache._claim_wrapper_receipts):
+        entries.clear()
+    yield source, graph, ref, discovery_for(graph, [ref]), state
+    for entries in (cache._claim_replays, cache._claim_attestations, cache._claim_wrapper_receipts):
+        entries.clear()
+    compat._meta.clear()
+
+
+def evict_read_metadata():
+    from proofops.adapters.local import receipt_environment_compat as compat
+
+    for index in range(256):
+        compat.compare_receipts({"filler": index}, {"filler": index}, profile=PROFILE)
+
+
+def test_compatible_read_cannot_publish_historical_os(os_drift_claim):
+    from proofops.adapters.local import claim_source_verification as base
+    from proofops.adapters.local import native_replay_cache as cache
+    from proofops.adapters.local.claim_source_policies import attest_claims
+    from proofops.domain.rulepacks import canonical_json
+
+    source, graph, ref, discovery, state = os_drift_claim
+    saved = base.attest_claim_spans(graph, source, (ref,), tenant_id=TENANT)
+    saved_bytes = canonical_json(saved).encode()
+    strict = base.replay_claim_spans(saved, graph, source, discovery, tenant_id=TENANT)
+    state[0] = "new"
+    result = cache.replay_claims_cached(
+        reader=base,
+        policy=base.claim_source_policy(),
+        receipt=saved,
+        graph=graph,
+        source=source,
+        discovery=discovery,
+        tenant_id=TENANT,
+    )
+    assert [asdict(x) for x in result] == [asdict(x) for x in strict]
+    for refs in ((ref,), (graph.blocks[0].source_ref(), ref, ref)):
+        fresh = base.attest_claim_spans(graph, source, refs, tenant_id=TENANT)
+        published = attest_claims(
+            reader=base,
+            graph=graph,
+            source=source,
+            refs=refs,
+            tenant_id=TENANT,
+            cache=True,
+        )
+        assert canonical_json(published).encode() == canonical_json(fresh).encode()
+    assert canonical_json(saved).encode() == saved_bytes
+
+
+def test_stale_reading_digest_is_rejected_before_equality_shortcut(os_drift_claim):
+    from proofops.adapters.local import claim_source_verification as base
+
+    source, graph, ref, discovery, state = os_drift_claim
+    current = base.attest_claim_spans(graph, source, (ref,), tenant_id=TENANT)
+    saved = deepcopy(current)
+    for reading in saved["readings"].values():
+        reading["rendered"]["os"] = "older OS"
+    saved["artifact_sha256"] = canonical_hash(
+        {key: value for key, value in saved.items() if key != "artifact_sha256"}
+    )
+    assert any(
+        record["reading_sha256"] != canonical_hash(saved["readings"][record["ref"]["source_id"]])
+        for record in saved["records"]
+        if "reading_sha256" in record
+    )
+    with pytest.raises(ValueError, match="RECEIPT_DERIVED_HASH_MISMATCH"):
+        replay_receipt(
+            base.replay_claim_spans,
+            saved,
+            graph,
+            source,
+            discovery,
+            tenant_id=TENANT,
+            profile=PROFILE,
+        )
+
+
+def test_wrapper_cache_retains_drift_after_sidecar_eviction(os_drift_claim):
+    from proofops.adapters.local import claim_span_bullet_alignment as bullet
+    from proofops.adapters.local import native_replay_cache as cache
+
+    source, graph, ref, discovery, state = os_drift_claim
+    saved = bullet.attest_claim_spans(graph, source, (ref,), tenant_id=TENANT)
+    state[0] = "new"
+    kwargs = dict(
+        reader=bullet,
+        policy=bullet.claim_source_policy(),
+        receipt=saved,
+        graph=graph,
+        source=source,
+        discovery=discovery,
+        tenant_id=TENANT,
+    )
+    first = cache.replay_claims_cached(**kwargs)
+    metadata = receipt_read_metadata(saved)
+    assert metadata["environment_drift"]
+    assert not cache._claim_wrapper_receipts
+    evict_read_metadata()
+    assert receipt_read_metadata(saved) is None
+    assert cache.replay_claims_cached(**kwargs) == first
+    assert receipt_read_metadata(saved) == metadata
+
+
+def test_raster_cache_retains_drift_after_sidecar_eviction(tmp_path, monkeypatch):
+    from proofops.adapters.local import native_replay_cache as cache
+    from proofops.adapters.local import receipt_environment_compat as compat
+    from proofops.adapters.local import source_verification as reader
+
+    from tests.integration.test_raster_request_authorization import setup_request
+
+    service, _, lease, graph, _, snapshot = setup_request(tmp_path, monkeypatch)
+    state = ["old"]
+
+    def reading(*args, **kwargs):
+        return dict(
+            status="read",
+            text="unresolved OCR",
+            reader="Apple Vision",
+            os=state[0],
+            image_sha256="pixels",
+            revision=3,
+        )
+
+    monkeypatch.setattr(reader, "_rendered_text", reading)
+    source = service.uploads.read_original(lease.message.tenant_id, graph.document_version_id)
+    saved = reader.attest_native_sources(
+        graph,
+        source,
+        tenant_id=graph.tenant_id,
+        geometry_mode="glyph",
+    )
+    state[0] = "new"
+    monkeypatch.setenv(compat.PROFILE_ENV, PROFILE)
+    cache._raster_replays.clear()
+    try:
+        args = (snapshot, lease.message, saved, graph, source, (), {})
+        first = cache.replay_raster_cached(*args)
+        metadata = receipt_read_metadata(saved)
+        assert metadata["environment_drift"]
+        evict_read_metadata()
+        assert receipt_read_metadata(saved) is None
+        assert cache.replay_raster_cached(*args) == first
+        assert receipt_read_metadata(saved) == metadata
+    finally:
+        cache._raster_replays.clear()
+        compat._meta.clear()
+
+
+@pytest.mark.parametrize("side", ["stored", "current"])
+@pytest.mark.parametrize("digest", ["reading", "rendered", "layer"])
+def test_typography_reference_integrity_on_both_sides(os_drift_claim, side, digest):
+    from proofops.adapters.local import claim_span_typography as typography
+    from proofops.adapters.local.receipt_environment_compat import compare_receipts
+
+    source, graph, ref, discovery, state = os_drift_claim
+    saved = typography.attest_claim_spans(graph, source, (ref,), tenant_id=TENANT)
+    state[0] = "new"
+    current = typography.attest_claim_spans(graph, source, (ref,), tenant_id=TENANT)
+    assert compare_receipts(saved, current, profile=PROFILE)["environment_drift"]
+    target = saved if side == "stored" else current
+    other = current if side == "stored" else saved
+    if digest == "reading":
+        # The unchanged lower hashes must not bypass validation of the reading.
+        target["records"][0]["reading_sha256"] = other["records"][0]["reading_sha256"]
+    elif digest == "rendered":
+        assert target["typography_reads"]
+        entry = next(iter(target["typography_reads"]))
+        target["typography_reads"][entry]["rendered_read_sha256"] = other["typography_reads"][
+            entry
+        ]["rendered_read_sha256"]
+    else:
+        target["base_attestation_sha256"] = target["baseline_attestation_sha256"]
+    target["artifact_sha256"] = canonical_hash(
+        {key: value for key, value in target.items() if key != "artifact_sha256"}
+    )
+    with pytest.raises(ValueError, match="RECEIPT_DERIVED_HASH_MISMATCH"):
+        compare_receipts(saved, current, profile=PROFILE)
+
+
+def test_glyph_os_replay_preserves_historical_identity(os_drift_claim):
+    from proofops.adapters.local import glyph_alignment_verification as glyph
+
+    source, graph, ref, discovery, state = os_drift_claim
+    saved = glyph.attest_claim_spans(graph, source, (ref,), tenant_id=TENANT)
+    strict = glyph.replay_claim_spans(saved, graph, source, discovery, tenant_id=TENANT)
+    state[0] = "new"
+    result = replay_receipt(
+        glyph.replay_claim_spans,
+        saved,
+        graph,
+        source,
+        discovery,
+        tenant_id=TENANT,
+        profile=PROFILE,
+    )
+    assert [asdict(x) for x in result] == [asdict(x) for x in strict]
+    assert receipt_read_metadata(saved)["environment_drift"]
+
+
+def test_verified_span_read_then_publish_uses_current_attestation(monkeypatch):
+    from proofops.adapters.local import claim_source_verification as base
+    from proofops.adapters.local import native_replay_cache as cache
+    from proofops.adapters.local import receipt_environment_compat as compat
+    from proofops.adapters.local.claim_source_policies import attest_claims
+    from proofops.domain.rulepacks import canonical_json
+
+    from tests.integration.test_batch_attestation_cache import discovery_for
+    from tests.integration.test_claim_source_verification import inputs
+
+    source, graph, ref = inputs()
+    state = ["old"]
+
+    def reading(*args, **kwargs):
+        return dict(
+            status="read",
+            text=graph.blocks[0].raw_text,
+            reader="Apple Vision",
+            os=state[0],
+            revision=3,
+            image_sha256="pixels",
+        )
+
+    monkeypatch.setattr(base, "_rendered_text", reading)
+    monkeypatch.setenv(compat.PROFILE_ENV, PROFILE)
+    cache._claim_replays.clear()
+    cache._claim_attestations.clear()
+    try:
+        discovery = discovery_for(graph, (ref,))
+        saved = base.attest_claim_spans(graph, source, (ref,), tenant_id=TENANT)
+        original = canonical_json(saved).encode()
+        strict = base.replay_claim_spans(saved, graph, source, discovery, tenant_id=TENANT)
+        assert strict[1].verified_spans
+        state[0] = "new"
+        result = cache.replay_claims_cached(
+            reader=base,
+            policy=base.claim_source_policy(),
+            receipt=saved,
+            graph=graph,
+            source=source,
+            discovery=discovery,
+            tenant_id=TENANT,
+        )
+        assert [asdict(x) for x in result] == [asdict(x) for x in strict]
+        refs = (ref, graph.blocks[0].source_ref(), ref)
+        current = base.attest_claim_spans(graph, source, refs, tenant_id=TENANT)
+        published = attest_claims(
+            reader=base,
+            graph=graph,
+            source=source,
+            refs=refs,
+            tenant_id=TENANT,
+            cache=True,
+        )
+        assert canonical_json(published).encode() == canonical_json(current).encode()
+        assert published["readings"][ref.source_id]["rendered"]["os"] == "new"
+        assert canonical_json(saved).encode() == original
+    finally:
+        cache._claim_replays.clear()
+        cache._claim_attestations.clear()

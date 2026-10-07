@@ -14,6 +14,7 @@ from threading import Lock
 from zlib import compress, decompress
 
 from proofops.adapters.local.receipt_environment_compat import (
+    STRICT,
     compare_receipts,
     read_profile,
     receipt_read_metadata,
@@ -217,6 +218,9 @@ def replay_raster_cached(
         cached = _raster_replays.get(key)
         if cached is not None:
             _raster_replays.move_to_end(key)
+    if cached is not None and read_profile() != STRICT and receipt_read_metadata(native) is None:
+        # A warm historical replay still needs its original drift comparison.
+        cached = None
     if cached is None:
         # ponytail: simultaneous cold reads may repeat replay; coalesce only if measured.
         if frozen:
@@ -476,20 +480,21 @@ def replay_claims_cached(*, reader, policy, receipt, graph, source, discovery, t
                     discovery,
                     tenant_id=tenant_id,
                 )
-                # That replay accepted the whole receipt against the original
-                # bytes in this process, so a later identical replay may reuse it.
-                remember_wrapper_attestation(
-                    reader=reader,
-                    policy=policy,
-                    graph=graph,
-                    source=source,
-                    tenant_id=tenant_id,
-                    receipt=receipt,
-                )
+                metadata = receipt_read_metadata(receipt)
+                # Only an exact fresh comparison can seed the attestation cache.
+                # Historical identity belongs exclusively to _claim_replays.
+                if metadata is not None and metadata["comparison_path"] == "strict":
+                    remember_wrapper_attestation(
+                        reader=reader,
+                        policy=policy,
+                        graph=graph,
+                        source=source,
+                        tenant_id=tenant_id,
+                        receipt=receipt,
+                    )
         if receipt.get("schema") == "claim_source_attestation_v1":
-            # Seed only after the original-byte replay accepted the entire receipt.
-            attestation_key = _claim_attestation_key(reader, policy, graph, source, tenant_id)
-            _remember_claim_attestation(attestation_key, receipt)
+            # The pinned path already remembered its freshly recomputed expected
+            # receipt. Never replace it with the historical replay identity.
             if not all(_reusable_claim_record(r, receipt) for r in receipt["records"]):
                 # Unavailable/error reads (and other unresolved guards) must retry.
                 return deepcopy(result)
