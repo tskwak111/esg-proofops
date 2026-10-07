@@ -15,6 +15,8 @@ module, and both keep their original receipt schema and bytes.
 """
 
 from collections.abc import Mapping
+from hashlib import sha256
+from pathlib import Path
 
 RENDER_RESOLUTION_POLICY_SCHEMA = "claim_span_render_resolution_policy_v1"
 # R19 bullet-alignment wrapper. It WRAPS the render-resolution wrapper rather
@@ -57,6 +59,21 @@ def _typography():
     return claim_span_typography
 
 
+def _historical_typography():
+    """Replay the byte-pinned R24 wrapper before its documentation path edit.
+
+    The entire policy (including all dependency hashes) must still match the
+    policy computed by these exact bytes. Never admit it for new publication.
+    """
+    path = Path(__file__).with_name("_frozen_verifiers") / "claim_span_typography_v1.py"
+    digest = "58086038813acfca0e5d40108f7bf49863b11ecf5ceff56c91ca4989a82b98de"
+    if not path.is_file() or sha256(path.read_bytes()).hexdigest() != digest:
+        raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")
+    from proofops.adapters.local._frozen_verifiers import claim_span_typography_v1
+
+    return claim_span_typography_v1
+
+
 def _glyph_alignment():
     from proofops.adapters.local import glyph_alignment_verification
 
@@ -72,8 +89,8 @@ def _wrappers():
 def claim_source_reader(policy):
     """Replay dispatch for a policy already pinned in a run snapshot.
 
-    The wrapper policy resolves to the wrapper module, and only when it matches
-    that module's current policy byte-for-byte: an altered wrapper hash is
+    A wrapper policy resolves only when it matches its shipped current or
+    byte-pinned historical module's complete policy: an altered wrapper hash is
     refused rather than replayed under different code. Every other policy is
     handed to the base verifier's own dispatch unchanged, so legacy and frozen
     runs keep replaying under the verifier that produced them.
@@ -95,7 +112,11 @@ def claim_source_reader(policy):
                 continue
             wrapper = module()
             if policy != wrapper.claim_source_policy():
-                raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")
+                if schema != TYPOGRAPHY_POLICY_SCHEMA:
+                    raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")
+                wrapper = _historical_typography()
+                if policy != wrapper.claim_source_policy():
+                    raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")
             return wrapper
     return base.claim_source_reader(policy)
 

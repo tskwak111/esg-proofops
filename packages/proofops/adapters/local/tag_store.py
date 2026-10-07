@@ -25,6 +25,20 @@ from proofops.domain.rulepacks import RulePackSnapshot
 from proofops.domain.rules.engine import RuleContext, evaluate
 from proofops.domain.values import SourceRef, llm_tags_from_dict
 
+# Added to TagRun on 2026-09-27. Only absent/null is equivalent, only in
+# tag_runs during read comparison; persisted inputs and their hashes stay intact.
+TAG_RUN_READ_COMPAT_NULL_FIELDS = frozenset({"diagnostic_detail"})
+
+
+def _tag_replay_hash(snapshot):
+    comparable = snapshot | {
+        "tag_runs": [
+            {field: None for field in TAG_RUN_READ_COMPAT_NULL_FIELDS} | entry
+            for entry in snapshot["tag_runs"]
+        ]
+    }
+    return canonical_hash(comparable)
+
 
 def tagging_settings(snapshot, *, preliminary=False, relation=False):
     if preliminary and relation:
@@ -618,6 +632,6 @@ class LocalTagStore:
             _, replayed = self.verify_context_sources(inputs, refs)
             if canonical_hash(replayed) != canonical_hash(receipt["source_receipt"]):
                 raise ValueError("REPORT_LEVEL_LINK_REPLAY_MISMATCH")
-        if canonical_hash(inputs.snapshot()) != canonical_hash(raw):
+        if _tag_replay_hash(inputs.snapshot()) != _tag_replay_hash(raw):
             raise ValueError("TAG_REPLAY_MISMATCH")
         return inputs
