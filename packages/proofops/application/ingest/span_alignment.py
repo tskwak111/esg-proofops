@@ -116,6 +116,12 @@ def _candidate(
     cell_id: str | None = None,
 ) -> SpanCandidate:
     _bounds(start, end, len(raw))
+    splits_crlf = any(
+        0 < boundary < len(raw) and raw[boundary - 1 : boundary + 1] == "\r\n"
+        for boundary in (start, end)
+    )
+    if splits_crlf:
+        raise DomainValidationError("SPAN_SPLIT_CODEPOINT_MAP")
     payload = {
         "profile": PROFILE,
         "identity": asdict(identity),

@@ -85,6 +85,18 @@ def test_cells_are_explicit_server_ranges_and_not_whole_table_approval():
 
 
 @pytest.mark.parametrize(
+    "issue",
+    [
+        lambda: occurrence_candidates(identity(), "A\r\n2030", "\n2030"),
+        lambda: build_candidates(identity(), "A\r\n2030", cells=(("cell", 2, 7),)),
+    ],
+)
+def test_candidates_reject_raw_boundaries_inside_crlf(issue):
+    with pytest.raises(DomainValidationError, match="SPAN_SPLIT_CODEPOINT_MAP"):
+        issue()
+
+
+@pytest.mark.parametrize(
     "cells",
     [(("a", -1, 3),), (("a", 0, 99),), (("a", 0, 2), ("a", 2, 3)), (("a", 0, 2), ("b", 1, 3))],
 )

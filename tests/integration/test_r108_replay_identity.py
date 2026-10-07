@@ -1,12 +1,14 @@
 """Offline regression checks for parse-graph reuse and fresh continuation guards."""
 
 from dataclasses import asdict, replace
+from uuid import uuid4
 
 import pytest
 from proofops.adapters.local import claim_store
 from proofops.application.ports.jobs import JobMessage
 from proofops.domain.provenance import canonical_hash
 from proofops_worker import extract_runner
+from proofops_worker.extract_batch import run_batches
 
 from tests.acceptance.test_upload import TENANT
 from tests.integration.test_extract_batch_continuation import setup_run
@@ -197,3 +199,88 @@ def test_continuation_rejects_head_change_after_evidence_returns(tmp_path, monke
     with pytest.raises(ValueError, match="CLAIM_SNAPSHOT_HEAD_CHANGED"):
         runner.run_batch(tenant_id=TENANT, run_id=run_id)
     assert len(probe.calls) == 2
+
+
+def test_cancel_during_replay_returns_cancelled_batch_progress(tmp_path, monkeypatch, capsys):
+    service, run_id, runner, _, probe, graph = setup_run(tmp_path, monkeypatch, paragraphs=2)
+    assert runner.run_once(tenant_id=TENANT, run_id=run_id) == "committed"
+    before_calls = len(probe.calls)
+    original_load = claim_store.load_run_graph
+    cancelled = False
+
+    def load(*args, **kwargs):
+        nonlocal cancelled
+        if not cancelled:
+            run = service.store.jobs.get_run(TENANT, run_id)
+            service.store.jobs.cancel_run(
+                TENANT,
+                run_id,
+                expected_revision=run["revision"],
+                idempotency_key=str(uuid4()),
+                reason="cancel replay regression",
+                actor_sub="test",
+                now=runner.clock(),
+            )
+            cancelled = True
+        return original_load(*args, **kwargs)
+
+    monkeypatch.setattr(claim_store, "load_run_graph", load)
+    results = run_batches(runner, tenant_id=TENANT, run_id=run_id, batches=3)
+    assert results == [{"status": "cancelled", "batch": 1}]
+    assert len(probe.calls) == before_calls
+    assert '"status": "cancelled"' in capsys.readouterr().err
+
+
+def test_downstream_conflict_during_replay_returns_blocked_batch_progress(
+    tmp_path, monkeypatch, capsys
+):
+    service, run_id, runner, _, probe, graph = setup_run(tmp_path, monkeypatch, paragraphs=2)
+    assert runner.run_once(tenant_id=TENANT, run_id=run_id) == "committed"
+    before_calls = len(probe.calls)
+
+    def publish_during_replay(*args, **kwargs):
+        with service.store.jobs._transaction() as db:
+            current = service.store.jobs._get(db, TENANT, run_id, "run", "META")
+            current["tag_stage_status"] = "completed"
+            service.store.jobs._put(db, TENANT, run_id, "run", "META", current)
+        return graph
+
+    monkeypatch.setattr(claim_store, "load_run_graph", publish_during_replay)
+    results = run_batches(runner, tenant_id=TENANT, run_id=run_id, batches=3)
+    assert results == [
+        {
+            "status": "blocked",
+            "detail": "cannot continue extraction after tag/review publication; start a new run",
+            "batch": 1,
+        }
+    ]
+    assert len(probe.calls) == before_calls
+    assert '"status": "blocked"' in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("failure", ["changed_head", "unrelated_value_error"])
+def test_replay_error_is_translated_only_for_actual_cancel(tmp_path, monkeypatch, failure):
+    service, run_id, runner, _, _, graph = setup_run(tmp_path, monkeypatch, paragraphs=2)
+    assert runner.run_once(tenant_id=TENANT, run_id=run_id) == "committed"
+
+    if failure == "changed_head":
+
+        def change_head(*args, **kwargs):
+            with service.store.jobs._transaction() as db:
+                current = service.store.jobs._get(db, TENANT, run_id, "run", "META")
+                current["claim_snapshot_sha256"] = "0" * 64
+                service.store.jobs._put(db, TENANT, run_id, "run", "META", current)
+            return graph
+
+        monkeypatch.setattr(claim_store, "load_run_graph", change_head)
+        expected_error = "CLAIM_SNAPSHOT_HEAD_CHANGED"
+    else:
+
+        def invalid_receipt(*args, **kwargs):
+            raise ValueError("RECEIPT_INVALID")
+
+        monkeypatch.setattr(runner.claims, "load_evidence", invalid_receipt)
+        expected_error = "RECEIPT_INVALID"
+
+    with pytest.raises(ValueError, match=expected_error):
+        runner.run_batch(tenant_id=TENANT, run_id=run_id)

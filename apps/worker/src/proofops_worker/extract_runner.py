@@ -313,7 +313,21 @@ class LocalExtractRunner:
             )
         # Strict verification of the prior revision before any receipt is reused:
         # this replays every stored receipt against the frozen pins and graph.
-        prior_envelope, _, graph = self.claims.load_evidence(tenant_id, run_id, for_extraction=True)
+        try:
+            prior_envelope, _, graph = self.claims.load_evidence(
+                tenant_id, run_id, for_extraction=True
+            )
+        except ValueError as error:
+            if str(error) != "CLAIM_SNAPSHOT_HEAD_CHANGED":
+                raise
+            current = self.store.jobs.get_run(tenant_id, run_id)
+            pinned_head_unchanged = all(
+                current.get(key) == run.get(key)
+                for key in ("extract_job", "parse_job", "claim_snapshot_sha256")
+            )
+            if current.get("cancellation_requested") is True and pinned_head_unchanged:
+                return dict(status="cancelled")
+            raise
         # Fence the original continuation head again after the potentially slow
         # receipt replay, including downstream publication/active tag leases.
         with self.store.jobs._transaction() as db:
@@ -325,7 +339,22 @@ class LocalExtractRunner:
                 raise ValueError("CLAIM_SNAPSHOT_HEAD_CHANGED")
             if current["cancellation_requested"]:
                 return dict(status="cancelled")
-            guard_extract_continuation(db, self.store.jobs, current, now=int(self.clock()))
+            try:
+                guard_extract_continuation(db, self.store.jobs, current, now=int(self.clock()))
+            except ValueError as error:
+                if str(error) not in {"TAG_LEASE_CONFLICT", "TAG_PUBLICATION_CONFLICT"}:
+                    raise
+                return dict(
+                    status="blocked",
+                    detail=(
+                        "active tag lease in flight; cannot continue extraction"
+                        if str(error) == "TAG_LEASE_CONFLICT"
+                        else (
+                            "cannot continue extraction after tag/review publication; "
+                            "start a new run"
+                        )
+                    ),
+                )
         state = extraction_batch_state(prior_envelope)
         profile = extraction_profile(snapshot)
         limits = snapshot.get("extraction_limits")
