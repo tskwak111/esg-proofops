@@ -142,9 +142,11 @@ function Editor(props: Props) {
         setError("다른 검토자가 먼저 변경했습니다. 작성 중인 내용을 유지한 채 최신 태깅과 비교해 주세요.");
         await refresh();
       } else {
-        setError(failure instanceof ApiError && failure.status === 422
-          ? "원문 근거·검색 범위·요소 입력을 확인해 주세요. 서버는 근거 없는 확정을 허용하지 않습니다."
-          : "저장하지 못했습니다. 권한과 세션을 확인하고 다시 시도해 주세요.");
+        setError(failure instanceof ApiError && failure.code === "RETAG_REQUIRED"
+          ? failure.message
+          : failure instanceof ApiError && failure.status === 422
+            ? "원문 근거·검색 범위·요소 입력을 확인해 주세요. 서버는 근거 없는 확정을 허용하지 않습니다."
+            : "저장하지 못했습니다. 권한과 세션을 확인하고 다시 시도해 주세요.");
       }
     } finally { if (live.current) setBusy(false); }
   }

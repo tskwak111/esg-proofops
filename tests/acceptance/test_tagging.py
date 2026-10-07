@@ -459,6 +459,30 @@ def test_one_provider_failure_is_retained_sanitized_and_never_majority_auto_conf
     assert cost_summary(inputs["usage_store"], TENANT, RUN)["cost_status"] == "unknown_cost"
 
 
+def test_successful_provider_with_unrestorable_citation_is_not_a_provider_failure(tmp_path):
+    from proofops.application.tagging.service import RawTagResponse
+
+    inputs = setup(tmp_path)
+    responder = inputs["invoke"]
+
+    def unresolved_citation(request):
+        if request["replicate_id"] == 2:
+            return RawTagResponse(
+                None,
+                TokenUsage(10, 5, 0, 0, 1, "succeeded", "provider-ok"),
+                True,
+                json.dumps({"validation_error": "TAGGING_EVIDENCE_ID_INVALID"}),
+            )
+        return responder(request)
+
+    inputs["invoke"] = unresolved_citation
+    runs = execute(inputs)
+    assert runs[1].status == "citation_unresolved"
+    assert runs[1].errors == ("TAGGING_EVIDENCE_ID_INVALID",)
+    assert runs[1].usage.status == "succeeded"
+    assert runs[0].status != "model_failed" and runs[2].status != "model_failed"
+
+
 def test_forged_citation_and_matching_words_from_other_product_fail_guard(tmp_path):
     inputs = setup(tmp_path)
     bad = asdict(inputs["invoke"].source) | {"quote": "41%", "verification_state": "verified"}

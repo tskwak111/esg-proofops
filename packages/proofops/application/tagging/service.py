@@ -511,7 +511,30 @@ def tag_replicates(
                 )
                 continue
             if response.usage.status != "succeeded" or response.raw_response_json is None:
-                runs.append(replace(run, status="model_failed", errors=("MODEL_UNAVAILABLE",)))
+                validation_error = None
+                if response.usage.status == "succeeded" and response.raw_response_json is None:
+                    try:
+                        provider_result = json.loads(response.provider_response_json or "null")
+                    except (ValueError, TypeError):
+                        provider_result = None
+                    if isinstance(provider_result, dict):
+                        candidate = provider_result.get("validation_error")
+                        if isinstance(candidate, str) and candidate.startswith(
+                            "TAGGING_EVIDENCE_ID_"
+                        ):
+                            validation_error = candidate
+                if validation_error is not None:
+                    runs.append(
+                        replace(
+                            run,
+                            status="citation_unresolved",
+                            errors=(validation_error,),
+                        )
+                    )
+                else:
+                    runs.append(
+                        replace(run, status="model_failed", errors=("MODEL_UNAVAILABLE",))
+                    )
                 continue
             try:
                 if len(response.raw_response_json.encode()) > settings.max_response_bytes:

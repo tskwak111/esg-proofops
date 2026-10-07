@@ -64,6 +64,8 @@ export function errorMessage(reason: unknown, fallback: string): string {
       return "승인된 실행 구성과 사전 점검 상태를 확인해 주세요.";
     case "STALE_RUN_REVISION":
       return "실행 상태가 변경되었습니다. 최신 상태를 확인한 뒤 다시 시도해 주세요.";
+    case "RETAG_REQUIRED":
+      return reason.message;
     case "TENANT_RUN_LIMIT":
       return "동시에 실행할 수 있는 문서 수를 초과했습니다. 진행 중인 실행을 확인해 주세요.";
     case "REPORT_NOT_FINALIZABLE":
