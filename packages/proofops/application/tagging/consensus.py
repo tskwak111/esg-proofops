@@ -257,7 +257,15 @@ def _partial_facts(ordered, data, packet, rulepack, tenant_id, tag_revision, rul
     fatal = any(
         error != "DETERMINISTIC_CHECK_REQUIRED:P6"
         and not error.startswith("UNRESOLVED:")
-        and not (run.guarded is None and error in retryable)
+        and not (
+            run.guarded is None
+            and (
+                error in retryable
+                or (
+                    run.status == "citation_unresolved" and error.startswith("TAGGING_EVIDENCE_ID_")
+                )
+            )
+        )
         for run in ordered
         for error in run.errors
     )

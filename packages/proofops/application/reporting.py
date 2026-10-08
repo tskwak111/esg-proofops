@@ -831,7 +831,13 @@ def render_report(model: Mapping[str, object], output_format: str) -> bytes:
                     search = element["search"]
                     cov = search["coverage"]
                     subreason = element.get("undetermined_reason")
-                    image_count = len(cov.get("image_dominant_unreadable_pages", []))
+                    image_pages = cov.get(
+                        "image_pages",
+                        search.get(
+                            "unresolved_image_pages", cov.get("image_dominant_unreadable_pages", [])
+                        ),
+                    )
+                    image_count = len(image_pages)
                     label = status_labels[element["evidence_status"]]
                     if element["evidence_status"] == "undetermined":
                         label = {
@@ -854,8 +860,17 @@ def render_report(model: Mapping[str, object], output_format: str) -> bytes:
                         + "</strong>"
                         + "<p>검색한 쪽: "
                         + escape(canonical_json(cov["searched_pages"]))
-                        + " · 판독불가·미해결 쪽: "
+                        + " · 텍스트 판독불가 쪽: "
                         + escape(canonical_json(cov["unreadable_pages"]))
+                        + " · 이미지 내용 미확인 쪽: "
+                        + escape(canonical_json(image_pages))
+                        + f" ({image_count}개)"
+                        + (
+                            " · 전체 내용 판독 미완결 쪽: "
+                            + escape(canonical_json(cov["unreviewed_content_pages"]))
+                            if "unreviewed_content_pages" in cov
+                            else ""
+                        )
                         + " · 미검색 쪽: "
                         + escape(canonical_json(cov["missing_pages"]))
                         + "</p><p>검색어·동의어: "

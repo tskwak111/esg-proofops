@@ -14,15 +14,28 @@ from proofops.application.evidence.element_queries import (
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rules.engine import MAPPINGS
 
-SEARCH_PROFILE = "missing-evidence-whole-document-v2"
-SEARCH_PROFILE_HASH = canonical_hash(
+LEGACY_SEARCH_PROFILE = "missing-evidence-whole-document-v2"
+LEGACY_SEARCH_PROFILE_HASH = canonical_hash(
     {
-        "profile": SEARCH_PROFILE,
+        "profile": LEGACY_SEARCH_PROFILE,
         "terms": ELEMENT_TERMS,
         "algorithm": "literal-or-bm25-all-priority-v2",
         "readability": READABILITY_POLICY,
         "candidate_routing": CANDIDATE_POLICY,
         "anchor_stop_words": sorted(ANCHOR_STOP_WORDS),
+    }
+)
+SEARCH_PROFILE = "missing-evidence-whole-document-v3"
+WHOLE_DOCUMENT_POLICY = {
+    "native_text_is_whole_page_review": False,
+    "whole_page_review_required": True,
+    "unresolved_images": "all-image-pages",
+}
+SEARCH_PROFILE_HASH = canonical_hash(
+    {
+        "profile": SEARCH_PROFILE,
+        "native_search_policy_sha256": LEGACY_SEARCH_PROFILE_HASH,
+        "whole_document_review": WHOLE_DOCUMENT_POLICY,
     }
 )
 
@@ -163,12 +176,16 @@ def search_elements(
     order = coverage.get("search_order", sorted(text_by_page))
     pages = {p: text_by_page[p] for p in order if p in text_by_page}
     expected = list(range(1, coverage["page_count"] + 1))
+    # Only explicitly pinned historical artifacts use the v2 reader semantics.
+    # New/unstamped inputs fail closed without whole-page review evidence.
+    legacy = document.get("profile_sha256") == LEGACY_SEARCH_PROFILE_HASH
     complete = (
         coverage["searched_pages"] == expected
         and coverage["readable_pages"] == expected
         and not coverage["unreadable_pages"]
         and not coverage["missing_pages"]
-        and coverage.get("absence_readability_complete", True)
+        and coverage.get("absence_readability_complete", legacy)
+        and (legacy or coverage.get("whole_page_content_reviewed_pages") == expected)
     )
     anchors = sorted(set(re.findall(r"[가-힣]{2,}|[A-Za-z][A-Za-z0-9-]*|\d{4}", claim_quote)))
     anchor_hits = literal_hits(pages, anchors)
@@ -264,8 +281,8 @@ def search_elements(
                 evidence_refs=refs,
                 candidate_refs=candidates,
                 search=dict(
-                    profile=SEARCH_PROFILE,
-                    profile_sha256=SEARCH_PROFILE_HASH,
+                    profile=LEGACY_SEARCH_PROFILE if legacy else SEARCH_PROFILE,
+                    profile_sha256=LEGACY_SEARCH_PROFILE_HASH if legacy else SEARCH_PROFILE_HASH,
                     document_search_sha256=document["artifact_sha256"],
                     coverage=coverage,
                     priority_scopes=document.get("priority_scopes", []),
@@ -282,7 +299,9 @@ def search_elements(
                     rejected_candidate_count=len(rejected),
                     native_candidates=previews,
                     role_anchors=role_anchors,
-                    unresolved_image_pages=coverage.get("image_dominant_unreadable_pages", []),
+                    unresolved_image_pages=coverage.get(
+                        "image_dominant_unreadable_pages" if legacy else "image_pages", []
+                    ),
                     truncated=False,
                     absence_admissible=False,
                 ),

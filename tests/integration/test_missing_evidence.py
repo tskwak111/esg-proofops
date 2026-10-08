@@ -40,6 +40,9 @@ def results(document, elements=None, confirmed=None):
 
 def test_complete_miss_display_only_and_coverage_gaps_stay_unknown():
     complete = doc({1: "nothing relevant", 2: "plain text"})
+    complete["coverage"].update(
+        absence_readability_complete=True, whole_page_content_reviewed_pages=[1, 2]
+    )
     original = deepcopy(complete)
     assert all(e["evidence_status"] == "not_found_in_report" for e in results(complete))
     assert all(
@@ -185,7 +188,7 @@ def test_all_export_formats_preserve_card_and_search_record(tmp_path, monkeypatc
     assert card and all(e["search"]["terms"] for e in card)
     assert "element_evidence" in bundle.read("report.csv").decode()
     html = bundle.read("report.html").decode()
-    assert "부족 근거 카드" in html and "판독불가·미해결 쪽" in html
+    assert "부족 근거 카드" in html and "텍스트 판독불가 쪽" in html
 
 
 def test_mc2_text_and_image_readability_are_separate_from_absence():

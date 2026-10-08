@@ -10,7 +10,12 @@ from io import BytesIO
 from proofops.adapters.local.evidence_search import LocalEvidenceSearch
 from proofops.application.evidence.binding import accept_binding, relation_tags_for
 from proofops.application.evidence.element_queries import READABILITY_POLICY
-from proofops.application.evidence.missing import SEARCH_PROFILE_HASH, literal_hits, search_elements
+from proofops.application.evidence.missing import (
+    SEARCH_PROFILE_HASH,
+    WHOLE_DOCUMENT_POLICY,
+    literal_hits,
+    search_elements,
+)
 from proofops.application.evidence.report_level import POLICIES, check_report_level
 from proofops.application.evidence.span_citations import verify_source_ref
 from proofops.domain.provenance import canonical_hash
@@ -101,16 +106,19 @@ def page_readability(text: str, ratios: list[float]) -> dict:
         rendered_image_count=len(ratios),
         text_layer_readable=state == "text_readable",
         image_content_verified=False,
+        whole_page_content_reviewed=False,
     )
 
 
 def document_search(
     content: bytes, *, identity: dict, graph=None, selected_pages=(), environment_pages=()
 ) -> dict:
-    """Read all native PDF pages. Raster labels are unresolved, even on text pages.
+    """Read all native PDF pages without claiming whole-page visual review.
 
     Native text is search context, never a verified SourceRef. Missing parser or
-    malformed/empty text remains unreadable. Do not silently OCR or call a vendor.
+    malformed/empty text remains unreadable. Native text cannot attest that path
+    lettering, diagrams or images were read, even when no raster image is found.
+    Do not silently OCR or call a vendor.
     """
     if sha256(content).hexdigest() != identity["source_sha256"]:
         raise ValueError("document search source hash mismatch")
@@ -138,7 +146,9 @@ def document_search(
                 unreadable.add(n)
                 errors[n] = type(exc).__name__
                 readability[str(n)] = dict(
-                    state="extraction_or_geometry_error", text_layer_readable=False
+                    state="extraction_or_geometry_error",
+                    text_layer_readable=False,
+                    whole_page_content_reviewed=False,
                 )
     except Exception as exc:
         errors[0] = type(exc).__name__
@@ -202,6 +212,7 @@ def document_search(
         profile_sha256=SEARCH_PROFILE_HASH,
         native_reader="pypdf-6.19.0",
         readability_policy=READABILITY_POLICY,
+        whole_document_policy=WHOLE_DOCUMENT_POLICY,
         page_readability=readability,
         page_texts={str(p): text for p, text in sorted(pages.items())},
         page_hashes={str(p): sha256(text.encode()).hexdigest() for p, text in pages.items()},
@@ -220,7 +231,9 @@ def document_search(
                 for p, item in readability.items()
                 if item["state"] == "image_dominant_unreadable"
             ),
-            absence_readability_complete=not (image_pages or unreadable or missing or errors),
+            whole_page_content_reviewed_pages=[],
+            unreviewed_content_pages=list(range(1, count + 1)),
+            absence_readability_complete=False,
             errors={str(p): error for p, error in errors.items()},
         ),
     )
