@@ -1,5 +1,6 @@
 """Tenant-scoped reads and human resolutions over unchanged R108 stores."""
 
+import hashlib
 import json
 from contextlib import contextmanager
 from dataclasses import asdict
@@ -104,6 +105,22 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             pipeline=outcome,
             page_map=selected_pages,
         )
+
+
+def result_snapshot(path: Path, tenant: str, selected_pages: list[int]) -> bytes:
+    """Replay once at publication; subsequent reads hash these exact source bytes."""
+    result = read_result(path, tenant, selected_pages)
+    sources = {
+        str(source.relative_to(path)): hashlib.sha256(source.read_bytes()).hexdigest()
+        for source in sorted((path / "objects" / "original").rglob("*"))
+        if source.is_file()
+    }
+    return json.dumps(
+        dict(tenant_id=tenant, page_map=selected_pages, source_hashes=sources, result=result),
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode()
 
 
 def resolve_review(path, auth, review, body, if_match, key):

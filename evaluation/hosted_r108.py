@@ -143,10 +143,12 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
             luna_key, ledger, store=store, job=job, post=llm_post, **kw
         ),
     }
-    os.environ["LOCAL_LLM_MAX_WORKERS"] = "1"
+    os.environ["LOCAL_LLM_MAX_WORKERS"] = str(profiles["llm_max_workers"])
     observed = []
+    stage_seconds = {}
     with scope:
         for stage, progress in (("parse", 15), ("extract", 45), ("tag", 75)):
+            started = time.monotonic()
             store.update_progress(job, stage, progress)
             worker = build_composition(
                 stage=stage,
@@ -169,6 +171,7 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
                 if outcome not in {"committed", "completed", "partial"}:
                     break
             finally:
+                stage_seconds[stage] = round(time.monotonic() - started, 6)
                 worker.uploads.close()
                 worker.uploads.registry.close()
     # Preserve genuine partial work and reasons. Only completed tag publication
@@ -177,6 +180,7 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
     result = dict(
         status="completed" if complete else "partial_blocked",
         stages=observed,
+        stage_seconds=stage_seconds,
         reason=None if complete else "R108_" + observed[-1]["outcome"].upper(),
         profiles=operator_profiles(config),
         reporting_scope={k: config[k] for k in ("report_year", "period_start", "period_end")},

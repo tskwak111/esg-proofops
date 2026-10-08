@@ -283,6 +283,12 @@ class HostedStore:
                 PRIMARY KEY(tenant_id,document_id))""")
             db.execute("""CREATE TABLE IF NOT EXISTS run_progress (
                 run_id TEXT PRIMARY KEY, stage TEXT, progress INTEGER, result_ready INTEGER)""")
+            db.execute("""CREATE TABLE IF NOT EXISTS result_snapshots (
+                run_id TEXT, revision INTEGER, sha256 TEXT NOT NULL,
+                PRIMARY KEY(run_id,revision))""")
+            db.execute("""CREATE TRIGGER IF NOT EXISTS result_snapshot_update
+                BEFORE UPDATE ON result_snapshots
+                BEGIN SELECT RAISE(ABORT,'immutable result snapshot'); END""")
             db.execute("""CREATE TABLE IF NOT EXISTS runs (
                 tenant_id TEXT, run_id TEXT PRIMARY KEY, document_id TEXT, user_hash TEXT,
                 pages TEXT, status TEXT, created REAL, day TEXT, event_id TEXT,
@@ -606,7 +612,6 @@ class HostedStore:
                 row = self._run(db, tenant, run)
                 result = self._project_run(row, db, inline_result=False)
                 if result["result_url"]:
-                    # Source replay can take longer than SQLite's busy timeout.
                     # Keep payloads leased without holding the control writer.
                     path = self.document_dir(tenant, row["document_id"]) / "analysis.lock"
                     lock = path.open("a+b")
@@ -614,7 +619,7 @@ class HostedStore:
                     fcntl.flock(lock, fcntl.LOCK_SH | fcntl.LOCK_NB)
             if lock is not None:
                 result["result"] = self._result(None, row)
-                # A deletion may fence the leased payload while replay runs.
+                # A deletion may fence the leased payload while hashes are read.
                 # Never expose bytes after its tombstone commits.
                 with self.transaction() as db:
                     self._run(db, tenant, run)
@@ -952,8 +957,13 @@ class HostedStore:
             )
 
     def publish_analysis(self, job: dict, source: Path, status: str, error: str | None) -> None:
+        from proofops_api.hosted_results import result_snapshot
+
         if status not in {"completed", "partial_blocked"}:
             raise HostedError("ANALYSIS_RESULT_UNAVAILABLE")
+        # The worker owns analysis.lock while validating its private workspace.
+        # Replay must never hold the control writer or run on a GET request.
+        content = result_snapshot(source, job["tenant_id"], json.loads(job["pages"]))
         with self.transaction() as db:
             self._fenced(db, job, time.time())
             target = (
@@ -961,6 +971,7 @@ class HostedStore:
             )
             target.parent.mkdir(mode=0o700, exist_ok=True)
             shutil.copytree(source, target)
+            self._publish_snapshot(db, job["run_id"], target, content)
             db.execute(
                 "INSERT OR REPLACE INTO run_progress VALUES (?, 'result',100,1)", (job["run_id"],)
             )
@@ -970,15 +981,46 @@ class HostedStore:
             )
             self._settle_envelope(db, job["run_id"])
 
-    def _result(self, db: sqlite3.Connection | None, row: sqlite3.Row) -> dict:
-        from proofops_api.hosted_results import read_result
+    def _publish_snapshot(self, db: sqlite3.Connection, run: str, path: Path, content: bytes):
+        revision = db.execute(
+            "SELECT coalesce(max(revision),0)+1 FROM result_snapshots WHERE run_id=?", (run,)
+        ).fetchone()[0]
+        target = path / f"result-{revision}.json"
+        self._write(target, content)
+        target.chmod(0o400)
+        db.execute("INSERT INTO result_snapshots VALUES (?,?,?)", (run, revision, digest(content)))
 
+    def _result(self, db: sqlite3.Connection | None, row: sqlite3.Row) -> dict:
         path = self.document_dir(row["tenant_id"], row["document_id"]) / "analysis" / row["run_id"]
-        if not path.is_dir():
-            raise HostedError("ANALYSIS_RESULT_UNAVAILABLE")
+        if db is None:
+            with self.transaction() as connection:
+                anchor = connection.execute(
+                    "SELECT revision,sha256 FROM result_snapshots WHERE run_id=? "
+                    "ORDER BY revision DESC LIMIT 1",
+                    (row["run_id"],),
+                ).fetchone()
+        else:
+            anchor = db.execute(
+                "SELECT revision,sha256 FROM result_snapshots WHERE run_id=? "
+                "ORDER BY revision DESC LIMIT 1",
+                (row["run_id"],),
+            ).fetchone()
         try:
-            return read_result(path, row["tenant_id"], json.loads(row["pages"]))
-        except (ValueError, KeyError, TypeError):
+            if anchor is None:
+                raise ValueError("snapshot not published")
+            content = (path / f"result-{anchor['revision']}.json").read_bytes()
+            if digest(content) != anchor["sha256"]:
+                raise ValueError("snapshot hash mismatch")
+            snapshot = json.loads(content)
+            if snapshot["tenant_id"] != row["tenant_id"] or snapshot["page_map"] != json.loads(
+                row["pages"]
+            ):
+                raise ValueError("snapshot scope mismatch")
+            for relative, expected in snapshot["source_hashes"].items():
+                if digest((path / relative).read_bytes()) != expected:
+                    raise ValueError("source hash mismatch")
+            return snapshot["result"]
+        except (OSError, ValueError, KeyError, TypeError):
             raise HostedError("RESULT_INTEGRITY_UNAVAILABLE", 409) from None
 
     def get_result(self, tenant: str, run: str) -> dict:
@@ -990,7 +1032,7 @@ class HostedStore:
     def resolve_review(
         self, auth: Any, run: str, review: str, body: dict, if_match: str | None, key: str
     ) -> dict:
-        from proofops_api.hosted_results import resolve_review
+        from proofops_api.hosted_results import resolve_review, result_snapshot
 
         if not auth.has_capability("reviewer"):
             raise HostedError("FORBIDDEN", 403)
@@ -999,7 +1041,22 @@ class HostedStore:
             if row["status"] not in {"completed", "partial_blocked"}:
                 raise HostedError("ANALYSIS_RESULT_UNAVAILABLE")
             path = self.document_dir(auth.tenant_id, row["document_id"]) / "analysis" / run
-            return resolve_review(path, auth, review, body, if_match, key)
+            # Shared payload lease lets GETs continue reading the prior immutable
+            # snapshot while one review at a time publishes a validated revision.
+            lock = (path.parent.parent / "analysis.lock").open("a+b")
+            fcntl.flock(lock, fcntl.LOCK_SH | fcntl.LOCK_NB)
+        try:
+            with (path / "review.lock").open("a+b") as review_lock:
+                os.fchmod(review_lock.fileno(), 0o600)
+                fcntl.flock(review_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                resolved = resolve_review(path, auth, review, body, if_match, key)
+                content = result_snapshot(path, auth.tenant_id, json.loads(row["pages"]))
+                with self.transaction() as db:
+                    self._run(db, auth.tenant_id, run)
+                    self._publish_snapshot(db, run, path, content)
+                return resolved
+        finally:
+            lock.close()
 
     def cancel(self, auth: Any, run: str, *, now: float) -> dict:
         with self.transaction() as db:
@@ -1087,6 +1144,7 @@ class HostedStore:
                 for run in runs:
                     self._settle_envelope(db, run[0])
                     db.execute("DELETE FROM run_progress WHERE run_id=?", (run[0],))
+                    db.execute("DELETE FROM result_snapshots WHERE run_id=?", (run[0],))
                 db.execute(
                     "DELETE FROM document_owners WHERE tenant_id=? AND document_id=?",
                     (tenant, document),

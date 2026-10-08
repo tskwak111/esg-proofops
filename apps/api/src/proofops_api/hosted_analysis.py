@@ -33,6 +33,9 @@ KNOWN_RENDERED_READERS = frozenset(
 
 
 def operator_profiles(config: dict) -> dict:
+    workers = config.get("llm_max_workers", 8)
+    if type(workers) is not int or not 1 <= workers <= 16:
+        raise ValueError("HOSTED_LLM_CONCURRENCY_INVALID")
     analysis = config.get("analysis_profile", "r108-default")
     if analysis not in ("r108-default", "r108-finals-candidate"):
         raise ValueError("HOSTED_ANALYSIS_PROFILE_INVALID")
@@ -49,6 +52,7 @@ def operator_profiles(config: dict) -> dict:
         reader = reader if reader in GATE_PASSED_RENDERED_READERS else "unresolved"
     approval = RENDERED_READER_POLICY["gate_passed"].get(reader, {})
     return PROFILES | dict(
+        llm_max_workers=workers,
         analysis_profile=analysis,
         rendered_reader_requested=requested,
         source_reader=reader,

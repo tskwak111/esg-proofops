@@ -359,6 +359,21 @@ mock contract, Compose API+worker(no Caddy), health/login/upload202/poll/purge/r
 
 ## P4 local amd64 image and operator selection
 
+P6: the private operator JSON accepts `"llm_max_workers": 8` (default 8;
+strict integer 1–16). The hosted driver overrides `LOCAL_LLM_MAX_WORKERS` from
+this setting. Provider HTTP waits stay outside SQLite writer transactions;
+budget reservations, settlements and publication keep their existing fences.
+`outcome.json` records `stage_seconds` for parse/extract/tag, including setup.
+
+Completed and partial results replay sources once at publication and persist
+read-only `result-N.json` revisions. Their SHA-256 hashes are anchored in the
+control DB; GET status/result checks snapshot and original-file hashes without
+source replay. A successful review validates and publishes a new immutable
+revision; reads can use the prior revision during review. All revisions and
+anchors purge with the document. Older runs without a snapshot fail closed with
+`RESULT_INTEGRITY_UNAVAILABLE`; they require an explicit offline verification
+and snapshot publication before reads, rather than an implicit GET migration.
+
 Build without pushing: `docker buildx build --platform linux/amd64 --load
 -f deploy/public/Dockerfile -t proofops-r108-public:p4-amd64 .`.
 Run key-free Compose rehearsal with `IMAGE=proofops-r108-public:p4-amd64

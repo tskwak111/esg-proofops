@@ -186,6 +186,8 @@ def test_fake_full_chain_upload_run_result_review_delete(settings, monkeypatch):
     assert all(e["state"] == "unknown" for c in data["claims"] for e in c["elements"])
     assert all(c["confirmed_grade"] is None for c in data["claims"])
     review = data["reviews"][0]
+    result_path = store.document_dir(tenant, document) / "analysis" / run["run_id"]
+    initial_snapshot = (result_path / "result-1.json").read_bytes()
     claim = next(c for c in data["claims"] if c["claim_id"] == review["claim_id"])
     body = dict(
         base_tag_revision=review["base_tag_revision"],
@@ -204,11 +206,17 @@ def test_fake_full_chain_upload_run_result_review_delete(settings, monkeypatch):
     )
     assert resolved.status_code == 200, resolved.text
     assert resolved.json()["decision"]["review_status"] == "human_confirmed"
+    assert (result_path / "result-1.json").read_bytes() == initial_snapshot
+    assert (result_path / "result-2.json").is_file()
     foreign, fh, _, _ = login(app, store)
     assert foreign.get(done["result_url"]).status_code == 404
     assert foreign.post(url, json=body, headers=fh).status_code == 404
     restart = create_hosted_app(settings)
-    refreshed = restart.state.composition.get_result(tenant, run["run_id"])
+    with monkeypatch.context() as no_replay:
+        no_replay.setattr(
+            "proofops_api.hosted_results.read_result", lambda *a: pytest.fail("GET source replay")
+        )
+        refreshed = restart.state.composition.get_result(tenant, run["run_id"])
     reviewed = next(c for c in refreshed["claims"] if c["claim_id"] == claim["claim_id"])
     assert reviewed["decision"]["review_status"] == "human_confirmed"
     originals = list(
@@ -404,6 +412,7 @@ def test_source_replay_releases_control_writer_and_rechecks_deletion(
     store, auth, job = job_setup(settings)
     source = tmp_path / "published"
     source.mkdir()
+    monkeypatch.setattr("proofops_api.hosted_results.read_result", lambda *a: {"claims": []})
     store.publish_analysis(job, source, "partial_blocked", "R108_NEEDS_REVIEW")
     entered, release = threading.Event(), threading.Event()
 
