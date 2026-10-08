@@ -27,6 +27,7 @@ SCHEMA = "preliminary-source-quotes-v2"
 CONTEXT_SCHEMA = "preliminary-source-quotes-context-v1"
 TABLE_SCHEMA = "preliminary-source-quotes-table-v1"
 SENTENCE_CONTEXT_PROFILE = "upstage-preliminary-source-quotes-sentence-context-v1"
+SENTENCE_FALLBACK_PROFILE = "upstage-preliminary-source-quotes-sentence-fallback-v1"
 SENTENCE_CONTEXT_SYSTEM_SUFFIX = (
     " The parent_paragraph context contains source-verified complete sentences:"
     " the sentence containing the atomic claim and up to two sentences before"
@@ -1018,3 +1019,9 @@ SENTENCE_CONTEXT_SYSTEM_PROMPT = (
     " An ambiguous achieved/planned column keeps track null. A resolved metric"
     " or a bare number never proves performance." + SENTENCE_CONTEXT_SYSTEM_SUFFIX
 )
+
+# Preserve the legacy classifier instructions; add only verified interpretation input.
+SENTENCE_FALLBACK_BASE_PROMPT = (
+    SYSTEM_PROMPT + CONTEXT_SYSTEM_SUFFIX + TABLE_SYSTEM_SUFFIX + TABLE_ROLE_SYSTEM_SUFFIX
+)
+SENTENCE_FALLBACK_SYSTEM_PROMPT = SENTENCE_FALLBACK_BASE_PROMPT + SENTENCE_CONTEXT_SYSTEM_SUFFIX

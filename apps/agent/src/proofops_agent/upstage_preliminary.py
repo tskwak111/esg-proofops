@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import json
 from copy import deepcopy
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 
 from proofops.adapters.local.openrouter import OpenRouterProbe
@@ -46,6 +46,9 @@ from proofops.application.tagging.preliminary import (
     SCHEMA,
     SENTENCE_CONTEXT_PROFILE,
     SENTENCE_CONTEXT_SYSTEM_PROMPT,
+    SENTENCE_FALLBACK_BASE_PROMPT,
+    SENTENCE_FALLBACK_PROFILE,
+    SENTENCE_FALLBACK_SYSTEM_PROMPT,
     SYSTEM_PROMPT,
     TABLE_ROLE_SYSTEM_SUFFIX,
     TABLE_SCHEMA,
@@ -166,7 +169,9 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
         display_catalog=None,
     ):
         _require_uuid("tenant_id", tenant_id)
-        if settings.model_profile == SENTENCE_CONTEXT_PROFILE:
+        if settings.model_profile == SENTENCE_FALLBACK_PROFILE:
+            expected_prompt = SENTENCE_FALLBACK_SYSTEM_PROMPT
+        elif settings.model_profile == SENTENCE_CONTEXT_PROFILE:
             expected_prompt = SENTENCE_CONTEXT_SYSTEM_PROMPT
         elif settings.model_profile in (P2_MODEL_PROFILE, POSITION_P2_MODEL_PROFILE):
             expected_prompt = P2_SYSTEM_PROMPT
@@ -208,7 +213,9 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
             raise ValueError("UPSTAGE_TAGGING_AUTHORIZER_REQUIRED")
         if resume is not None and not isinstance(resume, TransportResume):
             raise ValueError("UPSTAGE_TAGGING_RESUME_INVALID")
-        if settings.model_profile == SENTENCE_CONTEXT_PROFILE:
+        if settings.model_profile == SENTENCE_FALLBACK_PROFILE:
+            self.TRANSPORT_VERSION = "preliminary-source-quotes-sentence-fallback-v1"
+        elif settings.model_profile == SENTENCE_CONTEXT_PROFILE:
             self.TRANSPORT_VERSION = "preliminary-source-quotes-sentence-context-v1"
         elif settings.model_profile == POSITION_P2_MODEL_PROFILE:
             self.TRANSPORT_VERSION = POSITION_P2_TRANSPORT_VERSION
@@ -291,6 +298,15 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
 
     def _wire_request(self, request: dict) -> tuple[str, str, dict[str, dict], Preflight, str]:
         settings = self._settings
+        fallback = settings.model_profile == SENTENCE_FALLBACK_PROFILE
+        # The authorized fallback profile has exactly two pinned wire branches.
+        # The packet prompt hash chooses a branch; keys and context are checked below.
+        try:
+            fallback_sources = fallback and json.loads(request["user_json"])[
+                "prompt_sha256"
+            ] == canonical_hash(SENTENCE_FALLBACK_BASE_PROMPT)
+        except (ValueError, TypeError, KeyError):
+            raise ValueError("UPSTAGE_PRELIMINARY_PACKET_INVALID") from None
         actor_role_v2 = settings.model_profile in (
             ACTOR_ROLE_MODEL_PROFILE_V2,
             "preliminary-decision-v1",
@@ -309,11 +325,17 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
             )
             or goal_role
         )
-        is_table = settings.model_profile == TABLE_MODEL_PROFILE or role_table
+        is_table = settings.model_profile == TABLE_MODEL_PROFILE or role_table or fallback
         is_context = settings.model_profile == CONTEXT_MODEL_PROFILE or is_table
         if is_table:
             expected_schema = TABLE_SCHEMA
-            if settings.model_profile in (P2_MODEL_PROFILE, POSITION_P2_MODEL_PROFILE):
+            if fallback:
+                expected_prompt = (
+                    SENTENCE_FALLBACK_BASE_PROMPT
+                    if fallback_sources
+                    else SENTENCE_FALLBACK_SYSTEM_PROMPT
+                )
+            elif settings.model_profile in (P2_MODEL_PROFILE, POSITION_P2_MODEL_PROFILE):
                 expected_prompt = P2_SYSTEM_PROMPT
             elif settings.model_profile == P1_MODEL_PROFILE:
                 expected_prompt = P1_SYSTEM_PROMPT
@@ -345,7 +367,9 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
         # signature SHA, settings/binding/model/region/temperature/replica/
         # output-cap validation; raises before any spend on failure.
         authorization = self._authorize_request(request)
-        if settings.system_prompt != expected_prompt:
+        if settings.system_prompt != (
+            SENTENCE_FALLBACK_SYSTEM_PROMPT if fallback else expected_prompt
+        ):
             raise ValueError("UPSTAGE_PRELIMINARY_PROMPT_INVALID")
         system = request.get("system_prompt")
         if not isinstance(system, str) or system != settings.rendered_system:
@@ -354,6 +378,8 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
             user = json.loads(request["user_json"])
         except (TypeError, ValueError, KeyError):
             raise ValueError("UPSTAGE_PRELIMINARY_PACKET_INVALID") from None
+        if fallback_sources:
+            system = replace(settings, system_prompt=SENTENCE_FALLBACK_BASE_PROMPT).rendered_system
         catalog = getattr(self, "_display_catalog", None)
         if catalog is not None:
             expected_keys = expected_keys | {"display_text"}
@@ -416,6 +442,14 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
                 raise ValueError("UPSTAGE_PRELIMINARY_TABLE_SOURCE_INVALID")
         if is_context:
             self._validate_context_shape(user, data, table=is_table)
+        if fallback:
+            context = data["context_blocks"]
+            if (fallback_sources and context) or any(
+                b["quality"] != "verified"
+                or b["source_ref"].get("verification_state") != "verified"
+                for b in context
+            ):
+                raise ValueError("UPSTAGE_PRELIMINARY_CONTEXT_INVALID")
         if catalog is not None:
             from proofops.application.ingest.display_text import POLICY, SYSTEM_SUFFIX
 

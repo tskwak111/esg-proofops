@@ -41,19 +41,28 @@ def create_argv(tmp_path):
     ]
 
 
-def test_candidate_create_resume_and_legacy_defaults(tmp_path, monkeypatch):
+@pytest.mark.parametrize("v2", [False, True])
+def test_candidate_create_resume_and_legacy_defaults(tmp_path, monkeypatch, v2):
+    flag = "--r108-finals-candidate-v2" if v2 else "--r108-finals-candidate"
+    profile = pilot.FINALS_CANDIDATE_V2 if v2 else pilot.FINALS_CANDIDATE
+    bundle = pilot.FINALS_CANDIDATE_V2_FLAGS if v2 else pilot.FINALS_CANDIDATE_FLAGS
     argv = create_argv(tmp_path)
-    monkeypatch.setattr(sys, "argv", argv + ["--r108-finals-candidate"])
+    monkeypatch.setattr(sys, "argv", argv + [flag])
     assert pilot.main() == 0
     state = tmp_path / "state"
     settings = json.loads((state / "settings.json").read_text())
     manifest = json.loads((state / "pilot.json").read_text())
-    assert settings["r108_profile"] == manifest["r108_profile"] == pilot.FINALS_CANDIDATE
-    assert all(manifest[name] for name in pilot.FINALS_CANDIDATE_FLAGS)
+    assert settings["r108_profile"] == manifest["r108_profile"] == profile
+    assert all(manifest[name] for name in bundle)
     assert settings["tagging_settings"]["model_profile"] == "upstage-compact-element-consistency-v6"
     assert settings["preliminary_settings"]["model_profile"] == (
-        "upstage-preliminary-source-quotes-sentence-context-v1"
+        "upstage-preliminary-source-quotes-sentence-fallback-v1"
+        if v2
+        else "upstage-preliminary-source-quotes-sentence-context-v1"
     )
+    assert manifest.get("preliminary_sentence_fallback", False) == v2
+    assert manifest.get("extraction_table_rows", False) == (not v2)
+    assert manifest.get("extraction_recall_prompt", False) == (not v2)
     assert settings["extraction_profile"] == asdict(
         _profile_with_options(
             "openai/gpt-6-luna",
@@ -65,8 +74,8 @@ def test_candidate_create_resume_and_legacy_defaults(tmp_path, monkeypatch):
             wire_policy_version=2,
             display_text_profile="glyph-joined-display-v1",
             extraction_linewrap_join=True,
-            extraction_table_rows=True,
-            extraction_recall_prompt=True,
+            extraction_table_rows=not v2,
+            extraction_recall_prompt=not v2,
         )
     )
     from proofops.adapters.local import openrouter, upstage_parse
@@ -92,13 +101,13 @@ def test_candidate_create_resume_and_legacy_defaults(tmp_path, monkeypatch):
     try:
         assert asdict(runner.extractor.profile) == settings["extraction_profile"]
         assert runner.extractor._linewrap_join is True
-        assert runner.extractor._table_rows is True
-        assert runner.extractor._recall_prompt is True
+        assert runner.extractor._table_rows is (not v2)
+        assert runner.extractor._recall_prompt is (not v2)
     finally:
         runner.uploads.close()
         runner.uploads.registry.close()
     before = {p.name: p.read_bytes() for p in (state / "pilot.json", state / "settings.json")}
-    for flags in ([], ["--r108-finals-candidate"]):
+    for flags in ([], [flag]):
         monkeypatch.setattr(sys, "argv", ["pilot", "--resume", "--state", str(state)] + flags)
         assert pilot.main() == 0
         assert all((state / name).read_bytes() == raw for name, raw in before.items())
@@ -115,7 +124,7 @@ def test_candidate_create_resume_and_legacy_defaults(tmp_path, monkeypatch):
             wire_policy_version=2,
         )
     )
-    monkeypatch.setattr(sys, "argv", legacy_argv + ["--r108-finals-candidate"])
+    monkeypatch.setattr(sys, "argv", legacy_argv + [flag])
     with pytest.raises(SystemExit):
         pilot.main()
 
@@ -209,7 +218,8 @@ def test_combined_policies_join_prose_and_keep_table_rows_separate(tmp_path):
         assert extractor.extract(data) == result
 
 
-def test_finals_launcher_forwards_only_the_requested_bundle():
+@pytest.mark.parametrize("v2", [False, True])
+def test_finals_launcher_forwards_only_the_requested_bundle(v2):
     template = [
         "pilot",
         "--pdf",
@@ -236,9 +246,75 @@ def test_finals_launcher_forwards_only_the_requested_bundle():
     ]
     kwargs = dict(pdf=Path("new.pdf"), state=Path("new"), port=8800, root=Path("/local"))
     base = pilot_argv(template, **kwargs)
-    combined = pilot_argv(template, **kwargs, r108_finals_candidate=True)
+    combined = pilot_argv(
+        template, **kwargs, r108_finals_candidate=not v2, r108_finals_candidate_v2=v2
+    )
     assert combined == [a for a in base if a != "--position-context-order"] + [
-        "--r108-finals-candidate"
+        "--r108-finals-candidate-v2" if v2 else "--r108-finals-candidate"
     ]
     assert "--position-context-order" in template
     assert "--r108-finals-candidate" not in template
+
+
+@pytest.mark.parametrize(
+    "flag",
+    [
+        "--extraction-table-rows",
+        "--extraction-recall-prompt",
+        "--extraction-atomic",
+        "--preliminary-p2",
+        "--position-context-order",
+        "--r108-finals-candidate",
+    ],
+)
+def test_v2_rejects_excluded_flags(tmp_path, monkeypatch, flag):
+    monkeypatch.setattr(sys, "argv", create_argv(tmp_path) + ["--r108-finals-candidate-v2", flag])
+    with pytest.raises(SystemExit):
+        pilot.main()
+    assert not (tmp_path / "state").exists()
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("preliminary_sentence_fallback", False),
+        ("extraction_table_rows", True),
+        ("extraction_recall_prompt", True),
+        ("extraction_linewrap_join", False),
+    ],
+)
+def test_v2_rejects_tampered_resume(tmp_path, monkeypatch, field, value):
+    monkeypatch.setattr(sys, "argv", create_argv(tmp_path) + ["--r108-finals-candidate-v2"])
+    assert pilot.main() == 0
+    path = tmp_path / "state/pilot.json"
+    saved = json.loads(path.read_text())
+    saved[field] = value
+    path.write_text(json.dumps(saved))
+    monkeypatch.setattr(sys, "argv", ["pilot", "--resume", "--state", str(path.parent)])
+    with pytest.raises(SystemExit):
+        pilot.main()
+
+
+@pytest.mark.parametrize(
+    "created,requested",
+    [
+        ("--r108-finals-candidate", "--r108-finals-candidate-v2"),
+        ("--r108-finals-candidate-v2", "--r108-finals-candidate"),
+    ],
+)
+def test_candidate_resume_cannot_switch_versions(tmp_path, monkeypatch, created, requested):
+    monkeypatch.setattr(sys, "argv", create_argv(tmp_path) + [created])
+    assert pilot.main() == 0
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "pilot",
+            "--resume",
+            "--state",
+            str(tmp_path / "state"),
+            requested,
+        ],
+    )
+    with pytest.raises(SystemExit):
+        pilot.main()

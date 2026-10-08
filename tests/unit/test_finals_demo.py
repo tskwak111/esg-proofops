@@ -15,14 +15,14 @@ from scripts.finals_demo import FinalsBudget, parse_bound, pilot_argv
 
 
 @pytest.mark.parametrize("configured", [None, "1", "4", "16"])
-def test_finals_concurrency_defaults_to_16_and_preserves_operator_cap(monkeypatch, configured):
+def test_finals_concurrency_defaults_to_8_and_preserves_operator_cap(monkeypatch, configured):
     from scripts.finals_demo import configure_concurrency
 
     monkeypatch.delenv("LOCAL_LLM_MAX_WORKERS", raising=False)
     if configured is not None:
         monkeypatch.setenv("LOCAL_LLM_MAX_WORKERS", configured)
-    assert configure_concurrency() == int(configured or "16")
-    assert int(os.environ["LOCAL_LLM_MAX_WORKERS"]) == int(configured or "16")
+    assert configure_concurrency() == int(configured or "8")
+    assert int(os.environ["LOCAL_LLM_MAX_WORKERS"]) == int(configured or "8")
 
 
 @pytest.mark.parametrize("configured", ["", "0", "17", "nan", "1.5"])

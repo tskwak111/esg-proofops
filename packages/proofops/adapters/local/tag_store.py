@@ -600,7 +600,9 @@ class LocalTagStore:
                 raise KeyError("tagged claim not published") from None
             raw = published.get("inputs")
             snapshot = self.store.snapshot(tenant_id, run_id)
-            expected = tag_pins(snapshot, evidence[0], run["claim_snapshot_sha256"])
+            # Keep snapshot-policy validation from the checkpoint path. Its
+            # extraction graph pin is distinct from the attested graph below.
+            tag_pins(snapshot, evidence[0], run["claim_snapshot_sha256"])
             if (
                 published.get("origin") != "consensus"
                 or published.get("tag_revision") != 1
@@ -608,7 +610,9 @@ class LocalTagStore:
                 or not isinstance(raw, dict)
                 or canonical_hash(raw.get("claim")) != canonical_hash(asdict(claim))
                 or raw.get("run_id") != run_id
-                or raw.get("original", {}).get("graph_sha256") != expected["graph_sha256"]
+                # Extraction pins precede source attestation. Partial publications
+                # bind to the same verified graph used by normal checkpoint replay.
+                or raw.get("original", {}).get("graph_sha256") != canonical_hash(asdict(graph))
                 or canonical_hash(raw.get("rulepack")) != canonical_hash(snapshot["rulepack"])
             ):
                 raise ValueError("TAG_REPLAY_MISMATCH")

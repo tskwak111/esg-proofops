@@ -209,7 +209,14 @@ def test_sentence_window_omitted_whole_when_over_budget():
     assert info["body"].source_id in packet["untrusted_document_data"]["omitted_source_ids"]
 
 
-def test_new_run_accepts_and_pins_sentence_profile(tmp_path):
+@pytest.mark.parametrize(
+    "profile,prompt",
+    [
+        (p.SENTENCE_CONTEXT_PROFILE, p.SENTENCE_CONTEXT_SYSTEM_PROMPT),
+        (p.SENTENCE_FALLBACK_PROFILE, p.SENTENCE_FALLBACK_SYSTEM_PROMPT),
+    ],
+)
+def test_new_run_accepts_and_pins_sentence_profile(tmp_path, profile, prompt):
     from dataclasses import asdict
     from uuid import uuid4
 
@@ -225,8 +232,8 @@ def test_new_run_accepts_and_pins_sentence_profile(tmp_path):
     settings = replace(
         service.preliminary_settings,
         binding=replace(service.preliminary_settings.binding, binding_id=str(uuid4())),
-        model_profile=p.SENTENCE_CONTEXT_PROFILE,
-        system_prompt=p.SENTENCE_CONTEXT_SYSTEM_PROMPT,
+        model_profile=profile,
+        system_prompt=prompt,
     )
     _register(
         service,

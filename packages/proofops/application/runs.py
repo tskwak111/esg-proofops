@@ -445,6 +445,7 @@ class RunService:
                 "upstage-preliminary-source-quotes-v1",
                 "preliminary-decision-v1",
                 "upstage-preliminary-source-quotes-sentence-context-v1",
+                "upstage-preliminary-source-quotes-sentence-fallback-v1",
                 "upstage-preliminary-source-quotes-context-v1",
                 # Opt-in table pairs. The profile↔prompt welding for
                 # every name here is enforced by ``check_local_upstage_tagger``

@@ -151,14 +151,17 @@ def pilot_argv(
     port: int,
     root: Path,
     r108_finals_candidate: bool = False,
+    r108_finals_candidate_v2: bool = False,
 ):
+    if r108_finals_candidate and r108_finals_candidate_v2:
+        raise ValueError("R108 candidate profiles are mutually exclusive")
     argv = list(template)
     # New web runs choose their own pages; do not inherit a saved report's
     # narrower extraction pages. The existing pilot then extracts the chosen scope.
     claim_pages = argv.index("--claim-pages")
     del argv[claim_pages : claim_pages + 2]
     # Q3's verified sentence profile requires source order rather than position order.
-    if r108_finals_candidate and "--position-context-order" in argv:
+    if (r108_finals_candidate or r108_finals_candidate_v2) and "--position-context-order" in argv:
         argv.remove("--position-context-order")
     for flag, value in (
         ("--pdf", str(pdf)),
@@ -190,7 +193,9 @@ def pilot_argv(
         "--serve",
         "--serve-worker",
     ]
-    if r108_finals_candidate:
+    if r108_finals_candidate_v2:
+        argv.append("--r108-finals-candidate-v2")
+    elif r108_finals_candidate:
         argv.append("--r108-finals-candidate")
     return argv
 
@@ -198,7 +203,7 @@ def pilot_argv(
 def configure_concurrency() -> int:
     """Use the worker's bounded default while respecting an operator's lower cap."""
     try:
-        workers = int(os.environ.get("LOCAL_LLM_MAX_WORKERS", "16"))
+        workers = int(os.environ.get("LOCAL_LLM_MAX_WORKERS", "8"))
     except ValueError:
         raise ValueError("LOCAL_LLM_CONFIGURATION_INVALID") from None
     if not 1 <= workers <= 16:
@@ -214,6 +219,7 @@ def main():
     parser.add_argument("--port", type=int, required=True)
     parser.add_argument("--kakao-port", type=int, required=True)
     parser.add_argument("--r108-finals-candidate", action="store_true")
+    parser.add_argument("--r108-finals-candidate-v2", action="store_true")
     args = parser.parse_args()
     workers = configure_concurrency()
     root, run_root = args.root.resolve(), args.run_root.resolve()
@@ -237,6 +243,7 @@ def main():
         port=args.port,
         root=root,
         r108_finals_candidate=args.r108_finals_candidate,
+        r108_finals_candidate_v2=args.r108_finals_candidate_v2,
     )
     (run_root / "live-argv.json").write_text(json.dumps(argv, ensure_ascii=False, indent=2))
     fence = FinalsBudget(
