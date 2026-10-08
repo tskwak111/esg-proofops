@@ -591,6 +591,9 @@ class LocalTagStore:
                 raise KeyError("tagged claim not published") from None
             raw = published.get("inputs")
             snapshot = self.store.snapshot(tenant_id, run_id)
+            # Keep snapshot-policy validation from the checkpoint path. Its
+            # extraction graph pin is distinct from the attested graph below.
+            tag_pins(snapshot, evidence[0], run["claim_snapshot_sha256"])
             if (
                 published.get("origin") != "consensus"
                 or published.get("tag_revision") != 1

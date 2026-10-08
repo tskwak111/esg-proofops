@@ -6,7 +6,7 @@ from tests.acceptance.test_upload import TENANT
 from tests.integration.test_local_tag_runner import verified_setup
 
 
-@pytest.mark.parametrize("tamper", [None, "graph", "claim"])
+@pytest.mark.parametrize("tamper", [None, "graph", "claim", "decision_policy"])
 def test_partial_tag_replays_attested_graph(tmp_path, monkeypatch, tamper):
     service, run_id, runner, _, _ = verified_setup(tmp_path, monkeypatch)
     assert runner.run_once(tenant_id=TENANT, run_id=run_id) == "needs_review"
@@ -28,7 +28,16 @@ def test_partial_tag_replays_attested_graph(tmp_path, monkeypatch, tamper):
         return run
 
     monkeypatch.setattr(service.store.jobs, "get_run", partial_run)
-    if tamper:
+    if tamper == "decision_policy":
+        original_snapshot = service.store.snapshot
+        monkeypatch.setattr(
+            service.store,
+            "snapshot",
+            lambda *args: original_snapshot(*args) | {"decision_settings": {}},
+        )
+        with pytest.raises(ValueError, match="DECISION"):
+            runner.tags.load_inputs(TENANT, run_id, cid)
+    elif tamper:
         original_get = service.store.jobs._get
 
         def poisoned(db, tenant, run_id, kind, key):
