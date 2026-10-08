@@ -166,9 +166,21 @@ def test_runtime_validates_atomic_opt_in(tmp_path, atomic, source_ids, mode, acc
 @pytest.mark.parametrize("atomic", [False, True])
 def test_composition_passes_atomic_to_real_extractor(tmp_path, monkeypatch, provider, atomic):
     from proofops.adapters.local import openrouter, upstage
+    from proofops_worker import composition
     from proofops_worker.composition import build_composition
 
     from tests.integration.test_local_runtime_config import _parser_snapshot
+
+    # Real production wiring requires the existing research ledger. This is a
+    # no-dispatch fake-probe test: isolate its file-presence prerequisite under
+    # tmp_path instead of depending on a developer checkout's paid ledger.
+    monkeypatch.setattr(
+        composition, "__file__", str(tmp_path / "apps/worker/src/proofops_worker/composition.py")
+    )
+    if provider == "upstage":
+        ledger = tmp_path / ".local/upstage/budget.sqlite3"
+        ledger.parent.mkdir(parents=True)
+        ledger.touch()
     from tests.integration.test_upstage_extraction import FakeProbe
 
     model = "solar-pro3" if provider == "upstage" else openrouter.MODEL
