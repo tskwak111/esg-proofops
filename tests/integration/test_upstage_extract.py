@@ -125,7 +125,7 @@ def test_png_input_preserves_one_image_charge_and_rejects_animated_image(tmp_pat
     assert client.summary()["calls"] == 1
 
 
-@pytest.mark.parametrize("day,expired", [(7, False), (14, True)])
+@pytest.mark.parametrize("day,expired", [(20, False), (21, True)])
 def test_rechecked_document_price_window(tmp_path, monkeypatch, day, expired):
     from datetime import UTC, datetime
 

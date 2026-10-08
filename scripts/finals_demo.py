@@ -157,6 +157,9 @@ def pilot_argv(
     # narrower extraction pages. The existing pilot then extracts the chosen scope.
     claim_pages = argv.index("--claim-pages")
     del argv[claim_pages : claim_pages + 2]
+    # Q3's verified sentence profile requires source order rather than position order.
+    if r108_finals_candidate and "--position-context-order" in argv:
+        argv.remove("--position-context-order")
     for flag, value in (
         ("--pdf", str(pdf)),
         ("--state", str(state)),

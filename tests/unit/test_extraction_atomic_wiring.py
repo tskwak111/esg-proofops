@@ -166,6 +166,7 @@ def test_runtime_validates_atomic_opt_in(tmp_path, atomic, source_ids, mode, acc
 @pytest.mark.parametrize("atomic", [False, True])
 def test_composition_passes_atomic_to_real_extractor(tmp_path, monkeypatch, provider, atomic):
     from proofops.adapters.local import openrouter, upstage
+    from proofops_worker import composition
     from proofops_worker.composition import build_composition
 
     from tests.integration.test_local_runtime_config import _parser_snapshot
@@ -214,6 +215,16 @@ def test_composition_passes_atomic_to_real_extractor(tmp_path, monkeypatch, prov
             },
         ),
     )
+    monkeypatch.setattr(
+        composition, "__file__", str(tmp_path / "apps/worker/src/proofops_worker/composition.py")
+    )
+    if provider == "upstage":
+        with pytest.raises(ValueError, match="SHARED_BUDGET_LEDGER_REQUIRED"):
+            build_composition(stage="extract")
+        # The provider is already mocked; supply only its required local ledger path.
+        ledger = tmp_path / ".local/upstage/budget.sqlite3"
+        ledger.parent.mkdir(parents=True)
+        ledger.touch()
     runner = build_composition(stage="extract")
     try:
         assert asdict(runner.extractor.profile) == profile

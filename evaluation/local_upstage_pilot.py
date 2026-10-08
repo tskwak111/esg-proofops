@@ -27,7 +27,7 @@ from fastapi import Request
 ROOT = Path(__file__).resolve().parents[1]
 
 FINALS_CANDIDATE = "r108-finals-candidate"
-# Sprint5 attempt3 behavior plus Q1/Q2/Q4; budgets and dispatch consent remain caller-owned.
+# Sprint5 attempt3 behavior plus Q1/Q2/Q3/Q4; budgets and dispatch consent remain caller-owned.
 FINALS_CANDIDATE_FLAGS = (
     "verify_paragraphs",
     "verify_merged_tables",
@@ -45,8 +45,10 @@ FINALS_CANDIDATE_FLAGS = (
     "preliminary_context",
     "preliminary_table_context",
     "preliminary_table_role",
+    "preliminary_goal_role",
+    "preliminary_actor_role",
+    "preliminary_sentence_context",
     "compact_element_wire",
-    "position_context_order",
     "capacity_refresh",
     "extraction_linewrap_join",
     "element_consistency",
@@ -64,8 +66,7 @@ FINALS_CANDIDATE_VALUES = {
 FINALS_CANDIDATE_FORBIDDEN = (
     "extraction_atomic",
     "preliminary_p2",
-    "preliminary_goal_role",
-    "preliminary_actor_role",
+    "position_context_order",
     "verify_tables",
     "verify_selected_cells",
     "raster_ocr",
@@ -1022,7 +1023,8 @@ def main():
         "--r108-finals-candidate",
         action="store_true",
         help="Opt-in Sprint5 attempt3 + linewrap join + element consistency v6 + "
-        "table rows + recall prompt. No atomic mode; does not authorize model calls.",
+        "sentence context + table rows + recall prompt. No atomic mode; "
+        "does not authorize model calls.",
     )
     args = parser.parse_args()
     try:

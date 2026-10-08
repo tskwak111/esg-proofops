@@ -51,6 +51,9 @@ def test_candidate_create_resume_and_legacy_defaults(tmp_path, monkeypatch):
     assert settings["r108_profile"] == manifest["r108_profile"] == pilot.FINALS_CANDIDATE
     assert all(manifest[name] for name in pilot.FINALS_CANDIDATE_FLAGS)
     assert settings["tagging_settings"]["model_profile"] == "upstage-compact-element-consistency-v6"
+    assert settings["preliminary_settings"]["model_profile"] == (
+        "upstage-preliminary-source-quotes-sentence-context-v1"
+    )
     assert settings["extraction_profile"] == asdict(
         _profile_with_options(
             "openai/gpt-6-luna",
@@ -58,7 +61,7 @@ def test_candidate_create_resume_and_legacy_defaults(tmp_path, monkeypatch):
             extraction_context=True,
             extraction_table_context=True,
             assertion_prompt=True,
-            position_order=True,
+            position_order=False,
             wire_policy_version=2,
             display_text_profile="glyph-joined-display-v1",
             extraction_linewrap_join=True,
@@ -122,7 +125,7 @@ def test_candidate_create_resume_and_legacy_defaults(tmp_path, monkeypatch):
     [
         "--extraction-atomic",
         "--preliminary-p2",
-        "--preliminary-goal-role",
+        "--position-context-order",
         "--verify-tables",
         "--raster-ocr",
     ],
@@ -229,9 +232,13 @@ def test_finals_launcher_forwards_only_the_requested_bundle():
         "glyph-alignment-v1",
         "--display-text-profile",
         "glyph-joined-display-v1",
+        "--position-context-order",
     ]
     kwargs = dict(pdf=Path("new.pdf"), state=Path("new"), port=8800, root=Path("/local"))
     base = pilot_argv(template, **kwargs)
     combined = pilot_argv(template, **kwargs, r108_finals_candidate=True)
-    assert combined == base + ["--r108-finals-candidate"]
+    assert combined == [a for a in base if a != "--position-context-order"] + [
+        "--r108-finals-candidate"
+    ]
+    assert "--position-context-order" in template
     assert "--r108-finals-candidate" not in template
