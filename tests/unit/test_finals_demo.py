@@ -2,6 +2,7 @@
 
 import io
 import json
+import os
 import sqlite3
 from decimal import Decimal
 from pathlib import Path
@@ -11,6 +12,73 @@ import pytest
 from pypdf import PdfWriter
 
 from scripts.finals_demo import FinalsBudget, parse_bound, pilot_argv
+
+
+@pytest.mark.parametrize("configured", [None, "1", "4", "16"])
+def test_finals_concurrency_defaults_to_16_and_preserves_operator_cap(monkeypatch, configured):
+    from scripts.finals_demo import configure_concurrency
+
+    monkeypatch.delenv("LOCAL_LLM_MAX_WORKERS", raising=False)
+    if configured is not None:
+        monkeypatch.setenv("LOCAL_LLM_MAX_WORKERS", configured)
+    assert configure_concurrency() == int(configured or "16")
+    assert int(os.environ["LOCAL_LLM_MAX_WORKERS"]) == int(configured or "16")
+
+
+@pytest.mark.parametrize("configured", ["", "0", "17", "nan", "1.5"])
+def test_finals_invalid_concurrency_fails_before_launch(monkeypatch, configured):
+    from scripts.finals_demo import configure_concurrency
+
+    monkeypatch.setenv("LOCAL_LLM_MAX_WORKERS", configured)
+    with pytest.raises(ValueError, match="LOCAL_LLM_CONFIGURATION_INVALID"):
+        configure_concurrency()
+
+
+def test_main_checks_concurrency_before_state_or_paid_setup(monkeypatch):
+    import sys
+
+    from scripts.finals_demo import main
+
+    monkeypatch.setenv("LOCAL_LLM_MAX_WORKERS", "17")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "finals",
+            "--root",
+            "/unused",
+            "--run-root",
+            "/unused",
+            "--port",
+            "1",
+            "--kakao-port",
+            "2",
+        ],
+    )
+    with pytest.raises(ValueError, match="LOCAL_LLM_CONFIGURATION_INVALID"):
+        main()
+
+
+def test_16_concurrent_finals_reservations_cannot_overbook(tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+
+    fence = budget(tmp_path)
+    fence.reserve(Decimal("0.45"))
+
+    def reserve(_):
+        try:
+            # Separate instances share only the persistent file lock.
+            reopened = FinalsBudget(fence.spend_path, fence.ledgers, fence.events_path)
+            reopened.reserve(Decimal("0.02"))
+            return True
+        except ValueError as error:
+            assert str(error) == "R108_FINALS_BUDGET_EXHAUSTED"
+            return False
+
+    with ThreadPoolExecutor(max_workers=16) as pool:
+        assert sum(pool.map(reserve, range(16))) == 2
+    entry = json.loads(fence.spend_path.read_text())["executions"][0]
+    assert Decimal(entry["reserved_usd"]) == Decimal("0.49")
 
 
 def budget(tmp_path):
