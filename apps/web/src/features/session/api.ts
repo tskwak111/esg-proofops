@@ -72,6 +72,8 @@ export function errorMessage(reason: unknown, fallback: string): string {
       return "동시에 실행할 수 있는 문서 수를 초과했습니다. 진행 중인 실행을 확인해 주세요.";
     case "REPORT_NOT_FINALIZABLE":
       return "미완료 항목이 있습니다. 검토를 마치거나 부분 결과 허용을 선택해 주세요.";
+    case "EXPORT_SIZE_LIMIT":
+      return "내보내기 처리 한도(32 MiB 또는 주장 1,000건)를 초과했습니다. PDF 쪽수가 적어도 검토 근거·원본 입력·이력의 크기로 한도를 넘을 수 있습니다. 같은 실행의 재시도나 형식 변경으로는 저장할 검토 스냅샷이 줄지 않습니다. 현재 화면에서 주장별 결과를 확인하고, 내보내기가 필요하면 관리자에게 문의해 주세요. (EXPORT_SIZE_LIMIT)";
     default:
       return fallback;
   }

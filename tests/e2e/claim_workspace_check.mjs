@@ -145,7 +145,7 @@ export async function check() {
     [...host.querySelectorAll('button')].find(button => button.textContent === '변경 확인').click();
     await flush();
     [...host.querySelectorAll('dialog button')].find(button => button.textContent.includes('태깅 확정')).click();
-    await waitFor('초안을 유지한 채');
+    await waitFor('작성 중인 내용을 유지한 채');
     assert(resolveCalls === 1, 'Review resolution should submit exactly once');
     assert(resolveHeaders.get('X-CSRF-Token') === 'csrf-test', 'Review resolution must send CSRF');
     assert(resolveHeaders.get('If-Match') === '"2"', 'Review resolution must send quoted If-Match');

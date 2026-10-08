@@ -32,10 +32,12 @@ function absoluteDownload(apiBase: string, value: string): string {
   return new URL(value, base).toString();
 }
 
-function previewUrl(apiBase: string, download: Download): string {
+function previewUrl(apiBase: string, download: Download, source: SourceRef): string {
   const target = new URL(absoluteDownload(apiBase, download.url));
   target.hash = "";
   target.searchParams.set("preview", "page");
+  target.searchParams.set("char_start", String(source.char_start));
+  target.searchParams.set("char_end", String(source.char_end));
   return target.toString();
 }
 
@@ -83,10 +85,10 @@ export function SourceViewer({ apiBase = "", csrfToken, runId, sources, openRequ
     setBusy(true); setMessage("");
     try {
       let download = await issue(source, controller.signal);
-      let response = await fetch(previewUrl(apiBase, download), { credentials: "include", signal: controller.signal });
+      let response = await fetch(previewUrl(apiBase, download, source), { credentials: "include", signal: controller.signal });
       if (response.status === 403) {
         download = await issue(source, controller.signal);
-        response = await fetch(previewUrl(apiBase, download), { credentials: "include", signal: controller.signal });
+        response = await fetch(previewUrl(apiBase, download, source), { credentials: "include", signal: controller.signal });
       }
       if (!response.ok) throw new ApiError(response.status, `HTTP_${response.status}`, "원문 미리보기를 불러오지 못했습니다.");
       const blob = await response.blob();
@@ -143,8 +145,11 @@ export function SourceViewer({ apiBase = "", csrfToken, runId, sources, openRequ
         returnFocus.current?.focus();
       }}>원문 미리보기 닫기 · 검토로 돌아가기</button>
       <p>PDF {preview.source.page_num}쪽 미리보기 · {locationLabel(preview.source)}</p>
+      {preview.source.printed_page_label !== null ? <p>인쇄 쪽 표시: {preview.source.printed_page_label}</p> : null}
       {sources.some(source => source.source_id === preview.source.source_id) ? null
         : <p>이 미리보기는 정식 근거로 채택되지 않은 후보 위치입니다. 이 위치를 여는 것만으로 근거가 채택되거나 판정이 바뀌지 않습니다.</p>}
+      <p>{preview.source.verification_state === "verified" ? "검증된 인용문" : "확인할 인용 후보"} · PDF {preview.source.page_num}쪽</p>
+      <blockquote><mark>{preview.source.quote}</mark></blockquote>
       <div style={{ position: "relative", width: "100%" }}>
         <img src={preview.blobUrl} alt={`원문 PDF ${preview.source.page_num}쪽`} style={{ display: "block", width: "100%", height: "auto" }} />
         {canHighlight ? <span data-source-highlight="true" aria-label="검증된 근거 위치" style={{ position: "absolute", border: "3px solid #b42318", pointerEvents: "none",
@@ -152,8 +157,10 @@ export function SourceViewer({ apiBase = "", csrfToken, runId, sources, openRequ
           width: `${(bbox![2] - bbox![0]) / preview.width! * 100}%`, height: `${(bbox![3] - bbox![1]) / preview.height! * 100}%` }} /> : null}
       </div>
       {!canHighlight ? <p>{preview?.source.verification_state === "verified"
-        ? "인용 문구는 검증되었지만, 이 페이지 미리보기의 좌표 앵커는 확인되지 않아 하이라이트를 표시하지 않습니다. 아래 인용문과 PDF 표시본으로 위치를 확인해 주세요."
-        : "검증된 좌표가 없어 하이라이트하지 않습니다."}</p> : null}
+        ? preview.source.bbox === null
+          ? `인용 문구는 검증되었지만 저장된 좌표가 없어 하이라이트를 표시하지 않습니다. PDF ${preview.source.page_num}쪽에서 강조한 인용문을 찾아 확인해 주세요.`
+          : `인용 문구는 검증되었지만 이 미리보기의 좌표 연결을 확인할 수 없어 하이라이트를 표시하지 않습니다. PDF ${preview.source.page_num}쪽에서 강조한 인용문을 찾아 확인해 주세요.`
+        : `아직 검증되지 않은 인용 후보이므로 하이라이트를 표시하지 않습니다. PDF ${preview.source.page_num}쪽에서 강조한 인용문을 대조해 주세요.`}</p> : null}
       <p><a href={preview.displayUrl} target="_blank" rel="noopener noreferrer">PDF 표시본 새 탭에서 열기</a></p>
       <p>활성 콘텐츠·주석·폼을 제거한 표시용 사본입니다.</p>
       <details><summary>접근 가능한 원문 텍스트</summary><p>{preview.source.quote}</p></details>
