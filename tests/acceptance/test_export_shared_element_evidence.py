@@ -2,6 +2,7 @@
 
 import json
 from copy import deepcopy
+from unittest.mock import Mock
 
 import pytest
 from proofops.application.element_evidence_encoding import (
@@ -279,3 +280,94 @@ def test_writer_rollback_pins_requests_and_keeps_shared_frozen_reader(tmp_path, 
         store.jobs._put(db, actor.tenant_id, run, "export_state", second, old_state)
     store.element_evidence_encoding = ELEMENT_EVIDENCE_V1
     assert "element_evidence_encoding" not in store.capture(actor.tenant_id, second)["manifest"]
+
+
+@pytest.mark.parametrize("encoding", [ELEMENT_EVIDENCE_V1, ELEMENT_EVIDENCE_INLINE])
+def test_expansion_limit_persists_failure_without_recapture(tmp_path, monkeypatch, encoding):
+    ws = exports(tmp_path, monkeypatch)
+    store, actor = ws["export_store"], ws["actor"]
+    store.element_evidence_encoding = encoding
+    raw = evidence("x" * 1_000_000, count=17)
+    assert len(canonical_json(raw).encode()) > MAX_EXPORT_BYTES
+    monkeypatch.setattr(ws["runner"].claims, "missing_evidence", lambda *a, **k: deepcopy(raw))
+    capture = Mock(wraps=store.capture)
+    monkeypatch.setattr(store, "capture", capture)
+    export_id = store.reserve(
+        actor,
+        ws["run"],
+        {"formats": ["json"], "allow_partial": True},
+        "f10b-expansion-state",
+        now=ws["now"][0],
+    )
+    try:
+        first = ws["exports"].get(actor, export_id, now=ws["now"][0])
+        assert first["state"] == "failed"
+        assert store.state(actor.tenant_id, export_id)["errors"] == ["EXPORT_SIZE_LIMIT"]
+        second = ws["exports"].get(actor, export_id, now=ws["now"][0] + 10)
+        assert second == first
+        assert capture.call_count == 1
+        assert store.frozen(actor.tenant_id, export_id) is None
+        with store.jobs._transaction() as db:
+            assert not store.jobs._all(db, actor.tenant_id, ws["run"], "export_artifact")
+    finally:
+        ws["http"].close()
+
+
+@pytest.mark.parametrize("encoding", [ELEMENT_EVIDENCE_V1, ELEMENT_EVIDENCE_INLINE])
+def test_http_expansion_limit_keeps_size_code_and_idempotent_failure(
+    tmp_path, monkeypatch, encoding
+):
+    ws = exports(tmp_path, monkeypatch)
+    store, actor = ws["export_store"], ws["actor"]
+    store.element_evidence_encoding = encoding
+    raw = evidence("x" * 1_000_000, count=17)
+    monkeypatch.setattr(ws["runner"].claims, "missing_evidence", lambda *a, **k: deepcopy(raw))
+    capture = Mock(wraps=store.capture)
+    monkeypatch.setattr(store, "capture", capture)
+    try:
+        for _ in range(2):
+            response = create(ws, formats=["json"])
+            assert response.status_code == 409, response.text
+            assert response.json()["error"]["code"] == "EXPORT_SIZE_LIMIT"
+            ws["now"][0] += 10
+        with store.jobs._transaction() as db:
+            states = store.jobs._all(db, actor.tenant_id, ws["run"], "export_state")
+        assert len(states) == 1
+        export_id = states[0]["response"]["export_id"]
+        metadata = ws["http"].get(f"/v1/exports/{export_id}")
+        assert metadata.status_code == 200
+        assert metadata.json()["state"] == "failed"
+        assert store.state(actor.tenant_id, export_id)["errors"] == ["EXPORT_SIZE_LIMIT"]
+        assert capture.call_count == 1
+        assert store.frozen(actor.tenant_id, export_id) is None
+    finally:
+        ws["http"].close()
+
+
+@pytest.mark.parametrize("damage", ["quote_hash", "list_scope"])
+def test_http_shared_integrity_failure_keeps_separate_error_code(tmp_path, monkeypatch, damage):
+    ws = exports(tmp_path, monkeypatch)
+    store = ws["export_store"]
+    monkeypatch.setattr(
+        ws["runner"].claims, "missing_evidence", lambda *a, **k: deepcopy(evidence())
+    )
+    capture = store.capture
+
+    def damaged_capture(*args):
+        captured = capture(*args)
+        manifest = captured["manifest"]
+        if damage == "quote_hash":
+            next(iter(manifest["element_evidence_quotes"].values()))["value"] += "tamper"
+        else:
+            next(iter(manifest["element_evidence_lists"].values()))["scope"]["tenant_id"] = "other"
+        return captured
+
+    monkeypatch.setattr(store, "capture", damaged_capture)
+    try:
+        response = create(ws, formats=["json"])
+        assert response.status_code == 409, response.text
+        assert response.json()["error"]["code"] == "EXPORT_INTEGRITY_FAILED"
+        with store.jobs._transaction() as db:
+            assert not store.jobs._all(db, ws["actor"].tenant_id, ws["run"], "export_snapshot")
+    finally:
+        ws["http"].close()

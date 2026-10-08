@@ -14,6 +14,10 @@ QUOTE_ENVELOPE = "__shared_quote__"
 LIST_FIELDS = ("hits", "native_candidates")
 
 
+class ElementEvidenceExpansionLimit(ValueError):
+    """Restored evidence exceeds the per-claim export byte limit."""
+
+
 def _scope(identity):
     scope = {key: identity.get(key) for key in SCOPE_KEYS}
     if any(not isinstance(value, str) or not value for value in scope.values()):
@@ -165,7 +169,7 @@ def _restore_list(reference, scope, tables, used, byte_limit):
             value["quote"] = quote
         size += len(canonical_json(value).encode()) + bool(restored)
         if size > byte_limit:
-            raise ValueError("element evidence expansion exceeds 32 MiB")
+            raise ElementEvidenceExpansionLimit("element evidence expansion exceeds 32 MiB")
         restored.append(value)
     if canonical_hash({"scope": scope, "value": restored}) != digest:
         raise ValueError("element evidence list hash mismatch")
@@ -234,7 +238,9 @@ def iter_element_evidence(manifest, decisions):
                 restored
             )
             if expanded_bytes > MAX_EXPANDED_BYTES:
-                raise ValueError("element evidence claim expansion exceeds 32 MiB")
+                raise ElementEvidenceExpansionLimit(
+                    "element evidence claim expansion exceeds 32 MiB"
+                )
             for field, reference in references.items():
                 # Account for field name, colon and comma before materializing it.
                 expanded_bytes += len(canonical_json(field).encode()) + 2
@@ -249,7 +255,7 @@ def iter_element_evidence(manifest, decisions):
                 search[field] = value
             restored.append(element | {"search": search})
         if len(canonical_json(restored).encode()) > MAX_EXPANDED_BYTES:
-            raise ValueError("element evidence claim expansion exceeds 32 MiB")
+            raise ElementEvidenceExpansionLimit("element evidence claim expansion exceeds 32 MiB")
         if canonical_hash(restored) != binding["evidence_sha256"]:
             raise ValueError("element evidence restored hash mismatch")
         yield claim_id, restored

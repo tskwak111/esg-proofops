@@ -18,6 +18,7 @@ from proofops.application.element_evidence_encoding import (
     ELEMENT_EVIDENCE_INLINE,
     ELEMENT_EVIDENCE_V1,
     TABLE_KEYS,
+    ElementEvidenceExpansionLimit,
     encode_element_evidence,
 )
 from proofops.application.exports import (
@@ -489,7 +490,10 @@ class LocalExportStore:
             run = self.jobs._get(db, tenant, run_id, "run", "META")
             if run["mutation_epoch"] != captured["manifest"]["mutation_epoch"]:
                 return False
-            model = build_report_model(captured["manifest"], captured["decisions"])
+            try:
+                model = build_report_model(captured["manifest"], captured["decisions"])
+            except ElementEvidenceExpansionLimit as exc:
+                raise ExportRejected("EXPORT_SIZE_LIMIT") from exc
             if model["partial"] and not state["body"]["allow_partial"]:
                 raise ExportRejected("REPORT_NOT_FINALIZABLE")
             raw = canonical_json(captured).encode()
