@@ -168,7 +168,7 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
             expected_prompt = P2_SYSTEM_PROMPT
         elif settings.model_profile == P1_MODEL_PROFILE:
             expected_prompt = P1_SYSTEM_PROMPT
-        elif settings.model_profile == ACTOR_ROLE_MODEL_PROFILE_V2:
+        elif settings.model_profile in (ACTOR_ROLE_MODEL_PROFILE_V2, "preliminary-decision-v1"):
             expected_prompt = ACTOR_ROLE_SYSTEM_PROMPT_V2
         elif settings.model_profile == ACTOR_ROLE_MODEL_PROFILE:
             expected_prompt = ACTOR_ROLE_SYSTEM_PROMPT
@@ -218,8 +218,12 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
             self.TRANSPORT_VERSION = TABLE_TRANSPORT_VERSION
         elif settings.model_profile == TABLE_ROLE_MODEL_PROFILE:
             self.TRANSPORT_VERSION = TABLE_ROLE_TRANSPORT_VERSION
-        elif settings.model_profile == ACTOR_ROLE_MODEL_PROFILE_V2:
-            self.TRANSPORT_VERSION = ACTOR_ROLE_TRANSPORT_VERSION_V2
+        elif settings.model_profile in (ACTOR_ROLE_MODEL_PROFILE_V2, "preliminary-decision-v1"):
+            self.TRANSPORT_VERSION = (
+                "preliminary-decision-v1"
+                if settings.model_profile == "preliminary-decision-v1"
+                else ACTOR_ROLE_TRANSPORT_VERSION_V2
+            )
         elif settings.model_profile == ACTOR_ROLE_MODEL_PROFILE:
             self.TRANSPORT_VERSION = ACTOR_ROLE_TRANSPORT_VERSION
         elif settings.model_profile == GOAL_ROLE_MODEL_PROFILE:
@@ -281,7 +285,10 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
 
     def _wire_request(self, request: dict) -> tuple[str, str, dict[str, dict], Preflight, str]:
         settings = self._settings
-        actor_role_v2 = settings.model_profile == ACTOR_ROLE_MODEL_PROFILE_V2
+        actor_role_v2 = settings.model_profile in (
+            ACTOR_ROLE_MODEL_PROFILE_V2,
+            "preliminary-decision-v1",
+        )
         actor_role = settings.model_profile == ACTOR_ROLE_MODEL_PROFILE or actor_role_v2
         goal_role = settings.model_profile == GOAL_ROLE_MODEL_PROFILE or actor_role
         role_table = (

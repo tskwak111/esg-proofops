@@ -233,3 +233,10 @@ class UpstageOccurrenceV3RelationsTransport(UpstageRelationsTransport):
                         raise ValueError
         except (ValueError, KeyError, TypeError, AttributeError):
             raise ValueError("UPSTAGE_RELATIONS_OCCURRENCES_INVALID") from None
+
+
+class UpstageDecisionGateRelationsTransport(UpstageOccurrenceV3RelationsTransport):
+    """V3 literal selections plus a separately budgeted, pinned two-model gate."""
+
+    MODEL_PROFILE = "relation-decision-gate-v1"
+    TRANSPORT_VERSION = "relation-decision-gate-v1"

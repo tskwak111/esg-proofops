@@ -530,6 +530,7 @@ def relation_settings_contract_valid(settings) -> bool:
     if (settings.model_profile, settings.system_prompt) not in {
         (OCCURRENCE_PROFILE, OCCURRENCE_SYSTEM_PROMPT),
         (OCCURRENCE_V3_PROFILE, OCCURRENCE_V3_SYSTEM_PROMPT),
+        ("relation-decision-gate-v1", OCCURRENCE_V3_SYSTEM_PROMPT),
     }:
         return False
     # Pin the complete JSON contract in prompts/source_relations_occurrence_v2.schema.json.
@@ -679,7 +680,8 @@ def check_local_upstage_tagger(
             + ACTOR_ROLE_SYSTEM_SUFFIX
         )
         or (
-            settings.model_profile == "upstage-preliminary-source-quotes-actor-role-v2"
+            settings.model_profile
+            in ("upstage-preliminary-source-quotes-actor-role-v2", "preliminary-decision-v1")
             and settings.system_prompt
             == PRELIMINARY_SYSTEM_PROMPT
             + CONTEXT_SYSTEM_SUFFIX
@@ -719,4 +721,59 @@ def check_local_upstage_tagger(
     )
     return Preflight(
         common.ready and pinned and authorized_rights, checks, common.binding_sha256, checked_at
+    )
+
+
+def check_local_decision_binding(
+    *, binding, consent, auth, checked_at, source_sha256, document_rights, provider, settings
+):
+    """Explicit text-only DEC-15 grant, independent of the Luna quote grant."""
+    from proofops.application.tagging.decisions import MODELS, POLICY, validate_decision_settings
+
+    validate_decision_settings(settings)
+    if binding.get("tenant_id") != auth.tenant_id or consent.get("tenant_id") != auth.tenant_id:
+        raise TenantNotFoundError("profile not found")
+    now = _timestamp(checked_at)
+    if now is None or provider not in MODELS:
+        raise ValueError("DECISION_PREFLIGHT_INVALID")
+    checks = []
+    for name, profile, id_field in (
+        ("runtime", binding, "runtime_binding_id"),
+        ("consent", consent, "consent_profile_id"),
+    ):
+        approved, expires = (
+            _timestamp(profile.get("approved_at")),
+            _timestamp(profile.get("expires_at")),
+        )
+        valid = (
+            profile.get("status") == "approved"
+            and _uuid(profile.get(id_field))
+            and all(_text(profile.get(k)) for k in ("version", "approved_by"))
+            and approved is not None
+            and expires is not None
+            and approved <= now < expires
+            and profile.get("purpose") == "local_test"
+        )
+        checks.append(Check(name, "pass" if valid else "fail", "explicit decision approval"))
+    valid = (
+        binding.get("schema") == "local_decision_binding_v1"
+        and binding.get("runtime_binding_id") == settings["binding_ids"][provider]
+        and binding.get("provider") == provider
+        and binding.get("role") == "decision"
+        and binding.get("model_id") == MODELS[provider]["model"]
+        and binding.get("endpoint") == MODELS[provider]["endpoint"]
+        and binding.get("decision_policy_sha256") == canonical_hash(POLICY)
+        and binding.get("budget_limit_usd") == ("3.00" if provider == "openai" else "5.00")
+        and binding.get("fallback_bindings", []) == []
+        and consent.get("allowed_decision_models") == {p: c["model"] for p, c in MODELS.items()}
+        and source_sha256 in consent.get("allowed_source_sha256", [])
+        and document_rights in consent.get("allowed_document_rights", [])
+        and consent.get("allow_cross_tenant_cache") is False
+        and consent.get("allow_agentcore_memory") is False
+    )
+    checks.append(
+        Check("decision_scope", "pass" if valid else "fail", "frozen text/model/policy scope")
+    )
+    return Preflight(
+        all(c.status == "pass" for c in checks), tuple(checks), canonical_hash(binding), checked_at
     )

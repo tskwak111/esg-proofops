@@ -43,6 +43,9 @@ def _tag_replay_hash(snapshot):
 def tagging_settings(snapshot, *, preliminary=False, relation=False):
     if preliminary and relation:
         raise ValueError("TAGGING_PROFILE_MISMATCH")
+    from proofops.application.tagging.decisions import validate_decision_snapshot
+
+    validate_decision_snapshot(snapshot)
     prefix = "relation" if relation else "preliminary" if preliminary else "tagging"
     if prefix + "_settings" not in snapshot:
         raise ValueError("TAGGING_PROFILE_MISMATCH")
@@ -155,6 +158,21 @@ def tag_pins(snapshot, extraction, extraction_hash):
         )
     ):
         raise ValueError("TAG_CHECKPOINT_PIN_MISMATCH")
+    from proofops.application.tagging.decisions import validate_decision_snapshot
+
+    validate_decision_snapshot(snapshot)
+    if "decision_settings" in snapshot:
+        pins.update(
+            {
+                key: snapshot[key]
+                for key in (
+                    "decision_settings",
+                    "decision_settings_hash",
+                    "decision_runtimes",
+                    "decision_runtime_hashes",
+                )
+            }
+        )
     if "fact_assembly_profile" in snapshot:
         pins["fact_assembly_profile"] = snapshot["fact_assembly_profile"]
     if "report_level_link" in snapshot:

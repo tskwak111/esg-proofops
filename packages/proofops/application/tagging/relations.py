@@ -233,7 +233,7 @@ def relation_prompt(profile: str = LEGACY_PROFILE) -> str:
         return SYSTEM_PROMPT
     if profile == OCCURRENCE_PROFILE:
         return OCCURRENCE_SYSTEM_PROMPT
-    if profile == OCCURRENCE_V3_PROFILE:
+    if profile in (OCCURRENCE_V3_PROFILE, "relation-decision-gate-v1"):
         return OCCURRENCE_V3_SYSTEM_PROMPT
     raise DomainValidationError("RELATION_PROFILE_UNKNOWN")
 
@@ -381,7 +381,7 @@ def relation_request(
     prompt = relation_prompt(profile)
     sources = _sources(sources, graph, tenant_id)
     graph_hash = canonical_hash(asdict(graph))
-    if profile == OCCURRENCE_V3_PROFILE:
+    if profile in (OCCURRENCE_V3_PROFILE, "relation-decision-gate-v1"):
         packets, _ = bounded_occurrence_sources(
             tuple((_identity(s, graph, graph_hash), s.quote) for s in sources),
             claim_text=claim_text,
@@ -435,11 +435,11 @@ def validate_relations(
         raise DomainValidationError("relation response requires one row per source")
     graph_hash = (
         canonical_hash(asdict(graph))
-        if profile in {OCCURRENCE_PROFILE, OCCURRENCE_V3_PROFILE}
+        if profile in {OCCURRENCE_PROFILE, OCCURRENCE_V3_PROFILE, "relation-decision-gate-v1"}
         else ""
     )
     ranked: list[dict[str, tuple[SpanCandidate, ...]]] = []
-    if profile == OCCURRENCE_V3_PROFILE:
+    if profile in (OCCURRENCE_V3_PROFILE, "relation-decision-gate-v1"):
         _, ranked = bounded_occurrence_sources(
             tuple((_identity(s, graph, graph_hash), s.quote) for s in sources),
             claim_text=claim_text,

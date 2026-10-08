@@ -37,6 +37,7 @@ _SETTINGS_FIELDS = frozenset(
         "tagging_settings",
         "preliminary_settings",
         "relation_settings",
+        "decision_settings",
         "input_reservation_policy",
         "extraction_limits",
         "claim_source_policy",
@@ -431,6 +432,12 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
             runtime["input_reservation_policy"] = _reservation_policy(
                 settings["input_reservation_policy"]
             )
+            if "decision_settings" in settings:
+                from proofops.application.tagging.decisions import validate_decision_settings
+
+                runtime["decision_settings"] = dict(
+                    validate_decision_settings(settings["decision_settings"])
+                )
             runtime["tagging_mode"] = tagging_mode
     elif "extraction_limits" in settings:
         raise _invalid()
@@ -450,6 +457,7 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         runtime["fact_assembly_profile"] = fact_assembly_profile
     if tagging_mode != "upstage_local" and (
         "preliminary_settings" in settings
+        or "decision_settings" in settings
         or "relation_settings" in settings
         or "input_reservation_policy" in settings
     ):

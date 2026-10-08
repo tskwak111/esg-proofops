@@ -101,6 +101,7 @@ def live_tagging_settings(
     preliminary_goal_role: bool = False,
     preliminary_actor_role: bool = False,
     preliminary_p2: bool = False,
+    preliminary_profile: str | None = None,
     compact_element_wire: bool = False,
     position_context_order: bool = False,
     capacity_refresh: bool = False,
@@ -131,7 +132,17 @@ def live_tagging_settings(
         or type(capacity_refresh) is not bool
     ):
         raise ValueError("relation/preliminary-context stage must be explicit boolean")
-    if relation_profile not in {"source-quotes-v1", "occurrence-v2", "occurrence-v3"}:
+    if preliminary_profile not in (None, "decision-v1"):
+        raise ValueError("unknown preliminary profile")
+    decision = preliminary_profile == "decision-v1" or relation_profile == "decision-gate-v1"
+    if decision and (model_id != "openai/gpt-6-luna" or position_context_order):
+        raise ValueError("decision profiles require Luna and source context order")
+    if relation_profile not in {
+        "source-quotes-v1",
+        "occurrence-v2",
+        "occurrence-v3",
+        "decision-gate-v1",
+    }:
         raise ValueError("unknown relation profile")
     if relation_profile != "source-quotes-v1" and not relations:
         raise ValueError("relation profile requires live relations")
@@ -219,7 +230,12 @@ def live_tagging_settings(
         "or grading. Validate this equality for every element before submitting."
     )
     settings = {}
-    if preliminary_p2:
+    if preliminary_profile == "decision-v1":
+        from proofops.application.tagging.decisions import PRELIMINARY_PROFILE, QUOTE_PROMPT
+
+        preliminary_profile = PRELIMINARY_PROFILE
+        preliminary_prompt = QUOTE_PROMPT
+    elif preliminary_p2:
         preliminary_profile = (
             "upstage-preliminary-source-quotes-table-role-v2-p2-position-v1"
             if position_context_order
@@ -299,10 +315,14 @@ def live_tagging_settings(
             "source-quotes-v1": LEGACY_PROFILE,
             "occurrence-v2": OCCURRENCE_PROFILE,
             "occurrence-v3": OCCURRENCE_V3_PROFILE,
+            "decision-gate-v1": "relation-decision-gate-v1",
         }[relation_profile]
+        schema_profile = (
+            "occurrence-v3" if relation_profile == "decision-gate-v1" else relation_profile
+        )
         relation_schema = (
-            ROOT / f"prompts/source_relations_{relation_profile.replace('-', '_')}.schema.json"
-            if relation_profile in {"occurrence-v2", "occurrence-v3"}
+            ROOT / f"prompts/source_relations_{schema_profile.replace('-', '_')}.schema.json"
+            if schema_profile in {"occurrence-v2", "occurrence-v3"}
             else ROOT / "contracts/jsonschema/source_relations.schema.json"
         )
         profiles += (
@@ -334,6 +354,12 @@ def live_tagging_settings(
     else:
         settings["input_reservation_policy"] = solar_pro4_capacity_policy(
             refreshed=capacity_refresh
+        )
+    if decision:
+        from proofops.application.tagging.decisions import MODELS, POLICY
+
+        settings["decision_settings"] = dict(
+            policy=POLICY, binding_ids={p: str(uuid4()) for p in MODELS}
         )
     return settings
 
@@ -413,6 +439,7 @@ def apply_resume_metadata(args, saved: dict) -> None:
     args.parser_memory_bytes = parser_memory_limit(saved_memory)
     for field, default in (
         ("relation_profile", "source-quotes-v1"),
+        ("preliminary_profile", None),
         ("claim_source_profile", None),
         ("display_text_profile", None),
     ):
@@ -727,8 +754,13 @@ def main():
     parser.add_argument("--live-tagging", action="store_true")
     parser.add_argument("--live-relations", action="store_true")
     parser.add_argument(
+        "--preliminary-profile",
+        choices=["decision-v1"],
+        help="New run: OpenAI Decisions + JEV judgments with Luna literal quotes.",
+    )
+    parser.add_argument(
         "--relation-profile",
-        choices=["source-quotes-v1", "occurrence-v2", "occurrence-v3"],
+        choices=["source-quotes-v1", "occurrence-v2", "occurrence-v3", "decision-gate-v1"],
         help="Pin a relation contract for a NEW run; requires --live-relations.",
     )
     parser.add_argument(
@@ -884,6 +916,7 @@ def main():
             parser.error("existing pilot parser memory limit changed; create a new run")
         for field, default in (
             ("relation_profile", "source-quotes-v1"),
+            ("preliminary_profile", None),
             ("claim_source_profile", None),
             ("display_text_profile", None),
         ):
@@ -970,6 +1003,13 @@ def main():
         or (args.period_end is None)
     ):
         parser.error("--pdf, --report-year, --period-start and --period-end are required")
+    if (args.preliminary_profile or args.relation_profile == "decision-gate-v1") and (
+        not args.live_tagging or args.llm_provider != "openrouter" or args.position_context_order
+    ):
+        parser.error(
+            "decision profiles require --live-tagging --llm-provider openrouter "
+            "and source context order"
+        )
     if args.relation_profile is None:
         args.relation_profile = "source-quotes-v1"
     if args.relation_profile != "source-quotes-v1" and not args.live_relations:
@@ -1170,6 +1210,7 @@ def main():
                     preliminary_goal_role=args.preliminary_goal_role,
                     preliminary_actor_role=args.preliminary_actor_role,
                     preliminary_p2=args.preliminary_p2,
+                    preliminary_profile=args.preliminary_profile,
                     compact_element_wire=args.compact_element_wire,
                     position_context_order=args.position_context_order,
                     capacity_refresh=getattr(args, "capacity_refresh", False),
@@ -1187,6 +1228,19 @@ def main():
                     max_context_tokens=bound + 4096,
                 )
             )
+            if "decision_settings" in settings:
+                calls = args.tagging_max_calls * 2
+                settings["budget_limits"]["input_tokens"] += 66560 * calls
+                settings["budget_limits"]["output_tokens"] += 4096 * calls
+                settings["budget_limits"]["roles"].append(
+                    dict(
+                        role="decision",
+                        max_calls=calls,
+                        max_input_tokens=66560,
+                        max_output_tokens=4096,
+                        max_context_tokens=70656,
+                    )
+                )
         (state / "settings.json").write_text(json.dumps(settings))
     os.environ.update(
         APP_ENV="local",
@@ -1353,6 +1407,28 @@ def main():
                         ),
                     )
                 )
+        if "decision_settings" in settings:
+            from proofops.application.tagging.decisions import MODELS, POLICY
+
+            profiles[2][2]["allowed_decision_models"] = {p: c["model"] for p, c in MODELS.items()}
+            for provider, identifier in settings["decision_settings"]["binding_ids"].items():
+                profiles.append(
+                    (
+                        "runtime",
+                        identifier,
+                        dict(
+                            common,
+                            provider=provider,
+                            runtime_binding_id=identifier,
+                            schema="local_decision_binding_v1",
+                            role="decision",
+                            model_id=MODELS[provider]["model"],
+                            endpoint=MODELS[provider]["endpoint"],
+                            decision_policy_sha256=canonical_hash(POLICY),
+                            budget_limit_usd="3.00" if provider == "openai" else "5.00",
+                        ),
+                    )
+                )
         for kind, identifier, artifact in profiles:
             c.registry.with_option(
                 tenant,
@@ -1473,6 +1549,8 @@ def main():
         )
         if args.raster_ocr:
             manifest.update(raster_ocr=True, raster_policy=raster["raster_policy"])
+        if args.preliminary_profile is not None:
+            manifest["preliminary_profile"] = args.preliminary_profile
         if args.relation_profile != "source-quotes-v1":
             manifest["relation_profile"] = args.relation_profile
         if args.claim_source_profile is not None:
@@ -1543,6 +1621,8 @@ def main():
             args.raster_ocr and manifest.get("raster_policy") != raster["raster_policy"]
         ):
             raise ValueError("pilot raster policy changed; create a new state directory")
+        if manifest.get("preliminary_profile") != args.preliminary_profile:
+            raise ValueError("existing pilot preliminary profile changed; create a new run")
         if manifest.get("relation_profile", "source-quotes-v1") != args.relation_profile:
             raise ValueError("pilot relation profile changed; create a new state directory")
         if manifest.get("display_text_profile") != args.display_text_profile:

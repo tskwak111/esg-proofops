@@ -137,6 +137,9 @@ class LocalSQLiteRunStore:
 
                     if snapshot["display_text_policy"] != POLICY:
                         raise ValueError("DISPLAY_POLICY_MISMATCH")
+                from proofops.application.tagging.decisions import validate_decision_snapshot
+
+                validate_decision_snapshot(snapshot | {"tenant_id": tenant})
                 relation_fields = (
                     "relation_settings",
                     "relation_settings_hash",

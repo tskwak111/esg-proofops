@@ -85,6 +85,11 @@ def _preliminary_unresolved_action(agreement):
     """Explain stored agreement without changing the blocked state or decision."""
     if not isinstance(agreement, dict):
         return _PRELIMINARY_UNRESOLVED_ACTION["unknown"]
+    if agreement.get("schema") == "preliminary_decision_agreement_v1":
+        return (
+            "두 판단 모델의 답변·확률 또는 원문 인용이 확정 조건을 충족하지 못했습니다. "
+            "원문과 항목별 응답을 검토해 주세요."
+        )
     validated = agreement.get("validated_replicates")
     # Missing legacy counts cannot establish either completeness or agreement.
     if type(validated) is not int or not 0 <= validated <= 3:
@@ -376,15 +381,21 @@ def build_claims_router(claims, auth_store, *, tags=None, assurance=None, clock=
                         reason=cand.get("reason"),
                     )
                 )
+        action = (
+            _preliminary_unresolved_action(item.get("preliminary_agreement"))
+            if blocked_reason == "PRELIMINARY_TAGS_UNRESOLVED"
+            else _BLOCKED_ACTION_TEXT.get(blocked_reason)
+        )
+        if any(
+            isinstance(record, dict) and record.get("decision_relation") in ("partial", "unknown")
+            for record in item.get("relation_records", [])
+        ):
+            action = "후보 있음·확인 필요" + (". " + action if action else "")
         return dict(
             schema_version=1,
             candidate_snippets=snippets,
             blocked_reason=blocked_reason,
-            blocked_action=(
-                _preliminary_unresolved_action(item.get("preliminary_agreement"))
-                if blocked_reason == "PRELIMINARY_TAGS_UNRESOLVED"
-                else _BLOCKED_ACTION_TEXT.get(blocked_reason)
-            ),
+            blocked_action=action,
             field_agreements=agreements,
             raw_candidates=raw_candidates,
         )
