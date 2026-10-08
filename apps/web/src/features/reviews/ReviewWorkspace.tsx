@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ApiError, requestJson, type Session } from "../session/api";
-import { getElementLabel } from "../labels";
+import { getElementLabel, getReasonLabel } from "../labels";
 
 type Track = "goal" | "performance" | "management";
 export type SourceRef = {
@@ -155,7 +155,7 @@ function Editor(props: Props) {
     <h2>태깅 검토</h2>
     {props.localSynthetic && <p>로컬 합성 자료 검증 — 실제 모델 결과가 아닙니다.</p>}
     <p>원문 근거와 태깅을 수정하면 규칙엔진이 새 판정을 계산합니다.</p>
-    {base.review.reason_codes.length > 0 && <p>검토 사유: {base.review.reason_codes.join(", ")}</p>}
+    {base.review.reason_codes.length > 0 && <p>검토 사유: {base.review.reason_codes.map(getReasonLabel).join(", ")}</p>}
     {approvalPending && <p role="status">규칙집 승인이 필요해 태깅 확정·재채점이 보류되었습니다. 현재 태그와 원문을 검토하고 부분 결과로 내보낼 수 있습니다.</p>}
     {!editable && !saved && !approvalPending && !canStartReReview && <p>검토자 권한과 열린 검토 항목이 필요합니다.</p>}
     {canStartReReview && <section aria-label="재검토 시작">

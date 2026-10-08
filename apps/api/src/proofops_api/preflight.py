@@ -156,10 +156,16 @@ def build_preflight_router(
                 checker = (
                     check_local_upstage_binding
                     if runtime.get("provider") == "upstage"
+                    or (
+                        runtime.get("provider") == "openrouter"
+                        and runtime.get("purpose") == "local_test"
+                    )
                     else check_runtime_binding
                 )
                 kwargs = (
-                    {} if checker is check_local_upstage_binding else {"allowed_regions": regions}
+                    {"model_sha256": runtime.get("model_sha256")}
+                    if checker is check_local_upstage_binding
+                    else {"allowed_regions": regions}
                 )
                 result = checker(
                     binding=runtime,

@@ -27,7 +27,7 @@ from fastapi import Request
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def local_login_response(sessions, user: str, tenant: str, run_id: str):
+def local_login_response(sessions, user: str, tenant: str, run_id: str, *, new_analysis=False):
     """The secret loopback login link renews an expired demo session on each visit."""
     from fastapi.responses import RedirectResponse
     from proofops.adapters.local.auth_store import hash_token, new_session_id
@@ -38,7 +38,9 @@ def local_login_response(sessions, user: str, tenant: str, run_id: str):
     sessions.put_with_token(
         SessionRecord(session, user, tenant, hash_token(csrf), now + 3600, now + 3600, False), csrf
     )
-    response = RedirectResponse(f"/runs/{run_id}/claims", status_code=303)
+    response = RedirectResponse(
+        "/documents/new" if new_analysis else f"/runs/{run_id}/claims", status_code=303
+    )
     response.set_cookie(
         SESSION_COOKIE_NAME, session, secure=True, httponly=True, samesite="strict", path="/"
     )
@@ -1341,6 +1343,7 @@ def main():
                     runtime_binding_id=runtime,
                     role="extractor",
                     model_id=args.model,
+                    model_sha256=settings["extraction_profile"]["model_sha256"],
                     endpoint="https://openrouter.ai/api/v1/chat/completions"
                     if args.llm_provider == "openrouter"
                     else "https://api.upstage.ai/v1/chat/completions",
@@ -1809,7 +1812,14 @@ def main():
         flush=True,
     )
     if args.serve:
-        if response.status_code != 200:
+        # A fresh worker session has no published claims yet. Serve its upload
+        # entry without invoking the initial queued run or weakening read-only replays.
+        fresh_worker = (
+            args.serve_worker
+            and response.status_code == 409
+            and c.runs.store.jobs.get_run(tenant, run_id).get("status") == "queued"
+        )
+        if response.status_code != 200 and not fresh_worker:
             raise SystemExit(
                 f"Cannot serve this run: claims HTTP {response.status_code}; "
                 "inspect the saved inspection JSON"
@@ -1823,7 +1833,9 @@ def main():
 
         @app.get("/__local/" + login_token, include_in_schema=False)
         def login():
-            return local_login_response(c.auth_store.sessions, user, tenant, run_id)
+            return local_login_response(
+                c.auth_store.sessions, user, tenant, run_id, new_analysis=fresh_worker
+            )
 
         app.mount("/assets", StaticFiles(directory=ROOT / "apps/web/dist/assets"))
 

@@ -47,6 +47,9 @@ function SessionApp() {
   const [isSavedDemo, setIsSavedDemo] = useState(false);
   const [demoRunId, setDemoRunId] = useState<string | null>(null);
   const tenantSwitchInFlight = useRef(false);
+  const handleReadyVersion = useCallback((version: ReadyDocumentVersion | null) => {
+    setReadyVersion(version); setCreatedRun(null);
+  }, []);
 
   const loadSession = useCallback(() => {
     const controller = new AbortController();
@@ -156,7 +159,7 @@ function SessionApp() {
       {session.tenant_id ? <Routes>
         <Route path="/" element={<Navigate to={isSavedDemo && demoRunId ? `/runs/${demoRunId}/claims` : "/documents/new"} replace />} />
         <Route path="/documents/new" element={<DocumentFlow session={session} selection={selection} options={options} readyVersion={readyVersion} canEdit={canEdit} canRun={canRun}
-          setSelection={setSelection} setOptions={setOptions} setReadyVersion={version => { setReadyVersion(version); setCreatedRun(null); }}
+          setSelection={setSelection} setOptions={setOptions} setReadyVersion={handleReadyVersion}
           onSessionInvalid={invalidateSession} onRunCreated={run => { setCreatedRun(run); navigate(`/runs/${run.run_id}`); }}
           isSavedDemo={isSavedDemo} demoRunId={demoRunId} />} />
         <Route path="/runs/:runId" element={<RunHome session={session} tenantKey={session.tenant_id} initialRun={createdRun} onSessionInvalid={invalidateSession} isSavedDemo={isSavedDemo} />} />

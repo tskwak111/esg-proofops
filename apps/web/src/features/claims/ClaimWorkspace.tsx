@@ -14,7 +14,7 @@ import {
   type ReviewSnapshot,
   type SourceRef,
 } from "../reviews/ReviewWorkspace";
-import { getElementLabel } from "../labels";
+import { getElementLabel, getReasonLabel } from "../labels";
 
 type Track = "goal" | "performance" | "management";
 type ReviewStatus = "auto_confirmed" | "needs_review" | "human_confirmed" | "ai_delegated_confirmed";
@@ -493,7 +493,7 @@ function ClaimDetailView({ apiBase = "", csrfToken, tenantKey, session, runId, c
         <MissingEvidenceCard elements={detail.element_evidence ?? []} onSourceOpen={source => setSourceOpen(current => ({ source, nonce: (current?.nonce ?? 0) + 1 }))} />
         <details><summary>전체 항목 상세 ({elements.length}개)</summary>{elements.length === 0 ? <p>{untagged ? "게시된 요소가 없습니다. 원문 검증 또는 분류가 보류된 경우 추가 검토가 필요합니다." : "표시할 요소가 없습니다."}</p> : <ul>{elements.map(element => <li key={element.element_id}>
           {getElementLabel(element.element_id)}: {elementStateText[element.state]} · 근거 {element.evidence_refs.length}개
-          {element.reason_code ? <p>요소 검토 사유: {element.reason_code}</p> : null}
+          {element.reason_code ? <p>요소 검토 사유: {getReasonLabel(element.reason_code)}</p> : null}
           {element.normalized_value !== null ? <p>값: {element.normalized_value}</p> : null}
           {element.evidence_refs.length ? <details data-element-evidence={element.element_id}>
             <summary>{element.element_id} 근거 내용</summary>
@@ -529,7 +529,7 @@ function ClaimDetailView({ apiBase = "", csrfToken, tenantKey, session, runId, c
         </section> : null}
         {projection && projection.schema_version === 1 ? <section aria-labelledby="review-projection-heading"><h3 id="review-projection-heading">모델 태깅 당시 후보 (미확정)</h3>
           <p role="status">모델 태깅 당시의 미확정 기록입니다. 현재 검토 결과는 위의 태깅과 판정에 표시됩니다. 후보를 채택하려면 원문 검증을 통과해야 합니다.</p>
-          {projection.blocked_reason ? <p>태깅 당시 보류 사유: {projection.blocked_reason}</p> : null}
+          {projection.blocked_reason ? <p>태깅 당시 보류 사유: {getReasonLabel(projection.blocked_reason)}</p> : null}
           {projection.blocked_action ? <p>태깅 당시 안내: {projection.blocked_action}</p> : null}
           {projection.candidate_snippets.length ? <ul>{projection.candidate_snippets.map((snippet, index) => <li key={index}>{snippet}</li>)}</ul> : null}
           {projection.field_agreements.length ? <details><summary>모델 응답 필드 상세 ({projection.field_agreements.length}개)</summary>
