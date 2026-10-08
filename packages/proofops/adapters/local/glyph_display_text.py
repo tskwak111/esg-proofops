@@ -231,16 +231,19 @@ class GlyphDisplayCatalog:
         ]
         return dict(policy=POLICY, sources=[self.pin(r) for r in refs])
 
+    def context_pin(self, entry):
+        return self.pin(entry["source_ref"] | dict(quote=entry["text"]))
+
     def preliminary_pins(self, packet, sources):
         data = packet["untrusted_document_data"]
         for block in data.get("context_blocks", []):
-            pin = self.block_pin(block["source_id"])
+            pin = self.context_pin(block)
             if canonical_hash(block["text"]) != pin["raw_sha256"]:
                 raise ValueError("DISPLAY_CONTEXT_MISMATCH")
         return dict(
             policy=POLICY,
             sources=[self.pin(asdict(r)) for r in sources],
-            context=[self.block_pin(b["source_id"]) for b in data.get("context_blocks", [])],
+            context=[self.context_pin(b) for b in data.get("context_blocks", [])],
         )
 
     def restore_preliminary(self, response, packet):

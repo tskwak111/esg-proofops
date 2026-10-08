@@ -44,6 +44,8 @@ from proofops.application.tagging.preliminary import (
     P2_SYSTEM_PROMPT,
     PERIOD_ROLE_SYSTEM_SUFFIX,
     SCHEMA,
+    SENTENCE_CONTEXT_PROFILE,
+    SENTENCE_CONTEXT_SYSTEM_PROMPT,
     SYSTEM_PROMPT,
     TABLE_ROLE_SYSTEM_SUFFIX,
     TABLE_SCHEMA,
@@ -164,7 +166,9 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
         display_catalog=None,
     ):
         _require_uuid("tenant_id", tenant_id)
-        if settings.model_profile in (P2_MODEL_PROFILE, POSITION_P2_MODEL_PROFILE):
+        if settings.model_profile == SENTENCE_CONTEXT_PROFILE:
+            expected_prompt = SENTENCE_CONTEXT_SYSTEM_PROMPT
+        elif settings.model_profile in (P2_MODEL_PROFILE, POSITION_P2_MODEL_PROFILE):
             expected_prompt = P2_SYSTEM_PROMPT
         elif settings.model_profile == P1_MODEL_PROFILE:
             expected_prompt = P1_SYSTEM_PROMPT
@@ -204,7 +208,9 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
             raise ValueError("UPSTAGE_TAGGING_AUTHORIZER_REQUIRED")
         if resume is not None and not isinstance(resume, TransportResume):
             raise ValueError("UPSTAGE_TAGGING_RESUME_INVALID")
-        if settings.model_profile == POSITION_P2_MODEL_PROFILE:
+        if settings.model_profile == SENTENCE_CONTEXT_PROFILE:
+            self.TRANSPORT_VERSION = "preliminary-source-quotes-sentence-context-v1"
+        elif settings.model_profile == POSITION_P2_MODEL_PROFILE:
             self.TRANSPORT_VERSION = POSITION_P2_TRANSPORT_VERSION
         elif settings.model_profile == POSITION_TABLE_ROLE_MODEL_PROFILE:
             self.TRANSPORT_VERSION = POSITION_TABLE_ROLE_TRANSPORT_VERSION
@@ -288,6 +294,7 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
         actor_role_v2 = settings.model_profile in (
             ACTOR_ROLE_MODEL_PROFILE_V2,
             "preliminary-decision-v1",
+            SENTENCE_CONTEXT_PROFILE,
         )
         actor_role = settings.model_profile == ACTOR_ROLE_MODEL_PROFILE or actor_role_v2
         goal_role = settings.model_profile == GOAL_ROLE_MODEL_PROFILE or actor_role
@@ -310,6 +317,8 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
                 expected_prompt = P2_SYSTEM_PROMPT
             elif settings.model_profile == P1_MODEL_PROFILE:
                 expected_prompt = P1_SYSTEM_PROMPT
+            elif settings.model_profile == SENTENCE_CONTEXT_PROFILE:
+                expected_prompt = SENTENCE_CONTEXT_SYSTEM_PROMPT
             elif actor_role_v2:
                 expected_prompt = ACTOR_ROLE_SYSTEM_PROMPT_V2
             elif actor_role:
@@ -427,7 +436,7 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
                 raise ValueError("DISPLAY_PACKET_MISMATCH")
             for entry, pin in zip(context, display["context"], strict=True):
                 if (
-                    catalog.block_pin(entry["source_id"]) != pin
+                    catalog.context_pin(entry) != pin
                     or canonical_hash(entry["text"]) != pin["raw_sha256"]
                 ):
                     raise ValueError("DISPLAY_PACKET_MISMATCH")
