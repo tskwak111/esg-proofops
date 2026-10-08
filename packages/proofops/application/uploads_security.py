@@ -21,7 +21,11 @@ from typing import Any
 
 
 class UploadRejected(ValueError):
-    """Code-only failure; never include PDF contents, original filenames, or parser stderr."""
+    """Code-only failure with optional structured inspection status; no source/parser text."""
+
+    def __init__(self, code: str, *, security_metadata: dict | None = None):
+        super().__init__(code)
+        self.security_metadata = security_metadata or {}
 
 
 @dataclass(frozen=True)
@@ -173,7 +177,9 @@ def verify_quarantined_pdf(
                     )
                 result = json.loads(output)
                 if result["code"] != "verified":
-                    raise UploadRejected(result["code"])
+                    raise UploadRejected(
+                        result["code"], security_metadata=result.get("security", {})
+                    )
                 display_content = None
                 if limits.policy_profile == "display-v2":
                     with display_path.open("rb") as display_file:
@@ -420,17 +426,9 @@ def _inspect_legacy(path: str, limits: PdfLimits) -> int:
         # PDF 1.7 Table 8.60): its /T names an annotation dictionary, a text
         # field name string, or an array of those, and its optional /H is a
         # boolean; it never resolves a file, URL, or embedded target. The
-        # Widget mouse-down/up exception is applied at its /AA call site; the
-        # narrower Widget mouse-enter/exit /Hide exception is defined below.
+        # Widget mouse-down/up exception is applied at its /AA call site.
         inert_action_subtypes = {"/Named", "/GoTo"}
         user_gesture_inert_subtypes = inert_action_subtypes | {"/URI", "/Hide"}
-        # Widget pointer-hover triggers (/E mouse-enter, /X mouse-exit) need no
-        # click but still only fire on pointer movement over the widget's own
-        # rectangle (ISO 32000-1 Table 194). Show/hide-tooltip widgets chain
-        # /Hide there. Only /Hide is added to the always-inert set: /URI,
-        # /Print and /Find stay click-only, and focus/page/document triggers
-        # stay on the strict automatic list.
-        pointer_hover_inert_subtypes = inert_action_subtypes | {"/Hide"}
         inert_named_destinations = {
             "/NextPage",
             "/PrevPage",
@@ -642,20 +640,16 @@ def _inspect_legacy(path: str, limits: PdfLimits) -> int:
                         for trigger, trigger_action in action_table.items():
                             # ISO 32000-1 Table 194: Widget mouse down/up require
                             # a click; focus/page-open and document triggers do not.
-                            is_widget = str(value.get("/Type", "")) == "/Annot" and (
-                                str(value.get("/Subtype", "")) == "/Widget"
+                            gesture = (
+                                str(value.get("/Type", "")) == "/Annot"
+                                and str(value.get("/Subtype", "")) == "/Widget"
+                                and str(trigger) in {"/D", "/U"}
                             )
-                            gesture = is_widget and str(trigger) in {"/D", "/U"}
-                            hover = is_widget and str(trigger) in {"/E", "/X"}
                             reject_dangerous_action_chain(
                                 trigger_action,
-                                allowed_subtypes=frozenset(
-                                    user_gesture_inert_subtypes
-                                    if gesture
-                                    else pointer_hover_inert_subtypes
-                                    if hover
-                                    else inert_action_subtypes
-                                ),
+                                allowed_subtypes=frozenset(user_gesture_inert_subtypes)
+                                if gesture
+                                else frozenset(inert_action_subtypes),
                                 allow_user_named_action=gesture,
                             )
                     else:
@@ -751,7 +745,14 @@ _ACTION_SUBTYPES = {
 
 def _display_reader(path: str, limits: PdfLimits, output: Path, *, strict: bool) -> dict:
     from pypdf import PdfReader, PdfWriter
-    from pypdf.generic import ArrayObject, DictionaryObject, IndirectObject, PdfObject, StreamObject
+    from pypdf.generic import (
+        ArrayObject,
+        DictionaryObject,
+        IndirectObject,
+        NameObject,
+        PdfObject,
+        StreamObject,
+    )
 
     reader = PdfReader(path, strict=strict, root_object_recovery_limit=limits.max_objects)
     encrypted = reader.is_encrypted
@@ -870,6 +871,15 @@ def _display_reader(path: str, limits: PdfLimits, output: Path, *, strict: bool)
     writer = PdfWriter()
     for page in reader.pages:
         writer.add_page(page)
+    # Clone the sanitized configuration through the same writer translation map as
+    # page resources, so OCG references keep their default ON/OFF and View/Print usage.
+    optional_content = reader.root_object.get("/OCProperties")
+    if isinstance(optional_content, IndirectObject):
+        optional_content = optional_content.get_object()
+    if optional_content is not None:
+        if not isinstance(optional_content, DictionaryObject):
+            raise UploadRejected("PDF_INVALID")
+        writer.root_object[NameObject("/OCProperties")] = optional_content.clone(writer)
     writer.write(output)
     if output.stat().st_size > limits.max_bytes:
         raise UploadRejected("UPLOAD_LIMIT_EXCEEDED")
@@ -928,29 +938,20 @@ def _inspect_display(path: str, limits: PdfLimits, output: Path) -> dict:
             except (PdfReadError, PdfStreamError) as error:
                 failures.append(type(error).__name__)
         else:
-            # Repair syntax only with the existing PDFium engine. Never initialize
-            # forms/JavaScript. The repaired bytes must still pass the full scan.
-            import pypdfium2 as pdfium
-
-            repaired = output.with_suffix(".repaired.pdf")
-            try:
-                with pdfium.PdfDocument(path, password="") as document:
-                    if not 1 <= len(document) <= limits.max_pages:
-                        raise UploadRejected("UPLOAD_LIMIT_EXCEEDED")
-                    encrypted = pdfium.raw.FPDF_GetSecurityHandlerRevision(document) >= 0
-                    permissions = int(pdfium.raw.FPDF_GetDocPermissions(document))
-                    document.save(repaired)
-                result = _display_reader(str(repaired), limits, output, strict=False)
-                result.update(
-                    parser="pdfium-repair+pypdf-tolerant",
-                    encrypted=encrypted,
-                    permissions=permissions if encrypted else None,
-                )
-                if result["decoded_bytes"] > Path(path).stat().st_size * limits.max_expansion_ratio:
-                    raise UploadRejected("UPLOAD_LIMIT_EXCEEDED")
-            finally:
-                repaired.unlink(missing_ok=True)
+            # PDFium save may discard unreadable/orphan objects. A scan of its
+            # replacement object set cannot establish safety of the analysis original.
+            raise UploadRejected(
+                "PDF_INVALID",
+                security_metadata=dict(
+                    original_inspection="incomplete",
+                    repaired_inspection="not_attempted",
+                    parser_retry_errors=failures,
+                ),
+            )
         result.update(
+            original_inspection="complete",
+            repaired_inspection="not_attempted",
+            display_inspection="sanitized",
             policy_profile=limits.policy_profile,
             limits=asdict(limits),
             interactive_content="removed-including-annotations-and-forms",
@@ -999,4 +1000,7 @@ if __name__ == "__main__":
             if isinstance(error, UploadRejected)
             else "PDF_INVALID"
         )
-        print(json.dumps({"code": code}))
+        failure: dict[str, Any] = {"code": code}
+        if isinstance(error, UploadRejected) and error.security_metadata:
+            failure["security"] = error.security_metadata
+        print(json.dumps(failure))

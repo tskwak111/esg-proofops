@@ -275,7 +275,7 @@ def test_legacy_display_cache_preserves_version_and_audit(tmp_path, monkeypatch)
     assert service.read_original(TENANT, result["version_id"]) == data
 
 
-def test_pdfium_repair_is_followed_by_complete_sanitization(tmp_path):
+def test_incomplete_original_inspection_fails_closed(tmp_path):
     path = tmp_path / "source.pdf"
     path.write_bytes(pdf(action=("/JavaScript", "/JS", "evil()")))
     from proofops.application import uploads_security
@@ -295,8 +295,10 @@ def retry(*args, **kwargs):
     if calls <= 2: raise PdfReadError('synthetic syntax failure')
     return original(*args, **kwargs)
 g['_display_reader'] = retry
-result = g['_inspect_display'](sys.argv[2], g['PdfLimits'].display(), Path(sys.argv[3]))
-print(json.dumps(result))
+try:
+    g['_inspect_display'](sys.argv[2], g['PdfLimits'].display(), Path(sys.argv[3]))
+except g['UploadRejected'] as error:
+    print(json.dumps({'code': str(error), **error.security_metadata}))
 """
     output = tmp_path / "display.pdf"
     result = subprocess.run(
@@ -306,9 +308,11 @@ print(json.dumps(result))
         check=True,
     )
     metadata = json.loads(result.stdout)
-    assert metadata["parser"] == "pdfium-repair+pypdf-tolerant"
+    assert metadata["code"] == "PDF_INVALID"
+    assert metadata["original_inspection"] == "incomplete"
+    assert metadata["repaired_inspection"] == "not_attempted"
     assert len(metadata["parser_retry_errors"]) == 2
-    assert_display_safe(output.read_bytes())
+    assert not output.exists()
     assert not output.with_suffix(".repaired.pdf").exists()
 
 

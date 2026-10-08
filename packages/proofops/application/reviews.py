@@ -28,8 +28,7 @@ from proofops.application.evidence.retrieval import EvidencePacket
 from proofops.application.evidence.span_citations import verify_source_ref
 from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
 from proofops.application.tagging.consensus import (
-    PARTIAL_FACTS_HASH,
-    PARTIAL_FACTS_V1,
+    PARTIAL_FACTS_PROFILES,
     ConsensusResult,
     form_consensus,
 )
@@ -138,8 +137,11 @@ class ReviewInputs:
             if self.rule_context.local_synthetic
             else "live",
         )
-        if self.fact_assembly_profile == PARTIAL_FACTS_V1:
-            snapshot["fact_assembly"] = {"profile": PARTIAL_FACTS_V1, "sha256": PARTIAL_FACTS_HASH}
+        if self.fact_assembly_profile in PARTIAL_FACTS_PROFILES:
+            snapshot["fact_assembly"] = {
+                "profile": self.fact_assembly_profile,
+                "sha256": PARTIAL_FACTS_PROFILES[self.fact_assembly_profile],
+            }
         if self.report_level_link is not None:
             snapshot["report_level_link"] = self.report_level_link
             snapshot["report_level_review"] = list(self.report_level_review)
@@ -209,7 +211,7 @@ class ReviewInputs:
             self.decision is not None
             and self.decision.decision_status == "decided"
             and (
-                self.fact_assembly_profile == PARTIAL_FACTS_V1
+                self.fact_assembly_profile in PARTIAL_FACTS_PROFILES
                 or self.consensus.review_status != "auto_confirmed"
             )
         ):
@@ -1218,7 +1220,7 @@ class ReviewService:
                 review_reason=body["reason"],
                 input_snapshot_sha256=initial_snapshot_sha256,
             )
-            if inputs.fact_assembly_profile == PARTIAL_FACTS_V1:
+            if inputs.fact_assembly_profile in PARTIAL_FACTS_PROFILES:
                 tag["fact_assembly"] = inputs.snapshot()["fact_assembly"]
             if applicability_receipt is not None:
                 if applicability_carried and applicability_ancestry:

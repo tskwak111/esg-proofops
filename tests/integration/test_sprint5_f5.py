@@ -186,7 +186,7 @@ def test_r4_partial_facts_changes_beyond_diagnostic_label(tmp_path):
     from dataclasses import replace
 
     from proofops.application.budget import TokenUsage
-    from proofops.application.tagging.consensus import PARTIAL_FACTS_V1, form_consensus
+    from proofops.application.tagging.consensus import PARTIAL_FACTS_V2, form_consensus
     from proofops.application.tagging.service import RawTagResponse
 
     from tests.acceptance.test_tagging import TENANT, execute, setup
@@ -217,7 +217,7 @@ def test_r4_partial_facts_changes_beyond_diagnostic_label(tmp_path):
         rulepack=inputs["rulepack"],
         tenant_id=TENANT,
         tag_revision=1,
-        profile=PARTIAL_FACTS_V1,
+        profile=PARTIAL_FACTS_V2,
     )
     before, after = form_consensus(old, **options), form_consensus(current, **options)
     assert len(before.candidate_elements) == 6 and all(
@@ -260,7 +260,7 @@ def test_v2_reader_and_bytes_are_preserved():
     assert all(row["evidence_status"] == "undetermined" for row in results(current))
 
 
-@pytest.mark.parametrize("profile", ["strict-v1", "partial-facts-v1"])
+@pytest.mark.parametrize("profile", ["strict-v1", "partial-facts-v1", "partial-facts-v2"])
 def test_citation_failure_cannot_approve_two_valid_replica_votes(tmp_path, profile):
     from dataclasses import replace
 
@@ -286,6 +286,8 @@ def test_citation_failure_cannot_approve_two_valid_replica_votes(tmp_path, profi
         f.state != "present" for f in after.confirmed_tags.facts
     )
     if profile == "partial-facts-v1":
+        assert after.reasons == ("PARTIAL_FACTS_UNSAFE",)
+    elif profile == "partial-facts-v2":
         assert len(after.candidate_elements) == 6
         assert all(e.state == "unknown" and not e.evidence_refs for e in after.candidate_elements)
     else:

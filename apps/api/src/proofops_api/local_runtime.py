@@ -255,7 +255,7 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
     extraction_mode = env.get("LOCAL_EXTRACTION_MODE", "")
     tagging_mode = env.get("LOCAL_TAGGING_MODE", "")
     fact_assembly_profile = env.get("LOCAL_FACT_ASSEMBLY_PROFILE", "strict-v1")
-    if fact_assembly_profile not in ("strict-v1", "partial-facts-v1"):
+    if fact_assembly_profile not in ("strict-v1", "partial-facts-v1", "partial-facts-v2"):
         raise _invalid()
     if not parser_path:
         if settings_path or extraction_mode or tagging_mode or fact_assembly_profile != "strict-v1":

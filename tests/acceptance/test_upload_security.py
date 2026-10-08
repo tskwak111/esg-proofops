@@ -780,14 +780,15 @@ def _verify(tmp_path, writer):
 
 
 @pytest.mark.parametrize("trigger", ["/E", "/X"])
-def test_hide_chain_on_widget_hover_is_accepted(tmp_path, trigger):
+def test_hide_chain_on_widget_hover_is_rejected_by_strict_v1(tmp_path, trigger):
     writer = PdfWriter()
     writer.add_blank_page(width=600, height=800)
     chained = _hide_action(
         target="tip.a", hidden=False, next_action=_hide_action(target="tip.b", hidden=True)
     )
     _widget_with_trigger(writer, trigger, chained)
-    assert _verify(tmp_path, writer).source.content
+    with pytest.raises(UploadRejected, match="PDF_INVALID"):
+        _verify(tmp_path, writer)
 
 
 @pytest.mark.parametrize("trigger", ["/E", "/X"])

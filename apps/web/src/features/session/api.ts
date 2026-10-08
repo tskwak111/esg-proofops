@@ -57,7 +57,7 @@ export function errorMessage(reason: unknown, fallback: string): string {
     case "PDF_PASSWORD_REQUIRED":
       return "PDF를 여는 암호가 필요합니다. 열기 암호를 해제한 PDF로 다시 업로드해 주세요.";
     case "PDF_INVALID":
-      return "PDF 내부 구조를 복구하지 못했습니다. PDF 뷰어에서 다시 저장한 파일로 업로드해 주세요.";
+      return "PDF 원본의 전체 보안 검사를 완료하지 못했습니다. PDF 뷰어에서 다시 저장한 파일로 업로드해 주세요.";
     case "UPLOAD_INTEGRITY_MISMATCH":
       return "업로드한 파일의 무결성 검증에 실패했습니다.";
     case "UPLOAD_EXPIRED":
