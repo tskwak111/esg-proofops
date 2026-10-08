@@ -143,7 +143,15 @@ def parse_bound(args, kwargs):
     return COST_PER_PAGE[mode] * pages
 
 
-def pilot_argv(template: list[str], *, pdf: Path, state: Path, port: int, root: Path):
+def pilot_argv(
+    template: list[str],
+    *,
+    pdf: Path,
+    state: Path,
+    port: int,
+    root: Path,
+    r108_finals_candidate: bool = False,
+):
     argv = list(template)
     # New web runs choose their own pages; do not inherit a saved report's
     # narrower extraction pages. The existing pilot then extracts the chosen scope.
@@ -179,6 +187,8 @@ def pilot_argv(template: list[str], *, pdf: Path, state: Path, port: int, root: 
         "--serve",
         "--serve-worker",
     ]
+    if r108_finals_candidate:
+        argv.append("--r108-finals-candidate")
     return argv
 
 
@@ -200,6 +210,7 @@ def main():
     parser.add_argument("--run-root", type=Path, required=True)
     parser.add_argument("--port", type=int, required=True)
     parser.add_argument("--kakao-port", type=int, required=True)
+    parser.add_argument("--r108-finals-candidate", action="store_true")
     args = parser.parse_args()
     workers = configure_concurrency()
     root, run_root = args.root.resolve(), args.run_root.resolve()
@@ -216,7 +227,14 @@ def main():
         else next((root / "기업보고서").rglob("KOR_SKI_2024.pdf"))
     )
     template = json.loads((run_root / "profile/create-argv.json").read_text())
-    argv = pilot_argv(template, pdf=pdf, state=run_root / "live", port=args.port, root=root)
+    argv = pilot_argv(
+        template,
+        pdf=pdf,
+        state=run_root / "live",
+        port=args.port,
+        root=root,
+        r108_finals_candidate=args.r108_finals_candidate,
+    )
     (run_root / "live-argv.json").write_text(json.dumps(argv, ensure_ascii=False, indent=2))
     fence = FinalsBudget(
         root / "outputs/agent-results/R108-redesign/lab/sprint3/E2E/r108-spend.json",

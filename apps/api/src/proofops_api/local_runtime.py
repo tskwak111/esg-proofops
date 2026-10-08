@@ -24,6 +24,7 @@ _MAX_CONFIG_BYTES = 65_536
 _SETTINGS_FIELDS = frozenset(
     {
         "build_root",
+        "r108_profile",
         "budget_limits",
         "extraction_profile",
         "extraction_year_notation",
@@ -287,6 +288,8 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
     if set(settings) - _SETTINGS_FIELDS or (
         settings_path and not _REQUIRED_SETTINGS_FIELDS <= set(settings)
     ):
+        raise _invalid()
+    if settings.get("r108_profile") not in (None, "r108-finals-candidate"):
         raise _invalid()
     runtime.update(_raster(settings, extraction_mode))
     if "report_level_link" in settings:

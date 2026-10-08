@@ -26,6 +26,72 @@ from fastapi import Request
 
 ROOT = Path(__file__).resolve().parents[1]
 
+FINALS_CANDIDATE = "r108-finals-candidate"
+# Sprint5 attempt3 behavior plus Q1/Q2/Q4; budgets and dispatch consent remain caller-owned.
+FINALS_CANDIDATE_FLAGS = (
+    "verify_paragraphs",
+    "verify_merged_tables",
+    "repair_table_headers",
+    "verify_claim_spans",
+    "claim_span_render_resolution",
+    "claim_span_bullet_spacing",
+    "claim_span_typography",
+    "extraction_context",
+    "extraction_table_context",
+    "extraction_source_ids",
+    "extraction_assertion_prompt",
+    "live_tagging",
+    "live_relations",
+    "preliminary_context",
+    "preliminary_table_context",
+    "preliminary_table_role",
+    "compact_element_wire",
+    "position_context_order",
+    "capacity_refresh",
+    "extraction_linewrap_join",
+    "element_consistency",
+    "extraction_table_rows",
+    "extraction_recall_prompt",
+)
+FINALS_CANDIDATE_VALUES = {
+    "llm_provider": "openrouter",
+    "parser": "upstage",
+    "vision_parse": "auto",
+    "relation_profile": "occurrence-v3",
+    "claim_source_profile": "glyph-alignment-v1",
+    "display_text_profile": "glyph-joined-display-v1",
+}
+FINALS_CANDIDATE_FORBIDDEN = (
+    "extraction_atomic",
+    "preliminary_p2",
+    "preliminary_goal_role",
+    "preliminary_actor_role",
+    "verify_tables",
+    "verify_selected_cells",
+    "raster_ocr",
+)
+
+
+def apply_finals_candidate(args, *, restoring=False):
+    """Expand the opt-in bundle, or verify its frozen flags during read-only resume."""
+    if not getattr(args, "r108_finals_candidate", False):
+        return
+    for field in FINALS_CANDIDATE_FORBIDDEN:
+        if getattr(args, field, False):
+            raise ValueError(f"{FINALS_CANDIDATE} forbids --{field.replace('_', '-')}")
+    if args.preliminary_profile is not None or args.model not in (None, "openai/gpt-6-luna"):
+        raise ValueError(f"{FINALS_CANDIDATE} requires the Sprint5 attempt3 model profiles")
+    for field, expected in FINALS_CANDIDATE_VALUES.items():
+        actual = getattr(args, field)
+        allowed = (None, expected)
+        if (restoring and actual != expected) or (not restoring and actual not in allowed):
+            raise ValueError(f"{FINALS_CANDIDATE} requires {field}={expected}")
+        setattr(args, field, expected)
+    for field in FINALS_CANDIDATE_FLAGS:
+        if restoring and getattr(args, field) is not True:
+            raise ValueError(f"saved {FINALS_CANDIDATE} is missing {field}; create a new run")
+        setattr(args, field, True)
+
 
 def local_login_response(sessions, user: str, tenant: str, run_id: str, *, new_analysis=False):
     """The secret loopback login link renews an expired demo session on each visit."""
@@ -442,6 +508,12 @@ def apply_resume_metadata(args, saved: dict) -> None:
     rejected exactly as before. Raises ``ValueError`` on a conflicting explicit
     override so callers can surface a clear CLI error.
     """
+    stored_profile = saved.get("r108_profile")
+    if stored_profile not in (None, FINALS_CANDIDATE):
+        raise ValueError("unknown saved R108 profile")
+    if getattr(args, "r108_finals_candidate", False) and stored_profile != FINALS_CANDIDATE:
+        raise ValueError("--resume cannot add r108-finals-candidate; create a new run")
+    args.r108_finals_candidate = stored_profile == FINALS_CANDIDATE
     saved_memory = saved.get("parser_memory_bytes", 768 * 1024 * 1024)
     requested_memory = getattr(args, "parser_memory_bytes", None)
     if requested_memory is not None and requested_memory != saved_memory:
@@ -528,6 +600,7 @@ def apply_resume_metadata(args, saved: dict) -> None:
     args.extraction_assertion_prompt = bool(saved.get("extraction_assertion_prompt", False))
     args.extraction_complete_selection = bool(saved.get("extraction_complete_selection", False))
     args.extraction_content_bounds = bool(saved.get("extraction_content_bounds", False))
+    apply_finals_candidate(args, restoring=True)
     if saved.get("tagging_max_calls"):
         args.tagging_max_calls = saved["tagging_max_calls"]
     saved_total = saved.get("extraction_total_calls")
@@ -922,7 +995,17 @@ def main():
         "--resume; requires --serve. Re-serving stored results alone never needs it.",
     )
     parser.add_argument("--port", type=int, default=8766)
+    parser.add_argument(
+        "--r108-finals-candidate",
+        action="store_true",
+        help="Opt-in Sprint5 attempt3 + linewrap join + element consistency v6 + "
+        "table rows + recall prompt. No atomic mode; does not authorize model calls.",
+    )
     args = parser.parse_args()
+    try:
+        apply_finals_candidate(args)
+    except ValueError as exc:
+        parser.error(str(exc))
     if args.vision_parse is None:
         args.vision_parse = "auto" if args.parser == "upstage" else "off"
     if args.parser == "upstage" and args.vision_parse == "all":
@@ -953,6 +1036,8 @@ def main():
     resume_manifest = resume_state / "pilot.json"
     if resume_manifest.exists():
         saved = json.loads(resume_manifest.read_text())
+        if args.r108_finals_candidate and saved.get("r108_profile") != FINALS_CANDIDATE:
+            parser.error("cannot add r108-finals-candidate to an existing run; create a new run")
         if args.parser_memory_bytes is not None and args.parser_memory_bytes != saved.get(
             "parser_memory_bytes", 768 * 1024 * 1024
         ):
@@ -1286,6 +1371,8 @@ def main():
         if args.extraction_content_bounds:
             settings["extraction_content_bounds"] = True
         settings.update(raster)
+        if args.r108_finals_candidate:
+            settings["r108_profile"] = FINALS_CANDIDATE
         if args.verify_claim_spans:
             settings["claim_source_policy"] = claim_source_policy_for(args)
         if args.live_tagging:
@@ -1720,6 +1807,8 @@ def main():
             manifest["extraction_linewrap_join"] = True
         if args.capacity_refresh:
             manifest["capacity_refresh"] = True
+        if args.r108_finals_candidate:
+            manifest["r108_profile"] = FINALS_CANDIDATE
         with manifest_path.open("x") as stream:
             json.dump(manifest, stream, ensure_ascii=False, indent=2)
     else:
