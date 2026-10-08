@@ -167,7 +167,7 @@ class LocalTagRunner:
         preliminary=None,
         live_factory=None,
         clock=time.time,
-        max_workers=16,
+        max_workers=8,
     ):
         if not uploads.local_synthetic:
             raise ValueError("local tagging requires local storage")

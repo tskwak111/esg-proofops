@@ -198,7 +198,7 @@ def pilot_argv(
 def configure_concurrency() -> int:
     """Use the worker's bounded default while respecting an operator's lower cap."""
     try:
-        workers = int(os.environ.get("LOCAL_LLM_MAX_WORKERS", "16"))
+        workers = int(os.environ.get("LOCAL_LLM_MAX_WORKERS", "8"))
     except ValueError:
         raise ValueError("LOCAL_LLM_CONFIGURATION_INVALID") from None
     if not 1 <= workers <= 16:
