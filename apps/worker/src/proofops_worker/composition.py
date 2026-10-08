@@ -232,6 +232,10 @@ def build_composition(
             year_notation = settings.get("extraction_year_notation") is True
             context_opt_in = settings.get("extraction_context") is True
             table_context_opt_in = settings.get("extraction_table_context") is True
+            rows_opt_in = settings.get("extraction_table_rows", False)
+            recall_opt_in = settings.get("extraction_recall_prompt", False)
+            if type(rows_opt_in) is not bool or type(recall_opt_in) is not bool:
+                raise ValueError("EXTRACTION_PROFILE_MISMATCH")
             atomic_opt_in = settings.get("extraction_atomic") is True
             if "extraction_atomic" in settings and (
                 not atomic_opt_in or settings.get("extraction_source_ids") is not True
@@ -257,6 +261,8 @@ def build_composition(
                         extraction_table_context=table_context_opt_in,
                         source_ids=source_ids_opt_in,
                         extraction_atomic=atomic_opt_in,
+                        extraction_table_rows=rows_opt_in,
+                        extraction_recall_prompt=recall_opt_in,
                         assertion_prompt=assertion_prompt_opt_in,
                         complete_selection=complete_selection_opt_in,
                         extraction_content_bounds=content_bounds_opt_in,
@@ -275,6 +281,8 @@ def build_composition(
                     extraction_table_context=table_context_opt_in,
                     extraction_source_ids=source_ids_opt_in,
                     extraction_atomic=atomic_opt_in,
+                    extraction_table_rows=rows_opt_in,
+                    extraction_recall_prompt=recall_opt_in,
                     extraction_assertion_prompt=assertion_prompt_opt_in,
                     extraction_complete_selection=complete_selection_opt_in,
                     extraction_content_bounds=content_bounds_opt_in,
@@ -282,7 +290,9 @@ def build_composition(
                     display_text_profile=display_profile,
                 )
             elif (
-                table_context_opt_in
+                rows_opt_in
+                or recall_opt_in
+                or table_context_opt_in
                 or assertion_prompt_opt_in
                 or complete_selection_opt_in
                 or content_bounds_opt_in

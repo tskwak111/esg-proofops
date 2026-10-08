@@ -44,8 +44,12 @@ from proofops_worker.consumer import StageFailure, consume_job, with_lease_heart
 from proofops_worker.telemetry import observe_job
 
 
-def _is_text_candidate(kind: str, text: str) -> bool:
+def _is_text_candidate(kind: str, text: str, *, extraction_table_rows=False) -> bool:
     # ponytail: length is a routing heuristic, not a claim/absence classifier.
+    if extraction_table_rows and kind in ("table", "table_row", "table_cell", "figure"):
+        from proofops.application.ingest.table_row_candidates import row_candidates
+
+        return bool(row_candidates(text, kind=kind))
     return kind == "paragraph" or (kind == "heading" and len(text.strip()) >= 60)
 
 
@@ -82,7 +86,7 @@ def paragraph_priority(block):
 
 
 def select_batch_paragraph_sources(
-    graph, scope, max_calls: int, *, completed=frozenset()
+    graph, scope, max_calls: int, *, completed=frozenset(), extraction_table_rows=False
 ) -> set[str]:
     """Next bounded window of eligible prose sources, skipping completed ones.
 
@@ -99,7 +103,9 @@ def select_batch_paragraph_sources(
         if (scope.mode != "declared_subset" or block.page_num in scope.selected_pages)
         and block.quality in ("verified", "unverified")
         and block.winner is not None
-        and _is_text_candidate(block.kind, block.normalized_text)
+        and _is_text_candidate(
+            block.kind, block.normalized_text, extraction_table_rows=extraction_table_rows
+        )
         and block.normalized_text.strip()
         and block.source_id not in completed
     )
@@ -107,9 +113,13 @@ def select_batch_paragraph_sources(
     return {block.source_id for block in ordered[:max_calls]}
 
 
-def select_stable_paragraph_sources(graph, scope, max_calls: int) -> set[str]:
+def select_stable_paragraph_sources(
+    graph, scope, max_calls: int, *, extraction_table_rows=False
+) -> set[str]:
     """Prioritize prose within a bounded preview; retain short candidates after it."""
-    return select_batch_paragraph_sources(graph, scope, max_calls)
+    return select_batch_paragraph_sources(
+        graph, scope, max_calls, extraction_table_rows=extraction_table_rows
+    )
 
 
 def _extractor_role_budget(snapshot: dict) -> int | None:
@@ -167,8 +177,10 @@ class _ContinuingExtractor:
         prior_failed=None,
         prior_calls: int = 0,
         total_budget: int | None = None,
+        extraction_table_rows: bool = False,
     ):
         self.profile = profile
+        self._table_rows = extraction_table_rows
         self._live = live
         self._prior = prior
         self._prior_failed = prior_failed or {}
@@ -195,7 +207,7 @@ class _ContinuingExtractor:
             self.replayed.add(source_id)
             raise ExtractionOutputError("PREVIOUS_EXTRACTION_FAILED")
         reason = None
-        if not _is_text_candidate(data["kind"], text):
+        if not _is_text_candidate(data["kind"], text, extraction_table_rows=self._table_rows):
             reason = DEFERRED_KIND_REASON
         elif self.stop_code is not None and source_id not in getattr(self._live, "prepaid", ()):
             reason = DEFERRED_BUDGET_REASON
@@ -387,7 +399,13 @@ class LocalExtractRunner:
         )
         prior_calls = max(prior_charged, charged_from_usage)
         completed = set(state["model_processed"]) | set(state["failed"])
-        window = select_batch_paragraph_sources(graph, scope, batch_calls, completed=completed)
+        window = select_batch_paragraph_sources(
+            graph,
+            scope,
+            batch_calls,
+            completed=completed,
+            extraction_table_rows=getattr(self.extractor, "_table_rows", False),
+        )
         summary = dict(
             status="idle",
             revision_job_id=run["extract_job"]["job_id"],
@@ -527,6 +545,7 @@ class LocalExtractRunner:
                     prior_failed=state.get("failed_receipts", {}),
                     prior_calls=prior_calls,
                     total_budget=total_budget,
+                    extraction_table_rows=getattr(runner.extractor, "_table_rows", False),
                 )
                 discovery = discover_atomic_claims(graph, scope, extractor=extractor)
                 payload = self._publication_payload(
@@ -667,7 +686,10 @@ class LocalExtractRunner:
                     eligible_sources: set[str] | None = None
                     if is_real:
                         eligible_sources = select_stable_paragraph_sources(
-                            graph, claim_scope(snapshot, graph), effective_max
+                            graph,
+                            claim_scope(snapshot, graph),
+                            effective_max,
+                            extraction_table_rows=getattr(runner.extractor, "_table_rows", False),
                         )
 
                     class FencedExtractor:
@@ -685,7 +707,13 @@ class LocalExtractRunner:
                                 data = packet["untrusted_document_data"]
                                 reason = (
                                     "non_paragraph_kind"
-                                    if not _is_text_candidate(data["kind"], data["text"])
+                                    if not _is_text_candidate(
+                                        data["kind"],
+                                        data["text"],
+                                        extraction_table_rows=getattr(
+                                            runner.extractor, "_table_rows", False
+                                        ),
+                                    )
                                     else "beyond_extraction_limit"
                                     if data.get("source_id") not in eligible_sources
                                     or self.calls >= effective_max

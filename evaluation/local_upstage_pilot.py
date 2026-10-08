@@ -511,6 +511,8 @@ def apply_resume_metadata(args, saved: dict) -> None:
     args.extraction_year_notation = bool(saved.get("extraction_year_notation", False))
     args.extraction_context = bool(saved.get("extraction_context", False))
     args.extraction_table_context = bool(saved.get("extraction_table_context", False))
+    args.extraction_table_rows = bool(saved.get("extraction_table_rows", False))
+    args.extraction_recall_prompt = bool(saved.get("extraction_recall_prompt", False))
     args.extraction_atomic = bool(saved.get("extraction_atomic", False))
     args.extraction_source_ids = bool(saved.get("extraction_source_ids", False))
     args.extraction_assertion_prompt = bool(saved.get("extraction_assertion_prompt", False))
@@ -855,6 +857,16 @@ def main():
         "--extraction-context; pins its own extraction rule/prompt hash.",
     )
     parser.add_argument(
+        "--extraction-table-rows",
+        action="store_true",
+        help="Opt-in literal table/chart row candidates; requires source IDs.",
+    )
+    parser.add_argument(
+        "--extraction-recall-prompt",
+        action="store_true",
+        help="Opt-in environmental targets, oversight and plan examples; requires source IDs.",
+    )
+    parser.add_argument(
         "--extraction-atomic",
         action="store_true",
         help="Opt-in extraction-atomic-v2; requires --extraction-source-ids. "
@@ -950,6 +962,8 @@ def main():
         requested_year_notation = args.extraction_year_notation
         requested_context = args.extraction_context
         requested_table_context = args.extraction_table_context
+        requested_rows = args.extraction_table_rows
+        requested_recall = args.extraction_recall_prompt
         requested_atomic = args.extraction_atomic
         requested_source_ids = args.extraction_source_ids
         requested_assertion_prompt = args.extraction_assertion_prompt
@@ -976,6 +990,10 @@ def main():
             parser.error("--resume cannot add extraction context; create a new run")
         if requested_table_context and not args.extraction_table_context:
             parser.error("--resume cannot add extraction table context; create a new run")
+        if requested_rows and not args.extraction_table_rows:
+            parser.error("--resume cannot add extraction table rows; create a new run")
+        if requested_recall and not args.extraction_recall_prompt:
+            parser.error("--resume cannot add extraction recall prompt; create a new run")
         if requested_atomic and not args.extraction_atomic:
             parser.error("--resume cannot add extraction atomic; create a new run")
         if requested_source_ids and not args.extraction_source_ids:
@@ -1065,6 +1083,13 @@ def main():
         parser.error("--claim-span-typography requires --claim-span-bullet-spacing")
     if args.extraction_table_context and not args.extraction_context:
         parser.error("--extraction-table-context requires --extraction-context")
+    for name in ("table_rows", "recall_prompt"):
+        if getattr(args, "extraction_" + name) and not args.extraction_source_ids:
+            parser.error(
+                "--extraction-" + name.replace("_", "-") + " requires --extraction-source-ids"
+            )
+    if args.extraction_atomic and (args.extraction_table_rows or args.extraction_recall_prompt):
+        parser.error("row/recall profiles cannot mix with --extraction-atomic")
     if args.extraction_atomic and not args.extraction_source_ids:
         parser.error("--extraction-atomic requires --extraction-source-ids")
     if args.extraction_content_bounds and not args.extraction_source_ids:
@@ -1159,6 +1184,8 @@ def main():
                     extraction_table_context=args.extraction_table_context,
                     source_ids=args.extraction_source_ids,
                     extraction_atomic=args.extraction_atomic,
+                    extraction_table_rows=args.extraction_table_rows,
+                    extraction_recall_prompt=args.extraction_recall_prompt,
                     assertion_prompt=args.extraction_assertion_prompt,
                     complete_selection=args.extraction_complete_selection,
                     extraction_content_bounds=args.extraction_content_bounds,
@@ -1199,6 +1226,10 @@ def main():
             settings["position_context_order"] = CONTEXT_POSITION_ORDER
         if args.extraction_table_context:
             settings["extraction_table_context"] = True
+        if args.extraction_table_rows:
+            settings["extraction_table_rows"] = True
+        if args.extraction_recall_prompt:
+            settings["extraction_recall_prompt"] = True
         if args.extraction_atomic:
             settings["extraction_atomic"] = True
         if args.extraction_source_ids:
@@ -1611,6 +1642,14 @@ def main():
             manifest["extraction_context"] = True
         if args.extraction_table_context:
             manifest["extraction_table_context"] = True
+        if args.extraction_table_rows:
+            from proofops.application.ingest.table_row_candidates import POLICY as ROW_POLICY
+            from proofops.domain.provenance import canonical_hash
+
+            manifest["extraction_table_rows"] = True
+            manifest["table_row_policy_sha256"] = canonical_hash(ROW_POLICY)
+        if args.extraction_recall_prompt:
+            manifest["extraction_recall_prompt"] = True
         if args.extraction_atomic:
             from proofops.application.ingest.atomic_candidates import POLICY, PROFILE
             from proofops.domain.provenance import canonical_hash
@@ -1708,6 +1747,9 @@ def main():
             raise ValueError(
                 "pilot extraction table context policy changed; create a new state directory"
             )
+        for name in ("extraction_table_rows", "extraction_recall_prompt"):
+            if manifest.get(name, False) != getattr(args, name):
+                raise ValueError(name + " policy changed; create a new state directory")
         if manifest.get("extraction_atomic", False) != args.extraction_atomic:
             raise ValueError("pilot extraction atomic policy changed; create a new state directory")
         if manifest.get("extraction_source_ids", False) != args.extraction_source_ids:

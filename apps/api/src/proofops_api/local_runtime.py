@@ -31,6 +31,8 @@ _SETTINGS_FIELDS = frozenset(
         "extraction_table_context",
         "extraction_source_ids",
         "extraction_atomic",
+        "extraction_table_rows",
+        "extraction_recall_prompt",
         "extraction_assertion_prompt",
         "extraction_complete_selection",
         "extraction_content_bounds",
@@ -329,6 +331,8 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         "extraction_table_context",
         "extraction_source_ids",
         "extraction_atomic",
+        "extraction_table_rows",
+        "extraction_recall_prompt",
         "extraction_assertion_prompt",
         "extraction_complete_selection",
         "extraction_content_bounds",
@@ -338,6 +342,12 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         # a pilot-written value; the worker composition (not this runtime dict)
         # reconstructs the matching extractor profile from the settings file.
         if flag in settings and (settings[flag] is not True or extraction_mode != "upstage_probe"):
+            raise _invalid()
+    for flag in ("extraction_table_rows", "extraction_recall_prompt"):
+        if flag in settings and (
+            settings.get("extraction_source_ids") is not True
+            or settings.get("extraction_atomic") is True
+        ):
             raise _invalid()
     if "extraction_atomic" in settings and settings.get("extraction_source_ids") is not True:
         raise _invalid()
