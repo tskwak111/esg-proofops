@@ -47,7 +47,9 @@ from proofops.domain.errors import DomainValidationError
 
 
 class ParseFailure(ValueError):
-    """Sanitized error code only; no parser stderr, PDF text, or private path."""
+    """Public code plus a private, retained stderr artifact when a child fails."""
+
+    stderr_path: Path | None = None
 
 
 def _table_verifier(policy_hash):
@@ -895,7 +897,25 @@ class OpenDataLoaderParser(ParserPort):
                     # more now that the outcome is final.
                     _check_limits(isolation, process, work, profile)
                     if process.returncode:
-                        raise ParseFailure("PARSER_FAILED")
+                        stderr = b""
+                        for name in ("parser-stderr.txt", "launcher-stderr.txt"):
+                            path = work / name
+                            if path.is_file():
+                                with path.open("rb") as handle:
+                                    stderr += handle.read(65536)
+                        diagnostic = work.parent / (".parser-failure-" + uuid4().hex)
+                        diagnostic.mkdir(mode=0o700)
+                        target = diagnostic / "stderr.txt"
+                        target.write_bytes(stderr[:65536])
+                        target.chmod(0o600)
+                        code = (
+                            "PARSER_JAVA_HEAP_EXHAUSTED"
+                            if b"java.lang.OutOfMemoryError: Java heap space" in stderr
+                            else "PARSER_FAILED"
+                        )
+                        failure = ParseFailure(code)
+                        failure.stderr_path = target
+                        raise failure
                 finally:
                     try:
                         isolation.terminate_tree(process)
@@ -1045,15 +1065,24 @@ def _child(work: Path) -> None:
     (work / "geometry.json").write_bytes(_json(geometries))
     import opendataloader_pdf
 
-    opendataloader_pdf.convert(
-        input_path=[str(work / "source.pdf")],
-        output_dir=str(work),
-        format="json,markdown",
-        pages=",".join(map(str, selected)),
-        image_output="off",
-        hybrid="off",
-        quiet=True,
-    )
+    try:
+        opendataloader_pdf.convert(
+            input_path=[str(work / "source.pdf")],
+            output_dir=str(work),
+            format="json,markdown",
+            pages=",".join(map(str, selected)),
+            image_output="off",
+            hybrid="off",
+            quiet=True,
+        )
+    except subprocess.CalledProcessError as error:
+        stderr = error.stderr or b""
+        if isinstance(stderr, str):
+            stderr = stderr.encode("utf-8", errors="replace")
+        path = work / "parser-stderr.txt"
+        path.write_bytes(stderr[:65536])
+        path.chmod(0o600)
+        raise
     if profile.get("table_structure_repair") in ("odl_header_v1", "odl_header_v2"):
         import pdfplumber
         from proofops.adapters.parsing.odl_table_repair import repair_stacked_headers

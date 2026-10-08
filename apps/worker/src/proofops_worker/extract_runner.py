@@ -439,7 +439,12 @@ class LocalExtractRunner:
                         )
 
             runner = self
-            live_extractor = _live_extractor(runner.extractor, graph)
+            source = (
+                runner.uploads.read_original(tenant_id, graph.document_version_id)
+                if getattr(runner.extractor, "_display_text_profile", None)
+                else None
+            )
+            live_extractor = _live_extractor(runner.extractor, graph, source)
 
             class FencedLive:
                 profile_ = profile

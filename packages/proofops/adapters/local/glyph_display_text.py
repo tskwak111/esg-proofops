@@ -29,6 +29,8 @@ from proofops.domain.provenance import canonical_hash
 
 class GlyphDisplayCatalog:
     def __init__(self, graph, source: bytes):
+        if source is None:
+            raise ValueError("DISPLAY_SOURCE_UNAVAILABLE")
         if sha256(source).hexdigest() != graph.source_sha256:
             raise ValueError("DISPLAY_SOURCE_MISMATCH")
         self.graph, self.source = graph, source

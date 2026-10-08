@@ -56,6 +56,28 @@ _LOCAL_STOP_SUFFIXES = (
     "_RECOVERY_ALLOWANCE_EXHAUSTED",
 )
 LOCAL_STOP_CODE = "LOCAL_STOP"
+_VALIDATION_REASONS = {
+    "display quote absent or ambiguous": "DISPLAY_QUOTE_UNRESOLVED",
+    "preliminary quote absent or ambiguous": "PRELIMINARY_QUOTE_UNRESOLVED",
+    "invalid preliminary fields; grades are prohibited": "PRELIMINARY_FIELDS_INVALID",
+    "invalid preliminary safe harbor category": "PRELIMINARY_CATEGORY_INVALID",
+    "unresolved track requires null confidence": "PRELIMINARY_CONFIDENCE_INVALID",
+    "invalid preliminary confidence": "PRELIMINARY_CONFIDENCE_INVALID",
+    "preliminary claim mismatch": "PRELIMINARY_CLAIM_MISMATCH",
+    "required preliminary dimension roles missing": "PRELIMINARY_ROLES_MISSING",
+    "invalid preliminary source span": "PRELIMINARY_SPAN_INVALID",
+    "invalid preliminary source selection": "PRELIMINARY_SELECTION_INVALID",
+    "preliminary span outside literal claim source": "PRELIMINARY_SPAN_OUTSIDE_SOURCE",
+}
+_VALIDATION_CODES = frozenset(
+    """PROBE_REQUEST_TOO_LARGE INVALID_PROBE_REQUEST DISPLAY_PACKET_MISMATCH
+DISPLAY_MAP_MISMATCH DISPLAY_REF_MISMATCH DISPLAY_CONTEXT_MISMATCH DISPLAY_PRELIMINARY_SELECTION
+UPSTAGE_PRELIMINARY_PROMPT_INVALID UPSTAGE_PRELIMINARY_SYSTEM_REQUIRED
+UPSTAGE_PRELIMINARY_PACKET_INVALID UPSTAGE_PRELIMINARY_PACKET_MISMATCH
+UPSTAGE_PRELIMINARY_CONTEXT_POLICY_INVALID UPSTAGE_PRELIMINARY_SOURCES_REQUIRED
+UPSTAGE_PRELIMINARY_TABLE_SOURCE_INVALID UPSTAGE_PRELIMINARY_TABLE_POLICY_INVALID
+UPSTAGE_PRELIMINARY_CONTEXT_INVALID RELATION_PACKET_MISMATCH RELATION_CLAIM_MISMATCH""".split()
+)
 
 
 def _local_stop_code(prefix, error):
@@ -64,6 +86,10 @@ def _local_stop_code(prefix, error):
     text = str(error)
     if text in known:
         return text
+    if text in _VALIDATION_CODES:
+        return text
+    if text in _VALIDATION_REASONS:
+        return _VALIDATION_REASONS[text]
     return prefix.upper() + "_" + LOCAL_STOP_CODE + ":" + type(error).__name__
 
 
@@ -526,7 +552,21 @@ class LiveTaggingRuntime:
                 "claim_id": claim.claim_id,
                 "retrieval_packet_sha256": packet.packet_sha256,
             }
-        except (ValueError, KeyError, TypeError, AttributeError):
+        except (ValueError, KeyError, TypeError, AttributeError) as error:
+            self.relation_records[claim.claim_id] = [
+                dict(
+                    status="needs_review",
+                    stable_reason=dict(
+                        category="local_stop",
+                        error_code=(
+                            error.code
+                            if isinstance(error, RelationValidationError)
+                            else _local_stop_code("relation", error)
+                        ),
+                        detail=error.field if isinstance(error, RelationValidationError) else None,
+                    ),
+                )
+            ]
             return None
 
         def validate(raw):

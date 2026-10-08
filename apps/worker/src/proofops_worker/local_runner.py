@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import math
+import sys
 import time
 from dataclasses import asdict, replace
 from hashlib import sha256
@@ -456,6 +457,31 @@ class LocalParserRunner:
                         )
                     return canonical_json(payload).encode(), usage
                 except (ParseFailure, UploadRejected) as exc:
+                    stderr_path = getattr(exc, "stderr_path", None)
+                    if stderr_path is not None:
+                        diagnostic = dict(
+                            code=str(exc),
+                            stderr_sha256=sha256(stderr_path.read_bytes()).hexdigest(),
+                            stderr_artifact=str(stderr_path),
+                        )
+                        usage["parser_diagnostic"] = diagnostic
+                        # Raw stderr remains in the private tenant artifact. Only this
+                        # fixed JVM cause can enter shared logs or the CLI message.
+                        print(
+                            json.dumps(
+                                dict(
+                                    event="parser_failure_diagnostic",
+                                    code=str(exc),
+                                    stderr_excerpt=(
+                                        "java.lang.OutOfMemoryError: Java heap space"
+                                        if str(exc) == "PARSER_JAVA_HEAP_EXHAUSTED"
+                                        else "Parser child failed; see retained stderr artifact."
+                                    ),
+                                    stderr_sha256=diagnostic["stderr_sha256"],
+                                )
+                            ),
+                            file=sys.stderr,
+                        )
                     raise StageFailure(str(exc), usage=usage) from None
                 except (OSError, ValueError, KeyError, TypeError):
                     raise StageFailure("PARSER_FAILED", usage=usage) from None

@@ -85,14 +85,16 @@ class PosixSessionIsolation:
         cwd: Path,
         env: Mapping[str, str],
     ) -> subprocess.Popen:
-        return subprocess.Popen(
-            list(command),
-            cwd=cwd,
-            env=dict(env),
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True,
-        )
+        with (cwd / "launcher-stderr.txt").open("wb") as stderr:
+            (cwd / "launcher-stderr.txt").chmod(0o600)
+            return subprocess.Popen(
+                list(command),
+                cwd=cwd,
+                env=dict(env),
+                stdout=subprocess.DEVNULL,
+                stderr=stderr,
+                start_new_session=True,
+            )
 
     def peak_memory_bytes(self, process: subprocess.Popen) -> int:
         # Includes the SDK child and Java descendants, not only the launcher.
@@ -273,15 +275,17 @@ class WindowsJobIsolation:
         env: Mapping[str, str],
     ) -> subprocess.Popen:
         """Create the child suspended, contain it, then let it run."""
-        process = subprocess.Popen(
-            list(command),
-            cwd=str(cwd),
-            env=dict(env),
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            stdin=subprocess.DEVNULL,
-            creationflags=_CREATE_SUSPENDED | _CREATE_NO_WINDOW | _CREATE_NEW_PROCESS_GROUP,
-        )
+        with (cwd / "launcher-stderr.txt").open("wb") as stderr:
+            (cwd / "launcher-stderr.txt").chmod(0o600)
+            process = subprocess.Popen(
+                list(command),
+                cwd=str(cwd),
+                env=dict(env),
+                stdout=subprocess.DEVNULL,
+                stderr=stderr,
+                stdin=subprocess.DEVNULL,
+                creationflags=_CREATE_SUSPENDED | _CREATE_NO_WINDOW | _CREATE_NEW_PROCESS_GROUP,
+            )
         try:
             handle = int(process._handle)  # type: ignore[attr-defined]
             if not self._kernel.AssignProcessToJobObject(self._job, handle):

@@ -356,6 +356,14 @@ def parser_output_limit(value):
     return value
 
 
+def parser_memory_limit(value):
+    if value is None:
+        return 768 * 1024 * 1024
+    if type(value) is not int or not 1 <= value <= 4 * 1024**3:
+        raise ValueError("--parser-memory-bytes must be an integer in 1..4294967296")
+    return value
+
+
 def claim_source_policy_for(args):
     """Policy pinned for a NEW run's claim-span verification.
 
@@ -398,6 +406,11 @@ def apply_resume_metadata(args, saved: dict) -> None:
     rejected exactly as before. Raises ``ValueError`` on a conflicting explicit
     override so callers can surface a clear CLI error.
     """
+    saved_memory = saved.get("parser_memory_bytes", 768 * 1024 * 1024)
+    requested_memory = getattr(args, "parser_memory_bytes", None)
+    if requested_memory is not None and requested_memory != saved_memory:
+        raise ValueError("existing pilot parser memory limit changed; create a new run")
+    args.parser_memory_bytes = parser_memory_limit(saved_memory)
     for field, default in (
         ("relation_profile", "source-quotes-v1"),
         ("claim_source_profile", None),
@@ -598,6 +611,12 @@ def main():
         help="NEW run parser artifact cap (default 20000000; max 128 MiB).",
     )
     parser.add_argument("--max-calls", type=int, default=8)
+    parser.add_argument(
+        "--parser-memory-bytes",
+        type=int,
+        default=None,
+        help="NEW run parser process-tree memory cap (default 768 MiB; max 4 GiB).",
+    )
     parser.add_argument(
         "--extraction-total-calls",
         type=int,
@@ -852,12 +871,17 @@ def main():
                 parser.error("Port is in use; use the existing review URL or another --port")
     try:
         parser_output_limit(args.parser_max_output_bytes)
+        parser_memory_limit(args.parser_memory_bytes)
     except ValueError as exc:
         parser.error(str(exc))
     resume_state = args.state.resolve()
     resume_manifest = resume_state / "pilot.json"
     if resume_manifest.exists():
         saved = json.loads(resume_manifest.read_text())
+        if args.parser_memory_bytes is not None and args.parser_memory_bytes != saved.get(
+            "parser_memory_bytes", 768 * 1024 * 1024
+        ):
+            parser.error("existing pilot parser memory limit changed; create a new run")
         for field, default in (
             ("relation_profile", "source-quotes-v1"),
             ("claim_source_profile", None),
@@ -1052,6 +1076,7 @@ def main():
             str(uuid4()),
             java_executable="/opt/homebrew/opt/openjdk@21/bin/java",
             timeout_seconds=120,
+            memory_bytes=parser_memory_limit(args.parser_memory_bytes),
             max_output_bytes=parser_output_limit(args.parser_max_output_bytes),
             table_source_policy_sha256=(
                 table_policy()
@@ -1429,6 +1454,7 @@ def main():
             selected_pages=pages,
             claim_pages=claim_pages,
             parser_max_output_bytes=parser_output_limit(args.parser_max_output_bytes),
+            parser_memory_bytes=parser_memory_limit(args.parser_memory_bytes),
             vision_parse=args.vision_parse,
             parser_mode=args.parser,
             extraction_batch_calls=args.max_calls,

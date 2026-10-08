@@ -1582,7 +1582,7 @@ class GraphBoundExtractor:
         self._inner = inner
         self._graph = graph
         self._display_catalog = None
-        if getattr(inner, "_display_text_profile", None):
+        if getattr(inner, "_display_text_profile", None) and source is not None:
             from proofops.adapters.local.glyph_display_text import GlyphDisplayCatalog
 
             self._display_catalog = GlyphDisplayCatalog(graph, source)
@@ -1592,6 +1592,8 @@ class GraphBoundExtractor:
         return self._inner.profile
 
     def extract(self, packet: dict) -> dict:
+        if getattr(self._inner, "_display_text_profile", None) and self._display_catalog is None:
+            raise ExtractionOutputError("DISPLAY_SOURCE_UNAVAILABLE")
         return self._inner.extract(
             packet,
             context_graph=self._graph,

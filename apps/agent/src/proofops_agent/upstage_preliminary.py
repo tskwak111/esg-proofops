@@ -249,10 +249,21 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
         data = bounded["untrusted_document_data"]
         blocks = data.get("context_blocks", [])
         while blocks:
-            wire = json.dumps(bounded, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+            sizing = bounded
+            system = self._settings.rendered_system
+            if getattr(self, "_display_catalog", None) is not None:
+                from proofops.application.ingest.display_text import POLICY, SYSTEM_SUFFIX
+
+                # Pins are added after context bounding. The wire drops those
+                # pins and adds this fixed policy/hash/suffix; account for that
+                # overhead now. Raw text is an upper bound on display text, which
+                # only deletes proven spaces. No numbered source is shortened.
+                sizing = bounded | dict(display_policy=POLICY, display_map_sha256="0" * 64)
+                system += SYSTEM_SUFFIX
+            wire = json.dumps(sizing, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
             try:
                 self._probe.request_body(
-                    self._settings.rendered_system,
+                    system,
                     wire,
                     request_id="context-size-preflight",
                     max_tokens=self._settings.max_tokens,
