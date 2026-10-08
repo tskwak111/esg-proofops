@@ -289,7 +289,11 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         settings_path and not _REQUIRED_SETTINGS_FIELDS <= set(settings)
     ):
         raise _invalid()
-    if settings.get("r108_profile") not in (None, "r108-finals-candidate"):
+    if settings.get("r108_profile") not in (
+        None,
+        "r108-finals-candidate",
+        "r108-finals-candidate-v2",
+    ):
         raise _invalid()
     runtime.update(_raster(settings, extraction_mode))
     if "report_level_link" in settings:
