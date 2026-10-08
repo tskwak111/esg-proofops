@@ -12,6 +12,7 @@ never invented here.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -220,6 +221,42 @@ _PROVIDER_METADATA_KEYS = (
 )
 
 
+LINEWRAP_JOIN_POLICY = {
+    "profile": "selected-linewrap-join-v1",
+    "scope": "source-id selections within one paragraph packet only",
+    "gap": "whitespace containing exactly one LF; no unselected content",
+    "stop": "sentence terminal, Korean terminal, list marker or numeric-only line",
+    "validation": "validate individual selections and joined literal span; unchanged source guard",
+}
+
+
+def join_selected_linewraps(spans: list[dict], text: str) -> list[dict]:
+    """Join only selected continuation lines; retain literal raw text and offsets."""
+    joined: list[dict] = []
+    for span in sorted(spans, key=lambda s: s["char_start"]):
+        if joined:
+            previous = joined[-1]
+            gap = text[previous["char_end"] : span["char_start"]]
+            if (
+                gap.isspace()
+                and gap.count("\n") == 1
+                and not previous["quote"]
+                .rstrip()
+                .endswith((".", "!", "?", ":", ";", "。", "다", "음"))
+                and not re.match(r"[•·▪▶*\-]|\d+[.)]", span["quote"])
+                and any(c.isalpha() for c in previous["quote"])
+                and any(c.isalpha() for c in span["quote"])
+            ):
+                joined[-1] = {
+                    **previous,
+                    "char_end": span["char_end"],
+                    "quote": text[previous["char_start"] : span["char_end"]],
+                }
+                continue
+        joined.append(span)
+    return joined
+
+
 def _profile(model: str = UPSTAGE_MODEL) -> ExtractionProfile:
     from proofops.adapters.local.openrouter import MODEL as LUNA_MODEL
 
@@ -421,6 +458,7 @@ def _profile_with_options(
     wire_policy_version: int = 1,
     display_text_profile: str | None = None,
     extraction_atomic: bool = False,
+    extraction_linewrap_join: bool = False,
 ) -> ExtractionProfile:
     """Versioned extraction profile for an explicit option combination.
 
@@ -455,11 +493,14 @@ def _profile_with_options(
             extraction_content_bounds,
             position_order,
             extraction_atomic,
+            extraction_linewrap_join,
         )
     ):
         raise ValueError("UPSTAGE_PROFILE_OPTION_INVALID")
     if extraction_atomic and not source_ids:
         raise ValueError("UPSTAGE_PROFILE_OPTION_INVALID")
+    if extraction_linewrap_join and (not source_ids or extraction_atomic):
+        raise ValueError("UPSTAGE_EXTRACTION_LINEWRAP_JOIN_INVALID")
     if extraction_table_context and not extraction_context:
         raise ValueError("UPSTAGE_PROFILE_OPTION_INVALID")
     if position_order and not extraction_context:
@@ -478,6 +519,8 @@ def _profile_with_options(
     if display_text_profile not in (None, PROFILE):
         raise ValueError("DISPLAY_PROFILE_INVALID")
     descriptor: list[Any] = [*_RULE_DESCRIPTOR]
+    if extraction_linewrap_join:
+        descriptor.append(LINEWRAP_JOIN_POLICY)
     if extraction_atomic:
         descriptor.append({**ATOMIC_POLICY, "max_candidates": _MAX_ATOMIC_CANDIDATES})
     if display_text_profile:
@@ -554,6 +597,7 @@ class UpstageClaimExtractor:
         position_order: bool = False,
         display_text_profile: str | None = None,
         extraction_atomic: bool = False,
+        extraction_linewrap_join: bool = False,
     ) -> None:
         if not callable(getattr(probe, "complete", None)):
             raise ValueError("UPSTAGE_PROBE_REQUIRED")
@@ -601,6 +645,7 @@ class UpstageClaimExtractor:
             wire_policy_version=getattr(probe, "wire_policy_version", 1),
             display_text_profile=display_text_profile,
             extraction_atomic=extraction_atomic,
+            extraction_linewrap_join=extraction_linewrap_join,
         )
         if type(max_tokens) is not int or not 1 <= max_tokens <= 4096:
             raise ValueError("UPSTAGE_MAX_TOKENS_INVALID")
@@ -611,6 +656,7 @@ class UpstageClaimExtractor:
         self._max_tokens = max_tokens
         self._profile = profile
         self._atomic = extraction_atomic
+        self._linewrap_join = extraction_linewrap_join
         self._year_notation = extraction_year_notation
         self._context = extraction_context
         self._table_context = extraction_table_context
@@ -1151,7 +1197,17 @@ class UpstageClaimExtractor:
                     (entry["sentence_id"], (entry["char_start"], entry["char_end"]))
                     for entry in self._atomic_entries(packet, text, blocks)
                 ]
-            return self._resolve_sentence_ids(payload, text, source_id, index=atomic_index)
+            return self._resolve_sentence_ids(
+                payload,
+                text,
+                source_id,
+                index=atomic_index,
+                join_lines=(
+                    self._linewrap_join
+                    and packet is not None
+                    and packet["untrusted_document_data"]["kind"] == "paragraph"
+                ),
+            )
         quotes = self._quotes(payload)
         span_dicts = []
         rejected_quote_indices = []
@@ -1188,7 +1244,7 @@ class UpstageClaimExtractor:
         }
 
     def _resolve_sentence_ids(
-        self, payload: Any, text: str, source_id: str, *, index=None
+        self, payload: Any, text: str, source_id: str, *, index=None, join_lines=False
     ) -> tuple[tuple, dict[str, Any]]:
         """Restore exact source spans for selected sentence ids; reject everything else."""
         if (
@@ -1242,6 +1298,8 @@ class UpstageClaimExtractor:
                 span_dicts.append(span)
         if selected and not span_dicts:
             raise ValueError("no usable selected sentences")
+        if join_lines:
+            span_dicts = join_selected_linewraps(span_dicts, text)
         return self._validate_spans({"spans": span_dicts}, text), {
             "rejected_sentence_ids": rejected_sentence_ids
         }

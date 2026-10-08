@@ -105,6 +105,7 @@ def live_tagging_settings(
     preliminary_p2: bool = False,
     preliminary_profile: str | None = None,
     compact_element_wire: bool = False,
+    element_consistency: bool = False,
     position_context_order: bool = False,
     capacity_refresh: bool = False,
 ) -> dict:
@@ -129,6 +130,7 @@ def live_tagging_settings(
         or type(preliminary_goal_role) is not bool
         or type(preliminary_actor_role) is not bool
         or type(preliminary_p2) is not bool
+        or type(element_consistency) is not bool
         or type(compact_element_wire) is not bool
         or type(position_context_order) is not bool
         or type(capacity_refresh) is not bool
@@ -297,7 +299,9 @@ def live_tagging_settings(
         ),
         (
             "tagging",
-            "upstage-compact-source-quotes-v5"
+            "upstage-compact-element-consistency-v6"
+            if element_consistency
+            else "upstage-compact-source-quotes-v5"
             if compact_element_wire
             else "upstage-compact-source-quotes-v4",
             element_prompt,
@@ -510,12 +514,14 @@ def apply_resume_metadata(args, saved: dict) -> None:
     args.preliminary_actor_role = bool(saved.get("preliminary_actor_role", False))
     args.preliminary_p2 = bool(saved.get("preliminary_p2", False))
     args.compact_element_wire = bool(saved.get("compact_element_wire", False))
+    args.element_consistency = bool(saved.get("element_consistency", False))
     args.position_context_order = bool(saved.get("position_context_order", False))
     args.capacity_refresh = bool(saved.get("capacity_refresh", False))
     args.extraction_year_notation = bool(saved.get("extraction_year_notation", False))
     args.extraction_context = bool(saved.get("extraction_context", False))
     args.extraction_table_context = bool(saved.get("extraction_table_context", False))
     args.extraction_atomic = bool(saved.get("extraction_atomic", False))
+    args.extraction_linewrap_join = bool(saved.get("extraction_linewrap_join", False))
     args.extraction_source_ids = bool(saved.get("extraction_source_ids", False))
     args.extraction_assertion_prompt = bool(saved.get("extraction_assertion_prompt", False))
     args.extraction_complete_selection = bool(saved.get("extraction_complete_selection", False))
@@ -777,6 +783,11 @@ def main():
         help="Pin source reader for a NEW run; requires --verify-claim-spans.",
     )
     parser.add_argument(
+        "--element-consistency",
+        action="store_true",
+        help="Opt in to deterministic per-element evidence routing (v6).",
+    )
+    parser.add_argument(
         "--compact-element-wire",
         action="store_true",
         help="Opt-in v5 element wire; pins a distinct model/cache identity for new runs.",
@@ -864,6 +875,12 @@ def main():
         action="store_true",
         help="Opt-in extraction-atomic-v2; requires --extraction-source-ids. "
         "Pinned on resume; use a new state for the challenger.",
+    )
+    parser.add_argument(
+        "--extraction-linewrap-join",
+        action="store_true",
+        help="Opt-in selected-linewrap-join-v1: join selected prose continuations only. "
+        "Requires --extraction-source-ids, incompatible with --extraction-atomic; new run only.",
     )
     parser.add_argument(
         "--extraction-assertion-prompt",
@@ -956,6 +973,7 @@ def main():
         requested_context = args.extraction_context
         requested_table_context = args.extraction_table_context
         requested_atomic = args.extraction_atomic
+        requested_linewrap_join = args.extraction_linewrap_join
         requested_source_ids = args.extraction_source_ids
         requested_assertion_prompt = args.extraction_assertion_prompt
         requested_complete_selection = args.extraction_complete_selection
@@ -966,6 +984,7 @@ def main():
         requested_preliminary_actor_role = args.preliminary_actor_role
         requested_preliminary_p2 = args.preliminary_p2
         requested_compact_element_wire = args.compact_element_wire
+        requested_element_consistency = args.element_consistency
         requested_position_order = args.position_context_order
         requested_capacity_refresh = getattr(args, "capacity_refresh", False)
         requested_render_resolution = args.claim_span_render_resolution
@@ -983,6 +1002,8 @@ def main():
             parser.error("--resume cannot add extraction table context; create a new run")
         if requested_atomic and not args.extraction_atomic:
             parser.error("--resume cannot add extraction atomic; create a new run")
+        if requested_linewrap_join and not args.extraction_linewrap_join:
+            parser.error("--resume cannot add extraction linewrap join; create a new run")
         if requested_source_ids and not args.extraction_source_ids:
             parser.error("--resume cannot add extraction source-id selection; create a new run")
         if requested_assertion_prompt and not args.extraction_assertion_prompt:
@@ -1001,6 +1022,8 @@ def main():
             parser.error("--resume cannot add preliminary actor role; create a new run")
         if requested_preliminary_p2 and not args.preliminary_p2:
             parser.error("--resume cannot add preliminary P2; create a new run")
+        if requested_element_consistency and not args.element_consistency:
+            parser.error("--resume cannot add element consistency; create a new run")
         if requested_compact_element_wire and not args.compact_element_wire:
             parser.error("--resume cannot add compact element wire; create a new run")
         if requested_position_order and not args.position_context_order:
@@ -1039,6 +1062,8 @@ def main():
         )
     if args.live_relations and not args.live_tagging:
         parser.error("--live-relations requires --live-tagging")
+    if args.element_consistency and not args.live_tagging:
+        parser.error("--element-consistency requires --live-tagging")
     if args.compact_element_wire and not args.live_tagging:
         parser.error("--compact-element-wire requires --live-tagging")
     if args.preliminary_context and not args.live_tagging:
@@ -1072,6 +1097,10 @@ def main():
         parser.error("--extraction-table-context requires --extraction-context")
     if args.extraction_atomic and not args.extraction_source_ids:
         parser.error("--extraction-atomic requires --extraction-source-ids")
+    if args.extraction_linewrap_join and (not args.extraction_source_ids or args.extraction_atomic):
+        parser.error(
+            "--extraction-linewrap-join requires --extraction-source-ids and no atomic mode"
+        )
     if args.extraction_content_bounds and not args.extraction_source_ids:
         parser.error("--extraction-content-bounds requires --extraction-source-ids")
     if args.extraction_assertion_prompt and not args.extraction_source_ids:
@@ -1172,6 +1201,7 @@ def main():
                     extraction_table_context=args.extraction_table_context,
                     source_ids=args.extraction_source_ids,
                     extraction_atomic=args.extraction_atomic,
+                    extraction_linewrap_join=args.extraction_linewrap_join,
                     assertion_prompt=args.extraction_assertion_prompt,
                     complete_selection=args.extraction_complete_selection,
                     extraction_content_bounds=args.extraction_content_bounds,
@@ -1214,6 +1244,8 @@ def main():
             settings["extraction_table_context"] = True
         if args.extraction_atomic:
             settings["extraction_atomic"] = True
+        if args.extraction_linewrap_join:
+            settings["extraction_linewrap_join"] = True
         if args.extraction_source_ids:
             settings["extraction_source_ids"] = True
         if args.extraction_assertion_prompt:
@@ -1242,6 +1274,7 @@ def main():
                     preliminary_p2=args.preliminary_p2,
                     preliminary_profile=args.preliminary_profile,
                     compact_element_wire=args.compact_element_wire,
+                    element_consistency=args.element_consistency,
                     position_context_order=args.position_context_order,
                     capacity_refresh=getattr(args, "capacity_refresh", False),
                 )
@@ -1602,6 +1635,8 @@ def main():
             manifest["preliminary_actor_role"] = True
         if args.preliminary_p2:
             manifest["preliminary_p2"] = True
+        if args.element_consistency:
+            manifest["element_consistency"] = True
         if args.compact_element_wire:
             manifest["compact_element_wire"] = True
         if args.position_context_order:
@@ -1642,6 +1677,8 @@ def main():
             manifest["extraction_complete_selection"] = True
         if args.extraction_content_bounds:
             manifest["extraction_content_bounds"] = True
+        if args.extraction_linewrap_join:
+            manifest["extraction_linewrap_join"] = True
         if args.capacity_refresh:
             manifest["capacity_refresh"] = True
         with manifest_path.open("x") as stream:
@@ -1684,6 +1721,8 @@ def main():
             raise ValueError("pilot preliminary goal role policy changed; create a new state dir")
         if manifest.get("preliminary_p2", False) != args.preliminary_p2:
             raise ValueError("pilot preliminary P2 policy changed; create a new state dir")
+        if manifest.get("element_consistency", False) != args.element_consistency:
+            raise ValueError("pilot element consistency changed; create a new state dir")
         if manifest.get("compact_element_wire", False) != args.compact_element_wire:
             raise ValueError("pilot element wire policy changed; create a new state dir")
         if args.position_context_order:
@@ -1723,6 +1762,10 @@ def main():
             )
         if manifest.get("extraction_atomic", False) != args.extraction_atomic:
             raise ValueError("pilot extraction atomic policy changed; create a new state directory")
+        if manifest.get("extraction_linewrap_join", False) != args.extraction_linewrap_join:
+            raise ValueError(
+                "pilot extraction linewrap join policy changed; create a new state directory"
+            )
         if manifest.get("extraction_source_ids", False) != args.extraction_source_ids:
             raise ValueError(
                 "pilot extraction source-id policy changed; create a new state directory"

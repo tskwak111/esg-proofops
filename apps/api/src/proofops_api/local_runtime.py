@@ -31,6 +31,7 @@ _SETTINGS_FIELDS = frozenset(
         "extraction_table_context",
         "extraction_source_ids",
         "extraction_atomic",
+        "extraction_linewrap_join",
         "extraction_assertion_prompt",
         "extraction_complete_selection",
         "extraction_content_bounds",
@@ -329,6 +330,7 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         "extraction_table_context",
         "extraction_source_ids",
         "extraction_atomic",
+        "extraction_linewrap_join",
         "extraction_assertion_prompt",
         "extraction_complete_selection",
         "extraction_content_bounds",
@@ -340,6 +342,11 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         if flag in settings and (settings[flag] is not True or extraction_mode != "upstage_probe"):
             raise _invalid()
     if "extraction_atomic" in settings and settings.get("extraction_source_ids") is not True:
+        raise _invalid()
+    if "extraction_linewrap_join" in settings and (
+        settings.get("extraction_source_ids") is not True
+        or settings.get("extraction_atomic") is True
+    ):
         raise _invalid()
     if "extraction_table_context" in settings and settings.get("extraction_context") is not True:
         # Table context refines the context profile; alone it has no wire.

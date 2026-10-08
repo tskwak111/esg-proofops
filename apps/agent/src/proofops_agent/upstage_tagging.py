@@ -30,6 +30,7 @@ COVERAGE_PROFILE = "upstage-compact-coverage-unicode-v2"
 QUOTE_PROFILE = "upstage-compact-source-quotes-v3"
 QUOTE_V4_PROFILE = "upstage-compact-source-quotes-v4"
 QUOTE_V5_PROFILE = "upstage-compact-source-quotes-v5"
+CONSISTENCY_PROFILE = "upstage-compact-element-consistency-v6"
 
 # The only transport error codes that a locally suppressed, pre-dispatch outcome is
 # allowed to carry. This is an explicit allow-list, never an inference from timing:
@@ -182,7 +183,14 @@ class UpstageTaggingTransport:
             )
             or settings.model_profile
             not in (
-                {MODEL_PROFILE, COVERAGE_PROFILE, QUOTE_PROFILE, QUOTE_V4_PROFILE, QUOTE_V5_PROFILE}
+                {
+                    MODEL_PROFILE,
+                    COVERAGE_PROFILE,
+                    QUOTE_PROFILE,
+                    QUOTE_V4_PROFILE,
+                    QUOTE_V5_PROFILE,
+                    CONSISTENCY_PROFILE,
+                }
                 if self.MODEL_PROFILE == MODEL_PROFILE
                 else {self.MODEL_PROFILE}
             )
@@ -201,6 +209,8 @@ class UpstageTaggingTransport:
             self.TRANSPORT_VERSION = "compact-source-quotes-v4"
         elif settings.model_profile == QUOTE_V5_PROFILE:
             self.TRANSPORT_VERSION = "compact-source-quotes-v5"
+        elif settings.model_profile == CONSISTENCY_PROFILE:
+            self.TRANSPORT_VERSION = "compact-element-consistency-v6"
         self._display_catalog = display_catalog
         self._authorize = authorize
         self._probe, self._settings, self._tenant = probe, settings, tenant_id
@@ -339,6 +349,7 @@ class UpstageTaggingTransport:
             QUOTE_PROFILE,
             QUOTE_V4_PROFILE,
             QUOTE_V5_PROFILE,
+            CONSISTENCY_PROFILE,
         ):
             data = user["untrusted_document_data"]
             coverage = data.get("search_coverage", {})
@@ -361,7 +372,12 @@ class UpstageTaggingTransport:
         display = data.pop("display_text", None)
         catalog = getattr(self, "_display_catalog", None)
         if catalog is not None:
-            if settings.model_profile not in (QUOTE_PROFILE, QUOTE_V4_PROFILE, QUOTE_V5_PROFILE):
+            if settings.model_profile not in (
+                QUOTE_PROFILE,
+                QUOTE_V4_PROFILE,
+                QUOTE_V5_PROFILE,
+                CONSISTENCY_PROFILE,
+            ):
                 raise ValueError("DISPLAY_QUOTE_PROFILE_REQUIRED")
             if display != catalog.element_pins(data):
                 raise ValueError("DISPLAY_PACKET_MISMATCH")
@@ -378,7 +394,10 @@ class UpstageTaggingTransport:
             data["display_map_sha256"] = canonical_hash(display)
         elif display is not None:
             raise ValueError("DISPLAY_PROFILE_REQUIRED")
-        if settings.model_profile == QUOTE_V5_PROFILE and "claim_source_refs" in data:
+        if (
+            settings.model_profile in (QUOTE_V5_PROFILE, CONSISTENCY_PROFILE)
+            and "claim_source_refs" in data
+        ):
             data["claim_source_refs"] = [
                 {
                     "quote": catalog.pin(asdict(ref))["text"] if catalog else ref.quote,
@@ -386,13 +405,28 @@ class UpstageTaggingTransport:
                 }
                 for ref in (_source_ref_from_dict(raw) for raw in data["claim_source_refs"])
             ]
-        if catalog and settings.model_profile != QUOTE_V5_PROFILE:
+        if catalog and settings.model_profile not in (QUOTE_V5_PROFILE, CONSISTENCY_PROFILE):
             data["claim_source_refs"] = [
                 raw | {"quote": catalog.pin(raw)["text"]} for raw in data["claim_source_refs"]
             ]
+        if settings.model_profile == CONSISTENCY_PROFILE:
+            # IDs depend on original source position, never retrieval rank or replica.
+            for candidate in data.get("evidence_candidates", []):
+                candidate["source_refs"].sort(
+                    key=lambda ref: (
+                        ref["page_num"],
+                        ref["source_id"],
+                        ref["char_start"],
+                        ref["char_end"],
+                        ref["quote"],
+                    )
+                )
+            data["evidence_candidates"].sort(
+                key=lambda candidate: canonical_json(candidate["source_refs"])
+            )
         refs: dict[str, dict] = {}
         for candidate in data.get("evidence_candidates", []):
-            if settings.model_profile == QUOTE_V5_PROFILE:
+            if settings.model_profile in (QUOTE_V5_PROFILE, CONSISTENCY_PROFILE):
                 candidate.pop("source_id", None)
             identifiers = []
             for raw_ref in candidate.get("source_refs", []):
@@ -405,7 +439,7 @@ class UpstageTaggingTransport:
             candidate["source_refs"] = identifiers
         catalog_fields = (
             ("quote", "page_num")
-            if settings.model_profile == QUOTE_V5_PROFILE
+            if settings.model_profile in (QUOTE_V5_PROFILE, CONSISTENCY_PROFILE)
             else ("quote", "page_num", "verification_state")
         )
         data["evidence_catalog"] = {
@@ -419,9 +453,24 @@ class UpstageTaggingTransport:
             }
             for key, ref in refs.items()
         }
+        if settings.model_profile == CONSISTENCY_PROFILE:
+            data["element_evidence_ids"] = {
+                element: [
+                    identifier
+                    for candidate in data["evidence_candidates"]
+                    if element in candidate["allowed_elements"]
+                    for identifier in candidate["source_refs"]
+                ]
+                for element in data["allowed_elements"]
+            }
         schema = json.loads(settings.schema_json)
         schema["$defs"]["SourceRef"] = {"type": "string", "pattern": "^e[0-9]+$"}
-        if settings.model_profile in (QUOTE_PROFILE, QUOTE_V4_PROFILE, QUOTE_V5_PROFILE):
+        if settings.model_profile in (
+            QUOTE_PROFILE,
+            QUOTE_V4_PROFILE,
+            QUOTE_V5_PROFILE,
+            CONSISTENCY_PROFILE,
+        ):
             schema["$defs"]["SourceRef"] = {
                 "type": "object",
                 "required": ["id", "quote"],
@@ -450,7 +499,12 @@ class UpstageTaggingTransport:
             "evidence_catalog IDs such as e0. Select IDs; never repeat or alter source text, "
             "coordinates, offsets or verification state. The server restores those exactly."
         )
-        if settings.model_profile in (QUOTE_PROFILE, QUOTE_V4_PROFILE, QUOTE_V5_PROFILE):
+        if settings.model_profile in (
+            QUOTE_PROFILE,
+            QUOTE_V4_PROFILE,
+            QUOTE_V5_PROFILE,
+            CONSISTENCY_PROFILE,
+        ):
             instructions = (
                 "\nTransport contract compact-source-quotes-v3: each evidence_refs item is "
                 '{"id":"e0","quote":"exact source substring"}. Select an evidence_catalog '
@@ -463,17 +517,61 @@ class UpstageTaggingTransport:
                 "elements may use null normalized_value while retaining literal evidence. "
                 "Exact quotation does not establish claim attribution or semantic sufficiency."
             )
+        if settings.model_profile == CONSISTENCY_PROFILE:
+            # Scope the trusted fixed rule cards, preserving the rest of the prompt.
+            marker = (
+                "This rule reference is tagging guidance, not an approval of the draft rulepack.\n"
+            )
+            if marker in system:
+                head, tail = system.split(marker, 1)
+                reference, end = json.JSONDecoder().raw_decode(tail)
+                cards = [e for e in reference["elements"] if e["id"] in allowed]
+                if {e["id"] for e in cards} != set(allowed):
+                    raise ValueError("UPSTAGE_TAGGING_ELEMENTS_REQUIRED")
+                reference["elements"] = cards
+                system = (
+                    head
+                    + marker
+                    + json.dumps(
+                        reference, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+                    )
+                    + tail[end:]
+                )
         wire_system = system.replace(settings.schema_json, canonical_json(schema), 1) + instructions
         if settings.model_profile in (
             COVERAGE_PROFILE,
             QUOTE_PROFILE,
             QUOTE_V4_PROFILE,
             QUOTE_V5_PROFILE,
+            CONSISTENCY_PROFILE,
         ):
             wire_system += (
                 "\nCoverage v2: omitted/unprocessed source counts and list hashes summarize "
                 "unseen identifiers retained by the server. Missing evidence remains unknown; "
                 "neither a count nor a hash is evidence or proof of absence."
+            )
+        if settings.model_profile == CONSISTENCY_PROFILE:
+            wire_system += (
+                "\nConsistency v6: Evaluate each requested definition independently using "
+                "only its element_evidence_ids. These lists route evidence, never certify "
+                "sufficiency. Read source_scope: local_claim is preferred when sufficient; "
+                "other sources require explicit same entity, metric, period and boundary. "
+                "Missing attribution remains unknown even if a nearby sentence sounds relevant. "
+                "For present select a non-empty literal quote that directly states the element, "
+                "including its subject/action context; do not infer from generic intentions. "
+                "Choose the earliest sufficient catalog ID and the shortest unambiguous quote "
+                "retaining that context; add another citation only if required for sufficiency. "
+                "M1 needs a named means or standard; generic improvement alone is insufficient. "
+                "M2 needs a concrete operating process; intentions alone are insufficient. "
+                "M4 needs concrete implementation results; generic aspirations are insufficient. "
+                "M5 needs a responsible organization or governance arrangement; compensation "
+                "alone does not establish governance. M6 needs an explicit compensation link. "
+                "M3 needs external verification, never infer it from a framework name. "
+                "If no sufficient quote exists use unknown with [] and null value; never absent. "
+                "Unknown is not absence. Keep qualitative normalized_value null. "
+                "Numerical values require their own exact quote as already specified. "
+                "Source, binding and numeric validation remain mandatory on the server; "
+                "only three independent unanimous guarded votes can be confirmed."
             )
         if catalog:
             from proofops.application.ingest.display_text import SYSTEM_SUFFIX
@@ -483,7 +581,12 @@ class UpstageTaggingTransport:
         return wire_system, wire_user, refs, authorization, canonical_json(schema)
 
     def _restore_ref(self, selection, refs: dict[str, dict]) -> dict:
-        if self._settings.model_profile not in (QUOTE_PROFILE, QUOTE_V4_PROFILE, QUOTE_V5_PROFILE):
+        if self._settings.model_profile not in (
+            QUOTE_PROFILE,
+            QUOTE_V4_PROFILE,
+            QUOTE_V5_PROFILE,
+            CONSISTENCY_PROFILE,
+        ):
             return refs[selection]
         if not isinstance(selection, dict) or set(selection) != {"id", "quote"}:
             raise ValueError("invalid source quote selection")
@@ -645,7 +748,11 @@ class UpstageTaggingTransport:
                         ]
                         if exact and len(set(exact)) == 1:
                             element["normalized_value"] = exact[0]
-                    if settings.model_profile in (QUOTE_V4_PROFILE, QUOTE_V5_PROFILE):
+                    if settings.model_profile in (
+                        QUOTE_V4_PROFILE,
+                        QUOTE_V5_PROFILE,
+                        CONSISTENCY_PROFILE,
+                    ):
                         self._refine_g1_year(element)
                 expanded = canonical_json(payload)
             except (ValueError, KeyError, TypeError, AttributeError):
