@@ -402,10 +402,10 @@ def claim_source_policy_for(args):
     back is simply not passing the flag on a future run.
     """
     profile = getattr(args, "claim_source_profile", None)
-    if profile == "upstage-ocr-page-v1":
-        from proofops.adapters.local.upstage_ocr_profile import claim_source_policy
+    if profile in {"upstage-ocr-page-v1", "upstage-ocr-page-v2"}:
+        from proofops.adapters.local.claim_source_policies import page_ocr_profile
 
-        return claim_source_policy()
+        return page_ocr_profile(profile).claim_source_policy()
     if profile == "glyph-alignment-v1":
         from proofops.adapters.local.glyph_alignment_verification import claim_source_policy
 
@@ -773,7 +773,7 @@ def main():
     parser.add_argument(
         "--claim-source-profile",
         "--rendered-reader-profile",
-        choices=["glyph-alignment-v1", "upstage-ocr-page-v1"],
+        choices=["glyph-alignment-v1", "upstage-ocr-page-v1", "upstage-ocr-page-v2"],
         help="Pin source reader for a NEW run; requires --verify-claim-spans.",
     )
     parser.add_argument(
@@ -1131,13 +1131,13 @@ def main():
                 policy_sha256 as table_policy,
             )
 
-        if args.claim_source_profile == "upstage-ocr-page-v1":
+        if args.claim_source_profile in {"upstage-ocr-page-v1", "upstage-ocr-page-v2"}:
             if args.raster_ocr or args.native_quote_typography:
                 parser.error("page OCR requires no raster/native quote-typography composition")
             if args.verify_tables or args.verify_merged_tables or args.verify_selected_cells:
-                from proofops.adapters.local.upstage_ocr_profile import (
-                    table_policy_sha256 as table_policy,
-                )
+                from proofops.adapters.local.claim_source_policies import page_ocr_profile
+
+                table_policy = page_ocr_profile(args.claim_source_profile).table_policy_sha256
 
         config = ParserProfile(
             str(uuid4()),

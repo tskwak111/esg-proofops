@@ -155,9 +155,16 @@ class LocalParserRunner:
         run = self.store.jobs.get_run(tenant_id, run_id)
         native_policy = native_paragraph_policy() if self.verify_paragraphs else None
         page_reader = None
-        if snapshot.get("claim_source_policy", {}).get("profile") == "upstage-ocr-page-v1":
-            from proofops.adapters.local.upstage_ocr_profile import for_run, table_policy_sha256
-            from proofops.adapters.local.upstage_ocr_profile import native_policy as ocr_policy
+        if snapshot.get("claim_source_policy", {}).get("profile") in {
+            "upstage-ocr-page-v1",
+            "upstage-ocr-page-v2",
+        }:
+            from proofops.adapters.local.claim_source_policies import claim_source_reader
+
+            ocr_profile = claim_source_reader(snapshot["claim_source_policy"])
+            for_run = ocr_profile.for_run
+            table_policy_sha256 = ocr_profile.table_policy_sha256
+            ocr_policy = ocr_profile.native_policy
 
             if raster_enabled or self.native_typography_tolerance:
                 raise ValueError("OCR_PROFILE_COMPOSITION_UNSUPPORTED")

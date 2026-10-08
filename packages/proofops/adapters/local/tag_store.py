@@ -285,8 +285,13 @@ def _stored_context_reader(
             else (receipt.get("receipts") or {}).get("paragraph")
         )
         if paragraph is None and receipt.get("schema") == "context_source_attestation_v1":
-            if run_policy and run_policy.get("profile") == "upstage-ocr-page-v1":
-                from proofops.adapters.local.upstage_ocr_profile import table_span_policy
+            if run_policy and run_policy.get("profile") in {
+                "upstage-ocr-page-v1",
+                "upstage-ocr-page-v2",
+            }:
+                from proofops.adapters.local.claim_source_policies import claim_source_reader
+
+                table_span_policy = claim_source_reader(run_policy).table_span_policy
 
                 table = (receipt.get("receipts") or {}).get("table")
                 if (
@@ -411,8 +416,11 @@ class LocalTagStore:
             raise ValueError("CONTEXT_SOURCE_MISMATCH")
 
         def attest_paragraphs(selected):
-            if reader_policy and reader_policy.get("profile") == "upstage-ocr-page-v1":
-                from proofops.adapters.local.upstage_ocr_profile import for_run
+            if reader_policy and reader_policy.get("profile") in {
+                "upstage-ocr-page-v1",
+                "upstage-ocr-page-v2",
+            }:
+                for_run = reader.for_run
 
                 if stored_receipt is not None:
                     saved = (stored_receipt.get("receipts") or {}).get("paragraph", stored_receipt)
@@ -446,14 +454,12 @@ class LocalTagStore:
         )
         paragraphs = tuple(ref for ref in unresolved if kinds[ref.source_id] == "paragraph")
         tables = tuple(ref for ref in unresolved if kinds[ref.source_id] != "paragraph")
-        if reader_policy and reader_policy.get("profile") == "upstage-ocr-page-v1":
-            from proofops.adapters.local.upstage_ocr_profile import for_run
-            from proofops.adapters.local.upstage_ocr_profile import (
-                table_span_policy as ocr_table_policy,
-            )
-
-            page_reader = for_run(run_id)
-            table_span_policy = ocr_table_policy
+        if reader_policy and reader_policy.get("profile") in {
+            "upstage-ocr-page-v1",
+            "upstage-ocr-page-v2",
+        }:
+            page_reader = reader.for_run(run_id)
+            table_span_policy = reader.table_span_policy
             if stored_receipt is not None:
                 saved_table = (stored_receipt.get("receipts") or {}).get("table")
 
