@@ -282,7 +282,8 @@ def main():
             (run_root / "processes.json").write_text(
                 json.dumps(dict(live=os.getpid(), kakao=child.pid))
             )
-            deadline = time.monotonic() + 30
+            # Saved-state replay verification can take >30s under load (seen 2026-10-09).
+            deadline = time.monotonic() + int(os.environ.get("PROOFOPS_KAKAO_START_TIMEOUT", "120"))
             while not (run_root / "kakao-state/browser.json").is_file():
                 if child.poll() is not None or time.monotonic() >= deadline:
                     raise RuntimeError("R108_FINALS_KAKAO_START_FAILED")
