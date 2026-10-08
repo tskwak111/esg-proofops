@@ -67,7 +67,7 @@ def _table_verifier(policy_hash):
         return selected
     from proofops.adapters.local.claim_source_policies import page_ocr_profile
 
-    for name in ("upstage-ocr-page-v1", "upstage-ocr-page-v2"):
+    for name in ("upstage-ocr-page-v1", "upstage-ocr-page-v2", "upstage-ocr-page-v3"):
         profile = page_ocr_profile(name)
         if policy_hash == profile.table_policy_sha256():
             return profile
@@ -94,7 +94,7 @@ def _locates_auxiliary_cells(profile):
         selected.policy_sha256(),
         *(
             page_ocr_profile(name).table_policy_sha256()
-            for name in ("upstage-ocr-page-v1", "upstage-ocr-page-v2")
+            for name in ("upstage-ocr-page-v1", "upstage-ocr-page-v2", "upstage-ocr-page-v3")
         ),
     }
 
@@ -598,6 +598,7 @@ class OpenDataLoaderParser(ParserPort):
                 if getattr(verifier, "PROFILE", None) in {
                     "upstage-ocr-page-v1",
                     "upstage-ocr-page-v2",
+                    "upstage-ocr-page-v3",
                 }:
                     if page_reader is None:
                         raise ParseFailure("OCR_RUN_REQUIRED")

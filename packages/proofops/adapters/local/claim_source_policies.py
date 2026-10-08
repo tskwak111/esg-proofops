@@ -98,7 +98,11 @@ def claim_source_reader(policy):
     from proofops.adapters.local import claim_source_verification as base
 
     if isinstance(policy, Mapping):
-        if policy.get("profile") in {"upstage-ocr-page-v1", "upstage-ocr-page-v2"}:
+        if policy.get("profile") in {
+            "upstage-ocr-page-v1",
+            "upstage-ocr-page-v2",
+            "upstage-ocr-page-v3",
+        }:
             upstage_ocr_profile = page_ocr_profile(policy["profile"])
 
             if policy != upstage_ocr_profile.claim_source_policy():
@@ -141,6 +145,7 @@ def publication_reader(policy):
     if isinstance(policy, Mapping) and policy.get("profile") in {
         "upstage-ocr-page-v1",
         "upstage-ocr-page-v2",
+        "upstage-ocr-page-v3",
     }:
         return claim_source_reader(policy)
     for module in (base, *_wrappers()):
@@ -170,7 +175,11 @@ def attest_claims(*, reader, graph, source, refs, tenant_id, cache, run_id=None)
     publication can match them instead of repeating the same whole-ref read.
     The published bytes are unchanged either way.
     """
-    if getattr(reader, "PROFILE", None) in {"upstage-ocr-page-v1", "upstage-ocr-page-v2"}:
+    if getattr(reader, "PROFILE", None) in {
+        "upstage-ocr-page-v1",
+        "upstage-ocr-page-v2",
+        "upstage-ocr-page-v3",
+    }:
         return reader.attest_claim_spans(
             graph, source, tuple(refs), tenant_id=tenant_id, run_id=run_id
         )
@@ -205,4 +214,8 @@ def page_ocr_profile(profile):
         from proofops.adapters.local import upstage_ocr_profile_v2
 
         return upstage_ocr_profile_v2
+    if profile == "upstage-ocr-page-v3":
+        from proofops.adapters.local import upstage_ocr_profile_v3
+
+        return upstage_ocr_profile_v3
     raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")
