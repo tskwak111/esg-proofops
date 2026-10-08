@@ -1,0 +1,70 @@
+x-app: &app
+  image: ${IMAGE:-proofops-r108-public:p2}
+  pull_policy: never
+  env_file: runtime.env
+  environment:
+    APP_ENV: hosted
+    MODEL_ADAPTER: disabled
+    HOSTED_DATA_DIR: /data
+  user: "10001:10001"
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  restart: unless-stopped
+  pids_limit: 128
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,size=536870912,mode=1777
+  volumes:
+    - ./data:/data
+    - ./private:/run/private:ro
+  logging:
+    driver: local
+    options:
+      max-size: "10m"
+      max-file: "3"
+services:
+  api:
+    <<: *app
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: 0.5
+    ports: ["127.0.0.1:${LOCAL_PORT:-8000}:8000"]
+  worker:
+    <<: *app
+    mem_limit: 2560m
+    memswap_limit: 2560m
+    cpus: 1.5
+    command: [python, scripts/hosted_control.py, worker]
+    healthcheck:
+      disable: true
+    depends_on:
+      api:
+        condition: service_healthy
+  caddy:
+    profiles: [tls]
+    image: ${CADDY_IMAGE:-caddy:2.10.2-alpine}
+    pull_policy: never
+    restart: unless-stopped
+    mem_limit: 128m
+    memswap_limit: 128m
+    cpus: 0.25
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    ports: ["80:80", "443:443"]
+    environment:
+      API_HOST: ${API_HOST:?Set static-IP.sslip.io}
+      ACME_EMAIL: ${ACME_EMAIL:?Set operator email}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    tmpfs: [/tmp]
+    logging:
+      driver: local
+      options: {max-size: "10m", max-file: "3"}
+    depends_on:
+      api:
+        condition: service_healthy
+volumes:
+  caddy_data:
+  caddy_config:
