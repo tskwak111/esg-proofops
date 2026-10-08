@@ -489,7 +489,12 @@ def create_snapshot(store, tenant_id, export_id):
             return frozen
         captured = store.capture(tenant_id, export_id)
         if store.freeze(tenant_id, export_id, captured):
-            return captured
+            # The caller's capture can change during validation. Render only the
+            # persisted, hash-checked bytes that freeze actually validated.
+            frozen = store.frozen(tenant_id, export_id)
+            if frozen is None:
+                raise ExportRejected("EXPORT_INTEGRITY_FAILED")
+            return frozen
     raise ExportRejected("EXPORT_SNAPSHOT_BUSY")
 
 

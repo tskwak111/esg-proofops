@@ -148,9 +148,12 @@ class LocalExportStore:
             )
             if raw is None:
                 return None
-            if sha256(raw).hexdigest() != state["snapshot_sha256"]:
-                raise ExportRejected("EXPORT_INTEGRITY_FAILED")
-            return json.loads(raw)
+            expected_hash = state["snapshot_sha256"]
+        # Both values came from one transaction; immutable snapshot bytes can be
+        # hash-checked and restored without holding SQLite's writer.
+        if sha256(raw).hexdigest() != expected_hash:
+            raise ExportRejected("EXPORT_INTEGRITY_FAILED")
+        return json.loads(raw)
 
     def capture(self, tenant, export_id):
         state = self.state(tenant, export_id)
@@ -482,25 +485,54 @@ class LocalExportStore:
             return dict(manifest=manifest, decisions=records)
 
     def freeze(self, tenant, export_id, captured):
+        # Reject an already frozen or stale capture before expensive validation.
         with self.jobs._transaction() as db:
             state = self._state(db, tenant, export_id)
             run_id = state["response"]["run_id"]
+            if state["response"]["state"] == "failed":
+                raise ExportRejected(state["errors"][0])
             if self.jobs._raw(db, tenant, run_id, "export_snapshot", export_id) is not None:
                 return False
             run = self.jobs._get(db, tenant, run_id, "run", "META")
             if run["mutation_epoch"] != captured["manifest"]["mutation_epoch"]:
                 return False
-            try:
-                model = build_report_model(captured["manifest"], captured["decisions"])
-            except ElementEvidenceExpansionLimit as exc:
-                raise ExportRejected("EXPORT_SIZE_LIMIT") from exc
-            if model["partial"] and not state["body"]["allow_partial"]:
+
+        # Validate a private restoration of these exact immutable bytes. Hashing
+        # or serializing the caller's mutable object after validation would let
+        # a concurrent mutation publish a snapshot that was never validated.
+        raw = canonical_json(captured).encode()
+        if len(raw) > MAX_EXPORT_BYTES:
+            raise ExportRejected("EXPORT_SIZE_LIMIT")
+        snapshot_hash = sha256(raw).hexdigest()
+        snapshot = json.loads(raw)
+        manifest = snapshot["manifest"]
+        if manifest["tenant_id"] != tenant or manifest["run_id"] != run_id:
+            raise ExportRejected("EXPORT_INTEGRITY_FAILED")
+        rejection = None
+        partial = False
+        try:
+            partial = build_report_model(manifest, snapshot["decisions"])["partial"]
+        except ElementEvidenceExpansionLimit:
+            rejection = ExportRejected("EXPORT_SIZE_LIMIT")
+        except (KeyError, TypeError, ValueError):
+            rejection = ExportRejected("EXPORT_INTEGRITY_FAILED")
+
+        with self.jobs._transaction() as db:
+            state = self._state(db, tenant, export_id)
+            if state["response"]["state"] == "failed":
+                raise ExportRejected(state["errors"][0])
+            if self.jobs._raw(db, tenant, run_id, "export_snapshot", export_id) is not None:
+                return False
+            run = self.jobs._get(db, tenant, run_id, "run", "META")
+            if run["mutation_epoch"] != manifest["mutation_epoch"]:
+                return False
+            # A stale validation result (including a rejection) must be retried.
+            if rejection is not None:
+                raise rejection
+            if partial and not state["body"]["allow_partial"]:
                 raise ExportRejected("REPORT_NOT_FINALIZABLE")
-            raw = canonical_json(captured).encode()
-            if len(raw) > MAX_EXPORT_BYTES:
-                raise ExportRejected("EXPORT_SIZE_LIMIT")
             self.jobs._put(db, tenant, run_id, "export_snapshot", export_id, raw, immutable=True)
-            state.update(snapshot_sha256=sha256(raw).hexdigest())
+            state.update(snapshot_sha256=snapshot_hash)
             state["response"].update(state="building", snapshot_epoch=run["mutation_epoch"])
             self.jobs._put(db, tenant, run_id, "export_state", export_id, state)
             return True
