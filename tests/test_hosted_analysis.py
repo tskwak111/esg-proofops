@@ -4,7 +4,9 @@ import io
 import json
 import os
 import socket
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
@@ -230,6 +232,67 @@ def test_fake_full_chain_upload_run_result_review_delete(settings, monkeypatch):
     assert not store.document_dir(tenant, document).exists()
 
 
+def test_hosted_review_accepts_json_source_refs(settings, monkeypatch):
+    app = create_hosted_app(settings)
+    store = app.state.composition
+    client, headers, tenant, _ = login(app, store)
+    run, review = str(uuid4()), str(uuid4())
+    ref = dict(
+        source_id=str(uuid4()),
+        document_version_id=str(uuid4()),
+        parse_manifest_id=str(uuid4()),
+        page_num=1,
+        printed_page_label=None,
+        bbox=[1.0, 2.0, 3.0, 4.0],
+        raw_text_sha256="a" * 64,
+        quote="verified source",
+        char_start=0,
+        char_end=15,
+        location_quality="located",
+        verification_state="verified",
+    )
+    body = dict(
+        base_tag_revision=1,
+        track="management",
+        elements=[
+            dict(
+                element_id="M1",
+                state="present",
+                evidence_refs=[ref],
+                normalized_value=None,
+                credited_from=None,
+                reason_code=None,
+            )
+        ],
+        reason="P5 rehearsal with a JSON source citation",
+    )
+    observed = []
+
+    def resolve(auth, run_id, review_id, parsed, if_match, key):
+        assert auth.tenant_id == tenant
+        observed.append(parsed)
+        return {"validated": True}
+
+    monkeypatch.setattr(store, "resolve_review", resolve)
+    response = client.post(
+        f"/v1/runs/{run}/reviews/{review}/resolve",
+        json=body,
+        headers=headers | {"If-Match": '"1"', "Idempotency-Key": "p5-source-review-001"},
+    )
+    assert response.status_code == 200, response.text
+    assert observed == [body]
+    body["elements"][0]["evidence_refs"][0]["page_num"] = "1"
+    assert (
+        client.post(
+            f"/v1/runs/{run}/reviews/{review}/resolve",
+            json=body,
+            headers=headers,
+        ).status_code
+        == 422
+    )
+    assert len(observed) == 1
+
+
 def job_setup(settings):
     store = HostedStore(settings)
     auth = actor(store)
@@ -331,6 +394,56 @@ def test_linux_reader_explicitly_unresolved_without_dispatch(
     assert not result["claims"] and result["confirmed_grade"] is None
     assert store.budget_totals()["event_reserved_usd"] == "0.000000"
     assert result["pipeline"]["profiles"]["rendered_reader_requested"] == reader
+
+
+@pytest.mark.parametrize("method", ["get_run", "get_result"])
+@pytest.mark.parametrize("delete", [False, True])
+def test_source_replay_releases_control_writer_and_rechecks_deletion(
+    settings, monkeypatch, tmp_path, method, delete
+):
+    store, auth, job = job_setup(settings)
+    source = tmp_path / "published"
+    source.mkdir()
+    store.publish_analysis(job, source, "partial_blocked", "R108_NEEDS_REVIEW")
+    entered, release = threading.Event(), threading.Event()
+
+    def replay(*args):
+        entered.set()
+        assert release.wait(5)
+        return {"claims": []}
+
+    monkeypatch.setattr(store, "_result", replay)
+    with ThreadPoolExecutor(2) as pool:
+        reading = pool.submit(getattr(store, method), auth.tenant_id, job["run_id"])
+        assert entered.wait(2)
+        try:
+            if delete:
+                writing = pool.submit(
+                    store.delete_document,
+                    auth,
+                    job["document_id"],
+                    "p5-replay-deletion-001",
+                    now=time.time(),
+                )
+                # Tombstone commits immediately; active source lease prevents unlink.
+                assert writing.result(timeout=1)["status"] == "failed"
+            else:
+                writing = pool.submit(store.invite, str(uuid4()), "other", "admin", now=time.time())
+                assert writing.result(timeout=1)
+        finally:
+            release.set()
+        if delete:
+            with pytest.raises(HostedError, match="RESOURCE_NOT_FOUND"):
+                reading.result(timeout=2)
+            assert (
+                store.delete_document(
+                    auth, job["document_id"], "p5-replay-deletion-001", now=time.time()
+                )["status"]
+                == "completed"
+            )
+        else:
+            result = reading.result(timeout=2)
+            assert (result["result"] if method == "get_run" else result) == {"claims": []}
 
 
 def test_purge_fences_but_waits_for_working_source_lock(settings):

@@ -2,6 +2,7 @@
 
 import asyncio
 import fcntl
+import json
 import os
 import sqlite3
 import time
@@ -394,7 +395,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
         from proofops_api.routers.reviews import ReviewResolve
 
         try:
-            validated = ReviewResolve.model_validate(body).model_dump(mode="json")
+            validated = ReviewResolve.model_validate_json(json.dumps(body)).model_dump(mode="json")
         except ValidationError:
             raise HostedError("VALIDATION_ERROR", 422) from None
         return store.resolve_review(

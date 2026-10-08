@@ -556,7 +556,9 @@ class HostedStore:
         finally:
             temporary.unlink(missing_ok=True)
 
-    def _project_run(self, row: sqlite3.Row, db: sqlite3.Connection) -> dict:
+    def _project_run(
+        self, row: sqlite3.Row, db: sqlite3.Connection, *, inline_result: bool = True
+    ) -> dict:
         progress = db.execute(
             "SELECT * FROM run_progress WHERE run_id=?", (row["run_id"],)
         ).fetchone()
@@ -570,7 +572,7 @@ class HostedStore:
             and progress["result_ready"]
             and row["status"] in {"completed", "partial_blocked"}
         )
-        result = self._result(db, row) if ready else None
+        result = self._result(db, row) if ready and inline_result else None
         return {
             "run_id": row["run_id"],
             "document_id": row["document_id"],
@@ -598,8 +600,28 @@ class HostedStore:
         return row
 
     def get_run(self, tenant: str, run: str) -> dict:
-        with self.transaction() as db:
-            return self._project_run(self._run(db, tenant, run), db)
+        lock = None
+        try:
+            with self.transaction() as db:
+                row = self._run(db, tenant, run)
+                result = self._project_run(row, db, inline_result=False)
+                if result["result_url"]:
+                    # Source replay can take longer than SQLite's busy timeout.
+                    # Keep payloads leased without holding the control writer.
+                    path = self.document_dir(tenant, row["document_id"]) / "analysis.lock"
+                    lock = path.open("a+b")
+                    os.fchmod(lock.fileno(), 0o600)
+                    fcntl.flock(lock, fcntl.LOCK_SH | fcntl.LOCK_NB)
+            if lock is not None:
+                result["result"] = self._result(None, row)
+                # A deletion may fence the leased payload while replay runs.
+                # Never expose bytes after its tombstone commits.
+                with self.transaction() as db:
+                    self._run(db, tenant, run)
+            return result
+        finally:
+            if lock is not None:
+                lock.close()
 
     def create_run(
         self, auth: Any, document: str, pages: list[int] | None, key: str, *, now: float
@@ -948,7 +970,7 @@ class HostedStore:
             )
             self._settle_envelope(db, job["run_id"])
 
-    def _result(self, db: sqlite3.Connection, row: sqlite3.Row) -> dict:
+    def _result(self, db: sqlite3.Connection | None, row: sqlite3.Row) -> dict:
         from proofops_api.hosted_results import read_result
 
         path = self.document_dir(row["tenant_id"], row["document_id"]) / "analysis" / row["run_id"]
@@ -960,11 +982,10 @@ class HostedStore:
             raise HostedError("RESULT_INTEGRITY_UNAVAILABLE", 409) from None
 
     def get_result(self, tenant: str, run: str) -> dict:
-        with self.transaction() as db:
-            row = self._run(db, tenant, run)
-            if row["status"] not in {"completed", "partial_blocked"}:
-                raise HostedError("ANALYSIS_RESULT_UNAVAILABLE")
-            return self._result(db, row)
+        result = self.get_run(tenant, run)
+        if result["result_url"] is None:
+            raise HostedError("ANALYSIS_RESULT_UNAVAILABLE")
+        return result["result"]
 
     def resolve_review(
         self, auth: Any, run: str, review: str, body: dict, if_match: str | None, key: str
