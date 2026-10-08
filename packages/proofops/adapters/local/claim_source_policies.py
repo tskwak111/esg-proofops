@@ -80,10 +80,22 @@ def _glyph_alignment():
     return glyph_alignment_verification
 
 
+def _table_claims():
+    from proofops.adapters.local import table_claim_source_verification
+
+    return table_claim_source_verification
+
+
 def _wrappers():
     """Every wrapper module, outermost first. Additive: the base verifier's own
     dispatch is untouched and each wrapper keeps its own distinct policy."""
-    return (_glyph_alignment(), _typography(), _bullet_alignment(), _render_resolution())
+    return (
+        _table_claims(),
+        _glyph_alignment(),
+        _typography(),
+        _bullet_alignment(),
+        _render_resolution(),
+    )
 
 
 def claim_source_reader(policy):
@@ -108,6 +120,11 @@ def claim_source_reader(policy):
             if policy != upstage_ocr_profile.claim_source_policy():
                 raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")
             return upstage_ocr_profile
+        if policy.get("profile") == _table_claims().PROFILE:
+            wrapper = _table_claims()
+            if policy != wrapper.claim_source_policy():
+                raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")
+            return wrapper
         if policy.get("profile") == _glyph_alignment().PROFILE:
             wrapper = _glyph_alignment()
             if policy != wrapper.claim_source_policy():

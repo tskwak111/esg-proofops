@@ -532,6 +532,10 @@ def claim_source_policy_for(args):
         from proofops.adapters.local.claim_source_policies import page_ocr_profile
 
         return page_ocr_profile(profile).claim_source_policy()
+    if profile == "table-claim-spans-v1":
+        from proofops.adapters.local.table_claim_source_verification import claim_source_policy
+
+        return claim_source_policy()
     if profile == "glyph-alignment-v1":
         from proofops.adapters.local.glyph_alignment_verification import claim_source_policy
 
@@ -920,6 +924,7 @@ def main():
             "upstage-ocr-page-v1",
             "upstage-ocr-page-v2",
             "upstage-ocr-page-v3",
+            "table-claim-spans-v1",
         ],
         help="Pin source reader for a NEW run; requires --verify-claim-spans.",
     )
