@@ -256,9 +256,16 @@ def build_sources_router(
                     }
                 )
                 return Response(png, media_type="image/png", headers=headers)
-            # ponytail: one bounded full PDF response; add ranges if large-file viewing needs them.
+            display, metadata = uploads.read_display(auth.tenant_id, graph.document_version_id)
+            headers.update(
+                {
+                    "X-PDF-Derived": "display-v2",
+                    "X-Original-SHA256": graph.source_sha256,
+                    "X-Display-SHA256": metadata["display_sha256"],
+                }
+            )
             return Response(
-                original,
+                display,
                 media_type="application/pdf",
                 headers={
                     "Content-Disposition": 'inline; filename="source.pdf"',

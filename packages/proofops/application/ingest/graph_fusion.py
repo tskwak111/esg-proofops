@@ -66,6 +66,7 @@ class SourceArtifact:
     object_version_id: str
     content: bytes = field(repr=False)
     synthetic: bool = False
+    upload_security_limits: dict | None = field(default=None, repr=False)
 
     def __post_init__(self):
         for name in ("tenant_id", "document_id", "document_version_id"):

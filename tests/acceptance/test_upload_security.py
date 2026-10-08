@@ -757,3 +757,113 @@ def test_hide_with_nonboolean_H_on_gesture_is_rejected(tmp_path):
             PdfLimits(),
             tenant_id="00000000-0000-4000-8000-000000000001",
         )
+
+
+# --- Widget pointer-hover (/E, /X) /Hide: SK hynix / SKT / WFG corpus shape ---
+# Tooltip-style widgets chain /Hide on mouse-enter/exit. Only /Hide (+ the
+# always-inert /Named /GoTo) is allowed there; everything else stays rejected.
+
+
+def _widget_with_trigger(writer, trigger, action):
+    annotation = _widget_with_down_action(writer, action)
+    del annotation[NameObject("/AA")]
+    annotation[NameObject("/AA")] = DictionaryObject({NameObject(trigger): action})
+    return annotation
+
+
+def _verify(tmp_path, writer):
+    output = BytesIO()
+    writer.write(output)
+    item = source(output.getvalue())
+    vault = LocalUploadVault(tmp_path)
+    return vault.verify_and_promote(item, PdfLimits(), tenant_id=item.tenant_id)
+
+
+@pytest.mark.parametrize("trigger", ["/E", "/X"])
+def test_hide_chain_on_widget_hover_is_accepted(tmp_path, trigger):
+    writer = PdfWriter()
+    writer.add_blank_page(width=600, height=800)
+    chained = _hide_action(
+        target="tip.a", hidden=False, next_action=_hide_action(target="tip.b", hidden=True)
+    )
+    _widget_with_trigger(writer, trigger, chained)
+    assert _verify(tmp_path, writer).source.content
+
+
+@pytest.mark.parametrize("trigger", ["/E", "/X"])
+@pytest.mark.parametrize(
+    "dangerous",
+    [
+        {"/S": "/JavaScript", "/JS": "evil()"},
+        {"/S": "/URI", "/URI": "https://example.invalid"},
+        {"/S": "/Launch", "/F": "calc.exe"},
+        {"/S": "/GoToR", "/F": "other.pdf", "/D": "x"},
+        {"/S": "/SubmitForm", "/F": "https://example.invalid"},
+        {"/S": "/ImportData", "/F": "data.fdf"},
+        {"/S": "/Named", "/N": "/Print"},
+    ],
+)
+@pytest.mark.parametrize("position", ["head", "next"])
+def test_non_hide_action_on_widget_hover_is_rejected(tmp_path, trigger, dangerous, position):
+    writer = PdfWriter()
+    writer.add_blank_page(width=600, height=800)
+    bad = DictionaryObject(
+        {
+            NameObject(key): NameObject(value) if value.startswith("/") else TextStringObject(value)
+            for key, value in dangerous.items()
+        }
+    )
+    action = bad if position == "head" else _hide_action(target="tip.a", next_action=bad)
+    _widget_with_trigger(writer, trigger, action)
+    with pytest.raises(UploadRejected, match="PDF_INVALID"):
+        _verify(tmp_path, writer)
+
+
+@pytest.mark.parametrize("trigger", ["/Fo", "/Bl", "/PO", "/PC", "/PV", "/PI"])
+def test_hide_on_widget_focus_or_page_triggers_stays_rejected(tmp_path, trigger):
+    writer = PdfWriter()
+    writer.add_blank_page(width=600, height=800)
+    _widget_with_trigger(writer, trigger, _hide_action(target="tip.a"))
+    with pytest.raises(UploadRejected, match="PDF_INVALID"):
+        _verify(tmp_path, writer)
+
+
+@pytest.mark.parametrize("subtype", ["/Link", "/Text"])
+def test_hide_on_non_widget_hover_stays_rejected(tmp_path, subtype):
+    writer = PdfWriter()
+    writer.add_blank_page(width=600, height=800)
+    annotation = _widget_with_trigger(writer, "/E", _hide_action(target="tip.a"))
+    annotation[NameObject("/Subtype")] = NameObject(subtype)
+    with pytest.raises(UploadRejected, match="PDF_INVALID"):
+        _verify(tmp_path, writer)
+
+
+@pytest.mark.parametrize("target", ["missing", "filespec", "badflag"])
+def test_malformed_hide_on_widget_hover_is_rejected(tmp_path, target):
+    writer = PdfWriter()
+    writer.add_blank_page(width=600, height=800)
+    if target == "missing":
+        action = _hide_action(target=None)
+    elif target == "filespec":
+        spec = DictionaryObject(
+            {NameObject("/Type"): NameObject("/Filespec"), NameObject("/F"): TextStringObject("x")}
+        )
+        action = _hide_action(target=None, target_override=spec)
+    else:
+        action = _hide_action(target="tip.a")
+        action[NameObject("/H")] = TextStringObject("true")
+    _widget_with_trigger(writer, "/E", action)
+    with pytest.raises(UploadRejected, match="PDF_INVALID"):
+        _verify(tmp_path, writer)
+
+
+def test_hide_hover_action_shared_with_automatic_trigger_is_rejected(tmp_path):
+    # The same indirect /Hide object reachable from Widget /E and from the
+    # catalog /AA must still be rejected via the automatic reference.
+    writer = PdfWriter()
+    writer.add_blank_page(width=600, height=800)
+    shared = writer._add_object(_hide_action(target="tip.a"))
+    _widget_with_trigger(writer, "/E", shared)
+    writer.root_object[NameObject("/AA")] = DictionaryObject({NameObject("/WC"): shared})
+    with pytest.raises(UploadRejected, match="PDF_INVALID"):
+        _verify(tmp_path, writer)

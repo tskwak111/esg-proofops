@@ -17,6 +17,7 @@ from hashlib import sha256
 from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from time import monotonic
+from typing import Any
 
 
 class UploadRejected(ValueError):
@@ -25,6 +26,8 @@ class UploadRejected(ValueError):
 
 @dataclass(frozen=True)
 class PdfLimits:
+    policy_profile: str = "strict-v1"
+    max_expansion_ratio: int = 1000
     # Technical development limits, not corpus performance claims.
     max_bytes: int = 104_857_600
     max_pages: int = 300
@@ -35,7 +38,11 @@ class PdfLimits:
     cpu_seconds: int = 20
 
     def __post_init__(self) -> None:
+        if self.policy_profile not in {"strict-v1", "display-v2"}:
+            raise ValueError("Unsupported PDF security profile")
         for key, value in asdict(self).items():
+            if key == "policy_profile":
+                continue
             if (
                 isinstance(value, bool)
                 or not isinstance(value, float | int)
@@ -44,6 +51,20 @@ class PdfLimits:
                 or (key != "timeout_seconds" and not isinstance(value, int))
             ):
                 raise ValueError("Positive finite resource limits required")
+
+    @classmethod
+    def display(cls, **overrides) -> PdfLimits:
+        """New-upload profile; legacy defaults remain byte-for-byte strict in behavior."""
+        values: dict[str, Any] = dict(
+            policy_profile="display-v2",
+            max_objects=250_000,
+            max_decoded_bytes=512 * 1024 * 1024,
+            memory_bytes=1024 * 1024 * 1024,
+            cpu_seconds=60,
+            timeout_seconds=90,
+        )
+        values.update(overrides)
+        return cls(**values)
 
 
 @dataclass(frozen=True)
@@ -60,6 +81,8 @@ class QuarantinedPdf:
 class VerifiedPdf:
     source: QuarantinedPdf
     page_count: int
+    display_content: bytes | None = field(default=None, repr=False)
+    security_metadata: dict = field(default_factory=dict)
 
 
 def verify_quarantined_pdf(
@@ -113,6 +136,8 @@ def verify_quarantined_pdf(
             str(input_path),
             json.dumps(asdict(limits)),
         ]
+        display_path = Path(scratch) / "display.pdf"
+        command.append(str(display_path))
         deadline = monotonic() + limits.timeout_seconds
         with subprocess.Popen(
             command,
@@ -149,11 +174,19 @@ def verify_quarantined_pdf(
                 result = json.loads(output)
                 if result["code"] != "verified":
                     raise UploadRejected(result["code"])
+                display_content = None
+                if limits.policy_profile == "display-v2":
+                    with display_path.open("rb") as display_file:
+                        display_content = display_file.read(limits.max_bytes + 1)
+                    if len(display_content) > limits.max_bytes:
+                        raise UploadRejected("UPLOAD_LIMIT_EXCEEDED")
+                    if sha256(display_content).hexdigest() != result["security"]["display_sha256"]:
+                        raise UploadRejected("UPLOAD_INTEGRITY_MISMATCH")
             finally:
                 if process.poll() is None:
                     process.kill()
                 process.wait()
-    return VerifiedPdf(source, result["pages"])
+    return VerifiedPdf(source, result["pages"], display_content, result.get("security", {}))
 
 
 class LocalUploadVault:
@@ -190,6 +223,21 @@ class LocalUploadVault:
             except FileExistsError:
                 if target.is_symlink() or target.read_bytes() != source.content:
                     raise UploadRejected("VERSION_CONFLICT") from None
+        if verified.display_content is not None:
+            display_target = target.with_suffix(".display-v2.pdf")
+            with NamedTemporaryFile(dir=target.parent) as staged:
+                staged.write(verified.display_content)
+                staged.flush()
+                os.fsync(staged.fileno())
+                os.chmod(staged.name, 0o400)
+                try:
+                    os.link(staged.name, display_target)
+                except FileExistsError:
+                    if (
+                        display_target.is_symlink()
+                        or display_target.read_bytes() != verified.display_content
+                    ):
+                        raise UploadRejected("VERSION_CONFLICT") from None
         return verified
 
 
@@ -275,7 +323,7 @@ def _windows_limits(limits: PdfLimits) -> int:
     return job
 
 
-def _inspect(path: str, limits: PdfLimits) -> int:
+def _inspect_legacy(path: str, limits: PdfLimits) -> int:
     # Only the resource-limited child imports/parses untrusted PDF structures.
     if sys.platform != "win32":
         import resource
@@ -372,9 +420,17 @@ def _inspect(path: str, limits: PdfLimits) -> int:
         # PDF 1.7 Table 8.60): its /T names an annotation dictionary, a text
         # field name string, or an array of those, and its optional /H is a
         # boolean; it never resolves a file, URL, or embedded target. The
-        # Widget mouse-down/up exception is applied at its /AA call site.
+        # Widget mouse-down/up exception is applied at its /AA call site; the
+        # narrower Widget mouse-enter/exit /Hide exception is defined below.
         inert_action_subtypes = {"/Named", "/GoTo"}
         user_gesture_inert_subtypes = inert_action_subtypes | {"/URI", "/Hide"}
+        # Widget pointer-hover triggers (/E mouse-enter, /X mouse-exit) need no
+        # click but still only fire on pointer movement over the widget's own
+        # rectangle (ISO 32000-1 Table 194). Show/hide-tooltip widgets chain
+        # /Hide there. Only /Hide is added to the always-inert set: /URI,
+        # /Print and /Find stay click-only, and focus/page/document triggers
+        # stay on the strict automatic list.
+        pointer_hover_inert_subtypes = inert_action_subtypes | {"/Hide"}
         inert_named_destinations = {
             "/NextPage",
             "/PrevPage",
@@ -586,16 +642,20 @@ def _inspect(path: str, limits: PdfLimits) -> int:
                         for trigger, trigger_action in action_table.items():
                             # ISO 32000-1 Table 194: Widget mouse down/up require
                             # a click; focus/page-open and document triggers do not.
-                            gesture = (
-                                str(value.get("/Type", "")) == "/Annot"
-                                and str(value.get("/Subtype", "")) == "/Widget"
-                                and str(trigger) in {"/D", "/U"}
+                            is_widget = str(value.get("/Type", "")) == "/Annot" and (
+                                str(value.get("/Subtype", "")) == "/Widget"
                             )
+                            gesture = is_widget and str(trigger) in {"/D", "/U"}
+                            hover = is_widget and str(trigger) in {"/E", "/X"}
                             reject_dangerous_action_chain(
                                 trigger_action,
-                                allowed_subtypes=frozenset(user_gesture_inert_subtypes)
-                                if gesture
-                                else frozenset(inert_action_subtypes),
+                                allowed_subtypes=frozenset(
+                                    user_gesture_inert_subtypes
+                                    if gesture
+                                    else pointer_hover_inert_subtypes
+                                    if hover
+                                    else inert_action_subtypes
+                                ),
                                 allow_user_named_action=gesture,
                             )
                     else:
@@ -635,13 +695,298 @@ def _inspect(path: str, limits: PdfLimits) -> int:
         return pages
 
 
+_DISPLAY_REMOVE = {
+    "/AA",
+    "/OpenAction",
+    "/JavaScript",
+    "/JS",
+    "/Launch",
+    "/SubmitForm",
+    "/ImportData",
+    "/GoToR",
+    "/GoToE",
+    "/Rendition",
+    "/RichMedia",
+    "/RichMediaContent",
+    "/RichMediaSettings",
+    "/EmbeddedFiles",
+    "/EmbeddedFile",
+    "/XFA",
+    "/AcroForm",
+    "/Annots",
+    "/Names",
+    "/AF",
+    "/EF",
+    "/Collection",
+    "/Metadata",
+    "/PresSteps",
+    "/Next",
+    "/URI",
+    "/Sound",
+    "/Movie",
+    "/3D",
+    "/3DD",
+}
+_ACTION_SUBTYPES = {
+    "/GoTo",
+    "/GoToR",
+    "/GoToE",
+    "/Launch",
+    "/Thread",
+    "/URI",
+    "/Sound",
+    "/Movie",
+    "/Hide",
+    "/Named",
+    "/SubmitForm",
+    "/ResetForm",
+    "/ImportData",
+    "/JavaScript",
+    "/SetOCGState",
+    "/Rendition",
+    "/Trans",
+    "/GoTo3DView",
+}
+
+
+def _display_reader(path: str, limits: PdfLimits, output: Path, *, strict: bool) -> dict:
+    from pypdf import PdfReader, PdfWriter
+    from pypdf.generic import ArrayObject, DictionaryObject, IndirectObject, PdfObject, StreamObject
+
+    reader = PdfReader(path, strict=strict, root_object_recovery_limit=limits.max_objects)
+    encrypted = reader.is_encrypted
+    if encrypted and not reader.decrypt(""):
+        raise UploadRejected("PDF_PASSWORD_REQUIRED")
+    permissions = int(reader.user_access_permissions or 0) if encrypted else None
+    pages = len(reader.pages)
+    if pages < 1:
+        raise UploadRejected("PDF_INVALID")
+    if pages > limits.max_pages:
+        raise UploadRejected("UPLOAD_LIMIT_EXCEEDED")
+    references = [
+        (number, generation)
+        for generation, entries in reader.xref.items()
+        for number in entries
+        if number != 0 and generation != 65535
+    ] + [(number, 0) for number in reader.xref_objStm]
+    if len(references) > limits.max_objects:
+        raise UploadRejected("UPLOAD_LIMIT_EXCEEDED")
+    pending: list[PdfObject | None] = [
+        IndirectObject(number, generation, reader) for number, generation in references
+    ]
+    pending.append(reader.trailer)
+    # Reader.pages wraps page dictionaries in separate PageObjects; scan BOTH
+    # representations so deletions also apply to the actual pages copied below.
+    pending.extend(reader.pages)
+    seen: set[int] = set()
+    dictionaries: list[DictionaryObject] = []
+    decoded = 0
+    max_ratio = 0.0
+    missing = 0
+    while pending:
+        value = pending.pop()
+        if isinstance(value, IndirectObject):
+            value = value.get_object()
+            if value is None:
+                missing += 1
+        if not isinstance(value, DictionaryObject | ArrayObject) or id(value) in seen:
+            continue
+        seen.add(id(value))
+        if len(seen) > limits.max_objects:
+            raise UploadRejected("UPLOAD_LIMIT_EXCEEDED")
+        if isinstance(value, DictionaryObject):
+            if isinstance(value, StreamObject):
+                # External stream files cannot be resolved by any analysis engine.
+                if "/F" in value:
+                    raise UploadRejected("PDF_INVALID")
+                filters = value.get("/Filter", [])
+                if not isinstance(filters, list):
+                    filters = [filters]
+                if filters == ["/Crypt"] and str(value.get("/Type", "")) == "/Metadata":
+                    # EncryptMetadata=false reports carry an identity Crypt wrapper.
+                    # Metadata is omitted from the display; count its raw bytes, never
+                    # invoke a crypt/command decoder or deliver the wrapper.
+                    length = len(value._data)
+                    decoded += length
+                    if decoded > limits.max_decoded_bytes:
+                        raise UploadRejected("UPLOAD_LIMIT_EXCEEDED")
+                    pending.extend(value.values())
+                    dictionaries.append(value)
+                    continue
+                if any(
+                    str(item)
+                    not in {
+                        "/FlateDecode",
+                        "/ASCIIHexDecode",
+                        "/ASCII85Decode",
+                        "/LZWDecode",
+                        "/RunLengthDecode",
+                        "/DCTDecode",
+                        "/JPXDecode",
+                        "/CCITTFaxDecode",
+                    }
+                    for item in filters
+                ):
+                    raise UploadRejected("PDF_INVALID")
+                length = len(value.get_data())
+                decoded += length
+                ratio = length / max(1, len(value._data))
+                max_ratio = max(max_ratio, ratio)
+                if decoded > limits.max_decoded_bytes or (
+                    length > 1_000_000 and ratio > limits.max_expansion_ratio
+                ):
+                    raise UploadRejected("UPLOAD_LIMIT_EXCEEDED")
+                # Keep encoded source streams; don't retain decoded image/text copies.
+                if hasattr(value, "decoded_self"):
+                    value.decoded_self = None
+            pending.extend(value.values())
+            dictionaries.append(value)
+        else:
+            pending.extend(value)
+    if decoded > max(1, Path(path).stat().st_size) * limits.max_expansion_ratio:
+        raise UploadRejected("UPLOAD_LIMIT_EXCEEDED")
+    removed = 0
+    for value in dictionaries:
+        if (
+            str(value.get("/Type", "")) in {"/Action", "/EmbeddedFile", "/Metadata"}
+            or str(value.get("/S", "")) in _ACTION_SUBTYPES
+        ):
+            value.clear()
+            if isinstance(value, StreamObject):
+                value._data = b""
+            removed += 1
+            continue
+        for key in _DISPLAY_REMOVE.intersection(value.keys()):
+            del value[key]
+            removed += 1
+        # /A on tagged structure elements is an attribute, not an action.
+        action = value.get("/A")
+        if isinstance(action, IndirectObject):
+            action = action.get_object()
+        if isinstance(action, DictionaryObject) and ("/S" in action or not action):
+            del value["/A"]
+            removed += 1
+    # Fresh page-only catalog: no outlines, forms, attachments, names or orphan xref objects.
+    writer = PdfWriter()
+    for page in reader.pages:
+        writer.add_page(page)
+    writer.write(output)
+    if output.stat().st_size > limits.max_bytes:
+        raise UploadRejected("UPLOAD_LIMIT_EXCEEDED")
+    return dict(
+        pages=pages,
+        scanned_objects=len(seen),
+        indexed_objects=len(references),
+        encrypted=encrypted,
+        permissions=permissions,
+        decoded_bytes=decoded,
+        max_stream_expansion_ratio=max_ratio,
+        removed_entries=removed,
+        missing_references=missing,
+        parser="pypdf-strict" if strict else "pypdf-tolerant",
+    )
+
+
+def _inspect_display(path: str, limits: PdfLimits, output: Path) -> dict:
+    # All retries share ONE process, CPU/memory/deadline budget. No action execution,
+    # viewer form environment, shell, network callbacks, or external stream resolution.
+    if sys.platform != "win32":
+        import resource
+
+        resource.setrlimit(resource.RLIMIT_CPU, (limits.cpu_seconds, limits.cpu_seconds))
+        resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+        resource.setrlimit(resource.RLIMIT_FSIZE, (limits.max_bytes, limits.max_bytes))
+    from pypdf import apply_configuration
+    from pypdf.errors import LimitReachedError, PdfReadError, PdfStreamError
+
+    if sys.platform == "win32":
+        _windows_limits(limits)
+    elif sys.platform == "linux":
+        current_vm = int(Path("/proc/self/statm").read_text().split()[0]) * resource.getpagesize()
+        if current_vm > limits.memory_bytes:
+            raise UploadRejected("UPLOAD_LIMIT_EXCEEDED")
+        resource.setrlimit(resource.RLIMIT_AS, (limits.memory_bytes, limits.memory_bytes))
+        resource.setrlimit(resource.RLIMIT_NPROC, (32, 32))
+    if Path(path).stat().st_size > limits.max_bytes:
+        raise UploadRejected("UPLOAD_LIMIT_EXCEEDED")
+    with apply_configuration(
+        maximum_declared_stream_length=limits.max_bytes,
+        array_based_stream_maximum_output_length=limits.max_decoded_bytes,
+        zlib_maximum_output_length=limits.max_decoded_bytes,
+        lzw_maximum_output_length=limits.max_decoded_bytes,
+        run_length_maximum_output_length=limits.max_decoded_bytes,
+        jbig2dec_binary=None,
+        page_tree_maximum_entries=limits.max_objects,
+    ):
+        failures = []
+        for strict in (True, False):
+            try:
+                result = _display_reader(path, limits, output, strict=strict)
+                break
+            except LimitReachedError:
+                raise UploadRejected("UPLOAD_LIMIT_EXCEEDED") from None
+            except (PdfReadError, PdfStreamError) as error:
+                failures.append(type(error).__name__)
+        else:
+            # Repair syntax only with the existing PDFium engine. Never initialize
+            # forms/JavaScript. The repaired bytes must still pass the full scan.
+            import pypdfium2 as pdfium
+
+            repaired = output.with_suffix(".repaired.pdf")
+            try:
+                with pdfium.PdfDocument(path, password="") as document:
+                    if not 1 <= len(document) <= limits.max_pages:
+                        raise UploadRejected("UPLOAD_LIMIT_EXCEEDED")
+                    encrypted = pdfium.raw.FPDF_GetSecurityHandlerRevision(document) >= 0
+                    permissions = int(pdfium.raw.FPDF_GetDocPermissions(document))
+                    document.save(repaired)
+                result = _display_reader(str(repaired), limits, output, strict=False)
+                result.update(
+                    parser="pdfium-repair+pypdf-tolerant",
+                    encrypted=encrypted,
+                    permissions=permissions if encrypted else None,
+                )
+                if result["decoded_bytes"] > Path(path).stat().st_size * limits.max_expansion_ratio:
+                    raise UploadRejected("UPLOAD_LIMIT_EXCEEDED")
+            finally:
+                repaired.unlink(missing_ok=True)
+        result.update(
+            policy_profile=limits.policy_profile,
+            limits=asdict(limits),
+            interactive_content="removed-including-annotations-and-forms",
+            derived=True,
+            source_sha256=sha256(Path(path).read_bytes()).hexdigest(),
+            display_sha256=sha256(output.read_bytes()).hexdigest(),
+            parser_retry_errors=failures,
+        )
+        return result
+
+
+def _inspect(path: str, limits: PdfLimits) -> int:
+    if limits.policy_profile == "strict-v1":
+        return _inspect_legacy(path, limits)
+    with TemporaryDirectory(prefix="proofops-display-") as temporary:
+        return _inspect_display(path, limits, Path(temporary) / "display.pdf")["pages"]
+
+
 if __name__ == "__main__":
     import logging
 
     logging.disable(logging.CRITICAL)
     try:
-        pages = _inspect(sys.argv[1], PdfLimits(**json.loads(sys.argv[2])))
-        print(json.dumps({"code": "verified", "pages": pages}))
+        limits = PdfLimits(**json.loads(sys.argv[2]))
+        if limits.policy_profile == "display-v2":
+            with TemporaryDirectory(prefix="proofops-display-cli-") as scratch:
+                output = Path(sys.argv[3]) if len(sys.argv) > 3 else Path(scratch) / "display.pdf"
+                security = _inspect_display(sys.argv[1], limits, output)
+                print(
+                    json.dumps(
+                        {"code": "verified", "pages": security["pages"], "security": security}
+                    )
+                )
+        else:
+            pages = _inspect_legacy(sys.argv[1], limits)
+            print(json.dumps({"code": "verified", "pages": pages}))
     except MemoryError:
         print('{"code":"UPLOAD_LIMIT_EXCEEDED"}')
     except Exception as error:
