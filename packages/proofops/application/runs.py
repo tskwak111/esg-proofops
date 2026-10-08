@@ -463,6 +463,7 @@ class RunService:
                 "upstage-compact-source-quotes-v3",
                 "upstage-compact-source-quotes-v4",
                 "upstage-compact-source-quotes-v5",
+                "upstage-compact-element-consistency-v6",
             }:
                 raise RunRejected("CONFIG_GATE_BLOCKED")
             if relation is not None and not relation_settings_contract_valid(relation):

@@ -105,6 +105,7 @@ def live_tagging_settings(
     preliminary_p2: bool = False,
     preliminary_profile: str | None = None,
     compact_element_wire: bool = False,
+    element_consistency: bool = False,
     position_context_order: bool = False,
     capacity_refresh: bool = False,
 ) -> dict:
@@ -129,6 +130,7 @@ def live_tagging_settings(
         or type(preliminary_goal_role) is not bool
         or type(preliminary_actor_role) is not bool
         or type(preliminary_p2) is not bool
+        or type(element_consistency) is not bool
         or type(compact_element_wire) is not bool
         or type(position_context_order) is not bool
         or type(capacity_refresh) is not bool
@@ -297,7 +299,9 @@ def live_tagging_settings(
         ),
         (
             "tagging",
-            "upstage-compact-source-quotes-v5"
+            "upstage-compact-element-consistency-v6"
+            if element_consistency
+            else "upstage-compact-source-quotes-v5"
             if compact_element_wire
             else "upstage-compact-source-quotes-v4",
             element_prompt,
@@ -506,6 +510,7 @@ def apply_resume_metadata(args, saved: dict) -> None:
     args.preliminary_actor_role = bool(saved.get("preliminary_actor_role", False))
     args.preliminary_p2 = bool(saved.get("preliminary_p2", False))
     args.compact_element_wire = bool(saved.get("compact_element_wire", False))
+    args.element_consistency = bool(saved.get("element_consistency", False))
     args.position_context_order = bool(saved.get("position_context_order", False))
     args.capacity_refresh = bool(saved.get("capacity_refresh", False))
     args.extraction_year_notation = bool(saved.get("extraction_year_notation", False))
@@ -773,6 +778,11 @@ def main():
         help="Pin glyph alignment for a NEW run; requires --verify-claim-spans.",
     )
     parser.add_argument(
+        "--element-consistency",
+        action="store_true",
+        help="Opt in to deterministic per-element evidence routing (v6).",
+    )
+    parser.add_argument(
         "--compact-element-wire",
         action="store_true",
         help="Opt-in v5 element wire; pins a distinct model/cache identity for new runs.",
@@ -969,6 +979,7 @@ def main():
         requested_preliminary_actor_role = args.preliminary_actor_role
         requested_preliminary_p2 = args.preliminary_p2
         requested_compact_element_wire = args.compact_element_wire
+        requested_element_consistency = args.element_consistency
         requested_position_order = args.position_context_order
         requested_capacity_refresh = getattr(args, "capacity_refresh", False)
         requested_render_resolution = args.claim_span_render_resolution
@@ -1006,6 +1017,8 @@ def main():
             parser.error("--resume cannot add preliminary actor role; create a new run")
         if requested_preliminary_p2 and not args.preliminary_p2:
             parser.error("--resume cannot add preliminary P2; create a new run")
+        if requested_element_consistency and not args.element_consistency:
+            parser.error("--resume cannot add element consistency; create a new run")
         if requested_compact_element_wire and not args.compact_element_wire:
             parser.error("--resume cannot add compact element wire; create a new run")
         if requested_position_order and not args.position_context_order:
@@ -1044,6 +1057,8 @@ def main():
         )
     if args.live_relations and not args.live_tagging:
         parser.error("--live-relations requires --live-tagging")
+    if args.element_consistency and not args.live_tagging:
+        parser.error("--element-consistency requires --live-tagging")
     if args.compact_element_wire and not args.live_tagging:
         parser.error("--compact-element-wire requires --live-tagging")
     if args.preliminary_context and not args.live_tagging:
@@ -1246,6 +1261,7 @@ def main():
                     preliminary_p2=args.preliminary_p2,
                     preliminary_profile=args.preliminary_profile,
                     compact_element_wire=args.compact_element_wire,
+                    element_consistency=args.element_consistency,
                     position_context_order=args.position_context_order,
                     capacity_refresh=getattr(args, "capacity_refresh", False),
                 )
@@ -1606,6 +1622,8 @@ def main():
             manifest["preliminary_actor_role"] = True
         if args.preliminary_p2:
             manifest["preliminary_p2"] = True
+        if args.element_consistency:
+            manifest["element_consistency"] = True
         if args.compact_element_wire:
             manifest["compact_element_wire"] = True
         if args.position_context_order:
@@ -1690,6 +1708,8 @@ def main():
             raise ValueError("pilot preliminary goal role policy changed; create a new state dir")
         if manifest.get("preliminary_p2", False) != args.preliminary_p2:
             raise ValueError("pilot preliminary P2 policy changed; create a new state dir")
+        if manifest.get("element_consistency", False) != args.element_consistency:
+            raise ValueError("pilot element consistency changed; create a new state dir")
         if manifest.get("compact_element_wire", False) != args.compact_element_wire:
             raise ValueError("pilot element wire policy changed; create a new state dir")
         if args.position_context_order:

@@ -608,6 +608,7 @@ def check_local_upstage_tagger(
             "upstage-compact-source-quotes-v3",
             "upstage-compact-source-quotes-v4",
             "upstage-compact-source-quotes-v5",
+            "upstage-compact-element-consistency-v6",
         }
         or (
             settings.model_profile == "upstage-preliminary-source-quotes-v1"
