@@ -352,6 +352,25 @@ class UpstageProbe:
                 except (InvalidOperation, KeyError, TypeError, ValueError):
                     raise ValueError("BUDGET_LEDGER_INVALID") from None
                 total += amount
+        # Page OCR has an exact one-page reservation, including uncertain calls.
+        # Include it in every existing transport's shared-provider ceiling.
+        if db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='ocr_calls'"
+        ).fetchone():
+            for raw, state, collection in db.execute(
+                "SELECT committed,state,collection FROM ocr_calls"
+            ):
+                try:
+                    amount = Decimal(raw)
+                    if (
+                        amount != Decimal("0.00165")
+                        or state not in {"pending", "failed", "collected"}
+                        or (state == "collected") != (collection is not None)
+                    ):
+                        raise ValueError
+                except (InvalidOperation, TypeError, ValueError):
+                    raise ValueError("BUDGET_LEDGER_INVALID") from None
+                total += amount
         return total
 
     @property

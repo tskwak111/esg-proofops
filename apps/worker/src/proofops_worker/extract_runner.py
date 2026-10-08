@@ -281,6 +281,7 @@ class LocalExtractRunner:
                 refs=discovery_refs(discovery),
                 tenant_id=tenant_id,
                 cache=True,
+                run_id=run_id,
             )
         return payload
 
@@ -813,6 +814,7 @@ class LocalExtractRunner:
                             refs=discovery_refs(discovery),
                             tenant_id=tenant_id,
                             cache=False,
+                            run_id=run_id,
                         )
                     return canonical_json(payload).encode(), usage
                 except LeaseLost:

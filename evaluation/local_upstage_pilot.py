@@ -402,6 +402,10 @@ def claim_source_policy_for(args):
     back is simply not passing the flag on a future run.
     """
     profile = getattr(args, "claim_source_profile", None)
+    if profile == "upstage-ocr-page-v1":
+        from proofops.adapters.local.upstage_ocr_profile import claim_source_policy
+
+        return claim_source_policy()
     if profile == "glyph-alignment-v1":
         from proofops.adapters.local.glyph_alignment_verification import claim_source_policy
 
@@ -768,8 +772,9 @@ def main():
     )
     parser.add_argument(
         "--claim-source-profile",
-        choices=["glyph-alignment-v1"],
-        help="Pin glyph alignment for a NEW run; requires --verify-claim-spans.",
+        "--rendered-reader-profile",
+        choices=["glyph-alignment-v1", "upstage-ocr-page-v1"],
+        help="Pin source reader for a NEW run; requires --verify-claim-spans.",
     )
     parser.add_argument(
         "--compact-element-wire",
@@ -1125,6 +1130,14 @@ def main():
             from proofops.adapters.local.selected_cell_table_verification import (
                 policy_sha256 as table_policy,
             )
+
+        if args.claim_source_profile == "upstage-ocr-page-v1":
+            if args.raster_ocr or args.native_quote_typography:
+                parser.error("page OCR requires no raster/native quote-typography composition")
+            if args.verify_tables or args.verify_merged_tables or args.verify_selected_cells:
+                from proofops.adapters.local.upstage_ocr_profile import (
+                    table_policy_sha256 as table_policy,
+                )
 
         config = ParserProfile(
             str(uuid4()),

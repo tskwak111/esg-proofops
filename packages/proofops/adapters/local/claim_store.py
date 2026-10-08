@@ -128,6 +128,9 @@ class LocalClaimStore:
             from proofops.adapters.local.run_artifacts import load_run_inputs
 
             reader = claim_source_reader(snapshot["claim_source_policy"])
+            if snapshot["claim_source_policy"].get("profile") == "upstage-ocr-page-v1":
+                if envelope["claim_source_attestation"].get("run_id") != run_id:
+                    raise ValueError("OCR_POLICY_OR_RUN_MISMATCH")
             _, source, _ = load_run_inputs(
                 self.store, self.uploads, tenant_id=tenant_id, run_id=run_id
             )
@@ -391,6 +394,10 @@ def validate_extract_commit(db, jobs, run, message, envelope, next_job, *, now):
         receipt = envelope.get("claim_source_attestation", {})
         if (
             envelope.get("schema") != "local_extract_checkpoint_v2"
+            or (
+                snapshot["claim_source_policy"].get("profile") == "upstage-ocr-page-v1"
+                and receipt.get("run_id") != message.run_id
+            )
             or receipt.get("policy") != snapshot["claim_source_policy"]
             or receipt.get("graph_sha256") != envelope.get("graph_sha256")
             or receipt.get("artifact_sha256")

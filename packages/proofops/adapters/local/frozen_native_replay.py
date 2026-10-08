@@ -184,6 +184,14 @@ def replay_native_with_policy(stored_policy, receipt, graph, source, *, tenant_i
     from proofops.adapters.local.native_replay_cache import replay_cached
     from proofops.adapters.local.run_artifacts import native_paragraph_policy
 
+    if stored_policy.get("mode") == "upstage-ocr-page-v1":
+        from proofops.adapters.local.upstage_ocr_profile import for_run, native_policy
+
+        if stored_policy != native_policy():
+            raise ValueError("native attestation policy has no pinned verifier")
+        return for_run(receipt["run_id"]).replay_native_sources(
+            receipt, graph, source, tenant_id=tenant_id
+        )
     live_hash = canonical_hash(native_paragraph_policy())
     stored_hash = canonical_hash(stored_policy)
     if stored_hash == live_hash:
