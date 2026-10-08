@@ -232,6 +232,11 @@ def build_composition(
             year_notation = settings.get("extraction_year_notation") is True
             context_opt_in = settings.get("extraction_context") is True
             table_context_opt_in = settings.get("extraction_table_context") is True
+            atomic_opt_in = settings.get("extraction_atomic") is True
+            if "extraction_atomic" in settings and (
+                not atomic_opt_in or settings.get("extraction_source_ids") is not True
+            ):
+                raise ValueError("EXTRACTION_PROFILE_MISMATCH")
             source_ids_opt_in = settings.get("extraction_source_ids") is True
             assertion_prompt_opt_in = settings.get("extraction_assertion_prompt") is True
             complete_selection_opt_in = settings.get("extraction_complete_selection") is True
@@ -251,6 +256,7 @@ def build_composition(
                         extraction_context=context_opt_in,
                         extraction_table_context=table_context_opt_in,
                         source_ids=source_ids_opt_in,
+                        extraction_atomic=atomic_opt_in,
                         assertion_prompt=assertion_prompt_opt_in,
                         complete_selection=complete_selection_opt_in,
                         extraction_content_bounds=content_bounds_opt_in,
@@ -268,6 +274,7 @@ def build_composition(
                     extraction_context=context_opt_in,
                     extraction_table_context=table_context_opt_in,
                     extraction_source_ids=source_ids_opt_in,
+                    extraction_atomic=atomic_opt_in,
                     extraction_assertion_prompt=assertion_prompt_opt_in,
                     extraction_complete_selection=complete_selection_opt_in,
                     extraction_content_bounds=content_bounds_opt_in,
