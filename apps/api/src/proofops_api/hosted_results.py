@@ -14,6 +14,7 @@ from proofops.application.registry import Registry
 from proofops.application.reviews import ReviewRejected, ReviewService
 from proofops.application.uploads import UploadService
 
+from proofops_api.hosted_ocr import ReplayOCRStore, reader_scope
 from proofops_api.hosted_store import HostedError
 
 
@@ -36,7 +37,8 @@ def services(path: Path, tenant: str):
         load_run_snapshot=runs.snapshot,
     )
     try:
-        yield manifest["run_id"], claims, tags, reviews
+        with reader_scope(ReplayOCRStore(path / "upstage.sqlite3")):
+            yield manifest["run_id"], claims, tags, reviews
     finally:
         uploads.close()
         registry.close()

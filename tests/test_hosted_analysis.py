@@ -291,7 +291,10 @@ def test_unknown_dispatch_restart_no_redelivery(settings, tmp_path):
     assert restarted.budget_totals()["event_reserved_usd"] == "0.500000"
 
 
-def test_linux_reader_explicitly_unresolved_without_dispatch(settings, tmp_path, monkeypatch):
+@pytest.mark.parametrize("reader", ["upstage-ocr-page-v1", "upstage-ocr-page-v2"])
+def test_linux_reader_explicitly_unresolved_without_dispatch(
+    settings, tmp_path, monkeypatch, reader
+):
     from proofops_api.hosted_analysis import execute_analysis
 
     for name in ("luna.key", "upstage.key"):
@@ -306,6 +309,15 @@ def test_linux_reader_explicitly_unresolved_without_dispatch(settings, tmp_path,
                 report_year=2025,
                 period_start="2024-01-01",
                 period_end="2024-12-31",
+                **(
+                    dict(
+                        analysis_profile="r108-finals-candidate",
+                        rendered_reader_profile=reader,
+                        rendered_reader_gate_passed=True,
+                    )
+                    if reader
+                    else {}
+                ),
             )
         )
     )
@@ -318,6 +330,7 @@ def test_linux_reader_explicitly_unresolved_without_dispatch(settings, tmp_path,
     assert result["hold_reasons"] == ["LINUX_SOURCE_READER_UNRESOLVED"]
     assert not result["claims"] and result["confirmed_grade"] is None
     assert store.budget_totals()["event_reserved_usd"] == "0.000000"
+    assert result["pipeline"]["profiles"]["rendered_reader_requested"] == reader
 
 
 def test_purge_fences_but_waits_for_working_source_lock(settings):

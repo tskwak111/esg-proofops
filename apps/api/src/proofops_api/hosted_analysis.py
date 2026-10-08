@@ -22,6 +22,46 @@ from proofops.adapters.local.upstage_parse import (
 from proofops.domain.provenance import canonical_hash
 from pypdf import PdfReader
 
+# Release-owned approval, never populated from operator JSON or environment.
+RENDERED_READER_POLICY = json.loads(
+    (Path(__file__).resolve().parents[4] / "config/hosted_rendered_readers.json").read_text()
+)
+GATE_PASSED_RENDERED_READERS = frozenset(RENDERED_READER_POLICY["gate_passed"])
+KNOWN_RENDERED_READERS = frozenset(
+    {"upstage-ocr-page-v1", "upstage-ocr-page-v2", "upstage-ocr-page-v3"}
+)
+
+
+def operator_profiles(config: dict) -> dict:
+    analysis = config.get("analysis_profile", "r108-default")
+    if analysis not in ("r108-default", "r108-finals-candidate"):
+        raise ValueError("HOSTED_ANALYSIS_PROFILE_INVALID")
+    requested = config.get("rendered_reader_profile")
+    if requested is not None and requested not in KNOWN_RENDERED_READERS:
+        raise ValueError("HOSTED_RENDERED_READER_PROFILE_INVALID")
+    reader = (
+        "apple-vision"
+        if sys.platform == "darwin"
+        else RENDERED_READER_POLICY["default_linux_reader"]
+    )
+    if requested is not None or reader != "apple-vision":
+        reader = requested or reader
+        reader = reader if reader in GATE_PASSED_RENDERED_READERS else "unresolved"
+    approval = RENDERED_READER_POLICY["gate_passed"].get(reader, {})
+    return PROFILES | dict(
+        analysis_profile=analysis,
+        rendered_reader_requested=requested,
+        source_reader=reader,
+        claim_source=reader if reader in GATE_PASSED_RENDERED_READERS else "glyph-alignment-v1",
+        rendered_reader_policy_sha256=canonical_hash(RENDERED_READER_POLICY),
+        rendered_reader_gate_report_sha256=approval.get("report_sha256"),
+    )
+
+
+def runtime_profiles(settings):
+    config = {} if settings.live_disabled else read_operator_config(settings.live_config)
+    return operator_profiles(config)
+
 
 def read_operator_config(path: Path | None) -> dict:
     if path is None or not path.is_absolute() or not path.is_file():
@@ -37,6 +77,7 @@ def read_operator_config(path: Path | None) -> dict:
         raise ValueError("HOSTED_REPORTING_SCOPE_REQUIRED")
     if date.fromisoformat(config["period_start"]) > date.fromisoformat(config["period_end"]):
         raise ValueError("HOSTED_REPORTING_SCOPE_INVALID")
+    operator_profiles(config)
     return config
 
 
@@ -132,7 +173,8 @@ class HostedParseProbe(UpstageParseProbe):
 
 
 def execute_analysis(store, job, prepared):
-    read_operator_config(store.settings.live_config)
+    config = read_operator_config(store.settings.live_config)
+    profiles = operator_profiles(config)
     with store.transaction() as db:
         store._fenced(db, job, time.time())
         directory = store.document_dir(job["tenant_id"], job["document_id"])
@@ -144,7 +186,7 @@ def execute_analysis(store, job, prepared):
             workspace = Path(scratch)
             os.chmod(workspace, 0o700)
             (workspace / "selected.pdf").write_bytes(prepared.read_bytes())
-            if sys.platform != "darwin":
+            if profiles["source_reader"] == "unresolved":
                 state = workspace / "state"
                 state.mkdir(mode=0o700)
                 (state / "outcome.json").write_text(
@@ -152,7 +194,7 @@ def execute_analysis(store, job, prepared):
                         dict(
                             status="partial_blocked",
                             reason="LINUX_SOURCE_READER_UNRESOLVED",
-                            profiles=PROFILES,
+                            profiles=profiles,
                             stages=[],
                             provider_calls=0,
                         )

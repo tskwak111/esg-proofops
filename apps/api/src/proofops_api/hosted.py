@@ -278,6 +278,9 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
 
     @app.get("/v1/runtime")
     def runtime() -> dict:
+        from proofops_api.hosted_analysis import runtime_profiles
+
+        profiles = runtime_profiles(settings)
         return {
             "app_env": "hosted",
             "profile": "r108-hosted-sprint5-v1",
@@ -285,10 +288,11 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
             "accept_new_runs": settings.accept_runs,
             "accept_uploads": settings.accept_uploads,
             "live_disabled": settings.live_disabled,
-            "live_analysis": not settings.live_disabled and __import__("sys").platform == "darwin",
-            "source_verifier": "apple-vision"
-            if __import__("sys").platform == "darwin"
-            else "unresolved",
+            "live_analysis": not settings.live_disabled
+            and profiles["source_reader"] != "unresolved",
+            "source_verifier": profiles["source_reader"],
+            "analysis_profile": profiles["analysis_profile"],
+            "rendered_reader_gate_report_sha256": profiles["rendered_reader_gate_report_sha256"],
             "delete_policy": "uploader_or_admin",
             "review_role": "reviewer",
             "result_schema": "r108-hosted-result-v1",
@@ -321,13 +325,16 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
 
     @app.get("/v1/health/ready")
     def ready() -> dict:
+        from proofops_api.hosted_analysis import runtime_profiles
+
         with store.transaction() as db:
             db.execute("SELECT version FROM hosted_schema").fetchone()
             failed = db.execute("SELECT 1 FROM deletion.attempts WHERE status='failed'").fetchone()
         return {
             "status": "not_ready" if failed else "ok",
             "control_plane": not bool(failed),
-            "live_analysis": not settings.live_disabled and __import__("sys").platform == "darwin",
+            "live_analysis": not settings.live_disabled
+            and runtime_profiles(settings)["source_reader"] != "unresolved",
             "checks": ["sqlite", "durable_auth", "purge_guards", "hosted_broker"],
         }
 

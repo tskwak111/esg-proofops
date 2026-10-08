@@ -429,7 +429,19 @@ class LocalSQLiteJobStore:
         from proofops.adapters.local.run_artifacts import native_paragraph_policy
 
         if policy is not None and policy != native_paragraph_policy():
-            raise ValueError("NATIVE_PARAGRAPH_POLICY_MISMATCH")
+            from proofops.adapters.local.claim_source_policies import page_ocr_profile
+
+            mode = policy.get("mode") if isinstance(policy, dict) else None
+            if (
+                mode
+                not in {
+                    "upstage-ocr-page-v1",
+                    "upstage-ocr-page-v2",
+                    "upstage-ocr-page-v3",
+                }
+                or policy != page_ocr_profile(mode).native_policy()
+            ):
+                raise ValueError("NATIVE_PARAGRAPH_POLICY_MISMATCH")
         with self._transaction() as db:
             if self._owned(db, lease, now) is None:
                 raise LeaseLost("LEASE_LOST")

@@ -1,6 +1,8 @@
 **
 !pyproject.toml
 !uv.lock
+!pnpm-lock.yaml
+!sbom.json
 !packages/
 !packages/proofops/
 !packages/proofops/**
@@ -23,6 +25,7 @@
 !prompts/**
 !scripts/
 !scripts/hosted_control.py
+!scripts/review_rulepack.py
 !deploy/
 !deploy/public/
 !deploy/public/smoke.py

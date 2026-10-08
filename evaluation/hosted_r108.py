@@ -4,13 +4,14 @@ import json
 import os
 import sys
 import time
+from contextlib import nullcontext
 from pathlib import Path
 
 from proofops.adapters.local.upstage import UpstageProbe
 from proofops_api.hosted_analysis import (
-    PROFILES,
     HostedLunaProbe,
     HostedParseProbe,
+    operator_profiles,
     read_key,
     read_operator_config,
 )
@@ -22,7 +23,8 @@ def prepare_argv(pdf, state, tenant, config):
     from pypdf import PdfReader
 
     pages = ",".join(str(p) for p in range(1, len(PdfReader(pdf).pages) + 1))
-    return [
+    profiles = operator_profiles(config)
+    argv = [
         "hosted-r108",
         "--pdf",
         str(pdf),
@@ -53,7 +55,7 @@ def prepare_argv(pdf, state, tenant, config):
         "--relation-profile",
         "occurrence-v3",
         "--claim-source-profile",
-        "glyph-alignment-v1",
+        profiles["claim_source"],
         "--verify-paragraphs",
         "--verify-merged-tables",
         "--repair-table-headers",
@@ -77,9 +79,26 @@ def prepare_argv(pdf, state, tenant, config):
         "--display-text-profile",
         "glyph-joined-display-v1",
     ]
+    if profiles["analysis_profile"] == "r108-finals-candidate":
+        argv[argv.index("--vision-parse") + 1] = "auto"
+        argv.remove("--position-context-order")
+        if profiles["claim_source"] == "glyph-alignment-v1":
+            argv.append("--r108-finals-candidate")
+        else:
+            # The frozen I1 macro pins Apple. Keep it unchanged; reuse its exact
+            # feature flags with the independently approved Linux source policy.
+            from evaluation.local_upstage_pilot import FINALS_CANDIDATE_FLAGS
+
+            for name in FINALS_CANDIDATE_FLAGS:
+                flag = "--" + name.replace("_", "-")
+                if name == "capacity_refresh":
+                    flag = "--capacity-policy-refresh"
+                if flag not in argv:
+                    argv.append(flag)
+    return argv
 
 
-def drive(store, job, workspace, config, *, llm_post=None, parse_post=None):
+def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_post=None):
     from evaluation import local_upstage_pilot as pilot
 
     state = workspace / "state"
@@ -100,6 +119,22 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None):
     )
     upstage_ledger, luna_ledger = state / "upstage.sqlite3", state / "luna.sqlite3"
     UpstageProbe(parse_key, upstage_ledger)  # local receipts only; hosted broker grants money
+    profiles = operator_profiles(config)
+    scope = nullcontext()
+    if profiles["source_reader"].startswith("upstage-ocr-page-"):
+        from proofops_api.hosted_ocr import HostedOCRStore, reader_scope
+
+        os.environ["UPSTAGE_API_KEY"] = parse_key
+        scope = reader_scope(
+            HostedOCRStore(
+                upstage_ledger,
+                state / "ocr-spend.json",
+                store=store,
+                job=job,
+                local_run_id=manifest["run_id"],
+                post=ocr_post,
+            )
+        )
     factories = {
         "parse": lambda ledger: HostedParseProbe(
             parse_key, ledger, store=store, job=job, post=parse_post
@@ -110,31 +145,32 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None):
     }
     os.environ["LOCAL_LLM_MAX_WORKERS"] = "1"
     observed = []
-    for stage, progress in (("parse", 15), ("extract", 45), ("tag", 75)):
-        store.update_progress(job, stage, progress)
-        worker = build_composition(
-            stage=stage,
-            verify_paragraphs=stage == "parse",
-            provider_factories=factories,
-            provider_ledgers=(upstage_ledger, luna_ledger),
-        )
-        try:
-            outcome = worker.run_once(tenant_id=job["tenant_id"], run_id=manifest["run_id"])
-            observed.append(dict(stage=stage, outcome=outcome))
-            if stage == "extract" and outcome == "committed":
-                from proofops_worker.extract_batch import run_batches
+    with scope:
+        for stage, progress in (("parse", 15), ("extract", 45), ("tag", 75)):
+            store.update_progress(job, stage, progress)
+            worker = build_composition(
+                stage=stage,
+                verify_paragraphs=stage == "parse",
+                provider_factories=factories,
+                provider_ledgers=(upstage_ledger, luna_ledger),
+            )
+            try:
+                outcome = worker.run_once(tenant_id=job["tenant_id"], run_id=manifest["run_id"])
+                observed.append(dict(stage=stage, outcome=outcome))
+                if stage == "extract" and outcome == "committed":
+                    from proofops_worker.extract_batch import run_batches
 
-                batches = run_batches(
-                    worker, tenant_id=job["tenant_id"], run_id=manifest["run_id"], batches=100
-                )
-                if batches and batches[-1].get("stop_code"):
-                    observed.append(dict(stage=stage, outcome=batches[-1]["stop_code"]))
+                    batches = run_batches(
+                        worker, tenant_id=job["tenant_id"], run_id=manifest["run_id"], batches=100
+                    )
+                    if batches and batches[-1].get("stop_code"):
+                        observed.append(dict(stage=stage, outcome=batches[-1]["stop_code"]))
+                        break
+                if outcome not in {"committed", "completed", "partial"}:
                     break
-            if outcome not in {"committed", "completed", "partial"}:
-                break
-        finally:
-            worker.uploads.close()
-            worker.uploads.registry.close()
+            finally:
+                worker.uploads.close()
+                worker.uploads.registry.close()
     # Preserve genuine partial work and reasons. Only completed tag publication
     # may be called completed; domain decisions still carry their own hold states.
     complete = bool(observed and observed[-1] == dict(stage="tag", outcome="completed"))
@@ -142,7 +178,7 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None):
         status="completed" if complete else "partial_blocked",
         stages=observed,
         reason=None if complete else "R108_" + observed[-1]["outcome"].upper(),
-        profiles=PROFILES,
+        profiles=operator_profiles(config),
         reporting_scope={k: config[k] for k in ("report_year", "period_start", "period_end")},
     )
     (state / "outcome.json").write_text(json.dumps(result))

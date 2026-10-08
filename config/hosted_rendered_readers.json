@@ -1,0 +1,14 @@
+{
+  "schema": "hosted_rendered_readers_v1",
+  "default_linux_reader": "upstage-ocr-page-v3",
+  "gate_passed": {
+    "upstage-ocr-page-v3": {
+      "report": "outputs/agent-results/R108-redesign/lab/deploy/ocr/O1d-REPORT.md",
+      "report_sha256": "69f0797dbae5420ba1b5deb4ef2f12df3e7a820c0a9a37c5f5d16c37deea741e",
+      "approval": "coordinator decision 2026-10-09",
+      "claim_retention": [62, 64],
+      "false_verified": 0,
+      "numeric_promotions": 0
+    }
+  }
+}

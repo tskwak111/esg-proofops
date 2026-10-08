@@ -1047,12 +1047,14 @@ source = { editable = "apps/worker" }
 dependencies = [
     { name = "proofops", extra = ["parsing"] },
     { name = "proofops-agent" },
+    { name = "pyyaml" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "proofops", extras = ["parsing"], editable = "packages/proofops" },
     { name = "proofops-agent", editable = "apps/agent" },
+    { name = "pyyaml", specifier = ">=6.0,<7" },
 ]
 
 [[package]]

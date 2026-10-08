@@ -109,11 +109,11 @@ Default profile `r108-hosted-sprint5-v1`: Upstage document-parse-260128 with nat
 glyph/region boxes; OpenRouter openai/gpt-6-luna; occurrence-v3;
 glyph-joined-display-v1; glyph-alignment-v1; Apple Vision on macOS. Gemini fallback
 is off: this hosted binding has no approved budgeted Gemini transport. Any remaining
-parse/source gaps stay unresolved. The Linux `upstage-ocr-page-v1` implementation in
-r108-sprint1 is still uncommitted development at this integration point; it is not
-silently imported as an approved reader. Linux live opt-in returns
-`partial_blocked/LINUX_SOURCE_READER_UNRESOLVED`, empty claims, null grades and no
-provider calls. Linux release remains blocked until that profile is integrated.
+parse/source gaps stay unresolved. Linux defaults to `upstage-ocr-page-v3` after
+coordinator approval of O1d (62/64 holdout retention, false-verified0, numeric
+promotions0); macOS retains Apple. Failed v1/v2 requests remain
+`partial_blocked/LINUX_SOURCE_READER_UNRESOLVED`, empty claims, null grades and
+zero dispatch. All live enable flags remain explicitly off by default.
 
 Live requires **both** `LIVE_DISABLED=false` and absolute `HOSTED_LIVE_CONFIG` JSON:
 `enabled:true`, absolute `openrouter_key_file` / `upstage_key_file` paths, and
@@ -129,8 +129,9 @@ synchronous Upstage parse with the same graph conversion DTO. Bounds are standar
 USD.011/page, enhanced .033/page (VAT reserve included), Luna .011/attempt under the
 existing fixed model/max_price/request-byte/max-token policy. Actual Luna usage.cost
 rounds upward to micro-USD. Unknown/malformed receipts retain the full run envelope;
-restart never redelivers active/unknown jobs. No paid legacy or independent OCR
-transport is exposed. Default ceilings remain .50/run,5/day,5/event; lower caps work.
+restart never redelivers active/unknown jobs. No paid legacy transport is exposed. Approved PNG-only page OCR uses the same
+hosted broker at USD0.00165/page (VAT included), at most2 selected pages, with
+model/API/billed-page receipt validation before settlement. Default ceilings remain .50/run,5/day,5/event; lower caps work.
 Prices checked against https://www.upstage.ai/pricing/api and
 https://openrouter.ai/openai/gpt-6-luna/ on 2026-10-09; inherited Upstage expiry guard
 still closes dispatch after 2026-10-14 until its pricing policy is rechecked.
@@ -178,3 +179,28 @@ queue position, existing errors/headers and uploader deletion now have backend
 support. Its current RunOutcomeView still needs claim/review rendering to consume
 this DTO; API integration does not certify a deployed browser or Vercel cookie/body
 proxy. No frontend checkout, Vercel configuration, cloud resource or push changed.
+
+## P4 operator profiles (additive config; no DB migration)
+
+Private `HOSTED_LIVE_CONFIG` accepts `analysis_profile`: `r108-default` (omitted
+value preserves P2 behavior) or `r108-finals-candidate`. The candidate reuses the
+frozen I1 bundle including Q3; its preparation uses vision-parse auto and source
+context order instead of the default position context order. Budgets and grants
+remain operator-owned and every paid transport still requires the hosted broker.
+`rendered_reader_profile` is one operator JSON entry selecting v1/v2/v3; omitted
+means v3 on Linux and Apple on macOS. Only v3 is release-approved; v1/v2 remain
+unresolved and unknown profiles fail validation. Operators cannot approve a reader.
+`config/hosted_rendered_readers.json` records the release allowlist/default and
+O1d SHA256 `69f0797dbae5420ba1b5deb4ef2f12df3e7a820c0a9a37c5f5d16c37deea741e`.
+Its canonical policy hash and O1d hash are disclosed in runtime/results. Existing
+source policies and frozen reader bytes remain unchanged; approval provenance is
+additive. Linux candidate preparation reuses every I1 feature flag with the
+independently pinned v3 claim/native/table source policy; the frozen Apple I1 macro
+remains unchanged. Parser jobs accept only exact shipped OCR native policies.
+Every OCR page passes the hosted money/fence broker; unknown responses retain the
+reservation and are never redelivered. Receipts and raw OCR bytes stay in the
+private per-analysis ledger, never the research ledger. API result/review reads
+use trusted cached pages only and cannot dispatch providers. Existing results,
+receipts and revisions are preserved. Rollback: select a held reader or close
+live admission on new runs; retain all readers, saved states and money/deletion
+fences for historical replay. Holdout clearance is not Linux capacity/TLS proof.

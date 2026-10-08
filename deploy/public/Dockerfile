@@ -6,7 +6,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && mkdir -p /opt/homebrew/opt/openjdk@21/bin \
     && ln -s /usr/bin/java /opt/homebrew/opt/openjdk@21/bin/java
 WORKDIR /app
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml uv.lock pnpm-lock.yaml sbom.json ./
 COPY packages/proofops ./packages/proofops
 COPY apps/api ./apps/api
 COPY apps/worker ./apps/worker
@@ -16,6 +16,7 @@ COPY config ./config
 COPY contracts ./contracts
 COPY prompts ./prompts
 COPY scripts/hosted_control.py ./scripts/hosted_control.py
+COPY scripts/review_rulepack.py ./scripts/review_rulepack.py
 COPY deploy/public/smoke.py ./deploy/public/smoke.py
 RUN uv sync --frozen --no-dev --all-packages --no-cache \
     && useradd --uid 10001 --create-home proofops \

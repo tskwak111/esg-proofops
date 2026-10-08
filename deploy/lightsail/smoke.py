@@ -176,6 +176,7 @@ def main():
                 result=200,
                 claims=len(result["claims"]),
                 hold_reasons=result["hold_reasons"],
+                pipeline_profiles=result["pipeline"]["profiles"],
             )
             if args.expect == "linux-blocked-result":
                 assert (

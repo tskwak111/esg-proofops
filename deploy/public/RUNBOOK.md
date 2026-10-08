@@ -356,3 +356,32 @@ mock contract, Compose API+worker(no Caddy), health/login/upload202/poll/purge/r
 [Vercel external rewrites](https://vercel.com/docs/routing/rewrites),
 [Vercel120s origin limit](https://vercel.com/changelog/cdn-origin-timeout-increased-to-two-minutes),
 [Caddy body limit](https://caddyserver.com/docs/caddyfile/directives/request_body).
+
+## P4 local amd64 image and operator selection
+
+Build without pushing: `docker buildx build --platform linux/amd64 --load
+-f deploy/public/Dockerfile -t proofops-r108-public:p4-amd64 .`.
+Run key-free Compose rehearsal with `IMAGE=proofops-r108-public:p4-amd64
+EVIDENCE_DIR=/path/to/private/evidence deploy/lightsail/local-smoke.sh`.
+The script supplies dummy empty key files only for the Linux blocked-result check;
+no provider credentials or cloud calls are needed.
+
+In private live.json, omit `analysis_profile` for the existing P2 profile or set
+`"analysis_profile":"r108-finals-candidate"` for the frozen integration bundle.
+Linux defaults to approved v3; macOS retains Apple. To request it explicitly,
+set the single entry `"rendered_reader_profile":"upstage-ocr-page-v3"`.
+V1/v2 selections remain `LINUX_SOURCE_READER_UNRESOLVED`; operator JSON cannot
+approve a reader. The release allowlist in `config/hosted_rendered_readers.json`
+records O1d SHA256 `69f0797dbae5420ba1b5deb4ef2f12df3e7a820c0a9a37c5f5d16c37deea741e`.
+Default live flags remain off. The key-free Compose probe verifies approved v3
+runtime provenance and failed-v2 non-dispatch. Actual PNG-only OCR uses the same
+hosted budget/lease broker as parse/Luna, and result reads use cached receipt
+bytes only. Linux live capacity and public TLS remain separate release checks.
+Close live admission or select a held reader to roll back new work; preserve
+saved readers/receipts and the independent budget/deletion ledger.
+
+The image includes the pilot's runtime PyYAML dependency, delegated review helper,
+both lockfiles and their matching SBOM. These are required for its existing
+supply-chain admission gate; changing a lockfile requires regenerating the SBOM
+with `uv run python scripts/check_licenses.py --generate-sbom
+--env ENABLE_LEGACY_PYMUPDF=false` before rebuilding.
