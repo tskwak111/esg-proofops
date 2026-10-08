@@ -79,17 +79,22 @@ def prepare_argv(pdf, state, tenant, config):
         "--display-text-profile",
         "glyph-joined-display-v1",
     ]
-    if profiles["analysis_profile"] == "r108-finals-candidate":
+    if profiles["analysis_profile"] in ("r108-finals-candidate", "r108-finals-candidate-v2"):
+        v2 = profiles["analysis_profile"] == "r108-finals-candidate-v2"
         argv[argv.index("--vision-parse") + 1] = "auto"
         argv.remove("--position-context-order")
         if profiles["claim_source"] == "glyph-alignment-v1":
-            argv.append("--r108-finals-candidate")
+            argv.append("--r108-finals-candidate-v2" if v2 else "--r108-finals-candidate")
         else:
             # The frozen I1 macro pins Apple. Keep it unchanged; reuse its exact
             # feature flags with the independently approved Linux source policy.
-            from evaluation.local_upstage_pilot import FINALS_CANDIDATE_FLAGS
+            from evaluation.local_upstage_pilot import (
+                FINALS_CANDIDATE_FLAGS,
+                FINALS_CANDIDATE_V2_FLAGS,
+            )
 
-            for name in FINALS_CANDIDATE_FLAGS:
+            flags = FINALS_CANDIDATE_V2_FLAGS if v2 else FINALS_CANDIDATE_FLAGS
+            for name in flags:
                 flag = "--" + name.replace("_", "-")
                 if name == "capacity_refresh":
                     flag = "--capacity-policy-refresh"

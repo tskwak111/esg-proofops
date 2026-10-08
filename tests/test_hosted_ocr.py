@@ -139,7 +139,9 @@ def fake_page_ocr(png):
     return json.dumps(raw).encode(), "fake-page-ocr"
 
 
-@pytest.mark.parametrize("profile", ["r108-default", "r108-finals-candidate"])
+@pytest.mark.parametrize(
+    "profile", ["r108-default", "r108-finals-candidate", "r108-finals-candidate-v2"]
+)
 def test_linux_fake_chain_uses_v3_and_survives_receipt_replay(settings, monkeypatch, profile):
     from proofops_api import hosted_analysis
 

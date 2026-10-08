@@ -37,7 +37,7 @@ def operator_profiles(config: dict) -> dict:
     if type(workers) is not int or not 1 <= workers <= 16:
         raise ValueError("HOSTED_LLM_CONCURRENCY_INVALID")
     analysis = config.get("analysis_profile", "r108-default")
-    if analysis not in ("r108-default", "r108-finals-candidate"):
+    if analysis not in ("r108-default", "r108-finals-candidate", "r108-finals-candidate-v2"):
         raise ValueError("HOSTED_ANALYSIS_PROFILE_INVALID")
     requested = config.get("rendered_reader_profile")
     if requested is not None and requested not in KNOWN_RENDERED_READERS:
@@ -54,6 +54,12 @@ def operator_profiles(config: dict) -> dict:
     return PROFILES | dict(
         llm_max_workers=workers,
         analysis_profile=analysis,
+        analysis_profile_options=["r108-default", "r108-finals-candidate-v2"],
+        analysis_profile_warning=(
+            "E2E5 회귀 확인 — r108-finals-candidate-v2 또는 r108-default 사용 권장"
+            if analysis == "r108-finals-candidate"
+            else None
+        ),
         rendered_reader_requested=requested,
         source_reader=reader,
         claim_source=reader if reader in GATE_PASSED_RENDERED_READERS else "glyph-alignment-v1",

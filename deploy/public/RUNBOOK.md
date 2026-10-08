@@ -382,7 +382,9 @@ The script supplies dummy empty key files only for the Linux blocked-result chec
 no provider credentials or cloud calls are needed.
 
 In private live.json, omit `analysis_profile` for the existing P2 profile or set
-`"analysis_profile":"r108-finals-candidate"` for the frozen integration bundle.
+`"analysis_profile":"r108-finals-candidate-v2"` for the frozen Q9 integration bundle.
+Hosted default remains `r108-default`. V1 has an E2E5 regression warning and is
+excluded from `/v1/runtime` operator choices; existing v1 configs remain readable.
 Linux defaults to approved v3; macOS retains Apple. To request it explicitly,
 set the single entry `"rendered_reader_profile":"upstage-ocr-page-v3"`.
 V1/v2 selections remain `LINUX_SOURCE_READER_UNRESOLVED`; operator JSON cannot
@@ -400,3 +402,16 @@ both lockfiles and their matching SBOM. These are required for its existing
 supply-chain admission gate; changing a lockfile requires regenerating the SBOM
 with `uv run python scripts/check_licenses.py --generate-sbom
 --env ENABLE_LEGACY_PYMUPDF=false` before rebuilding.
+
+
+## P7 provider limit handling (local release)
+
+For HTTP402/403, the hosted run becomes failed with its exact safe code and shows
+“분석 서비스 한도 초과 — 운영자 확인 필요”. Do not retry or reset spend. The broker
+retains unknown costs in accounting_pending and blocks queued dispatch/new admission
+until an operator reconciles the actual provider/account state and preserved ledger.
+`/v1/runtime` exposes stored observed status only, with remaining_usd=null; it never
+queries a provider on GET and does not claim that an unqueried key has capacity.
+Use the same fixed Korean message in the separate `esg-submission-hosted` frontend.
+No real provider request, read-only account lookup, push or cloud deployment is part
+of the P7 free local build/smoke. Preserve the independent ledger on rollback.

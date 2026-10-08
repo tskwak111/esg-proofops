@@ -204,3 +204,37 @@ use trusted cached pages only and cannot dispatch providers. Existing results,
 receipts and revisions are preserved. Rollback: select a held reader or close
 live admission on new runs; retain all readers, saved states and money/deletion
 fences for historical replay. Holdout clearance is not Linux capacity/TLS proof.
+
+
+## P7 amendment — profiles and provider quota failures (2026-10-09)
+
+Hosted defaults remain `r108-default`, workers=8 and live-disabled. Operator choices
+are `r108-default` / `r108-finals-candidate-v2`. Existing v1 configs still load for
+compatibility, with an E2E5 regression warning; v1 is excluded from advertised choices.
+V2 uses the frozen Q9 fallback bundle, excluding table-row extraction and recall.
+Q8 `table-claim-spans-v1` remains a separate explicit local source-reader opt-in;
+it does not replace the approved hosted Linux OCR v3 policy or change its gates.
+
+OpenRouter HTTP402 (credit/key quota) and HTTP403 are classified conservatively as
+operator-blocked provider failures: run `status=failed`, exact
+`error_code=OPENROUTER_HTTP_402` / `OPENROUTER_HTTP_403`, `retryable=false`,
+`error_message="분석 서비스 한도 초과 — 운영자 확인 필요"`. HTTP403 alone does
+not establish the provider's precise cause. No HTTP body/key is exposed. The failure
+fences the run, forbids publication/redelivery, and preserves unconfirmed spend in
+`accounting_pending`. Timeouts and other unknown failures retain existing behavior.
+The hosted frontend shows the Korean message, stops run polling on failed, and
+blocks another start while an observed quota failure is displayed.
+
+`GET /v1/runtime` adds `analysis_profile_options`, `analysis_profile_warning` and
+`provider_limits.openrouter`: `status=unknown|blocked`, a safe classified error code,
+`remaining_usd=null`, `source=not_queried|observed_http_failure`, `retryable=false`,
+and a fixed message. It reads stored classified failures only: no provider calls,
+keys, run/tenant identities, documents, or account details. `unknown` is not healthy.
+Balance lookup is not enabled; remaining is not guessed. This is an observed status,
+not a live balance or automatic recovery signal. Purging/restoring control records
+may remove its observation; independent pending-spend admission guards still apply.
+
+No DB migration: schema1 and prior immutable result revisions are unchanged. DTO
+fields are additive; old readers still see failed and the safe code. Rollback new
+work to `r108-default` and a schema1-compatible image/frontend; preserve volume,
+budget reservations and deletion ledger. No automatic retry or ledger reset.

@@ -38,6 +38,8 @@ from proofops.application.uploads_security import (
 
 MICRO = Decimal(1_000_000)
 TERMINAL = ("partial_blocked", "completed", "cancelled", "failed")
+OPENROUTER_LIMIT_CODES = frozenset({"OPENROUTER_HTTP_402", "OPENROUTER_HTTP_403"})
+PROVIDER_LIMIT_MESSAGE = "분석 서비스 한도 초과 — 운영자 확인 필요"
 
 
 class HostedError(ValueError):
@@ -592,7 +594,30 @@ class HostedStore:
             "result_url": f'/v1/runs/{row["run_id"]}/result' if ready else None,
             "result": result,
             "error_code": row["error_code"],
+            "error_message": PROVIDER_LIMIT_MESSAGE
+            if row["error_code"] in OPENROUTER_LIMIT_CODES
+            else None,
+            "retryable": False,
             "prepared_sha256": row["prepared_sha256"],
+        }
+
+    def provider_limits(self) -> dict:
+        """Observed service availability only; never probe providers on public GETs."""
+        with self.transaction() as db:
+            row = db.execute(
+                "SELECT error_code FROM runs WHERE error_code IN (?,?) "
+                "ORDER BY created DESC,run_id DESC LIMIT 1",
+                ("OPENROUTER_HTTP_402", "OPENROUTER_HTTP_403"),
+            ).fetchone()
+        return {
+            "openrouter": {
+                "status": "blocked" if row else "unknown",
+                "error_code": row[0] if row else None,
+                "remaining_usd": None,
+                "source": "observed_http_failure" if row else "not_queried",
+                "retryable": False,
+                "message": PROVIDER_LIMIT_MESSAGE if row else None,
+            }
         }
 
     def _run(self, db: sqlite3.Connection, tenant: str, run: str) -> sqlite3.Row:
@@ -864,7 +889,11 @@ class HostedStore:
                 if state is None or state[0] in TERMINAL:
                     self._settle_envelope(db, job["run_id"])
             return response
-        except BaseException:
+        except BaseException as exc:
+            # A rejected quota call is terminal, but its unknown cost still needs
+            # operator reconciliation. Never release reservations or redeliver it.
+            limit_code = str(exc) if provider == "openrouter" else None
+            quota_blocked = limit_code in OPENROUTER_LIMIT_CODES
             with self.transaction() as db:
                 db.execute(
                     "UPDATE deletion.costs SET status='accounting_pending' "
@@ -874,9 +903,14 @@ class HostedStore:
                 )
                 db.execute(
                     "UPDATE runs SET "
-                    "status='accounting_pending',fence=fence+1,error_code='ACCOUNTING_PENDING' "
-                    "WHERE run_id=? AND status='running'",
-                    (job["run_id"],),
+                    "status=?,fence=fence+1,error_code=?,lease_until=0 "
+                    "WHERE run_id=? AND status='running' AND fence=?",
+                    (
+                        "failed" if quota_blocked else "accounting_pending",
+                        limit_code if quota_blocked else "ACCOUNTING_PENDING",
+                        job["run_id"],
+                        job["fence"],
+                    ),
                 )
                 db.execute(
                     "UPDATE deletion.spend SET status='accounting_pending' WHERE run_id=?",
@@ -928,16 +962,17 @@ class HostedStore:
                 (analysis or execute_analysis)(self, job, prepared)
             else:
                 self.finish(job, "partial_blocked", now=time.time())
-        except (HostedError, OSError, ValueError, subprocess.SubprocessError):
+        except (HostedError, OSError, ValueError, subprocess.SubprocessError) as exc:
+            code = str(exc) if str(exc) in OPENROUTER_LIMIT_CODES else "PREPARE_FAILED"
             with self.transaction() as db:
                 row = db.execute(
                     "SELECT status,fence FROM runs WHERE run_id=?", (job["run_id"],)
                 ).fetchone()
                 if row and row[0] == "running" and row[1] == job["fence"]:
                     db.execute(
-                        "UPDATE runs SET status='failed',error_code='PREPARE_FAILED' WHERE "
+                        "UPDATE runs SET status='failed',error_code=?,lease_until=0 WHERE "
                         "run_id=?",
-                        (job["run_id"],),
+                        (code, job["run_id"]),
                     )
                     self._settle_envelope(db, job["run_id"])
         try:
