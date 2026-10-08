@@ -35,6 +35,15 @@ from proofops.application.ingest.atomic_candidates import (
 from proofops.application.ingest.atomic_candidates import (
     atomic_candidates,
 )
+from proofops.application.ingest.table_row_candidates import (
+    POLICY as ROW_POLICY,
+)
+from proofops.application.ingest.table_row_candidates import (
+    PROFILE as ROW_PROFILE,
+)
+from proofops.application.ingest.table_row_candidates import (
+    row_candidates,
+)
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
 from proofops.domain.sentences import sentence_spans
@@ -185,6 +194,29 @@ ATOMIC_SYSTEM_PROMPT = (
     "Actual company quantities explicitly reported in an assurance appendix can qualify. "
     "A chart phrase with a dated target/value qualifies; an isolated chart label does not. "
     "If no supplied atom qualifies, return an empty sentence_ids array."
+)
+ROW_SYSTEM_SUFFIX = (
+    " extraction-table-rows-v1: source_sentences may include literal table/chart rows or cells. "
+    "Each entry's parent_context contains only that source's header or resolved same-table axes, "
+    "for interpretation only; it has no selectable IDs. A row reporting an environmental "
+    "metric's values, target or management action can qualify without a prose verb. "
+    "Select only supplied row/cell IDs; never combine disconnected chart labels and values, "
+    "borrow another row's number/year, or treat context as verified evidence. "
+    "Isolated labels, units, legends and years remain unselected. Binding and source "
+    "verification are still required downstream."
+)
+RECALL_SYSTEM_SUFFIX = (
+    " extraction-recall-examples-v1: Review EVERY supplied candidate independently. "
+    "Within the same environmental company-claim definition, include stated future plans "
+    "even without a numerical target: '당사는 재생에너지 조달을 확대할 계획입니다.' "
+    "Include environmental oversight, review and approval practices: "
+    "'이사회는 기후변화 대응 전략을 감독하고 검토·승인합니다.' "
+    "Include a literal target table row such as '온실가스 감축 목표\t2030년\t40%' "
+    "when it is supplied as a candidate. Parent context may clarify the row header, column "
+    "header, unit and year, but cannot supply a new quote or borrow another row's value. "
+    "A committee name, '환경 보호', '2030년' or a general aspiration alone is not a claim. "
+    "Assurance-provider procedures and general industry definitions remain excluded. "
+    "Do not infer attainment, evidence presence, tracks, grades or legal conclusions."
 )
 _MAX_ATOMIC_CANDIDATES = 64
 
@@ -417,6 +449,8 @@ def _system_prompt(
     assertion_prompt: bool = False,
     complete_selection: bool = False,
     extraction_atomic: bool = False,
+    extraction_table_rows: bool = False,
+    extraction_recall_prompt: bool = False,
 ) -> str:
     """The exact prompt sent for an option combination; legacy shapes untouched."""
     if extraction_atomic:
@@ -441,6 +475,10 @@ def _system_prompt(
     # Appended after assertion suffix when opted in; requires assertion_prompt.
     if complete_selection:
         prompt = prompt + COMPLETE_SELECTION_SYSTEM_SUFFIX
+    if extraction_table_rows:
+        prompt += ROW_SYSTEM_SUFFIX
+    if extraction_recall_prompt:
+        prompt += RECALL_SYSTEM_SUFFIX
     return prompt
 
 
@@ -459,6 +497,8 @@ def _profile_with_options(
     display_text_profile: str | None = None,
     extraction_atomic: bool = False,
     extraction_linewrap_join: bool = False,
+    extraction_table_rows: bool = False,
+    extraction_recall_prompt: bool = False,
 ) -> ExtractionProfile:
     """Versioned extraction profile for an explicit option combination.
 
@@ -494,7 +534,13 @@ def _profile_with_options(
             position_order,
             extraction_atomic,
             extraction_linewrap_join,
+            extraction_table_rows,
+            extraction_recall_prompt,
         )
+    ):
+        raise ValueError("UPSTAGE_PROFILE_OPTION_INVALID")
+    if (extraction_table_rows or extraction_recall_prompt) and (
+        not source_ids or extraction_atomic
     ):
         raise ValueError("UPSTAGE_PROFILE_OPTION_INVALID")
     if extraction_atomic and not source_ids:
@@ -523,6 +569,10 @@ def _profile_with_options(
         descriptor.append(LINEWRAP_JOIN_POLICY)
     if extraction_atomic:
         descriptor.append({**ATOMIC_POLICY, "max_candidates": _MAX_ATOMIC_CANDIDATES})
+    if extraction_table_rows:
+        descriptor.append(ROW_POLICY)
+    if extraction_recall_prompt:
+        descriptor.append("extraction-recall-examples-v1")
     if display_text_profile:
         descriptor.append(POLICY)
     if year_notation:
@@ -564,6 +614,8 @@ def _profile_with_options(
                 assertion_prompt=assertion_prompt,
                 complete_selection=complete_selection,
                 extraction_atomic=extraction_atomic,
+                extraction_table_rows=extraction_table_rows,
+                extraction_recall_prompt=extraction_recall_prompt,
             )
             + (_display_suffix() if display_text_profile else "")
         ),
@@ -598,6 +650,8 @@ class UpstageClaimExtractor:
         display_text_profile: str | None = None,
         extraction_atomic: bool = False,
         extraction_linewrap_join: bool = False,
+        extraction_table_rows: bool = False,
+        extraction_recall_prompt: bool = False,
     ) -> None:
         if not callable(getattr(probe, "complete", None)):
             raise ValueError("UPSTAGE_PROBE_REQUIRED")
@@ -646,6 +700,8 @@ class UpstageClaimExtractor:
             display_text_profile=display_text_profile,
             extraction_atomic=extraction_atomic,
             extraction_linewrap_join=extraction_linewrap_join,
+            extraction_table_rows=extraction_table_rows,
+            extraction_recall_prompt=extraction_recall_prompt,
         )
         if type(max_tokens) is not int or not 1 <= max_tokens <= 4096:
             raise ValueError("UPSTAGE_MAX_TOKENS_INVALID")
@@ -655,6 +711,8 @@ class UpstageClaimExtractor:
         self._receipts = root
         self._max_tokens = max_tokens
         self._profile = profile
+        self._table_rows = extraction_table_rows
+        self._recall_prompt = extraction_recall_prompt
         self._atomic = extraction_atomic
         self._linewrap_join = extraction_linewrap_join
         self._year_notation = extraction_year_notation
@@ -846,7 +904,9 @@ class UpstageClaimExtractor:
                     }
                 ),
             )
-        local_empty = self._atomic and not user_data["untrusted_document_data"]["source_sentences"]
+        local_empty = (self._atomic or self._table_rows) and not user_data[
+            "untrusted_document_data"
+        ]["source_sentences"]
         if self._atomic:
             self._write(
                 directory / "candidate_diagnostics.json",
@@ -1191,11 +1251,15 @@ class UpstageClaimExtractor:
         """
         if self._source_ids:
             atomic_index = None
-            if self._atomic:
+            if self._atomic or self._table_rows:
                 blocks = self._context_for(packet, context_graph)[0] if self._context else []
                 atomic_index = [
                     (entry["sentence_id"], (entry["char_start"], entry["char_end"]))
-                    for entry in self._atomic_entries(packet, text, blocks)
+                    for entry in (
+                        self._atomic_entries(packet, text, blocks)
+                        if self._atomic
+                        else self._row_entries(packet, text, blocks)
+                    )
                 ]
             return self._resolve_sentence_ids(
                 payload,
@@ -1368,6 +1432,45 @@ class UpstageClaimExtractor:
             )
         return entries
 
+    def _row_entries(self, packet, text, context_blocks):
+        data = packet["untrusted_document_data"]
+        kind = data["kind"]
+        if kind not in ("table", "table_row", "table_cell", "figure"):
+            return [
+                {"sentence_id": sid, "text": text[a:b], "char_start": a, "char_end": b}
+                for sid, (a, b) in self._sentence_index(
+                    text, data["source_id"], self._content_bounds
+                )
+            ]
+        axes = [b for b in context_blocks if b["role"].startswith("table_")]
+        candidates = row_candidates(text, kind=kind, table_context=tuple(b["text"] for b in axes))
+        if len(candidates) > ROW_POLICY["max_candidates"]:
+            raise ExtractionOutputError("EXTRACTION_SOURCE_SENTENCES_UNBOUNDED")
+        entries = []
+        for row in candidates:
+            parent = list(axes)
+            if row.header_start is not None:
+                parent.append(
+                    {
+                        "role": "same_source_header",
+                        "source_id": data["source_id"],
+                        "char_start": row.header_start,
+                        "char_end": row.header_end,
+                        "text": text[row.header_start : row.header_end],
+                    }
+                )
+            entries.append(
+                {
+                    "sentence_id": f"{data['source_id']}:{ROW_PROFILE}:{row.start}:{row.end}",
+                    "text": text[row.start : row.end],
+                    "char_start": row.start,
+                    "char_end": row.end,
+                    "parent_context": parent,
+                    "binding_status": "undetermined",
+                }
+            )
+        return entries
+
     def _source_id_wire(
         self, packet: dict, text: str, packet_sha: str, context_graph: Any, display_catalog=None
     ) -> tuple[str, dict, str]:
@@ -1385,7 +1488,7 @@ class UpstageClaimExtractor:
         )
         sentence_ids = (
             []
-            if self._atomic
+            if self._atomic or self._table_rows
             else self._sentence_index(
                 text, packet["untrusted_document_data"]["source_id"], self._content_bounds
             )
@@ -1405,6 +1508,9 @@ class UpstageClaimExtractor:
             )
             data["candidate_diagnostics"] = diagnostics
             data["candidate_profile"] = ATOMIC_PROFILE
+        if self._table_rows:
+            data["source_sentences"] = self._row_entries(packet, text, context_blocks)
+            data["candidate_profile"] = ROW_PROFILE
         if self._context:
             data["context_blocks"] = context_blocks
             data["omitted_source_ids"] = omitted_source_ids
@@ -1415,6 +1521,8 @@ class UpstageClaimExtractor:
             assertion_prompt=self._assertion_prompt,
             complete_selection=self._complete_selection,
             extraction_atomic=self._atomic,
+            extraction_table_rows=self._table_rows,
+            extraction_recall_prompt=self._recall_prompt,
         )
         user_data: dict[str, Any] = {
             "tenant_id": packet["tenant_id"],
@@ -1449,7 +1557,7 @@ class UpstageClaimExtractor:
                     s["sentence_id"]: (s["char_start"], s["char_end"])
                     for s in data["source_sentences"]
                 }
-                if self._atomic
+                if self._atomic or self._table_rows
                 else dict(self._sentence_index(text, data["source_id"], self._content_bounds))
             )
             for sentence in data["source_sentences"]:
