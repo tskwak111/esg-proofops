@@ -158,6 +158,7 @@ class LocalParserRunner:
         if snapshot.get("claim_source_policy", {}).get("profile") in {
             "upstage-ocr-page-v1",
             "upstage-ocr-page-v2",
+            "upstage-ocr-page-v3",
         }:
             from proofops.adapters.local.claim_source_policies import claim_source_reader
 
