@@ -102,6 +102,7 @@ def live_tagging_settings(
     preliminary_table_role: bool = False,
     preliminary_goal_role: bool = False,
     preliminary_actor_role: bool = False,
+    preliminary_sentence_context: bool = False,
     preliminary_p2: bool = False,
     preliminary_profile: str | None = None,
     compact_element_wire: bool = False,
@@ -127,6 +128,7 @@ def live_tagging_settings(
         or type(preliminary_table_context) is not bool
         or type(preliminary_table_role) is not bool
         or type(preliminary_goal_role) is not bool
+        or type(preliminary_sentence_context) is not bool
         or type(preliminary_actor_role) is not bool
         or type(preliminary_p2) is not bool
         or type(compact_element_wire) is not bool
@@ -148,6 +150,13 @@ def live_tagging_settings(
         raise ValueError("unknown relation profile")
     if relation_profile != "source-quotes-v1" and not relations:
         raise ValueError("relation profile requires live relations")
+    if preliminary_sentence_context and (
+        not preliminary_actor_role
+        or preliminary_p2
+        or preliminary_profile
+        or position_context_order
+    ):
+        raise ValueError("sentence context requires actor role and excludes alternative profiles")
     if preliminary_table_context and not preliminary_context:
         raise ValueError("preliminary table context requires preliminary context")
     if preliminary_table_role and not preliminary_table_context:
@@ -232,7 +241,15 @@ def live_tagging_settings(
         "or grading. Validate this equality for every element before submitting."
     )
     settings = {}
-    if preliminary_profile == "decision-v1":
+    if preliminary_sentence_context:
+        from proofops.application.tagging.preliminary import (
+            SENTENCE_CONTEXT_PROFILE,
+            SENTENCE_CONTEXT_SYSTEM_PROMPT,
+        )
+
+        preliminary_profile = SENTENCE_CONTEXT_PROFILE
+        preliminary_prompt = SENTENCE_CONTEXT_SYSTEM_PROMPT
+    elif preliminary_profile == "decision-v1":
         from proofops.application.tagging.decisions import PRELIMINARY_PROFILE, QUOTE_PROMPT
 
         preliminary_profile = PRELIMINARY_PROFILE
@@ -504,6 +521,7 @@ def apply_resume_metadata(args, saved: dict) -> None:
     args.preliminary_table_role = bool(saved.get("preliminary_table_role", False))
     args.preliminary_goal_role = bool(saved.get("preliminary_goal_role", False))
     args.preliminary_actor_role = bool(saved.get("preliminary_actor_role", False))
+    args.preliminary_sentence_context = bool(saved.get("preliminary_sentence_context", False))
     args.preliminary_p2 = bool(saved.get("preliminary_p2", False))
     args.compact_element_wire = bool(saved.get("compact_element_wire", False))
     args.position_context_order = bool(saved.get("position_context_order", False))
@@ -824,6 +842,11 @@ def main():
         help="Use R34 actor-role prompt",
     )
     parser.add_argument(
+        "--preliminary-sentence-context",
+        action="store_true",
+        help="Opt-in verified same-block sentence context; requires --preliminary-actor-role.",
+    )
+    parser.add_argument(
         "--preliminary-p2",
         action="store_true",
         help="Opt-in P2 preliminary prompt; requires --preliminary-table-role.",
@@ -958,6 +981,7 @@ def main():
         requested_preliminary_table = args.preliminary_table_context
         requested_preliminary_role = args.preliminary_table_role
         requested_preliminary_goal_role = args.preliminary_goal_role
+        requested_preliminary_sentence_context = args.preliminary_sentence_context
         requested_preliminary_actor_role = args.preliminary_actor_role
         requested_preliminary_p2 = args.preliminary_p2
         requested_compact_element_wire = args.compact_element_wire
@@ -992,6 +1016,8 @@ def main():
             parser.error("--resume cannot add preliminary table role resolution; create a new run")
         if requested_preliminary_goal_role and not args.preliminary_goal_role:
             parser.error("--resume cannot add preliminary goal role; create a new run")
+        if requested_preliminary_sentence_context and not args.preliminary_sentence_context:
+            parser.error("--resume cannot add sentence context; create a new run")
         if requested_preliminary_actor_role and not args.preliminary_actor_role:
             parser.error("--resume cannot add preliminary actor role; create a new run")
         if requested_preliminary_p2 and not args.preliminary_p2:
@@ -1036,6 +1062,13 @@ def main():
         parser.error("--live-relations requires --live-tagging")
     if args.compact_element_wire and not args.live_tagging:
         parser.error("--compact-element-wire requires --live-tagging")
+    if args.preliminary_sentence_context and (
+        not args.preliminary_actor_role
+        or args.preliminary_p2
+        or args.preliminary_profile
+        or args.position_context_order
+    ):
+        parser.error("--preliminary-sentence-context requires actor role and excludes alternatives")
     if args.preliminary_context and not args.live_tagging:
         parser.error("--preliminary-context requires --live-tagging")
     if args.preliminary_table_context and not args.preliminary_context:
@@ -1226,6 +1259,7 @@ def main():
                     preliminary_table_role=args.preliminary_table_role,
                     preliminary_goal_role=args.preliminary_goal_role,
                     preliminary_actor_role=args.preliminary_actor_role,
+                    preliminary_sentence_context=args.preliminary_sentence_context,
                     preliminary_p2=args.preliminary_p2,
                     preliminary_profile=args.preliminary_profile,
                     compact_element_wire=args.compact_element_wire,
@@ -1585,6 +1619,8 @@ def main():
             manifest["preliminary_table_role"] = True
         if args.preliminary_goal_role:
             manifest["preliminary_goal_role"] = True
+        if args.preliminary_sentence_context:
+            manifest["preliminary_sentence_context"] = True
         if args.preliminary_actor_role:
             manifest["preliminary_actor_role"] = True
         if args.preliminary_p2:
@@ -1669,6 +1705,8 @@ def main():
             raise ValueError("pilot preliminary table role policy changed; create a new state dir")
         if manifest.get("preliminary_goal_role", False) != args.preliminary_goal_role:
             raise ValueError("pilot preliminary goal role policy changed; create a new state dir")
+        if manifest.get("preliminary_sentence_context", False) != args.preliminary_sentence_context:
+            raise ValueError("pilot sentence context policy changed; create a new state dir")
         if manifest.get("preliminary_p2", False) != args.preliminary_p2:
             raise ValueError("pilot preliminary P2 policy changed; create a new state dir")
         if manifest.get("compact_element_wire", False) != args.compact_element_wire:

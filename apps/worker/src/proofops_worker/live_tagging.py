@@ -20,8 +20,10 @@ from proofops.application.ports.jobs import LeaseLost
 from proofops.application.preflight import check_local_upstage_tagger
 from proofops.application.registry import Registry, artifact_sha256
 from proofops.application.tagging.preliminary import (
+    SENTENCE_CONTEXT_PROFILE,
     preliminary_request,
     preliminary_table_request,
+    sentence_context_ready,
     validate_preliminary,
     validate_preliminary_table_sources,
 )
@@ -371,6 +373,7 @@ class LiveTaggingRuntime:
             "upstage-preliminary-source-quotes-table-role-v2-p2-position-v1",
         )
         decision = profile == "preliminary-decision-v1"
+        sentence_context = profile == SENTENCE_CONTEXT_PROFILE
         actor_role_v2 = profile == "upstage-preliminary-source-quotes-actor-role-v2" or decision
         actor_role = profile == "upstage-preliminary-source-quotes-actor-role-v1" or actor_role_v2
         goal_role = profile == "upstage-preliminary-source-quotes-goal-role-v1" or actor_role
@@ -383,12 +386,17 @@ class LiveTaggingRuntime:
             or goal_role
             or p2
         )
-        table = profile == "upstage-preliminary-source-quotes-table-v1" or role_table
+        table = (
+            profile == "upstage-preliminary-source-quotes-table-v1"
+            or role_table
+            or sentence_context
+        )
         if table:
             packet = preliminary_table_request(
                 claim,
                 graph,
                 tenant_id=self.auth.tenant_id,
+                sentence_context=sentence_context,
                 role_resolution=role_table,
                 goal_role=goal_role,
                 actor_role=actor_role,
@@ -405,6 +413,9 @@ class LiveTaggingRuntime:
             )
 
         packet = self.preliminary_transport.bound_context(packet)
+        if sentence_context and not sentence_context_ready(claim, packet):
+            self.preliminary_records[claim.claim_id] = []
+            return None
         display_catalog = getattr(self, "display_catalog", None)
         if display_catalog is not None:
             from proofops.application.tagging.preliminary import _sources
