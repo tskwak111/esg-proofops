@@ -596,3 +596,20 @@ def test_control_restore_cannot_reset_money_and_foreign_ledger_rejected(store, s
     fresh = HostedStore(replace(settings, root=tmp_path / "foreign"))
     with pytest.raises(HostedError, match="LEDGER_RECOVERY_REQUIRED"):
         fresh.restore(backup, now=time.time())
+
+
+def test_hosted_upload_admission_rejects_before_reading_large_body(store, settings):
+    import fcntl
+
+    app = create_hosted_app(settings)
+    client, h, _, _ = login(app, store)
+    lock = settings.root / "upload.lock"
+    with lock.open("a+b") as held:
+        fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        response = client.post(
+            "/v1/documents",
+            content=pdf(),
+            headers=h | {"Content-Type": "application/pdf", "Idempotency-Key": "bounded-upload-01"},
+        )
+        assert response.status_code == 429
+        assert response.headers["Retry-After"] == "1"

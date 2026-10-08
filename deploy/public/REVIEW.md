@@ -13,7 +13,7 @@ is inferred from a health check or a blank PDF smoke.
 | Explicit hosted, no local bypass / task§1, DESIGN§6 | implemented | main.create_app selects create_hosted_app, settings require hosted/disabled; staging/production local refusal unchanged; no/local routes in hosted OpenAPI; tests/test_hosted_public.py main/settings guards. |
 | Invite/session persistence/tenant isolation / DESIGN§6 | implemented | hashed single-use SQLite invite and SID, stable HMAC CSRF, strong membership read,8h/30min expiry, rotate/revoke; HTTP cookie attributes, tenant404, restart session+CSRF passed in Docker. |
 | Origin+CSRF/CORS / DESIGN§6 | implemented | exact HTTPS origin at startup, exact CORS/credentials/methods/headers, writes require CSRF, login exact Origin; hostile origin and missing CSRF rejected. No wildcard preview domains. |
-| Upload limits/selected2pages / DESIGN§6 | implemented | receive byte cap including chunked body; existing SEC-002 quarantine subprocess, max300pages/50MiB; page selection uniqueness/bounds and source/prepared hashes; selected preparation subprocess bounded512MiB/20CPU-seconds/30s. |
+| Upload limits/selected2pages / DESIGN§6 | implemented | receive byte cap including chunked body; cross-process upload slot1 prevents parallel body/validator OOM; existing SEC-002 quarantine subprocess, max300pages/50MiB; page selection uniqueness/bounds and source/prepared hashes; selected preparation subprocess bounded512MiB/20CPU-seconds/30s. |
 | Original retention7d / approved user update | implemented | runtime Korean notice, consent version persisted;60s periodic API maintenance + worker/startup/CLI maintain; expiry test actually unlinks original; default7d, configurable only downward. |
 | Purge/fence/no backup resurrection / DESIGN§5 | implemented for hosted stores | independent tombstone committed before payload unlink; complete document directory and document/run/idempotency rows removed; all remaining money records contain no source payload; purge failure remains blocked and retryable; old job publication rejected; restore checks matching ledger and tombstones. |
 | Backup raw exclusion/max14d / DESIGN§5 | implemented for hosted stores | online SQLite backup has no raw source BLOB; excludes sessions/invites/memberships; only receipt/graph/export dirs copied, not original/prepared; earliest document creation+14d lifetime; document backup payload removed on early purge; test scans PDFs and retained quote. Existing research caches are never mounted/imported. |
@@ -39,3 +39,8 @@ real research budget file even though transports are mocked. Their fixture now r
 composition.__file__ to tmp_path and provides a temporary empty presence-only fake ledger;
 all original profile assertions remain, and production ledger guards are unchanged.
 Full failure evidence remains in pytest-full.log; final suite in pytest-full-final.log.
+
+Final resource-admission guard was added after the full-suite collection. It has a
+failing-before regression, final focused/related tests and a rebuilt network-none
+Docker smoke. The full suite validates the rest of the implementation at e4d71a0;
+no unchanged broad check was repeated for this isolated hosted-only admission change.

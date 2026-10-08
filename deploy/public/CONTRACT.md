@@ -33,6 +33,8 @@ no trusted forwarded IP or tenant/client cost fields. Keys must never enter VITE
 ## Upload and retention
 POST /v1/documents accepts application/pdf bytes with Idempotency-Key; filenames and
 remote URLs are not accepted. Stream body capped at HOSTED_MAX_UPLOAD_BYTES=52428800,
+One cross-process upload slot rejects excess requests with429/Retry-After1 before
+receiving their bodies; disconnect cannot release the slot during validation.
 PDF quarantined subprocess checks reuse SEC-002 (max300 pages, password/active-content,
 object/expansion/CPU/memory bounds). Run pages default first min(2,page_count), unique
 1-based pages, at most2. Original SHA, selected page map and prepared SHA bind input.

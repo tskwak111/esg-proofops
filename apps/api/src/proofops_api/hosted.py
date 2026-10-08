@@ -1,6 +1,7 @@
 """Explicit hosted FastAPI composition. No local adapter, OIDC seed or paid transport."""
 
 import asyncio
+import fcntl
 import os
 import sqlite3
 import time
@@ -61,8 +62,9 @@ class DeletionReason(BaseModel):
 class BodyLimitMiddleware:
     """Enforce actual receive bytes even for chunked or misleading declared lengths."""
 
-    def __init__(self, app: Any, maximum: int):
-        self.app, self.maximum = app, maximum
+    def __init__(self, app: Any, maximum: int, data_dir: Any):
+        self.app, self.maximum, self.data_dir = app, maximum, data_dir
+        self.inflight: set = set()
 
     async def __call__(self, scope: dict, receive: Any, send: Any) -> None:
         if scope["type"] != "http":
@@ -89,7 +91,40 @@ class BodyLimitMiddleware:
                     raise HostedError("PAYLOAD_TOO_LARGE", 413)
             return message
 
-        await self.app(scope, bounded_receive, send)
+        if scope["method"] != "POST" or scope["path"] != "/v1/documents":
+            await self.app(scope, bounded_receive, send)
+            return
+        # One cross-process upload/validator slot bounds body copies + child RSS
+        # on the4GiB host; the independent analysis worker may still prepare pages.
+        lease = (self.data_dir / "upload.lock").open("a+b")
+        os.fchmod(lease.fileno(), 0o600)
+        try:
+            fcntl.flock(lease, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            lease.close()
+            response = JSONResponse(
+                {"error": {"code": "UPLOAD_BUSY"}}, status_code=429, headers={"Retry-After": "1"}
+            )
+            await response(scope, receive, send)
+            return
+
+        async def admitted():
+            try:
+                await self.app(scope, bounded_receive, send)
+            finally:
+                lease.close()
+
+        def finished(task):
+            self.inflight.discard(task)
+            if not task.cancelled():
+                task.exception()
+
+        task = asyncio.create_task(admitted())
+        self.inflight.add(task)
+        task.add_done_callback(finished)
+        # A disconnect cannot free the slot while a native/subprocess validator
+        # is still working in the request's threadpool.
+        await asyncio.shield(task)
 
 
 def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
@@ -119,7 +154,9 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
     app = FastAPI(title="ProofOps Hosted API", version="1.0.0", lifespan=lifespan)
     app.state.composition = store
     app.state.auth_store = auth_store
-    app.add_middleware(BodyLimitMiddleware, maximum=settings.max_upload_bytes)
+    app.add_middleware(
+        BodyLimitMiddleware, maximum=settings.max_upload_bytes, data_dir=settings.root
+    )
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[settings.origin],

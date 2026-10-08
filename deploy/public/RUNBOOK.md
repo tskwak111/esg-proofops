@@ -3,7 +3,8 @@
 Target: Lightsail Linux4GB, not a cloud deployment in this task. `deploy/public/Dockerfile`
 uses frozen Python3.12.14/uv0.12.7/workspace lock, Java21+PDF dependencies. App runs
 non-root and explicit hosted/disabled composition; container memory cap3GiB leaves1GiB
-of a4GiB host for the OS/proxy. Selected-page subprocess cap512MiB/20CPU-seconds/30s.
+of a4GiB host for the OS/proxy. Selected-page subprocess cap512MiB/20CPU-seconds/30s. Cross-process upload admission
+is1; concurrent uploads receive429 before their bodies are read.
 All metrics below must be interpreted as offline control-plane/upload/prepare smoke,
 not live OCR/JVM/LLM peak RSS or a completed end-to-end analysis capacity claim.
 
