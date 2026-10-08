@@ -5,6 +5,7 @@ proves source existence, not the model's semantic classification accuracy. Calle
 must retain raw responses and model/prompt/rule/replica pins before publication.
 """
 
+import re
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, replace
 from math import isfinite
@@ -25,6 +26,19 @@ from proofops.domain.values import SAFE_HARBOR_CATEGORIES, SourceRef, _require_u
 SCHEMA = "preliminary-source-quotes-v2"
 CONTEXT_SCHEMA = "preliminary-source-quotes-context-v1"
 TABLE_SCHEMA = "preliminary-source-quotes-table-v1"
+SENTENCE_CONTEXT_PROFILE = "upstage-preliminary-source-quotes-sentence-context-v1"
+SENTENCE_CONTEXT_SYSTEM_SUFFIX = (
+    " The parent_paragraph context contains source-verified complete sentences:"
+    " the sentence containing the atomic claim and up to two sentences before"
+    " and after it in that SAME block. Use this context only to interpret the"
+    " actor, tense and main predicate of the atomic claim, never to classify a"
+    " different neighboring assertion. Supplied table headers retain their"
+    " same-row/column source rules. Context is interpretation-only: never copy"
+    " its entity, metric, year or value into a dimension unless it is literally"
+    " present in a numbered source. Missing or ambiguous axes stay null."
+    " Every existing quote, source-validation and three-replica agreement rule"
+    " remains unchanged; no majority vote or confidence relaxation is permitted."
+)
 _REFUSABLE = frozenset({"verified", "unverified"})
 _EXCLUDED_CONTEXT_KINDS = frozenset({"table", "table_cell", "table_row"})
 # Additive suffix only; SYSTEM_PROMPT text itself is never mutated (its hash is
@@ -317,6 +331,94 @@ def _sources(claim: Claim, graph: CanonicalDocumentGraph, tenant_id: str) -> tup
     return verified
 
 
+def _sentence_window(text, start, end):
+    # A decimal point is not a sentence end. Never manufacture punctuation,
+    # normalize text, cross a block boundary, or include an unfinished tail.
+    spans = []
+    begin = 0
+    for match in re.finditer(r"[.!?。！？](?=\s|$)", text):
+        stop = match.end()
+        if text[begin:stop].strip():
+            left = begin
+            while left < stop and text[left].isspace():
+                left += 1
+            spans.append((left, stop))
+        begin = stop
+    hits = [i for i, (left, right) in enumerate(spans) if left < end and right > start]
+    if not hits or spans[hits[0]][0] > start or spans[hits[-1]][1] < end:
+        return None
+    return spans[max(0, hits[0] - 2)][0], spans[min(len(spans) - 1, hits[-1] + 2)][1]
+
+
+def _sentence_context(graph, sources, tenant_id, max_chars, max_blocks):
+    blocks = {block.source_id: block for block in graph.blocks}
+    entries, omitted, used, seen = [], [], 0, set()
+    for ref in sources:
+        if ref.source_id in seen:
+            continue
+        seen.add(ref.source_id)
+        block = blocks[ref.source_id]
+        if block.kind not in {"paragraph", "caption", "footnote"}:
+            omitted.append(ref.source_id)
+            continue
+        bounds = _sentence_window(block.raw_text, ref.char_start, ref.char_end)
+        if bounds is None:
+            omitted.append(ref.source_id)
+            continue
+        start, end = bounds
+        expanded = replace(
+            block.source_ref(), char_start=start, char_end=end, quote=block.raw_text[start:end]
+        )
+        verified = verify_source_ref(expanded, graph, tenant_id=tenant_id)
+        if verified.verification_state != "verified" or verified.quote != expanded.quote:
+            omitted.append(ref.source_id)
+            continue
+        if len(entries) >= max_blocks or used + len(expanded.quote) > max_chars:
+            omitted.append(ref.source_id)
+            continue  # whole sentence window only, never character truncation
+        entry = _context_entry(len(entries), block, "parent_paragraph")
+        entry.update(
+            text=expanded.quote,
+            quality="verified",
+            source_ref={k: v for k, v in asdict(verified).items() if k != "quote"},
+        )
+        entries.append(entry)
+        used += len(expanded.quote)
+    return entries, omitted
+
+
+def sentence_context_ready(claim: Claim, packet: dict) -> bool:
+    """The opt-in trial requires verified complete interpretation input.
+
+    Missing or byte-bounded-away sentence context never licenses classification
+    of an isolated fragment. Verified own-table headers remain the equivalent
+    structural interpretation input for a table value, under the existing guard.
+    """
+    data = packet["untrusted_document_data"]
+    table = packet.get("table_policy", {})
+    if (
+        table.get("lineage") == "resolved"
+        and table.get("verified_sources_only") is True
+        and any(s.get("table_role") in {"row_header", "column_header"} for s in data["sources"])
+    ):
+        return True
+    context = [
+        b["source_ref"]
+        for b in data.get("context_blocks", [])
+        if b["role"] == "parent_paragraph"
+        and b["quality"] == "verified"
+        and b["source_ref"].get("verification_state") == "verified"
+    ]
+    return all(
+        any(
+            b["source_id"] == ref.source_id
+            and b["char_start"] <= ref.char_start < ref.char_end <= b["char_end"]
+            for b in context
+        )
+        for ref in claim.source_refs
+    )
+
+
 def _center(bbox):
     if bbox is None:
         return None
@@ -601,6 +703,7 @@ def preliminary_table_request(
     p1: bool = False,
     p2: bool = False,
     position_order: bool = False,
+    sentence_context: bool = False,
 ) -> dict:
     """Opt-in ``TABLE_SCHEMA`` envelope: context plus verified table axis sources.
 
@@ -626,6 +729,13 @@ def preliminary_table_request(
     reproduces the exact table-role envelope. ``goal_role=False`` must yield the
     same hash as a plain ``role_resolution=True`` call.
     """
+    if type(sentence_context) is not bool or (
+        sentence_context
+        and (
+            role_resolution or goal_role or actor_role or period_role or p1 or p2 or position_order
+        )
+    ):
+        raise DomainValidationError("preliminary sentence context profile is exclusive")
     if type(role_resolution) is not bool:
         raise DomainValidationError("preliminary table role resolution must be boolean")
     if type(goal_role) is not bool:
@@ -658,6 +768,13 @@ def preliminary_table_request(
         position_order=position_order,
     )
     sources = _sources(claim, graph, tenant_id)
+    if sentence_context:
+        blocks, omitted = _sentence_context(
+            graph, sources, tenant_id, max_context_chars, max_context_blocks
+        )
+        envelope["untrusted_document_data"]["context_blocks"] = blocks
+        envelope["untrusted_document_data"]["omitted_source_ids"] = omitted
+        envelope["context_policy"]["whole_blocks_only"] = False
     table = table_structural_sources(
         graph,
         sources,
@@ -710,6 +827,8 @@ def preliminary_table_request(
         + (ACTOR_ROLE_SYSTEM_SUFFIX if actor_role else "")
         + (PERIOD_ROLE_SYSTEM_SUFFIX if period_role else "")
     )
+    if sentence_context:
+        envelope["prompt_sha256"] = canonical_hash(SENTENCE_CONTEXT_SYSTEM_PROMPT)
     envelope["table_policy"] = dict(
         policy=TABLE_SOURCE_POLICY,
         role_basis="structural_layout_interpretation",
@@ -882,3 +1001,20 @@ def validate_preliminary(
             span, sources, graph, tenant_id=tenant_id, allow_offsets=True
         )
     return PreliminaryClassification(track, ClaimContext(claim, dimensions), confidence, category)
+
+
+# Separate immutable prompt/profile pins; earlier profiles keep their exact bytes.
+# Avoid the long table-role demonstration: context must fit the existing byte cap.
+SENTENCE_CONTEXT_SYSTEM_PROMPT = (
+    SYSTEM_PROMPT
+    + CONTEXT_SYSTEM_SUFFIX
+    + TABLE_SYSTEM_SUFFIX
+    + GOAL_ROLE_SYSTEM_SUFFIX
+    + ACTOR_ROLE_SYSTEM_SUFFIX
+    + PERIOD_ROLE_SYSTEM_SUFFIX
+    + " For a bare table cell, the main predicate may span source 0 and its numbered"
+    " same-row/column headers. Read metric and reporting_period literally from"
+    " those numbered sources; entity still requires the organization in source 0."
+    " An ambiguous achieved/planned column keeps track null. A resolved metric"
+    " or a bare number never proves performance." + SENTENCE_CONTEXT_SYSTEM_SUFFIX
+)

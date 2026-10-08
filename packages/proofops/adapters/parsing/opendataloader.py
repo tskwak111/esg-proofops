@@ -65,6 +65,10 @@ def _table_verifier(policy_hash):
 
     if policy_hash == selected.policy_sha256():
         return selected
+    from proofops.adapters.local import upstage_ocr_profile
+
+    if policy_hash == upstage_ocr_profile.table_policy_sha256():
+        return upstage_ocr_profile
     raise ParseFailure("TABLE_SOURCE_POLICY_MISMATCH")
 
 
@@ -82,8 +86,9 @@ def _locates_auxiliary_cells(profile):
     if policy_hash is None:
         return False
     from proofops.adapters.local import selected_cell_table_verification as selected
+    from proofops.adapters.local.upstage_ocr_profile import table_policy_sha256
 
-    return policy_hash == selected.policy_sha256()
+    return policy_hash in {selected.policy_sha256(), table_policy_sha256()}
 
 
 def _json(value: object) -> bytes:
@@ -302,7 +307,7 @@ class OpenDataLoaderParser(ParserPort):
         self.upstage_probe = upstage_probe
 
     def parse(
-        self, source: SourceArtifact, profile: ParserProfile, *, tenant_id: str
+        self, source: SourceArtifact, profile: ParserProfile, *, tenant_id: str, page_reader=None
     ) -> CanonicalDocumentGraph:
         if source.tenant_id != tenant_id:
             raise ParseFailure("NOT_FOUND")
@@ -582,6 +587,10 @@ class OpenDataLoaderParser(ParserPort):
             returned_graph = graph
             if profile.table_source_policy_sha256 is not None:
                 verifier = _table_verifier(profile.table_source_policy_sha256)
+                if verifier.__name__.endswith("upstage_ocr_profile"):
+                    if page_reader is None:
+                        raise ParseFailure("OCR_RUN_REQUIRED")
+                    verifier = page_reader
                 receipt = verifier.attest_tables(graph, source.content, tenant_id=tenant_id)
                 (work / "table-source.json").write_bytes(_json(receipt))
                 returned_graph = verifier.replay_tables(

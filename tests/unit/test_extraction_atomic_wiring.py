@@ -226,6 +226,16 @@ def test_composition_passes_atomic_to_real_extractor(tmp_path, monkeypatch, prov
             },
         ),
     )
+    monkeypatch.setattr(
+        composition, "__file__", str(tmp_path / "apps/worker/src/proofops_worker/composition.py")
+    )
+    if provider == "upstage":
+        with pytest.raises(ValueError, match="SHARED_BUDGET_LEDGER_REQUIRED"):
+            build_composition(stage="extract")
+        # The provider is already mocked; supply only its required local ledger path.
+        ledger = tmp_path / ".local/upstage/budget.sqlite3"
+        ledger.parent.mkdir(parents=True)
+        ledger.touch()
     runner = build_composition(stage="extract")
     try:
         assert asdict(runner.extractor.profile) == profile

@@ -595,19 +595,26 @@ def check_local_upstage_tagger(
         P1_SYSTEM_PROMPT,
         P2_SYSTEM_PROMPT,
         PERIOD_ROLE_SYSTEM_SUFFIX,
+        SENTENCE_CONTEXT_PROFILE,
+        SENTENCE_CONTEXT_SYSTEM_PROMPT,
         TABLE_ROLE_SYSTEM_SUFFIX,
         TABLE_SYSTEM_SUFFIX,
     )
     from proofops.application.tagging.preliminary import SYSTEM_PROMPT as PRELIMINARY_SYSTEM_PROMPT
 
     profile_valid = (
-        settings.model_profile
+        (
+            settings.model_profile == SENTENCE_CONTEXT_PROFILE
+            and settings.system_prompt == SENTENCE_CONTEXT_SYSTEM_PROMPT
+        )
+        or settings.model_profile
         in {
             "upstage-compact-ids-frozen-unicode-v1",
             "upstage-compact-coverage-unicode-v2",
             "upstage-compact-source-quotes-v3",
             "upstage-compact-source-quotes-v4",
             "upstage-compact-source-quotes-v5",
+            "upstage-compact-element-consistency-v6",
         }
         or (
             settings.model_profile == "upstage-preliminary-source-quotes-v1"

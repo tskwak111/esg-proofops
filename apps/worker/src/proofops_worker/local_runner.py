@@ -154,6 +154,18 @@ class LocalParserRunner:
         raster_enabled = self._raster_enabled(snapshot)
         run = self.store.jobs.get_run(tenant_id, run_id)
         native_policy = native_paragraph_policy() if self.verify_paragraphs else None
+        page_reader = None
+        if snapshot.get("claim_source_policy", {}).get("profile") == "upstage-ocr-page-v1":
+            from proofops.adapters.local.upstage_ocr_profile import for_run, table_policy_sha256
+            from proofops.adapters.local.upstage_ocr_profile import native_policy as ocr_policy
+
+            if raster_enabled or self.native_typography_tolerance:
+                raise ValueError("OCR_PROFILE_COMPOSITION_UNSUPPORTED")
+            if self.profile.table_source_policy_sha256 not in {None, table_policy_sha256()}:
+                raise ValueError("OCR_TABLE_POLICY_MISMATCH")
+            page_reader = for_run(run_id)
+            if self.verify_paragraphs:
+                native_policy = ocr_policy()
         if (
             "parse_job" in run
             and self.store.jobs.parser_native_policy(JobMessage(**run["parse_job"]))
@@ -238,7 +250,12 @@ class LocalParserRunner:
                     if not directory.exists():
                         usage["parser_executions"] = 1
                         try:
-                            self.parser.parse(source, profile, tenant_id=tenant_id)
+                            if page_reader is not None:
+                                self.parser.parse(
+                                    source, profile, tenant_id=tenant_id, page_reader=page_reader
+                                )
+                            else:
+                                self.parser.parse(source, profile, tenant_id=tenant_id)
                         except ParseFailure as exc:
                             if str(exc) != "PARSE_MANIFEST_EXISTS":
                                 raise
@@ -290,6 +307,9 @@ class LocalParserRunner:
                             replay_native_sources,
                         )
 
+                        if page_reader is not None:
+                            attest_native_sources = page_reader.attest_native_sources
+                            replay_native_sources = page_reader.replay_native_sources
                         native_receipt = attest_native_sources(
                             graph, source.content, tenant_id=tenant_id, geometry_mode="glyph"
                         )

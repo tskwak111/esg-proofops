@@ -444,6 +444,7 @@ class RunService:
             if preliminary.model_profile not in {
                 "upstage-preliminary-source-quotes-v1",
                 "preliminary-decision-v1",
+                "upstage-preliminary-source-quotes-sentence-context-v1",
                 "upstage-preliminary-source-quotes-context-v1",
                 # Opt-in table pairs. The profile↔prompt welding for
                 # every name here is enforced by ``check_local_upstage_tagger``
@@ -463,6 +464,7 @@ class RunService:
                 "upstage-compact-source-quotes-v3",
                 "upstage-compact-source-quotes-v4",
                 "upstage-compact-source-quotes-v5",
+                "upstage-compact-element-consistency-v6",
             }:
                 raise RunRejected("CONFIG_GATE_BLOCKED")
             if relation is not None and not relation_settings_contract_valid(relation):

@@ -26,6 +26,73 @@ from fastapi import Request
 
 ROOT = Path(__file__).resolve().parents[1]
 
+FINALS_CANDIDATE = "r108-finals-candidate"
+# Sprint5 attempt3 behavior plus Q1/Q2/Q3/Q4; budgets and dispatch consent remain caller-owned.
+FINALS_CANDIDATE_FLAGS = (
+    "verify_paragraphs",
+    "verify_merged_tables",
+    "repair_table_headers",
+    "verify_claim_spans",
+    "claim_span_render_resolution",
+    "claim_span_bullet_spacing",
+    "claim_span_typography",
+    "extraction_context",
+    "extraction_table_context",
+    "extraction_source_ids",
+    "extraction_assertion_prompt",
+    "live_tagging",
+    "live_relations",
+    "preliminary_context",
+    "preliminary_table_context",
+    "preliminary_table_role",
+    "preliminary_goal_role",
+    "preliminary_actor_role",
+    "preliminary_sentence_context",
+    "compact_element_wire",
+    "capacity_refresh",
+    "extraction_linewrap_join",
+    "element_consistency",
+    "extraction_table_rows",
+    "extraction_recall_prompt",
+)
+FINALS_CANDIDATE_VALUES = {
+    "llm_provider": "openrouter",
+    "parser": "upstage",
+    "vision_parse": "auto",
+    "relation_profile": "occurrence-v3",
+    "claim_source_profile": "glyph-alignment-v1",
+    "display_text_profile": "glyph-joined-display-v1",
+}
+FINALS_CANDIDATE_FORBIDDEN = (
+    "extraction_atomic",
+    "preliminary_p2",
+    "position_context_order",
+    "verify_tables",
+    "verify_selected_cells",
+    "raster_ocr",
+)
+
+
+def apply_finals_candidate(args, *, restoring=False):
+    """Expand the opt-in bundle, or verify its frozen flags during read-only resume."""
+    if not getattr(args, "r108_finals_candidate", False):
+        return
+    for field in FINALS_CANDIDATE_FORBIDDEN:
+        if getattr(args, field, False):
+            raise ValueError(f"{FINALS_CANDIDATE} forbids --{field.replace('_', '-')}")
+    if args.preliminary_profile is not None or args.model not in (None, "openai/gpt-6-luna"):
+        raise ValueError(f"{FINALS_CANDIDATE} requires the Sprint5 attempt3 model profiles")
+    for field, expected in FINALS_CANDIDATE_VALUES.items():
+        actual = getattr(args, field)
+        allowed = (None, expected)
+        if (restoring and actual != expected) or (not restoring and actual not in allowed):
+            raise ValueError(f"{FINALS_CANDIDATE} requires {field}={expected}")
+        setattr(args, field, expected)
+    for field in FINALS_CANDIDATE_FLAGS:
+        if restoring and getattr(args, field) is not True:
+            raise ValueError(f"saved {FINALS_CANDIDATE} is missing {field}; create a new run")
+        setattr(args, field, True)
+
 
 def local_login_response(sessions, user: str, tenant: str, run_id: str, *, new_analysis=False):
     """The secret loopback login link renews an expired demo session on each visit."""
@@ -102,9 +169,11 @@ def live_tagging_settings(
     preliminary_table_role: bool = False,
     preliminary_goal_role: bool = False,
     preliminary_actor_role: bool = False,
+    preliminary_sentence_context: bool = False,
     preliminary_p2: bool = False,
     preliminary_profile: str | None = None,
     compact_element_wire: bool = False,
+    element_consistency: bool = False,
     position_context_order: bool = False,
     capacity_refresh: bool = False,
 ) -> dict:
@@ -127,8 +196,10 @@ def live_tagging_settings(
         or type(preliminary_table_context) is not bool
         or type(preliminary_table_role) is not bool
         or type(preliminary_goal_role) is not bool
+        or type(preliminary_sentence_context) is not bool
         or type(preliminary_actor_role) is not bool
         or type(preliminary_p2) is not bool
+        or type(element_consistency) is not bool
         or type(compact_element_wire) is not bool
         or type(position_context_order) is not bool
         or type(capacity_refresh) is not bool
@@ -148,6 +219,13 @@ def live_tagging_settings(
         raise ValueError("unknown relation profile")
     if relation_profile != "source-quotes-v1" and not relations:
         raise ValueError("relation profile requires live relations")
+    if preliminary_sentence_context and (
+        not preliminary_actor_role
+        or preliminary_p2
+        or preliminary_profile
+        or position_context_order
+    ):
+        raise ValueError("sentence context requires actor role and excludes alternative profiles")
     if preliminary_table_context and not preliminary_context:
         raise ValueError("preliminary table context requires preliminary context")
     if preliminary_table_role and not preliminary_table_context:
@@ -232,7 +310,15 @@ def live_tagging_settings(
         "or grading. Validate this equality for every element before submitting."
     )
     settings = {}
-    if preliminary_profile == "decision-v1":
+    if preliminary_sentence_context:
+        from proofops.application.tagging.preliminary import (
+            SENTENCE_CONTEXT_PROFILE,
+            SENTENCE_CONTEXT_SYSTEM_PROMPT,
+        )
+
+        preliminary_profile = SENTENCE_CONTEXT_PROFILE
+        preliminary_prompt = SENTENCE_CONTEXT_SYSTEM_PROMPT
+    elif preliminary_profile == "decision-v1":
         from proofops.application.tagging.decisions import PRELIMINARY_PROFILE, QUOTE_PROMPT
 
         preliminary_profile = PRELIMINARY_PROFILE
@@ -297,7 +383,9 @@ def live_tagging_settings(
         ),
         (
             "tagging",
-            "upstage-compact-source-quotes-v5"
+            "upstage-compact-element-consistency-v6"
+            if element_consistency
+            else "upstage-compact-source-quotes-v5"
             if compact_element_wire
             else "upstage-compact-source-quotes-v4",
             element_prompt,
@@ -402,6 +490,10 @@ def claim_source_policy_for(args):
     back is simply not passing the flag on a future run.
     """
     profile = getattr(args, "claim_source_profile", None)
+    if profile == "upstage-ocr-page-v1":
+        from proofops.adapters.local.upstage_ocr_profile import claim_source_policy
+
+        return claim_source_policy()
     if profile == "glyph-alignment-v1":
         from proofops.adapters.local.glyph_alignment_verification import claim_source_policy
 
@@ -434,6 +526,12 @@ def apply_resume_metadata(args, saved: dict) -> None:
     rejected exactly as before. Raises ``ValueError`` on a conflicting explicit
     override so callers can surface a clear CLI error.
     """
+    stored_profile = saved.get("r108_profile")
+    if stored_profile not in (None, FINALS_CANDIDATE):
+        raise ValueError("unknown saved R108 profile")
+    if getattr(args, "r108_finals_candidate", False) and stored_profile != FINALS_CANDIDATE:
+        raise ValueError("--resume cannot add r108-finals-candidate; create a new run")
+    args.r108_finals_candidate = stored_profile == FINALS_CANDIDATE
     saved_memory = saved.get("parser_memory_bytes", 768 * 1024 * 1024)
     requested_memory = getattr(args, "parser_memory_bytes", None)
     if requested_memory is not None and requested_memory != saved_memory:
@@ -504,18 +602,24 @@ def apply_resume_metadata(args, saved: dict) -> None:
     args.preliminary_table_role = bool(saved.get("preliminary_table_role", False))
     args.preliminary_goal_role = bool(saved.get("preliminary_goal_role", False))
     args.preliminary_actor_role = bool(saved.get("preliminary_actor_role", False))
+    args.preliminary_sentence_context = bool(saved.get("preliminary_sentence_context", False))
     args.preliminary_p2 = bool(saved.get("preliminary_p2", False))
     args.compact_element_wire = bool(saved.get("compact_element_wire", False))
+    args.element_consistency = bool(saved.get("element_consistency", False))
     args.position_context_order = bool(saved.get("position_context_order", False))
     args.capacity_refresh = bool(saved.get("capacity_refresh", False))
     args.extraction_year_notation = bool(saved.get("extraction_year_notation", False))
     args.extraction_context = bool(saved.get("extraction_context", False))
     args.extraction_table_context = bool(saved.get("extraction_table_context", False))
+    args.extraction_table_rows = bool(saved.get("extraction_table_rows", False))
+    args.extraction_recall_prompt = bool(saved.get("extraction_recall_prompt", False))
     args.extraction_atomic = bool(saved.get("extraction_atomic", False))
+    args.extraction_linewrap_join = bool(saved.get("extraction_linewrap_join", False))
     args.extraction_source_ids = bool(saved.get("extraction_source_ids", False))
     args.extraction_assertion_prompt = bool(saved.get("extraction_assertion_prompt", False))
     args.extraction_complete_selection = bool(saved.get("extraction_complete_selection", False))
     args.extraction_content_bounds = bool(saved.get("extraction_content_bounds", False))
+    apply_finals_candidate(args, restoring=True)
     if saved.get("tagging_max_calls"):
         args.tagging_max_calls = saved["tagging_max_calls"]
     saved_total = saved.get("extraction_total_calls")
@@ -769,8 +873,14 @@ def main():
     )
     parser.add_argument(
         "--claim-source-profile",
-        choices=["glyph-alignment-v1"],
-        help="Pin glyph alignment for a NEW run; requires --verify-claim-spans.",
+        "--rendered-reader-profile",
+        choices=["glyph-alignment-v1", "upstage-ocr-page-v1"],
+        help="Pin source reader for a NEW run; requires --verify-claim-spans.",
+    )
+    parser.add_argument(
+        "--element-consistency",
+        action="store_true",
+        help="Opt in to deterministic per-element evidence routing (v6).",
     )
     parser.add_argument(
         "--compact-element-wire",
@@ -825,6 +935,11 @@ def main():
         help="Use R34 actor-role prompt",
     )
     parser.add_argument(
+        "--preliminary-sentence-context",
+        action="store_true",
+        help="Opt-in verified same-block sentence context; requires --preliminary-actor-role.",
+    )
+    parser.add_argument(
         "--preliminary-p2",
         action="store_true",
         help="Opt-in P2 preliminary prompt; requires --preliminary-table-role.",
@@ -856,10 +971,26 @@ def main():
         "--extraction-context; pins its own extraction rule/prompt hash.",
     )
     parser.add_argument(
+        "--extraction-table-rows",
+        action="store_true",
+        help="Opt-in literal table/chart row candidates; requires source IDs.",
+    )
+    parser.add_argument(
+        "--extraction-recall-prompt",
+        action="store_true",
+        help="Opt-in environmental targets, oversight and plan examples; requires source IDs.",
+    )
+    parser.add_argument(
         "--extraction-atomic",
         action="store_true",
         help="Opt-in extraction-atomic-v2; requires --extraction-source-ids. "
         "Pinned on resume; use a new state for the challenger.",
+    )
+    parser.add_argument(
+        "--extraction-linewrap-join",
+        action="store_true",
+        help="Opt-in selected-linewrap-join-v1: join selected prose continuations only. "
+        "Requires --extraction-source-ids, incompatible with --extraction-atomic; new run only.",
     )
     parser.add_argument(
         "--extraction-assertion-prompt",
@@ -889,7 +1020,18 @@ def main():
         "--resume; requires --serve. Re-serving stored results alone never needs it.",
     )
     parser.add_argument("--port", type=int, default=8766)
+    parser.add_argument(
+        "--r108-finals-candidate",
+        action="store_true",
+        help="Opt-in Sprint5 attempt3 + linewrap join + element consistency v6 + "
+        "sentence context + table rows + recall prompt. No atomic mode; "
+        "does not authorize model calls.",
+    )
     args = parser.parse_args()
+    try:
+        apply_finals_candidate(args)
+    except ValueError as exc:
+        parser.error(str(exc))
     if args.vision_parse is None:
         args.vision_parse = "auto" if args.parser == "upstage" else "off"
     if args.parser == "upstage" and args.vision_parse == "all":
@@ -920,6 +1062,8 @@ def main():
     resume_manifest = resume_state / "pilot.json"
     if resume_manifest.exists():
         saved = json.loads(resume_manifest.read_text())
+        if args.r108_finals_candidate and saved.get("r108_profile") != FINALS_CANDIDATE:
+            parser.error("cannot add r108-finals-candidate to an existing run; create a new run")
         if args.parser_memory_bytes is not None and args.parser_memory_bytes != saved.get(
             "parser_memory_bytes", 768 * 1024 * 1024
         ):
@@ -951,7 +1095,10 @@ def main():
         requested_year_notation = args.extraction_year_notation
         requested_context = args.extraction_context
         requested_table_context = args.extraction_table_context
+        requested_rows = args.extraction_table_rows
+        requested_recall = args.extraction_recall_prompt
         requested_atomic = args.extraction_atomic
+        requested_linewrap_join = args.extraction_linewrap_join
         requested_source_ids = args.extraction_source_ids
         requested_assertion_prompt = args.extraction_assertion_prompt
         requested_complete_selection = args.extraction_complete_selection
@@ -959,9 +1106,11 @@ def main():
         requested_preliminary_table = args.preliminary_table_context
         requested_preliminary_role = args.preliminary_table_role
         requested_preliminary_goal_role = args.preliminary_goal_role
+        requested_preliminary_sentence_context = args.preliminary_sentence_context
         requested_preliminary_actor_role = args.preliminary_actor_role
         requested_preliminary_p2 = args.preliminary_p2
         requested_compact_element_wire = args.compact_element_wire
+        requested_element_consistency = args.element_consistency
         requested_position_order = args.position_context_order
         requested_capacity_refresh = getattr(args, "capacity_refresh", False)
         requested_render_resolution = args.claim_span_render_resolution
@@ -977,8 +1126,14 @@ def main():
             parser.error("--resume cannot add extraction context; create a new run")
         if requested_table_context and not args.extraction_table_context:
             parser.error("--resume cannot add extraction table context; create a new run")
+        if requested_rows and not args.extraction_table_rows:
+            parser.error("--resume cannot add extraction table rows; create a new run")
+        if requested_recall and not args.extraction_recall_prompt:
+            parser.error("--resume cannot add extraction recall prompt; create a new run")
         if requested_atomic and not args.extraction_atomic:
             parser.error("--resume cannot add extraction atomic; create a new run")
+        if requested_linewrap_join and not args.extraction_linewrap_join:
+            parser.error("--resume cannot add extraction linewrap join; create a new run")
         if requested_source_ids and not args.extraction_source_ids:
             parser.error("--resume cannot add extraction source-id selection; create a new run")
         if requested_assertion_prompt and not args.extraction_assertion_prompt:
@@ -993,10 +1148,14 @@ def main():
             parser.error("--resume cannot add preliminary table role resolution; create a new run")
         if requested_preliminary_goal_role and not args.preliminary_goal_role:
             parser.error("--resume cannot add preliminary goal role; create a new run")
+        if requested_preliminary_sentence_context and not args.preliminary_sentence_context:
+            parser.error("--resume cannot add sentence context; create a new run")
         if requested_preliminary_actor_role and not args.preliminary_actor_role:
             parser.error("--resume cannot add preliminary actor role; create a new run")
         if requested_preliminary_p2 and not args.preliminary_p2:
             parser.error("--resume cannot add preliminary P2; create a new run")
+        if requested_element_consistency and not args.element_consistency:
+            parser.error("--resume cannot add element consistency; create a new run")
         if requested_compact_element_wire and not args.compact_element_wire:
             parser.error("--resume cannot add compact element wire; create a new run")
         if requested_position_order and not args.position_context_order:
@@ -1035,8 +1194,17 @@ def main():
         )
     if args.live_relations and not args.live_tagging:
         parser.error("--live-relations requires --live-tagging")
+    if args.element_consistency and not args.live_tagging:
+        parser.error("--element-consistency requires --live-tagging")
     if args.compact_element_wire and not args.live_tagging:
         parser.error("--compact-element-wire requires --live-tagging")
+    if args.preliminary_sentence_context and (
+        not args.preliminary_actor_role
+        or args.preliminary_p2
+        or args.preliminary_profile
+        or args.position_context_order
+    ):
+        parser.error("--preliminary-sentence-context requires actor role and excludes alternatives")
     if args.preliminary_context and not args.live_tagging:
         parser.error("--preliminary-context requires --live-tagging")
     if args.preliminary_table_context and not args.preliminary_context:
@@ -1066,8 +1234,19 @@ def main():
         parser.error("--claim-span-typography requires --claim-span-bullet-spacing")
     if args.extraction_table_context and not args.extraction_context:
         parser.error("--extraction-table-context requires --extraction-context")
+    for name in ("table_rows", "recall_prompt"):
+        if getattr(args, "extraction_" + name) and not args.extraction_source_ids:
+            parser.error(
+                "--extraction-" + name.replace("_", "-") + " requires --extraction-source-ids"
+            )
+    if args.extraction_atomic and (args.extraction_table_rows or args.extraction_recall_prompt):
+        parser.error("row/recall profiles cannot mix with --extraction-atomic")
     if args.extraction_atomic and not args.extraction_source_ids:
         parser.error("--extraction-atomic requires --extraction-source-ids")
+    if args.extraction_linewrap_join and (not args.extraction_source_ids or args.extraction_atomic):
+        parser.error(
+            "--extraction-linewrap-join requires --extraction-source-ids and no atomic mode"
+        )
     if args.extraction_content_bounds and not args.extraction_source_ids:
         parser.error("--extraction-content-bounds requires --extraction-source-ids")
     if args.extraction_assertion_prompt and not args.extraction_source_ids:
@@ -1127,6 +1306,14 @@ def main():
                 policy_sha256 as table_policy,
             )
 
+        if args.claim_source_profile == "upstage-ocr-page-v1":
+            if args.raster_ocr or args.native_quote_typography:
+                parser.error("page OCR requires no raster/native quote-typography composition")
+            if args.verify_tables or args.verify_merged_tables or args.verify_selected_cells:
+                from proofops.adapters.local.upstage_ocr_profile import (
+                    table_policy_sha256 as table_policy,
+                )
+
         config = ParserProfile(
             str(uuid4()),
             java_executable="/opt/homebrew/opt/openjdk@21/bin/java",
@@ -1160,6 +1347,9 @@ def main():
                     extraction_table_context=args.extraction_table_context,
                     source_ids=args.extraction_source_ids,
                     extraction_atomic=args.extraction_atomic,
+                    extraction_linewrap_join=args.extraction_linewrap_join,
+                    extraction_table_rows=args.extraction_table_rows,
+                    extraction_recall_prompt=args.extraction_recall_prompt,
                     assertion_prompt=args.extraction_assertion_prompt,
                     complete_selection=args.extraction_complete_selection,
                     extraction_content_bounds=args.extraction_content_bounds,
@@ -1200,8 +1390,14 @@ def main():
             settings["position_context_order"] = CONTEXT_POSITION_ORDER
         if args.extraction_table_context:
             settings["extraction_table_context"] = True
+        if args.extraction_table_rows:
+            settings["extraction_table_rows"] = True
+        if args.extraction_recall_prompt:
+            settings["extraction_recall_prompt"] = True
         if args.extraction_atomic:
             settings["extraction_atomic"] = True
+        if args.extraction_linewrap_join:
+            settings["extraction_linewrap_join"] = True
         if args.extraction_source_ids:
             settings["extraction_source_ids"] = True
         if args.extraction_assertion_prompt:
@@ -1211,6 +1407,8 @@ def main():
         if args.extraction_content_bounds:
             settings["extraction_content_bounds"] = True
         settings.update(raster)
+        if args.r108_finals_candidate:
+            settings["r108_profile"] = FINALS_CANDIDATE
         if args.verify_claim_spans:
             settings["claim_source_policy"] = claim_source_policy_for(args)
         if args.live_tagging:
@@ -1227,9 +1425,11 @@ def main():
                     preliminary_table_role=args.preliminary_table_role,
                     preliminary_goal_role=args.preliminary_goal_role,
                     preliminary_actor_role=args.preliminary_actor_role,
+                    preliminary_sentence_context=args.preliminary_sentence_context,
                     preliminary_p2=args.preliminary_p2,
                     preliminary_profile=args.preliminary_profile,
                     compact_element_wire=args.compact_element_wire,
+                    element_consistency=args.element_consistency,
                     position_context_order=args.position_context_order,
                     capacity_refresh=getattr(args, "capacity_refresh", False),
                 )
@@ -1586,10 +1786,14 @@ def main():
             manifest["preliminary_table_role"] = True
         if args.preliminary_goal_role:
             manifest["preliminary_goal_role"] = True
+        if args.preliminary_sentence_context:
+            manifest["preliminary_sentence_context"] = True
         if args.preliminary_actor_role:
             manifest["preliminary_actor_role"] = True
         if args.preliminary_p2:
             manifest["preliminary_p2"] = True
+        if args.element_consistency:
+            manifest["element_consistency"] = True
         if args.compact_element_wire:
             manifest["compact_element_wire"] = True
         if args.position_context_order:
@@ -1612,6 +1816,14 @@ def main():
             manifest["extraction_context"] = True
         if args.extraction_table_context:
             manifest["extraction_table_context"] = True
+        if args.extraction_table_rows:
+            from proofops.application.ingest.table_row_candidates import POLICY as ROW_POLICY
+            from proofops.domain.provenance import canonical_hash
+
+            manifest["extraction_table_rows"] = True
+            manifest["table_row_policy_sha256"] = canonical_hash(ROW_POLICY)
+        if args.extraction_recall_prompt:
+            manifest["extraction_recall_prompt"] = True
         if args.extraction_atomic:
             from proofops.application.ingest.atomic_candidates import POLICY, PROFILE
             from proofops.domain.provenance import canonical_hash
@@ -1630,8 +1842,12 @@ def main():
             manifest["extraction_complete_selection"] = True
         if args.extraction_content_bounds:
             manifest["extraction_content_bounds"] = True
+        if args.extraction_linewrap_join:
+            manifest["extraction_linewrap_join"] = True
         if args.capacity_refresh:
             manifest["capacity_refresh"] = True
+        if args.r108_finals_candidate:
+            manifest["r108_profile"] = FINALS_CANDIDATE
         with manifest_path.open("x") as stream:
             json.dump(manifest, stream, ensure_ascii=False, indent=2)
     else:
@@ -1670,8 +1886,12 @@ def main():
             raise ValueError("pilot preliminary table role policy changed; create a new state dir")
         if manifest.get("preliminary_goal_role", False) != args.preliminary_goal_role:
             raise ValueError("pilot preliminary goal role policy changed; create a new state dir")
+        if manifest.get("preliminary_sentence_context", False) != args.preliminary_sentence_context:
+            raise ValueError("pilot sentence context policy changed; create a new state dir")
         if manifest.get("preliminary_p2", False) != args.preliminary_p2:
             raise ValueError("pilot preliminary P2 policy changed; create a new state dir")
+        if manifest.get("element_consistency", False) != args.element_consistency:
+            raise ValueError("pilot element consistency changed; create a new state dir")
         if manifest.get("compact_element_wire", False) != args.compact_element_wire:
             raise ValueError("pilot element wire policy changed; create a new state dir")
         if args.position_context_order:
@@ -1709,8 +1929,15 @@ def main():
             raise ValueError(
                 "pilot extraction table context policy changed; create a new state directory"
             )
+        for name in ("extraction_table_rows", "extraction_recall_prompt"):
+            if manifest.get(name, False) != getattr(args, name):
+                raise ValueError(name + " policy changed; create a new state directory")
         if manifest.get("extraction_atomic", False) != args.extraction_atomic:
             raise ValueError("pilot extraction atomic policy changed; create a new state directory")
+        if manifest.get("extraction_linewrap_join", False) != args.extraction_linewrap_join:
+            raise ValueError(
+                "pilot extraction linewrap join policy changed; create a new state directory"
+            )
         if manifest.get("extraction_source_ids", False) != args.extraction_source_ids:
             raise ValueError(
                 "pilot extraction source-id policy changed; create a new state directory"

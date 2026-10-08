@@ -24,6 +24,7 @@ _MAX_CONFIG_BYTES = 65_536
 _SETTINGS_FIELDS = frozenset(
     {
         "build_root",
+        "r108_profile",
         "budget_limits",
         "extraction_profile",
         "extraction_year_notation",
@@ -31,6 +32,9 @@ _SETTINGS_FIELDS = frozenset(
         "extraction_table_context",
         "extraction_source_ids",
         "extraction_atomic",
+        "extraction_linewrap_join",
+        "extraction_table_rows",
+        "extraction_recall_prompt",
         "extraction_assertion_prompt",
         "extraction_complete_selection",
         "extraction_content_bounds",
@@ -285,6 +289,8 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         settings_path and not _REQUIRED_SETTINGS_FIELDS <= set(settings)
     ):
         raise _invalid()
+    if settings.get("r108_profile") not in (None, "r108-finals-candidate"):
+        raise _invalid()
     runtime.update(_raster(settings, extraction_mode))
     if "report_level_link" in settings:
         from proofops.application.tagging.report_level_link import validate_config
@@ -329,6 +335,9 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         "extraction_table_context",
         "extraction_source_ids",
         "extraction_atomic",
+        "extraction_linewrap_join",
+        "extraction_table_rows",
+        "extraction_recall_prompt",
         "extraction_assertion_prompt",
         "extraction_complete_selection",
         "extraction_content_bounds",
@@ -339,7 +348,18 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         # reconstructs the matching extractor profile from the settings file.
         if flag in settings and (settings[flag] is not True or extraction_mode != "upstage_probe"):
             raise _invalid()
+    for flag in ("extraction_table_rows", "extraction_recall_prompt"):
+        if flag in settings and (
+            settings.get("extraction_source_ids") is not True
+            or settings.get("extraction_atomic") is True
+        ):
+            raise _invalid()
     if "extraction_atomic" in settings and settings.get("extraction_source_ids") is not True:
+        raise _invalid()
+    if "extraction_linewrap_join" in settings and (
+        settings.get("extraction_source_ids") is not True
+        or settings.get("extraction_atomic") is True
+    ):
         raise _invalid()
     if "extraction_table_context" in settings and settings.get("extraction_context") is not True:
         # Table context refines the context profile; alone it has no wire.

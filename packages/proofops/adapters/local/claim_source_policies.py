@@ -98,6 +98,12 @@ def claim_source_reader(policy):
     from proofops.adapters.local import claim_source_verification as base
 
     if isinstance(policy, Mapping):
+        if policy.get("profile") == "upstage-ocr-page-v1":
+            from proofops.adapters.local import upstage_ocr_profile
+
+            if policy != upstage_ocr_profile.claim_source_policy():
+                raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")
+            return upstage_ocr_profile
         if policy.get("profile") == _glyph_alignment().PROFILE:
             wrapper = _glyph_alignment()
             if policy != wrapper.claim_source_policy():
@@ -132,13 +138,15 @@ def publication_reader(policy):
     """
     from proofops.adapters.local import claim_source_verification as base
 
+    if isinstance(policy, Mapping) and policy.get("profile") == "upstage-ocr-page-v1":
+        return claim_source_reader(policy)
     for module in (base, *_wrappers()):
         if policy == module.claim_source_policy():
             return module
     raise ValueError("CLAIM_SOURCE_POLICY_MISMATCH")
 
 
-def attest_claims(*, reader, graph, source, refs, tenant_id, cache):
+def attest_claims(*, reader, graph, source, refs, tenant_id, cache, run_id=None):
     """Publish an attestation under ``reader``'s own semantics.
 
     ``cache`` keeps each existing call site's behaviour: the batch path reuses
@@ -159,6 +167,10 @@ def attest_claims(*, reader, graph, source, refs, tenant_id, cache):
     publication can match them instead of repeating the same whole-ref read.
     The published bytes are unchanged either way.
     """
+    if getattr(reader, "PROFILE", None) == "upstage-ocr-page-v1":
+        return reader.attest_claim_spans(
+            graph, source, tuple(refs), tenant_id=tenant_id, run_id=run_id
+        )
     if cache and reader not in _wrappers():
         from proofops.adapters.local.native_replay_cache import attest_claims_cached
 

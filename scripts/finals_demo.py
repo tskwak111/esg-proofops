@@ -143,12 +143,23 @@ def parse_bound(args, kwargs):
     return COST_PER_PAGE[mode] * pages
 
 
-def pilot_argv(template: list[str], *, pdf: Path, state: Path, port: int, root: Path):
+def pilot_argv(
+    template: list[str],
+    *,
+    pdf: Path,
+    state: Path,
+    port: int,
+    root: Path,
+    r108_finals_candidate: bool = False,
+):
     argv = list(template)
     # New web runs choose their own pages; do not inherit a saved report's
     # narrower extraction pages. The existing pilot then extracts the chosen scope.
     claim_pages = argv.index("--claim-pages")
     del argv[claim_pages : claim_pages + 2]
+    # Q3's verified sentence profile requires source order rather than position order.
+    if r108_finals_candidate and "--position-context-order" in argv:
+        argv.remove("--position-context-order")
     for flag, value in (
         ("--pdf", str(pdf)),
         ("--state", str(state)),
@@ -179,7 +190,21 @@ def pilot_argv(template: list[str], *, pdf: Path, state: Path, port: int, root: 
         "--serve",
         "--serve-worker",
     ]
+    if r108_finals_candidate:
+        argv.append("--r108-finals-candidate")
     return argv
+
+
+def configure_concurrency() -> int:
+    """Use the worker's bounded default while respecting an operator's lower cap."""
+    try:
+        workers = int(os.environ.get("LOCAL_LLM_MAX_WORKERS", "16"))
+    except ValueError:
+        raise ValueError("LOCAL_LLM_CONFIGURATION_INVALID") from None
+    if not 1 <= workers <= 16:
+        raise ValueError("LOCAL_LLM_CONFIGURATION_INVALID")
+    os.environ["LOCAL_LLM_MAX_WORKERS"] = str(workers)
+    return workers
 
 
 def main():
@@ -188,7 +213,9 @@ def main():
     parser.add_argument("--run-root", type=Path, required=True)
     parser.add_argument("--port", type=int, required=True)
     parser.add_argument("--kakao-port", type=int, required=True)
+    parser.add_argument("--r108-finals-candidate", action="store_true")
     args = parser.parse_args()
+    workers = configure_concurrency()
     root, run_root = args.root.resolve(), args.run_root.resolve()
     ledgers = {
         name: (root / f".local/{name}/budget.sqlite3").resolve()
@@ -203,7 +230,14 @@ def main():
         else next((root / "기업보고서").rglob("KOR_SKI_2024.pdf"))
     )
     template = json.loads((run_root / "profile/create-argv.json").read_text())
-    argv = pilot_argv(template, pdf=pdf, state=run_root / "live", port=args.port, root=root)
+    argv = pilot_argv(
+        template,
+        pdf=pdf,
+        state=run_root / "live",
+        port=args.port,
+        root=root,
+        r108_finals_candidate=args.r108_finals_candidate,
+    )
     (run_root / "live-argv.json").write_text(json.dumps(argv, ensure_ascii=False, indent=2))
     fence = FinalsBudget(
         root / "outputs/agent-results/R108-redesign/lab/sprint3/E2E/r108-spend.json",
@@ -247,7 +281,6 @@ def main():
 
     Path.read_text = key_read
     os.environ["PROOFOPS_RECEIPT_READ_PROFILE"] = "receipt-env-drift-v1"
-    os.environ["LOCAL_LLM_MAX_WORKERS"] = "4"
     child = None
     with (run_root / "kakao.log").open("w") as log:
         try:
@@ -270,7 +303,8 @@ def main():
             (run_root / "processes.json").write_text(
                 json.dumps(dict(live=os.getpid(), kakao=child.pid))
             )
-            deadline = time.monotonic() + 30
+            # Saved-state replay verification can take >30s under load (seen 2026-10-09).
+            deadline = time.monotonic() + int(os.environ.get("PROOFOPS_KAKAO_START_TIMEOUT", "120"))
             while not (run_root / "kakao-state/browser.json").is_file():
                 if child.poll() is not None or time.monotonic() >= deadline:
                     raise RuntimeError("R108_FINALS_KAKAO_START_FAILED")
@@ -278,7 +312,9 @@ def main():
             browser = json.loads((run_root / "kakao-state/browser.json").read_text())
             print("Kakao saved walkthrough: " + browser["login_url"], flush=True)
             print(
-                "Live analysis: OpenRouter Luna · occurrence-v3 · 66,67 · USD0.50 cap", flush=True
+                f"Live analysis: OpenRouter Luna · occurrence-v3 · 66,67 · "
+                f"USD0.50 cap · {workers} workers",
+                flush=True,
             )
             from evaluation.local_upstage_pilot import main as pilot_main
 
