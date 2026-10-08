@@ -512,6 +512,7 @@ def apply_resume_metadata(args, saved: dict) -> None:
     args.extraction_context = bool(saved.get("extraction_context", False))
     args.extraction_table_context = bool(saved.get("extraction_table_context", False))
     args.extraction_atomic = bool(saved.get("extraction_atomic", False))
+    args.extraction_linewrap_join = bool(saved.get("extraction_linewrap_join", False))
     args.extraction_source_ids = bool(saved.get("extraction_source_ids", False))
     args.extraction_assertion_prompt = bool(saved.get("extraction_assertion_prompt", False))
     args.extraction_complete_selection = bool(saved.get("extraction_complete_selection", False))
@@ -861,6 +862,12 @@ def main():
         "Pinned on resume; use a new state for the challenger.",
     )
     parser.add_argument(
+        "--extraction-linewrap-join",
+        action="store_true",
+        help="Opt-in selected-linewrap-join-v1: join selected prose continuations only. "
+        "Requires --extraction-source-ids, incompatible with --extraction-atomic; new run only.",
+    )
+    parser.add_argument(
         "--extraction-assertion-prompt",
         action="store_true",
         help="Require the selected source sentence itself to assert a claim. "
@@ -951,6 +958,7 @@ def main():
         requested_context = args.extraction_context
         requested_table_context = args.extraction_table_context
         requested_atomic = args.extraction_atomic
+        requested_linewrap_join = args.extraction_linewrap_join
         requested_source_ids = args.extraction_source_ids
         requested_assertion_prompt = args.extraction_assertion_prompt
         requested_complete_selection = args.extraction_complete_selection
@@ -978,6 +986,8 @@ def main():
             parser.error("--resume cannot add extraction table context; create a new run")
         if requested_atomic and not args.extraction_atomic:
             parser.error("--resume cannot add extraction atomic; create a new run")
+        if requested_linewrap_join and not args.extraction_linewrap_join:
+            parser.error("--resume cannot add extraction linewrap join; create a new run")
         if requested_source_ids and not args.extraction_source_ids:
             parser.error("--resume cannot add extraction source-id selection; create a new run")
         if requested_assertion_prompt and not args.extraction_assertion_prompt:
@@ -1067,6 +1077,10 @@ def main():
         parser.error("--extraction-table-context requires --extraction-context")
     if args.extraction_atomic and not args.extraction_source_ids:
         parser.error("--extraction-atomic requires --extraction-source-ids")
+    if args.extraction_linewrap_join and (not args.extraction_source_ids or args.extraction_atomic):
+        parser.error(
+            "--extraction-linewrap-join requires --extraction-source-ids and no atomic mode"
+        )
     if args.extraction_content_bounds and not args.extraction_source_ids:
         parser.error("--extraction-content-bounds requires --extraction-source-ids")
     if args.extraction_assertion_prompt and not args.extraction_source_ids:
@@ -1159,6 +1173,7 @@ def main():
                     extraction_table_context=args.extraction_table_context,
                     source_ids=args.extraction_source_ids,
                     extraction_atomic=args.extraction_atomic,
+                    extraction_linewrap_join=args.extraction_linewrap_join,
                     assertion_prompt=args.extraction_assertion_prompt,
                     complete_selection=args.extraction_complete_selection,
                     extraction_content_bounds=args.extraction_content_bounds,
@@ -1201,6 +1216,8 @@ def main():
             settings["extraction_table_context"] = True
         if args.extraction_atomic:
             settings["extraction_atomic"] = True
+        if args.extraction_linewrap_join:
+            settings["extraction_linewrap_join"] = True
         if args.extraction_source_ids:
             settings["extraction_source_ids"] = True
         if args.extraction_assertion_prompt:
@@ -1629,6 +1646,8 @@ def main():
             manifest["extraction_complete_selection"] = True
         if args.extraction_content_bounds:
             manifest["extraction_content_bounds"] = True
+        if args.extraction_linewrap_join:
+            manifest["extraction_linewrap_join"] = True
         if args.capacity_refresh:
             manifest["capacity_refresh"] = True
         with manifest_path.open("x") as stream:
@@ -1710,6 +1729,10 @@ def main():
             )
         if manifest.get("extraction_atomic", False) != args.extraction_atomic:
             raise ValueError("pilot extraction atomic policy changed; create a new state directory")
+        if manifest.get("extraction_linewrap_join", False) != args.extraction_linewrap_join:
+            raise ValueError(
+                "pilot extraction linewrap join policy changed; create a new state directory"
+            )
         if manifest.get("extraction_source_ids", False) != args.extraction_source_ids:
             raise ValueError(
                 "pilot extraction source-id policy changed; create a new state directory"
