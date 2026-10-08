@@ -597,6 +597,8 @@ def check_local_upstage_tagger(
         PERIOD_ROLE_SYSTEM_SUFFIX,
         SENTENCE_CONTEXT_PROFILE,
         SENTENCE_CONTEXT_SYSTEM_PROMPT,
+        SENTENCE_FALLBACK_PROFILE,
+        SENTENCE_FALLBACK_SYSTEM_PROMPT,
         TABLE_ROLE_SYSTEM_SUFFIX,
         TABLE_SYSTEM_SUFFIX,
     )
@@ -604,6 +606,10 @@ def check_local_upstage_tagger(
 
     profile_valid = (
         (
+            settings.model_profile == SENTENCE_FALLBACK_PROFILE
+            and settings.system_prompt == SENTENCE_FALLBACK_SYSTEM_PROMPT
+        )
+        or (
             settings.model_profile == SENTENCE_CONTEXT_PROFILE
             and settings.system_prompt == SENTENCE_CONTEXT_SYSTEM_PROMPT
         )

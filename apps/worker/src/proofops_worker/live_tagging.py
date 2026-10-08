@@ -21,6 +21,9 @@ from proofops.application.preflight import check_local_upstage_tagger
 from proofops.application.registry import Registry, artifact_sha256
 from proofops.application.tagging.preliminary import (
     SENTENCE_CONTEXT_PROFILE,
+    SENTENCE_FALLBACK_BASE_PROMPT,
+    SENTENCE_FALLBACK_PROFILE,
+    SENTENCE_FALLBACK_SYSTEM_PROMPT,
     preliminary_request,
     preliminary_table_request,
     sentence_context_ready,
@@ -373,7 +376,8 @@ class LiveTaggingRuntime:
             "upstage-preliminary-source-quotes-table-role-v2-p2-position-v1",
         )
         decision = profile == "preliminary-decision-v1"
-        sentence_context = profile == SENTENCE_CONTEXT_PROFILE
+        fallback = profile == SENTENCE_FALLBACK_PROFILE
+        sentence_context = profile == SENTENCE_CONTEXT_PROFILE or fallback
         actor_role_v2 = profile == "upstage-preliminary-source-quotes-actor-role-v2" or decision
         actor_role = profile == "upstage-preliminary-source-quotes-actor-role-v1" or actor_role_v2
         goal_role = profile == "upstage-preliminary-source-quotes-goal-role-v1" or actor_role
@@ -412,10 +416,35 @@ class LiveTaggingRuntime:
                 include_context=profile == "upstage-preliminary-source-quotes-context-v1",
             )
 
+        if fallback:
+            packet["prompt_sha256"] = canonical_hash(SENTENCE_FALLBACK_SYSTEM_PROMPT)
+            data = packet["untrusted_document_data"]
+            verified_context = []
+            for entry in data["context_blocks"]:
+                if (
+                    entry["quality"] == "verified"
+                    and entry["source_ref"].get("verification_state") == "verified"
+                ):
+                    verified_context.append(entry | {"context_index": len(verified_context)})
+                elif entry["source_id"] not in data["omitted_source_ids"]:
+                    data["omitted_source_ids"].append(entry["source_id"])
+            data["context_blocks"] = verified_context
         packet = self.preliminary_transport.bound_context(packet)
         if sentence_context and not sentence_context_ready(claim, packet):
-            self.preliminary_records[claim.claim_id] = []
-            return None
+            if not fallback:
+                self.preliminary_records[claim.claim_id] = []
+                return None
+            # Retain E2E3's verified numbered table sources and classifier.
+            # Omit all sentence interpretation input when the guard fails.
+            packet = preliminary_table_request(
+                claim, graph, tenant_id=self.auth.tenant_id, role_resolution=True
+            )
+            data = packet["untrusted_document_data"]
+            for entry in data["context_blocks"]:
+                if entry["source_id"] not in data["omitted_source_ids"]:
+                    data["omitted_source_ids"].append(entry["source_id"])
+            data["context_blocks"] = []
+            packet["prompt_sha256"] = canonical_hash(SENTENCE_FALLBACK_BASE_PROMPT)
         display_catalog = getattr(self, "display_catalog", None)
         if display_catalog is not None:
             from proofops.application.tagging.preliminary import _sources

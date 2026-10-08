@@ -170,6 +170,7 @@ def live_tagging_settings(
     preliminary_goal_role: bool = False,
     preliminary_actor_role: bool = False,
     preliminary_sentence_context: bool = False,
+    preliminary_sentence_fallback: bool = False,
     preliminary_p2: bool = False,
     preliminary_profile: str | None = None,
     compact_element_wire: bool = False,
@@ -196,6 +197,7 @@ def live_tagging_settings(
         or type(preliminary_table_context) is not bool
         or type(preliminary_table_role) is not bool
         or type(preliminary_goal_role) is not bool
+        or type(preliminary_sentence_fallback) is not bool
         or type(preliminary_sentence_context) is not bool
         or type(preliminary_actor_role) is not bool
         or type(preliminary_p2) is not bool
@@ -219,6 +221,8 @@ def live_tagging_settings(
         raise ValueError("unknown relation profile")
     if relation_profile != "source-quotes-v1" and not relations:
         raise ValueError("relation profile requires live relations")
+    if preliminary_sentence_fallback and not preliminary_sentence_context:
+        raise ValueError("sentence fallback requires sentence context")
     if preliminary_sentence_context and (
         not preliminary_actor_role
         or preliminary_p2
@@ -314,10 +318,18 @@ def live_tagging_settings(
         from proofops.application.tagging.preliminary import (
             SENTENCE_CONTEXT_PROFILE,
             SENTENCE_CONTEXT_SYSTEM_PROMPT,
+            SENTENCE_FALLBACK_PROFILE,
+            SENTENCE_FALLBACK_SYSTEM_PROMPT,
         )
 
-        preliminary_profile = SENTENCE_CONTEXT_PROFILE
-        preliminary_prompt = SENTENCE_CONTEXT_SYSTEM_PROMPT
+        preliminary_profile = (
+            SENTENCE_FALLBACK_PROFILE if preliminary_sentence_fallback else SENTENCE_CONTEXT_PROFILE
+        )
+        preliminary_prompt = (
+            SENTENCE_FALLBACK_SYSTEM_PROMPT
+            if preliminary_sentence_fallback
+            else SENTENCE_CONTEXT_SYSTEM_PROMPT
+        )
     elif preliminary_profile == "decision-v1":
         from proofops.application.tagging.decisions import PRELIMINARY_PROFILE, QUOTE_PROMPT
 
@@ -603,6 +615,7 @@ def apply_resume_metadata(args, saved: dict) -> None:
     args.preliminary_goal_role = bool(saved.get("preliminary_goal_role", False))
     args.preliminary_actor_role = bool(saved.get("preliminary_actor_role", False))
     args.preliminary_sentence_context = bool(saved.get("preliminary_sentence_context", False))
+    args.preliminary_sentence_fallback = bool(saved.get("preliminary_sentence_fallback", False))
     args.preliminary_p2 = bool(saved.get("preliminary_p2", False))
     args.compact_element_wire = bool(saved.get("compact_element_wire", False))
     args.element_consistency = bool(saved.get("element_consistency", False))
@@ -934,6 +947,11 @@ def main():
         help="Use R34 actor-role prompt",
     )
     parser.add_argument(
+        "--preliminary-sentence-fallback",
+        action="store_true",
+        help="Opt-in context-free E2E3 fallback when verified sentence context is unavailable.",
+    )
+    parser.add_argument(
         "--preliminary-sentence-context",
         action="store_true",
         help="Opt-in verified same-block sentence context; requires --preliminary-actor-role.",
@@ -1105,6 +1123,7 @@ def main():
         requested_preliminary_table = args.preliminary_table_context
         requested_preliminary_role = args.preliminary_table_role
         requested_preliminary_goal_role = args.preliminary_goal_role
+        requested_preliminary_sentence_fallback = args.preliminary_sentence_fallback
         requested_preliminary_sentence_context = args.preliminary_sentence_context
         requested_preliminary_actor_role = args.preliminary_actor_role
         requested_preliminary_p2 = args.preliminary_p2
@@ -1147,6 +1166,8 @@ def main():
             parser.error("--resume cannot add preliminary table role resolution; create a new run")
         if requested_preliminary_goal_role and not args.preliminary_goal_role:
             parser.error("--resume cannot add preliminary goal role; create a new run")
+        if requested_preliminary_sentence_fallback and not args.preliminary_sentence_fallback:
+            parser.error("--resume cannot add sentence fallback; create a new run")
         if requested_preliminary_sentence_context and not args.preliminary_sentence_context:
             parser.error("--resume cannot add sentence context; create a new run")
         if requested_preliminary_actor_role and not args.preliminary_actor_role:
@@ -1197,6 +1218,8 @@ def main():
         parser.error("--element-consistency requires --live-tagging")
     if args.compact_element_wire and not args.live_tagging:
         parser.error("--compact-element-wire requires --live-tagging")
+    if args.preliminary_sentence_fallback and not args.preliminary_sentence_context:
+        parser.error("--preliminary-sentence-fallback requires --preliminary-sentence-context")
     if args.preliminary_sentence_context and (
         not args.preliminary_actor_role
         or args.preliminary_p2
@@ -1425,6 +1448,7 @@ def main():
                     preliminary_goal_role=args.preliminary_goal_role,
                     preliminary_actor_role=args.preliminary_actor_role,
                     preliminary_sentence_context=args.preliminary_sentence_context,
+                    preliminary_sentence_fallback=args.preliminary_sentence_fallback,
                     preliminary_p2=args.preliminary_p2,
                     preliminary_profile=args.preliminary_profile,
                     compact_element_wire=args.compact_element_wire,
@@ -1785,6 +1809,8 @@ def main():
             manifest["preliminary_table_role"] = True
         if args.preliminary_goal_role:
             manifest["preliminary_goal_role"] = True
+        if args.preliminary_sentence_fallback:
+            manifest["preliminary_sentence_fallback"] = True
         if args.preliminary_sentence_context:
             manifest["preliminary_sentence_context"] = True
         if args.preliminary_actor_role:
@@ -1885,6 +1911,11 @@ def main():
             raise ValueError("pilot preliminary table role policy changed; create a new state dir")
         if manifest.get("preliminary_goal_role", False) != args.preliminary_goal_role:
             raise ValueError("pilot preliminary goal role policy changed; create a new state dir")
+        if (
+            manifest.get("preliminary_sentence_fallback", False)
+            != args.preliminary_sentence_fallback
+        ):
+            raise ValueError("pilot sentence fallback policy changed; create a new state dir")
         if manifest.get("preliminary_sentence_context", False) != args.preliminary_sentence_context:
             raise ValueError("pilot sentence context policy changed; create a new state dir")
         if manifest.get("preliminary_p2", False) != args.preliminary_p2:
