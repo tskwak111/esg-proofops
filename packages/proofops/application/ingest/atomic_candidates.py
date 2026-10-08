@@ -13,7 +13,7 @@ from dataclasses import dataclass
 
 PROFILE = "extraction-atomic-v2"
 ENVIRONMENT = (
-    r"환경|기후|탄\s*소|온실가스|Scope\s*[123]|CO2|CCS|수소|배출량|에너지|재생|재활용|용수|폐수|폐기물|생물다양성|"
+    r"환경|기후|탄\s*소|온실가스|Scope\s*[123]|CO2|CCS|수소|배출량|배출권|에너지|재생|재활용|용수|폐수|폐기물|생물다양성|"
     r"생태|오염|넷\s*제로|RE100|공정가스|대체가스|스크러버|태양광|전력|"
     r"carbon|emission|energy|water|waste|recycl|biodivers|net.zero|renewable|solar"
 )
@@ -24,7 +24,7 @@ METRIC = (
 ASSERTION = (
     r"목표|계획|달성|감축|감소|절감|저감|유지|도입|운영|설치|구축|수립|개발|"
     r"적용|추진|확대|전환|준공|생산|공급|건설|인증|모니터링|분석|평가|관리|"
-    r"참여|이행|검토|감독|결의|점검|신설|취득|가입|의사결정|의결|기구|"
+    r"참여|이행|검토|감독|결의|점검|신설|취득|가입|의사결정|의결|기구|승인|수행|범위|발굴|선별|확보|"
     r"target|commit|achiev|reduc|implement|install|operat|certif"
 )
 UNIT = r"%|tCO2(?:-eq|e)?|톤|MWh|GWh|kWh|TJ|GJ|MW|kW|㎥|m3|m³|리터"
@@ -43,6 +43,16 @@ CONNECTIVE = (
 )
 TARGET_YEAR = r"(?<!\d)(?:19|20)\d{2}\s*년(?:까지|부터)"
 CONJUNCTION = r"\s+(?:및|and)\s+"
+QUANTITY = r"\d[\d,.]*\s*(?:천|만|억)?\s*(?:" + UNIT + r")"
+STATUS = r"(?:했다|한다|습니다|합니다|입니다|하였다|됩니다|하고\s*있|함\b|중\b|받았|취득|선별하되)"
+# These referents can require preceding climate context. Admission is only a
+# chance to review the literal span, never approval of environmental attribution.
+CONTEXT_DEPENDENT = (
+    r"(?:MCM|지속가능경영위원회|PPA).*(?:검토|승인|상정|확대|추진)|"
+    r"^\s*\d+[)）].*(?:19|20)\d{2}\s*년.*\d+\s*대\s*전환"
+)
+PURPOSE = r"(?:을|를|기)\s*위해|(?:을|를)\s*위한|목적으로"
+PURPOSE_PRIOR_PREDICATE = r"하고|하며|했|하였|목표로"
 POLICY = {
     "profile": PROFILE,
     "environment": ENVIRONMENT,
@@ -58,6 +68,11 @@ POLICY = {
     "connective": CONNECTIVE,
     "target_year": TARGET_YEAR,
     "conjunction": CONJUNCTION,
+    "quantity": QUANTITY,
+    "status": STATUS,
+    "context_dependent": CONTEXT_DEPENDENT,
+    "purpose": PURPOSE,
+    "purpose_prior_predicate": PURPOSE_PRIOR_PREDICATE,
     "source_policy": "literal-disjoint-atoms-parent-context-only-resolved-table-axes-v2",
 }
 
@@ -69,6 +84,7 @@ class AtomicCandidate:
     parent_start: int
     parent_end: int
     kind: str
+    context_dependent: bool = False
 
 
 def _has(pattern: str, text: str) -> bool:
@@ -76,7 +92,7 @@ def _has(pattern: str, text: str) -> bool:
 
 
 def _quantity(text: str) -> bool:
-    return _has(r"\d[\d,.]*\s*(?:" + UNIT + r")", text)
+    return _has(QUANTITY, text)
 
 
 def _eligible(text: str, kind: str, table_context: tuple[str, ...]) -> bool:
@@ -101,7 +117,7 @@ def _eligible(text: str, kind: str, table_context: tuple[str, ...]) -> bool:
             and all(_has(p, axes) for p in (ENVIRONMENT, YEAR))
             and _has(UNIT, axes + " " + text)
         )
-    if not _has(ENVIRONMENT, text):
+    if not _has(ENVIRONMENT, text) and not _has(CONTEXT_DEPENDENT, text):
         return False
     # A metric + year + quantity is a disclosure even without a prose predicate.
     if _quantity(text) and _has(YEAR, text):
@@ -113,7 +129,7 @@ def _eligible(text: str, kind: str, table_context: tuple[str, ...]) -> bool:
     return bool(
         _has(YEAR, text)
         or _quantity(text)
-        or _has(r"(?:했다|한다|습니다|하였다|됩니다|하고\s*있|함\b|중\b|받았|취득)", text)
+        or _has(STATUS, text)
         or _has(
             r"(?:시스템|설비|공정|위원회|ISO\s*14001|대체가스).*(?:도입|운영|구축|적용|인증)", text
         )
@@ -128,7 +144,11 @@ def _trim(text: str, start: int, end: int) -> tuple[int, int]:
 
 
 def atomic_candidates(
-    text: str, *, kind: str = "paragraph", table_context: tuple[str, ...] = ()
+    text: str,
+    *,
+    kind: str = "paragraph",
+    table_context: tuple[str, ...] = (),
+    diagnostics: dict[str, int] | None = None,
 ) -> tuple[AtomicCandidate, ...]:
     """Plan candidates; line wraps remain literal inside their parent sentence.
 
@@ -138,17 +158,39 @@ def atomic_candidates(
     independent metric names, so Scope 1/2 and lists of means stay together.
     """
     result = []
+    counts = dict.fromkeys(
+        (
+            "parent_count",
+            "gate_rejected_count",
+            "eligible_parent_count",
+            "candidate_count",
+            "context_dependent_count",
+        ),
+        0,
+    )
     # Explicit row delimiters prove row boundaries; prose PDF wraps do not.
     boundary = (
         ROW_BOUNDARY
         if kind in ("table", "table_row", "figure") and ("\t" in text or "|" in text)
         else BOUNDARY
     )
+    previous_start = 0
+    previous_value = ""
     for parent in re.finditer(boundary, text, re.S):
         start, end = _trim(text, parent.start(), parent.end())
-        if start >= end or not _eligible(text[start:end], kind, table_context):
+        if start >= end:
             continue
         value = text[start:end]
+        counts["parent_count"] += 1
+        parent_start = start
+        dependent = not _has(ENVIRONMENT, value) and _has(CONTEXT_DEPENDENT, value)
+        if dependent and _has(ENVIRONMENT, previous_value) and not _has(NONCLAIM, previous_value):
+            parent_start = previous_start
+        previous_start, previous_value = start, value
+        if not _eligible(value, kind, table_context):
+            counts["gate_rejected_count"] += 1
+            continue
+        counts["eligible_parent_count"] += 1
         cuts = {start, end}
         for match in re.finditer(CONNECTIVE, value):
             before, after = value[: match.end()], value[match.end() :]
@@ -164,11 +206,19 @@ def atomic_candidates(
             for match in (
                 re.finditer(CONJUNCTION, part) if (_has(YEAR, value) or _quantity(value)) else ()
             ):
+                following = part[match.end() :]
+                purpose = re.search(PURPOSE, following)
+                if purpose and not _has(PURPOSE_PRIOR_PREDICATE, following[: purpose.start()]):
+                    continue
                 if _has(METRIC, part[: match.start()]) and _has(METRIC, part[match.end() :]):
                     cuts.add(left + match.end())
         ordered = sorted(cuts)
         for left, right in zip(ordered, ordered[1:]):
             a, b = _trim(text, left, right)
             if a < b:
-                result.append(AtomicCandidate(a, b, start, end, kind))
+                result.append(AtomicCandidate(a, b, parent_start, end, kind, dependent))
+                counts["context_dependent_count"] += int(dependent)
+    counts["candidate_count"] = len(result)
+    if diagnostics is not None:
+        diagnostics.update(counts)
     return tuple(result)

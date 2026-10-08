@@ -153,3 +153,51 @@ def test_atomic_catalog_limit_refuses_before_transport_or_receipt(tmp_path):
     with pytest.raises(ExtractionOutputError, match="EXTRACTION_SOURCE_SENTENCES_UNBOUNDED"):
         extractor.extract(data)
     assert not probe.calls
+
+
+def test_empty_atomic_receipt_records_gate_rejections_and_replays_without_call(tmp_path):
+    probe = FakeProbe()
+    extractor = UpstageClaimExtractor(
+        probe, tmp_path, extraction_source_ids=True, extraction_atomic=True
+    )
+    data = packet("범례: 재생에너지. 온실가스 배출량 (tCO2-eq)")
+    data["extraction_profile"] = asdict(extractor.profile)
+    assert extractor.extract(data) == {"spans": []}
+    receipt = next(tmp_path.glob("*/candidate_diagnostics.json"))
+    diagnostic = json.loads(receipt.read_text())
+    assert diagnostic["gate_rejected_count"] == diagnostic["parent_count"] == 2
+    assert diagnostic["candidate_count"] == 0
+    assert diagnostic["model_call_skipped"] is True
+    assert extractor.usage_checkpoint() == 0
+    assert extractor.extract(data) == {"spans": []}
+    assert not probe.calls
+
+
+def test_dependent_parent_never_expands_selected_source_ref_or_approves_evidence(tmp_path):
+    from proofops.application.claims import ClaimScope, discover_atomic_claims
+
+    from tests.acceptance.test_claims import MANIFEST, TENANT, VERSION, graph_of
+
+    first = "당사는 재생에너지 전환을 추진합니다."
+    footnote = "1) 2024년까지 누적 64대 전환"
+    text = first + " " + footnote
+    graph = graph_of(text)
+    probe = SelectAll()
+    extractor = UpstageClaimExtractor(
+        probe, tmp_path, extraction_source_ids=True, extraction_atomic=True
+    )
+    result = discover_atomic_claims(
+        graph, ClaimScope(TENANT, VERSION, MANIFEST), extractor=extractor
+    )
+    claim = next(c for c in result.claims if c.quote == footnote)
+    ref = claim.source_refs[0]
+    assert ref.quote == text[ref.char_start : ref.char_end] == footnote
+    assert ref.verification_state == "candidate"
+    wire = json.loads(probe.calls[0]["user_json"])["untrusted_document_data"]
+    atom = next(s for s in wire["source_sentences"] if s["text"] == footnote)
+    assert atom["context_dependent"] is True
+    assert atom["parent_quote"] == text
+    receipt = next(tmp_path.glob("*/candidate_diagnostics.json"))
+    diagnostic = json.loads(receipt.read_text())
+    assert diagnostic["context_dependent_count"] == 1
+    assert diagnostic["model_call_skipped"] is False

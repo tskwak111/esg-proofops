@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import re
 from collections import Counter
 from dataclasses import asdict
 from hashlib import sha256
@@ -35,7 +36,152 @@ def digest(path):
     return sha256(path.read_bytes()).hexdigest()
 
 
-def evaluate(lab_root: Path, output: Path) -> dict:
+def loss_diagnostic(scorer, gold, claims, matched):
+    """Classify source-catalog loss, not human semantic correctness."""
+    peers = [c for c in claims if (c["_company"], c["_page"]) == (gold["_company"], gold["_page"])]
+    strict = max(
+        (
+            max(
+                scorer.sim(gold.get("atomic_proposition"), c["_quote"]),
+                scorer.sim(gold["_quote"], c["_quote"]),
+            )
+            for c in peers
+        ),
+        default=0.0,
+    )
+    parent = max(peers, key=lambda c: scorer.sim(gold["_quote"], c["parent_quote"]), default=None)
+    support = scorer.sim(gold["_quote"], parent["parent_quote"]) if parent else 0.0
+    siblings = [
+        c
+        for c in peers
+        if parent
+        and (c["source_id"], c["parent_quote"]) == (parent["source_id"], parent["parent_quote"])
+    ]
+    siblings.sort(key=lambda c: c["char_start"])
+    preserved = bool(parent) and scorer.norm(
+        " ".join(c["_quote"] for c in siblings)
+    ) == scorer.norm(parent["parent_quote"])
+    bad_purpose = any(
+        re.search(r"\b(?:및|and)$", c["_quote"].strip())
+        and re.search(
+            r"(?:을|를|기)\s*위해|(?:을|를)\s*위한|목적으로",
+            " ".join(s["_quote"] for s in siblings if s["char_start"] > c["char_start"]),
+        )
+        for c in siblings
+    )
+    category = None
+    if not matched:
+        if strict >= 0.82:
+            category = "one_to_one_competition"
+        elif support < 0.82:
+            category = "candidate_loss"
+        elif bad_purpose or not preserved or len(siblings) < 2:
+            category = "incorrect_split"
+        else:
+            category = "preserved_after_split"
+    return {
+        "strict_matched": matched,
+        "category": category,
+        "best_strict_similarity": strict,
+        "best_parent_similarity": support,
+        "literal_parent_reconstructed": preserved,
+        "closest_atoms": [c["_quote"] for c in siblings],
+    }
+
+
+def compare_losses(scorer, gold, catalogs, baseline, output, baseline_sha256):
+    old = [scorer.normalize_claim(c) for c in baseline["graph_legacy_catalog"]]
+    before = [scorer.normalize_claim(c) for c in baseline["graph_atomic_v2"]]
+    after = [scorer.normalize_claim(c) for c in catalogs["graph_atomic_v2"]]
+    legacy_match, _ = scorer.align(gold, old)
+    before_match, _ = scorer.align(gold, before)
+    after_match, _ = scorer.align(gold, after)
+    rows = []
+    for i in sorted(
+        (set(legacy_match) - set(before_match)) | (set(legacy_match) - set(after_match))
+    ):
+        g = gold[i]
+        b = loss_diagnostic(scorer, g, before, i in before_match)
+        a = loss_diagnostic(scorer, g, after, i in after_match)
+        # This post-generation probe diagnoses the 15 advisor losses; never feeds
+        # gold into either saved-source candidate construction or matching.
+        standalone = atomic_candidates(g["_quote"]) if b["category"] == "candidate_loss" else ()
+        rows.append(
+            {
+                "claim_id": g["claim_id"],
+                "company": g["_company"],
+                "page": g["_page"],
+                "quote": g["_quote"],
+                "before": b,
+                "after": a,
+                "standalone_candidate_recovered": bool(standalone),
+            }
+        )
+    categories = (
+        "candidate_loss",
+        "preserved_after_split",
+        "incorrect_split",
+        "one_to_one_competition",
+    )
+    slices = {}
+    for name, companies in (
+        ("designated_unexposed_3", {"sk", "hyundai", "posco"}),
+        ("samsung", {"samsung"}),
+    ):
+        selected = [r for r in rows if r["company"] in companies]
+        lost = [r for r in selected if r["before"]["category"] == "candidate_loss"]
+        slices[name] = {
+            stage: {
+                category: sum(r[stage]["category"] == category for r in selected)
+                for category in categories
+            }
+            for stage in ("before", "after")
+        }
+        slices[name]["candidate_loss_recovery"] = {
+            "baseline_count": len(lost),
+            "standalone_recovered": sum(r["standalone_candidate_recovered"] for r in lost),
+            "strict_recovered": sum(r["after"]["strict_matched"] for r in lost),
+            "parent_supported": sum(r["after"]["best_parent_similarity"] >= 0.82 for r in lost),
+        }
+    result = {
+        "gold": "provisional AI draft, not human reviewed",
+        "threshold": 0.82,
+        "baseline_candidates_sha256": baseline_sha256,
+        "slices": slices,
+        "rows": rows,
+        ("limitations"): (
+            "split preservation is literal source reconstruct"
+            "ion with AI case inspection, not semantic certif"
+            "ication"
+        ),
+    }
+    (output / "loss-diagnostics.json").write_text(
+        json.dumps(result, ensure_ascii=False, indent=2) + "\n"
+    )
+    lines = [
+        "# P3b 탈락 행 진단 — 임시 정답(AI) 기준",
+        "DEC-13 회사/물리쪽·0.82·일대일 유지. 원문 보존≠의미 인증.",
+        "| ID | 쪽 | 수정 전 4분류 | 수정 후 4분류/복구 | parent 지원 |",
+        "|---|---:|---|---|---|",
+    ]
+    labels = {
+        "candidate_loss": "후보 소실",
+        "preserved_after_split": "분해 후 보존",
+        "incorrect_split": "잘못된 분해",
+        "one_to_one_competition": "일대일 경쟁",
+        None: "strict 복구",
+    }
+    lines.extend(
+        f"| {r['claim_id']} | {r['page']} | {labels[r['before']['category']]} | "
+        f"{labels[r['after']['category']]} | {r['after']['best_parent_similarity']:.3f} |"
+        for r in rows
+    )
+    lines.append("삼성 개발 노출 분리. 지정 3사도 진단에 노출되어 독립 holdout이 아니다.")
+    (output / "loss-diagnostics.md").write_text("\n".join(lines) + "\n")
+    return result
+
+
+def evaluate(lab_root: Path, output: Path, *, baseline: Path | None = None) -> dict:
     output.mkdir(parents=True, exist_ok=True)
     catalogs: dict[str, list[dict]] = {
         "graph_legacy_catalog": [],
@@ -44,6 +190,7 @@ def evaluate(lab_root: Path, output: Path) -> dict:
         "native_atomic_v2": [],
     }
     inputs, deferred, rejected = [], [], []
+    gate_diagnostics = []
     extractor = UpstageClaimExtractor(
         NoProvider(),
         output / "catalog-receipts",
@@ -116,10 +263,12 @@ def evaluate(lab_root: Path, output: Path) -> dict:
                     )
             contexts = extractor._context_for(packet, graph)[0]
             try:
-                entries = extractor._atomic_entries(packet, text, contexts)
+                counts: dict[str, int] = {}
+                entries = extractor._atomic_entries(packet, text, contexts, diagnostics=counts)
             except ExtractionOutputError as error:
                 deferred.append({**base, "profile": PROFILE, "reason": str(error)})
                 continue
+            gate_diagnostics.append({**base, "profile": "graph_atomic_v2", **counts})
             for entry in entries:
                 span = {
                     "char_start": entry["char_start"],
@@ -142,6 +291,7 @@ def evaluate(lab_root: Path, output: Path) -> dict:
                             "claim_id": entry["sentence_id"],
                             "quote": entry["text"],
                             "parent_quote": entry["parent_quote"],
+                            "context_dependent": entry["context_dependent"],
                             "char_start": entry["char_start"],
                             "char_end": entry["char_end"],
                         }
@@ -164,13 +314,16 @@ def evaluate(lab_root: Path, output: Path) -> dict:
                     "source_kind": "native_text",
                     "verification_state": "candidate",
                 }
+                counts = {}
+                native_atoms = atomic_candidates(text, diagnostics=counts)
+                gate_diagnostics.append({**base, "profile": "native_atomic_v2", **counts})
                 for profile, spans in (
                     ("native_legacy_catalog", [(s, e, text[s:e]) for s, e in sentence_spans(text)]),
                     (
                         "native_atomic_v2",
                         [
                             (c.start, c.end, text[c.parent_start : c.parent_end])
-                            for c in atomic_candidates(text)
+                            for c in native_atoms
                         ],
                     ),
                 ):
@@ -253,10 +406,15 @@ def evaluate(lab_root: Path, output: Path) -> dict:
         "scores": scores,
         "deferred": deferred,
         "validator_rejected": rejected,
+        "gate_diagnostics": gate_diagnostics,
         "candidate_kinds": {
             name: dict(Counter(c["source_kind"] for c in rows)) for name, rows in catalogs.items()
         },
     }
+    if baseline is not None:
+        result["loss_diagnostics"] = compare_losses(
+            scorer, gold, catalogs, read(baseline), output, digest(baseline)
+        )
     (output / "candidates.json").write_text(
         json.dumps(catalogs, ensure_ascii=False, indent=2) + "\n"
     )
@@ -268,8 +426,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--lab-root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--baseline-candidates", type=Path)
     args = parser.parse_args()
-    result = evaluate(args.lab_root, args.output)
+    result = evaluate(args.lab_root, args.output, baseline=args.baseline_candidates)
     for profile, scores in result["scores"].items():
         print(
             profile,
