@@ -14,6 +14,12 @@ from uuid import uuid4
 from proofops.adapters.local.audit_store import append_audit_transaction, read_audit_head
 from proofops.adapters.local.run_artifacts import load_run_graph
 from proofops.adapters.local.summary_store import LocalSummaryStore
+from proofops.application.element_evidence_encoding import (
+    ELEMENT_EVIDENCE_INLINE,
+    ELEMENT_EVIDENCE_V1,
+    TABLE_KEYS,
+    encode_element_evidence,
+)
 from proofops.application.exports import (
     MAX_EXPORT_BYTES,
     REVISION_RECORDS_V2,
@@ -34,7 +40,10 @@ from proofops.domain.rulepacks import canonical_json
 class LocalExportStore:
     kind = "local-synthetic-only"
 
-    def __init__(self, runs, claims):
+    def __init__(self, runs, claims, *, element_evidence_encoding=ELEMENT_EVIDENCE_V1):
+        if element_evidence_encoding not in (ELEMENT_EVIDENCE_INLINE, ELEMENT_EVIDENCE_V1):
+            raise ValueError("unsupported element evidence writer encoding")
+        self.element_evidence_encoding = element_evidence_encoding
         self.runs, self.claims, self.jobs = runs, claims, runs.jobs
         self.summaries = LocalSummaryStore(runs, claims)
         with self.jobs._transaction() as db:
@@ -119,7 +128,14 @@ class LocalExportStore:
                 run_id,
                 "export_state",
                 export_id,
-                dict(response=response, body=body, actor=actor.user_sub, retry_at=0, errors=[]),
+                dict(
+                    response=response,
+                    body=body,
+                    actor=actor.user_sub,
+                    retry_at=0,
+                    errors=[],
+                    element_evidence_encoding=self.element_evidence_encoding,
+                ),
             )
             return export_id
 
@@ -184,6 +200,18 @@ class LocalExportStore:
             refs, records, raw_records, hashes = [], {}, {}, {snapshot["rulepack"]["sha256"]}
             source_receipts = {}
             search_coverages, coverage_documents = {}, {}
+            element_manifest = dict(
+                tenant_id=tenant,
+                run_id=run_id,
+                document_version_id=run["document_version_id"],
+                parse_manifest_id=graph.parse_manifest_id if graph else None,
+                source_sha256=snapshot["document"]["sha256"],
+                **{key: {} for key in TABLE_KEYS},
+            )
+            shared_elements = state.get("element_evidence_encoding", ELEMENT_EVIDENCE_INLINE)
+            if shared_elements not in (ELEMENT_EVIDENCE_INLINE, ELEMENT_EVIDENCE_V1):
+                raise ExportRejected("EXPORT_INTEGRITY_FAILED")
+            element_table_bytes = 0
             captured_bytes = 0
             for claim_id in ids:
                 raw_head = self.jobs._raw(db, tenant, run_id, "claim_head", claim_id)
@@ -394,8 +422,20 @@ class LocalExportStore:
                                 table[digest] = entry
                                 captured_bytes += len(canonical_json(entry).encode())
                 record["element_evidence"] = evidence_results[claim_id]
+                if shared_elements == ELEMENT_EVIDENCE_V1:
+                    # Encode before counting bytes. Tables are shared across claims,
+                    # and the unchanged freeze guard counts their keys/envelopes too.
+                    try:
+                        previous_keys = {key: set(element_manifest[key]) for key in TABLE_KEYS}
+                        record = encode_element_evidence(record, element_manifest)
+                        for key in TABLE_KEYS:
+                            for digest in element_manifest[key].keys() - previous_keys[key]:
+                                entry = element_manifest[key][digest]
+                                element_table_bytes += len(canonical_json({digest: entry}).encode())
+                    except (ValueError, TypeError, KeyError) as exc:
+                        raise ExportRejected("EXPORT_INTEGRITY_FAILED") from exc
                 captured_bytes += len(canonical_json([record, raw_record]).encode())
-                if captured_bytes > MAX_EXPORT_BYTES:
+                if captured_bytes + element_table_bytes > MAX_EXPORT_BYTES:
                     raise ExportRejected("EXPORT_SIZE_LIMIT")
                 records[claim_id] = record
                 if raw_record is not None:
@@ -432,6 +472,9 @@ class LocalExportStore:
                 manifest["search_coverage_encoding"] = SEARCH_COVERAGE_V1
                 manifest["search_coverages"] = search_coverages
                 manifest["coverage_documents"] = coverage_documents
+            if element_manifest["element_evidence_records"]:
+                manifest["element_evidence_encoding"] = ELEMENT_EVIDENCE_V1
+                manifest.update({key: element_manifest[key] for key in TABLE_KEYS})
             submitted = self.claims.submitted_reviews(tenant, run_id, connection=db)
             if submitted:
                 manifest["submitted_reviews"] = submitted

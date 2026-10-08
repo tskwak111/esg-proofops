@@ -497,9 +497,9 @@ def build_export(snapshot, formats):
     try:
         for _ in _iter_decoded_revision_records(snapshot["manifest"]):
             pass
+        model = build_report_model(snapshot["manifest"], snapshot["decisions"])
     except (KeyError, TypeError, ValueError) as exc:
         raise ExportRejected("EXPORT_INTEGRITY_FAILED") from exc
-    model = build_report_model(snapshot["manifest"], snapshot["decisions"])
     manifest = canonical_json(snapshot["manifest"]).encode()
     stream = BytesIO()
     # Deflate keeps the preserved provenance whole while the artifact stays inside the

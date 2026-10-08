@@ -33,6 +33,7 @@ from proofops.adapters.local.source_condition_review import LocalSourceCondition
 from proofops.adapters.local.summary_store import LocalSummaryStore
 from proofops.adapters.local.tag_store import LocalTagStore
 from proofops.adapters.parsing.opendataloader import OpenDataLoaderParser
+from proofops.application.element_evidence_encoding import ELEMENT_EVIDENCE_V1
 from proofops.application.exports import ExportService
 from proofops.application.registry import Registry, RulePackChoice
 from proofops.application.rescores import RescoreService
@@ -162,7 +163,15 @@ def build_composition() -> ApiComposition:
         evaluations=LocalEvaluationStore(database_path),
         analysis=LocalAnalysisStore(runs.store, uploads, parser, claims, tags, assurance=assurance),
         assurance=assurance,
-        exports=ExportService(LocalExportStore(runs.store, claims)),
+        exports=ExportService(
+            LocalExportStore(
+                runs.store,
+                claims,
+                element_evidence_encoding=os.environ.get(
+                    "PROOFOPS_EXPORT_ELEMENT_EVIDENCE_ENCODING", ELEMENT_EVIDENCE_V1
+                ),
+            )
+        ),
         retention=LocalRetentionStore(uploads),
         comparisons=LocalComparisonStore(
             runs.store,
