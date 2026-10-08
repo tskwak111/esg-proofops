@@ -21,11 +21,12 @@ def run(*args: str, timeout: int = 120) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--image", default="proofops-r108-public:p1")
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     name = "r108-p1-" + secrets.token_hex(5)
     volume = name + "-data"
-    image = "proofops-r108-public:p1"
+    image = args.image
     result: dict = {
         "image": image,
         "network": "none",

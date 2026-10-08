@@ -63,3 +63,32 @@ pending jobs/money, serve static web; no local-env bypass. Base-image digests/sy
 packages are not yet release-pinned, amd64 behavior is not inferred from an arm64 probe.
 Cloud credentials, TLS/reverse proxy, domains, approved OCR binding, provider retention,
 pricing and complete R108 review/export integration remain separate release gates.
+
+## P2 private live worker
+Use current image tag `proofops-r108-public:p2`; the packaged evaluation allowlist
+contains only the private worker entry point and reused pilot preparation module.
+Default key-free smoke remains off and cannot call providers. Set live flags only
+with the operator JSON/key-file paths described in CONTRACT's P2 amendment. Keep
+private key/config mounts read-only and outside HOSTED_DATA_DIR; never source the
+key files or provide them to the browser. Run the existing `hosted_control.py worker`.
+
+macOS worker uses an isolated subprocess with its own document-scoped receipts,
+SQLite state and selected PDF. It never points at the research state/cache/budget
+DB. Hosted money/fences remain authoritative and are checked before each transport.
+One active run is capped at840seconds of pipeline execution; unknown dispatch on
+crash/timeout retains the reservation and needs reconciliation. The analysis lock
+is inherited by its child: a parent crash cannot make purge unlink active source
+files. A tombstoned worker cannot dispatch or publish; maintenance retries purge
+once the child exits. A failed result integrity read must be investigated, not
+relabelled as empty evidence. Linux source-reader release remains blocked as above.
+
+For the explicitly authorized local Mac canary only:
+`python scripts/hosted_live_probe.py --pdf <existing-original.pdf> --pages 22,41
+--output <new-private-dir> --research-root /Users/ss020/Dev/ESG_ProofOps`.
+This opens loopback Uvicorn, authenticates through the hosted API, uploads the
+original, accepts exactly2pages, and runs one worker. Before transport it reserves
+USD.30 in the existing lab/sprint3/E2E/r108-spend.json under its shared decision lock;
+settled unused reservation is returned, unknown money stays reserved. Output/data
+existence prevents accidental repeat. No cloud/push or default paid allowance.
+Operator config discloses 2025 report /2024 reporting period for this fixed canary.
+The local canary isn't a same-site TLS browser or Linux OCR capacity certification.

@@ -11,6 +11,10 @@
 !apps/worker/**
 !apps/agent/
 !apps/agent/**
+!evaluation/
+!evaluation/__init__.py
+!evaluation/local_upstage_pilot.py
+!evaluation/hosted_r108.py
 !config/
 !config/**
 !contracts/

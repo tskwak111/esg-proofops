@@ -6,6 +6,7 @@ research triggers. All dispatches require a durable, fenced reservation first.
 
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import hmac
 import json
@@ -84,6 +85,7 @@ class HostedSettings:
     backend: str = "static"
     accept_runs: bool = False
     live_disabled: bool = True
+    live_config: Path | None = None
     max_upload_bytes: int = 50 * 1024 * 1024
     active_days: int = 7
     backup_days: int = 14
@@ -111,8 +113,12 @@ class HostedSettings:
             raise ValueError(
                 "absolute private data directory, session secret and event ID required"
             )
-        if self.backend not in {"r108", "legacy", "static"} or not self.live_disabled:
-            raise ValueError("live hosted binding is unavailable")
+        if self.backend not in {"r108", "legacy", "static"}:
+            raise ValueError("invalid analysis backend")
+        if not self.live_disabled:
+            from proofops_api.hosted_analysis import read_operator_config
+
+            read_operator_config(self.live_config)
         if self.accept_uploads and not self.consent_version:
             raise ValueError("upload consent version required")
         for value in (self.max_upload_bytes, self.active_days, self.backup_days, self.audit_days):
@@ -151,6 +157,7 @@ class HostedSettings:
             backend=env.get("ANALYSIS_BACKEND", "static"),
             accept_runs=flag("R108_ACCEPT_NEW_RUNS", "false"),
             live_disabled=flag("LIVE_DISABLED", "true"),
+            live_config=Path(env["HOSTED_LIVE_CONFIG"]) if env.get("HOSTED_LIVE_CONFIG") else None,
             max_upload_bytes=int(env.get("HOSTED_MAX_UPLOAD_BYTES", "52428800")),
             active_days=int(env.get("HOSTED_ACTIVE_DAYS", "7")),
             backup_days=int(env.get("HOSTED_BACKUP_DAYS", "14")),
@@ -271,6 +278,11 @@ class HostedStore:
                 tenant_id TEXT, document_id TEXT, sha256 TEXT, page_count INTEGER,
                 size_bytes INTEGER, created REAL, expires REAL, consent_version TEXT,
                 PRIMARY KEY(tenant_id,document_id))""")
+            db.execute("""CREATE TABLE IF NOT EXISTS document_owners (
+                tenant_id TEXT, document_id TEXT, user_hash TEXT,
+                PRIMARY KEY(tenant_id,document_id))""")
+            db.execute("""CREATE TABLE IF NOT EXISTS run_progress (
+                run_id TEXT PRIMARY KEY, stage TEXT, progress INTEGER, result_ready INTEGER)""")
             db.execute("""CREATE TABLE IF NOT EXISTS runs (
                 tenant_id TEXT, run_id TEXT PRIMARY KEY, document_id TEXT, user_hash TEXT,
                 pages TEXT, status TEXT, created REAL, day TEXT, event_id TEXT,
@@ -519,6 +531,10 @@ class HostedStore:
                     self.settings.consent_version,
                 ),
             )
+            db.execute(
+                "INSERT INTO document_owners VALUES (?,?,?)",
+                (auth.tenant_id, doc, self.user_hash(auth.user_sub)),
+            )
             self._remember(db, auth, "upload", key, sha, doc, doc, now)
             return dict(self._document(db, auth.tenant_id, doc))
 
@@ -540,15 +556,33 @@ class HostedStore:
         finally:
             temporary.unlink(missing_ok=True)
 
-    @staticmethod
-    def _project_run(row: sqlite3.Row) -> dict:
+    def _project_run(self, row: sqlite3.Row, db: sqlite3.Connection) -> dict:
+        progress = db.execute(
+            "SELECT * FROM run_progress WHERE run_id=?", (row["run_id"],)
+        ).fetchone()
+        queue = db.execute(
+            "SELECT count(*) FROM runs WHERE status='queued' "
+            "AND (created<? OR (created=? AND run_id<=?))",
+            (row["created"], row["created"], row["run_id"]),
+        ).fetchone()[0]
+        ready = bool(
+            progress
+            and progress["result_ready"]
+            and row["status"] in {"completed", "partial_blocked"}
+        )
+        result = self._result(db, row) if ready else None
         return {
             "run_id": row["run_id"],
             "document_id": row["document_id"],
             "status": row["status"],
             "selected_pages": json.loads(row["pages"]),
             "status_url": f'/v1/runs/{row["run_id"]}',
-            "profile": "r108-hosted-control-v1",
+            "profile": "r108-hosted-sprint5-v1",
+            "stage": progress["stage"] if progress else row["status"],
+            "progress": progress["progress"] / 100 if progress else 0,
+            "queue_position": queue if row["status"] == "queued" else None,
+            "result_url": f'/v1/runs/{row["run_id"]}/result' if ready else None,
+            "result": result,
             "error_code": row["error_code"],
             "prepared_sha256": row["prepared_sha256"],
         }
@@ -565,7 +599,7 @@ class HostedStore:
 
     def get_run(self, tenant: str, run: str) -> dict:
         with self.transaction() as db:
-            return self._project_run(self._run(db, tenant, run))
+            return self._project_run(self._run(db, tenant, run), db)
 
     def create_run(
         self, auth: Any, document: str, pages: list[int] | None, key: str, *, now: float
@@ -591,7 +625,7 @@ class HostedStore:
             body_hash = digest(json.dumps([document, selected]))
             replay = self._replay(db, auth, "run", key, body_hash)
             if replay:
-                return self._project_run(self._run(db, auth.tenant_id, replay))
+                return self._project_run(self._run(db, auth.tenant_id, replay), db)
             if not (self.document_dir(auth.tenant_id, document) / "original.pdf").is_file():
                 raise HostedError("SOURCE_UNAVAILABLE")
             if db.execute(
@@ -651,7 +685,7 @@ class HostedStore:
                 (run, user, today, self.settings.event_id, bound, now),
             )
             self._remember(db, auth, "run", key, body_hash, run, document, now)
-            return self._project_run(self._run(db, auth.tenant_id, run))
+            return self._project_run(self._run(db, auth.tenant_id, run), db)
 
     def claim(self, *, now: float) -> dict | None:
         with self.transaction() as db:
@@ -841,7 +875,7 @@ class HostedStore:
 
     def finish(self, job: dict, status: str, *, now: float) -> None:
         if status not in TERMINAL or status == "completed":
-            # No analysis handler is wired; P1 must never report fabricated completion.
+            # Completion is available only through fenced analysis artifact publication.
             raise HostedError("ANALYSIS_RESULT_UNAVAILABLE")
         with self.transaction() as db:
             self._fenced(db, job, now)
@@ -855,14 +889,19 @@ class HostedStore:
             )
             self._settle_envelope(db, job["run_id"])
 
-    def tick(self, *, now: float) -> dict | None:
+    def tick(self, *, now: float, analysis=None) -> dict | None:
         job = self.claim(now=now)
         if job is None:
             return None
         try:
-            self.prepare(job, now=now)
-            self.finish(job, "partial_blocked", now=time.time())
-        except (HostedError, OSError, ValueError):
+            prepared = self.prepare(job, now=now)
+            if analysis is not None or not self.settings.live_disabled:
+                from proofops_api.hosted_analysis import execute_analysis
+
+                (analysis or execute_analysis)(self, job, prepared)
+            else:
+                self.finish(job, "partial_blocked", now=time.time())
+        except (HostedError, OSError, ValueError, subprocess.SubprocessError):
             with self.transaction() as db:
                 row = db.execute(
                     "SELECT status,fence FROM runs WHERE run_id=?", (job["run_id"],)
@@ -874,7 +913,72 @@ class HostedStore:
                         (job["run_id"],),
                     )
                     self._settle_envelope(db, job["run_id"])
-        return self.get_run(job["tenant_id"], job["run_id"])
+        try:
+            return self.get_run(job["tenant_id"], job["run_id"])
+        except HostedError as exc:
+            if exc.status != 404:
+                raise
+            return None
+
+    def update_progress(self, job: dict, stage: str, progress: int) -> None:
+        with self.transaction() as db:
+            self._fenced(db, job, time.time())
+            db.execute(
+                "INSERT INTO run_progress VALUES (?,?,?,0) ON CONFLICT(run_id) "
+                "DO UPDATE SET stage=excluded.stage,progress=excluded.progress",
+                (job["run_id"], stage, progress),
+            )
+
+    def publish_analysis(self, job: dict, source: Path, status: str, error: str | None) -> None:
+        if status not in {"completed", "partial_blocked"}:
+            raise HostedError("ANALYSIS_RESULT_UNAVAILABLE")
+        with self.transaction() as db:
+            self._fenced(db, job, time.time())
+            target = (
+                self.document_dir(job["tenant_id"], job["document_id"]) / "analysis" / job["run_id"]
+            )
+            target.parent.mkdir(mode=0o700, exist_ok=True)
+            shutil.copytree(source, target)
+            db.execute(
+                "INSERT OR REPLACE INTO run_progress VALUES (?, 'result',100,1)", (job["run_id"],)
+            )
+            db.execute(
+                "UPDATE runs SET status=?,error_code=?,lease_until=0 WHERE run_id=?",
+                (status, error, job["run_id"]),
+            )
+            self._settle_envelope(db, job["run_id"])
+
+    def _result(self, db: sqlite3.Connection, row: sqlite3.Row) -> dict:
+        from proofops_api.hosted_results import read_result
+
+        path = self.document_dir(row["tenant_id"], row["document_id"]) / "analysis" / row["run_id"]
+        if not path.is_dir():
+            raise HostedError("ANALYSIS_RESULT_UNAVAILABLE")
+        try:
+            return read_result(path, row["tenant_id"], json.loads(row["pages"]))
+        except (ValueError, KeyError, TypeError):
+            raise HostedError("RESULT_INTEGRITY_UNAVAILABLE", 409) from None
+
+    def get_result(self, tenant: str, run: str) -> dict:
+        with self.transaction() as db:
+            row = self._run(db, tenant, run)
+            if row["status"] not in {"completed", "partial_blocked"}:
+                raise HostedError("ANALYSIS_RESULT_UNAVAILABLE")
+            return self._result(db, row)
+
+    def resolve_review(
+        self, auth: Any, run: str, review: str, body: dict, if_match: str | None, key: str
+    ) -> dict:
+        from proofops_api.hosted_results import resolve_review
+
+        if not auth.has_capability("reviewer"):
+            raise HostedError("FORBIDDEN", 403)
+        with self.transaction() as db:
+            row = self._run(db, auth.tenant_id, run)
+            if row["status"] not in {"completed", "partial_blocked"}:
+                raise HostedError("ANALYSIS_RESULT_UNAVAILABLE")
+            path = self.document_dir(auth.tenant_id, row["document_id"]) / "analysis" / run
+            return resolve_review(path, auth, review, body, if_match, key)
 
     def cancel(self, auth: Any, run: str, *, now: float) -> dict:
         with self.transaction() as db:
@@ -888,7 +992,7 @@ class HostedStore:
                 (run,),
             )
             self._settle_envelope(db, run)
-            return self._project_run(self._run(db, auth.tenant_id, run))
+            return self._project_run(self._run(db, auth.tenant_id, run), db)
 
     def budget_totals(self) -> dict:
         with self.transaction() as db:
@@ -904,11 +1008,18 @@ class HostedStore:
         return {"event_reserved_usd": usd(total)}
 
     def delete_document(self, auth: Any, document: str, key: str, *, now: float) -> dict:
-        if not auth.has_capability("admin"):
-            raise HostedError("FORBIDDEN", 403)
         if not isinstance(key, str) or not 16 <= len(key) <= 128:
             raise HostedError("IDEMPOTENCY_KEY_INVALID", 400)
         with self.transaction() as db:
+            owner = db.execute(
+                "SELECT user_hash FROM document_owners WHERE tenant_id=? " "AND document_id=?",
+                (auth.tenant_id, document),
+            ).fetchone()
+            if not auth.has_capability("admin") and (
+                owner is None or owner[0] != self.user_hash(auth.user_sub)
+            ):
+                self._document(db, auth.tenant_id, document)
+                raise HostedError("FORBIDDEN", 403)
             row = db.execute(
                 "SELECT * FROM deletion.tombstones WHERE tenant_id=? AND document_id=?",
                 (auth.tenant_id, document),
@@ -935,7 +1046,15 @@ class HostedStore:
                     raise HostedError("TOMBSTONE_REQUIRED")
                 path = self.document_dir(tenant, document)
                 if path.exists():
-                    shutil.rmtree(path)
+                    lock_path = path / "analysis.lock"
+                    if lock_path.exists():
+                        # Tombstone already fenced dispatch/publication. Do not
+                        # unlink working source bytes while a child still owns them.
+                        with lock_path.open("a+b") as lock:
+                            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                            shutil.rmtree(path)
+                    else:
+                        shutil.rmtree(path)
                 for backup in db.execute("SELECT path FROM backups").fetchall():
                     target = Path(backup[0]) / "artifacts" / tenant / document
                     if target.exists():
@@ -946,6 +1065,11 @@ class HostedStore:
                 ).fetchall()
                 for run in runs:
                     self._settle_envelope(db, run[0])
+                    db.execute("DELETE FROM run_progress WHERE run_id=?", (run[0],))
+                db.execute(
+                    "DELETE FROM document_owners WHERE tenant_id=? AND document_id=?",
+                    (tenant, document),
+                )
                 db.execute(
                     "DELETE FROM runs WHERE tenant_id=? AND document_id=?", (tenant, document)
                 )
@@ -956,6 +1080,9 @@ class HostedStore:
                     "DELETE FROM idempotency WHERE tenant_id=? AND document_id=?",
                     (tenant, document),
                 )
+                from proofops_api.hosted_results import clear_receipt_caches
+
+                clear_receipt_caches()
         except (OSError, sqlite3.DatabaseError):
             status = "failed"
         with self.transaction() as db:

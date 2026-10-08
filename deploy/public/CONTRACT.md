@@ -95,3 +95,86 @@ runs in a bounded subprocess outside the DB lock, with a fresh publication fence
 Run one worker per volume (DB enforces active1).
 Health/live reports process liveness; health/ready reports control-plane readiness and
 explicit live-analysis=false. It is not OCR/model quality or public-launch certification.
+
+## P2 amendment — authoritative hosted result contract (2026-10-09)
+P2 supersedes the P1 statements that no analysis/result/review binding exists. Hosted
+API remains its own durable auth/control composition; an isolated private worker
+prepares the unchanged R108 run snapshot and drives its parse/extract/tag workers.
+The private local stores contain no public auth seed or local HTTP routes. Public
+sessions always supply tenant scope; the worker pins that same tenant. Existing
+claim-source verification, consensus, rules, review source admission and CAS remain
+unchanged. This is a locally verified integration, not a cloud/public launch.
+
+Default profile `r108-hosted-sprint5-v1`: Upstage document-parse-260128 with native
+glyph/region boxes; OpenRouter openai/gpt-6-luna; occurrence-v3;
+glyph-joined-display-v1; glyph-alignment-v1; Apple Vision on macOS. Gemini fallback
+is off: this hosted binding has no approved budgeted Gemini transport. Any remaining
+parse/source gaps stay unresolved. The Linux `upstage-ocr-page-v1` implementation in
+r108-sprint1 is still uncommitted development at this integration point; it is not
+silently imported as an approved reader. Linux live opt-in returns
+`partial_blocked/LINUX_SOURCE_READER_UNRESOLVED`, empty claims, null grades and no
+provider calls. Linux release remains blocked until that profile is integrated.
+
+Live requires **both** `LIVE_DISABLED=false` and absolute `HOSTED_LIVE_CONFIG` JSON:
+`enabled:true`, absolute `openrouter_key_file` / `upstage_key_file` paths, and
+operator-owned `report_year`, ISO `period_start`, `period_end`. Missing/disabled
+configuration or key paths fails startup. No inline key or browser variable is
+accepted. Key files are read only by the worker. The reporting scope is disclosed
+in the result; operators must configure the correct report period before admission.
+Default remains off. Do not reuse research data/ledgers as the hosted data volume.
+
+Every external request passes `HostedStore.dispatch` before transport, including
+each Luna schema retry and Upstage standard/enhanced fallback. Selected<=2 permits
+synchronous Upstage parse with the same graph conversion DTO. Bounds are standard
+USD.011/page, enhanced .033/page (VAT reserve included), Luna .011/attempt under the
+existing fixed model/max_price/request-byte/max-token policy. Actual Luna usage.cost
+rounds upward to micro-USD. Unknown/malformed receipts retain the full run envelope;
+restart never redelivers active/unknown jobs. No paid legacy or independent OCR
+transport is exposed. Default ceilings remain .50/run,5/day,5/event; lower caps work.
+Prices checked against https://www.upstage.ai/pricing/api and
+https://openrouter.ai/openai/gpt-6-luna/ on 2026-10-09; inherited Upstage expiry guard
+still closes dispatch after 2026-10-14 until its pricing policy is rechecked.
+
+`POST /v1/runs`202 and `GET /v1/runs/{id}` add:
+- `stage`: queued/parse/extract/tag/result (terminal status when no stage exists).
+- `progress`: **0..1**, stage milestone estimate, not model-quality/completion proof.
+- `queue_position`: FIFO 1-based queued position, otherwise null.
+- `result_url`: session-protected `/v1/runs/{id}/result` when artifacts exist, else null.
+- `result`: the same DTO inline, else null. Cancelled runs never expose a result.
+
+`GET /v1/runs/{id}/result`: `r108-hosted-result-v1` DTO with `claims`, `reviews`,
+`hold_reasons`, `pipeline` (actual stages/outcomes/profiles/reporting_scope), `page_map`.
+Claims preserve existing claim summary/decision and add `source_refs`, `elements`,
+`source_quality`, `hold_reason`, `missing_evidence`, `possible_grade_range` (existing
+Decision.grade_range), `confirmed_grade` (existing Decision.evidence_grade).
+`page_num` and source refs use the selected PDF's 1-based coordinates; `page_map`
+and `original_page_num` map back to uploaded original pages. Send existing source
+refs unchanged for review. Unknown/conflict/unverified never become absent; absent
+or null decisions stay null and no aggregate/report-wide grade is invented.
+Partial work can have a result; incomplete extraction has a reason and no fabricated
+successful empty analysis. Pending/no artifact returns409 ANALYSIS_RESULT_UNAVAILABLE;
+source/checkpoint mismatch returns409 RESULT_INTEGRITY_UNAVAILABLE. Tenant mismatch,
+deleted source or inaccessible UUID returns404. All replies remain no-store.
+
+`POST /v1/runs/{id}/reviews/{review_id}/resolve`: reviewer/admin only, exact Origin,
+CSRF, Idempotency-Key and quoted integer If-Match. Body is unchanged ReviewResolve:
+base_tag_revision, track, complete element list, reason(5..1000 chars). Reuses the
+R108 human review service: verified citations, complete track elements, revision CAS,
+idempotency and human provenance. It recomputes the decision; clients cannot supply
+a grade. Subsequent result reads include the new immutable review/decision head.
+
+Deletion policy is **uploader or tenant admin**, not admin-only. Existing P1 uploads
+without an owner record remain admin-only. Nonowner same-tenant users get403; foreign
+tenant gets404. Idempotency-Key and reason remain required. A tombstone immediately
+fences API reads/dispatch/publication. While an analysis child owns the source lock,
+purge returns failed and maintenance retries after it exits; do not claim erasure
+before status completed. All work/receipts/provider caches stay under the document
+payload directory and are removed on purge. Analysis originals/working copies never
+enter backups. Seven-day expiry still purges the entire document payload. Process
+receipt caches are cleared after successful deletion. No source-bearing control rows.
+
+Submission hosted-r108-web(8ae22b7) compatibility: inline result, numeric progress,
+queue position, existing errors/headers and uploader deletion now have backend
+support. Its current RunOutcomeView still needs claim/review rendering to consume
+this DTO; API integration does not certify a deployed browser or Vercel cookie/body
+proxy. No frontend checkout, Vercel configuration, cloud resource or push changed.

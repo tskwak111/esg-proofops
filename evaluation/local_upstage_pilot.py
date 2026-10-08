@@ -19,7 +19,7 @@ from datetime import UTC, datetime, timedelta
 from hashlib import sha256
 from pathlib import Path
 from typing import Any, cast
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import yaml  # type: ignore[import-untyped]
 from fastapi import Request
@@ -620,6 +620,7 @@ def main():
     parser.add_argument("--pdf", type=Path)
     parser.add_argument("--state", type=Path, required=True)
     parser.add_argument("--key-file", type=Path)
+    parser.add_argument("--tenant-id", type=UUID, help="Private hosted worker tenant scope")
     parser.add_argument("--pages", default="1")
     parser.add_argument("--vision-parse", choices=("auto", "all", "off"))
     parser.add_argument("--parser", choices=("upstage", "local"), default="upstage")
@@ -1284,7 +1285,7 @@ def main():
     tenant = (
         json.loads(manifest_path.read_text())["tenant_id"]
         if manifest_path.exists()
-        else str(uuid4())
+        else str(args.tenant_id or uuid4())
     )
     user = "authorized-local-operator"
     csrf = secrets.token_urlsafe(32)

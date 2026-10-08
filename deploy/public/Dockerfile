@@ -11,6 +11,7 @@ COPY packages/proofops ./packages/proofops
 COPY apps/api ./apps/api
 COPY apps/worker ./apps/worker
 COPY apps/agent ./apps/agent
+COPY evaluation ./evaluation
 COPY config ./config
 COPY contracts ./contracts
 COPY prompts ./prompts

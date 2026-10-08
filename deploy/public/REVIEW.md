@@ -44,3 +44,35 @@ Final resource-admission guard was added after the full-suite collection. It has
 failing-before regression, final focused/related tests and a rebuilt network-none
 Docker smoke. The full suite validates the rest of the implementation at e4d71a0;
 no unchanged broad check was repeated for this isolated hosted-only admission change.
+
+## P2 self-review (deploy-P2; baseline 58ce7f3)
+Applied shared differential-review and spec-to-code-compliance directly; no independent
+agent or plugin fan-out was run. Scope: hosted API/store, provider factory seam,
+private pipeline entry point, result/review adapters, Docker packaging and canary.
+
+| Task requirement | Enforcement/evidence | Verdict |
+|---|---|---|
+| Existing R108 profiles and broker before every provider request/retry | hosted_r108.prepare_argv; HostedParseProbe/HostedLunaProbe transport overrides; fake real parse/extract/tag chain; separate retry reservations | Implemented on Mac; Linux explicitly unresolved |
+| Money .50/run,5/day,5/event; default off/operator+paths | HostedSettings ceilings, create_run global envelopes, dispatch immediate reservation; operator config and key-only worker reads; broker-limit/unknown restart/cancel tests | Implemented |
+| Claims/track/elements/source pages/holds/ranges/grades and human review | hosted_results uses unchanged LocalClaimStore/LocalTagStore/ReviewService; tenant+run gate, CSRF, reviewer role, CAS/idempotency; source replay retained | Implemented; partial results retain unknown |
+| Submission state/result/deletion contract | normalized 0..1 progress, FIFO position, stage/result URL+inline DTO; uploader hash/admin deletion; CONTRACT/OpenAPI updated | Backend aligned; frontend claim rendering remains a separate UI task |
+| Fake chain, excess/cancel/restart and key-free Docker | tests/test_hosted_analysis.py + existing hosted tests; rebuilt nonroot/network-none real HTTP smoke | Verified locally |
+| One two-page paid Mac check <=.30 through hosted API, existing R108 ledger | hosted_live_probe.py loopback Uvicorn, existing shared decision lock and .30 pre-reservation; p2-live/live-result.json | See final P2 report/result |
+
+Adversarial paths checked: unauthenticated/write-CSRF, foreign tenant result/review,
+nonowner same-tenant deletion, editor human-confirmation denial, immutable source
+replay and null-grade preservation, broker excess before HTTP, both schema retries,
+late cancelled charge settlement, deleted-run publication fence, active source lock,
+restart retaining unknown envelopes. Physical working files live under the document;
+backup allowlist excludes the entire analysis tree; successful purge clears receipt
+memory caches. No raw key/response/quote is added to hosted control/money rows.
+No domain rule, frozen verifier, evidence admission, unknown/absent semantics or
+legacy transport was weakened. Source/result reads and human resolution use the
+hosted writer lock so tombstone+purge cannot race a public result/review operation.
+Residual limits: Linux profile is uncommitted upstream development and not adopted;
+no Linux paid chain/4GB live sizing, public same-site TLS/browser/Vercel canary,
+provider-retention certification, cloud operation or push in this task.
+
+Final P2 verification: stable full suite5455 passed/68 skipped (686.49s); focused integration69 passed/1 skipped; Ruff/format/mypy passed.
+Initial broad run had one CONFIG_GATE_BLOCKED in the local approval test; isolated, adjacent and stable full reruns passed without weakening any guard.
+Mac canary: original upload201/run202/result200,109 provider calls, USD0.046962 against .30 pre-reserved in the existing R108 ledger;21 claims/8 reviews,15 verified+6 unverified, all grades null; original/analysis payload purge completed.

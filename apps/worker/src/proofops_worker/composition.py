@@ -30,6 +30,8 @@ def build_composition(
     verify_paragraphs: bool = False,
     native_typography_tolerance: bool = False,
     raster_ocr: bool = False,
+    provider_factories=None,
+    provider_ledgers=None,
 ) -> LocalParserRunner | LocalExtractRunner | LocalTagRunner:
     if type(native_typography_tolerance) is not bool or (
         native_typography_tolerance and (not verify_paragraphs or stage != "parse" or raster_ocr)
@@ -66,6 +68,8 @@ def build_composition(
         raise ValueError("EXPLICIT_LOCAL_SYNTHETIC_EXTRACTION_REQUIRED")
     note_ledger = Path(__file__).resolve().parents[4] / ".local/upstage/budget.sqlite3"
     luna_ledger = Path(__file__).resolve().parents[4] / ".local/openrouter/budget.sqlite3"
+    if provider_ledgers is not None:
+        note_ledger, luna_ledger = provider_ledgers
     if raster_ocr and not note_ledger.is_file():
         raise ValueError("SHARED_BUDGET_LEDGER_REQUIRED")
     build_proofops_composition(
@@ -101,7 +105,11 @@ def build_composition(
 
         if not note_ledger.is_file():
             raise ValueError("SHARED_BUDGET_LEDGER_REQUIRED")
-        upstage_probe = UpstageParseProbe(os.environ.get("UPSTAGE_API_KEY", ""), note_ledger)
+        upstage_probe = (
+            provider_factories["parse"](note_ledger)
+            if provider_factories
+            else UpstageParseProbe(os.environ.get("UPSTAGE_API_KEY", ""), note_ledger)
+        )
     runner = LocalParserRunner(
         LocalSQLiteRunStore(database),
         uploads,
@@ -133,7 +141,7 @@ def build_composition(
                 model = snapshot["tagging_settings"]["model_id"]
                 if model == LUNA_MODEL:
                     ledger = luna_ledger
-                    probe = OpenRouterProbe(
+                    probe = (provider_factories["llm"] if provider_factories else OpenRouterProbe)(
                         os.environ.get("OPENROUTER_API_KEY", ""),
                         ledger,
                         wire_policy_version=snapshot["tagging_settings"].get(
@@ -183,7 +191,7 @@ def build_composition(
             )
 
             # The existing user-authorized ledger must exist; never mint another allowance.
-            ledger = Path(__file__).resolve().parents[4] / ".local/upstage/budget.sqlite3"
+            ledger = note_ledger
             settings_path = os.environ.get("LOCAL_RUN_SETTINGS_PATH")
             if not settings_path:
                 raise ValueError("LOCAL_RUN_SETTINGS_REQUIRED")
@@ -213,7 +221,7 @@ def build_composition(
                 raise ValueError("EXTRACTION_PROFILE_MISMATCH")
             model, wire_policy_version = model_match
             if model == LUNA_MODEL:
-                probe = OpenRouterProbe(
+                probe = (provider_factories["llm"] if provider_factories else OpenRouterProbe)(
                     os.environ.get("OPENROUTER_API_KEY", ""),
                     luna_ledger,
                     wire_policy_version=wire_policy_version,

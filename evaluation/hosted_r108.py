@@ -1,0 +1,165 @@
+"""Private subprocess: existing R108 pipeline with explicit hosted provider factories."""
+
+import json
+import os
+import sys
+import time
+from pathlib import Path
+
+from proofops.adapters.local.upstage import UpstageProbe
+from proofops_api.hosted_analysis import (
+    PROFILES,
+    HostedLunaProbe,
+    HostedParseProbe,
+    read_key,
+    read_operator_config,
+)
+from proofops_api.hosted_store import HostedSettings, HostedStore
+from proofops_worker.composition import build_composition
+
+
+def prepare_argv(pdf, state, tenant, config):
+    from pypdf import PdfReader
+
+    pages = ",".join(str(p) for p in range(1, len(PdfReader(pdf).pages) + 1))
+    return [
+        "hosted-r108",
+        "--pdf",
+        str(pdf),
+        "--state",
+        str(state),
+        "--tenant-id",
+        tenant,
+        "--pages",
+        pages,
+        "--report-year",
+        str(config["report_year"]),
+        "--period-start",
+        config["period_start"],
+        "--period-end",
+        config["period_end"],
+        "--parser",
+        "upstage",
+        "--llm-provider",
+        "openrouter",
+        "--vision-parse",
+        "off",
+        "--max-calls",
+        "20",
+        "--extraction-total-calls",
+        "100",
+        "--tagging-max-calls",
+        "600",
+        "--relation-profile",
+        "occurrence-v3",
+        "--claim-source-profile",
+        "glyph-alignment-v1",
+        "--verify-paragraphs",
+        "--verify-merged-tables",
+        "--repair-table-headers",
+        "--verify-claim-spans",
+        "--extraction-context",
+        "--extraction-table-context",
+        "--extraction-source-ids",
+        "--extraction-assertion-prompt",
+        "--live-tagging",
+        "--live-relations",
+        "--preliminary-context",
+        "--preliminary-table-context",
+        "--preliminary-table-role",
+        "--capacity-policy-refresh",
+        "--compact-element-wire",
+        "--position-context-order",
+        "--claim-span-render-resolution",
+        "--claim-span-bullet-spacing",
+        "--claim-span-typography",
+        "--ai-project-review",
+        "--display-text-profile",
+        "glyph-joined-display-v1",
+    ]
+
+
+def drive(store, job, workspace, config, *, llm_post=None, parse_post=None):
+    from evaluation import local_upstage_pilot as pilot
+
+    state = workspace / "state"
+    old_argv = sys.argv
+    sys.argv = prepare_argv(workspace / "selected.pdf", state, job["tenant_id"], config)
+    try:
+        if pilot.main() != 0:
+            raise ValueError("HOSTED_PREPARATION_FAILED")
+    finally:
+        sys.argv = old_argv
+    manifest = json.loads((state / "pilot.json").read_text())
+    # Keys stay inside the private process; fake transports use explicit dummy keys.
+    luna_key = (
+        "fake-test" if llm_post else read_key(config["openrouter_key_file"], "OPENROUTER_API_KEY")
+    )
+    parse_key = (
+        "fake-test" if parse_post else read_key(config["upstage_key_file"], "UPSTAGE_API_KEY")
+    )
+    upstage_ledger, luna_ledger = state / "upstage.sqlite3", state / "luna.sqlite3"
+    UpstageProbe(parse_key, upstage_ledger)  # local receipts only; hosted broker grants money
+    factories = {
+        "parse": lambda ledger: HostedParseProbe(
+            parse_key, ledger, store=store, job=job, post=parse_post
+        ),
+        "llm": lambda key, ledger, **kw: HostedLunaProbe(
+            luna_key, ledger, store=store, job=job, post=llm_post, **kw
+        ),
+    }
+    os.environ["LOCAL_LLM_MAX_WORKERS"] = "1"
+    observed = []
+    for stage, progress in (("parse", 15), ("extract", 45), ("tag", 75)):
+        store.update_progress(job, stage, progress)
+        worker = build_composition(
+            stage=stage,
+            verify_paragraphs=stage == "parse",
+            provider_factories=factories,
+            provider_ledgers=(upstage_ledger, luna_ledger),
+        )
+        try:
+            outcome = worker.run_once(tenant_id=job["tenant_id"], run_id=manifest["run_id"])
+            observed.append(dict(stage=stage, outcome=outcome))
+            if stage == "extract" and outcome == "committed":
+                from proofops_worker.extract_batch import run_batches
+
+                batches = run_batches(
+                    worker, tenant_id=job["tenant_id"], run_id=manifest["run_id"], batches=100
+                )
+                if batches and batches[-1].get("stop_code"):
+                    observed.append(dict(stage=stage, outcome=batches[-1]["stop_code"]))
+                    break
+            if outcome not in {"committed", "completed", "partial"}:
+                break
+        finally:
+            worker.uploads.close()
+            worker.uploads.registry.close()
+    # Preserve genuine partial work and reasons. Only completed tag publication
+    # may be called completed; domain decisions still carry their own hold states.
+    complete = bool(observed and observed[-1] == dict(stage="tag", outcome="completed"))
+    result = dict(
+        status="completed" if complete else "partial_blocked",
+        stages=observed,
+        reason=None if complete else "R108_" + observed[-1]["outcome"].upper(),
+        profiles=PROFILES,
+        reporting_scope={k: config[k] for k in ("report_year", "period_start", "period_end")},
+    )
+    (state / "outcome.json").write_text(json.dumps(result))
+    return state, result
+
+
+def main():
+    settings = HostedSettings.from_env(os.environ)
+    store = HostedStore(settings)
+    run, fence, workspace = sys.argv[1:]
+    with store.transaction() as db:
+        job = dict(db.execute("SELECT * FROM runs WHERE run_id=?", (run,)).fetchone())
+        if job["fence"] != int(fence):
+            raise ValueError("LEASE_LOST")
+        store._fenced(db, job, time.time())
+    drive(store, job, Path(workspace), read_operator_config(settings.live_config))
+
+
+if __name__ == "__main__":
+    main()

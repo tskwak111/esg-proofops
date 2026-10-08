@@ -22,3 +22,19 @@ not the complete R108 analysis/review/export backend. A base-URL change alone is
 
 Local web typecheck/build verifies the untouched current web, not a hosted UI migration.
 Browser same-site/TLS canary and real AWS operation await domains/credentials and are not_run.
+
+## P2 contract alignment for hosted-r108-web(8ae22b7)
+The backend now supplies stage, queue_position, numeric progress0..1, inline result
+and result_url; `completed` always requires a real fenced R108 publication. Partial
+results remain partial_blocked and include hold reasons. Uploader deletion now works
+with the existing reason/Idempotency client; remove its stale admin-only comment.
+Use the P2 CONTRACT result DTO for claim cards and review forms: source quality,
+original_page_num/page_map, unchanged source refs, elements, missing-evidence states,
+possible_grade_range and nullable confirmed_grade. The current RunOutcomeView has
+no claim/result renderer; add that in the submission UI task before a browser launch.
+Reviewer/admin POST /v1/runs/{id}/reviews/{review}/resolve uses If-Match, CSRF and
+Idempotency-Key and returns the existing human-confirmed decision. The selected-PDF
+source refs must remain unchanged when submitted; original page labels are display
+mapping only. Use /v1/runtime delete_policy/review_role/source_verifier/live_analysis
+and preserve unknown/unverified/partial semantics. Source integrity failure409 is
+not an empty successful result. Existing same-site/TLS/proxy checks remain not_run.

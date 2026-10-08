@@ -30,7 +30,7 @@ from proofops_api.middleware import BrowserSecurityHeadersMiddleware, verify_csr
 
 UPLOAD_NOTICE = (
     "업로드한 원본 PDF는 이 서버에서 7일 동안 보관한 뒤 자동 삭제합니다. "
-    "관리자는 보관 기간이 끝나기 전에 삭제를 요청할 수 있습니다. "
+    "업로더 본인과 관리자는 보관 기간이 끝나기 전에 삭제를 요청할 수 있습니다. "
     "외부 분석 전송 범위는 선택한 최대 2쪽이며, 현재 유료 분석은 비활성화되어 있습니다."
 )
 
@@ -151,7 +151,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
             except asyncio.CancelledError:
                 pass
 
-    app = FastAPI(title="ProofOps Hosted API", version="1.0.0", lifespan=lifespan)
+    app = FastAPI(title="ProofOps Hosted API", version="1.1.0", lifespan=lifespan)
     app.state.composition = store
     app.state.auth_store = auth_store
     app.add_middleware(
@@ -186,7 +186,9 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
             now = time.time()
             capability = "viewer" if request.method == "GET" else "editor"
             if request.url.path.endswith("/deletion-requests"):
-                capability = "admin"
+                capability = "viewer"
+            if request.url.path.endswith("/resolve"):
+                capability = "reviewer"
             if request.url.path in {"/v1/auth/logout", "/v1/session/tenant"}:
                 capability = "viewer"
             auth = authorize(
@@ -278,14 +280,24 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
     def runtime() -> dict:
         return {
             "app_env": "hosted",
-            "profile": "r108-hosted-control-v1",
+            "profile": "r108-hosted-sprint5-v1",
             "analysis_backend": settings.backend,
             "accept_new_runs": settings.accept_runs,
             "accept_uploads": settings.accept_uploads,
-            "live_disabled": True,
-            "live_analysis": False,
-            "source_verifier": "blocked_linux_reader",
-            "upload_notice": UPLOAD_NOTICE,
+            "live_disabled": settings.live_disabled,
+            "live_analysis": not settings.live_disabled and __import__("sys").platform == "darwin",
+            "source_verifier": "apple-vision"
+            if __import__("sys").platform == "darwin"
+            else "unresolved",
+            "delete_policy": "uploader_or_admin",
+            "review_role": "reviewer",
+            "result_schema": "r108-hosted-result-v1",
+            "upload_notice": UPLOAD_NOTICE
+            if settings.live_disabled
+            else UPLOAD_NOTICE.replace(
+                "현재 유료 분석은 비활성화되어 있습니다.",
+                "운영자 설정에 따라 Upstage·OpenRouter로 분석을 전송합니다.",
+            ),
             "consent_version": settings.consent_version,
             "limits": {
                 "max_upload_bytes": settings.max_upload_bytes,
@@ -315,8 +327,8 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
         return {
             "status": "not_ready" if failed else "ok",
             "control_plane": not bool(failed),
-            "live_analysis": False,
-            "checks": ["sqlite", "durable_auth", "purge_guards", "live_binding_unavailable"],
+            "live_analysis": not settings.live_disabled and __import__("sys").platform == "darwin",
+            "checks": ["sqlite", "durable_auth", "purge_guards", "hosted_broker"],
         }
 
     @app.post("/v1/documents", status_code=201)
@@ -357,6 +369,35 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
     @app.get("/v1/runs/{run_id}")
     def run_get(run_id: UUID, auth: Annotated[AuthContext, Depends(current)]) -> dict:
         return store.get_run(auth.tenant_id, str(run_id))
+
+    @app.get("/v1/runs/{run_id}/result")
+    def result(run_id: UUID, auth: Annotated[AuthContext, Depends(current)]) -> dict:
+        return store.get_result(auth.tenant_id, str(run_id))
+
+    @app.post("/v1/runs/{run_id}/reviews/{review_id}/resolve")
+    def resolve_review(
+        run_id: UUID,
+        review_id: UUID,
+        body: dict,
+        request: Request,
+        auth: Annotated[AuthContext, Depends(current)],
+    ) -> dict:
+        from pydantic import ValidationError
+
+        from proofops_api.routers.reviews import ReviewResolve
+
+        try:
+            validated = ReviewResolve.model_validate(body).model_dump(mode="json")
+        except ValidationError:
+            raise HostedError("VALIDATION_ERROR", 422) from None
+        return store.resolve_review(
+            auth,
+            str(run_id),
+            str(review_id),
+            validated,
+            request.headers.get("If-Match"),
+            request.headers.get("Idempotency-Key", ""),
+        )
 
     @app.post("/v1/runs/{run_id}/cancel")
     def cancel(run_id: UUID, auth: Annotated[AuthContext, Depends(current)]) -> dict:
