@@ -182,6 +182,18 @@ def pilot_argv(template: list[str], *, pdf: Path, state: Path, port: int, root: 
     return argv
 
 
+def configure_concurrency() -> int:
+    """Use the worker's bounded default while respecting an operator's lower cap."""
+    try:
+        workers = int(os.environ.get("LOCAL_LLM_MAX_WORKERS", "16"))
+    except ValueError:
+        raise ValueError("LOCAL_LLM_CONFIGURATION_INVALID") from None
+    if not 1 <= workers <= 16:
+        raise ValueError("LOCAL_LLM_CONFIGURATION_INVALID")
+    os.environ["LOCAL_LLM_MAX_WORKERS"] = str(workers)
+    return workers
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, required=True)
@@ -189,6 +201,7 @@ def main():
     parser.add_argument("--port", type=int, required=True)
     parser.add_argument("--kakao-port", type=int, required=True)
     args = parser.parse_args()
+    workers = configure_concurrency()
     root, run_root = args.root.resolve(), args.run_root.resolve()
     ledgers = {
         name: (root / f".local/{name}/budget.sqlite3").resolve()
@@ -247,7 +260,6 @@ def main():
 
     Path.read_text = key_read
     os.environ["PROOFOPS_RECEIPT_READ_PROFILE"] = "receipt-env-drift-v1"
-    os.environ["LOCAL_LLM_MAX_WORKERS"] = "4"
     child = None
     with (run_root / "kakao.log").open("w") as log:
         try:
@@ -278,7 +290,9 @@ def main():
             browser = json.loads((run_root / "kakao-state/browser.json").read_text())
             print("Kakao saved walkthrough: " + browser["login_url"], flush=True)
             print(
-                "Live analysis: OpenRouter Luna · occurrence-v3 · 66,67 · USD0.50 cap", flush=True
+                f"Live analysis: OpenRouter Luna · occurrence-v3 · 66,67 · "
+                f"USD0.50 cap · {workers} workers",
+                flush=True,
             )
             from evaluation.local_upstage_pilot import main as pilot_main
 
