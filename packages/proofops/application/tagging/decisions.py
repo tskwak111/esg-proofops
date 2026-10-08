@@ -117,6 +117,13 @@ POLICY = dict(
     preliminary_questions=preliminary_questions(),
     relation_questions=relation_questions(),
     quote_prompt_sha256=canonical_hash(QUOTE_PROMPT),
+    preliminary_context=dict(
+        schema="luna-axis-presence-v1",
+        required_axes=list(AXES[:3]),
+        optional_axes="include only keys reported by at least one of three validated Luna replicas",
+        unresolved="retain included nulls; omission is not a model judgment of N/A",
+        values="same validated span in all three replicas AND DEC-15 agreement at 0.80",
+    ),
     relation_gate="OpenAI supports AND JEV supports; existing source/binding guards",
     unknown="unresolved, never absent",
     openai_limit_usd="3.00",
@@ -198,27 +205,38 @@ def resolve_preliminary(openai, jev, quotes):
     for field in ("track", *AXES):
         name = field if field == "track" else "axis_" + field
         pair = [openai.get(name), jev.get(name)]
-        agreed = (
-            all(pair)
-            and pair[0]["choice"] == pair[1]["choice"]
-            and pair[0]["choice"] != "unknown"
-            and all(a["probabilities"][a["choice"]] >= PROBABILITY_THRESHOLD for a in pair)
-        )
-        value = (
-            pair[0]["choice"]
-            if agreed and field == "track"
-            else quotes.get(field)
-            if agreed
-            else None
-        )
+        if not all(pair) or pair[0]["choice"] != pair[1]["choice"]:
+            diagnostic = "DECISION_DISAGREEMENT_OR_MISSING"
+        elif pair[0]["choice"] == "unknown":
+            diagnostic = "DECISION_BOTH_UNKNOWN"
+        elif any(a["probabilities"][a["choice"]] < PROBABILITY_THRESHOLD for a in pair):
+            diagnostic = "DECISION_LOW_PROBABILITY"
+        elif field != "track" and quotes.get(field) is None:
+            diagnostic = "DECISION_NO_USABLE_QUOTE"
+        else:
+            diagnostic = "DECISION_ADOPTED"
+        value = None
+        if diagnostic == "DECISION_ADOPTED":
+            value = pair[0]["choice"] if field == "track" else quotes[field]
         fields[field] = dict(
             state="agreed" if value is not None else "unresolved",
             value=value,
             model_answers=pair,
             replicate_values=[a["choice"] if a else None for a in pair],
             threshold=PROBABILITY_THRESHOLD,
+            diagnostic_code=diagnostic,
         )
     return fields
+
+
+def preliminary_dimensions(fields, replica_dimensions):
+    """Preserve Luna's optional-axis applicability keys, including explicit nulls.
+
+    Decision unknown/present answers never establish applicability or N/A. Values
+    still come exclusively from the three-quote consensus and DEC-15 gate.
+    """
+    included = set(AXES[:3]).union(*(set(values) for values in replica_dimensions))
+    return {axis: fields[axis]["value"] for axis in AXES if axis in included}
 
 
 def resolve_relation(openai, jev):

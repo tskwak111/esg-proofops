@@ -49,6 +49,33 @@ def test_agreement_threshold_unknown_and_literal_quote_gate():
 
 
 @pytest.mark.parametrize(
+    "choice,probability,quote,expected",
+    [
+        ("present", 0.80, "literal", "DECISION_ADOPTED"),
+        ("unknown", 0.90, "literal", "DECISION_BOTH_UNKNOWN"),
+        ("present", 0.79, "literal", "DECISION_LOW_PROBABILITY"),
+        ("present", 0.90, None, "DECISION_NO_USABLE_QUOTE"),
+    ],
+)
+def test_axis_diagnostics_keep_threshold_and_quote_gate(choice, probability, quote, expected):
+    pair = [preliminary_answers(), preliminary_answers()]
+    for response in pair:
+        response["axis_product"] = answer(choice, ("present", "unknown"), probability)
+    field = resolve_preliminary(*pair, {"product": quote})["product"]
+    assert field["diagnostic_code"] == expected
+    assert field["value"] == (quote if expected == "DECISION_ADOPTED" else None)
+
+
+@pytest.mark.parametrize("right", [None, answer("unknown", ("present", "unknown"))])
+def test_missing_or_disagreeing_axis_has_a_separate_diagnostic(right):
+    pair = [preliminary_answers(), preliminary_answers()]
+    pair[1]["axis_product"] = right
+    assert resolve_preliminary(*pair, {"product": "literal"})["product"]["diagnostic_code"] == (
+        "DECISION_DISAGREEMENT_OR_MISSING"
+    )
+
+
+@pytest.mark.parametrize(
     "left,right,expected",
     [
         ("supports", "supports", "supports"),

@@ -17,6 +17,7 @@ from pathlib import Path
 from proofops.application.tagging.decisions import (
     AXES,
     POLICY,
+    preliminary_dimensions,
     preliminary_questions,
     resolve_preliminary,
     resolve_relation,
@@ -77,6 +78,21 @@ def archived_quotes(case):
     return result
 
 
+def context_binding_comparison(fields, replicas):
+    """Count explicit optional-null blockers, not accepted evidence or E2E success."""
+    before = {axis: fields[axis]["value"] for axis in AXES}
+    after = preliminary_dimensions(fields, replicas)
+    return dict(
+        before=before,
+        after=after,
+        omitted_optional_axes=[axis for axis in AXES[3:] if axis not in after],
+        before_unresolved_optional=[axis for axis in AXES[3:] if before[axis] is None],
+        after_unresolved_optional=[
+            axis for axis in AXES[3:] if axis in after and after[axis] is None
+        ],
+    )
+
+
 def replay(mb):
     inputs, records = read(mb / "executed-inputs.json"), read(mb / "run-records.json")
     chosen = {}
@@ -88,8 +104,11 @@ def replay(mb):
             continue
         chosen[record["model"], meta.get("case"), meta.get("replica")] = record
     sample = {}
+    axis_states = [Counter(), Counter()]
+    binding = Counter()
     for case in inputs["A"]:
         quotes = archived_quotes(case)
+        replicas = [r["output"]["dimensions"] for r in case["cached"]]
         trials = []
         for replica in (1, 2):
             answers, receipts = [], []
@@ -109,12 +128,38 @@ def replay(mb):
             fields = resolve_preliminary(*answers, quotes)
             categories = [r["output"].get("safe_harbor_category") for r in case["cached"]]
             category_agreed = len(categories) == 3 and all(c == categories[0] for c in categories)
+            axis_states[replica - 1].update(fields[axis]["diagnostic_code"] for axis in AXES)
+            comparison = context_binding_comparison(fields, replicas)
+            if replica == 1:
+                binding["measured"] += 1
+                binding["before_optional_null_blocked"] += bool(
+                    comparison["before_unresolved_optional"]
+                )
+                binding["after_optional_null_blocked"] += bool(
+                    comparison["after_unresolved_optional"]
+                )
+                binding["omitted_optional_keys"] += len(comparison["omitted_optional_axes"])
+                binding["before_unresolved_optional_keys"] += len(
+                    comparison["before_unresolved_optional"]
+                )
+                binding["after_unresolved_optional_keys"] += len(
+                    comparison["after_unresolved_optional"]
+                )
+                if fields["track"]["value"] and category_agreed:
+                    binding["track_and_category_agreed"] += 1
+                    binding["agreed_before_optional_null_blocked"] += bool(
+                        comparison["before_unresolved_optional"]
+                    )
+                    binding["agreed_after_optional_null_blocked"] += bool(
+                        comparison["after_unresolved_optional"]
+                    )
             trials.append(
                 dict(
                     fields=fields,
                     receipts=receipts,
                     category_agreed=category_agreed,
                     candidate_track=fields["track"]["value"] if category_agreed else None,
+                    context_binding_comparison=comparison,
                 )
             )
         sample[case["id"]] = dict(
@@ -124,6 +169,8 @@ def replay(mb):
             trials=trials,
             expected_track=case["expected_track"],
             original_packet_sha256=case["packet_sha256"],
+            luna_replica_axes=[sorted(values) for values in replicas],
+            luna_response_sha256=[canonical_hash(r["output"]) for r in case["cached"]],
         )
     companies = defaultdict(Counter)
     claims = []
@@ -171,7 +218,7 @@ def replay(mb):
     totals = dict(sum(companies.values(), Counter()))
     aligned = [s for s in sample.values() if s["expected_track"]]
     return dict(
-        schema="decision-profile-offline-analysis-v1",
+        schema="decision-profile-offline-analysis-v2",
         policy=POLICY,
         policy_sha256=canonical_hash(POLICY),
         paid_calls=0,
@@ -182,6 +229,7 @@ def replay(mb):
             "archived MB complete-policy prompt transfer; not exact new-profile HTTP replay",
             "saved literal/display-map checks only; no PDF/source re-attestation",
             "0.80 is uncalibrated; threshold selected conservatively, not tuned to labels",
+            "binding comparison counts explicit optional-null blockers only; not binding approval",
         ],
         totals=totals,
         companies={k: dict(v) for k, v in companies.items()},
@@ -193,6 +241,8 @@ def replay(mb):
             bool(s["trials"][1]["candidate_track"]) for s in sample.values()
         ),
         relation_totals=dict(relation),
+        axis_state_distribution=[dict(counter) for counter in axis_states],
+        context_binding_totals=dict(binding),
         relation_rows=relation_rows,
         claims=claims,
     )

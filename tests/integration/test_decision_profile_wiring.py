@@ -297,10 +297,12 @@ def test_worker_decisions_override_track_but_never_create_quotes_and_replay_free
     runtime, claim, graph, calls, usage = decision_worker(tmp_path, monkeypatch)
     result = runtime.preliminary(claim, graph)
     assert result is not None and result[0].track == "goal"  # quote-generator said management
+    assert set(result[1].dimensions) == {"entity", "metric", "reporting_period"}
     assert all(v is None for v in result[1].dimensions.values())
     agreement = runtime.preliminary_agreement(claim.claim_id)
     assert agreement["fields"]["track"]["state"] == "agreed"
     assert agreement["dimensions"]["metric"]["state"] == "unresolved"
+    assert agreement["dimensions"]["metric"]["diagnostic_code"] == "DECISION_NO_USABLE_QUOTE"
     assert len(agreement["decision_receipts"]) == 2
     assert len(calls) == 3
     assert usage["decision_usage"]["openai"]["settled_calls"] == 1
@@ -358,6 +360,10 @@ def test_worker_relation_gate_keeps_candidates_for_review(tmp_path, monkeypatch,
             values=dict(dimensions={k: asdict(v) for k, v in tags(refs[0]).items()}),
         )
     ] * 3
+    # Relation anchors still come from Luna, even when every decision value is null.
+    runtime.decision_records[claim.claim_id] = dict(
+        fields={k: dict(value=None) for k in DIMENSIONS}
+    )
 
     def selections(prefix, claim, packet, settings, transport, records, validate, **kwargs):
         source = packet["untrusted_document_data"]["sources"][0]
@@ -384,6 +390,8 @@ def test_worker_relation_gate_keeps_candidates_for_review(tmp_path, monkeypatch,
         choice = "supports" if provider == "openai" else jev
 
         def post(body, selected=choice, model=probe.model):
+            state = json.loads(body["input"]) if "input" in body else body["state"]
+            assert state["claim_dimensions"] == DIMENSIONS
             return dict(
                 model=model,
                 answers={

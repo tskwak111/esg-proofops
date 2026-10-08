@@ -852,6 +852,7 @@ class LiveTaggingRuntime:
         from proofops.application.tagging.decisions import (
             AXES,
             POLICY,
+            preliminary_dimensions,
             preliminary_questions,
             preliminary_state,
             resolve_preliminary,
@@ -897,7 +898,9 @@ class LiveTaggingRuntime:
                 ),
             ),
         )[0]
-        context = ClaimContext(claim, {axis: fields[axis]["value"] for axis in AXES})
+        context = ClaimContext(
+            claim, preliminary_dimensions(fields, [r.context.dimensions for r in results])
+        )
         return track, context, local_relation_tags(context)
 
     def _source_replicas(
