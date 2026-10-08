@@ -146,7 +146,14 @@ def _failure(exc: UploadRejected) -> JSONResponse:
     return _error_response(
         status,
         "RESOURCE_NOT_FOUND" if code == "NOT_FOUND" else code,
-        "요청한 문서 또는 업로드를 처리할 수 없습니다.",
+        "PDF를 여는 암호가 필요합니다. 열기 암호를 해제한 PDF로 다시 업로드해 주세요."
+        if code == "PDF_PASSWORD_REQUIRED"
+        else (
+            "PDF 원본의 전체 보안 검사를 완료하지 못했습니다. "
+            "PDF 뷰어에서 다시 저장한 파일로 업로드해 주세요."
+        )
+        if code == "PDF_INVALID"
+        else "요청한 문서 또는 업로드를 처리할 수 없습니다.",
     )
 
 
@@ -344,7 +351,8 @@ def build_documents_router(
             return auth
         try:
             ticket = service.check_receipt(auth.tenant_id, str(upload_id))
-            maximum = service.limits.max_bytes + 65536  # bounded multipart envelope overhead
+            limits = service.receipt_limits(auth.tenant_id, str(upload_id))
+            maximum = limits.max_bytes + 65536  # bounded multipart envelope overhead
             size_header = request.headers.get("content-length")
             if size_header is not None and not 0 <= int(size_header) <= maximum:
                 raise UploadRejected("UPLOAD_LIMIT_EXCEEDED")
@@ -372,7 +380,7 @@ def build_documents_router(
                     )
                 if not isinstance(file, UploadFile) or file.content_type != "application/pdf":
                     raise UploadRejected("PDF_INVALID")
-                content = await file.read(service.limits.max_bytes + 1)
+                content = await file.read(limits.max_bytes + 1)
                 await run_in_threadpool(
                     service.receive_content,
                     auth.tenant_id,

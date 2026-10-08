@@ -124,7 +124,7 @@ export async function check() {
     assert(host.textContent.includes(`값: ${source.quote}`), 'Element must show its stored value as text');
     const sourceButton = [...host.querySelectorAll('button')].find(button => button.textContent.includes('원문 위치'));
     sourceButton.click();
-    await waitFor('원본 PDF 새 탭에서 열기');
+    await waitFor('PDF 표시본 새 탭에서 열기');
     assert(host.querySelector('img[alt*="1쪽"]'), 'Verified located source should render the issued PNG preview');
     assert(host.querySelector('[data-source-highlight="true"]'), 'Allowed verified bbox should render a real overlay');
     assert(sourceTickets === 2, 'Expired source preview should issue exactly one replacement ticket');

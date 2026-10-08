@@ -35,6 +35,7 @@ def load_run_inputs(store, uploads, *, tenant_id: str, run_id: str):
         document["sha256"],
         document["object_version_id"],
         content,
+        upload_security_limits=document.get("upload_security", {}).get("limits"),
     )
     pages = snapshot["selected_pages"]
     if not pages or any(type(p) is not int or not 1 <= p <= document["page_count"] for p in pages):

@@ -272,3 +272,82 @@ Rollback은 새 opt-in 생성 중단이다. 새 manifest를 읽으려면 당시 
 v1 검증 파일과 정책 해시는 유지한다. parser는 저장된 policy hash로 v1/v2를
 선택하며 알 수 없는 정책은 거부한다. DB/API migration 없음. Rollback은 새 옵션
 배정 중단과 v4/v2 reader 유지이며, 구버전 reader에 새 산출물을 배정하지 않는다.
+
+
+## R108 Sprint 5 · 업로드 `display-v2`와 표시용 PDF (2026-10-08)
+
+새 `UploadService` 업로드는 `PdfLimits.display()`를 사용한다. 업로드 시작 시
+`upload_security_limits`(profile과 모든 한도)를 private upload record에 고정한다.
+완료한 version의 `upload_security`와 기존 acceptance audit의 after hash에
+profile, 한도, 암호화 여부, 원본 권한 플래그, parser/retry, 원본/표시본 SHA-256,
+`derived=true`, 제거 상태를 기록한다. 새로운 공개 DTO/SQL schema migration은 없다.
+기존 pending upload에 pin이 없으면 `strict-v1`로 검증하며, 저장된 accepted version,
+run document/input hash, parser profile/manifest와 evidence/decision revision은 재작성하지 않는다.
+알 수 없는 profile은 거절한다. rollback은 새 업로드를 `PdfLimits()`에 배정하는 방식이며,
+`display-v2` version/run은 이를 지원하는 reader에 유지해야 한다.
+
+원본은 기존 create-only `original/<tenant>/<version>.pdf`와 SHA-256을 그대로 보존한다.
+서버 파싱, native text, 좌표·인용 확인, PNG 렌더링은 `read_original`을 사용한다.
+서버는 PDF action 실행 API, form 환경 초기화, 외부 stream 파일/URL 해석을
+업로드 검증에 사용하지 않는다. 분석 프로세스도 원본을 변경하지 않는다.
+`SourceArtifact.upload_security_limits`는 run에 이미 고정된 document snapshot에서만
+받는다. 새 원본의 파서 사전검증은 같은 upload policy를 사용하며 geometry reader는
+관대한 모드/빈 암호로 원본을 읽는다. 필드 없는 역사적 원본은 기존 strict 동작을 유지한다.
+
+`POST /v1/runs/{run}/sources/{source}/view`의 ticket은 여전히 tenant/user/run/version/
+manifest/원본 SHA/만료에 묶인다. `GET /local/sources/...` PDF 응답은 이제 원본이 아닌
+`<version>.display-v2.pdf`를 반환한다. `X-PDF-Derived: display-v2`,
+`X-Original-SHA256`, `X-Display-SHA256`가 표시본임과 해시 연결을 명시한다.
+기존 ticket JSON의 `sha256`은 증거 원본 identity이며 응답 body의 checksum이 아니다.
+PNG preview는 원본에서 생성하며 PDF action을 사용자에게 전달하지 않는다.
+표시본 byte hash를 매 read마다 확인하고, 원본처럼 0400/create-only로 저장한다.
+기존 version 표시본은 version/run/audit를 변경하지 않고 별도 불변 `.display-v2.json`
+sidecar로 원본/파생 SHA와 profile을 묶는다. 원본 bytes를 반환하는 fallback은 없다.
+
+표시본은 전체 xref/중첩 객체와 실제 PageObject 양쪽을 스캔하고 action/JS/OpenAction/
+AA/Named/URI/Launch/SubmitForm/embedded files/XFA/RichMedia 등을 제거한 뒤
+새 catalog로 작성한다. 일반 페이지 내용의 기본 가시성을 보존하도록 보안 순회·제거 후
+`/OCProperties` 전체 설정을 page resource와 같은 writer 참조 매핑으로 복사한다.
+`/D` ON/OFF, OCG·OCMD, View/Print Usage 설정을 유지한다. 주석, forms, attachments, outlines, names와 metadata도
+복사하지 않는다. 따라서 주석/폼의 외형과 상호작용이 원본과 달라질 수 있으며
+표시본을 원본 증거나 수정된 분석 입력으로 사용해서는 안 된다. 외부 stream `/F` 및
+허용하지 않은 decoding filter는 계속 거절한다. 권한 제한 PDF는 빈 사용자 암호로
+열리면 수용/권한 기록하고, 실제 열기 암호가 필요하면 `PDF_PASSWORD_REQUIRED`와
+한국어 재업로드 안내를 반환한다. 복구 불가 PDF도 원문/파서 stderr 없이 안내한다.
+
+같은 한도 안에서 strict pypdf → tolerant pypdf로 **원본** 전체 검사를 재시도한다.
+두 순회가 모두 실패하면 PDFium repair로 객체를 버려 승인하지 않고 `PDF_INVALID`로
+fail-closed 거절하며 한국어로 전체 원본 보안 검사 실패·재저장 안내를 제공한다.
+private 실패 record에는 `original_inspection=incomplete`,
+`repaired_inspection=not_attempted`를 별도 기록한다. 성공은 원본 complete이며
+repaired 입력은 사용하지 않는다. CPU/memory/deadline은 하나의 child budget이다.
+파일/표시본 100 MiB, 300쪽, 250,000 객체/노드, 총 decoded 512 MiB,
+1 GiB parser memory, CPU 60초, wall 90초를 적용한다. 총 decoded/input 비율 및
+1 MB 초과 단일 stream의 decoded/encoded 비율은 1,000배를 넘으면 거절한다.
+디코더별 출력 상한과 외부 JBIG2 실행 금지도 유지한다. Linux는 hard address-space/
+CPU 제한, Windows는 Job Object, macOS는 기존 RSS watchdog이며 macOS는 hard
+memory sandbox와 동일하지 않다. corpus의 KT 약 129,000 노드와 WFG 약 107.5 MB
+decoded에 여유를 주는 한도이며 임의 보고서의 성공/정확도 보장은 아니다.
+
+
+### R108 F6 · 역사적 정책과 수신 한도 보존 (2026-10-08)
+
+`strict-v1` 검사는 기준 `8458a01`의 의미를 유지한다. pin 없는 역사적 upload도
+동일한 `PdfLimits()` 한도를 쓴다. Widget hover `/E`·`/X`의 `/Hide`는 strict-v1에서
+거절하며 새 display-v2는 원본 검사 후 동작을 제거한 표시본을 만든다.
+수신 multipart 전체 크기·file read·quarantine 검증은 해당 upload의 pinned max_bytes를
+사용한다. 기존 initiate idempotency 응답은 신규 한도·권리 admission보다 먼저 재생하되
+tenant/document 접근 검사를 유지한다. mutable 서비스 설정은 새 ticket에만 적용한다.
+
+이전 표시본은 OCG 설정 누락 가능성 때문에 그대로 재사용하지 않는다. 전체 원본
+검사 완료 marker가 없는 표시본은 원본을 재검증해 별도 create-only
+`.display-v2-checked.pdf`/hash sidecar로 만든다. 기존 원본·표시 파일·version/run/audit는
+덮어쓰지 않는다. 원본 검증 실패 시 PDF bytes fallback은 없다.
+
+F5의 citation_unresolved replica unavailable 처리는 `partial-facts-v2`와 새 hash로
+분리한다. strict-v1과 `partial-facts-v1` hash/알고리즘은 당시 의미를 유지하며
+기존 저장 결과를 수정하지 않는다. 새 RunService의 partial opt-in(v1 설정 포함)은 v2를
+pin한다. persisted v1은 pre-F5 알고리즘으로 읽고 `TAG_REPLAY_MISMATCH` 검사를 유지한다.
+v2도 실패 replica 요소를 unknown으로 남기며 2개 present 투표로 원문 사실을 승인하지
+않는다. API DTO/DB column migration은 없다. rollback은 신규 v2 배정 중단과 v1/v2
+reader 유지이며 새 v2 run을 미지원 reader에 배정하지 않는다.

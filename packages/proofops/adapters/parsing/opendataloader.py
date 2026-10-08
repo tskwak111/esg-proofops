@@ -337,7 +337,9 @@ class OpenDataLoaderParser(ParserPort):
                 len(source.content),
                 source.sha256,
             ),
-            PdfLimits(max_bytes=profile.max_bytes, timeout_seconds=profile.timeout_seconds),
+            PdfLimits(**source.upload_security_limits)
+            if source.upload_security_limits is not None
+            else PdfLimits(max_bytes=profile.max_bytes, timeout_seconds=profile.timeout_seconds),
             tenant_id=tenant_id,
         )
         selected = profile.physical_pages or tuple(range(1, verified.page_count + 1))
@@ -348,7 +350,15 @@ class OpenDataLoaderParser(ParserPort):
         with _parser_work_directory(final.parent) as work:
             (work / "source.pdf").write_bytes(source.content)
             (work / "request.json").write_bytes(
-                _json(dict(profile=profile.invocation_snapshot(), selected=selected))
+                _json(
+                    dict(
+                        profile=profile.invocation_snapshot(),
+                        selected=selected,
+                        upload_security_profile=(source.upload_security_limits or {}).get(
+                            "policy_profile", "strict-v1"
+                        ),
+                    )
+                )
             )
             env = _child_environment(java, work, profile)
             command = [sys.executable, "-I", str(Path(__file__).resolve()), str(work)]
@@ -1044,7 +1054,12 @@ def _child(work: Path) -> None:
     request = json.loads((work / "request.json").read_bytes())
     profile, selected = request["profile"], request["selected"]
     _child_limits(profile)
-    reader = PdfReader(work / "source.pdf", strict=True)
+    reader = PdfReader(
+        work / "source.pdf",
+        strict=request.get("upload_security_profile", "strict-v1") == "strict-v1",
+    )
+    if reader.is_encrypted and not reader.decrypt(""):
+        raise ParseFailure("PDF_PASSWORD_REQUIRED")
     geometries = {}
     for number in selected:
         page = reader.pages[number - 1]

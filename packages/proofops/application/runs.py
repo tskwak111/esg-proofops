@@ -22,7 +22,11 @@ from proofops.application.preflight import (
     relation_settings_contract_valid,
 )
 from proofops.application.registry import RegistryNotFound, artifact_sha256
-from proofops.application.tagging.consensus import PARTIAL_FACTS_V1
+from proofops.application.tagging.consensus import (
+    PARTIAL_FACTS_PROFILES,
+    PARTIAL_FACTS_V1,
+    PARTIAL_FACTS_V2,
+)
 from proofops.application.tagging.report_level_link import (
     validate_config as validate_report_level_link,
 )
@@ -221,9 +225,13 @@ class RunService:
         self.tagging_settings, self.tagging_mode = tagging_settings, tagging_mode
         if report_level_link is not None and (tagging_mode is None or tagging_settings is None):
             raise ValueError("report-level link requires tagging")
-        if fact_assembly_profile not in ("strict-v1", PARTIAL_FACTS_V1):
+        if fact_assembly_profile not in ("strict-v1", *PARTIAL_FACTS_PROFILES):
             raise ValueError("unknown fact assembly profile")
-        self.fact_assembly_profile = fact_assembly_profile
+        # Configuration opt-in selects the current policy for NEW runs only.
+        # Persisted snapshots are replayed by their original profile without rewriting.
+        self.fact_assembly_profile = (
+            PARTIAL_FACTS_V2 if fact_assembly_profile == PARTIAL_FACTS_V1 else fact_assembly_profile
+        )
         self.report_level_link = (
             _detach(validate_report_level_link(report_level_link))
             if report_level_link is not None
@@ -577,8 +585,8 @@ class RunService:
                 tagging_settings_hash=canonical_hash(asdict(tagging)),
                 tagging_mode=self.tagging_mode,
             )
-            if self.fact_assembly_profile == PARTIAL_FACTS_V1:
-                snapshot["fact_assembly_profile"] = PARTIAL_FACTS_V1
+            if self.fact_assembly_profile in PARTIAL_FACTS_PROFILES:
+                snapshot["fact_assembly_profile"] = self.fact_assembly_profile
             if self.report_level_link is not None:
                 snapshot["report_level_link"] = _detach(self.report_level_link)
         if live_tagging:

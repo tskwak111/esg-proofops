@@ -108,6 +108,7 @@ class LocalSQLiteRunStore:
                 if snapshot.get("fact_assembly_profile", "strict-v1") not in (
                     "strict-v1",
                     "partial-facts-v1",
+                    "partial-facts-v2",
                 ):
                     raise ValueError("unknown fact assembly profile")
                 if "report_level_link" in snapshot:

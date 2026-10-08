@@ -10,7 +10,7 @@ from inspect import signature
 from typing import Literal
 
 from proofops.application.evidence.report_level import POLICIES as REPORT_LEVEL_POLICIES
-from proofops.application.tagging.consensus import PARTIAL_FACTS_V1
+from proofops.application.tagging.consensus import PARTIAL_FACTS_PROFILES
 from proofops.domain.audit import AuditConflict
 from proofops.domain.errors import DomainValidationError
 from proofops.domain.provenance import canonical_hash
@@ -325,7 +325,7 @@ class RescoreService:
             if isinstance(decision, RetagRequired):
                 raise RescoreRejected(decision.code)
             if (
-                inputs.fact_assembly_profile == PARTIAL_FACTS_V1
+                inputs.fact_assembly_profile in PARTIAL_FACTS_PROFILES
                 and tag["origin"] not in REVIEWED_TAG_ORIGINS
                 and decision.decision_status == "decided"
             ):

@@ -54,8 +54,10 @@ export function errorMessage(reason: unknown, fallback: string): string {
       return "로그인 서비스를 사용할 수 없습니다. 관리자에게 구성을 요청해 주세요.";
     case "UPLOAD_LIMIT_EXCEEDED":
       return "PDF가 파일 크기·페이지 수 또는 내부 처리 한도를 초과했습니다. 100MiB 이하인 파일도 내부 구조에 따라 처리되지 않을 수 있습니다.";
+    case "PDF_PASSWORD_REQUIRED":
+      return "PDF를 여는 암호가 필요합니다. 열기 암호를 해제한 PDF로 다시 업로드해 주세요.";
     case "PDF_INVALID":
-      return "서버가 유효한 PDF로 확인하지 못했습니다.";
+      return "PDF 원본의 전체 보안 검사를 완료하지 못했습니다. PDF 뷰어에서 다시 저장한 파일로 업로드해 주세요.";
     case "UPLOAD_INTEGRITY_MISMATCH":
       return "업로드한 파일의 무결성 검증에 실패했습니다.";
     case "UPLOAD_EXPIRED":

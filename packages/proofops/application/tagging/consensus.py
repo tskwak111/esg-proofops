@@ -13,6 +13,12 @@ from proofops.domain.values import LlmElement
 
 PARTIAL_FACTS_V1 = "partial-facts-v1"
 PARTIAL_FACTS_HASH = canonical_hash({"fact_assembly": PARTIAL_FACTS_V1})
+PARTIAL_FACTS_V2 = "partial-facts-v2"
+PARTIAL_FACTS_V2_HASH = canonical_hash({"fact_assembly": PARTIAL_FACTS_V2})
+PARTIAL_FACTS_PROFILES = {
+    PARTIAL_FACTS_V1: PARTIAL_FACTS_HASH,
+    PARTIAL_FACTS_V2: PARTIAL_FACTS_V2_HASH,
+}
 
 
 def reviewable_decision(decision, profile, review_status):
@@ -20,7 +26,7 @@ def reviewable_decision(decision, profile, review_status):
     if (
         decision
         and decision.decision_status == "decided"
-        and (profile == PARTIAL_FACTS_V1 or review_status != "auto_confirmed")
+        and (profile in PARTIAL_FACTS_PROFILES or review_status != "auto_confirmed")
     ):
         return None, decision.evidence_grade
     return decision, None
@@ -41,8 +47,8 @@ def reviewable_checkpoint(item, *, pinned_profile=None):
         ("ai_delegated_confirmed", "ai_delegated"),
     }
     if not reviewed and (
-        profile == PARTIAL_FACTS_V1
-        or pinned_profile == PARTIAL_FACTS_V1
+        profile in PARTIAL_FACTS_PROFILES
+        or pinned_profile in PARTIAL_FACTS_PROFILES
         or status != "auto_confirmed"
     ):
         item["status"] = "needs_review"
@@ -81,7 +87,7 @@ def form_consensus(
     Missing/unresolved elements and failed replicas cannot masquerade as absence.
     """
     data = packet.to_dict()
-    if profile not in ("strict-v1", PARTIAL_FACTS_V1):
+    if profile not in ("strict-v1", *PARTIAL_FACTS_PROFILES):
         raise DomainValidationError("unknown fact assembly profile")
     selected_track = data.get("track")
     if (
@@ -139,8 +145,17 @@ def form_consensus(
         != 1
     ):
         raise DomainValidationError("replicate model/prompt/epoch mismatch")
-    if profile == PARTIAL_FACTS_V1:
-        return _partial_facts(ordered, data, packet, rulepack, tenant_id, tag_revision, rule_gaps)
+    if profile in PARTIAL_FACTS_PROFILES:
+        return _partial_facts(
+            ordered,
+            data,
+            packet,
+            rulepack,
+            tenant_id,
+            tag_revision,
+            rule_gaps,
+            citation_unavailable=profile == PARTIAL_FACTS_V2,
+        )
     reasons = list(rule_gaps)
     provider_ids = [
         r.usage.provider_request_id for r in ordered if r.usage and r.usage.provider_request_id
@@ -245,7 +260,17 @@ def form_consensus(
     )
 
 
-def _partial_facts(ordered, data, packet, rulepack, tenant_id, tag_revision, rule_gaps):
+def _partial_facts(
+    ordered,
+    data,
+    packet,
+    rulepack,
+    tenant_id,
+    tag_revision,
+    rule_gaps,
+    *,
+    citation_unavailable=False,
+):
     """Assemble complete guarded element states without asserting a missing search was negative."""
     headers = {
         (r.guarded.track, r.guarded.safe_harbor_category, r.guarded.superlative_quote)
@@ -262,7 +287,9 @@ def _partial_facts(ordered, data, packet, rulepack, tenant_id, tag_revision, rul
             and (
                 error in retryable
                 or (
-                    run.status == "citation_unresolved" and error.startswith("TAGGING_EVIDENCE_ID_")
+                    citation_unavailable
+                    and run.status == "citation_unresolved"
+                    and error.startswith("TAGGING_EVIDENCE_ID_")
                 )
             )
         )
