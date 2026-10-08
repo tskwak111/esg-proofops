@@ -383,6 +383,7 @@ def _profile_with_options(
     extraction_content_bounds: bool = False,
     position_order: bool = False,
     wire_policy_version: int = 1,
+    display_text_profile: str | None = None,
 ) -> ExtractionProfile:
     """Versioned extraction profile for an explicit option combination.
 
@@ -432,7 +433,13 @@ def _profile_with_options(
         raise ValueError("UPSTAGE_PROFILE_OPTION_INVALID")
     if extraction_content_bounds and not source_ids:
         raise ValueError("UPSTAGE_PROFILE_OPTION_INVALID")
+    from proofops.application.ingest.display_text import POLICY, PROFILE
+
+    if display_text_profile not in (None, PROFILE):
+        raise ValueError("DISPLAY_PROFILE_INVALID")
     descriptor = [*_RULE_DESCRIPTOR]
+    if display_text_profile:
+        descriptor.append(POLICY)
     if year_notation:
         descriptor.append(_YEAR_NOTATION_QUOTATION_EXCEPTION)
     if extraction_context:
@@ -472,10 +479,17 @@ def _profile_with_options(
                 assertion_prompt=assertion_prompt,
                 complete_selection=complete_selection,
             )
+            + (_display_suffix() if display_text_profile else "")
         ),
         rule_sha256=canonical_hash(descriptor),
         synthetic=False,
     )
+
+
+def _display_suffix():
+    from proofops.application.ingest.display_text import SYSTEM_SUFFIX
+
+    return SYSTEM_SUFFIX
 
 
 class UpstageClaimExtractor:
@@ -495,6 +509,7 @@ class UpstageClaimExtractor:
         extraction_complete_selection: bool = False,
         extraction_content_bounds: bool = False,
         position_order: bool = False,
+        display_text_profile: str | None = None,
     ) -> None:
         if not callable(getattr(probe, "complete", None)):
             raise ValueError("UPSTAGE_PROBE_REQUIRED")
@@ -538,6 +553,7 @@ class UpstageClaimExtractor:
             extraction_content_bounds=extraction_content_bounds,
             position_order=position_order,
             wire_policy_version=getattr(probe, "wire_policy_version", 1),
+            display_text_profile=display_text_profile,
         )
         if type(max_tokens) is not int or not 1 <= max_tokens <= 4096:
             raise ValueError("UPSTAGE_MAX_TOKENS_INVALID")
@@ -555,6 +571,7 @@ class UpstageClaimExtractor:
         self._complete_selection = extraction_complete_selection
         self._content_bounds = extraction_content_bounds
         self._position_order = position_order
+        self._display_text_profile = display_text_profile
         self._context_chars = 512 if getattr(probe, "wire_policy_version", 1) == 2 else 2000
         self._request_ids: list[tuple[str, str]] = []
 
@@ -598,7 +615,7 @@ class UpstageClaimExtractor:
     def usage(self) -> dict[str, Any]:
         return self.cumulative_usage()
 
-    def extract(self, packet: dict, *, context_graph: Any = None) -> dict:
+    def extract(self, packet: dict, *, context_graph: Any = None, display_catalog=None) -> dict:
         """Extract atomic claims from ``packet``'s own text only.
 
         Production context path (R03f): when this extractor was built with
@@ -630,11 +647,27 @@ class UpstageClaimExtractor:
         when the context option is on.
         """
         text = self._packet_text(packet)
+        if self._display_text_profile:
+            if display_catalog is None:
+                raise ValueError("DISPLAY_CATALOG_REQUIRED")
+            self._validate_context_graph(packet, display_catalog.graph)
+            pin = display_catalog.block_pin(packet["untrusted_document_data"]["source_id"])
+            if pin["raw_sha256"] != canonical_hash(text):
+                raise ValueError("DISPLAY_RAW_TEXT_MISMATCH")
+            context_pins = []
+            if self._context:
+                if context_graph is None:
+                    raise ValueError("EXTRACTION_CONTEXT_REQUIRED")
+                blocks, _ = self._context_for(packet, context_graph)
+                context_pins = [display_catalog.block_pin(b["source_id"]) for b in blocks]
+            packet = packet | {"display_text": pin, "display_text_context": context_pins}
+        elif display_catalog is not None or "display_text" in packet:
+            raise ValueError("DISPLAY_PROFILE_REQUIRED")
         packet_sha = canonical_hash(packet)
         if self._source_ids:
             self._require_graph(packet, context_graph)
             system_prompt, user_data, request_id = self._source_id_wire(
-                packet, text, packet_sha, context_graph
+                packet, text, packet_sha, context_graph, display_catalog
             )
             user_json = json.dumps(
                 user_data, ensure_ascii=False, sort_keys=True, separators=(",", ":")
@@ -645,14 +678,14 @@ class UpstageClaimExtractor:
                 raise ValueError("EXTRACTION_CONTEXT_REQUIRED")
             self._validate_context_graph(packet, context_graph)
             system_prompt, user_data, request_id = self._context_wire(
-                packet, text, packet_sha, context_graph
+                packet, text, packet_sha, context_graph, display_catalog
             )
             user_json = json.dumps(
                 user_data, ensure_ascii=False, sort_keys=True, separators=(",", ":")
             )
             request_body = self._context_request_body(system_prompt, user_json, request_id)
         else:
-            if context_graph is not None:
+            if context_graph is not None and not self._display_text_profile:
                 raise ValueError("EXTRACTION_CONTEXT_UNEXPECTED")
             request_id = str(uuid5(UUID(packet["parse_manifest_id"]), packet_sha))
             system_prompt = SYSTEM_PROMPT
@@ -667,6 +700,9 @@ class UpstageClaimExtractor:
                     "text": text,
                 },
             }
+            system_prompt, user_payload = self._display_wire(
+                packet, system_prompt, user_payload, display_catalog
+            )
             user_json = json.dumps(
                 user_payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
             )
@@ -681,7 +717,15 @@ class UpstageClaimExtractor:
         try:
             directory.mkdir(mode=0o700)
         except FileExistsError:
-            return self._replay_receipt(directory, packet, packet_sha, request_id, context_graph)
+            return self._replay_receipt(
+                directory,
+                packet,
+                packet_sha,
+                request_id,
+                context_graph,
+                display_catalog,
+                request_body,
+            )
         self._write(directory / "packet.json", canonical_json(packet))
         self._write(directory / "request.json", canonical_json(request_body))
         from proofops.adapters.local.openrouter import OpenRouterProbe
@@ -764,7 +808,10 @@ class UpstageClaimExtractor:
         try:
             payload = json.loads(result["content"])
             spans, rejected = self._resolve_payload(
-                payload, text, packet["untrusted_document_data"]["source_id"]
+                payload,
+                text,
+                packet["untrusted_document_data"]["source_id"],
+                packet.get("display_text"),
             )
         except (ValueError, TypeError, json.JSONDecodeError):
             self._fail(directory, packet_sha, request_id, "MODEL_SPAN_OR_SCHEMA_INVALID")
@@ -808,6 +855,8 @@ class UpstageClaimExtractor:
         packet_sha: str,
         request_id: str,
         context_graph: Any = None,
+        display_catalog=None,
+        expected_body=None,
     ):
         """Reuse an existing receipt for this exact packet; never re-issue its call.
 
@@ -833,10 +882,18 @@ class UpstageClaimExtractor:
         with the stored request fails closed here.
         """
         text = self._packet_text(packet)
+        if self._display_text_profile:
+            request_path = directory / "request.json"
+            if (
+                expected_body is None
+                or not request_path.is_file()
+                or request_path.read_text(encoding="utf-8") != canonical_json(expected_body)
+            ):
+                raise ValueError("EXTRACTION_RECEIPT_EXISTS")
         if self._source_ids:
             self._require_graph(packet, context_graph)
             system_prompt, user_data, recomputed_id = self._source_id_wire(
-                packet, text, packet_sha, context_graph
+                packet, text, packet_sha, context_graph, display_catalog
             )
             if recomputed_id != request_id:
                 raise ValueError("EXTRACTION_RECEIPT_EXISTS")
@@ -854,7 +911,7 @@ class UpstageClaimExtractor:
                 raise ValueError("EXTRACTION_CONTEXT_REQUIRED")
             self._validate_context_graph(packet, context_graph)
             system_prompt, user_data, recomputed_id = self._context_wire(
-                packet, text, packet_sha, context_graph
+                packet, text, packet_sha, context_graph, display_catalog
             )
             if recomputed_id != request_id:
                 raise ValueError("EXTRACTION_RECEIPT_EXISTS")
@@ -867,7 +924,7 @@ class UpstageClaimExtractor:
                 encoding="utf-8"
             ) != canonical_json(expected_body):
                 raise ValueError("EXTRACTION_RECEIPT_EXISTS")
-        elif context_graph is not None:
+        elif context_graph is not None and not self._display_text_profile:
             raise ValueError("EXTRACTION_CONTEXT_UNEXPECTED")
         failure_path = directory / "failure.json"
         if failure_path.is_file():
@@ -923,7 +980,10 @@ class UpstageClaimExtractor:
         try:
             payload = json.loads(metadata["content"])
             spans, rejected = self._resolve_payload(
-                payload, text, packet["untrusted_document_data"]["source_id"]
+                payload,
+                text,
+                packet["untrusted_document_data"]["source_id"],
+                packet.get("display_text"),
             )
         except (ValueError, TypeError, KeyError, json.JSONDecodeError):
             raise ExtractionOutputError("MODEL_SPAN_OR_SCHEMA_INVALID") from None
@@ -991,11 +1051,11 @@ class UpstageClaimExtractor:
             if context_graph is None:
                 raise ValueError("EXTRACTION_CONTEXT_REQUIRED")
             self._validate_context_graph(packet, context_graph)
-        elif context_graph is not None:
+        elif context_graph is not None and not self._display_text_profile:
             raise ValueError("EXTRACTION_CONTEXT_UNEXPECTED")
 
     def _resolve_payload(
-        self, payload: Any, text: str, source_id: str
+        self, payload: Any, text: str, source_id: str, display_pin=None
     ) -> tuple[tuple, dict[str, Any]]:
         """Turn one raw model response into validated spans plus its rejection record.
 
@@ -1015,7 +1075,25 @@ class UpstageClaimExtractor:
         rejected_quote_indices = []
         for index, quote in enumerate(quotes):
             try:
-                span = self._locate(quote, text)
+                if display_pin is not None:
+                    from proofops.application.ingest.display_text import (
+                        display_alignment,
+                        locate_display,
+                    )
+
+                    start, end, raw_quote = locate_display(
+                        quote, display_alignment(text, display_pin["deleted_offsets"])
+                    )
+                    span = dict(
+                        char_start=start,
+                        char_end=end,
+                        quote=raw_quote,
+                        kind="claim",
+                        reason=None,
+                        topic_ids=["environment"],
+                    )
+                else:
+                    span = self._locate(quote, text)
                 self._validate_spans({"spans": [span]}, text)
             except ValueError:
                 rejected_quote_indices.append(index)
@@ -1118,7 +1196,7 @@ class UpstageClaimExtractor:
         ]
 
     def _source_id_wire(
-        self, packet: dict, text: str, packet_sha: str, context_graph: Any
+        self, packet: dict, text: str, packet_sha: str, context_graph: Any, display_catalog=None
     ) -> tuple[str, dict, str]:
         """Build the pinned source-ID wire: system, user data, bound request id.
 
@@ -1160,9 +1238,41 @@ class UpstageClaimExtractor:
         }
         if self._position_order:
             user_data["context_ordering"] = self._context_order_policy()
+        system_prompt, user_data = self._display_wire(
+            packet, system_prompt, user_data, display_catalog
+        )
         content_sha = canonical_hash({"system_prompt": system_prompt, "user_data": user_data})
         request_id = str(uuid5(UUID(packet["parse_manifest_id"]), packet_sha + ":" + content_sha))
         return system_prompt, {**user_data, "request_id": request_id}, request_id
+
+    def _display_wire(self, packet, system, user, catalog):
+        if not self._display_text_profile:
+            return system, user
+        from proofops.application.ingest.display_text import POLICY, display_alignment
+
+        data = user["untrusted_document_data"]
+        pin = packet["display_text"]
+        pins = [pin]
+        if "text" in data:
+            data["text"] = pin["text"]
+        if "source_sentences" in data:
+            text = packet["untrusted_document_data"]["text"]
+            bounds = dict(self._sentence_index(text, data["source_id"], self._content_bounds))
+            for sentence in data["source_sentences"]:
+                start, end = bounds[sentence["sentence_id"]]
+                deleted = [i - start for i in pin["deleted_offsets"] if start < i < end - 1]
+                sentence["text"] = display_alignment(text[start:end], deleted).text
+        for block in data.get("context_blocks", []):
+            context_pin = catalog.block_pin(block["source_id"])
+            if context_pin["raw_sha256"] != canonical_hash(block["text"]):
+                raise ValueError("DISPLAY_CONTEXT_MISMATCH")
+            block["text"] = context_pin["text"]
+            pins.append(context_pin)
+        user["display_policy"] = POLICY
+        if pins[1:] != packet["display_text_context"]:
+            raise ValueError("DISPLAY_CONTEXT_MISMATCH")
+        user["display_map_sha256"] = canonical_hash(pins)
+        return system + _display_suffix(), user
 
     def _packet_text(self, packet: Any) -> str:
         try:
@@ -1257,7 +1367,7 @@ class UpstageClaimExtractor:
         }
 
     def _context_wire(
-        self, packet: dict, text: str, packet_sha: str, context_graph: Any
+        self, packet: dict, text: str, packet_sha: str, context_graph: Any, display_catalog=None
     ) -> tuple[str, dict, str]:
         """Build the pinned context wire: system, user data, bound request id.
 
@@ -1286,6 +1396,9 @@ class UpstageClaimExtractor:
         }
         if self._position_order:
             user_data["context_ordering"] = self._context_order_policy()
+        system_prompt, user_data = self._display_wire(
+            packet, system_prompt, user_data, display_catalog
+        )
         content_sha = canonical_hash({"system_prompt": system_prompt, "user_data": user_data})
         request_id = str(uuid5(UUID(packet["parse_manifest_id"]), packet_sha + ":" + content_sha))
         user_data = {**user_data, "request_id": request_id}
@@ -1461,17 +1574,30 @@ class GraphBoundExtractor:
     the inner extractor's own.
     """
 
-    def __init__(self, inner: Any, graph: Any) -> None:
-        if getattr(inner, "_context", False) is not True or not callable(
-            getattr(inner, "extract", None)
-        ):
+    def __init__(self, inner: Any, graph: Any, source: bytes | None = None) -> None:
+        if not (
+            getattr(inner, "_context", False) or getattr(inner, "_display_text_profile", None)
+        ) or not callable(getattr(inner, "extract", None)):
             raise ValueError("UPSTAGE_CONTEXT_EXTRACTOR_REQUIRED")
         self._inner = inner
         self._graph = graph
+        self._display_catalog = None
+        if getattr(inner, "_display_text_profile", None):
+            from proofops.adapters.local.glyph_display_text import GlyphDisplayCatalog
+
+            self._display_catalog = GlyphDisplayCatalog(graph, source)
 
     @property
     def profile(self):  # ClaimExtractorPort: frozen discovery reads this.
         return self._inner.profile
 
     def extract(self, packet: dict) -> dict:
-        return self._inner.extract(packet, context_graph=self._graph)
+        return self._inner.extract(
+            packet,
+            context_graph=self._graph,
+            **(
+                {"display_catalog": self._display_catalog}
+                if self._display_catalog is not None
+                else {}
+            ),
+        )

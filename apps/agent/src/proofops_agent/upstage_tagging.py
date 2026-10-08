@@ -168,6 +168,7 @@ class UpstageTaggingTransport:
         tenant_id: str,
         authorize: Callable[[TaggingSettings, dict], Preflight],
         resume: TransportResume | None = None,
+        display_catalog=None,
     ):
         _require_uuid("tenant_id", tenant_id)
         if (
@@ -200,6 +201,7 @@ class UpstageTaggingTransport:
             self.TRANSPORT_VERSION = "compact-source-quotes-v4"
         elif settings.model_profile == QUOTE_V5_PROFILE:
             self.TRANSPORT_VERSION = "compact-source-quotes-v5"
+        self._display_catalog = display_catalog
         self._authorize = authorize
         self._probe, self._settings, self._tenant = probe, settings, tenant_id
         self._resume = resume
@@ -356,10 +358,37 @@ class UpstageTaggingTransport:
                 summary[f"{prefix}_source_ids_sha256"] = canonical_hash(ids)
             data["search_coverage"] = summary
         data = user["untrusted_document_data"]
+        display = data.pop("display_text", None)
+        catalog = getattr(self, "_display_catalog", None)
+        if catalog is not None:
+            if settings.model_profile not in (QUOTE_PROFILE, QUOTE_V4_PROFILE, QUOTE_V5_PROFILE):
+                raise ValueError("DISPLAY_QUOTE_PROFILE_REQUIRED")
+            if display != catalog.element_pins(data):
+                raise ValueError("DISPLAY_PACKET_MISMATCH")
+            replacements = {
+                r["quote"]: catalog.pin(r)["text"]
+                for r in [
+                    *data["claim_source_refs"],
+                    *(r for c in data["evidence_candidates"] for r in c["source_refs"]),
+                ]
+            }
+
+            data["atomic_quote"] = replacements.get(data["atomic_quote"], data["atomic_quote"])
+            data["display_policy"] = display["policy"]
+            data["display_map_sha256"] = canonical_hash(display)
+        elif display is not None:
+            raise ValueError("DISPLAY_PROFILE_REQUIRED")
         if settings.model_profile == QUOTE_V5_PROFILE and "claim_source_refs" in data:
             data["claim_source_refs"] = [
-                {"quote": ref.quote, "page_num": ref.page_num}
+                {
+                    "quote": catalog.pin(asdict(ref))["text"] if catalog else ref.quote,
+                    "page_num": ref.page_num,
+                }
                 for ref in (_source_ref_from_dict(raw) for raw in data["claim_source_refs"])
+            ]
+        if catalog and settings.model_profile != QUOTE_V5_PROFILE:
+            data["claim_source_refs"] = [
+                raw | {"quote": catalog.pin(raw)["text"]} for raw in data["claim_source_refs"]
             ]
         refs: dict[str, dict] = {}
         for candidate in data.get("evidence_candidates", []):
@@ -369,6 +398,8 @@ class UpstageTaggingTransport:
             for raw_ref in candidate.get("source_refs", []):
                 ref = asdict(_source_ref_from_dict(raw_ref))
                 identifier = f"e{len(refs)}"
+                if catalog:
+                    ref["_display"] = catalog.pin(ref)
                 refs[identifier] = ref
                 identifiers.append(identifier)
             candidate["source_refs"] = identifiers
@@ -378,7 +409,15 @@ class UpstageTaggingTransport:
             else ("quote", "page_num", "verification_state")
         )
         data["evidence_catalog"] = {
-            key: {field: ref[field] for field in catalog_fields} for key, ref in refs.items()
+            key: {
+                field: (
+                    ref["_display"]["text"]
+                    if field == "quote" and "_display" in ref
+                    else ref[field]
+                )
+                for field in catalog_fields
+            }
+            for key, ref in refs.items()
         }
         schema = json.loads(settings.schema_json)
         schema["$defs"]["SourceRef"] = {"type": "string", "pattern": "^e[0-9]+$"}
@@ -436,6 +475,10 @@ class UpstageTaggingTransport:
                 "unseen identifiers retained by the server. Missing evidence remains unknown; "
                 "neither a count nor a hash is evidence or proof of absence."
             )
+        if catalog:
+            from proofops.application.ingest.display_text import SYSTEM_SUFFIX
+
+            wire_system += SYSTEM_SUFFIX
         wire_user = json.dumps(user, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         return wire_system, wire_user, refs, authorization, canonical_json(schema)
 
@@ -448,6 +491,14 @@ class UpstageTaggingTransport:
         if not isinstance(quote, str) or not quote.strip():
             raise ValueError("non-empty source quote required")
         original = refs[selection["id"]]
+        if "_display" in original:
+            catalog = getattr(self, "_display_catalog", None)
+            raw = {k: v for k, v in original.items() if k != "_display"}
+            if catalog is None or catalog.pin(raw) != original["_display"]:
+                raise ValueError("DISPLAY_MAP_MISMATCH")
+            return catalog.restore(quote, raw, original["_display"])
+        if getattr(self, "_display_catalog", None) is not None:
+            raise ValueError("DISPLAY_MAP_REQUIRED")
         span = UpstageClaimExtractor._locate(quote, original["quote"])
         return original | dict(
             quote=quote,
@@ -585,6 +636,15 @@ class UpstageTaggingTransport:
                     if not isinstance(selected, list):
                         raise ValueError("invalid references")
                     element["evidence_refs"] = [self._restore_ref(key, refs) for key in selected]
+                    if getattr(self, "_display_catalog", None) is not None:
+                        value = element.get("normalized_value")
+                        exact = [
+                            ref["quote"]
+                            for choice, ref in zip(selected, element["evidence_refs"], strict=True)
+                            if choice["quote"] == value
+                        ]
+                        if exact and len(set(exact)) == 1:
+                            element["normalized_value"] = exact[0]
                     if settings.model_profile in (QUOTE_V4_PROFILE, QUOTE_V5_PROFILE):
                         self._refine_g1_year(element)
                 expanded = canonical_json(payload)

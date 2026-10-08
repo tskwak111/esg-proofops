@@ -27,6 +27,7 @@ from proofops.application.tagging.preliminary import (
 )
 from proofops.application.tagging.relations import (
     OCCURRENCE_PROFILE,
+    OCCURRENCE_V3_PROFILE,
     RelationValidationError,
     relation_request,
     validate_relations,
@@ -128,6 +129,15 @@ class LiveTaggingRuntime:
             for row in runner.store.jobs.list_usage(graph.tenant_id, snapshot["run_id"])
             for identifier in row.get("tag_request_ids", [])
         }
+        self.display_catalog = None
+        if "display_text_policy" in snapshot:
+            from proofops.adapters.local.glyph_display_text import GlyphDisplayCatalog
+            from proofops.application.ingest.display_text import POLICY
+
+            if snapshot["display_text_policy"] != POLICY:
+                raise ValueError("DISPLAY_POLICY_MISMATCH")
+            source = runner.uploads.read_original(graph.tenant_id, graph.document_version_id)
+            self.display_catalog = GlyphDisplayCatalog(graph, source)
         self.element_transport = UpstageTaggingTransport(
             probe,
             self.receipts / "elements",
@@ -135,6 +145,7 @@ class LiveTaggingRuntime:
             tenant_id=graph.tenant_id,
             authorize=self._authorize,
             resume=self.resume,
+            display_catalog=self.display_catalog,
         )
         self.preliminary_transport = UpstagePreliminaryTransport(
             probe,
@@ -143,18 +154,19 @@ class LiveTaggingRuntime:
             tenant_id=graph.tenant_id,
             authorize=self._authorize,
             resume=self.resume,
+            display_catalog=self.display_catalog,
         )
         if self.relation_settings is not None:
             from proofops_agent.upstage_relations import (
                 UpstageOccurrenceRelationsTransport,
+                UpstageOccurrenceV3RelationsTransport,
                 UpstageRelationsTransport,
             )
 
-            transport = (
-                UpstageOccurrenceRelationsTransport
-                if self.relation_settings.model_profile == OCCURRENCE_PROFILE
-                else UpstageRelationsTransport
-            )
+            transport = {
+                OCCURRENCE_PROFILE: UpstageOccurrenceRelationsTransport,
+                OCCURRENCE_V3_PROFILE: UpstageOccurrenceV3RelationsTransport,
+            }.get(self.relation_settings.model_profile, UpstageRelationsTransport)
             self.relation_transport = transport(
                 probe,
                 self.receipts / "relation",
@@ -242,6 +254,17 @@ class LiveTaggingRuntime:
             document_rights=self.snapshot["document"]["metadata"]["rights_profile_id"],
         )
 
+    def display_packet(self, packet):
+        display_catalog = getattr(self, "display_catalog", None)
+        if display_catalog is None:
+            return packet
+        from proofops.application.evidence.retrieval import freeze_packet
+
+        data = packet.to_dict()
+        data.pop("packet_sha256")
+        data["display_text"] = display_catalog.element_pins(data)
+        return freeze_packet(data)
+
     def allow_packet(self, claim_id, packet_sha256):
         self.allowed_packets.add((claim_id, packet_sha256))
 
@@ -322,8 +345,20 @@ class LiveTaggingRuntime:
             )
 
         packet = self.preliminary_transport.bound_context(packet)
+        display_catalog = getattr(self, "display_catalog", None)
+        if display_catalog is not None:
+            from proofops.application.tagging.preliminary import _sources
+            from proofops.application.tagging.table_sources import table_structural_sources
+
+            sources = _sources(claim, graph, self.auth.tenant_id)
+            if table:
+                structural = table_structural_sources(graph, sources, tenant_id=self.auth.tenant_id)
+                sources = (*sources, *(item.ref for item in structural.verified))
+            packet["display_text"] = display_catalog.preliminary_pins(packet, sources)
 
         def validate(raw):
+            if display_catalog is not None:
+                raw = display_catalog.restore_preliminary(raw, packet)
             # The table profile recomputes its own quotable source tuple from
             # claim+graph; the legacy validator stays the only path for the two
             # older profiles, so stored responses replay unchanged. The
@@ -467,11 +502,26 @@ class LiveTaggingRuntime:
             sources = tuple(selected.values())
             if not sources:
                 return {}
+            anchors = {}
+            if self.relation_settings.model_profile == OCCURRENCE_V3_PROFILE:
+                values = [
+                    r["values"]["dimensions"]
+                    for r in self.preliminary_records.get(claim.claim_id, [])
+                    if r.get("status") == "validated_candidate"
+                ]
+                if len(values) == 3 and all(v == values[0] for v in values):
+                    anchors = {k: v["quote"] if v else None for k, v in values[0].items()}
+            selection_args = (
+                {"claim_text": claim.quote, "dimensions": anchors}
+                if self.relation_settings.model_profile == OCCURRENCE_V3_PROFILE
+                else {}
+            )
             envelope = relation_request(
                 sources,
                 self.graph,
                 tenant_id=self.auth.tenant_id,
                 profile=self.relation_settings.model_profile,
+                **selection_args,
             ) | {
                 "claim_id": claim.claim_id,
                 "retrieval_packet_sha256": packet.packet_sha256,
@@ -486,6 +536,7 @@ class LiveTaggingRuntime:
                 raw,
                 tenant_id=self.auth.tenant_id,
                 profile=self.relation_settings.model_profile,
+                **selection_args,
             )
             values = {
                 sid: {name: asdict(ref) if ref else None for name, ref in dimensions.items()}

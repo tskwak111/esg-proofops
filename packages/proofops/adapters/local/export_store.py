@@ -154,6 +154,21 @@ class LocalExportStore:
         if len(claims) > 1000:
             raise ExportRejected("EXPORT_SIZE_LIMIT")
         claim_map = {claim.claim_id: claim for claim in claims}
+        # Search/replay outside the export transaction; snapshot capture below
+        # rejects a changed mutation epoch. Existing frozen exports never change.
+        from proofops.adapters.local.tag_store import LocalTagStore
+
+        tags = LocalTagStore(self.runs, self.claims.uploads, self.claims.parser)
+        evidence_results = {}
+        for claim in claims:
+            current = self.claims.current_tag(tenant, run_id, claim.claim_id)
+            tag = current["tag"] if current else {}
+            track = self.claims.summary(claim, current)["track"]
+            elements = tag.get("elements", [])
+            inputs = tags.load_inputs(tenant, run_id, claim.claim_id) if current else None
+            evidence_results[claim.claim_id] = self.claims.missing_evidence(
+                tenant, run_id, claim, track=track, elements=elements, inputs=inputs
+            )
         with self.jobs._transaction() as db:
             run = self.jobs._get(db, tenant, run_id, "run", "META")
             snapshot = self.runs._snapshot(db, tenant, run_id)
@@ -378,6 +393,7 @@ class LocalExportStore:
                             if previous is None:
                                 table[digest] = entry
                                 captured_bytes += len(canonical_json(entry).encode())
+                record["element_evidence"] = evidence_results[claim_id]
                 captured_bytes += len(canonical_json([record, raw_record]).encode())
                 if captured_bytes > MAX_EXPORT_BYTES:
                     raise ExportRejected("EXPORT_SIZE_LIMIT")

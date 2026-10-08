@@ -321,6 +321,8 @@ def tag_replicates(
             "search_coverage",
         )
     }
+    if "display_text" in data:
+        user_data["display_text"] = data["display_text"]
     # Only typed coverage identifiers reach the model, never arbitrary metadata.
     user_data["search_coverage"] = {"not_found_state": "unknown"}
     graph_ids = {block.source_id for block in original.blocks}
@@ -532,9 +534,7 @@ def tag_replicates(
                         )
                     )
                 else:
-                    runs.append(
-                        replace(run, status="model_failed", errors=("MODEL_UNAVAILABLE",))
-                    )
+                    runs.append(replace(run, status="model_failed", errors=("MODEL_UNAVAILABLE",)))
                 continue
             try:
                 if len(response.raw_response_json.encode()) > settings.max_response_bytes:

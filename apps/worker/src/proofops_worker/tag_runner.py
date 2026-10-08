@@ -475,6 +475,7 @@ class LocalTagRunner:
                     continue
                 packet = freeze_track_packet(original_packet, track=track, rulepack=rulepack)
                 if live is not None:
+                    packet = live.display_packet(packet)
                     live.allow_packet(claim.claim_id, packet.packet_sha256)
                     if snapshot.get("relation_settings") is not None:
                         external_roles = live.relations(claim, packet)

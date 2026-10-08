@@ -40,6 +40,7 @@ _SETTINGS_FIELDS = frozenset(
         "input_reservation_policy",
         "extraction_limits",
         "claim_source_policy",
+        "display_text_policy",
         "raster_runtime_binding_id",
         "raster_policy",
         "report_level_link",
@@ -306,6 +307,12 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         except ValueError:
             raise _invalid() from None
         runtime["claim_source_policy"] = settings["claim_source_policy"]
+    if "display_text_policy" in settings:
+        from proofops.application.ingest.display_text import POLICY
+
+        if settings["display_text_policy"] != POLICY or extraction_mode != "upstage_probe":
+            raise _invalid()
+        runtime["display_text_policy"] = settings["display_text_policy"]
     if "build_root" in settings:
         root = settings["build_root"]
         if not isinstance(root, str) or not Path(root).is_absolute() or not Path(root).is_dir():

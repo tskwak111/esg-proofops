@@ -131,6 +131,11 @@ class LocalSQLiteRunStore:
                     publication_reader(snapshot["claim_source_policy"])
                     if snapshot.get("extraction_mode") != "upstage_probe":
                         raise ValueError("claim source policy mismatch")
+                if "display_text_policy" in snapshot:
+                    from proofops.application.ingest.display_text import POLICY
+
+                    if snapshot["display_text_policy"] != POLICY:
+                        raise ValueError("DISPLAY_POLICY_MISMATCH")
                 relation_fields = (
                     "relation_settings",
                     "relation_settings_hash",

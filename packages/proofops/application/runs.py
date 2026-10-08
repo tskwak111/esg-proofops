@@ -139,6 +139,7 @@ class RunService:
         extraction_mode: str | None = None,
         extraction_limits=None,
         claim_source_policy=None,
+        display_text_policy=None,
         tagging_settings: TaggingSettings | None = None,
         tagging_mode: str | None = None,
         fact_assembly_profile: str = "strict-v1",
@@ -210,6 +211,13 @@ class RunService:
         ):
             raise ValueError("invalid claim source policy")
         self.claim_source_policy = _detach(claim_source_policy)
+        self.display_text_policy = None
+        if display_text_policy is not None:
+            from proofops.application.ingest.display_text import POLICY
+
+            if display_text_policy != POLICY or extraction_mode != "upstage_probe":
+                raise ValueError("DISPLAY_POLICY_MISMATCH")
+            self.display_text_policy = _detach(display_text_policy)
         self.tagging_settings, self.tagging_mode = tagging_settings, tagging_mode
         if report_level_link is not None and (tagging_mode is None or tagging_settings is None):
             raise ValueError("report-level link requires tagging")
@@ -559,6 +567,8 @@ class RunService:
             )
         if self.extraction_mode == "upstage_probe":
             snapshot["extraction_limits"] = dict(self.extraction_limits)
+        if self.display_text_policy is not None:
+            snapshot["display_text_policy"] = _detach(self.display_text_policy)
         if self.claim_source_policy is not None:
             snapshot["claim_source_policy"] = _detach(self.claim_source_policy)
         if tagging is not None:

@@ -222,6 +222,13 @@ def build_composition(
                 if not ledger.is_file():
                     raise ValueError("SHARED_BUDGET_LEDGER_REQUIRED")
                 probe = UpstageProbe(os.environ.get("UPSTAGE_API_KEY", ""), ledger, model=model)
+            display_profile = None
+            if "display_text_policy" in settings:
+                from proofops.application.ingest.display_text import POLICY, PROFILE
+
+                if settings["display_text_policy"] != POLICY:
+                    raise ValueError("DISPLAY_POLICY_MISMATCH")
+                display_profile = PROFILE
             year_notation = settings.get("extraction_year_notation") is True
             context_opt_in = settings.get("extraction_context") is True
             table_context_opt_in = settings.get("extraction_table_context") is True
@@ -234,7 +241,7 @@ def build_composition(
             position_order = settings.get("position_context_order") == CONTEXT_POSITION_ORDER
             if settings.get("position_context_order") is not None and not position_order:
                 raise ValueError("EXTRACTION_CONTEXT_ORDER_MISMATCH")
-            if year_notation or context_opt_in or source_ids_opt_in:
+            if year_notation or context_opt_in or source_ids_opt_in or display_profile:
                 # New-run opt-in only: the frozen settings must carry the exact
                 # option-combination profile hash, otherwise fail closed.
                 if frozen_profile != asdict(
@@ -249,6 +256,7 @@ def build_composition(
                         extraction_content_bounds=content_bounds_opt_in,
                         position_order=position_order,
                         wire_policy_version=wire_policy_version,
+                        display_text_profile=display_profile,
                     )
                 ):
                     raise ValueError("EXTRACTION_PROFILE_MISMATCH")
@@ -264,6 +272,7 @@ def build_composition(
                     extraction_complete_selection=complete_selection_opt_in,
                     extraction_content_bounds=content_bounds_opt_in,
                     position_order=position_order,
+                    display_text_profile=display_profile,
                 )
             elif (
                 table_context_opt_in

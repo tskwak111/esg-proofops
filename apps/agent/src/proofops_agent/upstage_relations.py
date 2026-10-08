@@ -9,6 +9,9 @@ from proofops.application.tagging.relations import (
     OCCURRENCE_PROFILE,
     OCCURRENCE_SCHEMA,
     OCCURRENCE_SYSTEM_PROMPT,
+    OCCURRENCE_V3_PROFILE,
+    OCCURRENCE_V3_SCHEMA,
+    OCCURRENCE_V3_SYSTEM_PROMPT,
     SCHEMA,
     SYSTEM_PROMPT,
 )
@@ -93,8 +96,7 @@ class UpstageRelationsTransport(UpstageTaggingTransport):
                 or set(source) != self._source_fields()
                 or type(source["source_index"]) is not int
                 or source["source_index"] != index
-                or not isinstance(source["text"], str)
-                or not source["text"]
+                or not self._source_text_valid(source)
             ):
                 raise ValueError("UPSTAGE_RELATIONS_SOURCES_REQUIRED")
             self._validate_occurrences(source)
@@ -105,6 +107,9 @@ class UpstageRelationsTransport(UpstageTaggingTransport):
             authorization,
             settings.schema_json,
         )
+
+    def _source_text_valid(self, source: dict) -> bool:
+        return isinstance(source["text"], str) and bool(source["text"])
 
     def _source_fields(self) -> set[str]:
         return {"source_index", "text"}
@@ -150,5 +155,81 @@ class UpstageOccurrenceRelationsTransport(UpstageRelationsTransport):
                 ):
                     raise ValueError
                 seen.add(candidate["span_id"])
+        except (ValueError, KeyError, TypeError, AttributeError):
+            raise ValueError("UPSTAGE_RELATIONS_OCCURRENCES_INVALID") from None
+
+
+class UpstageOccurrenceV3RelationsTransport(UpstageRelationsTransport):
+    """Windowed v3 wire; v1/v2 shapes and receipt versions remain unchanged."""
+
+    MODEL_PROFILE = OCCURRENCE_V3_PROFILE
+    TRANSPORT_VERSION = "relation-occurrence-selection-v3"
+    SCHEMA = OCCURRENCE_V3_SCHEMA
+    SYSTEM_PROMPT = OCCURRENCE_V3_SYSTEM_PROMPT
+
+    def _source_text_valid(self, source: dict) -> bool:
+        return isinstance(source["windows"], list)
+
+    def _source_fields(self) -> set[str]:
+        return {"source_index", "source_id", "raw_text_sha256", "windows", "occurrences"}
+
+    def _validate_occurrences(self, source: dict) -> None:
+        from proofops.application.evidence.binding import _DIMENSIONS
+        from proofops.application.tagging.relations import OCCURRENCE_V3_POLICY
+
+        try:
+            _require_uuid("source_id", source["source_id"])
+            _require_sha256("raw_text_sha256", source["raw_text_sha256"])
+            windows, candidates = source["windows"], source["occurrences"]
+            if not isinstance(candidates, list) or len(candidates) > 4096:
+                raise ValueError
+            previous = -1
+            for window in windows:
+                if not isinstance(window, dict) or set(window) != {"start", "end", "text"}:
+                    raise ValueError
+                start, end, text = window["start"], window["end"], window["text"]
+                if (
+                    type(start) is not int
+                    or type(end) is not int
+                    or not isinstance(text, str)
+                    or not 0 <= start < end
+                    or len(text) != end - start
+                    or start <= previous
+                ):
+                    raise ValueError
+                previous = end
+            seen, counts = set(), dict.fromkeys(_DIMENSIONS, 0)
+            for candidate in candidates:
+                if not isinstance(candidate, dict) or set(candidate) != {
+                    "span_id",
+                    "quote",
+                    "start",
+                    "end",
+                    "roles",
+                }:
+                    raise ValueError
+                _require_sha256("span_id", candidate["span_id"])
+                start, end, roles = candidate["start"], candidate["end"], candidate["roles"]
+                if (
+                    candidate["span_id"] in seen
+                    or type(start) is not int
+                    or type(end) is not int
+                    or not 0 <= start < end
+                    or not isinstance(roles, list)
+                    or not roles
+                    or any(not isinstance(r, str) or r not in _DIMENSIONS for r in roles)
+                    or roles != sorted(set(roles))
+                    or not any(
+                        w["start"] <= start < end <= w["end"]
+                        and candidate["quote"] == w["text"][start - w["start"] : end - w["start"]]
+                        for w in windows
+                    )
+                ):
+                    raise ValueError
+                seen.add(candidate["span_id"])
+                for role in roles:
+                    counts[role] += 1
+                    if counts[role] > OCCURRENCE_V3_POLICY["per_dimension"]:
+                        raise ValueError
         except (ValueError, KeyError, TypeError, AttributeError):
             raise ValueError("UPSTAGE_RELATIONS_OCCURRENCES_INVALID") from None

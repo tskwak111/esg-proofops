@@ -131,7 +131,7 @@ def live_tagging_settings(
         or type(capacity_refresh) is not bool
     ):
         raise ValueError("relation/preliminary-context stage must be explicit boolean")
-    if relation_profile not in {"source-quotes-v1", "occurrence-v2"}:
+    if relation_profile not in {"source-quotes-v1", "occurrence-v2", "occurrence-v3"}:
         raise ValueError("unknown relation profile")
     if relation_profile != "source-quotes-v1" and not relations:
         raise ValueError("relation profile requires live relations")
@@ -291,15 +291,18 @@ def live_tagging_settings(
         from proofops.application.tagging.relations import (
             LEGACY_PROFILE,
             OCCURRENCE_PROFILE,
+            OCCURRENCE_V3_PROFILE,
             relation_prompt,
         )
 
-        selected_profile = (
-            OCCURRENCE_PROFILE if relation_profile == "occurrence-v2" else LEGACY_PROFILE
-        )
+        selected_profile = {
+            "source-quotes-v1": LEGACY_PROFILE,
+            "occurrence-v2": OCCURRENCE_PROFILE,
+            "occurrence-v3": OCCURRENCE_V3_PROFILE,
+        }[relation_profile]
         relation_schema = (
-            ROOT / "prompts/source_relations_occurrence_v2.schema.json"
-            if relation_profile == "occurrence-v2"
+            ROOT / f"prompts/source_relations_{relation_profile.replace('-', '_')}.schema.json"
+            if relation_profile in {"occurrence-v2", "occurrence-v3"}
             else ROOT / "contracts/jsonschema/source_relations.schema.json"
         )
         profiles += (
@@ -398,6 +401,7 @@ def apply_resume_metadata(args, saved: dict) -> None:
     for field, default in (
         ("relation_profile", "source-quotes-v1"),
         ("claim_source_profile", None),
+        ("display_text_profile", None),
     ):
         requested = getattr(args, field, None)
         stored = saved.get(field, default)
@@ -611,6 +615,11 @@ def main():
     parser.add_argument("--llm-provider", choices=["upstage", "openrouter"], default="openrouter")
     parser.add_argument("--model", choices=["solar-pro3", "solar-pro4"])
     parser.add_argument("--verify-paragraphs", action="store_true")
+    parser.add_argument(
+        "--display-text-profile",
+        choices=["glyph-joined-display-v1"],
+        help="New-run only: glyph-proven display text with pinned raw offset maps.",
+    )
     parser.add_argument("--native-quote-typography", action="store_true")
     table_checks = parser.add_mutually_exclusive_group()
     table_checks.add_argument("--verify-tables", action="store_true")
@@ -700,7 +709,7 @@ def main():
     parser.add_argument("--live-relations", action="store_true")
     parser.add_argument(
         "--relation-profile",
-        choices=["source-quotes-v1", "occurrence-v2"],
+        choices=["source-quotes-v1", "occurrence-v2", "occurrence-v3"],
         help="Pin a relation contract for a NEW run; requires --live-relations.",
     )
     parser.add_argument(
@@ -852,6 +861,7 @@ def main():
         for field, default in (
             ("relation_profile", "source-quotes-v1"),
             ("claim_source_profile", None),
+            ("display_text_profile", None),
         ):
             requested = getattr(args, field)
             if requested is not None and requested != saved.get(field, default):
@@ -1074,6 +1084,7 @@ def main():
                     extraction_content_bounds=args.extraction_content_bounds,
                     position_order=args.position_context_order,
                     wire_policy_version=2 if args.model == "openai/gpt-6-luna" else 1,
+                    display_text_profile=args.display_text_profile,
                 )
             )
         else:
@@ -1081,6 +1092,7 @@ def main():
                 _profile_with_options(
                     args.model,
                     wire_policy_version=2 if args.model == "openai/gpt-6-luna" else 1,
+                    display_text_profile=args.display_text_profile,
                 )
             )
         settings = dict(
@@ -1093,6 +1105,10 @@ def main():
             ),
             budget_limits=extraction_budget,
         )
+        if args.display_text_profile:
+            from proofops.application.ingest.display_text import POLICY
+
+            settings["display_text_policy"] = POLICY
         if args.extraction_year_notation:
             settings["extraction_year_notation"] = True
         if args.extraction_context:
@@ -1435,6 +1451,8 @@ def main():
             manifest["relation_profile"] = args.relation_profile
         if args.claim_source_profile is not None:
             manifest["claim_source_profile"] = args.claim_source_profile
+        if args.display_text_profile is not None:
+            manifest["display_text_profile"] = args.display_text_profile
         if args.live_relations:
             manifest["live_relations"] = True
         if args.preliminary_context:
@@ -1501,6 +1519,8 @@ def main():
             raise ValueError("pilot raster policy changed; create a new state directory")
         if manifest.get("relation_profile", "source-quotes-v1") != args.relation_profile:
             raise ValueError("pilot relation profile changed; create a new state directory")
+        if manifest.get("display_text_profile") != args.display_text_profile:
+            raise ValueError("pilot display text profile changed; create a new state directory")
         if manifest.get("claim_source_profile") != args.claim_source_profile:
             raise ValueError("pilot claim source profile changed; create a new state directory")
         if manifest.get("live_relations", False) != args.live_relations:

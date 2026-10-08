@@ -624,6 +624,20 @@ def build_report_model(
             classification = dict(classification)
         claim["classification_review"] = classification
         claim["review_action"] = _review_action(claim)
+        if record is not None and "element_evidence" in record:
+            evidence = record["element_evidence"]
+            if not isinstance(evidence, list):
+                raise ValueError("element evidence must be an array")
+            for item in evidence:
+                if not isinstance(item, dict) or item.get("evidence_status") not in (
+                    "confirmed",
+                    "not_found_in_report",
+                    "undetermined",
+                ):
+                    raise ValueError("invalid element evidence status")
+                _source_refs(item.get("evidence_refs"), document_version_id, parse_manifest_id)
+                _source_refs(item.get("candidate_refs"), document_version_id, parse_manifest_id)
+            claim["element_evidence"] = _copy(evidence)
     unfinished_count = sum(item["decision_status"] != "decided" for item in claims)
     unverified_clause_count = sum(
         basis.get("clause") is None or basis["verification_status"] != "verified"
@@ -664,12 +678,20 @@ def render_report(model: Mapping[str, object], output_format: str) -> bytes:
     if not isinstance(model, Mapping) or model.get("schema") != "report_model_v1":
         raise ValueError("report_model_v1 is required")
     if output_format == "json":
-        return canonical_json(model).encode()
+        # Keep the canonical legacy key order, then append the optional MC key.
+        # Old snapshots render byte-for-byte as before; no hash encoding changes.
+        ordered = json.loads(canonical_json(model))
+        for claim in ordered.get("claims", []):
+            if "element_evidence" in claim:
+                claim["element_evidence"] = claim.pop("element_evidence")
+        return json.dumps(
+            ordered, ensure_ascii=True, separators=(",", ":"), allow_nan=False
+        ).encode()
     claims = model.get("claims")
     if not isinstance(claims, list) or any(not isinstance(item, Mapping) for item in claims):
         raise ValueError("report claims are required")
     if output_format == "csv":
-        fields = (
+        fields: tuple[str, ...] = (
             "claim_id",
             "decision_status",
             "evidence_grade",
@@ -696,6 +718,8 @@ def render_report(model: Mapping[str, object], output_format: str) -> bytes:
             "tag_elements",
             "grade_range",
         )
+        if any("element_evidence" in claim for claim in claims):
+            fields += ("element_evidence",)
         stream = StringIO(newline="")
         rows = writer(stream)
         rows.writerow(fields)
@@ -795,6 +819,58 @@ def render_report(model: Mapping[str, object], output_format: str) -> bytes:
                 if other_parts:
                     tag_html += "<h3>기타 태그 요소</h3><ul>" + "".join(other_parts) + "</ul>"
             classification = claim.get("classification_review")
+            evidence_html = ""
+            if "element_evidence" in claim:
+                status_labels = {
+                    "confirmed": "✅ 확인됨",
+                    "not_found_in_report": "⚠️ 보고서에서 찾지 못함",
+                    "undetermined": "❔ 판단 불가",
+                }
+                evidence_parts = []
+                for element in claim["element_evidence"]:
+                    search = element["search"]
+                    cov = search["coverage"]
+                    subreason = element.get("undetermined_reason")
+                    image_count = len(cov.get("image_dominant_unreadable_pages", []))
+                    label = status_labels[element["evidence_status"]]
+                    if element["evidence_status"] == "undetermined":
+                        label = {
+                            "candidate_needs_review": "🔎 후보 있음·확인 필요",
+                            "no_text_candidate": (
+                                "⚠️ 텍스트로는 못 찾음" f"(이미지 쪽 {image_count}개 미확인)"
+                            ),
+                            "linkage_unclear": "❔ 연결 불명확",
+                        }.get(subreason, label)
+                    previews = "".join(
+                        f"<li>{c['page_num']}쪽: {escape(c['quote'])}"
+                        f" · {escape(c.get('rejection_reason') or '미검증 후보')}</li>"
+                        for c in search.get("native_candidates", [])
+                    )
+                    evidence_parts.append(
+                        "<li><strong>"
+                        + escape(_element_label(element["element_id"]))
+                        + " · "
+                        + label
+                        + "</strong>"
+                        + "<p>검색한 쪽: "
+                        + escape(canonical_json(cov["searched_pages"]))
+                        + " · 판독불가·미해결 쪽: "
+                        + escape(canonical_json(cov["unreadable_pages"]))
+                        + " · 미검색 쪽: "
+                        + escape(canonical_json(cov["missing_pages"]))
+                        + "</p><p>검색어·동의어: "
+                        + escape(", ".join(search["terms"]))
+                        + "</p><p>"
+                        + escape(search.get("scope_note", ""))
+                        + "</p>"
+                        + "<details><summary>미검증 native 후보</summary><ul>"
+                        + previews
+                        + "</ul></details>"
+                        + "<details><summary>원문 근거·검색 기록</summary><pre>"
+                        + escape(canonical_json(element))
+                        + "</pre></details></li>"
+                    )
+                evidence_html = "<h3>부족 근거 카드</h3><ul>" + "".join(evidence_parts) + "</ul>"
             classification_html = ""
             if classification:
                 origin = (
@@ -825,7 +901,7 @@ def render_report(model: Mapping[str, object], output_format: str) -> bytes:
                 f"<p>{escape(claim.get('suggestion') or '확정된 수정 제안 없음')}</p>"
                 f"{action_html}"
                 f"<h3>원문 근거</h3><ul>{sources}</ul>"
-                f"{tag_html}"
+                f"{tag_html}{evidence_html}"
                 f"<details><summary>감사 세부정보</summary><pre>{audit_details}</pre></details>"
                 "</section>"
             )

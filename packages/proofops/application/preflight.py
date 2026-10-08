@@ -520,15 +520,17 @@ def relation_settings_contract_valid(settings) -> bool:
         LEGACY_PROFILE,
         OCCURRENCE_PROFILE,
         OCCURRENCE_SYSTEM_PROMPT,
+        OCCURRENCE_V3_PROFILE,
+        OCCURRENCE_V3_SYSTEM_PROMPT,
         SYSTEM_PROMPT,
     )
 
     if settings.model_profile == LEGACY_PROFILE:
         return settings.system_prompt == SYSTEM_PROMPT
-    if (
-        settings.model_profile != OCCURRENCE_PROFILE
-        or settings.system_prompt != OCCURRENCE_SYSTEM_PROMPT
-    ):
+    if (settings.model_profile, settings.system_prompt) not in {
+        (OCCURRENCE_PROFILE, OCCURRENCE_SYSTEM_PROMPT),
+        (OCCURRENCE_V3_PROFILE, OCCURRENCE_V3_SYSTEM_PROMPT),
+    }:
         return False
     # Pin the complete JSON contract in prompts/source_relations_occurrence_v2.schema.json.
     # Canonical hashing accepts formatting changes, never additional schema fields.

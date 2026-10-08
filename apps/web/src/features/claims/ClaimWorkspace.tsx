@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { SourceViewer, type SourceOpenRequest } from "../../components/SourceViewer";
 import { StatusBadge } from "../../components/StatusBadge";
+import { MissingEvidenceCard, type ElementEvidence } from "./MissingEvidenceCard";
 import { ReviewCandidatePanel } from "./ReviewCandidatePanel";
 import { PreliminaryClassification } from "./PreliminaryClassification";
 import { ApiError, errorMessage, isSessionError, requestJson, type Session } from "../session/api";
@@ -90,6 +91,7 @@ type ReviewedContext = {
   };
 };
 type ClaimDetail = {
+  element_evidence?: ElementEvidence[];
   claim: ClaimSummary;
   source_refs: SourceRef[];
   elements: ReviewElement[];
@@ -325,7 +327,6 @@ export function PartialClaimSummary({
         {action}
       </p>
 
-      {projection?.blocked_reason ? <p>보류 사유: {projection.blocked_reason}</p> : null}
       <h4>추출된 항목 (present)</h4>
       {presentElements.length > 0 ? (
         <ul>
@@ -489,6 +490,7 @@ function ClaimDetailView({ apiBase = "", csrfToken, tenantKey, session, runId, c
         {detail.rulepack_approved_by?.startsWith("ai-delegated-review:")
           ? <p role="status">이 판정에 쓰인 규칙집은 AI 프로젝트 검토(사람 전문가 승인 아님)로 활성화되었습니다.</p>
           : null}
+        <MissingEvidenceCard elements={detail.element_evidence ?? []} onSourceOpen={source => setSourceOpen(current => ({ source, nonce: (current?.nonce ?? 0) + 1 }))} />
         <details><summary>전체 항목 상세 ({elements.length}개)</summary>{elements.length === 0 ? <p>{untagged ? "게시된 요소가 없습니다. 원문 검증 또는 분류가 보류된 경우 추가 검토가 필요합니다." : "표시할 요소가 없습니다."}</p> : <ul>{elements.map(element => <li key={element.element_id}>
           {getElementLabel(element.element_id)}: {elementStateText[element.state]} · 근거 {element.evidence_refs.length}개
           {element.reason_code ? <p>요소 검토 사유: {element.reason_code}</p> : null}

@@ -127,7 +127,7 @@ def _extractor_role_budget(snapshot: dict) -> int | None:
     return None
 
 
-def _live_extractor(extractor, graph):
+def _live_extractor(extractor, graph, source=None):
     """Bind the run graph for a context-mode extractor; legacy passes through.
 
     Composition already built the context profile exactly when the frozen
@@ -135,11 +135,13 @@ def _live_extractor(extractor, graph):
     snapshot shape change, and a context extractor can never run unbound
     (its own call would fail closed) nor silently fall back to legacy.
     """
-    if getattr(extractor, "_context", False) is not True:
+    if not (
+        getattr(extractor, "_context", False) or getattr(extractor, "_display_text_profile", None)
+    ):
         return extractor
     from proofops_agent.upstage_extraction import GraphBoundExtractor
 
-    return GraphBoundExtractor(extractor, graph)
+    return GraphBoundExtractor(extractor, graph, source)
 
 
 class _ContinuingExtractor:
@@ -630,7 +632,23 @@ class LocalExtractRunner:
                         self.store, self.uploads, self.parser, tenant_id=tenant_id, run_id=run_id
                     )
                     runner = self
-                    live_extractor = _live_extractor(runner.extractor, graph)
+                    display_profile = getattr(runner.extractor, "_display_text_profile", None)
+                    if display_profile:
+                        from proofops.application.ingest.display_text import POLICY, PROFILE
+
+                        if (
+                            display_profile != PROFILE
+                            or snapshot.get("display_text_policy") != POLICY
+                        ):
+                            raise ValueError("DISPLAY_POLICY_MISMATCH")
+                    elif "display_text_policy" in snapshot:
+                        raise ValueError("DISPLAY_POLICY_MISMATCH")
+                    source = (
+                        runner.uploads.read_original(tenant_id, graph.document_version_id)
+                        if display_profile
+                        else None
+                    )
+                    live_extractor = _live_extractor(runner.extractor, graph, source)
                     role_budget = _extractor_role_budget(snapshot)
                     effective_max = (
                         (

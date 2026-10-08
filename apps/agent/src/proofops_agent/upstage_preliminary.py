@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import json
 from copy import deepcopy
+from dataclasses import asdict
 from pathlib import Path
 
 from proofops.adapters.local.openrouter import OpenRouterProbe
@@ -160,6 +161,7 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
         tenant_id,
         authorize,
         resume=None,
+        display_catalog=None,
     ):
         _require_uuid("tenant_id", tenant_id)
         if settings.model_profile in (P2_MODEL_PROFILE, POSITION_P2_MODEL_PROFILE):
@@ -222,6 +224,7 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
             self.TRANSPORT_VERSION = ACTOR_ROLE_TRANSPORT_VERSION
         elif settings.model_profile == GOAL_ROLE_MODEL_PROFILE:
             self.TRANSPORT_VERSION = GOAL_ROLE_TRANSPORT_VERSION
+        self._display_catalog = display_catalog
         self._authorize = authorize
         self._probe, self._settings, self._tenant = probe, settings, tenant_id
         self._resume = resume
@@ -324,6 +327,9 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
             user = json.loads(request["user_json"])
         except (TypeError, ValueError, KeyError):
             raise ValueError("UPSTAGE_PRELIMINARY_PACKET_INVALID") from None
+        catalog = getattr(self, "_display_catalog", None)
+        if catalog is not None:
+            expected_keys = expected_keys | {"display_text"}
         if not isinstance(user, dict) or set(user) != expected_keys:
             raise ValueError("UPSTAGE_PRELIMINARY_PACKET_INVALID")
         if user["schema"] != expected_schema:
@@ -383,6 +389,34 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
                 raise ValueError("UPSTAGE_PRELIMINARY_TABLE_SOURCE_INVALID")
         if is_context:
             self._validate_context_shape(user, data, table=is_table)
+        if catalog is not None:
+            from proofops.application.ingest.display_text import POLICY, SYSTEM_SUFFIX
+
+            display = user.pop("display_text")
+            if display["policy"] != POLICY or len(display["sources"]) != len(sources):
+                raise ValueError("DISPLAY_PACKET_MISMATCH")
+            for entry, pin in zip(sources, display["sources"], strict=True):
+                ident = pin["identity"]
+                block = catalog._blocks[ident["source_id"]]
+                ref = asdict(block.source_ref()) | dict(
+                    char_start=ident["char_start"], char_end=ident["char_end"], quote=entry["text"]
+                )
+                if catalog.pin(ref) != pin:
+                    raise ValueError("DISPLAY_PACKET_MISMATCH")
+                entry["text"] = pin["text"]
+            context = data.get("context_blocks", [])
+            if len(context) != len(display["context"]):
+                raise ValueError("DISPLAY_PACKET_MISMATCH")
+            for entry, pin in zip(context, display["context"], strict=True):
+                if (
+                    catalog.block_pin(entry["source_id"]) != pin
+                    or canonical_hash(entry["text"]) != pin["raw_sha256"]
+                ):
+                    raise ValueError("DISPLAY_PACKET_MISMATCH")
+                entry["text"] = pin["text"]
+            user["display_policy"] = POLICY
+            user["display_map_sha256"] = canonical_hash(display)
+            system += SYSTEM_SUFFIX
         wire_user = json.dumps(user, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         return system, wire_user, {}, authorization, settings.schema_json
 

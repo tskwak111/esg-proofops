@@ -225,7 +225,21 @@ class SubmittedReview(StrictDTO):
     tables: dict[Literal["claims", "elements", "numeric", "assurance"], list[dict[str, str]]]
 
 
+class ElementEvidenceSearch(StrictDTO):
+    element_id: str
+    evidence_status: Literal["confirmed", "not_found_in_report", "undetermined"]
+    undetermined_reason: (
+        Literal["candidate_needs_review", "no_text_candidate", "linkage_unclear"] | None
+    ) = None
+    engine_state: Literal["present", "absent", "unknown", "conflict", "not_applicable"]
+    reason: str
+    evidence_refs: list[SourceRef]
+    candidate_refs: list[SourceRef]
+    search: dict[str, object]
+
+
 class ClaimDetail(StrictDTO):
+    element_evidence: list[ElementEvidenceSearch] = Field(default_factory=list)
     claim: ClaimSummary
     source_refs: list[SourceRef]
     elements: list[Element]
@@ -552,6 +566,9 @@ def build_claims_router(claims, auth_store, *, tags=None, assurance=None, clock=
                         claim.tenant_id, str(run_id), claim.claim_id
                     ),
                 )
+                body["element_evidence"] = claims.missing_evidence(
+                    claim.tenant_id, str(run_id), claim, track=summary["track"], elements=[]
+                )
                 return JSONResponse(
                     ClaimDetail.model_validate_json(json.dumps(body)).model_dump(mode="json"),
                     headers={"Cache-Control": "no-store"},
@@ -599,6 +616,14 @@ def build_claims_router(claims, auth_store, *, tags=None, assurance=None, clock=
                 tag_status="tagged",
                 rulepack_approved_by=rulepack_approved_by(claim.tenant_id, str(run_id)),
                 review_projection=review_projection(claim.tenant_id, str(run_id), claim.claim_id),
+            )
+            body["element_evidence"] = claims.missing_evidence(
+                claim.tenant_id,
+                str(run_id),
+                claim,
+                track=summary["track"],
+                elements=body["elements"],
+                inputs=inputs,
             )
             return JSONResponse(
                 ClaimDetail.model_validate_json(json.dumps(body)).model_dump(mode="json"),
