@@ -98,8 +98,8 @@ def claim_source_reader(policy):
     from proofops.adapters.local import claim_source_verification as base
 
     if isinstance(policy, Mapping):
-        if policy.get("profile") == "upstage-ocr-page-v1":
-            from proofops.adapters.local import upstage_ocr_profile
+        if policy.get("profile") in {"upstage-ocr-page-v1", "upstage-ocr-page-v2"}:
+            upstage_ocr_profile = page_ocr_profile(policy["profile"])
 
             if policy != upstage_ocr_profile.claim_source_policy():
                 raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")
@@ -138,7 +138,10 @@ def publication_reader(policy):
     """
     from proofops.adapters.local import claim_source_verification as base
 
-    if isinstance(policy, Mapping) and policy.get("profile") == "upstage-ocr-page-v1":
+    if isinstance(policy, Mapping) and policy.get("profile") in {
+        "upstage-ocr-page-v1",
+        "upstage-ocr-page-v2",
+    }:
         return claim_source_reader(policy)
     for module in (base, *_wrappers()):
         if policy == module.claim_source_policy():
@@ -167,7 +170,7 @@ def attest_claims(*, reader, graph, source, refs, tenant_id, cache, run_id=None)
     publication can match them instead of repeating the same whole-ref read.
     The published bytes are unchanged either way.
     """
-    if getattr(reader, "PROFILE", None) == "upstage-ocr-page-v1":
+    if getattr(reader, "PROFILE", None) in {"upstage-ocr-page-v1", "upstage-ocr-page-v2"}:
         return reader.attest_claim_spans(
             graph, source, tuple(refs), tenant_id=tenant_id, run_id=run_id
         )
@@ -190,3 +193,16 @@ def attest_claims(*, reader, graph, source, refs, tenant_id, cache, run_id=None)
             receipt=receipt,
         )
     return receipt
+
+
+def page_ocr_profile(profile):
+    """Resolve the explicitly versioned mapping; never reinterpret old receipts."""
+    if profile == "upstage-ocr-page-v1":
+        from proofops.adapters.local import upstage_ocr_profile
+
+        return upstage_ocr_profile
+    if profile == "upstage-ocr-page-v2":
+        from proofops.adapters.local import upstage_ocr_profile_v2
+
+        return upstage_ocr_profile_v2
+    raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")

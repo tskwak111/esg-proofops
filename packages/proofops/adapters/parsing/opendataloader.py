@@ -65,10 +65,12 @@ def _table_verifier(policy_hash):
 
     if policy_hash == selected.policy_sha256():
         return selected
-    from proofops.adapters.local import upstage_ocr_profile
+    from proofops.adapters.local.claim_source_policies import page_ocr_profile
 
-    if policy_hash == upstage_ocr_profile.table_policy_sha256():
-        return upstage_ocr_profile
+    for name in ("upstage-ocr-page-v1", "upstage-ocr-page-v2"):
+        profile = page_ocr_profile(name)
+        if policy_hash == profile.table_policy_sha256():
+            return profile
     raise ParseFailure("TABLE_SOURCE_POLICY_MISMATCH")
 
 
@@ -86,9 +88,15 @@ def _locates_auxiliary_cells(profile):
     if policy_hash is None:
         return False
     from proofops.adapters.local import selected_cell_table_verification as selected
-    from proofops.adapters.local.upstage_ocr_profile import table_policy_sha256
+    from proofops.adapters.local.claim_source_policies import page_ocr_profile
 
-    return policy_hash in {selected.policy_sha256(), table_policy_sha256()}
+    return policy_hash in {
+        selected.policy_sha256(),
+        *(
+            page_ocr_profile(name).table_policy_sha256()
+            for name in ("upstage-ocr-page-v1", "upstage-ocr-page-v2")
+        ),
+    }
 
 
 def _json(value: object) -> bytes:
@@ -587,7 +595,10 @@ class OpenDataLoaderParser(ParserPort):
             returned_graph = graph
             if profile.table_source_policy_sha256 is not None:
                 verifier = _table_verifier(profile.table_source_policy_sha256)
-                if verifier.__name__.endswith("upstage_ocr_profile"):
+                if getattr(verifier, "PROFILE", None) in {
+                    "upstage-ocr-page-v1",
+                    "upstage-ocr-page-v2",
+                }:
                     if page_reader is None:
                         raise ParseFailure("OCR_RUN_REQUIRED")
                     verifier = page_reader

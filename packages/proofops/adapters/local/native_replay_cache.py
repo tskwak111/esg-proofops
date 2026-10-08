@@ -421,7 +421,7 @@ def _reuse_wrapper_replay(reader, policy, receipt, graph, source, discovery, ten
 
 def replay_claims_cached(*, reader, policy, receipt, graph, source, discovery, tenant_id):
     """Reuse a successful original-byte replay only for identical pinned inputs."""
-    if policy.get("profile") == "upstage-ocr-page-v1":
+    if policy.get("profile") in {"upstage-ocr-page-v1", "upstage-ocr-page-v2"}:
         return reader.replay_claim_spans(receipt, graph, source, discovery, tenant_id=tenant_id)
     reader_policy = reader.claim_source_policy() if hasattr(reader, "claim_source_policy") else None
     key = canonical_hash(
