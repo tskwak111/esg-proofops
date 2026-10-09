@@ -175,15 +175,18 @@ def tag_pins(snapshot, extraction, extraction_hash):
         )
     if "pipeline_profile" in snapshot:
         pins["pipeline_profile"] = snapshot["pipeline_profile"]
-        if snapshot["pipeline_profile"] == "finals-unattended-v1":
-            from proofops.application.analysis_profile import POLICY, POLICY_HASH
+        if snapshot["pipeline_profile"] in ("finals-unattended-v1", "finals-unattended-v2"):
+            from proofops.application.analysis_profile import policy_for
+
+            policy = policy_for(snapshot["pipeline_profile"])
+            policy_hash = canonical_hash(policy)
 
             if (
-                snapshot.get("analysis_profile_policy") != POLICY
-                or snapshot.get("analysis_profile_policy_sha256") != POLICY_HASH
+                snapshot.get("analysis_profile_policy") != policy
+                or snapshot.get("analysis_profile_policy_sha256") != policy_hash
             ):
                 raise ValueError("ANALYSIS_PROFILE_PIN_MISMATCH")
-            pins["analysis_profile_policy_sha256"] = POLICY_HASH
+            pins["analysis_profile_policy_sha256"] = policy_hash
     if "fact_assembly_profile" in snapshot:
         pins["fact_assembly_profile"] = snapshot["fact_assembly_profile"]
     if "report_level_link" in snapshot:
@@ -205,7 +208,11 @@ def validate_tag_commit(db, jobs, run, message, envelope, next_job):
     extraction = json.loads(raw)
     expected = tag_pins(snapshot, extraction, ref["sha256"])
     claims = envelope["claims"]
-    unattended = snapshot.get("pipeline_profile") in ("unattended-v1", "finals-unattended-v1")
+    unattended = snapshot.get("pipeline_profile") in (
+        "unattended-v1",
+        "finals-unattended-v1",
+        "finals-unattended-v2",
+    )
     original_ids = [c["claim_id"] for c in extraction["discovery"]["claims"]]
     decided = sum(
         item["decision"] is not None and item["decision"]["decision_status"] == "decided"

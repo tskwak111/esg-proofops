@@ -160,7 +160,10 @@ def parse_bound(args, kwargs):
 
 
 def selected_provider() -> str:
-    if os.environ.get("PROOFOPS_ANALYSIS_PROFILE") == "finals-unattended-v1":
+    if os.environ.get("PROOFOPS_ANALYSIS_PROFILE") in (
+        "finals-unattended-v1",
+        "finals-unattended-v2",
+    ):
         return "openai"
     provider = os.environ.get("PROOFOPS_LLM_PROVIDER", "openai")
     if provider not in ("openrouter", "openai"):
@@ -225,12 +228,17 @@ def pilot_argv(
     ]
     pipeline_profile = os.environ.get("PROOFOPS_PIPELINE_PROFILE")
     if pipeline_profile:
-        if pipeline_profile not in ("unattended-v1", "finals-unattended-v1"):
+        if pipeline_profile not in (
+            "unattended-v1",
+            "finals-unattended-v1",
+            "finals-unattended-v2",
+        ):
             raise ValueError("unknown pipeline profile")
         argv += ["--pipeline-profile", pipeline_profile]
-<<<<<<< HEAD
-=======
-    if os.environ.get("PROOFOPS_ANALYSIS_PROFILE") == "finals-unattended-v1":
+    if os.environ.get("PROOFOPS_ANALYSIS_PROFILE") in (
+        "finals-unattended-v1",
+        "finals-unattended-v2",
+    ):
         from evaluation.report_scope import inspect, validate_selection
 
         proposal = inspect(pdf)
@@ -240,11 +248,8 @@ def pilot_argv(
             "--claim-pages",
             ",".join(map(str, selection["claim_pages"])),
             "--analysis-profile",
-            "finals-unattended-v1",
+            os.environ["PROOFOPS_ANALYSIS_PROFILE"],
         ]
-    if decision_v2:
-        argv += ["--preliminary-profile", "decision-v2"]
->>>>>>> ec9ebbc (feat(pipeline): integrate unattended profiles and rules-only grade ranges)
     if r108_finals_candidate_v2:
         argv.append("--r108-finals-candidate-v2")
     elif r108_finals_candidate:
@@ -254,7 +259,10 @@ def pilot_argv(
 
 def configure_concurrency() -> int:
     """Use the worker's bounded default while respecting an operator's lower cap."""
-    if os.environ.get("PROOFOPS_ANALYSIS_PROFILE") == "finals-unattended-v1":
+    if os.environ.get("PROOFOPS_ANALYSIS_PROFILE") in (
+        "finals-unattended-v1",
+        "finals-unattended-v2",
+    ):
         from proofops.adapters.local.profile_runtime import profile_workers
 
         workers = profile_workers()

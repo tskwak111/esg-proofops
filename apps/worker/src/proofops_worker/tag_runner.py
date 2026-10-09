@@ -242,7 +242,11 @@ class LocalTagRunner:
         )
         rulepack = RulePackSnapshot(**snapshot["rulepack"])
         settings = tagging_settings(snapshot) if snapshot.get("tagging_settings") else None
-        unattended = snapshot.get("pipeline_profile") in ("unattended-v1", "finals-unattended-v1")
+        unattended = snapshot.get("pipeline_profile") in (
+            "unattended-v1",
+            "finals-unattended-v1",
+            "finals-unattended-v2",
+        )
         live = None
         transport, preliminary_supplier = self.transport, self.preliminary
         if snapshot.get("tagging_mode") == "upstage_local":
@@ -653,7 +657,7 @@ class LocalTagRunner:
                             rulepack,
                             rule_context,
                             range_profile=snapshot.get("pipeline_profile")
-                            == "finals-unattended-v1",
+                            in ("finals-unattended-v1", "finals-unattended-v2"),
                         ),
                         reason=None,
                     )
@@ -797,10 +801,17 @@ class LocalTagRunner:
                 provisional_grade=empty_provisional("BUDGET_EXHAUSTED"),
             )
             if budget_stopped:
-                if snapshot.get("pipeline_profile") == "finals-unattended-v1":
+                if snapshot.get("pipeline_profile") in (
+                    "finals-unattended-v1",
+                    "finals-unattended-v2",
+                ):
                     from proofops.application.tagging.unattended import ensure_range
 
                     item["provisional_grade"] = ensure_range(item["provisional_grade"], rulepack)
+                    if snapshot.get("pipeline_profile") == "finals-unattended-v2":
+                        from proofops.application.tagging.quality import hold_projection
+
+                        item["provisional_grade"] = hold_projection(item)
                 return item
             try:
                 result = process_claim(claim)
@@ -837,10 +848,14 @@ class LocalTagRunner:
             if not result.get("tag_runs"):
                 result["provisional_grade"] = empty_provisional(result.get("reason"))
             result.setdefault("provisional_grade", empty_provisional(result.get("reason")))
-            if snapshot.get("pipeline_profile") == "finals-unattended-v1":
+            if snapshot.get("pipeline_profile") in ("finals-unattended-v1", "finals-unattended-v2"):
                 from proofops.application.tagging.unattended import ensure_range
 
                 result["provisional_grade"] = ensure_range(result["provisional_grade"], rulepack)
+                if snapshot.get("pipeline_profile") == "finals-unattended-v2":
+                    from proofops.application.tagging.quality import hold_projection
+
+                    result["provisional_grade"] = hold_projection(result)
             return result
 
         if parallel_claims:

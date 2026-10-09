@@ -450,7 +450,7 @@ def build_pilot_argv(
 
 def plan_run(args: argparse.Namespace) -> dict:
     """Validate inputs and produce the explicit plan."""
-    if getattr(args, "analysis_profile", None) == "finals-unattended-v1":
+    if getattr(args, "analysis_profile", None) in ("finals-unattended-v1", "finals-unattended-v2"):
         args.mixed_parser = True
         if args.key_file == DEFAULT_KEY_FILE:
             args.key_file = PROJECT_ROOT / ".env.openai.local"
@@ -738,7 +738,9 @@ def build_parser() -> argparse.ArgumentParser:
         prog="analyze_report",
         description="Analyze a new report PDF via the local pilot. Dry plan unless --invoke.",
     )
-    parser.add_argument("--analysis-profile", choices=["finals-unattended-v1"])
+    parser.add_argument(
+        "--analysis-profile", choices=["finals-unattended-v1", "finals-unattended-v2"]
+    )
     parser.add_argument(
         "--mixed-parser",
         action="store_true",

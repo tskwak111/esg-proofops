@@ -375,6 +375,7 @@ class LiveTaggingRuntime:
         unattended = self.snapshot.get("pipeline_profile") in (
             "unattended-v1",
             "finals-unattended-v1",
+            "finals-unattended-v2",
         )
         profile = self.preliminary_settings.model_profile
         from proofops.application.tagging.preliminary import CONTEXT_POSITION_ORDER
@@ -1031,6 +1032,7 @@ class LiveTaggingRuntime:
                 if self.snapshot.get("pipeline_profile") in (
                     "unattended-v1",
                     "finals-unattended-v1",
+                    "finals-unattended-v2",
                 ):
                     request["pipeline_profile"] = self.snapshot["pipeline_profile"]
                 request["request_signature"] = canonical_hash(request)
@@ -1193,16 +1195,11 @@ class LiveTaggingRuntime:
             signatures.extend(replica_signatures)
             provider_ids.extend(replica_ids)
             failed |= replica_failed
-<<<<<<< HEAD
         record_store[claim.claim_id] = records
-        unattended_majority = (
-            prefix == "preliminary" and self.snapshot.get("pipeline_profile") == "unattended-v1"
-=======
-        record_store[claim.claim_id] = previous_records + records
         unattended_majority = prefix == "preliminary" and self.snapshot.get("pipeline_profile") in (
             "unattended-v1",
             "finals-unattended-v1",
->>>>>>> ec9ebbc (feat(pipeline): integrate unattended profiles and rules-only grade ranges)
+            "finals-unattended-v2",
         )
         if failed and not (unattended_majority and len(results) >= 2):
             return None

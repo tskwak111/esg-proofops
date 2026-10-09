@@ -498,6 +498,7 @@ def build_claims_router(claims, auth_store, *, tags=None, assurance=None, clock=
             if tags is not None and store.snapshot(tenant, str(run_id)).get("pipeline_profile") in (
                 "unattended-v1",
                 "finals-unattended-v1",
+                "finals-unattended-v2",
             ):
                 try:
                     provisional_items = {

@@ -5,6 +5,7 @@ import { StatusBadge } from "../../components/StatusBadge";
 import { MissingEvidenceCard, type ElementEvidence } from "./MissingEvidenceCard";
 import { ReviewCandidatePanel } from "./ReviewCandidatePanel";
 import { PreliminaryClassification } from "./PreliminaryClassification";
+import { ProvisionalHold, type HoldExplanation } from "./ProvisionalHold";
 import { ApiError, errorMessage, isSessionError, requestJson, type Session } from "../session/api";
 import {
   ReviewWorkspace,
@@ -68,7 +69,7 @@ type ReviewCandidate = {
 type ReviewProjection = {
   schema_version: 1;
   source_status?: { status: string; display: string; reason: string | null } | null;
-  provisional_grade?: { evidence_grade: string | null; display: string; grade_basis?: string; grade_range?: { floor: string; ceiling: string }; elements: { element_id: string; state: string; votes: number; total_replicas: number }[] } | null;
+  provisional_grade?: (HoldExplanation & { evidence_grade: string | null; display: string; grade_basis?: string; grade_range?: { floor: string; ceiling: string }; elements: { element_id: string; state: string; votes: number; total_replicas: number }[] }) | null;
   pipeline_stage?: string | null;
   candidate_snippets: string[];
   blocked_reason: string | null;
@@ -325,7 +326,7 @@ export function PartialClaimSummary({
     <section aria-labelledby="partial-summary-heading" style={{ padding: "16px", background: "#f8f9fa", border: "1px solid #dee2e6", marginBottom: "24px", borderRadius: "4px" }}>
       <h3 id="partial-summary-heading">검토 중인 내용</h3>
       {projection?.source_status && <p>{projection.source_status.display}</p>}
-      {projection?.provisional_grade && <div><p><strong>{projection.provisional_grade.evidence_grade || (projection.provisional_grade.grade_range ? `${projection.provisional_grade.grade_range.floor}~${projection.provisional_grade.grade_range.ceiling}` : "등급 산출 보류")} · {projection.provisional_grade.display}</strong>{projection.provisional_grade.grade_basis === "reachable_floor" ? " · 확인된 근거 기준 하한" : ""}</p><ul>{projection.provisional_grade.elements.map(e => <li key={e.element_id}>{getElementLabel(e.element_id)} · {e.state} · {e.votes}/{e.total_replicas} · 잠정</li>)}</ul></div>}
+      {projection?.provisional_grade && <div><p><strong>{projection.provisional_grade.display_type === "hold" ? "판정 보류" : projection.provisional_grade.evidence_grade || (projection.provisional_grade.grade_range ? `${projection.provisional_grade.grade_range.floor}~${projection.provisional_grade.grade_range.ceiling}` : "등급 산출 보류")} · {projection.provisional_grade.display}</strong>{projection.provisional_grade.grade_basis === "reachable_floor" ? " · 확인된 근거 기준 하한" : ""}</p><ProvisionalHold grade={projection.provisional_grade} /><ul>{projection.provisional_grade.elements.map(e => <li key={e.element_id}>{getElementLabel(e.element_id)} · {e.state} · {e.votes}/{e.total_replicas} · 잠정</li>)}</ul></div>}
       <p role="status">
         <strong>상태 및 조치:</strong> {reason}
         {missingLabels.length > 0 ? ` 누락된 입증 요소(${missingLabels.join(", ")})를 보완하기 위해 ` : " "}

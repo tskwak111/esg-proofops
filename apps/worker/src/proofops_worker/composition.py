@@ -274,6 +274,9 @@ def build_composition(
                 raise ValueError("EXTRACTION_PROFILE_MISMATCH")
             atomic_opt_in = settings.get("extraction_atomic") is True
             linewrap_join = settings.get("extraction_linewrap_join") is True
+            fragment_guard = settings.get("extraction_fragment_guard", False)
+            if type(fragment_guard) is not bool:
+                raise ValueError("UPSTAGE_EXTRACTION_FRAGMENT_GUARD_INVALID")
             if "extraction_linewrap_join" in settings and (
                 not linewrap_join
                 or settings.get("extraction_source_ids") is not True
@@ -305,6 +308,7 @@ def build_composition(
                         source_ids=source_ids_opt_in,
                         extraction_atomic=atomic_opt_in,
                         extraction_linewrap_join=linewrap_join,
+                        extraction_fragment_guard=fragment_guard,
                         extraction_table_rows=rows_opt_in,
                         extraction_recall_prompt=recall_opt_in,
                         assertion_prompt=assertion_prompt_opt_in,
@@ -326,6 +330,7 @@ def build_composition(
                     extraction_source_ids=source_ids_opt_in,
                     extraction_atomic=atomic_opt_in,
                     extraction_linewrap_join=linewrap_join,
+                    extraction_fragment_guard=fragment_guard,
                     extraction_table_rows=rows_opt_in,
                     extraction_recall_prompt=recall_opt_in,
                     extraction_assertion_prompt=assertion_prompt_opt_in,

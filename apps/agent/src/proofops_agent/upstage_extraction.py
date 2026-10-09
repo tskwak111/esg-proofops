@@ -262,10 +262,28 @@ LINEWRAP_JOIN_POLICY = {
 }
 
 
-def join_selected_linewraps(spans: list[dict], text: str) -> list[dict]:
+def join_selected_linewraps(spans: list[dict], text: str, *, fragment_guard=False) -> list[dict]:
     """Join only selected continuation lines; retain literal raw text and offsets."""
     joined: list[dict] = []
     for span in sorted(spans, key=lambda s: s["char_start"]):
+        # A detached closing parenthesis/comma is not a numbered bullet. Restore
+        # only a selected adjacent date continuation, otherwise exclude it.
+        fragment = fragment_guard and re.match(r"(?:\d+\)\s*,|\)\s*[,;])", span["quote"])
+        if fragment:
+            if joined:
+                previous = joined[-1]
+                gap = text[previous["char_end"] : span["char_start"]]
+                if (
+                    gap.isspace()
+                    and gap.count("\n") == 1
+                    and re.search(r"\(\d{4}\.\s*$", previous["quote"])
+                ):
+                    joined[-1] = {
+                        **previous,
+                        "char_end": span["char_end"],
+                        "quote": text[previous["char_start"] : span["char_end"]],
+                    }
+            continue
         if joined:
             previous = joined[-1]
             gap = text[previous["char_end"] : span["char_start"]]
@@ -501,6 +519,7 @@ def _profile_with_options(
     display_text_profile: str | None = None,
     extraction_atomic: bool = False,
     extraction_linewrap_join: bool = False,
+    extraction_fragment_guard: bool = False,
     extraction_table_rows: bool = False,
     extraction_recall_prompt: bool = False,
 ) -> ExtractionProfile:
@@ -538,6 +557,7 @@ def _profile_with_options(
             position_order,
             extraction_atomic,
             extraction_linewrap_join,
+            extraction_fragment_guard,
             extraction_table_rows,
             extraction_recall_prompt,
         )
@@ -551,6 +571,8 @@ def _profile_with_options(
         raise ValueError("UPSTAGE_PROFILE_OPTION_INVALID")
     if extraction_linewrap_join and (not source_ids or extraction_atomic):
         raise ValueError("UPSTAGE_EXTRACTION_LINEWRAP_JOIN_INVALID")
+    if extraction_fragment_guard and not extraction_linewrap_join:
+        raise ValueError("UPSTAGE_EXTRACTION_FRAGMENT_GUARD_INVALID")
     if extraction_table_context and not extraction_context:
         raise ValueError("UPSTAGE_PROFILE_OPTION_INVALID")
     if position_order and not extraction_context:
@@ -571,6 +593,8 @@ def _profile_with_options(
     descriptor: list[Any] = [*_RULE_DESCRIPTOR]
     if extraction_linewrap_join:
         descriptor.append(LINEWRAP_JOIN_POLICY)
+    if extraction_fragment_guard:
+        descriptor.append("selected-linewrap-fragments-v1")
     if extraction_atomic:
         descriptor.append({**ATOMIC_POLICY, "max_candidates": _MAX_ATOMIC_CANDIDATES})
     if extraction_table_rows:
@@ -662,6 +686,7 @@ class UpstageClaimExtractor:
         display_text_profile: str | None = None,
         extraction_atomic: bool = False,
         extraction_linewrap_join: bool = False,
+        extraction_fragment_guard: bool = False,
         extraction_table_rows: bool = False,
         extraction_recall_prompt: bool = False,
     ) -> None:
@@ -712,6 +737,7 @@ class UpstageClaimExtractor:
             display_text_profile=display_text_profile,
             extraction_atomic=extraction_atomic,
             extraction_linewrap_join=extraction_linewrap_join,
+            extraction_fragment_guard=extraction_fragment_guard,
             extraction_table_rows=extraction_table_rows,
             extraction_recall_prompt=extraction_recall_prompt,
         )
@@ -727,6 +753,7 @@ class UpstageClaimExtractor:
         self._recall_prompt = extraction_recall_prompt
         self._atomic = extraction_atomic
         self._linewrap_join = extraction_linewrap_join
+        self._fragment_guard = extraction_fragment_guard
         self._year_notation = extraction_year_notation
         self._context = extraction_context
         self._table_context = extraction_table_context
@@ -1377,7 +1404,9 @@ class UpstageClaimExtractor:
         if selected and not span_dicts:
             raise ValueError("no usable selected sentences")
         if join_lines:
-            span_dicts = join_selected_linewraps(span_dicts, text)
+            span_dicts = join_selected_linewraps(
+                span_dicts, text, fragment_guard=self._fragment_guard
+            )
         return self._validate_spans({"spans": span_dicts}, text), {
             "rejected_sentence_ids": rejected_sentence_ids
         }

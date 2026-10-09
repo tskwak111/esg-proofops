@@ -50,7 +50,11 @@ def _candidate_extract(live, packet, snapshot):
         return live.extract(packet)
     except ValueError as error:
         code = str(error)
-        if snapshot.get("pipeline_profile") in ("unattended-v1", "finals-unattended-v1") and (
+        if snapshot.get("pipeline_profile") in (
+            "unattended-v1",
+            "finals-unattended-v1",
+            "finals-unattended-v2",
+        ) and (
             code
             in {
                 "OPENAI_HTTP_503",
@@ -902,7 +906,8 @@ class LocalExtractRunner:
                             source=source.content,
                             refs=discovery_refs(discovery),
                             tenant_id=tenant_id,
-                            cache=snapshot.get("pipeline_profile") == "finals-unattended-v1",
+                            cache=snapshot.get("pipeline_profile")
+                            in ("finals-unattended-v1", "finals-unattended-v2"),
                             run_id=run_id,
                         )
                     return canonical_json(payload).encode(), usage

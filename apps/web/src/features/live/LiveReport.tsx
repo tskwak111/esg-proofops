@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { getElementLabel } from "../labels";
+import { ProvisionalHold, type HoldExplanation } from "../claims/ProvisionalHold";
 import type { PageInfo, Section } from "./sectionPicker";
 
 type Decision = { evidence_grade: string | null; label?: string | null; missing_elements?: string[]; grade_range: { floor: string; ceiling: string; open_elements?: string[] } | null; decision_status: string };
 export type LiveResultClaim = Claim;
-type Claim = { source_status?: { status: string; display: string }; provisional_grade?: { evidence_grade: string | null; display: string; grade_basis?: string; grade_range?: Decision["grade_range"]; elements: unknown[] } | null; quote: string; page: number; track: string | null; source_verified: boolean; blocked_reason: string | null; elements: { name: string; element_id: string; state: string; quote: string | null; source_verified: boolean; votes?: number; provisional?: boolean }[]; decision: Decision | null };
+type Claim = { source_status?: { status: string; display: string }; provisional_grade?: (HoldExplanation & { evidence_grade: string | null; display: string; grade_basis?: string; grade_range?: Decision["grade_range"]; elements: unknown[] }) | null; quote: string; page: number; track: string | null; source_verified: boolean; blocked_reason: string | null; elements: { name: string; element_id: string; state: string; quote: string | null; source_verified: boolean; votes?: number; provisional?: boolean }[]; decision: Decision | null };
 type Result = { claims: Claim[]; pages: number[]; duration_ms: number; cost_usd: number; tagging_passes?: number; notice: string };
 const tracks: Record<string, string> = { goal: "목표", performance: "성과", management: "관리체계" };
 const errors: Record<string, string> = {
@@ -150,7 +151,7 @@ export function LiveReport({ file, renderClaims }: { file: File; renderClaims?: 
       {renderClaims ? renderClaims(result.claims) : <ol>{result.claims.map((claim, index) => <li key={`${claim.page}-${index}`}>
         <div className="live-report-claim-head"><strong>{claim.page}쪽 · {claim.track ? tracks[claim.track] || claim.track : "분류 검토 필요"}</strong><span>{claim.source_status?.display || (claim.source_verified ? "원문 확인" : "원문 대조 필요")}</span></div>
         <blockquote>{claim.quote}</blockquote>
-        {claim.provisional_grade && <p>{claim.provisional_grade.evidence_grade || (claim.provisional_grade.grade_range ? `${claim.provisional_grade.grade_range.floor}~${claim.provisional_grade.grade_range.ceiling}` : "등급 산출 보류")} · {claim.provisional_grade.display}{claim.provisional_grade.grade_basis === "reachable_floor" ? " · 확인된 근거 기준 하한" : ""}</p>}
+        {claim.provisional_grade && <><ProvisionalHold grade={claim.provisional_grade} /><p>{claim.provisional_grade.display_type === "hold" ? "판정 보류" : claim.provisional_grade.evidence_grade || (claim.provisional_grade.grade_range ? `${claim.provisional_grade.grade_range.floor}~${claim.provisional_grade.grade_range.ceiling}` : "등급 산출 보류")} · {claim.provisional_grade.display}{claim.provisional_grade.grade_basis === "reachable_floor" ? " · 확인된 근거 기준 하한" : ""}</p></>}
         {claim.decision?.decision_status === "blocked_rule_gap" ? <p>{claim.blocked_reason}</p> : claim.decision?.evidence_grade ? <p>규칙 판정 {claim.decision.evidence_grade}</p> : claim.decision?.grade_range ? <p>가능 범위 {claim.decision.grade_range.floor}–{claim.decision.grade_range.ceiling} · 검토 필요</p> : <p>{claim.blocked_reason || "판정 검토 필요"}</p>}
         {claim.elements.length > 0 && <details><summary>요소와 근거</summary><ul>{claim.elements.map(element => <li key={element.name}><strong>{getElementLabel(element.element_id)}</strong> · {element.state === "present" ? "근거 확인" : "미확인"}{element.quote && <q>{element.quote}</q>}</li>)}</ul></details>}
       </li>)}</ol>}

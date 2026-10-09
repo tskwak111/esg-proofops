@@ -209,6 +209,7 @@ def live_tagging_settings(
     element_consistency: bool = False,
     position_context_order: bool = False,
     capacity_refresh: bool = False,
+    element_definition_profile: str | None = None,
 ) -> dict:
     """Explicit bounded pilot config; grants are registered separately by main."""
     from proofops.application.input_reservation import solar_pro4_capacity_policy
@@ -346,6 +347,12 @@ def live_tagging_settings(
         "or grading. Validate this equality for every element before submitting."
     )
     settings = {}
+    if element_definition_profile is not None:
+        if element_definition_profile != "qi1-v1":
+            raise ValueError("ELEMENT_DEFINITION_PROFILE_UNKNOWN")
+        from proofops.application.tagging.quality import ELEMENT_DEFINITIONS
+
+        element_prompt += "\n" + ELEMENT_DEFINITIONS
     if preliminary_sentence_context:
         from proofops.application.tagging.preliminary import (
             SENTENCE_CONTEXT_PROFILE,
@@ -683,6 +690,7 @@ def apply_resume_metadata(args, saved: dict) -> None:
     args.extraction_recall_prompt = bool(saved.get("extraction_recall_prompt", False))
     args.extraction_atomic = bool(saved.get("extraction_atomic", False))
     args.extraction_linewrap_join = bool(saved.get("extraction_linewrap_join", False))
+    args.extraction_fragment_guard = bool(saved.get("extraction_fragment_guard", False))
     args.extraction_source_ids = bool(saved.get("extraction_source_ids", False))
     args.extraction_assertion_prompt = bool(saved.get("extraction_assertion_prompt", False))
     args.extraction_complete_selection = bool(saved.get("extraction_complete_selection", False))
@@ -705,7 +713,7 @@ def apply_resume_metadata(args, saved: dict) -> None:
 
 
 def run_live_stages(args, *, tenant_id: str, run_id: str) -> dict:
-    if getattr(args, "pipeline_profile", None) == "finals-unattended-v1":
+    if getattr(args, "pipeline_profile", None) in ("finals-unattended-v1", "finals-unattended-v2"):
         from proofops.adapters.local.profile_runtime import spend_session
 
         with spend_session(run_id):
@@ -738,7 +746,7 @@ def _run_live_stages(args, *, tenant_id: str, run_id: str) -> dict:
                 and args.extraction_total_calls > args.max_calls
                 and not (
                     getattr(args, "pipeline_profile", None)
-                    in ("unattended-v1", "finals-unattended-v1")
+                    in ("unattended-v1", "finals-unattended-v1", "finals-unattended-v2")
                     and "tag_job" in worker.store.jobs.get_run(tenant, run_id)
                 )
             ):
@@ -951,7 +959,7 @@ def main():
     parser.add_argument("--invoke", action="store_true")
     parser.add_argument(
         "--pipeline-profile",
-        choices=["unattended-v1", "finals-unattended-v1"],
+        choices=["unattended-v1", "finals-unattended-v1", "finals-unattended-v2"],
         help="New run only: read-only provisional results and claim-isolated completion.",
     )
     parser.add_argument("--live-tagging", action="store_true")
@@ -1141,7 +1149,10 @@ def main():
         "sentence context with E2E3 fallback; excludes table rows, recall, atomic and P1/P2. "
         "Does not authorize model calls.",
     )
-    parser.add_argument("--analysis-profile", choices=["finals-unattended-v1"])
+    parser.add_argument(
+        "--analysis-profile", choices=["finals-unattended-v1", "finals-unattended-v2"]
+    )
+    parser.add_argument("--extraction-fragment-guard", action="store_true")
     args = parser.parse_args()
     from proofops.application.analysis_profile import apply_pilot_profile
 
@@ -1465,7 +1476,9 @@ def main():
             claim_physical_pages=tuple(claim_pages or ()) if args.parser == "mixed-v1" else (),
             mixed_ocr_max_pages=args.mixed_ocr_max_pages,
             failure_policy=(
-                "partial-v1" if args.pipeline_profile == "finals-unattended-v1" else None
+                "partial-v1"
+                if args.pipeline_profile in ("finals-unattended-v1", "finals-unattended-v2")
+                else None
             ),
             upstage_glyph_boxes=args.parser in ("upstage", "mixed-v1"),
             upstage_region_words=args.parser in ("upstage", "mixed-v1"),
@@ -1487,6 +1500,7 @@ def main():
                     source_ids=args.extraction_source_ids,
                     extraction_atomic=args.extraction_atomic,
                     extraction_linewrap_join=args.extraction_linewrap_join,
+                    extraction_fragment_guard=args.extraction_fragment_guard,
                     extraction_table_rows=args.extraction_table_rows,
                     extraction_recall_prompt=args.extraction_recall_prompt,
                     assertion_prompt=args.extraction_assertion_prompt,
@@ -1541,6 +1555,8 @@ def main():
             settings["extraction_atomic"] = True
         if args.extraction_linewrap_join:
             settings["extraction_linewrap_join"] = True
+        if args.extraction_fragment_guard:
+            settings["extraction_fragment_guard"] = True
         if args.extraction_source_ids:
             settings["extraction_source_ids"] = True
         if args.extraction_assertion_prompt:
@@ -1560,6 +1576,9 @@ def main():
             settings.update(
                 live_tagging_settings(
                     args.tagging_max_calls,
+                    element_definition_profile="qi1-v1"
+                    if args.pipeline_profile == "finals-unattended-v2"
+                    else None,
                     model_id=(
                         "gpt-6-luna" if args.llm_provider == "openai" else "openai/gpt-6-luna"
                     )
@@ -2013,6 +2032,8 @@ def main():
             manifest["extraction_content_bounds"] = True
         if args.extraction_linewrap_join:
             manifest["extraction_linewrap_join"] = True
+        if args.extraction_fragment_guard:
+            manifest["extraction_fragment_guard"] = True
         if args.capacity_refresh:
             manifest["capacity_refresh"] = True
         if finals_candidate_profile(args):
@@ -2105,7 +2126,11 @@ def main():
             raise ValueError(
                 "pilot extraction table context policy changed; create a new state directory"
             )
-        for name in ("extraction_table_rows", "extraction_recall_prompt"):
+        for name in (
+            "extraction_table_rows",
+            "extraction_recall_prompt",
+            "extraction_fragment_guard",
+        ):
             if manifest.get(name, False) != getattr(args, name):
                 raise ValueError(name + " policy changed; create a new state directory")
         if manifest.get("extraction_atomic", False) != args.extraction_atomic:

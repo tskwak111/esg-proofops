@@ -4,6 +4,7 @@ import { HostedAnalysis } from "./features/hosted/HostedAnalysis";
 import "./features/hosted/hosted.css";
 import { LiveClaim } from "./features/live/LiveClaim";
 import { LiveReport, type LiveResultClaim } from "./features/live/LiveReport";
+import { ProvisionalHold } from "./features/claims/ProvisionalHold";
 import { ReplayPage, replayPath } from "./features/replay/route";
 import { kiaRoute } from "./features/kia/route";
 import ReviewPage, { reviewRoutePath } from "./features/reviewsim/route";
@@ -270,6 +271,7 @@ function CountUp({ value }: { value: number }) {
 }
 
 function gradeText(claim: Claim) {
+  if (claim.provisional_grade?.display_type === "hold") return "판정 보류";
   if (claim.provisional_grade) return `${claim.provisional_grade.evidence_grade || (claim.provisional_grade.grade_range ? `${claim.provisional_grade.grade_range.floor}~${claim.provisional_grade.grade_range.ceiling}` : "등급 산출 보류")} · ${claim.provisional_grade.evidence_grade ? "잠정·미확정" : "잠정·범위"}`;
   if (!claim.source_verified) return "원문 대조 필요";
   if (claim.decision.display_note) return claim.decision.display_grade ? `${claim.decision.display_grade} · 예비 등급` : "원문 대조 필요";
@@ -287,6 +289,7 @@ const ladderElements: Record<string, Record<string, string[]>> = {
 };
 
 function gradeWhy(claim: Claim) {
+  if (claim.provisional_grade?.display_type === "hold") return `보류 이유: ${claim.provisional_grade.hold_reasons?.join(" · ") || "확인 필요"}`;
   if (claim.provisional_grade) return claim.provisional_grade.grade_basis === "counterfactual_range" ? "미확인 요소와 미정 규칙의 가정을 표시용으로만 적용한 Python 규칙엔진의 등급 범위입니다. 확정 판정 전입니다." : claim.provisional_grade.grade_basis === "reachable_floor" ? "미확인 요소를 그대로 유지한 상태에서 Python 규칙엔진이 계산한 가능한 등급의 하한입니다. 확정 판정 전입니다." : claim.provisional_grade.evidence_grade ? "검증된 인용과 잠정 합의 입력으로 Python 규칙엔진이 계산했습니다. 확정 판정 전입니다." : "원문 검증·분류 합의·규칙 적용 중 해결되지 않은 사유로 잠정 등급 산출을 보류했습니다.";
   const decision = claim.decision;
   const ladder = ladderElements[claim.track || ""];
@@ -405,6 +408,7 @@ function ClaimDetail({ claim, queue, embedded = false }: { claim: Claim | null; 
     {reviewMode && <ReviewSimulator claim={claim} />}
     <div className="why-panel"><h4>왜 이 등급인가 <GuideHelp topic="grade" /></h4><p>{gradeWhy(claim)}{claim.note ? ` ${claim.note}` : ""}</p></div>
     <div className="decision-panel"><span>{claim.provisional_grade ? (claim.source_verified ? "잠정 등급" : "원문 확인 필요") : !claim.source_verified ? "원문 대조 필요" : d.display_note ? "예비 등급" : "분석 결과"}</span><strong>{gradeText(claim)} <GuideHelp topic={d.estimated ? "estimated" : d.grade_range ? "range" : "grade"} /></strong><p>{d.label || d.display_label || statusText[d.status] || d.status} <GuideHelp topic="label" /></p></div>
+    {claim.provisional_grade && <ProvisionalHold grade={claim.provisional_grade} />}
     <div className="detail-block"><h4>요소별 근거 <GuideHelp topic="state" /></h4>{claim.elements.length ? <div className="element-table-wrap"><table className="element-table"><thead><tr><th>요소</th><th>상태</th><th>근거 문구</th></tr></thead><tbody>{claim.elements.map(element => <tr key={element.id}><th scope="row"><b>{element.id}</b><span>{elementLabels[element.id] || element.id}</span></th><td><span className={`element-state ${element.state}`}>{!claim.source_verified && element.state === "present" ? "원문 대조 필요" : stateText[element.state] || element.state}</span>{element.votes != null && <small> · 잠정 {element.votes}/3</small>}</td><td>{element.evidence.length ? element.evidence.map((ref, index) => <p key={index}>{ref.page != null && <small>p.{ref.page}</small>} “{ref.quote}”</p>) : <span className="no-evidence">연결된 근거 문구 없음</span>}</td></tr>)}</tbody></table></div> : <p className="caption">요소 태깅 전입니다. 빈 요소를 absent로 보지 않습니다.</p>}</div>
     <div className="provenance"><span className="badge blue">{claim.decision.estimated ? "예비 등급" : "분석 결과"}</span></div>
   </aside>;

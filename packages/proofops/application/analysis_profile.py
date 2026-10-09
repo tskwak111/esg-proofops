@@ -1,5 +1,6 @@
 """One explicitly selected profile; old configurations remain byte-identical."""
 
+from proofops.application.tagging.quality import ELEMENT_DEFINITIONS_HASH
 from proofops.domain.provenance import canonical_hash
 
 PROFILE = "finals-unattended-v1"
@@ -22,19 +23,38 @@ POLICY = dict(
 )
 POLICY_HASH = canonical_hash(POLICY)
 
+V2_PROFILE = "finals-unattended-v2"
+V2_POLICY = POLICY | dict(
+    profile=V2_PROFILE,
+    pipeline_graph="source-attested-before-tagging-v2",
+    stage_overlap=False,
+    element_definition_profile="qi1-v1",
+    element_definitions_sha256=ELEMENT_DEFINITIONS_HASH,
+    extraction_fragment_guard="selected-linewrap-fragments-v1",
+    grade_display="whole-range-hold-v1",
+)
+
+
+def policy_for(profile):
+    if profile == PROFILE:
+        return POLICY
+    if profile == V2_PROFILE:
+        return V2_POLICY
+    raise ValueError("ANALYSIS_PROFILE_UNKNOWN")
+
 
 def apply_pilot_profile(args):
-    if (
-        getattr(args, "analysis_profile", None) != PROFILE
-        and getattr(args, "pipeline_profile", None) != PROFILE
-    ):
+    profile = getattr(args, "analysis_profile", None) or getattr(args, "pipeline_profile", None)
+    if profile not in (PROFILE, V2_PROFILE):
         return
     if getattr(args, "resume", False):
         return  # persisted pins restored and checked by the pilot
     args.llm_provider = "openai"
     args.model = None
     args.parser = "mixed-v1"
-    args.pipeline_profile = PROFILE
+    args.pipeline_profile = profile
+    if profile == V2_PROFILE:
+        args.extraction_fragment_guard = True
     args.claim_source_profile = "claim-source-v3"
     args.verify_claim_spans = True
     args.extraction_linewrap_join = True

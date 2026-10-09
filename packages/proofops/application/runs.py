@@ -224,7 +224,12 @@ class RunService:
             if display_text_policy != POLICY or extraction_mode != "upstage_probe":
                 raise ValueError("DISPLAY_POLICY_MISMATCH")
             self.display_text_policy = _detach(display_text_policy)
-        if pipeline_profile not in (None, "unattended-v1", "finals-unattended-v1"):
+        if pipeline_profile not in (
+            None,
+            "unattended-v1",
+            "finals-unattended-v1",
+            "finals-unattended-v2",
+        ):
             raise ValueError("unknown pipeline profile")
         self.pipeline_profile = pipeline_profile
         self.tagging_settings, self.tagging_mode = tagging_settings, tagging_mode
@@ -636,11 +641,12 @@ class RunService:
         )
         if self.pipeline_profile is not None:
             snapshot["pipeline_profile"] = self.pipeline_profile
-            if self.pipeline_profile == "finals-unattended-v1":
-                from proofops.application.analysis_profile import POLICY, POLICY_HASH
+            if self.pipeline_profile in ("finals-unattended-v1", "finals-unattended-v2"):
+                from proofops.application.analysis_profile import policy_for
 
-                snapshot["analysis_profile_policy"] = _detach(POLICY)
-                snapshot["analysis_profile_policy_sha256"] = POLICY_HASH
+                analysis_policy = policy_for(self.pipeline_profile)
+                snapshot["analysis_profile_policy"] = _detach(analysis_policy)
+                snapshot["analysis_profile_policy_sha256"] = canonical_hash(analysis_policy)
                 from proofops.adapters.local.evidence_source_verification_v1 import (
                     policy as evidence_source_policy,
                 )

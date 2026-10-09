@@ -34,6 +34,7 @@ _SETTINGS_FIELDS = frozenset(
         "extraction_source_ids",
         "extraction_atomic",
         "extraction_linewrap_join",
+        "extraction_fragment_guard",
         "extraction_table_rows",
         "extraction_recall_prompt",
         "extraction_assertion_prompt",
@@ -312,7 +313,8 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
             raise _invalid() from None
     if "pipeline_profile" in settings:
         if (
-            settings["pipeline_profile"] not in ("unattended-v1", "finals-unattended-v1")
+            settings["pipeline_profile"]
+            not in ("unattended-v1", "finals-unattended-v1", "finals-unattended-v2")
             or not tagging_mode
         ):
             raise _invalid()
@@ -348,6 +350,7 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         "extraction_source_ids",
         "extraction_atomic",
         "extraction_linewrap_join",
+        "extraction_fragment_guard",
         "extraction_table_rows",
         "extraction_recall_prompt",
         "extraction_assertion_prompt",
@@ -371,6 +374,11 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
     if "extraction_linewrap_join" in settings and (
         settings.get("extraction_source_ids") is not True
         or settings.get("extraction_atomic") is True
+    ):
+        raise _invalid()
+    if (
+        "extraction_fragment_guard" in settings
+        and settings.get("extraction_linewrap_join") is not True
     ):
         raise _invalid()
     if "extraction_table_context" in settings and settings.get("extraction_context") is not True:
