@@ -28,6 +28,7 @@ def test_hosted_preparation_pins_requested_bundle(tmp_path, monkeypatch, profile
     writer.write(pdf)
     config = SCOPE | (dict(analysis_profile=profile) if profile else {})
     argv = prepare_argv(pdf, state, "11111111-1111-4111-8111-111111111111", config)
+    assert argv[argv.index("--llm-provider") + 1] == config.get("llm_provider", "openai")
     monkeypatch.setattr(sys, "argv", argv)
     assert pilot.main() == 0
     settings = json.loads((state / "settings.json").read_text())
@@ -61,10 +62,15 @@ def test_hosted_preparation_pins_requested_bundle(tmp_path, monkeypatch, profile
 
 
 @pytest.mark.parametrize(
-    "config", [{"analysis_profile": "invented"}, {"rendered_reader_profile": "upstage-ocr-page-v4"}]
+    "config",
+    [
+        {"analysis_profile": "invented"},
+        {"rendered_reader_profile": "upstage-ocr-page-v4"},
+        {"llm_provider": "invented"},
+    ],
 )
 def test_unknown_operator_profiles_rejected(config):
-    with pytest.raises(ValueError, match="HOSTED_.*PROFILE_INVALID"):
+    with pytest.raises(ValueError, match="HOSTED_.*(?:PROFILE|PROVIDER)_INVALID"):
         hosted_analysis.operator_profiles(config)
 
 
@@ -102,3 +108,37 @@ def test_hosted_operator_choice_excludes_regressed_v1_but_warns_on_existing_conf
     assert "E2E5" in profiles["analysis_profile_warning"]
     assert hosted_analysis.operator_profiles({})["analysis_profile"] == "r108-default"
     assert hosted_analysis.operator_profiles({})["llm_max_workers"] == 8
+    assert hosted_analysis.operator_profiles({})["llm_provider"] == "openai"
+    assert hosted_analysis.operator_profiles({})["llm_provider_options"] == [
+        "openai",
+        "openrouter",
+    ]
+
+
+@pytest.mark.parametrize(
+    "provider,key_field",
+    [(None, "openai_key_file"), ("openrouter", "openrouter_key_file")],
+)
+def test_live_config_requires_only_selected_provider_key(tmp_path, provider, key_field):
+    upstage_key = tmp_path / "upstage.env"
+    upstage_key.write_text("UPSTAGE_API_KEY=test-only\n")
+    llm_key = tmp_path / f"{key_field}.env"
+    llm_key.write_text("test-only\n")
+    config = dict(
+        enabled=True,
+        upstage_key_file=str(upstage_key),
+        report_year=2025,
+        period_start="2024-01-01",
+        period_end="2024-12-31",
+        **({"llm_provider": provider} if provider else {}),
+        **{key_field: str(llm_key)},
+    )
+    config_path = tmp_path / "live.json"
+    config_path.write_text(json.dumps(config))
+    assert hosted_analysis.read_operator_config(config_path)["llm_provider"] == (
+        provider or "openai"
+    )
+    config.pop(key_field)
+    config_path.write_text(json.dumps(config))
+    with pytest.raises((KeyError, ValueError)):
+        hosted_analysis.read_operator_config(config_path)

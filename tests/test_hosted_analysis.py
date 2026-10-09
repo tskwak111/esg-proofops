@@ -123,10 +123,16 @@ def fake_llm(body):
             track_confidence=1,
             dimensions=dict(entity=None, metric=None, reporting_period=None),
         )
+    model = body["model"]
+    usage = dict(prompt_tokens=20, completion_tokens=10)
+    if model == "gpt-6-luna":
+        usage["prompt_tokens_details"] = {}
+    else:
+        usage["cost"] = 0.00001
     return dict(
         id=str(uuid4()),
-        model=MODEL,
-        usage=dict(prompt_tokens=20, completion_tokens=10, cost=0.00001),
+        model=model,
+        usage=usage,
         choices=[dict(finish_reason="stop", message=dict(content=json.dumps(payload)))],
     )
 
@@ -142,7 +148,12 @@ def fake_analysis(store, job, prepared):
             store,
             job,
             workspace,
-            dict(report_year=2025, period_start="2024-01-01", period_end="2024-12-31"),
+            dict(
+                llm_provider="openrouter",
+                report_year=2025,
+                period_start="2024-01-01",
+                period_end="2024-12-31",
+            ),
             llm_post=fake_llm,
             parse_post=fake_parse,
         )
@@ -375,6 +386,7 @@ def test_linux_reader_explicitly_unresolved_without_dispatch(
         json.dumps(
             dict(
                 enabled=True,
+                llm_provider="openrouter",
                 openrouter_key_file=str(tmp_path / "luna.key"),
                 upstage_key_file=str(tmp_path / "upstage.key"),
                 report_year=2025,

@@ -13,6 +13,16 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from uuid import uuid4
 
+from proofops.adapters.local.openai import (
+    MODEL as OPENAI_MODEL,
+)
+from proofops.adapters.local.openai import (
+    WIRE_POLICY as OPENAI_WIRE_POLICY,
+)
+from proofops.adapters.local.openai import (
+    OpenAIProbe,
+    token_cost,
+)
 from proofops.adapters.local.openrouter import MODEL, WIRE_POLICY, OpenRouterProbe
 from proofops.adapters.local.upstage_parse import (
     ALLOWED_MODELS,
@@ -39,6 +49,9 @@ def operator_profiles(config: dict) -> dict:
     analysis = config.get("analysis_profile", "r108-default")
     if analysis not in ("r108-default", "r108-finals-candidate", "r108-finals-candidate-v2"):
         raise ValueError("HOSTED_ANALYSIS_PROFILE_INVALID")
+    llm_provider = config.get("llm_provider", "openai")
+    if llm_provider not in ("openai", "openrouter"):
+        raise ValueError("HOSTED_LLM_PROVIDER_INVALID")
     requested = config.get("rendered_reader_profile")
     if requested is not None and requested not in KNOWN_RENDERED_READERS:
         raise ValueError("HOSTED_RENDERED_READER_PROFILE_INVALID")
@@ -53,6 +66,8 @@ def operator_profiles(config: dict) -> dict:
     approval = RENDERED_READER_POLICY["gate_passed"].get(reader, {})
     return PROFILES | dict(
         llm_max_workers=workers,
+        llm_provider=llm_provider,
+        llm_provider_options=["openai", "openrouter"],
         analysis_profile=analysis,
         analysis_profile_options=["r108-default", "r108-finals-candidate-v2"],
         analysis_profile_warning=(
@@ -79,15 +94,18 @@ def read_operator_config(path: Path | None) -> dict:
     config = json.loads(path.read_text())
     if config.get("enabled") is not True:
         raise ValueError("HOSTED_OPERATOR_OPT_IN_REQUIRED")
-    for name in ("openrouter_key_file", "upstage_key_file"):
-        key_path = Path(config[name])
+    profiles = operator_profiles(config)
+    provider = profiles["llm_provider"]
+    config["llm_provider"] = provider
+    key_name = "openai_key_file" if provider == "openai" else "openrouter_key_file"
+    for name in (key_name, "upstage_key_file"):
+        key_path = Path(config.get(name, ""))
         if not key_path.is_absolute() or not key_path.is_file():
             raise ValueError("HOSTED_KEY_FILE_REQUIRED")
     if type(config["report_year"]) is not int or not 1900 <= config["report_year"] <= 2100:
         raise ValueError("HOSTED_REPORTING_SCOPE_REQUIRED")
     if date.fromisoformat(config["period_start"]) > date.fromisoformat(config["period_end"]):
         raise ValueError("HOSTED_REPORTING_SCOPE_INVALID")
-    operator_profiles(config)
     return config
 
 
@@ -126,6 +144,35 @@ class HostedLunaProbe(OpenRouterProbe):
         response = self.store.dispatch(
             self.job,
             "openrouter",
+            str(uuid4()),
+            canonical_hash(body),
+            Decimal("0.011"),
+            transport,
+            now=time.time(),
+        )
+        return response["payload"]
+
+
+class HostedOpenAILunaProbe(OpenAIProbe):
+    def __init__(self, *args, store, job, post=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.store, self.job, self.post = store, job, post
+
+    def _post(self, body):
+        if body.get("model") != OPENAI_MODEL or OPENAI_WIRE_POLICY["endpoint"] != (
+            "https://api.openai.com/v1/chat/completions"
+        ):
+            raise ValueError("HOSTED_WIRE_POLICY_REQUIRED")
+
+        def transport(request):
+            data = self.post(body) if self.post else super(HostedOpenAILunaProbe, self)._post(body)
+            if data.get("model") != OPENAI_MODEL:
+                raise ValueError("HOSTED_MODEL_MISMATCH")
+            return request | dict(actual_usd=rounded_cost(token_cost(data["usage"])), payload=data)
+
+        response = self.store.dispatch(
+            self.job,
+            "openai",
             str(uuid4()),
             canonical_hash(body),
             Decimal("0.011"),

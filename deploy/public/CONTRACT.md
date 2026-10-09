@@ -238,3 +238,17 @@ No DB migration: schema1 and prior immutable result revisions are unchanged. DTO
 fields are additive; old readers still see failed and the safe code. Rollback new
 work to `r108-default` and a schema1-compatible image/frontend; preserve volume,
 budget reservations and deletion ledger. No automatic retry or ledger reset.
+
+## P8 amendment — direct OpenAI hosted provider (2026-10-09)
+
+Hosted LLM provider defaults to `openai`; the operator may set `llm_provider` to
+`openrouter` for rollback. `openai_key_file` and `openrouter_key_file` point to
+private one-line key files; only the selected provider's key is required by the
+runtime. The OpenAI request uses the pinned `gpt-6-luna` endpoint and passes each
+attempt through `HostedStore.dispatch` with the existing per-call bound and receipt
+settlement. HTTP401, HTTP429, and the provider error code `insufficient_quota` are
+terminal operator-blocked failures with the same fixed Korean message as the
+OpenRouter limit failures. They are not retried or redelivered; unknown spend stays
+`accounting_pending`. Runtime status reads stored failures only and never probes a
+provider. The default remains live-disabled and makes no request without operator
+opt-in, configured key files, and the existing admission gates.

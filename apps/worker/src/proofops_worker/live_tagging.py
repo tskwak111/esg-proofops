@@ -242,6 +242,10 @@ class LiveTaggingRuntime:
         self._capacity(self.settings.model_id)
 
     def _capacity(self, model_id):
+        if model_id == "gpt-6-luna":
+            from proofops.adapters.local.openai import validate_capacity_policy as validate_openai
+
+            return validate_openai(self.snapshot["input_reservation_policy"], model_id=model_id)
         if model_id == "openai/gpt-6-luna":
             from proofops.adapters.local.openrouter import (
                 validate_capacity_policy as validate_luna_capacity,
@@ -1120,7 +1124,8 @@ class LiveTaggingRuntime:
 
         workers = (
             min(getattr(self, "replica_workers", getattr(self.runner, "max_workers", 1)), 3)
-            if settings.model_id == "openai/gpt-6-luna" and settings.wire_policy_version == 2
+            if settings.model_id in ("openai/gpt-6-luna", "gpt-6-luna")
+            and settings.wire_policy_version == 2
             else 1
         )
         if workers == 1 or self.resume is not None:

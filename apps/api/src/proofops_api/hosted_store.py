@@ -39,6 +39,12 @@ from proofops.application.uploads_security import (
 MICRO = Decimal(1_000_000)
 TERMINAL = ("partial_blocked", "completed", "cancelled", "failed")
 OPENROUTER_LIMIT_CODES = frozenset({"OPENROUTER_HTTP_402", "OPENROUTER_HTTP_403"})
+OPENAI_LIMIT_CODES = frozenset({"OPENAI_HTTP_401", "OPENAI_HTTP_429", "OPENAI_INSUFFICIENT_QUOTA"})
+PROVIDER_LIMIT_CODES = {
+    "openrouter": OPENROUTER_LIMIT_CODES,
+    "openai": OPENAI_LIMIT_CODES,
+}
+ALL_PROVIDER_LIMIT_CODES = OPENROUTER_LIMIT_CODES | OPENAI_LIMIT_CODES
 PROVIDER_LIMIT_MESSAGE = "분석 서비스 한도 초과 — 운영자 확인 필요"
 
 
@@ -595,7 +601,7 @@ class HostedStore:
             "result": result,
             "error_code": row["error_code"],
             "error_message": PROVIDER_LIMIT_MESSAGE
-            if row["error_code"] in OPENROUTER_LIMIT_CODES
+            if row["error_code"] in ALL_PROVIDER_LIMIT_CODES
             else None,
             "retryable": False,
             "prepared_sha256": row["prepared_sha256"],
@@ -603,22 +609,25 @@ class HostedStore:
 
     def provider_limits(self) -> dict:
         """Observed service availability only; never probe providers on public GETs."""
+        limits = {}
         with self.transaction() as db:
-            row = db.execute(
-                "SELECT error_code FROM runs WHERE error_code IN (?,?) "
-                "ORDER BY created DESC,run_id DESC LIMIT 1",
-                ("OPENROUTER_HTTP_402", "OPENROUTER_HTTP_403"),
-            ).fetchone()
-        return {
-            "openrouter": {
-                "status": "blocked" if row else "unknown",
-                "error_code": row[0] if row else None,
-                "remaining_usd": None,
-                "source": "observed_http_failure" if row else "not_queried",
-                "retryable": False,
-                "message": PROVIDER_LIMIT_MESSAGE if row else None,
-            }
-        }
+            for provider, codes in PROVIDER_LIMIT_CODES.items():
+                parameters = tuple(sorted(codes))
+                placeholders = ",".join("?" for _ in parameters)
+                row = db.execute(
+                    f"SELECT error_code FROM runs WHERE error_code IN ({placeholders}) "
+                    "ORDER BY created DESC,run_id DESC LIMIT 1",
+                    parameters,
+                ).fetchone()
+                limits[provider] = {
+                    "status": "blocked" if row else "unknown",
+                    "error_code": row[0] if row else None,
+                    "remaining_usd": None,
+                    "source": "observed_http_failure" if row else "not_queried",
+                    "retryable": False,
+                    "message": PROVIDER_LIMIT_MESSAGE if row else None,
+                }
+        return limits
 
     def _run(self, db: sqlite3.Connection, tenant: str, run: str) -> sqlite3.Row:
         identifier(run)
@@ -892,8 +901,8 @@ class HostedStore:
         except BaseException as exc:
             # A rejected quota call is terminal, but its unknown cost still needs
             # operator reconciliation. Never release reservations or redeliver it.
-            limit_code = str(exc) if provider == "openrouter" else None
-            quota_blocked = limit_code in OPENROUTER_LIMIT_CODES
+            limit_code = str(exc)
+            quota_blocked = limit_code in PROVIDER_LIMIT_CODES.get(provider, ())
             with self.transaction() as db:
                 db.execute(
                     "UPDATE deletion.costs SET status='accounting_pending' "

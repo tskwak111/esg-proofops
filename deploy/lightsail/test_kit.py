@@ -71,6 +71,66 @@ class Kit(unittest.TestCase):
                 self.assertIn("DRY RUN", self.run_script(script).stdout)
         self.assertEqual(self.calls(), [])
 
+    def test_keys_apply_installs_openai_key_without_printing_values(self):
+        key_files = {}
+        for variable, filename, line in (
+            ("OPENAI_KEY_FILE", "openai.env", "OPENAI_API_KEY=sk-fake-openai"),
+            ("OPENROUTER_KEY_FILE", "openrouter.env", "OPENROUTER_API_KEY=sk-fake-router"),
+            ("UPSTAGE_KEY_FILE", "upstage.env", "UPSTAGE_API_KEY=sk-fake-upstage"),
+        ):
+            path = self.root / filename
+            path.write_text(line + "\n")
+            path.chmod(0o600)
+            key_files[variable] = str(path)
+        live = self.root / "live.json"
+        live.write_text(
+            json.dumps(
+                dict(
+                    enabled=True,
+                    llm_provider="openai",
+                    openai_key_file="/run/private/openai.env",
+                    openrouter_key_file="/run/private/openrouter.env",
+                    upstage_key_file="/run/private/upstage.env",
+                    report_year=2025,
+                    period_start="2024-01-01",
+                    period_end="2024-12-31",
+                )
+            )
+        )
+        live.chmod(0o600)
+        ssh_key = self.root / "deploy-key"
+        ssh_key.touch()
+        calls = self.root / "ssh-scp.jsonl"
+        stub = (
+            "#!/usr/bin/env python3\n"
+            "import json, os, sys\n"
+            "with open(os.environ['MOCK_SSH_SCP_CALLS'], 'a') as f:\n"
+            " f.write(json.dumps([os.path.basename(sys.argv[0]), *sys.argv[1:]]) + '\\n')\n"
+        )
+        for tool in ("ssh", "scp"):
+            path = self.root / f"bin/{tool}"
+            path.write_text(stub)
+            path.chmod(0o755)
+        result = self.run_script(
+            "keys.sh",
+            "--apply",
+            env=self.env
+            | key_files
+            | dict(
+                STATIC_IP="203.0.113.8",
+                SSH_KEY=str(ssh_key),
+                LIVE_CONFIG_FILE=str(live),
+                MOCK_SSH_SCP_CALLS=str(calls),
+            ),
+        )
+        self.assertNotIn("sk-fake", result.stdout + result.stderr)
+        observed = [json.loads(line) for line in calls.read_text().splitlines()]
+        openai_copy = next(
+            call for call in observed if call[0] == "scp" and "openai.env" in call[-1]
+        )
+        self.assertIn(key_files["OPENAI_KEY_FILE"], openai_copy)
+        self.assertTrue(any(call[0] == "ssh" and "openai.env" in call[-1] for call in observed))
+
     def test_provision_budget_teardown_exact_resources_and_rerun(self):
         self.run_script("create.sh", "--apply")
         self.run_script("budget.sh", "--apply")

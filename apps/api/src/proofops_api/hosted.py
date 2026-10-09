@@ -292,6 +292,8 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
             "live_analysis": not settings.live_disabled
             and profiles["source_reader"] != "unresolved",
             "source_verifier": profiles["source_reader"],
+            "llm_provider": profiles["llm_provider"],
+            "llm_provider_options": profiles["llm_provider_options"],
             "analysis_profile": profiles["analysis_profile"],
             "analysis_profile_options": profiles["analysis_profile_options"],
             "analysis_profile_warning": profiles["analysis_profile_warning"],
@@ -304,7 +306,9 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
             if settings.live_disabled
             else UPLOAD_NOTICE.replace(
                 "현재 유료 분석은 비활성화되어 있습니다.",
-                "운영자 설정에 따라 Upstage·OpenRouter로 분석을 전송합니다.",
+                "운영자 설정에 따라 Upstage와 "
+                + ("OpenAI" if profiles["llm_provider"] == "openai" else "OpenRouter")
+                + "로 분석을 전송합니다.",
             ),
             "consent_version": settings.consent_version,
             "limits": {

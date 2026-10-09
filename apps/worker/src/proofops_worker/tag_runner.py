@@ -272,7 +272,7 @@ class LocalTagRunner:
         report_source_lock = Lock()
         parallel_claims = (
             live is not None
-            and settings.model_id == "openai/gpt-6-luna"
+            and settings.model_id in ("openai/gpt-6-luna", "gpt-6-luna")
             and settings.wire_policy_version == 2
             and recovery is None
             and reprocess is None
@@ -569,7 +569,7 @@ class LocalTagRunner:
                         if parallel_claims
                         else self.max_workers
                         if live is not None
-                        and settings.model_id == "openai/gpt-6-luna"
+                        and settings.model_id in ("openai/gpt-6-luna", "gpt-6-luna")
                         and settings.wire_policy_version == 2
                         else 1
                     ),

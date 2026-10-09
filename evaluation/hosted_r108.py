@@ -10,6 +10,7 @@ from pathlib import Path
 from proofops.adapters.local.upstage import UpstageProbe
 from proofops_api.hosted_analysis import (
     HostedLunaProbe,
+    HostedOpenAILunaProbe,
     HostedParseProbe,
     operator_profiles,
     read_key,
@@ -43,7 +44,7 @@ def prepare_argv(pdf, state, tenant, config):
         "--parser",
         "upstage",
         "--llm-provider",
-        "openrouter",
+        profiles["llm_provider"],
         "--vision-parse",
         "off",
         "--max-calls",
@@ -116,15 +117,19 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
         sys.argv = old_argv
     manifest = json.loads((state / "pilot.json").read_text())
     # Keys stay inside the private process; fake transports use explicit dummy keys.
-    luna_key = (
-        "fake-test" if llm_post else read_key(config["openrouter_key_file"], "OPENROUTER_API_KEY")
+    profiles = operator_profiles(config)
+    llm_provider = profiles["llm_provider"]
+    llm_key_path, llm_key_name, llm_probe = (
+        ("openai_key_file", "OPENAI_API_KEY", HostedOpenAILunaProbe)
+        if llm_provider == "openai"
+        else ("openrouter_key_file", "OPENROUTER_API_KEY", HostedLunaProbe)
     )
+    luna_key = "fake-test" if llm_post else read_key(config[llm_key_path], llm_key_name)
     parse_key = (
         "fake-test" if parse_post else read_key(config["upstage_key_file"], "UPSTAGE_API_KEY")
     )
     upstage_ledger, luna_ledger = state / "upstage.sqlite3", state / "luna.sqlite3"
     UpstageProbe(parse_key, upstage_ledger)  # local receipts only; hosted broker grants money
-    profiles = operator_profiles(config)
     scope = nullcontext()
     if profiles["source_reader"].startswith("upstage-ocr-page-"):
         from proofops_api.hosted_ocr import HostedOCRStore, reader_scope
@@ -144,7 +149,7 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
         "parse": lambda ledger: HostedParseProbe(
             parse_key, ledger, store=store, job=job, post=parse_post
         ),
-        "llm": lambda key, ledger, **kw: HostedLunaProbe(
+        "llm": lambda key, ledger, **kw: llm_probe(
             luna_key, ledger, store=store, job=job, post=llm_post, **kw
         ),
     }

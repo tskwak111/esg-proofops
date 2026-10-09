@@ -46,7 +46,8 @@ python3 "$HERE/smoke.py" --base "http://127.0.0.1:$LOCAL_PORT" --origin https://
 # Exercise P2's Linux result DTO with empty dummy key paths. The Linux source gate
 # returns before reading keys or dispatch. Fail closed if that gate has changed.
 "${COMPOSE[@]}" exec -T api python -c 'import json,urllib.request; r=json.load(urllib.request.urlopen("http://127.0.0.1:8000/v1/runtime")); assert r["source_verifier"]=="upstage-ocr-page-v3" and not r["live_analysis"]; assert r["rendered_reader_gate_report_sha256"]=="69f0797dbae5420ba1b5deb4ef2f12df3e7a820c0a9a37c5f5d16c37deea741e"'
-printf '%s\n' '{"enabled":true,"openrouter_key_file":"/run/private/openrouter.env","upstage_key_file":"/run/private/upstage.env","report_year":2025,"period_start":"2024-01-01","period_end":"2024-12-31","analysis_profile":"r108-finals-candidate","rendered_reader_profile":"upstage-ocr-page-v2"}' > "$work/private/live.json"
+printf '%s\n' '{"enabled":true,"llm_provider":"openai","openai_key_file":"/run/private/openai.env","openrouter_key_file":"/run/private/openrouter.env","upstage_key_file":"/run/private/upstage.env","report_year":2025,"period_start":"2024-01-01","period_end":"2024-12-31","analysis_profile":"r108-finals-candidate","rendered_reader_profile":"upstage-ocr-page-v2"}' > "$work/private/live.json"
+: > "$work/private/openai.env"
 : > "$work/private/openrouter.env"
 : > "$work/private/upstage.env"
 chmod 600 "$work/private/"*

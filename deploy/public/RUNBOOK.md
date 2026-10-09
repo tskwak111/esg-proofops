@@ -143,7 +143,7 @@ deploy/lightsail/budget.sh --apply            # 월 USD20 account-wide 80/100% a
 
 quota API 접근을 위해 ServiceQuotas 권한을 확대하지 않는다. preflight는 운영자가 확인한
 quota와 `get-instances` vCPU 합계, `get-static-ips` 수량을 비교한다. 미확인 quota는
-apply를 막는다. 과금 경보는 hard cap이 아니며 Upstage/OpenRouter 비용은 AWS 청구에
+apply를 막는다. 과금 경보는 hard cap이 아니며 Upstage/OpenAI/OpenRouter 비용은 AWS 청구에
 포함되지 않는다. 중복 budget 이름이면 기존 budget을 확인하고 갱신하며 오류를 무시하지 않는다.
 
 ### 2. 이미지와 서버 준비 (약 10–25분; 최초 x86 build는 더 걸릴 수 있음)
@@ -207,14 +207,17 @@ DNS와 Let's Encrypt ACME TCP80를 사용한다. Docker local logs는10MiB×3/se
 logging은 꺼진다. userdata/systemd/config 검증 로그에 키/쿠키/원문을 넣지 않는다.
 공유 sslip.io 발급 rate limit/DNS 장애는 실제 TLS gate이며 실패하면 웹은 static을 유지한다.
 
-키 배치는 승인된 provider 계정의 로컬0600 파일만 입력한다. `openrouter.env`는
-`OPENROUTER_API_KEY=...` 한 줄, `upstage.env`는 `UPSTAGE_API_KEY=...` 한 줄이고 shell로
-평가하지 않는다. live.json은 `enabled`, 실제 `report_year`·`period_start`·`period_end`,
-`openrouter_key_file=/run/private/openrouter.env`, `upstage_key_file=/run/private/upstage.env`.
-현재는 LIVE_DISABLED=true이므로 config.enabled가 true여도 전송은 없다.
+키 배치는 승인된 provider 계정의 로컬0600 파일만 입력한다. `openai.env`는
+`OPENAI_API_KEY=...`, `openrouter.env`는 `OPENROUTER_API_KEY=...`, `upstage.env`는
+`UPSTAGE_API_KEY=...` 한 줄씩 두고 shell로 평가하지 않는다. `live.json`의
+`llm_provider`는 기본 `openai`이며 롤백 시 `openrouter`로 바꾼다. 경로는
+`openai_key_file=/run/private/openai.env`, `openrouter_key_file=/run/private/openrouter.env`,
+`upstage_key_file=/run/private/upstage.env`다. 설정한 LLM provider의 키와 Upstage 키만 런타임에
+필요하다. 현재는 LIVE_DISABLED=true이므로 config.enabled가 true여도 전송은 없다.
 
 ```sh
-export OPENROUTER_KEY_FILE=REPLACE_LOCAL_0600_FILE UPSTAGE_KEY_FILE=REPLACE_LOCAL_0600_FILE
+export OPENAI_KEY_FILE=REPLACE_LOCAL_0600_FILE OPENROUTER_KEY_FILE=REPLACE_LOCAL_0600_FILE
+export UPSTAGE_KEY_FILE=REPLACE_LOCAL_0600_FILE
 export LIVE_CONFIG_FILE=REPLACE_LOCAL_0600_JSON
 deploy/lightsail/keys.sh --apply    # 선택적 준비; 서버 UID10001/GID10001 mode600; 출력 없음
 ```
