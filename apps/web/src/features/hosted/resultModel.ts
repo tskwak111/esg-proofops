@@ -44,7 +44,7 @@ export function gradeSummary(claim: ResultClaim): { confirmed: boolean; headline
     const provisional = claim.provisional_grade;
     const range = provisional.grade_range;
     const open = range?.open_elements.map(id => `${id} ${elementLabels[id] ?? ""}`.trim()).join("·");
-    return { confirmed: false, headline: provisional.evidence_grade ? `잠정 등급 ${provisional.evidence_grade} · 잠정·미확정` : "잠정 등급 산출 보류",
+    return { confirmed: false, headline: provisional.evidence_grade ? `잠정 등급 ${provisional.evidence_grade} · 잠정·미확정` : provisional.display_type === "hold" ? "판정 보류" : range ? `잠정·범위 ${range.floor}–${range.ceiling}` : "잠정 등급 산출 보류",
       note: `${provisional.grade_basis === "reachable_floor" ? "가능 범위의 하한 · " : ""}${provisional.reason}${range ? ` · 가능 범위 ${range.floor}–${range.ceiling} (미해결 요소: ${open || "없음"})` : ""}` };
   }
   const range = claim.possible_grade_range;

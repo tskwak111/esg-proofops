@@ -9,6 +9,8 @@ export function resolveBackend(value: string | undefined): AnalysisBackend {
 export type Runtime = {
   analysis_backend: string; accept_new_runs: boolean; accept_uploads: boolean; live_analysis: boolean; live_disabled: boolean;
   upload_notice: string; consent_version: string; source_verifier?: string; profile?: string;
+  analysis_profile?: string; analysis_profile_options?: string[]; analysis_profile_warning?: string | null;
+  pipeline_profile?: string;
   provider_limits?: Record<string, { status: "unknown" | "blocked"; remaining_usd: string | null }>;
   limits: { max_upload_bytes: number; selected_pages: number; max_pdf_pages: number; original_days: number; [key: string]: unknown };
 };
@@ -50,7 +52,7 @@ export type ResultClaim = {
   claim_id: string; page_num: number; original_page_num: number; quote: string; track: string | null; topic_ids?: string[];
   decision: ResultDecision | null; revision: number; source_refs: SourceRefDto[]; source_quality: string; elements: ResultElement[];
   source_status?: { status: string; reason?: string; display: string };
-  provisional_grade?: { evidence_grade: string | null; display: string; reason: string; grade_basis?: string; grade_range?: GradeRange | null; elements?: { element_id: string; state: string; votes: number; total_replicas: number; evidence_refs: SourceRefDto[] }[] } | null;
+  provisional_grade?: { evidence_grade: string | null; display: string; reason: string; display_type?: string; hold_reasons?: string[]; evidence_note?: string; needed_evidence?: { track: string; target_grade: string; elements: string[] }[]; grade_basis?: string; grade_range?: GradeRange | null; elements?: { element_id: string; state: string; votes: number; total_replicas: number; evidence_refs: SourceRefDto[] }[] } | null;
   pipeline_stage?: string; pipeline_status?: string; provisional_track?: string | null;
   hold_reason: string | null; possible_grade_range: GradeRange | null; confirmed_grade: string | null; missing_evidence: MissingEvidence[];
 };
@@ -191,8 +193,8 @@ export function createHostedClient(options: ClientOptions = {}) {
     getScopePlan: (documentId: string) => request<ScopePlan>("GET", `/v1/documents/${encodeURIComponent(documentId)}/scope-plan`),
     editScope: (documentId: string, scope: ScopePlan, claims: number[], evidence: number[]) =>
       request<ScopePlan>("POST", `/v1/documents/${encodeURIComponent(documentId)}/scope-plan/selection`, { json: { selected_claim_pages: claims, selected_evidence_pages: evidence }, headers: { "If-Match": `"${scope.revision}"` } }),
-    createRun: (documentId: string, scope: ScopePlan, key = newIdempotencyKey()) =>
-      request<HostedRun>("POST", "/v1/runs", { json: { document_id: documentId, scope_selection_sha256: scope.selection?.selection_sha256 }, headers: { "Idempotency-Key": key, "X-Pipeline-Profile": "unattended-v1" } }),
+    createRun: (documentId: string, scope: ScopePlan, key = newIdempotencyKey(), profile?: string) =>
+      request<HostedRun>("POST", "/v1/runs", { json: { document_id: documentId, scope_selection_sha256: scope.selection?.selection_sha256 }, headers: { "Idempotency-Key": key, ...(profile ? { "X-Pipeline-Profile": profile } : {}) } }),
     getRun: (statusUrl: string, signal?: AbortSignal) => request<HostedRun>("GET", statusUrl, { signal }),
     cancelRun: (runId: string) => request<HostedRun>("POST", `/v1/runs/${encodeURIComponent(runId)}/cancel`),
     getResult: (resultUrl: string, signal?: AbortSignal) => request<HostedResult>("GET", resultUrl, { signal }),

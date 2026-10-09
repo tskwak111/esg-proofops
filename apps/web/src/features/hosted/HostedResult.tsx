@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { elementLabels } from "../labels";
+import { ProvisionalHold } from "../claims/ProvisionalHold";
 import { HostedApiError, holdReasonText, newIdempotencyKey, type HostedClient, type HostedResult, type ResultClaim, type ResultDecision, type ResultReview } from "./hostedClient";
 import { allowedChoices, buildResolveBody, candidateRefs, decisionLine, elementStateText, gradeSummary, openReviewFor, pageLabel, refKey, reviewStatusText, sourceQualityText, trackText, type ElementChoice } from "./resultModel";
 
@@ -55,6 +56,7 @@ function ClaimPanel({ claim, result, role, client, runId, onReload }: { claim: R
       <span>{claim.track ? `${trackText[claim.track] ?? claim.track} 트랙` : claim.provisional_track ? `${trackText[claim.provisional_track] ?? claim.provisional_track} 트랙 · 잠정 분류` : "트랙 합의 전"}</span>
       <strong>{grade.headline}</strong>
       <p>{grade.note}</p>
+      {claim.provisional_grade && <ProvisionalHold grade={claim.provisional_grade} />}
     </div>
     {claim.pipeline_stage && <p>처리 단계: {claim.pipeline_stage} · {claim.pipeline_status}</p>}
     {claim.source_status && <p>{claim.source_status.display} · {claim.source_status.reason}</p>}

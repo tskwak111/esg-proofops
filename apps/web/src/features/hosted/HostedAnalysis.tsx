@@ -36,6 +36,7 @@ type Phase = "checking" | "login" | "ready";
 export function HostedAnalysis({ client: injected }: { client?: HostedClient }) {
   const client = useMemo(() => injected ?? createHostedClient({ base: import.meta.env.VITE_HOSTED_API_BASE || "/hosted-api" }), [injected]);
   const [runtime, setRuntime] = useState<Runtime | null>(null);
+  const [profile, setProfile] = useState("");
   const [phase, setPhase] = useState<Phase>("checking");
   const [session, setSession] = useState<Session | null>(null);
   const [code, setCode] = useState("");
@@ -65,7 +66,7 @@ export function HostedAnalysis({ client: injected }: { client?: HostedClient }) 
     (async () => {
       try {
         const rt = await client.runtime();
-        if (!live) return; setRuntime(rt);
+        if (!live) return; setRuntime(rt); setProfile(rt.pipeline_profile ?? "unattended-v1");
         try { const s = await client.session(); if (!live) return; setSession(s); setPhase("ready"); }
         catch (err) { if (live && err instanceof HostedApiError && err.status === 401) setPhase("login"); else throw err; }
       } catch (err) { if (live) { fail(err); setPhase("login"); } }
@@ -116,7 +117,7 @@ export function HostedAnalysis({ client: injected }: { client?: HostedClient }) 
       const changed = !scope.selection || claims.join(",") !== scope.plan.selected_claim_pages.join(",") || evidence.join(",") !== scope.plan.selected_evidence_pages.join(",");
       const current = changed ? await client.editScope(doc.document_id, scope, claims, evidence) : scope;
       applyScope(current);
-      const accepted = await client.createRun(doc.document_id, current);
+      const accepted = await client.createRun(doc.document_id, current, undefined, profile);
       setBusy("분석 진행");
       const finished = await client.pollRun(accepted, setRun, controller.signal);
       await showResult(finished);
@@ -184,6 +185,12 @@ export function HostedAnalysis({ client: injected }: { client?: HostedClient }) 
         <button type="button" disabled={!!busy || running || scopeConflict} onClick={() => void saveScope()}>범위 수정 저장</button>
         <details open><summary>쪽별 분류와 선택 이유</summary><table><thead><tr><th>원본 쪽</th><th>분류</th><th>선택</th><th>이유</th></tr></thead><tbody>{scope.plan.pages.map(page => <tr key={page.page}><td>{page.page}</td><td>{scopeCategory[page.category] ?? page.category}</td><td>{scope.plan.selected_claim_pages.includes(page.page) ? "주장·근거" : scope.plan.selected_evidence_pages.includes(page.page) ? "근거 전용" : "제외"}</td><td>{page.reasons.map(reason => scopeReason[reason] ?? reason).join(" · ")}</td></tr>)}</tbody></table></details>
       </>}
+      <label>분석 프로필<select aria-label="분석 프로필" value={profile} onChange={event => setProfile(event.target.value)} disabled={!!busy || running}>
+        {!profile.startsWith("finals-unattended-") && <option value={profile}>기존 프로필</option>}
+        <option value="finals-unattended-v1">v1 · 단계 중첩</option>
+        <option value="finals-unattended-v2">v2 · 원문 대조 후 태깅</option>
+      </select></label>
+      <p className="hosted-note">v2 기본값은 잠정 설정이며 QI2 검토 이후 확정합니다.</p>
       <button type="button" disabled={!!busy || running || !scope || scopeConflict || providerBlocked || runtime?.accept_new_runs === false} onClick={() => void start()}>분석 시작</button>
       {runtime?.accept_new_runs === false && <p className="hosted-error">현재 새 분석 접수가 중지되어 있습니다.</p>}
     </div>}

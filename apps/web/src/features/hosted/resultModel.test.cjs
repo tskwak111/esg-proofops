@@ -41,3 +41,12 @@ test("completed empty scope differs from a blocked empty result", () => {
   assert.match(render({ status: "completed" }, []), /선택한 범위의 분석이 정상 완료되었으나 환경 주장을 발견하지 못했습니다/);
   assert.match(render({ status: "partial_blocked" }, ["BUDGET_EXHAUSTED"]), /분석이 보류되어 표시할 주장이 없습니다/);
 });
+test("v2 whole range shows actionable hold without confirming unknown", () => {
+  const held = { ...claim, provisional_grade: { evidence_grade: null, display: "판정 보류", display_type: "hold", reason: "blocked_evidence", grade_range: { floor: "E0", ceiling: "E3", open_elements: ["P3"] }, hold_reasons: ["원문 미검증"], needed_evidence: [{ track: "performance", target_grade: "E2", elements: ["P3"] }], evidence_note: "원문 확인 필요" } };
+  assert.equal(gradeSummary(held).headline, "판정 보류");
+  const html = renderToStaticMarkup(React.createElement(ResultView, { result: { ...result, claims: [held] } }));
+  assert.match(html, /보류 이유: 원문 미검증/);
+  assert.match(html, /등급 검토에 필요한 근거 요소/);
+  assert.match(html, /원문 확인 필요/);
+  assert.doesNotMatch(html, /확정 등급 E[0-3]/);
+});
