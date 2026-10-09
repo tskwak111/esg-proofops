@@ -11,6 +11,37 @@ ROOT = Path("/Users/ss020/Dev/ESG_ProofOps")
 OUT = ROOT / "outputs/agent-results/R108-redesign/lab/integ/INT2"
 
 
+def seed_collected_parse(parser, source, profile, tenant_id, collected):
+    """Only an already billed, same-source result; no provider call is made here."""
+    from hashlib import sha256
+
+    from proofops.adapters.parsing.opendataloader import _json
+    from proofops.adapters.parsing.upstage_document import MODEL, selected_pdf
+    from proofops.domain.provenance import canonical_hash
+
+    pages = profile.claim_physical_pages
+    pdf = selected_pdf(source.content, pages)
+    body = dict(
+        model=MODEL,
+        mode="standard",
+        pdf_sha256=sha256(pdf).hexdigest(),
+        pages=len(pages),
+        bytes_len=len(pdf),
+        transport="async",
+    )
+    assert canonical_hash(body) == collected["request_sha256"]
+    assert canonical_hash(collected["raw_batches"]) == collected["response_sha256"]
+    directory = parser.artifact_root / "upstage-cache" / tenant_id
+    directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+    key = sha256(
+        _json(dict(source_sha256=source.sha256, pages=pages, model=MODEL, mode="standard"))
+    ).hexdigest()
+    path = directory / (key + ".json")
+    with path.open("xb") as stream:
+        stream.write(_json(collected))
+    path.chmod(0o400)
+
+
 def main():
     import io
 
@@ -54,6 +85,10 @@ def main():
     )
     command = sys.argv[1]
     assert command in ("samsung", "kepco"), "INT2 authorizes only the two original runs"
+    recovering = sys.argv[2:] == ["--collect-existing-job"]
+    assert not sys.argv[2:] or recovering
+    assert not recovering or command == "kepco"
+    label = command + "-recovery" if recovering else command
     original_read = Path.read_text
 
     def key_read(path, *a, **k):
@@ -63,7 +98,7 @@ def main():
 
     Path.read_text = key_read
     assert command in ("samsung", "kepco")
-    state = OUT / "states" / command
+    state = OUT / "states" / label
     assert not state.exists(), "only one new paid run per original"
     argv = json.loads(
         (
@@ -80,7 +115,22 @@ def main():
         str(ROOT / ".env.openai.local"),
         "--invoke",
     ]
-    (OUT / f"{command}-argv.json").write_text(json.dumps(argv, ensure_ascii=False, indent=2) + "\n")
+    (OUT / f"{label}-argv.json").write_text(json.dumps(argv, ensure_ascii=False, indent=2) + "\n")
+    initial = None
+    if recovering:
+        from proofops.adapters.parsing.opendataloader import OpenDataLoaderParser
+
+        initial = json.loads((OUT / "kepco-live.json").read_text())
+        assert initial["exit_code"] == 0 and Decimal(initial["report_usd"]) == Decimal(".110")
+        assert '"claims": 0,' in (OUT / "kepco-live.log").read_text().splitlines()[-1]
+        collected = json.loads((OUT / "kepco-collected-parse.json").read_text())
+        parse = OpenDataLoaderParser.parse
+
+        def collected_parse(self, source, profile, *, tenant_id, **kwargs):
+            seed_collected_parse(self, source, profile, tenant_id, collected)
+            return parse(self, source, profile, tenant_id=tenant_id, **kwargs)
+
+        OpenDataLoaderParser.parse = collected_parse
 
     def deny(*a, **k):
         raise ValueError("INT2_UNAUTHORIZED_PROVIDER")
@@ -97,8 +147,12 @@ def main():
     )
     with budget.transaction() as (_, entry):
         companies = entry.setdefault("companies_started", [])
-        assert command not in companies
-        companies.append(command)
+        if recovering:
+            assert command in companies and not entry.get("same_job_recovery_started")
+            entry["same_job_recovery_started"] = True
+        else:
+            assert command not in companies
+            companies.append(command)
         before = Decimal(entry["delta_usd"])
         entry["prior_INT1_reservation_separate_usd"] = "1.00"
         entry["http_concurrency_envelope_usd"] = ".32"
@@ -115,6 +169,7 @@ def main():
         with budget.transaction() as (_, entry):
             record = dict(
                 company=command,
+                leg=label,
                 seconds=time.monotonic() - started,
                 exit_code=code,
                 report_usd=str(Decimal(entry["delta_usd"]) - before),
@@ -122,8 +177,18 @@ def main():
                 reserved_usd=entry["reserved_usd"],
                 error_type=error,
             )
+            if recovering:
+                record["new_paid_leg_usd"] = record["report_usd"]
+                record["report_usd"] = str(
+                    Decimal(record["report_usd"]) + Decimal(initial["report_usd"])
+                )
+                record["total_seconds_including_recovery"] = (
+                    time.time() - (OUT / "kepco-argv.json").stat().st_mtime
+                )
+                record["original_provider_job_collected"] = collected["provider_request_id"]
+                record["standard_post_repeated"] = False
             entry.setdefault("runs", []).append(record)
-        (OUT / f"{command}-live.json").write_text(json.dumps(record, indent=2) + "\n")
+        (OUT / f"{label}-live.json").write_text(json.dumps(record, indent=2) + "\n")
     return code
 
 

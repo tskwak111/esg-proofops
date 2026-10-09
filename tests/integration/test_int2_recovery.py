@@ -25,13 +25,14 @@ def test_async_unknown_reserves_page_price_and_shared_text_reader_accepts_it(tmp
         client.parse_async(make_pdf(3), request_id="unknown", mode="enhanced")
 
 
-def test_pending_async_state_is_polled_without_resubmission(tmp_path, monkeypatch):
+@pytest.mark.parametrize("state", ["pending", "scheduled"])
+def test_pending_async_state_is_polled_without_resubmission(tmp_path, monkeypatch, state):
     client = UpstageParseProbe("test-secret", tmp_path / "budget.sqlite3")
     posts = []
     client._post_parse = lambda *a: posts.append(a) or {"request_id": "provider-job"}
     statuses = iter(
         [
-            {"status": "pending"},
+            {"status": state},
             {
                 "status": "completed",
                 "total_pages": 1,

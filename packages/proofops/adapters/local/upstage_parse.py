@@ -292,7 +292,13 @@ class UpstageParseProbe(UpstageProbe):
                 self._dispatch_audit(
                     request_id, phase="polling", provider_status=status.get("status")
                 )
-                if status.get("status") not in {"submitted", "started", "pending", "queued"}:
+                if status.get("status") not in {
+                    "submitted",
+                    "scheduled",
+                    "started",
+                    "pending",
+                    "queued",
+                }:
                     raise ValueError("UPSTAGE_ASYNC_RESPONSE_INVALID")
                 sleep(1)
             if (
