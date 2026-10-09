@@ -6,8 +6,10 @@ for a matching quote. Original glyph identities are independently recomputed.
 
 import io
 import re
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict
 from hashlib import sha256
+from multiprocessing import get_context
 from threading import RLock
 from typing import Any
 
@@ -141,37 +143,27 @@ class GlyphDisplayCatalog:
         return deleted, boundaries
 
     def _page(self, page_num):
-        with pdfplumber.open(io.BytesIO(self.source)) as doc:
-            page = doc.pages[page_num - 1]
-            native = [
-                dict(index=i, text=w["text"], bbox=[w["x0"], w["top"], w["x1"], w["bottom"]])
-                for i, w in enumerate(page.extract_words(return_chars=True))
-            ]
-        if not native or len(native) > 1000:
-            return native, {}, set(), None
-        try:
-            proof = native_word_ink_geometry(self.source, page_num, list(range(len(native))))
-        except ValueError:
-            return native, {}, set(), None
-        with pdfium.PdfDocument(self.source) as doc:
-            page = doc[page_num - 1]
-            textpage = page.get_textpage()
-            try:
-                spaces = {
-                    j
-                    for j in range(textpage.count_chars())
-                    if pdfraw.FPDFText_GetUnicode(textpage, j) == 32
-                    and pdfraw.FPDFText_IsGenerated(textpage, j) == 0
-                }
-            finally:
-                textpage.close()
-                page.close()
-        return (
-            native,
-            {w["native_word_index"]: w for w in proof["matched_words"]},
-            spaces,
-            proof["proof_sha256"],
-        )
+        return _read_display_page(self.source, page_num)
+
+    def prefetch_pages(self, pages, *, max_workers=1):
+        """Opt-in CPU reads in isolated processes; the normal page reader is unchanged.
+
+        No model requests or source-quality promotion. Spawn keeps PDFium handles
+        isolated. A failed read propagates and never seeds a fabricated page.
+        """
+        if type(max_workers) is not int or not 1 <= max_workers <= 4:
+            raise ValueError("DISPLAY_PREFETCH_WORKERS_INVALID")
+        if max_workers == 1:
+            return
+        with self._lock:
+            pending = sorted(set(pages) - self._pages.keys())
+            if not pending:
+                return
+            with ProcessPoolExecutor(
+                max_workers=max_workers, mp_context=get_context("spawn")
+            ) as pool:
+                readings = list(pool.map(_read_display_page, [self.source] * len(pending), pending))
+            self._pages.update(zip(pending, readings, strict=True))
 
     def pin(self, ref: dict) -> dict:
         block = self._blocks[ref["source_id"]]
@@ -265,3 +257,37 @@ class GlyphDisplayCatalog:
             start, end, quote = locate_display(span["quote"], mapping)
             span.update(quote=quote, start=start, end=end)
         return restored
+
+
+def _read_display_page(source, page_num):
+    with pdfplumber.open(io.BytesIO(source)) as doc:
+        page = doc.pages[page_num - 1]
+        native = [
+            dict(index=i, text=w["text"], bbox=[w["x0"], w["top"], w["x1"], w["bottom"]])
+            for i, w in enumerate(page.extract_words(return_chars=True))
+        ]
+    if not native or len(native) > 1000:
+        return native, {}, set(), None
+    try:
+        proof = native_word_ink_geometry(source, page_num, list(range(len(native))))
+    except ValueError:
+        return native, {}, set(), None
+    with pdfium.PdfDocument(source) as doc:
+        page = doc[page_num - 1]
+        textpage = page.get_textpage()
+        try:
+            spaces = {
+                j
+                for j in range(textpage.count_chars())
+                if pdfraw.FPDFText_GetUnicode(textpage, j) == 32
+                and pdfraw.FPDFText_IsGenerated(textpage, j) == 0
+            }
+        finally:
+            textpage.close()
+            page.close()
+    return (
+        native,
+        {w["native_word_index"]: w for w in proof["matched_words"]},
+        spaces,
+        proof["proof_sha256"],
+    )

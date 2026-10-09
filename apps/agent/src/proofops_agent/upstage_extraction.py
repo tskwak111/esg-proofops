@@ -1890,11 +1890,16 @@ class GraphBoundExtractor:
     the inner extractor's own.
     """
 
-    def __init__(self, inner: Any, graph: Any, source: bytes | None = None) -> None:
+    def __init__(
+        self, inner: Any, graph: Any, source: bytes | None = None, *, display_prefetch_workers=1
+    ) -> None:
         if not (
             getattr(inner, "_context", False) or getattr(inner, "_display_text_profile", None)
         ) or not callable(getattr(inner, "extract", None)):
             raise ValueError("UPSTAGE_CONTEXT_EXTRACTOR_REQUIRED")
+        if type(display_prefetch_workers) is not int or not 1 <= display_prefetch_workers <= 4:
+            raise ValueError("DISPLAY_PREFETCH_WORKERS_INVALID")
+        self._display_prefetch_workers = display_prefetch_workers
         self._inner = inner
         self._graph = graph
         self._display_catalog = None
@@ -1902,6 +1907,28 @@ class GraphBoundExtractor:
             from proofops.adapters.local.glyph_display_text import GlyphDisplayCatalog
 
             self._display_catalog = GlyphDisplayCatalog(graph, source)
+
+    def prefetch(self, packets):
+        if self._display_catalog is None or self._display_prefetch_workers == 1:
+            return
+        blocks = {b.source_id: b for b in self._graph.blocks}
+        selected = set()
+        for packet in packets:
+            # Keep packet and focal identity checks before the optional CPU work.
+            self._inner._packet_text(packet)
+            self._inner._validate_context_graph(packet, self._graph)
+            selected.add(packet["untrusted_document_data"]["source_id"])
+            if self._inner._context:
+                context, _ = self._inner._context_for(packet, self._graph)
+                selected.update(b["source_id"] for b in context)
+        pages = {
+            blocks[sid].page_num
+            for sid in selected
+            if blocks[sid].winner is not None
+            and blocks[sid].bbox is not None
+            and " " in blocks[sid].raw_text
+        }
+        self._display_catalog.prefetch_pages(pages, max_workers=self._display_prefetch_workers)
 
     @property
     def profile(self):  # ClaimExtractorPort: frozen discovery reads this.

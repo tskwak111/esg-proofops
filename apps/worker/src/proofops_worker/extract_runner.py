@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, replace
@@ -151,7 +152,12 @@ def _live_extractor(extractor, graph, source=None):
         return extractor
     from proofops_agent.upstage_extraction import GraphBoundExtractor
 
-    return GraphBoundExtractor(extractor, graph, source)
+    return GraphBoundExtractor(
+        extractor,
+        graph,
+        source,
+        display_prefetch_workers=int(os.environ.get("PROOFOPS_DISPLAY_PREFETCH_WORKERS", "1")),
+    )
 
 
 class _ContinuingExtractor:
@@ -522,6 +528,8 @@ class LocalExtractRunner:
                         for block in candidates[:remaining]
                     ]
 
+                    if hasattr(live_extractor, "prefetch"):
+                        live_extractor.prefetch(packets)
                     paid = prefetch_packets(packets, live.extract, max_workers=self.max_workers)
                     sync_usage()
 
@@ -785,6 +793,8 @@ class LocalExtractRunner:
                             for block in candidates
                         ]
                         base_extractor = selected_extractor
+                        if hasattr(live_extractor, "prefetch"):
+                            live_extractor.prefetch(packets)
                         paid = prefetch_packets(
                             packets, base_extractor.extract, max_workers=self.max_workers
                         )
