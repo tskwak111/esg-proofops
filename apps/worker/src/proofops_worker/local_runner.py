@@ -23,6 +23,7 @@ from proofops.adapters.local.run_artifacts import (
     native_paragraph_policy,
 )
 from proofops.adapters.parsing.opendataloader import OpenDataLoaderParser, ParseFailure
+from proofops.application.budget import BudgetExceeded
 from proofops.application.ingest.graph_fusion import ParserProfile
 from proofops.application.ports.jobs import JobMessage, LeaseLost
 from proofops.application.telemetry import Telemetry, TraceContext
@@ -511,6 +512,8 @@ class LocalParserRunner:
                             file=sys.stderr,
                         )
                     raise StageFailure(str(exc), usage=usage) from None
+                except BudgetExceeded:
+                    raise StageFailure("BUDGET_EXHAUSTED", usage=usage) from None
                 except (OSError, ValueError, KeyError, TypeError):
                     raise StageFailure("PARSER_FAILED", usage=usage) from None
                 finally:

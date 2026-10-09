@@ -270,6 +270,49 @@ class HostedParseProbe(UpstageParseProbe):
         )
 
 
+ANALYSIS_TIMEOUT_SECONDS = 1800
+HEARTBEAT_SECONDS = 30
+
+
+def acquire_analysis_lock(lock, *, timeout=2):
+    from proofops_api.hosted_store import HostedError
+
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return
+        except BlockingIOError:
+            if time.monotonic() >= deadline:
+                raise HostedError("ANALYSIS_LOCK_BUSY") from None
+            time.sleep(min(0.1, max(0, deadline - time.monotonic())))
+
+
+def run_analysis_process(command, store, job, lock):
+    deadline = time.monotonic() + ANALYSIS_TIMEOUT_SECONDS
+    process = subprocess.Popen(
+        command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, pass_fds=(lock.fileno(),)
+    )
+    try:
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise subprocess.TimeoutExpired(command, ANALYSIS_TIMEOUT_SECONDS)
+            try:
+                code = process.wait(timeout=min(HEARTBEAT_SECONDS, remaining))
+                if code:
+                    raise subprocess.CalledProcessError(code, command)
+                return
+            except subprocess.TimeoutExpired:
+                if time.monotonic() >= deadline:
+                    raise
+                store.renew_lease(job, now=time.time())
+    finally:
+        if process.poll() is None:
+            process.kill()
+        process.wait()
+
+
 def execute_analysis(store, job, prepared):
     config = read_operator_config(store.settings.live_config)
     profiles = operator_profiles(config)
@@ -278,8 +321,9 @@ def execute_analysis(store, job, prepared):
         directory = store.document_dir(job["tenant_id"], job["document_id"])
         lock = (directory / "analysis.lock").open("a+b")
         os.fchmod(lock.fileno(), 0o600)
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     try:
+        acquire_analysis_lock(lock)
+        store.renew_lease(job, now=time.time())
         with TemporaryDirectory(prefix="analysis-work-", dir=directory) as scratch:
             workspace = Path(scratch)
             os.chmod(workspace, 0o700)
@@ -302,7 +346,7 @@ def execute_analysis(store, job, prepared):
                     job, state, "partial_blocked", "LINUX_SOURCE_READER_UNRESOLVED"
                 )
                 return
-            subprocess.run(
+            run_analysis_process(
                 [
                     sys.executable,
                     "-m",
@@ -311,11 +355,9 @@ def execute_analysis(store, job, prepared):
                     str(job["fence"]),
                     str(workspace),
                 ],
-                check=True,
-                timeout=840,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                pass_fds=(lock.fileno(),),
+                store,
+                job,
+                lock,
             )
             outcome = json.loads((workspace / "state" / "outcome.json").read_text())
             store.publish_analysis(

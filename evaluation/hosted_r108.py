@@ -8,6 +8,7 @@ from contextlib import nullcontext
 from pathlib import Path
 
 from proofops.adapters.local.upstage import UpstageProbe
+from proofops.application.ports.jobs import JobMessage
 from proofops_api.hosted_analysis import (
     HostedLunaProbe,
     HostedOpenAILunaProbe,
@@ -182,7 +183,24 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
                 provider_ledgers=(upstage_ledger, luna_ledger),
             )
             try:
+                parse_messages = (
+                    [
+                        JobMessage(**event["message"])
+                        for event in worker.store.jobs.pending_outbox(
+                            job["tenant_id"], manifest["run_id"], now=int(time.time())
+                        )
+                        if event["message"]["stage"] == "parse"
+                    ]
+                    if stage == "parse"
+                    else []
+                )
                 outcome = worker.run_once(tenant_id=job["tenant_id"], run_id=manifest["run_id"])
+                if outcome == "failed" and stage == "parse":
+                    if any(
+                        worker.store.jobs.get_job(message)["error_code"] == "BUDGET_EXHAUSTED"
+                        for message in parse_messages
+                    ):
+                        outcome = "budget_unanalyzed"
                 observed.append(dict(stage=stage, outcome=outcome))
                 if stage == "extract" and outcome == "committed":
                     from proofops_worker.extract_batch import run_batches
@@ -206,7 +224,13 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
         status="completed" if complete else "partial_blocked",
         stages=observed,
         stage_seconds=stage_seconds,
-        reason=None if complete else "R108_" + observed[-1]["outcome"].upper(),
+        reason=None
+        if complete
+        else (
+            "BUDGET_EXHAUSTED"
+            if observed[-1]["outcome"] == "budget_unanalyzed"
+            else "R108_" + observed[-1]["outcome"].upper()
+        ),
         profiles=operator_profiles(config),
         scope=store.run_options(job),
         pipeline_profile=store.run_options(job).get("pipeline_profile", "strict-v1"),

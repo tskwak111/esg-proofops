@@ -435,7 +435,7 @@ def inspect(pdf: Path, *, max_environment_pages=8, max_evidence_pages=30):
     )
 
 
-def validate_selection(plan, source_sha256, page_count):
+def validate_selection(plan, source_sha256, page_count, *, manual_override=False):
     """Allow selection edits only; revalidate immutable proposal and physical bounds."""
     if not isinstance(plan, dict):
         raise ValueError("scope-plan must be a JSON object")
@@ -460,16 +460,20 @@ def validate_selection(plan, source_sha256, page_count):
             or selected != sorted(set(selected))
         ):
             raise ValueError("selection must be sorted unique physical pages")
-    if len(claims) > 10 or len(evidence) > plan["settings"]["max_evidence_pages"]:
+    if len(claims) > 10 or len(evidence) > min(30, plan["settings"]["max_evidence_pages"]):
         raise ValueError("scope exceeds declared page cap")
     if not set(claims) <= set(evidence):
         raise ValueError("claim pages must be a subset of evidence pages")
     categories = {r["page"]: r["category"] for r in plan["pages"]}
     if sum(categories.get(p) == "ceo_message" for p in claims) > 2:
         raise ValueError("scope exceeds two CEO pages")
-    if any(categories.get(p) not in ("ceo_message", "e_narrative") for p in claims):
+    if not manual_override and any(
+        categories.get(p) not in ("ceo_message", "e_narrative") for p in claims
+    ):
         raise ValueError("evidence-only or unresolved page cannot be a claim page")
-    if any(categories.get(p) in ("conflict", "unreadable", "unknown", "toc") for p in evidence):
+    if not manual_override and any(
+        categories.get(p) in ("conflict", "unreadable", "unknown", "toc") for p in evidence
+    ):
         raise ValueError("unresolved page requires a new inspected proposal")
     applied = dict(
         pages=list(evidence),
@@ -481,6 +485,10 @@ def validate_selection(plan, source_sha256, page_count):
         ),
         proposal_sha256=plan["plan_sha256"],
     )
+    if manual_override:
+        if plan["status"] != "failed":
+            raise ValueError("manual recovery requires a failed automatic scope")
+        applied["manual_override"] = True
     applied["selection_sha256"] = canonical_hash(applied)
     return applied
 

@@ -37,6 +37,7 @@ from proofops.application.uploads_security import (
 )
 
 MICRO = Decimal(1_000_000)
+RUN_LEASE_SECONDS = 1900
 TERMINAL = ("partial_blocked", "completed", "cancelled", "failed")
 OPENROUTER_LIMIT_CODES = frozenset({"OPENROUTER_HTTP_402", "OPENROUTER_HTTP_403"})
 OPENAI_LIMIT_CODES = frozenset({"OPENAI_HTTP_401", "OPENAI_HTTP_429", "OPENAI_INSUFFICIENT_QUOTA"})
@@ -676,9 +677,14 @@ class HostedStore:
 
         if scope["plan"]["source_sha256"] != doc["sha256"]:
             raise HostedError("SOURCE_HASH_MISMATCH")
-        if scope["plan"]["status"] != "failed":
+        if scope["plan"]["status"] != "failed" or scope["selection"] is not None:
             try:
-                selection = validate_selection(scope["plan"], doc["sha256"], doc["page_count"])
+                selection = validate_selection(
+                    scope["plan"],
+                    doc["sha256"],
+                    doc["page_count"],
+                    manual_override=scope["plan"]["status"] == "failed",
+                )
             except (ValueError, KeyError, TypeError):
                 raise HostedError("SCOPE_INTEGRITY_INVALID") from None
             if selection != scope["selection"]:
@@ -753,8 +759,6 @@ class HostedStore:
                 raise HostedError("IF_MATCH_REQUIRED", 428)
             if if_match != f'"{scope["revision"]}"':
                 raise HostedError("SCOPE_CONFLICT", 412)
-            if scope["plan"]["status"] == "failed":
-                raise HostedError("SCOPE_PLAN_FAILED", 422)
             doc = self._document(db, auth.tenant_id, document)
             plan = scope["plan"] | dict(
                 selected_claim_pages=claims, selected_evidence_pages=evidence
@@ -762,7 +766,12 @@ class HostedStore:
             from evaluation.report_scope import validate_selection
 
             try:
-                selection = validate_selection(plan, doc["sha256"], doc["page_count"])
+                selection = validate_selection(
+                    plan,
+                    doc["sha256"],
+                    doc["page_count"],
+                    manual_override=plan["status"] == "failed",
+                )
             except (ValueError, KeyError, TypeError):
                 raise HostedError("PAGE_SELECTION_INVALID", 422) from None
             revision = scope["revision"] + 1
@@ -811,7 +820,7 @@ class HostedStore:
             options = None
             if auto_scope and pages is None:
                 scope = self._scope(db, auth.tenant_id, document)
-                if scope["plan"]["status"] == "failed":
+                if scope["selection"] is None:
                     raise HostedError("SCOPE_PLAN_FAILED", 422)
                 selection = scope["selection"]
                 if (
@@ -922,9 +931,26 @@ class HostedStore:
     def claim(self, *, now: float) -> dict | None:
         with self.transaction() as db:
             expired = db.execute(
-                "SELECT run_id FROM runs WHERE status='running' AND lease_until<=?", (now,)
+                "SELECT run_id FROM runs WHERE (status='running' AND lease_until<=?) "
+                "OR (status='accounting_pending' AND error_code='LEASE_EXPIRED')",
+                (now,),
             ).fetchall()
             for row in expired:
+                # Broker inserts a cost reservation before transport. No rows in
+                # the surviving independent ledger proves no provider was sent.
+                no_dispatch = db.execute(
+                    "SELECT 1 FROM deletion.spend WHERE run_id=? AND NOT EXISTS "
+                    "(SELECT 1 FROM deletion.costs WHERE run_id=?)",
+                    (row[0], row[0]),
+                ).fetchone()
+                if no_dispatch:
+                    db.execute(
+                        "UPDATE runs SET status='failed',fence=fence+1,lease_until=0,"
+                        "error_code='LEASE_EXPIRED_NO_DISPATCH' WHERE run_id=?",
+                        (row[0],),
+                    )
+                    self._settle_envelope(db, row[0])
+                    continue
                 db.execute(
                     "UPDATE runs SET "
                     "status='accounting_pending',fence=fence+1,error_code='LEASE_EXPIRED' WHERE "
@@ -949,7 +975,7 @@ class HostedStore:
             self._document(db, row["tenant_id"], row["document_id"])
             db.execute(
                 "UPDATE runs SET status='running',fence=fence+1,lease_until=? WHERE run_id=?",
-                (now + 900, row["run_id"]),
+                (now + RUN_LEASE_SECONDS, row["run_id"]),
             )
             return dict(
                 db.execute("SELECT * FROM runs WHERE run_id=?", (row["run_id"],)).fetchone()
@@ -960,6 +986,14 @@ class HostedStore:
         if row["status"] != "running" or row["fence"] != job["fence"] or row["lease_until"] <= now:
             raise HostedError("LEASE_LOST")
         return row
+
+    def renew_lease(self, job: dict, *, now: float) -> None:
+        with self.transaction() as db:
+            self._fenced(db, job, now)
+            db.execute(
+                "UPDATE runs SET lease_until=? WHERE run_id=?",
+                (now + RUN_LEASE_SECONDS, job["run_id"]),
+            )
 
     def prepare(self, job: dict, *, now: float) -> Path:
         # Snapshot under the fence, perform bounded PDF work outside the DB lock,
@@ -1142,7 +1176,21 @@ class HostedStore:
 
                 (analysis or execute_analysis)(self, job, prepared)
             else:
-                self.finish(job, "partial_blocked", now=time.time())
+                with TemporaryDirectory(prefix="blocked-", dir=prepared.parent) as scratch:
+                    state = Path(scratch)
+                    self._write(
+                        state / "outcome.json",
+                        json.dumps(
+                            dict(
+                                status="partial_blocked",
+                                reason="LIVE_BINDING_UNAVAILABLE",
+                                stages=[],
+                                provider_calls=0,
+                                scope=self.run_options(job),
+                            )
+                        ).encode(),
+                    )
+                    self.publish_analysis(job, state, "partial_blocked", "LIVE_BINDING_UNAVAILABLE")
         except (HostedError, OSError, ValueError, subprocess.SubprocessError) as exc:
             code = (
                 exc.code
@@ -1173,7 +1221,12 @@ class HostedStore:
 
     def update_progress(self, job: dict, stage: str, progress: int) -> None:
         with self.transaction() as db:
-            self._fenced(db, job, time.time())
+            now = time.time()
+            self._fenced(db, job, now)
+            db.execute(
+                "UPDATE runs SET lease_until=? WHERE run_id=?",
+                (now + RUN_LEASE_SECONDS, job["run_id"]),
+            )
             db.execute(
                 "INSERT INTO run_progress VALUES (?,?,?,0) ON CONFLICT(run_id) "
                 "DO UPDATE SET stage=excluded.stage,progress=excluded.progress",
