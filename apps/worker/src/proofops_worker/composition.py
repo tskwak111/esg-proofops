@@ -365,5 +365,10 @@ def build_composition(
             extractor=extractor,
             telemetry=runner.telemetry,
             max_workers=max_workers,
+            tag_composition=lambda: build_composition(
+                stage="tag",
+                provider_factories=provider_factories,
+                provider_ledgers=provider_ledgers,
+            ),
         )
     return runner

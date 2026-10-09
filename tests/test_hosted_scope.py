@@ -78,7 +78,7 @@ def test_runtime_dec22_and_unattended_defaults(settings):
     from fastapi.testclient import TestClient
 
     body = TestClient(create_hosted_app(settings)).get("/v1/runtime").json()
-    assert body["pipeline_profile"] == "unattended-v1"
+    assert body["pipeline_profile"] == "finals-unattended-v2"
     assert body["limits"]["claim_pages"] == 10
     assert body["limits"]["evidence_pages"] == 30
     with pytest.raises(ValueError):
@@ -204,6 +204,7 @@ def test_hosted_parse_batches_are_brokered_and_mapped(monkeypatch):
 
     monkeypatch.setattr(HostedParseProbe, "parse", parse)
     probe = object.__new__(HostedParseProbe)
+    probe.integrated = False  # legacy synchronous batching contract
     response = probe.parse_async(pdf(5), request_id="hs1-parse", mode="standard")
     assert [n for n, _ in calls] == [2, 2, 1]
     assert len({request_id for _, request_id in calls}) == 3
@@ -336,7 +337,7 @@ def test_http_scope_contract_revision_and_default_profile(store, settings):
         "/v1/runs", json=request, headers=h | {"Idempotency-Key": "hs1-http-run0002"}
     )
     assert accepted.status_code == 202, accepted.text
-    assert accepted.json()["pipeline_profile"] == "unattended-v1"
+    assert accepted.json()["pipeline_profile"] == "finals-unattended-v2"
     assert accepted.json()["claim_pages"] == [1, 2, 3]
     assert accepted.json()["selected_pages"] == [1, 2, 3, 4]
 
@@ -355,5 +356,7 @@ def test_parse_rejects_page_outside_terminal_single_page_batch(monkeypatch):
         )
 
     monkeypatch.setattr(HostedParseProbe, "parse", invalid)
+    probe = object.__new__(HostedParseProbe)
+    probe.integrated = False
     with pytest.raises(ValueError, match="HOSTED_PARSE_PAGE_INVALID"):
-        object.__new__(HostedParseProbe).parse_async(pdf(1), request_id="invalid-page")
+        probe.parse_async(pdf(1), request_id="invalid-page")

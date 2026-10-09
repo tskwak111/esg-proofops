@@ -853,8 +853,25 @@ class HostedStore:
                 or len(set(selected)) != len(selected)
             ):
                 raise HostedError("PAGE_SELECTION_INVALID", 422)
-            if pipeline_profile not in {"unattended-v1", "strict-v1"}:
+            from proofops_api.hosted_analysis import FINALS_PROFILES
+
+            if pipeline_profile not in {"unattended-v1", "strict-v1", *FINALS_PROFILES}:
                 raise HostedError("PIPELINE_PROFILE_INVALID", 422)
+            if pipeline_profile in FINALS_PROFILES:
+                from proofops.application.analysis_profile import policy_for
+                from proofops.domain.provenance import canonical_hash
+
+                if options is None:
+                    options = dict(
+                        pages=selected, claim_pages=selected, source_sha256=doc["sha256"]
+                    )
+                if len(options["claim_pages"]) > 10:
+                    raise HostedError("PAGE_SELECTION_INVALID", 422)
+                options.update(
+                    pipeline_profile=pipeline_profile,
+                    analysis_profile=pipeline_profile,
+                    analysis_profile_sha256=canonical_hash(policy_for(pipeline_profile)),
+                )
             body_hash = digest(json.dumps([document, selected, options]))
             replay = self._replay(db, auth, "run", key, body_hash)
             if replay:

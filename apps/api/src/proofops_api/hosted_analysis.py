@@ -40,18 +40,31 @@ GATE_PASSED_RENDERED_READERS = frozenset(RENDERED_READER_POLICY["gate_passed"])
 KNOWN_RENDERED_READERS = frozenset(
     {"upstage-ocr-page-v1", "upstage-ocr-page-v2", "upstage-ocr-page-v3"}
 )
+FINALS_PROFILES = ("finals-unattended-v1", "finals-unattended-v2")
+
+
+def default_analysis_profile():
+    # HS3 temporary choice. Coordinator finalizes it after QI2.
+    return os.environ.get("HOSTED_ANALYSIS_PROFILE", "finals-unattended-v2")
 
 
 def operator_profiles(config: dict) -> dict:
     workers = config.get("llm_max_workers", 8)
     if type(workers) is not int or not 1 <= workers <= 16:
         raise ValueError("HOSTED_LLM_CONCURRENCY_INVALID")
-    analysis = config.get("analysis_profile", "r108-default")
-    if analysis not in ("r108-default", "r108-finals-candidate", "r108-finals-candidate-v2"):
+    analysis = config.get("analysis_profile", default_analysis_profile())
+    if analysis not in (
+        "r108-default",
+        "r108-finals-candidate",
+        "r108-finals-candidate-v2",
+        *FINALS_PROFILES,
+    ):
         raise ValueError("HOSTED_ANALYSIS_PROFILE_INVALID")
     llm_provider = config.get("llm_provider", "openai")
     if llm_provider not in ("openai", "openrouter"):
         raise ValueError("HOSTED_LLM_PROVIDER_INVALID")
+    if analysis in FINALS_PROFILES:
+        llm_provider = "openai"
     requested = config.get("rendered_reader_profile")
     if requested is not None and requested not in KNOWN_RENDERED_READERS:
         raise ValueError("HOSTED_RENDERED_READER_PROFILE_INVALID")
@@ -69,10 +82,12 @@ def operator_profiles(config: dict) -> dict:
         llm_provider=llm_provider,
         llm_provider_options=["openai", "openrouter"],
         analysis_profile=analysis,
-        analysis_profile_options=["r108-default", "r108-finals-candidate-v2"],
+        analysis_profile_options=["r108-default", "r108-finals-candidate-v2", *FINALS_PROFILES],
         analysis_profile_warning=(
             "E2E5 회귀 확인 — r108-finals-candidate-v2 또는 r108-default 사용 권장"
             if analysis == "r108-finals-candidate"
+            else "v2 기본값은 잠정 설정이며 QI2 이후 확정합니다."
+            if analysis in FINALS_PROFILES
             else None
         ),
         rendered_reader_requested=requested,
@@ -198,11 +213,21 @@ class HostedOpenAILunaProbe(OpenAIProbe):
 
 
 class HostedParseProbe(UpstageParseProbe):
-    def __init__(self, *args, store, job, post=None, **kwargs):
+    def __init__(self, *args, store, job, post=None, integrated=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.store, self.job, self.post = store, job, post
+        self.integrated = integrated
 
     def _post_parse(self, pdf_bytes, mode, path="/v1/document-digitization"):
+        if self.integrated:
+            # parse_async owns the single hosted reservation around POST + GET collection.
+            if path != "/v1/document-digitization/async":
+                raise ValueError("HOSTED_PARSE_TRANSPORT_INVALID")
+            return (
+                self.post(pdf_bytes, mode)
+                if self.post
+                else super()._post_parse(pdf_bytes, mode, path)
+            )
         pages = len(PdfReader(io.BytesIO(pdf_bytes)).pages)
         if path != "/v1/document-digitization" or not 1 <= pages <= 2:
             raise ValueError("HOSTED_PARSE_SCOPE_INVALID")
@@ -236,6 +261,28 @@ class HostedParseProbe(UpstageParseProbe):
         )["payload"]
 
     def parse_async(self, pdf_bytes, *, request_id, mode="standard"):
+        if self.integrated:
+            pages = len(PdfReader(io.BytesIO(pdf_bytes), strict=True).pages)
+            if mode not in COST_PER_PAGE or not 1 <= pages <= 30:
+                raise ValueError("HOSTED_PARSE_SCOPE_INVALID")
+            bound = COST_PER_PAGE[mode] * pages
+
+            def transport(request):
+                result = super(HostedParseProbe, self).parse_async(
+                    pdf_bytes, request_id=request_id, mode=mode
+                )
+                return request | dict(actual_usd=str(bound), payload=result)
+
+            return broker_dispatch(
+                self.store,
+                self.job,
+                "upstage-parse",
+                request_id,
+                canonical_hash(dict(pdf=canonical_hash(pdf_bytes.hex()), mode=mode, pages=pages)),
+                bound,
+                transport,
+                now=time.time(),
+            )["payload"]
         # Keep synchronous, brokered <=2-page calls; map each receipt to the
         # prepared subset before canonical graph conversion. MP1 can replace this
         # factory later using the same pinned claim/evidence selection.

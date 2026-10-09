@@ -61,7 +61,10 @@ def apply_pilot_profile(args):
     args.pipeline_profile = profile
     if profile == V2_PROFILE:
         args.extraction_fragment_guard = True
-    args.claim_source_profile = "claim-source-v3"
+    # Hosted Linux uses its independently approved OCR reader. Keep that explicit
+    # source policy pinned in the run; other callers retain the SV1 native policy.
+    if getattr(args, "claim_source_profile", None) != "upstage-ocr-page-v3":
+        args.claim_source_profile = "claim-source-v3"
     args.verify_claim_spans = True
     args.extraction_linewrap_join = True
     args.vision_parse = "off"

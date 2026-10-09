@@ -68,8 +68,13 @@ def test_runtime_reports_observed_limit_only_without_provider_calls(settings, tm
     for _ in range(2):
         response = client.get("/v1/runtime")
         data = response.json()
-        assert data["analysis_profile"] == "r108-default"
-        assert data["analysis_profile_options"] == ["r108-default", "r108-finals-candidate-v2"]
+        assert data["analysis_profile"] == "finals-unattended-v2"
+        assert data["analysis_profile_options"] == [
+            "r108-default",
+            "r108-finals-candidate-v2",
+            "finals-unattended-v1",
+            "finals-unattended-v2",
+        ]
         assert data["provider_limits"]["openrouter"] == {
             "status": "blocked",
             "error_code": code,

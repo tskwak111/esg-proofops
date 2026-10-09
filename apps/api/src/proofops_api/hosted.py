@@ -330,7 +330,9 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
                 + "로 분석을 전송합니다.",
             ),
             "consent_version": settings.consent_version,
-            "pipeline_profile": "unattended-v1",
+            "pipeline_profile": profiles["analysis_profile"]
+            if profiles["analysis_profile"].startswith("finals-unattended-")
+            else "unattended-v1",
             "auto_scope_policy": "bounded-v1",
             "limits": {
                 "max_upload_bytes": settings.max_upload_bytes,
@@ -430,6 +432,10 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
     def run_create(
         body: RunCreate, request: Request, auth: Annotated[AuthContext, Depends(current)]
     ) -> dict:
+        from proofops_api.hosted_analysis import runtime_profiles
+
+        profile = runtime_profiles(settings)["analysis_profile"]
+        default_pipeline = profile if profile.startswith("finals-unattended-") else "unattended-v1"
         return store.create_run(
             auth,
             str(body.document_id),
@@ -438,7 +444,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
             now=time.time(),
             auto_scope=True,
             scope_selection_sha256=body.scope_selection_sha256,
-            pipeline_profile=request.headers.get("X-Pipeline-Profile", "unattended-v1"),
+            pipeline_profile=request.headers.get("X-Pipeline-Profile", default_pipeline),
         )
 
     @app.get("/v1/runs/{run_id}")

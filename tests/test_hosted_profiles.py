@@ -26,7 +26,7 @@ def test_hosted_preparation_pins_requested_bundle(tmp_path, monkeypatch, profile
     writer = PdfWriter()
     writer.add_blank_page(300, 300)
     writer.write(pdf)
-    config = SCOPE | (dict(analysis_profile=profile) if profile else {})
+    config = SCOPE | dict(analysis_profile=profile or "r108-default")
     argv = prepare_argv(pdf, state, "11111111-1111-4111-8111-111111111111", config)
     assert argv[argv.index("--llm-provider") + 1] == config.get("llm_provider", "openai")
     monkeypatch.setattr(sys, "argv", argv)
@@ -104,9 +104,14 @@ def test_mac_default_reader_unchanged(monkeypatch):
 
 def test_hosted_operator_choice_excludes_regressed_v1_but_warns_on_existing_config():
     profiles = hosted_analysis.operator_profiles({"analysis_profile": "r108-finals-candidate"})
-    assert profiles["analysis_profile_options"] == ["r108-default", "r108-finals-candidate-v2"]
+    assert profiles["analysis_profile_options"] == [
+        "r108-default",
+        "r108-finals-candidate-v2",
+        "finals-unattended-v1",
+        "finals-unattended-v2",
+    ]
     assert "E2E5" in profiles["analysis_profile_warning"]
-    assert hosted_analysis.operator_profiles({})["analysis_profile"] == "r108-default"
+    assert hosted_analysis.operator_profiles({})["analysis_profile"] == "finals-unattended-v2"
     assert hosted_analysis.operator_profiles({})["llm_max_workers"] == 8
     assert hosted_analysis.operator_profiles({})["llm_provider"] == "openai"
     assert hosted_analysis.operator_profiles({})["llm_provider_options"] == [
@@ -126,6 +131,7 @@ def test_live_config_requires_only_selected_provider_key(tmp_path, provider, key
     llm_key.write_text("test-only\n")
     config = dict(
         enabled=True,
+        analysis_profile="r108-default",
         upstage_key_file=str(upstage_key),
         report_year=2025,
         period_start="2024-01-01",

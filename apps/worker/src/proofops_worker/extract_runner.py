@@ -296,6 +296,7 @@ class LocalExtractRunner:
         telemetry,
         clock=time.time,
         max_workers=16,
+        tag_composition=None,
     ):
         if not uploads.local_synthetic:
             raise ValueError("local extraction requires local storage")
@@ -304,6 +305,7 @@ class LocalExtractRunner:
         self.store, self.uploads, self.parser = store, uploads, parser
         self.extractor, self.telemetry, self.clock = extractor, telemetry, clock
         self.max_workers = max_workers
+        self.tag_composition = tag_composition
         self.claims = LocalClaimStore(store, uploads, parser)
 
     def _publication_payload(

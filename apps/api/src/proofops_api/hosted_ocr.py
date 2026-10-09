@@ -42,7 +42,12 @@ class HostedOCRStore(PageOCRStore):
         # authority and fences/reserves each actual PNG transport separately.
         Path(spend).write_text(json.dumps(dict(limit_usd="0.50", cumulative_usd="0")))
         Path(spend).chmod(0o600)
-        super().__init__(ledger, spend, transport=self._post, max_calls=2)
+        # Legacy two-page jobs keep their allowance. Expanded scope is bounded
+        # by the frozen prepared PDF, with the same broker enforcing all money.
+        pages = json.loads(job["pages"])
+        if not 1 <= len(pages) <= 30:
+            raise ValueError("OCR_SOURCE_SCOPE_INVALID")
+        super().__init__(ledger, spend, transport=self._post, max_calls=max(2, len(pages)))
 
     def _reserve(self, image, tenant_id, run_id, force):
         if tenant_id != self.job["tenant_id"] or run_id != self.local_run_id:

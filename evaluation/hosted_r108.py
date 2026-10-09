@@ -10,6 +10,7 @@ from pathlib import Path
 from proofops.adapters.local.upstage import UpstageProbe
 from proofops.application.ports.jobs import JobMessage
 from proofops_api.hosted_analysis import (
+    FINALS_PROFILES,
     HostedLunaProbe,
     HostedOpenAILunaProbe,
     HostedParseProbe,
@@ -25,7 +26,15 @@ def prepare_argv(pdf, state, tenant, config, options=None):
     from pypdf import PdfReader
 
     pages = ",".join(str(p) for p in range(1, len(PdfReader(pdf).pages) + 1))
-    profiles = operator_profiles(config)
+    options = options or {}
+    if options.get("pipeline_profile") in ("unattended-v1", "strict-v1"):
+        config = dict(analysis_profile="r108-default") | config
+    selected = options.get("analysis_profile") or (
+        options.get("pipeline_profile")
+        if options.get("pipeline_profile") in FINALS_PROFILES
+        else None
+    )
+    profiles = operator_profiles(config | (dict(analysis_profile=selected) if selected else {}))
     argv = [
         "hosted-r108",
         "--pdf",
@@ -94,6 +103,22 @@ def prepare_argv(pdf, state, tenant, config, options=None):
             if original in options["claim_pages"]
         ]
         argv += ["--claim-pages", ",".join(str(p) for p in claim_pages)]
+    if profiles["analysis_profile"] in FINALS_PROFILES:
+        if "--claim-pages" not in argv:
+            argv += ["--claim-pages", pages]
+        # Pilot pins parser, EV1, source, prompt and policy hashes. It prepares
+        # only; hosted dispatch below remains the sole money authority.
+        argv += ["--analysis-profile", profiles["analysis_profile"]]
+        if options.get("analysis_profile_sha256"):
+            from proofops.application.analysis_profile import policy_for
+            from proofops.domain.provenance import canonical_hash
+
+            policy_for(profiles["analysis_profile"], pinned_hash=options["analysis_profile_sha256"])
+            if (
+                canonical_hash(policy_for(profiles["analysis_profile"]))
+                != options["analysis_profile_sha256"]
+            ):
+                raise ValueError("HOSTED_PROFILE_PIN_MISMATCH")
     if profiles["analysis_profile"] in ("r108-finals-candidate", "r108-finals-candidate-v2"):
         v2 = profiles["analysis_profile"] == "r108-finals-candidate-v2"
         argv[argv.index("--vision-parse") + 1] = "auto"
@@ -122,10 +147,14 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
     from evaluation import local_upstage_pilot as pilot
 
     state = workspace / "state"
+    options = store.run_options(job)
+    if options.get("analysis_profile"):
+        config = config | dict(analysis_profile=options["analysis_profile"])
+    else:
+        # Stored pre-HS3 runs must keep their original operator composition.
+        config = dict(analysis_profile="r108-default") | config
     old_argv = sys.argv
-    sys.argv = prepare_argv(
-        workspace / "selected.pdf", state, job["tenant_id"], config, store.run_options(job)
-    )
+    sys.argv = prepare_argv(workspace / "selected.pdf", state, job["tenant_id"], config, options)
     try:
         if pilot.main() != 0:
             raise ValueError("HOSTED_PREPARATION_FAILED")
@@ -163,13 +192,20 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
         )
     factories = {
         "parse": lambda ledger: HostedParseProbe(
-            parse_key, ledger, store=store, job=job, post=parse_post
+            parse_key,
+            ledger,
+            store=store,
+            job=job,
+            post=parse_post,
+            integrated=profiles["analysis_profile"] in FINALS_PROFILES,
         ),
         "llm": lambda key, ledger, **kw: llm_probe(
             luna_key, ledger, store=store, job=job, post=llm_post, **kw
         ),
     }
     os.environ["LOCAL_LLM_MAX_WORKERS"] = str(profiles["llm_max_workers"])
+    if profiles["analysis_profile"] in FINALS_PROFILES:
+        os.environ["PROOFOPS_DISPLAY_PREFETCH_WORKERS"] = "4"
     observed = []
     stage_seconds = {}
     with scope:

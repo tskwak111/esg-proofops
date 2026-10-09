@@ -20,7 +20,10 @@ class PageTagPipeline:
     def __init__(self, extractor_runner, snapshot, graph, profile, lease, checkpoint):
         from proofops_worker.composition import build_composition
 
-        self.runner = build_composition(stage="tag")
+        bound_composition = getattr(extractor_runner, "tag_composition", None)
+        self.runner = (
+            bound_composition() if bound_composition else build_composition(stage="tag")
+        )
         self.snapshot, self.graph, self.profile = snapshot, graph, profile
         self.lease, self.checkpoint = lease, checkpoint
         self.scope = claim_scope(snapshot, graph)
