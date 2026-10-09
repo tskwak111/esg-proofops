@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Route, Routes, useLocation, useNavigate, useParams } from "react-router";
+import { HostedAnalysis } from "./features/hosted/HostedAnalysis";
+import "./features/hosted/hosted.css";
 import { LiveClaim } from "./features/live/LiveClaim";
 import { LiveReport, type LiveResultClaim } from "./features/live/LiveReport";
 import { ReplayPage, replayPath } from "./features/replay/route";
@@ -82,6 +84,11 @@ function CompanyTabs({ selected }: { selected: "naver" | "kia" }) { return <nav 
 
 
 function Analyze({ data }: { data: Snapshot }) {
+  if (import.meta.env.VITE_ANALYSIS_BACKEND === "hosted") return <main className="static-main analyze-main"><h1>보고서 분석 시작</h1><HostedAnalysis /></main>;
+  return <LegacyAnalyze data={data} />;
+}
+
+function LegacyAnalyze({ data }: { data: Snapshot }) {
   const [busy, setBusy] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [result, setResult] = useState<{ name: string; matched: boolean; message: string } | null>(null);
