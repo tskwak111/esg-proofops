@@ -641,6 +641,11 @@ class RunService:
 
                 snapshot["analysis_profile_policy"] = _detach(POLICY)
                 snapshot["analysis_profile_policy_sha256"] = POLICY_HASH
+                from proofops.adapters.local.evidence_source_verification_v1 import (
+                    policy as evidence_source_policy,
+                )
+
+                snapshot["evidence_source_policy"] = _detach(evidence_source_policy())
         if self.extraction_profile is not None:
             snapshot.update(
                 extraction_profile=asdict(self.extraction_profile),

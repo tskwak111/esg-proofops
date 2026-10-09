@@ -310,6 +310,7 @@ class LocalParserRunner:
                         )
                     pre_native_graph = graph
                     native_receipt = None
+                    evidence_receipt = None
                     if native_policy is not None:
                         from proofops.adapters.local.source_verification import (
                             attest_native_sources,
@@ -342,6 +343,23 @@ class LocalParserRunner:
                             graph = replay_native_sources(
                                 native_receipt, graph, source.content, tenant_id=tenant_id
                             )
+                    if "evidence_source_policy" in snapshot:
+                        from proofops.adapters.local import evidence_source_verification_v1 as ev1
+
+                        if snapshot["evidence_source_policy"] != ev1.policy():
+                            raise ValueError("EVIDENCE_SOURCE_POLICY_MISMATCH")
+                        evidence_pages = tuple(
+                            sorted(set(profile.physical_pages) - set(profile.claim_physical_pages))
+                        )
+                        evidence_receipt = ev1.attest_evidence_sources(
+                            graph,
+                            source.content,
+                            tenant_id=tenant_id,
+                            physical_pages=evidence_pages,
+                        )
+                        graph = ev1.replay_evidence_sources(
+                            evidence_receipt, graph, source.content, tenant_id=tenant_id
+                        )
                     raster_coverage = None
                     raster_refs = None
                     if raster_enabled:
@@ -446,6 +464,11 @@ class LocalParserRunner:
                     )
                     if profile.parser_mode == "mixed-v1":
                         payload["page_parser_provenance"] = manifest["page_parser_provenance"]
+                    if evidence_receipt is not None:
+                        payload["evidence_source_attestation"] = evidence_receipt
+                        payload["evidence_source_policy_sha256"] = canonical_hash(
+                            snapshot["evidence_source_policy"]
+                        )
                     if pinned_notes:
                         payload.update(
                             schema="local_parser_checkpoint_v2",

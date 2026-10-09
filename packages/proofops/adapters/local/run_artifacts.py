@@ -522,6 +522,24 @@ def load_run_evidence(store, uploads, parser, *, tenant_id: str, run_id: str):
             )
         except (ValueError, TypeError, KeyError):
             raise ParseFailure("NATIVE_PARAGRAPH_REPLAY_INVALID") from None
+    if "evidence_source_policy" in snapshot:
+        from proofops.adapters.local import evidence_source_verification_v1 as ev1
+
+        try:
+            if (
+                snapshot["evidence_source_policy"] != ev1.policy()
+                or envelope.get("evidence_source_policy_sha256") != canonical_hash(ev1.policy())
+                or list(envelope["evidence_source_attestation"]["physical_pages"])
+                != sorted(set(profile.physical_pages) - set(profile.claim_physical_pages))
+            ):
+                raise ValueError("EVIDENCE_SOURCE_POLICY_MISMATCH")
+            graph = ev1.replay_evidence_sources(
+                envelope["evidence_source_attestation"], graph, source.content, tenant_id=tenant_id
+            )
+        except (ValueError, TypeError, KeyError):
+            raise ParseFailure("EVIDENCE_SOURCE_REPLAY_INVALID") from None
+    elif "evidence_source_attestation" in envelope:
+        raise ParseFailure("UNPINNED_EVIDENCE_SOURCE_ATTESTATION")
     typography_digest = envelope.get("native_paragraph_typography_policy_sha256")
     typography_proof = envelope.get("native_paragraph_typography_proof")
     recomputed_typography_proof = None
