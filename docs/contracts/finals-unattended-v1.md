@@ -58,3 +58,11 @@ provider 원장은 이 보조 테이블을 읽는 reader를 유지한다(구 rea
 원장·감사 기록은 삭제하지 않는다.
 공식 계약/가격 확인: https://console.upstage.ai/api/parse/document-parsing/async 및
 https://www.upstage.ai/pricing/api (2026-10-10).
+
+INT2 한전 실주행에서 수신한 `scheduled`도 정상 접수 대기 상태로 조회한다.
+관련 회귀는 실제 수신한 상태를 사용한다. 이미 접수·과금된 결과의 복구는 같은
+provider ID를 GET으로 수집·검증·정산하는 경로이며 POST 재전송이 아니다.
+초기 partial-v1 실행의 artifact/checkpoint는 유지한다. 평가 복구 실행은 수집한
+standard 결과의 원본 선택 PDF 요청 해시와 raw 응답 해시를 확인해 별도 tenant/run
+캐시에 넣고, 최초 모델 추출·태깅을 수행한다. 초기 부분 실행·복구 실행·총 벽시계
+시간과 비용을 구분해 기록한다. 이를 별도의 fresh parser 속도 실측으로 표현하지 않는다.

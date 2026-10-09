@@ -148,3 +148,36 @@ def test_real_parser_worker_publishes_and_replays_ev1(tmp_path, monkeypatch):
     )
     assert runner.load_graph(tenant_id=TENANT, run_id=run_id) == evidence["graph"]
     assert service.store.jobs.read_checkpoint(message) == checkpoint
+
+
+def test_collected_job_cache_reuses_exact_payload_without_billable_dispatch(tmp_path):
+    from hashlib import sha256
+
+    from proofops.adapters.parsing.upstage_document import selected_pdf
+    from proofops.domain.provenance import canonical_hash
+
+    from evaluation.int2_live import seed_collected_parse
+
+    source = document()
+    config = profile()
+    content = selected_pdf(source.content, config.claim_physical_pages)
+    collected = Probe().parse_async(content, request_id="collected", mode="standard")
+    collected["request_sha256"] = canonical_hash(
+        dict(
+            model="document-parse-260128",
+            mode="standard",
+            pdf_sha256=sha256(content).hexdigest(),
+            pages=1,
+            bytes_len=len(content),
+            transport="async",
+        )
+    )
+    probe = Probe()
+    parser = OpenDataLoaderParser(tmp_path, upstage_probe=probe)
+    seed_collected_parse(parser, source, config, source.tenant_id, collected)
+    graph = parser.parse(source, config, tenant_id=source.tenant_id)
+    assert probe.calls == []
+    assert {b.page_num for b in graph.blocks} == {1, 2}
+    changed = replace(source, content=make_pdf(3), sha256=sha256(make_pdf(3)).hexdigest())
+    with pytest.raises(AssertionError):
+        seed_collected_parse(parser, changed, config, source.tenant_id, collected)
