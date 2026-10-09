@@ -80,28 +80,24 @@ def _glyph_alignment():
     return glyph_alignment_verification
 
 
-<<<<<<< HEAD
-def _table_claims():
-    from proofops.adapters.local import table_claim_source_verification
-
-    return table_claim_source_verification
-=======
 def _source_v3():
     from proofops.adapters.local import claim_source_verification_v3
 
     return claim_source_verification_v3
->>>>>>> 5a47f7a (fix: add opt-in claim source v3 whitespace and visibility proof)
+
+
+def _table_claims():
+    from proofops.adapters.local import table_claim_source_verification
+
+    return table_claim_source_verification
 
 
 def _wrappers():
     """Every wrapper module, outermost first. Additive: the base verifier's own
     dispatch is untouched and each wrapper keeps its own distinct policy."""
     return (
-<<<<<<< HEAD
-        _table_claims(),
-=======
         _source_v3(),
->>>>>>> 5a47f7a (fix: add opt-in claim source v3 whitespace and visibility proof)
+        _table_claims(),
         _glyph_alignment(),
         _typography(),
         _bullet_alignment(),
@@ -121,22 +117,17 @@ def claim_source_reader(policy):
     from proofops.adapters.local import claim_source_verification as base
 
     if isinstance(policy, Mapping):
-<<<<<<< HEAD
+        if policy.get("profile") == "claim-source-v3":
+            wrapper = _source_v3()
+            if policy != wrapper.claim_source_policy():
+                raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")
+            return wrapper
         if policy.get("profile") in {
             "upstage-ocr-page-v1",
             "upstage-ocr-page-v2",
             "upstage-ocr-page-v3",
         }:
             upstage_ocr_profile = page_ocr_profile(policy["profile"])
-=======
-        if policy.get("profile") == "claim-source-v3":
-            wrapper = _source_v3()
-            if policy != wrapper.claim_source_policy():
-                raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")
-            return wrapper
-        if policy.get("profile") == "upstage-ocr-page-v1":
-            from proofops.adapters.local import upstage_ocr_profile
->>>>>>> 5a47f7a (fix: add opt-in claim source v3 whitespace and visibility proof)
 
             if policy != upstage_ocr_profile.claim_source_policy():
                 raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")

@@ -147,6 +147,7 @@ class RunService:
         tagging_settings: TaggingSettings | None = None,
         tagging_mode: str | None = None,
         fact_assembly_profile: str = "strict-v1",
+        pipeline_profile: str | None = None,
         report_level_link=None,
         preliminary_settings: TaggingSettings | None = None,
         relation_settings: TaggingSettings | None = None,
@@ -223,6 +224,9 @@ class RunService:
             if display_text_policy != POLICY or extraction_mode != "upstage_probe":
                 raise ValueError("DISPLAY_POLICY_MISMATCH")
             self.display_text_policy = _detach(display_text_policy)
+        if pipeline_profile not in (None, "unattended-v1"):
+            raise ValueError("unknown pipeline profile")
+        self.pipeline_profile = pipeline_profile
         self.tagging_settings, self.tagging_mode = tagging_settings, tagging_mode
         if report_level_link is not None and (tagging_mode is None or tagging_settings is None):
             raise ValueError("report-level link requires tagging")
@@ -620,6 +624,8 @@ class RunService:
             scope=body["scope"],
             created_at=timestamp,
         )
+        if self.pipeline_profile is not None:
+            snapshot["pipeline_profile"] = self.pipeline_profile
         if self.extraction_profile is not None:
             snapshot.update(
                 extraction_profile=asdict(self.extraction_profile),

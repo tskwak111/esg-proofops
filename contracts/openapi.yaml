@@ -6204,6 +6204,20 @@ components:
       type: object
       additionalProperties: false
       properties:
+        source_status:
+          anyOf:
+          - type: object
+            additionalProperties: true
+          - type: "null"
+        provisional_grade:
+          anyOf:
+          - type: object
+            additionalProperties: true
+          - type: "null"
+        pipeline_stage:
+          anyOf:
+          - type: string
+          - type: "null"
         claim_id:
           type: string
           format: uuid
@@ -6610,6 +6624,20 @@ components:
       type: object
       additionalProperties: false
       properties:
+        source_status:
+          anyOf:
+          - type: object
+            additionalProperties: true
+          - type: "null"
+        provisional_grade:
+          anyOf:
+          - type: object
+            additionalProperties: true
+          - type: "null"
+        pipeline_stage:
+          anyOf:
+          - type: string
+          - type: "null"
         schema_version:
           type: integer
           enum:

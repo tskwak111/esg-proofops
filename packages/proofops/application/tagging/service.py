@@ -205,6 +205,7 @@ def tag_replicates(
     pricing: PricingSnapshot | None = None,
     count_input_tokens: Callable[[dict[str, Any]], int] | None = None,
     max_workers: int = 1,
+    pipeline_profile: str | None = None,
 ) -> tuple[TagRun, ...]:
     """Execute or recover replicas 1/2/3, preserving failures and budget stops.
 
@@ -225,11 +226,16 @@ def tag_replicates(
         raise DomainValidationError("immutable packet and claim context required")
     data = packet.to_dict()
     claim = context.claim
+    if pipeline_profile not in (None, "unattended-v1"):
+        raise DomainValidationError("unknown pipeline profile")
+    unattended = (
+        pipeline_profile == "unattended-v1" and data.get("pipeline_profile") == pipeline_profile
+    )
     if not isinstance(track, TrackCandidate) or track.claim != claim:
         raise DomainValidationError("track/claim identity mismatch")
     if freeze_track_packet(packet, track=track, rulepack=rulepack) != packet:
         raise DomainValidationError("freeze the complete track packet before tagging")
-    if claim.source_quality != "verified" or (
+    if (claim.source_quality != "verified" and not unattended) or (
         claim.document_version_id,
         claim.parse_manifest_id,
         claim.source_sha256,
@@ -259,7 +265,9 @@ def tag_replicates(
         )
     ):
         raise DomainValidationError("atomic source span mismatch")
-    if any(unassigned_note_ids(original, ref.source_id) for ref in claim.source_refs):
+    if not unattended and any(
+        unassigned_note_ids(original, ref.source_id) for ref in claim.source_refs
+    ):
         raise DomainValidationError("unassigned footnote requires review")
     _require_uuid("run_id", data["run_id"])
     definitions = {e["id"]: e for e in rulepack.file_content("rubric/elements.yaml")["elements"]}
@@ -303,11 +311,13 @@ def tag_replicates(
             )
             guarded.authorize_model(settings.binding)
             approved_refs.append(source)
-    if not approved_refs:
+    if not approved_refs and not unattended:
         raise DomainValidationError("verified packet evidence required")
     source_ids = {ref.source_id for ref in approved_refs}
     source_ids.update(ref.source_id for ref in claim.source_refs)
-    if evidence_issue_ids(original, source_ids, [*approved_refs, *claim.source_refs]):
+    if not unattended and evidence_issue_ids(
+        original, source_ids, [*approved_refs, *claim.source_refs]
+    ):
         raise DomainValidationError("open source issue requires review")
     # Explicit data allowlist: no prior votes, gold, tools or model-selected policy.
     user_data = {
@@ -333,6 +343,8 @@ def tag_replicates(
         ):
             raise DomainValidationError("invalid search coverage identifiers")
         user_data["search_coverage"][key] = list(values)
+    if unattended:
+        user_data["pipeline_profile"] = pipeline_profile
     namespace = CacheNamespace(tenant_id, consent_profile, claim.document_version_id, "tagger")
     synthetic = settings.binding.synthetic or bool(data["synthetic"])
     if type(max_workers) is not int or not 1 <= max_workers <= 16:

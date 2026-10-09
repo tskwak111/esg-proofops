@@ -538,21 +538,16 @@ def claim_source_policy_for(args):
     back is simply not passing the flag on a future run.
     """
     profile = getattr(args, "claim_source_profile", None)
-<<<<<<< HEAD
+    if profile == "claim-source-v3":
+        from proofops.adapters.local.claim_source_verification_v3 import claim_source_policy
+
+        return claim_source_policy()
     if profile in {"upstage-ocr-page-v1", "upstage-ocr-page-v2", "upstage-ocr-page-v3"}:
         from proofops.adapters.local.claim_source_policies import page_ocr_profile
 
         return page_ocr_profile(profile).claim_source_policy()
     if profile == "table-claim-spans-v1":
         from proofops.adapters.local.table_claim_source_verification import claim_source_policy
-=======
-    if profile == "claim-source-v3":
-        from proofops.adapters.local.claim_source_verification_v3 import claim_source_policy
-
-        return claim_source_policy()
-    if profile == "upstage-ocr-page-v1":
-        from proofops.adapters.local.upstage_ocr_profile import claim_source_policy
->>>>>>> 5a47f7a (fix: add opt-in claim source v3 whitespace and visibility proof)
 
         return claim_source_policy()
     if profile == "glyph-alignment-v1":
@@ -601,6 +596,7 @@ def apply_resume_metadata(args, saved: dict) -> None:
         raise ValueError("existing pilot parser memory limit changed; create a new run")
     args.parser_memory_bytes = parser_memory_limit(saved_memory)
     for field, default in (
+        ("pipeline_profile", None),
         ("relation_profile", "source-quotes-v1"),
         ("preliminary_profile", None),
         ("claim_source_profile", None),
@@ -727,6 +723,10 @@ def run_live_stages(args, *, tenant_id: str, run_id: str) -> dict:
                 and outcome in {"committed", "pending_downstream", "ignored", "idle"}
                 and args.extraction_total_calls is not None
                 and args.extraction_total_calls > args.max_calls
+                and not (
+                    getattr(args, "pipeline_profile", None) == "unattended-v1"
+                    and "tag_job" in worker.store.jobs.get_run(tenant, run_id)
+                )
             ):
                 from proofops_worker.extract_batch import run_batches
                 from proofops_worker.extract_runner import LocalExtractRunner
@@ -929,6 +929,11 @@ def main():
     parser.add_argument("--raster-max-pages", type=int, default=4)
     parser.add_argument("--raster-max-calls", type=int, default=1)
     parser.add_argument("--invoke", action="store_true")
+    parser.add_argument(
+        "--pipeline-profile",
+        choices=["unattended-v1"],
+        help="New run only: read-only provisional results and claim-isolated completion.",
+    )
     parser.add_argument("--live-tagging", action="store_true")
     parser.add_argument("--live-relations", action="store_true")
     parser.add_argument(
@@ -944,17 +949,14 @@ def main():
     parser.add_argument(
         "--claim-source-profile",
         "--rendered-reader-profile",
-<<<<<<< HEAD
         choices=[
             "glyph-alignment-v1",
             "upstage-ocr-page-v1",
             "upstage-ocr-page-v2",
             "upstage-ocr-page-v3",
             "table-claim-spans-v1",
+            "claim-source-v3",
         ],
-=======
-        choices=["glyph-alignment-v1", "upstage-ocr-page-v1", "claim-source-v3"],
->>>>>>> 5a47f7a (fix: add opt-in claim source v3 whitespace and visibility proof)
         help="Pin source reader for a NEW run; requires --verify-claim-spans.",
     )
     parser.add_argument(
@@ -1162,6 +1164,7 @@ def main():
         ):
             parser.error("existing pilot parser memory limit changed; create a new run")
         for field, default in (
+            ("pipeline_profile", None),
             ("relation_profile", "source-quotes-v1"),
             ("preliminary_profile", None),
             ("claim_source_profile", None),
@@ -1515,6 +1518,8 @@ def main():
             settings["r108_profile"] = finals_candidate_profile(args)
         if args.verify_claim_spans:
             settings["claim_source_policy"] = claim_source_policy_for(args)
+        if args.pipeline_profile:
+            settings["pipeline_profile"] = args.pipeline_profile
         if args.live_tagging:
             settings.update(
                 live_tagging_settings(
@@ -1886,6 +1891,7 @@ def main():
             repair_table_headers=args.repair_table_headers,
             verify_claim_spans=args.verify_claim_spans,
             model=args.model,
+            pipeline_profile=args.pipeline_profile,
             live_tagging=args.live_tagging,
             tagging_max_calls=args.tagging_max_calls if args.live_tagging else None,
         )

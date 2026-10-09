@@ -712,7 +712,9 @@ class UpstageTaggingTransport:
             )
         except Exception as error:
             code = str(error)
-            if code not in UPSTAGE_TRANSPORT_STOP_CODES:
+            if code in {"R108_FINALS_BUDGET_EXHAUSTED", "R108_FINALS_CUMULATIVE_BUDGET_EXHAUSTED"}:
+                code = "BUDGET_EXHAUSTED"
+            elif code not in UPSTAGE_TRANSPORT_STOP_CODES:
                 code = "UPSTREAM_UNAVAILABLE"
             # Exclusive creation prevents overwriting an earlier failure receipt.
             if not stop.exists():

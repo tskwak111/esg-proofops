@@ -87,6 +87,12 @@ UPSTAGE_PRELIMINARY_CONTEXT_INVALID RELATION_PACKET_MISMATCH RELATION_CLAIM_MISM
 
 def _local_stop_code(prefix, error):
     """Map a local stop to a stable code; never echo an unrecognized message."""
+    if isinstance(error, BudgetExceeded) or str(error) in {
+        "R108_FINALS_BUDGET_EXHAUSTED",
+        "R108_FINALS_CUMULATIVE_BUDGET_EXHAUSTED",
+        "BUDGET_EXHAUSTED",
+    }:
+        return "BUDGET_EXHAUSTED"
     known = {prefix.upper() + suffix for suffix in _LOCAL_STOP_SUFFIXES}
     text = str(error)
     if text in known:
@@ -366,6 +372,7 @@ class LiveTaggingRuntime:
             self.account(request["request_id"])
 
     def preliminary(self, claim, graph):
+        unattended = self.snapshot.get("pipeline_profile") == "unattended-v1"
         profile = self.preliminary_settings.model_profile
         from proofops.application.tagging.preliminary import CONTEXT_POSITION_ORDER
 
@@ -411,6 +418,7 @@ class LiveTaggingRuntime:
                 period_role=actor_role_v2,
                 p2=p2,
                 position_order=position_order,
+                allow_unverified=unattended,
             )
         else:
             packet = preliminary_request(
@@ -418,6 +426,7 @@ class LiveTaggingRuntime:
                 graph,
                 tenant_id=self.auth.tenant_id,
                 include_context=profile == "upstage-preliminary-source-quotes-context-v1",
+                allow_unverified=unattended,
             )
 
         if fallback:
@@ -454,7 +463,7 @@ class LiveTaggingRuntime:
             from proofops.application.tagging.preliminary import _sources
             from proofops.application.tagging.table_sources import table_structural_sources
 
-            sources = _sources(claim, graph, self.auth.tenant_id)
+            sources = _sources(claim, graph, self.auth.tenant_id, allow_unverified=unattended)
             if table:
                 structural = table_structural_sources(graph, sources, tenant_id=self.auth.tenant_id)
                 sources = (*sources, *(item.ref for item in structural.verified))
@@ -470,9 +479,13 @@ class LiveTaggingRuntime:
             # in their prompt, so they reuse this same validator without a new
             # schema or a new source rule.
             result = (
-                validate_preliminary_table_sources(claim, graph, raw, tenant_id=self.auth.tenant_id)
+                validate_preliminary_table_sources(
+                    claim, graph, raw, tenant_id=self.auth.tenant_id, allow_unverified=unattended
+                )
                 if table
-                else validate_preliminary(claim, graph, raw, tenant_id=self.auth.tenant_id)
+                else validate_preliminary(
+                    claim, graph, raw, tenant_id=self.auth.tenant_id, allow_unverified=unattended
+                )
             )
             return result, dict(
                 track=asdict(result.track) if result.track else None,
@@ -491,10 +504,33 @@ class LiveTaggingRuntime:
             self.preliminary_transport,
             self.preliminary_records,
             validate,
-            **({"require_consensus": False} if decision else {}),
+            **({"require_consensus": False} if decision or unattended else {}),
         )
         if decision:
             return self._decision_preliminary(claim, packet, results)
+        if unattended and results:
+            from collections import Counter
+
+            from proofops.application.evidence.binding import ClaimContext
+
+            votes = Counter(
+                (r.track.track if r.track else None, r.safe_harbor_category) for r in results
+            )
+            header, count = votes.most_common(1)[0]
+            if count < 2 or header[0] is None:
+                return None
+            winners = [
+                r for r in results if r.track and (r.track.track, r.safe_harbor_category) == header
+            ]
+            dimensions = {}
+            for key in set().union(*(r.context.dimensions for r in winners)):
+                values = [r.context.dimensions.get(key) for r in winners]
+                dimensions[key] = values[0] if all(v == values[0] for v in values) else None
+            self.preliminary_records[claim.claim_id].append(
+                dict(status="provisional_majority", votes=count, total_replicas=3)
+            )
+            context = ClaimContext(claim, dimensions)
+            return winners[0].track, context, local_relation_tags(context)
         if results is None or results[0].track is None:
             return None
         context = results[0].context
@@ -989,6 +1025,8 @@ class LiveTaggingRuntime:
                 )
                 if retrieval_packet_sha256 is not None:
                     request["retrieval_packet_sha256"] = retrieval_packet_sha256
+                if self.snapshot.get("pipeline_profile") == "unattended-v1":
+                    request["pipeline_profile"] = "unattended-v1"
                 request["request_signature"] = canonical_hash(request)
                 call = BudgetCall(
                     self.auth.tenant_id,
@@ -1150,8 +1188,14 @@ class LiveTaggingRuntime:
             provider_ids.extend(replica_ids)
             failed |= replica_failed
         record_store[claim.claim_id] = records
-        if failed:
+        unattended_majority = (
+            prefix == "preliminary" and self.snapshot.get("pipeline_profile") == "unattended-v1"
+        )
+        if failed and not (unattended_majority and len(results) >= 2):
             return None
-        if len(set(provider_ids)) != 3 or (require_consensus and len(set(signatures)) != 1):
+        if (
+            len(set(provider_ids)) != len(provider_ids)
+            or (not unattended_majority and len(set(provider_ids)) != 3)
+        ) or (require_consensus and len(set(signatures)) != 1):
             return None
         return results

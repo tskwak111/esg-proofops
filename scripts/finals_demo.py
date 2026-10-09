@@ -221,6 +221,11 @@ def pilot_argv(
         "--serve",
         "--serve-worker",
     ]
+    pipeline_profile = os.environ.get("PROOFOPS_PIPELINE_PROFILE")
+    if pipeline_profile:
+        if pipeline_profile != "unattended-v1":
+            raise ValueError("unknown pipeline profile")
+        argv += ["--pipeline-profile", pipeline_profile]
     if r108_finals_candidate_v2:
         argv.append("--r108-finals-candidate-v2")
     elif r108_finals_candidate:

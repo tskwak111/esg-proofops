@@ -173,6 +173,8 @@ def tag_pins(snapshot, extraction, extraction_hash):
                 )
             }
         )
+    if "pipeline_profile" in snapshot:
+        pins["pipeline_profile"] = snapshot["pipeline_profile"]
     if "fact_assembly_profile" in snapshot:
         pins["fact_assembly_profile"] = snapshot["fact_assembly_profile"]
     if "report_level_link" in snapshot:
@@ -194,6 +196,7 @@ def validate_tag_commit(db, jobs, run, message, envelope, next_job):
     extraction = json.loads(raw)
     expected = tag_pins(snapshot, extraction, ref["sha256"])
     claims = envelope["claims"]
+    unattended = snapshot.get("pipeline_profile") == "unattended-v1"
     original_ids = [c["claim_id"] for c in extraction["discovery"]["claims"]]
     decided = sum(
         item["decision"] is not None and item["decision"]["decision_status"] == "decided"
@@ -219,12 +222,24 @@ def validate_tag_commit(db, jobs, run, message, envelope, next_job):
         or envelope["coverage"] != coverage
         or envelope["stage_status"] not in {"blocked", "needs_review", "completed"}
         or envelope["downstream_status"] != "human_review"
-        or any(item["tag_runs"] and item.get("review_inputs") is None for item in claims)
+        or (
+            not unattended
+            and any(item["tag_runs"] and item.get("review_inputs") is None for item in claims)
+        )
         or any(not item["tag_runs"] and item["decision"] is not None for item in claims)
     ):
         raise ValueError("TAG_CHECKPOINT_INVALID")
     # Only the caller holding this same transaction's fence can publish revisions.
     for item in claims:
+        if unattended:
+            if (
+                item.get("decision") is not None
+                or item.get("review_inputs") is not None
+                or item.get("provisional_grade", {}).get("decision_status") != "provisional"
+                or item.get("source_status", {}).get("status") not in {"verified", "unverified"}
+            ):
+                raise ValueError("UNATTENDED_CHECKPOINT_INVALID")
+            continue
         if item["tag_runs"]:
             review = item["review_inputs"]
             if (

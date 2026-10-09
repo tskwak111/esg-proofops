@@ -25,6 +25,7 @@ _SETTINGS_FIELDS = frozenset(
     {
         "build_root",
         "r108_profile",
+        "pipeline_profile",
         "budget_limits",
         "extraction_profile",
         "extraction_year_notation",
@@ -309,6 +310,10 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
                     "LOCAL_RUNTIME_CONFIG_INVALID: REPORT_LEVEL_LINK_M3_ONLY"
                 ) from None
             raise _invalid() from None
+    if "pipeline_profile" in settings:
+        if settings["pipeline_profile"] != "unattended-v1" or not tagging_mode:
+            raise _invalid()
+        runtime["pipeline_profile"] = settings["pipeline_profile"]
     if "claim_source_policy" in settings:
         from proofops.adapters.local.claim_source_policies import claim_source_reader
 

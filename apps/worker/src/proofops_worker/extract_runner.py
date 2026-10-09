@@ -45,6 +45,29 @@ from proofops_worker.consumer import StageFailure, consume_job, with_lease_heart
 from proofops_worker.telemetry import observe_job
 
 
+def _candidate_extract(live, packet, snapshot):
+    try:
+        return live.extract(packet)
+    except ValueError as error:
+        code = str(error)
+        if snapshot.get("pipeline_profile") == "unattended-v1" and (
+            code
+            in {
+                "OPENAI_HTTP_503",
+                "OPENAI_HTTP_502",
+                "OPENAI_HTTP_429",
+                "OPENAI_REQUEST_FAILED",
+                "UPSTAGE_REQUEST_FAILED",
+                "UPSTREAM_UNAVAILABLE",
+                "BUDGET_EXHAUSTED",
+                "R108_FINALS_BUDGET_EXHAUSTED",
+                "R108_FINALS_CUMULATIVE_BUDGET_EXHAUSTED",
+            }
+        ):
+            raise ExtractionOutputError(code) from None
+        raise
+
+
 def _is_text_candidate(kind: str, text: str, *, extraction_table_rows=False) -> bool:
     # ponytail: length is a routing heuristic, not a claim/absence classifier.
     if extraction_table_rows and kind in ("table", "table_row", "table_cell", "figure"):
@@ -494,7 +517,7 @@ class LocalExtractRunner:
                     with usage_lock:
                         usage["extractor_calls"] += 1
                     try:
-                        return live_extractor.extract(packet)
+                        return _candidate_extract(live_extractor, packet, snapshot)
                     finally:
                         sync_usage()
 
@@ -759,7 +782,7 @@ class LocalExtractRunner:
                                 self.calls += 1
                                 usage["extractor_calls"] += 1
                             try:
-                                return live_extractor.extract(packet)
+                                return _candidate_extract(live_extractor, packet, snapshot)
                             finally:
                                 sync_usage()
 

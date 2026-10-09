@@ -766,7 +766,9 @@ class LocalSQLiteJobStore:
                 coverage = validate_tag_commit(db, self, run, message, envelope, next_job)
                 run.update(
                     current_stage="tag" if envelope["stage_status"] == "blocked" else "review",
-                    status="partial",
+                    status="completed"
+                    if envelope.get("pipeline_profile") == "unattended-v1"
+                    else "partial",
                     coverage=coverage,
                     tag_job=asdict(message),
                     tag_stage_status=envelope["stage_status"],

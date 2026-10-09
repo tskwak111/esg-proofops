@@ -306,7 +306,9 @@ class PreliminaryClassification:
     safe_harbor_category: str | None
 
 
-def _sources(claim: Claim, graph: CanonicalDocumentGraph, tenant_id: str) -> tuple[SourceRef, ...]:
+def _sources(
+    claim: Claim, graph: CanonicalDocumentGraph, tenant_id: str, *, allow_unverified=False
+) -> tuple[SourceRef, ...]:
     _require_uuid("tenant_id", tenant_id)
     if not isinstance(claim, Claim) or not isinstance(graph, CanonicalDocumentGraph):
         raise DomainValidationError("internal claim and canonical graph required")
@@ -315,7 +317,7 @@ def _sources(claim: Claim, graph: CanonicalDocumentGraph, tenant_id: str) -> tup
         or graph.tenant_id != tenant_id
         or (claim.document_version_id, claim.parse_manifest_id, claim.source_sha256)
         != (graph.document_version_id, graph.parse_manifest_id, graph.source_sha256)
-        or claim.source_quality != "verified"
+        or (claim.source_quality != "verified" and not allow_unverified)
         or not claim.source_refs
         or claim.quote != " ".join(ref.quote for ref in claim.source_refs)
     ):
@@ -324,11 +326,27 @@ def _sources(claim: Claim, graph: CanonicalDocumentGraph, tenant_id: str) -> tup
         verify_source_ref(ref, graph, tenant_id=tenant_id) for ref in claim.source_refs
     )
     if any(
-        ref.verification_state != "verified" or ref.quote != original.quote
+        (ref.verification_state != "verified" and not allow_unverified)
+        or ref.quote != original.quote
         for ref, original in zip(verified, claim.source_refs, strict=True)
     ):
         # Relative offsets require literal raw text, not a normalized offset space.
         raise DomainValidationError("preliminary source validation required")
+    if allow_unverified:
+        blocks = {b.source_id: b for b in graph.blocks}
+        for ref in claim.source_refs:
+            block = blocks.get(ref.source_id)
+            if block is None or block.winner is None or ref.location_quality != "located":
+                raise DomainValidationError("candidate source location required")
+            canonical = block.source_ref()
+            if (
+                any(
+                    getattr(ref, k) != getattr(canonical, k)
+                    for k in ("page_num", "bbox", "raw_text_sha256", "printed_page_label")
+                )
+                or block.raw_text[ref.char_start : ref.char_end] != ref.quote
+            ):
+                raise DomainValidationError("candidate literal source mismatch")
     return verified
 
 
@@ -606,6 +624,7 @@ def preliminary_request(
     max_context_chars: int = 2000,
     max_context_blocks: int = 4,
     position_order: bool = False,
+    allow_unverified: bool = False,
 ) -> dict:
     """Trusted preliminary envelope; ``include_context`` is opt-in and additive.
 
@@ -618,7 +637,7 @@ def preliminary_request(
     """
     if type(position_order) is not bool or (position_order and not include_context):
         raise DomainValidationError("preliminary context order requires context")
-    sources = _sources(claim, graph, tenant_id)
+    sources = _sources(claim, graph, tenant_id, allow_unverified=allow_unverified)
     envelope = dict(
         schema=SCHEMA,
         tenant_id=tenant_id,
@@ -705,6 +724,7 @@ def preliminary_table_request(
     p2: bool = False,
     position_order: bool = False,
     sentence_context: bool = False,
+    allow_unverified: bool = False,
 ) -> dict:
     """Opt-in ``TABLE_SCHEMA`` envelope: context plus verified table axis sources.
 
@@ -767,8 +787,9 @@ def preliminary_table_request(
         max_context_chars=max_context_chars,
         max_context_blocks=max_context_blocks,
         position_order=position_order,
+        allow_unverified=allow_unverified,
     )
-    sources = _sources(claim, graph, tenant_id)
+    sources = _sources(claim, graph, tenant_id, allow_unverified=allow_unverified)
     if sentence_context:
         blocks, omitted = _sentence_context(
             graph, sources, tenant_id, max_context_chars, max_context_blocks
@@ -852,6 +873,7 @@ def validate_preliminary_table_sources(
     tenant_id: str,
     max_table_sources: int = 8,
     max_table_chars: int = 600,
+    allow_unverified: bool = False,
 ) -> PreliminaryClassification:
     """``TABLE_SCHEMA`` counterpart of ``validate_preliminary``; same guarantees.
 
@@ -863,7 +885,7 @@ def validate_preliminary_table_sources(
     anything not verified. ``validate_preliminary`` itself is untouched, so
     historical responses keep replaying under their original validator.
     """
-    sources = _sources(claim, graph, tenant_id)
+    sources = _sources(claim, graph, tenant_id, allow_unverified=allow_unverified)
     table = table_structural_sources(
         graph,
         sources,
@@ -908,7 +930,12 @@ def validate_preliminary_table_sources(
             dimensions[name] = None
             continue
         dimensions[name] = _literal_dimension_ref(
-            span, quotable, graph, tenant_id=tenant_id, allow_offsets=True
+            span,
+            quotable,
+            graph,
+            tenant_id=tenant_id,
+            allow_offsets=True,
+            allow_unverified=allow_unverified,
         )
     return PreliminaryClassification(track, ClaimContext(claim, dimensions), confidence, category)
 
@@ -920,7 +947,8 @@ def _literal_dimension_ref(
     *,
     tenant_id: str,
     allow_offsets: bool,
-) -> SourceRef:
+    allow_unverified: bool = False,
+) -> SourceRef | None:
     """Restore one model-selected, unique literal quote to trusted provenance."""
     allowed = ({"source_index", "quote"}, {"source_index", "start", "end", "quote"})
     if not isinstance(span, Mapping) or set(span) not in (
@@ -955,14 +983,21 @@ def _literal_dimension_ref(
         tenant_id=tenant_id,
     )
     if ref.verification_state != "verified":
+        if allow_unverified:
+            return None
         raise DomainValidationError("preliminary dimension validation required")
     return ref
 
 
 def validate_preliminary(
-    claim: Claim, graph: CanonicalDocumentGraph, response: Mapping, *, tenant_id: str
+    claim: Claim,
+    graph: CanonicalDocumentGraph,
+    response: Mapping,
+    *,
+    tenant_id: str,
+    allow_unverified: bool = False,
 ) -> PreliminaryClassification:
-    sources = _sources(claim, graph, tenant_id)
+    sources = _sources(claim, graph, tenant_id, allow_unverified=allow_unverified)
     if not isinstance(response, Mapping) or set(response) != _FIELDS:
         raise DomainValidationError("invalid preliminary fields; grades are prohibited")
     confidence, category = response["track_confidence"], response["safe_harbor_category"]
@@ -999,7 +1034,12 @@ def validate_preliminary(
             dimensions[name] = None
             continue
         dimensions[name] = _literal_dimension_ref(
-            span, sources, graph, tenant_id=tenant_id, allow_offsets=True
+            span,
+            sources,
+            graph,
+            tenant_id=tenant_id,
+            allow_offsets=True,
+            allow_unverified=allow_unverified,
         )
     return PreliminaryClassification(track, ClaimContext(claim, dimensions), confidence, category)
 

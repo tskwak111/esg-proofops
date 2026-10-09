@@ -28,6 +28,7 @@ from proofops.application.evidence.retrieval import (
     SearchResult,
     freeze_track_packet,
     retrieve_evidence,
+    unattended_packet,
 )
 from proofops.application.ports.jobs import JobMessage, LeaseLost
 from proofops.application.reviews import ReviewInputs, ReviewService
@@ -40,6 +41,11 @@ from proofops.application.tagging.consensus import (
 )
 from proofops.application.tagging.report_level_link import apply_report_level_link, strict_fallback
 from proofops.application.tagging.service import tag_replicates
+from proofops.application.tagging.unattended import (
+    empty_provisional,
+    provisional_result,
+    source_status,
+)
 from proofops.application.telemetry import TraceContext
 from proofops.domain.rulepacks import RulePackSnapshot, canonical_json
 from proofops.domain.rules.engine import RuleContext, evaluate
@@ -232,6 +238,7 @@ class LocalTagRunner:
         envelope = tag_pins(snapshot, extraction, run["claim_snapshot_sha256"])
         rulepack = RulePackSnapshot(**snapshot["rulepack"])
         settings = tagging_settings(snapshot) if snapshot.get("tagging_settings") else None
+        unattended = snapshot.get("pipeline_profile") == "unattended-v1"
         live = None
         transport, preliminary_supplier = self.transport, self.preliminary
         if snapshot.get("tagging_mode") == "upstage_local":
@@ -279,6 +286,9 @@ class LocalTagRunner:
         )
         if parallel_claims:
             live.replica_workers = 1  # cap all claim calls at self.max_workers
+
+        progress = {}
+        budget_stopped = False
 
         def process_claim(claim):
             records = []
@@ -345,7 +355,7 @@ class LocalTagRunner:
                     raw_candidate_review = collect_raw_candidate_review(raw_search, claim.quote)
                 reason = (
                     "SOURCE_VALIDATION_REQUIRED"
-                    if claim.source_quality != "verified"
+                    if claim.source_quality != "verified" and not unattended
                     else "TAGGING_RUNTIME_REQUIRED"
                     if settings is None or transport is None
                     else "PRELIMINARY_TAGS_REQUIRED"
@@ -361,6 +371,16 @@ class LocalTagRunner:
                     review_inputs=None,
                     raw_candidate_review=raw_candidate_review,
                 )
+                if unattended:
+                    item.update(
+                        source_status=source_status(claim),
+                        provisional_grade=empty_provisional(reason),
+                        stage="preliminary",
+                    )
+                    progress[claim.claim_id] = item
+                    if not _source_traceable(claim, graph):
+                        item.update(reason="SOURCE_LOCATION_REQUIRED", status="failed")
+                        return item
                 track = context = relation_tags = None
                 # Paid preliminary replicas stay behind the source-quality gate; an
                 # unverified source never buys model calls to make progress.
@@ -467,6 +487,10 @@ class LocalTagRunner:
                     )
                     records.append(item)
                     continue
+                if unattended:
+                    item["original_packet"] = original_packet.to_dict()
+                    original_packet = unattended_packet(original_packet)
+                    item["stage"] = "relation"
                 if original_packet.to_dict()["status"] != "candidate":
                     item.update(
                         reason="EVIDENCE_PACKET_BLOCKED", original_packet=original_packet.to_dict()
@@ -480,6 +504,9 @@ class LocalTagRunner:
                     if snapshot.get("relation_settings") is not None:
                         external_roles = live.relations(claim, packet)
                         item["relation_records"] = live.relation_records.get(claim.claim_id, [])
+                        if external_roles is None and unattended:
+                            item["relation_reason"] = "RELATION_TAGS_UNRESOLVED"
+                            external_roles = {}
                         if external_roles is None:
                             item.update(
                                 reason="RELATION_TAGS_UNRESOLVED",
@@ -547,6 +574,8 @@ class LocalTagRunner:
                                 return runner.store.usage.mark_dispatched(call)
                         return runner.store.usage.mark_dispatched(call)
 
+                if unattended:
+                    item["stage"] = "elements"
                 tag_runs = tag_replicates(
                     packet,
                     context=context,
@@ -564,6 +593,7 @@ class LocalTagRunner:
                     token_counter=transport.token_counter,
                     count_input_tokens=live.count_input_tokens if live is not None else None,
                     now=lambda: int(self.clock()),
+                    pipeline_profile=snapshot.get("pipeline_profile"),
                     max_workers=(
                         1
                         if parallel_claims
@@ -581,6 +611,29 @@ class LocalTagRunner:
                     heartbeat_state.check()
                 if not self.store.jobs.can_call(lease, now=int(self.clock())):
                     raise LeaseLost("LEASE_LOST")
+                if unattended:
+                    rule_context = RuleContext(
+                        tenant,
+                        graph.document_version_id,
+                        claim.claim_id,
+                        packet.packet_sha256,
+                        mode=snapshot["mode"],
+                        local_synthetic=live is None,
+                    )
+                    item.update(
+                        tag_runs=[asdict(r) for r in tag_runs],
+                        frozen_packet=packet.to_dict(),
+                        stage="grade",
+                    )
+                    item.update(
+                        status="processed",
+                        stage="grade",
+                        provisional_grade=provisional_result(
+                            tag_runs, packet, rulepack, rule_context
+                        ),
+                        reason=None,
+                    )
+                    return item
                 consensus = form_consensus(
                     tag_runs,
                     packet=packet,
@@ -699,12 +752,70 @@ class LocalTagRunner:
                 records.append(item)
             return records[0]
 
+        def isolated_claim(claim):
+            nonlocal budget_stopped
+            if not unattended:
+                return process_claim(claim)
+            item = dict(
+                claim_id=claim.claim_id,
+                status="budget_unanalyzed",
+                stage="preliminary",
+                reason="BUDGET_EXHAUSTED",
+                reason_display="예산 상한으로 미분석",
+                source_status=source_status(claim),
+                tag_runs=[],
+                decision=None,
+                review_inputs=None,
+                provisional_grade=empty_provisional("BUDGET_EXHAUSTED"),
+            )
+            if budget_stopped:
+                return item
+            try:
+                result = process_claim(claim)
+            except (LeaseLost, TagHeartbeatFailed):
+                raise
+            except Exception as error:
+                from proofops.application.budget import BudgetExceeded
+
+                result = progress.get(claim.claim_id, item)
+                budget_error = isinstance(error, BudgetExceeded) or str(error) in {
+                    "BUDGET_EXHAUSTED",
+                    "R108_FINALS_BUDGET_EXHAUSTED",
+                    "R108_FINALS_CUMULATIVE_BUDGET_EXHAUSTED",
+                }
+                result.update(
+                    status="budget_unanalyzed" if budget_error else "failed",
+                    reason="BUDGET_EXHAUSTED"
+                    if budget_error
+                    else _unexpected_error_code(result["stage"], error),
+                )
+            encoded = canonical_json(
+                {
+                    k: result.get(k)
+                    for k in ("reason", "preliminary_records", "relation_records", "tag_runs")
+                }
+            )
+            if "BUDGET_EXHAUSTED" in encoded:
+                budget_stopped = True
+                result.update(
+                    status="budget_unanalyzed",
+                    reason="BUDGET_EXHAUSTED",
+                    reason_display="예산 상한으로 미분석",
+                )
+            if not result.get("tag_runs"):
+                result["provisional_grade"] = empty_provisional(result.get("reason"))
+            result.setdefault("provisional_grade", empty_provisional(result.get("reason")))
+            return result
+
         if parallel_claims:
             with ThreadPoolExecutor(max_workers=self.max_workers) as pool:
-                records = list(pool.map(process_claim, discovery.claims))
+                records = list(pool.map(isolated_claim, discovery.claims))
         else:
-            records = [process_claim(claim) for claim in discovery.claims]
-        decided = sum(item["status"] == "completed" for item in records)
+            records = [isolated_claim(claim) for claim in discovery.claims]
+        decided = sum(
+            bool(item.get("decision") and item["decision"]["decision_status"] == "decided")
+            for item in records
+        )
         stage_status = (
             "blocked"
             # Carried-forward claims already hold published review inputs, so the
@@ -716,6 +827,19 @@ class LocalTagRunner:
             if decided != len(records)
             else "completed"
         )
+        if unattended:
+            stage_status = "completed"
+            envelope["completion"] = dict(
+                claims_terminal=len(records),
+                claims_elements_attempted=sum(bool(r["tag_runs"]) for r in records),
+                claims_provisional_graded=sum(
+                    bool(r["provisional_grade"].get("evidence_grade")) for r in records
+                ),
+                claims_source_unverified=sum(
+                    r["source_status"]["status"] != "verified" for r in records
+                ),
+                budget_stopped=budget_stopped,
+            )
         envelope.update(
             claims=records,
             stage_status=stage_status,

@@ -127,6 +127,9 @@ class ClaimSummary(StrictDTO):
     topic_ids: list[str]
     decision: Decision | None
     revision: Annotated[int, Field(ge=1)]
+    source_status: dict | None = None
+    provisional_grade: dict | None = None
+    pipeline_stage: str | None = None
 
 
 class ClaimSummaryPage(StrictDTO):
@@ -185,6 +188,9 @@ class ReviewProjection(StrictDTO):
     blocked_action: str | None
     field_agreements: list[FieldAgreement]
     raw_candidates: list[RawCandidate] = Field(default_factory=list)
+    source_status: dict | None = None
+    provisional_grade: dict | None = None
+    pipeline_stage: str | None = None
 
 
 class ReviewedDimensions(StrictDTO):
@@ -398,7 +404,25 @@ def build_claims_router(claims, auth_store, *, tags=None, assurance=None, clock=
             blocked_action=action,
             field_agreements=agreements,
             raw_candidates=raw_candidates,
+            **(
+                {
+                    "source_status": item["source_status"],
+                    "provisional_grade": item["provisional_grade"],
+                    "pipeline_stage": item["stage"],
+                }
+                if "source_status" in item
+                else {}
+            ),
         )
+
+    def detail_payload(body):
+        result = ClaimDetail.model_validate_json(json.dumps(body)).model_dump(mode="json")
+        for key in ("source_status", "provisional_grade", "pipeline_stage"):
+            if result["claim"].get(key) is None:
+                result["claim"].pop(key, None)
+            if result.get("review_projection") and result["review_projection"].get(key) is None:
+                result["review_projection"].pop(key, None)
+        return result
 
     def failure(exc):
         if isinstance(exc, InvalidCatalogCursor):
@@ -471,6 +495,26 @@ def build_claims_router(claims, auth_store, *, tags=None, assurance=None, clock=
                     discovery.claims, key=lambda c: (c.source_refs[0].page_num, c.claim_id)
                 )
             ]
+            if (
+                tags is not None
+                and store.snapshot(tenant, str(run_id)).get("pipeline_profile") == "unattended-v1"
+            ):
+                try:
+                    provisional_items = {
+                        c["claim_id"]: c for c in tags.load_snapshot(tenant, str(run_id))["claims"]
+                    }
+                except KeyError as error:
+                    if error.args != ("tag_job",):
+                        raise
+                    provisional_items = {}
+                for item in items:
+                    projection = provisional_items.get(item["claim_id"])
+                    if projection:
+                        item.update(
+                            source_status=projection["source_status"],
+                            provisional_grade=projection["provisional_grade"],
+                            pipeline_stage=projection["stage"],
+                        )
             items = [
                 item
                 for item in items
@@ -581,7 +625,7 @@ def build_claims_router(claims, auth_store, *, tags=None, assurance=None, clock=
                     claim.tenant_id, str(run_id), claim, track=summary["track"], elements=[]
                 )
                 return JSONResponse(
-                    ClaimDetail.model_validate_json(json.dumps(body)).model_dump(mode="json"),
+                    detail_payload(body),
                     headers={"Cache-Control": "no-store"},
                 )
             if tags is None:
@@ -637,7 +681,7 @@ def build_claims_router(claims, auth_store, *, tags=None, assurance=None, clock=
                 inputs=inputs,
             )
             return JSONResponse(
-                ClaimDetail.model_validate_json(json.dumps(body)).model_dump(mode="json"),
+                detail_payload(body),
                 headers={"Cache-Control": "no-store", "ETag": f'"{tag["tag_revision"]}"'},
             )
         except (ValueError, KeyError, sqlite3.DatabaseError) as exc:
