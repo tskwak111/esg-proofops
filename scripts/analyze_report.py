@@ -731,7 +731,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--mixed-parser",
         action="store_true",
-        help="Opt-in MP1 mixed-v1: Upstage claims, native ODL evidence-only (claims<=10, union<=30).",
+        help="Opt-in MP1 mixed-v1: Upstage claims, native ODL evidence-only "
+        "(claims<=10, union<=30).",
     )
     parser.add_argument(
         "--mixed-ocr-max-pages",
