@@ -53,7 +53,7 @@ def project_decision(decision, *, elements=()):
     )
 
 
-def provisional_result(runs, packet, rulepack, context):
+def provisional_result(runs, packet, rulepack, context, *, range_profile=False):
     # Reuse the strict provenance/independent-replica validation, never its confirmation.
     form_consensus(
         runs,
@@ -170,4 +170,27 @@ def provisional_result(runs, packet, rulepack, context):
         headers[0][0],
         first.product_variant,
     )
-    return project_decision(evaluate(tags, context, rulepack), elements=elements)
+    result = project_decision(evaluate(tags, context, rulepack), elements=elements)
+    return ensure_range(result, rulepack, tags=tags, context=context) if range_profile else result
+
+
+def ensure_range(result, rulepack, *, tags=None, context=None):
+    """Only the integrated profile fills an empty display slot; confirmed data stays null."""
+    if result.get("evidence_grade"):
+        return result | dict(display_type="numeric")
+    if (
+        result.get("grade_basis") == "counterfactual_range"
+        and (result.get("grade_range") or {}).get("rule_pack_sha256") == rulepack.sha256
+    ):
+        return result
+    from proofops.domain.rules.engine import display_grade_range
+
+    grade_range = display_grade_range(rulepack, tags=tags, context=context)
+    return result | dict(
+        grade_range=grade_range,
+        display_type="range",
+        display="잠정·범위",
+        grade_basis="counterfactual_range",
+        label=None,
+        reason=result.get("reason") or "UNRESOLVED_EVIDENCE_OR_RULE",
+    )

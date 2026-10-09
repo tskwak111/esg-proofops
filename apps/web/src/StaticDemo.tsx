@@ -270,7 +270,7 @@ function CountUp({ value }: { value: number }) {
 }
 
 function gradeText(claim: Claim) {
-  if (claim.provisional_grade) return `${claim.provisional_grade.evidence_grade || "등급 산출 보류"} · 잠정·미확정`;
+  if (claim.provisional_grade) return `${claim.provisional_grade.evidence_grade || (claim.provisional_grade.grade_range ? `${claim.provisional_grade.grade_range.floor}~${claim.provisional_grade.grade_range.ceiling}` : "등급 산출 보류")} · ${claim.provisional_grade.evidence_grade ? "잠정·미확정" : "잠정·범위"}`;
   if (!claim.source_verified) return "원문 대조 필요";
   if (claim.decision.display_note) return claim.decision.display_grade ? `${claim.decision.display_grade} · 예비 등급` : "원문 대조 필요";
   if (claim.decision.grade) return claim.decision.grade;
@@ -287,7 +287,7 @@ const ladderElements: Record<string, Record<string, string[]>> = {
 };
 
 function gradeWhy(claim: Claim) {
-  if (claim.provisional_grade) return claim.provisional_grade.grade_basis === "reachable_floor" ? "미확인 요소를 그대로 유지한 상태에서 Python 규칙엔진이 계산한 가능한 등급의 하한입니다. 확정 판정 전입니다." : claim.provisional_grade.evidence_grade ? "검증된 인용과 잠정 합의 입력으로 Python 규칙엔진이 계산했습니다. 확정 판정 전입니다." : "원문 검증·분류 합의·규칙 적용 중 해결되지 않은 사유로 잠정 등급 산출을 보류했습니다.";
+  if (claim.provisional_grade) return claim.provisional_grade.grade_basis === "counterfactual_range" ? "미확인 요소와 미정 규칙의 가정을 표시용으로만 적용한 Python 규칙엔진의 등급 범위입니다. 확정 판정 전입니다." : claim.provisional_grade.grade_basis === "reachable_floor" ? "미확인 요소를 그대로 유지한 상태에서 Python 규칙엔진이 계산한 가능한 등급의 하한입니다. 확정 판정 전입니다." : claim.provisional_grade.evidence_grade ? "검증된 인용과 잠정 합의 입력으로 Python 규칙엔진이 계산했습니다. 확정 판정 전입니다." : "원문 검증·분류 합의·규칙 적용 중 해결되지 않은 사유로 잠정 등급 산출을 보류했습니다.";
   const decision = claim.decision;
   const ladder = ladderElements[claim.track || ""];
   const required = decision.grade === "E0" ? [] : decision.grade && ladder?.[decision.grade];

@@ -224,7 +224,7 @@ class RunService:
             if display_text_policy != POLICY or extraction_mode != "upstage_probe":
                 raise ValueError("DISPLAY_POLICY_MISMATCH")
             self.display_text_policy = _detach(display_text_policy)
-        if pipeline_profile not in (None, "unattended-v1"):
+        if pipeline_profile not in (None, "unattended-v1", "finals-unattended-v1"):
             raise ValueError("unknown pipeline profile")
         self.pipeline_profile = pipeline_profile
         self.tagging_settings, self.tagging_mode = tagging_settings, tagging_mode
@@ -430,6 +430,7 @@ class RunService:
                     if (
                         self.parser_profile["claim_physical_pages"]
                         != claim_pages_for(limits, pages)
+                        or pages is None
                         or len(pages) > 30
                     ):
                         raise ValueError("mixed claim/parser scope mismatch")
@@ -635,6 +636,11 @@ class RunService:
         )
         if self.pipeline_profile is not None:
             snapshot["pipeline_profile"] = self.pipeline_profile
+            if self.pipeline_profile == "finals-unattended-v1":
+                from proofops.application.analysis_profile import POLICY, POLICY_HASH
+
+                snapshot["analysis_profile_policy"] = _detach(POLICY)
+                snapshot["analysis_profile_policy_sha256"] = POLICY_HASH
         if self.extraction_profile is not None:
             snapshot.update(
                 extraction_profile=asdict(self.extraction_profile),

@@ -35,6 +35,7 @@ from proofops.application.tagging.consensus import (  # noqa: E402
 )
 from proofops.application.tagging.unattended import (  # noqa: E402
     empty_provisional,
+    ensure_range,
     project_decision,
 )
 from proofops.domain.rulepacks import RulePackSnapshot  # noqa: E402
@@ -204,9 +205,9 @@ def run_report(
     forwarded_for: str = "",
     pipeline_profile: str | None = None,
 ) -> dict:
-    if pipeline_profile not in (None, "unattended-v1"):
+    if pipeline_profile not in (None, "unattended-v1", "finals-unattended-v1"):
         raise LiveError(400, "INVALID_PIPELINE_PROFILE")
-    unattended = pipeline_profile == "unattended-v1"
+    unattended = pipeline_profile in ("unattended-v1", "finals-unattended-v1")
     passes = 3 if unattended else 1
     input_chars = 5000 if unattended else MAX_INPUT_CHARS
     required = os.getenv("DEMO_ACCESS_CODE", "")
@@ -247,9 +248,49 @@ def run_report(
     upstage_key, luna_key = os.getenv("UPSTAGE_API_KEY", ""), os.getenv("OPENROUTER_API_KEY", "")
     if (not upstage_key and parse is None) or (not luna_key and model is None):
         raise LiveError(503, "PROVIDER_NOT_CONFIGURED")
-    check_limits(forwarded_for)
+    integrated = pipeline_profile == "finals-unattended-v1"
+    check_limits(forwarded_for, combined_budget=integrated)
+    guard = None
+    if integrated:
+        from datetime import UTC, datetime
+
+        from proofops.adapters.local.spend_guard import SpendGuard
+
+        ledger = os.getenv("PROOFOPS_SPEND_LEDGER")
+        if not ledger:
+            raise LiveError(503, "COMBINED_BUDGET_NOT_CONFIGURED")
+        guard = SpendGuard(ledger, event_id=os.getenv("PROOFOPS_SPEND_EVENT", "finals-v1"))
+        guarded_run = str(uuid4())
+        guard.configure_run(guarded_run, day=datetime.now(UTC).date().isoformat())
+
+    def guarded_call(provider, bound, function, cost):
+        if guard is None:
+            return function()
+        from proofops.application.budget import BudgetExceeded
+
+        request_id = provider + ":" + str(uuid4())
+        try:
+            guard.reserve(guarded_run, provider, request_id, bound)
+        except BudgetExceeded as error:
+            raise LiveError(429, "BUDGET_EXHAUSTED") from error
+        try:
+            result = function()
+        except Exception:
+            guard.settle(request_id, None)
+            raise
+        guard.settle(request_id, cost(result))
+        return result
+
     started = monotonic()
-    response = (parse or (lambda data: parse_upstage(data, upstage_key)))(pdf)
+    from decimal import Decimal
+
+    parse_reservation = str(Decimal(len(pages)) * Decimal("0.011"))
+    response = guarded_call(
+        "upstage",
+        parse_reservation,
+        lambda: (parse or (lambda data: parse_upstage(data, upstage_key)))(pdf),
+        lambda _: parse_reservation,
+    )
     source = SourceArtifact(
         PACK.tenant_id, str(uuid4()), str(uuid4()), digest(pdf), str(uuid4()), pdf
     )
@@ -329,7 +370,18 @@ def run_report(
     }
     if len(json.dumps(extract_user, ensure_ascii=False)) > input_chars:
         raise LiveError(400, "REQUEST_COST_CAP")
-    invoke = model or (lambda system, user, cap: call_luna(system, user, cap, luna_key))
+    underlying = model or (lambda system, user, cap: call_luna(system, user, cap, luna_key))
+
+    def invoke(system, user, cap):
+        from decimal import Decimal
+
+        return guarded_call(
+            "openrouter",
+            "0.02",
+            lambda: underlying(system, user, cap),
+            lambda result: str(Decimal(str(result[1])) * Decimal("1.10")),
+        )
+
     extracted, cost1 = invoke(EXTRACT_SYSTEM, extract_user, MAX_MODEL_TOKENS[0])
     if not isinstance(extracted.get("claims"), list) or len(extracted["claims"]) > MAX_CLAIMS:
         raise LiveError(502, "EXTRACTION_INVALID")
@@ -570,6 +622,19 @@ def run_report(
         reviewable, _ = reviewable_decision(decision, PARTIAL_FACTS_V1, "needs_review")
         if unattended:
             claim["provisional_grade"] = project_decision(decision, elements=claim["elements"])
+            if pipeline_profile == "finals-unattended-v1":
+                claim["provisional_grade"] = ensure_range(
+                    claim["provisional_grade"],
+                    PACK,
+                    tags=tags,
+                    context=RuleContext(
+                        PACK.tenant_id,
+                        source.document_version_id,
+                        claim_id,
+                        packet_hash,
+                        local_synthetic=True,
+                    ),
+                )
             claim["blocked_reason"] = (
                 "예산 상한으로 미분석"
                 if any(
@@ -594,6 +659,9 @@ def run_report(
                 if gaps
                 else "추가 근거 확인 후 등급을 검토해야 합니다."
             )
+    if pipeline_profile == "finals-unattended-v1":
+        for claim in claims:
+            claim["provisional_grade"] = ensure_range(claim["provisional_grade"], PACK)
     return {
         "claims": claims,
         "pages": pages,

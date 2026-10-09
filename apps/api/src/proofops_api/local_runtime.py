@@ -311,7 +311,10 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
                 ) from None
             raise _invalid() from None
     if "pipeline_profile" in settings:
-        if settings["pipeline_profile"] != "unattended-v1" or not tagging_mode:
+        if (
+            settings["pipeline_profile"] not in ("unattended-v1", "finals-unattended-v1")
+            or not tagging_mode
+        ):
             raise _invalid()
         runtime["pipeline_profile"] = settings["pipeline_profile"]
     if "claim_source_policy" in settings:

@@ -160,6 +160,8 @@ def parse_bound(args, kwargs):
 
 
 def selected_provider() -> str:
+    if os.environ.get("PROOFOPS_ANALYSIS_PROFILE") == "finals-unattended-v1":
+        return "openai"
     provider = os.environ.get("PROOFOPS_LLM_PROVIDER", "openai")
     if provider not in ("openrouter", "openai"):
         raise ValueError("R108_FINALS_PROVIDER_INVALID")
@@ -223,9 +225,26 @@ def pilot_argv(
     ]
     pipeline_profile = os.environ.get("PROOFOPS_PIPELINE_PROFILE")
     if pipeline_profile:
-        if pipeline_profile != "unattended-v1":
+        if pipeline_profile not in ("unattended-v1", "finals-unattended-v1"):
             raise ValueError("unknown pipeline profile")
         argv += ["--pipeline-profile", pipeline_profile]
+<<<<<<< HEAD
+=======
+    if os.environ.get("PROOFOPS_ANALYSIS_PROFILE") == "finals-unattended-v1":
+        from evaluation.report_scope import inspect, validate_selection
+
+        proposal = inspect(pdf)
+        selection = validate_selection(proposal, proposal["source_sha256"], proposal["page_count"])
+        argv[argv.index("--pages") + 1] = ",".join(map(str, selection["pages"]))
+        argv += [
+            "--claim-pages",
+            ",".join(map(str, selection["claim_pages"])),
+            "--analysis-profile",
+            "finals-unattended-v1",
+        ]
+    if decision_v2:
+        argv += ["--preliminary-profile", "decision-v2"]
+>>>>>>> ec9ebbc (feat(pipeline): integrate unattended profiles and rules-only grade ranges)
     if r108_finals_candidate_v2:
         argv.append("--r108-finals-candidate-v2")
     elif r108_finals_candidate:
@@ -235,8 +254,14 @@ def pilot_argv(
 
 def configure_concurrency() -> int:
     """Use the worker's bounded default while respecting an operator's lower cap."""
+    if os.environ.get("PROOFOPS_ANALYSIS_PROFILE") == "finals-unattended-v1":
+        from proofops.adapters.local.profile_runtime import profile_workers
+
+        workers = profile_workers()
+    else:
+        workers = None
     try:
-        workers = int(os.environ.get("LOCAL_LLM_MAX_WORKERS", "8"))
+        workers = workers or int(os.environ.get("LOCAL_LLM_MAX_WORKERS", "8"))
     except ValueError:
         raise ValueError("LOCAL_LLM_CONFIGURATION_INVALID") from None
     if not 1 <= workers <= 16:

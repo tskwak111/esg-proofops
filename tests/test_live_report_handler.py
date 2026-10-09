@@ -112,3 +112,70 @@ def fake_usage_check(monkeypatch):
 
     _limits._recent.clear()
     monkeypatch.setattr(_limits, "daily_usage", lambda: 0.0)
+
+
+def test_integrated_public_profile_gives_unclassified_claim_a_range(monkeypatch, tmp_path):
+    monkeypatch.setenv("DEMO_ACCESS_CODE", "secret")
+    writer = PdfWriter()
+    writer.add_blank_page(600, 800)
+    stream = io.BytesIO()
+    writer.write(stream)
+    monkeypatch.setenv("PROOFOPS_SPEND_LEDGER", str(tmp_path / "event.sqlite3"))
+    quote = "환경 경영을 실천합니다."
+    parsed = {
+        "model": "document-parse-260128",
+        "usage": {"standard": [1], "pages": 1},
+        "elements": [
+            {
+                "page": 1,
+                "category": "paragraph",
+                "coordinates": [
+                    {"x": 0.1, "y": 0.1},
+                    {"x": 0.9, "y": 0.1},
+                    {"x": 0.9, "y": 0.2},
+                    {"x": 0.1, "y": 0.2},
+                ],
+                "content": {"text": quote},
+            }
+        ],
+    }
+
+    def model(system, user, cap):
+        return {"claims": [{"block": 0, "quote": quote, "track": None}]}, 0.0001
+
+    result = report.run_report(
+        stream.getvalue(),
+        [1],
+        access_code="secret",
+        parse=lambda _: parsed,
+        model=model,
+        pipeline_profile="finals-unattended-v1",
+    )
+    item = result["claims"][0]
+    assert item["decision"] is None and item["source_status"]["display"] == "원문 확인 필요"
+    assert item["provisional_grade"]["display_type"] == "range"
+    assert item["provisional_grade"]["grade_range"]["floor"] == "E0"
+    assert item["provisional_grade"]["grade_range"]["ceiling"] == "E3"
+
+
+def test_integrated_profile_refuses_dispatch_without_combined_ledger(monkeypatch):
+    monkeypatch.setenv("DEMO_ACCESS_CODE", "secret")
+    monkeypatch.delenv("PROOFOPS_SPEND_LEDGER", raising=False)
+    writer = PdfWriter()
+    writer.add_blank_page(600, 800)
+    stream = io.BytesIO()
+    writer.write(stream)
+
+    def deny(*_):
+        raise AssertionError("no dispatch without atomic ledger")
+
+    with pytest.raises(report.LiveError) as error:
+        report.run_report(
+            stream.getvalue(),
+            [1],
+            access_code="secret",
+            parse=deny,
+            model=deny,
+            pipeline_profile="finals-unattended-v1",
+        )
+    assert error.value.code == "COMBINED_BUDGET_NOT_CONFIGURED"

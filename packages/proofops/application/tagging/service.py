@@ -226,10 +226,11 @@ def tag_replicates(
         raise DomainValidationError("immutable packet and claim context required")
     data = packet.to_dict()
     claim = context.claim
-    if pipeline_profile not in (None, "unattended-v1"):
+    if pipeline_profile not in (None, "unattended-v1", "finals-unattended-v1"):
         raise DomainValidationError("unknown pipeline profile")
     unattended = (
-        pipeline_profile == "unattended-v1" and data.get("pipeline_profile") == pipeline_profile
+        pipeline_profile in ("unattended-v1", "finals-unattended-v1")
+        and data.get("pipeline_profile") == pipeline_profile
     )
     if not isinstance(track, TrackCandidate) or track.claim != claim:
         raise DomainValidationError("track/claim identity mismatch")

@@ -153,10 +153,10 @@ def freeze_packet(packet: Mapping[str, Any]) -> EvidencePacket:
     return EvidencePacket(payload, canonical_hash(json.loads(payload)))
 
 
-def unattended_packet(packet: EvidencePacket) -> EvidencePacket:
+def unattended_packet(packet: EvidencePacket, *, profile="unattended-v1") -> EvidencePacket:
     data = packet.to_dict()
     data["unattended_retrieval_sha256"] = packet.packet_sha256
-    data["pipeline_profile"] = "unattended-v1"
+    data["pipeline_profile"] = profile
     data["status"] = "candidate"
     return freeze_packet(data)
 

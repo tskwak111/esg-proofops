@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, replace
 from datetime import UTC, datetime
 from threading import Lock
@@ -50,7 +50,7 @@ def _candidate_extract(live, packet, snapshot):
         return live.extract(packet)
     except ValueError as error:
         code = str(error)
-        if snapshot.get("pipeline_profile") == "unattended-v1" and (
+        if snapshot.get("pipeline_profile") in ("unattended-v1", "finals-unattended-v1") and (
             code
             in {
                 "OPENAI_HTTP_503",
@@ -77,7 +77,7 @@ def _is_text_candidate(kind: str, text: str, *, extraction_table_rows=False) -> 
     return kind == "paragraph" or (kind == "heading" and len(text.strip()) >= 60)
 
 
-def prefetch_packets(packets, invoke, *, max_workers=16):
+def prefetch_packets(packets, invoke, *, max_workers=16, on_page=None):
     """Run paid packets concurrently; replay their outcomes in source order."""
 
     def settle(packet):
@@ -87,13 +87,27 @@ def prefetch_packets(packets, invoke, *, max_workers=16):
             return error
 
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
-        return dict(
-            zip(
-                (packet["untrusted_document_data"]["source_id"] for packet in packets),
-                pool.map(settle, packets),
-                strict=True,
+        if on_page is None:
+            return dict(
+                zip(
+                    (p["untrusted_document_data"]["source_id"] for p in packets),
+                    pool.map(settle, packets),
+                    strict=True,
+                )
             )
-        )
+        pending = {pool.submit(settle, packet): packet for packet in packets}
+        by_page, paid, counts = {}, {}, {}
+        for packet in packets:
+            page = packet["untrusted_document_data"]["page_num"]
+            counts[page] = counts.get(page, 0) + 1
+        for future in as_completed(pending):
+            data = pending[future]["untrusted_document_data"]
+            page, sid = data["page_num"], data["source_id"]
+            paid[sid] = future.result()
+            by_page.setdefault(page, {})[sid] = paid[sid]
+            if len(by_page[page]) == counts[page]:
+                on_page(page, by_page[page])
+        return paid
 
 
 def paragraph_priority(block):
@@ -787,6 +801,7 @@ class LocalExtractRunner:
                                 sync_usage()
 
                     selected_extractor = FencedExtractor()
+                    page_pipeline = None
                     if is_real and getattr(
                         getattr(self.extractor, "_probe", None), "model", None
                     ) in ("openai/gpt-6-luna", "gpt-6-luna"):
@@ -818,8 +833,21 @@ class LocalExtractRunner:
                         base_extractor = selected_extractor
                         if hasattr(live_extractor, "prefetch"):
                             live_extractor.prefetch(packets)
+                        if snapshot.get("pipeline_profile") == "finals-unattended-v1":
+                            from proofops_worker.unattended_pipeline import PageTagPipeline
+
+                            parse_run = self.store.jobs.get_run(tenant_id, run_id)
+                            parse_checkpoint = self.store.jobs.read_checkpoint(
+                                JobMessage(**parse_run["parse_job"])
+                            )
+                            page_pipeline = PageTagPipeline(
+                                self, snapshot, graph, profile, lease, parse_checkpoint
+                            )
                         paid = prefetch_packets(
-                            packets, base_extractor.extract, max_workers=self.max_workers
+                            packets,
+                            base_extractor.extract,
+                            max_workers=self.max_workers,
+                            on_page=page_pipeline.ready if page_pipeline else None,
                         )
 
                         class PrefetchedExtractor:
@@ -846,6 +874,8 @@ class LocalExtractRunner:
                     coverage = discovery_coverage(
                         json.loads(checkpoint)["coverage"], graph, discovery
                     )
+                    if page_pipeline is not None:
+                        payload["page_tag_pipeline"] = page_pipeline.finish()
                     payload.update(
                         discovery=asdict(discovery),
                         synthetic=discovery.synthetic,
@@ -872,7 +902,7 @@ class LocalExtractRunner:
                             source=source.content,
                             refs=discovery_refs(discovery),
                             tenant_id=tenant_id,
-                            cache=False,
+                            cache=snapshot.get("pipeline_profile") == "finals-unattended-v1",
                             run_id=run_id,
                         )
                     return canonical_json(payload).encode(), usage

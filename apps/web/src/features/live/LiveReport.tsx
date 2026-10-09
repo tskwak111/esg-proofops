@@ -102,7 +102,7 @@ export function LiveReport({ file, renderClaims }: { file: File; renderClaims?: 
         }
         setStage(`문서 파싱 · 원문 대조 · 규칙 판정 중 (${i + 1}/${chunks.length}묶음)`);
         const response = await fetch("/api/live-report", { method: "POST", body: new Blob([new Uint8Array(bytes)], { type: "application/pdf" }),
-          headers: { "X-Demo-Access-Code": code, "X-Page-Numbers": JSON.stringify(chunks[i]), ...(unattended ? { "X-Pipeline-Profile": "unattended-v1" } : {}) }, cache: "no-store" });
+          headers: { "X-Demo-Access-Code": code, "X-Page-Numbers": JSON.stringify(chunks[i]), ...(unattended ? { "X-Pipeline-Profile": import.meta.env.VITE_ANALYSIS_PROFILE || "unattended-v1" } : {}) }, cache: "no-store" });
         const data = await response.json().catch(() => ({})) as Result & { error?: string };
         if (response.status === 403) throw new Error(errors[data.error || ""] || "접근 키를 확인해 주세요.");
         if (!response.ok || !Array.isArray(data.claims)) {
@@ -150,7 +150,7 @@ export function LiveReport({ file, renderClaims }: { file: File; renderClaims?: 
       {renderClaims ? renderClaims(result.claims) : <ol>{result.claims.map((claim, index) => <li key={`${claim.page}-${index}`}>
         <div className="live-report-claim-head"><strong>{claim.page}쪽 · {claim.track ? tracks[claim.track] || claim.track : "분류 검토 필요"}</strong><span>{claim.source_status?.display || (claim.source_verified ? "원문 확인" : "원문 대조 필요")}</span></div>
         <blockquote>{claim.quote}</blockquote>
-        {claim.provisional_grade && <p>{claim.provisional_grade.evidence_grade || "등급 산출 보류"} · {claim.provisional_grade.display}{claim.provisional_grade.grade_basis === "reachable_floor" ? " · 확인된 근거 기준 하한" : ""}</p>}
+        {claim.provisional_grade && <p>{claim.provisional_grade.evidence_grade || (claim.provisional_grade.grade_range ? `${claim.provisional_grade.grade_range.floor}~${claim.provisional_grade.grade_range.ceiling}` : "등급 산출 보류")} · {claim.provisional_grade.display}{claim.provisional_grade.grade_basis === "reachable_floor" ? " · 확인된 근거 기준 하한" : ""}</p>}
         {claim.decision?.decision_status === "blocked_rule_gap" ? <p>{claim.blocked_reason}</p> : claim.decision?.evidence_grade ? <p>규칙 판정 {claim.decision.evidence_grade}</p> : claim.decision?.grade_range ? <p>가능 범위 {claim.decision.grade_range.floor}–{claim.decision.grade_range.ceiling} · 검토 필요</p> : <p>{claim.blocked_reason || "판정 검토 필요"}</p>}
         {claim.elements.length > 0 && <details><summary>요소와 근거</summary><ul>{claim.elements.map(element => <li key={element.name}><strong>{getElementLabel(element.element_id)}</strong> · {element.state === "present" ? "근거 확인" : "미확인"}{element.quote && <q>{element.quote}</q>}</li>)}</ul></details>}
       </li>)}</ol>}

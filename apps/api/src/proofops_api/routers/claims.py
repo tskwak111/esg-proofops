@@ -495,9 +495,9 @@ def build_claims_router(claims, auth_store, *, tags=None, assurance=None, clock=
                     discovery.claims, key=lambda c: (c.source_refs[0].page_num, c.claim_id)
                 )
             ]
-            if (
-                tags is not None
-                and store.snapshot(tenant, str(run_id)).get("pipeline_profile") == "unattended-v1"
+            if tags is not None and store.snapshot(tenant, str(run_id)).get("pipeline_profile") in (
+                "unattended-v1",
+                "finals-unattended-v1",
             ):
                 try:
                     provisional_items = {

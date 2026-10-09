@@ -705,6 +705,15 @@ def apply_resume_metadata(args, saved: dict) -> None:
 
 
 def run_live_stages(args, *, tenant_id: str, run_id: str) -> dict:
+    if getattr(args, "pipeline_profile", None) == "finals-unattended-v1":
+        from proofops.adapters.local.profile_runtime import spend_session
+
+        with spend_session(run_id):
+            return _run_live_stages(args, tenant_id=tenant_id, run_id=run_id)
+    return _run_live_stages(args, tenant_id=tenant_id, run_id=run_id)
+
+
+def _run_live_stages(args, *, tenant_id: str, run_id: str) -> dict:
     """Drive paid stages, preserving a machine-readable stop before inspection."""
     from proofops_worker.composition import build_composition
 
@@ -728,7 +737,8 @@ def run_live_stages(args, *, tenant_id: str, run_id: str) -> dict:
                 and args.extraction_total_calls is not None
                 and args.extraction_total_calls > args.max_calls
                 and not (
-                    getattr(args, "pipeline_profile", None) == "unattended-v1"
+                    getattr(args, "pipeline_profile", None)
+                    in ("unattended-v1", "finals-unattended-v1")
                     and "tag_job" in worker.store.jobs.get_run(tenant, run_id)
                 )
             ):
@@ -941,7 +951,7 @@ def main():
     parser.add_argument("--invoke", action="store_true")
     parser.add_argument(
         "--pipeline-profile",
-        choices=["unattended-v1"],
+        choices=["unattended-v1", "finals-unattended-v1"],
         help="New run only: read-only provisional results and claim-isolated completion.",
     )
     parser.add_argument("--live-tagging", action="store_true")
@@ -1131,7 +1141,11 @@ def main():
         "sentence context with E2E3 fallback; excludes table rows, recall, atomic and P1/P2. "
         "Does not authorize model calls.",
     )
+    parser.add_argument("--analysis-profile", choices=["finals-unattended-v1"])
     args = parser.parse_args()
+    from proofops.application.analysis_profile import apply_pilot_profile
+
+    apply_pilot_profile(args)
     try:
         apply_finals_candidate(args)
     except ValueError as exc:

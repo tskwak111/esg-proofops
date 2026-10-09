@@ -47,6 +47,7 @@ from proofops.application.tagging.unattended import (
     source_status,
 )
 from proofops.application.telemetry import TraceContext
+from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import RulePackSnapshot, canonical_json
 from proofops.domain.rules.engine import RuleContext, evaluate
 
@@ -225,20 +226,23 @@ class LocalTagRunner:
         reprocess=None,
         heartbeat_state=None,
         deferred=None,
+        evidence=None,
     ):
         message = lease.message
         tenant, run_id = message.tenant_id, message.run_id
-        extraction, discovery, graph = self.claims.load_evidence(tenant, run_id)
+        extraction, discovery, graph = evidence or self.claims.load_evidence(tenant, run_id)
         run = self.store.jobs.get_run(tenant, run_id)
         if (message.input_hash, message.document_version_id) != (
             snapshot["input_hash"],
             graph.document_version_id,
         ):
             raise ValueError("TAG_INPUT_MISMATCH")
-        envelope = tag_pins(snapshot, extraction, run["claim_snapshot_sha256"])
+        envelope = tag_pins(
+            snapshot, extraction, run.get("claim_snapshot_sha256", canonical_hash(extraction))
+        )
         rulepack = RulePackSnapshot(**snapshot["rulepack"])
         settings = tagging_settings(snapshot) if snapshot.get("tagging_settings") else None
-        unattended = snapshot.get("pipeline_profile") == "unattended-v1"
+        unattended = snapshot.get("pipeline_profile") in ("unattended-v1", "finals-unattended-v1")
         live = None
         transport, preliminary_supplier = self.transport, self.preliminary
         if snapshot.get("tagging_mode") == "upstage_local":
@@ -289,6 +293,19 @@ class LocalTagRunner:
 
         progress = {}
         budget_stopped = False
+        pipelined = {}
+        if evidence is None and snapshot.get("pipeline_profile") == "finals-unattended-v1":
+            raw_claims = {c["claim_id"]: c for c in extraction["discovery"]["claims"]}
+            for page in extraction.get("page_tag_pipeline", []):
+                if page.get("claims") and page.get("graph_sha256") != extraction["graph_sha256"]:
+                    raise ValueError("PIPELINE_GRAPH_MISMATCH")
+                for record in page["claims"]:
+                    cid = record["claim_id"]
+                    if cid in pipelined or page["claim_hashes"].get(cid) != canonical_hash(
+                        raw_claims[cid]
+                    ):
+                        raise ValueError("PIPELINE_CLAIM_MISMATCH")
+                    pipelined[cid] = record
 
         def process_claim(claim):
             records = []
@@ -489,7 +506,9 @@ class LocalTagRunner:
                     continue
                 if unattended:
                     item["original_packet"] = original_packet.to_dict()
-                    original_packet = unattended_packet(original_packet)
+                    original_packet = unattended_packet(
+                        original_packet, profile=snapshot["pipeline_profile"]
+                    )
                     item["stage"] = "relation"
                 if original_packet.to_dict()["status"] != "candidate":
                     item.update(
@@ -629,7 +648,12 @@ class LocalTagRunner:
                         status="processed",
                         stage="grade",
                         provisional_grade=provisional_result(
-                            tag_runs, packet, rulepack, rule_context
+                            tag_runs,
+                            packet,
+                            rulepack,
+                            rule_context,
+                            range_profile=snapshot.get("pipeline_profile")
+                            == "finals-unattended-v1",
                         ),
                         reason=None,
                     )
@@ -754,6 +778,10 @@ class LocalTagRunner:
 
         def isolated_claim(claim):
             nonlocal budget_stopped
+            if claim.claim_id in pipelined:
+                record = dict(pipelined[claim.claim_id])
+                record["source_status"] = source_status(claim)
+                return record
             if not unattended:
                 return process_claim(claim)
             item = dict(
@@ -769,6 +797,10 @@ class LocalTagRunner:
                 provisional_grade=empty_provisional("BUDGET_EXHAUSTED"),
             )
             if budget_stopped:
+                if snapshot.get("pipeline_profile") == "finals-unattended-v1":
+                    from proofops.application.tagging.unattended import ensure_range
+
+                    item["provisional_grade"] = ensure_range(item["provisional_grade"], rulepack)
                 return item
             try:
                 result = process_claim(claim)
@@ -805,6 +837,10 @@ class LocalTagRunner:
             if not result.get("tag_runs"):
                 result["provisional_grade"] = empty_provisional(result.get("reason"))
             result.setdefault("provisional_grade", empty_provisional(result.get("reason")))
+            if snapshot.get("pipeline_profile") == "finals-unattended-v1":
+                from proofops.application.tagging.unattended import ensure_range
+
+                result["provisional_grade"] = ensure_range(result["provisional_grade"], rulepack)
             return result
 
         if parallel_claims:

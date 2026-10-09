@@ -60,8 +60,12 @@ def daily_usage():
         raise LiveError(503, "LIMIT_CHECK_UNAVAILABLE") from exc
 
 
-def check_limits(forwarded_for: str):
-    daily = _setting("LIVE_DAILY_LUNA_USD", "0.50")
+def check_limits(forwarded_for: str, *, combined_budget=False):
+    daily = (
+        min(7.0, _setting("LIVE_DAILY_LUNA_USD", "7"))
+        if combined_budget
+        else _setting("LIVE_DAILY_LUNA_USD", "0.50")
+    )
     per_ip = _setting("LIVE_IP_PER_MINUTE", "6", integer=True)
     total = _setting("LIVE_TOTAL_PER_MINUTE", "20", integer=True)
     ip = forwarded_for.split(",", 1)[0].strip() or "unknown"

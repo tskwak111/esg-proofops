@@ -449,7 +449,15 @@ def build_pilot_argv(
 
 
 def plan_run(args: argparse.Namespace) -> dict:
-    """Validate all inputs and produce the run plan. No side effects."""
+    """Validate inputs and produce the explicit plan."""
+    if getattr(args, "analysis_profile", None) == "finals-unattended-v1":
+        args.mixed_parser = True
+        if args.key_file == DEFAULT_KEY_FILE:
+            args.key_file = PROJECT_ROOT / ".env.openai.local"
+        if not args.pages and not getattr(args, "scope_plan", None):
+            args.auto_scope = True
+            args.auto_scope_policy = "bounded-v1"
+        args.parser_max_output_bytes = args.parser_max_output_bytes or 134217728
     pdf = args.pdf.expanduser().resolve()
     auto_scope_proposal: dict | None = None
     auto_scope_applied: dict | None = None
@@ -625,6 +633,8 @@ def plan_run(args: argparse.Namespace) -> dict:
         mixed_parser=mixed_parser,
         mixed_ocr_max_pages=mixed_ocr_max_pages,
     )
+    if getattr(args, "analysis_profile", None):
+        argv += ["--analysis-profile", args.analysis_profile]
     return {
         "argv": argv,
         "state": state,
@@ -728,6 +738,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="analyze_report",
         description="Analyze a new report PDF via the local pilot. Dry plan unless --invoke.",
     )
+    parser.add_argument("--analysis-profile", choices=["finals-unattended-v1"])
     parser.add_argument(
         "--mixed-parser",
         action="store_true",
