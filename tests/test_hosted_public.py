@@ -25,6 +25,9 @@ def settings(tmp_path):
         origin=ORIGIN,
         secret="x" * 40,
         event_id="p1-test",
+        run_usd=Decimal("0.50"),
+        day_usd=Decimal("5"),
+        event_usd=Decimal("5"),
         accept_uploads=True,
         consent_version="proposal-test-v1",
         backend="r108",
@@ -174,14 +177,14 @@ def test_real_upload_tenant_isolation_run_poll_and_purge(store, settings):
     assert (
         second.post(
             "/v1/runs",
-            json={"document_id": document_id},
+            json={"document_id": document_id, "selected_pages": [1, 2]},
             headers=h2 | {"Idempotency-Key": "run-cross-key001"},
         ).status_code
         == 404
     )
     response = first.post(
         "/v1/runs",
-        json={"document_id": document_id},
+        json={"document_id": document_id, "selected_pages": [1, 2]},
         headers=h | {"Idempotency-Key": "run-http-key0001"},
     )
     assert response.status_code == 202, response.text

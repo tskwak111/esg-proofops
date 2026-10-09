@@ -20,7 +20,7 @@ from proofops_api.hosted_store import HostedSettings, HostedStore
 from proofops_worker.composition import build_composition
 
 
-def prepare_argv(pdf, state, tenant, config):
+def prepare_argv(pdf, state, tenant, config, options=None):
     from pypdf import PdfReader
 
     pages = ",".join(str(p) for p in range(1, len(PdfReader(pdf).pages) + 1))
@@ -80,6 +80,19 @@ def prepare_argv(pdf, state, tenant, config):
         "--display-text-profile",
         "glyph-joined-display-v1",
     ]
+    options = options or {}
+    if options.get("pipeline_profile") == "unattended-v1":
+        argv += ["--pipeline-profile", "unattended-v1"]
+    if options.get("claim_pages"):
+        physical = [int(p) for p in pages.split(",")]
+        # Prepared PDF is a subset: map original physical pages to its own 1-based pages.
+        page_map = options["pages"]
+        claim_pages = [
+            i
+            for i, original in zip(physical, page_map, strict=True)
+            if original in options["claim_pages"]
+        ]
+        argv += ["--claim-pages", ",".join(str(p) for p in claim_pages)]
     if profiles["analysis_profile"] in ("r108-finals-candidate", "r108-finals-candidate-v2"):
         v2 = profiles["analysis_profile"] == "r108-finals-candidate-v2"
         argv[argv.index("--vision-parse") + 1] = "auto"
@@ -109,7 +122,9 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
 
     state = workspace / "state"
     old_argv = sys.argv
-    sys.argv = prepare_argv(workspace / "selected.pdf", state, job["tenant_id"], config)
+    sys.argv = prepare_argv(
+        workspace / "selected.pdf", state, job["tenant_id"], config, store.run_options(job)
+    )
     try:
         if pilot.main() != 0:
             raise ValueError("HOSTED_PREPARATION_FAILED")
@@ -193,6 +208,8 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
         stage_seconds=stage_seconds,
         reason=None if complete else "R108_" + observed[-1]["outcome"].upper(),
         profiles=operator_profiles(config),
+        scope=store.run_options(job),
+        pipeline_profile=store.run_options(job).get("pipeline_profile", "strict-v1"),
         reporting_scope={k: config[k] for k in ("report_year", "period_start", "period_end")},
     )
     (state / "outcome.json").write_text(json.dumps(result))

@@ -179,8 +179,8 @@ def test_fake_full_chain_upload_run_result_review_delete(settings, monkeypatch):
     document = response.json()["document_id"]
     accepted = client.post(
         "/v1/runs",
-        json=dict(document_id=document),
-        headers=h | {"Idempotency-Key": "p2-run-000000001"},
+        json=dict(document_id=document, selected_pages=[1, 2]),
+        headers=h | {"Idempotency-Key": "p2-run-000000001", "X-Pipeline-Profile": "strict-v1"},
     )
     assert accepted.status_code == 202, accepted.text
     run = accepted.json()

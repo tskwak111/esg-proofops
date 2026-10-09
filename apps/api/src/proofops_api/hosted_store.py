@@ -98,9 +98,9 @@ class HostedSettings:
     active_days: int = 7
     backup_days: int = 14
     audit_days: int = 30
-    run_usd: Decimal = Decimal("0.50")
-    day_usd: Decimal = Decimal("5")
-    event_usd: Decimal = Decimal("5")
+    run_usd: Decimal = Decimal("1.0")
+    day_usd: Decimal = Decimal("7")
+    event_usd: Decimal = Decimal("7")
 
     def __post_init__(self) -> None:
         from urllib.parse import urlsplit
@@ -141,9 +141,9 @@ class HostedSettings:
             raise ValueError("limits exceed P1 ceilings")
         if not self.active_days <= self.backup_days <= self.audit_days:
             raise ValueError("retention order invalid")
-        for amount, ceiling in ((self.run_usd, "0.50"), (self.day_usd, "5"), (self.event_usd, "5")):
+        for amount, ceiling in ((self.run_usd, "1.0"), (self.day_usd, "7"), (self.event_usd, "7")):
             if not 0 < micros(amount) <= micros(ceiling):
-                raise ValueError("budget exceeds DEC-19 ceilings")
+                raise ValueError("budget exceeds DEC-22 ceilings")
 
     @classmethod
     def from_env(cls, env: Any) -> HostedSettings:
@@ -170,9 +170,9 @@ class HostedSettings:
             active_days=int(env.get("HOSTED_ACTIVE_DAYS", "7")),
             backup_days=int(env.get("HOSTED_BACKUP_DAYS", "14")),
             audit_days=int(env.get("HOSTED_AUDIT_DAYS", "30")),
-            run_usd=Decimal(env.get("HOSTED_RUN_USD", "0.50")),
-            day_usd=Decimal(env.get("HOSTED_DAY_USD", "5")),
-            event_usd=Decimal(env.get("HOSTED_EVENT_USD", "5")),
+            run_usd=Decimal(env.get("HOSTED_RUN_USD", "1.0")),
+            day_usd=Decimal(env.get("HOSTED_DAY_USD", "7")),
+            event_usd=Decimal(env.get("HOSTED_EVENT_USD", "7")),
         )
 
 
@@ -592,6 +592,8 @@ class HostedStore:
             "document_id": row["document_id"],
             "status": row["status"],
             "selected_pages": json.loads(row["pages"]),
+            "claim_pages": self.run_options(row).get("claim_pages", json.loads(row["pages"])),
+            "pipeline_profile": self.run_options(row).get("pipeline_profile", "strict-v1"),
             "status_url": f'/v1/runs/{row["run_id"]}',
             "profile": "r108-hosted-sprint5-v1",
             "stage": progress["stage"] if progress else row["status"],
@@ -662,8 +664,141 @@ class HostedStore:
             if lock is not None:
                 lock.close()
 
+    def _scope(self, db, tenant: str, document: str) -> dict:
+        doc = self._document(db, tenant, document)
+        if time.time() >= doc["expires"]:
+            raise HostedError("SOURCE_EXPIRED")
+        paths = sorted(self.document_dir(tenant, document).glob("scope-*.json"))
+        if not paths:
+            raise HostedError("SCOPE_PLAN_REQUIRED")
+        scope = json.loads(paths[-1].read_text())
+        from evaluation.report_scope import validate_selection
+
+        if scope["plan"]["source_sha256"] != doc["sha256"]:
+            raise HostedError("SOURCE_HASH_MISMATCH")
+        if scope["plan"]["status"] != "failed":
+            try:
+                selection = validate_selection(scope["plan"], doc["sha256"], doc["page_count"])
+            except (ValueError, KeyError, TypeError):
+                raise HostedError("SCOPE_INTEGRITY_INVALID") from None
+            if selection != scope["selection"]:
+                raise HostedError("SCOPE_INTEGRITY_INVALID")
+        return scope
+
+    def get_scope(self, tenant: str, document: str) -> dict:
+        with self.transaction() as db:
+            return self._scope(db, tenant, document)
+
+    def generate_scope(self, auth, document: str) -> dict:
+        if not auth.has_capability("editor"):
+            raise HostedError("FORBIDDEN", 403)
+        with self.transaction() as db:
+            doc = dict(self._document(db, auth.tenant_id, document))
+            path = self.document_dir(auth.tenant_id, document)
+            if list(path.glob("scope-*.json")):
+                return self._scope(db, auth.tenant_id, document)
+            if time.time() >= doc["expires"]:
+                raise HostedError("SOURCE_EXPIRED")
+        # Share the cross-process upload slot with validation on the 4GiB host.
+        with (self.settings.root / "upload.lock").open("a+b") as lease:
+            os.fchmod(lease.fileno(), 0o600)
+            try:
+                fcntl.flock(lease, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                raise HostedError("UPLOAD_BUSY", 429) from None
+            with TemporaryDirectory(prefix="proofops-scope-") as scratch:
+                output = Path(scratch) / "plan.json"
+                try:
+                    subprocess.run(
+                        [
+                            sys.executable,
+                            "-m",
+                            "proofops_api.hosted_scope",
+                            str(path / "original.pdf"),
+                            str(output),
+                        ],
+                        timeout=90,
+                        check=True,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                except (subprocess.SubprocessError, OSError):
+                    raise HostedError("SCOPE_INSPECTION_FAILED", 422) from None
+                plan = json.loads(output.read_text())
+        from evaluation.report_scope import validate_selection
+
+        selection = (
+            None
+            if plan["status"] == "failed"
+            else validate_selection(plan, doc["sha256"], doc["page_count"])
+        )
+        with self.transaction() as db:
+            current = self._document(db, auth.tenant_id, document)
+            if time.time() >= current["expires"]:
+                raise HostedError("SOURCE_EXPIRED")
+            if plan["source_sha256"] != current["sha256"]:
+                raise HostedError("SOURCE_HASH_MISMATCH")
+            if list(path.glob("scope-*.json")):
+                return self._scope(db, auth.tenant_id, document)
+            scope = dict(revision=1, plan=plan, selection=selection)
+            self._write(path / "scope-000001.json", json.dumps(scope).encode())
+            return scope
+
+    def edit_scope(self, auth, document, claims, evidence, if_match):
+        if not auth.has_capability("editor"):
+            raise HostedError("FORBIDDEN", 403)
+        with self.transaction() as db:
+            scope = self._scope(db, auth.tenant_id, document)
+            if if_match is None:
+                raise HostedError("IF_MATCH_REQUIRED", 428)
+            if if_match != f'"{scope["revision"]}"':
+                raise HostedError("SCOPE_CONFLICT", 412)
+            if scope["plan"]["status"] == "failed":
+                raise HostedError("SCOPE_PLAN_FAILED", 422)
+            doc = self._document(db, auth.tenant_id, document)
+            plan = scope["plan"] | dict(
+                selected_claim_pages=claims, selected_evidence_pages=evidence
+            )
+            from evaluation.report_scope import validate_selection
+
+            try:
+                selection = validate_selection(plan, doc["sha256"], doc["page_count"])
+            except (ValueError, KeyError, TypeError):
+                raise HostedError("PAGE_SELECTION_INVALID", 422) from None
+            revision = scope["revision"] + 1
+            updated = dict(revision=revision, plan=plan, selection=selection)
+            self._write(
+                self.document_dir(auth.tenant_id, document) / f"scope-{revision:06}.json",
+                json.dumps(updated).encode(),
+            )
+            return updated
+
+    def run_options(self, job) -> dict:
+        path = (
+            self.document_dir(job["tenant_id"], job["document_id"])
+            / f'{job["run_id"]}.options.json'
+        )
+        if not path.is_file():
+            return {}  # Previous <=2-page runs retain their frozen profile.
+        options = json.loads(path.read_text())
+        from proofops.domain.provenance import canonical_hash
+
+        expected = options.pop("sha256")
+        if canonical_hash(options) != expected or options["pages"] != json.loads(job["pages"]):
+            raise HostedError("SCOPE_INTEGRITY_INVALID")
+        return options
+
     def create_run(
-        self, auth: Any, document: str, pages: list[int] | None, key: str, *, now: float
+        self,
+        auth: Any,
+        document: str,
+        pages: list[int] | None,
+        key: str,
+        *,
+        now: float,
+        auto_scope: bool = False,
+        scope_selection_sha256: str | None = None,
+        pipeline_profile: str = "unattended-v1",
     ) -> dict:
         if not auth.has_capability("editor"):
             raise HostedError("FORBIDDEN", 403)
@@ -673,17 +808,45 @@ class HostedStore:
             doc = self._document(db, auth.tenant_id, document)
             if now >= doc["expires"]:
                 raise HostedError("SOURCE_EXPIRED", 409)
-            selected = list(range(1, min(2, doc["page_count"]) + 1)) if pages is None else pages
+            options = None
+            if auto_scope and pages is None:
+                scope = self._scope(db, auth.tenant_id, document)
+                if scope["plan"]["status"] == "failed":
+                    raise HostedError("SCOPE_PLAN_FAILED", 422)
+                selection = scope["selection"]
+                if (
+                    scope_selection_sha256
+                    and scope_selection_sha256 != selection["selection_sha256"]
+                ):
+                    raise HostedError("SCOPE_CONFLICT", 412)
+                selected = selection["pages"]
+                options = selection | dict(
+                    pipeline_profile=pipeline_profile,
+                    source_sha256=doc["sha256"],
+                    scope_policy_sha256=scope["plan"]["policy_sha256"],
+                )
+            else:
+                selected = list(range(1, min(2, doc["page_count"]) + 1)) if pages is None else pages
+                if auto_scope:
+                    options = dict(
+                        pages=selected,
+                        claim_pages=selected,
+                        pipeline_profile=pipeline_profile,
+                        source_sha256=doc["sha256"],
+                        declared_subset=True,
+                    )
             if (
                 not isinstance(selected, list)
-                or not 1 <= len(selected) <= 2
+                or not 1 <= len(selected) <= (30 if options else 2)
                 or any(
                     type(page) is not int or not 1 <= page <= doc["page_count"] for page in selected
                 )
                 or len(set(selected)) != len(selected)
             ):
                 raise HostedError("PAGE_SELECTION_INVALID", 422)
-            body_hash = digest(json.dumps([document, selected]))
+            if pipeline_profile not in {"unattended-v1", "strict-v1"}:
+                raise HostedError("PIPELINE_PROFILE_INVALID", 422)
+            body_hash = digest(json.dumps([document, selected, options]))
             replay = self._replay(db, auth, "run", key, body_hash)
             if replay:
                 return self._project_run(self._run(db, auth.tenant_id, replay), db)
@@ -727,6 +890,14 @@ class HostedStore:
                 if total + bound > micros(cap):
                     raise HostedError("BUDGET_EXCEEDED", 429)
             run = str(uuid4())
+            if options:
+                from proofops.domain.provenance import canonical_hash
+
+                options["sha256"] = canonical_hash(options)
+                self._write(
+                    self.document_dir(auth.tenant_id, document) / f"{run}.options.json",
+                    json.dumps(options).encode(),
+                )
             db.execute(
                 "INSERT INTO runs VALUES (?,?,?,?,?,'queued',?,?,?,?,0,0,NULL,NULL)",
                 (
@@ -963,6 +1134,7 @@ class HostedStore:
         job = self.claim(now=now)
         if job is None:
             return None
+        prepared = None
         try:
             prepared = self.prepare(job, now=now)
             if analysis is not None or not self.settings.live_disabled:
@@ -972,7 +1144,15 @@ class HostedStore:
             else:
                 self.finish(job, "partial_blocked", now=time.time())
         except (HostedError, OSError, ValueError, subprocess.SubprocessError) as exc:
-            code = str(exc) if str(exc) in OPENROUTER_LIMIT_CODES else "PREPARE_FAILED"
+            code = (
+                exc.code
+                if isinstance(exc, HostedError)
+                else str(exc)
+                if str(exc) in ALL_PROVIDER_LIMIT_CODES
+                else "ANALYSIS_WORKER_FAILED"
+                if prepared is not None
+                else "PREPARE_FAILED"
+            )
             with self.transaction() as db:
                 row = db.execute(
                     "SELECT status,fence FROM runs WHERE run_id=?", (job["run_id"],)

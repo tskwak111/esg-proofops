@@ -30,7 +30,7 @@ from proofops.adapters.local.upstage_parse import (
     UpstageParseProbe,
 )
 from proofops.domain.provenance import canonical_hash
-from pypdf import PdfReader
+from pypdf import PdfReader, PdfWriter
 
 # Release-owned approval, never populated from operator JSON or environment.
 RENDERED_READER_POLICY = json.loads(
@@ -125,6 +125,19 @@ def rounded_cost(value) -> str:
     return str(amount.quantize(Decimal("0.000001"), rounding=ROUND_CEILING))
 
 
+def broker_dispatch(store, *args, **kwargs):
+    from proofops.application.budget import BudgetExceeded
+
+    from proofops_api.hosted_store import HostedError
+
+    try:
+        return store.dispatch(*args, **kwargs)
+    except HostedError as error:
+        if error.code == "BUDGET_EXCEEDED":
+            raise BudgetExceeded("BUDGET_EXHAUSTED") from None
+        raise
+
+
 class HostedLunaProbe(OpenRouterProbe):
     def __init__(self, *args, store, job, post=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -141,7 +154,8 @@ class HostedLunaProbe(OpenRouterProbe):
                 raise ValueError("HOSTED_MODEL_MISMATCH")
             return request | dict(actual_usd=rounded_cost(data["usage"]["cost"]), payload=data)
 
-        response = self.store.dispatch(
+        response = broker_dispatch(
+            self.store,
             self.job,
             "openrouter",
             str(uuid4()),
@@ -170,7 +184,8 @@ class HostedOpenAILunaProbe(OpenAIProbe):
                 raise ValueError("HOSTED_MODEL_MISMATCH")
             return request | dict(actual_usd=rounded_cost(token_cost(data["usage"])), payload=data)
 
-        response = self.store.dispatch(
+        response = broker_dispatch(
+            self.store,
             self.job,
             "openai",
             str(uuid4()),
@@ -209,7 +224,8 @@ class HostedParseProbe(UpstageParseProbe):
                 raise ValueError("HOSTED_PARSE_RECEIPT_INVALID")
             return request | dict(actual_usd=str(cost), payload=data)
 
-        return self.store.dispatch(
+        return broker_dispatch(
+            self.store,
             self.job,
             "upstage-parse",
             str(uuid4()),
@@ -220,12 +236,37 @@ class HostedParseProbe(UpstageParseProbe):
         )["payload"]
 
     def parse_async(self, pdf_bytes, *, request_id, mode="standard"):
-        # The hosted contract selects <=2 pages; synchronous parse avoids async
-        # polling/download transports and keeps the same graph-conversion DTO.
-        result = self.parse(pdf_bytes, request_id=request_id, mode=mode)
-        batches = [result["raw_response"]]
-        return {k: v for k, v in result.items() if k != "raw_response"} | dict(
-            raw_batches=batches, response_sha256=canonical_hash(batches)
+        # Keep synchronous, brokered <=2-page calls; map each receipt to the
+        # prepared subset before canonical graph conversion. MP1 can replace this
+        # factory later using the same pinned claim/evidence selection.
+        reader = PdfReader(io.BytesIO(pdf_bytes))
+        if reader.is_encrypted or not 1 <= len(reader.pages) <= 30:
+            raise ValueError("HOSTED_PARSE_SCOPE_INVALID")
+        batches, receipts = [], []
+        for start in range(0, len(reader.pages), 2):
+            writer, buffer = PdfWriter(), io.BytesIO()
+            for page in reader.pages[start : start + 2]:
+                writer.add_page(page)
+            writer.write(buffer)
+            result = self.parse(buffer.getvalue(), request_id=f"{request_id}-{start}", mode=mode)
+            batch = json.loads(json.dumps(result["raw_response"]))
+            batch["usage"][mode] = [p + start for p in batch["usage"][mode]]
+            for element in batch["elements"]:
+                if type(element.get("page")) is not int or not 1 <= element["page"] <= len(
+                    writer.pages
+                ):
+                    raise ValueError("HOSTED_PARSE_PAGE_INVALID")
+                element["page"] += start
+            batches.append(batch)
+            receipts.append({k: v for k, v in result.items() if k != "raw_response"})
+        return dict(
+            raw_batches=batches,
+            response_sha256=canonical_hash(batches),
+            receipts=receipts,
+            model=receipts[0]["model"],
+            pages=len(reader.pages),
+            mode=mode,
+            cost_with_vat_reserve_usd=str(COST_PER_PAGE[mode] * len(reader.pages)),
         )
 
 

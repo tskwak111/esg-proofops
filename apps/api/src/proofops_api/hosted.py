@@ -32,7 +32,8 @@ from proofops_api.middleware import BrowserSecurityHeadersMiddleware, verify_csr
 UPLOAD_NOTICE = (
     "업로드한 원본 PDF는 이 서버에서 7일 동안 보관한 뒤 자동 삭제합니다. "
     "업로더 본인과 관리자는 보관 기간이 끝나기 전에 삭제를 요청할 수 있습니다. "
-    "외부 분석 전송 범위는 선택한 최대 2쪽이며, 현재 유료 분석은 비활성화되어 있습니다."
+    "외부 분석 전송 범위는 주장 최대 10쪽과 근거 검색 쪽을 포함한 최대 30쪽이며, "
+    "현재 유료 분석은 비활성화되어 있습니다."
 )
 
 
@@ -48,6 +49,18 @@ class RunCreate(BaseModel):
         Annotated[list[Annotated[int, Field(strict=True)]], Field(min_length=1, max_length=2)]
         | None
     ) = None
+
+    scope_selection_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")] | None = None
+
+
+class ScopeEdit(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    selected_claim_pages: Annotated[
+        list[Annotated[int, Field(strict=True)]], Field(min_length=1, max_length=10)
+    ]
+    selected_evidence_pages: Annotated[
+        list[Annotated[int, Field(strict=True)]], Field(min_length=1, max_length=30)
+    ]
 
 
 class TenantSelect(BaseModel):
@@ -163,8 +176,14 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
         allow_origins=[settings.origin],
         allow_credentials=True,
         allow_methods=["GET", "POST"],
-        allow_headers=["Content-Type", "X-CSRF-Token", "Idempotency-Key", "If-Match"],
-        expose_headers=["Retry-After"],
+        allow_headers=[
+            "Content-Type",
+            "X-CSRF-Token",
+            "Idempotency-Key",
+            "If-Match",
+            "X-Pipeline-Profile",
+        ],
+        expose_headers=["Retry-After", "ETag"],
     )
     app.add_middleware(BrowserSecurityHeadersMiddleware)
 
@@ -311,10 +330,14 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
                 + "로 분석을 전송합니다.",
             ),
             "consent_version": settings.consent_version,
+            "pipeline_profile": "unattended-v1",
+            "auto_scope_policy": "bounded-v1",
             "limits": {
                 "max_upload_bytes": settings.max_upload_bytes,
                 "max_pdf_pages": 300,
                 "selected_pages": 2,
+                "claim_pages": 10,
+                "evidence_pages": 30,
                 "active": 1,
                 "queued": 8,
                 "user_outstanding": 1,
@@ -369,6 +392,40 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
     def document(document_id: UUID, auth: Annotated[AuthContext, Depends(current)]) -> dict:
         return store.get_document(auth.tenant_id, str(document_id))
 
+    @app.get("/v1/documents/{document_id}/scope-plan")
+    def scope_get(
+        document_id: UUID, response: Response, auth: Annotated[AuthContext, Depends(current)]
+    ) -> dict:
+        scope = store.get_scope(auth.tenant_id, str(document_id))
+        response.headers["ETag"] = f'"{scope["revision"]}"'
+        return scope
+
+    @app.post("/v1/documents/{document_id}/scope-plan")
+    def scope_create(
+        document_id: UUID, response: Response, auth: Annotated[AuthContext, Depends(current)]
+    ) -> dict:
+        scope = store.generate_scope(auth, str(document_id))
+        response.headers["ETag"] = f'"{scope["revision"]}"'
+        return scope
+
+    @app.post("/v1/documents/{document_id}/scope-plan/selection")
+    def scope_edit(
+        document_id: UUID,
+        body: ScopeEdit,
+        request: Request,
+        response: Response,
+        auth: Annotated[AuthContext, Depends(current)],
+    ) -> dict:
+        scope = store.edit_scope(
+            auth,
+            str(document_id),
+            body.selected_claim_pages,
+            body.selected_evidence_pages,
+            request.headers.get("If-Match"),
+        )
+        response.headers["ETag"] = f'"{scope["revision"]}"'
+        return scope
+
     @app.post("/v1/runs", status_code=202)
     def run_create(
         body: RunCreate, request: Request, auth: Annotated[AuthContext, Depends(current)]
@@ -379,6 +436,9 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
             body.selected_pages,
             request.headers.get("Idempotency-Key", ""),
             now=time.time(),
+            auto_scope=True,
+            scope_selection_sha256=body.scope_selection_sha256,
+            pipeline_profile=request.headers.get("X-Pipeline-Profile", "unattended-v1"),
         )
 
     @app.get("/v1/runs/{run_id}")

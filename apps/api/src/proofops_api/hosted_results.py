@@ -74,13 +74,23 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             )
         rows = []
         tag_snapshot = tags.load_snapshot(tenant, run) if "tag_job" in state else {}
-        reasons = {r["claim_id"]: r.get("reason") for r in tag_snapshot.get("claims", [])}
+        projections = {r["claim_id"]: r for r in tag_snapshot.get("claims", [])}
+        reasons = {cid: r.get("reason") for cid, r in projections.items()}
         for claim in claims.list(tenant, run):
             current = claims.current_tag(tenant, run, claim.claim_id)
             summary = claims.summary(claim, current)
             decision = summary.get("decision")
             tag = current["tag"] if current else {}
             elements = tag.get("elements", [])
+            projection = projections.get(claim.claim_id, {})
+            if "source_status" in projection:
+                summary.update(
+                    source_status=projection["source_status"],
+                    provisional_grade=projection["provisional_grade"],
+                    pipeline_stage=projection["stage"],
+                    pipeline_status=projection["status"],
+                    provisional_track=projection.get("frozen_packet", {}).get("track"),
+                )
             rows.append(
                 summary
                 | dict(

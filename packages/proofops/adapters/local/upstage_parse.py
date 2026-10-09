@@ -294,6 +294,10 @@ class UpstageParseProbe(UpstageProbe):
         try:
             data = self._post_parse(pdf_bytes, mode)
         except Exception as error:
+            from proofops.application.budget import BudgetExceeded
+
+            if isinstance(error, BudgetExceeded):
+                raise
             code = str(error)
             if code not in {
                 f"UPSTAGE_HTTP_{n}" for n in (400, 401, 403, 404, 429, 500, 502, 503)
