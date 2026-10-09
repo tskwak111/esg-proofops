@@ -418,3 +418,38 @@ queries a provider on GET and does not claim that an unqueried key has capacity.
 Use the same fixed Korean message in the separate `esg-submission-hosted` frontend.
 No real provider request, read-only account lookup, push or cloud deployment is part
 of the P7 free local build/smoke. Preserve the independent ledger on rollback.
+
+### HS1 offline integration / deployment inputs
+
+HS1 changes only r108-public; no push, Vercel publish, AWS mutation or paid call.
+Ported exact SV1/PF1/AS1/PT1 commits; MP1 and unrelated decision-v2/budget experiments
+excluded. Common ancestor: b9b201bd7c3d50b9486ab84ea3f87331b4d1fdaf. Public-only
+control-plane, OCR v2/v3/table-span registrations, provider quotas and snapshot
+reads retained. Conflicts resolved in local_upstage_pilot, claim_source_policies,
+live_tagging and finals_demo. Hosted frontend reused from local submission checkout
+esg-submission-hosted at d36788a1787da316e8dc48efa90fc61fcaa43a17; its existing session,
+review and delete safeguards were retained and scope/provisional fields extended.
+
+Before AWS release: integrate MP1 after its own gate; run RB1 authorized live
+verification on the combined image. Preserve the existing private volume and money
+ledger. Set DEC-22 caps explicitly in the runtime env (Docker defaults updated):
+HOSTED_RUN_USD=1.0/HOSTED_DAY_USD=7/HOSTED_EVENT_USD=7. Existing env overrides do not
+change automatically. Provide real operator reporting scope, private provider-key
+mounts, approved Linux reader config, invitation and consent version; keys stay
+outside logs and data payloads. Run the existing4GiB memory/health checks and confirm
+50MiB/300page limits in the actual TLS proxy. Higher upload limit is deferred.
+
+Vercel's checked-in build now defaults VITE_ANALYSIS_BACKEND=hosted and keeps the
+static shell. VITE_HOSTED_API_BASE=/hosted-api uses a same-origin rewrite; add the
+actual owned AWS API HTTPS destination before the SPA rewrite, using the existing
+runbook deployment procedure (no imaginary endpoint checked in). Set
+VITE_ANALYSIS_BACKEND=static explicitly for static rollback. Local launcher defaults
+are unchanged. Confirm secure first-party cookie/Origin/CSRF through the real proxy.
+
+Local HS1 browser rehearsal uses a12page synthetic environment report, the real
+hosted API/storage/PDF security gate and an HTTPS static web build; LIVE_DISABLED=true
+and no worker are used. Stop when the auto plan is displayed, edited, and analysis
+start is enabled. This proves intake wiring only; it is not real-company parsing
+accuracy, Linux4GiB peak RSS or production proxy verification. Browser font CSP
+messages from serving the web under API security headers are harness-only; deployment
+serves web and API on their intended surfaces and must check its own headers.

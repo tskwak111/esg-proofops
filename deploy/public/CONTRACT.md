@@ -252,3 +252,72 @@ OpenRouter limit failures. They are not retried or redelivered; unknown spend st
 `accounting_pending`. Runtime status reads stored failures only and never probes a
 provider. The default remains live-disabled and makes no request without operator
 opt-in, configured key files, and the existing admission gates.
+
+## HS1 / DEC-22 bounded unattended intake (2026-10-10)
+
+This section supersedes the previous default scope and DEC-19 budget numbers.
+New public HTTP runs default to `unattended-v1`; local launcher defaults and old
+runs without an options sidecar retain their strict profile. Explicit
+`X-Pipeline-Profile: strict-v1` is supported for rollback on new runs.
+`HOSTED_RUN_USD=1.0`, `HOSTED_DAY_USD=7`, `HOSTED_EVENT_USD=7` are defaults and hard
+ceilings. Reservations, accounting-pending holds, fencing, and Seoul day boundaries
+are unchanged. Existing lower operator environment values remain lower until
+explicitly changed; ledger totals are never reset by deployment or rollback.
+
+After upload, POST `/v1/documents/{id}/scope-plan` generates free AS1 bounded-v1
+inspection; repeated POST and GET return the current plan. It includes physical
+pages, classification, reasons, snippets, original SHA, policy/proposal hashes,
+unknown/conflict/unreadable pages, and a `declared_subset` selection. Claims <=10,
+evidence union <=30; evidence-only pages cannot become claims. Inspection runs in
+a 512MiB/60 CPU-second/90 wall-second child, sharing the cross-process upload slot.
+No model calls or spending reservations occur during planning. A plan with no
+readable environment narrative has status `failed` and cannot enqueue analysis.
+
+POST `/v1/documents/{id}/scope-plan/selection` accepts only
+`selected_claim_pages` and `selected_evidence_pages` with `If-Match: "<revision>"`.
+ETag is exposed on reads/writes. Missing revision gives 428; stale gives 412.
+Auth, tenant isolation, editor capability and Origin/CSRF apply to every write.
+Each edit appends `scope-<revision>.json`; previous proposals/edits stay unchanged.
+POST `/v1/runs` without `selected_pages` uses that plan; optional
+`scope_selection_sha256` rejects stale submissions. Explicit `selected_pages`
+continues to accept <=2 pages for legacy clients. Scope and pipeline profile are
+pinned in a new immutable-by-application `<run>.options.json` sidecar. It carries
+its canonical hash; selection/page-map agreement is checked on reads. Sidecars
+live inside document payloads, follow existing backup/purge policy, and contain no
+credentials. No DB schema migration or dependency change is required.
+
+Prepared PDFs contain the evidence union; original physical claim pages are mapped
+to prepared PDF indices for `--claim-pages`. Before MP1 integration, all selected
+pages still use brokered Upstage synchronous <=2-page batches with distinct receipts
+and validated page remapping. This is not mixed parsing. MP1 can use the same
+options/claim-pages interface; no active MP1 files were imported.
+
+Result snapshots preserve `source_status`, `provisional_grade`, `pipeline_stage`,
+`pipeline_status`, and scope hashes/maps. Provisional grades remain read-only and
+separate from `decision`/`confirmed_grade`. Unknown/conflict/unreadable stay unresolved;
+no unverified `present` is admitted. The UI shows 원문 확인 필요, 잠정·미확정,
+phase/progress, hold/error codes, and budget_unanalyzed reasons. A terminal completed
+run means selected-scope processing ended, not full-report certification.
+
+Upload remains **50 MiB /300 pages**. 100MiB+ files remain unsupported: AS1 itself
+has a100MiB input guard. The existing buffering can retain roughly3 body copies
+(~150MiB at50MiB), plus a512MiB validation child; scope shares that slot while the
+single analysis worker can independently prepare pages in another512MiB child.
+These are configured bounds/estimates, not measured Linux peak RSS. Increasing the
+limit requires streamed spooling, parser input-limit changes and4GiB RSS/proxy tests;
+no larger upload allowance was silently enabled. Current corpus NAVER18.66MiB,
+SK Telecom39.26MiB, Samsung Electronics5.39MiB fit the byte cap; acceptance still
+requires the unchanged PDF security/object/decoded-byte gates.
+
+Rollback: stop admission and drain new jobs before using an older worker; it does
+not understand options sidecars and would treat evidence-only pages as claim pages.
+Retain new result readers and scope files. Web rollback uses explicit
+`VITE_ANALYSIS_BACKEND=static`; a new strict run uses the header above. Do not rewrite
+stored provisional results into confirmed revisions.
+
+HS1 adapter detail: typed internal `BudgetExceeded` now survives OpenAI/OpenRouter
+and synchronous Upstage error sanitization; other errors remain sanitized. This
+allows PT1 to stop further claim calls and preserve budget_unanalyzed results.
+Stage failures distinguish page preparation from analysis-worker failure and retain
+safe provider/hosted reason codes. Scope writes enforce editor capability both at
+HTTP authorization and storage entry points.
