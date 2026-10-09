@@ -1,0 +1,88 @@
+{
+  "source_path": "outputs/agent-results/R108-redesign/lab/sprint6/E2E8/states/control/sk/objects/original/7c6d58e3-4dbb-4354-8e16-ef04f62452c0/ac1b604e-1cd2-4e57-b4f5-84320c4aec1f.pdf",
+  "source_sha256": "b221e1dee238c7c71308fa3a16e3f5aec5c5f91be4333a31ccf8bdad53db5254",
+  "ref": {
+    "bbox": [
+      621.9812999999999,
+      169.76699999999994,
+      894.5488200000003,
+      403.45859999999993
+    ],
+    "char_end": 55,
+    "char_start": 45,
+    "document_version_id": "ac1b604e-1cd2-4e57-b4f5-84320c4aec1f",
+    "location_quality": "located",
+    "page_num": 19,
+    "parse_manifest_id": "41c5ba23-acd5-53af-bf6e-6d42bf159787",
+    "printed_page_label": null,
+    "quote": "배출로 이뤄집니다.",
+    "raw_text_sha256": "e258af3cb9b0506b1e59ac4e15199cceb2cd3caf68089c3a57701b151975aa81",
+    "source_id": "e8140d4e-941a-50b8-93a9-8bf7a0dc1d87",
+    "verification_state": "candidate"
+  },
+  "claim": "배출로 이뤄집니다.",
+  "batches": [
+    {
+      "tenant_id": "7c6d58e3-4dbb-4354-8e16-ef04f62452c0",
+      "document_version_id": "ac1b604e-1cd2-4e57-b4f5-84320c4aec1f",
+      "parse_manifest_id": "41c5ba23-acd5-53af-bf6e-6d42bf159787",
+      "source_sha256": "b221e1dee238c7c71308fa3a16e3f5aec5c5f91be4333a31ccf8bdad53db5254",
+      "parser_run_id": "a2ca2dab-91a7-49fb-b7ff-f7a36247e901",
+      "parser_name": "upstage_async_standard",
+      "parser_version": "document-parse-260128",
+      "parser_family": "upstage-document-parse",
+      "config_hash": "196993f22e706a886443699a5c167c6b15a8f28e895b323406073592f7be280c",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "source": {
+            "document_version_id": "ac1b604e-1cd2-4e57-b4f5-84320c4aec1f",
+            "parse_manifest_id": "41c5ba23-acd5-53af-bf6e-6d42bf159787",
+            "parser_run_id": "a2ca2dab-91a7-49fb-b7ff-f7a36247e901",
+            "source_native_id": "up-standard-0-34",
+            "physical_page": 19,
+            "printed_page_label": null,
+            "native_bbox": [
+              621.9812999999999,
+              191.81740000000002,
+              894.5488200000003,
+              425.509
+            ],
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "SK하이닉스의 Scope 1 온실가스 배출은 주로 공정 내에서 사용되는 공정가스\n배출로 이뤄집니다. SK하이닉스는 넷 제로 달성을 위해 공정 내에서 공정가스 사\n용을 저감할 수 있는 다양한 방안을 발굴·적용하고 있으며 지구온난화지수(GWP,\nGlobal Warming Potential)가 낮은 대체가스를 개발해 도입하고 있습니다.\n먼저, 공정가스 저감을 위해 식각(Etch) 및 박막 증착(Thinfilm) 공정에서 챔\n버(Chamber) 세정용으로 사용하고 있는 과불화탄소(PFCs) 사용 저감을 위해\nToF-MS 및 OES 분석 장비를 활용한 세정 공정의 부산물 분석 결과를 기반으\n로 공정 최적화를 진행하고 있습니다. 이와 함께, 역시 챔버 세정에 주로 사용하\n는 삼불화질소(NF3)를 지구온난화지수가 낮은 가스로 변경하기 위한 전환 평가\n및 양산 적용을 지속 확대하고 있으며, 공정가스 투입량 자체를 줄이기 위해 식각\n공정 내 공정가스 사용량이 많은 공정을 선정해 혼합 가스 도입을 위한 평가를 진\n행하고 양산 적용을 추진하고 있습니다.\n또한 SK하이닉스는 중장기적 관점에서 저(低) GWP 대체가스 개발을 지속하고\n있습니다. SK하이닉스가 개발·평가 중인 4종의 대체가스는 기존의 식각, 박막 증\n착, 확산(Diffusion) 공정 등에서 사용되는 PFCs를 대체할 수 있을 것으로 기대\n하고 있습니다. SK하이닉스는 Scope 1 온실가스 배출량 감축을 최대화할 수 있",
+            "char_start": 0,
+            "char_end": 717
+          },
+          "geometry": {
+            "width_pt": 935.433,
+            "height_pt": 595.276,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              935.433,
+              595.276
+            ]
+          },
+          "context": [
+            "section=Targets and Progress",
+            "provider_bbox=620.286,160.248,896.145,412.407",
+            "native_char_start=0",
+            "native_char_end=558"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": null,
+          "row_number": null,
+          "column_number": null,
+          "row_span": null,
+          "column_span": null
+        }
+      ],
+      "edges": [],
+      "synthetic": false
+    }
+  ],
+  "fusion_version": 4
+}

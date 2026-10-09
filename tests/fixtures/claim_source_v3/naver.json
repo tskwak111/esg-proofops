@@ -1,0 +1,90 @@
+{
+  "source_path": "outputs/agent-results/R108-redesign/lab/sprint6/E2E8/states/control/naver/objects/original/53ddbbb3-275b-4619-86be-f014fd9ad037/7ae0ddd6-c198-45c6-be3e-9acfb339fe3f.pdf",
+  "source_sha256": "75388f16c13739a671fd158c383502d81968fe587f2372ab0f9306f3d2c1a2c6",
+  "ref": {
+    "bbox": [
+      177.93099975585938,
+      435.13099670410156,
+      502.2271423339844,
+      470.6669921875
+    ],
+    "char_end": 48,
+    "char_start": 0,
+    "document_version_id": "7ae0ddd6-c198-45c6-be3e-9acfb339fe3f",
+    "location_quality": "located",
+    "page_num": 83,
+    "parse_manifest_id": "36f806a6-4e17-5c28-9308-997db1925615",
+    "printed_page_label": null,
+    "quote": "• E SG위원회는 환경 및 기후 관련 안건을 포함해 최소 연3회 이상 정기적으로 개최",
+    "raw_text_sha256": "e4a6e4a2a9f1b9d5ae8619dc6cdb5c027aa3ef20aa8428d290ba8559a3e5b497",
+    "source_id": "10a003b5-fac9-5993-8f61-9e0cb0b1086f",
+    "verification_state": "candidate"
+  },
+  "claim": "• E SG위원회는 환경 및 기후 관련 안건을 포함해 최소 연3회 이상 정기적으로 개최",
+  "batches": [
+    {
+      "tenant_id": "53ddbbb3-275b-4619-86be-f014fd9ad037",
+      "document_version_id": "7ae0ddd6-c198-45c6-be3e-9acfb339fe3f",
+      "parse_manifest_id": "36f806a6-4e17-5c28-9308-997db1925615",
+      "source_sha256": "75388f16c13739a671fd158c383502d81968fe587f2372ab0f9306f3d2c1a2c6",
+      "parser_run_id": "390d1f30-7d6b-44e2-b9bc-068b154c1b94",
+      "parser_name": "upstage_async_standard",
+      "parser_version": "document-parse-260128",
+      "parser_family": "upstage-document-parse",
+      "config_hash": "949be72a51d5f998b5657a8486897e95786992c88e8548b5c6168c19e85d6df0",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "source": {
+            "document_version_id": "7ae0ddd6-c198-45c6-be3e-9acfb339fe3f",
+            "parse_manifest_id": "36f806a6-4e17-5c28-9308-997db1925615",
+            "parser_run_id": "390d1f30-7d6b-44e2-b9bc-068b154c1b94",
+            "source_native_id": "up-standard-0-44",
+            "physical_page": 83,
+            "printed_page_label": null,
+            "native_bbox": [
+              177.93099975585938,
+              124.3330078125,
+              502.2271423339844,
+              159.86900329589844
+            ],
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "• E SG위원회는 환경 및 기후 관련 안건을 포함해 최소 연3회 이상 정기적으로 개최 • E SG위원회는 환경 및 기후 관련 주요 위험·기회, 관련 핵심 과제 및 이행 결과를 정기적으로 보고받으며, 이를 기후변화 관련 주요 안건 의사결정에 반영",
+            "char_start": 0,
+            "char_end": 137
+          },
+          "geometry": {
+            "width_pt": 1048,
+            "height_pt": 595,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              1048.0,
+              595.0
+            ]
+          },
+          "context": [
+            "section=보고 방법 및 빈도",
+            "provider_bbox=175.226,433.517,503.669,472.966",
+            "native_char_start=0",
+            "native_char_end=100",
+            "native_glyph_ink_box"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": null,
+          "row_number": null,
+          "column_number": null,
+          "row_span": null,
+          "column_span": null
+        }
+      ],
+      "edges": [],
+      "synthetic": false
+    }
+  ],
+  "fusion_version": 4,
+  "original_full_quote": "• E SG위원회는 환경 및 기후 관련 안건을 포함해 최소 연3회 이상 정기적으로 개최 • E SG위원회는 환경 및 기후 관련 주요 위험·기회, 관련 핵심 과제 및 이행 결과를 정기적으로 보고받으며, 이를 기후변화 관련 주요 안건 의사결정에 반영"
+}

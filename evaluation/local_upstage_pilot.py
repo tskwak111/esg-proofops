@@ -538,12 +538,21 @@ def claim_source_policy_for(args):
     back is simply not passing the flag on a future run.
     """
     profile = getattr(args, "claim_source_profile", None)
+<<<<<<< HEAD
     if profile in {"upstage-ocr-page-v1", "upstage-ocr-page-v2", "upstage-ocr-page-v3"}:
         from proofops.adapters.local.claim_source_policies import page_ocr_profile
 
         return page_ocr_profile(profile).claim_source_policy()
     if profile == "table-claim-spans-v1":
         from proofops.adapters.local.table_claim_source_verification import claim_source_policy
+=======
+    if profile == "claim-source-v3":
+        from proofops.adapters.local.claim_source_verification_v3 import claim_source_policy
+
+        return claim_source_policy()
+    if profile == "upstage-ocr-page-v1":
+        from proofops.adapters.local.upstage_ocr_profile import claim_source_policy
+>>>>>>> 5a47f7a (fix: add opt-in claim source v3 whitespace and visibility proof)
 
         return claim_source_policy()
     if profile == "glyph-alignment-v1":
@@ -935,6 +944,7 @@ def main():
     parser.add_argument(
         "--claim-source-profile",
         "--rendered-reader-profile",
+<<<<<<< HEAD
         choices=[
             "glyph-alignment-v1",
             "upstage-ocr-page-v1",
@@ -942,6 +952,9 @@ def main():
             "upstage-ocr-page-v3",
             "table-claim-spans-v1",
         ],
+=======
+        choices=["glyph-alignment-v1", "upstage-ocr-page-v1", "claim-source-v3"],
+>>>>>>> 5a47f7a (fix: add opt-in claim source v3 whitespace and visibility proof)
         help="Pin source reader for a NEW run; requires --verify-claim-spans.",
     )
     parser.add_argument(
