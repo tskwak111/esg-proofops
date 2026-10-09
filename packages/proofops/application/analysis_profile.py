@@ -24,7 +24,7 @@ POLICY = dict(
 POLICY_HASH = canonical_hash(POLICY)
 
 V2_PROFILE = "finals-unattended-v2"
-V2_POLICY = POLICY | dict(
+V2_INITIAL_POLICY = POLICY | dict(
     profile=V2_PROFILE,
     pipeline_graph="source-attested-before-tagging-v2",
     stage_overlap=False,
@@ -33,14 +33,20 @@ V2_POLICY = POLICY | dict(
     extraction_fragment_guard="selected-linewrap-fragments-v1",
     grade_display="whole-range-hold-v1",
 )
+V2_POLICY = V2_INITIAL_POLICY | dict(element_wire="track-rulecards-v1")
 
 
-def policy_for(profile):
+def policy_for(profile, *, pinned_hash=None):
     if profile == PROFILE:
-        return POLICY
-    if profile == V2_PROFILE:
-        return V2_POLICY
-    raise ValueError("ANALYSIS_PROFILE_UNKNOWN")
+        choices = (POLICY,)
+    elif profile == V2_PROFILE:
+        choices = (V2_POLICY, V2_INITIAL_POLICY)
+    else:
+        raise ValueError("ANALYSIS_PROFILE_UNKNOWN")
+    for policy in choices:
+        if pinned_hash is None or canonical_hash(policy) == pinned_hash:
+            return policy
+    raise ValueError("ANALYSIS_PROFILE_PIN_MISMATCH")
 
 
 def apply_pilot_profile(args):

@@ -69,14 +69,24 @@ def test_consistency_preserves_literal_quote_guard(tmp_path, monkeypatch):
     assert "unknown" in system and "three" in system
 
 
-def test_consistency_scopes_trusted_cards_and_keeps_other_rules(tmp_path, monkeypatch):
+@pytest.mark.parametrize(
+    "model_profile,pipeline",
+    [(PROFILE, None), ("upstage-compact-source-quotes-v5", "finals-unattended-v2")],
+)
+def test_consistency_scopes_trusted_cards_and_keeps_other_rules(
+    tmp_path, monkeypatch, model_profile, pipeline
+):
     from dataclasses import replace
 
     from proofops.application.preflight import Check, Preflight
     from proofops.domain.provenance import canonical_hash
 
-    adapter, _, _, request = configured(tmp_path, monkeypatch, model_profile=PROFILE)
+    adapter, _, _, request = configured(tmp_path, monkeypatch, model_profile=model_profile)
     packet(request)
+    if pipeline:
+        user = json.loads(request["user_json"])
+        user["untrusted_document_data"]["pipeline_profile"] = pipeline
+        request["user_json"] = json.dumps(user)
     marker = "This rule reference is tagging guidance, not an approval of the draft rulepack.\n"
     reference = {
         "elements": [{"id": f"P{i}", "name": f"card{i}"} for i in range(1, 7)]
@@ -106,7 +116,9 @@ def test_consistency_scopes_trusted_cards_and_keeps_other_rules(tmp_path, monkey
     system = adapter._wire_request(request)[0]
     assert "unused" not in system and "card1" in system and "card6" in system
     assert "KEEP GUARDS" in system
-    assert adapter.TRANSPORT_VERSION == "compact-element-consistency-v6"
+    assert adapter.TRANSPORT_VERSION == (
+        "compact-element-consistency-v6" if model_profile == PROFILE else "compact-source-quotes-v5"
+    )
 
 
 def test_q2_reservation_enforces_shared_cap_and_retains_uncertainty(tmp_path, monkeypatch):

@@ -517,8 +517,10 @@ class UpstageTaggingTransport:
                 "elements may use null normalized_value while retaining literal evidence. "
                 "Exact quotation does not establish claim attribution or semantic sufficiency."
             )
-        if settings.model_profile == CONSISTENCY_PROFILE:
-            # Scope the trusted fixed rule cards, preserving the rest of the prompt.
+        if settings.model_profile == CONSISTENCY_PROFILE or (
+            data.get("pipeline_profile") == "finals-unattended-v2"
+        ):
+            # Scope only trusted rule cards. Keep all guards, examples and evidence.
             marker = (
                 "This rule reference is tagging guidance, not an approval of the draft rulepack.\n"
             )

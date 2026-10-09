@@ -18,6 +18,19 @@ def test_v2_policy_keeps_ev1_and_disables_overlap():
     assert args.verify_claim_spans and args.extraction_fragment_guard
 
 
+def test_initial_v2_policy_remains_readable_by_exact_pinned_hash():
+    from proofops.application.analysis_profile import V2_INITIAL_POLICY, V2_POLICY, policy_for
+    from proofops.domain.provenance import canonical_hash
+
+    assert policy_for("finals-unattended-v2") == V2_POLICY
+    assert (
+        policy_for("finals-unattended-v2", pinned_hash=canonical_hash(V2_INITIAL_POLICY))
+        == V2_INITIAL_POLICY
+    )
+    with pytest.raises(ValueError, match="PIN_MISMATCH"):
+        policy_for("finals-unattended-v2", pinned_hash="0" * 64)
+
+
 def test_v2_prompt_is_opt_in_and_pins_definition_hash():
     from proofops.application.analysis_profile import V2_POLICY
     from proofops.application.tagging.quality import ELEMENT_DEFINITIONS, ELEMENT_DEFINITIONS_HASH

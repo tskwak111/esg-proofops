@@ -17,6 +17,11 @@ retrieval은 EV1으로 검증된 근거 쪽의 정확한 span만 후보로 유�
 M1/M2/P2 정의는 원문 §4.4/4.5와 docs/28 범위 안에서 강화한다. 예시는 합성 문장이다.
 `application/tagging/quality.py`의 `ELEMENT_DEFINITIONS_HASH`를 v2 분석 정책에 pin하고,
 전체 rendered prompt 및 트랙별 prompt hash는 기존 settings/snapshot/replica에 저장한다.
+요청 크기 실패 관찰 후 `element_wire=track-rulecards-v1`을 새 v2 정책에 pin했다.
+전송할 때 요청한 트랙의 규칙 카드만 남기고 정의 예시·보호 지침·근거 패킷은 유지한다.
+최초 v2 측정 정책은 `V2_INITIAL_POLICY`의 정확한 hash로만 계속 읽는다. 이 측정의
+기존 checkpoint/receipt는 보존하며, 카드 축소 후 새 전체 실행은 반복하지 않는다.
+최종 전송 정책의 실측 범위는 QA1 20개 새 태깅 replica와 무료 요청 크기 재생이다.
 숫자·목표연도 전역 인정, absent 권한, unknown/conflict/unreadable, P4/P6의 결정론적
 검증, 등급 사다리는 바꾸지 않는다. LLM은 태깅하고 Python 엔진만 등급을 계산한다.
 

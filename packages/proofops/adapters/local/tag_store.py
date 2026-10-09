@@ -178,7 +178,10 @@ def tag_pins(snapshot, extraction, extraction_hash):
         if snapshot["pipeline_profile"] in ("finals-unattended-v1", "finals-unattended-v2"):
             from proofops.application.analysis_profile import policy_for
 
-            policy = policy_for(snapshot["pipeline_profile"])
+            policy = policy_for(
+                snapshot["pipeline_profile"],
+                pinned_hash=snapshot.get("analysis_profile_policy_sha256"),
+            )
             policy_hash = canonical_hash(policy)
 
             if (
