@@ -42,8 +42,10 @@ export function gradeSummary(claim: ResultClaim): { confirmed: boolean; headline
   }
   if (claim.provisional_grade) {
     const provisional = claim.provisional_grade;
-    return { confirmed: false, headline: provisional.grade ? `잠정 등급 ${provisional.grade} · 잠정·미확정` : "잠정 등급 산출 보류",
-      note: `${provisional.grade_basis === "reachable_floor" ? "가능 범위의 하한 · " : ""}${provisional.reason}${provisional.grade_range ? ` · ${provisional.grade_range.floor}–${provisional.grade_range.ceiling}` : ""}` };
+    const range = provisional.grade_range;
+    const open = range?.open_elements.map(id => `${id} ${elementLabels[id] ?? ""}`.trim()).join("·");
+    return { confirmed: false, headline: provisional.evidence_grade ? `잠정 등급 ${provisional.evidence_grade} · 잠정·미확정` : "잠정 등급 산출 보류",
+      note: `${provisional.grade_basis === "reachable_floor" ? "가능 범위의 하한 · " : ""}${provisional.reason}${range ? ` · 가능 범위 ${range.floor}–${range.ceiling} (미해결 요소: ${open || "없음"})` : ""}` };
   }
   const range = claim.possible_grade_range;
   if (range) {

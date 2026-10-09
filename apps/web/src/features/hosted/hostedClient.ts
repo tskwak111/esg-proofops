@@ -17,7 +17,7 @@ export type HostedDocument = { document_id: string; page_count: number; size_byt
 export type ScopePlan = {
   revision: number;
   plan: { status: string; selected_claim_pages: number[]; selected_evidence_pages: number[];
-    failure_reasons: string[]; unreadable_pages: number[]; unknown_pages: number[]; conflict_pages: number[];
+    failure_reasons: string[]; unreadable_pages: number[]; unknown_pages: number[]; conflict_pages: number[]; suggested_front_pages?: number[];
     pages: { page: number; category: string; reasons: string[]; snippet: string }[] };
   selection: { pages: number[]; claim_pages: number[]; selection_sha256: string } | null;
 };
@@ -50,7 +50,7 @@ export type ResultClaim = {
   claim_id: string; page_num: number; original_page_num: number; quote: string; track: string | null; topic_ids?: string[];
   decision: ResultDecision | null; revision: number; source_refs: SourceRefDto[]; source_quality: string; elements: ResultElement[];
   source_status?: { status: string; reason?: string; display: string };
-  provisional_grade?: { grade: string | null; display: string; reason: string; grade_basis?: string; grade_range?: GradeRange | null; elements?: { element_id: string; state: string; votes: number; total_replicas: number; evidence_refs: SourceRefDto[] }[] } | null;
+  provisional_grade?: { evidence_grade: string | null; display: string; reason: string; grade_basis?: string; grade_range?: GradeRange | null; elements?: { element_id: string; state: string; votes: number; total_replicas: number; evidence_refs: SourceRefDto[] }[] } | null;
   pipeline_stage?: string; pipeline_status?: string; provisional_track?: string | null;
   hold_reason: string | null; possible_grade_range: GradeRange | null; confirmed_grade: string | null; missing_evidence: MissingEvidence[];
 };
@@ -91,7 +91,7 @@ const codeMessages: Record<string, string> = {
   ANALYSIS_DISABLED: "현재 새 분석 접수가 중지되어 있습니다.",
   SOURCE_EXPIRED: "원본 PDF 보관 기간(7일)이 끝났습니다. 다시 업로드해 주세요.",
   SOURCE_UNAVAILABLE: "원본 PDF를 사용할 수 없습니다. 다시 업로드해 주세요.",
-  PAGE_SELECTION_INVALID: "쪽 선택을 확인해 주세요. 주장 최대 10쪽, 근거 검색 최대 30쪽이며 불명확한 쪽을 주장으로 바꿀 수 없습니다.",
+  PAGE_SELECTION_INVALID: "쪽 선택을 확인해 주세요. 주장 최대 10쪽, 근거 검색 최대 30쪽이며 주장 쪽을 근거 검색 범위에 포함해야 합니다.",
   IDEMPOTENCY_CONFLICT: "같은 요청 키로 다른 내용이 전송되었습니다. 처음부터 다시 시도해 주세요.",
   IDEMPOTENCY_KEY_INVALID: "요청 키가 올바르지 않습니다. 다시 시도해 주세요.",
   USER_RUN_LIMIT: "이미 진행 중인 분석이 있습니다. 끝난 뒤 다시 시도해 주세요.",
@@ -188,6 +188,7 @@ export function createHostedClient(options: ClientOptions = {}) {
     uploadDocument: (file: Blob, key = newIdempotencyKey(), signal?: AbortSignal) =>
       request<HostedDocument>("POST", "/v1/documents", { body: file, headers: { "Content-Type": "application/pdf", "Idempotency-Key": key }, signal }),
     scopePlan: (documentId: string) => request<ScopePlan>("POST", `/v1/documents/${encodeURIComponent(documentId)}/scope-plan`),
+    getScopePlan: (documentId: string) => request<ScopePlan>("GET", `/v1/documents/${encodeURIComponent(documentId)}/scope-plan`),
     editScope: (documentId: string, scope: ScopePlan, claims: number[], evidence: number[]) =>
       request<ScopePlan>("POST", `/v1/documents/${encodeURIComponent(documentId)}/scope-plan/selection`, { json: { selected_claim_pages: claims, selected_evidence_pages: evidence }, headers: { "If-Match": `"${scope.revision}"` } }),
     createRun: (documentId: string, scope: ScopePlan, key = newIdempotencyKey()) =>
@@ -240,6 +241,8 @@ const blockedReasons: Record<string, string> = {
   LIVE_BINDING_UNAVAILABLE: "실시간 모델·OCR 분석이 서버에 연결되어 있지 않아 판정하지 않았습니다.",
   LINUX_SOURCE_READER_UNRESOLVED: "이 서버의 원문 판독기가 아직 승인되지 않아 분석하지 않았습니다. 주장·등급은 만들지 않았습니다.",
   LEASE_EXPIRED: "처리 중 작업이 중단되어 비용 정산 확인 전까지 보류되었습니다.",
+  LEASE_EXPIRED_NO_DISPATCH: "작업이 중단되었습니다. 모델 전송이 없어 비용 예약이 해제되었습니다. 다시 접수할 수 있습니다.",
+  ANALYSIS_LOCK_BUSY: "문서가 다른 작업에서 사용 중입니다. 잠시 후 다시 접수해 주세요.",
   PREPARE_FAILED: "선택한 쪽을 준비하지 못했습니다.",
   HOSTED_PREPARATION_FAILED: "선택한 쪽을 준비하지 못했습니다.",
   R108_NEEDS_REVIEW: "일부 주장이 사람 검토를 기다리고 있어 전체를 확정하지 않았습니다.",

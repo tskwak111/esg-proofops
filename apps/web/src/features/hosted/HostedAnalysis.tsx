@@ -47,6 +47,7 @@ export function HostedAnalysis({ client: injected }: { client?: HostedClient }) 
   const [run, setRun] = useState<HostedRun | null>(null);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
+  const [scopeConflict, setScopeConflict] = useState(false);
   const [deleted, setDeleted] = useState(false);
   const [result, setResult] = useState<HostedResult | null>(null);
   const abort = useRef<AbortController | null>(null);
@@ -54,6 +55,7 @@ export function HostedAnalysis({ client: injected }: { client?: HostedClient }) 
   const fail = useCallback((err: unknown) => {
     if (err instanceof HostedApiError) {
       setError(err.userMessage);
+      if (err.code === "SCOPE_CONFLICT") setScopeConflict(true);
       if (err.status === 401) { setPhase("login"); setSession(null); }
     } else if (err instanceof Error) setError(err.message);
   }, []);
@@ -86,8 +88,15 @@ export function HostedAnalysis({ client: injected }: { client?: HostedClient }) 
     } catch (err) { fail(err); } finally { setBusy(""); }
   }
   function applyScope(next: ScopePlan) {
-    setScope(next); setPages(next.plan.selected_claim_pages.join(","));
-    setEvidencePages(next.plan.selected_evidence_pages.join(","));
+    setScope(next); setScopeConflict(false);
+    const fallback = next.plan.status === "failed" && !next.selection ? next.plan.suggested_front_pages ?? [] : [];
+    setPages((next.plan.selected_claim_pages.length ? next.plan.selected_claim_pages : fallback.slice(0, 10)).join(","));
+    setEvidencePages((next.plan.selected_evidence_pages.length ? next.plan.selected_evidence_pages : fallback.slice(0, 30)).join(","));
+  }
+  async function reloadScope() {
+    if (!doc) return;
+    setError(""); setBusy("최신 계획 불러오는 중");
+    try { applyScope(await client.getScopePlan(doc.document_id)); } catch (err) { fail(err); } finally { setBusy(""); }
   }
   async function saveScope() {
     if (!doc || !scope) return;
@@ -98,13 +107,13 @@ export function HostedAnalysis({ client: injected }: { client?: HostedClient }) 
     } catch (err) { fail(err); } finally { setBusy(""); }
   }
   async function start() {
-    if (!doc || !scope?.selection) return;
+    if (!doc || !scope) return;
     setError(""); setBusy("접수 중");
     const controller = new AbortController(); abort.current = controller;
     try {
       const claims = parsePageSelection(pages, doc.page_count, 10);
       const evidence = parsePageSelection(evidencePages, doc.page_count, 30);
-      const changed = claims.join(",") !== scope.plan.selected_claim_pages.join(",") || evidence.join(",") !== scope.plan.selected_evidence_pages.join(",");
+      const changed = !scope.selection || claims.join(",") !== scope.plan.selected_claim_pages.join(",") || evidence.join(",") !== scope.plan.selected_evidence_pages.join(",");
       const current = changed ? await client.editScope(doc.document_id, scope, claims, evidence) : scope;
       applyScope(current);
       const accepted = await client.createRun(doc.document_id, current);
@@ -168,12 +177,14 @@ export function HostedAnalysis({ client: injected }: { client?: HostedClient }) 
       {scope && <>
         <p>계획 상태: {scope.plan.status} · 선택 범위만 분석하며 원문 확인 필요 항목은 잠정 결과로 표시합니다.</p>
         {scope.plan.failure_reasons.map(reason => <p role="alert" key={reason}>자동 범위 선택 실패: {reason}</p>)}
-        <label>주장 쪽 번호<input value={pages} onChange={event => setPages(event.target.value)} disabled={!!busy || running || !scope.selection} aria-label="주장 쪽 번호" /></label>
-        <label>근거 검색 쪽 번호<input value={evidencePages} onChange={event => setEvidencePages(event.target.value)} disabled={!!busy || running || !scope.selection} aria-label="근거 검색 쪽 번호" /></label>
-        <button type="button" disabled={!!busy || running || !scope.selection} onClick={() => void saveScope()}>범위 수정 저장</button>
+        {scope.plan.status === "failed" && <p className="hosted-note">앞쪽 제안 쪽을 기본값으로 넣었습니다. 원본을 확인하고 수동 범위를 지정하세요. 자동 분류 실패·판독 불명확 상태는 유지되며 근거 검증을 대신하지 않습니다.</p>}
+        {scopeConflict && <button type="button" disabled={!!busy || running} onClick={() => void reloadScope()}>최신 계획 다시 불러오기</button>}
+        <label>주장 쪽 번호<input value={pages} onChange={event => setPages(event.target.value)} disabled={!!busy || running} aria-label="주장 쪽 번호" /></label>
+        <label>근거 검색 쪽 번호<input value={evidencePages} onChange={event => setEvidencePages(event.target.value)} disabled={!!busy || running} aria-label="근거 검색 쪽 번호" /></label>
+        <button type="button" disabled={!!busy || running || scopeConflict} onClick={() => void saveScope()}>범위 수정 저장</button>
         <details open><summary>쪽별 분류와 선택 이유</summary><table><thead><tr><th>원본 쪽</th><th>분류</th><th>선택</th><th>이유</th></tr></thead><tbody>{scope.plan.pages.map(page => <tr key={page.page}><td>{page.page}</td><td>{scopeCategory[page.category] ?? page.category}</td><td>{scope.plan.selected_claim_pages.includes(page.page) ? "주장·근거" : scope.plan.selected_evidence_pages.includes(page.page) ? "근거 전용" : "제외"}</td><td>{page.reasons.map(reason => scopeReason[reason] ?? reason).join(" · ")}</td></tr>)}</tbody></table></details>
       </>}
-      <button type="button" disabled={!!busy || running || !scope?.selection || providerBlocked || runtime?.accept_new_runs === false} onClick={() => void start()}>분석 시작</button>
+      <button type="button" disabled={!!busy || running || !scope || scopeConflict || providerBlocked || runtime?.accept_new_runs === false} onClick={() => void start()}>분석 시작</button>
       {runtime?.accept_new_runs === false && <p className="hosted-error">현재 새 분석 접수가 중지되어 있습니다.</p>}
     </div>}
     {run && <RunOutcomeView run={run} />}

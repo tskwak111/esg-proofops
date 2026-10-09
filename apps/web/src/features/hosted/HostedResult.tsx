@@ -27,7 +27,9 @@ export function ResultView({ result, role, client, runId, onReload }: { result: 
       <p>보류·확인되지 않음은 ‘근거 없음’이 아닙니다. 확정 등급은 규칙 판정이 끝난 주장에만 표시되며 전체 보고서 등급은 만들지 않습니다.</p>
     </div>}
     {result.pipeline?.reporting_scope?.report_year != null && <p className="hosted-note">보고 범위: {result.pipeline.reporting_scope.report_year}년 ({result.pipeline.reporting_scope.period_start} ~ {result.pipeline.reporting_scope.period_end})</p>}
-    {!result.claims.length ? <p className="empty">표시할 주장이 없습니다. 분석이 주장을 만들지 못했거나 보류되었습니다(분석 성공의 빈 결과가 아닙니다).</p> :
+    {!result.claims.length ? <p className="empty">{result.pipeline?.status === "completed"
+      ? "선택한 범위의 분석이 정상 완료되었으나 환경 주장을 발견하지 못했습니다. 보고서 전체에 주장이 없다는 뜻은 아닙니다."
+      : "분석이 보류되어 표시할 주장이 없습니다. 처리 단계와 보류 사유를 확인해 주세요. 근거 없음으로 판정한 결과가 아닙니다."}</p> :
       <div className="claims-layout live-claims-layout">
         <div className="claim-list" aria-label="분석 결과 주장 목록">{result.claims.map(claim => {
           const grade = gradeSummary(claim);
@@ -50,7 +52,7 @@ function ClaimPanel({ claim, result, role, client, runId, onReload }: { claim: R
     <div className="source-quote"><span>{claim.source_quality === "verified" ? "보고서 원문" : "추출 문장"} · {refPages.join(", ") || pageLabel(result, claim.page_num)}</span>
       <blockquote>“{claim.quote}”</blockquote><small>{sourceQualityText(claim.source_quality)}</small></div>
     <div className="decision-panel" data-testid="grade-panel">
-      <span>{claim.track ? `${trackText[claim.track] ?? claim.track} 트랙` : "트랙 합의 전"}</span>
+      <span>{claim.track ? `${trackText[claim.track] ?? claim.track} 트랙` : claim.provisional_track ? `${trackText[claim.provisional_track] ?? claim.provisional_track} 트랙 · 잠정 분류` : "트랙 합의 전"}</span>
       <strong>{grade.headline}</strong>
       <p>{grade.note}</p>
     </div>
@@ -69,12 +71,12 @@ function ClaimPanel({ claim, result, role, client, runId, onReload }: { claim: R
         })}</tbody></table></div>
         : <p className="caption">요소 태깅 전입니다. 빈 요소를 ‘근거 없음’으로 보지 않습니다.</p>}
     </div>
-    {review && canReview(role) && client && runId && <ReviewForm key={`${review.review_id}:${review.revision}`} claim={claim} review={review} client={client} runId={runId} onReload={onReload} />}
+    {review && canReview(role) && client && runId && <ReviewForm key={`${review.review_id}:${review.revision}`} claim={claim} review={review} client={client} runId={runId} onReload={onReload} result={result} />}
     {review && !canReview(role) && <p className="hosted-note">이 주장은 사람 검토를 기다립니다. 이 검토는 reviewer 또는 admin 역할만 처리할 수 있습니다.</p>}
   </aside>;
 }
 
-export function ReviewForm({ claim, review, client, runId, onReload }: { claim: ResultClaim; review: ResultReview; client: HostedClient; runId: string; onReload?: () => Promise<void> }) {
+export function ReviewForm({ claim, review, client, runId, onReload, result }: { claim: ResultClaim; review: ResultReview; client: HostedClient; runId: string; onReload?: () => Promise<void>; result: Pick<HostedResult, "page_map"> }) {
   const [choices, setChoices] = useState<Record<string, ElementChoice>>({});
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
@@ -116,7 +118,7 @@ export function ReviewForm({ claim, review, client, runId, onReload }: { claim: 
           {choiceList.map(c => <option key={c.state} value={c.state} disabled={c.disabled}>{`${c.label}${c.hint ? ` — ${c.hint}` : ""}`}</option>)}
         </select>
         {choice.state === "present" && choice.state !== element.state && <select aria-label={`${element.element_id} 근거 선택`} value={choice.refKey ?? ""} onChange={e => edit({ ...choices, [element.element_id]: { state: "present", refKey: e.target.value } })}>
-          {refs.map(ref => <option key={refKey(ref)} value={refKey(ref)}>p.{ref.page_num} “{ref.quote.slice(0, 50)}”</option>)}</select>}
+          {refs.map(ref => <option key={refKey(ref)} value={refKey(ref)}>{pageLabel(result, ref.page_num)} “{ref.quote.slice(0, 50)}”</option>)}</select>}
       </fieldset>;
     })}
     <label>검토 사유 (5–1000자)<textarea value={reason} onChange={e => { setReason(e.target.value); key.current = newIdempotencyKey(); }} maxLength={1000} required minLength={5} /></label>
