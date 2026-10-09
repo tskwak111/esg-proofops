@@ -311,7 +311,9 @@ class UpstageProbe:
     @staticmethod
     def _call_total(db) -> Decimal:
         total = Decimal(0)
-        for raw, receipt in db.execute("SELECT committed, receipt FROM probe_calls"):
+        for request_id, signature, raw, receipt in db.execute(
+            "SELECT request_id,signature,committed,receipt FROM probe_calls"
+        ):
             try:
                 amount = Decimal(raw)
                 if (
@@ -322,7 +324,34 @@ class UpstageProbe:
                     raise ValueError
                 if receipt is None:
                     if amount != Decimal(POLICY["reservation_usd"]):
-                        raise ValueError
+                        # New async parser reservations use exact, pinned page rates.
+                        # Historical unreceipted USD1 rows remain unchanged.
+                        if not db.execute(
+                            "SELECT 1 FROM sqlite_master WHERE type='table' "
+                            "AND name='parse_reservations'"
+                        ).fetchone():
+                            raise ValueError
+                        row = db.execute(
+                            "SELECT bound,body FROM parse_reservations WHERE request_id=?",
+                            (request_id,),
+                        ).fetchone()
+                        body = json.loads(row[1]) if row else {}
+                        if (
+                            row is None
+                            or Decimal(row[0]) != amount
+                            or amount <= 0
+                            or not isinstance(body, dict)
+                            or canonical_hash(body) != signature
+                            or body.get("model") != "document-parse-260128"
+                            or body.get("transport") != "async"
+                            or type(body.get("pages")) is not int
+                            or not 1 <= body["pages"] <= 1000
+                            or body.get("mode") not in {"standard", "enhanced"}
+                            or amount
+                            != body["pages"]
+                            * Decimal(".011" if body["mode"] == "standard" else ".033")
+                        ):
+                            raise ValueError
                 else:
                     parsed = json.loads(receipt)
                     if not isinstance(parsed, dict):
