@@ -454,26 +454,54 @@ class OpenDataLoaderParser(ParserPort):
                         os.replace(temporary, path)
                         return result, False
 
+                    standard_failure = None
                     try:
                         standard, standard_hit = upstage_call(paid_pages, "standard")
                     except ValueError as exc:
-                        if (
+                        if profile.failure_policy == "partial-v1" and (
+                            str(exc).startswith("UPSTAGE_") or str(exc).endswith("BUDGET_EXHAUSTED")
+                        ):
+                            standard_failure = dict(
+                                mode="standard", pages=list(paid_pages), error_code=str(exc)
+                            )
+                            # Explicit failure artifact, not a provider receipt.
+                            standard = dict(raw_batches=[], error_code=str(exc))
+                            standard_hit = False
+                        elif (
                             routing is None
                             or not routing["ocr_pages"]
                             or not str(exc).endswith("BUDGET_EXHAUSTED")
                         ):
                             raise
-                        routing["ocr_pages"] = []
-                        paid_pages = tuple(routing["claim_pages"])
-                        standard, standard_hit = upstage_call(paid_pages, "standard")
-                    upstage_batch, standard_metrics = candidate_batch(
-                        source,
-                        profile,
-                        paid_pages,
-                        standard["raw_batches"],
-                        mode="standard",
-                        config_hash=profile_hash,
-                    )
+                        else:
+                            routing["ocr_pages"] = []
+                            paid_pages = tuple(routing["claim_pages"])
+                            standard, standard_hit = upstage_call(paid_pages, "standard")
+                    if standard_failure is None:
+                        upstage_batch, standard_metrics = candidate_batch(
+                            source,
+                            profile,
+                            paid_pages,
+                            standard["raw_batches"],
+                            mode="standard",
+                            config_hash=profile_hash,
+                        )
+                    else:
+                        upstage_batch = replace(
+                            candidates[0],
+                            blocks=(),
+                            edges=(),
+                            parser_name="upstage_async_standard",
+                            parser_version=UPSTAGE_MODEL,
+                            parser_family="upstage-document-parse",
+                            parser_run_id=str(uuid4()),
+                        )
+                        standard_metrics = dict(
+                            selected_pages=list(paid_pages),
+                            html_failed_pages=[],
+                            low_grounding_pages=[],
+                            gemini_pages=[],
+                        )
                     from proofops.adapters.parsing.gemini_vision import fragment
 
                     local_prose = [
@@ -487,6 +515,7 @@ class OpenDataLoaderParser(ParserPort):
                     )
                     upstage_batches = [upstage_batch]
                     enhanced_records = []
+                    failed_batches = [] if standard_failure is None else [standard_failure]
                     enhanced_pages = sorted(
                         set(standard_metrics["html_failed_pages"])
                         | set(standard_metrics["low_grounding_pages"])
@@ -497,6 +526,16 @@ class OpenDataLoaderParser(ParserPort):
                         try:
                             enhanced, enhanced_hit = upstage_call(pages, "enhanced")
                         except ValueError as exc:
+                            if profile.failure_policy == "partial-v1" and (
+                                str(exc).startswith("UPSTAGE_")
+                                or str(exc).endswith("BUDGET_EXHAUSTED")
+                            ):
+                                # Optional enhancement: preserve standard output.
+                                # No paid retries; uncertain charge stays reserved.
+                                failed_batches.append(
+                                    dict(mode="enhanced", pages=list(pages), error_code=str(exc))
+                                )
+                                continue
                             if str(exc) != "BUDGET_EXHAUSTED" and not (
                                 profile.parser_mode == "mixed-v1"
                                 and str(exc).endswith("BUDGET_EXHAUSTED")
@@ -549,7 +588,11 @@ class OpenDataLoaderParser(ParserPort):
                     )
                     upstage_output = dict(
                         standard=dict(
-                            receipt={k: v for k, v in standard.items() if k != "raw_batches"},
+                            receipt=(
+                                {k: v for k, v in standard.items() if k != "raw_batches"}
+                                if standard_failure is None
+                                else None
+                            ),
                             metrics=standard_metrics,
                             cache_hit=standard_hit,
                             raw_batches=standard["raw_batches"],
@@ -560,6 +603,12 @@ class OpenDataLoaderParser(ParserPort):
                         ),
                         fallback_pages=fallback_pages,
                     )
+                    if profile.failure_policy == "partial-v1":
+                        upstage_output["failed_batches"] = failed_batches
+                        if standard_failure is not None:
+                            upstage_output["standard"]["error_code"] = standard_failure[
+                                "error_code"
+                            ]
                     if routing is None:
                         candidates = [replace(batch, blocks=(), edges=()) for batch in candidates]
                     else:
@@ -632,6 +681,10 @@ class OpenDataLoaderParser(ParserPort):
                 profile,
                 () if vision_metrics is None else vision_metrics["pages_routed"],
             )
+            if profile.failure_policy == "partial-v1" and upstage_output is not None:
+                from proofops.adapters.parsing.mixed_routing import with_failures
+
+                graph = with_failures(graph, upstage_output["failed_batches"])
             if routing is not None:
                 (work / "page-routing.json").write_bytes(_json(routing))
             (work / "graph.json").write_bytes(_json(graph.to_dict()))
@@ -696,13 +749,15 @@ class OpenDataLoaderParser(ParserPort):
                 else dict(
                     standard=dict(
                         upstage_output["standard"]["metrics"],
-                        cost_usd=upstage_output["standard"]["receipt"].get(
+                        cost_usd=(upstage_output["standard"]["receipt"] or {}).get(
                             "cost_with_vat_reserve_usd"
                         ),
-                        duration_seconds=upstage_output["standard"]["receipt"].get(
+                        duration_seconds=(upstage_output["standard"]["receipt"] or {}).get(
                             "duration_seconds"
                         ),
-                        response_sha256=upstage_output["standard"]["receipt"]["response_sha256"],
+                        response_sha256=(upstage_output["standard"]["receipt"] or {}).get(
+                            "response_sha256"
+                        ),
                         cache_hit=upstage_output["standard"]["cache_hit"],
                     ),
                     enhanced=[
@@ -854,6 +909,13 @@ class OpenDataLoaderParser(ParserPort):
                 ):
                     raise ValueError("upstage artifact missing")
                 for record in [upstage_output["standard"], *upstage_output.get("enhanced", [])]:
+                    if record["receipt"] is None and profile.failure_policy == "partial-v1":
+                        if record.get("raw_batches") != [] or not any(
+                            f["mode"] == "standard" and f["error_code"] == record.get("error_code")
+                            for f in upstage_output["failed_batches"]
+                        ):
+                            raise ValueError("invalid failed parser artifact")
+                        continue
                     if (
                         canonical_hash(record["raw_batches"])
                         != record["receipt"]["response_sha256"]
@@ -930,6 +992,10 @@ class OpenDataLoaderParser(ParserPort):
                 profile,
                 () if vision_metrics is None else vision_metrics["pages_routed"],
             )
+            if profile.failure_policy == "partial-v1" and upstage_output is not None:
+                from proofops.adapters.parsing.mixed_routing import with_failures
+
+                restored = with_failures(restored, upstage_output["failed_batches"])
             if restored.issues != issues:
                 raise ValueError("quality issue mismatch")
             from importlib.resources import files

@@ -25,3 +25,36 @@
 run snapshot에 `analysis_profile_policy`와 canonical SHA-256을 저장하고 input_hash에 포함한다. tag checkpoint도 그 hash를 pin하며 변경된 reader 정책은 거절한다. 원문·parse manifest·태깅 replica·규칙·프롬프트 해시는 기존 경로대로 보존한다. 추가 필드는 새 프로필의 opaque checkpoint/optional API 표시 필드에만 존재한다. 기존 snapshot/revision/report를 재작성하지 않는다.
 
 Rollback은 새 프로필 배정을 끄고 기존 기본을 사용한다. 새 프로필 checkpoint는 해당 reader를 유지하며 구버전 reader에 배정하지 않는다. 비용 sidecar 및 모든 provider 원장은 삭제/리셋하지 않는다. 기존 프로필의 configuration hash와 출력은 소급 변경하지 않는다.
+
+## INT2 · 원문 근거 연결과 부분 파서 실패
+
+2026-10-10의 새 실행은 `evidence_source=evidence-source-v1` 및
+`parser_failure_policy=partial-v1`을 분석 정책에 pin한다. snapshot의
+`evidence_source_policy`는 EV1의 파일·도구 버전 해시 전체를 보존한다.
+파서 워커는 기존 native 검증 뒤 주장 쪽을 제외한 근거 쪽의 EV1 receipt를 만들고,
+같은 입력 그래프에서 원본 재검증한 후 checkpoint에 보존한다. 읽기 경로는 동일
+정책·원문·tenant·graph·쪽 목록을 확인해 다시 재생하며 unpinned receipt를 거절한다.
+EV1은 원문 span의 출처만 확인한다. 의미 귀속·숫자/연도 전역 인정·등급 규칙은 바뀌지 않는다.
+
+partial-v1에서는 standard 요청 실패 쪽의 후보를 만들지 않고 ODL 근거 쪽을 보존한다.
+enhanced 실패는 standard 후보를 보존한다. 두 경우 실패 묶음/쪽/안전한 오류코드를
+불변 파서 artifact에 기록하고 unreadable `parser_batch_failed` 이슈를 재생한다.
+unknown을 absent로 만들지 않는다. 모든 주장 쪽이 실패하면 주장0과 부분 coverage를
+반환하며 주장을 지어내지 않는다. 설정/원장 무결성 오류는 계속 전체 실행을 차단한다.
+
+새 async Upstage 예약은 실제 PDF 쪽 수×고정 mode 가격(VAT 포함)이다.
+기존 probe policy/행은 그대로이며 `parse_reservations` 보조 테이블만 추가한다.
+텍스트와 기존 sync 평가 transport의 USD1 정책은 그대로다. 공유 provider 합계는
+새 미정산 행의 request signature·mode·쪽 수·가격을 재검증한다. 불명확한 async 요청은
+그 정확한 상한을 유지한다. 접수 ID·마지막 polling 상태·안전한 실패코드는 private
+`parse-dispatch` 기록에 보존한다. pending/queued는 같은 ID로 계속 조회하고, 일시적인
+429/500/502/503 조회 오류는 최대2회 재조회한다. 유료 POST 재전송은 하지 않는다.
+공식 async 계약에는 POST 멱등 보장이 없으므로 중복 과금 없는 재전송이라고 가정하지 않는다.
+
+API/기존 SQL column migration·새 의존성 없음. 이전 snapshot/receipt/report는 재작성하지
+않는다. 갱신 전 finals 정책 checkpoint는 이전 reader(19bab86)와 보존한다. 새 프로필은
+새 policy hash로만 실행한다. rollback은 새 배정 중단이며 새로운 미정산 async 행이 있는
+provider 원장은 이 보조 테이블을 읽는 reader를 유지한다(구 reader는 fail closed).
+원장·감사 기록은 삭제하지 않는다.
+공식 계약/가격 확인: https://console.upstage.ai/api/parse/document-parsing/async 및
+https://www.upstage.ai/pricing/api (2026-10-10).

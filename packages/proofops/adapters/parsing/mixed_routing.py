@@ -104,3 +104,23 @@ def provenance(routing, candidates, selected):
             )
         )
     return records
+
+
+def with_failures(graph, failures):
+    """Keep candidates and explicit unreadable issues, never turn failure into absence."""
+    from proofops.application.ingest.graph_fusion import QualityIssue
+    from proofops.domain.provenance import canonical_hash
+
+    issues = tuple(
+        QualityIssue(
+            canonical_hash([page, record]),
+            "parser_batch_failed",
+            page,
+            (),
+            "unreadable",
+            record["error_code"],
+        )
+        for record in failures
+        for page in record["pages"]
+    )
+    return replace(graph, issues=graph.issues + issues)

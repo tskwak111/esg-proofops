@@ -1464,6 +1464,9 @@ def main():
             physical_pages=tuple(pages) if args.parser == "mixed-v1" else (),
             claim_physical_pages=tuple(claim_pages or ()) if args.parser == "mixed-v1" else (),
             mixed_ocr_max_pages=args.mixed_ocr_max_pages,
+            failure_policy=(
+                "partial-v1" if args.pipeline_profile == "finals-unattended-v1" else None
+            ),
             upstage_glyph_boxes=args.parser in ("upstage", "mixed-v1"),
             upstage_region_words=args.parser in ("upstage", "mixed-v1"),
         )

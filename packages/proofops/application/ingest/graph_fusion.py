@@ -100,8 +100,13 @@ class ParserProfile:
     upstage_region_words: bool = False
     claim_physical_pages: tuple[int, ...] = ()
     mixed_ocr_max_pages: int = 0
+    failure_policy: str | None = None
 
     def __post_init__(self):
+        if self.failure_policy not in (None, "partial-v1") or (
+            self.failure_policy is not None and self.parser_mode != "mixed-v1"
+        ):
+            raise ValueError("invalid parser failure policy")
         _require_uuid("parse_manifest_id", self.parse_manifest_id)
         pages = tuple(self.physical_pages)
         if (
@@ -166,6 +171,8 @@ class ParserProfile:
     def invocation_snapshot(self) -> dict:
         """Keep historical invocation hashes when optional tuning is absent."""
         values = asdict(self)
+        if self.failure_policy is None:
+            values.pop("failure_policy")
         if self.parser_mode != "mixed-v1":
             values.pop("claim_physical_pages")
             values.pop("mixed_ocr_max_pages")
