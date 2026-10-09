@@ -444,6 +444,8 @@ class LocalParserRunner:
                         upstage_parse=manifest.get("upstage_parse"),
                         coverage=coverage,
                     )
+                    if profile.parser_mode == "mixed-v1":
+                        payload["page_parser_provenance"] = manifest["page_parser_provenance"]
                     if pinned_notes:
                         payload.update(
                             schema="local_parser_checkpoint_v2",

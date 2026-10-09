@@ -98,6 +98,8 @@ class ParserProfile:
     parser_mode: str = "local"
     upstage_glyph_boxes: bool = False
     upstage_region_words: bool = False
+    claim_physical_pages: tuple[int, ...] = ()
+    mixed_ocr_max_pages: int = 0
 
     def __post_init__(self):
         _require_uuid("parse_manifest_id", self.parse_manifest_id)
@@ -129,14 +131,27 @@ class ParserProfile:
             raise ValueError("unsupported table structure repair")
         if self.vision_parse not in ("auto", "all", "off"):
             raise ValueError("unsupported vision parse mode")
-        if self.parser_mode not in ("upstage", "local"):
+        if self.parser_mode not in ("upstage", "local", "mixed-v1"):
             raise ValueError("unsupported parser mode")
+        claims = tuple(self.claim_physical_pages)
+        if (
+            any(type(page) is not int or page < 1 for page in claims)
+            or claims != tuple(sorted(set(claims)))
+            or (pages and not set(claims) <= set(pages))
+            or type(self.mixed_ocr_max_pages) is not int
+            or not 0 <= self.mixed_ocr_max_pages <= 30
+            or (self.parser_mode == "mixed-v1" and not 1 <= len(claims) <= 10)
+            or (self.parser_mode == "mixed-v1" and len(pages) > 30)
+            or (self.parser_mode != "mixed-v1" and (claims or self.mixed_ocr_max_pages))
+        ):
+            raise ValueError("invalid mixed parser selection/allowance")
+        object.__setattr__(self, "claim_physical_pages", claims)
         if type(self.upstage_glyph_boxes) is not bool or (
-            self.upstage_glyph_boxes and self.parser_mode != "upstage"
+            self.upstage_glyph_boxes and self.parser_mode not in ("upstage", "mixed-v1")
         ):
             raise ValueError("upstage glyph boxes require upstage parser")
         if type(self.upstage_region_words) is not bool or (
-            self.upstage_region_words and self.parser_mode != "upstage"
+            self.upstage_region_words and self.parser_mode not in ("upstage", "mixed-v1")
         ):
             raise ValueError("upstage region words require upstage parser")
         tolerance = self.table_text_y_tolerance
@@ -151,6 +166,11 @@ class ParserProfile:
     def invocation_snapshot(self) -> dict:
         """Keep historical invocation hashes when optional tuning is absent."""
         values = asdict(self)
+        if self.parser_mode != "mixed-v1":
+            values.pop("claim_physical_pages")
+            values.pop("mixed_ocr_max_pages")
+        else:
+            values["claim_physical_pages"] = list(self.claim_physical_pages)
         if self.table_text_y_tolerance is None:
             values.pop("table_text_y_tolerance")
         if self.table_source_policy_sha256 is None:
@@ -379,6 +399,11 @@ class CanonicalBlock:
                     to_canonical_affine=list(
                         item.parser_to_canonical or item.geometry.to_canonical_affine()
                     ),
+                    **{
+                        entry.split("=", 1)[0].removeprefix("mixed_"): entry.split("=", 1)[1]
+                        for entry in item.context
+                        if entry.startswith(("mixed_parser_name=", "mixed_parser_version="))
+                    },
                 )
                 for item in self.candidates
             ],
@@ -420,7 +445,15 @@ def _matches(left: CandidateBlock, right: CandidateBlock, *, fusion_version: int
         or (b := right.bbox) is None
     ):
         return False
-    left_context, right_context = left.context, right.context
+    left_context, right_context = (
+        tuple(
+            entry
+            for entry in block.context
+            if fusion_version < 5
+            or not entry.startswith(("mixed_parser_name=", "mixed_parser_version="))
+        )
+        for block in (left, right)
+    )
     if fusion_version >= 2 and left.kind == "table_cell":
         # v2: only parser-assigned grid indices may differ. A grid line dropped
         # by one parser shifts its row/column numbers (KOGAS physical 68: the
@@ -448,12 +481,18 @@ def _matches(left: CandidateBlock, right: CandidateBlock, *, fusion_version: int
 
 
 def fuse_candidates(
-    candidates: tuple[CandidateBatch, ...], *, tenant_id: str, fusion_version: int = 3
+    candidates: tuple[CandidateBatch, ...],
+    *,
+    tenant_id: str,
+    fusion_version: int = 3,
+    mixed_parser: bool = False,
 ) -> CanonicalDocumentGraph:
     if not candidates:
         raise ValueError("no parser candidates; parser failure is not an empty successful graph")
-    if type(fusion_version) is not int or fusion_version not in (1, 2, 3, 4):
+    if type(fusion_version) is not int or fusion_version not in (1, 2, 3, 4, 5):
         raise ValueError("unsupported fusion version")
+    if type(mixed_parser) is not bool or (fusion_version == 5 and not mixed_parser):
+        raise ValueError("unsupported fusion version without mixed profile")
     if fusion_version < 3 and any(
         block.has_invalid_geometry for batch in candidates for block in batch.blocks
     ):

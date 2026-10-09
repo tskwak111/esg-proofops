@@ -44,8 +44,8 @@ to ``packages/proofops`` or ``apps/*``.
 up to two front CEO pages + environmental narrative, hard maximum ten claim
 pages, thirty evidence pages INCLUDING claims by default. ``--scope-plan``
 imports selection edits from its source-bound JSON. Legacy defaults/hashes
-remain unchanged. This launcher still delegates one parser mode; mixed free
-evidence/paid claim parsing is a feasibility proposal, not implemented here.
+remain unchanged. ``--mixed-parser`` explicitly opts into Upstage claims and
+free native ODL evidence-only pages with a frozen per-page parser profile.
 """
 
 from __future__ import annotations
@@ -365,6 +365,8 @@ def build_pilot_argv(
     extraction_complete_selection: bool = False,
     extraction_content_bounds: bool = False,
     parser_max_output_bytes: int | None = None,
+    mixed_parser: bool = False,
+    mixed_ocr_max_pages: int = 0,
 ) -> list[str]:
     """Assemble the exact argv driving ``evaluation.local_upstage_pilot``."""
     table_flag = "--verify-selected-cells" if verify_selected_cells else "--verify-merged-tables"
@@ -398,6 +400,8 @@ def build_pilot_argv(
         "--tagging-max-calls",
         str(tagging_max_calls),
     ]
+    if mixed_parser:
+        argv += ["--parser", "mixed-v1", "--mixed-ocr-max-pages", str(mixed_ocr_max_pages)]
     if parser_max_output_bytes is not None:
         argv += ["--parser-max-output-bytes", str(parser_max_output_bytes)]
     if extraction_total_calls is not None:
@@ -584,6 +588,12 @@ def plan_run(args: argparse.Namespace) -> dict:
     extraction_assertion_prompt = bool(getattr(args, "extraction_assertion_prompt", False))
     extraction_complete_selection = bool(getattr(args, "extraction_complete_selection", False))
     extraction_content_bounds = bool(getattr(args, "extraction_content_bounds", False))
+    mixed_parser = bool(getattr(args, "mixed_parser", False))
+    mixed_ocr_max_pages = getattr(args, "mixed_ocr_max_pages", 0)
+    if mixed_parser and (not claim_pages or len(claim_pages) > 10 or len(pages) > 30):
+        raise PlanError("--mixed-parser requires explicit claim pages <=10 / selected pages <=30")
+    if not 0 <= mixed_ocr_max_pages <= 30 or (mixed_ocr_max_pages and not mixed_parser):
+        raise PlanError("--mixed-ocr-max-pages requires --mixed-parser and 0..30 pages")
     argv = build_pilot_argv(
         pdf=pdf,
         pages=pages,
@@ -612,6 +622,8 @@ def plan_run(args: argparse.Namespace) -> dict:
         extraction_complete_selection=extraction_complete_selection,
         extraction_content_bounds=extraction_content_bounds,
         parser_max_output_bytes=parser_max_output_bytes,
+        mixed_parser=mixed_parser,
+        mixed_ocr_max_pages=mixed_ocr_max_pages,
     )
     return {
         "argv": argv,
@@ -715,6 +727,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="analyze_report",
         description="Analyze a new report PDF via the local pilot. Dry plan unless --invoke.",
+    )
+    parser.add_argument(
+        "--mixed-parser",
+        action="store_true",
+        help="Opt-in MP1 mixed-v1: Upstage claims, native ODL evidence-only (claims<=10, union<=30).",
+    )
+    parser.add_argument(
+        "--mixed-ocr-max-pages",
+        type=int,
+        default=0,
+        help="Mixed parser only: bounded paid fallback for unreadable evidence; default zero.",
     )
     parser.add_argument("--pdf", type=Path, required=True, help="Path to the report PDF")
     parser.add_argument(

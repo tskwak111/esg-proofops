@@ -641,6 +641,10 @@ def apply_resume_metadata(args, saved: dict) -> None:
     args.parser_max_output_bytes = parser_output_limit(saved_output_limit)
     args.vision_parse = saved.get("vision_parse", "off")
     args.parser = saved.get("parser_mode", "local")
+    requested_ocr = getattr(args, "mixed_ocr_max_pages", 0)
+    if requested_ocr and requested_ocr != saved.get("mixed_ocr_max_pages", 0):
+        raise ValueError("--resume cannot change mixed OCR allowance; create a new run")
+    args.mixed_ocr_max_pages = saved.get("mixed_ocr_max_pages", 0)
     args.model = saved.get("model", args.model)
     args.llm_provider = (
         "openai"
@@ -795,7 +799,13 @@ def main():
     parser.add_argument("--tenant-id", type=UUID, help="Private hosted worker tenant scope")
     parser.add_argument("--pages", default="1")
     parser.add_argument("--vision-parse", choices=("auto", "all", "off"))
-    parser.add_argument("--parser", choices=("upstage", "local"), default="upstage")
+    parser.add_argument(
+        "--mixed-ocr-max-pages",
+        type=int,
+        default=0,
+        help="mixed-v1 only: maximum evidence-only OCR pages; shared ledger still gates dispatch.",
+    )
+    parser.add_argument("--parser", choices=("upstage", "local", "mixed-v1"), default="upstage")
     parser.add_argument("--report-year", type=int)
     parser.add_argument("--period-start")
     parser.add_argument("--period-end")
@@ -1127,8 +1137,8 @@ def main():
     except ValueError as exc:
         parser.error(str(exc))
     if args.vision_parse is None:
-        args.vision_parse = "auto" if args.parser == "upstage" else "off"
-    if args.parser == "upstage" and args.vision_parse == "all":
+        args.vision_parse = "auto" if args.parser in ("upstage", "mixed-v1") else "off"
+    if args.parser in ("upstage", "mixed-v1") and args.vision_parse == "all":
         parser.error("--vision-parse all requires --parser local")
     if not args.resume:
         if args.llm_provider in ("openrouter", "openai"):
@@ -1361,6 +1371,12 @@ def main():
         if args.raster_ocr
         else {}
     )
+    if not 0 <= args.mixed_ocr_max_pages <= 30 or (
+        args.mixed_ocr_max_pages and args.parser != "mixed-v1"
+    ):
+        parser.error("mixed OCR allowance requires mixed-v1 and 0..30 pages")
+    if args.parser == "mixed-v1" and not args.claim_pages:
+        parser.error("mixed-v1 requires explicit --claim-pages")
     pages = sorted(set(int(p) for p in args.pages.split(",")))
     from proofops.application.claim_scope import MAX_EXTRACTION_BATCH_CALLS
 
@@ -1431,8 +1447,11 @@ def main():
             table_structure_repair="odl_header_v2" if args.repair_table_headers else None,
             vision_parse=args.vision_parse,
             parser_mode=args.parser,
-            upstage_glyph_boxes=args.parser == "upstage",
-            upstage_region_words=args.parser == "upstage",
+            physical_pages=tuple(pages) if args.parser == "mixed-v1" else (),
+            claim_physical_pages=tuple(claim_pages or ()) if args.parser == "mixed-v1" else (),
+            mixed_ocr_max_pages=args.mixed_ocr_max_pages,
+            upstage_glyph_boxes=args.parser in ("upstage", "mixed-v1"),
+            upstage_region_words=args.parser in ("upstage", "mixed-v1"),
         )
         (state / "parser.json").write_text(json.dumps(config.config_snapshot()))
         if (
@@ -1682,7 +1701,7 @@ def main():
                 ),
             ),
         ]
-        if args.vision_parse != "off" or args.parser == "upstage":
+        if args.vision_parse != "off" or args.parser in ("upstage", "mixed-v1"):
             profiles[-1][2]["allow_raster_upload"] = True
         if args.raster_ocr:
             from proofops.domain.provenance import canonical_hash
@@ -1901,6 +1920,8 @@ def main():
             manifest["preliminary_profile"] = args.preliminary_profile
         if args.relation_profile != "source-quotes-v1":
             manifest["relation_profile"] = args.relation_profile
+        if args.parser == "mixed-v1":
+            manifest["mixed_ocr_max_pages"] = args.mixed_ocr_max_pages
         if args.claim_source_profile is not None:
             manifest["claim_source_profile"] = args.claim_source_profile
         if args.display_text_profile is not None:
@@ -1985,6 +2006,8 @@ def main():
         manifest = json.loads(manifest_path.read_text())
         if manifest.get("vision_parse", "off") != args.vision_parse:
             raise ValueError("pilot vision parse policy changed; create a new state directory")
+        if manifest.get("mixed_ocr_max_pages", 0) != args.mixed_ocr_max_pages:
+            raise ValueError("existing pilot mixed OCR allowance changed; create a new run")
         if manifest.get("parser_mode", "local") != args.parser:
             raise ValueError("pilot parser mode changed; create a new state directory")
         if manifest.get("capacity_refresh", False) != getattr(args, "capacity_refresh", False):
@@ -2113,7 +2136,7 @@ def main():
             if line.startswith(key_name + "=")
         )
         os.environ[key_name] = key
-        if args.parser == "upstage" and key_name != "UPSTAGE_API_KEY":
+        if args.parser in ("upstage", "mixed-v1") and key_name != "UPSTAGE_API_KEY":
             os.environ["UPSTAGE_API_KEY"] = next(
                 line.split("=", 1)[1].strip().strip('"').strip("'")
                 for line in (ROOT / ".env.upstage.local").read_text().splitlines()
@@ -2260,7 +2283,7 @@ def main():
                 for line in key_lines
                 if line.startswith(key_name + "=")
             )
-            if args.parser == "upstage" and key_name != "UPSTAGE_API_KEY":
+            if args.parser in ("upstage", "mixed-v1") and key_name != "UPSTAGE_API_KEY":
                 os.environ["UPSTAGE_API_KEY"] = next(
                     line.split("=", 1)[1].strip().strip('"').strip("'")
                     for line in (ROOT / ".env.upstage.local").read_text().splitlines()

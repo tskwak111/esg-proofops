@@ -461,6 +461,18 @@ def load_run_evidence(store, uploads, parser, *, tenant_id: str, run_id: str):
     graph = parser.load_verified(
         source, profile, tenant_id=tenant_id, manifest_sha256=envelope["manifest_sha256"]
     )
+    if profile.parser_mode == "mixed-v1":
+        directory = (
+            parser.artifact_root
+            / tenant_id
+            / source.document_version_id
+            / profile.parse_manifest_id
+        )
+        manifest = json.loads((directory / "manifest.json").read_bytes())
+        if envelope.get("page_parser_provenance") != manifest["page_parser_provenance"]:
+            raise ParseFailure("MIXED_PARSER_CHECKPOINT_MISMATCH")
+    elif "page_parser_provenance" in envelope:
+        raise ParseFailure("MIXED_PARSER_CHECKPOINT_MISMATCH")
     base_graph = graph
     if note_reviews:
         from proofops.adapters.local.table_notes import replay_note_reviews

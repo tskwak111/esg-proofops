@@ -361,7 +361,7 @@ class RunService:
         if not preflight.ready or rights_id not in consent["allowed_document_rights"]:
             raise RunRejected("CONFIG_GATE_BLOCKED")
         if (
-            self.parser_profile.get("parser_mode") == "upstage"
+            self.parser_profile.get("parser_mode") in ("upstage", "mixed-v1")
             and consent.get("allow_raster_upload") is not True
         ):
             raise RunRejected("CONFIG_GATE_BLOCKED")
@@ -424,6 +424,15 @@ class RunService:
             # a subset of it and never widens the parse/evidence scope.
             try:
                 validate_extraction_limits(limits, pages)
+                if self.parser_profile.get("parser_mode") == "mixed-v1":
+                    from proofops.application.claim_scope import claim_pages_for
+
+                    if (
+                        self.parser_profile["claim_physical_pages"]
+                        != claim_pages_for(limits, pages)
+                        or len(pages) > 30
+                    ):
+                        raise ValueError("mixed claim/parser scope mismatch")
             except ValueError:
                 raise RunRejected("CONFIG_GATE_BLOCKED") from None
         elif self.extraction_limits is not None:

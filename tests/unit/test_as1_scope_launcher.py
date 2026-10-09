@@ -127,3 +127,24 @@ def test_scope_plan_conflicts_with_manual_pages(inputs):
                 args + ["--pages", "1", "--scope-plan", str(tmp_path / "absent.json")]
             )
         )
+
+
+def test_mixed_parser_delegates_source_bound_page_routing(inputs):
+    args, proposal, _ = inputs
+    result = ar.plan_run(
+        ar.build_parser().parse_args(
+            args + ["--auto-scope", "--auto-scope-policy", "bounded-v1", "--mixed-parser"]
+        )
+    )
+    argv = result["argv"]
+    assert argv[argv.index("--parser") + 1] == "mixed-v1"
+    assert argv[argv.index("--claim-pages") + 1] == ",".join(
+        map(str, proposal["selected_claim_pages"])
+    )
+    assert "--invoke" not in argv
+
+
+def test_mixed_parser_requires_explicit_bounded_claim_scope(inputs):
+    args, _, _ = inputs
+    with pytest.raises(ar.PlanError, match="mixed-parser"):
+        ar.plan_run(ar.build_parser().parse_args(args + ["--pages", "1,2", "--mixed-parser"]))
