@@ -57,7 +57,7 @@ def profile(base, arm, company):
         latency = settled.get("usage", {}).get("latency_ms", 0) / 1000
         begin = reservation["created_at"]
         phase = "unknown"
-        for part in ("preliminary", "relations", "elements"):
+        for part in ("preliminary", "relation", "elements"):
             if (state / "tagging-receipts" / meta["run_id"] / part / rid).is_dir():
                 phase = part
                 break
