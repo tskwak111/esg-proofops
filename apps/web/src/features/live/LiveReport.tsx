@@ -4,7 +4,7 @@ import type { PageInfo, Section } from "./sectionPicker";
 
 type Decision = { evidence_grade: string | null; label?: string | null; missing_elements?: string[]; grade_range: { floor: string; ceiling: string; open_elements?: string[] } | null; decision_status: string };
 export type LiveResultClaim = Claim;
-type Claim = { quote: string; page: number; track: string | null; source_verified: boolean; blocked_reason: string | null; elements: { name: string; element_id: string; state: string; quote: string | null; source_verified: boolean }[]; decision: Decision | null };
+type Claim = { source_status?: { status: string; display: string }; provisional_grade?: { evidence_grade: string | null; display: string; grade_basis?: string; grade_range?: Decision["grade_range"]; elements: unknown[] } | null; quote: string; page: number; track: string | null; source_verified: boolean; blocked_reason: string | null; elements: { name: string; element_id: string; state: string; quote: string | null; source_verified: boolean; votes?: number; provisional?: boolean }[]; decision: Decision | null };
 type Result = { claims: Claim[]; pages: number[]; duration_ms: number; cost_usd: number; tagging_passes?: number; notice: string };
 const tracks: Record<string, string> = { goal: "목표", performance: "성과", management: "관리체계" };
 const errors: Record<string, string> = {
@@ -38,6 +38,7 @@ export function LiveReport({ file, renderClaims }: { file: File; renderClaims?: 
   const results = useRef<HTMLElement>(null);
   const [range, setRange] = useState("");
   const [code, setCode] = useState("");
+  const [unattended, setUnattended] = useState(false);
   const [stage, setStage] = useState("");
   const [error, setError] = useState("");
   const [result, setResult] = useState<Result | null>(null);
@@ -101,7 +102,7 @@ export function LiveReport({ file, renderClaims }: { file: File; renderClaims?: 
         }
         setStage(`문서 파싱 · 원문 대조 · 규칙 판정 중 (${i + 1}/${chunks.length}묶음)`);
         const response = await fetch("/api/live-report", { method: "POST", body: new Blob([new Uint8Array(bytes)], { type: "application/pdf" }),
-          headers: { "X-Demo-Access-Code": code, "X-Page-Numbers": JSON.stringify(chunks[i]) }, cache: "no-store" });
+          headers: { "X-Demo-Access-Code": code, "X-Page-Numbers": JSON.stringify(chunks[i]), ...(unattended ? { "X-Pipeline-Profile": "unattended-v1" } : {}) }, cache: "no-store" });
         const data = await response.json().catch(() => ({})) as Result & { error?: string };
         if (response.status === 403) throw new Error(errors[data.error || ""] || "접근 키를 확인해 주세요.");
         if (!response.ok || !Array.isArray(data.claims)) {
@@ -137,6 +138,7 @@ export function LiveReport({ file, renderClaims }: { file: File; renderClaims?: 
     <form onSubmit={submit} className="live-report-form">
       <label>분석할 쪽 <small>최대 60쪽 · 예: 26,28,31 또는 83-95,218-244</small><input value={range} onChange={event => { setRange(event.target.value); setDropped(0); }} required placeholder="26,28,31" /></label>
       <label>접근 키<input type="password" autoComplete="off" value={code} onChange={event => setCode(event.target.value)} required placeholder="접근 키" /></label>
+      <label><input type="checkbox" checked={unattended} onChange={event => setUnattended(event.target.checked)} /> 무인 분석 · 잠정 등급 표시</label>
       <button type="submit" disabled={busy}>{busy ? stage : "실시간 분석 시작 ↗"}</button>
     </form>
     {dropped > 0 && <p className="live-report-selection">60쪽 한도에 맞춰 검증·GRI 쪽을 우선 유지하고, 환경 키워드 점수가 낮은 {dropped}쪽을 제외했습니다.</p>}
@@ -146,8 +148,9 @@ export function LiveReport({ file, renderClaims }: { file: File; renderClaims?: 
   </section>
     {result && <section ref={results} className="surface live-report-results analyze-results" aria-label="분석 결과"><h3>선택한 쪽의 분석 결과</h3>
       {renderClaims ? renderClaims(result.claims) : <ol>{result.claims.map((claim, index) => <li key={`${claim.page}-${index}`}>
-        <div className="live-report-claim-head"><strong>{claim.page}쪽 · {claim.track ? tracks[claim.track] || claim.track : "분류 검토 필요"}</strong><span>{claim.source_verified ? "원문 확인" : "원문 대조 필요"}</span></div>
+        <div className="live-report-claim-head"><strong>{claim.page}쪽 · {claim.track ? tracks[claim.track] || claim.track : "분류 검토 필요"}</strong><span>{claim.source_status?.display || (claim.source_verified ? "원문 확인" : "원문 대조 필요")}</span></div>
         <blockquote>{claim.quote}</blockquote>
+        {claim.provisional_grade && <p>{claim.provisional_grade.evidence_grade || "등급 산출 보류"} · {claim.provisional_grade.display}{claim.provisional_grade.grade_basis === "reachable_floor" ? " · 확인된 근거 기준 하한" : ""}</p>}
         {claim.decision?.decision_status === "blocked_rule_gap" ? <p>{claim.blocked_reason}</p> : claim.decision?.evidence_grade ? <p>규칙 판정 {claim.decision.evidence_grade}</p> : claim.decision?.grade_range ? <p>가능 범위 {claim.decision.grade_range.floor}–{claim.decision.grade_range.ceiling} · 검토 필요</p> : <p>{claim.blocked_reason || "판정 검토 필요"}</p>}
         {claim.elements.length > 0 && <details><summary>요소와 근거</summary><ul>{claim.elements.map(element => <li key={element.name}><strong>{getElementLabel(element.element_id)}</strong> · {element.state === "present" ? "근거 확인" : "미확인"}{element.quote && <q>{element.quote}</q>}</li>)}</ul></details>}
       </li>)}</ol>}

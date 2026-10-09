@@ -15,6 +15,7 @@ from hashlib import sha256
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from time import monotonic
+from typing import Any
 from uuid import uuid4
 
 import pdfplumber
@@ -31,6 +32,10 @@ from proofops.application.ingest.graph_fusion import ParserProfile, SourceArtifa
 from proofops.application.tagging.consensus import (  # noqa: E402
     PARTIAL_FACTS_V1,
     reviewable_decision,
+)
+from proofops.application.tagging.unattended import (  # noqa: E402
+    empty_provisional,
+    project_decision,
 )
 from proofops.domain.rulepacks import RulePackSnapshot  # noqa: E402
 from proofops.domain.rules.engine import (  # noqa: E402
@@ -197,7 +202,13 @@ def run_report(
     parse=None,
     model=None,
     forwarded_for: str = "",
+    pipeline_profile: str | None = None,
 ) -> dict:
+    if pipeline_profile not in (None, "unattended-v1"):
+        raise LiveError(400, "INVALID_PIPELINE_PROFILE")
+    unattended = pipeline_profile == "unattended-v1"
+    passes = 3 if unattended else 1
+    input_chars = 5000 if unattended else MAX_INPUT_CHARS
     required = os.getenv("DEMO_ACCESS_CODE", "")
     if not required:
         raise LiveError(503, "DEMO_NOT_CONFIGURED")
@@ -221,7 +232,11 @@ def run_report(
         raise LiveError(400, "INVALID_PDF") from exc
     # UTF-8 can use four bytes per character; reserve both model calls before any provider work.
     model_ceiling = 1.1 * (
-        (2 * (MAX_INPUT_CHARS * 4 + 1024) * 0.10 + sum(MAX_MODEL_TOKENS) * 0.50) / 1_000_000
+        (
+            (1 + passes) * (input_chars * 4 + 1024) * 0.10
+            + (MAX_MODEL_TOKENS[0] + passes * MAX_MODEL_TOKENS[1]) * 0.50
+        )
+        / 1_000_000
     )
     if (
         MAX_MODEL_CALLS != 2
@@ -258,24 +273,26 @@ def run_report(
         raise LiveError(502, "PARSE_INVALID") from exc
     with pdfplumber.open(io.BytesIO(pdf)) as document:
         native = [page.extract_words() for page in document.pages]
-    by_page = {page: [] for page in pages}
+    by_page: dict[int, list[dict[str, Any]]] = {page: [] for page in pages}
     for block in batch.blocks:
         if (
             block.kind == "paragraph"
             and block.source.raw_text.strip()
-            and "vision_only" not in block.context
-            and block.bbox is not None
+            and (unattended or "vision_only" not in block.context)
+            and (unattended or block.bbox is not None)
             and len(block.source.raw_text) <= 1800
         ):
-            x0, y0, x1, y1 = block.bbox
-            region = [
-                word["text"]
-                for word in native[block.source.physical_page - 1]
-                if x0 - 3 <= word["x0"]
-                and word["x1"] <= x1 + 3
-                and y0 - 3 <= word["top"]
-                and word["bottom"] <= y1 + 3
-            ]
+            region = []
+            if block.bbox is not None:
+                x0, y0, x1, y1 = block.bbox
+                region = [
+                    word["text"]
+                    for word in native[block.source.physical_page - 1]
+                    if x0 - 3 <= word["x0"]
+                    and word["x1"] <= x1 + 3
+                    and y0 - 3 <= word["top"]
+                    and word["bottom"] <= y1 + 3
+                ]
             by_page[pages[block.source.physical_page - 1]].append(
                 {
                     "page": pages[block.source.physical_page - 1],
@@ -289,12 +306,14 @@ def run_report(
         candidates.sort(
             key=lambda item: (-len(ENV_TERMS.findall(item["text"])), -len(item["text"]))
         )
-    blocks = []
+    blocks: list[dict[str, Any]] = []
     while len(blocks) < MAX_BLOCKS and any(by_page.values()):
         for page in pages:
             if by_page[page] and len(blocks) < MAX_BLOCKS:
                 candidate = by_page[page].pop(0)
-                if sum(len(item["text"]) for item in blocks) + len(candidate["text"]) <= 9000:
+                if sum(len(item["text"]) for item in blocks) + len(candidate["text"]) <= (
+                    3500 if unattended else 9000
+                ):
                     blocks.append(candidate)
     if not blocks:
         return {
@@ -308,13 +327,13 @@ def run_report(
     extract_user = {
         "blocks": [{"index": i, "page": b["page"], "text": b["text"]} for i, b in enumerate(blocks)]
     }
-    if len(json.dumps(extract_user, ensure_ascii=False)) > MAX_INPUT_CHARS:
+    if len(json.dumps(extract_user, ensure_ascii=False)) > input_chars:
         raise LiveError(400, "REQUEST_COST_CAP")
     invoke = model or (lambda system, user, cap: call_luna(system, user, cap, luna_key))
     extracted, cost1 = invoke(EXTRACT_SYSTEM, extract_user, MAX_MODEL_TOKENS[0])
     if not isinstance(extracted.get("claims"), list) or len(extracted["claims"]) > MAX_CLAIMS:
         raise LiveError(502, "EXTRACTION_INVALID")
-    claims = []
+    claims: list[dict[str, Any]] = []
     for item in extracted["claims"]:
         if (
             not isinstance(item, dict)
@@ -341,9 +360,9 @@ def run_report(
             }
         )
     definitions = {e["id"]: e for e in PACK.file_content("rubric/elements.yaml")["elements"]}
-    tag_user = {"claims": []}
+    tag_user: dict[str, list[dict[str, Any]]] = {"claims": []}
     for index, claim in enumerate(claims):
-        if claim["source_verified"] and claim["track"]:
+        if (claim["source_verified"] or unattended) and claim["track"]:
             names = sorted({name for group in MAPPINGS[claim["track"]].values() for name in group})
             tag_user["claims"].append(
                 {
@@ -355,18 +374,37 @@ def run_report(
                 }
             )
     cost2 = 0.0
-    tags_by_index = {}
+    tags_by_index: dict[int, Any] = {}
+    replica_candidates: list[dict[int, Any]] = []
+    tag_failures = []
     if tag_user["claims"]:
-        if len(json.dumps(tag_user, ensure_ascii=False)) > MAX_INPUT_CHARS:
+        if len(json.dumps(tag_user, ensure_ascii=False)) > input_chars:
             raise LiveError(400, "REQUEST_COST_CAP")
-        tagged, cost2 = invoke(TAG_SYSTEM, tag_user, MAX_MODEL_TOKENS[1])
-        if not isinstance(tagged.get("claims"), list):
-            raise LiveError(502, "TAGGING_INVALID")
-        tags_by_index = {
-            item["index"]: item.get("elements", [])
-            for item in tagged["claims"]
-            if isinstance(item, dict) and type(item.get("index")) is int
-        }
+        for replica in range(1, passes + 1):
+            try:
+                tagged, charge = invoke(
+                    TAG_SYSTEM,
+                    tag_user | ({"replicate_id": replica} if unattended else {}),
+                    MAX_MODEL_TOKENS[1],
+                )
+                cost2 += charge
+                if not isinstance(tagged.get("claims"), list):
+                    raise LiveError(502, "TAGGING_INVALID")
+                tags_by_index = {
+                    item["index"]: item.get("elements", [])
+                    for item in tagged["claims"]
+                    if isinstance(item, dict) and type(item.get("index")) is int
+                }
+            except Exception as error:
+                if not unattended:
+                    raise
+                code = error.code if isinstance(error, LiveError) else "TAGGING_FAILED"
+                tag_failures.append(code)
+                tags_by_index = {}
+                if code in ("REQUEST_COST_CAP", "DAILY_LIMIT", "BUDGET_EXHAUSTED"):
+                    replica_candidates.append({})
+                    break
+            replica_candidates.append(tags_by_index)
     if cost1 + cost2 > MAX_MODEL_USD:
         raise LiveError(502, "ACTUAL_COST_CAP_EXCEEDED")
     for index, claim in enumerate(claims):
@@ -374,7 +412,18 @@ def run_report(
         claim["elements"] = []
         claim["decision"] = None
         claim["blocked_reason"] = None
-        if not claim["source_verified"]:
+        if unattended:
+            claim.update(
+                source_status=dict(
+                    status="verified" if claim["source_verified"] else "unverified",
+                    reason=None if claim["source_verified"] else "SOURCE_VALIDATION_REQUIRED",
+                    display="원문 확인" if claim["source_verified"] else "원문 확인 필요",
+                ),
+                provisional_grade=empty_provisional("CLASSIFICATION_REQUIRED"),
+                pipeline_stage="grade",
+                pipeline_status="processed",
+            )
+        if not claim["source_verified"] and not unattended:
             claim["blocked_reason"] = "원문 대조 필요"
             continue
         if not claim["track"]:
@@ -389,6 +438,7 @@ def run_report(
         for item in candidates:
             if (
                 isinstance(item, dict)
+                and isinstance(item.get("name"), str)
                 and item.get("name") in element_ids
                 and item["name"] not in by_name
             ):
@@ -402,8 +452,33 @@ def run_report(
                 and isinstance(quote, str)
                 and verify_quote(quote, block["text"], block["native_text"])
             )
+            votes = 1 if verified else 0
+            if unattended:
+                matches = []
+                for candidate_by_index in replica_candidates:
+                    entries = candidate_by_index.get(index, [])
+                    items = (
+                        [e for e in entries if isinstance(e, dict) and e.get("name") == name]
+                        if isinstance(entries, list)
+                        else []
+                    )
+                    candidate = items[0] if len(items) == 1 else {}
+                    candidate_quote = candidate.get("quote")
+                    if (
+                        claim["source_verified"]
+                        and candidate.get("state") == "present"
+                        and isinstance(candidate_quote, str)
+                        and verify_quote(candidate_quote, block["text"], block["native_text"])
+                    ):
+                        matches.append(candidate_quote)
+                from collections import Counter
+
+                common = Counter(matches).most_common(1)
+                quote, votes = common[0] if common else (None, 0)
+                verified = votes >= 2
             allowed = "local_claim" in definitions[element_ids[name]]["source_scopes"]
             if verified and allowed:
+                assert isinstance(quote, str)
                 text = block["text"]
                 start = text.index(quote)
                 ref = SourceRef(
@@ -440,7 +515,17 @@ def run_report(
                     "element_id": element_ids[name],
                     "state": facts[-1].state,
                     "quote": quote if verified else None,
-                    "source_verified": bool(verified),
+                    "source_verified": bool(verified and allowed),
+                    **(
+                        {
+                            "votes": votes,
+                            "total_replicas": 3,
+                            "provisional": True,
+                            "majority": votes == 2,
+                        }
+                        if unattended
+                        else {}
+                    ),
                 }
             )
         claim_id = str(uuid4())
@@ -483,6 +568,24 @@ def run_report(
             PACK,
         )
         reviewable, _ = reviewable_decision(decision, PARTIAL_FACTS_V1, "needs_review")
+        if unattended:
+            claim["provisional_grade"] = project_decision(decision, elements=claim["elements"])
+            claim["blocked_reason"] = (
+                "예산 상한으로 미분석"
+                if any(
+                    c in ("REQUEST_COST_CAP", "DAILY_LIMIT", "BUDGET_EXHAUSTED")
+                    for c in tag_failures
+                )
+                else "원문 확인 필요"
+                if not claim["source_verified"]
+                else None
+            )
+            claim["pipeline_status"] = (
+                "budget_unanalyzed"
+                if claim["blocked_reason"] == "예산 상한으로 미분석"
+                else "processed"
+            )
+            continue
         claim["decision"] = (reviewable or decision).to_api_dict()
         if claim["decision"]["decision_status"] != "decided":
             gaps = claim["decision"]["gap_ids"]
@@ -495,7 +598,16 @@ def run_report(
         "claims": claims,
         "pages": pages,
         "notice": "사용자 최종 검토 전 · 최대 16개 문단에서 주장 5건 추출",
-        "tagging_passes": 1 if tag_user["claims"] else 0,
+        "tagging_passes": len(replica_candidates) if tag_user["claims"] else 0,
+        **(
+            {
+                "pipeline_profile": pipeline_profile,
+                "pipeline_status": "completed",
+                "claim_failures": tag_failures,
+            }
+            if unattended
+            else {}
+        ),
         "parse_metrics": metrics,
         "cost_usd": round(len(pages) * 0.011 + cost1 + cost2, 6),
         "cost_cap_usd": MAX_REQUEST_USD,
@@ -515,6 +627,7 @@ class handler(BaseHTTPRequestHandler):
                 pages,
                 access_code=self.headers.get("X-Demo-Access-Code", ""),
                 forwarded_for=self.headers.get("X-Forwarded-For", ""),
+                pipeline_profile=self.headers.get("X-Pipeline-Profile") or None,
             )
             status = 200
         except LiveError as exc:
