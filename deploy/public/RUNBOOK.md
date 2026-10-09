@@ -75,7 +75,7 @@ key files or provide them to the browser. Run the existing `hosted_control.py wo
 macOS worker uses an isolated subprocess with its own document-scoped receipts,
 SQLite state and selected PDF. It never points at the research state/cache/budget
 DB. Hosted money/fences remain authoritative and are checked before each transport.
-One active run is capped at840seconds of pipeline execution; unknown dispatch on
+One active run is capped at1800seconds of pipeline execution; unknown dispatch on
 crash/timeout retains the reservation and needs reconciliation. The analysis lock
 is inherited by its child: a parent crash cannot make purge unlink active source
 files. A tombstoned worker cannot dispatch or publish; maintenance retries purge
@@ -96,15 +96,17 @@ The local canary isn't a same-site TLS browser or Linux OCR capacity certificati
 ## P3 — 2026-10-10 Lightsail 실행 준비 (이번 작업은 클라우드 호출 0)
 
 DEC-19: 서울 `ap-northeast-2`, Linux VM 2vCPU/4GB, Vercel 정적 웹, 분석 동시성1,
-USD0.50/run·5/day·5/event, 원본 PDF 7일. 이 절은 **내일 사용자가 실행할 절차**다.
+USD1.0/run·7/day·7/event (DEC-22), 원본 PDF 7일. 이 절은 **내일 사용자가 실행할 절차**다.
 P3에서 AWS/Vercel/SSH/유료 모델 호출·push는 하지 않았다. `deploy/lightsail/*`는
 기본 dry-run이며 `--apply`를 명시해야 원격 호출을 한다. `pack.sh`, `local-smoke.sh`는
 로컬 Docker 전용이다. 운영 env나 provider 키 파일을 `source`하지 않는다.
 
-**출시 게이트:** P2 Linux reader는 여전히 미승인이다. 새 kit의 `deploy.sh`는
-`LIVE_DISABLED=true`만 허용한다. 실제 분석 공개는 승인된 Linux reader 이미지 통합,
-4GB live RSS, TLS/Vercel 쿠키·업로드 실측 이후의 별도 작업이다. 현재 배포 가능한 것은
-닫힌 control plane / 명시적 offline blocked flow이다. 키를 배치해도 live는 켜지지 않는다.
+**출시 게이트:** 승인 Linux reader allowlist는 P4 절이 정본이다. 기본은
+`LIVE_DISABLED=true`이며 보류 결과 snapshot을 제공한다. 운영자가 private env에서
+`ANALYSIS_BACKEND=r108`, `LIVE_DISABLED=false`, `R108_ACCEPT_NEW_RUNS=true`를 명시하고
+승인 reader·enabled operator JSON·키 mount를 준비해야 실제 분석이 켜진다. 검사기는
+DEC-22 상한1/7/7과 명시적 opt-in을 허용한다. 키 배치만으로 live가 켜지지 않는다.
+4GB live RSS와 TLS/Vercel 쿠키·업로드 실측은 별도 출시 게이트다.
 
 ### 1. 사용자가 AWS 계정·권한을 준비 (약 10–20분)
 
@@ -340,7 +342,7 @@ VM 삭제는 서버 raw PDFs/키/Caddy volumes도 없애므로 독립 ledger exp
 ### 7. 예상 비용·검증 범위
 
 현재 공식4GB IPv4 Linux plan은 USD24/month, fixed hourly cap이며 서울 catalog 조회가
-정본이다. 단순730h 환산으로264h는약USD8.68,11일+행사 모델 최대5는약USD13.68; VAT/
+정본이다. 단순730h 환산으로264h는약USD8.68,11일+행사 모델 최대7는약USD15.68; VAT/
 전송 초과/유료 Vercel/도메인/backup 비용 별도, 청구 확정 견적은 아니다. 예상 전체10–20달러
 범위를 유지하고 선택 bundle 월24달러 초과 시 kit는 중단한다. 연결된 static IP는 free,
 분리된 IP는 과금될 수 있다. 앱 backup은 같은 disk이며 AWS snapshots는 기본off(원본/키
@@ -453,3 +455,38 @@ start is enabled. This proves intake wiring only; it is not real-company parsing
 accuracy, Linux4GiB peak RSS or production proxy verification. Browser font CSP
 messages from serving the web under API security headers are harness-only; deployment
 serves web and API on their intended surfaces and must check its own headers.
+
+### HS2 — 무인 평가 설정과 정산 체크리스트
+
+- 기존 private env의 낮은 한도는 자동 승격되지 않는다. DEC-22 설정을
+  `HOSTED_RUN_USD=1.0`, `HOSTED_DAY_USD=7`, `HOSTED_EVENT_USD=7`로 명시한다.
+  `LIVE_DISABLED=true`는 안전한 기본값이다. 운영자가 승인 reader·operator JSON·키를
+  mount한 뒤 `ANALYSIS_BACKEND=r108`, `LIVE_DISABLED=false`,
+  `R108_ACCEPT_NEW_RUNS=true`로 켜야 본선 유료 분석 경로가 열린다.
+- `vercel.json` 첫 rewrite의 `placeholder.invalid`는 배포 입력이다.
+  `python deploy/lightsail/configure-web.py --checkout <checkout> --static-ip <owned-ip>`로
+  diff를 확인하고 `--apply`로 로컬 파일을 바꾼다. 실제 배포는 별도 운영자 실행이다.
+- 30쪽 분석605초/406초 근거로 timeout1800초·lease1900초, 대기 heartbeat30초를 적용했다.
+  동시 분석1과 unknown 정산 가드는 유지한다. 만료 시 독립 원장에 dispatch0건인 run만
+  자동 실패·예약0정산 처리한다. 기록된 전송이 있으면 accounting_pending을 해제하지 않는다.
+- 정산이 필요하면 신규 접수·worker를 멈추고 보존 원장과 provider export를 대조한다.
+  operator receipt JSON에 `run_id`, `operator`, 5–1000자 `reason`, export 파일의
+  `provider_evidence_sha256`, 모든 등록 전송 `calls`를 기록한다. 각 call에는 원장과 동일한
+  `call_id/request_id/provider/input_sha256`, 확인된 `actual_usd`를 넣는다. 기정산 금액은 동일한 값만 허용한다. 추정0 금지.
+  원문 삭제·만료로 문서가 없는 run은 이 명령이 거부한다. 삭제 fencing을 해제하거나
+  payload를 복원하지 말고 원장을 보존하여 운영자 별도 정산 대상으로 남긴다.
+
+```sh
+# 서버 private env를 가진 API container 안에서 실행. provider HTTP 호출 없음.
+python scripts/hosted_control.py reconcile --receipt /run/private/settlement.json --evidence /run/private/provider-export.json
+# dry-run과 export 대조 완료 후 운영자가 적용 (기본은 dry-run)
+python scripts/hosted_control.py reconcile --receipt /run/private/settlement.json --evidence /run/private/provider-export.json --apply
+python scripts/hosted_control.py maintain
+```
+
+receipt는 문서의 private receipt 디렉터리에 불변으로 보관되어 문서 삭제/TTL과 함께
+정리된다. 실제 비용이 bound보다 크거나 ID/export SHA가 다르면 적용을 거부한다.
+provider 402/403/429 자체를 해제하지 않으며 키 교체/재전송/예산 원장 reset을 하지 않는다.
+Vercel `/api/live-*` 데모의 OpenRouter 키·인메모리 제한(#5)은 별도 데모 영향이며,
+본선 `/hosted-api/v1/*`는 durable hosted broker 경로를 사용한다. 이번 수정은 그 데모를
+본선으로 바꾸지 않는다. 실제 AWS/TLS/Vercel proxy·4GB RSS·유료 분석은 별도 not_run이다.

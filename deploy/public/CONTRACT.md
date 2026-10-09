@@ -321,3 +321,33 @@ allows PT1 to stop further claim calls and preserve budget_unanalyzed results.
 Stage failures distinguish page preparation from analysis-worker failure and retain
 safe provider/hosted reason codes. Scope writes enforce editor capability both at
 HTTP authorization and storage entry points.
+
+### HS2 unattended recovery (2026-10-10)
+
+The provisional result key is `provisional_grade.evidence_grade` (E0–E3 or null),
+with `grade_range.open_elements`, reason and provisional track kept separate from
+confirmed decision fields. A completed zero-claim selection means no environmental
+claim was found in that selection; blocked extraction is a separate outcome.
+Failed automatic scope proposals remain immutable, failed and unverified. An editor
+may save a new If-Match revision with a bounded manual selection (claims≤10,
+evidence union≤30); `selection.manual_override=true` is hashed and pinned in run
+options. Physical bounds, strict integers, subset membership, original identity and
+proposal hash remain mandatory. Original unknown/conflict/unreadable classifications
+are preserved; manual selection never grants evidence admission or absence rights.
+Disabled live runs publish a genuine partial_blocked snapshot with zero claims and
+LIVE_BINDING_UNAVAILABLE. Parser budget denial is budget_unanalyzed/BUDGET_EXHAUSTED,
+not ANALYSIS_WORKER_FAILED; no missing source is fabricated as absent.
+Pipeline timeout is1800s (measured30-page runs605s/406s); lease1900s renews every30s
+while the parent waits, and on stage updates. Expired workers lose their fence.
+An intact independent spend ledger and zero cost rows prove zero provider dispatch;
+only those expired runs automatically settle zero and release the queue. Every
+recorded dispatch retains the reconciliation guard, including uncertain charges.
+Operator reconciliation is dry-run by default, requires an exact call identity and
+actual cost per recorded call (settled costs must match exactly), an operator reason,
+and the SHA256-matched provider export. `--apply` settles only unresolved rows,
+preserves a private immutable receipt,
+and closes the old run; it never replays requests or changes provider availability.
+No new API route, DB column migration or dependency. Optional DTO additions leave
+previous results unchanged. Rollback: close admissions, drain workers, retain all
+snapshots/receipts and independent ledger; failed manual scope requires the HS2
+reader, and must not be sent to an earlier reader for new execution.

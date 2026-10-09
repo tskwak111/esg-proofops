@@ -17,6 +17,10 @@
   },
   "rewrites": [
     {
+      "source": "/hosted-api/:path*",
+      "destination": "https://placeholder.invalid/:path*"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }

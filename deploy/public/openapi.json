@@ -334,6 +334,16 @@
               "format": "uuid",
               "title": "Document Id"
             }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "description": "Quoted current scope revision from ETag; prevents overwriting a concurrent edit.",
+            "schema": {
+              "type": "string",
+              "example": "\"1\""
+            }
           }
         ],
         "requestBody": {
@@ -368,6 +378,12 @@
                 }
               }
             }
+          },
+          "412": {
+            "description": "SCOPE_CONFLICT: fetch current scope plan and retry with its revision."
+          },
+          "428": {
+            "description": "IF_MATCH_REQUIRED: current scope revision header is required."
           }
         }
       }
