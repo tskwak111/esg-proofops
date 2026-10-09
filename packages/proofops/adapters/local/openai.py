@@ -196,6 +196,17 @@ class OpenAIProbe(OpenRouterProbe):
                 },
             )
             response = connection.getresponse()
+            self.rate_limit_headers = {
+                name: response.getheader(name)
+                for name in (
+                    "x-ratelimit-limit-requests",
+                    "x-ratelimit-limit-tokens",
+                    "x-ratelimit-remaining-requests",
+                    "x-ratelimit-remaining-tokens",
+                    "x-ratelimit-reset-requests",
+                    "x-ratelimit-reset-tokens",
+                )
+            }
             if response.status != 200:
                 raw = response.read(1_048_577)
                 if len(raw) <= 1_048_576:
