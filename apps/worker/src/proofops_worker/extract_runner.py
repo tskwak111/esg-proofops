@@ -494,9 +494,9 @@ class LocalExtractRunner:
 
             try:
                 live = FencedLive()
-                if (
-                    getattr(getattr(runner.extractor, "_probe", None), "model", None)
-                    == "openai/gpt-6-luna"
+                if getattr(getattr(runner.extractor, "_probe", None), "model", None) in (
+                    "openai/gpt-6-luna",
+                    "gpt-6-luna",
                 ):
                     # The provider ledger atomically fences all in-flight reservations.
                     # Map preserves packet order when the serial discovery consumes results.
@@ -756,11 +756,9 @@ class LocalExtractRunner:
                                 sync_usage()
 
                     selected_extractor = FencedExtractor()
-                    if (
-                        is_real
-                        and getattr(getattr(self.extractor, "_probe", None), "model", None)
-                        == "openai/gpt-6-luna"
-                    ):
+                    if is_real and getattr(
+                        getattr(self.extractor, "_probe", None), "model", None
+                    ) in ("openai/gpt-6-luna", "gpt-6-luna"):
                         scope = claim_scope(snapshot, graph)
                         candidates = sorted(
                             (

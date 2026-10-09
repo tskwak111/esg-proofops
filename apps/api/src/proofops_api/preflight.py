@@ -157,7 +157,7 @@ def build_preflight_router(
                     check_local_upstage_binding
                     if runtime.get("provider") == "upstage"
                     or (
-                        runtime.get("provider") == "openrouter"
+                        runtime.get("provider") in ("openrouter", "openai")
                         and runtime.get("purpose") == "local_test"
                     )
                     else check_runtime_binding

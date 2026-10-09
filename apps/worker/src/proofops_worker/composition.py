@@ -65,6 +65,7 @@ def build_composition(
     }:
         raise ValueError("EXPLICIT_LOCAL_SYNTHETIC_EXTRACTION_REQUIRED")
     note_ledger = Path(__file__).resolve().parents[4] / ".local/upstage/budget.sqlite3"
+    openai_ledger = Path(__file__).resolve().parents[4] / ".local/openai/budget.sqlite3"
     luna_ledger = Path(__file__).resolve().parents[4] / ".local/openrouter/budget.sqlite3"
     if raster_ocr and not note_ledger.is_file():
         raise ValueError("SHARED_BUDGET_LEDGER_REQUIRED")
@@ -123,6 +124,7 @@ def build_composition(
 
         live_factory = None
         if os.environ.get("LOCAL_TAGGING_MODE") == "upstage_local":
+            from proofops.adapters.local.openai import OpenAIProbe
             from proofops.adapters.local.openrouter import MODEL as LUNA_MODEL
             from proofops.adapters.local.openrouter import OpenRouterProbe
             from proofops.adapters.local.upstage import MODEL_PRO4, UpstageProbe
@@ -140,6 +142,11 @@ def build_composition(
                             "wire_policy_version", 1
                         ),
                     )
+                elif model == "gpt-6-luna":
+                    if not openai_ledger.is_file():
+                        raise ValueError("SHARED_BUDGET_LEDGER_REQUIRED")
+                    ledger = openai_ledger
+                    probe = OpenAIProbe(os.environ.get("OPENAI_API_KEY", ""), ledger)
                 elif model == MODEL_PRO4:
                     if not note_ledger.is_file():
                         raise ValueError("SHARED_BUDGET_LEDGER_REQUIRED")
@@ -174,6 +181,7 @@ def build_composition(
 
         extractor: ClaimExtractorPort = SyntheticClaimExtractor()
         if os.environ.get("LOCAL_EXTRACTION_MODE") == "upstage_probe":
+            from proofops.adapters.local.openai import OpenAIProbe
             from proofops.adapters.local.openrouter import MODEL as LUNA_MODEL
             from proofops.adapters.local.openrouter import OpenRouterProbe
             from proofops.adapters.local.upstage import MODEL, MODEL_PRO4, UpstageProbe
@@ -203,6 +211,7 @@ def build_composition(
                         (MODEL_PRO4, 1),
                         (LUNA_MODEL, 1),
                         (LUNA_MODEL, 2),
+                        ("gpt-6-luna", 2),
                     )
                     if _profile_with_options(m, wire_policy_version=version).model_sha256
                     == frozen_model_hash
@@ -218,6 +227,10 @@ def build_composition(
                     luna_ledger,
                     wire_policy_version=wire_policy_version,
                 )
+            elif model == "gpt-6-luna":
+                if not openai_ledger.is_file():
+                    raise ValueError("SHARED_BUDGET_LEDGER_REQUIRED")
+                probe = OpenAIProbe(os.environ.get("OPENAI_API_KEY", ""), openai_ledger)
             else:
                 if not ledger.is_file():
                     raise ValueError("SHARED_BUDGET_LEDGER_REQUIRED")

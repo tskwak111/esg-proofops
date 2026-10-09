@@ -106,10 +106,16 @@ def apply_finals_candidate(args, *, restoring=False):
     for field in forbidden:
         if getattr(args, field, False):
             raise ValueError(f"{profile} forbids --{field.replace('_', '-')}")
-    if args.preliminary_profile is not None or args.model not in (None, "openai/gpt-6-luna"):
+    if args.preliminary_profile is not None or args.model not in (
+        None,
+        "openai/gpt-6-luna",
+        "gpt-6-luna",
+    ):
         raise ValueError(f"{profile} requires the Sprint5 attempt3 model profiles")
     for field, expected in FINALS_CANDIDATE_VALUES.items():
         actual = getattr(args, field)
+        if field == "llm_provider" and actual == "openai":
+            continue
         allowed = (None, expected)
         if (restoring and actual != expected) or (not restoring and actual not in allowed):
             raise ValueError(f"{profile} requires {field}={expected}")
@@ -472,11 +478,15 @@ def live_tagging_settings(
                 prompt,
                 schema,
                 max_tokens=output,
-                wire_policy_version=2 if model_id == "openai/gpt-6-luna" else 1,
+                wire_policy_version=2 if model_id in ("openai/gpt-6-luna", "gpt-6-luna") else 1,
             )
         )
     if model_id == "openai/gpt-6-luna":
         from proofops.adapters.local.openrouter import CAPACITY_POLICY
+
+        settings["input_reservation_policy"] = CAPACITY_POLICY.copy()
+    elif model_id == "gpt-6-luna":
+        from proofops.adapters.local.openai import CAPACITY_POLICY
 
         settings["input_reservation_policy"] = CAPACITY_POLICY.copy()
     else:
@@ -623,7 +633,11 @@ def apply_resume_metadata(args, saved: dict) -> None:
     args.vision_parse = saved.get("vision_parse", "off")
     args.parser = saved.get("parser_mode", "local")
     args.model = saved.get("model", args.model)
-    args.llm_provider = "openrouter" if args.model == "openai/gpt-6-luna" else "upstage"
+    args.llm_provider = (
+        "openai"
+        if args.model == "gpt-6-luna"
+        else ("openrouter" if args.model == "openai/gpt-6-luna" else "upstage")
+    )
     args.verify_paragraphs = bool(saved.get("verify_paragraphs", False))
     args.verify_tables = bool(saved.get("verify_tables", False))
     args.verify_merged_tables = bool(saved.get("verify_merged_tables", False))
@@ -806,7 +820,9 @@ def main():
         "from. Parse/evidence/retrieval still cover all --pages; omit to keep the "
         "legacy behaviour where claims are discovered across every selected page.",
     )
-    parser.add_argument("--llm-provider", choices=["upstage", "openrouter"], default="openrouter")
+    parser.add_argument(
+        "--llm-provider", choices=["upstage", "openrouter", "openai"], default="openrouter"
+    )
     parser.add_argument("--model", choices=["solar-pro3", "solar-pro4"])
     parser.add_argument("--verify-paragraphs", action="store_true")
     parser.add_argument(
@@ -1089,10 +1105,10 @@ def main():
     if args.parser == "upstage" and args.vision_parse == "all":
         parser.error("--vision-parse all requires --parser local")
     if not args.resume:
-        if args.llm_provider == "openrouter":
+        if args.llm_provider in ("openrouter", "openai"):
             if args.model is not None:
                 parser.error("--model requires --llm-provider upstage")
-            args.model = "openai/gpt-6-luna"
+            args.model = "gpt-6-luna" if args.llm_provider == "openai" else "openai/gpt-6-luna"
         else:
             args.model = args.model or "solar-pro3"
     if args.serve_worker and not args.serve:
@@ -1245,9 +1261,7 @@ def main():
     if args.claim_source_profile is not None and not args.verify_claim_spans:
         parser.error("--claim-source-profile requires --verify-claim-spans")
     if args.key_file is None:
-        args.key_file = ROOT / (
-            ".env.openrouter.local" if args.llm_provider == "openrouter" else ".env.upstage.local"
-        )
+        args.key_file = ROOT / (f".env.{args.llm_provider}.local")
     if args.live_relations and not args.live_tagging:
         parser.error("--live-relations requires --live-tagging")
     if args.element_consistency and not args.live_tagging:
@@ -1412,7 +1426,9 @@ def main():
                     complete_selection=args.extraction_complete_selection,
                     extraction_content_bounds=args.extraction_content_bounds,
                     position_order=args.position_context_order,
-                    wire_policy_version=2 if args.model == "openai/gpt-6-luna" else 1,
+                    wire_policy_version=2
+                    if args.model in ("openai/gpt-6-luna", "gpt-6-luna")
+                    else 1,
                     display_text_profile=args.display_text_profile,
                 )
             )
@@ -1420,7 +1436,9 @@ def main():
             extraction_profile = asdict(
                 _profile_with_options(
                     args.model,
-                    wire_policy_version=2 if args.model == "openai/gpt-6-luna" else 1,
+                    wire_policy_version=2
+                    if args.model in ("openai/gpt-6-luna", "gpt-6-luna")
+                    else 1,
                     display_text_profile=args.display_text_profile,
                 )
             )
@@ -1473,8 +1491,10 @@ def main():
             settings.update(
                 live_tagging_settings(
                     args.tagging_max_calls,
-                    model_id="openai/gpt-6-luna"
-                    if args.llm_provider == "openrouter"
+                    model_id=(
+                        "gpt-6-luna" if args.llm_provider == "openai" else "openai/gpt-6-luna"
+                    )
+                    if args.llm_provider in ("openrouter", "openai")
                     else "solar-pro4",
                     relations=args.live_relations,
                     relation_profile=args.relation_profile,
@@ -1604,10 +1624,16 @@ def main():
                     role="extractor",
                     model_id=args.model,
                     model_sha256=settings["extraction_profile"]["model_sha256"],
-                    endpoint="https://openrouter.ai/api/v1/chat/completions"
-                    if args.llm_provider == "openrouter"
+                    endpoint=(
+                        "https://api.openai.com/v1/chat/completions"
+                        if args.llm_provider == "openai"
+                        else "https://openrouter.ai/api/v1/chat/completions"
+                    )
+                    if args.llm_provider in ("openrouter", "openai")
                     else "https://api.upstage.ai/v1/chat/completions",
-                    budget_limit_usd="5.00" if args.llm_provider == "openrouter" else "20.00",
+                    budget_limit_usd={"openai": "3.00", "openrouter": "5.00", "upstage": "20.00"}[
+                        args.llm_provider
+                    ],
                 ),
             ),
             (
@@ -1668,15 +1694,25 @@ def main():
                             common,
                             runtime_binding_id=identifier,
                             role="tagger",
-                            model_id="openai/gpt-6-luna"
-                            if args.llm_provider == "openrouter"
+                            model_id=(
+                                "gpt-6-luna"
+                                if args.llm_provider == "openai"
+                                else "openai/gpt-6-luna"
+                            )
+                            if args.llm_provider in ("openrouter", "openai")
                             else "solar-pro4",
-                            endpoint="https://openrouter.ai/api/v1/chat/completions"
-                            if args.llm_provider == "openrouter"
+                            endpoint=(
+                                "https://api.openai.com/v1/chat/completions"
+                                if args.llm_provider == "openai"
+                                else "https://openrouter.ai/api/v1/chat/completions"
+                            )
+                            if args.llm_provider in ("openrouter", "openai")
                             else "https://api.upstage.ai/v1/chat/completions",
-                            budget_limit_usd="5.00"
-                            if args.llm_provider == "openrouter"
-                            else "20.00",
+                            budget_limit_usd={
+                                "openai": "3.00",
+                                "openrouter": "5.00",
+                                "upstage": "20.00",
+                            }[args.llm_provider],
                             schema="local_upstage_tagger_binding_v1",
                             tagging_settings_sha256=canonical_hash(pinned),
                             input_reservation_policy_sha256=canonical_hash(
@@ -2032,7 +2068,11 @@ def main():
     pipeline_outcome = dict(stage=None, status="not_run", exit_code=0)
     if args.invoke:
         key_lines = args.key_file.read_text().splitlines()
-        key_name = "OPENROUTER_API_KEY" if args.llm_provider == "openrouter" else "UPSTAGE_API_KEY"
+        key_name = {
+            "openai": "OPENAI_API_KEY",
+            "openrouter": "OPENROUTER_API_KEY",
+            "upstage": "UPSTAGE_API_KEY",
+        }[args.llm_provider]
         key = next(
             line.split("=", 1)[1].strip().strip('"').strip("'")
             for line in key_lines
@@ -2176,9 +2216,11 @@ def main():
             # Paid consent: reuse the same Upstage key + shared USD20 ledger the
             # one-shot --invoke path uses; the loop mints no new allowance.
             key_lines = args.key_file.read_text().splitlines()
-            key_name = (
-                "OPENROUTER_API_KEY" if args.llm_provider == "openrouter" else "UPSTAGE_API_KEY"
-            )
+            key_name = {
+                "openai": "OPENAI_API_KEY",
+                "openrouter": "OPENROUTER_API_KEY",
+                "upstage": "UPSTAGE_API_KEY",
+            }[args.llm_provider]
             os.environ[key_name] = next(
                 line.split("=", 1)[1].strip().strip('"').strip("'")
                 for line in key_lines

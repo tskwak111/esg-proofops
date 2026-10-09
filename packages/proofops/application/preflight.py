@@ -363,23 +363,30 @@ def _check_local_upstage_binding(
             and approved <= now < expires
             and profile.get("purpose") == "local_test"
             and profile.get("provider") == binding.get("provider", "upstage")
-            and profile.get("provider") in ("upstage", "openrouter"),
+            and profile.get("provider") in ("upstage", "openrouter", "openai"),
         )
     model_id = binding.get("model_id")
+    openai = not document_parse and binding.get("provider") == "openai"
     openrouter = not document_parse and binding.get("provider") == "openrouter"
     models = (
         ("document-parse-260128",)
         if document_parse
-        else (("openai/gpt-6-luna",) if openrouter else ("solar-pro3", "solar-pro4"))
+        else (
+            ("gpt-6-luna",)
+            if openai
+            else (("openai/gpt-6-luna",) if openrouter else ("solar-pro3", "solar-pro4"))
+        )
     )
     transport = (
         "UpstageParseProbe"
         if document_parse
-        else ("OpenRouterProbe" if openrouter else "UpstageProbe")
+        else ("OpenAIProbe" if openai else ("OpenRouterProbe" if openrouter else "UpstageProbe"))
     )
     endpoint = (
         "https://api.upstage.ai/v1/document-digitization"
         if document_parse
+        else "https://api.openai.com/v1/chat/completions"
+        if openai
         else "https://openrouter.ai/api/v1/chat/completions"
         if openrouter
         else "https://api.upstage.ai/v1/chat/completions"
@@ -390,7 +397,7 @@ def _check_local_upstage_binding(
             canonical_hash(
                 {
                     "model": model_id,
-                    "provider": "openrouter" if openrouter else "upstage",
+                    "provider": "openai" if openai else ("openrouter" if openrouter else "upstage"),
                     "transport": transport,
                 }
             )
@@ -398,14 +405,17 @@ def _check_local_upstage_binding(
             else None
         )
         accepted = {expected} if expected is not None else set()
-        if expected is not None and openrouter:
-            from proofops.adapters.local.openrouter import WIRE_POLICY
+        if expected is not None and (openrouter or openai):
+            if openai:
+                from proofops.adapters.local.openai import WIRE_POLICY
+            else:
+                from proofops.adapters.local.openrouter import WIRE_POLICY
 
             accepted.add(
                 canonical_hash(
                     {
                         "model": model_id,
-                        "provider": "openrouter",
+                        "provider": "openai" if openai else "openrouter",
                         "transport": transport,
                         "wire_policy": WIRE_POLICY,
                     }
@@ -418,7 +428,8 @@ def _check_local_upstage_binding(
         and binding.get("model_id") in models
         and model_hash_ok
         and binding.get("endpoint") == endpoint
-        and binding.get("budget_limit_usd") in (("5.00",) if openrouter else ("10.00", "20.00"))
+        and binding.get("budget_limit_usd")
+        in (("3.00",) if openai else (("5.00",) if openrouter else ("10.00", "20.00")))
         and binding.get("fallback_bindings", []) == [],
     )
     hashes = consent.get("allowed_source_sha256")
@@ -580,8 +591,12 @@ def check_local_upstage_tagger(
         model_sha256=canonical_hash(
             dict(
                 model=settings.model_id,
-                provider="openrouter" if settings.model_id == "openai/gpt-6-luna" else "upstage",
-                transport="OpenRouterProbe"
+                provider="openai"
+                if settings.model_id == "gpt-6-luna"
+                else ("openrouter" if settings.model_id == "openai/gpt-6-luna" else "upstage"),
+                transport="OpenAIProbe"
+                if settings.model_id == "gpt-6-luna"
+                else "OpenRouterProbe"
                 if settings.model_id == "openai/gpt-6-luna"
                 else "UpstageProbe",
             )

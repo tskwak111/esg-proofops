@@ -292,14 +292,18 @@ def join_selected_linewraps(spans: list[dict], text: str) -> list[dict]:
 def _profile(model: str = UPSTAGE_MODEL) -> ExtractionProfile:
     from proofops.adapters.local.openrouter import MODEL as LUNA_MODEL
 
-    if model not in (UPSTAGE_MODEL, MODEL_PRO4, LUNA_MODEL):
+    if model not in (UPSTAGE_MODEL, MODEL_PRO4, LUNA_MODEL, "gpt-6-luna"):
         raise ValueError("UPSTAGE_MODEL_MISMATCH")
     return ExtractionProfile(
         model_sha256=canonical_hash(
             {
                 "model": model,
-                "provider": "openrouter" if model == LUNA_MODEL else "upstage",
-                "transport": "OpenRouterProbe" if model == LUNA_MODEL else "UpstageProbe",
+                "provider": "openai"
+                if model == "gpt-6-luna"
+                else ("openrouter" if model == LUNA_MODEL else "upstage"),
+                "transport": "OpenAIProbe"
+                if model == "gpt-6-luna"
+                else ("OpenRouterProbe" if model == LUNA_MODEL else "UpstageProbe"),
             }
         ),
         prompt_sha256=canonical_hash(SYSTEM_PROMPT),
@@ -519,7 +523,7 @@ def _profile_with_options(
     """
     from proofops.adapters.local.openrouter import MODEL as LUNA_MODEL
 
-    if model not in (UPSTAGE_MODEL, MODEL_PRO4, LUNA_MODEL):
+    if model not in (UPSTAGE_MODEL, MODEL_PRO4, LUNA_MODEL, "gpt-6-luna"):
         raise ValueError("UPSTAGE_MODEL_MISMATCH")
     if any(
         type(value) is not bool
@@ -593,17 +597,25 @@ def _profile_with_options(
         from proofops.application.tagging.preliminary import CONTEXT_POSITION_ORDER
 
         descriptor.append(CONTEXT_POSITION_ORDER)
-    if model == LUNA_MODEL and wire_policy_version == 2 and extraction_context:
+    if model in (LUNA_MODEL, "gpt-6-luna") and wire_policy_version == 2 and extraction_context:
         descriptor.append("luna-extraction-context-512-chars-v2")
     model_identity = {
         "model": model,
-        "provider": "openrouter" if model == LUNA_MODEL else "upstage",
-        "transport": "OpenRouterProbe" if model == LUNA_MODEL else "UpstageProbe",
+        "provider": "openai"
+        if model == "gpt-6-luna"
+        else ("openrouter" if model == LUNA_MODEL else "upstage"),
+        "transport": "OpenAIProbe"
+        if model == "gpt-6-luna"
+        else ("OpenRouterProbe" if model == LUNA_MODEL else "UpstageProbe"),
     }
     if model == LUNA_MODEL and wire_policy_version == 2:
         from proofops.adapters.local.openrouter import WIRE_POLICY
 
         model_identity["wire_policy"] = WIRE_POLICY
+    if model == "gpt-6-luna":
+        from proofops.adapters.local.openai import WIRE_POLICY as OPENAI_WIRE_POLICY
+
+        model_identity["wire_policy"] = OPENAI_WIRE_POLICY
     return ExtractionProfile(
         model_sha256=canonical_hash(model_identity),
         prompt_sha256=canonical_hash(
@@ -885,11 +897,13 @@ class UpstageClaimExtractor:
         if isinstance(self._probe, OpenRouterProbe):
             from proofops.adapters.local.openrouter import WIRE_POLICY
 
+            if self._probe.model == "gpt-6-luna":
+                from proofops.adapters.local.openai import WIRE_POLICY
             self._write(
                 directory / "identity.json",
                 canonical_json(
                     {
-                        "provider": "openrouter",
+                        "provider": "openai" if self._probe.model == "gpt-6-luna" else "openrouter",
                         "model": self._probe.model,
                         "model_sha256": self._profile.model_sha256,
                         "prompt_sha256": self._profile.prompt_sha256,

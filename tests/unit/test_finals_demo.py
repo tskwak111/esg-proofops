@@ -217,7 +217,10 @@ def test_new_session_uses_third_profile_without_invoke_or_stale_pages():
     assert "--invoke" not in argv and "--resume" not in argv
 
 
-def test_fresh_worker_session_serves_before_claims_without_paid_bootstrap(tmp_path, monkeypatch):
+@pytest.mark.parametrize("provider", ["openrouter", "openai"])
+def test_fresh_worker_session_serves_before_claims_without_paid_bootstrap(
+    tmp_path, monkeypatch, provider
+):
     import sys
 
     import uvicorn
@@ -231,7 +234,8 @@ def test_fresh_worker_session_serves_before_claims_without_paid_bootstrap(tmp_pa
     writer.add_blank_page(width=100, height=100)
     writer.write(pdf)
     key = tmp_path / "test-key.env"
-    key.write_text("OPENROUTER_API_KEY=test-only-no-dispatch\n")
+    key_name = "OPENAI_API_KEY" if provider == "openai" else "OPENROUTER_API_KEY"
+    key.write_text(key_name + "=test-only-no-dispatch\n")
     monkeypatch.setattr(
         sys,
         "argv",
@@ -255,6 +259,8 @@ def test_fresh_worker_session_serves_before_claims_without_paid_bootstrap(tmp_pa
             "off",
             "--serve",
             "--serve-worker",
+            "--llm-provider",
+            provider,
             "--key-file",
             str(key),
             "--port",
@@ -312,7 +318,8 @@ def test_fresh_worker_session_serves_before_claims_without_paid_bootstrap(tmp_pa
 @pytest.mark.parametrize(
     "change", [None, "hash", "expired", "role", "endpoint", "purpose", "foreign", "live"]
 )
-def test_http_luna_preflight_requires_exact_local_approved_binding(change):
+@pytest.mark.parametrize("provider", ["openrouter", "openai"])
+def test_http_luna_preflight_requires_exact_local_approved_binding(change, provider):
     from proofops_agent.upstage_extraction import _profile_with_options
 
     from tests.acceptance.test_preflight import http_client
@@ -320,14 +327,17 @@ def test_http_luna_preflight_requires_exact_local_approved_binding(change):
 
     client, payload, artifacts = http_client()
     runtime, consent = profiles()
+    model = "gpt-6-luna" if provider == "openai" else "openai/gpt-6-luna"
     runtime.update(
-        provider="openrouter",
-        model_id="openai/gpt-6-luna",
-        model_sha256=_profile_with_options("openai/gpt-6-luna", wire_policy_version=2).model_sha256,
-        endpoint="https://openrouter.ai/api/v1/chat/completions",
-        budget_limit_usd="5.00",
+        provider=provider,
+        model_id=model,
+        model_sha256=_profile_with_options(model, wire_policy_version=2).model_sha256,
+        endpoint="https://api.openai.com/v1/chat/completions"
+        if provider == "openai"
+        else "https://openrouter.ai/api/v1/chat/completions",
+        budget_limit_usd="3.00" if provider == "openai" else "5.00",
     )
-    consent["provider"] = "openrouter"
+    consent["provider"] = provider
     if change == "hash":
         runtime["model_sha256"] = "0" * 64
     elif change == "expired":

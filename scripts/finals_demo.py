@@ -25,7 +25,18 @@ TASK = "sprint6-F8"
 class FinalsBudget:
     """Reserve across threads/processes before dispatch; retain uncertain charges."""
 
-    def __init__(self, spend_path: Path, ledgers: dict[str, Path], events_path: Path):
+    def __init__(
+        self,
+        spend_path: Path,
+        ledgers: dict[str, Path],
+        events_path: Path,
+        *,
+        task=TASK,
+        limit_usd="0.50",
+    ):
+        self.task, self.limit_usd = task, Decimal(limit_usd)
+        if not self.limit_usd.is_finite() or not 0 < self.limit_usd <= Decimal("0.50"):
+            raise ValueError("R108_FINALS_INVALID_LIMIT")
         self.spend_path, self.ledgers, self.events_path = spend_path, ledgers, events_path
         self.lock = threading.Lock()
 
@@ -35,12 +46,12 @@ class FinalsBudget:
             fcntl.flock(lock, fcntl.LOCK_EX)
             data = json.loads(self.spend_path.read_text())
             entries = data.setdefault("executions", [])
-            entry = next((e for e in entries if e.get("task") == TASK), None)
+            entry = next((e for e in entries if e.get("task") == self.task), None)
             if entry is None:
                 entry = dict(
-                    task=TASK,
+                    task=self.task,
                     sprint=6,
-                    limit_usd="0.50",
+                    limit_usd=str(self.limit_usd),
                     delta_usd="0",
                     reserved_usd="0",
                     status="running",
@@ -71,10 +82,15 @@ class FinalsBudget:
             raise ValueError("R108_FINALS_INVALID_RESERVATION")
         with self.transaction() as (data, entry):
             pending = Decimal(entry["reserved_usd"])
-            if Decimal(entry["delta_usd"]) + pending + bound > Decimal("0.50"):
+            if Decimal(entry["delta_usd"]) + pending + bound > min(
+                self.limit_usd, Decimal(entry["limit_usd"])
+            ):
                 raise ValueError("R108_FINALS_BUDGET_EXHAUSTED")
             # Preserve the cumulative R108 cap and every provider's unsettled ledger row.
-            if Decimal(data["cumulative_usd"]) + self.unsettled() + pending + bound > Decimal(
+            all_pending = sum(
+                (Decimal(e.get("reserved_usd", "0")) for e in data["executions"]), Decimal(0)
+            )
+            if Decimal(data["cumulative_usd"]) + self.unsettled() + all_pending + bound > Decimal(
                 data["limit_usd"]
             ):
                 raise ValueError("R108_FINALS_CUMULATIVE_BUDGET_EXHAUSTED")
@@ -155,7 +171,14 @@ def pilot_argv(
 ):
     if r108_finals_candidate and r108_finals_candidate_v2:
         raise ValueError("R108 candidate profiles are mutually exclusive")
+    provider = os.environ.get("PROOFOPS_LLM_PROVIDER", "openrouter")
+    if provider not in ("openrouter", "openai"):
+        raise ValueError("R108_FINALS_PROVIDER_INVALID")
     argv = list(template)
+    if "--llm-provider" in argv:
+        argv[argv.index("--llm-provider") + 1] = provider
+    else:
+        argv += ["--llm-provider", provider]
     # New web runs choose their own pages; do not inherit a saved report's
     # narrower extraction pages. The existing pilot then extracts the chosen scope.
     claim_pages = argv.index("--claim-pages")
@@ -187,7 +210,7 @@ def pilot_argv(
     assert argv[argv.index("--display-text-profile") + 1] == "glyph-joined-display-v1"
     argv += [
         "--key-file",
-        str(root / ".env.openrouter.local"),
+        str(root / f".env.{provider}.local"),
         "--port",
         str(port),
         "--serve",
@@ -223,9 +246,16 @@ def main():
     args = parser.parse_args()
     workers = configure_concurrency()
     root, run_root = args.root.resolve(), args.run_root.resolve()
+    provider = os.environ.get("PROOFOPS_LLM_PROVIDER", "openrouter")
+    if provider not in ("openrouter", "openai"):
+        raise ValueError("R108_FINALS_PROVIDER_INVALID")
     ledgers = {
         name: (root / f".local/{name}/budget.sqlite3").resolve()
-        for name in ("upstage", "openrouter")
+        for name in (
+            ("upstage", "openrouter", "openai")
+            if provider == "openai"
+            else ("upstage", "openrouter")
+        )
     }
     for name, ledger in ledgers.items():
         if not ledger.is_file() or not (APP / f".local/{name}/budget.sqlite3").samefile(ledger):
@@ -256,9 +286,16 @@ def main():
     from proofops.adapters.local.upstage_parse import UpstageParseProbe
     from proofops.adapters.parsing import gemini_vision
 
-    OpenRouterProbe.complete = fence.guarded(
-        OpenRouterProbe.complete, "openrouter", lambda a, k: Decimal("0.02")
-    )
+    if provider == "openai":
+        from proofops.adapters.local.openai import OpenAIProbe
+
+        OpenAIProbe.complete = fence.guarded(
+            OpenAIProbe.complete, "openai", lambda a, k: Decimal("0.02")
+        )
+    else:
+        OpenRouterProbe.complete = fence.guarded(
+            OpenRouterProbe.complete, "openrouter", lambda a, k: Decimal("0.02")
+        )
     UpstageParseProbe.parse_async = fence.guarded(
         UpstageParseProbe.parse_async, "upstage", parse_bound
     )
@@ -282,8 +319,8 @@ def main():
     read_text = Path.read_text
 
     def key_read(path, *a, **k):
-        if path == APP / ".env.upstage.local":
-            path = root / ".env.upstage.local"
+        if path in (APP / ".env.upstage.local", APP / ".env.openrouter.local"):
+            path = root / path.name
         return read_text(path, *a, **k)
 
     Path.read_text = key_read
@@ -319,7 +356,7 @@ def main():
             browser = json.loads((run_root / "kakao-state/browser.json").read_text())
             print("Kakao saved walkthrough: " + browser["login_url"], flush=True)
             print(
-                f"Live analysis: OpenRouter Luna · occurrence-v3 · 66,67 · "
+                f"Live analysis: {provider} Luna · occurrence-v3 · 66,67 · "
                 f"USD0.50 cap · {workers} workers",
                 flush=True,
             )
