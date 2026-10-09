@@ -425,7 +425,24 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "name": "X-Pipeline-Profile",
+            "in": "header",
+            "required": false,
+            "description": "Omitted uses operator analysis_profile or HOSTED_ANALYSIS_PROFILE (temporary v2; QI2 pending). Frozen per run.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "strict-v1",
+                "unattended-v1",
+                "finals-unattended-v1",
+                "finals-unattended-v2"
+              ]
+            }
+          }
+        ]
       }
     },
     "/v1/runs/{run_id}": {

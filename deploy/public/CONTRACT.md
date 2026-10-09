@@ -351,3 +351,32 @@ No new API route, DB column migration or dependency. Optional DTO additions leav
 previous results unchanged. Rollback: close admissions, drain workers, retain all
 snapshots/receipts and independent ledger; failed manual scope requires the HS2
 reader, and must not be sent to an earlier reader for new execution.
+
+### HS3 · integrated finals profiles (temporary default)
+
+New public requests select `finals-unattended-v1` or `finals-unattended-v2` using
+`X-Pipeline-Profile` and the web profile selector. Omitted header uses the operator
+`analysis_profile`, otherwise one setting `HOSTED_ANALYSIS_PROFILE` (temporarily
+v2; coordinator decides after QI2). Legacy strict/unattended and explicit R108
+operator profiles remain readable. New immutable options pin the chosen profile
+and analysis-policy SHA; old run options/results are not rewritten. Profile hash
+mismatch blocks preparation. The selected original-to-prepared page map is retained.
+Linux claim verification uses the independently approved OCR v3 policy, pinned in
+the run snapshot. EV1 native render checks require Apple Vision; on Linux those
+spans stay unresolved rather than being promoted. ODL itself runs offline on
+Linux/amd64 with Java 21 and the locked bundled 2.5.7 jar; no new dependency.
+The existing hosted broker is the only run/day/event money authority. INT1's local
+SpendGuard is not installed around hosted workers; v1 overlapped tag composition
+inherits the same hosted factories and private ledgers. A single envelope reserves the
+run at intake; each parser/model/OCR dispatch is a subreservation, not extra day
+spend. Async parse reserves pages × pinned standard .011 / enhanced .033 (VAT),
+polls scheduled jobs without reposting, and retains uncertainty/fencing guards.
+At 10 claim pages, standard+all enhanced costs at most .440; mixed evidence OCR
+fallback defaults to zero. Linux rendered OCR for 30 selected pages costs at most
+.04950 (one cached request/page), leaving .51050 of the USD1 run envelope for models.
+The 30-page OCR allowance replaces the obsolete two-page allowance only for larger
+frozen scopes. Failed receipts retain reservations; totals cannot exceed DEC-22.
+No SQL column or route migration. Optional DTO presentation adds hold reasons and
+needed evidence. Old readers must not execute new profiles. Rollback: select v1 or
+`r108-default` for new runs, drain workers and retain all options, checkpoints,
+receipts, revisions, immutable reports and cost rows. Never downgrade a pinned run.

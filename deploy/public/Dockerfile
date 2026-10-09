@@ -22,6 +22,7 @@ RUN uv sync --frozen --no-dev --all-packages --no-cache \
     && useradd --uid 10001 --create-home proofops \
     && mkdir /data && chown proofops:proofops /data
 ENV PATH="/app/.venv/bin:${PATH}" \
+    PYTHONPATH=/app \
     PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
     APP_ENV=hosted MODEL_ADAPTER=disabled \
     HOSTED_DATA_DIR=/data HOSTED_EVENT_ID=dec19-event \
