@@ -176,7 +176,8 @@ def test_parse_requires_two_pages_at_most_and_reserves_the_selected_mode_price()
         parse_bound((stream.getvalue(),), {})
 
 
-def test_new_session_uses_third_profile_without_invoke_or_stale_pages():
+def test_new_session_uses_third_profile_without_invoke_or_stale_pages(monkeypatch):
+    monkeypatch.setenv("PROOFOPS_LLM_PROVIDER", "openrouter")
     template = [
         "pilot",
         "--pdf",
@@ -215,6 +216,49 @@ def test_new_session_uses_third_profile_without_invoke_or_stale_pages():
     assert argv[argv.index("--key-file") + 1] == "/authorized/.env.openrouter.local"
     assert "--serve-worker" in argv
     assert "--invoke" not in argv and "--resume" not in argv
+
+
+def test_finals_provider_defaults_to_openai_and_keeps_openrouter_override(monkeypatch):
+    template = [
+        "pilot",
+        "--pdf",
+        "saved.pdf",
+        "--state",
+        "saved-state",
+        "--pages",
+        "1",
+        "--claim-pages",
+        "1",
+        "--report-year",
+        "2025",
+        "--period-start",
+        "old",
+        "--period-end",
+        "old",
+        "--relation-profile",
+        "occurrence-v3",
+        "--claim-source-profile",
+        "glyph-alignment-v1",
+        "--display-text-profile",
+        "glyph-joined-display-v1",
+        "--llm-provider",
+        "openrouter",
+    ]
+
+    def selected():
+        argv = pilot_argv(
+            template,
+            pdf=Path("report.pdf"),
+            state=Path("state"),
+            port=8806,
+            root=Path("/authorized"),
+        )
+        return argv[argv.index("--llm-provider") + 1], argv[argv.index("--key-file") + 1]
+
+    monkeypatch.delenv("PROOFOPS_LLM_PROVIDER", raising=False)
+    assert selected() == ("openai", "/authorized/.env.openai.local")
+    monkeypatch.setenv("PROOFOPS_LLM_PROVIDER", "openrouter")
+    assert selected() == ("openrouter", "/authorized/.env.openrouter.local")
 
 
 @pytest.mark.parametrize("provider", ["openrouter", "openai"])

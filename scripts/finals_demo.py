@@ -159,6 +159,13 @@ def parse_bound(args, kwargs):
     return COST_PER_PAGE[mode] * pages
 
 
+def selected_provider() -> str:
+    provider = os.environ.get("PROOFOPS_LLM_PROVIDER", "openai")
+    if provider not in ("openrouter", "openai"):
+        raise ValueError("R108_FINALS_PROVIDER_INVALID")
+    return provider
+
+
 def pilot_argv(
     template: list[str],
     *,
@@ -171,9 +178,7 @@ def pilot_argv(
 ):
     if r108_finals_candidate and r108_finals_candidate_v2:
         raise ValueError("R108 candidate profiles are mutually exclusive")
-    provider = os.environ.get("PROOFOPS_LLM_PROVIDER", "openrouter")
-    if provider not in ("openrouter", "openai"):
-        raise ValueError("R108_FINALS_PROVIDER_INVALID")
+    provider = selected_provider()
     argv = list(template)
     if "--llm-provider" in argv:
         argv[argv.index("--llm-provider") + 1] = provider
@@ -246,9 +251,7 @@ def main():
     args = parser.parse_args()
     workers = configure_concurrency()
     root, run_root = args.root.resolve(), args.run_root.resolve()
-    provider = os.environ.get("PROOFOPS_LLM_PROVIDER", "openrouter")
-    if provider not in ("openrouter", "openai"):
-        raise ValueError("R108_FINALS_PROVIDER_INVALID")
+    provider = selected_provider()
     ledgers = {
         name: (root / f".local/{name}/budget.sqlite3").resolve()
         for name in (
