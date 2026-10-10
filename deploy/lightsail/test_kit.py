@@ -71,6 +71,13 @@ class Kit(unittest.TestCase):
                 self.assertIn("DRY RUN", self.run_script(script).stdout)
         self.assertEqual(self.calls(), [])
 
+    def test_smoke_dry_run_shows_scope_plan_first_and_live_disabled(self):
+        output = self.run_script("smoke.sh").stdout
+        self.assertIn("scope-plan POST/GET", output)
+        self.assertIn("--foreign-invite-file", output)
+        self.assertIn("unchanged scope", output)
+        self.assertIn("requires LIVE_DISABLED", output)
+
     def test_keys_apply_installs_openai_key_without_printing_values(self):
         key_files = {}
         for variable, filename, line in (

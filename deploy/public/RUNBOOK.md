@@ -264,7 +264,12 @@ ANALYSIS_BACKEND=r108로 바꾸고 LIVE_DISABLED=true를 유지하여 deploy.sh�
   제한 자체의 slow-origin 경계 검사는 private staging에서만119/121초 지연 응답으로 확인한다
   (production auth API에 sleep/debug endpoint를 추가하지 않는다). timeout이면 idempotency로
   상태 확인 후 재시도하며 유료 job을 중복 만들지 않는다.
-- default offline smoke는 partial_blocked/LIVE_BINDING_UNAVAILABLE, result409가 정답이다.
+- default offline smoke는 업로드 뒤 무료 scope-plan을 생성하고 GET으로 같은 revision/hash를
+  확인한다. If-Match 없이 selection을 제출하면 428인지, revision과 선택 hash가 그대로인지
+  확인한 뒤 선택을 수정하지 않고 그 hash로 run을 접수한다. 결과는 HTTP200의 실제
+  partial_blocked snapshot이며 hold reason은 LIVE_BINDING_UNAVAILABLE, claim은 빈 목록,
+  confirmed grade는 null, provider_calls는 0이어야 한다. helper의 기본 1쪽 fixture는 범위 계획이
+  가능한 환경 본문을 포함하며 결과에 원문·UUID·초대코드는 출력하지 않는다.
   Linux live opt-in의 P2 artifact는200/null grade/LINUX_SOURCE_READER_UNRESOLVED이며
   완성 분석이 아니다. 승인 reader 통합 후에만 authorized `smoke.py --expect result --allow-live`
   한 번으로 결과200·hold/source mapping·실제 비용·4GB RSS를 검증한다. 행사 장부 새로 만들기 금지.
@@ -273,14 +278,21 @@ ANALYSIS_BACKEND=r108로 바꾸고 LIVE_DISABLED=true를 유지하여 deploy.sh�
 umask 077
 ssh -i "$SSH_KEY" "ubuntu@$STATIC_IP" \
   "sudo docker compose --project-directory /srv/proofops --env-file /srv/proofops/compose.env -f /srv/proofops/compose.yaml exec -T api python scripts/hosted_control.py invite --tenant 11111111-1111-4111-8111-111111111111 --user operator-smoke --role admin" > "$HOME/proofops-smoke-invite.txt"
+ssh -i "$SSH_KEY" "ubuntu@$STATIC_IP" \
+  "sudo docker compose --project-directory /srv/proofops --env-file /srv/proofops/compose.env -f /srv/proofops/compose.yaml exec -T api python scripts/hosted_control.py invite --tenant 22222222-2222-4222-8222-222222222222 --user operator-smoke-foreign --role admin" > "$HOME/proofops-smoke-foreign-invite.txt"
 chmod 600 "$HOME/proofops-smoke-invite.txt"
-export INVITE_FILE="$HOME/proofops-smoke-invite.txt" SMOKE_BASE="$APP_ORIGIN/hosted-api"
+chmod 600 "$HOME/proofops-smoke-foreign-invite.txt"
+export INVITE_FILE="$HOME/proofops-smoke-invite.txt" FOREIGN_INVITE_FILE="$HOME/proofops-smoke-foreign-invite.txt" SMOKE_BASE="$APP_ORIGIN/hosted-api"
 deploy/lightsail/smoke.sh --apply
 # Browser gate를 따로 통과시키고 operator fixture/invite 파일을 삭제한다.
 ```
 
-smoke는 health→login→session→PDF201→run202→worker poll→결과→purge completed→logout을
-실행하고 secret/UUID/원문 없이 상태·길이·시간만 출력한다. 공개 admission은 Linux release
+smoke는 health→login→session→PDF201→scope-plan POST/GET 및 revision/hash 확인→If-Match
+없는 선택의 428/무변경 확인→기존 선택 hash로 run202→worker poll/result 상태→타 테넌트
+초대 사용자의 문서 조회 404→purge completed/업로더 조회 404→logout을 실행하고
+secret/UUID/원문 없이 상태·길이·시간만 출력한다. foreign invite는 서로 다른 tenant UUID로
+미리 발급하고 private 0600 파일로 전달한다.
+실행 중 scope 선택을 수정하지 않는다. 공개 admission은 Linux release
 gate를 통과할 때까지 다시 닫고 static 웹을 유지한다. API/worker 원장/도메인 guard는 바꾸지 않는다.
 
 ### 6. 본선 운영·백업·롤백·중지

@@ -36,13 +36,18 @@ import json,sys,time
 from pathlib import Path
 Path(sys.argv[2]).write_text(json.dumps(dict(api_worker_healthy_seconds=round(time.monotonic()-float(sys.argv[1]),3))))
 CHECK
-"${COMPOSE[@]}" exec -T api python scripts/hosted_control.py invite --tenant 11111111-1111-4111-8111-111111111111 --user p3-smoke --role admin > "$work/invite.txt"
-chmod 600 "$work/invite.txt"
-python3 "$HERE/smoke.py" --base "http://127.0.0.1:$LOCAL_PORT" --origin https://p3-local.example --invite-file "$work/invite.txt" --expect blocked --output "$EVIDENCE_DIR/smoke.json"
+issue_invites() {
+  local tenant=$1 user=$2 foreign_tenant=$3 foreign_user=$4
+  "${COMPOSE[@]}" exec -T api python scripts/hosted_control.py invite --tenant "$tenant" --user "$user" --role admin > "$work/invite.txt"
+  "${COMPOSE[@]}" exec -T api python scripts/hosted_control.py invite --tenant "$foreign_tenant" --user "$foreign_user" --role admin > "$work/foreign-invite.txt"
+  chmod 600 "$work/invite.txt" "$work/foreign-invite.txt"
+}
+issue_invites 11111111-1111-4111-8111-111111111111 p3-smoke 22222222-2222-4222-8222-222222222222 p3-smoke-foreign
+python3 "$HERE/smoke.py" --base "http://127.0.0.1:$LOCAL_PORT" --origin https://p3-local.example --invite-file "$work/invite.txt" --foreign-invite-file "$work/foreign-invite.txt" --expect blocked --output "$EVIDENCE_DIR/smoke.json"
 "${COMPOSE[@]}" restart api worker
 "${COMPOSE[@]}" up -d --wait --wait-timeout 60 --pull never api worker
-"${COMPOSE[@]}" exec -T api python scripts/hosted_control.py invite --tenant 22222222-2222-4222-8222-222222222222 --user p3-restart --role admin > "$work/invite.txt"
-python3 "$HERE/smoke.py" --base "http://127.0.0.1:$LOCAL_PORT" --origin https://p3-local.example --invite-file "$work/invite.txt" --expect blocked --output "$EVIDENCE_DIR/restart-smoke.json"
+issue_invites 22222222-2222-4222-8222-222222222222 p3-restart 33333333-3333-4333-8333-333333333333 p3-restart-foreign
+python3 "$HERE/smoke.py" --base "http://127.0.0.1:$LOCAL_PORT" --origin https://p3-local.example --invite-file "$work/invite.txt" --foreign-invite-file "$work/foreign-invite.txt" --expect blocked --output "$EVIDENCE_DIR/restart-smoke.json"
 # Exercise P2's Linux result DTO with empty dummy key paths. The Linux source gate
 # returns before reading keys or dispatch. Fail closed if that gate has changed.
 "${COMPOSE[@]}" exec -T api python -c 'import json,urllib.request; r=json.load(urllib.request.urlopen("http://127.0.0.1:8000/v1/runtime")); assert r["source_verifier"]=="upstage-ocr-page-v3" and not r["live_analysis"]; assert r["rendered_reader_gate_report_sha256"]=="69f0797dbae5420ba1b5deb4ef2f12df3e7a820c0a9a37c5f5d16c37deea741e"'
@@ -58,8 +63,8 @@ import sys
 p=Path(sys.argv[1]); p.write_text(p.read_text().replace('LIVE_DISABLED=true','LIVE_DISABLED=false'))
 CHECK
 "${COMPOSE[@]}" up -d --wait --wait-timeout 60 --pull never api worker
-"${COMPOSE[@]}" exec -T api python scripts/hosted_control.py invite --tenant 33333333-3333-4333-8333-333333333333 --user p3-linux-result --role admin > "$work/invite.txt"
-python3 "$HERE/smoke.py" --base "http://127.0.0.1:$LOCAL_PORT" --origin https://p3-local.example --invite-file "$work/invite.txt" --expect linux-blocked-result --output "$EVIDENCE_DIR/linux-result-smoke.json"
+issue_invites 33333333-3333-4333-8333-333333333333 p3-linux-result 44444444-4444-4444-8444-444444444444 p3-linux-foreign
+python3 "$HERE/smoke.py" --base "http://127.0.0.1:$LOCAL_PORT" --origin https://p3-local.example --invite-file "$work/invite.txt" --foreign-invite-file "$work/foreign-invite.txt" --expect linux-blocked-result --output "$EVIDENCE_DIR/linux-result-smoke.json"
 python3 - "$EVIDENCE_DIR/linux-result-smoke.json" <<'CHECK'
 import json,sys
 from pathlib import Path

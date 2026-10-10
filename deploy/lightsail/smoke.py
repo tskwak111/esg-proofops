@@ -11,12 +11,26 @@ from pathlib import Path
 from uuid import uuid4
 
 
-def blank_pdf():
+def smoke_pdf():
+    """Small readable environment page so automatic scope planning can succeed."""
+    paragraph = (
+        "During the reporting year, greenhouse gas emissions fell through energy efficiency. "
+        "The environment program tracks climate impacts, carbon emissions, renewable energy, "
+        "water use, and waste across company operations. This disclosure describes the method "
+        "used to measure environmental performance and the boundary for reported emissions."
+    )
+    escaped = paragraph.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+    content = (
+        "BT\n/F1 18 Tf\n72 720 Td\n(Environment) Tj\n" f"/F1 10 Tf\n0 -30 Td\n({escaped}) Tj\nET\n"
+    ).encode("ascii")
     objects = [
         b"<< /Type /Catalog /Pages 2 0 R >>",
-        b"<< /Type /Pages /Kids [3 0 R 4 0 R 5 0 R] /Count 3 >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
+        b"/Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica " b"/Encoding /WinAnsiEncoding >>",
+        b"<< /Length " + str(len(content)).encode() + b" >>\nstream\n" + content + b"endstream",
     ]
-    objects += [b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 72 72] /Resources << >> >>"] * 3
     pdf = b"%PDF-1.4\n"
     offsets = [0]
     for i, obj in enumerate(objects, 1):
@@ -38,6 +52,7 @@ def main():
     )
     p.add_argument("--origin", required=True)
     p.add_argument("--invite-file", required=True, type=Path)
+    p.add_argument("--foreign-invite-file", required=True, type=Path)
     p.add_argument(
         "--expect", choices=["blocked", "result", "linux-blocked-result"], default="blocked"
     )
@@ -52,21 +67,32 @@ def main():
     assert args.base.startswith("https://") or args.base.startswith(
         "http://127.0.0.1:"
     ), "HTTPS or loopback required"
-    assert (
-        stat.S_IMODE(args.invite_file.stat().st_mode) == 0o600 and not args.invite_file.is_symlink()
-    ), "0600 invite file required"
+    for invite_file in (args.invite_file, args.foreign_invite_file):
+        assert (
+            stat.S_IMODE(invite_file.stat().st_mode) == 0o600 and not invite_file.is_symlink()
+        ), "0600 invite file required"
     cookie = None
     csrf = None
     document = None
     report = {}
     started = time.monotonic()
 
-    def request(path, method="GET", body=None, headers=None):
+    def request(
+        path,
+        method="GET",
+        body=None,
+        headers=None,
+        *,
+        session_cookie=None,
+        session_csrf=None,
+    ):
         h = {"Origin": args.origin} | (headers or {})
-        if cookie:
-            h["Cookie"] = cookie
-        if csrf:
-            h["X-CSRF-Token"] = csrf
+        selected_cookie = cookie if session_cookie is None else session_cookie
+        selected_csrf = csrf if session_csrf is None else session_csrf
+        if selected_cookie:
+            h["Cookie"] = selected_cookie
+        if selected_csrf:
+            h["X-CSRF-Token"] = selected_csrf
         if isinstance(body, dict):
             body = json.dumps(body).encode()
             h["Content-Type"] = "application/json"
@@ -125,7 +151,7 @@ def main():
         report.update(
             health=200, login=200, cookie_attributes="Secure/HttpOnly/Path=/SameSite=Lax/no Domain"
         )
-        pdf = args.pdf.read_bytes() if args.pdf else blank_pdf()
+        pdf = args.pdf.read_bytes() if args.pdf else smoke_pdf()
         status, doc, _, elapsed = request(
             "/v1/documents",
             "POST",
@@ -135,14 +161,56 @@ def main():
         assert status == 201, f"Upload HTTP {status}"
         document = doc["document_id"]
         report.update(upload=201, upload_bytes=len(pdf), upload_seconds=elapsed)
+
+        scope_url = f"/v1/documents/{document}/scope-plan"
+        status, created_scope, scope_headers, elapsed = request(scope_url, "POST")
+        assert status == 200, f"Scope plan HTTP {status}"
+        assert created_scope["plan"]["status"] == "candidate_only" and created_scope["selection"]
+        revision = created_scope["revision"]
+        etag = f'"{revision}"'
+        assert scope_headers.get("ETag") == etag
+
+        # Confirm the persisted proposal and verify missing If-Match is rejected
+        # without creating a new selection revision.
+        status, scope, read_headers, _ = request(scope_url)
+        assert status == 200 and read_headers.get("ETag") == etag
+        assert scope["plan"]["plan_sha256"] == created_scope["plan"]["plan_sha256"]
+        assert (
+            scope["selection"]["selection_sha256"] == created_scope["selection"]["selection_sha256"]
+        )
+        selection = scope["selection"]
+        status, _, _, _ = request(
+            scope_url + "/selection",
+            "POST",
+            {
+                "selected_claim_pages": selection["claim_pages"],
+                "selected_evidence_pages": selection["pages"],
+            },
+        )
+        assert status == 428, f"Scope selection without If-Match HTTP {status}"
+        status, confirmed_scope, confirmed_headers, _ = request(scope_url)
+        assert status == 200 and confirmed_headers.get("ETag") == etag
+        assert confirmed_scope["selection"]["selection_sha256"] == selection["selection_sha256"]
+        report.update(
+            scope_plan="candidate_only",
+            scope_revision=revision,
+            scope_confirmation="GET matches POST",
+            scope_if_match_guard=428,
+            scope_edits=0,
+            scope_seconds=elapsed,
+        )
+
         status, run, _, elapsed = request(
             "/v1/runs",
             "POST",
-            {"document_id": document, "selected_pages": [1, 2]},
+            {
+                "document_id": document,
+                "scope_selection_sha256": selection["selection_sha256"],
+            },
             {"Idempotency-Key": str(uuid4())},
         )
         assert status == 202, f"Run HTTP {status}"
-        report.update(run=202, accept_seconds=elapsed)
+        report.update(run=202, run_selection="unmodified scope hash", accept_seconds=elapsed)
         deadline = time.monotonic() + 900
         while time.monotonic() < deadline:
             status, current, _, _ = request(run["status_url"])
@@ -162,10 +230,18 @@ def main():
                 current["status"] == "partial_blocked"
                 and current["error_code"] == "LIVE_BINDING_UNAVAILABLE"
             )
-            assert status == 409 and result["error"]["code"] == "ANALYSIS_RESULT_UNAVAILABLE"
+            assert (
+                status == 200
+                and result["schema"] == "r108-hosted-result-v1"
+                and result["hold_reasons"] == ["LIVE_BINDING_UNAVAILABLE"]
+                and result["pipeline"]["status"] == "partial_blocked"
+                and result["pipeline"]["provider_calls"] == 0
+                and result["confirmed_grade"] is None
+                and result["claims"] == []
+            )
             report.update(
                 poll="partial_blocked",
-                result=409,
+                result=200,
                 reason="LIVE_BINDING_UNAVAILABLE",
                 provider_calls=0,
             )
@@ -186,6 +262,32 @@ def main():
                     and result["claims"] == []
                 )
                 report["provider_calls"] = 0
+        status, foreign_session, foreign_headers, _ = request(
+            "/v1/auth/invitation",
+            "POST",
+            {"code": args.foreign_invite_file.read_text().strip()},
+            session_cookie="",
+            session_csrf="",
+        )
+        assert status == 200, f"Foreign tenant login HTTP {status}"
+        foreign_cookie = foreign_headers.get("Set-Cookie", "").split(";", 1)[0]
+        assert foreign_cookie
+        status, _, _, _ = request(
+            f"/v1/documents/{document}",
+            session_cookie=foreign_cookie,
+            session_csrf=foreign_session["csrf_token"],
+        )
+        assert status == 404, f"Foreign tenant document HTTP {status}"
+        report["tenant_isolation"] = 404
+        assert (
+            request(
+                "/v1/auth/logout",
+                "POST",
+                session_cookie=foreign_cookie,
+                session_csrf=foreign_session["csrf_token"],
+            )[0]
+            == 204
+        )
     finally:
         if document and cookie and csrf:
             status, deletion, _, _ = request(
@@ -199,6 +301,7 @@ def main():
             ), "Smoke purge incomplete; operator must retry maintenance"
             assert request("/v1/documents/" + document)[0] == 404
             report["purge"] = "completed"
+            report["document_after_purge"] = 404
         if cookie and csrf:
             assert request("/v1/auth/logout", "POST")[0] == 204
     report["elapsed_seconds"] = round(time.monotonic() - started, 3)
