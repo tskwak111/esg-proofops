@@ -30,11 +30,11 @@ def empty_provisional(reason):
     )
 
 
-def project_decision(decision, *, elements=()):
+def project_decision(decision, *, elements=(), profile=None):
     """A reachable floor is a lower bound with open elements, not an absence vote."""
     result = decision.to_api_dict()
     grade = decision.evidence_grade or decision.grade_floor
-    return dict(
+    projection = dict(
         evidence_grade=grade,
         label=decision.label if decision.evidence_grade else None,
         decision_status="provisional",
@@ -52,8 +52,12 @@ def project_decision(decision, *, elements=()):
         semantic_hash=decision.semantic_hash,
     )
 
+    if profile == "hf1-v1":
+        projection["gap_ids"] = list(decision.gap_ids)
+    return projection
 
-def provisional_result(runs, packet, rulepack, context, *, range_profile=False):
+
+def provisional_result(runs, packet, rulepack, context, *, range_profile=False, profile=None):
     # Reuse the strict provenance/independent-replica validation, never its confirmation.
     form_consensus(
         runs,
@@ -153,7 +157,16 @@ def provisional_result(runs, packet, rulepack, context, *, range_profile=False):
         run.guarded.superlative_quote for run in ordered if run.guarded is not None
     ).most_common(1)
     if not headers or headers[0][1] < 2:
-        return empty_provisional("SUPERLATIVE_UNRESOLVED") | dict(elements=elements)
+        reason = "SUPERLATIVE_UNRESOLVED"
+        if profile == "hf1-v1" and sum(run.guarded is not None for run in ordered) < 2:
+            reason = (
+                "CITATION_REPLICAS_UNRESOLVED"
+                if any(
+                    any(e.startswith("TAGGING_EVIDENCE_ID_") for e in run.errors) for run in ordered
+                )
+                else "REPLICA_HEADER_UNRESOLVED"
+            )
+        return empty_provisional(reason) | dict(elements=elements)
     tags = ConfirmedTags(
         context.tenant_id,
         data["document_version_id"],
@@ -170,7 +183,7 @@ def provisional_result(runs, packet, rulepack, context, *, range_profile=False):
         headers[0][0],
         first.product_variant,
     )
-    result = project_decision(evaluate(tags, context, rulepack), elements=elements)
+    result = project_decision(evaluate(tags, context, rulepack), elements=elements, profile=profile)
     return ensure_range(result, rulepack, tags=tags, context=context) if range_profile else result
 
 

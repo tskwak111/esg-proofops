@@ -582,7 +582,7 @@ class UpstageTaggingTransport:
         wire_user = json.dumps(user, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         return wire_system, wire_user, refs, authorization, canonical_json(schema)
 
-    def _restore_ref(self, selection, refs: dict[str, dict]) -> dict:
+    def _restore_ref(self, selection, refs: dict[str, dict], *, policy=None) -> dict:
         if self._settings.model_profile not in (
             QUOTE_PROFILE,
             QUOTE_V4_PROFILE,
@@ -601,15 +601,67 @@ class UpstageTaggingTransport:
             raw = {k: v for k, v in original.items() if k != "_display"}
             if catalog is None or catalog.pin(raw) != original["_display"]:
                 raise ValueError("DISPLAY_MAP_MISMATCH")
-            return catalog.restore(quote, raw, original["_display"])
+            if policy is None:
+                return catalog.restore(quote, raw, original["_display"])
+            return catalog.restore(quote, raw, original["_display"], policy=policy)
         if getattr(self, "_display_catalog", None) is not None:
             raise ValueError("DISPLAY_MAP_REQUIRED")
+        if policy is not None:
+            from proofops.application.tagging.citation_restore import POLICY, restore_whitespace
+
+            if policy != POLICY:
+                raise ValueError("CITATION_RESTORE_POLICY_UNKNOWN")
+            return restore_whitespace(quote, original)
         span = UpstageClaimExtractor._locate(quote, original["quote"])
         return original | dict(
             quote=quote,
             char_start=original["char_start"] + span["char_start"],
             char_end=original["char_start"] + span["char_end"],
         )
+
+    def restore_payload(self, payload, refs, *, policy=None):
+        if policy is not None:
+            from proofops.application.tagging.citation_restore import POLICY
+
+            if policy != POLICY:
+                raise ValueError("CITATION_RESTORE_POLICY_UNKNOWN")
+        for element in payload.get("elements", []):
+            try:
+                selected = element["evidence_refs"]
+                if not isinstance(selected, list):
+                    raise ValueError("invalid references")
+                element["evidence_refs"] = [
+                    self._restore_ref(key, refs, policy=policy) for key in selected
+                ]
+                if getattr(self, "_display_catalog", None) is not None:
+                    value = element.get("normalized_value")
+                    exact = [
+                        ref["quote"]
+                        for choice, ref in zip(selected, element["evidence_refs"], strict=True)
+                        if choice["quote"] == value
+                    ]
+                    if exact and len(set(exact)) == 1:
+                        element["normalized_value"] = exact[0]
+                if self._settings.model_profile in (
+                    QUOTE_V4_PROFILE,
+                    QUOTE_V5_PROFILE,
+                    CONSISTENCY_PROFILE,
+                ):
+                    self._refine_g1_year(element)
+            except (ValueError, KeyError, TypeError, AttributeError):
+                if policy is None:
+                    raise
+                element.update(
+                    state="unknown",
+                    evidence_refs=[],
+                    normalized_value=None,
+                    credited_from=None,
+                    reason_code="CITATION_RESTORE_UNRESOLVED",
+                )
+                payload.setdefault("warnings", []).append(
+                    "CITATION_RESTORE_UNRESOLVED:" + element["element_id"]
+                )
+        return payload
 
     @staticmethod
     def _refine_g1_year(element: dict) -> None:
@@ -743,26 +795,10 @@ class UpstageTaggingTransport:
                 if receipt.get("schema_valid") is False:
                     raise ValueError("provider schema invalid")
                 payload = json.loads(receipt["content"])
-                for element in payload.get("elements", []):
-                    selected = element["evidence_refs"]
-                    if not isinstance(selected, list):
-                        raise ValueError("invalid references")
-                    element["evidence_refs"] = [self._restore_ref(key, refs) for key in selected]
-                    if getattr(self, "_display_catalog", None) is not None:
-                        value = element.get("normalized_value")
-                        exact = [
-                            ref["quote"]
-                            for choice, ref in zip(selected, element["evidence_refs"], strict=True)
-                            if choice["quote"] == value
-                        ]
-                        if exact and len(set(exact)) == 1:
-                            element["normalized_value"] = exact[0]
-                    if settings.model_profile in (
-                        QUOTE_V4_PROFILE,
-                        QUOTE_V5_PROFILE,
-                        CONSISTENCY_PROFILE,
-                    ):
-                        self._refine_g1_year(element)
+                restore_policy = json.loads(request["user_json"])["untrusted_document_data"].get(
+                    "citation_restore_policy"
+                )
+                payload = self.restore_payload(payload, refs, policy=restore_policy)
                 expanded = canonical_json(payload)
             except (ValueError, KeyError, TypeError, AttributeError):
                 expanded = None

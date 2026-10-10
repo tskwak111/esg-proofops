@@ -44,6 +44,22 @@
       "max_fallback_claim_pages": 10,
       "evidence_fallback": false,
       "paid_pipeline": "not_run"
+    },
+    "upstage-ocr-page-v6": {
+      "report": "outputs/agent-results/R108-redesign/lab/hold/HF1/source-summary.json",
+      "report_sha256": "9fd149596473f40e555d07d37803e3e9a63eb72bba9f5ce9a94f736dd18d09f1",
+      "approval": "HF1 user authorization 2026-10-10; original LG glyph/pixel and saved OCR replay with unchanged literal/layout/annotation guards",
+      "saved_claims": 46,
+      "source_verified_before_after": [
+        30,
+        45
+      ],
+      "numeric_promotions": 0,
+      "max_fallback_claim_pages": 10,
+      "evidence_fallback": false,
+      "paid_pipeline": "not_run",
+      "independent_accuracy": "not_run"
     }
-  }
+  },
+  "default_linux_reader_v2": "upstage-ocr-page-v6"
 }

@@ -200,7 +200,7 @@ class GlyphDisplayCatalog:
         return self.pin(asdict(self._blocks[source_id].source_ref()))
 
     @staticmethod
-    def restore(selection, original, pin):
+    def restore(selection, original, pin, *, policy=None):
         mapping = display_alignment(original["quote"], pin["deleted_offsets"])
         if (
             pin["policy"] != POLICY
@@ -209,7 +209,17 @@ class GlyphDisplayCatalog:
             or pin["raw_boundaries"] != list(mapping.raw_boundaries)
         ):
             raise ValueError("DISPLAY_MAP_MISMATCH")
-        start, end, quote = locate_display(selection, mapping)
+        if policy is None:
+            start, end, quote = locate_display(selection, mapping)
+        else:
+            from proofops.application.tagging.citation_restore import POLICY as RESTORE_POLICY
+            from proofops.application.tagging.citation_restore import restore_whitespace
+
+            if policy != RESTORE_POLICY:
+                raise ValueError("CITATION_RESTORE_POLICY_UNKNOWN")
+            selected = restore_whitespace(selection, dict(quote=mapping.text, char_start=0))
+            start, end = mapping.raw_span(selected["char_start"], selected["char_end"])
+            quote = mapping.raw[start:end]
         return original | dict(
             quote=quote,
             char_start=original["char_start"] + start,

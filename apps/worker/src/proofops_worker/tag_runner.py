@@ -244,6 +244,11 @@ class LocalTagRunner:
         )
         rulepack = RulePackSnapshot(**snapshot["rulepack"])
         settings = tagging_settings(snapshot) if snapshot.get("tagging_settings") else None
+        hold_profile = (
+            "hf1-v1"
+            if snapshot.get("analysis_profile_policy", {}).get("hold_recovery") == "hf1-v1"
+            else None
+        )
         unattended = snapshot.get("pipeline_profile") in (
             "unattended-v1",
             "finals-unattended-v1",
@@ -658,6 +663,7 @@ class LocalTagRunner:
                             packet,
                             rulepack,
                             rule_context,
+                            profile=hold_profile,
                             range_profile=snapshot.get("pipeline_profile")
                             in ("finals-unattended-v1", "finals-unattended-v2"),
                         ),
@@ -813,7 +819,7 @@ class LocalTagRunner:
                     if snapshot.get("pipeline_profile") == "finals-unattended-v2":
                         from proofops.application.tagging.quality import hold_projection
 
-                        item["provisional_grade"] = hold_projection(item)
+                        item["provisional_grade"] = hold_projection(item, profile=hold_profile)
                 return item
             try:
                 result = process_claim(claim)
@@ -865,7 +871,7 @@ class LocalTagRunner:
                 if snapshot.get("pipeline_profile") == "finals-unattended-v2":
                     from proofops.application.tagging.quality import hold_projection
 
-                    result["provisional_grade"] = hold_projection(result)
+                    result["provisional_grade"] = hold_projection(result, profile=hold_profile)
             return result
 
         def reported_claim(claim):

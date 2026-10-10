@@ -44,6 +44,7 @@ KNOWN_RENDERED_READERS = frozenset(
         "upstage-ocr-page-v3",
         "upstage-ocr-page-v4",
         "upstage-ocr-page-v5",
+        "upstage-ocr-page-v6",
     }
 )
 FINALS_PROFILES = ("finals-unattended-v1", "finals-unattended-v2")
@@ -77,6 +78,10 @@ def operator_profiles(config: dict) -> dict:
     reader = (
         "apple-vision"
         if sys.platform == "darwin"
+        else RENDERED_READER_POLICY.get(
+            "default_linux_reader_v2", RENDERED_READER_POLICY["default_linux_reader"]
+        )
+        if analysis == "finals-unattended-v2"
         else RENDERED_READER_POLICY["default_linux_reader"]
     )
     if requested is not None or reader != "apple-vision":

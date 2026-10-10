@@ -73,6 +73,7 @@ def _table_verifier(policy_hash):
         "upstage-ocr-page-v3",
         "upstage-ocr-page-v4",
         "upstage-ocr-page-v5",
+        "upstage-ocr-page-v6",
     ):
         profile = page_ocr_profile(name)
         if policy_hash == profile.table_policy_sha256():
@@ -106,6 +107,7 @@ def _locates_auxiliary_cells(profile):
                 "upstage-ocr-page-v3",
                 "upstage-ocr-page-v4",
                 "upstage-ocr-page-v5",
+                "upstage-ocr-page-v6",
             )
         ),
     }
@@ -726,6 +728,7 @@ class OpenDataLoaderParser(ParserPort):
                     "upstage-ocr-page-v3",
                     "upstage-ocr-page-v4",
                     "upstage-ocr-page-v5",
+                    "upstage-ocr-page-v6",
                 }:
                     if page_reader is None:
                         raise ParseFailure("OCR_RUN_REQUIRED")

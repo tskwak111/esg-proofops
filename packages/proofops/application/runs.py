@@ -667,6 +667,7 @@ class RunService:
                 if (self.claim_source_policy or {}).get("profile") in {
                     "upstage-ocr-page-v4",
                     "upstage-ocr-page-v5",
+                    "upstage-ocr-page-v6",
                 }:
                     from proofops.adapters.local import evidence_source_ocr_v1 as evidence
 

@@ -350,6 +350,12 @@ def tag_replicates(
     }
     if "display_text" in data:
         user_data["display_text"] = data["display_text"]
+    if "citation_restore_policy" in data:
+        from proofops.application.tagging.citation_restore import POLICY
+
+        if data["citation_restore_policy"] != POLICY:
+            raise DomainValidationError("CITATION_RESTORE_POLICY_UNKNOWN")
+        user_data["citation_restore_policy"] = data["citation_restore_policy"]
     # Only typed coverage identifiers reach the model, never arbitrary metadata.
     user_data["search_coverage"] = {"not_found_state": "unknown"}
     graph_ids = {block.source_id for block in original.blocks}

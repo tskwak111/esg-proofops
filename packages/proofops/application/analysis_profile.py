@@ -33,14 +33,20 @@ V2_INITIAL_POLICY = POLICY | dict(
     extraction_fragment_guard="selected-linewrap-fragments-v1",
     grade_display="whole-range-hold-v1",
 )
-V2_POLICY = V2_INITIAL_POLICY | dict(element_wire="track-rulecards-v1")
+V2_PRE_HF1_POLICY = V2_INITIAL_POLICY | dict(element_wire="track-rulecards-v1")
+V2_POLICY = V2_PRE_HF1_POLICY | dict(
+    source="upstage-ocr-page-v6",
+    hold_recovery="hf1-v1",
+    citation_restore="citation-whitespace-partial-v1",
+    grade_display="actual-gap-hold-v2",
+)
 
 
 def policy_for(profile, *, pinned_hash=None):
     if profile == PROFILE:
         choices = (POLICY,)
     elif profile == V2_PROFILE:
-        choices = (V2_POLICY, V2_INITIAL_POLICY)
+        choices = (V2_POLICY, V2_PRE_HF1_POLICY, V2_INITIAL_POLICY)
     else:
         raise ValueError("ANALYSIS_PROFILE_UNKNOWN")
     for policy in choices:
@@ -63,10 +69,18 @@ def apply_pilot_profile(args):
         args.extraction_fragment_guard = True
     # Hosted Linux uses its independently approved OCR reader. Keep that explicit
     # source policy pinned in the run; other callers retain the SV1 native policy.
+    if profile == V2_PROFILE and getattr(args, "claim_source_profile", None) in (
+        None,
+        "claim-source-v3",
+        "upstage-ocr-page-v5",
+        "upstage-ocr-page-v6",
+    ):
+        args.claim_source_profile = "upstage-ocr-page-v6"
     if getattr(args, "claim_source_profile", None) not in {
         "upstage-ocr-page-v3",
         "upstage-ocr-page-v4",
         "upstage-ocr-page-v5",
+        "upstage-ocr-page-v6",
     }:
         args.claim_source_profile = "claim-source-v3"
     args.verify_claim_spans = True

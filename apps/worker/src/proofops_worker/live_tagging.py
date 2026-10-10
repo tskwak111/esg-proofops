@@ -342,6 +342,10 @@ class LiveTaggingRuntime:
         data = packet.to_dict()
         data.pop("packet_sha256")
         data["display_text"] = display_catalog.element_pins(data)
+        if self.snapshot.get("analysis_profile_policy", {}).get("hold_recovery") == "hf1-v1":
+            from proofops.application.tagging.citation_restore import POLICY
+
+            data["citation_restore_policy"] = POLICY
         return freeze_packet(data)
 
     def allow_packet(self, claim_id, packet_sha256):
