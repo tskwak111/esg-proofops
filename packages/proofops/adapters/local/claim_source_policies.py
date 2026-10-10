@@ -15,8 +15,6 @@ module, and both keep their original receipt schema and bytes.
 """
 
 from collections.abc import Mapping
-from hashlib import sha256
-from pathlib import Path
 
 RENDER_RESOLUTION_POLICY_SCHEMA = "claim_span_render_resolution_policy_v1"
 # R19 bullet-alignment wrapper. It WRAPS the render-resolution wrapper rather
@@ -65,13 +63,9 @@ def _historical_typography():
     The entire policy (including all dependency hashes) must still match the
     policy computed by these exact bytes. Never admit it for new publication.
     """
-    path = Path(__file__).with_name("_frozen_verifiers") / "claim_span_typography_v1.py"
-    digest = "58086038813acfca0e5d40108f7bf49863b11ecf5ceff56c91ca4989a82b98de"
-    if not path.is_file() or sha256(path.read_bytes()).hexdigest() != digest:
-        raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")
-    from proofops.adapters.local._frozen_verifiers import claim_span_typography_v1
+    from proofops.adapters.local.historical_claim_replay import historical_typography_reader
 
-    return claim_span_typography_v1
+    return historical_typography_reader()
 
 
 def _glyph_alignment():
