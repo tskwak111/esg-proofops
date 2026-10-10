@@ -142,7 +142,7 @@ def fake_page_ocr(png):
 @pytest.mark.parametrize(
     "profile", ["r108-default", "r108-finals-candidate", "r108-finals-candidate-v2"]
 )
-def test_linux_fake_chain_uses_v3_and_survives_receipt_replay(settings, monkeypatch, profile):
+def test_linux_fake_chain_uses_v4_and_survives_receipt_replay(settings, monkeypatch, profile):
     from proofops_api import hosted_analysis
 
     from evaluation.hosted_r108 import drive
@@ -167,7 +167,7 @@ def test_linux_fake_chain_uses_v3_and_survives_receipt_replay(settings, monkeypa
             parse_post=fake_parse,
             ocr_post=fake_page_ocr,
         )
-        assert outcome["profiles"]["source_reader"] == "upstage-ocr-page-v3"
+        assert outcome["profiles"]["source_reader"] == "upstage-ocr-page-v4"
         assert outcome["stages"][-1]["stage"] == "tag", outcome
         store.publish_analysis(job, state, outcome["status"], outcome["reason"])
     result = store.get_result(auth.tenant_id, job["run_id"])

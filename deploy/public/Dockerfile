@@ -2,6 +2,8 @@ FROM python:3.12.14-slim-trixie
 COPY --from=ghcr.io/astral-sh/uv:0.12.7 /uv /usr/local/bin/uv
 RUN apt-get update && apt-get install -y --no-install-recommends \
     openjdk-21-jre-headless procps ca-certificates libfontconfig1 fonts-noto-cjk \
+    tesseract-ocr=5.5.0-1+b1 libtesseract5=5.5.0-1+b1 \
+    tesseract-ocr-eng=1:4.1.0-2 tesseract-ocr-kor=1:4.1.0-2 \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /opt/homebrew/opt/openjdk@21/bin \
     && ln -s /usr/bin/java /opt/homebrew/opt/openjdk@21/bin/java

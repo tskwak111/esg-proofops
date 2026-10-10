@@ -208,7 +208,12 @@ def accepted_native_policy_digests():
     digests = {canonical_hash(native_paragraph_policy())}
     from proofops.adapters.local.claim_source_policies import page_ocr_profile
 
-    for profile in ("upstage-ocr-page-v1", "upstage-ocr-page-v2", "upstage-ocr-page-v3"):
+    for profile in (
+        "upstage-ocr-page-v1",
+        "upstage-ocr-page-v2",
+        "upstage-ocr-page-v3",
+        "upstage-ocr-page-v4",
+    ):
         digests.add(canonical_hash(page_ocr_profile(profile).native_policy()))
     from proofops.adapters.local import frozen_native_replay
 
@@ -403,6 +408,7 @@ def load_run_evidence(store, uploads, parser, *, tenant_id: str, run_id: str):
             "upstage-ocr-page-v1",
             "upstage-ocr-page-v2",
             "upstage-ocr-page-v3",
+            "upstage-ocr-page-v4",
         } and (native_receipt is None or native_receipt.get("run_id") != run_id):
             raise ParseFailure("NATIVE_PARAGRAPH_CHECKPOINT_INVALID")
         if (
@@ -523,9 +529,10 @@ def load_run_evidence(store, uploads, parser, *, tenant_id: str, run_id: str):
         except (ValueError, TypeError, KeyError):
             raise ParseFailure("NATIVE_PARAGRAPH_REPLAY_INVALID") from None
     if "evidence_source_policy" in snapshot:
-        from proofops.adapters.local import evidence_source_verification_v1 as ev1
+        from proofops.adapters.local.evidence_source_policies import evidence_source_reader
 
         try:
+            ev1 = evidence_source_reader(snapshot["evidence_source_policy"])
             if (
                 snapshot["evidence_source_policy"] != ev1.policy()
                 or envelope.get("evidence_source_policy_sha256") != canonical_hash(ev1.policy())

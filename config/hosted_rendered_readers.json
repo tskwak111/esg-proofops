@@ -1,12 +1,30 @@
 {
   "schema": "hosted_rendered_readers_v1",
-  "default_linux_reader": "upstage-ocr-page-v3",
+  "default_linux_reader": "upstage-ocr-page-v4",
   "gate_passed": {
+    "upstage-ocr-page-v4": {
+      "report": "outputs/agent-results/R108-redesign/lab/hosted/FX2/FX2-REPORT.md",
+      "approval": "FX2 authorized source-reader correction; free original-source gate",
+      "source_verified_before_after": [
+        10,
+        33
+      ],
+      "saved_claims": 95,
+      "original_crop_reviews": 23,
+      "false_verified_observed": 0,
+      "numeric_promotions": 0,
+      "paid_pipeline": "not_run",
+      "report_sha256": "0442f56e3602fd3835a5d65ba40f5f96348767b9940fa157f47cae0540603a9f",
+      "validation_sha256": "28207cfe88785b108a3c4d54505f748c87e805822d4ecbfda3915e32593e9196"
+    },
     "upstage-ocr-page-v3": {
       "report": "outputs/agent-results/R108-redesign/lab/deploy/ocr/O1d-REPORT.md",
       "report_sha256": "69f0797dbae5420ba1b5deb4ef2f12df3e7a820c0a9a37c5f5d16c37deea741e",
       "approval": "coordinator decision 2026-10-09",
-      "claim_retention": [62, 64],
+      "claim_retention": [
+        62,
+        64
+      ],
       "false_verified": 0,
       "numeric_promotions": 0
     }

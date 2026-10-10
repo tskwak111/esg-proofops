@@ -549,7 +549,12 @@ def claim_source_policy_for(args):
         from proofops.adapters.local.claim_source_verification_v3 import claim_source_policy
 
         return claim_source_policy()
-    if profile in {"upstage-ocr-page-v1", "upstage-ocr-page-v2", "upstage-ocr-page-v3"}:
+    if profile in {
+        "upstage-ocr-page-v1",
+        "upstage-ocr-page-v2",
+        "upstage-ocr-page-v3",
+        "upstage-ocr-page-v4",
+    }:
         from proofops.adapters.local.claim_source_policies import page_ocr_profile
 
         return page_ocr_profile(profile).claim_source_policy()
@@ -982,6 +987,7 @@ def main():
             "upstage-ocr-page-v1",
             "upstage-ocr-page-v2",
             "upstage-ocr-page-v3",
+            "upstage-ocr-page-v4",
             "table-claim-spans-v1",
             "claim-source-v3",
         ],
@@ -1450,6 +1456,7 @@ def main():
             "upstage-ocr-page-v1",
             "upstage-ocr-page-v2",
             "upstage-ocr-page-v3",
+            "upstage-ocr-page-v4",
         }:
             if args.raster_ocr or args.native_quote_typography:
                 parser.error("page OCR requires no raster/native quote-typography composition")

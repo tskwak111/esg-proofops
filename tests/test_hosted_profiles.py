@@ -57,7 +57,7 @@ def test_hosted_preparation_pins_requested_bundle(tmp_path, monkeypatch, profile
         assert "--position-context-order" in argv
         assert argv[argv.index("--vision-parse") + 1] == "off"
     assert manifest["claim_source_profile"] == (
-        "glyph-alignment-v1" if platform == "darwin" else "upstage-ocr-page-v3"
+        "glyph-alignment-v1" if platform == "darwin" else "upstage-ocr-page-v4"
     )
 
 
@@ -65,7 +65,7 @@ def test_hosted_preparation_pins_requested_bundle(tmp_path, monkeypatch, profile
     "config",
     [
         {"analysis_profile": "invented"},
-        {"rendered_reader_profile": "upstage-ocr-page-v4"},
+        {"rendered_reader_profile": "upstage-ocr-page-v5"},
         {"llm_provider": "invented"},
     ],
 )
@@ -83,12 +83,15 @@ def test_failed_linux_reader_gate_cannot_be_enabled_in_json(reader, monkeypatch)
     profiles = hosted_analysis.operator_profiles(config)
     assert profiles["source_reader"] == "unresolved"
     assert profiles["analysis_profile"] == "r108-finals-candidate"
-    assert hosted_analysis.GATE_PASSED_RENDERED_READERS == {"upstage-ocr-page-v3"}
+    assert hosted_analysis.GATE_PASSED_RENDERED_READERS == {
+        "upstage-ocr-page-v3",
+        "upstage-ocr-page-v4",
+    }
 
 
-def test_linux_default_v3_carries_holdout_provenance(monkeypatch):
+def test_linux_explicit_v3_carries_holdout_provenance(monkeypatch):
     monkeypatch.setattr(hosted_analysis.sys, "platform", "linux")
-    profiles = hosted_analysis.operator_profiles({})
+    profiles = hosted_analysis.operator_profiles({"rendered_reader_profile": "upstage-ocr-page-v3"})
     assert profiles["source_reader"] == profiles["claim_source"] == "upstage-ocr-page-v3"
     assert profiles["rendered_reader_gate_report_sha256"] == (
         "69f0797dbae5420ba1b5deb4ef2f12df3e7a820c0a9a37c5f5d16c37deea741e"
@@ -100,6 +103,17 @@ def test_linux_default_v3_carries_holdout_provenance(monkeypatch):
 def test_mac_default_reader_unchanged(monkeypatch):
     monkeypatch.setattr(hosted_analysis.sys, "platform", "darwin")
     assert hosted_analysis.operator_profiles({})["source_reader"] == "apple-vision"
+
+
+def test_linux_default_v4_has_free_original_source_gate(monkeypatch):
+    monkeypatch.setattr(hosted_analysis.sys, "platform", "linux")
+    profiles = hosted_analysis.operator_profiles({})
+    assert profiles["source_reader"] == profiles["claim_source"] == "upstage-ocr-page-v4"
+    gate = hosted_analysis.RENDERED_READER_POLICY["gate_passed"]["upstage-ocr-page-v4"]
+    assert gate["original_crop_reviews"] >= 20
+    assert gate["false_verified_observed"] == 0
+    assert gate["paid_pipeline"] == "not_run"
+    assert len(profiles["rendered_reader_gate_report_sha256"]) == 64
 
 
 def test_hosted_operator_choice_excludes_regressed_v1_but_warns_on_existing_config():

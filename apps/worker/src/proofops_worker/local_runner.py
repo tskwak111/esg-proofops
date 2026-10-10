@@ -160,6 +160,7 @@ class LocalParserRunner:
             "upstage-ocr-page-v1",
             "upstage-ocr-page-v2",
             "upstage-ocr-page-v3",
+            "upstage-ocr-page-v4",
         }:
             from proofops.adapters.local.claim_source_policies import claim_source_reader
 
@@ -344,10 +345,11 @@ class LocalParserRunner:
                                 native_receipt, graph, source.content, tenant_id=tenant_id
                             )
                     if "evidence_source_policy" in snapshot:
-                        from proofops.adapters.local import evidence_source_verification_v1 as ev1
+                        from proofops.adapters.local.evidence_source_policies import (
+                            evidence_source_reader,
+                        )
 
-                        if snapshot["evidence_source_policy"] != ev1.policy():
-                            raise ValueError("EVIDENCE_SOURCE_POLICY_MISMATCH")
+                        ev1 = evidence_source_reader(snapshot["evidence_source_policy"])
                         evidence_pages = tuple(
                             sorted(set(profile.physical_pages) - set(profile.claim_physical_pages))
                         )
@@ -356,6 +358,11 @@ class LocalParserRunner:
                             source.content,
                             tenant_id=tenant_id,
                             physical_pages=evidence_pages,
+                            **(
+                                {"run_id": run_id}
+                                if ev1.PROFILE == "evidence-source-ocr-v1"
+                                else {}
+                            ),
                         )
                         graph = ev1.replay_evidence_sources(
                             evidence_receipt, graph, source.content, tenant_id=tenant_id

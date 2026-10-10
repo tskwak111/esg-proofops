@@ -647,11 +647,12 @@ class RunService:
                 analysis_policy = policy_for(self.pipeline_profile)
                 snapshot["analysis_profile_policy"] = _detach(analysis_policy)
                 snapshot["analysis_profile_policy_sha256"] = canonical_hash(analysis_policy)
-                from proofops.adapters.local.evidence_source_verification_v1 import (
-                    policy as evidence_source_policy,
-                )
+                from proofops.adapters.local import evidence_source_verification_v1 as evidence
 
-                snapshot["evidence_source_policy"] = _detach(evidence_source_policy())
+                if snapshot.get("claim_source_policy", {}).get("profile") == "upstage-ocr-page-v4":
+                    from proofops.adapters.local import evidence_source_ocr_v1 as evidence
+
+                snapshot["evidence_source_policy"] = _detach(evidence.policy())
         if self.extraction_profile is not None:
             snapshot.update(
                 extraction_profile=asdict(self.extraction_profile),

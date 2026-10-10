@@ -1,0 +1,71 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "version": 1,
+  "metadata": {
+    "component": {
+      "type": "application",
+      "name": "proofops-local-raster-os-lock"
+    },
+    "properties": [
+      {
+        "name": "proofops:local_raster_reader_lock:sha256",
+        "value": "fc62796101de368ff50acf91ecb23e8ca52281ab820c35efc556a0df4f8855c8"
+      }
+    ]
+  },
+  "components": [
+    {
+      "type": "application",
+      "name": "tesseract-ocr",
+      "version": "5.5.0-1+b1",
+      "purl": "pkg:deb/debian/tesseract-ocr@5.5.0-1%2Bb1",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "libtesseract5",
+      "version": "5.5.0-1+b1",
+      "purl": "pkg:deb/debian/libtesseract5@5.5.0-1%2Bb1",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "tesseract-ocr-eng",
+      "version": "1:4.1.0-2",
+      "purl": "pkg:deb/debian/tesseract-ocr-eng@1:4.1.0-2",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "tesseract-ocr-kor",
+      "version": "1:4.1.0-2",
+      "purl": "pkg:deb/debian/tesseract-ocr-kor@1:4.1.0-2",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    }
+  ]
+}
