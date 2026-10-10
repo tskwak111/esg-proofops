@@ -141,9 +141,13 @@ def test_wrong_page_and_ref_identity_rejected():
 def test_only_actual_quote_glyph_annotation_overlap_blocks(
     subtype, ap, overlap, expected, monkeypatch
 ):
+    from proofops.adapters.local import claim_source_verification as strict
+
     from tests.integration.test_native_table_admission import ocr
 
     monkeypatch.setattr(verifier(), "_rendered_text", ocr)
+    # The strict first pass has its own platform reader (Apple Vision on macOS).
+    monkeypatch.setattr(strict, "_rendered_text", ocr)
     from pypdf.generic import DecodedStreamObject
 
     box = (80, 713, 95, 730) if overlap else (70, 704, 95, 708)
