@@ -21,6 +21,15 @@ const claim = {
     grade_basis: "reachable_floor", grade_range: { floor: "E1", ceiling: "E3", open_elements: ["P3"] } },
 };
 const result = { claims: [claim], reviews: [], hold_reasons: [], page_map: [26], pipeline: { status: "completed" } };
+test("R108 extraction budget hold explains unanalyzed items without claiming money exhaustion", () => {
+  const html = renderToStaticMarkup(React.createElement(ResultView, {
+    result: { ...result, hold_reasons: ["R108_BUDGET_EXHAUSTED"], pipeline: { status: "partial_blocked" } },
+  }));
+  assert.match(html, /분석 예산 한도로 일부 항목을 미분석/);
+  assert.match(html, /호출 수·시간·비용 기록/);
+  assert.doesNotMatch(html, /보류 사유 코드: R108_BUDGET_EXHAUSTED/);
+  assert.match(html, /확정 등급 아님/);
+});
 test("server evidence_grade is displayed with range, open elements and hold", () => {
   const summary = gradeSummary(claim);
   assert.match(summary.headline, /잠정 등급 E1/);

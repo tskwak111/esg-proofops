@@ -237,6 +237,7 @@ const blockedReasons: Record<string, string> = {
   OPENAI_HTTP_429: providerLimitMessage,
   OPENAI_INSUFFICIENT_QUOTA: providerLimitMessage,
   BUDGET_EXHAUSTED: "예산 상한으로 미분석",
+  R108_BUDGET_EXHAUSTED: "분석 예산 한도로 일부 항목을 미분석했습니다. 호출 수·시간·비용 기록을 확인하세요.",
   BUDGET_EXCEEDED: "분석 비용 상한에 도달했습니다.",
   OPENROUTER_HTTP_402: providerLimitMessage,
   OPENROUTER_HTTP_403: providerLimitMessage,
