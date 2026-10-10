@@ -498,7 +498,47 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
             user["display_map_sha256"] = canonical_hash(display)
             system += SYSTEM_SUFFIX
         wire_user = json.dumps(user, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-        return system, wire_user, {}, authorization, settings.schema_json
+        schema_json = settings.schema_json
+        if "preliminary_fact_fields" in request:
+            if (
+                request["preliminary_fact_fields"] != "preliminary-fact-fields-pb2-v1"
+                or settings.model_profile != COMPACT_PROFILE
+            ):
+                raise ValueError("PRELIMINARY_FACT_FIELDS_POLICY_UNKNOWN")
+            schema = json.loads(schema_json)
+            dimensions = schema["properties"]["dimensions"]
+            dimensions["additionalProperties"] = False
+            dimensions["properties"] = {
+                name: {"$ref": "#/$defs/source_span"}
+                for name in (
+                    "entity",
+                    "metric",
+                    "reporting_period",
+                    "facility",
+                    "scope",
+                    "product",
+                    "material",
+                    "boundary",
+                )
+            }
+            schema_json = json.dumps(
+                schema, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+            )
+            system += (
+                "\nDimensions may contain only entity, metric, reporting_period, facility, "
+                "scope, product, material and boundary. Do not add unit, value or quantity; "
+                "those are element facts, not attribution dimensions. Keep unknown axes null."
+            )
+            scope = request.get("preliminary_fact_fields_scope")
+            if scope is not None:
+                if scope != "table_claims":
+                    raise ValueError("PRELIMINARY_FACT_FIELDS_SCOPE_UNKNOWN")
+                system += (
+                    " Entity, metric and reporting_period are required. Other axes are optional: "
+                    "include only when explicitly applicable in this atomic claim or its verified "
+                    "table axes; omit unrelated axes. An applicable unresolved axis stays null."
+                )
+        return system, wire_user, {}, authorization, schema_json
 
     @staticmethod
     def _validate_context_shape(user: dict, data: dict, *, table: bool = False) -> None:

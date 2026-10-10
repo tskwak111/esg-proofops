@@ -214,10 +214,13 @@ class GlyphDisplayCatalog:
         else:
             from proofops.application.tagging.citation_restore import POLICY as RESTORE_POLICY
             from proofops.application.tagging.citation_restore import restore_whitespace
+            from proofops.application.tagging.pb2_citation_restore import POLICY as TABLE_POLICY
+            from proofops.application.tagging.pb2_citation_restore import restore_table
 
-            if policy != RESTORE_POLICY:
+            if policy not in (RESTORE_POLICY, TABLE_POLICY):
                 raise ValueError("CITATION_RESTORE_POLICY_UNKNOWN")
-            selected = restore_whitespace(selection, dict(quote=mapping.text, char_start=0))
+            restore = restore_table if policy == TABLE_POLICY else restore_whitespace
+            selected = restore(selection, dict(quote=mapping.text, char_start=0))
             start, end = mapping.raw_span(selected["char_start"], selected["char_end"])
             quote = mapping.raw[start:end]
         return original | dict(

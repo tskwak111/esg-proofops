@@ -333,7 +333,7 @@ class LiveTaggingRuntime:
             document_rights=self.snapshot["document"]["metadata"]["rights_profile_id"],
         )
 
-    def display_packet(self, packet):
+    def display_packet(self, packet, *, claim=None):
         display_catalog = getattr(self, "display_catalog", None)
         if display_catalog is None:
             return packet
@@ -341,9 +341,20 @@ class LiveTaggingRuntime:
 
         data = packet.to_dict()
         data.pop("packet_sha256")
+        policy = self.snapshot.get("analysis_profile_policy", {})
+        if policy.get("table_evidence") == "table-selected-evidence-pb2-v1":
+            from proofops.application.tagging.pb2_table_evidence import augment_packet
+
+            if claim is None or claim.claim_id != data["claim_id"]:
+                raise ValueError("TABLE_EVIDENCE_CLAIM_REQUIRED")
+            data = augment_packet(data, claim, self.graph, tenant_id=self.graph.tenant_id)
         data["display_text"] = display_catalog.element_pins(data)
         if self.snapshot.get("analysis_profile_policy", {}).get("hold_recovery") == "hf1-v1":
             from proofops.application.tagging.citation_restore import POLICY
+
+            data["citation_restore_policy"] = POLICY
+        if policy.get("citation_restore") == "citation-table-separators-pb2-v1":
+            from proofops.application.tagging.pb2_citation_restore import POLICY
 
             data["citation_restore_policy"] = POLICY
         return freeze_packet(data)
@@ -498,6 +509,17 @@ class LiveTaggingRuntime:
         def validate(raw):
             if display_catalog is not None:
                 raw = display_catalog.restore_preliminary(raw, packet)
+            auxiliary = None
+            from proofops.application.tagging.pb2_preliminary import enabled as pb2_enabled
+
+            if pb2_enabled(claim, graph, self.snapshot.get("analysis_profile_policy", {})):
+                from proofops.application.tagging.pb2_preliminary import (
+                    validate_preliminary as validate_pb2,
+                )
+
+                result, auxiliary = validate_pb2(
+                    claim, graph, raw, tenant_id=self.auth.tenant_id, allow_unverified=unattended
+                )
             # The table profile recomputes its own quotable source tuple from
             # claim+graph; the legacy validator stays the only path for the two
             # older profiles, so stored responses replay unchanged. The
@@ -505,12 +527,24 @@ class LiveTaggingRuntime:
             # in their prompt, so they reuse this same validator without a new
             # schema or a new source rule.
             result = (
-                validate_preliminary_table_sources(
-                    claim, graph, raw, tenant_id=self.auth.tenant_id, allow_unverified=unattended
-                )
-                if table
-                else validate_preliminary(
-                    claim, graph, raw, tenant_id=self.auth.tenant_id, allow_unverified=unattended
+                result
+                if auxiliary is not None
+                else (
+                    validate_preliminary_table_sources(
+                        claim,
+                        graph,
+                        raw,
+                        tenant_id=self.auth.tenant_id,
+                        allow_unverified=unattended,
+                    )
+                    if table
+                    else validate_preliminary(
+                        claim,
+                        graph,
+                        raw,
+                        tenant_id=self.auth.tenant_id,
+                        allow_unverified=unattended,
+                    )
                 )
             )
             if pb1 and result.safe_harbor_category == "forward_looking":
@@ -534,6 +568,7 @@ class LiveTaggingRuntime:
                     attribution_policy_sha256=canonical_hash(self.attribution_policy),
                 )
             return result, dict(
+                **({"auxiliary_fact_selections": auxiliary} if auxiliary is not None else {}),
                 track=asdict(result.track) if result.track else None,
                 dimensions={
                     key: asdict(value) if value else None
@@ -688,6 +723,15 @@ class LiveTaggingRuntime:
             ):
                 raise ValueError("RELATION_CLAIM_MISMATCH")
             local = {ref.source_id for ref in claim.source_refs}
+            if (
+                self.snapshot.get("analysis_profile_policy", {}).get("table_cell_relations")
+                == "attested-p1-p2-cells-pb2-v1"
+            ):
+                from proofops.application.tagging.pb2_table_evidence import structural_relation_ids
+
+                local.update(
+                    structural_relation_ids(data, claim, self.graph, tenant_id=self.auth.tenant_id)
+                )
             blocks = {block.source_id: block for block in self.graph.blocks}
             selected = {}
             global_elements = {}
@@ -1139,6 +1183,17 @@ class LiveTaggingRuntime:
                 )
                 if retrieval_packet_sha256 is not None:
                     request["retrieval_packet_sha256"] = retrieval_packet_sha256
+                from proofops.application.tagging.pb2_preliminary import enabled as pb2_enabled
+
+                if prefix == "preliminary" and pb2_enabled(
+                    claim, self.graph, self.snapshot.get("analysis_profile_policy", {})
+                ):
+                    request["preliminary_fact_fields"] = "preliminary-fact-fields-pb2-v1"
+                    scope = self.snapshot.get("analysis_profile_policy", {}).get(
+                        "preliminary_fact_fields_scope"
+                    )
+                    if scope is not None:
+                        request["preliminary_fact_fields_scope"] = scope
                 if self.snapshot.get("pipeline_profile") in (
                     "unattended-v1",
                     "finals-unattended-v1",

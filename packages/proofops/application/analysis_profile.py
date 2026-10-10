@@ -50,7 +50,19 @@ V2_PB1_INITIAL_POLICY = V2_HF1_POLICY | dict(
 )
 
 V2_PB1_COMPACT_POLICY = V2_PB1_INITIAL_POLICY | dict(preliminary_wire="pb1-compact-v1")
-V2_POLICY = V2_PB1_COMPACT_POLICY | dict(table_context="pb1-table-context-labels-v1")
+V2_PB1_POLICY = V2_PB1_COMPACT_POLICY | dict(table_context="pb1-table-context-labels-v1")
+V2_PB2_INITIAL_POLICY = V2_PB1_POLICY | dict(
+    source="upstage-ocr-page-v8",
+    citation_restore="citation-table-separators-pb2-v1",
+    table_evidence="table-selected-evidence-pb2-v1",
+)
+V2_PB2_ALL_CLAIMS_POLICY = V2_PB2_INITIAL_POLICY | dict(
+    preliminary_fact_fields="preliminary-fact-fields-pb2-v1"
+)
+V2_POLICY = V2_PB2_ALL_CLAIMS_POLICY | dict(
+    preliminary_fact_fields_scope="table_claims",
+    table_cell_relations="attested-p1-p2-cells-pb2-v1",
+)
 
 
 def policy_for(profile, *, pinned_hash=None):
@@ -59,6 +71,9 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            V2_PB2_ALL_CLAIMS_POLICY,
+            V2_PB2_INITIAL_POLICY,
+            V2_PB1_POLICY,
             V2_PB1_COMPACT_POLICY,
             V2_PB1_INITIAL_POLICY,
             V2_HF1_POLICY,
@@ -97,14 +112,16 @@ def apply_pilot_profile(args):
         "upstage-ocr-page-v5",
         "upstage-ocr-page-v6",
         "upstage-ocr-page-v7",
+        "upstage-ocr-page-v8",
     ):
-        args.claim_source_profile = "upstage-ocr-page-v7"
+        args.claim_source_profile = "upstage-ocr-page-v8"
     if getattr(args, "claim_source_profile", None) not in {
         "upstage-ocr-page-v3",
         "upstage-ocr-page-v4",
         "upstage-ocr-page-v5",
         "upstage-ocr-page-v6",
         "upstage-ocr-page-v7",
+        "upstage-ocr-page-v8",
     }:
         args.claim_source_profile = "claim-source-v3"
     args.verify_claim_spans = True

@@ -178,7 +178,7 @@ def test_new_default_has_new_hash_and_old_v2_pins_still_resolve():
         claim_source_profile="upstage-ocr-page-v5",
     )
     apply_pilot_profile(args)
-    assert args.claim_source_profile == "upstage-ocr-page-v7"
+    assert args.claim_source_profile == "upstage-ocr-page-v8"
     assert args.extraction_pb1 and args.extraction_table_rows
 
 
