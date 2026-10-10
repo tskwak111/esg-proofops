@@ -416,7 +416,9 @@ class OpenDataLoaderParser(ParserPort):
                             request_id=str(uuid4()),
                             mode=mode,
                         )
-                        temporary = path.with_name(path.name + "." + uuid4().hex + ".tmp")
+                        # Keep atomic writes in the same directory without repeating the
+                        # cache hash: long workspace paths otherwise exceed Windows limits.
+                        temporary = path.with_name(uuid4().hex + ".tmp")
                         temporary.write_bytes(_json(result))
                         os.replace(temporary, path)
                         return result, False

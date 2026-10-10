@@ -243,7 +243,7 @@ def test_tables_use_the_reconciliation_prefix_and_record_a_schema_version(tmp_pa
             for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
         }
         version = db.execute("SELECT version FROM reconciliation_schema").fetchall()
-    assert version == [(1,)]
+    assert version == [(2,)]
     assert {
         "reconciliation_schema",
         "reconciliation_case",

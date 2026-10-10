@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, "feature/*"]
+    branches: [main, dart-dev, "feature/*"]
   pull_request:
-    branches: [main]
+    branches: [main, dart-dev]
 
 jobs:
   python:

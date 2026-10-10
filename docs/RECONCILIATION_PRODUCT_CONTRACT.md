@@ -86,3 +86,82 @@ source-byte verification. A separate report-wide period cannot silently become
 an individual metric's period. Source-verified operator drafts remain distinct
 from engine-ready packets and cannot approve policy, promote an unconfirmed tag,
 or clear `local_synthetic`.
+
+## Developer B extension (2026-10-09)
+
+`ENABLE_RECONCILIATION=true` explicitly enables the backend store/router;
+`VITE_ENABLE_RECONCILIATION=true` enables the frontend route/link. Both default
+OFF. Enabling the UI alone does not enable the API. Operator import/from-claim
+commands explicitly opt in for their local operation. No feature flag approves
+policy, evidence, a verdict, or a G/P/M grade.
+
+Storage version 2 adds tenant-scoped immutable company-to-DART links and audit
+events. Version-1 databases migrate transactionally without rewriting existing
+case or main-pipeline rows. Unknown versions fail closed. Disable the feature to
+roll back exposure; do not delete the version-2 tables or downgrade their marker.
+
+`evaluation.reconciliation_link_company` requires a locally authorized admin
+operator, an existing tenant/company and an eight-digit ASCII corp_code. A repeat
+of the same link is idempotent; a changed code is a conflict. This local CLI is
+not an authentication service: access to the database and operator account is
+the deployment boundary, and the actor name is an audited assertion.
+
+`evaluation.reconciliation_filings` lists annual/corrected filings through the
+existing bounded client, preserves response hashes and explicitly pins a receipt
+into a new file. It never chooses the latest receipt automatically. Network
+listing requires `--allow-network` plus `DART_API_KEY`; offline pinning requires
+neither. Unsigned pin files provide integrity history, not proof of operator
+identity or authenticity. The local operator must authenticate their provenance.
+
+`evaluation.reconciliation_from_claim` consumes a verified current claim/tag head,
+the company link, explicit pin and the existing candidate-selection draft. It
+uses `build_packet`, copies verified original bytes, and registers a pending case
+under tag-revision/mutation-epoch checks. Missing triggers and unsupported source
+values are explicit blocks. C5 is disabled. Draft/import policy approval is never
+trusted. Main producer gaps (notably currency_amount/revenue_share) are not filled
+with invented tags or synonym mappings.
+
+When upload metadata has no publication date, `--sr-published-at YYYY-MM-DD`
+accepts an explicit operator proposal and marks its origin in the pending
+document binding. It cannot contradict a stored publication date. Omitting it
+preserves the visible missing-date block; upload/creation time is never substituted.
+`--coverage-proposal FILE` accepts `{search, coverage}` for the rebuilt exact
+source IDs. The CLI preserves it as a pending proposal, never generates complete
+coverage itself, and only authenticated source/decision/coverage confirmation
+makes it available to evaluation. Wrong-tenant, missing-page, truncated and
+unconfirmed proposals still block. Every staged PDF supplies its full physical
+page inventory; other formats require an explicit consistent unit inventory.
+
+### Review sidecars, without changing input/policy/output 1.1
+
+Document registries can include `coverage_units`: every registered physical page
+or allowed note with `unit_id`, `kind` and `locator`. A receipt's
+`coverage_manifest` binds `document_id`, `artifact_sha256`, `unit_id`, `locator`,
+`readable`, `reviewed`, `source_ids`; each source binding points to its
+`coverage_unit_id`. Missing, unreadable or unreviewed required units prevent
+complete coverage. Historical document-only receipts remain replayable.
+`candidate_limit.truncated=true` prevents complete coverage regardless of the
+claimed state; the 2,000-candidate limit is not raised.
+
+`fact_bindings[source_id].period_binding` contains explicit `period_start` and
+`period_end`. C4 definition/calculation sources use the same sidecar in
+`source_bindings`. With `period_binding_required=true`, missing bindings block;
+C4 must match the claim period, while C2 must match the fact's source-bound
+normalized period. No report-year-to-fact inference or annualization is added.
+
+Explanation search enumerates registered reviewed sources with the explanation
+role inside the receipt scope, in deterministic order. Bytes/locator/quote are
+revalidated. The proposal `difference_binding` must exactly bind identity, item,
+both facts, comparability, claim and C3/C4 context. Imported `human_reviewed` or
+`reviewed_by` has no authority. Only an authenticated review confirming exact
+proposals records the source IDs against packet/document/coverage hashes.
+`provenance.review_evidence` exposes that confirmation for inspection.
+
+Policy generation is a draft: C3 thresholds remain null and CAPEX allowlists
+remain empty. Semantic evaluation only uses explicitly supplied approved gold;
+missing gold/outcomes are not_run, synthetic rows are excluded from real-company
+accuracy. Expert CSV prose and search_coverage never become approval receipts.
+
+Schema 1.2 and report/export exposure remain **design only**; see
+[D-13/D-15 design](handoff/DART_DESIGN_1_2_AND_EXPORT.md). Existing 1.1 schema files
+and main export implementation remain unchanged.

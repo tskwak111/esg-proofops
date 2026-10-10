@@ -112,6 +112,8 @@ EXPECTED_IMMUTABLE_TABLES = (
     "reconciliation_revision",
     "reconciliation_source",
     "reconciliation_idempotency",
+    "reconciliation_company_link",
+    "reconciliation_company_link_audit",
 )
 
 
@@ -1118,6 +1120,14 @@ class ReadinessChecker:
                 "INSERT INTO reconciliation_idempotency VALUES (?,?,?,?,?,?)",
                 (marker, "c", "evaluate", "k", "0" * 64, b"{}"),
             )
+            db.execute(
+                "INSERT INTO reconciliation_company_link VALUES (?,?,?,?,?,?)",
+                (marker, "company", "00000000", "2026-10-09T00:00:00Z", "checker", "probe"),
+            )
+            db.execute(
+                "INSERT INTO reconciliation_company_link_audit VALUES (?,?,?,?,?)",
+                (marker, marker, "company", b"{}", "0" * 64),
+            )
             db.commit()
             for table in module.IMMUTABLE_TABLES:
                 blocked: dict[str, bool] = {}
@@ -1594,6 +1604,7 @@ class ReadinessChecker:
             "MODEL_ADAPTER": "synthetic",
             "LOCAL_DATABASE_PATH": str(sandbox / "state.sqlite3"),
             "LOCAL_ARTIFACT_DIR": str(sandbox / "artifacts"),
+            "ENABLE_RECONCILIATION": "true",
         }
         previous = {name: os.environ.get(name) for name in overrides}
         os.environ.update(overrides)
@@ -1629,6 +1640,7 @@ class ReadinessChecker:
             "required_routes_missing": missing,
             "sandbox_files_created": created,
             "repository_state_touched": False,
+            "reconciliation_enabled_for_rehearsal": True,
         }
         if missing:
             return Finding(

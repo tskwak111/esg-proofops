@@ -101,11 +101,12 @@ def create_app() -> FastAPI:
     )
     app.include_router(build_evaluations_router(composition.evaluations, composition.auth_store))
     app.include_router(build_analysis_router(composition.analysis, composition.auth_store))
-    app.include_router(
-        build_reconciliation_router(
-            composition.reconciliation, composition.auth_store, allowed_origin=app_origin or ""
+    if composition.reconciliation is not None:
+        app.include_router(
+            build_reconciliation_router(
+                composition.reconciliation, composition.auth_store, allowed_origin=app_origin or ""
+            )
         )
-    )
     app.include_router(
         build_source_conditions_router(
             composition.source_conditions, composition.auth_store, allowed_origin=app_origin or ""

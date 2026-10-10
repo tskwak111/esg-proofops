@@ -1,7 +1,8 @@
 """Import a prepared draft into an existing local run as a trusted local operator.
 
 This command requires filesystem access to the server database. It records an
-operator identity but does not grant review or policy approval. Never expose it
+operator identity but does not grant review or policy approval. It enables the
+default-off reconciliation feature for its own process only. Never expose it
 as an HTTP upload handler or accept its arguments from an untrusted client.
 """
 
@@ -36,8 +37,13 @@ def main(argv: list[str] | None = None) -> int:
     from proofops_api.composition import build_composition
 
     os.environ["LOCAL_DATABASE_PATH"] = str(args.database.resolve())
+    # The product feature flag defaults to off; this trusted operator command
+    # exists only to register cases, so it enables the store for itself.
+    os.environ["ENABLE_RECONCILIATION"] = "true"
     composition = build_composition()
     try:
+        if composition.reconciliation is None:
+            raise ValueError("reconciliation_disabled")
         bundle = {
             name: load_json(args.bundle / f"{name}.json")
             for name in ("packet", "policy", "documents", "artifacts", "coverage")
