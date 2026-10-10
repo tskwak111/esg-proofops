@@ -443,6 +443,7 @@ class LocalSQLiteJobStore:
                     "upstage-ocr-page-v6",
                     "upstage-ocr-page-v7",
                     "upstage-ocr-page-v8",
+                    "upstage-ocr-page-v9",
                 }
                 or policy != page_ocr_profile(mode).native_policy()
             ):

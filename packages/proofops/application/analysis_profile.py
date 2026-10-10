@@ -81,7 +81,10 @@ V2_PB2_POLICY = V2_PB2_ALL_CLAIMS_POLICY | dict(
     table_cell_relations="attested-p1-p2-cells-pb2-v1",
 )
 # Integration: PB2 extraction/tagging with PA2 exact-replay speedups.
-V2_POLICY = V2_PB2_POLICY | dict(verified_read_cache=VERIFIED_READ_V2_POLICY)
+V2_PRE_PB4_POLICY = V2_PB2_POLICY | dict(verified_read_cache=VERIFIED_READ_V2_POLICY)
+V2_POLICY = V2_PRE_PB4_POLICY | dict(
+    source="upstage-ocr-page-v9", table_native_ownership="all-selected-cells-pb4-v1"
+)
 
 
 def policy_for(profile, *, pinned_hash=None):
@@ -90,6 +93,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            V2_PRE_PB4_POLICY,
             V2_PB2_POLICY,
             V2_PB2_ALL_CLAIMS_POLICY,
             V2_PB2_INITIAL_POLICY,
@@ -135,8 +139,9 @@ def apply_pilot_profile(args):
         "upstage-ocr-page-v6",
         "upstage-ocr-page-v7",
         "upstage-ocr-page-v8",
+        "upstage-ocr-page-v9",
     ):
-        args.claim_source_profile = "upstage-ocr-page-v8"
+        args.claim_source_profile = "upstage-ocr-page-v9"
     if getattr(args, "claim_source_profile", None) not in {
         "upstage-ocr-page-v3",
         "upstage-ocr-page-v4",
@@ -144,6 +149,7 @@ def apply_pilot_profile(args):
         "upstage-ocr-page-v6",
         "upstage-ocr-page-v7",
         "upstage-ocr-page-v8",
+        "upstage-ocr-page-v9",
     }:
         args.claim_source_profile = "claim-source-v3"
     args.verify_claim_spans = True

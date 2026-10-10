@@ -217,6 +217,7 @@ def accepted_native_policy_digests():
         "upstage-ocr-page-v6",
         "upstage-ocr-page-v7",
         "upstage-ocr-page-v8",
+        "upstage-ocr-page-v9",
     ):
         digests.add(canonical_hash(page_ocr_profile(profile).native_policy()))
     from proofops.adapters.local import frozen_native_replay
@@ -417,6 +418,7 @@ def load_run_evidence(store, uploads, parser, *, tenant_id: str, run_id: str):
             "upstage-ocr-page-v6",
             "upstage-ocr-page-v7",
             "upstage-ocr-page-v8",
+            "upstage-ocr-page-v9",
         } and (native_receipt is None or native_receipt.get("run_id") != run_id):
             raise ParseFailure("NATIVE_PARAGRAPH_CHECKPOINT_INVALID")
         if (

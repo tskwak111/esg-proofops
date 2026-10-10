@@ -59,7 +59,35 @@
       "evidence_fallback": false,
       "paid_pipeline": "not_run",
       "independent_accuracy": "not_run"
+    },
+    "upstage-ocr-page-v9": {
+      "report": "outputs/agent-results/R108-redesign/lab/perf/PB4/PB4-REPORT.md",
+      "report_sha256": "59cedf1e542a7d47bc8a3fb6462dbc8ec0793ba8f59f5eb6752574425120fe7e",
+      "approval": "PB4 explicit user task: Linux original-source gate; v6 prose preserved, native row/column ownership corrected",
+      "saved_claims": 131,
+      "source_verified_before_after": [
+        63,
+        109
+      ],
+      "original_crop_reviews": 35,
+      "false_verified_observed": 0,
+      "numeric_promotions": 0,
+      "non_table_verified_v6_v9": [
+        63,
+        63
+      ],
+      "table_verified_by_company": {
+        "lgchem": 27,
+        "naver": 4,
+        "kia": 15
+      },
+      "linux_platform": "linux/arm64",
+      "gate_network": "none",
+      "paid_pipeline": "not_run",
+      "ocr_committed_and_reserved_usd": "0.11220",
+      "max_fallback_claim_pages": 10,
+      "evidence_fallback": false
     }
   },
-  "default_linux_reader_v2": "upstage-ocr-page-v6"
+  "default_linux_reader_v2": "upstage-ocr-page-v9"
 }

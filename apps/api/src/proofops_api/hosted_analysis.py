@@ -46,6 +46,7 @@ KNOWN_RENDERED_READERS = frozenset(
         "upstage-ocr-page-v4",
         "upstage-ocr-page-v5",
         "upstage-ocr-page-v6",
+        "upstage-ocr-page-v9",
     }
 )
 FINALS_PROFILES = ("finals-unattended-v1", "finals-unattended-v2")
