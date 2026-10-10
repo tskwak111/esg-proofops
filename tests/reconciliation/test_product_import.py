@@ -36,6 +36,8 @@ def test_operator_import_preserves_pending_review_and_ignores_file_approvals(
     closed = []
     monkeypatch.setenv("APP_ENV", "local")
     monkeypatch.setenv("LOCAL_DATABASE_PATH", str(database))
+    # The command enables the default-off flag in-process; restore it afterwards.
+    monkeypatch.setenv("ENABLE_RECONCILIATION", "false")
     monkeypatch.setattr(
         "proofops_api.composition.build_composition",
         lambda: SimpleNamespace(

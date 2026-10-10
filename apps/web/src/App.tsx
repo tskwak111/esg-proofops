@@ -16,6 +16,8 @@ import { UploadForm, type ReadyDocumentVersion } from "./features/upload/UploadF
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
 const UPLOAD_ORIGIN = import.meta.env.VITE_UPLOAD_ORIGIN;
 const LOCAL_SYNTHETIC = import.meta.env.VITE_LOCAL_SYNTHETIC === "true";
+// Default-off DART reconciliation; only the exact build-time value "true" exposes its route and link.
+const RECONCILIATION_ENABLED = import.meta.env.VITE_ENABLE_RECONCILIATION === "true";
 const emptySelection: UploadSelection = { companyId: "", rightsProfileId: "", consentProfileId: "", runtimeBindingId: "" };
 const emptyOptions: RuntimeOptions = { rights_profiles: [], consent_profiles: [], runtime_bindings: [], rule_packs: [], enabled_modes: [] };
 
@@ -162,7 +164,7 @@ function SessionApp() {
         <Route path="/runs/:runId" element={<RunHome session={session} tenantKey={session.tenant_id} initialRun={createdRun} onSessionInvalid={invalidateSession} isSavedDemo={isSavedDemo} />} />
         <Route path="/runs/:runId/claims" element={<RunClaims session={session} onSessionInvalid={invalidateSession} onDataChanged={changed} isSavedDemo={isSavedDemo} />} />
         <Route path="/runs/:runId/claims/:claimId" element={<RunClaims session={session} onSessionInvalid={invalidateSession} onDataChanged={changed} isSavedDemo={isSavedDemo} />} />
-        <Route path="/runs/:runId/claims/:claimId/reconciliation" element={<RunReconciliation session={session} onSessionInvalid={invalidateSession} isSavedDemo={isSavedDemo} />} />
+        {RECONCILIATION_ENABLED ? <Route path="/runs/:runId/claims/:claimId/reconciliation" element={<RunReconciliation session={session} onSessionInvalid={invalidateSession} isSavedDemo={isSavedDemo} />} /> : null}
         <Route path="/runs/:runId/reviews" element={<RunReviews key={`reviews:${dataRevision}`} session={session} onSessionInvalid={invalidateSession} onDataChanged={changed} isSavedDemo={isSavedDemo} />} />
         <Route path="/runs/:runId/report" element={<RunReport session={session} onSessionInvalid={invalidateSession} isSavedDemo={isSavedDemo} />} />
         <Route path="/runs/:runId/comparison" element={<RunComparison session={session} onSessionInvalid={invalidateSession} isSavedDemo={isSavedDemo} />} />
@@ -279,7 +281,7 @@ function RunClaims({ session, onSessionInvalid, onDataChanged, isSavedDemo }: { 
   const { runId = "", claimId } = useParams();
   return <>
     <RunNav runId={runId} isSavedDemo={isSavedDemo} />
-    {claimId ? <p><Link to={`/runs/${runId}/claims/${claimId}/reconciliation`}>공시 원문 대조 · C1–C4 검토</Link></p> : null}
+    {RECONCILIATION_ENABLED && claimId ? <p><Link to={`/runs/${runId}/claims/${claimId}/reconciliation`}>공시 원문 대조 · C1–C4 검토</Link></p> : null}
     <ClaimWorkspace apiBase={API_BASE} csrfToken={session.csrf_token} tenantKey={session.tenant_id!} session={session} runId={runId} claimId={claimId}
       onSessionInvalid={onSessionInvalid} onDataChanged={onDataChanged} />
   </>;

@@ -7,11 +7,16 @@ adapter. Real Cognito + DynamoDB-backed session/membership stores are not
 wired here; APP_ENV=staging/production already fails closed in
 proofops.composition.build_composition before this module's auth wiring
 would matter.
+
+DART reconciliation is opt-in (``ENABLE_RECONCILIATION=true``). When it is
+off, no reconciliation store is built, so its tables and artifact directory
+are never created and the API does not mount its routes.
 """
 
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -70,12 +75,18 @@ class ApiComposition:
     exports: ExportService
     retention: LocalRetentionStore
     comparisons: LocalComparisonStore
-    reconciliation: LocalReconciliationStore
+    reconciliation: LocalReconciliationStore | None
     app_origin: str | None
     allowed_processing_regions: tuple[str, ...]
 
     def __getattr__(self, name: str) -> Any:  # pragma: no cover - passthrough
         return getattr(self.proofops, name)
+
+
+def reconciliation_enabled(environ: Mapping[str, str] | None = None) -> bool:
+    """Only the exact value ``true`` enables reconciliation; anything else is off."""
+    source = os.environ if environ is None else environ
+    return source.get("ENABLE_RECONCILIATION", "false") == "true"
 
 
 def _build_local_auth_store() -> Any:
@@ -171,12 +182,16 @@ def build_composition() -> ApiComposition:
             enabled=os.environ.get("ENABLE_YEAR_COMPARISON", "false") == "true",
         ),
         app_origin=os.environ.get("APP_ORIGIN"),
-        reconciliation=LocalReconciliationStore(
-            database_path,
-            database_path.parent / "reconciliation-artifacts",
-            run_store=runs.store,
-            claims=claims,
-            tags=tags,
+        reconciliation=(
+            LocalReconciliationStore(
+                database_path,
+                database_path.parent / "reconciliation-artifacts",
+                run_store=runs.store,
+                claims=claims,
+                tags=tags,
+            )
+            if reconciliation_enabled()
+            else None
         ),
         allowed_processing_regions=allowed_regions,
     )

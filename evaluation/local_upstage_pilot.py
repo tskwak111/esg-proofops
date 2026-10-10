@@ -1074,7 +1074,7 @@ def main():
 
         config = ParserProfile(
             str(uuid4()),
-            java_executable="/opt/homebrew/opt/openjdk@21/bin/java",
+            java_executable="java",
             timeout_seconds=120,
             memory_bytes=parser_memory_limit(args.parser_memory_bytes),
             max_output_bytes=parser_output_limit(args.parser_max_output_bytes),

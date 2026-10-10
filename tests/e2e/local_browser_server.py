@@ -44,6 +44,9 @@ def build_app(
         APP_ORIGIN=origin,
         LOCAL_DATABASE_PATH=str(database),
         MODEL_ALLOWED_PROCESSING_REGIONS="ap-northeast-2",
+        # Reconciliation is default-off; only the reconciliation fixture opts in.
+        # Its web route also needs a dist built with VITE_ENABLE_RECONCILIATION=true.
+        ENABLE_RECONCILIATION="true" if include_reconciliation else "false",
     )
     import proofops_api.composition as composition_module
     import proofops_api.preflight as preflight_module
@@ -210,17 +213,18 @@ def build_app(
         object.__setattr__(composition, "parser", fixture_parser)
         object.__setattr__(composition, "claims", claims)
         object.__setattr__(composition, "tags", tags)
-        object.__setattr__(
-            composition,
-            "reconciliation",
-            LocalReconciliationStore(
-                database,
-                database.parent / "reconciliation-artifacts",
-                run_store=composition.runs.store,
-                claims=claims,
-                tags=tags,
-            ),
-        )
+        if composition.reconciliation is not None:
+            object.__setattr__(
+                composition,
+                "reconciliation",
+                LocalReconciliationStore(
+                    database,
+                    database.parent / "reconciliation-artifacts",
+                    run_store=composition.runs.store,
+                    claims=claims,
+                    tags=tags,
+                ),
+            )
         object.__setattr__(
             composition, "summaries", LocalSummaryStore(composition.runs.store, claims)
         )

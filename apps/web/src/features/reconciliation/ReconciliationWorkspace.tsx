@@ -11,6 +11,18 @@ import {
 } from "./api";
 import type { CaseDetail, ReconciliationWorkspaceProps } from "./types";
 
+const reconciliationReasonText: Record<string, string> = {
+  candidate_catalog_truncated_incomplete_search: "후보 검색 상한에 도달했습니다. 검색 범위를 보완하고 다시 검토해야 합니다.",
+  coverage_incomplete: "검토하지 않았거나 읽을 수 없는 페이지·주석이 있어 설명의 부재를 판단할 수 없습니다.",
+  coverage_unverified: "검색 범위와 근거의 연결을 확인할 수 없습니다. 원문과 검색 검토 기록을 확인하세요.",
+  search_incomplete: "검색이 완료되지 않아 설명이 없다고 판단할 수 없습니다.",
+  explanation_difference_unverified: "이 인용이 해당 차이를 설명하는지 검토자의 명시적 확인이 필요합니다.",
+  fact_period_binding_missing: "개별 지표의 확인된 기간이 없습니다. 보고서 전체 기간으로 대신할 수 없습니다.",
+  fact_period_binding_mismatch: "개별 지표의 기간이 확인된 근거와 일치하지 않습니다.",
+  classification_period_binding_missing: "분류 정의 또는 산정 근거의 기간을 확인해야 합니다.",
+  classification_period_mismatch: "분류 정의 또는 분모의 기간이 주장 기간과 다릅니다. 같은 기간의 근거가 필요합니다.",
+};
+
 function generateIdempotencyKey(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
@@ -668,6 +680,13 @@ export function ReconciliationWorkspace({
                   </p>
                 )}
                 {latestResult.result.reason_codes && latestResult.result.reason_codes.length > 0 && (
+                  <ul aria-label="평가 사유">
+                    {latestResult.result.reason_codes.map((code) => (
+                      <li key={code}>{reconciliationReasonText[code] ?? code}</li>
+                    ))}
+                  </ul>
+                )}
+                {latestResult.result.reason_codes && latestResult.result.reason_codes.length > 0 && (
                   <p>
                     <strong>사유 코드 (Reason Codes):</strong> {latestResult.result.reason_codes.join(", ")}
                   </p>
@@ -722,6 +741,12 @@ export function ReconciliationWorkspace({
           {isReviewer && (
             <section className="action-section review-section" aria-labelledby="review-heading">
               <h4 id="review-heading">검토자 확인 (Reviewer Confirmation)</h4>
+              <details>
+                <summary>확인할 설명 연결·기간·검색 범위 근거</summary>
+                <pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+                  {JSON.stringify((selectedCase as CaseDetail & { provenance?: { review_evidence?: unknown } }).provenance?.review_evidence, null, 2)}
+                </pre>
+              </details>
               <p style={{ fontSize: "13px" }}>
                 검토자는 사실 관계와 검색 범위를 확인하며, 판정 상태를 직접 임의 선택하지 않습니다.
               </p>
@@ -743,7 +768,7 @@ export function ReconciliationWorkspace({
                     onChange={e => setConfirmDecisionBindings(e.target.checked)}
                     disabled={busy}
                   />
-                  <span>결정 바인딩 확인 (Confirm Decision Bindings)</span>
+                  <span>결정 바인딩 및 제안된 인용과 차이의 명시적 연결 확인 (Confirm Decision Bindings)</span>
                 </label>
 
                 <label style={{ display: "flex", alignItems: "center", gap: "8px" }}>

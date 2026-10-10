@@ -615,10 +615,16 @@ def test_workspace_resolution_change_refuses_recursive_cleanup(tmp_path, monkeyp
 # --------------------------------------------------------------------------- #
 
 
-def test_the_real_application_assembles_against_a_throwaway_database(tmp_path: Path) -> None:
+def test_the_real_application_assembles_against_a_throwaway_database(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Only the throwaway rehearsal opts in; the caller's default-off flag survives.
+    monkeypatch.setenv("ENABLE_RECONCILIATION", "false")
     checker = readiness.ReadinessChecker(ROOT, environ={})
 
     finding = checker.check_application_wiring(tmp_path).to_dict()
+    assert os.environ["ENABLE_RECONCILIATION"] == "false"
+    assert finding["detail"]["reconciliation_enabled_for_rehearsal"] is True
 
     assert finding["status"] == readiness.PASSED
     assert finding["detail"]["required_routes_missing"] == []
@@ -675,8 +681,9 @@ def test_an_existing_output_directory_is_rejected_without_overwriting_it(
 
 
 def test_a_full_run_writes_both_report_files_and_reports_the_local_only_scope(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    monkeypatch.setenv("ENABLE_RECONCILIATION", "false")
     output = tmp_path / "run"
 
     code = readiness.main(["--output", str(output), "--root", str(ROOT)])

@@ -42,6 +42,8 @@
 | `ENABLE_AGENTCORE_MEMORY` | `false` | yes | all | P0 off; source truth 가 아님 |
 | `ENABLE_ADVERTISING_MODE` | `false` | yes | all | 전용 승인 rules 필요 |
 | `ENABLE_YEAR_COMPARISON` | `false` | yes | all | P1 feature flag |
+| `ENABLE_RECONCILIATION` | `false` | no | local API | 정확히 `true`일 때만 대사 저장소·라우터 생성. 정책/근거 승인은 별도 |
+| `VITE_ENABLE_RECONCILIATION` | `false` | no | web build | 정확히 `true`일 때만 대사 화면 링크·경로 노출. API 플래그도 별도로 필요 |
 | `ALLOW_LIVE_MODEL_TESTS` | `false` | yes | all | 비용/동의 승인 후 수동 enable |
 | `OTEL_SERVICE_NAME` | `proofops-local` | yes | all | service 명, 본문 capture 비활성 |
 | `LOG_LEVEL` | `INFO` | yes | all | DEBUG 여도 문서/secret logging 금지 |

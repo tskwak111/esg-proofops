@@ -25,6 +25,7 @@ from proofops.adapters.dart.candidates import (
 )
 from proofops.application.reconciliation.schema import validate_schema
 
+from evaluation.reconciliation_bindings import documents_for_packet
 from evaluation.reconciliation_cli import InputRejected, load_json, write_json
 
 SELECTION_SCHEMA = "reconciliation-operator-selections-1"
@@ -420,6 +421,19 @@ def prepare_review_draft(
                 "binding_state": "draft",
             }
         documents[document_id] = generated_document
+    documents = documents_for_packet(packet, templates=documents)
+    for document in documents.values():
+        document["candidate_limit"] = copy.deepcopy(prepared.catalog["limits"])
+    for candidate in unique_candidates.values():
+        source = candidate["source"]
+        document = documents[source["document_id"]]
+        binding = document["source_bindings"][source["source_id"]]
+        for sidecar in ("coverage_unit_id", "period_binding", "difference_binding"):
+            if sidecar in source:
+                binding[sidecar] = copy.deepcopy(source[sidecar])
+        fact = document["fact_bindings"].get(source["source_id"])
+        if fact is not None and "period_binding" in source:
+            fact["period_binding"] = copy.deepcopy(source["period_binding"])
     artifact_by_document = prepared.artifact_index
     selected_artifacts = {
         document_id: artifact_by_document[document_id]
