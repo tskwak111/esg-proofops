@@ -4,11 +4,13 @@ import json
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 root = Path(os.environ["MOCK_ROOT"])
 p = root / "resources.json"
 d = json.loads(p.read_text())
 a = sys.argv[1:]
+assert a[a.index("--region") + 1] == "ap-southeast-2", "AWS region mismatch"
 i = next(i for i, v in enumerate(a) if v in ("ec2", "sts", "ssm", "service-quotas", "budgets"))
 service, op = a[i : i + 2]
 a = a[i + 2 :]
@@ -33,21 +35,24 @@ def tags(kind):
     )
 
 
-r = {}
+r: dict[str, Any] = {}
 if op == "get-caller-identity":
     r = {"Account": os.environ.get("MOCK_ACCOUNT", "753036488189")}
     if "--query" in a:
         print(r["Account"])
         sys.exit()
 elif op == "describe-regions":
-    r = {"Regions": [{"RegionName": "ap-northeast-2"}]}
+    r = {"Regions": [{"RegionName": "ap-southeast-2"}]}
 elif op == "describe-availability-zones":
     r = {
         "AvailabilityZones": [
-            {"ZoneName": "ap-northeast-2a", "State": "available", "ZoneType": "availability-zone"}
+            {"ZoneName": "ap-southeast-2a", "State": "available", "ZoneType": "availability-zone"}
         ]
     }
 elif op == "get-parameter":
+    assert arg("--name") == (
+        "/aws/service/canonical/ubuntu/server/24.04/stable/current/arm64/hvm/ebs-gp3/ami-id"
+    )
     r = {"Parameter": {"Value": "ami-0123456789abcdef0"}}
 elif op == "describe-images":
     r = {
@@ -68,7 +73,7 @@ elif op == "describe-instance-type-offerings":
     r = {
         "InstanceTypeOfferings": []
         if os.environ.get("MOCK_NO_AZ")
-        else [{"Location": "ap-northeast-2a", "InstanceType": "t4g.medium"}]
+        else [{"Location": "ap-southeast-2a", "InstanceType": "t4g.medium"}]
     }
 elif op == "describe-instance-types":
     r = {
@@ -93,7 +98,7 @@ elif op == "describe-subnets":
             {
                 "SubnetId": "subnet-0123456789abcdef0",
                 "VpcId": "vpc-0123456789abcdef0",
-                "AvailabilityZone": "ap-northeast-2a",
+                "AvailabilityZone": "ap-southeast-2a",
                 "DefaultForAz": True,
                 "State": "available",
                 "AssignIpv6AddressOnCreation": False,

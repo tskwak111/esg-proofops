@@ -23,7 +23,9 @@ class Kit(unittest.TestCase):
         p.chmod(0o755)
         for name in ("ssh", "scp", "docker", "curl"):
             p = self.root / "bin" / name
-            p.write_text("#!/bin/sh\nexit 97\n")
+            p.write_text(
+                '#!/bin/sh\nprintf "%s\\n" "$0" >> "$MOCK_ROOT/remote-calls.txt"\nexit 97\n'
+            )
             p.chmod(0o755)
         self.resources = self.root / "resources.json"
         self.resources.write_text(
@@ -39,7 +41,7 @@ class Kit(unittest.TestCase):
             MOCK_ROOT=str(self.root),
             STATE_DIR=str(self.root / "state"),
             ACCOUNT_ID=ACCOUNT,
-            REGION="ap-northeast-2",
+            REGION="ap-southeast-2",
             PROFILE="proofops-deploy",
             NAME="proofops-r108",
             IMAGE="proofops-r108-public:ec1-arm64",
@@ -86,11 +88,14 @@ class Kit(unittest.TestCase):
             with self.subTest(script=script):
                 self.assertIn("DRY RUN", self.run_script(script).stdout)
         self.assertEqual(self.calls(), [])
+        self.assertFalse((self.root / "remote-calls.txt").exists())
 
     def test_create_and_teardown_are_exact_and_rerunnable(self):
         self.run_script("create.sh", "--apply")
         state = json.loads((self.root / "state/owned.json").read_text())
         self.assertEqual(state["status"], "created")
+        selection = json.loads((self.root / "state/selection.json").read_text())
+        self.assertEqual(selection["az"], "ap-southeast-2a")
         self.run_script("create.sh", "--apply", ok=False)
         self.assertEqual(sum(c[1] == "run-instances" for c in self.calls()), 1)
         d = self.data()
@@ -114,6 +119,7 @@ class Kit(unittest.TestCase):
             {"MOCK_USED_VCPU": "2", "MOCK_QUOTA": "2"},
             {"SSH_CIDR": "0.0.0.0/0"},
             {"ARCH": "amd64"},
+            {"REGION": "ap-northeast-2"},
         ):
             with self.subTest(change=change):
                 self.run_script("create.sh", "--apply", changes=change, ok=False)
@@ -220,7 +226,10 @@ class Kit(unittest.TestCase):
 
     def test_local_iam_schema_and_recorded_operations(self):
         self.run_script("create.sh", "--apply")
-        self.run_script("cost.sh", "--apply")
+        cost = self.run_script("cost.sh", "--apply")
+        self.assertIn("USD13.55513", cost.stdout)
+        self.assertIn("USD20/month pauses at limit", cost.stdout)
+        self.assertIn("separate external-provider", cost.stdout)
         self.run_script("budget.sh", "--apply")
         self.run_script("teardown.sh", "--apply")
         r = subprocess.run(["python3", str(HERE / "check-config.py"), "--kit"], capture_output=True)

@@ -526,10 +526,14 @@ Vercel `/api/live-*` 데모의 OpenRouter 키·인메모리 제한(#5)은 별도
 - DB/API 변경과 rollback은 CONTRACT.md FX4 절을 따른다. 정적 재생은
   network-none·키 없이 실행한다. 유료 재실행·push·배포·AWS 시험은 FX4에서 not_run.
 
-## P3-EC2 — 서울 EC2 arm64 실행 준비 (EC1, 2026-10-10)
+## P3-EC2 — 시드니 EC2 arm64 실행 준비 (EC1/EC2R, 2026-10-10)
 
-조직 SCP의 Lightsail 거부로 신규 배포 경로를 `deploy/ec2/`로 전환한다. 기존 Lightsail
-파일은 보존한다. **EC1은 도구 작성과 로컬 dry-run까지만 수행했으며 AWS 읽기·쓰기,
+계정 `753036488189`는 AWS 프로젝트 **Sky is the Limit** 소속이며 프로젝트 리전은
+시드니 `ap-southeast-2`다. 조정자가 확인한 사실: 서울 `ap-northeast-2`는 조직 SCP가
+EC2와 Lightsail 모두 명시 거부하며, 다른 리전에는 이 SCP 거부가 확인되지 않았다.
+이는 다른 리전의 실제 생성 권한·용량 보장이 아니다. 이 키트는 승인된 시드니로만 제한한다.
+기존 Lightsail 파일은 보존하며 서울에서 SCP를 우회하려고 IAM Allow를 추가하지 않는다.
+EC2R은 공개 가격/문서 조회와 로컬 fixture 검증만 수행했다. **EC1은 도구 작성과 로컬 dry-run까지만 수행했으며 AWS 읽기·쓰기,
 SSH, 실제 TLS/배포, 유료 모델 호출은 실행하지 않았다.** 아래 `--apply`는 권한 부착 후
 조정자/사용자가 실행한다. 앞 절의 세션·Origin·CSRF·원본7일·독립 비용/삭제 원장·복구·
 접수 종료 절차는 EC2에서도 동일하다. 앱/DB/API 계약 변경은 없다.
@@ -541,10 +545,10 @@ AWS 계정 `753036488189`의 관리자가 `deploy/ec2/iam-policy.json`으로 **�
 제한 안에 있으며 사용자 inline 정책 총2,048자 제한에 맞지 않는다. 실제 정책 부착은
 EC1에서 하지 않았다. 인스턴스 프로파일·`iam:PassRole`·STS Allow는 필요하지 않다.
 
-EC2/SSM/Service Quotas는 서울 리전, 쓰기 리소스는 이 계정 ARN으로 한정한다.
+EC2/SSM/Service Quotas는 시드니 리전, 쓰기 리소스는 이 계정 ARN으로 한정한다.
 RunInstances는 `t4g.medium`, IMDSv2, 암호화30GiB gp3를 요구한다. 기존 SG/키/EIP와
 삭제 대상은 Project 태그로 제한하며 CreateTags는 생성 요청에서 Project/Name만 허용한다.
-기본 VPC/서브넷은 사전에 ID를 조회하지 않았으므로 서울 계정의 해당 ARN 범위가 필요하다.
+기본 VPC/서브넷은 사전에 ID를 조회하지 않았으므로 시드니 계정의 해당 ARN 범위가 필요하다.
 스크립트가 default VPC와 public default subnet만 선택하며 없으면 중단한다. VPC/NAT/
 로드밸런서·역할·snapshot 생성 권한은 없다. AMI는 Canonical owner 조건과 스크립트의
 Ubuntu24.04 arm64 이름/SSM 조회로 확인한다. IAM 정책만으로 SSH CIDR/IPv6 전체 설정을
@@ -558,7 +562,7 @@ Ubuntu24.04 arm64 이름/SSM 조회로 확인한다. IAM 정책만으로 SSH CID
 ```sh
 # 지정된 worktree에서 실행. 키값을 출력하거나 shell tracing을 켜지 않는다.
 cd /Users/ss020/Dev/ESG_ProofOps/.local/r108-public
-export PROFILE=proofops-deploy REGION=ap-northeast-2 ACCOUNT_ID=753036488189
+export PROFILE=proofops-deploy REGION=ap-southeast-2 ACCOUNT_ID=753036488189
 export NAME=proofops-r108 ARCH=arm64 IMAGE=proofops-r108-public:ec1-arm64
 export STATE_DIR="$PWD/deploy/ec2/.state"  # EC2 전용; Lightsail 상태와 섞지 않는다.
 export SSH_KEY=/private/path/proofops-ec2
@@ -576,7 +580,12 @@ preflight는 STS 계정/리전·AZ, Ubuntu24.04 LTS arm64 SSM public parameter,
 t4g.medium offering·2vCPU/4GiB, 기본 VPC·IPv4 IGW route·가용 default subnet,
 인스턴스/EIP/SG/키 이름 충돌, 현재 running/pending Standard vCPU 사용량과 쿼터를 확인한다.
 SSM 경로는 `/aws/service/canonical/ubuntu/server/24.04/stable/current/arm64/hvm/ebs-gp3/ami-id`.
-쿼터 읽기만 AccessDenied이면 사용자가 콘솔에서 서울 Running On-Demand Standard
+Canonical의 공통 파라미터 이름을 시드니 SSM endpoint에서 조회하므로 AMI ID를 서울에서
+재사용하지 않는다. 코드의 모든 AWS CLI 호출은 `--region ap-southeast-2`를 사용한다.
+시드니 T4g family는 AWS 공개 리전 목록에 있으나 t4g.medium의 AZ별 offering/가용성은
+리전 독립이라고 가정하지 않는다. preflight가 available AZ ∩ offering ∩ default subnet을
+계산하고 Canonical owner/arm64/AMI 상태를 검증한다. 실제 계정 조회는 **not_run**이다.
+쿼터 읽기만 AccessDenied이면 사용자가 콘솔에서 시드니 Running On-Demand Standard
 `L-1216C47A` 값을 확인해 `VCPU_QUOTA`를 설정한다. 기본값을 추측하지 않으며 네트워크/
 다른 읽기 오류를 권한 없음으로 숨기지 않는다. 필요하면 확인된 `AZ`를 선택한다.
 Offering은 재고 보장이 아니다. EIP 할당 쿼터/실제 EC2 capacity는 create의 해당 호출에서
@@ -597,8 +606,10 @@ cloud-init은 EIP 연결 후 apt 통신을 기다리고 Ubuntu/arm64를 검사�
 
 create가 표시한 소유 EIP를 `STATIC_IP`로 지정한다. SSH host fingerprint는 EC2 console의
 system log 등 신뢰할 수 있는 별도 경로로 확인해 known_hosts에 등록한다.
-StrictHostKeyChecking=yes를 끄지 않는다. symlink와 wrapper가 기존 private config,
-Compose/Caddy, deploy/keys/smoke 및 account budget 구현을 재사용한다.
+StrictHostKeyChecking=yes를 끄지 않는다. private config 검사와 Compose/Caddy·smoke.py는
+기존 파일을 재사용한다. deploy/keys/smoke/budget 진입점은 EC2 디렉터리에서 같은 검증과
+전송 순서를 유지하고 시드니 common.sh를 사용한다. 서울 전용 Lightsail common.sh로
+진입하지 않으며 해당 공유 파일을 수정하지 않는다.
 
 ```sh
 export STATIC_IP=REPLACE_CREATED_EIP
@@ -630,12 +641,20 @@ local-smoke.sh는 필요할 때 `ARCH=arm64`와 해당 `IMAGE`로 사용할 수 
 이미지 build/실제 서버 실행을 하지 않았다. 실제4GiB RSS·TLS·Vercel·reader/모델 품질
 승인은 각 기존 release gate를 통과한 다음이다.
 
-### 3. 계정 budget과 예상 비용
+### 3. 프로젝트 지출 한도·계정 budget과 예상 비용
 
-budgets는 계정 단위라 `deploy/ec2/budget.sh`가 기존 구현을 재사용한다. 같은 이름의
+**Sky is the Limit 프로젝트의 월간 지출 한도는 USD20이며 도달 시 프로젝트가
+일시중지된다**(조정자 확인, EC2R에서 실제 프로젝트 설정 조회/변경은 not_run).
+연속 730h 인프라만 약USD37.48이므로 배포 전에 프로젝트 한도 **최소 USD50/month로
+상향 요청**을 권장한다. 이는 권장값이며 승인·실제 상향을 뜻하지 않는다. 다른 AWS
+서비스 지출·기존 월 누적액·세금 등을 고려해 관리자가 충분한 여유를 확인해야 한다.
+
+`deploy/ec2/budget.sh`는 기존과 같은 계정 단위 USD20 이메일 경보를 생성한다. 같은 이름의
 `proofops-r108-monthly-20`이 이미 있으면 중복 생성하지 말고 확인한다. cost.sh는
 Lightsail 조회 대신 EC2 인스턴스/EIP/EBS inventory를 저장한다. Budget은 경보이며
-사용량 차단 장치가 아니고 provider의 USD1/run·7/day·7/event와 별도다.
+사용량 차단 장치가 아니며 프로젝트의 USD20 중지 한도를 바꾸지 않는다. provider의
+USD1/run·7/day·7/event 원장은 별도다. 외부 provider API 지출을 AWS 프로젝트
+과금으로 자동 합산하지 않는다.
 
 ```sh
 export ALERT_EMAIL=REPLACE_OPERATOR_EMAIL
@@ -645,14 +664,18 @@ deploy/ec2/cost.sh    # preview; 조정자의 --apply는 계정경보/EC2 invent
 
 2026-10-10 공식 공개 가격 자료 확인(가격 파일 effective2026-10-01, account API 호출 아님):
 
-| 서울 리소스 | USD 단가 | 730h/월 환산 |
+| 시드니 리소스 | USD 단가 | 730h/월 환산 |
 |---|---:|---:|
-| t4g.medium Linux Shared On-Demand, standard credit | 0.0416/h | 30.368 |
+| t4g.medium Linux Shared On-Demand, standard credit | 0.0424/h | 30.952 |
 | public IPv4/EIP1개, 연결/미연결 동일 | 0.005/h | 3.650 |
-| gp3 30GB, 기본3000IOPS/125MiB/s | 0.0912/GB-month | 2.736 |
-| 합계 | 약0.05035/h(스토리지 환산 포함) | 약36.754 |
+| gp3 30GB, 기본3000IOPS/125MiB/s | 0.096/GB-month | 2.880 |
+| 합계 | 약0.05135/h(스토리지 환산 포함) | 약37.482 |
 
-11일264h는 약USD13.29(730h 기준 EBS 비례 환산), 모델행사 상한7을 전부 쓰면 약USD20.29.
+11일264h 인프라는 약USD13.55513(730h 기준 EBS 비례 환산)이며 프로젝트 USD20에서
+약USD6.44487가 남는다. 기존/다른 AWS 지출 전의 추정 여유다. 외부 모델행사 상한USD7을
+전부 쓰면 전체 운영비는 약USD20.55513으로 USD20 비교 기준을 약USD0.55513 초과한다.
+외부 provider의 USD7은 AWS 프로젝트에 청구된다고 가정하지 않는다. 프로젝트 한도는
+AWS 프로젝트 지출로 판단하고, 전체 운영비는 provider 원장과 별도로 대조한다.
 VAT/전송초과/유료Vercel/추가스토리지는 별도이며 실제 EBS는 월별 초 단위 비례 청구라
 확정 청구액이 아니다. 기존 Lightsail 월24달러 추정은 EC2에 적용하지 않는다. EC2 stop은
 compute 과금을 멈추지만 EBS/EIP는 남아 과금되므로 비용 종료에는 teardown이 필요하다.
@@ -660,8 +683,8 @@ Standard credits는 추가 credit 비용을 막지만 지속부하에서 baselin
 있다. EC1은4GiB 분석 처리시간/성능을 측정하지 않았다.
 
 출처: [EC2 공식 On-Demand 가격](https://aws.amazon.com/ec2/pricing/on-demand/),
-[서울 공식 EC2/EBS 공개 가격 CSV](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonEC2/current/ap-northeast-2/index.csv)
-(t4g Used SKU445XHR7HD5M549M9, gp3 SKU MTK7D9SGKGYR3JD6),
+[시드니 공식 EC2/EBS 공개 가격 CSV](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonEC2/current/ap-southeast-2/index.csv)
+(t4g Used SKU9TP3ARTXQ46KEGHK, gp3 SKU QR74UAP3E9WUYT9B),
 [EBS 공식 가격](https://aws.amazon.com/ebs/pricing/),
 [IPv4 공식 가격](https://aws.amazon.com/vpc/pricing/).
 선택 단가/가정은 `deploy/ec2/pricing.json`에도 저장한다.
@@ -687,13 +710,14 @@ deploy/ec2/teardown.sh --apply  # 조정자가 실행: instance 종료→EIP해�
 teardown만 재실행한다. budget 경보는 유지한다. 새 배포가 필요하면 삭제 검증 뒤 journal을
 별도 private 경로에 보관하고 명시적으로 새 NAME/STATE_DIR을 선택한다.
 
-EC1 로컬 검사: `python3 deploy/ec2/test_kit.py`, `python3 deploy/ec2/check-config.py --kit`,
+EC2R 로컬 검사: `python3 deploy/ec2/test_kit.py`, `python3 deploy/ec2/check-config.py --kit`,
 `(cd deploy/ec2 && shellcheck -x *.sh)`, 각 `bash -n`, 변경 Python 파일 Ruff/type check.
 단위의 `--apply`는 aws/ssh/scp를 로컬 fixture로 교체한다. dry-run에서는 fixture AWS 호출도0.
 실제 AWS 읽기·쓰기/Access Analyzer·Ubuntu cloud-init/arm64 image build/SSH/TLS/Vercel/
 4GiB live·유료모델은 **not_run**이다. 단위 통과를 모델 정확도나 production 완료로 표시하지 않는다.
 
 기술 출처: [Canonical Ubuntu AMI 찾기](https://ubuntu.com/aws/docs/aws-how-to/instances/find-ubuntu-images/),
+[AWS 리전별 instance family 목록](https://docs.aws.amazon.com/ec2/latest/instancetypes/ec2-instance-regions.html),
 [EC2 IAM 리소스별 launch 예제](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ExamplePolicies_EC2.html),
 [공식 EC2 서비스 권한 참조 JSON](https://servicereference.us-east-1.amazonaws.com/v1/ec2/ec2.json),
 [SSM public parameter ARN](https://docs.aws.amazon.com/systems-manager/latest/userguide/parameter-store-public-parameters-ami.html),

@@ -13,7 +13,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 PROJECT = "proofops-r108"
-REGION = "ap-northeast-2"
+REGION = "ap-southeast-2"
 ACCOUNT = "753036488189"
 AMI_PARAMETER = "/aws/service/canonical/ubuntu/server/24.04/stable/current/arm64/hvm/ebs-gp3/ami-id"
 QUOTA = "L-1216C47A"
@@ -40,7 +40,10 @@ class EC2:
         self.apply = apply
         self.name = os.environ.get("NAME", PROJECT)
         self.state = Path(os.environ.get("STATE_DIR", str(HERE / ".state")))
-        require(os.environ.get("REGION", REGION) == REGION, "Only Seoul is authorized.")
+        require(
+            os.environ.get("REGION", REGION) == REGION,
+            "Only the project region (Sydney) is authorized.",
+        )
         require(
             os.environ.get("ACCOUNT_ID", ACCOUNT) == ACCOUNT, "Only the EC1 account is authorized."
         )
@@ -145,7 +148,7 @@ class EC2:
                 r["RegionName"] == REGION
                 for r in self.call("ec2", "describe-regions", "--region-names", REGION)["Regions"]
             ),
-            "Seoul unavailable.",
+            "Project region (Sydney) unavailable.",
         )
         zones = {
             z["ZoneName"]
@@ -281,7 +284,7 @@ class EC2:
             value = os.environ.get("VCPU_QUOTA", "")
             require(
                 re.fullmatch(r"[0-9]+", value),
-                "Quota read denied: operator must confirm current Seoul Running "
+                "Quota read denied: operator must confirm current project-region Running "
                 "On-Demand Standard vCPU quota and set VCPU_QUOTA; not_run until then.",
             )
             limit = int(value)
@@ -308,7 +311,7 @@ class EC2:
         )
         save(self.state / "selection.json", selection)
         print(
-            "Preflight: verified EC1 account/Seoul, Canonical arm64 AMI, available "
+            "Preflight: verified EC1 account/Sydney, Canonical arm64 AMI, available "
             "AZ/default VPC/public subnet, no collisions, vCPU headroom. "
             "EIP capacity is checked by allocation; failures remain recorded."
         )
@@ -869,6 +872,20 @@ class EC2:
         )
 
     def cost(self):
+        pricing = json.loads((HERE / "pricing.json").read_text())
+        require(pricing["region"] == REGION, "Pricing region mismatch.")
+        estimate = pricing["estimate"]
+        print(
+            f"Sydney estimate: 11 days/264h infrastructure USD{estimate['hours_264']}; "
+            f"730h/month USD{estimate['monthly']}. AWS project USD20/month pauses at limit; "
+            f"11-day headroom USD{estimate['hours_264_project_remaining']} before other AWS spend."
+        )
+        print(
+            f"Infrastructure + separate external-provider USD7 event cap: "
+            f"USD{estimate['hours_264_plus_provider_event_cap_7']}. "
+            "External provider spend is not automatically AWS project spend. "
+            + pricing["project"]["warning"]
+        )
         if self.apply:
             self.identity()
         invoke = self.call if self.apply else self.preview

@@ -4,6 +4,7 @@ import json
 import re
 import runpy
 import sys
+from decimal import Decimal
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -59,7 +60,7 @@ def check_kit():
         )
         assert all(isinstance(values, dict) for values in condition.values())
         if not all(a.startswith("budgets:") for a in s["Action"]):
-            assert condition["StringEquals"]["aws:RequestedRegion"] == "ap-northeast-2"
+            assert condition["StringEquals"]["aws:RequestedRegion"] == "ap-southeast-2"
         if "ForAllValues:StringEquals" in condition:
             assert condition["Null"]["aws:TagKeys"] == "false"
         for action in s["Action"]:
@@ -85,8 +86,34 @@ def check_kit():
     ]
     assert "aarch64" in (HERE / "cloud-init.sh").read_text()
     assert (HERE / "compose.yaml").resolve() == (HERE / "../lightsail/compose.yaml").resolve()
+    pricing = json.loads((HERE / "pricing.json").read_text())
+    assert pricing["region"] == "ap-southeast-2"
+    assert pricing["source"] == (
+        "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonEC2/"
+        "current/ap-southeast-2/index.csv"
+    )
+    hourly = Decimal(pricing["ec2"]["hourly"]) + (
+        Decimal(pricing["ipv4"]["hourly"]) * pricing["ipv4"]["count"]
+    )
+    storage = Decimal(pricing["ebs"]["gb_month"]) * pricing["ebs"]["size_gb"]
+    estimate = pricing["estimate"]
+    month_hours = estimate["hours_per_month"]
+    infra = (hourly + storage / month_hours) * 264
+    limit = Decimal(pricing["project"]["monthly_limit_usd"])
+    for key, value in {
+        "monthly": hourly * month_hours + storage,
+        "hours_264": infra,
+        "hours_264_plus_provider_event_cap_7": infra + 7,
+        "hours_264_project_remaining": limit - infra,
+        "hours_264_plus_provider_event_cap_7_over_limit": infra + 7 - limit,
+    }.items():
+        assert Decimal(estimate[key]) == value.quantize(Decimal("0.00001")), key
+    assert limit == 20 and pricing["project"]["at_limit"] == "paused"
+    assert Decimal(pricing["project"]["recommended_monthly_limit_usd"]) > Decimal(
+        estimate["monthly"]
+    )
     print(
-        "Offline IAM schema/syntax/managed-policy size, scope and reuse contracts "
+        "Offline IAM schema/syntax/managed-policy size, scope, pricing and reuse contracts "
         "validated. AWS authorization/Access Analyzer not_run."
     )
 

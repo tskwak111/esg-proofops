@@ -24,7 +24,7 @@
       ],
       "Condition": {
         "StringEquals": {
-          "aws:RequestedRegion": "ap-northeast-2"
+          "aws:RequestedRegion": "ap-southeast-2"
         }
       }
     },
@@ -35,11 +35,11 @@
         "ec2:RunInstances"
       ],
       "Resource": [
-        "arn:aws:ec2:ap-northeast-2::image/ami-*"
+        "arn:aws:ec2:ap-southeast-2::image/ami-*"
       ],
       "Condition": {
         "StringEquals": {
-          "aws:RequestedRegion": "ap-northeast-2",
+          "aws:RequestedRegion": "ap-southeast-2",
           "ec2:Owner": "099720109477"
         }
       }
@@ -51,11 +51,11 @@
         "ec2:RunInstances"
       ],
       "Resource": [
-        "arn:aws:ec2:ap-northeast-2:753036488189:subnet/*"
+        "arn:aws:ec2:ap-southeast-2:753036488189:subnet/*"
       ],
       "Condition": {
         "StringEquals": {
-          "aws:RequestedRegion": "ap-northeast-2"
+          "aws:RequestedRegion": "ap-southeast-2"
         }
       }
     },
@@ -66,11 +66,11 @@
         "ec2:CreateSecurityGroup"
       ],
       "Resource": [
-        "arn:aws:ec2:ap-northeast-2:753036488189:vpc/*"
+        "arn:aws:ec2:ap-southeast-2:753036488189:vpc/*"
       ],
       "Condition": {
         "StringEquals": {
-          "aws:RequestedRegion": "ap-northeast-2"
+          "aws:RequestedRegion": "ap-southeast-2"
         }
       }
     },
@@ -81,12 +81,12 @@
         "ec2:RunInstances"
       ],
       "Resource": [
-        "arn:aws:ec2:ap-northeast-2:753036488189:security-group/*",
-        "arn:aws:ec2:ap-northeast-2:753036488189:key-pair/proofops-r108*"
+        "arn:aws:ec2:ap-southeast-2:753036488189:security-group/*",
+        "arn:aws:ec2:ap-southeast-2:753036488189:key-pair/proofops-r108*"
       ],
       "Condition": {
         "StringEquals": {
-          "aws:RequestedRegion": "ap-northeast-2",
+          "aws:RequestedRegion": "ap-southeast-2",
           "aws:ResourceTag/Project": "proofops-r108"
         },
         "StringLike": {
@@ -101,11 +101,11 @@
         "ec2:RunInstances"
       ],
       "Resource": [
-        "arn:aws:ec2:ap-northeast-2:753036488189:instance/*"
+        "arn:aws:ec2:ap-southeast-2:753036488189:instance/*"
       ],
       "Condition": {
         "StringEquals": {
-          "aws:RequestedRegion": "ap-northeast-2",
+          "aws:RequestedRegion": "ap-southeast-2",
           "aws:RequestTag/Project": "proofops-r108",
           "ec2:InstanceType": "t4g.medium",
           "ec2:MetadataHttpTokens": "required",
@@ -123,11 +123,11 @@
         "ec2:RunInstances"
       ],
       "Resource": [
-        "arn:aws:ec2:ap-northeast-2:753036488189:volume/*"
+        "arn:aws:ec2:ap-southeast-2:753036488189:volume/*"
       ],
       "Condition": {
         "StringEquals": {
-          "aws:RequestedRegion": "ap-northeast-2",
+          "aws:RequestedRegion": "ap-southeast-2",
           "aws:RequestTag/Project": "proofops-r108",
           "ec2:VolumeType": "gp3"
         },
@@ -149,11 +149,11 @@
         "ec2:RunInstances"
       ],
       "Resource": [
-        "arn:aws:ec2:ap-northeast-2:753036488189:network-interface/*"
+        "arn:aws:ec2:ap-southeast-2:753036488189:network-interface/*"
       ],
       "Condition": {
         "StringEquals": {
-          "aws:RequestedRegion": "ap-northeast-2",
+          "aws:RequestedRegion": "ap-southeast-2",
           "aws:RequestTag/Project": "proofops-r108"
         },
         "StringLike": {
@@ -173,13 +173,13 @@
         "ec2:AllocateAddress"
       ],
       "Resource": [
-        "arn:aws:ec2:ap-northeast-2:753036488189:key-pair/proofops-r108*",
-        "arn:aws:ec2:ap-northeast-2:753036488189:security-group/*",
-        "arn:aws:ec2:ap-northeast-2:753036488189:elastic-ip/*"
+        "arn:aws:ec2:ap-southeast-2:753036488189:key-pair/proofops-r108*",
+        "arn:aws:ec2:ap-southeast-2:753036488189:security-group/*",
+        "arn:aws:ec2:ap-southeast-2:753036488189:elastic-ip/*"
       ],
       "Condition": {
         "StringEquals": {
-          "aws:RequestedRegion": "ap-northeast-2",
+          "aws:RequestedRegion": "ap-southeast-2",
           "aws:RequestTag/Project": "proofops-r108"
         },
         "StringLike": {
@@ -196,11 +196,11 @@
         "ec2:DeleteSecurityGroup"
       ],
       "Resource": [
-        "arn:aws:ec2:ap-northeast-2:753036488189:security-group/*"
+        "arn:aws:ec2:ap-southeast-2:753036488189:security-group/*"
       ],
       "Condition": {
         "StringEquals": {
-          "aws:RequestedRegion": "ap-northeast-2",
+          "aws:RequestedRegion": "ap-southeast-2",
           "aws:ResourceTag/Project": "proofops-r108"
         },
         "StringLike": {
@@ -218,14 +218,14 @@
         "ec2:DeleteKeyPair"
       ],
       "Resource": [
-        "arn:aws:ec2:ap-northeast-2:753036488189:elastic-ip/*",
-        "arn:aws:ec2:ap-northeast-2:753036488189:instance/*",
-        "arn:aws:ec2:ap-northeast-2:753036488189:network-interface/*",
-        "arn:aws:ec2:ap-northeast-2:753036488189:key-pair/proofops-r108*"
+        "arn:aws:ec2:ap-southeast-2:753036488189:elastic-ip/*",
+        "arn:aws:ec2:ap-southeast-2:753036488189:instance/*",
+        "arn:aws:ec2:ap-southeast-2:753036488189:network-interface/*",
+        "arn:aws:ec2:ap-southeast-2:753036488189:key-pair/proofops-r108*"
       ],
       "Condition": {
         "StringEquals": {
-          "aws:RequestedRegion": "ap-northeast-2",
+          "aws:RequestedRegion": "ap-southeast-2",
           "aws:ResourceTag/Project": "proofops-r108"
         },
         "StringLike": {
@@ -241,11 +241,11 @@
         "ec2:TerminateInstances"
       ],
       "Resource": [
-        "arn:aws:ec2:ap-northeast-2:753036488189:instance/*"
+        "arn:aws:ec2:ap-southeast-2:753036488189:instance/*"
       ],
       "Condition": {
         "StringEquals": {
-          "aws:RequestedRegion": "ap-northeast-2",
+          "aws:RequestedRegion": "ap-southeast-2",
           "aws:ResourceTag/Project": "proofops-r108",
           "ec2:InstanceType": "t4g.medium"
         },
@@ -261,16 +261,16 @@
         "ec2:CreateTags"
       ],
       "Resource": [
-        "arn:aws:ec2:ap-northeast-2:753036488189:instance/*",
-        "arn:aws:ec2:ap-northeast-2:753036488189:volume/*",
-        "arn:aws:ec2:ap-northeast-2:753036488189:network-interface/*",
-        "arn:aws:ec2:ap-northeast-2:753036488189:security-group/*",
-        "arn:aws:ec2:ap-northeast-2:753036488189:key-pair/proofops-r108*",
-        "arn:aws:ec2:ap-northeast-2:753036488189:elastic-ip/*"
+        "arn:aws:ec2:ap-southeast-2:753036488189:instance/*",
+        "arn:aws:ec2:ap-southeast-2:753036488189:volume/*",
+        "arn:aws:ec2:ap-southeast-2:753036488189:network-interface/*",
+        "arn:aws:ec2:ap-southeast-2:753036488189:security-group/*",
+        "arn:aws:ec2:ap-southeast-2:753036488189:key-pair/proofops-r108*",
+        "arn:aws:ec2:ap-southeast-2:753036488189:elastic-ip/*"
       ],
       "Condition": {
         "StringEquals": {
-          "aws:RequestedRegion": "ap-northeast-2",
+          "aws:RequestedRegion": "ap-southeast-2",
           "aws:RequestTag/Project": "proofops-r108",
           "ec2:CreateAction": [
             "RunInstances",
@@ -300,11 +300,11 @@
         "ssm:GetParameter"
       ],
       "Resource": [
-        "arn:aws:ssm:ap-northeast-2::parameter/aws/service/canonical/ubuntu/server/24.04/stable/current/arm64/hvm/ebs-gp3/ami-id"
+        "arn:aws:ssm:ap-southeast-2::parameter/aws/service/canonical/ubuntu/server/24.04/stable/current/arm64/hvm/ebs-gp3/ami-id"
       ],
       "Condition": {
         "StringEquals": {
-          "aws:RequestedRegion": "ap-northeast-2"
+          "aws:RequestedRegion": "ap-southeast-2"
         }
       }
     },
@@ -315,11 +315,11 @@
         "servicequotas:GetServiceQuota"
       ],
       "Resource": [
-        "arn:aws:servicequotas:ap-northeast-2:753036488189:ec2/L-1216C47A"
+        "arn:aws:servicequotas:ap-southeast-2:753036488189:ec2/L-1216C47A"
       ],
       "Condition": {
         "StringEquals": {
-          "aws:RequestedRegion": "ap-northeast-2"
+          "aws:RequestedRegion": "ap-southeast-2"
         }
       }
     },
