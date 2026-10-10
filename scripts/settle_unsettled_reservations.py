@@ -1,6 +1,5 @@
 """Reconcile reserved Upstage calls from a user-supplied provider usage/billing export.
 
-See outputs/agent-results/R48-ledger-policy/NOTES.md for the evidence contract.
 No network calls; dry-run is the default and opens the ledger read-only.
 """
 

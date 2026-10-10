@@ -33,7 +33,6 @@ outputs/handoff-packages/
 /scratch/
 
 # Private customer corpus; never publish real report PDFs
-/outputs/agent-fixtures/*.pdf
 *.pdf
 **/report-pages/
 **/page-images/
@@ -42,4 +41,3 @@ outputs/handoff-packages/
 *.pem
 *.key
 .vercel
-.env*

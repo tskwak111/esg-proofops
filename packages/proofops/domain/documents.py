@@ -1,4 +1,4 @@
-"""Immutable page/coordinate/native-text provenance values (TASK-002).
+"""Immutable page/coordinate/native-text provenance values.
 
 Pure module: stdlib only (dataclasses/typing/math), matching the domain
 purity boundary enforced by `scripts/verify_architecture.py`. No AWS SDK, no

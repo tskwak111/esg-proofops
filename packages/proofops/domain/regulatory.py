@@ -1,4 +1,4 @@
-"""Pure regulatory deferral applicability resolution (TASK-018, FR-018).
+"""Pure regulatory deferral applicability resolution.
 
 The resolver selects only an explicit entry from a human-approved timeline.
 It contains no regulatory dates, asset thresholds, violation rules, or safe-

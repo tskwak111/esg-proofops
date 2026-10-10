@@ -11,6 +11,7 @@ from typing import Any
 from uuid import UUID
 
 from proofops.application.budget import BudgetLimits, RoleLimit
+from proofops.application.claim_scope import MAX_EXTRACTION_BATCH_CALLS
 from proofops.application.claims import ExtractionProfile
 from proofops.application.ingest.graph_fusion import ParserProfile
 from proofops.application.ports.models import ModelBinding
@@ -23,12 +24,19 @@ _MAX_CONFIG_BYTES = 65_536
 _SETTINGS_FIELDS = frozenset(
     {
         "build_root",
+        "r108_profile",
+        "pipeline_profile",
         "budget_limits",
         "extraction_profile",
         "extraction_year_notation",
         "extraction_context",
         "extraction_table_context",
         "extraction_source_ids",
+        "extraction_atomic",
+        "extraction_linewrap_join",
+        "extraction_fragment_guard",
+        "extraction_table_rows",
+        "extraction_recall_prompt",
         "extraction_assertion_prompt",
         "extraction_complete_selection",
         "extraction_content_bounds",
@@ -36,9 +44,11 @@ _SETTINGS_FIELDS = frozenset(
         "tagging_settings",
         "preliminary_settings",
         "relation_settings",
+        "decision_settings",
         "input_reservation_policy",
         "extraction_limits",
         "claim_source_policy",
+        "display_text_policy",
         "raster_runtime_binding_id",
         "raster_policy",
         "report_level_link",
@@ -60,7 +70,13 @@ _REQUIRED_TAGGING_FIELDS = frozenset(
     }
 )
 _OPTIONAL_TAGGING_FIELDS = frozenset(
-    {"max_tokens", "temperature", "extraction_epoch", "max_response_bytes"}
+    {
+        "max_tokens",
+        "temperature",
+        "extraction_epoch",
+        "max_response_bytes",
+        "wire_policy_version",
+    }
 )
 _TAGGING_FIELDS = _REQUIRED_TAGGING_FIELDS | _OPTIONAL_TAGGING_FIELDS
 _BINDING_FIELDS = frozenset({"binding_id", "role", "synthetic"})
@@ -173,6 +189,8 @@ def _tagging(value: object, *, synthetic: bool = True) -> TaggingSettings:
             options["max_tokens"] = _strict_int(options["max_tokens"], maximum=1_048_576)
         if "extraction_epoch" in options:
             options["extraction_epoch"] = _strict_int(options["extraction_epoch"])
+        if "wire_policy_version" in options:
+            options["wire_policy_version"] = _strict_int(options["wire_policy_version"], maximum=2)
         if "max_response_bytes" in options:
             options["max_response_bytes"] = _strict_int(
                 options["max_response_bytes"], maximum=1_048_576
@@ -245,7 +263,7 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
     extraction_mode = env.get("LOCAL_EXTRACTION_MODE", "")
     tagging_mode = env.get("LOCAL_TAGGING_MODE", "")
     fact_assembly_profile = env.get("LOCAL_FACT_ASSEMBLY_PROFILE", "strict-v1")
-    if fact_assembly_profile not in ("strict-v1", "partial-facts-v1"):
+    if fact_assembly_profile not in ("strict-v1", "partial-facts-v1", "partial-facts-v2"):
         raise _invalid()
     if not parser_path:
         if settings_path or extraction_mode or tagging_mode or fact_assembly_profile != "strict-v1":
@@ -273,6 +291,12 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         settings_path and not _REQUIRED_SETTINGS_FIELDS <= set(settings)
     ):
         raise _invalid()
+    if settings.get("r108_profile") not in (
+        None,
+        "r108-finals-candidate",
+        "r108-finals-candidate-v2",
+    ):
+        raise _invalid()
     runtime.update(_raster(settings, extraction_mode))
     if "report_level_link" in settings:
         from proofops.application.tagging.report_level_link import validate_config
@@ -287,6 +311,14 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
                     "LOCAL_RUNTIME_CONFIG_INVALID: REPORT_LEVEL_LINK_M3_ONLY"
                 ) from None
             raise _invalid() from None
+    if "pipeline_profile" in settings:
+        if (
+            settings["pipeline_profile"]
+            not in ("unattended-v1", "finals-unattended-v1", "finals-unattended-v2")
+            or not tagging_mode
+        ):
+            raise _invalid()
+        runtime["pipeline_profile"] = settings["pipeline_profile"]
     if "claim_source_policy" in settings:
         from proofops.adapters.local.claim_source_policies import claim_source_reader
 
@@ -297,6 +329,12 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         except ValueError:
             raise _invalid() from None
         runtime["claim_source_policy"] = settings["claim_source_policy"]
+    if "display_text_policy" in settings:
+        from proofops.application.ingest.display_text import POLICY
+
+        if settings["display_text_policy"] != POLICY or extraction_mode != "upstage_probe":
+            raise _invalid()
+        runtime["display_text_policy"] = settings["display_text_policy"]
     if "build_root" in settings:
         root = settings["build_root"]
         if not isinstance(root, str) or not Path(root).is_absolute() or not Path(root).is_dir():
@@ -310,16 +348,39 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         "extraction_context",
         "extraction_table_context",
         "extraction_source_ids",
+        "extraction_atomic",
+        "extraction_linewrap_join",
+        "extraction_fragment_guard",
+        "extraction_table_rows",
+        "extraction_recall_prompt",
         "extraction_assertion_prompt",
         "extraction_complete_selection",
         "extraction_content_bounds",
     ):
-        # Approved extraction opt-ins (R03d/R03f/R12/R14/R20): explicit True only, and
+        # Approved extraction opt-ins: explicit True only, and
         # only with the real probe mode. Validated here so the gate never rejects
         # a pilot-written value; the worker composition (not this runtime dict)
         # reconstructs the matching extractor profile from the settings file.
         if flag in settings and (settings[flag] is not True or extraction_mode != "upstage_probe"):
             raise _invalid()
+    for flag in ("extraction_table_rows", "extraction_recall_prompt"):
+        if flag in settings and (
+            settings.get("extraction_source_ids") is not True
+            or settings.get("extraction_atomic") is True
+        ):
+            raise _invalid()
+    if "extraction_atomic" in settings and settings.get("extraction_source_ids") is not True:
+        raise _invalid()
+    if "extraction_linewrap_join" in settings and (
+        settings.get("extraction_source_ids") is not True
+        or settings.get("extraction_atomic") is True
+    ):
+        raise _invalid()
+    if (
+        "extraction_fragment_guard" in settings
+        and settings.get("extraction_linewrap_join") is not True
+    ):
+        raise _invalid()
     if "extraction_table_context" in settings and settings.get("extraction_context") is not True:
         # Table context refines the context profile; alone it has no wire.
         raise _invalid()
@@ -387,7 +448,7 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         ):
             raise _invalid()
         runtime["extraction_limits"] = {
-            "max_calls": _strict_int(limits["max_calls"], maximum=20),
+            "max_calls": _strict_int(limits["max_calls"], maximum=MAX_EXTRACTION_BATCH_CALLS),
             "max_output_tokens": _strict_int(limits["max_output_tokens"], maximum=1024),
         }
         if "claim_pages" in limits:
@@ -415,6 +476,12 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
             runtime["input_reservation_policy"] = _reservation_policy(
                 settings["input_reservation_policy"]
             )
+            if "decision_settings" in settings:
+                from proofops.application.tagging.decisions import validate_decision_settings
+
+                runtime["decision_settings"] = dict(
+                    validate_decision_settings(settings["decision_settings"])
+                )
             runtime["tagging_mode"] = tagging_mode
     elif "extraction_limits" in settings:
         raise _invalid()
@@ -434,6 +501,7 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         runtime["fact_assembly_profile"] = fact_assembly_profile
     if tagging_mode != "upstage_local" and (
         "preliminary_settings" in settings
+        or "decision_settings" in settings
         or "relation_settings" in settings
         or "input_reservation_policy" in settings
     ):

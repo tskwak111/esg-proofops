@@ -39,6 +39,13 @@ which govern extraction/tagging call counts, not parser page limits. This
 module is a script, not runtime application code, so importing
 ``evaluation.report_sections`` here does not add an ``evaluation`` dependency
 to ``packages/proofops`` or ``apps/*``.
+
+``--auto-scope-policy bounded-v1`` opts into AS1's density-ranked proposal:
+up to two front CEO pages + environmental narrative, hard maximum ten claim
+pages, thirty evidence pages INCLUDING claims by default. ``--scope-plan``
+imports selection edits from its source-bound JSON. Legacy defaults/hashes
+remain unchanged. ``--mixed-parser`` explicitly opts into Upstage claims and
+free native ODL evidence-only pages with a frozen per-page parser profile.
 """
 
 from __future__ import annotations
@@ -53,20 +60,19 @@ from hashlib import sha256
 from pathlib import Path
 from uuid import uuid4
 
-# scripts/ -> TEAM checkout (owns evaluation.local_upstage_pilot).
+# scripts/ -> repository root (owns evaluation.local_upstage_pilot).
 TEAM_ROOT = Path(__file__).resolve().parents[1]
 # Direct script launch puts scripts/, not the checkout, on the import path.
 if str(TEAM_ROOT) not in sys.path:
     sys.path.insert(0, str(TEAM_ROOT))
-# Published root command lives two levels up; the default report-runs area and the
-# shared Upstage budget ledger both live under that root.
-PROJECT_ROOT = TEAM_ROOT.parent.parent
+# Local run state and the key file live under the repository root.
+PROJECT_ROOT = TEAM_ROOT
 DEFAULT_RUNS_DIR = PROJECT_ROOT / ".local" / "report-runs"
 DEFAULT_KEY_FILE = PROJECT_ROOT / ".env.upstage.local"
 # The pilot reads/writes this shared cumulative ledger; --invoke requires it to exist.
 BUDGET_LEDGER = TEAM_ROOT / ".local" / "upstage" / "budget.sqlite3"
 # Where auto-scope proposals are persisted for review; never auto-applied silently.
-AUTO_SCOPE_DIR = PROJECT_ROOT / "outputs" / "pipeline-recovery-20260920" / "auto-scope"
+AUTO_SCOPE_DIR = PROJECT_ROOT / ".local" / "auto-scope"
 
 MODEL = "solar-pro3"
 EXTRACTION_MAX_CALLS = 8
@@ -242,7 +248,11 @@ def write_auto_scope_artifact(pdf: Path, proposal: dict, applied: dict) -> Path:
     """
     AUTO_SCOPE_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
     digest_prefix = proposal["source_sha256"][:12]
-    output = AUTO_SCOPE_DIR / f"{pdf.stem}-{digest_prefix}.json"
+    bounded = proposal.get("version") == "AS1-v1"
+    suffix = (
+        "-AS1-" + applied.get("selection_sha256", proposal["plan_sha256"])[:12] if bounded else ""
+    )
+    output = AUTO_SCOPE_DIR / f"{pdf.stem}-{digest_prefix}{suffix}.json"
     payload = {
         "proposal": proposal,
         "applied": applied,
@@ -254,6 +264,12 @@ def write_auto_scope_artifact(pdf: Path, proposal: dict, applied: dict) -> Path:
             "full-report completion."
         ),
     }
+    if bounded:
+        payload["note"] = (
+            "AS1 candidate_only declared subset; evidence-only pages are never claim pages. "
+            "Unknown/conflict/unreadable are unresolved, never evidence absence. "
+            "Selection revisions have distinct hashes/artifacts; no full-report completion."
+        )
     if output.is_file():
         existing = json.loads(output.read_text())
         if existing != payload:
@@ -349,6 +365,8 @@ def build_pilot_argv(
     extraction_complete_selection: bool = False,
     extraction_content_bounds: bool = False,
     parser_max_output_bytes: int | None = None,
+    mixed_parser: bool = False,
+    mixed_ocr_max_pages: int = 0,
 ) -> list[str]:
     """Assemble the exact argv driving ``evaluation.local_upstage_pilot``."""
     table_flag = "--verify-selected-cells" if verify_selected_cells else "--verify-merged-tables"
@@ -382,6 +400,8 @@ def build_pilot_argv(
         "--tagging-max-calls",
         str(tagging_max_calls),
     ]
+    if mixed_parser:
+        argv += ["--parser", "mixed-v1", "--mixed-ocr-max-pages", str(mixed_ocr_max_pages)]
     if parser_max_output_bytes is not None:
         argv += ["--parser-max-output-bytes", str(parser_max_output_bytes)]
     if extraction_total_calls is not None:
@@ -429,12 +449,81 @@ def build_pilot_argv(
 
 
 def plan_run(args: argparse.Namespace) -> dict:
-    """Validate all inputs and produce the run plan. No side effects."""
+    """Validate inputs and produce the explicit plan."""
+    if getattr(args, "analysis_profile", None) in ("finals-unattended-v1", "finals-unattended-v2"):
+        args.mixed_parser = True
+        if args.key_file == DEFAULT_KEY_FILE:
+            args.key_file = PROJECT_ROOT / ".env.openai.local"
+        if not args.pages and not getattr(args, "scope_plan", None):
+            args.auto_scope = True
+            args.auto_scope_policy = "bounded-v1"
+        args.parser_max_output_bytes = args.parser_max_output_bytes or 134217728
     pdf = args.pdf.expanduser().resolve()
     auto_scope_proposal: dict | None = None
     auto_scope_applied: dict | None = None
     auto_scope_artifact: Path | None = None
-    if getattr(args, "auto_scope", False):
+    scope_path = getattr(args, "scope_plan", None)
+    bounded = getattr(args, "auto_scope_policy", "legacy") == "bounded-v1"
+    environment_limit = getattr(args, "auto_scope_environment_pages", None)
+    evidence_limit = getattr(args, "auto_scope_evidence_pages", None)
+    if (
+        not bounded
+        and scope_path is None
+        and (environment_limit is not None or evidence_limit is not None)
+    ):
+        raise PlanError("AS1 page limits require --auto-scope-policy bounded-v1")
+    if scope_path is not None and (environment_limit is not None or evidence_limit is not None):
+        raise PlanError("--scope-plan uses the limits frozen in its proposal")
+    if scope_path is not None or bounded:
+        if scope_path is not None and getattr(args, "auto_scope", False):
+            raise PlanError("--scope-plan cannot be combined with --auto-scope")
+        if scope_path is None and not getattr(args, "auto_scope", False):
+            raise PlanError("--auto-scope-policy bounded-v1 requires --auto-scope")
+        if args.pages is not None or getattr(args, "claim_pages", None) is not None:
+            raise PlanError(
+                "bounded --auto-scope/--scope-plan cannot be combined with manual pages"
+            )
+        if getattr(args, "auto_scope_max_pages", None) is not None:
+            raise PlanError(
+                "bounded scope uses --auto-scope-evidence-pages, not --auto-scope-max-pages"
+            )
+        _validate_pdf_file(pdf)
+        from evaluation.report_scope import inspect as inspect_bounded
+        from evaluation.report_scope import validate_selection
+
+        try:
+            if scope_path is not None:
+                if scope_path.stat().st_size > 4 * 1024 * 1024:
+                    raise ValueError("scope-plan exceeds 4 MiB")
+                auto_scope_proposal = json.loads(scope_path.read_text())
+            else:
+                auto_scope_proposal = inspect_bounded(
+                    pdf,
+                    max_environment_pages=8 if environment_limit is None else environment_limit,
+                    max_evidence_pages=30 if evidence_limit is None else evidence_limit,
+                )
+            source_hash = sha256(pdf.read_bytes()).hexdigest()
+            if auto_scope_proposal["source_sha256"] != source_hash:
+                raise ValueError("scope source identity mismatch")
+            if auto_scope_proposal["status"] == "failed":
+                auto_scope_artifact = write_auto_scope_artifact(pdf, auto_scope_proposal, {})
+                raise PlanError(
+                    f"{auto_scope_proposal['failure_reasons']}; suggested front physical pages "
+                    f"{auto_scope_proposal['suggested_front_pages']}; "
+                    f"artifact={auto_scope_artifact}. "
+                    "No whole-report fallback or paid dispatch."
+                )
+            auto_scope_applied = validate_selection(
+                auto_scope_proposal, source_hash, _pdf_page_count(pdf)
+            )
+        except (ValueError, OSError, KeyError, TypeError) as exc:
+            raise PlanError(f"bounded scope: {exc}") from exc
+        pages = auto_scope_applied["pages"]
+        claim_pages = auto_scope_applied["claim_pages"]
+        auto_scope_artifact = write_auto_scope_artifact(
+            pdf, auto_scope_proposal, auto_scope_applied
+        )
+    elif getattr(args, "auto_scope", False):
         if args.pages is not None:
             raise PlanError("--auto-scope cannot be combined with an explicit --pages")
         if getattr(args, "claim_pages", None) is not None:
@@ -507,6 +596,12 @@ def plan_run(args: argparse.Namespace) -> dict:
     extraction_assertion_prompt = bool(getattr(args, "extraction_assertion_prompt", False))
     extraction_complete_selection = bool(getattr(args, "extraction_complete_selection", False))
     extraction_content_bounds = bool(getattr(args, "extraction_content_bounds", False))
+    mixed_parser = bool(getattr(args, "mixed_parser", False))
+    mixed_ocr_max_pages = getattr(args, "mixed_ocr_max_pages", 0)
+    if mixed_parser and (not claim_pages or len(claim_pages) > 10 or len(pages) > 30):
+        raise PlanError("--mixed-parser requires explicit claim pages <=10 / selected pages <=30")
+    if not 0 <= mixed_ocr_max_pages <= 30 or (mixed_ocr_max_pages and not mixed_parser):
+        raise PlanError("--mixed-ocr-max-pages requires --mixed-parser and 0..30 pages")
     argv = build_pilot_argv(
         pdf=pdf,
         pages=pages,
@@ -535,7 +630,11 @@ def plan_run(args: argparse.Namespace) -> dict:
         extraction_complete_selection=extraction_complete_selection,
         extraction_content_bounds=extraction_content_bounds,
         parser_max_output_bytes=parser_max_output_bytes,
+        mixed_parser=mixed_parser,
+        mixed_ocr_max_pages=mixed_ocr_max_pages,
     )
+    if getattr(args, "analysis_profile", None):
+        argv += ["--analysis-profile", args.analysis_profile]
     return {
         "argv": argv,
         "state": state,
@@ -580,7 +679,15 @@ def print_plan(plan: dict) -> None:
         print(f"  auto-scope unknown pages:     {proposal['unknown_pages']}")
         print(f"  auto-scope conflict pages:    {proposal['conflict_pages']}")
         print(f"  auto-scope declared_subset:   {applied['declared_subset']}")
-        if applied["declared_subset"]:
+        if proposal.get("version") == "AS1-v1":
+            print(f"  bounded scope settings:      {proposal['settings']}")
+            print(f"  excluded claim candidates:   {applied['excluded_claim_candidate_pages']}")
+            print(
+                "  evidence-only pages:         "
+                f"{sorted(set(plan['pages'])-set(plan['claim_pages']))}"
+            )
+            print("    Declared subset; full-report completion is not claimed.")
+        elif applied["declared_subset"]:
             print(
                 "    NOTE: --auto-scope-max-pages explicitly excluded evidence pages: "
                 f"{applied['excluded_evidence_candidate_pages']}. This run is a declared "
@@ -631,6 +738,21 @@ def build_parser() -> argparse.ArgumentParser:
         prog="analyze_report",
         description="Analyze a new report PDF via the local pilot. Dry plan unless --invoke.",
     )
+    parser.add_argument(
+        "--analysis-profile", choices=["finals-unattended-v1", "finals-unattended-v2"]
+    )
+    parser.add_argument(
+        "--mixed-parser",
+        action="store_true",
+        help="Opt-in MP1 mixed-v1: Upstage claims, native ODL evidence-only "
+        "(claims<=10, union<=30).",
+    )
+    parser.add_argument(
+        "--mixed-ocr-max-pages",
+        type=int,
+        default=0,
+        help="Mixed parser only: bounded paid fallback for unreadable evidence; default zero.",
+    )
     parser.add_argument("--pdf", type=Path, required=True, help="Path to the report PDF")
     parser.add_argument(
         "--parser-max-output-bytes",
@@ -658,6 +780,30 @@ def build_parser() -> argparse.ArgumentParser:
         "--claim-pages. Writes a reviewable proposal under "
         f"{AUTO_SCOPE_DIR}. By default the FULL proposed scope is used; see "
         "--auto-scope-max-pages to declare an explicit exclusion.",
+    )
+    parser.add_argument(
+        "--auto-scope-policy",
+        choices=("legacy", "bounded-v1"),
+        default="legacy",
+        help="Opt-in AS1 bounded-v1: CEO + environmental density; claims <=10, evidence <=30.",
+    )
+    parser.add_argument(
+        "--auto-scope-environment-pages",
+        type=int,
+        default=None,
+        help="AS1 environmental narrative cap, default 8; CEO pages share the hard cap of 10.",
+    )
+    parser.add_argument(
+        "--auto-scope-evidence-pages",
+        type=int,
+        default=None,
+        help="AS1 total evidence-page cap INCLUDING claims, default 30.",
+    )
+    parser.add_argument(
+        "--scope-plan",
+        type=Path,
+        default=None,
+        help="Import an AS1 proposal JSON with edited selected page lists; source hash required.",
     )
     parser.add_argument(
         "--auto-scope-max-pages",

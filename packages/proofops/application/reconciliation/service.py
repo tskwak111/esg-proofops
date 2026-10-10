@@ -338,8 +338,7 @@ def _apply_coverage(
         return None, "coverage_unverified"
     if state == "complete" and (not required_ids or failed_ids):
         return None, "coverage_unverified"
-    # REC-005 (adopted 2026-09-28): "complete" must cover both registered package
-    # documents; a receipt that read only one side cannot justify an absence.
+    # Complete coverage must include both registered package documents.
     package_documents = {
         identity["sustainability_document_version"],
         identity["financial_document_version"],

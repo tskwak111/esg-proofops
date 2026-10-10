@@ -24,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PKG = ROOT / "packages" / "proofops"
 
 # Domain dependency boundary (mandated): domain modules import stdlib only.
-# Rejected: cloud SDKs, network, files/process IO, environment, coordinator-owned
+# Rejected: cloud SDKs, network, files/process IO, environment, orchestration
 # scripts, legacy/sources, sibling adapters/composition, app packages, web
 # frameworks, and even pydantic (the API DTO boundary owns that dependency).
 DOMAIN_BANNED = {

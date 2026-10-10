@@ -26,8 +26,8 @@ from proofops.adapters.local.reviewed_table import (
 )
 
 APP = Path(__file__).resolve().parents[2]
-REVIEWS = APP / "outputs/agent-results/R02g-layout-review"
-FIXTURES = APP / "outputs/agent-fixtures"
+REVIEWS = APP / "tests/fixtures/pipeline/reviewed-table-layout"
+FIXTURES = APP / "tests/fixtures/source-documents"
 
 local_inputs = pytest.mark.skipif(
     not all(

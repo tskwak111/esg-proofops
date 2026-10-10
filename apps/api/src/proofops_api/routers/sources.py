@@ -6,6 +6,7 @@ import sqlite3
 import time
 from dataclasses import asdict
 from datetime import UTC, datetime
+from itertools import chain
 from typing import Annotated, Literal
 from urllib.parse import urlencode
 from uuid import UUID, uuid5
@@ -16,6 +17,7 @@ from fastapi.security import APIKeyCookie
 from proofops.adapters.local.claim_store import LocalClaimStore
 from proofops.adapters.local.run_artifacts import load_run_graph
 from proofops.adapters.parsing.source_preview import SourcePreviewFailure, render_page_preview
+from proofops.application.evidence.span_citations import verify_source_ref
 from proofops.application.runs import RunRejected
 from proofops_api.auth import (
     SESSION_COOKIE_NAME,
@@ -202,6 +204,8 @@ def build_sources_router(
         source_id: UUID,
         ticket: str,
         preview: Literal["page"] | None = None,
+        char_start: Annotated[int | None, Query(ge=0)] = None,
+        char_end: Annotated[int | None, Query(ge=0)] = None,
     ):
         auth = authorize(request, "source_pdf")
         if isinstance(auth, JSONResponse):
@@ -238,6 +242,37 @@ def build_sources_router(
                 "Referrer-Policy": "no-referrer",
             }
             if preview == "page":
+                highlight_allowed = _highlight_allowed(block, graph.issues)
+                if char_start is not None or char_end is not None:
+                    highlight_allowed = False
+                    if char_start is not None and char_end is not None:
+                        # A verified claim span does not promote its whole paragraph.
+                        # Replay the pinned receipt before using the stored span/box;
+                        # client offsets select a span but never supply coordinates.
+                        _, discovery, checked = LocalClaimStore(
+                            store, uploads, parser
+                        ).load_evidence(auth.tenant_id, str(run_id))
+                        ref = next(
+                            (
+                                ref
+                                for ref in chain(
+                                    getattr(checked, "verified_spans", ()),
+                                    (
+                                        ref
+                                        for claim in discovery.claims
+                                        for ref in claim.source_refs
+                                    ),
+                                )
+                                if (ref.source_id, ref.char_start, ref.char_end)
+                                == (str(source_id), char_start, char_end)
+                            ),
+                            None,
+                        )
+                        if ref is not None:
+                            ref = verify_source_ref(ref, checked, tenant_id=auth.tenant_id)
+                            highlight_allowed = _highlight_allowed(
+                                block, checked.issues, source_ref=ref
+                            )
                 candidate = (
                     block.candidates[block.winner]
                     if block.winner is not None
@@ -250,15 +285,20 @@ def build_sources_router(
                     {
                         "X-Page-Width-Pt": str(width_pt),
                         "X-Page-Height-Pt": str(height_pt),
-                        "X-Source-Highlight": "allowed"
-                        if _highlight_allowed(block, graph.issues)
-                        else "unavailable",
+                        "X-Source-Highlight": "allowed" if highlight_allowed else "unavailable",
                     }
                 )
                 return Response(png, media_type="image/png", headers=headers)
-            # ponytail: one bounded full PDF response; add ranges if large-file viewing needs them.
+            display, metadata = uploads.read_display(auth.tenant_id, graph.document_version_id)
+            headers.update(
+                {
+                    "X-PDF-Derived": "display-v2",
+                    "X-Original-SHA256": graph.source_sha256,
+                    "X-Display-SHA256": metadata["display_sha256"],
+                }
+            )
             return Response(
-                original,
+                display,
                 media_type="application/pdf",
                 headers={
                     "Content-Disposition": 'inline; filename="source.pdf"',
@@ -322,7 +362,7 @@ def build_sources_router(
     return router
 
 
-def _highlight_allowed(block, issues) -> bool:
+def _highlight_allowed(block, issues, *, source_ref=None) -> bool:
     """Do not turn a readable image into a verified source highlight."""
     if (
         block.bbox is None
@@ -335,7 +375,7 @@ def _highlight_allowed(block, issues) -> bool:
         )
     ):
         return False
-    source_ref = block.source_ref()
+    source_ref = source_ref if source_ref is not None else block.source_ref()
     candidate = block.candidates[block.winner]
     return (
         source_ref.location_quality == "located"

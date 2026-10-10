@@ -1,0 +1,97 @@
+{
+  "source_path": "outputs/agent-results/R108-redesign/lab/parse/MP1/states/kepco/objects/original/25c6dde5-2020-4649-b4a9-d79c61dd9d7c/b84d824c-5280-4d3c-a4c1-60a3c78f7a6d.pdf",
+  "source_sha256": "1c3eca7bf45db58db419eae0d11e2f86d14e257b65568cead2eadb85aa288717",
+  "fusion_version": 5,
+  "batches": [
+    {
+      "tenant_id": "25c6dde5-2020-4649-b4a9-d79c61dd9d7c",
+      "document_version_id": "b84d824c-5280-4d3c-a4c1-60a3c78f7a6d",
+      "parse_manifest_id": "9f8440ab-4092-5ed8-9f3a-1da10a49a87e",
+      "source_sha256": "1c3eca7bf45db58db419eae0d11e2f86d14e257b65568cead2eadb85aa288717",
+      "parser_run_id": "c5b90462-9bf7-4e6f-a7ff-c56ad4bb8a7c",
+      "parser_name": "opendataloader",
+      "parser_version": "2.5.7",
+      "parser_family": "opendataloader",
+      "config_hash": "92dfe5b3d5a109758bdd2991645c8029fe53243e382ae6483e0fcdf85dddb0ee",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "source": {
+            "document_version_id": "b84d824c-5280-4d3c-a4c1-60a3c78f7a6d",
+            "parse_manifest_id": "9f8440ab-4092-5ed8-9f3a-1da10a49a87e",
+            "parser_run_id": "c5b90462-9bf7-4e6f-a7ff-c56ad4bb8a7c",
+            "source_native_id": "1865",
+            "physical_page": 261,
+            "printed_page_label": "261",
+            "native_bbox": [
+              56.693,
+              226.233,
+              399.673,
+              268.542
+            ],
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "1. 검증 경계 : 한국전력 및 10개 자회사(한국수력원자력, 한국남동발전, 한국중부발전, 한국서부발전, 한국남부발전, 한국동서발전, 한국전력기술, 한전원자력연료, 한전KPS, 한전KDN)의 국내외 지속가능경영 성과",
+            "char_start": 0,
+            "char_end": 120
+          },
+          "geometry": {
+            "width_pt": 822.047,
+            "height_pt": 623.622,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              822.047,
+              623.622
+            ]
+          },
+          "context": [
+            "mixed_parser_name=opendataloader",
+            "mixed_parser_version=2.5.7"
+          ],
+          "parser_bbox": [
+            56.693,
+            226.233,
+            399.673,
+            268.542
+          ],
+          "parser_coordinate_system": "opendataloader_display_bottom_left_points",
+          "parser_to_canonical": [
+            1.0,
+            0.0,
+            0.0,
+            -1.0,
+            0.0,
+            623.622
+          ],
+          "table_native_id": null,
+          "row_number": null,
+          "column_number": null,
+          "row_span": null,
+          "column_span": null
+        }
+      ],
+      "edges": [],
+      "synthetic": false
+    }
+  ],
+  "ref": {
+    "source_id": "f1f1b836-8057-55ba-beec-9748ab57b7aa",
+    "document_version_id": "b84d824c-5280-4d3c-a4c1-60a3c78f7a6d",
+    "parse_manifest_id": "9f8440ab-4092-5ed8-9f3a-1da10a49a87e",
+    "page_num": 261,
+    "printed_page_label": "261",
+    "bbox": [
+      56.693,
+      355.08,
+      399.673,
+      397.38899999999995
+    ],
+    "raw_text_sha256": "296d8b5c69c35ff0a0269a285b6a86ca1ea2cc520326af12bf334607cc9e503b",
+    "quote": "1. 검증 경계 : 한국전력 및 10개 자회사(한국수력원자력, 한국남동발전, 한국중부발전, 한국서부발전, 한국남부발전, 한국동서발전, 한국전력기술, 한전원자력연료, 한전KPS, 한전KDN)의 국내외 지속가능경영 성과",
+    "char_start": 0,
+    "char_end": 120,
+    "location_quality": "located",
+    "verification_state": "candidate"
+  }
+}

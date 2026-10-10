@@ -4,18 +4,11 @@ Every amount is an exact ``Decimal``. The threshold test is written as a
 multiplication, ``commitment <= threshold * capex``, so no division is performed
 and a ratio can never be coerced into infinity or zero.
 
-Adopted policy (R00 section 12, 2026-09-28):
-
-* REC-003 B -- nothing is compared until the operator has approved a CAPEX
-  account mapping and an allowlist covering every requested account, and the
-  CAPEX period is exactly the pinned financial period (no annualisation, no
-  multi-year aggregation without a schedule).
-* REC-004 B -- the threshold stays null and every threshold-based outcome stays
-  blocked; it never falls back to the 5.0 figure that appears as an illustration
-  in the specification. Only the direct existence of a disclosed investment
-  commitment that the application layer has verified and bound to this claim
-  (source role ``c3_commitment``) may complete as ``matched``, and it does so
-  without an approved threshold.
+Comparison requires an approved CAPEX account mapping and an allowlist covering
+every requested account. The CAPEX period must equal the pinned financial
+period. Threshold-based outcomes stay blocked until a threshold is approved.
+A disclosed investment commitment verified and bound to this claim (source
+role ``c3_commitment``) may match without a threshold.
 """
 
 from __future__ import annotations

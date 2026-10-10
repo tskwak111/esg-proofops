@@ -1,4 +1,4 @@
-"""Rule-pack validation and activation (TASK-025, FR-025).
+"""Rule-pack validation and activation.
 
 Pure application logic: stdlib + proofops.domain only. No AWS SDK, no network,
 no file access, no environment variables, no scripts/legacy imports. File I/O
@@ -8,7 +8,7 @@ Contract: validate_rulepack / activate_rulepack ::
 YAML + source metadata + gap registry -> validated pack / status.
 
 Content validation, administrative activation, and domain/basis approval are
-separate steps (evidence/contract_review_resolution.md finding 3):
+separate steps:
 - `validate_rulepack` checks structure, manifest-bound hash, gap registry,
   and fail-closed gap gates. It never grants approval.
 - `activate_rulepack` additionally requires status=validated plus a recorded
@@ -87,7 +87,7 @@ class ReviewProvenance:
     Encoded as canonical JSON inside the existing free-text `reason` field
     consumed by `activate_rulepack`/the local store's activation event log,
     so no new table/column is required. Never produced for a self-approving
-    caller: `reviewer` must be supplied by the admin/coordinator call
+    caller: `reviewer` must be supplied by the admin call
     boundary, not derived from the pack or defaulted.
     """
 
@@ -171,13 +171,13 @@ def record_ai_delegated_review(
     """Grant real-run activation for an AI-delegated project review.
 
     This does not replace human `activate_rulepack`; it is a second, equally
-    explicit path for the coordinator/admin call boundary to record that a
+    explicit path for the admin call boundary to record that a
     human has not reviewed the pack but the project owner has delegated
-    domain interpretation to the coordinator for this exact pack content.
+    domain interpretation for this exact pack content.
 
     Guards (fail-closed, no self-approval):
     - `reviewer`, `source_authority`, `note` must be non-blank strings after
-      stripping whitespace; the caller (admin/coordinator boundary) supplies
+      stripping whitespace; the caller (admin boundary) supplies
       them explicitly. This function has no ambient clock and invents no
       default reviewer.
     - `reviewed_at` must be a timezone-aware ISO 8601 timestamp (a naive

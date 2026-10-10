@@ -1147,6 +1147,38 @@
         "revision": {
           "type": "integer",
           "minimum": 1
+        },
+        "source_status": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": true
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "provisional_grade": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": true
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pipeline_stage": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -1379,6 +1411,12 @@
           "items": {
             "$ref": "#/$defs/SubmittedReview"
           }
+        },
+        "element_evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ElementEvidenceSearch"
+          }
         }
       },
       "required": [
@@ -1462,6 +1500,38 @@
           "items": {
             "$ref": "#/$defs/RawCandidate"
           }
+        },
+        "source_status": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": true
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "provisional_grade": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": true
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pipeline_stage": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -4308,6 +4378,86 @@
         "tables"
       ],
       "title": "SubmittedReview",
+      "type": "object"
+    },
+    "ElementEvidenceSearch": {
+      "additionalProperties": false,
+      "properties": {
+        "element_id": {
+          "title": "Element Id",
+          "type": "string"
+        },
+        "evidence_status": {
+          "enum": [
+            "confirmed",
+            "not_found_in_report",
+            "undetermined"
+          ],
+          "title": "Evidence Status",
+          "type": "string"
+        },
+        "undetermined_reason": {
+          "anyOf": [
+            {
+              "enum": [
+                "candidate_needs_review",
+                "no_text_candidate",
+                "linkage_unclear"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Undetermined Reason"
+        },
+        "engine_state": {
+          "enum": [
+            "present",
+            "absent",
+            "unknown",
+            "conflict",
+            "not_applicable"
+          ],
+          "title": "Engine State",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "evidence_refs": {
+          "items": {
+            "$ref": "#/$defs/SourceRef"
+          },
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "candidate_refs": {
+          "items": {
+            "$ref": "#/$defs/SourceRef"
+          },
+          "title": "Candidate Refs",
+          "type": "array"
+        },
+        "search": {
+          "additionalProperties": true,
+          "title": "Search",
+          "type": "object"
+        }
+      },
+      "required": [
+        "element_id",
+        "evidence_status",
+        "engine_state",
+        "reason",
+        "evidence_refs",
+        "candidate_refs",
+        "search"
+      ],
+      "title": "ElementEvidenceSearch",
       "type": "object"
     }
   }

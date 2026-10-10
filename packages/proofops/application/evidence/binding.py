@@ -1,4 +1,4 @@
-"""Source-backed, deterministic claim attribution (FR-013 / TASK-013).
+"""Source-backed, deterministic claim attribution.
 
 Inputs are internal immutable claim/tag revisions and a tenant-authorized original
 snapshot. Relation tags assign semantic roles to literal SourceRefs, never grades.
@@ -14,6 +14,7 @@ from typing import Literal
 from unicodedata import normalize
 
 from proofops.application.claims import Claim
+from proofops.application.evidence.report_level import scope_rejection_reason
 from proofops.application.evidence.span_citations import verify_source_ref
 from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
 from proofops.domain.errors import DomainValidationError
@@ -166,6 +167,8 @@ def accept_binding(
     definition = next((item for item in definitions if item["id"] == element_id), None)
     if definition is None:
         raise DomainValidationError("unknown element")
+    if scope_rejection_reason(element_id, (ref,), rulepack=rulepack, original=original):
+        return "rejected"
     evidence_dimensions = _dimensions(relation_tags) if relation_tags is not None else {}
     blocks = {block.source_id: block for block in original.blocks}
     if len(blocks) != len(original.blocks) or any(

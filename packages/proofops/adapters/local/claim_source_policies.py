@@ -57,17 +57,53 @@ def _typography():
     return claim_span_typography
 
 
+def _historical_typography():
+    """Replay the byte-pinned R24 wrapper before its documentation path edit.
+
+    The entire policy (including all dependency hashes) must still match the
+    policy computed by these exact bytes. Never admit it for new publication.
+    """
+    from proofops.adapters.local.historical_claim_replay import historical_typography_reader
+
+    return historical_typography_reader()
+
+
+def _glyph_alignment():
+    from proofops.adapters.local import glyph_alignment_verification
+
+    return glyph_alignment_verification
+
+
+def _source_v3():
+    from proofops.adapters.local import claim_source_verification_v3
+
+    return claim_source_verification_v3
+
+
+def _table_claims():
+    from proofops.adapters.local import table_claim_source_verification
+
+    return table_claim_source_verification
+
+
 def _wrappers():
     """Every wrapper module, outermost first. Additive: the base verifier's own
     dispatch is untouched and each wrapper keeps its own distinct policy."""
-    return (_typography(), _bullet_alignment(), _render_resolution())
+    return (
+        _source_v3(),
+        _table_claims(),
+        _glyph_alignment(),
+        _typography(),
+        _bullet_alignment(),
+        _render_resolution(),
+    )
 
 
 def claim_source_reader(policy):
     """Replay dispatch for a policy already pinned in a run snapshot.
 
-    The wrapper policy resolves to the wrapper module, and only when it matches
-    that module's current policy byte-for-byte: an altered wrapper hash is
+    A wrapper policy resolves only when it matches its shipped current or
+    byte-pinned historical module's complete policy: an altered wrapper hash is
     refused rather than replayed under different code. Every other policy is
     handed to the base verifier's own dispatch unchanged, so legacy and frozen
     runs keep replaying under the verifier that produced them.
@@ -75,6 +111,33 @@ def claim_source_reader(policy):
     from proofops.adapters.local import claim_source_verification as base
 
     if isinstance(policy, Mapping):
+        if policy.get("profile") == "claim-source-v3":
+            wrapper = _source_v3()
+            if policy != wrapper.claim_source_policy():
+                raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")
+            return wrapper
+        if policy.get("profile") in {
+            "upstage-ocr-page-v1",
+            "upstage-ocr-page-v2",
+            "upstage-ocr-page-v3",
+            "upstage-ocr-page-v4",
+            "upstage-ocr-page-v5",
+        }:
+            upstage_ocr_profile = page_ocr_profile(policy["profile"])
+
+            if policy != upstage_ocr_profile.claim_source_policy():
+                raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")
+            return upstage_ocr_profile
+        if policy.get("profile") == _table_claims().PROFILE:
+            wrapper = _table_claims()
+            if policy != wrapper.claim_source_policy():
+                raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")
+            return wrapper
+        if policy.get("profile") == _glyph_alignment().PROFILE:
+            wrapper = _glyph_alignment()
+            if policy != wrapper.claim_source_policy():
+                raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")
+            return wrapper
         for schema, module in (
             (TYPOGRAPHY_POLICY_SCHEMA, _typography),
             (BULLET_ALIGNMENT_POLICY_SCHEMA, _bullet_alignment),
@@ -84,7 +147,11 @@ def claim_source_reader(policy):
                 continue
             wrapper = module()
             if policy != wrapper.claim_source_policy():
-                raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")
+                if schema != TYPOGRAPHY_POLICY_SCHEMA:
+                    raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")
+                wrapper = _historical_typography()
+                if policy != wrapper.claim_source_policy():
+                    raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")
             return wrapper
     return base.claim_source_reader(policy)
 
@@ -100,13 +167,21 @@ def publication_reader(policy):
     """
     from proofops.adapters.local import claim_source_verification as base
 
+    if isinstance(policy, Mapping) and policy.get("profile") in {
+        "upstage-ocr-page-v1",
+        "upstage-ocr-page-v2",
+        "upstage-ocr-page-v3",
+        "upstage-ocr-page-v4",
+        "upstage-ocr-page-v5",
+    }:
+        return claim_source_reader(policy)
     for module in (base, *_wrappers()):
         if policy == module.claim_source_policy():
             return module
     raise ValueError("CLAIM_SOURCE_POLICY_MISMATCH")
 
 
-def attest_claims(*, reader, graph, source, refs, tenant_id, cache):
+def attest_claims(*, reader, graph, source, refs, tenant_id, cache, run_id=None):
     """Publish an attestation under ``reader``'s own semantics.
 
     ``cache`` keeps each existing call site's behaviour: the batch path reuses
@@ -127,6 +202,16 @@ def attest_claims(*, reader, graph, source, refs, tenant_id, cache):
     publication can match them instead of repeating the same whole-ref read.
     The published bytes are unchanged either way.
     """
+    if getattr(reader, "PROFILE", None) in {
+        "upstage-ocr-page-v1",
+        "upstage-ocr-page-v2",
+        "upstage-ocr-page-v3",
+        "upstage-ocr-page-v4",
+        "upstage-ocr-page-v5",
+    }:
+        return reader.attest_claim_spans(
+            graph, source, tuple(refs), tenant_id=tenant_id, run_id=run_id
+        )
     if cache and reader not in _wrappers():
         from proofops.adapters.local.native_replay_cache import attest_claims_cached
 
@@ -146,3 +231,28 @@ def attest_claims(*, reader, graph, source, refs, tenant_id, cache):
             receipt=receipt,
         )
     return receipt
+
+
+def page_ocr_profile(profile):
+    """Resolve the explicitly versioned mapping; never reinterpret old receipts."""
+    if profile == "upstage-ocr-page-v5":
+        from proofops.adapters.local import upstage_ocr_profile_v5
+
+        return upstage_ocr_profile_v5
+    if profile == "upstage-ocr-page-v4":
+        from proofops.adapters.local import upstage_ocr_profile_v4
+
+        return upstage_ocr_profile_v4
+    if profile == "upstage-ocr-page-v1":
+        from proofops.adapters.local import upstage_ocr_profile
+
+        return upstage_ocr_profile
+    if profile == "upstage-ocr-page-v2":
+        from proofops.adapters.local import upstage_ocr_profile_v2
+
+        return upstage_ocr_profile_v2
+    if profile == "upstage-ocr-page-v3":
+        from proofops.adapters.local import upstage_ocr_profile_v3
+
+        return upstage_ocr_profile_v3
+    raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")

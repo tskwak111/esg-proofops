@@ -533,6 +533,27 @@ def test_http_retag_required_never_creates_ready_job_or_changes_heads(tmp_path, 
     response = rescore_post(ws)
     assert response.status_code == 409, response.text
     assert response.json()["error"]["code"] == "RETAG_REQUIRED"
+    message = response.json()["error"]["message"]
+    assert "다시 태깅" in message and "검토" in message
+    if change == "no_confirmed":
+        assert ws["claim"] in message
+    assert records(ws) == before
+
+
+def test_http_empty_head_retag_response_explains_next_step_without_writes(tmp_path):
+    ws = rescore_workspace(tmp_path, partial=True)
+    with ws["runs"].jobs._transaction() as db:
+        db.execute(
+            "DELETE FROM job_records WHERE tenant_id=? AND run_id=? AND kind='claim_head'",
+            (ws["tenant"], ws["run"]),
+        )
+    before = records(ws)
+    response = rescore_post(ws)
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "RETAG_REQUIRED"
+    message = response.json()["error"]["message"]
+    assert "공개 주장 head가 없거나" in message
+    assert "다시 태깅" in message and "검토자가 확정" in message
     assert records(ws) == before
 
 

@@ -1,4 +1,4 @@
-"""R22 manual preliminary classification route: authorized reviewer classifies a
+"""Manual preliminary classification route: authorized reviewer classifies a
 source-verified claim stopped at PRELIMINARY_TAGS_UNRESOLVED, then a bounded reprocess
 tag job reaches the existing element review.
 

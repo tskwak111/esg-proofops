@@ -37,9 +37,7 @@ BINDING = ModelBinding("synthetic-assurance", "assurance", True)
 
 FIXTURE_REQUEST = (
     Path(__file__).resolve().parents[2]
-    / "outputs"
-    / "agent-fixtures"
-    / "kia-assurance-sized-request"
+    / "tests/fixtures/pipeline/kia-assurance-request"
     / "9e1e46d4-b365-4748-ad76-3e060d18badd"
     / "request.json"
 )

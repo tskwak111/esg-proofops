@@ -1,4 +1,4 @@
-"""Same-document retrieval and immutable packets (TASK-011).
+"""Same-document retrieval and immutable packets.
 
 The graph must be a trusted tenant-authorized SourceStore snapshot, never a v1
 client projection. Search indexes route candidates; original bytes and quality
@@ -151,6 +151,14 @@ def freeze_packet(packet: Mapping[str, Any]) -> EvidencePacket:
     """
     payload = canonical_json(dict(packet))
     return EvidencePacket(payload, canonical_hash(json.loads(payload)))
+
+
+def unattended_packet(packet: EvidencePacket, *, profile="unattended-v1") -> EvidencePacket:
+    data = packet.to_dict()
+    data["unattended_retrieval_sha256"] = packet.packet_sha256
+    data["pipeline_profile"] = profile
+    data["status"] = "candidate"
+    return freeze_packet(data)
 
 
 def freeze_track_packet(

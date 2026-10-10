@@ -1,0 +1,338 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "SeoulInventory",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DescribeRegions",
+        "ec2:DescribeAvailabilityZones",
+        "ec2:DescribeImages",
+        "ec2:DescribeInstanceTypeOfferings",
+        "ec2:DescribeInstanceTypes",
+        "ec2:DescribeInstances",
+        "ec2:DescribeAddresses",
+        "ec2:DescribeSecurityGroups",
+        "ec2:DescribeKeyPairs",
+        "ec2:DescribeVpcs",
+        "ec2:DescribeSubnets",
+        "ec2:DescribeRouteTables",
+        "ec2:DescribeVolumes"
+      ],
+      "Resource": [
+        "*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "ap-southeast-2"
+        }
+      }
+    },
+    {
+      "Sid": "CanonicalAMI",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:RunInstances"
+      ],
+      "Resource": [
+        "arn:aws:ec2:ap-southeast-2::image/ami-*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "ap-southeast-2",
+          "ec2:Owner": [
+            "099720109477",
+            "amazon"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "LaunchInProjectRegionSubnet",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:RunInstances"
+      ],
+      "Resource": [
+        "arn:aws:ec2:ap-southeast-2:753036488189:subnet/*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "ap-southeast-2"
+        }
+      }
+    },
+    {
+      "Sid": "CreateSGInSeoulVPC",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:CreateSecurityGroup"
+      ],
+      "Resource": [
+        "arn:aws:ec2:ap-southeast-2:753036488189:vpc/*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "ap-southeast-2"
+        }
+      }
+    },
+    {
+      "Sid": "TaggedLaunchInputs",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:RunInstances"
+      ],
+      "Resource": [
+        "arn:aws:ec2:ap-southeast-2:753036488189:security-group/*",
+        "arn:aws:ec2:ap-southeast-2:753036488189:key-pair/proofops-r108*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "ap-southeast-2",
+          "aws:ResourceTag/Project": "proofops-r108"
+        },
+        "StringLike": {
+          "aws:ResourceTag/Name": "proofops-r108*"
+        }
+      }
+    },
+    {
+      "Sid": "OnlyT4gMediumIMDSv2",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:RunInstances"
+      ],
+      "Resource": [
+        "arn:aws:ec2:ap-southeast-2:753036488189:instance/*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "ap-southeast-2",
+          "aws:RequestTag/Project": "proofops-r108",
+          "ec2:InstanceType": "t4g.medium",
+          "ec2:MetadataHttpTokens": "required",
+          "ec2:Tenancy": "default"
+        },
+        "StringLike": {
+          "aws:RequestTag/Name": "proofops-r108*"
+        }
+      }
+    },
+    {
+      "Sid": "OnlyEncrypted30GiBGp3",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:RunInstances"
+      ],
+      "Resource": [
+        "arn:aws:ec2:ap-southeast-2:753036488189:volume/*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "ap-southeast-2",
+          "aws:RequestTag/Project": "proofops-r108",
+          "ec2:VolumeType": "gp3"
+        },
+        "StringLike": {
+          "aws:RequestTag/Name": "proofops-r108*"
+        },
+        "Bool": {
+          "ec2:Encrypted": "true"
+        },
+        "NumericEquals": {
+          "ec2:VolumeSize": "30"
+        }
+      }
+    },
+    {
+      "Sid": "TaggedPrivateIPv4ENI",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:RunInstances"
+      ],
+      "Resource": [
+        "arn:aws:ec2:ap-southeast-2:753036488189:network-interface/*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "ap-southeast-2",
+          "aws:RequestTag/Project": "proofops-r108"
+        },
+        "StringLike": {
+          "aws:RequestTag/Name": "proofops-r108*"
+        }
+      }
+    },
+    {
+      "Sid": "CreateTaggedKitResources",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:ImportKeyPair",
+        "ec2:CreateSecurityGroup",
+        "ec2:AllocateAddress"
+      ],
+      "Resource": [
+        "arn:aws:ec2:ap-southeast-2:753036488189:key-pair/proofops-r108*",
+        "arn:aws:ec2:ap-southeast-2:753036488189:security-group/*",
+        "arn:aws:ec2:ap-southeast-2:753036488189:elastic-ip/*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "ap-southeast-2",
+          "aws:RequestTag/Project": "proofops-r108"
+        },
+        "StringLike": {
+          "aws:RequestTag/Name": "proofops-r108*"
+        }
+      }
+    },
+    {
+      "Sid": "EditOwnedSG",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:AuthorizeSecurityGroupIngress",
+        "ec2:RevokeSecurityGroupEgress",
+        "ec2:DeleteSecurityGroup"
+      ],
+      "Resource": [
+        "arn:aws:ec2:ap-southeast-2:753036488189:security-group/*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "ap-southeast-2",
+          "aws:ResourceTag/Project": "proofops-r108"
+        },
+        "StringLike": {
+          "aws:ResourceTag/Name": "proofops-r108*"
+        }
+      }
+    },
+    {
+      "Sid": "OwnedAddressAndKeyOperations",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:AssociateAddress",
+        "ec2:DisassociateAddress",
+        "ec2:ReleaseAddress",
+        "ec2:DeleteKeyPair"
+      ],
+      "Resource": [
+        "arn:aws:ec2:ap-southeast-2:753036488189:elastic-ip/*",
+        "arn:aws:ec2:ap-southeast-2:753036488189:instance/*",
+        "arn:aws:ec2:ap-southeast-2:753036488189:network-interface/*",
+        "arn:aws:ec2:ap-southeast-2:753036488189:key-pair/proofops-r108*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "ap-southeast-2",
+          "aws:ResourceTag/Project": "proofops-r108"
+        },
+        "StringLike": {
+          "aws:ResourceTag/Name": "proofops-r108*"
+        }
+      }
+    },
+    {
+      "Sid": "StopTerminateOwnedInstance",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:StopInstances",
+        "ec2:TerminateInstances"
+      ],
+      "Resource": [
+        "arn:aws:ec2:ap-southeast-2:753036488189:instance/*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "ap-southeast-2",
+          "aws:ResourceTag/Project": "proofops-r108",
+          "ec2:InstanceType": "t4g.medium"
+        },
+        "StringLike": {
+          "aws:ResourceTag/Name": "proofops-r108*"
+        }
+      }
+    },
+    {
+      "Sid": "TagOnlyAtKitCreation",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:CreateTags"
+      ],
+      "Resource": [
+        "arn:aws:ec2:ap-southeast-2:753036488189:instance/*",
+        "arn:aws:ec2:ap-southeast-2:753036488189:volume/*",
+        "arn:aws:ec2:ap-southeast-2:753036488189:network-interface/*",
+        "arn:aws:ec2:ap-southeast-2:753036488189:security-group/*",
+        "arn:aws:ec2:ap-southeast-2:753036488189:key-pair/proofops-r108*",
+        "arn:aws:ec2:ap-southeast-2:753036488189:elastic-ip/*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "ap-southeast-2",
+          "aws:RequestTag/Project": "proofops-r108",
+          "ec2:CreateAction": [
+            "RunInstances",
+            "CreateSecurityGroup",
+            "ImportKeyPair",
+            "AllocateAddress"
+          ]
+        },
+        "StringLike": {
+          "aws:RequestTag/Name": "proofops-r108*"
+        },
+        "ForAllValues:StringEquals": {
+          "aws:TagKeys": [
+            "Project",
+            "Name"
+          ]
+        },
+        "Null": {
+          "aws:TagKeys": "false"
+        }
+      }
+    },
+    {
+      "Sid": "CanonicalUbuntu24Arm64Parameter",
+      "Effect": "Allow",
+      "Action": [
+        "ssm:GetParameter"
+      ],
+      "Resource": [
+        "arn:aws:ssm:ap-southeast-2::parameter/aws/service/canonical/ubuntu/server/24.04/stable/current/arm64/hvm/ebs-gp3/ami-id"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "ap-southeast-2"
+        }
+      }
+    },
+    {
+      "Sid": "SeoulStandardVCPUQuota",
+      "Effect": "Allow",
+      "Action": [
+        "servicequotas:GetServiceQuota"
+      ],
+      "Resource": [
+        "arn:aws:servicequotas:ap-southeast-2:753036488189:ec2/L-1216C47A"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "ap-southeast-2"
+        }
+      }
+    },
+    {
+      "Sid": "ExistingAccountEmailBudget",
+      "Effect": "Allow",
+      "Action": [
+        "budgets:ModifyBudget",
+        "budgets:ViewBudget"
+      ],
+      "Resource": [
+        "arn:aws:budgets::753036488189:budget/proofops-r108-monthly-20"
+      ]
+    }
+  ]
+}

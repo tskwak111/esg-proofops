@@ -168,7 +168,11 @@ def _load_frozen_verifier(bundle: dict) -> ModuleType:
 def replay_native_sources_frozen(bundle, receipt, graph, source, *, tenant_id):
     """Re-execute the pinned historical verifier to reproduce and replay the receipt."""
     frozen_sv = _load_frozen_verifier(bundle)
-    return frozen_sv.replay_native_sources(receipt, graph, source, tenant_id=tenant_id)
+    from proofops.adapters.local.receipt_environment_compat import replay_receipt
+
+    return replay_receipt(
+        frozen_sv.replay_native_sources, receipt, graph, source, tenant_id=tenant_id
+    )
 
 
 def replay_native_with_policy(stored_policy, receipt, graph, source, *, tenant_id):
@@ -180,6 +184,23 @@ def replay_native_with_policy(stored_policy, receipt, graph, source, *, tenant_i
     from proofops.adapters.local.native_replay_cache import replay_cached
     from proofops.adapters.local.run_artifacts import native_paragraph_policy
 
+    if stored_policy.get("mode") in {
+        "upstage-ocr-page-v1",
+        "upstage-ocr-page-v2",
+        "upstage-ocr-page-v3",
+        "upstage-ocr-page-v4",
+        "upstage-ocr-page-v5",
+    }:
+        from proofops.adapters.local.claim_source_policies import page_ocr_profile
+
+        profile = page_ocr_profile(stored_policy["mode"])
+        for_run, native_policy = profile.for_run, profile.native_policy
+
+        if stored_policy != native_policy():
+            raise ValueError("native attestation policy has no pinned verifier")
+        return for_run(receipt["run_id"]).replay_native_sources(
+            receipt, graph, source, tenant_id=tenant_id
+        )
     live_hash = canonical_hash(native_paragraph_policy())
     stored_hash = canonical_hash(stored_policy)
     if stored_hash == live_hash:

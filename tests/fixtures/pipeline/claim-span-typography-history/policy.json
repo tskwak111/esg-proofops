@@ -1,0 +1,43 @@
+{
+  "schema": "claim_span_typography_policy_v1",
+  "mode": "claim_span_rendered_only_quote_and_middle_dot_typography_v1",
+  "base": {
+    "schema": "claim_span_bullet_alignment_policy_v1",
+    "mode": "bullet_first_token_single_inserted_space_v1",
+    "base": {
+      "schema": "claim_span_render_resolution_policy_v1",
+      "mode": "claim_span_deterministic_crop_scale_v1",
+      "base": {
+        "schema": "claim_source_policy_v2",
+        "claim_validator_sha256": "0cfaad53677b2f4b2b3687eb68ac1f162f6500027ca49ab21f96098adc5653e4",
+        "verifier_sha256": "8b95383c73d76b2bf838e51f208448c8b1995271a6639e5726df659e7cef2a61",
+        "citation_sha256": "da03de5db6ada3341306806fc71a058bc4470490c34841c9550975e5c33d7718",
+        "native_policy": {
+          "mode": "paragraph_native_glyph_v2",
+          "glyph_verifier_sha256": "71da3f12656dc00bc6791d78aee83cda8ce2f233503b7f6320a8bc2e6b154685",
+          "verifier_sha256": "e9062fb57f98ae0db3a90a2431328c65d315bee87a23c0d11898503f2fdb8fe0",
+          "rendered_reader_sha256": "a379e2901aa0e20d6b325f3e711abbf53324265855ad0e0c0e316cdd616cd74d",
+          "normalization_sha256": "cbbd174a53628edd54777b7ee47d9ec792d9fa3ff11d72b2fe1a611a1b0bdc26"
+        }
+      },
+      "base_sha256": "eb837745613c65ec576d095aafde18972f26a5b819f529d29de23c912f3efa6e",
+      "wrapper_sha256": "48f24a69ec1061c4329510a993fd5c8a7a363489c74286df1ef4596614eb321b",
+      "cell_reader_sha256": "045f4dca825e35a29f12307e234c30be546d53c5a18fc916e8c98c852a1389db"
+    },
+    "base_sha256": "383d0e53c36230b2ac132065b3ea11c8eea9b472c893163e40cd2ba71a9d6ae2",
+    "wrapper_sha256": "b82a2023b0a42d3868fd21868fb3494c27a14f774a0479a3e20da6b1a1e4185d",
+    "glyph_reader_sha256": "71da3f12656dc00bc6791d78aee83cda8ce2f233503b7f6320a8bc2e6b154685",
+    "rendered_reader_sha256": "e9062fb57f98ae0db3a90a2431328c65d315bee87a23c0d11898503f2fdb8fe0"
+  },
+  "base_sha256": "aa147570f9e354275291bee58bd10f325377a868d44ba1596a4ce06549688b32",
+  "wrapper_sha256": "58086038813acfca0e5d40108f7bf49863b11ecf5ceff56c91ca4989a82b98de",
+  "fold_helper_sha256": "83491c030b214962d5b98b6214a189e1f648ee478e8bb751cec2f6571e3fc84f",
+  "rendered_fold_sha256": "7a45c8ce34272b8ddc4195e3e4932bdbe1cf749e230e86afced0e4b6ee04a78e",
+  "rendered_fold_entries": [
+    "U+00B7->U+2022",
+    "U+2018->U+0027",
+    "U+2019->U+0027",
+    "U+201C->U+0022",
+    "U+201D->U+0022"
+  ]
+}

@@ -1,12 +1,12 @@
 """Bounded Upstage Document Parse transport; shares ledger with text probe.
 
-Uses same SQLite ledger/policy (USD 10 limit, USD 1 reservation) via UpstageProbe.
-Validates PDFs with pypdf (1..10 pages, <=10 MB, no encryption). Fixed host
-api.upstage.ai POST /v1/document-digitization multipart with pinned model
+Uses the shared SQLite ledger/policy (USD 1 per-call reservation) via UpstageProbe.
+The synchronous probe accepts 1..10 pages; async accepts a PDF whose priced
+pages fit one reservation. Fixed host api.upstage.ai with pinned model
 document-parse-260128, mode, ocr=auto, coordinates=true,
 output_formats=[text,html]. No retries/redirects, bounded response, sanitized
 errors. Pricing 2026-09-12 standard 0.01/page enhanced 0.03/page +10% VAT.
-Rates rechecked 2026-09-25 at https://www.upstage.ai/pricing/api; expiry 2026-10-02.
+Rates rechecked 2026-10-09 at https://www.upstage.ai/pricing/api; expiry 2026-10-21.
 No quality approval or graph conversion.
 """
 
@@ -16,9 +16,12 @@ import hashlib
 import http.client
 import io
 import json
+import sqlite3
 import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
+from time import monotonic, sleep
+from urllib.parse import urlsplit
 
 from proofops.adapters.local.upstage import PRICE_RECHECK_AT, UpstageProbe
 from proofops.domain.provenance import canonical_hash
@@ -51,6 +54,52 @@ PRICE_SNAPSHOT = {
 class UpstageParseProbe(UpstageProbe):
     """Local evaluation transport for Document Parse; not production approval."""
 
+    def _reserve_async(self, request_id, body, cost):
+        """Additive metadata; retain every historical USD1 reservation and policy."""
+        with sqlite3.connect(self.ledger, timeout=10) as db:
+            db.execute("BEGIN IMMEDIATE")
+            limit = self._authorized_limit(db)
+            if db.execute("SELECT 1 FROM probe_calls WHERE request_id=?", (request_id,)).fetchone():
+                raise ValueError("DUPLICATE_PROBE_REQUEST")
+            if self._call_total(db) + cost > limit:
+                raise ValueError("BUDGET_EXHAUSTED")
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS parse_reservations "
+                "(request_id TEXT PRIMARY KEY,bound TEXT NOT NULL,body TEXT NOT NULL)"
+            )
+            db.execute(
+                "INSERT INTO parse_reservations VALUES (?,?,?)",
+                (request_id, str(cost), json.dumps(body, sort_keys=True)),
+            )
+            db.execute(
+                "INSERT INTO probe_calls VALUES (?,?,?,NULL)",
+                (request_id, canonical_hash(body), str(cost)),
+            )
+
+    def _settle_async(self, request_id, cost, receipt):
+        with sqlite3.connect(self.ledger) as db:
+            if (
+                db.execute(
+                    "UPDATE probe_calls SET receipt=? WHERE request_id=? "
+                    "AND receipt IS NULL AND committed=?",
+                    (json.dumps(receipt, sort_keys=True), request_id, str(cost)),
+                ).rowcount
+                != 1
+            ):
+                raise ValueError("BUDGET_SETTLEMENT_INVALID")
+
+    def _dispatch_audit(self, request_id, **fields):
+        # No credentials, signed URLs, document text or provider error bodies.
+        directory = self.ledger.parent / "parse-dispatch"
+        directory.mkdir(exist_ok=True, mode=0o700)
+        path = directory / (canonical_hash(request_id) + ".json")
+        previous = json.loads(path.read_text()) if path.exists() else {}
+        previous.update(request_id=request_id, recorded_at=datetime.now(UTC).isoformat(), **fields)
+        temporary = path.with_suffix(".tmp")
+        temporary.write_text(json.dumps(previous, sort_keys=True) + "\n")
+        temporary.chmod(0o600)
+        temporary.replace(path)
+
     def _validate_pdf(self, pdf_bytes: bytes) -> int:
         if not isinstance(pdf_bytes, bytes):
             raise ValueError("INVALID_PROBE_REQUEST")
@@ -70,7 +119,7 @@ class UpstageParseProbe(UpstageProbe):
             raise ValueError("INVALID_PROBE_REQUEST")
         return num_pages
 
-    def _post_parse(self, pdf_bytes: bytes, mode: str) -> dict:
+    def _post_parse(self, pdf_bytes: bytes, mode: str, path="/v1/document-digitization") -> dict:
         boundary = uuid.uuid4().hex
         # Build multipart body
         # Fields: document (file), model, mode, ocr, coordinates, output_formats
@@ -104,7 +153,7 @@ class UpstageParseProbe(UpstageProbe):
         try:
             connection.request(
                 "POST",
-                "/v1/document-digitization",
+                path,
                 body=body,
                 headers={
                     "Authorization": "Bearer " + self._api_key,
@@ -120,6 +169,190 @@ class UpstageParseProbe(UpstageProbe):
             return json.loads(raw)
         finally:
             connection.close()
+
+    def _async_status(self, provider_id: str) -> dict:
+        connection = http.client.HTTPSConnection("api.upstage.ai", timeout=30)
+        try:
+            connection.request(
+                "GET",
+                f"/v1/document-digitization/requests/{provider_id}",
+                headers={"Authorization": "Bearer " + self._api_key},
+            )
+            response = connection.getresponse()
+            if response.status != 200:
+                raise ValueError(f"UPSTAGE_HTTP_{response.status}")
+            raw = response.read(MAX_RESPONSE_BYTES + 1)
+            if len(raw) > MAX_RESPONSE_BYTES:
+                raise ValueError("UPSTAGE_RESPONSE_TOO_LARGE")
+            return json.loads(raw)
+        finally:
+            connection.close()
+
+    @staticmethod
+    def _async_download(url: str) -> dict:
+        parsed = urlsplit(url)
+        if (
+            parsed.scheme != "https"
+            or not parsed.hostname
+            or not parsed.hostname.endswith(".files.upstage.ai")
+            or parsed.username
+            or parsed.password
+            or parsed.port
+        ):
+            raise ValueError("UPSTAGE_DOWNLOAD_URL_INVALID")
+        connection = http.client.HTTPSConnection(parsed.hostname, timeout=30)
+        try:
+            connection.request("GET", parsed.path + ("?" + parsed.query if parsed.query else ""))
+            response = connection.getresponse()
+            if response.status != 200:
+                raise ValueError(f"UPSTAGE_DOWNLOAD_HTTP_{response.status}")
+            raw = response.read(4_000_001)
+            if len(raw) > 4_000_000:
+                raise ValueError("UPSTAGE_RESPONSE_TOO_LARGE")
+            return json.loads(raw)
+        finally:
+            connection.close()
+
+    def parse_async(self, pdf_bytes: bytes, *, request_id: str, mode: str = "standard") -> dict:
+        """One ledger-reserved async job; failures retain the reservation."""
+        if datetime.now(UTC) >= PRICE_RECHECK_AT:
+            raise ValueError("PRICE_RECHECK_REQUIRED")
+        if (
+            mode not in ALLOWED_MODES
+            or not isinstance(request_id, str)
+            or not 1 <= len(request_id) <= 128
+        ):
+            raise ValueError("INVALID_PROBE_REQUEST")
+        if not isinstance(pdf_bytes, bytes) or not 0 < len(pdf_bytes) <= 50_000_000:
+            raise ValueError("INVALID_PROBE_REQUEST")
+        try:
+            from pypdf import PdfReader
+
+            reader = PdfReader(io.BytesIO(pdf_bytes), strict=True)
+            pages = len(reader.pages)
+            if reader.is_encrypted or not 1 <= pages <= 1000:
+                raise ValueError
+        except Exception:
+            raise ValueError("INVALID_PROBE_REQUEST") from None
+        cost = COST_PER_PAGE[mode] * pages
+        if cost > Decimal("1.00"):
+            raise ValueError("UPSTAGE_ASYNC_RESERVATION_LIMIT")
+        body = dict(
+            model=PARSE_MODEL_PINNED,
+            mode=mode,
+            pdf_sha256=hashlib.sha256(pdf_bytes).hexdigest(),
+            pages=pages,
+            bytes_len=len(pdf_bytes),
+            transport="async",
+        )
+        self._reserve_async(request_id, body, cost)
+        self._dispatch_audit(
+            request_id,
+            phase="dispatch_started",
+            request_sha256=canonical_hash(body),
+            pages=pages,
+            mode=mode,
+            bound_usd=str(cost),
+        )
+        started = monotonic()
+        try:
+            submitted = self._post_parse(pdf_bytes, mode, "/v1/document-digitization/async")
+            provider_id = submitted.get("request_id")
+            if not isinstance(provider_id, str) or not provider_id or "/" in provider_id:
+                raise ValueError("UPSTAGE_ASYNC_RESPONSE_INVALID")
+            self._dispatch_audit(request_id, phase="accepted", provider_request_id=provider_id)
+            deadline = monotonic() + 180
+            transient_failures = 0
+            while True:
+                try:
+                    status = self._async_status(provider_id)
+                except ValueError as error:
+                    if (
+                        str(error)
+                        not in {
+                            "UPSTAGE_HTTP_429",
+                            "UPSTAGE_HTTP_500",
+                            "UPSTAGE_HTTP_502",
+                            "UPSTAGE_HTTP_503",
+                        }
+                        or transient_failures >= 2
+                        or monotonic() >= deadline
+                    ):
+                        raise
+                    transient_failures += 1
+                    self._dispatch_audit(request_id, phase="poll_retry", error_code=str(error))
+                    sleep(1)
+                    continue
+                if status.get("status") == "completed":
+                    break
+                if status.get("status") == "failed" or monotonic() >= deadline:
+                    raise ValueError("UPSTAGE_ASYNC_FAILED")
+                # Provider may queue a valid accepted job before inference starts.
+                # Keep polling this ID only; never repeat the paid POST.
+                self._dispatch_audit(
+                    request_id, phase="polling", provider_status=status.get("status")
+                )
+                if status.get("status") not in {
+                    "submitted",
+                    "scheduled",
+                    "started",
+                    "pending",
+                    "queued",
+                }:
+                    raise ValueError("UPSTAGE_ASYNC_RESPONSE_INVALID")
+                sleep(1)
+            if (
+                status.get("total_pages") != pages
+                or status.get("completed_pages") != pages
+                or status.get("model") not in ALLOWED_MODELS
+                or not isinstance(status.get("batches"), list)
+                or len(status["batches"]) != (pages + 9) // 10
+            ):
+                raise ValueError("UPSTAGE_ASYNC_RESPONSE_INVALID")
+            batches = [self._async_download(item["download_url"]) for item in status["batches"]]
+            seen = set()
+            for batch in batches:
+                if batch.get("model") not in ALLOWED_MODELS or not isinstance(
+                    batch.get("elements"), list
+                ):
+                    raise ValueError("UPSTAGE_ASYNC_RESPONSE_INVALID")
+                usage = batch.get("usage", {})
+                selected = usage.get(mode)
+                if not isinstance(selected, list) or usage.get("pages") != len(selected):
+                    raise ValueError("UPSTAGE_ASYNC_RESPONSE_INVALID")
+                for page in selected:
+                    if type(page) is not int or not 1 <= page <= pages or page in seen:
+                        raise ValueError("UPSTAGE_ASYNC_RESPONSE_INVALID")
+                    seen.add(page)
+            if seen != set(range(1, pages + 1)):
+                raise ValueError("UPSTAGE_ASYNC_RESPONSE_INVALID")
+        except Exception as error:
+            code = str(error)
+            if not code.startswith("UPSTAGE_") or self._api_key in code:
+                code = "UPSTAGE_REQUEST_FAILED"
+            self._dispatch_audit(request_id, phase="failed", error_code=code)
+            raise ValueError(code) from None
+        archive = self.ledger.parent / "parse-responses"
+        archive.mkdir(exist_ok=True, mode=0o700)
+        path = archive / (canonical_hash(request_id) + "-async.json")
+        with path.open("x", encoding="utf-8") as stream:
+            json.dump(batches, stream, ensure_ascii=False)
+        path.chmod(0o400)
+        receipt = dict(
+            model=PARSE_MODEL_PINNED,
+            provider_model=status["model"],
+            pages=pages,
+            usage={"pages": pages, mode: list(range(1, pages + 1))},
+            mode=mode,
+            cost_with_vat_reserve_usd=str(cost),
+            request_sha256=canonical_hash(body),
+            response_sha256=canonical_hash(batches),
+            provider_request_id=provider_id,
+            duration_seconds=monotonic() - started,
+        )
+        self._settle_async(request_id, cost, receipt)
+        self._dispatch_audit(request_id, phase="settled")
+        return dict(receipt, raw_batches=batches)
 
     def parse(self, pdf_bytes: bytes, *, request_id: str, mode: str) -> dict:
         if datetime.now(UTC) >= PRICE_RECHECK_AT:
@@ -149,6 +382,10 @@ class UpstageParseProbe(UpstageProbe):
         try:
             data = self._post_parse(pdf_bytes, mode)
         except Exception as error:
+            from proofops.application.budget import BudgetExceeded
+
+            if isinstance(error, BudgetExceeded):
+                raise
             code = str(error)
             if code not in {
                 f"UPSTAGE_HTTP_{n}" for n in (400, 401, 403, 404, 429, 500, 502, 503)

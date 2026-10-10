@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import json
+import os
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, replace
 from datetime import UTC, datetime
+from threading import Lock
 from uuid import UUID, uuid4, uuid5
 
 from proofops.adapters.local.claim_store import (
@@ -25,7 +28,7 @@ from proofops.adapters.local.run_artifacts import load_run_graph
 from proofops.adapters.local.upstage import UPSTAGE_TRANSPORT_STOP_CODES
 from proofops.adapters.parsing.opendataloader import ParseFailure
 from proofops.application.authorization import AuthContext
-from proofops.application.claim_scope import validate_extraction_limits
+from proofops.application.claim_scope import MAX_EXTRACTION_BATCH_CALLS, validate_extraction_limits
 from proofops.application.claims import (
     ClaimExtractorPort,
     ExtractionOutputError,
@@ -42,9 +45,73 @@ from proofops_worker.consumer import StageFailure, consume_job, with_lease_heart
 from proofops_worker.telemetry import observe_job
 
 
-def _is_text_candidate(kind: str, text: str) -> bool:
+def _candidate_extract(live, packet, snapshot):
+    try:
+        return live.extract(packet)
+    except ValueError as error:
+        code = str(error)
+        if snapshot.get("pipeline_profile") in (
+            "unattended-v1",
+            "finals-unattended-v1",
+            "finals-unattended-v2",
+        ) and (
+            code
+            in {
+                "OPENAI_HTTP_503",
+                "OPENAI_HTTP_502",
+                "OPENAI_HTTP_429",
+                "OPENAI_REQUEST_FAILED",
+                "UPSTAGE_REQUEST_FAILED",
+                "UPSTREAM_UNAVAILABLE",
+                "BUDGET_EXHAUSTED",
+                "R108_FINALS_BUDGET_EXHAUSTED",
+                "R108_FINALS_CUMULATIVE_BUDGET_EXHAUSTED",
+            }
+        ):
+            raise ExtractionOutputError(code) from None
+        raise
+
+
+def _is_text_candidate(kind: str, text: str, *, extraction_table_rows=False) -> bool:
     # ponytail: length is a routing heuristic, not a claim/absence classifier.
+    if extraction_table_rows and kind in ("table", "table_row", "table_cell", "figure"):
+        from proofops.application.ingest.table_row_candidates import row_candidates
+
+        return bool(row_candidates(text, kind=kind))
     return kind == "paragraph" or (kind == "heading" and len(text.strip()) >= 60)
+
+
+def prefetch_packets(packets, invoke, *, max_workers=16, on_page=None):
+    """Run paid packets concurrently; replay their outcomes in source order."""
+
+    def settle(packet):
+        try:
+            return invoke(packet)
+        except Exception as error:
+            return error
+
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        if on_page is None:
+            return dict(
+                zip(
+                    (p["untrusted_document_data"]["source_id"] for p in packets),
+                    pool.map(settle, packets),
+                    strict=True,
+                )
+            )
+        pending = {pool.submit(settle, packet): packet for packet in packets}
+        by_page, paid, counts = {}, {}, {}
+        for packet in packets:
+            page = packet["untrusted_document_data"]["page_num"]
+            counts[page] = counts.get(page, 0) + 1
+        for future in as_completed(pending):
+            data = pending[future]["untrusted_document_data"]
+            page, sid = data["page_num"], data["source_id"]
+            paid[sid] = future.result()
+            by_page.setdefault(page, {})[sid] = paid[sid]
+            if len(by_page[page]) == counts[page]:
+                on_page(page, by_page[page])
+        return paid
 
 
 def paragraph_priority(block):
@@ -61,35 +128,44 @@ def paragraph_priority(block):
 
 
 def select_batch_paragraph_sources(
-    graph, scope, max_calls: int, *, completed=frozenset()
+    graph, scope, max_calls: int, *, completed=frozenset(), extraction_table_rows=False
 ) -> set[str]:
     """Next bounded window of eligible prose sources, skipping completed ones.
 
-    The ordering is exactly ``paragraph_priority`` and the per-batch bound is
-    unchanged; continuation advances by excluding the sources a previous batch
-    already model-processed, never by raising the bound. ``completed`` carries
+    The ordering is exactly ``paragraph_priority``; continuation excludes sources
+    a previous batch already model-processed. ``completed`` carries
     exact source identifiers, so a source is never processed twice and a source
     that was merely deferred stays eligible.
     """
-    if type(max_calls) is not int or not 1 <= max_calls <= 20:
+    if type(max_calls) is not int or not 1 <= max_calls <= MAX_EXTRACTION_BATCH_CALLS:
         raise ValueError("EXTRACTION_INPUT_INVALID")
+    from proofops.application.ingest.source_continuations import continuations
+
+    fragments = {p.source_id for parts in continuations(graph).values() for p in parts}
     eligible = (
         block
         for block in graph.blocks
         if (scope.mode != "declared_subset" or block.page_num in scope.selected_pages)
         and block.quality in ("verified", "unverified")
         and block.winner is not None
-        and _is_text_candidate(block.kind, block.normalized_text)
+        and _is_text_candidate(
+            block.kind, block.normalized_text, extraction_table_rows=extraction_table_rows
+        )
         and block.normalized_text.strip()
         and block.source_id not in completed
+        and block.source_id not in fragments
     )
     ordered = sorted(eligible, key=paragraph_priority)
     return {block.source_id for block in ordered[:max_calls]}
 
 
-def select_stable_paragraph_sources(graph, scope, max_calls: int) -> set[str]:
+def select_stable_paragraph_sources(
+    graph, scope, max_calls: int, *, extraction_table_rows=False
+) -> set[str]:
     """Prioritize prose within a bounded preview; retain short candidates after it."""
-    return select_batch_paragraph_sources(graph, scope, max_calls)
+    return select_batch_paragraph_sources(
+        graph, scope, max_calls, extraction_table_rows=extraction_table_rows
+    )
 
 
 def _extractor_role_budget(snapshot: dict) -> int | None:
@@ -107,7 +183,7 @@ def _extractor_role_budget(snapshot: dict) -> int | None:
     return None
 
 
-def _live_extractor(extractor, graph):
+def _live_extractor(extractor, graph, source=None):
     """Bind the run graph for a context-mode extractor; legacy passes through.
 
     Composition already built the context profile exactly when the frozen
@@ -115,11 +191,18 @@ def _live_extractor(extractor, graph):
     snapshot shape change, and a context extractor can never run unbound
     (its own call would fail closed) nor silently fall back to legacy.
     """
-    if getattr(extractor, "_context", False) is not True:
+    if not (
+        getattr(extractor, "_context", False) or getattr(extractor, "_display_text_profile", None)
+    ):
         return extractor
     from proofops_agent.upstage_extraction import GraphBoundExtractor
 
-    return GraphBoundExtractor(extractor, graph)
+    return GraphBoundExtractor(
+        extractor,
+        graph,
+        source,
+        display_prefetch_workers=int(os.environ.get("PROOFOPS_DISPLAY_PREFETCH_WORKERS", "1")),
+    )
 
 
 class _ContinuingExtractor:
@@ -145,8 +228,10 @@ class _ContinuingExtractor:
         prior_failed=None,
         prior_calls: int = 0,
         total_budget: int | None = None,
+        extraction_table_rows: bool = False,
     ):
         self.profile = profile
+        self._table_rows = extraction_table_rows
         self._live = live
         self._prior = prior
         self._prior_failed = prior_failed or {}
@@ -173,9 +258,9 @@ class _ContinuingExtractor:
             self.replayed.add(source_id)
             raise ExtractionOutputError("PREVIOUS_EXTRACTION_FAILED")
         reason = None
-        if not _is_text_candidate(data["kind"], text):
+        if not _is_text_candidate(data["kind"], text, extraction_table_rows=self._table_rows):
             reason = DEFERRED_KIND_REASON
-        elif self.stop_code is not None:
+        elif self.stop_code is not None and source_id not in getattr(self._live, "prepaid", ()):
             reason = DEFERRED_BUDGET_REASON
         elif source_id not in self._window or self.calls >= self._max_calls:
             reason = DEFERRED_LIMIT_REASON
@@ -206,12 +291,25 @@ class _ContinuingExtractor:
 
 class LocalExtractRunner:
     def __init__(
-        self, store, uploads, parser, *, extractor: ClaimExtractorPort, telemetry, clock=time.time
+        self,
+        store,
+        uploads,
+        parser,
+        *,
+        extractor: ClaimExtractorPort,
+        telemetry,
+        clock=time.time,
+        max_workers=16,
+        tag_composition=None,
     ):
         if not uploads.local_synthetic:
             raise ValueError("local extraction requires local storage")
+        if type(max_workers) is not int or not 1 <= max_workers <= 16:
+            raise ValueError("EXTRACTION_CONCURRENCY_INVALID")
         self.store, self.uploads, self.parser = store, uploads, parser
         self.extractor, self.telemetry, self.clock = extractor, telemetry, clock
+        self.max_workers = max_workers
+        self.tag_composition = tag_composition
         self.claims = LocalClaimStore(store, uploads, parser)
 
     def _publication_payload(
@@ -248,6 +346,7 @@ class LocalExtractRunner:
                 refs=discovery_refs(discovery),
                 tenant_id=tenant_id,
                 cache=True,
+                run_id=run_id,
             )
         return payload
 
@@ -282,7 +381,48 @@ class LocalExtractRunner:
             )
         # Strict verification of the prior revision before any receipt is reused:
         # this replays every stored receipt against the frozen pins and graph.
-        prior_envelope, _, _ = self.claims.load_evidence(tenant_id, run_id)
+        try:
+            prior_envelope, _, graph = self.claims.load_evidence(
+                tenant_id, run_id, for_extraction=True
+            )
+        except ValueError as error:
+            if str(error) != "CLAIM_SNAPSHOT_HEAD_CHANGED":
+                raise
+            current = self.store.jobs.get_run(tenant_id, run_id)
+            pinned_head_unchanged = all(
+                current.get(key) == run.get(key)
+                for key in ("extract_job", "parse_job", "claim_snapshot_sha256")
+            )
+            if current.get("cancellation_requested") is True and pinned_head_unchanged:
+                return dict(status="cancelled")
+            raise
+        # Fence the original continuation head again after the potentially slow
+        # receipt replay, including downstream publication/active tag leases.
+        with self.store.jobs._transaction() as db:
+            current = self.store.jobs._get(db, tenant_id, run_id, "run", "META")
+            if any(
+                current.get(key) != run.get(key)
+                for key in ("extract_job", "parse_job", "claim_snapshot_sha256")
+            ):
+                raise ValueError("CLAIM_SNAPSHOT_HEAD_CHANGED")
+            if current["cancellation_requested"]:
+                return dict(status="cancelled")
+            try:
+                guard_extract_continuation(db, self.store.jobs, current, now=int(self.clock()))
+            except ValueError as error:
+                if str(error) not in {"TAG_LEASE_CONFLICT", "TAG_PUBLICATION_CONFLICT"}:
+                    raise
+                return dict(
+                    status="blocked",
+                    detail=(
+                        "active tag lease in flight; cannot continue extraction"
+                        if str(error) == "TAG_LEASE_CONFLICT"
+                        else (
+                            "cannot continue extraction after tag/review publication; "
+                            "start a new run"
+                        )
+                    ),
+                )
         state = extraction_batch_state(prior_envelope)
         profile = extraction_profile(snapshot)
         limits = snapshot.get("extraction_limits")
@@ -297,7 +437,7 @@ class LocalExtractRunner:
             raise ValueError("EXTRACTION_PROFILE_MISMATCH")
         frozen_calls = (limits or {}).get("max_calls", 1)
         if max_calls is not None:
-            if type(max_calls) is not int or not 1 <= max_calls <= 20:
+            if type(max_calls) is not int or not 1 <= max_calls <= MAX_EXTRACTION_BATCH_CALLS:
                 raise ValueError("EXTRACTION_INPUT_INVALID")
             if max_calls > frozen_calls:
                 raise ValueError("EXTRACTION_INPUT_INVALID")
@@ -305,9 +445,6 @@ class LocalExtractRunner:
         else:
             batch_calls = frozen_calls
         total_budget = _extractor_role_budget(snapshot)
-        graph = load_run_graph(
-            self.store, self.uploads, self.parser, tenant_id=tenant_id, run_id=run_id
-        )
         scope = claim_scope(snapshot, graph)
         prior_charged = len(state["model_processed"]) + len(state["failed"])
         usage_records = self.store.jobs.list_usage(tenant_id, run_id)
@@ -316,7 +453,13 @@ class LocalExtractRunner:
         )
         prior_calls = max(prior_charged, charged_from_usage)
         completed = set(state["model_processed"]) | set(state["failed"])
-        window = select_batch_paragraph_sources(graph, scope, batch_calls, completed=completed)
+        window = select_batch_paragraph_sources(
+            graph,
+            scope,
+            batch_calls,
+            completed=completed,
+            extraction_table_rows=getattr(self.extractor, "_table_rows", False),
+        )
         summary = dict(
             status="idle",
             revision_job_id=run["extract_job"]["job_id"],
@@ -356,17 +499,24 @@ class LocalExtractRunner:
 
         def operation(lease):
             since = 0 if profile.synthetic else self.extractor.usage_checkpoint()
+            usage_lock = Lock()
 
             def sync_usage():
                 if not profile.synthetic:
-                    usage.update(
-                        self.extractor.cumulative_usage(
-                            since=since, parse_manifest_id=graph.parse_manifest_id
+                    with usage_lock:
+                        usage.update(
+                            self.extractor.cumulative_usage(
+                                since=since, parse_manifest_id=graph.parse_manifest_id
+                            )
                         )
-                    )
 
             runner = self
-            live_extractor = _live_extractor(runner.extractor, graph)
+            source = (
+                runner.uploads.read_original(tenant_id, graph.document_version_id)
+                if getattr(runner.extractor, "_display_text_profile", None)
+                else None
+            )
+            live_extractor = _live_extractor(runner.extractor, graph, source)
 
             class FencedLive:
                 profile_ = profile
@@ -388,15 +538,62 @@ class LocalExtractRunner:
                         )
                         if not authorization.ready:
                             raise ValueError("LOCAL_TEST_AUTHORIZATION_INVALID")
-                    usage["extractor_calls"] += 1
+                    with usage_lock:
+                        usage["extractor_calls"] += 1
                     try:
-                        return live_extractor.extract(packet)
+                        return _candidate_extract(live_extractor, packet, snapshot)
                     finally:
                         sync_usage()
 
             try:
+                live = FencedLive()
+                if getattr(getattr(runner.extractor, "_probe", None), "model", None) in (
+                    "openai/gpt-6-luna",
+                    "gpt-6-luna",
+                ):
+                    # The provider ledger atomically fences all in-flight reservations.
+                    # Map preserves packet order when the serial discovery consumes results.
+                    candidates = sorted(
+                        (block for block in graph.blocks if block.source_id in window),
+                        key=lambda block: (block.page_num, block.source_id),
+                    )
+                    remaining = max(0, (total_budget or prior_calls + batch_calls) - prior_calls)
+                    packets = [
+                        dict(
+                            tenant_id=scope.tenant_id,
+                            document_version_id=scope.document_version_id,
+                            parse_manifest_id=scope.parse_manifest_id,
+                            source_sha256=graph.source_sha256,
+                            extraction_profile=asdict(profile),
+                            untrusted_document_data=dict(
+                                source_id=block.source_id,
+                                page_num=block.page_num,
+                                kind=block.kind,
+                                text=block.normalized_text,
+                            ),
+                        )
+                        for block in candidates[:remaining]
+                    ]
+
+                    if hasattr(live_extractor, "prefetch"):
+                        live_extractor.prefetch(packets)
+                    paid = prefetch_packets(packets, live.extract, max_workers=self.max_workers)
+                    sync_usage()
+
+                    class PrefetchedLive:
+                        prepaid = paid.keys()
+
+                        def extract(self, packet):
+                            answer = paid[packet["untrusted_document_data"]["source_id"]]
+                            if isinstance(answer, Exception):
+                                raise answer
+                            return answer
+
+                    selected_live = PrefetchedLive()
+                else:
+                    selected_live = live
                 extractor = _ContinuingExtractor(
-                    FencedLive(),
+                    selected_live,
                     profile,
                     state["model_processed"],
                     window,
@@ -404,6 +601,7 @@ class LocalExtractRunner:
                     prior_failed=state.get("failed_receipts", {}),
                     prior_calls=prior_calls,
                     total_budget=total_budget,
+                    extraction_table_rows=getattr(runner.extractor, "_table_rows", False),
                 )
                 discovery = discover_atomic_claims(graph, scope, extractor=extractor)
                 payload = self._publication_payload(
@@ -476,14 +674,16 @@ class LocalExtractRunner:
             def operation(lease):
                 usage = {"model_calls": 0, "extractor_calls": 0}
                 is_real, since, manifest_id = False, 0, None
+                usage_lock = Lock()
 
                 def sync_usage():
                     if is_real:
-                        usage.update(
-                            self.extractor.cumulative_usage(
-                                since=since, parse_manifest_id=manifest_id
+                        with usage_lock:
+                            usage.update(
+                                self.extractor.cumulative_usage(
+                                    since=since, parse_manifest_id=manifest_id
+                                )
                             )
-                        )
 
                 try:
                     profile = extraction_profile(snapshot)
@@ -512,7 +712,23 @@ class LocalExtractRunner:
                         self.store, self.uploads, self.parser, tenant_id=tenant_id, run_id=run_id
                     )
                     runner = self
-                    live_extractor = _live_extractor(runner.extractor, graph)
+                    display_profile = getattr(runner.extractor, "_display_text_profile", None)
+                    if display_profile:
+                        from proofops.application.ingest.display_text import POLICY, PROFILE
+
+                        if (
+                            display_profile != PROFILE
+                            or snapshot.get("display_text_policy") != POLICY
+                        ):
+                            raise ValueError("DISPLAY_POLICY_MISMATCH")
+                    elif "display_text_policy" in snapshot:
+                        raise ValueError("DISPLAY_POLICY_MISMATCH")
+                    source = (
+                        runner.uploads.read_original(tenant_id, graph.document_version_id)
+                        if display_profile
+                        else None
+                    )
+                    live_extractor = _live_extractor(runner.extractor, graph, source)
                     role_budget = _extractor_role_budget(snapshot)
                     effective_max = (
                         (
@@ -526,7 +742,10 @@ class LocalExtractRunner:
                     eligible_sources: set[str] | None = None
                     if is_real:
                         eligible_sources = select_stable_paragraph_sources(
-                            graph, claim_scope(snapshot, graph), effective_max
+                            graph,
+                            claim_scope(snapshot, graph),
+                            effective_max,
+                            extraction_table_rows=getattr(runner.extractor, "_table_rows", False),
                         )
 
                     class FencedExtractor:
@@ -544,7 +763,13 @@ class LocalExtractRunner:
                                 data = packet["untrusted_document_data"]
                                 reason = (
                                     "non_paragraph_kind"
-                                    if not _is_text_candidate(data["kind"], data["text"])
+                                    if not _is_text_candidate(
+                                        data["kind"],
+                                        data["text"],
+                                        extraction_table_rows=getattr(
+                                            runner.extractor, "_table_rows", False
+                                        ),
+                                    )
                                     else "beyond_extraction_limit"
                                     if data.get("source_id") not in eligible_sources
                                     or self.calls >= effective_max
@@ -577,15 +802,79 @@ class LocalExtractRunner:
                                 )
                                 if not authorization.ready:
                                     raise ValueError("LOCAL_TEST_AUTHORIZATION_INVALID")
-                            self.calls += 1
-                            usage["extractor_calls"] += 1
+                            with usage_lock:
+                                self.calls += 1
+                                usage["extractor_calls"] += 1
                             try:
-                                return live_extractor.extract(packet)
+                                return _candidate_extract(live_extractor, packet, snapshot)
                             finally:
                                 sync_usage()
 
+                    selected_extractor = FencedExtractor()
+                    page_pipeline = None
+                    if is_real and getattr(
+                        getattr(self.extractor, "_probe", None), "model", None
+                    ) in ("openai/gpt-6-luna", "gpt-6-luna"):
+                        scope = claim_scope(snapshot, graph)
+                        candidates = sorted(
+                            (
+                                block
+                                for block in graph.blocks
+                                if block.source_id in eligible_sources
+                            ),
+                            key=lambda block: (block.page_num, block.source_id),
+                        )
+                        packets = [
+                            dict(
+                                tenant_id=scope.tenant_id,
+                                document_version_id=scope.document_version_id,
+                                parse_manifest_id=scope.parse_manifest_id,
+                                source_sha256=graph.source_sha256,
+                                extraction_profile=asdict(profile),
+                                untrusted_document_data=dict(
+                                    source_id=block.source_id,
+                                    page_num=block.page_num,
+                                    kind=block.kind,
+                                    text=block.normalized_text,
+                                ),
+                            )
+                            for block in candidates
+                        ]
+                        base_extractor = selected_extractor
+                        if hasattr(live_extractor, "prefetch"):
+                            live_extractor.prefetch(packets)
+                        if snapshot.get("pipeline_profile") == "finals-unattended-v1":
+                            from proofops_worker.unattended_pipeline import PageTagPipeline
+
+                            parse_run = self.store.jobs.get_run(tenant_id, run_id)
+                            parse_checkpoint = self.store.jobs.read_checkpoint(
+                                JobMessage(**parse_run["parse_job"])
+                            )
+                            page_pipeline = PageTagPipeline(
+                                self, snapshot, graph, profile, lease, parse_checkpoint
+                            )
+                        paid = prefetch_packets(
+                            packets,
+                            base_extractor.extract,
+                            max_workers=self.max_workers,
+                            on_page=page_pipeline.ready if page_pipeline else None,
+                        )
+
+                        class PrefetchedExtractor:
+                            profile = base_extractor.profile
+
+                            def extract(self, packet):
+                                source_id = packet["untrusted_document_data"]["source_id"]
+                                if source_id not in paid:
+                                    return base_extractor.extract(packet)
+                                answer = paid[source_id]
+                                if isinstance(answer, Exception):
+                                    raise answer
+                                return answer
+
+                        selected_extractor = PrefetchedExtractor()
                     discovery = discover_atomic_claims(
-                        graph, claim_scope(snapshot, graph), extractor=FencedExtractor()
+                        graph, claim_scope(snapshot, graph), extractor=selected_extractor
                     )
                     current = self.store.jobs.get_run(tenant_id, run_id)
                     checkpoint = self.store.jobs.read_checkpoint(JobMessage(**current["parse_job"]))
@@ -595,6 +884,8 @@ class LocalExtractRunner:
                     coverage = discovery_coverage(
                         json.loads(checkpoint)["coverage"], graph, discovery
                     )
+                    if page_pipeline is not None:
+                        payload["page_tag_pipeline"] = page_pipeline.finish()
                     payload.update(
                         discovery=asdict(discovery),
                         synthetic=discovery.synthetic,
@@ -621,7 +912,9 @@ class LocalExtractRunner:
                             source=source.content,
                             refs=discovery_refs(discovery),
                             tenant_id=tenant_id,
-                            cache=False,
+                            cache=snapshot.get("pipeline_profile")
+                            in ("finals-unattended-v1", "finals-unattended-v2"),
+                            run_id=run_id,
                         )
                     return canonical_json(payload).encode(), usage
                 except LeaseLost:

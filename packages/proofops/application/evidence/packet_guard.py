@@ -1,7 +1,7 @@
-"""TASK-039: bounded source data and server-owned model/tool capabilities.
+"""Bounded source data and server-owned model/tool capabilities.
 
 This pure boundary grants no network access. Evidence tools have an empty URL
-allowlist: model endpoints belong to TASK-029's approved Bedrock transport, never
+allowlist: model endpoints belong to the approved transport, never
 to PDF text or tool arguments. A JSON data boundary is not a model-behavior
 guarantee; composition must enforce these capability checks and the existing
 preflight and output-schema guards for every invocation.

@@ -20,7 +20,7 @@ The native side is never folded, and the quote is never folded for the native
 gate. That unfolded gate is what carries the safety; the evidence for this
 shape on original bytes (two reports, both rendered paths, real OCR refusals,
 the boundary case, and 6 synthetic probes the rendered gate alone accepts and
-this shape refuses) is ``outputs/agent-results/R24/typography-original-proof/``
+this shape refuses) is ``tests/fixtures/pipeline/typography-original-proof/``
 and ``.../typography-wrapper/``, not restated here.
 
 No new geometry, box, crop, OCR call or reader: it reads only the rendered

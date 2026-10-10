@@ -45,7 +45,7 @@ def _timeline(
         "source_document_sha256": TIMELINE_SHA256,
         "files": ["regulatory/timeline.yaml"],
         "unresolved_gap_ids": [],
-        "approved_by": "domain-owner@example.test",
+        "approved_by": "domain-owner",
         "approved_at": "2030-01-01T00:00:00Z",
     }
     pack.update(pack_overrides or {})

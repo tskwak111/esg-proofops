@@ -1,4 +1,4 @@
-"""R22 worker-side runtime for the bounded manual-classification reprocess.
+"""Worker-side runtime for the bounded manual-classification reprocess.
 
 The durable plan, CAS authorization and enqueue live in
 ``proofops.adapters.local.classification_reprocess`` so the API adapter can authorize without

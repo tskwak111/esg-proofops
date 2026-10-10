@@ -124,7 +124,7 @@ def _pack_dict(status="validated", **overrides):
         "source_document_sha256": SRC_SHA,
         "files": files,
         "unresolved_gap_ids": list(GAP_IDS),
-        "approved_by": "domain-owner@example.test",
+        "approved_by": "domain-owner",
         "approved_at": "2026-09-08T10:00:00Z",
     }
     pack.update(overrides)
@@ -316,7 +316,7 @@ def test_draft_pack_cannot_activate():
             registry,
             PACK_1,
             TENANT_A,
-            actor="admin@example.test",
+            actor="admin-operator",
             reason="promote draft",
             files_content=_files_content(),
             gap_ids=GAP_IDS,
@@ -332,7 +332,7 @@ def test_activation_without_approver_rejected():
             registry,
             PACK_1,
             TENANT_A,
-            actor="admin@example.test",
+            actor="admin-operator",
             reason="no approver",
             files_content=_files_content(),
             gap_ids=GAP_IDS,
@@ -364,7 +364,7 @@ def test_cross_tenant_activation_rejected_without_leak():
             registry,
             PACK_1,
             TENANT_A,
-            actor="admin@example.test",
+            actor="admin-operator",
             reason="cross tenant",
             files_content=_files_content(),
             gap_ids=GAP_IDS,
@@ -382,7 +382,7 @@ def test_activation_only_changes_new_run_default():
         registry,
         PACK_1,
         TENANT_A,
-        actor="admin@example.test",
+        actor="admin-operator",
         reason="go live v1",
         files_content=old_files,
         gap_ids=GAP_IDS,
@@ -412,7 +412,7 @@ def test_activation_only_changes_new_run_default():
         registry,
         PACK_2,
         TENANT_A,
-        actor="admin@example.test",
+        actor="admin-operator",
         reason="go live v2",
         files_content=new_files,
         gap_ids=GAP_IDS,
@@ -437,7 +437,7 @@ def test_reactivate_same_pack_is_idempotent():
         registry,
         PACK_1,
         TENANT_A,
-        actor="admin@example.test",
+        actor="admin-operator",
         reason="go live",
         files_content=_files_content(),
         gap_ids=GAP_IDS,
@@ -446,7 +446,7 @@ def test_reactivate_same_pack_is_idempotent():
         registry,
         PACK_1,
         TENANT_A,
-        actor="admin@example.test",
+        actor="admin-operator",
         reason="go live",
         files_content=_files_content(),
         gap_ids=GAP_IDS,
@@ -464,7 +464,7 @@ def test_retired_pack_cannot_activate():
             registry,
             PACK_1,
             TENANT_A,
-            actor="admin@example.test",
+            actor="admin-operator",
             reason="revive retired",
             files_content=_files_content(),
             gap_ids=GAP_IDS,
@@ -672,7 +672,7 @@ def test_demo_grant_does_not_activate_and_draft_still_blocked():
             registry,
             PACK_1,
             TENANT_A,
-            actor="admin@example.test",
+            actor="admin-operator",
             reason="draft must not activate as customer default",
             files_content=_files_content(),
             gap_ids=GAP_IDS,
@@ -695,7 +695,7 @@ def test_ai_delegated_review_activates_validated_pack_for_real_runs():
         registry,
         PACK_1,
         TENANT_A,
-        reviewer="coordinator@orca.local",
+        reviewer="review-operator",
         reviewed_at="2026-09-20T10:00:00Z",
         source_authority="user delegation 2026-09-20",
         note="R07 AI-delegated project review of explicit ladder",
@@ -706,8 +706,8 @@ def test_ai_delegated_review_activates_validated_pack_for_real_runs():
     activated = registry.get_pack(TENANT_A, PACK_1)
     assert activated.status == "active"
     assert registry.active_pack_id(TENANT_A, "disclosure") == PACK_1
-    assert activated.approved_by == "ai-delegated-review:coordinator@orca.local"
-    assert activated.approved_by != "coordinator@orca.local"  # never bare/human-looking
+    assert activated.approved_by == "ai-delegated-review:review-operator"
+    assert activated.approved_by != "review-operator"  # never bare/human-looking
     assert provenance.review_origin == "ai_project_interpretation"
     assert provenance.pack_sha256 == activated.sha256
     assert provenance.source_authority == "user delegation 2026-09-20"
@@ -747,7 +747,7 @@ def test_ai_delegated_review_never_overwrites_existing_human_approval():
             registry,
             PACK_1,
             TENANT_A,
-            reviewer="coordinator@orca.local",
+            reviewer="review-operator",
             reviewed_at="2026-09-20T10:00:00Z",
             source_authority="user delegation 2026-09-20",
             note="attempted override",
@@ -769,7 +769,7 @@ def test_ai_delegated_review_rejects_cross_tenant_pack_without_leak():
             registry,
             PACK_1,
             TENANT_A,
-            reviewer="coordinator@orca.local",
+            reviewer="review-operator",
             reviewed_at="2026-09-20T10:00:00Z",
             source_authority="user delegation 2026-09-20",
             note="cross tenant attempt",
@@ -792,7 +792,7 @@ def test_ai_delegated_review_reason_provenance_round_trips_and_legacy_reason_is_
         registry,
         PACK_1,
         TENANT_A,
-        reviewer="coordinator@orca.local",
+        reviewer="review-operator",
         reviewed_at="2026-09-20T10:00:00Z",
         source_authority="user delegation 2026-09-20",
         note="round trip check",
@@ -830,7 +830,7 @@ def test_ai_delegated_review_rejects_blank_and_naive_datetime_fields():
             registry,
             PACK_1,
             TENANT_A,
-            reviewer="coordinator@orca.local",
+            reviewer="review-operator",
             reviewed_at="2026-09-20T10:00:00",  # naive, no offset/Z
             source_authority="user delegation 2026-09-20",
             note="naive timestamp",
@@ -842,7 +842,7 @@ def test_ai_delegated_review_rejects_blank_and_naive_datetime_fields():
             registry,
             PACK_1,
             TENANT_A,
-            reviewer="coordinator@orca.local",
+            reviewer="review-operator",
             reviewed_at="not-a-date",
             source_authority="user delegation 2026-09-20",
             note="garbage timestamp",
@@ -861,7 +861,7 @@ def test_review_provenance_from_reason_rejects_malformed_without_coercion():
 
     base = {
         "review_origin": "ai_project_interpretation",
-        "reviewer": "coordinator@orca.local",
+        "reviewer": "review-operator",
         "reviewed_at": "2026-09-20T10:00:00Z",
         "source_authority": "user delegation 2026-09-20",
         "pack_sha256": "a" * 64,

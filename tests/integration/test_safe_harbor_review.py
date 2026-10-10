@@ -85,7 +85,7 @@ def resolve(ws, review):
         ws[4],
         '"1"',
         str(uuid4()),
-        delegated_reviewer="coordinator@orca.local",
+        delegated_reviewer="review-operator",
         delegation_authority="user delegation 2026-09-20",
         safe_harbor_review=review,
     )

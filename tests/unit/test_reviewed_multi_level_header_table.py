@@ -41,11 +41,11 @@ from pypdf import PdfWriter
 from evaluation.table_layout_review import review_layout
 
 APP = Path(__file__).resolve().parents[2]
-LOTTE = APP / "outputs/agent-fixtures/lotte.pdf"
-KIA = APP / "outputs/agent-fixtures/kia.pdf"
-P29 = APP / "outputs/agent-results/R13-table-recovery/lotte-p29-layout.json"
-P117 = APP / "outputs/agent-results/R02g-layout-review/lotte-layout.json"
-KIA_LAYOUT = APP / "outputs/agent-results/R02g-layout-review/kia-layout.json"
+LOTTE = APP / "tests/fixtures/source-documents/lotte.pdf"
+KIA = APP / "tests/fixtures/source-documents/kia.pdf"
+P29 = APP / "tests/fixtures/pipeline/table-recovery/lotte-p29-layout.json"
+P117 = APP / "tests/fixtures/pipeline/reviewed-table-layout/lotte-layout.json"
+KIA_LAYOUT = APP / "tests/fixtures/pipeline/reviewed-table-layout/kia-layout.json"
 
 local_inputs = pytest.mark.skipif(
     not (LOTTE.exists() and KIA.exists()),

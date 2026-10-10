@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+from contextvars import ContextVar
+from copy import deepcopy
 from dataclasses import asdict
 from hashlib import sha256
 
@@ -61,9 +63,19 @@ class _RecordedExtractor:
 class LocalClaimStore:
     def __init__(self, store, uploads, parser):
         self.store, self.uploads, self.parser = store, uploads, parser
+        self._read_compatibility: ContextVar[list] = ContextVar("claim_receipt_read", default=[])
 
-    def load_evidence(self, tenant_id, run_id):
-        """Replay once and return the mutually verified snapshot, claims and source graph."""
+    @property
+    def receipt_read_compatibility(self):
+        return deepcopy(self._read_compatibility.get())
+
+    def load_evidence(self, tenant_id, run_id, *, for_extraction=False):
+        """Replay once; extraction reuses the parse graph without claim-span annotations.
+
+        The default graph retains verified claim spans for evidence consumers. The
+        extraction view preserves the original graph hash for new checkpoints;
+        both views require the full receipt replay and fresh head checks.
+        """
         snapshot = self.store.snapshot(tenant_id, run_id)
         run = self.store.jobs.get_run(tenant_id, run_id)
         if "extract_job" not in run:
@@ -90,6 +102,7 @@ class LocalClaimStore:
         graph = load_run_graph(
             self.store, self.uploads, self.parser, tenant_id=tenant_id, run_id=run_id
         )
+        parse_graph = graph
         profile = extraction_profile(snapshot)
         parse_checkpoint = self.store.jobs.read_checkpoint(JobMessage(**run["parse_job"]))
         if parse_checkpoint is None:
@@ -115,6 +128,15 @@ class LocalClaimStore:
             from proofops.adapters.local.run_artifacts import load_run_inputs
 
             reader = claim_source_reader(snapshot["claim_source_policy"])
+            if snapshot["claim_source_policy"].get("profile") in {
+                "upstage-ocr-page-v1",
+                "upstage-ocr-page-v2",
+                "upstage-ocr-page-v3",
+                "upstage-ocr-page-v4",
+                "upstage-ocr-page-v5",
+            }:
+                if envelope["claim_source_attestation"].get("run_id") != run_id:
+                    raise ValueError("OCR_POLICY_OR_RUN_MISMATCH")
             _, source, _ = load_run_inputs(
                 self.store, self.uploads, tenant_id=tenant_id, run_id=run_id
             )
@@ -129,7 +151,30 @@ class LocalClaimStore:
             )
         elif "claim_source_attestation" in envelope:
             raise ValueError("UNPINNED_CLAIM_SOURCE_ATTESTATION")
-        return envelope, discovery, graph
+        # Verification can be slow. Recheck access and the immutable pointers
+        # before returning a graph from the head observed at the start.
+        self.store.snapshot(tenant_id, run_id)
+        current = self.store.jobs.get_run(tenant_id, run_id)
+        if any(
+            current.get(key) != run.get(key)
+            for key in (
+                "extract_job",
+                "parse_job",
+                "claim_snapshot_sha256",
+                "cancellation_requested",
+            )
+        ):
+            raise ValueError("CLAIM_SNAPSHOT_HEAD_CHANGED")
+        from proofops.adapters.local.receipt_environment_compat import (
+            receipt_read_metadata,
+            table_read_metadata,
+        )
+
+        compatibility = [table_read_metadata(graph)]
+        if "claim_source_attestation" in envelope:
+            compatibility.append(receipt_read_metadata(envelope["claim_source_attestation"]))
+        self._read_compatibility.set([item for item in compatibility if item is not None])
+        return envelope, discovery, parse_graph if for_extraction else graph
 
     def load_snapshot(self, tenant_id: str, run_id: str) -> dict:
         return self.load_evidence(tenant_id, run_id)[0]
@@ -145,6 +190,22 @@ class LocalClaimStore:
             if claim.claim_id == claim_id:
                 return claim
         raise KeyError("claim not found")
+
+    def missing_evidence(
+        self, tenant_id, run_id, claim, *, track, elements, inputs=None, original_graph=None
+    ):
+        from proofops.adapters.local.missing_evidence import missing_evidence
+
+        return missing_evidence(
+            self,
+            tenant_id,
+            run_id,
+            claim,
+            track=track,
+            elements=elements,
+            inputs=inputs,
+            original_graph=original_graph,
+        )
 
     def submitted_reviews(self, tenant_id, run_id, claim_id=None, *, connection=None):
         from proofops.adapters.local.submitted_review import read_submissions
@@ -348,6 +409,17 @@ def validate_extract_commit(db, jobs, run, message, envelope, next_job, *, now):
         receipt = envelope.get("claim_source_attestation", {})
         if (
             envelope.get("schema") != "local_extract_checkpoint_v2"
+            or (
+                snapshot["claim_source_policy"].get("profile")
+                in {
+                    "upstage-ocr-page-v1",
+                    "upstage-ocr-page-v2",
+                    "upstage-ocr-page-v3",
+                    "upstage-ocr-page-v4",
+                    "upstage-ocr-page-v5",
+                }
+                and receipt.get("run_id") != message.run_id
+            )
             or receipt.get("policy") != snapshot["claim_source_policy"]
             or receipt.get("graph_sha256") != envelope.get("graph_sha256")
             or receipt.get("artifact_sha256")

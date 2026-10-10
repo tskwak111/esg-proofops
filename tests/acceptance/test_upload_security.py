@@ -91,6 +91,20 @@ def test_verified_bytes_and_versions_are_preserved_and_promoted_immutably(tmp_pa
     assert path.read_bytes() == item.content
 
 
+def test_owner_only_encryption_promotes_original_and_verified_copy_immutably(tmp_path):
+    # FX6b replaces the previous empty-password rejection expectation.
+    item = source(pdf(password=""))
+    vault = LocalUploadVault(tmp_path)
+    result = vault.verify_and_promote(item, PdfLimits(), tenant_id=item.tenant_id)
+    assert vault.original_path(result).read_bytes() == item.content
+    derived = vault.original_path(result).with_suffix(".decrypted.pdf")
+    assert derived.read_bytes() == result.analysis_content
+    assert sha256(derived.read_bytes()).hexdigest() == result.security_metadata["analysis_sha256"]
+    assert result.security_metadata["source_sha256"] == item.expected_sha256
+    retry = vault.verify_and_promote(item, PdfLimits(), tenant_id=item.tenant_id)
+    assert retry == result
+
+
 @pytest.mark.parametrize("kind,key", [("/URI", "/URI"), ("/JavaScript", "/JS"), ("/Launch", "/F")])
 def test_active_actions_do_not_fetch_or_execute(kind, key, tmp_path):
     marker = tmp_path / "executed"
@@ -130,7 +144,6 @@ def test_active_actions_do_not_fetch_or_execute(kind, key, tmp_path):
         (b"not PDF", PdfLimits(), "PDF_INVALID"),
         (b"%PDF-1.7\ninvalid", PdfLimits(), "PDF_INVALID"),
         (pdf(password="secret"), PdfLimits(), "PDF_PASSWORD_REQUIRED"),
-        (pdf(password=""), PdfLimits(), "PDF_PASSWORD_REQUIRED"),
         (pdf(pages=2), PdfLimits(max_pages=1), "UPLOAD_LIMIT_EXCEEDED"),
         pytest.param(
             pdf(pages=301), PdfLimits(), "UPLOAD_LIMIT_EXCEEDED", id="configured-page-limit"
@@ -757,3 +770,151 @@ def test_hide_with_nonboolean_H_on_gesture_is_rejected(tmp_path):
             PdfLimits(),
             tenant_id="00000000-0000-4000-8000-000000000001",
         )
+
+
+# --- Widget hover/focus /Hide: SK hynix / SKT / WFG corpus shape ---
+# Tooltip-style widgets chain /Hide on mouse-enter/exit. Only /Hide (+ the
+# always-inert /Named /GoTo) is allowed there; everything else stays rejected.
+
+
+def _widget_with_trigger(writer, trigger, action):
+    annotation = _widget_with_down_action(writer, action)
+    del annotation[NameObject("/AA")]
+    annotation[NameObject("/AA")] = DictionaryObject({NameObject(trigger): action})
+    return annotation
+
+
+def _verify(tmp_path, writer):
+    output = BytesIO()
+    writer.write(output)
+    item = source(output.getvalue())
+    vault = LocalUploadVault(tmp_path)
+    return vault.verify_and_promote(item, PdfLimits(), tenant_id=item.tenant_id)
+
+
+@pytest.mark.parametrize("trigger", ["/E", "/X", "/Fo", "/Bl"])
+def test_hide_chain_on_widget_interaction_is_accepted(tmp_path, trigger):
+    writer = PdfWriter()
+    writer.add_blank_page(width=600, height=800)
+    chained = _hide_action(
+        target="tip.a", hidden=False, next_action=_hide_action(target="tip.b", hidden=True)
+    )
+    _widget_with_trigger(writer, trigger, chained)
+    assert _verify(tmp_path, writer).page_count == 1
+
+
+@pytest.mark.parametrize("trigger", ["/E", "/X", "/Fo", "/Bl"])
+@pytest.mark.parametrize(
+    "dangerous",
+    [
+        {"/S": "/JavaScript", "/JS": "evil()"},
+        {"/S": "/URI", "/URI": "https://example.invalid"},
+        {"/S": "/Launch", "/F": "calc.exe"},
+        {"/S": "/GoToR", "/F": "other.pdf", "/D": "x"},
+        {"/S": "/GoToE", "/F": "embedded.pdf", "/D": "x"},
+        {"/S": "/SubmitForm", "/F": "https://example.invalid"},
+        {"/S": "/ImportData", "/F": "data.fdf"},
+        {"/S": "/Named", "/N": "/Print"},
+    ],
+)
+@pytest.mark.parametrize("position", ["head", "next"])
+def test_non_hide_action_on_widget_hover_is_rejected(tmp_path, trigger, dangerous, position):
+    writer = PdfWriter()
+    writer.add_blank_page(width=600, height=800)
+    bad = DictionaryObject(
+        {
+            NameObject(key): NameObject(value) if value.startswith("/") else TextStringObject(value)
+            for key, value in dangerous.items()
+        }
+    )
+    action = bad if position == "head" else _hide_action(target="tip.a", next_action=bad)
+    _widget_with_trigger(writer, trigger, action)
+    with pytest.raises(UploadRejected, match="PDF_INVALID"):
+        _verify(tmp_path, writer)
+
+
+@pytest.mark.parametrize("trigger", ["/PO", "/PC", "/PV", "/PI"])
+def test_hide_on_widget_page_triggers_stays_rejected(tmp_path, trigger):
+    writer = PdfWriter()
+    writer.add_blank_page(width=600, height=800)
+    _widget_with_trigger(writer, trigger, _hide_action(target="tip.a"))
+    with pytest.raises(UploadRejected, match="PDF_INVALID"):
+        _verify(tmp_path, writer)
+
+
+@pytest.mark.parametrize("subtype", ["/Link", "/Text"])
+def test_hide_on_non_widget_hover_stays_rejected(tmp_path, subtype):
+    writer = PdfWriter()
+    writer.add_blank_page(width=600, height=800)
+    annotation = _widget_with_trigger(writer, "/E", _hide_action(target="tip.a"))
+    annotation[NameObject("/Subtype")] = NameObject(subtype)
+    with pytest.raises(UploadRejected, match="PDF_INVALID"):
+        _verify(tmp_path, writer)
+
+
+@pytest.mark.parametrize("target", ["missing", "filespec", "badflag"])
+def test_malformed_hide_on_widget_hover_is_rejected(tmp_path, target):
+    writer = PdfWriter()
+    writer.add_blank_page(width=600, height=800)
+    if target == "missing":
+        action = _hide_action(target=None)
+    elif target == "filespec":
+        spec = DictionaryObject(
+            {NameObject("/Type"): NameObject("/Filespec"), NameObject("/F"): TextStringObject("x")}
+        )
+        action = _hide_action(target=None, target_override=spec)
+    else:
+        action = _hide_action(target="tip.a")
+        action[NameObject("/H")] = TextStringObject("true")
+    _widget_with_trigger(writer, "/E", action)
+    with pytest.raises(UploadRejected, match="PDF_INVALID"):
+        _verify(tmp_path, writer)
+
+
+def test_hide_hover_action_shared_with_automatic_trigger_is_rejected(tmp_path):
+    # The same indirect /Hide object reachable from Widget /E and from the
+    # catalog /AA must still be rejected via the automatic reference.
+    writer = PdfWriter()
+    writer.add_blank_page(width=600, height=800)
+    shared = writer._add_object(_hide_action(target="tip.a"))
+    _widget_with_trigger(writer, "/E", shared)
+    writer.root_object[NameObject("/AA")] = DictionaryObject({NameObject("/WC"): shared})
+    with pytest.raises(UploadRejected, match="PDF_INVALID"):
+        _verify(tmp_path, writer)
+
+
+def test_sk_hynix_page19_hover_fixture_is_accepted(tmp_path):
+    # Original 2025 SK hynix PDF, physical p19, annotation 2866:
+    # /AA /E -> 2872 (/H false), /X -> 2855 (/H true), both
+    # /Type /Action /S /Hide /T (ToF-MS 팝업). No report bytes committed.
+    writer = PdfWriter()
+    writer.add_blank_page(width=600, height=800)
+    enter = writer._add_object(_hide_action(target="ToF-MS 팝업", hidden=False))
+    exit_action = writer._add_object(_hide_action(target="ToF-MS 팝업", hidden=True))
+    annotation = _widget_with_trigger(writer, "/E", enter)
+    annotation[NameObject("/AA")][NameObject("/X")] = exit_action
+    assert _verify(tmp_path, writer).page_count == 1
+
+
+@pytest.mark.parametrize("trigger", ["/E", "/X", "/Fo", "/Bl"])
+def test_interaction_hide_next_array_with_javascript_is_rejected(tmp_path, trigger):
+    writer = PdfWriter()
+    writer.add_blank_page(width=600, height=800)
+    bad = DictionaryObject(
+        {NameObject("/S"): NameObject("/JavaScript"), NameObject("/JS"): TextStringObject("evil()")}
+    )
+    mixed = ArrayObject([_hide_action(), writer._add_object(bad)])
+    _widget_with_trigger(writer, trigger, _hide_action(next_action=mixed))
+    with pytest.raises(UploadRejected, match="PDF_INVALID"):
+        _verify(tmp_path, writer)
+
+
+@pytest.mark.parametrize("trigger", ["/E", "/X", "/Fo", "/Bl"])
+def test_interaction_hide_shared_with_openaction_is_rejected(tmp_path, trigger):
+    writer = PdfWriter()
+    writer.add_blank_page(width=600, height=800)
+    shared = writer._add_object(_hide_action())
+    _widget_with_trigger(writer, trigger, shared)
+    writer.root_object[NameObject("/OpenAction")] = shared
+    with pytest.raises(UploadRejected, match="PDF_INVALID"):
+        _verify(tmp_path, writer)

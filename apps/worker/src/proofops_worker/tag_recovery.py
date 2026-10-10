@@ -369,6 +369,10 @@ def plan_recovery(
         raise RecoveryRejected("TAG_RECOVERY_CLAIM_BOUND_INVALID")
     lineage, run = _lineage(store, tenant_id, run_id)
     envelope = tags.load_snapshot(tenant_id, run_id)
+    if "decision_settings" in envelope:
+        # v1 authorizes nine Luna requests, not additional provider judgments.
+        # Ordinary immutable replay remains available; paid recovery needs a new contract.
+        raise RecoveryRejected("TAG_RECOVERY_DECISION_PROFILE_UNSUPPORTED")
     proof = recovery_proof(store.usage.cost_data(tenant_id, run_id), receipts)
     acknowledged = frozenset(acknowledged_failures)
     # Everything the gate will refuse to arm past must be named here, from both the

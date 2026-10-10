@@ -1,16 +1,28 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "buildCommand": "VITE_DEMO_STATIC=true pnpm build",
+  "buildCommand": "VITE_DEMO_STATIC=true VITE_ANALYSIS_BACKEND=${VITE_ANALYSIS_BACKEND:-hosted} pnpm build",
   "outputDirectory": "apps/web/dist",
   "functions": {
     "api/live-claim.py": {
       "maxDuration": 55,
-      "includeFiles": "{api/rulepack.json,prompts/element_tagging.md,packages/proofops/**}",
+      "includeFiles": "{api/_limits.py,api/rulepack.json,prompts/element_tagging.md,packages/proofops/**}",
+      "excludeFiles": "{tests/**,fixtures/**,evidence/**,docs/**,sources/**,evaluation/**,apps/**,scripts/**,node_modules/**}"
+    },
+    "api/live-report.py": {
+      "maxDuration": 55,
+      "includeFiles": "{api/_limits.py,api/rulepack.json,packages/proofops/**}",
       "excludeFiles": "{tests/**,fixtures/**,evidence/**,docs/**,sources/**,evaluation/**,apps/**,scripts/**,node_modules/**}"
     }
   },
   "rewrites": [
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    {
+      "source": "/hosted-api/:path*",
+      "destination": "https://placeholder.invalid/:path*"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
+    }
   ]
 }

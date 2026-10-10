@@ -11,8 +11,8 @@ promotes nothing else. Those cells reach the row-context path at best, where a
 rendered variant leaves them ``native_only`` and unpromoted.
 
 Measured on the real operator-reviewed Lotte page 117 grid
-(``outputs/agent-results/R02g-layout-review/lotte-candidates.json`` over
-``outputs/agent-fixtures/lotte.pdf``), the existing strict full-block reader
+(``tests/fixtures/pipeline/reviewed-table-layout/lotte-candidates.json`` over
+``tests/fixtures/source-documents/lotte.pdf``), the existing strict full-block reader
 ``claim_source_verification._read_paragraph`` reads those very cells back exactly
 from the rendered page once their canonical box is the real glyph ink union that
 ``reviewed_table.graph_from_review`` already produces. This adapter is exactly

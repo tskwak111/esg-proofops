@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import secrets
 import sys
 from contextlib import asynccontextmanager
@@ -38,6 +39,10 @@ from proofops_api.telemetry import TelemetryMiddleware, logging_config
 
 
 def create_app() -> FastAPI:
+    if os.environ.get("APP_ENV") == "hosted":
+        from proofops_api.hosted import create_hosted_app
+
+        return create_hosted_app()
     composition = build_composition()
 
     @asynccontextmanager

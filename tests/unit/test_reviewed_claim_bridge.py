@@ -32,13 +32,12 @@ from proofops.adapters.local.reviewed_table import (
 from proofops.application.numeric_analysis import analyze_numeric_consistency
 
 APP = Path(__file__).resolve().parents[2]
-REVIEW = APP / "outputs/agent-results/R02g-layout-review/kia-candidates.json"
-PDF = APP / "outputs/agent-fixtures/kia.pdf"
+REVIEW = APP / "tests/fixtures/pipeline/reviewed-table-layout/kia-candidates.json"
+PDF = APP / "tests/fixtures/source-documents/kia.pdf"
 RECEIPTS = Path(
     os.environ.get(
         "R06G_KIA_RECEIPTS",
-        "/Users/ss020/Dev/ESG_ProofOps/.local/pipeline-recovery-20260920"
-        "/kia-full-context-64m/extraction-receipts",
+        str(APP / ".local/pipeline-recovery-20260920/kia-full-context-64m/extraction-receipts"),
     )
 )
 # The E-body disclosure row on physical page 35 and the reviewed appendix grid on

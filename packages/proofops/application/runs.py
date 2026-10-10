@@ -19,10 +19,14 @@ from proofops.application.preflight import (
     check_local_upstage_tagger,
     check_runtime_binding,
     combine_build_checks,
+    relation_settings_contract_valid,
 )
 from proofops.application.registry import RegistryNotFound, artifact_sha256
-from proofops.application.tagging.consensus import PARTIAL_FACTS_V1
-from proofops.application.tagging.relations import SYSTEM_PROMPT as RELATION_SYSTEM_PROMPT
+from proofops.application.tagging.consensus import (
+    PARTIAL_FACTS_PROFILES,
+    PARTIAL_FACTS_V1,
+    PARTIAL_FACTS_V2,
+)
 from proofops.application.tagging.report_level_link import (
     validate_config as validate_report_level_link,
 )
@@ -38,7 +42,7 @@ class RunRejected(ValueError):
         self.code, self.status = code, status
 
 
-_LIVE_TAGGING_MODEL = "solar-pro4"
+_LIVE_TAGGING_MODELS = ("solar-pro4", "openai/gpt-6-luna", "gpt-6-luna")
 
 
 def _capacity_accommodated(limits: BudgetLimits | None, upper: int, output_cap: int) -> bool:
@@ -139,12 +143,16 @@ class RunService:
         extraction_mode: str | None = None,
         extraction_limits=None,
         claim_source_policy=None,
+        display_text_policy=None,
         tagging_settings: TaggingSettings | None = None,
         tagging_mode: str | None = None,
         fact_assembly_profile: str = "strict-v1",
+        pipeline_profile: str | None = None,
         report_level_link=None,
         preliminary_settings: TaggingSettings | None = None,
         relation_settings: TaggingSettings | None = None,
+        relation_attribution_policy: str | None = "relation-attribution-v2",
+        decision_settings=None,
         raster_runtime_binding_id: str | None = None,
         raster_policy=None,
         input_reservation_policy=None,
@@ -196,13 +204,13 @@ class RunService:
             not in {
                 "claim_source_policy_v1",
                 "claim_source_policy_v2",
-                # Opt-in render-resolution wrapper (R13/R15). Its own distinct
+                # Opt-in render-resolution wrapper. Its own distinct
                 # schema; the adapter refuses any policy it cannot reproduce.
                 "claim_span_render_resolution_policy_v1",
-                # Opt-in bullet-alignment wrapper (R19), which wraps the one
+                # Opt-in bullet-alignment wrapper, which wraps the one
                 # above rather than replacing it. Same refusal guarantee.
                 "claim_span_bullet_alignment_policy_v1",
-                # Opt-in rendered-side-only typography wrapper (R24), which
+                # Opt-in rendered-side-only typography wrapper, which
                 # wraps the one above. Same refusal guarantee.
                 "claim_span_typography_policy_v1",
             }
@@ -210,12 +218,31 @@ class RunService:
         ):
             raise ValueError("invalid claim source policy")
         self.claim_source_policy = _detach(claim_source_policy)
+        self.display_text_policy = None
+        if display_text_policy is not None:
+            from proofops.application.ingest.display_text import POLICY
+
+            if display_text_policy != POLICY or extraction_mode != "upstage_probe":
+                raise ValueError("DISPLAY_POLICY_MISMATCH")
+            self.display_text_policy = _detach(display_text_policy)
+        if pipeline_profile not in (
+            None,
+            "unattended-v1",
+            "finals-unattended-v1",
+            "finals-unattended-v2",
+        ):
+            raise ValueError("unknown pipeline profile")
+        self.pipeline_profile = pipeline_profile
         self.tagging_settings, self.tagging_mode = tagging_settings, tagging_mode
         if report_level_link is not None and (tagging_mode is None or tagging_settings is None):
             raise ValueError("report-level link requires tagging")
-        if fact_assembly_profile not in ("strict-v1", PARTIAL_FACTS_V1):
+        if fact_assembly_profile not in ("strict-v1", *PARTIAL_FACTS_PROFILES):
             raise ValueError("unknown fact assembly profile")
-        self.fact_assembly_profile = fact_assembly_profile
+        # Configuration opt-in selects the current policy for NEW runs only.
+        # Persisted snapshots are replayed by their original profile without rewriting.
+        self.fact_assembly_profile = (
+            PARTIAL_FACTS_V2 if fact_assembly_profile == PARTIAL_FACTS_V1 else fact_assembly_profile
+        )
         self.report_level_link = (
             _detach(validate_report_level_link(report_level_link))
             if report_level_link is not None
@@ -237,6 +264,20 @@ class RunService:
             raise ValueError("context order profile mismatch")
         self.position_context_order = position_context_order
         self.relation_settings = relation_settings
+        if relation_attribution_policy not in (
+            None,
+            "relation-attribution-v1",
+            "relation-attribution-v2",
+        ):
+            raise ValueError("RELATION_ATTRIBUTION_POLICY_MISMATCH")
+        self.relation_attribution_policy = relation_attribution_policy
+        from proofops.application.tagging.decisions import validate_decision_settings
+
+        self.decision_settings = (
+            _detach(dict(validate_decision_settings(decision_settings)))
+            if decision_settings is not None
+            else None
+        )
         if (raster_runtime_binding_id is None) != (raster_policy is None):
             raise ValueError("complete raster configuration required")
         if raster_runtime_binding_id is not None:
@@ -332,6 +373,11 @@ class RunService:
         )
         if not preflight.ready or rights_id not in consent["allowed_document_rights"]:
             raise RunRejected("CONFIG_GATE_BLOCKED")
+        if (
+            self.parser_profile.get("parser_mode") in ("upstage", "mixed-v1")
+            and consent.get("allow_raster_upload") is not True
+        ):
+            raise RunRejected("CONFIG_GATE_BLOCKED")
         raster_snapshot = {}
         if self.raster_runtime_binding_id is not None or self.raster_policy is not None:
             try:
@@ -391,13 +437,25 @@ class RunService:
             # a subset of it and never widens the parse/evidence scope.
             try:
                 validate_extraction_limits(limits, pages)
+                if self.parser_profile.get("parser_mode") == "mixed-v1":
+                    from proofops.application.claim_scope import claim_pages_for
+
+                    if (
+                        self.parser_profile["claim_physical_pages"]
+                        != claim_pages_for(limits, pages)
+                        or pages is None
+                        or len(pages) > 30
+                    ):
+                        raise ValueError("mixed claim/parser scope mismatch")
             except ValueError:
                 raise RunRejected("CONFIG_GATE_BLOCKED") from None
         elif self.extraction_limits is not None:
             raise RunRejected("CONFIG_GATE_BLOCKED")
         tagging = self.tagging_settings
         live_tagging = self.tagging_mode == "upstage_local"
-        if self.relation_settings is not None and not live_tagging:
+        if (
+            self.relation_settings is not None or self.decision_settings is not None
+        ) and not live_tagging:
             raise RunRejected("CONFIG_GATE_BLOCKED")
         if live_tagging:
             if self.extraction_mode != "upstage_probe":
@@ -412,8 +470,11 @@ class RunService:
                 raise RunRejected("CONFIG_GATE_BLOCKED")
             if preliminary.model_profile not in {
                 "upstage-preliminary-source-quotes-v1",
+                "preliminary-decision-v1",
+                "upstage-preliminary-source-quotes-sentence-context-v1",
+                "upstage-preliminary-source-quotes-sentence-fallback-v1",
                 "upstage-preliminary-source-quotes-context-v1",
-                # R12/R16 opt-in table pairs. The profile↔prompt welding for
+                # Opt-in table pairs. The profile↔prompt welding for
                 # every name here is enforced by ``check_local_upstage_tagger``
                 # below, so this set only names the accepted profiles.
                 "upstage-preliminary-source-quotes-table-v1",
@@ -421,7 +482,7 @@ class RunService:
                 "upstage-preliminary-source-quotes-table-role-v1-position-v1",
                 "upstage-preliminary-source-quotes-table-role-v2-p2",
                 "upstage-preliminary-source-quotes-table-role-v2-p2-position-v1",
-                # R34 opt-in goal-role profile; requires table-role and its deps.
+                # opt-in goal-role profile; requires table-role and its deps.
                 "upstage-preliminary-source-quotes-goal-role-v1",
                 "upstage-preliminary-source-quotes-actor-role-v1",
                 "upstage-preliminary-source-quotes-actor-role-v2",
@@ -431,19 +492,51 @@ class RunService:
                 "upstage-compact-source-quotes-v3",
                 "upstage-compact-source-quotes-v4",
                 "upstage-compact-source-quotes-v5",
+                "upstage-compact-element-consistency-v6",
             }:
                 raise RunRejected("CONFIG_GATE_BLOCKED")
-            if relation is not None and (
-                relation.model_profile != "upstage-relation-source-quotes-v1"
-                or relation.system_prompt != RELATION_SYSTEM_PROMPT
-            ):
+            if relation is not None and not relation_settings_contract_valid(relation):
                 raise RunRejected("CONFIG_GATE_BLOCKED")
+            decision_enabled = preliminary.model_profile == "preliminary-decision-v1" or (
+                relation is not None and relation.model_profile == "relation-decision-gate-v1"
+            )
+            if decision_enabled != (self.decision_settings is not None):
+                raise RunRejected("CONFIG_GATE_BLOCKED")
+            decision_runtimes = {}
+            if decision_enabled:
+                assert self.decision_settings is not None
+                if preliminary.model_id != "openai/gpt-6-luna" or (
+                    relation is not None and relation.model_id != "openai/gpt-6-luna"
+                ):
+                    raise RunRejected("CONFIG_GATE_BLOCKED")
+                from proofops.application.preflight import check_local_decision_binding
+
+                try:
+                    for provider, identifier in self.decision_settings["binding_ids"].items():
+                        bound = _detach(self.registry.resolve_profile(auth, "runtime", identifier))
+                        if not check_local_decision_binding(
+                            binding=bound,
+                            consent=consent,
+                            auth=auth,
+                            checked_at=timestamp,
+                            source_sha256=document["sha256"],
+                            document_rights=rights_id,
+                            provider=provider,
+                            settings=self.decision_settings,
+                        ).ready:
+                            raise ValueError("DECISION_PREFLIGHT_BLOCKED")
+                        decision_runtimes[provider] = bound
+                    role = next(r for r in self.budget_limits.roles if r.role == "decision")
+                    if role.max_input_tokens < 66560 or role.max_output_tokens < 4096:
+                        raise ValueError("DECISION_CAPACITY_BLOCKED")
+                except (RegistryNotFound, ValueError, StopIteration):
+                    raise RunRejected("CONFIG_GATE_BLOCKED") from None
             pinned_settings = (preliminary, tagging) + ((relation,) if relation is not None else ())
             for pinned in pinned_settings:
                 if (
                     pinned.binding.synthetic is not False
                     or pinned.binding.role != "tagger"
-                    or pinned.model_id != _LIVE_TAGGING_MODEL
+                    or pinned.model_id not in _LIVE_TAGGING_MODELS
                     or type(pinned.max_tokens) is not int
                     or not 1 <= pinned.max_tokens <= 4096
                 ):
@@ -497,18 +590,37 @@ class RunService:
                     settings=pinned,
                 ).ready:
                     raise RunRejected("CONFIG_GATE_BLOCKED")
+            from proofops.adapters.local.openai import (
+                validate_capacity_policy as validate_openai_capacity,
+            )
+            from proofops.adapters.local.openrouter import (
+                validate_capacity_policy as validate_luna_capacity,
+            )
             from proofops.application.input_reservation import validate_capacity_policy
 
             for pinned in pinned_settings:
                 try:
-                    upper = validate_capacity_policy(
-                        policy,
-                        model_id=pinned.model_id,
-                        checked_at=datetime.fromtimestamp(created_time, UTC),
+                    upper = (
+                        validate_openai_capacity(policy, model_id=pinned.model_id)
+                        if pinned.model_id == "gpt-6-luna"
+                        else validate_luna_capacity(policy, model_id=pinned.model_id)
+                        if pinned.model_id == "openai/gpt-6-luna"
+                        else validate_capacity_policy(
+                            policy,
+                            model_id=pinned.model_id,
+                            checked_at=datetime.fromtimestamp(created_time, UTC),
+                        )
                     )
                 except ValueError:
                     raise RunRejected("CONFIG_GATE_BLOCKED") from None
-                if not _capacity_accommodated(self.budget_limits, upper, pinned.max_tokens):
+                from proofops.application.tagging.service import output_reservation_tokens
+
+                output_upper = output_reservation_tokens(
+                    model_id=pinned.model_id,
+                    max_tokens=pinned.max_tokens,
+                    synthetic=pinned.binding.synthetic,
+                )
+                if not _capacity_accommodated(self.budget_limits, upper, output_upper):
                     raise RunRejected("CONFIG_GATE_BLOCKED")
         elif (tagging is not None or self.tagging_mode is not None) and (
             not isinstance(tagging, TaggingSettings)
@@ -542,6 +654,28 @@ class RunService:
             scope=body["scope"],
             created_at=timestamp,
         )
+        if self.pipeline_profile is not None:
+            snapshot["pipeline_profile"] = self.pipeline_profile
+            if self.pipeline_profile in ("finals-unattended-v1", "finals-unattended-v2"):
+                from proofops.application.analysis_profile import policy_for
+
+                analysis_policy = policy_for(self.pipeline_profile)
+                snapshot["analysis_profile_policy"] = _detach(analysis_policy)
+                snapshot["analysis_profile_policy_sha256"] = canonical_hash(analysis_policy)
+                from proofops.adapters.local import evidence_source_verification_v1 as evidence
+
+                if (self.claim_source_policy or {}).get("profile") in {
+                    "upstage-ocr-page-v4",
+                    "upstage-ocr-page-v5",
+                }:
+                    from proofops.adapters.local import evidence_source_ocr_v1 as evidence
+
+                # EV1 accepts only a nonempty evidence-only page selection.
+                # All-claim scopes retain their normal claim/native verification.
+                if set(snapshot["selected_pages"]) - set(
+                    self.parser_profile.get("claim_physical_pages", ())
+                ):
+                    snapshot["evidence_source_policy"] = _detach(evidence.policy())
         if self.extraction_profile is not None:
             snapshot.update(
                 extraction_profile=asdict(self.extraction_profile),
@@ -550,6 +684,8 @@ class RunService:
             )
         if self.extraction_mode == "upstage_probe":
             snapshot["extraction_limits"] = dict(self.extraction_limits)
+        if self.display_text_policy is not None:
+            snapshot["display_text_policy"] = _detach(self.display_text_policy)
         if self.claim_source_policy is not None:
             snapshot["claim_source_policy"] = _detach(self.claim_source_policy)
         if tagging is not None:
@@ -558,11 +694,24 @@ class RunService:
                 tagging_settings_hash=canonical_hash(asdict(tagging)),
                 tagging_mode=self.tagging_mode,
             )
-            if self.fact_assembly_profile == PARTIAL_FACTS_V1:
-                snapshot["fact_assembly_profile"] = PARTIAL_FACTS_V1
+            if self.fact_assembly_profile in PARTIAL_FACTS_PROFILES:
+                snapshot["fact_assembly_profile"] = self.fact_assembly_profile
             if self.report_level_link is not None:
                 snapshot["report_level_link"] = _detach(self.report_level_link)
         if live_tagging:
+            from proofops.application.evidence.relation_attribution import LEGACY_POLICY, POLICY
+
+            attribution = (
+                LEGACY_POLICY
+                if self.relation_attribution_policy == "relation-attribution-v1"
+                else POLICY
+            )
+
+            if self.relation_attribution_policy is not None:
+                snapshot.update(
+                    relation_attribution_policy=_detach(attribution),
+                    relation_attribution_policy_sha256=canonical_hash(attribution),
+                )
             assert isinstance(preliminary, TaggingSettings)
             assert isinstance(tagging, TaggingSettings)
             assert isinstance(policy, dict)
@@ -577,6 +726,15 @@ class RunService:
                 input_reservation_policy=dict(policy),
                 input_reservation_policy_hash=policy_hash,
             )
+            if self.decision_settings is not None:
+                snapshot.update(
+                    decision_settings=_detach(self.decision_settings),
+                    decision_settings_hash=canonical_hash(self.decision_settings),
+                    decision_runtimes=decision_runtimes,
+                    decision_runtime_hashes={
+                        p: artifact_sha256(b) for p, b in decision_runtimes.items()
+                    },
+                )
             if relation is not None:
                 snapshot.update(
                     relation_settings=asdict(relation),

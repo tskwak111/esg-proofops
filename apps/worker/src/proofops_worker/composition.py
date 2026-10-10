@@ -30,6 +30,9 @@ def build_composition(
     verify_paragraphs: bool = False,
     native_typography_tolerance: bool = False,
     raster_ocr: bool = False,
+    provider_factories=None,
+    provider_ledgers=None,
+    claim_progress=None,
 ) -> LocalParserRunner | LocalExtractRunner | LocalTagRunner:
     if type(native_typography_tolerance) is not bool or (
         native_typography_tolerance and (not verify_paragraphs or stage != "parse" or raster_ocr)
@@ -46,6 +49,12 @@ def build_composition(
         raise ValueError("NOTE_REVIEWS_REQUIRE_PARSE_STAGE")
     if stage not in {"parse", "extract", "tag"}:
         raise ValueError("STAGE_INVALID")
+    try:
+        max_workers = int(os.environ.get("LOCAL_LLM_MAX_WORKERS", "8"))
+    except ValueError:
+        raise ValueError("LOCAL_LLM_CONFIGURATION_INVALID") from None
+    if not 1 <= max_workers <= 16:
+        raise ValueError("LOCAL_LLM_CONFIGURATION_INVALID")
     if stage == "tag" and os.environ.get("LOCAL_TAGGING_MODE") not in {
         None,
         "",
@@ -59,6 +68,10 @@ def build_composition(
     }:
         raise ValueError("EXPLICIT_LOCAL_SYNTHETIC_EXTRACTION_REQUIRED")
     note_ledger = Path(__file__).resolve().parents[4] / ".local/upstage/budget.sqlite3"
+    openai_ledger = Path(__file__).resolve().parents[4] / ".local/openai/budget.sqlite3"
+    luna_ledger = Path(__file__).resolve().parents[4] / ".local/openrouter/budget.sqlite3"
+    if provider_ledgers is not None:
+        note_ledger, luna_ledger = provider_ledgers
     if raster_ocr and not note_ledger.is_file():
         raise ValueError("SHARED_BUDGET_LEDGER_REQUIRED")
     build_proofops_composition(
@@ -88,10 +101,21 @@ def build_composition(
         from proofops.adapters.local.upstage_parse import UpstageParseProbe
 
         raster_probe = UpstageParseProbe(os.environ.get("UPSTAGE_API_KEY", ""), note_ledger)
+    upstage_probe = None
+    if profile.parser_mode in ("upstage", "mixed-v1"):
+        from proofops.adapters.local.upstage_parse import UpstageParseProbe
+
+        if not note_ledger.is_file():
+            raise ValueError("SHARED_BUDGET_LEDGER_REQUIRED")
+        upstage_probe = (
+            provider_factories["parse"](note_ledger)
+            if provider_factories
+            else UpstageParseProbe(os.environ.get("UPSTAGE_API_KEY", ""), note_ledger)
+        )
     runner = LocalParserRunner(
         LocalSQLiteRunStore(database),
         uploads,
-        OpenDataLoaderParser(database.parent / "parser-prepared"),
+        OpenDataLoaderParser(database.parent / "parser-prepared", upstage_probe=upstage_probe),
         profile=profile,
         verify_paragraphs=verify_paragraphs,
         native_typography_tolerance=native_typography_tolerance,
@@ -109,17 +133,48 @@ def build_composition(
 
         live_factory = None
         if os.environ.get("LOCAL_TAGGING_MODE") == "upstage_local":
+            from proofops.adapters.local.openai import OpenAIProbe
+            from proofops.adapters.local.openrouter import MODEL as LUNA_MODEL
+            from proofops.adapters.local.openrouter import OpenRouterProbe
             from proofops.adapters.local.upstage import MODEL_PRO4, UpstageProbe
 
             from proofops_worker.live_tagging import LiveTaggingRuntime
 
-            if not note_ledger.is_file():
-                raise ValueError("SHARED_BUDGET_LEDGER_REQUIRED")
-            probe = UpstageProbe(
-                os.environ.get("UPSTAGE_API_KEY", ""), note_ledger, model=MODEL_PRO4
-            )
-
             def live_factory(owner, snapshot, graph, lease, usage):
+                if provider_factories and "decision_settings" in snapshot:
+                    # Hosted profiles do not authorize Decisions transports. Never
+                    # silently compose research ledgers/keys from a hosted worker.
+                    raise ValueError("HOSTED_DECISION_BINDING_UNAVAILABLE")
+                model = snapshot["tagging_settings"]["model_id"]
+                if model == LUNA_MODEL:
+                    ledger = luna_ledger
+                    probe = (provider_factories["llm"] if provider_factories else OpenRouterProbe)(
+                        os.environ.get("OPENROUTER_API_KEY", ""),
+                        ledger,
+                        wire_policy_version=snapshot["tagging_settings"].get(
+                            "wire_policy_version", 1
+                        ),
+                    )
+                elif model == "gpt-6-luna":
+                    if provider_factories:
+                        ledger = luna_ledger
+                        probe = provider_factories["llm"](
+                            os.environ.get("OPENAI_API_KEY", ""),
+                            ledger,
+                            wire_policy_version=2,
+                        )
+                    else:
+                        if not openai_ledger.is_file():
+                            raise ValueError("SHARED_BUDGET_LEDGER_REQUIRED")
+                        ledger = openai_ledger
+                        probe = OpenAIProbe(os.environ.get("OPENAI_API_KEY", ""), ledger)
+                elif model == MODEL_PRO4:
+                    if not note_ledger.is_file():
+                        raise ValueError("SHARED_BUDGET_LEDGER_REQUIRED")
+                    ledger = note_ledger
+                    probe = UpstageProbe(os.environ.get("UPSTAGE_API_KEY", ""), ledger, model=model)
+                else:
+                    raise ValueError("TAGGING_MODEL_UNSUPPORTED")
                 return LiveTaggingRuntime(
                     owner,
                     snapshot,
@@ -127,7 +182,7 @@ def build_composition(
                     lease,
                     usage,
                     probe=probe,
-                    ledger=note_ledger,
+                    ledger=ledger,
                     receipts=database.parent / "tagging-receipts" / snapshot["run_id"],
                 )
 
@@ -140,23 +195,25 @@ def build_composition(
             if os.environ.get("LOCAL_TAGGING_MODE") == "local_synthetic"
             else None,
             live_factory=live_factory,
+            max_workers=max_workers,
+            claim_progress=claim_progress,
         )
     if stage == "extract":
         from proofops_agent.extraction import SyntheticClaimExtractor
 
         extractor: ClaimExtractorPort = SyntheticClaimExtractor()
         if os.environ.get("LOCAL_EXTRACTION_MODE") == "upstage_probe":
+            from proofops.adapters.local.openai import OpenAIProbe
+            from proofops.adapters.local.openrouter import MODEL as LUNA_MODEL
+            from proofops.adapters.local.openrouter import OpenRouterProbe
             from proofops.adapters.local.upstage import MODEL, MODEL_PRO4, UpstageProbe
             from proofops_agent.upstage_extraction import (
                 UpstageClaimExtractor,
-                _profile,
                 _profile_with_options,
             )
 
             # The existing user-authorized ledger must exist; never mint another allowance.
-            ledger = Path(__file__).resolve().parents[4] / ".local/upstage/budget.sqlite3"
-            if not ledger.is_file():
-                raise ValueError("SHARED_BUDGET_LEDGER_REQUIRED")
+            ledger = note_ledger
             settings_path = os.environ.get("LOCAL_RUN_SETTINGS_PATH")
             if not settings_path:
                 raise ValueError("LOCAL_RUN_SETTINGS_REQUIRED")
@@ -168,15 +225,74 @@ def build_composition(
             if not isinstance(frozen_profile, dict):
                 raise ValueError("EXTRACTION_PROFILE_MISMATCH")
             frozen_model_hash = frozen_profile.get("model_sha256")
-            model = next(
-                (m for m in (MODEL, MODEL_PRO4) if _profile(m).model_sha256 == frozen_model_hash),
+            model_match = next(
+                (
+                    (m, version)
+                    for m, version in (
+                        (MODEL, 1),
+                        (MODEL_PRO4, 1),
+                        (LUNA_MODEL, 1),
+                        (LUNA_MODEL, 2),
+                        ("gpt-6-luna", 2),
+                    )
+                    if _profile_with_options(m, wire_policy_version=version).model_sha256
+                    == frozen_model_hash
+                ),
                 None,
             )
-            if model is None:
+            if model_match is None:
                 raise ValueError("EXTRACTION_PROFILE_MISMATCH")
+            model, wire_policy_version = model_match
+            if model == LUNA_MODEL:
+                probe = (provider_factories["llm"] if provider_factories else OpenRouterProbe)(
+                    os.environ.get("OPENROUTER_API_KEY", ""),
+                    luna_ledger,
+                    wire_policy_version=wire_policy_version,
+                )
+            elif model == "gpt-6-luna":
+                if provider_factories:
+                    probe = provider_factories["llm"](
+                        os.environ.get("OPENAI_API_KEY", ""),
+                        luna_ledger,
+                        wire_policy_version=2,
+                    )
+                else:
+                    if not openai_ledger.is_file():
+                        raise ValueError("SHARED_BUDGET_LEDGER_REQUIRED")
+                    probe = OpenAIProbe(os.environ.get("OPENAI_API_KEY", ""), openai_ledger)
+            else:
+                if not ledger.is_file():
+                    raise ValueError("SHARED_BUDGET_LEDGER_REQUIRED")
+                probe = UpstageProbe(os.environ.get("UPSTAGE_API_KEY", ""), ledger, model=model)
+            display_profile = None
+            if "display_text_policy" in settings:
+                from proofops.application.ingest.display_text import POLICY, PROFILE
+
+                if settings["display_text_policy"] != POLICY:
+                    raise ValueError("DISPLAY_POLICY_MISMATCH")
+                display_profile = PROFILE
             year_notation = settings.get("extraction_year_notation") is True
             context_opt_in = settings.get("extraction_context") is True
             table_context_opt_in = settings.get("extraction_table_context") is True
+            rows_opt_in = settings.get("extraction_table_rows", False)
+            recall_opt_in = settings.get("extraction_recall_prompt", False)
+            if type(rows_opt_in) is not bool or type(recall_opt_in) is not bool:
+                raise ValueError("EXTRACTION_PROFILE_MISMATCH")
+            atomic_opt_in = settings.get("extraction_atomic") is True
+            linewrap_join = settings.get("extraction_linewrap_join") is True
+            fragment_guard = settings.get("extraction_fragment_guard", False)
+            if type(fragment_guard) is not bool:
+                raise ValueError("UPSTAGE_EXTRACTION_FRAGMENT_GUARD_INVALID")
+            if "extraction_linewrap_join" in settings and (
+                not linewrap_join
+                or settings.get("extraction_source_ids") is not True
+                or atomic_opt_in
+            ):
+                raise ValueError("EXTRACTION_PROFILE_MISMATCH")
+            if "extraction_atomic" in settings and (
+                not atomic_opt_in or settings.get("extraction_source_ids") is not True
+            ):
+                raise ValueError("EXTRACTION_PROFILE_MISMATCH")
             source_ids_opt_in = settings.get("extraction_source_ids") is True
             assertion_prompt_opt_in = settings.get("extraction_assertion_prompt") is True
             complete_selection_opt_in = settings.get("extraction_complete_selection") is True
@@ -186,7 +302,7 @@ def build_composition(
             position_order = settings.get("position_context_order") == CONTEXT_POSITION_ORDER
             if settings.get("position_context_order") is not None and not position_order:
                 raise ValueError("EXTRACTION_CONTEXT_ORDER_MISMATCH")
-            if year_notation or context_opt_in or source_ids_opt_in:
+            if year_notation or context_opt_in or source_ids_opt_in or display_profile:
                 # New-run opt-in only: the frozen settings must carry the exact
                 # option-combination profile hash, otherwise fail closed.
                 if frozen_profile != asdict(
@@ -196,28 +312,43 @@ def build_composition(
                         extraction_context=context_opt_in,
                         extraction_table_context=table_context_opt_in,
                         source_ids=source_ids_opt_in,
+                        extraction_atomic=atomic_opt_in,
+                        extraction_linewrap_join=linewrap_join,
+                        extraction_fragment_guard=fragment_guard,
+                        extraction_table_rows=rows_opt_in,
+                        extraction_recall_prompt=recall_opt_in,
                         assertion_prompt=assertion_prompt_opt_in,
                         complete_selection=complete_selection_opt_in,
                         extraction_content_bounds=content_bounds_opt_in,
                         position_order=position_order,
+                        wire_policy_version=wire_policy_version,
+                        display_text_profile=display_profile,
                     )
                 ):
                     raise ValueError("EXTRACTION_PROFILE_MISMATCH")
                 extractor = UpstageClaimExtractor(
-                    UpstageProbe(os.environ.get("UPSTAGE_API_KEY", ""), ledger, model=model),
+                    probe,
                     database.parent / "extraction-receipts",
                     max_tokens=maximum,
                     extraction_year_notation=year_notation,
                     extraction_context=context_opt_in,
                     extraction_table_context=table_context_opt_in,
                     extraction_source_ids=source_ids_opt_in,
+                    extraction_atomic=atomic_opt_in,
+                    extraction_linewrap_join=linewrap_join,
+                    extraction_fragment_guard=fragment_guard,
+                    extraction_table_rows=rows_opt_in,
+                    extraction_recall_prompt=recall_opt_in,
                     extraction_assertion_prompt=assertion_prompt_opt_in,
                     extraction_complete_selection=complete_selection_opt_in,
                     extraction_content_bounds=content_bounds_opt_in,
                     position_order=position_order,
+                    display_text_profile=display_profile,
                 )
             elif (
-                table_context_opt_in
+                rows_opt_in
+                or recall_opt_in
+                or table_context_opt_in
                 or assertion_prompt_opt_in
                 or complete_selection_opt_in
                 or content_bounds_opt_in
@@ -229,7 +360,7 @@ def build_composition(
                 raise ValueError("EXTRACTION_PROFILE_MISMATCH")
             else:
                 extractor = UpstageClaimExtractor(
-                    UpstageProbe(os.environ.get("UPSTAGE_API_KEY", ""), ledger, model=model),
+                    probe,
                     database.parent / "extraction-receipts",
                     max_tokens=maximum,
                 )
@@ -239,5 +370,12 @@ def build_composition(
             runner.parser,
             extractor=extractor,
             telemetry=runner.telemetry,
+            max_workers=max_workers,
+            tag_composition=lambda: build_composition(
+                stage="tag",
+                provider_factories=provider_factories,
+                provider_ledgers=provider_ledgers,
+                claim_progress=claim_progress,
+            ),
         )
     return runner

@@ -159,7 +159,10 @@ def test_relation_stage_publishes_pinned_reviews_and_replays_without_calls(tmp_p
 
     from tests.integration.test_live_tagging_pipeline import _pipeline_setup
 
-    ctx = _pipeline_setup(tmp_path, monkeypatch, relation_stage=True)
+    # Explicit historical reader: keep the original three-call/replay contract.
+    ctx = _pipeline_setup(
+        tmp_path, monkeypatch, relation_stage=True, relation_attribution_policy=None
+    )
     runner, tenant, run_id = ctx["tag_runner"], ctx["tenant"], ctx["run_id"]
     assert runner.run_once(tenant_id=tenant, run_id=run_id) == "needs_review"
     envelope = runner.tags.load_snapshot(tenant, run_id)
@@ -196,7 +199,10 @@ def test_relation_conflict_keeps_local_review_but_never_binds_external_source(
 
     from tests.integration.test_live_tagging_pipeline import _pipeline_setup
 
-    ctx = _pipeline_setup(tmp_path, monkeypatch, relation_stage=True)
+    # Exercise legacy replica conflict, not the new pre-dispatch locality guard.
+    ctx = _pipeline_setup(
+        tmp_path, monkeypatch, relation_stage=True, relation_attribution_policy=None
+    )
     probe = ctx["tag_probe"]
     original = probe._post
     relation_calls = 0

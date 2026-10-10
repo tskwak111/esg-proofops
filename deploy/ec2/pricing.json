@@ -1,0 +1,53 @@
+{
+  "checked_at": "2026-10-10",
+  "region": "ap-southeast-2",
+  "currency": "USD",
+  "source": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonEC2/current/ap-southeast-2/index.csv",
+  "effective_date": "2026-10-01",
+  "ec2": {
+    "sku": "9TP3ARTXQ46KEGHK",
+    "instance_type": "t4g.medium",
+    "os": "Linux",
+    "tenancy": "Shared",
+    "capacity_status": "Used",
+    "hourly": "0.0424",
+    "cpu_credits": "standard"
+  },
+  "ebs": {
+    "sku": "QR74UAP3E9WUYT9B",
+    "type": "gp3",
+    "gb_month": "0.096",
+    "size_gb": 30,
+    "iops": 3000,
+    "throughput_mib_s": 125
+  },
+  "ipv4": {
+    "source": "https://aws.amazon.com/vpc/pricing/",
+    "hourly": "0.005",
+    "count": 1
+  },
+  "estimate": {
+    "hours_per_month": 730,
+    "monthly": "37.482",
+    "hours_264": "13.55513",
+    "hours_264_plus_provider_event_cap_7": "20.55513",
+    "excludes": [
+      "tax",
+      "excess transfer",
+      "paid Vercel",
+      "extra storage"
+    ],
+    "note": "EBS pro-rata approximation at 730h; actual calendar billing varies. External provider USD7 is a separate ledger, not automatically AWS project spend. No account API or billing assertion.",
+    "hours_264_project_remaining": "6.44487",
+    "hours_264_plus_provider_event_cap_7_over_limit": "0.55513"
+  },
+  "publication_date": "2026-10-09T20:31:34Z",
+  "project": {
+    "name": "Sky is the Limit",
+    "monthly_limit_usd": "20",
+    "at_limit": "paused",
+    "recommended_monthly_limit_usd": "50",
+    "source": "EC2R task: coordinator-confirmed project settings; not independently queried",
+    "warning": "Request a project monthly-limit increase before deployment. All AWS project services share USD20; monthly infrastructure alone exceeds it. AWS Budget email alerts do not raise or enforce this project limit. External provider costs remain separate."
+  }
+}

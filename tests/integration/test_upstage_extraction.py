@@ -450,7 +450,7 @@ def test_duplicate_receipt_root_cannot_count_historical_spend(tmp_path, monkeypa
     first, data = make_extractor(probe, tmp_path / "first")
     first.extract(data)
     if expired:
-        now[0] = datetime(2026, 10, 2, tzinfo=UTC)
+        now[0] = datetime(2026, 10, 21, tzinfo=UTC)
     second, _ = make_extractor(probe, tmp_path / "second")
     code = "PRICE_RECHECK_REQUIRED" if expired else "DUPLICATE_PROBE_REQUEST"
     with pytest.raises(ValueError, match=code):
@@ -688,7 +688,7 @@ def test_abbreviated_year_notation_opt_in_accepts_actual_lotte_response(tmp_path
 
     fixture = (
         Path(__file__).resolve().parents[2]
-        / "outputs/agent-fixtures/live-lotte/extraction-year-abbreviation"
+        / "tests/fixtures/pipeline/live-extraction/extraction-year-abbreviation"
     )
     text = json.loads((fixture / "packet.json").read_text())["untrusted_document_data"]["text"]
     content = json.loads((fixture / "raw_response.json").read_text())["content"]
@@ -958,7 +958,7 @@ def test_year_and_context_combined_keep_actual_lotte_five_claims(tmp_path):
 
     fixture = (
         Path(__file__).resolve().parents[2]
-        / "outputs/agent-fixtures/live-lotte/extraction-year-abbreviation"
+        / "tests/fixtures/pipeline/live-extraction/extraction-year-abbreviation"
     )
     stored = json.loads((fixture / "packet.json").read_text())
     text = stored["untrusted_document_data"]["text"]

@@ -1,13 +1,13 @@
-"""Session/tenant HTTP boundary (TASK-037).
+"""Session/tenant HTTP boundary.
 
 Wires proofops.application.authorization into FastAPI: cookie/session
 extraction, CSRF+Origin verification on state-changing requests, and the
 Session/TenantSelect/Error response shapes from contracts/openapi.yaml.
 
-Scope and deferrals (AGENTS.md, docs/17_ENV_CONFIG.md):
-- Real Cognito OIDC/PKCE login+callback is out of scope here (docs/11 §"로그인
-  흐름"); this module only consumes an already-established server session
-  record. `COGNITO_*`/`SESSION_SECRET_ARN` are cloud/staging inputs this
+Scope and deferrals:
+- Cognito OIDC/PKCE login+callback is outside this boundary; this module
+  only consumes an established server session record. `COGNITO_*` and
+  `SESSION_SECRET_ARN` are cloud/staging inputs this
   module never reads or fabricates.
 - Session/membership storage in this file is whatever
   `state.composition.auth_store` provides. Local dev/tests wire the
@@ -16,7 +16,7 @@ Scope and deferrals (AGENTS.md, docs/17_ENV_CONFIG.md):
   is safe to serve traffic, matching the fail-closed pattern in
   packages/proofops/composition.py.
 
-HTTP contract (docs/03 §5, docs/11, docs/13, evidence/contract_review_resolution.md #4):
+HTTP contract:
 - no/expired/revoked session -> 401 AUTH_REQUIRED / SESSION_EXPIRED
 - missing/invalid CSRF token or Origin mismatch on state-changing requests -> 403 CSRF_INVALID
 - GET live session without an active tenant -> 200 with null tenant/role and CSRF
@@ -104,7 +104,7 @@ def _error_response(status_code: int, code: str, message: str) -> JSONResponse:
 
 @dataclass(frozen=True, slots=True)
 class AuthStore:
-    """Local composition-root wiring for TASK-037. Not a public contract:
+    """Local composition-root wiring. Not a public contract:
     the auth_store attribute name/shape may change once real Cognito +
     DynamoDB adapters land; only SessionPort/MembershipPort are the
     stable boundary."""

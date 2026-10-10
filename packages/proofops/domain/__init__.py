@@ -1,4 +1,4 @@
-"""Domain package exports (TASK-000 baseline)."""
+"""Domain package exports."""
 
 from proofops.domain import documents, errors, values
 

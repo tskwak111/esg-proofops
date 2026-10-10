@@ -30,7 +30,7 @@ never deletes a directory, so it cannot erase a seed or an unrelated path).
 
 Safety: this wrapper never passes ``--invoke`` to the pilot, so a resume/serve
 demo makes no model or cloud call and cannot trigger a paid retry. Live model
-runs are launched separately by the coordinator, not by this launcher.
+runs are launched separately, outside this launcher.
 """
 
 from __future__ import annotations
@@ -278,7 +278,7 @@ def main() -> int:
     # Delegate to the pilot's resume+serve. --resume reconstructs pdf/year/period
     # and all policy flags from pilot.json. We deliberately never append
     # --invoke, so the demo makes no model or cloud call and cannot trigger a
-    # paid retry; the coordinator owns any live run.
+    # paid retry; live runs require separate authorization.
     cmd = [
         sys.executable,
         "-m",

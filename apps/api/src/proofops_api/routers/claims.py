@@ -85,6 +85,11 @@ def _preliminary_unresolved_action(agreement):
     """Explain stored agreement without changing the blocked state or decision."""
     if not isinstance(agreement, dict):
         return _PRELIMINARY_UNRESOLVED_ACTION["unknown"]
+    if agreement.get("schema") == "preliminary_decision_agreement_v1":
+        return (
+            "두 판단 모델의 답변·확률 또는 원문 인용이 확정 조건을 충족하지 못했습니다. "
+            "원문과 항목별 응답을 검토해 주세요."
+        )
     validated = agreement.get("validated_replicates")
     # Missing legacy counts cannot establish either completeness or agreement.
     if type(validated) is not int or not 0 <= validated <= 3:
@@ -122,6 +127,9 @@ class ClaimSummary(StrictDTO):
     topic_ids: list[str]
     decision: Decision | None
     revision: Annotated[int, Field(ge=1)]
+    source_status: dict | None = None
+    provisional_grade: dict | None = None
+    pipeline_stage: str | None = None
 
 
 class ClaimSummaryPage(StrictDTO):
@@ -180,6 +188,9 @@ class ReviewProjection(StrictDTO):
     blocked_action: str | None
     field_agreements: list[FieldAgreement]
     raw_candidates: list[RawCandidate] = Field(default_factory=list)
+    source_status: dict | None = None
+    provisional_grade: dict | None = None
+    pipeline_stage: str | None = None
 
 
 class ReviewedDimensions(StrictDTO):
@@ -225,7 +236,21 @@ class SubmittedReview(StrictDTO):
     tables: dict[Literal["claims", "elements", "numeric", "assurance"], list[dict[str, str]]]
 
 
+class ElementEvidenceSearch(StrictDTO):
+    element_id: str
+    evidence_status: Literal["confirmed", "not_found_in_report", "undetermined"]
+    undetermined_reason: (
+        Literal["candidate_needs_review", "no_text_candidate", "linkage_unclear"] | None
+    ) = None
+    engine_state: Literal["present", "absent", "unknown", "conflict", "not_applicable"]
+    reason: str
+    evidence_refs: list[SourceRef]
+    candidate_refs: list[SourceRef]
+    search: dict[str, object]
+
+
 class ClaimDetail(StrictDTO):
+    element_evidence: list[ElementEvidenceSearch] = Field(default_factory=list)
     claim: ClaimSummary
     source_refs: list[SourceRef]
     elements: list[Element]
@@ -362,18 +387,42 @@ def build_claims_router(claims, auth_store, *, tags=None, assurance=None, clock=
                         reason=cand.get("reason"),
                     )
                 )
+        action = (
+            _preliminary_unresolved_action(item.get("preliminary_agreement"))
+            if blocked_reason == "PRELIMINARY_TAGS_UNRESOLVED"
+            else _BLOCKED_ACTION_TEXT.get(blocked_reason)
+        )
+        if any(
+            isinstance(record, dict) and record.get("decision_relation") in ("partial", "unknown")
+            for record in item.get("relation_records", [])
+        ):
+            action = "후보 있음·확인 필요" + (". " + action if action else "")
         return dict(
             schema_version=1,
             candidate_snippets=snippets,
             blocked_reason=blocked_reason,
-            blocked_action=(
-                _preliminary_unresolved_action(item.get("preliminary_agreement"))
-                if blocked_reason == "PRELIMINARY_TAGS_UNRESOLVED"
-                else _BLOCKED_ACTION_TEXT.get(blocked_reason)
-            ),
+            blocked_action=action,
             field_agreements=agreements,
             raw_candidates=raw_candidates,
+            **(
+                {
+                    "source_status": item["source_status"],
+                    "provisional_grade": item["provisional_grade"],
+                    "pipeline_stage": item["stage"],
+                }
+                if "source_status" in item
+                else {}
+            ),
         )
+
+    def detail_payload(body):
+        result = ClaimDetail.model_validate_json(json.dumps(body)).model_dump(mode="json")
+        for key in ("source_status", "provisional_grade", "pipeline_stage"):
+            if result["claim"].get(key) is None:
+                result["claim"].pop(key, None)
+            if result.get("review_projection") and result["review_projection"].get(key) is None:
+                result["review_projection"].pop(key, None)
+        return result
 
     def failure(exc):
         if isinstance(exc, InvalidCatalogCursor):
@@ -446,6 +495,27 @@ def build_claims_router(claims, auth_store, *, tags=None, assurance=None, clock=
                     discovery.claims, key=lambda c: (c.source_refs[0].page_num, c.claim_id)
                 )
             ]
+            if tags is not None and store.snapshot(tenant, str(run_id)).get("pipeline_profile") in (
+                "unattended-v1",
+                "finals-unattended-v1",
+                "finals-unattended-v2",
+            ):
+                try:
+                    provisional_items = {
+                        c["claim_id"]: c for c in tags.load_snapshot(tenant, str(run_id))["claims"]
+                    }
+                except KeyError as error:
+                    if error.args != ("tag_job",):
+                        raise
+                    provisional_items = {}
+                for item in items:
+                    projection = provisional_items.get(item["claim_id"])
+                    if projection:
+                        item.update(
+                            source_status=projection["source_status"],
+                            provisional_grade=projection["provisional_grade"],
+                            pipeline_stage=projection["stage"],
+                        )
             items = [
                 item
                 for item in items
@@ -552,8 +622,11 @@ def build_claims_router(claims, auth_store, *, tags=None, assurance=None, clock=
                         claim.tenant_id, str(run_id), claim.claim_id
                     ),
                 )
+                body["element_evidence"] = claims.missing_evidence(
+                    claim.tenant_id, str(run_id), claim, track=summary["track"], elements=[]
+                )
                 return JSONResponse(
-                    ClaimDetail.model_validate_json(json.dumps(body)).model_dump(mode="json"),
+                    detail_payload(body),
                     headers={"Cache-Control": "no-store"},
                 )
             if tags is None:
@@ -600,8 +673,16 @@ def build_claims_router(claims, auth_store, *, tags=None, assurance=None, clock=
                 rulepack_approved_by=rulepack_approved_by(claim.tenant_id, str(run_id)),
                 review_projection=review_projection(claim.tenant_id, str(run_id), claim.claim_id),
             )
+            body["element_evidence"] = claims.missing_evidence(
+                claim.tenant_id,
+                str(run_id),
+                claim,
+                track=summary["track"],
+                elements=body["elements"],
+                inputs=inputs,
+            )
             return JSONResponse(
-                ClaimDetail.model_validate_json(json.dumps(body)).model_dump(mode="json"),
+                detail_payload(body),
                 headers={"Cache-Control": "no-store", "ETag": f'"{tag["tag_revision"]}"'},
             )
         except (ValueError, KeyError, sqlite3.DatabaseError) as exc:

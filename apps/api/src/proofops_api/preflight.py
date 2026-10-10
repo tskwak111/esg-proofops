@@ -1,4 +1,4 @@
-"""TASK-029 HTTP boundary, using tenant-resolved immutable approval artifacts.
+"""HTTP boundary, using tenant-resolved immutable approval artifacts.
 
 This local router's replay/rate state is process-local. Non-local composition
 must supply durable request control before enabling the endpoint. A successful
@@ -156,10 +156,16 @@ def build_preflight_router(
                 checker = (
                     check_local_upstage_binding
                     if runtime.get("provider") == "upstage"
+                    or (
+                        runtime.get("provider") in ("openrouter", "openai")
+                        and runtime.get("purpose") == "local_test"
+                    )
                     else check_runtime_binding
                 )
                 kwargs = (
-                    {} if checker is check_local_upstage_binding else {"allowed_regions": regions}
+                    {"model_sha256": runtime.get("model_sha256")}
+                    if checker is check_local_upstage_binding
+                    else {"allowed_regions": regions}
                 )
                 result = checker(
                     binding=runtime,

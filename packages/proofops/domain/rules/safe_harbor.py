@@ -1,4 +1,4 @@
-"""Pure safe-harbor evidence record path (TASK-016 / FR-016).
+"""Pure safe-harbor evidence record path.
 
 GAP-001 leaves grading unresolved. An explicitly pinned project policy can
 report checklist documentation completeness, never legal protection or E grade.

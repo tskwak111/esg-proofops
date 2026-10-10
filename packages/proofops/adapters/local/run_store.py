@@ -108,6 +108,7 @@ class LocalSQLiteRunStore:
                 if snapshot.get("fact_assembly_profile", "strict-v1") not in (
                     "strict-v1",
                     "partial-facts-v1",
+                    "partial-facts-v2",
                 ):
                     raise ValueError("unknown fact assembly profile")
                 if "report_level_link" in snapshot:
@@ -131,6 +132,14 @@ class LocalSQLiteRunStore:
                     publication_reader(snapshot["claim_source_policy"])
                     if snapshot.get("extraction_mode") != "upstage_probe":
                         raise ValueError("claim source policy mismatch")
+                if "display_text_policy" in snapshot:
+                    from proofops.application.ingest.display_text import POLICY
+
+                    if snapshot["display_text_policy"] != POLICY:
+                        raise ValueError("DISPLAY_POLICY_MISMATCH")
+                from proofops.application.tagging.decisions import validate_decision_snapshot
+
+                validate_decision_snapshot(snapshot | {"tenant_id": tenant})
                 relation_fields = (
                     "relation_settings",
                     "relation_settings_hash",

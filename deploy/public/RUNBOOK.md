@@ -1,0 +1,726 @@
+# Local P1 verification and later Lightsail handoff
+
+Target: Lightsail Linux4GB, not a cloud deployment in this task. `deploy/public/Dockerfile`
+uses frozen Python3.12.14/uv0.12.7/workspace lock, Java21+PDF dependencies. App runs
+non-root and explicit hosted/disabled composition; container memory cap3GiB leaves1GiB
+of a4GiB host for the OS/proxy. Selected-page subprocess cap512MiB/20CPU-seconds/30s. Cross-process upload admission
+is1; concurrent uploads receive429 before their bodies are read.
+All metrics below must be interpreted as offline control-plane/upload/prepare smoke,
+not live OCR/JVM/LLM peak RSS or a completed end-to-end analysis capacity claim.
+
+```sh
+cd /Users/ss020/Dev/ESG_ProofOps/.local/r108-public
+uv sync --frozen --all-packages
+open -a Docker
+# Wait for docker info to succeed, then build. No provider or AWS keys are supplied.
+docker build -f deploy/public/Dockerfile -t proofops-r108-public:p1 .
+.venv/bin/python scripts/hosted_docker_probe.py --output /tmp/r108-p1-evidence
+```
+
+Probe creates/removes its own container and volume only; keeps the image. It uses
+`--network none --read-only --memory3g --memory-swap3g --cpus2 --pids-limit128`,
+cap-dropALL/no-new-privileges,512MiB noexec tmpfs and a private `/data` volume. It
+locally generates a session secret and test-only7-day consent version in a temporary
+0600 env file (never printed/copied to evidence). Measures wall startup/restart,
+image uncompressedSize, API VmHWM, sampled summed Python RSS, worker/child maxrss,
+and cgroup memory.peak. Sampling includes the probe process; cgroup peak includes
+page cache. No network is available except container loopback. Smoke uses actual
+Uvicorn HTTP, invitation, cookie/CSRF, two tenants, validated3-page PDF,202/poll,
+separate worker CLI preparation of2pages, explicit blocked result, physical purge,
+logout and a surviving session+CSRF after Uvicorn restart. Test upload is blank3pages.
+
+For a persistent local operator setup, provide exact HTTPS APP_ORIGIN, a generated
+HOSTED_SESSION_SECRET and HOSTED_EVENT_ID in a private env file; bind a private data
+volume. Defaults refuse uploads/runs and disable paid transport. Do not source research
+.env files. HOSTED_CONSENT_VERSION and HOSTED_ACCEPT_UPLOADS=true allow the user-approved
+7-day original retention policy. Set ANALYSIS_BACKEND=r108/R108_ACCEPT_NEW_RUNS=true only
+for the explicit offline blocked flow until the approved live handler is implemented.
+
+Invite via `python scripts/hosted_control.py invite --tenant <UUID> --user <subject> --role admin`
+inside the API image; the one-time code is returned only to the operator. Browser has
+no provider key. API+worker must use the same secret, event ID and data volume.
+`python scripts/hosted_control.py worker` runs one persistent offline worker;
+`... worker --once` processes at most one job. Worker and API each run expiry maintenance;
+API does so every60seconds and on lifespan startup; `... maintain` runs explicitly.
+Expired active PDFs become inaccessible/physically removed; do not shut down all
+maintenance before their7-day deadline unless every active payload is first purged.
+
+`... backup --path <new-private-dir>` uses SQLite online backup and copies only
+receipt/graph/export artifacts, never original/prepared/display PDFs or auth secrets.
+Stop API/worker before restore: `... restore --path <backup-dir>`. Restore checks its
+matching independent ledger identity, never rewinds `deletions.sqlite3` (money+deletion
+fences), replays tombstones before access and never restores raw PDFs. Missing source
+means SOURCE_UNAVAILABLE/reupload. A lost independent ledger requires reconciliation,
+not a new empty budget. Copy/encrypt that ledger separately under operator custody;
+never restore an older version to free budget or resurrect files. Subject-free event
+aggregate survives30-day per-run audit expiry; unknown money remains blocked until
+reconciled. Backups expire from earliest source creation+14days, not snapshot time.
+
+Migration is additive hosted-schema1 in an isolated directory. Never point hosted mode
+at research state.sqlite3 or import existing Apple receipts as Linux-verified. Rollback
+must understand schema1 and retain the independent ledger: stop acceptance, preserve
+pending jobs/money, serve static web; no local-env bypass. Base-image digests/system
+packages are not yet release-pinned, amd64 behavior is not inferred from an arm64 probe.
+Cloud credentials, TLS/reverse proxy, domains, approved OCR binding, provider retention,
+pricing and complete R108 review/export integration remain separate release gates.
+
+## P2 private live worker
+Use current image tag `proofops-r108-public:p2`; the packaged evaluation allowlist
+contains only the private worker entry point and reused pilot preparation module.
+Default key-free smoke remains off and cannot call providers. Set live flags only
+with the operator JSON/key-file paths described in CONTRACT's P2 amendment. Keep
+private key/config mounts read-only and outside HOSTED_DATA_DIR; never source the
+key files or provide them to the browser. Run the existing `hosted_control.py worker`.
+
+macOS worker uses an isolated subprocess with its own document-scoped receipts,
+SQLite state and selected PDF. It never points at the research state/cache/budget
+DB. Hosted money/fences remain authoritative and are checked before each transport.
+One active run is capped at1800seconds of pipeline execution; unknown dispatch on
+crash/timeout retains the reservation and needs reconciliation. The analysis lock
+is inherited by its child: a parent crash cannot make purge unlink active source
+files. A tombstoned worker cannot dispatch or publish; maintenance retries purge
+once the child exits. A failed result integrity read must be investigated, not
+relabelled as empty evidence. Linux source-reader release remains blocked as above.
+
+For the explicitly authorized local Mac canary only:
+`python scripts/hosted_live_probe.py --pdf <existing-original.pdf> --pages 22,41
+--output <new-private-dir> --research-root /Users/ss020/Dev/ESG_ProofOps`.
+This opens loopback Uvicorn, authenticates through the hosted API, uploads the
+original, accepts exactly2pages, and runs one worker. Before transport it reserves
+USD.30 in the existing lab/sprint3/E2E/r108-spend.json under its shared decision lock;
+settled unused reservation is returned, unknown money stays reserved. Output/data
+existence prevents accidental repeat. No cloud/push or default paid allowance.
+Operator config discloses 2025 report /2024 reporting period for this fixed canary.
+The local canary isn't a same-site TLS browser or Linux OCR capacity certification.
+
+## P3 — 2026-10-10 Lightsail 실행 준비 (이번 작업은 클라우드 호출 0)
+
+DEC-19: 서울 `ap-northeast-2`, Linux VM 2vCPU/4GB, Vercel 정적 웹, 분석 동시성1,
+USD1.0/run·7/day·7/event (DEC-22), 원본 PDF 7일. 이 절은 **내일 사용자가 실행할 절차**다.
+P3에서 AWS/Vercel/SSH/유료 모델 호출·push는 하지 않았다. `deploy/lightsail/*`는
+기본 dry-run이며 `--apply`를 명시해야 원격 호출을 한다. `pack.sh`, `local-smoke.sh`는
+로컬 Docker 전용이다. 운영 env나 provider 키 파일을 `source`하지 않는다.
+
+**출시 게이트:** 승인 Linux reader allowlist는 P4 절이 정본이다. 기본은
+`LIVE_DISABLED=true`이며 보류 결과 snapshot을 제공한다. 운영자가 private env에서
+`ANALYSIS_BACKEND=r108`, `LIVE_DISABLED=false`, `R108_ACCEPT_NEW_RUNS=true`를 명시하고
+승인 reader·enabled operator JSON·키 mount를 준비해야 실제 분석이 켜진다. 검사기는
+DEC-22 상한1/7/7과 명시적 opt-in을 허용한다. 키 배치만으로 live가 켜지지 않는다.
+4GB live RSS와 TLS/Vercel 쿠키·업로드 실측은 별도 출시 게이트다.
+
+### 1. 사용자가 AWS 계정·권한을 준비 (약 10–20분)
+
+계정 관리자에서 전용 IAM 사용자 `proofops-deploy`를 만들고 콘솔 사용자는 MFA 설정.
+프로그램 access key는 로컬 AWS profile에만 저장하며 서버·Docker·브라우저에는 주지 않는다.
+`deploy/lightsail/iam-policy.json`의 `ACCOUNT_ID`를 실제 12자리 계정 ID로 바꾸어 사용자에
+attach한다. 정책은 이번 CLI에서 사용하는 **Lightsail 작업 + Budgets View/Modify만** 열고
+Lightsail은 서울 리전으로 제한한다. STS GetCallerIdentity는 별도 Allow가 필요 없다.
+IAM 사용자/정책 생성 권한은 이 배포 사용자에 주지 않는다. Lightsail 목록/생성 API는
+resource ARN을 생성 전에 알 수 없어 Resource `*`이며 계정 내 다른 서울 리소스에도
+명시된 작업 권한이 있다. 관리자 계정·권한 경계/SCP가 필요하면 관리자가 추가로 제한한다.
+Budgets는 정확한 `proofops-r108-monthly-20` ARN으로 제한하고 legacy `aws-portal:*`
+또는 비용탐색기 권한은 추가하지 않는다. Billing IAM access/account activation이 막으면
+관리자가 Billing 설정을 확인한다. 알림 이메일·계정 ID를 공개 repo에 저장하지 않는다.
+
+```sh
+cd /Users/ss020/Dev/ESG_ProofOps/.local/r108-public
+aws configure --profile proofops-deploy
+# prompt: local access key / secret key / ap-northeast-2 / json
+export PROFILE=proofops-deploy REGION=ap-northeast-2 NAME=proofops-r108 ARCH=amd64
+export ACCOUNT_ID=REPLACE_12_DIGIT_ID
+# Lightsail 콘솔/Service Quotas에서 해당 계정 서울의 실제 적용 quota 확인 후 입력.
+# published default는 vCPU20, static IP5이지만 신규 계정은 더 낮을 수 있다.
+export VCPU_QUOTA=REPLACE_CONFIRMED_VCPU_QUOTA STATIC_IP_QUOTA=REPLACE_CONFIRMED_IP_QUOTA
+export MAX_MONTHLY_USD=24
+export SSH_CIDR=REPLACE_YOUR_CURRENT_PUBLIC_IPV4/32
+ssh-keygen -t rsa -b 3072 -f "$HOME/.ssh/proofops-r108"
+export SSH_KEY="$HOME/.ssh/proofops-r108" SSH_PUBLIC_KEY="$HOME/.ssh/proofops-r108.pub"
+# passphrase 키는 ssh-add로 agent에 넣는다. BatchMode를 사용하며 암호를 인자로 넣지 않는다.
+ssh-add "$SSH_KEY"
+export ALERT_EMAIL=REPLACE_OPERATOR_EMAIL ACME_EMAIL="$ALERT_EMAIL"
+deploy/lightsail/preflight.sh                 # 로컬 command preview
+deploy/lightsail/preflight.sh --apply         # 내일: STS account/region/AZ/catalog/usage 확인
+deploy/lightsail/budget.sh --apply            # 월 USD20 account-wide 80/100% actual +100% forecast 이메일
+```
+
+quota API 접근을 위해 ServiceQuotas 권한을 확대하지 않는다. preflight는 운영자가 확인한
+quota와 `get-instances` vCPU 합계, `get-static-ips` 수량을 비교한다. 미확인 quota는
+apply를 막는다. 과금 경보는 hard cap이 아니며 Upstage/OpenAI/OpenRouter 비용은 AWS 청구에
+포함되지 않는다. 중복 budget 이름이면 기존 budget을 확인하고 갱신하며 오류를 무시하지 않는다.
+
+### 2. 이미지와 서버 준비 (약 10–25분; 최초 x86 build는 더 걸릴 수 있음)
+
+Lightsail catalog에는 문서화된 CPU architecture 필드가 없다. kit는 standard Ubuntu
+24.04 LTS x86_64만 선택하고, `get-bundles` 결과에서 active Linux·IPv4·2vCPU·4GB,
+blueprint minPower 이상, 월24달러 이하 중 최저가를 선택하여 ID/가격을 `.state`에 보관한다.
+ID/가격을 하드코딩하지 않는다. ARM catalog를 추측하지 않으며 원격 `uname -m`까지 검사한다.
+현재 P2 로컬 이미지는 linux/arm64라 **x86 재빌드가 필수**다.
+
+```sh
+export IMAGE=proofops-r108-public:p3-amd64
+export IMAGE_ARCHIVE="$HOME/proofops-r108-amd64.tar"
+deploy/lightsail/pack.sh --build "$IMAGE_ARCHIVE"    # docker build linux/amd64 + save + SHA manifest
+deploy/lightsail/create.sh                         # 무과금 preview
+deploy/lightsail/create.sh --apply                 # 내일: 기존 이름 충돌 시 중단, 자동 재생성 없음
+export STATIC_IP=REPLACE_RETURNED_STATIC_IPV4
+# Lightsail 브라우저 SSH 콘솔에서 아래 fingerprint를 읽어 대조한다.
+# sudo ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub
+ssh-keyscan -t ed25519 "$STATIC_IP" > /tmp/proofops-r108-hostkey
+ssh-keygen -lf /tmp/proofops-r108-hostkey
+# 위 두 fingerprint 일치 확인 후에만 known_hosts에 추가.
+cat /tmp/proofops-r108-hostkey >> "$HOME/.ssh/known_hosts"
+```
+
+Lightsail import는 ssh-rsa public key만 지원하므로 RSA3072를 생성하고 base64 문자열로 전송한다.
+create는 imported SSH 공개키, IPv4-only VM, Project tag, 22=현재 IPv4/32만·80/443=public,
+고정IP를 만든다. secret 없는 cloud-init은 Docker/Compose·UFW를 설치하고 데이터/backup
+디렉터리와 systemd unit을 만든다. Lightsail 기본22 규칙은 생성 직후 정확한 포트 목록으로
+교체하고 cloud-init UFW도 같은 SSH /32만 허용한다. IP가 바뀌면 먼저 운영자 SSH /32와
+UFW 규칙을 업데이트한다. 콘솔 browser SSH는 이 규칙으로 차단될 수 있으므로 fingerprint
+확인은 제한 적용 전 콘솔/직접 신뢰 경로에서 완료한다. 광범위22를 다시 열어 두지 않는다.
+실패하면 `.state` operation/ownership 기록과 실제 리소스를 확인하고 정리하며 create를
+무작정 반복하지 않는다. 고정IP가 분리된 상태로 남지 않도록 teardown을 즉시 준비한다.
+
+### 3. Vercel production origin 확인과 private env 배치
+
+현재 제출 checkout `.local/esg-submission-hosted`에는 `.vercel/project.json`이 없다.
+production 도메인을 추측하지 않았다. 내일 Vercel 로그인 후 해당 checkout에서
+`vercel link`로 **기존 제출 프로젝트**를 선택한다(새 프로젝트 생성 금지).
+`.vercel/project.json`의 `projectId`/`orgId`와 Vercel Dashboard의 동일 프로젝트 Settings →
+Domains를 대조하고 **현재 Production deployment에 붙은 alias**를 확인한다.
+`vercel alias ls`/`vercel project inspect <existing-project-name>`로 재확인 가능하다.
+preview/build URL과 production alias를 혼동하지 않는다. HTTP는 자동 HTTPS로 최종 이동시킨다.
+
+```sh
+export APP_ORIGIN=https://REPLACE_VERIFIED_VERCEL_PRODUCTION_DOMAIN
+export RUNTIME_ENV="$HOME/proofops-runtime.env"
+python3 deploy/lightsail/init-runtime.py --origin "$APP_ORIGIN" --output "$RUNTIME_ENV"
+# 생성된 secret은 출력/재생성하지 않고 다음 배포에도 보존한다. 원본7일 동의 버전 유지.
+deploy/lightsail/deploy.sh --apply
+```
+
+Docker save/scp/load를 사용하므로 app registry/push가 필요 없다. 서버는 Caddy 고정 tag를
+한 번 pull하고 설정 검증 후 systemd를 재시작한다. API+worker는 UID10001/read-only,
+공유 `/srv/proofops/data` bind volume, restart unless-stopped, API512MiB/worker2560MiB
+합계3GiB, Caddy128MiB다. `.state/compose.env`는 secret 없으며 runtime.env는 서버0600.
+`/srv/proofops/private`는 UID10001/GID10001 mode700; container에는 read-only bind로 필요한 키파일을 제공한다.
+API 포트8000은 localhost에만 bind하고 외부에는 Caddy80/443만 공개한다. `<static-ip>.sslip.io`
+DNS와 Let's Encrypt ACME TCP80를 사용한다. Docker local logs는10MiB×3/service, request/access
+logging은 꺼진다. userdata/systemd/config 검증 로그에 키/쿠키/원문을 넣지 않는다.
+공유 sslip.io 발급 rate limit/DNS 장애는 실제 TLS gate이며 실패하면 웹은 static을 유지한다.
+
+키 배치는 승인된 provider 계정의 로컬0600 파일만 입력한다. `openai.env`는
+`OPENAI_API_KEY=...`, `openrouter.env`는 `OPENROUTER_API_KEY=...`, `upstage.env`는
+`UPSTAGE_API_KEY=...` 한 줄씩 두고 shell로 평가하지 않는다. `live.json`의
+`llm_provider`는 기본 `openai`이며 롤백 시 `openrouter`로 바꾼다. 경로는
+`openai_key_file=/run/private/openai.env`, `openrouter_key_file=/run/private/openrouter.env`,
+`upstage_key_file=/run/private/upstage.env`다. 설정한 LLM provider의 키와 Upstage 키만 런타임에
+필요하다. 현재는 LIVE_DISABLED=true이므로 config.enabled가 true여도 전송은 없다.
+
+```sh
+export OPENAI_KEY_FILE=REPLACE_LOCAL_0600_FILE OPENROUTER_KEY_FILE=REPLACE_LOCAL_0600_FILE
+export UPSTAGE_KEY_FILE=REPLACE_LOCAL_0600_FILE
+export LIVE_CONFIG_FILE=REPLACE_LOCAL_0600_JSON
+deploy/lightsail/keys.sh --apply    # 선택적 준비; 서버 UID10001/GID10001 mode600; 출력 없음
+```
+
+### 4. 제출 사이트 rewrite와 빌드 (현재 checkout은 수정하지 않음)
+
+```sh
+export WEB_CHECKOUT=/Users/ss020/Dev/ESG_ProofOps/.local/esg-submission-hosted
+python3 deploy/lightsail/configure-web.py --checkout "$WEB_CHECKOUT" --static-ip "$STATIC_IP"
+python3 deploy/lightsail/configure-web.py --checkout "$WEB_CHECKOUT" --static-ip "$STATIC_IP" --apply
+git -C "$WEB_CHECKOUT" diff -- vercel.json
+```
+
+기존 `/hosted-api/:path*` destination만 `https://<static-ip>.sslip.io/:path*`로 바꾸고
+SPA/API 규칙은 보존한다. vercel.json의 destination에 env interpolation을 쓰지 않는다.
+Vercel production build env에 `VITE_ANALYSIS_BACKEND=hosted`, `VITE_HOSTED_API_BASE=/hosted-api`
+설정 후 재배포한다. 기존 `VITE_DEMO_STATIC=true pnpm build`는 static shell을 사용하는
+현 구조의 build 명령이므로 유지한다. APP_ORIGIN은 API sslip.io가 아닌 브라우저의 정확한
+production origin이다. 웹은 같은 origin `/hosted-api`로만 호출한다. 브라우저에서 sslip.io
+직접 cross-site cookie 호출을 쓰지 않는다. VITE 변수에는 provider/session/AWS 키가 없다.
+
+### 5. 내일 실측 gate — 이 작업에서는 모두 not_run
+
+처음에는 웹 static·서버 admission=false를 유지한다. operator-only blocked smoke 동안만
+private runtime.env에서 HOSTED_ACCEPT_UPLOADS=true, R108_ACCEPT_NEW_RUNS=true,
+ANALYSIS_BACKEND=r108로 바꾸고 LIVE_DISABLED=true를 유지하여 deploy.sh로 재적용한다.
+계약에 맞는 정상 PDF 최대2쪽 처리, 전체 원본300쪽/150MiB 제한을 유지한다(FX3).
+
+- TLS: sslip.io DNS→static IP, 인증서 hostname/chain/만료 확인, HTTPS health200, HTTP→HTTPS.
+- Set-Cookie: production 페이지에서 초대 로그인200, `__Host-proofops_session; Secure;
+  HttpOnly; Path=/; SameSite=Lax; no Domain`; 새로고침 후 session200/CSRF write.
+  Network에서 Cookie가 **production /hosted-api에 재전송**되는지 확인하고 cookie/code/body를
+  공개 evidence에 붙이지 않는다. HTTP CLI 수동 Cookie 검사만으로 브라우저 통과를 주장하지 않는다.
+- 업로드: 권리가 있는 실제150MiB 이하/300쪽 이하 정상 PDF를 production proxy로 전송하여201,
+  서버 length/SHA 일치 확인. exact157286400 bytes와157286401 bytes fixture는 별도로 확인하여
+  cap 이하가 proxy에서 잘리지 않고 cap 초과는413(허용429/422 사유도 구분); 동시 업로드429.
+  Vercel Functions의4.5MB 한도를 외부 rewrite 경로에 그대로 적용하지 않으며150MiB가 된다고
+  가정하지도 않는다. Network Timing, 전송 bytes, 응답 status만 기록하고 fixture는 삭제한다.
+- 120초: Vercel 외부 origin 응답-header 제한은 공지상120s. 실제 정상 최대 업로드 요청의
+  total/TTFB가120s 이내인지 기록하고 run acceptance202는 짧게 끝나는지 측정한다.
+  worker 분석 전체 시간은 polling으로 분리되어120초 HTTP 한 요청에 묶이지 않는다.
+  제한 자체의 slow-origin 경계 검사는 private staging에서만119/121초 지연 응답으로 확인한다
+  (production auth API에 sleep/debug endpoint를 추가하지 않는다). timeout이면 idempotency로
+  상태 확인 후 재시도하며 유료 job을 중복 만들지 않는다.
+- default offline smoke는 업로드 뒤 무료 scope-plan을 생성하고 GET으로 같은 revision/hash를
+  확인한다. If-Match 없이 selection을 제출하면 428인지, revision과 선택 hash가 그대로인지
+  확인한 뒤 선택을 수정하지 않고 그 hash로 run을 접수한다. 결과는 HTTP200의 실제
+  partial_blocked snapshot이며 hold reason은 LIVE_BINDING_UNAVAILABLE, claim은 빈 목록,
+  confirmed grade는 null, provider_calls는 0이어야 한다. helper의 기본 1쪽 fixture는 범위 계획이
+  가능한 환경 본문을 포함하며 결과에 원문·UUID·초대코드는 출력하지 않는다.
+  Linux live opt-in의 P2 artifact는200/null grade/LINUX_SOURCE_READER_UNRESOLVED이며
+  완성 분석이 아니다. 승인 reader 통합 후에만 authorized `smoke.py --expect result --allow-live`
+  한 번으로 결과200·hold/source mapping·실제 비용·4GB RSS를 검증한다. 행사 장부 새로 만들기 금지.
+
+```sh
+umask 077
+ssh -i "$SSH_KEY" "ubuntu@$STATIC_IP" \
+  "sudo docker compose --project-directory /srv/proofops --env-file /srv/proofops/compose.env -f /srv/proofops/compose.yaml exec -T api python scripts/hosted_control.py invite --tenant 11111111-1111-4111-8111-111111111111 --user operator-smoke --role admin" > "$HOME/proofops-smoke-invite.txt"
+ssh -i "$SSH_KEY" "ubuntu@$STATIC_IP" \
+  "sudo docker compose --project-directory /srv/proofops --env-file /srv/proofops/compose.env -f /srv/proofops/compose.yaml exec -T api python scripts/hosted_control.py invite --tenant 22222222-2222-4222-8222-222222222222 --user operator-smoke-foreign --role admin" > "$HOME/proofops-smoke-foreign-invite.txt"
+chmod 600 "$HOME/proofops-smoke-invite.txt"
+chmod 600 "$HOME/proofops-smoke-foreign-invite.txt"
+export INVITE_FILE="$HOME/proofops-smoke-invite.txt" FOREIGN_INVITE_FILE="$HOME/proofops-smoke-foreign-invite.txt" SMOKE_BASE="$APP_ORIGIN/hosted-api"
+deploy/lightsail/smoke.sh --apply
+# Browser gate를 따로 통과시키고 operator fixture/invite 파일을 삭제한다.
+```
+
+smoke는 health→login→session→PDF201→scope-plan POST/GET 및 revision/hash 확인→If-Match
+없는 선택의 428/무변경 확인→기존 선택 hash로 run202→worker poll/result 상태→타 테넌트
+초대 사용자의 문서 조회 404→purge completed/업로더 조회 404→logout을 실행하고
+secret/UUID/원문 없이 상태·길이·시간만 출력한다. foreign invite는 서로 다른 tenant UUID로
+미리 발급하고 private 0600 파일로 전달한다.
+실행 중 scope 선택을 수정하지 않는다. 공개 admission은 Linux release
+gate를 통과할 때까지 다시 닫고 static 웹을 유지한다. API/worker 원장/도메인 guard는 바꾸지 않는다.
+
+### 6. 본선 운영·백업·롤백·중지
+
+초대 발급은 위 SSH CLI의 tenant/user/role만 바꿔 실행하여 one-time code를 개인 경로로
+전달한다. invite24h, session8h/idle30m. viewer/editor/reviewer/admin을 구분한다.
+일일 운영: health/ready/runtime, queue8/active1, 폐기 실패, 디스크/RSS, Docker logs 로테이션,
+`cost.sh --apply`의 AWS budget incurred/forecast를 확인한다. 비용 미정산/unknown은 유지하고
+새 event ID/빈 ledger로 cap을 초기화하지 않는다. 아래 원장 SQL은 aggregate만 출력한다.
+
+```sh
+# 서버 /srv/proofops에서 (sudo -i 이후)
+docker compose --env-file compose.env exec -T api python -c 'import sqlite3,json; db=sqlite3.connect("file:/data/deletions.sqlite3?mode=ro",uri=True); print(json.dumps({"spend_status_micro_usd":db.execute("select status,sum(amount) from spend group by status").fetchall(),"aged_event_micro_usd":db.execute("select sum(amount) from event_totals").fetchone()[0]}))'
+# payload-free application backup; original/prepared/display PDF/auth 제외
+# admission 닫고 worker drain/unknown 기록 후 API/worker를 중지
+docker compose --env-file compose.env stop api worker
+docker compose --env-file compose.env run --rm --no-deps api python scripts/hosted_control.py backup --path /data/backups/UNIQUE_DATE
+docker compose --env-file compose.env up -d api worker
+```
+
+이 kit는 backup을 data bind 내부 `/data/backups/UNIQUE_DATE`에 두어 maintenance에서 접근한다. `/srv/proofops/backups`는
+암호화 export staging 용도이며 자동 raw-copy/VM snapshot에 쓰지 않는다. 온라인 앱 백업은
+가장 오래된 source creation+14d 만료이며 purge 시 해당 backup artifact도 삭제한다.
+복구: acceptance 닫기→API/worker stop→동일 ledger identity/current deletions.sqlite3를
+보존→`docker compose run --rm --no-deps api python scripts/hosted_control.py restore --path
+/data/backups/UNIQUE_DATE`→API/worker 시작. 원본 PDF는 복구되지 않으므로 reupload,
+SOURCE_UNAVAILABLE가 정상이다. 독립 ledger를 이전 버전으로 rewind하지 않는다.
+
+롤백 순서: HOSTED_ACCEPT_UPLOADS=false/R108_ACCEPT_NEW_RUNS=false/ANALYSIS_BACKEND=static/
+LIVE_DISABLED=true를 로컬 private env에 설정하여 deploy.sh 재적용→Vercel production
+`VITE_ANALYSIS_BACKEND=static` 재빌드/재배포→필요하면 `vercel.json.p3-backup` rewrite 복원.
+직전 hosted schema1 호환 이미지로만 바꾸고 data/돈/삭제 ledger를 유지한다. APP_ENV=local
+우회는 없다. worker active/unknown 요청을 유료 재전송하지 않는다.
+
+중지는 `systemctl stop proofops`로 API+worker+Caddy를 멈출 수 있지만 **일반 Lightsail
+VM은 stopped 상태에도 삭제할 때까지 과금**된다. 원본7일 deadline이 남았으면 유지보수
+프로세스를 유지하거나 모든 활성 문서를 authorized deletion으로 purge completed 확인 후
+완전히 중지한다. 과금 종료는 아래 teardown이다.
+
+```sh
+# 접수 닫고 drain/unknown 상태 확인한 뒤 서버에서 API+worker stop (새 dispatch 방지)
+# current 독립 ledger의 SQLite online copy만 export (PDF/키/세션 DB 제외)
+sudo systemctl stop proofops
+cd /srv/proofops
+sudo docker compose --env-file compose.env run --rm --no-deps api python -c 'import sqlite3; src=sqlite3.connect("file:/data/deletions.sqlite3?mode=ro",uri=True); dst=sqlite3.connect("/data/operator-ledger.sqlite3"); src.backup(dst); dst.close(); src.close()'
+# sudo install -o ubuntu -g ubuntu -m600 /srv/proofops/data/operator-ledger.sqlite3 /home/ubuntu/operator-ledger.sqlite3
+# 로컬로 scp 후 operator custody에서 암호화 보관; 임시 서버 copy 제거. 원장에는 hashed fences/IDs가 있어 공개 금지.
+# 아래는 로컬 shell에서, 보관 성공 확인 후에만:
+export CONFIRM_DELETE="$NAME" LEDGER_ARCHIVED=true
+deploy/lightsail/teardown.sh          # 정확한 리소스 목록 preview
+deploy/lightsail/teardown.sh --apply  # 내일/본선 후: owned VM + IP + 해당 source snapshots + imported key 삭제
+```
+
+teardown은 account/서울/name/owned.txt/Project tag를 대조하고 타 인스턴스에 IP가 붙어 있으면
+삭제 전에 중단한다. 자동 snapshot addon이 외부에서 켜졌다면 해당 VM automatic snapshots도
+먼저 제거한다. 마지막 list로 VM/IP/manual snapshots absence를 확인한다. budget 경보는 남긴다.
+VM 삭제는 서버 raw PDFs/키/Caddy volumes도 없애므로 독립 ledger export를 먼저 완료한다.
+
+### 7. 예상 비용·검증 범위
+
+현재 공식4GB IPv4 Linux plan은 USD24/month, fixed hourly cap이며 서울 catalog 조회가
+정본이다. 단순730h 환산으로264h는약USD8.68,11일+행사 모델 최대7는약USD15.68; VAT/
+전송 초과/유료 Vercel/도메인/backup 비용 별도, 청구 확정 견적은 아니다. 예상 전체10–20달러
+범위를 유지하고 선택 bundle 월24달러 초과 시 kit는 중단한다. 연결된 static IP는 free,
+분리된 IP는 과금될 수 있다. 앱 backup은 같은 disk이며 AWS snapshots는 기본off(원본/키
+유출·TTL 무효화를 피함). 준비40–70분+사용자 계정·TLS/browser gate 시간, DNS/ACME 실패는 별도.
+
+P3 로컬 검증: ShellCheck/각 Bash syntax, dry-run remote-call trap, catalog/권한/teardown
+mock contract, Compose API+worker(no Caddy), health/login/upload202/poll/purge/restart.
+로컬 arm64 증거를 amd64·TLS·50MiB Vercel·120s staging·live4GB 결과로 바꾸지 않는다.
+
+공식 참조(2026-10-09 문서 확인, API 호출 아님):
+[Lightsail get-bundles](https://docs.aws.amazon.com/cli/latest/reference/lightsail/get-bundles.html),
+[Lightsail quotas](https://docs.aws.amazon.com/general/latest/gr/lightsail.html),
+[Lightsail bundle pricing](https://docs.aws.amazon.com/lightsail/latest/userguide/amazon-lightsail-bundles.html),
+[stopped billing](https://docs.aws.amazon.com/lightsail/latest/userguide/amazon-lightsail-frequently-asked-questions-faq-billing-and-account-management.html),
+[Budgets IAM](https://docs.aws.amazon.com/service-authorization/latest/reference/list_budgets.html),
+[Vercel external rewrites](https://vercel.com/docs/routing/rewrites),
+[Vercel120s origin limit](https://vercel.com/changelog/cdn-origin-timeout-increased-to-two-minutes),
+[Caddy body limit](https://caddyserver.com/docs/caddyfile/directives/request_body).
+
+## P4 local amd64 image and operator selection
+
+P6: the private operator JSON accepts `"llm_max_workers": 8` (default 8;
+strict integer 1–16). The hosted driver overrides `LOCAL_LLM_MAX_WORKERS` from
+this setting. Provider HTTP waits stay outside SQLite writer transactions;
+budget reservations, settlements and publication keep their existing fences.
+`outcome.json` records `stage_seconds` for parse/extract/tag, including setup.
+
+Completed and partial results replay sources once at publication and persist
+read-only `result-N.json` revisions. Their SHA-256 hashes are anchored in the
+control DB; GET status/result checks snapshot and original-file hashes without
+source replay. A successful review validates and publishes a new immutable
+revision; reads can use the prior revision during review. All revisions and
+anchors purge with the document. Older runs without a snapshot fail closed with
+`RESULT_INTEGRITY_UNAVAILABLE`; they require an explicit offline verification
+and snapshot publication before reads, rather than an implicit GET migration.
+
+Build without pushing: `docker buildx build --platform linux/amd64 --load
+-f deploy/public/Dockerfile -t proofops-r108-public:p4-amd64 .`.
+Run key-free Compose rehearsal with `IMAGE=proofops-r108-public:p4-amd64
+EVIDENCE_DIR=/path/to/private/evidence deploy/lightsail/local-smoke.sh`.
+The script supplies dummy empty key files only for the Linux blocked-result check;
+no provider credentials or cloud calls are needed.
+
+In private live.json, omit `analysis_profile` for the existing P2 profile or set
+`"analysis_profile":"r108-finals-candidate-v2"` for the frozen Q9 integration bundle.
+Hosted default remains `r108-default`. V1 has an E2E5 regression warning and is
+excluded from `/v1/runtime` operator choices; existing v1 configs remain readable.
+Linux defaults to approved v3; macOS retains Apple. To request it explicitly,
+set the single entry `"rendered_reader_profile":"upstage-ocr-page-v3"`.
+V1/v2 selections remain `LINUX_SOURCE_READER_UNRESOLVED`; operator JSON cannot
+approve a reader. The release allowlist in `config/hosted_rendered_readers.json`
+records O1d SHA256 `69f0797dbae5420ba1b5deb4ef2f12df3e7a820c0a9a37c5f5d16c37deea741e`.
+Default live flags remain off. The key-free Compose probe verifies approved v3
+runtime provenance and failed-v2 non-dispatch. Actual PNG-only OCR uses the same
+hosted budget/lease broker as parse/Luna, and result reads use cached receipt
+bytes only. Linux live capacity and public TLS remain separate release checks.
+Close live admission or select a held reader to roll back new work; preserve
+saved readers/receipts and the independent budget/deletion ledger.
+
+The image includes the pilot's runtime PyYAML dependency, delegated review helper,
+both lockfiles and their matching SBOM. These are required for its existing
+supply-chain admission gate; changing a lockfile requires regenerating the SBOM
+with `uv run python scripts/check_licenses.py --generate-sbom
+--env ENABLE_LEGACY_PYMUPDF=false` before rebuilding.
+
+
+## P7 provider limit handling (local release)
+
+For HTTP402/403, the hosted run becomes failed with its exact safe code and shows
+“분석 서비스 한도 초과 — 운영자 확인 필요”. Do not retry or reset spend. The broker
+retains unknown costs in accounting_pending and blocks queued dispatch/new admission
+until an operator reconciles the actual provider/account state and preserved ledger.
+`/v1/runtime` exposes stored observed status only, with remaining_usd=null; it never
+queries a provider on GET and does not claim that an unqueried key has capacity.
+Use the same fixed Korean message in the separate `esg-submission-hosted` frontend.
+No real provider request, read-only account lookup, push or cloud deployment is part
+of the P7 free local build/smoke. Preserve the independent ledger on rollback.
+
+### HS1 offline integration / deployment inputs
+
+HS1 changes only r108-public; no push, Vercel publish, AWS mutation or paid call.
+Ported exact SV1/PF1/AS1/PT1 commits; MP1 and unrelated decision-v2/budget experiments
+excluded. Common ancestor: b9b201bd7c3d50b9486ab84ea3f87331b4d1fdaf. Public-only
+control-plane, OCR v2/v3/table-span registrations, provider quotas and snapshot
+reads retained. Conflicts resolved in local_upstage_pilot, claim_source_policies,
+live_tagging and finals_demo. Hosted frontend reused from local submission checkout
+esg-submission-hosted at d36788a1787da316e8dc48efa90fc61fcaa43a17; its existing session,
+review and delete safeguards were retained and scope/provisional fields extended.
+
+Before AWS release: integrate MP1 after its own gate; run RB1 authorized live
+verification on the combined image. Preserve the existing private volume and money
+ledger. Set DEC-22 caps explicitly in the runtime env (Docker defaults updated):
+HOSTED_RUN_USD=1.0/HOSTED_DAY_USD=7/HOSTED_EVENT_USD=7. Existing env overrides do not
+change automatically. Provide real operator reporting scope, private provider-key
+mounts, approved Linux reader config, invitation and consent version; keys stay
+outside logs and data payloads. Run the existing4GiB memory/health checks and confirm
+150MiB/300page limits in the actual TLS proxy (FX3). API uploads/validation/scope
+remain serialized in the 512MiB container. The worker receives only a <=50MiB
+selected PDF, <=30 pages including <=10 claim pages. Network-uncertain claims hold
+PROCESSING_UNCERTAIN with their call/full envelope reserved; other runs may enter
+within the existing day/event caps. Use the existing evidence-backed reconcile CLI
+for published completed/partial_blocked runs too; settlement preserves their result.
+
+Vercel's checked-in build now defaults VITE_ANALYSIS_BACKEND=hosted and keeps the
+static shell. VITE_HOSTED_API_BASE=/hosted-api uses a same-origin rewrite; add the
+actual owned AWS API HTTPS destination before the SPA rewrite, using the existing
+runbook deployment procedure (no imaginary endpoint checked in). Set
+VITE_ANALYSIS_BACKEND=static explicitly for static rollback. Local launcher defaults
+are unchanged. Confirm secure first-party cookie/Origin/CSRF through the real proxy.
+
+Local HS1 browser rehearsal uses a12page synthetic environment report, the real
+hosted API/storage/PDF security gate and an HTTPS static web build; LIVE_DISABLED=true
+and no worker are used. Stop when the auto plan is displayed, edited, and analysis
+start is enabled. This proves intake wiring only; it is not real-company parsing
+accuracy, Linux4GiB peak RSS or production proxy verification. Browser font CSP
+messages from serving the web under API security headers are harness-only; deployment
+serves web and API on their intended surfaces and must check its own headers.
+
+### HS2 — 무인 평가 설정과 정산 체크리스트
+
+- 기존 private env의 낮은 한도는 자동 승격되지 않는다. DEC-22 설정을
+  `HOSTED_RUN_USD=1.0`, `HOSTED_DAY_USD=7`, `HOSTED_EVENT_USD=7`로 명시한다.
+  `LIVE_DISABLED=true`는 안전한 기본값이다. 운영자가 승인 reader·operator JSON·키를
+  mount한 뒤 `ANALYSIS_BACKEND=r108`, `LIVE_DISABLED=false`,
+  `R108_ACCEPT_NEW_RUNS=true`로 켜야 본선 유료 분석 경로가 열린다.
+- `vercel.json` 첫 rewrite의 `placeholder.invalid`는 배포 입력이다.
+  `python deploy/lightsail/configure-web.py --checkout <checkout> --static-ip <owned-ip>`로
+  diff를 확인하고 `--apply`로 로컬 파일을 바꾼다. 실제 배포는 별도 운영자 실행이다.
+- 30쪽 분석605초/406초 근거로 timeout1800초·lease1900초, 대기 heartbeat30초를 적용했다.
+  동시 분석1과 unknown 정산 가드는 유지한다. 만료 시 독립 원장에 dispatch0건인 run만
+  자동 실패·예약0정산 처리한다. 기록된 전송이 있으면 accounting_pending을 해제하지 않는다.
+- 정산이 필요하면 신규 접수·worker를 멈추고 보존 원장과 provider export를 대조한다.
+  operator receipt JSON에 `run_id`, `operator`, 5–1000자 `reason`, export 파일의
+  `provider_evidence_sha256`, 모든 등록 전송 `calls`를 기록한다. 각 call에는 원장과 동일한
+  `call_id/request_id/provider/input_sha256`, 확인된 `actual_usd`를 넣는다. 기정산 금액은 동일한 값만 허용한다. 추정0 금지.
+  원문 삭제·만료로 문서가 없는 run은 이 명령이 거부한다. 삭제 fencing을 해제하거나
+  payload를 복원하지 말고 원장을 보존하여 운영자 별도 정산 대상으로 남긴다.
+
+```sh
+# 서버 private env를 가진 API container 안에서 실행. provider HTTP 호출 없음.
+python scripts/hosted_control.py reconcile --receipt /run/private/settlement.json --evidence /run/private/provider-export.json
+# dry-run과 export 대조 완료 후 운영자가 적용 (기본은 dry-run)
+python scripts/hosted_control.py reconcile --receipt /run/private/settlement.json --evidence /run/private/provider-export.json --apply
+python scripts/hosted_control.py maintain
+```
+
+receipt는 문서의 private receipt 디렉터리에 불변으로 보관되어 문서 삭제/TTL과 함께
+정리된다. 실제 비용이 bound보다 크거나 ID/export SHA가 다르면 적용을 거부한다.
+provider 402/403/429 자체를 해제하지 않으며 키 교체/재전송/예산 원장 reset을 하지 않는다.
+Vercel `/api/live-*` 데모의 OpenRouter 키·인메모리 제한(#5)은 별도 데모 영향이며,
+본선 `/hosted-api/v1/*`는 durable hosted broker 경로를 사용한다. 이번 수정은 그 데모를
+본선으로 바꾸지 않는다. 실제 AWS/TLS/Vercel proxy·4GB RSS·유료 분석은 별도 not_run이다.
+
+### FX4 — 평가자 3~5개 보고서와 무료 검증 (2026-10-10)
+- 평가 기본 사용자 한도는 `HOSTED_USER_DAILY_RUNS=6`; 양의 정수로 조정한다.
+  런타임 `limits.user_daily_runs`를 확인한다. 글로벌10회/일, 사용자 진행1,
+  대기8, 분석 워커1은 유지한다. 반복 실행은 같은 요청 키의 재시도와 구분한다.
+- 금액은 실행 USD1.0·일 USD7·행사 USD7 유지. parser/chat/OCR는 실행별
+  비공개 장부와 hosted broker로만 호출한다. research R108 원장이나 역사 장부를
+  공개 비용 승인으로 가져오지 않는다. 미승인 Decisions 설정은 차단한다.
+- 신규 추출은 기존 유한 상한2000회로 준비한다. 100회 미리보기 중단으로 추출한
+  주장까지 태깅하지 않던 경로를 고쳤다. 실제 예산 중단은 partial_blocked와
+  미분석 범위를 유지하며, 남은 USD 상한 내에서만 태깅한다. 기존 결과는 불변이다.
+- 실행 중 단계·추출 주장 수·태깅 처리 수가 증가하고 결과 정리 중95%를 보이는지
+  확인한다. 처리 수는 확정 등급 수가 아니다. 결과 URL은 게시 완료 후만 열려야 한다.
+- 평가 체크: 3~5개 접수 허용 / 7번째 사용자 접수429 / 사용자 동시 요청429 /
+  일·행사 금액 상한 및 미정산 예약 보존 / 테넌트별 진행 수·결과 접근 격리 /
+  취소 후 진행·게시 차단 / 저장 결과의 원문·판정·보류 동일성.
+- DB/API 변경과 rollback은 CONTRACT.md FX4 절을 따른다. 정적 재생은
+  network-none·키 없이 실행한다. 유료 재실행·push·배포·AWS 시험은 FX4에서 not_run.
+
+## P3-EC2 — 시드니 EC2 arm64 실행 준비 (EC1/EC2R, 2026-10-10)
+
+계정 `753036488189`는 AWS 프로젝트 **Sky is the Limit** 소속이며 프로젝트 리전은
+시드니 `ap-southeast-2`다. 조정자가 확인한 사실: 서울 `ap-northeast-2`는 조직 SCP가
+EC2와 Lightsail 모두 명시 거부하며, 다른 리전에는 이 SCP 거부가 확인되지 않았다.
+이는 다른 리전의 실제 생성 권한·용량 보장이 아니다. 이 키트는 승인된 시드니로만 제한한다.
+기존 Lightsail 파일은 보존하며 서울에서 SCP를 우회하려고 IAM Allow를 추가하지 않는다.
+EC2R은 공개 가격/문서 조회와 로컬 fixture 검증만 수행했다. **EC1은 도구 작성과 로컬 dry-run까지만 수행했으며 AWS 읽기·쓰기,
+SSH, 실제 TLS/배포, 유료 모델 호출은 실행하지 않았다.** 아래 `--apply`는 권한 부착 후
+조정자/사용자가 실행한다. 앞 절의 세션·Origin·CSRF·원본7일·독립 비용/삭제 원장·복구·
+접수 종료 절차는 EC2에서도 동일하다. 앱/DB/API 계약 변경은 없다.
+
+### 1. 사용자 준비와 정책 부착
+
+AWS 계정 `753036488189`의 관리자가 `deploy/ec2/iam-policy.json`으로 **고객 관리형 정책**을
+만들어 IAM 사용자 `proofops-deploy`에 붙인다. 정책은 공백 제외 6,032자로 관리형6,144자
+제한 안에 있으며 사용자 inline 정책 총2,048자 제한에 맞지 않는다. 실제 정책 부착은
+EC1에서 하지 않았다. 인스턴스 프로파일·`iam:PassRole`·STS Allow는 필요하지 않다.
+
+EC2/SSM/Service Quotas는 시드니 리전, 쓰기 리소스는 이 계정 ARN으로 한정한다.
+RunInstances는 `t4g.medium`, IMDSv2, 암호화30GiB gp3를 요구한다. 기존 SG/키/EIP와
+삭제 대상은 Project 태그로 제한하며 CreateTags는 생성 요청에서 Project/Name만 허용한다.
+기본 VPC/서브넷은 사전에 ID를 조회하지 않았으므로 시드니 계정의 해당 ARN 범위가 필요하다.
+스크립트가 default VPC와 public default subnet만 선택하며 없으면 중단한다. VPC/NAT/
+로드밸런서·역할·snapshot 생성 권한은 없다. AMI는 Canonical owner 조건과 스크립트의
+Ubuntu24.04 arm64 이름/SSM 조회로 확인한다. IAM 정책만으로 SSH CIDR/IPv6 전체 설정을
+강제한 것은 아니므로 승인된 create.sh를 사용한다.
+
+운영자 로컬 필수 도구: AWS CLI v2, Bash, Python3.12, jq, OpenSSH, Docker(이미지 build/export).
+`check-config.py --kit`은 프로젝트에 이미 선언된 개발 의존성 jsonschema를 사용한다.
+새 의존성/lockfile 변경은 없다. `uv run --no-sync python deploy/ec2/check-config.py --kit`으로
+정책 JSON Schema·문법·범위를 로컬 검증한다. 이는 실제 IAM authorization 검증이 아니다.
+
+```sh
+# 지정된 worktree에서 실행. 키값을 출력하거나 shell tracing을 켜지 않는다.
+cd /Users/ss020/Dev/ESG_ProofOps/.local/r108-public
+export PROFILE=proofops-deploy REGION=ap-southeast-2 ACCOUNT_ID=753036488189
+export NAME=proofops-r108 ARCH=arm64 IMAGE=proofops-r108-public:ec1-arm64
+export STATE_DIR="$PWD/deploy/ec2/.state"  # EC2 전용; Lightsail 상태와 섞지 않는다.
+export SSH_KEY=/private/path/proofops-ec2
+export SSH_PUBLIC_KEY=/private/path/proofops-ec2.pub
+export SSH_CIDR=REPLACE_OPERATOR_PUBLIC_IPV4/32
+# 필요할 때 로컬 키 생성: ssh-keygen -t ed25519 -f "$SSH_KEY" (기존 키 덮어쓰기 금지)
+deploy/ec2/preflight.sh          # STS/SSM/Describe/쿼터 명령만 표시, 원격호출0
+deploy/ec2/create.sh             # 리소스/보안 설정 preview
+# 권한 부착 후 조정자가 실행:
+deploy/ec2/preflight.sh --apply
+deploy/ec2/create.sh --apply
+```
+
+preflight는 STS 계정/리전·AZ, Ubuntu24.04 LTS arm64 SSM public parameter,
+t4g.medium offering·2vCPU/4GiB, 기본 VPC·IPv4 IGW route·가용 default subnet,
+인스턴스/EIP/SG/키 이름 충돌, 현재 running/pending Standard vCPU 사용량과 쿼터를 확인한다.
+SSM 경로는 `/aws/service/canonical/ubuntu/server/24.04/stable/current/arm64/hvm/ebs-gp3/ami-id`.
+Canonical의 공통 파라미터 이름을 시드니 SSM endpoint에서 조회하므로 AMI ID를 서울에서
+재사용하지 않는다. 코드의 모든 AWS CLI 호출은 `--region ap-southeast-2`를 사용한다.
+시드니 T4g family는 AWS 공개 리전 목록에 있으나 t4g.medium의 AZ별 offering/가용성은
+리전 독립이라고 가정하지 않는다. preflight가 available AZ ∩ offering ∩ default subnet을
+계산하고 Canonical owner/arm64/AMI 상태를 검증한다. 실제 계정 조회는 **not_run**이다.
+쿼터 읽기만 AccessDenied이면 사용자가 콘솔에서 시드니 Running On-Demand Standard
+`L-1216C47A` 값을 확인해 `VCPU_QUOTA`를 설정한다. 기본값을 추측하지 않으며 네트워크/
+다른 읽기 오류를 권한 없음으로 숨기지 않는다. 필요하면 확인된 `AZ`를 선택한다.
+Offering은 재고 보장이 아니다. EIP 할당 쿼터/실제 EC2 capacity는 create의 해당 호출에서
+실패할 수 있으며, 그때 부분 생성 리소스와 journal을 보존한다.
+
+create는 ed25519/RSA **공개키만** import하고 SG22는 운영자 IPv4/32,80/443은 IPv4 전체에
+연다. IPv6 주소/ingress는 없고 host IPv6도 끈다. 필요한 IPv4 outbound는 유지한다.
+인스턴스는 t4g.medium, standard CPU credits(추가 credit 과금 방지), encrypted gp3
+30GiB, IMDSv2 required, termination protection off, root DeleteOnTermination true다.
+컨테이너는 EC2 메타데이터/instance profile을 쓰지 않으므로 hop limit1을 유지한다.
+모든 생성 자원에 Project/Name 태그를 붙이며 자동 공인IP 없이 EIP1개만 연결한다.
+cloud-init은 EIP 연결 후 apt 통신을 기다리고 Ubuntu/arm64를 검사한다. 이미지·provider
+키를 user-data에 넣지 않는다. `.state/owned.json`은 성공 ID·마지막 intent·client token을
+0600으로 남긴다. 실패 후 같은 create를 재실행하지 않는다. 응답 유실 등으로 ID가
+미기록된 matching 리소스는 스크립트가 임의 채택/삭제하지 않으므로 운영자가 점검한다.
+
+### 2. 이미지·비밀 파일·배포·smoke 순서
+
+create가 표시한 소유 EIP를 `STATIC_IP`로 지정한다. SSH host fingerprint는 EC2 console의
+system log 등 신뢰할 수 있는 별도 경로로 확인해 known_hosts에 등록한다.
+StrictHostKeyChecking=yes를 끄지 않는다. private config 검사와 Compose/Caddy·smoke.py는
+기존 파일을 재사용한다. deploy/keys/smoke/budget 진입점은 EC2 디렉터리에서 같은 검증과
+전송 순서를 유지하고 시드니 common.sh를 사용한다. 서울 전용 Lightsail common.sh로
+진입하지 않으며 해당 공유 파일을 수정하지 않는다.
+
+```sh
+export STATIC_IP=REPLACE_CREATED_EIP
+export RUNTIME_ENV=/private/path/runtime.env ACME_EMAIL=REPLACE_OPERATOR_EMAIL
+# P3의 init-runtime.py·초대·동의·키파일 생성 절차를 동일하게 사용한다.
+# 새 파일 생성 시: python3 deploy/ec2/init-runtime.py --origin https://ACTUAL_VERCEL_DOMAIN --output "$RUNTIME_ENV"
+python3 deploy/ec2/check-config.py "$RUNTIME_ENV"
+# OPENAI_KEY_FILE/OPENROUTER_KEY_FILE/UPSTAGE_KEY_FILE/LIVE_CONFIG_FILE은 private0600 파일 경로.
+# HOSTED_RUN_USD=1.0/HOSTED_DAY_USD=7/HOSTED_EVENT_USD=7, LIVE_DISABLED=true 유지.
+export IMAGE_ARCHIVE=/private/path/NEW_ec1_arm64.tar
+deploy/ec2/pack.sh --arch arm64 --build "$IMAGE_ARCHIVE"          # preview
+deploy/ec2/pack.sh --apply --arch arm64 --build "$IMAGE_ARCHIVE"  # 로컬 build/export만; push 없음
+deploy/ec2/keys.sh                 # preview
+deploy/ec2/keys.sh --apply          # 소유 EIP·aarch64 확인 후 비밀 파일 설치
+deploy/ec2/deploy.sh                # preview
+deploy/ec2/deploy.sh --apply        # SHA/arm64·원격aarch64·cloud-init·private env 검증 후 배포
+# P3 configure-web.py로 소유 EIP.sslip.io HTTPS rewrite의 로컬 diff를 확인한 뒤 적용한다.
+# 실제 Vercel publish는 별도 조정자 실행; 기존 Origin/쿠키/CSRF·업로드 제한을 검사한다.
+export SMOKE_BASE=https://ACTUAL_VERCEL_DOMAIN/hosted-api APP_ORIGIN=https://ACTUAL_VERCEL_DOMAIN
+# INVITE_FILE/FOREIGN_INVITE_FILE은 P3의 각 테넌트 private0600 초대 파일.
+deploy/ec2/smoke.sh                # preview
+deploy/ec2/smoke.sh --apply         # LIVE_DISABLED 상태 scope-plan/tenant/purge HTTP 검증
+```
+
+keys/deploy의 SSH 대상은 EC2 `.state`의 성공한 EIP와 일치해야 한다. 이미지 manifest SHA와
+arm64, 서버 `uname -m=aarch64`가 다르면 전송/배포를 거부한다. HTTP smoke는 기존 테넌트,
+If-Match, scope 변경 검증을 유지하며 실제 모델 호출을 켜지 않는다. 기존 P3에 나온
+local-smoke.sh는 필요할 때 `ARCH=arm64`와 해당 `IMAGE`로 사용할 수 있지만 EC1에서는
+이미지 build/실제 서버 실행을 하지 않았다. 실제4GiB RSS·TLS·Vercel·reader/모델 품질
+승인은 각 기존 release gate를 통과한 다음이다.
+
+### 3. 프로젝트 지출 한도·계정 budget과 예상 비용
+
+**Sky is the Limit 프로젝트의 월간 지출 한도는 USD20이며 도달 시 프로젝트가
+일시중지된다**(조정자 확인, EC2R에서 실제 프로젝트 설정 조회/변경은 not_run).
+연속 730h 인프라만 약USD37.48이므로 배포 전에 프로젝트 한도 **최소 USD50/month로
+상향 요청**을 권장한다. 이는 권장값이며 승인·실제 상향을 뜻하지 않는다. 다른 AWS
+서비스 지출·기존 월 누적액·세금 등을 고려해 관리자가 충분한 여유를 확인해야 한다.
+
+`deploy/ec2/budget.sh`는 기존과 같은 계정 단위 USD20 이메일 경보를 생성한다. 같은 이름의
+`proofops-r108-monthly-20`이 이미 있으면 중복 생성하지 말고 확인한다. cost.sh는
+Lightsail 조회 대신 EC2 인스턴스/EIP/EBS inventory를 저장한다. Budget은 경보이며
+사용량 차단 장치가 아니며 프로젝트의 USD20 중지 한도를 바꾸지 않는다. provider의
+USD1/run·7/day·7/event 원장은 별도다. 외부 provider API 지출을 AWS 프로젝트
+과금으로 자동 합산하지 않는다.
+
+```sh
+export ALERT_EMAIL=REPLACE_OPERATOR_EMAIL
+deploy/ec2/budget.sh  # preview; 기존 budget이 없을 때만 조정자가 --apply로 생성
+deploy/ec2/cost.sh    # preview; 조정자의 --apply는 계정경보/EC2 inventory 읽기
+```
+
+2026-10-10 공식 공개 가격 자료 확인(가격 파일 effective2026-10-01, account API 호출 아님):
+
+| 시드니 리소스 | USD 단가 | 730h/월 환산 |
+|---|---:|---:|
+| t4g.medium Linux Shared On-Demand, standard credit | 0.0424/h | 30.952 |
+| public IPv4/EIP1개, 연결/미연결 동일 | 0.005/h | 3.650 |
+| gp3 30GB, 기본3000IOPS/125MiB/s | 0.096/GB-month | 2.880 |
+| 합계 | 약0.05135/h(스토리지 환산 포함) | 약37.482 |
+
+11일264h 인프라는 약USD13.55513(730h 기준 EBS 비례 환산)이며 프로젝트 USD20에서
+약USD6.44487가 남는다. 기존/다른 AWS 지출 전의 추정 여유다. 외부 모델행사 상한USD7을
+전부 쓰면 전체 운영비는 약USD20.55513으로 USD20 비교 기준을 약USD0.55513 초과한다.
+외부 provider의 USD7은 AWS 프로젝트에 청구된다고 가정하지 않는다. 프로젝트 한도는
+AWS 프로젝트 지출로 판단하고, 전체 운영비는 provider 원장과 별도로 대조한다.
+VAT/전송초과/유료Vercel/추가스토리지는 별도이며 실제 EBS는 월별 초 단위 비례 청구라
+확정 청구액이 아니다. 기존 Lightsail 월24달러 추정은 EC2에 적용하지 않는다. EC2 stop은
+compute 과금을 멈추지만 EBS/EIP는 남아 과금되므로 비용 종료에는 teardown이 필요하다.
+Standard credits는 추가 credit 비용을 막지만 지속부하에서 baseline으로 throttling될 수
+있다. EC1은4GiB 분석 처리시간/성능을 측정하지 않았다.
+
+출처: [EC2 공식 On-Demand 가격](https://aws.amazon.com/ec2/pricing/on-demand/),
+[시드니 공식 EC2/EBS 공개 가격 CSV](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonEC2/current/ap-southeast-2/index.csv)
+(t4g Used SKU9TP3ARTXQ46KEGHK, gp3 SKU QR74UAP3E9WUYT9B),
+[EBS 공식 가격](https://aws.amazon.com/ebs/pricing/),
+[IPv4 공식 가격](https://aws.amazon.com/vpc/pricing/).
+선택 단가/가정은 `deploy/ec2/pricing.json`에도 저장한다.
+
+### 4. 종료·rollback·로컬 검증
+
+P3의 접수종료→worker drain/unknown 보존→purge/TTL→current 독립 ledger export·암호화
+보관을 먼저 끝낸다. EC2 teardown은 snapshot을 만들거나 임의 snapshot을 지우지 않는다.
+root disk 자동삭제가 포함되므로 PDF·키·Caddy volumes는 복구할 수 없다. image rollback은
+기존 호환 이미지와 같은 data/돈/삭제 ledger로만 하며 live/admission을 닫아 시작한다.
+EC2/Lightsail 상태를 교환하거나 새 event ID로 비용 상한을 초기화하지 않는다.
+
+```sh
+export CONFIRM_DELETE="$NAME" LEDGER_ARCHIVED=true  # 실제 원장 보관 성공 후만
+deploy/ec2/teardown.sh          # exact state IDs preview
+deploy/ec2/teardown.sh --apply  # 조정자가 실행: instance 종료→EIP해제→SG→imported key
+```
+
+삭제 전에 `.state`/계정/Project·Name/ID/VPC/root volume/외부 EIP·SG 사용을 확인하고
+하나라도 다르면 중단한다. root 외 추가 디스크는 삭제하지 않고 전체 teardown을 멈춘다.
+재실행은 부재와 API 실패를 구분하며, terminated instance 및 EIP/SG/키/root volume 부재를
+확인한다. AWS의 삭제 전파 지연은 성공으로 숨기지 않으며 journal을 보존해 점검 후
+teardown만 재실행한다. budget 경보는 유지한다. 새 배포가 필요하면 삭제 검증 뒤 journal을
+별도 private 경로에 보관하고 명시적으로 새 NAME/STATE_DIR을 선택한다.
+
+EC2R 로컬 검사: `python3 deploy/ec2/test_kit.py`, `python3 deploy/ec2/check-config.py --kit`,
+`(cd deploy/ec2 && shellcheck -x *.sh)`, 각 `bash -n`, 변경 Python 파일 Ruff/type check.
+단위의 `--apply`는 aws/ssh/scp를 로컬 fixture로 교체한다. dry-run에서는 fixture AWS 호출도0.
+실제 AWS 읽기·쓰기/Access Analyzer·Ubuntu cloud-init/arm64 image build/SSH/TLS/Vercel/
+4GiB live·유료모델은 **not_run**이다. 단위 통과를 모델 정확도나 production 완료로 표시하지 않는다.
+
+기술 출처: [Canonical Ubuntu AMI 찾기](https://ubuntu.com/aws/docs/aws-how-to/instances/find-ubuntu-images/),
+[AWS 리전별 instance family 목록](https://docs.aws.amazon.com/ec2/latest/instancetypes/ec2-instance-regions.html),
+[EC2 IAM 리소스별 launch 예제](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ExamplePolicies_EC2.html),
+[공식 EC2 서비스 권한 참조 JSON](https://servicereference.us-east-1.amazonaws.com/v1/ec2/ec2.json),
+[SSM public parameter ARN](https://docs.aws.amazon.com/systems-manager/latest/userguide/parameter-store-public-parameters-ami.html),
+[On-Demand vCPU quota](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-on-demand-instances.html),
+[Ubuntu24.04 arm64 Docker 패키지](https://packages.ubuntu.com/noble/docker.io),
+[Ubuntu24.04 Docker Compose v2](https://packages.ubuntu.com/noble/docker-compose-v2).

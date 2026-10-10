@@ -25,8 +25,9 @@ from proofops.domain.provenance import canonical_hash
 MODEL = "solar-pro3"
 MODEL_PRO4 = "solar-pro4"
 # Text, document parse and information-extract rates rechecked at the official
-# pricing page on 2026-09-25; keep one deadline across transports.
-PRICE_RECHECK_AT = datetime(2026, 10, 2, tzinfo=UTC)
+# pricing page on 2026-10-09; keep one deadline across transports.
+# Solar Pro 3 service ends 2026-10-30 KST (pricing notice rechecked 2026-10-09).
+PRICE_RECHECK_AT = datetime(2026, 10, 21, tzinfo=UTC)
 GENERAL_CEILING_USD = Decimal("30.00")
 R32_HISTORICAL_GENERAL_USD = Decimal("20.00")
 RECORDED_GENERAL_REASON = (
@@ -85,6 +86,12 @@ UPSTAGE_TRANSPORT_STOP_CODES = frozenset(
         "UPSTAGE_REQUEST_FAILED",
         "UPSTAGE_RECEIPT_INVALID_RESERVATION_RETAINED",
         "UPSTREAM_UNAVAILABLE",
+        "OPENAI_REQUEST_FAILED",
+        "OPENAI_RECEIPT_INVALID_RESERVATION_RETAINED",
+        *(f"OPENAI_HTTP_{n}" for n in (400, 401, 403, 404, 429, 500, 502, 503)),
+        "OPENROUTER_REQUEST_FAILED",
+        "OPENROUTER_RECEIPT_INVALID_RESERVATION_RETAINED",
+        *(f"OPENROUTER_HTTP_{n}" for n in (400, 401, 403, 404, 429, 500, 502, 503)),
         *(f"UPSTAGE_HTTP_{n}" for n in (400, 401, 403, 404, 429, 500, 502, 503)),
     }
 )
@@ -304,7 +311,9 @@ class UpstageProbe:
     @staticmethod
     def _call_total(db) -> Decimal:
         total = Decimal(0)
-        for raw, receipt in db.execute("SELECT committed, receipt FROM probe_calls"):
+        for request_id, signature, raw, receipt in db.execute(
+            "SELECT request_id,signature,committed,receipt FROM probe_calls"
+        ):
             try:
                 amount = Decimal(raw)
                 if (
@@ -315,7 +324,34 @@ class UpstageProbe:
                     raise ValueError
                 if receipt is None:
                     if amount != Decimal(POLICY["reservation_usd"]):
-                        raise ValueError
+                        # New async parser reservations use exact, pinned page rates.
+                        # Historical unreceipted USD1 rows remain unchanged.
+                        if not db.execute(
+                            "SELECT 1 FROM sqlite_master WHERE type='table' "
+                            "AND name='parse_reservations'"
+                        ).fetchone():
+                            raise ValueError
+                        row = db.execute(
+                            "SELECT bound,body FROM parse_reservations WHERE request_id=?",
+                            (request_id,),
+                        ).fetchone()
+                        body = json.loads(row[1]) if row else {}
+                        if (
+                            row is None
+                            or Decimal(row[0]) != amount
+                            or amount <= 0
+                            or not isinstance(body, dict)
+                            or canonical_hash(body) != signature
+                            or body.get("model") != "document-parse-260128"
+                            or body.get("transport") != "async"
+                            or type(body.get("pages")) is not int
+                            or not 1 <= body["pages"] <= 1000
+                            or body.get("mode") not in {"standard", "enhanced"}
+                            or amount
+                            != body["pages"]
+                            * Decimal(".011" if body["mode"] == "standard" else ".033")
+                        ):
+                            raise ValueError
                 else:
                     parsed = json.loads(receipt)
                     if not isinstance(parsed, dict):
@@ -346,6 +382,25 @@ class UpstageProbe:
                     ):
                         raise ValueError
                 except (InvalidOperation, KeyError, TypeError, ValueError):
+                    raise ValueError("BUDGET_LEDGER_INVALID") from None
+                total += amount
+        # Page OCR has an exact one-page reservation, including uncertain calls.
+        # Include it in every existing transport's shared-provider ceiling.
+        if db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='ocr_calls'"
+        ).fetchone():
+            for raw, state, collection in db.execute(
+                "SELECT committed,state,collection FROM ocr_calls"
+            ):
+                try:
+                    amount = Decimal(raw)
+                    if (
+                        amount != Decimal("0.00165")
+                        or state not in {"pending", "failed", "collected"}
+                        or (state == "collected") != (collection is not None)
+                    ):
+                        raise ValueError
+                except (InvalidOperation, TypeError, ValueError):
                     raise ValueError("BUDGET_LEDGER_INVALID") from None
                 total += amount
         return total
@@ -528,7 +583,7 @@ class UpstageProbe:
         max_tokens: int = 1024,
         json_mode: bool = False,
     ):
-        # Pricing reverified at https://www.upstage.ai/pricing/api on 2026-09-25:
+        # Pricing reverified at https://www.upstage.ai/pricing/api on 2026-10-09:
         # Pro3 $0.15/$0.60, Pro4 $0.30/$1.20 per M tokens (conservative, promotions ignored).
         # Recheck in one week; historical price IDs/rates and ledger policy stay unchanged.
         if datetime.now(UTC) >= PRICE_RECHECK_AT:

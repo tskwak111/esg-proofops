@@ -1,4 +1,4 @@
-"""Browser session rotation and logout HTTP boundary (TASK-041)."""
+"""Browser session rotation and logout HTTP boundary."""
 
 from __future__ import annotations
 

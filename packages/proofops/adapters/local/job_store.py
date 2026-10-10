@@ -429,7 +429,21 @@ class LocalSQLiteJobStore:
         from proofops.adapters.local.run_artifacts import native_paragraph_policy
 
         if policy is not None and policy != native_paragraph_policy():
-            raise ValueError("NATIVE_PARAGRAPH_POLICY_MISMATCH")
+            from proofops.adapters.local.claim_source_policies import page_ocr_profile
+
+            mode = policy.get("mode") if isinstance(policy, dict) else None
+            if (
+                mode
+                not in {
+                    "upstage-ocr-page-v1",
+                    "upstage-ocr-page-v2",
+                    "upstage-ocr-page-v3",
+                    "upstage-ocr-page-v4",
+                    "upstage-ocr-page-v5",
+                }
+                or policy != page_ocr_profile(mode).native_policy()
+            ):
+                raise ValueError("NATIVE_PARAGRAPH_POLICY_MISMATCH")
         with self._transaction() as db:
             if self._owned(db, lease, now) is None:
                 raise LeaseLost("LEASE_LOST")
@@ -754,7 +768,9 @@ class LocalSQLiteJobStore:
                 coverage = validate_tag_commit(db, self, run, message, envelope, next_job)
                 run.update(
                     current_stage="tag" if envelope["stage_status"] == "blocked" else "review",
-                    status="partial",
+                    status="completed"
+                    if envelope.get("pipeline_profile") == "unattended-v1"
+                    else "partial",
                     coverage=coverage,
                     tag_job=asdict(message),
                     tag_stage_status=envelope["stage_status"],

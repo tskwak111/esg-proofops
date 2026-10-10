@@ -14,6 +14,13 @@ from uuid import uuid4
 from proofops.adapters.local.audit_store import append_audit_transaction, read_audit_head
 from proofops.adapters.local.run_artifacts import load_run_graph
 from proofops.adapters.local.summary_store import LocalSummaryStore
+from proofops.application.element_evidence_encoding import (
+    ELEMENT_EVIDENCE_INLINE,
+    ELEMENT_EVIDENCE_V1,
+    TABLE_KEYS,
+    ElementEvidenceExpansionLimit,
+    encode_element_evidence,
+)
 from proofops.application.exports import (
     MAX_EXPORT_BYTES,
     REVISION_RECORDS_V2,
@@ -34,7 +41,10 @@ from proofops.domain.rulepacks import canonical_json
 class LocalExportStore:
     kind = "local-synthetic-only"
 
-    def __init__(self, runs, claims):
+    def __init__(self, runs, claims, *, element_evidence_encoding=ELEMENT_EVIDENCE_V1):
+        if element_evidence_encoding not in (ELEMENT_EVIDENCE_INLINE, ELEMENT_EVIDENCE_V1):
+            raise ValueError("unsupported element evidence writer encoding")
+        self.element_evidence_encoding = element_evidence_encoding
         self.runs, self.claims, self.jobs = runs, claims, runs.jobs
         self.summaries = LocalSummaryStore(runs, claims)
         with self.jobs._transaction() as db:
@@ -119,7 +129,14 @@ class LocalExportStore:
                 run_id,
                 "export_state",
                 export_id,
-                dict(response=response, body=body, actor=actor.user_sub, retry_at=0, errors=[]),
+                dict(
+                    response=response,
+                    body=body,
+                    actor=actor.user_sub,
+                    retry_at=0,
+                    errors=[],
+                    element_evidence_encoding=self.element_evidence_encoding,
+                ),
             )
             return export_id
 
@@ -131,9 +148,12 @@ class LocalExportStore:
             )
             if raw is None:
                 return None
-            if sha256(raw).hexdigest() != state["snapshot_sha256"]:
-                raise ExportRejected("EXPORT_INTEGRITY_FAILED")
-            return json.loads(raw)
+            expected_hash = state["snapshot_sha256"]
+        # Both values came from one transaction; immutable snapshot bytes can be
+        # hash-checked and restored without holding SQLite's writer.
+        if sha256(raw).hexdigest() != expected_hash:
+            raise ExportRejected("EXPORT_INTEGRITY_FAILED")
+        return json.loads(raw)
 
     def capture(self, tenant, export_id):
         state = self.state(tenant, export_id)
@@ -154,6 +174,21 @@ class LocalExportStore:
         if len(claims) > 1000:
             raise ExportRejected("EXPORT_SIZE_LIMIT")
         claim_map = {claim.claim_id: claim for claim in claims}
+        # Search/replay outside the export transaction; snapshot capture below
+        # rejects a changed mutation epoch. Existing frozen exports never change.
+        from proofops.adapters.local.tag_store import LocalTagStore
+
+        tags = LocalTagStore(self.runs, self.claims.uploads, self.claims.parser)
+        evidence_results = {}
+        for claim in claims:
+            current = self.claims.current_tag(tenant, run_id, claim.claim_id)
+            tag = current["tag"] if current else {}
+            track = self.claims.summary(claim, current)["track"]
+            elements = tag.get("elements", [])
+            inputs = tags.load_inputs(tenant, run_id, claim.claim_id) if current else None
+            evidence_results[claim.claim_id] = self.claims.missing_evidence(
+                tenant, run_id, claim, track=track, elements=elements, inputs=inputs
+            )
         with self.jobs._transaction() as db:
             run = self.jobs._get(db, tenant, run_id, "run", "META")
             snapshot = self.runs._snapshot(db, tenant, run_id)
@@ -169,6 +204,18 @@ class LocalExportStore:
             refs, records, raw_records, hashes = [], {}, {}, {snapshot["rulepack"]["sha256"]}
             source_receipts = {}
             search_coverages, coverage_documents = {}, {}
+            element_manifest = dict(
+                tenant_id=tenant,
+                run_id=run_id,
+                document_version_id=run["document_version_id"],
+                parse_manifest_id=graph.parse_manifest_id if graph else None,
+                source_sha256=snapshot["document"]["sha256"],
+                **{key: {} for key in TABLE_KEYS},
+            )
+            shared_elements = state.get("element_evidence_encoding", ELEMENT_EVIDENCE_INLINE)
+            if shared_elements not in (ELEMENT_EVIDENCE_INLINE, ELEMENT_EVIDENCE_V1):
+                raise ExportRejected("EXPORT_INTEGRITY_FAILED")
+            element_table_bytes = 0
             captured_bytes = 0
             for claim_id in ids:
                 raw_head = self.jobs._raw(db, tenant, run_id, "claim_head", claim_id)
@@ -378,8 +425,21 @@ class LocalExportStore:
                             if previous is None:
                                 table[digest] = entry
                                 captured_bytes += len(canonical_json(entry).encode())
+                record["element_evidence"] = evidence_results[claim_id]
+                if shared_elements == ELEMENT_EVIDENCE_V1:
+                    # Encode before counting bytes. Tables are shared across claims,
+                    # and the unchanged freeze guard counts their keys/envelopes too.
+                    try:
+                        previous_keys = {key: set(element_manifest[key]) for key in TABLE_KEYS}
+                        record = encode_element_evidence(record, element_manifest)
+                        for key in TABLE_KEYS:
+                            for digest in element_manifest[key].keys() - previous_keys[key]:
+                                entry = element_manifest[key][digest]
+                                element_table_bytes += len(canonical_json({digest: entry}).encode())
+                    except (ValueError, TypeError, KeyError) as exc:
+                        raise ExportRejected("EXPORT_INTEGRITY_FAILED") from exc
                 captured_bytes += len(canonical_json([record, raw_record]).encode())
-                if captured_bytes > MAX_EXPORT_BYTES:
+                if captured_bytes + element_table_bytes > MAX_EXPORT_BYTES:
                     raise ExportRejected("EXPORT_SIZE_LIMIT")
                 records[claim_id] = record
                 if raw_record is not None:
@@ -416,28 +476,63 @@ class LocalExportStore:
                 manifest["search_coverage_encoding"] = SEARCH_COVERAGE_V1
                 manifest["search_coverages"] = search_coverages
                 manifest["coverage_documents"] = coverage_documents
+            if element_manifest["element_evidence_records"]:
+                manifest["element_evidence_encoding"] = ELEMENT_EVIDENCE_V1
+                manifest.update({key: element_manifest[key] for key in TABLE_KEYS})
             submitted = self.claims.submitted_reviews(tenant, run_id, connection=db)
             if submitted:
                 manifest["submitted_reviews"] = submitted
             return dict(manifest=manifest, decisions=records)
 
     def freeze(self, tenant, export_id, captured):
+        # Reject an already frozen or stale capture before expensive validation.
         with self.jobs._transaction() as db:
             state = self._state(db, tenant, export_id)
             run_id = state["response"]["run_id"]
+            if state["response"]["state"] == "failed":
+                raise ExportRejected(state["errors"][0])
             if self.jobs._raw(db, tenant, run_id, "export_snapshot", export_id) is not None:
                 return False
             run = self.jobs._get(db, tenant, run_id, "run", "META")
             if run["mutation_epoch"] != captured["manifest"]["mutation_epoch"]:
                 return False
-            model = build_report_model(captured["manifest"], captured["decisions"])
-            if model["partial"] and not state["body"]["allow_partial"]:
+
+        # Validate a private restoration of these exact immutable bytes. Hashing
+        # or serializing the caller's mutable object after validation would let
+        # a concurrent mutation publish a snapshot that was never validated.
+        raw = canonical_json(captured).encode()
+        if len(raw) > MAX_EXPORT_BYTES:
+            raise ExportRejected("EXPORT_SIZE_LIMIT")
+        snapshot_hash = sha256(raw).hexdigest()
+        snapshot = json.loads(raw)
+        manifest = snapshot["manifest"]
+        if manifest["tenant_id"] != tenant or manifest["run_id"] != run_id:
+            raise ExportRejected("EXPORT_INTEGRITY_FAILED")
+        rejection = None
+        partial = False
+        try:
+            partial = build_report_model(manifest, snapshot["decisions"])["partial"]
+        except ElementEvidenceExpansionLimit:
+            rejection = ExportRejected("EXPORT_SIZE_LIMIT")
+        except (KeyError, TypeError, ValueError):
+            rejection = ExportRejected("EXPORT_INTEGRITY_FAILED")
+
+        with self.jobs._transaction() as db:
+            state = self._state(db, tenant, export_id)
+            if state["response"]["state"] == "failed":
+                raise ExportRejected(state["errors"][0])
+            if self.jobs._raw(db, tenant, run_id, "export_snapshot", export_id) is not None:
+                return False
+            run = self.jobs._get(db, tenant, run_id, "run", "META")
+            if run["mutation_epoch"] != manifest["mutation_epoch"]:
+                return False
+            # A stale validation result (including a rejection) must be retried.
+            if rejection is not None:
+                raise rejection
+            if partial and not state["body"]["allow_partial"]:
                 raise ExportRejected("REPORT_NOT_FINALIZABLE")
-            raw = canonical_json(captured).encode()
-            if len(raw) > MAX_EXPORT_BYTES:
-                raise ExportRejected("EXPORT_SIZE_LIMIT")
             self.jobs._put(db, tenant, run_id, "export_snapshot", export_id, raw, immutable=True)
-            state.update(snapshot_sha256=sha256(raw).hexdigest())
+            state.update(snapshot_sha256=snapshot_hash)
             state["response"].update(state="building", snapshot_epoch=run["mutation_epoch"])
             self.jobs._put(db, tenant, run_id, "export_state", export_id, state)
             return True

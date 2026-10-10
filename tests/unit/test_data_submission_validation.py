@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-DIRECTORY = Path(__file__).resolve().parents[2] / "handoff/team-v3/domain"
+DIRECTORY = Path(__file__).resolve().parents[2] / "tests/fixtures/data-submission"
 SPEC = importlib.util.spec_from_file_location(
     "submission_validator", DIRECTORY / "validate_data.py"
 )

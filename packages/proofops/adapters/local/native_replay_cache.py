@@ -13,6 +13,14 @@ from marshal import loads as marshal_loads
 from threading import Lock
 from zlib import compress, decompress
 
+from proofops.adapters.local.receipt_environment_compat import (
+    STRICT,
+    compare_receipts,
+    read_profile,
+    receipt_read_metadata,
+    replay_raster_with_profile,
+    replay_receipt,
+)
 from proofops.adapters.local.run_artifacts import native_paragraph_policy
 from proofops.adapters.local.source_verification import replay_native_sources
 from proofops.domain.provenance import canonical_hash
@@ -45,6 +53,7 @@ def _claim_attestation_key(reader, policy, graph, source, tenant_id):
             graph=asdict(graph),
             policy=policy,
             reader=reader.__name__,
+            read_profile=read_profile(),
             platform=sys.platform,
             toolchain=os.environ.get("DEVELOPER_DIR"),
             readers=[version(name) for name in ("pdfplumber", "pdfminer.six", "pypdfium2")],
@@ -143,6 +152,7 @@ def replay_cached(receipt, graph, source, *, tenant_id):
             graph_sha256=canonical_hash(asdict(graph)),
             receipt_sha256=canonical_hash(receipt),
             policy=native_paragraph_policy(),
+            read_profile=read_profile(),
             platform=sys.platform,
             readers=[version(name) for name in ("pdfplumber", "pdfminer.six", "pypdfium2")],
         )
@@ -151,9 +161,11 @@ def replay_cached(receipt, graph, source, *, tenant_id):
         verified = _replays.get(key)
         if verified is not None:
             _replays.move_to_end(key)
+    if verified is not None and receipt_read_metadata(receipt) is None:
+        verified = None
     if verified is None:
         # ponytail: simultaneous cold reads may repeat OCR; coalesce only if measured.
-        checked = replay_native_sources(receipt, graph, source, tenant_id=tenant_id)
+        checked = replay_receipt(replay_native_sources, receipt, graph, source, tenant_id=tenant_id)
         verified = frozenset(b.source_id for b in checked.blocks if b.quality == "verified")
         with _lock:
             _replays[key] = verified
@@ -197,6 +209,7 @@ def replay_raster_cached(
             "receipts_sha256": canonical_hash(receipts),
             "raster_policy": policy,
             "native_policy": native_policy if frozen else None,
+            "read_profile": read_profile(),
             "platform": sys.platform,
             "pdfminer_version": version("pdfminer.six"),
         }
@@ -205,6 +218,9 @@ def replay_raster_cached(
         cached = _raster_replays.get(key)
         if cached is not None:
             _raster_replays.move_to_end(key)
+    if cached is not None and read_profile() != STRICT and receipt_read_metadata(native) is None:
+        # A warm historical replay still needs its original drift comparison.
+        cached = None
     if cached is None:
         # ponytail: simultaneous cold reads may repeat replay; coalesce only if measured.
         if frozen:
@@ -212,8 +228,15 @@ def replay_raster_cached(
                 snapshot, message, native, graph, source, registrations, receipts, native_policy
             )
         else:
-            composed, coverage, refs = replay_raster_records(
-                snapshot, message, native, graph, source, registrations, receipts
+            composed, coverage, refs = replay_raster_with_profile(
+                replay_raster_records,
+                snapshot,
+                message,
+                native,
+                graph,
+                source,
+                registrations,
+                receipts,
             )
         cached = (
             frozenset(block.source_id for block in composed.blocks if block.quality == "verified"),
@@ -392,11 +415,20 @@ def _reuse_wrapper_replay(reader, policy, receipt, graph, source, discovery, ten
             _claim_wrapper_receipts.move_to_end(key)
     if encoded is None or decompress(encoded) != canonical_json(receipt).encode():
         return None
+    compare_receipts(receipt, receipt, profile=read_profile())
     return _project_bullet_alignment(receipt, graph, discovery, tenant_id)
 
 
 def replay_claims_cached(*, reader, policy, receipt, graph, source, discovery, tenant_id):
     """Reuse a successful original-byte replay only for identical pinned inputs."""
+    if policy.get("profile") in {
+        "upstage-ocr-page-v1",
+        "upstage-ocr-page-v2",
+        "upstage-ocr-page-v3",
+        "upstage-ocr-page-v4",
+        "upstage-ocr-page-v5",
+    }:
+        return reader.replay_claim_spans(receipt, graph, source, discovery, tenant_id=tenant_id)
     reader_policy = reader.claim_source_policy() if hasattr(reader, "claim_source_policy") else None
     key = canonical_hash(
         dict(
@@ -408,6 +440,7 @@ def replay_claims_cached(*, reader, policy, receipt, graph, source, discovery, t
             policy=policy,
             reader_policy=reader_policy,
             reader=reader.__name__,
+            read_profile=read_profile(),
             platform=sys.platform,
             toolchain=os.environ.get("DEVELOPER_DIR"),
             readers=[version(name) for name in ("pdfplumber", "pdfminer.six", "pypdfium2")],
@@ -417,6 +450,8 @@ def replay_claims_cached(*, reader, policy, receipt, graph, source, discovery, t
         cached = _claim_replays.get(key)
         if cached is not None:
             _claim_replays.move_to_end(key)
+    if cached is not None and receipt_read_metadata(receipt) is None:
+        cached = None
     if cached is None:
         from proofops.adapters.local import claim_source_verification
 
@@ -432,9 +467,11 @@ def replay_claims_cached(*, reader, policy, receipt, graph, source, discovery, t
                 refs=reader.discovery_refs(discovery),
                 tenant_id=tenant_id,
             )
-            if canonical_json(receipt) != canonical_json(expected):
-                raise ValueError("CLAIM_SOURCE_RECEIPT_MISMATCH")
-            result = _project_attested_claims(expected, graph, discovery, tenant_id)
+            try:
+                compare_receipts(receipt, expected, profile=read_profile())
+            except ValueError:
+                raise ValueError("CLAIM_SOURCE_RECEIPT_MISMATCH") from None
+            result = _project_attested_claims(receipt, graph, discovery, tenant_id)
         else:
             reused = _reuse_wrapper_replay(
                 reader, policy, receipt, graph, source, discovery, tenant_id
@@ -443,23 +480,29 @@ def replay_claims_cached(*, reader, policy, receipt, graph, source, discovery, t
                 result = reused
             else:
                 # ponytail: unknown/frozen readers keep their original replay implementation.
-                result = reader.replay_claim_spans(
-                    receipt, graph, source, discovery, tenant_id=tenant_id
-                )
-                # That replay accepted the whole receipt against the original
-                # bytes in this process, so a later identical replay may reuse it.
-                remember_wrapper_attestation(
-                    reader=reader,
-                    policy=policy,
-                    graph=graph,
-                    source=source,
+                result = replay_receipt(
+                    reader.replay_claim_spans,
+                    receipt,
+                    graph,
+                    source,
+                    discovery,
                     tenant_id=tenant_id,
-                    receipt=receipt,
                 )
+                metadata = receipt_read_metadata(receipt)
+                # Only an exact fresh comparison can seed the attestation cache.
+                # Historical identity belongs exclusively to _claim_replays.
+                if metadata is not None and metadata["comparison_path"] == "strict":
+                    remember_wrapper_attestation(
+                        reader=reader,
+                        policy=policy,
+                        graph=graph,
+                        source=source,
+                        tenant_id=tenant_id,
+                        receipt=receipt,
+                    )
         if receipt.get("schema") == "claim_source_attestation_v1":
-            # Seed only after the original-byte replay accepted the entire receipt.
-            attestation_key = _claim_attestation_key(reader, policy, graph, source, tenant_id)
-            _remember_claim_attestation(attestation_key, receipt)
+            # The pinned path already remembered its freshly recomputed expected
+            # receipt. Never replace it with the historical replay identity.
             if not all(_reusable_claim_record(r, receipt) for r in receipt["records"]):
                 # Unavailable/error reads (and other unresolved guards) must retry.
                 return deepcopy(result)

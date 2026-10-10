@@ -23,13 +23,12 @@ from uuid import NAMESPACE_URL, uuid5
 from proofops.application.authorization import AuthContext
 from proofops.application.evidence.binding import ClaimContext, accept_binding, relation_tags_for
 from proofops.application.evidence.report_level import POLICIES as REPORT_LEVEL_POLICIES
-from proofops.application.evidence.report_level import check_report_level
+from proofops.application.evidence.report_level import check_report_level, scope_rejection_reason
 from proofops.application.evidence.retrieval import EvidencePacket
 from proofops.application.evidence.span_citations import verify_source_ref
 from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
 from proofops.application.tagging.consensus import (
-    PARTIAL_FACTS_HASH,
-    PARTIAL_FACTS_V1,
+    PARTIAL_FACTS_PROFILES,
     ConsensusResult,
     form_consensus,
 )
@@ -67,7 +66,7 @@ class ReviewRejected(ValueError):
 # machine-driven revision can never be mistaken for an independent human
 # confirmation. Old ``human``/``consensus`` rows stay valid and immutable.
 #
-# R24: a bounded correction for a safe-harbor category the tagging headers agree
+# a bounded correction for a safe-harbor category the tagging headers agree
 # on but the reviewed source does not support. v1 REMOVES a wrong non-null
 # category only; adding or replacing one would assert a regulatory
 # classification the reviewed refs do not establish, so it is refused as
@@ -138,8 +137,11 @@ class ReviewInputs:
             if self.rule_context.local_synthetic
             else "live",
         )
-        if self.fact_assembly_profile == PARTIAL_FACTS_V1:
-            snapshot["fact_assembly"] = {"profile": PARTIAL_FACTS_V1, "sha256": PARTIAL_FACTS_HASH}
+        if self.fact_assembly_profile in PARTIAL_FACTS_PROFILES:
+            snapshot["fact_assembly"] = {
+                "profile": self.fact_assembly_profile,
+                "sha256": PARTIAL_FACTS_PROFILES[self.fact_assembly_profile],
+            }
         if self.report_level_link is not None:
             snapshot["report_level_link"] = self.report_level_link
             snapshot["report_level_review"] = list(self.report_level_review)
@@ -209,7 +211,7 @@ class ReviewInputs:
             self.decision is not None
             and self.decision.decision_status == "decided"
             and (
-                self.fact_assembly_profile == PARTIAL_FACTS_V1
+                self.fact_assembly_profile in PARTIAL_FACTS_PROFILES
                 or self.consensus.review_status != "auto_confirmed"
             )
         ):
@@ -974,6 +976,16 @@ class ReviewService:
                     )
                 names = MAPPINGS[body["track"]][element.element_id]
                 previous = [facts.get(name) for name in names]
+                scope_reason = scope_rejection_reason(
+                    element.element_id,
+                    element.evidence_refs,
+                    rulepack=inputs.rulepack,
+                    original=inputs.original,
+                    policy=element.reason_code,
+                )
+                if element.state == "present" and scope_reason:
+                    # Invalid present request cannot change the prior unknown revision.
+                    raise ReviewRejected(scope_reason)
                 report_level = (
                     element.state == "present"
                     and element.reason_code is not None
@@ -1218,7 +1230,7 @@ class ReviewService:
                 review_reason=body["reason"],
                 input_snapshot_sha256=initial_snapshot_sha256,
             )
-            if inputs.fact_assembly_profile == PARTIAL_FACTS_V1:
+            if inputs.fact_assembly_profile in PARTIAL_FACTS_PROFILES:
                 tag["fact_assembly"] = inputs.snapshot()["fact_assembly"]
             if applicability_receipt is not None:
                 if applicability_carried and applicability_ancestry:

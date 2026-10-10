@@ -8,23 +8,21 @@ import pytest
 
 from evaluation.table_layout_review import review_layout
 
+ROOT = Path(__file__).resolve().parents[2]
+SOURCE_DOCUMENTS = ROOT / "tests/fixtures/source-documents"
+LAYOUTS = ROOT / "tests/fixtures/pipeline/reviewed-table-layout"
+
 
 # The exact customer-report regression remains runnable locally; PDFs are private.
 @pytest.mark.skipif(
-    not all(
-        (Path(__file__).resolve().parents[2] / "outputs/agent-fixtures" / f"{name}.pdf").exists()
-        for name in ("lotte", "kia")
-    ),
+    not all((SOURCE_DOCUMENTS / f"{name}.pdf").exists() for name in ("lotte", "kia")),
     reason="customer PDFs are local-only; run with the private corpus to verify these layouts",
 )
 def test_two_reviewed_layouts_and_source_boundary_holds():
-    root = Path(__file__).resolve().parents[2]
     results = {}
     for name in ("lotte", "kia"):
-        source = root / "outputs/agent-fixtures" / f"{name}.pdf"
-        spec = json.loads(
-            (root / "outputs/agent-results/R02g-layout-review" / f"{name}-layout.json").read_text()
-        )
+        source = SOURCE_DOCUMENTS / f"{name}.pdf"
+        spec = json.loads((LAYOUTS / f"{name}-layout.json").read_text())
         result = review_layout(source, spec)
         results[name] = result
         assert len(result["candidates"]) == 30

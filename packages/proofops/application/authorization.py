@@ -1,11 +1,10 @@
-"""Session/tenant authorization (TASK-037).
+"""Session/tenant authorization.
 
 Pure application-layer module: stdlib only, no AWS SDK, no network, no file
 access, no environment variables. Adapters implement the ports declared
 here; this module never imports proofops.adapters.
 
-Contract (docs/03 §5, docs/07 §1, docs/11, docs/20 TASK-037,
-evidence/contract_review_resolution.md finding 4):
+Authorization contract:
 - role capability is a *set*, not a ladder: viewer is included by every
   role; editor and reviewer are distinct siblings; admin includes both.
   `authorize` checks capability membership, not a rank comparison.

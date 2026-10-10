@@ -1,4 +1,4 @@
-"""Deterministic GRI Content Index routing (TASK-006)."""
+"""Deterministic GRI Content Index routing."""
 
 from __future__ import annotations
 

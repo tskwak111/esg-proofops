@@ -2,7 +2,7 @@
 
 ``review["context"]`` is the review's own list of footnote/coverage passages
 outside the table grid (see the real Kia artifact under
-``outputs/agent-results/R02g-layout-review/kia-candidates.json``: a Scope 1/2
+``tests/fixtures/pipeline/reviewed-table-layout/kia-candidates.json``: a Scope 1/2
 reclassification footnote and a facility-coverage note, neither referenced by
 any candidate's ``notes``/``row_labels``). Before this fix, ``reviewed_table``
 never read that key at all, so a real, reviewed, source-pinned passage silently
@@ -28,7 +28,7 @@ from proofops.adapters.local.reviewed_table import (
 )
 
 APP = Path(__file__).resolve().parents[2]
-KIA_REVIEW = APP / "outputs/agent-results/R02g-layout-review/kia-candidates.json"
+KIA_REVIEW = APP / "tests/fixtures/pipeline/reviewed-table-layout/kia-candidates.json"
 
 _TENANT = str(uuid5(NAMESPACE_URL, "proofops:reviewed-table:evaluation-tenant"))
 

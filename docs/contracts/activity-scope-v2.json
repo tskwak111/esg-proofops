@@ -1,0 +1,18 @@
+{
+  "decision": "DEC-23",
+  "approved_by": "user",
+  "approved_on": "2026-10-10",
+  "authority": "outputs/agent-results/R108-redesign/lab/autonomy/DECISION-LOG.md#DEC-23",
+  "source_sections": ["PROJECT_DOMAIN_V2_ORIGINAL.md §4.5 M2", "PROJECT_DOMAIN_V2_ORIGINAL.md §6 2-4"],
+  "source_sha256": "0f9d7e3495d1bc6330ee4ffd2bb644ce8189c89e91dd5f9ae4c720b9ffaebc6a",
+  "policy": "ACTIVITY_SCOPE_V2",
+  "pinned_at": "rubric/elements.yaml elements[id=M2].binding_policy",
+  "legacy_default": "REPORT_SCOPE_V1",
+  "report_wide_scope": {"binding": "rejected", "state": "unknown", "reason_code": "REPORT_WIDE_SCOPE_NOT_ACTIVITY_SCOPE"},
+  "activity_scope": "same sentence/paragraph or explicitly bound same organizational activity; existing source guards required",
+  "unchanged": ["P3 global methodology", "M3 external verification", "P4 assurance", "numeric and target-year local verification", "historical snapshots and hashes"],
+  "retag_on_policy_change": "ELEMENT_MEANING_CHANGED:M2",
+  "public_api_migration": "none",
+  "db_migration": "none",
+  "rollback": "stop assigning V2 to new runs; retain V2 reader and immutable artifacts; assign historical pack with its original ID/hash"
+}

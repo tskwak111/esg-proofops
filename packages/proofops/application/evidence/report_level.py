@@ -1,4 +1,4 @@
-"""Deterministic report-level crediting of M2/M3 (original §6 2-4; user decision 2026-09-25).
+"""Versioned report-level crediting (original §6 2-4; DEC-23, 2026-10-10).
 
 The original allows 적용범위 and 외부검증 to be credited from elsewhere in the same
 document, with the location kept in ``credited_from``. It does not define what binds
@@ -6,6 +6,7 @@ a report-level statement to one claim, so each binding rule is a named, versione
 policy the user approved. A reviewer proposes exact spans; this module only checks
 the literal chain against the verified page texts and never searches or infers.
 Numbers and target years never use this path.
+V2 excludes report-wide M2; the V1 literal checker remains for historical replay.
 """
 
 from __future__ import annotations
@@ -14,6 +15,7 @@ import re
 from collections.abc import Mapping, Sequence
 from unicodedata import normalize
 
+from proofops.domain.rulepacks import RulePackSnapshot
 from proofops.domain.values import SourceRef
 
 # M3: claim page -> GRI Index row (disclosure + page list) -> disclosure listed in a
@@ -24,6 +26,63 @@ GRI_ASSURED_PAGE_V1 = "GRI_ASSURED_PAGE_V1"
 # M2: the report's own "보고 범위" statement, only for claims that state no scope.
 REPORT_SCOPE_V1 = "REPORT_SCOPE_V1"
 POLICIES = {"M3": GRI_ASSURED_PAGE_V1, "M2": REPORT_SCOPE_V1}
+ACTIVITY_SCOPE_V2 = "ACTIVITY_SCOPE_V2"
+REPORT_WIDE_SCOPE_NOT_ACTIVITY_SCOPE = "REPORT_WIDE_SCOPE_NOT_ACTIVITY_SCOPE"
+
+
+def report_level_policies(rulepack: RulePackSnapshot) -> dict[str, str]:
+    """Select from immutable content; unstamped historical packs retain v1."""
+    m2 = next(
+        e for e in rulepack.file_content("rubric/elements.yaml")["elements"] if e["id"] == "M2"
+    )
+    policy = m2.get("binding_policy", REPORT_SCOPE_V1)
+    if policy not in (REPORT_SCOPE_V1, ACTIVITY_SCOPE_V2):
+        raise ValueError("M2_SCOPE_POLICY_UNSUPPORTED")
+    return {**POLICIES, "M2": policy}
+
+
+_REPORT_WIDE = re.compile(
+    r"보고\s*(?:범위|경계)|보고서.{0,100}(?:작성|포함|보고|대상)|"
+    r"(?:환경\s*및\s*사회|지속가능경영)\s*관련\s*정보|"
+    r"지속가능경영\s*활동과\s*성과를\s*대상|"
+    r"reporting\s+(?:scope|boundary)|(?:this|the)\s+report\s+(?:covers|includes)",
+    re.IGNORECASE,
+)
+
+
+def scope_rejection_reason(element_id, refs, *, rulepack, original, policy=None):
+    """V2 excludes reporting prose, including subspans of its original block.
+
+    An unrelated heading elsewhere on the page never vetoes an activity scope.
+    Literal detection is a rejection guard, not semantic approval of other prose.
+    """
+    if element_id != "M2" or report_level_policies(rulepack)["M2"] != ACTIVITY_SCOPE_V2:
+        return None
+    if policy in (REPORT_SCOPE_V1, ACTIVITY_SCOPE_V2):
+        return REPORT_WIDE_SCOPE_NOT_ACTIVITY_SCOPE
+    blocks = {b.source_id: b for b in original.blocks}
+    for ref in refs:
+        block = blocks.get(ref.source_id)
+        if _REPORT_WIDE.search(_text(ref.quote)) or (
+            block is not None and _REPORT_WIDE.search(_text(block.raw_text))
+        ):
+            return REPORT_WIDE_SCOPE_NOT_ACTIVITY_SCOPE
+        # Split parser blocks may keep the scope heading as a section ancestor.
+        pending, seen = [ref.source_id], set()
+        while pending:
+            child = pending.pop()
+            if child in seen:
+                continue
+            seen.add(child)
+            for edge in original.edges:
+                if edge.source_id != child or edge.relation != "section_parent":
+                    continue
+                parent = blocks.get(edge.target_id)
+                if parent is not None and _REPORT_WIDE.search(_text(parent.raw_text)):
+                    return REPORT_WIDE_SCOPE_NOT_ACTIVITY_SCOPE
+                pending.append(edge.target_id)
+    return None
+
 
 _DISCLOSURE = r"\d{1,3}-\d{1,2}"
 _INDEX_ROW = re.compile(
@@ -126,6 +185,8 @@ def check_report_level(
     credited_from: str | None,
 ) -> bool:
     """True only when the named policy's literal chain holds; any doubt is False."""
+    if element_id == "M2" and policy == ACTIVITY_SCOPE_V2:
+        return False  # DEC-23: report-wide credit never establishes activity scope.
     if POLICIES.get(element_id) != policy or not refs or not claim_refs:
         return False
     if any(ref.verification_state != "verified" for ref in (*refs, *claim_refs)):

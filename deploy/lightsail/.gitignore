@@ -1,0 +1,7 @@
+/.state/
+/runtime.env
+/compose.env
+/private/
+/data/
+/backups/
+/*.tar

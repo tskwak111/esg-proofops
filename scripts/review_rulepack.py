@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Local admin/coordinator CLI for AI-delegated rule-pack review (R07).
+"""Local administrative CLI for delegated rule-pack review.
 
-This is the only path that lets a coordinator, acting under an explicit
+This is the only path that lets an operator, acting under an explicit
 user domain-judgment delegation, activate a validated rule-pack for REAL
 (non-synthetic) runs without a human `approved_by`. It never exposes an
 HTTP endpoint and never runs unattended: every write requires an explicit
@@ -12,7 +12,7 @@ What it does, in order:
    `--rule-pack-id` (read-only; never mutates the row in place -- packs are
    immutable by (tenant_id, rule_pack_id)).
 2. Prints the pack's target content hash, mode, status, and any
-   `unresolved_gap_ids` so the coordinator sees exactly what is being
+   `unresolved_gap_ids` so the operator sees exactly what is being
    reviewed before anything is written.
 3. Structurally validates the pack via the existing `validate_rulepack`
    (same fail-closed GAP-001/008/009 checks human activation uses).
@@ -27,7 +27,7 @@ What it does, in order:
 
 This tool makes no legal, official-standard, or independent-expert-gold
 claim. The `--source-authority` value is recorded verbatim in the audit
-trail; it does not itself grant authorization beyond what the coordinator
+trail; it does not itself grant authorization beyond what the operator
 supplies.
 """
 
@@ -179,7 +179,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--state-db", default=str(ROOT / ".local" / "state.sqlite3"))
     parser.add_argument("--tenant-id", required=True)
     parser.add_argument("--rule-pack-id", required=True, help="Candidate pack to review.")
-    parser.add_argument("--reviewer", required=True, help="e.g. coordinator@orca.local")
+    parser.add_argument("--reviewer", required=True, help="Operator identifier")
     parser.add_argument("--reviewed-at", required=True, help="Timezone-aware ISO 8601 timestamp.")
     parser.add_argument(
         "--source-authority",

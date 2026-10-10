@@ -26,6 +26,45 @@ from pydantic import Field
 from starlette.concurrency import run_in_threadpool
 
 
+def _retag_required_message(service, tenant_id: str, run_id: str) -> str:
+    """Return actionable, tenant-scoped guidance without changing rescore state."""
+    claim_ids = []
+    store = getattr(service, "store", None)
+    jobs = getattr(store, "jobs", None)
+    transaction = getattr(jobs, "_transaction", None)
+    claims_reader = getattr(store, "_claims", None)
+    claims = None
+    if callable(transaction) and callable(claims_reader):
+        try:
+            with transaction() as db:
+                claims = claims_reader(db, tenant_id, run_id)
+            claim_ids = sorted(
+                claim_id
+                for claim_id, current in claims.items()
+                if current["tag"].get("confirmed_tags") is None
+            )
+        except Exception:
+            # Preserve the original guard response when this adapter cannot
+            # provide a read-only claim snapshot.
+            claims = None
+    if claim_ids:
+        return (
+            "재채점이 보류되었습니다. 미확정 주장 ID: "
+            + ", ".join(claim_ids)
+            + ". 해당 주장을 다시 태깅하고 검토자가 확정한 뒤 재채점하세요."
+        )
+    if claims:
+        return (
+            "재채점이 보류되었습니다. 다시 태깅할 주장 ID: "
+            + ", ".join(sorted(claims))
+            + ". 해당 주장을 다시 태깅하고 검토자가 확정한 뒤 재채점하세요."
+        )
+    return (
+        "재채점 가능한 공개 주장 head가 없거나 확인이 필요합니다. 주장 목록을 확인하고, "
+        "필요한 주장을 다시 태깅한 뒤 검토자가 확정하고 재채점하세요."
+    )
+
+
 class RescoreCreate(StrictDTO):
     rule_pack_id: UUID
     reason: Annotated[str, Field(min_length=5, max_length=1000)]
@@ -77,7 +116,12 @@ def build_rescores_router(service, auth_store, *, allowed_origin: str, clock=tim
             )
             return JSONResponse(result, status_code=202, headers={"Cache-Control": "no-store"})
         except (RescoreRejected, ReviewRejected, RunRejected) as error:
-            return _error_response(error.status, error.code, "Rescore could not be completed.")
+            message = (
+                _retag_required_message(service, auth.tenant_id, str(run_id))
+                if isinstance(error, RescoreRejected) and error.code == "RETAG_REQUIRED"
+                else "Rescore could not be completed."
+            )
+            return _error_response(error.status, error.code, message)
         except (RequestBodyTooLarge, DomainValidationError, ValueError, TypeError):
             return _error_response(422, "VALIDATION_ERROR", "Invalid rescore request or inputs.")
         except sqlite3.DatabaseError:

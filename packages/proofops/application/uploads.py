@@ -1,4 +1,4 @@
-"""TASK-001 local upload service: real PDF verification, synthetic SQLite/filesystem storage.
+"""Local upload service: real PDF verification, synthetic SQLite/filesystem storage.
 
 No S3 identity is invented. Production must supply approved versioned storage and
 job transport; this service is mounted only by local-synthetic composition.
@@ -40,6 +40,7 @@ from proofops.application.uploads_security import (
     PdfLimits,
     QuarantinedPdf,
     UploadRejected,
+    verify_quarantined_pdf,
 )
 
 
@@ -137,7 +138,7 @@ class UploadService:
         object_root: Path,
         registry: Registry,
         *,
-        limits: PdfLimits = PdfLimits(),
+        limits: PdfLimits = PdfLimits.display(),
         clock: Callable[[], float] = time.time,
     ):
         self.registry, self.limits, self.clock = registry, limits, clock
@@ -403,22 +404,22 @@ class UploadService:
     ) -> dict:
         _text(actor_sub)
         payload = validate_payload("version", body)
-        if payload["size_bytes"] > self.limits.max_bytes:
-            raise UploadRejected("UPLOAD_LIMIT_EXCEEDED")
         document = self._get(tenant, "document", document_id)
-        try:
-            self.registry.validate_document(
-                tenant_id=tenant,
-                company_id=document["company_id"],
-                rights_profile_id=payload["rights_profile_id"],
-            )
-        except RegistryNotFound:
-            raise UploadRejected("NOT_FOUND") from None
         route = f"documents/{document_id}/versions"
         with self._transaction():
             replay = self._replay(tenant, route, key, payload)
             if replay is not None:
                 return replay
+            try:
+                self.registry.validate_document(
+                    tenant_id=tenant,
+                    company_id=document["company_id"],
+                    rights_profile_id=payload["rights_profile_id"],
+                )
+            except RegistryNotFound:
+                raise UploadRejected("NOT_FOUND") from None
+            if payload["size_bytes"] > self.limits.max_bytes:
+                raise UploadRejected("UPLOAD_LIMIT_EXCEEDED")
             identifier = str(uuid4())
             ticket = dict(
                 upload_id=identifier,
@@ -442,6 +443,7 @@ class UploadService:
                     expires=self.clock() + 600,
                     received=False,
                     schema_version=1,
+                    upload_security_limits=asdict(self.limits),
                 ),
             )
             self._audit(
@@ -463,6 +465,12 @@ class UploadService:
             raise UploadRejected("VERSION_CONFLICT")
         return item["ticket"]
 
+    def receipt_limits(self, tenant: str, upload_id: str) -> PdfLimits:
+        """Resolve the immutable receipt policy, including explicit unpinned legacy limits."""
+        item = self._get(tenant, "upload", upload_id)
+        self._pending(item)
+        return PdfLimits(**item.get("upload_security_limits", {}))
+
     def _pending(self, item: dict):
         if item["status"] != "pending":
             raise UploadRejected("VERSION_CONFLICT")
@@ -477,7 +485,8 @@ class UploadService:
                 raise UploadRejected("VERSION_CONFLICT")
             if not isinstance(content, bytes) or media_type != "application/pdf":
                 raise UploadRejected("PDF_INVALID")
-            if len(content) > self.limits.max_bytes:
+            limits = PdfLimits(**item.get("upload_security_limits", {}))
+            if len(content) > limits.max_bytes:
                 raise UploadRejected("UPLOAD_LIMIT_EXCEEDED")
             if (
                 len(content) != item["metadata"]["size_bytes"]
@@ -571,8 +580,10 @@ class UploadService:
         # Verify outside the DB transaction. Concurrent completions use the same fixed
         # object/version and publish identical bytes; only one transaction advances HEAD.
         source_path = self.root / "quarantine" / tenant / f"{upload_id}.pdf"
+        # Missing pin identifies historical uploads; never reassign them to a new policy.
+        limits = PdfLimits(**item.get("upload_security_limits", {}))
         with source_path.open("rb") as source_file:
-            content = source_file.read(self.limits.max_bytes + 1)
+            content = source_file.read(limits.max_bytes + 1)
         source = QuarantinedPdf(
             tenant,
             item["version_id"],
@@ -582,12 +593,14 @@ class UploadService:
             item["metadata"]["sha256"],
         )
         try:
-            verified = self.vault.verify_and_promote(source, self.limits, tenant_id=tenant)
+            verified = self.vault.verify_and_promote(source, limits, tenant_id=tenant)
         except UploadRejected as exc:
             with self._transaction():
                 current = self._get(tenant, "upload", upload_id)
                 if current["status"] == "pending":
                     current["status"] = "rejected"
+                    if exc.security_metadata:
+                        current["upload_security"] = exc.security_metadata
                     current["validation_job"].update(status="failed", error_code=str(exc))
                     self._put(tenant, "upload", upload_id, current, update=True)
             raise
@@ -616,6 +629,8 @@ class UploadService:
                     s3_version_id=None,
                     local_synthetic=True,
                     schema_version=1,
+                    upload_security=verified.security_metadata
+                    or dict(policy_profile=limits.policy_profile, limits=asdict(limits)),
                 )
                 self._audit(
                     tenant,
@@ -731,13 +746,82 @@ class UploadService:
         snapshot = self.version_snapshot(tenant, version_id)
         path = self.root / "original" / tenant / f"{version_id}.pdf"
         with path.open("rb") as original:
-            content = original.read(self.limits.max_bytes + 1)
+            content = original.read(min(snapshot["metadata"]["size_bytes"], 104_857_600) + 1)
         if (
             len(content) != snapshot["metadata"]["size_bytes"]
             or sha256(content).hexdigest() != snapshot["sha256"]
         ):
             raise UploadRejected("UPLOAD_INTEGRITY_MISMATCH")
         return content
+
+    def read_display(self, tenant: str, version_id: str) -> tuple[bytes, dict]:
+        """Source-view bytes only; analysis continues to use read_original."""
+        snapshot = self.version_snapshot(tenant, version_id)
+        metadata = snapshot.get("upload_security", {})
+        if metadata.get("policy_profile") not in {None, "strict-v1", "display-v2"}:
+            raise UploadRejected("UPLOAD_INTEGRITY_MISMATCH")
+        path = self.root / "original" / tenant / f"{version_id}.display-v2.pdf"
+        if (
+            metadata.get("policy_profile") != "display-v2"
+            or metadata.get("original_inspection") != "complete"
+        ):
+            # Earlier display caches dropped OCG defaults. Revalidate the original
+            # and create a new immutable derivative; never rewrite the version/audit
+            # or reuse those earlier bytes as a verified display.
+            path = path.with_name(f"{version_id}.display-v2-checked.pdf")
+            # Historical runs/snapshots stay untouched. Cache a separately identified
+            # immutable display artifact, with its own source/hash sidecar.
+            sidecar = path.with_suffix(".json")
+            if sidecar.exists():
+                metadata = json.loads(sidecar.read_bytes())
+            else:
+                original = self.read_original(tenant, version_id)
+                source = QuarantinedPdf(
+                    tenant,
+                    version_id,
+                    snapshot["object_version_id"],
+                    original,
+                    len(original),
+                    snapshot["sha256"],
+                )
+                limits = (
+                    PdfLimits(**metadata["limits"])
+                    if metadata.get("policy_profile") == "display-v2"
+                    else PdfLimits.display()
+                )
+                verified = verify_quarantined_pdf(source, limits, tenant_id=tenant)
+                metadata = verified.security_metadata
+                assert verified.display_content is not None
+                for target, content in (
+                    (path, verified.display_content),
+                    (sidecar, _json(metadata).encode()),
+                ):
+                    with NamedTemporaryFile(dir=target.parent) as staged:
+                        staged.write(content)
+                        staged.flush()
+                        os.fsync(staged.fileno())
+                        os.chmod(staged.name, 0o400)
+                        try:
+                            os.link(staged.name, target)
+                        except FileExistsError:
+                            if target.is_symlink() or target.read_bytes() != content:
+                                raise UploadRejected("UPLOAD_INTEGRITY_MISMATCH") from None
+        if (
+            metadata.get("policy_profile") != "display-v2"
+            or metadata.get("original_inspection") != "complete"
+            or metadata.get("derived") is not True
+            or metadata.get("source_sha256") != snapshot["sha256"]
+            or path.is_symlink()
+        ):
+            raise UploadRejected("UPLOAD_INTEGRITY_MISMATCH")
+        with path.open("rb") as display:
+            content = display.read(metadata["limits"]["max_bytes"] + 1)
+        if (
+            len(content) > metadata["limits"]["max_bytes"]
+            or sha256(content).hexdigest() != metadata["display_sha256"]
+        ):
+            raise UploadRejected("UPLOAD_INTEGRITY_MISMATCH")
+        return content, metadata
 
     def _timestamp(self, timestamp: float | None = None) -> str:
         return (

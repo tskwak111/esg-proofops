@@ -88,6 +88,13 @@ class LocalEvidenceSearch:
     def search(
         self, scope: SearchScope, query: str, *, vector: tuple[float, ...] | None = None
     ) -> SearchResult:
+        return self._search(scope, query, vector=vector, limit=20)
+
+    def search_all(self, scope: SearchScope, query: str) -> SearchResult:
+        """Exhaustive lexical routing for missing-evidence search, never absence proof."""
+        return self._search(scope, query, limit=None)
+
+    def _search(self, scope, query, *, vector=None, limit=20) -> SearchResult:
         if scope != self.scope:
             raise ValueError("local evidence search scope mismatch")
         if vector is not None:
@@ -112,9 +119,9 @@ class LocalEvidenceSearch:
         return SearchResult(
             tuple(
                 SearchHit(scope, block.source_id, sha256(block.raw_text.encode()).hexdigest())
-                for _, _, block in ranked[:20]
+                for _, _, block in ranked[:limit]
             ),
-            "bounded",
+            "bounded" if limit is not None else "complete",
         )
 
 

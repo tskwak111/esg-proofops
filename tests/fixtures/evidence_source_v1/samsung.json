@@ -1,0 +1,377 @@
+{
+  "source_path": "outputs/agent-results/R108-redesign/lab/parse/MP1/states/samsung/objects/original/15a94b83-5557-40cf-b312-2d02697deb6a/d98c4dd4-b7db-430f-aa9b-2dcb08d5fcda.pdf",
+  "source_sha256": "342a99a14d7c32b4e66cbbf977cc89dc79044ccc7c5e71367fb476c14538c8c5",
+  "fusion_version": 4,
+  "batches": [
+    {
+      "tenant_id": "15a94b83-5557-40cf-b312-2d02697deb6a",
+      "document_version_id": "d98c4dd4-b7db-430f-aa9b-2dcb08d5fcda",
+      "parse_manifest_id": "47546f32-7e58-5791-b42f-68ca2be833ea",
+      "source_sha256": "342a99a14d7c32b4e66cbbf977cc89dc79044ccc7c5e71367fb476c14538c8c5",
+      "parser_run_id": "824968d3-52c8-4eb4-879f-f61134924156",
+      "parser_name": "opendataloader",
+      "parser_version": "2.5.7",
+      "parser_family": "opendataloader",
+      "config_hash": "443eea885fca252d02c99b183a65e407a9a9baa1dc8327546ae70d12e54bd27b",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "source": {
+            "document_version_id": "d98c4dd4-b7db-430f-aa9b-2dcb08d5fcda",
+            "parse_manifest_id": "47546f32-7e58-5791-b42f-68ca2be833ea",
+            "parser_run_id": "824968d3-52c8-4eb4-879f-f61134924156",
+            "source_native_id": "918",
+            "physical_page": 68,
+            "printed_page_label": "68",
+            "native_bbox": [
+              42.529,
+              267.223,
+              300.176,
+              275.797
+            ],
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "2) 2024년 온실가스 배출량: 국가별 전력, 연료 배출계수, IPCC 가이드라인, ISO 14064 기준 적용하여 산정",
+            "char_start": 0,
+            "char_end": 68
+          },
+          "geometry": {
+            "width_pt": 841.89,
+            "height_pt": 595.276,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              841.89,
+              595.276
+            ]
+          },
+          "context": [
+            "mixed_parser_name=opendataloader",
+            "mixed_parser_version=2.5.7"
+          ],
+          "parser_bbox": [
+            42.529,
+            267.223,
+            300.176,
+            275.797
+          ],
+          "parser_coordinate_system": "opendataloader_display_bottom_left_points",
+          "parser_to_canonical": [
+            1.0,
+            0.0,
+            0.0,
+            -1.0,
+            0.0,
+            595.276
+          ],
+          "table_native_id": null,
+          "row_number": null,
+          "column_number": null,
+          "row_span": null,
+          "column_span": null
+        },
+        {
+          "kind": "paragraph",
+          "source": {
+            "document_version_id": "d98c4dd4-b7db-430f-aa9b-2dcb08d5fcda",
+            "parse_manifest_id": "47546f32-7e58-5791-b42f-68ca2be833ea",
+            "parser_run_id": "824968d3-52c8-4eb4-879f-f61134924156",
+            "source_native_id": "953",
+            "physical_page": 68,
+            "printed_page_label": "68",
+            "native_bbox": [
+              437.971,
+              305.346,
+              798.061,
+              499.514
+            ],
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "구매한 제품 및 서비스 천 톤CO₂e 13,540 11,514 10,827 자본재 천 톤CO₂e 2,155 3,059 2,249 연료 및 에너지 관련 활동 천 톤CO₂e 2,538 2,962 2,786 업스트림 운송 및 유통 천 톤CO₂e 5,332 4,085 4,084 폐기물 발생/처리 천 톤CO₂e 173 164 153 임직원 출장 천 톤CO₂e 89 108 153 임직원 통근 천 톤CO₂e 322 298 293 임차 자산 천 톤CO₂e 67 15 12 다운스트림 운송 및 유통 천 톤CO₂e 46 41 80 판매된 제품의 가공 천 톤CO₂e 161 98 321 판매된 제품의 사용 천 톤CO₂e 90,171 83,116 82,714 판매된 제품의 폐기 천 톤CO₂e 1,206 1,339 1,721 임대한 자산 천 톤CO₂e 1 3 1 투자 천 톤CO₂e 159 169 218",
+            "char_start": 0,
+            "char_end": 439
+          },
+          "geometry": {
+            "width_pt": 841.89,
+            "height_pt": 595.276,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              841.89,
+              595.276
+            ]
+          },
+          "context": [
+            "mixed_parser_name=opendataloader",
+            "mixed_parser_version=2.5.7"
+          ],
+          "parser_bbox": [
+            437.971,
+            305.346,
+            798.061,
+            499.514
+          ],
+          "parser_coordinate_system": "opendataloader_display_bottom_left_points",
+          "parser_to_canonical": [
+            1.0,
+            0.0,
+            0.0,
+            -1.0,
+            0.0,
+            595.276
+          ],
+          "table_native_id": null,
+          "row_number": null,
+          "column_number": null,
+          "row_span": null,
+          "column_span": null
+        },
+        {
+          "kind": "paragraph",
+          "source": {
+            "document_version_id": "d98c4dd4-b7db-430f-aa9b-2dcb08d5fcda",
+            "parse_manifest_id": "47546f32-7e58-5791-b42f-68ca2be833ea",
+            "parser_run_id": "824968d3-52c8-4eb4-879f-f61134924156",
+            "source_native_id": "955",
+            "physical_page": 68,
+            "printed_page_label": "68",
+            "native_bbox": [
+              432.284,
+              284.225,
+              798.281,
+              301.301
+            ],
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "1) 2022년에 항목별(14개) 내부 산정 기준을 수립하였고, 전 항목에 대한 제3자 검증을 완료함. 일부 Scope 3 배출 항목의 온실가스 배출량(구매한 제품 및 서비스, 자본재)은 협력회사의 데이터 확보가 가능한 Y-1년 기준으로 산정되었음",
+            "char_start": 0,
+            "char_end": 138
+          },
+          "geometry": {
+            "width_pt": 841.89,
+            "height_pt": 595.276,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              841.89,
+              595.276
+            ]
+          },
+          "context": [
+            "mixed_parser_name=opendataloader",
+            "mixed_parser_version=2.5.7"
+          ],
+          "parser_bbox": [
+            432.284,
+            284.225,
+            798.281,
+            301.301
+          ],
+          "parser_coordinate_system": "opendataloader_display_bottom_left_points",
+          "parser_to_canonical": [
+            1.0,
+            0.0,
+            0.0,
+            -1.0,
+            0.0,
+            595.276
+          ],
+          "table_native_id": null,
+          "row_number": null,
+          "column_number": null,
+          "row_span": null,
+          "column_span": null
+        },
+        {
+          "kind": "paragraph",
+          "source": {
+            "document_version_id": "d98c4dd4-b7db-430f-aa9b-2dcb08d5fcda",
+            "parse_manifest_id": "47546f32-7e58-5791-b42f-68ca2be833ea",
+            "parser_run_id": "824968d3-52c8-4eb4-879f-f61134924156",
+            "source_native_id": "928",
+            "physical_page": 68,
+            "printed_page_label": "68",
+            "native_bbox": [
+              148.823,
+              187.457,
+              242.124,
+              196.03
+            ],
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "직접 수집법과 비용기반 추정법을 혼용",
+            "char_start": 0,
+            "char_end": 20
+          },
+          "geometry": {
+            "width_pt": 841.89,
+            "height_pt": 595.276,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              841.89,
+              595.276
+            ]
+          },
+          "context": [
+            "mixed_parser_name=opendataloader",
+            "mixed_parser_version=2.5.7"
+          ],
+          "parser_bbox": [
+            148.823,
+            187.457,
+            242.124,
+            196.03
+          ],
+          "parser_coordinate_system": "opendataloader_display_bottom_left_points",
+          "parser_to_canonical": [
+            1.0,
+            0.0,
+            0.0,
+            -1.0,
+            0.0,
+            595.276
+          ],
+          "table_native_id": null,
+          "row_number": null,
+          "column_number": null,
+          "row_span": null,
+          "column_span": null
+        },
+        {
+          "kind": "paragraph",
+          "source": {
+            "document_version_id": "d98c4dd4-b7db-430f-aa9b-2dcb08d5fcda",
+            "parse_manifest_id": "47546f32-7e58-5791-b42f-68ca2be833ea",
+            "parser_run_id": "824968d3-52c8-4eb4-879f-f61134924156",
+            "source_native_id": "1008",
+            "physical_page": 70,
+            "printed_page_label": "70",
+            "native_bbox": [
+              42.52,
+              131.766,
+              295.363,
+              140.34
+            ],
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "2) 화학물질 사용량: 2018년부터 산정 기준을 PRTR 기준으로 변경(* PRTR: 화학물질 배출·이동량 정보)",
+            "char_start": 0,
+            "char_end": 64
+          },
+          "geometry": {
+            "width_pt": 841.89,
+            "height_pt": 595.276,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              841.89,
+              595.276
+            ]
+          },
+          "context": [
+            "mixed_parser_name=opendataloader",
+            "mixed_parser_version=2.5.7"
+          ],
+          "parser_bbox": [
+            42.52,
+            131.766,
+            295.363,
+            140.34
+          ],
+          "parser_coordinate_system": "opendataloader_display_bottom_left_points",
+          "parser_to_canonical": [
+            1.0,
+            0.0,
+            0.0,
+            -1.0,
+            0.0,
+            595.276
+          ],
+          "table_native_id": null,
+          "row_number": null,
+          "column_number": null,
+          "row_span": null,
+          "column_span": null
+        },
+        {
+          "kind": "paragraph",
+          "source": {
+            "document_version_id": "d98c4dd4-b7db-430f-aa9b-2dcb08d5fcda",
+            "parse_manifest_id": "47546f32-7e58-5791-b42f-68ca2be833ea",
+            "parser_run_id": "824968d3-52c8-4eb4-879f-f61134924156",
+            "source_native_id": "1198",
+            "physical_page": 82,
+            "printed_page_label": "82",
+            "native_bbox": [
+              96.507,
+              444.464,
+              209.24,
+              467.016
+            ],
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "b) 기후변화와 관련된 리스크와 기회를 평가, 관리하는 경영진의 역할",
+            "char_start": 0,
+            "char_end": 38
+          },
+          "geometry": {
+            "width_pt": 841.89,
+            "height_pt": 595.276,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              841.89,
+              595.276
+            ]
+          },
+          "context": [
+            "mixed_parser_name=opendataloader",
+            "mixed_parser_version=2.5.7"
+          ],
+          "parser_bbox": [
+            96.507,
+            444.464,
+            209.24,
+            467.016
+          ],
+          "parser_coordinate_system": "opendataloader_display_bottom_left_points",
+          "parser_to_canonical": [
+            1.0,
+            0.0,
+            0.0,
+            -1.0,
+            0.0,
+            595.276
+          ],
+          "table_native_id": null,
+          "row_number": null,
+          "column_number": null,
+          "row_span": null,
+          "column_span": null
+        }
+      ],
+      "edges": [],
+      "synthetic": false
+    }
+  ],
+  "ref": {
+    "source_id": "ad243cdc-9eeb-536c-8a39-8f222288d310",
+    "document_version_id": "d98c4dd4-b7db-430f-aa9b-2dcb08d5fcda",
+    "parse_manifest_id": "47546f32-7e58-5791-b42f-68ca2be833ea",
+    "page_num": 70,
+    "printed_page_label": "70",
+    "bbox": [
+      42.52,
+      454.9359999999999,
+      295.363,
+      463.51
+    ],
+    "raw_text_sha256": "95217f0d11f30cdaf696d9ea31dfcbfe3208feed3bb77fa73798bfc9525c3e12",
+    "quote": "2) 화학물질 사용량: 2018년부터 산정 기준을 PRTR 기준으로 변경(* PRTR: 화학물질 배출·이동량 정보)",
+    "char_start": 0,
+    "char_end": 64,
+    "location_quality": "located",
+    "verification_state": "candidate"
+  }
+}

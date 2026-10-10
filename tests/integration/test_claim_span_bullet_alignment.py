@@ -4,7 +4,7 @@ Two layers are under test and nothing else:
 
 * the admission rule, replayed against the REAL pinned-box token geometry the
   frozen readers produced on the NAVER physical page 90 run (``d5f7908d``),
-  stored in ``outputs/agent-results/R19-bullet-spacing.json``. The 7 real
+  stored in ``tests/fixtures/pipeline/bullet-spacing.json``. The 7 real
   recoveries, the 7 tampered negative controls and every structural refusal are
   exercised against measured coordinates, not invented ones;
 * the wiring: a new run pins the wrapper's own policy, the real worker
@@ -33,12 +33,12 @@ from tests.acceptance.test_parsing import TENANT, candidate
 from tests.integration.test_batch_attestation_cache import discovery_for
 from tests.integration.test_claim_source_verification import inputs
 
-RESULTS = Path(__file__).resolve().parents[2] / "outputs/agent-results"
-EVIDENCE = RESULTS / "R19-bullet-spacing.json"
+RESULTS = Path(__file__).resolve().parents[2] / "tests/fixtures/pipeline"
+EVIDENCE = RESULTS / "bullet-spacing.json"
 # The coordinator's recorded KB page-30 differences: the SAME defect with the
 # other observed bullet (U+00B7). Recorded from that run's own glyph data, no
 # new OCR or model call.
-KB_EVIDENCE = RESULTS / "R19-kb-native-differences.json"
+KB_EVIDENCE = RESULTS / "kb-native-differences.json"
 
 
 def measured():

@@ -451,6 +451,12 @@ def build_report_model(
     """Build report data without grading or inventing corrective values."""
     if not isinstance(manifest, Mapping) or not isinstance(decisions, Mapping):
         raise ValueError("snapshot manifest and decisions must be mappings")
+    from proofops.application.element_evidence_encoding import iter_element_evidence
+
+    # Validation expands only one claim at a time. Projection below retains refs,
+    # so JSON/CSV/HTML never replicate the shared search lists per claim.
+    for _ in iter_element_evidence(manifest, decisions):
+        pass
     tenant_id = _require_uuid("tenant_id", manifest.get("tenant_id"))
     run_id = _require_uuid("run_id", manifest.get("run_id"))
     document_version_id = _require_uuid("document_version_id", manifest.get("document_version_id"))
@@ -624,6 +630,20 @@ def build_report_model(
             classification = dict(classification)
         claim["classification_review"] = classification
         claim["review_action"] = _review_action(claim)
+        if record is not None and "element_evidence" in record:
+            evidence = record["element_evidence"]
+            if not isinstance(evidence, list):
+                raise ValueError("element evidence must be an array")
+            for item in evidence:
+                if not isinstance(item, dict) or item.get("evidence_status") not in (
+                    "confirmed",
+                    "not_found_in_report",
+                    "undetermined",
+                ):
+                    raise ValueError("invalid element evidence status")
+                _source_refs(item.get("evidence_refs"), document_version_id, parse_manifest_id)
+                _source_refs(item.get("candidate_refs"), document_version_id, parse_manifest_id)
+            claim["element_evidence"] = _copy(evidence)
     unfinished_count = sum(item["decision_status"] != "decided" for item in claims)
     unverified_clause_count = sum(
         basis.get("clause") is None or basis["verification_status"] != "verified"
@@ -634,7 +654,7 @@ def build_report_model(
         raise ValueError("coverage does not match the pinned decision statuses")
     if unverified_basis != unverified_clause_count:
         raise ValueError("manifest unverified basis count does not match decisions")
-    return {
+    model = {
         "schema": "report_model_v1",
         "tenant_id": tenant_id,
         "run_id": run_id,
@@ -652,6 +672,10 @@ def build_report_model(
         "unverified_clause_count": unverified_clause_count,
         "claims": claims,
     }
+    if "element_evidence_encoding" in manifest:
+        model["element_evidence_encoding"] = manifest["element_evidence_encoding"]
+        model["element_evidence_manifest"] = "manifest.json"
+    return model
 
 
 def _csv_safe(value: object) -> str:
@@ -663,13 +687,25 @@ def render_report(model: Mapping[str, object], output_format: str) -> bytes:
     """Render fixed report data with stdlib-only output escaping."""
     if not isinstance(model, Mapping) or model.get("schema") != "report_model_v1":
         raise ValueError("report_model_v1 is required")
+    from proofops.application.element_evidence_encoding import ELEMENT_EVIDENCE_V1
+
+    if model.get("element_evidence_encoding") not in (None, ELEMENT_EVIDENCE_V1):
+        raise ValueError("unsupported element evidence encoding")
     if output_format == "json":
-        return canonical_json(model).encode()
+        # Keep the canonical legacy key order, then append the optional MC key.
+        # Old snapshots render byte-for-byte as before; no hash encoding changes.
+        ordered = json.loads(canonical_json(model))
+        for claim in ordered.get("claims", []):
+            if "element_evidence" in claim:
+                claim["element_evidence"] = claim.pop("element_evidence")
+        return json.dumps(
+            ordered, ensure_ascii=True, separators=(",", ":"), allow_nan=False
+        ).encode()
     claims = model.get("claims")
     if not isinstance(claims, list) or any(not isinstance(item, Mapping) for item in claims):
         raise ValueError("report claims are required")
     if output_format == "csv":
-        fields = (
+        fields: tuple[str, ...] = (
             "claim_id",
             "decision_status",
             "evidence_grade",
@@ -696,6 +732,10 @@ def render_report(model: Mapping[str, object], output_format: str) -> bytes:
             "tag_elements",
             "grade_range",
         )
+        if any("element_evidence" in claim for claim in claims):
+            fields += ("element_evidence",)
+        if "element_evidence_encoding" in model:
+            fields += ("element_evidence_encoding", "element_evidence_manifest")
         stream = StringIO(newline="")
         rows = writer(stream)
         rows.writerow(fields)
@@ -706,6 +746,9 @@ def render_report(model: Mapping[str, object], output_format: str) -> bytes:
                 "source_pages": [source["page_num"] for source in sources],
                 "source_quotes": "\n".join(source["quote"] for source in sources),
             }
+            for field in ("element_evidence_encoding", "element_evidence_manifest"):
+                if field in model:
+                    values[field] = model[field]
             rows.writerow(_csv_safe(values.get(field)) for field in fields)
         return stream.getvalue().encode()
     if output_format == "html":
@@ -795,6 +838,86 @@ def render_report(model: Mapping[str, object], output_format: str) -> bytes:
                 if other_parts:
                     tag_html += "<h3>기타 태그 요소</h3><ul>" + "".join(other_parts) + "</ul>"
             classification = claim.get("classification_review")
+            evidence_html = ""
+            if "element_evidence" in claim:
+                status_labels = {
+                    "confirmed": "✅ 확인됨",
+                    "not_found_in_report": "⚠️ 보고서에서 찾지 못함",
+                    "undetermined": "❔ 판단 불가",
+                }
+                evidence_parts = []
+                for element in claim["element_evidence"]:
+                    search = element["search"]
+                    cov = search["coverage"]
+                    subreason = element.get("undetermined_reason")
+                    image_pages = cov.get(
+                        "image_pages",
+                        search.get(
+                            "unresolved_image_pages", cov.get("image_dominant_unreadable_pages", [])
+                        ),
+                    )
+                    image_count = len(image_pages)
+                    label = status_labels[element["evidence_status"]]
+                    if element["evidence_status"] == "undetermined":
+                        label = {
+                            "candidate_needs_review": "🔎 후보 있음·확인 필요",
+                            "no_text_candidate": (
+                                "⚠️ 텍스트로는 못 찾음" f"(이미지 쪽 {image_count}개 미확인)"
+                            ),
+                            "linkage_unclear": "❔ 연결 불명확",
+                        }.get(subreason, label)
+                    previews = "".join(
+                        f"<li>{c['page_num']}쪽: {escape(c['quote'])}"
+                        f" · {escape(c.get('rejection_reason') or '미검증 후보')}</li>"
+                        for c in search.get("native_candidates", [])
+                    )
+                    shared_links = ""
+                    if "element_evidence_encoding" in model:
+                        references = search["__shared_search__"]["refs"]
+                        shared_links = (
+                            "<p>공통 검색 기록: "
+                            + " · ".join(
+                                f'<a href="manifest.json">{escape(field)} '
+                                f"{escape(reference)}</a>"
+                                for field, reference in references.items()
+                            )
+                            + " (인용·의미 연결 검증 상태는 원래 기록을 따릅니다)</p>"
+                        )
+                    evidence_parts.append(
+                        "<li><strong>"
+                        + escape(_element_label(element["element_id"]))
+                        + " · "
+                        + label
+                        + "</strong>"
+                        + "<p>검색한 쪽: "
+                        + escape(canonical_json(cov["searched_pages"]))
+                        + " · 텍스트 판독불가 쪽: "
+                        + escape(canonical_json(cov["unreadable_pages"]))
+                        + " · 이미지 내용 미확인 쪽: "
+                        + escape(canonical_json(image_pages))
+                        + f" ({image_count}개)"
+                        + (
+                            " · 전체 내용 판독 미완결 쪽: "
+                            + escape(canonical_json(cov["unreviewed_content_pages"]))
+                            if "unreviewed_content_pages" in cov
+                            else ""
+                        )
+                        + " · 미검색 쪽: "
+                        + escape(canonical_json(cov["missing_pages"]))
+                        + "</p><p>검색어·동의어: "
+                        + escape(", ".join(search["terms"]))
+                        + "</p><p>"
+                        + escape(search.get("scope_note", ""))
+                        + "</p>"
+                        + shared_links
+                        + "<details><summary>미검증 native 후보</summary><ul>"
+                        + previews
+                        + "</ul></details>"
+                        + "<details><summary>원문 근거·검색 기록</summary><pre>"
+                        + escape(canonical_json(element))
+                        + "</pre></details></li>"
+                    )
+                evidence_html = "<h3>부족 근거 카드</h3><ul>" + "".join(evidence_parts) + "</ul>"
             classification_html = ""
             if classification:
                 origin = (
@@ -825,7 +948,7 @@ def render_report(model: Mapping[str, object], output_format: str) -> bytes:
                 f"<p>{escape(claim.get('suggestion') or '확정된 수정 제안 없음')}</p>"
                 f"{action_html}"
                 f"<h3>원문 근거</h3><ul>{sources}</ul>"
-                f"{tag_html}"
+                f"{tag_html}{evidence_html}"
                 f"<details><summary>감사 세부정보</summary><pre>{audit_details}</pre></details>"
                 "</section>"
             )
@@ -849,6 +972,15 @@ def render_report(model: Mapping[str, object], output_format: str) -> bytes:
             f"미확인 조항 {model['unverified_clause_count']}건</p>"
             f"<details><summary>처리 범위</summary><pre>{coverage_details}</pre></details>"
             + "".join(items)
+            + (
+                '<section id="shared-element-search"><h2>공통 검색 기록</h2>'
+                '<p><a href="manifest.json">검색 목록과 인용문 원문 표</a>: '
+                "주장별 참조는 manifest의 element_evidence_lists와 "
+                "element_evidence_quotes에서 복원할 수 있습니다. 문자 위치는 "
+                "검색 원문의 좌표이며 PDF 바이트 위치가 아닙니다.</p></section>"
+                if "element_evidence_encoding" in model
+                else ""
+            )
             + "</body></html>"
         ).encode()
     raise ValueError("output_format must be json, csv, or html")

@@ -28,8 +28,10 @@ from __future__ import annotations
 
 import json
 from copy import deepcopy
+from dataclasses import asdict, replace
 from pathlib import Path
 
+from proofops.adapters.local.openrouter import OpenRouterProbe
 from proofops.adapters.local.upstage import UpstageProbe
 from proofops.application.preflight import Preflight
 from proofops.application.tagging.preliminary import (
@@ -42,6 +44,11 @@ from proofops.application.tagging.preliminary import (
     P2_SYSTEM_PROMPT,
     PERIOD_ROLE_SYSTEM_SUFFIX,
     SCHEMA,
+    SENTENCE_CONTEXT_PROFILE,
+    SENTENCE_CONTEXT_SYSTEM_PROMPT,
+    SENTENCE_FALLBACK_BASE_PROMPT,
+    SENTENCE_FALLBACK_PROFILE,
+    SENTENCE_FALLBACK_SYSTEM_PROMPT,
     SYSTEM_PROMPT,
     TABLE_ROLE_SYSTEM_SUFFIX,
     TABLE_SCHEMA,
@@ -159,13 +166,18 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
         tenant_id,
         authorize,
         resume=None,
+        display_catalog=None,
     ):
         _require_uuid("tenant_id", tenant_id)
-        if settings.model_profile in (P2_MODEL_PROFILE, POSITION_P2_MODEL_PROFILE):
+        if settings.model_profile == SENTENCE_FALLBACK_PROFILE:
+            expected_prompt = SENTENCE_FALLBACK_SYSTEM_PROMPT
+        elif settings.model_profile == SENTENCE_CONTEXT_PROFILE:
+            expected_prompt = SENTENCE_CONTEXT_SYSTEM_PROMPT
+        elif settings.model_profile in (P2_MODEL_PROFILE, POSITION_P2_MODEL_PROFILE):
             expected_prompt = P2_SYSTEM_PROMPT
         elif settings.model_profile == P1_MODEL_PROFILE:
             expected_prompt = P1_SYSTEM_PROMPT
-        elif settings.model_profile == ACTOR_ROLE_MODEL_PROFILE_V2:
+        elif settings.model_profile in (ACTOR_ROLE_MODEL_PROFILE_V2, "preliminary-decision-v1"):
             expected_prompt = ACTOR_ROLE_SYSTEM_PROMPT_V2
         elif settings.model_profile == ACTOR_ROLE_MODEL_PROFILE:
             expected_prompt = ACTOR_ROLE_SYSTEM_PROMPT
@@ -185,10 +197,14 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
         else:
             raise ValueError("UPSTAGE_TAGGING_BINDING_INVALID")
         if (
-            not isinstance(probe, UpstageProbe)
+            not isinstance(probe, self._probe_type())
             or not isinstance(settings, TaggingSettings)
             or settings.binding.synthetic
             or settings.model_id != probe.model
+            or (
+                isinstance(probe, OpenRouterProbe)
+                and settings.wire_policy_version != probe.wire_policy_version
+            )
             or settings.region != "provider-managed-unverified"
             or settings.system_prompt != expected_prompt
         ):
@@ -197,7 +213,11 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
             raise ValueError("UPSTAGE_TAGGING_AUTHORIZER_REQUIRED")
         if resume is not None and not isinstance(resume, TransportResume):
             raise ValueError("UPSTAGE_TAGGING_RESUME_INVALID")
-        if settings.model_profile == POSITION_P2_MODEL_PROFILE:
+        if settings.model_profile == SENTENCE_FALLBACK_PROFILE:
+            self.TRANSPORT_VERSION = "preliminary-source-quotes-sentence-fallback-v1"
+        elif settings.model_profile == SENTENCE_CONTEXT_PROFILE:
+            self.TRANSPORT_VERSION = "preliminary-source-quotes-sentence-context-v1"
+        elif settings.model_profile == POSITION_P2_MODEL_PROFILE:
             self.TRANSPORT_VERSION = POSITION_P2_TRANSPORT_VERSION
         elif settings.model_profile == POSITION_TABLE_ROLE_MODEL_PROFILE:
             self.TRANSPORT_VERSION = POSITION_TABLE_ROLE_TRANSPORT_VERSION
@@ -211,23 +231,29 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
             self.TRANSPORT_VERSION = TABLE_TRANSPORT_VERSION
         elif settings.model_profile == TABLE_ROLE_MODEL_PROFILE:
             self.TRANSPORT_VERSION = TABLE_ROLE_TRANSPORT_VERSION
-        elif settings.model_profile == ACTOR_ROLE_MODEL_PROFILE_V2:
-            self.TRANSPORT_VERSION = ACTOR_ROLE_TRANSPORT_VERSION_V2
+        elif settings.model_profile in (ACTOR_ROLE_MODEL_PROFILE_V2, "preliminary-decision-v1"):
+            self.TRANSPORT_VERSION = (
+                "preliminary-decision-v1"
+                if settings.model_profile == "preliminary-decision-v1"
+                else ACTOR_ROLE_TRANSPORT_VERSION_V2
+            )
         elif settings.model_profile == ACTOR_ROLE_MODEL_PROFILE:
             self.TRANSPORT_VERSION = ACTOR_ROLE_TRANSPORT_VERSION
         elif settings.model_profile == GOAL_ROLE_MODEL_PROFILE:
             self.TRANSPORT_VERSION = GOAL_ROLE_TRANSPORT_VERSION
+        self._display_catalog = display_catalog
         self._authorize = authorize
         self._probe, self._settings, self._tenant = probe, settings, tenant_id
         self._resume = resume
         self._receipts = Path(receipts)
         self._receipts.mkdir(parents=True, exist_ok=True, mode=0o700)
+        self._init_operation_state()
 
     @staticmethod
     def _probe_type():
-        from proofops.adapters.local.upstage import UpstageProbe
+        from proofops.adapters.local.openrouter import OpenRouterProbe
 
-        return UpstageProbe
+        return (UpstageProbe, OpenRouterProbe)
 
     def bound_context(self, packet: dict) -> dict:
         """Fit optional whole context blocks BEFORE packet hashing/authorization.
@@ -240,10 +266,21 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
         data = bounded["untrusted_document_data"]
         blocks = data.get("context_blocks", [])
         while blocks:
-            wire = json.dumps(bounded, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+            sizing = bounded
+            system = self._settings.rendered_system
+            if getattr(self, "_display_catalog", None) is not None:
+                from proofops.application.ingest.display_text import POLICY, SYSTEM_SUFFIX
+
+                # Pins are added after context bounding. The wire drops those
+                # pins and adds this fixed policy/hash/suffix; account for that
+                # overhead now. Raw text is an upper bound on display text, which
+                # only deletes proven spaces. No numbered source is shortened.
+                sizing = bounded | dict(display_policy=POLICY, display_map_sha256="0" * 64)
+                system += SYSTEM_SUFFIX
+            wire = json.dumps(sizing, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
             try:
                 self._probe.request_body(
-                    self._settings.rendered_system,
+                    system,
                     wire,
                     request_id="context-size-preflight",
                     max_tokens=self._settings.max_tokens,
@@ -259,9 +296,22 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
                 data["omitted_source_ids"].append(removed["source_id"])
         return bounded
 
-    def _wire_request(self, request: dict) -> tuple[str, str, dict[str, dict], Preflight]:
+    def _wire_request(self, request: dict) -> tuple[str, str, dict[str, dict], Preflight, str]:
         settings = self._settings
-        actor_role_v2 = settings.model_profile == ACTOR_ROLE_MODEL_PROFILE_V2
+        fallback = settings.model_profile == SENTENCE_FALLBACK_PROFILE
+        # The authorized fallback profile has exactly two pinned wire branches.
+        # The packet prompt hash chooses a branch; keys and context are checked below.
+        try:
+            fallback_sources = fallback and json.loads(request["user_json"])[
+                "prompt_sha256"
+            ] == canonical_hash(SENTENCE_FALLBACK_BASE_PROMPT)
+        except (ValueError, TypeError, KeyError):
+            raise ValueError("UPSTAGE_PRELIMINARY_PACKET_INVALID") from None
+        actor_role_v2 = settings.model_profile in (
+            ACTOR_ROLE_MODEL_PROFILE_V2,
+            "preliminary-decision-v1",
+            SENTENCE_CONTEXT_PROFILE,
+        )
         actor_role = settings.model_profile == ACTOR_ROLE_MODEL_PROFILE or actor_role_v2
         goal_role = settings.model_profile == GOAL_ROLE_MODEL_PROFILE or actor_role
         role_table = (
@@ -275,14 +325,22 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
             )
             or goal_role
         )
-        is_table = settings.model_profile == TABLE_MODEL_PROFILE or role_table
+        is_table = settings.model_profile == TABLE_MODEL_PROFILE or role_table or fallback
         is_context = settings.model_profile == CONTEXT_MODEL_PROFILE or is_table
         if is_table:
             expected_schema = TABLE_SCHEMA
-            if settings.model_profile in (P2_MODEL_PROFILE, POSITION_P2_MODEL_PROFILE):
+            if fallback:
+                expected_prompt = (
+                    SENTENCE_FALLBACK_BASE_PROMPT
+                    if fallback_sources
+                    else SENTENCE_FALLBACK_SYSTEM_PROMPT
+                )
+            elif settings.model_profile in (P2_MODEL_PROFILE, POSITION_P2_MODEL_PROFILE):
                 expected_prompt = P2_SYSTEM_PROMPT
             elif settings.model_profile == P1_MODEL_PROFILE:
                 expected_prompt = P1_SYSTEM_PROMPT
+            elif settings.model_profile == SENTENCE_CONTEXT_PROFILE:
+                expected_prompt = SENTENCE_CONTEXT_SYSTEM_PROMPT
             elif actor_role_v2:
                 expected_prompt = ACTOR_ROLE_SYSTEM_PROMPT_V2
             elif actor_role:
@@ -309,7 +367,9 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
         # signature SHA, settings/binding/model/region/temperature/replica/
         # output-cap validation; raises before any spend on failure.
         authorization = self._authorize_request(request)
-        if settings.system_prompt != expected_prompt:
+        if settings.system_prompt != (
+            SENTENCE_FALLBACK_SYSTEM_PROMPT if fallback else expected_prompt
+        ):
             raise ValueError("UPSTAGE_PRELIMINARY_PROMPT_INVALID")
         system = request.get("system_prompt")
         if not isinstance(system, str) or system != settings.rendered_system:
@@ -318,6 +378,11 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
             user = json.loads(request["user_json"])
         except (TypeError, ValueError, KeyError):
             raise ValueError("UPSTAGE_PRELIMINARY_PACKET_INVALID") from None
+        if fallback_sources:
+            system = replace(settings, system_prompt=SENTENCE_FALLBACK_BASE_PROMPT).rendered_system
+        catalog = getattr(self, "_display_catalog", None)
+        if catalog is not None:
+            expected_keys = expected_keys | {"display_text"}
         if not isinstance(user, dict) or set(user) != expected_keys:
             raise ValueError("UPSTAGE_PRELIMINARY_PACKET_INVALID")
         if user["schema"] != expected_schema:
@@ -377,8 +442,44 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
                 raise ValueError("UPSTAGE_PRELIMINARY_TABLE_SOURCE_INVALID")
         if is_context:
             self._validate_context_shape(user, data, table=is_table)
+        if fallback:
+            context = data["context_blocks"]
+            if (fallback_sources and context) or any(
+                b["quality"] != "verified"
+                or b["source_ref"].get("verification_state") != "verified"
+                for b in context
+            ):
+                raise ValueError("UPSTAGE_PRELIMINARY_CONTEXT_INVALID")
+        if catalog is not None:
+            from proofops.application.ingest.display_text import POLICY, SYSTEM_SUFFIX
+
+            display = user.pop("display_text")
+            if display["policy"] != POLICY or len(display["sources"]) != len(sources):
+                raise ValueError("DISPLAY_PACKET_MISMATCH")
+            for entry, pin in zip(sources, display["sources"], strict=True):
+                ident = pin["identity"]
+                block = catalog._blocks[ident["source_id"]]
+                ref = asdict(block.source_ref()) | dict(
+                    char_start=ident["char_start"], char_end=ident["char_end"], quote=entry["text"]
+                )
+                if catalog.pin(ref) != pin:
+                    raise ValueError("DISPLAY_PACKET_MISMATCH")
+                entry["text"] = pin["text"]
+            context = data.get("context_blocks", [])
+            if len(context) != len(display["context"]):
+                raise ValueError("DISPLAY_PACKET_MISMATCH")
+            for entry, pin in zip(context, display["context"], strict=True):
+                if (
+                    catalog.context_pin(entry) != pin
+                    or canonical_hash(entry["text"]) != pin["raw_sha256"]
+                ):
+                    raise ValueError("DISPLAY_PACKET_MISMATCH")
+                entry["text"] = pin["text"]
+            user["display_policy"] = POLICY
+            user["display_map_sha256"] = canonical_hash(display)
+            system += SYSTEM_SUFFIX
         wire_user = json.dumps(user, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-        return system, wire_user, {}, authorization
+        return system, wire_user, {}, authorization, settings.schema_json
 
     @staticmethod
     def _validate_context_shape(user: dict, data: dict, *, table: bool = False) -> None:

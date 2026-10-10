@@ -1,4 +1,4 @@
-"""Pure pinned-pack evaluator for the explicit general ladders (TASK-014).
+"""Pure pinned-pack evaluator for the explicit general ladders.
 
 Confirmed facts are an internal, trusted citation/binding boundary, never raw LLM
 output. Source checks here verify the retained attestations; upstream citation
@@ -433,5 +433,74 @@ def evaluate(tags: ConfirmedTags, context: RuleContext, pack: RulePackSnapshot) 
                 "pack_sha256": pack.sha256,
                 "decision": asdict(decision),
             }
+        ),
+    )
+
+
+def display_grade_range(pack: RulePackSnapshot, *, tags=None, context=None) -> dict:
+    """Display-only counterfactual envelope using the exact pinned ladder selector.
+
+    No ConfirmedFact is manufactured or changed. Undefined branches/mappings
+    widen to the pack's whole grade envelope; this is not a domain ruling.
+    """
+    tracks = (tags.track,) if tags is not None else tuple(MAPPINGS)
+    reachable: set[str] = set()
+    open_elements: set[str] = set()
+    rule_gap = False
+    effect = apply_source_exceptions(tags, context, pack) if tags is not None else None
+    facts = {f.name: f.state for f in tags.facts} if tags is not None else {}
+    if effect and effect.ordinal_state is not None:
+        facts.update({name: effect.ordinal_state for name in performance.ELEMENTS["P1"]})
+    for track in tracks:
+        rubric = pack.file_content(f"rubric/{track}.yaml")
+        branches = rubric["branches"]
+        names = {
+            name
+            for b in branches
+            for name in (set(b.get("when", {})) | set(b.get("require_all", [])))
+        }
+        names.discard("exception_applies")
+        if track == "goal":
+            names.update(("target_metric", "transition_plan"))
+        if len(names) > 12:
+            raise DomainValidationError("unsupported ladder ontology size")
+        known = {
+            name: facts[name] == "present"
+            for name in names
+            if facts.get(name) in ("present", "absent")
+        }
+        unknown = sorted(names - known.keys())
+        open_elements.update(e for e, ns in MAPPINGS[track].items() if set(ns) & set(unknown))
+        grades = {
+            _select(branches, known | dict(zip(unknown, values, strict=True)))[0]
+            for values in product((False, True), repeat=len(unknown))
+        }
+        if None in grades:
+            rule_gap = True
+        reachable.update(g for g in grades if g is not None)
+    if rule_gap or (effect and effect.gap_ids):
+        reachable.update(
+            b["grade"] for t in MAPPINGS for b in pack.file_content(f"rubric/{t}.yaml")["branches"]
+        )
+    if effect and effect.cap_grade:
+        reachable = {min(g, effect.cap_grade) for g in reachable}
+    if effect and effect.override_grade:
+        reachable = {effect.override_grade}
+    if effect and effect.unresolved_elements:
+        # Unknown superlative comparison/verification can also trigger original E0.
+        reachable.add("E0")
+        open_elements.update(effect.unresolved_elements)
+    return dict(
+        floor=min(reachable),
+        ceiling=max(reachable),
+        open_elements=sorted(open_elements),
+        rule_gap=rule_gap or bool(effect and effect.gap_ids),
+        rule_pack_sha256=pack.sha256,
+        assumptions=dict(
+            display_only=True,
+            unresolved_states=["unknown", "conflict", "not_applicable"],
+            values=["absent", "present"],
+            unknown_track=list(tracks),
+            unmapped_rule="whole_pack_envelope",
         ),
     )

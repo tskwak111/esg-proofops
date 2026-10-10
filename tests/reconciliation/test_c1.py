@@ -246,11 +246,6 @@ def test_c1_is_deterministic_across_repeated_evaluation():
     assert engine.evaluate(value, pol) == engine.evaluate(value, pol)
 
 
-# --------------------------------------------------------------------------- #
-# adopted REC-001 (R00 section 12, 2026-09-28)
-# --------------------------------------------------------------------------- #
-
-
 def test_rec001_sets_are_not_compared_across_different_periods():
     same = setify(["KR-HQ"])
     value = packet(same, same)

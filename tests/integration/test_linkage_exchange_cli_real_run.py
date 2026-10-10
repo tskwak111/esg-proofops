@@ -39,7 +39,7 @@ CLI_PATH = Path(__file__).resolve().parents[2] / "scripts/linkage_exchange_cli.p
 
 # The NAVER run an earlier R24 probe re-reviewed to tag_revision 3 (M1 present).
 # Read-only supplement only; skipped when the local state is absent.
-R24_REREVIEW_STATE = Path("/Users/ss020/Dev/ESG_ProofOps/.local/r24-cli-rereview")
+R24_REREVIEW_STATE = Path(__file__).resolve().parents[2] / ".local/r24-cli-rereview"
 R24_TENANT = "b36026f6-c2a7-4653-82b0-c4c554a1515f"
 R24_RUN = "d379689e-b597-4920-a84e-6fbe72d55baf"
 R24_CLAIM = "724c1911-471a-5a4d-9169-9a0341466323"

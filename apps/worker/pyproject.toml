@@ -6,6 +6,7 @@ requires-python = ">=3.12"
 dependencies = [
   "proofops[parsing]",
   "proofops-agent",
+  "pyyaml>=6.0,<7",
 ]
 
 [build-system]

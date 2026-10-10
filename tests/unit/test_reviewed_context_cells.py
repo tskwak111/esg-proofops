@@ -1,8 +1,8 @@
 """Literal context-cell attestation: what it admits and what it must refuse.
 
 Most tests here are **local integration checks**. They read the operator review
-under ``outputs/agent-results/R02g-layout-review`` and the customer PDFs under
-``outputs/agent-fixtures``, which are local git-ignored inputs, and they run the
+under ``tests/fixtures/pipeline/reviewed-table-layout`` and the customer PDFs under
+``tests/fixtures/source-documents``, which are local git-ignored inputs, and they run the
 real on-device rendered reader. They skip when those inputs or the Swift
 toolchain are absent and are not portable CI coverage.
 ``test_selection_must_be_a_bounded_unique_list_of_ids`` and
@@ -26,10 +26,10 @@ from proofops.adapters.local.reviewed_table import graph_from_review
 from proofops.adapters.local.selected_cell_table_verification import attest_tables
 
 APP = Path(__file__).resolve().parents[2]
-REVIEW = APP / "outputs/agent-results/R02g-layout-review/lotte-candidates.json"
-PDF = APP / "outputs/agent-fixtures/lotte.pdf"
-KIA_REVIEW = APP / "outputs/agent-results/R02g-layout-review/kia-candidates.json"
-KIA_PDF = APP / "outputs/agent-fixtures/kia.pdf"
+REVIEW = APP / "tests/fixtures/pipeline/reviewed-table-layout/lotte-candidates.json"
+PDF = APP / "tests/fixtures/source-documents/lotte.pdf"
+KIA_REVIEW = APP / "tests/fixtures/pipeline/reviewed-table-layout/kia-candidates.json"
+KIA_PDF = APP / "tests/fixtures/source-documents/kia.pdf"
 _CLI_TOOLS = Path("/Library/Developer/CommandLineTools")
 
 # Lotte p117 row 1: the merged metric cell (row_span 6), its unit, its 2025 value

@@ -76,12 +76,37 @@ def test_published_sources_quality_pagination_and_tenant_isolation(tmp_path, mon
     assert http.get(source_url).status_code == 401
 
 
+@pytest.mark.parametrize("active_payload", [False, True])
 @pytest.mark.parametrize("invalid_geometry", [False, True])
-def test_source_view_is_short_lived_user_scoped_and_serves_verified_original(
-    tmp_path, monkeypatch, invalid_geometry
+def test_source_view_is_short_lived_user_scoped_and_serves_verified_display(
+    tmp_path, monkeypatch, invalid_geometry, active_payload
 ):
     from proofops_api.routers.sources import build_sources_router
 
+    if active_payload:
+        from io import BytesIO
+
+        from pypdf import PdfReader, PdfWriter
+        from pypdf.generic import DictionaryObject, NameObject, TextStringObject
+
+        from tests.integration import test_local_parser_runner as fixtures
+
+        original_pdf = fixtures.pdf
+
+        def hostile_pdf(**kwargs):
+            writer = PdfWriter(clone_from=PdfReader(BytesIO(original_pdf(**kwargs))))
+            writer.root_object[NameObject("/OpenAction")] = DictionaryObject(
+                {
+                    NameObject("/S"): NameObject("/JavaScript"),
+                    NameObject("/JS"): TextStringObject("hidden_payload()"),
+                }
+            )
+            writer.add_attachment("hidden.exe", b"hostile_attachment_payload")
+            buffer = BytesIO()
+            writer.write(buffer)
+            return buffer.getvalue()
+
+        monkeypatch.setattr(fixtures, "pdf", hostile_pdf)
     service, run_id, runner, now, _ = runner_setup(tmp_path, monkeypatch)
     if invalid_geometry:
         import json
@@ -127,8 +152,30 @@ def test_source_view_is_short_lived_user_scoped_and_serves_verified_original(
     assert fetched.headers["Cache-Control"] == "no-store, private"
     assert fetched.headers["X-Content-Type-Options"] == "nosniff"
     assert fetched.headers["Referrer-Policy"] == "no-referrer"
-    assert sha256(fetched.content).hexdigest() == graph.source_sha256
-    assert fetched.content == service.uploads.read_original(TENANT, graph.document_version_id)
+    display, metadata = service.uploads.read_display(TENANT, graph.document_version_id)
+    if active_payload:
+        from tests.acceptance.test_upload_display_security import assert_display_safe
+
+        assert_display_safe(display)
+        assert b"hidden_payload()" not in display
+        assert b"hostile_attachment_payload" not in display
+        assert (
+            str(
+                PdfReader(
+                    BytesIO(service.uploads.read_original(TENANT, graph.document_version_id))
+                ).root_object["/OpenAction"]["/JS"]
+            )
+            == "hidden_payload()"
+        )
+    assert fetched.content == display
+    assert sha256(fetched.content).hexdigest() == metadata["display_sha256"]
+    assert fetched.headers["X-PDF-Derived"] == "display-v2"
+    assert fetched.headers["X-Original-SHA256"] == graph.source_sha256
+    assert fetched.headers["X-Display-SHA256"] == metadata["display_sha256"]
+    assert (
+        sha256(service.uploads.read_original(TENANT, graph.document_version_id)).hexdigest()
+        == graph.source_sha256
+    )
 
     parsed = urlsplit(ticket["url"])
     signed = parse_qs(parsed.query)["ticket"][0]
@@ -142,7 +189,7 @@ def test_source_view_is_short_lived_user_scoped_and_serves_verified_original(
     assert float(preview.headers["X-Page-Height-Pt"]) > 0
     assert preview.headers["X-Source-Highlight"] == "unavailable"
     assert preview.content.startswith(b"\x89PNG\r\n\x1a\n")
-    assert sha256(http.get(ticket["url"]).content).hexdigest() == graph.source_sha256
+    assert sha256(http.get(ticket["url"]).content).hexdigest() == metadata["display_sha256"]
 
     from proofops_api.request_limits import RequestLimit
 

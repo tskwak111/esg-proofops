@@ -1,0 +1,49 @@
+{
+  "schema": "hosted_rendered_readers_v1",
+  "default_linux_reader": "upstage-ocr-page-v5",
+  "gate_passed": {
+    "upstage-ocr-page-v4": {
+      "report": "outputs/agent-results/R108-redesign/lab/hosted/FX2/FX2-REPORT.md",
+      "approval": "FX2 authorized source-reader correction; free original-source gate",
+      "source_verified_before_after": [
+        10,
+        33
+      ],
+      "saved_claims": 95,
+      "original_crop_reviews": 23,
+      "false_verified_observed": 0,
+      "numeric_promotions": 0,
+      "paid_pipeline": "not_run",
+      "report_sha256": "0442f56e3602fd3835a5d65ba40f5f96348767b9940fa157f47cae0540603a9f",
+      "validation_sha256": "28207cfe88785b108a3c4d54505f748c87e805822d4ecbfda3915e32593e9196"
+    },
+    "upstage-ocr-page-v3": {
+      "report": "outputs/agent-results/R108-redesign/lab/deploy/ocr/O1d-REPORT.md",
+      "report_sha256": "69f0797dbae5420ba1b5deb4ef2f12df3e7a820c0a9a37c5f5d16c37deea741e",
+      "approval": "coordinator decision 2026-10-09",
+      "claim_retention": [
+        62,
+        64
+      ],
+      "false_verified": 0,
+      "numeric_promotions": 0
+    },
+    "upstage-ocr-page-v5": {
+      "report": "outputs/agent-results/R108-redesign/lab/hosted/FX5/FX5-REPORT.md",
+      "approval": "FX5 authorized mismatch-only fallback using approved v3 reader and unchanged v4 literal/layout guards",
+      "report_sha256": "78916b174e83bd38caa3fb7d45c7a8a4b547b604d2603389eccc4c3052c9db2e",
+      "validation_sha256": "ba79e3f64c3f584b49314aa9142b7a110d4ce9aadaa236d8f97dfae0378b342d",
+      "saved_claims": 95,
+      "source_verified_before_after": [
+        33,
+        36
+      ],
+      "original_crop_reviews": 3,
+      "false_verified_observed": 0,
+      "numeric_promotions": 0,
+      "max_fallback_claim_pages": 10,
+      "evidence_fallback": false,
+      "paid_pipeline": "not_run"
+    }
+  }
+}

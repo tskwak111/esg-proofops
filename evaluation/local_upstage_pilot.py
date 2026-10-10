@@ -18,16 +18,115 @@ from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from hashlib import sha256
 from pathlib import Path
-from typing import cast
-from uuid import uuid4
+from typing import Any, cast
+from uuid import UUID, uuid4
 
 import yaml  # type: ignore[import-untyped]
 from fastapi import Request
 
 ROOT = Path(__file__).resolve().parents[1]
 
+FINALS_CANDIDATE = "r108-finals-candidate"
+# Sprint5 attempt3 behavior plus Q1/Q2/Q3/Q4; budgets and dispatch consent remain caller-owned.
+FINALS_CANDIDATE_FLAGS = (
+    "verify_paragraphs",
+    "verify_merged_tables",
+    "repair_table_headers",
+    "verify_claim_spans",
+    "claim_span_render_resolution",
+    "claim_span_bullet_spacing",
+    "claim_span_typography",
+    "extraction_context",
+    "extraction_table_context",
+    "extraction_source_ids",
+    "extraction_assertion_prompt",
+    "live_tagging",
+    "live_relations",
+    "preliminary_context",
+    "preliminary_table_context",
+    "preliminary_table_role",
+    "preliminary_goal_role",
+    "preliminary_actor_role",
+    "preliminary_sentence_context",
+    "compact_element_wire",
+    "capacity_refresh",
+    "extraction_linewrap_join",
+    "element_consistency",
+    "extraction_table_rows",
+    "extraction_recall_prompt",
+)
+FINALS_CANDIDATE_VALUES = {
+    "llm_provider": "openrouter",
+    "parser": "upstage",
+    "vision_parse": "auto",
+    "relation_profile": "occurrence-v3",
+    "claim_source_profile": "glyph-alignment-v1",
+    "display_text_profile": "glyph-joined-display-v1",
+}
+FINALS_CANDIDATE_FORBIDDEN = (
+    "extraction_atomic",
+    "preliminary_p2",
+    "position_context_order",
+    "verify_tables",
+    "verify_selected_cells",
+    "raster_ocr",
+)
 
-def local_login_response(sessions, user: str, tenant: str, run_id: str):
+FINALS_CANDIDATE_V2 = "r108-finals-candidate-v2"
+FINALS_CANDIDATE_V2_FLAGS = tuple(
+    field
+    for field in FINALS_CANDIDATE_FLAGS
+    if field not in ("extraction_table_rows", "extraction_recall_prompt")
+) + ("preliminary_sentence_fallback",)
+FINALS_CANDIDATE_V2_FORBIDDEN = FINALS_CANDIDATE_FORBIDDEN + (
+    "extraction_table_rows",
+    "extraction_recall_prompt",
+)
+
+
+def finals_candidate_profile(args):
+    v1 = getattr(args, "r108_finals_candidate", False)
+    v2 = getattr(args, "r108_finals_candidate_v2", False)
+    if v1 and v2:
+        raise ValueError("R108 candidate profiles are mutually exclusive")
+    return FINALS_CANDIDATE_V2 if v2 else FINALS_CANDIDATE if v1 else None
+
+
+def apply_finals_candidate(args, *, restoring=False):
+    """Expand the opt-in bundle, or verify its frozen flags during read-only resume."""
+    profile = finals_candidate_profile(args)
+    if profile is None:
+        return
+    flags = FINALS_CANDIDATE_V2_FLAGS if profile == FINALS_CANDIDATE_V2 else FINALS_CANDIDATE_FLAGS
+    forbidden = (
+        FINALS_CANDIDATE_V2_FORBIDDEN
+        if profile == FINALS_CANDIDATE_V2
+        else FINALS_CANDIDATE_FORBIDDEN
+    )
+    for field in forbidden:
+        if getattr(args, field, False):
+            raise ValueError(f"{profile} forbids --{field.replace('_', '-')}")
+    if args.preliminary_profile is not None or args.model not in (
+        None,
+        "openai/gpt-6-luna",
+        "gpt-6-luna",
+    ):
+        raise ValueError(f"{profile} requires the Sprint5 attempt3 model profiles")
+    for field, expected in FINALS_CANDIDATE_VALUES.items():
+        actual = getattr(args, field)
+        if field == "llm_provider" and actual == "openai":
+            continue
+        allowed = (None, expected)
+        if (restoring and actual != expected) or (not restoring and actual not in allowed):
+            raise ValueError(f"{profile} requires {field}={expected}")
+        setattr(args, field, expected)
+    for field in flags:
+        if restoring and getattr(args, field) is not True:
+            raise ValueError(f"saved {profile} is missing {field}; create a new run")
+        setattr(args, field, True)
+
+
+def local_login_response(sessions, user: str, tenant: str, run_id: str, *, new_analysis=False):
     """The secret loopback login link renews an expired demo session on each visit."""
     from fastapi.responses import RedirectResponse
     from proofops.adapters.local.auth_store import hash_token, new_session_id
@@ -38,7 +137,9 @@ def local_login_response(sessions, user: str, tenant: str, run_id: str):
     sessions.put_with_token(
         SessionRecord(session, user, tenant, hash_token(csrf), now + 3600, now + 3600, False), csrf
     )
-    response = RedirectResponse(f"/runs/{run_id}/claims", status_code=303)
+    response = RedirectResponse(
+        "/documents/new" if new_analysis else f"/runs/{run_id}/claims", status_code=303
+    )
     response.set_cookie(
         SESSION_COOKIE_NAME, session, secure=True, httponly=True, samesite="strict", path="/"
     )
@@ -61,12 +162,14 @@ def pilot_company_body(legal_name, registration_identifier, *, existing: bool) -
 
 
 def extraction_budget_settings(batch_calls: int, total_calls: int | None = None) -> dict:
-    """Freeze a finite run allowance independently of each 1..20-source batch.
+    """Freeze a finite run allowance independently of each bounded batch.
 
     Omitting total_calls preserves the legacy one-batch allowance. This grants
     no money: the shared USD20 ledger still fences every provider dispatch.
     """
-    if type(batch_calls) is not int or not 1 <= batch_calls <= 20:
+    from proofops.application.claim_scope import MAX_EXTRACTION_BATCH_CALLS
+
+    if type(batch_calls) is not int or not 1 <= batch_calls <= MAX_EXTRACTION_BATCH_CALLS:
         raise ValueError("invalid extraction batch call limit")
     total = batch_calls if total_calls is None else total_calls
     if type(total) is not int or not batch_calls <= total <= 2000:
@@ -90,16 +193,23 @@ def extraction_budget_settings(batch_calls: int, total_calls: int | None = None)
 def live_tagging_settings(
     max_calls: int,
     *,
+    model_id: str = "solar-pro4",
     relations: bool = False,
+    relation_profile: str = "source-quotes-v1",
     preliminary_context: bool = False,
     preliminary_table_context: bool = False,
     preliminary_table_role: bool = False,
     preliminary_goal_role: bool = False,
     preliminary_actor_role: bool = False,
+    preliminary_sentence_context: bool = False,
+    preliminary_sentence_fallback: bool = False,
     preliminary_p2: bool = False,
+    preliminary_profile: str | None = None,
     compact_element_wire: bool = False,
+    element_consistency: bool = False,
     position_context_order: bool = False,
     capacity_refresh: bool = False,
+    element_definition_profile: str | None = None,
 ) -> dict:
     """Explicit bounded pilot config; grants are registered separately by main."""
     from proofops.application.input_reservation import solar_pro4_capacity_policy
@@ -120,13 +230,39 @@ def live_tagging_settings(
         or type(preliminary_table_context) is not bool
         or type(preliminary_table_role) is not bool
         or type(preliminary_goal_role) is not bool
+        or type(preliminary_sentence_fallback) is not bool
+        or type(preliminary_sentence_context) is not bool
         or type(preliminary_actor_role) is not bool
         or type(preliminary_p2) is not bool
+        or type(element_consistency) is not bool
         or type(compact_element_wire) is not bool
         or type(position_context_order) is not bool
         or type(capacity_refresh) is not bool
     ):
         raise ValueError("relation/preliminary-context stage must be explicit boolean")
+    if preliminary_profile not in (None, "decision-v1"):
+        raise ValueError("unknown preliminary profile")
+    decision = preliminary_profile == "decision-v1" or relation_profile == "decision-gate-v1"
+    if decision and (model_id != "openai/gpt-6-luna" or position_context_order):
+        raise ValueError("decision profiles require Luna and source context order")
+    if relation_profile not in {
+        "source-quotes-v1",
+        "occurrence-v2",
+        "occurrence-v3",
+        "decision-gate-v1",
+    }:
+        raise ValueError("unknown relation profile")
+    if relation_profile != "source-quotes-v1" and not relations:
+        raise ValueError("relation profile requires live relations")
+    if preliminary_sentence_fallback and not preliminary_sentence_context:
+        raise ValueError("sentence fallback requires sentence context")
+    if preliminary_sentence_context and (
+        not preliminary_actor_role
+        or preliminary_p2
+        or preliminary_profile
+        or position_context_order
+    ):
+        raise ValueError("sentence context requires actor role and excludes alternative profiles")
     if preliminary_table_context and not preliminary_context:
         raise ValueError("preliminary table context requires preliminary context")
     if preliminary_table_role and not preliminary_table_context:
@@ -211,7 +347,34 @@ def live_tagging_settings(
         "or grading. Validate this equality for every element before submitting."
     )
     settings = {}
-    if preliminary_p2:
+    if element_definition_profile is not None:
+        if element_definition_profile != "qi1-v1":
+            raise ValueError("ELEMENT_DEFINITION_PROFILE_UNKNOWN")
+        from proofops.application.tagging.quality import ELEMENT_DEFINITIONS
+
+        element_prompt += "\n" + ELEMENT_DEFINITIONS
+    if preliminary_sentence_context:
+        from proofops.application.tagging.preliminary import (
+            SENTENCE_CONTEXT_PROFILE,
+            SENTENCE_CONTEXT_SYSTEM_PROMPT,
+            SENTENCE_FALLBACK_PROFILE,
+            SENTENCE_FALLBACK_SYSTEM_PROMPT,
+        )
+
+        preliminary_profile = (
+            SENTENCE_FALLBACK_PROFILE if preliminary_sentence_fallback else SENTENCE_CONTEXT_PROFILE
+        )
+        preliminary_prompt = (
+            SENTENCE_FALLBACK_SYSTEM_PROMPT
+            if preliminary_sentence_fallback
+            else SENTENCE_CONTEXT_SYSTEM_PROMPT
+        )
+    elif preliminary_profile == "decision-v1":
+        from proofops.application.tagging.decisions import PRELIMINARY_PROFILE, QUOTE_PROMPT
+
+        preliminary_profile = PRELIMINARY_PROFILE
+        preliminary_prompt = QUOTE_PROMPT
+    elif preliminary_p2:
         preliminary_profile = (
             "upstage-preliminary-source-quotes-table-role-v2-p2-position-v1"
             if position_context_order
@@ -271,7 +434,9 @@ def live_tagging_settings(
         ),
         (
             "tagging",
-            "upstage-compact-source-quotes-v5"
+            "upstage-compact-element-consistency-v6"
+            if element_consistency
+            else "upstage-compact-source-quotes-v5"
             if compact_element_wire
             else "upstage-compact-source-quotes-v4",
             element_prompt,
@@ -280,14 +445,33 @@ def live_tagging_settings(
         ),
     )
     if relations:
-        from proofops.application.tagging.relations import SYSTEM_PROMPT as RELATION_PROMPT
+        from proofops.application.tagging.relations import (
+            LEGACY_PROFILE,
+            OCCURRENCE_PROFILE,
+            OCCURRENCE_V3_PROFILE,
+            relation_prompt,
+        )
 
+        selected_profile = {
+            "source-quotes-v1": LEGACY_PROFILE,
+            "occurrence-v2": OCCURRENCE_PROFILE,
+            "occurrence-v3": OCCURRENCE_V3_PROFILE,
+            "decision-gate-v1": "relation-decision-gate-v1",
+        }[relation_profile]
+        schema_profile = (
+            "occurrence-v3" if relation_profile == "decision-gate-v1" else relation_profile
+        )
+        relation_schema = (
+            ROOT / f"prompts/source_relations_{schema_profile.replace('-', '_')}.schema.json"
+            if schema_profile in {"occurrence-v2", "occurrence-v3"}
+            else ROOT / "contracts/jsonschema/source_relations.schema.json"
+        )
         profiles += (
             (
                 "relation",
-                "upstage-relation-source-quotes-v1",
-                RELATION_PROMPT,
-                (ROOT / "contracts/jsonschema/source_relations.schema.json").read_text(),
+                selected_profile,
+                relation_prompt(selected_profile),
+                relation_schema.read_text(),
                 4096,
             ),
         )
@@ -295,15 +479,33 @@ def live_tagging_settings(
         settings[prefix + "_settings"] = asdict(
             TaggingSettings(
                 ModelBinding(str(uuid4()), "tagger", False),
-                "solar-pro4",
+                model_id,
                 profile,
                 "provider-managed-unverified",
                 prompt,
                 schema,
                 max_tokens=output,
+                wire_policy_version=2 if model_id in ("openai/gpt-6-luna", "gpt-6-luna") else 1,
             )
         )
-    settings["input_reservation_policy"] = solar_pro4_capacity_policy(refreshed=capacity_refresh)
+    if model_id == "openai/gpt-6-luna":
+        from proofops.adapters.local.openrouter import CAPACITY_POLICY
+
+        settings["input_reservation_policy"] = CAPACITY_POLICY.copy()
+    elif model_id == "gpt-6-luna":
+        from proofops.adapters.local.openai import CAPACITY_POLICY
+
+        settings["input_reservation_policy"] = CAPACITY_POLICY.copy()
+    else:
+        settings["input_reservation_policy"] = solar_pro4_capacity_policy(
+            refreshed=capacity_refresh
+        )
+    if decision:
+        from proofops.application.tagging.decisions import MODELS, POLICY
+
+        settings["decision_settings"] = dict(
+            policy=POLICY, binding_ids={p: str(uuid4()) for p in MODELS}
+        )
     return settings
 
 
@@ -325,6 +527,14 @@ def parser_output_limit(value):
     return value
 
 
+def parser_memory_limit(value):
+    if value is None:
+        return 768 * 1024 * 1024
+    if type(value) is not int or not 1 <= value <= 4 * 1024**3:
+        raise ValueError("--parser-memory-bytes must be an integer in 1..4294967296")
+    return value
+
+
 def claim_source_policy_for(args):
     """Policy pinned for a NEW run's claim-span verification.
 
@@ -334,6 +544,31 @@ def claim_source_policy_for(args):
     Existing runs and their stored receipts are untouched either way; rolling
     back is simply not passing the flag on a future run.
     """
+    profile = getattr(args, "claim_source_profile", None)
+    if profile == "claim-source-v3":
+        from proofops.adapters.local.claim_source_verification_v3 import claim_source_policy
+
+        return claim_source_policy()
+    if profile in {
+        "upstage-ocr-page-v1",
+        "upstage-ocr-page-v2",
+        "upstage-ocr-page-v3",
+        "upstage-ocr-page-v4",
+        "upstage-ocr-page-v5",
+    }:
+        from proofops.adapters.local.claim_source_policies import page_ocr_profile
+
+        return page_ocr_profile(profile).claim_source_policy()
+    if profile == "table-claim-spans-v1":
+        from proofops.adapters.local.table_claim_source_verification import claim_source_policy
+
+        return claim_source_policy()
+    if profile == "glyph-alignment-v1":
+        from proofops.adapters.local.glyph_alignment_verification import claim_source_policy
+
+        return claim_source_policy()
+    if profile is not None:
+        raise ValueError("unknown claim source profile")
     if getattr(args, "claim_span_typography", False):
         # Wraps the bullet-alignment wrapper, so it ADDS to both inner
         # recoveries rather than replacing either; the CLI requires the chain.
@@ -360,6 +595,32 @@ def apply_resume_metadata(args, saved: dict) -> None:
     rejected exactly as before. Raises ``ValueError`` on a conflicting explicit
     override so callers can surface a clear CLI error.
     """
+    stored_profile = saved.get("r108_profile")
+    if stored_profile not in (None, FINALS_CANDIDATE, FINALS_CANDIDATE_V2):
+        raise ValueError("unknown saved R108 profile")
+    requested_profile = finals_candidate_profile(args)
+    if requested_profile is not None and stored_profile != requested_profile:
+        raise ValueError(f"--resume cannot add {requested_profile}; create a new run")
+    args.r108_finals_candidate = stored_profile == FINALS_CANDIDATE
+    args.r108_finals_candidate_v2 = stored_profile == FINALS_CANDIDATE_V2
+    saved_memory = saved.get("parser_memory_bytes", 768 * 1024 * 1024)
+    requested_memory = getattr(args, "parser_memory_bytes", None)
+    if requested_memory is not None and requested_memory != saved_memory:
+        raise ValueError("existing pilot parser memory limit changed; create a new run")
+    args.parser_memory_bytes = parser_memory_limit(saved_memory)
+    for field, default in (
+        ("pipeline_profile", None),
+        ("relation_profile", "source-quotes-v1"),
+        ("preliminary_profile", None),
+        ("claim_source_profile", None),
+        ("display_text_profile", None),
+        ("parser_source_recovery", None),
+    ):
+        requested = getattr(args, field, None)
+        stored = saved.get(field, default)
+        if requested is not None and requested != stored:
+            raise ValueError(f"existing pilot {field} profile changed; create a new run")
+        setattr(args, field, stored)
     if args.pdf is not None and Path(saved["source_path"]) != args.pdf.resolve():
         raise ValueError("--resume ignores conflicting explicit --pdf; omit it")
     if args.pdf is None:
@@ -392,7 +653,18 @@ def apply_resume_metadata(args, saved: dict) -> None:
     if requested_output_limit is not None and requested_output_limit != saved_output_limit:
         raise ValueError("--resume cannot change parser-max-output-bytes; create a new run")
     args.parser_max_output_bytes = parser_output_limit(saved_output_limit)
+    args.vision_parse = saved.get("vision_parse", "off")
+    args.parser = saved.get("parser_mode", "local")
+    requested_ocr = getattr(args, "mixed_ocr_max_pages", 0)
+    if requested_ocr and requested_ocr != saved.get("mixed_ocr_max_pages", 0):
+        raise ValueError("--resume cannot change mixed OCR allowance; create a new run")
+    args.mixed_ocr_max_pages = saved.get("mixed_ocr_max_pages", 0)
     args.model = saved.get("model", args.model)
+    args.llm_provider = (
+        "openai"
+        if args.model == "gpt-6-luna"
+        else ("openrouter" if args.model == "openai/gpt-6-luna" else "upstage")
+    )
     args.verify_paragraphs = bool(saved.get("verify_paragraphs", False))
     args.verify_tables = bool(saved.get("verify_tables", False))
     args.verify_merged_tables = bool(saved.get("verify_merged_tables", False))
@@ -411,17 +683,26 @@ def apply_resume_metadata(args, saved: dict) -> None:
     args.preliminary_table_role = bool(saved.get("preliminary_table_role", False))
     args.preliminary_goal_role = bool(saved.get("preliminary_goal_role", False))
     args.preliminary_actor_role = bool(saved.get("preliminary_actor_role", False))
+    args.preliminary_sentence_context = bool(saved.get("preliminary_sentence_context", False))
+    args.preliminary_sentence_fallback = bool(saved.get("preliminary_sentence_fallback", False))
     args.preliminary_p2 = bool(saved.get("preliminary_p2", False))
     args.compact_element_wire = bool(saved.get("compact_element_wire", False))
+    args.element_consistency = bool(saved.get("element_consistency", False))
     args.position_context_order = bool(saved.get("position_context_order", False))
     args.capacity_refresh = bool(saved.get("capacity_refresh", False))
     args.extraction_year_notation = bool(saved.get("extraction_year_notation", False))
     args.extraction_context = bool(saved.get("extraction_context", False))
     args.extraction_table_context = bool(saved.get("extraction_table_context", False))
+    args.extraction_table_rows = bool(saved.get("extraction_table_rows", False))
+    args.extraction_recall_prompt = bool(saved.get("extraction_recall_prompt", False))
+    args.extraction_atomic = bool(saved.get("extraction_atomic", False))
+    args.extraction_linewrap_join = bool(saved.get("extraction_linewrap_join", False))
+    args.extraction_fragment_guard = bool(saved.get("extraction_fragment_guard", False))
     args.extraction_source_ids = bool(saved.get("extraction_source_ids", False))
     args.extraction_assertion_prompt = bool(saved.get("extraction_assertion_prompt", False))
     args.extraction_complete_selection = bool(saved.get("extraction_complete_selection", False))
     args.extraction_content_bounds = bool(saved.get("extraction_content_bounds", False))
+    apply_finals_candidate(args, restoring=True)
     if saved.get("tagging_max_calls"):
         args.tagging_max_calls = saved["tagging_max_calls"]
     saved_total = saved.get("extraction_total_calls")
@@ -439,12 +720,22 @@ def apply_resume_metadata(args, saved: dict) -> None:
 
 
 def run_live_stages(args, *, tenant_id: str, run_id: str) -> dict:
+    if getattr(args, "pipeline_profile", None) in ("finals-unattended-v1", "finals-unattended-v2"):
+        from proofops.adapters.local.profile_runtime import spend_session
+
+        with spend_session(run_id):
+            return _run_live_stages(args, tenant_id=tenant_id, run_id=run_id)
+    return _run_live_stages(args, tenant_id=tenant_id, run_id=run_id)
+
+
+def _run_live_stages(args, *, tenant_id: str, run_id: str) -> dict:
     """Drive paid stages, preserving a machine-readable stop before inspection."""
     from proofops_worker.composition import build_composition
 
     tenant = tenant_id
-    result = dict(stage=None, status="not_run", exit_code=0)
+    result: dict[str, Any] = dict(stage=None, status="not_run", exit_code=0, stage_seconds={})
     for stage in ("parse", "extract", "tag"):
+        stage_started = time.monotonic()
         worker = build_composition(
             stage=stage,
             verify_paragraphs=args.verify_paragraphs and stage == "parse",
@@ -460,6 +751,11 @@ def run_live_stages(args, *, tenant_id: str, run_id: str) -> dict:
                 and outcome in {"committed", "pending_downstream", "ignored", "idle"}
                 and args.extraction_total_calls is not None
                 and args.extraction_total_calls > args.max_calls
+                and not (
+                    getattr(args, "pipeline_profile", None)
+                    in ("unattended-v1", "finals-unattended-v1", "finals-unattended-v2")
+                    and "tag_job" in worker.store.jobs.get_run(tenant, run_id)
+                )
             ):
                 from proofops_worker.extract_batch import run_batches
                 from proofops_worker.extract_runner import LocalExtractRunner
@@ -506,6 +802,7 @@ def run_live_stages(args, *, tenant_id: str, run_id: str) -> dict:
                 result["exit_code"] = 1
                 break
         finally:
+            result["stage_seconds"][stage] = round(time.monotonic() - stage_started, 2)
             worker.uploads.close()
             worker.uploads.registry.close()
     return result
@@ -523,8 +820,22 @@ def main():
     # sha256 integrity check against the recorded PDF path is still enforced.
     parser.add_argument("--pdf", type=Path)
     parser.add_argument("--state", type=Path, required=True)
-    parser.add_argument("--key-file", type=Path, default=ROOT / ".env.upstage.local")
+    parser.add_argument("--key-file", type=Path)
+    parser.add_argument("--tenant-id", type=UUID, help="Private hosted worker tenant scope")
     parser.add_argument("--pages", default="1")
+    parser.add_argument("--vision-parse", choices=("auto", "all", "off"))
+    parser.add_argument(
+        "--mixed-ocr-max-pages",
+        type=int,
+        default=0,
+        help="mixed-v1 only: maximum evidence-only OCR pages; shared ledger still gates dispatch.",
+    )
+    parser.add_argument("--parser", choices=("upstage", "local", "mixed-v1"), default="upstage")
+    parser.add_argument(
+        "--parser-source-recovery",
+        choices=("ps1-v1",),
+        help="NEW run only: literal location recovery and paragraph continuation.",
+    )
     parser.add_argument("--report-year", type=int)
     parser.add_argument("--period-start")
     parser.add_argument("--period-end")
@@ -544,6 +855,12 @@ def main():
     )
     parser.add_argument("--max-calls", type=int, default=8)
     parser.add_argument(
+        "--parser-memory-bytes",
+        type=int,
+        default=None,
+        help="NEW run parser process-tree memory cap (default 768 MiB; max 4 GiB).",
+    )
+    parser.add_argument(
         "--extraction-total-calls",
         type=int,
         default=None,
@@ -557,8 +874,16 @@ def main():
         "from. Parse/evidence/retrieval still cover all --pages; omit to keep the "
         "legacy behaviour where claims are discovered across every selected page.",
     )
-    parser.add_argument("--model", choices=["solar-pro3", "solar-pro4"], default="solar-pro3")
+    parser.add_argument(
+        "--llm-provider", choices=["upstage", "openrouter", "openai"], default="openrouter"
+    )
+    parser.add_argument("--model", choices=["solar-pro3", "solar-pro4"])
     parser.add_argument("--verify-paragraphs", action="store_true")
+    parser.add_argument(
+        "--display-text-profile",
+        choices=["glyph-joined-display-v1"],
+        help="New-run only: glyph-proven display text with pinned raw offset maps.",
+    )
     parser.add_argument("--native-quote-typography", action="store_true")
     table_checks = parser.add_mutually_exclusive_group()
     table_checks.add_argument("--verify-tables", action="store_true")
@@ -644,8 +969,43 @@ def main():
     parser.add_argument("--raster-max-pages", type=int, default=4)
     parser.add_argument("--raster-max-calls", type=int, default=1)
     parser.add_argument("--invoke", action="store_true")
+    parser.add_argument(
+        "--pipeline-profile",
+        choices=["unattended-v1", "finals-unattended-v1", "finals-unattended-v2"],
+        help="New run only: read-only provisional results and claim-isolated completion.",
+    )
     parser.add_argument("--live-tagging", action="store_true")
     parser.add_argument("--live-relations", action="store_true")
+    parser.add_argument(
+        "--preliminary-profile",
+        choices=["decision-v1"],
+        help="New run: OpenAI Decisions + JEV judgments with Luna literal quotes.",
+    )
+    parser.add_argument(
+        "--relation-profile",
+        choices=["source-quotes-v1", "occurrence-v2", "occurrence-v3", "decision-gate-v1"],
+        help="Pin a relation contract for a NEW run; requires --live-relations.",
+    )
+    parser.add_argument(
+        "--claim-source-profile",
+        "--rendered-reader-profile",
+        choices=[
+            "glyph-alignment-v1",
+            "upstage-ocr-page-v1",
+            "upstage-ocr-page-v2",
+            "upstage-ocr-page-v3",
+            "upstage-ocr-page-v4",
+            "upstage-ocr-page-v5",
+            "table-claim-spans-v1",
+            "claim-source-v3",
+        ],
+        help="Pin source reader for a NEW run; requires --verify-claim-spans.",
+    )
+    parser.add_argument(
+        "--element-consistency",
+        action="store_true",
+        help="Opt in to deterministic per-element evidence routing (v6).",
+    )
     parser.add_argument(
         "--compact-element-wire",
         action="store_true",
@@ -699,6 +1059,16 @@ def main():
         help="Use R34 actor-role prompt",
     )
     parser.add_argument(
+        "--preliminary-sentence-fallback",
+        action="store_true",
+        help="Opt-in context-free E2E3 fallback when verified sentence context is unavailable.",
+    )
+    parser.add_argument(
+        "--preliminary-sentence-context",
+        action="store_true",
+        help="Opt-in verified same-block sentence context; requires --preliminary-actor-role.",
+    )
+    parser.add_argument(
         "--preliminary-p2",
         action="store_true",
         help="Opt-in P2 preliminary prompt; requires --preliminary-table-role.",
@@ -730,6 +1100,28 @@ def main():
         "--extraction-context; pins its own extraction rule/prompt hash.",
     )
     parser.add_argument(
+        "--extraction-table-rows",
+        action="store_true",
+        help="Opt-in literal table/chart row candidates; requires source IDs.",
+    )
+    parser.add_argument(
+        "--extraction-recall-prompt",
+        action="store_true",
+        help="Opt-in environmental targets, oversight and plan examples; requires source IDs.",
+    )
+    parser.add_argument(
+        "--extraction-atomic",
+        action="store_true",
+        help="Opt-in extraction-atomic-v2; requires --extraction-source-ids. "
+        "Pinned on resume; use a new state for the challenger.",
+    )
+    parser.add_argument(
+        "--extraction-linewrap-join",
+        action="store_true",
+        help="Opt-in selected-linewrap-join-v1: join selected prose continuations only. "
+        "Requires --extraction-source-ids, incompatible with --extraction-atomic; new run only.",
+    )
+    parser.add_argument(
         "--extraction-assertion-prompt",
         action="store_true",
         help="Require the selected source sentence itself to assert a claim. "
@@ -757,7 +1149,43 @@ def main():
         "--resume; requires --serve. Re-serving stored results alone never needs it.",
     )
     parser.add_argument("--port", type=int, default=8766)
+    parser.add_argument(
+        "--r108-finals-candidate",
+        action="store_true",
+        help="Opt-in Sprint5 attempt3 + linewrap join + element consistency v6 + "
+        "sentence context + table rows + recall prompt. No atomic mode; "
+        "does not authorize model calls.",
+    )
+    parser.add_argument(
+        "--r108-finals-candidate-v2",
+        action="store_true",
+        help="Opt-in Sprint5 attempt3 + linewrap join + element consistency v6 + "
+        "sentence context with E2E3 fallback; excludes table rows, recall, atomic and P1/P2. "
+        "Does not authorize model calls.",
+    )
+    parser.add_argument(
+        "--analysis-profile", choices=["finals-unattended-v1", "finals-unattended-v2"]
+    )
+    parser.add_argument("--extraction-fragment-guard", action="store_true")
     args = parser.parse_args()
+    from proofops.application.analysis_profile import apply_pilot_profile
+
+    apply_pilot_profile(args)
+    try:
+        apply_finals_candidate(args)
+    except ValueError as exc:
+        parser.error(str(exc))
+    if args.vision_parse is None:
+        args.vision_parse = "auto" if args.parser in ("upstage", "mixed-v1") else "off"
+    if args.parser in ("upstage", "mixed-v1") and args.vision_parse == "all":
+        parser.error("--vision-parse all requires --parser local")
+    if not args.resume:
+        if args.llm_provider in ("openrouter", "openai"):
+            if args.model is not None:
+                parser.error("--model requires --llm-provider upstage")
+            args.model = "gpt-6-luna" if args.llm_provider == "openai" else "openai/gpt-6-luna"
+        else:
+            args.model = args.model or "solar-pro3"
     if args.serve_worker and not args.serve:
         parser.error("--serve-worker requires --serve")
     if args.serve:
@@ -770,10 +1198,30 @@ def main():
                 parser.error("Port is in use; use the existing review URL or another --port")
     try:
         parser_output_limit(args.parser_max_output_bytes)
+        parser_memory_limit(args.parser_memory_bytes)
     except ValueError as exc:
         parser.error(str(exc))
     resume_state = args.state.resolve()
     resume_manifest = resume_state / "pilot.json"
+    if resume_manifest.exists():
+        saved = json.loads(resume_manifest.read_text())
+        requested_profile = finals_candidate_profile(args)
+        if requested_profile is not None and saved.get("r108_profile") != requested_profile:
+            parser.error(f"cannot add {requested_profile} to an existing run; create a new run")
+        if args.parser_memory_bytes is not None and args.parser_memory_bytes != saved.get(
+            "parser_memory_bytes", 768 * 1024 * 1024
+        ):
+            parser.error("existing pilot parser memory limit changed; create a new run")
+        for field, default in (
+            ("pipeline_profile", None),
+            ("relation_profile", "source-quotes-v1"),
+            ("preliminary_profile", None),
+            ("claim_source_profile", None),
+            ("display_text_profile", None),
+        ):
+            requested = getattr(args, field)
+            if requested is not None and requested != saved.get(field, default):
+                parser.error(f"existing pilot {field} profile changed; create a new run")
     try:
         company_body = pilot_company_body(
             args.company_name,
@@ -792,6 +1240,10 @@ def main():
         requested_year_notation = args.extraction_year_notation
         requested_context = args.extraction_context
         requested_table_context = args.extraction_table_context
+        requested_rows = args.extraction_table_rows
+        requested_recall = args.extraction_recall_prompt
+        requested_atomic = args.extraction_atomic
+        requested_linewrap_join = args.extraction_linewrap_join
         requested_source_ids = args.extraction_source_ids
         requested_assertion_prompt = args.extraction_assertion_prompt
         requested_complete_selection = args.extraction_complete_selection
@@ -799,9 +1251,12 @@ def main():
         requested_preliminary_table = args.preliminary_table_context
         requested_preliminary_role = args.preliminary_table_role
         requested_preliminary_goal_role = args.preliminary_goal_role
+        requested_preliminary_sentence_fallback = args.preliminary_sentence_fallback
+        requested_preliminary_sentence_context = args.preliminary_sentence_context
         requested_preliminary_actor_role = args.preliminary_actor_role
         requested_preliminary_p2 = args.preliminary_p2
         requested_compact_element_wire = args.compact_element_wire
+        requested_element_consistency = args.element_consistency
         requested_position_order = args.position_context_order
         requested_capacity_refresh = getattr(args, "capacity_refresh", False)
         requested_render_resolution = args.claim_span_render_resolution
@@ -817,6 +1272,14 @@ def main():
             parser.error("--resume cannot add extraction context; create a new run")
         if requested_table_context and not args.extraction_table_context:
             parser.error("--resume cannot add extraction table context; create a new run")
+        if requested_rows and not args.extraction_table_rows:
+            parser.error("--resume cannot add extraction table rows; create a new run")
+        if requested_recall and not args.extraction_recall_prompt:
+            parser.error("--resume cannot add extraction recall prompt; create a new run")
+        if requested_atomic and not args.extraction_atomic:
+            parser.error("--resume cannot add extraction atomic; create a new run")
+        if requested_linewrap_join and not args.extraction_linewrap_join:
+            parser.error("--resume cannot add extraction linewrap join; create a new run")
         if requested_source_ids and not args.extraction_source_ids:
             parser.error("--resume cannot add extraction source-id selection; create a new run")
         if requested_assertion_prompt and not args.extraction_assertion_prompt:
@@ -831,10 +1294,16 @@ def main():
             parser.error("--resume cannot add preliminary table role resolution; create a new run")
         if requested_preliminary_goal_role and not args.preliminary_goal_role:
             parser.error("--resume cannot add preliminary goal role; create a new run")
+        if requested_preliminary_sentence_fallback and not args.preliminary_sentence_fallback:
+            parser.error("--resume cannot add sentence fallback; create a new run")
+        if requested_preliminary_sentence_context and not args.preliminary_sentence_context:
+            parser.error("--resume cannot add sentence context; create a new run")
         if requested_preliminary_actor_role and not args.preliminary_actor_role:
             parser.error("--resume cannot add preliminary actor role; create a new run")
         if requested_preliminary_p2 and not args.preliminary_p2:
             parser.error("--resume cannot add preliminary P2; create a new run")
+        if requested_element_consistency and not args.element_consistency:
+            parser.error("--resume cannot add element consistency; create a new run")
         if requested_compact_element_wire and not args.compact_element_wire:
             parser.error("--resume cannot add compact element wire; create a new run")
         if requested_position_order and not args.position_context_order:
@@ -854,10 +1323,36 @@ def main():
         or (args.period_end is None)
     ):
         parser.error("--pdf, --report-year, --period-start and --period-end are required")
+    if (args.preliminary_profile or args.relation_profile == "decision-gate-v1") and (
+        not args.live_tagging or args.llm_provider != "openrouter" or args.position_context_order
+    ):
+        parser.error(
+            "decision profiles require --live-tagging --llm-provider openrouter "
+            "and source context order"
+        )
+    if args.relation_profile is None:
+        args.relation_profile = "source-quotes-v1"
+    if args.relation_profile != "source-quotes-v1" and not args.live_relations:
+        parser.error("--relation-profile requires --live-relations")
+    if args.claim_source_profile is not None and not args.verify_claim_spans:
+        parser.error("--claim-source-profile requires --verify-claim-spans")
+    if args.key_file is None:
+        args.key_file = ROOT / (f".env.{args.llm_provider}.local")
     if args.live_relations and not args.live_tagging:
         parser.error("--live-relations requires --live-tagging")
+    if args.element_consistency and not args.live_tagging:
+        parser.error("--element-consistency requires --live-tagging")
     if args.compact_element_wire and not args.live_tagging:
         parser.error("--compact-element-wire requires --live-tagging")
+    if args.preliminary_sentence_fallback and not args.preliminary_sentence_context:
+        parser.error("--preliminary-sentence-fallback requires --preliminary-sentence-context")
+    if args.preliminary_sentence_context and (
+        not args.preliminary_actor_role
+        or args.preliminary_p2
+        or args.preliminary_profile
+        or args.position_context_order
+    ):
+        parser.error("--preliminary-sentence-context requires actor role and excludes alternatives")
     if args.preliminary_context and not args.live_tagging:
         parser.error("--preliminary-context requires --live-tagging")
     if args.preliminary_table_context and not args.preliminary_context:
@@ -887,6 +1382,19 @@ def main():
         parser.error("--claim-span-typography requires --claim-span-bullet-spacing")
     if args.extraction_table_context and not args.extraction_context:
         parser.error("--extraction-table-context requires --extraction-context")
+    for name in ("table_rows", "recall_prompt"):
+        if getattr(args, "extraction_" + name) and not args.extraction_source_ids:
+            parser.error(
+                "--extraction-" + name.replace("_", "-") + " requires --extraction-source-ids"
+            )
+    if args.extraction_atomic and (args.extraction_table_rows or args.extraction_recall_prompt):
+        parser.error("row/recall profiles cannot mix with --extraction-atomic")
+    if args.extraction_atomic and not args.extraction_source_ids:
+        parser.error("--extraction-atomic requires --extraction-source-ids")
+    if args.extraction_linewrap_join and (not args.extraction_source_ids or args.extraction_atomic):
+        parser.error(
+            "--extraction-linewrap-join requires --extraction-source-ids and no atomic mode"
+        )
     if args.extraction_content_bounds and not args.extraction_source_ids:
         parser.error("--extraction-content-bounds requires --extraction-source-ids")
     if args.extraction_assertion_prompt and not args.extraction_source_ids:
@@ -902,8 +1410,16 @@ def main():
         if args.raster_ocr
         else {}
     )
+    if not 0 <= args.mixed_ocr_max_pages <= 30 or (
+        args.mixed_ocr_max_pages and args.parser != "mixed-v1"
+    ):
+        parser.error("mixed OCR allowance requires mixed-v1 and 0..30 pages")
+    if args.parser == "mixed-v1" and not args.claim_pages:
+        parser.error("mixed-v1 requires explicit --claim-pages")
     pages = sorted(set(int(p) for p in args.pages.split(",")))
-    if not 1 <= args.max_calls <= 20 or not pages or min(pages) < 1:
+    from proofops.application.claim_scope import MAX_EXTRACTION_BATCH_CALLS
+
+    if not 1 <= args.max_calls <= MAX_EXTRACTION_BATCH_CALLS or not pages or min(pages) < 1:
         parser.error("invalid declared pages/call limit")
     try:
         extraction_budget = extraction_budget_settings(args.max_calls, args.extraction_total_calls)
@@ -930,7 +1446,7 @@ def main():
     digest = sha256(source).hexdigest()
     origin = f"http://localhost:{args.port}"
     from proofops.application.ingest.graph_fusion import ParserProfile
-    from proofops_agent.upstage_extraction import _profile
+    from proofops_agent.upstage_extraction import _profile_with_options
 
     if not manifest_path.exists():
         from proofops.adapters.local.table_source_verification import policy_sha256 as table_policy
@@ -944,10 +1460,25 @@ def main():
                 policy_sha256 as table_policy,
             )
 
+        if args.claim_source_profile in {
+            "upstage-ocr-page-v1",
+            "upstage-ocr-page-v2",
+            "upstage-ocr-page-v3",
+            "upstage-ocr-page-v4",
+            "upstage-ocr-page-v5",
+        }:
+            if args.raster_ocr or args.native_quote_typography:
+                parser.error("page OCR requires no raster/native quote-typography composition")
+            if args.verify_tables or args.verify_merged_tables or args.verify_selected_cells:
+                from proofops.adapters.local.claim_source_policies import page_ocr_profile
+
+                table_policy = page_ocr_profile(args.claim_source_profile).table_policy_sha256
+
         config = ParserProfile(
             str(uuid4()),
             java_executable="/opt/homebrew/opt/openjdk@21/bin/java",
             timeout_seconds=120,
+            memory_bytes=parser_memory_limit(args.parser_memory_bytes),
             max_output_bytes=parser_output_limit(args.parser_max_output_bytes),
             table_source_policy_sha256=(
                 table_policy()
@@ -955,6 +1486,19 @@ def main():
                 else None
             ),
             table_structure_repair="odl_header_v2" if args.repair_table_headers else None,
+            vision_parse=args.vision_parse,
+            parser_mode=args.parser,
+            physical_pages=tuple(pages) if args.parser == "mixed-v1" else (),
+            claim_physical_pages=tuple(claim_pages or ()) if args.parser == "mixed-v1" else (),
+            mixed_ocr_max_pages=args.mixed_ocr_max_pages,
+            failure_policy=(
+                "partial-v1"
+                if args.pipeline_profile in ("finals-unattended-v1", "finals-unattended-v2")
+                else None
+            ),
+            upstage_glyph_boxes=args.parser in ("upstage", "mixed-v1"),
+            upstage_region_words=args.parser in ("upstage", "mixed-v1"),
+            source_recovery=args.parser_source_recovery,
         )
         (state / "parser.json").write_text(json.dumps(config.config_snapshot()))
         if (
@@ -964,8 +1508,6 @@ def main():
             or args.extraction_source_ids
             or args.extraction_content_bounds
         ):
-            from proofops_agent.upstage_extraction import _profile_with_options
-
             extraction_profile = asdict(
                 _profile_with_options(
                     args.model,
@@ -973,14 +1515,31 @@ def main():
                     extraction_context=args.extraction_context,
                     extraction_table_context=args.extraction_table_context,
                     source_ids=args.extraction_source_ids,
+                    extraction_atomic=args.extraction_atomic,
+                    extraction_linewrap_join=args.extraction_linewrap_join,
+                    extraction_fragment_guard=args.extraction_fragment_guard,
+                    extraction_table_rows=args.extraction_table_rows,
+                    extraction_recall_prompt=args.extraction_recall_prompt,
                     assertion_prompt=args.extraction_assertion_prompt,
                     complete_selection=args.extraction_complete_selection,
                     extraction_content_bounds=args.extraction_content_bounds,
                     position_order=args.position_context_order,
+                    wire_policy_version=2
+                    if args.model in ("openai/gpt-6-luna", "gpt-6-luna")
+                    else 1,
+                    display_text_profile=args.display_text_profile,
                 )
             )
         else:
-            extraction_profile = asdict(_profile(args.model))
+            extraction_profile = asdict(
+                _profile_with_options(
+                    args.model,
+                    wire_policy_version=2
+                    if args.model in ("openai/gpt-6-luna", "gpt-6-luna")
+                    else 1,
+                    display_text_profile=args.display_text_profile,
+                )
+            )
         settings = dict(
             build_root=str(ROOT),
             extraction_profile=extraction_profile,
@@ -991,6 +1550,10 @@ def main():
             ),
             budget_limits=extraction_budget,
         )
+        if args.display_text_profile:
+            from proofops.application.ingest.display_text import POLICY
+
+            settings["display_text_policy"] = POLICY
         if args.extraction_year_notation:
             settings["extraction_year_notation"] = True
         if args.extraction_context:
@@ -1001,6 +1564,16 @@ def main():
             settings["position_context_order"] = CONTEXT_POSITION_ORDER
         if args.extraction_table_context:
             settings["extraction_table_context"] = True
+        if args.extraction_table_rows:
+            settings["extraction_table_rows"] = True
+        if args.extraction_recall_prompt:
+            settings["extraction_recall_prompt"] = True
+        if args.extraction_atomic:
+            settings["extraction_atomic"] = True
+        if args.extraction_linewrap_join:
+            settings["extraction_linewrap_join"] = True
+        if args.extraction_fragment_guard:
+            settings["extraction_fragment_guard"] = True
         if args.extraction_source_ids:
             settings["extraction_source_ids"] = True
         if args.extraction_assertion_prompt:
@@ -1010,36 +1583,73 @@ def main():
         if args.extraction_content_bounds:
             settings["extraction_content_bounds"] = True
         settings.update(raster)
+        if finals_candidate_profile(args):
+            settings["r108_profile"] = finals_candidate_profile(args)
         if args.verify_claim_spans:
             settings["claim_source_policy"] = claim_source_policy_for(args)
+        if args.pipeline_profile:
+            settings["pipeline_profile"] = args.pipeline_profile
         if args.live_tagging:
             settings.update(
                 live_tagging_settings(
                     args.tagging_max_calls,
+                    element_definition_profile="qi1-v1"
+                    if args.pipeline_profile == "finals-unattended-v2"
+                    else None,
+                    model_id=(
+                        "gpt-6-luna" if args.llm_provider == "openai" else "openai/gpt-6-luna"
+                    )
+                    if args.llm_provider in ("openrouter", "openai")
+                    else "solar-pro4",
                     relations=args.live_relations,
+                    relation_profile=args.relation_profile,
                     preliminary_context=args.preliminary_context,
                     preliminary_table_context=args.preliminary_table_context,
                     preliminary_table_role=args.preliminary_table_role,
                     preliminary_goal_role=args.preliminary_goal_role,
                     preliminary_actor_role=args.preliminary_actor_role,
+                    preliminary_sentence_context=args.preliminary_sentence_context,
+                    preliminary_sentence_fallback=args.preliminary_sentence_fallback,
                     preliminary_p2=args.preliminary_p2,
+                    preliminary_profile=args.preliminary_profile,
                     compact_element_wire=args.compact_element_wire,
+                    element_consistency=args.element_consistency,
                     position_context_order=args.position_context_order,
                     capacity_refresh=getattr(args, "capacity_refresh", False),
                 )
             )
+            from proofops.application.tagging.service import output_reservation_tokens
+
             bound = settings["input_reservation_policy"]["reservation_input_tokens"]
+            output_bound = output_reservation_tokens(
+                model_id=settings["tagging_settings"]["model_id"],
+                max_tokens=4096,
+                synthetic=False,
+            )
             settings["budget_limits"]["input_tokens"] += bound * args.tagging_max_calls
-            settings["budget_limits"]["output_tokens"] += 4096 * args.tagging_max_calls
+            settings["budget_limits"]["output_tokens"] += output_bound * args.tagging_max_calls
             settings["budget_limits"]["roles"].append(
                 dict(
                     role="tagger",
                     max_calls=args.tagging_max_calls,
                     max_input_tokens=bound,
-                    max_output_tokens=4096,
-                    max_context_tokens=bound + 4096,
+                    max_output_tokens=output_bound,
+                    max_context_tokens=bound + output_bound,
                 )
             )
+            if "decision_settings" in settings:
+                calls = args.tagging_max_calls * 2
+                settings["budget_limits"]["input_tokens"] += 66560 * calls
+                settings["budget_limits"]["output_tokens"] += 4096 * calls
+                settings["budget_limits"]["roles"].append(
+                    dict(
+                        role="decision",
+                        max_calls=calls,
+                        max_input_tokens=66560,
+                        max_output_tokens=4096,
+                        max_context_tokens=70656,
+                    )
+                )
         (state / "settings.json").write_text(json.dumps(settings))
     os.environ.update(
         APP_ENV="local",
@@ -1050,6 +1660,7 @@ def main():
         LOCAL_RUN_SETTINGS_PATH=str(state / "settings.json"),
         LOCAL_EXTRACTION_MODE="upstage_probe",
         LOCAL_TAGGING_MODE="upstage_local" if args.live_tagging else "",
+        LOCAL_LLM_PROVIDER=args.llm_provider,
     )
     from fastapi.testclient import TestClient
     from proofops.adapters.local.auth_store import hash_token, new_session_id
@@ -1065,7 +1676,7 @@ def main():
     tenant = (
         json.loads(manifest_path.read_text())["tenant_id"]
         if manifest_path.exists()
-        else str(uuid4())
+        else str(args.tenant_id or uuid4())
     )
     user = "authorized-local-operator"
     csrf = secrets.token_urlsafe(32)
@@ -1102,7 +1713,7 @@ def main():
             approved_by=user,
             approved_at=approved_at,
             purpose="local_test",
-            provider="upstage",
+            provider=args.llm_provider,
             expires_at=expires_at,
         )
         profiles = [
@@ -1124,8 +1735,17 @@ def main():
                     runtime_binding_id=runtime,
                     role="extractor",
                     model_id=args.model,
-                    endpoint="https://api.upstage.ai/v1/chat/completions",
-                    budget_limit_usd="20.00",
+                    model_sha256=settings["extraction_profile"]["model_sha256"],
+                    endpoint=(
+                        "https://api.openai.com/v1/chat/completions"
+                        if args.llm_provider == "openai"
+                        else "https://openrouter.ai/api/v1/chat/completions"
+                    )
+                    if args.llm_provider in ("openrouter", "openai")
+                    else "https://api.upstage.ai/v1/chat/completions",
+                    budget_limit_usd={"openai": "3.00", "openrouter": "5.00", "upstage": "20.00"}[
+                        args.llm_provider
+                    ],
                 ),
             ),
             (
@@ -1141,6 +1761,8 @@ def main():
                 ),
             ),
         ]
+        if args.vision_parse != "off" or args.parser in ("upstage", "mixed-v1"):
+            profiles[-1][2]["allow_raster_upload"] = True
         if args.raster_ocr:
             from proofops.domain.provenance import canonical_hash
 
@@ -1151,6 +1773,7 @@ def main():
                     raster["raster_runtime_binding_id"],
                     dict(
                         common,
+                        provider="upstage",
                         runtime_binding_id=raster["raster_runtime_binding_id"],
                         schema="local_upstage_raster_binding_v1",
                         role="vision",
@@ -1183,14 +1806,52 @@ def main():
                             common,
                             runtime_binding_id=identifier,
                             role="tagger",
-                            model_id="solar-pro4",
-                            endpoint="https://api.upstage.ai/v1/chat/completions",
-                            budget_limit_usd="20.00",
+                            model_id=(
+                                "gpt-6-luna"
+                                if args.llm_provider == "openai"
+                                else "openai/gpt-6-luna"
+                            )
+                            if args.llm_provider in ("openrouter", "openai")
+                            else "solar-pro4",
+                            endpoint=(
+                                "https://api.openai.com/v1/chat/completions"
+                                if args.llm_provider == "openai"
+                                else "https://openrouter.ai/api/v1/chat/completions"
+                            )
+                            if args.llm_provider in ("openrouter", "openai")
+                            else "https://api.upstage.ai/v1/chat/completions",
+                            budget_limit_usd={
+                                "openai": "3.00",
+                                "openrouter": "5.00",
+                                "upstage": "20.00",
+                            }[args.llm_provider],
                             schema="local_upstage_tagger_binding_v1",
                             tagging_settings_sha256=canonical_hash(pinned),
                             input_reservation_policy_sha256=canonical_hash(
                                 settings["input_reservation_policy"]
                             ),
+                        ),
+                    )
+                )
+        if "decision_settings" in settings:
+            from proofops.application.tagging.decisions import MODELS, POLICY
+
+            profiles[2][2]["allowed_decision_models"] = {p: c["model"] for p, c in MODELS.items()}
+            for provider, identifier in settings["decision_settings"]["binding_ids"].items():
+                profiles.append(
+                    (
+                        "runtime",
+                        identifier,
+                        dict(
+                            common,
+                            provider=provider,
+                            runtime_binding_id=identifier,
+                            schema="local_decision_binding_v1",
+                            role="decision",
+                            model_id=MODELS[provider]["model"],
+                            endpoint=MODELS[provider]["endpoint"],
+                            decision_policy_sha256=canonical_hash(POLICY),
+                            budget_limit_usd="3.00" if provider == "openai" else "5.00",
                         ),
                     )
                 )
@@ -1295,6 +1956,9 @@ def main():
             selected_pages=pages,
             claim_pages=claim_pages,
             parser_max_output_bytes=parser_output_limit(args.parser_max_output_bytes),
+            parser_memory_bytes=parser_memory_limit(args.parser_memory_bytes),
+            vision_parse=args.vision_parse,
+            parser_mode=args.parser,
             extraction_batch_calls=args.max_calls,
             extraction_total_calls=args.extraction_total_calls,
             rulepack_approval="ai_delegated_review" if args.ai_project_review else None,
@@ -1306,11 +1970,24 @@ def main():
             repair_table_headers=args.repair_table_headers,
             verify_claim_spans=args.verify_claim_spans,
             model=args.model,
+            pipeline_profile=args.pipeline_profile,
             live_tagging=args.live_tagging,
             tagging_max_calls=args.tagging_max_calls if args.live_tagging else None,
         )
         if args.raster_ocr:
             manifest.update(raster_ocr=True, raster_policy=raster["raster_policy"])
+        if args.preliminary_profile is not None:
+            manifest["preliminary_profile"] = args.preliminary_profile
+        if args.parser_source_recovery is not None:
+            manifest["parser_source_recovery"] = args.parser_source_recovery
+        if args.relation_profile != "source-quotes-v1":
+            manifest["relation_profile"] = args.relation_profile
+        if args.parser == "mixed-v1":
+            manifest["mixed_ocr_max_pages"] = args.mixed_ocr_max_pages
+        if args.claim_source_profile is not None:
+            manifest["claim_source_profile"] = args.claim_source_profile
+        if args.display_text_profile is not None:
+            manifest["display_text_profile"] = args.display_text_profile
         if args.live_relations:
             manifest["live_relations"] = True
         if args.preliminary_context:
@@ -1321,10 +1998,16 @@ def main():
             manifest["preliminary_table_role"] = True
         if args.preliminary_goal_role:
             manifest["preliminary_goal_role"] = True
+        if args.preliminary_sentence_fallback:
+            manifest["preliminary_sentence_fallback"] = True
+        if args.preliminary_sentence_context:
+            manifest["preliminary_sentence_context"] = True
         if args.preliminary_actor_role:
             manifest["preliminary_actor_role"] = True
         if args.preliminary_p2:
             manifest["preliminary_p2"] = True
+        if args.element_consistency:
+            manifest["element_consistency"] = True
         if args.compact_element_wire:
             manifest["compact_element_wire"] = True
         if args.position_context_order:
@@ -1347,6 +2030,24 @@ def main():
             manifest["extraction_context"] = True
         if args.extraction_table_context:
             manifest["extraction_table_context"] = True
+        if args.extraction_table_rows:
+            from proofops.application.ingest.table_row_candidates import POLICY as ROW_POLICY
+            from proofops.domain.provenance import canonical_hash
+
+            manifest["extraction_table_rows"] = True
+            manifest["table_row_policy_sha256"] = canonical_hash(ROW_POLICY)
+        if args.extraction_recall_prompt:
+            manifest["extraction_recall_prompt"] = True
+        if args.extraction_atomic:
+            from proofops.application.ingest.atomic_candidates import POLICY, PROFILE
+            from proofops.domain.provenance import canonical_hash
+
+            manifest.update(
+                extraction_atomic=True,
+                extraction_profile_name=PROFILE,
+                extraction_profile=extraction_profile,
+                atomic_policy_sha256=canonical_hash(POLICY),
+            )
         if args.extraction_source_ids:
             manifest["extraction_source_ids"] = True
         if args.extraction_assertion_prompt:
@@ -1355,12 +2056,24 @@ def main():
             manifest["extraction_complete_selection"] = True
         if args.extraction_content_bounds:
             manifest["extraction_content_bounds"] = True
+        if args.extraction_linewrap_join:
+            manifest["extraction_linewrap_join"] = True
+        if args.extraction_fragment_guard:
+            manifest["extraction_fragment_guard"] = True
         if args.capacity_refresh:
             manifest["capacity_refresh"] = True
+        if finals_candidate_profile(args):
+            manifest["r108_profile"] = finals_candidate_profile(args)
         with manifest_path.open("x") as stream:
             json.dump(manifest, stream, ensure_ascii=False, indent=2)
     else:
         manifest = json.loads(manifest_path.read_text())
+        if manifest.get("vision_parse", "off") != args.vision_parse:
+            raise ValueError("pilot vision parse policy changed; create a new state directory")
+        if manifest.get("mixed_ocr_max_pages", 0) != args.mixed_ocr_max_pages:
+            raise ValueError("existing pilot mixed OCR allowance changed; create a new run")
+        if manifest.get("parser_mode", "local") != args.parser:
+            raise ValueError("pilot parser mode changed; create a new state directory")
         if manifest.get("capacity_refresh", False) != getattr(args, "capacity_refresh", False):
             raise ValueError("pilot capacity refresh policy changed; create a new state directory")
         if args.extraction_total_calls is not None and (
@@ -1371,6 +2084,14 @@ def main():
             args.raster_ocr and manifest.get("raster_policy") != raster["raster_policy"]
         ):
             raise ValueError("pilot raster policy changed; create a new state directory")
+        if manifest.get("preliminary_profile") != args.preliminary_profile:
+            raise ValueError("existing pilot preliminary profile changed; create a new run")
+        if manifest.get("relation_profile", "source-quotes-v1") != args.relation_profile:
+            raise ValueError("pilot relation profile changed; create a new state directory")
+        if manifest.get("display_text_profile") != args.display_text_profile:
+            raise ValueError("pilot display text profile changed; create a new state directory")
+        if manifest.get("claim_source_profile") != args.claim_source_profile:
+            raise ValueError("pilot claim source profile changed; create a new state directory")
         if manifest.get("live_relations", False) != args.live_relations:
             raise ValueError("pilot relation policy changed; create a new state directory")
         if manifest.get("preliminary_context", False) != args.preliminary_context:
@@ -1383,8 +2104,17 @@ def main():
             raise ValueError("pilot preliminary table role policy changed; create a new state dir")
         if manifest.get("preliminary_goal_role", False) != args.preliminary_goal_role:
             raise ValueError("pilot preliminary goal role policy changed; create a new state dir")
+        if (
+            manifest.get("preliminary_sentence_fallback", False)
+            != args.preliminary_sentence_fallback
+        ):
+            raise ValueError("pilot sentence fallback policy changed; create a new state dir")
+        if manifest.get("preliminary_sentence_context", False) != args.preliminary_sentence_context:
+            raise ValueError("pilot sentence context policy changed; create a new state dir")
         if manifest.get("preliminary_p2", False) != args.preliminary_p2:
             raise ValueError("pilot preliminary P2 policy changed; create a new state dir")
+        if manifest.get("element_consistency", False) != args.element_consistency:
+            raise ValueError("pilot element consistency changed; create a new state dir")
         if manifest.get("compact_element_wire", False) != args.compact_element_wire:
             raise ValueError("pilot element wire policy changed; create a new state dir")
         if args.position_context_order:
@@ -1422,6 +2152,19 @@ def main():
             raise ValueError(
                 "pilot extraction table context policy changed; create a new state directory"
             )
+        for name in (
+            "extraction_table_rows",
+            "extraction_recall_prompt",
+            "extraction_fragment_guard",
+        ):
+            if manifest.get(name, False) != getattr(args, name):
+                raise ValueError(name + " policy changed; create a new state directory")
+        if manifest.get("extraction_atomic", False) != args.extraction_atomic:
+            raise ValueError("pilot extraction atomic policy changed; create a new state directory")
+        if manifest.get("extraction_linewrap_join", False) != args.extraction_linewrap_join:
+            raise ValueError(
+                "pilot extraction linewrap join policy changed; create a new state directory"
+            )
         if manifest.get("extraction_source_ids", False) != args.extraction_source_ids:
             raise ValueError(
                 "pilot extraction source-id policy changed; create a new state directory"
@@ -1450,16 +2193,37 @@ def main():
     pipeline_outcome = dict(stage=None, status="not_run", exit_code=0)
     if args.invoke:
         key_lines = args.key_file.read_text().splitlines()
+        key_name = {
+            "openai": "OPENAI_API_KEY",
+            "openrouter": "OPENROUTER_API_KEY",
+            "upstage": "UPSTAGE_API_KEY",
+        }[args.llm_provider]
         key = next(
             line.split("=", 1)[1].strip().strip('"').strip("'")
             for line in key_lines
-            if line.startswith("UPSTAGE_API_KEY=")
+            if line.startswith(key_name + "=")
         )
-        os.environ["UPSTAGE_API_KEY"] = key
+        os.environ[key_name] = key
+        if args.parser in ("upstage", "mixed-v1") and key_name != "UPSTAGE_API_KEY":
+            os.environ["UPSTAGE_API_KEY"] = next(
+                line.split("=", 1)[1].strip().strip('"').strip("'")
+                for line in (ROOT / ".env.upstage.local").read_text().splitlines()
+                if line.startswith("UPSTAGE_API_KEY=")
+            )
+        if args.vision_parse != "off" and key_name != "OPENROUTER_API_KEY":
+            os.environ["OPENROUTER_API_KEY"] = next(
+                line.split("=", 1)[1].strip().strip('"').strip("'")
+                for line in (ROOT / ".env.openrouter.local").read_text().splitlines()
+                if line.startswith("OPENROUTER_API_KEY=")
+            )
         try:
             pipeline_outcome = run_live_stages(args, tenant_id=tenant, run_id=run_id)
         finally:
-            os.environ.pop("UPSTAGE_API_KEY", None)
+            os.environ.pop(key_name, None)
+            if key_name != "OPENROUTER_API_KEY":
+                os.environ.pop("OPENROUTER_API_KEY", None)
+            if key_name != "UPSTAGE_API_KEY":
+                os.environ.pop("UPSTAGE_API_KEY", None)
     # run_live_stages can run for hours (many extraction/tagging batches); the
     # fixture session minted at process start has a fixed absolute+idle TTL
     # (see SessionRecord above) and can expire well before inspection. Re-mint
@@ -1507,7 +2271,14 @@ def main():
         flush=True,
     )
     if args.serve:
-        if response.status_code != 200:
+        # A fresh worker session has no published claims yet. Serve its upload
+        # entry without invoking the initial queued run or weakening read-only replays.
+        fresh_worker = (
+            args.serve_worker
+            and response.status_code == 409
+            and c.runs.store.jobs.get_run(tenant, run_id).get("status") == "queued"
+        )
+        if response.status_code != 200 and not fresh_worker:
             raise SystemExit(
                 f"Cannot serve this run: claims HTTP {response.status_code}; "
                 "inspect the saved inspection JSON"
@@ -1521,7 +2292,9 @@ def main():
 
         @app.get("/__local/" + login_token, include_in_schema=False)
         def login():
-            return local_login_response(c.auth_store.sessions, user, tenant, run_id)
+            return local_login_response(
+                c.auth_store.sessions, user, tenant, run_id, new_analysis=fresh_worker
+            )
 
         app.mount("/assets", StaticFiles(directory=ROOT / "apps/web/dist/assets"))
 
@@ -1568,11 +2341,28 @@ def main():
             # Paid consent: reuse the same Upstage key + shared USD20 ledger the
             # one-shot --invoke path uses; the loop mints no new allowance.
             key_lines = args.key_file.read_text().splitlines()
-            os.environ["UPSTAGE_API_KEY"] = next(
+            key_name = {
+                "openai": "OPENAI_API_KEY",
+                "openrouter": "OPENROUTER_API_KEY",
+                "upstage": "UPSTAGE_API_KEY",
+            }[args.llm_provider]
+            os.environ[key_name] = next(
                 line.split("=", 1)[1].strip().strip('"').strip("'")
                 for line in key_lines
-                if line.startswith("UPSTAGE_API_KEY=")
+                if line.startswith(key_name + "=")
             )
+            if args.parser in ("upstage", "mixed-v1") and key_name != "UPSTAGE_API_KEY":
+                os.environ["UPSTAGE_API_KEY"] = next(
+                    line.split("=", 1)[1].strip().strip('"').strip("'")
+                    for line in (ROOT / ".env.upstage.local").read_text().splitlines()
+                    if line.startswith("UPSTAGE_API_KEY=")
+                )
+            if args.vision_parse != "off" and key_name != "OPENROUTER_API_KEY":
+                os.environ["OPENROUTER_API_KEY"] = next(
+                    line.split("=", 1)[1].strip().strip('"').strip("'")
+                    for line in (ROOT / ".env.openrouter.local").read_text().splitlines()
+                    if line.startswith("OPENROUTER_API_KEY=")
+                )
             from proofops_worker.composition import build_composition
 
             from evaluation.serve_worker import start_background
@@ -1599,7 +2389,7 @@ def main():
             if worker_stop is not None:
                 worker_stop.set()
                 worker_thread.join(timeout=10)
-                os.environ.pop("UPSTAGE_API_KEY", None)
+                os.environ.pop(key_name, None)
 
     return pipeline_outcome["exit_code"]
 

@@ -78,6 +78,7 @@ def test_worker_selects_p2_packet_for_p2_profile(monkeypatch):
 
     monkeypatch.setattr(live, "preliminary_table_request", packet)
     runtime = LiveTaggingRuntime.__new__(LiveTaggingRuntime)
+    runtime.snapshot = {}
     runtime.preliminary_settings = SimpleNamespace(model_profile=P2_MODEL_PROFILE)
     runtime.preliminary_transport = SimpleNamespace(bound_context=lambda value: value)
     runtime.preliminary_records = []

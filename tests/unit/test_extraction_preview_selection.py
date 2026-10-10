@@ -22,12 +22,13 @@ def test_prose_precedes_navigation_without_excluding_short_assertions():
             kind="paragraph",
             quality="unverified",
             winner=0,
+            candidates=(SimpleNamespace(context=()),),
             bbox=(0, i * 20, 300, i * 20 + 15),
             normalized_text=text,
         )
         for i, text in enumerate(texts)
     ]
-    graph = SimpleNamespace(blocks=blocks)
+    graph = SimpleNamespace(blocks=blocks, edges=())
     scope = SimpleNamespace(mode="declared_subset", selected_pages=(27,))
     assert select_stable_paragraph_sources(graph, scope, 1) == {"3"}
     assert select_stable_paragraph_sources(graph, scope, 5) == {"0", "1", "2", "3", "4"}

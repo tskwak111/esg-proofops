@@ -7,7 +7,7 @@ inside the *raw* text of one of those blocks' winning candidate, producing an
 unambiguous ``SourceRef``. Both steps raise rather than guess on any
 ambiguity, missing scope, or cross-boundary leakage.
 
-Ownership split (per coordinator R06a review): the network/probe/receipts
+The network/probe/receipts
 adapter lives in `adapters/local/upstage_assurance.py`; this module stays
 free of I/O so it can be unit-tested without any transport.
 """

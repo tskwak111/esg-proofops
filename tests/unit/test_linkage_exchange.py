@@ -42,16 +42,8 @@ MANIFEST = "33333333-3333-4333-8333-333333333333"
 CLAIM = "66666666-6666-4666-8666-666666666666"
 SR_SOURCE = "77777777-7777-4777-8777-777777777777"
 
-ROOT_CONTRACT_DIR = Path("/Users/ss020/Dev/ESG_ProofOps/handoff/team-v3/contract")
-FIXTURE_CONTRACT_DIR = (
-    Path(__file__).resolve().parents[2] / "outputs/agent-fixtures/linkage-contract"
-)
-
-try:
-    with (ROOT_CONTRACT_DIR / "validate.py").open("rb"):
-        CONTRACT_DIR = ROOT_CONTRACT_DIR
-except (PermissionError, OSError, FileNotFoundError):
-    CONTRACT_DIR = FIXTURE_CONTRACT_DIR
+FIXTURE_CONTRACT_DIR = Path(__file__).resolve().parents[2] / "tests/fixtures/linkage-contract"
+CONTRACT_DIR = FIXTURE_CONTRACT_DIR
 
 
 def _source_ref(**overrides) -> SourceRef:

@@ -49,6 +49,7 @@ def test_relation_settings_are_frozen_as_an_independent_optional_group(tmp_path)
 
 def test_legacy_live_snapshot_has_no_relation_pin_group(tmp_path):
     service, body, *_ = _live_service(tmp_path)
+    service.relation_attribution_policy = None  # Explicit pre-SY1 snapshot reader.
     pack = _draft_pack(service, AUTH.tenant_id)
     body["rule_pack_id"] = pack.rule_pack_id
     result = service.create(AUTH, body, str(uuid4()))

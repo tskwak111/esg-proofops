@@ -280,9 +280,9 @@ def test_orion_actual_linkless_toc_resolves_e_narrative_and_evidence():
 
     from evaluation.report_sections import inspect
 
-    orion_pdf = Path("outputs/agent-fixtures/orion.pdf")
+    orion_pdf = Path("tests/fixtures/source-documents/orion.pdf")
     if not orion_pdf.exists():
-        pytest.skip("outputs/agent-fixtures/orion.pdf not present")
+        pytest.skip("tests/fixtures/source-documents/orion.pdf not present")
 
     res = inspect(orion_pdf)
     assert res["method"] == "toc_text_fallback"

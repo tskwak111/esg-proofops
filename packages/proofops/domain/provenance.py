@@ -1,4 +1,4 @@
-"""Pure, deterministic provenance identities (TASK-033)."""
+"""Pure, deterministic provenance identities."""
 
 from __future__ import annotations
 

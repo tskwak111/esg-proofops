@@ -1,8 +1,10 @@
 """AT-010: synthetic corpus/transport/prices; real cache, budget and source guards."""
 
 import json
+import time
 from dataclasses import asdict, replace
 from pathlib import Path
+from threading import Lock
 from uuid import UUID
 
 import pytest
@@ -148,6 +150,31 @@ def execute(inputs):
     from proofops.application.tagging.service import tag_replicates
 
     return tag_replicates(**inputs)
+
+
+def test_parallel_replicas_keep_order_and_reserve_before_send(tmp_path):
+    inputs = setup(tmp_path)
+    original = inputs["invoke"]
+    lock = Lock()
+    active = peak = 0
+
+    def slow(request):
+        nonlocal active, peak
+        with lock:
+            active += 1
+            peak = max(peak, active)
+        time.sleep(0.03 if request["replicate_id"] == 1 else 0.01)
+        try:
+            return original(request)
+        finally:
+            with lock:
+                active -= 1
+
+    inputs.update(invoke=slow, max_workers=3)
+    runs = execute(inputs)
+    assert peak == 3
+    assert [run.replicate_id for run in runs] == [1, 2, 3]
+    assert all(run.usage is not None for run in runs)
 
 
 def consensus(runs, inputs):
@@ -430,6 +457,30 @@ def test_one_provider_failure_is_retained_sanitized_and_never_majority_auto_conf
     assert "private" not in repr(runs[1])
     assert consensus(runs, inputs).review_status == "needs_review"
     assert cost_summary(inputs["usage_store"], TENANT, RUN)["cost_status"] == "unknown_cost"
+
+
+def test_successful_provider_with_unrestorable_citation_is_not_a_provider_failure(tmp_path):
+    from proofops.application.tagging.service import RawTagResponse
+
+    inputs = setup(tmp_path)
+    responder = inputs["invoke"]
+
+    def unresolved_citation(request):
+        if request["replicate_id"] == 2:
+            return RawTagResponse(
+                None,
+                TokenUsage(10, 5, 0, 0, 1, "succeeded", "provider-ok"),
+                True,
+                json.dumps({"validation_error": "TAGGING_EVIDENCE_ID_INVALID"}),
+            )
+        return responder(request)
+
+    inputs["invoke"] = unresolved_citation
+    runs = execute(inputs)
+    assert runs[1].status == "citation_unresolved"
+    assert runs[1].errors == ("TAGGING_EVIDENCE_ID_INVALID",)
+    assert runs[1].usage.status == "succeeded"
+    assert runs[0].status != "model_failed" and runs[2].status != "model_failed"
 
 
 def test_forged_citation_and_matching_words_from_other_product_fail_guard(tmp_path):

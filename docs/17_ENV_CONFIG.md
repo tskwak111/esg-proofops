@@ -88,3 +88,14 @@ print(json.dumps(asdict(SyntheticClaimExtractor.profile)))'`.
 중지하며, 이미 저장한 run 설정과 태깅·판정·감사 이력은 그대로 보존한다.
 
 로컬 웹 개발 서버는 저장소 루트 환경 설정의 `API_PUBLIC_BASE_URL`을 `/v1`, `/auth`, `/local/uploads` 프록시 대상으로 사용한다. 다른 프로젝트가 기본 포트를 사용하는 경우 명시적으로 분리된 API 주소를 설정한다. 이 값은 API 프로세스를 시작하거나 승인 profile을 생성하지 않는다.
+# F10 export writer rollback
+
+`PROOFOPS_EXPORT_ELEMENT_EVIDENCE_ENCODING` defaults to
+`shared_search_lists_quotes_sha256_v1`. Set `inline_element_evidence_v1` to disable
+sharing for new reservations. The mode is pinned on each request; existing queued
+jobs without the field stay inline, frozen snapshots retain their encoding, and
+both readers remain available. Unknown modes fail closed. This additive JSON
+contract changes no public Export DTO or SQLite schema; no migration is needed.
+Legacy ready ZIPs retain their original bytes/SHA. Never deploy a reader that does
+not support the encoding of a pending frozen job. The 1,000-claim and 32 MiB limits
+are unchanged; inline rollback can restore F8's known size-limit failure.

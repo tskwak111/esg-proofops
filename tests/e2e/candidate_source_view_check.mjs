@@ -128,7 +128,7 @@ export async function check() {
 
     // Accepted evidence keeps working, including its verified highlight.
     button('원문 위치 열기').click();
-    await waitFor('원본 PDF 새 탭에서 열기');
+    await waitFor('PDF 표시본 새 탭에서 열기');
     assert(host.querySelector('img[alt*="1쪽"]'), 'Verified source must render its issued page');
     assert(host.querySelector('[data-source-highlight="true"]'), 'Verified located source keeps its overlay');
     assert(tickets.join(',') === own.source_id, `Only the accepted source was requested: ${tickets}`);

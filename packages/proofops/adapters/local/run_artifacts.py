@@ -35,6 +35,7 @@ def load_run_inputs(store, uploads, *, tenant_id: str, run_id: str):
         document["sha256"],
         document["object_version_id"],
         content,
+        upload_security_limits=document.get("upload_security", {}).get("limits"),
     )
     pages = snapshot["selected_pages"]
     if not pages or any(type(p) is not int or not 1 <= p <= document["page_count"] for p in pages):
@@ -205,6 +206,16 @@ def accepted_native_policy_digests():
     present and hash-verified, so this never allowlists a bare hash.
     """
     digests = {canonical_hash(native_paragraph_policy())}
+    from proofops.adapters.local.claim_source_policies import page_ocr_profile
+
+    for profile in (
+        "upstage-ocr-page-v1",
+        "upstage-ocr-page-v2",
+        "upstage-ocr-page-v3",
+        "upstage-ocr-page-v4",
+        "upstage-ocr-page-v5",
+    ):
+        digests.add(canonical_hash(page_ocr_profile(profile).native_policy()))
     from proofops.adapters.local import frozen_native_replay
 
     for bundle in frozen_native_replay._PINNED_VERIFIERS.values():
@@ -394,6 +405,14 @@ def load_run_evidence(store, uploads, parser, *, tenant_id: str, run_id: str):
     policy = store.jobs.parser_note_policy(message)
     native_policy = store.jobs.parser_native_policy(message)
     if native_policy is not None:
+        if native_policy.get("mode") in {
+            "upstage-ocr-page-v1",
+            "upstage-ocr-page-v2",
+            "upstage-ocr-page-v3",
+            "upstage-ocr-page-v4",
+            "upstage-ocr-page-v5",
+        } and (native_receipt is None or native_receipt.get("run_id") != run_id):
+            raise ParseFailure("NATIVE_PARAGRAPH_CHECKPOINT_INVALID")
         if (
             envelope.get("schema")
             not in {
@@ -450,6 +469,18 @@ def load_run_evidence(store, uploads, parser, *, tenant_id: str, run_id: str):
     graph = parser.load_verified(
         source, profile, tenant_id=tenant_id, manifest_sha256=envelope["manifest_sha256"]
     )
+    if profile.parser_mode == "mixed-v1":
+        directory = (
+            parser.artifact_root
+            / tenant_id
+            / source.document_version_id
+            / profile.parse_manifest_id
+        )
+        manifest = json.loads((directory / "manifest.json").read_bytes())
+        if envelope.get("page_parser_provenance") != manifest["page_parser_provenance"]:
+            raise ParseFailure("MIXED_PARSER_CHECKPOINT_MISMATCH")
+    elif "page_parser_provenance" in envelope:
+        raise ParseFailure("MIXED_PARSER_CHECKPOINT_MISMATCH")
     base_graph = graph
     if note_reviews:
         from proofops.adapters.local.table_notes import replay_note_reviews
@@ -499,6 +530,25 @@ def load_run_evidence(store, uploads, parser, *, tenant_id: str, run_id: str):
             )
         except (ValueError, TypeError, KeyError):
             raise ParseFailure("NATIVE_PARAGRAPH_REPLAY_INVALID") from None
+    if "evidence_source_policy" in snapshot:
+        from proofops.adapters.local.evidence_source_policies import evidence_source_reader
+
+        try:
+            ev1 = evidence_source_reader(snapshot["evidence_source_policy"])
+            if (
+                snapshot["evidence_source_policy"] != ev1.policy()
+                or envelope.get("evidence_source_policy_sha256") != canonical_hash(ev1.policy())
+                or list(envelope["evidence_source_attestation"]["physical_pages"])
+                != sorted(set(profile.physical_pages) - set(profile.claim_physical_pages))
+            ):
+                raise ValueError("EVIDENCE_SOURCE_POLICY_MISMATCH")
+            graph = ev1.replay_evidence_sources(
+                envelope["evidence_source_attestation"], graph, source.content, tenant_id=tenant_id
+            )
+        except (ValueError, TypeError, KeyError):
+            raise ParseFailure("EVIDENCE_SOURCE_REPLAY_INVALID") from None
+    elif "evidence_source_attestation" in envelope:
+        raise ParseFailure("UNPINNED_EVIDENCE_SOURCE_ATTESTATION")
     typography_digest = envelope.get("native_paragraph_typography_policy_sha256")
     typography_proof = envelope.get("native_paragraph_typography_proof")
     recomputed_typography_proof = None
@@ -531,7 +581,16 @@ def load_run_evidence(store, uploads, parser, *, tenant_id: str, run_id: str):
         validate_automatic_note_reviews(
             graph, note_reviews, policy, selected_pages=profile.physical_pages
         )
+    from proofops.adapters.local.receipt_environment_compat import (
+        receipt_read_metadata,
+        table_read_metadata,
+    )
+
+    compatibility = [table_read_metadata(graph)]
+    if native_receipt is not None:
+        compatibility.append(receipt_read_metadata(native_receipt))
     return dict(
+        receipt_read_compatibility=[item for item in compatibility if item is not None],
         graph=graph,
         base_graph=base_graph,
         source=source,

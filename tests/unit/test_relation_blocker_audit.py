@@ -6,7 +6,7 @@ from pathlib import Path
 
 def test_relation_diagnostic_preserves_presence_null_and_literal_disagreement():
     audit = runpy.run_path(
-        str(Path(__file__).resolve().parents[2] / "evidence/audit-live-tagging-blockers.py")
+        str(Path(__file__).resolve().parents[2] / "scripts/audit_live_tagging_blockers.py")
     )["relation_diagnostic"]
     records = [
         dict(replicate_id=i, status="validated_candidate", values={"source": roles})

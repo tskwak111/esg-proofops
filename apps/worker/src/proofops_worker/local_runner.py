@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import math
+import sys
 import time
 from dataclasses import asdict, replace
 from hashlib import sha256
@@ -22,6 +23,7 @@ from proofops.adapters.local.run_artifacts import (
     native_paragraph_policy,
 )
 from proofops.adapters.parsing.opendataloader import OpenDataLoaderParser, ParseFailure
+from proofops.application.budget import BudgetExceeded
 from proofops.application.ingest.graph_fusion import ParserProfile
 from proofops.application.ports.jobs import JobMessage, LeaseLost
 from proofops.application.telemetry import Telemetry, TraceContext
@@ -153,6 +155,28 @@ class LocalParserRunner:
         raster_enabled = self._raster_enabled(snapshot)
         run = self.store.jobs.get_run(tenant_id, run_id)
         native_policy = native_paragraph_policy() if self.verify_paragraphs else None
+        page_reader = None
+        if snapshot.get("claim_source_policy", {}).get("profile") in {
+            "upstage-ocr-page-v1",
+            "upstage-ocr-page-v2",
+            "upstage-ocr-page-v3",
+            "upstage-ocr-page-v4",
+            "upstage-ocr-page-v5",
+        }:
+            from proofops.adapters.local.claim_source_policies import claim_source_reader
+
+            ocr_profile = claim_source_reader(snapshot["claim_source_policy"])
+            for_run = ocr_profile.for_run
+            table_policy_sha256 = ocr_profile.table_policy_sha256
+            ocr_policy = ocr_profile.native_policy
+
+            if raster_enabled or self.native_typography_tolerance:
+                raise ValueError("OCR_PROFILE_COMPOSITION_UNSUPPORTED")
+            if self.profile.table_source_policy_sha256 not in {None, table_policy_sha256()}:
+                raise ValueError("OCR_TABLE_POLICY_MISMATCH")
+            page_reader = for_run(run_id)
+            if self.verify_paragraphs:
+                native_policy = ocr_policy()
         if (
             "parse_job" in run
             and self.store.jobs.parser_native_policy(JobMessage(**run["parse_job"]))
@@ -237,7 +261,12 @@ class LocalParserRunner:
                     if not directory.exists():
                         usage["parser_executions"] = 1
                         try:
-                            self.parser.parse(source, profile, tenant_id=tenant_id)
+                            if page_reader is not None:
+                                self.parser.parse(
+                                    source, profile, tenant_id=tenant_id, page_reader=page_reader
+                                )
+                            else:
+                                self.parser.parse(source, profile, tenant_id=tenant_id)
                         except ParseFailure as exc:
                             if str(exc) != "PARSE_MANIFEST_EXISTS":
                                 raise
@@ -283,12 +312,16 @@ class LocalParserRunner:
                         )
                     pre_native_graph = graph
                     native_receipt = None
+                    evidence_receipt = None
                     if native_policy is not None:
                         from proofops.adapters.local.source_verification import (
                             attest_native_sources,
                             replay_native_sources,
                         )
 
+                        if page_reader is not None:
+                            attest_native_sources = page_reader.attest_native_sources
+                            replay_native_sources = page_reader.replay_native_sources
                         native_receipt = attest_native_sources(
                             graph, source.content, tenant_id=tenant_id, geometry_mode="glyph"
                         )
@@ -312,6 +345,29 @@ class LocalParserRunner:
                             graph = replay_native_sources(
                                 native_receipt, graph, source.content, tenant_id=tenant_id
                             )
+                    if "evidence_source_policy" in snapshot:
+                        from proofops.adapters.local.evidence_source_policies import (
+                            evidence_source_reader,
+                        )
+
+                        ev1 = evidence_source_reader(snapshot["evidence_source_policy"])
+                        evidence_pages = tuple(
+                            sorted(set(profile.physical_pages) - set(profile.claim_physical_pages))
+                        )
+                        evidence_receipt = ev1.attest_evidence_sources(
+                            graph,
+                            source.content,
+                            tenant_id=tenant_id,
+                            physical_pages=evidence_pages,
+                            **(
+                                {"run_id": run_id}
+                                if ev1.PROFILE == "evidence-source-ocr-v1"
+                                else {}
+                            ),
+                        )
+                        graph = ev1.replay_evidence_sources(
+                            evidence_receipt, graph, source.content, tenant_id=tenant_id
+                        )
                     raster_coverage = None
                     raster_refs = None
                     if raster_enabled:
@@ -409,9 +465,18 @@ class LocalParserRunner:
                         stage_status="completed",
                         downstream_status="pending",
                         validation_profile="fast_preview",
-                        vision_status="not_run",
+                        vision_status=manifest.get("vision_status", "not_run"),
+                        vision_parse=manifest.get("vision_parse"),
+                        upstage_parse=manifest.get("upstage_parse"),
                         coverage=coverage,
                     )
+                    if profile.parser_mode == "mixed-v1":
+                        payload["page_parser_provenance"] = manifest["page_parser_provenance"]
+                    if evidence_receipt is not None:
+                        payload["evidence_source_attestation"] = evidence_receipt
+                        payload["evidence_source_policy_sha256"] = canonical_hash(
+                            snapshot["evidence_source_policy"]
+                        )
                     if pinned_notes:
                         payload.update(
                             schema="local_parser_checkpoint_v2",
@@ -454,7 +519,34 @@ class LocalParserRunner:
                         )
                     return canonical_json(payload).encode(), usage
                 except (ParseFailure, UploadRejected) as exc:
+                    stderr_path = getattr(exc, "stderr_path", None)
+                    if stderr_path is not None:
+                        diagnostic = dict(
+                            code=str(exc),
+                            stderr_sha256=sha256(stderr_path.read_bytes()).hexdigest(),
+                            stderr_artifact=str(stderr_path),
+                        )
+                        usage["parser_diagnostic"] = diagnostic
+                        # Raw stderr remains in the private tenant artifact. Only this
+                        # fixed JVM cause can enter shared logs or the CLI message.
+                        print(
+                            json.dumps(
+                                dict(
+                                    event="parser_failure_diagnostic",
+                                    code=str(exc),
+                                    stderr_excerpt=(
+                                        "java.lang.OutOfMemoryError: Java heap space"
+                                        if str(exc) == "PARSER_JAVA_HEAP_EXHAUSTED"
+                                        else "Parser child failed; see retained stderr artifact."
+                                    ),
+                                    stderr_sha256=diagnostic["stderr_sha256"],
+                                )
+                            ),
+                            file=sys.stderr,
+                        )
                     raise StageFailure(str(exc), usage=usage) from None
+                except BudgetExceeded:
+                    raise StageFailure("BUDGET_EXHAUSTED", usage=usage) from None
                 except (OSError, ValueError, KeyError, TypeError):
                     raise StageFailure("PARSER_FAILED", usage=usage) from None
                 finally:

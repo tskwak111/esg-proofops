@@ -94,7 +94,7 @@ def resolve(ws, review, *, key=None, if_match='"1"'):
         ws[4],
         if_match,
         key or str(uuid4()),
-        delegated_reviewer="coordinator@orca.local",
+        delegated_reviewer="review-operator",
         delegation_authority="user delegation 2026-09-20",
         applicability_review=review,
     )
@@ -151,7 +151,7 @@ def test_reviewed_false_excludes_and_engine_grades_immutable_management(tmp_path
         assert carried["applicability_review"]["request"] == review
         assert carried["applicability_review"]["carried_from"]["origin"] == "ai_delegated"
         assert carried["applicability_review"]["carried_from"]["delegated_reviewer"] == (
-            "coordinator@orca.local"
+            "review-operator"
         )
 
 

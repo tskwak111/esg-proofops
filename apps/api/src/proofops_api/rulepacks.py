@@ -1,4 +1,4 @@
-"""FastAPI boundary for TASK-025 RulePack activation."""
+"""FastAPI boundary for RulePack activation."""
 
 from __future__ import annotations
 

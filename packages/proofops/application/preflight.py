@@ -1,4 +1,4 @@
-"""TASK-029: evaluate trusted, tenant-scoped approval snapshots without I/O.
+"""Evaluate trusted, tenant-scoped approval snapshots without I/O.
 
 Inputs are server-resolved ApprovedProfile artifacts, never request-body
 assertions of approval. Account permission/routing/schema/image evidence must
@@ -258,7 +258,7 @@ def check_runtime_binding(
 
 
 def combine_build_checks(result: Preflight, build: SupplyChainResult | None) -> Preflight:
-    """Compose TASK-042 build evidence; never run build tooling in an API image.
+    """Compose build evidence; never run build tooling in an API image.
 
     Composition supplies a build-time verifier result for its immutable image.
     Missing attestation is not_run and cannot imply deployment readiness.
@@ -362,31 +362,74 @@ def _check_local_upstage_binding(
             and expires is not None
             and approved <= now < expires
             and profile.get("purpose") == "local_test"
-            and profile.get("provider") == "upstage",
+            and profile.get("provider") == binding.get("provider", "upstage")
+            and profile.get("provider") in ("upstage", "openrouter", "openai"),
         )
     model_id = binding.get("model_id")
-    models = ("document-parse-260128",) if document_parse else ("solar-pro3", "solar-pro4")
-    transport = "UpstageParseProbe" if document_parse else "UpstageProbe"
+    openai = not document_parse and binding.get("provider") == "openai"
+    openrouter = not document_parse and binding.get("provider") == "openrouter"
+    models = (
+        ("document-parse-260128",)
+        if document_parse
+        else (
+            ("gpt-6-luna",)
+            if openai
+            else (("openai/gpt-6-luna",) if openrouter else ("solar-pro3", "solar-pro4"))
+        )
+    )
+    transport = (
+        "UpstageParseProbe"
+        if document_parse
+        else ("OpenAIProbe" if openai else ("OpenRouterProbe" if openrouter else "UpstageProbe"))
+    )
     endpoint = (
         "https://api.upstage.ai/v1/document-digitization"
         if document_parse
+        else "https://api.openai.com/v1/chat/completions"
+        if openai
+        else "https://openrouter.ai/api/v1/chat/completions"
+        if openrouter
         else "https://api.upstage.ai/v1/chat/completions"
     )
     model_hash_ok = not document_parse and model_id == "solar-pro3"
     if model_sha256 is not None:
         expected = (
-            canonical_hash({"model": model_id, "provider": "upstage", "transport": transport})
+            canonical_hash(
+                {
+                    "model": model_id,
+                    "provider": "openai" if openai else ("openrouter" if openrouter else "upstage"),
+                    "transport": transport,
+                }
+            )
             if model_id in models
             else None
         )
-        model_hash_ok = expected is not None and model_sha256 == expected
+        accepted = {expected} if expected is not None else set()
+        if expected is not None and (openrouter or openai):
+            if openai:
+                from proofops.adapters.local.openai import WIRE_POLICY
+            else:
+                from proofops.adapters.local.openrouter import WIRE_POLICY
+
+            accepted.add(
+                canonical_hash(
+                    {
+                        "model": model_id,
+                        "provider": "openai" if openai else "openrouter",
+                        "transport": transport,
+                        "wire_policy": WIRE_POLICY,
+                    }
+                )
+            )
+        model_hash_ok = model_sha256 in accepted
     add(
         "model_binding",
         binding.get("role") == expected_role
         and binding.get("model_id") in models
         and model_hash_ok
         and binding.get("endpoint") == endpoint
-        and binding.get("budget_limit_usd") in ("10.00", "20.00")
+        and binding.get("budget_limit_usd")
+        in (("3.00",) if openai else (("5.00",) if openrouter else ("10.00", "20.00")))
         and binding.get("fallback_bindings", []) == [],
     )
     hashes = consent.get("allowed_source_sha256")
@@ -482,6 +525,35 @@ def check_local_upstage_raster(
     return Preflight(common.ready and valid, checks, common.binding_sha256, checked_at)
 
 
+def relation_settings_contract_valid(settings) -> bool:
+    """Read-old/write-new relation contracts, independent of permission or budget."""
+    from proofops.application.tagging.relations import (
+        LEGACY_PROFILE,
+        OCCURRENCE_PROFILE,
+        OCCURRENCE_SYSTEM_PROMPT,
+        OCCURRENCE_V3_PROFILE,
+        OCCURRENCE_V3_SYSTEM_PROMPT,
+        SYSTEM_PROMPT,
+    )
+
+    if settings.model_profile == LEGACY_PROFILE:
+        return settings.system_prompt == SYSTEM_PROMPT
+    if (settings.model_profile, settings.system_prompt) not in {
+        (OCCURRENCE_PROFILE, OCCURRENCE_SYSTEM_PROMPT),
+        (OCCURRENCE_V3_PROFILE, OCCURRENCE_V3_SYSTEM_PROMPT),
+        ("relation-decision-gate-v1", OCCURRENCE_V3_SYSTEM_PROMPT),
+    }:
+        return False
+    # Pin the complete JSON contract in prompts/source_relations_occurrence_v2.schema.json.
+    # Canonical hashing accepts formatting changes, never additional schema fields.
+    try:
+        return canonical_hash(json.loads(settings.schema_json)) == (
+            "e0816f3942a8c4a044873e677f8966a1be3c4c4da7d341b2c38a0a5027a6f6f0"
+        )
+    except (TypeError, ValueError):
+        return False
+
+
 def check_local_upstage_tagger(
     *,
     binding: Mapping[str, Any],
@@ -517,7 +589,17 @@ def check_local_upstage_tagger(
         source_sha256=source_sha256,
         include_live_model_probe=False,
         model_sha256=canonical_hash(
-            dict(model=settings.model_id, provider="upstage", transport="UpstageProbe")
+            dict(
+                model=settings.model_id,
+                provider="openai"
+                if settings.model_id == "gpt-6-luna"
+                else ("openrouter" if settings.model_id == "openai/gpt-6-luna" else "upstage"),
+                transport="OpenAIProbe"
+                if settings.model_id == "gpt-6-luna"
+                else "OpenRouterProbe"
+                if settings.model_id == "openai/gpt-6-luna"
+                else "UpstageProbe",
+            )
         ),
         expected_role="tagger",
     )
@@ -528,20 +610,32 @@ def check_local_upstage_tagger(
         P1_SYSTEM_PROMPT,
         P2_SYSTEM_PROMPT,
         PERIOD_ROLE_SYSTEM_SUFFIX,
+        SENTENCE_CONTEXT_PROFILE,
+        SENTENCE_CONTEXT_SYSTEM_PROMPT,
+        SENTENCE_FALLBACK_PROFILE,
+        SENTENCE_FALLBACK_SYSTEM_PROMPT,
         TABLE_ROLE_SYSTEM_SUFFIX,
         TABLE_SYSTEM_SUFFIX,
     )
     from proofops.application.tagging.preliminary import SYSTEM_PROMPT as PRELIMINARY_SYSTEM_PROMPT
-    from proofops.application.tagging.relations import SYSTEM_PROMPT as RELATIONS_SYSTEM_PROMPT
 
     profile_valid = (
-        settings.model_profile
+        (
+            settings.model_profile == SENTENCE_FALLBACK_PROFILE
+            and settings.system_prompt == SENTENCE_FALLBACK_SYSTEM_PROMPT
+        )
+        or (
+            settings.model_profile == SENTENCE_CONTEXT_PROFILE
+            and settings.system_prompt == SENTENCE_CONTEXT_SYSTEM_PROMPT
+        )
+        or settings.model_profile
         in {
             "upstage-compact-ids-frozen-unicode-v1",
             "upstage-compact-coverage-unicode-v2",
             "upstage-compact-source-quotes-v3",
             "upstage-compact-source-quotes-v4",
             "upstage-compact-source-quotes-v5",
+            "upstage-compact-element-consistency-v6",
         }
         or (
             settings.model_profile == "upstage-preliminary-source-quotes-v1"
@@ -552,14 +646,14 @@ def check_local_upstage_tagger(
             and settings.system_prompt == PRELIMINARY_SYSTEM_PROMPT + CONTEXT_SYSTEM_SUFFIX
         )
         or (
-            # R12 opt-in: context prompt plus the table-source suffix, pinned as
+            # opt-in: context prompt plus the table-source suffix, pinned as
             # one pair so neither half can be swapped independently.
             settings.model_profile == "upstage-preliminary-source-quotes-table-v1"
             and settings.system_prompt
             == PRELIMINARY_SYSTEM_PROMPT + CONTEXT_SYSTEM_SUFFIX + TABLE_SYSTEM_SUFFIX
         )
         or (
-            # R16 opt-in: the same table pair plus the role-resolution suffix,
+            # opt-in: the same table pair plus the role-resolution suffix,
             # pinned as one longer chain so the shorter table prompt can never
             # be sent under this profile and vice versa.
             settings.model_profile == "upstage-preliminary-source-quotes-table-role-v1"
@@ -591,7 +685,7 @@ def check_local_upstage_tagger(
             and settings.system_prompt == P2_SYSTEM_PROMPT
         )
         or (
-            # R34 opt-in: the table-role chain plus the goal-role suffix, pinned
+            # opt-in: the table-role chain plus the goal-role suffix, pinned
             # as one longer chain so neither the table-role prompt nor any older
             # prompt can be sent under this profile and vice versa. Requires
             # preliminary_table_role=True and its dependencies.
@@ -614,7 +708,8 @@ def check_local_upstage_tagger(
             + ACTOR_ROLE_SYSTEM_SUFFIX
         )
         or (
-            settings.model_profile == "upstage-preliminary-source-quotes-actor-role-v2"
+            settings.model_profile
+            in ("upstage-preliminary-source-quotes-actor-role-v2", "preliminary-decision-v1")
             and settings.system_prompt
             == PRELIMINARY_SYSTEM_PROMPT
             + CONTEXT_SYSTEM_SUFFIX
@@ -624,10 +719,7 @@ def check_local_upstage_tagger(
             + ACTOR_ROLE_SYSTEM_SUFFIX
             + PERIOD_ROLE_SYSTEM_SUFFIX
         )
-        or (
-            settings.model_profile == "upstage-relation-source-quotes-v1"
-            and settings.system_prompt == RELATIONS_SYSTEM_PROMPT
-        )
+        or relation_settings_contract_valid(settings)
     )
     pinned = (
         binding.get("schema") == "local_upstage_tagger_binding_v1"
@@ -657,4 +749,59 @@ def check_local_upstage_tagger(
     )
     return Preflight(
         common.ready and pinned and authorized_rights, checks, common.binding_sha256, checked_at
+    )
+
+
+def check_local_decision_binding(
+    *, binding, consent, auth, checked_at, source_sha256, document_rights, provider, settings
+):
+    """Explicit text-only DEC-15 grant, independent of the Luna quote grant."""
+    from proofops.application.tagging.decisions import MODELS, POLICY, validate_decision_settings
+
+    validate_decision_settings(settings)
+    if binding.get("tenant_id") != auth.tenant_id or consent.get("tenant_id") != auth.tenant_id:
+        raise TenantNotFoundError("profile not found")
+    now = _timestamp(checked_at)
+    if now is None or provider not in MODELS:
+        raise ValueError("DECISION_PREFLIGHT_INVALID")
+    checks = []
+    for name, profile, id_field in (
+        ("runtime", binding, "runtime_binding_id"),
+        ("consent", consent, "consent_profile_id"),
+    ):
+        approved, expires = (
+            _timestamp(profile.get("approved_at")),
+            _timestamp(profile.get("expires_at")),
+        )
+        valid = (
+            profile.get("status") == "approved"
+            and _uuid(profile.get(id_field))
+            and all(_text(profile.get(k)) for k in ("version", "approved_by"))
+            and approved is not None
+            and expires is not None
+            and approved <= now < expires
+            and profile.get("purpose") == "local_test"
+        )
+        checks.append(Check(name, "pass" if valid else "fail", "explicit decision approval"))
+    valid = (
+        binding.get("schema") == "local_decision_binding_v1"
+        and binding.get("runtime_binding_id") == settings["binding_ids"][provider]
+        and binding.get("provider") == provider
+        and binding.get("role") == "decision"
+        and binding.get("model_id") == MODELS[provider]["model"]
+        and binding.get("endpoint") == MODELS[provider]["endpoint"]
+        and binding.get("decision_policy_sha256") == canonical_hash(POLICY)
+        and binding.get("budget_limit_usd") == ("3.00" if provider == "openai" else "5.00")
+        and binding.get("fallback_bindings", []) == []
+        and consent.get("allowed_decision_models") == {p: c["model"] for p, c in MODELS.items()}
+        and source_sha256 in consent.get("allowed_source_sha256", [])
+        and document_rights in consent.get("allowed_document_rights", [])
+        and consent.get("allow_cross_tenant_cache") is False
+        and consent.get("allow_agentcore_memory") is False
+    )
+    checks.append(
+        Check("decision_scope", "pass" if valid else "fail", "frozen text/model/policy scope")
+    )
+    return Preflight(
+        all(c.status == "pass" for c in checks), tuple(checks), canonical_hash(binding), checked_at
     )

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Local trusted CLI for AI-delegated manual preliminary classification (R22).
+"""Local trusted CLI for delegated manual preliminary classification.
 
 The ONLY path that records ``origin=ai_delegated_classification``. It never exposes an
 HTTP endpoint and never runs unattended: the write requires an explicit ``--apply`` plus
@@ -35,7 +35,7 @@ def _parse_args(argv):
     )
     p.add_argument("--if-match", default=None, help="Reviewed lineage ETag; required with --apply.")
     p.add_argument("--idempotency-key", required=True)
-    p.add_argument("--delegated-reviewer", required=True, help="e.g. coordinator@orca.local")
+    p.add_argument("--delegated-reviewer", required=True, help="Operator identifier")
     p.add_argument("--delegation-authority", required=True)
     p.add_argument("--apply", action="store_true", help="Perform the write (else dry run).")
     return p.parse_args(argv)

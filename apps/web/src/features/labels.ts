@@ -22,6 +22,27 @@ export const elementLabels: Record<string, string> = {
 };
 
 export function getElementLabel(elementId: string): string {
+  if (Object.hasOwn(fieldLabels, elementId)) return fieldLabels[elementId];
   const label = elementLabels[elementId];
   return Object.hasOwn(elementLabels, elementId) ? `${elementId} · ${label}` : elementId;
 }
+
+const reasonLabels: Record<string, string> = {
+  DOMAIN_RULEPACK_UNAPPROVED: "이 실행의 규칙집 검토가 완료되지 않았습니다",
+  RULEPACK_APPROVAL_REQUIRED: "규칙집 승인이 필요합니다",
+  SOURCE_VALIDATION_REQUIRED: "원문 근거 검증을 다시 확인해야 합니다",
+  CONSENSUS_UNRESOLVED: "태깅 결과가 일치하지 않습니다",
+  RELATION_TAGS_UNRESOLVED: "주장과 근거의 연결이 확정되지 않았습니다",
+  PRELIMINARY_TAGS_UNRESOLVED: "예비 태깅 결과를 확정할 수 없습니다",
+};
+
+export function getReasonLabel(code: string): string {
+  return Object.hasOwn(reasonLabels, code) ? `${code} · ${reasonLabels[code]}` : code;
+}
+
+const fieldLabels: Record<string, string> = {
+  quantitative_or_qualified_ordinal: "정량 수치", unit_or_qualified_ordinal: "단위", comparison_baseline: "비교 기준",
+  calculation_boundary: "산정 경계", method: "산정 방법론", assurance_covered: "외부 보증", target_year: "목표 연도",
+  target_metric: "목표 지표·수치", baseline_year: "기준 연도", baseline_value: "기준값", scope: "적용 범위",
+  org_boundary: "조직 경계", current_progress: "현재 진척", transition_plan: "이행 계획",
+};

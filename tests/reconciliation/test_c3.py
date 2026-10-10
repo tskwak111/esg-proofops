@@ -390,13 +390,8 @@ def test_target_and_capex_periods_are_both_validated_for_ordering():
         engine.evaluate(reversed_target, approved_policy())
 
 
-# --------------------------------------------------------------------------- #
-# adopted REC-003/REC-004 (R00 section 12, 2026-09-28)
-# --------------------------------------------------------------------------- #
-
-
 def mapping_only_policy(**overrides) -> dict:
-    """REC-003 mapping approved; REC-004 keeps the threshold null."""
+    """Approve account mapping while leaving the threshold unset."""
     return approved_policy(c3_threshold=None, **overrides)
 
 

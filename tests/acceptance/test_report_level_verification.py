@@ -3,6 +3,7 @@
 import json
 import sqlite3
 from dataclasses import asdict, replace
+from unittest.mock import patch
 from uuid import NAMESPACE_URL, uuid4, uuid5
 
 import pytest
@@ -196,7 +197,7 @@ def _setup_report_level_case(inputs, *, m2=False):
     return updated_inputs, (index_ref, coverage_ref, standard_ref, scope_ref)
 
 
-def report_workspace(tmp_path, *, m2=False):
+def report_workspace(tmp_path, *, m2=False, legacy_scope=False):
     refs = []
 
     def prepare(inputs):
@@ -204,7 +205,15 @@ def report_workspace(tmp_path, *, m2=False):
         refs.extend(found)
         return updated
 
-    return workspace(tmp_path, prepare_inputs=prepare), tuple(refs)
+    if legacy_scope:
+        from tests.acceptance.test_activity_scope_policy import scope_pack
+
+        # The historical receipt/SQLite regressions still exercise the frozen v1 pack.
+        with patch("tests.acceptance.test_tagging.pack", lambda: scope_pack(None)):
+            result = workspace(tmp_path, prepare_inputs=prepare)
+    else:
+        result = workspace(tmp_path, prepare_inputs=prepare)
+    return result, tuple(refs)
 
 
 def _unknown(element_id):
@@ -236,7 +245,9 @@ def _management_body(m3_element):
 def test_report_level_review_uses_pinned_snapshot_without_nested_sqlite_writer(
     tmp_path, element_id
 ):
-    ws, (idx, cov, std, scope) = report_workspace(tmp_path, m2=element_id == "M2")
+    ws, (idx, cov, std, scope) = report_workspace(
+        tmp_path, m2=element_id == "M2", legacy_scope=element_id == "M2"
+    )
     service, review = ws[1], ws[3]
     run_store = LocalSQLiteRunStore(tmp_path / "state.sqlite")
     pinned = {"tenant_id": TENANT, "run_id": RUN, "claim_source_policy": {"reader": "pinned"}}
@@ -307,7 +318,7 @@ def test_report_level_review_uses_pinned_snapshot_without_nested_sqlite_writer(
 
 
 def test_review_report_scope_attests_unverified_span(tmp_path):
-    ws, (*_, scope) = report_workspace(tmp_path, m2=True)
+    ws, (*_, scope) = report_workspace(tmp_path, m2=True, legacy_scope=True)
     service = ws[1]
     calls = []
 

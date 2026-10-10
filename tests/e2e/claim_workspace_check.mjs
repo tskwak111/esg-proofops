@@ -124,7 +124,7 @@ export async function check() {
     assert(host.textContent.includes(`값: ${source.quote}`), 'Element must show its stored value as text');
     const sourceButton = [...host.querySelectorAll('button')].find(button => button.textContent.includes('원문 위치'));
     sourceButton.click();
-    await waitFor('원본 PDF 새 탭에서 열기');
+    await waitFor('PDF 표시본 새 탭에서 열기');
     assert(host.querySelector('img[alt*="1쪽"]'), 'Verified located source should render the issued PNG preview');
     assert(host.querySelector('[data-source-highlight="true"]'), 'Allowed verified bbox should render a real overlay');
     assert(sourceTickets === 2, 'Expired source preview should issue exactly one replacement ticket');
@@ -145,7 +145,7 @@ export async function check() {
     [...host.querySelectorAll('button')].find(button => button.textContent === '변경 확인').click();
     await flush();
     [...host.querySelectorAll('dialog button')].find(button => button.textContent.includes('태깅 확정')).click();
-    await waitFor('초안을 유지한 채');
+    await waitFor('작성 중인 내용을 유지한 채');
     assert(resolveCalls === 1, 'Review resolution should submit exactly once');
     assert(resolveHeaders.get('X-CSRF-Token') === 'csrf-test', 'Review resolution must send CSRF');
     assert(resolveHeaders.get('If-Match') === '"2"', 'Review resolution must send quoted If-Match');

@@ -31,6 +31,7 @@ import logging
 import sys
 from uuid import UUID
 
+from proofops.application.claim_scope import MAX_EXTRACTION_BATCH_CALLS
 from proofops.application.telemetry import SafeRuntimeFormatter
 
 from proofops_worker.composition import build_composition
@@ -48,16 +49,21 @@ def run_batches(
     run_id: str,
     batches: int,
     max_calls: int | None = None,
+    on_batch=None,
 ) -> list[dict]:
     """Run at most ``batches`` continuation batches, stopping on the first halt."""
     if type(batches) is not int or not 1 <= batches <= 100:
         raise ValueError("EXTRACTION_BATCH_COUNT_INVALID")
-    if max_calls is not None and (type(max_calls) is not int or not 1 <= max_calls <= 20):
+    if max_calls is not None and (
+        type(max_calls) is not int or not 1 <= max_calls <= MAX_EXTRACTION_BATCH_CALLS
+    ):
         raise ValueError("EXTRACTION_INPUT_INVALID")
     results = []
     for index in range(batches):
         summary = runner.run_batch(tenant_id=tenant_id, run_id=run_id, max_calls=max_calls)
         results.append(dict(summary, batch=index + 1))
+        if on_batch is not None:
+            on_batch(summary)
         # Emit one flushed progress line per settled batch, before the next batch
         # runs, so a long run reports movement instead of buffering until complete.
         # Only whitelisted scalar telemetry is published: counts derive from the

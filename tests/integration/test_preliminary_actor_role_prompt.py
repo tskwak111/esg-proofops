@@ -2,7 +2,7 @@
 
 Bounded extension of the goal-role profile for the observed assurance-provider
 misread (provider visit tagged as company M1/M2). The 9-call trial
-(ROOT/outputs/agent-results/R34-day1/preliminary-actor-role-probe) showed
+(ROOT/tests/fixtures/pipeline/preliminary-actor-role-probe) showed
 provider track/confidence/dimensions null 3/3, company management 3/3, and
 explicit goal metric 3/3 under the tested system:
 
@@ -220,7 +220,7 @@ def test_actor_profile_accepts_own_envelope_and_pins_transport_version(tmp_path,
         actor_role=True,
     )
     assert adapter.TRANSPORT_VERSION == ACTOR_TRANSPORT_VERSION
-    system, wire_user, _, _ = adapter._wire_request(request)
+    system, wire_user, _, _, _ = adapter._wire_request(request)
     assert ACTOR_ROLE_SYSTEM_PROMPT in system
     assert json.loads(wire_user) == json.loads(json.dumps(envelope))
 
@@ -594,6 +594,7 @@ def test_worker_builds_the_pinned_actor_v2_packet():
         return None
 
     runtime = SimpleNamespace(
+        snapshot={},
         auth=SimpleNamespace(tenant_id=TENANT),
         preliminary_settings=SimpleNamespace(
             model_profile="upstage-preliminary-source-quotes-actor-role-v2"

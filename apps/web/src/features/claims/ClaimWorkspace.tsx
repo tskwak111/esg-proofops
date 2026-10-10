@@ -2,7 +2,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { SourceViewer, type SourceOpenRequest } from "../../components/SourceViewer";
 import { StatusBadge } from "../../components/StatusBadge";
+import { MissingEvidenceCard, type ElementEvidence } from "./MissingEvidenceCard";
+import { ReviewCandidatePanel } from "./ReviewCandidatePanel";
 import { PreliminaryClassification } from "./PreliminaryClassification";
+import { ProvisionalHold, type HoldExplanation } from "./ProvisionalHold";
 import { ApiError, errorMessage, isSessionError, requestJson, type Session } from "../session/api";
 import {
   ReviewWorkspace,
@@ -12,7 +15,7 @@ import {
   type ReviewSnapshot,
   type SourceRef,
 } from "../reviews/ReviewWorkspace";
-import { getElementLabel } from "../labels";
+import { getElementLabel, getReasonLabel } from "../labels";
 
 type Track = "goal" | "performance" | "management";
 type ReviewStatus = "auto_confirmed" | "needs_review" | "human_confirmed" | "ai_delegated_confirmed";
@@ -65,16 +68,16 @@ type ReviewCandidate = {
 };
 type ReviewProjection = {
   schema_version: 1;
+  source_status?: { status: string; display: string; reason: string | null } | null;
+  provisional_grade?: (HoldExplanation & { evidence_grade: string | null; display: string; grade_basis?: string; grade_range?: { floor: string; ceiling: string }; elements: { element_id: string; state: string; votes: number; total_replicas: number }[] }) | null;
+  pipeline_stage?: string | null;
   candidate_snippets: string[];
   blocked_reason: string | null;
   blocked_action: string | null;
   field_agreements: FieldAgreement[];
   raw_candidates?: ReviewCandidate[];
 };
-// Optional read projection of the trusted local AI review (policy
-// facility_section_context_v1). Origin is always an AI delegation, never human
-// gold. numeric_check stays on hold: no same-scope bound table observation means
-// P6 unknown/needs_review, never a grade pass. Old responses omit this field.
+// Optional review context; P6 stays on hold without a same-scope table observation.
 type ReviewedContextConsidered = { source_ref: SourceRef; status: string };
 type ReviewedContext = {
   origin: "ai_delegated";
@@ -92,6 +95,7 @@ type ReviewedContext = {
   };
 };
 type ClaimDetail = {
+  element_evidence?: ElementEvidence[];
   claim: ClaimSummary;
   source_refs: SourceRef[];
   elements: ReviewElement[];
@@ -223,7 +227,6 @@ const fieldAgreementText: Record<FieldAgreement["status"], string> = {
   unresolved: "미해결",
 };
 
-// Reviewed-context dimension labels for the AI-delegated review read projection.
 const reviewedDimensionText: Record<keyof ReviewedContext["dimensions"], string> = {
   facility: "사업장",
   reporting_period: "보고기간",
@@ -254,12 +257,6 @@ function decisionTone(decision: Decision | null): "neutral" | "success" | "warni
   return decision.evidence_grade === "E0" ? "danger" : "warning";
 }
 
-// Small read-only projection of the trusted local AI review. It shows the
-// reviewed facility/period/metric and value+unit with source quote and page,
-// states honestly that provenance is an AI delegation (not human gold), and
-// keeps P6 on hold (never a grade pass). It reads only from the optional
-// claim-detail field, issues no network requests, adds no editing controls,
-// and relies on React's default escaping. Old/missing responses render nothing.
 export function ReviewedContextSection({ context }: { context: ReviewedContext }) {
   const dimensionKeys = ["facility", "reporting_period", "metric", "value", "unit"] as const;
   const excludedCount = context.numeric_check.considered.filter(
@@ -288,7 +285,7 @@ export function ReviewedContextSection({ context }: { context: ReviewedContext }
 function RawCandidatesList({ candidates, onSourceOpen }: { candidates: ReviewCandidate[]; onSourceOpen: (source: SourceRef) => void }) {
   if (candidates.length === 0) return <p>표시할 근거 후보가 아직 없습니다.</p>;
   return <ul>{candidates.map((cand, index) => <li key={`${cand.source_ref.source_id}:${index}`}>
-    <p><strong>원문 {cand.source_ref.page_num}쪽</strong> · {cand.status === "unverified" ? "미검증 근거 후보" : "검토 후보 · 항목 연결 미확정"}{cand.reason && cand.status !== "unverified" ? ` (${cand.reason})` : ""}</p>
+    <p><strong>원문 {cand.source_ref.page_num}쪽</strong> · {cand.status === "unverified" ? "미검증 근거 후보" : "검토 후보 · 항목 연결 미확정"}{cand.reason ? ` (${cand.reason})` : ""}</p>
     <p>{cand.source_ref.quote}</p>
     <button type="button" onClick={() => onSourceOpen(cand.source_ref)}>원문 {cand.source_ref.page_num}쪽 보기</button>
   </li>)}</ul>;
@@ -327,7 +324,9 @@ export function PartialClaimSummary({
 
   return (
     <section aria-labelledby="partial-summary-heading" style={{ padding: "16px", background: "#f8f9fa", border: "1px solid #dee2e6", marginBottom: "24px", borderRadius: "4px" }}>
-      <h3 id="partial-summary-heading">검토 초안</h3>
+      <h3 id="partial-summary-heading">검토 중인 내용</h3>
+      {projection?.source_status && <p>{projection.source_status.display}</p>}
+      {projection?.provisional_grade && <div><p><strong>{projection.provisional_grade.display_type === "hold" ? "판정 보류" : projection.provisional_grade.evidence_grade || (projection.provisional_grade.grade_range ? `${projection.provisional_grade.grade_range.floor}~${projection.provisional_grade.grade_range.ceiling}` : "등급 산출 보류")} · {projection.provisional_grade.display}</strong>{projection.provisional_grade.grade_basis === "reachable_floor" ? " · 확인된 근거 기준 하한" : ""}</p><ProvisionalHold grade={projection.provisional_grade} /><ul>{projection.provisional_grade.elements.map(e => <li key={e.element_id}>{getElementLabel(e.element_id)} · {e.state} · {e.votes}/{e.total_replicas} · 잠정</li>)}</ul></div>}
       <p role="status">
         <strong>상태 및 조치:</strong> {reason}
         {missingLabels.length > 0 ? ` 누락된 입증 요소(${missingLabels.join(", ")})를 보완하기 위해 ` : " "}
@@ -484,7 +483,9 @@ function ClaimDetailView({ apiBase = "", csrfToken, tenantKey, session, runId, c
     <h1 id="claim-heading">주장 상세</h1>
     <p><Link to={`/runs/${runId}/claims`}>주장 목록으로</Link></p>
     {untagged ? <p role="status">태깅 결과가 게시되지 않은 주장입니다. 처리 대기, 원문 검증 또는 주장 분류가 보류된 경우가 포함됩니다. 아래에서 원문을 확인할 수 있으며, 태깅 편집은 태그가 게시된 뒤에 가능합니다.</p> : null}
-    <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 3fr) minmax(280px, 2fr)", gap: 24 }}>
+    <ReviewCandidatePanel sources={detail.source_refs} candidateCount={projection?.raw_candidates?.length ?? 0}
+      replicaCount={detail.replicate_request_ids.length} decisionStatus={decision?.decision_status ?? null} />
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))", gap: 24 }}>
       <SourceViewer key={`${tenantKey}:${runId}:${claimId}`} apiBase={apiBase} csrfToken={csrfToken} runId={runId} sources={detail.source_refs} openRequest={sourceOpen} onSessionInvalid={onSessionInvalid} />
       <section aria-labelledby="evidence-heading"><h2 id="evidence-heading">태깅과 판정</h2>
         <PartialClaimSummary decision={decision} elements={elements} rawCandidates={projection?.raw_candidates ?? []} projection={projection} onSourceOpen={source => setSourceOpen(current => ({ source, nonce: (current?.nonce ?? 0) + 1 }))} />
@@ -495,8 +496,10 @@ function ClaimDetailView({ apiBase = "", csrfToken, tenantKey, session, runId, c
         {detail.rulepack_approved_by?.startsWith("ai-delegated-review:")
           ? <p role="status">이 판정에 쓰인 규칙집은 AI 프로젝트 검토(사람 전문가 승인 아님)로 활성화되었습니다.</p>
           : null}
+        <MissingEvidenceCard elements={detail.element_evidence ?? []} onSourceOpen={source => setSourceOpen(current => ({ source, nonce: (current?.nonce ?? 0) + 1 }))} />
         <details><summary>전체 항목 상세 ({elements.length}개)</summary>{elements.length === 0 ? <p>{untagged ? "게시된 요소가 없습니다. 원문 검증 또는 분류가 보류된 경우 추가 검토가 필요합니다." : "표시할 요소가 없습니다."}</p> : <ul>{elements.map(element => <li key={element.element_id}>
           {getElementLabel(element.element_id)}: {elementStateText[element.state]} · 근거 {element.evidence_refs.length}개
+          {element.reason_code ? <p>요소 검토 사유: {getReasonLabel(element.reason_code)}</p> : null}
           {element.normalized_value !== null ? <p>값: {element.normalized_value}</p> : null}
           {element.evidence_refs.length ? <details data-element-evidence={element.element_id}>
             <summary>{element.element_id} 근거 내용</summary>
@@ -532,7 +535,7 @@ function ClaimDetailView({ apiBase = "", csrfToken, tenantKey, session, runId, c
         </section> : null}
         {projection && projection.schema_version === 1 ? <section aria-labelledby="review-projection-heading"><h3 id="review-projection-heading">모델 태깅 당시 후보 (미확정)</h3>
           <p role="status">모델 태깅 당시의 미확정 기록입니다. 현재 검토 결과는 위의 태깅과 판정에 표시됩니다. 후보를 채택하려면 원문 검증을 통과해야 합니다.</p>
-          {projection.blocked_reason ? <p>태깅 당시 보류 사유: {projection.blocked_reason}</p> : null}
+          {projection.blocked_reason ? <p>태깅 당시 보류 사유: {getReasonLabel(projection.blocked_reason)}</p> : null}
           {projection.blocked_action ? <p>태깅 당시 안내: {projection.blocked_action}</p> : null}
           {projection.candidate_snippets.length ? <ul>{projection.candidate_snippets.map((snippet, index) => <li key={index}>{snippet}</li>)}</ul> : null}
           {projection.field_agreements.length ? <details><summary>모델 응답 필드 상세 ({projection.field_agreements.length}개)</summary>
