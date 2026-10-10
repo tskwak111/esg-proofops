@@ -57,3 +57,22 @@ def test_ev1_policy_is_pinned_only_for_nonempty_evidence_scope(
         assert snapshot["evidence_source_policy"]["profile"] == "evidence-source-ocr-v1"
     else:
         assert "evidence_source_policy" not in snapshot
+
+
+def test_remote_caddy_validation_cannot_consume_restart_command():
+    """Model Docker's interactive stdin inside the SSH bash -s transport."""
+    import subprocess
+    from pathlib import Path
+
+    script = (Path(__file__).parents[1] / "deploy/ec2/deploy.sh").read_text()
+    validation = next(line for line in script.splitlines() if "caddy validate --config" in line)
+    remote = (
+        'sudo() { if [ "$1" = docker ]; then cat >/dev/null; '
+        'elif [ "$1" = systemctl ]; then echo restarted; fi; }\n'
+        + validation
+        + "\nsudo systemctl restart proofops.service\n"
+    )
+    result = subprocess.run(
+        ["bash", "-s"], input=remote, text=True, capture_output=True, check=True
+    )
+    assert result.stdout.strip() == "restarted", "interactive Caddy swallowed the restart command"

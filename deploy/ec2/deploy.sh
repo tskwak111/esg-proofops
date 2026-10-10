@@ -42,7 +42,7 @@ sudo install -m 644 "$stage/compose.yaml" "$stage/Caddyfile" /srv/proofops/
 sudo docker pull caddy:2.10.2-alpine >/dev/null
 cd /srv/proofops
 sudo docker compose --env-file compose.env -f compose.yaml --profile tls config --quiet
-sudo docker compose --env-file compose.env -f compose.yaml run --rm --no-deps caddy caddy validate --config /etc/caddy/Caddyfile >/dev/null
+sudo docker compose --env-file compose.env -f compose.yaml run --rm --no-deps caddy caddy validate --config /etc/caddy/Caddyfile </dev/null >/dev/null
 sudo systemctl restart proofops.service
 REMOTE
 echo "Deployed private config/image; test https://$STATIC_IP.sslip.io/v1/health/ready and Vercel proxy before enabling admission."
