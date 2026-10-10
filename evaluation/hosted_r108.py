@@ -3,6 +3,7 @@
 import json
 import os
 import sys
+import threading
 import time
 from contextlib import nullcontext
 from pathlib import Path
@@ -60,7 +61,7 @@ def prepare_argv(pdf, state, tenant, config, options=None):
         "--max-calls",
         "20",
         "--extraction-total-calls",
-        "100",
+        "2000",
         "--tagging-max-calls",
         "600",
         "--relation-profile",
@@ -208,6 +209,17 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
         os.environ["PROOFOPS_DISPLAY_PREFETCH_WORKERS"] = "4"
     observed = []
     stage_seconds = {}
+    extraction_stop = None
+    processed_claims = set()
+    progress_lock = threading.Lock()
+
+    def claim_progress(claim_id, total):
+        with progress_lock:
+            processed_claims.add(claim_id)
+            store.update_progress(
+                job, "tag", 75, claims_extracted=total, claims_processed=len(processed_claims)
+            )
+
     with scope:
         for stage, progress in (("parse", 15), ("extract", 45), ("tag", 75)):
             started = time.monotonic()
@@ -217,6 +229,7 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
                 verify_paragraphs=stage == "parse",
                 provider_factories=factories,
                 provider_ledgers=(upstage_ledger, luna_ledger),
+                claim_progress=claim_progress,
             )
             try:
                 parse_messages = (
@@ -241,12 +254,24 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
                 if stage == "extract" and outcome == "committed":
                     from proofops_worker.extract_batch import run_batches
 
+                    def extract_progress(_summary=None):
+                        coverage = worker.store.jobs.get_run(
+                            job["tenant_id"], manifest["run_id"]
+                        )["coverage"]
+                        store.update_progress(
+                            job, "extract", 45, claims_extracted=coverage["claims_discovered"]
+                        )
+
+                    extract_progress()
                     batches = run_batches(
-                        worker, tenant_id=job["tenant_id"], run_id=manifest["run_id"], batches=100
+                        worker, tenant_id=job["tenant_id"], run_id=manifest["run_id"], batches=100,
+                        on_batch=extract_progress,
                     )
                     if batches and batches[-1].get("stop_code"):
-                        observed.append(dict(stage=stage, outcome=batches[-1]["stop_code"]))
-                        break
+                        extraction_stop = batches[-1]["stop_code"]
+                        observed.append(dict(stage=stage, outcome=extraction_stop))
+                        # Publish genuine extracted claims through tagging even if
+                        # extraction stopped. Every paid tag still uses the broker.
                 if outcome not in {"committed", "completed", "partial"}:
                     break
             finally:
@@ -255,7 +280,9 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
                 worker.uploads.registry.close()
     # Preserve genuine partial work and reasons. Only completed tag publication
     # may be called completed; domain decisions still carry their own hold states.
-    complete = bool(observed and observed[-1] == dict(stage="tag", outcome="completed"))
+    complete = bool(
+        not extraction_stop and observed and observed[-1] == dict(stage="tag", outcome="completed")
+    )
     result = dict(
         status="completed" if complete else "partial_blocked",
         stages=observed,
@@ -263,8 +290,10 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
         reason=None
         if complete
         else (
-            "BUDGET_EXHAUSTED"
-            if observed[-1]["outcome"] == "budget_unanalyzed"
+            extraction_stop
+            if extraction_stop
+            else "BUDGET_EXHAUSTED"
+            if observed[-1]["outcome"] in {"budget_unanalyzed", "BUDGET_EXHAUSTED"}
             else "R108_" + observed[-1]["outcome"].upper()
         ),
         profiles=operator_profiles(config),

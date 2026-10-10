@@ -118,6 +118,7 @@ class HostedSettings:
     run_usd: Decimal = Decimal("1.0")
     day_usd: Decimal = Decimal("7")
     event_usd: Decimal = Decimal("7")
+    user_daily_runs: int = 6
 
     def __post_init__(self) -> None:
         from urllib.parse import urlsplit
@@ -146,7 +147,10 @@ class HostedSettings:
             read_operator_config(self.live_config)
         if self.accept_uploads and not self.consent_version:
             raise ValueError("upload consent version required")
-        for value in (self.max_upload_bytes, self.active_days, self.backup_days, self.audit_days):
+        for value in (
+            self.max_upload_bytes, self.active_days, self.backup_days, self.audit_days,
+            self.user_daily_runs,
+        ):
             if type(value) is not int or value <= 0:
                 raise ValueError("positive limits required")
         if (
@@ -190,6 +194,7 @@ class HostedSettings:
             run_usd=Decimal(env.get("HOSTED_RUN_USD", "1.0")),
             day_usd=Decimal(env.get("HOSTED_DAY_USD", "7")),
             event_usd=Decimal(env.get("HOSTED_EVENT_USD", "7")),
+            user_daily_runs=int(env.get("HOSTED_USER_DAILY_RUNS", "6")),
         )
 
 
@@ -308,6 +313,8 @@ class HostedStore:
                 PRIMARY KEY(tenant_id,document_id))""")
             db.execute("""CREATE TABLE IF NOT EXISTS run_progress (
                 run_id TEXT PRIMARY KEY, stage TEXT, progress INTEGER, result_ready INTEGER)""")
+            db.execute("""CREATE TABLE IF NOT EXISTS run_claim_progress (
+                run_id TEXT PRIMARY KEY, extracted INTEGER NOT NULL, processed INTEGER NOT NULL)""")
             db.execute("""CREATE TABLE IF NOT EXISTS result_snapshots (
                 run_id TEXT, revision INTEGER, sha256 TEXT NOT NULL,
                 PRIMARY KEY(run_id,revision))""")
@@ -602,6 +609,9 @@ class HostedStore:
         progress = db.execute(
             "SELECT * FROM run_progress WHERE run_id=?", (row["run_id"],)
         ).fetchone()
+        counts = db.execute(
+            "SELECT * FROM run_claim_progress WHERE run_id=?", (row["run_id"],)
+        ).fetchone()
         queue = db.execute(
             "SELECT count(*) FROM runs WHERE status='queued' "
             "AND (created<? OR (created=? AND run_id<=?))",
@@ -624,6 +634,8 @@ class HostedStore:
             "profile": "r108-hosted-sprint5-v1",
             "stage": progress["stage"] if progress else row["status"],
             "progress": progress["progress"] / 100 if progress else 0,
+            "claims_extracted": counts["extracted"] if counts else 0,
+            "claims_processed": counts["processed"] if counts else 0,
             "queue_position": queue if row["status"] == "queued" else None,
             "result_url": f'/v1/runs/{row["run_id"]}/result' if ready else None,
             "result": result,
@@ -915,7 +927,7 @@ class HostedStore:
             if db.execute("SELECT count(*) FROM runs WHERE status='queued'").fetchone()[0] >= 8:
                 raise HostedError("QUEUE_FULL", 429)
             today = day(now)
-            for subject, maximum in ((user, 2), (None, 10)):
+            for subject, maximum in ((user, self.settings.user_daily_runs), (None, 10)):
                 query = "SELECT count(*) FROM deletion.spend WHERE day=?"
                 params: tuple = (today,)
                 if subject is not None:
@@ -1261,7 +1273,13 @@ class HostedStore:
                 raise
             return None
 
-    def update_progress(self, job: dict, stage: str, progress: int) -> None:
+    def update_progress(
+        self, job: dict, stage: str, progress: int, *,
+        claims_extracted: int | None = None, claims_processed: int | None = None,
+    ) -> None:
+        for count in (claims_extracted, claims_processed):
+            if count is not None and (type(count) is not int or count < 0):
+                raise ValueError("invalid claim progress")
         with self.transaction() as db:
             now = time.time()
             self._fenced(db, job, now)
@@ -1274,12 +1292,20 @@ class HostedStore:
                 "DO UPDATE SET stage=excluded.stage,progress=excluded.progress",
                 (job["run_id"], stage, progress),
             )
+            if claims_extracted is not None or claims_processed is not None:
+                db.execute(
+                    "INSERT INTO run_claim_progress VALUES (?,?,?) ON CONFLICT(run_id) "
+                    "DO UPDATE SET extracted=max(extracted,excluded.extracted),"
+                    "processed=max(processed,excluded.processed)",
+                    (job["run_id"], claims_extracted or 0, claims_processed or 0),
+                )
 
     def publish_analysis(self, job: dict, source: Path, status: str, error: str | None) -> None:
         from proofops_api.hosted_results import result_snapshot
 
         if status not in {"completed", "partial_blocked"}:
             raise HostedError("ANALYSIS_RESULT_UNAVAILABLE")
+        self.update_progress(job, "result", 95)
         # The worker owns analysis.lock while validating its private workspace.
         # Replay must never hold the control writer or run on a GET request.
         content = result_snapshot(source, job["tenant_id"], json.loads(job["pages"]))
@@ -1463,6 +1489,7 @@ class HostedStore:
                 for run in runs:
                     self._settle_envelope(db, run[0])
                     db.execute("DELETE FROM run_progress WHERE run_id=?", (run[0],))
+                    db.execute("DELETE FROM run_claim_progress WHERE run_id=?", (run[0],))
                     db.execute("DELETE FROM result_snapshots WHERE run_id=?", (run[0],))
                 db.execute(
                     "DELETE FROM document_owners WHERE tenant_id=? AND document_id=?",

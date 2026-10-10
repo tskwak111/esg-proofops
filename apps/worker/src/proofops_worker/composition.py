@@ -32,6 +32,7 @@ def build_composition(
     raster_ocr: bool = False,
     provider_factories=None,
     provider_ledgers=None,
+    claim_progress=None,
 ) -> LocalParserRunner | LocalExtractRunner | LocalTagRunner:
     if type(native_typography_tolerance) is not bool or (
         native_typography_tolerance and (not verify_paragraphs or stage != "parse" or raster_ocr)
@@ -140,6 +141,10 @@ def build_composition(
             from proofops_worker.live_tagging import LiveTaggingRuntime
 
             def live_factory(owner, snapshot, graph, lease, usage):
+                if provider_factories and "decision_settings" in snapshot:
+                    # Hosted profiles do not authorize Decisions transports. Never
+                    # silently compose research ledgers/keys from a hosted worker.
+                    raise ValueError("HOSTED_DECISION_BINDING_UNAVAILABLE")
                 model = snapshot["tagging_settings"]["model_id"]
                 if model == LUNA_MODEL:
                     ledger = luna_ledger
@@ -191,6 +196,7 @@ def build_composition(
             else None,
             live_factory=live_factory,
             max_workers=max_workers,
+            claim_progress=claim_progress,
         )
     if stage == "extract":
         from proofops_agent.extraction import SyntheticClaimExtractor
@@ -369,6 +375,7 @@ def build_composition(
                 stage="tag",
                 provider_factories=provider_factories,
                 provider_ledgers=provider_ledgers,
+                claim_progress=claim_progress,
             ),
         )
     return runner

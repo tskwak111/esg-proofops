@@ -26,6 +26,7 @@ export type ScopePlan = {
 export type HostedRun = {
   run_id: string; document_id: string; status: string; selected_pages: number[]; status_url: string;
   error_code: string | null; stage?: string | null; queue_position?: number | null; progress?: number | null;
+  claims_extracted?: number; claims_processed?: number;
   result_url?: string | null; result?: HostedResult | null;
 };
 

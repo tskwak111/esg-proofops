@@ -415,3 +415,33 @@ Existing snapshots/receipts are not rewritten. Rollback restores the earlier cod
 again stop queues on pending accounting and refuse >50 MiB uploads. Existing large
 originals stay stored until authorized deletion/expiry. Stop assigning new scope work
 to the old inspector when rolling back. Real provider/AWS/production TLS checks are not_run.
+
+## FX4 amendment — evaluator quota, money isolation and running progress (2026-10-10)
+This amendment supersedes user2/day: `HOSTED_USER_DAILY_RUNS` is a positive integer,
+default6; global10/day, active1, queued8 and user outstanding1 remain unchanged.
+The run/day/event ceilings remain USD1.0/7/7. Parse, chat and page OCR use private
+per-run ledgers and every actual transport uses HostedStore.dispatch. Hosted profiles
+do not authorize Decisions; a hosted composition with decision_settings fails closed
+with HOSTED_DECISION_BINDING_UNAVAILABLE before research keys/ledgers are composed.
+Research adapters, historical ledgers and R108 guards remain unchanged.
+RB2 Hyundai's R108_BUDGET_EXHAUSTED was a misleading prefix on the extractor100-call
+stop, not evidence of a research cumulative-budget check: its private chat ledger
+contains100 settled calls. New hosted snapshots allow at most2000 extraction calls
+(the existing finite preparation ceiling); no new monetary allowance is granted.
+An extraction stop retains partial coverage and still attempts tagging of extracted
+claims through the broker; outcome remains partial_blocked with the actual stop code.
+Existing snapshots and stored R108 codes are not rewritten. Replica3, evidence/source
+admission, tenant and revision contracts are unchanged.
+GET /v1/runs/{id} adds optional-compatible `claims_extracted` and `claims_processed`
+(nonnegative counts; processed includes terminal blocked claims, not decided grades).
+Publication reports stage=result/progress=.95 before source validation; result_url
+stays null until the immutable snapshot commits. No claim text or early grade is exposed.
+Migration: startup creates additive run_claim_progress in hosted schema1; existing
+rows read as0. Updates require the live run fence; cancellation/deletion still fences
+writes and deletion removes count rows. Older readers ignore the table/extra fields.
+Rollback: stop acceptance and worker, revert FX4 code/images and explicitly set
+HOSTED_USER_DAILY_RUNS=2 for a compatible quota-aware release if desired. An older
+release ignores that env and uses2. Preserve2000-call frozen snapshots; rollback
+does not rewrite run budgets, evidence, reports, reservations or deletion records.
+New code reads old100-call snapshots unchanged. Public deployment/live evaluation is
+outside FX4; no provider/AWS calls are required for stored-result replay.

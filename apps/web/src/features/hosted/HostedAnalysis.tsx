@@ -26,6 +26,7 @@ export function RunOutcomeView({ run }: { run: HostedRun }) {
         {typeof run.queue_position === "number" && ` · 대기 순번 ${run.queue_position}`}
         {typeof run.progress === "number" && ` · 진행 ${Math.round(run.progress * 100)}%`}</p>
       {typeof run.progress === "number" && <progress max={1} value={Math.min(Math.max(run.progress, 0), 1)} aria-label="분석 진행률" />}
+      {typeof run.claims_extracted === "number" && <p>추출된 주장 {run.claims_extracted}개 · 태깅 처리 {run.claims_processed ?? 0}개</p>}
       <p className="hosted-note">진행률은 단계 추정치이며 분석 품질이나 완료를 보증하지 않습니다.</p></>}
     {outcome.reasons.map(reason => <p key={reason}>{reason}</p>)}
   </div>;

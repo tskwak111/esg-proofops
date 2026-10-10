@@ -175,6 +175,7 @@ class LocalTagRunner:
         live_factory=None,
         clock=time.time,
         max_workers=8,
+        claim_progress=None,
     ):
         if not uploads.local_synthetic:
             raise ValueError("local tagging requires local storage")
@@ -193,6 +194,7 @@ class LocalTagRunner:
         # can read the bounded acknowledged authorization for its transports.
         self.resume = None
         self.max_workers = max_workers
+        self.claim_progress = claim_progress
         self.claims = LocalClaimStore(store, uploads, parser)
         self.live_factory = live_factory
         self.tags = LocalTagStore(store, uploads, parser)
@@ -866,11 +868,18 @@ class LocalTagRunner:
                     result["provisional_grade"] = hold_projection(result)
             return result
 
+        def reported_claim(claim):
+            record = isolated_claim(claim)
+            callback = getattr(self, "claim_progress", None)
+            if callback is not None:
+                callback(claim.claim_id, len(discovery.claims))
+            return record
+
         if parallel_claims:
             with ThreadPoolExecutor(max_workers=self.max_workers) as pool:
-                records = list(pool.map(isolated_claim, discovery.claims))
+                records = list(pool.map(reported_claim, discovery.claims))
         else:
-            records = [isolated_claim(claim) for claim in discovery.claims]
+            records = [reported_claim(claim) for claim in discovery.claims]
         decided = sum(
             bool(item.get("decision") and item["decision"]["decision_status"] == "decided")
             for item in records

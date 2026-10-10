@@ -345,6 +345,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
                 "active": 1,
                 "queued": 8,
                 "user_outstanding": 1,
+                "user_daily_runs": settings.user_daily_runs,
                 "run_usd": str(settings.run_usd),
                 "day_usd": str(settings.day_usd),
                 "event_usd": str(settings.event_usd),
