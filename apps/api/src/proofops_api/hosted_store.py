@@ -721,6 +721,7 @@ class HostedStore:
                     doc["sha256"],
                     doc["page_count"],
                     manual_override=scope["plan"]["status"] == "failed",
+                    manual_selection=(scope["selection"] or {}).get("manual_selection", False),
                 )
             except (ValueError, KeyError, TypeError):
                 raise HostedError("SCOPE_INTEGRITY_INVALID") from None
@@ -789,7 +790,7 @@ class HostedStore:
             self._write(path / "scope-000001.json", json.dumps(scope).encode())
             return scope
 
-    def edit_scope(self, auth, document, claims, evidence, if_match):
+    def edit_scope(self, auth, document, claims, evidence, if_match, *, manual_selection=False):
         if not auth.has_capability("editor"):
             raise HostedError("FORBIDDEN", 403)
         with self.transaction() as db:
@@ -810,6 +811,7 @@ class HostedStore:
                     doc["sha256"],
                     doc["page_count"],
                     manual_override=plan["status"] == "failed",
+                    manual_selection=manual_selection,
                 )
             except (ValueError, KeyError, TypeError):
                 raise HostedError("PAGE_SELECTION_INVALID", 422) from None

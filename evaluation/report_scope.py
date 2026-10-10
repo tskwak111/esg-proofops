@@ -435,8 +435,12 @@ def inspect(pdf: Path, *, max_environment_pages=8, max_evidence_pages=30):
     )
 
 
-def validate_selection(plan, source_sha256, page_count, *, manual_override=False):
+def validate_selection(
+    plan, source_sha256, page_count, *, manual_override=False, manual_selection=False
+):
     """Allow selection edits only; revalidate immutable proposal and physical bounds."""
+    if type(manual_selection) is not bool:
+        raise ValueError("manual selection must be boolean")
     if not isinstance(plan, dict):
         raise ValueError("scope-plan must be a JSON object")
     if plan.get("version") != VERSION or plan.get("policy_sha256") != POLICY_SHA256:
@@ -467,11 +471,11 @@ def validate_selection(plan, source_sha256, page_count, *, manual_override=False
     categories = {r["page"]: r["category"] for r in plan["pages"]}
     if sum(categories.get(p) == "ceo_message" for p in claims) > 2:
         raise ValueError("scope exceeds two CEO pages")
-    if not manual_override and any(
+    if not (manual_override or manual_selection) and any(
         categories.get(p) not in ("ceo_message", "e_narrative") for p in claims
     ):
         raise ValueError("evidence-only or unresolved page cannot be a claim page")
-    if not manual_override and any(
+    if not (manual_override or manual_selection) and any(
         categories.get(p) in ("conflict", "unreadable", "unknown", "toc") for p in evidence
     ):
         raise ValueError("unresolved page requires a new inspected proposal")
@@ -489,6 +493,8 @@ def validate_selection(plan, source_sha256, page_count, *, manual_override=False
         if plan["status"] != "failed":
             raise ValueError("manual recovery requires a failed automatic scope")
         applied["manual_override"] = True
+    if manual_selection:
+        applied["manual_selection"] = True
     applied["selection_sha256"] = canonical_hash(applied)
     return applied
 

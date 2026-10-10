@@ -360,3 +360,57 @@ def test_parse_rejects_page_outside_terminal_single_page_batch(monkeypatch):
     probe.integrated = False
     with pytest.raises(ValueError, match="HOSTED_PARSE_PAGE_INVALID"):
         probe.parse_async(pdf(1), request_id="invalid-page")
+
+
+def test_explicit_manual_scope_allows_unresolved_page_without_evidence_admission(store):
+    auth = actor(store)
+    doc = store.upload(auth, pdf(12), "manual-scope-000001", now=time.time())
+    source = build_map(
+        12,
+        [
+            dict(page=1, title="Environment", path=["Environment"], method="outline"),
+            dict(page=4, title="Social", path=["Social"], method="outline"),
+        ],
+    )
+    source.update(
+        source_sha256=doc["sha256"],
+        source_path="private",
+        page_count=12,
+        map_sha256="b" * 64,
+        issues=[],
+        method="pdf_navigation",
+    )
+    plan = build_plan(
+        source,
+        {
+            p: ("" if p == 10 else "climate carbon emissions water waste. " * 10)
+            for p in range(1, 13)
+        },
+    )
+    from evaluation.report_scope import validate_selection
+
+    scope = dict(revision=1, plan=plan, selection=validate_selection(plan, doc["sha256"], 12))
+    store._write(
+        store.document_dir(auth.tenant_id, doc["document_id"]) / "scope-000001.json",
+        json.dumps(scope).encode(),
+    )
+    with pytest.raises(HostedError, match="PAGE_SELECTION_INVALID"):
+        store.edit_scope(auth, doc["document_id"], [1], [1, 10], '"1"')
+    manual = store.edit_scope(auth, doc["document_id"], [1], [1, 10], '"1"', manual_selection=True)
+    assert manual["selection"]["manual_selection"] is True
+    assert manual["plan"]["unknown_pages"] == scope["plan"]["unknown_pages"]
+    with pytest.raises(HostedError, match="PAGE_SELECTION_INVALID"):
+        store.edit_scope(auth, doc["document_id"], [1], [1, 13], '"2"', manual_selection=True)
+    with pytest.raises(HostedError, match="SCOPE_CONFLICT"):
+        store.edit_scope(auth, doc["document_id"], [1], [1, 10], '"1"', manual_selection=True)
+    run = store.create_run(
+        auth,
+        doc["document_id"],
+        None,
+        "manual-run-000001",
+        now=time.time(),
+        auto_scope=True,
+        scope_selection_sha256=manual["selection"]["selection_sha256"],
+    )
+    assert run["selected_pages"] == [1, 10]
+    assert store.run_options(store.claim(now=time.time()))["manual_selection"] is True

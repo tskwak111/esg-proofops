@@ -57,6 +57,7 @@ class RunCreate(BaseModel):
 
 class ScopeEdit(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    manual_selection: Annotated[bool, Field(strict=True)] = False
     selected_claim_pages: Annotated[
         list[Annotated[int, Field(strict=True)]], Field(min_length=1, max_length=10)
     ]
@@ -432,6 +433,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
             body.selected_claim_pages,
             body.selected_evidence_pages,
             request.headers.get("If-Match"),
+            manual_selection=body.manual_selection,
         )
         response.headers["ETag"] = f'"{scope["revision"]}"'
         return scope
