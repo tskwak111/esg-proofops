@@ -151,7 +151,7 @@ class RunService:
         report_level_link=None,
         preliminary_settings: TaggingSettings | None = None,
         relation_settings: TaggingSettings | None = None,
-        relation_attribution_policy: str | None = "relation-attribution-v1",
+        relation_attribution_policy: str | None = "relation-attribution-v2",
         decision_settings=None,
         raster_runtime_binding_id: str | None = None,
         raster_policy=None,
@@ -264,7 +264,11 @@ class RunService:
             raise ValueError("context order profile mismatch")
         self.position_context_order = position_context_order
         self.relation_settings = relation_settings
-        if relation_attribution_policy not in (None, "relation-attribution-v1"):
+        if relation_attribution_policy not in (
+            None,
+            "relation-attribution-v1",
+            "relation-attribution-v2",
+        ):
             raise ValueError("RELATION_ATTRIBUTION_POLICY_MISMATCH")
         self.relation_attribution_policy = relation_attribution_policy
         from proofops.application.tagging.decisions import validate_decision_settings
@@ -690,7 +694,13 @@ class RunService:
             if self.report_level_link is not None:
                 snapshot["report_level_link"] = _detach(self.report_level_link)
         if live_tagging:
-            from proofops.application.evidence.relation_attribution import POLICY as attribution
+            from proofops.application.evidence.relation_attribution import LEGACY_POLICY, POLICY
+
+            attribution = (
+                LEGACY_POLICY
+                if self.relation_attribution_policy == "relation-attribution-v1"
+                else POLICY
+            )
 
             if self.relation_attribution_policy is not None:
                 snapshot.update(

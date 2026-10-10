@@ -162,7 +162,7 @@ def _pipeline_setup(
     *,
     relation_stage=False,
     fact_assembly_profile="strict-v1",
-    relation_attribution_policy="relation-attribution-v1",
+    relation_attribution_policy="relation-attribution-v2",
 ):
     """Build a genuine upstage_local run plus parse/extract checkpoints."""
     from proofops.application.rulepacks import RulePackRecord

@@ -236,15 +236,22 @@ def test_guarded_catalog_omits_fragments_and_initiative_product_roles():
     )
 
 
-def test_new_run_pins_guard_and_publishes_unknown_without_relation_calls(tmp_path, monkeypatch):
+def test_legacy_run_pins_guard_and_publishes_unknown_without_relation_calls(tmp_path, monkeypatch):
+    from proofops.application.evidence.relation_attribution import LEGACY_POLICY
+
     from tests.integration.test_live_tagging_pipeline import _pipeline_setup
 
-    ctx = _pipeline_setup(tmp_path, monkeypatch, relation_stage=True)
+    ctx = _pipeline_setup(
+        tmp_path,
+        monkeypatch,
+        relation_stage=True,
+        relation_attribution_policy="relation-attribution-v1",
+    )
     runner, tenant, run_id = ctx["tag_runner"], ctx["tenant"], ctx["run_id"]
-    assert snapshot_policy(ctx["service"].store.snapshot(tenant, run_id)) == POLICY
+    assert snapshot_policy(ctx["service"].store.snapshot(tenant, run_id)) == LEGACY_POLICY
     assert runner.run_once(tenant_id=tenant, run_id=run_id) == "needs_review"
     checkpoint = runner.tags.load_snapshot(tenant, run_id)
-    assert checkpoint["relation_attribution_policy_sha256"] == canonical_hash(POLICY)
+    assert checkpoint["relation_attribution_policy_sha256"] == canonical_hash(LEGACY_POLICY)
     for item in checkpoint["claims"]:
         assert item["decision"] is None
         assert item["relation_records"]

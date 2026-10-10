@@ -1,4 +1,4 @@
-"""SY1 technical attribution guard; no semantic approval or absence inference.
+"""Versioned attribution guard; no semantic approval or absence inference.
 
 New runs pin this policy separately from the immutable model/prompt/rule hashes.
 Snapshots without the pin retain their original reader and behavior.
@@ -6,11 +6,12 @@ Snapshots without the pin retain their original reader and behavior.
 
 import re
 from collections.abc import Mapping
+from dataclasses import replace
 
 from proofops.application.evidence.span_citations import verify_source_ref
 from proofops.domain.provenance import canonical_hash
 
-POLICY = {
+LEGACY_POLICY = {
     "version": "relation-attribution-v1",
     "ownership": "same-page;same-canonical-paragraph-or-verified-literal-block-group",
     "table": "existing-verified-same-row-or-column-sources-only",
@@ -24,17 +25,27 @@ POLICY = {
 }
 
 
+POLICY = {
+    **LEGACY_POLICY,
+    "version": "relation-attribution-v2",
+    "external_roles": "global-bound-elements-only;evidence-own-paragraph;existing-binding-required",
+    "global_elements": ["G4", "G8", "P3", "P4", "M2", "M3"],
+}
+GLOBAL_ELEMENTS = frozenset(POLICY["global_elements"])
+
+
 def snapshot_policy(snapshot):
     keys = {"relation_attribution_policy", "relation_attribution_policy_sha256"}
     if not keys & snapshot.keys():
         return None
     if (
         not keys <= snapshot.keys()
-        or snapshot["relation_attribution_policy"] != POLICY
-        or snapshot["relation_attribution_policy_sha256"] != canonical_hash(POLICY)
+        or snapshot["relation_attribution_policy"] not in (LEGACY_POLICY, POLICY)
+        or snapshot["relation_attribution_policy_sha256"]
+        != canonical_hash(snapshot["relation_attribution_policy"])
     ):
         raise ValueError("RELATION_ATTRIBUTION_POLICY_MISMATCH")
-    return POLICY
+    return snapshot["relation_attribution_policy"]
 
 
 def role_rejection(text, start, end, role):
@@ -196,3 +207,55 @@ def filter_dimensions(claim, dimensions: Mapping, graph, *, tenant_id):
             filtered[role] = None
             rejected[role] = reason
     return filtered, rejected
+
+
+def relation_source_rejection(
+    claim, ref, graph, *, tenant_id, policy, global_elements=(), rulepack=None
+):
+    """Permit evaluating global evidence; never grant a claim axis or present.
+
+    The caller supplies only global_bound elements from the frozen packet. The
+    pinned rulepack must allow them; DEC-23 still vetoes report-wide M2 prose.
+    """
+    reason = source_rejection(claim, ref, graph, tenant_id=tenant_id)
+    if reason is None or policy != POLICY or rulepack is None:
+        return reason
+    if reason not in {"RELATION_OTHER_PAGE", "RELATION_OTHER_BLOCK", "RELATION_OTHER_PARAGRAPH"}:
+        return reason
+    from proofops.application.evidence.report_level import scope_rejection_reason
+
+    definitions = {e["id"]: e for e in rulepack.file_content("rubric/elements.yaml")["elements"]}
+    if rulepack.tenant_id != tenant_id:
+        return "RELATION_IDENTITY_MISMATCH"
+    for eid in GLOBAL_ELEMENTS.intersection(global_elements):
+        if "global_bound" in definitions.get(eid, {}).get("source_scopes", ()) and not (
+            scope_rejection_reason(eid, (ref,), rulepack=rulepack, original=graph)
+        ):
+            return None
+    return reason
+
+
+def filter_evidence_dimensions(
+    claim, evidence, dimensions, graph, *, tenant_id, policy, global_elements=(), rulepack=None
+):
+    """Claim anchors stay local; external roles must belong to their own source.
+
+    Existing binding still compares literal entity/metric/period and all explicit
+    axes. Token/certification guards apply identically; no role can be imported
+    from another paragraph to fill a missing evidence role.
+    """
+    reason = relation_source_rejection(
+        claim,
+        evidence,
+        graph,
+        tenant_id=tenant_id,
+        policy=policy,
+        global_elements=global_elements,
+        rulepack=rulepack,
+    )
+    if reason is not None:
+        return {k: None for k in dimensions}, {k: reason for k, v in dimensions.items() if v}
+    if policy != POLICY:
+        return filter_dimensions(claim, dimensions, graph, tenant_id=tenant_id)
+    anchor = replace(claim, quote=evidence.quote, source_refs=(evidence,))
+    return filter_dimensions(anchor, dimensions, graph, tenant_id=tenant_id)

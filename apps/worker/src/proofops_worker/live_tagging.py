@@ -666,10 +666,20 @@ class LiveTaggingRuntime:
             local = {ref.source_id for ref in claim.source_refs}
             blocks = {block.source_id: block for block in self.graph.blocks}
             selected = {}
+            global_elements = {}
+            rulepack = None
+            if self.attribution_policy is not None and self.snapshot.get("rulepack"):
+                from proofops.domain.rulepacks import RulePackSnapshot
+
+                rulepack = RulePackSnapshot(**self.snapshot["rulepack"])
             refused = {}
             refusals = []
             for candidate in data["evidence_candidates"]:
                 for raw in candidate["source_refs"]:
+                    if candidate.get("source_scope") == "global_bound":
+                        global_elements.setdefault(raw["source_id"], set()).update(
+                            candidate.get("allowed_elements", ())
+                        )
                     ref = _source_ref_from_dict(raw)
                     if ref.source_id in local:
                         continue
@@ -684,11 +694,17 @@ class LiveTaggingRuntime:
                         continue  # Never widen a selected substring to its parent paragraph.
                     if self.attribution_policy is not None:
                         from proofops.application.evidence.relation_attribution import (
-                            source_rejection,
+                            relation_source_rejection,
                         )
 
-                        reason = source_rejection(
-                            claim, source, self.graph, tenant_id=self.auth.tenant_id
+                        reason = relation_source_rejection(
+                            claim,
+                            source,
+                            self.graph,
+                            tenant_id=self.auth.tenant_id,
+                            policy=self.attribution_policy,
+                            rulepack=rulepack,
+                            global_elements=global_elements.get(ref.source_id, ()),
                         )
                         if reason is not None:
                             refused[ref.source_id] = dict(
@@ -771,11 +787,20 @@ class LiveTaggingRuntime:
                 **selection_args,
             )
             if self.attribution_policy is not None:
-                from proofops.application.evidence.relation_attribution import filter_dimensions
+                from proofops.application.evidence.relation_attribution import (
+                    filter_evidence_dimensions,
+                )
 
                 roles = {
-                    sid: filter_dimensions(
-                        claim, values, self.graph, tenant_id=self.auth.tenant_id
+                    sid: filter_evidence_dimensions(
+                        claim,
+                        selected[sid],
+                        values,
+                        self.graph,
+                        tenant_id=self.auth.tenant_id,
+                        policy=self.attribution_policy,
+                        rulepack=rulepack,
+                        global_elements=global_elements.get(sid, ()),
                     )[0]
                     for sid, values in roles.items()
                 }

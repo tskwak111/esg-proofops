@@ -9,7 +9,9 @@ from dataclasses import replace
 from pathlib import Path
 
 from proofops.application.evidence.relation_attribution import (
-    POLICY,
+    LEGACY_POLICY as POLICY,
+)
+from proofops.application.evidence.relation_attribution import (
     literal_scope_rejection,
     role_rejection,
 )
