@@ -170,6 +170,9 @@ def test_transport_fixed_host_size_and_no_redirects(tmp_path, monkeypatch):
         def getresponse(self):
             return self
 
+        def getheader(self, name):
+            return None
+
         def read(self, _limit):
             return b""
 
@@ -208,6 +211,9 @@ def test_http_quota_errors_are_classified_without_exposing_provider_body(
     class Response:
         def __init__(self):
             self.status = status
+
+        def getheader(self, name):
+            return None
 
         def read(self, limit):
             assert limit == 1_048_577

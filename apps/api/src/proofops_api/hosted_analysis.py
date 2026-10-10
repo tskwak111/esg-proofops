@@ -194,7 +194,13 @@ class HostedOpenAILunaProbe(OpenAIProbe):
             raise ValueError("HOSTED_WIRE_POLICY_REQUIRED")
 
         def transport(request):
-            data = self.post(body) if self.post else super(HostedOpenAILunaProbe, self)._post(body)
+            data = (
+                self.post(body)
+                if self.post
+                else super(HostedOpenAILunaProbe, self)._post(
+                    body, client_request_id=request["request_id"]
+                )
+            )
             if data.get("model") != OPENAI_MODEL:
                 raise ValueError("HOSTED_MODEL_MISMATCH")
             return request | dict(actual_usd=rounded_cost(token_cost(data["usage"])), payload=data)

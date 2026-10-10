@@ -27,7 +27,13 @@ def reconcile(store, receipt, evidence: Path, *, apply=False):
         raise ValueError("RECONCILIATION_CALLS_INVALID")
     with ExitStack() as stack, store.transaction() as db:
         run = db.execute("SELECT * FROM runs WHERE run_id=?", (receipt["run_id"],)).fetchone()
-        if run is None or run["status"] not in {"accounting_pending", "failed", "cancelled"}:
+        if run is None or run["status"] not in {
+            "accounting_pending",
+            "failed",
+            "cancelled",
+            "completed",
+            "partial_blocked",
+        }:
             raise HostedError("RECONCILIATION_RUN_UNAVAILABLE")
         directory = store.document_dir(run["tenant_id"], run["document_id"])
         store._document(db, run["tenant_id"], run["document_id"])

@@ -195,6 +195,68 @@ def verify_quarantined_pdf(
     return VerifiedPdf(source, result["pages"], display_content, result.get("security", {}))
 
 
+def verify_pdf_file(
+    path: Path, limits: PdfLimits, *, expected_size: int, expected_sha256: str
+) -> int:
+    """Strict verification of a service-owned disk snapshot; no whole-file body copy."""
+    from hashlib import file_digest
+
+    if limits.policy_profile != "strict-v1":
+        raise UploadRejected("PDF_INVALID")
+    if path.is_symlink() or path.stat().st_size != expected_size:
+        raise UploadRejected("UPLOAD_INTEGRITY_MISMATCH")
+    if expected_size > limits.max_bytes:
+        raise UploadRejected("UPLOAD_LIMIT_EXCEEDED")
+    with path.open("rb") as stream:
+        if not re.match(rb"%PDF-(?:1\.[0-7]|2\.0)[\r\n]", stream.read(16)):
+            raise UploadRejected("PDF_INVALID")
+        stream.seek(0)
+        if file_digest(stream, "sha256").hexdigest() != expected_sha256:
+            raise UploadRejected("UPLOAD_INTEGRITY_MISMATCH")
+    deadline = monotonic() + limits.timeout_seconds
+    with subprocess.Popen(
+        [
+            sys.executable,
+            "-I",
+            str(Path(__file__).resolve()),
+            str(path),
+            json.dumps(asdict(limits)),
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        env={"PYTHONDONTWRITEBYTECODE": "1"},
+        start_new_session=True,
+    ) as process:
+        try:
+            while True:
+                remaining = deadline - monotonic()
+                if remaining <= 0:
+                    raise UploadRejected("UPLOAD_LIMIT_EXCEEDED")
+                try:
+                    output, _ = process.communicate(timeout=min(0.02, remaining))
+                    break
+                except subprocess.TimeoutExpired:
+                    if sys.platform == "darwin":
+                        rss = subprocess.run(
+                            ["/bin/ps", "-o", "rss=", "-p", str(process.pid)],
+                            capture_output=True,
+                            timeout=1,
+                            check=False,
+                        ).stdout.strip()
+                        if rss and int(rss) * 1024 > limits.memory_bytes:
+                            raise UploadRejected("UPLOAD_LIMIT_EXCEEDED")
+        finally:
+            if process.poll() is None:
+                process.kill()
+            process.wait()
+    if process.returncode:
+        raise UploadRejected("UPLOAD_LIMIT_EXCEEDED" if process.returncode < 0 else "PDF_INVALID")
+    result = json.loads(output)
+    if result["code"] != "verified":
+        raise UploadRejected(result["code"])
+    return result["pages"]
+
+
 class LocalUploadVault:
     """Synthetic local adapter: private root, atomic create-only promotion, no AWS calls.
 
@@ -357,16 +419,19 @@ def _inspect_legacy(path: str, limits: PdfLimits) -> int:
         resource.setrlimit(resource.RLIMIT_AS, (limits.memory_bytes, limits.memory_bytes))
         resource.setrlimit(resource.RLIMIT_NPROC, (32, 32))
 
-    with apply_configuration(
-        maximum_declared_stream_length=limits.max_bytes,
-        array_based_stream_maximum_output_length=limits.max_decoded_bytes,
-        zlib_maximum_output_length=limits.max_decoded_bytes,
-        lzw_maximum_output_length=limits.max_decoded_bytes,
-        run_length_maximum_output_length=limits.max_decoded_bytes,
-        jbig2dec_binary=None,
-        page_tree_maximum_entries=limits.max_objects,
+    with (
+        Path(path).open("rb") as source_file,
+        apply_configuration(
+            maximum_declared_stream_length=limits.max_bytes,
+            array_based_stream_maximum_output_length=limits.max_decoded_bytes,
+            zlib_maximum_output_length=limits.max_decoded_bytes,
+            lzw_maximum_output_length=limits.max_decoded_bytes,
+            run_length_maximum_output_length=limits.max_decoded_bytes,
+            jbig2dec_binary=None,
+            page_tree_maximum_entries=limits.max_objects,
+        ),
     ):
-        reader = PdfReader(path, strict=True)
+        reader = PdfReader(source_file, strict=True)
         if reader.is_encrypted:
             raise UploadRejected("PDF_PASSWORD_REQUIRED")
         pages = len(reader.pages)
@@ -681,6 +746,10 @@ def _inspect_legacy(path: str, limits: PdfLimits) -> int:
                     if any(str(item) not in allowed for item in filters):
                         raise UploadRejected("PDF_INVALID")
                     decoded += len(value.get_data())
+                    # Inspection still visits every object, but decoded XObjects/images
+                    # are not retained until the entire document has been walked.
+                    if hasattr(value, "decoded_self"):
+                        value.decoded_self = None
                     if decoded > limits.max_decoded_bytes:
                         raise UploadRejected("UPLOAD_LIMIT_EXCEEDED")
                 pending.extend(value.values())

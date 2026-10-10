@@ -462,7 +462,7 @@ def test_late_dispatch_settlement_after_delete_keeps_money(store):
     assert not store.document_dir(auth.tenant_id, doc["document_id"]).exists()
 
 
-def test_unknown_dispatch_deletion_does_not_unblock_other_work(store):
+def test_unknown_dispatch_deletion_retains_budget_and_allows_other_work(store):
     auth = actor(store)
     doc = uploaded(store, auth)
     store.create_run(auth, doc["document_id"], None, "unknown-dispatch01", now=time.time())
@@ -478,11 +478,18 @@ def test_unknown_dispatch_deletion_does_not_unblock_other_work(store):
     store.delete_document(auth, doc["document_id"], "delete-unknown-01", now=time.time())
     other = actor(store)
     other_doc = uploaded(store, other)
-    with pytest.raises(HostedError, match="ACCOUNTING_PENDING"):
-        store.create_run(
-            other, other_doc["document_id"], None, "unknown-newrun-01", now=time.time()
-        )
     assert store.budget_totals()["event_reserved_usd"] == "0.500000"
+    admitted = store.create_run(
+        other, other_doc["document_id"], None, "unknown-newrun-01", now=time.time()
+    )
+    assert store.claim(now=time.time())["run_id"] == admitted["run_id"]
+    assert store.budget_totals()["event_reserved_usd"] == "1.000000"
+    with store.transaction() as db:
+        assert tuple(db.execute("SELECT bound,actual,status FROM deletion.costs").fetchone()) == (
+            200000,
+            None,
+            "accounting_pending",
+        )
 
 
 def test_backup_lifetime_is_bounded_from_document_creation(store, tmp_path):

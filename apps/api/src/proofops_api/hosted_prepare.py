@@ -17,7 +17,7 @@ def main() -> None:
     if sys.platform == "linux":
         resource.setrlimit(resource.RLIMIT_AS, (512 * 1024 * 1024, 512 * 1024 * 1024))
     source, target, pages_json = sys.argv[1:]
-    reader = PdfReader(source)
+    reader = PdfReader(Path(source).open("rb"))
     writer = PdfWriter()
     for page in json.loads(pages_json):
         writer.add_page(reader.pages[page - 1])

@@ -223,7 +223,7 @@ class OpenRouterProbe:
                 code = str(error)
                 if code not in {
                     f"OPENROUTER_HTTP_{n}" for n in (400, 401, 402, 403, 404, 429, 500, 502, 503)
-                }:
+                } | {"PROCESSING_UNCERTAIN"}:
                     code = "OPENROUTER_REQUEST_FAILED"
                 raise ValueError(code) from None
             try:

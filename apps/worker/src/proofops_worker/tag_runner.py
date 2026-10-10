@@ -838,6 +838,14 @@ class LocalTagRunner:
                     for k in ("reason", "preliminary_records", "relation_records", "tag_runs")
                 }
             )
+            if "PROCESSING_UNCERTAIN" in encoded:
+                result.update(
+                    status="needs_review",
+                    reason="PROCESSING_UNCERTAIN",
+                    reason_display="처리 불확실 — 해당 주장 보류",
+                    decision=None,
+                    provisional_grade=empty_provisional("PROCESSING_UNCERTAIN"),
+                )
             if "BUDGET_EXHAUSTED" in encoded:
                 budget_stopped = True
                 result.update(

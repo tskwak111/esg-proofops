@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
-from tempfile import TemporaryDirectory
+from tempfile import NamedTemporaryFile, TemporaryDirectory
 from typing import Any
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
@@ -31,9 +31,8 @@ from zoneinfo import ZoneInfo
 from proofops.application.authorization import MembershipRecord, SessionExpiredError, SessionRecord
 from proofops.application.uploads_security import (
     PdfLimits,
-    QuarantinedPdf,
     UploadRejected,
-    verify_quarantined_pdf,
+    verify_pdf_file,
 )
 
 MICRO = Decimal(1_000_000)
@@ -57,6 +56,23 @@ class HostedError(ValueError):
 
 def digest(value: str | bytes) -> str:
     return hashlib.sha256(value.encode() if isinstance(value, str) else value).hexdigest()
+
+
+def file_sha256(path: Path) -> str:
+    with path.open("rb") as stream:
+        return hashlib.file_digest(stream, "sha256").hexdigest()
+
+
+def copy_verified_file(source: Path, target: Path, expected_sha: str) -> None:
+    """Create-only disk publication; hash the copied bytes before making them visible."""
+    with NamedTemporaryFile(dir=target.parent) as staged, source.open("rb") as stream:
+        shutil.copyfileobj(stream, staged, length=1024 * 1024)
+        staged.flush()
+        os.fsync(staged.fileno())
+        if file_sha256(Path(staged.name)) != expected_sha:
+            raise HostedError("SOURCE_HASH_MISMATCH")
+        os.chmod(staged.name, 0o400)
+        os.link(staged.name, target)
 
 
 def micros(value: Decimal | str) -> int:
@@ -95,7 +111,7 @@ class HostedSettings:
     accept_runs: bool = False
     live_disabled: bool = True
     live_config: Path | None = None
-    max_upload_bytes: int = 50 * 1024 * 1024
+    max_upload_bytes: int = 150 * 1024 * 1024
     active_days: int = 7
     backup_days: int = 14
     audit_days: int = 30
@@ -134,7 +150,7 @@ class HostedSettings:
             if type(value) is not int or value <= 0:
                 raise ValueError("positive limits required")
         if (
-            self.max_upload_bytes > 50 * 1024 * 1024
+            self.max_upload_bytes > 150 * 1024 * 1024
             or self.active_days > 7
             or self.backup_days > 14
             or self.audit_days > 30
@@ -167,7 +183,7 @@ class HostedSettings:
             accept_runs=flag("R108_ACCEPT_NEW_RUNS", "false"),
             live_disabled=flag("LIVE_DISABLED", "true"),
             live_config=Path(env["HOSTED_LIVE_CONFIG"]) if env.get("HOSTED_LIVE_CONFIG") else None,
-            max_upload_bytes=int(env.get("HOSTED_MAX_UPLOAD_BYTES", "52428800")),
+            max_upload_bytes=int(env.get("HOSTED_MAX_UPLOAD_BYTES", "157286400")),
             active_days=int(env.get("HOSTED_ACTIVE_DAYS", "7")),
             backup_days=int(env.get("HOSTED_BACKUP_DAYS", "14")),
             audit_days=int(env.get("HOSTED_AUDIT_DAYS", "30")),
@@ -504,43 +520,52 @@ class HostedStore:
         )
 
     def upload(self, auth: Any, content: bytes, key: str, *, now: float) -> dict:
+        """Compatibility for bounded local callers; HTTP uses upload_file directly."""
+        with NamedTemporaryFile(dir=self.settings.root) as staged:
+            staged.write(content)
+            staged.flush()
+            return self.upload_file(auth, Path(staged.name), key, now=now)
+
+    def upload_file(self, auth: Any, source: Path, key: str, *, now: float) -> dict:
         if not auth.has_capability("editor"):
             raise HostedError("FORBIDDEN", 403)
         if not self.settings.accept_uploads or not self.settings.consent_version:
             raise HostedError("UPLOAD_DISABLED", 503)
-        if len(content) > self.settings.max_upload_bytes:
+        size = source.stat().st_size
+        if size > self.settings.max_upload_bytes:
             raise HostedError("PAYLOAD_TOO_LARGE", 413)
-        sha = digest(content)
+        sha = file_sha256(source)
         with self.transaction() as db:
             replay = self._replay(db, auth, "upload", key, sha)
             if replay:
                 return dict(self._document(db, auth.tenant_id, replay))
         doc = str(uuid4())
-        source = QuarantinedPdf(auth.tenant_id, doc, str(uuid4()), content, len(content), sha)
         try:
-            verified = verify_quarantined_pdf(
+            pages = verify_pdf_file(
                 source,
-                PdfLimits(max_bytes=self.settings.max_upload_bytes),
-                tenant_id=auth.tenant_id,
+                PdfLimits(
+                    max_bytes=self.settings.max_upload_bytes, max_decoded_bytes=512 * 1024 * 1024
+                ),
+                expected_size=size,
+                expected_sha256=sha,
             )
         except UploadRejected as exc:
             raise HostedError(str(exc), 422) from None
-        # Publish under the same writer lock as metadata, so deletion/backup cannot race.
         with self.transaction() as db:
             replay = self._replay(db, auth, "upload", key, sha)
             if replay:
                 return dict(self._document(db, auth.tenant_id, replay))
             path = self.document_dir(auth.tenant_id, doc)
             path.mkdir(parents=True, mode=0o700)
-            self._write(path / "original.pdf", content)
+            copy_verified_file(source, path / "original.pdf", sha)
             db.execute(
                 "INSERT INTO documents VALUES (?,?,?,?,?,?,?,?)",
                 (
                     auth.tenant_id,
                     doc,
                     sha,
-                    verified.page_count,
-                    len(content),
+                    pages,
+                    size,
                     now,
                     now + self.settings.active_days * 86400,
                     self.settings.consent_version,
@@ -728,9 +753,11 @@ class HostedStore:
                         stdout=subprocess.DEVNULL,
                         stderr=subprocess.DEVNULL,
                     )
-                except (subprocess.SubprocessError, OSError):
-                    raise HostedError("SCOPE_INSPECTION_FAILED", 422) from None
-                plan = json.loads(output.read_text())
+                    plan = json.loads(output.read_text())
+                except (subprocess.SubprocessError, OSError, ValueError):
+                    from evaluation.hosted_scope_plan import failed_plan
+
+                    plan = failed_plan(doc["sha256"], doc["page_count"], "SCOPE_INSPECTION_FAILED")
         from evaluation.report_scope import validate_selection
 
         selection = (
@@ -878,10 +905,6 @@ class HostedStore:
                 return self._project_run(self._run(db, auth.tenant_id, replay), db)
             if not (self.document_dir(auth.tenant_id, document) / "original.pdf").is_file():
                 raise HostedError("SOURCE_UNAVAILABLE")
-            if db.execute(
-                "SELECT 1 FROM deletion.spend WHERE status='accounting_pending'"
-            ).fetchone():
-                raise HostedError("ACCOUNTING_PENDING", 503)
             user = self.user_hash(auth.user_sub)
             if db.execute(
                 "SELECT 1 FROM runs WHERE user_hash=? AND status IN "
@@ -978,11 +1001,9 @@ class HostedStore:
                     "UPDATE deletion.spend SET status='accounting_pending' WHERE run_id=?",
                     (row[0],),
                 )
-            # Unknown provider dispatch blocks the single worker, requiring operator reconciliation.
-            if db.execute(
-                "SELECT 1 FROM runs WHERE status IN ('running','accounting_pending') "
-                "UNION ALL SELECT 1 FROM deletion.spend WHERE status='accounting_pending'"
-            ).fetchone():
+            # Only an active fenced worker occupies the slot. Pending accounting
+            # remains charged to its envelope/day/event; it cannot dispatch again.
+            if db.execute("SELECT 1 FROM runs WHERE status='running'").fetchone():
                 return None
             row = db.execute(
                 "SELECT * FROM runs WHERE status='queued' ORDER BY created,run_id LIMIT 1"
@@ -1013,21 +1034,17 @@ class HostedStore:
             )
 
     def prepare(self, job: dict, *, now: float) -> Path:
-        # Snapshot under the fence, perform bounded PDF work outside the DB lock,
-        # then recheck the fence before publication. Delete cannot resurrect files.
-        with self.transaction() as db:
-            row = self._fenced(db, job, now)
-            doc = self._document(db, job["tenant_id"], job["document_id"])
-            if now >= doc["expires"]:
-                raise HostedError("SOURCE_EXPIRED")
-            path = self.document_dir(job["tenant_id"], job["document_id"])
-            original = (path / "original.pdf").read_bytes()
-            if digest(original) != doc["sha256"]:
-                raise HostedError("SOURCE_HASH_MISMATCH")
-            pages = row["pages"]
-        with TemporaryDirectory(prefix="proofops-prepare-") as scratch:
+        # Copy the verified source on disk under the deletion/backup writer fence.
+        with TemporaryDirectory(prefix="proofops-prepare-", dir=self.settings.root) as scratch:
             source, output = Path(scratch) / "source.pdf", Path(scratch) / "selected.pdf"
-            self._write(source, original)
+            with self.transaction() as db:
+                row = self._fenced(db, job, now)
+                doc = self._document(db, job["tenant_id"], job["document_id"])
+                if now >= doc["expires"]:
+                    raise HostedError("SOURCE_EXPIRED")
+                path = self.document_dir(job["tenant_id"], job["document_id"])
+                copy_verified_file(path / "original.pdf", source, doc["sha256"])
+                pages = row["pages"]
             try:
                 subprocess.run(
                     [
@@ -1045,18 +1062,18 @@ class HostedStore:
                 )
             except (subprocess.SubprocessError, OSError):
                 raise HostedError("PREPARE_FAILED") from None
-            with output.open("rb") as stream:
-                content = stream.read(self.settings.max_upload_bytes + 1)
-            if len(content) > self.settings.max_upload_bytes:
+            if output.stat().st_size > 50 * 1024 * 1024:
                 raise HostedError("PREPARE_TOO_LARGE")
-        with self.transaction() as db:
-            self._fenced(db, job, time.time())
-            prepared = path / f'{job["run_id"]}.prepared.pdf'
-            self._write(prepared, content)
-            db.execute(
-                "UPDATE runs SET prepared_sha256=? WHERE run_id=?", (digest(content), job["run_id"])
-            )
-            return prepared
+            prepared_sha = file_sha256(output)
+            with self.transaction() as db:
+                self._fenced(db, job, time.time())
+                prepared = path / f'{job["run_id"]}.prepared.pdf'
+                copy_verified_file(output, prepared, prepared_sha)
+                db.execute(
+                    "UPDATE runs SET prepared_sha256=? WHERE run_id=?",
+                    (prepared_sha, job["run_id"]),
+                )
+                return prepared
 
     def dispatch(
         self,
@@ -1125,6 +1142,11 @@ class HostedStore:
             # operator reconciliation. Never release reservations or redeliver it.
             limit_code = str(exc)
             quota_blocked = limit_code in PROVIDER_LIMIT_CODES.get(provider, ())
+            # An uncertain model transport is a per-claim hold, not a lost run fence.
+            # Unknown receipts and non-model failures retain the existing terminal guard.
+            model_network_failure = provider in {"openai", "openrouter"} and isinstance(
+                exc, OSError
+            )
             with self.transaction() as db:
                 db.execute(
                     "UPDATE deletion.costs SET status='accounting_pending' "
@@ -1132,21 +1154,24 @@ class HostedStore:
                     "AND status='reserved'",
                     (job["run_id"], call_id),
                 )
-                db.execute(
-                    "UPDATE runs SET "
-                    "status=?,fence=fence+1,error_code=?,lease_until=0 "
-                    "WHERE run_id=? AND status='running' AND fence=?",
-                    (
-                        "failed" if quota_blocked else "accounting_pending",
-                        limit_code if quota_blocked else "ACCOUNTING_PENDING",
-                        job["run_id"],
-                        job["fence"],
-                    ),
-                )
+                if not model_network_failure:
+                    db.execute(
+                        "UPDATE runs SET "
+                        "status=?,fence=fence+1,error_code=?,lease_until=0 "
+                        "WHERE run_id=? AND status='running' AND fence=?",
+                        (
+                            "failed" if quota_blocked else "accounting_pending",
+                            limit_code if quota_blocked else "ACCOUNTING_PENDING",
+                            job["run_id"],
+                            job["fence"],
+                        ),
+                    )
                 db.execute(
                     "UPDATE deletion.spend SET status='accounting_pending' WHERE run_id=?",
                     (job["run_id"],),
                 )
+            if model_network_failure:
+                raise HostedError("PROCESSING_UNCERTAIN") from None
             raise
 
     def _settle_envelope(self, db: sqlite3.Connection, run: str) -> None:

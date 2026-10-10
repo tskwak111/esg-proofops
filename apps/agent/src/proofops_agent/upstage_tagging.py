@@ -716,22 +716,27 @@ class UpstageTaggingTransport:
             code = str(error)
             if code in {"R108_FINALS_BUDGET_EXHAUSTED", "R108_FINALS_CUMULATIVE_BUDGET_EXHAUSTED"}:
                 code = "BUDGET_EXHAUSTED"
-            elif code not in UPSTAGE_TRANSPORT_STOP_CODES:
+            elif code not in UPSTAGE_TRANSPORT_STOP_CODES | {"PROCESSING_UNCERTAIN"}:
                 code = "UPSTREAM_UNAVAILABLE"
-            # Exclusive creation prevents overwriting an earlier failure receipt.
-            if not stop.exists():
-                write(stop, canonical_json(dict(code=code, request_id=request["request_id"])))
-            else:
-                # An acknowledged stop is immutable, so this new failure is
-                # recorded beside it: the next process to arm this root finds an
-                # unacknowledged durable failure and refuses again.
-                chained = self._receipts / f"transport-stop.{request['request_id']}.json"
-                if not chained.exists():
-                    write(
-                        chained, canonical_json(dict(code=code, request_id=request["request_id"]))
-                    )
-            if self._resume is not None:
-                self._resume.disarm(self._receipts)
+            # Only hosted broker transport uncertainty is isolated to this request.
+            # Its failed receipt and pending money remain immutable; mkdir/ledger
+            # guards still forbid repeating it. Other failures stop the root as before.
+            if code != "PROCESSING_UNCERTAIN":
+                # Exclusive creation prevents overwriting an earlier failure receipt.
+                if not stop.exists():
+                    write(stop, canonical_json(dict(code=code, request_id=request["request_id"])))
+                else:
+                    # An acknowledged stop is immutable, so this new failure is
+                    # recorded beside it: the next process to arm this root finds an
+                    # unacknowledged durable failure and refuses again.
+                    chained = self._receipts / f"transport-stop.{request['request_id']}.json"
+                    if not chained.exists():
+                        write(
+                            chained,
+                            canonical_json(dict(code=code, request_id=request["request_id"])),
+                        )
+                if self._resume is not None:
+                    self._resume.disarm(self._receipts)
             response = self._failed(code, (monotonic_ns() - started) // 1_000_000)
         else:
             try:

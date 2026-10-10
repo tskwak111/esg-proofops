@@ -7,6 +7,8 @@ import os
 import sqlite3
 import time
 from contextlib import asynccontextmanager
+from pathlib import Path
+from tempfile import NamedTemporaryFile
 from typing import Annotated, Any
 from uuid import UUID
 
@@ -377,18 +379,23 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
             raise HostedError("UPLOAD_DISABLED", 503)
         if request.headers.get("Content-Type", "").split(";")[0] != "application/pdf":
             raise HostedError("PDF_CONTENT_TYPE_REQUIRED", 415)
-        data = bytearray()
-        async for chunk in request.stream():
-            if len(data) + len(chunk) > settings.max_upload_bytes:
-                raise HostedError("PAYLOAD_TOO_LARGE", 413)
-            data.extend(chunk)
-        return await run_in_threadpool(
-            store.upload,
-            auth,
-            bytes(data),
-            request.headers.get("Idempotency-Key", ""),
-            now=time.time(),
-        )
+        # Service-owned disk staging: bound each ASGI chunk without retaining the body.
+        with NamedTemporaryFile(prefix="upload-", dir=settings.root) as staged:
+            size = 0
+            async for chunk in request.stream():
+                size += len(chunk)
+                if size > settings.max_upload_bytes:
+                    raise HostedError("PAYLOAD_TOO_LARGE", 413)
+                await run_in_threadpool(staged.write, chunk)
+            staged.flush()
+            os.fsync(staged.fileno())
+            return await run_in_threadpool(
+                store.upload_file,
+                auth,
+                Path(staged.name),
+                request.headers.get("Idempotency-Key", ""),
+                now=time.time(),
+            )
 
     @app.get("/v1/documents/{document_id}")
     def document(document_id: UUID, auth: Annotated[AuthContext, Depends(current)]) -> dict:

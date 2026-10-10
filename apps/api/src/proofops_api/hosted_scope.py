@@ -11,9 +11,9 @@ def main():
     resource.setrlimit(resource.RLIMIT_FSIZE, (8 * 1024 * 1024, 8 * 1024 * 1024))
     if sys.platform == "linux":
         resource.setrlimit(resource.RLIMIT_AS, (512 * 1024 * 1024, 512 * 1024 * 1024))
-    from evaluation.report_scope import inspect
+    from evaluation.hosted_scope_plan import inspect_streaming
 
-    plan = inspect(Path(sys.argv[1]))
+    plan = inspect_streaming(Path(sys.argv[1]))
     plan["source_path"] = "original.pdf"
     # Path is private operational metadata; hash the sanitized proposal actually stored.
     from proofops.domain.provenance import canonical_hash

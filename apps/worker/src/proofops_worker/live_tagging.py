@@ -93,6 +93,8 @@ def _local_stop_code(prefix, error):
         "BUDGET_EXHAUSTED",
     }:
         return "BUDGET_EXHAUSTED"
+    if str(error) == "PROCESSING_UNCERTAIN":
+        return "PROCESSING_UNCERTAIN"
     known = {prefix.upper() + suffix for suffix in _LOCAL_STOP_SUFFIXES}
     text = str(error)
     if text in known:

@@ -365,12 +365,25 @@ def test_unknown_dispatch_restart_no_redelivery(settings, tmp_path):
         raise TimeoutError("unknown transport")
 
     probe = HostedLunaProbe("fake", tmp_path / "luna.db", store=store, job=job, post=unknown)
-    with pytest.raises(TimeoutError):
+    with pytest.raises(HostedError, match="PROCESSING_UNCERTAIN"):
         probe._post(probe.request_body("x", "{}", request_id="x"))
     restarted = HostedStore(settings)
     assert restarted.claim(now=time.time() + 1000) is None
-    assert restarted.get_run(auth.tenant_id, job["run_id"])["status"] == "accounting_pending"
+    assert restarted.get_run(auth.tenant_id, job["run_id"])["status"] == "running"
     assert restarted.budget_totals()["event_reserved_usd"] == "0.500000"
+    with restarted.transaction() as db:
+        call = db.execute("SELECT call_id,input_sha256,bound,status FROM deletion.costs").fetchone()
+        assert call["status"] == "accounting_pending"
+    with pytest.raises(HostedError, match="DISPATCH_ALREADY_RECORDED"):
+        restarted.dispatch(
+            job,
+            "openrouter",
+            call["call_id"],
+            call["input_sha256"],
+            Decimal("0.011"),
+            lambda _: pytest.fail("no redelivery"),
+            now=time.time(),
+        )
 
 
 @pytest.mark.parametrize("reader", ["upstage-ocr-page-v1", "upstage-ocr-page-v2"])

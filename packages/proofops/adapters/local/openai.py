@@ -183,7 +183,7 @@ class OpenAIProbe(OpenRouterProbe):
             raise ValueError("PROBE_REQUEST_TOO_LARGE")
         return body
 
-    def _post(self, body):
+    def _post(self, body, *, client_request_id=None):
         connection = http.client.HTTPSConnection("api.openai.com", timeout=90)
         try:
             connection.request(
@@ -193,6 +193,7 @@ class OpenAIProbe(OpenRouterProbe):
                 headers={
                     "Authorization": "Bearer " + self._key,
                     "Content-Type": "application/json",
+                    **({"X-Client-Request-Id": client_request_id} if client_request_id else {}),
                 },
             )
             response = connection.getresponse()
@@ -275,7 +276,7 @@ class OpenAIProbe(OpenRouterProbe):
                 code = str(error)
                 if code not in {
                     f"OPENAI_HTTP_{n}" for n in (400, 401, 403, 404, 429, 500, 502, 503)
-                } | {"OPENAI_INSUFFICIENT_QUOTA"}:
+                } | {"OPENAI_INSUFFICIENT_QUOTA", "PROCESSING_UNCERTAIN"}:
                     code = "OPENAI_REQUEST_FAILED"
                 raise ValueError(code) from None
             try:
