@@ -197,7 +197,13 @@ class LocalClaimStore:
         from proofops.adapters.local.missing_evidence import missing_evidence
 
         return missing_evidence(
-            self, tenant_id, run_id, claim, track=track, elements=elements, inputs=inputs,
+            self,
+            tenant_id,
+            run_id,
+            claim,
+            track=track,
+            elements=elements,
+            inputs=inputs,
             original_graph=original_graph,
         )
 

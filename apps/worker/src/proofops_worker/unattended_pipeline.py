@@ -21,9 +21,7 @@ class PageTagPipeline:
         from proofops_worker.composition import build_composition
 
         bound_composition = getattr(extractor_runner, "tag_composition", None)
-        self.runner = (
-            bound_composition() if bound_composition else build_composition(stage="tag")
-        )
+        self.runner = bound_composition() if bound_composition else build_composition(stage="tag")
         self.snapshot, self.graph, self.profile = snapshot, graph, profile
         self.lease, self.checkpoint = lease, checkpoint
         self.scope = claim_scope(snapshot, graph)

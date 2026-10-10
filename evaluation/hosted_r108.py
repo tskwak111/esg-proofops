@@ -265,16 +265,19 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
                     from proofops_worker.extract_batch import run_batches
 
                     def extract_progress(_summary=None):
-                        coverage = worker.store.jobs.get_run(
-                            job["tenant_id"], manifest["run_id"]
-                        )["coverage"]
+                        coverage = worker.store.jobs.get_run(job["tenant_id"], manifest["run_id"])[
+                            "coverage"
+                        ]
                         store.update_progress(
                             job, "extract", 45, claims_extracted=coverage["claims_discovered"]
                         )
 
                     extract_progress()
                     batches = run_batches(
-                        worker, tenant_id=job["tenant_id"], run_id=manifest["run_id"], batches=100,
+                        worker,
+                        tenant_id=job["tenant_id"],
+                        run_id=manifest["run_id"],
+                        batches=100,
                         on_batch=extract_progress,
                     )
                     if batches and batches[-1].get("stop_code"):

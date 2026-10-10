@@ -38,8 +38,14 @@ def test_publication_loads_claim_evidence_once(settings, monkeypatch):
     store = HostedStore(settings)
     auth = actor(store)
     doc = store.upload(auth, source_pdf(), "rb2-replay-upload001", now=time.time())
-    store.create_run(auth, doc["document_id"], [1, 2], "rb2-replay-run000001",
-                     now=time.time(), pipeline_profile="strict-v1")
+    store.create_run(
+        auth,
+        doc["document_id"],
+        [1, 2],
+        "rb2-replay-run000001",
+        now=time.time(),
+        pipeline_profile="strict-v1",
+    )
     done = store.tick(now=time.time(), analysis=fake_analysis)
     assert done["status"] in {"completed", "partial_blocked"}
     result = store.get_result(auth.tenant_id, done["run_id"])

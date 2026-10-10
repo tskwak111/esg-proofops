@@ -448,9 +448,10 @@ def missing_evidence(
     )
     for item in result:
         element = next((e for e in elements if e["element_id"] == item["element_id"]), {})
-        if element.get("reason_code") == "REPORT_WIDE_SCOPE_NOT_ACTIVITY_SCOPE" and element.get(
-            "state"
-        ) == "unknown":
+        if (
+            element.get("reason_code") == "REPORT_WIDE_SCOPE_NOT_ACTIVITY_SCOPE"
+            and element.get("state") == "unknown"
+        ):
             item.update(
                 engine_state="unknown",
                 reason=element["reason_code"],

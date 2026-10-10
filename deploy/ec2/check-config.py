@@ -85,7 +85,16 @@ def check_kit():
         "AllocateAddress",
     ]
     assert "aarch64" in (HERE / "cloud-init.sh").read_text()
-    assert (HERE / "compose.yaml").resolve() == (HERE / "../lightsail/compose.yaml").resolve()
+    # Shared runtime files are copies (the supply-chain gate rejects symlinks); keep them identical.
+    for name in (
+        "Caddyfile",
+        "compose.env.example",
+        "compose.yaml",
+        "init-runtime.py",
+        "runtime.env.example",
+        "smoke.py",
+    ):
+        assert (HERE / name).read_bytes() == (HERE / "../lightsail" / name).read_bytes(), name
     pricing = json.loads((HERE / "pricing.json").read_text())
     assert pricing["region"] == "ap-southeast-2"
     assert pricing["source"] == (

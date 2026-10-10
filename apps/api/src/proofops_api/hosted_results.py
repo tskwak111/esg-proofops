@@ -111,7 +111,11 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                     possible_grade_range=(decision or {}).get("grade_range"),
                     confirmed_grade=(decision or {}).get("evidence_grade"),
                     missing_evidence=claims.missing_evidence(
-                        tenant, run, claim, track=summary["track"], elements=elements,
+                        tenant,
+                        run,
+                        claim,
+                        track=summary["track"],
+                        elements=elements,
                         original_graph=original_graph,
                     ),
                 )

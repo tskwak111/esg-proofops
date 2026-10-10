@@ -1,1 +1,20 @@
-../lightsail/Caddyfile
+{
+    email {$ACME_EMAIL}
+    admin off
+    servers {
+        timeouts {
+            read_body 120s
+        }
+    }
+}
+{$API_HOST} {
+    request_body {
+        max_size 157286400
+    }
+    reverse_proxy api:8000 {
+        transport http {
+            response_header_timeout 120s
+        }
+    }
+    # No request/access log: cookie, source paths and bodies are private.
+}
