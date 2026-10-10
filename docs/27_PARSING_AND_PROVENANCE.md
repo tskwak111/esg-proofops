@@ -351,3 +351,23 @@ pin한다. persisted v1은 pre-F5 알고리즘으로 읽고 `TAG_REPLAY_MISMATCH
 v2도 실패 replica 요소를 unknown으로 남기며 2개 present 투표로 원문 사실을 승인하지
 않는다. API DTO/DB column migration은 없다. rollback은 신규 v2 배정 중단과 v1/v2
 reader 유지이며 새 v2 run을 미지원 reader에 배정하지 않는다.
+
+### PS1 · 선택적 원문 위치 복원과 문장 절단 연결
+
+새 실행에 `--parser-source-recovery ps1-v1` 또는 parser profile의
+`source_recovery="ps1-v1"`을 명시한다. 기본 실행·기존 profile hash는 유지한다.
+같은 원본 쪽의 native 문자와 숫자가 일치하고 위치가 유일할 때만 bbox를 복원한다.
+회전/CropBox는 복원하지 않는다. 모호한 중복·다른 문자열·경계 밖 geometry는
+SourceRef의 유효한 위치가 되지 않는다.
+ODL 영역은 native 읽기 열을 찾는 참고 자료이며 파서 좌표만으로 근거를 승인하지 않는다.
+같은 파서·쪽·열·section의 연속 paragraph에서 미종결 조각만 연결한다.
+native 연속 문자열을 다시 확인하고 종류·문장 종결·목록·간격·원문 글자 크기와
+기존 fragment 정책으로 제목 혼입을 차단한다. 불확실한 경우 원래 조각을 유지한다.
+원래 블록과 bbox는 보존하며 새 paragraph의 `derived_from` edge로 연결한다.
+추출 claim은 새 전체 span 및 원래 조각들의 SourceRef를 모두 갖는다.
+조각 receipt로 전체 span을 승인하지 않는다. 전체 span 원문 검증을 새로 수행하며
+위치 복원 자체의 품질은 unverified다. unknown/conflict/unreadable은 부재가 아니다.
+`source-recovery.json`에 버전·구현 hash·원본 hash·복원/연결 목록을 동결한다.
+기존 artifact·receipt·revision·해시는 수정하지 않으며 API/DB migration은 없다.
+rollback은 새 opt-in 배정 중단과 기존 reader 보존이다. 미지원 reader는 새 profile을
+거부한다. 무료 저장 선택 재생과 새 모델 탐지·공개 검증의 수치는 별도로 기록한다.

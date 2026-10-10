@@ -249,11 +249,26 @@ def discover_atomic_claims(
     if not isinstance(profile, ExtractionProfile):
         raise ValueError("extraction profile required")
     claims, exclusions, processed, receipts = [], [], [], []
+    from proofops.application.ingest.source_continuations import continuations, fragment_refs
+
+    joined = continuations(graph)
+    fragments = {part.source_id for parts in joined.values() for part in parts}
     for block in sorted(graph.blocks, key=lambda item: (item.page_num, item.source_id)):
         if scope.mode == "declared_subset" and block.page_num not in scope.selected_pages:
             exclusions.append(
                 ClaimExclusion(
                     block.source_id, block.page_num, "outside_declared_subset", "excluded"
+                )
+            )
+            continue
+        if block.source_id in fragments:
+            exclusions.append(
+                ClaimExclusion(
+                    block.source_id,
+                    block.page_num,
+                    "source_continuation_fragment",
+                    "excluded",
+                    block.source_ref(),
                 )
             )
             continue
@@ -332,6 +347,9 @@ def discover_atomic_claims(
                 normalized_char_start=span.char_start, normalized_char_end=span.char_end
             )
             if span.kind == "claim":
+                refs = (ref,) + fragment_refs(
+                    joined.get(block.source_id, ()), span.char_start, span.char_end
+                )
                 claim_hash = canonical_hash(
                     dict(
                         tenant_id=scope.tenant_id,
@@ -346,7 +364,7 @@ def discover_atomic_claims(
                         *identity,
                         graph.source_sha256,
                         ref.quote,
-                        (ref,),
+                        refs,
                         block.quality,
                         span.topic_ids,
                         receipt,

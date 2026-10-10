@@ -614,6 +614,7 @@ def apply_resume_metadata(args, saved: dict) -> None:
         ("preliminary_profile", None),
         ("claim_source_profile", None),
         ("display_text_profile", None),
+        ("parser_source_recovery", None),
     ):
         requested = getattr(args, field, None)
         stored = saved.get(field, default)
@@ -830,6 +831,11 @@ def main():
         help="mixed-v1 only: maximum evidence-only OCR pages; shared ledger still gates dispatch.",
     )
     parser.add_argument("--parser", choices=("upstage", "local", "mixed-v1"), default="upstage")
+    parser.add_argument(
+        "--parser-source-recovery",
+        choices=("ps1-v1",),
+        help="NEW run only: literal location recovery and paragraph continuation.",
+    )
     parser.add_argument("--report-year", type=int)
     parser.add_argument("--period-start")
     parser.add_argument("--period-end")
@@ -1492,6 +1498,7 @@ def main():
             ),
             upstage_glyph_boxes=args.parser in ("upstage", "mixed-v1"),
             upstage_region_words=args.parser in ("upstage", "mixed-v1"),
+            source_recovery=args.parser_source_recovery,
         )
         (state / "parser.json").write_text(json.dumps(config.config_snapshot()))
         if (
@@ -1971,6 +1978,8 @@ def main():
             manifest.update(raster_ocr=True, raster_policy=raster["raster_policy"])
         if args.preliminary_profile is not None:
             manifest["preliminary_profile"] = args.preliminary_profile
+        if args.parser_source_recovery is not None:
+            manifest["parser_source_recovery"] = args.parser_source_recovery
         if args.relation_profile != "source-quotes-v1":
             manifest["relation_profile"] = args.relation_profile
         if args.parser == "mixed-v1":

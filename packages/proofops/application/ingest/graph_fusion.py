@@ -101,8 +101,11 @@ class ParserProfile:
     claim_physical_pages: tuple[int, ...] = ()
     mixed_ocr_max_pages: int = 0
     failure_policy: str | None = None
+    source_recovery: str | None = None
 
     def __post_init__(self):
+        if self.source_recovery not in (None, "ps1-v1"):
+            raise ValueError("unsupported source recovery policy")
         if self.failure_policy not in (None, "partial-v1") or (
             self.failure_policy is not None and self.parser_mode != "mixed-v1"
         ):
@@ -171,6 +174,8 @@ class ParserProfile:
     def invocation_snapshot(self) -> dict:
         """Keep historical invocation hashes when optional tuning is absent."""
         values = asdict(self)
+        if self.source_recovery is None:
+            values.pop("source_recovery")
         if self.failure_policy is None:
             values.pop("failure_policy")
         if self.parser_mode != "mixed-v1":

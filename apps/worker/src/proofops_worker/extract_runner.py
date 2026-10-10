@@ -139,6 +139,9 @@ def select_batch_paragraph_sources(
     """
     if type(max_calls) is not int or not 1 <= max_calls <= MAX_EXTRACTION_BATCH_CALLS:
         raise ValueError("EXTRACTION_INPUT_INVALID")
+    from proofops.application.ingest.source_continuations import continuations
+
+    fragments = {p.source_id for parts in continuations(graph).values() for p in parts}
     eligible = (
         block
         for block in graph.blocks
@@ -150,6 +153,7 @@ def select_batch_paragraph_sources(
         )
         and block.normalized_text.strip()
         and block.source_id not in completed
+        and block.source_id not in fragments
     )
     ordered = sorted(eligible, key=paragraph_priority)
     return {block.source_id for block in ordered[:max_calls]}

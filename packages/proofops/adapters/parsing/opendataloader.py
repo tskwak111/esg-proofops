@@ -408,6 +408,7 @@ class OpenDataLoaderParser(ParserPort):
                     candidates.append(
                         _batch(auxiliary, geometries, source, profile, profile_hash, auxiliary=True)
                     )
+                recovery_references = tuple(candidates)
                 fusion_version = (
                     5
                     if profile.parser_mode == "mixed-v1"
@@ -677,6 +678,14 @@ class OpenDataLoaderParser(ParserPort):
                     from proofops.adapters.parsing.mixed_routing import annotate
 
                     candidates = [annotate(batch) for batch in candidates]
+                if profile.source_recovery is not None:
+                    from proofops.adapters.parsing.source_recovery import recover_sources
+
+                    recovered, recovery = recover_sources(
+                        source, tuple(candidates), references=recovery_references
+                    )
+                    candidates = list(recovered)
+                    (work / "source-recovery.json").write_bytes(_json(recovery))
                 graph = fuse_candidates(
                     tuple(candidates),
                     tenant_id=tenant_id,
@@ -874,6 +883,10 @@ class OpenDataLoaderParser(ParserPort):
             }
             if profile.table_auxiliary:
                 required.add("auxiliary.json")
+            if profile.source_recovery is not None:
+                required.add("source-recovery.json")
+            elif "source-recovery.json" in artifacts:
+                raise ValueError("unconfigured source recovery")
             if profile.table_structure_repair is not None:
                 required.update({"source-repaired.json", "table-repair.json"})
             elif {"source-repaired.json", "table-repair.json"} & artifacts.keys():
@@ -908,6 +921,7 @@ class OpenDataLoaderParser(ParserPort):
                     "graph.json",
                     "quality.json",
                     "candidates.json",
+                    "source-recovery.json",
                     "table-source.json",
                     "vision.json",
                     "upstage.json",
@@ -952,6 +966,13 @@ class OpenDataLoaderParser(ParserPort):
                 ):
                     raise ValueError("vision manifest mismatch")
             candidates = candidates_from_snapshot(values["candidates.json"])
+            if profile.source_recovery is not None:
+                recovery = values.get("source-recovery.json", {})
+                if (
+                    recovery.get("profile") != profile.source_recovery
+                    or recovery.get("source_sha256") != source.sha256
+                ):
+                    raise ValueError("source recovery manifest mismatch")
             # Existing immutable manifests predate fusion versioning.
             fusion_version = manifest.get("fusion_version", 1)
             if type(fusion_version) is not int or fusion_version not in (1, 2, 3, 4, 5):
