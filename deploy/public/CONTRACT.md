@@ -530,3 +530,32 @@ No public request field, DB migration or dependency is added. Rollback: prepare
 future runs with the PA1 builder/defaults while retaining PA2 readers for existing
 PA2 snapshots; the PA1 binary rejects their new policy hash. No deployment or
 server setting change is performed by PA2.
+
+## PA3 amendment — whole parse proofs and tagging fences (2026-10-11)
+
+New v2 analysis snapshots pin `exact-verified-read-v3`; the previous PA2 hash
+remains an accepted frozen policy with its original execution path. V3 extends
+the same four-entry / 32-MiB process-only bound to whole native-v6 and EV1 OCR
+attestations produced by the trusted parser. Reuse requires identical canonical
+receipt bytes, tenant/run provenance, original PDF, complete graph, current
+reader/runtime/toolchain and read profile. Unavailable/error reads retry normally.
+Source verifier files, source receipt schemas and stored snapshots stay intact.
+
+Cold EV1 OCR replay performs one complete source attestation and compares every
+receipt field before projecting the byte-pinned original replay tail. It retains
+the BASE receipt's span identity, table membership and unresolved binding state.
+Transient reads and unknown reader builds retain the original replay path.
+
+V3 combines the tagging call's owner/cancellation/fencing check and lease renewal
+in the existing atomic heartbeat transaction. Provider reservations, dispatch
+markers, response fsync and per-attempt settlement remain separate and mandatory.
+Each tagging ensemble still has three distinct replica IDs and responses; packet
+freezing, consensus, citation restoration and pure Python grades are unchanged.
+
+No public API field, DB migration, dependency or server configuration is added.
+Rollback stops assigning V3 to future preparations while retaining its reader for
+saved V3 snapshots; a PA2 binary rejects the new hash. PA3's two-slot experiment is
+offline: actual admission, locks, leases and 1100-MiB per-process-tree guard apply,
+but imported original-provenance fixtures are never published as new analyses.
+Container memory is requested as 16 GiB; actual VM memory and sampled RSS must be
+reported separately. No deployment or real provider call is performed by PA3.

@@ -312,6 +312,14 @@ class LocalParserRunner:
                             pinned_notes, graph, source.content, tenant_id=tenant_id
                         )
                     pre_native_graph = graph
+                    from proofops.adapters.local.verified_read_cache import (
+                        _parse_enabled,
+                        remember_parse_attestation,
+                    )
+                    from proofops.adapters.local.verified_read_cache import (
+                        replay_cached as replay_verified,
+                    )
+
                     native_receipt = None
                     evidence_receipt = None
                     if native_policy is not None:
@@ -320,12 +328,21 @@ class LocalParserRunner:
                             replay_native_sources,
                         )
 
-                        if page_reader is not None:
+                        if page_reader is not None and _parse_enabled():
                             attest_native_sources = page_reader.attest_native_sources
                             replay_native_sources = page_reader.replay_native_sources
                         native_receipt = attest_native_sources(
                             graph, source.content, tenant_id=tenant_id, geometry_mode="glyph"
                         )
+                        if page_reader is not None:
+                            remember_parse_attestation(
+                                reader_name="native:" + native_policy["mode"],
+                                policy=native_policy,
+                                receipt=native_receipt,
+                                graph=graph,
+                                source=source.content,
+                                tenant_id=tenant_id,
+                            )
                         if self.native_typography_tolerance:
                             from proofops.adapters.local.native_paragraph_typography import (
                                 apply_typography_tolerance,
@@ -343,9 +360,20 @@ class LocalParserRunner:
                                 tenant_id=tenant_id,
                             )
                         else:
-                            graph = replay_native_sources(
-                                native_receipt, graph, source.content, tenant_id=tenant_id
-                            )
+                            if _parse_enabled():
+                                graph = replay_verified(
+                                    reader_name="native:" + str((native_policy or {}).get("mode")),
+                                    policy=native_policy,
+                                    receipt=native_receipt,
+                                    graph=graph,
+                                    source=source.content,
+                                    tenant_id=tenant_id,
+                                    recompute=replay_native_sources,
+                                )
+                            else:
+                                graph = replay_native_sources(
+                                    native_receipt, graph, source.content, tenant_id=tenant_id
+                                )
                     if "evidence_source_policy" in snapshot:
                         from proofops.adapters.local.evidence_source_policies import (
                             evidence_source_reader,
@@ -366,9 +394,28 @@ class LocalParserRunner:
                                 else {}
                             ),
                         )
-                        graph = ev1.replay_evidence_sources(
-                            evidence_receipt, graph, source.content, tenant_id=tenant_id
-                        )
+                        if _parse_enabled():
+                            remember_parse_attestation(
+                                reader_name=ev1.__name__,
+                                policy=ev1.policy(),
+                                receipt=evidence_receipt,
+                                graph=graph,
+                                source=source.content,
+                                tenant_id=tenant_id,
+                            )
+                            graph = replay_verified(
+                                reader_name=ev1.__name__,
+                                policy=ev1.policy(),
+                                receipt=evidence_receipt,
+                                graph=graph,
+                                source=source.content,
+                                tenant_id=tenant_id,
+                                recompute=ev1.replay_evidence_sources,
+                            )
+                        else:
+                            graph = ev1.replay_evidence_sources(
+                                evidence_receipt, graph, source.content, tenant_id=tenant_id
+                            )
                     raster_coverage = None
                     raster_refs = None
                     if raster_enabled:

@@ -55,7 +55,14 @@ VERIFIED_READ_V2_POLICY = VERIFIED_READ_POLICY | dict(
     page_preparation="source-order-pipeline-v1",
     provider_fence="atomic-heartbeat-v1",
 )
-V2_POLICY = V2_PRE_PA1_POLICY | dict(verified_read_cache=VERIFIED_READ_V2_POLICY)
+V2_PRE_PA3_POLICY = V2_PRE_PA1_POLICY | dict(verified_read_cache=VERIFIED_READ_V2_POLICY)
+VERIFIED_READ_V3_POLICY = VERIFIED_READ_V2_POLICY | dict(
+    profile="exact-verified-read-v3",
+    fresh_parse_attestation="whole-native-v6-and-evidence-ocr-v1",
+    cold_evidence_replay="one-full-byte-matched-attestation-v1",
+    tag_fence="atomic-heartbeat-v1",
+)
+V2_POLICY = V2_PRE_PA1_POLICY | dict(verified_read_cache=VERIFIED_READ_V3_POLICY)
 
 
 def policy_for(profile, *, pinned_hash=None):
@@ -64,6 +71,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            V2_PRE_PA3_POLICY,
             V2_PRE_PA2_POLICY,
             V2_PRE_PA1_POLICY,
             V2_PRE_HF1_POLICY,
