@@ -66,6 +66,7 @@ def apply_pilot_profile(args):
     if getattr(args, "claim_source_profile", None) not in {
         "upstage-ocr-page-v3",
         "upstage-ocr-page-v4",
+        "upstage-ocr-page-v5",
     }:
         args.claim_source_profile = "claim-source-v3"
     args.verify_claim_spans = True

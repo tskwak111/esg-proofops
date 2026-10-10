@@ -1,6 +1,6 @@
 {
   "schema": "hosted_rendered_readers_v1",
-  "default_linux_reader": "upstage-ocr-page-v4",
+  "default_linux_reader": "upstage-ocr-page-v5",
   "gate_passed": {
     "upstage-ocr-page-v4": {
       "report": "outputs/agent-results/R108-redesign/lab/hosted/FX2/FX2-REPORT.md",
@@ -27,6 +27,23 @@
       ],
       "false_verified": 0,
       "numeric_promotions": 0
+    },
+    "upstage-ocr-page-v5": {
+      "report": "outputs/agent-results/R108-redesign/lab/hosted/FX5/FX5-REPORT.md",
+      "approval": "FX5 authorized mismatch-only fallback using approved v3 reader and unchanged v4 literal/layout guards",
+      "report_sha256": "78916b174e83bd38caa3fb7d45c7a8a4b547b604d2603389eccc4c3052c9db2e",
+      "validation_sha256": "ba79e3f64c3f584b49314aa9142b7a110d4ce9aadaa236d8f97dfae0378b342d",
+      "saved_claims": 95,
+      "source_verified_before_after": [
+        33,
+        36
+      ],
+      "original_crop_reviews": 3,
+      "false_verified_observed": 0,
+      "numeric_promotions": 0,
+      "max_fallback_claim_pages": 10,
+      "evidence_fallback": false,
+      "paid_pipeline": "not_run"
     }
   }
 }

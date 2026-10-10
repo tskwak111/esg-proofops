@@ -142,7 +142,9 @@ def fake_page_ocr(png):
 @pytest.mark.parametrize(
     "profile", ["r108-default", "r108-finals-candidate", "r108-finals-candidate-v2"]
 )
-def test_linux_fake_chain_uses_v4_and_survives_receipt_replay(settings, monkeypatch, profile):
+def test_linux_fake_chain_uses_default_reader_and_survives_receipt_replay(
+    settings, monkeypatch, profile
+):
     from proofops_api import hosted_analysis
 
     from evaluation.hosted_r108 import drive
@@ -167,7 +169,7 @@ def test_linux_fake_chain_uses_v4_and_survives_receipt_replay(settings, monkeypa
             parse_post=fake_parse,
             ocr_post=fake_page_ocr,
         )
-        assert outcome["profiles"]["source_reader"] == "upstage-ocr-page-v4"
+        assert outcome["profiles"]["source_reader"] == "upstage-ocr-page-v5"
         assert outcome["stages"][-1]["stage"] == "tag", outcome
         store.publish_analysis(job, state, outcome["status"], outcome["reason"])
     result = store.get_result(auth.tenant_id, job["run_id"])
@@ -179,3 +181,49 @@ def test_linux_fake_chain_uses_v4_and_survives_receipt_replay(settings, monkeypa
             ).fetchone()[0]
             == 2
         )
+
+
+def test_fx5_fallback_reserves_standard_price_and_reuses_page(settings, tmp_path, monkeypatch):
+    from proofops.adapters.local.upstage_parse import COST_PER_PAGE
+
+    calls = []
+    store, _, job, ocr = ocr_store(
+        tmp_path, settings, lambda png: (calls.append(1) or response(), "fake")
+    )
+    source, _, _ = inputs()
+    image = render_page(source, 1)
+    bounds = []
+    dispatch = store.dispatch
+
+    def observed(*args, **kwargs):
+        bounds.append(args[4])
+        return dispatch(*args, **kwargs)
+
+    monkeypatch.setattr(store, "dispatch", observed)
+    with ocr.claim_fallback_scope(1):
+        first = ocr.fetch(image, tenant_id=job["tenant_id"], run_id="local")
+        assert ocr.fetch(image, tenant_id=job["tenant_id"], run_id="local") == first
+    assert calls == [1]
+    assert bounds == [COST_PER_PAGE["standard"]]
+    with store.transaction() as db:
+        assert tuple(db.execute("SELECT actual,status FROM deletion.costs").fetchone()) == (
+            1650,
+            "settled",
+        )
+
+
+def test_fx5_scope_excludes_evidence_and_bounds_ten_pages(settings, tmp_path):
+    _, _, _, ocr = ocr_store(tmp_path, settings, lambda png: pytest.fail("scope sent HTTP"))
+    ocr._claim_pages = set(range(1, 12))
+    for page in range(1, 11):
+        with ocr.claim_fallback_scope(page):
+            pass
+    with ocr.claim_fallback_scope(1):
+        pass
+    with pytest.raises(ValueError, match="OCR_CLAIM_FALLBACK_SCOPE_INVALID"):
+        with ocr.claim_fallback_scope(11):
+            pass
+    ocr._claim_pages = {1}
+    with pytest.raises(ValueError, match="OCR_CLAIM_FALLBACK_SCOPE_INVALID"):
+        with ocr.claim_fallback_scope(2):
+            pass

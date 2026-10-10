@@ -426,6 +426,7 @@ def replay_claims_cached(*, reader, policy, receipt, graph, source, discovery, t
         "upstage-ocr-page-v2",
         "upstage-ocr-page-v3",
         "upstage-ocr-page-v4",
+        "upstage-ocr-page-v5",
     }:
         return reader.replay_claim_spans(receipt, graph, source, discovery, tenant_id=tenant_id)
     reader_policy = reader.claim_source_policy() if hasattr(reader, "claim_source_policy") else None

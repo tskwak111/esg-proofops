@@ -17,6 +17,7 @@ from proofops.adapters.local.upstage_ocr_page import (
     post_png,
     reader_policy,
 )
+from proofops.adapters.local.upstage_parse import COST_PER_PAGE
 from proofops.domain.provenance import canonical_hash
 
 _binding_lock = threading.RLock()
@@ -38,6 +39,13 @@ def reader_scope(store):
 class HostedOCRStore(PageOCRStore):
     def __init__(self, ledger, spend, *, store, job, local_run_id, post=None):
         self.hosted, self.job, self.local_run_id, self.post = store, job, local_run_id, post
+        self._fallback = threading.local()
+        self._fallback_pages = set()
+        self._fallback_lock = threading.Lock()
+        options = store.run_options(job)
+        pages = json.loads(job["pages"])
+        claims = options.get("claim_pages", pages)
+        self._claim_pages = {i for i, page in enumerate(pages, 1) if page in claims}
         # This private bookkeeping grants no money; HostedStore.dispatch is the
         # authority and fences/reserves each actual PNG transport separately.
         Path(spend).write_text(json.dumps(dict(limit_usd="0.50", cumulative_usd="0")))
@@ -54,6 +62,23 @@ class HostedOCRStore(PageOCRStore):
             raise ValueError("OCR_SOURCE_SCOPE_INVALID")
         return super()._reserve(image, tenant_id, run_id, force)
 
+    @contextmanager
+    def claim_fallback_scope(self, page):
+        # The prepared PDF's original-page map identifies claim pages. Evidence
+        # pages never enter the new paid fallback, even when selected for parsing.
+        with self._fallback_lock:
+            if page not in self._claim_pages or (
+                page not in self._fallback_pages and len(self._fallback_pages) >= 10
+            ):
+                raise ValueError("OCR_CLAIM_FALLBACK_SCOPE_INVALID")
+            self._fallback_pages.add(page)
+        previous = getattr(self._fallback, "active", False)
+        self._fallback.active = True
+        try:
+            yield
+        finally:
+            self._fallback.active = previous
+
     def _post(self, png):
         def transport(request):
             raw, provider_id = self.post(png) if self.post else post_png(png)
@@ -65,7 +90,7 @@ class HostedOCRStore(PageOCRStore):
             "upstage-ocr",
             str(uuid4()),
             canonical_hash(dict(model=MODEL, png_sha256=sha256(png).hexdigest())),
-            COST,
+            COST_PER_PAGE["standard"] if getattr(self._fallback, "active", False) else COST,
             transport,
             now=time.time(),
         )["payload"]

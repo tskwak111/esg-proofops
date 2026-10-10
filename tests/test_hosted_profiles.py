@@ -57,7 +57,7 @@ def test_hosted_preparation_pins_requested_bundle(tmp_path, monkeypatch, profile
         assert "--position-context-order" in argv
         assert argv[argv.index("--vision-parse") + 1] == "off"
     assert manifest["claim_source_profile"] == (
-        "glyph-alignment-v1" if platform == "darwin" else "upstage-ocr-page-v4"
+        "glyph-alignment-v1" if platform == "darwin" else "upstage-ocr-page-v5"
     )
 
 
@@ -65,7 +65,7 @@ def test_hosted_preparation_pins_requested_bundle(tmp_path, monkeypatch, profile
     "config",
     [
         {"analysis_profile": "invented"},
-        {"rendered_reader_profile": "upstage-ocr-page-v5"},
+        {"rendered_reader_profile": "upstage-ocr-page-v99"},
         {"llm_provider": "invented"},
     ],
 )
@@ -86,6 +86,7 @@ def test_failed_linux_reader_gate_cannot_be_enabled_in_json(reader, monkeypatch)
     assert hosted_analysis.GATE_PASSED_RENDERED_READERS == {
         "upstage-ocr-page-v3",
         "upstage-ocr-page-v4",
+        "upstage-ocr-page-v5",
     }
 
 
@@ -107,7 +108,7 @@ def test_mac_default_reader_unchanged(monkeypatch):
 
 def test_linux_default_v4_has_free_original_source_gate(monkeypatch):
     monkeypatch.setattr(hosted_analysis.sys, "platform", "linux")
-    profiles = hosted_analysis.operator_profiles({})
+    profiles = hosted_analysis.operator_profiles({"rendered_reader_profile": "upstage-ocr-page-v4"})
     assert profiles["source_reader"] == profiles["claim_source"] == "upstage-ocr-page-v4"
     gate = hosted_analysis.RENDERED_READER_POLICY["gate_passed"]["upstage-ocr-page-v4"]
     assert gate["original_crop_reviews"] >= 20
@@ -162,3 +163,13 @@ def test_live_config_requires_only_selected_provider_key(tmp_path, provider, key
     config_path.write_text(json.dumps(config))
     with pytest.raises((KeyError, ValueError)):
         hosted_analysis.read_operator_config(config_path)
+
+
+def test_fx5_linux_default_pins_fallback_gate(monkeypatch):
+    monkeypatch.setattr(hosted_analysis.sys, "platform", "linux")
+    profiles = hosted_analysis.operator_profiles({})
+    assert profiles["source_reader"] == profiles["claim_source"] == "upstage-ocr-page-v5"
+    gate = hosted_analysis.RENDERED_READER_POLICY["gate_passed"]["upstage-ocr-page-v5"]
+    assert gate["numeric_promotions"] == 0
+    assert gate["max_fallback_claim_pages"] == 10
+    assert gate["evidence_fallback"] is False

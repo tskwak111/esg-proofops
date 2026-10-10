@@ -605,7 +605,14 @@ class RunService:
                     )
                 except ValueError:
                     raise RunRejected("CONFIG_GATE_BLOCKED") from None
-                if not _capacity_accommodated(self.budget_limits, upper, pinned.max_tokens):
+                from proofops.application.tagging.service import output_reservation_tokens
+
+                output_upper = output_reservation_tokens(
+                    model_id=pinned.model_id,
+                    max_tokens=pinned.max_tokens,
+                    synthetic=pinned.binding.synthetic,
+                )
+                if not _capacity_accommodated(self.budget_limits, upper, output_upper):
                     raise RunRejected("CONFIG_GATE_BLOCKED")
         elif (tagging is not None or self.tagging_mode is not None) and (
             not isinstance(tagging, TaggingSettings)
@@ -649,7 +656,10 @@ class RunService:
                 snapshot["analysis_profile_policy_sha256"] = canonical_hash(analysis_policy)
                 from proofops.adapters.local import evidence_source_verification_v1 as evidence
 
-                if (self.claim_source_policy or {}).get("profile") == "upstage-ocr-page-v4":
+                if (self.claim_source_policy or {}).get("profile") in {
+                    "upstage-ocr-page-v4",
+                    "upstage-ocr-page-v5",
+                }:
                     from proofops.adapters.local import evidence_source_ocr_v1 as evidence
 
                 snapshot["evidence_source_policy"] = _detach(evidence.policy())

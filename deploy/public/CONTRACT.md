@@ -445,3 +445,25 @@ release ignores that env and uses2. Preserve2000-call frozen snapshots; rollback
 does not rewrite run budgets, evidence, reports, reservations or deletion records.
 New code reads old100-call snapshots unchanged. Public deployment/live evaluation is
 outside FX4; no provider/AWS calls are required for stored-result replay.
+
+FX5 adds `upstage-ocr-page-v5` for new Linux runs; v1–v4 implementations and
+policy hashes remain intact. v5 retries only a v4 `rendered_quote_unresolved`
+claim using the approved v3 Upstage mapping with identical SV1 literal, quantity,
+visibility and EV1 layout guards. It records the successful reader per claim;
+failed/pending/missing OCR stays unresolved. The document-scoped page cache
+retains failed reservations and prevents repeat POSTs. Hosted fallback admits
+only prepared claim pages (original-page mapping), at most ten per run, and
+reserves standard USD0.011/page inside the existing run/day/event envelope.
+Settlement uses the existing OCR USD0.00165/page price snapshot; a cached page
+has no additional provider call. Evidence-only fallback is off.
+
+Luna element tagging reserves two per-response outputs before a logical dispatch
+(max_tokens4096 → reservation8192); wire requests still cap each response at4096.
+New role/context and aggregate output limits accommodate this bound. Actual
+usage is settled unchanged and provider-overrun fencing remains mandatory.
+Existing snapshots, token limits, ledgers, revisions and publications are never
+rewritten; an old insufficient budget cannot silently expand on resume. Create a
+new authorized bounded run instead. No API/DB column migration or dependency is
+required. Roll back new reader assignment to v4 while retaining v5 replay code
+and the corrected retry reservation; reverting that reservation restores RB3's
+known overrun defect. Paid pipeline and hosted deployment remain not_run.

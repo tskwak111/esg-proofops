@@ -554,6 +554,7 @@ def claim_source_policy_for(args):
         "upstage-ocr-page-v2",
         "upstage-ocr-page-v3",
         "upstage-ocr-page-v4",
+        "upstage-ocr-page-v5",
     }:
         from proofops.adapters.local.claim_source_policies import page_ocr_profile
 
@@ -988,6 +989,7 @@ def main():
             "upstage-ocr-page-v2",
             "upstage-ocr-page-v3",
             "upstage-ocr-page-v4",
+            "upstage-ocr-page-v5",
             "table-claim-spans-v1",
             "claim-source-v3",
         ],
@@ -1457,6 +1459,7 @@ def main():
             "upstage-ocr-page-v2",
             "upstage-ocr-page-v3",
             "upstage-ocr-page-v4",
+            "upstage-ocr-page-v5",
         }:
             if args.raster_ocr or args.native_quote_typography:
                 parser.error("page OCR requires no raster/native quote-typography composition")
@@ -1608,16 +1611,23 @@ def main():
                     capacity_refresh=getattr(args, "capacity_refresh", False),
                 )
             )
+            from proofops.application.tagging.service import output_reservation_tokens
+
             bound = settings["input_reservation_policy"]["reservation_input_tokens"]
+            output_bound = output_reservation_tokens(
+                model_id=settings["tagging_settings"]["model_id"],
+                max_tokens=4096,
+                synthetic=False,
+            )
             settings["budget_limits"]["input_tokens"] += bound * args.tagging_max_calls
-            settings["budget_limits"]["output_tokens"] += 4096 * args.tagging_max_calls
+            settings["budget_limits"]["output_tokens"] += output_bound * args.tagging_max_calls
             settings["budget_limits"]["roles"].append(
                 dict(
                     role="tagger",
                     max_calls=args.tagging_max_calls,
                     max_input_tokens=bound,
-                    max_output_tokens=4096,
-                    max_context_tokens=bound + 4096,
+                    max_output_tokens=output_bound,
+                    max_context_tokens=bound + output_bound,
                 )
             )
             if "decision_settings" in settings:

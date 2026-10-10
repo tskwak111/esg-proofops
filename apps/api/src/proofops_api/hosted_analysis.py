@@ -38,7 +38,13 @@ RENDERED_READER_POLICY = json.loads(
 )
 GATE_PASSED_RENDERED_READERS = frozenset(RENDERED_READER_POLICY["gate_passed"])
 KNOWN_RENDERED_READERS = frozenset(
-    {"upstage-ocr-page-v1", "upstage-ocr-page-v2", "upstage-ocr-page-v3", "upstage-ocr-page-v4"}
+    {
+        "upstage-ocr-page-v1",
+        "upstage-ocr-page-v2",
+        "upstage-ocr-page-v3",
+        "upstage-ocr-page-v4",
+        "upstage-ocr-page-v5",
+    }
 )
 FINALS_PROFILES = ("finals-unattended-v1", "finals-unattended-v2")
 

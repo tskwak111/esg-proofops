@@ -185,6 +185,16 @@ class TagRun:
         return canonical_hash(data)
 
 
+def output_reservation_tokens(*, model_id: str, max_tokens: int, synthetic: bool) -> int:
+    """Luna transports aggregate at most two schema responses per logical call.
+
+    Reserve both outputs before dispatch; wire max_tokens stays per response.
+    Synthetic and single-response transports retain their existing allowance.
+    """
+    attempts = 2 if not synthetic and model_id in ("gpt-6-luna", "openai/gpt-6-luna") else 1
+    return max_tokens * attempts
+
+
 def tag_replicates(
     packet: EvidencePacket,
     *,
@@ -481,7 +491,11 @@ def tag_replicates(
                         usage_store,
                         call,
                         input_tokens=input_tokens,
-                        max_output_tokens=settings.max_tokens,
+                        max_output_tokens=output_reservation_tokens(
+                            model_id=settings.model_id,
+                            max_tokens=settings.max_tokens,
+                            synthetic=settings.binding.synthetic,
+                        ),
                         pricing=pricing,
                         now=now(),
                     ):
