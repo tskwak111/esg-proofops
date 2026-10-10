@@ -23,7 +23,7 @@ from uuid import NAMESPACE_URL, uuid5
 from proofops.application.authorization import AuthContext
 from proofops.application.evidence.binding import ClaimContext, accept_binding, relation_tags_for
 from proofops.application.evidence.report_level import POLICIES as REPORT_LEVEL_POLICIES
-from proofops.application.evidence.report_level import check_report_level
+from proofops.application.evidence.report_level import check_report_level, scope_rejection_reason
 from proofops.application.evidence.retrieval import EvidencePacket
 from proofops.application.evidence.span_citations import verify_source_ref
 from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
@@ -976,6 +976,16 @@ class ReviewService:
                     )
                 names = MAPPINGS[body["track"]][element.element_id]
                 previous = [facts.get(name) for name in names]
+                scope_reason = scope_rejection_reason(
+                    element.element_id,
+                    element.evidence_refs,
+                    rulepack=inputs.rulepack,
+                    original=inputs.original,
+                    policy=element.reason_code,
+                )
+                if element.state == "present" and scope_reason:
+                    # Invalid present request cannot change the prior unknown revision.
+                    raise ReviewRejected(scope_reason)
                 report_level = (
                     element.state == "present"
                     and element.reason_code is not None

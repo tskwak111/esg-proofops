@@ -202,6 +202,7 @@ elements:
   scope_approval: approved_source_explicit
 - id: M2
   name: 적용범위
+  binding_policy: ACTIVITY_SCOPE_V2
   requirement: mandatory
   trigger: null
   source_scopes:

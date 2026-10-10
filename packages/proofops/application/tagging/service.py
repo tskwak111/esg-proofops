@@ -31,6 +31,7 @@ from proofops.application.budget import (
 )
 from proofops.application.evidence.binding import ClaimContext, accept_binding, relation_tags_for
 from proofops.application.evidence.packet_guard import PacketMetadata, guard_untrusted_packet
+from proofops.application.evidence.report_level import scope_rejection_reason
 from proofops.application.evidence.retrieval import (
     EvidencePacket,
     evidence_issue_ids,
@@ -594,6 +595,15 @@ def tag_replicates(
                 errors.append("SUPERLATIVE_SOURCE_INVALID")
             for element in raw_tags.elements:
                 state = element.state
+                scope_reason = scope_rejection_reason(
+                    element.element_id,
+                    element.evidence_refs,
+                    rulepack=rulepack,
+                    original=original,
+                    policy=element.reason_code,
+                )
+                if state == "present" and scope_reason:
+                    state = "unknown"
                 refs = []
                 scope_set = set()
                 if state == "present":
@@ -662,6 +672,8 @@ def tag_replicates(
                     errors.append("DETERMINISTIC_CHECK_REQUIRED:P6")
                 if state in ("unknown", "conflict"):
                     errors.append(f"UNRESOLVED:{element.element_id}")
+                    if scope_reason:
+                        errors.append(f"{scope_reason}:{element.element_id}")
                 scope = next(
                     (
                         scope
@@ -689,6 +701,9 @@ def tag_replicates(
                         evidence_refs=tuple(refs) if state == "present" else element.evidence_refs,
                         normalized_value=element.normalized_value if state == "present" else None,
                         credited_from=element.credited_from if state == "present" else None,
+                        reason_code=scope_reason
+                        if scope_reason and state == "unknown"
+                        else element.reason_code,
                     )
                 )
             guarded_tags = replace(raw_tags, elements=tuple(elements))

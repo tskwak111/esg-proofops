@@ -16,7 +16,13 @@ from proofops.application.evidence.missing import (
     literal_hits,
     search_elements,
 )
-from proofops.application.evidence.report_level import POLICIES, check_report_level
+from proofops.application.evidence.report_level import (
+    ACTIVITY_SCOPE_V2,
+    POLICIES,
+    check_report_level,
+    report_level_policies,
+    scope_rejection_reason,
+)
 from proofops.application.evidence.span_citations import verify_source_ref
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
@@ -260,8 +266,14 @@ def validated_present_refs(elements, inputs, claim, graph):
             continue
         eid = element["element_id"]
         policy = element.get("reason_code")
+        if scope_rejection_reason(
+            eid, refs, rulepack=inputs.rulepack, original=graph, policy=policy
+        ):
+            continue
         if policy in POLICIES.values():
-            accepted = POLICIES.get(eid) == policy and check_report_level(
+            accepted = report_level_policies(inputs.rulepack).get(
+                eid
+            ) == policy and check_report_level(
                 eid,
                 policy,
                 refs,
@@ -349,6 +361,23 @@ def missing_evidence(
     # Recheck citation/binding before reuse. Pin every input that affects search
     # and display, including graph quality and the currently validated facts.
     confirmed = validated_present_refs(elements, inputs, claim, graph)
+    if inputs is not None:
+        # New display artifact only; published tags and historical decisions are immutable.
+        checked = []
+        for element in elements:
+            reason = scope_rejection_reason(
+                element["element_id"],
+                [SourceRef(**r) for r in element.get("evidence_refs", ())],
+                rulepack=inputs.rulepack,
+                original=graph,
+                policy=element.get("reason_code"),
+            )
+            checked.append(
+                element | {"state": "unknown", "reason_code": reason}
+                if reason and element["state"] == "present"
+                else element
+            )
+        elements = checked
     pins = dict(
         **identity,
         claim_id=claim.claim_id,
@@ -361,6 +390,8 @@ def missing_evidence(
         document_search_sha256=document["artifact_sha256"],
         confirmed_refs_sha256=canonical_hash(confirmed),
     )
+    if inputs is not None and report_level_policies(inputs.rulepack)["M2"] == ACTIVITY_SCOPE_V2:
+        pins["scope_rulepack_sha256"] = inputs.rulepack.sha256
     element_key = "input:" + canonical_hash(pins)
     with jobs._transaction() as db:
         cached = jobs._raw(db, tenant, run_id, "element_evidence_search", element_key)
@@ -415,6 +446,18 @@ def missing_evidence(
         confirmed_refs=confirmed,
         candidate_refs=candidates,
     )
+    for item in result:
+        element = next((e for e in elements if e["element_id"] == item["element_id"]), {})
+        if element.get("reason_code") == "REPORT_WIDE_SCOPE_NOT_ACTIVITY_SCOPE" and element.get(
+            "state"
+        ) == "unknown":
+            item.update(
+                engine_state="unknown",
+                reason=element["reason_code"],
+                undetermined_reason="linkage_unclear",
+                evidence_status="undetermined",
+            )
+            item["search"]["reason_code"] = element["reason_code"]
     # First response and persisted/cached responses use identical nested key
     # ordering and JSON-native types; dictionary construction order is irrelevant.
     result = json.loads(canonical_json(result))
