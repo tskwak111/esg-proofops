@@ -1,4 +1,9 @@
 .hosted-analysis { display: grid; gap: 14px; align-content: start }
+.hosted-documents { display: grid; gap: 20px; list-style: none; margin: 0; padding: 0; min-width: 0 }
+.hosted-document { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--card-line); border-radius: 10px; min-width: 0; overflow-wrap: anywhere }
+.hosted-document h3 { margin: 0 }
+.hosted-pages { display: grid; gap: 12px; min-width: 0 }
+.hosted-pages details { overflow-x: auto }
 .hosted-analysis label { display: grid; gap: 6px; font-size: 13px; font-weight: 600 }
 .hosted-analysis input:not([type=file]) { min-height: 43px; border: 1px solid var(--line-2); border-radius: 8px; padding: 10px; background: #fff; color: var(--ink) }
 .hosted-analysis button { min-height: 43px; border: 0; border-radius: 8px; padding: 0 16px; background: var(--green); color: #fff; cursor: pointer; justify-self: start }

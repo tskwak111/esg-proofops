@@ -559,3 +559,33 @@ offline: actual admission, locks, leases and 1100-MiB per-process-tree guard app
 but imported original-provenance fixtures are never published as new analyses.
 Container memory is requested as 16 GiB; actual VM memory and sampled RSS must be
 reported separately. No deployment or real provider call is performed by PA3.
+
+## PI1 amendment — multiple reports from one invitation (2026-10-11)
+
+One redeemed invitation/session may upload and enqueue multiple documents.
+`HOSTED_USER_ACTIVE_RUNS` is a positive integer (default 1; finals setting 5).
+It limits a user's running slots across tenants, within `HOSTED_MAX_ACTIVE_RUNS`.
+Excess work stays queued, rather than returning USER_RUN_LIMIT. The active count
+includes queued, running and accounting_pending; pending accounting is retained
+but occupies no processing slot. Dispatch selects the oldest eligible queued run
+by created/run_id, preserving the same tenant/document exclusion and fenced lease.
+The eight-entry global queue is still a hard admission limit. Admission reserves
+the full run envelope even for work beyond the user's running-slot limit.
+
+`HOSTED_DAILY_RUNS` is a positive integer (default 10), replacing the global daily
+count literal. HOSTED_USER_DAILY_RUNS (default 6), USD1/run and USD7/day/event,
+provider reservation/settlement and archived spending remain independent gates.
+Idempotent retries replay before admission gates and never reserve twice.
+Runtime limits add user_active_runs/daily_runs; user_outstanding remains as a
+compatibility alias for the configured soft window. Run projections add
+user_active_count (including accounting_pending) and user_processing_count.
+No database schema migration, request change or dependency is required. Old run
+records and immutable results remain readable. The web keeps document-local
+scope, status, result and error state, and polls each accepted run independently.
+
+Rollback: close new acceptance, drain queued/running jobs, retain unresolved
+costs and all saved profiles/results, set HOSTED_USER_ACTIVE_RUNS=1 and
+HOSTED_DAILY_RUNS=10. These values restore processing/count defaults; queueing
+remains supported. A binary rollback to b523dd2 restores USER_RUN_LIMIT, so first
+drain multi-document work and use its matching frontend. Never reset accounting
+or budgets to unblock a user. PI1 performs no deployment or paid provider calls.
