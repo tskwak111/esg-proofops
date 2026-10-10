@@ -670,7 +670,12 @@ class RunService:
                 }:
                     from proofops.adapters.local import evidence_source_ocr_v1 as evidence
 
-                snapshot["evidence_source_policy"] = _detach(evidence.policy())
+                # EV1 accepts only a nonempty evidence-only page selection.
+                # All-claim scopes retain their normal claim/native verification.
+                if set(snapshot["selected_pages"]) - set(
+                    self.parser_profile.get("claim_physical_pages", ())
+                ):
+                    snapshot["evidence_source_policy"] = _detach(evidence.policy())
         if self.extraction_profile is not None:
             snapshot.update(
                 extraction_profile=asdict(self.extraction_profile),
