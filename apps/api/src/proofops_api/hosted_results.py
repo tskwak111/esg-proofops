@@ -6,7 +6,6 @@ from contextlib import contextmanager
 from dataclasses import asdict
 from pathlib import Path
 
-from proofops.adapters.local.claim_store import LocalClaimStore
 from proofops.adapters.local.review_store import LocalSQLiteReviewStore
 from proofops.adapters.local.run_store import LocalSQLiteRunStore
 from proofops.adapters.local.tag_store import LocalTagStore
@@ -29,8 +28,8 @@ def services(path: Path, tenant: str):
     uploads = UploadService(database, path / "objects", registry)
     runs = LocalSQLiteRunStore(database)
     parser = OpenDataLoaderParser(path / "parser-prepared")
-    claims = LocalClaimStore(runs, uploads, parser)
     tags = LocalTagStore(runs, uploads, parser)
+    claims = tags.claims
     reviews = ReviewService(
         LocalSQLiteReviewStore(runs.jobs),
         load_inputs=tags.load_inputs,
@@ -73,13 +72,19 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                 page_map=selected_pages,
             )
         rows = []
-        tag_snapshot = tags.load_snapshot(tenant, run) if "tag_job" in state else {}
+        if "tag_job" in state:
+            # This existing reader verifies both the tag checkpoint pins and
+            # the complete source/claim evidence. Reuse its evidence under the
+            # publisher's analysis.lock instead of repeating the same replay.
+            tag_snapshot, evidence = tags._load_snapshot_with_evidence(tenant, run)
+        else:
+            tag_snapshot, evidence = {}, claims.load_evidence(tenant, run)
         projections = {r["claim_id"]: r for r in tag_snapshot.get("claims", [])}
         reasons = {cid: r.get("reason") for cid, r in projections.items()}
         # The publisher holds analysis.lock; these source artifacts cannot change
         # while building this snapshot. Replay all source guards once, then retain
         # the same graph for every claim's identity-checked missing-evidence search.
-        _, discovery, original_graph = claims.load_evidence(tenant, run)
+        _, discovery, original_graph = evidence
         for claim in discovery.claims:
             current = claims.current_tag(tenant, run, claim.claim_id)
             summary = claims.summary(claim, current)

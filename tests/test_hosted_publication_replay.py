@@ -46,3 +46,39 @@ def test_publication_loads_claim_evidence_once(settings, monkeypatch):
     assert len(result["claims"]) == 2
     assert all(c["confirmed_grade"] is None for c in result["claims"])
     assert len(calls) == 1
+
+
+def test_tagged_publication_replays_source_once_across_both_stores(settings, monkeypatch):
+    from proofops.adapters.local.claim_store import LocalClaimStore
+
+    load = LocalClaimStore.load_evidence
+    replay = hosted_results.read_result
+    evidence_calls = []
+    publication_counts = []
+
+    def tracked(*args, **kwargs):
+        evidence_calls.append(1)
+        return load(*args, **kwargs)
+
+    def published(*args):
+        before = len(evidence_calls)
+        result = replay(*args)
+        publication_counts.append(len(evidence_calls) - before)
+        return result
+
+    monkeypatch.setattr(LocalClaimStore, "load_evidence", tracked)
+    monkeypatch.setattr(hosted_results, "read_result", published)
+    store = HostedStore(settings)
+    auth = actor(store)
+    doc = store.upload(auth, source_pdf(), "fx4-replay-upload01", now=time.time())
+    store.create_run(
+        auth,
+        doc["document_id"],
+        [1, 2],
+        "fx4-replay-run00001",
+        now=time.time(),
+        pipeline_profile="strict-v1",
+    )
+    done = store.tick(now=time.time(), analysis=fake_analysis)
+    assert len(store.get_result(auth.tenant_id, done["run_id"])["claims"]) == 2
+    assert publication_counts == [1]
