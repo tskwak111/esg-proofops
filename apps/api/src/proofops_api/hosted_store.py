@@ -10,6 +10,7 @@ import fcntl
 import hashlib
 import hmac
 import json
+import logging
 import os
 import secrets
 import shutil
@@ -1353,6 +1354,9 @@ class HostedStore:
                 else "ANALYSIS_WORKER_FAILED"
                 if prepared is not None
                 else "PREPARE_FAILED"
+            )
+            logging.getLogger(__name__).warning(
+                "hosted run %s failed: %s (%s)", job["run_id"], code, type(exc).__name__
             )
             with self.transaction() as db:
                 row = db.execute(
