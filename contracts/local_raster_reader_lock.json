@@ -1,0 +1,22 @@
+{
+  "schema": "local_raster_reader_lock_v1",
+  "profile": "tesseract-cpu-raster-v1",
+  "debian_packages": {
+    "tesseract-ocr": "5.5.0-1+b1",
+    "libtesseract5": "5.5.0-1+b1",
+    "tesseract-ocr-eng": "1:4.1.0-2",
+    "tesseract-ocr-kor": "1:4.1.0-2"
+  },
+  "tesseract_version": "5.5.0",
+  "languages_sha256": {
+    "kor": "6b85e11d9bbf07863b97b3523b1b112844c43e713df8b66418a081fd1060b3b2",
+    "eng": "7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2"
+  },
+  "license": "Apache-2.0",
+  "dpi": 216,
+  "psm": 6,
+  "oem": 1,
+  "omp_thread_limit": 1,
+  "timeout_seconds": 30,
+  "max_pixels": 16000000
+}
