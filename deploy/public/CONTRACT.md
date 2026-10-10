@@ -467,3 +467,66 @@ new authorized bounded run instead. No API/DB column migration or dependency is
 required. Roll back new reader assignment to v4 while retaining v5 replay code
 and the corrected retry reservation; reverting that reservation restores RB3's
 known overrun defect. Paid pipeline and hosted deployment remain not_run.
+
+## PA1 amendment — bounded worker concurrency and provider causes (2026-10-11)
+
+`HOSTED_MAX_ACTIVE_RUNS` admits only 1 (default) or 2. The existing single worker
+CLI drives that many isolated analysis subprocesses; claims use the same atomic
+writer transaction. Two runs of one tenant/document cannot hold active slots
+together. Document locks, renewable fenced leases, user outstanding limits and
+USD1.0/run, USD7/day/event reservations and settlement remain mandatory.
+With two slots, each analysis/parser/OCR process tree is sampled every two seconds
+and stopped above 1100 MiB RSS (`ANALYSIS_MEMORY_LIMIT`). Timeout, lease failure and
+exit reap its private process group so inherited document locks do not survive.
+The existing 2560 MiB worker cgroup remains the aggregate hard ceiling. Sampling
+is a guard, not a proof of Linux peak memory; a target-host canary is required
+before the coordinator enables two slots. No deployment is performed by PA1.
+
+New v2 snapshots pin `exact-verified-read-v1`: successful cold recomputation may
+be reused only for identical tenant, source bytes, graph, discovery, receipt,
+reader policy, runtime/toolchain and read profile. Concurrent identical cold
+reads coalesce. Process-only serialized results are bounded to four entries /
+32 MiB; failed or unavailable reads are not retained. No provider responses,
+replicas, admissions, unknown states, grade rules or published revisions change.
+The pre-PA1 HF1 profile hash remains an accepted historical policy. Older snapshots
+keep caching disabled; original OCR/verifier files and receipt policies are intact.
+
+Provider failures retain uncertain costs and envelopes as accounting_pending.
+Upstage 403 with bounded JSON code api_key_is_not_allowed records
+PROVIDER_CREDIT_EXHAUSTED; 401, other403, 429 and 5xx record PROVIDER_AUTH_FAILED,
+PROVIDER_ACCESS_DENIED, PROVIDER_RATE_LIMITED and PROVIDER_UNAVAILABLE. Raw bodies
+and keys are never exposed. Existing OpenAI/OpenRouter limit codes stay stored
+unchanged; compatible optional provider_error_code/provider_error_message fields
+give the specific cause. Accounting-pending runs stop polling and show the cause;
+a later LEASE_LOST cannot overwrite it. The parent logs the retained cause once.
+
+No SQLite column migration or new application dependency is required. Rollback:
+stop new acceptance, drain/stop both slots, set HOSTED_MAX_ACTIVE_RUNS=1 and stop
+assigning new PA1 profiles. Retain the new policy reader for saved PA1 snapshots;
+an eae1599 reader rejects their new hash. Preserve all costs, receipts and revisions.
+
+## PA2 amendment — extraction execution and checkpoint settings (2026-10-11)
+
+New v2 analysis policies pin `exact-verified-read-v2`. A whole v6 claim attestation
+just produced by the trusted source reader may satisfy immediate replay only when
+its canonical bytes, ordered refs, run, tenant, source bytes, graph, current reader
+policy, runtime/toolchain and read profile match. The projection uses the existing
+byte-pinned replay tail. Fresh receipts share PA1's four-entry / 32-MiB process-only
+bound with replay results; transient/unavailable reads retry normally. Historical
+PA1 and earlier policy hashes remain readable with their original execution path.
+
+Under this new policy, the first prepared page's LLM calls overlap preparation of
+the remaining pages in the existing isolated CPU pool. Discovery consumes source
+order; tagging still waits for the complete source-attested extract snapshot.
+The pre-call owner/cancellation/fencing check and lease renewal use one existing
+heartbeat transaction. Reservations, response fsync and settlement remain atomic
+per provider attempt; 429 handling and uncertain-cost stops are unchanged.
+
+Operator JSON may set `llm_max_workers` (1–16, default 8) and `extract_batch_calls`
+(1–256, default 20). A larger batch groups checkpoint publications, not money
+reservations. The existing `extraction_limits.max_calls` contract freezes that
+window when preparing a NEW run; resuming a stored run cannot enlarge its limit.
+No public request field, DB migration or dependency is added. Rollback: prepare
+future runs with the PA1 builder/defaults while retaining PA2 readers for existing
+PA2 snapshots; the PA1 binary rejects their new policy hash. No deployment or
+server setting change is performed by PA2.

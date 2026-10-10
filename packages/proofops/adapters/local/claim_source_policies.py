@@ -218,9 +218,22 @@ def attest_claims(*, reader, graph, source, refs, tenant_id, cache, run_id=None)
         "upstage-ocr-page-v7",
         "upstage-ocr-page-v8",
     }:
-        return reader.attest_claim_spans(
+        refs = tuple(refs)
+        receipt = reader.attest_claim_spans(
             graph, source, tuple(refs), tenant_id=tenant_id, run_id=run_id
         )
+        from proofops.adapters.local.verified_read_cache import remember_fresh_attestation
+
+        remember_fresh_attestation(
+            reader=reader,
+            policy=reader.claim_source_policy(),
+            receipt=receipt,
+            graph=graph,
+            source=source,
+            refs=refs,
+            tenant_id=tenant_id,
+        )
+        return receipt
     if cache and reader not in _wrappers():
         from proofops.adapters.local.native_replay_cache import attest_claims_cached
 

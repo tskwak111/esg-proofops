@@ -40,6 +40,23 @@ V2_HF1_POLICY = V2_PRE_HF1_POLICY | dict(
     citation_restore="citation-whitespace-partial-v1",
     grade_display="actual-gap-hold-v2",
 )
+V2_PRE_PA1_POLICY = V2_HF1_POLICY
+VERIFIED_READ_POLICY = dict(
+    profile="exact-verified-read-v1",
+    max_bytes=32 * 1024 * 1024,
+    max_entries=4,
+    cold_read="single-flight",
+    failure_cache=False,
+    persistent=False,
+)
+V2_PRE_PA2_POLICY = V2_HF1_POLICY | dict(verified_read_cache=VERIFIED_READ_POLICY)
+VERIFIED_READ_V2_POLICY = VERIFIED_READ_POLICY | dict(
+    profile="exact-verified-read-v2",
+    fresh_attestation="whole-byte-identical-v6",
+    page_preparation="source-order-pipeline-v1",
+    provider_fence="atomic-heartbeat-v1",
+)
+V2_PA2_POLICY = V2_HF1_POLICY | dict(verified_read_cache=VERIFIED_READ_V2_POLICY)
 
 V2_PB1_INITIAL_POLICY = V2_HF1_POLICY | dict(
     extraction_pb1="pb1-v1",
@@ -59,10 +76,12 @@ V2_PB2_INITIAL_POLICY = V2_PB1_POLICY | dict(
 V2_PB2_ALL_CLAIMS_POLICY = V2_PB2_INITIAL_POLICY | dict(
     preliminary_fact_fields="preliminary-fact-fields-pb2-v1"
 )
-V2_POLICY = V2_PB2_ALL_CLAIMS_POLICY | dict(
+V2_PB2_POLICY = V2_PB2_ALL_CLAIMS_POLICY | dict(
     preliminary_fact_fields_scope="table_claims",
     table_cell_relations="attested-p1-p2-cells-pb2-v1",
 )
+# Integration: PB2 extraction/tagging with PA2 exact-replay speedups.
+V2_POLICY = V2_PB2_POLICY | dict(verified_read_cache=VERIFIED_READ_V2_POLICY)
 
 
 def policy_for(profile, *, pinned_hash=None):
@@ -71,11 +90,14 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            V2_PB2_POLICY,
             V2_PB2_ALL_CLAIMS_POLICY,
             V2_PB2_INITIAL_POLICY,
             V2_PB1_POLICY,
             V2_PB1_COMPACT_POLICY,
             V2_PB1_INITIAL_POLICY,
+            V2_PA2_POLICY,
+            V2_PRE_PA2_POLICY,
             V2_HF1_POLICY,
             V2_PRE_HF1_POLICY,
             V2_INITIAL_POLICY,

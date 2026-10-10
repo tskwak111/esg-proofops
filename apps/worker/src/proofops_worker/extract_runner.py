@@ -26,6 +26,7 @@ from proofops.adapters.local.claim_store import (
 )
 from proofops.adapters.local.run_artifacts import load_run_graph
 from proofops.adapters.local.upstage import UPSTAGE_TRANSPORT_STOP_CODES
+from proofops.adapters.local.verified_read_cache import fresh_execution_enabled
 from proofops.adapters.parsing.opendataloader import ParseFailure
 from proofops.application.authorization import AuthContext
 from proofops.application.claim_scope import MAX_EXTRACTION_BATCH_CALLS, validate_extraction_limits
@@ -81,7 +82,23 @@ def _is_text_candidate(kind: str, text: str, *, extraction_table_rows=False) -> 
     return kind == "paragraph" or (kind == "heading" and len(text.strip()) >= 60)
 
 
-def prefetch_packets(packets, invoke, *, max_workers=16, on_page=None):
+def fence_provider_call(runner, lease, usage):
+    """One atomic owner/cancellation check plus renewal for the PA2 policy.
+
+    heartbeat uses the same _owned guard as can_call, inside its own writer
+    transaction. Cost reservations and settlement still happen per attempt.
+    """
+    if not fresh_execution_enabled() and not runner.store.jobs.can_call(
+        lease, now=int(runner.clock())
+    ):
+        raise StageFailure("LEASE_LOST", usage=usage)
+    try:
+        runner.store.jobs.heartbeat(lease, now=int(runner.clock()), lease_seconds=300)
+    except LeaseLost:
+        raise StageFailure("LEASE_LOST", usage=usage) from None
+
+
+def prefetch_packets(packets, invoke, *, max_workers=16, on_page=None, prepare_pages=None):
     """Run paid packets concurrently; replay their outcomes in source order."""
 
     def settle(packet):
@@ -91,6 +108,37 @@ def prefetch_packets(packets, invoke, *, max_workers=16, on_page=None):
             return error
 
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        if prepare_pages is not None:
+            pages = {}
+            for packet in packets:
+                pages.setdefault(packet["untrusted_document_data"]["page_num"], []).append(packet)
+            # Start a prepared page's calls while the next page's CPU preparation
+            # proceeds. Discovery still consumes source order, and v2 tagging
+            # still waits for the complete, source-attested extraction snapshot.
+            pending = {}
+            groups = list(pages.values())
+            # Read the first page, then prepare the remaining pages together so
+            # the existing process pool starts at most twice per batch.
+            groups = groups[:1] + (
+                [[packet for page in groups[1:] for packet in page]] if len(groups) > 1 else []
+            )
+            for page_packets in groups:
+                prepare_pages(page_packets)
+                for packet in page_packets:
+                    pending[pool.submit(settle, packet)] = packet
+            if on_page is None:
+                paid = {
+                    packet["untrusted_document_data"]["source_id"]: future.result()
+                    for future, packet in pending.items()
+                }
+                return {
+                    p["untrusted_document_data"]["source_id"]: paid[
+                        p["untrusted_document_data"]["source_id"]
+                    ]
+                    for p in packets
+                }
+        else:
+            pending = None
         if on_page is None:
             return dict(
                 zip(
@@ -99,7 +147,8 @@ def prefetch_packets(packets, invoke, *, max_workers=16, on_page=None):
                     strict=True,
                 )
             )
-        pending = {pool.submit(settle, packet): packet for packet in packets}
+        if pending is None:
+            pending = {pool.submit(settle, packet): packet for packet in packets}
         by_page, paid, counts = {}, {}, {}
         for packet in packets:
             page = packet["untrusted_document_data"]["page_num"]
@@ -526,9 +575,7 @@ class LocalExtractRunner:
                 profile_ = profile
 
                 def extract(self, packet):
-                    if not runner.store.jobs.can_call(lease, now=int(runner.clock())):
-                        raise StageFailure("LEASE_LOST", usage=usage)
-                    runner.store.jobs.heartbeat(lease, now=int(runner.clock()), lease_seconds=300)
+                    fence_provider_call(runner, lease, usage)
                     if not profile.synthetic:
                         authorization = check_local_upstage_binding(
                             binding=snapshot["runtime"],
@@ -579,9 +626,15 @@ class LocalExtractRunner:
                         for block in candidates[:remaining]
                     ]
 
-                    if hasattr(live_extractor, "prefetch"):
-                        live_extractor.prefetch(packets)
-                    paid = prefetch_packets(packets, live.extract, max_workers=self.max_workers)
+                    prepare = getattr(live_extractor, "prefetch", None)
+                    if prepare and not fresh_execution_enabled():
+                        prepare(packets)
+                    paid = prefetch_packets(
+                        packets,
+                        live.extract,
+                        max_workers=self.max_workers,
+                        **(dict(prepare_pages=prepare) if fresh_execution_enabled() else {}),
+                    )
                     sync_usage()
 
                     class PrefetchedLive:
@@ -758,11 +811,7 @@ class LocalExtractRunner:
                             self.calls = 0
 
                         def extract(self, packet):
-                            if not runner.store.jobs.can_call(lease, now=int(runner.clock())):
-                                raise StageFailure("LEASE_LOST", usage=usage)
-                            runner.store.jobs.heartbeat(
-                                lease, now=int(runner.clock()), lease_seconds=300
-                            )
+                            fence_provider_call(runner, lease, usage)
                             if is_real:
                                 data = packet["untrusted_document_data"]
                                 reason = (
@@ -845,8 +894,9 @@ class LocalExtractRunner:
                             for block in candidates
                         ]
                         base_extractor = selected_extractor
-                        if hasattr(live_extractor, "prefetch"):
-                            live_extractor.prefetch(packets)
+                        prepare = getattr(live_extractor, "prefetch", None)
+                        if prepare and not fresh_execution_enabled():
+                            prepare(packets)
                         if snapshot.get("pipeline_profile") == "finals-unattended-v1":
                             from proofops_worker.unattended_pipeline import PageTagPipeline
 
@@ -862,6 +912,7 @@ class LocalExtractRunner:
                             base_extractor.extract,
                             max_workers=self.max_workers,
                             on_page=page_pipeline.ready if page_pipeline else None,
+                            **(dict(prepare_pages=prepare) if fresh_execution_enabled() else {}),
                         )
 
                         class PrefetchedExtractor:

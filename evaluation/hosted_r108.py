@@ -69,7 +69,7 @@ def prepare_argv(pdf, state, tenant, config, options=None):
         "--vision-parse",
         "off",
         "--max-calls",
-        "20",
+        str(profiles["extract_batch_calls"]),
         "--extraction-total-calls",
         "2000",
         "--tagging-max-calls",
@@ -215,6 +215,15 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
         ),
     }
     os.environ["LOCAL_LLM_MAX_WORKERS"] = str(profiles["llm_max_workers"])
+    from proofops.application.analysis_profile import policy_for
+
+    execution = (
+        policy_for(profiles["analysis_profile"], pinned_hash=options.get("analysis_profile_sha256"))
+        if profiles["analysis_profile"] in FINALS_PROFILES
+        else {}
+    )
+    cache = execution.get("verified_read_cache", {})
+    os.environ["PROOFOPS_VERIFIED_READ_CACHE"] = cache.get("profile", "disabled")
     if profiles["analysis_profile"] in FINALS_PROFILES:
         os.environ["PROOFOPS_DISPLAY_PREFETCH_WORKERS"] = "4"
     observed = []

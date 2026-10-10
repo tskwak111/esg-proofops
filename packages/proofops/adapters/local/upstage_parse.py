@@ -162,7 +162,9 @@ class UpstageParseProbe(UpstageProbe):
             )
             response = connection.getresponse()
             if response.status != 200:
-                raise ValueError(f"UPSTAGE_HTTP_{response.status}")
+                from proofops.adapters.local.provider_errors import upstage_http_error
+
+                raise upstage_http_error(response)
             raw = response.read(MAX_RESPONSE_BYTES + 1)
             if len(raw) > MAX_RESPONSE_BYTES:
                 raise ValueError("UPSTAGE_RESPONSE_TOO_LARGE")
@@ -180,7 +182,9 @@ class UpstageParseProbe(UpstageProbe):
             )
             response = connection.getresponse()
             if response.status != 200:
-                raise ValueError(f"UPSTAGE_HTTP_{response.status}")
+                from proofops.adapters.local.provider_errors import upstage_http_error
+
+                raise upstage_http_error(response)
             raw = response.read(MAX_RESPONSE_BYTES + 1)
             if len(raw) > MAX_RESPONSE_BYTES:
                 raise ValueError("UPSTAGE_RESPONSE_TOO_LARGE")
@@ -389,7 +393,7 @@ class UpstageParseProbe(UpstageProbe):
             code = str(error)
             if code not in {
                 f"UPSTAGE_HTTP_{n}" for n in (400, 401, 403, 404, 429, 500, 502, 503)
-            } | {"UPSTAGE_RESPONSE_TOO_LARGE"}:
+            } | {"UPSTAGE_RESPONSE_TOO_LARGE", "UPSTAGE_API_KEY_IS_NOT_ALLOWED"}:
                 code = "UPSTAGE_REQUEST_FAILED"
             # Do not expose credential
             if self._api_key in code:

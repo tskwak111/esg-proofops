@@ -29,6 +29,7 @@ from typing import Any
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
 
+from proofops.adapters.local.provider_errors import MESSAGES, provider_error_code
 from proofops.application.authorization import MembershipRecord, SessionExpiredError, SessionRecord
 from proofops.application.uploads_security import (
     PdfLimits,
@@ -120,6 +121,7 @@ class HostedSettings:
     day_usd: Decimal = Decimal("7")
     event_usd: Decimal = Decimal("7")
     user_daily_runs: int = 6
+    max_active_runs: int = 1
 
     def __post_init__(self) -> None:
         from urllib.parse import urlsplit
@@ -142,6 +144,8 @@ class HostedSettings:
             )
         if self.backend not in {"r108", "legacy", "static"}:
             raise ValueError("invalid analysis backend")
+        if type(self.max_active_runs) is not int or self.max_active_runs not in (1, 2):
+            raise ValueError("HOSTED_RUN_CONCURRENCY_INVALID")
         if not self.live_disabled:
             from proofops_api.hosted_analysis import read_operator_config
 
@@ -199,6 +203,7 @@ class HostedSettings:
             day_usd=Decimal(env.get("HOSTED_DAY_USD", "7")),
             event_usd=Decimal(env.get("HOSTED_EVENT_USD", "7")),
             user_daily_runs=int(env.get("HOSTED_USER_DAILY_RUNS", "6")),
+            max_active_runs=int(env.get("HOSTED_MAX_ACTIVE_RUNS", "1")),
         )
 
 
@@ -663,6 +668,9 @@ class HostedStore:
             and row["status"] in {"completed", "partial_blocked"}
         )
         result = self._result(db, row) if ready and inline_result else None
+        raw_error = row["error_code"] or ""
+        provider = "openai" if raw_error.startswith("OPENAI_") else "openrouter"
+        cause = provider_error_code(provider, raw_error)
         return {
             "run_id": row["run_id"],
             "document_id": row["document_id"],
@@ -680,9 +688,10 @@ class HostedStore:
             "result_url": f'/v1/runs/{row["run_id"]}/result' if ready else None,
             "result": result,
             "error_code": row["error_code"],
-            "error_message": PROVIDER_LIMIT_MESSAGE
-            if row["error_code"] in ALL_PROVIDER_LIMIT_CODES
-            else None,
+            "error_message": MESSAGES.get(raw_error)
+            or (PROVIDER_LIMIT_MESSAGE if row["error_code"] in ALL_PROVIDER_LIMIT_CODES else None),
+            "provider_error_code": cause,
+            "provider_error_message": MESSAGES.get(cause),
             "retryable": False,
             "prepared_sha256": row["prepared_sha256"],
         }
@@ -1113,10 +1122,15 @@ class HostedStore:
                 )
             # Only an active fenced worker occupies the slot. Pending accounting
             # remains charged to its envelope/day/event; it cannot dispatch again.
-            if db.execute("SELECT 1 FROM runs WHERE status='running'").fetchone():
+            if db.execute("SELECT count(*) FROM runs WHERE status='running'").fetchone()[0] >= (
+                self.settings.max_active_runs
+            ):
                 return None
             row = db.execute(
-                "SELECT * FROM runs WHERE status='queued' ORDER BY created,run_id LIMIT 1"
+                "SELECT q.* FROM runs q WHERE q.status='queued' AND NOT EXISTS "
+                "(SELECT 1 FROM runs r WHERE r.status='running' AND "
+                "r.tenant_id=q.tenant_id AND r.document_id=q.document_id) "
+                "ORDER BY q.created,q.run_id LIMIT 1"
             ).fetchone()
             if row is None:
                 return None
@@ -1253,6 +1267,17 @@ class HostedStore:
             # operator reconciliation. Never release reservations or redeliver it.
             limit_code = str(exc)
             quota_blocked = limit_code in PROVIDER_LIMIT_CODES.get(provider, ())
+            cause = provider_error_code(provider, limit_code)
+            if cause:
+                logging.getLogger(__name__).warning(
+                    "hosted provider failure run=%s provider=%s cause=%s raw=%s",
+                    job["run_id"],
+                    provider,
+                    cause,
+                    limit_code
+                    if limit_code.startswith(("UPSTAGE_", "OPENAI_", "OPENROUTER_"))
+                    else cause,
+                )
             # An uncertain model transport is a per-claim hold, not a lost run fence.
             # Unknown receipts and non-model failures retain the existing terminal guard.
             model_network_failure = provider in {"openai", "openrouter"} and isinstance(
@@ -1272,7 +1297,7 @@ class HostedStore:
                         "WHERE run_id=? AND status='running' AND fence=?",
                         (
                             "failed" if quota_blocked else "accounting_pending",
-                            limit_code if quota_blocked else "ACCOUNTING_PENDING",
+                            limit_code if quota_blocked else cause or "ACCOUNTING_PENDING",
                             job["run_id"],
                             job["fence"],
                         ),
@@ -1355,13 +1380,12 @@ class HostedStore:
                 if prepared is not None
                 else "PREPARE_FAILED"
             )
-            logging.getLogger(__name__).warning(
-                "hosted run %s failed: %s (%s)", job["run_id"], code, type(exc).__name__
-            )
             with self.transaction() as db:
                 row = db.execute(
-                    "SELECT status,fence FROM runs WHERE run_id=?", (job["run_id"],)
+                    "SELECT status,fence,error_code FROM runs WHERE run_id=?", (job["run_id"],)
                 ).fetchone()
+                if row and (row[2] in MESSAGES or row[2] in ALL_PROVIDER_LIMIT_CODES):
+                    code = row[2]
                 if row and row[0] == "running" and row[1] == job["fence"]:
                     db.execute(
                         "UPDATE runs SET status='failed',error_code=?,lease_until=0 WHERE "
@@ -1369,6 +1393,9 @@ class HostedStore:
                         (code, job["run_id"]),
                     )
                     self._settle_envelope(db, job["run_id"])
+            logging.getLogger(__name__).warning(
+                "hosted run %s failed: %s (%s)", job["run_id"], code, type(exc).__name__
+            )
         try:
             return self.get_run(job["tenant_id"], job["run_id"])
         except HostedError as exc:

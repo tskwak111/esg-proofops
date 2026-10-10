@@ -7,10 +7,38 @@ import fcntl
 import json
 import os
 import time
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from contextlib import ExitStack
 from pathlib import Path
 
 from proofops_api.hosted_store import HostedError, HostedSettings, HostedStore, digest, micros, usd
+
+
+def worker_loop(store, *, once=False):
+    """Each slot launches an isolated analysis subprocess; DB claims remain atomic."""
+    with ThreadPoolExecutor(max_workers=store.settings.max_active_runs) as pool:
+        store.maintain(now=time.time())
+        if once:
+            futures = [
+                pool.submit(store.tick, now=time.time())
+                for _ in range(store.settings.max_active_runs)
+            ]
+            return [future.result() for future in futures]
+        active = set()
+        last_maintenance = time.monotonic()
+        while True:
+            if time.monotonic() - last_maintenance >= 60:
+                store.maintain(now=time.time())
+                last_maintenance = time.monotonic()
+            while len(active) < store.settings.max_active_runs:
+                active.add(pool.submit(store.tick, now=time.time()))
+            completed, active = wait(active, timeout=1, return_when=FIRST_COMPLETED)
+            idle = bool(completed)
+            for future in completed:
+                if future.result() is not None:
+                    idle = False
+            if idle:
+                time.sleep(1)
 
 
 def reconcile(store, receipt, evidence: Path, *, apply=False):
@@ -125,12 +153,7 @@ def main() -> None:
     elif args.command == "restore":
         store.restore(args.path, now=time.time())
     elif args.command == "worker":
-        while True:
-            store.maintain(now=time.time())
-            store.tick(now=time.time())
-            if args.once:
-                break
-            time.sleep(1)
+        worker_loop(store, once=args.once)
 
 
 if __name__ == "__main__":

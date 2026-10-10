@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import os
 from contextlib import contextmanager
 from dataclasses import asdict
 from pathlib import Path
@@ -38,7 +39,19 @@ def services(path: Path, tenant: str):
     )
     try:
         with reader_scope(ReplayOCRStore(path / "upstage.sqlite3")):
-            yield manifest["run_id"], claims, tags, reviews
+            previous_cache = os.environ.get("PROOFOPS_VERIFIED_READ_CACHE")
+            try:
+                snapshot = runs.snapshot(tenant, manifest["run_id"])
+                policy = snapshot.get("analysis_profile_policy", {})
+                os.environ["PROOFOPS_VERIFIED_READ_CACHE"] = policy.get(
+                    "verified_read_cache", {}
+                ).get("profile", "disabled")
+                yield manifest["run_id"], claims, tags, reviews
+            finally:
+                if previous_cache is None:
+                    os.environ.pop("PROOFOPS_VERIFIED_READ_CACHE", None)
+                else:
+                    os.environ["PROOFOPS_VERIFIED_READ_CACHE"] = previous_cache
     finally:
         uploads.close()
         registry.close()
@@ -91,6 +104,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             V2_PB1_POLICY,
             V2_PB2_ALL_CLAIMS_POLICY,
             V2_PB2_INITIAL_POLICY,
+            V2_PB2_POLICY,
             V2_POLICY,
         )
         from proofops.application.ingest.pb1_tables import observations, occurrence_groups
@@ -98,6 +112,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
 
         pb1 = tag_snapshot.get("analysis_profile_policy_sha256") in {
             canonical_hash(V2_POLICY),
+            canonical_hash(V2_PB2_POLICY),
             canonical_hash(V2_PB2_INITIAL_POLICY),
             canonical_hash(V2_PB2_ALL_CLAIMS_POLICY),
             canonical_hash(V2_PB1_POLICY),
@@ -129,6 +144,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                         summary["table_observation"] = row
                         if tag_snapshot.get("analysis_profile_policy_sha256") in {
                             canonical_hash(V2_POLICY),
+                            canonical_hash(V2_PB2_POLICY),
                             canonical_hash(V2_PB2_INITIAL_POLICY),
                             canonical_hash(V2_PB2_ALL_CLAIMS_POLICY),
                         }:
