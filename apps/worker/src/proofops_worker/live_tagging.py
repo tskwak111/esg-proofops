@@ -272,9 +272,11 @@ class LiveTaggingRuntime:
         )
 
     def _fence(self):
+        from proofops.adapters.local.verified_read_cache import _parse_enabled
+
         self._check_heartbeat()
         now = int(self.runner.clock())
-        if not self.runner.store.jobs.can_call(self.lease, now=now):
+        if not _parse_enabled() and not self.runner.store.jobs.can_call(self.lease, now=now):
             raise LeaseLost("LEASE_LOST")
         try:
             self.runner.store.jobs.heartbeat(self.lease, now=now, lease_seconds=300)

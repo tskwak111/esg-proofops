@@ -105,6 +105,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             V2_PB2_ALL_CLAIMS_POLICY,
             V2_PB2_INITIAL_POLICY,
             V2_PB2_POLICY,
+            V2_PB4_POLICY,
             V2_POLICY,
             V2_PRE_PB4_POLICY,
         )
@@ -113,6 +114,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
 
         pb1 = tag_snapshot.get("analysis_profile_policy_sha256") in {
             canonical_hash(V2_POLICY),
+            canonical_hash(V2_PB4_POLICY),
             canonical_hash(V2_PRE_PB4_POLICY),
             canonical_hash(V2_PB2_POLICY),
             canonical_hash(V2_PB2_INITIAL_POLICY),
@@ -146,6 +148,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                         summary["table_observation"] = row
                         if tag_snapshot.get("analysis_profile_policy_sha256") in {
                             canonical_hash(V2_POLICY),
+                            canonical_hash(V2_PB4_POLICY),
                             canonical_hash(V2_PRE_PB4_POLICY),
                             canonical_hash(V2_PB2_POLICY),
                             canonical_hash(V2_PB2_INITIAL_POLICY),

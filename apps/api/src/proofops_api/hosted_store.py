@@ -122,6 +122,8 @@ class HostedSettings:
     event_usd: Decimal = Decimal("7")
     user_daily_runs: int = 6
     max_active_runs: int = 1
+    user_active_runs: int = 1
+    daily_runs: int = 10
 
     def __post_init__(self) -> None:
         from urllib.parse import urlsplit
@@ -158,6 +160,8 @@ class HostedSettings:
             self.backup_days,
             self.audit_days,
             self.user_daily_runs,
+            self.user_active_runs,
+            self.daily_runs,
         ):
             if type(value) is not int or value <= 0:
                 raise ValueError("positive limits required")
@@ -204,6 +208,8 @@ class HostedSettings:
             event_usd=Decimal(env.get("HOSTED_EVENT_USD", "7")),
             user_daily_runs=int(env.get("HOSTED_USER_DAILY_RUNS", "6")),
             max_active_runs=int(env.get("HOSTED_MAX_ACTIVE_RUNS", "1")),
+            user_active_runs=int(env.get("HOSTED_USER_ACTIVE_RUNS", "1")),
+            daily_runs=int(env.get("HOSTED_DAILY_RUNS", "10")),
         )
 
 
@@ -671,6 +677,11 @@ class HostedStore:
         raw_error = row["error_code"] or ""
         provider = "openai" if raw_error.startswith("OPENAI_") else "openrouter"
         cause = provider_error_code(provider, raw_error)
+        user_counts = db.execute(
+            "SELECT count(*),coalesce(sum(status='running'),0) FROM runs WHERE user_hash=? "
+            "AND status IN ('queued','running','accounting_pending')",
+            (row["user_hash"],),
+        ).fetchone()
         return {
             "run_id": row["run_id"],
             "document_id": row["document_id"],
@@ -685,6 +696,8 @@ class HostedStore:
             "claims_extracted": counts["extracted"] if counts else 0,
             "claims_processed": counts["processed"] if counts else 0,
             "queue_position": queue if row["status"] == "queued" else None,
+            "user_active_count": user_counts[0],
+            "user_processing_count": user_counts[1],
             "result_url": f'/v1/runs/{row["run_id"]}/result' if ready else None,
             "result": result,
             "error_code": row["error_code"],
@@ -1025,16 +1038,15 @@ class HostedStore:
             if not (self.document_dir(auth.tenant_id, document) / "original.pdf").is_file():
                 raise HostedError("SOURCE_UNAVAILABLE")
             user = self.user_hash(auth.user_sub)
-            if db.execute(
-                "SELECT 1 FROM runs WHERE user_hash=? AND status IN "
-                "('queued','running','accounting_pending')",
-                (user,),
-            ).fetchone():
-                raise HostedError("USER_RUN_LIMIT", 429)
+            # Per-user slot pressure queues work; admission still reserves the
+            # complete envelope and checks the global queue, count and USD caps.
             if db.execute("SELECT count(*) FROM runs WHERE status='queued'").fetchone()[0] >= 8:
                 raise HostedError("QUEUE_FULL", 429)
             today = day(now)
-            for subject, maximum in ((user, self.settings.user_daily_runs), (None, 10)):
+            for subject, maximum in (
+                (user, self.settings.user_daily_runs),
+                (None, self.settings.daily_runs),
+            ):
                 query = "SELECT count(*) FROM deletion.spend WHERE day=?"
                 params: tuple = (today,)
                 if subject is not None:
@@ -1130,7 +1142,9 @@ class HostedStore:
                 "SELECT q.* FROM runs q WHERE q.status='queued' AND NOT EXISTS "
                 "(SELECT 1 FROM runs r WHERE r.status='running' AND "
                 "r.tenant_id=q.tenant_id AND r.document_id=q.document_id) "
-                "ORDER BY q.created,q.run_id LIMIT 1"
+                "AND (SELECT count(*) FROM runs u WHERE u.user_hash=q.user_hash "
+                "AND u.status='running')<? ORDER BY q.created,q.run_id LIMIT 1",
+                (self.settings.user_active_runs,),
             ).fetchone()
             if row is None:
                 return None

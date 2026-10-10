@@ -32,6 +32,7 @@ export type HostedRun = {
   run_id: string; document_id: string; status: string; selected_pages: number[]; status_url: string;
   error_code: string | null; stage?: string | null; queue_position?: number | null; progress?: number | null;
   provider_error_code?: string | null; provider_error_message?: string | null;
+  user_active_count?: number; user_processing_count?: number;
   claims_extracted?: number; claims_processed?: number;
   result_url?: string | null; result?: HostedResult | null;
 };
@@ -108,12 +109,18 @@ const codeMessages: Record<string, string> = {
   PAGE_SELECTION_INVALID: "쪽 선택을 확인해 주세요. 주장 최대 10쪽, 근거 검색 최대 30쪽이며 주장 쪽을 근거 검색 범위에 포함해야 합니다.",
   IDEMPOTENCY_CONFLICT: "같은 요청 키로 다른 내용이 전송되었습니다. 처음부터 다시 시도해 주세요.",
   IDEMPOTENCY_KEY_INVALID: "요청 키가 올바르지 않습니다. 다시 시도해 주세요.",
-  USER_RUN_LIMIT: "이미 진행 중인 분석이 있습니다. 끝난 뒤 다시 시도해 주세요.",
-  QUEUE_FULL: "대기열이 가득 찼습니다. 잠시 후 다시 시도해 주세요.",
-  DAILY_RUN_LIMIT: "오늘의 분석 가능 횟수에 도달했습니다. 내일 다시 이용해 주세요.",
-  BUDGET_EXCEEDED: "분석 비용 상한(실행 USD 1.0, 일·행사 USD 7)에 도달했습니다. 남은 주장은 예산 상한으로 미분석 표시됩니다.",
+  USER_RUN_LIMIT: "이 서버의 사용자별 접수 한도에 도달했습니다. 진행 중인 분석을 확인하거나 운영자에게 문의해 주세요.",
+  QUEUE_FULL: "서버 대기열(최대 8건)이 가득 찼습니다. 업로드한 문서는 유지됩니다. 대기 작업이 줄어든 뒤 분석 시작을 다시 눌러 주세요.",
+  DAILY_RUN_LIMIT: "오늘의 사용자별 또는 서버 전체 분석 횟수 한도에 도달했습니다. 업로드한 문서는 유지됩니다. 내일 다시 접수해 주세요.",
+  BUDGET_EXCEEDED: "새 분석의 비용을 예약할 수 없습니다. 실행·일·행사 예산 상한 또는 정산 보류 금액을 운영자가 확인해야 합니다. 업로드한 문서는 유지되며 이번 분석은 접수되지 않았습니다.",
+  BUDGET_EXHAUSTED: "예약한 분석 예산이 소진되어 남은 항목을 처리하지 못했습니다. 운영자에게 비용 기록 확인을 요청해 주세요.",
+  PROVIDER_CREDIT_EXHAUSTED: "분석 API 크레딧이 부족합니다. 운영자의 충전 확인이 필요합니다.",
+  PROVIDER_AUTH_FAILED: "분석 API 인증에 실패했습니다. 운영자의 키 확인이 필요합니다.",
+  PROVIDER_ACCESS_DENIED: "분석 API 사용 권한이 거부되었습니다. 운영자 확인이 필요합니다.",
+  PROVIDER_RATE_LIMITED: "분석 API 요청 한도에 도달했습니다. 운영자 확인 후 다시 접수해 주세요.",
+  PROVIDER_UNAVAILABLE: "분석 API에 일시적인 서버 오류가 발생했습니다. 운영자에게 상태 확인을 요청해 주세요.",
   RATE_LIMITED: "요청이 많습니다. 잠시 후 다시 시도해 주세요.",
-  ACCOUNTING_PENDING: "비용 정산 확인 중이라 새 분석을 접수할 수 없습니다.",
+  ACCOUNTING_PENDING: "이 분석은 응답 비용을 확정하지 못해 정산 확인 중입니다. 예약 금액은 유지되며 운영자 확인이 필요합니다.",
   DEPENDENCY_UNAVAILABLE: "서버 저장소를 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.",
   ANALYSIS_RESULT_UNAVAILABLE: "분석 결과가 아직 준비되지 않았습니다. 잠시 후 다시 확인해 주세요.",
   RESULT_INTEGRITY_UNAVAILABLE: "원본 PDF와 분석 기록의 일치를 확인하지 못해 결과를 표시하지 않습니다. 빈 결과가 아닙니다.",
@@ -132,6 +139,7 @@ const pdfRejections = /PDF|ENCRYPT|PASSWORD|PAGE|ACTIVE|MALFORMED|LIMIT/i;
 
 export function describeError(error: HostedApiError): string {
   const { status, code, retryAfter } = error;
+  if (codeMessages[code] && !["QUEUE_FULL", "RATE_LIMITED"].includes(code)) return codeMessages[code];
   if (status === 429) {
     const wait = retryAfter ? ` ${retryAfter}초 뒤에 다시 시도해 주세요.` : " 잠시 후 다시 시도해 주세요.";
     return (codeMessages[code] ?? "요청이 너무 많습니다.") + wait;

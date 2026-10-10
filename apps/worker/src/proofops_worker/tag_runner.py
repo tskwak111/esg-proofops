@@ -23,6 +23,7 @@ from proofops.adapters.local.gri_routing import LocalGRIRouting
 from proofops.adapters.local.review_store import LocalSQLiteReviewStore
 from proofops.adapters.local.tag_cache import SQLiteImmutableCacheClient
 from proofops.adapters.local.tag_store import LocalTagStore, tag_pins, tagging_settings
+from proofops.adapters.local.verified_read_cache import _parse_enabled
 from proofops.application.evidence.citations import _normalized
 from proofops.application.evidence.retrieval import (
     SearchResult,
@@ -552,10 +553,18 @@ class LocalTagRunner:
                     # lost in-flight. The fenced usage wrapper below stops BEFORE reservation.
                     if heartbeat_state is not None:
                         heartbeat_state.check()
-                    if not self.store.jobs.can_call(lease, now=int(self.clock())):
+                    if not _parse_enabled() and not self.store.jobs.can_call(
+                        lease, now=int(self.clock())
+                    ):
                         raise _TagFenceLost()
                     try:
                         self.store.jobs.heartbeat(lease, now=int(self.clock()), lease_seconds=300)
+                    except LeaseLost:
+                        if _parse_enabled():
+                            raise _TagFenceLost() from None
+                        if heartbeat_state is not None:
+                            heartbeat_state.fail()
+                        raise TagHeartbeatFailed() from None
                     except Exception:
                         if heartbeat_state is not None:
                             heartbeat_state.fail()
@@ -576,12 +585,20 @@ class LocalTagRunner:
                     def reserve_budget(self, *args, **kwargs):
                         if heartbeat_state is not None:
                             heartbeat_state.check()
-                        if not runner.store.jobs.can_call(lease, now=int(runner.clock())):
+                        if not _parse_enabled() and not runner.store.jobs.can_call(
+                            lease, now=int(runner.clock())
+                        ):
                             raise LeaseLost("LEASE_LOST")
                         try:
                             runner.store.jobs.heartbeat(
                                 lease, now=int(runner.clock()), lease_seconds=300
                             )
+                        except LeaseLost:
+                            if _parse_enabled():
+                                raise
+                            if heartbeat_state is not None:
+                                heartbeat_state.fail()
+                            raise TagHeartbeatFailed() from None
                         except Exception:
                             if heartbeat_state is not None:
                                 heartbeat_state.fail()

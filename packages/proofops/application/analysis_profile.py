@@ -57,6 +57,15 @@ VERIFIED_READ_V2_POLICY = VERIFIED_READ_POLICY | dict(
     provider_fence="atomic-heartbeat-v1",
 )
 V2_PA2_POLICY = V2_HF1_POLICY | dict(verified_read_cache=VERIFIED_READ_V2_POLICY)
+V2_PRE_PA3_POLICY = V2_PA2_POLICY
+VERIFIED_READ_V3_POLICY = VERIFIED_READ_V2_POLICY | dict(
+    profile="exact-verified-read-v3",
+    fresh_parse_attestation="whole-native-v6-and-evidence-ocr-v1",
+    cold_evidence_replay="one-full-byte-matched-attestation-v1",
+    tag_fence="atomic-heartbeat-v1",
+)
+# Deployed as ec1-arm64-b523dd2 / e7837e0: HF1 sources with PA3 exact-replay reuse.
+V2_PA3_POLICY = V2_HF1_POLICY | dict(verified_read_cache=VERIFIED_READ_V3_POLICY)
 
 V2_PB1_INITIAL_POLICY = V2_HF1_POLICY | dict(
     extraction_pb1="pb1-v1",
@@ -80,11 +89,13 @@ V2_PB2_POLICY = V2_PB2_ALL_CLAIMS_POLICY | dict(
     preliminary_fact_fields_scope="table_claims",
     table_cell_relations="attested-p1-p2-cells-pb2-v1",
 )
-# Integration: PB2 extraction/tagging with PA2 exact-replay speedups.
+# Local PB2+PA2 integration (never deployed); kept for replay of measurement runs.
 V2_PRE_PB4_POLICY = V2_PB2_POLICY | dict(verified_read_cache=VERIFIED_READ_V2_POLICY)
-V2_POLICY = V2_PRE_PB4_POLICY | dict(
+V2_PB4_POLICY = V2_PRE_PB4_POLICY | dict(
     source="upstage-ocr-page-v9", table_native_ownership="all-selected-cells-pb4-v1"
 )
+# Integration: PB4 table extraction/v9 sources with PA3 replay reuse.
+V2_POLICY = V2_PB4_POLICY | dict(verified_read_cache=VERIFIED_READ_V3_POLICY)
 
 
 def policy_for(profile, *, pinned_hash=None):
@@ -93,6 +104,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            V2_PB4_POLICY,
             V2_PRE_PB4_POLICY,
             V2_PB2_POLICY,
             V2_PB2_ALL_CLAIMS_POLICY,
@@ -100,6 +112,7 @@ def policy_for(profile, *, pinned_hash=None):
             V2_PB1_POLICY,
             V2_PB1_COMPACT_POLICY,
             V2_PB1_INITIAL_POLICY,
+            V2_PA3_POLICY,
             V2_PA2_POLICY,
             V2_PRE_PA2_POLICY,
             V2_HF1_POLICY,

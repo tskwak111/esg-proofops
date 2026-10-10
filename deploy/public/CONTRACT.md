@@ -530,3 +530,62 @@ No public request field, DB migration or dependency is added. Rollback: prepare
 future runs with the PA1 builder/defaults while retaining PA2 readers for existing
 PA2 snapshots; the PA1 binary rejects their new policy hash. No deployment or
 server setting change is performed by PA2.
+
+## PA3 amendment — whole parse proofs and tagging fences (2026-10-11)
+
+New v2 analysis snapshots pin `exact-verified-read-v3`; the previous PA2 hash
+remains an accepted frozen policy with its original execution path. V3 extends
+the same four-entry / 32-MiB process-only bound to whole native-v6 and EV1 OCR
+attestations produced by the trusted parser. Reuse requires identical canonical
+receipt bytes, tenant/run provenance, original PDF, complete graph, current
+reader/runtime/toolchain and read profile. Unavailable/error reads retry normally.
+Source verifier files, source receipt schemas and stored snapshots stay intact.
+
+Cold EV1 OCR replay performs one complete source attestation and compares every
+receipt field before projecting the byte-pinned original replay tail. It retains
+the BASE receipt's span identity, table membership and unresolved binding state.
+Transient reads and unknown reader builds retain the original replay path.
+
+V3 combines the tagging call's owner/cancellation/fencing check and lease renewal
+in the existing atomic heartbeat transaction. Provider reservations, dispatch
+markers, response fsync and per-attempt settlement remain separate and mandatory.
+Each tagging ensemble still has three distinct replica IDs and responses; packet
+freezing, consensus, citation restoration and pure Python grades are unchanged.
+
+No public API field, DB migration, dependency or server configuration is added.
+Rollback stops assigning V3 to future preparations while retaining its reader for
+saved V3 snapshots; a PA2 binary rejects the new hash. PA3's two-slot experiment is
+offline: actual admission, locks, leases and 1100-MiB per-process-tree guard apply,
+but imported original-provenance fixtures are never published as new analyses.
+Container memory is requested as 16 GiB; actual VM memory and sampled RSS must be
+reported separately. No deployment or real provider call is performed by PA3.
+
+## PI1 amendment — multiple reports from one invitation (2026-10-11)
+
+One redeemed invitation/session may upload and enqueue multiple documents.
+`HOSTED_USER_ACTIVE_RUNS` is a positive integer (default 1; finals setting 5).
+It limits a user's running slots across tenants, within `HOSTED_MAX_ACTIVE_RUNS`.
+Excess work stays queued, rather than returning USER_RUN_LIMIT. The active count
+includes queued, running and accounting_pending; pending accounting is retained
+but occupies no processing slot. Dispatch selects the oldest eligible queued run
+by created/run_id, preserving the same tenant/document exclusion and fenced lease.
+The eight-entry global queue is still a hard admission limit. Admission reserves
+the full run envelope even for work beyond the user's running-slot limit.
+
+`HOSTED_DAILY_RUNS` is a positive integer (default 10), replacing the global daily
+count literal. HOSTED_USER_DAILY_RUNS (default 6), USD1/run and USD7/day/event,
+provider reservation/settlement and archived spending remain independent gates.
+Idempotent retries replay before admission gates and never reserve twice.
+Runtime limits add user_active_runs/daily_runs; user_outstanding remains as a
+compatibility alias for the configured soft window. Run projections add
+user_active_count (including accounting_pending) and user_processing_count.
+No database schema migration, request change or dependency is required. Old run
+records and immutable results remain readable. The web keeps document-local
+scope, status, result and error state, and polls each accepted run independently.
+
+Rollback: close new acceptance, drain queued/running jobs, retain unresolved
+costs and all saved profiles/results, set HOSTED_USER_ACTIVE_RUNS=1 and
+HOSTED_DAILY_RUNS=10. These values restore processing/count defaults; queueing
+remains supported. A binary rollback to b523dd2 restores USER_RUN_LIMIT, so first
+drain multi-document work and use its matching frontend. Never reset accounting
+or budgets to unblock a user. PI1 performs no deployment or paid provider calls.
