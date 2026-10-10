@@ -5,8 +5,20 @@ set +x
 umask 077
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export APPLY=false
-if [[ ${1:-} == --apply ]]; then APPLY=true; shift; fi
-[[ $# == 0 ]] || { echo 'Usage: script [--apply]' >&2; exit 2; }
+FORCE_RESTART=false
+DRAIN_TIMEOUT=600
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --apply) APPLY=true; shift ;;
+    --force-restart)
+      [[ ${0##*/} == deploy.sh ]] || { echo 'Restart options are for deploy.sh only.' >&2; exit 2; }
+      FORCE_RESTART=true; shift ;;
+    --drain-timeout)
+      [[ ${0##*/} == deploy.sh && ${2:-} =~ ^[0-9]{1,5}$ ]] || { echo 'Invalid drain timeout.' >&2; exit 2; }
+      DRAIN_TIMEOUT=$2; shift 2 ;;
+    *) echo 'Usage: script [--apply]; deploy.sh also accepts [--force-restart] [--drain-timeout SECONDS]' >&2; exit 2 ;;
+  esac
+done
 export REGION=${REGION:-ap-southeast-2} PROFILE=${PROFILE:-proofops-deploy}
 export ACCOUNT_ID=${ACCOUNT_ID:-753036488189} NAME=${NAME:-proofops-r108}
 export ARCH=${ARCH:-arm64} IMAGE=${IMAGE:-proofops-r108-public:ec1-arm64}

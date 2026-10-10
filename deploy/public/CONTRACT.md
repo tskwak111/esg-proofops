@@ -589,3 +589,41 @@ HOSTED_DAILY_RUNS=10. These values restore processing/count defaults; queueing
 remains supported. A binary rollback to b523dd2 restores USER_RUN_LIMIT, so first
 drain multi-document work and use its matching frontend. Never reset accounting
 or budgets to unblock a user. PI1 performs no deployment or paid provider calls.
+
+### PA5: durable maintenance and restart gate
+
+Migration is additive: `admission_control` in control.sqlite3, singleton id=1,
+draining=0/1 and updated timestamp; initialization adds a missing row as normal admission. Schema v1,
+run/result rows, evidence policies and historic hashes remain unchanged. Old
+binaries can read the database but do not enforce this new control, so a binary
+rollback must keep admission closed and workers stopped until the matching
+maintenance-capable release is restored. Do not erase the flag or ledger.
+
+Operator-only `hosted_control.py drain` atomically stops NEW run acceptance and
+queued job claims. Existing queued rows/reservations remain unchanged; running
+workers retain their lease, dispatch and publication permissions. Idempotent
+retries of accepted runs remain readable. Runtime GET adds maintenance/message;
+new admissions receive 503 MAINTENANCE and Retry-After:60. Uploads and result
+reads retain their existing authorization and configuration gates.
+
+`wait-idle --timeout SECONDS` uses a monotonic deadline, succeeds only when
+running=0, and returns exit 3 on timeout with sanitized counts. `resume` clears
+only the durable drain flag, never overrides disabled acceptance in runtime.env.
+Both EC2 and Lightsail stage the same restart helper: acquire a deployment lock,
+drain the CURRENT API, wait idle before replacing config/restarting, then resume
+only after the replacement API is healthy and its readiness endpoint succeeds.
+Timeout/error leaves drain enabled.
+`--force-restart` permits ONLY timeout exit 3; SSH/DB/unsupported CLI errors never
+authorize restart. `--drain-timeout` defaults to 600 seconds. First installation
+creates the flag with a one-off new-image CLI before starting workers. Existing
+releases without drain commands fail closed: bootstrap requires an operator to
+close their old admission and stop/wait for workers before removing the old
+deployment; the script must not claim that an unsupported old release is safe.
+
+Lease expiry after interruption retains LEASE_EXPIRED/accounting_pending when
+any provider dispatch is recorded (full envelope retained; no redispatch).
+Provably no dispatch becomes failed/LEASE_EXPIRED_NO_DISPATCH and releases the
+envelope. Startup/maintenance/claim/idle inspection reap expired leases even
+while drained. API error_message and web text explain server restart or missing
+worker heartbeat as possible causes, never assert a restart from timeout alone.
+No automatic retries, result revision updates or provider reconciliation occur.

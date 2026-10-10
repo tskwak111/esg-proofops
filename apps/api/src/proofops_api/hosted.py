@@ -200,10 +200,21 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
 
     @app.exception_handler(HostedError)
     async def hosted_error(request: Request, exc: HostedError):
+        from proofops_api.hosted_store import CONTROL_MESSAGES
+
         return JSONResponse(
-            {"error": {"code": exc.code}},
+            {
+                "error": {
+                    "code": exc.code,
+                    **(
+                        {"message": CONTROL_MESSAGES[exc.code]}
+                        if exc.code in CONTROL_MESSAGES
+                        else {}
+                    ),
+                }
+            },
             status_code=exc.status,
-            headers={"Retry-After": "60"} if exc.status == 429 else {},
+            headers={"Retry-After": "60"} if exc.status == 429 or exc.code == "MAINTENANCE" else {},
         )
 
     @app.exception_handler(sqlite3.DatabaseError)
@@ -312,11 +323,14 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
         from proofops_api.hosted_analysis import runtime_profiles
 
         profiles = runtime_profiles(settings)
+        admission = store.control_state(now=time.time())
         return {
             "app_env": "hosted",
             "profile": "r108-hosted-sprint5-v1",
             "analysis_backend": settings.backend,
-            "accept_new_runs": settings.accept_runs,
+            "accept_new_runs": settings.accept_runs and not admission["maintenance"],
+            "maintenance": admission["maintenance"],
+            "maintenance_message": admission["message"],
             "accept_uploads": settings.accept_uploads,
             "live_disabled": settings.live_disabled,
             "live_analysis": not settings.live_disabled

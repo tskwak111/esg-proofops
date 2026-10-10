@@ -9,6 +9,7 @@ export function resolveBackend(value: string | undefined): AnalysisBackend {
 export type Runtime = {
   analysis_backend: string; accept_new_runs: boolean; accept_uploads: boolean; live_analysis: boolean; live_disabled: boolean;
   upload_notice: string; consent_version: string; source_verifier?: string; profile?: string;
+  maintenance?: boolean; maintenance_message?: string | null;
   analysis_profile?: string; analysis_profile_options?: string[]; analysis_profile_warning?: string | null;
   pipeline_profile?: string;
   provider_limits?: Record<string, { status: "unknown" | "blocked"; remaining_usd: string | null }>;
@@ -104,6 +105,7 @@ const codeMessages: Record<string, string> = {
   PDF_CONTENT_TYPE_REQUIRED: "PDF 파일만 올릴 수 있습니다.",
   UPLOAD_DISABLED: "현재 업로드가 닫혀 있습니다.",
   ANALYSIS_DISABLED: "현재 새 분석 접수가 중지되어 있습니다.",
+  MAINTENANCE: "서버 점검 중입니다. 진행 중 분석은 계속 처리하며 새 분석은 점검 후 접수합니다.",
   SOURCE_EXPIRED: "원본 PDF 보관 기간(7일)이 끝났습니다. 다시 업로드해 주세요.",
   SOURCE_UNAVAILABLE: "원본 PDF를 사용할 수 없습니다. 다시 업로드해 주세요.",
   PAGE_SELECTION_INVALID: "쪽 선택을 확인해 주세요. 주장 최대 10쪽, 근거 검색 최대 30쪽이며 주장 쪽을 근거 검색 범위에 포함해야 합니다.",
@@ -270,8 +272,8 @@ const blockedReasons: Record<string, string> = {
   OPENROUTER_HTTP_403: providerLimitMessage,
   LIVE_BINDING_UNAVAILABLE: "실시간 모델·OCR 분석이 서버에 연결되어 있지 않아 판정하지 않았습니다.",
   LINUX_SOURCE_READER_UNRESOLVED: "이 서버의 원문 판독기가 아직 승인되지 않아 분석하지 않았습니다. 주장·등급은 만들지 않았습니다.",
-  LEASE_EXPIRED: "처리 중 작업이 중단되어 비용 정산 확인 전까지 보류되었습니다.",
-  LEASE_EXPIRED_NO_DISPATCH: "작업이 중단되었습니다. 모델 전송이 없어 비용 예약이 해제되었습니다. 다시 접수할 수 있습니다.",
+  LEASE_EXPIRED: "서버 재시작 또는 작업 응답 중단으로 분석이 중단되었습니다. 전송 기록이 있어 비용 정산 확인 전까지 보류하며 자동 재실행하지 않습니다.",
+  LEASE_EXPIRED_NO_DISPATCH: "서버 재시작 또는 작업 응답 중단으로 분석이 중단되었습니다. 모델 전송이 없어 비용 예약이 해제되었습니다. 다시 접수할 수 있습니다.",
   ANALYSIS_LOCK_BUSY: "문서가 다른 작업에서 사용 중입니다. 잠시 후 다시 접수해 주세요.",
   PREPARE_FAILED: "선택한 쪽을 준비하지 못했습니다.",
   HOSTED_PREPARATION_FAILED: "선택한 쪽을 준비하지 못했습니다.",

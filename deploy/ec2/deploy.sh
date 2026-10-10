@@ -2,7 +2,7 @@
 # shellcheck source=common.sh
 source "$(dirname "$0")/common.sh"
 if ! "$APPLY"; then
-  echo 'DRY RUN: verify archive SHA/architecture and private runtime config; SSH verifies uname; scp archive/config; docker load; pull Caddy; systemd restart. No SSH/cloud calls.'
+  echo 'DRY RUN: verify archive SHA/architecture and private runtime config; SSH verifies uname; scp archive/config; docker load; pull Caddy; drain -> wait-idle -> restart -> healthy -> resume. No SSH/cloud calls.'
   exit
 fi
 python3 "$HERE/ec2.py" target
@@ -31,18 +31,7 @@ trap cleanup EXIT
 "${SCP[@]}" "$HERE/compose.yaml" "$HERE/Caddyfile" "ubuntu@$STATIC_IP:$remote/"
 printf 'IMAGE=%s\nCADDY_IMAGE=caddy:2.10.2-alpine\nAPI_HOST=%s.sslip.io\nACME_EMAIL=%s\nLOCAL_PORT=8000\n' "$IMAGE" "$STATIC_IP" "$ACME_EMAIL" > "$STATE_DIR/compose.env"
 "${SCP[@]}" "$STATE_DIR/compose.env" "ubuntu@$STATIC_IP:$remote/compose.env"
+"${SCP[@]}" "$HERE/../public/drain-restart.sh" "ubuntu@$STATIC_IP:$remote/"
 # No keys in command args, user-data, env output or logs. Existing data/ledger preserved.
-"${SSH[@]}" "sudo bash -s -- '$remote'" <<'REMOTE'
-set -euo pipefail
-set +x
-stage=$1
-sudo docker load --input "$stage/image.tar" >/dev/null
-sudo install -m 600 "$stage/runtime.env" "$stage/compose.env" /srv/proofops/
-sudo install -m 644 "$stage/compose.yaml" "$stage/Caddyfile" /srv/proofops/
-sudo docker pull caddy:2.10.2-alpine >/dev/null
-cd /srv/proofops
-sudo docker compose --env-file compose.env -f compose.yaml --profile tls config --quiet
-sudo docker compose --env-file compose.env -f compose.yaml run --rm --no-deps caddy caddy validate --config /etc/caddy/Caddyfile </dev/null >/dev/null
-sudo systemctl restart proofops.service
-REMOTE
-echo "Deployed private config/image; test https://$STATIC_IP.sslip.io/v1/health/ready and Vercel proxy before enabling admission."
+"${SSH[@]}" "sudo bash '$remote/drain-restart.sh' '$remote' '$FORCE_RESTART' '$DRAIN_TIMEOUT'"
+echo "Deployed private config/image; test https://$STATIC_IP.sslip.io/v1/health/ready and Vercel proxy and confirm maintenance is cleared; queued work resumes automatically."

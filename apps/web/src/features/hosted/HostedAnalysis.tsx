@@ -120,7 +120,7 @@ export function HostedAnalysis({ client: injected }: { client?: HostedClient }) 
       <label>PDF 보고서<input ref={fileInput} type="file" accept=".pdf,application/pdf" multiple disabled={!!busy} onChange={event => setFiles(Array.from(event.target.files ?? []))} /></label>
       <button type="button" disabled={!files.length || !!busy || runtime?.accept_uploads === false} onClick={() => void upload()}>업로드</button>
     </div>
-    <p className="hosted-note">여러 PDF를 선택할 수 있습니다. 각 문서의 범위를 확인하고 분석을 시작하세요. 다른 문서가 분석 중이어도 추가 업로드와 접수가 가능합니다.</p>
+    <p className="hosted-note">{runtime?.maintenance ? "각 문서의 범위를 확인하세요. 새 분석은 서버 점검이 끝난 뒤 접수할 수 있습니다." : "여러 PDF를 선택할 수 있습니다. 각 문서의 범위를 확인하고 분석을 시작하세요. 다른 문서가 분석 중이어도 추가 업로드와 접수가 가능합니다."}</p>
     {runtime?.accept_uploads === false && <p className="hosted-error">현재 업로드가 닫혀 있습니다.</p>}
     <ul className="hosted-documents" aria-label="문서별 분석 상태">
       {intake.map(item => <li key={item.key}>
@@ -134,6 +134,7 @@ export function HostedAnalysis({ client: injected }: { client?: HostedClient }) 
     <p>실행 비용 상한 USD 1.0 · 일·행사 USD 7. 사람 검토 없이 처리하되 등급은 잠정·미확정으로 구분합니다.</p>
     {session && <p className="hosted-session">로그인됨 · {session.role ?? "역할 없음"} <button type="button" onClick={() => void logout()}>로그아웃</button></p>}
     {Object.values(runtime?.provider_limits ?? {}).some(limit => limit.status === "blocked") && <p className="hosted-error" role="alert">{providerLimitMessage}</p>}
+    {runtime?.maintenance && <p className="hosted-notice" role="status">{runtime.maintenance_message ?? "서버 점검 중입니다. 새 분석은 점검 후 접수합니다."}</p>}
     {body}
     {notice && <p role="status">{notice}</p>}
     {busy && <p role="status">{busy}…</p>}
@@ -292,7 +293,7 @@ function HostedDocumentAnalysis({ name, doc, client, runtime, session, onExpired
       </select></label>
       <p className="hosted-note">v2 기본값은 잠정 설정이며 QI2 검토 이후 확정합니다.</p>
       <button type="button" disabled={!!busy || running || !scope || scopeConflict || providerBlocked || runtime?.accept_new_runs === false} onClick={() => void start()}>분석 시작</button>
-      {runtime?.accept_new_runs === false && <p className="hosted-error">현재 새 분석 접수가 중지되어 있습니다.</p>}
+      {runtime?.accept_new_runs === false && !runtime.maintenance && <p className="hosted-error">현재 새 분석 접수가 중지되어 있습니다.</p>}
     </div></details>
     {run && <RunOutcomeView run={result ? { ...run, result } : run} />}
     {run?.error_code && <p className="hosted-error">오류 코드: {run.provider_error_code ?? run.error_code}</p>}

@@ -331,7 +331,7 @@ class LocalParserRunner:
                             replay_native_sources,
                         )
 
-                        if page_reader is not None and _parse_enabled():
+                        if page_reader is not None:
                             attest_native_sources = page_reader.attest_native_sources
                             replay_native_sources = page_reader.replay_native_sources
                         native_receipt = attest_native_sources(

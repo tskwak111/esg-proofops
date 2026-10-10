@@ -48,6 +48,17 @@ PROVIDER_LIMIT_CODES = {
 }
 ALL_PROVIDER_LIMIT_CODES = OPENROUTER_LIMIT_CODES | OPENAI_LIMIT_CODES
 PROVIDER_LIMIT_MESSAGE = "분석 서비스 한도 초과 — 운영자 확인 필요"
+CONTROL_MESSAGES = {
+    "MAINTENANCE": "서버 점검 중입니다. 진행 중 분석은 계속 처리하며 새 분석은 점검 후 접수합니다.",
+    "LEASE_EXPIRED": (
+        "서버 재시작 또는 작업 응답 중단으로 분석이 중단되었습니다. "
+        "전송 기록이 있어 비용 정산 확인 전까지 보류하며 자동 재실행하지 않습니다."
+    ),
+    "LEASE_EXPIRED_NO_DISPATCH": (
+        "서버 재시작 또는 작업 응답 중단으로 분석이 중단되었습니다. "
+        "모델 전송이 없어 비용 예약이 해제되었습니다. 다시 접수할 수 있습니다."
+    ),
+}
 
 
 class HostedError(ValueError):
@@ -310,6 +321,10 @@ class HostedStore:
             if versions and [row[0] for row in versions] != [1]:
                 raise ValueError("unsupported hosted schema")
             db.execute("INSERT OR IGNORE INTO hosted_schema VALUES (1)")
+            db.execute("""CREATE TABLE IF NOT EXISTS admission_control (
+                id INTEGER PRIMARY KEY CHECK(id=1),
+                draining INTEGER NOT NULL CHECK(draining IN (0,1)), updated REAL NOT NULL)""")
+            db.execute("INSERT OR IGNORE INTO admission_control VALUES (1,0,0)")
             db.execute("""CREATE TABLE IF NOT EXISTS sessions (
                 sid_hash TEXT PRIMARY KEY, user_id TEXT, tenant_id TEXT, csrf_hash TEXT,
                 expires REAL, idle REAL, revoked INTEGER)""")
@@ -701,7 +716,8 @@ class HostedStore:
             "result_url": f'/v1/runs/{row["run_id"]}/result' if ready else None,
             "result": result,
             "error_code": row["error_code"],
-            "error_message": MESSAGES.get(raw_error)
+            "error_message": CONTROL_MESSAGES.get(raw_error)
+            or MESSAGES.get(raw_error)
             or (PROVIDER_LIMIT_MESSAGE if row["error_code"] in ALL_PROVIDER_LIMIT_CODES else None),
             "provider_error_code": cause,
             "provider_error_message": MESSAGES.get(cause),
@@ -1035,6 +1051,8 @@ class HostedStore:
             replay = self._replay(db, auth, "run", key, body_hash)
             if replay:
                 return self._project_run(self._run(db, auth.tenant_id, replay), db)
+            if self._maintenance(db):
+                raise HostedError("MAINTENANCE", 503)
             if not (self.document_dir(auth.tenant_id, document) / "original.pdf").is_file():
                 raise HostedError("SOURCE_UNAVAILABLE")
             user = self.user_hash(auth.user_sub)
@@ -1099,39 +1117,75 @@ class HostedStore:
             self._remember(db, auth, "run", key, body_hash, run, document, now)
             return self._project_run(self._run(db, auth.tenant_id, run), db)
 
+    @staticmethod
+    def _maintenance(db: sqlite3.Connection) -> bool:
+        return bool(db.execute("SELECT draining FROM admission_control WHERE id=1").fetchone()[0])
+
+    def _control_state(self, db: sqlite3.Connection) -> dict:
+        maintenance = self._maintenance(db)
+        counts = db.execute(
+            "SELECT coalesce(sum(status='running'),0),coalesce(sum(status='queued'),0) FROM runs"
+        ).fetchone()
+        return dict(
+            maintenance=maintenance,
+            message=CONTROL_MESSAGES["MAINTENANCE"] if maintenance else None,
+            running=counts[0],
+            queued=counts[1],
+        )
+
+    def drain(self, *, now: float) -> dict:
+        with self.transaction() as db:
+            db.execute("UPDATE admission_control SET draining=1,updated=? WHERE id=1", (now,))
+            return self._control_state(db)
+
+    def resume(self, *, now: float) -> dict:
+        with self.transaction() as db:
+            db.execute("UPDATE admission_control SET draining=0,updated=? WHERE id=1", (now,))
+            return self._control_state(db)
+
+    def control_state(self, *, now: float) -> dict:
+        with self.transaction() as db:
+            self._expire_running(db, now)
+            return self._control_state(db)
+
+    def _expire_running(self, db: sqlite3.Connection, now: float) -> None:
+        expired = db.execute(
+            "SELECT run_id FROM runs WHERE (status='running' AND lease_until<=?) "
+            "OR (status='accounting_pending' AND error_code='LEASE_EXPIRED')",
+            (now,),
+        ).fetchall()
+        for row in expired:
+            # Broker inserts a cost reservation before transport. No rows in
+            # the surviving independent ledger proves no provider was sent.
+            no_dispatch = db.execute(
+                "SELECT 1 FROM deletion.spend WHERE run_id=? AND NOT EXISTS "
+                "(SELECT 1 FROM deletion.costs WHERE run_id=?)",
+                (row[0], row[0]),
+            ).fetchone()
+            if no_dispatch:
+                db.execute(
+                    "UPDATE runs SET status='failed',fence=fence+1,lease_until=0,"
+                    "error_code='LEASE_EXPIRED_NO_DISPATCH' WHERE run_id=?",
+                    (row[0],),
+                )
+                self._settle_envelope(db, row[0])
+                continue
+            db.execute(
+                "UPDATE runs SET "
+                "status='accounting_pending',fence=fence+1,error_code='LEASE_EXPIRED' WHERE "
+                "run_id=?",
+                (row[0],),
+            )
+            db.execute(
+                "UPDATE deletion.spend SET status='accounting_pending' WHERE run_id=?",
+                (row[0],),
+            )
+
     def claim(self, *, now: float) -> dict | None:
         with self.transaction() as db:
-            expired = db.execute(
-                "SELECT run_id FROM runs WHERE (status='running' AND lease_until<=?) "
-                "OR (status='accounting_pending' AND error_code='LEASE_EXPIRED')",
-                (now,),
-            ).fetchall()
-            for row in expired:
-                # Broker inserts a cost reservation before transport. No rows in
-                # the surviving independent ledger proves no provider was sent.
-                no_dispatch = db.execute(
-                    "SELECT 1 FROM deletion.spend WHERE run_id=? AND NOT EXISTS "
-                    "(SELECT 1 FROM deletion.costs WHERE run_id=?)",
-                    (row[0], row[0]),
-                ).fetchone()
-                if no_dispatch:
-                    db.execute(
-                        "UPDATE runs SET status='failed',fence=fence+1,lease_until=0,"
-                        "error_code='LEASE_EXPIRED_NO_DISPATCH' WHERE run_id=?",
-                        (row[0],),
-                    )
-                    self._settle_envelope(db, row[0])
-                    continue
-                db.execute(
-                    "UPDATE runs SET "
-                    "status='accounting_pending',fence=fence+1,error_code='LEASE_EXPIRED' WHERE "
-                    "run_id=?",
-                    (row[0],),
-                )
-                db.execute(
-                    "UPDATE deletion.spend SET status='accounting_pending' WHERE run_id=?",
-                    (row[0],),
-                )
+            self._expire_running(db, now)
+            if self._maintenance(db):
+                return None
             # Only an active fenced worker occupies the slot. Pending accounting
             # remains charged to its envelope/day/event; it cannot dispatch again.
             if db.execute("SELECT count(*) FROM runs WHERE status='running'").fetchone()[0] >= (
@@ -1683,6 +1737,7 @@ class HostedStore:
 
     def maintain(self, *, now: float) -> None:
         with self.transaction() as db:
+            self._expire_running(db, now)
             expired = db.execute(
                 "SELECT tenant_id,document_id FROM documents WHERE expires<=?", (now,)
             ).fetchall()

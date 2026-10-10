@@ -5,6 +5,16 @@ const ts = require('typescript');
 require.extensions['.ts'] = (module, filename) => module._compile(ts.transpileModule(
   fs.readFileSync(filename, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, filename);
 const { HostedApiError, createHostedClient, describeError } = require('./hostedClient.ts');
+const { runOutcome } = require('./hostedClient.ts');
+
+test('maintenance and expired worker lease remain explicit without retrying uncertain work', () => {
+  assert.match(describeError(new HostedApiError(503, 'MAINTENANCE', 60, '/v1/runs')), /서버 점검.*진행 중 분석.*점검 후/);
+  const held = runOutcome({ status: 'accounting_pending', error_code: 'LEASE_EXPIRED' });
+  assert.equal(held.kind, 'blocked');
+  assert.match(held.reasons.join(' '), /서버 재시작.*비용 정산.*자동 재실행하지/);
+  const failed = runOutcome({ status: 'failed', error_code: 'LEASE_EXPIRED_NO_DISPATCH' });
+  assert.match(failed.reasons.join(' '), /모델 전송이 없어.*예약이 해제/);
+});
 
 test('intake refusal preserves documents and gives a useful next step', () => {
   const error = code => describeError(new HostedApiError(429, code, null, '/v1/runs'));
