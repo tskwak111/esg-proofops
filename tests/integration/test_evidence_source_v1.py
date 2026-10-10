@@ -27,7 +27,10 @@ def real_inputs(company):
         ).read_text()
     )
     root = Path("/Users/ss020/Dev/ESG_ProofOps")
-    source = (root / data["source_path"]).read_bytes()
+    source_path = root / data["source_path"]
+    if not source_path.is_file():
+        pytest.skip("local R108 asset: original report PDF is unavailable in this checkout")
+    source = source_path.read_bytes()
     assert sha256(source).hexdigest() == data["source_sha256"]
     batches = candidates_from_snapshot(data["batches"])
     graph = fuse_candidates(

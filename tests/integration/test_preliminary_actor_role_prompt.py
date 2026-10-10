@@ -594,6 +594,7 @@ def test_worker_builds_the_pinned_actor_v2_packet():
         return None
 
     runtime = SimpleNamespace(
+        snapshot={},
         auth=SimpleNamespace(tenant_id=TENANT),
         preliminary_settings=SimpleNamespace(
             model_profile="upstage-preliminary-source-quotes-actor-role-v2"

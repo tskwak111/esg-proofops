@@ -18,6 +18,10 @@ def test_optional_tolerance_preserves_legacy_identity_and_binds_explicit_value()
     legacy.pop("table_text_y_tolerance", None)
     legacy.pop("table_source_policy_sha256", None)
     legacy.pop("table_structure_repair", None)
+    assert legacy.pop("claim_physical_pages") == ()
+    assert legacy.pop("mixed_ocr_max_pages") == 0
+    assert legacy.pop("failure_policy") is None
+    assert legacy.pop("source_recovery") is None
     assert legacy.pop("vision_parse") == "off"
     assert legacy.pop("parser_mode") == "local"
     assert legacy.pop("upstage_glyph_boxes") is False

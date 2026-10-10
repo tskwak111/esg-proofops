@@ -60,8 +60,9 @@ def test_prefetched_fallback_calls_base_extractor_once(tmp_path, monkeypatch):
     probe.model = "openai/gpt-6-luna"  # select the prefetch path with a fake transport
     original = extract_runner_module.prefetch_packets
 
-    def partially_prefetched(packets, invoke, *, max_workers):
-        return original(packets[:1], invoke, max_workers=max_workers)
+    def partially_prefetched(packets, invoke, *, max_workers, on_page=None):
+        assert on_page is None  # This test selects the ordinary batch path.
+        return original(packets[:1], invoke, max_workers=max_workers, on_page=on_page)
 
     monkeypatch.setattr(extract_runner_module, "prefetch_packets", partially_prefetched)
     assert runner.run_once(tenant_id=TENANT, run_id=run_id) == "committed"

@@ -13,6 +13,8 @@ from proofops.domain.provenance import canonical_hash
 from pypdf import PdfReader, PdfWriter
 from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 
+from tests.acceptance.test_parsing import JAVA
+
 
 def document():
     writer = PdfWriter()
@@ -85,7 +87,7 @@ def profile(**kwargs):
     return ParserProfile(
         str(uuid4()),
         physical_pages=(1, 2, 3),
-        java_executable="/opt/homebrew/opt/openjdk@21/bin/java",
+        java_executable=JAVA,
         timeout_seconds=120,
         table_auxiliary=False,
         parser_mode="mixed-v1",

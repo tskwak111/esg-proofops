@@ -27,7 +27,10 @@ def verifier():
 
 def real_inputs(company):
     data = json.loads((FIXTURES / (company + ".json")).read_text())
-    source = (ROOT / data["source_path"]).read_bytes()
+    source_path = ROOT / data["source_path"]
+    if not source_path.is_file():
+        pytest.skip("local R108 asset: original report PDF is unavailable in this checkout")
+    source = source_path.read_bytes()
     assert sha256(source).hexdigest() == data["source_sha256"]
     batches = candidates_from_snapshot(data["batches"])
     graph = fuse_candidates(
@@ -88,7 +91,10 @@ def test_real_pinned_pages_recover(company):
         ("ESG policy 10% achieved", "E SG policy 10% achieved"),
     ],
 )
-def test_whitespace_adopts_native_quote(parser, native):
+def test_whitespace_adopts_native_quote(parser, native, monkeypatch):
+    from tests.integration.test_native_table_admission import ocr
+
+    monkeypatch.setattr(verifier(), "_rendered_text", ocr)
     r = record(synthetic(parser, native))
     assert r["status"] == "verified" and r["canonical_quote"] == native
     assert r["normalization"]["parser_quote"] == parser
@@ -132,7 +138,12 @@ def test_wrong_page_and_ref_identity_rejected():
         ("/Widget", True, False, "verified"),
     ],
 )
-def test_only_actual_quote_glyph_annotation_overlap_blocks(subtype, ap, overlap, expected):
+def test_only_actual_quote_glyph_annotation_overlap_blocks(
+    subtype, ap, overlap, expected, monkeypatch
+):
+    from tests.integration.test_native_table_admission import ocr
+
+    monkeypatch.setattr(verifier(), "_rendered_text", ocr)
     from pypdf.generic import DecodedStreamObject
 
     box = (80, 713, 95, 730) if overlap else (70, 704, 95, 708)
@@ -181,7 +192,10 @@ def test_opt_in_dispatch_default_and_tamper():
         claim_source_policies.claim_source_reader(dict(policy, verifier_sha256="f" * 64))
 
 
-def test_replay_preserves_parser_offsets_and_attests_only_proven_spans():
+def test_replay_preserves_parser_offsets_and_attests_only_proven_spans(monkeypatch):
+    from tests.integration.test_native_table_admission import ocr
+
+    monkeypatch.setattr(verifier(), "_rendered_text", ocr)
     source, graph, ref = synthetic("E SG policy 10% achieved")
     v3 = verifier()
     receipt = v3.attest_claim_spans(graph, source, (ref,), tenant_id=TENANT)

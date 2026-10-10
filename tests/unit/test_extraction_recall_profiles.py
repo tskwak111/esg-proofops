@@ -98,6 +98,7 @@ def test_worker_default_excludes_rows_opt_in_includes_them():
             kind=kind,
             quality="unverified",
             winner=0,
+            candidates=(SimpleNamespace(context=()),),
             bbox=None,
             normalized_text=text,
         )
@@ -109,7 +110,7 @@ def test_worker_default_excludes_rows_opt_in_includes_them():
             ]
         )
     ]
-    graph = SimpleNamespace(blocks=blocks)
+    graph = SimpleNamespace(blocks=blocks, edges=())
     scope = SimpleNamespace(mode="declared_subset", selected_pages=(1,))
     assert select_stable_paragraph_sources(graph, scope, 8) == {"0"}
     assert select_stable_paragraph_sources(graph, scope, 8, extraction_table_rows=True) == {

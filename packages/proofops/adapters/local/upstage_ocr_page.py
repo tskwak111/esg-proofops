@@ -6,7 +6,6 @@ are not signatures by the provider. Replay never accepts caller supplied OCR.
 
 from __future__ import annotations
 
-import fcntl
 import http.client
 import io
 import json
@@ -386,6 +385,10 @@ class PageOCRStore:
         )
 
     def _reserve(self, image, tenant_id, run_id, force):
+        # Only paid dispatch needs the POSIX shared-spend lock. Offline policy
+        # inspection/replay must import on Windows without bypassing this lock.
+        import fcntl
+
         manifest = image["manifest"]
         if not image["png"].startswith(b"\x89PNG\r\n\x1a\n"):
             raise ValueError("OCR_PNG_REQUIRED")
