@@ -289,9 +289,17 @@ def validated_present_refs(elements, inputs, claim, graph):
     return confirmed
 
 
-def missing_evidence(claims, tenant, run_id, claim, *, track, elements, inputs=None):
+def missing_evidence(
+    claims, tenant, run_id, claim, *, track, elements, inputs=None, original_graph=None
+):
+    # Publication may reuse the graph it fully replayed under analysis.lock.
+    # This is an internal input, never a graph supplied by an HTTP caller.
     if inputs is not None:
         graph = inputs.original
+        if original_graph is not None and original_graph != graph:
+            raise ValueError("element search original graph mismatch")
+    elif original_graph is not None:
+        graph = original_graph
     else:
         _, _, graph = claims.load_evidence(tenant, run_id)
     if (

@@ -76,7 +76,11 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
         tag_snapshot = tags.load_snapshot(tenant, run) if "tag_job" in state else {}
         projections = {r["claim_id"]: r for r in tag_snapshot.get("claims", [])}
         reasons = {cid: r.get("reason") for cid, r in projections.items()}
-        for claim in claims.list(tenant, run):
+        # The publisher holds analysis.lock; these source artifacts cannot change
+        # while building this snapshot. Replay all source guards once, then retain
+        # the same graph for every claim's identity-checked missing-evidence search.
+        _, discovery, original_graph = claims.load_evidence(tenant, run)
+        for claim in discovery.claims:
             current = claims.current_tag(tenant, run, claim.claim_id)
             summary = claims.summary(claim, current)
             decision = summary.get("decision")
@@ -102,7 +106,8 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                     possible_grade_range=(decision or {}).get("grade_range"),
                     confirmed_grade=(decision or {}).get("evidence_grade"),
                     missing_evidence=claims.missing_evidence(
-                        tenant, run, claim, track=summary["track"], elements=elements
+                        tenant, run, claim, track=summary["track"], elements=elements,
+                        original_graph=original_graph,
                     ),
                 )
             )

@@ -190,11 +190,14 @@ class LocalClaimStore:
                 return claim
         raise KeyError("claim not found")
 
-    def missing_evidence(self, tenant_id, run_id, claim, *, track, elements, inputs=None):
+    def missing_evidence(
+        self, tenant_id, run_id, claim, *, track, elements, inputs=None, original_graph=None
+    ):
         from proofops.adapters.local.missing_evidence import missing_evidence
 
         return missing_evidence(
-            self, tenant_id, run_id, claim, track=track, elements=elements, inputs=inputs
+            self, tenant_id, run_id, claim, track=track, elements=elements, inputs=inputs,
+            original_graph=original_graph,
         )
 
     def submitted_reviews(self, tenant_id, run_id, claim_id=None, *, connection=None):
