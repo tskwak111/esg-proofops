@@ -157,7 +157,12 @@ def _fake_post_factory(calls):
 
 
 def _pipeline_setup(
-    tmp_path, monkeypatch, *, relation_stage=False, fact_assembly_profile="strict-v1"
+    tmp_path,
+    monkeypatch,
+    *,
+    relation_stage=False,
+    fact_assembly_profile="strict-v1",
+    relation_attribution_policy="relation-attribution-v1",
 ):
     """Build a genuine upstage_local run plus parse/extract checkpoints."""
     from proofops.application.rulepacks import RulePackRecord
@@ -173,6 +178,7 @@ def _pipeline_setup(
     monkeypatch.setattr(lifecycle, "pdf", lambda count: pdf())
     service, body, _, _ = _live_service(tmp_path)
     service.fact_assembly_profile = fact_assembly_profile
+    service.relation_attribution_policy = relation_attribution_policy
     if relation_stage:
         from tests.integration.test_relation_runtime_config import _relation
 

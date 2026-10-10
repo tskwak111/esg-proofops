@@ -202,12 +202,25 @@ def bounded_occurrence_sources(
     *,
     claim_text: str,
     dimensions: Mapping[str, str | None],
+    attribution_guard: bool = False,
 ) -> tuple[list[dict], list[dict[str, tuple[SpanCandidate, ...]]]]:
     """One shared UTF-8 wire budget; deterministic per-axis tail removal."""
     ranked = [
         ranked_occurrence_catalog(i, t, claim_text=claim_text, dimensions=dimensions)
         for i, t in inputs
     ]
+    if attribution_guard:
+        from proofops.application.evidence.relation_attribution import role_rejection
+
+        ranked = [
+            {
+                role: tuple(
+                    c for c in values if role_rejection(text, c.raw_start, c.raw_end, role) is None
+                )
+                for role, values in roles.items()
+            }
+            for (_, text), roles in zip(inputs, ranked, strict=True)
+        ]
     while True:
         packets = [_windowed_source(n, i, t, ranked[n]) for n, (i, t) in enumerate(inputs)]
         sizes = [
@@ -377,6 +390,7 @@ def relation_request(
     profile: str = LEGACY_PROFILE,
     claim_text: str = "",
     dimensions: Mapping[str, str | None] | None = None,
+    attribution_guard: bool = False,
 ) -> dict:
     prompt = relation_prompt(profile)
     sources = _sources(sources, graph, tenant_id)
@@ -386,6 +400,7 @@ def relation_request(
             tuple((_identity(s, graph, graph_hash), s.quote) for s in sources),
             claim_text=claim_text,
             dimensions=dimensions or {},
+            attribution_guard=attribution_guard,
         )
         return dict(
             schema=OCCURRENCE_V3_SCHEMA,
@@ -425,6 +440,7 @@ def validate_relations(
     profile: str = LEGACY_PROFILE,
     claim_text: str = "",
     dimensions: Mapping[str, str | None] | None = None,
+    attribution_guard: bool = False,
 ) -> dict[str, dict[str, SourceRef | None]]:
     relation_prompt(profile)  # Reject unknown profiles, never silently fall back.
     sources = _sources(sources, graph, tenant_id)
@@ -444,6 +460,7 @@ def validate_relations(
             tuple((_identity(s, graph, graph_hash), s.quote) for s in sources),
             claim_text=claim_text,
             dimensions=dimensions or {},
+            attribution_guard=attribution_guard,
         )
     result: dict[str, dict[str, SourceRef | None]] = {}
     for row_number, row in enumerate(rows):

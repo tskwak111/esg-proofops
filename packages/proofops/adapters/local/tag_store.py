@@ -91,6 +91,9 @@ def tagging_settings(snapshot, *, preliminary=False, relation=False):
 
 
 def tag_pins(snapshot, extraction, extraction_hash):
+    from proofops.application.evidence.relation_attribution import snapshot_policy
+
+    attribution = snapshot_policy(snapshot)
     pins = dict(
         schema="local_tag_checkpoint_v1",
         synthetic=snapshot.get("tagging_mode") != "upstage_local",
@@ -121,6 +124,11 @@ def tag_pins(snapshot, extraction, extraction_hash):
         validation_profile="fast_preview",
         vision_status="not_run",
     )
+    if attribution is not None:
+        pins.update(
+            relation_attribution_policy=attribution,
+            relation_attribution_policy_sha256=canonical_hash(attribution),
+        )
     if snapshot.get("tagging_mode") == "upstage_local":
         pins.update(
             **{

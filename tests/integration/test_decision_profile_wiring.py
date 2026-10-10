@@ -144,7 +144,8 @@ def run_setup(tmp_path):
         10**8,
         10**6,
         (
-            RoleLimit("tagger", 30, 66560, 4096, 70656),
+            # FX5 already reserves both possible Luna schema outputs per call.
+            RoleLimit("tagger", 30, 66560, 8192, 74752),
             RoleLimit("decision", 60, 66560, 4096, 70656),
         ),
     )

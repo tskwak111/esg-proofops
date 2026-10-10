@@ -3,7 +3,7 @@
 import json
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from threading import Lock
@@ -115,6 +115,9 @@ class LiveTaggingRuntime:
             self.heartbeat_state.check()
 
     def __init__(self, runner, snapshot, graph, lease, usage, *, probe, ledger, receipts):
+        from proofops.application.evidence.relation_attribution import snapshot_policy
+
+        self.attribution_policy = snapshot_policy(snapshot)
         if (
             snapshot.get("tagging_mode") != "upstage_local"
             or snapshot["input_hash"]
@@ -493,6 +496,19 @@ class LiveTaggingRuntime:
                     claim, graph, raw, tenant_id=self.auth.tenant_id, allow_unverified=unattended
                 )
             )
+            attribution = {}
+            if self.attribution_policy is not None:
+                from proofops.application.evidence.binding import ClaimContext
+                from proofops.application.evidence.relation_attribution import filter_dimensions
+
+                dimensions, rejected = filter_dimensions(
+                    claim, result.context.dimensions, graph, tenant_id=self.auth.tenant_id
+                )
+                result = replace(result, context=ClaimContext(claim, dimensions))
+                attribution = dict(
+                    attribution_rejections=rejected,
+                    attribution_policy_sha256=canonical_hash(self.attribution_policy),
+                )
             return result, dict(
                 track=asdict(result.track) if result.track else None,
                 dimensions={
@@ -500,6 +516,7 @@ class LiveTaggingRuntime:
                     for key, value in result.context.dimensions.items()
                 },
                 safe_harbor_category=result.safe_harbor_category,
+                **attribution,
             )
 
         results = self._source_replicas(
@@ -649,6 +666,8 @@ class LiveTaggingRuntime:
             local = {ref.source_id for ref in claim.source_refs}
             blocks = {block.source_id: block for block in self.graph.blocks}
             selected = {}
+            refused = {}
+            refusals = []
             for candidate in data["evidence_candidates"]:
                 for raw in candidate["source_refs"]:
                     ref = _source_ref_from_dict(raw)
@@ -663,10 +682,38 @@ class LiveTaggingRuntime:
                     )
                     if source != canonical or source.quote != ref.quote:
                         continue  # Never widen a selected substring to its parent paragraph.
+                    if self.attribution_policy is not None:
+                        from proofops.application.evidence.relation_attribution import (
+                            source_rejection,
+                        )
+
+                        reason = source_rejection(
+                            claim, source, self.graph, tenant_id=self.auth.tenant_id
+                        )
+                        if reason is not None:
+                            refused[ref.source_id] = dict(
+                                entity=None, metric=None, reporting_period=None
+                            )
+                            if not any(r["source_id"] == ref.source_id for r in refusals):
+                                refusals.append(
+                                    dict(
+                                        source_id=ref.source_id,
+                                        status="attribution_rejected",
+                                        state="unknown",
+                                        attribution_policy_sha256=canonical_hash(
+                                            self.attribution_policy
+                                        ),
+                                        stable_reason=dict(
+                                            category="attribution_guard", error_code=reason
+                                        ),
+                                    )
+                                )
+                            continue
                     selected[ref.source_id] = source
             sources = tuple(selected.values())
             if not sources:
-                return {}
+                self.relation_records[claim.claim_id] = refusals
+                return refused
             anchors = {}
             if self.relation_settings.model_profile in (
                 OCCURRENCE_V3_PROFILE,
@@ -685,6 +732,8 @@ class LiveTaggingRuntime:
                 in (OCCURRENCE_V3_PROFILE, "relation-decision-gate-v1")
                 else {}
             )
+            if self.attribution_policy is not None:
+                selection_args["attribution_guard"] = True
             envelope = relation_request(
                 sources,
                 self.graph,
@@ -721,6 +770,15 @@ class LiveTaggingRuntime:
                 profile=self.relation_settings.model_profile,
                 **selection_args,
             )
+            if self.attribution_policy is not None:
+                from proofops.application.evidence.relation_attribution import filter_dimensions
+
+                roles = {
+                    sid: filter_dimensions(
+                        claim, values, self.graph, tenant_id=self.auth.tenant_id
+                    )[0]
+                    for sid, values in roles.items()
+                }
             values = {
                 sid: {name: asdict(ref) if ref else None for name, ref in dimensions.items()}
                 for sid, dimensions in roles.items()
@@ -738,6 +796,7 @@ class LiveTaggingRuntime:
             retrieval_packet_sha256=packet.packet_sha256,
             require_consensus=False,
         )
+        self.relation_records[claim.claim_id].extend(refusals)
         if results is None:
             return None
         # A disputed source stays wholly unresolved; never combine roles from
@@ -786,7 +845,7 @@ class LiveTaggingRuntime:
                 )
                 if support != "supports":
                     resolved[source.source_id] = {name: None for name in resolved[source.source_id]}
-        return resolved
+        return refused | resolved
 
     def _decision_pair(
         self, claim, state, questions, purpose, *, packet_sha256, retrieval_packet_sha256=None
