@@ -1,0 +1,42 @@
+{
+  "checked_at": "2026-10-10",
+  "region": "ap-northeast-2",
+  "currency": "USD",
+  "source": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonEC2/current/ap-northeast-2/index.csv",
+  "effective_date": "2026-10-01",
+  "ec2": {
+    "sku": "445XHR7HD5M549M9",
+    "instance_type": "t4g.medium",
+    "os": "Linux",
+    "tenancy": "Shared",
+    "capacity_status": "Used",
+    "hourly": "0.0416",
+    "cpu_credits": "standard"
+  },
+  "ebs": {
+    "sku": "MTK7D9SGKGYR3JD6",
+    "type": "gp3",
+    "gb_month": "0.0912",
+    "size_gb": 30,
+    "iops": 3000,
+    "throughput_mib_s": 125
+  },
+  "ipv4": {
+    "source": "https://aws.amazon.com/vpc/pricing/",
+    "hourly": "0.005",
+    "count": 1
+  },
+  "estimate": {
+    "hours_per_month": 730,
+    "monthly": "36.754",
+    "hours_264": "13.29186",
+    "hours_264_plus_provider_event_cap_7": "20.29186",
+    "excludes": [
+      "tax",
+      "excess transfer",
+      "paid Vercel",
+      "extra storage"
+    ],
+    "note": "EBS pro-rata approximation at730h; actual calendar billing varies. No account API or billing assertion."
+  }
+}

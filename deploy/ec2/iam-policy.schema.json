@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "Version",
+    "Statement"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "Version": {
+      "const": "2012-10-17"
+    },
+    "Statement": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "Sid",
+          "Effect",
+          "Action",
+          "Resource"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "Sid": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9]+$"
+          },
+          "Effect": {
+            "const": "Allow"
+          },
+          "Action": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^(ec2|ssm|servicequotas|budgets):[A-Za-z]+$"
+            }
+          },
+          "Resource": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^(\\*|arn:aws:(ec2|ssm|servicequotas|budgets):[^:]*:[^:]*:.+)$"
+            }
+          },
+          "Condition": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": false,
+            "properties": {
+              "StringEquals": {
+                "type": "object",
+                "minProperties": 1,
+                "additionalProperties": {
+                  "oneOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "array",
+                      "minItems": 1,
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  ]
+                }
+              },
+              "StringLike": {
+                "type": "object",
+                "minProperties": 1,
+                "additionalProperties": {
+                  "oneOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "array",
+                      "minItems": 1,
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  ]
+                }
+              },
+              "Bool": {
+                "type": "object",
+                "minProperties": 1,
+                "additionalProperties": {
+                  "oneOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "array",
+                      "minItems": 1,
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  ]
+                }
+              },
+              "NumericEquals": {
+                "type": "object",
+                "minProperties": 1,
+                "additionalProperties": {
+                  "oneOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "array",
+                      "minItems": 1,
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  ]
+                }
+              },
+              "ForAllValues:StringEquals": {
+                "type": "object",
+                "minProperties": 1,
+                "additionalProperties": {
+                  "oneOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "array",
+                      "minItems": 1,
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  ]
+                }
+              },
+              "Null": {
+                "type": "object",
+                "minProperties": 1,
+                "additionalProperties": {
+                  "oneOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "array",
+                      "minItems": 1,
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

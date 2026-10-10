@@ -525,3 +525,178 @@ Vercel `/api/live-*` 데모의 OpenRouter 키·인메모리 제한(#5)은 별도
   취소 후 진행·게시 차단 / 저장 결과의 원문·판정·보류 동일성.
 - DB/API 변경과 rollback은 CONTRACT.md FX4 절을 따른다. 정적 재생은
   network-none·키 없이 실행한다. 유료 재실행·push·배포·AWS 시험은 FX4에서 not_run.
+
+## P3-EC2 — 서울 EC2 arm64 실행 준비 (EC1, 2026-10-10)
+
+조직 SCP의 Lightsail 거부로 신규 배포 경로를 `deploy/ec2/`로 전환한다. 기존 Lightsail
+파일은 보존한다. **EC1은 도구 작성과 로컬 dry-run까지만 수행했으며 AWS 읽기·쓰기,
+SSH, 실제 TLS/배포, 유료 모델 호출은 실행하지 않았다.** 아래 `--apply`는 권한 부착 후
+조정자/사용자가 실행한다. 앞 절의 세션·Origin·CSRF·원본7일·독립 비용/삭제 원장·복구·
+접수 종료 절차는 EC2에서도 동일하다. 앱/DB/API 계약 변경은 없다.
+
+### 1. 사용자 준비와 정책 부착
+
+AWS 계정 `753036488189`의 관리자가 `deploy/ec2/iam-policy.json`으로 **고객 관리형 정책**을
+만들어 IAM 사용자 `proofops-deploy`에 붙인다. 정책은 공백 제외 6,032자로 관리형6,144자
+제한 안에 있으며 사용자 inline 정책 총2,048자 제한에 맞지 않는다. 실제 정책 부착은
+EC1에서 하지 않았다. 인스턴스 프로파일·`iam:PassRole`·STS Allow는 필요하지 않다.
+
+EC2/SSM/Service Quotas는 서울 리전, 쓰기 리소스는 이 계정 ARN으로 한정한다.
+RunInstances는 `t4g.medium`, IMDSv2, 암호화30GiB gp3를 요구한다. 기존 SG/키/EIP와
+삭제 대상은 Project 태그로 제한하며 CreateTags는 생성 요청에서 Project/Name만 허용한다.
+기본 VPC/서브넷은 사전에 ID를 조회하지 않았으므로 서울 계정의 해당 ARN 범위가 필요하다.
+스크립트가 default VPC와 public default subnet만 선택하며 없으면 중단한다. VPC/NAT/
+로드밸런서·역할·snapshot 생성 권한은 없다. AMI는 Canonical owner 조건과 스크립트의
+Ubuntu24.04 arm64 이름/SSM 조회로 확인한다. IAM 정책만으로 SSH CIDR/IPv6 전체 설정을
+강제한 것은 아니므로 승인된 create.sh를 사용한다.
+
+운영자 로컬 필수 도구: AWS CLI v2, Bash, Python3.12, jq, OpenSSH, Docker(이미지 build/export).
+`check-config.py --kit`은 프로젝트에 이미 선언된 개발 의존성 jsonschema를 사용한다.
+새 의존성/lockfile 변경은 없다. `uv run --no-sync python deploy/ec2/check-config.py --kit`으로
+정책 JSON Schema·문법·범위를 로컬 검증한다. 이는 실제 IAM authorization 검증이 아니다.
+
+```sh
+# 지정된 worktree에서 실행. 키값을 출력하거나 shell tracing을 켜지 않는다.
+cd /Users/ss020/Dev/ESG_ProofOps/.local/r108-public
+export PROFILE=proofops-deploy REGION=ap-northeast-2 ACCOUNT_ID=753036488189
+export NAME=proofops-r108 ARCH=arm64 IMAGE=proofops-r108-public:ec1-arm64
+export STATE_DIR="$PWD/deploy/ec2/.state"  # EC2 전용; Lightsail 상태와 섞지 않는다.
+export SSH_KEY=/private/path/proofops-ec2
+export SSH_PUBLIC_KEY=/private/path/proofops-ec2.pub
+export SSH_CIDR=REPLACE_OPERATOR_PUBLIC_IPV4/32
+# 필요할 때 로컬 키 생성: ssh-keygen -t ed25519 -f "$SSH_KEY" (기존 키 덮어쓰기 금지)
+deploy/ec2/preflight.sh          # STS/SSM/Describe/쿼터 명령만 표시, 원격호출0
+deploy/ec2/create.sh             # 리소스/보안 설정 preview
+# 권한 부착 후 조정자가 실행:
+deploy/ec2/preflight.sh --apply
+deploy/ec2/create.sh --apply
+```
+
+preflight는 STS 계정/리전·AZ, Ubuntu24.04 LTS arm64 SSM public parameter,
+t4g.medium offering·2vCPU/4GiB, 기본 VPC·IPv4 IGW route·가용 default subnet,
+인스턴스/EIP/SG/키 이름 충돌, 현재 running/pending Standard vCPU 사용량과 쿼터를 확인한다.
+SSM 경로는 `/aws/service/canonical/ubuntu/server/24.04/stable/current/arm64/hvm/ebs-gp3/ami-id`.
+쿼터 읽기만 AccessDenied이면 사용자가 콘솔에서 서울 Running On-Demand Standard
+`L-1216C47A` 값을 확인해 `VCPU_QUOTA`를 설정한다. 기본값을 추측하지 않으며 네트워크/
+다른 읽기 오류를 권한 없음으로 숨기지 않는다. 필요하면 확인된 `AZ`를 선택한다.
+Offering은 재고 보장이 아니다. EIP 할당 쿼터/실제 EC2 capacity는 create의 해당 호출에서
+실패할 수 있으며, 그때 부분 생성 리소스와 journal을 보존한다.
+
+create는 ed25519/RSA **공개키만** import하고 SG22는 운영자 IPv4/32,80/443은 IPv4 전체에
+연다. IPv6 주소/ingress는 없고 host IPv6도 끈다. 필요한 IPv4 outbound는 유지한다.
+인스턴스는 t4g.medium, standard CPU credits(추가 credit 과금 방지), encrypted gp3
+30GiB, IMDSv2 required, termination protection off, root DeleteOnTermination true다.
+컨테이너는 EC2 메타데이터/instance profile을 쓰지 않으므로 hop limit1을 유지한다.
+모든 생성 자원에 Project/Name 태그를 붙이며 자동 공인IP 없이 EIP1개만 연결한다.
+cloud-init은 EIP 연결 후 apt 통신을 기다리고 Ubuntu/arm64를 검사한다. 이미지·provider
+키를 user-data에 넣지 않는다. `.state/owned.json`은 성공 ID·마지막 intent·client token을
+0600으로 남긴다. 실패 후 같은 create를 재실행하지 않는다. 응답 유실 등으로 ID가
+미기록된 matching 리소스는 스크립트가 임의 채택/삭제하지 않으므로 운영자가 점검한다.
+
+### 2. 이미지·비밀 파일·배포·smoke 순서
+
+create가 표시한 소유 EIP를 `STATIC_IP`로 지정한다. SSH host fingerprint는 EC2 console의
+system log 등 신뢰할 수 있는 별도 경로로 확인해 known_hosts에 등록한다.
+StrictHostKeyChecking=yes를 끄지 않는다. symlink와 wrapper가 기존 private config,
+Compose/Caddy, deploy/keys/smoke 및 account budget 구현을 재사용한다.
+
+```sh
+export STATIC_IP=REPLACE_CREATED_EIP
+export RUNTIME_ENV=/private/path/runtime.env ACME_EMAIL=REPLACE_OPERATOR_EMAIL
+# P3의 init-runtime.py·초대·동의·키파일 생성 절차를 동일하게 사용한다.
+# 새 파일 생성 시: python3 deploy/ec2/init-runtime.py --origin https://ACTUAL_VERCEL_DOMAIN --output "$RUNTIME_ENV"
+python3 deploy/ec2/check-config.py "$RUNTIME_ENV"
+# OPENAI_KEY_FILE/OPENROUTER_KEY_FILE/UPSTAGE_KEY_FILE/LIVE_CONFIG_FILE은 private0600 파일 경로.
+# HOSTED_RUN_USD=1.0/HOSTED_DAY_USD=7/HOSTED_EVENT_USD=7, LIVE_DISABLED=true 유지.
+export IMAGE_ARCHIVE=/private/path/NEW_ec1_arm64.tar
+deploy/ec2/pack.sh --arch arm64 --build "$IMAGE_ARCHIVE"          # preview
+deploy/ec2/pack.sh --apply --arch arm64 --build "$IMAGE_ARCHIVE"  # 로컬 build/export만; push 없음
+deploy/ec2/keys.sh                 # preview
+deploy/ec2/keys.sh --apply          # 소유 EIP·aarch64 확인 후 비밀 파일 설치
+deploy/ec2/deploy.sh                # preview
+deploy/ec2/deploy.sh --apply        # SHA/arm64·원격aarch64·cloud-init·private env 검증 후 배포
+# P3 configure-web.py로 소유 EIP.sslip.io HTTPS rewrite의 로컬 diff를 확인한 뒤 적용한다.
+# 실제 Vercel publish는 별도 조정자 실행; 기존 Origin/쿠키/CSRF·업로드 제한을 검사한다.
+export SMOKE_BASE=https://ACTUAL_VERCEL_DOMAIN/hosted-api APP_ORIGIN=https://ACTUAL_VERCEL_DOMAIN
+# INVITE_FILE/FOREIGN_INVITE_FILE은 P3의 각 테넌트 private0600 초대 파일.
+deploy/ec2/smoke.sh                # preview
+deploy/ec2/smoke.sh --apply         # LIVE_DISABLED 상태 scope-plan/tenant/purge HTTP 검증
+```
+
+keys/deploy의 SSH 대상은 EC2 `.state`의 성공한 EIP와 일치해야 한다. 이미지 manifest SHA와
+arm64, 서버 `uname -m=aarch64`가 다르면 전송/배포를 거부한다. HTTP smoke는 기존 테넌트,
+If-Match, scope 변경 검증을 유지하며 실제 모델 호출을 켜지 않는다. 기존 P3에 나온
+local-smoke.sh는 필요할 때 `ARCH=arm64`와 해당 `IMAGE`로 사용할 수 있지만 EC1에서는
+이미지 build/실제 서버 실행을 하지 않았다. 실제4GiB RSS·TLS·Vercel·reader/모델 품질
+승인은 각 기존 release gate를 통과한 다음이다.
+
+### 3. 계정 budget과 예상 비용
+
+budgets는 계정 단위라 `deploy/ec2/budget.sh`가 기존 구현을 재사용한다. 같은 이름의
+`proofops-r108-monthly-20`이 이미 있으면 중복 생성하지 말고 확인한다. cost.sh는
+Lightsail 조회 대신 EC2 인스턴스/EIP/EBS inventory를 저장한다. Budget은 경보이며
+사용량 차단 장치가 아니고 provider의 USD1/run·7/day·7/event와 별도다.
+
+```sh
+export ALERT_EMAIL=REPLACE_OPERATOR_EMAIL
+deploy/ec2/budget.sh  # preview; 기존 budget이 없을 때만 조정자가 --apply로 생성
+deploy/ec2/cost.sh    # preview; 조정자의 --apply는 계정경보/EC2 inventory 읽기
+```
+
+2026-10-10 공식 공개 가격 자료 확인(가격 파일 effective2026-10-01, account API 호출 아님):
+
+| 서울 리소스 | USD 단가 | 730h/월 환산 |
+|---|---:|---:|
+| t4g.medium Linux Shared On-Demand, standard credit | 0.0416/h | 30.368 |
+| public IPv4/EIP1개, 연결/미연결 동일 | 0.005/h | 3.650 |
+| gp3 30GB, 기본3000IOPS/125MiB/s | 0.0912/GB-month | 2.736 |
+| 합계 | 약0.05035/h(스토리지 환산 포함) | 약36.754 |
+
+11일264h는 약USD13.29(730h 기준 EBS 비례 환산), 모델행사 상한7을 전부 쓰면 약USD20.29.
+VAT/전송초과/유료Vercel/추가스토리지는 별도이며 실제 EBS는 월별 초 단위 비례 청구라
+확정 청구액이 아니다. 기존 Lightsail 월24달러 추정은 EC2에 적용하지 않는다. EC2 stop은
+compute 과금을 멈추지만 EBS/EIP는 남아 과금되므로 비용 종료에는 teardown이 필요하다.
+Standard credits는 추가 credit 비용을 막지만 지속부하에서 baseline으로 throttling될 수
+있다. EC1은4GiB 분석 처리시간/성능을 측정하지 않았다.
+
+출처: [EC2 공식 On-Demand 가격](https://aws.amazon.com/ec2/pricing/on-demand/),
+[서울 공식 EC2/EBS 공개 가격 CSV](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonEC2/current/ap-northeast-2/index.csv)
+(t4g Used SKU445XHR7HD5M549M9, gp3 SKU MTK7D9SGKGYR3JD6),
+[EBS 공식 가격](https://aws.amazon.com/ebs/pricing/),
+[IPv4 공식 가격](https://aws.amazon.com/vpc/pricing/).
+선택 단가/가정은 `deploy/ec2/pricing.json`에도 저장한다.
+
+### 4. 종료·rollback·로컬 검증
+
+P3의 접수종료→worker drain/unknown 보존→purge/TTL→current 독립 ledger export·암호화
+보관을 먼저 끝낸다. EC2 teardown은 snapshot을 만들거나 임의 snapshot을 지우지 않는다.
+root disk 자동삭제가 포함되므로 PDF·키·Caddy volumes는 복구할 수 없다. image rollback은
+기존 호환 이미지와 같은 data/돈/삭제 ledger로만 하며 live/admission을 닫아 시작한다.
+EC2/Lightsail 상태를 교환하거나 새 event ID로 비용 상한을 초기화하지 않는다.
+
+```sh
+export CONFIRM_DELETE="$NAME" LEDGER_ARCHIVED=true  # 실제 원장 보관 성공 후만
+deploy/ec2/teardown.sh          # exact state IDs preview
+deploy/ec2/teardown.sh --apply  # 조정자가 실행: instance 종료→EIP해제→SG→imported key
+```
+
+삭제 전에 `.state`/계정/Project·Name/ID/VPC/root volume/외부 EIP·SG 사용을 확인하고
+하나라도 다르면 중단한다. root 외 추가 디스크는 삭제하지 않고 전체 teardown을 멈춘다.
+재실행은 부재와 API 실패를 구분하며, terminated instance 및 EIP/SG/키/root volume 부재를
+확인한다. AWS의 삭제 전파 지연은 성공으로 숨기지 않으며 journal을 보존해 점검 후
+teardown만 재실행한다. budget 경보는 유지한다. 새 배포가 필요하면 삭제 검증 뒤 journal을
+별도 private 경로에 보관하고 명시적으로 새 NAME/STATE_DIR을 선택한다.
+
+EC1 로컬 검사: `python3 deploy/ec2/test_kit.py`, `python3 deploy/ec2/check-config.py --kit`,
+`(cd deploy/ec2 && shellcheck -x *.sh)`, 각 `bash -n`, 변경 Python 파일 Ruff/type check.
+단위의 `--apply`는 aws/ssh/scp를 로컬 fixture로 교체한다. dry-run에서는 fixture AWS 호출도0.
+실제 AWS 읽기·쓰기/Access Analyzer·Ubuntu cloud-init/arm64 image build/SSH/TLS/Vercel/
+4GiB live·유료모델은 **not_run**이다. 단위 통과를 모델 정확도나 production 완료로 표시하지 않는다.
+
+기술 출처: [Canonical Ubuntu AMI 찾기](https://ubuntu.com/aws/docs/aws-how-to/instances/find-ubuntu-images/),
+[EC2 IAM 리소스별 launch 예제](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ExamplePolicies_EC2.html),
+[공식 EC2 서비스 권한 참조 JSON](https://servicereference.us-east-1.amazonaws.com/v1/ec2/ec2.json),
+[SSM public parameter ARN](https://docs.aws.amazon.com/systems-manager/latest/userguide/parameter-store-public-parameters-ami.html),
+[On-Demand vCPU quota](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-on-demand-instances.html),
+[Ubuntu24.04 arm64 Docker 패키지](https://packages.ubuntu.com/noble/docker.io),
+[Ubuntu24.04 Docker Compose v2](https://packages.ubuntu.com/noble/docker-compose-v2).
