@@ -29,6 +29,27 @@ from tests.integration.test_upstage_tagger_preflight import configured
 SCHEMA = Path("prompts/source_relations_occurrence_v3.schema.json").read_text()
 
 
+@pytest.mark.parametrize("source_profile", ["v3", "v4"])
+def test_finals_new_run_pins_evidence_reader_from_configured_claim_reader(tmp_path, source_profile):
+    from proofops.adapters.local import (
+        evidence_source_ocr_v1,
+        evidence_source_verification_v1,
+        upstage_ocr_profile_v3,
+        upstage_ocr_profile_v4,
+    )
+
+    service, body, *_ = _live_service(tmp_path)
+    service.pipeline_profile = "finals-unattended-v2"
+    reader = upstage_ocr_profile_v4 if source_profile == "v4" else upstage_ocr_profile_v3
+    service.claim_source_policy = reader.claim_source_policy()
+    body["rule_pack_id"] = _draft_pack(service, AUTH.tenant_id).rule_pack_id
+    result = service.create(AUTH, body, str(uuid4()))
+    frozen = service.store.snapshot(AUTH.tenant_id, result["run_id"])
+    expected = evidence_source_ocr_v1 if source_profile == "v4" else evidence_source_verification_v1
+    assert frozen["claim_source_policy"] == reader.claim_source_policy()
+    assert frozen["evidence_source_policy"] == expected.policy()
+
+
 def occurrence(settings):
     return replace(
         settings,

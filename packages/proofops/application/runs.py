@@ -649,7 +649,7 @@ class RunService:
                 snapshot["analysis_profile_policy_sha256"] = canonical_hash(analysis_policy)
                 from proofops.adapters.local import evidence_source_verification_v1 as evidence
 
-                if snapshot.get("claim_source_policy", {}).get("profile") == "upstage-ocr-page-v4":
+                if (self.claim_source_policy or {}).get("profile") == "upstage-ocr-page-v4":
                     from proofops.adapters.local import evidence_source_ocr_v1 as evidence
 
                 snapshot["evidence_source_policy"] = _detach(evidence.policy())
