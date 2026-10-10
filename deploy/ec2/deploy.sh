@@ -19,7 +19,7 @@ assert hashlib.file_digest(p.open('rb'),'sha256').hexdigest()==m['archive_sha256
 CHECK
 SSH=(ssh -i "$SSH_KEY" -o BatchMode=yes -o StrictHostKeyChecking=yes "ubuntu@$STATIC_IP")
 SCP=(scp -q -i "$SSH_KEY" -o BatchMode=yes -o StrictHostKeyChecking=yes)
-"${SSH[@]}" 'sudo cloud-init status --wait >/dev/null'
+"${SSH[@]}" 'sudo cloud-init status --wait >/dev/null; rc=$?; [ $rc -eq 0 ] && exit 0; [ $rc -eq 2 ] && sudo cloud-init status --format json | python3 -c "import json,sys; d=json.load(sys.stdin); sys.exit(1 if d.get(\"errors\") else 0)" && exit 0; exit $rc'
 actual=$("${SSH[@]}" uname -m)
 case "$ARCH:$actual" in amd64:x86_64|arm64:aarch64) ;; *) echo 'Server/image CPU mismatch.' >&2; exit 2;; esac
 remote="/home/ubuntu/proofops-upload-$$"
@@ -42,7 +42,7 @@ sudo install -m 644 "$stage/compose.yaml" "$stage/Caddyfile" /srv/proofops/
 sudo docker pull caddy:2.10.2-alpine >/dev/null
 cd /srv/proofops
 sudo docker compose --env-file compose.env -f compose.yaml --profile tls config --quiet
-sudo docker compose --env-file compose.env -f compose.yaml run --rm --no-deps caddy validate --config /etc/caddy/Caddyfile >/dev/null
+sudo docker compose --env-file compose.env -f compose.yaml run --rm --no-deps caddy caddy validate --config /etc/caddy/Caddyfile >/dev/null
 sudo systemctl restart proofops.service
 REMOTE
 echo "Deployed private config/image; test https://$STATIC_IP.sslip.io/v1/health/ready and Vercel proxy before enabling admission."
