@@ -32,7 +32,7 @@ no trusted forwarded IP or tenant/client cost fields. Keys must never enter VITE
 
 ## Upload and retention
 POST /v1/documents accepts application/pdf bytes with Idempotency-Key; filenames and
-remote URLs are not accepted. Stream body capped at HOSTED_MAX_UPLOAD_BYTES=52428800,
+remote URLs are not accepted. Stream body capped at HOSTED_MAX_UPLOAD_BYTES=157286400,
 One cross-process upload slot rejects excess requests with429/Retry-After1 before
 receiving their bodies; disconnect cannot release the slot during validation.
 PDF quarantined subprocess checks reuse SEC-002 (max300 pages, password/active-content,
@@ -299,15 +299,10 @@ no unverified `present` is admitted. The UI shows 원문 확인 필요, 잠정·
 phase/progress, hold/error codes, and budget_unanalyzed reasons. A terminal completed
 run means selected-scope processing ended, not full-report certification.
 
-Upload remains **50 MiB /300 pages**. 100MiB+ files remain unsupported: AS1 itself
-has a100MiB input guard. The existing buffering can retain roughly3 body copies
-(~150MiB at50MiB), plus a512MiB validation child; scope shares that slot while the
-single analysis worker can independently prepare pages in another512MiB child.
-These are configured bounds/estimates, not measured Linux peak RSS. Increasing the
-limit requires streamed spooling, parser input-limit changes and4GiB RSS/proxy tests;
-no larger upload allowance was silently enabled. Current corpus NAVER18.66MiB,
-SK Telecom39.26MiB, Samsung Electronics5.39MiB fit the byte cap; acceptance still
-requires the unchanged PDF security/object/decoded-byte gates.
+The initial HS1 intake measured only <=50 MiB reports. FX3 replaces that ceiling
+with disk-streamed **150 MiB /300 pages** originals and page-backed hosted scope
+inspection; see the FX3 contract and measured memory evidence below. Offline AS1
+research inspection retains its separate 100 MiB limit.
 
 Rollback: stop admission and drain new jobs before using an older worker; it does
 not understand options sidecars and would treat evidence-only pages as claim pages.
@@ -380,3 +375,43 @@ No SQL column or route migration. Optional DTO presentation adds hold reasons an
 needed evidence. Old readers must not execute new profiles. Rollback: select v1 or
 `r108-default` for new runs, drain workers and retain all options, checkpoints,
 receipts, revisions, immutable reports and cost rows. Never downgrade a pinned run.
+
+
+## FX3 — streamed originals and isolated accounting uncertainty (2026-10-10)
+
+This section supersedes the earlier 50 MiB intake ceiling and global pending-accounting
+queue stop. POST /v1/documents streams to a private disk file, defaults to / is capped
+at 150 MiB and 300 pages, and retains strict object/action/password checks. The strict
+validator caps cumulative decoded bytes at 512 MiB, clears decoded stream caches, and
+retains its 512 MiB address-space, 20 CPU-second and 30 wall-second guards. The API
+container stays at 512 MiB; the one upload/scope slot and worker's 2560 MiB cap remain.
+Selected preparation uses disk source/target files; only <=30 selected pages (claims<=10)
+enter later analysis, with an independent prepared-file limit of 50 MiB.
+
+Free scope inspection uses file-backed PDFium page/text handles, closes them per page,
+records method/parser version and skipped/unreadable pages, and retains AS1 selection
+hashes and If-Match. Scope proposals remain unverified; no evidence readers are changed.
+A killed/failed scope child publishes an immutable failed plan with front-three suggestions;
+manual selection requires a new CAS revision and preserves unknown/conflict/unreadable.
+
+OpenAI/OpenRouter network errors retain call and full run-envelope reservations. They
+return PROCESSING_UNCERTAIN, keep the owning run's fence valid for partial publication,
+and hold only its affected claim with no grade. There is no network redispatch. Reuse of
+the same call/request ID is refused; schema retries after a received response remain
+separately reserved. OpenAI's broker request UUID is also sent as X-Client-Request-Id
+for operator tracing, not as a billing-idempotency guarantee. Unknown receipts, parser/OCR
+failures and quota failures retain their terminal behavior. Pending accounting occupies
+only its budget and per-user outstanding-run limit, not the global worker/admission slot.
+Day/event caps count the full pending envelope; HS2's dispatch-zero expiry release is unchanged.
+
+Operator reconcile accepts published completed/partial_blocked runs as well as
+previous terminal accounting states; export hash, exact call identities/set, amount
+bounds, settled-cost equality and immutable audit are unchanged. Settlement does
+not change the published run status or result snapshot.
+
+API fields, SQLite schema and immutable snapshot formats are unchanged; no DB migration.
+Existing snapshots/receipts are not rewritten. Rollback restores the earlier code and
+50 MiB proxy/env cap; preserves all pending reservations and snapshots; old code may
+again stop queues on pending accounting and refuse >50 MiB uploads. Existing large
+originals stay stored until authorized deletion/expiry. Stop assigning new scope work
+to the old inspector when rolling back. Real provider/AWS/production TLS checks are not_run.

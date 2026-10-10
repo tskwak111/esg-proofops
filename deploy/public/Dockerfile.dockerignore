@@ -17,6 +17,7 @@
 !evaluation/__init__.py
 !evaluation/local_upstage_pilot.py
 !evaluation/hosted_r108.py
+!evaluation/hosted_scope_plan.py
 !evaluation/report_scope.py
 !evaluation/report_sections.py
 !config/

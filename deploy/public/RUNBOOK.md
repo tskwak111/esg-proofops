@@ -246,17 +246,17 @@ production origin이다. 웹은 같은 origin `/hosted-api`로만 호출한다. 
 처음에는 웹 static·서버 admission=false를 유지한다. operator-only blocked smoke 동안만
 private runtime.env에서 HOSTED_ACCEPT_UPLOADS=true, R108_ACCEPT_NEW_RUNS=true,
 ANALYSIS_BACKEND=r108로 바꾸고 LIVE_DISABLED=true를 유지하여 deploy.sh로 재적용한다.
-계약에 맞는 정상 PDF 최대2쪽 처리, 전체 원본300쪽/50MiB 제한을 유지한다.
+계약에 맞는 정상 PDF 최대2쪽 처리, 전체 원본300쪽/150MiB 제한을 유지한다(FX3).
 
 - TLS: sslip.io DNS→static IP, 인증서 hostname/chain/만료 확인, HTTPS health200, HTTP→HTTPS.
 - Set-Cookie: production 페이지에서 초대 로그인200, `__Host-proofops_session; Secure;
   HttpOnly; Path=/; SameSite=Lax; no Domain`; 새로고침 후 session200/CSRF write.
   Network에서 Cookie가 **production /hosted-api에 재전송**되는지 확인하고 cookie/code/body를
   공개 evidence에 붙이지 않는다. HTTP CLI 수동 Cookie 검사만으로 브라우저 통과를 주장하지 않는다.
-- 업로드: 권리가 있는 실제50MiB 이하/300쪽 이하 정상 PDF를 production proxy로 전송하여201,
-  서버 length/SHA 일치 확인. exact52428800 bytes와52428801 bytes fixture는 별도로 확인하여
+- 업로드: 권리가 있는 실제150MiB 이하/300쪽 이하 정상 PDF를 production proxy로 전송하여201,
+  서버 length/SHA 일치 확인. exact157286400 bytes와157286401 bytes fixture는 별도로 확인하여
   cap 이하가 proxy에서 잘리지 않고 cap 초과는413(허용429/422 사유도 구분); 동시 업로드429.
-  Vercel Functions의4.5MB 한도를 외부 rewrite 경로에 그대로 적용하지 않으며50MiB가 된다고
+  Vercel Functions의4.5MB 한도를 외부 rewrite 경로에 그대로 적용하지 않으며150MiB가 된다고
   가정하지도 않는다. Network Timing, 전송 bytes, 응답 status만 기록하고 fixture는 삭제한다.
 - 120초: Vercel 외부 origin 응답-header 제한은 공지상120s. 실제 정상 최대 업로드 요청의
   total/TTFB가120s 이내인지 기록하고 run acceptance202는 짧게 끝나는지 측정한다.
@@ -439,7 +439,12 @@ HOSTED_RUN_USD=1.0/HOSTED_DAY_USD=7/HOSTED_EVENT_USD=7. Existing env overrides d
 change automatically. Provide real operator reporting scope, private provider-key
 mounts, approved Linux reader config, invitation and consent version; keys stay
 outside logs and data payloads. Run the existing4GiB memory/health checks and confirm
-50MiB/300page limits in the actual TLS proxy. Higher upload limit is deferred.
+150MiB/300page limits in the actual TLS proxy (FX3). API uploads/validation/scope
+remain serialized in the 512MiB container. The worker receives only a <=50MiB
+selected PDF, <=30 pages including <=10 claim pages. Network-uncertain claims hold
+PROCESSING_UNCERTAIN with their call/full envelope reserved; other runs may enter
+within the existing day/event caps. Use the existing evidence-backed reconcile CLI
+for published completed/partial_blocked runs too; settlement preserves their result.
 
 Vercel's checked-in build now defaults VITE_ANALYSIS_BACKEND=hosted and keeps the
 static shell. VITE_HOSTED_API_BASE=/hosted-api uses a same-origin rewrite; add the
