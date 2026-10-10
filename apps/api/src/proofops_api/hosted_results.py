@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import os
 from contextlib import contextmanager
 from dataclasses import asdict
 from pathlib import Path
@@ -38,7 +39,19 @@ def services(path: Path, tenant: str):
     )
     try:
         with reader_scope(ReplayOCRStore(path / "upstage.sqlite3")):
-            yield manifest["run_id"], claims, tags, reviews
+            previous_cache = os.environ.get("PROOFOPS_VERIFIED_READ_CACHE")
+            try:
+                snapshot = runs.snapshot(tenant, manifest["run_id"])
+                policy = snapshot.get("analysis_profile_policy", {})
+                os.environ["PROOFOPS_VERIFIED_READ_CACHE"] = policy.get(
+                    "verified_read_cache", {}
+                ).get("profile", "disabled")
+                yield manifest["run_id"], claims, tags, reviews
+            finally:
+                if previous_cache is None:
+                    os.environ.pop("PROOFOPS_VERIFIED_READ_CACHE", None)
+                else:
+                    os.environ["PROOFOPS_VERIFIED_READ_CACHE"] = previous_cache
     finally:
         uploads.close()
         registry.close()

@@ -429,7 +429,18 @@ def replay_claims_cached(*, reader, policy, receipt, graph, source, discovery, t
         "upstage-ocr-page-v5",
         "upstage-ocr-page-v6",
     }:
-        return reader.replay_claim_spans(receipt, graph, source, discovery, tenant_id=tenant_id)
+        from proofops.adapters.local.verified_read_cache import replay_cached as replay_ocr_cached
+
+        return replay_ocr_cached(
+            reader_name=reader.__name__,
+            policy=policy,
+            receipt=receipt,
+            graph=graph,
+            source=source,
+            discovery=discovery,
+            tenant_id=tenant_id,
+            recompute=reader.replay_claim_spans,
+        )
     reader_policy = reader.claim_source_policy() if hasattr(reader, "claim_source_policy") else None
     key = canonical_hash(
         dict(

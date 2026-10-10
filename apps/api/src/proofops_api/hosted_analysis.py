@@ -4,6 +4,7 @@ import fcntl
 import io
 import json
 import os
+import signal
 import subprocess
 import sys
 import time
@@ -337,6 +338,19 @@ class HostedParseProbe(UpstageParseProbe):
 # Wall-clock cap for one analysis subprocess; the per-run USD cap still bounds spend.
 ANALYSIS_TIMEOUT_SECONDS = int(os.environ.get("HOSTED_ANALYSIS_TIMEOUT_SECONDS", "1800"))
 HEARTBEAT_SECONDS = 30
+TWO_SLOT_MEMORY_BYTES = 1100 * 1024 * 1024
+
+
+def process_tree_bytes(pid):
+    """RSS of the isolated analysis and its parser/OCR descendants."""
+    output = subprocess.check_output(["ps", "-eo", "pid=,ppid=,rss="], text=True, timeout=5)
+    rows = [tuple(map(int, line.split())) for line in output.splitlines()]
+    descendants = {pid}
+    while True:
+        expanded = descendants | {child for child, parent, _ in rows if parent in descendants}
+        if expanded == descendants:
+            return sum(rss * 1024 for child, _, rss in rows if child in descendants)
+        descendants = expanded
 
 
 def acquire_analysis_lock(lock, *, timeout=2):
@@ -354,9 +368,17 @@ def acquire_analysis_lock(lock, *, timeout=2):
 
 
 def run_analysis_process(command, store, job, lock):
+    from proofops_api.hosted_store import HostedError
+
     deadline = time.monotonic() + ANALYSIS_TIMEOUT_SECONDS
+    next_heartbeat = time.monotonic() + HEARTBEAT_SECONDS
+    bounded = store.settings.max_active_runs == 2
     process = subprocess.Popen(
-        command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, pass_fds=(lock.fileno(),)
+        command,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        pass_fds=(lock.fileno(),),
+        start_new_session=True,
     )
     try:
         while True:
@@ -364,17 +386,25 @@ def run_analysis_process(command, store, job, lock):
             if remaining <= 0:
                 raise subprocess.TimeoutExpired(command, ANALYSIS_TIMEOUT_SECONDS)
             try:
-                code = process.wait(timeout=min(HEARTBEAT_SECONDS, remaining))
+                code = process.wait(timeout=min(2 if bounded else HEARTBEAT_SECONDS, remaining))
                 if code:
                     raise subprocess.CalledProcessError(code, command)
                 return
             except subprocess.TimeoutExpired:
                 if time.monotonic() >= deadline:
                     raise
-                store.renew_lease(job, now=time.time())
+                if bounded and process_tree_bytes(process.pid) > TWO_SLOT_MEMORY_BYTES:
+                    raise HostedError("ANALYSIS_MEMORY_LIMIT") from None
+                if time.monotonic() >= next_heartbeat:
+                    store.renew_lease(job, now=time.time())
+                    next_heartbeat = time.monotonic() + HEARTBEAT_SECONDS
     finally:
-        if process.poll() is None:
-            process.kill()
+        # Reap the entire private session, including a parser/OCR child after an
+        # interrupted parent. Its inherited document lock must not outlive the slot.
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
         process.wait()
 
 

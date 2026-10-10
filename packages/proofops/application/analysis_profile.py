@@ -34,19 +34,28 @@ V2_INITIAL_POLICY = POLICY | dict(
     grade_display="whole-range-hold-v1",
 )
 V2_PRE_HF1_POLICY = V2_INITIAL_POLICY | dict(element_wire="track-rulecards-v1")
-V2_POLICY = V2_PRE_HF1_POLICY | dict(
+V2_PRE_PA1_POLICY = V2_PRE_HF1_POLICY | dict(
     source="upstage-ocr-page-v6",
     hold_recovery="hf1-v1",
     citation_restore="citation-whitespace-partial-v1",
     grade_display="actual-gap-hold-v2",
 )
+VERIFIED_READ_POLICY = dict(
+    profile="exact-verified-read-v1",
+    max_bytes=32 * 1024 * 1024,
+    max_entries=4,
+    cold_read="single-flight",
+    failure_cache=False,
+    persistent=False,
+)
+V2_POLICY = V2_PRE_PA1_POLICY | dict(verified_read_cache=VERIFIED_READ_POLICY)
 
 
 def policy_for(profile, *, pinned_hash=None):
     if profile == PROFILE:
         choices = (POLICY,)
     elif profile == V2_PROFILE:
-        choices = (V2_POLICY, V2_PRE_HF1_POLICY, V2_INITIAL_POLICY)
+        choices = (V2_POLICY, V2_PRE_PA1_POLICY, V2_PRE_HF1_POLICY, V2_INITIAL_POLICY)
     else:
         raise ValueError("ANALYSIS_PROFILE_UNKNOWN")
     for policy in choices:

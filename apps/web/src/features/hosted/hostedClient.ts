@@ -31,6 +31,7 @@ export type ScopePlan = {
 export type HostedRun = {
   run_id: string; document_id: string; status: string; selected_pages: number[]; status_url: string;
   error_code: string | null; stage?: string | null; queue_position?: number | null; progress?: number | null;
+  provider_error_code?: string | null; provider_error_message?: string | null;
   claims_extracted?: number; claims_processed?: number;
   result_url?: string | null; result?: HostedResult | null;
 };
@@ -238,12 +239,19 @@ export function createHostedClient(options: ClientOptions = {}) {
     },
   };
 }
-export const terminalStatuses = ["partial_blocked", "completed", "cancelled", "failed"];
+export const terminalStatuses = ["partial_blocked", "completed", "cancelled", "failed", "accounting_pending"];
 export type HostedClient = ReturnType<typeof createHostedClient>;
 
-export const providerLimitCodes = ["OPENROUTER_HTTP_402", "OPENROUTER_HTTP_403", "OPENAI_HTTP_401", "OPENAI_HTTP_429", "OPENAI_INSUFFICIENT_QUOTA"];
+export const providerLimitCodes = ["OPENROUTER_HTTP_402", "OPENROUTER_HTTP_403", "OPENAI_HTTP_401", "OPENAI_HTTP_429", "OPENAI_INSUFFICIENT_QUOTA", "PROVIDER_CREDIT_EXHAUSTED", "PROVIDER_AUTH_FAILED", "PROVIDER_ACCESS_DENIED", "PROVIDER_RATE_LIMITED"];
 export const providerLimitMessage = "분석 서비스 한도 초과 — 운영자 확인 필요";
 const blockedReasons: Record<string, string> = {
+  PROVIDER_CREDIT_EXHAUSTED: "분석 API 크레딧이 부족합니다. 운영자의 충전 확인이 필요합니다.",
+  PROVIDER_AUTH_FAILED: "분석 API 인증에 실패했습니다. 운영자의 키 확인이 필요합니다.",
+  PROVIDER_ACCESS_DENIED: "분석 API 사용 권한이 거부되었습니다. 운영자 확인이 필요합니다.",
+  PROVIDER_RATE_LIMITED: "분석 API 요청 한도에 도달했습니다. 운영자 확인 후 다시 접수해 주세요.",
+  PROVIDER_UNAVAILABLE: "분석 API에 일시적인 서버 오류가 발생했습니다.",
+  ACCOUNTING_PENDING: "비용 정산 확인 중입니다. 운영자 확인이 필요합니다.",
+  ANALYSIS_MEMORY_LIMIT: "동시 분석의 메모리 한도에 도달해 중단되었습니다. 운영자 확인이 필요합니다.",
   OPENAI_HTTP_401: providerLimitMessage,
   OPENAI_HTTP_429: providerLimitMessage,
   OPENAI_INSUFFICIENT_QUOTA: providerLimitMessage,
@@ -274,7 +282,9 @@ export function holdReasonText(code: string): string {
   return `보류 사유 코드: ${code}`;
 }
 export function runOutcome(run: HostedRun): { kind: "pending" | "blocked" | "completed" | "cancelled" | "failed"; title: string; reasons: string[] } {
+  const provider = run.provider_error_code;
   switch (run.status) {
+    case "accounting_pending": return { kind: "blocked", title: "분석 중단 · 비용 정산 확인 중", reasons: [holdReasonText(provider ?? run.error_code ?? "ACCOUNTING_PENDING")] };
     case "partial_blocked": {
       const codes = run.result?.hold_reasons?.length ? run.result.hold_reasons : run.error_code ? [run.error_code] : [];
       const reasons = codes.length ? codes.map(holdReasonText) : ["분석이 일부만 진행되어 보류되었습니다."];
@@ -283,7 +293,7 @@ export function runOutcome(run: HostedRun): { kind: "pending" | "blocked" | "com
     }
     case "completed": return { kind: "completed", title: "선택 범위 처리 종료 · 잠정 결과", reasons: run.result ? [] : ["이 서버가 결과 상세를 아직 제공하지 않아 화면에 표시할 수 없습니다."] };
     case "cancelled": return { kind: "cancelled", title: "취소됨", reasons: [] };
-    case "failed": return { kind: "failed", title: "실패", reasons: [holdReasonText(run.error_code ?? "알 수 없음")] };
+    case "failed": return { kind: "failed", title: "실패", reasons: [holdReasonText(provider ?? run.error_code ?? "알 수 없음")] };
     default: return { kind: "pending", title: run.status === "queued" ? "대기 중" : "분석 중", reasons: [] };
   }
 }

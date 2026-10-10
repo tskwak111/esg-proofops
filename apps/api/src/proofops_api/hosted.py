@@ -351,7 +351,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
                 "selected_pages": 2,
                 "claim_pages": 10,
                 "evidence_pages": 30,
-                "active": 1,
+                "active": settings.max_active_runs,
                 "queued": 8,
                 "user_outstanding": 1,
                 "user_daily_runs": settings.user_daily_runs,
