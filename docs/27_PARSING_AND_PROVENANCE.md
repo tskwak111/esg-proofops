@@ -371,3 +371,21 @@ native 연속 문자열을 다시 확인하고 종류·문장 종결·목록·�
 기존 artifact·receipt·revision·해시는 수정하지 않으며 API/DB migration은 없다.
 rollback은 새 opt-in 배정 중단과 기존 reader 보존이다. 미지원 reader는 새 profile을
 거부한다. 무료 저장 선택 재생과 새 모델 탐지·공개 검증의 수치는 별도로 기록한다.
+
+
+### FX6 · Widget 표시 전환 액션 오거절 수정 (2026-10-10)
+
+위 R108 F6의 strict-v1 hover 거절은 FX6에서 명시적으로 변경한다. SK하이닉스
+2025 보고서 p19의 `/Widget /AA /E`·`/X` → `/Hide /T (ToF-MS 팝업)`와
+boolean `/H`를 원본에서 확인했다. strict 검증은 Widget `/E`·`/X`·`/Fo`·`/Bl`에서
+내부 표시 전환 `/Hide`만 추가 허용한다. 기존 `/Named`·`/GoTo` 및 클릭 `/D`·`/U`
+규칙은 유지한다. hover/focus의 URI·Print/Find, 문서·페이지 자동 이벤트 및
+OpenAction의 Hide/URI, JavaScript·Launch·SubmitForm·ImportData·원격/임베디드
+액션은 계속 거부한다. `/T` 타입·선택 `/H` boolean·모든 `/Next` 검사는 유지한다.
+
+API/DB migration·새 의존성·기본 리소스 한도 변경은 없다. pin 없는 pending upload와
+원본의 재검증에도 수정된 strict 검사를 적용하며, 완료된 version·태깅·판정·보고서와
+frozen strict-v1 fixture를 재작성하지 않는다. display-v2의 기존 제거 정책은 변경하지
+않는다. rollback은 FX6 commit을 revert하면 되며 SK hover 오거절이 다시 발생한다.
+150MiB/300쪽 corpus는 HostedStore.upload_file의 verify_pdf_file 호출과 decoded
+512MiB 한도를 그대로 사용하며, 그 외 strict 리소스 상한도 변경하지 않는다.

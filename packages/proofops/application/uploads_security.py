@@ -485,15 +485,16 @@ def _inspect_legacy(path: str, limits: PdfLimits) -> int:
         # navigation and remain inert even for automatic triggers. /URI (data
         # only, never fetched here) and /Hide are only allowed for explicit
         # user-gesture triggers -- annotation/outline /A and Widget mouse
-        # down/up /AA D//U -- never for automatic /OpenAction or automatic /AA
-        # events, which stay rejected. /Hide toggles visibility of this
+        # down/up /AA D//U. Widget hover/focus may also /Hide, but never /URI.
+        # Automatic /OpenAction and other /AA events stay rejected. /Hide toggles this
         # document's own annotations/form fields (ISO 32000-1 Table 210 /
         # PDF 1.7 Table 8.60): its /T names an annotation dictionary, a text
         # field name string, or an array of those, and its optional /H is a
         # boolean; it never resolves a file, URL, or embedded target. The
-        # Widget mouse-down/up exception is applied at its /AA call site.
+        # Widget interaction exceptions are applied at their /AA call site.
         inert_action_subtypes = {"/Named", "/GoTo"}
         user_gesture_inert_subtypes = inert_action_subtypes | {"/URI", "/Hide"}
+        widget_interaction_subtypes = inert_action_subtypes | {"/Hide"}
         inert_named_destinations = {
             "/NextPage",
             "/PrevPage",
@@ -703,18 +704,25 @@ def _inspect_legacy(path: str, limits: PdfLimits) -> int:
                         action_table = action_table.get_object()
                     if isinstance(action_table, DictionaryObject):
                         for trigger, trigger_action in action_table.items():
-                            # ISO 32000-1 Table 194: Widget mouse down/up require
-                            # a click; focus/page-open and document triggers do not.
-                            gesture = (
+                            # Widget clicks may follow links/open viewer UI. Hover
+                            # and focus may only toggle internal annotation visibility
+                            # or navigate internally, including every /Next link.
+                            widget = (
                                 str(value.get("/Type", "")) == "/Annot"
                                 and str(value.get("/Subtype", "")) == "/Widget"
-                                and str(trigger) in {"/D", "/U"}
+                            )
+                            gesture = widget and str(trigger) in {"/D", "/U"}
+                            interaction = widget and str(trigger) in {"/E", "/X", "/Fo", "/Bl"}
+                            allowed = (
+                                user_gesture_inert_subtypes
+                                if gesture
+                                else widget_interaction_subtypes
+                                if interaction
+                                else inert_action_subtypes
                             )
                             reject_dangerous_action_chain(
                                 trigger_action,
-                                allowed_subtypes=frozenset(user_gesture_inert_subtypes)
-                                if gesture
-                                else frozenset(inert_action_subtypes),
+                                allowed_subtypes=frozenset(allowed),
                                 allow_user_named_action=gesture,
                             )
                     else:

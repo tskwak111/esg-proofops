@@ -144,7 +144,7 @@ def test_display_preserves_default_optional_content_pixels(mode):
 
 
 @pytest.mark.parametrize("trigger", ["/E", "/X"])
-def test_strict_v1_hover_matches_historical_inspector(tmp_path, trigger):
+def test_hover_fix_differs_from_historical_inspector(tmp_path, trigger):
     writer = PdfWriter()
     writer.add_blank_page(width=100, height=100)
     _widget_with_trigger(writer, trigger, _hide_action())
@@ -167,8 +167,7 @@ def test_strict_v1_hover_matches_historical_inspector(tmp_path, trigger):
         timeout=30,
     )
     assert json.loads(baseline.stdout)["code"] == "PDF_INVALID"
-    with pytest.raises(UploadRejected, match="PDF_INVALID"):
-        verify_quarantined_pdf(item, PdfLimits(), tenant_id=item.tenant_id)
+    assert verify_quarantined_pdf(item, PdfLimits(), tenant_id=item.tenant_id).page_count == 1
     assert_display_safe(
         verify_quarantined_pdf(item, PdfLimits.display(), tenant_id=item.tenant_id).display_content
     )
@@ -409,7 +408,7 @@ def test_pinned_upload_limit_still_rejects_after_service_limit_increases(tmp_pat
 
 
 @pytest.mark.parametrize("trigger", ["/E", "/X"])
-def test_historical_unpinned_hover_keeps_legacy_rejection(tmp_path, trigger):
+def test_historical_unpinned_hover_uses_fixed_strict_validator(tmp_path, trigger):
     writer = PdfWriter()
     writer.add_blank_page(width=100, height=100)
     _widget_with_trigger(writer, trigger, _hide_action())
@@ -421,10 +420,11 @@ def test_historical_unpinned_hover_keeps_legacy_rejection(tmp_path, trigger):
     item.pop("upload_security_limits")
     service._put(TENANT, "upload", ticket["upload_id"], item, update=True)
     service.receive_content(TENANT, ticket["upload_id"], data, "application/pdf")
-    with pytest.raises(UploadRejected, match="PDF_INVALID"):
-        service.complete_upload(
-            TENANT,
-            ticket["upload_id"],
-            {"sha256": body["sha256"], "size_bytes": len(data)},
-            str(uuid4()),
-        )
+    assert service.receipt_limits(TENANT, ticket["upload_id"]) == PdfLimits()
+    completed = service.complete_upload(
+        TENANT,
+        ticket["upload_id"],
+        {"sha256": body["sha256"], "size_bytes": len(data)},
+        str(uuid4()),
+    )
+    assert service.read_original(TENANT, completed["version_id"]) == data

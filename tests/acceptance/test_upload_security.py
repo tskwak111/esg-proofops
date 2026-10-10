@@ -759,7 +759,7 @@ def test_hide_with_nonboolean_H_on_gesture_is_rejected(tmp_path):
         )
 
 
-# --- Widget pointer-hover (/E, /X) /Hide: SK hynix / SKT / WFG corpus shape ---
+# --- Widget hover/focus /Hide: SK hynix / SKT / WFG corpus shape ---
 # Tooltip-style widgets chain /Hide on mouse-enter/exit. Only /Hide (+ the
 # always-inert /Named /GoTo) is allowed there; everything else stays rejected.
 
@@ -779,19 +779,18 @@ def _verify(tmp_path, writer):
     return vault.verify_and_promote(item, PdfLimits(), tenant_id=item.tenant_id)
 
 
-@pytest.mark.parametrize("trigger", ["/E", "/X"])
-def test_hide_chain_on_widget_hover_is_rejected_by_strict_v1(tmp_path, trigger):
+@pytest.mark.parametrize("trigger", ["/E", "/X", "/Fo", "/Bl"])
+def test_hide_chain_on_widget_interaction_is_accepted(tmp_path, trigger):
     writer = PdfWriter()
     writer.add_blank_page(width=600, height=800)
     chained = _hide_action(
         target="tip.a", hidden=False, next_action=_hide_action(target="tip.b", hidden=True)
     )
     _widget_with_trigger(writer, trigger, chained)
-    with pytest.raises(UploadRejected, match="PDF_INVALID"):
-        _verify(tmp_path, writer)
+    assert _verify(tmp_path, writer).page_count == 1
 
 
-@pytest.mark.parametrize("trigger", ["/E", "/X"])
+@pytest.mark.parametrize("trigger", ["/E", "/X", "/Fo", "/Bl"])
 @pytest.mark.parametrize(
     "dangerous",
     [
@@ -799,6 +798,7 @@ def test_hide_chain_on_widget_hover_is_rejected_by_strict_v1(tmp_path, trigger):
         {"/S": "/URI", "/URI": "https://example.invalid"},
         {"/S": "/Launch", "/F": "calc.exe"},
         {"/S": "/GoToR", "/F": "other.pdf", "/D": "x"},
+        {"/S": "/GoToE", "/F": "embedded.pdf", "/D": "x"},
         {"/S": "/SubmitForm", "/F": "https://example.invalid"},
         {"/S": "/ImportData", "/F": "data.fdf"},
         {"/S": "/Named", "/N": "/Print"},
@@ -820,8 +820,8 @@ def test_non_hide_action_on_widget_hover_is_rejected(tmp_path, trigger, dangerou
         _verify(tmp_path, writer)
 
 
-@pytest.mark.parametrize("trigger", ["/Fo", "/Bl", "/PO", "/PC", "/PV", "/PI"])
-def test_hide_on_widget_focus_or_page_triggers_stays_rejected(tmp_path, trigger):
+@pytest.mark.parametrize("trigger", ["/PO", "/PC", "/PV", "/PI"])
+def test_hide_on_widget_page_triggers_stays_rejected(tmp_path, trigger):
     writer = PdfWriter()
     writer.add_blank_page(width=600, height=800)
     _widget_with_trigger(writer, trigger, _hide_action(target="tip.a"))
@@ -866,5 +866,42 @@ def test_hide_hover_action_shared_with_automatic_trigger_is_rejected(tmp_path):
     shared = writer._add_object(_hide_action(target="tip.a"))
     _widget_with_trigger(writer, "/E", shared)
     writer.root_object[NameObject("/AA")] = DictionaryObject({NameObject("/WC"): shared})
+    with pytest.raises(UploadRejected, match="PDF_INVALID"):
+        _verify(tmp_path, writer)
+
+
+def test_sk_hynix_page19_hover_fixture_is_accepted(tmp_path):
+    # Original 2025 SK hynix PDF, physical p19, annotation 2866:
+    # /AA /E -> 2872 (/H false), /X -> 2855 (/H true), both
+    # /Type /Action /S /Hide /T (ToF-MS 팝업). No report bytes committed.
+    writer = PdfWriter()
+    writer.add_blank_page(width=600, height=800)
+    enter = writer._add_object(_hide_action(target="ToF-MS 팝업", hidden=False))
+    exit_action = writer._add_object(_hide_action(target="ToF-MS 팝업", hidden=True))
+    annotation = _widget_with_trigger(writer, "/E", enter)
+    annotation[NameObject("/AA")][NameObject("/X")] = exit_action
+    assert _verify(tmp_path, writer).page_count == 1
+
+
+@pytest.mark.parametrize("trigger", ["/E", "/X", "/Fo", "/Bl"])
+def test_interaction_hide_next_array_with_javascript_is_rejected(tmp_path, trigger):
+    writer = PdfWriter()
+    writer.add_blank_page(width=600, height=800)
+    bad = DictionaryObject(
+        {NameObject("/S"): NameObject("/JavaScript"), NameObject("/JS"): TextStringObject("evil()")}
+    )
+    mixed = ArrayObject([_hide_action(), writer._add_object(bad)])
+    _widget_with_trigger(writer, trigger, _hide_action(next_action=mixed))
+    with pytest.raises(UploadRejected, match="PDF_INVALID"):
+        _verify(tmp_path, writer)
+
+
+@pytest.mark.parametrize("trigger", ["/E", "/X", "/Fo", "/Bl"])
+def test_interaction_hide_shared_with_openaction_is_rejected(tmp_path, trigger):
+    writer = PdfWriter()
+    writer.add_blank_page(width=600, height=800)
+    shared = writer._add_object(_hide_action())
+    _widget_with_trigger(writer, trigger, shared)
+    writer.root_object[NameObject("/OpenAction")] = shared
     with pytest.raises(UploadRejected, match="PDF_INVALID"):
         _verify(tmp_path, writer)
