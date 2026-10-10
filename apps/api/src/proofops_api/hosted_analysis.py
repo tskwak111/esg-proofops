@@ -57,9 +57,14 @@ def default_analysis_profile():
 
 
 def operator_profiles(config: dict) -> dict:
+    from proofops.application.claim_scope import MAX_EXTRACTION_BATCH_CALLS
+
     workers = config.get("llm_max_workers", 8)
     if type(workers) is not int or not 1 <= workers <= 16:
         raise ValueError("HOSTED_LLM_CONCURRENCY_INVALID")
+    batch_calls = config.get("extract_batch_calls", 20)
+    if type(batch_calls) is not int or not 1 <= batch_calls <= MAX_EXTRACTION_BATCH_CALLS:
+        raise ValueError("HOSTED_EXTRACT_BATCH_INVALID")
     analysis = config.get("analysis_profile", default_analysis_profile())
     if analysis not in (
         "r108-default",
@@ -91,6 +96,7 @@ def operator_profiles(config: dict) -> dict:
     approval = RENDERED_READER_POLICY["gate_passed"].get(reader, {})
     return PROFILES | dict(
         llm_max_workers=workers,
+        extract_batch_calls=batch_calls,
         llm_provider=llm_provider,
         llm_provider_options=["openai", "openrouter"],
         analysis_profile=analysis,

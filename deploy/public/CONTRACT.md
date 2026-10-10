@@ -504,3 +504,29 @@ No SQLite column migration or new application dependency is required. Rollback:
 stop new acceptance, drain/stop both slots, set HOSTED_MAX_ACTIVE_RUNS=1 and stop
 assigning new PA1 profiles. Retain the new policy reader for saved PA1 snapshots;
 an eae1599 reader rejects their new hash. Preserve all costs, receipts and revisions.
+
+## PA2 amendment — extraction execution and checkpoint settings (2026-10-11)
+
+New v2 analysis policies pin `exact-verified-read-v2`. A whole v6 claim attestation
+just produced by the trusted source reader may satisfy immediate replay only when
+its canonical bytes, ordered refs, run, tenant, source bytes, graph, current reader
+policy, runtime/toolchain and read profile match. The projection uses the existing
+byte-pinned replay tail. Fresh receipts share PA1's four-entry / 32-MiB process-only
+bound with replay results; transient/unavailable reads retry normally. Historical
+PA1 and earlier policy hashes remain readable with their original execution path.
+
+Under this new policy, the first prepared page's LLM calls overlap preparation of
+the remaining pages in the existing isolated CPU pool. Discovery consumes source
+order; tagging still waits for the complete source-attested extract snapshot.
+The pre-call owner/cancellation/fencing check and lease renewal use one existing
+heartbeat transaction. Reservations, response fsync and settlement remain atomic
+per provider attempt; 429 handling and uncertain-cost stops are unchanged.
+
+Operator JSON may set `llm_max_workers` (1–16, default 8) and `extract_batch_calls`
+(1–256, default 20). A larger batch groups checkpoint publications, not money
+reservations. The existing `extraction_limits.max_calls` contract freezes that
+window when preparing a NEW run; resuming a stored run cannot enlarge its limit.
+No public request field, DB migration or dependency is added. Rollback: prepare
+future runs with the PA1 builder/defaults while retaining PA2 readers for existing
+PA2 snapshots; the PA1 binary rejects their new policy hash. No deployment or
+server setting change is performed by PA2.

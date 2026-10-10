@@ -374,13 +374,13 @@ def remember_wrapper_attestation(*, reader, policy, graph, source, tenant_id, re
             _claim_wrapper_receipts.popitem(last=False)
 
 
-def _project_bullet_alignment(receipt, graph, discovery, tenant_id):
-    """The pinned wrapper's own replay tail, after its recompute was matched."""
+def _project_whole_attestation(receipt, graph, discovery, tenant_id, *, refs_field="base_records"):
+    """Identical pinned bullet-wrapper and page-OCR replay tails after matching."""
     from proofops.adapters.local import claim_source_verification
     from proofops.application.evidence import span_citations
     from proofops.domain.values import SourceRef
 
-    if canonical_hash([record.get("ref") for record in receipt["base_records"]]) != canonical_hash(
+    if canonical_hash([record.get("ref") for record in receipt[refs_field]]) != canonical_hash(
         [asdict(ref) for ref in claim_source_verification.discovery_refs(discovery)]
     ):
         # The wrapper refuses this receipt for this discovery; let it say so.
@@ -416,7 +416,7 @@ def _reuse_wrapper_replay(reader, policy, receipt, graph, source, discovery, ten
     if encoded is None or decompress(encoded) != canonical_json(receipt).encode():
         return None
     compare_receipts(receipt, receipt, profile=read_profile())
-    return _project_bullet_alignment(receipt, graph, discovery, tenant_id)
+    return _project_whole_attestation(receipt, graph, discovery, tenant_id)
 
 
 def replay_claims_cached(*, reader, policy, receipt, graph, source, discovery, tenant_id):
@@ -430,6 +430,19 @@ def replay_claims_cached(*, reader, policy, receipt, graph, source, discovery, t
         "upstage-ocr-page-v6",
     }:
         from proofops.adapters.local.verified_read_cache import replay_cached as replay_ocr_cached
+        from proofops.adapters.local.verified_read_cache import reuse_fresh_attestation
+
+        fresh = reuse_fresh_attestation(
+            reader=reader,
+            policy=policy,
+            receipt=receipt,
+            graph=graph,
+            source=source,
+            discovery=discovery,
+            tenant_id=tenant_id,
+        )
+        if fresh is not None:
+            return fresh
 
         return replay_ocr_cached(
             reader_name=reader.__name__,

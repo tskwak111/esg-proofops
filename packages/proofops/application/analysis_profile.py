@@ -48,14 +48,27 @@ VERIFIED_READ_POLICY = dict(
     failure_cache=False,
     persistent=False,
 )
-V2_POLICY = V2_PRE_PA1_POLICY | dict(verified_read_cache=VERIFIED_READ_POLICY)
+V2_PRE_PA2_POLICY = V2_PRE_PA1_POLICY | dict(verified_read_cache=VERIFIED_READ_POLICY)
+VERIFIED_READ_V2_POLICY = VERIFIED_READ_POLICY | dict(
+    profile="exact-verified-read-v2",
+    fresh_attestation="whole-byte-identical-v6",
+    page_preparation="source-order-pipeline-v1",
+    provider_fence="atomic-heartbeat-v1",
+)
+V2_POLICY = V2_PRE_PA1_POLICY | dict(verified_read_cache=VERIFIED_READ_V2_POLICY)
 
 
 def policy_for(profile, *, pinned_hash=None):
     if profile == PROFILE:
         choices = (POLICY,)
     elif profile == V2_PROFILE:
-        choices = (V2_POLICY, V2_PRE_PA1_POLICY, V2_PRE_HF1_POLICY, V2_INITIAL_POLICY)
+        choices = (
+            V2_POLICY,
+            V2_PRE_PA2_POLICY,
+            V2_PRE_PA1_POLICY,
+            V2_PRE_HF1_POLICY,
+            V2_INITIAL_POLICY,
+        )
     else:
         raise ValueError("ANALYSIS_PROFILE_UNKNOWN")
     for policy in choices:

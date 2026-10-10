@@ -69,7 +69,7 @@ def prepare_argv(pdf, state, tenant, config, options=None):
         "--vision-parse",
         "off",
         "--max-calls",
-        "20",
+        str(profiles["extract_batch_calls"]),
         "--extraction-total-calls",
         "2000",
         "--tagging-max-calls",
