@@ -182,7 +182,7 @@ elif op == "revoke-security-group-egress":
     pass
 elif op == "run-instances":
     assert arg("--instance-type") == "t4g.medium" and arg("--count") == "1"
-    assert "--iam-instance-profile" not in a and "--no-disable-api-termination" in a
+    assert "--iam-instance-profile" not in a and "--enable-api-termination" in a
     assert "HttpTokens=required" in arg("--metadata-options")
     assert arg("--credit-specification") == "CpuCredits=standard"
     disk = filearg("--block-device-mappings")[0]["Ebs"]

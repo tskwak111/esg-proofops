@@ -40,12 +40,15 @@
       "Condition": {
         "StringEquals": {
           "aws:RequestedRegion": "ap-southeast-2",
-          "ec2:Owner": "099720109477"
+          "ec2:Owner": [
+            "099720109477",
+            "amazon"
+          ]
         }
       }
     },
     {
-      "Sid": "LaunchInSeoulSubnet",
+      "Sid": "LaunchInProjectRegionSubnet",
       "Effect": "Allow",
       "Action": [
         "ec2:RunInstances"
@@ -158,9 +161,6 @@
         },
         "StringLike": {
           "aws:RequestTag/Name": "proofops-r108*"
-        },
-        "Bool": {
-          "ec2:AssociatePublicIpAddress": "false"
         }
       }
     },
