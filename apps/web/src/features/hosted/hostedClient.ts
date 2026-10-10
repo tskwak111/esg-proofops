@@ -16,9 +16,14 @@ export type Runtime = {
 };
 export type Session = { user_id: string; tenant_id: string | null; role: string | null; csrf_token: string; expires_at: string };
 export type HostedDocument = { document_id: string; page_count: number; size_bytes: number; expires: number; sha256: string };
+export type ReportingScopeInput = { report_year: number; period_start: string; period_end: string };
+export type ReportingScope = { report_year: number | null; period_start: string | null; period_end: string | null; origin: string; warning?: string | null; detection_status?: string };
+export type PeriodSource = { physical_page: number; quote: string; char_start: number; char_end: number; verification_state: string };
 export type ScopePlan = {
   revision: number;
+  reporting_scope?: ReportingScope;
   plan: { status: string; selected_claim_pages: number[]; selected_evidence_pages: number[];
+    reporting_period_detection?: { status: string; candidates: (Partial<ReportingScopeInput> & { source_ref: PeriodSource; basis: string })[]; exceptions: { source_ref: PeriodSource }[] };
     failure_reasons: string[]; unreadable_pages: number[]; unknown_pages: number[]; conflict_pages: number[]; suggested_front_pages?: number[];
     pages: { page: number; category: string; reasons: string[]; snippet: string }[] };
   selection: { pages: number[]; claim_pages: number[]; selection_sha256: string } | null;
@@ -60,7 +65,7 @@ export type ResultClaim = {
 export type ResultReview = { review_id: string; run_id: string; claim_id: string; status: string; revision: number; base_tag_revision: number; reason_codes: string[] };
 export type HostedResult = {
   schema: string; claims: ResultClaim[]; reviews: ResultReview[]; hold_reasons: string[]; page_map: number[];
-  pipeline?: { status?: string; reason?: string | null; reporting_scope?: { report_year?: number; period_start?: string; period_end?: string } };
+  pipeline?: { status?: string; reason?: string | null; reporting_scope?: Partial<ReportingScope> };
   possible_grade_range?: GradeRange | null; confirmed_grade?: string | null;
 };
 export type ResolveBody = {
@@ -82,6 +87,8 @@ const codeMessages: Record<string, string> = {
   SCOPE_PLAN_FAILED: "읽을 수 있는 환경 본문을 찾지 못했습니다. 스캔·불명확한 쪽을 확인해 주세요. 분석 비용은 발생하지 않았습니다.",
   SCOPE_INSPECTION_FAILED: "자동 범위 계획을 만들지 못했습니다. 파일 내부 처리 한도 또는 서버 상태를 확인해 주세요.",
   SCOPE_CONFLICT: "분석 범위가 변경되었습니다. 최신 계획을 확인해 주세요.",
+  REPORTING_SCOPE_INVALID: "보고연도와 날짜를 확인해 주세요. 시작일은 종료일보다 늦을 수 없습니다.",
+  REPORTING_SCOPE_REQUIRED: "보고기간을 확인하고 입력한 뒤 범위를 저장해 주세요.",
   SCOPE_PLAN_REQUIRED: "업로드 후 자동 범위 계획을 먼저 만들어 주세요.",
   INVITATION_INVALID: "초대 코드가 올바르지 않거나 이미 사용·만료되었습니다.",
   AUTH_REQUIRED: "로그인이 필요합니다. 초대 코드로 다시 로그인해 주세요.",
@@ -192,8 +199,8 @@ export function createHostedClient(options: ClientOptions = {}) {
       request<HostedDocument>("POST", "/v1/documents", { body: file, headers: { "Content-Type": "application/pdf", "Idempotency-Key": key }, signal }),
     scopePlan: (documentId: string) => request<ScopePlan>("POST", `/v1/documents/${encodeURIComponent(documentId)}/scope-plan`),
     getScopePlan: (documentId: string) => request<ScopePlan>("GET", `/v1/documents/${encodeURIComponent(documentId)}/scope-plan`),
-    editScope: (documentId: string, scope: ScopePlan, claims: number[], evidence: number[]) =>
-      request<ScopePlan>("POST", `/v1/documents/${encodeURIComponent(documentId)}/scope-plan/selection`, { json: { selected_claim_pages: claims, selected_evidence_pages: evidence }, headers: { "If-Match": `"${scope.revision}"` } }),
+    editScope: (documentId: string, scope: ScopePlan, claims: number[], evidence: number[], period?: ReportingScopeInput) =>
+      request<ScopePlan>("POST", `/v1/documents/${encodeURIComponent(documentId)}/scope-plan/selection`, { json: { selected_claim_pages: claims, selected_evidence_pages: evidence, ...(period ? { reporting_scope: period } : {}) }, headers: { "If-Match": `"${scope.revision}"` } }),
     createRun: (documentId: string, scope: ScopePlan, key = newIdempotencyKey(), profile?: string) =>
       request<HostedRun>("POST", "/v1/runs", { json: { document_id: documentId, scope_selection_sha256: scope.selection?.selection_sha256 }, headers: { "Idempotency-Key": key, ...(profile ? { "X-Pipeline-Profile": profile } : {}) } }),
     getRun: (statusUrl: string, signal?: AbortSignal) => request<HostedRun>("GET", statusUrl, { signal }),

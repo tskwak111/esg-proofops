@@ -23,11 +23,21 @@ from proofops_api.hosted_store import HostedSettings, HostedStore
 from proofops_worker.composition import build_composition
 
 
+def pinned_reporting_scope(config, options):
+    from evaluation.reporting_period import FIELDS, validate_period
+
+    if "reporting_scope" in options:
+        validate_period(options["reporting_scope"])
+        return options["reporting_scope"]
+    return {k: config[k] for k in FIELDS}  # Frozen pre-FX7 runs.
+
+
 def prepare_argv(pdf, state, tenant, config, options=None):
     from pypdf import PdfReader
 
     pages = ",".join(str(p) for p in range(1, len(PdfReader(pdf).pages) + 1))
     options = options or {}
+    period = pinned_reporting_scope(config, options)
     if options.get("pipeline_profile") in ("unattended-v1", "strict-v1"):
         config = dict(analysis_profile="r108-default") | config
     selected = options.get("analysis_profile") or (
@@ -47,11 +57,11 @@ def prepare_argv(pdf, state, tenant, config, options=None):
         "--pages",
         pages,
         "--report-year",
-        str(config["report_year"]),
+        str(period["report_year"]),
         "--period-start",
-        config["period_start"],
+        period["period_start"],
         "--period-end",
-        config["period_end"],
+        period["period_end"],
         "--parser",
         "upstage",
         "--llm-provider",
@@ -299,7 +309,7 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
         profiles=operator_profiles(config),
         scope=store.run_options(job),
         pipeline_profile=store.run_options(job).get("pipeline_profile", "strict-v1"),
-        reporting_scope={k: config[k] for k in ("report_year", "period_start", "period_end")},
+        reporting_scope=pinned_reporting_scope(config, options),
     )
     (state / "outcome.json").write_text(json.dumps(result))
     return state, result

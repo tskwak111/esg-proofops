@@ -28,6 +28,7 @@ export function ResultView({ result, role, client, runId, onReload }: { result: 
       <p>보류·확인되지 않음은 ‘근거 없음’이 아닙니다. 확정 등급은 규칙 판정이 끝난 주장에만 표시되며 전체 보고서 등급은 만들지 않습니다.</p>
     </div>}
     {result.pipeline?.reporting_scope?.report_year != null && <p className="hosted-note">보고 범위: {result.pipeline.reporting_scope.report_year}년 ({result.pipeline.reporting_scope.period_start} ~ {result.pipeline.reporting_scope.period_end})</p>}
+    {result.pipeline?.reporting_scope?.warning && <p className="hosted-note" role="status">{result.pipeline.reporting_scope.warning}</p>}
     {!result.claims.length ? <p className="empty">{result.pipeline?.status === "completed"
       ? "선택한 범위의 분석이 정상 완료되었으나 환경 주장을 발견하지 못했습니다. 보고서 전체에 주장이 없다는 뜻은 아닙니다."
       : "분석이 보류되어 표시할 주장이 없습니다. 처리 단계와 보류 사유를 확인해 주세요. 근거 없음으로 판정한 결과가 아닙니다."}</p> :

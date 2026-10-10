@@ -158,4 +158,9 @@ def inspect_streaming(pdf: Path):
         issues=issues,
         parser_versions={"pypdfium2": version("pypdfium2")},
     )
-    return build_plan(study, texts, page_headings=headings, page_primary_headings=primary)
+    plan = build_plan(study, texts, page_headings=headings, page_primary_headings=primary)
+    from evaluation.reporting_period import detect_reporting_period
+
+    plan["reporting_period_detection"] = detect_reporting_period(texts, count, digest)
+    plan["plan_sha256"] = canonical_hash({k: v for k, v in plan.items() if k != "plan_sha256"})
+    return plan

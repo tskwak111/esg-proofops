@@ -55,9 +55,17 @@ class RunCreate(BaseModel):
     scope_selection_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")] | None = None
 
 
+class ReportingScopeEdit(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    report_year: Annotated[int, Field(ge=1900, le=2100)]
+    period_start: Annotated[str, Field(pattern=r"^\d{4}-\d{2}-\d{2}$")]
+    period_end: Annotated[str, Field(pattern=r"^\d{4}-\d{2}-\d{2}$")]
+
+
 class ScopeEdit(BaseModel):
     model_config = ConfigDict(extra="forbid")
     manual_selection: Annotated[bool, Field(strict=True)] = False
+    reporting_scope: ReportingScopeEdit | None = None
     selected_claim_pages: Annotated[
         list[Annotated[int, Field(strict=True)]], Field(min_length=1, max_length=10)
     ]
@@ -434,6 +442,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
             body.selected_evidence_pages,
             request.headers.get("If-Match"),
             manual_selection=body.manual_selection,
+            reporting_scope=body.reporting_scope.model_dump() if body.reporting_scope else None,
         )
         response.headers["ETag"] = f'"{scope["revision"]}"'
         return scope

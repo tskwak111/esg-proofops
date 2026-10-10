@@ -45,6 +45,9 @@ export function HostedAnalysis({ client: injected }: { client?: HostedClient }) 
   const [doc, setDoc] = useState<HostedDocument | null>(null);
   const [pages, setPages] = useState("");
   const [evidencePages, setEvidencePages] = useState("");
+  const [reportYear, setReportYear] = useState("");
+  const [periodStart, setPeriodStart] = useState("");
+  const [periodEnd, setPeriodEnd] = useState("");
   const [scope, setScope] = useState<ScopePlan | null>(null);
   const [run, setRun] = useState<HostedRun | null>(null);
   const [busy, setBusy] = useState("");
@@ -91,6 +94,9 @@ export function HostedAnalysis({ client: injected }: { client?: HostedClient }) 
   }
   function applyScope(next: ScopePlan) {
     setScope(next); setScopeConflict(false);
+    setReportYear(String(next.reporting_scope?.report_year ?? ""));
+    setPeriodStart(next.reporting_scope?.period_start ?? "");
+    setPeriodEnd(next.reporting_scope?.period_end ?? "");
     const fallback = next.plan.status === "failed" && !next.selection ? next.plan.suggested_front_pages ?? [] : [];
     setPages((next.plan.selected_claim_pages.length ? next.plan.selected_claim_pages : fallback.slice(0, 10)).join(","));
     setEvidencePages((next.plan.selected_evidence_pages.length ? next.plan.selected_evidence_pages : fallback.slice(0, 30)).join(","));
@@ -100,12 +106,20 @@ export function HostedAnalysis({ client: injected }: { client?: HostedClient }) 
     setError(""); setBusy("최신 계획 불러오는 중");
     try { applyScope(await client.getScopePlan(doc.document_id)); } catch (err) { fail(err); } finally { setBusy(""); }
   }
+  function editedPeriod() {
+    if (!scope?.reporting_scope && !reportYear && !periodStart && !periodEnd) return undefined;
+    if (!/^\d{4}$/.test(reportYear) || !periodStart || !periodEnd || periodStart > periodEnd) throw new Error("보고연도와 보고기간 시작·종료일을 확인해 주세요.");
+    return { report_year: Number(reportYear), period_start: periodStart, period_end: periodEnd };
+  }
+  function periodChanged() {
+    return reportYear !== String(scope?.reporting_scope?.report_year ?? "") || periodStart !== (scope?.reporting_scope?.period_start ?? "") || periodEnd !== (scope?.reporting_scope?.period_end ?? "");
+  }
   async function saveScope() {
     if (!doc || !scope) return;
     setError(""); setBusy("범위 저장 중");
     try {
       applyScope(await client.editScope(doc.document_id, scope,
-        parsePageSelection(pages, doc.page_count, 10), parsePageSelection(evidencePages, doc.page_count, 30)));
+        parsePageSelection(pages, doc.page_count, 10), parsePageSelection(evidencePages, doc.page_count, 30), periodChanged() ? editedPeriod() : undefined));
     } catch (err) { fail(err); } finally { setBusy(""); }
   }
   async function start() {
@@ -115,8 +129,9 @@ export function HostedAnalysis({ client: injected }: { client?: HostedClient }) 
     try {
       const claims = parsePageSelection(pages, doc.page_count, 10);
       const evidence = parsePageSelection(evidencePages, doc.page_count, 30);
-      const changed = !scope.selection || claims.join(",") !== scope.plan.selected_claim_pages.join(",") || evidence.join(",") !== scope.plan.selected_evidence_pages.join(",");
-      const current = changed ? await client.editScope(doc.document_id, scope, claims, evidence) : scope;
+      const period = periodChanged() ? editedPeriod() : undefined;
+      const changed = periodChanged() || !scope.selection || claims.join(",") !== scope.plan.selected_claim_pages.join(",") || evidence.join(",") !== scope.plan.selected_evidence_pages.join(",");
+      const current = changed ? await client.editScope(doc.document_id, scope, claims, evidence, period) : scope;
       applyScope(current);
       const accepted = await client.createRun(doc.document_id, current, undefined, profile);
       setBusy("분석 진행");
@@ -178,6 +193,19 @@ export function HostedAnalysis({ client: injected }: { client?: HostedClient }) 
       {!scope && <button type="button" disabled={!!busy} onClick={() => { setBusy("자동 범위 계획 생성 중"); void client.scopePlan(doc.document_id).then(applyScope).catch(fail).finally(() => setBusy("")); }}>자동 범위 계획 생성</button>}
       {scope && <>
         <p>계획 상태: {scope.plan.status} · 선택 범위만 분석하며 원문 확인 필요 항목은 잠정 결과로 표시합니다.</p>
+        <fieldset disabled={!!busy || running}>
+          <legend>문서 보고기간</legend>
+          <p>{scope.reporting_scope?.origin === "detected" ? "원문에서 감지" : scope.reporting_scope?.origin === "manual" ? "사람이 수정한 기간" : "운영자 기본값"} · {scope.reporting_scope?.report_year ?? "입력 필요"}년 ({scope.reporting_scope?.period_start ?? "미확인"} ~ {scope.reporting_scope?.period_end ?? "미확인"})</p>
+          {scope.reporting_scope?.warning && <p role="status">{scope.reporting_scope.warning}</p>}
+          <label>보고연도<input aria-label="보고연도" type="number" min="1900" max="2100" value={reportYear} onChange={event => setReportYear(event.target.value)} /></label>
+          <label>보고기간 시작<input aria-label="보고기간 시작" type="date" value={periodStart} onChange={event => setPeriodStart(event.target.value)} /></label>
+          <label>보고기간 종료<input aria-label="보고기간 종료" type="date" value={periodEnd} onChange={event => setPeriodEnd(event.target.value)} /></label>
+          <details><summary>보고기간 원문과 예외</summary>
+            {scope.plan.reporting_period_detection?.candidates.map((candidate, i) => <p key={`candidate-${i}`}>{candidate.source_ref.physical_page}쪽 · {candidate.source_ref.quote}</p>)}
+            {scope.plan.reporting_period_detection?.exceptions.map((exception, i) => <p key={`exception-${i}`}>예외 · {exception.source_ref.physical_page}쪽 · {exception.source_ref.quote}</p>)}
+            <p className="hosted-note">예외 문장으로 중심 보고기간을 넓히지 않습니다. 보고기간 설정은 주장·수치·목표연도의 근거 검증을 대신하지 않습니다.</p>
+          </details>
+        </fieldset>
         {scope.plan.failure_reasons.map(reason => <p role="alert" key={reason}>자동 범위 선택 실패: {reason}</p>)}
         {scope.plan.status === "failed" && <p className="hosted-note">앞쪽 제안 쪽을 기본값으로 넣었습니다. 원본을 확인하고 수동 범위를 지정하세요. 자동 분류 실패·판독 불명확 상태는 유지되며 근거 검증을 대신하지 않습니다.</p>}
         {scopeConflict && <button type="button" disabled={!!busy || running} onClick={() => void reloadScope()}>최신 계획 다시 불러오기</button>}

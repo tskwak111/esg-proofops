@@ -710,16 +710,17 @@ class HostedStore:
         if not paths:
             raise HostedError("SCOPE_PLAN_REQUIRED")
         scope = json.loads(paths[-1].read_text())
-        from evaluation.report_scope import validate_selection
+        from proofops_api.hosted_scope import scope_selection
 
         if scope["plan"]["source_sha256"] != doc["sha256"]:
             raise HostedError("SOURCE_HASH_MISMATCH")
         if scope["plan"]["status"] != "failed" or scope["selection"] is not None:
             try:
-                selection = validate_selection(
+                selection = scope_selection(
                     scope["plan"],
                     doc["sha256"],
                     doc["page_count"],
+                    reporting_scope=scope.get("reporting_scope"),
                     manual_override=scope["plan"]["status"] == "failed",
                     manual_selection=(scope["selection"] or {}).get("manual_selection", False),
                 )
@@ -771,12 +772,38 @@ class HostedStore:
                     from evaluation.hosted_scope_plan import failed_plan
 
                     plan = failed_plan(doc["sha256"], doc["page_count"], "SCOPE_INSPECTION_FAILED")
-        from evaluation.report_scope import validate_selection
+        from proofops.domain.provenance import canonical_hash
 
+        from evaluation.reporting_period import (
+            detect_reporting_period,
+            resolve_reporting_scope,
+            validate_detection,
+        )
+        from proofops_api.hosted_scope import scope_selection
+
+        if "reporting_period_detection" not in plan:
+            plan["reporting_period_detection"] = detect_reporting_period(
+                {}, doc["page_count"], doc["sha256"]
+            )
+
+        detection = plan["reporting_period_detection"]
+        validate_detection(detection, doc["sha256"])
+        for item in detection["candidates"] + detection["exceptions"]:
+            item["source_ref"].update(
+                tenant_id=auth.tenant_id, document_id=document, document_version_id=document
+            )
+        plan["plan_sha256"] = canonical_hash({k: v for k, v in plan.items() if k != "plan_sha256"})
+        defaults = None
+        if self.settings.live_config is not None:
+            try:
+                defaults = json.loads(self.settings.live_config.read_text())
+            except (OSError, ValueError):
+                pass  # No invented default when operator configuration is unavailable.
+        period = resolve_reporting_scope(plan["reporting_period_detection"], defaults)
         selection = (
             None
             if plan["status"] == "failed"
-            else validate_selection(plan, doc["sha256"], doc["page_count"])
+            else scope_selection(plan, doc["sha256"], doc["page_count"], reporting_scope=period)
         )
         with self.transaction() as db:
             current = self._document(db, auth.tenant_id, document)
@@ -786,11 +813,21 @@ class HostedStore:
                 raise HostedError("SOURCE_HASH_MISMATCH")
             if list(path.glob("scope-*.json")):
                 return self._scope(db, auth.tenant_id, document)
-            scope = dict(revision=1, plan=plan, selection=selection)
+            scope = dict(revision=1, plan=plan, selection=selection, reporting_scope=period)
             self._write(path / "scope-000001.json", json.dumps(scope).encode())
             return scope
 
-    def edit_scope(self, auth, document, claims, evidence, if_match, *, manual_selection=False):
+    def edit_scope(
+        self,
+        auth,
+        document,
+        claims,
+        evidence,
+        if_match,
+        *,
+        manual_selection=False,
+        reporting_scope=None,
+    ):
         if not auth.has_capability("editor"):
             raise HostedError("FORBIDDEN", 403)
         with self.transaction() as db:
@@ -803,13 +840,22 @@ class HostedStore:
             plan = scope["plan"] | dict(
                 selected_claim_pages=claims, selected_evidence_pages=evidence
             )
-            from evaluation.report_scope import validate_selection
+            from evaluation.reporting_period import validate_period
+            from proofops_api.hosted_scope import scope_selection
 
+            period = scope.get("reporting_scope")
+            if reporting_scope is not None:
+                try:
+                    value = validate_period(reporting_scope)
+                except ValueError:
+                    raise HostedError("REPORTING_SCOPE_INVALID", 422) from None
+                period = (period or {}) | value | dict(origin="manual", warning=None)
             try:
-                selection = validate_selection(
+                selection = scope_selection(
                     plan,
                     doc["sha256"],
                     doc["page_count"],
+                    reporting_scope=period,
                     manual_override=plan["status"] == "failed",
                     manual_selection=manual_selection,
                 )
@@ -817,6 +863,8 @@ class HostedStore:
                 raise HostedError("PAGE_SELECTION_INVALID", 422) from None
             revision = scope["revision"] + 1
             updated = dict(revision=revision, plan=plan, selection=selection)
+            if period is not None:
+                updated["reporting_scope"] = period
             self._write(
                 self.document_dir(auth.tenant_id, document) / f"scope-{revision:06}.json",
                 json.dumps(updated).encode(),
@@ -869,6 +917,13 @@ class HostedStore:
                     and scope_selection_sha256 != selection["selection_sha256"]
                 ):
                     raise HostedError("SCOPE_CONFLICT", 412)
+                if "reporting_scope" in selection:
+                    from evaluation.reporting_period import validate_period
+
+                    try:
+                        validate_period(selection["reporting_scope"])
+                    except ValueError:
+                        raise HostedError("REPORTING_SCOPE_REQUIRED", 422) from None
                 selected = selection["pages"]
                 options = selection | dict(
                     pipeline_profile=pipeline_profile,
@@ -1243,6 +1298,7 @@ class HostedStore:
                                 stages=[],
                                 provider_calls=0,
                                 scope=self.run_options(job),
+                                reporting_scope=self.run_options(job).get("reporting_scope"),
                             )
                         ).encode(),
                     )
