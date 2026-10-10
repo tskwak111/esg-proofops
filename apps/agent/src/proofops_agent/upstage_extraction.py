@@ -304,6 +304,10 @@ def join_selected_linewraps(spans: list[dict], text: str, *, fragment_guard=Fals
                 }
                 continue
         joined.append(span)
+    if fragment_guard == "pb1-v1":
+        from proofops.application.ingest.pb1_fragments import incomplete_fragment
+
+        joined = [span for span in joined if not incomplete_fragment(span["quote"])]
     return joined
 
 
@@ -522,6 +526,8 @@ def _profile_with_options(
     extraction_fragment_guard: bool = False,
     extraction_table_rows: bool = False,
     extraction_recall_prompt: bool = False,
+    extraction_pb1: bool = False,
+    extraction_pb1_context_guard: bool = False,
 ) -> ExtractionProfile:
     """Versioned extraction profile for an explicit option combination.
 
@@ -601,6 +607,14 @@ def _profile_with_options(
         descriptor.append(ROW_POLICY)
     if extraction_recall_prompt:
         descriptor.append("extraction-recall-examples-v1")
+    if extraction_pb1_context_guard:
+        from proofops.application.ingest.pb1_fragments import TABLE_CONTEXT_POLICY
+
+        descriptor.append(TABLE_CONTEXT_POLICY)
+    if extraction_pb1:
+        from proofops.application.ingest.pb1_tables import POLICY as PB1_POLICY
+
+        descriptor.append(PB1_POLICY)
     if display_text_profile:
         descriptor.append(POLICY)
     if year_notation:
@@ -689,6 +703,8 @@ class UpstageClaimExtractor:
         extraction_fragment_guard: bool = False,
         extraction_table_rows: bool = False,
         extraction_recall_prompt: bool = False,
+        extraction_pb1: bool = False,
+        extraction_pb1_context_guard: bool = False,
     ) -> None:
         if not callable(getattr(probe, "complete", None)):
             raise ValueError("UPSTAGE_PROBE_REQUIRED")
@@ -740,6 +756,8 @@ class UpstageClaimExtractor:
             extraction_fragment_guard=extraction_fragment_guard,
             extraction_table_rows=extraction_table_rows,
             extraction_recall_prompt=extraction_recall_prompt,
+            extraction_pb1=extraction_pb1,
+            extraction_pb1_context_guard=extraction_pb1_context_guard,
         )
         if type(max_tokens) is not int or not 1 <= max_tokens <= 4096:
             raise ValueError("UPSTAGE_MAX_TOKENS_INVALID")
@@ -749,6 +767,14 @@ class UpstageClaimExtractor:
         self._receipts = root
         self._max_tokens = max_tokens
         self._profile = profile
+        if type(extraction_pb1) is not bool:
+            raise ValueError("EXTRACTION_PB1_INVALID")
+        if type(extraction_pb1_context_guard) is not bool or (
+            extraction_pb1_context_guard and not extraction_pb1
+        ):
+            raise ValueError("EXTRACTION_PB1_CONTEXT_GUARD_INVALID")
+        self._pb1_context_guard = extraction_pb1_context_guard
+        self._pb1 = extraction_pb1
         self._table_rows = extraction_table_rows
         self._recall_prompt = extraction_recall_prompt
         self._atomic = extraction_atomic
@@ -838,6 +864,45 @@ class UpstageClaimExtractor:
         when the context option is on.
         """
         text = self._packet_text(packet)
+        if self._pb1 and packet["untrusted_document_data"]["kind"] == "table":
+            self._require_graph(packet, context_graph)
+            from proofops.application.ingest.pb1_tables import observations
+
+            data = packet["untrusted_document_data"]
+            block = next(b for b in context_graph.blocks if b.source_id == data["source_id"])
+            context = " ".join(block.candidates[block.winner].context)
+            rows = observations(text, context=context) if data["kind"] == "table" else []
+            result = {
+                "spans": [
+                    dict(
+                        char_start=r["start"],
+                        char_end=r["end"],
+                        quote=r["quote"],
+                        kind="claim",
+                        reason=None,
+                        topic_ids=["environment"],
+                    )
+                    for r in rows
+                ]
+            }
+            self._validate_spans(result, text)
+            directory = self._receipts / ("pb1-" + canonical_hash(packet))
+            if not directory.exists():
+                directory.mkdir(mode=0o700)
+                self._write(directory / "packet.json", canonical_json(packet))
+                self._write(directory / "observations.json", canonical_json(rows))
+                self._write(directory / "result.json", canonical_json(result))
+            elif json.loads((directory / "result.json").read_text()) != result:
+                raise ValueError("EXTRACTION_PB1_REPLAY_MISMATCH")
+            if rows or any(
+                "\t" in line
+                and any(
+                    __import__("re").fullmatch(r"20\d{2}(?:년)?", c.strip())
+                    for c in line.split("\t")
+                )
+                for line in text.split("\n")[:4]
+            ):
+                return result
         if self._display_text_profile:
             if display_catalog is None:
                 raise ValueError("DISPLAY_CATALOG_REQUIRED")
@@ -1302,7 +1367,7 @@ class UpstageClaimExtractor:
                         else self._row_entries(packet, text, blocks)
                     )
                 ]
-            return self._resolve_sentence_ids(
+            spans, diagnostics = self._resolve_sentence_ids(
                 payload,
                 text,
                 source_id,
@@ -1313,6 +1378,21 @@ class UpstageClaimExtractor:
                     and packet["untrusted_document_data"]["kind"] == "paragraph"
                 ),
             )
+            if (
+                self._pb1_context_guard
+                and packet is not None
+                and packet["untrusted_document_data"]["kind"]
+                in {"table", "table_row", "table_cell"}
+            ):
+                from proofops.application.ingest.pb1_fragments import table_context_row
+
+                diagnostics["table_context_excluded"] = [
+                    dict(char_start=span.char_start, char_end=span.char_end)
+                    for span in spans
+                    if table_context_row(span.quote)
+                ]
+                spans = tuple(span for span in spans if not table_context_row(span.quote))
+            return spans, diagnostics
         quotes = self._quotes(payload)
         span_dicts = []
         rejected_quote_indices = []
@@ -1405,7 +1485,7 @@ class UpstageClaimExtractor:
             raise ValueError("no usable selected sentences")
         if join_lines:
             span_dicts = join_selected_linewraps(
-                span_dicts, text, fragment_guard=self._fragment_guard
+                span_dicts, text, fragment_guard="pb1-v1" if self._pb1 else self._fragment_guard
             )
         return self._validate_spans({"spans": span_dicts}, text), {
             "rejected_sentence_ids": rejected_sentence_ids

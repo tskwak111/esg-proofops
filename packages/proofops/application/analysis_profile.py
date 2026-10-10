@@ -34,19 +34,37 @@ V2_INITIAL_POLICY = POLICY | dict(
     grade_display="whole-range-hold-v1",
 )
 V2_PRE_HF1_POLICY = V2_INITIAL_POLICY | dict(element_wire="track-rulecards-v1")
-V2_POLICY = V2_PRE_HF1_POLICY | dict(
+V2_HF1_POLICY = V2_PRE_HF1_POLICY | dict(
     source="upstage-ocr-page-v6",
     hold_recovery="hf1-v1",
     citation_restore="citation-whitespace-partial-v1",
     grade_display="actual-gap-hold-v2",
 )
 
+V2_PB1_INITIAL_POLICY = V2_HF1_POLICY | dict(
+    extraction_pb1="pb1-v1",
+    table_claims="pb1-v1",
+    source="upstage-ocr-page-v7",
+    goal_candidate="gap002-pb1-v1",
+    occurrence_grouping="quote-occurrences-pb1-v1",
+)
+
+V2_PB1_COMPACT_POLICY = V2_PB1_INITIAL_POLICY | dict(preliminary_wire="pb1-compact-v1")
+V2_POLICY = V2_PB1_COMPACT_POLICY | dict(table_context="pb1-table-context-labels-v1")
+
 
 def policy_for(profile, *, pinned_hash=None):
     if profile == PROFILE:
         choices = (POLICY,)
     elif profile == V2_PROFILE:
-        choices = (V2_POLICY, V2_PRE_HF1_POLICY, V2_INITIAL_POLICY)
+        choices = (
+            V2_POLICY,
+            V2_PB1_COMPACT_POLICY,
+            V2_PB1_INITIAL_POLICY,
+            V2_HF1_POLICY,
+            V2_PRE_HF1_POLICY,
+            V2_INITIAL_POLICY,
+        )
     else:
         raise ValueError("ANALYSIS_PROFILE_UNKNOWN")
     for policy in choices:
@@ -67,6 +85,10 @@ def apply_pilot_profile(args):
     args.pipeline_profile = profile
     if profile == V2_PROFILE:
         args.extraction_fragment_guard = True
+        args.extraction_pb1 = True
+        args.extraction_pb1_context_guard = True
+        args.extraction_table_rows = True
+        args.preliminary_actor_role = True
     # Hosted Linux uses its independently approved OCR reader. Keep that explicit
     # source policy pinned in the run; other callers retain the SV1 native policy.
     if profile == V2_PROFILE and getattr(args, "claim_source_profile", None) in (
@@ -74,13 +96,15 @@ def apply_pilot_profile(args):
         "claim-source-v3",
         "upstage-ocr-page-v5",
         "upstage-ocr-page-v6",
+        "upstage-ocr-page-v7",
     ):
-        args.claim_source_profile = "upstage-ocr-page-v6"
+        args.claim_source_profile = "upstage-ocr-page-v7"
     if getattr(args, "claim_source_profile", None) not in {
         "upstage-ocr-page-v3",
         "upstage-ocr-page-v4",
         "upstage-ocr-page-v5",
         "upstage-ocr-page-v6",
+        "upstage-ocr-page-v7",
     }:
         args.claim_source_profile = "claim-source-v3"
     args.verify_claim_spans = True
@@ -106,3 +130,6 @@ def apply_pilot_profile(args):
         "position_context_order",
     ):
         setattr(args, flag, True)
+    if profile == V2_PROFILE:
+        args.position_context_order = False
+        args.preliminary_goal_role = True

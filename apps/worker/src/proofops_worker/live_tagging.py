@@ -402,7 +402,11 @@ class LiveTaggingRuntime:
         decision = profile == "preliminary-decision-v1"
         fallback = profile == SENTENCE_FALLBACK_PROFILE
         sentence_context = profile == SENTENCE_CONTEXT_PROFILE or fallback
-        actor_role_v2 = profile == "upstage-preliminary-source-quotes-actor-role-v2" or decision
+        compact_pb1 = profile == "upstage-preliminary-source-quotes-pb1-compact-v1"
+        pb1 = profile == "upstage-preliminary-source-quotes-actor-role-v3-pb1" or compact_pb1
+        actor_role_v2 = (
+            profile == "upstage-preliminary-source-quotes-actor-role-v2" or decision or pb1
+        )
         actor_role = profile == "upstage-preliminary-source-quotes-actor-role-v1" or actor_role_v2
         goal_role = profile == "upstage-preliminary-source-quotes-goal-role-v1" or actor_role
         role_table = (
@@ -442,6 +446,15 @@ class LiveTaggingRuntime:
                 allow_unverified=unattended,
             )
 
+        if pb1:
+            from proofops_agent.upstage_preliminary import PB1_SYSTEM_PROMPT
+
+            if compact_pb1:
+                from proofops.application.tagging.pb1_classification import COMPACT_PROMPT
+
+                packet["prompt_sha256"] = canonical_hash(COMPACT_PROMPT)
+            else:
+                packet["prompt_sha256"] = canonical_hash(PB1_SYSTEM_PROMPT)
         if fallback:
             packet["prompt_sha256"] = canonical_hash(SENTENCE_FALLBACK_SYSTEM_PROMPT)
             data = packet["untrusted_document_data"]
@@ -500,6 +513,13 @@ class LiveTaggingRuntime:
                     claim, graph, raw, tenant_id=self.auth.tenant_id, allow_unverified=unattended
                 )
             )
+            if pb1 and result.safe_harbor_category == "forward_looking":
+                from proofops.application.tagging.pb1_classification import forward_candidate
+
+                category, reason = forward_candidate(claim.quote)
+                if reason == "forecast_context_requires_review":
+                    raise ValueError("PB1_FORECAST_CONTEXT_REQUIRES_REVIEW")
+                result = replace(result, safe_harbor_category=category)
             attribution = {}
             if self.attribution_policy is not None:
                 from proofops.application.evidence.binding import ClaimContext

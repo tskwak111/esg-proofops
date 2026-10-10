@@ -177,6 +177,26 @@ def _focal_cell(
     identity = _lineage_identity(block)
     if identity is None:
         return None
+    if block.kind == "table" and "pb1_table_claims" in block.candidates[block.winner].context:
+        from proofops.application.ingest.pb1_tables import observations
+
+        rows = observations(
+            block.normalized_text, context=" ".join(block.candidates[block.winner].context)
+        )
+        row = next(
+            (r for r in rows if r["start"] <= ref.char_start < ref.char_end <= r["end"]), None
+        )
+        if row is not None:
+            owners = {sid for sid, targets in parents.items() if block.source_id in targets}
+            cells = [
+                b
+                for sid, b in blocks.items()
+                if sid in owners
+                and b.winner is not None
+                and b.candidates[b.winner].row_number == row["row"]
+                and b.candidates[b.winner].column_number == row["value_column"]
+            ]
+            return cells[0] if len(cells) == 1 else None
     if _coordinates(block) is not None:
         return block
     frontier: tuple[str, ...] = (block.source_id,)
@@ -368,6 +388,17 @@ def table_structural_sources(
             if (other_coordinates := _coordinates(other)) is not None and _same_table(cell, other)
         }
         header_rows, stub_columns = _table_layout(siblings)
+        if "pb1_table_claims" in cell.candidates[cell.winner].context:
+            import re
+
+            years = [
+                coord[1]
+                for sid, coord in siblings.items()
+                if coord[1] < 4
+                and re.fullmatch(r"(?:19|20)\d{2}(?:\s*년)?", blocks[sid].raw_text.strip())
+            ]
+            if years:
+                header_rows = frozenset(range(min(header_rows), max(years) + 1))
         for other_id, other_coordinates in siblings.items():
             other = blocks[other_id]
             if other_id == cell.source_id or other_id in claim_source_ids:

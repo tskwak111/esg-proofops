@@ -348,6 +348,10 @@ class LocalExtractRunner:
                 cache=True,
                 run_id=run_id,
             )
+        if snapshot.get("analysis_profile_policy", {}).get("extraction_pb1") == "pb1-v1":
+            from proofops.application.ingest.pb1_tables import occurrence_groups
+
+            payload["occurrence_groups"] = occurrence_groups(discovery.claims)
         return payload
 
     def run_batch(self, *, tenant_id: str, run_id: str, max_calls: int | None = None) -> dict:
@@ -891,6 +895,13 @@ class LocalExtractRunner:
                         synthetic=discovery.synthetic,
                         coverage=coverage,
                     )
+                    if (
+                        snapshot.get("analysis_profile_policy", {}).get("extraction_pb1")
+                        == "pb1-v1"
+                    ):
+                        from proofops.application.ingest.pb1_tables import occurrence_groups
+
+                        payload["occurrence_groups"] = occurrence_groups(discovery.claims)
                     if "claim_source_policy" in snapshot:
                         from proofops.adapters.local.claim_source_policies import (
                             attest_claims,

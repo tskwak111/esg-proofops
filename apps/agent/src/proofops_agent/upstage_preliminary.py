@@ -34,6 +34,8 @@ from pathlib import Path
 from proofops.adapters.local.openrouter import OpenRouterProbe
 from proofops.adapters.local.upstage import UpstageProbe
 from proofops.application.preflight import Preflight
+from proofops.application.tagging.pb1_classification import COMPACT_PROFILE, COMPACT_PROMPT
+from proofops.application.tagging.pb1_classification import SYSTEM_SUFFIX as PB1_SUFFIX
 from proofops.application.tagging.preliminary import (
     ACTOR_ROLE_SYSTEM_SUFFIX,
     CONTEXT_POSITION_ORDER,
@@ -74,6 +76,7 @@ POSITION_P2_MODEL_PROFILE = "upstage-preliminary-source-quotes-table-role-v2-p2-
 # the table-role prompt. Requires preliminary_table_role=True and its dependencies.
 GOAL_ROLE_MODEL_PROFILE = "upstage-preliminary-source-quotes-goal-role-v1"
 ACTOR_ROLE_MODEL_PROFILE = "upstage-preliminary-source-quotes-actor-role-v1"
+PB1_MODEL_PROFILE = "upstage-preliminary-source-quotes-actor-role-v3-pb1"
 ACTOR_ROLE_MODEL_PROFILE_V2 = "upstage-preliminary-source-quotes-actor-role-v2"
 TRANSPORT_VERSION = "preliminary-source-quotes-v1"
 CONTEXT_TRANSPORT_VERSION = "preliminary-source-quotes-context-v1"
@@ -94,6 +97,8 @@ TABLE_ROLE_SYSTEM_PROMPT = TABLE_SYSTEM_PROMPT + TABLE_ROLE_SYSTEM_SUFFIX
 GOAL_ROLE_SYSTEM_PROMPT = TABLE_ROLE_SYSTEM_PROMPT + GOAL_ROLE_SYSTEM_SUFFIX
 ACTOR_ROLE_SYSTEM_PROMPT = GOAL_ROLE_SYSTEM_PROMPT + ACTOR_ROLE_SYSTEM_SUFFIX
 ACTOR_ROLE_SYSTEM_PROMPT_V2 = ACTOR_ROLE_SYSTEM_PROMPT + PERIOD_ROLE_SYSTEM_SUFFIX
+
+PB1_SYSTEM_PROMPT = ACTOR_ROLE_SYSTEM_PROMPT_V2 + PB1_SUFFIX
 
 _ENVELOPE_KEYS = frozenset(
     (
@@ -177,6 +182,10 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
             expected_prompt = P2_SYSTEM_PROMPT
         elif settings.model_profile == P1_MODEL_PROFILE:
             expected_prompt = P1_SYSTEM_PROMPT
+        elif settings.model_profile == COMPACT_PROFILE:
+            expected_prompt = COMPACT_PROMPT
+        elif settings.model_profile == PB1_MODEL_PROFILE:
+            expected_prompt = PB1_SYSTEM_PROMPT
         elif settings.model_profile in (ACTOR_ROLE_MODEL_PROFILE_V2, "preliminary-decision-v1"):
             expected_prompt = ACTOR_ROLE_SYSTEM_PROMPT_V2
         elif settings.model_profile == ACTOR_ROLE_MODEL_PROFILE:
@@ -231,6 +240,10 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
             self.TRANSPORT_VERSION = TABLE_TRANSPORT_VERSION
         elif settings.model_profile == TABLE_ROLE_MODEL_PROFILE:
             self.TRANSPORT_VERSION = TABLE_ROLE_TRANSPORT_VERSION
+        elif settings.model_profile == COMPACT_PROFILE:
+            self.TRANSPORT_VERSION = COMPACT_PROFILE
+        elif settings.model_profile == PB1_MODEL_PROFILE:
+            self.TRANSPORT_VERSION = PB1_MODEL_PROFILE
         elif settings.model_profile in (ACTOR_ROLE_MODEL_PROFILE_V2, "preliminary-decision-v1"):
             self.TRANSPORT_VERSION = (
                 "preliminary-decision-v1"
@@ -309,6 +322,8 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
             raise ValueError("UPSTAGE_PRELIMINARY_PACKET_INVALID") from None
         actor_role_v2 = settings.model_profile in (
             ACTOR_ROLE_MODEL_PROFILE_V2,
+            PB1_MODEL_PROFILE,
+            COMPACT_PROFILE,
             "preliminary-decision-v1",
             SENTENCE_CONTEXT_PROFILE,
         )
@@ -341,6 +356,10 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
                 expected_prompt = P1_SYSTEM_PROMPT
             elif settings.model_profile == SENTENCE_CONTEXT_PROFILE:
                 expected_prompt = SENTENCE_CONTEXT_SYSTEM_PROMPT
+            elif settings.model_profile == COMPACT_PROFILE:
+                expected_prompt = COMPACT_PROMPT
+            elif settings.model_profile == PB1_MODEL_PROFILE:
+                expected_prompt = PB1_SYSTEM_PROMPT
             elif actor_role_v2:
                 expected_prompt = ACTOR_ROLE_SYSTEM_PROMPT_V2
             elif actor_role:

@@ -85,9 +85,42 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
         # while building this snapshot. Replay all source guards once, then retain
         # the same graph for every claim's identity-checked missing-evidence search.
         _, discovery, original_graph = evidence
+        from proofops.application.analysis_profile import (
+            V2_PB1_COMPACT_POLICY,
+            V2_PB1_INITIAL_POLICY,
+            V2_POLICY,
+        )
+        from proofops.application.ingest.pb1_tables import observations, occurrence_groups
+        from proofops.domain.provenance import canonical_hash
+
+        pb1 = tag_snapshot.get("analysis_profile_policy_sha256") in {
+            canonical_hash(V2_POLICY),
+            canonical_hash(V2_PB1_COMPACT_POLICY),
+            canonical_hash(V2_PB1_INITIAL_POLICY),
+        }
+        groups = occurrence_groups(discovery.claims) if pb1 else {}
+        blocks = {b.source_id: b for b in original_graph.blocks}
         for claim in discovery.claims:
             current = claims.current_tag(tenant, run, claim.claim_id)
             summary = claims.summary(claim, current)
+            if pb1:
+                summary["duplicate_occurrences"] = groups.get(
+                    canonical_hash(" ".join(claim.quote.split())), [claim.claim_id]
+                )
+                ref = claim.source_refs[0]
+                block = blocks[ref.source_id]
+                if block.kind == "table" and block.winner is not None:
+                    context = " ".join(block.candidates[block.winner].context)
+                    row = next(
+                        (
+                            r
+                            for r in observations(block.normalized_text, context=context)
+                            if r["start"] <= ref.char_start < ref.char_end <= r["end"]
+                        ),
+                        None,
+                    )
+                    if row:
+                        summary["table_observation"] = row
             decision = summary.get("decision")
             tag = current["tag"] if current else {}
             elements = tag.get("elements", [])
