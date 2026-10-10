@@ -223,7 +223,7 @@ def test_malformed_uv_lock_blocks(tmp_path: Path):
     from proofops.application.supply_chain import verify_supply_chain
 
     (tmp_path / "uv.lock").write_text("truncated", encoding="utf-8")
-    (tmp_path / "pnpm-lock.yaml").write_text(_valid_pnpm_lock(), encoding="utf-8")
+    (tmp_path / "pnpm-lock.yaml").write_text(_valid_pnpm_lock(), encoding="utf-8", newline="")
     (tmp_path / "sbom.json").write_text(_valid_sbom_for(["fastapi"]), encoding="utf-8")
     result = verify_supply_chain(
         root_dir=tmp_path, env={"ENABLE_LEGACY_PYMUPDF": "false"}, check_secrets=False
@@ -250,8 +250,8 @@ def test_pymupdf_gate_blocks_without_approval(tmp_path: Path):
     from proofops.application.supply_chain import verify_supply_chain
 
     fake_lock = tmp_path / "uv.lock"
-    fake_lock.write_text(_valid_uv_lock_with_pymupdf(), encoding="utf-8")
-    (tmp_path / "pnpm-lock.yaml").write_text(_valid_pnpm_lock(), encoding="utf-8")
+    fake_lock.write_text(_valid_uv_lock_with_pymupdf(), encoding="utf-8", newline="")
+    (tmp_path / "pnpm-lock.yaml").write_text(_valid_pnpm_lock(), encoding="utf-8", newline="")
     adapter_dir = tmp_path / "packages" / "proofops" / "adapters" / "parsing"
     adapter_dir.mkdir(parents=True)
     (adapter_dir / "legacy_pymupdf.py").write_text(
@@ -273,8 +273,8 @@ def test_pymupdf_gate_blocks_without_verified_approval_even_when_enabled(tmp_pat
     """ENABLE true alone without verified approval metadata must still FAIL (fail-closed)."""
     from proofops.application.supply_chain import verify_supply_chain
 
-    (tmp_path / "uv.lock").write_text(_valid_uv_lock_with_pymupdf(), encoding="utf-8")
-    (tmp_path / "pnpm-lock.yaml").write_text(_valid_pnpm_lock(), encoding="utf-8")
+    (tmp_path / "uv.lock").write_text(_valid_uv_lock_with_pymupdf(), encoding="utf-8", newline="")
+    (tmp_path / "pnpm-lock.yaml").write_text(_valid_pnpm_lock(), encoding="utf-8", newline="")
     (tmp_path / "sbom.json").write_text(_valid_sbom_for(["pymupdf", "fastapi"]), encoding="utf-8")
     # Provide incomplete approval (missing approved_by)
     (tmp_path / "config").mkdir(parents=True, exist_ok=True)
@@ -297,7 +297,7 @@ def test_enable_flag_without_pymupdf_but_no_approval_fails(tmp_path: Path):
     from proofops.application.supply_chain import verify_supply_chain
 
     (tmp_path / "uv.lock").write_text(_valid_uv_lock_without_pymupdf(), encoding="utf-8")
-    (tmp_path / "pnpm-lock.yaml").write_text(_valid_pnpm_lock(), encoding="utf-8")
+    (tmp_path / "pnpm-lock.yaml").write_text(_valid_pnpm_lock(), encoding="utf-8", newline="")
     (tmp_path / "sbom.json").write_text(_valid_sbom_for(["fastapi"]), encoding="utf-8")
     # No config file
     result = verify_supply_chain(
@@ -314,8 +314,8 @@ def test_pymupdf_gate_allows_with_verified_approval(tmp_path: Path):
     from proofops.application.supply_chain import verify_supply_chain
 
     fake_lock = tmp_path / "uv.lock"
-    fake_lock.write_text(_valid_uv_lock_with_pymupdf(), encoding="utf-8")
-    (tmp_path / "pnpm-lock.yaml").write_text(_valid_pnpm_lock(), encoding="utf-8")
+    fake_lock.write_text(_valid_uv_lock_with_pymupdf(), encoding="utf-8", newline="")
+    (tmp_path / "pnpm-lock.yaml").write_text(_valid_pnpm_lock(), encoding="utf-8", newline="")
     adapter_dir = tmp_path / "packages" / "proofops" / "adapters" / "parsing"
     adapter_dir.mkdir(parents=True)
     (adapter_dir / "legacy_pymupdf.py").write_text(
@@ -344,7 +344,7 @@ def test_pymupdf_import_scan_blocks_without_flag(tmp_path: Path):
     from proofops.application.supply_chain import verify_supply_chain
 
     (tmp_path / "uv.lock").write_text(_valid_uv_lock_without_pymupdf(), encoding="utf-8")
-    (tmp_path / "pnpm-lock.yaml").write_text(_valid_pnpm_lock(), encoding="utf-8")
+    (tmp_path / "pnpm-lock.yaml").write_text(_valid_pnpm_lock(), encoding="utf-8", newline="")
     (tmp_path / "sbom.json").write_text(_valid_sbom_for(["fastapi"]), encoding="utf-8")
     some_file = tmp_path / "packages" / "proofops" / "adapters" / "parsing" / "some_parser.py"
     some_file.parent.mkdir(parents=True)
@@ -363,7 +363,7 @@ def test_secret_scan_detects_fake_secret(tmp_path: Path):
     from proofops.application.supply_chain import verify_supply_chain
 
     (tmp_path / "uv.lock").write_text(_valid_uv_lock_without_pymupdf(), encoding="utf-8")
-    (tmp_path / "pnpm-lock.yaml").write_text(_valid_pnpm_lock(), encoding="utf-8")
+    (tmp_path / "pnpm-lock.yaml").write_text(_valid_pnpm_lock(), encoding="utf-8", newline="")
     (tmp_path / "sbom.json").write_text(_valid_sbom_for(["fastapi"]), encoding="utf-8")
     secret_file = tmp_path / "some.py"
     secret_file.write_text('aws_secret = "' + "AKIA" + "Z" * 16 + '"\n', encoding="utf-8")
@@ -381,7 +381,7 @@ def test_sbom_missing_blocks_when_required(tmp_path: Path):
     from proofops.application.supply_chain import verify_supply_chain
 
     (tmp_path / "uv.lock").write_text(_valid_uv_lock_without_pymupdf(), encoding="utf-8")
-    (tmp_path / "pnpm-lock.yaml").write_text(_valid_pnpm_lock(), encoding="utf-8")
+    (tmp_path / "pnpm-lock.yaml").write_text(_valid_pnpm_lock(), encoding="utf-8", newline="")
     result = verify_supply_chain(
         root_dir=tmp_path,
         env={"ENABLE_LEGACY_PYMUPDF": "false", "APP_ENV": "production"},
@@ -395,7 +395,7 @@ def test_empty_sbom_blocks(tmp_path: Path):
     from proofops.application.supply_chain import verify_supply_chain
 
     (tmp_path / "uv.lock").write_text(_valid_uv_lock_without_pymupdf(), encoding="utf-8")
-    (tmp_path / "pnpm-lock.yaml").write_text(_valid_pnpm_lock(), encoding="utf-8")
+    (tmp_path / "pnpm-lock.yaml").write_text(_valid_pnpm_lock(), encoding="utf-8", newline="")
     (tmp_path / "sbom.json").write_text(
         '{"bomFormat":"CycloneDX","specVersion":"1.6","components":[]}', encoding="utf-8"
     )
@@ -409,8 +409,8 @@ def test_empty_sbom_blocks(tmp_path: Path):
 def test_sbom_inventory_gap_blocks(tmp_path: Path):
     from proofops.application.supply_chain import verify_supply_chain
 
-    (tmp_path / "uv.lock").write_text(_valid_uv_lock_with_pymupdf(), encoding="utf-8")
-    (tmp_path / "pnpm-lock.yaml").write_text(_valid_pnpm_lock(), encoding="utf-8")
+    (tmp_path / "uv.lock").write_text(_valid_uv_lock_with_pymupdf(), encoding="utf-8", newline="")
+    (tmp_path / "pnpm-lock.yaml").write_text(_valid_pnpm_lock(), encoding="utf-8", newline="")
     # SBOM only has fastapi, missing pymupdf
     (tmp_path / "sbom.json").write_text(_valid_sbom_for(["fastapi"]), encoding="utf-8")
     (tmp_path / "config").mkdir(parents=True, exist_ok=True)
@@ -441,8 +441,8 @@ def test_real_repo_supply_chain_reports_license_gate():
 
 def test_check_licenses_cli_blocks_without_approval(tmp_path: Path):
     """scripts/check_licenses.py must exit non-zero when gate blocked."""
-    (tmp_path / "uv.lock").write_text(_valid_uv_lock_with_pymupdf(), encoding="utf-8")
-    (tmp_path / "pnpm-lock.yaml").write_text(_valid_pnpm_lock(), encoding="utf-8")
+    (tmp_path / "uv.lock").write_text(_valid_uv_lock_with_pymupdf(), encoding="utf-8", newline="")
+    (tmp_path / "pnpm-lock.yaml").write_text(_valid_pnpm_lock(), encoding="utf-8", newline="")
     (tmp_path / "sbom.json").write_text(_valid_sbom_for(["pymupdf", "fastapi"]), encoding="utf-8")
     result = subprocess.run(
         [
@@ -462,8 +462,8 @@ def test_check_licenses_cli_blocks_without_approval(tmp_path: Path):
 
 
 def test_check_licenses_cli_allows_with_verified_approval(tmp_path: Path):
-    (tmp_path / "uv.lock").write_text(_valid_uv_lock_with_pymupdf(), encoding="utf-8")
-    (tmp_path / "pnpm-lock.yaml").write_text(_valid_pnpm_lock(), encoding="utf-8")
+    (tmp_path / "uv.lock").write_text(_valid_uv_lock_with_pymupdf(), encoding="utf-8", newline="")
+    (tmp_path / "pnpm-lock.yaml").write_text(_valid_pnpm_lock(), encoding="utf-8", newline="")
     (tmp_path / "sbom.json").write_text(_valid_sbom_for(["pymupdf", "fastapi"]), encoding="utf-8")
     config_dir = tmp_path / "config"
     config_dir.mkdir(parents=True, exist_ok=True)
@@ -580,11 +580,8 @@ def test_ci_has_no_fail_open_typecheck_or_unlocked_tool_install():
 def test_iam_builders_execute_and_reject_unbounded_inputs(tmp_path):
     compiled = subprocess.run(
         [
-            "pnpm",
-            "--dir",
-            str(ROOT / "apps/web"),
-            "exec",
-            "tsc",
+            "node",
+            str(ROOT / "apps/web/node_modules/typescript/bin/tsc"),
             str(IAM_FILE),
             "--outDir",
             str(tmp_path),
@@ -685,7 +682,12 @@ def test_symlink_directory_blocks_uninspected_sources(clean_inventory, tmp_path)
 
     external = tmp_path / "outside"
     external.mkdir()
-    (clean_inventory / "linked").symlink_to(external, target_is_directory=True)
+    try:
+        (clean_inventory / "linked").symlink_to(external, target_is_directory=True)
+    except OSError as error:
+        if getattr(error, "winerror", None) == 1314:
+            pytest.skip("Windows symlink privilege is unavailable; exercise on POSIX CI")
+        raise
     result = verify_supply_chain(root_dir=clean_inventory, check_secrets=False)
     assert not result.passed
     assert any("symlink" in error for error in result.errors)

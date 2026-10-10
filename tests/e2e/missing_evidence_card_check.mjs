@@ -1,12 +1,14 @@
 // UI fixture only: copied Kakao checkpoint + free local search, all unconfirmed.
 export async function check() {
+  const fixtureUrl = new URLSearchParams(location.search).get('fixture');
+  if (!fixtureUrl) throw new Error('MISSING_HISTORICAL_FIXTURE: pass a local fixture URL using ?fixture=');
   const resource = performance.getEntriesByType('resource').find(r => /\/\.vite\/deps\/react\.js/.test(r.name));
   const { default: React } = await import(resource.name);
   const { default: { createRoot } } = await import(resource.name.replace('react.js', 'react-dom_client.js'));
   const routerResource = performance.getEntriesByType('resource').find(r => /\/\.vite\/deps\/react-router\.js/.test(r.name));
   const { MemoryRouter } = await import(routerResource.name);
   const { ClaimWorkspace } = await import('/src/features/claims/ClaimWorkspace.tsx');
-  const fixture = await (await fetch('/@fs/Users/ss020/Dev/ESG_ProofOps/.local/r108-sprint1/.local/r108-mc2-ui-fixture.json')).json();
+  const fixture = await (await fetch(fixtureUrl)).json();
   const nativeFetch = window.fetch;
   window.fetch = async (url, init) => String(url).includes(`/claims/${fixture.detail.claim.claim_id}`)
     ? Response.json(fixture.detail) : nativeFetch(url, init);

@@ -26,6 +26,13 @@ RECONCILIATION_PATHS = (
     "evaluation/reconciliation_prepare.py",
     "evaluation/reconciliation_source_audit.py",
     "evaluation/reconciliation_benchmark.py",
+    "evaluation/reconciliation_bindings.py",
+    "evaluation/reconciliation_filings.py",
+    "evaluation/reconciliation_from_claim.py",
+    "evaluation/reconciliation_link_company.py",
+    "evaluation/reconciliation_policy_draft.py",
+    "evaluation/reconciliation_eval_kia.py",
+    "evaluation/reconciliation_report_smoke.py",
 )
 PRODUCT_PATHS = (
     "packages/proofops/application/uploads_security.py",
@@ -210,6 +217,8 @@ class ReleaseVerifier:
                 "tests/acceptance/test_rules.py",
                 "tests/acceptance/test_upload_security.py",
                 "tests/acceptance/test_upload.py",
+                "tests/integration/test_linkage_exchange_cli_real_run.py",
+                "tests/integration/test_reviewed_tag_head_consumers.py",
                 "-q",
                 "-p",
                 "no:cacheprovider",

@@ -1,5 +1,7 @@
 # 17 · 환경 변수와 구성
 
+> 현재 Parser Lab 실행 설정과 검증 결과는 [QA 후속 조치](QA_REMEDIATION.md)를 따릅니다. 아래 운영 설계와 과거 실험 기록은 현재 배포 상태를 의미하지 않습니다.
+
 > ESG ProofOps · 개발 명세 1.0 · 2026-09-08
 > 도메인 정본: `sources/PROJECT_DOMAIN_V2_ORIGINAL.md` (원문 2.0, 2026-09-07).
 
@@ -9,7 +11,7 @@
 | 변수 | 기본값 | 필수 조건 | 환경 | 의미 |
 |---|---|---|---|---|
 | `APP_ENV` | `local` | yes | all | local/staging/production; production 은 fake adapters 거부 |
-| `APP_ORIGIN` | `http://localhost:5173` | yes | all | 허용 단일 웹 origin |
+| `APP_ORIGIN` | `http://localhost:5173` | yes | all | 기존 기본값. Parser Lab 시작 스크립트는 `http://127.0.0.1:5175`로 설정 |
 | `API_PUBLIC_BASE_URL` | `http://localhost:8000` | yes | all | BFF callback/API base |
 | `AWS_REGION` | `ap-northeast-2` | cloud | staging/production | 저장/API 기본 리전, 실제 account 확인 |
 | `AWS_PROFILE` | `빈 값` | no | local | 개발자 credentials profile; production IAM role |
@@ -42,6 +44,8 @@
 | `ENABLE_AGENTCORE_MEMORY` | `false` | yes | all | P0 off; source truth 가 아님 |
 | `ENABLE_ADVERTISING_MODE` | `false` | yes | all | 전용 승인 rules 필요 |
 | `ENABLE_YEAR_COMPARISON` | `false` | yes | all | P1 feature flag |
+| `ENABLE_RECONCILIATION` | `false` | no | local API | 정확히 `true`일 때만 대사 저장소·라우터 생성. 정책/근거 승인은 별도 |
+| `VITE_ENABLE_RECONCILIATION` | `false` | no | web build | 정확히 `true`일 때만 대사 화면 링크·경로 노출. API 플래그도 별도로 필요 |
 | `ALLOW_LIVE_MODEL_TESTS` | `false` | yes | all | 비용/동의 승인 후 수동 enable |
 | `OTEL_SERVICE_NAME` | `proofops-local` | yes | all | service 명, 본문 capture 비활성 |
 | `LOG_LEVEL` | `INFO` | yes | all | DEBUG 여도 문서/secret logging 금지 |
@@ -88,3 +92,27 @@ print(json.dumps(asdict(SyntheticClaimExtractor.profile)))'`.
 중지하며, 이미 저장한 run 설정과 태깅·판정·감사 이력은 그대로 보존한다.
 
 로컬 웹 개발 서버는 저장소 루트 환경 설정의 `API_PUBLIC_BASE_URL`을 `/v1`, `/auth`, `/local/uploads` 프록시 대상으로 사용한다. 다른 프로젝트가 기본 포트를 사용하는 경우 명시적으로 분리된 API 주소를 설정한다. 이 값은 API 프로세스를 시작하거나 승인 profile을 생성하지 않는다.
+
+## Windows/Azure parser lab
+
+2026-10-10 계획 변경: 현재 실험은 OpenDataLoader PDF 2.0.0/2.5.7 비교입니다.
+아래 Azure 설정은 재개 시에만 필요하며 ODL 로컬/하이브리드 실험에는 API key가 필요하지
+않습니다. ODL 실행 명령과 실제 처리 범위 검증은 루트 README의 Parser lab 절차를 따릅니다.
+
+복사본의 서버 전용 `.env.azure.local` 설정:
+
+| 변수 | 용도 |
+| --- | --- |
+| `AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT` | Document Intelligence 리소스 HTTPS endpoint |
+| `AZURE_DOCUMENT_INTELLIGENCE_KEY` | 리소스 API key. 비공개 파일/서버 환경으로만 전달 |
+| `AZURE_DOCUMENT_INTELLIGENCE_MAX_PAGES` | 장부별 누적 제출 페이지 상한. 기본 50 |
+
+`evaluation.azure_pilot`이 위 세 변수만 읽으며 내용을 출력하지 않는다.
+일반 작업자는 환경 변수로 전달받는다. `VITE_` 접두사로 키를 정의하지 않는다.
+F0는 4MB/첫 2페이지 제한이 있으므로 원본 NAVER PDF(약 19.6MB) 검증에는 S0가 필요하다.
+Azure 프로필은 `parser_mode=azure`, `table_auxiliary=false`, `vision_parse=off`이며
+ODL 전용 표 보정·검증 옵션은 함께 지정하지 않는다. 기존 local/upstage 기본값은 바뀌지 않는다.
+
+Windows에서는 `python -X utf8` 또는 `PYTHONUTF8=1`로 실행한다.
+`scripts/Run-ParserLab.ps1`이 이 환경과 복사본 경로를 지정한다.
+검증 결과는 `.local/`에 보존하고 실제 청구금액을 모르면 null을 유지한다.

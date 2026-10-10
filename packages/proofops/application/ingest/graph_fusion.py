@@ -98,6 +98,9 @@ class ParserProfile:
     parser_mode: str = "local"
     upstage_glyph_boxes: bool = False
     upstage_region_words: bool = False
+    docling_python: str | None = None
+    docling_ssh_target: str | None = None
+    vision_model: str | None = None
 
     def __post_init__(self):
         _require_uuid("parse_manifest_id", self.parse_manifest_id)
@@ -108,6 +111,17 @@ class ParserProfile:
         ):
             raise ValueError("physical_pages must be sorted unique 1-based integers")
         object.__setattr__(self, "physical_pages", pages)
+        if self.vision_model is not None and (
+            self.vision_model != "gpt-6-sol" or self.parser_mode != "docling"
+        ):
+            raise ValueError("vision_model requires Docling and the pinned gpt-6-sol model")
+        if self.docling_ssh_target is not None and (
+            self.parser_mode != "docling"
+            or not isinstance(self.docling_ssh_target, str)
+            or re.fullmatch(r"[a-z_][a-z0-9_-]*@[A-Za-z0-9][A-Za-z0-9.-]*", self.docling_ssh_target)
+            is None
+        ):
+            raise ValueError("invalid Docling SSH target")
         for name in ("timeout_seconds", "max_bytes", "max_output_bytes", "memory_bytes"):
             value = getattr(self, name)
             if (
@@ -129,14 +143,35 @@ class ParserProfile:
             raise ValueError("unsupported table structure repair")
         if self.vision_parse not in ("auto", "all", "off"):
             raise ValueError("unsupported vision parse mode")
-        if self.parser_mode not in ("upstage", "local"):
+        if self.parser_mode not in ("upstage", "local", "azure", "docling"):
             raise ValueError("unsupported parser mode")
+        if self.docling_python is not None and (
+            not isinstance(self.docling_python, str)
+            or not self.docling_python
+            or self.parser_mode != "docling"
+        ):
+            raise ValueError("docling_python requires docling mode")
+        if self.parser_mode == "docling" and (
+            self.table_auxiliary
+            or self.table_structure_repair is not None
+            or self.table_text_y_tolerance is not None
+            or self.table_source_policy_sha256 is not None
+        ):
+            raise ValueError("Docling requires table_auxiliary=False and no ODL policies")
+        if self.parser_mode == "azure" and (
+            self.table_auxiliary
+            or self.table_text_y_tolerance is not None
+            or self.table_source_policy_sha256 is not None
+            or self.table_structure_repair is not None
+            or self.vision_parse != "off"
+        ):
+            raise ValueError("Azure requires table_auxiliary=False and no ODL/vision options")
         if type(self.upstage_glyph_boxes) is not bool or (
-            self.upstage_glyph_boxes and self.parser_mode != "upstage"
+            self.upstage_glyph_boxes and self.parser_mode not in ("upstage", "docling")
         ):
             raise ValueError("upstage glyph boxes require upstage parser")
         if type(self.upstage_region_words) is not bool or (
-            self.upstage_region_words and self.parser_mode != "upstage"
+            self.upstage_region_words and self.parser_mode not in ("upstage", "docling")
         ):
             raise ValueError("upstage region words require upstage parser")
         tolerance = self.table_text_y_tolerance
@@ -151,6 +186,12 @@ class ParserProfile:
     def invocation_snapshot(self) -> dict:
         """Keep historical invocation hashes when optional tuning is absent."""
         values = asdict(self)
+        if self.vision_model is None:
+            values.pop("vision_model")
+        if self.docling_python is None:
+            values.pop("docling_python")
+        if self.docling_ssh_target is None:
+            values.pop("docling_ssh_target")
         if self.table_text_y_tolerance is None:
             values.pop("table_text_y_tolerance")
         if self.table_source_policy_sha256 is None:

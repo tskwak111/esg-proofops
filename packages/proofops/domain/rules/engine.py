@@ -75,6 +75,35 @@ class ConfirmedFact:
 
 
 @dataclass(frozen=True, slots=True)
+class EvidenceReview:
+    """Trusted application review, distinct from three model replicates.
+
+    The application must verify the retained review record and source hashes.
+    This attestation never represents expert gold or model consensus.
+    """
+
+    reviewer: str
+    reviewed_at: str
+    source_authority: str
+    packet_sha256: str
+    record_sha256: str
+
+    def __post_init__(self) -> None:
+        from datetime import datetime
+
+        if not self.reviewer.strip() or not self.source_authority.strip():
+            raise DomainValidationError("review identity and authority required")
+        try:
+            stamp = datetime.fromisoformat(self.reviewed_at)
+        except (ValueError, TypeError) as exc:
+            raise DomainValidationError("review timestamp required") from exc
+        if stamp.utcoffset() is None:
+            raise DomainValidationError("review timestamp must include timezone")
+        _require_sha256("review packet", self.packet_sha256)
+        _require_sha256("review record", self.record_sha256)
+
+
+@dataclass(frozen=True, slots=True)
 class ConfirmedTags:
     tenant_id: str
     document_version_id: str
@@ -90,6 +119,7 @@ class ConfirmedTags:
     safe_harbor_category: str | None = None
     superlative_quote: str | None = None
     product_variant: bool = False
+    evidence_review: EvidenceReview | None = None
 
     def __post_init__(self) -> None:
         for name in ("tenant_id", "document_version_id", "claim_id"):
@@ -116,7 +146,14 @@ class ConfirmedTags:
             raise DomainValidationError("duplicate fact names")
         object.__setattr__(self, "facts", tuple(sorted(facts, key=lambda f: f.name)))
         hashes = tuple(self.replicate_hashes)
-        if len(hashes) != 3:
+        if self.evidence_review is not None:
+            if not isinstance(self.evidence_review, EvidenceReview):
+                raise DomainValidationError("invalid evidence review")
+            if self.evidence_review.packet_sha256 != self.packet_sha256:
+                raise DomainValidationError("review packet mismatch")
+            if hashes:
+                raise DomainValidationError("review route must not pretend model consensus")
+        elif len(hashes) != 3:
             raise DomainValidationError("retain hashes for replicate 1, 2, 3 in order")
         for value in hashes:
             _require_sha256("replicate hash", value)
@@ -206,6 +243,14 @@ class Decision:
 
 def _hash(value: Any) -> str:
     return hashlib.sha256(canonical_json(value).encode("ascii")).hexdigest()
+
+
+def confirmed_tags_hash(tags: ConfirmedTags | dict[str, Any]) -> str:
+    payload = asdict(tags) if isinstance(tags, ConfirmedTags) else dict(tags)
+    if payload.get("evidence_review") is None:
+        # Existing three-replicate decisions retain their historical input hash.
+        payload.pop("evidence_review", None)
+    return _hash(payload)
 
 
 def _select(branches: list[dict[str, Any]], facts: dict[str, bool]) -> tuple[str | None, str]:
@@ -417,7 +462,7 @@ def evaluate(tags: ConfirmedTags, context: RuleContext, pack: RulePackSnapshot) 
         tuple(excluded),
         candidate,
         tuple(bases),
-        _hash(asdict(tags)),
+        confirmed_tags_hash(tags),
         context.local_synthetic,
         min(reachable) if has_range else None,
         max(reachable) if has_range else None,

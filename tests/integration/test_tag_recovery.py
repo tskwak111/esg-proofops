@@ -213,7 +213,7 @@ def _plan_fields(**overrides):
         lineage_checkpoint_sha256="a" * 64,
         recovery_job_id=job,
         shard="tag-recovery-" + job,
-        receipts_root="/tmp/tagging-receipts/" + str(UUID(int=62)),
+        receipts_root=str((Path("/tmp/tagging-receipts") / str(UUID(int=62))).resolve()),
         claim_ids=(str(UUID(int=64)),),
         reissued_request_ids=(str(UUID(int=65)),),
         acknowledged_failures=(str(UUID(int=66)),),
@@ -233,7 +233,9 @@ def test_plan_pins_its_own_job_shard_and_receipt_tree():
     with pytest.raises(RecoveryRejected, match="SHARD_MISMATCH"):
         TagRecoveryPlan(**_plan_fields(shard="tag-recovery-other"))
     with pytest.raises(RecoveryRejected, match="RECEIPTS_ROOT_MISMATCH"):
-        TagRecoveryPlan(**_plan_fields(receipts_root="/tmp/tagging-receipts/elsewhere"))
+        TagRecoveryPlan(
+            **_plan_fields(receipts_root=str(Path("/tmp/tagging-receipts/elsewhere").resolve()))
+        )
     with pytest.raises(RecoveryRejected, match="BOUND_INVALID"):
         TagRecoveryPlan(**_plan_fields(max_new_requests=0))
 

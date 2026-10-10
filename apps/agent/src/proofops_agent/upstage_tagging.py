@@ -23,6 +23,7 @@ from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
 from proofops.domain.values import _require_sha256, _require_uuid, _source_ref_from_dict
 
+from proofops_agent.portable_lock import acquire_operation_lock
 from proofops_agent.upstage_extraction import UpstageClaimExtractor
 
 MODEL_PROFILE = "upstage-compact-ids-frozen-unicode-v1"
@@ -232,17 +233,12 @@ class UpstageTaggingTransport:
         return self._resume is None or self._resume.allows(self._receipts)
 
     def invoke(self, request: dict) -> RawTagResponse:
-        # Offline workers can load on Windows; paid dispatch still requires this lock.
-        import fcntl
-
         # One operation per receipt root; the shared USD ledger also fences all roots.
         with self._operation_mutex:
             if self._operation_users == 0:
-                lock = (self._receipts / ".operation.lock").open("a")
                 try:
-                    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    lock = acquire_operation_lock(self._receipts / ".operation.lock")
                 except BlockingIOError:
-                    lock.close()
                     return self._failed(SUPPRESSED_ERROR_CODE, 0)
                 self._operation_file = lock
             self._operation_users += 1

@@ -289,7 +289,14 @@ def test_page_preview_uses_fixed_process_limits_and_returns_sanitized_failure(mo
         assert profile.timeout_seconds == 15
         assert profile.memory_bytes == 512 * 1024 * 1024
         assert profile.max_output_bytes == 16 * 1024 * 1024
-        assert env == {"PATH": "/usr/bin:/bin", "PYTHONDONTWRITEBYTECODE": "1"}
+        import sys
+
+        assert env["PYTHONDONTWRITEBYTECODE"] == "1"
+        if sys.platform == "win32":
+            assert env["SystemRoot"] and env["TEMP"] == str(work)
+            assert "API_KEY" not in env
+        else:
+            assert env == {"PATH": "/usr/bin:/bin", "PYTHONDONTWRITEBYTECODE": "1"}
         raise ParseFailure("PARSER_MEMORY_LIMIT")
 
     monkeypatch.setattr(OpenDataLoaderParser, "_execute", fail_within_preview_limits)

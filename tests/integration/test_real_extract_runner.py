@@ -536,7 +536,7 @@ def test_request_usage_shared_accounting(tmp_path):
     # Build a controlled ledger with one settled, one unsettled reservation.
     from proofops.adapters.local.upstage import UpstageProbe, request_usage
 
-    ledger = tmp_path / "shared?#budget.sqlite3"
+    ledger = tmp_path / "shared #budget.sqlite3"
     client = UpstageProbe("test-only-key", ledger)
     settled_id, unsettled_id = "req-settled-1", "req-unsettled-1"
     client._reserve(settled_id, {"m": settled_id})

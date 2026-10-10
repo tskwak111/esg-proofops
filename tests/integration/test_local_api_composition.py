@@ -151,6 +151,8 @@ def test_composed_registry_preflight_and_rulepacks_share_durable_local_database(
     monkeypatch.setenv("MODEL_ADAPTER", "synthetic")
     monkeypatch.setenv("APP_ORIGIN", ORIGIN)
     monkeypatch.setenv("LOCAL_DATABASE_PATH", str(tmp_path / "state.sqlite3"))
+    # contracts/openapi.yaml includes the default-off reconciliation routes.
+    monkeypatch.setenv("ENABLE_RECONCILIATION", "true")
     from proofops_api.main import create_app
 
     with (

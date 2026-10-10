@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router";
 import { getElementLabel } from "../labels";
+import { localAnalysisErrors } from "./liveErrors";
 import "./live-claim.css";
 
 type Element = { name: string; element_id: string; candidate_state: string; engine_state: string; quote: string | null; quote_source?: "claim" | "context" | null };
@@ -42,6 +43,7 @@ const stages = ["분류", "요소 태깅", "Python 규칙엔진"];
 const trackNames: Record<string, string> = { management: "관리체계", performance: "성과", goal: "목표" };
 const stateNames: Record<string, string> = { present: "확인", absent: "부재 후보", unknown: "확인 전", conflict: "상충" };
 const errors: Record<string, string> = {
+  ...localAnalysisErrors,
   DAILY_LIMIT: "오늘의 분석 비용 한도에 도달했습니다. 내일 다시 이용해 주세요.",
   RATE_LIMITED: "요청이 많습니다. 1분 후 다시 시도해 주세요.",
   LIVE_DISABLED: "실시간 분석이 일시 중지되었습니다.",

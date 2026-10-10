@@ -4,7 +4,7 @@ import json
 import time
 from dataclasses import asdict, replace
 from pathlib import Path
-from threading import Lock
+from threading import Barrier, Lock
 from uuid import UUID
 
 import pytest
@@ -157,12 +157,14 @@ def test_parallel_replicas_keep_order_and_reserve_before_send(tmp_path):
     original = inputs["invoke"]
     lock = Lock()
     active = peak = 0
+    ready = Barrier(3, timeout=15)
 
     def slow(request):
         nonlocal active, peak
         with lock:
             active += 1
             peak = max(peak, active)
+        ready.wait()
         time.sleep(0.03 if request["replicate_id"] == 1 else 0.01)
         try:
             return original(request)

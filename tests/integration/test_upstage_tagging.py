@@ -490,11 +490,10 @@ def test_incomplete_receipt_blocks_new_paid_replica_after_restart(tmp_path, monk
 
 
 def test_busy_operation_does_not_dispatch(tmp_path, monkeypatch):
-    import fcntl
+    from proofops_agent.portable_lock import acquire_operation_lock
 
     adapter, probe, calls, request = configured(tmp_path, monkeypatch)
-    with (tmp_path / "receipts" / ".operation.lock").open("a") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    with acquire_operation_lock(tmp_path / "receipts" / ".operation.lock"):
         assert adapter.invoke(request).usage.status == "failed"
     assert not calls and probe.summary()["calls"] == 0
 
@@ -503,8 +502,9 @@ def test_missing_platform_lock_never_dispatches_or_reserves(tmp_path, monkeypatc
     import sys
 
     adapter, probe, calls, request = configured(tmp_path, monkeypatch)
-    monkeypatch.setitem(sys.modules, "fcntl", None)
-    with pytest.raises(ModuleNotFoundError, match="fcntl"):
+    backend = "msvcrt" if sys.platform == "win32" else "fcntl"
+    monkeypatch.setitem(sys.modules, backend, None)
+    with pytest.raises(ModuleNotFoundError, match=backend):
         adapter.invoke(request)
     assert not calls and probe.summary()["calls"] == 0
     assert not list((tmp_path / "receipts").iterdir())

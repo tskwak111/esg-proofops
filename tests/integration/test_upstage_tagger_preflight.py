@@ -75,7 +75,7 @@ def test_tagger_authorized_but_not_extractor_or_deployment():
         ("role", "extractor"),
         ("schema", "local_upstage_tagger_binding_v2"),
         ("tagging_settings_sha256", "0" * 64),
-        ("runtime_binding_id", str(uuid4())),
+        ("runtime_binding_id", "22222222-2222-4222-8222-222222222222"),
         ("model_id", "solar-pro4"),
         ("endpoint", "https://wrong.invalid"),
         ("expires_at", NOW),

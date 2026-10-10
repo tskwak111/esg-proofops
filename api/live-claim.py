@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hmac
 import json
+import logging
 import math
 import os
 import sys
@@ -136,7 +137,7 @@ def _provider(system: str, user: dict, max_tokens: int) -> dict:
         method="POST",
     )
     try:
-        with urllib.request.urlopen(request, timeout=20) as response:
+        with urllib.request.urlopen(request, timeout=15) as response:
             raw = response.read(65_537)
     except (urllib.error.URLError, TimeoutError) as exc:
         raise LiveError(502, "OPENROUTER_UNAVAILABLE") from exc
@@ -155,7 +156,7 @@ def _step(call_model, system: str, user: dict, max_tokens: int, spent_estimate: 
         raise LiveError(400, "REQUEST_COST_CAP")
     started = monotonic()
     actual = 0.0
-    for attempt in range(2):
+    for attempt in range(1):
         try:
             data = call_model(system, user, max_tokens)
             usage = data["usage"]
@@ -210,16 +211,23 @@ def _step(call_model, system: str, user: dict, max_tokens: int, spent_estimate: 
                 raise ValueError
             return message, tokens, round((monotonic() - started) * 1000), estimate, actual
         except LiveError as exc:
-            if exc.code != "OPENROUTER_RESPONSE_INVALID" or attempt:
+            if exc.code != "OPENROUTER_RESPONSE_INVALID" or attempt == 0:
                 raise
         except (KeyError, IndexError, TypeError, ValueError, AttributeError) as exc:
-            if attempt:
+            if attempt == 0:
                 raise LiveError(502, "OPENROUTER_RESPONSE_INVALID") from exc
     raise LiveError(502, "OPENROUTER_RESPONSE_INVALID")
 
 
-def run_claim(payload: dict, *, access_code: str, call_model=None, forwarded_for: str = "") -> dict:
-    required = os.environ.get("DEMO_ACCESS_CODE", "")
+def run_claim(
+    payload: dict,
+    *,
+    access_code: str,
+    call_model=None,
+    forwarded_for: str = "",
+    local_authorized=False,
+) -> dict:
+    required = access_code if local_authorized else os.environ.get("DEMO_ACCESS_CODE", "")
     if not required:
         raise LiveError(503, "DEMO_NOT_CONFIGURED")
     if not hmac.compare_digest(access_code, required):
@@ -242,7 +250,8 @@ def run_claim(payload: dict, *, access_code: str, call_model=None, forwarded_for
         or (page is not None and (not isinstance(page, str) or len(page) > 30))
     ):
         raise LiveError(400, "INVALID_INPUT")
-    check_limits(forwarded_for)
+    if not local_authorized:
+        check_limits(forwarded_for)
     claim_id, document_id, source_id, context_source_id, parse_id = (str(uuid4()) for _ in range(5))
     tenant_id = PACK.tenant_id
     packet_hash = _hash(
@@ -525,7 +534,9 @@ class handler(BaseHTTPRequestHandler):
             result = run_claim(
                 payload,
                 access_code=self.headers.get("X-Demo-Access-Code", ""),
-                forwarded_for=self.headers.get("X-Forwarded-For", ""),
+                forwarded_for=self.headers.get("X-Vercel-Forwarded-For", "")
+                if os.getenv("VERCEL")
+                else self.client_address[0],
             )
             status = 200
         except LiveError as exc:
@@ -533,6 +544,7 @@ class handler(BaseHTTPRequestHandler):
         except (ValueError, UnicodeError):
             status, result = 400, {"error": "INVALID_JSON"}
         except Exception:
+            logging.getLogger(__name__).error("live-claim failed", exc_info=False)
             status, result = 500, {"error": "INTERNAL_ERROR"}
         body = json.dumps(result, ensure_ascii=False).encode("utf-8")
         self.send_response(status)

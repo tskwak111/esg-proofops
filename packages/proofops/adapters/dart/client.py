@@ -9,6 +9,7 @@ Endpoints implemented:
 
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 import math
@@ -63,7 +64,12 @@ def redact_api_key(text: str, api_key: str | None = None) -> str:
         return ""
     scrubbed = re.sub(r"(crtfc_key=)[^& \t\r\n]+", r"\1[REDACTED]", text, flags=re.IGNORECASE)
     if api_key and api_key.strip():
-        scrubbed = scrubbed.replace(api_key.strip(), "[REDACTED]")
+        for secret in (
+            api_key.strip(),
+            urllib.parse.quote(api_key.strip(), safe=""),
+            urllib.parse.quote_plus(api_key.strip()),
+        ):
+            scrubbed = scrubbed.replace(secret, "[REDACTED]")
     return scrubbed
 
 
@@ -284,6 +290,45 @@ class DartClient:
         self._timeout = float(timeout)
         self._max_retries = max_retries
         self._retry_backoff = float(retry_backoff)
+        self._request_count = 0
+        self._retry_count = 0
+        self._rate_limit_count = 0
+        self._rate_limit_reason: str | None = None
+        self._last_response_sha256: str | None = None
+
+    @property
+    def last_response_sha256(self) -> str | None:
+        """Last wire body digest, including malformed/error responses; never the body."""
+        return self._last_response_sha256
+
+    @property
+    def request_count(self) -> int:
+        """Actual transport attempts, including retries; local validation is excluded."""
+        return self._request_count
+
+    @property
+    def diagnostics(self) -> dict[str, Any]:
+        """Credential-free process-local counters, not a provider daily quota estimate."""
+        return {
+            "request_count": self._request_count,
+            "retry_count": self._retry_count,
+            "rate_limit_count": self._rate_limit_count,
+            "rate_limit_reason": self._rate_limit_reason,
+            "resume_guidance": (
+                "Wait for provider quota/rate window reset, then explicitly resume_rate_limit; "
+                "do not loop or rotate credentials."
+                if self._rate_limit_reason
+                else None
+            ),
+        }
+
+    def resume_rate_limit(self) -> None:
+        """Explicit operator acknowledgement after the provider rate/quota window resets."""
+        self._rate_limit_reason = None
+
+    def _rate_limited(self, reason: str) -> None:
+        self._rate_limit_count += 1
+        self._rate_limit_reason = reason
 
     @property
     def api_key(self) -> str:
@@ -300,8 +345,12 @@ class DartClient:
     def _execute_http(self, url: str) -> tuple[int, dict[str, str], bytes]:
         """Execute request with bounded retries and exponential backoff for 5xx server errors."""
         attempt = 0
+        self._last_response_sha256 = None
+        if self._rate_limit_reason:
+            raise DartRateLimitError("Requests paused after rate/quota limit; see diagnostics")
         while True:
             try:
+                self._request_count += 1
                 status_code, headers, body = self._transport(
                     url,
                     headers={"Accept": "*/*"},
@@ -315,6 +364,7 @@ class DartClient:
                         api_key=self._api_key,
                     ) from None
                 attempt += 1
+                self._retry_count += 1
                 time.sleep(min(30, self._retry_backoff * (2 ** (attempt - 1))))
                 continue
 
@@ -324,7 +374,9 @@ class DartClient:
                 or len(body) > MAX_BODY_BYTES
             ):
                 raise DartError("Invalid or oversized HTTP response")
+            self._last_response_sha256 = hashlib.sha256(body).hexdigest()
             if status_code == 429:
+                self._rate_limited("http_429")
                 raise DartRateLimitError(
                     f"HTTP 429 Rate limited for {url}",
                     status_code=429,
@@ -339,6 +391,7 @@ class DartClient:
                         api_key=self._api_key,
                     )
                 attempt += 1
+                self._retry_count += 1
                 time.sleep(min(30, self._retry_backoff * (2 ** (attempt - 1))))
                 continue
 
@@ -399,6 +452,7 @@ class DartClient:
                 api_key=self._api_key,
             )
         if dart_status == "020":
+            self._rate_limited("dart_020")
             raise DartRateLimitError(
                 f"DART rate limit/quota exceeded: [{dart_status}] {dart_message}",
                 status_code=status_code,
@@ -485,6 +539,7 @@ class DartClient:
                     api_key=self._api_key,
                 )
             if dart_status == "020":
+                self._rate_limited("dart_020")
                 raise DartRateLimitError(
                     f"DART rate limit/quota exceeded: [{dart_status}] {dart_message}",
                     status_code=status_code,
@@ -519,6 +574,7 @@ class DartClient:
                     api_key=self._api_key,
                 )
             if dart_status == "020":
+                self._rate_limited("dart_020")
                 raise DartRateLimitError(
                     f"DART rate limit/quota exceeded: [{dart_status}] {dart_message}",
                     status_code=status_code,

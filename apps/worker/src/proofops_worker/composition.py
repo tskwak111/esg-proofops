@@ -96,7 +96,7 @@ def build_composition(
 
         raster_probe = UpstageParseProbe(os.environ.get("UPSTAGE_API_KEY", ""), note_ledger)
     upstage_probe = None
-    if profile.parser_mode == "upstage":
+    if profile.parser_mode in ("upstage", "docling"):
         from proofops.adapters.local.upstage_parse import UpstageParseProbe
 
         if not note_ledger.is_file():

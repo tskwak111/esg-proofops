@@ -1,0 +1,9 @@
+# Isolated runtime: application/legacy parser dependencies remain separately locked.
+docling==2.137.0
+docling-core==2.101.1
+docling-ibm-models==4.0.3
+docling-parse==7.22.2
+torch==2.14.1
+torchvision==0.29.1
+transformers==5.19.0
+pypdfium2==5.14.0

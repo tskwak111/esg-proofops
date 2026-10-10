@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 from proofops.adapters.reconciliation import FileSourceReader
 from proofops.application.reconciliation import service
+from proofops.application.reconciliation.explanation import difference_binding
 
 ROOT = Path(__file__).parents[2]
 CONTRACT = ROOT / "contracts" / "reconciliation"
@@ -183,6 +184,9 @@ def test_valid_explanation_is_verified_and_bound_to_coverage(tmp_path: Path, mon
         "locator": source["locator"],
         "quote": source["quote"],
         "roles": ["explanation"],
+        "human_reviewed": True,
+        "reviewed_by": "reviewer",
+        "difference_binding": difference_binding(packet),
     }
     captured = {}
     monkeypatch.setattr(

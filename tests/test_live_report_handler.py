@@ -107,8 +107,8 @@ def test_selected_kia_page_with_fake_transports(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def fake_usage_check(monkeypatch):
+def fake_usage_check(monkeypatch, tmp_path):
     import _limits
 
-    _limits._recent.clear()
+    monkeypatch.setenv("LIVE_LIMITS_DB", str(tmp_path / "limits.sqlite3"))
     monkeypatch.setattr(_limits, "daily_usage", lambda: 0.0)

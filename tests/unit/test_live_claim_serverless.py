@@ -349,7 +349,7 @@ def test_openrouter_request_and_secret_stays_private(monkeypatch):
 
     def fake_urlopen(request, timeout):
         seen.append(request)
-        assert timeout == 20
+        assert timeout == 15
         raise urllib.error.URLError("offline")
 
     monkeypatch.setattr(live.urllib.request, "urlopen", fake_urlopen)
@@ -368,7 +368,7 @@ def test_openrouter_request_and_secret_stays_private(monkeypatch):
 
 
 @pytest.mark.parametrize("invalid", ["{", '{"claim_id":"id","track":"goal"}', "provider"])
-def test_invalid_json_or_schema_retries_once_and_counts_both_costs(invalid):
+def test_invalid_json_or_schema_never_repeats_paid_request(invalid):
     calls = []
 
     def fake(system, user, max_tokens):
@@ -391,17 +391,15 @@ def test_invalid_json_or_schema_retries_once_and_counts_both_costs(invalid):
             "usage": {"prompt_tokens": 100, "completion_tokens": 40, "cost": 0.0002},
         }
 
-    message, _, _, _, cost = live._step(
-        fake, live.CLASSIFY_PROMPT, {"claim_id": "id", "sources": []}, 384, 0
-    )
-    assert message["track"] == "goal"
-    assert len(calls) == 2
-    assert cost == pytest.approx(0.0002 if invalid == "provider" else 0.0004)
+    with pytest.raises(live.LiveError) as error:
+        live._step(fake, live.CLASSIFY_PROMPT, {"claim_id": "id", "sources": []}, 384, 0)
+    assert error.value.code == "OPENROUTER_RESPONSE_INVALID"
+    assert len(calls) == 1
 
 
 @pytest.fixture(autouse=True)
-def fake_usage_check(monkeypatch):
+def fake_usage_check(monkeypatch, tmp_path):
     import _limits
 
-    _limits._recent.clear()
+    monkeypatch.setenv("LIVE_LIMITS_DB", str(tmp_path / "limits.sqlite3"))
     monkeypatch.setattr(_limits, "daily_usage", lambda: 0.0)

@@ -129,7 +129,11 @@ def test_invalid_physical_page_rejected(page):
         geometry(pdf(), page=page)
 
 
-@pytest.mark.parametrize("source", [b"", b"not a pdf", "pdf", b" " * (100 * 1024 * 1024 + 1)])
+@pytest.mark.parametrize(
+    "source",
+    [b"", b"not a pdf", "pdf", b" " * (100 * 1024 * 1024 + 1)],
+    ids=["empty", "invalid", "wrong-type", "over-limit"],
+)
 def test_invalid_source_rejected(source):
     with pytest.raises(ValueError):
         geometry(source)

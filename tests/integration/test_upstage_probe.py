@@ -241,8 +241,11 @@ def test_provider_response_survives_validation_and_restart(tmp_path, monkeypatch
     archived = path.read_bytes()
     assert json.loads(archived) == {"request_id": request_id, "provider_response": data}
     assert "test-secret" not in archived.decode()
-    assert root.stat().st_mode & 0o777 == 0o700
-    assert path.stat().st_mode & 0o777 == 0o600
+    import os
+
+    if os.name != "nt":  # Windows does not expose POSIX permission bits.
+        assert root.stat().st_mode & 0o777 == 0o700
+        assert path.stat().st_mode & 0o777 == 0o600
     restarted = upstage.UpstageProbe("test-secret", ledger)
     with pytest.raises(ValueError, match="DUPLICATE_PROBE_REQUEST"):
         restarted.complete("JSON", "{}", request_id=request_id)

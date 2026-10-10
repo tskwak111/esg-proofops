@@ -10,7 +10,7 @@
 /scripts/
 /infra/
 /prompts/*
-!/prompts/element_tagging.md
+**/*.swift
 *.pdf
 .venv/
 node_modules/

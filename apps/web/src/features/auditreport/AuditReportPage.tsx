@@ -189,7 +189,7 @@ export default function AuditReportPage() {
     <article className="audit-paper">
       <section className="audit-cover">
         <div className="audit-brand"><span className="brand-dot" aria-hidden="true" /><strong>PROOFOPS</strong><span>DISCLOSURE EVIDENCE REVIEW</span></div>
-        <div className="audit-cover-main"><p className="audit-kicker">ENVIRONMENTAL DISCLOSURE / EVIDENCE REVIEW</p><h1>{companyName}<br />공시 근거 검토 보고서</h1><p>{documentTitle}</p></div>
+        <div className="audit-cover-main"><p className="audit-kicker">ENVIRONMENTAL DISCLOSURE / EVIDENCE REVIEW</p><h1>{companyName}<br />공시 근거 검토 보고서</h1><p>{documentTitle}</p><p>저장된 과거 규칙팩의 검토 결과입니다. 현재 미승인 규칙팩의 확정 판정이나 새 보고서 분석 성능을 의미하지 않습니다.</p></div>
         <div className="audit-cover-foot"><div><span>분석 일시</span><strong>{formatDate(reportDate)}</strong></div><div><span>판정 기준</span><strong>환경 주장 입증 등급</strong></div><div><span>근거 검토</span><strong>원문 인용과 쪽수 대조</strong></div><div><span>분석 범위</span><strong>{snapshot.coverage.pages_processed}/{snapshot.coverage.pages_total}쪽</strong></div></div>
       </section>
 

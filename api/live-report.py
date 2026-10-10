@@ -5,6 +5,7 @@ from __future__ import annotations
 import hmac
 import io
 import json
+import logging
 import math
 import os
 import re
@@ -42,7 +43,7 @@ from proofops.domain.rules.engine import (  # noqa: E402
 )
 from proofops.domain.values import SourceRef  # noqa: E402
 
-PACK = RulePackSnapshot(**json.loads((ROOT / "api/rulepack.json").read_text()))
+PACK = RulePackSnapshot(**json.loads((ROOT / "api/rulepack.json").read_text(encoding="utf-8")))
 MODEL = "openai/gpt-6-luna"
 MAX_PAGES = 10
 MAX_BODY = 4_000_000
@@ -92,7 +93,7 @@ def verify_quote(quote: str, block: str, native_words: str) -> bool:
     )
 
 
-def parse_upstage(pdf: bytes, key: str) -> dict:
+def parse_upstage(pdf: bytes, key: str, *, timeout=15) -> dict:
     boundary = uuid4().hex
     parts = []
     for name, value in (
@@ -129,7 +130,7 @@ def parse_upstage(pdf: bytes, key: str) -> dict:
         method="POST",
     )
     try:
-        with urllib.request.urlopen(request, timeout=42) as response:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
             raw = response.read(1_048_577)
         if len(raw) > 1_048_576:
             raise LiveError(502, "UPSTAGE_RESPONSE_TOO_LARGE")
@@ -138,7 +139,9 @@ def parse_upstage(pdf: bytes, key: str) -> dict:
         raise LiveError(502, "UPSTAGE_UNAVAILABLE") from exc
 
 
-def call_luna(system: str, user: dict, max_tokens: int, key: str) -> tuple[dict, float]:
+def call_luna(
+    system: str, user: dict, max_tokens: int, key: str, *, timeout=12
+) -> tuple[dict, float]:
     request = urllib.request.Request(
         "https://openrouter.ai/api/v1/chat/completions",
         json.dumps(
@@ -160,7 +163,7 @@ def call_luna(system: str, user: dict, max_tokens: int, key: str) -> tuple[dict,
         method="POST",
     )
     try:
-        with urllib.request.urlopen(request, timeout=24) as response:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
             raw = response.read(65_537)
         if len(raw) > 65_536:
             raise ValueError("large response")
@@ -198,6 +201,7 @@ def run_report(
     model=None,
     forwarded_for: str = "",
 ) -> dict:
+    started = monotonic()
     required = os.getenv("DEMO_ACCESS_CODE", "")
     if not required:
         raise LiveError(503, "DEMO_NOT_CONFIGURED")
@@ -233,8 +237,16 @@ def run_report(
     if (not upstage_key and parse is None) or (not luna_key and model is None):
         raise LiveError(503, "PROVIDER_NOT_CONFIGURED")
     check_limits(forwarded_for)
-    started = monotonic()
-    response = (parse or (lambda data: parse_upstage(data, upstage_key)))(pdf)
+
+    def remaining(cap):
+        available = 48 - (monotonic() - started)
+        if available < 1:
+            raise LiveError(504, "ANALYSIS_DEADLINE")
+        return min(cap, available)
+
+    response = (parse or (lambda data: parse_upstage(data, upstage_key, timeout=remaining(15))))(
+        pdf
+    )
     source = SourceArtifact(
         PACK.tenant_id, str(uuid4()), str(uuid4()), digest(pdf), str(uuid4()), pdf
     )
@@ -310,7 +322,10 @@ def run_report(
     }
     if len(json.dumps(extract_user, ensure_ascii=False)) > MAX_INPUT_CHARS:
         raise LiveError(400, "REQUEST_COST_CAP")
-    invoke = model or (lambda system, user, cap: call_luna(system, user, cap, luna_key))
+    invoke = model or (
+        lambda system, user, cap: call_luna(system, user, cap, luna_key, timeout=remaining(12))
+    )
+    remaining(12)
     extracted, cost1 = invoke(EXTRACT_SYSTEM, extract_user, MAX_MODEL_TOKENS[0])
     if not isinstance(extracted.get("claims"), list) or len(extracted["claims"]) > MAX_CLAIMS:
         raise LiveError(502, "EXTRACTION_INVALID")
@@ -354,9 +369,12 @@ def run_report(
                     "names": names,
                 }
             )
+    if not math.isfinite(cost1) or cost1 < 0 or cost1 + model_ceiling / 2 > MAX_MODEL_USD:
+        raise LiveError(400, "REQUEST_COST_CAP")
     cost2 = 0.0
     tags_by_index = {}
     if tag_user["claims"]:
+        remaining(12)
         if len(json.dumps(tag_user, ensure_ascii=False)) > MAX_INPUT_CHARS:
             raise LiveError(400, "REQUEST_COST_CAP")
         tagged, cost2 = invoke(TAG_SYSTEM, tag_user, MAX_MODEL_TOKENS[1])
@@ -514,7 +532,9 @@ class handler(BaseHTTPRequestHandler):
                 self.rfile.read(length),
                 pages,
                 access_code=self.headers.get("X-Demo-Access-Code", ""),
-                forwarded_for=self.headers.get("X-Forwarded-For", ""),
+                forwarded_for=self.headers.get("X-Vercel-Forwarded-For", "")
+                if os.getenv("VERCEL")
+                else self.client_address[0],
             )
             status = 200
         except LiveError as exc:
@@ -522,6 +542,7 @@ class handler(BaseHTTPRequestHandler):
         except (ValueError, UnicodeError):
             status, result = 400, {"error": "INVALID_INPUT"}
         except Exception:
+            logging.getLogger(__name__).error("live-report failed", exc_info=False)
             status, result = 500, {"error": "INTERNAL_ERROR"}
         body = json.dumps(result, ensure_ascii=False).encode()
         self.send_response(status)

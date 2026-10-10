@@ -592,7 +592,11 @@ def main():
     parser.add_argument("--key-file", type=Path)
     parser.add_argument("--pages", default="1")
     parser.add_argument("--vision-parse", choices=("auto", "all", "off"))
-    parser.add_argument("--parser", choices=("upstage", "local"), default="upstage")
+    parser.add_argument("--parser", choices=("docling", "upstage", "local"), default="docling")
+    parser.add_argument("--docling-ssh-target", default=os.environ.get("DOCLING_SSH_TARGET"))
+    parser.add_argument(
+        "--docling-python", type=Path, help="Python executable of the isolated Docling environment"
+    )
     parser.add_argument("--report-year", type=int)
     parser.add_argument("--period-start")
     parser.add_argument("--period-end")
@@ -848,8 +852,32 @@ def main():
     )
     parser.add_argument("--port", type=int, default=8766)
     args = parser.parse_args()
+    if not args.resume and args.parser == "docling":
+        configured = ROOT / ".local/docling-parser.json"
+        if args.docling_ssh_target is None and args.docling_python is None and configured.is_file():
+            args.docling_ssh_target = json.loads(configured.read_text(encoding="utf-8")).get(
+                "docling_ssh_target"
+            )
+        if args.parser_memory_bytes is None:
+            args.parser_memory_bytes = 4 * 1024**3
+        if args.docling_ssh_target and args.parser_max_output_bytes is None:
+            args.parser_max_output_bytes = 128 * 1024**2
+        if args.docling_python is None and not args.docling_ssh_target:
+            executable = "Scripts/python.exe" if os.name == "nt" else "bin/python"
+            args.docling_python = ROOT / ".local/docling-env" / executable
+        if not args.docling_ssh_target and not args.docling_python.is_file():
+            parser.error(
+                "Docling runtime missing; run scripts/Setup-Docling.ps1 or set --docling-python"
+            )
+        if (
+            args.verify_tables
+            or args.verify_merged_tables
+            or args.verify_selected_cells
+            or args.repair_table_headers
+        ):
+            parser.error("Docling uses native-region checks; ODL table policies cannot be combined")
     if args.vision_parse is None:
-        args.vision_parse = "auto" if args.parser == "upstage" else "off"
+        args.vision_parse = "auto" if args.parser in ("upstage", "docling") else "off"
     if args.parser == "upstage" and args.vision_parse == "all":
         parser.error("--vision-parse all requires --parser local")
     if not args.resume:
@@ -1074,8 +1102,13 @@ def main():
 
         config = ParserProfile(
             str(uuid4()),
-            java_executable="/opt/homebrew/opt/openjdk@21/bin/java",
-            timeout_seconds=120,
+            java_executable="java",
+            timeout_seconds=600 if args.parser == "docling" else 120,
+            table_auxiliary=args.parser != "docling",
+            docling_python=str(args.docling_python.resolve())
+            if args.parser == "docling" and args.docling_python
+            else None,
+            docling_ssh_target=args.docling_ssh_target if args.parser == "docling" else None,
             memory_bytes=parser_memory_limit(args.parser_memory_bytes),
             max_output_bytes=parser_output_limit(args.parser_max_output_bytes),
             table_source_policy_sha256=(
@@ -1086,8 +1119,8 @@ def main():
             table_structure_repair="odl_header_v2" if args.repair_table_headers else None,
             vision_parse=args.vision_parse,
             parser_mode=args.parser,
-            upstage_glyph_boxes=args.parser == "upstage",
-            upstage_region_words=args.parser == "upstage",
+            upstage_glyph_boxes=args.parser in ("upstage", "docling"),
+            upstage_region_words=args.parser in ("upstage", "docling"),
         )
         (state / "parser.json").write_text(json.dumps(config.config_snapshot()))
         if (
@@ -1291,7 +1324,7 @@ def main():
                 ),
             ),
         ]
-        if args.vision_parse != "off" or args.parser == "upstage":
+        if args.vision_parse != "off" or args.parser in ("upstage", "docling"):
             profiles[-1][2]["allow_raster_upload"] = True
         if args.raster_ocr:
             from proofops.domain.provenance import canonical_hash
@@ -1635,7 +1668,7 @@ def main():
             if line.startswith(key_name + "=")
         )
         os.environ[key_name] = key
-        if args.parser == "upstage" and key_name != "UPSTAGE_API_KEY":
+        if args.parser in ("upstage", "docling") and key_name != "UPSTAGE_API_KEY":
             os.environ["UPSTAGE_API_KEY"] = next(
                 line.split("=", 1)[1].strip().strip('"').strip("'")
                 for line in (ROOT / ".env.upstage.local").read_text().splitlines()
@@ -1771,7 +1804,7 @@ def main():
                 for line in key_lines
                 if line.startswith(key_name + "=")
             )
-            if args.parser == "upstage" and key_name != "UPSTAGE_API_KEY":
+            if args.parser in ("upstage", "docling") and key_name != "UPSTAGE_API_KEY":
                 os.environ["UPSTAGE_API_KEY"] = next(
                     line.split("=", 1)[1].strip().strip('"').strip("'")
                     for line in (ROOT / ".env.upstage.local").read_text().splitlines()

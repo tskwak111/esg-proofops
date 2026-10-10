@@ -25,8 +25,8 @@ import _limits as limits  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
-def setup(monkeypatch):
-    limits._recent.clear()
+def setup(monkeypatch, tmp_path):
+    monkeypatch.setenv("LIVE_LIMITS_DB", str(tmp_path / "limits.sqlite3"))
     monkeypatch.setenv("DEMO_ACCESS_CODE", "secret")
     monkeypatch.setenv("OPENROUTER_API_KEY", "fake-key")
     for name in (
@@ -115,7 +115,7 @@ def test_rate_limits_and_expiry(monkeypatch):
     assert error.value.status == 429
     monkeypatch.setattr(limits, "monotonic", lambda: 160)
     limits.check_limits("client")
-    assert len(limits._recent) == 1
+    limits.check_limits("other-client")
 
 
 def test_overrides_and_invalid_configuration(monkeypatch):
@@ -140,3 +140,45 @@ def test_rate_rejection_before_providers(monkeypatch, module):
     with pytest.raises(limits.LiveError) as error:
         invoke(module)
     assert (error.value.status, error.value.code) == (429, "RATE_LIMITED")
+
+
+def test_rate_limit_is_shared_by_separately_loaded_process_modules(monkeypatch):
+    usage(monkeypatch, 0.0)
+    monkeypatch.setenv("LIVE_IP_PER_MINUTE", "1")
+    limits.check_limits("client")
+    other = load("_limits")
+    with pytest.raises(other.LiveError) as error:
+        other.check_limits("client")
+    assert error.value.code == "RATE_LIMITED"
+
+
+def test_vercel_requires_shared_store_before_paid_work(monkeypatch):
+    monkeypatch.setenv("VERCEL", "1")
+    monkeypatch.delenv("LIVE_REDIS_REST_URL", raising=False)
+    monkeypatch.delenv("LIVE_REDIS_REST_TOKEN", raising=False)
+    with pytest.raises(limits.LiveError) as error:
+        limits.check_limits("client")
+    assert error.value.code == "LIMIT_CHECK_UNAVAILABLE"
+
+
+@pytest.mark.parametrize("admitted,code", [(0, None), (1, "RATE_LIMITED"), (2, "DAILY_LIMIT")])
+def test_shared_store_reserves_rate_and_cost_in_one_operation(monkeypatch, admitted, code):
+    monkeypatch.setenv("VERCEL", "1")
+    monkeypatch.setenv("LIVE_REDIS_REST_URL", "https://quota.invalid")
+    monkeypatch.setenv("LIVE_REDIS_REST_TOKEN", "test-token")
+    monkeypatch.setattr(limits, "daily_usage", lambda: 0.0)
+
+    def transport(request, timeout):
+        command = json.loads(request.data)
+        assert command[0] == "EVAL" and command[2] == 3
+        assert "INCRBY" in command[1] and "ZCARD" in command[1]
+        assert timeout == 3
+        return io.BytesIO(json.dumps({"result": admitted}).encode())
+
+    monkeypatch.setattr(limits.urllib.request, "urlopen", transport)
+    if code:
+        with pytest.raises(limits.LiveError) as error:
+            limits.check_limits("client")
+        assert error.value.code == code
+    else:
+        limits.check_limits("client")

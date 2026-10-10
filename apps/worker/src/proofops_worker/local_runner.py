@@ -376,6 +376,21 @@ class LocalParserRunner:
                             raster_receipts,
                         )
                     manifest = json.loads(raw_manifest)
+                    if profile.parser_mode == "docling":
+                        parse_usage = manifest["upstage_parse"]
+                        usage["document_parse"] = parse_usage
+                        usage["document_parse_calls"] = (
+                            0
+                            if usage["artifact_reused"]
+                            else sum(
+                                parse_usage[mode]["requests"] - parse_usage[mode]["cache_hits"]
+                                for mode in ("standard", "enhanced")
+                            )
+                        )
+                    azure_usage = None
+                    if profile.parser_mode == "azure":
+                        azure_usage = json.loads((directory / "usage.json").read_bytes())
+                        usage["azure_parse"] = azure_usage
                     unreadable = {
                         issue.page_num for issue in graph.issues if issue.state == "unreadable"
                     }
@@ -415,6 +430,8 @@ class LocalParserRunner:
                         upstage_parse=manifest.get("upstage_parse"),
                         coverage=coverage,
                     )
+                    if azure_usage is not None:
+                        payload["azure_parse"] = azure_usage
                     if pinned_notes:
                         payload.update(
                             schema="local_parser_checkpoint_v2",

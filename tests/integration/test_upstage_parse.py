@@ -772,7 +772,13 @@ def test_missing_mode_usage_retains_budget_and_private_archive(tmp_path, monkeyp
         client.parse(make_pdf(1), request_id="missing-mode", mode="standard")
     assert client.summary()["unsettled_calls"] == 1
     archive = next((tmp_path / "parse-responses").glob("*.json"))
-    assert archive.stat().st_mode & 0o777 == 0o400
+    import os
+
+    if os.name == "nt":
+        # Windows chmod represents the read-only attribute, not POSIX ACLs.
+        assert archive.stat().st_mode & 0o222 == 0
+    else:
+        assert archive.stat().st_mode & 0o777 == 0o400
 
 
 @pytest.mark.parametrize("transport", ["text", "parse"])

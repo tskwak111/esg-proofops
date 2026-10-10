@@ -7,11 +7,18 @@ type Issue = { issue_id: string; kind: string; page_num: number; source_ids: str
 type Page = { items: Issue[]; next_cursor: string | null };
 type Props = { apiBase?: string; runId: string; csrfToken: string; onSessionInvalid: () => void };
 const reasons: Record<string, string> = {
+  "Independent parser agreement; source and semantic approval remain separate.": "Docling과 Upstage의 행 값 및 위치가 일치합니다. 원문 검증과 의미 판단은 별도입니다.",
+  "numeric_not_in_native_region": "이 영역의 PDF 원문에서 숫자를 확인하지 못해 제외했습니다.",
+  "chart_requires_vision_review": "차트 수치는 이미지 대조와 사람 검토가 필요합니다.",
+  "crosscheck_missing": "독립 파서의 일치하는 결과가 없어 확인이 필요합니다.",
+  "table_grid_overlap": "표의 셀이 겹쳐 행·열 연결을 확인해야 합니다.",
+  "parse_conflict": "두 파서의 행 값 또는 원문 위치가 일치하지 않습니다.",
   "Parser did not provide source geometry.": "파서가 원문 좌표를 제공하지 않았습니다. 원본 페이지에서 위치를 확인하세요.",
   "Vision cross-check not_run: approved runtime/account required.": "표의 이미지 대조 검증을 실행하지 않았습니다. 표 원문과 추출 내용을 확인하세요.",
   "No text extracted; absence of evidence is not established.": "텍스트를 추출하지 못했습니다. 근거가 없다는 뜻은 아니므로 원문을 확인하세요.",
 };
 const labels: Record<string, string> = {
+  parser_consensus: "파서 합의",
   extraction_span_unprocessed: "주장 여부 미확정 구간",
   image_text_not_extracted: "이미지 영역 확인 필요", table_vision_not_run: "표 이미지 대조 미실행",
   no_extractable_text: "텍스트 추출 실패", parse_conflict: "파서 결과 불일치",
@@ -64,7 +71,7 @@ export function RunQuality({ apiBase = "", runId, csrfToken, onSessionInvalid }:
   }
   return <section aria-labelledby="quality-heading">
     <h2 id="quality-heading">원문 읽기 확인</h2>
-    <p>페이지 처리 수는 모든 글·표를 읽었다는 뜻이 아닙니다. 아래 항목은 원문 확인이 필요하며 주장 결손 판정과 다릅니다.</p>
+    <p>페이지 처리 수는 모든 글·표를 읽었다는 뜻이 아닙니다. 파서 합의와 원문 확인 필요 항목을 구분해서 표시합니다. 합의는 주장의 사실 여부를 확정하지 않습니다.</p>
     {state === "loading" ? <p role="status">원문 품질 정보를 불러오는 중입니다.</p> : null}
     {state === "pending" ? <p role="status">원문 품질 산출물이 준비되지 않았거나 무결성 확인이 필요합니다.</p> : null}
     {error ? <p role="alert">{error}</p> : null}

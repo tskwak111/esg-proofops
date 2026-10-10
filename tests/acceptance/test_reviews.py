@@ -409,6 +409,8 @@ def test_review_component_renders_actual_react_with_escaped_sources(tmp_path):
     import subprocess
     from pathlib import Path
 
+    from tests.platform_tools import esbuild_command
+
     root = Path(__file__).resolve().parents[2]
     esbuild = next((root / "node_modules/.pnpm").glob("esbuild@*/node_modules/esbuild/bin/esbuild"))
     entry = tmp_path / "review-render.tsx"
@@ -463,7 +465,7 @@ console.log("ReviewWorkspace React render/accessibility/text-escaping checks pas
     bundle = tmp_path / "review-render.cjs"
     subprocess.run(
         [
-            str(esbuild),
+            *esbuild_command(esbuild),
             str(entry),
             "--bundle",
             "--platform=node",

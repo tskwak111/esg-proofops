@@ -9,9 +9,11 @@ dist/
 build/
 *.egg-info/
 .local/
+.local-ui-*.mjs
 .env
 .env.*
 !.env.example
+!.env.azure.local.example
 config/model_bindings.json
 config/consent_profile.json
 legacy_reference/
@@ -23,6 +25,7 @@ coverage/
 
 # Team data stays out of source control
 기업보고서/
+지속가능경영보고서/
 outputs/handoff-packages/
 
 # Local dependency directories and worktree symlinks

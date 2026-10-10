@@ -1,0 +1,23 @@
+{
+  "schema": "quote-anchors-v1",
+  "source_sha256": "e4b5fc88056318573f042e08e23248cf5e3e6e6021f2fa5140a3ac1aeb47b72d",
+  "authority": "Assistant visual review of PDF pages 100 and 105; diagnostic only, not approved gold",
+  "selection": "15 purposeful cases inherited from independent reference; not whole-report recall",
+  "cases": [
+    {"id":"N01","page":100,"quotes":["2024년 11,155 tCO2e의 온실가스 감축"]},
+    {"id":"N02","page":100,"quotes":["2024년 발전량 200,192kWh"]},
+    {"id":"N03","page":100,"quotes":["2024년 11,433tCO2e의 온실가스 배출량 감축"]},
+    {"id":"N04","page":100,"quotes":["2024년 전기 사용량의 약 25%를 재생에너지로 전환"]},
+    {"id":"N05","page":100,"quotes":["예상 연간 발전량 약 7.4GWh"]},
+    {"id":"N06","page":100,"quotes":["예상 온실가스 감축량 3,400 tCO2e"]},
+    {"id":"N07","page":100,"quotes":["일반전기 대비 재생에너지 사용 비율 78%", "심야전력 등 포함 65%"]},
+    {"id":"N08","page":100,"quotes":["2024년 재생에너지 총생산량 112,410kWh"]},
+    {"id":"N09","page":105,"quotes":["온실가스 감축량 30,925 tCO2e"]},
+    {"id":"N10","page":105,"quotes":["전사 재생에너지 사용량 20GWh 달성"]},
+    {"id":"N11","page":105,"quotes":["에너지효율(PUE) 1.20 이하 달성"]},
+    {"id":"N12","page":105,"quotes":["업무차량의 20% 전기차 전환 완료"]},
+    {"id":"N13","page":105,"quotes":["재생에너지 사용량 14GWh 이상 달성"]},
+    {"id":"N14","page":105,"quotes":["2030년까지 전체 에너지 사용량 기준 60% 재생에너지 전환"]},
+    {"id":"N15","page":105,"quotes":["2030년까지 업무차량의 100% 전기차 전환"]}
+  ]
+}

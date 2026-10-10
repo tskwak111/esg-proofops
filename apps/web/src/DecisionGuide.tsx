@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { elementLabels } from "./features/labels";
 
 const help = {
@@ -11,7 +12,8 @@ const help = {
 const helpLabels: Record<keyof typeof help, string> = { grade: "등급", label: "라벨", track: "트랙", state: "요소 상태", range: "가능 범위", estimated: "예비 등급" };
 
 export function GuideHelp({ topic }: { topic: keyof typeof help }) {
-  return <details className="guide-help"><summary aria-label={`${helpLabels[topic]} 설명`}>?</summary><div role="note">{help[topic]} <a href="/demo#guide">전체 안내 ↗</a></div></details>;
+  const [open, setOpen] = useState(false);
+  return <span className="guide-help"><button type="button" aria-label={`${helpLabels[topic]} 설명`} aria-expanded={open} onClick={() => setOpen(!open)}>ⓘ</button>{open && <span role="note">{help[topic]} <a href="/demo#guide">전체 안내 ↗</a></span>}</span>;
 }
 
 export function DecisionGuide() {

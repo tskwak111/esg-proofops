@@ -17,6 +17,8 @@ from proofops.application.comparisons import (
     compare_years,
 )
 
+from tests.platform_tools import esbuild_command
+
 TENANT = "11111111-1111-4111-8111-111111111111"
 FOREIGN_TENANT = "22222222-2222-4222-8222-222222222222"
 COMPANY = "33333333-3333-4333-8333-333333333333"
@@ -260,7 +262,7 @@ console.log("ComparisonPage candidate-state checks passed");
     bundle = tmp_path / "comparison-render.cjs"
     subprocess.run(
         [
-            str(esbuild),
+            *esbuild_command(esbuild),
             str(entry),
             "--bundle",
             "--platform=node",

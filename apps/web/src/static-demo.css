@@ -250,9 +250,9 @@ a.card:hover, .features .card:hover, .steps .card:hover { transform: translateY(
 
 /* help popover */
 .guide-help { display: inline-block; position: relative; vertical-align: middle; margin-left: 4px }
-.guide-help summary { list-style: none; cursor: pointer; width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line-2); font: 600 10px var(--font); color: var(--muted); border-radius: 50% }
+.guide-help button { list-style: none; cursor: pointer; width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line-2); font: 600 10px var(--font); color: var(--muted); border-radius: 50% }
 .guide-help summary::-webkit-details-marker { display: none }
-.guide-help summary:hover { border-color: var(--ink); color: var(--ink) }
+.guide-help button:hover { border-color: var(--ink); color: var(--ink) }
 .guide-help [role=note] { border-radius: 10px; position: absolute; z-index: 20; top: 24px; left: -8px; width: 280px; padding: 14px 16px; background: var(--ink); color: #F4EFE6; font: 400 13px/1.6 var(--font); letter-spacing: 0; text-transform: none; box-shadow: 0 20px 40px -20px rgba(0, 0, 0, .5) }
 .guide-help [role=note] a { color: #80ad80; display: inline-block; margin-top: 6px }
 
@@ -456,6 +456,19 @@ main.landing .faq-inner li:last-child { margin-bottom: 0 !important }
 .claim-list button.claim-item { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; min-height: 0; font: inherit; font-weight: inherit; color: inherit; cursor: pointer }
 .claim-list button.claim-item:hover:not(:disabled) { border-color: var(--line) }
 .live-claims-layout { margin-top: 20px }
+.dart-settings { grid-column: 1 / -1; border: 1px solid var(--line-2); border-radius: 12px; padding: 18px; display: grid; gap: 12px }
+.dart-settings legend { font-weight: 700; padding: 0 8px }
+.dart-settings label:has(input[type="checkbox"]), .dart-settings label:has(input[type="radio"]) { display: flex; align-items: center; flex-wrap: wrap; gap: 8px }
+.dart-settings input[type="checkbox"], .dart-settings input[type="radio"] { width: 18px; min-height: 18px; padding: 0 }
+.dart-settings select { min-height: 43px; padding: 8px; border: 1px solid var(--line-2); border-radius: 8px; background: white; color: var(--ink) }
+.pipeline-stages { margin: 20px 0; padding: 20px }
+.pipeline-stages > div { padding: 12px 0; border-top: 1px solid var(--line-2) }
+.pipeline-stages .badge { margin-left: 12px }
+.analyze-results > details { padding: 18px; margin: 16px 0; overflow-wrap: anywhere }
+.analyze-results .metrics { margin-top: 24px }
+.chart-points { min-width: 640px; width: 100% }
+.live-claims-layout .detail-block dl > div { padding: 8px 0; border-bottom: 1px solid var(--line-2) }
+.live-claims-layout .detail-block dd { margin: 4px 0 0; overflow-wrap: anywhere }
 /* Header: menu centred between equal side columns now that the action buttons are gone */
 @media (min-width: 761px) { .site-header-inner { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) !important } .site-header-inner > .brand { justify-self: start } }
 

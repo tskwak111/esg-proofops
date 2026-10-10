@@ -304,6 +304,16 @@ class OpenDataLoaderParser(ParserPort):
     def parse(
         self, source: SourceArtifact, profile: ParserProfile, *, tenant_id: str
     ) -> CanonicalDocumentGraph:
+        if profile.parser_mode == "docling":
+            from proofops.adapters.parsing.docling_document import DoclingParser
+
+            return DoclingParser(self.artifact_root, upstage_probe=self.upstage_probe).parse(
+                source, profile, tenant_id=tenant_id
+            )
+        if profile.parser_mode == "azure":
+            from proofops.adapters.parsing.azure_layout import AzureLayoutParser
+
+            return AzureLayoutParser(self.artifact_root).parse(source, profile, tenant_id=tenant_id)
         if source.tenant_id != tenant_id:
             raise ParseFailure("NOT_FOUND")
         if len(source.content) > profile.max_bytes:
@@ -416,7 +426,9 @@ class OpenDataLoaderParser(ParserPort):
                             request_id=str(uuid4()),
                             mode=mode,
                         )
-                        temporary = path.with_name(path.name + "." + uuid4().hex + ".tmp")
+                        # Keep atomic writes in the same directory without repeating the
+                        # cache hash: long workspace paths otherwise exceed Windows limits.
+                        temporary = path.with_name(uuid4().hex + ".tmp")
                         temporary.write_bytes(_json(result))
                         os.replace(temporary, path)
                         return result, False
@@ -678,6 +690,18 @@ class OpenDataLoaderParser(ParserPort):
         manifest_sha256: str | None = None,
     ) -> CanonicalDocumentGraph:
         """Reuse immutable output only after identity, config and every artifact hash agree."""
+        if profile.parser_mode == "docling":
+            from proofops.adapters.parsing.docling_document import DoclingParser
+
+            return DoclingParser(self.artifact_root).load_verified(
+                source, profile, tenant_id=tenant_id, manifest_sha256=manifest_sha256
+            )
+        if profile.parser_mode == "azure":
+            from proofops.adapters.parsing.azure_layout import AzureLayoutParser
+
+            return AzureLayoutParser(self.artifact_root).load_verified(
+                source, profile, tenant_id=tenant_id, manifest_sha256=manifest_sha256
+            )
         if source.tenant_id != tenant_id:
             raise ParseFailure("NOT_FOUND")
         if sha256(source.content).hexdigest() != source.sha256:

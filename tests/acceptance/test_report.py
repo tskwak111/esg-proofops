@@ -12,6 +12,8 @@ from pathlib import Path
 import pytest
 from proofops.application.reporting import build_report_model, render_report
 
+from tests.platform_tools import esbuild_command
+
 TENANT = "11111111-1111-4111-8111-111111111111"
 RUN = "22222222-2222-4222-8222-222222222222"
 DOCUMENT = "55555555-5555-4555-8555-555555555555"
@@ -588,7 +590,7 @@ console.log("ReportPreview audit-state checks passed");
     bundle = tmp_path / "report-render.cjs"
     subprocess.run(
         [
-            str(esbuild),
+            *esbuild_command(esbuild),
             str(entry),
             "--bundle",
             "--platform=node",

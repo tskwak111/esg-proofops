@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Route, Routes, useLocation, useNavigate, useParams } from "react-router";
+import { bindingReasons } from "./features/live/evidenceLabels";
+import { ReportEvidenceReview } from "./features/live/ReportEvidenceReview";
 import { LiveClaim } from "./features/live/LiveClaim";
 import { LiveReport, type LiveResultClaim } from "./features/live/LiveReport";
 import { ReplayPage, replayPath } from "./features/replay/route";
@@ -21,6 +23,7 @@ type Claim = {
   decision: { grade: string | null; label: string | null; display_grade?: string | null; display_label?: string | null; display_note?: string | null; estimated?: boolean; grade_range: { floor: string; ceiling: string; open_elements: string[] } | null; status: string; missing: string[]; unresolved: string[] };
   review: { status: string; tag_revision: number; decision_revision: number; audit: string | null };
   note?: string | null;
+  live?: LiveResultClaim;
 };
 type Snapshot = {
   title: string; generated_at: string; partial: boolean;
@@ -71,7 +74,7 @@ export function StaticDemo() {
     {isLive ? <LiveClaim /> : error ? <main className="static-main"><section className="surface"><h1>분석 결과를 불러오지 못했습니다</h1><p>잠시 후 새로고침해 주세요.</p></section></main> :
       !data ? <main className="static-main loading-main" role="status" aria-label="검토 결과 불러오는 중"><div className="skeleton skeleton-title" /><div className="skeleton skeleton-card" /><div className="skeleton skeleton-card" /></main> :
       <Routes><Route path="/" element={<Landing />} /><Route path="/analyze" element={<Analyze data={data} />} /><Route path="/guide" element={<Guide data={data} />} /><Route path={replayPath} element={<ReplayPage snapshot={data} />} /><Route path="/demo" element={<Demo data={data} />} /><Route path="/demo/:claimId" element={<Demo data={data} />} /><Route path={kiaRoute.path} element={<><div className="kia-route-toolbar"><CompanyTabs selected="kia" /><Link to="/report/kia">기아 검토 보고서 ↗</Link></div><kiaRoute.Component /></>} /><Route path={reviewRoutePath} element={<ReviewPage claims={data.claims} />} /><Route path={auditReportRoute.path} element={<AuditReportPage />} /><Route path="*" element={<NotFound />} /></Routes>}
-    <footer className="site-footer"><div className="wrap footer-inner"><div><strong>ProofOps</strong><p>본 서비스는 공시 발간 전 근거 점검을 돕는 도구이며, 제3자 보증, 기업 성과 진위, 법률·회계 판단을 대신하지 않습니다.</p></div><nav aria-label="바닥글"><Link to="/analyze">분석</Link><Link to="/demo">분석 사례</Link><Link to="/guide">서비스 가이드라인</Link><a href="https://github.com/tskwak111/esg-proofops-submission" target="_blank" rel="noopener noreferrer">GitHub</a></nav><span>© 2026 ProofOps</span></div></footer>
+    <footer className="site-footer"><div className="wrap footer-inner"><div><strong>ProofOps</strong><p>본 서비스는 공시 발간 전 근거 점검을 돕는 도구이며, 제3자 보증, 기업 성과 진위, 법률·회계 판단을 대신하지 않습니다.</p></div><nav aria-label="바닥글"><Link to="/analyze">분석</Link><Link to="/demo">분석 사례</Link><Link to="/guide">서비스 가이드라인</Link></nav><span>© 2026 ProofOps</span></div></footer>
   </div>;
 }
 
@@ -101,7 +104,7 @@ function Analyze({ data }: { data: Snapshot }) {
 
   return <main className="static-main analyze-main"><div className="breadcrumb"><Link to="/">홈</Link><span>/</span> 보고서 분석</div>
     <section className="analyze-heading"><p className="eyebrow">REPORT ANALYSIS</p><h1>보고서 분석 시작</h1><p className="analyze-lead">지속가능경영보고서 PDF를 업로드하면 목차와 북마크를 기반으로 환경(E) 및 부록 영역을 자동으로 추출하며, 구역 선택이나 페이지 번호 직접 입력을 통해 분석 범위를 자유롭게 변경할 수 있습니다.<br />분석 완료 후에는 각 주장별 원문 인용과 해당 쪽수, 원문 대조 여부, 신뢰도 등급 및 보류 사유가 포함된 명확한 검증 결과를 바로 확인할 수 있습니다.</p></section>
-    <section className="analyze-grid"><div className="surface analyze-upload"><h2>PDF 보고서 선택</h2><p>파일을 놓거나 눌러 선택하세요.</p><label className="drop-zone" onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); void inspect(event.dataTransfer.files[0]); }}><span aria-hidden="true">↥</span><strong>{busy ? "파일 지문 계산 중…" : "PDF 업로드"}</strong><small>또는 클릭해 파일 선택 · PDF는 이 브라우저 안에서만 읽습니다</small><input type="file" accept=".pdf,application/pdf" aria-label="분석할 PDF 선택" disabled={busy} onChange={event => { void inspect(event.target.files?.[0]); event.target.value = ""; }} /></label>
+    <section className="analyze-grid"><div className="surface analyze-upload"><h2>PDF 보고서 선택</h2><p>파일을 놓거나 눌러 선택하세요.</p><label className="drop-zone" onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); void inspect(event.dataTransfer.files[0]); }}><span aria-hidden="true">↥</span><strong>{busy ? "파일 지문 계산 중…" : "PDF 업로드"}</strong><small>또는 클릭해 파일 선택 · 전송 범위는 분석 안내를 확인하세요</small><input type="file" accept=".pdf,application/pdf" aria-label="분석할 PDF 선택" disabled={busy} onChange={event => { void inspect(event.target.files?.[0]); event.target.value = ""; }} /></label>
       {result && <div className={`analyze-result ${result.matched ? "match" : "no-match"}`} role="status"><small>{result.name}</small><h3>{result.message}</h3>{result.matched ? <><Link to="/analyze/replay">분석 과정 보기 ↗</Link><small>오른쪽에서 실시간 분석도 할 수 있습니다.</small></> : <p>오른쪽에서 분석할 쪽을 확인해 주세요.</p>}</div>}
     </div>
       {file ? <LiveReport key={file.name + file.lastModified} file={file} renderClaims={claims => <LiveClaimBrowser claims={claims} />} /> : <aside className="surface live-report live-placeholder"><p className="eyebrow">LIVE REPORT</p><h2>실시간 분석</h2><p>PDF를 선택하면 목차를 읽어 환경(E)·부록 쪽을 자동으로 고릅니다. 쪽을 확인하고 접근 키를 넣은 뒤 분석을 시작하세요.</p><ol className="live-steps"><li>PDF 업로드</li><li>분석할 구역·쪽 확인</li><li>접근 키 입력 후 실시간 분석 시작</li></ol></aside>}</section>
@@ -139,7 +142,7 @@ function EvidenceTrace() {
 
 function FunnelPreview({ data }: { data: Snapshot }) {
   const max = data.coverage.claims_discovered || 1;
-  const rows: [string, number][] = [["추출 주장", data.coverage.claims_discovered], ["원문 대조", data.funnel[1]?.count ?? 0], ["등급 표시", data.claims.length], ["확정 판정", data.coverage.claims_decided]];
+  const rows: [string, number][] = [["추출 주장", data.coverage.claims_discovered], ["원문 대조", data.funnel[1]?.count ?? 0], ["등급 표시", data.claims.length], ["과거 규칙 판정", data.coverage.claims_decided]];
   return <figure className="mini-card"><div className="mini-head"><span>처리 과정</span><span>N사 2025</span></div>{rows.map(([label, value], index) => <div className="mini-bar" key={label}><div><span>{label}</span><strong>{value}</strong></div><i><b style={{ width: `${Math.max(value / max * 100, 4)}%`, animationDelay: `${index * 120}ms` }} /></i></div>)}</figure>;
 }
 
@@ -338,9 +341,9 @@ function Demo({ data }: { data: Snapshot }) {
   const queueCounts = Object.fromEntries(queues.map(name => [name, data.claims.filter(claim => queueFor(claim) === name).length])) as Record<Queue, number>;
   return <main className="static-main demo-main"><div className="breadcrumb"><Link to="/">홈</Link><span>/</span> 분석 결과</div>
     <section className="demo-heading"><div><p className="eyebrow">ANALYSIS · 2025</p><h1>분석 사례 · N사 2025</h1><p>실제 보고서에서 추출한 주장과 원문 근거, 규칙 판정을 탐색할 수 있습니다.</p><div className="badges"><span className="badge amber">분석 범위: {data.coverage.pages_processed}/{data.coverage.pages_total}쪽</span></div><Link className="report-link" to="/report/naver">검토 보고서 보기 ↗</Link></div></section>
-    <section className="metrics" aria-label="분석 요약"><div><span>추출 주장</span><strong><CountUp value={data.coverage.claims_discovered} /><small>건</small></strong><p>공시 문장</p></div><div><span>원문 검증</span><strong><CountUp value={data.funnel[1].count} /><small>건</small></strong><p>원문 대조 완료</p></div><div><span>확정 판정</span><strong><CountUp value={counts.decided} /><small>건</small></strong><p>규칙 판정</p></div><div><span>예비 등급</span><strong><CountUp value={counts.range} /><small>건</small></strong><p>근거 확인 필요</p></div></section>
+    <section className="metrics" aria-label="분석 요약"><div><span>추출 주장</span><strong><CountUp value={data.coverage.claims_discovered} /><small>건</small></strong><p>공시 문장</p></div><div><span>원문 검증</span><strong><CountUp value={data.funnel[1].count} /><small>건</small></strong><p>원문 대조 완료</p></div><div><span>과거 규칙 판정</span><strong><CountUp value={counts.decided} /><small>건</small></strong><p>규칙 판정</p></div><div><span>예비 등급</span><strong><CountUp value={counts.range} /><small>건</small></strong><p>근거 확인 필요</p></div></section>
     <section className="overview-grid"><div className="surface funnel-card"><div className="card-heading"><div><p className="eyebrow">PROCESS FUNNEL</p><h2>처리 흐름</h2></div><span>추출 → 태깅 → 판정</span></div><div className="funnel-list">{data.funnel.map((step, index) => <div className="funnel-row" key={step.label}><span className="step-name"><b>{String(index + 1).padStart(2, "0")}</b>{["추출 주장", "원문 검증", "예비 분류", "관계 분석", "요소 분석", "등급 표시"][index] || step.label}</span><div className="bar-track"><div style={{ width: `${Math.max(step.count / data.coverage.claims_discovered * 100, 3)}%` }} /></div><strong>{step.count}</strong></div>)}</div></div>
-      <div className="surface grade-card"><p className="eyebrow">DECISION DISTRIBUTION</p><h2>등급과 보류 <GuideHelp topic="grade" /><GuideHelp topic="range" /></h2><div className="grade-bars"><div><span><b>확정</b> 규칙 판정</span><strong>{counts.decided}</strong></div><div className="grade-line e3"><i style={{ width: `${counts.decided / data.claims.length * 100}%` }} /></div><div><span><b>예비 등급</b> <GuideHelp topic="estimated" /></span><strong>{counts.range}</strong></div><div className="grade-line range"><i style={{ width: `${counts.range / data.claims.length * 100}%` }} /></div><div><span><b>나머지</b> 확인 대기</span><strong>{counts.pending}</strong></div><div className="grade-line pending"><i style={{ width: `${counts.pending / data.claims.length * 100}%` }} /></div></div><p className="caption">전체 {data.claims.length}건 중 확정 판정과 예비 등급을 구분해 표시합니다.</p></div></section>
+      <div className="surface grade-card"><p className="eyebrow">DECISION DISTRIBUTION</p><h2>과거 등급과 보류 <GuideHelp topic="grade" /><GuideHelp topic="range" /></h2><div className="grade-bars"><div><span><b>과거</b> 규칙 판정</span><strong>{counts.decided}</strong></div><div className="grade-line e3"><i style={{ width: `${counts.decided / data.claims.length * 100}%` }} /></div><div><span><b>예비 등급</b> <GuideHelp topic="estimated" /></span><strong>{counts.range}</strong></div><div className="grade-line range"><i style={{ width: `${counts.range / data.claims.length * 100}%` }} /></div><div><span><b>나머지</b> 확인 대기</span><strong>{counts.pending}</strong></div><div className="grade-line pending"><i style={{ width: `${counts.pending / data.claims.length * 100}%` }} /></div></div><p className="caption">저장된 과거 규칙팩의 결과입니다. 현재 미승인 규칙팩의 확정 판정이나 새 보고서 성능을 뜻하지 않습니다. 관리체계의 자기 진술·GRI 색인은 외부검증으로 재검토해야 합니다.</p></div></section>
     <section className="claims-section" id="claims"><div className="card-heading"><div><p className="eyebrow">CLAIM REVIEW</p><h2>문장별 결과</h2><p>상태를 선택하고 문장을 열어 원문과 요소별 근거를 확인하세요.</p></div><span>{filtered.length} / {data.claims.length}건</span></div>
       <div className="queue-tabs" role="tablist" aria-label="검토 상태">{queues.map(name => <button type="button" role="tab" aria-selected={queue === name} key={name} onClick={() => { setQueue(name); setGrade("all"); setStatus("all"); setLimit(25); }}>{queueLabels[name]} <span>{queueCounts[name]}</span></button>)}</div>
       <div className="filters"><label>검색<input value={search} onChange={event => { setSearch(event.target.value); setLimit(25); }} placeholder="문장, 페이지 검색" /></label><label>트랙 <GuideHelp topic="track" /><select value={track} onChange={event => { setTrack(event.target.value); setLimit(25); }}><option value="all">전체 트랙</option><option value="management">관리체계</option><option value="goal">목표</option><option value="performance">성과</option><option value="unknown">분류 미합의</option></select></label><label>등급 <GuideHelp topic="grade" /><select value={grade} onChange={event => { setGrade(event.target.value); setLimit(25); }}><option value="all">전체 등급</option>{["E3", "E2", "E1", "E0"].map(value => <option key={value} value={value}>{value}</option>)}<option value="range">추정</option><option value="none">미판정</option></select></label><label>상태 <GuideHelp topic="state" /><select value={status} onChange={event => { setStatus(event.target.value); setLimit(25); }}><option value="all">전체 상태</option><option value="decided">규칙 판정</option><option value="blocked_evidence">근거 보류</option><option value="not_run">미판정</option></select></label></div>
@@ -350,13 +353,13 @@ function Demo({ data }: { data: Snapshot }) {
   </main>;
 }
 
-const statePriority: Record<string, number> = { present: 0, conflict: 1, absent: 2, unreadable: 3, unknown: 4 };
+const statePriority: Record<string, number> = { present: 0, absent: 1, unknown: 2, unreadable: 3, conflict: 4 };
 function toCaseClaim(claim: LiveResultClaim, index: number): Claim {
   const byId = new Map<string, Element>();
   for (const item of claim.elements) {
     const current = byId.get(item.element_id) || { id: item.element_id, state: item.state, evidence: [] };
-    if ((statePriority[item.state] ?? 5) < (statePriority[current.state] ?? 5)) current.state = item.state;
-    if (item.state === "present" && item.quote && item.source_verified && !current.evidence.some(ref => ref.quote === item.quote)) current.evidence.push({ page: null, quote: item.quote });
+    if ((statePriority[item.state] ?? 5) > (statePriority[current.state] ?? 5)) current.state = item.state;
+    if (item.state === "present" && item.quote && item.source_verified && !current.evidence.some(ref => ref.quote === item.quote)) current.evidence.push({ page: item.page ?? claim.page, quote: item.quote });
     byId.set(item.element_id, current);
   }
   const d = claim.decision;
@@ -364,22 +367,39 @@ function toCaseClaim(claim: LiveResultClaim, index: number): Claim {
     id: `live-${claim.page}-${index}`, page: claim.page, track: claim.track, quote: claim.quote, source_verified: claim.source_verified,
     elements: [...byId.values()].sort((a, b) => a.id.localeCompare(b.id, "en", { numeric: true })),
     decision: { grade: d?.evidence_grade ?? null, label: d?.label ?? null, grade_range: d?.grade_range ? { floor: d.grade_range.floor, ceiling: d.grade_range.ceiling, open_elements: d.grade_range.open_elements || [] } : null,
-      status: d?.decision_status || "not_run", missing: d?.missing_elements || [], unresolved: [] },
+      status: d?.decision_status || "not_run", missing: d?.missing_elements || [], unresolved: d?.unresolved_elements || [] },
     review: { status: "none", tag_revision: 1, decision_revision: 1, audit: null },
     note: claim.blocked_reason,
+    live: claim,
   };
 }
 
 function LiveClaimBrowser({ claims }: { claims: LiveResultClaim[] }) {
   const items = useMemo(() => claims.map(toCaseClaim), [claims]);
   const [selectedId, setSelectedId] = useState<string | null>(items[0]?.id ?? null);
-  const selected = items.find(item => item.id === selectedId) || items[0] || null;
+  const [search, setSearch] = useState("");
+  const [track, setTrack] = useState("all");
+  const [queue, setQueue] = useState("all");
+  const [grade, setGrade] = useState("all");
+  const filtered = items.filter(c => (queue === "all" || queueFor(c) === queue) &&
+    (track === "all" || (c.track || "unknown") === track) &&
+    (grade === "all" || (grade === "none" ? !c.decision.grade : c.decision.grade === grade)) &&
+    (!search || `${c.quote} ${c.page}`.toLowerCase().includes(search.toLowerCase())));
+  const selected = filtered.find(item => item.id === selectedId) || filtered[0] || null;
+  const verified = items.filter(c => c.source_verified).length;
+  const consensus = claims.filter(c => c.crosscheck?.status === "consensus").length;
+  const decided = items.filter(c => !!c.decision.grade).length;
   if (!items.length) return <p>검토한 문단에서 확인 가능한 환경 주장을 찾지 못했습니다. 다른 쪽을 선택해 주세요.</p>;
-  return <div className="claims-layout live-claims-layout"><div className="claim-list" aria-label="분석 결과 주장 목록">{items.map(claim =>
+  return <><section className="metrics" aria-label="분석 요약">{[["추출 주장", items.length], ["원문 인용 확인", verified], ["독립 파서 합의", consensus], ["규칙 등급 계산", decided], ["등급 범위 계산", items.filter(c => !!c.decision.grade_range).length]].map(([label, count]) => <div key={label}><span>{label}</span><strong>{count}<small>건</small></strong><p>{label === "규칙 등급 계산" ? "프로젝트 루브릭 · 검토 상태 별도" : "선택한 쪽 기준"}</p></div>)}</section>
+    <section className="claims-section"><div className="card-heading"><div><p className="eyebrow">CLAIM REVIEW</p><h2>문장별 결과</h2><p>원문, 정규화 후보, 요소별 근거와 DART 비교를 확인하세요.</p></div><span>{filtered.length} / {items.length}건</span></div>
+    <div className="queue-tabs" role="tablist" aria-label="검토 상태">{["all", ...queues].map(q => <button type="button" role="tab" aria-selected={q === queue} key={q} onClick={() => setQueue(q)}>{q === "all" ? "전체" : q === "unclassified" ? "검토 대기" : queueLabels[q as Queue]} <span>{q === "all" ? items.length : items.filter(c => queueFor(c) === q).length}</span></button>)}</div>
+    <div className="filters"><label>검색<input placeholder="문장, 페이지 검색" value={search} onChange={e => setSearch(e.target.value)} /></label><label>트랙<select value={track} onChange={e => setTrack(e.target.value)}><option value="all">전체 트랙</option><option value="performance">성과</option><option value="goal">목표</option><option value="management">관리체계</option><option value="unknown">분류 미합의</option></select></label><label>등급<select value={grade} onChange={e => setGrade(e.target.value)}><option value="all">전체 등급</option>{["E3", "E2", "E1", "E0"].map(g => <option key={g}>{g}</option>)}<option value="none">미판정</option></select></label></div>
+    <div className="claims-layout live-claims-layout"><div className="claim-list" aria-label="분석 결과 주장 목록">{filtered.map(claim =>
     <button type="button" className={`claim-item ${selected?.id === claim.id ? "selected" : ""}`} key={claim.id} onClick={() => setSelectedId(claim.id)}>
       <div className="claim-item-top"><span>p.{claim.page ?? "?"} · {claim.track ? trackText[claim.track] : "분류 미합의"}</span><span className={`mini-status ${claim.decision.grade ? "good" : "warn"}`}>{gradeText(claim)}</span></div>
       <p>{claim.quote}</p><small>{claim.source_verified ? "원문 확인" : "원문 대조 필요"}</small></button>)}</div>
-    <ClaimDetail claim={selected} queue={queueFor(selected || items[0])} embedded /></div>;
+    {!filtered.length && <p className="empty">조건에 맞는 주장이 없습니다.</p>}
+    <ClaimDetail claim={selected} queue={queueFor(selected || items[0])} embedded /></div></section></>;
 }
 
 function ClaimDetail({ claim, queue, embedded = false }: { claim: Claim | null; queue: Queue; embedded?: boolean }) {
@@ -389,9 +409,23 @@ function ClaimDetail({ claim, queue, embedded = false }: { claim: Claim | null; 
   return <aside className="claim-detail"><div className="detail-top"><div><p className="eyebrow">CLAIM DETAIL · p.{claim.page ?? "?"}</p><h3>주장과 판정 근거</h3></div>{!embedded && <Link to={`/demo?queue=${queue}#claims`} aria-label="상세 닫기">×</Link>}</div><div className="source-quote"><span>{claim.source_verified ? "보고서 원문" : "추출 문장"} · p.{claim.page ?? "?"}</span><blockquote>“{claim.quote}”</blockquote><small>{claim.source_verified ? "원문 인용 검증 기록 있음" : "원문 대조 필요"}</small></div>
     {!embedded && <div className="detail-actions"><button type="button" aria-pressed={reviewMode} onClick={() => setReviewMode(!reviewMode)}>검토 모드 {reviewMode ? "닫기" : "열기"}</button><Link to={`/report/naver`}>보고서 ↗</Link></div>}
     {reviewMode && <ReviewSimulator claim={claim} />}
-    <div className="why-panel"><h4>왜 이 등급인가 <GuideHelp topic="grade" /></h4><p>{gradeWhy(claim)}{claim.note ? ` ${claim.note}` : ""}</p></div>
+    {claim.live && <LiveEvidence claim={claim.live} />}
+    <div className="why-panel"><h4>{claim.live ? "현재 규칙 계산의 근거" : "과거 판정의 근거"} <GuideHelp topic="grade" /></h4><p>{claim.live ? "검증된 요소를 프로젝트 규칙엔진으로 계산합니다. 범위는 미해결 요소에 따른 가능한 등급이며 최종 등급이 아닙니다." : "저장된 과거 규칙팩의 결과입니다. 자기 진술과 GRI 색인만으로 외부검증을 인정한 사례는 재검토가 필요합니다."}</p><p>{gradeWhy(claim)}{claim.note ? ` ${claim.note}` : ""}</p></div>
     <div className="decision-panel"><span>{!claim.source_verified ? "원문 대조 필요" : d.display_note ? "예비 등급" : "분석 결과"}</span><strong>{gradeText(claim)} <GuideHelp topic={d.estimated ? "estimated" : d.grade_range ? "range" : "grade"} /></strong><p>{d.label || d.display_label || statusText[d.status] || d.status} <GuideHelp topic="label" /></p></div>
     <div className="detail-block"><h4>요소별 근거 <GuideHelp topic="state" /></h4>{claim.elements.length ? <div className="element-table-wrap"><table className="element-table"><thead><tr><th>요소</th><th>상태</th><th>근거 문구</th></tr></thead><tbody>{claim.elements.map(element => <tr key={element.id}><th scope="row"><b>{element.id}</b><span>{elementLabels[element.id] || element.id}</span></th><td><span className={`element-state ${element.state}`}>{!claim.source_verified && element.state === "present" ? "원문 대조 필요" : stateText[element.state] || element.state}</span></td><td>{element.evidence.length ? element.evidence.map((ref, index) => <p key={index}>{ref.page != null && <small>p.{ref.page}</small>} “{ref.quote}”</p>) : <span className="no-evidence">연결된 근거 문구 없음</span>}</td></tr>)}</tbody></table></div> : <p className="caption">요소 태깅 전입니다. 빈 요소를 absent로 보지 않습니다.</p>}</div>
     <div className="provenance"><span className="badge blue">{claim.decision.estimated ? "예비 등급" : "분석 결과"}</span></div>
   </aside>;
+}
+
+function LiveEvidence({ claim }: { claim: LiveResultClaim }) {
+  const labels: Record<string, string> = { entity: "대상·사업장", year: "연도", value: "수치", unit: "단위", metric: "지표", denominator: "분모·범위", qualifier: "조건·각주" };
+  const statuses: Record<string, string> = { off: "OFF", reviewed: "정책·근거 검토 반영", matched: "일치", review_required: "검토 필요", same_year_observed: "연도 동일 (관찰)", different_year_observed: "연도 다름 (관찰)", input_required: "입력 필요", not_applicable: "비적용" };
+  return <>
+    {claim.review && <div className="detail-block"><h4>원문 검토 반영</h4><p>{claim.review.scope}</p>{claim.review.notes.map((note, i) => <p key={i}>{note}</p>)}<small>검토 이력 · 전문가 정답 승인 아님 · 기록 {claim.review.record_sha256.slice(0, 12)}</small></div>}
+    {claim.crosscheck && <div className="detail-block"><h4>독립 파서 대조</h4><p>{claim.crosscheck.status === "consensus" ? "해당 인용 구간 합의" : "검토 필요"} · 원래 파싱 상태: {claim.crosscheck.original_audit}</p></div>}
+    {claim.normalized && <div className="detail-block"><h4>연도·범위·단위 후보</h4><p className="caption">인용 확인과 의미 연결 승인은 별개입니다.</p><dl>{Object.entries(claim.normalized).map(([name, field]) => <div key={name}><dt><strong>{labels[name] || name}</strong></dt><dd>{field.value || "미확인"}{field.raw_value && field.raw_value !== field.value && <small> (원문 표현: {field.raw_value})</small>}{field.status === "binding_conflict" && <p>다른 수치의 근거와 연결되어 보류</p>}{field.citation && <details><summary>p.{field.citation.page} 근거</summary><q>{field.citation.quote}</q></details>}</dd></div>)}</dl></div>}
+    {claim.elements.some(e => e.candidate_state === "present" || e.state === "present") && <div className="detail-block"><h4>요소 근거 · 검토 상태</h4>{claim.elements.filter((e, i, all) => (e.candidate_state === "present" || e.state === "present") && all.findIndex(x => x.element_id === e.element_id && x.quote === e.quote && x.page === e.page && x.binding_status === e.binding_status) === i).map(e => <p key={e.name}><strong>{e.element_id} · {elementLabels[e.element_id] || e.element_id}</strong><br />p.{e.page || claim.page} “{e.quote || claim.quote}”<br /><small>{e.binding_status?.startsWith("accepted_") ? "원문·귀속 검증 통과 (자동)" : e.binding_status === "reviewed" ? "원문·의미 연결 검토 완료" : e.binding_status === "not_accepted_by_review" ? "후보 연결 미채택 · 추가 근거 필요" : bindingReasons[e.binding_status || ""] || (e.source_verified ? "PDF 인용 확인 · 의미 연결 검토 필요" : "원문 대조 필요")}</small></p>)}</div>}
+    <ReportEvidenceReview key={claim.review_handle?.run_id + ":" + claim.review_handle?.claim_index} claim={claim} />
+    {claim.dart && <div className="detail-block"><h4>DART 주장별 비교 · {statuses[claim.dart.status] || claim.dart.status}</h4>{claim.dart.checks.map(c => <p key={c.item}><strong>{c.item} · {statuses[c.status] || c.status}</strong><br />{c.reason}{c.financial_year && <><br />주장 연도 {c.claim_year || "미확인"} / 공시 사업연도 {c.financial_year}</>}</p>)}</div>}
+  </>;
 }

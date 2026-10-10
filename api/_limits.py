@@ -1,23 +1,19 @@
 """Pre-dispatch controls; usage polling is not an atomic global reservation."""
 
+import hashlib
 import json
 import math
 import os
-import threading
+import sqlite3
 import urllib.error
 import urllib.request
-from collections import deque
-from time import monotonic
+from pathlib import Path
+from time import time as monotonic
 
 
 class LiveError(Exception):
     def __init__(self, status: int, code: str):
         self.status, self.code = status, code
-
-
-# Best effort only: separate Vercel processes/functions have separate memory.
-_recent: deque[tuple[float, str]] = deque()
-_lock = threading.Lock()
 
 
 def check_enabled():
@@ -65,12 +61,82 @@ def check_limits(forwarded_for: str):
     per_ip = _setting("LIVE_IP_PER_MINUTE", "6", integer=True)
     total = _setting("LIVE_TOTAL_PER_MINUTE", "20", integer=True)
     ip = forwarded_for.split(",", 1)[0].strip() or "unknown"
-    with _lock:
-        now = monotonic()
-        while _recent and _recent[0][0] <= now - 60:
-            _recent.popleft()
-        if len(_recent) >= total or sum(item[1] == ip for item in _recent) >= per_ip:
-            raise LiveError(429, "RATE_LIMITED")
-        _recent.append((now, ip))
+    # Serverless instances must share an atomic store; never silently fall back to RAM.
+    if os.getenv("VERCEL"):
+        return shared_admission(ip, per_ip, total, daily)
+    ledger = Path(
+        os.getenv(
+            "LIVE_LIMITS_DB",
+            str(Path(__file__).resolve().parents[1] / ".local/live-limits.sqlite3"),
+        )
+    )
+    ledger.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with sqlite3.connect(ledger, timeout=5) as db:
+            db.execute("CREATE TABLE IF NOT EXISTS admissions (at REAL, client TEXT)")
+            db.execute("BEGIN IMMEDIATE")
+            now = monotonic()
+            db.execute("DELETE FROM admissions WHERE at<=?", (now - 60,))
+            count, client_count = db.execute(
+                "SELECT count(*),coalesce(sum(client=?),0) FROM admissions", (ip,)
+            ).fetchone()
+            if count >= total or client_count >= per_ip:
+                raise LiveError(429, "RATE_LIMITED")
+            db.execute("INSERT INTO admissions VALUES (?,?)", (now, ip))
+    except sqlite3.Error as exc:
+        raise LiveError(503, "LIMIT_CHECK_UNAVAILABLE") from exc
     if daily_usage() >= daily:
         raise LiveError(429, "DAILY_LIMIT")
+
+
+def shared_admission(ip, per_ip, total, daily):
+    url, token = os.getenv("LIVE_REDIS_REST_URL", ""), os.getenv("LIVE_REDIS_REST_TOKEN", "")
+    if not url.startswith("https://") or not token:
+        raise LiveError(503, "LIMIT_CHECK_UNAVAILABLE")
+    if daily_usage() >= daily:
+        raise LiveError(429, "DAILY_LIMIT")
+    # Reserve the largest supported request (including parsing) before any paid call.
+    # Failed/unknown calls retain their reservation until the next UTC day.
+    script = """
+    local now=tonumber(ARGV[1]); local floor=now-60
+    redis.call('ZREMRANGEBYSCORE',KEYS[1],'-inf',floor)
+    redis.call('ZREMRANGEBYSCORE',KEYS[2],'-inf',floor)
+    if redis.call('ZCARD',KEYS[1])>=tonumber(ARGV[2])
+      or redis.call('ZCARD',KEYS[2])>=tonumber(ARGV[3]) then return 1 end
+    local spent=tonumber(redis.call('GET',KEYS[3]) or '0')
+    if spent+123000>tonumber(ARGV[4]) then return 2 end
+    redis.call('ZADD',KEYS[1],now,ARGV[5]); redis.call('ZADD',KEYS[2],now,ARGV[5])
+    redis.call('EXPIRE',KEYS[1],61); redis.call('EXPIRE',KEYS[2],61)
+    redis.call('INCRBY',KEYS[3],123000); redis.call('EXPIRE',KEYS[3],172800)
+    return 0
+    """
+    from uuid import uuid4
+
+    now = monotonic()
+    body = [
+        "EVAL",
+        script,
+        3,
+        "{live}:all",
+        "{live}:ip:" + hashlib.sha256(ip.encode()).hexdigest(),
+        "{live}:day:" + str(int(now // 86400)),
+        now,
+        total,
+        per_ip,
+        int(_setting("LIVE_DAILY_TOTAL_USD", "0.50") * 1_000_000),
+        uuid4().hex,
+    ]
+    request = urllib.request.Request(
+        url.rstrip("/"),
+        json.dumps(body).encode(),
+        {"Authorization": "Bearer " + token, "Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=3) as response:
+            result = json.loads(response.read(65536))["result"]
+        if type(result) is not int or result not in (0, 1, 2):
+            raise ValueError
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        raise LiveError(503, "LIMIT_CHECK_UNAVAILABLE") from exc
+    if result:
+        raise LiveError(429, "RATE_LIMITED" if result == 1 else "DAILY_LIMIT")

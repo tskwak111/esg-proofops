@@ -15,6 +15,9 @@ from tests.acceptance.test_parsing import JAVA, MANIFEST, TENANT, pdf, source
 def test_optional_tolerance_preserves_legacy_identity_and_binds_explicit_value():
     profile = ParserProfile(MANIFEST)
     legacy = asdict(profile)
+    assert legacy.pop("docling_python") is None
+    assert legacy.pop("docling_ssh_target") is None
+    assert legacy.pop("vision_model") is None
     legacy.pop("table_text_y_tolerance", None)
     legacy.pop("table_source_policy_sha256", None)
     legacy.pop("table_structure_repair", None)

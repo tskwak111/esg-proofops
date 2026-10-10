@@ -57,6 +57,9 @@ try {
   assert((await page.locator(".result-card").innerText()).includes("대조 또는 차이 설명 확인"), "Reviewed C1 must complete");
 
   const verification = await page.evaluate(async ({ cases, initialSnapshot }) => {
+    const canonical = value => JSON.stringify(value, (_, item) =>
+      item && typeof item === "object" && !Array.isArray(item)
+        ? Object.fromEntries(Object.keys(item).sort().map(key => [key, item[key]])) : item);
     const session = await (await fetch("/v1/session")).json();
     const mutate = async (detail, operation, body, key = crypto.randomUUID()) => {
       const response = await fetch(`/v1/reconciliation/cases/${detail.case_id}/${operation}`, {
@@ -84,7 +87,7 @@ try {
         const key = crypto.randomUUID();
         const evaluated = await mutate(detail, "evaluate", {}, key);
         const replay = await mutate(detail, "evaluate", {}, key);
-        if (JSON.stringify(evaluated) !== JSON.stringify(replay)) throw new Error("Idempotency replay changed");
+        if (canonical(evaluated) !== canonical(replay)) throw new Error("Idempotency replay changed");
         detail = evaluated;
       }
       outcomes[detail.item] = {

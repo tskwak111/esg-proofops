@@ -180,6 +180,11 @@ def parse_pages(
     key: str | None = None,
     concurrency: int = 8,
     request=_request,
+    model=MODEL,
+    prompt_hash=PROMPT_HASH,
+    parser_name="gemini_vision",
+    retry_json=True,
+    validate_cache=None,
 ):
     """Return candidate batch and replayable metrics; caller stores both in manifest."""
     mode = profile.vision_parse
@@ -193,9 +198,12 @@ def parse_pages(
     started = monotonic()
 
     def cache_path(number):
-        return cache_root / (
-            f"{source.sha256}-{number}-{MODEL.replace('/', '_')}-{PROMPT_HASH}.json"
-        )
+        identity = f"{source.sha256}-{number}-{model.replace('/', '_')}-{prompt_hash}"
+        legacy = cache_root / (identity + ".json")
+        # Retain existing paid receipts; compact new names for Windows path limits.
+        if legacy.exists():
+            return legacy
+        return cache_root / (sha256(identity.encode()).hexdigest() + ".json")
 
     # PDFium uses process-global state; render serially, then overlap network calls.
     images = {
@@ -207,7 +215,9 @@ def parse_pages(
     def one(number):
         cache = cache_path(number)
         if cache.exists():
-            result = json.loads(cache.read_text())
+            result = json.loads(cache.read_text(encoding="utf-8"))
+            if validate_cache:
+                validate_cache(result)
             return number, result, True, 0.0
         if not key:
             raise ValueError("VISION_API_KEY_REQUIRED")
@@ -215,11 +225,13 @@ def parse_pages(
         try:
             result = request(images[number], key)
         except json.JSONDecodeError:
+            if not retry_json:
+                raise
             result = request(images[number], key)
         if not isinstance(result.get("blocks"), list):
             raise ValueError("VISION_SCHEMA_INVALID")
-        temporary = cache.with_name(cache.name + "." + uuid4().hex + ".tmp")
-        temporary.write_text(json.dumps(result, ensure_ascii=False))
+        temporary = cache.with_name(uuid4().hex + ".tmp")
+        temporary.write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
         os.replace(temporary, cache)
         return number, result, False, monotonic() - begin
 
@@ -409,8 +421,8 @@ def parse_pages(
         profile.parse_manifest_id,
         source.sha256,
         run_id,
-        "gemini_vision",
-        MODEL,
+        parser_name,
+        model,
         "vision",
         sha256(json.dumps(profile.invocation_snapshot(), sort_keys=True).encode()).hexdigest(),
         tuple(blocks),
@@ -424,8 +436,8 @@ def parse_pages(
     vision_prose = [block.source.raw_text for block in blocks if block.kind == "paragraph"]
     metrics = dict(
         mode=mode,
-        model=MODEL,
-        prompt_sha256=PROMPT_HASH,
+        model=model,
+        prompt_sha256=prompt_hash,
         pages_routed=routed,
         wall_seconds=monotonic() - started,
         pages=page_metrics,

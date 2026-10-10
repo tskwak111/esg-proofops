@@ -16,6 +16,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from tests.platform_tools import esbuild_command
+
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
 import submission_demo as sd  # noqa: E402
@@ -137,7 +139,7 @@ console.log("ALL SUBMISSION DEMO UX ACCEPTANCE CHECKS PASSED");
     bundle = tmp_path / "submission_demo_ux_render.cjs"
     subprocess.run(
         [
-            str(esbuild),
+            *esbuild_command(esbuild),
             str(entry),
             "--bundle",
             "--platform=node",

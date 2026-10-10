@@ -21,6 +21,7 @@ from proofops.domain.rules.engine import (
     Decision,
     RuleContext,
     _validate_inputs,
+    confirmed_tags_hash,
     evaluate,
 )
 
@@ -65,7 +66,7 @@ def create_rescore(
         not isinstance(previous_decision, Decision)
         or context.decision_revision != previous_decision.decision_revision + 1
         or previous_decision.tag_revision != tags.tag_revision
-        or previous_decision.input_tags_sha256 != canonical_hash(asdict(tags))
+        or previous_decision.input_tags_sha256 != confirmed_tags_hash(tags)
     ):
         raise DomainValidationError("previous decision/tag or next revision mismatch")
     if previous_decision is None and context.decision_revision != 1:

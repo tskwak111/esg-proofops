@@ -2,9 +2,12 @@ name: CI
 
 on:
   push:
-    branches: [main, "feature/*"]
+    branches: [main, master, dart-dev, "feature/*"]
   pull_request:
-    branches: [main]
+    branches: [main, master, dart-dev]
+
+env:
+  PYTHONUTF8: "1"
 
 jobs:
   python:
@@ -84,6 +87,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter proofops-web typecheck
+      - run: node --experimental-strip-types --test apps/web/src/features/live/sectionHeuristics.test.mjs
       - run: pnpm --filter proofops-web build
 
   architecture:

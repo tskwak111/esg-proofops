@@ -237,7 +237,17 @@ def test_offline_pilot_pins_new_profiles_and_resume_preserves_snapshot(tmp_path,
     def deny(*args, **kwargs):
         raise AssertionError("offline test must never connect")
 
-    monkeypatch.setattr(socket.socket, "connect", deny)
+    original_connect = socket.socket.connect
+
+    def local_socketpair_only(sock, address):
+        # Windows asyncio implements socketpair using loopback TCP.
+        import os
+
+        if os.name == "nt" and address[0] == "127.0.0.1":
+            return original_connect(sock, address)
+        return deny()
+
+    monkeypatch.setattr(socket.socket, "connect", local_socketpair_only)
     monkeypatch.setattr(socket, "create_connection", deny)
     monkeypatch.setattr(pilot.os, "environ", pilot.os.environ.copy())
     pdf = tmp_path / "sample.pdf"

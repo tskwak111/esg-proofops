@@ -268,6 +268,7 @@ def test_incomplete_preliminary_receipt_never_retries_paid_request(tmp_path, mon
     runtime, claim, graph, calls, _, _ = configured(tmp_path, monkeypatch)
     assert runtime.preliminary(claim, graph) is not None
     first = runtime.preliminary_records[claim.claim_id][0]["request_id"]
+    (runtime.receipts / "preliminary" / first / "response.json").chmod(0o600)
     (runtime.receipts / "preliminary" / first / "response.json").unlink()
     assert runtime.preliminary(claim, graph) is None
     assert len(calls) == 3

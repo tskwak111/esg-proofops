@@ -6,13 +6,13 @@
   "functions": {
     "api/live-claim.py": {
       "maxDuration": 55,
-      "includeFiles": "{api/_limits.py,api/rulepack.json,prompts/element_tagging.md,packages/proofops/**}",
-      "excludeFiles": "{tests/**,fixtures/**,evidence/**,docs/**,sources/**,evaluation/**,apps/**,scripts/**,node_modules/**}"
+      "includeFiles": "{api/_limits.py,api/rulepack.json,packages/proofops/**}",
+      "excludeFiles": "{tests/**,fixtures/**,evidence/**,docs/**,sources/**,evaluation/**,apps/**,scripts/**,node_modules/**,**/*.swift,packages/proofops/adapters/local/_frozen_verifiers/**}"
     },
     "api/live-report.py": {
       "maxDuration": 55,
       "includeFiles": "{api/_limits.py,api/rulepack.json,packages/proofops/**}",
-      "excludeFiles": "{tests/**,fixtures/**,evidence/**,docs/**,sources/**,evaluation/**,apps/**,scripts/**,node_modules/**}"
+      "excludeFiles": "{tests/**,fixtures/**,evidence/**,docs/**,sources/**,evaluation/**,apps/**,scripts/**,node_modules/**,**/*.swift,packages/proofops/adapters/local/_frozen_verifiers/**}"
     }
   },
   "rewrites": [

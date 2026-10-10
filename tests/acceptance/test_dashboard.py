@@ -24,6 +24,7 @@ from proofops_api.auth import SESSION_COOKIE_NAME, AuthStore
 
 from tests.acceptance.test_rulepack_api import _seed_auth
 from tests.integration.test_run_lifecycle import validate
+from tests.platform_tools import esbuild_command
 
 TENANT = "11111111-1111-4111-8111-111111111111"
 FOREIGN = "22222222-2222-4222-8222-222222222222"
@@ -586,7 +587,7 @@ console.log("RunSummary denominator/status checks passed");
     bundle = tmp_path / "summary-render.cjs"
     subprocess.run(
         [
-            str(esbuild),
+            *esbuild_command(esbuild),
             str(entry),
             "--bundle",
             "--platform=node",

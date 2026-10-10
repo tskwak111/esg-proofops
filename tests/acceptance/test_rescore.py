@@ -55,7 +55,11 @@ def test_compatible_pack_creates_new_engine_decision_without_changing_tags():
     assert result == evaluate(tags, replace(context, decision_revision=2), new)
     assert result.evidence_grade == "E3" and result.label == "SUBSTANTIATED"
     assert result.tag_revision == 1 and result.decision_revision == 2
-    assert result.input_tags_sha256 == canonical_hash(before)
+    # Optional review attestations were added after these three-replicate tags.
+    # The engine and rescore must retain the historical hash when no review exists.
+    assert result.input_tags_sha256 == canonical_hash(
+        {key: value for key, value in before.items() if key != "evidence_review"}
+    )
     assert result.rule_pack_sha256 == new.sha256 != previous.rule_pack_sha256
     assert result.semantic_hash != previous.semantic_hash
     assert asdict(tags) == before and previous.decision_revision == 1

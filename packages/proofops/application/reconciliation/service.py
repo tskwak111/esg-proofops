@@ -10,6 +10,9 @@ from copy import deepcopy
 from datetime import date
 from typing import Any
 
+from .coverage import coverage_reason
+from .explanation import human_linked
+from .periods import period_reason
 from .schema import validate_schema
 from .sources import validate_source_bytes
 
@@ -334,7 +337,7 @@ def _apply_coverage(
     required_ids = [value for value in required if isinstance(value, str)]
     reviewed_ids = [value for value in reviewed if isinstance(value, str)]
     failed_ids = [value for value in failed if isinstance(value, str)]
-    if any(document_id not in documents for document_id in required_ids):
+    if any(not isinstance(documents.get(document_id), Mapping) for document_id in required_ids):
         return None, "coverage_unverified"
     if state == "complete" and (not required_ids or failed_ids):
         return None, "coverage_unverified"
@@ -345,6 +348,9 @@ def _apply_coverage(
     }
     if state == "complete" and not package_documents <= set(required_ids):
         return None, "coverage_unverified"
+    reason = coverage_reason(entry, documents)
+    if reason is not None:
+        return None, reason
     packet["search"] = {
         "state": state,
         "coverage_policy_id": entry["coverage_policy_id"],
@@ -428,6 +434,9 @@ def reconcile(
     reason = _bind_facts(trusted_packet, documents)
     if reason is not None:
         return _blocked(packet, policy, reason)
+    reason = period_reason(trusted_packet, documents)
+    if reason is not None:
+        return _blocked(packet, policy, reason)
     reviewed, reason = _apply_coverage(trusted_packet, trusted_policy, coverage_registry, documents)
     if reason is not None or reviewed is None:
         return _blocked(packet, policy, reason or "coverage_unverified")
@@ -441,24 +450,49 @@ def reconcile(
         if not isinstance(candidates, list):
             return _blocked(packet, policy, "explanation_search_failed")
         verified: list[dict[str, Any]] = []
+        candidate_ids: set[str] = set()
         for candidate in candidates:
-            if not _candidate_shape(candidate) or candidate["source_id"] in sources:
+            if not _candidate_shape(candidate):
                 return _blocked(packet, policy, "explanation_source_unverified")
+            candidate_id = candidate["source_id"]
+            if candidate_id in candidate_ids or (
+                candidate_id in sources and candidate != sources[candidate_id]
+            ):
+                return _blocked(packet, policy, "explanation_source_unverified")
+            candidate_ids.add(candidate_id)
             if candidate["source_id"] not in reviewed:
+                return _blocked(packet, policy, "coverage_unverified")
+            if candidate["document_id"] not in trusted_packet["search"]["required_document_ids"]:
                 return _blocked(packet, policy, "coverage_unverified")
             reason = _verify_source(candidate, trusted_packet, source_reader, document_registry)
             if reason is not None:
                 return _blocked(packet, policy, "explanation_source_unverified")
             if not _has_source_role(candidate, documents, "explanation"):
                 return _blocked(packet, policy, "source_role_mismatch")
+            binding = documents[candidate["document_id"]]["source_bindings"][candidate["source_id"]]
+            if not human_linked(binding, trusted_packet):
+                return _blocked(packet, policy, "explanation_difference_unverified")
             verified.append(candidate)
         if verified:
             selected = min(verified, key=lambda value: value["source_id"])
-            trusted_packet["sources"].append(deepcopy(selected))
-            sources[selected["source_id"]] = selected
+            for candidate in verified:
+                if candidate["source_id"] not in sources:
+                    trusted_packet["sources"].append(deepcopy(candidate))
+                    sources[candidate["source_id"]] = candidate
             trusted_packet["explanation"]["source_id"] = selected["source_id"]
     elif explanation_id not in reviewed:
         return _blocked(packet, policy, "coverage_unverified")
+    else:
+        source = sources[explanation_id]
+        if not _has_source_role(source, documents, "explanation"):
+            return _blocked(packet, policy, "source_role_mismatch")
+        document = documents[source["document_id"]]
+        binding = document["source_bindings"][explanation_id]
+        strict = "coverage_units" in document or any(
+            key in binding for key in ("difference_binding", "human_reviewed", "reviewed_by")
+        )
+        if strict and not human_linked(binding, trusted_packet):
+            return _blocked(packet, policy, "explanation_difference_unverified")
 
     if trusted_packet["search"]["state"] == "complete" and not reviewed.issubset(sources):
         return _blocked(packet, policy, "coverage_unverified")

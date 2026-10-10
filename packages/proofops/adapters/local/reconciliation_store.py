@@ -11,6 +11,7 @@ draft to confirmed. C5 never enters this store.
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import sqlite3
 from collections.abc import Mapping
@@ -22,6 +23,10 @@ from typing import Any
 from uuid import uuid4
 
 from proofops.adapters.reconciliation.files import FileSourceReader, SourceReadError
+from proofops.application.reconciliation.explanation import (
+    difference_binding,
+    registered_explanation_search,
+)
 from proofops.application.reconciliation.presentation import project_result
 from proofops.application.reconciliation.schema import validate_schema
 from proofops.application.reconciliation.service import canonical_sha256, reconcile
@@ -29,12 +34,14 @@ from proofops.application.reconciliation.sources import MAX_SOURCE_BYTES
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rules.engine import MAPPINGS
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 IMMUTABLE_TABLES = (
     "reconciliation_case",
     "reconciliation_revision",
     "reconciliation_source",
     "reconciliation_idempotency",
+    "reconciliation_company_link",
+    "reconciliation_company_link_audit",
 )
 BUNDLE_REQUIRED = ("packet", "policy", "documents", "artifacts")
 BUNDLE_OPTIONAL = ("coverage", "policies")
@@ -96,9 +103,10 @@ class LocalReconciliationStore:
     def _initialize(db: sqlite3.Connection) -> None:
         db.execute("CREATE TABLE IF NOT EXISTS reconciliation_schema (version INTEGER PRIMARY KEY)")
         versions = db.execute("SELECT version FROM reconciliation_schema").fetchall()
-        if versions and versions != [(SCHEMA_VERSION,)]:
+        if versions and versions not in ([(1,)], [(SCHEMA_VERSION,)]):
             raise ReconciliationRejected("UNSUPPORTED_RECONCILIATION_SCHEMA", 409)
-        db.execute("INSERT OR IGNORE INTO reconciliation_schema VALUES (?)", (SCHEMA_VERSION,))
+        if not versions:
+            db.execute("INSERT INTO reconciliation_schema VALUES (?)", (SCHEMA_VERSION,))
         db.execute("""CREATE TABLE IF NOT EXISTS reconciliation_case (
             tenant_id TEXT NOT NULL, case_id TEXT NOT NULL, run_id TEXT NOT NULL,
             claim_id TEXT NOT NULL, item TEXT NOT NULL, synthetic INTEGER NOT NULL,
@@ -125,11 +133,90 @@ class LocalReconciliationStore:
             tenant_id TEXT NOT NULL, case_id TEXT NOT NULL, operation TEXT NOT NULL,
             key TEXT NOT NULL, request_sha256 TEXT NOT NULL, response BLOB NOT NULL,
             PRIMARY KEY (tenant_id, case_id, operation, key))""")
+        db.execute("""CREATE TABLE IF NOT EXISTS reconciliation_company_link (
+            tenant_id TEXT NOT NULL, company_id TEXT NOT NULL, corp_code TEXT NOT NULL,
+            created_at TEXT NOT NULL, created_by TEXT NOT NULL, reason TEXT NOT NULL,
+            PRIMARY KEY (tenant_id, company_id))""")
+        db.execute("""CREATE TABLE IF NOT EXISTS reconciliation_company_link_audit (
+            event_id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, company_id TEXT NOT NULL,
+            payload BLOB NOT NULL, payload_sha256 TEXT NOT NULL)""")
         for table in IMMUTABLE_TABLES:
             for action in ("UPDATE", "DELETE"):
                 db.execute(f"""CREATE TRIGGER IF NOT EXISTS {table}_no_{action.lower()}
                     BEFORE {action} ON {table}
                     BEGIN SELECT RAISE(ABORT, 'immutable reconciliation record'); END""")
+        if versions == [(1,)]:
+            db.execute("UPDATE reconciliation_schema SET version=?", (SCHEMA_VERSION,))
+
+    def link_company(self, auth, company_id: str, corp_code: str, *, registry, reason: str):
+        """Record an operator-confirmed identity; never infer identity from a name.
+
+        The registry is a trusted server-owned dependency, never imported JSON.
+        Repeating the same link is idempotent; correcting identity requires a
+        separately designed revision workflow rather than overwriting history.
+        """
+        self._require(auth, "admin")
+        tenant = self._tenant(auth)
+        if not isinstance(corp_code, str) or re.fullmatch(r"[0-9]{8}", corp_code) is None:
+            raise ReconciliationRejected("INVALID_DART_CORP_CODE", 422)
+        actor = _text(getattr(auth, "user_sub", None), "INVALID_ACTOR").strip()
+        if not actor or not isinstance(reason, str) or not reason.strip() or len(reason) > 2000:
+            raise ReconciliationRejected("INVALID_LINK_REASON", 422)
+        try:
+            company = registry.get_company(tenant_id=tenant, company_id=company_id)
+        except LookupError as error:
+            raise ReconciliationRejected("RESOURCE_NOT_FOUND", 404) from error
+        if company.tenant_id != tenant or company.company_id != company_id:
+            raise ReconciliationRejected("RESOURCE_NOT_FOUND", 404)
+        with self.jobs._transaction() as db:
+            existing = self._company_link(db, tenant, company_id)
+            if existing is not None:
+                if existing["corp_code"] != corp_code:
+                    raise ReconciliationRejected("COMPANY_LINK_CONFLICT", 409)
+                return existing
+            link = dict(
+                tenant_id=tenant,
+                company_id=company_id,
+                corp_code=corp_code,
+                created_at=_now(),
+                created_by=actor,
+                reason=reason.strip(),
+            )
+            db.execute(
+                "INSERT INTO reconciliation_company_link VALUES (?,?,?,?,?,?)", tuple(link.values())
+            )
+            payload = dict(event="company_linked", **link)
+            db.execute(
+                "INSERT INTO reconciliation_company_link_audit VALUES (?,?,?,?,?)",
+                (str(uuid4()), tenant, company_id, _encode(payload), canonical_sha256(payload)),
+            )
+            return link
+
+    @staticmethod
+    def _company_link(db, tenant, company_id):
+        row = db.execute(
+            "SELECT corp_code, created_at, created_by, reason FROM reconciliation_company_link"
+            " WHERE tenant_id=? AND company_id=?",
+            (tenant, company_id),
+        ).fetchone()
+        if row is None:
+            return None
+        return dict(
+            tenant_id=tenant,
+            company_id=company_id,
+            corp_code=row[0],
+            created_at=row[1],
+            created_by=row[2],
+            reason=row[3],
+        )
+
+    def company_link(self, auth, company_id: str) -> dict[str, Any]:
+        self._require(auth, "viewer")
+        with self.jobs._transaction() as db:
+            link = self._company_link(db, self._tenant(auth), company_id)
+        if link is None:
+            raise ReconciliationRejected("unresolved_company_identity", 404)
+        return link
 
     # ------------------------------------------------------------------ #
     # shared helpers
@@ -247,7 +334,17 @@ class LocalReconciliationStore:
     # registration
     # ------------------------------------------------------------------ #
 
-    def register_case(self, auth, run_id, claim_id, bundle, artifact_root) -> dict[str, Any]:
+    def register_case(
+        self,
+        auth,
+        run_id,
+        claim_id,
+        bundle,
+        artifact_root,
+        *,
+        expected_tag_revision=None,
+        expected_mutation_epoch=None,
+    ) -> dict[str, Any]:
         """Import a prepared draft for an existing verified claim. Server-side only.
 
         Never expose this as an HTTP handler: it reads operator-controlled local
@@ -257,6 +354,13 @@ class LocalReconciliationStore:
         tenant = self._tenant(auth)
         packet, policy, documents, artifacts, coverage = self._validate_bundle(bundle)
         anchor = self._verified_claim(tenant, run_id, claim_id, packet, policy)
+        if (
+            expected_tag_revision is not None
+            and expected_tag_revision != anchor["tag_revision"]
+            or expected_mutation_epoch is not None
+            and expected_mutation_epoch != anchor["mutation_epoch"]
+        ):
+            raise ReconciliationRejected("STALE_CLAIM_HEAD", 409)
 
         case_id = str(uuid4())
         created_at, actor = _now(), _text(getattr(auth, "user_sub", None), "FORBIDDEN")
@@ -293,6 +397,13 @@ class LocalReconciliationStore:
         }
         try:
             with self.jobs._transaction() as db:
+                current_head = self.jobs._get(db, tenant, run_id, "claim_head", claim_id)
+                current_run = self.jobs._get(db, tenant, run_id, "run", "META")
+                if (
+                    current_head.get("tag_revision") != anchor["tag_revision"]
+                    or current_run.get("mutation_epoch") != anchor["mutation_epoch"]
+                ):
+                    raise ReconciliationRejected("STALE_CLAIM_HEAD", 409)
                 db.execute(
                     "INSERT INTO reconciliation_case VALUES (?,?,?,?,?,?,?,?,?)",
                     (
@@ -364,6 +475,18 @@ class LocalReconciliationStore:
         for document_id in {source["document_id"] for source in packet["sources"]}:
             if document_id not in documents or document_id not in artifacts:
                 raise ReconciliationRejected("DOCUMENT_BINDING_MISSING", 422)
+        for document in documents.values():
+            bindings = _mapping(document, "VALIDATION_ERROR").get("source_bindings", {})
+            for binding in _mapping(bindings, "VALIDATION_ERROR").values():
+                if not isinstance(binding, dict):
+                    raise ReconciliationRejected("VALIDATION_ERROR", 422)
+                if "explanation" in binding.get("roles", []):
+                    # A difference link is a proposal; imported review identities have no authority.
+                    binding["human_reviewed"] = False
+                    binding["reviewed_by"] = None
+                else:
+                    binding.pop("human_reviewed", None)
+                    binding.pop("reviewed_by", None)
         return packet, policy, documents, artifacts, coverage
 
     def _verified_claim(self, tenant, run_id, claim_id, packet, policy) -> dict[str, Any]:
@@ -668,7 +791,13 @@ class LocalReconciliationStore:
                 for source in sorted(sources.values(), key=lambda value: value["source_id"])
             ],
             "latest_result": latest,
-            "provenance": snapshot["provenance"],
+            "provenance": dict(
+                snapshot["provenance"],
+                review_evidence={
+                    "documents": snapshot["documents"],
+                    "coverage": snapshot["coverage"],
+                },
+            ),
             "coverage_confirmed": head["coverage_confirmed"],
             "policy_approval": head["approval"],
         }
@@ -754,6 +883,13 @@ class LocalReconciliationStore:
                 "documents_sha256": canonical_sha256(snapshot["documents"]),
                 "packet_sha256": canonical_sha256(snapshot["packet"]),
                 "coverage_sha256": canonical_sha256(snapshot["coverage"]),
+                "difference_source_ids": sorted(
+                    source_id
+                    for document in snapshot["documents"].values()
+                    for source_id, binding in document.get("source_bindings", {}).items()
+                    if "explanation" in binding.get("roles", [])
+                    and binding.get("difference_binding") == difference_binding(snapshot["packet"])
+                ),
             }
             self._append(
                 db, tenant, case_id, revision, "review", actor, created_at, {"event": event}
@@ -847,7 +983,19 @@ class LocalReconciliationStore:
 
         def apply(db, tenant, case_id, head, revision, actor, created_at):
             snapshot = self._case_row(db, tenant, case_id)
-            result = self._reconcile(tenant, case_id, snapshot, head)
+            row = db.execute(
+                "SELECT payload, payload_sha256 FROM reconciliation_revision"
+                " WHERE tenant_id=? AND case_id=? AND kind='review'"
+                " ORDER BY revision DESC LIMIT 1",
+                (tenant, case_id),
+            ).fetchone()
+            review_event = None
+            if row is not None:
+                payload = json.loads(row[0])
+                if canonical_sha256(payload) != row[1]:
+                    raise ReconciliationRejected("REVISION_UNVERIFIED", 409)
+                review_event = payload.get("event")
+            result = self._reconcile(tenant, case_id, snapshot, head, review_event)
             projection = project_result(result, snapshot["packet"], snapshot["documents"])
             self._append(
                 db,
@@ -882,9 +1030,36 @@ class LocalReconciliationStore:
             auth, case_id, "evaluation", "editor", if_match, idempotency_key, {}, apply
         )
 
-    def _reconcile(self, tenant, case_id, snapshot, head) -> dict[str, Any]:
+    def _reconcile(self, tenant, case_id, snapshot, head, review_event=None) -> dict[str, Any]:
         """Evaluate server-owned snapshots. Unconfirmed bindings are simply absent."""
-        confirmed = head["review_state"] == "reviewed"
+        confirmed = (
+            head["review_state"] == "reviewed"
+            and isinstance(review_event, Mapping)
+            and review_event.get("confirm_source_bindings") is True
+            and review_event.get("confirm_decision_bindings") is True
+            and all(
+                review_event.get(f"{key}_sha256") == canonical_sha256(snapshot[key])
+                for key in ("packet", "documents", "coverage")
+            )
+        )
+        documents = deepcopy(snapshot["documents"]) if confirmed else {}
+        coverage = (
+            deepcopy(snapshot["coverage"])
+            if confirmed
+            and head["coverage_confirmed"]
+            and review_event.get("confirm_search_coverage") is True
+            else {}
+        )
+        if confirmed:
+            for document in documents.values():
+                for source_id, binding in document.get("source_bindings", {}).items():
+                    if "explanation" in binding.get("roles", []):
+                        binding["human_reviewed"] = source_id in review_event.get(
+                            "difference_source_ids", []
+                        )
+                        binding["reviewed_by"] = (
+                            review_event["actor"] if binding["human_reviewed"] else None
+                        )
         policy = snapshot["policy"]
         policy_registry = None
         if head["policy_approved"] and head["approval"]:
@@ -915,22 +1090,17 @@ class LocalReconciliationStore:
             deepcopy(snapshot["packet"]),
             deepcopy(policy),
             source_reader=reader,
-            explanation_search=_no_candidates,
+            explanation_search=lambda packet: registered_explanation_search(
+                packet, documents, coverage
+            ),
             policy_registry=policy_registry,
-            coverage_registry=deepcopy(snapshot["coverage"])
-            if confirmed and head["coverage_confirmed"]
-            else None,
-            document_registry=deepcopy(snapshot["documents"]) if confirmed else None,
+            coverage_registry=coverage,
+            document_registry=documents,
         )
 
 
 def _encode(value: Any) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
-
-
-def _no_candidates(_packet: Mapping[str, Any]) -> list[dict[str, Any]]:
-    """This store performs no extraction; candidates arrive only by operator import."""
-    return []
 
 
 def _unreadable(_ref: Mapping[str, Any]) -> bytes:

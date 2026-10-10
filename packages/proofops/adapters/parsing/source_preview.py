@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import subprocess
 import sys
 from dataclasses import asdict
@@ -22,6 +23,22 @@ _MAX_PIXELS = 4_000_000
 
 class SourcePreviewFailure(ValueError):
     """Sanitized preview error; PDF internals never reach the client."""
+
+
+def _preview_environment(work: Path) -> dict[str, str]:
+    if sys.platform != "win32":
+        return {"PATH": "/usr/bin:/bin", "PYTHONDONTWRITEBYTECODE": "1"}
+    system_root = os.environ.get("SystemRoot", r"C:\Windows")
+    return {
+        "PATH": os.pathsep.join(
+            [str(Path(sys.executable).parent), str(Path(system_root) / "System32"), system_root]
+        ),
+        "SystemRoot": system_root,
+        "TEMP": str(work),
+        "TMP": str(work),
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONUTF8": "1",
+    }
 
 
 def render_page_preview(
@@ -59,7 +76,7 @@ def render_page_preview(
             OpenDataLoaderParser._execute(
                 [sys.executable, "-I", str(Path(__file__).resolve()), str(work)],
                 work,
-                {"PATH": "/usr/bin:/bin", "PYTHONDONTWRITEBYTECODE": "1"},
+                _preview_environment(work),
                 profile,
             )
             result = json.loads((work / "result.json").read_bytes())
@@ -84,8 +101,6 @@ def render_page_preview(
 
 
 def _child(work: Path) -> None:
-    import resource
-
     import pypdfium2 as pdfium
 
     request = json.loads((work / "request.json").read_bytes())
@@ -93,9 +108,14 @@ def _child(work: Path) -> None:
     expected = PageGeometry(**request["geometry"])
     if type(page_number) is not int or page_number < 1:
         raise ValueError("invalid page")
-    resource.setrlimit(resource.RLIMIT_CPU, (15, 15))
-    resource.setrlimit(resource.RLIMIT_FSIZE, (_MAX_OUTPUT_BYTES, _MAX_OUTPUT_BYTES))
-    resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+    # Windows CPU/memory caps are installed by _execute's Job Object before
+    # this child starts; its watchdog also enforces wall time and output size.
+    if sys.platform != "win32":
+        import resource
+
+        resource.setrlimit(resource.RLIMIT_CPU, (15, 15))
+        resource.setrlimit(resource.RLIMIT_FSIZE, (_MAX_OUTPUT_BYTES, _MAX_OUTPUT_BYTES))
+        resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
     document = pdfium.PdfDocument(work / "source.pdf")
     page = None
     bitmap = None

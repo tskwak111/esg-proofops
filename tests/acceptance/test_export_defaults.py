@@ -4,6 +4,8 @@ import json
 import subprocess
 from pathlib import Path
 
+from tests.platform_tools import esbuild_command
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -45,7 +47,7 @@ console.log("review-draft export defaults passed");
     bundle = tmp_path / "export-workspace-render.cjs"
     subprocess.run(
         [
-            str(esbuild),
+            *esbuild_command(esbuild),
             str(entry),
             "--bundle",
             "--platform=node",

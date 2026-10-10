@@ -1,5 +1,7 @@
 # 00 · 최상위 개발 명세
 
+> 현재 Parser Lab 실행 설정과 검증 결과는 [QA 후속 조치](QA_REMEDIATION.md)를 따릅니다. 아래 운영 설계와 과거 실험 기록은 현재 배포 상태를 의미하지 않습니다.
+
 > ESG ProofOps · 개발 명세 1.0 · 2026-09-08
 > 도메인 정본: `sources/PROJECT_DOMAIN_V2_ORIGINAL.md` (원문 2.0, 2026-09-07).
 

@@ -1,11 +1,13 @@
+import type { Track, ReviewStatus, Decision, ClaimSummary, ClaimPage, FieldAgreement, ReviewCandidate, ReviewProjection, ReviewedContext, ClaimDetail, LoadState, CommonProps, ClaimWorkspaceProps } from "./claimTypes";
+export type { ClaimWorkspaceProps } from "./claimTypes";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { SourceViewer, type SourceOpenRequest } from "../../components/SourceViewer";
 import { StatusBadge } from "../../components/StatusBadge";
-import { MissingEvidenceCard, type ElementEvidence } from "./MissingEvidenceCard";
+import { MissingEvidenceCard } from "./MissingEvidenceCard";
 import { ReviewCandidatePanel } from "./ReviewCandidatePanel";
 import { PreliminaryClassification } from "./PreliminaryClassification";
-import { ApiError, errorMessage, isSessionError, requestJson, type Session } from "../session/api";
+import { ApiError, errorMessage, isSessionError, requestJson } from "../session/api";
 import {
   ReviewWorkspace,
   type Review,
@@ -15,109 +17,6 @@ import {
   type SourceRef,
 } from "../reviews/ReviewWorkspace";
 import { getElementLabel } from "../labels";
-
-type Track = "goal" | "performance" | "management";
-type ReviewStatus = "auto_confirmed" | "needs_review" | "human_confirmed" | "ai_delegated_confirmed";
-type Decision = {
-  decision_revision: number;
-  tag_revision: number;
-  decision_status: "decided" | "blocked_evidence" | "blocked_rule_gap" | "not_applicable" | "not_run";
-  evidence_grade: "E0" | "E1" | "E2" | "E3" | null;
-  label: "SUBSTANTIATED" | "INCOMPLETE" | "UNSUBSTANTIATED" | null;
-  sublabel: "PERF" | "IMPL" | null;
-  review_status: ReviewStatus;
-  missing_elements: string[];
-  rule_ids: string[];
-  rule_pack_sha256: string;
-  semantic_hash: string;
-  gap_ids: string[];
-  // Engine v3+: reachable ladder grades while evidence is unresolved; not a grade.
-  grade_range?: { floor: Grade; ceiling: Grade; open_elements: string[] } | null;
-};
-type Grade = "E0" | "E1" | "E2" | "E3";
-type ClaimSummary = {
-  claim_id: string;
-  page_num: number;
-  quote: string;
-  track: Track | null;
-  topic_ids: string[];
-  decision: Decision | null;
-  revision: number;
-};
-type ClaimPage = { items: ClaimSummary[]; next_cursor: string | null; snapshot_epoch: number | null };
-type Assurance = {
-  status: "covered" | "not_covered" | "undetermined";
-  level: "limited" | "reasonable" | "none" | null;
-  provider: string | null;
-  statement_id: string | null;
-  metric_match: "yes" | "no" | "unknown";
-  period_match: "yes" | "no" | "unknown";
-  boundary_match: "yes" | "no" | "unknown";
-  evidence_refs: SourceRef[];
-};
-type FieldAgreement = {
-  field_id: string;
-  status: "agreed" | "conflict" | "unresolved";
-  replicate_values: unknown[];
-};
-type ReviewCandidate = {
-  source_ref: SourceRef;
-  status: "candidate" | "unverified" | "unconfirmed";
-  reason: string | null;
-};
-type ReviewProjection = {
-  schema_version: 1;
-  candidate_snippets: string[];
-  blocked_reason: string | null;
-  blocked_action: string | null;
-  field_agreements: FieldAgreement[];
-  raw_candidates?: ReviewCandidate[];
-};
-// Optional review context; P6 stays on hold without a same-scope table observation.
-type ReviewedContextConsidered = { source_ref: SourceRef; status: string };
-type ReviewedContext = {
-  origin: "ai_delegated";
-  dimensions: {
-    facility: SourceRef;
-    reporting_period: SourceRef;
-    metric: SourceRef;
-    value: SourceRef;
-    unit: SourceRef;
-  };
-  numeric_check: {
-    status: "needs_review";
-    reason: "no_comparable_table_observation";
-    considered: ReviewedContextConsidered[];
-  };
-};
-type ClaimDetail = {
-  element_evidence?: ElementEvidence[];
-  claim: ClaimSummary;
-  source_refs: SourceRef[];
-  elements: ReviewElement[];
-  assurance: Assurance;
-  replicate_request_ids: string[];
-  packet_sha256: string | null;
-  tag_status?: "tagged" | "untagged" | null;
-  suggestion: string | null;
-  basis_refs: Array<{
-    standard: string;
-    clause: string | null;
-    summary: string;
-    verification_status: "verified" | "unverified" | "unlicensed";
-  }>;
-  rulepack_approved_by?: string | null;
-  review_projection?: ReviewProjection | null;
-  reviewed_context?: ReviewedContext | null;
-  submitted_reviews?: Array<{
-    reference_sha256: string;
-    external_claim_id: string;
-    origin: "data_manager_submission" | "ai_corrected_submission";
-    claim_source_quality: string;
-    tables: Record<"claims" | "elements" | "numeric" | "assurance", Array<Record<string, string>>>;
-  }>;
-};
-type LoadState = "loading" | "ready" | "pending" | "error";
 
 const submissionFieldLabels: Record<string, string> = {
   claim_id: "제출 주장 ID", document_id: "제출 문서 ID", annotation_id: "주석 ID",
@@ -134,17 +33,6 @@ const submissionFieldLabels: Record<string, string> = {
   level: "보증 수준", period_start: "대상 기간 시작", period_end: "대상 기간 끝",
   entities: "보증 대상 조직", metrics: "보증 대상 지표", exclusions: "제외 사항",
 };
-
-type CommonProps = {
-  apiBase?: string;
-  csrfToken: string;
-  tenantKey: string;
-  session: Session;
-  runId: string;
-  onSessionInvalid: () => void;
-  onDataChanged: () => void;
-};
-export type ClaimWorkspaceProps = CommonProps & { claimId?: string };
 
 const MAX_SNAPSHOT_PAGES = 20;
 const elementIds: Record<Track, string[]> = {

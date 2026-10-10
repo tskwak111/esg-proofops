@@ -148,6 +148,7 @@ def test_incomplete_relation_receipt_is_not_retried(tmp_path, monkeypatch):
     runtime, claim, _, packet, calls, _, _ = configured(tmp_path, monkeypatch)
     assert runtime.relations(claim, packet) is not None
     rid = runtime.relation_records[claim.claim_id][0]["request_id"]
+    (runtime.receipts / "relation" / rid / "response.json").chmod(0o600)
     (runtime.receipts / "relation" / rid / "response.json").unlink()
     assert runtime.relations(claim, packet) is None
     assert len(calls) == 3

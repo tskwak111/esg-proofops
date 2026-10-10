@@ -8,6 +8,8 @@ from pathlib import Path
 
 import yaml
 
+from tests.platform_tools import esbuild_command
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -68,7 +70,7 @@ console.log("AT-036 component semantics passed");
     bundle = tmp_path / "accessibility-render.cjs"
     subprocess.run(
         [
-            str(esbuild),
+            *esbuild_command(esbuild),
             str(entry),
             "--bundle",
             "--platform=node",

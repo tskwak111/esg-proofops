@@ -63,7 +63,7 @@ export async function check() {
     await submit();
     await waitFor(() => host.querySelector('section[aria-label="충돌 비교"]'));
     assert(host.querySelector('textarea').value === '원문을 다시 확인한 검토 사유', '412 must preserve the draft');
-    await click('차이를 확인했습니다. 내 초안을 새 기준에서 다시 검토');
+    await click('차이를 확인했습니다. 내 변경 내용을 새 기준에서 다시 검토');
     await submit();
     await waitFor(() => posts.length === 2 && button('재검토 시작'));
     assert(posts[0].key !== posts[1].key, 'Rebased request needs a new idempotency key');

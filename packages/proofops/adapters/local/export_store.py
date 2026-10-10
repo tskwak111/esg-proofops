@@ -29,6 +29,7 @@ from proofops.application.reporting import _basis_refs, _tag_elements, build_rep
 from proofops.domain.audit import ChangeSet
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
+from proofops.domain.rules.engine import confirmed_tags_hash
 
 
 class LocalExportStore:
@@ -337,7 +338,7 @@ class LocalExportStore:
                             )
                             or not confirmed
                             or decision["decision"]["input_tags_sha256"]
-                            != canonical_hash(confirmed)
+                            != confirmed_tags_hash(confirmed)
                         ):
                             raise ExportRejected("EXPORT_INTEGRITY_FAILED")
                         record.update(decision["decision"])

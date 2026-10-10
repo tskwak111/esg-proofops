@@ -14,6 +14,8 @@ import json
 import subprocess
 from pathlib import Path
 
+from tests.platform_tools import esbuild_command
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -61,7 +63,7 @@ console.log("R28 reviewed-context projection passed");
     bundle = tmp_path / "reviewed-context-render.cjs"
     subprocess.run(
         [
-            str(esbuild),
+            *esbuild_command(esbuild),
             str(entry),
             "--bundle",
             "--platform=node",
