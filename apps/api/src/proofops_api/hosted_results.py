@@ -125,6 +125,8 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
         }
         groups = occurrence_groups(discovery.claims) if pb1 else {}
         blocks = {b.source_id: b for b in original_graph.blocks}
+        from proofops.application.evidence.span_citations import verify_source_ref
+
         for claim in discovery.claims:
             current = claims.current_tag(tenant, run, claim.claim_id)
             summary = claims.summary(claim, current)
@@ -188,7 +190,15 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                 summary
                 | dict(
                     original_page_num=selected_pages[summary["page_num"] - 1],
-                    source_refs=[asdict(ref) for ref in claim.source_refs],
+                    # New publications expose citation-level verification from
+                    # this replayed graph, not the whole-claim quality label.
+                    # Existing result revisions and rule inputs remain unchanged.
+                    source_refs=[
+                        asdict(verify_source_ref(ref, original_graph, tenant_id=tenant))
+                        if ref.verification_state == "candidate"
+                        else asdict(ref)
+                        for ref in claim.source_refs
+                    ],
                     source_quality=claim.source_quality,
                     elements=elements,
                     hold_reason=reasons.get(claim.claim_id),
@@ -246,6 +256,9 @@ def resolve_review(path, auth, review, body, if_match, key):
 
 def clear_receipt_caches():
     """Purge process-local source readings without touching frozen reader code."""
+    from proofops_api.hosted_reads import clear_source_cache
+
+    clear_source_cache()
     from proofops.adapters.local import native_replay_cache as cache
 
     with cache._lock:

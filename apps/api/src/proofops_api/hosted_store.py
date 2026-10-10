@@ -367,6 +367,15 @@ class HostedStore:
             db.execute("""CREATE TABLE IF NOT EXISTS deletion.spend (
                 run_id TEXT PRIMARY KEY, user_hash TEXT, day TEXT, event_id TEXT,
                 amount INTEGER, created REAL, status TEXT)""")
+            db.execute("""CREATE TABLE IF NOT EXISTS deletion.source_retention (
+                tenant_id TEXT NOT NULL, run_id TEXT NOT NULL, document_id TEXT NOT NULL,
+                expires REAL NOT NULL, created REAL NOT NULL,
+                PRIMARY KEY(tenant_id,run_id))""")
+            db.execute(
+                "INSERT OR IGNORE INTO deletion.source_retention "
+                "SELECT r.tenant_id,r.run_id,r.document_id,d.expires,r.created "
+                "FROM runs r JOIN documents d USING(tenant_id,document_id)"
+            )
             db.execute("""CREATE TABLE IF NOT EXISTS deletion.event_totals (
                 event_id TEXT PRIMARY KEY, amount INTEGER NOT NULL)""")
             db.execute("""CREATE TABLE IF NOT EXISTS rate_limits (
@@ -1114,6 +1123,10 @@ class HostedStore:
                 "INSERT INTO deletion.spend VALUES (?,?,?,?,?,?,'reserved')",
                 (run, user, today, self.settings.event_id, bound, now),
             )
+            db.execute(
+                "INSERT INTO deletion.source_retention VALUES (?,?,?,?,?)",
+                (auth.tenant_id, run, document, doc["expires"], now),
+            )
             self._remember(db, auth, "run", key, body_hash, run, document, now)
             return self._project_run(self._run(db, auth.tenant_id, run), db)
 
@@ -1757,6 +1770,7 @@ class HostedStore:
             db.execute("DELETE FROM invitations WHERE expires<=? OR used=1", (now,))
             db.execute("DELETE FROM rate_limits WHERE bucket<?", (int(now // 60) - 2,))
             cutoff = now - self.settings.audit_days * 86400
+            db.execute("DELETE FROM deletion.source_retention WHERE created<?", (cutoff,))
             # Remove per-run audit after30d, retaining only a subject-free event aggregate.
             # Unreconciled money cannot be discarded to free budget.
             old = db.execute(

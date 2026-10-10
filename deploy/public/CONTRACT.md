@@ -1,5 +1,37 @@
 # P1 hosted control plane v1
 
+## PA6 additive read contract (2026-10-11)
+Authenticated collection GETs use the existing viewer membership and active-tenant
+visibility of individual GETs (shared tenant workspace, not a personal-only list).
+No tenant query can grant access. Documents use generated `보고서 N` names and
+stored upload times; original filenames remain uncollected. Cursor pages default20,
+maximum100, ordered newest `(created,id)` first, signed and bound to tenant/user,
+collection and document filter. Expired/deleted entries are omitted.
+Source manifest/PNG GETs bind the hosted run, document, retained original hash,
+prepared hash, local immutable run snapshot and hash-pinned parse manifest. Ref
+pages index the prepared PDF; `page_map` resolves original physical pages. Existing
+canonical boxes already apply rotation/CropBox and are top-left PDF points; never
+rotate them twice. Only located verified stored refs receive normalized highlights.
+Candidate/rejected/unreadable/invalid boxes remain unhighlighted (`원문 미검증`).
+Render at fixed144DPI, reject >2000px per axis or4M pixels, isolate for15s/512MiB,
+cap PNG at16MiB and process-local LRU at32MiB. One cross-process render slot per
+volume returns429 when busy. Every cache hit rechecks authorization, retention,
+result and source integrity; browser responses are private/no-store.
+Migration: schema1 gains only `deletion.source_retention` containing tenant/run/doc
+IDs and creation/expiry times, backfilled from surviving runs and written on new
+run admission. It preserves same-tenant410 after expiry/purge for at most the
+existing30-day audit lifetime; never retains PDF/text/filename/user identity.
+Existing result revisions are read unchanged; no backfill of source evidence.
+New publications verify candidate claim refs against the already replayed source
+graph using the existing exact citation/span verifier, without changing tags,
+decisions or worker policies. A legacy candidate ref remains unhighlighted even
+when its whole-claim `source_quality` says verified.
+Compatibility/rollback: old GET/POST DTOs and worker policies remain unchanged;
+older schema1 images ignore this additive ledger table. Remove the new routes to
+roll back; retain the ledger, tombstones and reservations. Already purged pre-PA6
+runs with no retained identity return404. No push/deployment is part of PA6.
+Detailed API, errors and frontend connection contract: `docs/hosted-read-api.md`.
+
 Baseline 12ed952; task deploy-P1, DESIGN §§4–8 and A-08 hosting override: one
 Lightsail Linux VM, one API and one durable worker, active=1, queued=8.
 No push, cloud changes, provider keys or paid requests are authorized here.
