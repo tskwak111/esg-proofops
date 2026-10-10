@@ -1,0 +1,66 @@
+[
+  {
+    "fixture": "1-click.pdf",
+    "source": "APH_2025_SR(KOR)_F.pdf",
+    "source_sha256": "6cc2d5b7c803d4c9b96bc60541df9f8a7c788d0e3ea547836b5d9c64bdc56c18",
+    "original_action_object": 897,
+    "generation": 0,
+    "action": "{'/D': 'InDesign ClipboardScrap1::0', '/F': IndirectObject(898, 0, 4480249600), '/NewWindow': False, '/S': '/GoToR'}",
+    "method": "Original action dictionary cloned with its Filespec; blank page and Link trigger stub"
+  },
+  {
+    "fixture": "2-click.pdf",
+    "source": "SFG_2025_SustainabilityReport_KR.pdf",
+    "source_sha256": "dd4f4704c472eecb09ae5fc8984288f5ddcd3b80424a5e60b8b5f1e72267da0d",
+    "original_action_object": 23444,
+    "generation": 0,
+    "action": "{'/D': '<1109><1175><11AB><1112><1161><11AB><1100><1173><11B7><110B><1172><11BC><1100><1173><1105><116E><11B8>_2026SR_0629.indd::0', '/F': IndirectObject(23445, 0, 4497067376), '/NewWindow': False, '/S': '/GoToR'}",
+    "method": "Original action dictionary cloned with its Filespec; blank page and Link trigger stub"
+  },
+  {
+    "fixture": "3-click.pdf",
+    "source": "미래에셋증권_2025_지속가능경영보고서.pdf",
+    "source_sha256": "d1ce97cf918eb1f57a82da9f372cdc50990072eee4b08a38a25d6bd1672154ff",
+    "original_action_object": 1624,
+    "generation": 0,
+    "action": "{'/N': '/FitPage', '/S': '/Named'}",
+    "method": "Original action dictionary cloned with its Filespec; blank page and Link trigger stub"
+  },
+  {
+    "fixture": "4-click.pdf",
+    "source": "2024-2025_삼성전기_지속가능경영보고서.pdf",
+    "source_sha256": "3b716564d55f1b91b999d3b03e660c6aa04beec6d80a997a0fd29668784730b6",
+    "original_action_object": 3860,
+    "generation": 0,
+    "action": "{'/N': '/FitPage', '/S': '/Named', '/Type': '/Action'}",
+    "method": "Original action dictionary cloned with its Filespec; blank page and Link trigger stub"
+  },
+  {
+    "fixture": "5-click.pdf",
+    "source": "Samsung_SDI_Sustainability_Report_2025_KR_fn.pdf",
+    "source_sha256": "ad80a96597cf388709d06417b950b122a701a822477c77d59994c7a28065b138",
+    "original_action_object": 92,
+    "generation": 0,
+    "action": "{'/D': 'InDesign ClipboardScrap1::0', '/F': IndirectObject(93, 0, 4606423504), '/NewWindow': False, '/S': '/GoToR'}",
+    "method": "Original action dictionary cloned with its Filespec; blank page and Link trigger stub"
+  },
+  {
+    "fixture": "6-click.pdf",
+    "source": "LG_Energy_Solution_2025_ESG_Report_2_KR.pdf",
+    "source_sha256": "e4de859868c2a9bf7a67a35e05538bcd49e7d088b8e58010c9361071e1ee23b1",
+    "original_action_object": 2965,
+    "generation": 0,
+    "action": "{'/D': 'InDesign ClipboardScrap1::0', '/F': IndirectObject(2966, 0, 4608001712), '/NewWindow': False, '/S': '/GoToR'}",
+    "method": "Original action dictionary cloned with its Filespec; blank page and Link trigger stub"
+  },
+  {
+    "fixture": "7-owner-metadata.pdf",
+    "source": "삼성물산 2026 지속가능경영보고서.pdf",
+    "method": "Original encryption dictionary+ID (AES128 R4 EncryptMetadata false); blank page with plaintext XML /Metadata /Filter [/Crypt] stub, no report content"
+  },
+  {
+    "fixture": "8-owner-metadata.pdf",
+    "source": "2025 HD한국조선해양 지속가능경영보고서 (KOR) (1).pdf",
+    "method": "Original encryption dictionary+ID (AES128 R4 EncryptMetadata false); blank page with plaintext XML /Metadata /Filter [/Crypt] stub, no report content"
+  }
+]

@@ -389,3 +389,35 @@ frozen strict-v1 fixture를 재작성하지 않는다. display-v2의 기존 제�
 않는다. rollback은 FX6 commit을 revert하면 되며 SK hover 오거절이 다시 발생한다.
 150MiB/300쪽 corpus는 HostedStore.upload_file의 verify_pdf_file 호출과 decoded
 512MiB 한도를 그대로 사용하며, 그 외 strict 리소스 상한도 변경하지 않는다.
+
+### FX6b · 보고서 접수 호환성 (2026-10-10)
+
+FX6의 원격/암호화 전면 거절 정책을 다음과 같이 변경한다. `/Link /A`의
+`/GoToR`는 파일 명세·원격 목적지를 데이터로 검사한 뒤 허용하며 실행·외부 접근은
+하지 않는다. Widget·문서/페이지 `/AA`, `/OpenAction`과 모든 `/Next`에는 기존
+호출 위치의 허용 목록을 적용한다. 클릭 `/Named /FitPage`·`FitWidth`·`FitHeight`·
+`ActualSize`를 허용하며 자동 이벤트의 목록은 유지한다. URI·Launch·코드 실행·
+폼 제출·임베디드 파일·미정 액션·잘못된 목적지의 검사는 유지한다.
+
+빈 사용자 암호로 열리는 원본은 전체 객체를 검사하고 `PdfWriter`의 복호화 사본을
+다시 전체 검사한다. `/EncryptMetadata false`인 Metadata 스트림만 복호화 대상에서
+제외하며, 이 스트림의 단독 기본 `/Crypt` 필터는 메모리에서 Identity로 정규화한다.
+그 안의 금지 키·다른 필터도 검사하며 원본 디스크 바이트는 변경하지 않는다.
+열기 암호가 필요한 원본은 `PDF_PASSWORD_REQUIRED`와 암호 해제 안내로 거절한다.
+Hosted는 원본 SHA를 기존 documents/API 값으로 보존하고, private 문서 디렉터리에
+`decrypted.pdf`와 `upload-security.json`(원본/사본 SHA·정책·검사·한도)을 저장한다.
+사본은 원본과 같은 tenant/deletion/backup 범위에 속한다. scope·선택쪽 준비는
+원본/사본 해시를 검증한 뒤 사본을 읽으며 위치·보고기간은 원본 SHA에 귀속한다.
+기존 문서는 sidecar 없이 원본을 읽는다. API DTO·DB migration·새 의존성은 없다.
+
+strict 객체 읽기 실패에만 같은 자식 안에서 한 번 xref 복구 읽기를 시도한다.
+복구 인덱스 구성 뒤 `reader.strict=True`로 전체 객체·스트림·목적지를 검사한다.
+기존 인덱스에서 사라진 비영(非零) 오프셋 객체는 거절한다. 0번 오프셋의 정의되지
+않은 항목은 미사용으로 기록하고, 그 번호의 실제 객체가 있으면 orphan도 검사한다.
+참조된 미정 객체·오리온의 `[0 0 R /Fit]` 목적지는 거절하며 재저장 안내를 제공한다.
+strict 객체/노드 상한은 KT의 실제 검사 결과에 따라 100,000→250,000으로 조정한다.
+검증 자식의 memory 512MiB·CPU 20초·wall 30초 및 Hosted 파일 150MiB·300쪽·decoded
+512MiB를 유지한다. Linux는 hard address-space 한도, macOS는 기존 RSS watchdog이다.
+display-v2의 제거 정책과 완료된 태깅·판정·보고서는 변경하지 않는다. rollback은
+FX6b commit revert이며 이미 저장된 원본/파생물은 보존한다. 되돌린 버전에서는 새로
+접수된 암호화 원본의 후속 준비가 실패할 수 있어 intake를 닫고 버전을 맞춰야 한다.

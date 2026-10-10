@@ -92,11 +92,13 @@ def _page_text(document, index):
         page.close()  # Free page/XObject/text caches before loading the next page.
 
 
-def inspect_streaming(pdf: Path):
+def inspect_streaming(pdf: Path, *, source_sha256: str | None = None):
     if pdf.stat().st_size > 150 * 1024 * 1024:
         raise ValueError("hosted scope limit: 150 MiB")
     with pdf.open("rb") as stream:
-        digest = file_digest(stream, "sha256").hexdigest()
+        input_digest = file_digest(stream, "sha256").hexdigest()
+    # HostedStore has verified the derivative against the immutable original.
+    digest = source_sha256 or input_digest
     texts, headings, primary, anchors, issues = {}, {}, {}, [], []
     with pdfium.PdfDocument(pdf) as document:
         count = len(document)
@@ -147,7 +149,7 @@ def inspect_streaming(pdf: Path):
         finally:
             signal.signal(signal.SIGALRM, prior_handler)
     with pdf.open("rb") as stream:
-        if file_digest(stream, "sha256").hexdigest() != digest:
+        if file_digest(stream, "sha256").hexdigest() != input_digest:
             raise ValueError("source changed during scope inspection")
     study = build_map(count, anchors)
     study.update(

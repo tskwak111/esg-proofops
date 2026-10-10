@@ -35,7 +35,7 @@ class PdfLimits:
     # Technical development limits, not corpus performance claims.
     max_bytes: int = 104_857_600
     max_pages: int = 300
-    max_objects: int = 100_000
+    max_objects: int = 250_000
     max_decoded_bytes: int = 75_000_000
     timeout_seconds: float = 30
     memory_bytes: int = 512 * 1024 * 1024
@@ -87,6 +87,7 @@ class VerifiedPdf:
     page_count: int
     display_content: bytes | None = field(default=None, repr=False)
     security_metadata: dict = field(default_factory=dict)
+    analysis_content: bytes | None = field(default=None, repr=False)
 
 
 def verify_quarantined_pdf(
@@ -180,7 +181,22 @@ def verify_quarantined_pdf(
                     raise UploadRejected(
                         result["code"], security_metadata=result.get("security", {})
                     )
+                if result["security"]["source_sha256"] != source.expected_sha256:
+                    raise UploadRejected("UPLOAD_INTEGRITY_MISMATCH")
                 display_content = None
+                analysis_content = None
+                if limits.policy_profile == "strict-v1" and result.get("security", {}).get(
+                    "encrypted"
+                ):
+                    with display_path.open("rb") as analysis_file:
+                        analysis_content = analysis_file.read(limits.max_bytes + 1)
+                    if len(analysis_content) > limits.max_bytes:
+                        raise UploadRejected("UPLOAD_LIMIT_EXCEEDED")
+                    if (
+                        sha256(analysis_content).hexdigest()
+                        != result["security"]["analysis_sha256"]
+                    ):
+                        raise UploadRejected("UPLOAD_INTEGRITY_MISMATCH")
                 if limits.policy_profile == "display-v2":
                     with display_path.open("rb") as display_file:
                         display_content = display_file.read(limits.max_bytes + 1)
@@ -192,11 +208,21 @@ def verify_quarantined_pdf(
                 if process.poll() is None:
                     process.kill()
                 process.wait()
-    return VerifiedPdf(source, result["pages"], display_content, result.get("security", {}))
+    # Resource telemetry varies per child; keep immutable retry/version metadata stable.
+    result.get("security", {}).pop("peak_rss_bytes", None)
+    return VerifiedPdf(
+        source, result["pages"], display_content, result.get("security", {}), analysis_content
+    )
 
 
 def verify_pdf_file(
-    path: Path, limits: PdfLimits, *, expected_size: int, expected_sha256: str
+    path: Path,
+    limits: PdfLimits,
+    *,
+    expected_size: int,
+    expected_sha256: str,
+    derived_path: Path | None = None,
+    security_metadata: dict | None = None,
 ) -> int:
     """Strict verification of a service-owned disk snapshot; no whole-file body copy."""
     from hashlib import file_digest
@@ -221,6 +247,7 @@ def verify_pdf_file(
             str(Path(__file__).resolve()),
             str(path),
             json.dumps(asdict(limits)),
+            *([str(derived_path)] if derived_path is not None else []),
         ],
         stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL,
@@ -253,7 +280,11 @@ def verify_pdf_file(
         raise UploadRejected("UPLOAD_LIMIT_EXCEEDED" if process.returncode < 0 else "PDF_INVALID")
     result = json.loads(output)
     if result["code"] != "verified":
-        raise UploadRejected(result["code"])
+        raise UploadRejected(result["code"], security_metadata=result.get("security", {}))
+    if result["security"]["source_sha256"] != expected_sha256:
+        raise UploadRejected("UPLOAD_INTEGRITY_MISMATCH")
+    if security_metadata is not None:
+        security_metadata.update(result.get("security", {}))
     return result["pages"]
 
 
@@ -291,20 +322,22 @@ class LocalUploadVault:
             except FileExistsError:
                 if target.is_symlink() or target.read_bytes() != source.content:
                     raise UploadRejected("VERSION_CONFLICT") from None
-        if verified.display_content is not None:
-            display_target = target.with_suffix(".display-v2.pdf")
+        for suffix, content in (
+            (".display-v2.pdf", verified.display_content),
+            (".decrypted.pdf", verified.analysis_content),
+        ):
+            if content is None:
+                continue
+            display_target = target.with_suffix(suffix)
             with NamedTemporaryFile(dir=target.parent) as staged:
-                staged.write(verified.display_content)
+                staged.write(content)
                 staged.flush()
                 os.fsync(staged.fileno())
                 os.chmod(staged.name, 0o400)
                 try:
                     os.link(staged.name, display_target)
                 except FileExistsError:
-                    if (
-                        display_target.is_symlink()
-                        or display_target.read_bytes() != verified.display_content
-                    ):
+                    if display_target.is_symlink() or display_target.read_bytes() != content:
                         raise UploadRejected("VERSION_CONFLICT") from None
         return verified
 
@@ -391,19 +424,28 @@ def _windows_limits(limits: PdfLimits) -> int:
     return job
 
 
-def _inspect_legacy(path: str, limits: PdfLimits) -> int:
+def _inspect_legacy(
+    path: str,
+    limits: PdfLimits,
+    *,
+    recover_xref: bool = False,
+    derived_output: Path | None = None,
+    security: dict | None = None,
+) -> int:
     # Only the resource-limited child imports/parses untrusted PDF structures.
     if sys.platform != "win32":
         import resource
 
         resource.setrlimit(resource.RLIMIT_CPU, (limits.cpu_seconds, limits.cpu_seconds))
         resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+        resource.setrlimit(resource.RLIMIT_FSIZE, (limits.max_bytes, limits.max_bytes))
     from pypdf import PdfReader, apply_configuration
     from pypdf.generic import (
         ArrayObject,
         BooleanObject,
         DictionaryObject,
         IndirectObject,
+        NameObject,
         PdfObject,
         StreamObject,
     )
@@ -431,9 +473,39 @@ def _inspect_legacy(path: str, limits: PdfLimits) -> int:
             page_tree_maximum_entries=limits.max_objects,
         ),
     ):
-        reader = PdfReader(source_file, strict=True)
-        if reader.is_encrypted:
+        reader = PdfReader(
+            source_file, strict=not recover_xref, root_object_recovery_limit=limits.max_objects
+        )
+        # Recovery is limited to constructing the xref map. Every indexed object,
+        # stream, action and destination is subsequently read with strict checks.
+        reader.strict = True
+        encrypted = reader.is_encrypted
+        if encrypted and not reader.decrypt(""):
             raise UploadRejected("PDF_PASSWORD_REQUIRED")
+        encryption_dictionary = reader.trailer.get("/Encrypt")
+        if isinstance(encryption_dictionary, IndirectObject):
+            encryption_dictionary = encryption_dictionary.get_object()
+        encrypt_metadata = (
+            encryption_dictionary.get("/EncryptMetadata")
+            if isinstance(encryption_dictionary, DictionaryObject)
+            else None
+        )
+        plaintext_metadata = (
+            isinstance(encrypt_metadata, BooleanObject) and not encrypt_metadata.value
+        )
+        if plaintext_metadata:
+            # ISO encryption flag excludes Metadata streams from encryption. pypdf
+            # 6.19 otherwise attempts AES decryption of their plaintext XML bytes.
+            encryption = reader._encryption
+            assert encryption is not None
+            decrypt = encryption.decrypt_object
+
+            def decrypt_object(obj, idnum, generation, *, strict=True):
+                if isinstance(obj, StreamObject) and obj.get("/Type") == "/Metadata":
+                    return obj
+                return decrypt(obj, idnum, generation, strict=strict)
+
+            setattr(encryption, "decrypt_object", decrypt_object)
         pages = len(reader.pages)
         if pages == 0:
             raise UploadRejected("PDF_INVALID")
@@ -447,6 +519,35 @@ def _inspect_legacy(path: str, limits: PdfLimits) -> int:
             if number != 0 and generation != 65535
         ]
         references.extend((number, 0) for number in reader.xref_objStm)
+        if security is not None:
+            original_index = security.get("_original_index", {})
+            if recover_xref and original_index:
+                lost = set(original_index) - set(references)
+                if any(original_index[ref] != 0 for ref in lost):
+                    raise UploadRejected("PDF_INVALID")
+                if lost:
+                    # Some exporters mark undefined objects as live with offset 0.
+                    # Referenced undefined objects still fail under reader.strict.
+                    # Physical definitions hidden behind those bad entries must
+                    # remain in the complete security scan, including orphans.
+                    source_file.seek(0)
+                    raw = source_file.read(limits.max_bytes + 1)
+                    for number, generation in lost:
+                        if re.search(
+                            rb"(?:^|\s)"
+                            + str(number).encode()
+                            + rb"\s+"
+                            + str(generation).encode()
+                            + rb"\s+obj\b",
+                            raw,
+                        ):
+                            references.append((number, generation))
+                    del raw
+                security["unused_zero_offset_entries"] = len(lost)
+            elif not recover_xref:
+                security["_original_index"] = {
+                    ref: reader.xref.get(ref[1], {}).get(ref[0], -1) for ref in references
+                }
         if len(references) > limits.max_objects:
             raise UploadRejected("UPLOAD_LIMIT_EXCEEDED")
         pending: list[PdfObject | None] = [
@@ -494,6 +595,7 @@ def _inspect_legacy(path: str, limits: PdfLimits) -> int:
         # Widget interaction exceptions are applied at their /AA call site.
         inert_action_subtypes = {"/Named", "/GoTo"}
         user_gesture_inert_subtypes = inert_action_subtypes | {"/URI", "/Hide"}
+        link_click_subtypes = user_gesture_inert_subtypes | {"/GoToR"}
         widget_interaction_subtypes = inert_action_subtypes | {"/Hide"}
         inert_named_destinations = {
             "/NextPage",
@@ -608,14 +710,40 @@ def _inspect_legacy(path: str, limits: PdfLimits) -> int:
                 destination = action.get("/N")
                 # Print/Find open viewer UI only on a user gesture, never automatically.
                 if str(destination) not in inert_named_destinations and not (
-                    allow_user_named_action and str(destination) in {"/Print", "/Find"}
+                    allow_user_named_action
+                    and str(destination)
+                    in {"/Print", "/Find", "/FitPage", "/FitWidth", "/FitHeight", "/ActualSize"}
                 ):
                     raise UploadRejected("PDF_INVALID")
             elif subtype_name == "/GoTo":
-                # /GoTo targets an internal destination only; /GoToR and /GoToE
-                # (remote/embedded file targets) remain unconditionally forbidden
-                # above and can never reach this branch under this subtype name.
+                # /GoTo must name a page or destination in this document.
                 if "/D" not in action or not is_internal_destination(action.get("/D")):
+                    raise UploadRejected("PDF_INVALID")
+            elif subtype_name == "/GoToR":
+                # Remote navigation is stored as data only. It is permitted only
+                # at a Link /A call site, never an automatic or Widget trigger.
+                target = action.get("/F")
+                if isinstance(target, IndirectObject):
+                    target = target.get_object()
+                if not isinstance(target, str | DictionaryObject):
+                    raise UploadRejected("PDF_INVALID")
+                if isinstance(target, DictionaryObject) and (
+                    str(target.get("/Type", "")) != "/Filespec"
+                    or not isinstance(target.get("/F"), str)
+                    or {"/EF", "/AF", "/FS"}.intersection(target)
+                ):
+                    raise UploadRejected("PDF_INVALID")
+                destination = action.get("/D")
+                if isinstance(destination, IndirectObject):
+                    destination = destination.get_object()
+                if not isinstance(destination, str | ArrayObject):
+                    raise UploadRejected("PDF_INVALID")
+                if isinstance(destination, ArrayObject) and (
+                    len(destination) < 2
+                    or not isinstance(destination[0], int)
+                    or isinstance(destination[0], bool)
+                    or destination[0] < 0
+                ):
                     raise UploadRejected("PDF_INVALID")
             elif subtype_name == "/URI" and "/URI" not in action:
                 raise UploadRejected("PDF_INVALID")
@@ -644,7 +772,9 @@ def _inspect_legacy(path: str, limits: PdfLimits) -> int:
                     allow_user_named_action=allow_user_named_action,
                 )
 
-        def reject_dangerous_open_action(open_action: object, *, allow_uri: bool = False) -> None:
+        def reject_dangerous_open_action(
+            open_action: object, *, allow_uri: bool = False, link_click: bool = False
+        ) -> None:
             """/OpenAction (like a /GoTo /D) may be either an action dictionary
             or a bare destination array `[page fit-mode ...]` (PDF 32000-1
             12.3.2). A bare destination array must never be walked as if its
@@ -662,7 +792,9 @@ def _inspect_legacy(path: str, limits: PdfLimits) -> int:
                 return
             reject_dangerous_action_chain(
                 open_action,
-                allowed_subtypes=frozenset(user_gesture_inert_subtypes)
+                allowed_subtypes=frozenset(link_click_subtypes)
+                if link_click
+                else frozenset(user_gesture_inert_subtypes)
                 if allow_uri
                 else frozenset(inert_action_subtypes),
                 allow_user_named_action=allow_uri,
@@ -681,7 +813,9 @@ def _inspect_legacy(path: str, limits: PdfLimits) -> int:
             if len(seen) > limits.max_objects:
                 raise UploadRejected("UPLOAD_LIMIT_EXCEEDED")
             if isinstance(value, DictionaryObject):
-                if forbidden.intersection(value.keys()) or str(value.get("/S", "")) in forbidden:
+                if forbidden.intersection(value.keys()) or (
+                    str(value.get("/S", "")) in forbidden and str(value.get("/S", "")) != "/GoToR"
+                ):
                     raise UploadRejected("PDF_INVALID")
                 if str(value.get("/Type", "")) == "/EmbeddedFile":
                     raise UploadRejected("PDF_INVALID")
@@ -692,10 +826,10 @@ def _inspect_legacy(path: str, limits: PdfLimits) -> int:
                 # The xref scan has no trigger context. URI/Print may be stored
                 # here, but every actual reference is rechecked below: automatic
                 # triggers remain strict regardless of shared-object scan order.
-                if str(value.get("/Type", "")) == "/Action":
+                if str(value.get("/Type", "")) == "/Action" or value.get("/S") == "/GoToR":
                     reject_dangerous_action_chain(
                         value,
-                        allowed_subtypes=frozenset(user_gesture_inert_subtypes),
+                        allowed_subtypes=frozenset(link_click_subtypes),
                         allow_user_named_action=True,
                     )
                 for action_key in action_table_keys.intersection(value.keys()):
@@ -734,11 +868,30 @@ def _inspect_legacy(path: str, limits: PdfLimits) -> int:
                         isinstance(resolved, DictionaryObject) and "/S" in resolved
                     ):
                         continue  # structure-element attributes, not an action
-                    reject_dangerous_open_action(target, allow_uri=action_key == "/A")
+                    reject_dangerous_open_action(
+                        target,
+                        allow_uri=action_key == "/A",
+                        link_click=(
+                            action_key == "/A"
+                            and value.get("/Type") == "/Annot"
+                            and value.get("/Subtype") == "/Link"
+                        ),
+                    )
                 if isinstance(value, StreamObject):
                     if "/F" in value:  # External stream file; never resolve/fetch it.
                         raise UploadRejected("PDF_INVALID")
                     filters = value.get("/Filter", [])
+                    if (
+                        plaintext_metadata
+                        and value.get("/Type") == "/Metadata"
+                        and filters == ["/Crypt"]
+                        and "/DecodeParms" not in value
+                    ):
+                        # Default Crypt here is Identity. Normalize the inspected
+                        # plaintext stream in memory so its decrypted clone has no
+                        # encryption filter. Original disk bytes stay immutable.
+                        value[NameObject("/Filter")] = ArrayObject()
+                        filters = []
                     if not isinstance(filters, list):
                         filters = [filters]
                     allowed = {
@@ -763,7 +916,58 @@ def _inspect_legacy(path: str, limits: PdfLimits) -> int:
                 pending.extend(value.values())
             elif isinstance(value, ArrayObject):
                 pending.extend(value)
+        if security is not None:
+            security.update(
+                encrypted=encrypted,
+                parser_xref_recovered=recover_xref,
+                objects=len(references),
+                nodes=len(seen),
+                decoded_bytes=decoded,
+            )
+        if encrypted and derived_output is not None:
+            from pypdf import PdfWriter
+
+            writer = PdfWriter(clone_from=reader)
+            with derived_output.open("xb") as derived:
+                writer.write(derived)
+            if derived_output.stat().st_size > limits.max_bytes:
+                raise UploadRejected("UPLOAD_LIMIT_EXCEEDED")
         return pages
+
+
+def _inspect_strict(path: str, limits: PdfLimits, output: Path | None = None) -> dict:
+    from hashlib import file_digest
+
+    from pypdf.errors import PdfReadError
+
+    security: dict[str, Any] = {}
+    try:
+        pages = _inspect_legacy(path, limits, derived_output=output, security=security)
+    except PdfReadError:
+        pages = _inspect_legacy(
+            path, limits, recover_xref=True, derived_output=output, security=security
+        )
+    security.pop("_original_index", None)
+    with Path(path).open("rb") as source:
+        original_sha = file_digest(source, "sha256").hexdigest()
+    security.update(
+        policy_profile="strict-v1",
+        source_sha256=original_sha,
+        original_inspection="complete",
+        limits=asdict(limits),
+    )
+    if output is not None and security["encrypted"]:
+        # Reinspect the entire written clone before any caller promotes it.
+        if _inspect_legacy(str(output), limits) != pages:
+            raise UploadRejected("PDF_INVALID")
+        with output.open("rb") as derived:
+            security["analysis_sha256"] = file_digest(derived, "sha256").hexdigest()
+    if sys.platform != "win32":
+        import resource
+
+        peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        security["peak_rss_bytes"] = peak if sys.platform == "darwin" else peak * 1024
+    return {"code": "verified", "pages": pages, "security": security}
 
 
 _DISPLAY_REMOVE = {
@@ -1042,7 +1246,7 @@ def _inspect_display(path: str, limits: PdfLimits, output: Path) -> dict:
 
 def _inspect(path: str, limits: PdfLimits) -> int:
     if limits.policy_profile == "strict-v1":
-        return _inspect_legacy(path, limits)
+        return _inspect_strict(path, limits)["pages"]
     with TemporaryDirectory(prefix="proofops-display-") as temporary:
         return _inspect_display(path, limits, Path(temporary) / "display.pdf")["pages"]
 
@@ -1063,8 +1267,9 @@ if __name__ == "__main__":
                     )
                 )
         else:
-            pages = _inspect_legacy(sys.argv[1], limits)
-            print(json.dumps({"code": "verified", "pages": pages}))
+            with TemporaryDirectory(prefix="proofops-strict-cli-") as scratch:
+                output = Path(sys.argv[3]) if len(sys.argv) > 3 else Path(scratch) / "decrypted.pdf"
+                print(json.dumps(_inspect_strict(sys.argv[1], limits, output)))
     except MemoryError:
         print('{"code":"UPLOAD_LIMIT_EXCEEDED"}')
     except Exception as error:
@@ -1080,4 +1285,11 @@ if __name__ == "__main__":
         failure: dict[str, Any] = {"code": code}
         if isinstance(error, UploadRejected) and error.security_metadata:
             failure["security"] = error.security_metadata
+        if sys.platform != "win32":
+            import resource
+
+            peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+            failure.setdefault("security", {})["peak_rss_bytes"] = (
+                peak if sys.platform == "darwin" else peak * 1024
+            )
         print(json.dumps(failure))

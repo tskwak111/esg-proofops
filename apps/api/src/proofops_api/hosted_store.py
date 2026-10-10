@@ -148,7 +148,10 @@ class HostedSettings:
         if self.accept_uploads and not self.consent_version:
             raise ValueError("upload consent version required")
         for value in (
-            self.max_upload_bytes, self.active_days, self.backup_days, self.audit_days,
+            self.max_upload_bytes,
+            self.active_days,
+            self.backup_days,
+            self.audit_days,
             self.user_daily_runs,
         ):
             if type(value) is not int or value <= 0:
@@ -547,43 +550,79 @@ class HostedStore:
             if replay:
                 return dict(self._document(db, auth.tenant_id, replay))
         doc = str(uuid4())
-        try:
-            pages = verify_pdf_file(
-                source,
-                PdfLimits(
-                    max_bytes=self.settings.max_upload_bytes, max_decoded_bytes=512 * 1024 * 1024
-                ),
-                expected_size=size,
-                expected_sha256=sha,
-            )
-        except UploadRejected as exc:
-            raise HostedError(str(exc), 422) from None
-        with self.transaction() as db:
-            replay = self._replay(db, auth, "upload", key, sha)
-            if replay:
-                return dict(self._document(db, auth.tenant_id, replay))
-            path = self.document_dir(auth.tenant_id, doc)
-            path.mkdir(parents=True, mode=0o700)
-            copy_verified_file(source, path / "original.pdf", sha)
-            db.execute(
-                "INSERT INTO documents VALUES (?,?,?,?,?,?,?,?)",
-                (
-                    auth.tenant_id,
-                    doc,
-                    sha,
-                    pages,
-                    size,
-                    now,
-                    now + self.settings.active_days * 86400,
-                    self.settings.consent_version,
-                ),
-            )
-            db.execute(
-                "INSERT INTO document_owners VALUES (?,?,?)",
-                (auth.tenant_id, doc, self.user_hash(auth.user_sub)),
-            )
-            self._remember(db, auth, "upload", key, sha, doc, doc, now)
-            return dict(self._document(db, auth.tenant_id, doc))
+        with TemporaryDirectory(prefix="proofops-upload-", dir=self.settings.root) as scratch:
+            security: dict[str, Any] = {}
+            derived = Path(scratch) / "decrypted.pdf"
+            try:
+                pages = verify_pdf_file(
+                    source,
+                    PdfLimits(
+                        max_bytes=self.settings.max_upload_bytes,
+                        max_decoded_bytes=512 * 1024 * 1024,
+                    ),
+                    expected_size=size,
+                    expected_sha256=sha,
+                    derived_path=derived,
+                    security_metadata=security,
+                )
+            except UploadRejected as exc:
+                raise HostedError(str(exc), 422) from None
+            with self.transaction() as db:
+                replay = self._replay(db, auth, "upload", key, sha)
+                if replay:
+                    return dict(self._document(db, auth.tenant_id, replay))
+                path = self.document_dir(auth.tenant_id, doc)
+                path.mkdir(parents=True, mode=0o700)
+                copy_verified_file(source, path / "original.pdf", sha)
+                if security.get("encrypted"):
+                    copy_verified_file(derived, path / "decrypted.pdf", security["analysis_sha256"])
+                self._write(path / "upload-security.json", json.dumps(security).encode())
+                db.execute(
+                    "INSERT INTO documents VALUES (?,?,?,?,?,?,?,?)",
+                    (
+                        auth.tenant_id,
+                        doc,
+                        sha,
+                        pages,
+                        size,
+                        now,
+                        now + self.settings.active_days * 86400,
+                        self.settings.consent_version,
+                    ),
+                )
+                db.execute(
+                    "INSERT INTO document_owners VALUES (?,?,?)",
+                    (auth.tenant_id, doc, self.user_hash(auth.user_sub)),
+                )
+                self._remember(db, auth, "upload", key, sha, doc, doc, now)
+                return dict(self._document(db, auth.tenant_id, doc))
+
+    def analysis_source(self, directory: Path, document: dict) -> Path:
+        """Tenant-owned immutable original plus verified, byte-bound plaintext derivative."""
+        original = directory / "original.pdf"
+        if original.is_symlink() or file_sha256(original) != document["sha256"]:
+            raise HostedError("UPLOAD_INTEGRITY_MISMATCH", 422)
+        sidecar = directory / "upload-security.json"
+        if not sidecar.exists():
+            return original  # Pre-FX6b documents have no derivative metadata.
+        if sidecar.is_symlink():
+            raise HostedError("UPLOAD_INTEGRITY_MISMATCH", 422)
+        metadata = json.loads(sidecar.read_text())
+        if (
+            metadata.get("source_sha256") != document["sha256"]
+            or metadata.get("original_inspection") != "complete"
+        ):
+            raise HostedError("UPLOAD_INTEGRITY_MISMATCH", 422)
+        if not metadata.get("encrypted"):
+            return original
+        derived = directory / "decrypted.pdf"
+        if (
+            not derived.is_file()
+            or derived.is_symlink()
+            or file_sha256(derived) != metadata.get("analysis_sha256")
+        ):
+            raise HostedError("UPLOAD_INTEGRITY_MISMATCH", 422)
+        return derived
 
     @staticmethod
     def _write(path: Path, content: bytes) -> None:
@@ -759,8 +798,9 @@ class HostedStore:
                             sys.executable,
                             "-m",
                             "proofops_api.hosted_scope",
-                            str(path / "original.pdf"),
+                            str(self.analysis_source(path, doc)),
                             str(output),
+                            doc["sha256"],
                         ],
                         timeout=90,
                         check=True,
@@ -1112,7 +1152,8 @@ class HostedStore:
                 if now >= doc["expires"]:
                     raise HostedError("SOURCE_EXPIRED")
                 path = self.document_dir(job["tenant_id"], job["document_id"])
-                copy_verified_file(path / "original.pdf", source, doc["sha256"])
+                analysis = self.analysis_source(path, dict(doc))
+                copy_verified_file(analysis, source, file_sha256(analysis))
                 pages = row["pages"]
             try:
                 subprocess.run(
@@ -1332,8 +1373,13 @@ class HostedStore:
             return None
 
     def update_progress(
-        self, job: dict, stage: str, progress: int, *,
-        claims_extracted: int | None = None, claims_processed: int | None = None,
+        self,
+        job: dict,
+        stage: str,
+        progress: int,
+        *,
+        claims_extracted: int | None = None,
+        claims_processed: int | None = None,
     ) -> None:
         for count in (claims_extracted, claims_processed):
             if count is not None and (type(count) is not int or count < 0):

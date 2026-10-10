@@ -91,6 +91,20 @@ def test_verified_bytes_and_versions_are_preserved_and_promoted_immutably(tmp_pa
     assert path.read_bytes() == item.content
 
 
+def test_owner_only_encryption_promotes_original_and_verified_copy_immutably(tmp_path):
+    # FX6b replaces the previous empty-password rejection expectation.
+    item = source(pdf(password=""))
+    vault = LocalUploadVault(tmp_path)
+    result = vault.verify_and_promote(item, PdfLimits(), tenant_id=item.tenant_id)
+    assert vault.original_path(result).read_bytes() == item.content
+    derived = vault.original_path(result).with_suffix(".decrypted.pdf")
+    assert derived.read_bytes() == result.analysis_content
+    assert sha256(derived.read_bytes()).hexdigest() == result.security_metadata["analysis_sha256"]
+    assert result.security_metadata["source_sha256"] == item.expected_sha256
+    retry = vault.verify_and_promote(item, PdfLimits(), tenant_id=item.tenant_id)
+    assert retry == result
+
+
 @pytest.mark.parametrize("kind,key", [("/URI", "/URI"), ("/JavaScript", "/JS"), ("/Launch", "/F")])
 def test_active_actions_do_not_fetch_or_execute(kind, key, tmp_path):
     marker = tmp_path / "executed"
@@ -130,7 +144,6 @@ def test_active_actions_do_not_fetch_or_execute(kind, key, tmp_path):
         (b"not PDF", PdfLimits(), "PDF_INVALID"),
         (b"%PDF-1.7\ninvalid", PdfLimits(), "PDF_INVALID"),
         (pdf(password="secret"), PdfLimits(), "PDF_PASSWORD_REQUIRED"),
-        (pdf(password=""), PdfLimits(), "PDF_PASSWORD_REQUIRED"),
         (pdf(pages=2), PdfLimits(max_pages=1), "UPLOAD_LIMIT_EXCEEDED"),
         pytest.param(
             pdf(pages=301), PdfLimits(), "UPLOAD_LIMIT_EXCEEDED", id="configured-page-limit"
