@@ -32,6 +32,10 @@ FOOTNOTE = re.compile(r"^\s*(?:\d+[.)]|[※*])")
 
 def observations(text, *, context="", limit=24):
     """Read explicit column years, one observation per data row; never infer years."""
+    if "pb1-w9-v1" in context.split():
+        from proofops.application.ingest.w9_tables import observations as w9
+
+        return w9(text, limit=limit)
     lines = text.split("\n")
     years = {}
     header_end = -1

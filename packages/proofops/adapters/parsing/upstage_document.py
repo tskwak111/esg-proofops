@@ -187,8 +187,10 @@ def candidate_batch(source, profile, selected, batches, *, mode: str, config_has
                 if provider_box
                 else ("section=" + headings[page_num],)
             )
-            if profile.table_claims_profile == "pb1-v1":
+            if profile.table_claims_profile in ("pb1-v1", "pb1-w9-v1"):
                 context += ("pb1_table_claims",)
+                if profile.table_claims_profile == "pb1-w9-v1":
+                    context += ("pb1-w9-v1",)
             context += (
                 ("vision_only",)
                 if box is None
@@ -280,7 +282,7 @@ def candidate_batch(source, profile, selected, batches, *, mode: str, config_has
                         continue
                     cell_boxes = []
                     grounded_cells = None
-                    if profile.table_claims_profile == "pb1-v1":
+                    if profile.table_claims_profile in ("pb1-v1", "pb1-w9-v1"):
                         from proofops.adapters.parsing.pb1_cell_grounding import ground_cells
 
                         grounded_cells = ground_cells(
@@ -319,13 +321,14 @@ def candidate_batch(source, profile, selected, batches, *, mode: str, config_has
                         identifier,
                         provider_box,
                         provider_region=(
-                            profile.table_claims_profile == "pb1-v1" and not all(cell_boxes)
+                            profile.table_claims_profile in ("pb1-v1", "pb1-w9-v1")
+                            and not all(cell_boxes)
                         ),
                         derived_box=(
                             _union(cell_boxes)
                             if all(cell_boxes)
                             else provider_box
-                            if profile.table_claims_profile == "pb1-v1"
+                            if profile.table_claims_profile in ("pb1-v1", "pb1-w9-v1")
                             else None
                         ),
                     )

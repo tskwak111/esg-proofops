@@ -16,6 +16,7 @@
 !evaluation/
 !evaluation/__init__.py
 !evaluation/local_upstage_pilot.py
+!evaluation/w9_table_replay.py
 !evaluation/hosted_r108.py
 !evaluation/hosted_scope_plan.py
 !evaluation/report_scope.py

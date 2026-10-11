@@ -133,8 +133,14 @@ V2_PRE_PA9_POLICY = V2_PRE_PB7_POLICY
 V2_PA9_POLICY = V2_PRE_PA9_POLICY | dict(
     source="upstage-ocr-page-v10", table_native_ownership="native-grid-pa9-v1"
 )
-V2_POLICY = V2_PB7_POLICY | dict(
+V2_PRE_W9_POLICY = V2_PB7_POLICY | dict(
     source="upstage-ocr-page-v10", table_native_ownership="native-grid-pa9-v1"
+)
+
+V2_POLICY = V2_PRE_W9_POLICY | dict(
+    table_claims="pb1-w9-v1",
+    table_cells="pb1-w9-v1",
+    table_figures="independent-reader-only-w9-v1",
 )
 
 
@@ -144,6 +150,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            V2_PRE_W9_POLICY,
             V2_PA9_POLICY,
             V2_PB7_POLICY,
             V2_PRE_PB7_POLICY,
@@ -190,6 +197,7 @@ def apply_pilot_profile(args):
     if profile == V2_PROFILE:
         args.extraction_fragment_guard = True
         args.extraction_pb1 = True
+        args.extraction_w9 = True
         args.extraction_pb1_context_guard = True
         args.extraction_table_rows = True
         args.preliminary_actor_role = True
