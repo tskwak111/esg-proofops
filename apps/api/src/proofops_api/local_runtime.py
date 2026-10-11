@@ -37,6 +37,7 @@ _SETTINGS_FIELDS = frozenset(
         "extraction_linewrap_join",
         "extraction_fragment_guard",
         "extraction_sentence_prefix",
+        "extraction_k1",
         "extraction_pb1",
         "extraction_w9",
         "extraction_j3",
@@ -375,6 +376,7 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         "extraction_linewrap_join",
         "extraction_fragment_guard",
         "extraction_sentence_prefix",
+        "extraction_k1",
         "extraction_pb1",
         "extraction_w9",
         "extraction_j3",
@@ -397,6 +399,11 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
     ):
         raise ValueError("EXTRACTION_J3_INVALID")
     if settings.get("extraction_w9") and settings.get("extraction_pb1") is not True:
+        raise _invalid()
+    if settings.get("extraction_k1") and (
+        settings.get("extraction_source_ids") is not True
+        or settings.get("extraction_table_rows") is not True
+    ):
         raise _invalid()
     for flag in ("extraction_table_rows", "extraction_recall_prompt"):
         if flag in settings and (

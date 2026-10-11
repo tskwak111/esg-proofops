@@ -62,11 +62,18 @@ POLICY_HASH = canonical_hash(POLICY)
 
 
 def validate_policy(policy: dict) -> None:
-    if policy != POLICY:
+    from proofops.application.tagging.k1_semantics import POLICY as K1_POLICY
+
+    if policy not in (POLICY, K1_POLICY):
         raise ValueError("SEMANTIC_ADMISSION_POLICY_UNKNOWN")
 
 
-def guard_element(element: LlmElement) -> LlmElement:
+def guard_element(element: LlmElement, *, policy=None, claim_quote="") -> LlmElement:
+    if policy is not None and policy != POLICY:
+        validate_policy(policy)
+        from proofops.application.tagging.k1_semantics import guard
+
+        return guard(guard_element(element), claim_quote=claim_quote)
     if element.state != "present":
         return element
     quotes = [" ".join(ref.quote.split()) for ref in element.evidence_refs]
@@ -89,14 +96,16 @@ def guard_element(element: LlmElement) -> LlmElement:
     )
 
 
-def guard_runs(runs: tuple[TagRun, ...]) -> tuple[TagRun, ...]:
+def guard_runs(runs: tuple[TagRun, ...], *, policy=None, claim_quote="") -> tuple[TagRun, ...]:
     """Reprocess saved guarded votes into new candidates, preserving raw receipts."""
     results = []
     for run in runs:
         if run.guarded is None:
             results.append(run)
             continue
-        elements = tuple(guard_element(e) for e in run.guarded.elements)
+        elements = tuple(
+            guard_element(e, policy=policy, claim_quote=claim_quote) for e in run.guarded.elements
+        )
         changed = [e for e, old in zip(elements, run.guarded.elements, strict=True) if e != old]
         if not changed:
             results.append(run)
@@ -115,12 +124,19 @@ def guard_runs(runs: tuple[TagRun, ...]) -> tuple[TagRun, ...]:
     return tuple(results)
 
 
-def estimate_refs(data: dict, original: CanonicalDocumentGraph | None = None) -> list[dict]:
+def estimate_refs(
+    data: dict, original: CanonicalDocumentGraph | None = None, *, policy=None
+) -> list[dict]:
     """DEC-24 hold eligibility; only local numeric rows or their exact parent table.
 
     No nearby table, other page, document-wide Scope3 mention or model paraphrase
     establishes table membership. Existing category votes retain their own path.
     """
+    if policy is not None and policy != POLICY:
+        validate_policy(policy)
+        from proofops.application.tagging.k1_semantics import estimate_evidence
+
+        return estimate_evidence(data, original)
     refs = data.get("claim_source_refs", [])
     if data.get("safe_harbor_category") == "emissions_estimate":
         return refs

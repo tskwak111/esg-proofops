@@ -72,7 +72,11 @@ def provisional_result(
         from proofops.application.tagging.semantic_admission import guard_runs, validate_policy
 
         validate_policy(semantic_policy)
-        runs = guard_runs(runs)
+        runs = guard_runs(
+            runs,
+            policy=semantic_policy,
+            claim_quote=" ".join(r["quote"] for r in packet.to_dict()["claim_source_refs"]),
+        )
     # Reuse the strict provenance/independent-replica validation, never its confirmation.
     form_consensus(
         runs,
@@ -172,7 +176,7 @@ def provisional_result(
     if semantic_policy is not None:
         from proofops.application.tagging.semantic_admission import estimate_refs
 
-        estimate_evidence = estimate_refs(data, original)
+        estimate_evidence = estimate_refs(data, original, policy=semantic_policy)
     headers = Counter(
         run.guarded.superlative_quote for run in ordered if run.guarded is not None
     ).most_common(1)
@@ -233,12 +237,40 @@ def provisional_result(
                 hold_reasons=["추정치 · 산정 근거 확인 필요"],
                 estimate_evidence_refs=estimate_evidence,
             )
+        from proofops.application.tagging.k1_semantics import POLICY as K1_POLICY
+        from proofops.application.tagging.k1_semantics import track_requires_review
+
+        claim_quote = " ".join(r["quote"] for r in data["claim_source_refs"])
+        from proofops.application.tagging.k1_semantics import masked_pue
+
+        if semantic_policy == K1_POLICY and (
+            track_requires_review(claim_quote, data["track"]) or masked_pue(claim_quote)
+        ):
+            wrong_track = track_requires_review(claim_quote, data["track"])
+            result.update(
+                evidence_grade=None,
+                label=None,
+                grade_range=None,
+                grade_basis="retag_required",
+                display_type="hold",
+                display="성과지표 · 트랙·범위값 재태깅 필요"
+                if wrong_track
+                else "PUE 범위값 · 해석 확인 필요",
+                reason="K1_PUE_PERFORMANCE_RETAG_REQUIRED"
+                if wrong_track
+                else "K1_PUE_MASKED_VALUE_REVIEW",
+                hold_reasons=[
+                    "성과지표 · 트랙·범위값 재태깅 필요"
+                    if wrong_track
+                    else "PUE 범위값 · 해석 확인 필요"
+                ],
+            )
     return ensure_range(result, rulepack, tags=tags, context=context) if range_profile else result
 
 
 def ensure_range(result, rulepack, *, tags=None, context=None):
     """Only the integrated profile fills an empty display slot; confirmed data stays null."""
-    if result.get("grade_basis") == "estimate_hold":
+    if result.get("grade_basis") in {"estimate_hold", "retag_required"}:
         return result
     if result.get("evidence_grade"):
         return result | dict(display_type="numeric")

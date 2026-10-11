@@ -710,7 +710,11 @@ def tag_replicates(
                 if semantic_policy is not None and state == "present":
                     from proofops.application.tagging.semantic_admission import guard_element
 
-                    admitted = guard_element(replace(element, evidence_refs=tuple(refs)))
+                    admitted = guard_element(
+                        replace(element, evidence_refs=tuple(refs)),
+                        policy=semantic_policy,
+                        claim_quote=claim.quote,
+                    )
                     if admitted.state != "present":
                         state, semantic_reason = admitted.state, admitted.reason_code
                 if element.element_id == "P6" and element.state in ("present", "conflict"):

@@ -81,7 +81,8 @@ UPSTAGE_PRELIMINARY_PROMPT_INVALID UPSTAGE_PRELIMINARY_SYSTEM_REQUIRED
 UPSTAGE_PRELIMINARY_PACKET_INVALID UPSTAGE_PRELIMINARY_PACKET_MISMATCH
 UPSTAGE_PRELIMINARY_CONTEXT_POLICY_INVALID UPSTAGE_PRELIMINARY_SOURCES_REQUIRED
 UPSTAGE_PRELIMINARY_TABLE_SOURCE_INVALID UPSTAGE_PRELIMINARY_TABLE_POLICY_INVALID
-UPSTAGE_PRELIMINARY_CONTEXT_INVALID RELATION_PACKET_MISMATCH RELATION_CLAIM_MISMATCH""".split()
+UPSTAGE_PRELIMINARY_CONTEXT_INVALID RELATION_PACKET_MISMATCH RELATION_CLAIM_MISMATCH
+K1_PUE_PERFORMANCE_RETAG_REQUIRED""".split()
 )
 
 
@@ -480,6 +481,12 @@ class LiveTaggingRuntime:
                 from proofops.application.tagging.pb1_classification import COMPACT_PROMPT
 
                 packet["prompt_sha256"] = canonical_hash(COMPACT_PROMPT)
+                from proofops.application.tagging.k1_semantics import GUIDANCE
+
+                if self.preliminary_settings.system_prompt == COMPACT_PROMPT + "\n" + GUIDANCE:
+                    packet["prompt_sha256"] = canonical_hash(
+                        self.preliminary_settings.system_prompt
+                    )
             else:
                 packet["prompt_sha256"] = canonical_hash(PB1_SYSTEM_PROMPT)
         if fallback:
@@ -563,6 +570,16 @@ class LiveTaggingRuntime:
                     )
                 )
             )
+            from proofops.application.tagging.k1_semantics import POLICY as K1_POLICY
+            from proofops.application.tagging.k1_semantics import track_requires_review
+
+            if (
+                self.snapshot.get("analysis_profile_policy", {}).get("semantic_admission")
+                == K1_POLICY
+                and result.track is not None
+                and track_requires_review(claim.quote, result.track.track)
+            ):
+                raise ValueError("K1_PUE_PERFORMANCE_RETAG_REQUIRED")
             if pb1 and result.safe_harbor_category == "forward_looking":
                 from proofops.application.tagging.pb1_classification import forward_candidate
 

@@ -532,6 +532,7 @@ def _profile_with_options(
     extraction_pb1_context_guard: bool = False,
     extraction_w9: bool = False,
     extraction_sentence_prefix: bool = False,
+    extraction_k1: bool = False,
     extraction_table_footnotes: bool = False,
     extraction_j3: bool = False,
 ) -> ExtractionProfile:
@@ -577,6 +578,7 @@ def _profile_with_options(
             extraction_table_rows,
             extraction_recall_prompt,
             extraction_sentence_prefix,
+            extraction_k1,
             extraction_table_footnotes,
         )
     ):
@@ -595,6 +597,8 @@ def _profile_with_options(
         raise ValueError("UPSTAGE_EXTRACTION_LINEWRAP_JOIN_INVALID")
     if extraction_table_footnotes and not source_ids:
         raise ValueError("UPSTAGE_EXTRACTION_TABLE_FOOTNOTES_INVALID")
+    if extraction_k1 and (not source_ids or not extraction_table_rows):
+        raise ValueError("EXTRACTION_K1_INVALID")
     if extraction_fragment_guard and not extraction_linewrap_join:
         raise ValueError("UPSTAGE_EXTRACTION_FRAGMENT_GUARD_INVALID")
     if extraction_table_context and not extraction_context:
@@ -615,6 +619,10 @@ def _profile_with_options(
     if display_text_profile not in (None, PROFILE):
         raise ValueError("DISPLAY_PROFILE_INVALID")
     descriptor: list[Any] = [*_RULE_DESCRIPTOR]
+    if extraction_k1:
+        from proofops.application.ingest.k1_boundaries import POLICY as K1_POLICY
+
+        descriptor.append(K1_POLICY)
     if extraction_sentence_prefix:
         from proofops.application.ingest.sentence_prefix import POLICY as PREFIX_POLICY
 
@@ -751,6 +759,7 @@ class UpstageClaimExtractor:
         extraction_pb1_context_guard: bool = False,
         extraction_w9: bool = False,
         extraction_sentence_prefix: bool = False,
+        extraction_k1: bool = False,
         extraction_table_footnotes: bool = False,
         extraction_j3: bool = False,
     ) -> None:
@@ -808,6 +817,7 @@ class UpstageClaimExtractor:
             extraction_pb1_context_guard=extraction_pb1_context_guard,
             extraction_w9=extraction_w9,
             extraction_sentence_prefix=extraction_sentence_prefix,
+            extraction_k1=extraction_k1,
             extraction_table_footnotes=extraction_table_footnotes,
             extraction_j3=extraction_j3,
         )
@@ -826,6 +836,7 @@ class UpstageClaimExtractor:
         ):
             raise ValueError("EXTRACTION_PB1_CONTEXT_GUARD_INVALID")
         self._sentence_prefix = extraction_sentence_prefix
+        self._k1 = extraction_k1
         self._table_footnotes = extraction_table_footnotes
         self._pb1_context_guard = extraction_pb1_context_guard
         self._pb1 = extraction_pb1
@@ -953,6 +964,13 @@ class UpstageClaimExtractor:
                     for r in rows
                 ]
             }
+            boundary_records = []
+            if self._k1:
+                from proofops.application.ingest.k1_boundaries import trim_table_labels
+
+                result["spans"], boundary_records = trim_table_labels(
+                    result["spans"], text, kind="table"
+                )
             self._validate_spans(result, text)
             directory = self._receipts / (
                 "pb1-" + canonical_hash({"packet": packet, "policy": self._profile.rule_sha256})
@@ -963,6 +981,8 @@ class UpstageClaimExtractor:
                 directory.mkdir(mode=0o700)
                 self._write(directory / "packet.json", canonical_json(packet))
                 self._write(directory / "observations.json", canonical_json(raw_rows))
+                if self._k1:
+                    self._write(directory / "k1-boundaries.json", canonical_json(boundary_records))
                 if self._table_footnotes:
                     self._write(
                         directory / "table-context-exclusions.json",
@@ -1534,6 +1554,15 @@ class UpstageClaimExtractor:
                     diagnostics["j3_refinement_rejected"] = changes
                 else:
                     diagnostics["j3_refinements"] = changes
+            if self._k1 and packet is not None:
+                from proofops.application.ingest.k1_boundaries import trim_table_labels
+
+                selected, diagnostics["k1_boundaries"] = trim_table_labels(
+                    [asdict(s) | dict(topic_ids=list(s.topic_ids)) for s in spans],
+                    text,
+                    kind=packet["untrusted_document_data"]["kind"],
+                )
+                spans = self._validate_spans({"spans": selected}, text)
             return spans, diagnostics
         quotes = self._quotes(payload)
         span_dicts = []

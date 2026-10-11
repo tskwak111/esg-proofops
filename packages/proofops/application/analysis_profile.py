@@ -1,11 +1,14 @@
 """One explicitly selected profile; old configurations remain byte-identical."""
 
+from proofops.application.ingest.k1_boundaries import POLICY_HASH as K1_BOUNDARY_HASH
 from proofops.application.ingest.sentence_prefix import POLICY as PREFIX_POLICY
 from proofops.application.tagging.dec24 import (
     DEFINITIONS_HASH,
     INTEGRATED_DEFINITIONS_HASH,
     INTEGRATED_V2_DEFINITIONS_HASH,
 )
+from proofops.application.tagging.k1_semantics import DEFINITIONS as K1_DEFINITIONS
+from proofops.application.tagging.k1_semantics import POLICY as K1_SEMANTIC_POLICY
 from proofops.application.tagging.quality import ELEMENT_DEFINITIONS_HASH
 from proofops.application.tagging.semantic_admission import POLICY as W8_POLICY
 from proofops.application.tagging.semantic_admission import POLICY_HASH as W8_POLICY_HASH
@@ -222,6 +225,17 @@ J3_POLICY = V2_W9_POLICY | dict(
     selected_span_refinement="j3-explicit-boundaries-v1",
 )
 
+# K1 is explicitly hash-selected until the integration owner adopts it.
+K1_POLICY = FINALS_I1_POLICY | dict(
+    semantic_definition_profile="k1-v1",
+    semantic_admission=K1_SEMANTIC_POLICY,
+    semantic_admission_sha256=canonical_hash(K1_SEMANTIC_POLICY),
+    element_definition_profile="k1-v1",
+    element_definitions_sha256=canonical_hash(K1_DEFINITIONS),
+    extraction_k1="table-trailing-label-k1-v1",
+    extraction_k1_sha256=K1_BOUNDARY_HASH,
+)
+
 
 def policy_for(profile, *, pinned_hash=None):
     if profile == J3_PROFILE:
@@ -233,6 +247,7 @@ def policy_for(profile, *, pinned_hash=None):
             V2_POLICY,
             FINALS_I2_J3_POLICY,
             FINALS_I1_POLICY,
+            K1_POLICY,
             FINALS_I1_INITIAL_POLICY,
             V2_D24_POLICY,
             V2_W9_POLICY,
@@ -276,7 +291,11 @@ def policy_for(profile, *, pinned_hash=None):
 
 def publication_policy_for(profile, *, pinned_hash=None):
     policy = policy_for(profile, pinned_hash=pinned_hash)
-    allowed = (policy_for(profile), W3_POLICY) if profile == V2_PROFILE else (policy_for(profile),)
+    allowed = (
+        (policy_for(profile), W3_POLICY, K1_POLICY)
+        if profile == V2_PROFILE
+        else (policy_for(profile),)
+    )
     if policy not in allowed:
         raise ValueError("ANALYSIS_PROFILE_PUBLICATION_PIN_MISMATCH")
     return policy
@@ -302,6 +321,7 @@ def apply_pilot_profile(args):
         args.extraction_j3 = bool(selected.get("selected_span_refinement"))
         args.extraction_pb1_context_guard = True
         args.extraction_table_footnotes = bool(selected.get("table_footnotes"))
+        args.extraction_k1 = bool(selected.get("extraction_k1"))
         args.extraction_table_rows = True
         args.preliminary_actor_role = True
     # Hosted Linux uses its independently approved OCR reader. Keep that explicit

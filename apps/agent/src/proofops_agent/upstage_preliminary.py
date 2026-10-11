@@ -205,6 +205,11 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
             expected_prompt = SYSTEM_PROMPT
         else:
             raise ValueError("UPSTAGE_TAGGING_BINDING_INVALID")
+        if settings.model_profile == COMPACT_PROFILE:
+            from proofops.application.tagging.k1_semantics import GUIDANCE
+
+            if settings.system_prompt == expected_prompt + "\n" + GUIDANCE:
+                expected_prompt = settings.system_prompt
         if (
             not isinstance(probe, self._probe_type())
             or not isinstance(settings, TaggingSettings)
@@ -382,6 +387,11 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
         else:
             expected_schema, expected_prompt = SCHEMA, SYSTEM_PROMPT
             expected_keys = _ENVELOPE_KEYS
+        if settings.model_profile == COMPACT_PROFILE:
+            from proofops.application.tagging.k1_semantics import GUIDANCE
+
+            if settings.system_prompt == expected_prompt + "\n" + GUIDANCE:
+                expected_prompt = settings.system_prompt
         # Mandatory callback plus common tenant/claim/request UUID, packet/
         # signature SHA, settings/binding/model/region/temperature/replica/
         # output-cap validation; raises before any spend on failure.

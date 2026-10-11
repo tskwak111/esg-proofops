@@ -377,6 +377,10 @@ def live_tagging_settings(
             from proofops.application.tagging.dec24 import INTEGRATED_V2_DEFINITIONS
 
             element_prompt += "\n" + INTEGRATED_V2_DEFINITIONS
+        elif element_definition_profile == "k1-v1":
+            from proofops.application.tagging.k1_semantics import DEFINITIONS
+
+            element_prompt += "\n" + DEFINITIONS
         else:
             raise ValueError("ELEMENT_DEFINITION_PROFILE_UNKNOWN")
     if preliminary_sentence_context:
@@ -458,6 +462,10 @@ def live_tagging_settings(
     else:
         preliminary_profile = "upstage-preliminary-source-quotes-v1"
         preliminary_prompt = SYSTEM_PROMPT
+    if element_definition_profile == "k1-v1" and preliminary_pb1:
+        from proofops.application.tagging.k1_semantics import GUIDANCE
+
+        preliminary_prompt += "\n" + GUIDANCE
     profiles: tuple[tuple[str, str, str, str, int], ...] = (
         (
             "preliminary",
@@ -738,6 +746,7 @@ def apply_resume_metadata(args, saved: dict) -> None:
     args.extraction_linewrap_join = bool(saved.get("extraction_linewrap_join", False))
     args.extraction_fragment_guard = bool(saved.get("extraction_fragment_guard", False))
     args.extraction_sentence_prefix = bool(saved.get("extraction_sentence_prefix", False))
+    args.extraction_k1 = bool(saved.get("extraction_k1", False))
     args.extraction_pb1 = bool(saved.get("extraction_pb1", False))
     args.extraction_w9 = bool(saved.get("extraction_w9", False))
     args.extraction_j3 = bool(saved.get("extraction_j3", False))
@@ -908,6 +917,7 @@ def main():
         help="NEW run parser artifact cap (default 20000000; max 128 MiB).",
     )
     parser.add_argument("--extraction-sentence-prefix", action="store_true")
+    parser.add_argument("--extraction-k1", action="store_true")
     parser.add_argument("--extraction-pb1", action="store_true")
     parser.add_argument("--extraction-w9", action="store_true")
     parser.add_argument("--extraction-j3", action="store_true")
@@ -1317,6 +1327,7 @@ def main():
         requested_recall = args.extraction_recall_prompt
         requested_atomic = args.extraction_atomic
         requested_sentence_prefix = args.extraction_sentence_prefix
+        requested_k1 = args.extraction_k1
         requested_linewrap_join = args.extraction_linewrap_join
         requested_source_ids = args.extraction_source_ids
         requested_assertion_prompt = args.extraction_assertion_prompt
@@ -1354,6 +1365,8 @@ def main():
             parser.error("--resume cannot add extraction atomic; create a new run")
         if requested_sentence_prefix and not args.extraction_sentence_prefix:
             parser.error("--resume cannot add extraction sentence prefix; create a new run")
+        if requested_k1 and not args.extraction_k1:
+            parser.error("--resume cannot add K1 boundaries; create a new run")
         if requested_linewrap_join and not args.extraction_linewrap_join:
             parser.error("--resume cannot add extraction linewrap join; create a new run")
         if requested_source_ids and not args.extraction_source_ids:
@@ -1611,6 +1624,7 @@ def main():
                     extraction_linewrap_join=args.extraction_linewrap_join,
                     extraction_fragment_guard=args.extraction_fragment_guard,
                     extraction_sentence_prefix=args.extraction_sentence_prefix,
+                    extraction_k1=args.extraction_k1,
                     extraction_pb1=args.extraction_pb1,
                     extraction_w9=args.extraction_w9,
                     extraction_j3=args.extraction_j3,
@@ -1672,6 +1686,8 @@ def main():
             settings["extraction_linewrap_join"] = True
         if args.extraction_sentence_prefix:
             settings["extraction_sentence_prefix"] = True
+        if args.extraction_k1:
+            settings["extraction_k1"] = True
         if args.extraction_pb1_context_guard:
             settings["extraction_pb1_context_guard"] = True
         if args.extraction_w9:
@@ -2190,6 +2206,8 @@ def main():
             manifest["extraction_linewrap_join"] = True
         if args.extraction_sentence_prefix:
             manifest["extraction_sentence_prefix"] = True
+        if args.extraction_k1:
+            manifest["extraction_k1"] = True
         if args.extraction_pb1_context_guard:
             manifest["extraction_pb1_context_guard"] = True
         if args.extraction_w9:
@@ -2296,6 +2314,7 @@ def main():
             )
         for name in (
             "extraction_sentence_prefix",
+            "extraction_k1",
             "extraction_table_rows",
             "extraction_recall_prompt",
             "extraction_fragment_guard",
