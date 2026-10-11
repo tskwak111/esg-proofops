@@ -194,6 +194,7 @@ def replay_native_with_policy(stored_policy, receipt, graph, source, *, tenant_i
         "upstage-ocr-page-v7",
         "upstage-ocr-page-v8",
         "upstage-ocr-page-v9",
+        "upstage-ocr-page-v10",
     }:
         from proofops.adapters.local.claim_source_policies import page_ocr_profile
 

@@ -431,6 +431,7 @@ def replay_claims_cached(*, reader, policy, receipt, graph, source, discovery, t
         "upstage-ocr-page-v7",
         "upstage-ocr-page-v8",
         "upstage-ocr-page-v9",
+        "upstage-ocr-page-v10",
     }:
         from proofops.adapters.local.verified_read_cache import replay_cached as replay_ocr_cached
         from proofops.adapters.local.verified_read_cache import reuse_fresh_attestation

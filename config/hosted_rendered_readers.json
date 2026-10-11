@@ -87,7 +87,37 @@
       "ocr_committed_and_reserved_usd": "0.11220",
       "max_fallback_claim_pages": 10,
       "evidence_fallback": false
+    },
+    "upstage-ocr-page-v10": {
+      "report": "outputs/agent-results/R108-redesign/lab/perf/PA9/validation.json",
+      "report_sha256": "78673cd5afae07bd0474cd516446de5075220bd570f24cef5bbcf86f1803a1bc",
+      "validation_sha256": "78673cd5afae07bd0474cd516446de5075220bd570f24cef5bbcf86f1803a1bc",
+      "approval": "PA9 explicit user task; local server-Dockerfile retained-response original-source gate",
+      "saved_claims": 134,
+      "source_verified_before_after": [
+        107,
+        125
+      ],
+      "original_crop_reviews": 13,
+      "false_verified_observed": 0,
+      "numeric_promotions": 0,
+      "non_table_verified_v6_v10": [
+        61,
+        61
+      ],
+      "table_verified_by_company": {
+        "naver": 6,
+        "kia": 25,
+        "lgchem": 33
+      },
+      "linux_platform": "linux/arm64",
+      "gate_network": "none",
+      "paid_pipeline": "not_run",
+      "new_ocr_usd": "0",
+      "max_fallback_claim_pages": 10,
+      "evidence_fallback": false,
+      "independent_accuracy": "not_run"
     }
   },
-  "default_linux_reader_v2": "upstage-ocr-page-v9"
+  "default_linux_reader_v2": "upstage-ocr-page-v10"
 }

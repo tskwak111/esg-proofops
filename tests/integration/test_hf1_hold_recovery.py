@@ -178,7 +178,7 @@ def test_new_default_has_new_hash_and_old_v2_pins_still_resolve():
         claim_source_profile="upstage-ocr-page-v5",
     )
     apply_pilot_profile(args)
-    assert args.claim_source_profile == "upstage-ocr-page-v9"
+    assert args.claim_source_profile == "upstage-ocr-page-v10"
     assert args.extraction_pb1 and args.extraction_table_rows
 
 
@@ -264,13 +264,13 @@ def test_whitespace_recovery_allows_hangul_wrap_but_keeps_numeric_units():
             restore_whitespace(quote, dict(quote=raw, char_start=0))
 
 
-def test_hosted_v2_default_selects_approved_v9_without_changing_v1(monkeypatch):
+def test_hosted_v2_default_selects_approved_v10_without_changing_v1(monkeypatch):
     from proofops_api import hosted_analysis
 
     monkeypatch.setattr(hosted_analysis.sys, "platform", "linux")
     new = hosted_analysis.operator_profiles({"analysis_profile": "finals-unattended-v2"})
     old = hosted_analysis.operator_profiles({"analysis_profile": "finals-unattended-v1"})
-    assert new["claim_source"] == new["source_reader"] == "upstage-ocr-page-v9"
+    assert new["claim_source"] == new["source_reader"] == "upstage-ocr-page-v10"
     assert old["claim_source"] == old["source_reader"] == "upstage-ocr-page-v5"
     monkeypatch.setattr(hosted_analysis, "GATE_PASSED_RENDERED_READERS", frozenset())
     assert (

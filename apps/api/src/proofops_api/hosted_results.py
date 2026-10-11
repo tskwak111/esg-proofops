@@ -109,6 +109,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             V2_POLICY,
             V2_PRE_PA7_POLICY,
             V2_PRE_PA8_POLICY,
+            V2_PRE_PA9_POLICY,
             V2_PRE_PB4_POLICY,
         )
         from proofops.application.ingest.pb1_tables import observations, occurrence_groups
@@ -118,6 +119,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             canonical_hash(V2_POLICY),
             canonical_hash(V2_PRE_PA7_POLICY),
             canonical_hash(V2_PRE_PA8_POLICY),
+            canonical_hash(V2_PRE_PA9_POLICY),
             canonical_hash(V2_PB4_POLICY),
             canonical_hash(V2_PRE_PB4_POLICY),
             canonical_hash(V2_PB2_POLICY),
@@ -156,6 +158,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                             canonical_hash(V2_POLICY),
                             canonical_hash(V2_PRE_PA7_POLICY),
                             canonical_hash(V2_PRE_PA8_POLICY),
+                            canonical_hash(V2_PRE_PA9_POLICY),
                             canonical_hash(V2_PB4_POLICY),
                             canonical_hash(V2_PRE_PB4_POLICY),
                             canonical_hash(V2_PB2_POLICY),

@@ -9,9 +9,11 @@ import pytest
 from proofops.application.analysis_profile import (
     MODEL_RESPONSE_POLICY,
     V2_PA4_POLICY,
-    V2_POLICY,
     V2_PRE_PA8_POLICY,
     policy_for,
+)
+from proofops.application.analysis_profile import (
+    V2_PRE_PA9_POLICY as V2_POLICY,
 )
 from proofops.domain.provenance import canonical_hash
 

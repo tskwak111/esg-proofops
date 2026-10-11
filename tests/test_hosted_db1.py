@@ -52,7 +52,7 @@ def test_ev1_policy_is_pinned_only_for_nonempty_evidence_scope(
         manifest["tenant_id"], manifest["run_id"]
     )
     assert snapshot["claim_source_policy"]["profile"] == (
-        "upstage-ocr-page-v9" if profile == "finals-unattended-v2" else "upstage-ocr-page-v5"
+        "upstage-ocr-page-v10" if profile == "finals-unattended-v2" else "upstage-ocr-page-v5"
     )
     assert snapshot["parser_profile"]["claim_physical_pages"] == ([1] if claims == [10] else [1, 2])
     if claims == [10]:
@@ -72,7 +72,7 @@ def test_remote_caddy_validation_cannot_consume_restart_command():
     script = (root / "deploy/public/drain-restart.sh").read_text()
     validation = next(line for line in script.splitlines() if "caddy validate --config" in line)
     remote = (
-        'compose=(sudo docker compose --env-file compose.env -f compose.yaml)\n'
+        "compose=(sudo docker compose --env-file compose.env -f compose.yaml)\n"
         'sudo() { if [ "$1" = docker ]; then cat >/dev/null; '
         'elif [ "$1" = systemctl ]; then echo restarted; fi; }\n'
         + validation

@@ -89,6 +89,7 @@ def test_failed_linux_reader_gate_cannot_be_enabled_in_json(reader, monkeypatch)
         "upstage-ocr-page-v5",
         "upstage-ocr-page-v6",
         "upstage-ocr-page-v9",
+        "upstage-ocr-page-v10",
     }
 
 

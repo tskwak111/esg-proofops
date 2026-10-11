@@ -337,6 +337,7 @@ def _stored_context_reader(
                 "upstage-ocr-page-v7",
                 "upstage-ocr-page-v8",
                 "upstage-ocr-page-v9",
+                "upstage-ocr-page-v10",
             }:
                 from proofops.adapters.local.claim_source_policies import claim_source_reader
 
@@ -475,6 +476,7 @@ class LocalTagStore:
                 "upstage-ocr-page-v7",
                 "upstage-ocr-page-v8",
                 "upstage-ocr-page-v9",
+                "upstage-ocr-page-v10",
             }:
                 for_run = reader.for_run
 
@@ -520,6 +522,7 @@ class LocalTagStore:
             "upstage-ocr-page-v7",
             "upstage-ocr-page-v8",
             "upstage-ocr-page-v9",
+            "upstage-ocr-page-v10",
         }:
             page_reader = reader.for_run(run_id)
             table_span_policy = reader.table_span_policy

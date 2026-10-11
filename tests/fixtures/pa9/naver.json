@@ -1,0 +1,527 @@
+[
+  {
+    "blocks": [
+      {
+        "column_number": 0,
+        "column_span": 1,
+        "context": [
+          "section=2025년 경영진 기후변화 대응 영역 KPI 달성현황",
+          "provider_bbox=177.426,203.193,584.155,375.564",
+          "pb1_table_claims",
+          "derived_from_native_cells",
+          "mixed_parser_name=upstage_async_enhanced",
+          "mixed_parser_version=document-parse-260128"
+        ],
+        "geometry": {
+          "crop_box": [
+            0.0,
+            0.0,
+            1048.0,
+            595.0
+          ],
+          "height_pt": 595,
+          "rotation": 0,
+          "width_pt": 1048
+        },
+        "kind": "table_cell",
+        "parser_bbox": null,
+        "parser_coordinate_system": "pdf_bottom_left_points",
+        "parser_to_canonical": null,
+        "row_number": 0,
+        "row_span": 1,
+        "source": {
+          "char_end": 11,
+          "char_start": 0,
+          "document_version_id": "0bdeda9a-1c5c-4517-89b4-38c3a589ac93",
+          "native_bbox": [
+            184.283,
+            369.999,
+            233.82049999999998,
+            377.499
+          ],
+          "native_coordinate_system": "pdf_bottom_left_points",
+          "parse_manifest_id": "be34512d-92a7-5f80-b0cf-f888cacd5529",
+          "parser_run_id": "0e1ce32b-d927-4112-9e27-3e890b448e65",
+          "physical_page": 1,
+          "printed_page_label": null,
+          "raw_text": "경영진 ESG KPI",
+          "source_native_id": "up-enhanced-0-8-c0"
+        },
+        "table_native_id": "up-enhanced-0-8"
+      },
+      {
+        "column_number": 1,
+        "column_span": 1,
+        "context": [
+          "section=2025년 경영진 기후변화 대응 영역 KPI 달성현황",
+          "provider_bbox=177.426,203.193,584.155,375.564",
+          "pb1_table_claims",
+          "derived_from_native_cells",
+          "mixed_parser_name=upstage_async_enhanced",
+          "mixed_parser_version=document-parse-260128"
+        ],
+        "geometry": {
+          "crop_box": [
+            0.0,
+            0.0,
+            1048.0,
+            595.0
+          ],
+          "height_pt": 595,
+          "rotation": 0,
+          "width_pt": 1048
+        },
+        "kind": "table_cell",
+        "parser_bbox": null,
+        "parser_coordinate_system": "pdf_bottom_left_points",
+        "parser_to_canonical": null,
+        "row_number": 0,
+        "row_span": 1,
+        "source": {
+          "char_end": 8,
+          "char_start": 0,
+          "document_version_id": "0bdeda9a-1c5c-4517-89b4-38c3a589ac93",
+          "native_bbox": [
+            266.999,
+            369.999,
+            310.394,
+            377.499
+          ],
+          "native_coordinate_system": "pdf_bottom_left_points",
+          "parse_manifest_id": "be34512d-92a7-5f80-b0cf-f888cacd5529",
+          "parser_run_id": "0e1ce32b-d927-4112-9e27-3e890b448e65",
+          "physical_page": 1,
+          "printed_page_label": null,
+          "raw_text": "세부 개선 과제",
+          "source_native_id": "up-enhanced-0-8-c1"
+        },
+        "table_native_id": "up-enhanced-0-8"
+      },
+      {
+        "column_number": 2,
+        "column_span": 1,
+        "context": [
+          "section=2025년 경영진 기후변화 대응 영역 KPI 달성현황",
+          "provider_bbox=177.426,203.193,584.155,375.564",
+          "pb1_table_claims",
+          "derived_from_native_cells",
+          "mixed_parser_name=upstage_async_enhanced",
+          "mixed_parser_version=document-parse-260128"
+        ],
+        "geometry": {
+          "crop_box": [
+            0.0,
+            0.0,
+            1048.0,
+            595.0
+          ],
+          "height_pt": 595,
+          "rotation": 0,
+          "width_pt": 1048
+        },
+        "kind": "table_cell",
+        "parser_bbox": null,
+        "parser_coordinate_system": "pdf_bottom_left_points",
+        "parser_to_canonical": null,
+        "row_number": 0,
+        "row_span": 1,
+        "source": {
+          "char_end": 5,
+          "char_start": 0,
+          "document_version_id": "0bdeda9a-1c5c-4517-89b4-38c3a589ac93",
+          "native_bbox": [
+            476.365,
+            369.999,
+            504.76,
+            377.499
+          ],
+          "native_coordinate_system": "pdf_bottom_left_points",
+          "parse_manifest_id": "be34512d-92a7-5f80-b0cf-f888cacd5529",
+          "parser_run_id": "0e1ce32b-d927-4112-9e27-3e890b448e65",
+          "physical_page": 1,
+          "printed_page_label": null,
+          "raw_text": "달성 현황",
+          "source_native_id": "up-enhanced-0-8-c2"
+        },
+        "table_native_id": "up-enhanced-0-8"
+      },
+      {
+        "column_number": 0,
+        "column_span": 1,
+        "context": [
+          "section=2025년 경영진 기후변화 대응 영역 KPI 달성현황",
+          "provider_bbox=177.426,203.193,584.155,375.564",
+          "pb1_table_claims",
+          "vision_only",
+          "mixed_parser_name=upstage_async_enhanced",
+          "mixed_parser_version=document-parse-260128"
+        ],
+        "geometry": {
+          "crop_box": [
+            0.0,
+            0.0,
+            1048.0,
+            595.0
+          ],
+          "height_pt": 595,
+          "rotation": 0,
+          "width_pt": 1048
+        },
+        "kind": "table_cell",
+        "parser_bbox": null,
+        "parser_coordinate_system": "pdf_bottom_left_points",
+        "parser_to_canonical": null,
+        "row_number": 1,
+        "row_span": 1,
+        "source": {
+          "char_end": 20,
+          "char_start": 0,
+          "document_version_id": "0bdeda9a-1c5c-4517-89b4-38c3a589ac93",
+          "native_bbox": null,
+          "native_coordinate_system": "pdf_bottom_left_points",
+          "parse_manifest_id": "be34512d-92a7-5f80-b0cf-f888cacd5529",
+          "parser_run_id": "0e1ce32b-d927-4112-9e27-3e890b448e65",
+          "physical_page": 1,
+          "printed_page_label": null,
+          "raw_text": "데이터센터 재생에너지 확보 기반 마련",
+          "source_native_id": "up-enhanced-0-8-c3"
+        },
+        "table_native_id": "up-enhanced-0-8"
+      },
+      {
+        "column_number": 1,
+        "column_span": 1,
+        "context": [
+          "section=2025년 경영진 기후변화 대응 영역 KPI 달성현황",
+          "provider_bbox=177.426,203.193,584.155,375.564",
+          "pb1_table_claims",
+          "vision_only",
+          "mixed_parser_name=upstage_async_enhanced",
+          "mixed_parser_version=document-parse-260128"
+        ],
+        "geometry": {
+          "crop_box": [
+            0.0,
+            0.0,
+            1048.0,
+            595.0
+          ],
+          "height_pt": 595,
+          "rotation": 0,
+          "width_pt": 1048
+        },
+        "kind": "table_cell",
+        "parser_bbox": null,
+        "parser_coordinate_system": "pdf_bottom_left_points",
+        "parser_to_canonical": null,
+        "row_number": 1,
+        "row_span": 1,
+        "source": {
+          "char_end": 93,
+          "char_start": 0,
+          "document_version_id": "0bdeda9a-1c5c-4517-89b4-38c3a589ac93",
+          "native_bbox": null,
+          "native_coordinate_system": "pdf_bottom_left_points",
+          "parse_manifest_id": "be34512d-92a7-5f80-b0cf-f888cacd5529",
+          "parser_run_id": "0e1ce32b-d927-4112-9e27-3e890b448e65",
+          "physical_page": 1,
+          "printed_page_label": null,
+          "raw_text": "• PPA, 발전소 투자 등 경쟁력 있는 지속가능한 에너지 확보 추진 \n• 데이터센터 각 춘천 RE70 수준의 재생에너지 확보 - 2025~2026년 2개년 추진 목표",
+          "source_native_id": "up-enhanced-0-8-c4"
+        },
+        "table_native_id": "up-enhanced-0-8"
+      },
+      {
+        "column_number": 2,
+        "column_span": 1,
+        "context": [
+          "section=2025년 경영진 기후변화 대응 영역 KPI 달성현황",
+          "provider_bbox=177.426,203.193,584.155,375.564",
+          "pb1_table_claims",
+          "vision_only",
+          "mixed_parser_name=upstage_async_enhanced",
+          "mixed_parser_version=document-parse-260128"
+        ],
+        "geometry": {
+          "crop_box": [
+            0.0,
+            0.0,
+            1048.0,
+            595.0
+          ],
+          "height_pt": 595,
+          "rotation": 0,
+          "width_pt": 1048
+        },
+        "kind": "table_cell",
+        "parser_bbox": null,
+        "parser_coordinate_system": "pdf_bottom_left_points",
+        "parser_to_canonical": null,
+        "row_number": 1,
+        "row_span": 1,
+        "source": {
+          "char_end": 131,
+          "char_start": 0,
+          "document_version_id": "0bdeda9a-1c5c-4517-89b4-38c3a589ac93",
+          "native_bbox": null,
+          "native_coordinate_system": "pdf_bottom_left_points",
+          "parse_manifest_id": "be34512d-92a7-5f80-b0cf-f888cacd5529",
+          "parser_run_id": "0e1ce32b-d927-4112-9e27-3e890b448e65",
+          "physical_page": 1,
+          "printed_page_label": null,
+          "raw_text": "달성 \n• 데이터센터 각 춘천 6MW 태양광 PPA 개시 (진행 중) \n• 그린팩토리 1MW 태양광 PPA 추가 개시 (기존 1.5MW → 2.5MW) \n• 지분투자 및 PPA 추진을 통한 데이터센터용 대규모 재생에너지 확보 체계 구축",
+          "source_native_id": "up-enhanced-0-8-c5"
+        },
+        "table_native_id": "up-enhanced-0-8"
+      },
+      {
+        "column_number": 0,
+        "column_span": 1,
+        "context": [
+          "section=2025년 경영진 기후변화 대응 영역 KPI 달성현황",
+          "provider_bbox=177.426,203.193,584.155,375.564",
+          "pb1_table_claims",
+          "vision_only",
+          "mixed_parser_name=upstage_async_enhanced",
+          "mixed_parser_version=document-parse-260128"
+        ],
+        "geometry": {
+          "crop_box": [
+            0.0,
+            0.0,
+            1048.0,
+            595.0
+          ],
+          "height_pt": 595,
+          "rotation": 0,
+          "width_pt": 1048
+        },
+        "kind": "table_cell",
+        "parser_bbox": null,
+        "parser_coordinate_system": "pdf_bottom_left_points",
+        "parser_to_canonical": null,
+        "row_number": 2,
+        "row_span": 1,
+        "source": {
+          "char_end": 25,
+          "char_start": 0,
+          "document_version_id": "0bdeda9a-1c5c-4517-89b4-38c3a589ac93",
+          "native_bbox": null,
+          "native_coordinate_system": "pdf_bottom_left_points",
+          "parse_manifest_id": "be34512d-92a7-5f80-b0cf-f888cacd5529",
+          "parser_run_id": "0e1ce32b-d927-4112-9e27-3e890b448e65",
+          "physical_page": 1,
+          "printed_page_label": null,
+          "raw_text": "재활용품 회수 보상 거점 정보 제공 전국 확대",
+          "source_native_id": "up-enhanced-0-8-c6"
+        },
+        "table_native_id": "up-enhanced-0-8"
+      },
+      {
+        "column_number": 1,
+        "column_span": 1,
+        "context": [
+          "section=2025년 경영진 기후변화 대응 영역 KPI 달성현황",
+          "provider_bbox=177.426,203.193,584.155,375.564",
+          "pb1_table_claims",
+          "vision_only",
+          "mixed_parser_name=upstage_async_enhanced",
+          "mixed_parser_version=document-parse-260128"
+        ],
+        "geometry": {
+          "crop_box": [
+            0.0,
+            0.0,
+            1048.0,
+            595.0
+          ],
+          "height_pt": 595,
+          "rotation": 0,
+          "width_pt": 1048
+        },
+        "kind": "table_cell",
+        "parser_bbox": null,
+        "parser_coordinate_system": "pdf_bottom_left_points",
+        "parser_to_canonical": null,
+        "row_number": 2,
+        "row_span": 1,
+        "source": {
+          "char_end": 45,
+          "char_start": 0,
+          "document_version_id": "0bdeda9a-1c5c-4517-89b4-38c3a589ac93",
+          "native_bbox": null,
+          "native_coordinate_system": "pdf_bottom_left_points",
+          "parse_manifest_id": "be34512d-92a7-5f80-b0cf-f888cacd5529",
+          "parser_run_id": "0e1ce32b-d927-4112-9e27-3e890b448e65",
+          "physical_page": 1,
+          "printed_page_label": null,
+          "raw_text": "• 전국 지자체 ‘고품질 재활용품 회수보상 사업 수거 거점’ 네이버 플레이스 연동",
+          "source_native_id": "up-enhanced-0-8-c7"
+        },
+        "table_native_id": "up-enhanced-0-8"
+      },
+      {
+        "column_number": 2,
+        "column_span": 1,
+        "context": [
+          "section=2025년 경영진 기후변화 대응 영역 KPI 달성현황",
+          "provider_bbox=177.426,203.193,584.155,375.564",
+          "pb1_table_claims",
+          "vision_only",
+          "mixed_parser_name=upstage_async_enhanced",
+          "mixed_parser_version=document-parse-260128"
+        ],
+        "geometry": {
+          "crop_box": [
+            0.0,
+            0.0,
+            1048.0,
+            595.0
+          ],
+          "height_pt": 595,
+          "rotation": 0,
+          "width_pt": 1048
+        },
+        "kind": "table_cell",
+        "parser_bbox": null,
+        "parser_coordinate_system": "pdf_bottom_left_points",
+        "parser_to_canonical": null,
+        "row_number": 2,
+        "row_span": 1,
+        "source": {
+          "char_end": 52,
+          "char_start": 0,
+          "document_version_id": "0bdeda9a-1c5c-4517-89b4-38c3a589ac93",
+          "native_bbox": null,
+          "native_coordinate_system": "pdf_bottom_left_points",
+          "parse_manifest_id": "be34512d-92a7-5f80-b0cf-f888cacd5529",
+          "parser_run_id": "0e1ce32b-d927-4112-9e27-3e890b448e65",
+          "physical_page": 1,
+          "printed_page_label": null,
+          "raw_text": "달성 \n• 전국 지자체 ‘고품질 재활용품 회수보상 사업 수거 거점’ 네이버 플레이스 연동 완료",
+          "source_native_id": "up-enhanced-0-8-c8"
+        },
+        "table_native_id": "up-enhanced-0-8"
+      },
+      {
+        "column_number": null,
+        "column_span": null,
+        "context": [
+          "section=2025년 경영진 기후변화 대응 영역 KPI 달성현황",
+          "provider_bbox=177.426,203.193,584.155,375.564",
+          "pb1_table_claims",
+          "provider_declared_grid_region",
+          "mixed_parser_name=upstage_async_enhanced",
+          "mixed_parser_version=document-parse-260128"
+        ],
+        "geometry": {
+          "crop_box": [
+            0.0,
+            0.0,
+            1048.0,
+            595.0
+          ],
+          "height_pt": 595,
+          "rotation": 0,
+          "width_pt": 1048
+        },
+        "kind": "table",
+        "parser_bbox": null,
+        "parser_coordinate_system": "pdf_bottom_left_points",
+        "parser_to_canonical": null,
+        "row_number": null,
+        "row_span": null,
+        "source": {
+          "char_end": 398,
+          "char_start": 0,
+          "document_version_id": "0bdeda9a-1c5c-4517-89b4-38c3a589ac93",
+          "native_bbox": [
+            177.4264,
+            219.43600000000004,
+            584.1552,
+            391.8075
+          ],
+          "native_coordinate_system": "pdf_bottom_left_points",
+          "parse_manifest_id": "be34512d-92a7-5f80-b0cf-f888cacd5529",
+          "parser_run_id": "0e1ce32b-d927-4112-9e27-3e890b448e65",
+          "physical_page": 1,
+          "printed_page_label": null,
+          "raw_text": "경영진 ESG KPI\t세부 개선 과제\t달성 현황\n데이터센터 재생에너지 확보 기반 마련\t• PPA, 발전소 투자 등 경쟁력 있는 지속가능한 에너지 확보 추진 \n• 데이터센터 각 춘천 RE70 수준의 재생에너지 확보 - 2025~2026년 2개년 추진 목표\t달성 \n• 데이터센터 각 춘천 6MW 태양광 PPA 개시 (진행 중) \n• 그린팩토리 1MW 태양광 PPA 추가 개시 (기존 1.5MW → 2.5MW) \n• 지분투자 및 PPA 추진을 통한 데이터센터용 대규모 재생에너지 확보 체계 구축\n재활용품 회수 보상 거점 정보 제공 전국 확대\t• 전국 지자체 ‘고품질 재활용품 회수보상 사업 수거 거점’ 네이버 플레이스 연동\t달성 \n• 전국 지자체 ‘고품질 재활용품 회수보상 사업 수거 거점’ 네이버 플레이스 연동 완료",
+          "source_native_id": "up-enhanced-0-8"
+        },
+        "table_native_id": null
+      }
+    ],
+    "config_hash": "ba1c18c3ecf9a022ca8745eba79d9feace7955ebf93a7f833ac9dc7c1f57dcd8",
+    "document_version_id": "0bdeda9a-1c5c-4517-89b4-38c3a589ac93",
+    "edges": [
+      {
+        "relation": "table_parent",
+        "source_native_id": "up-enhanced-0-8-c0",
+        "target_native_id": "up-enhanced-0-8"
+      },
+      {
+        "relation": "table_parent",
+        "source_native_id": "up-enhanced-0-8-c1",
+        "target_native_id": "up-enhanced-0-8"
+      },
+      {
+        "relation": "table_parent",
+        "source_native_id": "up-enhanced-0-8-c2",
+        "target_native_id": "up-enhanced-0-8"
+      },
+      {
+        "relation": "table_parent",
+        "source_native_id": "up-enhanced-0-8-c3",
+        "target_native_id": "up-enhanced-0-8"
+      },
+      {
+        "relation": "table_parent",
+        "source_native_id": "up-enhanced-0-8-c4",
+        "target_native_id": "up-enhanced-0-8"
+      },
+      {
+        "relation": "table_parent",
+        "source_native_id": "up-enhanced-0-8-c5",
+        "target_native_id": "up-enhanced-0-8"
+      },
+      {
+        "relation": "table_parent",
+        "source_native_id": "up-enhanced-0-8-c6",
+        "target_native_id": "up-enhanced-0-8"
+      },
+      {
+        "relation": "table_parent",
+        "source_native_id": "up-enhanced-0-8-c7",
+        "target_native_id": "up-enhanced-0-8"
+      },
+      {
+        "relation": "table_parent",
+        "source_native_id": "up-enhanced-0-8-c8",
+        "target_native_id": "up-enhanced-0-8"
+      }
+    ],
+    "parse_manifest_id": "be34512d-92a7-5f80-b0cf-f888cacd5529",
+    "parser_family": "upstage-document-parse",
+    "parser_name": "upstage_async_enhanced",
+    "parser_run_id": "0e1ce32b-d927-4112-9e27-3e890b448e65",
+    "parser_version": "document-parse-260128",
+    "source_sha256": "04b6705b9267731366a62b013cbd0c4542675330e0281a9a2e135293bc5980ec",
+    "synthetic": false,
+    "tenant_id": "d1b9e025-a759-4d28-8713-cbb5940ec89b"
+  },
+  {
+    "blocks": [],
+    "config_hash": "ba1c18c3ecf9a022ca8745eba79d9feace7955ebf93a7f833ac9dc7c1f57dcd8",
+    "document_version_id": "0bdeda9a-1c5c-4517-89b4-38c3a589ac93",
+    "edges": [],
+    "parse_manifest_id": "be34512d-92a7-5f80-b0cf-f888cacd5529",
+    "parser_family": "upstage-document-parse",
+    "parser_name": "upstage_async_standard",
+    "parser_run_id": "430081ef-e6fb-40b8-bf8f-fa87c9ccab0f",
+    "parser_version": "document-parse-260128",
+    "source_sha256": "04b6705b9267731366a62b013cbd0c4542675330e0281a9a2e135293bc5980ec",
+    "synthetic": false,
+    "tenant_id": "d1b9e025-a759-4d28-8713-cbb5940ec89b"
+  }
+]
