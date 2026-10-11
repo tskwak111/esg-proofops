@@ -128,7 +128,14 @@ V2_PA4_POLICY = V2_PRE_PA4_POLICY | dict(model_response_policy=MODEL_RESPONSE_PO
 V2_PRE_PB6_POLICY = V2_PRE_PA8_POLICY
 V2_PB6_POLICY = V2_PRE_PB6_POLICY | dict(citation_restore="citation-selected-value-pb6-v1")
 V2_PRE_PB7_POLICY = V2_PRE_PA8_POLICY | dict(model_response_policy=MODEL_RESPONSE_POLICY)
-V2_POLICY = V2_PRE_PB7_POLICY | dict(citation_restore="citation-selected-value-pb6-v1")
+V2_PB7_POLICY = V2_PRE_PB7_POLICY | dict(citation_restore="citation-selected-value-pb6-v1")
+V2_PRE_PA9_POLICY = V2_PRE_PB7_POLICY
+V2_PA9_POLICY = V2_PRE_PA9_POLICY | dict(
+    source="upstage-ocr-page-v10", table_native_ownership="native-grid-pa9-v1"
+)
+V2_POLICY = V2_PB7_POLICY | dict(
+    source="upstage-ocr-page-v10", table_native_ownership="native-grid-pa9-v1"
+)
 
 
 def policy_for(profile, *, pinned_hash=None):
@@ -137,9 +144,12 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            V2_PA9_POLICY,
+            V2_PB7_POLICY,
             V2_PRE_PB7_POLICY,
             V2_PB6_POLICY,
             V2_PRE_PB6_POLICY,
+            V2_PRE_PA9_POLICY,
             V2_PRE_PA8_POLICY,
             V2_PA4_POLICY,
             V2_PRE_PA4_POLICY,
@@ -193,8 +203,9 @@ def apply_pilot_profile(args):
         "upstage-ocr-page-v7",
         "upstage-ocr-page-v8",
         "upstage-ocr-page-v9",
+        "upstage-ocr-page-v10",
     ):
-        args.claim_source_profile = "upstage-ocr-page-v9"
+        args.claim_source_profile = "upstage-ocr-page-v10"
     if getattr(args, "claim_source_profile", None) not in {
         "upstage-ocr-page-v3",
         "upstage-ocr-page-v4",
@@ -203,6 +214,7 @@ def apply_pilot_profile(args):
         "upstage-ocr-page-v7",
         "upstage-ocr-page-v8",
         "upstage-ocr-page-v9",
+        "upstage-ocr-page-v10",
     }:
         args.claim_source_profile = "claim-source-v3"
     args.verify_claim_spans = True

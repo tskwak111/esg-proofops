@@ -673,6 +673,7 @@ class RunService:
                     "upstage-ocr-page-v7",
                     "upstage-ocr-page-v8",
                     "upstage-ocr-page-v9",
+                    "upstage-ocr-page-v10",
                 }:
                     from proofops.adapters.local import evidence_source_ocr_v1 as evidence
 

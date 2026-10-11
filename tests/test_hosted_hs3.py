@@ -54,7 +54,7 @@ def test_profile_prepares_mixed_and_approved_linux_source(tmp_path, monkeypatch,
     assert parser["parser_mode"] == "mixed-v1"
     assert frozen["pipeline_profile"] == profile
     assert frozen["claim_source_policy"]["profile"] == (
-        "upstage-ocr-page-v9" if profile == "finals-unattended-v2" else "upstage-ocr-page-v5"
+        "upstage-ocr-page-v10" if profile == "finals-unattended-v2" else "upstage-ocr-page-v5"
     )
     from proofops.adapters.local.run_store import LocalSQLiteRunStore
 

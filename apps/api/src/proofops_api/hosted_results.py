@@ -99,6 +99,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
         # the same graph for every claim's identity-checked missing-evidence search.
         _, discovery, original_graph = evidence
         from proofops.application.analysis_profile import (
+            V2_PA9_POLICY,
             V2_PB1_COMPACT_POLICY,
             V2_PB1_INITIAL_POLICY,
             V2_PB1_POLICY,
@@ -106,9 +107,11 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             V2_PB2_INITIAL_POLICY,
             V2_PB2_POLICY,
             V2_PB4_POLICY,
+            V2_PB7_POLICY,
             V2_POLICY,
             V2_PRE_PA7_POLICY,
             V2_PRE_PA8_POLICY,
+            V2_PRE_PA9_POLICY,
             V2_PRE_PB4_POLICY,
         )
         from proofops.application.ingest.pb1_tables import observations, occurrence_groups
@@ -116,8 +119,11 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
 
         pb1 = tag_snapshot.get("analysis_profile_policy_sha256") in {
             canonical_hash(V2_POLICY),
+            canonical_hash(V2_PA9_POLICY),
+            canonical_hash(V2_PB7_POLICY),
             canonical_hash(V2_PRE_PA7_POLICY),
             canonical_hash(V2_PRE_PA8_POLICY),
+            canonical_hash(V2_PRE_PA9_POLICY),
             canonical_hash(V2_PB4_POLICY),
             canonical_hash(V2_PRE_PB4_POLICY),
             canonical_hash(V2_PB2_POLICY),
@@ -154,8 +160,11 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                         summary["table_observation"] = row
                         if tag_snapshot.get("analysis_profile_policy_sha256") in {
                             canonical_hash(V2_POLICY),
+                            canonical_hash(V2_PA9_POLICY),
+                            canonical_hash(V2_PB7_POLICY),
                             canonical_hash(V2_PRE_PA7_POLICY),
                             canonical_hash(V2_PRE_PA8_POLICY),
+                            canonical_hash(V2_PRE_PA9_POLICY),
                             canonical_hash(V2_PB4_POLICY),
                             canonical_hash(V2_PRE_PB4_POLICY),
                             canonical_hash(V2_PB2_POLICY),

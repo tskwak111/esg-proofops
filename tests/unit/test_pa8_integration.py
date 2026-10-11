@@ -9,6 +9,7 @@ import pytest
 from proofops.application.analysis_profile import (
     MODEL_RESPONSE_POLICY,
     V2_PA4_POLICY,
+    V2_PB7_POLICY,
     V2_POLICY,
     V2_PRE_PA8_POLICY,
     V2_PRE_PB7_POLICY,
@@ -42,6 +43,8 @@ def test_every_historical_policy_remains_readable():
         "ec63057b3bd775240bf10bcd90afefd7881bb112e47e772799d50ff33b7cc11a",
         "639ba0a01ebde2856deef9d5811195417bb13e369d57d7568fe3c8399634b12d",
         "e483d3ac82014f2658c185b3091b23fe1011ef9923ec9d3bb8ad19f37aad74a7",
+        "44b781790568a11e2887a8882eeeeda9bb7c5e4f9bc1e87550d92766ec23464c",
+        "2ff0d5c654fec0aa80c70c3a5be0da601becdf5eae92980a766ae4fcdac7495e",
     ):
         assert canonical_hash(policy_for("finals-unattended-v2", pinned_hash=digest)) == digest
     assert canonical_hash(V2_PRE_PA8_POLICY) == (
@@ -56,8 +59,13 @@ def test_every_historical_policy_remains_readable():
     assert canonical_hash(V2_PRE_PB7_POLICY) == (
         "639ba0a01ebde2856deef9d5811195417bb13e369d57d7568fe3c8399634b12d"
     )
-    assert V2_POLICY == V2_PRE_PB7_POLICY | dict(citation_restore="citation-selected-value-pb6-v1")
-    assert V2_POLICY["source"] == "upstage-ocr-page-v9"
+    assert V2_PB7_POLICY == V2_PRE_PB7_POLICY | dict(
+        citation_restore="citation-selected-value-pb6-v1"
+    )
+    assert V2_POLICY == V2_PB7_POLICY | dict(
+        source="upstage-ocr-page-v10", table_native_ownership="native-grid-pa9-v1"
+    )
+    assert V2_POLICY["source"] == "upstage-ocr-page-v10"
     assert V2_POLICY["verified_read_cache"]["profile"] == "exact-verified-read-v4"
 
 
