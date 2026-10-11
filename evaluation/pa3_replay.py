@@ -130,7 +130,7 @@ def main():
     args = argparse.ArgumentParser()
     args.add_argument("--source", type=Path, required=True)
     args.add_argument("--output", type=Path, required=True)
-    args.add_argument("--stage", choices=("parse", "tag", "pipeline"), required=True)
+    args.add_argument("--stage", choices=("parse", "tag", "pipeline", "extraction"), required=True)
     args.add_argument("--cache-profile", default="exact-verified-read-v2")
     args.add_argument("--workers", type=int, default=8)
     args.add_argument("--rtt-ms", type=float, default=150)
@@ -149,7 +149,7 @@ def main():
     )
     if ledger_name is None:
         raise ValueError("REPLAY_RETAINED_MODEL_LEDGER_REQUIRED")
-    first_stage = "parse" if args.stage == "pipeline" else args.stage
+    first_stage = "parse" if args.stage in ("pipeline", "extraction") else args.stage
     tenant, run = fixture(source, output, first_stage)
     os.environ.update(
         APP_ENV="local",
@@ -428,13 +428,13 @@ def main():
             events.append(
                 dict(function="stage." + first_stage, start=begin, seconds=stage_times[first_stage])
             )
-            if args.stage == "pipeline":
+            if args.stage in ("pipeline", "extraction"):
                 assert status == "committed", status
                 factories = dict(
                     llm=lambda key, ledger, **kw: ReplayProbe("offline-fixture", ledger, **kw),
                     parse=lambda ledger: ReplayParse("offline-fixture", ledger),
                 )
-                for stage in ("extract", "tag"):
+                for stage in ("extract",) if args.stage == "extraction" else ("extract", "tag"):
                     if args.trace_failures and stage == "extract":
 
                         def trace(frame, event, value):
@@ -491,7 +491,13 @@ def main():
                     )
         seconds = time.monotonic() - start
         assert status == ("completed" if args.stage in ("tag", "pipeline") else "committed"), status
-        final_stage = "tag" if args.stage == "pipeline" else args.stage
+        final_stage = (
+            "tag"
+            if args.stage == "pipeline"
+            else "extract"
+            if args.stage == "extraction"
+            else args.stage
+        )
         result = checkpoint(output, final_stage)
         expected = checkpoint(source, final_stage)
         identical = normalize_timing(result) == normalize_timing(expected)
