@@ -8,7 +8,7 @@ only when the model's own normalized selection covers the current value.
 from dataclasses import asdict, replace
 
 from proofops.application.evidence.span_citations import verify_source_ref
-from proofops.application.ingest.pb1_tables import observations
+from proofops.application.ingest.w9_tables import observations_for
 from proofops.domain.provenance import canonical_hash
 
 POLICY = dict(
@@ -36,7 +36,7 @@ def observation_sources(claim, graph, *, tenant_id):
     obs = next(
         (
             o
-            for o in observations(table.normalized_text, context=" ".join(context))
+            for o in observations_for(table, graph)
             if o["start"] == ref.char_start and o["end"] == ref.char_end
         ),
         None,

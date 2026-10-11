@@ -530,6 +530,7 @@ def _profile_with_options(
     extraction_recall_prompt: bool = False,
     extraction_pb1: bool = False,
     extraction_pb1_context_guard: bool = False,
+    extraction_w9: bool = False,
 ) -> ExtractionProfile:
     """Versioned extraction profile for an explicit option combination.
 
@@ -548,6 +549,8 @@ def _profile_with_options(
     ``assertion_prompt`` and pins its own rule entry and prompt suffix, so a
     complete-selection run can never replay an assertion-only receipt.
     """
+    if type(extraction_w9) is not bool or (extraction_w9 and not extraction_pb1):
+        raise ValueError("EXTRACTION_W9_INVALID")
     from proofops.adapters.local.openrouter import MODEL as LUNA_MODEL
 
     if model not in (UPSTAGE_MODEL, MODEL_PRO4, LUNA_MODEL, "gpt-6-luna"):
@@ -617,6 +620,10 @@ def _profile_with_options(
         from proofops.application.ingest.pb1_tables import POLICY as PB1_POLICY
 
         descriptor.append(PB1_POLICY)
+    if extraction_w9:
+        from proofops.application.ingest.w9_tables import POLICY as W9_POLICY
+
+        descriptor.append(W9_POLICY)
     if display_text_profile:
         descriptor.append(POLICY)
     if year_notation:
@@ -669,6 +676,7 @@ def _profile_with_options(
                 extraction_table_rows=extraction_table_rows,
                 extraction_recall_prompt=extraction_recall_prompt,
             )
+            + (_w9_suffix() if extraction_w9 else "")
             + (_display_suffix() if display_text_profile else "")
         ),
         rule_sha256=canonical_hash(descriptor),
@@ -680,6 +688,15 @@ def _display_suffix():
     from proofops.application.ingest.display_text import SYSTEM_SUFFIX
 
     return SYSTEM_SUFFIX
+
+
+def _w9_suffix():
+    return (
+        " W9: each table source sentence stays inside one literal cell when cells have line breaks."
+        " Explicit bullets may be separate IDs; wrapped lines stay inside the bullet and cell."
+        " Column headers are context, never quoted evidence or a donor of numbers/years."
+        " Provider chart tables require independent source verification and are excluded here."
+    )
 
 
 class UpstageClaimExtractor:
@@ -707,6 +724,7 @@ class UpstageClaimExtractor:
         extraction_recall_prompt: bool = False,
         extraction_pb1: bool = False,
         extraction_pb1_context_guard: bool = False,
+        extraction_w9: bool = False,
     ) -> None:
         if not callable(getattr(probe, "complete", None)):
             raise ValueError("UPSTAGE_PROBE_REQUIRED")
@@ -760,6 +778,7 @@ class UpstageClaimExtractor:
             extraction_recall_prompt=extraction_recall_prompt,
             extraction_pb1=extraction_pb1,
             extraction_pb1_context_guard=extraction_pb1_context_guard,
+            extraction_w9=extraction_w9,
         )
         if type(max_tokens) is not int or not 1 <= max_tokens <= 4096:
             raise ValueError("UPSTAGE_MAX_TOKENS_INVALID")
@@ -777,6 +796,7 @@ class UpstageClaimExtractor:
             raise ValueError("EXTRACTION_PB1_CONTEXT_GUARD_INVALID")
         self._pb1_context_guard = extraction_pb1_context_guard
         self._pb1 = extraction_pb1
+        self._w9 = extraction_w9
         self._table_rows = extraction_table_rows
         self._recall_prompt = extraction_recall_prompt
         self._atomic = extraction_atomic
@@ -866,6 +886,8 @@ class UpstageClaimExtractor:
         when the context option is on.
         """
         text = self._packet_text(packet)
+        if self._w9 and packet["untrusted_document_data"]["kind"] == "figure":
+            return {"spans": []}
         if self._pb1 and packet["untrusted_document_data"]["kind"] == "table":
             self._require_graph(packet, context_graph)
             from proofops.application.ingest.pb1_tables import observations
@@ -873,7 +895,12 @@ class UpstageClaimExtractor:
             data = packet["untrusted_document_data"]
             block = next(b for b in context_graph.blocks if b.source_id == data["source_id"])
             context = " ".join(block.candidates[block.winner].context)
-            rows = observations(text, context=context) if data["kind"] == "table" else []
+            if self._w9:
+                from proofops.application.ingest.w9_tables import observations_for
+
+                rows = observations_for(block, context_graph)
+            else:
+                rows = observations(text, context=context)
             result: dict[str, Any] = {
                 "spans": [
                     dict(
@@ -888,7 +915,11 @@ class UpstageClaimExtractor:
                 ]
             }
             self._validate_spans(result, text)
-            directory = self._receipts / ("pb1-" + canonical_hash(packet))
+            directory = self._receipts / (
+                "pb1-" + canonical_hash({"packet": packet, "policy": self._profile.rule_sha256})
+                if self._w9
+                else "pb1-" + canonical_hash(packet)
+            )
             if not directory.exists():
                 directory.mkdir(mode=0o700)
                 self._write(directory / "packet.json", canonical_json(packet))
@@ -1366,7 +1397,7 @@ class UpstageClaimExtractor:
                     for entry in (
                         self._atomic_entries(packet, text, blocks)
                         if self._atomic
-                        else self._row_entries(packet, text, blocks)
+                        else self._row_entries(packet, text, blocks, context_graph=context_graph)
                     )
                 ]
             spans, diagnostics = self._resolve_sentence_ids(
@@ -1557,7 +1588,7 @@ class UpstageClaimExtractor:
             )
         return entries
 
-    def _row_entries(self, packet, text, context_blocks):
+    def _row_entries(self, packet, text, context_blocks, *, context_graph=None):
         data = packet["untrusted_document_data"]
         kind = data["kind"]
         if kind not in ("table", "table_row", "table_cell", "figure"):
@@ -1567,6 +1598,19 @@ class UpstageClaimExtractor:
                     text, data["source_id"], self._content_bounds
                 )
             ]
+        if self._w9 and kind == "figure":
+            return []
+        if self._w9 and kind == "table":
+            from proofops.application.ingest.w9_tables import cell_entries, graph_cells
+
+            self._validate_context_graph(packet, context_graph)
+            block = next(b for b in context_graph.blocks if b.source_id == data["source_id"])
+            cells = graph_cells(block, context_graph)
+            if any("\n" in c["text"] for c in cells):
+                entries = cell_entries(text, cells, source_id=data["source_id"])
+                if len(entries) > ROW_POLICY["max_candidates"]:
+                    raise ExtractionOutputError("EXTRACTION_SOURCE_SENTENCES_UNBOUNDED")
+                return entries
         axes = [b for b in context_blocks if b["role"].startswith("table_")]
         candidates = row_candidates(text, kind=kind, table_context=tuple(b["text"] for b in axes))
         if len(candidates) > ROW_POLICY["max_candidates"]:
@@ -1634,7 +1678,9 @@ class UpstageClaimExtractor:
             data["candidate_diagnostics"] = diagnostics
             data["candidate_profile"] = ATOMIC_PROFILE
         if self._table_rows:
-            data["source_sentences"] = self._row_entries(packet, text, context_blocks)
+            data["source_sentences"] = self._row_entries(
+                packet, text, context_blocks, context_graph=context_graph
+            )
             data["candidate_profile"] = ROW_PROFILE
         if self._context:
             data["context_blocks"] = context_blocks
@@ -1649,6 +1695,8 @@ class UpstageClaimExtractor:
             extraction_table_rows=self._table_rows,
             extraction_recall_prompt=self._recall_prompt,
         )
+        if self._w9:
+            system_prompt += _w9_suffix()
         user_data: dict[str, Any] = {
             "tenant_id": packet["tenant_id"],
             "document_version_id": packet["document_version_id"],

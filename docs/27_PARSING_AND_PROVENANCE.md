@@ -429,3 +429,21 @@ strict 객체/노드 상한은 KT의 실제 검사 결과에 따라 100,000→25
 display-v2의 제거 정책과 완료된 태깅·판정·보고서는 변경하지 않는다. rollback은
 FX6b commit revert이며 이미 저장된 원본/파생물은 보존한다. 되돌린 버전에서는 새로
 접수된 암호화 원본의 후속 준비가 실패할 수 있어 intake를 닫고 버전을 맞춰야 한다.
+
+## W9 표 후보 정책 (2026-10-11)
+
+새 `finals-unattended-v2` 실행은 `table_claims=pb1-w9-v1` 및
+`extraction_w9=true`를 고정한다. 이전 `pb1-v1`·분석/추출 hash와 receipt는
+그대로 재생한다. 동일 표 머리·라벨의 환경 맥락과 명시 단위 셀
+(`kg/백만 원`, `대`, `톤/년` 등)을 사용하며 재무표에는 환경 맥락을 차용하지 않는다.
+셀 내부 개행이 있는 표의 일반 후보는 명시 격자의 단일 셀 인용으로 한정하고 명시 bullet만 셀 내부에서 분리한다.
+단순 행 표는 기존 행 후보를 유지한다. 적용기술이 표시된 셀은 맥락으로 남긴다.
+Provider의 chart/figure 합성 수치는 일반 주장 후보에서 제외하고 독립 판독 경로에 남긴다.
+
+기존 결과의 optional `table_observation` 안에 `metric_path`, `column_path`,
+`metric_path_sources`, `metric_path_usage=display_only_not_evidence`를 추가한다.
+명시 row/column span 및 국내/해외·오염물질 원단위의 제한된 표시 계층만 사용한다.
+빈 라벨의 무조건 상속, 새 present·등급 인정, 행/열/연도 원문검증 완화는 없다.
+API의 필수 필드 및 DB schema 변경/migration은 없다. 이전 reader는 추가 표시 필드를
+무시할 수 있다. 롤백은 새 실행 정책을 이전 hash로 되돌리고, W9 실행을 이전 추출기로
+재개하지 않는다. 이전/새 revision·receipt·보고서는 보존한다.

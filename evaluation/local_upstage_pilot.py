@@ -720,6 +720,7 @@ def apply_resume_metadata(args, saved: dict) -> None:
     args.extraction_linewrap_join = bool(saved.get("extraction_linewrap_join", False))
     args.extraction_fragment_guard = bool(saved.get("extraction_fragment_guard", False))
     args.extraction_pb1 = bool(saved.get("extraction_pb1", False))
+    args.extraction_w9 = bool(saved.get("extraction_w9", False))
     args.extraction_pb1_context_guard = bool(saved.get("extraction_pb1_context_guard", False))
     args.extraction_source_ids = bool(saved.get("extraction_source_ids", False))
     args.extraction_assertion_prompt = bool(saved.get("extraction_assertion_prompt", False))
@@ -877,6 +878,7 @@ def main():
         help="NEW run parser artifact cap (default 20000000; max 128 MiB).",
     )
     parser.add_argument("--extraction-pb1", action="store_true")
+    parser.add_argument("--extraction-w9", action="store_true")
     parser.add_argument("--extraction-pb1-context-guard", action="store_true")
     parser.add_argument("--max-calls", type=int, default=8)
     parser.add_argument(
@@ -1534,7 +1536,9 @@ def main():
             upstage_glyph_boxes=args.parser in ("upstage", "mixed-v1"),
             upstage_region_words=args.parser in ("upstage", "mixed-v1"),
             source_recovery=args.parser_source_recovery,
-            table_claims_profile="pb1-v1" if args.extraction_pb1 else None,
+            table_claims_profile=("pb1-w9-v1" if args.extraction_w9 else "pb1-v1")
+            if args.extraction_pb1
+            else None,
         )
         (state / "parser.json").write_text(json.dumps(config.config_snapshot()))
         if (
@@ -1555,6 +1559,7 @@ def main():
                     extraction_linewrap_join=args.extraction_linewrap_join,
                     extraction_fragment_guard=args.extraction_fragment_guard,
                     extraction_pb1=args.extraction_pb1,
+                    extraction_w9=args.extraction_w9,
                     extraction_pb1_context_guard=args.extraction_pb1_context_guard,
                     extraction_table_rows=args.extraction_table_rows,
                     extraction_recall_prompt=args.extraction_recall_prompt,
@@ -1612,6 +1617,8 @@ def main():
             settings["extraction_linewrap_join"] = True
         if args.extraction_pb1_context_guard:
             settings["extraction_pb1_context_guard"] = True
+        if args.extraction_w9:
+            settings["extraction_w9"] = True
         if args.extraction_pb1:
             settings["extraction_pb1"] = True
         if args.extraction_fragment_guard:
@@ -2103,6 +2110,8 @@ def main():
             manifest["extraction_linewrap_join"] = True
         if args.extraction_pb1_context_guard:
             manifest["extraction_pb1_context_guard"] = True
+        if args.extraction_w9:
+            manifest["extraction_w9"] = True
         if args.extraction_pb1:
             manifest["extraction_pb1"] = True
         if args.extraction_fragment_guard:
@@ -2204,6 +2213,7 @@ def main():
             "extraction_recall_prompt",
             "extraction_fragment_guard",
             "extraction_pb1",
+            "extraction_w9",
             "extraction_pb1_context_guard",
         ):
             if manifest.get(name, False) != getattr(args, name):

@@ -105,7 +105,7 @@ class ParserProfile:
     table_claims_profile: str | None = None
 
     def __post_init__(self):
-        if self.table_claims_profile not in (None, "pb1-v1"):
+        if self.table_claims_profile not in (None, "pb1-v1", "pb1-w9-v1"):
             raise ValueError("unsupported table claims profile")
         if self.source_recovery not in (None, "ps1-v1"):
             raise ValueError("unsupported source recovery policy")

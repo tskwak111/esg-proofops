@@ -36,6 +36,7 @@ _SETTINGS_FIELDS = frozenset(
         "extraction_linewrap_join",
         "extraction_fragment_guard",
         "extraction_pb1",
+        "extraction_w9",
         "extraction_pb1_context_guard",
         "extraction_table_rows",
         "extraction_recall_prompt",
@@ -354,6 +355,7 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         "extraction_linewrap_join",
         "extraction_fragment_guard",
         "extraction_pb1",
+        "extraction_w9",
         "extraction_pb1_context_guard",
         "extraction_table_rows",
         "extraction_recall_prompt",
@@ -367,6 +369,8 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         # reconstructs the matching extractor profile from the settings file.
         if flag in settings and (settings[flag] is not True or extraction_mode != "upstage_probe"):
             raise _invalid()
+    if settings.get("extraction_w9") and settings.get("extraction_pb1") is not True:
+        raise _invalid()
     for flag in ("extraction_table_rows", "extraction_recall_prompt"):
         if flag in settings and (
             settings.get("extraction_source_ids") is not True

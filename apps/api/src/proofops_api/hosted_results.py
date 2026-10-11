@@ -113,12 +113,15 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             V2_PRE_PA8_POLICY,
             V2_PRE_PA9_POLICY,
             V2_PRE_PB4_POLICY,
+            V2_PRE_W9_POLICY,
         )
-        from proofops.application.ingest.pb1_tables import observations, occurrence_groups
+        from proofops.application.ingest.pb1_tables import occurrence_groups
+        from proofops.application.ingest.w9_tables import observations_for
         from proofops.domain.provenance import canonical_hash
 
         pb1 = tag_snapshot.get("analysis_profile_policy_sha256") in {
             canonical_hash(V2_POLICY),
+            canonical_hash(V2_PRE_W9_POLICY),
             canonical_hash(V2_PA9_POLICY),
             canonical_hash(V2_PB7_POLICY),
             canonical_hash(V2_PRE_PA7_POLICY),
@@ -147,11 +150,10 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                 ref = claim.source_refs[0]
                 block = blocks[ref.source_id]
                 if block.kind == "table" and block.winner is not None:
-                    context = " ".join(block.candidates[block.winner].context)
                     row = next(
                         (
                             r
-                            for r in observations(block.normalized_text, context=context)
+                            for r in observations_for(block, original_graph)
                             if r["start"] <= ref.char_start < ref.char_end <= r["end"]
                         ),
                         None,
@@ -160,6 +162,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                         summary["table_observation"] = row
                         if tag_snapshot.get("analysis_profile_policy_sha256") in {
                             canonical_hash(V2_POLICY),
+                            canonical_hash(V2_PRE_W9_POLICY),
                             canonical_hash(V2_PA9_POLICY),
                             canonical_hash(V2_PB7_POLICY),
                             canonical_hash(V2_PRE_PA7_POLICY),
