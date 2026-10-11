@@ -1,6 +1,6 @@
 """Bounded, editable offline scope proposals. No models or evidence admission.
 
-Opt-in policy AS1-v1 leaves report_sections v11 and its hash unchanged.
+W4-v2 ranks claim signals; explicit AS1-v1 keeps historical plans replayable.
 Physical pages only; snippets are native previews, never verified SourceRefs.
 """
 
@@ -22,6 +22,8 @@ from pypdf import PdfReader
 
 from evaluation.report_sections import POLICY_HASH, build_map
 from evaluation.report_sections import inspect as inspect_sections
+from evaluation.scope_claim_signals import POLICY as SIGNAL_POLICY
+from evaluation.scope_claim_signals import claim_signals
 
 VERSION = "AS1-v1"
 CEO_PATTERN = (
@@ -77,6 +79,9 @@ POLICY = {
     "failure": "no_readable_environmental_narrative; suggest_front_3_never_full_pdf",
 }
 POLICY_SHA256 = canonical_hash(POLICY)
+RANKING_VERSION = "W4-v2"
+RANKING_POLICY = POLICY | dict(version=RANKING_VERSION, ranking=SIGNAL_POLICY)
+RANKING_POLICY_SHA256 = canonical_hash(RANKING_POLICY)
 
 
 def _normal(text):
@@ -103,12 +108,17 @@ def build_plan(
     max_evidence_pages=30,
     page_headings=None,
     page_primary_headings=None,
+    ranking_policy=RANKING_VERSION,
 ):
     """Rank readable candidates; uncertainty and exclusions remain explicit."""
     if type(max_environment_pages) is not int or not 1 <= max_environment_pages <= 10:
         raise ValueError("environment limit must be an integer in 1..10")
     if type(max_evidence_pages) is not int or not 10 <= max_evidence_pages <= 500:
         raise ValueError("evidence limit must be an integer in 10..500 (includes claims)")
+    if ranking_policy not in (VERSION, RANKING_VERSION):
+        raise ValueError("unsupported scope policy")
+    if ranking_policy == RANKING_VERSION and max_evidence_pages > 30:
+        raise ValueError("W4 evidence limit must not exceed 30 (includes claims)")
     count = study["page_count"]
     roles, anchors, range_anchors = {}, {}, {}
     for section in study["sections"]:
@@ -268,10 +278,16 @@ def build_plan(
                 evidence_selected=False,
             )
         )
+        if ranking_policy == RANKING_VERSION:
+            score, signals = claim_signals(body, headings)
+            records[-1].update(claim_signal_score=score, claim_signals=signals)
     by_page = {r["page"]: r for r in records}
     ranked_env = sorted(
         env,
         key=lambda p: (
+            (-by_page[p]["claim_signal_score"],) if ranking_policy == RANKING_VERSION else ()
+        )
+        + (
             -by_page[p]["environmental_density"],
             -len(by_page[p]["environmental_groups"]),
             -by_page[p]["environmental_hits"],
@@ -307,12 +323,14 @@ def build_plan(
                 "excluded_by_declared_cap" if selected_claims else "scope_failed_no_paid_dispatch"
             )
     plan = dict(
-        version=VERSION,
+        version=ranking_policy,
         status="candidate_only" if selected_claims else "failed",
         source_path=study["source_path"],
         source_sha256=study["source_sha256"],
         page_count=count,
-        policy_sha256=POLICY_SHA256,
+        policy_sha256=(
+            RANKING_POLICY_SHA256 if ranking_policy == RANKING_VERSION else POLICY_SHA256
+        ),
         settings=dict(
             max_environment_pages=max_environment_pages,
             max_claim_pages=10,
@@ -322,7 +340,7 @@ def build_plan(
         ),
         section_policy_sha256=POLICY_HASH,
         section_map_sha256=study.get("map_sha256"),
-        method=VERSION,
+        method=ranking_policy,
         sections_method=study["method"],
         issues=study["issues"],
         ceo_candidate_pages=sorted(ceos),
@@ -360,7 +378,9 @@ def build_plan(
     return plan
 
 
-def inspect(pdf: Path, *, max_environment_pages=8, max_evidence_pages=30):
+def inspect(
+    pdf: Path, *, max_environment_pages=8, max_evidence_pages=30, ranking_policy=RANKING_VERSION
+):
     """Original bytes only. A section-reader failure becomes explicit native fallback."""
     if pdf.stat().st_size > 100 * 1024 * 1024:
         raise ValueError("local scope study limit: 100 MiB")
@@ -432,6 +452,7 @@ def inspect(pdf: Path, *, max_environment_pages=8, max_evidence_pages=30):
         max_evidence_pages=max_evidence_pages,
         page_headings=headings,
         page_primary_headings=primary,
+        ranking_policy=ranking_policy,
     )
 
 
@@ -443,7 +464,13 @@ def validate_selection(
         raise ValueError("manual selection must be boolean")
     if not isinstance(plan, dict):
         raise ValueError("scope-plan must be a JSON object")
-    if plan.get("version") != VERSION or plan.get("policy_sha256") != POLICY_SHA256:
+    policies = {VERSION: POLICY_SHA256, RANKING_VERSION: RANKING_POLICY_SHA256}
+    plan_version = plan.get("version")
+    if (
+        not isinstance(plan_version, str)
+        or plan_version not in policies
+        or plan.get("policy_sha256") != policies[plan_version]
+    ):
         raise ValueError("unsupported scope policy")
     if plan["source_sha256"] != source_sha256 or plan["page_count"] != page_count:
         raise ValueError("scope source identity mismatch")
@@ -505,11 +532,15 @@ def main():
     cli.add_argument("--output", type=Path, required=True)
     cli.add_argument("--environment-pages", type=int, default=8)
     cli.add_argument("--evidence-pages", type=int, default=30)
+    cli.add_argument(
+        "--ranking-policy", choices=(VERSION, RANKING_VERSION), default=RANKING_VERSION
+    )
     args = cli.parse_args()
     plan = inspect(
         args.pdf,
         max_environment_pages=args.environment_pages,
         max_evidence_pages=args.evidence_pages,
+        ranking_policy=args.ranking_policy,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("x") as stream:
