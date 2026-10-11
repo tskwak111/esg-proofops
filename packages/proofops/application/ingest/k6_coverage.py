@@ -1,0 +1,158 @@
+"""Explicit observed headers and literal target rescue; no source/grade credit."""
+
+import re
+
+from proofops.application.ingest import w9_tables as w9
+from proofops.application.ingest.j8_cells import graph_cells
+from proofops.domain.provenance import canonical_hash
+
+YEAR = re.compile(r"(?:19|20)\d{2}(?:\s*년)?(?:\s+(?:실적|성과|actuals?))?", re.I)
+UNIT = re.compile(w9.UNIT.pattern.replace("(?:eq|e)?", "(?:-?(?:eq|e))?"), re.I)
+TARGET = r"목표로\s*(?:설정|수립|정했)|목표를\s*(?:설정|수립)|목표로\s*하고"
+ENV = r"온실가스|재생에너지|탄소중립|넷\s*제로|net\s*zero|RE100|배출량"
+POLICY = dict(
+    profile="literal-coverage-k6-v1",
+    observed_year=YEAR.pattern,
+    unit=UNIT.pattern,
+    target=TARGET,
+    environment=ENV,
+    selection="explicit-environment-target-predicate-and-year-or-percent; literal-own-block",
+    exclusions="footnotes-recommendations-quotations-and-general-forecasts",
+    evidence="same-checked-parser-grid; no-source-or-tag-credit; reverify-new-spans",
+    old_policy="default-w9-parameters-and-I4-selections-unchanged",
+)
+
+
+def observations(text, *, cells=None, context="", limit=24):
+    # Preserve historical W9 code bytes and outputs. Only newly supported
+    # observed-header layouts enter this fallback; no parser text is rewritten.
+    old = w9.observations(text, cells=cells, context=context, limit=limit)
+    if old:
+        return old
+    rows = w9.grid(text, cells)
+    years = {}
+    for row in rows[:4]:
+        for e in row["entries"]:
+            if YEAR.fullmatch(e["text"].strip()):
+                year = re.search(r"\d{4}", e["text"])[0]
+                col = e["column"]
+                if col in years and years[col]["year"] != year:
+                    return []
+                years[col] = dict(year=year, row=row["row"], column=col, quote=e["text"])
+    if not years or len({h["year"] for h in years.values()}) != len(years):
+        return []
+    current, first = max(years, key=lambda c: years[c]["year"]), min(years)
+    header_end = max(h["row"] for h in years.values())
+    labels = " ".join(e["text"] for row in rows for e in row["entries"][:first])
+    if w9.FINANCIAL.search(labels) or not w9.ENV.search(labels):
+        return []
+    result = []
+    for row in rows[header_end + 1 :]:
+        es = row["entries"]
+        units = [e for e in es[:first] if UNIT.fullmatch("".join(e["text"].split()))]
+        local = [e for e in es[:first] if e["text"].strip() and e not in units]
+        value = es[current]["text"].strip()
+        if (
+            len(units) != 1
+            or not local
+            or w9.legacy.FOOTNOTE.match(local[0]["text"])
+            or w9.legacy.HEADER.fullmatch(local[0]["text"].strip())
+            or not w9.legacy.NUMERIC.fullmatch(value)
+            or w9.legacy.YEAR.fullmatch(value)
+        ):
+            continue
+        parents = [
+            e
+            for e in w9._parents(rows, row["row"], first)
+            if not UNIT.fullmatch("".join(e["text"].split()))
+        ]
+        column_parents = [
+            e
+            for head in rows[: header_end + 1]
+            for e in head["entries"]
+            if (c := e["cell"])
+            and c["text"]
+            and c["column"] <= current < c["column"] + c["column_span"]
+            and not YEAR.fullmatch(c["text"].strip())
+            and not w9.legacy.HEADER.fullmatch(c["text"].strip())
+            and not UNIT.fullmatch("".join(c["text"].split()))
+        ]
+        parents += column_parents
+        path = list(dict.fromkeys(e["text"] for e in parents))
+        result.append(
+            dict(
+                start=row["start"],
+                end=row["end"],
+                quote=text[row["start"] : row["end"]],
+                row=row["row"],
+                value_column=current,
+                value=value,
+                unit=units[0]["text"],
+                metric=" / ".join(path),
+                metric_path=path,
+                column_path=[e["text"] for e in column_parents],
+                metric_path_sources=[
+                    dict(
+                        row=e["cell"]["row"],
+                        column=e["column"],
+                        start=e["start"],
+                        end=e["end"],
+                        quote=e["text"],
+                    )
+                    for e in parents
+                ],
+                metric_path_usage="display_only_not_evidence",
+                year=years[current]["year"],
+                year_header=years[current],
+                comparisons=[
+                    dict(year=h["year"], value=es[col]["text"], column=col)
+                    for col, h in sorted(years.items())
+                    if col != current
+                ],
+                policy_sha256=canonical_hash(POLICY),
+            )
+        )
+    return result[: min(limit, w9.POLICY["max_rows_per_table"])]
+
+
+def observations_for(table, graph):
+    return observations(table.normalized_text, cells=graph_cells(table, graph))
+
+
+def target_spans(text, *, kind):
+    if (
+        kind != "paragraph"
+        or len(text) > 2000
+        or not re.search(TARGET, text)
+        or not re.search(ENV, text, re.I)
+        or not re.search(r"(?:19|20)\d{2}\s*년\s*까지|\d+(?:\.\d+)?\s*%", text)
+        or re.search(r"^\s*[*※]|권고|정의|예를\s*들어|[\"“”]", text)
+    ):
+        return []
+    start, end = len(text) - len(text.lstrip()), len(text.rstrip())
+    return [
+        dict(
+            char_start=start,
+            char_end=end,
+            quote=text[start:end],
+            kind="claim",
+            reason=None,
+            topic_ids=["environment"],
+        )
+    ]
+
+
+def rescue_targets(spans, text, *, kind):
+    targets = target_spans(text, kind=kind)
+    if not targets or any(
+        s["char_start"] <= targets[0]["char_start"] and s["char_end"] >= targets[0]["char_end"]
+        for s in spans
+    ):
+        return spans, []
+    # Keep an already selected partial target rather than adding an overlapping duplicate.
+    target = targets[0]
+    if any(
+        s["char_start"] < target["char_end"] and target["char_start"] < s["char_end"] for s in spans
+    ):
+        return spans, []
+    return sorted([*spans, target], key=lambda s: s["char_start"]), targets
