@@ -206,9 +206,10 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
         else:
             raise ValueError("UPSTAGE_TAGGING_BINDING_INVALID")
         if settings.model_profile == COMPACT_PROFILE:
+            from proofops.application.tagging.finals_i4 import K4_PRELIMINARY
             from proofops.application.tagging.k1_semantics import GUIDANCE
 
-            if settings.system_prompt == expected_prompt + "\n" + GUIDANCE:
+            if settings.system_prompt in (expected_prompt + "\n" + GUIDANCE, K4_PRELIMINARY):
                 expected_prompt = settings.system_prompt
         if (
             not isinstance(probe, self._probe_type())
@@ -388,9 +389,10 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
             expected_schema, expected_prompt = SCHEMA, SYSTEM_PROMPT
             expected_keys = _ENVELOPE_KEYS
         if settings.model_profile == COMPACT_PROFILE:
+            from proofops.application.tagging.finals_i4 import K4_PRELIMINARY
             from proofops.application.tagging.k1_semantics import GUIDANCE
 
-            if settings.system_prompt == expected_prompt + "\n" + GUIDANCE:
+            if settings.system_prompt in (expected_prompt + "\n" + GUIDANCE, K4_PRELIMINARY):
                 expected_prompt = settings.system_prompt
         # Mandatory callback plus common tenant/claim/request UUID, packet/
         # signature SHA, settings/binding/model/region/temperature/replica/
@@ -573,6 +575,12 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
             )
             system = system.replace(settings.schema_json, schema_json, 1)
             user.pop("preliminary_response_policy")
+        from proofops.application.tagging.finals_i4 import K4_PRELIMINARY, preliminary_k4
+
+        if settings.system_prompt == K4_PRELIMINARY:
+            if response_policy is None:
+                raise ValueError("I4_RESPONSE_POLICY_REQUIRED")
+            system = preliminary_k4(json.loads(schema_json))
         wire_user = json.dumps(user, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         return system, wire_user, {}, authorization, schema_json
 

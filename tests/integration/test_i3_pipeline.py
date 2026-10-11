@@ -21,6 +21,8 @@ def test_i3_free_create_and_resume(tmp_path, monkeypatch):
         + [
             "--analysis-profile",
             "finals-unattended-v2",
+            "--analysis-policy-sha256",
+            canonical_hash(FINALS_I3_POLICY),
             "--pages",
             "1",
             "--claim-pages",

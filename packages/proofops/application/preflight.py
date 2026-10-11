@@ -747,6 +747,9 @@ def check_local_upstage_tagger(
                 + __import__(
                     "proofops.application.tagging.k1_semantics", fromlist=["GUIDANCE"]
                 ).GUIDANCE,
+                __import__(
+                    "proofops.application.tagging.finals_i4", fromlist=["K4_PRELIMINARY"]
+                ).K4_PRELIMINARY,
             )
         )
         or relation_settings_contract_valid(settings)

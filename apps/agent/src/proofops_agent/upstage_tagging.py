@@ -322,6 +322,8 @@ class UpstageTaggingTransport:
         return authorization
 
     def _wire_request(self, request: dict) -> tuple[str, str, dict[str, dict], Preflight, str]:
+        from proofops.application.tagging.finals_i4 import K4_ELEMENTS, elements_k4
+
         settings = self._settings
         authorization = self._authorize_request(request)
         system = request["system_prompt"]
@@ -567,7 +569,7 @@ class UpstageTaggingTransport:
             marker = (
                 "This rule reference is tagging guidance, not an approval of the draft rulepack.\n"
             )
-            if marker in system:
+            if marker in system and settings.system_prompt != K4_ELEMENTS:
                 head, tail = system.split(marker, 1)
                 reference, end = json.JSONDecoder().raw_decode(tail)
                 cards = [e for e in reference["elements"] if e["id"] in allowed]
@@ -622,6 +624,13 @@ class UpstageTaggingTransport:
             from proofops.application.ingest.display_text import SYSTEM_SUFFIX
 
             wire_system += SYSTEM_SUFFIX
+        if settings.system_prompt == K4_ELEMENTS:
+            if response_policy is None:
+                raise ValueError("I4_RESPONSE_POLICY_REQUIRED")
+            wire_system = elements_k4(schema, classification)
+            # Authorization above covered these server policies before projection.
+            data.pop("tagging_response_policy", None)
+            data.pop("selected_quantity_policy", None)
         wire_user = json.dumps(user, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         return wire_system, wire_user, refs, authorization, canonical_json(schema)
 
@@ -855,13 +864,18 @@ class UpstageTaggingTransport:
                 response_policy = json.loads(request["user_json"])["untrusted_document_data"].get(
                     "tagging_response_policy"
                 )
+                preliminary_policy = json.loads(request["user_json"]).get(
+                    "preliminary_response_policy"
+                )
+                if response_policy is not None or preliminary_policy is not None:
+                    from jsonschema import Draft202012Validator
+
+                    if not Draft202012Validator(json.loads(wire_schema)).is_valid(payload):
+                        raise ValueError("K4_RAW_RESPONSE_SCHEMA_INVALID")
                 if response_policy is not None:
                     from proofops.application.tagging.k4_contract import bind_response
 
                     payload = bind_response(payload, request, policy=response_policy)
-                preliminary_policy = json.loads(request["user_json"]).get(
-                    "preliminary_response_policy"
-                )
                 if preliminary_policy is not None:
                     from proofops.application.tagging.k4_contract import bind_response
 

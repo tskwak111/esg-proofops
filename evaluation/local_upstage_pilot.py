@@ -210,6 +210,7 @@ def live_tagging_settings(
     element_consistency: bool = False,
     position_context_order: bool = False,
     capacity_refresh: bool = False,
+    prompt_profile: str | None = None,
     element_definition_profile: str | None = None,
 ) -> dict:
     """Explicit bounded pilot config; grants are registered separately by main."""
@@ -347,7 +348,7 @@ def live_tagging_settings(
         "remain unknown. This changes citation granularity only, never evidence admission "
         "or grading. Validate this equality for every element before submitting."
     )
-    settings = {}
+    settings: dict[str, Any] = {}
     if preliminary_pb1:
         element_prompt += (
             "\nPB1 time-series row: the latest explicitly observed year column is the primary "
@@ -466,6 +467,13 @@ def live_tagging_settings(
         from proofops.application.tagging.k1_semantics import GUIDANCE
 
         preliminary_prompt += "\n" + GUIDANCE
+    if prompt_profile is not None:
+        from proofops.application.tagging.finals_i4 import K4_ELEMENTS, K4_PRELIMINARY, PROFILE
+
+        if prompt_profile != PROFILE or not preliminary_pb1 or not compact_element_wire:
+            raise ValueError("TAGGING_PROMPT_PROFILE_INVALID")
+        preliminary_prompt, element_prompt = K4_PRELIMINARY, K4_ELEMENTS
+        settings["tagging_prompt_profile"] = prompt_profile
     profiles: tuple[tuple[str, str, str, str, int], ...] = (
         (
             "preliminary",
@@ -755,6 +763,7 @@ def apply_resume_metadata(args, saved: dict) -> None:
     args.extraction_j7 = bool(saved.get("extraction_j7", False))
     args.extraction_j8 = bool(saved.get("extraction_j8", False))
     args.extraction_i3_wire = bool(saved.get("extraction_i3_wire", False))
+    args.extraction_i4_identity = bool(saved.get("extraction_i4_identity", False))
     args.extraction_pb1_context_guard = bool(saved.get("extraction_pb1_context_guard", False))
     args.extraction_table_footnotes = bool(saved.get("extraction_table_footnotes", False))
     args.extraction_source_ids = bool(saved.get("extraction_source_ids", False))
@@ -1274,6 +1283,7 @@ def main():
 
     args.extraction_j8 = False
     args.extraction_i3_wire = False
+    args.extraction_i4_identity = False
     apply_pilot_profile(args)
     try:
         apply_finals_candidate(args)
@@ -1664,6 +1674,7 @@ def main():
                     extraction_j7=args.extraction_j7,
                     extraction_j8=args.extraction_j8,
                     extraction_i3_wire=args.extraction_i3_wire,
+                    extraction_i4_identity=args.extraction_i4_identity,
                     extraction_pb1_context_guard=args.extraction_pb1_context_guard,
                     extraction_table_footnotes=args.extraction_table_footnotes,
                     extraction_table_rows=args.extraction_table_rows,
@@ -1734,6 +1745,8 @@ def main():
             settings["extraction_table_footnotes"] = True
         if args.extraction_j8:
             settings["extraction_j8"] = True
+        if args.extraction_i4_identity:
+            settings["extraction_i4_identity"] = True
         if args.extraction_i3_wire:
             settings["extraction_i3_wire"] = True
         if args.extraction_j3:
@@ -1781,6 +1794,7 @@ def main():
             settings.update(
                 live_tagging_settings(
                     args.tagging_max_calls,
+                    prompt_profile=getattr(args, "tagging_prompt_profile", None),
                     element_definition_profile=definition_profile
                     if args.pipeline_profile
                     in (
@@ -2268,6 +2282,8 @@ def main():
             manifest["extraction_table_footnotes"] = True
         if args.extraction_j8:
             manifest["extraction_j8"] = True
+        if args.extraction_i4_identity:
+            manifest["extraction_i4_identity"] = True
         if args.extraction_i3_wire:
             manifest["extraction_i3_wire"] = True
         if args.extraction_j3:
@@ -2383,6 +2399,7 @@ def main():
             "extraction_j7",
             "extraction_j8",
             "extraction_i3_wire",
+            "extraction_i4_identity",
             "extraction_pb1_context_guard",
             "extraction_table_footnotes",
         ):

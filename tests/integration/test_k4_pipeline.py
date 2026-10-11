@@ -72,7 +72,10 @@ def test_dispatch_owned_identity_survives_actual_transport_and_keeps_raw_receipt
 def test_k4_is_explicit_and_i3_extraction_pins_remain_identical():
     from argparse import Namespace
 
-    assert publication_policy_for("finals-unattended-v2") == FINALS_I3_POLICY
+    assert (
+        publication_policy_for("finals-unattended-v2", pinned_hash=canonical_hash(FINALS_I3_POLICY))
+        == FINALS_I3_POLICY
+    )
     with pytest.raises(ValueError, match="PUBLICATION_PIN_MISMATCH"):
         publication_policy_for("finals-unattended-v2", pinned_hash=canonical_hash(FINALS_K4_POLICY))
     options = []

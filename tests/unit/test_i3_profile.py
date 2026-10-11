@@ -8,16 +8,23 @@ from proofops.domain.provenance import canonical_hash
 
 
 def test_i3_default_enables_all_admitted_options_and_v11_source():
-    policy = profiles.policy_for(profiles.V2_PROFILE)
+    policy = profiles.policy_for(
+        profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_I3_POLICY)
+    )
     assert policy["integration_profile"] == "finals-20261011-v3"
-    args = Namespace(analysis_profile=profiles.V2_PROFILE)
+    args = Namespace(
+        analysis_profile=profiles.V2_PROFILE, analysis_policy_sha256=canonical_hash(policy)
+    )
     profiles.apply_pilot_profile(args)
     for option in ("j3", "j7", "j8", "k1", "k3", "sentence_prefix", "table_footnotes"):
         assert getattr(args, "extraction_" + option) is True
     assert args.claim_source_profile == "upstage-ocr-page-v11"
     assert policy["hold_recovery_policy"] == profiles.FINALS_K2_POLICY["hold_recovery_policy"]
     assert policy["semantic_admission"] == profiles.K1_POLICY["semantic_admission"]
-    assert profiles.publication_policy_for(profiles.V2_PROFILE) == policy
+    assert (
+        profiles.publication_policy_for(profiles.V2_PROFILE, pinned_hash=canonical_hash(policy))
+        == policy
+    )
 
 
 @pytest.mark.parametrize(

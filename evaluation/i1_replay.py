@@ -423,7 +423,10 @@ def main(*, integration_policy=FINALS_I1_POLICY, baseline_dir=None):
                 i for i, (b, _) in enumerate(selections) if b.kind in {"table", "table_cell"}
             ]
             table_reader = native
-            if k3 and (stage == "after" or baseline_dir == "perf/I3/stage-A-delivery"):
+            if k3 and (
+                stage == "after"
+                or bool(baseline and baseline["integration_policy"].get("table_worker_routing"))
+            ):
                 from proofops.adapters.local import upstage_ocr_profile_v11
 
                 table_reader = upstage_ocr_profile_v11

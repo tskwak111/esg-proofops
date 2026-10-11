@@ -143,6 +143,7 @@ def test_estimate_category_is_held_without_losing_p1_or_reintroducing_a_range(tm
 
 
 def test_worker_uses_pinned_semantic_policy(tmp_path, monkeypatch):
+    from proofops.application.analysis_profile import FINALS_I3_POLICY
     from proofops.application.runs import RunService
     from proofops.application.tagging.k1_semantics import POLICY as INTEGRATED_SEMANTICS
     from proofops.domain.provenance import canonical_hash
@@ -154,6 +155,7 @@ def test_worker_uses_pinned_semantic_policy(tmp_path, monkeypatch):
 
     def profile(self, *args, **kwargs):
         kwargs["pipeline_profile"] = "finals-unattended-v2"
+        kwargs["analysis_policy_sha256"] = canonical_hash(FINALS_I3_POLICY)
         init(self, *args, **kwargs)
 
     monkeypatch.setattr(RunService, "__init__", profile)

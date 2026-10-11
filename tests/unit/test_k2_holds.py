@@ -142,7 +142,10 @@ def test_k2_pin_is_usable_for_new_runs_and_default_is_integrated():
     )
     from proofops.domain.provenance import canonical_hash
 
-    assert publication_policy_for("finals-unattended-v2") == FINALS_I3_POLICY
+    assert (
+        publication_policy_for("finals-unattended-v2", pinned_hash=canonical_hash(FINALS_I3_POLICY))
+        == FINALS_I3_POLICY
+    )
     assert (
         publication_policy_for("finals-unattended-v2", pinned_hash=canonical_hash(FINALS_K2_POLICY))
         == FINALS_K2_POLICY

@@ -100,6 +100,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
         _, discovery, original_graph = evidence
         from proofops.application.analysis_profile import (
             FINALS_I1_INITIAL_POLICY,
+            FINALS_I3_POLICY,
             S1_POLICY,
             V2_D24_POLICY,
             V2_PA9_POLICY,
@@ -129,6 +130,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
 
         pb1 = tag_snapshot.get("analysis_profile_policy_sha256") in {
             canonical_hash(V2_POLICY),
+            canonical_hash(FINALS_I3_POLICY),
             canonical_hash(S1_POLICY),
             canonical_hash(FINALS_I1_INITIAL_POLICY),
             canonical_hash(V2_D24_POLICY),
@@ -178,6 +180,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                         summary["table_observation"] = row
                         if tag_snapshot.get("analysis_profile_policy_sha256") in {
                             canonical_hash(V2_POLICY),
+                            canonical_hash(FINALS_I3_POLICY),
                             canonical_hash(S1_POLICY),
                             canonical_hash(FINALS_I1_INITIAL_POLICY),
                             canonical_hash(V2_D24_POLICY),

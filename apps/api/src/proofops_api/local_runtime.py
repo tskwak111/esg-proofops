@@ -45,6 +45,7 @@ _SETTINGS_FIELDS = frozenset(
         "extraction_j7",
         "extraction_j8",
         "extraction_i3_wire",
+        "extraction_i4_identity",
         "extraction_pb1_context_guard",
         "extraction_table_footnotes",
         "extraction_table_rows",
@@ -54,6 +55,7 @@ _SETTINGS_FIELDS = frozenset(
         "extraction_content_bounds",
         "position_context_order",
         "tagging_settings",
+        "tagging_prompt_profile",
         "preliminary_settings",
         "relation_settings",
         "decision_settings",
@@ -345,7 +347,30 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         if not isinstance(pin, str) or len(pin) != 64:
             raise _invalid()
         try:
-            publication_policy_for(settings.get("pipeline_profile"), pinned_hash=pin)
+            selected_policy = publication_policy_for(
+                settings.get("pipeline_profile"), pinned_hash=pin
+            )
+            if selected_policy.get("extraction_selection_ids") and (
+                settings.get("extraction_i4_identity") is not True
+            ):
+                raise _invalid()
+            prompt_profile = selected_policy.get("tagging_prompt_profile")
+            if prompt_profile:
+                from proofops.application.tagging.finals_i4 import (
+                    K4_ELEMENTS,
+                    K4_PRELIMINARY,
+                    PROFILE,
+                )
+
+                if (
+                    settings.get("tagging_prompt_profile") != PROFILE
+                    or settings.get("preliminary_settings", {}).get("system_prompt")
+                    != K4_PRELIMINARY
+                    or settings.get("tagging_settings", {}).get("system_prompt") != K4_ELEMENTS
+                ):
+                    raise _invalid()
+            elif settings.get("tagging_prompt_profile"):
+                raise _invalid()
         except ValueError:
             raise _invalid() from None
         runtime["analysis_policy_sha256"] = pin
@@ -390,6 +415,7 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         "extraction_j7",
         "extraction_j8",
         "extraction_i3_wire",
+        "extraction_i4_identity",
         "extraction_pb1_context_guard",
         "extraction_table_footnotes",
         "extraction_table_rows",
@@ -404,6 +430,16 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         # reconstructs the matching extractor profile from the settings file.
         if flag in settings and (settings[flag] is not True or extraction_mode != "upstage_probe"):
             raise _invalid()
+    if settings.get("extraction_i4_identity"):
+        from proofops.application.analysis_profile import policy_for
+
+        selected = policy_for(
+            settings.get("pipeline_profile"), pinned_hash=settings.get("analysis_policy_sha256")
+        )
+        if selected.get(
+            "extraction_selection_ids"
+        ) != "dispatch-local-selection-i4-v1" or not settings.get("extraction_source_ids"):
+            raise ValueError("EXTRACTION_I4_IDENTITY_INVALID")
     if settings.get("extraction_j7") and settings.get("extraction_j3") is not True:
         raise ValueError("EXTRACTION_J7_INVALID")
     if settings.get("extraction_i3_wire"):

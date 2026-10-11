@@ -101,6 +101,8 @@ def test_scope3_item_uses_only_its_own_table_not_other_table_or_tenant():
 def test_new_policy_keeps_old_pins_and_prompt_bytes():
     from proofops.application.analysis_profile import (
         FINALS_I2_POLICY,
+        FINALS_I3_POLICY,
+        FINALS_I4_POLICY,
         K1_POLICY,
         V2_POLICY,
         V2_PRE_W8_POLICY,
@@ -121,7 +123,8 @@ def test_new_policy_keeps_old_pins_and_prompt_bytes():
         ]
         == POLICY_HASH
     )
-    assert V2_POLICY["semantic_admission_sha256"] == K1_POLICY["semantic_admission_sha256"]
+    assert FINALS_I3_POLICY["semantic_admission_sha256"] == K1_POLICY["semantic_admission_sha256"]
+    assert V2_POLICY["semantic_admission_sha256"] == FINALS_I4_POLICY["semantic_admission_sha256"]
     old = live_tagging_settings(10, model_id="gpt-6-luna", element_definition_profile="qi1-v1")
     new = live_tagging_settings(10, model_id="gpt-6-luna", element_definition_profile="w8-v1")
     assert ELEMENT_DEFINITIONS in old["tagging_settings"]["system_prompt"]

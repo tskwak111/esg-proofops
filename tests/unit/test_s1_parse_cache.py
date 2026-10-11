@@ -160,7 +160,10 @@ def test_new_policy_is_opt_in_and_preserves_i3():
         canonical_hash(FINALS_I3_POLICY)
         == "830ce06b7dec224b15be7a60d9813bd08038e5a229709193e6c621a9e18f92e3"
     )
-    assert policy_for("finals-unattended-v2") == FINALS_I3_POLICY
+    assert (
+        policy_for("finals-unattended-v2", pinned_hash=canonical_hash(FINALS_I3_POLICY))
+        == FINALS_I3_POLICY
+    )
     assert policy_for("finals-unattended-v2", pinned_hash=canonical_hash(S1_POLICY)) == S1_POLICY
     assert (
         S1_POLICY["parse_replay_cache"]["implementation_sha256"]

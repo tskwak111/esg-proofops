@@ -510,9 +510,13 @@ class LiveTaggingRuntime:
                 from proofops.application.tagging.pb1_classification import COMPACT_PROMPT
 
                 packet["prompt_sha256"] = canonical_hash(COMPACT_PROMPT)
+                from proofops.application.tagging.finals_i4 import K4_PRELIMINARY
                 from proofops.application.tagging.k1_semantics import GUIDANCE
 
-                if self.preliminary_settings.system_prompt == COMPACT_PROMPT + "\n" + GUIDANCE:
+                if self.preliminary_settings.system_prompt in (
+                    COMPACT_PROMPT + "\n" + GUIDANCE,
+                    K4_PRELIMINARY,
+                ):
                     packet["prompt_sha256"] = canonical_hash(
                         self.preliminary_settings.system_prompt
                     )

@@ -11,6 +11,7 @@ from proofops.application.tagging.dec24 import (
     INTEGRATED_DEFINITIONS_HASH,
     INTEGRATED_V2_DEFINITIONS_HASH,
 )
+from proofops.application.tagging.finals_i4 import POLICY as I4_PROMPT_POLICY
 from proofops.application.tagging.k1_semantics import DEFINITIONS as K1_DEFINITIONS
 from proofops.application.tagging.k1_semantics import POLICY as K1_SEMANTIC_POLICY
 from proofops.application.tagging.k2_recovery import POLICY as K2_RECOVERY_POLICY
@@ -321,6 +322,16 @@ FINALS_K4_POLICY = FINALS_I3_POLICY | dict(
     facility_dimensions_policy_sha256=canonical_hash(FACILITY_POLICY),
 )
 
+FINALS_I4_POLICY = FINALS_K4_POLICY | dict(
+    integration_profile="finals-20261012-v4",
+    parse_replay_cache=S1_POLICY["parse_replay_cache"],
+    extraction_selection_ids="dispatch-local-selection-i4-v1",
+    tagging_prompt_profile=I4_PROMPT_POLICY["profile"],
+    tagging_prompt_policy=I4_PROMPT_POLICY,
+    tagging_prompt_policy_sha256=canonical_hash(I4_PROMPT_POLICY),
+)
+V2_POLICY = FINALS_I4_POLICY
+
 
 def policy_for(profile, *, pinned_hash=None):
     if profile == J7_PROFILE:
@@ -334,6 +345,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_I3_POLICY,
             FINALS_K4_POLICY,
             FINALS_I2_POLICY,
             FINALS_I2_J3_POLICY,
@@ -386,7 +398,7 @@ def policy_for(profile, *, pinned_hash=None):
 def publication_policy_for(profile, *, pinned_hash=None):
     policy = policy_for(profile, pinned_hash=pinned_hash)
     allowed = (
-        (policy_for(profile), W3_POLICY, K1_POLICY, FINALS_K2_POLICY, S1_POLICY)
+        (policy_for(profile), FINALS_I3_POLICY, W3_POLICY, K1_POLICY, FINALS_K2_POLICY, S1_POLICY)
         if profile == V2_PROFILE
         else (policy_for(profile),)
     )
@@ -407,6 +419,8 @@ def apply_pilot_profile(args):
     args.pipeline_profile = profile
     selected = policy_for(profile, pinned_hash=getattr(args, "analysis_policy_sha256", None))
     args.analysis_policy_sha256 = canonical_hash(selected)
+    args.tagging_prompt_profile = selected.get("tagging_prompt_profile")
+    args.extraction_i4_identity = bool(selected.get("extraction_selection_ids"))
     if profile in (V2_PROFILE, J3_PROFILE, J7_PROFILE, J8_PROFILE):
         args.extraction_fragment_guard = True
         args.extraction_pb1 = True

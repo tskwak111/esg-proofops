@@ -146,7 +146,7 @@ class LocalParserRunner:
     def run_once(
         self, *, tenant_id: str, run_id: str, note_review_artifacts: tuple[str, ...] = ()
     ) -> str:
-        from proofops.adapters.local.parse_table_cache import for_snapshot
+        from proofops.adapters.local.i4_parse_scope import for_snapshot
 
         snapshot = self.store.snapshot(tenant_id, run_id)
         with for_snapshot(snapshot, tenant_id, run_id):

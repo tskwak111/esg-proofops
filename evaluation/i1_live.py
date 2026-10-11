@@ -37,7 +37,7 @@ def main(
     *, claim_pages=None, workers=1, budget="0.5", event_id="I1-USD0.5", integration_policy=None
 ):
     selected_policy = integration_policy or V2_POLICY
-    if not Decimal(0) < Decimal(budget) <= Decimal("0.5"):
+    if not Decimal(0) < Decimal(budget) <= Decimal("0.6"):
         raise ValueError("CANARY_BUDGET_INVALID")
     physical_pages = claim_pages or dict(naver=[84, 88], kia=[26, 106])
     parser = argparse.ArgumentParser(description=__doc__)
@@ -81,6 +81,7 @@ def main(
             "j7",
             "j8",
             "i3_wire",
+            "i4_identity",
             "k1",
             "k3",
             "sentence_prefix",
@@ -116,6 +117,7 @@ def main(
         settings["extraction_profile"] = extraction_profile
         guidance = live_tagging_settings(
             600,
+            prompt_profile=selected_policy.get("tagging_prompt_profile"),
             model_id="gpt-6-luna",
             element_definition_profile=selected_policy["element_definition_profile"],
             relations=True,
