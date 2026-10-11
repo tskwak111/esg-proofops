@@ -72,7 +72,7 @@ def test_remote_caddy_validation_cannot_consume_restart_command():
     script = (root / "deploy/public/drain-restart.sh").read_text()
     validation = next(line for line in script.splitlines() if "caddy validate --config" in line)
     remote = (
-        'compose=(sudo docker compose --env-file compose.env -f compose.yaml)\n'
+        "compose=(sudo docker compose --env-file compose.env -f compose.yaml)\n"
         'sudo() { if [ "$1" = docker ]; then cat >/dev/null; '
         'elif [ "$1" = systemctl ]; then echo restarted; fi; }\n'
         + validation
