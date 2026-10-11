@@ -127,6 +127,8 @@ def test_hosted_operator_choice_excludes_regressed_v1_but_warns_on_existing_conf
         "r108-finals-candidate-v2",
         "finals-unattended-v1",
         "finals-unattended-v2",
+        "finals-unattended-j3-v1",
+        "finals-unattended-j7-v1",
     ]
     assert "E2E5" in profiles["analysis_profile_warning"]
     assert hosted_analysis.operator_profiles({})["analysis_profile"] == "finals-unattended-v2"

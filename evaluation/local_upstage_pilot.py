@@ -752,6 +752,7 @@ def apply_resume_metadata(args, saved: dict) -> None:
     args.extraction_w9 = bool(saved.get("extraction_w9", False))
     args.extraction_j3 = bool(saved.get("extraction_j3", False))
     args.extraction_k3 = bool(saved.get("extraction_k3", False))
+    args.extraction_j7 = bool(saved.get("extraction_j7", False))
     args.extraction_pb1_context_guard = bool(saved.get("extraction_pb1_context_guard", False))
     args.extraction_table_footnotes = bool(saved.get("extraction_table_footnotes", False))
     args.extraction_source_ids = bool(saved.get("extraction_source_ids", False))
@@ -780,6 +781,7 @@ def run_live_stages(args, *, tenant_id: str, run_id: str) -> dict:
         "finals-unattended-v1",
         "finals-unattended-v2",
         "finals-unattended-j3-v1",
+        "finals-unattended-j7-v1",
     ):
         from proofops.adapters.local.profile_runtime import spend_session
 
@@ -818,6 +820,7 @@ def _run_live_stages(args, *, tenant_id: str, run_id: str) -> dict:
                         "finals-unattended-v1",
                         "finals-unattended-v2",
                         "finals-unattended-j3-v1",
+                        "finals-unattended-j7-v1",
                     )
                     and "tag_job" in worker.store.jobs.get_run(tenant, run_id)
                 )
@@ -924,6 +927,7 @@ def main():
     parser.add_argument("--extraction-w9", action="store_true")
     parser.add_argument("--extraction-j3", action="store_true")
     parser.add_argument("--extraction-k3", action="store_true")
+    parser.add_argument("--extraction-j7", action="store_true")
     parser.add_argument("--extraction-pb1-context-guard", action="store_true")
     parser.add_argument("--extraction-table-footnotes", action="store_true")
     parser.add_argument("--max-calls", type=int, default=8)
@@ -1049,6 +1053,7 @@ def main():
             "finals-unattended-v1",
             "finals-unattended-v2",
             "finals-unattended-j3-v1",
+            "finals-unattended-j7-v1",
         ],
         help="New run only: read-only provisional results and claim-isolated completion.",
     )
@@ -1249,7 +1254,12 @@ def main():
     )
     parser.add_argument(
         "--analysis-profile",
-        choices=["finals-unattended-v1", "finals-unattended-v2", "finals-unattended-j3-v1"],
+        choices=[
+            "finals-unattended-v1",
+            "finals-unattended-v2",
+            "finals-unattended-j3-v1",
+            "finals-unattended-j7-v1",
+        ],
     )
     parser.add_argument("--analysis-policy-sha256", help="Explicit known execution policy pin")
     parser.add_argument("--extraction-fragment-guard", action="store_true")
@@ -1332,6 +1342,7 @@ def main():
         requested_atomic = args.extraction_atomic
         requested_sentence_prefix = args.extraction_sentence_prefix
         requested_k1 = args.extraction_k1
+        requested_j7 = args.extraction_j7
         requested_linewrap_join = args.extraction_linewrap_join
         requested_source_ids = args.extraction_source_ids
         requested_assertion_prompt = args.extraction_assertion_prompt
@@ -1371,6 +1382,8 @@ def main():
             parser.error("--resume cannot add extraction sentence prefix; create a new run")
         if requested_k1 and not args.extraction_k1:
             parser.error("--resume cannot add K1 boundaries; create a new run")
+        if requested_j7 and not args.extraction_j7:
+            parser.error("--resume cannot add extraction J7; create a new run")
         if requested_linewrap_join and not args.extraction_linewrap_join:
             parser.error("--resume cannot add extraction linewrap join; create a new run")
         if requested_source_ids and not args.extraction_source_ids:
@@ -1600,7 +1613,12 @@ def main():
             failure_policy=(
                 "partial-v1"
                 if args.pipeline_profile
-                in ("finals-unattended-v1", "finals-unattended-v2", "finals-unattended-j3-v1")
+                in (
+                    "finals-unattended-v1",
+                    "finals-unattended-v2",
+                    "finals-unattended-j3-v1",
+                    "finals-unattended-j7-v1",
+                )
                 else None
             ),
             upstage_glyph_boxes=args.parser in ("upstage", "mixed-v1"),
@@ -1634,6 +1652,7 @@ def main():
                     extraction_w9=args.extraction_w9,
                     extraction_j3=args.extraction_j3,
                     extraction_k3=args.extraction_k3,
+                    extraction_j7=args.extraction_j7,
                     extraction_pb1_context_guard=args.extraction_pb1_context_guard,
                     extraction_table_footnotes=args.extraction_table_footnotes,
                     extraction_table_rows=args.extraction_table_rows,
@@ -1704,6 +1723,8 @@ def main():
             settings["extraction_table_footnotes"] = True
         if args.extraction_j3:
             settings["extraction_j3"] = True
+        if args.extraction_j7:
+            settings["extraction_j7"] = True
         if args.extraction_pb1:
             settings["extraction_pb1"] = True
         if args.extraction_fragment_guard:
@@ -1746,7 +1767,7 @@ def main():
                 live_tagging_settings(
                     args.tagging_max_calls,
                     element_definition_profile=definition_profile
-                    if args.pipeline_profile in ("finals-unattended-v2", "finals-unattended-j3-v1")
+                    if args.pipeline_profile in ("finals-unattended-v2", "finals-unattended-j3-v1", "finals-unattended-j7-v1")
                     else None,
                     model_id=(
                         "gpt-6-luna" if args.llm_provider == "openai" else "openai/gpt-6-luna"
@@ -2226,6 +2247,8 @@ def main():
             manifest["extraction_table_footnotes"] = True
         if args.extraction_j3:
             manifest["extraction_j3"] = True
+        if args.extraction_j7:
+            manifest["extraction_j7"] = True
         if args.extraction_pb1:
             manifest["extraction_pb1"] = True
         if args.extraction_fragment_guard:
@@ -2332,6 +2355,7 @@ def main():
             "extraction_w9",
             "extraction_j3",
             "extraction_k3",
+            "extraction_j7",
             "extraction_pb1_context_guard",
             "extraction_table_footnotes",
         ):

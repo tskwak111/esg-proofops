@@ -536,6 +536,7 @@ def _profile_with_options(
     extraction_k1: bool = False,
     extraction_table_footnotes: bool = False,
     extraction_j3: bool = False,
+    extraction_j7: bool = False,
 ) -> ExtractionProfile:
     """Versioned extraction profile for an explicit option combination.
 
@@ -554,6 +555,8 @@ def _profile_with_options(
     ``assertion_prompt`` and pins its own rule entry and prompt suffix, so a
     complete-selection run can never replay an assertion-only receipt.
     """
+    if type(extraction_j7) is not bool or (extraction_j7 and not extraction_j3):
+        raise ValueError("EXTRACTION_J7_INVALID")
     if type(extraction_j3) is not bool or (extraction_j3 and not (extraction_w9 and source_ids)):
         raise ValueError("EXTRACTION_J3_INVALID")
     if type(extraction_k3) is not bool or (extraction_k3 and not extraction_w9):
@@ -664,6 +667,10 @@ def _profile_with_options(
         from proofops.application.ingest.k3_table_routing import POLICY as K3_POLICY
 
         descriptor.append(K3_POLICY)
+    if extraction_j7:
+        from proofops.application.ingest.j7_split import POLICY as J7_POLICY
+
+        descriptor.append(J7_POLICY)
     if display_text_profile:
         descriptor.append(POLICY)
     if year_notation:
@@ -770,6 +777,7 @@ class UpstageClaimExtractor:
         extraction_k1: bool = False,
         extraction_table_footnotes: bool = False,
         extraction_j3: bool = False,
+        extraction_j7: bool = False,
     ) -> None:
         if not callable(getattr(probe, "complete", None)):
             raise ValueError("UPSTAGE_PROBE_REQUIRED")
@@ -829,6 +837,7 @@ class UpstageClaimExtractor:
             extraction_k1=extraction_k1,
             extraction_table_footnotes=extraction_table_footnotes,
             extraction_j3=extraction_j3,
+            extraction_j7=extraction_j7,
         )
         if type(max_tokens) is not int or not 1 <= max_tokens <= 4096:
             raise ValueError("UPSTAGE_MAX_TOKENS_INVALID")
@@ -852,6 +861,7 @@ class UpstageClaimExtractor:
         self._w9 = extraction_w9
         self._j3 = extraction_j3
         self._k3 = extraction_k3
+        self._j7 = extraction_j7
         self._table_rows = extraction_table_rows
         self._recall_prompt = extraction_recall_prompt
         self._atomic = extraction_atomic
@@ -1405,7 +1415,11 @@ class UpstageClaimExtractor:
                     self._j3
                     and any(
                         stored_result.get(key) != rejected.get(key)
-                        for key in ("j3_refinements", "j3_refinement_rejected")
+                        for key in (
+                            ("j7_refinements", "j7_refinement_rejected")
+                            if self._j7
+                            else ("j3_refinements", "j3_refinement_rejected")
+                        )
                     )
                 )
                 or not isinstance(stored_result.get("spans"), list)
@@ -1541,7 +1555,10 @@ class UpstageClaimExtractor:
                 ]
                 spans = tuple(span for span in spans if span not in excluded)
             if self._j3 and packet is not None:
-                from proofops.application.ingest.j3_recall import refine_selected
+                if self._j7:
+                    from proofops.application.ingest.j7_split import refine_selected
+                else:
+                    from proofops.application.ingest.j3_recall import refine_selected
                 from proofops.application.ingest.w9_tables import graph_cells, observations_for
 
                 kind = packet["untrusted_document_data"]["kind"]
@@ -1561,9 +1578,11 @@ class UpstageClaimExtractor:
                 try:
                     spans = self._validate_spans({"spans": refined}, text)
                 except ValueError:
-                    diagnostics["j3_refinement_rejected"] = changes
+                    diagnostics[
+                        "j7_refinement_rejected" if self._j7 else "j3_refinement_rejected"
+                    ] = changes
                 else:
-                    diagnostics["j3_refinements"] = changes
+                    diagnostics["j7_refinements" if self._j7 else "j3_refinements"] = changes
             if self._k1 and packet is not None:
                 from proofops.application.ingest.k1_boundaries import trim_table_labels
 

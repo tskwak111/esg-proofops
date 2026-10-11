@@ -56,6 +56,7 @@ def _candidate_extract(live, packet, snapshot):
             "finals-unattended-v1",
             "finals-unattended-v2",
             "finals-unattended-j3-v1",
+            "finals-unattended-j7-v1",
         ) and (
             code
             in {
@@ -1036,6 +1037,7 @@ class LocalExtractRunner:
                                 "finals-unattended-v1",
                                 "finals-unattended-v2",
                                 "finals-unattended-j3-v1",
+                                "finals-unattended-j7-v1",
                             ),
                             run_id=run_id,
                         )

@@ -249,6 +249,7 @@ def tag_replicates(
         "finals-unattended-v1",
         "finals-unattended-v2",
         "finals-unattended-j3-v1",
+        "finals-unattended-j7-v1",
     ):
         raise DomainValidationError("unknown pipeline profile")
     unattended = (
@@ -258,6 +259,7 @@ def tag_replicates(
             "finals-unattended-v1",
             "finals-unattended-v2",
             "finals-unattended-j3-v1",
+            "finals-unattended-j7-v1",
         )
         and data.get("pipeline_profile") == pipeline_profile
     )
