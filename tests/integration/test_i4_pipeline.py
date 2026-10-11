@@ -83,6 +83,8 @@ def test_i4_new_local_run_and_resume_pin_matching_prompts(tmp_path, monkeypatch)
         + [
             "--analysis-profile",
             "finals-unattended-v2",
+            "--analysis-policy-sha256",
+            canonical_hash(FINALS_I4_POLICY),
             "--pages",
             "1",
             "--claim-pages",

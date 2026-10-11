@@ -20,20 +20,21 @@ from evaluation.h1_holdout import LAB, OUT, ROOT, A, funded_probe, load_a_scorer
 from scripts.finals_demo import FinalsBudget, parse_bound
 
 
-def main():
+def main(*, workers=2, output_dir=None, probe_factory=funded_probe, budget_factory=FinalsBudget):
+    out = output_dir or OUT
     load_a_scorer()  # Make A's unchanged, narrow OCR bookkeeping helper available.
     from evaluation.a_funded_ocr import install
 
-    _, openai_fence = funded_probe()
+    _, openai_fence = probe_factory()
     ledgers = {p: ROOT / f".local/{p}/budget.sqlite3" for p in ("openai", "upstage", "openrouter")}
-    upstage_fence = FinalsBudget(
+    upstage_fence = budget_factory(
         LAB / "sprint3/E2E/r108-spend.json",
         ledgers,
-        OUT / "product-upstage-calls.jsonl",
+        out / "product-upstage-calls.jsonl",
         task="H1-upstage",
         limit_usd="0.5",
     )
-    state = OUT / "product-hyundai"
+    state = out / "product-hyundai"
     if state.exists():
         raise ValueError("H1_FRESH_PRODUCT_STATE_REQUIRED")
     UpstageParseProbe.parse_async = upstage_fence.guarded(
@@ -52,11 +53,11 @@ def main():
             link.symlink_to(ROOT / ".local" / provider, target_is_directory=True)
         assert (link / "budget.sqlite3").samefile(ledgers[provider])
     os.environ.update(
-        PROOFOPS_SPEND_LEDGER=str(OUT / "product-spend.sqlite3"),
+        PROOFOPS_SPEND_LEDGER=str(out / "product-spend.sqlite3"),
         PROOFOPS_SPEND_GROUP="H1-product",
         PROOFOPS_SPEND_GROUP_LIMIT="1.7",
         PROOFOPS_DECISION_PROJECT_ROOT=str(ROOT),
-        LOCAL_LLM_MAX_WORKERS="2",
+        LOCAL_LLM_MAX_WORKERS=str(workers),
         UPSTAGE_OCR_LEDGER=str(ledgers["upstage"]),
         R108_SPEND_PATH=str(LAB / "sprint3/E2E/r108-spend.json"),
     )
@@ -151,7 +152,7 @@ def main():
         "--ai-project-review",
         "--invoke",
     ]
-    write(OUT / "product-argv.json", sys.argv)
+    write(out / "product-argv.json", sys.argv)
     started, code = monotonic(), None
     try:
         code = pilot.main()
@@ -171,7 +172,7 @@ def main():
                 result[provider] = dict(
                     task_usd=entry["delta_usd"], reserved_usd=entry["reserved_usd"]
                 )
-        write(OUT / "product-summary.json", result)
+        write(out / "product-summary.json", result)
     return code
 
 

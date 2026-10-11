@@ -366,6 +366,31 @@ S2_POLICY = FINALS_I3_POLICY | dict(
     ),
 )
 
+# Additive execution policy: v6/v11 receipts and all earlier pins stay immutable.
+VERIFIED_READ_V7_POLICY = VERIFIED_READ_V6_POLICY | dict(
+    profile="exact-verified-read-v7",
+    fresh_attestation="whole-byte-identical-v6-v9-v10-v11-v12",
+    v12_replay_sha256="94f0b5376644143739448d75be16a235b56298a01ee98a0807ae0bfd625b462a",
+    raw_ocr_profiles=[
+        "upstage-ocr-page-v6",
+        "upstage-ocr-page-v9",
+        "upstage-ocr-page-v10",
+        "upstage-ocr-page-v11",
+        "upstage-ocr-page-v12",
+    ],
+    cold_claim_replay="offline-v12-two-cpu-raw-read-i5-v1",
+)
+FINALS_I5_INITIAL_POLICY = (
+    FINALS_I4_POLICY
+    | {k: v for k, v in FINALS_H1_POLICY.items() if v != FINALS_I3_POLICY.get(k)}
+    | {k: v for k, v in S2_POLICY.items() if v != FINALS_I3_POLICY.get(k)}
+    | dict(integration_profile="finals-20261012-v5", verified_read_cache=VERIFIED_READ_V7_POLICY)
+)
+FINALS_I5_POLICY = FINALS_I5_INITIAL_POLICY | dict(
+    table_failure_profile="i5-grid-unreadable-v1",
+)
+V2_POLICY = FINALS_I5_POLICY
+
 
 def policy_for(profile, *, pinned_hash=None):
     if profile == J7_PROFILE:
@@ -379,6 +404,8 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_I5_INITIAL_POLICY,
+            FINALS_I4_POLICY,
             FINALS_H1_POLICY,
             FINALS_I3_POLICY,
             FINALS_K4_POLICY,
@@ -434,7 +461,18 @@ def policy_for(profile, *, pinned_hash=None):
 def publication_policy_for(profile, *, pinned_hash=None):
     policy = policy_for(profile, pinned_hash=pinned_hash)
     allowed = (
-        (policy_for(profile), FINALS_I3_POLICY, W3_POLICY, K1_POLICY, FINALS_K2_POLICY, S1_POLICY, S2_POLICY)
+        (
+            policy_for(profile),
+            FINALS_I5_INITIAL_POLICY,
+            FINALS_I4_POLICY,
+            FINALS_H1_POLICY,
+            FINALS_I3_POLICY,
+            W3_POLICY,
+            K1_POLICY,
+            FINALS_K2_POLICY,
+            S1_POLICY,
+            S2_POLICY,
+        )
         if profile == V2_PROFILE
         else (policy_for(profile),)
     )
@@ -459,6 +497,7 @@ def apply_pilot_profile(args):
     args.extraction_i4_identity = bool(selected.get("extraction_selection_ids"))
     args.parser_local_resource_policy = selected.get("local_resource_policy")
     args.extraction_h1 = bool(selected.get("selected_boundary_recovery"))
+    args.extraction_i5_tables = selected.get("table_failure_profile") == "i5-grid-unreadable-v1"
     if selected.get("tagging_budget") == S2_POLICY["tagging_budget"]:
         args.tagging_max_calls = selected["tagging_budget"]["max_calls"]
     if profile in (V2_PROFILE, J3_PROFILE, J7_PROFILE, J8_PROFILE):

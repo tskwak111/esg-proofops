@@ -331,6 +331,7 @@ def build_composition(
                         extraction_i3_wire=settings.get("extraction_i3_wire", False),
                         extraction_i4_identity=settings.get("extraction_i4_identity", False),
                         extraction_h1=settings.get("extraction_h1", False),
+                        extraction_i5_tables=settings.get("extraction_i5_tables", False),
                         extraction_pb1_context_guard=settings.get(
                             "extraction_pb1_context_guard", False
                         ),
@@ -368,6 +369,7 @@ def build_composition(
                     extraction_i3_wire=settings.get("extraction_i3_wire", False),
                     extraction_i4_identity=settings.get("extraction_i4_identity", False),
                     extraction_h1=settings.get("extraction_h1", False),
+                    extraction_i5_tables=settings.get("extraction_i5_tables", False),
                     extraction_pb1_context_guard=settings.get(
                         "extraction_pb1_context_guard", False
                     ),

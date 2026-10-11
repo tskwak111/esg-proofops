@@ -19,6 +19,7 @@ from proofops.application.analysis_profile import (
     VERIFIED_READ_V4_POLICY,
     VERIFIED_READ_V5_POLICY,
     VERIFIED_READ_V6_POLICY,
+    VERIFIED_READ_V7_POLICY,
 )
 from proofops.domain.provenance import canonical_hash
 
@@ -131,6 +132,18 @@ def bounded_reader(reader, *, tenant_id, run_id):
     """
     instance = reader.for_run(run_id)
     original = instance._claim_receipt.__func__
+    heading_wrapper = None
+    if reader.PROFILE == "upstage-ocr-page-v12":
+        from proofops.adapters.local.verified_read_cache import _execution_policy
+
+        if (
+            _execution_policy() != VERIFIED_READ_V7_POLICY
+            or sha256(Path(reader.__file__).read_bytes()).hexdigest()
+            != VERIFIED_READ_V7_POLICY["v12_replay_sha256"]
+        ):
+            raise ValueError("PA7_RASTER_READER_BINDING_MISMATCH")
+        heading_wrapper = original
+        original = super(type(instance), instance)._claim_receipt.__func__
     if original.__globals__.get("LocalRasterReader") is not LocalRasterReader:
         raise ValueError("PA7_RASTER_READER_BINDING_MISMATCH")
     function = FunctionType(
@@ -141,11 +154,28 @@ def bounded_reader(reader, *, tenant_id, run_id):
         original.__closure__,
     )
     function.__kwdefaults__ = original.__kwdefaults__
+    if heading_wrapper is not None:
+        # H1's exact heading/cell proof still runs. Its one super() dispatch is
+        # bound to the same inherited proof with only raw OCR reads scoped.
+        inherited = MethodType(function, instance)
+        function = FunctionType(
+            heading_wrapper.__code__,
+            heading_wrapper.__globals__
+            | dict(super=lambda: SimpleNamespace(_claim_receipt=inherited)),
+            heading_wrapper.__name__,
+            heading_wrapper.__defaults__,
+            heading_wrapper.__closure__,
+        )
+        function.__kwdefaults__ = heading_wrapper.__kwdefaults__
     instance._claim_receipt = MethodType(function, instance)
     with scope(tenant_id, run_id, reader.claim_source_policy()):
         from proofops.adapters.local.verified_read_cache import _execution_policy
 
-        if _execution_policy() in (VERIFIED_READ_V5_POLICY, VERIFIED_READ_V6_POLICY):
+        if _execution_policy() in (
+            VERIFIED_READ_V5_POLICY,
+            VERIFIED_READ_V6_POLICY,
+            VERIFIED_READ_V7_POLICY,
+        ):
             with ProcessPoolExecutor(
                 max_workers=VERIFIED_READ_V5_POLICY["raw_ocr_workers"],
                 mp_context=get_context("spawn"),

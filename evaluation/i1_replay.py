@@ -141,6 +141,7 @@ def main(*, integration_policy=FINALS_I1_POLICY, baseline_dir=None):
             extraction_k1=bool(integration_policy.get("extraction_k1")),
             extraction_k3=k3,
             extraction_h1=bool(integration_policy.get("selected_boundary_recovery")),
+            extraction_i5_tables=bool(integration_policy.get("table_failure_profile")),
         )
         # The original byte-identical extractor options reproduce the retained
         # selection. Origin/main has these same policies; its hash is recorded.
@@ -385,7 +386,15 @@ def main(*, integration_policy=FINALS_I1_POLICY, baseline_dir=None):
                     proofs[key] = dict(item, artifact_sha256=receipt["artifact_sha256"])
         if baseline_dir:
             prior = lab / baseline_dir / f"{name}-changed-paragraph-attestation.json"
-            if prior.is_file():
+            # Integrated replays may inherit unchanged proofs from an earlier
+            # baseline. Follow only the exact receipt hashes in its manifest.
+            priors = [prior] if prior.is_file() else []
+            for path, digest in baseline["input_sha256"].items():
+                candidate = Path(path)
+                if candidate.name == prior.name and candidate not in priors:
+                    assert sha256(candidate.read_bytes()).hexdigest() == digest
+                    priors.append(candidate)
+            for prior in priors:
                 receipt = read(prior)
                 input_hashes[str(prior)] = sha256(prior.read_bytes()).hexdigest()
                 assert (

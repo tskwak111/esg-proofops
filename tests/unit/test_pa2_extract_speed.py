@@ -139,7 +139,7 @@ def test_operator_batch_and_concurrency_settings_pin_only_new_runs(tmp_path, mon
     assert snapshot["analysis_profile_policy"]["stage_overlap"] is False
     assert (
         snapshot["analysis_profile_policy"]["verified_read_cache"]["profile"]
-        == "exact-verified-read-v5"
+        == "exact-verified-read-v7"
     )
     from proofops.application.analysis_profile import V2_PRE_D24_POLICY, policy_for
 

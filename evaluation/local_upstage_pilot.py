@@ -774,6 +774,7 @@ def apply_resume_metadata(args, saved: dict) -> None:
     args.extraction_i3_wire = bool(saved.get("extraction_i3_wire", False))
     args.extraction_i4_identity = bool(saved.get("extraction_i4_identity", False))
     args.extraction_h1 = bool(saved.get("extraction_h1", False))
+    args.extraction_i5_tables = bool(saved.get("extraction_i5_tables", False))
     args.extraction_pb1_context_guard = bool(saved.get("extraction_pb1_context_guard", False))
     args.extraction_table_footnotes = bool(saved.get("extraction_table_footnotes", False))
     args.extraction_source_ids = bool(saved.get("extraction_source_ids", False))
@@ -1689,6 +1690,7 @@ def main():
                     extraction_i3_wire=args.extraction_i3_wire,
                     extraction_i4_identity=args.extraction_i4_identity,
                     extraction_h1=getattr(args, "extraction_h1", False),
+                    extraction_i5_tables=getattr(args, "extraction_i5_tables", False),
                     extraction_pb1_context_guard=args.extraction_pb1_context_guard,
                     extraction_table_footnotes=args.extraction_table_footnotes,
                     extraction_table_rows=args.extraction_table_rows,
@@ -1765,6 +1767,8 @@ def main():
             settings["extraction_i3_wire"] = True
         if getattr(args, "extraction_h1", False):
             settings["extraction_h1"] = True
+        if getattr(args, "extraction_i5_tables", False):
+            settings["extraction_i5_tables"] = True
         if args.extraction_j3:
             settings["extraction_j3"] = True
         if args.extraction_j7:
@@ -2304,6 +2308,8 @@ def main():
             manifest["extraction_i3_wire"] = True
         if getattr(args, "extraction_h1", False):
             manifest["extraction_h1"] = True
+        if getattr(args, "extraction_i5_tables", False):
+            manifest["extraction_i5_tables"] = True
         if args.extraction_j3:
             manifest["extraction_j3"] = True
         if args.extraction_j7:
@@ -2419,10 +2425,11 @@ def main():
             "extraction_i3_wire",
             "extraction_i4_identity",
             "extraction_h1",
+            "extraction_i5_tables",
             "extraction_pb1_context_guard",
             "extraction_table_footnotes",
         ):
-            if manifest.get(name, False) != getattr(args, name):
+            if manifest.get(name, False) != getattr(args, name, False):
                 raise ValueError(name + " policy changed; create a new state directory")
         if manifest.get("extraction_atomic", False) != args.extraction_atomic:
             raise ValueError("pilot extraction atomic policy changed; create a new state directory")

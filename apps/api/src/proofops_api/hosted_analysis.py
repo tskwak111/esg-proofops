@@ -65,11 +65,18 @@ def default_analysis_profile():
 
 
 def operator_profiles(config: dict) -> dict:
-    from proofops.application.analysis_profile import S2_POLICY
+    from proofops.application.analysis_profile import publication_policy_for
     from proofops.application.claim_scope import MAX_EXTRACTION_BATCH_CALLS
 
-    s2 = config.get("analysis_policy_sha256") == canonical_hash(S2_POLICY)
-    workers = config.get("llm_max_workers", S2_POLICY["max_http_workers"] if s2 else 8)
+    analysis = config.get("analysis_profile", default_analysis_profile())
+    policy = (
+        publication_policy_for(analysis, pinned_hash=config.get("analysis_policy_sha256"))
+        if analysis in FINALS_PROFILES
+        else {}
+    )
+    workers = config.get(
+        "llm_max_workers", policy["max_http_workers"] if policy.get("tagging_budget") else 8
+    )
     if type(workers) is not int or not 1 <= workers <= 16:
         raise ValueError("HOSTED_LLM_CONCURRENCY_INVALID")
     batch_calls = config.get("extract_batch_calls", 20)

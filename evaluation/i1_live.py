@@ -34,7 +34,14 @@ from evaluation.w7_sentence_replay import NoTransport
 
 
 def main(
-    *, claim_pages=None, workers=1, budget="0.5", event_id="I1-USD0.5", integration_policy=None
+    *,
+    claim_pages=None,
+    workers=1,
+    budget="0.5",
+    event_id="I1-USD0.5",
+    integration_policy=None,
+    source_states=None,
+    extraction_batch_calls=None,
 ):
     selected_policy = integration_policy or V2_POLICY
     if not Decimal(0) < Decimal(budget) <= Decimal("0.6"):
@@ -55,6 +62,20 @@ def main(
     assert spec and spec.loader
     harness = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(harness)
+
+    def state_for(company):
+        if source_states is not None:
+            return source_states[company]
+        return (
+            args.root / "outputs/agent-results/R108-redesign/lab/perf/PA9" / (company + "-server")
+        )
+
+    def page_map_for(company):
+        state = state_for(company)
+        if (state / "result-1.json").is_file():
+            return json.loads((state / "result-1.json").read_text())["page_map"]
+        return json.loads((state / "pilot.json").read_text())["selected_pages"]
+
     original_pin = harness.pin_scratch_policy
     original_batch = opendataloader._batch
 
@@ -82,6 +103,8 @@ def main(
             "j8",
             "i3_wire",
             "i4_identity",
+            "h1",
+            "i5_tables",
             "k1",
             "k3",
             "sentence_prefix",
@@ -93,10 +116,10 @@ def main(
             else:
                 settings.pop(name, None)
         source_policy = None
-        if options.claim_source_profile == "upstage-ocr-page-v11":
-            from proofops.adapters.local import upstage_ocr_profile_v11
+        if options.claim_source_profile.startswith("upstage-ocr-page-"):
+            from proofops.adapters.local.claim_source_policies import page_ocr_profile
 
-            source_policy = upstage_ocr_profile_v11.claim_source_policy()
+            source_policy = page_ocr_profile(options.claim_source_profile).claim_source_policy()
             settings["claim_source_policy"] = source_policy
         settings.update(
             extraction_w9=True,
@@ -116,7 +139,7 @@ def main(
         )
         settings["extraction_profile"] = extraction_profile
         guidance = live_tagging_settings(
-            600,
+            selected_policy.get("tagging_budget", {}).get("max_calls", 600),
             prompt_profile=selected_policy.get("tagging_prompt_profile"),
             model_id="gpt-6-luna",
             element_definition_profile=selected_policy["element_definition_profile"],
@@ -136,6 +159,8 @@ def main(
         parser_path = output / "parser.json"
         config = json.loads(parser_path.read_text())
         config.update(table_claims_profile="pb1-w9-v1")
+        if selected_policy.get("local_resource_policy"):
+            config["local_resource_policy"] = selected_policy["local_resource_policy"]
         parser_path.write_text(json.dumps(config))
         with sqlite3.connect(output / "state.sqlite3") as db:
             triggers = list(db.execute("SELECT name,sql FROM sqlite_master WHERE type='trigger'"))
@@ -145,6 +170,14 @@ def main(
             frozen = json.loads(
                 db.execute("SELECT payload FROM run_snapshots WHERE run_id=?", (run,)).fetchone()[0]
             )
+            if extraction_batch_calls is not None:
+                from proofops.application.claim_scope import MAX_EXTRACTION_BATCH_CALLS
+
+                if not 1 <= extraction_batch_calls <= MAX_EXTRACTION_BATCH_CALLS:
+                    raise ValueError("I5_EXTRACTION_BATCH_INVALID")
+                frozen["extraction_limits"]["max_calls"] = extraction_batch_calls
+                settings["extraction_limits"]["max_calls"] = extraction_batch_calls
+                settings_path.write_text(json.dumps(settings))
             frozen.update(
                 extraction_profile=extraction_profile,
                 extraction_profile_hash=canonical_hash(extraction_profile),
@@ -170,14 +203,19 @@ def main(
             frozen["input_reservation_policy_hash"] = canonical_hash(
                 frozen["input_reservation_policy"]
             )
-            page_map = json.loads(
-                (
-                    args.root
-                    / "outputs/agent-results/R108-redesign/lab/perf/PA9"
-                    / (company + "-server")
-                    / "result-1.json"
-                ).read_text()
-            )["page_map"]
+            if selected_policy.get("tagging_budget"):
+                role = next(r for r in frozen["budget_limits"]["roles"] if r["role"] == "tagger")
+                delta = selected_policy["tagging_budget"]["max_calls"] - role["max_calls"]
+                frozen["budget_limits"]["input_tokens"] += delta * role["max_input_tokens"]
+                frozen["budget_limits"]["output_tokens"] += delta * role["max_output_tokens"]
+                role["max_calls"] += delta
+                db.execute(
+                    "UPDATE usage_runs SET limits_json=? WHERE run_id=?",
+                    (json.dumps(frozen["budget_limits"]), run),
+                )
+                settings["budget_limits"] = frozen["budget_limits"]
+                settings_path.write_text(json.dumps(settings))
+            page_map = page_map_for(company)
             frozen["extraction_limits"]["claim_pages"] = [
                 page_map.index(page) + 1 for page in physical_pages[company]
             ]
@@ -226,9 +264,7 @@ def main(
     original_candidate_batch = upstage_document.candidate_batch
 
     def candidate_batch(*a, **kw):
-        state = (
-            args.root / "outputs/agent-results/R108-redesign/lab/perf/PA9" / (company + "-server")
-        )
+        state = state_for(company)
         batches = json.loads(next((state / "parser-prepared").rglob("candidates.json")).read_text())
         identifier = next(
             b["parser_run_id"] for b in batches if b["parser_name"] == "upstage_async_" + kw["mode"]
@@ -243,16 +279,14 @@ def main(
     upstage_document.candidate_batch = candidate_batch
 
     def build(**kwargs):
-        os.environ["PROOFOPS_VERIFIED_READ_CACHE"] = "exact-verified-read-v5"
+        os.environ["PROOFOPS_VERIFIED_READ_CACHE"] = selected_policy["verified_read_cache"][
+            "profile"
+        ]
         factories = kwargs["provider_factories"]
         llm = factories["llm"]
 
         def parse(ledger):
-            state = (
-                args.root
-                / "outputs/agent-results/R108-redesign/lab/perf/PA9"
-                / (company + "-server")
-            )
+            state = state_for(company)
             receipts = {}
             with sqlite3.connect((state / "upstage.sqlite3").as_uri() + "?mode=ro", uri=True) as db:
                 for (raw,) in db.execute(
@@ -289,7 +323,40 @@ def main(
         kwargs["provider_factories"] = dict(
             llm=lambda *a, **kw: admission.bind(llm(*a, **kw)), parse=parse
         )
-        return original_build(**kwargs)
+        worker = original_build(**kwargs)
+        if kwargs["stage"] == "parse" and selected_policy.get("local_resource_policy"):
+            run_once = worker.run_once
+
+            def with_retained_mapping(*a, **kw):
+                raw_parser = worker.parser._execute
+
+                def execute(command, work, env, profile):
+                    raw_parser(command, work, env, profile)
+                    from proofops.adapters.parsing.h1_local_pages import prepare, receipt
+                    from pypdf import PdfReader
+
+                    raw = json.loads((work / "source.json").read_bytes())
+                    count = len(PdfReader(work / "source.pdf").pages)
+                    selected = profile.physical_pages or tuple(range(1, count + 1))
+                    # These retained-parser fixtures contain a complete selected
+                    # PDF. No subset remapping or invented parser output is allowed.
+                    if selected != tuple(range(1, count + 1)) or raw["number of pages"] != count:
+                        raise ValueError("I5_RETAINED_LOCAL_PAGE_MAPPING_UNAVAILABLE")
+                    subset, mapping = prepare(work / "source.pdf", selected, work)
+                    (work / "local-selected.json").write_bytes(opendataloader._json(raw))
+                    (work / "local-page-map.json").write_bytes(
+                        opendataloader._json(
+                            receipt(
+                                work / "source.pdf", subset, mapping, raw, original_page_count=count
+                            )
+                        )
+                    )
+
+                worker.parser._execute = execute
+                return run_once(*a, **kw)
+
+            worker.run_once = with_retained_mapping
+        return worker
 
     composition.build_composition = build
     OriginalGuard = spend_guard.SpendGuard
@@ -323,15 +390,14 @@ def main(
 
     openai.OpenAIProbe._post = post
     results = {}
-    lab = args.root / "outputs/agent-results/R108-redesign/lab"
-    for company in (args.company,) if args.company else ("naver", "kia"):
+    for company in (args.company,) if args.company else tuple(source_states or ("naver", "kia")):
         if stopped:
             results[company] = dict(status="not_run", reason="provider_error_no_paid_retry")
             continue
         sys.argv = [
             "i1-live",
             "--source",
-            str(lab / f"perf/PA9/{company}-server"),
+            str(state_for(company)),
             "--output",
             str(args.output / company),
             "--spend-ledger",
@@ -351,7 +417,7 @@ def main(
             measurement = args.output / company / "measurement.json"
             if measurement.exists():
                 results[company]["measurement"] = json.loads(measurement.read_text())
-            results["kia"] = dict(status="not_run", reason="earlier_local_stage_failure")
+            results[company]["reason"] = "local_stage_failure"
             break
         measurement = args.output / company / "measurement.json"
         if measurement.exists():

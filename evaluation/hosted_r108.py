@@ -123,6 +123,15 @@ def prepare_argv(pdf, state, tenant, config, options=None):
         # Pilot pins parser, EV1, source, prompt and policy hashes. It prepares
         # only; hosted dispatch below remains the sole money authority.
         argv += ["--analysis-profile", profiles["analysis_profile"]]
+        from proofops.application.analysis_profile import publication_policy_for
+
+        selected_policy = publication_policy_for(
+            profiles["analysis_profile"], pinned_hash=options.get("analysis_profile_sha256")
+        )
+        if selected_policy.get("tagging_budget"):
+            argv[argv.index("--tagging-max-calls") + 1] = str(
+                selected_policy["tagging_budget"]["max_calls"]
+            )
         if options.get("analysis_profile_sha256"):
             from proofops.application.analysis_profile import (
                 FINALS_I3_POLICY,

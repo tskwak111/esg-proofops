@@ -541,6 +541,7 @@ def _profile_with_options(
     extraction_i3_wire: bool = False,
     extraction_i4_identity: bool = False,
     extraction_h1: bool = False,
+    extraction_i5_tables: bool = False,
 ) -> ExtractionProfile:
     """Versioned extraction profile for an explicit option combination.
 
@@ -561,6 +562,8 @@ def _profile_with_options(
     """
     if type(extraction_i4_identity) is not bool or (extraction_i4_identity and not source_ids):
         raise ValueError("EXTRACTION_I4_IDENTITY_INVALID")
+    if type(extraction_i5_tables) is not bool or (extraction_i5_tables and not extraction_j8):
+        raise ValueError("EXTRACTION_I5_TABLE_GUARD_INVALID")
     if type(extraction_h1) is not bool or (extraction_h1 and not extraction_linewrap_join):
         raise ValueError("EXTRACTION_H1_INVALID")
     if type(extraction_i3_wire) is not bool or (extraction_i3_wire and not extraction_j8):
@@ -639,6 +642,8 @@ def _profile_with_options(
     if display_text_profile not in (None, PROFILE):
         raise ValueError("DISPLAY_PROFILE_INVALID")
     descriptor: list[Any] = [*_RULE_DESCRIPTOR]
+    if extraction_i5_tables:
+        descriptor.append({"table_failure": "i5-grid-unreadable-v1"})
     if extraction_h1:
         from proofops.application.ingest.h1_boundaries import POLICY as H1_POLICY
 
@@ -846,6 +851,7 @@ class UpstageClaimExtractor:
         extraction_i3_wire: bool = False,
         extraction_i4_identity: bool = False,
         extraction_h1: bool = False,
+        extraction_i5_tables: bool = False,
     ) -> None:
         if not callable(getattr(probe, "complete", None)):
             raise ValueError("UPSTAGE_PROBE_REQUIRED")
@@ -910,6 +916,7 @@ class UpstageClaimExtractor:
             extraction_i3_wire=extraction_i3_wire,
             extraction_i4_identity=extraction_i4_identity,
             extraction_h1=extraction_h1,
+            extraction_i5_tables=extraction_i5_tables,
         )
         if type(max_tokens) is not int or not 1 <= max_tokens <= 4096:
             raise ValueError("UPSTAGE_MAX_TOKENS_INVALID")
@@ -938,6 +945,7 @@ class UpstageClaimExtractor:
         self._i3_wire = extraction_i3_wire
         self._i4_identity = extraction_i4_identity
         self._h1 = extraction_h1
+        self._i5_tables = extraction_i5_tables
         self._table_rows = extraction_table_rows
         self._recall_prompt = extraction_recall_prompt
         self._atomic = extraction_atomic
@@ -2441,17 +2449,29 @@ class GraphBoundExtractor:
     def extract(self, packet: dict) -> dict:
         if getattr(self._inner, "_display_text_profile", None) and self._display_catalog is None:
             raise ExtractionOutputError("DISPLAY_SOURCE_UNAVAILABLE")
-        return self._inner.extract(
-            packet,
-            context_graph=self._graph,
-            **(
-                {"h1_title_catalog": self._h1_title_catalog}
-                if self._h1_title_catalog is not None
-                else {}
-            ),
-            **(
-                {"display_catalog": self._display_catalog}
-                if self._display_catalog is not None
-                else {}
-            ),
-        )
+        try:
+            return self._inner.extract(
+                packet,
+                context_graph=self._graph,
+                **(
+                    {"h1_title_catalog": self._h1_title_catalog}
+                    if self._h1_title_catalog is not None
+                    else {}
+                ),
+                **(
+                    {"display_catalog": self._display_catalog}
+                    if self._display_catalog is not None
+                    else {}
+                ),
+            )
+        except ValueError as error:
+            if (
+                getattr(self._inner, "_i5_tables", False)
+                and getattr(self._inner, "_j8", False)
+                and packet.get("untrusted_document_data", {}).get("kind") == "table"
+                and str(error) in {"J8_GRID_MISSING", "J8_GRID_INVALID", "J8_GRID_OVERLAP"}
+            ):
+                # ClaimDiscovery records a failed source and an unknown exclusion;
+                # no empty/non-claim result or invented cell/evidence is admitted.
+                raise ExtractionOutputError("TABLE_GRID_UNREADABLE") from None
+            raise

@@ -23,10 +23,14 @@ def test_i3_default_enables_all_admitted_options_and_v11_source():
 
 
 def test_h1_future_policy_is_distinct_and_enables_bounded_parser_and_source_reader():
-    policy = profiles.policy_for(profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_H1_POLICY))
+    policy = profiles.policy_for(
+        profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_H1_POLICY)
+    )
     assert policy == profiles.FINALS_H1_POLICY
     assert canonical_hash(policy) != canonical_hash(profiles.FINALS_I3_POLICY)
-    args = Namespace(analysis_profile=profiles.V2_PROFILE, analysis_policy_sha256=canonical_hash(policy))
+    args = Namespace(
+        analysis_profile=profiles.V2_PROFILE, analysis_policy_sha256=canonical_hash(policy)
+    )
     profiles.apply_pilot_profile(args)
     assert args.extraction_h1
     assert args.parser_local_resource_policy == "selected-pdf-h1-v1"

@@ -24,7 +24,10 @@ def test_i4_settings_and_historical_policy_are_pinned():
     )
     assert settings["preliminary_settings"]["system_prompt"] == K4_PRELIMINARY
     assert settings["tagging_settings"]["system_prompt"] == K4_ELEMENTS
-    assert policy_for("finals-unattended-v2") == FINALS_I4_POLICY
+    assert (
+        policy_for("finals-unattended-v2", pinned_hash=canonical_hash(FINALS_I4_POLICY))
+        == FINALS_I4_POLICY
+    )
     assert canonical_hash(FINALS_I3_POLICY) == (
         "830ce06b7dec224b15be7a60d9813bd08038e5a229709193e6c621a9e18f92e3"
     )

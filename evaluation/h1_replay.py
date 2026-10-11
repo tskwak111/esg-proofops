@@ -22,10 +22,10 @@ from evaluation.pa9_source_gate import discovery_from_record, fixture
 from evaluation.w7_sentence_replay import NoTransport
 
 
-def flags():
+def flags(policy=FINALS_H1_POLICY):
     args = Namespace(
         analysis_profile="finals-unattended-v2",
-        analysis_policy_sha256=canonical_hash(FINALS_H1_POLICY),
+        analysis_policy_sha256=canonical_hash(policy),
     )
     apply_pilot_profile(args)
     names = (
@@ -48,24 +48,29 @@ def flags():
         "sentence_prefix",
         "table_footnotes",
         "h1",
+        "i4_identity",
+        "i5_tables",
     )
     return {"extraction_" + n: getattr(args, "extraction_" + n, False) for n in names} | dict(
         position_order=False, display_text_profile="glyph-joined-display-v1"
     )
 
 
-def measure(company, *, label="h1-final"):
+def measure(company, *, label="h1-final", policy=FINALS_H1_POLICY, output_root=None):
     scorer, audit_sources = load_a_scorer()
     golds = [g for g in read(A / "v1-gold-atoms.json") if g["company"] == company]
     predictions, audits, changes, sources, stages, hashes = [], [], [], {}, [], {}
-    output = OUT / label / company
+    output = (output_root or OUT) / label / company
     for case in CASES[company]:
         started = monotonic()
         state = A / "states" / case
         graph, source, _, snapshot, parse = fixture(state)
         retained_dir = OUT / "v3-measured" / company / case
         retained = discovery_from_record(read(retained_dir / "discovery.json"))
-        settings = flags()
+        settings = flags(policy)
+        # Raw historical selections use UUID IDs. Replay their literal spans
+        # through the unchanged postprocessor, never admit them as new cN votes.
+        settings["extraction_i4_identity"] = False
         new = UpstageClaimExtractor(NoTransport(), output / case / "resolver", **settings)
         original_receipts = {r.source_id: r for r in retained.receipts}
         raw = {}
@@ -179,8 +184,8 @@ def measure(company, *, label="h1-final"):
     )
     result = dict(
         strict=scorer.evaluate(golds, predictions),
-        policy=FINALS_H1_POLICY,
-        policy_sha256=canonical_hash(FINALS_H1_POLICY),
+        policy=policy,
+        policy_sha256=canonical_hash(policy),
         extraction_profile=asdict(new.profile),
         source_policy=native.claim_source_policy(),
         source_details=sources,
@@ -191,6 +196,9 @@ def measure(company, *, label="h1-final"):
         model_calls=0,
         paid_usd="0",
         original_selection="same v3 raw responses; no new votes",
+        selection_wire_projection=(
+            "historical literal selections only; fresh cN wire tested separately"
+        ),
     )
     write(output / "predictions.json", predictions)
     write(output / "source-audit.json", audits)

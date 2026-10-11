@@ -101,6 +101,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
         from proofops.application.analysis_profile import (
             FINALS_I1_INITIAL_POLICY,
             FINALS_I3_POLICY,
+            FINALS_I4_POLICY,
             S1_POLICY,
             S2_POLICY,
             V2_D24_POLICY,
@@ -133,6 +134,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             canonical_hash(S2_POLICY),
             canonical_hash(V2_POLICY),
             canonical_hash(FINALS_I3_POLICY),
+            canonical_hash(FINALS_I4_POLICY),
             canonical_hash(S1_POLICY),
             canonical_hash(FINALS_I1_INITIAL_POLICY),
             canonical_hash(V2_D24_POLICY),
@@ -184,6 +186,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                             canonical_hash(S2_POLICY),
                             canonical_hash(V2_POLICY),
                             canonical_hash(FINALS_I3_POLICY),
+                            canonical_hash(FINALS_I4_POLICY),
                             canonical_hash(S1_POLICY),
                             canonical_hash(FINALS_I1_INITIAL_POLICY),
                             canonical_hash(V2_D24_POLICY),

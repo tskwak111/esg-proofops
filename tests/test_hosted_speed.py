@@ -111,7 +111,7 @@ def test_publication_replay_releases_writer_and_rechecks_cancellation(
         assert db.execute("SELECT count(*) FROM result_snapshots").fetchone()[0] == 0
 
 
-@pytest.mark.parametrize("configured,expected", [(None, 8), (1, 1), (8, 8), (16, 16)])
+@pytest.mark.parametrize("configured,expected", [(None, 16), (1, 1), (8, 8), (16, 16)])
 def test_operator_concurrency(configured, expected):
     from proofops_api.hosted_analysis import operator_profiles
 

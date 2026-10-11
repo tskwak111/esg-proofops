@@ -6,7 +6,11 @@ import sqlite3
 import sys
 
 import pytest
-from proofops.application.analysis_profile import FINALS_H1_POLICY, FINALS_I3_POLICY
+from proofops.application.analysis_profile import (
+    FINALS_H1_POLICY,
+    FINALS_I3_POLICY,
+    FINALS_I5_POLICY,
+)
 from proofops.domain.provenance import canonical_hash
 
 
@@ -15,6 +19,7 @@ from proofops.domain.provenance import canonical_hash
     [
         (FINALS_I3_POLICY, "upstage-ocr-page-v11", False),
         (FINALS_H1_POLICY, "upstage-ocr-page-v12", True),
+        (FINALS_I5_POLICY, "upstage-ocr-page-v12", True),
     ],
 )
 def test_i3_free_create_and_resume(tmp_path, monkeypatch, policy, reader, h1):
@@ -46,6 +51,9 @@ def test_i3_free_create_and_resume(tmp_path, monkeypatch, policy, reader, h1):
         assert settings["extraction_" + name] is True
     assert settings["claim_source_policy"]["profile"] == reader
     assert settings.get("extraction_h1", False) is h1
+    assert settings.get("extraction_i4_identity", False) is bool(
+        policy.get("extraction_selection_ids")
+    )
     config = json.loads((state / "parser.json").read_text())
     assert config.get("local_resource_policy") == ("selected-pdf-h1-v1" if h1 else None)
     with sqlite3.connect(state / "state.sqlite3") as db:
