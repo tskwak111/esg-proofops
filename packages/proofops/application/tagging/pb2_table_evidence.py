@@ -18,9 +18,13 @@ POLICY = dict(
     present="model-selection-required",
 )
 POLICY_HASH = canonical_hash(POLICY)
+ROW_UNIT_POLICY = POLICY | dict(
+    profile="table-selected-evidence-k4-v1",
+    missing_unit_cell="same-verified-row-unique-literal-subspan-only",
+)
 
 
-def observation_sources(claim, graph, *, tenant_id):
+def observation_sources(claim, graph, *, tenant_id, recover_row_unit=False):
     if tenant_id != graph.tenant_id or claim.tenant_id != tenant_id or len(claim.source_refs) != 1:
         return None
     ref = claim.source_refs[0]
@@ -80,6 +84,19 @@ def observation_sources(claim, graph, *, tenant_id):
     if value is None or len(units) != 1 or header is None:
         return None
     year = verify_source_ref(header.source_ref(), graph, tenant_id=tenant_id)
+    if recover_row_unit and units[0]["ref"].verification_state != "verified":
+        spec = units[0]
+        # An unlocated parser cell cannot acquire invented coordinates. The
+        # complete row already independently passed source verification.
+        if ref.quote.count(spec["ref"].quote) == 1:
+            narrow = replace(
+                ref,
+                char_start=spec["start"],
+                char_end=spec["end"],
+                quote=spec["ref"].quote,
+                verification_state="candidate",
+            )
+            units[0] = spec | dict(ref=verify_source_ref(narrow, graph, tenant_id=tenant_id))
     required = (value["ref"], units[0]["ref"], year)
     if any(r.verification_state != "verified" for r in required):
         return None
@@ -108,11 +125,15 @@ def observation_sources(claim, graph, *, tenant_id):
     )
 
 
-def augment_packet(data, claim, graph, *, tenant_id):
-    data["table_evidence_policy"] = POLICY
+def augment_packet(data, claim, graph, *, tenant_id, policy=POLICY):
+    if policy not in (POLICY, ROW_UNIT_POLICY):
+        raise ValueError("TABLE_EVIDENCE_POLICY_MISMATCH")
+    data["table_evidence_policy"] = policy
     if not {"P1", "P2"}.intersection(data["allowed_elements"]):
         return data
-    sources = observation_sources(claim, graph, tenant_id=tenant_id)
+    sources = observation_sources(
+        claim, graph, tenant_id=tenant_id, recover_row_unit=policy == ROW_UNIT_POLICY
+    )
     if sources is None:
         return data
     candidates = data["evidence_candidates"]
@@ -121,6 +142,13 @@ def augment_packet(data, claim, graph, *, tenant_id):
     for comp in sources["comparisons"]:
         refs += [comp["value"]["ref"], comp["year"]]
     for ref in refs:
+        existing = next((c for c in candidates if c["source_id"] == ref.source_id), None)
+        if (
+            policy == ROW_UNIT_POLICY
+            and existing is not None
+            and asdict(ref) not in existing["source_refs"]
+        ):
+            existing["source_refs"].append(asdict(ref))
         if ref.source_id not in ids:
             candidates.append(
                 dict(
@@ -132,7 +160,7 @@ def augment_packet(data, claim, graph, *, tenant_id):
             )
             ids.add(ref.source_id)
     data["table_observation_evidence"] = dict(
-        policy_sha256=POLICY_HASH,
+        policy_sha256=canonical_hash(policy),
         observation=sources["observation"],
         value=asdict(sources["value"]["ref"]),
         unit=asdict(sources["unit"]["ref"]),
@@ -145,10 +173,12 @@ def augment_packet(data, claim, graph, *, tenant_id):
     return data
 
 
-def prepare_element(element, claim, graph, *, tenant_id):
+def prepare_element(element, claim, graph, *, tenant_id, policy=POLICY):
     if element.state != "present" or element.element_id not in ("P1", "P2"):
         return element, False
-    sources = observation_sources(claim, graph, tenant_id=tenant_id)
+    sources = observation_sources(
+        claim, graph, tenant_id=tenant_id, recover_row_unit=policy == ROW_UNIT_POLICY
+    )
     if sources is None or not element.evidence_refs or element.normalized_value is None:
         return element, False
     refs = element.evidence_refs
@@ -225,6 +255,7 @@ def validated_observation(data, claim, graph, *, tenant_id):
         claim,
         graph,
         tenant_id=tenant_id,
+        policy=data.get("table_evidence_policy", POLICY),
     ).get("table_observation_evidence")
     if canonical_hash(data["table_observation_evidence"]) != canonical_hash(expected):
         raise DomainValidationError("table observation evidence mismatch")

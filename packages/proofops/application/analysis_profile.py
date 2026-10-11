@@ -1,6 +1,7 @@
 """One explicitly selected profile; old configurations remain byte-identical."""
 
 from proofops.application.ingest.i3_wire import POLICY as I3_WIRE_POLICY
+from proofops.application.ingest.j7_split import CONTEXT_POLICY
 from proofops.application.ingest.j8_cells import POLICY as J8_CELLS_POLICY
 from proofops.application.ingest.k1_boundaries import POLICY_HASH as K1_BOUNDARY_HASH
 from proofops.application.ingest.k3_table_routing import POLICY as K3_ROUTING_POLICY
@@ -13,6 +14,12 @@ from proofops.application.tagging.dec24 import (
 from proofops.application.tagging.k1_semantics import DEFINITIONS as K1_DEFINITIONS
 from proofops.application.tagging.k1_semantics import POLICY as K1_SEMANTIC_POLICY
 from proofops.application.tagging.k2_recovery import POLICY as K2_RECOVERY_POLICY
+from proofops.application.tagging.k4_contract import (
+    FACILITY_POLICY,
+    RESPONSE_POLICY,
+    SEMANTIC_POLICY,
+    VALUE_POLICY,
+)
 from proofops.application.tagging.quality import ELEMENT_DEFINITIONS_HASH
 from proofops.application.tagging.semantic_admission import POLICY as W8_POLICY
 from proofops.application.tagging.semantic_admission import POLICY_HASH as W8_POLICY_HASH
@@ -287,6 +294,21 @@ FINALS_I3_POLICY = (
 V2_POLICY = FINALS_I3_POLICY
 
 
+FINALS_K4_POLICY = FINALS_I3_POLICY | dict(
+    integration_profile="finals-r2-k4-v1",
+    sentence_context_policy=CONTEXT_POLICY,
+    sentence_context_policy_sha256=canonical_hash(CONTEXT_POLICY),
+    tagging_response_policy=RESPONSE_POLICY,
+    selected_quantity_policy=VALUE_POLICY,
+    table_evidence="table-selected-evidence-k4-v1",
+    semantic_admission=SEMANTIC_POLICY,
+    semantic_admission_sha256=canonical_hash(SEMANTIC_POLICY),
+    facility_dimensions=FACILITY_POLICY["profile"],
+    facility_dimensions_policy=FACILITY_POLICY,
+    facility_dimensions_policy_sha256=canonical_hash(FACILITY_POLICY),
+)
+
+
 def policy_for(profile, *, pinned_hash=None):
     if profile == J7_PROFILE:
         choices = (J7_POLICY,)
@@ -299,6 +321,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_K4_POLICY,
             FINALS_I2_POLICY,
             FINALS_I2_J3_POLICY,
             FINALS_I1_POLICY,
@@ -349,7 +372,7 @@ def policy_for(profile, *, pinned_hash=None):
 def publication_policy_for(profile, *, pinned_hash=None):
     policy = policy_for(profile, pinned_hash=pinned_hash)
     allowed = (
-        (policy_for(profile), W3_POLICY, K1_POLICY, FINALS_K2_POLICY)
+        (policy_for(profile), W3_POLICY, K1_POLICY, FINALS_K2_POLICY, FINALS_K4_POLICY)
         if profile == V2_PROFILE
         else (policy_for(profile),)
     )

@@ -34,6 +34,67 @@ POLICY = dict(
     fallback="keep-parent-on-incomplete-child-or-validation-failure; no-truncation",
     max_candidates=64,
 )
+CONTEXT_POLICY = dict(
+    profile="j7-connected-sentence-context-k4-v1",
+    atomic="unchanged-J7-focal-spans-and-identities",
+    interpretation="same-block-complete-bullet-or-sentence; no-cross-bullet-or-paragraph",
+    credit="interpretation-only; no-dimension-or-element-credit",
+    goal="connecting-clause-without-explicit-future-marker-requires-retag",
+)
+
+
+def sentence_context(claim, graph):
+    """Retain the whole literal sentence behind a connective atomic clause."""
+    from dataclasses import asdict
+
+    from proofops.application.evidence.span_citations import verify_source_ref
+
+    if len(claim.source_refs) != 1 or claim.tenant_id != graph.tenant_id:
+        return None
+    ref = claim.source_refs[0]
+    block = next((b for b in graph.blocks if b.source_id == ref.source_id), None)
+    if (
+        block is None
+        or block.kind != "paragraph"
+        or block.winner is None
+        or verify_source_ref(ref, graph, tenant_id=graph.tenant_id).verification_state != "verified"
+    ):
+        return None
+    text = block.raw_text
+    boundaries = {0, len(text)}
+    for match in re.finditer(r"(?<!\S)[•▪▶]|\n\s*\n|[.!?。！？](?=\s|$)", text):
+        boundaries.add(match.start() if match[0] in {"•", "▪", "▶"} else match.end())
+    start = max(x for x in boundaries if x <= ref.char_start)
+    end = min(x for x in boundaries if x >= ref.char_end)
+    while start < ref.char_start and text[start].isspace():
+        start += 1
+    while end > ref.char_end and text[end - 1].isspace():
+        end -= 1
+    quote = text[start:end]
+    if not re.search(r"하고|하며|있으며|했으며|예정으로", quote):
+        return None
+    if end - start == ref.char_end - ref.char_start or len(quote) > 2000:
+        return None
+    whole = block.source_ref(normalized_char_start=start, normalized_char_end=end)
+    checked = verify_source_ref(whole, graph, tenant_id=graph.tenant_id)
+    return dict(
+        policy=CONTEXT_POLICY,
+        text=quote,
+        source_ref=asdict(whole),
+        verification_state=checked.verification_state,
+        role="parent_paragraph",
+        rule_credit=False,
+    )
+
+
+def goal_requires_retag(claim, graph):
+    context = sentence_context(claim, graph)
+    return bool(
+        context
+        and not re.search(
+            r"목표|계획|예정|예상|전망|기대|(?:19|20)\d{2}년.*(?:까지|달성)", context["text"]
+        )
+    )
 
 
 def _top_level(text):

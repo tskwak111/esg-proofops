@@ -177,6 +177,9 @@ def provisional_result(
         from proofops.application.tagging.semantic_admission import estimate_refs
 
         estimate_evidence = estimate_refs(data, original, policy=semantic_policy)
+    from proofops.application.tagging.k4_contract import SEMANTIC_POLICY, scope3_evidence
+
+    scope3_refs = scope3_evidence(data, original) if semantic_policy == SEMANTIC_POLICY else []
     headers = Counter(
         run.guarded.superlative_quote for run in ordered if run.guarded is not None
     ).most_common(1)
@@ -193,7 +196,15 @@ def provisional_result(
                 )
                 else "REPLICA_HEADER_UNRESOLVED"
             )
-        return empty_provisional(reason) | dict(elements=elements)
+        early = empty_provisional(reason) | dict(elements=elements)
+        if scope3_refs:
+            early.update(
+                display_type="hold",
+                display="판정 보류",
+                hold_reasons=["Scope 3 · 산정 근거 확인 필요", "태깅 불일치"],
+                scope3_evidence_refs=scope3_refs,
+            )
+        return early
     tags = ConfirmedTags(
         context.tenant_id,
         data["document_version_id"],
@@ -237,13 +248,46 @@ def provisional_result(
                 hold_reasons=["추정치 · 산정 근거 확인 필요"],
                 estimate_evidence_refs=estimate_evidence,
             )
+        elif scope3_refs:
+            result.update(
+                evidence_grade=None,
+                label=None,
+                grade_range=None,
+                grade_basis="scope3_calculation_hold",
+                display_type="hold",
+                display="판정 보류",
+                reason="K4_SCOPE3_CALCULATION_REVIEW",
+                hold_reasons=["Scope 3 · 산정 근거 확인 필요"],
+                scope3_evidence_refs=scope3_refs,
+            )
         from proofops.application.tagging.k1_semantics import POLICY as K1_POLICY
         from proofops.application.tagging.k1_semantics import track_requires_review
 
         claim_quote = " ".join(r["quote"] for r in data["claim_source_refs"])
+        if semantic_policy == SEMANTIC_POLICY and data["track"] == "goal" and original:
+            from types import SimpleNamespace
+
+            from proofops.application.ingest.j7_split import goal_requires_retag
+            from proofops.domain.values import SourceRef
+
+            claim_view = SimpleNamespace(
+                tenant_id=data["tenant_id"],
+                source_refs=tuple(SourceRef(**r) for r in data["claim_source_refs"]),
+            )
+            if goal_requires_retag(claim_view, original):
+                result.update(
+                    evidence_grade=None,
+                    label=None,
+                    grade_range=None,
+                    grade_basis="retag_required",
+                    display_type="hold",
+                    display="판정 보류",
+                    reason="K4_CONNECTIVE_GOAL_RETAG_REQUIRED",
+                    hold_reasons=["이행 문장의 접속절 · 트랙 재태깅 필요"],
+                )
         from proofops.application.tagging.k1_semantics import masked_pue
 
-        if semantic_policy == K1_POLICY and (
+        if semantic_policy in (K1_POLICY, SEMANTIC_POLICY) and (
             track_requires_review(claim_quote, data["track"]) or masked_pue(claim_quote)
         ):
             wrong_track = track_requires_review(claim_quote, data["track"])
@@ -270,7 +314,7 @@ def provisional_result(
 
 def ensure_range(result, rulepack, *, tags=None, context=None):
     """Only the integrated profile fills an empty display slot; confirmed data stays null."""
-    if result.get("grade_basis") in {"estimate_hold", "retag_required"}:
+    if result.get("grade_basis") in {"estimate_hold", "retag_required", "scope3_calculation_hold"}:
         return result
     if result.get("evidence_grade"):
         return result | dict(display_type="numeric")

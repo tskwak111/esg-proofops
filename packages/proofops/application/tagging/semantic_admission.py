@@ -63,8 +63,9 @@ POLICY_HASH = canonical_hash(POLICY)
 
 def validate_policy(policy: dict) -> None:
     from proofops.application.tagging.k1_semantics import POLICY as K1_POLICY
+    from proofops.application.tagging.k4_contract import SEMANTIC_POLICY
 
-    if policy not in (POLICY, K1_POLICY):
+    if policy not in (POLICY, K1_POLICY, SEMANTIC_POLICY):
         raise ValueError("SEMANTIC_ADMISSION_POLICY_UNKNOWN")
 
 
@@ -134,6 +135,12 @@ def estimate_refs(
     """
     if policy is not None and policy != POLICY:
         validate_policy(policy)
+        from proofops.application.tagging.k4_contract import SEMANTIC_POLICY
+
+        if policy == SEMANTIC_POLICY:
+            from proofops.application.tagging.k4_contract import estimate_evidence
+
+            return estimate_evidence(data, original)
         from proofops.application.tagging.k1_semantics import estimate_evidence
 
         return estimate_evidence(data, original)

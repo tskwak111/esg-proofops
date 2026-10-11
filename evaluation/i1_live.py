@@ -33,7 +33,10 @@ from evaluation.local_upstage_pilot import live_tagging_settings
 from evaluation.w7_sentence_replay import NoTransport
 
 
-def main(*, claim_pages=None, workers=1, budget="0.5", event_id="I1-USD0.5"):
+def main(
+    *, claim_pages=None, workers=1, budget="0.5", event_id="I1-USD0.5", integration_policy=None
+):
+    selected_policy = integration_policy or V2_POLICY
     if not Decimal(0) < Decimal(budget) <= Decimal("0.5"):
         raise ValueError("CANARY_BUDGET_INVALID")
     physical_pages = claim_pages or dict(naver=[84, 88], kia=[26, 106])
@@ -68,9 +71,21 @@ def main(*, claim_pages=None, workers=1, budget="0.5", event_id="I1-USD0.5"):
         settings = json.loads(settings_path.read_text())
         from argparse import Namespace
 
-        options = Namespace(analysis_profile="finals-unattended-v2")
+        options = Namespace(
+            analysis_profile="finals-unattended-v2",
+            analysis_policy_sha256=canonical_hash(selected_policy),
+        )
         apply_pilot_profile(options)
-        for flag in ("j3", "j7", "j8", "i3_wire", "k1", "k3", "sentence_prefix", "table_footnotes"):
+        for flag in (
+            "j3",
+            "j7",
+            "j8",
+            "i3_wire",
+            "k1",
+            "k3",
+            "sentence_prefix",
+            "table_footnotes",
+        ):
             name = "extraction_" + flag
             if getattr(options, name):
                 settings[name] = True
@@ -86,7 +101,7 @@ def main(*, claim_pages=None, workers=1, budget="0.5", event_id="I1-USD0.5"):
             extraction_w9=True,
             extraction_sentence_prefix=True,
             extraction_table_footnotes=True,
-            analysis_policy_sha256=canonical_hash(V2_POLICY),
+            analysis_policy_sha256=canonical_hash(selected_policy),
         )
         flags = {
             k: v for k, v in settings.items() if k.startswith("extraction_") and type(v) is bool
@@ -102,7 +117,7 @@ def main(*, claim_pages=None, workers=1, budget="0.5", event_id="I1-USD0.5"):
         guidance = live_tagging_settings(
             600,
             model_id="gpt-6-luna",
-            element_definition_profile=V2_POLICY["element_definition_profile"],
+            element_definition_profile=selected_policy["element_definition_profile"],
             relations=True,
             relation_profile="occurrence-v3",
             preliminary_context=True,
@@ -188,7 +203,14 @@ def main(*, claim_pages=None, workers=1, budget="0.5", event_id="I1-USD0.5"):
                 )
         finally:
             registry.close()
-        frozen = original_pin(output, tenant, run)
+        from proofops.application import analysis_profile
+
+        prior_default = analysis_profile.V2_POLICY
+        try:
+            analysis_profile.V2_POLICY = selected_policy
+            frozen = original_pin(output, tenant, run)
+        finally:
+            analysis_profile.V2_POLICY = prior_default
         from proofops.adapters.local.tag_store import tagging_settings
 
         tagging_settings(frozen)
@@ -336,7 +358,7 @@ def main(*, claim_pages=None, workers=1, budget="0.5", event_id="I1-USD0.5"):
             results[company]["status"] = "not_run"
     guard = OriginalGuard(spend_ledger, event_id=event_id, daily_limit=budget, event_limit=budget)
     result = dict(
-        policy_sha256=canonical_hash(V2_POLICY),
+        policy_sha256=canonical_hash(selected_policy),
         results=results,
         provider_errors=stopped,
         dispatches=len(dispatches),

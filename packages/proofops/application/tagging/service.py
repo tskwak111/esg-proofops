@@ -371,6 +371,17 @@ def tag_replicates(
     }
     if "display_text" in data:
         user_data["display_text"] = data["display_text"]
+    from proofops.application.tagging.k4_contract import RESPONSE_POLICY
+    from proofops.application.tagging.k4_contract import VALUE_POLICY as K4_VALUE
+
+    for key, expected in (
+        ("tagging_response_policy", RESPONSE_POLICY),
+        ("selected_quantity_policy", K4_VALUE),
+    ):
+        if key in data:
+            if data[key] != expected:
+                raise DomainValidationError("K4_POLICY_MISMATCH")
+            user_data[key] = data[key]
     if "citation_restore_policy" in data:
         from proofops.application.tagging.citation_restore import POLICY
         from proofops.application.tagging.pb2_citation_restore import POLICY as TABLE_POLICY
@@ -630,19 +641,24 @@ def tag_replicates(
                 errors.append("SUPERLATIVE_SOURCE_INVALID")
             for element in raw_tags.elements:
                 table_selected = False
-                if (
-                    data.get("table_evidence_policy", {}).get("profile")
-                    == "table-selected-evidence-pb2-v1"
+                if data.get("table_evidence_policy", {}).get("profile") in (
+                    "table-selected-evidence-pb2-v1",
+                    "table-selected-evidence-k4-v1",
                 ):
                     from proofops.application.tagging.pb2_table_evidence import (
                         POLICY,
+                        ROW_UNIT_POLICY,
                         prepare_element,
                     )
 
-                    if data["table_evidence_policy"] != POLICY:
+                    if data["table_evidence_policy"] not in (POLICY, ROW_UNIT_POLICY):
                         raise DomainValidationError("table evidence policy mismatch")
                     element, table_selected = prepare_element(
-                        element, claim, original, tenant_id=tenant_id
+                        element,
+                        claim,
+                        original,
+                        tenant_id=tenant_id,
+                        policy=data["table_evidence_policy"],
                     )
                 state = element.state
                 scope_reason = scope_rejection_reason(
@@ -696,6 +712,17 @@ def tag_replicates(
                         from proofops.application.tagging.k2_recovery import recover_value
 
                         element, refs = recover_value(
+                            element, refs, claim, original, tenant_id=tenant_id
+                        )
+                    if data.get("selected_quantity_policy") is not None and state == "present":
+                        from proofops.application.tagging.k4_contract import (
+                            VALUE_POLICY,
+                            recover_selected_quantities,
+                        )
+
+                        if data["selected_quantity_policy"] != VALUE_POLICY:
+                            raise DomainValidationError("K4_VALUE_POLICY_MISMATCH")
+                        element, refs = recover_selected_quantities(
                             element, refs, claim, original, tenant_id=tenant_id
                         )
                     if element.normalized_value is None and element.element_id in (

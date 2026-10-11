@@ -519,6 +519,15 @@ class UpstageTaggingTransport:
         }
         schema["$defs"]["Element"]["properties"]["element_id"] = {"enum": allowed}
         schema["properties"]["elements"].update(minItems=len(allowed), maxItems=len(allowed))
+        response_policy = data.get("tagging_response_policy")
+        if response_policy is not None:
+            from proofops.application.tagging.k4_contract import RESPONSE_POLICY
+
+            if response_policy != RESPONSE_POLICY:
+                raise ValueError("K4_RESPONSE_POLICY_MISMATCH")
+            for field in ("claim_id", "packet_sha256", "replicate_id"):
+                schema["properties"].pop(field)
+                schema["required"].remove(field)
         instructions = (
             "\nTransport contract compact-evidence-ids-v1: evidence_refs contains only "
             "evidence_catalog IDs such as e0. Select IDs; never repeat or alter source text, "
@@ -843,6 +852,13 @@ class UpstageTaggingTransport:
                 if receipt.get("schema_valid") is False:
                     raise ValueError("provider schema invalid")
                 payload = json.loads(receipt["content"])
+                response_policy = json.loads(request["user_json"])["untrusted_document_data"].get(
+                    "tagging_response_policy"
+                )
+                if response_policy is not None:
+                    from proofops.application.tagging.k4_contract import bind_response
+
+                    payload = bind_response(payload, request, policy=response_policy)
                 restore_policy = json.loads(request["user_json"])["untrusted_document_data"].get(
                     "citation_restore_policy"
                 )

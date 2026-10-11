@@ -370,6 +370,35 @@ def main(*, integration_policy=FINALS_I1_POLICY, baseline_dir=None):
                         ref["raw_text_sha256"],
                     )
                     proofs[key] = dict(item, artifact_sha256=receipt["artifact_sha256"])
+        if baseline_dir:
+            prior = lab / baseline_dir / f"{name}-changed-paragraph-attestation.json"
+            if prior.is_file():
+                receipt = read(prior)
+                input_hashes[str(prior)] = sha256(prior.read_bytes()).hexdigest()
+                assert (
+                    canonical_hash({k: v for k, v in receipt.items() if k != "artifact_sha256"})
+                    == receipt["artifact_sha256"]
+                )
+                assert receipt["source_sha256"] == sha256(source).hexdigest()
+                for item in receipt["records"]:
+                    ref = item["ref"]
+                    block = blocks[ref["source_id"]]
+                    assert (
+                        block.source_ref(
+                            normalized_char_start=ref["char_start"],
+                            normalized_char_end=ref["char_end"],
+                        ).quote
+                        == ref["quote"]
+                    )
+                    proofs[
+                        (
+                            ref["source_id"],
+                            ref["char_start"],
+                            ref["char_end"],
+                            ref["quote"],
+                            ref["raw_text_sha256"],
+                        )
+                    ] = dict(item, artifact_sha256=receipt["artifact_sha256"])
         outputs = {}
         native_pdf = pdfplumber.open(io.BytesIO(source))
         for stage, selections in (("before", before), ("after", after)):
@@ -394,7 +423,7 @@ def main(*, integration_policy=FINALS_I1_POLICY, baseline_dir=None):
                 i for i, (b, _) in enumerate(selections) if b.kind in {"table", "table_cell"}
             ]
             table_reader = native
-            if stage == "after" and k3:
+            if k3 and (stage == "after" or baseline_dir == "perf/I3/stage-A-delivery"):
                 from proofops.adapters.local import upstage_ocr_profile_v11
 
                 table_reader = upstage_ocr_profile_v11

@@ -82,7 +82,7 @@ UPSTAGE_PRELIMINARY_PACKET_INVALID UPSTAGE_PRELIMINARY_PACKET_MISMATCH
 UPSTAGE_PRELIMINARY_CONTEXT_POLICY_INVALID UPSTAGE_PRELIMINARY_SOURCES_REQUIRED
 UPSTAGE_PRELIMINARY_TABLE_SOURCE_INVALID UPSTAGE_PRELIMINARY_TABLE_POLICY_INVALID
 UPSTAGE_PRELIMINARY_CONTEXT_INVALID RELATION_PACKET_MISMATCH RELATION_CLAIM_MISMATCH
-K1_PUE_PERFORMANCE_RETAG_REQUIRED""".split()
+K1_PUE_PERFORMANCE_RETAG_REQUIRED K4_CONNECTIVE_GOAL_RETAG_REQUIRED""".split()
 )
 
 
@@ -348,12 +348,30 @@ class LiveTaggingRuntime:
         data = packet.to_dict()
         data.pop("packet_sha256")
         policy = self.snapshot.get("analysis_profile_policy", {})
-        if policy.get("table_evidence") == "table-selected-evidence-pb2-v1":
-            from proofops.application.tagging.pb2_table_evidence import augment_packet
+        if policy.get("table_evidence") in (
+            "table-selected-evidence-pb2-v1",
+            "table-selected-evidence-k4-v1",
+        ):
+            from proofops.application.tagging.pb2_table_evidence import (
+                POLICY,
+                ROW_UNIT_POLICY,
+                augment_packet,
+            )
 
             if claim is None or claim.claim_id != data["claim_id"]:
                 raise ValueError("TABLE_EVIDENCE_CLAIM_REQUIRED")
-            data = augment_packet(data, claim, self.graph, tenant_id=self.graph.tenant_id)
+            data = augment_packet(
+                data,
+                claim,
+                self.graph,
+                tenant_id=self.graph.tenant_id,
+                policy=ROW_UNIT_POLICY
+                if policy["table_evidence"] == ROW_UNIT_POLICY["profile"]
+                else POLICY,
+            )
+        for key in ("tagging_response_policy", "selected_quantity_policy"):
+            if key in policy:
+                data[key] = policy[key]
         data["display_text"] = display_catalog.element_pins(data)
         if policy.get("hold_recovery_policy") is not None:
             from proofops.application.tagging.k2_recovery import validate_policy
@@ -513,6 +531,38 @@ class LiveTaggingRuntime:
                 elif entry["source_id"] not in data["omitted_source_ids"]:
                     data["omitted_source_ids"].append(entry["source_id"])
             data["context_blocks"] = verified_context
+        if self.snapshot.get("analysis_profile_policy", {}).get("sentence_context_policy"):
+            from proofops.application.ingest.j7_split import (
+                CONTEXT_POLICY,
+            )
+            from proofops.application.ingest.j7_split import (
+                sentence_context as connected_sentence_context,
+            )
+
+            configured = self.snapshot["analysis_profile_policy"]
+            if configured["sentence_context_policy"] != CONTEXT_POLICY or configured[
+                "sentence_context_policy_sha256"
+            ] != canonical_hash(CONTEXT_POLICY):
+                raise ValueError("K4_SENTENCE_POLICY_MISMATCH")
+            complete = connected_sentence_context(claim, graph)
+            if complete and len(complete["text"]) <= packet["context_policy"]["max_context_chars"]:
+                data = packet["untrusted_document_data"]
+                data["context_blocks"] = [
+                    dict(
+                        context_index=0,
+                        role="parent_paragraph",
+                        source_id=claim.source_refs[0].source_id,
+                        page_num=claim.source_refs[0].page_num,
+                        quality="verified"
+                        if complete["verification_state"] == "verified"
+                        else "unverified",
+                        text=complete["text"],
+                        source_ref={
+                            k: v for k, v in complete["source_ref"].items() if k != "quote"
+                        },
+                    )
+                ]
+                packet["context_policy"]["whole_blocks_only"] = False
         packet = self.preliminary_transport.bound_context(packet)
         if sentence_context and not sentence_context_ready(claim, packet):
             if not fallback:
@@ -595,10 +645,32 @@ class LiveTaggingRuntime:
             )
             from proofops.application.tagging.k1_semantics import POLICY as K1_POLICY
             from proofops.application.tagging.k1_semantics import track_requires_review
+            from proofops.application.tagging.k4_contract import SEMANTIC_POLICY, estimate_evidence
+
+            semantic = self.snapshot.get("analysis_profile_policy", {}).get("semantic_admission")
+            if semantic == SEMANTIC_POLICY and result.track and result.track.track == "goal":
+                from proofops.application.ingest.j7_split import goal_requires_retag
+
+                if goal_requires_retag(claim, graph):
+                    raise ValueError("K4_CONNECTIVE_GOAL_RETAG_REQUIRED")
+            if semantic == SEMANTIC_POLICY and result.safe_harbor_category == "emissions_estimate":
+                sources = dict(
+                    tenant_id=graph.tenant_id,
+                    document_version_id=graph.document_version_id,
+                    claim_source_refs=[asdict(r) for r in claim.source_refs],
+                    safe_harbor_category=result.safe_harbor_category,
+                )
+                if not estimate_evidence(sources, graph):
+                    result = replace(
+                        result,
+                        safe_harbor_category=None,
+                        track=replace(result.track, safe_harbor_category=None)
+                        if result.track
+                        else None,
+                    )
 
             if (
-                self.snapshot.get("analysis_profile_policy", {}).get("semantic_admission")
-                == K1_POLICY
+                semantic in (K1_POLICY, SEMANTIC_POLICY)
                 and result.track is not None
                 and track_requires_review(claim.quote, result.track.track)
             ):

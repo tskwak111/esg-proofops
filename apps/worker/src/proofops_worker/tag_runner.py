@@ -937,8 +937,36 @@ class LocalTagRunner:
                     result["provisional_grade"] = hold_projection(result, profile=hold_profile)
             return result
 
+        facility_dimensions = {}
+        if snapshot.get("analysis_profile_policy", {}).get("facility_dimensions") == (
+            "native-column-facility-k4-v1"
+        ):
+            from proofops.adapters.local.k4_facilities import restore_facilities
+            from proofops.application.tagging.k4_contract import FACILITY_POLICY
+
+            selected = snapshot["analysis_profile_policy"]
+            if selected.get("facility_dimensions_policy") != FACILITY_POLICY or (
+                selected.get("facility_dimensions_policy_sha256") != canonical_hash(FACILITY_POLICY)
+            ):
+                raise ValueError("K4_FACILITY_POLICY_MISMATCH")
+
+            facility_dimensions = restore_facilities(
+                graph,
+                self.uploads.read_original(tenant, graph.document_version_id),
+                discovery.claims,
+                tenant_id=tenant,
+            )
+
         def reported_claim(claim):
             record = isolated_claim(claim)
+            if snapshot.get("analysis_profile_policy", {}).get("facility_dimensions"):
+                record["source_dimensions"] = facility_dimensions.get(
+                    claim.claim_id, dict(facility=dict(state="unresolved", value=None))
+                )
+            if snapshot.get("analysis_profile_policy", {}).get("sentence_context_policy"):
+                from proofops.application.ingest.j7_split import sentence_context
+
+                record["sentence_context"] = sentence_context(claim, graph)
             callback = getattr(self, "claim_progress", None)
             if callback is not None:
                 callback(claim.claim_id, len(discovery.claims))
