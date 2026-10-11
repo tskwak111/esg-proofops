@@ -1042,7 +1042,7 @@ class HostedStore:
             if pipeline_profile not in {"unattended-v1", "strict-v1", *FINALS_PROFILES}:
                 raise HostedError("PIPELINE_PROFILE_INVALID", 422)
             if pipeline_profile in FINALS_PROFILES:
-                from proofops.application.analysis_profile import policy_for
+                from proofops.application.analysis_profile import publication_policy_for
                 from proofops.domain.provenance import canonical_hash
 
                 if options is None:
@@ -1051,10 +1051,17 @@ class HostedStore:
                     )
                 if len(options["claim_pages"]) > 10:
                     raise HostedError("PAGE_SELECTION_INVALID", 422)
+                operator_pin = None
+                if self.settings.live_config is not None:
+                    operator_pin = json.loads(self.settings.live_config.read_text()).get(
+                        "analysis_policy_sha256"
+                    )
                 options.update(
                     pipeline_profile=pipeline_profile,
                     analysis_profile=pipeline_profile,
-                    analysis_profile_sha256=canonical_hash(policy_for(pipeline_profile)),
+                    analysis_profile_sha256=canonical_hash(
+                        publication_policy_for(pipeline_profile, pinned_hash=operator_pin)
+                    ),
                 )
             body_hash = digest(json.dumps([document, selected, options]))
             replay = self._replay(db, auth, "run", key, body_hash)

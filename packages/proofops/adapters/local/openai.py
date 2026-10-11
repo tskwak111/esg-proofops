@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import http.client
 import json
+import math
 import os
 import sqlite3
 import time
@@ -11,6 +12,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 from jsonschema import Draft202012Validator, FormatChecker, ValidationError
@@ -52,6 +54,22 @@ CAPACITY_POLICY = {
 
 def now():
     return datetime.now(UTC)
+
+
+def _retry_after(value):
+    if not isinstance(value, str) or len(value) > 100:
+        return None
+    try:
+        seconds = float(value)
+    except ValueError:
+        try:
+            deadline = parsedate_to_datetime(value)
+            if deadline.tzinfo is None:
+                return None
+            seconds = (deadline - now()).total_seconds()
+        except (TypeError, ValueError, OverflowError):
+            return None
+    return max(0.0, seconds) if math.isfinite(seconds) and seconds >= 0 else None
 
 
 def validate_capacity_policy(policy, *, model_id):
@@ -270,9 +288,21 @@ class OpenAIProbe(OpenRouterProbe):
                         error = json.loads(raw).get("error", {})
                     except (AttributeError, json.JSONDecodeError, TypeError):
                         error = {}
-                    if isinstance(error, dict) and error.get("code") == "insufficient_quota":
+                    if isinstance(error, dict) and error.get("code") in {
+                        "insufficient_quota",
+                        "organization_spend_limit_exceeded",
+                        "project_spend_limit_exceeded",
+                    }:
                         raise ValueError("OPENAI_INSUFFICIENT_QUOTA")
-                raise ValueError(f"OPENAI_HTTP_{response.status}")
+                problem = ValueError(f"OPENAI_HTTP_{response.status}")
+                if response.status == 429:
+                    # Preserve the finite code; never expose the response body.
+                    setattr(
+                        problem,
+                        "retry_after_seconds",
+                        _retry_after(response.getheader("Retry-After")),
+                    )
+                raise problem
             raw = response.read(1_048_577)
             if len(raw) > 1_048_576:
                 raise ValueError("OPENAI_RESPONSE_TOO_LARGE")

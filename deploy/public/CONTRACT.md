@@ -744,3 +744,39 @@ Rollback prepares future runs using the pre-PA8 builder while retaining readers
 for PA8 snapshots and origin receipts; a pre-PA8 binary rejects the new hash.
 Do not remove pending fences or reset spend. PA8 uses retained responses with
 network disabled, makes no paid calls, and performs no push or deployment.
+
+## W3 opt-in scheduling and source reads (2026-10-11)
+
+The default v2 policy is unchanged. Operators may explicitly pin `W3_POLICY` via
+`analysis_policy_sha256` in the private live configuration, or use the pilot's
+`--analysis-policy-sha256`. New preparations accept only the current policy or
+W3; historical hashes remain read-only replay choices. The selected hash is
+stored before provider dispatch and is part of the immutable run input. No
+public request field, DB migration, dependency or budget change is required.
+
+W3 uses `exact-verified-read-v5`: complete fresh v10 receipts can be reused only
+with identical source, tenant/run, graph, refs, reader bytes and runtime. Native
+cell failures retain v10's candidate state. The two crop-padding OCR reads run
+in isolated processes; only successful raw reads enter the bounded 8-MiB cache.
+Upstage retains one async page-batched POST and validates downloads in provider
+order, with at most four parallel GETs. No new paid page request is introduced.
+
+All LLM roles share a per-run admission limit (operator range 1–16). A 429 halves
+future admission and pauses new dispatch briefly; the failed request is never
+retried by this gate. A valid `Retry-After` is a minimum; delays over 30 seconds
+defer further dispatch. Spending/quota errors retain their separate finite code.
+The existing hosted broker may fence the run on a failed dispatch and retain
+accounting-pending reservations; the gate does not release money or resume it.
+Provider/broker reservations, schema-attempt charges,
+uncertain-dispatch fences, cancellation and source authority checks still apply.
+Two runs have separate gates, so their total allowed concurrency is the sum.
+This is an in-flight cap, not an account RPM/TPM guarantee. Accounting reads
+batch up to 500 requested IDs per SQL query, retaining source order, unsettled
+reservations, foreign-ID exclusion and fresh settlement reads without a cache.
+
+Stage overlap remains disabled pending an invariant gate: early page attestation
+changes the full graph/packet lineage used by current retained requests. Do not
+publish page tags under a future full-graph hash or weaken source verification.
+Roll back future preparations by removing the explicit W3 pin and choosing the
+existing worker setting; retain W3 readers for stored W3 snapshots. An older
+binary cannot recompute a W3-pinned snapshot. W3 makes local commits only.

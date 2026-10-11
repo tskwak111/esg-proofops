@@ -1,0 +1,581 @@
+{
+  "base": "a16e118e814b70cdd6afa3ed66324bc4f61794b5",
+  "policy_sha256": "f348b07e73e35c3d353666cc382ee7b8a756b7c3aa6838520ae6101dcad9bee4",
+  "default_policy_sha256": "3acefc784aeff5e2c922ceb4cc9d8aed06e089f28eff1980524458e9baf7f1b8",
+  "completion_status": "partial",
+  "verification": {
+    "linux_release_tests": "230 passed",
+    "final_rate_and_cache_linux_tests": "76 passed",
+    "ruff": "passed",
+    "mypy": "passed",
+    "architecture": "passed",
+    "docker_public_build": "passed",
+    "self_review": "differential review and spec-to-code review; not independent",
+    "task_matrix": {
+      "1_stage_overlap": "not_implemented_pin_invariant_clarification_pending",
+      "2_concurrency_reservations_429": "implemented_and_fault_tested_account_limits_not_run",
+      "3_async_parse_batch_download_OCR": "implemented_result_order_and_source_proofs_preserved",
+      "4_CPU_profile": "implemented_OCR_and_scoped_accounting",
+      "5_two_runs": "implemented_measured_HostedStore_slots_locks_leases"
+    }
+  },
+  "estimates": {
+    "lg": {
+      "stages": {
+        "parse": {
+          "replay_s": 23.7642410940025,
+          "recorded_parse_extra_s": 13.286252566021403,
+          "max_static_thread_wait_extra_s": 0,
+          "estimated_s": 37.0504936600239
+        },
+        "extract": {
+          "replay_s": 36.56576439199853,
+          "recorded_parse_extra_s": 0,
+          "max_static_thread_wait_extra_s": 6.4645900830137535,
+          "estimated_s": 43.03035447501228
+        },
+        "tag": {
+          "replay_s": 27.941523971996503,
+          "recorded_parse_extra_s": 0,
+          "max_static_thread_wait_extra_s": 67.9549007470302,
+          "estimated_s": 95.8964247190267
+        }
+      },
+      "total_s": 175.97727285406287,
+      "method": "Replay stage wall + recorded-minus-replay provider wait, summed per static thread and using the longest thread. Parse calls serial. Shared-host approximation, not c8g proof; scheduling/429/live tails can differ."
+    },
+    "kia": {
+      "stages": {
+        "parse": {
+          "replay_s": 112.35798701000749,
+          "recorded_parse_extra_s": 25.757698448018346,
+          "max_static_thread_wait_extra_s": 0,
+          "estimated_s": 138.11568545802584
+        },
+        "extract": {
+          "replay_s": 97.9874945859774,
+          "recorded_parse_extra_s": 0,
+          "max_static_thread_wait_extra_s": 5.325276333026114,
+          "estimated_s": 103.31277091900351
+        },
+        "tag": {
+          "replay_s": 98.05527567100944,
+          "recorded_parse_extra_s": 0,
+          "max_static_thread_wait_extra_s": 59.132308790023394,
+          "estimated_s": 157.18758446103283
+        }
+      },
+      "total_s": 398.6160408380622,
+      "method": "Replay stage wall + recorded-minus-replay provider wait, summed per static thread and using the longest thread. Parse calls serial. Shared-host approximation, not c8g proof; scheduling/429/live tails can differ."
+    },
+    "naver": {
+      "stages": {
+        "parse": {
+          "replay_s": 33.600158640998416,
+          "recorded_parse_extra_s": 26.253656152004623,
+          "max_static_thread_wait_extra_s": 0,
+          "estimated_s": 59.85381479300304
+        },
+        "extract": {
+          "replay_s": 27.837878221005667,
+          "recorded_parse_extra_s": 0,
+          "max_static_thread_wait_extra_s": 6.65245779300089,
+          "estimated_s": 34.49033601400656
+        },
+        "tag": {
+          "replay_s": 12.770539922988974,
+          "recorded_parse_extra_s": 0,
+          "max_static_thread_wait_extra_s": 61.204922998013586,
+          "estimated_s": 73.97546292100256
+        }
+      },
+      "total_s": 168.31961372801214,
+      "method": "Replay stage wall + recorded-minus-replay provider wait, summed per static thread and using the longest thread. Parse calls serial. Shared-host approximation, not c8g proof; scheduling/429/live tails can differ."
+    }
+  },
+  "limitations": [
+    "Source states: retained LG PA4 and PB5-method PA9 NAVER/Kia; historical v6/v9, v10 reuse additionally tested by unit source fixture.",
+    "CPU cap8/memory cgroup16GiB; physical Docker VM7.75GiB shared with other tasks. Source probe overlapped the first LG baseline warm stage.",
+    "Java extraction/raw Upstage inference are retained outputs. OCR/render/source verification re-executed. LLM/parse replay RTT150ms; retained OCR cache reads do not simulate new dispatch.",
+    "Stage overlap is not implemented: existing full graph/packet wire pins differ from early page proofs. Invariant clarification remains pending."
+  ],
+  "measurements": {
+    "lg_before": {
+      "seconds": 136.18550431198673,
+      "workers": 8,
+      "original_checkpoint_identical": true,
+      "result_sha256": "d8bb3e773df60e0e18878c2ea6dc64fc0a52e6727443619895fa53bd67ef3804",
+      "replay_calls": 356,
+      "stage_seconds": {
+        "parse": 25.326117969001643,
+        "extract": 80.97886882899911,
+        "tag": 29.85337013899698
+      }
+    },
+    "lg_after": {
+      "seconds": 88.29893262300175,
+      "workers": 16,
+      "original_checkpoint_identical": true,
+      "result_sha256": "d8bb3e773df60e0e18878c2ea6dc64fc0a52e6727443619895fa53bd67ef3804",
+      "replay_calls": 356,
+      "stage_seconds": {
+        "parse": 23.7642410940025,
+        "extract": 36.56576439199853,
+        "tag": 27.941523971996503
+      }
+    },
+    "kia_before": {
+      "seconds": 329.4085990259773,
+      "workers": 8,
+      "original_checkpoint_identical": true,
+      "result_sha256": "a5610efd811eb11d15597124d90deac6aa0c5b709b2dda13f9c4f3daeafdbc12",
+      "replay_calls": 272,
+      "stage_seconds": {
+        "parse": 126.97158984999987,
+        "extract": 105.56045108899707,
+        "tag": 96.83962771101505
+      }
+    },
+    "kia_after": {
+      "seconds": 308.42731564099086,
+      "workers": 16,
+      "original_checkpoint_identical": true,
+      "result_sha256": "a5610efd811eb11d15597124d90deac6aa0c5b709b2dda13f9c4f3daeafdbc12",
+      "replay_calls": 272,
+      "stage_seconds": {
+        "parse": 112.35798701000749,
+        "extract": 97.9874945859774,
+        "tag": 98.05527567100944
+      }
+    },
+    "naver_after": {
+      "seconds": 74.23867528501432,
+      "workers": 8,
+      "original_checkpoint_identical": true,
+      "result_sha256": "01c384cd915ac8a94b884d3c648b331000287a8ce296259868eb46c34cf71de6",
+      "replay_calls": 119,
+      "stage_seconds": {
+        "parse": 33.600158640998416,
+        "extract": 27.837878221005667,
+        "tag": 12.770539922988974
+      }
+    }
+  },
+  "pair": {
+    "seconds": 335.13410806897446,
+    "max_active_runs": 2,
+    "peak_active_runs": 2,
+    "aggregate_peak_rss_bytes": 1049481216,
+    "per_run_peak_rss_bytes": {
+      "14": 723308544,
+      "15": 869072896
+    },
+    "budget_totals": {
+      "event_reserved_usd": "0.000000"
+    },
+    "provider_calls": 0,
+    "paid_usd": "0",
+    "statuses": [
+      "partial_blocked",
+      "partial_blocked"
+    ],
+    "container_memory_max": "17179869184",
+    "vm_memory_total": "MemTotal:        8126480 kB"
+  },
+  "overlap_gate": {
+    "seconds": 4.6541941270115785,
+    "source_policy": {
+      "base": {
+        "base": {
+          "base": {
+            "base": {
+              "base": {
+                "base": {
+                  "citation_sha256": "da03de5db6ada3341306806fc71a058bc4470490c34841c9550975e5c33d7718",
+                  "claim_validator_sha256": "cb587c667ccc9916d89c90a60b283bb74a4b0a546be571900e00d4c9e496177f",
+                  "native_policy": {
+                    "glyph_verifier_sha256": "71da3f12656dc00bc6791d78aee83cda8ce2f233503b7f6320a8bc2e6b154685",
+                    "mode": "paragraph_native_glyph_v2",
+                    "normalization_sha256": "cbbd174a53628edd54777b7ee47d9ec792d9fa3ff11d72b2fe1a611a1b0bdc26",
+                    "rendered_reader_sha256": "a379e2901aa0e20d6b325f3e711abbf53324265855ad0e0c0e316cdd616cd74d",
+                    "verifier_sha256": "e9062fb57f98ae0db3a90a2431328c65d315bee87a23c0d11898503f2fdb8fe0"
+                  },
+                  "schema": "claim_source_policy_v2",
+                  "verifier_sha256": "8b95383c73d76b2bf838e51f208448c8b1995271a6639e5726df659e7cef2a61"
+                },
+                "base_sha256": "694e47d0d6bced994cd997d8fcc7d43a75fbf97b7737c2f17c10b93af9473aa0",
+                "cell_reader_sha256": "045f4dca825e35a29f12307e234c30be546d53c5a18fc916e8c98c852a1389db",
+                "mode": "claim_span_deterministic_crop_scale_v1",
+                "schema": "claim_span_render_resolution_policy_v1",
+                "wrapper_sha256": "48f24a69ec1061c4329510a993fd5c8a7a363489c74286df1ef4596614eb321b"
+              },
+              "base_sha256": "e15d26bafffc319166327b500728905553d0c2620ce48df94262fb550e9dc2c6",
+              "glyph_reader_sha256": "71da3f12656dc00bc6791d78aee83cda8ce2f233503b7f6320a8bc2e6b154685",
+              "mode": "bullet_first_token_single_inserted_space_v1",
+              "rendered_reader_sha256": "e9062fb57f98ae0db3a90a2431328c65d315bee87a23c0d11898503f2fdb8fe0",
+              "schema": "claim_span_bullet_alignment_policy_v1",
+              "wrapper_sha256": "b82a2023b0a42d3868fd21868fb3494c27a14f774a0479a3e20da6b1a1e4185d"
+            },
+            "base_sha256": "25e2428a6089efaf0d436df2c67d55dcf5055bc954c4dd4557de696b85ffb795",
+            "fold_helper_sha256": "83491c030b214962d5b98b6214a189e1f648ee478e8bb751cec2f6571e3fc84f",
+            "mode": "claim_span_rendered_only_quote_and_middle_dot_typography_v1",
+            "rendered_fold_entries": [
+              "U+00B7->U+2022",
+              "U+2018->U+0027",
+              "U+2019->U+0027",
+              "U+201C->U+0022",
+              "U+201D->U+0022"
+            ],
+            "rendered_fold_sha256": "7a45c8ce34272b8ddc4195e3e4932bdbe1cf749e230e86afced0e4b6ee04a78e",
+            "schema": "claim_span_typography_policy_v1",
+            "wrapper_sha256": "d39c8c810cd0798b72038fb4a78e8cff16d21bd0da29b2cee359d7df70e11600"
+          },
+          "max_gap_height_ratio": 0.2,
+          "min_real_space_ratio": 1.5,
+          "profile": "glyph-alignment-v1",
+          "schema": "claim_span_typography_policy_v1",
+          "wrapper_sha256": "bf23c0c6e55f871b877a0e0c3990c6ff18c9f6af46e5257cfebf0a150c16e019"
+        },
+        "composition_sha256": "8d4b5caddb377ca1e9dc10998588449b85415aff6e4910372774d355db643102",
+        "normalization": {
+          "glyph_policy": {
+            "base": {
+              "base": {
+                "base": {
+                  "base": {
+                    "citation_sha256": "da03de5db6ada3341306806fc71a058bc4470490c34841c9550975e5c33d7718",
+                    "claim_validator_sha256": "cb587c667ccc9916d89c90a60b283bb74a4b0a546be571900e00d4c9e496177f",
+                    "native_policy": {
+                      "glyph_verifier_sha256": "71da3f12656dc00bc6791d78aee83cda8ce2f233503b7f6320a8bc2e6b154685",
+                      "mode": "paragraph_native_glyph_v2",
+                      "normalization_sha256": "cbbd174a53628edd54777b7ee47d9ec792d9fa3ff11d72b2fe1a611a1b0bdc26",
+                      "rendered_reader_sha256": "a379e2901aa0e20d6b325f3e711abbf53324265855ad0e0c0e316cdd616cd74d",
+                      "verifier_sha256": "e9062fb57f98ae0db3a90a2431328c65d315bee87a23c0d11898503f2fdb8fe0"
+                    },
+                    "schema": "claim_source_policy_v2",
+                    "verifier_sha256": "8b95383c73d76b2bf838e51f208448c8b1995271a6639e5726df659e7cef2a61"
+                  },
+                  "base_sha256": "694e47d0d6bced994cd997d8fcc7d43a75fbf97b7737c2f17c10b93af9473aa0",
+                  "cell_reader_sha256": "045f4dca825e35a29f12307e234c30be546d53c5a18fc916e8c98c852a1389db",
+                  "mode": "claim_span_deterministic_crop_scale_v1",
+                  "schema": "claim_span_render_resolution_policy_v1",
+                  "wrapper_sha256": "48f24a69ec1061c4329510a993fd5c8a7a363489c74286df1ef4596614eb321b"
+                },
+                "base_sha256": "e15d26bafffc319166327b500728905553d0c2620ce48df94262fb550e9dc2c6",
+                "glyph_reader_sha256": "71da3f12656dc00bc6791d78aee83cda8ce2f233503b7f6320a8bc2e6b154685",
+                "mode": "bullet_first_token_single_inserted_space_v1",
+                "rendered_reader_sha256": "e9062fb57f98ae0db3a90a2431328c65d315bee87a23c0d11898503f2fdb8fe0",
+                "schema": "claim_span_bullet_alignment_policy_v1",
+                "wrapper_sha256": "b82a2023b0a42d3868fd21868fb3494c27a14f774a0479a3e20da6b1a1e4185d"
+              },
+              "base_sha256": "25e2428a6089efaf0d436df2c67d55dcf5055bc954c4dd4557de696b85ffb795",
+              "fold_helper_sha256": "83491c030b214962d5b98b6214a189e1f648ee478e8bb751cec2f6571e3fc84f",
+              "mode": "claim_span_rendered_only_quote_and_middle_dot_typography_v1",
+              "rendered_fold_entries": [
+                "U+00B7->U+2022",
+                "U+2018->U+0027",
+                "U+2019->U+0027",
+                "U+201C->U+0022",
+                "U+201D->U+0022"
+              ],
+              "rendered_fold_sha256": "7a45c8ce34272b8ddc4195e3e4932bdbe1cf749e230e86afced0e4b6ee04a78e",
+              "schema": "claim_span_typography_policy_v1",
+              "wrapper_sha256": "d39c8c810cd0798b72038fb4a78e8cff16d21bd0da29b2cee359d7df70e11600"
+            },
+            "max_gap_height_ratio": 0.2,
+            "min_real_space_ratio": 1.5,
+            "profile": "glyph-alignment-v1",
+            "schema": "claim_span_typography_policy_v1",
+            "wrapper_sha256": "bf23c0c6e55f871b877a0e0c3990c6ff18c9f6af46e5257cfebf0a150c16e019"
+          },
+          "mode": "existing_rendered_typography_then_existing_glyph_space_proof_v1",
+          "native_side_folded": false,
+          "rendered_fold_entries": [
+            "U+00B7->U+2022",
+            "U+2018->U+0027",
+            "U+2019->U+0027",
+            "U+201C->U+0022",
+            "U+201D->U+0022"
+          ],
+          "rendered_fold_sha256": "7a45c8ce34272b8ddc4195e3e4932bdbe1cf749e230e86afced0e4b6ee04a78e",
+          "typography_policy": {
+            "base": {
+              "base": {
+                "base": {
+                  "citation_sha256": "da03de5db6ada3341306806fc71a058bc4470490c34841c9550975e5c33d7718",
+                  "claim_validator_sha256": "cb587c667ccc9916d89c90a60b283bb74a4b0a546be571900e00d4c9e496177f",
+                  "native_policy": {
+                    "glyph_verifier_sha256": "71da3f12656dc00bc6791d78aee83cda8ce2f233503b7f6320a8bc2e6b154685",
+                    "mode": "paragraph_native_glyph_v2",
+                    "normalization_sha256": "cbbd174a53628edd54777b7ee47d9ec792d9fa3ff11d72b2fe1a611a1b0bdc26",
+                    "rendered_reader_sha256": "a379e2901aa0e20d6b325f3e711abbf53324265855ad0e0c0e316cdd616cd74d",
+                    "verifier_sha256": "e9062fb57f98ae0db3a90a2431328c65d315bee87a23c0d11898503f2fdb8fe0"
+                  },
+                  "schema": "claim_source_policy_v2",
+                  "verifier_sha256": "8b95383c73d76b2bf838e51f208448c8b1995271a6639e5726df659e7cef2a61"
+                },
+                "base_sha256": "694e47d0d6bced994cd997d8fcc7d43a75fbf97b7737c2f17c10b93af9473aa0",
+                "cell_reader_sha256": "045f4dca825e35a29f12307e234c30be546d53c5a18fc916e8c98c852a1389db",
+                "mode": "claim_span_deterministic_crop_scale_v1",
+                "schema": "claim_span_render_resolution_policy_v1",
+                "wrapper_sha256": "48f24a69ec1061c4329510a993fd5c8a7a363489c74286df1ef4596614eb321b"
+              },
+              "base_sha256": "e15d26bafffc319166327b500728905553d0c2620ce48df94262fb550e9dc2c6",
+              "glyph_reader_sha256": "71da3f12656dc00bc6791d78aee83cda8ce2f233503b7f6320a8bc2e6b154685",
+              "mode": "bullet_first_token_single_inserted_space_v1",
+              "rendered_reader_sha256": "e9062fb57f98ae0db3a90a2431328c65d315bee87a23c0d11898503f2fdb8fe0",
+              "schema": "claim_span_bullet_alignment_policy_v1",
+              "wrapper_sha256": "b82a2023b0a42d3868fd21868fb3494c27a14f774a0479a3e20da6b1a1e4185d"
+            },
+            "base_sha256": "25e2428a6089efaf0d436df2c67d55dcf5055bc954c4dd4557de696b85ffb795",
+            "fold_helper_sha256": "83491c030b214962d5b98b6214a189e1f648ee478e8bb751cec2f6571e3fc84f",
+            "mode": "claim_span_rendered_only_quote_and_middle_dot_typography_v1",
+            "rendered_fold_entries": [
+              "U+00B7->U+2022",
+              "U+2018->U+0027",
+              "U+2019->U+0027",
+              "U+201C->U+0022",
+              "U+201D->U+0022"
+            ],
+            "rendered_fold_sha256": "7a45c8ce34272b8ddc4195e3e4932bdbe1cf749e230e86afced0e4b6ee04a78e",
+            "schema": "claim_span_typography_policy_v1",
+            "wrapper_sha256": "d39c8c810cd0798b72038fb4a78e8cff16d21bd0da29b2cee359d7df70e11600"
+          },
+          "wrapper_sha256": "411492d74139b0b918c81db9469209f2079e8999ee38a217b943db6325e2832a"
+        },
+        "profile": "upstage-ocr-page-v3",
+        "reader": {
+          "api_version": "1.1",
+          "collection_policy_sha256": "3a490b75c51fc57961e74dc9e97ca10c607158168793c7db3855f6b8f24f9898",
+          "dpi": 216,
+          "mapping_reader_sha256": "c99e45622b3bbd851f52f48b6ebe9d034d5bb9fe81c6f9bd69c40bf89e84c649",
+          "mapping_sha256": "05616d166ff3b704c16e63951aebf28e7e0109d517797a601963f244b88fd2b2",
+          "max_pixels": 16000000,
+          "max_png_bytes": 52428800,
+          "model": "ocr-260930",
+          "normalization_sha256": "e25a315b19954d0c2404dc98182a43844da58574d8552f9e29a52cbd51412d32",
+          "profile": "upstage-ocr-page-v3",
+          "reader_sha256": "ae3c2aa734a0530fb4dcf21cb5137271bc635a82254309093435cea516a6108f",
+          "renderer": "PDFium",
+          "renderer_version": "5.13.0"
+        },
+        "schema": "claim_span_typography_policy_v1",
+        "wrapper_sha256": "411492d74139b0b918c81db9469209f2079e8999ee38a217b943db6325e2832a"
+      },
+      "glyph_region": {
+        "expansion": "top-intersecting-glyphs-only",
+        "guards": "literal-quantity-row-column-annotation-pixels",
+        "profile": "claim-glyph-region-v1",
+        "source": "unique-literal-glyph-sequence",
+        "verifier_sha256": "34dc6ecbcb80f4995cd074077ff6d998b6db1fed60b4878f331d3fe066b9b4cd"
+      },
+      "layout_policy": {
+        "files": {
+          "native_ocr.swift": "a379e2901aa0e20d6b325f3e711abbf53324265855ad0e0c0e316cdd616cd74d",
+          "source_verification.py": "e9062fb57f98ae0db3a90a2431328c65d315bee87a23c0d11898503f2fdb8fe0"
+        },
+        "profile": "evidence-source-v1",
+        "prose_policy": {
+          "base": {
+            "base": {
+              "base": {
+                "base": {
+                  "base": {
+                    "citation_sha256": "da03de5db6ada3341306806fc71a058bc4470490c34841c9550975e5c33d7718",
+                    "claim_validator_sha256": "cb587c667ccc9916d89c90a60b283bb74a4b0a546be571900e00d4c9e496177f",
+                    "native_policy": {
+                      "glyph_verifier_sha256": "71da3f12656dc00bc6791d78aee83cda8ce2f233503b7f6320a8bc2e6b154685",
+                      "mode": "paragraph_native_glyph_v2",
+                      "normalization_sha256": "cbbd174a53628edd54777b7ee47d9ec792d9fa3ff11d72b2fe1a611a1b0bdc26",
+                      "rendered_reader_sha256": "a379e2901aa0e20d6b325f3e711abbf53324265855ad0e0c0e316cdd616cd74d",
+                      "verifier_sha256": "e9062fb57f98ae0db3a90a2431328c65d315bee87a23c0d11898503f2fdb8fe0"
+                    },
+                    "schema": "claim_source_policy_v2",
+                    "verifier_sha256": "8b95383c73d76b2bf838e51f208448c8b1995271a6639e5726df659e7cef2a61"
+                  },
+                  "base_sha256": "694e47d0d6bced994cd997d8fcc7d43a75fbf97b7737c2f17c10b93af9473aa0",
+                  "cell_reader_sha256": "045f4dca825e35a29f12307e234c30be546d53c5a18fc916e8c98c852a1389db",
+                  "mode": "claim_span_deterministic_crop_scale_v1",
+                  "schema": "claim_span_render_resolution_policy_v1",
+                  "wrapper_sha256": "48f24a69ec1061c4329510a993fd5c8a7a363489c74286df1ef4596614eb321b"
+                },
+                "base_sha256": "e15d26bafffc319166327b500728905553d0c2620ce48df94262fb550e9dc2c6",
+                "glyph_reader_sha256": "71da3f12656dc00bc6791d78aee83cda8ce2f233503b7f6320a8bc2e6b154685",
+                "mode": "bullet_first_token_single_inserted_space_v1",
+                "rendered_reader_sha256": "e9062fb57f98ae0db3a90a2431328c65d315bee87a23c0d11898503f2fdb8fe0",
+                "schema": "claim_span_bullet_alignment_policy_v1",
+                "wrapper_sha256": "b82a2023b0a42d3868fd21868fb3494c27a14f774a0479a3e20da6b1a1e4185d"
+              },
+              "base_sha256": "25e2428a6089efaf0d436df2c67d55dcf5055bc954c4dd4557de696b85ffb795",
+              "fold_helper_sha256": "83491c030b214962d5b98b6214a189e1f648ee478e8bb751cec2f6571e3fc84f",
+              "mode": "claim_span_rendered_only_quote_and_middle_dot_typography_v1",
+              "rendered_fold_entries": [
+                "U+00B7->U+2022",
+                "U+2018->U+0027",
+                "U+2019->U+0027",
+                "U+201C->U+0022",
+                "U+201D->U+0022"
+              ],
+              "rendered_fold_sha256": "7a45c8ce34272b8ddc4195e3e4932bdbe1cf749e230e86afced0e4b6ee04a78e",
+              "schema": "claim_span_typography_policy_v1",
+              "wrapper_sha256": "d39c8c810cd0798b72038fb4a78e8cff16d21bd0da29b2cee359d7df70e11600"
+            },
+            "max_gap_height_ratio": 0.2,
+            "min_real_space_ratio": 1.5,
+            "profile": "glyph-alignment-v1",
+            "schema": "claim_span_typography_policy_v1",
+            "wrapper_sha256": "bf23c0c6e55f871b877a0e0c3990c6ff18c9f6af46e5257cfebf0a150c16e019"
+          },
+          "pdfium_version": "5.13.0",
+          "pdfplumber_version": "0.11.10",
+          "profile": "claim-source-v3",
+          "schema": "claim_span_typography_policy_v1",
+          "verifier_sha256": "f2a246725793cbc39c99c9a6c68890cf08273a9ff627285794d231ed29ac76b8"
+        },
+        "readers": {
+          "pdfminer.six": "20260107",
+          "pdfplumber": "0.11.10",
+          "pypdfium2": "5.13.0"
+        },
+        "schema": "evidence_source_policy_v1",
+        "table_layout_policy": {
+          "citation_sha256": "cbbd174a53628edd54777b7ee47d9ec792d9fa3ff11d72b2fe1a611a1b0bdc26",
+          "glyph_geometry_sha256": "71da3f12656dc00bc6791d78aee83cda8ce2f233503b7f6320a8bc2e6b154685",
+          "ocr_script_sha256": "a379e2901aa0e20d6b325f3e711abbf53324265855ad0e0c0e316cdd616cd74d",
+          "quote_guard_sha256": "8b95383c73d76b2bf838e51f208448c8b1995271a6639e5726df659e7cef2a61",
+          "readers": {
+            "pdfminer.six": "20260107",
+            "pdfplumber": "0.11.10",
+            "pypdfium2": "5.13.0"
+          },
+          "rendered_reader_sha256": "e9062fb57f98ae0db3a90a2431328c65d315bee87a23c0d11898503f2fdb8fe0",
+          "schema": "table_span_line_source_policy_v2",
+          "verifier_sha256": "d7b52b4440a7e5c7eb3d4b647999816d9398713aa53b4f4e7400cabdca3f30f4"
+        },
+        "verifier_sha256": "d006dd1f3534080ad947b28fbfbedd57e97580b67ea3bb397dbb403ce01b01f6"
+      },
+      "literal_policy": {
+        "base": {
+          "base": {
+            "base": {
+              "base": {
+                "base": {
+                  "citation_sha256": "da03de5db6ada3341306806fc71a058bc4470490c34841c9550975e5c33d7718",
+                  "claim_validator_sha256": "cb587c667ccc9916d89c90a60b283bb74a4b0a546be571900e00d4c9e496177f",
+                  "native_policy": {
+                    "glyph_verifier_sha256": "71da3f12656dc00bc6791d78aee83cda8ce2f233503b7f6320a8bc2e6b154685",
+                    "mode": "paragraph_native_glyph_v2",
+                    "normalization_sha256": "cbbd174a53628edd54777b7ee47d9ec792d9fa3ff11d72b2fe1a611a1b0bdc26",
+                    "rendered_reader_sha256": "a379e2901aa0e20d6b325f3e711abbf53324265855ad0e0c0e316cdd616cd74d",
+                    "verifier_sha256": "e9062fb57f98ae0db3a90a2431328c65d315bee87a23c0d11898503f2fdb8fe0"
+                  },
+                  "schema": "claim_source_policy_v2",
+                  "verifier_sha256": "8b95383c73d76b2bf838e51f208448c8b1995271a6639e5726df659e7cef2a61"
+                },
+                "base_sha256": "694e47d0d6bced994cd997d8fcc7d43a75fbf97b7737c2f17c10b93af9473aa0",
+                "cell_reader_sha256": "045f4dca825e35a29f12307e234c30be546d53c5a18fc916e8c98c852a1389db",
+                "mode": "claim_span_deterministic_crop_scale_v1",
+                "schema": "claim_span_render_resolution_policy_v1",
+                "wrapper_sha256": "48f24a69ec1061c4329510a993fd5c8a7a363489c74286df1ef4596614eb321b"
+              },
+              "base_sha256": "e15d26bafffc319166327b500728905553d0c2620ce48df94262fb550e9dc2c6",
+              "glyph_reader_sha256": "71da3f12656dc00bc6791d78aee83cda8ce2f233503b7f6320a8bc2e6b154685",
+              "mode": "bullet_first_token_single_inserted_space_v1",
+              "rendered_reader_sha256": "e9062fb57f98ae0db3a90a2431328c65d315bee87a23c0d11898503f2fdb8fe0",
+              "schema": "claim_span_bullet_alignment_policy_v1",
+              "wrapper_sha256": "b82a2023b0a42d3868fd21868fb3494c27a14f774a0479a3e20da6b1a1e4185d"
+            },
+            "base_sha256": "25e2428a6089efaf0d436df2c67d55dcf5055bc954c4dd4557de696b85ffb795",
+            "fold_helper_sha256": "83491c030b214962d5b98b6214a189e1f648ee478e8bb751cec2f6571e3fc84f",
+            "mode": "claim_span_rendered_only_quote_and_middle_dot_typography_v1",
+            "rendered_fold_entries": [
+              "U+00B7->U+2022",
+              "U+2018->U+0027",
+              "U+2019->U+0027",
+              "U+201C->U+0022",
+              "U+201D->U+0022"
+            ],
+            "rendered_fold_sha256": "7a45c8ce34272b8ddc4195e3e4932bdbe1cf749e230e86afced0e4b6ee04a78e",
+            "schema": "claim_span_typography_policy_v1",
+            "wrapper_sha256": "d39c8c810cd0798b72038fb4a78e8cff16d21bd0da29b2cee359d7df70e11600"
+          },
+          "max_gap_height_ratio": 0.2,
+          "min_real_space_ratio": 1.5,
+          "profile": "glyph-alignment-v1",
+          "schema": "claim_span_typography_policy_v1",
+          "wrapper_sha256": "bf23c0c6e55f871b877a0e0c3990c6ff18c9f6af46e5257cfebf0a150c16e019"
+        },
+        "pdfium_version": "5.13.0",
+        "pdfplumber_version": "0.11.10",
+        "profile": "claim-source-v3",
+        "schema": "claim_span_typography_policy_v1",
+        "verifier_sha256": "f2a246725793cbc39c99c9a6c68890cf08273a9ff627285794d231ed29ac76b8"
+      },
+      "profile": "upstage-ocr-page-v6",
+      "reader": {
+        "api_version": "1.1",
+        "collection_policy_sha256": "3a490b75c51fc57961e74dc9e97ca10c607158168793c7db3855f6b8f24f9898",
+        "dpi": 216,
+        "fallback": {
+          "evidence_pages": false,
+          "max_claim_pages": 10,
+          "reader": "upstage-ocr-page-v3",
+          "reason": "rendered_quote_unresolved"
+        },
+        "glyph_region": {
+          "expansion": "top-intersecting-glyphs-only",
+          "guards": "literal-quantity-row-column-annotation-pixels",
+          "profile": "claim-glyph-region-v1",
+          "source": "unique-literal-glyph-sequence",
+          "verifier_sha256": "34dc6ecbcb80f4995cd074077ff6d998b6db1fed60b4878f331d3fe066b9b4cd"
+        },
+        "local_raster": {
+          "dpi": 216,
+          "executable_sha256": "cd548e61c7a0895c10645f978d5072a4c769ac2a14fcbd6bfe0c3fe41856f581",
+          "languages": {
+            "eng": "7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2",
+            "kor": "6b85e11d9bbf07863b97b3523b1b112844c43e713df8b66418a081fd1060b3b2"
+          },
+          "lock_sha256": "fc62796101de368ff50acf91ecb23e8ca52281ab820c35efc556a0df4f8855c8",
+          "max_pixels": 16000000,
+          "oem": 1,
+          "pillow_version": "12.3.0",
+          "profile": "tesseract-cpu-raster-v1",
+          "psm": 6,
+          "reader_sha256": "f926891ffc44180c7361d2377c3f19c2ab2afe1f5223591e71df8b5f55713389",
+          "renderer": "PDFium",
+          "renderer_version": "5.13.0",
+          "status": "ready",
+          "timeout_seconds": 30
+        },
+        "mapping_reader_sha256": "c99e45622b3bbd851f52f48b6ebe9d034d5bb9fe81c6f9bd69c40bf89e84c649",
+        "mapping_sha256": "05616d166ff3b704c16e63951aebf28e7e0109d517797a601963f244b88fd2b2",
+        "max_pixels": 16000000,
+        "max_png_bytes": 52428800,
+        "model": "ocr-260930",
+        "normalization_sha256": "e25a315b19954d0c2404dc98182a43844da58574d8552f9e29a52cbd51412d32",
+        "profile": "upstage-ocr-page-v6",
+        "reader_sha256": "ae3c2aa734a0530fb4dcf21cb5137271bc635a82254309093435cea516a6108f",
+        "renderer": "PDFium",
+        "renderer_version": "5.13.0"
+      },
+      "schema": "claim_span_typography_policy_v1",
+      "wrapper_sha256": "a501492843dccc1ce2cf04d9e4fc22aefd387395f0f80604a4b45e4fbe5ca711"
+    },
+    "refs": 8,
+    "claims": 8,
+    "verified": 8,
+    "full_receipt_equal": false,
+    "receipt_sha256": "63e98819c1eee442fa24d6cbb695377b176a4762242144d4097375ccdc36668b",
+    "graph_sha256": "ad56285b1e335111443642fe3227b6a70ccceade212426a9e8931f521e23c194",
+    "original_graph_sha256": "2b3f77a0bdda7ec9a6868736502f91aab91b8be0d3ac7fd254135cdbec5b7d5d",
+    "live_provider_calls": 0,
+    "paid_usd": "0",
+    "page_only": true,
+    "retained_graph_pins": [
+      "d9b7d4cb1e5c8ba38c4ad7d686c82d33c2306d75db011097c9b31a50ced0bcef"
+    ],
+    "early_wire_graph_equal": false,
+    "inspection_correction": "Inspect artifact.request.claim_id; source proof receipt and its hashes unchanged."
+  }
+}

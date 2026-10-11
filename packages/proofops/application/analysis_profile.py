@@ -151,6 +151,26 @@ V2_W9_POLICY = V2_PRE_W9_POLICY | dict(
 )
 V2_POLICY = V2_W9_POLICY | {k: v for k, v in V2_W8_POLICY.items() if k not in V2_PRE_W8_POLICY}
 
+# W3 is opt-in by its hash. Never reinterpret or change the default v2 pin.
+VERIFIED_READ_V5_POLICY = VERIFIED_READ_V4_POLICY | dict(
+    profile="exact-verified-read-v5",
+    fresh_attestation="whole-byte-identical-v6-v9-v10",
+    v10_replay_sha256="d25b4acb5fea06b56278d0de7d5383478d57bb9e4f5a25e888baedb6b8b1a3a1",
+    raw_ocr_profiles=["upstage-ocr-page-v6", "upstage-ocr-page-v9", "upstage-ocr-page-v10"],
+    raw_ocr_workers=2,
+    raw_ocr_omp_threads=1,
+)
+W3_POLICY = V2_POLICY | dict(
+    execution_profile="w3-speed-v1",
+    verified_read_cache=VERIFIED_READ_V5_POLICY,
+    max_http_workers=16,
+    parse_download_workers=4,
+    overlap_gate="full-frozen-graph-required",
+    http_admission="per-run-16-half-on-429-no-retry-v1",
+    http_max_cooldown_seconds=30,
+    http_retry_after="minimum-or-defer-v1",
+)
+
 
 def policy_for(profile, *, pinned_hash=None):
     if profile == PROFILE:
@@ -186,6 +206,7 @@ def policy_for(profile, *, pinned_hash=None):
             V2_HF1_POLICY,
             V2_PRE_HF1_POLICY,
             V2_INITIAL_POLICY,
+            W3_POLICY,
         )
     else:
         raise ValueError("ANALYSIS_PROFILE_UNKNOWN")
@@ -193,6 +214,14 @@ def policy_for(profile, *, pinned_hash=None):
         if pinned_hash is None or canonical_hash(policy) == pinned_hash:
             return policy
     raise ValueError("ANALYSIS_PROFILE_PIN_MISMATCH")
+
+
+def publication_policy_for(profile, *, pinned_hash=None):
+    policy = policy_for(profile, pinned_hash=pinned_hash)
+    allowed = (policy_for(profile), W3_POLICY) if profile == V2_PROFILE else (policy_for(profile),)
+    if policy not in allowed:
+        raise ValueError("ANALYSIS_PROFILE_PUBLICATION_PIN_MISMATCH")
+    return policy
 
 
 def apply_pilot_profile(args):

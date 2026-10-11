@@ -26,6 +26,7 @@ _SETTINGS_FIELDS = frozenset(
         "build_root",
         "r108_profile",
         "pipeline_profile",
+        "analysis_policy_sha256",
         "budget_limits",
         "extraction_profile",
         "extraction_year_notation",
@@ -323,6 +324,17 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         ):
             raise _invalid()
         runtime["pipeline_profile"] = settings["pipeline_profile"]
+    if "analysis_policy_sha256" in settings:
+        from proofops.application.analysis_profile import publication_policy_for
+
+        pin = settings["analysis_policy_sha256"]
+        if not isinstance(pin, str) or len(pin) != 64:
+            raise _invalid()
+        try:
+            publication_policy_for(settings.get("pipeline_profile"), pinned_hash=pin)
+        except ValueError:
+            raise _invalid() from None
+        runtime["analysis_policy_sha256"] = pin
     if "claim_source_policy" in settings:
         from proofops.adapters.local.claim_source_policies import claim_source_reader
 

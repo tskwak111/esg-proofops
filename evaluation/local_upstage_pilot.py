@@ -1204,6 +1204,7 @@ def main():
     parser.add_argument(
         "--analysis-profile", choices=["finals-unattended-v1", "finals-unattended-v2"]
     )
+    parser.add_argument("--analysis-policy-sha256", help="Explicit known execution policy pin")
     parser.add_argument("--extraction-fragment-guard", action="store_true")
     args = parser.parse_args()
     from proofops.application.analysis_profile import apply_pilot_profile
@@ -1252,6 +1253,7 @@ def main():
             parser.error("existing pilot parser memory limit changed; create a new run")
         for field, default in (
             ("pipeline_profile", None),
+            ("analysis_policy_sha256", None),
             ("relation_profile", "source-quotes-v1"),
             ("preliminary_profile", None),
             ("claim_source_profile", None),
@@ -1657,6 +1659,11 @@ def main():
             settings["claim_source_policy"] = claim_source_policy_for(args)
         if args.pipeline_profile:
             settings["pipeline_profile"] = args.pipeline_profile
+        if args.analysis_policy_sha256:
+            from proofops.application.analysis_profile import policy_for
+
+            policy_for(args.pipeline_profile, pinned_hash=args.analysis_policy_sha256)
+            settings["analysis_policy_sha256"] = args.analysis_policy_sha256
         if args.live_tagging:
             from proofops.application.analysis_profile import policy_for
 
@@ -2044,6 +2051,7 @@ def main():
             verify_claim_spans=args.verify_claim_spans,
             model=args.model,
             pipeline_profile=args.pipeline_profile,
+            analysis_policy_sha256=args.analysis_policy_sha256,
             live_tagging=args.live_tagging,
             tagging_max_calls=args.tagging_max_calls if args.live_tagging else None,
         )

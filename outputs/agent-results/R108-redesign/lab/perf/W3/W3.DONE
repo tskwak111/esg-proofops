@@ -1,0 +1,38 @@
+{
+  "status": "partial",
+  "fully_satisfies_task": false,
+  "missing_required_work": [
+    "stage_overlap implementation: early full graph/packet pins differ; checkpoint invariant clarification pending"
+  ],
+  "base": "a16e118e814b70cdd6afa3ed66324bc4f61794b5",
+  "branch": "w3-speed",
+  "report_sha256": "72ff17083a678dae2020edb5de38a48d1c4b1c208aac19391a9f75f99b97687b",
+  "policy_sha256": "f348b07e73e35c3d353666cc382ee7b8a756b7c3aa6838520ae6101dcad9bee4",
+  "paid_usd": "0",
+  "report_path": "/Users/ss020/Dev/ESG_ProofOps/outputs/agent-results/R108-redesign/lab/perf/W3/W3-REPORT.md",
+  "source_sha256": {
+    "apps/api/src/proofops_api/hosted_analysis.py": "4571760581d6acbf367d788a5c3d6c304bbd3790113f689ad4ca5045561a9038",
+    "apps/api/src/proofops_api/hosted_store.py": "e540e9d6dcc376b2855c48629dee98db49c0c7846f5fd5cfd436197b0a95c3b1",
+    "apps/api/src/proofops_api/local_runtime.py": "b5ee9376dbca4d67989d240c16173593230f40865d6104424c0f690cb138f20e",
+    "deploy/public/CONTRACT.md": "9dcaf685b58927a91bf035a1a420255b9933c347f184c0dee678d33474ff891d",
+    "evaluation/hosted_r108.py": "e628f82e817c9e977ccc20a8be4757224d8d3e36f6876fbcc9a97a8ad2972f2f",
+    "evaluation/local_upstage_pilot.py": "01b5cac2d83987f320fac978c8ece7dedc4687c731f4fa9ae074504130e80fd4",
+    "evaluation/pa3_pair.py": "5b9fbfa72fe56ae3fff5ba4cad8df8d66ec5007bb11cfe20be91af0f493092cd",
+    "evaluation/pa3_replay.py": "0ba946d4334fc5093fdc79f74110dd026df83b343fb7c6df91c4ca081a3c4a4c",
+    "packages/proofops/adapters/local/claim_source_policies.py": "d7660843fd92cc11fac81fa0ecf62af1b290b6b4c67ba20b6ec409e2615cf611",
+    "packages/proofops/adapters/local/openai.py": "5d738673ae68f5e7323b634994a4e1d078803df953cd35548ae40d84c04b9719",
+    "packages/proofops/adapters/local/pa7_raster_cache.py": "44c7babd277ea212bf7ae813e4dd1d89026da53cf3c11055cff9a0d6402e2a16",
+    "packages/proofops/adapters/local/upstage.py": "6e4d2fd9e3f07e9e86ecc8f8d650d5149956e818f723912af4f336d82ad11739",
+    "packages/proofops/adapters/local/upstage_parse.py": "b27e0863c9e4d4406367f22fcd90e15b96576e8e3ff1c77813a8397d9c521448",
+    "packages/proofops/adapters/local/verified_read_cache.py": "5dd42063fa233599dac96381d393afcfa9e1a9d98e9dd6f4cd17c1a5adb56984",
+    "packages/proofops/application/analysis_profile.py": "926c89b4a5a287195f4e2ead7660deba6610e090ccba3a78a546a92836869ccd",
+    "packages/proofops/application/runs.py": "ac6d3647d22676cc130c4a969f2e8356f0fa65849e38b653e03ac7911101cc20",
+    "evaluation/w3_source_probe.py": "d7f6f961243fb513e4ee701a77e8d7d968a14a6882418ba9a0b2b8aec7c1e4a0",
+    "packages/proofops/adapters/local/provider_concurrency.py": "534331fdcdb68c38610d986ea137ca5391daf4a8389fb45d9bb72d5fb1c8d9e2",
+    "tests/unit/test_w3_speed.py": "130bf655848fc79cfbb61a7587a683ccfd096345a8970eff76638c604174205d"
+  },
+  "live_models": "not_run",
+  "EC2": "not_run",
+  "push": false,
+  "deploy": false
+}

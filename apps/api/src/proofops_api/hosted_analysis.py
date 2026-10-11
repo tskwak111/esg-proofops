@@ -80,6 +80,10 @@ def operator_profiles(config: dict) -> dict:
         raise ValueError("HOSTED_LLM_PROVIDER_INVALID")
     if analysis in FINALS_PROFILES:
         llm_provider = "openai"
+    if config.get("analysis_policy_sha256") is not None:
+        from proofops.application.analysis_profile import publication_policy_for
+
+        publication_policy_for(analysis, pinned_hash=config["analysis_policy_sha256"])
     requested = config.get("rendered_reader_profile")
     if requested is not None and requested not in KNOWN_RENDERED_READERS:
         raise ValueError("HOSTED_RENDERED_READER_PROFILE_INVALID")
