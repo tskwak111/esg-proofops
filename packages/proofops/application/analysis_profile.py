@@ -1,6 +1,7 @@
 """One explicitly selected profile; old configurations remain byte-identical."""
 
 from proofops.application.ingest.k1_boundaries import POLICY_HASH as K1_BOUNDARY_HASH
+from proofops.application.ingest.k3_table_routing import POLICY as K3_ROUTING_POLICY
 from proofops.application.ingest.sentence_prefix import POLICY as PREFIX_POLICY
 from proofops.application.tagging.dec24 import (
     DEFINITIONS_HASH,
@@ -243,6 +244,13 @@ FINALS_K2_POLICY = FINALS_I1_POLICY | dict(
     hold_recovery_policy_sha256=canonical_hash(K2_RECOVERY_POLICY),
     hold_display="cause-specific-k2-v1",
 )
+# Keep I1 immutable/readable. K3 changes only future table source/routing policy.
+
+K3_POLICY = FINALS_I1_POLICY | dict(
+    source="upstage-ocr-page-v11",
+    table_native_ownership="native-column-k3-v1",
+    table_worker_routing=K3_ROUTING_POLICY,
+)
 
 
 def policy_for(profile, *, pinned_hash=None):
@@ -257,6 +265,7 @@ def policy_for(profile, *, pinned_hash=None):
             FINALS_I1_POLICY,
             K1_POLICY,
             FINALS_K2_POLICY,
+            K3_POLICY,
             FINALS_I1_INITIAL_POLICY,
             V2_D24_POLICY,
             V2_W9_POLICY,
@@ -326,6 +335,7 @@ def apply_pilot_profile(args):
         args.extraction_fragment_guard = True
         args.extraction_pb1 = True
         args.extraction_w9 = selected.get("table_claims") == "pb1-w9-v1"
+        args.extraction_k3 = bool(selected.get("table_worker_routing"))
         args.extraction_sentence_prefix = bool(selected.get("extraction_sentence_prefix"))
         args.extraction_j3 = bool(selected.get("selected_span_refinement"))
         args.extraction_pb1_context_guard = True
@@ -344,8 +354,11 @@ def apply_pilot_profile(args):
         "upstage-ocr-page-v8",
         "upstage-ocr-page-v9",
         "upstage-ocr-page-v10",
+        "upstage-ocr-page-v11",
     ):
-        args.claim_source_profile = "upstage-ocr-page-v10"
+        args.claim_source_profile = (
+            "upstage-ocr-page-v11" if selected == K3_POLICY else "upstage-ocr-page-v10"
+        )
     if getattr(args, "claim_source_profile", None) not in {
         "upstage-ocr-page-v3",
         "upstage-ocr-page-v4",
@@ -355,6 +368,7 @@ def apply_pilot_profile(args):
         "upstage-ocr-page-v8",
         "upstage-ocr-page-v9",
         "upstage-ocr-page-v10",
+        "upstage-ocr-page-v11",
     }:
         args.claim_source_profile = "claim-source-v3"
     args.verify_claim_spans = True

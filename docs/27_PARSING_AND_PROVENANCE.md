@@ -447,3 +447,27 @@ Provider의 chart/figure 합성 수치는 일반 주장 후보에서 제외하�
 API의 필수 필드 및 DB schema 변경/migration은 없다. 이전 reader는 추가 표시 필드를
 무시할 수 있다. 롤백은 새 실행 정책을 이전 hash로 되돌리고, W9 실행을 이전 추출기로
 재개하지 않는다. 이전/새 revision·receipt·보고서는 보존한다.
+
+### K3 표 원문 검증·워커 라우팅 (로컬 opt-in)
+
+`K3_POLICY`는 기존 `FINALS_I1_POLICY`를 보존하는 별도 hash다. 신규 로컬 실행에서
+`--analysis-profile finals-unattended-v2 --analysis-policy-sha256 <K3_POLICY hash>`를
+지정하면 `extraction_k3`와 `upstage-ocr-page-v11`을 함께 동결한다. 기본 I1 정책은
+변경하지 않는다. 워커의 최초 선택·단일 실행·연속 배치는 같은 원문 grid의 W9
+최신연도 관측/셀 후보를 사용하므로, 기존 단위/환경 어휘 사전필터가 차량 대수 표를
+다시 차단하지 않는다. 이 선택은 근거 승인이나 부재 판정이 아니며 비용·scope·lease
+상한을 우회하지 않는다.
+
+v11은 v6 본문 검증과 v10 표 검증을 유지하고, 행 높이가 서로 다른 표의 **한 셀 안
+단일 bullet**만 추가 검토한다. 원본 PDF의 긴 세로 구획선과 독립적으로 읽은 각 열
+머리를 먼저 확인한다. 해당 열에서 고유한 원문 인용과 glyph 순서·줄간 간격·저장
+좌표를 검증한다. 셀/행 결합, 상태 문구 재배치, 다른 시설 머리 붙이기, 숫자·단위
+수정은 허용하지 않는다. 머리·회수 좌표는 receipt의 proof이며 의미 귀속 승인이
+아니다. 기존 paragraph/table 블록·revision·보고서를 변경하지 않는다.
+
+공개 API/DB schema·migration 변경은 없다. 신규 option은 기존 opaque settings와
+불변 실행 snapshot에 저장하고, policy hash가 맞는 reader만 발행/재생할 수 있다.
+롤백은 신규 K3 생성 중단이며 이미 생성한 K3 reader는 남겨 replay를 보존한다.
+17건 저장 입력의 원문 재생에서는 14건을 확인했고 NAVER-02/05/21은 보류했다.
+잘못 붙은 문구/잘린 좌표를 verified로 바꾸지 않는다. 새 태깅·등급은 별도 검증 전
+`not_run`이며, 이 결과 때문에 기본 정책을 K3로 자동 채택하지 않는다.

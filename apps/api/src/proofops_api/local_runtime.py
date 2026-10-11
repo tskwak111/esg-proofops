@@ -41,6 +41,7 @@ _SETTINGS_FIELDS = frozenset(
         "extraction_pb1",
         "extraction_w9",
         "extraction_j3",
+        "extraction_k3",
         "extraction_pb1_context_guard",
         "extraction_table_footnotes",
         "extraction_table_rows",
@@ -380,6 +381,7 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         "extraction_pb1",
         "extraction_w9",
         "extraction_j3",
+        "extraction_k3",
         "extraction_pb1_context_guard",
         "extraction_table_footnotes",
         "extraction_table_rows",
@@ -398,6 +400,8 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         settings.get("extraction_w9") is True and settings.get("extraction_source_ids") is True
     ):
         raise ValueError("EXTRACTION_J3_INVALID")
+    if settings.get("extraction_k3") and settings.get("extraction_w9") is not True:
+        raise _invalid()
     if settings.get("extraction_w9") and settings.get("extraction_pb1") is not True:
         raise _invalid()
     if settings.get("extraction_k1") and (

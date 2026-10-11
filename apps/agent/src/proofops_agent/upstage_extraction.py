@@ -531,6 +531,7 @@ def _profile_with_options(
     extraction_pb1: bool = False,
     extraction_pb1_context_guard: bool = False,
     extraction_w9: bool = False,
+    extraction_k3: bool = False,
     extraction_sentence_prefix: bool = False,
     extraction_k1: bool = False,
     extraction_table_footnotes: bool = False,
@@ -555,6 +556,8 @@ def _profile_with_options(
     """
     if type(extraction_j3) is not bool or (extraction_j3 and not (extraction_w9 and source_ids)):
         raise ValueError("EXTRACTION_J3_INVALID")
+    if type(extraction_k3) is not bool or (extraction_k3 and not extraction_w9):
+        raise ValueError("UPSTAGE_PROFILE_OPTION_INVALID")
     if type(extraction_w9) is not bool or (extraction_w9 and not extraction_pb1):
         raise ValueError("EXTRACTION_W9_INVALID")
     from proofops.adapters.local.openrouter import MODEL as LUNA_MODEL
@@ -657,6 +660,10 @@ def _profile_with_options(
         from proofops.application.ingest.j3_recall import POLICY as J3_POLICY
 
         descriptor.append(J3_POLICY)
+    if extraction_k3:
+        from proofops.application.ingest.k3_table_routing import POLICY as K3_POLICY
+
+        descriptor.append(K3_POLICY)
     if display_text_profile:
         descriptor.append(POLICY)
     if year_notation:
@@ -758,6 +765,7 @@ class UpstageClaimExtractor:
         extraction_pb1: bool = False,
         extraction_pb1_context_guard: bool = False,
         extraction_w9: bool = False,
+        extraction_k3: bool = False,
         extraction_sentence_prefix: bool = False,
         extraction_k1: bool = False,
         extraction_table_footnotes: bool = False,
@@ -816,6 +824,7 @@ class UpstageClaimExtractor:
             extraction_pb1=extraction_pb1,
             extraction_pb1_context_guard=extraction_pb1_context_guard,
             extraction_w9=extraction_w9,
+            extraction_k3=extraction_k3,
             extraction_sentence_prefix=extraction_sentence_prefix,
             extraction_k1=extraction_k1,
             extraction_table_footnotes=extraction_table_footnotes,
@@ -842,6 +851,7 @@ class UpstageClaimExtractor:
         self._pb1 = extraction_pb1
         self._w9 = extraction_w9
         self._j3 = extraction_j3
+        self._k3 = extraction_k3
         self._table_rows = extraction_table_rows
         self._recall_prompt = extraction_recall_prompt
         self._atomic = extraction_atomic

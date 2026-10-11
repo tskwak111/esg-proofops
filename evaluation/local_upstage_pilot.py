@@ -602,6 +602,7 @@ def claim_source_policy_for(args):
         "upstage-ocr-page-v8",
         "upstage-ocr-page-v9",
         "upstage-ocr-page-v10",
+        "upstage-ocr-page-v11",
     }:
         from proofops.adapters.local.claim_source_policies import page_ocr_profile
 
@@ -750,6 +751,7 @@ def apply_resume_metadata(args, saved: dict) -> None:
     args.extraction_pb1 = bool(saved.get("extraction_pb1", False))
     args.extraction_w9 = bool(saved.get("extraction_w9", False))
     args.extraction_j3 = bool(saved.get("extraction_j3", False))
+    args.extraction_k3 = bool(saved.get("extraction_k3", False))
     args.extraction_pb1_context_guard = bool(saved.get("extraction_pb1_context_guard", False))
     args.extraction_table_footnotes = bool(saved.get("extraction_table_footnotes", False))
     args.extraction_source_ids = bool(saved.get("extraction_source_ids", False))
@@ -921,6 +923,7 @@ def main():
     parser.add_argument("--extraction-pb1", action="store_true")
     parser.add_argument("--extraction-w9", action="store_true")
     parser.add_argument("--extraction-j3", action="store_true")
+    parser.add_argument("--extraction-k3", action="store_true")
     parser.add_argument("--extraction-pb1-context-guard", action="store_true")
     parser.add_argument("--extraction-table-footnotes", action="store_true")
     parser.add_argument("--max-calls", type=int, default=8)
@@ -1076,6 +1079,7 @@ def main():
             "upstage-ocr-page-v8",
             "upstage-ocr-page-v9",
             "upstage-ocr-page-v10",
+            "upstage-ocr-page-v11",
             "table-claim-spans-v1",
             "claim-source-v3",
         ],
@@ -1567,6 +1571,7 @@ def main():
             "upstage-ocr-page-v8",
             "upstage-ocr-page-v9",
             "upstage-ocr-page-v10",
+            "upstage-ocr-page-v11",
         }:
             if args.raster_ocr or args.native_quote_typography:
                 parser.error("page OCR requires no raster/native quote-typography composition")
@@ -1628,6 +1633,7 @@ def main():
                     extraction_pb1=args.extraction_pb1,
                     extraction_w9=args.extraction_w9,
                     extraction_j3=args.extraction_j3,
+                    extraction_k3=args.extraction_k3,
                     extraction_pb1_context_guard=args.extraction_pb1_context_guard,
                     extraction_table_footnotes=args.extraction_table_footnotes,
                     extraction_table_rows=args.extraction_table_rows,
@@ -1692,6 +1698,8 @@ def main():
             settings["extraction_pb1_context_guard"] = True
         if args.extraction_w9:
             settings["extraction_w9"] = True
+        if args.extraction_k3:
+            settings["extraction_k3"] = True
         if args.extraction_table_footnotes:
             settings["extraction_table_footnotes"] = True
         if args.extraction_j3:
@@ -2212,6 +2220,8 @@ def main():
             manifest["extraction_pb1_context_guard"] = True
         if args.extraction_w9:
             manifest["extraction_w9"] = True
+        if args.extraction_k3:
+            manifest["extraction_k3"] = True
         if args.extraction_table_footnotes:
             manifest["extraction_table_footnotes"] = True
         if args.extraction_j3:
@@ -2321,6 +2331,7 @@ def main():
             "extraction_pb1",
             "extraction_w9",
             "extraction_j3",
+            "extraction_k3",
             "extraction_pb1_context_guard",
             "extraction_table_footnotes",
         ):

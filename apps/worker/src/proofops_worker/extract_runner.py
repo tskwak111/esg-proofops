@@ -74,7 +74,24 @@ def _candidate_extract(live, packet, snapshot):
         raise
 
 
-def _is_text_candidate(kind: str, text: str, *, extraction_table_rows=False) -> bool:
+def _is_text_candidate(
+    kind: str,
+    text: str,
+    *,
+    extraction_table_rows=False,
+    extraction_k3=False,
+    graph=None,
+    source_id=None,
+    cells=None,
+) -> bool:
+    if extraction_k3 and extraction_table_rows and kind == "table" and graph is not None:
+        from proofops.application.ingest.w9_tables import cell_entries, graph_cells, observations
+
+        table = next((b for b in graph.blocks if b.source_id == source_id), None)
+        if table is not None and table.kind == kind and table.normalized_text == text:
+            owned = graph_cells(table, graph) if cells is None else cells
+            if observations(text, cells=owned) or cell_entries(text, owned, source_id=source_id):
+                return True
     # ponytail: length is a routing heuristic, not a claim/absence classifier.
     if extraction_table_rows and kind in ("table", "table_row", "table_cell", "figure"):
         from proofops.application.ingest.table_row_candidates import row_candidates
@@ -178,7 +195,13 @@ def paragraph_priority(block):
 
 
 def select_batch_paragraph_sources(
-    graph, scope, max_calls: int, *, completed=frozenset(), extraction_table_rows=False
+    graph,
+    scope,
+    max_calls: int,
+    *,
+    completed=frozenset(),
+    extraction_table_rows=False,
+    extraction_k3=False,
 ) -> set[str]:
     """Next bounded window of eligible prose sources, skipping completed ones.
 
@@ -199,7 +222,12 @@ def select_batch_paragraph_sources(
         and block.quality in ("verified", "unverified")
         and block.winner is not None
         and _is_text_candidate(
-            block.kind, block.normalized_text, extraction_table_rows=extraction_table_rows
+            block.kind,
+            block.normalized_text,
+            extraction_table_rows=extraction_table_rows,
+            extraction_k3=extraction_k3,
+            graph=graph,
+            source_id=block.source_id,
         )
         and block.normalized_text.strip()
         and block.source_id not in completed
@@ -210,11 +238,15 @@ def select_batch_paragraph_sources(
 
 
 def select_stable_paragraph_sources(
-    graph, scope, max_calls: int, *, extraction_table_rows=False
+    graph, scope, max_calls: int, *, extraction_table_rows=False, extraction_k3=False
 ) -> set[str]:
     """Prioritize prose within a bounded preview; retain short candidates after it."""
     return select_batch_paragraph_sources(
-        graph, scope, max_calls, extraction_table_rows=extraction_table_rows
+        graph,
+        scope,
+        max_calls,
+        extraction_table_rows=extraction_table_rows,
+        extraction_k3=extraction_k3,
     )
 
 
@@ -279,9 +311,13 @@ class _ContinuingExtractor:
         prior_calls: int = 0,
         total_budget: int | None = None,
         extraction_table_rows: bool = False,
+        extraction_k3: bool = False,
+        graph=None,
     ):
         self.profile = profile
         self._table_rows = extraction_table_rows
+        self._k3 = extraction_k3
+        self._graph = graph
         self._live = live
         self._prior = prior
         self._prior_failed = prior_failed or {}
@@ -308,7 +344,14 @@ class _ContinuingExtractor:
             self.replayed.add(source_id)
             raise ExtractionOutputError("PREVIOUS_EXTRACTION_FAILED")
         reason = None
-        if not _is_text_candidate(data["kind"], text, extraction_table_rows=self._table_rows):
+        if not _is_text_candidate(
+            data["kind"],
+            text,
+            extraction_table_rows=self._table_rows,
+            extraction_k3=self._k3,
+            graph=self._graph,
+            source_id=source_id,
+        ):
             reason = DEFERRED_KIND_REASON
         elif self.stop_code is not None and source_id not in getattr(self._live, "prepaid", ()):
             reason = DEFERRED_BUDGET_REASON
@@ -516,6 +559,7 @@ class LocalExtractRunner:
             batch_calls,
             completed=completed,
             extraction_table_rows=getattr(self.extractor, "_table_rows", False),
+            extraction_k3=getattr(self.extractor, "_k3", False),
         )
         summary = dict(
             status="idle",
@@ -663,6 +707,8 @@ class LocalExtractRunner:
                     prior_calls=prior_calls,
                     total_budget=total_budget,
                     extraction_table_rows=getattr(runner.extractor, "_table_rows", False),
+                    extraction_k3=getattr(runner.extractor, "_k3", False),
+                    graph=graph,
                 )
                 discovery = discover_atomic_claims(graph, scope, extractor=extractor)
                 payload = self._publication_payload(
@@ -810,6 +856,7 @@ class LocalExtractRunner:
                             claim_scope(snapshot, graph),
                             effective_max,
                             extraction_table_rows=getattr(runner.extractor, "_table_rows", False),
+                            extraction_k3=getattr(runner.extractor, "_k3", False),
                         )
 
                     class FencedExtractor:
@@ -829,6 +876,9 @@ class LocalExtractRunner:
                                         extraction_table_rows=getattr(
                                             runner.extractor, "_table_rows", False
                                         ),
+                                        extraction_k3=getattr(runner.extractor, "_k3", False),
+                                        graph=graph,
+                                        source_id=data["source_id"],
                                     )
                                     else "beyond_extraction_limit"
                                     if data.get("source_id") not in eligible_sources
