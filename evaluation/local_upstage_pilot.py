@@ -775,6 +775,7 @@ def apply_resume_metadata(args, saved: dict) -> None:
     args.extraction_i4_identity = bool(saved.get("extraction_i4_identity", False))
     args.extraction_h1 = bool(saved.get("extraction_h1", False))
     args.extraction_i5_tables = bool(saved.get("extraction_i5_tables", False))
+    args.extraction_k6 = bool(saved.get("extraction_k6", False))
     args.extraction_pb1_context_guard = bool(saved.get("extraction_pb1_context_guard", False))
     args.extraction_table_footnotes = bool(saved.get("extraction_table_footnotes", False))
     args.extraction_source_ids = bool(saved.get("extraction_source_ids", False))
@@ -1296,6 +1297,7 @@ def main():
     args.extraction_j8 = False
     args.extraction_i3_wire = False
     args.extraction_i4_identity = False
+    args.extraction_k6 = False
     apply_pilot_profile(args)
     try:
         apply_finals_candidate(args)
@@ -1691,6 +1693,7 @@ def main():
                     extraction_i4_identity=args.extraction_i4_identity,
                     extraction_h1=getattr(args, "extraction_h1", False),
                     extraction_i5_tables=getattr(args, "extraction_i5_tables", False),
+                    extraction_k6=args.extraction_k6,
                     extraction_pb1_context_guard=args.extraction_pb1_context_guard,
                     extraction_table_footnotes=args.extraction_table_footnotes,
                     extraction_table_rows=args.extraction_table_rows,
@@ -1761,6 +1764,8 @@ def main():
             settings["extraction_table_footnotes"] = True
         if args.extraction_j8:
             settings["extraction_j8"] = True
+        if args.extraction_k6:
+            settings["extraction_k6"] = True
         if args.extraction_i4_identity:
             settings["extraction_i4_identity"] = True
         if args.extraction_i3_wire:
@@ -2302,6 +2307,8 @@ def main():
             manifest["extraction_table_footnotes"] = True
         if args.extraction_j8:
             manifest["extraction_j8"] = True
+        if args.extraction_k6:
+            manifest["extraction_k6"] = True
         if args.extraction_i4_identity:
             manifest["extraction_i4_identity"] = True
         if args.extraction_i3_wire:
@@ -2426,6 +2433,7 @@ def main():
             "extraction_i4_identity",
             "extraction_h1",
             "extraction_i5_tables",
+            "extraction_k6",
             "extraction_pb1_context_guard",
             "extraction_table_footnotes",
         ):

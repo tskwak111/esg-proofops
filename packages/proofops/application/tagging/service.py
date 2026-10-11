@@ -393,10 +393,11 @@ def tag_replicates(
             user_data[key] = data[key]
     if "citation_restore_policy" in data:
         from proofops.application.tagging.citation_restore import POLICY
+        from proofops.application.tagging.k6_citations import POLICY as K6_POLICY
         from proofops.application.tagging.pb2_citation_restore import POLICY as TABLE_POLICY
         from proofops.application.tagging.pb6_citation_restore import POLICY as VALUE_POLICY
 
-        if data["citation_restore_policy"] not in (POLICY, TABLE_POLICY, VALUE_POLICY):
+        if data["citation_restore_policy"] not in (POLICY, TABLE_POLICY, VALUE_POLICY, K6_POLICY):
             raise DomainValidationError("CITATION_RESTORE_POLICY_UNKNOWN")
         user_data["citation_restore_policy"] = data["citation_restore_policy"]
     if "table_observation_evidence" in data:

@@ -660,14 +660,17 @@ class UpstageTaggingTransport:
             raise ValueError("DISPLAY_MAP_REQUIRED")
         if policy is not None:
             from proofops.application.tagging.citation_restore import POLICY, restore_whitespace
+            from proofops.application.tagging.k6_citations import POLICY as K6_POLICY
             from proofops.application.tagging.pb2_citation_restore import POLICY as TABLE_POLICY
             from proofops.application.tagging.pb2_citation_restore import restore_table
             from proofops.application.tagging.pb6_citation_restore import POLICY as VALUE_POLICY
 
-            if policy not in (POLICY, TABLE_POLICY, VALUE_POLICY):
+            if policy not in (POLICY, TABLE_POLICY, VALUE_POLICY, K6_POLICY):
                 raise ValueError("CITATION_RESTORE_POLICY_UNKNOWN")
             restore = (
-                restore_table if policy in (TABLE_POLICY, VALUE_POLICY) else restore_whitespace
+                restore_table
+                if policy in (TABLE_POLICY, VALUE_POLICY, K6_POLICY)
+                else restore_whitespace
             )
             return restore(quote, original)
         span = UpstageClaimExtractor._locate(quote, original["quote"])
@@ -680,16 +683,21 @@ class UpstageTaggingTransport:
     def restore_payload(self, payload, refs, *, policy=None):
         if policy is not None:
             from proofops.application.tagging.citation_restore import POLICY
+            from proofops.application.tagging.k6_citations import POLICY as K6_POLICY
             from proofops.application.tagging.pb2_citation_restore import POLICY as TABLE_POLICY
             from proofops.application.tagging.pb6_citation_restore import POLICY as VALUE_POLICY
 
-            if policy not in (POLICY, TABLE_POLICY, VALUE_POLICY):
+            if policy not in (POLICY, TABLE_POLICY, VALUE_POLICY, K6_POLICY):
                 raise ValueError("CITATION_RESTORE_POLICY_UNKNOWN")
         for element in payload.get("elements", []):
             try:
                 selected = element["evidence_refs"]
                 if not isinstance(selected, list):
                     raise ValueError("invalid references")
+                if policy is not None and policy == K6_POLICY:
+                    from proofops.application.tagging.k6_citations import anchor_units
+
+                    selected = anchor_units(selected, refs)
                 element["evidence_refs"] = [
                     self._restore_ref(key, refs, policy=policy) for key in selected
                 ]
@@ -708,7 +716,7 @@ class UpstageTaggingTransport:
                     CONSISTENCY_PROFILE,
                 ):
                     self._refine_g1_year(element)
-                if policy is not None and policy == VALUE_POLICY:
+                if policy is not None and policy in (VALUE_POLICY, K6_POLICY):
                     from proofops.application.tagging.pb6_citation_restore import (
                         refine_selected_value,
                     )

@@ -174,6 +174,25 @@ rollback하면 이 경로의 실행을 중단하고 저장된 결과/receipt는 
 
 ## 9. 평가와 승인
 
+### K6 선택적 추출·시설 후보 계약
+
+`finals-unattended-v2`의 명시적 K6 정책 pin은 동일 parser grid의
+`2024년 실적` 같은 관측연도 헤더와 `tCO2-eq` 단위를 지원한다. 원문 셀·행·좌표는
+바꾸지 않는다. 명시적 환경 목표 술어와 기한/비율이 있는 원문 단락을 누락 복구
+후보로 보존하며, 여러 목표가 있는 부모 단락은 문맥을 보존한 채 재태깅 대상이다.
+새 주장에는 기존 태깅·등급·verified 상태를 이전하지 않는다.
+
+반복 단위는 모델이 선택한 동일 인용의 유일한 바로 앞 숫자에만 연결한다.
+원문 존재·귀속·요소 검사는 계속 필수다. 투자 필요성 증가만 서술한 goal 표는
+회사 약속으로 확정하지 않고 검토 대상으로 보존한다. 복원 시설 헤더는 원본 PDF의
+native 증명과 함께 M2/G4/P3 후보로 전달하며, 요소 투표나 보증 covered를 생성하지
+않는다. 보증 지표·기간·사업 범위 매칭 계약은 그대로다.
+
+K6 시설 span graph는 새 실행과 저장 결과 reload에서 같은 원본·정책으로 재구성한다.
+공개 API/DB 변경·migration은 없고, 내부 settings의 `extraction_k6`와 정책 hash를
+함께 검증한다. I4·이전 정책과 reader bytes는 유지한다. Rollback은 새 실행을 I4
+pin으로 생성하고 K6 reader는 보존하는 방식이다. 이전 revision/report를 덮어쓰지 않는다.
+
 최소 6개 보고서의 60개 표/레이아웃 영역을 초기 개발 벤치마크 목표로 잡는다. 디지털·다단·병합표·단위각주·보증서·스캔을 구분하고 실측 전 수치를 비워둔다. 비교군은 기존 parser baseline, OpenDataLoader local, 제한적 hybrid, 최종 조합이다. 측정은 cell exact match, 값-연도-단위 tuple exact match, bbox/페이지 정확성, 충돌 탐지 재현율, UNREADABLE 비율, 시간/비용이다. TEDS 만으로 숫자 정확도를 대체하지 않는다.
 
 이 패키지에서는 원본 ESG PDF 파싱, OCR, 비전 API, benchmark 를 실행하지 않았다. `tests/fixtures/contract_cases.json`는 설계상 예상 동작을 담은 합성 테스트 벡터다.

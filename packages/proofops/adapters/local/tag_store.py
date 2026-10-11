@@ -618,6 +618,21 @@ class LocalTagStore:
         )
         return scoped, receipt
 
+    def _facility_evidence(self, evidence, snapshot, tenant_id):
+        extraction, discovery, graph = evidence
+        policy = snapshot.get("analysis_profile_policy", {})
+        if policy.get("facility_tagging_candidates") is not None:
+            from proofops.adapters.local.k6_facilities import facility_graph
+
+            graph, _ = facility_graph(
+                graph,
+                self.uploads.read_original(tenant_id, graph.document_version_id),
+                discovery.claims,
+                tenant_id=tenant_id,
+                policy=policy,
+            )
+        return extraction, discovery, graph
+
     def _load_snapshot_with_evidence(self, tenant_id, run_id):
         # Share the evidence replay used to verify the tag checkpoint pins.
         run = self.store.jobs.get_run(tenant_id, run_id)
@@ -629,6 +644,7 @@ class LocalTagStore:
         evidence = self.claims.load_evidence(tenant_id, run_id)
         extraction = evidence[0]
         snapshot = self.store.snapshot(tenant_id, run_id)
+        evidence = self._facility_evidence(evidence, snapshot, tenant_id)
         expected = tag_pins(snapshot, extraction, run["claim_snapshot_sha256"])
         if any(envelope.get(k) != v for k, v in expected.items()):
             raise ValueError("TAG_CHECKPOINT_PIN_MISMATCH")
@@ -666,6 +682,8 @@ class LocalTagStore:
                 raise KeyError("tagged claim not published") from None
             raw = published.get("inputs")
             snapshot = self.store.snapshot(tenant_id, run_id)
+            evidence = self._facility_evidence(evidence, snapshot, tenant_id)
+            graph = evidence[2]
             # Keep snapshot-policy validation from the checkpoint path. Its
             # extraction graph pin is distinct from the attested graph below.
             tag_pins(snapshot, evidence[0], run["claim_snapshot_sha256"])

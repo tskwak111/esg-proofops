@@ -415,6 +415,10 @@ class LiveTaggingRuntime:
             from proofops.application.tagging.pb6_citation_restore import POLICY
 
             data["citation_restore_policy"] = POLICY
+        if policy.get("citation_restore") == "citation-selected-adjacent-unit-k6-v1":
+            from proofops.application.tagging.k6_citations import POLICY
+
+            data["citation_restore_policy"] = POLICY
         return freeze_packet(data)
 
     def allow_packet(self, claim_id, packet_sha256):
@@ -670,6 +674,25 @@ class LiveTaggingRuntime:
             from proofops.application.tagging.k4_contract import SEMANTIC_POLICY, estimate_evidence
 
             semantic = self.snapshot.get("analysis_profile_policy", {}).get("semantic_admission")
+            risk_policy = self.snapshot.get("analysis_profile_policy", {}).get(
+                "risk_classification_policy"
+            )
+            if risk_policy is not None:
+                from proofops.application.tagging.k6_citations import (
+                    RISK_POLICY,
+                    risk_without_commitment,
+                )
+
+                if risk_policy != RISK_POLICY or self.snapshot["analysis_profile_policy"].get(
+                    "risk_classification_policy_sha256"
+                ) != canonical_hash(RISK_POLICY):
+                    raise ValueError("K6_RISK_POLICY_MISMATCH")
+                if (
+                    result.track
+                    and result.track.track == "goal"
+                    and risk_without_commitment(claim.quote)
+                ):
+                    raise ValueError("K6_RISK_WITHOUT_COMPANY_COMMITMENT")
             if semantic == SEMANTIC_POLICY and result.track and result.track.track == "goal":
                 from proofops.application.ingest.j7_split import goal_requires_retag
 

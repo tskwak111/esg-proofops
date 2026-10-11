@@ -48,6 +48,7 @@ _SETTINGS_FIELDS = frozenset(
         "extraction_i4_identity",
         "extraction_h1",
         "extraction_i5_tables",
+        "extraction_k6",
         "extraction_pb1_context_guard",
         "extraction_table_footnotes",
         "extraction_table_rows",
@@ -361,6 +362,10 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
                 and settings.get("extraction_i5_tables") is not True
             ):
                 raise _invalid()
+            if bool(settings.get("extraction_k6", False)) != bool(
+                selected_policy.get("coverage_policy")
+            ):
+                raise _invalid()
             prompt_profile = selected_policy.get("tagging_prompt_profile")
             if prompt_profile:
                 from proofops.application.tagging.finals_i4 import (
@@ -425,6 +430,7 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         "extraction_i4_identity",
         "extraction_h1",
         "extraction_i5_tables",
+        "extraction_k6",
         "extraction_pb1_context_guard",
         "extraction_table_footnotes",
         "extraction_table_rows",

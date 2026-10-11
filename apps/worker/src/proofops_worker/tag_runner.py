@@ -245,6 +245,20 @@ class LocalTagRunner:
         )
         rulepack = RulePackSnapshot(**snapshot["rulepack"])
         settings = tagging_settings(snapshot) if snapshot.get("tagging_settings") else None
+        facility_dimensions = {}
+        facility_candidates = snapshot.get("analysis_profile_policy", {}).get(
+            "facility_tagging_candidates"
+        )
+        if facility_candidates is not None:
+            from proofops.adapters.local.k6_facilities import facility_graph
+
+            graph, facility_dimensions = facility_graph(
+                graph,
+                self.uploads.read_original(tenant, graph.document_version_id),
+                discovery.claims,
+                tenant_id=tenant,
+                policy=snapshot["analysis_profile_policy"],
+            )
         semantic_policy = snapshot.get("analysis_profile_policy", {}).get("semantic_admission")
         if semantic_policy is not None:
             from proofops.application.tagging.semantic_admission import validate_policy
@@ -562,6 +576,12 @@ class LocalTagRunner:
                     records.append(item)
                     continue
                 packet = freeze_track_packet(original_packet, track=track, rulepack=rulepack)
+                if facility_candidates:
+                    from proofops.application.tagging.k6_facilities import augment_packet
+
+                    packet = augment_packet(
+                        packet, facility_dimensions.get(claim.claim_id, {}), graph, tenant_id=tenant
+                    )
                 if live is not None:
                     packet = live.display_packet(packet, claim=claim)
                     live.allow_packet(claim.claim_id, packet.packet_sha256)
@@ -952,10 +972,9 @@ class LocalTagRunner:
                     result["provisional_grade"] = hold_projection(result, profile=hold_profile)
             return result
 
-        facility_dimensions = {}
-        if snapshot.get("analysis_profile_policy", {}).get("facility_dimensions") == (
-            "native-column-facility-k4-v1"
-        ):
+        if not facility_candidates and snapshot.get("analysis_profile_policy", {}).get(
+            "facility_dimensions"
+        ) == ("native-column-facility-k4-v1"):
             from proofops.adapters.local.k4_facilities import restore_facilities
             from proofops.application.tagging.k4_contract import FACILITY_POLICY
 

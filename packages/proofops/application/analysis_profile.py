@@ -7,6 +7,7 @@ from proofops.application.ingest.j8_cells import POLICY as J8_CELLS_POLICY
 from proofops.application.ingest.k1_boundaries import POLICY_HASH as K1_BOUNDARY_HASH
 from proofops.application.ingest.k3_table_routing import POLICY as K3_ROUTING_POLICY
 from proofops.application.ingest.k5_context import POLICY as K5_CONTEXT_POLICY
+from proofops.application.ingest.k6_coverage import POLICY as K6_COVERAGE_POLICY
 from proofops.application.ingest.sentence_prefix import POLICY as PREFIX_POLICY
 from proofops.application.tagging.dec24 import (
     DEFINITIONS_HASH,
@@ -23,6 +24,8 @@ from proofops.application.tagging.k4_contract import (
     SEMANTIC_POLICY,
     VALUE_POLICY,
 )
+from proofops.application.tagging.k6_citations import POLICY as K6_CITATION_POLICY
+from proofops.application.tagging.k6_citations import RISK_POLICY as K6_RISK_POLICY
 from proofops.application.tagging.quality import ELEMENT_DEFINITIONS_HASH
 from proofops.application.tagging.semantic_admission import POLICY as W8_POLICY
 from proofops.application.tagging.semantic_admission import POLICY_HASH as W8_POLICY_HASH
@@ -400,6 +403,17 @@ FINALS_K5_POLICY = FINALS_I4_POLICY | dict(
 )
 
 
+FINALS_K6_POLICY = FINALS_I4_POLICY | dict(
+    integration_profile="finals-coverage-k6-v1",
+    coverage_policy=K6_COVERAGE_POLICY,
+    coverage_policy_sha256=canonical_hash(K6_COVERAGE_POLICY),
+    citation_restore=K6_CITATION_POLICY["profile"],
+    risk_classification_policy=K6_RISK_POLICY,
+    risk_classification_policy_sha256=canonical_hash(K6_RISK_POLICY),
+    facility_tagging_candidates="native-proof-boundary-candidates-k6-v1",
+)
+
+
 def policy_for(profile, *, pinned_hash=None):
     if profile == J7_PROFILE:
         choices = (J7_POLICY,)
@@ -416,6 +430,7 @@ def policy_for(profile, *, pinned_hash=None):
             FINALS_I4_POLICY,
             FINALS_H1_POLICY,
             FINALS_K5_POLICY,
+            FINALS_K6_POLICY,
             FINALS_I3_POLICY,
             FINALS_K4_POLICY,
             S2_POLICY,
@@ -475,6 +490,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
             FINALS_I5_INITIAL_POLICY,
             FINALS_I4_POLICY,
             FINALS_H1_POLICY,
+            FINALS_K6_POLICY,
             FINALS_I3_POLICY,
             W3_POLICY,
             K1_POLICY,
@@ -510,6 +526,7 @@ def apply_pilot_profile(args):
     args.extraction_i5_tables = selected.get("table_failure_profile") == "i5-grid-unreadable-v1"
     if selected.get("tagging_budget") == S2_POLICY["tagging_budget"]:
         args.tagging_max_calls = selected["tagging_budget"]["max_calls"]
+    args.extraction_k6 = bool(selected.get("coverage_policy"))
     if profile in (V2_PROFILE, J3_PROFILE, J7_PROFILE, J8_PROFILE):
         args.extraction_fragment_guard = True
         args.extraction_pb1 = True
