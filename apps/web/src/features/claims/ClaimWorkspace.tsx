@@ -76,6 +76,12 @@ type ReviewProjection = {
   blocked_action: string | null;
   field_agreements: FieldAgreement[];
   raw_candidates?: ReviewCandidate[];
+  sentence_context?: {
+    text: string;
+    source_refs: SourceRef[];
+    verification_state: "verified" | "candidate";
+    rule_credit: false;
+  } | null;
 };
 // Optional review context; P6 stays on hold without a same-scope table observation.
 type ReviewedContextConsidered = { source_ref: SourceRef; status: string };
@@ -478,11 +484,20 @@ function ClaimDetailView({ apiBase = "", csrfToken, tenantKey, session, runId, c
   const track = detail.claim.track;
   const elements = track ? completeElements(track, detail.elements) : detail.elements;
   const projection = detail.review_projection;
+  const sentenceContext = projection?.sentence_context;
   const isHeld = !decision || decision.decision_status === "blocked_evidence" || decision.decision_status === "blocked_rule_gap" || decision.decision_status === "not_run";
   return <section aria-labelledby="claim-heading">
     <h1 id="claim-heading">주장 상세</h1>
     <p><Link to={`/runs/${runId}/claims`}>주장 목록으로</Link></p>
     {untagged ? <p role="status">태깅 결과가 게시되지 않은 주장입니다. 처리 대기, 원문 검증 또는 주장 분류가 보류된 경우가 포함됩니다. 아래에서 원문을 확인할 수 있으며, 태깅 편집은 태그가 게시된 뒤에 가능합니다.</p> : null}
+    {sentenceContext ? <section aria-labelledby="sentence-context-heading">
+      <h2 id="sentence-context-heading">주장의 원문 문맥</h2>
+      <p style={{ whiteSpace: "pre-wrap" }}>{sentenceContext.text}</p>
+      <p>{sentenceContext.verification_state === "verified" ? "원문 위치 확인됨" : "원문 위치 확인 필요"} · 문맥은 주장 해석을 돕는 자료입니다. 수치·연도·입증 요소는 개별 근거를 확인합니다.</p>
+      <ul>{sentenceContext.source_refs.map((source, index) => <li key={`${source.source_id}:${index}`}>
+        <button type="button" onClick={() => setSourceOpen(current => ({ source, nonce: (current?.nonce ?? 0) + 1 }))}>문맥 원문 {index + 1} · {source.page_num}쪽</button>
+      </li>)}</ul>
+    </section> : null}
     <ReviewCandidatePanel sources={detail.source_refs} candidateCount={projection?.raw_candidates?.length ?? 0}
       replicaCount={detail.replicate_request_ids.length} decisionStatus={decision?.decision_status ?? null} />
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))", gap: 24 }}>

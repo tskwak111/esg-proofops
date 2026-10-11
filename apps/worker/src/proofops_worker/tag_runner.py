@@ -979,9 +979,11 @@ class LocalTagRunner:
                     claim.claim_id, dict(facility=dict(state="unresolved", value=None))
                 )
             if snapshot.get("analysis_profile_policy", {}).get("sentence_context_policy"):
-                from proofops.application.ingest.j7_split import sentence_context
+                from proofops.application.ingest.k5_context import configured_context
 
-                record["sentence_context"] = sentence_context(claim, graph)
+                record["sentence_context"] = configured_context(
+                    claim, graph, snapshot["analysis_profile_policy"]
+                )
             callback = getattr(self, "claim_progress", None)
             if callback is not None:
                 callback(claim.claim_id, len(discovery.claims))

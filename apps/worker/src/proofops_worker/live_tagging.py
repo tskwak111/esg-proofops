@@ -353,13 +353,21 @@ class LiveTaggingRuntime:
 
     def display_packet(self, packet, *, claim=None):
         display_catalog = getattr(self, "display_catalog", None)
-        if display_catalog is None:
+        policy = self.snapshot.get("analysis_profile_policy", {})
+        from proofops.application.ingest.k5_context import POLICY as K5_POLICY
+        from proofops.application.ingest.k5_context import configured_context
+
+        k5 = policy.get("sentence_context_policy") == K5_POLICY
+        if display_catalog is None and not k5:
             return packet
         from proofops.application.evidence.retrieval import freeze_packet
 
         data = packet.to_dict()
         data.pop("packet_sha256")
-        policy = self.snapshot.get("analysis_profile_policy", {})
+        if k5:
+            if claim is None or claim.claim_id != data["claim_id"]:
+                raise ValueError("SENTENCE_CONTEXT_CLAIM_REQUIRED")
+            data["sentence_context"] = configured_context(claim, self.graph, policy)
         if policy.get("table_evidence") in (
             "table-selected-evidence-pb2-v1",
             "table-selected-evidence-k4-v1",
@@ -384,7 +392,8 @@ class LiveTaggingRuntime:
         for key in ("tagging_response_policy", "selected_quantity_policy"):
             if key in policy:
                 data[key] = policy[key]
-        data["display_text"] = display_catalog.element_pins(data)
+        if display_catalog is not None:
+            data["display_text"] = display_catalog.element_pins(data)
         if policy.get("hold_recovery_policy") is not None:
             from proofops.application.tagging.k2_recovery import validate_policy
 
@@ -548,37 +557,13 @@ class LiveTaggingRuntime:
                     data["omitted_source_ids"].append(entry["source_id"])
             data["context_blocks"] = verified_context
         if self.snapshot.get("analysis_profile_policy", {}).get("sentence_context_policy"):
-            from proofops.application.ingest.j7_split import (
-                CONTEXT_POLICY,
-            )
-            from proofops.application.ingest.j7_split import (
-                sentence_context as connected_sentence_context,
+            from proofops.application.ingest.k5_context import (
+                configured_context,
+                preliminary_context,
             )
 
-            configured = self.snapshot["analysis_profile_policy"]
-            if configured["sentence_context_policy"] != CONTEXT_POLICY or configured[
-                "sentence_context_policy_sha256"
-            ] != canonical_hash(CONTEXT_POLICY):
-                raise ValueError("K4_SENTENCE_POLICY_MISMATCH")
-            complete = connected_sentence_context(claim, graph)
-            if complete and len(complete["text"]) <= packet["context_policy"]["max_context_chars"]:
-                data = packet["untrusted_document_data"]
-                data["context_blocks"] = [
-                    dict(
-                        context_index=0,
-                        role="parent_paragraph",
-                        source_id=claim.source_refs[0].source_id,
-                        page_num=claim.source_refs[0].page_num,
-                        quality="verified"
-                        if complete["verification_state"] == "verified"
-                        else "unverified",
-                        text=complete["text"],
-                        source_ref={
-                            k: v for k, v in complete["source_ref"].items() if k != "quote"
-                        },
-                    )
-                ]
-                packet["context_policy"]["whole_blocks_only"] = False
+            complete = configured_context(claim, graph, self.snapshot["analysis_profile_policy"])
+            packet = preliminary_context(packet, complete)
         response_policy = self.snapshot.get("analysis_profile_policy", {}).get(
             "preliminary_response_policy"
         )
@@ -589,6 +574,18 @@ class LiveTaggingRuntime:
                 raise ValueError("K4_RESPONSE_POLICY_MISMATCH")
             packet["preliminary_response_policy"] = response_policy
         packet = self.preliminary_transport.bound_context(packet)
+        if self.snapshot.get("analysis_profile_policy", {}).get("sentence_context_policy"):
+            from copy import deepcopy
+
+            from proofops.application.ingest.k5_context import POLICY as K5_POLICY
+
+            if complete and complete["policy"] == K5_POLICY:
+                expected = preliminary_context(deepcopy(packet), complete)
+                if (
+                    packet["untrusted_document_data"]["context_blocks"]
+                    != expected["untrusted_document_data"]["context_blocks"]
+                ):
+                    raise ValueError("K5_SENTENCE_CONTEXT_WIRE_OMITTED")
         if sentence_context and not sentence_context_ready(claim, packet):
             if not fallback:
                 self.preliminary_records[claim.claim_id] = []

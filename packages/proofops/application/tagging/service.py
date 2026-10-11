@@ -371,6 +371,15 @@ def tag_replicates(
     }
     if "display_text" in data:
         user_data["display_text"] = data["display_text"]
+    sentence_interpretation = None
+    if "sentence_context" in data:
+        from proofops.application.ingest.k5_context import sentence_context
+
+        sentence_interpretation = sentence_context(claim, original)
+        if data["sentence_context"] != sentence_interpretation:
+            raise DomainValidationError("SENTENCE_CONTEXT_SOURCE_MISMATCH")
+        # Interpretation references do not enter approved_refs/source_candidates.
+        user_data["sentence_context"] = sentence_interpretation
     from proofops.application.tagging.k4_contract import RESPONSE_POLICY
     from proofops.application.tagging.k4_contract import VALUE_POLICY as K4_VALUE
 
@@ -637,7 +646,15 @@ def tag_replicates(
                 or raw_tags.safe_harbor_category != track.safe_harbor_category
             ):
                 errors.append("TRACK_CATEGORY_CHANGED")
-            if raw_tags.superlative_quote and raw_tags.superlative_quote not in claim.quote:
+            if "sentence_context" in data:
+                from proofops.application.ingest.k5_context import superlative_errors
+
+                errors.extend(
+                    superlative_errors(
+                        raw_tags.superlative_quote, claim.quote, sentence_interpretation
+                    )
+                )
+            elif raw_tags.superlative_quote and raw_tags.superlative_quote not in claim.quote:
                 errors.append("SUPERLATIVE_SOURCE_INVALID")
             for element in raw_tags.elements:
                 table_selected = False

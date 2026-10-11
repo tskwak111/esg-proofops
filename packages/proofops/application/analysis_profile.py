@@ -6,6 +6,7 @@ from proofops.application.ingest.j7_split import CONTEXT_POLICY
 from proofops.application.ingest.j8_cells import POLICY as J8_CELLS_POLICY
 from proofops.application.ingest.k1_boundaries import POLICY_HASH as K1_BOUNDARY_HASH
 from proofops.application.ingest.k3_table_routing import POLICY as K3_ROUTING_POLICY
+from proofops.application.ingest.k5_context import POLICY as K5_CONTEXT_POLICY
 from proofops.application.ingest.sentence_prefix import POLICY as PREFIX_POLICY
 from proofops.application.tagging.dec24 import (
     DEFINITIONS_HASH,
@@ -391,6 +392,13 @@ FINALS_I5_POLICY = FINALS_I5_INITIAL_POLICY | dict(
 )
 V2_POLICY = FINALS_I5_POLICY
 
+# Explicit adoption only. Historical I4 runs and the default remain immutable.
+FINALS_K5_POLICY = FINALS_I4_POLICY | dict(
+    integration_profile="finals-context-k5-v1",
+    sentence_context_policy=K5_CONTEXT_POLICY,
+    sentence_context_policy_sha256=canonical_hash(K5_CONTEXT_POLICY),
+)
+
 
 def policy_for(profile, *, pinned_hash=None):
     if profile == J7_PROFILE:
@@ -407,6 +415,7 @@ def policy_for(profile, *, pinned_hash=None):
             FINALS_I5_INITIAL_POLICY,
             FINALS_I4_POLICY,
             FINALS_H1_POLICY,
+            FINALS_K5_POLICY,
             FINALS_I3_POLICY,
             FINALS_K4_POLICY,
             S2_POLICY,
@@ -472,6 +481,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
             FINALS_K2_POLICY,
             S1_POLICY,
             S2_POLICY,
+            FINALS_K5_POLICY,
         )
         if profile == V2_PROFILE
         else (policy_for(profile),)
