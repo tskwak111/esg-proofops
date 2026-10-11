@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import hashlib
 import http.client
 import json
 import math
 import os
+import re
 import sqlite3
 import time
 from contextlib import contextmanager
@@ -26,6 +28,13 @@ MODEL = "gpt-6-luna"
 ENDPOINT = "https://api.openai.com/v1/chat/completions"
 PRICE_RECHECK_AT = datetime(2026, 10, 21, tzinfo=UTC)
 PRICE = {"input": "0.10", "cached_input": "0.01", "cache_write": "0.125", "output": "0.50"}
+HTTP_ERROR_POLICY = {
+    "schema": "openai-http-error-diagnostic-v1",
+    "body": "bounded-sha256-only",
+    "identifiers": "bounded-snake-case-no-key",
+    "headers": ["x-request-id", "retry-after"],
+    "storage": "private-immutable-sidecar-best-effort",
+}
 WIRE_POLICY = {
     "provider": "openai",
     "endpoint": ENDPOINT,
@@ -256,6 +265,53 @@ class OpenAIProbe(OpenRouterProbe):
             raise ValueError("PROBE_REQUEST_TOO_LARGE")
         return body
 
+    def _record_http_error(self, body, status, raw, error, request_id, retry_after):
+        """Keep denial identifiers without persisting messages, inputs or cookies."""
+
+        def identifier(value):
+            return (
+                value
+                if isinstance(value, str)
+                and re.fullmatch(r"[a-z][a-z0-9_]{0,63}", value)
+                and not value.startswith("sk_")
+                and self._key not in value
+                else None
+            )
+
+        error = error if isinstance(error, dict) else {}
+        diagnostic = {
+            "diagnostic_policy_sha256": canonical_hash(HTTP_ERROR_POLICY),
+            "request_sha256": canonical_hash(body),
+            "http_status": status,
+            "http_request_id": (
+                request_id
+                if isinstance(request_id, str)
+                and re.fullmatch(r"req_[a-zA-Z0-9]{1,128}", request_id)
+                and self._key not in request_id
+                else None
+            ),
+            "retry_after": (
+                retry_after
+                if isinstance(retry_after, str) and re.fullmatch(r"[0-9]{1,8}", retry_after)
+                else None
+            ),
+            "error_code": identifier(error.get("code")),
+            "error_type": identifier(error.get("type")),
+            "response_body_sha256": hashlib.sha256(raw).hexdigest(),
+            "response_body_bytes_read": len(raw),
+            "response_body_truncated": len(raw) > 1_048_576,
+        }
+        path = self._responses / (canonical_hash(diagnostic) + ".http-error.json")
+        try:
+            with os.fdopen(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w") as f:
+                json.dump(diagnostic, f, sort_keys=True)
+                f.flush()
+                os.fsync(f.fileno())
+        except OSError:
+            # A duplicate or unwritable sidecar must not change the HTTP failure,
+            # release uncertain spend, or trigger another provider dispatch.
+            pass
+
     def _post(self, body, *, client_request_id=None):
         connection = http.client.HTTPSConnection("api.openai.com", timeout=90)
         try:
@@ -283,17 +339,26 @@ class OpenAIProbe(OpenRouterProbe):
             }
             if response.status != 200:
                 raw = response.read(1_048_577)
+                error = {}
                 if len(raw) <= 1_048_576:
                     try:
                         error = json.loads(raw).get("error", {})
                     except (AttributeError, json.JSONDecodeError, TypeError):
                         error = {}
-                    if isinstance(error, dict) and error.get("code") in {
-                        "insufficient_quota",
-                        "organization_spend_limit_exceeded",
-                        "project_spend_limit_exceeded",
-                    }:
-                        raise ValueError("OPENAI_INSUFFICIENT_QUOTA")
+                self._record_http_error(
+                    body,
+                    response.status,
+                    raw,
+                    error,
+                    response.getheader("x-request-id"),
+                    response.getheader("retry-after"),
+                )
+                if isinstance(error, dict) and error.get("code") in {
+                    "insufficient_quota",
+                    "organization_spend_limit_exceeded",
+                    "project_spend_limit_exceeded",
+                }:
+                    raise ValueError("OPENAI_INSUFFICIENT_QUOTA")
                 problem = ValueError(f"OPENAI_HTTP_{response.status}")
                 if response.status == 429:
                     # Preserve the finite code; never expose the response body.
