@@ -55,6 +55,7 @@ def _candidate_extract(live, packet, snapshot):
             "unattended-v1",
             "finals-unattended-v1",
             "finals-unattended-v2",
+            "finals-unattended-j3-v1",
         ) and (
             code
             in {
@@ -981,7 +982,11 @@ class LocalExtractRunner:
                             refs=discovery_refs(discovery),
                             tenant_id=tenant_id,
                             cache=snapshot.get("pipeline_profile")
-                            in ("finals-unattended-v1", "finals-unattended-v2"),
+                            in (
+                                "finals-unattended-v1",
+                                "finals-unattended-v2",
+                                "finals-unattended-j3-v1",
+                            ),
                             run_id=run_id,
                         )
                     return canonical_json(payload).encode(), usage

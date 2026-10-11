@@ -533,6 +533,7 @@ def _profile_with_options(
     extraction_w9: bool = False,
     extraction_sentence_prefix: bool = False,
     extraction_table_footnotes: bool = False,
+    extraction_j3: bool = False,
 ) -> ExtractionProfile:
     """Versioned extraction profile for an explicit option combination.
 
@@ -551,6 +552,8 @@ def _profile_with_options(
     ``assertion_prompt`` and pins its own rule entry and prompt suffix, so a
     complete-selection run can never replay an assertion-only receipt.
     """
+    if type(extraction_j3) is not bool or (extraction_j3 and not (extraction_w9 and source_ids)):
+        raise ValueError("EXTRACTION_J3_INVALID")
     if type(extraction_w9) is not bool or (extraction_w9 and not extraction_pb1):
         raise ValueError("EXTRACTION_W9_INVALID")
     from proofops.adapters.local.openrouter import MODEL as LUNA_MODEL
@@ -642,6 +645,10 @@ def _profile_with_options(
         from proofops.application.ingest.w9_tables import POLICY as W9_POLICY
 
         descriptor.append(W9_POLICY)
+    if extraction_j3:
+        from proofops.application.ingest.j3_recall import POLICY as J3_POLICY
+
+        descriptor.append(J3_POLICY)
     if display_text_profile:
         descriptor.append(POLICY)
     if year_notation:
@@ -745,6 +752,7 @@ class UpstageClaimExtractor:
         extraction_w9: bool = False,
         extraction_sentence_prefix: bool = False,
         extraction_table_footnotes: bool = False,
+        extraction_j3: bool = False,
     ) -> None:
         if not callable(getattr(probe, "complete", None)):
             raise ValueError("UPSTAGE_PROBE_REQUIRED")
@@ -801,6 +809,7 @@ class UpstageClaimExtractor:
             extraction_w9=extraction_w9,
             extraction_sentence_prefix=extraction_sentence_prefix,
             extraction_table_footnotes=extraction_table_footnotes,
+            extraction_j3=extraction_j3,
         )
         if type(max_tokens) is not int or not 1 <= max_tokens <= 4096:
             raise ValueError("UPSTAGE_MAX_TOKENS_INVALID")
@@ -821,6 +830,7 @@ class UpstageClaimExtractor:
         self._pb1_context_guard = extraction_pb1_context_guard
         self._pb1 = extraction_pb1
         self._w9 = extraction_w9
+        self._j3 = extraction_j3
         self._table_rows = extraction_table_rows
         self._recall_prompt = extraction_recall_prompt
         self._atomic = extraction_atomic
@@ -1361,6 +1371,13 @@ class UpstageClaimExtractor:
                     self._position_order
                     and stored_result.get("context_ordering") != self._context_order_policy()
                 )
+                or (
+                    self._j3
+                    and any(
+                        stored_result.get(key) != rejected.get(key)
+                        for key in ("j3_refinements", "j3_refinement_rejected")
+                    )
+                )
                 or not isinstance(stored_result.get("spans"), list)
                 or stored_result.get("spans") != resolved
             ):
@@ -1493,6 +1510,30 @@ class UpstageClaimExtractor:
                     for span in excluded
                 ]
                 spans = tuple(span for span in spans if span not in excluded)
+            if self._j3 and packet is not None:
+                from proofops.application.ingest.j3_recall import refine_selected
+                from proofops.application.ingest.w9_tables import graph_cells, observations_for
+
+                kind = packet["untrusted_document_data"]["kind"]
+                cells = None
+                if kind == "table":
+                    self._validate_context_graph(packet, context_graph)
+                    table = next(b for b in context_graph.blocks if b.source_id == source_id)
+                    # PB1 time-series observations keep value/unit/year together.
+                    if not observations_for(table, context_graph):
+                        cells = graph_cells(table, context_graph)
+                refined, changes = refine_selected(
+                    [dict(asdict(span), topic_ids=list(span.topic_ids)) for span in spans],
+                    text,
+                    kind=kind,
+                    cells=cells,
+                )
+                try:
+                    spans = self._validate_spans({"spans": refined}, text)
+                except ValueError:
+                    diagnostics["j3_refinement_rejected"] = changes
+                else:
+                    diagnostics["j3_refinements"] = changes
             return spans, diagnostics
         quotes = self._quotes(payload)
         span_dicts = []
@@ -1793,6 +1834,8 @@ class UpstageClaimExtractor:
         system_prompt, user_data = self._display_wire(
             packet, system_prompt, user_data, display_catalog
         )
+        if self._j3:
+            user_data["selected_span_policy_sha256"] = self._profile.rule_sha256
         content_sha = canonical_hash({"system_prompt": system_prompt, "user_data": user_data})
         request_id = str(uuid5(UUID(packet["parse_manifest_id"]), packet_sha + ":" + content_sha))
         return system_prompt, {**user_data, "request_id": request_id}, request_id

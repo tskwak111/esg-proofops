@@ -323,6 +323,7 @@ def build_composition(
                         ),
                         extraction_pb1=settings.get("extraction_pb1", False),
                         extraction_w9=settings.get("extraction_w9", False),
+                        extraction_j3=settings.get("extraction_j3", False),
                         extraction_pb1_context_guard=settings.get(
                             "extraction_pb1_context_guard", False
                         ),
@@ -352,6 +353,7 @@ def build_composition(
                     extraction_table_footnotes=settings.get("extraction_table_footnotes", False),
                     extraction_pb1=settings.get("extraction_pb1", False),
                     extraction_w9=settings.get("extraction_w9", False),
+                    extraction_j3=settings.get("extraction_j3", False),
                     extraction_pb1_context_guard=settings.get(
                         "extraction_pb1_context_guard", False
                     ),

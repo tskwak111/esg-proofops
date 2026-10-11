@@ -243,10 +243,17 @@ def tag_replicates(
         "unattended-v1",
         "finals-unattended-v1",
         "finals-unattended-v2",
+        "finals-unattended-j3-v1",
     ):
         raise DomainValidationError("unknown pipeline profile")
     unattended = (
-        pipeline_profile in ("unattended-v1", "finals-unattended-v1", "finals-unattended-v2")
+        pipeline_profile
+        in (
+            "unattended-v1",
+            "finals-unattended-v1",
+            "finals-unattended-v2",
+            "finals-unattended-j3-v1",
+        )
         and data.get("pipeline_profile") == pipeline_profile
     )
     if not isinstance(track, TrackCandidate) or track.claim != claim:

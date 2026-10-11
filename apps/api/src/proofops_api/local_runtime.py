@@ -39,6 +39,7 @@ _SETTINGS_FIELDS = frozenset(
         "extraction_sentence_prefix",
         "extraction_pb1",
         "extraction_w9",
+        "extraction_j3",
         "extraction_pb1_context_guard",
         "extraction_table_footnotes",
         "extraction_table_rows",
@@ -320,7 +321,12 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
     if "pipeline_profile" in settings:
         if (
             settings["pipeline_profile"]
-            not in ("unattended-v1", "finals-unattended-v1", "finals-unattended-v2")
+            not in (
+                "unattended-v1",
+                "finals-unattended-v1",
+                "finals-unattended-v2",
+                "finals-unattended-j3-v1",
+            )
             or not tagging_mode
         ):
             raise _invalid()
@@ -371,6 +377,7 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         "extraction_sentence_prefix",
         "extraction_pb1",
         "extraction_w9",
+        "extraction_j3",
         "extraction_pb1_context_guard",
         "extraction_table_footnotes",
         "extraction_table_rows",
@@ -385,6 +392,10 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         # reconstructs the matching extractor profile from the settings file.
         if flag in settings and (settings[flag] is not True or extraction_mode != "upstage_probe"):
             raise _invalid()
+    if settings.get("extraction_j3") and not (
+        settings.get("extraction_w9") is True and settings.get("extraction_source_ids") is True
+    ):
+        raise ValueError("EXTRACTION_J3_INVALID")
     if settings.get("extraction_w9") and settings.get("extraction_pb1") is not True:
         raise _invalid()
     for flag in ("extraction_table_rows", "extraction_recall_prompt"):

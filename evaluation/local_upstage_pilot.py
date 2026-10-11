@@ -740,6 +740,7 @@ def apply_resume_metadata(args, saved: dict) -> None:
     args.extraction_sentence_prefix = bool(saved.get("extraction_sentence_prefix", False))
     args.extraction_pb1 = bool(saved.get("extraction_pb1", False))
     args.extraction_w9 = bool(saved.get("extraction_w9", False))
+    args.extraction_j3 = bool(saved.get("extraction_j3", False))
     args.extraction_pb1_context_guard = bool(saved.get("extraction_pb1_context_guard", False))
     args.extraction_table_footnotes = bool(saved.get("extraction_table_footnotes", False))
     args.extraction_source_ids = bool(saved.get("extraction_source_ids", False))
@@ -764,7 +765,11 @@ def apply_resume_metadata(args, saved: dict) -> None:
 
 
 def run_live_stages(args, *, tenant_id: str, run_id: str) -> dict:
-    if getattr(args, "pipeline_profile", None) in ("finals-unattended-v1", "finals-unattended-v2"):
+    if getattr(args, "pipeline_profile", None) in (
+        "finals-unattended-v1",
+        "finals-unattended-v2",
+        "finals-unattended-j3-v1",
+    ):
         from proofops.adapters.local.profile_runtime import spend_session
 
         with spend_session(run_id):
@@ -797,7 +802,12 @@ def _run_live_stages(args, *, tenant_id: str, run_id: str) -> dict:
                 and args.extraction_total_calls > args.max_calls
                 and not (
                     getattr(args, "pipeline_profile", None)
-                    in ("unattended-v1", "finals-unattended-v1", "finals-unattended-v2")
+                    in (
+                        "unattended-v1",
+                        "finals-unattended-v1",
+                        "finals-unattended-v2",
+                        "finals-unattended-j3-v1",
+                    )
                     and "tag_job" in worker.store.jobs.get_run(tenant, run_id)
                 )
             ):
@@ -900,6 +910,7 @@ def main():
     parser.add_argument("--extraction-sentence-prefix", action="store_true")
     parser.add_argument("--extraction-pb1", action="store_true")
     parser.add_argument("--extraction-w9", action="store_true")
+    parser.add_argument("--extraction-j3", action="store_true")
     parser.add_argument("--extraction-pb1-context-guard", action="store_true")
     parser.add_argument("--extraction-table-footnotes", action="store_true")
     parser.add_argument("--max-calls", type=int, default=8)
@@ -1020,7 +1031,12 @@ def main():
     parser.add_argument("--invoke", action="store_true")
     parser.add_argument(
         "--pipeline-profile",
-        choices=["unattended-v1", "finals-unattended-v1", "finals-unattended-v2"],
+        choices=[
+            "unattended-v1",
+            "finals-unattended-v1",
+            "finals-unattended-v2",
+            "finals-unattended-j3-v1",
+        ],
         help="New run only: read-only provisional results and claim-isolated completion.",
     )
     parser.add_argument("--live-tagging", action="store_true")
@@ -1218,7 +1234,8 @@ def main():
         "Does not authorize model calls.",
     )
     parser.add_argument(
-        "--analysis-profile", choices=["finals-unattended-v1", "finals-unattended-v2"]
+        "--analysis-profile",
+        choices=["finals-unattended-v1", "finals-unattended-v2", "finals-unattended-j3-v1"],
     )
     parser.add_argument("--analysis-policy-sha256", help="Explicit known execution policy pin")
     parser.add_argument("--extraction-fragment-guard", action="store_true")
@@ -1564,7 +1581,8 @@ def main():
             mixed_ocr_max_pages=args.mixed_ocr_max_pages,
             failure_policy=(
                 "partial-v1"
-                if args.pipeline_profile in ("finals-unattended-v1", "finals-unattended-v2")
+                if args.pipeline_profile
+                in ("finals-unattended-v1", "finals-unattended-v2", "finals-unattended-j3-v1")
                 else None
             ),
             upstage_glyph_boxes=args.parser in ("upstage", "mixed-v1"),
@@ -1595,6 +1613,7 @@ def main():
                     extraction_sentence_prefix=args.extraction_sentence_prefix,
                     extraction_pb1=args.extraction_pb1,
                     extraction_w9=args.extraction_w9,
+                    extraction_j3=args.extraction_j3,
                     extraction_pb1_context_guard=args.extraction_pb1_context_guard,
                     extraction_table_footnotes=args.extraction_table_footnotes,
                     extraction_table_rows=args.extraction_table_rows,
@@ -1659,6 +1678,8 @@ def main():
             settings["extraction_w9"] = True
         if args.extraction_table_footnotes:
             settings["extraction_table_footnotes"] = True
+        if args.extraction_j3:
+            settings["extraction_j3"] = True
         if args.extraction_pb1:
             settings["extraction_pb1"] = True
         if args.extraction_fragment_guard:
@@ -1701,7 +1722,7 @@ def main():
                 live_tagging_settings(
                     args.tagging_max_calls,
                     element_definition_profile=definition_profile
-                    if args.pipeline_profile == "finals-unattended-v2"
+                    if args.pipeline_profile in ("finals-unattended-v2", "finals-unattended-j3-v1")
                     else None,
                     model_id=(
                         "gpt-6-luna" if args.llm_provider == "openai" else "openai/gpt-6-luna"
@@ -2175,6 +2196,8 @@ def main():
             manifest["extraction_w9"] = True
         if args.extraction_table_footnotes:
             manifest["extraction_table_footnotes"] = True
+        if args.extraction_j3:
+            manifest["extraction_j3"] = True
         if args.extraction_pb1:
             manifest["extraction_pb1"] = True
         if args.extraction_fragment_guard:
@@ -2278,6 +2301,7 @@ def main():
             "extraction_fragment_guard",
             "extraction_pb1",
             "extraction_w9",
+            "extraction_j3",
             "extraction_pb1_context_guard",
             "extraction_table_footnotes",
         ):

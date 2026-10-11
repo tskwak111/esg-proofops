@@ -231,6 +231,7 @@ class RunService:
             "unattended-v1",
             "finals-unattended-v1",
             "finals-unattended-v2",
+            "finals-unattended-j3-v1",
         ):
             raise ValueError("unknown pipeline profile")
         self.pipeline_profile = pipeline_profile
@@ -664,7 +665,11 @@ class RunService:
         )
         if self.pipeline_profile is not None:
             snapshot["pipeline_profile"] = self.pipeline_profile
-            if self.pipeline_profile in ("finals-unattended-v1", "finals-unattended-v2"):
+            if self.pipeline_profile in (
+                "finals-unattended-v1",
+                "finals-unattended-v2",
+                "finals-unattended-j3-v1",
+            ):
                 from proofops.application.analysis_profile import publication_policy_for
 
                 analysis_policy = publication_policy_for(

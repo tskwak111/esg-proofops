@@ -411,6 +411,7 @@ class LiveTaggingRuntime:
             "unattended-v1",
             "finals-unattended-v1",
             "finals-unattended-v2",
+            "finals-unattended-j3-v1",
         )
         profile = self.preliminary_settings.model_profile
         from proofops.application.tagging.preliminary import CONTEXT_POSITION_ORDER
@@ -1213,6 +1214,7 @@ class LiveTaggingRuntime:
                     "unattended-v1",
                     "finals-unattended-v1",
                     "finals-unattended-v2",
+                    "finals-unattended-j3-v1",
                 ):
                     request["pipeline_profile"] = self.snapshot["pipeline_profile"]
                 request["request_signature"] = canonical_hash(request)
@@ -1389,6 +1391,7 @@ class LiveTaggingRuntime:
             "unattended-v1",
             "finals-unattended-v1",
             "finals-unattended-v2",
+            "finals-unattended-j3-v1",
         )
         if failed and not (unattended_majority and len(results) >= 2):
             return None

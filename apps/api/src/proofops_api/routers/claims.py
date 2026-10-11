@@ -499,6 +499,7 @@ def build_claims_router(claims, auth_store, *, tags=None, assurance=None, clock=
                 "unattended-v1",
                 "finals-unattended-v1",
                 "finals-unattended-v2",
+                "finals-unattended-j3-v1",
             ):
                 try:
                     provisional_items = {

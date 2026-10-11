@@ -50,7 +50,7 @@ KNOWN_RENDERED_READERS = frozenset(
         "upstage-ocr-page-v10",
     }
 )
-FINALS_PROFILES = ("finals-unattended-v1", "finals-unattended-v2")
+FINALS_PROFILES = ("finals-unattended-v1", "finals-unattended-v2", "finals-unattended-j3-v1")
 
 
 def default_analysis_profile():
@@ -93,7 +93,7 @@ def operator_profiles(config: dict) -> dict:
         else RENDERED_READER_POLICY.get(
             "default_linux_reader_v2", RENDERED_READER_POLICY["default_linux_reader"]
         )
-        if analysis == "finals-unattended-v2"
+        if analysis in ("finals-unattended-v2", "finals-unattended-j3-v1")
         else RENDERED_READER_POLICY["default_linux_reader"]
     )
     if requested is not None or reader != "apple-vision":

@@ -266,6 +266,7 @@ class LocalTagRunner:
             "unattended-v1",
             "finals-unattended-v1",
             "finals-unattended-v2",
+            "finals-unattended-j3-v1",
         )
         live = None
         transport, preliminary_supplier = self.transport, self.preliminary
@@ -697,7 +698,11 @@ class LocalTagRunner:
                             semantic_policy=semantic_policy,
                             original=graph,
                             range_profile=snapshot.get("pipeline_profile")
-                            in ("finals-unattended-v1", "finals-unattended-v2"),
+                            in (
+                                "finals-unattended-v1",
+                                "finals-unattended-v2",
+                                "finals-unattended-j3-v1",
+                            ),
                         ),
                         reason=None,
                     )
@@ -844,11 +849,15 @@ class LocalTagRunner:
                 if snapshot.get("pipeline_profile") in (
                     "finals-unattended-v1",
                     "finals-unattended-v2",
+                    "finals-unattended-j3-v1",
                 ):
                     from proofops.application.tagging.unattended import ensure_range
 
                     item["provisional_grade"] = ensure_range(item["provisional_grade"], rulepack)
-                    if snapshot.get("pipeline_profile") == "finals-unattended-v2":
+                    if snapshot.get("pipeline_profile") in (
+                        "finals-unattended-v2",
+                        "finals-unattended-j3-v1",
+                    ):
                         from proofops.application.tagging.quality import hold_projection
 
                         item["provisional_grade"] = hold_projection(item, profile=hold_profile)
@@ -896,11 +905,18 @@ class LocalTagRunner:
             if not result.get("tag_runs"):
                 result["provisional_grade"] = empty_provisional(result.get("reason"))
             result.setdefault("provisional_grade", empty_provisional(result.get("reason")))
-            if snapshot.get("pipeline_profile") in ("finals-unattended-v1", "finals-unattended-v2"):
+            if snapshot.get("pipeline_profile") in (
+                "finals-unattended-v1",
+                "finals-unattended-v2",
+                "finals-unattended-j3-v1",
+            ):
                 from proofops.application.tagging.unattended import ensure_range
 
                 result["provisional_grade"] = ensure_range(result["provisional_grade"], rulepack)
-                if snapshot.get("pipeline_profile") == "finals-unattended-v2":
+                if snapshot.get("pipeline_profile") in (
+                    "finals-unattended-v2",
+                    "finals-unattended-j3-v1",
+                ):
                     from proofops.application.tagging.quality import hold_projection
 
                     result["provisional_grade"] = hold_projection(result, profile=hold_profile)
