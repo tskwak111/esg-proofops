@@ -373,6 +373,10 @@ def live_tagging_settings(
             from proofops.application.tagging.dec24 import INTEGRATED_DEFINITIONS
 
             element_prompt += "\n" + INTEGRATED_DEFINITIONS
+        elif element_definition_profile == "finals-i1-v2":
+            from proofops.application.tagging.dec24 import INTEGRATED_V2_DEFINITIONS
+
+            element_prompt += "\n" + INTEGRATED_V2_DEFINITIONS
         else:
             raise ValueError("ELEMENT_DEFINITION_PROFILE_UNKNOWN")
     if preliminary_sentence_context:
@@ -1689,7 +1693,7 @@ def main():
             )
             definition_profile = analysis_policy.get("element_definition_profile", "qi1-v1")
             if (
-                definition_profile != "finals-i1-v1"
+                definition_profile not in ("finals-i1-v1", "finals-i1-v2")
                 and analysis_policy.get("semantic_definition_profile") == "w8-v1"
             ):
                 definition_profile = "w8-v1"

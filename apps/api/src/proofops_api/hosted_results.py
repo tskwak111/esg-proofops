@@ -99,6 +99,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
         # the same graph for every claim's identity-checked missing-evidence search.
         _, discovery, original_graph = evidence
         from proofops.application.analysis_profile import (
+            FINALS_I1_INITIAL_POLICY,
             V2_D24_POLICY,
             V2_PA9_POLICY,
             V2_PB1_COMPACT_POLICY,
@@ -127,6 +128,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
 
         pb1 = tag_snapshot.get("analysis_profile_policy_sha256") in {
             canonical_hash(V2_POLICY),
+            canonical_hash(FINALS_I1_INITIAL_POLICY),
             canonical_hash(V2_D24_POLICY),
             canonical_hash(V2_W9_POLICY),
             canonical_hash(W3_POLICY),
@@ -174,6 +176,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                         summary["table_observation"] = row
                         if tag_snapshot.get("analysis_profile_policy_sha256") in {
                             canonical_hash(V2_POLICY),
+                            canonical_hash(FINALS_I1_INITIAL_POLICY),
                             canonical_hash(V2_D24_POLICY),
                             canonical_hash(V2_W9_POLICY),
                             canonical_hash(W3_POLICY),

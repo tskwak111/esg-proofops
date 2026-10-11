@@ -34,6 +34,31 @@ DEFINITIONS_HASH = canonical_hash(DEFINITIONS)
 # DEC-24 and W8 strings/hashes above remain unchanged.
 INTEGRATED_DEFINITIONS = DEFINITIONS + "\n" + W8_DEFINITIONS
 INTEGRATED_DEFINITIONS_HASH = canonical_hash(INTEGRATED_DEFINITIONS)
+INTEGRATED_V2_DEFINITIONS = " ".join(
+    """
+I1/QI1/W8/DEC-24: tagging only; Python grades.
+M1: named means/standard or concrete operation; keep real means amid intent.
+Support/effort/consideration/exploration/possibility/opportunity/intent-to-plan
+alone -> unknown, never willingness_only/absence.
+M2: explicit organization/facility/division/legal entity; 전사/domestic/named/
+specified groups count. Time/risk/material/quantity or 사업장별 영향 do not.
+P2: explicit previous/base-year comparison, not merely reporting year.
+G6: transition means (PPA/generation/roadmap), not target declaration; never
+borrow next paragraph's plan. Preserve G2 conflict.
+G2 수준 유지/관리: BOTH baseline year AND literal value in SAME sentence;
+cite value exactly, otherwise unknown. No invented reduction/deadline or
+other-sentence numbers/years.
+G3/G4 non-GHG: same-sentence/table direct evidence; no global numbers/years.
+M1/M2/P2 omitted subject: same paragraph, explicit subject continuity only;
+no company/year from another paragraph/page, PC1 or cross-source widening;
+keep stricter binding.
+Policy declarations stay claims; numbered table notes=context. Scope3
+emissions_estimate items stay held independently of P1.
+Preserve quotes/source approval/replicas/unknown/conflict/unreadable;
+no absence authority or new grade thresholds.
+""".split()
+)
+INTEGRATED_V2_DEFINITIONS_HASH = canonical_hash(INTEGRATED_V2_DEFINITIONS)
 ESTIMATE_HOLD = "추정치 · 산정 근거 확인 필요"
 _SUPERSCRIPT = re.compile(r"^\s*[⁰¹²³⁴⁵⁶⁷⁸⁹]+\s*[).]?\s*\S")
 _NUMBERED = re.compile(r"^\s*\d{1,2}[).]\s*\S")

@@ -18,6 +18,8 @@ def test_old_policy_and_guidance_replay():
         DEFINITIONS_HASH,
         INTEGRATED_DEFINITIONS,
         INTEGRATED_DEFINITIONS_HASH,
+        INTEGRATED_V2_DEFINITIONS,
+        INTEGRATED_V2_DEFINITIONS_HASH,
     )
     from proofops.application.tagging.quality import ELEMENT_DEFINITIONS
     from proofops.domain.provenance import canonical_hash
@@ -35,7 +37,22 @@ def test_old_policy_and_guidance_replay():
         V2_D24_POLICY
     )
     assert DEFINITIONS in INTEGRATED_DEFINITIONS
-    assert V2_POLICY["element_definitions_sha256"] == INTEGRATED_DEFINITIONS_HASH
+    assert INTEGRATED_DEFINITIONS_HASH == canonical_hash(INTEGRATED_DEFINITIONS)
+    assert V2_POLICY["element_definitions_sha256"] == INTEGRATED_V2_DEFINITIONS_HASH
+    for constraint in (
+        "M1",
+        "G6",
+        "M2",
+        "G2",
+        "G3/G4",
+        "M1/M2/P2",
+        "SAME sentence",
+        "Scope3",
+        "no company/year from another paragraph/page",
+        "Preserve G2 conflict",
+        "PC1",
+    ):
+        assert constraint in INTEGRATED_V2_DEFINITIONS
     from evaluation.local_upstage_pilot import live_tagging_settings
 
     old = live_tagging_settings(10, model_id="gpt-6-luna", element_definition_profile="qi1-v1")

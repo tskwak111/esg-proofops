@@ -1,7 +1,11 @@
 """One explicitly selected profile; old configurations remain byte-identical."""
 
 from proofops.application.ingest.sentence_prefix import POLICY as PREFIX_POLICY
-from proofops.application.tagging.dec24 import DEFINITIONS_HASH, INTEGRATED_DEFINITIONS_HASH
+from proofops.application.tagging.dec24 import (
+    DEFINITIONS_HASH,
+    INTEGRATED_DEFINITIONS_HASH,
+    INTEGRATED_V2_DEFINITIONS_HASH,
+)
 from proofops.application.tagging.quality import ELEMENT_DEFINITIONS_HASH
 from proofops.application.tagging.semantic_admission import POLICY as W8_POLICY
 from proofops.application.tagging.semantic_admission import POLICY_HASH as W8_POLICY_HASH
@@ -182,7 +186,7 @@ V2_D24_POLICY = V2_PRE_D24_POLICY | dict(
     context_binding="conservative-atomic-source-v1",
 )
 
-FINALS_I1_POLICY = (
+FINALS_I1_INITIAL_POLICY = (
     V2_D24_POLICY
     | {k: v for k, v in V2_W9_POLICY.items() if v != V2_PRE_W9_POLICY.get(k)}
     | {k: v for k, v in V2_W8_POLICY.items() if v != V2_PRE_W8_POLICY.get(k)}
@@ -198,6 +202,10 @@ FINALS_I1_POLICY = (
         element_definitions_sha256=INTEGRATED_DEFINITIONS_HASH,
     )
 )
+FINALS_I1_POLICY = FINALS_I1_INITIAL_POLICY | dict(
+    element_definition_profile="finals-i1-v2",
+    element_definitions_sha256=INTEGRATED_V2_DEFINITIONS_HASH,
+)
 V2_POLICY = FINALS_I1_POLICY
 
 
@@ -207,6 +215,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_I1_INITIAL_POLICY,
             V2_D24_POLICY,
             V2_W9_POLICY,
             V2_PRE_W9_POLICY,

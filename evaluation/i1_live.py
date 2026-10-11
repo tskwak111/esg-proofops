@@ -82,7 +82,7 @@ def main():
         guidance = live_tagging_settings(
             600,
             model_id="gpt-6-luna",
-            element_definition_profile="finals-i1-v1",
+            element_definition_profile=V2_POLICY["element_definition_profile"],
             relations=True,
             relation_profile="occurrence-v3",
             preliminary_context=True,
