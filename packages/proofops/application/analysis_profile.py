@@ -9,6 +9,7 @@ from proofops.application.tagging.dec24 import (
 )
 from proofops.application.tagging.k1_semantics import DEFINITIONS as K1_DEFINITIONS
 from proofops.application.tagging.k1_semantics import POLICY as K1_SEMANTIC_POLICY
+from proofops.application.tagging.k2_recovery import POLICY as K2_RECOVERY_POLICY
 from proofops.application.tagging.quality import ELEMENT_DEFINITIONS_HASH
 from proofops.application.tagging.semantic_admission import POLICY as W8_POLICY
 from proofops.application.tagging.semantic_admission import POLICY_HASH as W8_POLICY_HASH
@@ -236,6 +237,13 @@ K1_POLICY = FINALS_I1_POLICY | dict(
     extraction_k1_sha256=K1_BOUNDARY_HASH,
 )
 
+# Explicit pin only: historical defaults and stored I1 hashes remain unchanged.
+FINALS_K2_POLICY = FINALS_I1_POLICY | dict(
+    hold_recovery_policy=K2_RECOVERY_POLICY,
+    hold_recovery_policy_sha256=canonical_hash(K2_RECOVERY_POLICY),
+    hold_display="cause-specific-k2-v1",
+)
+
 
 def policy_for(profile, *, pinned_hash=None):
     if profile == J3_PROFILE:
@@ -248,6 +256,7 @@ def policy_for(profile, *, pinned_hash=None):
             FINALS_I2_J3_POLICY,
             FINALS_I1_POLICY,
             K1_POLICY,
+            FINALS_K2_POLICY,
             FINALS_I1_INITIAL_POLICY,
             V2_D24_POLICY,
             V2_W9_POLICY,
@@ -292,7 +301,7 @@ def policy_for(profile, *, pinned_hash=None):
 def publication_policy_for(profile, *, pinned_hash=None):
     policy = policy_for(profile, pinned_hash=pinned_hash)
     allowed = (
-        (policy_for(profile), W3_POLICY, K1_POLICY)
+        (policy_for(profile), W3_POLICY, K1_POLICY, FINALS_K2_POLICY)
         if profile == V2_PROFILE
         else (policy_for(profile),)
     )

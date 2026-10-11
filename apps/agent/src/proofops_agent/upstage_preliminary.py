@@ -412,6 +412,11 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
         catalog = getattr(self, "_display_catalog", None)
         if catalog is not None:
             expected_keys = expected_keys | {"display_text"}
+            if isinstance(user, dict) and "preliminary_recovery_policy" in user:
+                from proofops.application.tagging.k2_recovery import validate_policy
+
+                validate_policy(user["preliminary_recovery_policy"])
+                expected_keys = expected_keys | {"preliminary_recovery_policy"}
         if not isinstance(user, dict) or set(user) != expected_keys:
             raise ValueError("UPSTAGE_PRELIMINARY_PACKET_INVALID")
         if user["schema"] != expected_schema:
@@ -482,6 +487,9 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
         if catalog is not None:
             from proofops.application.ingest.display_text import POLICY, SYSTEM_SUFFIX
 
+            # Remove server-only metadata only AFTER the full authorized packet
+            # identity check. It never enters the provider wire or instructions.
+            user.pop("preliminary_recovery_policy", None)
             display = user.pop("display_text")
             if display["policy"] != POLICY or len(display["sources"]) != len(sources):
                 raise ValueError("DISPLAY_PACKET_MISMATCH")

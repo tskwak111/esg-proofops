@@ -39,6 +39,8 @@ LADDER = {
 
 def hold_projection(item, *, profile=None):
     """Explain an uninformative whole-pack range without changing facts or grades."""
+    if profile == "k2-v1":
+        return _cause_specific_hold(item)
     result = item["provisional_grade"]
     bounds = result.get("grade_range") or {}
     if result.get("evidence_grade") or (bounds.get("floor"), bounds.get("ceiling")) != ("E0", "E3"):
@@ -102,4 +104,44 @@ def hold_projection(item, *, profile=None):
             for grade, elements in LADDER[t]
             if any(eid not in present for eid in elements)
         ],
+    )
+
+
+def _cause_specific_hold(item):
+    result = hold_projection(item, profile="dec24-v1")
+    if result.get("display_type") != "hold" or result.get("evidence_grade"):
+        return result
+    codes = {
+        (record.get("stable_reason") or {}).get("error_code")
+        for key in ("preliminary_records", "relation_records")
+        for record in item.get(key, [])
+    }
+    codes.add(item.get("reason"))
+    for run in item.get("tag_runs", []):
+        codes.update(run.get("errors", []))
+    reasons = [r for r in result.get("hold_reasons", []) if r != "근거 없음"]
+    display_failed = "DISPLAY_QUOTE_UNRESOLVED" in codes or any(
+        (record.get("values") or {}).get("dimension_restore_errors")
+        for record in item.get("preliminary_records", [])
+    )
+    if display_failed or "인용 복원 실패" in reasons:
+        reasons = [r for r in reasons if r not in {"트랙 미합의", "인용 복원 실패"}]
+        reasons.append("원문 위치 확인 필요")
+    if "원문 미검증" in reasons:
+        reasons = ["원문 위치 확인 필요" if r == "원문 미검증" else r for r in reasons]
+    if any(
+        c and c.startswith(("TAGGING_EVIDENCE_ID_", "TRACK_CATEGORY_CHANGED", "LLM_SCHEMA_INVALID"))
+        for c in codes
+    ):
+        reasons.append("태깅 불일치")
+    unresolved = result.get("unresolved_elements") or [
+        e["element_id"] for e in result.get("elements", []) if e["state"] in {"unknown", "conflict"}
+    ]
+    if unresolved:
+        reasons.append("미확인 요소: " + ", ".join(unresolved))
+    if not reasons:
+        reasons.append("미확인 · 태깅 결과 확인 필요")
+    return result | dict(
+        hold_reasons=list(dict.fromkeys(reasons)),
+        evidence_note="미확인·위치 확인·태깅 불일치는 문서 전체의 근거 부재 판정이 아닙니다.",
     )

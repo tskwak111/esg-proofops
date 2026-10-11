@@ -255,7 +255,10 @@ class LocalTagRunner:
             ):
                 raise ValueError("SEMANTIC_ADMISSION_POLICY_PIN_MISMATCH")
         hold_profile = (
-            "dec24-v1"
+            "k2-v1"
+            if snapshot.get("analysis_profile_policy", {}).get("hold_display")
+            == "cause-specific-k2-v1"
+            else "dec24-v1"
             if snapshot.get("analysis_profile_policy", {}).get("hold_display")
             == "estimate-reason-dec24-v1"
             else "hf1-v1"

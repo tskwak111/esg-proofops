@@ -237,6 +237,11 @@ def tag_replicates(
     if not isinstance(packet, EvidencePacket) or not isinstance(context, ClaimContext):
         raise DomainValidationError("immutable packet and claim context required")
     data = packet.to_dict()
+    local_recovery = data.get("local_element_recovery_policy")
+    if local_recovery is not None:
+        from proofops.application.tagging.k2_recovery import validate_policy
+
+        validate_policy(local_recovery)
     claim = context.claim
     if pipeline_profile not in (
         None,
@@ -675,6 +680,7 @@ def tag_replicates(
                                 tenant_id=tenant_id,
                                 rulepack=rulepack,
                                 element_id=element.element_id,
+                                local_value_identity=local_recovery is not None,
                             )
                             != "accepted"
                         ):
@@ -682,6 +688,12 @@ def tag_replicates(
                             break
                         refs.append(verified)
                         scope_set.add(candidate["source_scope"])
+                    if local_recovery is not None and state == "present":
+                        from proofops.application.tagging.k2_recovery import recover_value
+
+                        element, refs = recover_value(
+                            element, refs, claim, original, tenant_id=tenant_id
+                        )
                     if element.normalized_value is None and element.element_id in (
                         "G1",
                         "G2",

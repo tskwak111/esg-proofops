@@ -257,10 +257,17 @@ class GlyphDisplayCatalog:
     def restore_preliminary(self, response, packet):
         from copy import deepcopy
 
+        if "dimension_restore_errors" in response:
+            raise ValueError("DISPLAY_PRELIMINARY_SELECTION")
         restored = deepcopy(response)
         pins = packet["display_text"]["sources"]
         sources = packet["untrusted_document_data"]["sources"]
-        for span in restored.get("dimensions", {}).values():
+        recovery = packet.get("preliminary_recovery_policy")
+        if recovery is not None:
+            from proofops.application.tagging.k2_recovery import validate_policy
+
+            validate_policy(recovery)
+        for role, span in restored.get("dimensions", {}).items():
             if span is None:
                 continue
             if set(span) != {"source_index", "quote"} or type(span["source_index"]) is not int:
@@ -270,7 +277,27 @@ class GlyphDisplayCatalog:
                 raise ValueError("DISPLAY_PRELIMINARY_SELECTION")
             pin = pins[index]
             mapping = display_alignment(sources[index]["text"], pin["deleted_offsets"])
-            start, end, quote = locate_display(span["quote"], mapping)
+            try:
+                start, end, quote = locate_display(span["quote"], mapping)
+            except ValueError:
+                if recovery is None:
+                    raise
+                from proofops.application.tagging.citation_restore import restore_whitespace
+
+                try:
+                    selected = restore_whitespace(
+                        span["quote"], dict(quote=mapping.text, char_start=0)
+                    )
+                    start, end = mapping.raw_span(selected["char_start"], selected["char_end"])
+                    quote = mapping.raw[start:end]
+                except ValueError:
+                    # The unresolved role has no location. Do not select the first
+                    # occurrence, concatenate fragments or discard a valid header.
+                    restored["dimensions"][role] = None
+                    restored.setdefault("dimension_restore_errors", {})[role] = (
+                        "DISPLAY_QUOTE_UNRESOLVED"
+                    )
+                    continue
             span.update(quote=quote, start=start, end=end)
         return restored
 

@@ -355,6 +355,15 @@ class LiveTaggingRuntime:
                 raise ValueError("TABLE_EVIDENCE_CLAIM_REQUIRED")
             data = augment_packet(data, claim, self.graph, tenant_id=self.graph.tenant_id)
         data["display_text"] = display_catalog.element_pins(data)
+        if policy.get("hold_recovery_policy") is not None:
+            from proofops.application.tagging.k2_recovery import validate_policy
+
+            validate_policy(policy["hold_recovery_policy"])
+            if policy.get("hold_recovery_policy_sha256") != canonical_hash(
+                policy["hold_recovery_policy"]
+            ):
+                raise ValueError("K2_RECOVERY_POLICY_PIN_MISMATCH")
+            data["local_element_recovery_policy"] = policy["hold_recovery_policy"]
         if self.snapshot.get("analysis_profile_policy", {}).get("hold_recovery") == "hf1-v1":
             from proofops.application.tagging.citation_restore import POLICY
 
@@ -528,10 +537,22 @@ class LiveTaggingRuntime:
                 structural = table_structural_sources(graph, sources, tenant_id=self.auth.tenant_id)
                 sources = (*sources, *(item.ref for item in structural.verified))
             packet["display_text"] = display_catalog.preliminary_pins(packet, sources)
+            recovery = self.snapshot.get("analysis_profile_policy", {}).get("hold_recovery_policy")
+            if recovery is not None:
+                from proofops.application.tagging.k2_recovery import validate_policy
+
+                validate_policy(recovery)
+                if self.snapshot["analysis_profile_policy"].get(
+                    "hold_recovery_policy_sha256"
+                ) != canonical_hash(recovery):
+                    raise ValueError("K2_RECOVERY_POLICY_PIN_MISMATCH")
+                packet["preliminary_recovery_policy"] = recovery
 
         def validate(raw):
+            restoration = {}
             if display_catalog is not None:
                 raw = display_catalog.restore_preliminary(raw, packet)
+                restoration = raw.pop("dimension_restore_errors", {})
             auxiliary = None
             from proofops.application.tagging.pb2_preliminary import enabled as pb2_enabled
 
@@ -609,6 +630,7 @@ class LiveTaggingRuntime:
                 },
                 safe_harbor_category=result.safe_harbor_category,
                 **attribution,
+                **({"dimension_restore_errors": restoration} if restoration else {}),
             )
 
         results = self._source_replicas(

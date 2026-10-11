@@ -140,6 +140,7 @@ def accept_binding(
     tenant_id: str,
     rulepack: RulePackSnapshot,
     element_id: str,
+    local_value_identity: bool = False,
 ) -> BindingState:
     """Check source identity, literal roles, table coordinates and allowed scope.
 
@@ -268,6 +269,14 @@ def accept_binding(
     scopes = definition["source_scopes"]
     local = any(contains(source, ref) for source in claim.source_refs)
     direct = local and "local_claim" in scopes
+    intrinsic = False
+    if local_value_identity and direct:
+        from proofops.application.tagging.k2_recovery import local_intrinsic
+
+        intrinsic = local_intrinsic(claim, ref, element_id)
+        # The scalar/year/means belongs to this atomic claim, not a cross-source
+        # join. Null axes do not deny that literal identity; asserted roles still
+        # undergo the same source, containment, period and contradiction checks.
     if not direct:
         # A numeric subspan may omit its boundary qualifier: inspect its containing
         # canonical block too. Multiple contexts conservatively require review.
@@ -290,7 +299,9 @@ def accept_binding(
             (name in context.dimensions and expected is None)
             or (name in evidence_dimensions and actual is None)
         )
-        if (expected is None or actual is None) and (not direct or explicit_axis_unknown):
+        if (expected is None or actual is None) and (
+            not direct or (explicit_axis_unknown and not intrinsic)
+        ):
             unresolved = True
             continue
         states = [checked(value) for value in (expected, actual) if value is not None]
@@ -302,7 +313,7 @@ def accept_binding(
         for value, in_claim in ((expected, True), (actual, direct)):
             if value is None:
                 continue  # Local identity does not invent the missing semantic role.
-            targets = claim.source_refs if in_claim else (ref,)
+            targets = claim.source_refs if in_claim or intrinsic else (ref,)
             role_states = [
                 attributed(value, target, atomic=in_claim, dimension=name) for target in targets
             ]
