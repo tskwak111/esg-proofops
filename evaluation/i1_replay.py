@@ -115,6 +115,10 @@ def main(*, integration_policy=FINALS_I1_POLICY, baseline_dir=None):
             ),
         )
         new_blocks = {b.source_id: b for b in new_graph.blocks}
+        if integration_policy.get("selected_boundary_recovery"):
+            from proofops.adapters.local.h1_native_title import NativeTitleCatalog
+
+            titles = NativeTitleCatalog(new_graph, source)
         flags = {
             k: v for k, v in settings.items() if k.startswith("extraction_") and type(v) is bool
         }
@@ -136,6 +140,7 @@ def main(*, integration_policy=FINALS_I1_POLICY, baseline_dir=None):
             extraction_i3_wire=bool(integration_policy.get("extraction_wire")),
             extraction_k1=bool(integration_policy.get("extraction_k1")),
             extraction_k3=k3,
+            extraction_h1=bool(integration_policy.get("selected_boundary_recovery")),
         )
         # The original byte-identical extractor options reproduce the retained
         # selection. Origin/main has these same policies; its hash is recorded.
@@ -203,7 +208,15 @@ def main(*, integration_policy=FINALS_I1_POLICY, baseline_dir=None):
                     asdict(s) | dict(topic_ids=list(s.topic_ids)) for s in recovered
                 ] == previous
                 spans, _ = new._resolve_payload(
-                    payload, block.normalized_text, sid, packet=saved_packet, context_graph=graph
+                    payload,
+                    block.normalized_text,
+                    sid,
+                    packet=(
+                        saved_packet | {"h1_native_title": titles.proof(sid)}
+                        if integration_policy.get("selected_boundary_recovery")
+                        else saved_packet
+                    ),
+                    context_graph=graph,
                 )
                 selected = [asdict(s) for s in spans]
             elif block.kind == "table":

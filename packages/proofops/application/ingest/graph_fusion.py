@@ -103,8 +103,11 @@ class ParserProfile:
     failure_policy: str | None = None
     source_recovery: str | None = None
     table_claims_profile: str | None = None
+    local_resource_policy: str | None = None
 
     def __post_init__(self):
+        if self.local_resource_policy not in (None, "selected-pdf-h1-v1"):
+            raise ValueError("unsupported local parser resource policy")
         if self.table_claims_profile not in (None, "pb1-v1", "pb1-w9-v1"):
             raise ValueError("unsupported table claims profile")
         if self.source_recovery not in (None, "ps1-v1"):
@@ -177,6 +180,8 @@ class ParserProfile:
     def invocation_snapshot(self) -> dict:
         """Keep historical invocation hashes when optional tuning is absent."""
         values = asdict(self)
+        if self.local_resource_policy is None:
+            values.pop("local_resource_policy")
         if self.table_claims_profile is None:
             values.pop("table_claims_profile")
         if self.source_recovery is None:

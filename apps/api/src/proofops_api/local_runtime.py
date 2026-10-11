@@ -46,6 +46,7 @@ _SETTINGS_FIELDS = frozenset(
         "extraction_j8",
         "extraction_i3_wire",
         "extraction_i4_identity",
+        "extraction_h1",
         "extraction_pb1_context_guard",
         "extraction_table_footnotes",
         "extraction_table_rows",
@@ -416,6 +417,7 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         "extraction_j8",
         "extraction_i3_wire",
         "extraction_i4_identity",
+        "extraction_h1",
         "extraction_pb1_context_guard",
         "extraction_table_footnotes",
         "extraction_table_rows",
@@ -442,6 +444,17 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
             raise ValueError("EXTRACTION_I4_IDENTITY_INVALID")
     if settings.get("extraction_j7") and settings.get("extraction_j3") is not True:
         raise ValueError("EXTRACTION_J7_INVALID")
+    if settings.get("extraction_h1"):
+        from proofops.application.analysis_profile import policy_for
+
+        selected = policy_for(
+            settings.get("pipeline_profile"), pinned_hash=settings.get("analysis_policy_sha256")
+        )
+        if (
+            not settings.get("extraction_linewrap_join")
+            or selected.get("selected_boundary_recovery") != "h1-selected-boundaries-v1"
+        ):
+            raise ValueError("EXTRACTION_H1_INVALID")
     if settings.get("extraction_i3_wire"):
         from proofops.application.analysis_profile import policy_for
 

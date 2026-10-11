@@ -471,3 +471,30 @@ v11은 v6 본문 검증과 v10 표 검증을 유지하고, 행 높이가 서로 
 17건 저장 입력의 원문 재생에서는 14건을 확인했고 NAVER-02/05/21은 보류했다.
 잘못 붙은 문구/잘린 좌표를 verified로 바꾸지 않는다. 새 태깅·등급은 별도 검증 전
 `not_run`이며, 이 결과 때문에 기본 정책을 K3로 자동 채택하지 않는다.
+
+### H1 · 선택 페이지 JVM 입력과 origin-cell 문맥 (새 실행만)
+
+`local_resource_policy=selected-pdf-h1-v1`은 원본 업로드 검사를 먼저 통과한 뒤,
+Java에 선택 쪽만 복제한 PDF를 준다. 원본의 페이지 객체·표시 geometry를 유지하고,
+subset PDF/원시 JSON, subset→원본 물리쪽 매핑, 각 해시를 불변 manifest에 보존한다.
+중첩된 `page number`를 명시 매핑하며 원본 PDF·과거 산출물은 수정하지 않는다.
+JVM의 `-Xmx`는 기존과 같이 parser memory의 절반이며 timeout/output/child containment도
+유지한다. 페이지가 적어도 문서 전체 font preprocessing을 하던 heap 실패를 이 경로로
+제한한다. 새 API/DB 필드는 없고 내부 ParserProfile의 선택 필드만 추가한다.
+
+같은 정책의 `h1-origin-context-v1` 표는 문맥 조회에서 실제 origin cell의 행·열·span과
+parser run을 사용한다. 셀 내 줄바꿈을 새 행으로 해석하지 않으며 exact grid 문자열이
+불일치하거나 원문 lineage가 모호하면 계속 거부한다. 문맥 복원은 근거 승인이 아니다.
+H1 추출은 이미 선택된 긴 heading에도 기존 줄바꿈/prefix 규칙을 적용한다. 명시적
+목표 경계 주석과, 원본 glyph·선언 영역·글자 크기로 확인한 좁은 전략 소제목은 문맥으로
+남긴다. 원문·반복 모델 응답은 보존하며 다른 source의 문장을 채워 넣지 않는다.
+
+`upstage-ocr-page-v12`는 source-invalid heading과 완결된 단일 셀 서술의 원문 검증
+자격만 확장한다. 기존 native/glyph/수치/주석/가시 원문 판독 검사를 다시 통과해야 하며,
+숫자 단독 셀의 행·연도 근거, 의미 귀속, 태깅 합의, Python 등급 계약은 그대로다.
+`unknown/conflict/unreadable`이나 실패한 판독은 absent 또는 present로 바꾸지 않는다.
+
+`FINALS_H1_POLICY`와 추출/파싱/source 정책은 새 해시를 갖는다. 기존 `FINALS_I3_POLICY`,
+v11 reader, 선택 필드 없는 ParserProfile은 당시 의미로 읽는다. 롤백은 새 배정을 중단하고
+명시적 I3 pin으로 새 실행을 만들며 H1 reader와 저장 산출물은 보존한다. 로컬 실증은
+배포·실제 EC2 변경·전체 보고서/등급 정확도 보장을 의미하지 않는다.

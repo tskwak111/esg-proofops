@@ -1,5 +1,6 @@
 """One explicitly selected profile; old configurations remain byte-identical."""
 
+from proofops.application.ingest.h1_boundaries import POLICY as H1_BOUNDARY_POLICY
 from proofops.application.ingest.i3_wire import POLICY as I3_WIRE_POLICY
 from proofops.application.ingest.j7_split import CONTEXT_POLICY
 from proofops.application.ingest.j8_cells import POLICY as J8_CELLS_POLICY
@@ -292,7 +293,14 @@ FINALS_I3_POLICY = (
         cell_candidate_policy_sha256=canonical_hash(J8_CELLS_POLICY),
     )
 )
-V2_POLICY = FINALS_I3_POLICY
+FINALS_H1_POLICY = FINALS_I3_POLICY | dict(
+    source="upstage-ocr-page-v12",
+    local_resource_policy="selected-pdf-h1-v1",
+    table_context_origins="h1-origin-context-v1",
+    selected_boundary_recovery="h1-selected-boundaries-v1",
+    boundary_recovery_policy_sha256=canonical_hash(H1_BOUNDARY_POLICY),
+)
+V2_POLICY = FINALS_I4_POLICY
 
 S1_POLICY = FINALS_I3_POLICY | dict(
     parse_replay_cache=dict(
@@ -345,6 +353,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_H1_POLICY,
             FINALS_I3_POLICY,
             FINALS_K4_POLICY,
             FINALS_I2_POLICY,
@@ -421,6 +430,8 @@ def apply_pilot_profile(args):
     args.analysis_policy_sha256 = canonical_hash(selected)
     args.tagging_prompt_profile = selected.get("tagging_prompt_profile")
     args.extraction_i4_identity = bool(selected.get("extraction_selection_ids"))
+    args.parser_local_resource_policy = selected.get("local_resource_policy")
+    args.extraction_h1 = bool(selected.get("selected_boundary_recovery"))
     if profile in (V2_PROFILE, J3_PROFILE, J7_PROFILE, J8_PROFILE):
         args.extraction_fragment_guard = True
         args.extraction_pb1 = True
@@ -450,6 +461,7 @@ def apply_pilot_profile(args):
         "upstage-ocr-page-v9",
         "upstage-ocr-page-v10",
         "upstage-ocr-page-v11",
+        "upstage-ocr-page-v12",
     ):
         args.claim_source_profile = (
             selected["source"] if selected.get("table_worker_routing") else "upstage-ocr-page-v10"
@@ -464,6 +476,7 @@ def apply_pilot_profile(args):
         "upstage-ocr-page-v9",
         "upstage-ocr-page-v10",
         "upstage-ocr-page-v11",
+        "upstage-ocr-page-v12",
     }:
         args.claim_source_profile = "claim-source-v3"
     args.verify_claim_spans = True

@@ -540,6 +540,7 @@ def _profile_with_options(
     extraction_j8: bool = False,
     extraction_i3_wire: bool = False,
     extraction_i4_identity: bool = False,
+    extraction_h1: bool = False,
 ) -> ExtractionProfile:
     """Versioned extraction profile for an explicit option combination.
 
@@ -560,6 +561,8 @@ def _profile_with_options(
     """
     if type(extraction_i4_identity) is not bool or (extraction_i4_identity and not source_ids):
         raise ValueError("EXTRACTION_I4_IDENTITY_INVALID")
+    if type(extraction_h1) is not bool or (extraction_h1 and not extraction_linewrap_join):
+        raise ValueError("EXTRACTION_H1_INVALID")
     if type(extraction_i3_wire) is not bool or (extraction_i3_wire and not extraction_j8):
         raise ValueError("EXTRACTION_I3_WIRE_INVALID")
     if type(extraction_j7) is not bool or (extraction_j7 and not extraction_j3):
@@ -636,6 +639,10 @@ def _profile_with_options(
     if display_text_profile not in (None, PROFILE):
         raise ValueError("DISPLAY_PROFILE_INVALID")
     descriptor: list[Any] = [*_RULE_DESCRIPTOR]
+    if extraction_h1:
+        from proofops.application.ingest.h1_boundaries import POLICY as H1_POLICY
+
+        descriptor.append(H1_POLICY)
     if extraction_k1:
         from proofops.application.ingest.k1_boundaries import POLICY as K1_POLICY
 
@@ -838,6 +845,7 @@ class UpstageClaimExtractor:
         extraction_j8: bool = False,
         extraction_i3_wire: bool = False,
         extraction_i4_identity: bool = False,
+        extraction_h1: bool = False,
     ) -> None:
         if not callable(getattr(probe, "complete", None)):
             raise ValueError("UPSTAGE_PROBE_REQUIRED")
@@ -901,6 +909,7 @@ class UpstageClaimExtractor:
             extraction_j8=extraction_j8,
             extraction_i3_wire=extraction_i3_wire,
             extraction_i4_identity=extraction_i4_identity,
+            extraction_h1=extraction_h1,
         )
         if type(max_tokens) is not int or not 1 <= max_tokens <= 4096:
             raise ValueError("UPSTAGE_MAX_TOKENS_INVALID")
@@ -928,6 +937,7 @@ class UpstageClaimExtractor:
         self._j8 = extraction_j8
         self._i3_wire = extraction_i3_wire
         self._i4_identity = extraction_i4_identity
+        self._h1 = extraction_h1
         self._table_rows = extraction_table_rows
         self._recall_prompt = extraction_recall_prompt
         self._atomic = extraction_atomic
@@ -985,7 +995,14 @@ class UpstageClaimExtractor:
     def usage(self) -> dict[str, Any]:
         return self.cumulative_usage()
 
-    def extract(self, packet: dict, *, context_graph: Any = None, display_catalog=None) -> dict:
+    def extract(
+        self,
+        packet: dict,
+        *,
+        context_graph: Any = None,
+        display_catalog=None,
+        h1_title_catalog=None,
+    ) -> dict:
         """Extract atomic claims from ``packet``'s own text only.
 
         Production context path (R03f): when this extractor was built with
@@ -1017,6 +1034,13 @@ class UpstageClaimExtractor:
         when the context option is on.
         """
         text = self._packet_text(packet)
+        if self._h1 and h1_title_catalog is not None:
+            self._validate_context_graph(packet, h1_title_catalog.graph)
+            packet = packet | {
+                "h1_native_title": h1_title_catalog.proof(
+                    packet["untrusted_document_data"]["source_id"]
+                )
+            }
         if self._w9 and packet["untrusted_document_data"]["kind"] == "figure":
             return {"spans": []}
         if self._pb1 and packet["untrusted_document_data"]["kind"] == "table":
@@ -1587,6 +1611,10 @@ class UpstageClaimExtractor:
                         e.source_id == source_id and e.relation == "derived_from"
                         for e in context_graph.edges
                     )
+                    else "paragraph"
+                    if self._h1
+                    and packet
+                    and packet["untrusted_document_data"]["kind"] == "heading"
                     else packet["untrusted_document_data"]["kind"]
                     if packet
                     else None
@@ -1594,7 +1622,11 @@ class UpstageClaimExtractor:
                 join_lines=(
                     self._linewrap_join
                     and packet is not None
-                    and packet["untrusted_document_data"]["kind"] == "paragraph"
+                    and (
+                        packet["untrusted_document_data"]["kind"] == "paragraph"
+                        or self._h1
+                        and packet["untrusted_document_data"]["kind"] == "heading"
+                    )
                 ),
             )
             if (
@@ -1671,6 +1703,32 @@ class UpstageClaimExtractor:
                     kind=packet["untrusted_document_data"]["kind"],
                 )
                 spans = self._validate_spans({"spans": selected}, text)
+            if self._h1:
+                from proofops.application.ingest.h1_boundaries import scope_note, strategy_title
+
+                notes = [span for span in spans if scope_note(span.quote)]
+                diagnostics["h1_scope_notes"] = [
+                    dict(
+                        char_start=span.char_start,
+                        char_end=span.char_end,
+                        reason="explicit_target_boundary_note_context_only",
+                    )
+                    for span in notes
+                ]
+                spans = tuple(span for span in spans if span not in notes)
+                title = packet.get("h1_native_title", {}) if packet else {}
+                if title.get("is_title") is True and strategy_title(text):
+                    from proofops.application.ingest.h1_boundaries import POLICY as H1_POLICY
+
+                    if (
+                        title.get("source_id") != source_id
+                        or title.get("source_sha256") != packet.get("source_sha256")
+                        or title.get("quote_sha256") != canonical_hash(text)
+                        or title.get("policy_sha256") != canonical_hash(H1_POLICY)
+                    ):
+                        raise ExtractionOutputError("H1_TITLE_PROOF_INVALID")
+                    diagnostics["h1_native_title"] = title
+                    spans = tuple(span for span in spans if span.quote != text)
             return spans, diagnostics
         quotes = self._quotes(payload)
         span_dicts = []
@@ -2344,6 +2402,11 @@ class GraphBoundExtractor:
         self._inner = inner
         self._graph = graph
         self._display_catalog = None
+        self._h1_title_catalog = None
+        if getattr(inner, "_h1", False) and source is not None:
+            from proofops.adapters.local.h1_native_title import NativeTitleCatalog
+
+            self._h1_title_catalog = NativeTitleCatalog(graph, source)
         if getattr(inner, "_display_text_profile", None) and source is not None:
             from proofops.adapters.local.glyph_display_text import GlyphDisplayCatalog
 
@@ -2381,6 +2444,11 @@ class GraphBoundExtractor:
         return self._inner.extract(
             packet,
             context_graph=self._graph,
+            **(
+                {"h1_title_catalog": self._h1_title_catalog}
+                if self._h1_title_catalog is not None
+                else {}
+            ),
             **(
                 {"display_catalog": self._display_catalog}
                 if self._display_catalog is not None

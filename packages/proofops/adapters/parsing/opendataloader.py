@@ -922,6 +922,16 @@ class OpenDataLoaderParser(ParserPort):
                 required.add("page-routing.json")
             elif "page-routing.json" in artifacts or "page_parser_provenance" in manifest:
                 raise ValueError("unconfigured mixed routing")
+            if profile.local_resource_policy is not None:
+                required.update(
+                    {"local-selected.pdf", "local-selected.json", "local-page-map.json"}
+                )
+            elif {
+                "local-selected.pdf",
+                "local-selected.json",
+                "local-page-map.json",
+            } & artifacts.keys():
+                raise ValueError("unconfigured local page mapping")
             if not required <= artifacts.keys():
                 raise ValueError("missing artifacts")
             values = {}
@@ -945,8 +955,30 @@ class OpenDataLoaderParser(ParserPort):
                     "vision.json",
                     "upstage.json",
                     "page-routing.json",
+                    "source.json",
+                    "local-selected.json",
+                    "local-page-map.json",
                 }:
                     values[name] = json.loads(data)
+            if profile.local_resource_policy is not None:
+                from proofops.adapters.parsing.h1_local_pages import POLICY, restore_pages
+                from proofops.domain.provenance import canonical_hash
+
+                page_map = values["local-page-map.json"]
+                raw_subset = values["local-selected.json"]
+                if (
+                    page_map["policy"] != POLICY
+                    or page_map["policy_sha256"] != canonical_hash(POLICY)
+                    or page_map["source_sha256"] != source.sha256
+                    or page_map["subset_sha256"] != artifacts["local-selected.pdf"]
+                    or page_map["raw_json_sha256"] != canonical_hash(raw_subset)
+                    or page_map["physical_page_map"] != manifest["selected_physical_pages"]
+                    or restore_pages(
+                        raw_subset, page_map["physical_page_map"], page_map["original_page_count"]
+                    )
+                    != values["source.json"]
+                ):
+                    raise ValueError("local page mapping mismatch")
             upstage_output = values.get("upstage.json")
             if profile.parser_mode in ("upstage", "mixed-v1"):
                 from proofops.domain.provenance import canonical_hash
@@ -1312,12 +1344,18 @@ def _child(work: Path) -> None:
     (work / "geometry.json").write_bytes(_json(geometries))
     import opendataloader_pdf
 
+    input_path, java_pages = work / "source.pdf", selected
+    if profile.get("local_resource_policy") == "selected-pdf-h1-v1":
+        from proofops.adapters.parsing.h1_local_pages import prepare
+
+        input_path, page_map = prepare(input_path, selected, work)
+        java_pages = tuple(range(1, len(page_map) + 1))
     try:
         opendataloader_pdf.convert(
-            input_path=[str(work / "source.pdf")],
+            input_path=[str(input_path)],
             output_dir=str(work),
             format="json,markdown",
-            pages=",".join(map(str, selected)),
+            pages=",".join(map(str, java_pages)),
             image_output="off",
             hybrid="off",
             quiet=True,
@@ -1330,6 +1368,24 @@ def _child(work: Path) -> None:
         path.write_bytes(stderr[:65536])
         path.chmod(0o600)
         raise
+    if profile.get("local_resource_policy") == "selected-pdf-h1-v1":
+        from proofops.adapters.parsing.h1_local_pages import receipt, restore_pages
+
+        raw_subset = json.loads((work / "local-selected.json").read_bytes())
+        mapped = restore_pages(raw_subset, page_map, len(reader.pages))
+        (work / "source.json").write_bytes(_json(mapped))
+        (work / "source.md").write_bytes((work / "local-selected.md").read_bytes())
+        (work / "local-page-map.json").write_bytes(
+            _json(
+                receipt(
+                    work / "source.pdf",
+                    input_path,
+                    page_map,
+                    raw_subset,
+                    original_page_count=len(reader.pages),
+                )
+            )
+        )
     if profile.get("table_structure_repair") in ("odl_header_v1", "odl_header_v2"):
         import pdfplumber
         from proofops.adapters.parsing.odl_table_repair import repair_stacked_headers

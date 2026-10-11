@@ -179,6 +179,7 @@ class LocalParserRunner:
             "upstage-ocr-page-v9",
             "upstage-ocr-page-v10",
             "upstage-ocr-page-v11",
+            "upstage-ocr-page-v12",
         }:
             from proofops.adapters.local.claim_source_policies import claim_source_reader
 

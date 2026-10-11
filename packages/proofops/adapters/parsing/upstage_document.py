@@ -191,6 +191,8 @@ def candidate_batch(source, profile, selected, batches, *, mode: str, config_has
                 context += ("pb1_table_claims",)
                 if profile.table_claims_profile == "pb1-w9-v1":
                     context += ("pb1-w9-v1",)
+                    if profile.local_resource_policy == "selected-pdf-h1-v1":
+                        context += ("h1-origin-context-v1",)
             context += (
                 ("vision_only",)
                 if box is None

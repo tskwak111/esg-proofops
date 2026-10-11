@@ -585,6 +585,14 @@ def parser_memory_limit(value):
     return value
 
 
+def parser_java_executable():
+    """Use the installed Java 21 path; the adapter validates its actual version."""
+    import shutil
+
+    local = Path("/opt/homebrew/opt/openjdk@21/bin/java")
+    return str(local) if local.is_file() else shutil.which("java") or "java"
+
+
 def claim_source_policy_for(args):
     """Policy pinned for a NEW run's claim-span verification.
 
@@ -611,6 +619,7 @@ def claim_source_policy_for(args):
         "upstage-ocr-page-v9",
         "upstage-ocr-page-v10",
         "upstage-ocr-page-v11",
+        "upstage-ocr-page-v12",
     }:
         from proofops.adapters.local.claim_source_policies import page_ocr_profile
 
@@ -764,6 +773,7 @@ def apply_resume_metadata(args, saved: dict) -> None:
     args.extraction_j8 = bool(saved.get("extraction_j8", False))
     args.extraction_i3_wire = bool(saved.get("extraction_i3_wire", False))
     args.extraction_i4_identity = bool(saved.get("extraction_i4_identity", False))
+    args.extraction_h1 = bool(saved.get("extraction_h1", False))
     args.extraction_pb1_context_guard = bool(saved.get("extraction_pb1_context_guard", False))
     args.extraction_table_footnotes = bool(saved.get("extraction_table_footnotes", False))
     args.extraction_source_ids = bool(saved.get("extraction_source_ids", False))
@@ -1099,6 +1109,7 @@ def main():
             "upstage-ocr-page-v9",
             "upstage-ocr-page-v10",
             "upstage-ocr-page-v11",
+            "upstage-ocr-page-v12",
             "table-claim-spans-v1",
             "claim-source-v3",
         ],
@@ -1603,6 +1614,7 @@ def main():
             "upstage-ocr-page-v9",
             "upstage-ocr-page-v10",
             "upstage-ocr-page-v11",
+            "upstage-ocr-page-v12",
         }:
             if args.raster_ocr or args.native_quote_typography:
                 parser.error("page OCR requires no raster/native quote-typography composition")
@@ -1613,9 +1625,10 @@ def main():
 
         config = ParserProfile(
             str(uuid4()),
-            java_executable="/opt/homebrew/opt/openjdk@21/bin/java",
+            java_executable=parser_java_executable(),
             timeout_seconds=120,
             memory_bytes=parser_memory_limit(args.parser_memory_bytes),
+            local_resource_policy=getattr(args, "parser_local_resource_policy", None),
             max_output_bytes=parser_output_limit(args.parser_max_output_bytes),
             table_source_policy_sha256=(
                 table_policy()
@@ -1675,6 +1688,7 @@ def main():
                     extraction_j8=args.extraction_j8,
                     extraction_i3_wire=args.extraction_i3_wire,
                     extraction_i4_identity=args.extraction_i4_identity,
+                    extraction_h1=getattr(args, "extraction_h1", False),
                     extraction_pb1_context_guard=args.extraction_pb1_context_guard,
                     extraction_table_footnotes=args.extraction_table_footnotes,
                     extraction_table_rows=args.extraction_table_rows,
@@ -1749,6 +1763,8 @@ def main():
             settings["extraction_i4_identity"] = True
         if args.extraction_i3_wire:
             settings["extraction_i3_wire"] = True
+        if getattr(args, "extraction_h1", False):
+            settings["extraction_h1"] = True
         if args.extraction_j3:
             settings["extraction_j3"] = True
         if args.extraction_j7:
@@ -2286,6 +2302,8 @@ def main():
             manifest["extraction_i4_identity"] = True
         if args.extraction_i3_wire:
             manifest["extraction_i3_wire"] = True
+        if getattr(args, "extraction_h1", False):
+            manifest["extraction_h1"] = True
         if args.extraction_j3:
             manifest["extraction_j3"] = True
         if args.extraction_j7:
@@ -2400,6 +2418,7 @@ def main():
             "extraction_j8",
             "extraction_i3_wire",
             "extraction_i4_identity",
+            "extraction_h1",
             "extraction_pb1_context_guard",
             "extraction_table_footnotes",
         ):

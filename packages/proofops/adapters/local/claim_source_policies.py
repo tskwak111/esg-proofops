@@ -128,6 +128,7 @@ def claim_source_reader(policy):
             "upstage-ocr-page-v9",
             "upstage-ocr-page-v10",
             "upstage-ocr-page-v11",
+            "upstage-ocr-page-v12",
         }:
             upstage_ocr_profile = page_ocr_profile(policy["profile"])
 
@@ -185,6 +186,7 @@ def publication_reader(policy):
         "upstage-ocr-page-v9",
         "upstage-ocr-page-v10",
         "upstage-ocr-page-v11",
+        "upstage-ocr-page-v12",
     }:
         return claim_source_reader(policy)
     for module in (base, *_wrappers()):
@@ -226,6 +228,7 @@ def attest_claims(*, reader, graph, source, refs, tenant_id, cache, run_id=None)
         "upstage-ocr-page-v9",
         "upstage-ocr-page-v10",
         "upstage-ocr-page-v11",
+        "upstage-ocr-page-v12",
     }:
         refs = tuple(refs)
         from proofops.adapters.local.verified_read_cache import _execution_policy
@@ -282,6 +285,10 @@ def attest_claims(*, reader, graph, source, refs, tenant_id, cache, run_id=None)
 
 
 def page_ocr_profile(profile):
+    if profile == "upstage-ocr-page-v12":
+        from proofops.adapters.local import upstage_ocr_profile_v12
+
+        return upstage_ocr_profile_v12
     """Resolve the explicitly versioned mapping; never reinterpret old receipts."""
     if profile == "upstage-ocr-page-v11":
         from proofops.adapters.local import upstage_ocr_profile_v11

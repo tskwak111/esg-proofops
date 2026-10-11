@@ -7,6 +7,16 @@ require.extensions['.ts'] = (module, filename) => module._compile(ts.transpileMo
 const { HostedApiError, createHostedClient, describeError } = require('./hostedClient.ts');
 const { runOutcome } = require('./hostedClient.ts');
 
+test('parser memory and corrupt table failures remain explicit and never claim evidence absence', () => {
+  for (const code of ['PARSER_JAVA_HEAP_EXHAUSTED', 'W9_GRID_TEXT_MISMATCH', 'PARSER_FAILED']) {
+    const failed = runOutcome({ status: 'failed', error_code: code });
+    assert.equal(failed.kind, 'failed');
+    assert.match(failed.reasons.join(' '), /파싱|표 원문/);
+    assert.match(failed.reasons.join(' '), /판정하지 않았습니다/);
+    assert.doesNotMatch(failed.reasons.join(' '), /근거 없음|완료/);
+  }
+});
+
 test('maintenance and expired worker lease remain explicit without retrying uncertain work', () => {
   assert.match(describeError(new HostedApiError(503, 'MAINTENANCE', 60, '/v1/runs')), /서버 점검.*진행 중 분석.*점검 후/);
   const held = runOutcome({ status: 'accounting_pending', error_code: 'LEASE_EXPIRED' });
