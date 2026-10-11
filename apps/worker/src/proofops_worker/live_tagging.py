@@ -359,6 +359,10 @@ class LiveTaggingRuntime:
             from proofops.application.tagging.pb2_citation_restore import POLICY
 
             data["citation_restore_policy"] = POLICY
+        if policy.get("citation_restore") == "citation-selected-value-pb6-v1":
+            from proofops.application.tagging.pb6_citation_restore import POLICY
+
+            data["citation_restore_policy"] = POLICY
         return freeze_packet(data)
 
     def allow_packet(self, claim_id, packet_sha256):

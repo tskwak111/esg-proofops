@@ -109,7 +109,8 @@ VERIFIED_READ_V4_POLICY = VERIFIED_READ_V3_POLICY | dict(
         persistent=False,
     ),
 )
-V2_POLICY = V2_PRE_PA7_POLICY | dict(verified_read_cache=VERIFIED_READ_V4_POLICY)
+V2_PRE_PB6_POLICY = V2_PRE_PA7_POLICY | dict(verified_read_cache=VERIFIED_READ_V4_POLICY)
+V2_POLICY = V2_PRE_PB6_POLICY | dict(citation_restore="citation-selected-value-pb6-v1")
 
 
 def policy_for(profile, *, pinned_hash=None):
@@ -118,6 +119,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            V2_PRE_PB6_POLICY,
             V2_PRE_PA7_POLICY,
             V2_PB4_POLICY,
             V2_PRE_PB4_POLICY,

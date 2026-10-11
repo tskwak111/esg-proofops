@@ -88,6 +88,14 @@ NaN·역전·affine 불일치 등 구조적으로 유효하지 않은 입력은 
 
 비전 추출 문자열은 native text 가 없을 수 있다. 이때 `origin=vision_transcription`, `region_image_sha256`, `transcription_revision`을 기록한다. 원시 PDF text 에 있었다고 표시하지 않는다. 이미지형 자료에 대한 근거 확정은 사람 확인 또는 평가로 승인된 비전 검증 프로필을 필요로 한다.
 
+새 `citation-selected-value-pb6-v1`은 모델이 선택한 인용 안에 모델 자신의
+`normalized_value`가 정확히 한 번 있는 경우 그 원문 부분 인용을 추가한다.
+원래 문맥 인용과 숫자·단위·offset·출처를 보존하며, 숫자 토큰 중간 절단과
+여러 출처의 모호한 일치는 거부한다. 원문·귀속·표 소유권·replica·규칙 검사는
+그 뒤에 그대로 적용한다. 새 실행의 분석 정책/패킷 해시로 분리하고 이전 정책과
+revision은 그대로 재생한다. API/DB migration은 없으며 rollback은 새 정책의
+생성을 중단하고 이미 저장된 새 정책 reader를 유지하거나 미지원 정책으로 거부한다.
+
 ## 5. 블록 정합화와 충돌
 
 같은 parser family 의 후보 합의는 정확도 증거로 세지 않는다. 각 블록은 (문서버전, 물리페이지, semantic type, 영역 겹침, 표/제목 문맥)으로 후보를 매칭한다. 문자열 동일만으로 병합하지 않는다. 후보 pair 의 bbox IoU 0.8 이상은 **매칭 후보 선정용 개발 기본값**이지 정답 임계값이 아니다. 작은 셀은 같은 table alignment 의 row/column 으로 정렬한다.
