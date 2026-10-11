@@ -689,3 +689,58 @@ envelope. Startup/maintenance/claim/idle inspection reap expired leases even
 while drained. API error_message and web text explain server restart or missing
 worker heartbeat as possible causes, never assert a restart from timeout alone.
 No automatic retries, result revision updates or provider reconciliation occur.
+## PA4 amendment — exact model responses (2026-10-11)
+
+New v2 snapshots add `exact-model-response-v1` to their analysis policy hash.
+The PA3 hash and older profiles retain their original wire and receipt paths.
+New OpenAI receipts bind `top_p=1`, `temperature=0`, `reasoning_effort=none`,
+the exact wire/schema hashes, tenant, original PDF, analysis policy, role and
+replica. The historical base wire/capacity contracts remain readable. `seed`
+is not added: its generic API entry is deprecated and does not establish a
+model-specific determinism guarantee. Sampling settings cannot promise stable
+fresh model outputs. Three replicas and all current source, consent, lease,
+cancellation, citation, consensus and pure Python grading gates still apply.
+
+A document-owned SQLite sidecar fences the first dispatch for an exact request.
+Successful schema-valid responses publish once; concurrent identical requests
+wait for that response. An uncertain dispatch keeps its pending fence without
+expiry. Known settled schema failures are excluded. Origin artifacts preserve
+the original provider receipt, wire/response hashes and raw response bytes via
+exclusive creation and fsync, surviving temporary worker cleanup. Reuse writes
+a NEW zero-cost receipt with zero new tokens/attempts and explicit origin links;
+the original charge and receipt remain unchanged. Usage exposes reuse counts
+and origins separately from provider dispatches. Old receipt fields remain
+compatible; no existing API/DB schema or dependency is changed. Sidecar files
+and origin artifacts live under the authorized document payload, so the
+existing tombstone/lock/purge lifecycle deletes them with that document.
+
+Exact reuse does not normalize identity fields. Re-upload or a new run can change
+document/parse/claim IDs and graph/packet hashes, causing a cache miss even for
+the same PDF. Cross-upload zero billing and whole-result determinism are not
+claimed; invalid responses and unresolved states cannot be promoted by reuse.
+`llm_max_workers` remains operator-controlled (1–16, default 8). Retained-response
+wait replay at 8/12/16 measures scheduling, not live API capacity or server speed.
+
+Rollback assigns the PA3 builder/policy to FUTURE runs while retaining the PA4
+reader for saved PA4 snapshots and their zero-cost receipts; the older binary
+rejects the new policy hash. Remove sidecars only through authorized document
+purge, not to retry uncertain dispatches or reset spend. PA4 performs local
+commits and capped local model experiments, with no push or deployment.
+
+## PA8 integration — PB4/v9/PA7 with exact responses (2026-10-11)
+
+New v2 preparations retain PB4 table ownership and PA7 verified/raster reads and
+add PA4 exact response reuse. `V2_PRE_PA8_POLICY` preserves the deployed
+`ec63057b3bd775240bf10bcd90afefd7881bb112e47e772799d50ff33b7cc11a`
+policy byte-for-byte; all historical policies, including standalone PA4, remain
+readable. PB claims keep full graph, source receipt and packet bytes in requests;
+the cache never substitutes source attestation, row/cell ownership or replicas.
+Hosted reuse rechecks the live run fence and retained source before touching the
+sidecar and again after a single-flight hit. Cancellation, deletion or expiration
+cannot emit a reuse receipt or recreate a deleted document payload.
+Operator `llm_max_workers` stays 1–16, default 8, without a server setting change.
+No public API, existing DB schema, dependency or budget change is required.
+Rollback prepares future runs using the pre-PA8 builder while retaining readers
+for PA8 snapshots and origin receipts; a pre-PA8 binary rejects the new hash.
+Do not remove pending fences or reset spend. PA8 uses retained responses with
+network disabled, makes no paid calls, and performs no push or deployment.

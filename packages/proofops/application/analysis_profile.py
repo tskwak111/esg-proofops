@@ -109,7 +109,22 @@ VERIFIED_READ_V4_POLICY = VERIFIED_READ_V3_POLICY | dict(
         persistent=False,
     ),
 )
-V2_POLICY = V2_PRE_PA7_POLICY | dict(verified_read_cache=VERIFIED_READ_V4_POLICY)
+V2_PRE_PA8_POLICY = V2_PRE_PA7_POLICY | dict(verified_read_cache=VERIFIED_READ_V4_POLICY)
+V2_PRE_PA4_POLICY = V2_PRE_PA1_POLICY | dict(verified_read_cache=VERIFIED_READ_V3_POLICY)
+MODEL_RESPONSE_POLICY = dict(
+    profile="exact-model-response-v1",
+    temperature=0,
+    top_p=1,
+    reasoning_effort="none",
+    seed="not-authorized-by-model-specific-docs",
+    key="tenant-source-analysis-role-replica-wire-schema-v1",
+    successful_only=True,
+    uncertain_dispatch="retain-pending-no-expiry",
+    provenance="original-provider-receipt-and-raw-bytes",
+    retention="owning-document-payload",
+)
+V2_PA4_POLICY = V2_PRE_PA4_POLICY | dict(model_response_policy=MODEL_RESPONSE_POLICY)
+V2_POLICY = V2_PRE_PA8_POLICY | dict(model_response_policy=MODEL_RESPONSE_POLICY)
 
 
 def policy_for(profile, *, pinned_hash=None):
@@ -118,6 +133,9 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            V2_PRE_PA8_POLICY,
+            V2_PA4_POLICY,
+            V2_PRE_PA4_POLICY,
             V2_PRE_PA7_POLICY,
             V2_PB4_POLICY,
             V2_PRE_PB4_POLICY,

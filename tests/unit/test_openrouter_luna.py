@@ -274,6 +274,7 @@ def test_luna_source_replicas_reserve_then_run_concurrently_in_order(tmp_path):
             )
 
     runtime = LiveTaggingRuntime.__new__(LiveTaggingRuntime)
+    runtime.probe = None  # This injected transport has no response-cache capability.
     runtime.runner = SimpleNamespace(
         max_workers=16,
         store=SimpleNamespace(usage=Usage()),

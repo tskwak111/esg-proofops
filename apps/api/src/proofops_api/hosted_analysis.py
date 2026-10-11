@@ -206,6 +206,16 @@ class HostedOpenAILunaProbe(OpenAIProbe):
         super().__init__(*args, **kwargs)
         self.store, self.job, self.post = store, job, post
 
+    def _authorize_response_request(self):
+        from proofops_api.hosted_store import HostedError
+
+        now = time.time()
+        with self.store.transaction() as db:
+            self.store._fenced(db, self.job, now)
+            doc = self.store._document(db, self.job["tenant_id"], self.job["document_id"])
+            if now >= doc["expires"]:
+                raise HostedError("SOURCE_EXPIRED")
+
     def _post(self, body):
         if body.get("model") != OPENAI_MODEL or OPENAI_WIRE_POLICY["endpoint"] != (
             "https://api.openai.com/v1/chat/completions"

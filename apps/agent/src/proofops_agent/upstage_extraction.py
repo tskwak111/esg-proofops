@@ -250,6 +250,8 @@ _PROVIDER_METADATA_KEYS = (
     "wire_policy",
     "cached_tokens",
     "cache_write_tokens",
+    "response_reuse",
+    "response_request",
 )
 
 
@@ -872,7 +874,7 @@ class UpstageClaimExtractor:
             block = next(b for b in context_graph.blocks if b.source_id == data["source_id"])
             context = " ".join(block.candidates[block.winner].context)
             rows = observations(text, context=context) if data["kind"] == "table" else []
-            result = {
+            result: dict[str, Any] = {
                 "spans": [
                     dict(
                         char_start=r["start"],

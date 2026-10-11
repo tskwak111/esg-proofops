@@ -138,6 +138,9 @@ class LiveTaggingRuntime:
             usage,
         )
         self.ledger, self.receipts = ledger, Path(receipts)
+        self.probe = probe
+        if hasattr(probe, "configure_response_policy"):
+            probe.configure_response_policy(snapshot, role="elements")
         # An acknowledged bounded resume authorization, when the owning runner is
         # executing an explicit recovery job. None in ordinary operation, which
         # keeps every stop, receipt and budget behavior exactly as it was.
@@ -389,7 +392,13 @@ class LiveTaggingRuntime:
 
     def invoke(self, request):
         try:
-            return self.element_transport.invoke(request)
+            context = (
+                self.probe.response_context(role="elements", replica=request["replicate_id"])
+                if hasattr(self.probe, "response_context")
+                else nullcontext()
+            )
+            with context:
+                return self.element_transport.invoke(request)
         finally:
             self.account(request["request_id"])
 
@@ -1261,7 +1270,16 @@ class LiveTaggingRuntime:
                             if not self.runner.store.usage.mark_dispatched(call):
                                 raise ValueError(prefix.upper() + "_PENDING_CALL")
                         self._check_heartbeat()
-                        response = transport.invoke(request)
+                        context = (
+                            self.probe.response_context(
+                                role="elements" if prefix == "tagging" else prefix,
+                                replica=replica,
+                            )
+                            if hasattr(self.probe, "response_context")
+                            else nullcontext()
+                        )
+                        with context:
+                            response = transport.invoke(request)
                     self.runner.store.usage.record_usage(
                         call, response.usage, now=int(self.runner.clock())
                     )

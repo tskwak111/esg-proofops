@@ -414,6 +414,9 @@ class LocalExtractRunner:
         reports a source as absent.
         """
         snapshot = self.store.snapshot(tenant_id, run_id)
+        probe = getattr(self.extractor, "_probe", None)
+        if probe is not None and hasattr(probe, "configure_response_policy"):
+            probe.configure_response_policy(snapshot, role="extract")
         run = self.store.jobs.get_run(tenant_id, run_id)
         if run["cancellation_requested"]:
             return dict(status="cancelled")
@@ -719,6 +722,9 @@ class LocalExtractRunner:
 
     def run_once(self, *, tenant_id: str, run_id: str) -> str:
         snapshot = self.store.snapshot(tenant_id, run_id)
+        probe = getattr(self.extractor, "_probe", None)
+        if probe is not None and hasattr(probe, "configure_response_policy"):
+            probe.configure_response_policy(snapshot, role="extract")
         run = self.store.jobs.get_run(tenant_id, run_id)
         if run["cancellation_requested"]:
             return "cancelled"

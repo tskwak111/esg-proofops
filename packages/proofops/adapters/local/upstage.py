@@ -206,6 +206,11 @@ def request_usage(ledger, request_ids) -> dict:
     }
     if has_parse_receipt:
         result["document_parse_pages"] = document_parse_pages
+    reuses = [r["response_reuse"] for r in settled if "response_reuse" in r]
+    if reuses:
+        result["model_response_reuses"] = len(reuses)
+        result["model_response_reuse_origins"] = reuses
+        result["provider_dispatches"] = len(entries) - len(reuses)
     return result
 
 

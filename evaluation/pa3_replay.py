@@ -75,13 +75,19 @@ def fixture(source, output, stage):
             if remove:
                 db.execute("DELETE FROM job_records WHERE kind=? AND record_id=?", (kind, key))
             elif kind == "job" and key == job:
-                v.update(status="pending", lease_owner=None, lease_until=None, heartbeat_at=0)
+                v.update(
+                    status="pending",
+                    lease_owner=None,
+                    lease_until=None,
+                    heartbeat_at=0,
+                    next_attempt_at=0,
+                )
                 db.execute(
                     "UPDATE job_records SET value=? WHERE kind='job' AND record_id=?",
                     (json.dumps(v), key),
                 )
             elif kind == "outbox" and v["message"]["job_id"] == job:
-                v.update(status="pending", attempts=0)
+                v.update(status="pending", attempts=0, next_attempt_at=0)
                 db.execute(
                     "UPDATE job_records SET value=? WHERE kind='outbox' AND record_id=?",
                     (json.dumps(v), key),
@@ -128,6 +134,7 @@ def main():
     args.add_argument("--cache-profile", default="exact-verified-read-v2")
     args.add_argument("--workers", type=int, default=8)
     args.add_argument("--rtt-ms", type=float, default=150)
+    args.add_argument("--recorded-wait", action="store_true")
     args = args.parse_args()
     source, output = args.source.resolve(), args.output.resolve()
     first_stage = "parse" if args.stage == "pipeline" else args.stage
@@ -198,7 +205,12 @@ def main():
                 attempt = counts.get(key, 0)
                 counts[key] = attempt + 1
             start = time.monotonic()
-            time.sleep(args.rtt_ms / 1000)
+            wait = (
+                provider_receipts[key]["attempts"][attempt]["latency_ms"] / 1000
+                if args.recorded_wait
+                else args.rtt_ms / 1000
+            )
+            time.sleep(wait)
             with lock:
                 events.append(dict(function="llm", start=start, seconds=time.monotonic() - start))
             return json.loads(json.dumps(responses[key, attempt]))
@@ -412,6 +424,7 @@ def main():
             workers=args.workers,
             cache_profile=args.cache_profile,
             rtt_ms=args.rtt_ms,
+            recorded_wait=args.recorded_wait,
             replay_calls=sum(counts.values()),
             live_provider_calls=0,
             paid_usd="0",

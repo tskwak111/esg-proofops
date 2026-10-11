@@ -239,6 +239,18 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
                 job, "tag", 75, claims_extracted=total, claims_processed=len(processed_claims)
             )
 
+    if execution.get("model_response_policy"):
+        # Document payload ownership makes authorized purge remove cached model
+        # content and its immutable origin receipts together. Never share tenants.
+        def scoped_llm(key, ledger, **kw):
+            probe = llm_probe(luna_key, ledger, store=store, job=job, post=llm_post, **kw)
+            probe.response_cache_path = (
+                store.document_dir(job["tenant_id"], job["document_id"]) / "model-responses.sqlite3"
+            )
+            return probe
+
+        factories["llm"] = scoped_llm
+
     with scope:
         for stage, progress in (("parse", 15), ("extract", 45), ("tag", 75)):
             started = time.monotonic()
