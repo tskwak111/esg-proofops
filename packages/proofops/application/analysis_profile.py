@@ -26,6 +26,8 @@ from proofops.application.tagging.k4_contract import (
 )
 from proofops.application.tagging.k6_citations import POLICY as K6_CITATION_POLICY
 from proofops.application.tagging.k6_citations import RISK_POLICY as K6_RISK_POLICY
+from proofops.application.tagging.k7_wire import POLICY as K7_WIRE_POLICY
+from proofops.application.tagging.k7_wire import POLICY_V1 as K7_WIRE_V1_POLICY
 from proofops.application.tagging.quality import ELEMENT_DEFINITIONS_HASH
 from proofops.application.tagging.semantic_admission import POLICY as W8_POLICY
 from proofops.application.tagging.semantic_admission import POLICY_HASH as W8_POLICY_HASH
@@ -421,6 +423,16 @@ FINALS_I6_POLICY = (
 )
 V2_POLICY = FINALS_I6_POLICY
 
+# K7 is explicit until its live gate is accepted; every v6 pin remains readable.
+
+FINALS_K7_POLICY = FINALS_I6_POLICY | dict(
+    integration_profile="finals-20261012-v6fix-k7",
+    tagging_wire_policy=K7_WIRE_POLICY,
+    source="upstage-ocr-page-v13",
+    table_evidence="table-selected-evidence-k7-v1",
+)
+FINALS_K7_V1_POLICY = FINALS_K7_POLICY | dict(tagging_wire_policy=K7_WIRE_V1_POLICY)
+
 
 def policy_for(profile, *, pinned_hash=None):
     if profile == J7_PROFILE:
@@ -434,6 +446,8 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_K7_POLICY,
+            FINALS_K7_V1_POLICY,
             FINALS_I5_POLICY,
             FINALS_I5_INITIAL_POLICY,
             FINALS_I4_POLICY,
@@ -496,6 +510,9 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FINALS_K7_POLICY,
+            FINALS_K7_V1_POLICY,
+            FINALS_I6_POLICY,
             FINALS_I5_POLICY,
             FINALS_I5_INITIAL_POLICY,
             FINALS_I4_POLICY,
@@ -567,6 +584,7 @@ def apply_pilot_profile(args):
         "upstage-ocr-page-v10",
         "upstage-ocr-page-v11",
         "upstage-ocr-page-v12",
+        "upstage-ocr-page-v13",
     ):
         args.claim_source_profile = (
             selected["source"] if selected.get("table_worker_routing") else "upstage-ocr-page-v10"
@@ -582,6 +600,7 @@ def apply_pilot_profile(args):
         "upstage-ocr-page-v10",
         "upstage-ocr-page-v11",
         "upstage-ocr-page-v12",
+        "upstage-ocr-page-v13",
     }:
         args.claim_source_profile = "claim-source-v3"
     args.verify_claim_spans = True

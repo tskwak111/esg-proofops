@@ -371,6 +371,13 @@ def tag_replicates(
     }
     if "display_text" in data:
         user_data["display_text"] = data["display_text"]
+    if "tagging_wire_policy" in data:
+        from proofops.application.tagging.k7_wire import POLICY as K7_WIRE
+        from proofops.application.tagging.k7_wire import POLICY_V1 as K7_WIRE_V1
+
+        if data["tagging_wire_policy"] not in (K7_WIRE, K7_WIRE_V1):
+            raise DomainValidationError("K7_WIRE_POLICY_MISMATCH")
+        user_data["tagging_wire_policy"] = K7_WIRE
     sentence_interpretation = None
     if "sentence_context" in data:
         from proofops.application.ingest.k5_context import sentence_context
@@ -380,6 +387,13 @@ def tag_replicates(
             raise DomainValidationError("SENTENCE_CONTEXT_SOURCE_MISMATCH")
         # Interpretation references do not enter approved_refs/source_candidates.
         user_data["sentence_context"] = sentence_interpretation
+        if data.get("tagging_wire_policy", {}).get(
+            "profile"
+        ) == "bounded-interpretation-k7-v2" and (sentence_interpretation is not None):
+            focal = next(
+                b for b in original.blocks if b.source_id == claim.source_refs[0].source_id
+            )
+            user_data["sentence_context"] = sentence_interpretation | dict(_source_kind=focal.kind)
     from proofops.application.tagging.k4_contract import RESPONSE_POLICY
     from proofops.application.tagging.k4_contract import VALUE_POLICY as K4_VALUE
 
@@ -662,14 +676,20 @@ def tag_replicates(
                 if data.get("table_evidence_policy", {}).get("profile") in (
                     "table-selected-evidence-pb2-v1",
                     "table-selected-evidence-k4-v1",
+                    "table-selected-evidence-k7-v1",
                 ):
                     from proofops.application.tagging.pb2_table_evidence import (
+                        OBSERVED_POLICY,
                         POLICY,
                         ROW_UNIT_POLICY,
                         prepare_element,
                     )
 
-                    if data["table_evidence_policy"] not in (POLICY, ROW_UNIT_POLICY):
+                    if data["table_evidence_policy"] not in (
+                        POLICY,
+                        ROW_UNIT_POLICY,
+                        OBSERVED_POLICY,
+                    ):
                         raise DomainValidationError("table evidence policy mismatch")
                     element, table_selected = prepare_element(
                         element,

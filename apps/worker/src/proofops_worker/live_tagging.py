@@ -368,11 +368,20 @@ class LiveTaggingRuntime:
             if claim is None or claim.claim_id != data["claim_id"]:
                 raise ValueError("SENTENCE_CONTEXT_CLAIM_REQUIRED")
             data["sentence_context"] = configured_context(claim, self.graph, policy)
+        if "tagging_wire_policy" in policy:
+            from proofops.application.tagging.k7_wire import POLICY as K7_WIRE
+            from proofops.application.tagging.k7_wire import POLICY_V1 as K7_WIRE_V1
+
+            if policy["tagging_wire_policy"] not in (K7_WIRE, K7_WIRE_V1):
+                raise ValueError("K7_WIRE_POLICY_MISMATCH")
+            data["tagging_wire_policy"] = policy["tagging_wire_policy"]
         if policy.get("table_evidence") in (
             "table-selected-evidence-pb2-v1",
             "table-selected-evidence-k4-v1",
+            "table-selected-evidence-k7-v1",
         ):
             from proofops.application.tagging.pb2_table_evidence import (
+                OBSERVED_POLICY,
                 POLICY,
                 ROW_UNIT_POLICY,
                 augment_packet,
@@ -385,7 +394,9 @@ class LiveTaggingRuntime:
                 claim,
                 self.graph,
                 tenant_id=self.graph.tenant_id,
-                policy=ROW_UNIT_POLICY
+                policy=OBSERVED_POLICY
+                if policy["table_evidence"] == OBSERVED_POLICY["profile"]
+                else ROW_UNIT_POLICY
                 if policy["table_evidence"] == ROW_UNIT_POLICY["profile"]
                 else POLICY,
             )

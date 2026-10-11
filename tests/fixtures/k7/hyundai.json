@@ -1,0 +1,1443 @@
+[
+  {
+    "tenant_id": "1297d6e3-e186-4698-8db1-1bc268e098b6",
+    "document_version_id": "7702d779-ab78-4a76-bf15-a0bd7e4a6adf",
+    "parse_manifest_id": "6a004e98-3f65-56f2-8309-6c2921662be6",
+    "source_sha256": "dbb0fbcba501112d627bc0c32b86009ef285abe5b23d3c18276477c51d2ba164",
+    "parser_run_id": "d09cf080-3f90-49c3-ba56-3b3bc0c88364",
+    "parser_name": "upstage_async_standard",
+    "parser_version": "document-parse-260128",
+    "parser_family": "upstage-document-parse",
+    "config_hash": "3f675c16b46389151ea6f4d41531d15b80816010d3371b4b1f03ad708b067958",
+    "blocks": [
+      {
+        "kind": "table_cell",
+        "source": {
+          "document_version_id": "7702d779-ab78-4a76-bf15-a0bd7e4a6adf",
+          "parse_manifest_id": "6a004e98-3f65-56f2-8309-6c2921662be6",
+          "parser_run_id": "d09cf080-3f90-49c3-ba56-3b3bc0c88364",
+          "source_native_id": "up-standard-0-12-c0",
+          "physical_page": 1,
+          "printed_page_label": null,
+          "native_bbox": [
+            138.441,
+            238.1467,
+            226.14019999999996,
+            246.1467
+          ],
+          "native_coordinate_system": "pdf_bottom_left_points",
+          "raw_text": "목표\t및\t진척도\t모니터링\t지표",
+          "char_start": 0,
+          "char_end": 16
+        },
+        "geometry": {
+          "width_pt": 1153.7,
+          "height_pt": 649.134,
+          "rotation": 0,
+          "crop_box": [
+            0.0,
+            0.0,
+            1153.7,
+            649.134
+          ]
+        },
+        "context": [
+          "section=기후\t관련\t목표",
+          "provider_bbox=36.342,396.751,743.906,483.215",
+          "pb1_table_claims",
+          "pb1-w9-v1",
+          "h1-origin-context-v1",
+          "derived_from_native_cells",
+          "mixed_parser_name=upstage_async_standard",
+          "mixed_parser_version=document-parse-260128"
+        ],
+        "parser_bbox": null,
+        "parser_coordinate_system": "pdf_bottom_left_points",
+        "parser_to_canonical": null,
+        "table_native_id": "up-standard-0-12",
+        "row_number": 0,
+        "column_number": 0,
+        "row_span": 1,
+        "column_span": 1
+      },
+      {
+        "kind": "table_cell",
+        "source": {
+          "document_version_id": "7702d779-ab78-4a76-bf15-a0bd7e4a6adf",
+          "parse_manifest_id": "6a004e98-3f65-56f2-8309-6c2921662be6",
+          "parser_run_id": "d09cf080-3f90-49c3-ba56-3b3bc0c88364",
+          "source_native_id": "up-standard-0-12-c1",
+          "physical_page": 1,
+          "printed_page_label": null,
+          "native_bbox": [
+            371.497,
+            238.1467,
+            385.193,
+            246.1467
+          ],
+          "native_coordinate_system": "pdf_bottom_left_points",
+          "raw_text": "단위",
+          "char_start": 0,
+          "char_end": 2
+        },
+        "geometry": {
+          "width_pt": 1153.7,
+          "height_pt": 649.134,
+          "rotation": 0,
+          "crop_box": [
+            0.0,
+            0.0,
+            1153.7,
+            649.134
+          ]
+        },
+        "context": [
+          "section=기후\t관련\t목표",
+          "provider_bbox=36.342,396.751,743.906,483.215",
+          "pb1_table_claims",
+          "pb1-w9-v1",
+          "h1-origin-context-v1",
+          "derived_from_native_cells",
+          "mixed_parser_name=upstage_async_standard",
+          "mixed_parser_version=document-parse-260128"
+        ],
+        "parser_bbox": null,
+        "parser_coordinate_system": "pdf_bottom_left_points",
+        "parser_to_canonical": null,
+        "table_native_id": "up-standard-0-12",
+        "row_number": 0,
+        "column_number": 1,
+        "row_span": 1,
+        "column_span": 1
+      },
+      {
+        "kind": "table_cell",
+        "source": {
+          "document_version_id": "7702d779-ab78-4a76-bf15-a0bd7e4a6adf",
+          "parse_manifest_id": "6a004e98-3f65-56f2-8309-6c2921662be6",
+          "parser_run_id": "d09cf080-3f90-49c3-ba56-3b3bc0c88364",
+          "source_native_id": "up-standard-0-12-c2",
+          "physical_page": 1,
+          "printed_page_label": null,
+          "native_bbox": [
+            463.337,
+            238.1467,
+            502.6314,
+            246.1467
+          ],
+          "native_coordinate_system": "pdf_bottom_left_points",
+          "raw_text": "2022년\t실적",
+          "char_start": 0,
+          "char_end": 8
+        },
+        "geometry": {
+          "width_pt": 1153.7,
+          "height_pt": 649.134,
+          "rotation": 0,
+          "crop_box": [
+            0.0,
+            0.0,
+            1153.7,
+            649.134
+          ]
+        },
+        "context": [
+          "section=기후\t관련\t목표",
+          "provider_bbox=36.342,396.751,743.906,483.215",
+          "pb1_table_claims",
+          "pb1-w9-v1",
+          "h1-origin-context-v1",
+          "derived_from_native_cells",
+          "mixed_parser_name=upstage_async_standard",
+          "mixed_parser_version=document-parse-260128"
+        ],
+        "parser_bbox": null,
+        "parser_coordinate_system": "pdf_bottom_left_points",
+        "parser_to_canonical": null,
+        "table_native_id": "up-standard-0-12",
+        "row_number": 0,
+        "column_number": 2,
+        "row_span": 1,
+        "column_span": 1
+      },
+      {
+        "kind": "table_cell",
+        "source": {
+          "document_version_id": "7702d779-ab78-4a76-bf15-a0bd7e4a6adf",
+          "parse_manifest_id": "6a004e98-3f65-56f2-8309-6c2921662be6",
+          "parser_run_id": "d09cf080-3f90-49c3-ba56-3b3bc0c88364",
+          "source_native_id": "up-standard-0-12-c3",
+          "physical_page": 1,
+          "printed_page_label": null,
+          "native_bbox": [
+            567.721,
+            238.1467,
+            607.1186,
+            246.1467
+          ],
+          "native_coordinate_system": "pdf_bottom_left_points",
+          "raw_text": "2023년\t실적",
+          "char_start": 0,
+          "char_end": 8
+        },
+        "geometry": {
+          "width_pt": 1153.7,
+          "height_pt": 649.134,
+          "rotation": 0,
+          "crop_box": [
+            0.0,
+            0.0,
+            1153.7,
+            649.134
+          ]
+        },
+        "context": [
+          "section=기후\t관련\t목표",
+          "provider_bbox=36.342,396.751,743.906,483.215",
+          "pb1_table_claims",
+          "pb1-w9-v1",
+          "h1-origin-context-v1",
+          "derived_from_native_cells",
+          "mixed_parser_name=upstage_async_standard",
+          "mixed_parser_version=document-parse-260128"
+        ],
+        "parser_bbox": null,
+        "parser_coordinate_system": "pdf_bottom_left_points",
+        "parser_to_canonical": null,
+        "table_native_id": "up-standard-0-12",
+        "row_number": 0,
+        "column_number": 3,
+        "row_span": 1,
+        "column_span": 1
+      },
+      {
+        "kind": "table_cell",
+        "source": {
+          "document_version_id": "7702d779-ab78-4a76-bf15-a0bd7e4a6adf",
+          "parse_manifest_id": "6a004e98-3f65-56f2-8309-6c2921662be6",
+          "parser_run_id": "d09cf080-3f90-49c3-ba56-3b3bc0c88364",
+          "source_native_id": "up-standard-0-12-c4",
+          "physical_page": 1,
+          "printed_page_label": null,
+          "native_bbox": [
+            672.201,
+            238.1467,
+            711.5218,
+            246.1467
+          ],
+          "native_coordinate_system": "pdf_bottom_left_points",
+          "raw_text": "2024년\t실적",
+          "char_start": 0,
+          "char_end": 8
+        },
+        "geometry": {
+          "width_pt": 1153.7,
+          "height_pt": 649.134,
+          "rotation": 0,
+          "crop_box": [
+            0.0,
+            0.0,
+            1153.7,
+            649.134
+          ]
+        },
+        "context": [
+          "section=기후\t관련\t목표",
+          "provider_bbox=36.342,396.751,743.906,483.215",
+          "pb1_table_claims",
+          "pb1-w9-v1",
+          "h1-origin-context-v1",
+          "derived_from_native_cells",
+          "mixed_parser_name=upstage_async_standard",
+          "mixed_parser_version=document-parse-260128"
+        ],
+        "parser_bbox": null,
+        "parser_coordinate_system": "pdf_bottom_left_points",
+        "parser_to_canonical": null,
+        "table_native_id": "up-standard-0-12",
+        "row_number": 0,
+        "column_number": 4,
+        "row_span": 1,
+        "column_span": 1
+      },
+      {
+        "kind": "table_cell",
+        "source": {
+          "document_version_id": "7702d779-ab78-4a76-bf15-a0bd7e4a6adf",
+          "parse_manifest_id": "6a004e98-3f65-56f2-8309-6c2921662be6",
+          "parser_run_id": "d09cf080-3f90-49c3-ba56-3b3bc0c88364",
+          "source_native_id": "up-standard-0-12-c5",
+          "physical_page": 1,
+          "printed_page_label": null,
+          "native_bbox": [
+            142.23300000000006,
+            221.1787,
+            220.74340000000004,
+            229.1787
+          ],
+          "native_coordinate_system": "pdf_bottom_left_points",
+          "raw_text": "온실가스 Scope 1 배출량",
+          "char_start": 0,
+          "char_end": 16
+        },
+        "geometry": {
+          "width_pt": 1153.7,
+          "height_pt": 649.134,
+          "rotation": 0,
+          "crop_box": [
+            0.0,
+            0.0,
+            1153.7,
+            649.134
+          ]
+        },
+        "context": [
+          "section=기후\t관련\t목표",
+          "provider_bbox=36.342,396.751,743.906,483.215",
+          "pb1_table_claims",
+          "pb1-w9-v1",
+          "h1-origin-context-v1",
+          "derived_from_native_cells",
+          "mixed_parser_name=upstage_async_standard",
+          "mixed_parser_version=document-parse-260128"
+        ],
+        "parser_bbox": null,
+        "parser_coordinate_system": "pdf_bottom_left_points",
+        "parser_to_canonical": null,
+        "table_native_id": "up-standard-0-12",
+        "row_number": 1,
+        "column_number": 0,
+        "row_span": 1,
+        "column_span": 1
+      },
+      {
+        "kind": "table_cell",
+        "source": {
+          "document_version_id": "7702d779-ab78-4a76-bf15-a0bd7e4a6adf",
+          "parse_manifest_id": "6a004e98-3f65-56f2-8309-6c2921662be6",
+          "parser_run_id": "d09cf080-3f90-49c3-ba56-3b3bc0c88364",
+          "source_native_id": "up-standard-0-12-c6",
+          "physical_page": 1,
+          "printed_page_label": null,
+          "native_bbox": [
+            364.2890000000001,
+            220.41241200000002,
+            392.41440000000006,
+            229.1787
+          ],
+          "native_coordinate_system": "pdf_bottom_left_points",
+          "raw_text": "tCO2-eq",
+          "char_start": 0,
+          "char_end": 7
+        },
+        "geometry": {
+          "width_pt": 1153.7,
+          "height_pt": 649.134,
+          "rotation": 0,
+          "crop_box": [
+            0.0,
+            0.0,
+            1153.7,
+            649.134
+          ]
+        },
+        "context": [
+          "section=기후\t관련\t목표",
+          "provider_bbox=36.342,396.751,743.906,483.215",
+          "pb1_table_claims",
+          "pb1-w9-v1",
+          "h1-origin-context-v1",
+          "derived_from_native_cells",
+          "mixed_parser_name=upstage_async_standard",
+          "mixed_parser_version=document-parse-260128"
+        ],
+        "parser_bbox": null,
+        "parser_coordinate_system": "pdf_bottom_left_points",
+        "parser_to_canonical": null,
+        "table_native_id": "up-standard-0-12",
+        "row_number": 1,
+        "column_number": 1,
+        "row_span": 1,
+        "column_span": 1
+      },
+      {
+        "kind": "table_cell",
+        "source": {
+          "document_version_id": "7702d779-ab78-4a76-bf15-a0bd7e4a6adf",
+          "parse_manifest_id": "6a004e98-3f65-56f2-8309-6c2921662be6",
+          "parser_run_id": "d09cf080-3f90-49c3-ba56-3b3bc0c88364",
+          "source_native_id": "up-standard-0-12-c7",
+          "physical_page": 1,
+          "printed_page_label": null,
+          "native_bbox": [
+            503.24160000000006,
+            221.17489999999998,
+            531.6104000000001,
+            229.17489999999998
+          ],
+          "native_coordinate_system": "pdf_bottom_left_points",
+          "raw_text": "719,949",
+          "char_start": 0,
+          "char_end": 7
+        },
+        "geometry": {
+          "width_pt": 1153.7,
+          "height_pt": 649.134,
+          "rotation": 0,
+          "crop_box": [
+            0.0,
+            0.0,
+            1153.7,
+            649.134
+          ]
+        },
+        "context": [
+          "section=기후\t관련\t목표",
+          "provider_bbox=36.342,396.751,743.906,483.215",
+          "pb1_table_claims",
+          "pb1-w9-v1",
+          "h1-origin-context-v1",
+          "derived_from_native_cells",
+          "mixed_parser_name=upstage_async_standard",
+          "mixed_parser_version=document-parse-260128"
+        ],
+        "parser_bbox": null,
+        "parser_coordinate_system": "pdf_bottom_left_points",
+        "parser_to_canonical": null,
+        "table_native_id": "up-standard-0-12",
+        "row_number": 1,
+        "column_number": 2,
+        "row_span": 1,
+        "column_span": 1
+      },
+      {
+        "kind": "table_cell",
+        "source": {
+          "document_version_id": "7702d779-ab78-4a76-bf15-a0bd7e4a6adf",
+          "parse_manifest_id": "6a004e98-3f65-56f2-8309-6c2921662be6",
+          "parser_run_id": "d09cf080-3f90-49c3-ba56-3b3bc0c88364",
+          "source_native_id": "up-standard-0-12-c8",
+          "physical_page": 1,
+          "printed_page_label": null,
+          "native_bbox": [
+            607.1456000000001,
+            221.17489999999998,
+            636.0480000000001,
+            229.17489999999998
+          ],
+          "native_coordinate_system": "pdf_bottom_left_points",
+          "raw_text": "696,590",
+          "char_start": 0,
+          "char_end": 7
+        },
+        "geometry": {
+          "width_pt": 1153.7,
+          "height_pt": 649.134,
+          "rotation": 0,
+          "crop_box": [
+            0.0,
+            0.0,
+            1153.7,
+            649.134
+          ]
+        },
+        "context": [
+          "section=기후\t관련\t목표",
+          "provider_bbox=36.342,396.751,743.906,483.215",
+          "pb1_table_claims",
+          "pb1-w9-v1",
+          "h1-origin-context-v1",
+          "derived_from_native_cells",
+          "mixed_parser_name=upstage_async_standard",
+          "mixed_parser_version=document-parse-260128"
+        ],
+        "parser_bbox": null,
+        "parser_coordinate_system": "pdf_bottom_left_points",
+        "parser_to_canonical": null,
+        "table_native_id": "up-standard-0-12",
+        "row_number": 1,
+        "column_number": 3,
+        "row_span": 1,
+        "column_span": 1
+      },
+      {
+        "kind": "table_cell",
+        "source": {
+          "document_version_id": "7702d779-ab78-4a76-bf15-a0bd7e4a6adf",
+          "parse_manifest_id": "6a004e98-3f65-56f2-8309-6c2921662be6",
+          "parser_run_id": "d09cf080-3f90-49c3-ba56-3b3bc0c88364",
+          "source_native_id": "up-standard-0-12-c9",
+          "physical_page": 1,
+          "printed_page_label": null,
+          "native_bbox": [
+            712.3216000000001,
+            221.17489999999998,
+            740.4952000000001,
+            229.17489999999998
+          ],
+          "native_coordinate_system": "pdf_bottom_left_points",
+          "raw_text": "679,822",
+          "char_start": 0,
+          "char_end": 7
+        },
+        "geometry": {
+          "width_pt": 1153.7,
+          "height_pt": 649.134,
+          "rotation": 0,
+          "crop_box": [
+            0.0,
+            0.0,
+            1153.7,
+            649.134
+          ]
+        },
+        "context": [
+          "section=기후\t관련\t목표",
+          "provider_bbox=36.342,396.751,743.906,483.215",
+          "pb1_table_claims",
+          "pb1-w9-v1",
+          "h1-origin-context-v1",
+          "derived_from_native_cells",
+          "mixed_parser_name=upstage_async_standard",
+          "mixed_parser_version=document-parse-260128"
+        ],
+        "parser_bbox": null,
+        "parser_coordinate_system": "pdf_bottom_left_points",
+        "parser_to_canonical": null,
+        "table_native_id": "up-standard-0-12",
+        "row_number": 1,
+        "column_number": 4,
+        "row_span": 1,
+        "column_span": 1
+      },
+      {
+        "kind": "table_cell",
+        "source": {
+          "document_version_id": "7702d779-ab78-4a76-bf15-a0bd7e4a6adf",
+          "parse_manifest_id": "6a004e98-3f65-56f2-8309-6c2921662be6",
+          "parser_run_id": "d09cf080-3f90-49c3-ba56-3b3bc0c88364",
+          "source_native_id": "up-standard-0-12-c10",
+          "physical_page": 1,
+          "printed_page_label": null,
+          "native_bbox": [
+            124.93760000000009,
+            204.1669,
+            238.0592,
+            212.1669
+          ],
+          "native_coordinate_system": "pdf_bottom_left_points",
+          "raw_text": "온실가스 Scope 2 배출량 (시장 기반)",
+          "char_start": 0,
+          "char_end": 24
+        },
+        "geometry": {
+          "width_pt": 1153.7,
+          "height_pt": 649.134,
+          "rotation": 0,
+          "crop_box": [
+            0.0,
+            0.0,
+            1153.7,
+            649.134
+          ]
+        },
+        "context": [
+          "section=기후\t관련\t목표",
+          "provider_bbox=36.342,396.751,743.906,483.215",
+          "pb1_table_claims",
+          "pb1-w9-v1",
+          "h1-origin-context-v1",
+          "derived_from_native_cells",
+          "mixed_parser_name=upstage_async_standard",
+          "mixed_parser_version=document-parse-260128"
+        ],
+        "parser_bbox": null,
+        "parser_coordinate_system": "pdf_bottom_left_points",
+        "parser_to_canonical": null,
+        "table_native_id": "up-standard-0-12",
+        "row_number": 2,
+        "column_number": 0,
+        "row_span": 1,
+        "column_span": 1
+      },
+      {
+        "kind": "table_cell",
+        "source": {
+          "document_version_id": "7702d779-ab78-4a76-bf15-a0bd7e4a6adf",
+          "parse_manifest_id": "6a004e98-3f65-56f2-8309-6c2921662be6",
+          "parser_run_id": "d09cf080-3f90-49c3-ba56-3b3bc0c88364",
+          "source_native_id": "up-standard-0-12-c11",
+          "physical_page": 1,
+          "printed_page_label": null,
+          "native_bbox": [
+            364.28960000000006,
+            203.404512,
+            392.41440000000006,
+            212.16700000000003
+          ],
+          "native_coordinate_system": "pdf_bottom_left_points",
+          "raw_text": "tCO2-eq",
+          "char_start": 0,
+          "char_end": 7
+        },
+        "geometry": {
+          "width_pt": 1153.7,
+          "height_pt": 649.134,
+          "rotation": 0,
+          "crop_box": [
+            0.0,
+            0.0,
+            1153.7,
+            649.134
+          ]
+        },
+        "context": [
+          "section=기후\t관련\t목표",
+          "provider_bbox=36.342,396.751,743.906,483.215",
+          "pb1_table_claims",
+          "pb1-w9-v1",
+          "h1-origin-context-v1",
+          "derived_from_native_cells",
+          "mixed_parser_name=upstage_async_standard",
+          "mixed_parser_version=document-parse-260128"
+        ],
+        "parser_bbox": null,
+        "parser_coordinate_system": "pdf_bottom_left_points",
+        "parser_to_canonical": null,
+        "table_native_id": "up-standard-0-12",
+        "row_number": 2,
+        "column_number": 1,
+        "row_span": 1,
+        "column_span": 1
+      },
+      {
+        "kind": "table_cell",
+        "source": {
+          "document_version_id": "7702d779-ab78-4a76-bf15-a0bd7e4a6adf",
+          "parse_manifest_id": "6a004e98-3f65-56f2-8309-6c2921662be6",
+          "parser_run_id": "d09cf080-3f90-49c3-ba56-3b3bc0c88364",
+          "source_native_id": "up-standard-0-12-c12",
+          "physical_page": 1,
+          "printed_page_label": null,
+          "native_bbox": [
+            496.56960000000004,
+            204.16700000000003,
+            531.6072,
+            212.16700000000003
+          ],
+          "native_coordinate_system": "pdf_bottom_left_points",
+          "raw_text": "1,684,120",
+          "char_start": 0,
+          "char_end": 9
+        },
+        "geometry": {
+          "width_pt": 1153.7,
+          "height_pt": 649.134,
+          "rotation": 0,
+          "crop_box": [
+            0.0,
+            0.0,
+            1153.7,
+            649.134
+          ]
+        },
+        "context": [
+          "section=기후\t관련\t목표",
+          "provider_bbox=36.342,396.751,743.906,483.215",
+          "pb1_table_claims",
+          "pb1-w9-v1",
+          "h1-origin-context-v1",
+          "derived_from_native_cells",
+          "mixed_parser_name=upstage_async_standard",
+          "mixed_parser_version=document-parse-260128"
+        ],
+        "parser_bbox": null,
+        "parser_coordinate_system": "pdf_bottom_left_points",
+        "parser_to_canonical": null,
+        "table_native_id": "up-standard-0-12",
+        "row_number": 2,
+        "column_number": 2,
+        "row_span": 1,
+        "column_span": 1
+      },
+      {
+        "kind": "table_cell",
+        "source": {
+          "document_version_id": "7702d779-ab78-4a76-bf15-a0bd7e4a6adf",
+          "parse_manifest_id": "6a004e98-3f65-56f2-8309-6c2921662be6",
+          "parser_run_id": "d09cf080-3f90-49c3-ba56-3b3bc0c88364",
+          "source_native_id": "up-standard-0-12-c13",
+          "physical_page": 1,
+          "printed_page_label": null,
+          "native_bbox": [
+            601.7536,
+            204.16700000000003,
+            636.0424,
+            212.16700000000003
+          ],
+          "native_coordinate_system": "pdf_bottom_left_points",
+          "raw_text": "1,579,162",
+          "char_start": 0,
+          "char_end": 9
+        },
+        "geometry": {
+          "width_pt": 1153.7,
+          "height_pt": 649.134,
+          "rotation": 0,
+          "crop_box": [
+            0.0,
+            0.0,
+            1153.7,
+            649.134
+          ]
+        },
+        "context": [
+          "section=기후\t관련\t목표",
+          "provider_bbox=36.342,396.751,743.906,483.215",
+          "pb1_table_claims",
+          "pb1-w9-v1",
+          "h1-origin-context-v1",
+          "derived_from_native_cells",
+          "mixed_parser_name=upstage_async_standard",
+          "mixed_parser_version=document-parse-260128"
+        ],
+        "parser_bbox": null,
+        "parser_coordinate_system": "pdf_bottom_left_points",
+        "parser_to_canonical": null,
+        "table_native_id": "up-standard-0-12",
+        "row_number": 2,
+        "column_number": 3,
+        "row_span": 1,
+        "column_span": 1
+      },
+      {
+        "kind": "table_cell",
+        "source": {
+          "document_version_id": "7702d779-ab78-4a76-bf15-a0bd7e4a6adf",
+          "parse_manifest_id": "6a004e98-3f65-56f2-8309-6c2921662be6",
+          "parser_run_id": "d09cf080-3f90-49c3-ba56-3b3bc0c88364",
+          "source_native_id": "up-standard-0-12-c14",
+          "physical_page": 1,
+          "printed_page_label": null,
+          "native_bbox": [
+            706.9056,
+            204.16700000000003,
+            740.4776,
+            212.16700000000003
+          ],
+          "native_coordinate_system": "pdf_bottom_left_points",
+          "raw_text": "1,417,987",
+          "char_start": 0,
+          "char_end": 9
+        },
+        "geometry": {
+          "width_pt": 1153.7,
+          "height_pt": 649.134,
+          "rotation": 0,
+          "crop_box": [
+            0.0,
+            0.0,
+            1153.7,
+            649.134
+          ]
+        },
+        "context": [
+          "section=기후\t관련\t목표",
+          "provider_bbox=36.342,396.751,743.906,483.215",
+          "pb1_table_claims",
+          "pb1-w9-v1",
+          "h1-origin-context-v1",
+          "derived_from_native_cells",
+          "mixed_parser_name=upstage_async_standard",
+          "mixed_parser_version=document-parse-260128"
+        ],
+        "parser_bbox": null,
+        "parser_coordinate_system": "pdf_bottom_left_points",
+        "parser_to_canonical": null,
+        "table_native_id": "up-standard-0-12",
+        "row_number": 2,
+        "column_number": 4,
+        "row_span": 1,
+        "column_span": 1
+      },
+      {
+        "kind": "table_cell",
+        "source": {
+          "document_version_id": "7702d779-ab78-4a76-bf15-a0bd7e4a6adf",
+          "parse_manifest_id": "6a004e98-3f65-56f2-8309-6c2921662be6",
+          "parser_run_id": "d09cf080-3f90-49c3-ba56-3b3bc0c88364",
+          "source_native_id": "up-standard-0-12-c15",
+          "physical_page": 1,
+          "printed_page_label": null,
+          "native_bbox": [
+            141.1056000000001,
+            187.159,
+            221.86640000000008,
+            195.159
+          ],
+          "native_coordinate_system": "pdf_bottom_left_points",
+          "raw_text": "재생에너지 전환비율(전기)",
+          "char_start": 0,
+          "char_end": 14
+        },
+        "geometry": {
+          "width_pt": 1153.7,
+          "height_pt": 649.134,
+          "rotation": 0,
+          "crop_box": [
+            0.0,
+            0.0,
+            1153.7,
+            649.134
+          ]
+        },
+        "context": [
+          "section=기후\t관련\t목표",
+          "provider_bbox=36.342,396.751,743.906,483.215",
+          "pb1_table_claims",
+          "pb1-w9-v1",
+          "h1-origin-context-v1",
+          "derived_from_native_cells",
+          "mixed_parser_name=upstage_async_standard",
+          "mixed_parser_version=document-parse-260128"
+        ],
+        "parser_bbox": null,
+        "parser_coordinate_system": "pdf_bottom_left_points",
+        "parser_to_canonical": null,
+        "table_native_id": "up-standard-0-12",
+        "row_number": 3,
+        "column_number": 0,
+        "row_span": 1,
+        "column_span": 1
+      },
+      {
+        "kind": "table_cell",
+        "source": {
+          "document_version_id": "7702d779-ab78-4a76-bf15-a0bd7e4a6adf",
+          "parse_manifest_id": "6a004e98-3f65-56f2-8309-6c2921662be6",
+          "parser_run_id": "d09cf080-3f90-49c3-ba56-3b3bc0c88364",
+          "source_native_id": "up-standard-0-12-c16",
+          "physical_page": 1,
+          "printed_page_label": null,
+          "native_bbox": [
+            375.2336000000001,
+            187.159,
+            381.4656000000001,
+            195.159
+          ],
+          "native_coordinate_system": "pdf_bottom_left_points",
+          "raw_text": "%",
+          "char_start": 0,
+          "char_end": 1
+        },
+        "geometry": {
+          "width_pt": 1153.7,
+          "height_pt": 649.134,
+          "rotation": 0,
+          "crop_box": [
+            0.0,
+            0.0,
+            1153.7,
+            649.134
+          ]
+        },
+        "context": [
+          "section=기후\t관련\t목표",
+          "provider_bbox=36.342,396.751,743.906,483.215",
+          "pb1_table_claims",
+          "pb1-w9-v1",
+          "h1-origin-context-v1",
+          "derived_from_native_cells",
+          "mixed_parser_name=upstage_async_standard",
+          "mixed_parser_version=document-parse-260128"
+        ],
+        "parser_bbox": null,
+        "parser_coordinate_system": "pdf_bottom_left_points",
+        "parser_to_canonical": null,
+        "table_native_id": "up-standard-0-12",
+        "row_number": 3,
+        "column_number": 1,
+        "row_span": 1,
+        "column_span": 1
+      },
+      {
+        "kind": "table_cell",
+        "source": {
+          "document_version_id": "7702d779-ab78-4a76-bf15-a0bd7e4a6adf",
+          "parse_manifest_id": "6a004e98-3f65-56f2-8309-6c2921662be6",
+          "parser_run_id": "d09cf080-3f90-49c3-ba56-3b3bc0c88364",
+          "source_native_id": "up-standard-0-12-c17",
+          "physical_page": 1,
+          "printed_page_label": null,
+          "native_bbox": [
+            521.6256000000001,
+            187.159,
+            531.6104000000001,
+            195.159
+          ],
+          "native_coordinate_system": "pdf_bottom_left_points",
+          "raw_text": "7.7",
+          "char_start": 0,
+          "char_end": 3
+        },
+        "geometry": {
+          "width_pt": 1153.7,
+          "height_pt": 649.134,
+          "rotation": 0,
+          "crop_box": [
+            0.0,
+            0.0,
+            1153.7,
+            649.134
+          ]
+        },
+        "context": [
+          "section=기후\t관련\t목표",
+          "provider_bbox=36.342,396.751,743.906,483.215",
+          "pb1_table_claims",
+          "pb1-w9-v1",
+          "h1-origin-context-v1",
+          "derived_from_native_cells",
+          "mixed_parser_name=upstage_async_standard",
+          "mixed_parser_version=document-parse-260128"
+        ],
+        "parser_bbox": null,
+        "parser_coordinate_system": "pdf_bottom_left_points",
+        "parser_to_canonical": null,
+        "table_native_id": "up-standard-0-12",
+        "row_number": 3,
+        "column_number": 2,
+        "row_span": 1,
+        "column_span": 1
+      },
+      {
+        "kind": "table_cell",
+        "source": {
+          "document_version_id": "7702d779-ab78-4a76-bf15-a0bd7e4a6adf",
+          "parse_manifest_id": "6a004e98-3f65-56f2-8309-6c2921662be6",
+          "parser_run_id": "d09cf080-3f90-49c3-ba56-3b3bc0c88364",
+          "source_native_id": "up-standard-0-12-c18",
+          "physical_page": 1,
+          "printed_page_label": null,
+          "native_bbox": [
+            620.7216000000001,
+            187.159,
+            636.0472000000001,
+            195.159
+          ],
+          "native_coordinate_system": "pdf_bottom_left_points",
+          "raw_text": "12.8",
+          "char_start": 0,
+          "char_end": 4
+        },
+        "geometry": {
+          "width_pt": 1153.7,
+          "height_pt": 649.134,
+          "rotation": 0,
+          "crop_box": [
+            0.0,
+            0.0,
+            1153.7,
+            649.134
+          ]
+        },
+        "context": [
+          "section=기후\t관련\t목표",
+          "provider_bbox=36.342,396.751,743.906,483.215",
+          "pb1_table_claims",
+          "pb1-w9-v1",
+          "h1-origin-context-v1",
+          "derived_from_native_cells",
+          "mixed_parser_name=upstage_async_standard",
+          "mixed_parser_version=document-parse-260128"
+        ],
+        "parser_bbox": null,
+        "parser_coordinate_system": "pdf_bottom_left_points",
+        "parser_to_canonical": null,
+        "table_native_id": "up-standard-0-12",
+        "row_number": 3,
+        "column_number": 3,
+        "row_span": 1,
+        "column_span": 1
+      },
+      {
+        "kind": "table_cell",
+        "source": {
+          "document_version_id": "7702d779-ab78-4a76-bf15-a0bd7e4a6adf",
+          "parse_manifest_id": "6a004e98-3f65-56f2-8309-6c2921662be6",
+          "parser_run_id": "d09cf080-3f90-49c3-ba56-3b3bc0c88364",
+          "source_native_id": "up-standard-0-12-c19",
+          "physical_page": 1,
+          "printed_page_label": null,
+          "native_bbox": [
+            725.5776000000001,
+            187.159,
+            740.488,
+            195.159
+          ],
+          "native_coordinate_system": "pdf_bottom_left_points",
+          "raw_text": "16.7",
+          "char_start": 0,
+          "char_end": 4
+        },
+        "geometry": {
+          "width_pt": 1153.7,
+          "height_pt": 649.134,
+          "rotation": 0,
+          "crop_box": [
+            0.0,
+            0.0,
+            1153.7,
+            649.134
+          ]
+        },
+        "context": [
+          "section=기후\t관련\t목표",
+          "provider_bbox=36.342,396.751,743.906,483.215",
+          "pb1_table_claims",
+          "pb1-w9-v1",
+          "h1-origin-context-v1",
+          "derived_from_native_cells",
+          "mixed_parser_name=upstage_async_standard",
+          "mixed_parser_version=document-parse-260128"
+        ],
+        "parser_bbox": null,
+        "parser_coordinate_system": "pdf_bottom_left_points",
+        "parser_to_canonical": null,
+        "table_native_id": "up-standard-0-12",
+        "row_number": 3,
+        "column_number": 4,
+        "row_span": 1,
+        "column_span": 1
+      },
+      {
+        "kind": "table_cell",
+        "source": {
+          "document_version_id": "7702d779-ab78-4a76-bf15-a0bd7e4a6adf",
+          "parse_manifest_id": "6a004e98-3f65-56f2-8309-6c2921662be6",
+          "parser_run_id": "d09cf080-3f90-49c3-ba56-3b3bc0c88364",
+          "source_native_id": "up-standard-0-12-c20",
+          "physical_page": 1,
+          "printed_page_label": null,
+          "native_bbox": [
+            118.00160000000005,
+            170.15099999999995,
+            244.99120000000002,
+            178.15099999999995
+          ],
+          "native_coordinate_system": "pdf_bottom_left_points",
+          "raw_text": "온실가스 Scope 3 - Category 11 배출량",
+          "char_start": 0,
+          "char_end": 30
+        },
+        "geometry": {
+          "width_pt": 1153.7,
+          "height_pt": 649.134,
+          "rotation": 0,
+          "crop_box": [
+            0.0,
+            0.0,
+            1153.7,
+            649.134
+          ]
+        },
+        "context": [
+          "section=기후\t관련\t목표",
+          "provider_bbox=36.342,396.751,743.906,483.215",
+          "pb1_table_claims",
+          "pb1-w9-v1",
+          "h1-origin-context-v1",
+          "derived_from_native_cells",
+          "mixed_parser_name=upstage_async_standard",
+          "mixed_parser_version=document-parse-260128"
+        ],
+        "parser_bbox": null,
+        "parser_coordinate_system": "pdf_bottom_left_points",
+        "parser_to_canonical": null,
+        "table_native_id": "up-standard-0-12",
+        "row_number": 4,
+        "column_number": 0,
+        "row_span": 1,
+        "column_span": 1
+      },
+      {
+        "kind": "table_cell",
+        "source": {
+          "document_version_id": "7702d779-ab78-4a76-bf15-a0bd7e4a6adf",
+          "parse_manifest_id": "6a004e98-3f65-56f2-8309-6c2921662be6",
+          "parser_run_id": "d09cf080-3f90-49c3-ba56-3b3bc0c88364",
+          "source_native_id": "up-standard-0-12-c21",
+          "physical_page": 1,
+          "printed_page_label": null,
+          "native_bbox": [
+            364.29760000000005,
+            169.388712,
+            392.41440000000006,
+            178.1513
+          ],
+          "native_coordinate_system": "pdf_bottom_left_points",
+          "raw_text": "tCO2-eq",
+          "char_start": 0,
+          "char_end": 7
+        },
+        "geometry": {
+          "width_pt": 1153.7,
+          "height_pt": 649.134,
+          "rotation": 0,
+          "crop_box": [
+            0.0,
+            0.0,
+            1153.7,
+            649.134
+          ]
+        },
+        "context": [
+          "section=기후\t관련\t목표",
+          "provider_bbox=36.342,396.751,743.906,483.215",
+          "pb1_table_claims",
+          "pb1-w9-v1",
+          "h1-origin-context-v1",
+          "derived_from_native_cells",
+          "mixed_parser_name=upstage_async_standard",
+          "mixed_parser_version=document-parse-260128"
+        ],
+        "parser_bbox": null,
+        "parser_coordinate_system": "pdf_bottom_left_points",
+        "parser_to_canonical": null,
+        "table_native_id": "up-standard-0-12",
+        "row_number": 4,
+        "column_number": 1,
+        "row_span": 1,
+        "column_span": 1
+      },
+      {
+        "kind": "table_cell",
+        "source": {
+          "document_version_id": "7702d779-ab78-4a76-bf15-a0bd7e4a6adf",
+          "parse_manifest_id": "6a004e98-3f65-56f2-8309-6c2921662be6",
+          "parser_run_id": "d09cf080-3f90-49c3-ba56-3b3bc0c88364",
+          "source_native_id": "up-standard-0-12-c22",
+          "physical_page": 1,
+          "printed_page_label": null,
+          "native_bbox": [
+            488.6496,
+            170.1513,
+            531.6080000000001,
+            178.1513
+          ],
+          "native_coordinate_system": "pdf_bottom_left_points",
+          "raw_text": "109,278,795",
+          "char_start": 0,
+          "char_end": 11
+        },
+        "geometry": {
+          "width_pt": 1153.7,
+          "height_pt": 649.134,
+          "rotation": 0,
+          "crop_box": [
+            0.0,
+            0.0,
+            1153.7,
+            649.134
+          ]
+        },
+        "context": [
+          "section=기후\t관련\t목표",
+          "provider_bbox=36.342,396.751,743.906,483.215",
+          "pb1_table_claims",
+          "pb1-w9-v1",
+          "h1-origin-context-v1",
+          "derived_from_native_cells",
+          "mixed_parser_name=upstage_async_standard",
+          "mixed_parser_version=document-parse-260128"
+        ],
+        "parser_bbox": null,
+        "parser_coordinate_system": "pdf_bottom_left_points",
+        "parser_to_canonical": null,
+        "table_native_id": "up-standard-0-12",
+        "row_number": 4,
+        "column_number": 2,
+        "row_span": 1,
+        "column_span": 1
+      },
+      {
+        "kind": "table_cell",
+        "source": {
+          "document_version_id": "7702d779-ab78-4a76-bf15-a0bd7e4a6adf",
+          "parse_manifest_id": "6a004e98-3f65-56f2-8309-6c2921662be6",
+          "parser_run_id": "d09cf080-3f90-49c3-ba56-3b3bc0c88364",
+          "source_native_id": "up-standard-0-12-c23",
+          "physical_page": 1,
+          "printed_page_label": null,
+          "native_bbox": [
+            593.1856,
+            170.1513,
+            636.0416,
+            178.1513
+          ],
+          "native_coordinate_system": "pdf_bottom_left_points",
+          "raw_text": "114,132,523",
+          "char_start": 0,
+          "char_end": 11
+        },
+        "geometry": {
+          "width_pt": 1153.7,
+          "height_pt": 649.134,
+          "rotation": 0,
+          "crop_box": [
+            0.0,
+            0.0,
+            1153.7,
+            649.134
+          ]
+        },
+        "context": [
+          "section=기후\t관련\t목표",
+          "provider_bbox=36.342,396.751,743.906,483.215",
+          "pb1_table_claims",
+          "pb1-w9-v1",
+          "h1-origin-context-v1",
+          "derived_from_native_cells",
+          "mixed_parser_name=upstage_async_standard",
+          "mixed_parser_version=document-parse-260128"
+        ],
+        "parser_bbox": null,
+        "parser_coordinate_system": "pdf_bottom_left_points",
+        "parser_to_canonical": null,
+        "table_native_id": "up-standard-0-12",
+        "row_number": 4,
+        "column_number": 3,
+        "row_span": 1,
+        "column_span": 1
+      },
+      {
+        "kind": "table_cell",
+        "source": {
+          "document_version_id": "7702d779-ab78-4a76-bf15-a0bd7e4a6adf",
+          "parse_manifest_id": "6a004e98-3f65-56f2-8309-6c2921662be6",
+          "parser_run_id": "d09cf080-3f90-49c3-ba56-3b3bc0c88364",
+          "source_native_id": "up-standard-0-12-c24",
+          "physical_page": 1,
+          "printed_page_label": null,
+          "native_bbox": [
+            696.8656000000001,
+            170.1513,
+            740.4824000000001,
+            178.1513
+          ],
+          "native_coordinate_system": "pdf_bottom_left_points",
+          "raw_text": "114,199,544",
+          "char_start": 0,
+          "char_end": 11
+        },
+        "geometry": {
+          "width_pt": 1153.7,
+          "height_pt": 649.134,
+          "rotation": 0,
+          "crop_box": [
+            0.0,
+            0.0,
+            1153.7,
+            649.134
+          ]
+        },
+        "context": [
+          "section=기후\t관련\t목표",
+          "provider_bbox=36.342,396.751,743.906,483.215",
+          "pb1_table_claims",
+          "pb1-w9-v1",
+          "h1-origin-context-v1",
+          "derived_from_native_cells",
+          "mixed_parser_name=upstage_async_standard",
+          "mixed_parser_version=document-parse-260128"
+        ],
+        "parser_bbox": null,
+        "parser_coordinate_system": "pdf_bottom_left_points",
+        "parser_to_canonical": null,
+        "table_native_id": "up-standard-0-12",
+        "row_number": 4,
+        "column_number": 4,
+        "row_span": 1,
+        "column_span": 1
+      },
+      {
+        "kind": "table",
+        "source": {
+          "document_version_id": "7702d779-ab78-4a76-bf15-a0bd7e4a6adf",
+          "parse_manifest_id": "6a004e98-3f65-56f2-8309-6c2921662be6",
+          "parser_run_id": "d09cf080-3f90-49c3-ba56-3b3bc0c88364",
+          "source_native_id": "up-standard-0-12",
+          "physical_page": 1,
+          "printed_page_label": null,
+          "native_bbox": [
+            118.00160000000005,
+            169.388712,
+            740.4952000000001,
+            246.1467
+          ],
+          "native_coordinate_system": "pdf_bottom_left_points",
+          "raw_text": "목표\t및\t진척도\t모니터링\t지표\t단위\t2022년\t실적\t2023년\t실적\t2024년\t실적\n온실가스 Scope 1 배출량\ttCO2-eq\t719,949\t696,590\t679,822\n온실가스 Scope 2 배출량 (시장 기반)\ttCO2-eq\t1,684,120\t1,579,162\t1,417,987\n재생에너지 전환비율(전기)\t%\t7.7\t12.8\t16.7\n온실가스 Scope 3 - Category 11 배출량\ttCO2-eq\t109,278,795\t114,132,523\t114,199,544",
+          "char_start": 0,
+          "char_end": 264
+        },
+        "geometry": {
+          "width_pt": 1153.7,
+          "height_pt": 649.134,
+          "rotation": 0,
+          "crop_box": [
+            0.0,
+            0.0,
+            1153.7,
+            649.134
+          ]
+        },
+        "context": [
+          "section=기후\t관련\t목표",
+          "provider_bbox=36.342,396.751,743.906,483.215",
+          "pb1_table_claims",
+          "pb1-w9-v1",
+          "h1-origin-context-v1",
+          "derived_from_native_cells",
+          "mixed_parser_name=upstage_async_standard",
+          "mixed_parser_version=document-parse-260128"
+        ],
+        "parser_bbox": null,
+        "parser_coordinate_system": "pdf_bottom_left_points",
+        "parser_to_canonical": null,
+        "table_native_id": null,
+        "row_number": null,
+        "column_number": null,
+        "row_span": null,
+        "column_span": null
+      }
+    ],
+    "edges": [
+      {
+        "source_native_id": "up-standard-0-12-c0",
+        "target_native_id": "up-standard-0-12",
+        "relation": "table_parent"
+      },
+      {
+        "source_native_id": "up-standard-0-12-c1",
+        "target_native_id": "up-standard-0-12",
+        "relation": "table_parent"
+      },
+      {
+        "source_native_id": "up-standard-0-12-c2",
+        "target_native_id": "up-standard-0-12",
+        "relation": "table_parent"
+      },
+      {
+        "source_native_id": "up-standard-0-12-c3",
+        "target_native_id": "up-standard-0-12",
+        "relation": "table_parent"
+      },
+      {
+        "source_native_id": "up-standard-0-12-c4",
+        "target_native_id": "up-standard-0-12",
+        "relation": "table_parent"
+      },
+      {
+        "source_native_id": "up-standard-0-12-c5",
+        "target_native_id": "up-standard-0-12",
+        "relation": "table_parent"
+      },
+      {
+        "source_native_id": "up-standard-0-12-c6",
+        "target_native_id": "up-standard-0-12",
+        "relation": "table_parent"
+      },
+      {
+        "source_native_id": "up-standard-0-12-c7",
+        "target_native_id": "up-standard-0-12",
+        "relation": "table_parent"
+      },
+      {
+        "source_native_id": "up-standard-0-12-c8",
+        "target_native_id": "up-standard-0-12",
+        "relation": "table_parent"
+      },
+      {
+        "source_native_id": "up-standard-0-12-c9",
+        "target_native_id": "up-standard-0-12",
+        "relation": "table_parent"
+      },
+      {
+        "source_native_id": "up-standard-0-12-c10",
+        "target_native_id": "up-standard-0-12",
+        "relation": "table_parent"
+      },
+      {
+        "source_native_id": "up-standard-0-12-c11",
+        "target_native_id": "up-standard-0-12",
+        "relation": "table_parent"
+      },
+      {
+        "source_native_id": "up-standard-0-12-c12",
+        "target_native_id": "up-standard-0-12",
+        "relation": "table_parent"
+      },
+      {
+        "source_native_id": "up-standard-0-12-c13",
+        "target_native_id": "up-standard-0-12",
+        "relation": "table_parent"
+      },
+      {
+        "source_native_id": "up-standard-0-12-c14",
+        "target_native_id": "up-standard-0-12",
+        "relation": "table_parent"
+      },
+      {
+        "source_native_id": "up-standard-0-12-c15",
+        "target_native_id": "up-standard-0-12",
+        "relation": "table_parent"
+      },
+      {
+        "source_native_id": "up-standard-0-12-c16",
+        "target_native_id": "up-standard-0-12",
+        "relation": "table_parent"
+      },
+      {
+        "source_native_id": "up-standard-0-12-c17",
+        "target_native_id": "up-standard-0-12",
+        "relation": "table_parent"
+      },
+      {
+        "source_native_id": "up-standard-0-12-c18",
+        "target_native_id": "up-standard-0-12",
+        "relation": "table_parent"
+      },
+      {
+        "source_native_id": "up-standard-0-12-c19",
+        "target_native_id": "up-standard-0-12",
+        "relation": "table_parent"
+      },
+      {
+        "source_native_id": "up-standard-0-12-c20",
+        "target_native_id": "up-standard-0-12",
+        "relation": "table_parent"
+      },
+      {
+        "source_native_id": "up-standard-0-12-c21",
+        "target_native_id": "up-standard-0-12",
+        "relation": "table_parent"
+      },
+      {
+        "source_native_id": "up-standard-0-12-c22",
+        "target_native_id": "up-standard-0-12",
+        "relation": "table_parent"
+      },
+      {
+        "source_native_id": "up-standard-0-12-c23",
+        "target_native_id": "up-standard-0-12",
+        "relation": "table_parent"
+      },
+      {
+        "source_native_id": "up-standard-0-12-c24",
+        "target_native_id": "up-standard-0-12",
+        "relation": "table_parent"
+      }
+    ],
+    "synthetic": false
+  }
+]

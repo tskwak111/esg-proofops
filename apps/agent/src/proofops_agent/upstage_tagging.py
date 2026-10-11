@@ -631,6 +631,29 @@ class UpstageTaggingTransport:
             # Authorization above covered these server policies before projection.
             data.pop("tagging_response_policy", None)
             data.pop("selected_quantity_policy", None)
+        if "tagging_wire_policy" in data:
+            from proofops.application.tagging.k7_wire import (
+                INSTRUCTIONS,
+                POLICY,
+                POLICY_V1,
+                fit_context,
+            )
+
+            if data["tagging_wire_policy"] not in (POLICY, POLICY_V1):
+                raise ValueError("K7_WIRE_POLICY_MISMATCH")
+            wire_system += INSTRUCTIONS
+            wire_user = fit_context(
+                wire_system,
+                user,
+                lambda system, value: self._probe.request_body(
+                    system,
+                    value,
+                    request_id=request["request_id"],
+                    max_tokens=request["max_tokens"],
+                    json_mode=True,
+                ),
+            )
+            return wire_system, wire_user, refs, authorization, canonical_json(schema)
         wire_user = json.dumps(user, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         return wire_system, wire_user, refs, authorization, canonical_json(schema)
 
