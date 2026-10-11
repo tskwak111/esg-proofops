@@ -644,12 +644,14 @@ class UpstageTaggingTransport:
             from proofops.application.tagging.citation_restore import POLICY, restore_whitespace
             from proofops.application.tagging.pb2_citation_restore import POLICY as TABLE_POLICY
             from proofops.application.tagging.pb2_citation_restore import restore_table
+            from proofops.application.tagging.pb6_citation_restore import POLICY as VALUE_POLICY
 
-            if policy not in (POLICY, TABLE_POLICY):
+            if policy not in (POLICY, TABLE_POLICY, VALUE_POLICY):
                 raise ValueError("CITATION_RESTORE_POLICY_UNKNOWN")
-            return (restore_table if policy == TABLE_POLICY else restore_whitespace)(
-                quote, original
+            restore = (
+                restore_table if policy in (TABLE_POLICY, VALUE_POLICY) else restore_whitespace
             )
+            return restore(quote, original)
         span = UpstageClaimExtractor._locate(quote, original["quote"])
         return original | dict(
             quote=quote,
@@ -661,8 +663,9 @@ class UpstageTaggingTransport:
         if policy is not None:
             from proofops.application.tagging.citation_restore import POLICY
             from proofops.application.tagging.pb2_citation_restore import POLICY as TABLE_POLICY
+            from proofops.application.tagging.pb6_citation_restore import POLICY as VALUE_POLICY
 
-            if policy not in (POLICY, TABLE_POLICY):
+            if policy not in (POLICY, TABLE_POLICY, VALUE_POLICY):
                 raise ValueError("CITATION_RESTORE_POLICY_UNKNOWN")
         for element in payload.get("elements", []):
             try:
@@ -687,6 +690,12 @@ class UpstageTaggingTransport:
                     CONSISTENCY_PROFILE,
                 ):
                     self._refine_g1_year(element)
+                if policy is not None and policy == VALUE_POLICY:
+                    from proofops.application.tagging.pb6_citation_restore import (
+                        refine_selected_value,
+                    )
+
+                    refine_selected_value(element)
             except (ValueError, KeyError, TypeError, AttributeError):
                 if policy is None:
                     raise

@@ -124,7 +124,11 @@ MODEL_RESPONSE_POLICY = dict(
     retention="owning-document-payload",
 )
 V2_PA4_POLICY = V2_PRE_PA4_POLICY | dict(model_response_policy=MODEL_RESPONSE_POLICY)
-V2_POLICY = V2_PRE_PA8_POLICY | dict(model_response_policy=MODEL_RESPONSE_POLICY)
+# Preserve both the standalone PB6 policy and the deployed dd61b3e policy.
+V2_PRE_PB6_POLICY = V2_PRE_PA8_POLICY
+V2_PB6_POLICY = V2_PRE_PB6_POLICY | dict(citation_restore="citation-selected-value-pb6-v1")
+V2_PRE_PB7_POLICY = V2_PRE_PA8_POLICY | dict(model_response_policy=MODEL_RESPONSE_POLICY)
+V2_POLICY = V2_PRE_PB7_POLICY | dict(citation_restore="citation-selected-value-pb6-v1")
 
 
 def policy_for(profile, *, pinned_hash=None):
@@ -133,6 +137,9 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            V2_PRE_PB7_POLICY,
+            V2_PB6_POLICY,
+            V2_PRE_PB6_POLICY,
             V2_PRE_PA8_POLICY,
             V2_PA4_POLICY,
             V2_PRE_PA4_POLICY,

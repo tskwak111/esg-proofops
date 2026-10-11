@@ -11,6 +11,7 @@ from proofops.application.analysis_profile import (
     V2_PA4_POLICY,
     V2_POLICY,
     V2_PRE_PA8_POLICY,
+    V2_PRE_PB7_POLICY,
     policy_for,
 )
 from proofops.domain.provenance import canonical_hash
@@ -39,6 +40,8 @@ def test_every_historical_policy_remains_readable():
         "58755cb54e60ee3e6176df3a57957a55de25b3953afbe00df46b3e0390731884",
         "196d611664f355efa58278f58ea24f87f6b2b8fee45269a56158fb96b4d18aee",
         "ec63057b3bd775240bf10bcd90afefd7881bb112e47e772799d50ff33b7cc11a",
+        "639ba0a01ebde2856deef9d5811195417bb13e369d57d7568fe3c8399634b12d",
+        "e483d3ac82014f2658c185b3091b23fe1011ef9923ec9d3bb8ad19f37aad74a7",
     ):
         assert canonical_hash(policy_for("finals-unattended-v2", pinned_hash=digest)) == digest
     assert canonical_hash(V2_PRE_PA8_POLICY) == (
@@ -47,7 +50,13 @@ def test_every_historical_policy_remains_readable():
     assert canonical_hash(V2_PA4_POLICY) == (
         "a6bc7a720704e3538f8dd5bf0cd837bb3e598481b38c5ab52bab4f8896ba4aa1"
     )
-    assert V2_POLICY == V2_PRE_PA8_POLICY | dict(model_response_policy=MODEL_RESPONSE_POLICY)
+    assert V2_PRE_PB7_POLICY == V2_PRE_PA8_POLICY | dict(
+        model_response_policy=MODEL_RESPONSE_POLICY
+    )
+    assert canonical_hash(V2_PRE_PB7_POLICY) == (
+        "639ba0a01ebde2856deef9d5811195417bb13e369d57d7568fe3c8399634b12d"
+    )
+    assert V2_POLICY == V2_PRE_PB7_POLICY | dict(citation_restore="citation-selected-value-pb6-v1")
     assert V2_POLICY["source"] == "upstage-ocr-page-v9"
     assert V2_POLICY["verified_read_cache"]["profile"] == "exact-verified-read-v4"
 
