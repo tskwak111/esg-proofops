@@ -859,6 +859,15 @@ class UpstageTaggingTransport:
                     from proofops.application.tagging.k4_contract import bind_response
 
                     payload = bind_response(payload, request, policy=response_policy)
+                preliminary_policy = json.loads(request["user_json"]).get(
+                    "preliminary_response_policy"
+                )
+                if preliminary_policy is not None:
+                    from proofops.application.tagging.k4_contract import bind_response
+
+                    payload = bind_response(payload, request, policy=preliminary_policy)
+                    payload.pop("packet_sha256")
+                    payload.pop("replicate_id")
                 restore_policy = json.loads(request["user_json"])["untrusted_document_data"].get(
                     "citation_restore_policy"
                 )

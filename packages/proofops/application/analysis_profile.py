@@ -299,6 +299,7 @@ FINALS_K4_POLICY = FINALS_I3_POLICY | dict(
     sentence_context_policy=CONTEXT_POLICY,
     sentence_context_policy_sha256=canonical_hash(CONTEXT_POLICY),
     tagging_response_policy=RESPONSE_POLICY,
+    preliminary_response_policy=RESPONSE_POLICY,
     selected_quantity_policy=VALUE_POLICY,
     table_evidence="table-selected-evidence-k4-v1",
     semantic_admission=SEMANTIC_POLICY,
@@ -372,7 +373,7 @@ def policy_for(profile, *, pinned_hash=None):
 def publication_policy_for(profile, *, pinned_hash=None):
     policy = policy_for(profile, pinned_hash=pinned_hash)
     allowed = (
-        (policy_for(profile), W3_POLICY, K1_POLICY, FINALS_K2_POLICY, FINALS_K4_POLICY)
+        (policy_for(profile), W3_POLICY, K1_POLICY, FINALS_K2_POLICY)
         if profile == V2_PROFILE
         else (policy_for(profile),)
     )

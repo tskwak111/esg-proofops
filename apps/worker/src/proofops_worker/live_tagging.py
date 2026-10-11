@@ -563,6 +563,15 @@ class LiveTaggingRuntime:
                     )
                 ]
                 packet["context_policy"]["whole_blocks_only"] = False
+        response_policy = self.snapshot.get("analysis_profile_policy", {}).get(
+            "preliminary_response_policy"
+        )
+        if response_policy is not None:
+            from proofops.application.tagging.k4_contract import RESPONSE_POLICY
+
+            if response_policy != RESPONSE_POLICY:
+                raise ValueError("K4_RESPONSE_POLICY_MISMATCH")
+            packet["preliminary_response_policy"] = response_policy
         packet = self.preliminary_transport.bound_context(packet)
         if sentence_context and not sentence_context_ready(claim, packet):
             if not fallback:

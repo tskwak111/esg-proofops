@@ -1,14 +1,17 @@
 # K4 R2 수정 계약
 
 기준은 `int-20261011@584c280`와 원문 v2이다. `FINALS_K4_POLICY`는
-`finals-unattended-v2`의 명시적 hash 선택으로만 실행한다. I3 기본 정책,
+`finals-unattended-v2`의 명시적 hash를 보존한 평가 후보다. 사전분류 프롬프트가
+아직 신원 출력을 요구해 실호출 채택 조건을 충족하지 못했으므로 새 공개 실행은
+차단한다. P2의 출력 문구 수정 후 새 hash와 새 검증이 필요하다. I3 기본 정책,
 과거 정책 hash, 원문, 태깅·판정 revision과 원시 영수증은 보존한다.
 push·배포·클라우드·운영 환경 파일 변경은 이 작업 범위 밖이다.
 
 ## 응답 신원
 
 새 provider wire schema에서는 `claim_id`, `packet_sha256`, `replicate_id`를
-제거한다. 모델이 이 필드를 반환하면 거절한다. 승인된 dispatch의 서버
+제거한다. 사전분류 wire의 `claim_id`도 동일한 요청 신원 계약으로 제거한다.
+모델이 이 필드를 반환하면 거절한다. 승인된 dispatch의 서버
 요청에서만 신원을 조립한다. 내부 `LlmTags` DTO, 요청·테넌트·packet·replica
 일치 검사, cache signature, 원문 인용·binding, 독립 provider ID 검사는 유지한다.
 기존 실패 응답의 신원을 교체해 승인하는 경로는 없다. 저장 응답 평가에서도

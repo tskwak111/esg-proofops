@@ -202,6 +202,8 @@ def provisional_result(
                 display_type="hold",
                 display="판정 보류",
                 hold_reasons=["Scope 3 · 산정 근거 확인 필요", "태깅 불일치"],
+                grade_basis="scope3_calculation_hold",
+                grade_range=None,
                 scope3_evidence_refs=scope3_refs,
             )
         return early

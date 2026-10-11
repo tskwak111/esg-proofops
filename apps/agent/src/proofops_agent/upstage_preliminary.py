@@ -410,6 +410,15 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
         if fallback_sources:
             system = replace(settings, system_prompt=SENTENCE_FALLBACK_BASE_PROMPT).rendered_system
         catalog = getattr(self, "_display_catalog", None)
+        response_policy = (
+            user.get("preliminary_response_policy") if isinstance(user, dict) else None
+        )
+        if response_policy is not None:
+            from proofops.application.tagging.k4_contract import RESPONSE_POLICY
+
+            if response_policy != RESPONSE_POLICY:
+                raise ValueError("K4_RESPONSE_POLICY_MISMATCH")
+            expected_keys = expected_keys | {"preliminary_response_policy"}
         if catalog is not None:
             expected_keys = expected_keys | {"display_text"}
             if isinstance(user, dict) and "preliminary_recovery_policy" in user:
@@ -515,7 +524,6 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
             user["display_policy"] = POLICY
             user["display_map_sha256"] = canonical_hash(display)
             system += SYSTEM_SUFFIX
-        wire_user = json.dumps(user, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         schema_json = settings.schema_json
         if "preliminary_fact_fields" in request:
             if (
@@ -556,6 +564,16 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
                     "include only when explicitly applicable in this atomic claim or its verified "
                     "table axes; omit unrelated axes. An applicable unresolved axis stays null."
                 )
+        if response_policy is not None:
+            schema = json.loads(schema_json)
+            schema["properties"].pop("claim_id")
+            schema["required"].remove("claim_id")
+            schema_json = json.dumps(
+                schema, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+            )
+            system = system.replace(settings.schema_json, schema_json, 1)
+            user.pop("preliminary_response_policy")
+        wire_user = json.dumps(user, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         return system, wire_user, {}, authorization, schema_json
 
     @staticmethod

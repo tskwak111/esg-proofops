@@ -73,10 +73,8 @@ def test_k4_is_explicit_and_i3_extraction_pins_remain_identical():
     from argparse import Namespace
 
     assert publication_policy_for("finals-unattended-v2") == FINALS_I3_POLICY
-    assert (
+    with pytest.raises(ValueError, match="PUBLICATION_PIN_MISMATCH"):
         publication_policy_for("finals-unattended-v2", pinned_hash=canonical_hash(FINALS_K4_POLICY))
-        == FINALS_K4_POLICY
-    )
     options = []
     for policy in (FINALS_I3_POLICY, FINALS_K4_POLICY):
         args = Namespace(
@@ -168,3 +166,62 @@ def test_k4_context_policy_reaches_preliminary_replicas(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime, "_source_replicas", replicas)
     assert runtime.preliminary(claim, graph) is None
     assert dispatched == ["preliminary"]
+
+
+def test_preliminary_server_identity_is_opt_in_and_model_identity_is_rejected(
+    tmp_path, monkeypatch
+):
+    from tests.integration.test_upstage_preliminary_transport import (
+        configured as preliminary_fixture,
+    )
+
+    adapter, probe, calls, request, envelope, claim, graph = preliminary_fixture(
+        tmp_path, monkeypatch
+    )
+    from dataclasses import replace
+    from pathlib import Path
+
+    from proofops.application.preflight import check_local_upstage_tagger
+
+    from tests.integration.test_upstage_tagger_preflight import configured as approvals
+
+    settings = replace(
+        adapter._settings,
+        schema_json=Path("contracts/jsonschema/preliminary_tags.schema.json").read_text(),
+    )
+    authorization = approvals()
+    authorization.pop("settings")
+    authorization["binding"].update(
+        model_id=settings.model_id, tagging_settings_sha256=canonical_hash(asdict(settings))
+    )
+    adapter._settings = settings
+    adapter._authorize = lambda selected, req: check_local_upstage_tagger(
+        settings=selected, **authorization
+    )
+    request.update(system_prompt=settings.rendered_system)
+    envelope["preliminary_response_policy"] = RESPONSE_POLICY
+    request.update(user_json=json.dumps(envelope), packet_sha256=canonical_hash(envelope))
+    system, wire, refs, _, schema = adapter._wire_request(request)
+    assert "claim_id" not in json.loads(schema)["properties"]
+    assert "preliminary_response_policy" not in json.loads(wire)
+    payload = dict(
+        track="performance",
+        safe_harbor_category=None,
+        track_confidence=0.9,
+        dimensions=dict(entity=None, metric=None, reporting_period=None),
+    )
+    Draft202012Validator(json.loads(schema)).validate(payload)
+
+    def post(body):
+        calls.append(body)
+        return dict(
+            id="preliminary-fixture",
+            model=probe.model,
+            usage=dict(prompt_tokens=20, completion_tokens=10),
+            choices=[dict(finish_reason="stop", message=dict(content=json.dumps(payload)))],
+        )
+
+    monkeypatch.setattr(probe, "_post", post)
+    result = adapter.invoke(request)
+    assert json.loads(result.raw_response_json) == payload | dict(claim_id=request["claim_id"])
+    assert len(calls) == 1
