@@ -369,6 +369,10 @@ def live_tagging_settings(
             from proofops.application.tagging.semantic_admission import DEFINITIONS
 
             element_prompt += "\n" + ELEMENT_DEFINITIONS + "\n" + DEFINITIONS
+        elif element_definition_profile == "finals-i1-v1":
+            from proofops.application.tagging.dec24 import INTEGRATED_DEFINITIONS
+
+            element_prompt += "\n" + INTEGRATED_DEFINITIONS
         else:
             raise ValueError("ELEMENT_DEFINITION_PROFILE_UNKNOWN")
     if preliminary_sentence_context:
@@ -1678,12 +1682,21 @@ def main():
         if args.live_tagging:
             from proofops.application.analysis_profile import policy_for
 
+            analysis_policy = (
+                policy_for(args.pipeline_profile, pinned_hash=args.analysis_policy_sha256)
+                if args.pipeline_profile == "finals-unattended-v2"
+                else {}
+            )
+            definition_profile = analysis_policy.get("element_definition_profile", "qi1-v1")
+            if (
+                definition_profile != "finals-i1-v1"
+                and analysis_policy.get("semantic_definition_profile") == "w8-v1"
+            ):
+                definition_profile = "w8-v1"
             settings.update(
                 live_tagging_settings(
                     args.tagging_max_calls,
-                    element_definition_profile=policy_for(args.pipeline_profile).get(
-                        "element_definition_profile", "qi1-v1"
-                    )
+                    element_definition_profile=definition_profile
                     if args.pipeline_profile == "finals-unattended-v2"
                     else None,
                     model_id=(

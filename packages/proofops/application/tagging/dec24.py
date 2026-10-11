@@ -3,6 +3,7 @@
 import re
 
 from proofops.application.tagging.quality import ELEMENT_DEFINITIONS
+from proofops.application.tagging.semantic_admission import DEFINITIONS as W8_DEFINITIONS
 from proofops.domain.provenance import canonical_hash
 
 DEFINITIONS = (
@@ -29,6 +30,10 @@ unknown/conflict/unreadable, source verification and independent replicas.
 """.rstrip()
 )
 DEFINITIONS_HASH = canonical_hash(DEFINITIONS)
+# A separate prompt identity composes the approved interpretations. Historical
+# DEC-24 and W8 strings/hashes above remain unchanged.
+INTEGRATED_DEFINITIONS = DEFINITIONS + "\n" + W8_DEFINITIONS
+INTEGRATED_DEFINITIONS_HASH = canonical_hash(INTEGRATED_DEFINITIONS)
 ESTIMATE_HOLD = "추정치 · 산정 근거 확인 필요"
 _SUPERSCRIPT = re.compile(r"^\s*[⁰¹²³⁴⁵⁶⁷⁸⁹]+\s*[).]?\s*\S")
 _NUMBERED = re.compile(r"^\s*\d{1,2}[).]\s*\S")

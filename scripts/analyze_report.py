@@ -457,7 +457,9 @@ def plan_run(args: argparse.Namespace) -> dict:
         if not args.pages and not getattr(args, "scope_plan", None):
             args.auto_scope = True
             if getattr(args, "auto_scope_policy", "legacy") == "legacy":
-                args.auto_scope_policy = "bounded-v1"
+                from proofops.application.analysis_profile import policy_for
+
+                args.auto_scope_policy = policy_for(args.analysis_profile)["scope"]
         args.parser_max_output_bytes = args.parser_max_output_bytes or 134217728
     pdf = args.pdf.expanduser().resolve()
     auto_scope_proposal: dict | None = None

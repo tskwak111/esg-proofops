@@ -1,6 +1,7 @@
 """One explicitly selected profile; old configurations remain byte-identical."""
 
-from proofops.application.tagging.dec24 import DEFINITIONS_HASH
+from proofops.application.ingest.sentence_prefix import POLICY as PREFIX_POLICY
+from proofops.application.tagging.dec24 import DEFINITIONS_HASH, INTEGRATED_DEFINITIONS_HASH
 from proofops.application.tagging.quality import ELEMENT_DEFINITIONS_HASH
 from proofops.application.tagging.semantic_admission import POLICY as W8_POLICY
 from proofops.application.tagging.semantic_admission import POLICY_HASH as W8_POLICY_HASH
@@ -181,11 +182,23 @@ V2_D24_POLICY = V2_PRE_D24_POLICY | dict(
     context_binding="conservative-atomic-source-v1",
 )
 
-V2_POLICY = (
+FINALS_I1_POLICY = (
     V2_D24_POLICY
-    | {k: v for k, v in V2_W9_POLICY.items() if k not in V2_PRE_W9_POLICY}
-    | {k: v for k, v in V2_W8_POLICY.items() if k not in V2_PRE_W8_POLICY}
+    | {k: v for k, v in V2_W9_POLICY.items() if v != V2_PRE_W9_POLICY.get(k)}
+    | {k: v for k, v in V2_W8_POLICY.items() if v != V2_PRE_W8_POLICY.get(k)}
+    | {k: v for k, v in W3_POLICY.items() if v != V2_PRE_W8_POLICY.get(k)}
+    | dict(
+        integration_profile="finals-20261011-v1",
+        scope="bounded-v2",
+        scope_ranking="W4-v2",
+        scope_policy_sha256="542b59b0512b48f5e88b8ef508a64072a3112e2b6ec97bbbcbbadc2ce038f986",
+        extraction_sentence_prefix="same-paragraph-sentence-prefix-w7-v1",
+        sentence_prefix_policy_sha256=canonical_hash(PREFIX_POLICY),
+        element_definition_profile="finals-i1-v1",
+        element_definitions_sha256=INTEGRATED_DEFINITIONS_HASH,
+    )
 )
+V2_POLICY = FINALS_I1_POLICY
 
 
 def policy_for(profile, *, pinned_hash=None):
@@ -252,12 +265,15 @@ def apply_pilot_profile(args):
     args.model = None
     args.parser = "mixed-v1"
     args.pipeline_profile = profile
+    selected = policy_for(profile, pinned_hash=getattr(args, "analysis_policy_sha256", None))
+    args.analysis_policy_sha256 = canonical_hash(selected)
     if profile == V2_PROFILE:
         args.extraction_fragment_guard = True
         args.extraction_pb1 = True
-        args.extraction_w9 = True
+        args.extraction_w9 = selected.get("table_claims") == "pb1-w9-v1"
+        args.extraction_sentence_prefix = bool(selected.get("extraction_sentence_prefix"))
         args.extraction_pb1_context_guard = True
-        args.extraction_table_footnotes = True
+        args.extraction_table_footnotes = bool(selected.get("table_footnotes"))
         args.extraction_table_rows = True
         args.preliminary_actor_role = True
     # Hosted Linux uses its independently approved OCR reader. Keep that explicit

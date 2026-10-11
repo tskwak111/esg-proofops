@@ -1,0 +1,316 @@
+"""Four-page fresh-model canary on disposable copies of attested source states.
+
+Reuse the proven HX1 evaluation harness. No imported run is published. One
+shared USD .50 guard covers both companies; first provider error stops all
+subsequent paid dispatch. Parsing/OCR responses are retained, not purchased.
+"""
+
+import argparse
+import importlib.util
+import json
+import os
+import shutil
+import sqlite3
+import sys
+from dataclasses import asdict
+from hashlib import sha256
+from pathlib import Path
+from uuid import UUID
+
+from proofops.adapters.local import openai, spend_guard
+from proofops.adapters.local.provider_concurrency import ProviderConcurrency
+from proofops.adapters.local.upstage_parse import PARSE_MODEL_PINNED, UpstageParseProbe
+from proofops.adapters.parsing import opendataloader, upstage_document
+from proofops.application.analysis_profile import V2_POLICY
+from proofops.application.ingest.graph_fusion import ParserProfile
+from proofops.application.registry import Registry
+from proofops.domain.provenance import canonical_hash
+from proofops_agent.upstage_extraction import UpstageClaimExtractor
+from proofops_worker import composition
+
+from evaluation.local_upstage_pilot import live_tagging_settings
+from evaluation.w7_sentence_replay import NoTransport
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--root", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--harness", type=Path, required=True)
+    parser.add_argument("--key-file", type=Path, required=True)
+    parser.add_argument("--company", choices=("naver", "kia"))
+    parser.add_argument("--spend-ledger", type=Path)
+    parser.add_argument("--seed-response-root", type=Path)
+    args = parser.parse_args()
+    args.output.mkdir(parents=True, exist_ok=False)
+    spend_ledger = args.spend_ledger or args.output / "spend.sqlite3"
+    spec = importlib.util.spec_from_file_location("i1_hx1_harness", args.harness)
+    assert spec and spec.loader
+    harness = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(harness)
+    original_pin = harness.pin_scratch_policy
+    original_batch = opendataloader._batch
+
+    def pin(output, tenant, run):
+        if args.seed_response_root:
+            seeded = args.seed_response_root / company
+            for name in ("model-responses.sqlite3", "model-responses.origins"):
+                path = seeded / name
+                if path.is_dir():
+                    shutil.copytree(path, output / name)
+                elif path.is_file():
+                    shutil.copy2(path, output / name)
+        settings_path = output / "settings.json"
+        settings = json.loads(settings_path.read_text())
+        settings.update(
+            extraction_w9=True,
+            extraction_sentence_prefix=True,
+            extraction_table_footnotes=True,
+            analysis_policy_sha256=canonical_hash(V2_POLICY),
+        )
+        flags = {
+            k: v for k, v in settings.items() if k.startswith("extraction_") and type(v) is bool
+        }
+        flags.update(
+            position_order="position_context_order" in settings,
+            display_text_profile=settings.get("display_text_policy", {}).get("profile"),
+        )
+        extraction_profile = asdict(
+            UpstageClaimExtractor(NoTransport(), output / "profile-only", **flags).profile
+        )
+        settings["extraction_profile"] = extraction_profile
+        guidance = live_tagging_settings(
+            600,
+            model_id="gpt-6-luna",
+            element_definition_profile="finals-i1-v1",
+            relations=True,
+            relation_profile="occurrence-v3",
+            preliminary_context=True,
+            preliminary_table_context=True,
+            preliminary_table_role=True,
+            preliminary_goal_role=True,
+            preliminary_actor_role=True,
+            preliminary_pb1=True,
+            compact_element_wire=True,
+            capacity_refresh=True,
+        )
+        settings.update(guidance)
+        settings_path.write_text(json.dumps(settings))
+        parser_path = output / "parser.json"
+        config = json.loads(parser_path.read_text())
+        config.update(table_claims_profile="pb1-w9-v1")
+        parser_path.write_text(json.dumps(config))
+        with sqlite3.connect(output / "state.sqlite3") as db:
+            triggers = list(db.execute("SELECT name,sql FROM sqlite_master WHERE type='trigger'"))
+            for name, _ in triggers:
+                assert name.replace("_", "").isalnum()
+                db.execute(f"DROP TRIGGER {name}")
+            frozen = json.loads(
+                db.execute("SELECT payload FROM run_snapshots WHERE run_id=?", (run,)).fetchone()[0]
+            )
+            frozen.update(
+                extraction_profile=extraction_profile,
+                extraction_profile_hash=canonical_hash(extraction_profile),
+                parser_profile=config,
+                parser_profile_hash=ParserProfile(
+                    frozen["document"]["version_id"], **config
+                ).config_hash(),
+                **guidance,
+            )
+            for prefix in ("tagging", "preliminary", "relation"):
+                frozen[prefix + "_settings_hash"] = canonical_hash(frozen[prefix + "_settings"])
+                frozen[prefix + "_runtime"]["runtime_binding_id"] = frozen[prefix + "_settings"][
+                    "binding"
+                ]["binding_id"]
+                frozen[prefix + "_runtime"]["tagging_settings_sha256"] = frozen[
+                    prefix + "_settings_hash"
+                ]
+                frozen[prefix + "_runtime_artifact_hash"] = canonical_hash(
+                    frozen[prefix + "_runtime"]
+                )
+            frozen["input_reservation_policy_hash"] = canonical_hash(
+                frozen["input_reservation_policy"]
+            )
+            frozen["extraction_limits"]["claim_pages"] = [1, 2] if company == "naver" else [1, 4]
+            db.execute(
+                "UPDATE run_snapshots SET payload=? WHERE run_id=?", (json.dumps(frozen), run)
+            )
+            for _, sql in triggers:
+                db.execute(sql)
+        registry = Registry.sqlite(output / "state.sqlite3")
+        try:
+            for prefix in ("tagging", "preliminary", "relation"):
+                runtime = frozen[prefix + "_runtime"]
+                registry.with_option(
+                    tenant,
+                    "runtime",
+                    runtime["runtime_binding_id"],
+                    "I1 authorized local canary " + prefix,
+                    status="approved",
+                    version="1",
+                    artifact=runtime,
+                    sha256=canonical_hash(runtime),
+                    approved_by=runtime["approved_by"],
+                    approved_at=runtime["approved_at"],
+                    local_synthetic=False,
+                )
+        finally:
+            registry.close()
+        frozen = original_pin(output, tenant, run)
+        from proofops.adapters.local.tag_store import tagging_settings
+
+        tagging_settings(frozen)
+        tagging_settings(frozen, preliminary=True)
+        tagging_settings(frozen, relation=True)
+        return frozen
+
+    harness.pin_scratch_policy = pin
+    original_build = composition.build_composition
+    admission = ProviderConcurrency(1)
+    original_candidate_batch = upstage_document.candidate_batch
+
+    def candidate_batch(*a, **kw):
+        state = (
+            args.root / "outputs/agent-results/R108-redesign/lab/perf/PA9" / (company + "-server")
+        )
+        batches = json.loads(next((state / "parser-prepared").rglob("candidates.json")).read_text())
+        identifier = next(
+            b["parser_run_id"] for b in batches if b["parser_name"] == "upstage_async_" + kw["mode"]
+        )
+        previous = upstage_document.uuid4
+        upstage_document.uuid4 = lambda: UUID(identifier)
+        try:
+            return original_candidate_batch(*a, **kw)
+        finally:
+            upstage_document.uuid4 = previous
+
+    upstage_document.candidate_batch = candidate_batch
+
+    def build(**kwargs):
+        os.environ["PROOFOPS_VERIFIED_READ_CACHE"] = "exact-verified-read-v5"
+        factories = kwargs["provider_factories"]
+        llm = factories["llm"]
+
+        def parse(ledger):
+            state = (
+                args.root
+                / "outputs/agent-results/R108-redesign/lab/perf/PA9"
+                / (company + "-server")
+            )
+            receipts = {}
+            with sqlite3.connect((state / "upstage.sqlite3").as_uri() + "?mode=ro", uri=True) as db:
+                for (raw,) in db.execute(
+                    "SELECT receipt FROM probe_calls WHERE receipt IS NOT NULL"
+                ):
+                    value = json.loads(raw)
+                    if "duration_seconds" in value:
+                        receipts[value["mode"]] = value
+            responses = {}
+            for path in (state / "parse-responses").glob("*-async.json"):
+                values = json.loads(path.read_text())
+                mode = next(m for m in ("standard", "enhanced") if m in values[0]["usage"])
+                responses[mode] = values
+
+            class RetainedParse(UpstageParseProbe):
+                def parse_async(self, pdf_bytes, *, request_id, mode="standard"):
+                    receipt = receipts[mode]
+                    expected = canonical_hash(
+                        dict(
+                            model=PARSE_MODEL_PINNED,
+                            mode=mode,
+                            pdf_sha256=sha256(pdf_bytes).hexdigest(),
+                            pages=receipt["pages"],
+                            bytes_len=len(pdf_bytes),
+                            transport="async",
+                        )
+                    )
+                    assert expected == receipt["request_sha256"], "I1_RETAINED_PARSE_INPUT_CHANGED"
+                    assert canonical_hash(responses[mode]) == receipt["response_sha256"]
+                    return receipt | dict(raw_batches=responses[mode])
+
+            return RetainedParse("offline-fixture", ledger)
+
+        kwargs["provider_factories"] = dict(
+            llm=lambda *a, **kw: admission.bind(llm(*a, **kw)), parse=parse
+        )
+        return original_build(**kwargs)
+
+    composition.build_composition = build
+    OriginalGuard = spend_guard.SpendGuard
+
+    class SharedGuard(OriginalGuard):
+        def __init__(self, path, **kwargs):
+            super().__init__(path, **(kwargs | dict(event_id="I1-USD0.5")))
+
+    spend_guard.SpendGuard = SharedGuard
+    original_post = openai.OpenAIProbe._post
+    stopped = []
+    dispatches = []
+
+    def post(probe, body):
+        if stopped:
+            raise ValueError("I1_PROVIDER_STOPPED_NO_RETRY")
+        dispatches.append(dict(company=company, request_id=body.get("request_id")))
+        try:
+            return original_post(probe, body)
+        except ValueError as error:
+            code = str(error)
+            if code.startswith("OPENAI_HTTP_"):
+                stopped.append(dict(company=company, code=code))
+            raise
+
+    openai.OpenAIProbe._post = post
+    results = {}
+    lab = args.root / "outputs/agent-results/R108-redesign/lab"
+    for company in (args.company,) if args.company else ("naver", "kia"):
+        if stopped:
+            results[company] = dict(status="not_run", reason="provider_error_no_paid_retry")
+            continue
+        sys.argv = [
+            "i1-live",
+            "--source",
+            str(lab / f"perf/PA9/{company}-server"),
+            "--output",
+            str(args.output / company),
+            "--spend-ledger",
+            str(spend_ledger),
+            "--key-file",
+            str(args.key_file),
+            "--workers",
+            "1",
+        ]
+        try:
+            opendataloader._batch = original_batch
+            harness.main()
+            results[company] = dict(status="completed")
+        except Exception as error:
+            # Only codes/types are recorded; exception bodies can contain data.
+            results[company] = dict(status="not_run", exception_type=type(error).__name__)
+            measurement = args.output / company / "measurement.json"
+            if measurement.exists():
+                results[company]["measurement"] = json.loads(measurement.read_text())
+            results["kia"] = dict(status="not_run", reason="earlier_local_stage_failure")
+            break
+        measurement = args.output / company / "measurement.json"
+        if measurement.exists():
+            results[company]["measurement"] = json.loads(measurement.read_text())
+        if stopped:
+            results[company]["status"] = "not_run"
+    guard = OriginalGuard(spend_ledger, event_id="I1-USD0.5", daily_limit="0.5", event_limit="0.5")
+    result = dict(
+        policy_sha256=canonical_hash(V2_POLICY),
+        results=results,
+        provider_errors=stopped,
+        dispatches=len(dispatches),
+        spend=guard.summary(),
+        paid_retry_after_provider_error=0,
+        physical_claim_pages=dict(naver=[84, 88], kia=[26, 106]),
+        parser="retained responses; source gates rerun; fresh extraction/tagging only",
+        production_revisions_written=0,
+    )
+    (args.output / "measurement.json").write_text(json.dumps(result, indent=2))
+    print(json.dumps(result), flush=True)
+
+
+if __name__ == "__main__":
+    main()

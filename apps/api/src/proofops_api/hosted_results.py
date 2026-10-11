@@ -99,6 +99,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
         # the same graph for every claim's identity-checked missing-evidence search.
         _, discovery, original_graph = evidence
         from proofops.application.analysis_profile import (
+            V2_D24_POLICY,
             V2_PA9_POLICY,
             V2_PB1_COMPACT_POLICY,
             V2_PB1_INITIAL_POLICY,
@@ -114,9 +115,11 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             V2_PRE_PA8_POLICY,
             V2_PRE_PA9_POLICY,
             V2_PRE_PB4_POLICY,
-            V2_PRE_W9_POLICY,
             V2_PRE_W8_POLICY,
+            V2_PRE_W9_POLICY,
             V2_W8_POLICY,
+            V2_W9_POLICY,
+            W3_POLICY,
         )
         from proofops.application.ingest.pb1_tables import occurrence_groups
         from proofops.application.ingest.w9_tables import observations_for
@@ -124,6 +127,9 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
 
         pb1 = tag_snapshot.get("analysis_profile_policy_sha256") in {
             canonical_hash(V2_POLICY),
+            canonical_hash(V2_D24_POLICY),
+            canonical_hash(V2_W9_POLICY),
+            canonical_hash(W3_POLICY),
             canonical_hash(V2_PRE_W9_POLICY),
             canonical_hash(V2_PRE_W8_POLICY),
             canonical_hash(V2_W8_POLICY),
@@ -168,6 +174,9 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                         summary["table_observation"] = row
                         if tag_snapshot.get("analysis_profile_policy_sha256") in {
                             canonical_hash(V2_POLICY),
+                            canonical_hash(V2_D24_POLICY),
+                            canonical_hash(V2_W9_POLICY),
+                            canonical_hash(W3_POLICY),
                             canonical_hash(V2_PRE_W9_POLICY),
                             canonical_hash(V2_PRE_W8_POLICY),
                             canonical_hash(V2_W8_POLICY),

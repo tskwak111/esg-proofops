@@ -68,7 +68,8 @@ def test_every_historical_policy_remains_readable():
     )
     assert V2_POLICY["citation_restore"] == V2_PRE_D24_POLICY["citation_restore"]
     assert V2_POLICY["source"] == "upstage-ocr-page-v10"
-    assert V2_POLICY["verified_read_cache"]["profile"] == "exact-verified-read-v4"
+    assert V2_PRE_D24_POLICY["verified_read_cache"]["profile"] == "exact-verified-read-v4"
+    assert V2_POLICY["verified_read_cache"]["profile"] == "exact-verified-read-v5"
 
 
 @pytest.mark.parametrize("change", ["tenant", "replica", "receipt", "graph", "policy"])

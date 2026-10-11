@@ -139,6 +139,14 @@ def test_operator_batch_and_concurrency_settings_pin_only_new_runs(tmp_path, mon
     assert snapshot["analysis_profile_policy"]["stage_overlap"] is False
     assert (
         snapshot["analysis_profile_policy"]["verified_read_cache"]["profile"]
+        == "exact-verified-read-v5"
+    )
+    from proofops.application.analysis_profile import V2_PRE_D24_POLICY, policy_for
+
+    assert (
+        policy_for("finals-unattended-v2", pinned_hash=canonical_hash(V2_PRE_D24_POLICY))[
+            "verified_read_cache"
+        ]["profile"]
         == "exact-verified-read-v4"
     )
     assert operator_profiles({})["extract_batch_calls"] == 20

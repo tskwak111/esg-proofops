@@ -7,8 +7,18 @@ import pytest
 
 
 def test_old_policy_and_guidance_replay():
-    from proofops.application.analysis_profile import V2_POLICY, V2_PRE_D24_POLICY, policy_for
-    from proofops.application.tagging.dec24 import DEFINITIONS, DEFINITIONS_HASH
+    from proofops.application.analysis_profile import (
+        V2_D24_POLICY,
+        V2_POLICY,
+        V2_PRE_D24_POLICY,
+        policy_for,
+    )
+    from proofops.application.tagging.dec24 import (
+        DEFINITIONS,
+        DEFINITIONS_HASH,
+        INTEGRATED_DEFINITIONS,
+        INTEGRATED_DEFINITIONS_HASH,
+    )
     from proofops.application.tagging.quality import ELEMENT_DEFINITIONS
     from proofops.domain.provenance import canonical_hash
 
@@ -20,7 +30,12 @@ def test_old_policy_and_guidance_replay():
         policy_for("finals-unattended-v2", pinned_hash=canonical_hash(V2_PRE_D24_POLICY))
         == V2_PRE_D24_POLICY
     )
-    assert V2_POLICY["element_definitions_sha256"] == DEFINITIONS_HASH
+    assert V2_D24_POLICY["element_definitions_sha256"] == DEFINITIONS_HASH
+    assert policy_for("finals-unattended-v2", pinned_hash=canonical_hash(V2_D24_POLICY)) == (
+        V2_D24_POLICY
+    )
+    assert DEFINITIONS in INTEGRATED_DEFINITIONS
+    assert V2_POLICY["element_definitions_sha256"] == INTEGRATED_DEFINITIONS_HASH
     from evaluation.local_upstage_pilot import live_tagging_settings
 
     old = live_tagging_settings(10, model_id="gpt-6-luna", element_definition_profile="qi1-v1")
