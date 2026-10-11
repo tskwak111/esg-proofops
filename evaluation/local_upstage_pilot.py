@@ -356,11 +356,15 @@ def live_tagging_settings(
             "explicit column-year header. Do not borrow numbers from other rows."
         )
     if element_definition_profile is not None:
-        if element_definition_profile != "qi1-v1":
+        if element_definition_profile not in ("qi1-v1", "w8-v1"):
             raise ValueError("ELEMENT_DEFINITION_PROFILE_UNKNOWN")
         from proofops.application.tagging.quality import ELEMENT_DEFINITIONS
 
         element_prompt += "\n" + ELEMENT_DEFINITIONS
+        if element_definition_profile == "w8-v1":
+            from proofops.application.tagging.semantic_admission import DEFINITIONS
+
+            element_prompt += "\n" + DEFINITIONS
     if preliminary_sentence_context:
         from proofops.application.tagging.preliminary import (
             SENTENCE_CONTEXT_PROFILE,
@@ -1632,10 +1636,14 @@ def main():
         if args.pipeline_profile:
             settings["pipeline_profile"] = args.pipeline_profile
         if args.live_tagging:
+            from proofops.application.analysis_profile import policy_for
+
             settings.update(
                 live_tagging_settings(
                     args.tagging_max_calls,
-                    element_definition_profile="qi1-v1"
+                    element_definition_profile=policy_for(args.pipeline_profile).get(
+                        "semantic_definition_profile", "qi1-v1"
+                    )
                     if args.pipeline_profile == "finals-unattended-v2"
                     else None,
                     model_id=(
