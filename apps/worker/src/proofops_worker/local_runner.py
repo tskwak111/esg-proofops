@@ -146,6 +146,17 @@ class LocalParserRunner:
     def run_once(
         self, *, tenant_id: str, run_id: str, note_review_artifacts: tuple[str, ...] = ()
     ) -> str:
+        from proofops.adapters.local.parse_table_cache import for_snapshot
+
+        snapshot = self.store.snapshot(tenant_id, run_id)
+        with for_snapshot(snapshot, tenant_id, run_id):
+            return self._run_once(
+                tenant_id=tenant_id, run_id=run_id, note_review_artifacts=note_review_artifacts
+            )
+
+    def _run_once(
+        self, *, tenant_id: str, run_id: str, note_review_artifacts: tuple[str, ...] = ()
+    ) -> str:
         if not isinstance(note_review_artifacts, tuple):
             raise ValueError("note reviews must be an immutable tuple")
         if note_review_artifacts and self.note_client is not None:

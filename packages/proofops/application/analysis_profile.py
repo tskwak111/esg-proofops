@@ -293,6 +293,18 @@ FINALS_I3_POLICY = (
 )
 V2_POLICY = FINALS_I3_POLICY
 
+S1_POLICY = FINALS_I3_POLICY | dict(
+    parse_replay_cache=dict(
+        profile="whole-fresh-table-s1-v1",
+        implementation_sha256="b2531a86a7a77efd01418dd357b3e13eb68c01859382e1f08679a1054989b017",
+        max_bytes=32 * 1024 * 1024,
+        scope="tenant-run-source-graph-runtime-whole-receipt-single-delivery",
+        projection="byte-pinned-selected-cell-replay-tail",
+        transient_cache=False,
+        persistent=False,
+    ),
+)
+
 
 FINALS_K4_POLICY = FINALS_I3_POLICY | dict(
     integration_profile="finals-r2-k4-v1",
@@ -361,6 +373,7 @@ def policy_for(profile, *, pinned_hash=None):
             V2_PRE_HF1_POLICY,
             V2_INITIAL_POLICY,
             W3_POLICY,
+            S1_POLICY,
         )
     else:
         raise ValueError("ANALYSIS_PROFILE_UNKNOWN")
@@ -373,7 +386,7 @@ def policy_for(profile, *, pinned_hash=None):
 def publication_policy_for(profile, *, pinned_hash=None):
     policy = policy_for(profile, pinned_hash=pinned_hash)
     allowed = (
-        (policy_for(profile), W3_POLICY, K1_POLICY, FINALS_K2_POLICY)
+        (policy_for(profile), W3_POLICY, K1_POLICY, FINALS_K2_POLICY, S1_POLICY)
         if profile == V2_PROFILE
         else (policy_for(profile),)
     )

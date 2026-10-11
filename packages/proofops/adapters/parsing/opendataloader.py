@@ -745,10 +745,14 @@ class OpenDataLoaderParser(ParserPort):
                     if page_reader is None:
                         raise ParseFailure("OCR_RUN_REQUIRED")
                     verifier = page_reader
-                receipt = verifier.attest_tables(graph, source.content, tenant_id=tenant_id)
+                from proofops.adapters.local import parse_table_cache
+
+                receipt = parse_table_cache.attest(
+                    verifier, graph, source.content, tenant_id=tenant_id
+                )
                 (work / "table-source.json").write_bytes(_json(receipt))
-                returned_graph = verifier.replay_tables(
-                    receipt, graph, source.content, tenant_id=tenant_id
+                returned_graph = parse_table_cache.replay(
+                    verifier, receipt, graph, source.content, tenant_id=tenant_id
                 )
             (work / "source.pdf").unlink()
             (work / "request.json").unlink()
@@ -1090,17 +1094,18 @@ class OpenDataLoaderParser(ParserPort):
                 raise ValueError("parser run mismatch")
             if profile.table_source_policy_sha256 is not None:
                 verifier = _table_verifier(profile.table_source_policy_sha256)
+                from proofops.adapters.local import parse_table_cache
                 from proofops.adapters.local.receipt_environment_compat import (
                     record_table_read,
-                    replay_receipt,
                 )
 
-                restored = replay_receipt(
-                    verifier.replay_tables,
+                restored = parse_table_cache.replay(
+                    verifier,
                     values["table-source.json"],
                     restored,
                     source.content,
                     tenant_id=tenant_id,
+                    compatible=True,
                 )
                 record_table_read(values["table-source.json"], restored)
             return restored

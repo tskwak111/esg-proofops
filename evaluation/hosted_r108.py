@@ -121,13 +121,14 @@ def prepare_argv(pdf, state, tenant, config, options=None):
         # only; hosted dispatch below remains the sole money authority.
         argv += ["--analysis-profile", profiles["analysis_profile"]]
         if options.get("analysis_profile_sha256"):
-            from proofops.application.analysis_profile import W3_POLICY, policy_for
+            from proofops.application.analysis_profile import S1_POLICY, W3_POLICY, policy_for
             from proofops.domain.provenance import canonical_hash
 
             policy_for(profiles["analysis_profile"], pinned_hash=options["analysis_profile_sha256"])
             if options["analysis_profile_sha256"] not in {
                 canonical_hash(policy_for(profiles["analysis_profile"])),
                 canonical_hash(W3_POLICY),
+                canonical_hash(S1_POLICY),
             }:
                 raise ValueError("HOSTED_PROFILE_PIN_MISMATCH")
             argv += ["--analysis-policy-sha256", options["analysis_profile_sha256"]]
