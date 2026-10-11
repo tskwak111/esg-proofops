@@ -2,20 +2,24 @@
 
 import json
 import math
+import os
 from collections import OrderedDict
+from concurrent.futures import ProcessPoolExecutor
 from contextlib import contextmanager
 from contextvars import ContextVar
 from hashlib import sha256
+from multiprocessing import get_context
 from pathlib import Path
 from threading import Lock
-from types import FunctionType, MethodType
+from types import FunctionType, MethodType, SimpleNamespace
 from zlib import compress, decompress
 
 from proofops.adapters.local.local_raster_reader import LocalRasterReader
-from proofops.application.analysis_profile import VERIFIED_READ_V4_POLICY
+from proofops.application.analysis_profile import VERIFIED_READ_V4_POLICY, VERIFIED_READ_V5_POLICY
 from proofops.domain.provenance import canonical_hash
 
 _scope: ContextVar[tuple[str, str, str] | None] = ContextVar("pa7_raw_read_scope", default=None)
+_pool: ContextVar[ProcessPoolExecutor | None] = ContextVar("w3_raw_read_pool", default=None)
 _reads: OrderedDict[str, bytes] = OrderedDict()
 _lock = Lock()
 _MAX_BYTES = VERIFIED_READ_V4_POLICY["raster_raw_reads"]["max_bytes"]
@@ -73,7 +77,22 @@ class ScopedRasterReader(LocalRasterReader):
                 _reads.move_to_end(key)
         if encoded is not None:
             return json.loads(decompress(encoded))
-        result = super().read(page, box, padding_px=padding_px)
+        pool = _pool.get()
+        if pool is None:
+            result = super().read(page, box, padding_px=padding_px)
+        else:
+            # The frozen verifier reads padding 0 and 6 for each crop. PDFium is
+            # isolated per process; never operate native PDF handles on threads.
+            pending = getattr(self, "_parallel_reads", None)
+            if pending is None:
+                pending = self._parallel_reads = {}
+            crop = (page.page_number, page.width, page.height, tuple(box))
+            if crop not in pending:
+                pending[crop] = {
+                    padding: pool.submit(_raw_read, self.source, crop, padding)
+                    for padding in (0, 6)
+                }
+            result = pending[crop][padding_px].result()
         if result.get("status") == "read":
             encoded = compress(
                 json.dumps(result, ensure_ascii=False, allow_nan=False).encode(), level=1
@@ -88,6 +107,15 @@ class ScopedRasterReader(LocalRasterReader):
                     ):
                         _reads.popitem(last=False)
         return result
+
+
+def _raw_read(source, crop, padding):
+    # A two-run CPU8 host has four independent crop workers. Keep Tesseract from
+    # spawning another full CPU pool per crop. This grants no source approval.
+    os.environ["OMP_THREAD_LIMIT"] = str(VERIFIED_READ_V5_POLICY["raw_ocr_omp_threads"])
+    number, width, height, box = crop
+    page = SimpleNamespace(page_number=number, width=width, height=height)
+    return LocalRasterReader(source).read(page, box, padding_px=padding)
 
 
 def attest(reader, graph, source, refs, *, tenant_id, run_id):
@@ -110,4 +138,16 @@ def attest(reader, graph, source, refs, *, tenant_id, run_id):
     function.__kwdefaults__ = original.__kwdefaults__
     instance._claim_receipt = MethodType(function, instance)
     with scope(tenant_id, run_id, reader.claim_source_policy()):
+        from proofops.adapters.local.verified_read_cache import _execution_policy
+
+        if _execution_policy() == VERIFIED_READ_V5_POLICY:
+            with ProcessPoolExecutor(
+                max_workers=VERIFIED_READ_V5_POLICY["raw_ocr_workers"],
+                mp_context=get_context("spawn"),
+            ) as pool:
+                token = _pool.set(pool)
+                try:
+                    return instance.attest_claim_spans(graph, source, refs, tenant_id=tenant_id)
+                finally:
+                    _pool.reset(token)
         return instance.attest_claim_spans(graph, source, refs, tenant_id=tenant_id)

@@ -226,11 +226,16 @@ def attest_claims(*, reader, graph, source, refs, tenant_id, cache, run_id=None)
     }:
         refs = tuple(refs)
         from proofops.adapters.local.verified_read_cache import _execution_policy
-        from proofops.application.analysis_profile import VERIFIED_READ_V4_POLICY
+        from proofops.application.analysis_profile import (
+            VERIFIED_READ_V4_POLICY,
+            VERIFIED_READ_V5_POLICY,
+        )
 
         if (
-            reader.PROFILE == "upstage-ocr-page-v9"
-            and _execution_policy() == VERIFIED_READ_V4_POLICY
+            (reader.PROFILE == "upstage-ocr-page-v9"
+             and _execution_policy() == VERIFIED_READ_V4_POLICY)
+            or (reader.PROFILE in VERIFIED_READ_V5_POLICY["raw_ocr_profiles"]
+                and _execution_policy() == VERIFIED_READ_V5_POLICY)
         ):
             from proofops.adapters.local.pa7_raster_cache import attest
 

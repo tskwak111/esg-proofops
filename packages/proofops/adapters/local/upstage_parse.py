@@ -18,6 +18,7 @@ import io
 import json
 import sqlite3
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from decimal import Decimal
 from time import monotonic, sleep
@@ -53,6 +54,19 @@ PRICE_SNAPSHOT = {
 
 class UpstageParseProbe(UpstageProbe):
     """Local evaluation transport for Document Parse; not production approval."""
+
+    download_workers = 1
+
+    def _download_batches(self, items):
+        if type(self.download_workers) is not int or not 1 <= self.download_workers <= 4:
+            raise ValueError("UPSTAGE_DOWNLOAD_CONCURRENCY_INVALID")
+        urls = [item["download_url"] for item in items]
+        if self.download_workers == 1 or len(urls) < 2:
+            return [self._async_download(url) for url in urls]
+        # Paid POST remains a single page-batched request. GET outputs and error
+        # propagation retain provider order, independent of completion order.
+        with ThreadPoolExecutor(max_workers=self.download_workers) as pool:
+            return list(pool.map(self._async_download, urls))
 
     def _reserve_async(self, request_id, body, cost):
         """Additive metadata; retain every historical USD1 reservation and policy."""
@@ -313,7 +327,7 @@ class UpstageParseProbe(UpstageProbe):
                 or len(status["batches"]) != (pages + 9) // 10
             ):
                 raise ValueError("UPSTAGE_ASYNC_RESPONSE_INVALID")
-            batches = [self._async_download(item["download_url"]) for item in status["batches"]]
+            batches = self._download_batches(status["batches"])
             seen = set()
             for batch in batches:
                 if batch.get("model") not in ALLOWED_MODELS or not isinstance(

@@ -19,6 +19,7 @@ from proofops.application.analysis_profile import (
     VERIFIED_READ_V2_POLICY,
     VERIFIED_READ_V3_POLICY,
     VERIFIED_READ_V4_POLICY,
+    VERIFIED_READ_V5_POLICY,
 )
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
@@ -34,6 +35,7 @@ def fresh_execution_enabled():
         VERIFIED_READ_V2_POLICY["profile"],
         VERIFIED_READ_V3_POLICY["profile"],
         VERIFIED_READ_V4_POLICY["profile"],
+        VERIFIED_READ_V5_POLICY["profile"],
     )
 
 
@@ -43,6 +45,7 @@ def _execution_policy():
         VERIFIED_READ_V2_POLICY,
         VERIFIED_READ_V3_POLICY,
         VERIFIED_READ_V4_POLICY,
+        VERIFIED_READ_V5_POLICY,
     ):
         if os.environ.get("PROOFOPS_VERIFIED_READ_CACHE") == policy["profile"]:
             return policy
@@ -50,7 +53,9 @@ def _execution_policy():
 
 
 def _parse_enabled():
-    return _execution_policy() in (VERIFIED_READ_V3_POLICY, VERIFIED_READ_V4_POLICY)
+    return _execution_policy() in (
+        VERIFIED_READ_V3_POLICY, VERIFIED_READ_V4_POLICY, VERIFIED_READ_V5_POLICY
+    )
 
 
 def _parse_projection_pinned(reader_name, policy):
@@ -215,7 +220,7 @@ def _fresh_key(reader, policy, receipt, graph, source, refs, tenant_id):
 
     profile = policy.get("profile")
     pinned_v9 = (
-        _execution_policy() == VERIFIED_READ_V4_POLICY
+        _execution_policy() in (VERIFIED_READ_V4_POLICY, VERIFIED_READ_V5_POLICY)
         and profile == "upstage-ocr-page-v9"
         and reader is page_ocr_profile(profile)
         and sha256(Path(reader.__file__).read_bytes()).hexdigest()
@@ -228,9 +233,17 @@ def _fresh_key(reader, policy, receipt, graph, source, refs, tenant_id):
         and sha256(Path(upstage_ocr_profile.__file__).read_bytes()).hexdigest()
         == _OCR_REPLAY_TAIL_SHA256
     )
+    pinned_v10 = (
+        _execution_policy() == VERIFIED_READ_V5_POLICY
+        and profile == "upstage-ocr-page-v10"
+        and reader is page_ocr_profile(profile)
+        and sha256(Path(reader.__file__).read_bytes()).hexdigest()
+        == VERIFIED_READ_V5_POLICY["v10_replay_sha256"]
+        and receipt.get("schema") == "claim_source_pa9_extension_v1"
+    )
     if (
         not fresh_execution_enabled()
-        or not (pinned_v6 or pinned_v9)
+        or not (pinned_v6 or pinned_v9 or pinned_v10)
         or reader.claim_source_policy() != policy
         or receipt.get("policy") != policy
         or not receipt.get("run_id")
@@ -289,6 +302,10 @@ def reuse_fresh_attestation(*, reader, policy, receipt, graph, source, discovery
     compare_receipts(receipt, receipt, profile=read_profile())
     if policy.get("profile") == "upstage-ocr-page-v9":
         return _project_v9(receipt, graph, discovery, tenant_id)
+    if policy.get("profile") == "upstage-ocr-page-v10":
+        return _project_owned_cells(
+            receipt, graph, discovery, tenant_id, failed_state="candidate"
+        )
     return _project_whole_attestation(receipt, graph, discovery, tenant_id, refs_field="records")
 
 
@@ -298,6 +315,10 @@ def _project_v9(checked, graph, discovery, tenant_id):
     Keep the explicit failed-row downgrade and independently attested cells;
     a whole-table flag must never substitute for native row ownership.
     """
+    return _project_owned_cells(checked, graph, discovery, tenant_id, failed_state="unverified")
+
+
+def _project_owned_cells(checked, graph, discovery, tenant_id, *, failed_state):
     from proofops.application.evidence.span_citations import span_verified_graph, verify_source_ref
     from proofops.domain.values import SourceRef
 
@@ -342,7 +363,7 @@ def _project_v9(checked, graph, discovery, tenant_id):
                     if claim.source_quality == "verified"
                     else claim.source_quality,
                     source_refs=tuple(
-                        replace(r, verification_state="unverified")
+                        replace(r, verification_state=failed_state)
                         if r.verification_state == "verified"
                         else r
                         for r in claim.source_refs

@@ -121,15 +121,14 @@ def prepare_argv(pdf, state, tenant, config, options=None):
         # only; hosted dispatch below remains the sole money authority.
         argv += ["--analysis-profile", profiles["analysis_profile"]]
         if options.get("analysis_profile_sha256"):
-            from proofops.application.analysis_profile import policy_for
+            from proofops.application.analysis_profile import W3_POLICY, policy_for
             from proofops.domain.provenance import canonical_hash
-
             policy_for(profiles["analysis_profile"], pinned_hash=options["analysis_profile_sha256"])
-            if (
-                canonical_hash(policy_for(profiles["analysis_profile"]))
-                != options["analysis_profile_sha256"]
-            ):
+            if options["analysis_profile_sha256"] not in {
+                canonical_hash(policy_for(profiles["analysis_profile"])), canonical_hash(W3_POLICY)
+            }:
                 raise ValueError("HOSTED_PROFILE_PIN_MISMATCH")
+            argv += ["--analysis-policy-sha256", options["analysis_profile_sha256"]]
     if profiles["analysis_profile"] in ("r108-finals-candidate", "r108-finals-candidate-v2"):
         v2 = profiles["analysis_profile"] == "r108-finals-candidate-v2"
         argv[argv.index("--vision-parse") + 1] = "auto"
@@ -251,6 +250,28 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
 
         factories["llm"] = scoped_llm
 
+    provider_gate = None
+    if execution.get("execution_profile") == "w3-speed-v1":
+        from proofops.adapters.local.provider_concurrency import ProviderConcurrency
+
+        provider_gate = ProviderConcurrency(
+            profiles["llm_max_workers"],
+            max_cooldown_seconds=execution["http_max_cooldown_seconds"],
+        )
+        original_llm = factories["llm"]
+        original_parse = factories["parse"]
+
+        def bounded_llm(*a, **k):
+            return provider_gate.bind(original_llm(*a, **k))
+
+        def bounded_parse(*a, **k):
+            probe = original_parse(*a, **k)
+            probe.download_workers = execution["parse_download_workers"]
+            return probe
+
+        factories["llm"] = bounded_llm
+        factories["parse"] = bounded_parse
+
     with scope:
         for stage, progress in (("parse", 15), ("extract", 45), ("tag", 75)):
             started = time.monotonic()
@@ -335,6 +356,8 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
         pipeline_profile=store.run_options(job).get("pipeline_profile", "strict-v1"),
         reporting_scope=pinned_reporting_scope(config, options),
     )
+    if provider_gate is not None:
+        result["provider_concurrency"] = provider_gate.snapshot()
     (state / "outcome.json").write_text(json.dumps(result))
     return state, result
 

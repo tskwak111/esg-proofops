@@ -135,8 +135,20 @@ def main():
     args.add_argument("--workers", type=int, default=8)
     args.add_argument("--rtt-ms", type=float, default=150)
     args.add_argument("--recorded-wait", action="store_true")
+    args.add_argument("--no-profile", action="store_true")
+    args.add_argument("--trace-failures", action="store_true")
     args = args.parse_args()
     source, output = args.source.resolve(), args.output.resolve()
+    ledger_name = next(
+        (
+            name
+            for name in ("luna.sqlite3", "live-luna.sqlite3")
+            if (source / name).is_file() and (source / (name + ".responses")).is_dir()
+        ),
+        None,
+    )
+    if ledger_name is None:
+        raise ValueError("REPLAY_RETAINED_MODEL_LEDGER_REQUIRED")
     first_stage = "parse" if args.stage == "pipeline" else args.stage
     tenant, run = fixture(source, output, first_stage)
     os.environ.update(
@@ -164,13 +176,13 @@ def main():
     )
     responses = {
         (d["request_id"], d["attempt"]): d["provider_response"]
-        for p in (source / "luna.sqlite3.responses").glob("*.json")
+        for p in (source / (ledger_name + ".responses")).glob("*.json")
         for d in [json.loads(p.read_text())]
     }
     local = threading.local()
     events, counts = [], {}
     lock = threading.Lock()
-    with sqlite3.connect((source / "luna.sqlite3").as_uri() + "?mode=ro", uri=True) as db:
+    with sqlite3.connect((source / ledger_name).as_uri() + "?mode=ro", uri=True) as db:
         provider_receipts = {
             key: json.loads(v)
             for key, v in db.execute(
@@ -212,7 +224,17 @@ def main():
             )
             time.sleep(wait)
             with lock:
-                events.append(dict(function="llm", start=start, seconds=time.monotonic() - start))
+                events.append(
+                    dict(
+                        function="llm",
+                        start=start,
+                        seconds=time.monotonic() - start,
+                        request_id=key,
+                        thread=threading.get_ident(),
+                        recorded_seconds=provider_receipts[key]["attempts"][attempt]["latency_ms"]
+                        / 1000,
+                    )
+                )
             return json.loads(json.dumps(responses[key, attempt]))
 
     class ReplayParse(UpstageParseProbe):
@@ -227,8 +249,11 @@ def main():
                     )
                 ]
             receipt = next(r for r in retained if "duration_seconds" in r and r["mode"] == mode)
-            batches = json.loads(
-                next((source / "parse-responses").glob("*-async.json")).read_text()
+            batches = next(
+                value
+                for path in (source / "parse-responses").glob("*-async.json")
+                for value in [json.loads(path.read_text())]
+                if canonical_hash(value) == receipt["response_sha256"]
             )
             from hashlib import sha256
 
@@ -260,7 +285,12 @@ def main():
             result = super().parse_async(pdf_bytes, request_id=request_id, mode=mode)
             with lock:
                 events.append(
-                    dict(function="upstage.parse", start=start, seconds=time.monotonic() - start)
+                    dict(
+                        function="upstage.parse",
+                        start=start,
+                        seconds=time.monotonic() - start,
+                        recorded_seconds=receipt["duration_seconds"],
+                    )
                 )
             # Retain the provider's measured duration as immutable provenance;
             # the experiment's actual wall time is recorded separately above.
@@ -325,7 +355,17 @@ def main():
                 opendataloader.uuid4 = previous
 
         opendataloader._batch = batch
-        upstage_document.uuid4 = lambda: ids["upstage_async_standard"]
+        candidate_batch = upstage_document.candidate_batch
+
+        def pinned_candidate_batch(*a, mode, **k):
+            previous = upstage_document.uuid4
+            upstage_document.uuid4 = lambda: ids["upstage_async_" + mode]
+            try:
+                return candidate_batch(*a, mode=mode, **k)
+            finally:
+                upstage_document.uuid4 = previous
+
+        upstage_document.candidate_batch = pinned_candidate_batch
 
         def raw_parser(command, work, env, profile):
             for name in (
@@ -372,13 +412,22 @@ def main():
     ):
         instrument(owner, name)
     main_profile = cProfile.Profile()
+
+    def measured_call(operation, *a, **k):
+        if args.no_profile:
+            return operation(*a, **k)
+        return main_profile.runcall(operation, *a, **k)
+
     start = time.monotonic()
     stage_times = {}
     try:
         with reader_scope(ReplayOCRStore(output / "upstage.sqlite3")):
             begin = time.monotonic()
-            status = main_profile.runcall(worker.run_once, tenant_id=tenant, run_id=run)
+            status = measured_call(worker.run_once, tenant_id=tenant, run_id=run)
             stage_times[first_stage] = time.monotonic() - begin
+            events.append(
+                dict(function="stage." + first_stage, start=begin, seconds=stage_times[first_stage])
+            )
             if args.stage == "pipeline":
                 assert status == "committed", status
                 factories = dict(
@@ -386,6 +435,31 @@ def main():
                     parse=lambda ledger: ReplayParse("offline-fixture", ledger),
                 )
                 for stage in ("extract", "tag"):
+                    if args.trace_failures and stage == "extract":
+
+                        def trace(frame, event, value):
+                            filename = frame.f_code.co_filename
+                            if event == "exception" and filename.endswith(
+                                ("extract_runner.py", "pa7_raster_cache.py")
+                            ):
+                                kind = value[0].__name__
+                                print(
+                                    json.dumps(
+                                        dict(
+                                            event="w3_failure_frame",
+                                            file=Path(filename).name,
+                                            line=frame.f_lineno,
+                                            exception_type=kind,
+                                        )
+                                    ),
+                                    flush=True,
+                                )
+                            return trace
+
+                        import sys
+
+                        sys.settrace(trace)
+                        threading.settrace(trace)
                     worker.uploads.close()
                     worker.uploads.registry.close()
                     worker = build_composition(
@@ -403,15 +477,18 @@ def main():
                         + 600
                     )
                     begin = time.monotonic()
-                    status = main_profile.runcall(worker.run_once, tenant_id=tenant, run_id=run)
+                    status = measured_call(worker.run_once, tenant_id=tenant, run_id=run)
                     if stage == "extract":
                         assert status == "committed", status
                         from proofops_worker.extract_batch import run_batches
 
-                        main_profile.runcall(
+                        measured_call(
                             run_batches, worker, tenant_id=tenant, run_id=run, batches=100
                         )
                     stage_times[stage] = time.monotonic() - begin
+                    events.append(
+                        dict(function="stage." + stage, start=begin, seconds=stage_times[stage])
+                    )
         seconds = time.monotonic() - start
         assert status == ("completed" if args.stage in ("tag", "pipeline") else "committed"), status
         final_stage = "tag" if args.stage == "pipeline" else args.stage
@@ -425,6 +502,7 @@ def main():
             cache_profile=args.cache_profile,
             rtt_ms=args.rtt_ms,
             recorded_wait=args.recorded_wait,
+            profiled=not args.no_profile,
             replay_calls=sum(counts.values()),
             live_provider_calls=0,
             paid_usd="0",
@@ -445,7 +523,8 @@ def main():
             )
         assert identical, "PA3_RESULT_CHANGED"
     finally:
-        main_profile.dump_stats(str(output / "main.prof"))
+        if not args.no_profile:
+            main_profile.dump_stats(str(output / "main.prof"))
         worker.uploads.close()
         worker.uploads.registry.close()
 

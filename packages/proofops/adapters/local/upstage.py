@@ -131,11 +131,32 @@ def request_usage(ledger, request_ids) -> dict:
         uri = Path(ledger).resolve().as_uri() + "?mode=ro"
         entries = []
         with sqlite3.connect(uri, uri=True) as db:
-            for identifier in identifiers:
-                row = db.execute(
-                    "SELECT committed, receipt FROM probe_calls WHERE request_id=?",
-                    (identifier,),
-                ).fetchone()
+            if all(isinstance(identifier, str) for identifier in identifiers):
+                rows: dict[str, tuple[str, str | None]] = {}
+                # Keep below SQLite's portable bind limit. Read fresh rows each
+                # time; never cache settlement or hide a pending reservation.
+                for offset in range(0, len(identifiers), 500):
+                    window = identifiers[offset : offset + 500]
+                    parameters = ",".join("?" for _ in window)
+                    rows.update(
+                        (key, (amount, receipt))
+                        for key, amount, receipt in db.execute(
+                            "SELECT request_id, committed, receipt FROM probe_calls "
+                            f"WHERE request_id IN ({parameters})",
+                            window,
+                        )
+                    )
+                ordered = [rows.get(identifier) for identifier in identifiers]
+            else:
+                # Historical callers' SQLite coercion remains unchanged.
+                ordered = [
+                    db.execute(
+                        "SELECT committed, receipt FROM probe_calls WHERE request_id=?",
+                        (identifier,),
+                    ).fetchone()
+                    for identifier in identifiers
+                ]
+            for row in ordered:
                 if row is not None:
                     amount = Decimal(row[0])
                     if not amount.is_finite() or amount < 0:

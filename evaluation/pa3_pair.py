@@ -20,6 +20,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--source", type=Path, action="append", required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--cache-profile", default="exact-verified-read-v3")
+    parser.add_argument("--workers", type=int, default=8)
+    parser.add_argument("--no-profile", action="store_true")
     args = parser.parse_args()
     assert len(args.source) == 2
     root = args.output.resolve()
@@ -135,8 +138,11 @@ def main():
                     "--stage",
                     "pipeline",
                     "--cache-profile",
-                    "exact-verified-read-v3",
-                ],
+                    args.cache_profile,
+                    "--workers",
+                    str(args.workers),
+                ]
+                + (["--no-profile"] if args.no_profile else []),
                 current,
                 job,
                 document_lock,

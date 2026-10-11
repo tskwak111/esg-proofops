@@ -148,6 +148,7 @@ class RunService:
         tagging_mode: str | None = None,
         fact_assembly_profile: str = "strict-v1",
         pipeline_profile: str | None = None,
+        analysis_policy_sha256: str | None = None,
         report_level_link=None,
         preliminary_settings: TaggingSettings | None = None,
         relation_settings: TaggingSettings | None = None,
@@ -233,6 +234,11 @@ class RunService:
         ):
             raise ValueError("unknown pipeline profile")
         self.pipeline_profile = pipeline_profile
+        if analysis_policy_sha256 is not None:
+            from proofops.application.analysis_profile import publication_policy_for
+
+            publication_policy_for(pipeline_profile, pinned_hash=analysis_policy_sha256)
+        self.analysis_policy_sha256 = analysis_policy_sha256
         self.tagging_settings, self.tagging_mode = tagging_settings, tagging_mode
         if report_level_link is not None and (tagging_mode is None or tagging_settings is None):
             raise ValueError("report-level link requires tagging")
@@ -659,9 +665,11 @@ class RunService:
         if self.pipeline_profile is not None:
             snapshot["pipeline_profile"] = self.pipeline_profile
             if self.pipeline_profile in ("finals-unattended-v1", "finals-unattended-v2"):
-                from proofops.application.analysis_profile import policy_for
+                from proofops.application.analysis_profile import publication_policy_for
 
-                analysis_policy = policy_for(self.pipeline_profile)
+                analysis_policy = publication_policy_for(
+                    self.pipeline_profile, pinned_hash=self.analysis_policy_sha256
+                )
                 snapshot["analysis_profile_policy"] = _detach(analysis_policy)
                 snapshot["analysis_profile_policy_sha256"] = canonical_hash(analysis_policy)
                 from proofops.adapters.local import evidence_source_verification_v1 as evidence
