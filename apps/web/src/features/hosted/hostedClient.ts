@@ -9,6 +9,7 @@ export function resolveBackend(value: string | undefined): AnalysisBackend {
 export type Runtime = {
   analysis_backend: string; accept_new_runs: boolean; accept_uploads: boolean; live_analysis: boolean; live_disabled: boolean;
   upload_notice: string; consent_version: string; source_verifier?: string; profile?: string;
+  maintenance?: boolean; maintenance_message?: string | null;
   analysis_profile?: string; analysis_profile_options?: string[]; analysis_profile_warning?: string | null;
   pipeline_profile?: string;
   provider_limits?: Record<string, { status: "unknown" | "blocked"; remaining_usd: string | null }>;
@@ -31,6 +32,8 @@ export type ScopePlan = {
 export type HostedRun = {
   run_id: string; document_id: string; status: string; selected_pages: number[]; status_url: string;
   error_code: string | null; stage?: string | null; queue_position?: number | null; progress?: number | null;
+  provider_error_code?: string | null; provider_error_message?: string | null;
+  user_active_count?: number; user_processing_count?: number;
   claims_extracted?: number; claims_processed?: number;
   result_url?: string | null; result?: HostedResult | null;
 };
@@ -102,17 +105,24 @@ const codeMessages: Record<string, string> = {
   PDF_CONTENT_TYPE_REQUIRED: "PDF 파일만 올릴 수 있습니다.",
   UPLOAD_DISABLED: "현재 업로드가 닫혀 있습니다.",
   ANALYSIS_DISABLED: "현재 새 분석 접수가 중지되어 있습니다.",
+  MAINTENANCE: "서버 점검 중입니다. 진행 중 분석은 계속 처리하며 새 분석은 점검 후 접수합니다.",
   SOURCE_EXPIRED: "원본 PDF 보관 기간(7일)이 끝났습니다. 다시 업로드해 주세요.",
   SOURCE_UNAVAILABLE: "원본 PDF를 사용할 수 없습니다. 다시 업로드해 주세요.",
   PAGE_SELECTION_INVALID: "쪽 선택을 확인해 주세요. 주장 최대 10쪽, 근거 검색 최대 30쪽이며 주장 쪽을 근거 검색 범위에 포함해야 합니다.",
   IDEMPOTENCY_CONFLICT: "같은 요청 키로 다른 내용이 전송되었습니다. 처음부터 다시 시도해 주세요.",
   IDEMPOTENCY_KEY_INVALID: "요청 키가 올바르지 않습니다. 다시 시도해 주세요.",
-  USER_RUN_LIMIT: "이미 진행 중인 분석이 있습니다. 끝난 뒤 다시 시도해 주세요.",
-  QUEUE_FULL: "대기열이 가득 찼습니다. 잠시 후 다시 시도해 주세요.",
-  DAILY_RUN_LIMIT: "오늘의 분석 가능 횟수에 도달했습니다. 내일 다시 이용해 주세요.",
-  BUDGET_EXCEEDED: "분석 비용 상한(실행 USD 1.0, 일·행사 USD 7)에 도달했습니다. 남은 주장은 예산 상한으로 미분석 표시됩니다.",
+  USER_RUN_LIMIT: "이 서버의 사용자별 접수 한도에 도달했습니다. 진행 중인 분석을 확인하거나 운영자에게 문의해 주세요.",
+  QUEUE_FULL: "서버 대기열(최대 8건)이 가득 찼습니다. 업로드한 문서는 유지됩니다. 대기 작업이 줄어든 뒤 분석 시작을 다시 눌러 주세요.",
+  DAILY_RUN_LIMIT: "오늘의 사용자별 또는 서버 전체 분석 횟수 한도에 도달했습니다. 업로드한 문서는 유지됩니다. 내일 다시 접수해 주세요.",
+  BUDGET_EXCEEDED: "새 분석의 비용을 예약할 수 없습니다. 실행·일·행사 예산 상한 또는 정산 보류 금액을 운영자가 확인해야 합니다. 업로드한 문서는 유지되며 이번 분석은 접수되지 않았습니다.",
+  BUDGET_EXHAUSTED: "예약한 분석 예산이 소진되어 남은 항목을 처리하지 못했습니다. 운영자에게 비용 기록 확인을 요청해 주세요.",
+  PROVIDER_CREDIT_EXHAUSTED: "분석 API 크레딧이 부족합니다. 운영자의 충전 확인이 필요합니다.",
+  PROVIDER_AUTH_FAILED: "분석 API 인증에 실패했습니다. 운영자의 키 확인이 필요합니다.",
+  PROVIDER_ACCESS_DENIED: "분석 API 사용 권한이 거부되었습니다. 운영자 확인이 필요합니다.",
+  PROVIDER_RATE_LIMITED: "분석 API 요청 한도에 도달했습니다. 운영자 확인 후 다시 접수해 주세요.",
+  PROVIDER_UNAVAILABLE: "분석 API에 일시적인 서버 오류가 발생했습니다. 운영자에게 상태 확인을 요청해 주세요.",
   RATE_LIMITED: "요청이 많습니다. 잠시 후 다시 시도해 주세요.",
-  ACCOUNTING_PENDING: "비용 정산 확인 중이라 새 분석을 접수할 수 없습니다.",
+  ACCOUNTING_PENDING: "이 분석은 응답 비용을 확정하지 못해 정산 확인 중입니다. 예약 금액은 유지되며 운영자 확인이 필요합니다.",
   DEPENDENCY_UNAVAILABLE: "서버 저장소를 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.",
   ANALYSIS_RESULT_UNAVAILABLE: "분석 결과가 아직 준비되지 않았습니다. 잠시 후 다시 확인해 주세요.",
   RESULT_INTEGRITY_UNAVAILABLE: "원본 PDF와 분석 기록의 일치를 확인하지 못해 결과를 표시하지 않습니다. 빈 결과가 아닙니다.",
@@ -131,6 +141,7 @@ const pdfRejections = /PDF|ENCRYPT|PASSWORD|PAGE|ACTIVE|MALFORMED|LIMIT/i;
 
 export function describeError(error: HostedApiError): string {
   const { status, code, retryAfter } = error;
+  if (codeMessages[code] && !["QUEUE_FULL", "RATE_LIMITED"].includes(code)) return codeMessages[code];
   if (status === 429) {
     const wait = retryAfter ? ` ${retryAfter}초 뒤에 다시 시도해 주세요.` : " 잠시 후 다시 시도해 주세요.";
     return (codeMessages[code] ?? "요청이 너무 많습니다.") + wait;
@@ -238,12 +249,19 @@ export function createHostedClient(options: ClientOptions = {}) {
     },
   };
 }
-export const terminalStatuses = ["partial_blocked", "completed", "cancelled", "failed"];
+export const terminalStatuses = ["partial_blocked", "completed", "cancelled", "failed", "accounting_pending"];
 export type HostedClient = ReturnType<typeof createHostedClient>;
 
-export const providerLimitCodes = ["OPENROUTER_HTTP_402", "OPENROUTER_HTTP_403", "OPENAI_HTTP_401", "OPENAI_HTTP_429", "OPENAI_INSUFFICIENT_QUOTA"];
+export const providerLimitCodes = ["OPENROUTER_HTTP_402", "OPENROUTER_HTTP_403", "OPENAI_HTTP_401", "OPENAI_HTTP_429", "OPENAI_INSUFFICIENT_QUOTA", "PROVIDER_CREDIT_EXHAUSTED", "PROVIDER_AUTH_FAILED", "PROVIDER_ACCESS_DENIED", "PROVIDER_RATE_LIMITED"];
 export const providerLimitMessage = "분석 서비스 한도 초과 — 운영자 확인 필요";
 const blockedReasons: Record<string, string> = {
+  PROVIDER_CREDIT_EXHAUSTED: "분석 API 크레딧이 부족합니다. 운영자의 충전 확인이 필요합니다.",
+  PROVIDER_AUTH_FAILED: "분석 API 인증에 실패했습니다. 운영자의 키 확인이 필요합니다.",
+  PROVIDER_ACCESS_DENIED: "분석 API 사용 권한이 거부되었습니다. 운영자 확인이 필요합니다.",
+  PROVIDER_RATE_LIMITED: "분석 API 요청 한도에 도달했습니다. 운영자 확인 후 다시 접수해 주세요.",
+  PROVIDER_UNAVAILABLE: "분석 API에 일시적인 서버 오류가 발생했습니다.",
+  ACCOUNTING_PENDING: "비용 정산 확인 중입니다. 운영자 확인이 필요합니다.",
+  ANALYSIS_MEMORY_LIMIT: "동시 분석의 메모리 한도에 도달해 중단되었습니다. 운영자 확인이 필요합니다.",
   OPENAI_HTTP_401: providerLimitMessage,
   OPENAI_HTTP_429: providerLimitMessage,
   OPENAI_INSUFFICIENT_QUOTA: providerLimitMessage,
@@ -254,8 +272,8 @@ const blockedReasons: Record<string, string> = {
   OPENROUTER_HTTP_403: providerLimitMessage,
   LIVE_BINDING_UNAVAILABLE: "실시간 모델·OCR 분석이 서버에 연결되어 있지 않아 판정하지 않았습니다.",
   LINUX_SOURCE_READER_UNRESOLVED: "이 서버의 원문 판독기가 아직 승인되지 않아 분석하지 않았습니다. 주장·등급은 만들지 않았습니다.",
-  LEASE_EXPIRED: "처리 중 작업이 중단되어 비용 정산 확인 전까지 보류되었습니다.",
-  LEASE_EXPIRED_NO_DISPATCH: "작업이 중단되었습니다. 모델 전송이 없어 비용 예약이 해제되었습니다. 다시 접수할 수 있습니다.",
+  LEASE_EXPIRED: "서버 재시작 또는 작업 응답 중단으로 분석이 중단되었습니다. 전송 기록이 있어 비용 정산 확인 전까지 보류하며 자동 재실행하지 않습니다.",
+  LEASE_EXPIRED_NO_DISPATCH: "서버 재시작 또는 작업 응답 중단으로 분석이 중단되었습니다. 모델 전송이 없어 비용 예약이 해제되었습니다. 다시 접수할 수 있습니다.",
   ANALYSIS_LOCK_BUSY: "문서가 다른 작업에서 사용 중입니다. 잠시 후 다시 접수해 주세요.",
   PREPARE_FAILED: "선택한 쪽을 준비하지 못했습니다.",
   HOSTED_PREPARATION_FAILED: "선택한 쪽을 준비하지 못했습니다.",
@@ -274,7 +292,9 @@ export function holdReasonText(code: string): string {
   return `보류 사유 코드: ${code}`;
 }
 export function runOutcome(run: HostedRun): { kind: "pending" | "blocked" | "completed" | "cancelled" | "failed"; title: string; reasons: string[] } {
+  const provider = run.provider_error_code;
   switch (run.status) {
+    case "accounting_pending": return { kind: "blocked", title: "분석 중단 · 비용 정산 확인 중", reasons: [holdReasonText(provider ?? run.error_code ?? "ACCOUNTING_PENDING")] };
     case "partial_blocked": {
       const codes = run.result?.hold_reasons?.length ? run.result.hold_reasons : run.error_code ? [run.error_code] : [];
       const reasons = codes.length ? codes.map(holdReasonText) : ["분석이 일부만 진행되어 보류되었습니다."];
@@ -283,7 +303,7 @@ export function runOutcome(run: HostedRun): { kind: "pending" | "blocked" | "com
     }
     case "completed": return { kind: "completed", title: "선택 범위 처리 종료 · 잠정 결과", reasons: run.result ? [] : ["이 서버가 결과 상세를 아직 제공하지 않아 화면에 표시할 수 없습니다."] };
     case "cancelled": return { kind: "cancelled", title: "취소됨", reasons: [] };
-    case "failed": return { kind: "failed", title: "실패", reasons: [holdReasonText(run.error_code ?? "알 수 없음")] };
+    case "failed": return { kind: "failed", title: "실패", reasons: [holdReasonText(provider ?? run.error_code ?? "알 수 없음")] };
     default: return { kind: "pending", title: run.status === "queued" ? "대기 중" : "분석 중", reasons: [] };
   }
 }

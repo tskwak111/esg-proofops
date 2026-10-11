@@ -719,6 +719,27 @@ def check_local_upstage_tagger(
             + ACTOR_ROLE_SYSTEM_SUFFIX
             + PERIOD_ROLE_SYSTEM_SUFFIX
         )
+        or (
+            settings.model_profile == "upstage-preliminary-source-quotes-actor-role-v3-pb1"
+            and settings.system_prompt
+            == PRELIMINARY_SYSTEM_PROMPT
+            + CONTEXT_SYSTEM_SUFFIX
+            + TABLE_SYSTEM_SUFFIX
+            + TABLE_ROLE_SYSTEM_SUFFIX
+            + GOAL_ROLE_SYSTEM_SUFFIX
+            + ACTOR_ROLE_SYSTEM_SUFFIX
+            + PERIOD_ROLE_SYSTEM_SUFFIX
+            + __import__(
+                "proofops.application.tagging.pb1_classification", fromlist=["SYSTEM_SUFFIX"]
+            ).SYSTEM_SUFFIX
+        )
+        or (
+            settings.model_profile == "upstage-preliminary-source-quotes-pb1-compact-v1"
+            and settings.system_prompt
+            == __import__(
+                "proofops.application.tagging.pb1_classification", fromlist=["COMPACT_PROMPT"]
+            ).COMPACT_PROMPT
+        )
         or relation_settings_contract_valid(settings)
     )
     pinned = (

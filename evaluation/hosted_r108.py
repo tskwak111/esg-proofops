@@ -69,7 +69,7 @@ def prepare_argv(pdf, state, tenant, config, options=None):
         "--vision-parse",
         "off",
         "--max-calls",
-        "20",
+        str(profiles["extract_batch_calls"]),
         "--extraction-total-calls",
         "2000",
         "--tagging-max-calls",
@@ -215,6 +215,15 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
         ),
     }
     os.environ["LOCAL_LLM_MAX_WORKERS"] = str(profiles["llm_max_workers"])
+    from proofops.application.analysis_profile import policy_for
+
+    execution = (
+        policy_for(profiles["analysis_profile"], pinned_hash=options.get("analysis_profile_sha256"))
+        if profiles["analysis_profile"] in FINALS_PROFILES
+        else {}
+    )
+    cache = execution.get("verified_read_cache", {})
+    os.environ["PROOFOPS_VERIFIED_READ_CACHE"] = cache.get("profile", "disabled")
     if profiles["analysis_profile"] in FINALS_PROFILES:
         os.environ["PROOFOPS_DISPLAY_PREFETCH_WORKERS"] = "4"
     observed = []
@@ -229,6 +238,18 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
             store.update_progress(
                 job, "tag", 75, claims_extracted=total, claims_processed=len(processed_claims)
             )
+
+    if execution.get("model_response_policy"):
+        # Document payload ownership makes authorized purge remove cached model
+        # content and its immutable origin receipts together. Never share tenants.
+        def scoped_llm(key, ledger, **kw):
+            probe = llm_probe(luna_key, ledger, store=store, job=job, post=llm_post, **kw)
+            probe.response_cache_path = (
+                store.document_dir(job["tenant_id"], job["document_id"]) / "model-responses.sqlite3"
+            )
+            return probe
+
+        factories["llm"] = scoped_llm
 
     with scope:
         for stage, progress in (("parse", 15), ("extract", 45), ("tag", 75)):

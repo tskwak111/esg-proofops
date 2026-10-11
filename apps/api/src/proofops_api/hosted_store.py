@@ -29,6 +29,7 @@ from typing import Any
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
 
+from proofops.adapters.local.provider_errors import MESSAGES, provider_error_code
 from proofops.application.authorization import MembershipRecord, SessionExpiredError, SessionRecord
 from proofops.application.uploads_security import (
     PdfLimits,
@@ -47,6 +48,17 @@ PROVIDER_LIMIT_CODES = {
 }
 ALL_PROVIDER_LIMIT_CODES = OPENROUTER_LIMIT_CODES | OPENAI_LIMIT_CODES
 PROVIDER_LIMIT_MESSAGE = "분석 서비스 한도 초과 — 운영자 확인 필요"
+CONTROL_MESSAGES = {
+    "MAINTENANCE": "서버 점검 중입니다. 진행 중 분석은 계속 처리하며 새 분석은 점검 후 접수합니다.",
+    "LEASE_EXPIRED": (
+        "서버 재시작 또는 작업 응답 중단으로 분석이 중단되었습니다. "
+        "전송 기록이 있어 비용 정산 확인 전까지 보류하며 자동 재실행하지 않습니다."
+    ),
+    "LEASE_EXPIRED_NO_DISPATCH": (
+        "서버 재시작 또는 작업 응답 중단으로 분석이 중단되었습니다. "
+        "모델 전송이 없어 비용 예약이 해제되었습니다. 다시 접수할 수 있습니다."
+    ),
+}
 
 
 class HostedError(ValueError):
@@ -120,6 +132,9 @@ class HostedSettings:
     day_usd: Decimal = Decimal("7")
     event_usd: Decimal = Decimal("7")
     user_daily_runs: int = 6
+    max_active_runs: int = 1
+    user_active_runs: int = 1
+    daily_runs: int = 10
 
     def __post_init__(self) -> None:
         from urllib.parse import urlsplit
@@ -142,6 +157,8 @@ class HostedSettings:
             )
         if self.backend not in {"r108", "legacy", "static"}:
             raise ValueError("invalid analysis backend")
+        if type(self.max_active_runs) is not int or self.max_active_runs not in (1, 2):
+            raise ValueError("HOSTED_RUN_CONCURRENCY_INVALID")
         if not self.live_disabled:
             from proofops_api.hosted_analysis import read_operator_config
 
@@ -154,6 +171,8 @@ class HostedSettings:
             self.backup_days,
             self.audit_days,
             self.user_daily_runs,
+            self.user_active_runs,
+            self.daily_runs,
         ):
             if type(value) is not int or value <= 0:
                 raise ValueError("positive limits required")
@@ -199,6 +218,9 @@ class HostedSettings:
             day_usd=Decimal(env.get("HOSTED_DAY_USD", "7")),
             event_usd=Decimal(env.get("HOSTED_EVENT_USD", "7")),
             user_daily_runs=int(env.get("HOSTED_USER_DAILY_RUNS", "6")),
+            max_active_runs=int(env.get("HOSTED_MAX_ACTIVE_RUNS", "1")),
+            user_active_runs=int(env.get("HOSTED_USER_ACTIVE_RUNS", "1")),
+            daily_runs=int(env.get("HOSTED_DAILY_RUNS", "10")),
         )
 
 
@@ -299,6 +321,10 @@ class HostedStore:
             if versions and [row[0] for row in versions] != [1]:
                 raise ValueError("unsupported hosted schema")
             db.execute("INSERT OR IGNORE INTO hosted_schema VALUES (1)")
+            db.execute("""CREATE TABLE IF NOT EXISTS admission_control (
+                id INTEGER PRIMARY KEY CHECK(id=1),
+                draining INTEGER NOT NULL CHECK(draining IN (0,1)), updated REAL NOT NULL)""")
+            db.execute("INSERT OR IGNORE INTO admission_control VALUES (1,0,0)")
             db.execute("""CREATE TABLE IF NOT EXISTS sessions (
                 sid_hash TEXT PRIMARY KEY, user_id TEXT, tenant_id TEXT, csrf_hash TEXT,
                 expires REAL, idle REAL, revoked INTEGER)""")
@@ -341,6 +367,15 @@ class HostedStore:
             db.execute("""CREATE TABLE IF NOT EXISTS deletion.spend (
                 run_id TEXT PRIMARY KEY, user_hash TEXT, day TEXT, event_id TEXT,
                 amount INTEGER, created REAL, status TEXT)""")
+            db.execute("""CREATE TABLE IF NOT EXISTS deletion.source_retention (
+                tenant_id TEXT NOT NULL, run_id TEXT NOT NULL, document_id TEXT NOT NULL,
+                expires REAL NOT NULL, created REAL NOT NULL,
+                PRIMARY KEY(tenant_id,run_id))""")
+            db.execute(
+                "INSERT OR IGNORE INTO deletion.source_retention "
+                "SELECT r.tenant_id,r.run_id,r.document_id,d.expires,r.created "
+                "FROM runs r JOIN documents d USING(tenant_id,document_id)"
+            )
             db.execute("""CREATE TABLE IF NOT EXISTS deletion.event_totals (
                 event_id TEXT PRIMARY KEY, amount INTEGER NOT NULL)""")
             db.execute("""CREATE TABLE IF NOT EXISTS rate_limits (
@@ -663,6 +698,14 @@ class HostedStore:
             and row["status"] in {"completed", "partial_blocked"}
         )
         result = self._result(db, row) if ready and inline_result else None
+        raw_error = row["error_code"] or ""
+        provider = "openai" if raw_error.startswith("OPENAI_") else "openrouter"
+        cause = provider_error_code(provider, raw_error)
+        user_counts = db.execute(
+            "SELECT count(*),coalesce(sum(status='running'),0) FROM runs WHERE user_hash=? "
+            "AND status IN ('queued','running','accounting_pending')",
+            (row["user_hash"],),
+        ).fetchone()
         return {
             "run_id": row["run_id"],
             "document_id": row["document_id"],
@@ -677,12 +720,16 @@ class HostedStore:
             "claims_extracted": counts["extracted"] if counts else 0,
             "claims_processed": counts["processed"] if counts else 0,
             "queue_position": queue if row["status"] == "queued" else None,
+            "user_active_count": user_counts[0],
+            "user_processing_count": user_counts[1],
             "result_url": f'/v1/runs/{row["run_id"]}/result' if ready else None,
             "result": result,
             "error_code": row["error_code"],
-            "error_message": PROVIDER_LIMIT_MESSAGE
-            if row["error_code"] in ALL_PROVIDER_LIMIT_CODES
-            else None,
+            "error_message": CONTROL_MESSAGES.get(raw_error)
+            or MESSAGES.get(raw_error)
+            or (PROVIDER_LIMIT_MESSAGE if row["error_code"] in ALL_PROVIDER_LIMIT_CODES else None),
+            "provider_error_code": cause,
+            "provider_error_message": MESSAGES.get(cause),
             "retryable": False,
             "prepared_sha256": row["prepared_sha256"],
         }
@@ -1013,19 +1060,20 @@ class HostedStore:
             replay = self._replay(db, auth, "run", key, body_hash)
             if replay:
                 return self._project_run(self._run(db, auth.tenant_id, replay), db)
+            if self._maintenance(db):
+                raise HostedError("MAINTENANCE", 503)
             if not (self.document_dir(auth.tenant_id, document) / "original.pdf").is_file():
                 raise HostedError("SOURCE_UNAVAILABLE")
             user = self.user_hash(auth.user_sub)
-            if db.execute(
-                "SELECT 1 FROM runs WHERE user_hash=? AND status IN "
-                "('queued','running','accounting_pending')",
-                (user,),
-            ).fetchone():
-                raise HostedError("USER_RUN_LIMIT", 429)
+            # Per-user slot pressure queues work; admission still reserves the
+            # complete envelope and checks the global queue, count and USD caps.
             if db.execute("SELECT count(*) FROM runs WHERE status='queued'").fetchone()[0] >= 8:
                 raise HostedError("QUEUE_FULL", 429)
             today = day(now)
-            for subject, maximum in ((user, self.settings.user_daily_runs), (None, 10)):
+            for subject, maximum in (
+                (user, self.settings.user_daily_runs),
+                (None, self.settings.daily_runs),
+            ):
                 query = "SELECT count(*) FROM deletion.spend WHERE day=?"
                 params: tuple = (today,)
                 if subject is not None:
@@ -1075,48 +1123,95 @@ class HostedStore:
                 "INSERT INTO deletion.spend VALUES (?,?,?,?,?,?,'reserved')",
                 (run, user, today, self.settings.event_id, bound, now),
             )
+            db.execute(
+                "INSERT INTO deletion.source_retention VALUES (?,?,?,?,?)",
+                (auth.tenant_id, run, document, doc["expires"], now),
+            )
             self._remember(db, auth, "run", key, body_hash, run, document, now)
             return self._project_run(self._run(db, auth.tenant_id, run), db)
 
+    @staticmethod
+    def _maintenance(db: sqlite3.Connection) -> bool:
+        return bool(db.execute("SELECT draining FROM admission_control WHERE id=1").fetchone()[0])
+
+    def _control_state(self, db: sqlite3.Connection) -> dict:
+        maintenance = self._maintenance(db)
+        counts = db.execute(
+            "SELECT coalesce(sum(status='running'),0),coalesce(sum(status='queued'),0) FROM runs"
+        ).fetchone()
+        return dict(
+            maintenance=maintenance,
+            message=CONTROL_MESSAGES["MAINTENANCE"] if maintenance else None,
+            running=counts[0],
+            queued=counts[1],
+        )
+
+    def drain(self, *, now: float) -> dict:
+        with self.transaction() as db:
+            db.execute("UPDATE admission_control SET draining=1,updated=? WHERE id=1", (now,))
+            return self._control_state(db)
+
+    def resume(self, *, now: float) -> dict:
+        with self.transaction() as db:
+            db.execute("UPDATE admission_control SET draining=0,updated=? WHERE id=1", (now,))
+            return self._control_state(db)
+
+    def control_state(self, *, now: float) -> dict:
+        with self.transaction() as db:
+            self._expire_running(db, now)
+            return self._control_state(db)
+
+    def _expire_running(self, db: sqlite3.Connection, now: float) -> None:
+        expired = db.execute(
+            "SELECT run_id FROM runs WHERE (status='running' AND lease_until<=?) "
+            "OR (status='accounting_pending' AND error_code='LEASE_EXPIRED')",
+            (now,),
+        ).fetchall()
+        for row in expired:
+            # Broker inserts a cost reservation before transport. No rows in
+            # the surviving independent ledger proves no provider was sent.
+            no_dispatch = db.execute(
+                "SELECT 1 FROM deletion.spend WHERE run_id=? AND NOT EXISTS "
+                "(SELECT 1 FROM deletion.costs WHERE run_id=?)",
+                (row[0], row[0]),
+            ).fetchone()
+            if no_dispatch:
+                db.execute(
+                    "UPDATE runs SET status='failed',fence=fence+1,lease_until=0,"
+                    "error_code='LEASE_EXPIRED_NO_DISPATCH' WHERE run_id=?",
+                    (row[0],),
+                )
+                self._settle_envelope(db, row[0])
+                continue
+            db.execute(
+                "UPDATE runs SET "
+                "status='accounting_pending',fence=fence+1,error_code='LEASE_EXPIRED' WHERE "
+                "run_id=?",
+                (row[0],),
+            )
+            db.execute(
+                "UPDATE deletion.spend SET status='accounting_pending' WHERE run_id=?",
+                (row[0],),
+            )
+
     def claim(self, *, now: float) -> dict | None:
         with self.transaction() as db:
-            expired = db.execute(
-                "SELECT run_id FROM runs WHERE (status='running' AND lease_until<=?) "
-                "OR (status='accounting_pending' AND error_code='LEASE_EXPIRED')",
-                (now,),
-            ).fetchall()
-            for row in expired:
-                # Broker inserts a cost reservation before transport. No rows in
-                # the surviving independent ledger proves no provider was sent.
-                no_dispatch = db.execute(
-                    "SELECT 1 FROM deletion.spend WHERE run_id=? AND NOT EXISTS "
-                    "(SELECT 1 FROM deletion.costs WHERE run_id=?)",
-                    (row[0], row[0]),
-                ).fetchone()
-                if no_dispatch:
-                    db.execute(
-                        "UPDATE runs SET status='failed',fence=fence+1,lease_until=0,"
-                        "error_code='LEASE_EXPIRED_NO_DISPATCH' WHERE run_id=?",
-                        (row[0],),
-                    )
-                    self._settle_envelope(db, row[0])
-                    continue
-                db.execute(
-                    "UPDATE runs SET "
-                    "status='accounting_pending',fence=fence+1,error_code='LEASE_EXPIRED' WHERE "
-                    "run_id=?",
-                    (row[0],),
-                )
-                db.execute(
-                    "UPDATE deletion.spend SET status='accounting_pending' WHERE run_id=?",
-                    (row[0],),
-                )
+            self._expire_running(db, now)
+            if self._maintenance(db):
+                return None
             # Only an active fenced worker occupies the slot. Pending accounting
             # remains charged to its envelope/day/event; it cannot dispatch again.
-            if db.execute("SELECT 1 FROM runs WHERE status='running'").fetchone():
+            if db.execute("SELECT count(*) FROM runs WHERE status='running'").fetchone()[0] >= (
+                self.settings.max_active_runs
+            ):
                 return None
             row = db.execute(
-                "SELECT * FROM runs WHERE status='queued' ORDER BY created,run_id LIMIT 1"
+                "SELECT q.* FROM runs q WHERE q.status='queued' AND NOT EXISTS "
+                "(SELECT 1 FROM runs r WHERE r.status='running' AND "
+                "r.tenant_id=q.tenant_id AND r.document_id=q.document_id) "
+                "AND (SELECT count(*) FROM runs u WHERE u.user_hash=q.user_hash "
+                "AND u.status='running')<? ORDER BY q.created,q.run_id LIMIT 1",
+                (self.settings.user_active_runs,),
             ).fetchone()
             if row is None:
                 return None
@@ -1253,6 +1348,17 @@ class HostedStore:
             # operator reconciliation. Never release reservations or redeliver it.
             limit_code = str(exc)
             quota_blocked = limit_code in PROVIDER_LIMIT_CODES.get(provider, ())
+            cause = provider_error_code(provider, limit_code)
+            if cause:
+                logging.getLogger(__name__).warning(
+                    "hosted provider failure run=%s provider=%s cause=%s raw=%s",
+                    job["run_id"],
+                    provider,
+                    cause,
+                    limit_code
+                    if limit_code.startswith(("UPSTAGE_", "OPENAI_", "OPENROUTER_"))
+                    else cause,
+                )
             # An uncertain model transport is a per-claim hold, not a lost run fence.
             # Unknown receipts and non-model failures retain the existing terminal guard.
             model_network_failure = provider in {"openai", "openrouter"} and isinstance(
@@ -1272,7 +1378,7 @@ class HostedStore:
                         "WHERE run_id=? AND status='running' AND fence=?",
                         (
                             "failed" if quota_blocked else "accounting_pending",
-                            limit_code if quota_blocked else "ACCOUNTING_PENDING",
+                            limit_code if quota_blocked else cause or "ACCOUNTING_PENDING",
                             job["run_id"],
                             job["fence"],
                         ),
@@ -1355,13 +1461,12 @@ class HostedStore:
                 if prepared is not None
                 else "PREPARE_FAILED"
             )
-            logging.getLogger(__name__).warning(
-                "hosted run %s failed: %s (%s)", job["run_id"], code, type(exc).__name__
-            )
             with self.transaction() as db:
                 row = db.execute(
-                    "SELECT status,fence FROM runs WHERE run_id=?", (job["run_id"],)
+                    "SELECT status,fence,error_code FROM runs WHERE run_id=?", (job["run_id"],)
                 ).fetchone()
+                if row and (row[2] in MESSAGES or row[2] in ALL_PROVIDER_LIMIT_CODES):
+                    code = row[2]
                 if row and row[0] == "running" and row[1] == job["fence"]:
                     db.execute(
                         "UPDATE runs SET status='failed',error_code=?,lease_until=0 WHERE "
@@ -1369,6 +1474,9 @@ class HostedStore:
                         (code, job["run_id"]),
                     )
                     self._settle_envelope(db, job["run_id"])
+            logging.getLogger(__name__).warning(
+                "hosted run %s failed: %s (%s)", job["run_id"], code, type(exc).__name__
+            )
         try:
             return self.get_run(job["tenant_id"], job["run_id"])
         except HostedError as exc:
@@ -1642,6 +1750,7 @@ class HostedStore:
 
     def maintain(self, *, now: float) -> None:
         with self.transaction() as db:
+            self._expire_running(db, now)
             expired = db.execute(
                 "SELECT tenant_id,document_id FROM documents WHERE expires<=?", (now,)
             ).fetchall()
@@ -1661,6 +1770,7 @@ class HostedStore:
             db.execute("DELETE FROM invitations WHERE expires<=? OR used=1", (now,))
             db.execute("DELETE FROM rate_limits WHERE bucket<?", (int(now // 60) - 2,))
             cutoff = now - self.settings.audit_days * 86400
+            db.execute("DELETE FROM deletion.source_retention WHERE created<?", (cutoff,))
             # Remove per-run audit after30d, retaining only a subject-free event aggregate.
             # Unreconciled money cannot be discarded to free budget.
             old = db.execute(

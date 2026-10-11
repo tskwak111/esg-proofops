@@ -7,10 +7,53 @@ import fcntl
 import json
 import os
 import time
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from contextlib import ExitStack
 from pathlib import Path
 
 from proofops_api.hosted_store import HostedError, HostedSettings, HostedStore, digest, micros, usd
+
+
+def wait_idle(store, *, timeout, clock=time.monotonic, sleep=time.sleep):
+    """Observe the durable queue without consuming or cancelling any job."""
+    if timeout < 0:
+        raise ValueError("timeout must be nonnegative")
+    deadline = clock() + timeout
+    while True:
+        state = store.control_state(now=time.time())
+        if state["running"] == 0:
+            return state | {"status": "idle"}
+        remaining = deadline - clock()
+        if remaining <= 0:
+            return state | {"status": "timeout"}
+        sleep(min(1, remaining))
+
+
+def worker_loop(store, *, once=False):
+    """Each slot launches an isolated analysis subprocess; DB claims remain atomic."""
+    with ThreadPoolExecutor(max_workers=store.settings.max_active_runs) as pool:
+        store.maintain(now=time.time())
+        if once:
+            futures = [
+                pool.submit(store.tick, now=time.time())
+                for _ in range(store.settings.max_active_runs)
+            ]
+            return [future.result() for future in futures]
+        active = set()
+        last_maintenance = time.monotonic()
+        while True:
+            if time.monotonic() - last_maintenance >= 60:
+                store.maintain(now=time.time())
+                last_maintenance = time.monotonic()
+            while len(active) < store.settings.max_active_runs:
+                active.add(pool.submit(store.tick, now=time.time()))
+            completed, active = wait(active, timeout=1, return_when=FIRST_COMPLETED)
+            idle = bool(completed)
+            for future in completed:
+                if future.result() is not None:
+                    idle = False
+            if idle:
+                time.sleep(1)
 
 
 def reconcile(store, receipt, evidence: Path, *, apply=False):
@@ -99,6 +142,10 @@ def main() -> None:
     worker = sub.add_parser("worker")
     worker.add_argument("--once", action="store_true")
     sub.add_parser("maintain")
+    sub.add_parser("drain")
+    sub.add_parser("resume")
+    idle = sub.add_parser("wait-idle")
+    idle.add_argument("--timeout", type=int, required=True)
     settlement = sub.add_parser("reconcile")
     settlement.add_argument("--receipt", type=Path, required=True)
     settlement.add_argument("--evidence", type=Path, required=True)
@@ -107,11 +154,20 @@ def main() -> None:
         item = sub.add_parser(command)
         item.add_argument("--path", type=Path, required=True)
     args = parser.parse_args()
+    if args.command == "wait-idle" and args.timeout < 0:
+        parser.error("--timeout must be nonnegative")
     store = HostedStore(HostedSettings.from_env(os.environ))
     if args.command == "invite":
         print(store.invite(args.tenant, args.user, args.role, now=time.time()))
     elif args.command == "maintain":
         store.maintain(now=time.time())
+    elif args.command in {"drain", "resume"}:
+        print(json.dumps(getattr(store, args.command)(now=time.time())))
+    elif args.command == "wait-idle":
+        state = wait_idle(store, timeout=args.timeout)
+        print(json.dumps(state))
+        if state["status"] == "timeout":
+            raise SystemExit(3)
     elif args.command == "reconcile":
         print(
             json.dumps(
@@ -125,12 +181,7 @@ def main() -> None:
     elif args.command == "restore":
         store.restore(args.path, now=time.time())
     elif args.command == "worker":
-        while True:
-            store.maintain(now=time.time())
-            store.tick(now=time.time())
-            if args.once:
-                break
-            time.sleep(1)
+        worker_loop(store, once=args.once)
 
 
 if __name__ == "__main__":

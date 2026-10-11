@@ -350,6 +350,19 @@ def tag_replicates(
     }
     if "display_text" in data:
         user_data["display_text"] = data["display_text"]
+    if "citation_restore_policy" in data:
+        from proofops.application.tagging.citation_restore import POLICY
+        from proofops.application.tagging.pb2_citation_restore import POLICY as TABLE_POLICY
+
+        if data["citation_restore_policy"] not in (POLICY, TABLE_POLICY):
+            raise DomainValidationError("CITATION_RESTORE_POLICY_UNKNOWN")
+        user_data["citation_restore_policy"] = data["citation_restore_policy"]
+    if "table_observation_evidence" in data:
+        from proofops.application.tagging.pb2_table_evidence import validated_observation
+
+        user_data["table_observation_evidence"] = validated_observation(
+            data, claim, original, tenant_id=tenant_id
+        )
     # Only typed coverage identifiers reach the model, never arbitrary metadata.
     user_data["search_coverage"] = {"not_found_state": "unknown"}
     graph_ids = {block.source_id for block in original.blocks}
@@ -594,6 +607,21 @@ def tag_replicates(
             if raw_tags.superlative_quote and raw_tags.superlative_quote not in claim.quote:
                 errors.append("SUPERLATIVE_SOURCE_INVALID")
             for element in raw_tags.elements:
+                table_selected = False
+                if (
+                    data.get("table_evidence_policy", {}).get("profile")
+                    == "table-selected-evidence-pb2-v1"
+                ):
+                    from proofops.application.tagging.pb2_table_evidence import (
+                        POLICY,
+                        prepare_element,
+                    )
+
+                    if data["table_evidence_policy"] != POLICY:
+                        raise DomainValidationError("table evidence policy mismatch")
+                    element, table_selected = prepare_element(
+                        element, claim, original, tenant_id=tenant_id
+                    )
                 state = element.state
                 scope_reason = scope_rejection_reason(
                     element.element_id,
@@ -624,9 +652,9 @@ def tag_replicates(
                             state = "unknown"
                             break
                         verified = verify_source_ref(source, original, tenant_id=tenant_id)
-                        if (
-                            verified.verification_state != "verified"
-                            or accept_binding(
+                        if verified.verification_state != "verified" or (
+                            not table_selected
+                            and accept_binding(
                                 context,
                                 verified,
                                 relation_tags_for(verified, relation_tags),

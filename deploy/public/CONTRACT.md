@@ -1,5 +1,67 @@
 # P1 hosted control plane v1
 
+## PA7 extract reuse amendment (2026-10-11; local only)
+Future `finals-unattended-v2` snapshots pin `exact-verified-read-v4`. The prior
+PB4+PA3 policy is retained verbatim as `V2_PRE_PA7_POLICY`; all earlier pins and
+v9/v8/v6 verifier files remain unchanged. No API/DB migration or dependency.
+V4 extends whole fresh attestation reuse to the byte-pinned v9 reader. It matches
+tenant/run, source bytes, complete graph, ordered refs, whole receipt, current
+reader policy, runtime/read profile and execution policy. The replay tail retains
+v9's explicit failed-row downgrade and independently attested cell spans; a
+whole-table flag cannot approve a failed row. Missing/mismatched/unavailable
+entries use the original reader. Receipt and checkpoint bytes are unchanged.
+V4 also reuses completed raw CPU OCR reads from the exact same original PDF,
+physical page, page dimensions, crop box/padding, pinned renderer/Tesseract
+runtime, source-policy and tenant/run scope. This is raw text/pixel-identity data,
+never source approval: the unchanged glyph, quantity, visibility, row and cell
+guards still execute for each ref. Cache inputs/outputs are mutation-isolated;
+unavailable/failed OCR reads are not cached. Storage is process-local compressed
+JSON, at most256 entries/8MiB including1KiB entry overhead, no disk cache.
+The existing whole-attestation/result cache keeps its shared4-entry/32MiB bound.
+A per-instance function binding supplies this raw reader; no frozen module global
+or verifier file is mutated. Deletion clears the new raw-read cache too. Model
+concurrency/batch windows, reserve/dispatch/fsync/settlement, ownership/cancel/
+fencing/heartbeat and immutable revisions remain unchanged.
+Rollback: stop pinning V4 on future runs; keep support for already accepted V4
+snapshots, original source verifiers, ledger and tombstones. Existing V3 or older
+snapshots select their old policy and do not enter the new scoped raw-reader path.
+No original result is rewritten and no offline fixture is published as a new live
+analysis. CPU2/4GiB and CPU8/4GiB offline Linux arm64 replays use stored provider
+responses with network=none; they are not measurements on an actual t4g CPU.
+This amendment authorizes no push, deployment, cloud change or paid model call.
+
+## PA6 additive read contract (2026-10-11)
+Authenticated collection GETs use the existing viewer membership and active-tenant
+visibility of individual GETs (shared tenant workspace, not a personal-only list).
+No tenant query can grant access. Documents use generated `보고서 N` names and
+stored upload times; original filenames remain uncollected. Cursor pages default20,
+maximum100, ordered newest `(created,id)` first, signed and bound to tenant/user,
+collection and document filter. Expired/deleted entries are omitted.
+Source manifest/PNG GETs bind the hosted run, document, retained original hash,
+prepared hash, local immutable run snapshot and hash-pinned parse manifest. Ref
+pages index the prepared PDF; `page_map` resolves original physical pages. Existing
+canonical boxes already apply rotation/CropBox and are top-left PDF points; never
+rotate them twice. Only located verified stored refs receive normalized highlights.
+Candidate/rejected/unreadable/invalid boxes remain unhighlighted (`원문 미검증`).
+Render at fixed144DPI, reject >2000px per axis or4M pixels, isolate for15s/512MiB,
+cap PNG at16MiB and process-local LRU at32MiB. One cross-process render slot per
+volume returns429 when busy. Every cache hit rechecks authorization, retention,
+result and source integrity; browser responses are private/no-store.
+Migration: schema1 gains only `deletion.source_retention` containing tenant/run/doc
+IDs and creation/expiry times, backfilled from surviving runs and written on new
+run admission. It preserves same-tenant410 after expiry/purge for at most the
+existing30-day audit lifetime; never retains PDF/text/filename/user identity.
+Existing result revisions are read unchanged; no backfill of source evidence.
+New publications verify candidate claim refs against the already replayed source
+graph using the existing exact citation/span verifier, without changing tags,
+decisions or worker policies. A legacy candidate ref remains unhighlighted even
+when its whole-claim `source_quality` says verified.
+Compatibility/rollback: old GET/POST DTOs and worker policies remain unchanged;
+older schema1 images ignore this additive ledger table. Remove the new routes to
+roll back; retain the ledger, tombstones and reservations. Already purged pre-PA6
+runs with no retained identity return404. No push/deployment is part of PA6.
+Detailed API, errors and frontend connection contract: `docs/hosted-read-api.md`.
+
 Baseline 12ed952; task deploy-P1, DESIGN §§4–8 and A-08 hosting override: one
 Lightsail Linux VM, one API and one durable worker, active=1, queued=8.
 No push, cloud changes, provider keys or paid requests are authorized here.
@@ -467,3 +529,218 @@ new authorized bounded run instead. No API/DB column migration or dependency is
 required. Roll back new reader assignment to v4 while retaining v5 replay code
 and the corrected retry reservation; reverting that reservation restores RB3's
 known overrun defect. Paid pipeline and hosted deployment remain not_run.
+
+## PA1 amendment — bounded worker concurrency and provider causes (2026-10-11)
+
+`HOSTED_MAX_ACTIVE_RUNS` admits only 1 (default) or 2. The existing single worker
+CLI drives that many isolated analysis subprocesses; claims use the same atomic
+writer transaction. Two runs of one tenant/document cannot hold active slots
+together. Document locks, renewable fenced leases, user outstanding limits and
+USD1.0/run, USD7/day/event reservations and settlement remain mandatory.
+With two slots, each analysis/parser/OCR process tree is sampled every two seconds
+and stopped above 1100 MiB RSS (`ANALYSIS_MEMORY_LIMIT`). Timeout, lease failure and
+exit reap its private process group so inherited document locks do not survive.
+The existing 2560 MiB worker cgroup remains the aggregate hard ceiling. Sampling
+is a guard, not a proof of Linux peak memory; a target-host canary is required
+before the coordinator enables two slots. No deployment is performed by PA1.
+
+New v2 snapshots pin `exact-verified-read-v1`: successful cold recomputation may
+be reused only for identical tenant, source bytes, graph, discovery, receipt,
+reader policy, runtime/toolchain and read profile. Concurrent identical cold
+reads coalesce. Process-only serialized results are bounded to four entries /
+32 MiB; failed or unavailable reads are not retained. No provider responses,
+replicas, admissions, unknown states, grade rules or published revisions change.
+The pre-PA1 HF1 profile hash remains an accepted historical policy. Older snapshots
+keep caching disabled; original OCR/verifier files and receipt policies are intact.
+
+Provider failures retain uncertain costs and envelopes as accounting_pending.
+Upstage 403 with bounded JSON code api_key_is_not_allowed records
+PROVIDER_CREDIT_EXHAUSTED; 401, other403, 429 and 5xx record PROVIDER_AUTH_FAILED,
+PROVIDER_ACCESS_DENIED, PROVIDER_RATE_LIMITED and PROVIDER_UNAVAILABLE. Raw bodies
+and keys are never exposed. Existing OpenAI/OpenRouter limit codes stay stored
+unchanged; compatible optional provider_error_code/provider_error_message fields
+give the specific cause. Accounting-pending runs stop polling and show the cause;
+a later LEASE_LOST cannot overwrite it. The parent logs the retained cause once.
+
+No SQLite column migration or new application dependency is required. Rollback:
+stop new acceptance, drain/stop both slots, set HOSTED_MAX_ACTIVE_RUNS=1 and stop
+assigning new PA1 profiles. Retain the new policy reader for saved PA1 snapshots;
+an eae1599 reader rejects their new hash. Preserve all costs, receipts and revisions.
+
+## PA2 amendment — extraction execution and checkpoint settings (2026-10-11)
+
+New v2 analysis policies pin `exact-verified-read-v2`. A whole v6 claim attestation
+just produced by the trusted source reader may satisfy immediate replay only when
+its canonical bytes, ordered refs, run, tenant, source bytes, graph, current reader
+policy, runtime/toolchain and read profile match. The projection uses the existing
+byte-pinned replay tail. Fresh receipts share PA1's four-entry / 32-MiB process-only
+bound with replay results; transient/unavailable reads retry normally. Historical
+PA1 and earlier policy hashes remain readable with their original execution path.
+
+Under this new policy, the first prepared page's LLM calls overlap preparation of
+the remaining pages in the existing isolated CPU pool. Discovery consumes source
+order; tagging still waits for the complete source-attested extract snapshot.
+The pre-call owner/cancellation/fencing check and lease renewal use one existing
+heartbeat transaction. Reservations, response fsync and settlement remain atomic
+per provider attempt; 429 handling and uncertain-cost stops are unchanged.
+
+Operator JSON may set `llm_max_workers` (1–16, default 8) and `extract_batch_calls`
+(1–256, default 20). A larger batch groups checkpoint publications, not money
+reservations. The existing `extraction_limits.max_calls` contract freezes that
+window when preparing a NEW run; resuming a stored run cannot enlarge its limit.
+No public request field, DB migration or dependency is added. Rollback: prepare
+future runs with the PA1 builder/defaults while retaining PA2 readers for existing
+PA2 snapshots; the PA1 binary rejects their new policy hash. No deployment or
+server setting change is performed by PA2.
+
+## PA3 amendment — whole parse proofs and tagging fences (2026-10-11)
+
+New v2 analysis snapshots pin `exact-verified-read-v3`; the previous PA2 hash
+remains an accepted frozen policy with its original execution path. V3 extends
+the same four-entry / 32-MiB process-only bound to whole native-v6 and EV1 OCR
+attestations produced by the trusted parser. Reuse requires identical canonical
+receipt bytes, tenant/run provenance, original PDF, complete graph, current
+reader/runtime/toolchain and read profile. Unavailable/error reads retry normally.
+Source verifier files, source receipt schemas and stored snapshots stay intact.
+
+Cold EV1 OCR replay performs one complete source attestation and compares every
+receipt field before projecting the byte-pinned original replay tail. It retains
+the BASE receipt's span identity, table membership and unresolved binding state.
+Transient reads and unknown reader builds retain the original replay path.
+
+V3 combines the tagging call's owner/cancellation/fencing check and lease renewal
+in the existing atomic heartbeat transaction. Provider reservations, dispatch
+markers, response fsync and per-attempt settlement remain separate and mandatory.
+Each tagging ensemble still has three distinct replica IDs and responses; packet
+freezing, consensus, citation restoration and pure Python grades are unchanged.
+
+No public API field, DB migration, dependency or server configuration is added.
+Rollback stops assigning V3 to future preparations while retaining its reader for
+saved V3 snapshots; a PA2 binary rejects the new hash. PA3's two-slot experiment is
+offline: actual admission, locks, leases and 1100-MiB per-process-tree guard apply,
+but imported original-provenance fixtures are never published as new analyses.
+Container memory is requested as 16 GiB; actual VM memory and sampled RSS must be
+reported separately. No deployment or real provider call is performed by PA3.
+
+## PI1 amendment — multiple reports from one invitation (2026-10-11)
+
+One redeemed invitation/session may upload and enqueue multiple documents.
+`HOSTED_USER_ACTIVE_RUNS` is a positive integer (default 1; finals setting 5).
+It limits a user's running slots across tenants, within `HOSTED_MAX_ACTIVE_RUNS`.
+Excess work stays queued, rather than returning USER_RUN_LIMIT. The active count
+includes queued, running and accounting_pending; pending accounting is retained
+but occupies no processing slot. Dispatch selects the oldest eligible queued run
+by created/run_id, preserving the same tenant/document exclusion and fenced lease.
+The eight-entry global queue is still a hard admission limit. Admission reserves
+the full run envelope even for work beyond the user's running-slot limit.
+
+`HOSTED_DAILY_RUNS` is a positive integer (default 10), replacing the global daily
+count literal. HOSTED_USER_DAILY_RUNS (default 6), USD1/run and USD7/day/event,
+provider reservation/settlement and archived spending remain independent gates.
+Idempotent retries replay before admission gates and never reserve twice.
+Runtime limits add user_active_runs/daily_runs; user_outstanding remains as a
+compatibility alias for the configured soft window. Run projections add
+user_active_count (including accounting_pending) and user_processing_count.
+No database schema migration, request change or dependency is required. Old run
+records and immutable results remain readable. The web keeps document-local
+scope, status, result and error state, and polls each accepted run independently.
+
+Rollback: close new acceptance, drain queued/running jobs, retain unresolved
+costs and all saved profiles/results, set HOSTED_USER_ACTIVE_RUNS=1 and
+HOSTED_DAILY_RUNS=10. These values restore processing/count defaults; queueing
+remains supported. A binary rollback to b523dd2 restores USER_RUN_LIMIT, so first
+drain multi-document work and use its matching frontend. Never reset accounting
+or budgets to unblock a user. PI1 performs no deployment or paid provider calls.
+
+### PA5: durable maintenance and restart gate
+
+Migration is additive: `admission_control` in control.sqlite3, singleton id=1,
+draining=0/1 and updated timestamp; initialization adds a missing row as normal admission. Schema v1,
+run/result rows, evidence policies and historic hashes remain unchanged. Old
+binaries can read the database but do not enforce this new control, so a binary
+rollback must keep admission closed and workers stopped until the matching
+maintenance-capable release is restored. Do not erase the flag or ledger.
+
+Operator-only `hosted_control.py drain` atomically stops NEW run acceptance and
+queued job claims. Existing queued rows/reservations remain unchanged; running
+workers retain their lease, dispatch and publication permissions. Idempotent
+retries of accepted runs remain readable. Runtime GET adds maintenance/message;
+new admissions receive 503 MAINTENANCE and Retry-After:60. Uploads and result
+reads retain their existing authorization and configuration gates.
+
+`wait-idle --timeout SECONDS` uses a monotonic deadline, succeeds only when
+running=0, and returns exit 3 on timeout with sanitized counts. `resume` clears
+only the durable drain flag, never overrides disabled acceptance in runtime.env.
+Both EC2 and Lightsail stage the same restart helper: acquire a deployment lock,
+drain the CURRENT API, wait idle before replacing config/restarting, then resume
+only after the replacement API is healthy and its readiness endpoint succeeds.
+Timeout/error leaves drain enabled.
+`--force-restart` permits ONLY timeout exit 3; SSH/DB/unsupported CLI errors never
+authorize restart. `--drain-timeout` defaults to 600 seconds. First installation
+creates the flag with a one-off new-image CLI before starting workers. Existing
+releases without drain commands fail closed: bootstrap requires an operator to
+close their old admission and stop/wait for workers before removing the old
+deployment; the script must not claim that an unsupported old release is safe.
+
+Lease expiry after interruption retains LEASE_EXPIRED/accounting_pending when
+any provider dispatch is recorded (full envelope retained; no redispatch).
+Provably no dispatch becomes failed/LEASE_EXPIRED_NO_DISPATCH and releases the
+envelope. Startup/maintenance/claim/idle inspection reap expired leases even
+while drained. API error_message and web text explain server restart or missing
+worker heartbeat as possible causes, never assert a restart from timeout alone.
+No automatic retries, result revision updates or provider reconciliation occur.
+## PA4 amendment — exact model responses (2026-10-11)
+
+New v2 snapshots add `exact-model-response-v1` to their analysis policy hash.
+The PA3 hash and older profiles retain their original wire and receipt paths.
+New OpenAI receipts bind `top_p=1`, `temperature=0`, `reasoning_effort=none`,
+the exact wire/schema hashes, tenant, original PDF, analysis policy, role and
+replica. The historical base wire/capacity contracts remain readable. `seed`
+is not added: its generic API entry is deprecated and does not establish a
+model-specific determinism guarantee. Sampling settings cannot promise stable
+fresh model outputs. Three replicas and all current source, consent, lease,
+cancellation, citation, consensus and pure Python grading gates still apply.
+
+A document-owned SQLite sidecar fences the first dispatch for an exact request.
+Successful schema-valid responses publish once; concurrent identical requests
+wait for that response. An uncertain dispatch keeps its pending fence without
+expiry. Known settled schema failures are excluded. Origin artifacts preserve
+the original provider receipt, wire/response hashes and raw response bytes via
+exclusive creation and fsync, surviving temporary worker cleanup. Reuse writes
+a NEW zero-cost receipt with zero new tokens/attempts and explicit origin links;
+the original charge and receipt remain unchanged. Usage exposes reuse counts
+and origins separately from provider dispatches. Old receipt fields remain
+compatible; no existing API/DB schema or dependency is changed. Sidecar files
+and origin artifacts live under the authorized document payload, so the
+existing tombstone/lock/purge lifecycle deletes them with that document.
+
+Exact reuse does not normalize identity fields. Re-upload or a new run can change
+document/parse/claim IDs and graph/packet hashes, causing a cache miss even for
+the same PDF. Cross-upload zero billing and whole-result determinism are not
+claimed; invalid responses and unresolved states cannot be promoted by reuse.
+`llm_max_workers` remains operator-controlled (1–16, default 8). Retained-response
+wait replay at 8/12/16 measures scheduling, not live API capacity or server speed.
+
+Rollback assigns the PA3 builder/policy to FUTURE runs while retaining the PA4
+reader for saved PA4 snapshots and their zero-cost receipts; the older binary
+rejects the new policy hash. Remove sidecars only through authorized document
+purge, not to retry uncertain dispatches or reset spend. PA4 performs local
+commits and capped local model experiments, with no push or deployment.
+
+## PA8 integration — PB4/v9/PA7 with exact responses (2026-10-11)
+
+New v2 preparations retain PB4 table ownership and PA7 verified/raster reads and
+add PA4 exact response reuse. `V2_PRE_PA8_POLICY` preserves the deployed
+`ec63057b3bd775240bf10bcd90afefd7881bb112e47e772799d50ff33b7cc11a`
+policy byte-for-byte; all historical policies, including standalone PA4, remain
+readable. PB claims keep full graph, source receipt and packet bytes in requests;
+the cache never substitutes source attestation, row/cell ownership or replicas.
+Hosted reuse rechecks the live run fence and retained source before touching the
+sidecar and again after a single-flight hit. Cancellation, deletion or expiration
+cannot emit a reuse receipt or recreate a deleted document payload.
+Operator `llm_max_workers` stays 1–16, default 8, without a server setting change.
+No public API, existing DB schema, dependency or budget change is required.
+Rollback prepares future runs using the pre-PA8 builder while retaining readers
+for PA8 snapshots and origin receipts; a pre-PA8 binary rejects the new hash.
+Do not remove pending fences or reset spend. PA8 uses retained responses with
+network disabled, makes no paid calls, and performs no push or deployment.

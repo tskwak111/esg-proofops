@@ -87,6 +87,9 @@ def test_failed_linux_reader_gate_cannot_be_enabled_in_json(reader, monkeypatch)
         "upstage-ocr-page-v3",
         "upstage-ocr-page-v4",
         "upstage-ocr-page-v5",
+        "upstage-ocr-page-v6",
+        "upstage-ocr-page-v9",
+        "upstage-ocr-page-v10",
     }
 
 
@@ -165,9 +168,9 @@ def test_live_config_requires_only_selected_provider_key(tmp_path, provider, key
         hosted_analysis.read_operator_config(config_path)
 
 
-def test_fx5_linux_default_pins_fallback_gate(monkeypatch):
+def test_fx5_linux_legacy_profile_pins_fallback_gate(monkeypatch):
     monkeypatch.setattr(hosted_analysis.sys, "platform", "linux")
-    profiles = hosted_analysis.operator_profiles({})
+    profiles = hosted_analysis.operator_profiles({"analysis_profile": "finals-unattended-v1"})
     assert profiles["source_reader"] == profiles["claim_source"] == "upstage-ocr-page-v5"
     gate = hosted_analysis.RENDERED_READER_POLICY["gate_passed"]["upstage-ocr-page-v5"]
     assert gate["numeric_promotions"] == 0

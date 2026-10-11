@@ -138,6 +138,9 @@ class LiveTaggingRuntime:
             usage,
         )
         self.ledger, self.receipts = ledger, Path(receipts)
+        self.probe = probe
+        if hasattr(probe, "configure_response_policy"):
+            probe.configure_response_policy(snapshot, role="elements")
         # An acknowledged bounded resume authorization, when the owning runner is
         # executing an explicit recovery job. None in ordinary operation, which
         # keeps every stop, receipt and budget behavior exactly as it was.
@@ -272,9 +275,11 @@ class LiveTaggingRuntime:
         )
 
     def _fence(self):
+        from proofops.adapters.local.verified_read_cache import _parse_enabled
+
         self._check_heartbeat()
         now = int(self.runner.clock())
-        if not self.runner.store.jobs.can_call(self.lease, now=now):
+        if not _parse_enabled() and not self.runner.store.jobs.can_call(self.lease, now=now):
             raise LeaseLost("LEASE_LOST")
         try:
             self.runner.store.jobs.heartbeat(self.lease, now=now, lease_seconds=300)
@@ -333,7 +338,7 @@ class LiveTaggingRuntime:
             document_rights=self.snapshot["document"]["metadata"]["rights_profile_id"],
         )
 
-    def display_packet(self, packet):
+    def display_packet(self, packet, *, claim=None):
         display_catalog = getattr(self, "display_catalog", None)
         if display_catalog is None:
             return packet
@@ -341,7 +346,26 @@ class LiveTaggingRuntime:
 
         data = packet.to_dict()
         data.pop("packet_sha256")
+        policy = self.snapshot.get("analysis_profile_policy", {})
+        if policy.get("table_evidence") == "table-selected-evidence-pb2-v1":
+            from proofops.application.tagging.pb2_table_evidence import augment_packet
+
+            if claim is None or claim.claim_id != data["claim_id"]:
+                raise ValueError("TABLE_EVIDENCE_CLAIM_REQUIRED")
+            data = augment_packet(data, claim, self.graph, tenant_id=self.graph.tenant_id)
         data["display_text"] = display_catalog.element_pins(data)
+        if self.snapshot.get("analysis_profile_policy", {}).get("hold_recovery") == "hf1-v1":
+            from proofops.application.tagging.citation_restore import POLICY
+
+            data["citation_restore_policy"] = POLICY
+        if policy.get("citation_restore") == "citation-table-separators-pb2-v1":
+            from proofops.application.tagging.pb2_citation_restore import POLICY
+
+            data["citation_restore_policy"] = POLICY
+        if policy.get("citation_restore") == "citation-selected-value-pb6-v1":
+            from proofops.application.tagging.pb6_citation_restore import POLICY
+
+            data["citation_restore_policy"] = POLICY
         return freeze_packet(data)
 
     def allow_packet(self, claim_id, packet_sha256):
@@ -372,7 +396,13 @@ class LiveTaggingRuntime:
 
     def invoke(self, request):
         try:
-            return self.element_transport.invoke(request)
+            context = (
+                self.probe.response_context(role="elements", replica=request["replicate_id"])
+                if hasattr(self.probe, "response_context")
+                else nullcontext()
+            )
+            with context:
+                return self.element_transport.invoke(request)
         finally:
             self.account(request["request_id"])
 
@@ -398,7 +428,11 @@ class LiveTaggingRuntime:
         decision = profile == "preliminary-decision-v1"
         fallback = profile == SENTENCE_FALLBACK_PROFILE
         sentence_context = profile == SENTENCE_CONTEXT_PROFILE or fallback
-        actor_role_v2 = profile == "upstage-preliminary-source-quotes-actor-role-v2" or decision
+        compact_pb1 = profile == "upstage-preliminary-source-quotes-pb1-compact-v1"
+        pb1 = profile == "upstage-preliminary-source-quotes-actor-role-v3-pb1" or compact_pb1
+        actor_role_v2 = (
+            profile == "upstage-preliminary-source-quotes-actor-role-v2" or decision or pb1
+        )
         actor_role = profile == "upstage-preliminary-source-quotes-actor-role-v1" or actor_role_v2
         goal_role = profile == "upstage-preliminary-source-quotes-goal-role-v1" or actor_role
         role_table = (
@@ -438,6 +472,15 @@ class LiveTaggingRuntime:
                 allow_unverified=unattended,
             )
 
+        if pb1:
+            from proofops_agent.upstage_preliminary import PB1_SYSTEM_PROMPT
+
+            if compact_pb1:
+                from proofops.application.tagging.pb1_classification import COMPACT_PROMPT
+
+                packet["prompt_sha256"] = canonical_hash(COMPACT_PROMPT)
+            else:
+                packet["prompt_sha256"] = canonical_hash(PB1_SYSTEM_PROMPT)
         if fallback:
             packet["prompt_sha256"] = canonical_hash(SENTENCE_FALLBACK_SYSTEM_PROMPT)
             data = packet["untrusted_document_data"]
@@ -481,6 +524,17 @@ class LiveTaggingRuntime:
         def validate(raw):
             if display_catalog is not None:
                 raw = display_catalog.restore_preliminary(raw, packet)
+            auxiliary = None
+            from proofops.application.tagging.pb2_preliminary import enabled as pb2_enabled
+
+            if pb2_enabled(claim, graph, self.snapshot.get("analysis_profile_policy", {})):
+                from proofops.application.tagging.pb2_preliminary import (
+                    validate_preliminary as validate_pb2,
+                )
+
+                result, auxiliary = validate_pb2(
+                    claim, graph, raw, tenant_id=self.auth.tenant_id, allow_unverified=unattended
+                )
             # The table profile recomputes its own quotable source tuple from
             # claim+graph; the legacy validator stays the only path for the two
             # older profiles, so stored responses replay unchanged. The
@@ -488,14 +542,33 @@ class LiveTaggingRuntime:
             # in their prompt, so they reuse this same validator without a new
             # schema or a new source rule.
             result = (
-                validate_preliminary_table_sources(
-                    claim, graph, raw, tenant_id=self.auth.tenant_id, allow_unverified=unattended
-                )
-                if table
-                else validate_preliminary(
-                    claim, graph, raw, tenant_id=self.auth.tenant_id, allow_unverified=unattended
+                result
+                if auxiliary is not None
+                else (
+                    validate_preliminary_table_sources(
+                        claim,
+                        graph,
+                        raw,
+                        tenant_id=self.auth.tenant_id,
+                        allow_unverified=unattended,
+                    )
+                    if table
+                    else validate_preliminary(
+                        claim,
+                        graph,
+                        raw,
+                        tenant_id=self.auth.tenant_id,
+                        allow_unverified=unattended,
+                    )
                 )
             )
+            if pb1 and result.safe_harbor_category == "forward_looking":
+                from proofops.application.tagging.pb1_classification import forward_candidate
+
+                category, reason = forward_candidate(claim.quote)
+                if reason == "forecast_context_requires_review":
+                    raise ValueError("PB1_FORECAST_CONTEXT_REQUIRES_REVIEW")
+                result = replace(result, safe_harbor_category=category)
             attribution = {}
             if self.attribution_policy is not None:
                 from proofops.application.evidence.binding import ClaimContext
@@ -510,6 +583,7 @@ class LiveTaggingRuntime:
                     attribution_policy_sha256=canonical_hash(self.attribution_policy),
                 )
             return result, dict(
+                **({"auxiliary_fact_selections": auxiliary} if auxiliary is not None else {}),
                 track=asdict(result.track) if result.track else None,
                 dimensions={
                     key: asdict(value) if value else None
@@ -664,6 +738,15 @@ class LiveTaggingRuntime:
             ):
                 raise ValueError("RELATION_CLAIM_MISMATCH")
             local = {ref.source_id for ref in claim.source_refs}
+            if (
+                self.snapshot.get("analysis_profile_policy", {}).get("table_cell_relations")
+                == "attested-p1-p2-cells-pb2-v1"
+            ):
+                from proofops.application.tagging.pb2_table_evidence import structural_relation_ids
+
+                local.update(
+                    structural_relation_ids(data, claim, self.graph, tenant_id=self.auth.tenant_id)
+                )
             blocks = {block.source_id: block for block in self.graph.blocks}
             selected = {}
             global_elements = {}
@@ -1115,6 +1198,17 @@ class LiveTaggingRuntime:
                 )
                 if retrieval_packet_sha256 is not None:
                     request["retrieval_packet_sha256"] = retrieval_packet_sha256
+                from proofops.application.tagging.pb2_preliminary import enabled as pb2_enabled
+
+                if prefix == "preliminary" and pb2_enabled(
+                    claim, self.graph, self.snapshot.get("analysis_profile_policy", {})
+                ):
+                    request["preliminary_fact_fields"] = "preliminary-fact-fields-pb2-v1"
+                    scope = self.snapshot.get("analysis_profile_policy", {}).get(
+                        "preliminary_fact_fields_scope"
+                    )
+                    if scope is not None:
+                        request["preliminary_fact_fields_scope"] = scope
                 if self.snapshot.get("pipeline_profile") in (
                     "unattended-v1",
                     "finals-unattended-v1",
@@ -1180,7 +1274,16 @@ class LiveTaggingRuntime:
                             if not self.runner.store.usage.mark_dispatched(call):
                                 raise ValueError(prefix.upper() + "_PENDING_CALL")
                         self._check_heartbeat()
-                        response = transport.invoke(request)
+                        context = (
+                            self.probe.response_context(
+                                role="elements" if prefix == "tagging" else prefix,
+                                replica=replica,
+                            )
+                            if hasattr(self.probe, "response_context")
+                            else nullcontext()
+                        )
+                        with context:
+                            response = transport.invoke(request)
                     self.runner.store.usage.record_usage(
                         call, response.usage, now=int(self.runner.clock())
                     )

@@ -187,6 +187,8 @@ def test_rejects_changed_routing_and_invalid_claim_selection(mixed):
 def test_single_mode_snapshots_remain_byte_identical(mode):
     config = ParserProfile(str(uuid4()), parser_mode=mode)
     legacy = asdict(config)
+    # PB1's absent opt-in field did not exist in the historical wire shape.
+    assert legacy.pop("table_claims_profile") is None
     legacy.pop("claim_physical_pages", None)
     legacy.pop("mixed_ocr_max_pages", None)
     legacy.pop("failure_policy", None)

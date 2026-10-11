@@ -12,7 +12,8 @@ from tempfile import NamedTemporaryFile
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, Request, Response
+from fastapi import Depends, FastAPI, Query, Request, Response
+from fastapi import Path as PathParam
 from fastapi.responses import JSONResponse
 from proofops.application.authorization import (
     AuthContext,
@@ -155,6 +156,9 @@ class BodyLimitMiddleware:
 def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
     settings = settings or HostedSettings.from_env(os.environ)
     store = HostedStore(settings)
+    from proofops_api.hosted_reads import HostedReads
+
+    reads = HostedReads(store)
     auth_store = AuthStore(sessions=store.sessions, memberships=store.memberships)
 
     @asynccontextmanager
@@ -200,10 +204,21 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
 
     @app.exception_handler(HostedError)
     async def hosted_error(request: Request, exc: HostedError):
+        from proofops_api.hosted_store import CONTROL_MESSAGES
+
         return JSONResponse(
-            {"error": {"code": exc.code}},
+            {
+                "error": {
+                    "code": exc.code,
+                    **(
+                        {"message": CONTROL_MESSAGES[exc.code]}
+                        if exc.code in CONTROL_MESSAGES
+                        else {}
+                    ),
+                }
+            },
             status_code=exc.status,
-            headers={"Retry-After": "60"} if exc.status == 429 else {},
+            headers={"Retry-After": "60"} if exc.status == 429 or exc.code == "MAINTENANCE" else {},
         )
 
     @app.exception_handler(sqlite3.DatabaseError)
@@ -312,11 +327,14 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
         from proofops_api.hosted_analysis import runtime_profiles
 
         profiles = runtime_profiles(settings)
+        admission = store.control_state(now=time.time())
         return {
             "app_env": "hosted",
             "profile": "r108-hosted-sprint5-v1",
             "analysis_backend": settings.backend,
-            "accept_new_runs": settings.accept_runs,
+            "accept_new_runs": settings.accept_runs and not admission["maintenance"],
+            "maintenance": admission["maintenance"],
+            "maintenance_message": admission["message"],
             "accept_uploads": settings.accept_uploads,
             "live_disabled": settings.live_disabled,
             "live_analysis": not settings.live_disabled
@@ -351,10 +369,12 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
                 "selected_pages": 2,
                 "claim_pages": 10,
                 "evidence_pages": 30,
-                "active": 1,
+                "active": settings.max_active_runs,
                 "queued": 8,
-                "user_outstanding": 1,
+                "user_outstanding": settings.user_active_runs,
+                "user_active_runs": settings.user_active_runs,
                 "user_daily_runs": settings.user_daily_runs,
+                "daily_runs": settings.daily_runs,
                 "run_usd": str(settings.run_usd),
                 "day_usd": str(settings.day_usd),
                 "event_usd": str(settings.event_usd),
@@ -406,6 +426,14 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
                 request.headers.get("Idempotency-Key", ""),
                 now=time.time(),
             )
+
+    @app.get("/v1/documents")
+    def documents(
+        auth: Annotated[AuthContext, Depends(current)],
+        limit: Annotated[int, Query(ge=1, le=100)] = 20,
+        cursor: Annotated[str | None, Query(max_length=1024)] = None,
+    ) -> dict:
+        return reads.collection(auth, "documents", limit=limit, cursor=cursor)
 
     @app.get("/v1/documents/{document_id}")
     def document(document_id: UUID, auth: Annotated[AuthContext, Depends(current)]) -> dict:
@@ -464,6 +492,75 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
             auto_scope=True,
             scope_selection_sha256=body.scope_selection_sha256,
             pipeline_profile=request.headers.get("X-Pipeline-Profile", default_pipeline),
+        )
+
+    @app.get("/v1/runs")
+    def runs(
+        auth: Annotated[AuthContext, Depends(current)],
+        limit: Annotated[int, Query(ge=1, le=100)] = 20,
+        cursor: Annotated[str | None, Query(max_length=1024)] = None,
+        document_id: UUID | None = None,
+    ) -> dict:
+        return reads.collection(
+            auth,
+            "runs",
+            limit=limit,
+            cursor=cursor,
+            document=str(document_id) if document_id else None,
+        )
+
+    @app.get("/v1/runs/{run_id}/source-pages/{physical_page}/manifest")
+    def source_manifest(
+        run_id: UUID,
+        physical_page: Annotated[int, PathParam(ge=1, le=300)],
+        response: Response,
+        auth: Annotated[AuthContext, Depends(current)],
+        source_id: UUID | None = None,
+        claim_id: UUID | None = None,
+        document_version_id: UUID | None = None,
+    ) -> dict:
+        from proofops.domain.provenance import canonical_hash
+
+        manifest, _ = reads.page(
+            auth,
+            str(run_id),
+            physical_page,
+            source_id=str(source_id) if source_id else None,
+            claim_id=str(claim_id) if claim_id else None,
+            document_version_id=str(document_version_id) if document_version_id else None,
+        )
+        response.headers["ETag"] = f'"{canonical_hash(manifest)}"'
+        response.headers["Cache-Control"] = "private, no-store"
+        return manifest
+
+    @app.get(
+        "/v1/runs/{run_id}/source-pages/{physical_page}/image",
+        response_class=Response,
+        responses={200: {"content": {"image/png": {}}}},
+    )
+    def source_image(
+        run_id: UUID,
+        physical_page: Annotated[int, PathParam(ge=1, le=300)],
+        auth: Annotated[AuthContext, Depends(current)],
+        image_sha256: Annotated[str | None, Query(pattern=r"^[0-9a-f]{64}$")] = None,
+        document_version_id: UUID | None = None,
+    ) -> Response:
+        manifest, png = reads.page(
+            auth,
+            str(run_id),
+            physical_page,
+            document_version_id=str(document_version_id) if document_version_id else None,
+        )
+        if image_sha256 is not None and image_sha256 != manifest["image_sha256"]:
+            raise HostedError("SOURCE_IMAGE_MISMATCH", 409)
+        return Response(
+            png,
+            media_type="image/png",
+            headers={
+                "Cache-Control": "private, no-store",
+                "ETag": f'"{manifest["image_sha256"]}"',
+                "X-Content-Type-Options": "nosniff",
+            },
         )
 
     @app.get("/v1/runs/{run_id}")

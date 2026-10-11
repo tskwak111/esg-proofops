@@ -60,3 +60,15 @@ strict = false
 ignore_missing_imports = true
 explicit_package_bases = true
 mypy_path = ["packages/proofops", "apps/api/src", "apps/worker/src", "apps/agent/src"]
+
+# These archived readers dynamically compose _wrapper.Reader. Their bytes are
+# pinned in persisted source policies; editing them would break historical replay.
+# Suppress only that name-resolution code in these two modules, retaining all
+# other checks and normal name-defined checks for newer readers (including v10).
+# CI file targets use these names under explicit_package_bases and mypy_path.
+[[tool.mypy.overrides]]
+module = [
+  "adapters.local.upstage_ocr_profile_v7",
+  "adapters.local.upstage_ocr_profile_v8",
+]
+disable_error_code = ["name-defined"]

@@ -15,6 +15,8 @@ from tests.acceptance.test_parsing import JAVA, MANIFEST, TENANT, pdf, source
 def test_optional_tolerance_preserves_legacy_identity_and_binds_explicit_value():
     profile = ParserProfile(MANIFEST)
     legacy = asdict(profile)
+    # Preserve the old fixture and its fixed config hash when PB1 is disabled.
+    assert legacy.pop("table_claims_profile") is None
     legacy.pop("table_text_y_tolerance", None)
     legacy.pop("table_source_policy_sha256", None)
     legacy.pop("table_structure_repair", None)
@@ -56,9 +58,9 @@ def test_actual_superscript_extraction_and_immutable_replay(tmp_path):
     reader = PdfReader(BytesIO(pdf(table=True)))
     page = reader.pages[1]
     stream = DecodedStreamObject()
-    stream.set_data(
-        page.get_contents().get_data() + b"\n" + rb"BT /F1 12 Tf 110 619 Td (2\)) Tj ET"
-    )
+    contents = page.get_contents()
+    assert contents is not None
+    stream.set_data(contents.get_data() + b"\n" + rb"BT /F1 12 Tf 110 619 Td (2\)) Tj ET")
     page[NameObject("/Contents")] = stream
     writer = PdfWriter()
     writer.add_page(page)

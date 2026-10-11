@@ -201,6 +201,7 @@ def live_tagging_settings(
     preliminary_table_role: bool = False,
     preliminary_goal_role: bool = False,
     preliminary_actor_role: bool = False,
+    preliminary_pb1: bool = False,
     preliminary_sentence_context: bool = False,
     preliminary_sentence_fallback: bool = False,
     preliminary_p2: bool = False,
@@ -347,6 +348,13 @@ def live_tagging_settings(
         "or grading. Validate this equality for every element before submitting."
     )
     settings = {}
+    if preliminary_pb1:
+        element_prompt += (
+            "\nPB1 time-series row: the latest explicitly observed year column is the primary "
+            "observation; older values are comparison context only, never independent claims "
+            "or the primary P1 value. Use only that row's verified unit/metric and the "
+            "explicit column-year header. Do not borrow numbers from other rows."
+        )
     if element_definition_profile is not None:
         if element_definition_profile != "qi1-v1":
             raise ValueError("ELEMENT_DEFINITION_PROFILE_UNKNOWN")
@@ -397,6 +405,14 @@ def live_tagging_settings(
             + ACTOR_ROLE_SYSTEM_SUFFIX
             + PERIOD_ROLE_SYSTEM_SUFFIX
         )
+        if preliminary_pb1:
+            from proofops.application.tagging.pb1_classification import (
+                COMPACT_PROFILE,
+                COMPACT_PROMPT,
+            )
+
+            preliminary_profile = COMPACT_PROFILE
+            preliminary_prompt = COMPACT_PROMPT
     elif preliminary_goal_role:
         preliminary_profile = "upstage-preliminary-source-quotes-goal-role-v1"
         preliminary_prompt = (
@@ -555,6 +571,11 @@ def claim_source_policy_for(args):
         "upstage-ocr-page-v3",
         "upstage-ocr-page-v4",
         "upstage-ocr-page-v5",
+        "upstage-ocr-page-v6",
+        "upstage-ocr-page-v7",
+        "upstage-ocr-page-v8",
+        "upstage-ocr-page-v9",
+        "upstage-ocr-page-v10",
     }:
         from proofops.adapters.local.claim_source_policies import page_ocr_profile
 
@@ -698,6 +719,8 @@ def apply_resume_metadata(args, saved: dict) -> None:
     args.extraction_atomic = bool(saved.get("extraction_atomic", False))
     args.extraction_linewrap_join = bool(saved.get("extraction_linewrap_join", False))
     args.extraction_fragment_guard = bool(saved.get("extraction_fragment_guard", False))
+    args.extraction_pb1 = bool(saved.get("extraction_pb1", False))
+    args.extraction_pb1_context_guard = bool(saved.get("extraction_pb1_context_guard", False))
     args.extraction_source_ids = bool(saved.get("extraction_source_ids", False))
     args.extraction_assertion_prompt = bool(saved.get("extraction_assertion_prompt", False))
     args.extraction_complete_selection = bool(saved.get("extraction_complete_selection", False))
@@ -853,6 +876,8 @@ def main():
         default=None,
         help="NEW run parser artifact cap (default 20000000; max 128 MiB).",
     )
+    parser.add_argument("--extraction-pb1", action="store_true")
+    parser.add_argument("--extraction-pb1-context-guard", action="store_true")
     parser.add_argument("--max-calls", type=int, default=8)
     parser.add_argument(
         "--parser-memory-bytes",
@@ -996,6 +1021,11 @@ def main():
             "upstage-ocr-page-v3",
             "upstage-ocr-page-v4",
             "upstage-ocr-page-v5",
+            "upstage-ocr-page-v6",
+            "upstage-ocr-page-v7",
+            "upstage-ocr-page-v8",
+            "upstage-ocr-page-v9",
+            "upstage-ocr-page-v10",
             "table-claim-spans-v1",
             "claim-source-v3",
         ],
@@ -1466,6 +1496,11 @@ def main():
             "upstage-ocr-page-v3",
             "upstage-ocr-page-v4",
             "upstage-ocr-page-v5",
+            "upstage-ocr-page-v6",
+            "upstage-ocr-page-v7",
+            "upstage-ocr-page-v8",
+            "upstage-ocr-page-v9",
+            "upstage-ocr-page-v10",
         }:
             if args.raster_ocr or args.native_quote_typography:
                 parser.error("page OCR requires no raster/native quote-typography composition")
@@ -1499,6 +1534,7 @@ def main():
             upstage_glyph_boxes=args.parser in ("upstage", "mixed-v1"),
             upstage_region_words=args.parser in ("upstage", "mixed-v1"),
             source_recovery=args.parser_source_recovery,
+            table_claims_profile="pb1-v1" if args.extraction_pb1 else None,
         )
         (state / "parser.json").write_text(json.dumps(config.config_snapshot()))
         if (
@@ -1518,6 +1554,8 @@ def main():
                     extraction_atomic=args.extraction_atomic,
                     extraction_linewrap_join=args.extraction_linewrap_join,
                     extraction_fragment_guard=args.extraction_fragment_guard,
+                    extraction_pb1=args.extraction_pb1,
+                    extraction_pb1_context_guard=args.extraction_pb1_context_guard,
                     extraction_table_rows=args.extraction_table_rows,
                     extraction_recall_prompt=args.extraction_recall_prompt,
                     assertion_prompt=args.extraction_assertion_prompt,
@@ -1572,6 +1610,10 @@ def main():
             settings["extraction_atomic"] = True
         if args.extraction_linewrap_join:
             settings["extraction_linewrap_join"] = True
+        if args.extraction_pb1_context_guard:
+            settings["extraction_pb1_context_guard"] = True
+        if args.extraction_pb1:
+            settings["extraction_pb1"] = True
         if args.extraction_fragment_guard:
             settings["extraction_fragment_guard"] = True
         if args.extraction_source_ids:
@@ -1608,6 +1650,7 @@ def main():
                     preliminary_table_role=args.preliminary_table_role,
                     preliminary_goal_role=args.preliminary_goal_role,
                     preliminary_actor_role=args.preliminary_actor_role,
+                    preliminary_pb1=args.extraction_pb1,
                     preliminary_sentence_context=args.preliminary_sentence_context,
                     preliminary_sentence_fallback=args.preliminary_sentence_fallback,
                     preliminary_p2=args.preliminary_p2,
@@ -2058,6 +2101,10 @@ def main():
             manifest["extraction_content_bounds"] = True
         if args.extraction_linewrap_join:
             manifest["extraction_linewrap_join"] = True
+        if args.extraction_pb1_context_guard:
+            manifest["extraction_pb1_context_guard"] = True
+        if args.extraction_pb1:
+            manifest["extraction_pb1"] = True
         if args.extraction_fragment_guard:
             manifest["extraction_fragment_guard"] = True
         if args.capacity_refresh:
@@ -2156,6 +2203,8 @@ def main():
             "extraction_table_rows",
             "extraction_recall_prompt",
             "extraction_fragment_guard",
+            "extraction_pb1",
+            "extraction_pb1_context_guard",
         ):
             if manifest.get(name, False) != getattr(args, name):
                 raise ValueError(name + " policy changed; create a new state directory")

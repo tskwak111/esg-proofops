@@ -122,6 +122,11 @@ def claim_source_reader(policy):
             "upstage-ocr-page-v3",
             "upstage-ocr-page-v4",
             "upstage-ocr-page-v5",
+            "upstage-ocr-page-v6",
+            "upstage-ocr-page-v7",
+            "upstage-ocr-page-v8",
+            "upstage-ocr-page-v9",
+            "upstage-ocr-page-v10",
         }:
             upstage_ocr_profile = page_ocr_profile(policy["profile"])
 
@@ -173,6 +178,11 @@ def publication_reader(policy):
         "upstage-ocr-page-v3",
         "upstage-ocr-page-v4",
         "upstage-ocr-page-v5",
+        "upstage-ocr-page-v6",
+        "upstage-ocr-page-v7",
+        "upstage-ocr-page-v8",
+        "upstage-ocr-page-v9",
+        "upstage-ocr-page-v10",
     }:
         return claim_source_reader(policy)
     for module in (base, *_wrappers()):
@@ -208,10 +218,39 @@ def attest_claims(*, reader, graph, source, refs, tenant_id, cache, run_id=None)
         "upstage-ocr-page-v3",
         "upstage-ocr-page-v4",
         "upstage-ocr-page-v5",
+        "upstage-ocr-page-v6",
+        "upstage-ocr-page-v7",
+        "upstage-ocr-page-v8",
+        "upstage-ocr-page-v9",
+        "upstage-ocr-page-v10",
     }:
-        return reader.attest_claim_spans(
-            graph, source, tuple(refs), tenant_id=tenant_id, run_id=run_id
+        refs = tuple(refs)
+        from proofops.adapters.local.verified_read_cache import _execution_policy
+        from proofops.application.analysis_profile import VERIFIED_READ_V4_POLICY
+
+        if (
+            reader.PROFILE == "upstage-ocr-page-v9"
+            and _execution_policy() == VERIFIED_READ_V4_POLICY
+        ):
+            from proofops.adapters.local.pa7_raster_cache import attest
+
+            receipt = attest(reader, graph, source, refs, tenant_id=tenant_id, run_id=run_id)
+        else:
+            receipt = reader.attest_claim_spans(
+                graph, source, tuple(refs), tenant_id=tenant_id, run_id=run_id
+            )
+        from proofops.adapters.local.verified_read_cache import remember_fresh_attestation
+
+        remember_fresh_attestation(
+            reader=reader,
+            policy=reader.claim_source_policy(),
+            receipt=receipt,
+            graph=graph,
+            source=source,
+            refs=refs,
+            tenant_id=tenant_id,
         )
+        return receipt
     if cache and reader not in _wrappers():
         from proofops.adapters.local.native_replay_cache import attest_claims_cached
 
@@ -235,6 +274,26 @@ def attest_claims(*, reader, graph, source, refs, tenant_id, cache, run_id=None)
 
 def page_ocr_profile(profile):
     """Resolve the explicitly versioned mapping; never reinterpret old receipts."""
+    if profile == "upstage-ocr-page-v10":
+        from proofops.adapters.local import upstage_ocr_profile_v10
+
+        return upstage_ocr_profile_v10
+    if profile == "upstage-ocr-page-v9":
+        from proofops.adapters.local import upstage_ocr_profile_v9
+
+        return upstage_ocr_profile_v9
+    if profile == "upstage-ocr-page-v8":
+        from proofops.adapters.local import upstage_ocr_profile_v8
+
+        return upstage_ocr_profile_v8
+    if profile == "upstage-ocr-page-v7":
+        from proofops.adapters.local import upstage_ocr_profile_v7
+
+        return upstage_ocr_profile_v7
+    if profile == "upstage-ocr-page-v6":
+        from proofops.adapters.local import upstage_ocr_profile_v6
+
+        return upstage_ocr_profile_v6
     if profile == "upstage-ocr-page-v5":
         from proofops.adapters.local import upstage_ocr_profile_v5
 

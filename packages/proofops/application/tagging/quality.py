@@ -37,7 +37,7 @@ LADDER = {
 }
 
 
-def hold_projection(item):
+def hold_projection(item, *, profile=None):
     """Explain an uninformative whole-pack range without changing facts or grades."""
     result = item["provisional_grade"]
     bounds = result.get("grade_range") or {}
@@ -57,9 +57,22 @@ def hold_projection(item):
     reasons = []
     if (item.get("source_status") or {}).get("status") != "verified":
         reasons.append("원문 미검증")
+    if profile == "hf1-v1":
+        runs = item.get("tag_runs", [])
+        if any(
+            any(e.startswith("TAGGING_EVIDENCE_ID_") for e in run.get("errors", []))
+            or any(
+                w.startswith("CITATION_RESTORE_UNRESOLVED:")
+                for w in (run.get("guarded") or {}).get("warnings", [])
+            )
+            for run in runs
+        ):
+            reasons.append("인용 복원 실패")
+        if result.get("reason") == "REPLICA_HEADER_UNRESOLVED":
+            reasons.append("replica 미해결")
     if track not in LADDER:
         reasons.append("트랙 미합의")
-    if bounds.get("rule_gap"):
+    if result.get("gap_ids") if profile == "hf1-v1" else bounds.get("rule_gap"):
         reasons.append("규칙 미정")
     if not present:
         reasons.append("근거 없음")

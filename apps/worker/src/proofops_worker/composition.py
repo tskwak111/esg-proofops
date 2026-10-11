@@ -315,6 +315,10 @@ def build_composition(
                         extraction_atomic=atomic_opt_in,
                         extraction_linewrap_join=linewrap_join,
                         extraction_fragment_guard=fragment_guard,
+                        extraction_pb1=settings.get("extraction_pb1", False),
+                        extraction_pb1_context_guard=settings.get(
+                            "extraction_pb1_context_guard", False
+                        ),
                         extraction_table_rows=rows_opt_in,
                         extraction_recall_prompt=recall_opt_in,
                         assertion_prompt=assertion_prompt_opt_in,
@@ -337,6 +341,10 @@ def build_composition(
                     extraction_atomic=atomic_opt_in,
                     extraction_linewrap_join=linewrap_join,
                     extraction_fragment_guard=fragment_guard,
+                    extraction_pb1=settings.get("extraction_pb1", False),
+                    extraction_pb1_context_guard=settings.get(
+                        "extraction_pb1_context_guard", False
+                    ),
                     extraction_table_rows=rows_opt_in,
                     extraction_recall_prompt=recall_opt_in,
                     extraction_assertion_prompt=assertion_prompt_opt_in,

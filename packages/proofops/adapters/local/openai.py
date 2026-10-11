@@ -7,6 +7,8 @@ import json
 import os
 import sqlite3
 import time
+from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -82,6 +84,57 @@ def token_cost(usage):
 
 
 class OpenAIProbe(OpenRouterProbe):
+    _response_context = ContextVar("openai_response_context", default=None)
+    _cache_request_context = ContextVar("openai_cache_request_context", default=None)
+    response_cache_path = None
+    response_policy = None
+    wire_policy = WIRE_POLICY
+
+    def _authorize_response_request(self):
+        """Hosted adapters recheck their live owner/source before cache access."""
+
+    def configure_response_policy(self, snapshot, *, role):
+        from proofops.application.analysis_profile import MODEL_RESPONSE_POLICY
+
+        policy = snapshot.get("analysis_profile_policy", {})
+        if "model_response_policy" not in policy:
+            self.response_policy = None
+            self.wire_policy = WIRE_POLICY
+            return  # Historical snapshots keep their original wire and receipts.
+        if (
+            policy["model_response_policy"] != MODEL_RESPONSE_POLICY
+            or snapshot.get("analysis_profile_policy_sha256") != canonical_hash(policy)
+            or not isinstance(snapshot.get("tenant_id"), str)
+            or not snapshot["tenant_id"]
+            or len(snapshot.get("document", {}).get("sha256", "")) != 64
+            or any(c not in "0123456789abcdef" for c in snapshot["document"]["sha256"])
+            or role not in {"extract", "elements", "preliminary", "relation"}
+        ):
+            raise ValueError("MODEL_RESPONSE_POLICY_MISMATCH")
+        self.response_policy = dict(
+            tenant_id=snapshot["tenant_id"],
+            source_sha256=snapshot["document"]["sha256"],
+            analysis_policy_sha256=canonical_hash(policy),
+        )
+        self.response_role = role
+        self.wire_policy = WIRE_POLICY | dict(
+            top_p=1, model_response_policy_sha256=canonical_hash(MODEL_RESPONSE_POLICY)
+        )
+
+    @contextmanager
+    def response_context(self, *, role, replica):
+        if (
+            role not in {"extract", "elements", "preliminary", "relation"}
+            or type(replica) is not int
+            or not 0 <= replica <= 3
+        ):
+            raise ValueError("MODEL_RESPONSE_CONTEXT_INVALID")
+        token = self._response_context.set((role, replica))
+        try:
+            yield
+        finally:
+            self._response_context.reset(token)
+
     def __init__(self, api_key: str, ledger: Path, *, model: str = MODEL, wire_policy_version=2):
         if model != MODEL:
             raise ValueError("UNSUPPORTED_MODEL")
@@ -176,6 +229,8 @@ class OpenAIProbe(OpenRouterProbe):
         }
         if json_mode:
             body["response_format"] = {"type": "json_object"}
+        if self.response_policy is not None:
+            body["top_p"] = 1
         if (
             len(json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode())
             > WIRE_POLICY["max_request_bytes"]
@@ -228,6 +283,107 @@ class OpenAIProbe(OpenRouterProbe):
             connection.close()
 
     def complete(
+        self, system, user_json, *, request_id, max_tokens=1024, json_mode=False, schema_json=None
+    ):
+        if self.response_policy is None:
+            return self._complete_uncached(
+                system,
+                user_json,
+                request_id=request_id,
+                max_tokens=max_tokens,
+                json_mode=json_mode,
+                schema_json=schema_json,
+            )
+        from proofops.adapters.local.model_response_cache import ModelResponseCache
+
+        if now() >= PRICE_RECHECK_AT:
+            raise ValueError("PRICE_RECHECK_REQUIRED")
+        body = self.request_body(
+            system, user_json, request_id=request_id, max_tokens=max_tokens, json_mode=json_mode
+        )
+        if schema_json is not None:
+            Draft202012Validator.check_schema(json.loads(schema_json))
+        role, replica = self._response_context.get() or (self.response_role, 0)
+        # Preliminary wire does not contain replica_id. A caller must bind it
+        # explicitly; otherwise fail closed instead of merging the ensemble.
+        if role != "extract" and replica not in (1, 2, 3):
+            raise ValueError("MODEL_RESPONSE_REPLICA_REQUIRED")
+        response_request = self.response_policy | dict(
+            role=role,
+            replica=replica,
+            wire_sha256=canonical_hash(body),
+            schema_sha256=canonical_hash(schema_json),
+        )
+        key = canonical_hash(response_request)
+        with sqlite3.connect(self.ledger, timeout=30) as db:
+            if db.execute("SELECT 1 FROM probe_calls WHERE request_id=?", (request_id,)).fetchone():
+                raise ValueError("DUPLICATE_PROBE_REQUEST")
+        self._authorize_response_request()
+        cache = ModelResponseCache(
+            self.response_cache_path or self.ledger.parent / "model-responses.sqlite3"
+        )
+        hit = cache.claim(key, self.ledger, request_id)
+        if hit is not None:
+            self._authorize_response_request()  # A single-flight wait may outlive its owner.
+            source, source_hash = hit
+            result = source | dict(
+                request_id=request_id,
+                input_tokens=0,
+                output_tokens=0,
+                cached_tokens=0,
+                cache_write_tokens=0,
+                cost_with_vat_reserve_usd="0",
+                attempts=[],
+                cost_source="exact_response_reuse_no_provider_dispatch",
+                response_reuse=dict(
+                    policy="exact-model-response-v1",
+                    key=key,
+                    role=role,
+                    replica=replica,
+                    source_request_id=source["request_id"],
+                    source_receipt_sha256=source_hash,
+                    source_response_sha256=source["response_sha256"],
+                ),
+            )
+            receipt = {k: v for k, v in result.items() if k != "content"}
+            with sqlite3.connect(self.ledger, timeout=30) as db:
+                db.execute("BEGIN IMMEDIATE")
+                self._total(db)
+                try:
+                    db.execute(
+                        "INSERT INTO probe_calls VALUES (?,?,?,?)",
+                        (
+                            request_id,
+                            canonical_hash(body),
+                            "0",
+                            json.dumps(receipt, sort_keys=True),
+                        ),
+                    )
+                except sqlite3.IntegrityError:
+                    raise ValueError("DUPLICATE_PROBE_REQUEST") from None
+            return result
+        context_token = self._cache_request_context.set(response_request)
+        try:
+            result = self._complete_uncached(
+                system,
+                user_json,
+                request_id=request_id,
+                max_tokens=max_tokens,
+                json_mode=json_mode,
+                schema_json=schema_json,
+            )
+            if result["schema_valid"] is True:
+                cache.publish(key, result)
+            else:
+                cache.release_unsent_or_invalid(key, self.ledger, request_id)
+            return result
+        except Exception:
+            cache.release_unsent_or_invalid(key, self.ledger, request_id)
+            raise
+        finally:
+            self._cache_request_context.reset(context_token)
+
+    def _complete_uncached(
         self, system, user_json, *, request_id, max_tokens=1024, json_mode=False, schema_json=None
     ):
         if now() >= PRICE_RECHECK_AT:
@@ -329,8 +485,8 @@ class OpenAIProbe(OpenRouterProbe):
             "provider": "openai",
             "request_id": request_id,
             "endpoint": ENDPOINT,
-            "model_binding_sha256": canonical_hash(WIRE_POLICY),
-            "price_snapshot": WIRE_POLICY,
+            "model_binding_sha256": canonical_hash(self.wire_policy),
+            "price_snapshot": self.wire_policy,
             "http_request_id": data.get("openai_request_id"),
             "model": MODEL,
             "provider_model": data["model"],
@@ -345,10 +501,12 @@ class OpenAIProbe(OpenRouterProbe):
             "response_format": {"type": "json_object"},
         }
         if self.wire_policy_version == 2:
-            receipt["wire_policy"] = WIRE_POLICY
+            receipt["wire_policy"] = self.wire_policy
             details = usage.get("prompt_tokens_details") or {}
             receipt["cached_tokens"] = details.get("cached_tokens")
             receipt["cache_write_tokens"] = details.get("cache_write_tokens")
+        if self.response_policy is not None:
+            receipt["response_request"] = self._cache_request_context.get()
         with sqlite3.connect(self.ledger) as db:
             changed = db.execute(
                 "UPDATE probe_calls SET committed=?, receipt=? WHERE request_id=? "

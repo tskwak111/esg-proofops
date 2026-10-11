@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import os
 from contextlib import contextmanager
 from dataclasses import asdict
 from pathlib import Path
@@ -38,7 +39,19 @@ def services(path: Path, tenant: str):
     )
     try:
         with reader_scope(ReplayOCRStore(path / "upstage.sqlite3")):
-            yield manifest["run_id"], claims, tags, reviews
+            previous_cache = os.environ.get("PROOFOPS_VERIFIED_READ_CACHE")
+            try:
+                snapshot = runs.snapshot(tenant, manifest["run_id"])
+                policy = snapshot.get("analysis_profile_policy", {})
+                os.environ["PROOFOPS_VERIFIED_READ_CACHE"] = policy.get(
+                    "verified_read_cache", {}
+                ).get("profile", "disabled")
+                yield manifest["run_id"], claims, tags, reviews
+            finally:
+                if previous_cache is None:
+                    os.environ.pop("PROOFOPS_VERIFIED_READ_CACHE", None)
+                else:
+                    os.environ["PROOFOPS_VERIFIED_READ_CACHE"] = previous_cache
     finally:
         uploads.close()
         registry.close()
@@ -85,9 +98,97 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
         # while building this snapshot. Replay all source guards once, then retain
         # the same graph for every claim's identity-checked missing-evidence search.
         _, discovery, original_graph = evidence
+        from proofops.application.analysis_profile import (
+            V2_PA9_POLICY,
+            V2_PB1_COMPACT_POLICY,
+            V2_PB1_INITIAL_POLICY,
+            V2_PB1_POLICY,
+            V2_PB2_ALL_CLAIMS_POLICY,
+            V2_PB2_INITIAL_POLICY,
+            V2_PB2_POLICY,
+            V2_PB4_POLICY,
+            V2_PB7_POLICY,
+            V2_POLICY,
+            V2_PRE_PA7_POLICY,
+            V2_PRE_PA8_POLICY,
+            V2_PRE_PA9_POLICY,
+            V2_PRE_PB4_POLICY,
+        )
+        from proofops.application.ingest.pb1_tables import observations, occurrence_groups
+        from proofops.domain.provenance import canonical_hash
+
+        pb1 = tag_snapshot.get("analysis_profile_policy_sha256") in {
+            canonical_hash(V2_POLICY),
+            canonical_hash(V2_PA9_POLICY),
+            canonical_hash(V2_PB7_POLICY),
+            canonical_hash(V2_PRE_PA7_POLICY),
+            canonical_hash(V2_PRE_PA8_POLICY),
+            canonical_hash(V2_PRE_PA9_POLICY),
+            canonical_hash(V2_PB4_POLICY),
+            canonical_hash(V2_PRE_PB4_POLICY),
+            canonical_hash(V2_PB2_POLICY),
+            canonical_hash(V2_PB2_INITIAL_POLICY),
+            canonical_hash(V2_PB2_ALL_CLAIMS_POLICY),
+            canonical_hash(V2_PB1_POLICY),
+            canonical_hash(V2_PB1_COMPACT_POLICY),
+            canonical_hash(V2_PB1_INITIAL_POLICY),
+        }
+        groups = occurrence_groups(discovery.claims) if pb1 else {}
+        blocks = {b.source_id: b for b in original_graph.blocks}
+        from proofops.application.evidence.span_citations import verify_source_ref
+
         for claim in discovery.claims:
             current = claims.current_tag(tenant, run, claim.claim_id)
             summary = claims.summary(claim, current)
+            if pb1:
+                summary["duplicate_occurrences"] = groups.get(
+                    canonical_hash(" ".join(claim.quote.split())), [claim.claim_id]
+                )
+                ref = claim.source_refs[0]
+                block = blocks[ref.source_id]
+                if block.kind == "table" and block.winner is not None:
+                    context = " ".join(block.candidates[block.winner].context)
+                    row = next(
+                        (
+                            r
+                            for r in observations(block.normalized_text, context=context)
+                            if r["start"] <= ref.char_start < ref.char_end <= r["end"]
+                        ),
+                        None,
+                    )
+                    if row:
+                        summary["table_observation"] = row
+                        if tag_snapshot.get("analysis_profile_policy_sha256") in {
+                            canonical_hash(V2_POLICY),
+                            canonical_hash(V2_PA9_POLICY),
+                            canonical_hash(V2_PB7_POLICY),
+                            canonical_hash(V2_PRE_PA7_POLICY),
+                            canonical_hash(V2_PRE_PA8_POLICY),
+                            canonical_hash(V2_PRE_PA9_POLICY),
+                            canonical_hash(V2_PB4_POLICY),
+                            canonical_hash(V2_PRE_PB4_POLICY),
+                            canonical_hash(V2_PB2_POLICY),
+                            canonical_hash(V2_PB2_INITIAL_POLICY),
+                            canonical_hash(V2_PB2_ALL_CLAIMS_POLICY),
+                        }:
+                            from proofops.application.tagging.pb2_table_evidence import (
+                                observation_sources,
+                            )
+
+                            sources = observation_sources(claim, original_graph, tenant_id=tenant)
+                            summary["table_observation"] = row | dict(
+                                verification_state="verified" if sources else "unresolved",
+                                cell_source_refs={
+                                    key: asdict(
+                                        sources[key]["ref"]
+                                        if key in ("value", "unit")
+                                        else sources[key]
+                                    )
+                                    for key in ("value", "unit", "year")
+                                }
+                                if sources
+                                else {},
+                            )
             decision = summary.get("decision")
             tag = current["tag"] if current else {}
             elements = tag.get("elements", [])
@@ -104,7 +205,15 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                 summary
                 | dict(
                     original_page_num=selected_pages[summary["page_num"] - 1],
-                    source_refs=[asdict(ref) for ref in claim.source_refs],
+                    # New publications expose citation-level verification from
+                    # this replayed graph, not the whole-claim quality label.
+                    # Existing result revisions and rule inputs remain unchanged.
+                    source_refs=[
+                        asdict(verify_source_ref(ref, original_graph, tenant_id=tenant))
+                        if ref.verification_state == "candidate"
+                        else asdict(ref)
+                        for ref in claim.source_refs
+                    ],
                     source_quality=claim.source_quality,
                     elements=elements,
                     hold_reason=reasons.get(claim.claim_id),
@@ -162,6 +271,12 @@ def resolve_review(path, auth, review, body, if_match, key):
 
 def clear_receipt_caches():
     """Purge process-local source readings without touching frozen reader code."""
+    from proofops_api.hosted_reads import clear_source_cache
+
+    clear_source_cache()
+    from proofops.adapters.local.pa7_raster_cache import clear as clear_raster_cache
+
+    clear_raster_cache()
     from proofops.adapters.local import native_replay_cache as cache
 
     with cache._lock:

@@ -93,6 +93,8 @@ def candidate_batch(source, profile, selected, batches, *, mode: str, config_has
             row_span=None,
             column_span=None,
             derived_box=None,
+            cell_grounding=False,
+            provider_region=False,
         ):
             if not isinstance(text, str):
                 raise ValueError("UPSTAGE_ELEMENT_INVALID")
@@ -159,7 +161,9 @@ def candidate_batch(source, profile, selected, batches, *, mode: str, config_has
                         max(item[3] for item in ink),
                     )
                     glyph_box = True
-            if derived_box is not None and plain:
+            if cell_grounding and plain:
+                box, offset = derived_box, None
+            elif derived_box is not None and plain:
                 box, offset = derived_box, None
             if box is None:
                 stats["vision_only"] += 1
@@ -183,6 +187,8 @@ def candidate_batch(source, profile, selected, batches, *, mode: str, config_has
                 if provider_box
                 else ("section=" + headings[page_num],)
             )
+            if profile.table_claims_profile == "pb1-v1":
+                context += ("pb1_table_claims",)
             context += (
                 ("vision_only",)
                 if box is None
@@ -192,6 +198,8 @@ def candidate_batch(source, profile, selected, batches, *, mode: str, config_has
                         f"native_char_end={offset + len(compact(text))}",
                     )
                     if offset is not None
+                    else ("provider_declared_grid_region",)
+                    if provider_region
                     else ("derived_from_native_cells",)
                 )
             )
@@ -271,6 +279,13 @@ def candidate_batch(source, profile, selected, batches, *, mode: str, config_has
                         add("table", text, page_num, identifier, provider_box)
                         continue
                     cell_boxes = []
+                    grounded_cells = None
+                    if profile.table_claims_profile == "pb1-v1":
+                        from proofops.adapters.parsing.pb1_cell_grounding import ground_cells
+
+                        grounded_cells = ground_cells(
+                            cells, page_words[page_num], provider_box, chars=page.chars
+                        )
                     grid = {}
                     cell_counts[page_num][1] += len(cells)
                     for ci, cell in enumerate(cells):
@@ -286,6 +301,8 @@ def candidate_batch(source, profile, selected, batches, *, mode: str, config_has
                             column=cell["column"],
                             row_span=cell["row_span"],
                             column_span=cell["column_span"],
+                            derived_box=grounded_cells[ci] if grounded_cells else None,
+                            cell_grounding=grounded_cells is not None,
                         )
                         cell_boxes.append(cell_box)
                         cell_counts[page_num][0] += cell_box is not None
@@ -301,7 +318,16 @@ def candidate_batch(source, profile, selected, batches, *, mode: str, config_has
                         page_num,
                         identifier,
                         provider_box,
-                        derived_box=_union(cell_boxes) if all(cell_boxes) else None,
+                        provider_region=(
+                            profile.table_claims_profile == "pb1-v1" and not all(cell_boxes)
+                        ),
+                        derived_box=(
+                            _union(cell_boxes)
+                            if all(cell_boxes)
+                            else provider_box
+                            if profile.table_claims_profile == "pb1-v1"
+                            else None
+                        ),
                     )
                 else:
                     kind = (

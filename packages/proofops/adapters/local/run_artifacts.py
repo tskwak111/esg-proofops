@@ -214,6 +214,11 @@ def accepted_native_policy_digests():
         "upstage-ocr-page-v3",
         "upstage-ocr-page-v4",
         "upstage-ocr-page-v5",
+        "upstage-ocr-page-v6",
+        "upstage-ocr-page-v7",
+        "upstage-ocr-page-v8",
+        "upstage-ocr-page-v9",
+        "upstage-ocr-page-v10",
     ):
         digests.add(canonical_hash(page_ocr_profile(profile).native_policy()))
     from proofops.adapters.local import frozen_native_replay
@@ -411,6 +416,11 @@ def load_run_evidence(store, uploads, parser, *, tenant_id: str, run_id: str):
             "upstage-ocr-page-v3",
             "upstage-ocr-page-v4",
             "upstage-ocr-page-v5",
+            "upstage-ocr-page-v6",
+            "upstage-ocr-page-v7",
+            "upstage-ocr-page-v8",
+            "upstage-ocr-page-v9",
+            "upstage-ocr-page-v10",
         } and (native_receipt is None or native_receipt.get("run_id") != run_id):
             raise ParseFailure("NATIVE_PARAGRAPH_CHECKPOINT_INVALID")
         if (
@@ -523,10 +533,19 @@ def load_run_evidence(store, uploads, parser, *, tenant_id: str, run_id: str):
             raise ParseFailure("RASTER_OCR_REPLAY_INVALID") from None
     elif native_receipt is not None:
         from proofops.adapters.local.frozen_native_replay import replay_native_with_policy
+        from proofops.adapters.local.verified_read_cache import replay_cached as replay_verified
 
         try:
-            graph = replay_native_with_policy(
-                native_policy, native_receipt, graph, source.content, tenant_id=tenant_id
+            graph = replay_verified(
+                reader_name="native:" + str((native_policy or {}).get("mode")),
+                policy=native_policy,
+                receipt=native_receipt,
+                graph=graph,
+                source=source.content,
+                tenant_id=tenant_id,
+                recompute=lambda r, g, s, *, tenant_id: replay_native_with_policy(
+                    native_policy, r, g, s, tenant_id=tenant_id
+                ),
             )
         except (ValueError, TypeError, KeyError):
             raise ParseFailure("NATIVE_PARAGRAPH_REPLAY_INVALID") from None
@@ -542,8 +561,16 @@ def load_run_evidence(store, uploads, parser, *, tenant_id: str, run_id: str):
                 != sorted(set(profile.physical_pages) - set(profile.claim_physical_pages))
             ):
                 raise ValueError("EVIDENCE_SOURCE_POLICY_MISMATCH")
-            graph = ev1.replay_evidence_sources(
-                envelope["evidence_source_attestation"], graph, source.content, tenant_id=tenant_id
+            from proofops.adapters.local.verified_read_cache import replay_cached as replay_verified
+
+            graph = replay_verified(
+                reader_name=ev1.__name__,
+                policy=ev1.policy(),
+                receipt=envelope["evidence_source_attestation"],
+                graph=graph,
+                source=source.content,
+                tenant_id=tenant_id,
+                recompute=ev1.replay_evidence_sources,
             )
         except (ValueError, TypeError, KeyError):
             raise ParseFailure("EVIDENCE_SOURCE_REPLAY_INVALID") from None

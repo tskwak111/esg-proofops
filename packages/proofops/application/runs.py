@@ -486,6 +486,8 @@ class RunService:
                 "upstage-preliminary-source-quotes-goal-role-v1",
                 "upstage-preliminary-source-quotes-actor-role-v1",
                 "upstage-preliminary-source-quotes-actor-role-v2",
+                "upstage-preliminary-source-quotes-actor-role-v3-pb1",
+                "upstage-preliminary-source-quotes-pb1-compact-v1",
             } or tagging.model_profile not in {
                 "upstage-compact-ids-frozen-unicode-v1",
                 "upstage-compact-coverage-unicode-v2",
@@ -667,6 +669,11 @@ class RunService:
                 if (self.claim_source_policy or {}).get("profile") in {
                     "upstage-ocr-page-v4",
                     "upstage-ocr-page-v5",
+                    "upstage-ocr-page-v6",
+                    "upstage-ocr-page-v7",
+                    "upstage-ocr-page-v8",
+                    "upstage-ocr-page-v9",
+                    "upstage-ocr-page-v10",
                 }:
                     from proofops.adapters.local import evidence_source_ocr_v1 as evidence
 

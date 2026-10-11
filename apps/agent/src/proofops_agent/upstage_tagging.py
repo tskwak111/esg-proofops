@@ -453,6 +453,31 @@ class UpstageTaggingTransport:
             }
             for key, ref in refs.items()
         }
+        table = data.pop("table_observation_evidence", None)
+        if table is not None:
+
+            def cell_id(source):
+                matches = [
+                    key
+                    for key, ref in refs.items()
+                    if all(
+                        ref.get(k) == source[k]
+                        for k in ("source_id", "char_start", "char_end", "quote")
+                    )
+                ]
+                if not matches:
+                    raise ValueError("TABLE_EVIDENCE_CATALOG_MISMATCH")
+                return matches[0]
+
+            data["table_observation"] = dict(
+                current_value_id=cell_id(table["value"]),
+                unit_id=cell_id(table["unit"]),
+                current_year_id=cell_id(table["year"]),
+                comparisons=[
+                    dict(value_id=cell_id(c["value"]), year_id=cell_id(c["year"]))
+                    for c in table["comparisons"]
+                ],
+            )
         if settings.model_profile == CONSISTENCY_PROFILE:
             data["element_evidence_ids"] = {
                 element: [
@@ -499,6 +524,15 @@ class UpstageTaggingTransport:
             "evidence_catalog IDs such as e0. Select IDs; never repeat or alter source text, "
             "coordinates, offsets or verification state. The server restores those exactly."
         )
+        if table is not None:
+            instructions += (
+                "\nThe table_observation links literal attested cells of this exact row. "
+                "For P1 evaluate the current value with its unit; select both source IDs "
+                "and use the exact current value quote as normalized_value. For P2 evaluate "
+                "the comparison value with its explicit year header in this same table; "
+                "select both quotes if sufficient. These links are candidate sources, "
+                "not element votes. Preserve unknown when the element is not stated."
+            )
         if settings.model_profile in (
             QUOTE_PROFILE,
             QUOTE_V4_PROFILE,
@@ -582,7 +616,7 @@ class UpstageTaggingTransport:
         wire_user = json.dumps(user, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         return wire_system, wire_user, refs, authorization, canonical_json(schema)
 
-    def _restore_ref(self, selection, refs: dict[str, dict]) -> dict:
+    def _restore_ref(self, selection, refs: dict[str, dict], *, policy=None) -> dict:
         if self._settings.model_profile not in (
             QUOTE_PROFILE,
             QUOTE_V4_PROFILE,
@@ -601,15 +635,81 @@ class UpstageTaggingTransport:
             raw = {k: v for k, v in original.items() if k != "_display"}
             if catalog is None or catalog.pin(raw) != original["_display"]:
                 raise ValueError("DISPLAY_MAP_MISMATCH")
-            return catalog.restore(quote, raw, original["_display"])
+            if policy is None:
+                return catalog.restore(quote, raw, original["_display"])
+            return catalog.restore(quote, raw, original["_display"], policy=policy)
         if getattr(self, "_display_catalog", None) is not None:
             raise ValueError("DISPLAY_MAP_REQUIRED")
+        if policy is not None:
+            from proofops.application.tagging.citation_restore import POLICY, restore_whitespace
+            from proofops.application.tagging.pb2_citation_restore import POLICY as TABLE_POLICY
+            from proofops.application.tagging.pb2_citation_restore import restore_table
+            from proofops.application.tagging.pb6_citation_restore import POLICY as VALUE_POLICY
+
+            if policy not in (POLICY, TABLE_POLICY, VALUE_POLICY):
+                raise ValueError("CITATION_RESTORE_POLICY_UNKNOWN")
+            restore = (
+                restore_table if policy in (TABLE_POLICY, VALUE_POLICY) else restore_whitespace
+            )
+            return restore(quote, original)
         span = UpstageClaimExtractor._locate(quote, original["quote"])
         return original | dict(
             quote=quote,
             char_start=original["char_start"] + span["char_start"],
             char_end=original["char_start"] + span["char_end"],
         )
+
+    def restore_payload(self, payload, refs, *, policy=None):
+        if policy is not None:
+            from proofops.application.tagging.citation_restore import POLICY
+            from proofops.application.tagging.pb2_citation_restore import POLICY as TABLE_POLICY
+            from proofops.application.tagging.pb6_citation_restore import POLICY as VALUE_POLICY
+
+            if policy not in (POLICY, TABLE_POLICY, VALUE_POLICY):
+                raise ValueError("CITATION_RESTORE_POLICY_UNKNOWN")
+        for element in payload.get("elements", []):
+            try:
+                selected = element["evidence_refs"]
+                if not isinstance(selected, list):
+                    raise ValueError("invalid references")
+                element["evidence_refs"] = [
+                    self._restore_ref(key, refs, policy=policy) for key in selected
+                ]
+                if getattr(self, "_display_catalog", None) is not None:
+                    value = element.get("normalized_value")
+                    exact = [
+                        ref["quote"]
+                        for choice, ref in zip(selected, element["evidence_refs"], strict=True)
+                        if choice["quote"] == value
+                    ]
+                    if exact and len(set(exact)) == 1:
+                        element["normalized_value"] = exact[0]
+                if self._settings.model_profile in (
+                    QUOTE_V4_PROFILE,
+                    QUOTE_V5_PROFILE,
+                    CONSISTENCY_PROFILE,
+                ):
+                    self._refine_g1_year(element)
+                if policy is not None and policy == VALUE_POLICY:
+                    from proofops.application.tagging.pb6_citation_restore import (
+                        refine_selected_value,
+                    )
+
+                    refine_selected_value(element)
+            except (ValueError, KeyError, TypeError, AttributeError):
+                if policy is None:
+                    raise
+                element.update(
+                    state="unknown",
+                    evidence_refs=[],
+                    normalized_value=None,
+                    credited_from=None,
+                    reason_code="CITATION_RESTORE_UNRESOLVED",
+                )
+                payload.setdefault("warnings", []).append(
+                    "CITATION_RESTORE_UNRESOLVED:" + element["element_id"]
+                )
+        return payload
 
     @staticmethod
     def _refine_g1_year(element: dict) -> None:
@@ -743,26 +843,10 @@ class UpstageTaggingTransport:
                 if receipt.get("schema_valid") is False:
                     raise ValueError("provider schema invalid")
                 payload = json.loads(receipt["content"])
-                for element in payload.get("elements", []):
-                    selected = element["evidence_refs"]
-                    if not isinstance(selected, list):
-                        raise ValueError("invalid references")
-                    element["evidence_refs"] = [self._restore_ref(key, refs) for key in selected]
-                    if getattr(self, "_display_catalog", None) is not None:
-                        value = element.get("normalized_value")
-                        exact = [
-                            ref["quote"]
-                            for choice, ref in zip(selected, element["evidence_refs"], strict=True)
-                            if choice["quote"] == value
-                        ]
-                        if exact and len(set(exact)) == 1:
-                            element["normalized_value"] = exact[0]
-                    if settings.model_profile in (
-                        QUOTE_V4_PROFILE,
-                        QUOTE_V5_PROFILE,
-                        CONSISTENCY_PROFILE,
-                    ):
-                        self._refine_g1_year(element)
+                restore_policy = json.loads(request["user_json"])["untrusted_document_data"].get(
+                    "citation_restore_policy"
+                )
+                payload = self.restore_payload(payload, refs, policy=restore_policy)
                 expanded = canonical_json(payload)
             except (ValueError, KeyError, TypeError, AttributeError):
                 expanded = None

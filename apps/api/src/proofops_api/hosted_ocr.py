@@ -1,6 +1,8 @@
 """Hosted OCR money boundary and document-scoped replay over unchanged reader bytes."""
 
+import http.client
 import json
+import os
 import sqlite3
 import threading
 import time
@@ -11,16 +13,62 @@ from uuid import uuid4
 
 from proofops.adapters.local.upstage_ocr_page import (
     COST,
+    MAX_RESPONSE_BYTES,
     MODEL,
     PageOCRStore,
     parse_response,
-    post_png,
     reader_policy,
 )
 from proofops.adapters.local.upstage_parse import COST_PER_PAGE
 from proofops.domain.provenance import canonical_hash
 
 _binding_lock = threading.RLock()
+
+
+def post_png(png):
+    """Hosted error decoding without changing the byte-pinned historical OCR reader."""
+    from datetime import UTC, datetime
+
+    from proofops.adapters.local.provider_errors import upstage_http_error
+    from proofops.adapters.local.upstage_ocr_page import PRICE_RECHECK_AT
+
+    if datetime.now(UTC) >= PRICE_RECHECK_AT:
+        raise ValueError("PRICE_RECHECK_REQUIRED")
+    key = os.environ.get("UPSTAGE_API_KEY", "")
+    if not key or any(c.isspace() for c in key):
+        raise ValueError("UPSTAGE_API_KEY_MISSING_OR_INVALID")
+    boundary = uuid4().hex
+    body = (
+        (
+            f'--{boundary}\r\nContent-Disposition: form-data; name="model"\r\n\r\n'
+            f"{MODEL}\r\n--{boundary}\r\nContent-Disposition: form-data; "
+            'name="document"; filename="page.png"\r\nContent-Type: image/png\r\n\r\n'
+        ).encode()
+        + png
+        + f"\r\n--{boundary}--\r\n".encode()
+    )
+    connection = http.client.HTTPSConnection("api.upstage.ai", timeout=60)
+    try:
+        connection.request(
+            "POST",
+            "/v1/document-digitization",
+            body=body,
+            headers={
+                "Authorization": "Bearer " + key,
+                "Content-Type": f"multipart/form-data; boundary={boundary}",
+            },
+        )
+        response = connection.getresponse()
+        if response.status != 200:
+            raise upstage_http_error(response)
+        raw = response.read(MAX_RESPONSE_BYTES + 1)
+        if len(raw) > MAX_RESPONSE_BYTES:
+            raise ValueError("OCR_RESPONSE_TOO_LARGE")
+        return raw, response.getheader("x-request-id") or response.getheader("request-id")
+    except (OSError, http.client.HTTPException):
+        raise ValueError("UPSTAGE_OCR_REQUEST_FAILED") from None
+    finally:
+        connection.close()
 
 
 @contextmanager

@@ -53,7 +53,9 @@ def test_profile_prepares_mixed_and_approved_linux_source(tmp_path, monkeypatch,
     parser = json.loads((state / "parser.json").read_text())
     assert parser["parser_mode"] == "mixed-v1"
     assert frozen["pipeline_profile"] == profile
-    assert frozen["claim_source_policy"]["profile"] == "upstage-ocr-page-v5"
+    assert frozen["claim_source_policy"]["profile"] == (
+        "upstage-ocr-page-v10" if profile == "finals-unattended-v2" else "upstage-ocr-page-v5"
+    )
     from proofops.adapters.local.run_store import LocalSQLiteRunStore
 
     manifest = json.loads((state / "pilot.json").read_text())

@@ -51,7 +51,9 @@ def test_ev1_policy_is_pinned_only_for_nonempty_evidence_scope(
     snapshot = LocalSQLiteRunStore(state / "state.sqlite3").snapshot(
         manifest["tenant_id"], manifest["run_id"]
     )
-    assert snapshot["claim_source_policy"]["profile"] == "upstage-ocr-page-v5"
+    assert snapshot["claim_source_policy"]["profile"] == (
+        "upstage-ocr-page-v10" if profile == "finals-unattended-v2" else "upstage-ocr-page-v5"
+    )
     assert snapshot["parser_profile"]["claim_physical_pages"] == ([1] if claims == [10] else [1, 2])
     if claims == [10]:
         assert snapshot["evidence_source_policy"]["profile"] == "evidence-source-ocr-v1"
@@ -64,9 +66,13 @@ def test_remote_caddy_validation_cannot_consume_restart_command():
     import subprocess
     from pathlib import Path
 
-    script = (Path(__file__).parents[1] / "deploy/ec2/deploy.sh").read_text()
+    root = Path(__file__).parents[1]
+    for provider in ("ec2", "lightsail"):
+        assert "drain-restart.sh" in (root / f"deploy/{provider}/deploy.sh").read_text()
+    script = (root / "deploy/public/drain-restart.sh").read_text()
     validation = next(line for line in script.splitlines() if "caddy validate --config" in line)
     remote = (
+        "compose=(sudo docker compose --env-file compose.env -f compose.yaml)\n"
         'sudo() { if [ "$1" = docker ]; then cat >/dev/null; '
         'elif [ "$1" = systemctl ]; then echo restarted; fi; }\n'
         + validation

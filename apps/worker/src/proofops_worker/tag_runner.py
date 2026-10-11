@@ -23,6 +23,7 @@ from proofops.adapters.local.gri_routing import LocalGRIRouting
 from proofops.adapters.local.review_store import LocalSQLiteReviewStore
 from proofops.adapters.local.tag_cache import SQLiteImmutableCacheClient
 from proofops.adapters.local.tag_store import LocalTagStore, tag_pins, tagging_settings
+from proofops.adapters.local.verified_read_cache import _parse_enabled
 from proofops.application.evidence.citations import _normalized
 from proofops.application.evidence.retrieval import (
     SearchResult,
@@ -244,6 +245,11 @@ class LocalTagRunner:
         )
         rulepack = RulePackSnapshot(**snapshot["rulepack"])
         settings = tagging_settings(snapshot) if snapshot.get("tagging_settings") else None
+        hold_profile = (
+            "hf1-v1"
+            if snapshot.get("analysis_profile_policy", {}).get("hold_recovery") == "hf1-v1"
+            else None
+        )
         unattended = snapshot.get("pipeline_profile") in (
             "unattended-v1",
             "finals-unattended-v1",
@@ -524,7 +530,7 @@ class LocalTagRunner:
                     continue
                 packet = freeze_track_packet(original_packet, track=track, rulepack=rulepack)
                 if live is not None:
-                    packet = live.display_packet(packet)
+                    packet = live.display_packet(packet, claim=claim)
                     live.allow_packet(claim.claim_id, packet.packet_sha256)
                     if snapshot.get("relation_settings") is not None:
                         external_roles = live.relations(claim, packet)
@@ -547,10 +553,18 @@ class LocalTagRunner:
                     # lost in-flight. The fenced usage wrapper below stops BEFORE reservation.
                     if heartbeat_state is not None:
                         heartbeat_state.check()
-                    if not self.store.jobs.can_call(lease, now=int(self.clock())):
+                    if not _parse_enabled() and not self.store.jobs.can_call(
+                        lease, now=int(self.clock())
+                    ):
                         raise _TagFenceLost()
                     try:
                         self.store.jobs.heartbeat(lease, now=int(self.clock()), lease_seconds=300)
+                    except LeaseLost:
+                        if _parse_enabled():
+                            raise _TagFenceLost() from None
+                        if heartbeat_state is not None:
+                            heartbeat_state.fail()
+                        raise TagHeartbeatFailed() from None
                     except Exception:
                         if heartbeat_state is not None:
                             heartbeat_state.fail()
@@ -571,12 +585,20 @@ class LocalTagRunner:
                     def reserve_budget(self, *args, **kwargs):
                         if heartbeat_state is not None:
                             heartbeat_state.check()
-                        if not runner.store.jobs.can_call(lease, now=int(runner.clock())):
+                        if not _parse_enabled() and not runner.store.jobs.can_call(
+                            lease, now=int(runner.clock())
+                        ):
                             raise LeaseLost("LEASE_LOST")
                         try:
                             runner.store.jobs.heartbeat(
                                 lease, now=int(runner.clock()), lease_seconds=300
                             )
+                        except LeaseLost:
+                            if _parse_enabled():
+                                raise
+                            if heartbeat_state is not None:
+                                heartbeat_state.fail()
+                            raise TagHeartbeatFailed() from None
                         except Exception:
                             if heartbeat_state is not None:
                                 heartbeat_state.fail()
@@ -658,6 +680,7 @@ class LocalTagRunner:
                             packet,
                             rulepack,
                             rule_context,
+                            profile=hold_profile,
                             range_profile=snapshot.get("pipeline_profile")
                             in ("finals-unattended-v1", "finals-unattended-v2"),
                         ),
@@ -813,7 +836,7 @@ class LocalTagRunner:
                     if snapshot.get("pipeline_profile") == "finals-unattended-v2":
                         from proofops.application.tagging.quality import hold_projection
 
-                        item["provisional_grade"] = hold_projection(item)
+                        item["provisional_grade"] = hold_projection(item, profile=hold_profile)
                 return item
             try:
                 result = process_claim(claim)
@@ -865,7 +888,7 @@ class LocalTagRunner:
                 if snapshot.get("pipeline_profile") == "finals-unattended-v2":
                     from proofops.application.tagging.quality import hold_projection
 
-                    result["provisional_grade"] = hold_projection(result)
+                    result["provisional_grade"] = hold_projection(result, profile=hold_profile)
             return result
 
         def reported_claim(claim):
