@@ -356,15 +356,21 @@ def live_tagging_settings(
             "explicit column-year header. Do not borrow numbers from other rows."
         )
     if element_definition_profile is not None:
-        if element_definition_profile not in ("qi1-v1", "w8-v1"):
-            raise ValueError("ELEMENT_DEFINITION_PROFILE_UNKNOWN")
-        from proofops.application.tagging.quality import ELEMENT_DEFINITIONS
+        if element_definition_profile == "qi1-v1":
+            from proofops.application.tagging.quality import ELEMENT_DEFINITIONS
 
-        element_prompt += "\n" + ELEMENT_DEFINITIONS
-        if element_definition_profile == "w8-v1":
-            from proofops.application.tagging.semantic_admission import DEFINITIONS
+            element_prompt += "\n" + ELEMENT_DEFINITIONS
+        elif element_definition_profile == "dec24-v1":
+            from proofops.application.tagging.dec24 import DEFINITIONS
 
             element_prompt += "\n" + DEFINITIONS
+        elif element_definition_profile == "w8-v1":
+            from proofops.application.tagging.quality import ELEMENT_DEFINITIONS
+            from proofops.application.tagging.semantic_admission import DEFINITIONS
+
+            element_prompt += "\n" + ELEMENT_DEFINITIONS + "\n" + DEFINITIONS
+        else:
+            raise ValueError("ELEMENT_DEFINITION_PROFILE_UNKNOWN")
     if preliminary_sentence_context:
         from proofops.application.tagging.preliminary import (
             SENTENCE_CONTEXT_PROFILE,
@@ -727,6 +733,7 @@ def apply_resume_metadata(args, saved: dict) -> None:
     args.extraction_pb1 = bool(saved.get("extraction_pb1", False))
     args.extraction_w9 = bool(saved.get("extraction_w9", False))
     args.extraction_pb1_context_guard = bool(saved.get("extraction_pb1_context_guard", False))
+    args.extraction_table_footnotes = bool(saved.get("extraction_table_footnotes", False))
     args.extraction_source_ids = bool(saved.get("extraction_source_ids", False))
     args.extraction_assertion_prompt = bool(saved.get("extraction_assertion_prompt", False))
     args.extraction_complete_selection = bool(saved.get("extraction_complete_selection", False))
@@ -886,6 +893,7 @@ def main():
     parser.add_argument("--extraction-pb1", action="store_true")
     parser.add_argument("--extraction-w9", action="store_true")
     parser.add_argument("--extraction-pb1-context-guard", action="store_true")
+    parser.add_argument("--extraction-table-footnotes", action="store_true")
     parser.add_argument("--max-calls", type=int, default=8)
     parser.add_argument(
         "--parser-memory-bytes",
@@ -1580,6 +1588,7 @@ def main():
                     extraction_pb1=args.extraction_pb1,
                     extraction_w9=args.extraction_w9,
                     extraction_pb1_context_guard=args.extraction_pb1_context_guard,
+                    extraction_table_footnotes=args.extraction_table_footnotes,
                     extraction_table_rows=args.extraction_table_rows,
                     extraction_recall_prompt=args.extraction_recall_prompt,
                     assertion_prompt=args.extraction_assertion_prompt,
@@ -1640,6 +1649,8 @@ def main():
             settings["extraction_pb1_context_guard"] = True
         if args.extraction_w9:
             settings["extraction_w9"] = True
+        if args.extraction_table_footnotes:
+            settings["extraction_table_footnotes"] = True
         if args.extraction_pb1:
             settings["extraction_pb1"] = True
         if args.extraction_fragment_guard:
@@ -1671,7 +1682,7 @@ def main():
                 live_tagging_settings(
                     args.tagging_max_calls,
                     element_definition_profile=policy_for(args.pipeline_profile).get(
-                        "semantic_definition_profile", "qi1-v1"
+                        "element_definition_profile", "qi1-v1"
                     )
                     if args.pipeline_profile == "finals-unattended-v2"
                     else None,
@@ -2145,6 +2156,8 @@ def main():
             manifest["extraction_pb1_context_guard"] = True
         if args.extraction_w9:
             manifest["extraction_w9"] = True
+        if args.extraction_table_footnotes:
+            manifest["extraction_table_footnotes"] = True
         if args.extraction_pb1:
             manifest["extraction_pb1"] = True
         if args.extraction_fragment_guard:
@@ -2249,6 +2262,7 @@ def main():
             "extraction_pb1",
             "extraction_w9",
             "extraction_pb1_context_guard",
+            "extraction_table_footnotes",
         ):
             if manifest.get(name, False) != getattr(args, name):
                 raise ValueError(name + " policy changed; create a new state directory")

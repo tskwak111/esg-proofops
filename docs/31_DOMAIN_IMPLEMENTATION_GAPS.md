@@ -150,3 +150,34 @@ unknown으로 유지한다. 키워드 누락·모델 합의·quality boolean만�
 불변 revision에 보존한다(28장 R07c 계약). `review_origin=ai_project_interpretation`을
 유지하며 기존 rulepack·모델 출력·원문 claim은 수정하지 않는다. 일반 요소 부재,
 공식 기준 검증, 독립 전문가 gold 또는 다른 GAP의 승인을 뜻하지 않는다.
+
+
+## DEC-24 · 사용자 해석 반영 (2026-10-11, 도메인 담당 사후 확인 대상)
+
+사용자 "추천대로" 승인에 따라 새 `dec24-v1` 태깅 지침은 기준연도와 기준값이
+**같은 문장**에 있는 배출량 수준 유지/관리 목표를 G2 후보로 인정한다.
+기준값을 원문 그대로 인용하고 기존 원문·귀속·replica 가드를 거친다.
+G1 목표연도나 감축률을 만들어 넣지 않으며 Python 사다리와 rulepack은 변경하지 않는다.
+G3/G4의 비온실가스 지표 직접근거 기준도 기존 같은 문장/같은 표 범위를 유지한다.
+GAP-001의 추정·전망(`emissions_estimate` 포함) 등급/라벨은 계속 null이며
+새 실행의 보류 표시 사유만 "추정치 · 산정 근거 확인 필요"로 제공한다.
+
+`extraction_table_footnotes=true`는 source-ID 추출에서 번호로 시작하는 표 주석을
+후보에서 제외한다. 표 안의 위첨자 또는 같은 쪽 표 바로 아래(가로 영역 겹침,
+최대 60 PDF point)의 번호·산정/공시 주석만 처리한다. 일반 번호로 평탄화된
+파서 결과에는 명시적인 산정/공시 주석 표현도 요구한다. 정책 선언문은 M 후보로
+유지한다. 제외한 원문·offset·receipt와 graph는 보존하며 diagnostics에
+`table_footnote_excluded`를 기록한다. PB1 표 행 직접 추출에서도 같은 제외를
+적용하고 원래 `observations.json`과 `table-context-exclusions.json`을 보존한다.
+이 위치 조건은 추출용 보수적 문맥이며
+표 근거의 의미 귀속이나 원문 검증을 승인하지 않는다.
+
+M1/M2/P2는 같은 문단의 명시적인 주어 연속만 허용하는 지침을 추가한다.
+현재 binding은 원자 주장 밖의 역할 차용에 더 엄격하여 보수적 구현으로 유지한다.
+다른 문단/쪽의 회사명·연도를 차용하지 않으며 PC1 opt-in binding을 사용하지 않는다.
+분석 정책 SHA: `3acefc784aeff5e2c922ceb4cc9d8aed06e089f28eff1980524458e9baf7f1b8` →
+`9f4bc1f593d6f930bdc3c0a8f4a224f20422e4863465c869e0f3084a49b5f00d`. 이전 정책/태깅/판정/보고서 revision은 불변이다.
+새 실행만 새 지침·추출 옵션·보류 표시를 사용한다. 기존 선택 필드에만 표시를
+추가하고 DB/HTTP DTO migration은 없다. 이전 실행의 reader와 hash 선택을 보존한다.
+Rollback은 새 정책 배정을 중단하고 새 산출물을 호환 reader에 남기거나 미지원으로
+거부한다. 기존 unknown/conflict를 저장 응답 재생만으로 present로 승격하지 않는다.

@@ -11,6 +11,7 @@ from proofops.application.analysis_profile import (
     V2_PA4_POLICY,
     V2_PB7_POLICY,
     V2_POLICY,
+    V2_PRE_D24_POLICY,
     V2_PRE_PA8_POLICY,
     V2_PRE_PB7_POLICY,
     policy_for,
@@ -62,9 +63,10 @@ def test_every_historical_policy_remains_readable():
     assert V2_PB7_POLICY == V2_PRE_PB7_POLICY | dict(
         citation_restore="citation-selected-value-pb6-v1"
     )
-    assert V2_POLICY == V2_PB7_POLICY | dict(
+    assert V2_PRE_D24_POLICY == V2_PB7_POLICY | dict(
         source="upstage-ocr-page-v10", table_native_ownership="native-grid-pa9-v1"
     )
+    assert V2_POLICY["citation_restore"] == V2_PRE_D24_POLICY["citation_restore"]
     assert V2_POLICY["source"] == "upstage-ocr-page-v10"
     assert V2_POLICY["verified_read_cache"]["profile"] == "exact-verified-read-v4"
 

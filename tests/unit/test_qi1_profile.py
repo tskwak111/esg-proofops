@@ -32,7 +32,7 @@ def test_initial_v2_policy_remains_readable_by_exact_pinned_hash():
 
 
 def test_v2_prompt_is_opt_in_and_pins_definition_hash():
-    from proofops.application.analysis_profile import V2_POLICY
+    from proofops.application.analysis_profile import V2_PRE_D24_POLICY
     from proofops.application.tagging.quality import ELEMENT_DEFINITIONS, ELEMENT_DEFINITIONS_HASH
 
     from evaluation.local_upstage_pilot import live_tagging_settings
@@ -44,7 +44,7 @@ def test_v2_prompt_is_opt_in_and_pins_definition_hash():
     assert (
         old["preliminary_settings"]["system_prompt"] == new["preliminary_settings"]["system_prompt"]
     )
-    assert V2_POLICY["element_definitions_sha256"] == ELEMENT_DEFINITIONS_HASH
+    assert V2_PRE_D24_POLICY["element_definitions_sha256"] == ELEMENT_DEFINITIONS_HASH
 
 
 @pytest.mark.parametrize(

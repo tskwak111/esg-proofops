@@ -1,5 +1,6 @@
 """One explicitly selected profile; old configurations remain byte-identical."""
 
+from proofops.application.tagging.dec24 import DEFINITIONS_HASH
 from proofops.application.tagging.quality import ELEMENT_DEFINITIONS_HASH
 from proofops.application.tagging.semantic_admission import POLICY as W8_POLICY
 from proofops.application.tagging.semantic_admission import POLICY_HASH as W8_POLICY_HASH
@@ -143,13 +144,13 @@ V2_W8_POLICY = V2_PRE_W8_POLICY | dict(
     semantic_admission=W8_POLICY,
     semantic_admission_sha256=W8_POLICY_HASH,
 )
+V2_PRE_D24_POLICY = V2_PRE_W8_POLICY
 V2_PRE_W9_POLICY = V2_PRE_W8_POLICY
 V2_W9_POLICY = V2_PRE_W9_POLICY | dict(
     table_claims="pb1-w9-v1",
     table_cells="pb1-w9-v1",
     table_figures="independent-reader-only-w9-v1",
 )
-V2_POLICY = V2_W9_POLICY | {k: v for k, v in V2_W8_POLICY.items() if k not in V2_PRE_W8_POLICY}
 
 # W3 is opt-in by its hash. Never reinterpret or change the default v2 pin.
 VERIFIED_READ_V5_POLICY = VERIFIED_READ_V4_POLICY | dict(
@@ -160,7 +161,7 @@ VERIFIED_READ_V5_POLICY = VERIFIED_READ_V4_POLICY | dict(
     raw_ocr_workers=2,
     raw_ocr_omp_threads=1,
 )
-W3_POLICY = V2_POLICY | dict(
+W3_POLICY = V2_PRE_W8_POLICY | dict(
     execution_profile="w3-speed-v1",
     verified_read_cache=VERIFIED_READ_V5_POLICY,
     max_http_workers=16,
@@ -172,16 +173,33 @@ W3_POLICY = V2_POLICY | dict(
 )
 
 
+V2_D24_POLICY = V2_PRE_D24_POLICY | dict(
+    element_definition_profile="dec24-v1",
+    element_definitions_sha256=DEFINITIONS_HASH,
+    table_footnotes="table-footnotes-dec24-v1",
+    hold_display="estimate-reason-dec24-v1",
+    context_binding="conservative-atomic-source-v1",
+)
+
+V2_POLICY = (
+    V2_D24_POLICY
+    | {k: v for k, v in V2_W9_POLICY.items() if k not in V2_PRE_W9_POLICY}
+    | {k: v for k, v in V2_W8_POLICY.items() if k not in V2_PRE_W8_POLICY}
+)
+
+
 def policy_for(profile, *, pinned_hash=None):
     if profile == PROFILE:
         choices = (POLICY,)
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            V2_D24_POLICY,
             V2_W9_POLICY,
             V2_PRE_W9_POLICY,
             V2_W8_POLICY,
             V2_PRE_W8_POLICY,
+            V2_PRE_D24_POLICY,
             V2_PA9_POLICY,
             V2_PB7_POLICY,
             V2_PRE_PB7_POLICY,
@@ -239,6 +257,7 @@ def apply_pilot_profile(args):
         args.extraction_pb1 = True
         args.extraction_w9 = True
         args.extraction_pb1_context_guard = True
+        args.extraction_table_footnotes = True
         args.extraction_table_rows = True
         args.preliminary_actor_role = True
     # Hosted Linux uses its independently approved OCR reader. Keep that explicit

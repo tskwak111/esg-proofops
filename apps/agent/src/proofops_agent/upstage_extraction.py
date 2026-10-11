@@ -532,6 +532,7 @@ def _profile_with_options(
     extraction_pb1_context_guard: bool = False,
     extraction_w9: bool = False,
     extraction_sentence_prefix: bool = False,
+    extraction_table_footnotes: bool = False,
 ) -> ExtractionProfile:
     """Versioned extraction profile for an explicit option combination.
 
@@ -573,6 +574,7 @@ def _profile_with_options(
             extraction_table_rows,
             extraction_recall_prompt,
             extraction_sentence_prefix,
+            extraction_table_footnotes,
         )
     ):
         raise ValueError("UPSTAGE_PROFILE_OPTION_INVALID")
@@ -588,6 +590,8 @@ def _profile_with_options(
         raise ValueError("UPSTAGE_EXTRACTION_SENTENCE_PREFIX_INVALID")
     if extraction_linewrap_join and (not source_ids or extraction_atomic):
         raise ValueError("UPSTAGE_EXTRACTION_LINEWRAP_JOIN_INVALID")
+    if extraction_table_footnotes and not source_ids:
+        raise ValueError("UPSTAGE_EXTRACTION_TABLE_FOOTNOTES_INVALID")
     if extraction_fragment_guard and not extraction_linewrap_join:
         raise ValueError("UPSTAGE_EXTRACTION_FRAGMENT_GUARD_INVALID")
     if extraction_table_context and not extraction_context:
@@ -622,6 +626,10 @@ def _profile_with_options(
         descriptor.append(ROW_POLICY)
     if extraction_recall_prompt:
         descriptor.append("extraction-recall-examples-v1")
+    if extraction_table_footnotes:
+        from proofops.application.tagging.dec24 import TABLE_FOOTNOTE_POLICY
+
+        descriptor.append(TABLE_FOOTNOTE_POLICY)
     if extraction_pb1_context_guard:
         from proofops.application.ingest.pb1_fragments import TABLE_CONTEXT_POLICY
 
@@ -736,6 +744,7 @@ class UpstageClaimExtractor:
         extraction_pb1_context_guard: bool = False,
         extraction_w9: bool = False,
         extraction_sentence_prefix: bool = False,
+        extraction_table_footnotes: bool = False,
     ) -> None:
         if not callable(getattr(probe, "complete", None)):
             raise ValueError("UPSTAGE_PROBE_REQUIRED")
@@ -791,6 +800,7 @@ class UpstageClaimExtractor:
             extraction_pb1_context_guard=extraction_pb1_context_guard,
             extraction_w9=extraction_w9,
             extraction_sentence_prefix=extraction_sentence_prefix,
+            extraction_table_footnotes=extraction_table_footnotes,
         )
         if type(max_tokens) is not int or not 1 <= max_tokens <= 4096:
             raise ValueError("UPSTAGE_MAX_TOKENS_INVALID")
@@ -807,6 +817,7 @@ class UpstageClaimExtractor:
         ):
             raise ValueError("EXTRACTION_PB1_CONTEXT_GUARD_INVALID")
         self._sentence_prefix = extraction_sentence_prefix
+        self._table_footnotes = extraction_table_footnotes
         self._pb1_context_guard = extraction_pb1_context_guard
         self._pb1 = extraction_pb1
         self._w9 = extraction_w9
@@ -911,9 +922,14 @@ class UpstageClaimExtractor:
             if self._w9:
                 from proofops.application.ingest.w9_tables import observations_for
 
-                rows = observations_for(block, context_graph)
+                raw_rows = observations_for(block, context_graph)
             else:
-                rows = observations(text, context=context)
+                raw_rows = observations(text, context=context)
+            rows = raw_rows
+            if self._table_footnotes:
+                from proofops.application.tagging.dec24 import table_footnote
+
+                rows = [r for r in raw_rows if not table_footnote(r["quote"], kind="table")]
             result: dict[str, Any] = {
                 "spans": [
                     dict(
@@ -936,7 +952,12 @@ class UpstageClaimExtractor:
             if not directory.exists():
                 directory.mkdir(mode=0o700)
                 self._write(directory / "packet.json", canonical_json(packet))
-                self._write(directory / "observations.json", canonical_json(rows))
+                self._write(directory / "observations.json", canonical_json(raw_rows))
+                if self._table_footnotes:
+                    self._write(
+                        directory / "table-context-exclusions.json",
+                        canonical_json([r for r in raw_rows if r not in rows]),
+                    )
                 self._write(directory / "result.json", canonical_json(result))
             elif json.loads((directory / "result.json").read_text()) != result:
                 raise ValueError("EXTRACTION_PB1_REPLAY_MISMATCH")
@@ -1450,6 +1471,28 @@ class UpstageClaimExtractor:
                     if table_context_row(span.quote)
                 ]
                 spans = tuple(span for span in spans if not table_context_row(span.quote))
+            if self._table_footnotes and packet is not None:
+                from proofops.application.tagging.dec24 import adjacent_table, table_footnote
+
+                table_context = adjacent_table(packet, context_graph)
+                excluded = [
+                    span
+                    for span in spans
+                    if table_footnote(
+                        span.quote,
+                        kind=packet["untrusted_document_data"]["kind"],
+                        table_context=table_context,
+                    )
+                ]
+                diagnostics["table_footnote_excluded"] = [
+                    dict(
+                        char_start=span.char_start,
+                        char_end=span.char_end,
+                        reason="table_context_only_dec24",
+                    )
+                    for span in excluded
+                ]
+                spans = tuple(span for span in spans if span not in excluded)
             return spans, diagnostics
         quotes = self._quotes(payload)
         span_dicts = []
