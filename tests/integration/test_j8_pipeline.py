@@ -197,9 +197,13 @@ def test_runtime_rejects_mislabeled_j8_candidate_policy(tmp_path, profile, enabl
     )
     if enabled:
         settings["extraction_j8"] = True
+        from proofops.application.analysis_profile import FINALS_I2_POLICY
+
+        settings["analysis_policy_sha256"] = canonical_hash(FINALS_I2_POLICY)
     config = _write_json(tmp_path / "settings.json", settings)
     parser = _write_json(tmp_path / "parser.json", _parser_snapshot())
-    with pytest.raises(ValueError, match="EXTRACTION_J8_INVALID"):
+    rejection = "LOCAL_RUNTIME_CONFIG_INVALID" if enabled else "EXTRACTION_J8_INVALID"
+    with pytest.raises(ValueError, match=rejection):
         load_local_runtime(
             dict(
                 LOCAL_RUN_SETTINGS_PATH=str(config),

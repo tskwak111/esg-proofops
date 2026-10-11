@@ -22,7 +22,7 @@ from proofops.adapters.local import openai, spend_guard
 from proofops.adapters.local.provider_concurrency import ProviderConcurrency
 from proofops.adapters.local.upstage_parse import PARSE_MODEL_PINNED, UpstageParseProbe
 from proofops.adapters.parsing import opendataloader, upstage_document
-from proofops.application.analysis_profile import V2_POLICY
+from proofops.application.analysis_profile import V2_POLICY, apply_pilot_profile
 from proofops.application.ingest.graph_fusion import ParserProfile
 from proofops.application.registry import Registry
 from proofops.domain.provenance import canonical_hash
@@ -66,11 +66,26 @@ def main(*, claim_pages=None, workers=1, budget="0.5", event_id="I1-USD0.5"):
                     shutil.copy2(path, output / name)
         settings_path = output / "settings.json"
         settings = json.loads(settings_path.read_text())
+        from argparse import Namespace
+
+        options = Namespace(analysis_profile="finals-unattended-v2")
+        apply_pilot_profile(options)
+        for flag in ("j3", "j7", "j8", "i3_wire", "k1", "k3", "sentence_prefix", "table_footnotes"):
+            name = "extraction_" + flag
+            if getattr(options, name):
+                settings[name] = True
+            else:
+                settings.pop(name, None)
+        source_policy = None
+        if options.claim_source_profile == "upstage-ocr-page-v11":
+            from proofops.adapters.local import upstage_ocr_profile_v11
+
+            source_policy = upstage_ocr_profile_v11.claim_source_policy()
+            settings["claim_source_policy"] = source_policy
         settings.update(
             extraction_w9=True,
             extraction_sentence_prefix=True,
             extraction_table_footnotes=True,
-            extraction_j3=bool(V2_POLICY.get("selected_span_refinement")),
             analysis_policy_sha256=canonical_hash(V2_POLICY),
         )
         flags = {
@@ -122,6 +137,8 @@ def main(*, claim_pages=None, workers=1, budget="0.5", event_id="I1-USD0.5"):
                 ).config_hash(),
                 **guidance,
             )
+            if source_policy:
+                frozen["claim_source_policy"] = source_policy
             for prefix in ("tagging", "preliminary", "relation"):
                 frozen[prefix + "_settings_hash"] = canonical_hash(frozen[prefix + "_settings"])
                 frozen[prefix + "_runtime"]["runtime_binding_id"] = frozen[prefix + "_settings"][

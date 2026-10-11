@@ -736,9 +736,18 @@ def check_local_upstage_tagger(
         or (
             settings.model_profile == "upstage-preliminary-source-quotes-pb1-compact-v1"
             and settings.system_prompt
-            == __import__(
-                "proofops.application.tagging.pb1_classification", fromlist=["COMPACT_PROMPT"]
-            ).COMPACT_PROMPT
+            in (
+                __import__(
+                    "proofops.application.tagging.pb1_classification", fromlist=["COMPACT_PROMPT"]
+                ).COMPACT_PROMPT,
+                __import__(
+                    "proofops.application.tagging.pb1_classification", fromlist=["COMPACT_PROMPT"]
+                ).COMPACT_PROMPT
+                + "\n"
+                + __import__(
+                    "proofops.application.tagging.k1_semantics", fromlist=["GUIDANCE"]
+                ).GUIDANCE,
+            )
         )
         or relation_settings_contract_valid(settings)
     )

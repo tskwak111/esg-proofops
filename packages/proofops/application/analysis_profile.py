@@ -1,5 +1,7 @@
 """One explicitly selected profile; old configurations remain byte-identical."""
 
+from proofops.application.ingest.i3_wire import POLICY as I3_WIRE_POLICY
+from proofops.application.ingest.j8_cells import POLICY as J8_CELLS_POLICY
 from proofops.application.ingest.k1_boundaries import POLICY_HASH as K1_BOUNDARY_HASH
 from proofops.application.ingest.k3_table_routing import POLICY as K3_ROUTING_POLICY
 from proofops.application.ingest.sentence_prefix import POLICY as PREFIX_POLICY
@@ -11,7 +13,6 @@ from proofops.application.tagging.dec24 import (
 from proofops.application.tagging.k1_semantics import DEFINITIONS as K1_DEFINITIONS
 from proofops.application.tagging.k1_semantics import POLICY as K1_SEMANTIC_POLICY
 from proofops.application.tagging.k2_recovery import POLICY as K2_RECOVERY_POLICY
-from proofops.application.ingest.j8_cells import POLICY as J8_CELLS_POLICY
 from proofops.application.tagging.quality import ELEMENT_DEFINITIONS_HASH
 from proofops.application.tagging.semantic_admission import POLICY as W8_POLICY
 from proofops.application.tagging.semantic_admission import POLICY_HASH as W8_POLICY_HASH
@@ -269,6 +270,22 @@ J8_POLICY = J3_POLICY | dict(
     cell_candidate_policy_sha256=canonical_hash(J8_CELLS_POLICY),
 )
 
+FINALS_I3_POLICY = (
+    FINALS_I2_POLICY
+    | {k: v for k, v in K1_POLICY.items() if v != FINALS_I1_POLICY.get(k)}
+    | {k: v for k, v in FINALS_K2_POLICY.items() if v != FINALS_I1_POLICY.get(k)}
+    | {k: v for k, v in K3_POLICY.items() if v != FINALS_I1_POLICY.get(k)}
+    | dict(
+        integration_profile="finals-20261011-v3",
+        extraction_wire="owned-cell-compact-i3-v1",
+        extraction_wire_policy_sha256=canonical_hash(I3_WIRE_POLICY),
+        selected_span_refinement="j7-independent-clauses-v1",
+        table_cells=J8_CELLS_POLICY["profile"],
+        cell_candidate_policy_sha256=canonical_hash(J8_CELLS_POLICY),
+    )
+)
+V2_POLICY = FINALS_I3_POLICY
+
 
 def policy_for(profile, *, pinned_hash=None):
     if profile == J7_PROFILE:
@@ -282,6 +299,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_I2_POLICY,
             FINALS_I2_J3_POLICY,
             FINALS_I1_POLICY,
             K1_POLICY,
@@ -361,6 +379,7 @@ def apply_pilot_profile(args):
         args.extraction_j3 = bool(selected.get("selected_span_refinement"))
         args.extraction_j7 = selected.get("selected_span_refinement") == "j7-independent-clauses-v1"
         args.extraction_j8 = selected.get("table_cells") == J8_CELLS_POLICY["profile"]
+        args.extraction_i3_wire = selected.get("extraction_wire") == "owned-cell-compact-i3-v1"
         args.extraction_pb1_context_guard = True
         args.extraction_table_footnotes = bool(selected.get("table_footnotes"))
         args.extraction_k1 = bool(selected.get("extraction_k1"))
@@ -382,7 +401,7 @@ def apply_pilot_profile(args):
         "upstage-ocr-page-v11",
     ):
         args.claim_source_profile = (
-            "upstage-ocr-page-v11" if selected == K3_POLICY else "upstage-ocr-page-v10"
+            selected["source"] if selected.get("table_worker_routing") else "upstage-ocr-page-v10"
         )
     if getattr(args, "claim_source_profile", None) not in {
         "upstage-ocr-page-v3",

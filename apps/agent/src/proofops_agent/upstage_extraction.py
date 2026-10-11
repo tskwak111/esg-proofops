@@ -538,6 +538,7 @@ def _profile_with_options(
     extraction_j3: bool = False,
     extraction_j7: bool = False,
     extraction_j8: bool = False,
+    extraction_i3_wire: bool = False,
 ) -> ExtractionProfile:
     """Versioned extraction profile for an explicit option combination.
 
@@ -556,6 +557,8 @@ def _profile_with_options(
     ``assertion_prompt`` and pins its own rule entry and prompt suffix, so a
     complete-selection run can never replay an assertion-only receipt.
     """
+    if type(extraction_i3_wire) is not bool or (extraction_i3_wire and not extraction_j8):
+        raise ValueError("EXTRACTION_I3_WIRE_INVALID")
     if type(extraction_j7) is not bool or (extraction_j7 and not extraction_j3):
         raise ValueError("EXTRACTION_J7_INVALID")
     if type(extraction_j8) is not bool or (
@@ -680,6 +683,10 @@ def _profile_with_options(
         from proofops.application.ingest.j8_cells import POLICY as J8_POLICY
 
         descriptor.append(J8_POLICY)
+    if extraction_i3_wire:
+        from proofops.application.ingest.i3_wire import POLICY as I3_WIRE_POLICY
+
+        descriptor.append(I3_WIRE_POLICY)
     if display_text_profile:
         descriptor.append(POLICY)
     if year_notation:
@@ -735,10 +742,17 @@ def _profile_with_options(
             + (_w9_suffix() if extraction_w9 else "")
             + (_j8_suffix() if extraction_j8 else "")
             + (_display_suffix() if display_text_profile else "")
+            + (_i3_wire_suffix() if extraction_i3_wire else "")
         ),
         rule_sha256=canonical_hash(descriptor),
         synthetic=False,
     )
+
+
+def _i3_wire_suffix():
+    from proofops.application.ingest.i3_wire import GUIDANCE
+
+    return "\n" + GUIDANCE
 
 
 def _display_suffix():
@@ -803,6 +817,7 @@ class UpstageClaimExtractor:
         extraction_j3: bool = False,
         extraction_j7: bool = False,
         extraction_j8: bool = False,
+        extraction_i3_wire: bool = False,
     ) -> None:
         if not callable(getattr(probe, "complete", None)):
             raise ValueError("UPSTAGE_PROBE_REQUIRED")
@@ -864,6 +879,7 @@ class UpstageClaimExtractor:
             extraction_j3=extraction_j3,
             extraction_j7=extraction_j7,
             extraction_j8=extraction_j8,
+            extraction_i3_wire=extraction_i3_wire,
         )
         if type(max_tokens) is not int or not 1 <= max_tokens <= 4096:
             raise ValueError("UPSTAGE_MAX_TOKENS_INVALID")
@@ -889,6 +905,7 @@ class UpstageClaimExtractor:
         self._k3 = extraction_k3
         self._j7 = extraction_j7
         self._j8 = extraction_j8
+        self._i3_wire = extraction_i3_wire
         self._table_rows = extraction_table_rows
         self._recall_prompt = extraction_recall_prompt
         self._atomic = extraction_atomic
@@ -1929,6 +1946,11 @@ class UpstageClaimExtractor:
         system_prompt, user_data = self._display_wire(
             packet, system_prompt, user_data, display_catalog
         )
+        if self._i3_wire:
+            from proofops.application.ingest.i3_wire import compact
+
+            user_data["untrusted_document_data"] = compact(user_data["untrusted_document_data"])
+            system_prompt += _i3_wire_suffix()
         if self._j3:
             user_data["selected_span_policy_sha256"] = self._profile.rule_sha256
         content_sha = canonical_hash({"system_prompt": system_prompt, "user_data": user_data})

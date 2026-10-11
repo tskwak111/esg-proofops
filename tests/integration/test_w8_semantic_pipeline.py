@@ -6,7 +6,7 @@ from dataclasses import asdict, replace
 import pytest
 from proofops.application.evidence.binding import ClaimContext
 from proofops.application.evidence.retrieval import freeze_track_packet, retrieve_evidence
-from proofops.application.tagging.semantic_admission import DEFINITIONS, POLICY, POLICY_HASH
+from proofops.application.tagging.semantic_admission import DEFINITIONS, POLICY
 from proofops.application.tagging.service import RawTagResponse, tag_replicates
 from proofops.application.tagging.tracks import TrackCandidate
 from proofops.application.tagging.unattended import ensure_range, provisional_result
@@ -144,6 +144,8 @@ def test_estimate_category_is_held_without_losing_p1_or_reintroducing_a_range(tm
 
 def test_worker_uses_pinned_semantic_policy(tmp_path, monkeypatch):
     from proofops.application.runs import RunService
+    from proofops.application.tagging.k1_semantics import POLICY as INTEGRATED_SEMANTICS
+    from proofops.domain.provenance import canonical_hash
     from proofops_worker import tag_runner
 
     from tests.integration.test_local_tag_runner import verified_setup
@@ -165,15 +167,18 @@ def test_worker_uses_pinned_semantic_policy(tmp_path, monkeypatch):
 
     monkeypatch.setattr(tag_runner, "tag_replicates", checked)
     assert runner.run_once(tenant_id=TENANT, run_id=run_id) == "completed"
-    assert seen and all(p == POLICY for p in seen)
+    assert seen and all(p == INTEGRATED_SEMANTICS for p in seen)
     rows = runner.tags.load_snapshot(TENANT, run_id)["claims"]
-    assert all(r["provisional_grade"].get("semantic_policy_sha256") == POLICY_HASH for r in rows), [
+    assert all(
+        r["provisional_grade"].get("semantic_policy_sha256") == canonical_hash(INTEGRATED_SEMANTICS)
+        for r in rows
+    ), [
         (r["reason"], r["provisional_grade"], [(t["status"], t["errors"]) for t in r["tag_runs"]])
         for r in rows
     ]
     assert (
         service.store.snapshot(TENANT, run_id)["analysis_profile_policy"]["semantic_admission"]
-        == POLICY
+        == INTEGRATED_SEMANTICS
     )
 
 

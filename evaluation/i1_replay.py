@@ -55,6 +55,26 @@ def main(*, integration_policy=FINALS_I1_POLICY, baseline_dir=None):
     socket.socket.connect = socket.socket.connect_ex = socket.create_connection = deny
     root, lab = args.root, args.root / "outputs/agent-results/R108-redesign/lab"
     j3 = bool(integration_policy.get("selected_span_refinement"))
+    j7 = integration_policy.get("selected_span_refinement") == "j7-independent-clauses-v1"
+    j8 = integration_policy.get("table_cells") == "j8-owned-cell-candidates-v1"
+    k3 = bool(integration_policy.get("table_worker_routing"))
+    cell_selections = []
+    selection_inputs = {}
+    if j8:
+        from evaluation.j8_cells_replay import selection_receipt
+
+        for folder, filename, profile_key in (
+            ("fix/J3", "live-cells.json", "extraction_profile"),
+            ("fix/J8", "live-cells.json", "profile"),
+        ):
+            path = lab / folder / filename
+            saved = read(path)
+            selection_inputs[str(path)] = sha256(path.read_bytes()).hexdigest()
+            for case in saved["cases"]:
+                selection_receipt(
+                    path.parent / "live-receipts", case, saved[profile_key], selection_inputs
+                )
+                cell_selections.append(case)
     baseline = read(lab / baseline_dir / "measurement.json") if baseline_dir else None
     score, scorer_hashes = load_scorer(root / ".local/docling-lab/scripts")
     gold_path = next((lab / "gold-return/20261010/raw").rglob("20261007*.json"))
@@ -65,6 +85,8 @@ def main(*, integration_policy=FINALS_I1_POLICY, baseline_dir=None):
         kia=lab / "perf/PA9/kia-server",
     )
     summary, input_hashes, all_rows = {}, {}, {}
+    if j8:
+        input_hashes.update(selection_inputs)
     for name, state in states.items():
         phase = monotonic()
         graph, source, retained, snapshot, _ = fixture(state)
@@ -109,6 +131,11 @@ def main(*, integration_policy=FINALS_I1_POLICY, baseline_dir=None):
             extraction_sentence_prefix=True,
             extraction_table_footnotes=True,
             extraction_j3=j3,
+            extraction_j7=j7,
+            extraction_j8=j8,
+            extraction_i3_wire=bool(integration_policy.get("extraction_wire")),
+            extraction_k1=bool(integration_policy.get("extraction_k1")),
+            extraction_k3=k3,
         )
         # The original byte-identical extractor options reproduce the retained
         # selection. Origin/main has these same policies; its hash is recorded.
@@ -188,6 +215,17 @@ def main(*, integration_policy=FINALS_I1_POLICY, baseline_dir=None):
                     entries = new._row_entries(
                         packet, current.normalized_text, [], context_graph=new_graph
                     )
+                    extra = set()
+                    if j8:
+                        for case in cell_selections:
+                            if (
+                                case["company"] == name
+                                and case["physical_page"] == page_map[current.page_num - 1]
+                                and case["table_text"] == current.normalized_text
+                            ):
+                                extra.update(
+                                    (s["char_start"], s["char_end"]) for s in case["spans"]
+                                )
                     selected = [
                         dict(
                             char_start=e["char_start"],
@@ -198,14 +236,36 @@ def main(*, integration_policy=FINALS_I1_POLICY, baseline_dir=None):
                             reason=None,
                         )
                         for e in entries
-                        if any(
+                        if (e["char_start"], e["char_end"]) in extra
+                        or any(
                             s["char_start"] < e["char_end"] and e["char_start"] < s["char_end"]
                             for s in previous
                             if s["kind"] == "claim"
                         )
                     ]
                     projected.append(sid)
-                    if j3:
+                    if j8:
+                        payload = dict(
+                            sentence_ids=[
+                                e["sentence_id"]
+                                for e in entries
+                                if any(
+                                    s["char_start"] == e["char_start"]
+                                    and s["char_end"] == e["char_end"]
+                                    for s in selected
+                                )
+                            ]
+                        )
+                        if payload["sentence_ids"]:
+                            resolved, _ = new._resolve_payload(
+                                payload,
+                                current.normalized_text,
+                                sid,
+                                packet=packet,
+                                context_graph=new_graph,
+                            )
+                            selected = [asdict(s) for s in resolved]
+                    elif j3:
                         from proofops.application.ingest.j3_recall import refine_selected
                         from proofops.application.ingest.w9_tables import graph_cells
 
@@ -281,9 +341,24 @@ def main(*, integration_policy=FINALS_I1_POLICY, baseline_dir=None):
             if changed_refs:
                 from proofops.adapters.local.claim_source_verification import attest_claim_spans
 
-                receipt = attest_claim_spans(
-                    new_graph, source, changed_refs, tenant_id=graph.tenant_id
-                )
+                if k3:
+                    from proofops.adapters.local import upstage_ocr_profile_v11
+                    from proofops_api.hosted_ocr import ReplayOCRStore, reader_scope
+
+                    ocr = state / "upstage.sqlite3"
+                    input_hashes[str(ocr)] = sha256(ocr.read_bytes()).hexdigest()
+                    with reader_scope(ReplayOCRStore(ocr)):
+                        receipt = upstage_ocr_profile_v11.attest_claim_spans(
+                            new_graph,
+                            source,
+                            changed_refs,
+                            tenant_id=graph.tenant_id,
+                            run_id=snapshot["run_id"],
+                        )
+                else:
+                    receipt = attest_claim_spans(
+                        new_graph, source, changed_refs, tenant_id=graph.tenant_id
+                    )
                 write(args.output / f"{name}-changed-paragraph-attestation.json", receipt)
                 for item in receipt["records"]:
                     ref = item["ref"]
@@ -294,9 +369,7 @@ def main(*, integration_policy=FINALS_I1_POLICY, baseline_dir=None):
                         ref["quote"],
                         ref["raw_text_sha256"],
                     )
-                    proofs[key] = dict(
-                        status=item["status"], artifact_sha256=receipt["artifact_sha256"]
-                    )
+                    proofs[key] = dict(item, artifact_sha256=receipt["artifact_sha256"])
         outputs = {}
         native_pdf = pdfplumber.open(io.BytesIO(source))
         for stage, selections in (("before", before), ("after", after)):
@@ -320,8 +393,13 @@ def main(*, integration_policy=FINALS_I1_POLICY, baseline_dir=None):
             table_indices = [
                 i for i, (b, _) in enumerate(selections) if b.kind in {"table", "table_cell"}
             ]
+            table_reader = native
+            if stage == "after" and k3:
+                from proofops.adapters.local import upstage_ocr_profile_v11
+
+                table_reader = upstage_ocr_profile_v11
             cell_proofs = (
-                native.cell_proof(
+                table_reader.cell_proof(
                     graph if stage == "before" else new_graph,
                     source,
                     [refs[i] for i in table_indices],

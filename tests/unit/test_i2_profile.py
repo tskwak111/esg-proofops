@@ -7,18 +7,20 @@ from proofops.application import analysis_profile as profiles
 from proofops.domain.provenance import canonical_hash
 
 
-def test_i2_default_excludes_j3_after_failed_precision_gate():
-    policy = profiles.policy_for(profiles.V2_PROFILE)
+def test_i2_pin_excludes_j3_after_failed_precision_gate():
+    digest = canonical_hash(profiles.FINALS_I2_POLICY)
+    policy = profiles.policy_for(profiles.V2_PROFILE, pinned_hash=digest)
     assert policy["integration_profile"] == "finals-20261011-v2"
     assert "selected_span_refinement" not in policy
     delta = {k for k, v in policy.items() if v != profiles.FINALS_I1_POLICY.get(k)}
     assert delta == {"integration_profile"}
-    args = Namespace(analysis_profile=profiles.V2_PROFILE)
+    args = Namespace(analysis_profile=profiles.V2_PROFILE, analysis_policy_sha256=digest)
     profiles.apply_pilot_profile(args)
     assert not args.extraction_j3 and args.extraction_w9
     assert args.extraction_sentence_prefix and args.extraction_table_footnotes
     assert args.analysis_policy_sha256 == canonical_hash(policy)
-    assert profiles.publication_policy_for(profiles.V2_PROFILE) == policy
+    with pytest.raises(ValueError, match="PUBLICATION_PIN_MISMATCH"):
+        profiles.publication_policy_for(profiles.V2_PROFILE, pinned_hash=digest)
 
 
 def test_rejected_j3_candidate_preserves_exact_replay_but_cannot_publish():
@@ -79,7 +81,10 @@ def test_rejected_j3_leaves_every_i1_execution_option_identical():
         analysis_profile=profiles.V2_PROFILE,
         analysis_policy_sha256=canonical_hash(profiles.FINALS_I1_POLICY),
     )
-    after = Namespace(analysis_profile=profiles.V2_PROFILE)
+    after = Namespace(
+        analysis_profile=profiles.V2_PROFILE,
+        analysis_policy_sha256=canonical_hash(profiles.FINALS_I2_POLICY),
+    )
     profiles.apply_pilot_profile(before)
     profiles.apply_pilot_profile(after)
     old = vars(before).copy()

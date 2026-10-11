@@ -20,6 +20,7 @@ from proofops.adapters.aws.usage import LocalSQLiteUsageStore
 from proofops.adapters.cache.aws import ImmutableResponseCache, InMemoryImmutableCacheClient
 from proofops.adapters.local.glyph_display_text import GlyphDisplayCatalog
 from proofops.adapters.local.tag_store import tagging_settings
+from proofops.application.analysis_profile import FINALS_K2_POLICY
 from proofops.application.budget import BudgetLimits, RoleLimit
 from proofops.application.evidence.binding import ClaimContext
 from proofops.application.evidence.retrieval import freeze_packet
@@ -133,12 +134,13 @@ def projection(result):
     } | dict(states={e["element_id"]: e["state"] for e in result.get("elements", [])})
 
 
-def main():
+def main(*, integration_policy=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     start = monotonic()
+    selected_policy = integration_policy or FINALS_K2_POLICY
 
     def deny(*a, **kw):
         raise AssertionError("K2_OFFLINE_NETWORK_FORBIDDEN")
@@ -220,9 +222,8 @@ def main():
                             baseline_ok = False
                         validated.clear()
                         diagnostics.clear()
-                        from proofops.application.analysis_profile import FINALS_K2_POLICY
 
-                        runtime.snapshot = snapshot | dict(analysis_profile_policy=FINALS_K2_POLICY)
+                        runtime.snapshot = snapshot | dict(analysis_profile_policy=selected_policy)
                         runtime.preliminary(claim, graph)
                         assert not baseline_ok and validated, cid
                         after = projection(hold_projection(item, profile="k2-v1"))
@@ -281,6 +282,11 @@ def main():
                         }
                     results = {}
                     for phase in ("before", "after"):
+                        semantic_policy = (
+                            selected_policy["semantic_admission"]
+                            if phase == "after"
+                            else snapshot["analysis_profile_policy"]["semantic_admission"]
+                        )
                         payload = {k: v for k, v in data.items() if k != "packet_sha256"}
                         if phase == "after":
                             payload["local_element_recovery_policy"] = POLICY
@@ -331,9 +337,7 @@ def main():
                             count_input_tokens=lambda r: 10000,
                             now=lambda: 1,
                             pipeline_profile=data["pipeline_profile"],
-                            semantic_policy=snapshot["analysis_profile_policy"][
-                                "semantic_admission"
-                            ],
+                            semantic_policy=semantic_policy,
                         )
                         result = provisional_result(
                             guarded,
@@ -347,9 +351,7 @@ def main():
                             ),
                             range_profile=True,
                             profile="dec24-v1" if phase == "before" else "k2-v1",
-                            semantic_policy=snapshot["analysis_profile_policy"][
-                                "semantic_admission"
-                            ],
+                            semantic_policy=semantic_policy,
                             original=graph,
                         )
                         results[phase] = hold_projection(
@@ -399,7 +401,11 @@ def main():
                     for eid, value in before["states"].items():
                         if value == "present":
                             if after["states"].get(eid) != "present":
-                                failures.append(dict(case_id=cid, lost_element=eid))
+                                if integration_policy is None or any(
+                                    e["element_id"] == eid and e["review"] == "원문 직접 지지"
+                                    for e in review[cid]["elements"]
+                                ):
+                                    failures.append(dict(case_id=cid, lost_element=eid))
                             else:
                                 preserved.append([cid, eid])
                     cases.append(
@@ -426,7 +432,7 @@ def main():
             "newly recovered K2 local present citations; native bbox literal cross-check"
         ),
         preserved_present=preserved,
-        policy_sha256=canonical_hash(FINALS_K2_POLICY),
+        policy_sha256=canonical_hash(selected_policy),
         input_sha256=hashes,
         inputs_unchanged=True,
         model_calls=0,

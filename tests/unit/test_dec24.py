@@ -8,6 +8,7 @@ import pytest
 
 def test_old_policy_and_guidance_replay():
     from proofops.application.analysis_profile import (
+        FINALS_I2_POLICY,
         V2_D24_POLICY,
         V2_POLICY,
         V2_PRE_D24_POLICY,
@@ -38,7 +39,15 @@ def test_old_policy_and_guidance_replay():
     )
     assert DEFINITIONS in INTEGRATED_DEFINITIONS
     assert INTEGRATED_DEFINITIONS_HASH == canonical_hash(INTEGRATED_DEFINITIONS)
-    assert V2_POLICY["element_definitions_sha256"] == INTEGRATED_V2_DEFINITIONS_HASH
+    assert (
+        policy_for("finals-unattended-v2", pinned_hash=canonical_hash(FINALS_I2_POLICY))[
+            "element_definitions_sha256"
+        ]
+        == INTEGRATED_V2_DEFINITIONS_HASH
+    )
+    from proofops.application.tagging.k1_semantics import DEFINITIONS as K1_DEFINITIONS
+
+    assert V2_POLICY["element_definitions_sha256"] == canonical_hash(K1_DEFINITIONS)
     for constraint in (
         "M1",
         "G6",

@@ -44,6 +44,7 @@ _SETTINGS_FIELDS = frozenset(
         "extraction_k3",
         "extraction_j7",
         "extraction_j8",
+        "extraction_i3_wire",
         "extraction_pb1_context_guard",
         "extraction_table_footnotes",
         "extraction_table_rows",
@@ -388,6 +389,7 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         "extraction_k3",
         "extraction_j7",
         "extraction_j8",
+        "extraction_i3_wire",
         "extraction_pb1_context_guard",
         "extraction_table_footnotes",
         "extraction_table_rows",
@@ -404,12 +406,31 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
             raise _invalid()
     if settings.get("extraction_j7") and settings.get("extraction_j3") is not True:
         raise ValueError("EXTRACTION_J7_INVALID")
+    if settings.get("extraction_i3_wire"):
+        from proofops.application.analysis_profile import policy_for
+
+        selected = policy_for(
+            settings.get("pipeline_profile"), pinned_hash=settings.get("analysis_policy_sha256")
+        )
+        if (
+            not settings.get("extraction_j8")
+            or selected.get("extraction_wire") != "owned-cell-compact-i3-v1"
+        ):
+            raise ValueError("EXTRACTION_I3_WIRE_INVALID")
     if settings.get("extraction_j8") and not (
         settings.get("extraction_j3") is True
         and settings.get("extraction_table_rows") is True
-        and settings.get("pipeline_profile") == "finals-unattended-j8-v1"
+        and settings.get("pipeline_profile") in ("finals-unattended-v2", "finals-unattended-j8-v1")
     ):
         raise ValueError("EXTRACTION_J8_INVALID")
+    if settings.get("extraction_j8") and settings.get("pipeline_profile") == "finals-unattended-v2":
+        from proofops.application.analysis_profile import policy_for
+
+        selected = policy_for(
+            "finals-unattended-v2", pinned_hash=settings.get("analysis_policy_sha256")
+        )
+        if selected.get("table_cells") != "j8-owned-cell-candidates-v1":
+            raise ValueError("EXTRACTION_J8_INVALID")
     if settings.get("pipeline_profile") == "finals-unattended-j8-v1" and not settings.get(
         "extraction_j8"
     ):
