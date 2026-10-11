@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 from proofops.application.analysis_profile import (
     FINALS_I2_POLICY,
+    FINALS_I5_POLICY,
     MODEL_RESPONSE_POLICY,
     V2_PA4_POLICY,
     V2_PB7_POLICY,
@@ -67,7 +68,12 @@ def test_every_historical_policy_remains_readable():
     assert V2_PRE_D24_POLICY == V2_PB7_POLICY | dict(
         source="upstage-ocr-page-v10", table_native_ownership="native-grid-pa9-v1"
     )
-    assert V2_POLICY["citation_restore"] == V2_PRE_D24_POLICY["citation_restore"]
+    assert (
+        policy_for("finals-unattended-v2", pinned_hash=canonical_hash(FINALS_I5_POLICY))[
+            "citation_restore"
+        ]
+        == V2_PRE_D24_POLICY["citation_restore"]
+    )
     assert (
         policy_for("finals-unattended-v2", pinned_hash=canonical_hash(FINALS_I2_POLICY))["source"]
         == "upstage-ocr-page-v10"

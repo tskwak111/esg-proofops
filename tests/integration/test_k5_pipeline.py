@@ -32,7 +32,10 @@ def test_explicit_pin_preserves_i4_and_extraction():
         canonical_hash(FINALS_I4_POLICY)
         == "7381e57fb2ddc2bb75149eb7c0254c366cfb76a8478537f59075800a1ca193fe"
     )
-    assert policy_for("finals-unattended-v2") == FINALS_I4_POLICY
+    assert (
+        policy_for("finals-unattended-v2", pinned_hash=canonical_hash(FINALS_I4_POLICY))
+        == FINALS_I4_POLICY
+    )
     assert (
         policy_for("finals-unattended-v2", pinned_hash=canonical_hash(FINALS_K5_POLICY))
         == FINALS_K5_POLICY

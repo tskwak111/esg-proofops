@@ -7,7 +7,7 @@ from proofops_api.hosted_analysis import operator_profiles
 
 def test_i5_composes_i4_h1_s2_and_keeps_historical_pins():
     policy = profiles.FINALS_I5_POLICY
-    assert profiles.policy_for(profiles.V2_PROFILE) == policy
+    assert profiles.policy_for(profiles.V2_PROFILE, pinned_hash=canonical_hash(policy)) == policy
     assert policy["integration_profile"] == "finals-20261012-v5"
     for old in (
         profiles.FINALS_I1_POLICY,
@@ -26,7 +26,9 @@ def test_i5_composes_i4_h1_s2_and_keeps_historical_pins():
     assert policy["tagging_budget"] == profiles.S2_POLICY["tagging_budget"]
     assert policy["source"] == "upstage-ocr-page-v12"
     assert policy["verified_read_cache"]["profile"] == "exact-verified-read-v7"
-    args = Namespace(analysis_profile=profiles.V2_PROFILE)
+    args = Namespace(
+        analysis_profile=profiles.V2_PROFILE, analysis_policy_sha256=canonical_hash(policy)
+    )
     profiles.apply_pilot_profile(args)
     assert args.extraction_i4_identity and args.extraction_h1 and args.extraction_i5_tables
     assert args.parser_local_resource_policy == "selected-pdf-h1-v1"
@@ -35,7 +37,10 @@ def test_i5_composes_i4_h1_s2_and_keeps_historical_pins():
     config = dict(analysis_profile=profiles.V2_PROFILE)
     assert operator_profiles(config)["llm_max_workers"] == 16
     assert operator_profiles(config | dict(llm_max_workers=8))["llm_max_workers"] == 8
-    assert profiles.publication_policy_for(profiles.V2_PROFILE) == policy
+    assert (
+        profiles.publication_policy_for(profiles.V2_PROFILE, pinned_hash=canonical_hash(policy))
+        == policy
+    )
 
 
 def test_i5_hosted_argv_selects_default_budget_and_operator_override(tmp_path):

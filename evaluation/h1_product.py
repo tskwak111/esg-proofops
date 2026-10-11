@@ -20,7 +20,17 @@ from evaluation.h1_holdout import LAB, OUT, ROOT, A, funded_probe, load_a_scorer
 from scripts.finals_demo import FinalsBudget, parse_bound
 
 
-def main(*, workers=2, output_dir=None, probe_factory=funded_probe, budget_factory=FinalsBudget):
+def main(
+    *,
+    workers=2,
+    output_dir=None,
+    probe_factory=funded_probe,
+    budget_factory=FinalsBudget,
+    input_state=None,
+    selected_pages=(22, 41),
+    claim_pages=None,
+    cached_states=None,
+):
     out = output_dir or OUT
     load_a_scorer()  # Make A's unchanged, narrow OCR bookkeeping helper available.
     from evaluation.a_funded_ocr import install
@@ -69,22 +79,23 @@ def main(*, workers=2, output_dir=None, probe_factory=funded_probe, budget_facto
         return original_read(path, *args, **kwargs)
 
     Path.read_text = keys
-    caches = list(
-        (A / "states/현대자동차-extraction-initial-failed/parser-prepared/upstage-cache").rglob(
-            "*.json"
-        )
-    )
+    manifest = read((input_state or A / "states/현대자동차-p22") / "pilot.json")
+    caches = [
+        path
+        for cached in (cached_states or (A / "states/현대자동차-extraction-initial-failed",))
+        for path in (cached / "parser-prepared/upstage-cache").rglob("*.json")
+    ]
     original_parse = OpenDataLoaderParser.parse
     reused = []
 
     def cached_parse(parser, source, profile, *, tenant_id, **kwargs):
-        if source.sha256 != read(A / "states/현대자동차-p22/pilot.json")["source_sha256"]:
+        if source.sha256 != manifest["source_sha256"]:
             raise ValueError("H1_SOURCE_SCOPE_INVALID")
         directory = parser.artifact_root / "upstage-cache" / tenant_id
         directory.mkdir(parents=True, exist_ok=True, mode=0o700)
         for cache in caches:
             collected = read(cache)
-            for subset in itertools.combinations((22, 41), collected["pages"]):
+            for subset in itertools.combinations(selected_pages, collected["pages"]):
                 pdf = selected_pdf(source.content, subset)
                 body = dict(
                     model=MODEL,
@@ -118,7 +129,6 @@ def main(*, workers=2, output_dir=None, probe_factory=funded_probe, budget_facto
 
     OpenDataLoaderParser.parse = cached_parse
     restore = install(state, upstage_fence, ledgers["upstage"])
-    manifest = read(A / "states/현대자동차-p22/pilot.json")
     sys.argv = [
         "pilot",
         "--pdf",
@@ -126,11 +136,11 @@ def main(*, workers=2, output_dir=None, probe_factory=funded_probe, budget_facto
         "--state",
         str(state),
         "--pages",
-        "22,41",
+        ",".join(map(str, selected_pages)),
         "--claim-pages",
-        "22,41",
+        ",".join(map(str, claim_pages or selected_pages)),
         "--report-year",
-        "2025",
+        str(manifest.get("report_year", 2025)),
         "--period-start",
         "2024-01-01",
         "--period-end",

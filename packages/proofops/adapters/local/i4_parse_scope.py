@@ -10,12 +10,17 @@ from proofops.domain.provenance import canonical_hash
 
 @contextmanager
 def for_snapshot(snapshot, tenant, run):
-    from proofops.application.analysis_profile import FINALS_I4_POLICY, FINALS_K6_POLICY, S1_POLICY
+    from proofops.application.analysis_profile import (
+        FINALS_I4_POLICY,
+        FINALS_I6_POLICY,
+        FINALS_K6_POLICY,
+        S1_POLICY,
+    )
 
     configured = next(
         (
             p
-            for p in (FINALS_I4_POLICY, FINALS_K6_POLICY)
+            for p in (FINALS_I4_POLICY, FINALS_K6_POLICY, FINALS_I6_POLICY)
             if snapshot.get("analysis_profile_policy_sha256") == canonical_hash(p)
         ),
         None,

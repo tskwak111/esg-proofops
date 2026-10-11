@@ -3,6 +3,7 @@ from argparse import Namespace
 from proofops.application.analysis_profile import (
     FINALS_I3_POLICY,
     FINALS_I5_POLICY,
+    FINALS_I6_POLICY,
     S2_POLICY,
     apply_pilot_profile,
     policy_for,
@@ -22,7 +23,11 @@ def test_s2_private_pin_selects_16_and_claim_budget_but_preserves_i3():
         policy_for("finals-unattended-v2", pinned_hash=canonical_hash(FINALS_I3_POLICY))
         == FINALS_I3_POLICY
     )
-    assert policy_for("finals-unattended-v2") == FINALS_I5_POLICY
+    assert policy_for("finals-unattended-v2") == FINALS_I6_POLICY
+    assert (
+        policy_for("finals-unattended-v2", pinned_hash=canonical_hash(FINALS_I5_POLICY))
+        == FINALS_I5_POLICY
+    )
     assert publication_policy_for("finals-unattended-v2", pinned_hash=pin) == S2_POLICY
     assert canonical_hash(FINALS_I3_POLICY) == (
         "830ce06b7dec224b15be7a60d9813bd08038e5a229709193e6c621a9e18f92e3"

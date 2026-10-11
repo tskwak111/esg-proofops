@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 from proofops.adapters.local.openai import MODEL, OpenAIProbe
-from proofops.application.analysis_profile import V2_POLICY
+from proofops.application.analysis_profile import FINALS_I5_POLICY as V2_POLICY
 from proofops.application.evidence.retrieval import freeze_packet
 from proofops.application.preflight import check_local_upstage_tagger
 from proofops.application.tagging.service import tag_replicates

@@ -105,6 +105,7 @@ def main(
             "i4_identity",
             "h1",
             "i5_tables",
+            "k6",
             "k1",
             "k3",
             "sentence_prefix",

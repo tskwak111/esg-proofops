@@ -353,7 +353,7 @@ class LiveTaggingRuntime:
 
     def display_packet(self, packet, *, claim=None):
         display_catalog = getattr(self, "display_catalog", None)
-        policy = self.snapshot.get("analysis_profile_policy", {})
+        policy = getattr(self, "snapshot", {}).get("analysis_profile_policy", {})
         from proofops.application.ingest.k5_context import POLICY as K5_POLICY
         from proofops.application.ingest.k5_context import configured_context
 

@@ -413,6 +413,14 @@ FINALS_K6_POLICY = FINALS_I4_POLICY | dict(
     facility_tagging_candidates="native-proof-boundary-candidates-k6-v1",
 )
 
+FINALS_I6_POLICY = (
+    FINALS_I5_POLICY
+    | {k: v for k, v in FINALS_K5_POLICY.items() if v != FINALS_I4_POLICY.get(k)}
+    | {k: v for k, v in FINALS_K6_POLICY.items() if v != FINALS_I4_POLICY.get(k)}
+    | dict(integration_profile="finals-20261012-v6")
+)
+V2_POLICY = FINALS_I6_POLICY
+
 
 def policy_for(profile, *, pinned_hash=None):
     if profile == J7_PROFILE:
@@ -426,6 +434,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_I5_POLICY,
             FINALS_I5_INITIAL_POLICY,
             FINALS_I4_POLICY,
             FINALS_H1_POLICY,
@@ -487,6 +496,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FINALS_I5_POLICY,
             FINALS_I5_INITIAL_POLICY,
             FINALS_I4_POLICY,
             FINALS_H1_POLICY,

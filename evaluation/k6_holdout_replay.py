@@ -46,7 +46,10 @@ def module(path, name):
     return result
 
 
-def main():
+def main(*, policy=FINALS_K6_POLICY, output=None, baseline_root=None):
+    global OUT
+    OUT = output or OUT
+
     def deny(*args, **kwargs):
         raise AssertionError("K6_REPLAY_NETWORK_FORBIDDEN")
 
@@ -59,7 +62,7 @@ def main():
     before, after, changes, audits = [], [], [], []
     args = Namespace(
         analysis_profile="finals-unattended-v2",
-        analysis_policy_sha256=canonical_hash(FINALS_K6_POLICY),
+        analysis_policy_sha256=canonical_hash(policy),
     )
     apply_pilot_profile(args)
     flags = {k: v for k, v in vars(args).items() if k.startswith("extraction_") and type(v) is bool}
@@ -68,7 +71,7 @@ def main():
     flags["extraction_i4_identity"] = False
     extractor = UpstageClaimExtractor(NoTransport(), OUT / "holdout-receipts", **flags)
     for company, cases in CASES.items():
-        path = LAB / "fix/H1/h1-final" / company / "predictions.json"
+        path = (baseline_root or LAB / "fix/H1/h1-final") / company / "predictions.json"
         previous = read(path)
         hashes[str(path)] = sha256(path.read_bytes()).hexdigest()
         before.extend(previous)
@@ -249,7 +252,7 @@ def main():
             false_verified=0,
             provider_calls=0,
             paid_usd="0",
-            policy_sha256=canonical_hash(FINALS_K6_POLICY),
+            policy_sha256=canonical_hash(policy),
             limitation=(
                 "H1 existing selections preserved; K6 coverage delta is deterministic; "
                 "newly recovered claims need fresh tagging."

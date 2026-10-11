@@ -50,6 +50,7 @@ def flags(policy=FINALS_H1_POLICY):
         "h1",
         "i4_identity",
         "i5_tables",
+        "k6",
     )
     return {"extraction_" + n: getattr(args, "extraction_" + n, False) for n in names} | dict(
         position_order=False, display_text_profile="glyph-joined-display-v1"
