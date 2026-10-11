@@ -1,7 +1,5 @@
 """P4 Linux live binding with fake HTTP, real receipts and hosted money fences."""
 
-import io
-import json
 import os
 import time
 from dataclasses import replace
@@ -10,7 +8,6 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 
-import pdfplumber
 import pytest
 from proofops.adapters.local.upstage import UpstageProbe
 from proofops.adapters.local.upstage_ocr_page import PageOCRStore, render_page
@@ -18,7 +15,7 @@ from proofops_api.hosted_ocr import HostedOCRStore, ReplayOCRStore, reader_scope
 
 from tests.integration.test_claim_source_verification import inputs
 from tests.integration.test_upstage_ocr_page import response
-from tests.test_hosted_analysis import fake_llm, fake_parse, job_setup, source_pdf
+from tests.test_hosted_analysis import fake_llm, fake_page_ocr, fake_parse, job_setup, source_pdf
 from tests.test_hosted_public import settings as _settings
 
 
@@ -105,38 +102,6 @@ def test_missing_replay_ledger_does_not_create_or_fetch(tmp_path):
     with pytest.raises(ValueError, match="OCR_COLLECTION_UNTRUSTED"):
         ReplayOCRStore(ledger).fetch(render_page(source, 1), tenant_id="tenant", run_id="local")
     assert not ledger.exists()
-
-
-def fake_page_ocr(png):
-    with pdfplumber.open(io.BytesIO(source_pdf())) as pdf:
-        page = pdf.pages[0]
-        words = [
-            dict(
-                id=i,
-                text=w["text"],
-                confidence=0.99,
-                boundingBox=dict(
-                    vertices=[
-                        dict(x=x * 3, y=y * 3)
-                        for x, y in (
-                            (w["x0"], w["top"]),
-                            (w["x1"], w["top"]),
-                            (w["x1"], w["bottom"]),
-                            (w["x0"], w["bottom"]),
-                        )
-                    ]
-                ),
-            )
-            for i, w in enumerate(page.extract_words())
-        ]
-        raw = dict(
-            apiVersion="1.1",
-            modelVersion="ocr-260930",
-            numBilledPages=1,
-            stored=False,
-            pages=[dict(id=0, width=page.width * 3, height=page.height * 3, words=words)],
-        )
-    return json.dumps(raw).encode(), "fake-page-ocr"
 
 
 @pytest.mark.parametrize(

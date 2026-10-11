@@ -52,7 +52,14 @@ def test_failed_scope_manual_selection_preserves_unreadable_and_caps(store):
     doc = store.upload(auth, pdf(32), "hs2-manual-upload", now=time.time())
     original = store.generate_scope(auth, doc["document_id"])
     assert original["plan"]["status"] == "failed"
-    changed = store.edit_scope(auth, doc["document_id"], [1, 2], [1, 2, 3], '"1"')
+    changed = store.edit_scope(
+        auth,
+        doc["document_id"],
+        [1, 2],
+        [1, 2, 3],
+        '"1"',
+        reporting_scope=dict(report_year=2025, period_start="2024-01-01", period_end="2024-12-31"),
+    )
     assert changed["revision"] == 2
     assert changed["plan"] == original["plan"] | dict(
         selected_claim_pages=[1, 2], selected_evidence_pages=[1, 2, 3]
