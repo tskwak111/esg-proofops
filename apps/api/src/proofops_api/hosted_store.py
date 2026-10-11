@@ -1298,6 +1298,7 @@ class HostedStore:
         transport: Callable[[dict], dict],
         *,
         now: float,
+        allow_transient_403: bool = False,
     ) -> dict:
         """Broker boundary for a future approved adapter. No HTTP/provider implementation here."""
         if (
@@ -1368,6 +1369,13 @@ class HostedStore:
                 )
             # An uncertain model transport is a per-claim hold, not a lost run fence.
             # Unknown receipts and non-model failures retain the existing terminal guard.
+            from proofops.adapters.local.openai import OpenAITransient403
+
+            transient_denial = (
+                allow_transient_403 is True
+                and provider == "openai"
+                and isinstance(exc, OpenAITransient403)
+            )
             model_network_failure = provider in {"openai", "openrouter"} and isinstance(
                 exc, OSError
             )
@@ -1378,7 +1386,7 @@ class HostedStore:
                     "AND status='reserved'",
                     (job["run_id"], call_id),
                 )
-                if not model_network_failure:
+                if not model_network_failure and not transient_denial:
                     db.execute(
                         "UPDATE runs SET "
                         "status=?,fence=fence+1,error_code=?,lease_until=0 "

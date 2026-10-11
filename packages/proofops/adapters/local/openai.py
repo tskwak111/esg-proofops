@@ -22,6 +22,8 @@ from jsonschema import Draft202012Validator, FormatChecker, ValidationError
 # Ledger policy remains byte-identical to existing Decisions policy: never reset spend.
 from proofops.adapters.local.decisions import OPENAI_POLICY as POLICY
 from proofops.adapters.local.openrouter import OpenRouterProbe
+from proofops.application.openai_retry import POLICY as HTTP_RETRY_POLICY
+from proofops.application.openai_retry import POLICY_HASH as HTTP_RETRY_POLICY_HASH
 from proofops.domain.provenance import canonical_hash
 
 MODEL = "gpt-6-luna"
@@ -29,10 +31,11 @@ ENDPOINT = "https://api.openai.com/v1/chat/completions"
 PRICE_RECHECK_AT = datetime(2026, 10, 21, tzinfo=UTC)
 PRICE = {"input": "0.10", "cached_input": "0.01", "cache_write": "0.125", "output": "0.50"}
 HTTP_ERROR_POLICY = {
-    "schema": "openai-http-error-diagnostic-v1",
+    "schema": "openai-http-error-diagnostic-t1-v2",
     "body": "bounded-sha256-only",
     "identifiers": "bounded-snake-case-no-key",
-    "headers": ["x-request-id", "retry-after"],
+    "headers": ["x-request-id", "retry-after", "server", "content-type", "cf-ray"],
+    "context": "utc-wire-bytes-model-local-request-admission-latency",
     "storage": "private-immutable-sidecar-best-effort",
 }
 WIRE_POLICY = {
@@ -63,6 +66,16 @@ CAPACITY_POLICY = {
 
 def now():
     return datetime.now(UTC)
+
+
+class OpenAITransient403(ValueError):
+    """Explicit overload evidence, never created for an opaque denial."""
+
+    def __init__(self, *, delay, diagnostic):
+        super().__init__("OPENAI_HTTP_403")
+        self.retry_after_seconds = delay
+        self.diagnostic = diagnostic
+        self.policy_sha256 = HTTP_RETRY_POLICY_HASH
 
 
 def _retry_after(value):
@@ -113,9 +126,11 @@ def token_cost(usage):
 class OpenAIProbe(OpenRouterProbe):
     _response_context = ContextVar("openai_response_context", default=None)
     _cache_request_context = ContextVar("openai_cache_request_context", default=None)
+    _dispatch_context = ContextVar("openai_dispatch_context", default=None)
     response_cache_path = None
     response_policy = None
     wire_policy = WIRE_POLICY
+    http_retry_policy = None
 
     def _authorize_response_request(self):
         """Hosted adapters recheck their live owner/source before cache access."""
@@ -124,6 +139,7 @@ class OpenAIProbe(OpenRouterProbe):
         from proofops.application.analysis_profile import MODEL_RESPONSE_POLICY
 
         policy = snapshot.get("analysis_profile_policy", {})
+        self.http_retry_policy = None
         if "model_response_policy" not in policy:
             self.response_policy = None
             self.wire_policy = WIRE_POLICY
@@ -147,6 +163,13 @@ class OpenAIProbe(OpenRouterProbe):
         self.wire_policy = WIRE_POLICY | dict(
             top_p=1, model_response_policy_sha256=canonical_hash(MODEL_RESPONSE_POLICY)
         )
+        if "openai_retry_policy" in policy:
+            if policy["openai_retry_policy"] != HTTP_RETRY_POLICY:
+                raise ValueError("OPENAI_RETRY_POLICY_MISMATCH")
+            self.http_retry_policy = HTTP_RETRY_POLICY
+            self.wire_policy = self.wire_policy | dict(
+                http_retry_policy_sha256=HTTP_RETRY_POLICY_HASH
+            )
 
     @contextmanager
     def response_context(self, *, role, replica):
@@ -265,7 +288,19 @@ class OpenAIProbe(OpenRouterProbe):
             raise ValueError("PROBE_REQUEST_TOO_LARGE")
         return body
 
-    def _record_http_error(self, body, status, raw, error, request_id, retry_after):
+    def _record_http_error(
+        self,
+        body,
+        status,
+        raw,
+        error,
+        request_id,
+        retry_after,
+        *,
+        client_request_id=None,
+        headers=None,
+        latency_ms=None,
+    ):
         """Keep denial identifiers without persisting messages, inputs or cookies."""
 
         def identifier(value):
@@ -279,6 +314,14 @@ class OpenAIProbe(OpenRouterProbe):
             )
 
         error = error if isinstance(error, dict) else {}
+        local_request_id = (self._dispatch_context.get() or {}).get("request_id")
+        if not (
+            isinstance(local_request_id, str)
+            and re.fullmatch(r"[a-zA-Z0-9_-]{1,128}", local_request_id)
+            and self._key not in local_request_id
+            and not local_request_id.startswith("sk-")
+        ):
+            local_request_id = None
         diagnostic = {
             "diagnostic_policy_sha256": canonical_hash(HTTP_ERROR_POLICY),
             "request_sha256": canonical_hash(body),
@@ -301,8 +344,38 @@ class OpenAIProbe(OpenRouterProbe):
             "response_body_bytes_read": len(raw),
             "response_body_truncated": len(raw) > 1_048_576,
         }
-        path = self._responses / (canonical_hash(diagnostic) + ".http-error.json")
+        diagnostic.update(
+            observed_at=now().isoformat(),
+            model=MODEL,
+            request_bytes=len(json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode()),
+            client_request_id=(
+                client_request_id
+                if isinstance(client_request_id, str)
+                and re.fullmatch(r"[a-zA-Z0-9_-]{1,128}", client_request_id)
+                and self._key not in client_request_id
+                and not client_request_id.startswith("sk-")
+                else None
+            ),
+            latency_ms=latency_ms,
+            local_request_id=local_request_id,
+            headers={
+                name: value
+                for name, value in (headers or {}).items()
+                if name in {"server", "content-type", "cf-ray"}
+                and isinstance(value, str)
+                and len(value) <= 160
+                and re.fullmatch(r"[a-zA-Z0-9 .,;:=/+_-]+", value)
+                and self._key not in value
+                and "sk-" not in value
+            },
+            admission=(
+                self.http_admission_snapshot() if hasattr(self, "http_admission_snapshot") else None
+            ),
+        )
         try:
+            directory = getattr(self, "http_error_directory", self._responses)
+            directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+            path = directory / (canonical_hash(diagnostic) + ".http-error.json")
             with os.fdopen(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w") as f:
                 json.dump(diagnostic, f, sort_keys=True)
                 f.flush()
@@ -311,9 +384,11 @@ class OpenAIProbe(OpenRouterProbe):
             # A duplicate or unwritable sidecar must not change the HTTP failure,
             # release uncertain spend, or trigger another provider dispatch.
             pass
+        return diagnostic
 
     def _post(self, body, *, client_request_id=None):
         connection = http.client.HTTPSConnection("api.openai.com", timeout=90)
+        started = time.monotonic()
         try:
             connection.request(
                 "POST",
@@ -345,13 +420,19 @@ class OpenAIProbe(OpenRouterProbe):
                         error = json.loads(raw).get("error", {})
                     except (AttributeError, json.JSONDecodeError, TypeError):
                         error = {}
-                self._record_http_error(
+                diagnostic = self._record_http_error(
                     body,
                     response.status,
                     raw,
                     error,
                     response.getheader("x-request-id"),
                     response.getheader("retry-after"),
+                    client_request_id=client_request_id,
+                    headers={
+                        name: response.getheader(name)
+                        for name in ("server", "content-type", "cf-ray")
+                    },
+                    latency_ms=round((time.monotonic() - started) * 1000, 2),
                 )
                 if isinstance(error, dict) and error.get("code") in {
                     "insufficient_quota",
@@ -359,6 +440,19 @@ class OpenAIProbe(OpenRouterProbe):
                     "project_spend_limit_exceeded",
                 }:
                     raise ValueError("OPENAI_INSUFFICIENT_QUOTA")
+                delay = _retry_after(response.getheader("retry-after"))
+                if (
+                    self.http_retry_policy == HTTP_RETRY_POLICY
+                    and response.status == 403
+                    and 0 < len(raw) <= 1_048_576
+                    and isinstance(error, dict)
+                    and error.get("code") == HTTP_RETRY_POLICY["error_code"]
+                    and error.get("type") == HTTP_RETRY_POLICY["error_type"]
+                    and diagnostic["http_request_id"] is not None
+                    and delay is not None
+                    and delay <= HTTP_RETRY_POLICY["max_delay_seconds"]
+                ):
+                    raise OpenAITransient403(delay=delay, diagnostic=diagnostic)
                 problem = ValueError(f"OPENAI_HTTP_{response.status}")
                 if response.status == 429:
                     # Preserve the finite code; never expose the response body.
@@ -481,6 +575,22 @@ class OpenAIProbe(OpenRouterProbe):
     def _complete_uncached(
         self, system, user_json, *, request_id, max_tokens=1024, json_mode=False, schema_json=None
     ):
+        token = self._dispatch_context.set({"transport_retries": [], "request_id": request_id})
+        try:
+            return self._complete_reserved(
+                system,
+                user_json,
+                request_id=request_id,
+                max_tokens=max_tokens,
+                json_mode=json_mode,
+                schema_json=schema_json,
+            )
+        finally:
+            self._dispatch_context.reset(token)
+
+    def _complete_reserved(
+        self, system, user_json, *, request_id, max_tokens=1024, json_mode=False, schema_json=None
+    ):
         if now() >= PRICE_RECHECK_AT:
             raise ValueError("PRICE_RECHECK_REQUIRED")
         body = self.request_body(
@@ -527,7 +637,7 @@ class OpenAIProbe(OpenRouterProbe):
                 code = str(error)
                 if code not in {
                     f"OPENAI_HTTP_{n}" for n in (400, 401, 403, 404, 429, 500, 502, 503)
-                } | {"OPENAI_INSUFFICIENT_QUOTA", "PROCESSING_UNCERTAIN"}:
+                } | {"OPENAI_INSUFFICIENT_QUOTA", "PROCESSING_UNCERTAIN", "PRICE_RECHECK_REQUIRED"}:
                     code = "OPENAI_REQUEST_FAILED"
                 raise ValueError(code) from None
             try:
@@ -602,6 +712,9 @@ class OpenAIProbe(OpenRouterProbe):
             receipt["cache_write_tokens"] = details.get("cache_write_tokens")
         if self.response_policy is not None:
             receipt["response_request"] = self._cache_request_context.get()
+        scope = self._dispatch_context.get()
+        if scope and scope["transport_retries"]:
+            receipt["transport_retries"] = scope["transport_retries"]
         with sqlite3.connect(self.ledger) as db:
             changed = db.execute(
                 "UPDATE probe_calls SET committed=?, receipt=? WHERE request_id=? "

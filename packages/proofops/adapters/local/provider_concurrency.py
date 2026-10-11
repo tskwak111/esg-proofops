@@ -52,6 +52,7 @@ class ProviderConcurrency:
 
     def bind(self, probe):
         original = probe._post
+        probe.http_admission_snapshot = self.snapshot
         probe._post = lambda *a, **k: self.call(original, *a, **k)
         return probe
 

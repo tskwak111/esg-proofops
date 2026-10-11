@@ -4,6 +4,7 @@ import fcntl
 import io
 import json
 import os
+import random
 import signal
 import subprocess
 import sys
@@ -18,11 +19,13 @@ from proofops.adapters.local.openai import (
     MODEL as OPENAI_MODEL,
 )
 from proofops.adapters.local.openai import (
-    WIRE_POLICY as OPENAI_WIRE_POLICY,
+    PRICE_RECHECK_AT,
+    OpenAIProbe,
+    OpenAITransient403,
+    token_cost,
 )
 from proofops.adapters.local.openai import (
-    OpenAIProbe,
-    token_cost,
+    WIRE_POLICY as OPENAI_WIRE_POLICY,
 )
 from proofops.adapters.local.openrouter import MODEL, WIRE_POLICY, OpenRouterProbe
 from proofops.adapters.local.upstage_parse import (
@@ -30,6 +33,8 @@ from proofops.adapters.local.upstage_parse import (
     COST_PER_PAGE,
     UpstageParseProbe,
 )
+from proofops.application.openai_retry import POLICY as T1_RETRY_POLICY
+from proofops.application.openai_retry import POLICY_HASH as T1_RETRY_POLICY_HASH
 from proofops.domain.provenance import canonical_hash
 from pypdf import PdfReader, PdfWriter
 
@@ -79,6 +84,8 @@ def operator_profiles(config: dict) -> dict:
     )
     if type(workers) is not int or not 1 <= workers <= 16:
         raise ValueError("HOSTED_LLM_CONCURRENCY_INVALID")
+    if policy.get("openai_retry_policy") == T1_RETRY_POLICY:
+        workers = min(workers, policy["max_http_workers"])
     batch_calls = config.get("extract_batch_calls", 20)
     if type(batch_calls) is not int or not 1 <= batch_calls <= MAX_EXTRACTION_BATCH_CALLS:
         raise ValueError("HOSTED_EXTRACT_BATCH_INVALID")
@@ -235,6 +242,10 @@ class HostedOpenAILunaProbe(OpenAIProbe):
     def __init__(self, *args, store, job, post=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.store, self.job, self.post = store, job, post
+        # Sanitized errors survive scratch cleanup, under the document's purge ownership.
+        self.http_error_directory = (
+            store.document_dir(job["tenant_id"], job["document_id"]) / "provider-http-errors"
+        )
 
     def _authorize_response_request(self):
         from proofops_api.hosted_store import HostedError
@@ -264,17 +275,52 @@ class HostedOpenAILunaProbe(OpenAIProbe):
                 raise ValueError("HOSTED_MODEL_MISMATCH")
             return request | dict(actual_usd=rounded_cost(token_cost(data["usage"])), payload=data)
 
-        response = broker_dispatch(
-            self.store,
-            self.job,
-            "openai",
-            str(uuid4()),
-            canonical_hash(body),
-            Decimal("0.011"),
-            transport,
-            now=time.time(),
-        )
-        return response["payload"]
+        scope = self._dispatch_context.get()
+        for attempt in range(2):
+            allow = (
+                self.http_retry_policy == T1_RETRY_POLICY
+                and scope is not None
+                and not scope["transport_retries"]
+                and attempt == 0
+            )
+            call_id = str(uuid4())
+            try:
+                response = broker_dispatch(
+                    self.store,
+                    self.job,
+                    "openai",
+                    call_id,
+                    canonical_hash(body),
+                    Decimal("0.011"),
+                    transport,
+                    now=time.time(),
+                    allow_transient_403=allow,
+                )
+                return response["payload"]
+            except OpenAITransient403 as error:
+                if not allow:
+                    raise
+                delay = min(
+                    T1_RETRY_POLICY["max_delay_seconds"],
+                    max(T1_RETRY_POLICY["min_delay_seconds"], error.retry_after_seconds)
+                    + random.uniform(0, T1_RETRY_POLICY["jitter_seconds"]),
+                )
+                scope["transport_retries"].append(
+                    dict(
+                        policy_sha256=T1_RETRY_POLICY_HASH,
+                        failed_call_id=call_id,
+                        diagnostic_sha256=canonical_hash(error.diagnostic),
+                        delay_seconds=delay,
+                        http_request_id=error.diagnostic["http_request_id"],
+                    )
+                )
+                time.sleep(delay)
+                from proofops.adapters.local.openai import now as price_now
+
+                if price_now() >= PRICE_RECHECK_AT:
+                    raise ValueError("PRICE_RECHECK_REQUIRED")
+                self._authorize_response_request()
+        raise ValueError("OPENAI_HTTP_403")
 
 
 class HostedParseProbe(UpstageParseProbe):

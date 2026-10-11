@@ -9,6 +9,7 @@ from proofops.application.ingest.k3_table_routing import POLICY as K3_ROUTING_PO
 from proofops.application.ingest.k5_context import POLICY as K5_CONTEXT_POLICY
 from proofops.application.ingest.k6_coverage import POLICY as K6_COVERAGE_POLICY
 from proofops.application.ingest.sentence_prefix import POLICY as PREFIX_POLICY
+from proofops.application.openai_retry import POLICY as T1_RETRY_POLICY
 from proofops.application.tagging.dec24 import (
     DEFINITIONS_HASH,
     INTEGRATED_DEFINITIONS_HASH,
@@ -455,6 +456,14 @@ FINALS_K8_V3_POLICY = FINALS_K8_V2_POLICY | dict(
     tagging_wire_policy=K8_WIRE_V3_POLICY,
 )
 
+# Explicit pin only. The deployed v5/default and all replay hashes stay intact.
+FINALS_T1_POLICY = FINALS_I5_POLICY | dict(
+    integration_profile="finals-20261012-t1-403-v1",
+    openai_retry_policy=T1_RETRY_POLICY,
+    http_admission="per-run-8-structured-overload-403-once-t1-v1",
+    max_http_workers=8,
+)
+
 
 def policy_for(profile, *, pinned_hash=None):
     if profile == J7_PROFILE:
@@ -474,6 +483,7 @@ def policy_for(profile, *, pinned_hash=None):
             FINALS_K8_V3_POLICY,
             FINALS_K7_V1_POLICY,
             FINALS_I5_POLICY,
+            FINALS_T1_POLICY,
             FINALS_I5_INITIAL_POLICY,
             FINALS_I4_POLICY,
             FINALS_H1_POLICY,
@@ -535,6 +545,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+<<<<<<< HEAD
             FINALS_K7_POLICY,
             FINALS_K8_POLICY,
             FINALS_K8_V2_POLICY,
@@ -542,6 +553,9 @@ def publication_policy_for(profile, *, pinned_hash=None):
             FINALS_K7_V1_POLICY,
             FINALS_I6_POLICY,
             FINALS_I5_POLICY,
+=======
+            FINALS_T1_POLICY,
+>>>>>>> d0d93e2 (fix: bound opt-in structured OpenAI 403 recovery through broker)
             FINALS_I5_INITIAL_POLICY,
             FINALS_I4_POLICY,
             FINALS_H1_POLICY,
