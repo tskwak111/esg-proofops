@@ -245,6 +245,15 @@ class LocalTagRunner:
         )
         rulepack = RulePackSnapshot(**snapshot["rulepack"])
         settings = tagging_settings(snapshot) if snapshot.get("tagging_settings") else None
+        semantic_policy = snapshot.get("analysis_profile_policy", {}).get("semantic_admission")
+        if semantic_policy is not None:
+            from proofops.application.tagging.semantic_admission import validate_policy
+
+            validate_policy(semantic_policy)
+            if snapshot["analysis_profile_policy"].get("semantic_admission_sha256") != (
+                canonical_hash(semantic_policy)
+            ):
+                raise ValueError("SEMANTIC_ADMISSION_POLICY_PIN_MISMATCH")
         hold_profile = (
             "hf1-v1"
             if snapshot.get("analysis_profile_policy", {}).get("hold_recovery") == "hf1-v1"
@@ -641,6 +650,7 @@ class LocalTagRunner:
                     count_input_tokens=live.count_input_tokens if live is not None else None,
                     now=lambda: int(self.clock()),
                     pipeline_profile=snapshot.get("pipeline_profile"),
+                    semantic_policy=semantic_policy,
                     max_workers=(
                         1
                         if parallel_claims
@@ -681,6 +691,8 @@ class LocalTagRunner:
                             rulepack,
                             rule_context,
                             profile=hold_profile,
+                            semantic_policy=semantic_policy,
+                            original=graph,
                             range_profile=snapshot.get("pipeline_profile")
                             in ("finals-unattended-v1", "finals-unattended-v2"),
                         ),

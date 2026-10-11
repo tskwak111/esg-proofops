@@ -1,6 +1,8 @@
 """One explicitly selected profile; old configurations remain byte-identical."""
 
 from proofops.application.tagging.quality import ELEMENT_DEFINITIONS_HASH
+from proofops.application.tagging.semantic_admission import POLICY as W8_POLICY
+from proofops.application.tagging.semantic_admission import POLICY_HASH as W8_POLICY_HASH
 from proofops.domain.provenance import canonical_hash
 
 PROFILE = "finals-unattended-v1"
@@ -133,15 +135,21 @@ V2_PRE_PA9_POLICY = V2_PRE_PB7_POLICY
 V2_PA9_POLICY = V2_PRE_PA9_POLICY | dict(
     source="upstage-ocr-page-v10", table_native_ownership="native-grid-pa9-v1"
 )
-V2_PRE_W9_POLICY = V2_PB7_POLICY | dict(
+V2_PRE_W8_POLICY = V2_PB7_POLICY | dict(
     source="upstage-ocr-page-v10", table_native_ownership="native-grid-pa9-v1"
 )
-
-V2_POLICY = V2_PRE_W9_POLICY | dict(
+V2_W8_POLICY = V2_PRE_W8_POLICY | dict(
+    semantic_definition_profile="w8-v1",
+    semantic_admission=W8_POLICY,
+    semantic_admission_sha256=W8_POLICY_HASH,
+)
+V2_PRE_W9_POLICY = V2_PRE_W8_POLICY
+V2_W9_POLICY = V2_PRE_W9_POLICY | dict(
     table_claims="pb1-w9-v1",
     table_cells="pb1-w9-v1",
     table_figures="independent-reader-only-w9-v1",
 )
+V2_POLICY = V2_W9_POLICY | {k: v for k, v in V2_W8_POLICY.items() if k not in V2_PRE_W8_POLICY}
 
 
 def policy_for(profile, *, pinned_hash=None):
@@ -150,7 +158,10 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            V2_W9_POLICY,
             V2_PRE_W9_POLICY,
+            V2_W8_POLICY,
+            V2_PRE_W8_POLICY,
             V2_PA9_POLICY,
             V2_PB7_POLICY,
             V2_PRE_PB7_POLICY,

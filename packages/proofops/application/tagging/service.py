@@ -217,6 +217,7 @@ def tag_replicates(
     count_input_tokens: Callable[[dict[str, Any]], int] | None = None,
     max_workers: int = 1,
     pipeline_profile: str | None = None,
+    semantic_policy: dict | None = None,
 ) -> tuple[TagRun, ...]:
     """Execute or recover replicas 1/2/3, preserving failures and budget stops.
 
@@ -259,6 +260,10 @@ def tag_replicates(
     ) != (original.document_version_id, original.parse_manifest_id, original.source_sha256):
         raise DomainValidationError("claim/original source identity or quality mismatch")
     rendered_system = settings.system_for_track(track.track, track.safe_harbor_category)
+    if semantic_policy is not None:
+        from proofops.application.tagging.semantic_admission import validate_policy
+
+        validate_policy(semantic_policy)
     prompt_sha256 = canonical_hash(rendered_system)
     expected = dict(
         tenant_id=tenant_id,
@@ -694,6 +699,13 @@ def tag_replicates(
                         state = "unknown"
                 elif state in ("absent", "not_applicable"):
                     state = "unknown"
+                semantic_reason = None
+                if semantic_policy is not None and state == "present":
+                    from proofops.application.tagging.semantic_admission import guard_element
+
+                    admitted = guard_element(replace(element, evidence_refs=tuple(refs)))
+                    if admitted.state != "present":
+                        state, semantic_reason = admitted.state, admitted.reason_code
                 if element.element_id == "P6" and element.state in ("present", "conflict"):
                     # Both agreement AND contradiction require the numeric service.
                     # Retain the raw vote and citations for review, never a model verdict.
@@ -730,8 +742,8 @@ def tag_replicates(
                         evidence_refs=tuple(refs) if state == "present" else element.evidence_refs,
                         normalized_value=element.normalized_value if state == "present" else None,
                         credited_from=element.credited_from if state == "present" else None,
-                        reason_code=scope_reason
-                        if scope_reason and state == "unknown"
+                        reason_code=semantic_reason or scope_reason
+                        if (semantic_reason or scope_reason) and state == "unknown"
                         else element.reason_code,
                     )
                 )
@@ -764,7 +776,9 @@ def tag_replicates(
                         },
                         track=track.track,
                         safe_harbor_category=track.safe_harbor_category,
-                        guard_version="tagging-010-v4-numeric-origin",
+                        guard_version="tagging-010-v4-numeric-origin"
+                        if semantic_policy is None
+                        else "tagging-010-w8-v1:" + canonical_hash(semantic_policy),
                     )
                 ),
             )

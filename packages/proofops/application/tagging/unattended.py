@@ -57,7 +57,22 @@ def project_decision(decision, *, elements=(), profile=None):
     return projection
 
 
-def provisional_result(runs, packet, rulepack, context, *, range_profile=False, profile=None):
+def provisional_result(
+    runs,
+    packet,
+    rulepack,
+    context,
+    *,
+    range_profile=False,
+    profile=None,
+    semantic_policy=None,
+    original=None,
+):
+    if semantic_policy is not None:
+        from proofops.application.tagging.semantic_admission import guard_runs, validate_policy
+
+        validate_policy(semantic_policy)
+        runs = guard_runs(runs)
     # Reuse the strict provenance/independent-replica validation, never its confirmation.
     form_consensus(
         runs,
@@ -153,6 +168,11 @@ def provisional_result(runs, packet, rulepack, context, *, range_profile=False, 
                 else ConfirmedFact(name, state)
             )
     first = ordered[0]
+    estimate_evidence = []
+    if semantic_policy is not None:
+        from proofops.application.tagging.semantic_admission import estimate_refs
+
+        estimate_evidence = estimate_refs(data, original)
     headers = Counter(
         run.guarded.superlative_quote for run in ordered if run.guarded is not None
     ).most_common(1)
@@ -179,16 +199,44 @@ def provisional_result(runs, packet, rulepack, context, *, range_profile=False, 
         first.prompt_sha256,
         tuple(run.semantic_hash for run in ordered),
         rulepack.ontology_version,
-        data.get("safe_harbor_category"),
+        "emissions_estimate" if estimate_evidence else data.get("safe_harbor_category"),
         headers[0][0],
         first.product_variant,
     )
     result = project_decision(evaluate(tags, context, rulepack), elements=elements, profile=profile)
+    if semantic_policy is not None:
+        from proofops.domain.provenance import canonical_hash
+
+        result = result | dict(
+            semantic_policy_sha256=canonical_hash(semantic_policy),
+            semantic_hash=canonical_hash(
+                dict(
+                    decision=result["semantic_hash"],
+                    policy=semantic_policy,
+                    estimate_evidence=estimate_evidence,
+                )
+            ),
+        )
+        if estimate_evidence:
+            result.update(
+                evidence_grade=None,
+                label=None,
+                grade_range=None,
+                grade_basis="estimate_hold",
+                display_type="hold",
+                display="추정치 · 산정 근거 확인 필요",
+                reason="DEC24_EMISSIONS_ESTIMATE_REVIEW",
+                gap_ids=["GAP-001"],
+                hold_reasons=["추정치 · 산정 근거 확인 필요"],
+                estimate_evidence_refs=estimate_evidence,
+            )
     return ensure_range(result, rulepack, tags=tags, context=context) if range_profile else result
 
 
 def ensure_range(result, rulepack, *, tags=None, context=None):
     """Only the integrated profile fills an empty display slot; confirmed data stays null."""
+    if result.get("grade_basis") == "estimate_hold":
+        return result
     if result.get("evidence_grade"):
         return result | dict(display_type="numeric")
     if (
