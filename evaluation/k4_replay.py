@@ -49,7 +49,7 @@ def read(path):
     return json.loads(path.read_bytes())
 
 
-def main():
+def main(*, inputs_dir="perf/I3/stage-B-complete", integration_policy=FINALS_K4_POLICY):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
@@ -63,7 +63,7 @@ def main():
 
     socket.socket.connect = socket.socket.connect_ex = socket.create_connection = deny
     lab = args.root / "outputs/agent-results/R108-redesign/lab"
-    inputs = lab / "perf/I3/stage-B-complete"
+    inputs = lab / inputs_dir
     hashes = {str(p): sha256(p.read_bytes()).hexdigest() for p in inputs.rglob("*") if p.is_file()}
     rows, losses, false_verified, causes = [], [], [], []
     with tempfile.TemporaryDirectory(prefix="proofops-k4-replay-") as tmp:
@@ -91,11 +91,34 @@ def main():
                         for r in claim.source_refs
                     ),
                 )
+                if integration_policy.get("risk_classification_policy"):
+                    from proofops.application.tagging.k6_citations import risk_without_commitment
+
+                    if risk_without_commitment(claim.quote):
+                        rows.append(
+                            dict(
+                                case_id=case_id,
+                                quote=claim.quote,
+                                before=item["provisional_grade"],
+                                after=dict(
+                                    evidence_grade=None,
+                                    reason="K6_RISK_WITHOUT_COMPANY_COMMITMENT",
+                                    elements=item["provisional_grade"].get("elements", []),
+                                ),
+                                classification="review; no-company-goal-majority",
+                                raw_preliminary_records=item["preliminary_records"],
+                            )
+                        )
+                        continue
                 data = {k: v for k, v in item["frozen_packet"].items() if k != "packet_sha256"}
                 saved = decode_runs(item["tag_runs"])
                 data.update(
                     tagging_response_policy=RESPONSE_POLICY, selected_quantity_policy=VALUE_POLICY
                 )
+                if integration_policy.get("coverage_policy"):
+                    from proofops.application.tagging.k6_citations import POLICY as K6_RESTORE
+
+                    data["citation_restore_policy"] = K6_RESTORE
                 if data.get(
                     "safe_harbor_category"
                 ) == "emissions_estimate" and not estimate_evidence(data, graph):
@@ -158,10 +181,14 @@ def main():
                         graph.tenant_id,
                     )
                     raw = json.loads(json.loads(old.provider_response_json)["content"])
+                    schema = json.JSONDecoder().raw_decode(
+                        recorded["wire_system"].split("Output JSON schema:\n", 1)[1]
+                    )[0]
+                    expects_identity = "claim_id" in schema["properties"]
                     mismatches = [
                         k
                         for k in ("claim_id", "packet_sha256", "replicate_id")
-                        if raw[k] != trusted[k]
+                        if (raw.get(k) != trusted[k] if expects_identity else k in raw)
                     ]
                     if mismatches or old.status in ("invalid_response", "citation_unresolved"):
                         causes.append(
@@ -184,12 +211,10 @@ def main():
                         )
                     # Measure the redesigned server-owned envelope on retained
                     # semantic content, not a fresh model success or legacy repair.
-                    schema = json.JSONDecoder().raw_decode(
-                        recorded["wire_system"].split("Output JSON schema:\n", 1)[1]
-                    )[0]
                     for field in ("claim_id", "packet_sha256", "replicate_id"):
-                        schema["properties"].pop(field)
-                        schema["required"].remove(field)
+                        schema["properties"].pop(field, None)
+                        if field in schema["required"]:
+                            schema["required"].remove(field)
                     semantic = {
                         k: v
                         for k, v in raw.items()
@@ -334,8 +359,8 @@ def main():
     unchanged = all(sha256(Path(p).read_bytes()).hexdigest() == h for p, h in hashes.items())
     assert unchanged and not losses and not false_verified
     report = dict(
-        policy=FINALS_K4_POLICY,
-        policy_sha256=canonical_hash(FINALS_K4_POLICY),
+        policy=integration_policy,
+        policy_sha256=canonical_hash(integration_policy),
         elapsed_seconds=round(monotonic() - started, 3),
         inputs_unchanged=unchanged,
         provider_calls=0,

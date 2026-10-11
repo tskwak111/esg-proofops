@@ -58,6 +58,7 @@ def main(*, integration_policy=FINALS_I1_POLICY, baseline_dir=None):
     j7 = integration_policy.get("selected_span_refinement") == "j7-independent-clauses-v1"
     j8 = integration_policy.get("table_cells") == "j8-owned-cell-candidates-v1"
     k3 = bool(integration_policy.get("table_worker_routing"))
+    k6 = bool(integration_policy.get("coverage_policy"))
     cell_selections = []
     selection_inputs = {}
     if j8:
@@ -142,6 +143,7 @@ def main(*, integration_policy=FINALS_I1_POLICY, baseline_dir=None):
             extraction_k3=k3,
             extraction_h1=bool(integration_policy.get("selected_boundary_recovery")),
             extraction_i5_tables=bool(integration_policy.get("table_failure_profile")),
+            extraction_k6=k6,
         )
         # The original byte-identical extractor options reproduce the retained
         # selection. Origin/main has these same policies; its hash is recorded.
@@ -221,7 +223,13 @@ def main(*, integration_policy=FINALS_I1_POLICY, baseline_dir=None):
                 )
                 selected = [asdict(s) for s in spans]
             elif block.kind == "table":
-                rows = observations_for(current, new_graph)
+                if k6:
+                    from proofops.application.ingest.k6_coverage import (
+                        observations_for as table_rows,
+                    )
+                else:
+                    table_rows = observations_for
+                rows = table_rows(current, new_graph)
                 if rows:
                     # Exercise the combined W9/DEC-24 deterministic live path.
                     selected = new.extract(packet, context_graph=new_graph)["spans"]
