@@ -105,7 +105,13 @@ def main():
     parser.add_argument("--verify-original", action="store_true")
     parser.add_argument(
         "--cache-profile",
-        choices=("off", "exact-verified-read-v1", "exact-verified-read-v2"),
+        choices=(
+            "off",
+            "exact-verified-read-v1",
+            "exact-verified-read-v2",
+            "exact-verified-read-v3",
+            "exact-verified-read-v4",
+        ),
         default="exact-verified-read-v2",
     )
     args = parser.parse_args()

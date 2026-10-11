@@ -107,6 +107,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             V2_PB2_POLICY,
             V2_PB4_POLICY,
             V2_POLICY,
+            V2_PRE_PA7_POLICY,
             V2_PRE_PB4_POLICY,
         )
         from proofops.application.ingest.pb1_tables import observations, occurrence_groups
@@ -114,6 +115,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
 
         pb1 = tag_snapshot.get("analysis_profile_policy_sha256") in {
             canonical_hash(V2_POLICY),
+            canonical_hash(V2_PRE_PA7_POLICY),
             canonical_hash(V2_PB4_POLICY),
             canonical_hash(V2_PRE_PB4_POLICY),
             canonical_hash(V2_PB2_POLICY),
@@ -150,6 +152,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                         summary["table_observation"] = row
                         if tag_snapshot.get("analysis_profile_policy_sha256") in {
                             canonical_hash(V2_POLICY),
+                            canonical_hash(V2_PRE_PA7_POLICY),
                             canonical_hash(V2_PB4_POLICY),
                             canonical_hash(V2_PRE_PB4_POLICY),
                             canonical_hash(V2_PB2_POLICY),
@@ -259,6 +262,9 @@ def clear_receipt_caches():
     from proofops_api.hosted_reads import clear_source_cache
 
     clear_source_cache()
+    from proofops.adapters.local.pa7_raster_cache import clear as clear_raster_cache
+
+    clear_raster_cache()
     from proofops.adapters.local import native_replay_cache as cache
 
     with cache._lock:

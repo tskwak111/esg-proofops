@@ -139,7 +139,7 @@ def test_operator_batch_and_concurrency_settings_pin_only_new_runs(tmp_path, mon
     assert snapshot["analysis_profile_policy"]["stage_overlap"] is False
     assert (
         snapshot["analysis_profile_policy"]["verified_read_cache"]["profile"]
-        == "exact-verified-read-v3"
+        == "exact-verified-read-v4"
     )
     assert operator_profiles({})["extract_batch_calls"] == 20
     for invalid in (0, 257, True, "32"):

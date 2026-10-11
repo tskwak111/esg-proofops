@@ -95,7 +95,21 @@ V2_PB4_POLICY = V2_PRE_PB4_POLICY | dict(
     source="upstage-ocr-page-v9", table_native_ownership="all-selected-cells-pb4-v1"
 )
 # Integration: PB4 table extraction/v9 sources with PA3 replay reuse.
-V2_POLICY = V2_PB4_POLICY | dict(verified_read_cache=VERIFIED_READ_V3_POLICY)
+V2_PRE_PA7_POLICY = V2_PB4_POLICY | dict(verified_read_cache=VERIFIED_READ_V3_POLICY)
+VERIFIED_READ_V4_POLICY = VERIFIED_READ_V3_POLICY | dict(
+    profile="exact-verified-read-v4",
+    fresh_attestation="whole-byte-identical-v6-and-v9-pb4",
+    v9_replay_sha256="ce72e343558611cb48b873dbee7626c9bd277f7b8353a31f0ef93c20e48ea1fd",
+    table_ownership="unchanged-approved-row-and-cell-span-tail",
+    raster_raw_reads=dict(
+        profile="source-runtime-scope-v1",
+        max_bytes=8 * 1024 * 1024,
+        max_entries=256,
+        failure_cache=False,
+        persistent=False,
+    ),
+)
+V2_POLICY = V2_PRE_PA7_POLICY | dict(verified_read_cache=VERIFIED_READ_V4_POLICY)
 
 
 def policy_for(profile, *, pinned_hash=None):
@@ -104,6 +118,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            V2_PRE_PA7_POLICY,
             V2_PB4_POLICY,
             V2_PRE_PB4_POLICY,
             V2_PB2_POLICY,

@@ -15,7 +15,11 @@ from threading import Lock
 from zlib import compress, decompress
 
 from proofops.application.analysis_profile import VERIFIED_READ_POLICY as POLICY
-from proofops.application.analysis_profile import VERIFIED_READ_V2_POLICY, VERIFIED_READ_V3_POLICY
+from proofops.application.analysis_profile import (
+    VERIFIED_READ_V2_POLICY,
+    VERIFIED_READ_V3_POLICY,
+    VERIFIED_READ_V4_POLICY,
+)
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
 
@@ -29,18 +33,24 @@ def fresh_execution_enabled():
     return os.environ.get("PROOFOPS_VERIFIED_READ_CACHE") in (
         VERIFIED_READ_V2_POLICY["profile"],
         VERIFIED_READ_V3_POLICY["profile"],
+        VERIFIED_READ_V4_POLICY["profile"],
     )
 
 
 def _execution_policy():
-    for policy in (POLICY, VERIFIED_READ_V2_POLICY, VERIFIED_READ_V3_POLICY):
+    for policy in (
+        POLICY,
+        VERIFIED_READ_V2_POLICY,
+        VERIFIED_READ_V3_POLICY,
+        VERIFIED_READ_V4_POLICY,
+    ):
         if os.environ.get("PROOFOPS_VERIFIED_READ_CACHE") == policy["profile"]:
             return policy
     return None
 
 
 def _parse_enabled():
-    return _execution_policy() == VERIFIED_READ_V3_POLICY
+    return _execution_policy() in (VERIFIED_READ_V3_POLICY, VERIFIED_READ_V4_POLICY)
 
 
 def _parse_projection_pinned(reader_name, policy):
@@ -89,7 +99,7 @@ def _parse_key(*, reader_name, policy, receipt, graph, source, tenant_id):
             read_profile=read_profile(),
             platform=sys.platform,
             toolchain=os.environ.get("DEVELOPER_DIR"),
-            execution=VERIFIED_READ_V3_POLICY,
+            execution=_execution_policy(),
         )
     )
 
@@ -203,13 +213,25 @@ def _fresh_key(reader, policy, receipt, graph, source, refs, tenant_id):
     from proofops.adapters.local.local_raster_reader import runtime_policy
     from proofops.adapters.local.receipt_environment_compat import read_profile
 
+    profile = policy.get("profile")
+    pinned_v9 = (
+        _execution_policy() == VERIFIED_READ_V4_POLICY
+        and profile == "upstage-ocr-page-v9"
+        and reader is page_ocr_profile(profile)
+        and sha256(Path(reader.__file__).read_bytes()).hexdigest()
+        == VERIFIED_READ_V4_POLICY["v9_replay_sha256"]
+        and receipt.get("schema") == "claim_source_pb4_extension_v1"
+    )
+    pinned_v6 = (
+        profile == "upstage-ocr-page-v6"
+        and reader is page_ocr_profile(profile)
+        and sha256(Path(upstage_ocr_profile.__file__).read_bytes()).hexdigest()
+        == _OCR_REPLAY_TAIL_SHA256
+    )
     if (
         not fresh_execution_enabled()
-        or policy.get("profile") != "upstage-ocr-page-v6"
-        or reader is not page_ocr_profile("upstage-ocr-page-v6")
+        or not (pinned_v6 or pinned_v9)
         or reader.claim_source_policy() != policy
-        or sha256(Path(upstage_ocr_profile.__file__).read_bytes()).hexdigest()
-        != _OCR_REPLAY_TAIL_SHA256
         or receipt.get("policy") != policy
         or not receipt.get("run_id")
         or _transient(receipt)
@@ -265,7 +287,81 @@ def reuse_fresh_attestation(*, reader, policy, receipt, graph, source, discovery
     if encoded is None or decompress(encoded) != canonical_json(receipt).encode():
         return None
     compare_receipts(receipt, receipt, profile=read_profile())
+    if policy.get("profile") == "upstage-ocr-page-v9":
+        return _project_v9(receipt, graph, discovery, tenant_id)
     return _project_whole_attestation(receipt, graph, discovery, tenant_id, refs_field="records")
+
+
+def _project_v9(checked, graph, discovery, tenant_id):
+    """Exact tail of the byte-pinned v9 reader after whole fresh receipt equality.
+
+    Keep the explicit failed-row downgrade and independently attested cells;
+    a whole-table flag must never substitute for native row ownership.
+    """
+    from proofops.application.evidence.span_citations import span_verified_graph, verify_source_ref
+    from proofops.domain.values import SourceRef
+
+    approved = {
+        (r["ref"]["source_id"], r["ref"]["char_start"], r["ref"]["char_end"])
+        for r in checked["records"]
+        if r["status"] == "verified"
+    }
+    newly = tuple(
+        replace(SourceRef(**r["ref"]), verification_state="verified")
+        for r in checked["records"]
+        if r["status"] == "verified"
+    )
+    cells = tuple(
+        replace(SourceRef(**c["source_ref"]), verification_state="verified")
+        for p in checked["pb1_cell_proofs"]
+        if p["status"] == "verified"
+        for c in p["cell_proofs"]
+        if not c.get("recovered_selection")
+    )
+    existing = tuple(getattr(graph, "verified_spans", ()))
+    seen = {(r.source_id, r.char_start, r.char_end) for r in existing}
+    scoped = span_verified_graph(
+        graph,
+        existing
+        + tuple(r for r in (*newly, *cells) if (r.source_id, r.char_start, r.char_end) not in seen),
+        checked["artifact_sha256"],
+    )
+    blocks = {b.source_id: b for b in graph.blocks}
+    claims = []
+    for claim in discovery.claims:
+        table_claim = any(
+            blocks[r.source_id].kind in {"table", "table_cell"} for r in claim.source_refs
+        )
+        if table_claim and not all(
+            (r.source_id, r.char_start, r.char_end) in approved for r in claim.source_refs
+        ):
+            claims.append(
+                replace(
+                    claim,
+                    source_quality="unverified"
+                    if claim.source_quality == "verified"
+                    else claim.source_quality,
+                    source_refs=tuple(
+                        replace(r, verification_state="unverified")
+                        if r.verification_state == "verified"
+                        else r
+                        for r in claim.source_refs
+                    ),
+                )
+            )
+            continue
+        if claim.source_quality != "unverified":
+            claims.append(claim)
+            continue
+        sources = tuple(
+            verify_source_ref(r, scoped, tenant_id=tenant_id) for r in claim.source_refs
+        )
+        claims.append(
+            replace(claim, source_quality="verified", source_refs=sources)
+            if sources and all(r.verification_state == "verified" for r in sources)
+            else claim
+        )
+    return replace(discovery, claims=tuple(claims)), scoped
 
 
 def _transient(value):

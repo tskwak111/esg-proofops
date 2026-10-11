@@ -222,9 +222,20 @@ def attest_claims(*, reader, graph, source, refs, tenant_id, cache, run_id=None)
         "upstage-ocr-page-v9",
     }:
         refs = tuple(refs)
-        receipt = reader.attest_claim_spans(
-            graph, source, tuple(refs), tenant_id=tenant_id, run_id=run_id
-        )
+        from proofops.adapters.local.verified_read_cache import _execution_policy
+        from proofops.application.analysis_profile import VERIFIED_READ_V4_POLICY
+
+        if (
+            reader.PROFILE == "upstage-ocr-page-v9"
+            and _execution_policy() == VERIFIED_READ_V4_POLICY
+        ):
+            from proofops.adapters.local.pa7_raster_cache import attest
+
+            receipt = attest(reader, graph, source, refs, tenant_id=tenant_id, run_id=run_id)
+        else:
+            receipt = reader.attest_claim_spans(
+                graph, source, tuple(refs), tenant_id=tenant_id, run_id=run_id
+            )
         from proofops.adapters.local.verified_read_cache import remember_fresh_attestation
 
         remember_fresh_attestation(

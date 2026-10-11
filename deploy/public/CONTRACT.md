@@ -1,5 +1,35 @@
 # P1 hosted control plane v1
 
+## PA7 extract reuse amendment (2026-10-11; local only)
+Future `finals-unattended-v2` snapshots pin `exact-verified-read-v4`. The prior
+PB4+PA3 policy is retained verbatim as `V2_PRE_PA7_POLICY`; all earlier pins and
+v9/v8/v6 verifier files remain unchanged. No API/DB migration or dependency.
+V4 extends whole fresh attestation reuse to the byte-pinned v9 reader. It matches
+tenant/run, source bytes, complete graph, ordered refs, whole receipt, current
+reader policy, runtime/read profile and execution policy. The replay tail retains
+v9's explicit failed-row downgrade and independently attested cell spans; a
+whole-table flag cannot approve a failed row. Missing/mismatched/unavailable
+entries use the original reader. Receipt and checkpoint bytes are unchanged.
+V4 also reuses completed raw CPU OCR reads from the exact same original PDF,
+physical page, page dimensions, crop box/padding, pinned renderer/Tesseract
+runtime, source-policy and tenant/run scope. This is raw text/pixel-identity data,
+never source approval: the unchanged glyph, quantity, visibility, row and cell
+guards still execute for each ref. Cache inputs/outputs are mutation-isolated;
+unavailable/failed OCR reads are not cached. Storage is process-local compressed
+JSON, at most256 entries/8MiB including1KiB entry overhead, no disk cache.
+The existing whole-attestation/result cache keeps its shared4-entry/32MiB bound.
+A per-instance function binding supplies this raw reader; no frozen module global
+or verifier file is mutated. Deletion clears the new raw-read cache too. Model
+concurrency/batch windows, reserve/dispatch/fsync/settlement, ownership/cancel/
+fencing/heartbeat and immutable revisions remain unchanged.
+Rollback: stop pinning V4 on future runs; keep support for already accepted V4
+snapshots, original source verifiers, ledger and tombstones. Existing V3 or older
+snapshots select their old policy and do not enter the new scoped raw-reader path.
+No original result is rewritten and no offline fixture is published as a new live
+analysis. CPU2/4GiB and CPU8/4GiB offline Linux arm64 replays use stored provider
+responses with network=none; they are not measurements on an actual t4g CPU.
+This amendment authorizes no push, deployment, cloud change or paid model call.
+
 ## PA6 additive read contract (2026-10-11)
 Authenticated collection GETs use the existing viewer membership and active-tenant
 visibility of individual GETs (shared tenant workspace, not a personal-only list).
