@@ -19,7 +19,7 @@ import pypdfium2 as pdfium
 import pypdfium2.raw as raw
 from proofops.domain.provenance import canonical_hash
 
-from evaluation.report_scope import _ceo_title, build_plan
+from evaluation.report_scope import RANKING_VERSION, _ceo_title, build_plan
 from evaluation.report_sections import build_map, role
 
 
@@ -92,7 +92,9 @@ def _page_text(document, index):
         page.close()  # Free page/XObject/text caches before loading the next page.
 
 
-def inspect_streaming(pdf: Path, *, source_sha256: str | None = None):
+def inspect_streaming(
+    pdf: Path, *, source_sha256: str | None = None, ranking_policy=RANKING_VERSION
+):
     if pdf.stat().st_size > 150 * 1024 * 1024:
         raise ValueError("hosted scope limit: 150 MiB")
     with pdf.open("rb") as stream:
@@ -160,7 +162,13 @@ def inspect_streaming(pdf: Path, *, source_sha256: str | None = None):
         issues=issues,
         parser_versions={"pypdfium2": version("pypdfium2")},
     )
-    plan = build_plan(study, texts, page_headings=headings, page_primary_headings=primary)
+    plan = build_plan(
+        study,
+        texts,
+        page_headings=headings,
+        page_primary_headings=primary,
+        ranking_policy=ranking_policy,
+    )
     from evaluation.reporting_period import detect_reporting_period
 
     plan["reporting_period_detection"] = detect_reporting_period(texts, count, digest)

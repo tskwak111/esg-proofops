@@ -148,3 +148,38 @@ def test_mixed_parser_requires_explicit_bounded_claim_scope(inputs):
     args, _, _ = inputs
     with pytest.raises(ar.PlanError, match="mixed-parser"):
         ar.plan_run(ar.build_parser().parse_args(args + ["--pages", "1,2", "--mixed-parser"]))
+
+
+@pytest.mark.parametrize("policy, expected", [("bounded-v1", "AS1-v1"), ("bounded-v2", "W4-v2")])
+def test_launcher_passes_explicit_ranking_policy(inputs, monkeypatch, policy, expected):
+    args, proposal, _ = inputs
+    seen = []
+
+    def inspect(*args, **kwargs):
+        seen.append(kwargs["ranking_policy"])
+        return proposal
+
+    monkeypatch.setattr("evaluation.report_scope.inspect", inspect)
+    result = ar.plan_run(
+        ar.build_parser().parse_args(args + ["--auto-scope", "--auto-scope-policy", policy])
+    )
+    assert seen == [expected]
+    assert result["claim_pages"] == proposal["selected_claim_pages"]
+
+
+def test_finals_profile_keeps_explicit_new_ranking(inputs, monkeypatch):
+    args, proposal, _ = inputs
+    seen = []
+
+    def inspect(*args, **kwargs):
+        seen.append(kwargs["ranking_policy"])
+        return proposal
+
+    monkeypatch.setattr("evaluation.report_scope.inspect", inspect)
+    ar.plan_run(
+        ar.build_parser().parse_args(
+            args
+            + ["--analysis-profile", "finals-unattended-v2", "--auto-scope-policy", "bounded-v2"]
+        )
+    )
+    assert seen == ["W4-v2"]
