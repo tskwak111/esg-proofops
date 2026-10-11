@@ -22,8 +22,9 @@ def test_historical_pins_are_exact(digest):
     assert canonical_hash(profiles.policy_for(profiles.V2_PROFILE, pinned_hash=digest)) == digest
 
 
-def test_default_composes_all_integrated_features():
-    policy = profiles.policy_for(profiles.V2_PROFILE)
+def test_i1_pin_composes_all_original_integrated_features():
+    digest = "df58e8330bb2dbb46cc6b3f3690ca6a44d0c31f2cdc20a4c387569ebd131f37c"
+    policy = profiles.policy_for(profiles.V2_PROFILE, pinned_hash=digest)
     assert policy["integration_profile"] == "finals-20261011-v1"
     assert policy["scope"] == "bounded-v2"
     assert policy["table_claims"] == "pb1-w9-v1"
@@ -34,7 +35,7 @@ def test_default_composes_all_integrated_features():
     assert policy["execution_profile"] == "w3-speed-v1"
     assert policy["stage_overlap"] is False
     assert policy["citation_restore"] == "citation-selected-value-pb6-v1"
-    args = Namespace(analysis_profile=profiles.V2_PROFILE)
+    args = Namespace(analysis_profile=profiles.V2_PROFILE, analysis_policy_sha256=digest)
     profiles.apply_pilot_profile(args)
     assert args.extraction_sentence_prefix
     assert args.extraction_w9 and args.extraction_table_footnotes

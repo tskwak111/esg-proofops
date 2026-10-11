@@ -50,7 +50,10 @@ KNOWN_RENDERED_READERS = frozenset(
         "upstage-ocr-page-v10",
     }
 )
-FINALS_PROFILES = ("finals-unattended-v1", "finals-unattended-v2", "finals-unattended-j3-v1")
+PUBLIC_FINALS_PROFILES = ("finals-unattended-v1", "finals-unattended-v2")
+# Preserve explicit J3 pins/readers, but the failed I2 gate must not promote it
+# into the hosted choice list.
+FINALS_PROFILES = (*PUBLIC_FINALS_PROFILES, "finals-unattended-j3-v1")
 
 
 def default_analysis_profile():
@@ -106,7 +109,11 @@ def operator_profiles(config: dict) -> dict:
         llm_provider=llm_provider,
         llm_provider_options=["openai", "openrouter"],
         analysis_profile=analysis,
-        analysis_profile_options=["r108-default", "r108-finals-candidate-v2", *FINALS_PROFILES],
+        analysis_profile_options=[
+            "r108-default",
+            "r108-finals-candidate-v2",
+            *PUBLIC_FINALS_PROFILES,
+        ],
         analysis_profile_warning=(
             "E2E5 회귀 확인 — r108-finals-candidate-v2 또는 r108-default 사용 권장"
             if analysis == "r108-finals-candidate"

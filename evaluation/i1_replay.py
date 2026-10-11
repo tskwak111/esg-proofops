@@ -41,7 +41,7 @@ def ref_key(ref):
     return ref.source_id, ref.char_start, ref.char_end, ref.quote, ref.raw_text_sha256
 
 
-def main():
+def main(*, integration_policy=FINALS_I1_POLICY, baseline_dir=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
@@ -54,6 +54,8 @@ def main():
 
     socket.socket.connect = socket.socket.connect_ex = socket.create_connection = deny
     root, lab = args.root, args.root / "outputs/agent-results/R108-redesign/lab"
+    j3 = bool(integration_policy.get("selected_span_refinement"))
+    baseline = read(lab / baseline_dir / "measurement.json") if baseline_dir else None
     score, scorer_hashes = load_scorer(root / ".local/docling-lab/scripts")
     gold_path = next((lab / "gold-return/20261010/raw").rglob("20261007*.json"))
     gold = read(gold_path)
@@ -106,6 +108,7 @@ def main():
             extraction_w9=True,
             extraction_sentence_prefix=True,
             extraction_table_footnotes=True,
+            extraction_j3=j3,
         )
         # The original byte-identical extractor options reproduce the retained
         # selection. Origin/main has these same policies; its hash is recorded.
@@ -202,6 +205,25 @@ def main():
                         )
                     ]
                     projected.append(sid)
+                    if j3:
+                        from proofops.application.ingest.j3_recall import refine_selected
+                        from proofops.application.ingest.w9_tables import graph_cells
+
+                        refined, _ = refine_selected(
+                            selected,
+                            current.normalized_text,
+                            kind=current.kind,
+                            cells=graph_cells(current, new_graph),
+                        )
+                        try:
+                            selected = [
+                                asdict(s)
+                                for s in new._validate_spans(
+                                    {"spans": refined}, current.normalized_text
+                                )
+                            ]
+                        except ValueError:
+                            pass  # retain the complete parent on invalid refinements
             elif block.kind == "figure":
                 selected = []
             else:
@@ -215,6 +237,66 @@ def main():
                     exclusions.append(dict(source_id=sid, quote=span["quote"]))
                 else:
                     after.append((current, span))
+        if baseline_dir:
+            path = lab / baseline_dir / f"{name}-after.json"
+            input_hashes[str(path)] = sha256(path.read_bytes()).hexdigest()
+            before = []
+            for row in read(path):
+                ref = row["source_ref"]
+                block = blocks[ref["source_id"]]
+                assert (
+                    block.source_ref(
+                        normalized_char_start=ref["char_start"],
+                        normalized_char_end=ref["char_end"],
+                    ).quote
+                    == row["quote"]
+                )
+                before.append(
+                    (
+                        block,
+                        dict(
+                            char_start=ref["char_start"],
+                            char_end=ref["char_end"],
+                            quote=row["quote"],
+                            kind="claim",
+                        ),
+                    )
+                )
+            old_keys = {
+                ref_key(
+                    b.source_ref(
+                        normalized_char_start=s["char_start"], normalized_char_end=s["char_end"]
+                    )
+                )
+                for b, s in before
+            }
+            changed_refs = [
+                b.source_ref(
+                    normalized_char_start=s["char_start"], normalized_char_end=s["char_end"]
+                )
+                for b, s in after
+                if b.kind == "paragraph"
+            ]
+            changed_refs = [r for r in changed_refs if ref_key(r) not in old_keys]
+            if changed_refs:
+                from proofops.adapters.local.claim_source_verification import attest_claim_spans
+
+                receipt = attest_claim_spans(
+                    new_graph, source, changed_refs, tenant_id=graph.tenant_id
+                )
+                write(args.output / f"{name}-changed-paragraph-attestation.json", receipt)
+                for item in receipt["records"]:
+                    ref = item["ref"]
+                    key = (
+                        ref["source_id"],
+                        ref["char_start"],
+                        ref["char_end"],
+                        ref["quote"],
+                        ref["raw_text_sha256"],
+                    )
+                    proofs[key] = dict(
+                        status=item["status"], artifact_sha256=receipt["artifact_sha256"]
+                    )
         outputs = {}
         native_pdf = pdfplumber.open(io.BytesIO(source))
         for stage, selections in (("before", before), ("after", after)):
@@ -306,7 +388,7 @@ def main():
                         legacy_observations(
                             b.normalized_text, context=" ".join(b.candidates[b.winner].context)
                         )
-                        if stage == "before"
+                        if stage == "before" and not baseline_dir
                         else observations_for(new_blocks[b.source_id], new_graph)
                     )
                     for b in blocks.values()
@@ -369,7 +451,7 @@ def main():
         for name, item in summary.items()
         if item["outputs"]["after"]["score"]
         and item["outputs"]["after"]["score"]["strict_text_precision"]
-        < item["outputs"]["before"]["score"]["strict_text_precision"]
+        < (0.95 if baseline_dir else item["outputs"]["before"]["score"]["strict_text_precision"])
     ]
     regressions += [
         name + ":false_verified"
@@ -380,17 +462,35 @@ def main():
         sha256(Path(p).read_bytes()).hexdigest() == digest for p, digest in input_hashes.items()
     )
     assert unchanged
+    if baseline:
+        assert combined["before"] == baseline["combined_score"]["after"]
+        for name, item in summary.items():
+            for metric in (
+                "claims",
+                "source_verified",
+                "prefix_missing",
+                "latest_year_rows",
+                "false_verified",
+            ):
+                assert (
+                    item["outputs"]["before"][metric]
+                    == (baseline["summary"][name]["outputs"]["after"][metric])
+                ), (name, metric)
     write(
         args.output / "measurement.json",
         dict(
-            schema="i1-integrated-offline-replay-v1",
+            schema="i2-integrated-offline-replay-v1"
+            if baseline_dir
+            else "i1-integrated-offline-replay-v1",
             summary=summary,
             combined_score=combined,
             regressions=regressions,
             stage_b_allowed=not regressions,
-            integration_policy=FINALS_I1_POLICY,
-            policy_sha256=canonical_hash(FINALS_I1_POLICY),
-            baseline_policy_sha256="3acefc784aeff5e2c922ceb4cc9d8aed06e089f28eff1980524458e9baf7f1b8",
+            integration_policy=integration_policy,
+            policy_sha256=canonical_hash(integration_policy),
+            baseline_policy_sha256=baseline["policy_sha256"]
+            if baseline
+            else "3acefc784aeff5e2c922ceb4cc9d8aed06e089f28eff1980524458e9baf7f1b8",
             input_sha256=input_hashes,
             inputs_unchanged=unchanged,
             scorer_sha256=scorer_hashes,

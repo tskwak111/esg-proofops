@@ -206,7 +206,14 @@ FINALS_I1_POLICY = FINALS_I1_INITIAL_POLICY | dict(
     element_definition_profile="finals-i1-v2",
     element_definitions_sha256=INTEGRATED_V2_DEFINITIONS_HASH,
 )
-V2_POLICY = FINALS_I1_POLICY
+FINALS_I2_J3_POLICY = FINALS_I1_POLICY | dict(
+    integration_profile="finals-20261011-v2",
+    selected_span_refinement="j3-explicit-boundaries-v1",
+)
+# The same-input I2 replay measured 70/75 strict precision (<95%). Keep this
+# candidate readable, but exclude J3 from new default/publication runs.
+FINALS_I2_POLICY = FINALS_I1_POLICY | dict(integration_profile="finals-20261011-v2")
+V2_POLICY = FINALS_I2_POLICY
 
 
 J3_PROFILE = "finals-unattended-j3-v1"
@@ -224,6 +231,8 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_I2_J3_POLICY,
+            FINALS_I1_POLICY,
             FINALS_I1_INITIAL_POLICY,
             V2_D24_POLICY,
             V2_W9_POLICY,

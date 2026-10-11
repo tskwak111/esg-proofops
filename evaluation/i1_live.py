@@ -13,6 +13,7 @@ import shutil
 import sqlite3
 import sys
 from dataclasses import asdict
+from decimal import Decimal
 from hashlib import sha256
 from pathlib import Path
 from uuid import UUID
@@ -32,7 +33,10 @@ from evaluation.local_upstage_pilot import live_tagging_settings
 from evaluation.w7_sentence_replay import NoTransport
 
 
-def main():
+def main(*, claim_pages=None, workers=1, budget="0.5", event_id="I1-USD0.5"):
+    if not Decimal(0) < Decimal(budget) <= Decimal("0.5"):
+        raise ValueError("CANARY_BUDGET_INVALID")
+    physical_pages = claim_pages or dict(naver=[84, 88], kia=[26, 106])
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
@@ -66,6 +70,7 @@ def main():
             extraction_w9=True,
             extraction_sentence_prefix=True,
             extraction_table_footnotes=True,
+            extraction_j3=bool(V2_POLICY.get("selected_span_refinement")),
             analysis_policy_sha256=canonical_hash(V2_POLICY),
         )
         flags = {
@@ -131,7 +136,17 @@ def main():
             frozen["input_reservation_policy_hash"] = canonical_hash(
                 frozen["input_reservation_policy"]
             )
-            frozen["extraction_limits"]["claim_pages"] = [1, 2] if company == "naver" else [1, 4]
+            page_map = json.loads(
+                (
+                    args.root
+                    / "outputs/agent-results/R108-redesign/lab/perf/PA9"
+                    / (company + "-server")
+                    / "result-1.json"
+                ).read_text()
+            )["page_map"]
+            frozen["extraction_limits"]["claim_pages"] = [
+                page_map.index(page) + 1 for page in physical_pages[company]
+            ]
             db.execute(
                 "UPDATE run_snapshots SET payload=? WHERE run_id=?", (json.dumps(frozen), run)
             )
@@ -166,7 +181,7 @@ def main():
 
     harness.pin_scratch_policy = pin
     original_build = composition.build_composition
-    admission = ProviderConcurrency(1)
+    admission = ProviderConcurrency(workers)
     original_candidate_batch = upstage_document.candidate_batch
 
     def candidate_batch(*a, **kw):
@@ -240,19 +255,25 @@ def main():
 
     class SharedGuard(OriginalGuard):
         def __init__(self, path, **kwargs):
-            super().__init__(path, **(kwargs | dict(event_id="I1-USD0.5")))
+            super().__init__(
+                path, **(kwargs | dict(event_id=event_id, daily_limit=budget, event_limit=budget))
+            )
+
+        def configure_run(self, run_id, **kwargs):
+            kwargs["run_limit"] = str(min(Decimal(kwargs.get("run_limit", "1")), Decimal(budget)))
+            return super().configure_run(run_id, **kwargs)
 
     spend_guard.SpendGuard = SharedGuard
     original_post = openai.OpenAIProbe._post
     stopped = []
     dispatches = []
 
-    def post(probe, body):
+    def post(probe, body, **kwargs):
         if stopped:
             raise ValueError("I1_PROVIDER_STOPPED_NO_RETRY")
         dispatches.append(dict(company=company, request_id=body.get("request_id")))
         try:
-            return original_post(probe, body)
+            return original_post(probe, body, **kwargs)
         except ValueError as error:
             code = str(error)
             if code.startswith("OPENAI_HTTP_"):
@@ -277,7 +298,7 @@ def main():
             "--key-file",
             str(args.key_file),
             "--workers",
-            "1",
+            str(workers),
         ]
         try:
             opendataloader._batch = original_batch
@@ -296,7 +317,7 @@ def main():
             results[company]["measurement"] = json.loads(measurement.read_text())
         if stopped:
             results[company]["status"] = "not_run"
-    guard = OriginalGuard(spend_ledger, event_id="I1-USD0.5", daily_limit="0.5", event_limit="0.5")
+    guard = OriginalGuard(spend_ledger, event_id=event_id, daily_limit=budget, event_limit=budget)
     result = dict(
         policy_sha256=canonical_hash(V2_POLICY),
         results=results,
@@ -304,12 +325,15 @@ def main():
         dispatches=len(dispatches),
         spend=guard.summary(),
         paid_retry_after_provider_error=0,
-        physical_claim_pages=dict(naver=[84, 88], kia=[26, 106]),
+        physical_claim_pages=physical_pages,
+        admission=admission.snapshot(),
+        budget_usd=budget,
         parser="retained responses; source gates rerun; fresh extraction/tagging only",
         production_revisions_written=0,
     )
     (args.output / "measurement.json").write_text(json.dumps(result, indent=2))
     print(json.dumps(result), flush=True)
+    return result
 
 
 if __name__ == "__main__":
