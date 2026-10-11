@@ -1,0 +1,275 @@
+{
+  "method": "independent original-PDF native chars/layout within exact bbox; NFC/whitespace only",
+  "records": [
+    {
+      "company": "lgchem",
+      "page": 24,
+      "claim_id": "73859861-1b4e-5352-89a6-ef300ee767ca",
+      "quote": "향후 생산능력 확대 및 글로벌 사업 확장에 따른 배출량 증가 요인에도 불구하고,\nScope 1 및 Scope 2 배출량을 기준연도(2019년, 951만 tCO₂e) 수준으로 관리하는 탄소중립 성장(Carbon Neutral Growth)을 2030년 목표로 설정하고 있습니다.",
+      "bbox": [
+        38.4375,
+        140.32180725000217,
+        803.8162005000008,
+        212.32180725000205
+      ],
+      "literal_at_bbox": true,
+      "source_verified": true
+    },
+    {
+      "company": "lgchem",
+      "page": 32,
+      "claim_id": "7a4f1028-0987-5858-a21d-490aa8094bca",
+      "quote": "재활용 원료는 최종 소비 이후 발생한 폐플라스틱을\n활용한 소비자 사용 후 재활용 원료(Post-Consumer Recycled, PCR)와 생산 공정에서 발생한 폐기물을 활용한 공정 내 재활용 원료(Post-Industrial Recycled, PIR)를 포함하고 있습니다.",
+      "bbox": [
+        38.4375,
+        772.5718072499984,
+        803.8088430000009,
+        813.8218072499984
+      ],
+      "literal_at_bbox": true,
+      "source_verified": true
+    },
+    {
+      "company": "lgchem",
+      "page": 32,
+      "claim_id": "e1ac813d-a69b-5a3d-bc88-139544560ceb",
+      "quote": "순환경제 관련 전략 방향과 중점 투자 과제는 최고경영진 및 이사회에서 관리되며, ESG위원회를 통해\n추진 현황과 성과를 정기적으로 점검하고 있습니다.",
+      "bbox": [
+        38.4375,
+        456.0718072499984,
+        803.8171080000009,
+        513.0718072499984
+      ],
+      "literal_at_bbox": true,
+      "source_verified": true
+    },
+    {
+      "company": "lgchem",
+      "page": 32,
+      "claim_id": "da622cab-81f4-5f9d-8660-f892463889c5",
+      "quote": "순환경제 전략은 단순한 탄소 감축을 넘어 가치사슬 전반의 지속가능성과 글로벌 규제 대응을 동시에 고려한 통합적\n접근으로, 플라스틱 재활용, 재생·순환 원료 적용, 배터리 재활용 등 핵심 분야 중심의 기술 개발과 사업화를 병행하고 있습니다.",
+      "bbox": [
+        38.4375,
+        646.5718072499984,
+        803.8186305000011,
+        702.8218072499984
+      ],
+      "literal_at_bbox": true,
+      "source_verified": true
+    },
+    {
+      "company": "lgchem",
+      "page": 36,
+      "claim_id": "daa68aba-0460-5ae2-836d-fcf2ee318455",
+      "quote": "국제표준화기구의 ISO 14001(환경경영시스템)에 부합하는 체계를\n기반으로, 환경안전보건방침을 중심으로 환경영향 관리에 필요한 세부 규정과 지침을 마련해 적용하고 있습니다.",
+      "bbox": [
+        38.4375,
+        471.8218072499984,
+        803.8157032500003,
+        543.8218072499984
+      ],
+      "literal_at_bbox": true,
+      "source_verified": true
+    },
+    {
+      "company": "lgchem",
+      "page": 36,
+      "claim_id": "0247f513-4c7c-5775-a5c9-2395386ad051",
+      "quote": "LG화학의 환경경영시스템(Environmental Management System, EMS)은 ISO 14001\n인증을 통해 제3자 검증을 받고 있으며, 내부 감사를 통해 운영 적정성을 정기적으로 점검하고 있습니다.",
+      "bbox": [
+        38.4375,
+        471.8218072499984,
+        803.8157032500003,
+        543.8218072499984
+      ],
+      "literal_at_bbox": true,
+      "source_verified": true
+    },
+    {
+      "company": "lgchem",
+      "page": 36,
+      "claim_id": "b94e35d4-fb83-5516-af75-84d2e02b35ac",
+      "quote": "ISO 14001 인증은 국내 전 생산 사업장에 적용되고 있으며, 글로벌 사업장의 경우 총 17개 생산\n사업장 중 15개 사업장에서 인증을 완료하였습니다.",
+      "bbox": [
+        38.4375,
+        471.8218072499984,
+        803.8157032500003,
+        543.8218072499984
+      ],
+      "literal_at_bbox": true,
+      "source_verified": true
+    },
+    {
+      "company": "lgchem",
+      "page": 36,
+      "claim_id": "bdd90be4-739a-57ba-b174-543817328836",
+      "quote": "인증 범위 및 세부 현황은 당사 홈페이지를\n통해 공개하고 있습니다.",
+      "bbox": [
+        38.4375,
+        471.8218072499984,
+        803.8157032500003,
+        543.8218072499984
+      ],
+      "literal_at_bbox": true,
+      "source_verified": true
+    },
+    {
+      "company": "lgchem",
+      "page": 36,
+      "claim_id": "d404d728-c6ad-502f-9d0d-d3a8b1b27918",
+      "quote": "2025년에는 토양오염 관리 지침,\n잔류성오염물질 관리 지침 등을 포함해 환경안전보건(EH&S) 전반에 적용되는 규정 10건과 지침 38건을 제·개정하며 관리 체계를 고도화했습니다.",
+      "bbox": [
+        38.4375,
+        559.5718072499984,
+        803.8112430000009,
+        616.5718072499984
+      ],
+      "literal_at_bbox": true,
+      "source_verified": true
+    },
+    {
+      "company": "lgchem",
+      "page": 36,
+      "claim_id": "27f422f7-dbcf-53fc-966f-381b63b58dd9",
+      "quote": "또한 대기, 수질, 폐기물, 수자원 등 주요 환경 영향\n요소에 대한 실행 성과를 축적·분석하고 있으며, 이를 기반으로 환경안전 ESG 중장기 로드맵에 따라 관리 수준을 지속적으로 개선하고 있습니다.",
+      "bbox": [
+        38.4375,
+        559.5718072499984,
+        803.8112430000009,
+        616.5718072499984
+      ],
+      "literal_at_bbox": true,
+      "source_verified": true
+    },
+    {
+      "company": "lgchem",
+      "page": 36,
+      "claim_id": "2ef9081f-8cd2-57e8-894d-6a7e0428c62d",
+      "quote": "공정 개선과 설비 투자, 운영 효율화를 통해 환경 리스크를\n관리하고 있으며, 2022년 대비 2030년까지 대기 및 수질 오염물질 원단위 배출량을 10% 저감하는 목표를 설정하고 관련 활동을 추진하고 있습니다.",
+      "bbox": [
+        38.4375,
+        559.5718072499984,
+        803.8112430000009,
+        616.5718072499984
+      ],
+      "literal_at_bbox": true,
+      "source_verified": true
+    },
+    {
+      "company": "lgchem",
+      "page": 36,
+      "claim_id": "0babe90c-b68b-5a06-bd6f-3dd647326ee0",
+      "quote": "대기오염, 악취, 수질오염,\n폐기물 등 주요 환경 요소와 관련된 법령 및 정책 동향을 주기적으로 모니터링하며, 사업장별 영향을 선제적으로 파악·점검하고 있습니다.",
+      "bbox": [
+        38.4375,
+        305.3218072499984,
+        803.8138230000012,
+        346.5718072499984
+      ],
+      "literal_at_bbox": true,
+      "source_verified": true
+    },
+    {
+      "company": "lgchem",
+      "page": 36,
+      "claim_id": "afd4b9c9-73a3-572e-9e84-0845ab6bdc34",
+      "quote": "또한 환경 개선 과제를 연간 투자 계획에 반영하여 지속적으로\n이행함으로써 환경 관리 수준을 강화해 나가고 있습니다.",
+      "bbox": [
+        38.4375,
+        305.3218072499984,
+        803.8138230000012,
+        346.5718072499984
+      ],
+      "literal_at_bbox": true,
+      "source_verified": true
+    },
+    {
+      "company": "lgchem",
+      "page": 40,
+      "claim_id": "386e7e30-323c-5b1d-9ddd-cd87593c9c16",
+      "quote": "또한 환경영향 저감 정책의 수립 및 이행 과정에서 정부,\n지역사회, 외부 전문기관 등 다양한 이해관계자의 의견을 반영하고 있으며, 환경영향평가, 전문기관 자문, 관계 기관 협의 등을 통해 도출된 의견을 정책과 관리 활동에 지속적으로 반영하고 있습니다.",
+      "bbox": [
+        38.4375,
+        140.32180724999853,
+        803.8114005000011,
+        181.57180724999841
+      ],
+      "literal_at_bbox": true,
+      "source_verified": true
+    },
+    {
+      "company": "lgchem",
+      "page": 44,
+      "claim_id": "33bda4d5-aa02-54e8-a074-517972a2ae87",
+      "quote": "1) 총 발생 집약도 = 폐기물 발생량 ÷ (LG에너지솔루션, 공통 및 기타부문 제외 매출액)\n2) 폐기물 재활용 및 최종 처리는 전량 외부 위탁 처리(offsite)로 이루어지고 있으며, 사업장 내 처리(onsite)는 해당되지 않아 별도의 구분 없이 공시하였습니다.",
+      "bbox": [
+        38.4375,
+        508.46039111999846,
+        527.02853052,
+        540.3803911199984
+      ],
+      "literal_at_bbox": true,
+      "source_verified": true
+    }
+  ],
+  "source_errors": 0,
+  "verified_error_count": 0,
+  "qm1_sample": {
+    "before_missing": 7,
+    "after_missing": 0,
+    "paragraph_denominator": 15,
+    "all_citation_denominator": 30,
+    "records": [
+      {
+        "sample": 16,
+        "before_quote": "요소에 대한 실행 성과를 축적·분석하고 있으며, 이를 기반으로 환경안전 ESG 중장기 로드맵에 따라 관리 수준을 지속적으로 개선하고 있습니다.",
+        "after_quote": "또한 대기, 수질, 폐기물, 수자원 등 주요 환경 영향\n요소에 대한 실행 성과를 축적·분석하고 있으며, 이를 기반으로 환경안전 ESG 중장기 로드맵에 따라 관리 수준을 지속적으로 개선하고 있습니다.",
+        "repaired": true,
+        "source_verified": true
+      },
+      {
+        "sample": 17,
+        "before_quote": "잔류성오염물질 관리 지침 등을 포함해 환경안전보건(EH&S) 전반에 적용되는 규정 10건과 지침 38건을 제·개정하며 관리 체계를 고도화했습니다.",
+        "after_quote": "2025년에는 토양오염 관리 지침,\n잔류성오염물질 관리 지침 등을 포함해 환경안전보건(EH&S) 전반에 적용되는 규정 10건과 지침 38건을 제·개정하며 관리 체계를 고도화했습니다.",
+        "repaired": true,
+        "source_verified": true
+      },
+      {
+        "sample": 20,
+        "before_quote": "이행함으로써 환경 관리 수준을 강화해 나가고 있습니다.",
+        "after_quote": "또한 환경 개선 과제를 연간 투자 계획에 반영하여 지속적으로\n이행함으로써 환경 관리 수준을 강화해 나가고 있습니다.",
+        "repaired": true,
+        "source_verified": true
+      },
+      {
+        "sample": 22,
+        "before_quote": "폐기물 등 주요 환경 요소와 관련된 법령 및 정책 동향을 주기적으로 모니터링하며, 사업장별 영향을 선제적으로 파악·점검하고 있습니다.",
+        "after_quote": "대기오염, 악취, 수질오염,\n폐기물 등 주요 환경 요소와 관련된 법령 및 정책 동향을 주기적으로 모니터링하며, 사업장별 영향을 선제적으로 파악·점검하고 있습니다.",
+        "repaired": true,
+        "source_verified": true
+      },
+      {
+        "sample": 24,
+        "before_quote": "지역사회, 외부 전문기관 등 다양한 이해관계자의 의견을 반영하고 있으며, 환경영향평가, 전문기관 자문, 관계 기관 협의 등을 통해 도출된 의견을 정책과 관리 활동에 지속적으로 반영하고 있습니다.",
+        "after_quote": "또한 환경영향 저감 정책의 수립 및 이행 과정에서 정부,\n지역사회, 외부 전문기관 등 다양한 이해관계자의 의견을 반영하고 있으며, 환경영향평가, 전문기관 자문, 관계 기관 협의 등을 통해 도출된 의견을 정책과 관리 활동에 지속적으로 반영하고 있습니다.",
+        "repaired": true,
+        "source_verified": true
+      },
+      {
+        "sample": 29,
+        "before_quote": "기반으로, 환경안전보건방침을 중심으로 환경영향 관리에 필요한 세부 규정과 지침을 마련해 적용하고 있습니다.",
+        "after_quote": "국제표준화기구의 ISO 14001(환경경영시스템)에 부합하는 체계를\n기반으로, 환경안전보건방침을 중심으로 환경영향 관리에 필요한 세부 규정과 지침을 마련해 적용하고 있습니다.",
+        "repaired": true,
+        "source_verified": true
+      },
+      {
+        "sample": 30,
+        "before_quote": "관리하고 있으며, 2022년 대비 2030년까지 대기 및 수질 오염물질 원단위 배출량을 10% 저감하는 목표를 설정하고 관련 활동을 추진하고 있습니다.",
+        "after_quote": "공정 개선과 설비 투자, 운영 효율화를 통해 환경 리스크를\n관리하고 있으며, 2022년 대비 2030년까지 대기 및 수질 오염물질 원단위 배출량을 10% 저감하는 목표를 설정하고 관련 활동을 추진하고 있습니다.",
+        "repaired": true,
+        "source_verified": true
+      }
+    ]
+  },
+  "limitation": "Changed quotes only; no whole-corpus zero-error claim or semantic certification"
+}

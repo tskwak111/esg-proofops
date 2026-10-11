@@ -1,0 +1,109 @@
+{
+  "schema": "w7-task-verification-v1",
+  "baseline": "a16e118e814b70cdd6afa3ed66324bc4f61794b5",
+  "branch": "w7-sentence",
+  "review": "self-review; shared differential-review and spec-to-code-compliance; no independent agent",
+  "code_sha256": {
+    "apps/agent/src/proofops_agent/upstage_extraction.py": "40ba693ae283679116b6420b88c7c950142e3421ae49caa7799862e12675d168",
+    "apps/api/src/proofops_api/local_runtime.py": "146391195d2e77a858f300c236db0b03cff9b7a36f5df597e4f4fc185e1e543a",
+    "apps/worker/src/proofops_worker/composition.py": "19f6cad3ceeb916bca6b76b8f64fbe0d1eb9a0b044904fa05f03c1f0cc7168ab",
+    "evaluation/local_upstage_pilot.py": "c0754aae8f230bf59f758642cd1d3998482aad52bf67914d3d1e401e46e9117c",
+    "packages/proofops/application/ingest/sentence_prefix.py": "99d4ba01699a290fcacf094c66d8ef8cf16d7d9dbd74822a5608b98541f3070e",
+    "evaluation/w7_sentence_replay.py": "e4f1a7f8872d0d27a04f7e3617917359594ffd84ae5ea068cb64fc3ebc8ba516",
+    "evaluation/w7_score.py": "219bb8c447e1f33970671673e5c2a25650f2c89d60b99c36d74d38145a3febe0",
+    "tests/integration/test_extraction_sentence_prefix.py": "c3a86996bca2200f03eac45728155ad069ce65f1bf7f13ae19406623a45e2c36"
+  },
+  "checks": [
+    {
+      "command": "pytest tests/integration/test_extraction_sentence_prefix.py tests/integration/test_extraction_linewrap_join.py tests/unit/test_pb1_extraction.py tests/integration/test_upstage_extraction.py tests/integration/test_extract_batch_continuation.py tests/unit/test_pb7_policy_chain.py -q",
+      "result": "111 passed (development checkpoint)"
+    },
+    {
+      "command": "pytest tests/integration/test_extraction_sentence_prefix.py tests/integration/test_extraction_linewrap_join.py tests/integration/test_local_runtime_config.py tests/security/test_prompt_injection.py -q",
+      "result": "87 passed (integration checkpoint)"
+    },
+    {
+      "command": "pytest tests/integration/test_extraction_sentence_prefix.py tests/integration/test_local_runtime_config.py -q",
+      "result": "66 passed, 2 dependency deprecation warnings (final)",
+      "log": "checks/final-tests.log"
+    },
+    {
+      "command": "ruff check <8 changed Python files>; ruff format --check <8 changed Python files>",
+      "result": "passed"
+    },
+    {
+      "command": "mypy <7 changed source files>",
+      "result": "Success: no issues found; standard untyped-body note"
+    },
+    {
+      "command": "python scripts/verify_architecture.py",
+      "result": "passed; includes existing LLM-tag contract fixture"
+    },
+    {
+      "command": "git diff --check",
+      "result": "passed"
+    },
+    {
+      "command": "python -m evaluation.w7_sentence_replay --input /input --output /results/<company>",
+      "result": "passed LG/NAVER/kia; Linux arm64 a16e118 image; network=none; inputs read-only"
+    },
+    {
+      "command": "python -m evaluation.w7_score --root /Users/ss020/Dev/ESG_ProofOps",
+      "result": "passed; final policy quotes/offsets equal already freshly attested quotes; idempotence checked; source errors 0/15"
+    }
+  ],
+  "requirements": [
+    {
+      "requirement": "QM1 7 clipped LG citations",
+      "status": "implemented",
+      "evidence": "source-audit.json: qm1_sample 7/15 -> 0/15"
+    },
+    {
+      "requirement": "same-block paragraph/source order; bullet/title/row/independent-clause/derived boundaries",
+      "status": "implemented",
+      "evidence": "sentence_prefix.py, validated graph requirement, 25 focused integration cases; changes.json"
+    },
+    {
+      "requirement": "expanded source characters + geometry verified",
+      "status": "implemented",
+      "evidence": "fresh v10 after-attestation.json + independent original-PDF source-audit.json 0/15"
+    },
+    {
+      "requirement": "LG/NAVER/kia stored raw response replay, counts and DL3 metrics",
+      "status": "implemented",
+      "evidence": "scores.json; LG gold absent explicitly not_run"
+    },
+    {
+      "requirement": "new policy hash + immutable historical replay/rollback",
+      "status": "implemented",
+      "evidence": "profile opt-in; old prompt/descriptor defaults unchanged; frozen-profile/resume guards; existing policy-chain tests"
+    },
+    {
+      "requirement": "cost ceiling USD0.3; local commits; no push/deploy/EC2 mutation",
+      "status": "implemented",
+      "evidence": "provider calls/cost=0, source-collection.json before==after==local; completion commit recorded in W7.DONE"
+    },
+    {
+      "requirement": "LLM extraction/tagging only; unknown/conflict/unreadable kept; grades pure Python",
+      "status": "implemented",
+      "evidence": "diff changes only span extraction/settings/evaluation; rule engine/element states untouched"
+    }
+  ],
+  "compatibility": {
+    "public_api": "unchanged",
+    "database": "unchanged; no migration",
+    "deployment": "not_run; opt-in only",
+    "rollback": "omit extraction_sentence_prefix for future new state and use old profile; existing states keep immutable profiles"
+  },
+  "not_run": [
+    "new model tagging/grades",
+    "AWS/model live tests",
+    "frontend build/E2E (no frontend changes)"
+  ],
+  "limitations": [
+    "Draft textual scorer is not semantic/model accuracy; no LG gold",
+    "15 changed quotes audit does not imply whole-corpus zero errors",
+    "HX1 new model element-tagging DomainValidationError regression is external to stored-response W7 replay"
+  ],
+  "final_policy_sha256": "c6e603453be254c083f845051f6e3f4a47196373abb2f01aebf513c26cf2757e"
+}

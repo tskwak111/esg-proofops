@@ -1,0 +1,532 @@
+[
+  {
+    "source_id": "4544d919-3665-5a1a-9467-907972352ffc",
+    "page": 1,
+    "before": [
+      {
+        "char_start": 0,
+        "char_end": 110,
+        "quote": "기아는 2022년 4월 영국의 비영리기구인 The Climate Group과 CDP 주도로 발족한 RE100 이니셔티브에 가입해 2040년까지 사업장 전력의 100% 재생에너지 전환을 선언했습니다.",
+        "kind": "claim",
+        "reason": null,
+        "topic_ids": [
+          "environment"
+        ]
+      },
+      {
+        "char_start": 111,
+        "char_end": 246,
+        "quote": "단계적으로 2030년까지 해외 사업장의 재생에너지 전환을 우선적으로 완료하고, 2040년까지 전 사업장의 재생에너지 전환을 완료할 예정으로, 이는 RE100 이니셔티브가 권고하는 2050년 재생에너지 100% 전환보다 10년 앞선 목표입니다.",
+        "kind": "claim",
+        "reason": null,
+        "topic_ids": [
+          "environment"
+        ]
+      },
+      {
+        "char_start": 247,
+        "char_end": 388,
+        "quote": "국가별 에너지 정책과 재생에너지 시장 환경을 고려해 사업장별 RE100 이행 로드맵을 수립했으며, 탄소중립에 대한 진정성과 감축 효과성 등을 고려해 자체발전과 PPA(Power Purchase Agreement) 중심으로 RE100을 달성할 계획입니다.",
+        "kind": "claim",
+        "reason": null,
+        "topic_ids": [
+          "environment"
+        ]
+      }
+    ],
+    "after": [
+      {
+        "char_start": 0,
+        "char_end": 110,
+        "quote": "기아는 2022년 4월 영국의 비영리기구인 The Climate Group과 CDP 주도로 발족한 RE100 이니셔티브에 가입해 2040년까지 사업장 전력의 100% 재생에너지 전환을 선언했습니다.",
+        "kind": "claim",
+        "reason": null,
+        "topic_ids": [
+          "environment"
+        ]
+      },
+      {
+        "char_start": 111,
+        "char_end": 246,
+        "quote": "단계적으로 2030년까지 해외 사업장의 재생에너지 전환을 우선적으로 완료하고, 2040년까지 전 사업장의 재생에너지 전환을 완료할 예정으로, 이는 RE100 이니셔티브가 권고하는 2050년 재생에너지 100% 전환보다 10년 앞선 목표입니다.",
+        "kind": "claim",
+        "reason": null,
+        "topic_ids": [
+          "environment"
+        ]
+      },
+      {
+        "char_start": 247,
+        "char_end": 388,
+        "quote": "국가별 에너지 정책과 재생에너지 시장 환경을 고려해 사업장별 RE100 이행 로드맵을 수립했으며, 탄소중립에 대한 진정성과 감축 효과성 등을 고려해 자체발전과 PPA(Power Purchase Agreement) 중심으로 RE100을 달성할 계획입니다.",
+        "kind": "claim",
+        "reason": null,
+        "topic_ids": [
+          "environment"
+        ]
+      }
+    ],
+    "rejected_sentence_ids": [],
+    "sentence_prefix": []
+  },
+  {
+    "source_id": "64c54235-6257-5c12-8a0b-55cc39e00efa",
+    "page": 1,
+    "before": [
+      {
+        "char_start": 0,
+        "char_end": 104,
+        "quote": "기아는 RE100 이행을 위해 친환경 에너지 확대가 중요하며, 이에 따른 대규모의 자본 투자가 필요한 점을 고려하여, 이를 체계적으로 추진하기 위한 4단계의 검토 프로세스를 수립했습니다.",
+        "kind": "claim",
+        "reason": null,
+        "topic_ids": [
+          "environment"
+        ]
+      },
+      {
+        "char_start": 105,
+        "char_end": 199,
+        "quote": "또한, RE100 이행 과정에서 발생하는 재무적 영향의 중요성을 고려해, 실현 가능한 계획하에 RE100이 달성될 수 있도록 포트폴리오별 재무 분석을 진행하고 있습니다.",
+        "kind": "claim",
+        "reason": null,
+        "topic_ids": [
+          "environment"
+        ]
+      }
+    ],
+    "after": [
+      {
+        "char_start": 0,
+        "char_end": 104,
+        "quote": "기아는 RE100 이행을 위해 친환경 에너지 확대가 중요하며, 이에 따른 대규모의 자본 투자가 필요한 점을 고려하여, 이를 체계적으로 추진하기 위한 4단계의 검토 프로세스를 수립했습니다.",
+        "kind": "claim",
+        "reason": null,
+        "topic_ids": [
+          "environment"
+        ]
+      },
+      {
+        "char_start": 105,
+        "char_end": 199,
+        "quote": "또한, RE100 이행 과정에서 발생하는 재무적 영향의 중요성을 고려해, 실현 가능한 계획하에 RE100이 달성될 수 있도록 포트폴리오별 재무 분석을 진행하고 있습니다.",
+        "kind": "claim",
+        "reason": null,
+        "topic_ids": [
+          "environment"
+        ]
+      }
+    ],
+    "rejected_sentence_ids": [],
+    "sentence_prefix": []
+  },
+  {
+    "source_id": "1953e15a-60e5-58b7-b5d2-f6a773b7a040",
+    "page": 2,
+    "before": [],
+    "after": [],
+    "rejected_sentence_ids": [],
+    "sentence_prefix": []
+  },
+  {
+    "source_id": "24a7917f-b65b-5fe7-a2ba-ecc51dda288f",
+    "page": 2,
+    "before": [
+      {
+        "char_start": 0,
+        "char_end": 75,
+        "quote": "기아는 내부 탄소가격에 대한 가이드라인을 수립해 투자로 인해 발생이 예상되는 탄소비용을 내부 기준에 따라 체계적으로 산정하고 있습니다.",
+        "kind": "claim",
+        "reason": null,
+        "topic_ids": [
+          "environment"
+        ]
+      },
+      {
+        "char_start": 76,
+        "char_end": 133,
+        "quote": "이를 공장 신설 및 증설, 설비 투자 등과 같은 대규모 투자 의사결정 시 참고지표로 활용하고 있습니다.",
+        "kind": "claim",
+        "reason": null,
+        "topic_ids": [
+          "environment"
+        ]
+      }
+    ],
+    "after": [
+      {
+        "char_start": 0,
+        "char_end": 75,
+        "quote": "기아는 내부 탄소가격에 대한 가이드라인을 수립해 투자로 인해 발생이 예상되는 탄소비용을 내부 기준에 따라 체계적으로 산정하고 있습니다.",
+        "kind": "claim",
+        "reason": null,
+        "topic_ids": [
+          "environment"
+        ]
+      },
+      {
+        "char_start": 76,
+        "char_end": 133,
+        "quote": "이를 공장 신설 및 증설, 설비 투자 등과 같은 대규모 투자 의사결정 시 참고지표로 활용하고 있습니다.",
+        "kind": "claim",
+        "reason": null,
+        "topic_ids": [
+          "environment"
+        ]
+      }
+    ],
+    "rejected_sentence_ids": [],
+    "sentence_prefix": []
+  },
+  {
+    "source_id": "74316db7-48e6-5e0e-89cd-5a954f44a812",
+    "page": 2,
+    "before": [],
+    "after": [],
+    "rejected_sentence_ids": [],
+    "sentence_prefix": []
+  },
+  {
+    "source_id": "8adade63-612d-5b83-a7bd-d4c260207a03",
+    "page": 2,
+    "before": [],
+    "after": [],
+    "rejected_sentence_ids": [],
+    "sentence_prefix": []
+  },
+  {
+    "source_id": "a11827f2-1fc9-52d1-a883-30cdb35064f5",
+    "page": 2,
+    "before": [
+      {
+        "char_start": 72,
+        "char_end": 181,
+        "quote": "이러한 외부 요구와 강화되는 탄소배출량 관련 규제에 체계적으로 대응하기 위해 기아는 제품, 사업장, 공급망의 탄소배출량을 통합 관리하는 글로벌 통합 탄소배출 정보 시스템(IGIS)을 개발했습니다.",
+        "kind": "claim",
+        "reason": null,
+        "topic_ids": [
+          "environment"
+        ]
+      },
+      {
+        "char_start": 182,
+        "char_end": 317,
+        "quote": "해당 시스템은 신뢰성 높은 탄소배출량 산정 결과를 제공해 각종 규제와 외부 이해관계자의 요구사항에 효과적으로 대응할 수 있을 것으로 기대되며, 이외에도 탄소저감 기술 개발 지원과 탄소중립에 관련된 일반적인 정보 제공 기능을 포함하고 있습니다.",
+        "kind": "claim",
+        "reason": null,
+        "topic_ids": [
+          "environment"
+        ]
+      },
+      {
+        "char_start": 318,
+        "char_end": 413,
+        "quote": "향후에는 시스템을 활용해 탄소배출량 정보를 지속적으로 업데이트할 예정이며, 변화하는 시장 상황을 반영할 수 있도록 시스템을 개선해 민첩한 대응이 가능하도록 할 계획입니다.",
+        "kind": "claim",
+        "reason": null,
+        "topic_ids": [
+          "environment"
+        ]
+      }
+    ],
+    "after": [
+      {
+        "char_start": 72,
+        "char_end": 181,
+        "quote": "이러한 외부 요구와 강화되는 탄소배출량 관련 규제에 체계적으로 대응하기 위해 기아는 제품, 사업장, 공급망의 탄소배출량을 통합 관리하는 글로벌 통합 탄소배출 정보 시스템(IGIS)을 개발했습니다.",
+        "kind": "claim",
+        "reason": null,
+        "topic_ids": [
+          "environment"
+        ]
+      },
+      {
+        "char_start": 182,
+        "char_end": 317,
+        "quote": "해당 시스템은 신뢰성 높은 탄소배출량 산정 결과를 제공해 각종 규제와 외부 이해관계자의 요구사항에 효과적으로 대응할 수 있을 것으로 기대되며, 이외에도 탄소저감 기술 개발 지원과 탄소중립에 관련된 일반적인 정보 제공 기능을 포함하고 있습니다.",
+        "kind": "claim",
+        "reason": null,
+        "topic_ids": [
+          "environment"
+        ]
+      },
+      {
+        "char_start": 318,
+        "char_end": 413,
+        "quote": "향후에는 시스템을 활용해 탄소배출량 정보를 지속적으로 업데이트할 예정이며, 변화하는 시장 상황을 반영할 수 있도록 시스템을 개선해 민첩한 대응이 가능하도록 할 계획입니다.",
+        "kind": "claim",
+        "reason": null,
+        "topic_ids": [
+          "environment"
+        ]
+      }
+    ],
+    "rejected_sentence_ids": [],
+    "sentence_prefix": []
+  },
+  {
+    "source_id": "fc533394-ed01-550f-a1e7-85d5244a0853",
+    "page": 2,
+    "before": [
+      {
+        "char_start": 0,
+        "char_end": 101,
+        "quote": "기아는 2030년까지 에너지 효율화를 통해 ‘2019년 국내외 공장 Scope 1 & 2 배출량의 10% 감축’이라는 중장기 목표를 수립하고, 공장별 추진전략을 구체화하고 있습니다.",
+        "kind": "claim",
+        "reason": null,
+        "topic_ids": [
+          "environment"
+        ]
+      },
+      {
+        "char_start": 102,
+        "char_end": 194,
+        "quote": "기아가 보유한 에너지 효율화 테마들의 공장별 적용 가능 여부를 검토함과 동시에 적용 가능 개소를 파악함으로써, 연도별 추진계획과 탄소 감축 목표를 수립할 예정입니다.",
+        "kind": "claim",
+        "reason": null,
+        "topic_ids": [
+          "environment"
+        ]
+      },
+      {
+        "char_start": 195,
+        "char_end": 289,
+        "quote": "또한, 에너지 절감 효과의 정확한 파악을 위해 표준화된 효과검증 프로세스의 도입을 검토하고 있으며, 향후 표준화된 측정기준을 통해 객관적인 투자효과를 검증할 예정입니다.",
+        "kind": "claim",
+        "reason": null,
+        "topic_ids": [
+          "environment"
+        ]
+      }
+    ],
+    "after": [
+      {
+        "char_start": 0,
+        "char_end": 101,
+        "quote": "기아는 2030년까지 에너지 효율화를 통해 ‘2019년 국내외 공장 Scope 1 & 2 배출량의 10% 감축’이라는 중장기 목표를 수립하고, 공장별 추진전략을 구체화하고 있습니다.",
+        "kind": "claim",
+        "reason": null,
+        "topic_ids": [
+          "environment"
+        ]
+      },
+      {
+        "char_start": 102,
+        "char_end": 194,
+        "quote": "기아가 보유한 에너지 효율화 테마들의 공장별 적용 가능 여부를 검토함과 동시에 적용 가능 개소를 파악함으로써, 연도별 추진계획과 탄소 감축 목표를 수립할 예정입니다.",
+        "kind": "claim",
+        "reason": null,
+        "topic_ids": [
+          "environment"
+        ]
+      },
+      {
+        "char_start": 195,
+        "char_end": 289,
+        "quote": "또한, 에너지 절감 효과의 정확한 파악을 위해 표준화된 효과검증 프로세스의 도입을 검토하고 있으며, 향후 표준화된 측정기준을 통해 객관적인 투자효과를 검증할 예정입니다.",
+        "kind": "claim",
+        "reason": null,
+        "topic_ids": [
+          "environment"
+        ]
+      }
+    ],
+    "rejected_sentence_ids": [],
+    "sentence_prefix": []
+  },
+  {
+    "source_id": "04f53510-e2e6-56bb-a644-d18578d91678",
+    "page": 4,
+    "before": [],
+    "after": [],
+    "rejected_sentence_ids": [],
+    "sentence_prefix": []
+  },
+  {
+    "source_id": "1483b929-07db-50bc-83a2-27c6e8a9d30c",
+    "page": 4,
+    "before": [],
+    "after": [],
+    "rejected_sentence_ids": [],
+    "sentence_prefix": []
+  },
+  {
+    "source_id": "15860e4f-7874-50bc-8e71-629ac33bfff7",
+    "page": 4,
+    "before": [],
+    "after": [],
+    "rejected_sentence_ids": [],
+    "sentence_prefix": []
+  },
+  {
+    "source_id": "385a739f-e95b-5a9a-81f5-a66ff1705cde",
+    "page": 4,
+    "before": [
+      {
+        "char_start": 0,
+        "char_end": 67,
+        "quote": "1.2024년부터 기존 Scope 3 Category8로 분류되던 임차자산 배출량을 Scope 1 & 2로 포함하여 산정",
+        "kind": "claim",
+        "reason": null,
+        "topic_ids": [
+          "environment"
+        ]
+      }
+    ],
+    "after": [
+      {
+        "char_start": 0,
+        "char_end": 67,
+        "quote": "1.2024년부터 기존 Scope 3 Category8로 분류되던 임차자산 배출량을 Scope 1 & 2로 포함하여 산정",
+        "kind": "claim",
+        "reason": null,
+        "topic_ids": [
+          "environment"
+        ]
+      }
+    ],
+    "rejected_sentence_ids": [],
+    "sentence_prefix": []
+  },
+  {
+    "source_id": "bcb7c436-0481-501d-9ecc-27187b4997d7",
+    "page": 4,
+    "before": [],
+    "after": [],
+    "rejected_sentence_ids": [],
+    "sentence_prefix": []
+  },
+  {
+    "source_id": "0df31631-54bf-5d96-81ba-8bc76fc8ed50",
+    "page": 21,
+    "before": [
+      {
+        "char_start": 0,
+        "char_end": 51,
+        "quote": "기아의 주요 활동은 자동차 제조이며 온실가스 배출은 운영통제접근법을 사용하여 통합되었습니다.",
+        "kind": "claim",
+        "reason": null,
+        "topic_ids": [
+          "environment"
+        ]
+      }
+    ],
+    "after": [
+      {
+        "char_start": 0,
+        "char_end": 51,
+        "quote": "기아의 주요 활동은 자동차 제조이며 온실가스 배출은 운영통제접근법을 사용하여 통합되었습니다.",
+        "kind": "claim",
+        "reason": null,
+        "topic_ids": [
+          "environment"
+        ]
+      }
+    ],
+    "rejected_sentence_ids": [],
+    "sentence_prefix": []
+  },
+  {
+    "source_id": "396f6e90-c47f-5646-9c47-4c32516b669b",
+    "page": 21,
+    "before": [],
+    "after": [],
+    "rejected_sentence_ids": [],
+    "sentence_prefix": []
+  },
+  {
+    "source_id": "632e3c0b-8b6e-5f85-a6dd-34098154c2d9",
+    "page": 21,
+    "before": [],
+    "after": [],
+    "rejected_sentence_ids": [],
+    "sentence_prefix": []
+  },
+  {
+    "source_id": "6f6041db-6497-51ee-8cbe-4cc9bfd0256a",
+    "page": 21,
+    "before": [],
+    "after": [],
+    "rejected_sentence_ids": [],
+    "sentence_prefix": []
+  },
+  {
+    "source_id": "70cdcbb8-77d7-5abf-ad22-59a8cd6ba047",
+    "page": 21,
+    "before": [],
+    "after": [],
+    "rejected_sentence_ids": [],
+    "sentence_prefix": []
+  },
+  {
+    "source_id": "75803b79-394f-5961-8536-5b2ed2bda718",
+    "page": 21,
+    "before": [],
+    "after": [],
+    "rejected_sentence_ids": [],
+    "sentence_prefix": []
+  },
+  {
+    "source_id": "84ba25d2-77c9-5bc1-af4a-4fee8e6a22b4",
+    "page": 21,
+    "before": [],
+    "after": [],
+    "rejected_sentence_ids": [],
+    "sentence_prefix": []
+  },
+  {
+    "source_id": "9c8ac601-4428-5017-9b98-640f0f3527d9",
+    "page": 21,
+    "before": [],
+    "after": [],
+    "rejected_sentence_ids": [],
+    "sentence_prefix": []
+  },
+  {
+    "source_id": "9eee76bc-11a7-562a-86fd-0a34a7d293b6",
+    "page": 21,
+    "before": [],
+    "after": [],
+    "rejected_sentence_ids": [],
+    "sentence_prefix": []
+  },
+  {
+    "source_id": "a4af5fa3-9303-5950-bc98-9926fd179fba",
+    "page": 21,
+    "before": [],
+    "after": [],
+    "rejected_sentence_ids": [],
+    "sentence_prefix": []
+  },
+  {
+    "source_id": "a73cbb0a-bc96-54dc-8854-9e253f89335c",
+    "page": 21,
+    "before": [],
+    "after": [],
+    "rejected_sentence_ids": [],
+    "sentence_prefix": []
+  },
+  {
+    "source_id": "b07a4a64-6ce6-540f-89d6-3f32fd238ed9",
+    "page": 21,
+    "before": [],
+    "after": [],
+    "rejected_sentence_ids": [],
+    "sentence_prefix": []
+  },
+  {
+    "source_id": "b2910971-118a-54c7-83a6-e719f052cf76",
+    "page": 21,
+    "before": [],
+    "after": [],
+    "rejected_sentence_ids": [],
+    "sentence_prefix": []
+  },
+  {
+    "source_id": "f3592862-4128-536c-b97b-5ef64ff10a4c",
+    "page": 21,
+    "before": [],
+    "after": [],
+    "rejected_sentence_ids": [],
+    "sentence_prefix": []
+  }
+]
