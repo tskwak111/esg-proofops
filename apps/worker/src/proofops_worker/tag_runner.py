@@ -318,6 +318,21 @@ class LocalTagRunner:
             and recovery is None
             and reprocess is None
         )
+        scheduled_claims = discovery.claims
+        s2_budget = snapshot.get("analysis_profile_policy", {}).get("tagging_budget")
+        if s2_budget is not None:
+            from proofops.application.tagging.s2_budget import POLICY, call_allowance, priority
+
+            if s2_budget != POLICY:
+                raise ValueError("S2_TAGGING_BUDGET_POLICY_MISMATCH")
+            allowance = call_allowance(len(discovery.claims))
+            envelope["tagging_budget_plan"] = dict(
+                policy=s2_budget, claim_count=len(discovery.claims), call_allowance=allowance
+            )
+            if live is not None:
+                live.s2_call_allowance = allowance
+                live.s2_reserved_calls = set()
+            scheduled_claims = sorted(discovery.claims, key=priority)
         if parallel_claims:
             live.replica_workers = 1  # cap all claim calls at self.max_workers
 
@@ -974,9 +989,12 @@ class LocalTagRunner:
 
         if parallel_claims:
             with ThreadPoolExecutor(max_workers=self.max_workers) as pool:
-                records = list(pool.map(reported_claim, discovery.claims))
+                records = list(pool.map(reported_claim, scheduled_claims))
         else:
-            records = [reported_claim(claim) for claim in discovery.claims]
+            records = [reported_claim(claim) for claim in scheduled_claims]
+        if s2_budget is not None:
+            by_id = {record["claim_id"]: record for record in records}
+            records = [by_id[claim.claim_id] for claim in discovery.claims]
         decided = sum(
             bool(item.get("decision") and item["decision"]["decision_status"] == "decided")
             for item in records

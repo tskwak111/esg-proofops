@@ -15,7 +15,11 @@ from types import FunctionType, MethodType, SimpleNamespace
 from zlib import compress, decompress
 
 from proofops.adapters.local.local_raster_reader import LocalRasterReader
-from proofops.application.analysis_profile import VERIFIED_READ_V4_POLICY, VERIFIED_READ_V5_POLICY
+from proofops.application.analysis_profile import (
+    VERIFIED_READ_V4_POLICY,
+    VERIFIED_READ_V5_POLICY,
+    VERIFIED_READ_V6_POLICY,
+)
 from proofops.domain.provenance import canonical_hash
 
 _scope: ContextVar[tuple[str, str, str] | None] = ContextVar("pa7_raw_read_scope", default=None)
@@ -118,7 +122,8 @@ def _raw_read(source, crop, padding):
     return LocalRasterReader(source).read(page, box, padding_px=padding)
 
 
-def attest(reader, graph, source, refs, *, tenant_id, run_id):
+@contextmanager
+def bounded_reader(reader, *, tenant_id, run_id):
     """Clone only this instance's constructor binding; no frozen module mutation.
 
     All source/glyph/quantity/visibility and row/cell verification code, its
@@ -140,14 +145,20 @@ def attest(reader, graph, source, refs, *, tenant_id, run_id):
     with scope(tenant_id, run_id, reader.claim_source_policy()):
         from proofops.adapters.local.verified_read_cache import _execution_policy
 
-        if _execution_policy() == VERIFIED_READ_V5_POLICY:
+        if _execution_policy() in (VERIFIED_READ_V5_POLICY, VERIFIED_READ_V6_POLICY):
             with ProcessPoolExecutor(
                 max_workers=VERIFIED_READ_V5_POLICY["raw_ocr_workers"],
                 mp_context=get_context("spawn"),
             ) as pool:
                 token = _pool.set(pool)
                 try:
-                    return instance.attest_claim_spans(graph, source, refs, tenant_id=tenant_id)
+                    yield instance
                 finally:
                     _pool.reset(token)
+        else:
+            yield instance
+
+
+def attest(reader, graph, source, refs, *, tenant_id, run_id):
+    with bounded_reader(reader, tenant_id=tenant_id, run_id=run_id) as instance:
         return instance.attest_claim_spans(graph, source, refs, tenant_id=tenant_id)

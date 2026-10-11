@@ -45,7 +45,10 @@ def prepare_argv(pdf, state, tenant, config, options=None):
         if options.get("pipeline_profile") in FINALS_PROFILES
         else None
     )
-    profiles = operator_profiles(config | (dict(analysis_profile=selected) if selected else {}))
+    config = config | (dict(analysis_profile=selected) if selected else {})
+    if options.get("analysis_profile_sha256"):
+        config["analysis_policy_sha256"] = options["analysis_profile_sha256"]
+    profiles = operator_profiles(config)
     argv = [
         "hosted-r108",
         "--pdf",
@@ -124,6 +127,7 @@ def prepare_argv(pdf, state, tenant, config, options=None):
             from proofops.application.analysis_profile import (
                 FINALS_I3_POLICY,
                 S1_POLICY,
+                S2_POLICY,
                 W3_POLICY,
                 policy_for,
             )
@@ -135,9 +139,14 @@ def prepare_argv(pdf, state, tenant, config, options=None):
                 canonical_hash(W3_POLICY),
                 canonical_hash(FINALS_I3_POLICY),
                 canonical_hash(S1_POLICY),
+                canonical_hash(S2_POLICY),
             }:
                 raise ValueError("HOSTED_PROFILE_PIN_MISMATCH")
             argv += ["--analysis-policy-sha256", options["analysis_profile_sha256"]]
+            if options["analysis_profile_sha256"] == canonical_hash(S2_POLICY):
+                argv[argv.index("--tagging-max-calls") + 1] = str(
+                    S2_POLICY["tagging_budget"]["max_calls"]
+                )
     if profiles["analysis_profile"] in ("r108-finals-candidate", "r108-finals-candidate-v2"):
         v2 = profiles["analysis_profile"] == "r108-finals-candidate-v2"
         argv[argv.index("--vision-parse") + 1] = "auto"
@@ -167,6 +176,8 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
 
     state = workspace / "state"
     options = store.run_options(job)
+    if options.get("analysis_profile_sha256"):
+        config = config | dict(analysis_policy_sha256=options["analysis_profile_sha256"])
     if options.get("analysis_profile"):
         config = config | dict(analysis_profile=options["analysis_profile"])
     else:
@@ -260,7 +271,7 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
         factories["llm"] = scoped_llm
 
     provider_gate = None
-    if execution.get("execution_profile") == "w3-speed-v1":
+    if execution.get("execution_profile") in ("w3-speed-v1", "s2-server-v1"):
         from proofops.adapters.local.provider_concurrency import ProviderConcurrency
 
         provider_gate = ProviderConcurrency(

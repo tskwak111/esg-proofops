@@ -300,7 +300,7 @@ FINALS_H1_POLICY = FINALS_I3_POLICY | dict(
     selected_boundary_recovery="h1-selected-boundaries-v1",
     boundary_recovery_policy_sha256=canonical_hash(H1_BOUNDARY_POLICY),
 )
-V2_POLICY = FINALS_I4_POLICY
+V2_POLICY = FINALS_I3_POLICY
 
 S1_POLICY = FINALS_I3_POLICY | dict(
     parse_replay_cache=dict(
@@ -340,6 +340,32 @@ FINALS_I4_POLICY = FINALS_K4_POLICY | dict(
 )
 V2_POLICY = FINALS_I4_POLICY
 
+# S2 is explicitly pinned. I3 and the coordinator's future I4 default stay intact.
+VERIFIED_READ_V6_POLICY = VERIFIED_READ_V5_POLICY | dict(
+    profile="exact-verified-read-v6",
+    fresh_attestation="whole-byte-identical-v6-v9-v10-v11",
+    v11_replay_sha256="481cdc96d6d83af08963c5f91f8142b9ea3db31d658c7b876499284802369128",
+    raw_ocr_profiles=[
+        "upstage-ocr-page-v6",
+        "upstage-ocr-page-v9",
+        "upstage-ocr-page-v10",
+        "upstage-ocr-page-v11",
+    ],
+    cold_claim_replay="offline-v11-two-cpu-raw-read-v1",
+)
+S2_POLICY = FINALS_I3_POLICY | dict(
+    execution_profile="s2-server-v1",
+    verified_read_cache=VERIFIED_READ_V6_POLICY,
+    tagging_budget=dict(
+        profile="claim-count-reservation-s2-v1",
+        max_calls=2000,
+        calls_per_claim=27,
+        priority="verified-quantitative-target-first-v1",
+        money_authority="existing-per-call-usd-reservation",
+        run_usd="1.0",
+    ),
+)
+
 
 def policy_for(profile, *, pinned_hash=None):
     if profile == J7_PROFILE:
@@ -356,6 +382,7 @@ def policy_for(profile, *, pinned_hash=None):
             FINALS_H1_POLICY,
             FINALS_I3_POLICY,
             FINALS_K4_POLICY,
+            S2_POLICY,
             FINALS_I2_POLICY,
             FINALS_I2_J3_POLICY,
             FINALS_I1_POLICY,
@@ -407,7 +434,7 @@ def policy_for(profile, *, pinned_hash=None):
 def publication_policy_for(profile, *, pinned_hash=None):
     policy = policy_for(profile, pinned_hash=pinned_hash)
     allowed = (
-        (policy_for(profile), FINALS_I3_POLICY, W3_POLICY, K1_POLICY, FINALS_K2_POLICY, S1_POLICY)
+        (policy_for(profile), FINALS_I3_POLICY, W3_POLICY, K1_POLICY, FINALS_K2_POLICY, S1_POLICY, S2_POLICY)
         if profile == V2_PROFILE
         else (policy_for(profile),)
     )
@@ -432,6 +459,8 @@ def apply_pilot_profile(args):
     args.extraction_i4_identity = bool(selected.get("extraction_selection_ids"))
     args.parser_local_resource_policy = selected.get("local_resource_policy")
     args.extraction_h1 = bool(selected.get("selected_boundary_recovery"))
+    if selected.get("tagging_budget") == S2_POLICY["tagging_budget"]:
+        args.tagging_max_calls = selected["tagging_budget"]["max_calls"]
     if profile in (V2_PROFILE, J3_PROFILE, J7_PROFILE, J8_PROFILE):
         args.extraction_fragment_guard = True
         args.extraction_pb1 = True

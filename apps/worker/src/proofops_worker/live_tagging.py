@@ -115,6 +115,18 @@ class LiveTaggingRuntime:
         if self.heartbeat_state is not None:
             self.heartbeat_state.check()
 
+    def reserve_tag_call(self, call, **kwargs):
+        """The claim-volume allowance never replaces persisted or USD limits."""
+        if not hasattr(self, "s2_call_allowance"):
+            return self.runner.store.usage.reserve_budget(call, **kwargs)
+        with self._account_lock:
+            if len(self.s2_reserved_calls) >= self.s2_call_allowance:
+                raise BudgetExceeded("BUDGET_EXHAUSTED: claim-volume call allowance")
+            reserved = self.runner.store.usage.reserve_budget(call, **kwargs)
+            if reserved:
+                self.s2_reserved_calls.add((call.request_id, call.attempt))
+            return reserved
+
     def __init__(self, runner, snapshot, graph, lease, usage, *, probe, ledger, receipts):
         from proofops.application.evidence.relation_attribution import snapshot_policy
 
@@ -1390,7 +1402,7 @@ class LiveTaggingRuntime:
                         )
                         with lock:
                             self._check_heartbeat()
-                            if not self.runner.store.usage.reserve_budget(
+                            if not self.reserve_tag_call(
                                 call,
                                 input_tokens=capacity,
                                 max_output_tokens=settings.max_tokens,
