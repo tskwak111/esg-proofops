@@ -37,6 +37,7 @@ _SETTINGS_FIELDS = frozenset(
         "extraction_fragment_guard",
         "extraction_pb1",
         "extraction_pb1_context_guard",
+        "extraction_table_footnotes",
         "extraction_table_rows",
         "extraction_recall_prompt",
         "extraction_assertion_prompt",
@@ -355,6 +356,7 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         "extraction_fragment_guard",
         "extraction_pb1",
         "extraction_pb1_context_guard",
+        "extraction_table_footnotes",
         "extraction_table_rows",
         "extraction_recall_prompt",
         "extraction_assertion_prompt",
@@ -373,6 +375,11 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
             or settings.get("extraction_atomic") is True
         ):
             raise _invalid()
+    if (
+        "extraction_table_footnotes" in settings
+        and settings.get("extraction_source_ids") is not True
+    ):
+        raise _invalid()
     if "extraction_atomic" in settings and settings.get("extraction_source_ids") is not True:
         raise _invalid()
     if "extraction_linewrap_join" in settings and (

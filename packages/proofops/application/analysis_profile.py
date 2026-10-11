@@ -1,5 +1,6 @@
 """One explicitly selected profile; old configurations remain byte-identical."""
 
+from proofops.application.tagging.dec24 import DEFINITIONS_HASH
 from proofops.application.tagging.quality import ELEMENT_DEFINITIONS_HASH
 from proofops.domain.provenance import canonical_hash
 
@@ -133,8 +134,17 @@ V2_PRE_PA9_POLICY = V2_PRE_PB7_POLICY
 V2_PA9_POLICY = V2_PRE_PA9_POLICY | dict(
     source="upstage-ocr-page-v10", table_native_ownership="native-grid-pa9-v1"
 )
-V2_POLICY = V2_PB7_POLICY | dict(
+V2_PRE_D24_POLICY = V2_PB7_POLICY | dict(
     source="upstage-ocr-page-v10", table_native_ownership="native-grid-pa9-v1"
+)
+
+
+V2_POLICY = V2_PRE_D24_POLICY | dict(
+    element_definition_profile="dec24-v1",
+    element_definitions_sha256=DEFINITIONS_HASH,
+    table_footnotes="table-footnotes-dec24-v1",
+    hold_display="estimate-reason-dec24-v1",
+    context_binding="conservative-atomic-source-v1",
 )
 
 
@@ -144,6 +154,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            V2_PRE_D24_POLICY,
             V2_PA9_POLICY,
             V2_PB7_POLICY,
             V2_PRE_PB7_POLICY,
@@ -191,6 +202,7 @@ def apply_pilot_profile(args):
         args.extraction_fragment_guard = True
         args.extraction_pb1 = True
         args.extraction_pb1_context_guard = True
+        args.extraction_table_footnotes = True
         args.extraction_table_rows = True
         args.preliminary_actor_role = True
     # Hosted Linux uses its independently approved OCR reader. Keep that explicit

@@ -52,7 +52,7 @@ def project_decision(decision, *, elements=(), profile=None):
         semantic_hash=decision.semantic_hash,
     )
 
-    if profile == "hf1-v1":
+    if profile in ("hf1-v1", "dec24-v1"):
         projection["gap_ids"] = list(decision.gap_ids)
     return projection
 
@@ -158,7 +158,10 @@ def provisional_result(runs, packet, rulepack, context, *, range_profile=False, 
     ).most_common(1)
     if not headers or headers[0][1] < 2:
         reason = "SUPERLATIVE_UNRESOLVED"
-        if profile == "hf1-v1" and sum(run.guarded is not None for run in ordered) < 2:
+        if (
+            profile in ("hf1-v1", "dec24-v1")
+            and sum(run.guarded is not None for run in ordered) < 2
+        ):
             reason = (
                 "CITATION_REPLICAS_UNRESOLVED"
                 if any(

@@ -6,6 +6,7 @@ from proofops.application.analysis_profile import (
     V2_PB6_POLICY,
     V2_PB7_POLICY,
     V2_POLICY,
+    V2_PRE_D24_POLICY,
     V2_PRE_PB7_POLICY,
     policy_for,
 )
@@ -29,8 +30,9 @@ def test_pb7_policy_adds_only_pb6_selection_and_integrated_default_keeps_it():
     assert V2_PB7_POLICY == V2_PRE_PB7_POLICY | dict(
         citation_restore="citation-selected-value-pb6-v1"
     )
-    assert V2_POLICY == V2_PB7_POLICY | dict(
+    assert V2_PRE_D24_POLICY == V2_PB7_POLICY | dict(
         source="upstage-ocr-page-v10", table_native_ownership="native-grid-pa9-v1"
     )
+    assert V2_POLICY["citation_restore"] == V2_PRE_D24_POLICY["citation_restore"]
     assert V2_POLICY["model_response_policy"] == MODEL_RESPONSE_POLICY
     assert policy_for("finals-unattended-v2") == V2_POLICY

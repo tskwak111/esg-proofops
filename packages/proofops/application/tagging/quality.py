@@ -57,7 +57,7 @@ def hold_projection(item, *, profile=None):
     reasons = []
     if (item.get("source_status") or {}).get("status") != "verified":
         reasons.append("원문 미검증")
-    if profile == "hf1-v1":
+    if profile in ("hf1-v1", "dec24-v1"):
         runs = item.get("tag_runs", [])
         if any(
             any(e.startswith("TAGGING_EVIDENCE_ID_") for e in run.get("errors", []))
@@ -72,8 +72,16 @@ def hold_projection(item, *, profile=None):
             reasons.append("replica 미해결")
     if track not in LADDER:
         reasons.append("트랙 미합의")
-    if result.get("gap_ids") if profile == "hf1-v1" else bounds.get("rule_gap"):
+    if result.get("gap_ids") if profile in ("hf1-v1", "dec24-v1") else bounds.get("rule_gap"):
         reasons.append("규칙 미정")
+    if profile == "dec24-v1" and "GAP-001" in result.get("gap_ids", []):
+        from proofops.application.tagging.dec24 import ESTIMATE_HOLD
+
+        category = (item.get("frozen_packet") or {}).get("safe_harbor_category")
+        if category in ("forward_looking", "emissions_estimate"):
+            if set(result["gap_ids"]) == {"GAP-001"}:
+                reasons = [reason for reason in reasons if reason != "규칙 미정"]
+            reasons.append(ESTIMATE_HOLD)
     if not present:
         reasons.append("근거 없음")
     return result | dict(

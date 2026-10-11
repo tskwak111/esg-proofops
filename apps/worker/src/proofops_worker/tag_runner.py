@@ -246,7 +246,10 @@ class LocalTagRunner:
         rulepack = RulePackSnapshot(**snapshot["rulepack"])
         settings = tagging_settings(snapshot) if snapshot.get("tagging_settings") else None
         hold_profile = (
-            "hf1-v1"
+            "dec24-v1"
+            if snapshot.get("analysis_profile_policy", {}).get("hold_display")
+            == "estimate-reason-dec24-v1"
+            else "hf1-v1"
             if snapshot.get("analysis_profile_policy", {}).get("hold_recovery") == "hf1-v1"
             else None
         )
