@@ -11,6 +11,7 @@ from proofops.application.tagging.dec24 import (
 from proofops.application.tagging.k1_semantics import DEFINITIONS as K1_DEFINITIONS
 from proofops.application.tagging.k1_semantics import POLICY as K1_SEMANTIC_POLICY
 from proofops.application.tagging.k2_recovery import POLICY as K2_RECOVERY_POLICY
+from proofops.application.ingest.j8_cells import POLICY as J8_CELLS_POLICY
 from proofops.application.tagging.quality import ELEMENT_DEFINITIONS_HASH
 from proofops.application.tagging.semantic_admission import POLICY as W8_POLICY
 from proofops.application.tagging.semantic_admission import POLICY_HASH as W8_POLICY_HASH
@@ -260,9 +261,20 @@ J7_POLICY = J3_POLICY | dict(
 )
 
 
+J8_PROFILE = "finals-unattended-j8-v1"
+
+J8_POLICY = J3_POLICY | dict(
+    profile=J8_PROFILE,
+    table_cells=J8_CELLS_POLICY["profile"],
+    cell_candidate_policy_sha256=canonical_hash(J8_CELLS_POLICY),
+)
+
+
 def policy_for(profile, *, pinned_hash=None):
     if profile == J7_PROFILE:
         choices = (J7_POLICY,)
+    elif profile == J8_PROFILE:
+        choices = (J8_POLICY,)
     elif profile == J3_PROFILE:
         choices = (J3_POLICY,)
     elif profile == PROFILE:
@@ -330,7 +342,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
 
 def apply_pilot_profile(args):
     profile = getattr(args, "analysis_profile", None) or getattr(args, "pipeline_profile", None)
-    if profile not in (PROFILE, V2_PROFILE, J3_PROFILE, J7_PROFILE):
+    if profile not in (PROFILE, V2_PROFILE, J3_PROFILE, J7_PROFILE, J8_PROFILE):
         return
     if getattr(args, "resume", False):
         return  # persisted pins restored and checked by the pilot
@@ -340,7 +352,7 @@ def apply_pilot_profile(args):
     args.pipeline_profile = profile
     selected = policy_for(profile, pinned_hash=getattr(args, "analysis_policy_sha256", None))
     args.analysis_policy_sha256 = canonical_hash(selected)
-    if profile in (V2_PROFILE, J3_PROFILE, J7_PROFILE):
+    if profile in (V2_PROFILE, J3_PROFILE, J7_PROFILE, J8_PROFILE):
         args.extraction_fragment_guard = True
         args.extraction_pb1 = True
         args.extraction_w9 = selected.get("table_claims") == "pb1-w9-v1"
@@ -348,6 +360,7 @@ def apply_pilot_profile(args):
         args.extraction_sentence_prefix = bool(selected.get("extraction_sentence_prefix"))
         args.extraction_j3 = bool(selected.get("selected_span_refinement"))
         args.extraction_j7 = selected.get("selected_span_refinement") == "j7-independent-clauses-v1"
+        args.extraction_j8 = selected.get("table_cells") == J8_CELLS_POLICY["profile"]
         args.extraction_pb1_context_guard = True
         args.extraction_table_footnotes = bool(selected.get("table_footnotes"))
         args.extraction_k1 = bool(selected.get("extraction_k1"))
@@ -355,7 +368,7 @@ def apply_pilot_profile(args):
         args.preliminary_actor_role = True
     # Hosted Linux uses its independently approved OCR reader. Keep that explicit
     # source policy pinned in the run; other callers retain the SV1 native policy.
-    if profile in (V2_PROFILE, J3_PROFILE, J7_PROFILE) and getattr(
+    if profile in (V2_PROFILE, J3_PROFILE, J7_PROFILE, J8_PROFILE) and getattr(
         args, "claim_source_profile", None
     ) in (
         None,
@@ -406,6 +419,6 @@ def apply_pilot_profile(args):
         "position_context_order",
     ):
         setattr(args, flag, True)
-    if profile in (V2_PROFILE, J3_PROFILE, J7_PROFILE):
+    if profile in (V2_PROFILE, J3_PROFILE, J7_PROFILE, J8_PROFILE):
         args.position_context_order = False
         args.preliminary_goal_role = True

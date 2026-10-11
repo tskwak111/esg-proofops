@@ -327,6 +327,7 @@ def build_composition(
                         extraction_j3=settings.get("extraction_j3", False),
                         extraction_k3=settings.get("extraction_k3", False),
                         extraction_j7=settings.get("extraction_j7", False),
+                        extraction_j8=settings.get("extraction_j8", False),
                         extraction_pb1_context_guard=settings.get(
                             "extraction_pb1_context_guard", False
                         ),
@@ -360,6 +361,7 @@ def build_composition(
                     extraction_j3=settings.get("extraction_j3", False),
                     extraction_k3=settings.get("extraction_k3", False),
                     extraction_j7=settings.get("extraction_j7", False),
+                    extraction_j8=settings.get("extraction_j8", False),
                     extraction_pb1_context_guard=settings.get(
                         "extraction_pb1_context_guard", False
                     ),

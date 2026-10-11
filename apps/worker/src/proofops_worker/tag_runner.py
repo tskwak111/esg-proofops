@@ -271,6 +271,7 @@ class LocalTagRunner:
             "finals-unattended-v2",
             "finals-unattended-j3-v1",
             "finals-unattended-j7-v1",
+            "finals-unattended-j8-v1",
         )
         live = None
         transport, preliminary_supplier = self.transport, self.preliminary
@@ -707,6 +708,7 @@ class LocalTagRunner:
                                 "finals-unattended-v2",
                                 "finals-unattended-j3-v1",
                                 "finals-unattended-j7-v1",
+                                "finals-unattended-j8-v1",
                             ),
                         ),
                         reason=None,
@@ -856,6 +858,7 @@ class LocalTagRunner:
                     "finals-unattended-v2",
                     "finals-unattended-j3-v1",
                     "finals-unattended-j7-v1",
+                    "finals-unattended-j8-v1",
                 ):
                     from proofops.application.tagging.unattended import ensure_range
 
@@ -864,6 +867,7 @@ class LocalTagRunner:
                         "finals-unattended-v2",
                         "finals-unattended-j3-v1",
                         "finals-unattended-j7-v1",
+                        "finals-unattended-j8-v1",
                     ):
                         from proofops.application.tagging.quality import hold_projection
 
@@ -917,6 +921,7 @@ class LocalTagRunner:
                 "finals-unattended-v2",
                 "finals-unattended-j3-v1",
                 "finals-unattended-j7-v1",
+                "finals-unattended-j8-v1",
             ):
                 from proofops.application.tagging.unattended import ensure_range
 
@@ -925,6 +930,7 @@ class LocalTagRunner:
                     "finals-unattended-v2",
                     "finals-unattended-j3-v1",
                     "finals-unattended-j7-v1",
+                    "finals-unattended-j8-v1",
                 ):
                     from proofops.application.tagging.quality import hold_projection
 

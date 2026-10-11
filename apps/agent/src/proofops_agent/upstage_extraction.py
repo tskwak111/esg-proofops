@@ -537,6 +537,7 @@ def _profile_with_options(
     extraction_table_footnotes: bool = False,
     extraction_j3: bool = False,
     extraction_j7: bool = False,
+    extraction_j8: bool = False,
 ) -> ExtractionProfile:
     """Versioned extraction profile for an explicit option combination.
 
@@ -557,6 +558,10 @@ def _profile_with_options(
     """
     if type(extraction_j7) is not bool or (extraction_j7 and not extraction_j3):
         raise ValueError("EXTRACTION_J7_INVALID")
+    if type(extraction_j8) is not bool or (
+        extraction_j8 and not (extraction_j3 and extraction_table_rows)
+    ):
+        raise ValueError("EXTRACTION_J8_INVALID")
     if type(extraction_j3) is not bool or (extraction_j3 and not (extraction_w9 and source_ids)):
         raise ValueError("EXTRACTION_J3_INVALID")
     if type(extraction_k3) is not bool or (extraction_k3 and not extraction_w9):
@@ -671,6 +676,10 @@ def _profile_with_options(
         from proofops.application.ingest.j7_split import POLICY as J7_POLICY
 
         descriptor.append(J7_POLICY)
+    if extraction_j8:
+        from proofops.application.ingest.j8_cells import POLICY as J8_POLICY
+
+        descriptor.append(J8_POLICY)
     if display_text_profile:
         descriptor.append(POLICY)
     if year_notation:
@@ -724,6 +733,7 @@ def _profile_with_options(
                 extraction_recall_prompt=extraction_recall_prompt,
             )
             + (_w9_suffix() if extraction_w9 else "")
+            + (_j8_suffix() if extraction_j8 else "")
             + (_display_suffix() if display_text_profile else "")
         ),
         rule_sha256=canonical_hash(descriptor),
@@ -735,6 +745,20 @@ def _display_suffix():
     from proofops.application.ingest.display_text import SYSTEM_SUFFIX
 
     return SYSTEM_SUFFIX
+
+
+def _j8_suffix():
+    return (
+        " J8: candidates are literal owned cells or cell bullets. Select environmental"
+        " disclosures including self-contained KPI action cells, numeric results and"
+        " dated implemented means. A first-column KPI action describing what the company"
+        " established or expanded is an independent assertion even when another cell"
+        " lists its implementation details. Do not discard that action as a heading or"
+        " as a duplicate of different means/results. Candidate roles are selection hints"
+        " only. Headers, generic introductions, footnotes and"
+        " identical unfinished/completed duplicates are context only. Context never"
+        " donates numbers, years, subjects or evidence verification."
+    )
 
 
 def _w9_suffix():
@@ -778,6 +802,7 @@ class UpstageClaimExtractor:
         extraction_table_footnotes: bool = False,
         extraction_j3: bool = False,
         extraction_j7: bool = False,
+        extraction_j8: bool = False,
     ) -> None:
         if not callable(getattr(probe, "complete", None)):
             raise ValueError("UPSTAGE_PROBE_REQUIRED")
@@ -838,6 +863,7 @@ class UpstageClaimExtractor:
             extraction_table_footnotes=extraction_table_footnotes,
             extraction_j3=extraction_j3,
             extraction_j7=extraction_j7,
+            extraction_j8=extraction_j8,
         )
         if type(max_tokens) is not int or not 1 <= max_tokens <= 4096:
             raise ValueError("UPSTAGE_MAX_TOKENS_INVALID")
@@ -862,6 +888,7 @@ class UpstageClaimExtractor:
         self._j3 = extraction_j3
         self._k3 = extraction_k3
         self._j7 = extraction_j7
+        self._j8 = extraction_j8
         self._table_rows = extraction_table_rows
         self._recall_prompt = extraction_recall_prompt
         self._atomic = extraction_atomic
@@ -962,6 +989,9 @@ class UpstageClaimExtractor:
             context = " ".join(block.candidates[block.winner].context)
             if self._w9:
                 from proofops.application.ingest.w9_tables import observations_for
+
+                if self._j8:
+                    from proofops.application.ingest.j8_cells import observations_for
 
                 raw_rows = observations_for(block, context_graph)
             else:
@@ -1789,7 +1819,11 @@ class UpstageClaimExtractor:
             self._validate_context_graph(packet, context_graph)
             block = next(b for b in context_graph.blocks if b.source_id == data["source_id"])
             cells = graph_cells(block, context_graph)
-            if any("\n" in c["text"] for c in cells):
+            if self._j8:
+                from proofops.application.ingest.j8_cells import cell_entries, graph_cells
+
+                cells = graph_cells(block, context_graph)
+            if self._j8 or any("\n" in c["text"] for c in cells):
                 entries = cell_entries(text, cells, source_id=data["source_id"])
                 if len(entries) > ROW_POLICY["max_candidates"]:
                     raise ExtractionOutputError("EXTRACTION_SOURCE_SENTENCES_UNBOUNDED")
@@ -1880,6 +1914,9 @@ class UpstageClaimExtractor:
         )
         if self._w9:
             system_prompt += _w9_suffix()
+        if self._j8:
+            system_prompt += _j8_suffix()
+            data["candidate_profile"] = "j8-owned-cell-candidates-v1"
         user_data: dict[str, Any] = {
             "tenant_id": packet["tenant_id"],
             "document_version_id": packet["document_version_id"],

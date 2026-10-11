@@ -51,7 +51,7 @@ KNOWN_RENDERED_READERS = frozenset(
     }
 )
 PUBLIC_FINALS_PROFILES = ("finals-unattended-v1", "finals-unattended-v2")
-FINALS_PROFILES = (*PUBLIC_FINALS_PROFILES, "finals-unattended-j3-v1", "finals-unattended-j7-v1")
+FINALS_PROFILES = (*PUBLIC_FINALS_PROFILES, "finals-unattended-j3-v1", "finals-unattended-j7-v1", "finals-unattended-j8-v1")
 
 
 def default_analysis_profile():
@@ -95,7 +95,7 @@ def operator_profiles(config: dict) -> dict:
             "default_linux_reader_v2", RENDERED_READER_POLICY["default_linux_reader"]
         )
         if analysis
-        in ("finals-unattended-v2", "finals-unattended-j3-v1", "finals-unattended-j7-v1")
+        in ("finals-unattended-v2", "finals-unattended-j3-v1", "finals-unattended-j7-v1", "finals-unattended-j8-v1")
         else RENDERED_READER_POLICY["default_linux_reader"]
     )
     if requested is not None or reader != "apple-vision":

@@ -233,6 +233,7 @@ class RunService:
             "finals-unattended-v2",
             "finals-unattended-j3-v1",
             "finals-unattended-j7-v1",
+            "finals-unattended-j8-v1",
         ):
             raise ValueError("unknown pipeline profile")
         self.pipeline_profile = pipeline_profile
@@ -671,6 +672,7 @@ class RunService:
                 "finals-unattended-v2",
                 "finals-unattended-j3-v1",
                 "finals-unattended-j7-v1",
+                "finals-unattended-j8-v1",
             ):
                 from proofops.application.analysis_profile import publication_policy_for
 

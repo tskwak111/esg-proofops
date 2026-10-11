@@ -43,6 +43,7 @@ _SETTINGS_FIELDS = frozenset(
         "extraction_j3",
         "extraction_k3",
         "extraction_j7",
+        "extraction_j8",
         "extraction_pb1_context_guard",
         "extraction_table_footnotes",
         "extraction_table_rows",
@@ -330,6 +331,7 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
                 "finals-unattended-v2",
                 "finals-unattended-j3-v1",
                 "finals-unattended-j7-v1",
+                "finals-unattended-j8-v1",
             )
             or not tagging_mode
         ):
@@ -385,6 +387,7 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         "extraction_j3",
         "extraction_k3",
         "extraction_j7",
+        "extraction_j8",
         "extraction_pb1_context_guard",
         "extraction_table_footnotes",
         "extraction_table_rows",
@@ -401,6 +404,16 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
             raise _invalid()
     if settings.get("extraction_j7") and settings.get("extraction_j3") is not True:
         raise ValueError("EXTRACTION_J7_INVALID")
+    if settings.get("extraction_j8") and not (
+        settings.get("extraction_j3") is True
+        and settings.get("extraction_table_rows") is True
+        and settings.get("pipeline_profile") == "finals-unattended-j8-v1"
+    ):
+        raise ValueError("EXTRACTION_J8_INVALID")
+    if settings.get("pipeline_profile") == "finals-unattended-j8-v1" and not settings.get(
+        "extraction_j8"
+    ):
+        raise ValueError("EXTRACTION_J8_INVALID")
     if settings.get("extraction_j3") and not (
         settings.get("extraction_w9") is True and settings.get("extraction_source_ids") is True
     ):
