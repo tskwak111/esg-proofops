@@ -1,0 +1,24 @@
+{
+  "document_id": "a529eba6-5e3a-4c3c-8ca0-ace02dd0067f",
+  "run_id": "d234a92c-669a-4e0d-ab22-976d842a54ef",
+  "before": {
+    "state.sqlite3": "22dfdd501ad733479a9194d5d999b684eca30b8f092d4c9d396c048b545dcedb",
+    "upstage.sqlite3": "461cdb94856e19ab9a5b68d0f1cee97e9984eed933ae7a67573e85ddd1647a07",
+    "luna.sqlite3": "715c4a6a46aa7db3b397df17748ef8b5784bc1e0971b3e8ef85709c16e231f66",
+    "pilot.json": "91be99984ec2bf580cc41f862974e78701805b97c75a273813b021989488baf1"
+  },
+  "after": {
+    "state.sqlite3": "22dfdd501ad733479a9194d5d999b684eca30b8f092d4c9d396c048b545dcedb",
+    "upstage.sqlite3": "461cdb94856e19ab9a5b68d0f1cee97e9984eed933ae7a67573e85ddd1647a07",
+    "luna.sqlite3": "715c4a6a46aa7db3b397df17748ef8b5784bc1e0971b3e8ef85709c16e231f66",
+    "pilot.json": "91be99984ec2bf580cc41f862974e78701805b97c75a273813b021989488baf1"
+  },
+  "local": {
+    "state.sqlite3": "22dfdd501ad733479a9194d5d999b684eca30b8f092d4c9d396c048b545dcedb",
+    "upstage.sqlite3": "461cdb94856e19ab9a5b68d0f1cee97e9984eed933ae7a67573e85ddd1647a07",
+    "luna.sqlite3": "715c4a6a46aa7db3b397df17748ef8b5784bc1e0971b3e8ef85709c16e231f66",
+    "pilot.json": "91be99984ec2bf580cc41f862974e78701805b97c75a273813b021989488baf1"
+  },
+  "archive_sha256": "84242c50666c2d5a8d6d95cb9201cfafbfd1bc4942bd92b9fe3e280e68843765",
+  "read_only": true
+}

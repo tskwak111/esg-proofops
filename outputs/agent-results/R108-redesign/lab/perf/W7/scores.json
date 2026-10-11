@@ -1,0 +1,1739 @@
+{
+  "schema": "w7-dl3-replay-v1",
+  "gold_sha256": "ebe26858a8b965c6502bb284f0fb9e168a71e45a8c7c6c3a6d936ea9bba8f773",
+  "gold_status": "draft AI + independent AI/domain sampled; not human R2",
+  "scorer_sha256": {
+    "dl1_score.py": "2451041202dc3a2ac7ae8c463ff65c2777d99bd669881fb0efb961761645d3c9",
+    "dl2_score.py": "3f5b9ab2fbb15a07bdd1a8672fcc0886e919d9960a7a0a8585704c620ca962e2"
+  },
+  "companies": {
+    "lgchem": {
+      "source": {
+        "path": "/Users/ss020/Dev/ESG_ProofOps/기업보고서/배터리 에너지/LGChem_Sustainability_Report_2025_KOR.pdf",
+        "sha256": "c6395dd2be7948d85fa2b52c6edb61367fa6610c6f389c2478b44cb4cfcb5bde"
+      },
+      "final_profile": {
+        "model_sha256": "7f19deb0cffb3de4c9c58336934269410755ffe6490a6de044ecc7efd6aeb3b2",
+        "prompt_sha256": "a461dc41efa66acd1d1963ccad2e819595d8645a0e1c5f8a9a2b1a9507c2afea",
+        "rule_sha256": "315f8b8eaad2fa34f377d49af9ac6d6191e67c4008dc0728e277fbdf3bd0ed16",
+        "synthetic": false,
+        "replicate_id": 1,
+        "extraction_epoch": 1
+      },
+      "final_policy": {
+        "profile": "same-paragraph-sentence-prefix-w7-v1",
+        "scope": "one-paragraph-source; no context/continuation-block/row concatenation",
+        "origin": "validated-context-graph; ordinary-paragraph; derived-from blocks are not eligible",
+        "terminal": "[.!?。！？;:](?=\\s|$)",
+        "paragraph": "\\r?\\n[ \\t\\r]*\\n",
+        "bullet": "(?m)(?:^[ \\t]*(?:[•·▪▶※*–—-]|\\d+[.)）])|(?<!\\S)[•▪▶※])\\s*",
+        "independent": "(?:했으며|하였으며|하였고|했고|했으나|하였으나|하고\\s*있으며|하고\\s*있고|합니다|했습니다|하였습니다|됩니다|있습니다|하였다|했다|한다|하며|(?<!불구)하고)(?=\\s|[,;]|$)|\\b(?:and|but|while)\\s*$",
+        "heading": {
+          "max_chars": 24,
+          "continuation": "(?:[을를의에]|에는|에서|으로|위해|하여|통해|하며|영향|체계를|[,，])\\s*$"
+        },
+        "overlap": "retain separate selected claims; never absorb another selection",
+        "validation": "literal offsets + existing quotation/token checks + fresh source attestation"
+      },
+      "final_policy_sha256": "c6e603453be254c083f845051f6e3f4a47196373abb2f01aebf513c26cf2757e",
+      "final_selection_matches_attested_offsets": true,
+      "claim_counts": {
+        "before": 79,
+        "after": 80
+      },
+      "source_verified": {
+        "before": 79,
+        "after": 80
+      },
+      "prefix_missing": {
+        "before": 14,
+        "after": 0,
+        "denominator": 47,
+        "after_denominator": 48,
+        "criterion": "deterministically recoverable same-source prose prefixes; intentional independent clauses/headings excluded"
+      },
+      "changed_quotes": 15,
+      "scores": {
+        "before": {
+          "status": "not_run",
+          "reason": "no LG gold in existing DL3 set",
+          "gold_denominator": 0,
+          "strict_text_recall": null,
+          "strict_text_precision": null
+        },
+        "after": {
+          "status": "not_run",
+          "reason": "no LG gold in existing DL3 set",
+          "gold_denominator": 0,
+          "strict_text_recall": null,
+          "strict_text_precision": null
+        }
+      },
+      "retained_raw_replay": 31,
+      "run_id": "eaff0ea2-374d-4923-b2a8-a3f491830131"
+    },
+    "naver": {
+      "source": {
+        "path": "/Users/ss020/Dev/ESG_ProofOps/기업보고서/통신 인터넷/NAVER_2025_통합보고서.pdf",
+        "sha256": "75388f16c13739a671fd158c383502d81968fe587f2372ab0f9306f3d2c1a2c6"
+      },
+      "final_profile": {
+        "model_sha256": "7f19deb0cffb3de4c9c58336934269410755ffe6490a6de044ecc7efd6aeb3b2",
+        "prompt_sha256": "a461dc41efa66acd1d1963ccad2e819595d8645a0e1c5f8a9a2b1a9507c2afea",
+        "rule_sha256": "315f8b8eaad2fa34f377d49af9ac6d6191e67c4008dc0728e277fbdf3bd0ed16",
+        "synthetic": false,
+        "replicate_id": 1,
+        "extraction_epoch": 1
+      },
+      "final_policy": {
+        "profile": "same-paragraph-sentence-prefix-w7-v1",
+        "scope": "one-paragraph-source; no context/continuation-block/row concatenation",
+        "origin": "validated-context-graph; ordinary-paragraph; derived-from blocks are not eligible",
+        "terminal": "[.!?。！？;:](?=\\s|$)",
+        "paragraph": "\\r?\\n[ \\t\\r]*\\n",
+        "bullet": "(?m)(?:^[ \\t]*(?:[•·▪▶※*–—-]|\\d+[.)）])|(?<!\\S)[•▪▶※])\\s*",
+        "independent": "(?:했으며|하였으며|하였고|했고|했으나|하였으나|하고\\s*있으며|하고\\s*있고|합니다|했습니다|하였습니다|됩니다|있습니다|하였다|했다|한다|하며|(?<!불구)하고)(?=\\s|[,;]|$)|\\b(?:and|but|while)\\s*$",
+        "heading": {
+          "max_chars": 24,
+          "continuation": "(?:[을를의에]|에는|에서|으로|위해|하여|통해|하며|영향|체계를|[,，])\\s*$"
+        },
+        "overlap": "retain separate selected claims; never absorb another selection",
+        "validation": "literal offsets + existing quotation/token checks + fresh source attestation"
+      },
+      "final_policy_sha256": "c6e603453be254c083f845051f6e3f4a47196373abb2f01aebf513c26cf2757e",
+      "final_selection_matches_attested_offsets": true,
+      "claim_counts": {
+        "before": 17,
+        "after": 17
+      },
+      "source_verified": {
+        "before": 8,
+        "after": 8
+      },
+      "prefix_missing": {
+        "before": 0,
+        "after": 0,
+        "denominator": 4,
+        "after_denominator": 4,
+        "criterion": "deterministically recoverable same-source prose prefixes; intentional independent clauses/headings excluded"
+      },
+      "changed_quotes": 0,
+      "scores": {
+        "before": {
+          "gold_denominator": 76,
+          "predictions": 17,
+          "one_to_one_matches": 17,
+          "strict_text_recall": 0.2236842105263158,
+          "strict_text_precision": 1.0,
+          "missed_gold": [
+            "naver-84-I002",
+            "naver-84-I003",
+            "naver-84-I006",
+            "naver-84-I008",
+            "naver-84-I009",
+            "naver-84-I010",
+            "naver-84-I011",
+            "naver-84-I012",
+            "naver-84-I013",
+            "naver-84-I015",
+            "naver-84-I016",
+            "naver-84-I017",
+            "naver-84-I018",
+            "naver-84-I020",
+            "naver-84-I021",
+            "naver-84-I022",
+            "naver-84-I023",
+            "naver-84-I024",
+            "naver-84-I025",
+            "naver-84-I026",
+            "naver-84-I027",
+            "naver-88-I004",
+            "naver-88-I005",
+            "naver-88-I006",
+            "naver-88-I008",
+            "naver-88-I009",
+            "naver-88-I014",
+            "naver-88-I015",
+            "naver-88-I016",
+            "naver-88-I020",
+            "naver-88-I021",
+            "naver-88-I023",
+            "naver-88-I024",
+            "naver-88-I027",
+            "naver-88-I031",
+            "naver-88-I032",
+            "naver-88-I033",
+            "naver-88-I034",
+            "naver-240-I002",
+            "naver-240-I003",
+            "naver-240-I004",
+            "naver-240-I005",
+            "naver-240-I006",
+            "naver-240-I007",
+            "naver-240-I008",
+            "naver-240-I009",
+            "naver-240-I010",
+            "naver-240-I011",
+            "naver-240-I012",
+            "naver-240-I013",
+            "naver-240-I014",
+            "naver-240-I015",
+            "naver-240-I016",
+            "naver-240-I017",
+            "naver-240-I018",
+            "naver-240-I019",
+            "naver-240-I020",
+            "naver-240-I021",
+            "naver-240-I022"
+          ],
+          "unmatched_predictions": 0,
+          "unmatched_semantic_status": "undetermined; cannot treat incomplete draft gold / altered clause boundaries as proven false claims",
+          "records": [
+            {
+              "prediction_id": "507fecb4-63e7-575e-85d0-54871bec5e68",
+              "page": 84,
+              "quote": "데이터센터 재생에너지 확보 기반 마련\t• PPA, 발전소 투자 등 경쟁력 있는 지속가능한 에너지 확보 추진",
+              "gold_candidates": [
+                "naver-84-I005",
+                "naver-84-I006"
+              ],
+              "matched_gold": "naver-84-I005",
+              "source_verified": null,
+              "merged_gold_span_candidate": true
+            },
+            {
+              "prediction_id": "c94b6f77-bcfd-5566-9cce-dc768c4fe9d0",
+              "page": 84,
+              "quote": "• 데이터센터 각 춘천 RE70 수준의 재생에너지 확보 - 2025~2026년 2개년 추진 목표\t달성",
+              "gold_candidates": [
+                "naver-84-I007"
+              ],
+              "matched_gold": "naver-84-I007",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "9222be94-1a6c-54da-8f6a-331da18aafc0",
+              "page": 84,
+              "quote": "• 네 이버는 기후 관련 위험 및 기회에 대한 관리 역할을 CEO 및 대외/ESG정책 부문장에 위임 • 이 러한 역할 수행 과정에서 CEO 및 대외/ESG정책 부문장은 이사회 내 ESG위원회의 감독을 받음 • C EO는 저탄소 전환 및 관련 사업 기회 확대를 위한 전사 전략을 총괄하고, 기후·에너지 관련 주요 투자·자본 배분·자금 조달 의사결정 • 대 외/ESG정책 부문장은 기후 대응 전략 및 ESG 과제 수립·추진을 총괄하고, 기후 관련 위험·기회에 대한 대응 과제 설정 및 이행 관리하며, 대내외 커뮤니케이션을 통한 네이버 기후변화 대응 방향성 확산",
+              "gold_candidates": [
+                "naver-84-I014",
+                "naver-84-I015",
+                "naver-84-I016",
+                "naver-84-I017",
+                "naver-84-I018"
+              ],
+              "matched_gold": "naver-84-I014",
+              "source_verified": null,
+              "merged_gold_span_candidate": true
+            },
+            {
+              "prediction_id": "1e5bd6d1-f362-5ea2-8565-3ac128eedad7",
+              "page": 84,
+              "quote": "• 연초 기후변화 대응 관련 목표를 수립하고 이를 이사회 내 ESG위원회가 경영진 ESG KPI로 승인하며, 성과 및 목표 달성현황을 모니터링 • 모니터링된 ESG KPI 달성성과는 이사회 내 보상위원회의 검토를 거쳐 경영진 보수 중 성과 인센티브(상여)에 반영",
+              "gold_candidates": [
+                "naver-84-I001",
+                "naver-84-I002",
+                "naver-84-I003"
+              ],
+              "matched_gold": "naver-84-I001",
+              "source_verified": null,
+              "merged_gold_span_candidate": true
+            },
+            {
+              "prediction_id": "71326d4c-4035-519f-b15b-cbada9609e3a",
+              "page": 84,
+              "quote": "• ‘ 네이버 환경경영방침’을 기반으로 기후변화 대응 정책을 수립·운영하고 있으며, 전담 부서를 통해 기후 관련 위험 및 기회의 식별, 평가 및 대응 과제 관리를 수행 • I SO 14001 연계 경영검토 과정에서 연 1회 이상 기후변화 교육을 실시하며, 필요 시 워킹그룹을 통해 환경 관련 사안 논의 진행 • 환 경 전담 부서에서 기후 관련 주요 위험·기회, 핵심 과제 및 이행 결과를 대외/ESG 정책 부문장, CEO 및 ESG위원회에 정기 보고하며, 경영진과 ESG위원회는 이를 검토하여 관련 의사결정에 반영",
+              "gold_candidates": [
+                "naver-84-I019",
+                "naver-84-I020",
+                "naver-84-I021",
+                "naver-84-I022",
+                "naver-84-I023",
+                "naver-84-I024"
+              ],
+              "matched_gold": "naver-84-I019",
+              "source_verified": null,
+              "merged_gold_span_candidate": true
+            },
+            {
+              "prediction_id": "30d46ca1-5609-51ae-b206-c3027a6583cc",
+              "page": 88,
+              "quote": "• 2025년 16,673 tCO2eq의 온실가스 절감\tAMU3) 및 NAMU 개발·적용",
+              "gold_candidates": [
+                "naver-88-I010",
+                "naver-88-I015"
+              ],
+              "matched_gold": "naver-88-I010",
+              "source_verified": null,
+              "merged_gold_span_candidate": true
+            },
+            {
+              "prediction_id": "d8e83d2a-913c-582b-9958-d5387bd3592d",
+              "page": 88,
+              "quote": "• 2025년 12,932 tCO2eq의 온실가스 절감\t에너지 효율 관련 인증 획득",
+              "gold_candidates": [
+                "naver-88-I017"
+              ],
+              "matched_gold": "naver-88-I017",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "d38ccf67-a2c6-5e3b-8e1c-0fecad9aed56",
+              "page": 88,
+              "quote": "• 태양광: 2025년 전력 발전량 232.2 MWh",
+              "gold_candidates": [
+                "naver-88-I011"
+              ],
+              "matched_gold": "naver-88-I011",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "3e920c08-613a-5270-bf3b-d32a18bdb98f",
+              "page": 88,
+              "quote": "• 지열에너지를 본관 및 숙소동 냉난방에서 활용하여 1,838 MWh 에너지 절감\t재생에너지 사용",
+              "gold_candidates": [
+                "naver-88-I012"
+              ],
+              "matched_gold": "naver-88-I012",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "5c6367f7-e060-5442-b149-6aa113cb012d",
+              "page": 88,
+              "quote": "• 태양광: 2025년 전력 발전량 192.7 MWh\t재생에너지 사용",
+              "gold_candidates": [
+                "naver-88-I018"
+              ],
+              "matched_gold": "naver-88-I018",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "d91b8d9f-e12e-53a2-a8ec-4388714554bb",
+              "page": 88,
+              "quote": "• 태양광: 2025년 전력 발전량 172.8 MWh",
+              "gold_candidates": [
+                "naver-88-I025"
+              ],
+              "matched_gold": "naver-88-I025",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "5f4102b9-5dd3-5a63-b373-ce4fc2505727",
+              "page": 88,
+              "quote": "• 지열 시스템으로 냉난방 에너지 4,568 MWh 절감",
+              "gold_candidates": [
+                "naver-88-I026"
+              ],
+              "matched_gold": "naver-88-I026",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "6e98e67f-0a76-577b-b080-3452879a07d6",
+              "page": 88,
+              "quote": "• PUE(전력사용효율지수)2) 1.1x 유지\t에너지 효율화",
+              "gold_candidates": [
+                "naver-88-I013",
+                "naver-88-I019"
+              ],
+              "matched_gold": "naver-88-I019",
+              "source_verified": null,
+              "merged_gold_span_candidate": true
+            },
+            {
+              "prediction_id": "33fa6b0c-d1c9-5a8d-a72b-0a6a0dcba41b",
+              "page": 88,
+              "quote": "• PUE(전력사용효율지수)2) 1.1x 유지\t그린팩토리",
+              "gold_candidates": [
+                "naver-88-I013",
+                "naver-88-I019"
+              ],
+              "matched_gold": "naver-88-I013",
+              "source_verified": null,
+              "merged_gold_span_candidate": true
+            },
+            {
+              "prediction_id": "f77aa684-360b-565b-b3c7-430800ec829e",
+              "page": 88,
+              "quote": "• 건축물 단열 성능 개선 및 에너지 효율 향상\t• 태양광: 2025년 전력 발전량 21.3 MWh 커넥트원",
+              "gold_candidates": [
+                "naver-88-I022",
+                "naver-88-I027"
+              ],
+              "matched_gold": "naver-88-I022",
+              "source_verified": null,
+              "merged_gold_span_candidate": true
+            },
+            {
+              "prediction_id": "9b3b244c-69a0-5cc1-bc2b-7399766b2c61",
+              "page": 88,
+              "quote": "• 태양광: 2025년 전력 발전량 111.6MWh",
+              "gold_candidates": [
+                "naver-88-I028"
+              ],
+              "matched_gold": "naver-88-I028",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "f70de19f-5b09-5e39-b6d6-d2a63327e6b3",
+              "page": 88,
+              "quote": "• 데 이터센터 에너지 사용량의 지속적인 증가가 예상됨에 따라 고효율 설비 및 에너지 절감 기술 도입 및 투자 필요성 증가 • 해 당 위험을 사전에 인식하여 건축 단계부터 친환경성과 에너지 효율을 설계에 반영하고 에너지 절감 기술 개발에 선제적으로 투자 • 사 업장 및 데이터센터 에너지 절감 기술 도입에 따른 초기 투자비용이 발생하였으나, 운영 효율 개선에 따른 에너지 비용 절감으로 관련 중장기 비용 부담 완화 • 자 체 기술 역량 확보를 통해 데이터센터 운영 효율을 제고하고 관련 리스크 대응 기반 마련",
+              "gold_candidates": [
+                "naver-88-I003",
+                "naver-88-I004",
+                "naver-88-I005",
+                "naver-88-I006"
+              ],
+              "matched_gold": "naver-88-I003",
+              "source_verified": null,
+              "merged_gold_span_candidate": true
+            }
+          ]
+        },
+        "after": {
+          "gold_denominator": 76,
+          "predictions": 17,
+          "one_to_one_matches": 17,
+          "strict_text_recall": 0.2236842105263158,
+          "strict_text_precision": 1.0,
+          "missed_gold": [
+            "naver-84-I002",
+            "naver-84-I003",
+            "naver-84-I006",
+            "naver-84-I008",
+            "naver-84-I009",
+            "naver-84-I010",
+            "naver-84-I011",
+            "naver-84-I012",
+            "naver-84-I013",
+            "naver-84-I015",
+            "naver-84-I016",
+            "naver-84-I017",
+            "naver-84-I018",
+            "naver-84-I020",
+            "naver-84-I021",
+            "naver-84-I022",
+            "naver-84-I023",
+            "naver-84-I024",
+            "naver-84-I025",
+            "naver-84-I026",
+            "naver-84-I027",
+            "naver-88-I004",
+            "naver-88-I005",
+            "naver-88-I006",
+            "naver-88-I008",
+            "naver-88-I009",
+            "naver-88-I014",
+            "naver-88-I015",
+            "naver-88-I016",
+            "naver-88-I020",
+            "naver-88-I021",
+            "naver-88-I023",
+            "naver-88-I024",
+            "naver-88-I027",
+            "naver-88-I031",
+            "naver-88-I032",
+            "naver-88-I033",
+            "naver-88-I034",
+            "naver-240-I002",
+            "naver-240-I003",
+            "naver-240-I004",
+            "naver-240-I005",
+            "naver-240-I006",
+            "naver-240-I007",
+            "naver-240-I008",
+            "naver-240-I009",
+            "naver-240-I010",
+            "naver-240-I011",
+            "naver-240-I012",
+            "naver-240-I013",
+            "naver-240-I014",
+            "naver-240-I015",
+            "naver-240-I016",
+            "naver-240-I017",
+            "naver-240-I018",
+            "naver-240-I019",
+            "naver-240-I020",
+            "naver-240-I021",
+            "naver-240-I022"
+          ],
+          "unmatched_predictions": 0,
+          "unmatched_semantic_status": "undetermined; cannot treat incomplete draft gold / altered clause boundaries as proven false claims",
+          "records": [
+            {
+              "prediction_id": "c63d3576-729d-5b3b-b222-ffaa7a86253e",
+              "page": 84,
+              "quote": "데이터센터 재생에너지 확보 기반 마련\t• PPA, 발전소 투자 등 경쟁력 있는 지속가능한 에너지 확보 추진",
+              "gold_candidates": [
+                "naver-84-I005",
+                "naver-84-I006"
+              ],
+              "matched_gold": "naver-84-I005",
+              "source_verified": null,
+              "merged_gold_span_candidate": true
+            },
+            {
+              "prediction_id": "3084b48e-06ff-5099-9c29-75eab4bae682",
+              "page": 84,
+              "quote": "• 데이터센터 각 춘천 RE70 수준의 재생에너지 확보 - 2025~2026년 2개년 추진 목표\t달성",
+              "gold_candidates": [
+                "naver-84-I007"
+              ],
+              "matched_gold": "naver-84-I007",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "4c697dd7-fb2c-5593-92bd-58383a7fa729",
+              "page": 84,
+              "quote": "• 네 이버는 기후 관련 위험 및 기회에 대한 관리 역할을 CEO 및 대외/ESG정책 부문장에 위임 • 이 러한 역할 수행 과정에서 CEO 및 대외/ESG정책 부문장은 이사회 내 ESG위원회의 감독을 받음 • C EO는 저탄소 전환 및 관련 사업 기회 확대를 위한 전사 전략을 총괄하고, 기후·에너지 관련 주요 투자·자본 배분·자금 조달 의사결정 • 대 외/ESG정책 부문장은 기후 대응 전략 및 ESG 과제 수립·추진을 총괄하고, 기후 관련 위험·기회에 대한 대응 과제 설정 및 이행 관리하며, 대내외 커뮤니케이션을 통한 네이버 기후변화 대응 방향성 확산",
+              "gold_candidates": [
+                "naver-84-I014",
+                "naver-84-I015",
+                "naver-84-I016",
+                "naver-84-I017",
+                "naver-84-I018"
+              ],
+              "matched_gold": "naver-84-I014",
+              "source_verified": null,
+              "merged_gold_span_candidate": true
+            },
+            {
+              "prediction_id": "e593ae0f-b35f-516e-bc08-c0c2e01832a6",
+              "page": 84,
+              "quote": "• 연초 기후변화 대응 관련 목표를 수립하고 이를 이사회 내 ESG위원회가 경영진 ESG KPI로 승인하며, 성과 및 목표 달성현황을 모니터링 • 모니터링된 ESG KPI 달성성과는 이사회 내 보상위원회의 검토를 거쳐 경영진 보수 중 성과 인센티브(상여)에 반영",
+              "gold_candidates": [
+                "naver-84-I001",
+                "naver-84-I002",
+                "naver-84-I003"
+              ],
+              "matched_gold": "naver-84-I001",
+              "source_verified": null,
+              "merged_gold_span_candidate": true
+            },
+            {
+              "prediction_id": "b4d8e6d7-d7fb-5a25-a3d1-1883dd62743b",
+              "page": 84,
+              "quote": "• ‘ 네이버 환경경영방침’을 기반으로 기후변화 대응 정책을 수립·운영하고 있으며, 전담 부서를 통해 기후 관련 위험 및 기회의 식별, 평가 및 대응 과제 관리를 수행 • I SO 14001 연계 경영검토 과정에서 연 1회 이상 기후변화 교육을 실시하며, 필요 시 워킹그룹을 통해 환경 관련 사안 논의 진행 • 환 경 전담 부서에서 기후 관련 주요 위험·기회, 핵심 과제 및 이행 결과를 대외/ESG 정책 부문장, CEO 및 ESG위원회에 정기 보고하며, 경영진과 ESG위원회는 이를 검토하여 관련 의사결정에 반영",
+              "gold_candidates": [
+                "naver-84-I019",
+                "naver-84-I020",
+                "naver-84-I021",
+                "naver-84-I022",
+                "naver-84-I023",
+                "naver-84-I024"
+              ],
+              "matched_gold": "naver-84-I019",
+              "source_verified": null,
+              "merged_gold_span_candidate": true
+            },
+            {
+              "prediction_id": "00e72c94-5b2a-5c92-aef5-4b4381bf8f7f",
+              "page": 88,
+              "quote": "• 2025년 16,673 tCO2eq의 온실가스 절감\tAMU3) 및 NAMU 개발·적용",
+              "gold_candidates": [
+                "naver-88-I010",
+                "naver-88-I015"
+              ],
+              "matched_gold": "naver-88-I010",
+              "source_verified": null,
+              "merged_gold_span_candidate": true
+            },
+            {
+              "prediction_id": "42a85de4-a302-5cef-aac1-11700f351f7f",
+              "page": 88,
+              "quote": "• 2025년 12,932 tCO2eq의 온실가스 절감\t에너지 효율 관련 인증 획득",
+              "gold_candidates": [
+                "naver-88-I017"
+              ],
+              "matched_gold": "naver-88-I017",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "cfdc739a-62ca-5d7c-81ce-4cc229b2a0d2",
+              "page": 88,
+              "quote": "• 태양광: 2025년 전력 발전량 232.2 MWh",
+              "gold_candidates": [
+                "naver-88-I011"
+              ],
+              "matched_gold": "naver-88-I011",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "b3b2de4d-f217-549a-bc6f-b81455606bf0",
+              "page": 88,
+              "quote": "• 지열에너지를 본관 및 숙소동 냉난방에서 활용하여 1,838 MWh 에너지 절감\t재생에너지 사용",
+              "gold_candidates": [
+                "naver-88-I012"
+              ],
+              "matched_gold": "naver-88-I012",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "da041b7a-5630-5e77-9715-c72e0a6356b8",
+              "page": 88,
+              "quote": "• 태양광: 2025년 전력 발전량 192.7 MWh\t재생에너지 사용",
+              "gold_candidates": [
+                "naver-88-I018"
+              ],
+              "matched_gold": "naver-88-I018",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "0171bbc4-4c7a-5f0e-ab13-f2dbe7c3801e",
+              "page": 88,
+              "quote": "• 태양광: 2025년 전력 발전량 172.8 MWh",
+              "gold_candidates": [
+                "naver-88-I025"
+              ],
+              "matched_gold": "naver-88-I025",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "f63632d0-5f02-5ea5-9861-66294a859197",
+              "page": 88,
+              "quote": "• 지열 시스템으로 냉난방 에너지 4,568 MWh 절감",
+              "gold_candidates": [
+                "naver-88-I026"
+              ],
+              "matched_gold": "naver-88-I026",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "0ef1d825-d8b6-5a0c-bf4f-bd565a921325",
+              "page": 88,
+              "quote": "• PUE(전력사용효율지수)2) 1.1x 유지\t에너지 효율화",
+              "gold_candidates": [
+                "naver-88-I013",
+                "naver-88-I019"
+              ],
+              "matched_gold": "naver-88-I019",
+              "source_verified": null,
+              "merged_gold_span_candidate": true
+            },
+            {
+              "prediction_id": "7c24992a-da0f-53f7-aaae-2ee8c813cb52",
+              "page": 88,
+              "quote": "• PUE(전력사용효율지수)2) 1.1x 유지\t그린팩토리",
+              "gold_candidates": [
+                "naver-88-I013",
+                "naver-88-I019"
+              ],
+              "matched_gold": "naver-88-I013",
+              "source_verified": null,
+              "merged_gold_span_candidate": true
+            },
+            {
+              "prediction_id": "580433a3-0e6f-5b21-a465-2473796be530",
+              "page": 88,
+              "quote": "• 건축물 단열 성능 개선 및 에너지 효율 향상\t• 태양광: 2025년 전력 발전량 21.3 MWh 커넥트원",
+              "gold_candidates": [
+                "naver-88-I022",
+                "naver-88-I027"
+              ],
+              "matched_gold": "naver-88-I022",
+              "source_verified": null,
+              "merged_gold_span_candidate": true
+            },
+            {
+              "prediction_id": "952b668b-59e3-575d-85e2-dc5c38eab9b9",
+              "page": 88,
+              "quote": "• 태양광: 2025년 전력 발전량 111.6MWh",
+              "gold_candidates": [
+                "naver-88-I028"
+              ],
+              "matched_gold": "naver-88-I028",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "6c6c0506-f083-5a5c-9664-a47dd03d9cbb",
+              "page": 88,
+              "quote": "• 데 이터센터 에너지 사용량의 지속적인 증가가 예상됨에 따라 고효율 설비 및 에너지 절감 기술 도입 및 투자 필요성 증가 • 해 당 위험을 사전에 인식하여 건축 단계부터 친환경성과 에너지 효율을 설계에 반영하고 에너지 절감 기술 개발에 선제적으로 투자 • 사 업장 및 데이터센터 에너지 절감 기술 도입에 따른 초기 투자비용이 발생하였으나, 운영 효율 개선에 따른 에너지 비용 절감으로 관련 중장기 비용 부담 완화 • 자 체 기술 역량 확보를 통해 데이터센터 운영 효율을 제고하고 관련 리스크 대응 기반 마련",
+              "gold_candidates": [
+                "naver-88-I003",
+                "naver-88-I004",
+                "naver-88-I005",
+                "naver-88-I006"
+              ],
+              "matched_gold": "naver-88-I003",
+              "source_verified": null,
+              "merged_gold_span_candidate": true
+            }
+          ]
+        }
+      },
+      "retained_raw_replay": 21,
+      "run_id": "daa16f8f-7905-4c92-85c4-98964ebaa48f"
+    },
+    "kia": {
+      "source": {
+        "path": "/Users/ss020/Dev/ESG_ProofOps/기업보고서/자동차/2025_기아_지속가능경영보고서.pdf",
+        "sha256": "d0d814d98c4aeedbbdb2bf8631b8981ae5cde94dec32aa32c57510420274da1f"
+      },
+      "final_profile": {
+        "model_sha256": "7f19deb0cffb3de4c9c58336934269410755ffe6490a6de044ecc7efd6aeb3b2",
+        "prompt_sha256": "a461dc41efa66acd1d1963ccad2e819595d8645a0e1c5f8a9a2b1a9507c2afea",
+        "rule_sha256": "315f8b8eaad2fa34f377d49af9ac6d6191e67c4008dc0728e277fbdf3bd0ed16",
+        "synthetic": false,
+        "replicate_id": 1,
+        "extraction_epoch": 1
+      },
+      "final_policy": {
+        "profile": "same-paragraph-sentence-prefix-w7-v1",
+        "scope": "one-paragraph-source; no context/continuation-block/row concatenation",
+        "origin": "validated-context-graph; ordinary-paragraph; derived-from blocks are not eligible",
+        "terminal": "[.!?。！？;:](?=\\s|$)",
+        "paragraph": "\\r?\\n[ \\t\\r]*\\n",
+        "bullet": "(?m)(?:^[ \\t]*(?:[•·▪▶※*–—-]|\\d+[.)）])|(?<!\\S)[•▪▶※])\\s*",
+        "independent": "(?:했으며|하였으며|하였고|했고|했으나|하였으나|하고\\s*있으며|하고\\s*있고|합니다|했습니다|하였습니다|됩니다|있습니다|하였다|했다|한다|하며|(?<!불구)하고)(?=\\s|[,;]|$)|\\b(?:and|but|while)\\s*$",
+        "heading": {
+          "max_chars": 24,
+          "continuation": "(?:[을를의에]|에는|에서|으로|위해|하여|통해|하며|영향|체계를|[,，])\\s*$"
+        },
+        "overlap": "retain separate selected claims; never absorb another selection",
+        "validation": "literal offsets + existing quotation/token checks + fresh source attestation"
+      },
+      "final_policy_sha256": "c6e603453be254c083f845051f6e3f4a47196373abb2f01aebf513c26cf2757e",
+      "final_selection_matches_attested_offsets": true,
+      "claim_counts": {
+        "before": 40,
+        "after": 40
+      },
+      "source_verified": {
+        "before": 40,
+        "after": 40
+      },
+      "prefix_missing": {
+        "before": 0,
+        "after": 0,
+        "denominator": 15,
+        "after_denominator": 15,
+        "criterion": "deterministically recoverable same-source prose prefixes; intentional independent clauses/headings excluded"
+      },
+      "changed_quotes": 0,
+      "scores": {
+        "before": {
+          "gold_denominator": 80,
+          "predictions": 40,
+          "one_to_one_matches": 38,
+          "strict_text_recall": 0.475,
+          "strict_text_precision": 0.95,
+          "missed_gold": [
+            "kia-26-I002",
+            "kia-26-I004",
+            "kia-26-I006",
+            "kia-26-I007",
+            "kia-26-I010",
+            "kia-26-I011",
+            "kia-26-I012",
+            "kia-28-I002",
+            "kia-28-I005",
+            "kia-28-I007",
+            "kia-28-I009",
+            "kia-28-I010",
+            "kia-28-I011",
+            "kia-28-I012",
+            "kia-28-I013",
+            "kia-28-I014",
+            "kia-28-I015",
+            "kia-28-I016",
+            "kia-106-I024",
+            "kia-106-I025",
+            "kia-106-I026",
+            "kia-106-I027",
+            "kia-106-I028",
+            "kia-106-I032",
+            "kia-106-I033",
+            "kia-106-I034",
+            "kia-130-I002",
+            "kia-130-I003",
+            "kia-130-I004",
+            "kia-130-I005",
+            "kia-130-I006",
+            "kia-130-I007",
+            "kia-130-I009",
+            "kia-130-I010",
+            "kia-130-I012",
+            "kia-130-I013",
+            "kia-130-I014",
+            "kia-130-I015",
+            "kia-130-I016",
+            "kia-130-I017",
+            "kia-130-I018",
+            "kia-130-I020"
+          ],
+          "unmatched_predictions": 2,
+          "unmatched_semantic_status": "undetermined; cannot treat incomplete draft gold / altered clause boundaries as proven false claims",
+          "records": [
+            {
+              "prediction_id": "5b0344ef-343d-5753-b542-e750e130f8b9",
+              "page": 26,
+              "quote": "기아는 2022년 4월 영국의 비영리기구인 The Climate Group과 CDP 주도로 발족한 RE100 이니셔티브에 가입해 2040년까지 사업장 전력의 100% 재생에너지 전환을 선언했습니다.",
+              "gold_candidates": [
+                "kia-26-I001"
+              ],
+              "matched_gold": "kia-26-I001",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "f0be3c23-2f9a-5b38-9470-1fffe8a4f368",
+              "page": 26,
+              "quote": "단계적으로 2030년까지 해외 사업장의 재생에너지 전환을 우선적으로 완료하고, 2040년까지 전 사업장의 재생에너지 전환을 완료할 예정으로, 이는 RE100 이니셔티브가 권고하는 2050년 재생에너지 100% 전환보다 10년 앞선 목표입니다.",
+              "gold_candidates": [
+                "kia-26-I003",
+                "kia-26-I004"
+              ],
+              "matched_gold": "kia-26-I003",
+              "source_verified": null,
+              "merged_gold_span_candidate": true
+            },
+            {
+              "prediction_id": "37265ef9-5e4a-5b75-a732-f24d958599ce",
+              "page": 26,
+              "quote": "국가별 에너지 정책과 재생에너지 시장 환경을 고려해 사업장별 RE100 이행 로드맵을 수립했으며, 탄소중립에 대한 진정성과 감축 효과성 등을 고려해 자체발전과 PPA(Power Purchase Agreement) 중심으로 RE100을 달성할 계획입니다.",
+              "gold_candidates": [
+                "kia-26-I005",
+                "kia-26-I006"
+              ],
+              "matched_gold": "kia-26-I005",
+              "source_verified": null,
+              "merged_gold_span_candidate": true
+            },
+            {
+              "prediction_id": "b31851e7-3087-5826-b22d-149cd3c8cfe7",
+              "page": 26,
+              "quote": "기아는 RE100 이행을 위해 친환경 에너지 확대가 중요하며, 이에 따른 대규모의 자본 투자가 필요한 점을 고려하여, 이를 체계적으로 추진하기 위한 4단계의 검토 프로세스를 수립했습니다.",
+              "gold_candidates": [],
+              "matched_gold": null,
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "22f045e7-1c52-5bde-8b9d-7243b1f067bc",
+              "page": 26,
+              "quote": "또한, RE100 이행 과정에서 발생하는 재무적 영향의 중요성을 고려해, 실현 가능한 계획하에 RE100이 달성될 수 있도록 포트폴리오별 재무 분석을 진행하고 있습니다.",
+              "gold_candidates": [
+                "kia-26-I008"
+              ],
+              "matched_gold": "kia-26-I008",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "f79fd11e-5d9b-5a2c-9f29-4ffbce09d9ff",
+              "page": 28,
+              "quote": "개선방안\t비 생산 시간 대기전력 발생부 전력 원천 차단\t비 생산 시간 설비 1차 공급 에어 원천 차단\t압력센서 부하 감지에 따른 가변 운전\tDC 배전 및 전용 컨버터 적용으로 DC 부하에 직접 전력 공급 (DC → DC)\t설비별 압력조건 분석을 통해, 메인 압축공기 공급압 최적화 적용",
+              "gold_candidates": [],
+              "matched_gold": null,
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "84267c6a-47ea-50d1-a0d4-10e6a0787a0e",
+              "page": 28,
+              "quote": "(예상) 효과\t에너지 소비 절감 효과성 평가 결과 대기전력을 원천 차단해 휴지 시 소모전력 82% 절감\t비 생산시간 에어 원천 차단으로 압축공기 86% 절감\t에너지 소비 절감 효과성 평가 결과 모터 부하 연동 제어로 생산 시 소모전력 50% 이상 절감\t태양광 연계 시 전력 변환 및 장거리 배전 효율 향상으로 에너지 효율 20% 향상 예상\t공장 메인 압축공기 감압(6.7 → 5.5 bar)을 통해 전기에너지 56% 절감 예상",
+              "gold_candidates": [
+                "kia-28-I008",
+                "kia-28-I010",
+                "kia-28-I012",
+                "kia-28-I014",
+                "kia-28-I016"
+              ],
+              "matched_gold": "kia-28-I008",
+              "source_verified": null,
+              "merged_gold_span_candidate": true
+            },
+            {
+              "prediction_id": "0cc1adf8-a381-5d26-93c5-83c3bde0b56e",
+              "page": 28,
+              "quote": "기아는 내부 탄소가격에 대한 가이드라인을 수립해 투자로 인해 발생이 예상되는 탄소비용을 내부 기준에 따라 체계적으로 산정하고 있습니다.",
+              "gold_candidates": [
+                "kia-28-I021"
+              ],
+              "matched_gold": "kia-28-I021",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "8221e51a-6b76-527e-9e9a-6e7c61c223cf",
+              "page": 28,
+              "quote": "이를 공장 신설 및 증설, 설비 투자 등과 같은 대규모 투자 의사결정 시 참고지표로 활용하고 있습니다.",
+              "gold_candidates": [
+                "kia-28-I022"
+              ],
+              "matched_gold": "kia-28-I022",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "91c497ea-cc6e-5d5b-ac47-12beec53bf76",
+              "page": 28,
+              "quote": "이러한 외부 요구와 강화되는 탄소배출량 관련 규제에 체계적으로 대응하기 위해 기아는 제품, 사업장, 공급망의 탄소배출량을 통합 관리하는 글로벌 통합 탄소배출 정보 시스템(IGIS)을 개발했습니다.",
+              "gold_candidates": [
+                "kia-28-I018"
+              ],
+              "matched_gold": "kia-28-I018",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "f61ef7fa-809c-58dc-af32-3756f2b7c969",
+              "page": 28,
+              "quote": "해당 시스템은 신뢰성 높은 탄소배출량 산정 결과를 제공해 각종 규제와 외부 이해관계자의 요구사항에 효과적으로 대응할 수 있을 것으로 기대되며, 이외에도 탄소저감 기술 개발 지원과 탄소중립에 관련된 일반적인 정보 제공 기능을 포함하고 있습니다.",
+              "gold_candidates": [
+                "kia-28-I019"
+              ],
+              "matched_gold": "kia-28-I019",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "3ea3fbf5-16e0-5ae4-b42a-d308f4543cb7",
+              "page": 28,
+              "quote": "향후에는 시스템을 활용해 탄소배출량 정보를 지속적으로 업데이트할 예정이며, 변화하는 시장 상황을 반영할 수 있도록 시스템을 개선해 민첩한 대응이 가능하도록 할 계획입니다.",
+              "gold_candidates": [
+                "kia-28-I020"
+              ],
+              "matched_gold": "kia-28-I020",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "63eacc14-b49c-502f-be92-40e92dd79d84",
+              "page": 28,
+              "quote": "기아는 2030년까지 에너지 효율화를 통해 ‘2019년 국내외 공장 Scope 1 & 2 배출량의 10% 감축’이라는 중장기 목표를 수립하고, 공장별 추진전략을 구체화하고 있습니다.",
+              "gold_candidates": [
+                "kia-28-I001",
+                "kia-28-I002"
+              ],
+              "matched_gold": "kia-28-I001",
+              "source_verified": null,
+              "merged_gold_span_candidate": true
+            },
+            {
+              "prediction_id": "c273ff7c-c6c1-5e60-941d-09ec5f74112a",
+              "page": 28,
+              "quote": "기아가 보유한 에너지 효율화 테마들의 공장별 적용 가능 여부를 검토함과 동시에 적용 가능 개소를 파악함으로써, 연도별 추진계획과 탄소 감축 목표를 수립할 예정입니다.",
+              "gold_candidates": [
+                "kia-28-I003"
+              ],
+              "matched_gold": "kia-28-I003",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "f055fdf0-6800-5c85-ab78-5f1d54620597",
+              "page": 28,
+              "quote": "또한, 에너지 절감 효과의 정확한 파악을 위해 표준화된 효과검증 프로세스의 도입을 검토하고 있으며, 향후 표준화된 측정기준을 통해 객관적인 투자효과를 검증할 예정입니다.",
+              "gold_candidates": [
+                "kia-28-I004",
+                "kia-28-I005"
+              ],
+              "matched_gold": "kia-28-I004",
+              "source_verified": null,
+              "merged_gold_span_candidate": true
+            },
+            {
+              "prediction_id": "2d6771e7-83fd-5a89-be85-1e6e355c8cfa",
+              "page": 106,
+              "quote": "1.2024년부터 기존 Scope 3 Category8로 분류되던 임차자산 배출량을 Scope 1 & 2로 포함하여 산정",
+              "gold_candidates": [
+                "kia-106-I011"
+              ],
+              "matched_gold": "kia-106-I011",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "d6e7059a-9917-51b2-8504-61b8235fbc76",
+              "page": 106,
+              "quote": "친환경차 매출 비중\t%\t23.5\t26.3\t27.0",
+              "gold_candidates": [
+                "kia-106-I029"
+              ],
+              "matched_gold": "kia-106-I029",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "6469acd2-cfa9-553f-abfd-bcfdecd25d01",
+              "page": 106,
+              "quote": "총 배출량(Scope 3)\t\t천tCO2eq\t72,975.5\t99,498.2\t99,395.2",
+              "gold_candidates": [
+                "kia-106-I012"
+              ],
+              "matched_gold": "kia-106-I012",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "36319019-3623-5ab7-93c0-51ab98631b59",
+              "page": 106,
+              "quote": "\t구매한 제품 및 서비스1\t천tCO2eq\t13,736.3\t17,176.3\t18,437.9",
+              "gold_candidates": [
+                "kia-106-I013"
+              ],
+              "matched_gold": "kia-106-I013",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "d0566a0e-e246-517e-895d-ba285b61be67",
+              "page": 106,
+              "quote": "\t자본재2\t천tCO2eq\t2.5\t1.9\t112.3",
+              "gold_candidates": [
+                "kia-106-I014"
+              ],
+              "matched_gold": "kia-106-I014",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "d0539538-c7b8-525e-93ea-48e148c9f103",
+              "page": 106,
+              "quote": "\tScope 1 & 2에 포함되지 않은 연료 및 에너지 관련 활동3\t천tCO2eq\t99.3\t185.8\t208.7",
+              "gold_candidates": [
+                "kia-106-I015"
+              ],
+              "matched_gold": "kia-106-I015",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "9e1f7d79-1220-5572-80a1-77e849aae5a8",
+              "page": 106,
+              "quote": "\t업스트림 운송 및 물류4\t천tCO2eq\t-\t35.0\t94.7",
+              "gold_candidates": [
+                "kia-106-I016"
+              ],
+              "matched_gold": "kia-106-I016",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "594323c9-74e3-5c26-8c46-79da855424ce",
+              "page": 106,
+              "quote": "\t운영과정에서 발생한 폐기물5\t천tCO2eq\t30.8\t60.9\t56.8",
+              "gold_candidates": [
+                "kia-106-I017"
+              ],
+              "matched_gold": "kia-106-I017",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "fb0df1d4-c91b-53f8-93a5-be9d0f9a7f5d",
+              "page": 106,
+              "quote": "\t출장6\t천tCO2eq\t5.1\t11.1\t23.5",
+              "gold_candidates": [
+                "kia-106-I018"
+              ],
+              "matched_gold": "kia-106-I018",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "71c88948-d05f-5db6-a57b-962898c24bde",
+              "page": 106,
+              "quote": "\t직원 통근7\t천tCO2eq\t277.6\t47.9\t57.8",
+              "gold_candidates": [
+                "kia-106-I019"
+              ],
+              "matched_gold": "kia-106-I019",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "c291077f-c3ac-525f-aa1b-4c147a757c86",
+              "page": 106,
+              "quote": "\t다운스트림 운송 및 물류8\t천tCO2eq\t1,153.6\t1,311.6\t1,188.5",
+              "gold_candidates": [
+                "kia-106-I020"
+              ],
+              "matched_gold": "kia-106-I020",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "e1536b6f-cc28-5c3a-be31-d50c037f2dfb",
+              "page": 106,
+              "quote": "\t판매된 제품의 사용9\t천tCO2eq\t57,390.0\t79,327.6\t77,804.5",
+              "gold_candidates": [
+                "kia-106-I021"
+              ],
+              "matched_gold": "kia-106-I021",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "15419128-06b1-5841-b35f-717c214ad4b9",
+              "page": 106,
+              "quote": "\t판매된 제품의 폐기10\t천tCO2eq\t189.0\t1,199.1\t1,267.6",
+              "gold_candidates": [
+                "kia-106-I022"
+              ],
+              "matched_gold": "kia-106-I022",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "8580e79e-a5a8-527d-b285-3e44c46b448e",
+              "page": 106,
+              "quote": "\t투자11\t천tCO2eq\t91.3\t136.4\t142.8",
+              "gold_candidates": [
+                "kia-106-I023"
+              ],
+              "matched_gold": "kia-106-I023",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "4c7d1c8b-b5c2-533a-b952-5b87bd7cbe96",
+              "page": 106,
+              "quote": "총 배출량(Scope1 & 2)1\t\t천tCO2eq\t1,166.9\t1,130.9\t1,178.5",
+              "gold_candidates": [
+                "kia-106-I001"
+              ],
+              "matched_gold": "kia-106-I001",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "daa5fb9b-cb82-597a-8781-7336d9c88982",
+              "page": 106,
+              "quote": "\t직접 배출량(Scope 1)\t천tCO2eq\t379.9\t353.9\t386.3",
+              "gold_candidates": [
+                "kia-106-I002"
+              ],
+              "matched_gold": "kia-106-I002",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "b27c444e-a0b6-5b00-b964-04bea7f06dd0",
+              "page": 106,
+              "quote": "\t국내\t천tCO2eq\t266.0\t244.6\t238.6",
+              "gold_candidates": [
+                "kia-106-I003"
+              ],
+              "matched_gold": "kia-106-I003",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "e97e8c45-c91c-5056-ae0a-0844c776ac02",
+              "page": 106,
+              "quote": "\t해외\t천tCO2eq\t113.9\t109.3\t147.7",
+              "gold_candidates": [
+                "kia-106-I004"
+              ],
+              "matched_gold": "kia-106-I004",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "2235093d-b096-53da-a3b9-5a8a3ea8222a",
+              "page": 106,
+              "quote": "\t간접 배출량(Scope 2)\t천tCO2eq\t786.9\t777.0\t792.2",
+              "gold_candidates": [
+                "kia-106-I005"
+              ],
+              "matched_gold": "kia-106-I005",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "4e08f01a-9878-5d6d-977d-f1ad4d3265b1",
+              "page": 106,
+              "quote": "\t국내\t천tCO2eq\t467.3\t454.4\t471.2",
+              "gold_candidates": [
+                "kia-106-I006"
+              ],
+              "matched_gold": "kia-106-I006",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "21246d39-6f01-5f47-a1e2-13b70fe7443c",
+              "page": 106,
+              "quote": "\t해외\t천tCO2eq\t319.6\t322.6\t321.0",
+              "gold_candidates": [
+                "kia-106-I007"
+              ],
+              "matched_gold": "kia-106-I007",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "81756041-cdee-5741-b39f-c1caf3db0835",
+              "page": 106,
+              "quote": "\t온실가스 배출량 집약도(Scope 1 & 2)\ttCO2eq/대\t0.44\t0.41\t0.43",
+              "gold_candidates": [
+                "kia-106-I008"
+              ],
+              "matched_gold": "kia-106-I008",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "84905429-47c1-568f-8877-c8e211d0c817",
+              "page": 106,
+              "quote": "\t국내\ttCO2eq/대\t0.58\t0.52\t0.55",
+              "gold_candidates": [
+                "kia-106-I009"
+              ],
+              "matched_gold": "kia-106-I009",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "ddf85f7c-bc38-556a-996e-b79b545f9fa6",
+              "page": 106,
+              "quote": "\t해외\ttCO2eq/대\t0.31\t0.30\t0.32",
+              "gold_candidates": [
+                "kia-106-I010"
+              ],
+              "matched_gold": "kia-106-I010",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "7d5091d5-4929-5672-a0a2-2823737da4e4",
+              "page": 130,
+              "quote": "기아의 주요 활동은 자동차 제조이며 온실가스 배출은 운영통제접근법을 사용하여 통합되었습니다.",
+              "gold_candidates": [
+                "kia-130-I008"
+              ],
+              "matched_gold": "kia-130-I008",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            }
+          ]
+        },
+        "after": {
+          "gold_denominator": 80,
+          "predictions": 40,
+          "one_to_one_matches": 38,
+          "strict_text_recall": 0.475,
+          "strict_text_precision": 0.95,
+          "missed_gold": [
+            "kia-26-I002",
+            "kia-26-I004",
+            "kia-26-I006",
+            "kia-26-I007",
+            "kia-26-I010",
+            "kia-26-I011",
+            "kia-26-I012",
+            "kia-28-I002",
+            "kia-28-I005",
+            "kia-28-I007",
+            "kia-28-I009",
+            "kia-28-I010",
+            "kia-28-I011",
+            "kia-28-I012",
+            "kia-28-I013",
+            "kia-28-I014",
+            "kia-28-I015",
+            "kia-28-I016",
+            "kia-106-I024",
+            "kia-106-I025",
+            "kia-106-I026",
+            "kia-106-I027",
+            "kia-106-I028",
+            "kia-106-I032",
+            "kia-106-I033",
+            "kia-106-I034",
+            "kia-130-I002",
+            "kia-130-I003",
+            "kia-130-I004",
+            "kia-130-I005",
+            "kia-130-I006",
+            "kia-130-I007",
+            "kia-130-I009",
+            "kia-130-I010",
+            "kia-130-I012",
+            "kia-130-I013",
+            "kia-130-I014",
+            "kia-130-I015",
+            "kia-130-I016",
+            "kia-130-I017",
+            "kia-130-I018",
+            "kia-130-I020"
+          ],
+          "unmatched_predictions": 2,
+          "unmatched_semantic_status": "undetermined; cannot treat incomplete draft gold / altered clause boundaries as proven false claims",
+          "records": [
+            {
+              "prediction_id": "b9c5f0d7-38b2-520f-a3ea-b778a5bf0b2f",
+              "page": 26,
+              "quote": "기아는 2022년 4월 영국의 비영리기구인 The Climate Group과 CDP 주도로 발족한 RE100 이니셔티브에 가입해 2040년까지 사업장 전력의 100% 재생에너지 전환을 선언했습니다.",
+              "gold_candidates": [
+                "kia-26-I001"
+              ],
+              "matched_gold": "kia-26-I001",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "5da1d869-270b-5f4a-8019-5323b5065b95",
+              "page": 26,
+              "quote": "단계적으로 2030년까지 해외 사업장의 재생에너지 전환을 우선적으로 완료하고, 2040년까지 전 사업장의 재생에너지 전환을 완료할 예정으로, 이는 RE100 이니셔티브가 권고하는 2050년 재생에너지 100% 전환보다 10년 앞선 목표입니다.",
+              "gold_candidates": [
+                "kia-26-I003",
+                "kia-26-I004"
+              ],
+              "matched_gold": "kia-26-I003",
+              "source_verified": null,
+              "merged_gold_span_candidate": true
+            },
+            {
+              "prediction_id": "2f8f3b27-3acd-5b2e-b165-604e7fec53eb",
+              "page": 26,
+              "quote": "국가별 에너지 정책과 재생에너지 시장 환경을 고려해 사업장별 RE100 이행 로드맵을 수립했으며, 탄소중립에 대한 진정성과 감축 효과성 등을 고려해 자체발전과 PPA(Power Purchase Agreement) 중심으로 RE100을 달성할 계획입니다.",
+              "gold_candidates": [
+                "kia-26-I005",
+                "kia-26-I006"
+              ],
+              "matched_gold": "kia-26-I005",
+              "source_verified": null,
+              "merged_gold_span_candidate": true
+            },
+            {
+              "prediction_id": "0500f6a1-d589-5314-ae0d-af9e82178170",
+              "page": 26,
+              "quote": "기아는 RE100 이행을 위해 친환경 에너지 확대가 중요하며, 이에 따른 대규모의 자본 투자가 필요한 점을 고려하여, 이를 체계적으로 추진하기 위한 4단계의 검토 프로세스를 수립했습니다.",
+              "gold_candidates": [],
+              "matched_gold": null,
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "d75c3bdd-dbd7-5167-81a2-fd665706746e",
+              "page": 26,
+              "quote": "또한, RE100 이행 과정에서 발생하는 재무적 영향의 중요성을 고려해, 실현 가능한 계획하에 RE100이 달성될 수 있도록 포트폴리오별 재무 분석을 진행하고 있습니다.",
+              "gold_candidates": [
+                "kia-26-I008"
+              ],
+              "matched_gold": "kia-26-I008",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "e86acf25-5411-5bdc-94b5-e489b066c06e",
+              "page": 28,
+              "quote": "개선방안\t비 생산 시간 대기전력 발생부 전력 원천 차단\t비 생산 시간 설비 1차 공급 에어 원천 차단\t압력센서 부하 감지에 따른 가변 운전\tDC 배전 및 전용 컨버터 적용으로 DC 부하에 직접 전력 공급 (DC → DC)\t설비별 압력조건 분석을 통해, 메인 압축공기 공급압 최적화 적용",
+              "gold_candidates": [],
+              "matched_gold": null,
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "71dd58b4-eebd-5004-94bb-8ac6f571f079",
+              "page": 28,
+              "quote": "(예상) 효과\t에너지 소비 절감 효과성 평가 결과 대기전력을 원천 차단해 휴지 시 소모전력 82% 절감\t비 생산시간 에어 원천 차단으로 압축공기 86% 절감\t에너지 소비 절감 효과성 평가 결과 모터 부하 연동 제어로 생산 시 소모전력 50% 이상 절감\t태양광 연계 시 전력 변환 및 장거리 배전 효율 향상으로 에너지 효율 20% 향상 예상\t공장 메인 압축공기 감압(6.7 → 5.5 bar)을 통해 전기에너지 56% 절감 예상",
+              "gold_candidates": [
+                "kia-28-I008",
+                "kia-28-I010",
+                "kia-28-I012",
+                "kia-28-I014",
+                "kia-28-I016"
+              ],
+              "matched_gold": "kia-28-I008",
+              "source_verified": null,
+              "merged_gold_span_candidate": true
+            },
+            {
+              "prediction_id": "3e726e01-2a7b-5555-b6a3-e315d3ff786c",
+              "page": 28,
+              "quote": "기아는 내부 탄소가격에 대한 가이드라인을 수립해 투자로 인해 발생이 예상되는 탄소비용을 내부 기준에 따라 체계적으로 산정하고 있습니다.",
+              "gold_candidates": [
+                "kia-28-I021"
+              ],
+              "matched_gold": "kia-28-I021",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "e82206de-0b98-5d7c-aad5-bfaa3926d309",
+              "page": 28,
+              "quote": "이를 공장 신설 및 증설, 설비 투자 등과 같은 대규모 투자 의사결정 시 참고지표로 활용하고 있습니다.",
+              "gold_candidates": [
+                "kia-28-I022"
+              ],
+              "matched_gold": "kia-28-I022",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "df8e7733-6649-54c7-9cf9-d8a85550c7e3",
+              "page": 28,
+              "quote": "이러한 외부 요구와 강화되는 탄소배출량 관련 규제에 체계적으로 대응하기 위해 기아는 제품, 사업장, 공급망의 탄소배출량을 통합 관리하는 글로벌 통합 탄소배출 정보 시스템(IGIS)을 개발했습니다.",
+              "gold_candidates": [
+                "kia-28-I018"
+              ],
+              "matched_gold": "kia-28-I018",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "0d357864-78cc-5ca6-b535-aab8a4fd47bc",
+              "page": 28,
+              "quote": "해당 시스템은 신뢰성 높은 탄소배출량 산정 결과를 제공해 각종 규제와 외부 이해관계자의 요구사항에 효과적으로 대응할 수 있을 것으로 기대되며, 이외에도 탄소저감 기술 개발 지원과 탄소중립에 관련된 일반적인 정보 제공 기능을 포함하고 있습니다.",
+              "gold_candidates": [
+                "kia-28-I019"
+              ],
+              "matched_gold": "kia-28-I019",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "eb717783-8772-5ad8-91ca-354d666dd713",
+              "page": 28,
+              "quote": "향후에는 시스템을 활용해 탄소배출량 정보를 지속적으로 업데이트할 예정이며, 변화하는 시장 상황을 반영할 수 있도록 시스템을 개선해 민첩한 대응이 가능하도록 할 계획입니다.",
+              "gold_candidates": [
+                "kia-28-I020"
+              ],
+              "matched_gold": "kia-28-I020",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "283b9584-0343-5a4a-9b76-602d20d197a7",
+              "page": 28,
+              "quote": "기아는 2030년까지 에너지 효율화를 통해 ‘2019년 국내외 공장 Scope 1 & 2 배출량의 10% 감축’이라는 중장기 목표를 수립하고, 공장별 추진전략을 구체화하고 있습니다.",
+              "gold_candidates": [
+                "kia-28-I001",
+                "kia-28-I002"
+              ],
+              "matched_gold": "kia-28-I001",
+              "source_verified": null,
+              "merged_gold_span_candidate": true
+            },
+            {
+              "prediction_id": "16b7db09-0c4d-521b-85a6-63d2ab018c5c",
+              "page": 28,
+              "quote": "기아가 보유한 에너지 효율화 테마들의 공장별 적용 가능 여부를 검토함과 동시에 적용 가능 개소를 파악함으로써, 연도별 추진계획과 탄소 감축 목표를 수립할 예정입니다.",
+              "gold_candidates": [
+                "kia-28-I003"
+              ],
+              "matched_gold": "kia-28-I003",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "228b7b36-5a73-5409-9c33-a968d03fd8e0",
+              "page": 28,
+              "quote": "또한, 에너지 절감 효과의 정확한 파악을 위해 표준화된 효과검증 프로세스의 도입을 검토하고 있으며, 향후 표준화된 측정기준을 통해 객관적인 투자효과를 검증할 예정입니다.",
+              "gold_candidates": [
+                "kia-28-I004",
+                "kia-28-I005"
+              ],
+              "matched_gold": "kia-28-I004",
+              "source_verified": null,
+              "merged_gold_span_candidate": true
+            },
+            {
+              "prediction_id": "96db2058-0f2a-50cf-98ab-238f7d0fc6f3",
+              "page": 106,
+              "quote": "1.2024년부터 기존 Scope 3 Category8로 분류되던 임차자산 배출량을 Scope 1 & 2로 포함하여 산정",
+              "gold_candidates": [
+                "kia-106-I011"
+              ],
+              "matched_gold": "kia-106-I011",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "e2b3e668-5837-587e-bbd1-1096cb7a2a8a",
+              "page": 106,
+              "quote": "친환경차 매출 비중\t%\t23.5\t26.3\t27.0",
+              "gold_candidates": [
+                "kia-106-I029"
+              ],
+              "matched_gold": "kia-106-I029",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "7d69dca6-c2a2-531c-8acc-0f53d1d17e4a",
+              "page": 106,
+              "quote": "총 배출량(Scope 3)\t\t천tCO2eq\t72,975.5\t99,498.2\t99,395.2",
+              "gold_candidates": [
+                "kia-106-I012"
+              ],
+              "matched_gold": "kia-106-I012",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "ec24da85-d76c-5df4-bfd4-abdf9ce6f828",
+              "page": 106,
+              "quote": "\t구매한 제품 및 서비스1\t천tCO2eq\t13,736.3\t17,176.3\t18,437.9",
+              "gold_candidates": [
+                "kia-106-I013"
+              ],
+              "matched_gold": "kia-106-I013",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "e287a324-3d5b-5938-9591-28cc97483872",
+              "page": 106,
+              "quote": "\t자본재2\t천tCO2eq\t2.5\t1.9\t112.3",
+              "gold_candidates": [
+                "kia-106-I014"
+              ],
+              "matched_gold": "kia-106-I014",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "dae4ae8e-4a29-5e86-bba0-42891f8aaa53",
+              "page": 106,
+              "quote": "\tScope 1 & 2에 포함되지 않은 연료 및 에너지 관련 활동3\t천tCO2eq\t99.3\t185.8\t208.7",
+              "gold_candidates": [
+                "kia-106-I015"
+              ],
+              "matched_gold": "kia-106-I015",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "0a76d1cf-527d-5066-83bf-06120c47cd24",
+              "page": 106,
+              "quote": "\t업스트림 운송 및 물류4\t천tCO2eq\t-\t35.0\t94.7",
+              "gold_candidates": [
+                "kia-106-I016"
+              ],
+              "matched_gold": "kia-106-I016",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "bb412857-da11-584a-b7f9-0876067324d5",
+              "page": 106,
+              "quote": "\t운영과정에서 발생한 폐기물5\t천tCO2eq\t30.8\t60.9\t56.8",
+              "gold_candidates": [
+                "kia-106-I017"
+              ],
+              "matched_gold": "kia-106-I017",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "829b449c-e3c4-563a-a942-c6d54999050e",
+              "page": 106,
+              "quote": "\t출장6\t천tCO2eq\t5.1\t11.1\t23.5",
+              "gold_candidates": [
+                "kia-106-I018"
+              ],
+              "matched_gold": "kia-106-I018",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "1d28ec67-c3a2-5b51-97e0-0e418011afac",
+              "page": 106,
+              "quote": "\t직원 통근7\t천tCO2eq\t277.6\t47.9\t57.8",
+              "gold_candidates": [
+                "kia-106-I019"
+              ],
+              "matched_gold": "kia-106-I019",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "b1fd81c2-fbaa-51a6-bcaa-f671757ff3a7",
+              "page": 106,
+              "quote": "\t다운스트림 운송 및 물류8\t천tCO2eq\t1,153.6\t1,311.6\t1,188.5",
+              "gold_candidates": [
+                "kia-106-I020"
+              ],
+              "matched_gold": "kia-106-I020",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "a7377f0a-ae2f-5adb-b35d-43894903c492",
+              "page": 106,
+              "quote": "\t판매된 제품의 사용9\t천tCO2eq\t57,390.0\t79,327.6\t77,804.5",
+              "gold_candidates": [
+                "kia-106-I021"
+              ],
+              "matched_gold": "kia-106-I021",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "abba0cc1-c88e-5ab9-9d38-ff58fb4e83f5",
+              "page": 106,
+              "quote": "\t판매된 제품의 폐기10\t천tCO2eq\t189.0\t1,199.1\t1,267.6",
+              "gold_candidates": [
+                "kia-106-I022"
+              ],
+              "matched_gold": "kia-106-I022",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "1cca9828-a961-55af-a5a8-c96a0ddd4822",
+              "page": 106,
+              "quote": "\t투자11\t천tCO2eq\t91.3\t136.4\t142.8",
+              "gold_candidates": [
+                "kia-106-I023"
+              ],
+              "matched_gold": "kia-106-I023",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "63ef24af-aa8a-5c11-9cf0-59ae28921238",
+              "page": 106,
+              "quote": "총 배출량(Scope1 & 2)1\t\t천tCO2eq\t1,166.9\t1,130.9\t1,178.5",
+              "gold_candidates": [
+                "kia-106-I001"
+              ],
+              "matched_gold": "kia-106-I001",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "6afae2d8-8f2f-5aae-9050-3671b0895888",
+              "page": 106,
+              "quote": "\t직접 배출량(Scope 1)\t천tCO2eq\t379.9\t353.9\t386.3",
+              "gold_candidates": [
+                "kia-106-I002"
+              ],
+              "matched_gold": "kia-106-I002",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "08ecfffe-792c-5d8a-a33d-5642557623ea",
+              "page": 106,
+              "quote": "\t국내\t천tCO2eq\t266.0\t244.6\t238.6",
+              "gold_candidates": [
+                "kia-106-I003"
+              ],
+              "matched_gold": "kia-106-I003",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "2f98540c-5a8f-5f00-bdef-9d95d14f27fe",
+              "page": 106,
+              "quote": "\t해외\t천tCO2eq\t113.9\t109.3\t147.7",
+              "gold_candidates": [
+                "kia-106-I004"
+              ],
+              "matched_gold": "kia-106-I004",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "9d024a5c-8f4e-5724-b644-20ae5fb04f0a",
+              "page": 106,
+              "quote": "\t간접 배출량(Scope 2)\t천tCO2eq\t786.9\t777.0\t792.2",
+              "gold_candidates": [
+                "kia-106-I005"
+              ],
+              "matched_gold": "kia-106-I005",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "9ec2456e-9b2a-572d-9d97-c521f30d1044",
+              "page": 106,
+              "quote": "\t국내\t천tCO2eq\t467.3\t454.4\t471.2",
+              "gold_candidates": [
+                "kia-106-I006"
+              ],
+              "matched_gold": "kia-106-I006",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "283ade17-7364-5293-89f7-492e302ea074",
+              "page": 106,
+              "quote": "\t해외\t천tCO2eq\t319.6\t322.6\t321.0",
+              "gold_candidates": [
+                "kia-106-I007"
+              ],
+              "matched_gold": "kia-106-I007",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "c8bbb9ad-1f62-58e2-90a6-bfe2a077f9c4",
+              "page": 106,
+              "quote": "\t온실가스 배출량 집약도(Scope 1 & 2)\ttCO2eq/대\t0.44\t0.41\t0.43",
+              "gold_candidates": [
+                "kia-106-I008"
+              ],
+              "matched_gold": "kia-106-I008",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "bf7f5f45-b8ff-567c-b91e-0c10efc9308d",
+              "page": 106,
+              "quote": "\t국내\ttCO2eq/대\t0.58\t0.52\t0.55",
+              "gold_candidates": [
+                "kia-106-I009"
+              ],
+              "matched_gold": "kia-106-I009",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "366ddd9b-e94a-5e35-ace5-27515854139b",
+              "page": 106,
+              "quote": "\t해외\ttCO2eq/대\t0.31\t0.30\t0.32",
+              "gold_candidates": [
+                "kia-106-I010"
+              ],
+              "matched_gold": "kia-106-I010",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            },
+            {
+              "prediction_id": "933591b8-39ba-56b4-b4b8-34fb008a3e65",
+              "page": 130,
+              "quote": "기아의 주요 활동은 자동차 제조이며 온실가스 배출은 운영통제접근법을 사용하여 통합되었습니다.",
+              "gold_candidates": [
+                "kia-130-I008"
+              ],
+              "matched_gold": "kia-130-I008",
+              "source_verified": null,
+              "merged_gold_span_candidate": false
+            }
+          ]
+        }
+      },
+      "retained_raw_replay": 27,
+      "run_id": "e14e932f-9e0c-4327-b083-07476243a082"
+    }
+  },
+  "provider_calls": 0,
+  "paid_usd": "0",
+  "limitations": [
+    "Strict textual proxy, not semantic/model accuracy",
+    "LG gold absent",
+    "New tagging and grades not_run; HX1 model-call regression outside W7"
+  ]
+}

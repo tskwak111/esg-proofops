@@ -531,6 +531,7 @@ def _profile_with_options(
     extraction_pb1: bool = False,
     extraction_pb1_context_guard: bool = False,
     extraction_w9: bool = False,
+    extraction_sentence_prefix: bool = False,
 ) -> ExtractionProfile:
     """Versioned extraction profile for an explicit option combination.
 
@@ -571,6 +572,7 @@ def _profile_with_options(
             extraction_fragment_guard,
             extraction_table_rows,
             extraction_recall_prompt,
+            extraction_sentence_prefix,
         )
     ):
         raise ValueError("UPSTAGE_PROFILE_OPTION_INVALID")
@@ -580,6 +582,10 @@ def _profile_with_options(
         raise ValueError("UPSTAGE_PROFILE_OPTION_INVALID")
     if extraction_atomic and not source_ids:
         raise ValueError("UPSTAGE_PROFILE_OPTION_INVALID")
+    if extraction_sentence_prefix and (
+        not extraction_linewrap_join or extraction_atomic or not extraction_context
+    ):
+        raise ValueError("UPSTAGE_EXTRACTION_SENTENCE_PREFIX_INVALID")
     if extraction_linewrap_join and (not source_ids or extraction_atomic):
         raise ValueError("UPSTAGE_EXTRACTION_LINEWRAP_JOIN_INVALID")
     if extraction_fragment_guard and not extraction_linewrap_join:
@@ -602,6 +608,10 @@ def _profile_with_options(
     if display_text_profile not in (None, PROFILE):
         raise ValueError("DISPLAY_PROFILE_INVALID")
     descriptor: list[Any] = [*_RULE_DESCRIPTOR]
+    if extraction_sentence_prefix:
+        from proofops.application.ingest.sentence_prefix import POLICY as PREFIX_POLICY
+
+        descriptor.append(PREFIX_POLICY)
     if extraction_linewrap_join:
         descriptor.append(LINEWRAP_JOIN_POLICY)
     if extraction_fragment_guard:
@@ -725,6 +735,7 @@ class UpstageClaimExtractor:
         extraction_pb1: bool = False,
         extraction_pb1_context_guard: bool = False,
         extraction_w9: bool = False,
+        extraction_sentence_prefix: bool = False,
     ) -> None:
         if not callable(getattr(probe, "complete", None)):
             raise ValueError("UPSTAGE_PROBE_REQUIRED")
@@ -779,6 +790,7 @@ class UpstageClaimExtractor:
             extraction_pb1=extraction_pb1,
             extraction_pb1_context_guard=extraction_pb1_context_guard,
             extraction_w9=extraction_w9,
+            extraction_sentence_prefix=extraction_sentence_prefix,
         )
         if type(max_tokens) is not int or not 1 <= max_tokens <= 4096:
             raise ValueError("UPSTAGE_MAX_TOKENS_INVALID")
@@ -794,6 +806,7 @@ class UpstageClaimExtractor:
             extraction_pb1_context_guard and not extraction_pb1
         ):
             raise ValueError("EXTRACTION_PB1_CONTEXT_GUARD_INVALID")
+        self._sentence_prefix = extraction_sentence_prefix
         self._pb1_context_guard = extraction_pb1_context_guard
         self._pb1 = extraction_pb1
         self._w9 = extraction_w9
@@ -1405,6 +1418,18 @@ class UpstageClaimExtractor:
                 text,
                 source_id,
                 index=atomic_index,
+                paragraph_kind=(
+                    "derived_paragraph"
+                    if self._sentence_prefix
+                    and context_graph is not None
+                    and any(
+                        e.source_id == source_id and e.relation == "derived_from"
+                        for e in context_graph.edges
+                    )
+                    else packet["untrusted_document_data"]["kind"]
+                    if packet
+                    else None
+                ),
                 join_lines=(
                     self._linewrap_join
                     and packet is not None
@@ -1462,7 +1487,14 @@ class UpstageClaimExtractor:
         }
 
     def _resolve_sentence_ids(
-        self, payload: Any, text: str, source_id: str, *, index=None, join_lines=False
+        self,
+        payload: Any,
+        text: str,
+        source_id: str,
+        *,
+        index=None,
+        join_lines=False,
+        paragraph_kind=None,
     ) -> tuple[tuple, dict[str, Any]]:
         """Restore exact source spans for selected sentence ids; reject everything else."""
         if (
@@ -1516,12 +1548,21 @@ class UpstageClaimExtractor:
                 span_dicts.append(span)
         if selected and not span_dicts:
             raise ValueError("no usable selected sentences")
+        prefix_records = []
+        if self._sentence_prefix and join_lines:
+            from proofops.application.ingest.sentence_prefix import expand_sentence_prefixes
+
+            span_dicts, prefix_records = expand_sentence_prefixes(
+                span_dicts, text, kind=paragraph_kind
+            )
+            self._validate_spans({"spans": span_dicts}, text)
         if join_lines:
             span_dicts = join_selected_linewraps(
                 span_dicts, text, fragment_guard="pb1-v1" if self._pb1 else self._fragment_guard
             )
         return self._validate_spans({"spans": span_dicts}, text), {
-            "rejected_sentence_ids": rejected_sentence_ids
+            "rejected_sentence_ids": rejected_sentence_ids,
+            **({"sentence_prefix": prefix_records} if self._sentence_prefix else {}),
         }
 
     @staticmethod

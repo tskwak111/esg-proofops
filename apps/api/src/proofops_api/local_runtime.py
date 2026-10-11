@@ -35,6 +35,7 @@ _SETTINGS_FIELDS = frozenset(
         "extraction_atomic",
         "extraction_linewrap_join",
         "extraction_fragment_guard",
+        "extraction_sentence_prefix",
         "extraction_pb1",
         "extraction_w9",
         "extraction_pb1_context_guard",
@@ -354,6 +355,7 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         "extraction_atomic",
         "extraction_linewrap_join",
         "extraction_fragment_guard",
+        "extraction_sentence_prefix",
         "extraction_pb1",
         "extraction_w9",
         "extraction_pb1_context_guard",
@@ -377,6 +379,12 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
             or settings.get("extraction_atomic") is True
         ):
             raise _invalid()
+    if "extraction_sentence_prefix" in settings and (
+        settings.get("extraction_context") is not True
+        or settings.get("extraction_linewrap_join") is not True
+        or settings.get("extraction_atomic") is True
+    ):
+        raise _invalid()
     if "extraction_atomic" in settings and settings.get("extraction_source_ids") is not True:
         raise _invalid()
     if "extraction_linewrap_join" in settings and (

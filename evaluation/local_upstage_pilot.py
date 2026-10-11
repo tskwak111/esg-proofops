@@ -719,6 +719,7 @@ def apply_resume_metadata(args, saved: dict) -> None:
     args.extraction_atomic = bool(saved.get("extraction_atomic", False))
     args.extraction_linewrap_join = bool(saved.get("extraction_linewrap_join", False))
     args.extraction_fragment_guard = bool(saved.get("extraction_fragment_guard", False))
+    args.extraction_sentence_prefix = bool(saved.get("extraction_sentence_prefix", False))
     args.extraction_pb1 = bool(saved.get("extraction_pb1", False))
     args.extraction_w9 = bool(saved.get("extraction_w9", False))
     args.extraction_pb1_context_guard = bool(saved.get("extraction_pb1_context_guard", False))
@@ -877,6 +878,7 @@ def main():
         default=None,
         help="NEW run parser artifact cap (default 20000000; max 128 MiB).",
     )
+    parser.add_argument("--extraction-sentence-prefix", action="store_true")
     parser.add_argument("--extraction-pb1", action="store_true")
     parser.add_argument("--extraction-w9", action="store_true")
     parser.add_argument("--extraction-pb1-context-guard", action="store_true")
@@ -1275,6 +1277,7 @@ def main():
         requested_rows = args.extraction_table_rows
         requested_recall = args.extraction_recall_prompt
         requested_atomic = args.extraction_atomic
+        requested_sentence_prefix = args.extraction_sentence_prefix
         requested_linewrap_join = args.extraction_linewrap_join
         requested_source_ids = args.extraction_source_ids
         requested_assertion_prompt = args.extraction_assertion_prompt
@@ -1310,6 +1313,8 @@ def main():
             parser.error("--resume cannot add extraction recall prompt; create a new run")
         if requested_atomic and not args.extraction_atomic:
             parser.error("--resume cannot add extraction atomic; create a new run")
+        if requested_sentence_prefix and not args.extraction_sentence_prefix:
+            parser.error("--resume cannot add extraction sentence prefix; create a new run")
         if requested_linewrap_join and not args.extraction_linewrap_join:
             parser.error("--resume cannot add extraction linewrap join; create a new run")
         if requested_source_ids and not args.extraction_source_ids:
@@ -1423,6 +1428,13 @@ def main():
         parser.error("row/recall profiles cannot mix with --extraction-atomic")
     if args.extraction_atomic and not args.extraction_source_ids:
         parser.error("--extraction-atomic requires --extraction-source-ids")
+    if args.extraction_sentence_prefix and (
+        not args.extraction_context or not args.extraction_linewrap_join or args.extraction_atomic
+    ):
+        parser.error(
+            "--extraction-sentence-prefix requires --extraction-context and "
+            "--extraction-linewrap-join without atomic"
+        )
     if args.extraction_linewrap_join and (not args.extraction_source_ids or args.extraction_atomic):
         parser.error(
             "--extraction-linewrap-join requires --extraction-source-ids and no atomic mode"
@@ -1558,6 +1570,7 @@ def main():
                     extraction_atomic=args.extraction_atomic,
                     extraction_linewrap_join=args.extraction_linewrap_join,
                     extraction_fragment_guard=args.extraction_fragment_guard,
+                    extraction_sentence_prefix=args.extraction_sentence_prefix,
                     extraction_pb1=args.extraction_pb1,
                     extraction_w9=args.extraction_w9,
                     extraction_pb1_context_guard=args.extraction_pb1_context_guard,
@@ -1615,6 +1628,8 @@ def main():
             settings["extraction_atomic"] = True
         if args.extraction_linewrap_join:
             settings["extraction_linewrap_join"] = True
+        if args.extraction_sentence_prefix:
+            settings["extraction_sentence_prefix"] = True
         if args.extraction_pb1_context_guard:
             settings["extraction_pb1_context_guard"] = True
         if args.extraction_w9:
@@ -2108,6 +2123,8 @@ def main():
             manifest["extraction_content_bounds"] = True
         if args.extraction_linewrap_join:
             manifest["extraction_linewrap_join"] = True
+        if args.extraction_sentence_prefix:
+            manifest["extraction_sentence_prefix"] = True
         if args.extraction_pb1_context_guard:
             manifest["extraction_pb1_context_guard"] = True
         if args.extraction_w9:
@@ -2209,6 +2226,7 @@ def main():
                 "pilot extraction table context policy changed; create a new state directory"
             )
         for name in (
+            "extraction_sentence_prefix",
             "extraction_table_rows",
             "extraction_recall_prompt",
             "extraction_fragment_guard",

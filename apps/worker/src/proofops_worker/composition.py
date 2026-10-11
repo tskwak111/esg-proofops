@@ -315,6 +315,9 @@ def build_composition(
                         extraction_atomic=atomic_opt_in,
                         extraction_linewrap_join=linewrap_join,
                         extraction_fragment_guard=fragment_guard,
+                        extraction_sentence_prefix=settings.get(
+                            "extraction_sentence_prefix", False
+                        ),
                         extraction_pb1=settings.get("extraction_pb1", False),
                         extraction_w9=settings.get("extraction_w9", False),
                         extraction_pb1_context_guard=settings.get(
@@ -342,6 +345,7 @@ def build_composition(
                     extraction_atomic=atomic_opt_in,
                     extraction_linewrap_join=linewrap_join,
                     extraction_fragment_guard=fragment_guard,
+                    extraction_sentence_prefix=settings.get("extraction_sentence_prefix", False),
                     extraction_pb1=settings.get("extraction_pb1", False),
                     extraction_w9=settings.get("extraction_w9", False),
                     extraction_pb1_context_guard=settings.get(
