@@ -4,7 +4,7 @@ from collections import deque
 from contextlib import contextmanager
 
 from proofops.adapters.local.provider_concurrency import ProviderCircuitOpen, ProviderConcurrency
-from proofops.application.provider_resilience import SCHEDULER_POLICY
+from proofops.application.provider_resilience import SCHEDULER_C24_POLICY, SCHEDULER_POLICY
 
 
 class ProviderAdmissionDeferred(ValueError):
@@ -15,12 +15,19 @@ class ProviderAdmissionDeferred(ValueError):
 
 
 class RoleProviderConcurrency(ProviderConcurrency):
-    def __init__(self, workers, *, requests_per_second=4, **kwargs):
+    def __init__(self, workers, *, requests_per_second=4, scheduler_policy=None, **kwargs):
+        self.policy = SCHEDULER_C24_POLICY if scheduler_policy is None else scheduler_policy
+        if self.policy not in (SCHEDULER_POLICY, SCHEDULER_C24_POLICY):
+            raise ValueError("PROVIDER_SCHEDULER_POLICY_MISMATCH")
         super().__init__(workers, **kwargs)
-        if type(requests_per_second) is not int or not 1 <= requests_per_second <= 8:
+        if workers > self.policy["max_workers"]:
+            raise ValueError("PROVIDER_CONCURRENCY_INVALID")
+        if type(requests_per_second) is not int or not (
+            1 <= requests_per_second <= self.policy["max_rps"]
+        ):
             raise ValueError("HOSTED_LLM_RPS_INVALID")
         self.requests_per_second = requests_per_second
-        self.queues = {role: deque() for role in SCHEDULER_POLICY["roles"]}
+        self.queues = {role: deque() for role in self.policy["roles"]}
         self.physical_attempts = 0
         self.attempt_admissions = 0
         self.transport_not_before = 0.0
@@ -42,7 +49,7 @@ class RoleProviderConcurrency(ProviderConcurrency):
         if not heads:
             return None
         oldest = min(heads, key=lambda item: (item["queued"], item["sequence"]))
-        return oldest if oldest["bypass"] >= SCHEDULER_POLICY["max_priority_bypass"] else heads[0]
+        return oldest if oldest["bypass"] >= self.policy["max_priority_bypass"] else heads[0]
 
     def dequeue(self, ticket):
         self.queues[ticket["role"]].remove(ticket)
@@ -162,7 +169,7 @@ class RoleProviderConcurrency(ProviderConcurrency):
     def snapshot(self):
         with self.condition:
             return super().snapshot() | dict(
-                scheduler=SCHEDULER_POLICY["profile"],
+                scheduler=self.policy["profile"],
                 requests_per_second=self.requests_per_second,
                 physical_attempts=self.physical_attempts,
                 attempt_admissions=self.attempt_admissions,

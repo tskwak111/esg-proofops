@@ -24,6 +24,10 @@ SCHEDULER_POLICY = dict(
     default_rps=4,
     max_rps=8,
 )
+# New execution ceiling only; S5 remains byte-identical for historical replay.
+SCHEDULER_C24_POLICY = SCHEDULER_POLICY | dict(
+    profile="physical-attempt-role-queues-c24-v1", max_workers=24, max_rps=12
+)
 ISOLATED_CODES = frozenset({"PROVIDER_PROCESSING_FAILED", "PROVIDER_CIRCUIT_OPEN"})
 RESPONSE_ERROR_DIAGNOSTIC_POLICY = dict(
     profile="openai-response-uncertainty-f1-v1",

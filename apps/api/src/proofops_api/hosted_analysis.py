@@ -85,12 +85,16 @@ def operator_profiles(config: dict) -> dict:
             "default_workers", policy["max_http_workers"] if policy.get("tagging_budget") else 8
         ),
     )
-    if type(workers) is not int or not 1 <= workers <= 16:
+    # Pre-scheduler F1/T1 pins retain their original accept-then-clamp behavior.
+    max_workers = policy["max_http_workers"] if policy.get("provider_scheduler") else 16
+    if type(workers) is not int or not 1 <= workers <= max_workers:
         raise ValueError("HOSTED_LLM_CONCURRENCY_INVALID")
     if policy.get("openai_retry_policy") == T1_RETRY_POLICY:
         workers = min(workers, policy["max_http_workers"])
     rps = config.get("llm_requests_per_second", 4)
-    if type(rps) is not int or not 1 <= rps <= 8:
+    if type(rps) is not int or not 1 <= rps <= policy.get("provider_scheduler", {}).get(
+        "max_rps", 8
+    ):
         raise ValueError("HOSTED_LLM_RPS_INVALID")
     if "llm_requests_per_second" in config and not policy.get("provider_scheduler"):
         raise ValueError("PROVIDER_SCHEDULER_POLICY_REQUIRED")

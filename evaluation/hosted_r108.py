@@ -349,6 +349,7 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
 
             gate_type = RoleProviderConcurrency
             gate_options["requests_per_second"] = profiles["llm_requests_per_second"]
+            gate_options["scheduler_policy"] = execution["provider_scheduler"]
         provider_gate = gate_type(
             profiles["llm_max_workers"],
             **gate_options,

@@ -53,7 +53,7 @@ def build_composition(
         max_workers = int(os.environ.get("LOCAL_LLM_MAX_WORKERS", "8"))
     except ValueError:
         raise ValueError("LOCAL_LLM_CONFIGURATION_INVALID") from None
-    if not 1 <= max_workers <= 16:
+    if not 1 <= max_workers <= 24:
         raise ValueError("LOCAL_LLM_CONFIGURATION_INVALID")
     if stage == "tag" and os.environ.get("LOCAL_TAGGING_MODE") not in {
         None,

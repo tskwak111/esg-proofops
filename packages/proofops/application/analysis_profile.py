@@ -13,6 +13,7 @@ from proofops.application.openai_retry import POLICY as T1_RETRY_POLICY
 from proofops.application.provider_resilience import POLICY as F1_RESILIENCE_POLICY
 from proofops.application.provider_resilience import (
     RESPONSE_ERROR_DIAGNOSTIC_POLICY,
+    SCHEDULER_C24_POLICY,
     SCHEDULER_POLICY,
 )
 from proofops.application.tagging.dec24 import (
@@ -594,7 +595,13 @@ FINALS_I9_POLICY = (
     }
     | dict(integration_profile="finals-20261012-v9")
 )
-V2_POLICY = FINALS_I9_POLICY
+FINALS_C24_POLICY = FINALS_I9_POLICY | dict(
+    integration_profile="finals-20261012-v10",
+    max_http_workers=24,
+    provider_scheduler=SCHEDULER_C24_POLICY,
+    http_dispatch_guard=SCHEDULER_C24_POLICY["profile"],
+)
+V2_POLICY = FINALS_C24_POLICY
 
 
 def policy_for(profile, *, pinned_hash=None):
@@ -609,6 +616,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_I9_POLICY,
             FINALS_I8_POLICY,
             FINALS_I7_POLICY,
             FINALS_K9_POLICY,
@@ -690,6 +698,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FINALS_I9_POLICY,
             FINALS_I8_POLICY,
             FINALS_I7_POLICY,
             FINALS_K9_POLICY,

@@ -24,7 +24,7 @@ class ProviderConcurrency:
         max_cooldown_seconds=30,
         resilience_directory=None,
     ):
-        if type(workers) is not int or not 1 <= workers <= 16:
+        if type(workers) is not int or not 1 <= workers <= 24:
             raise ValueError("PROVIDER_CONCURRENCY_INVALID")
         self.limit = workers
         self.clock = clock

@@ -470,7 +470,7 @@ def tag_replicates(
         user_data["pipeline_profile"] = pipeline_profile
     namespace = CacheNamespace(tenant_id, consent_profile, claim.document_version_id, "tagger")
     synthetic = settings.binding.synthetic or bool(data["synthetic"])
-    if type(max_workers) is not int or not 1 <= max_workers <= 16:
+    if type(max_workers) is not int or not 1 <= max_workers <= 24:
         raise ValueError("TAGGING_CONCURRENCY_INVALID")
 
     def run_one(replica):

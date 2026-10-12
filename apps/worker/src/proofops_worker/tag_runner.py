@@ -182,7 +182,7 @@ class LocalTagRunner:
             raise ValueError("local tagging requires local storage")
         if transport is not None and getattr(transport, "synthetic", None) is not True:
             raise ValueError("explicit synthetic transport required")
-        if type(max_workers) is not int or not 1 <= max_workers <= 16:
+        if type(max_workers) is not int or not 1 <= max_workers <= 24:
             raise ValueError("TAGGING_CONCURRENCY_INVALID")
         self.store, self.uploads, self.parser = store, uploads, parser
         self.telemetry, self.transport, self.preliminary, self.clock = (

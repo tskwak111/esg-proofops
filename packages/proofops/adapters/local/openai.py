@@ -173,14 +173,21 @@ class OpenAIProbe(OpenRouterProbe):
             if policy["provider_resilience"] != resilience:
                 raise ValueError("PROVIDER_RESILIENCE_POLICY_MISMATCH")
             self.provider_resilience = resilience
-            from proofops.application.provider_resilience import SCHEDULER_POLICY
+            from proofops.application.provider_resilience import (
+                SCHEDULER_C24_POLICY,
+                SCHEDULER_POLICY,
+            )
 
-            if "provider_scheduler" in policy and policy["provider_scheduler"] != SCHEDULER_POLICY:
+            if "provider_scheduler" in policy and policy["provider_scheduler"] not in (
+                SCHEDULER_POLICY,
+                SCHEDULER_C24_POLICY,
+            ):
                 raise ValueError("PROVIDER_SCHEDULER_POLICY_MISMATCH")
             self.provider_scheduler = policy.get("provider_scheduler")
             self.http_dispatch_guard = policy.get("http_dispatch_guard") in (
                 "physical-attempt-paced4-denial3-f1-v2",
                 SCHEDULER_POLICY["profile"],
+                SCHEDULER_C24_POLICY["profile"],
             )
             if "response_uncertainty_policy" in policy:
                 from proofops.application.provider_resilience import (

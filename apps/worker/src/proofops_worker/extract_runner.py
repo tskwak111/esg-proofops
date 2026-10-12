@@ -422,7 +422,7 @@ class LocalExtractRunner:
     ):
         if not uploads.local_synthetic:
             raise ValueError("local extraction requires local storage")
-        if type(max_workers) is not int or not 1 <= max_workers <= 16:
+        if type(max_workers) is not int or not 1 <= max_workers <= 24:
             raise ValueError("EXTRACTION_CONCURRENCY_INVALID")
         self.store, self.uploads, self.parser = store, uploads, parser
         self.extractor, self.telemetry, self.clock = extractor, telemetry, clock

@@ -15,8 +15,10 @@ def test_v9_operator_controls_apply_to_the_current_default():
     assert (default["llm_max_workers"], default["llm_requests_per_second"]) == (8, 4)
 
 
-def test_v9_default_composes_v8_s4_s5_without_domain_changes():
-    policy = profiles.policy_for(profiles.V2_PROFILE)
+def test_v9_pin_composes_v8_s4_s5_without_domain_changes():
+    policy = profiles.policy_for(
+        profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_I9_POLICY)
+    )
     assert policy["integration_profile"] == "finals-20261012-v9"
     expected = (
         profiles.FINALS_I8_POLICY
