@@ -1,7 +1,8 @@
 # S5 실행 설정 계약
 
 새 정책은 `FINALS_S5_POLICY`의 hash를 `analysis_policy_sha256`으로 명시해 선택한다.
-기존 기본 `FINALS_I7_POLICY`와 모든 과거 hash/reader는 그대로 유지한다.
+I9의 새 기본 `FINALS_I9_POLICY`(v9)는 v8 태깅에 S4 캐시·게시와 S5 실행 설정을 통합한다.
+`FINALS_I7_POLICY`·`FINALS_I8_POLICY`와 모든 과거 hash/reader는 그대로 유지한다.
 `live.json`의 `llm_max_workers`(1–16, 기본8), `llm_requests_per_second`(정수1–8,
 기본4)는 새 실행 접수 시 private run options에 해시와 함께 고정한다.
 대기 중 live 설정을 바꿔도 접수된 S5 실행의 값은 바뀌지 않는다.
