@@ -202,3 +202,19 @@ def test_malformed_child_packet_uses_original_replay(state, content):
     packet = json.loads(handoff.make_handoff(path, job, [13]))
     packet["content"] = content
     assert handoff.reuse_handoff(json.dumps(packet).encode(), path, job, [13]) is None
+
+
+def test_real_blob_checkpoints_are_pinned_without_deserialization(state):
+    path, job, _, _ = state
+    with sqlite3.connect(path / "state.sqlite3") as db:
+        db.execute("CREATE TABLE job_records (kind TEXT, record_id TEXT, value BLOB)")
+        db.execute(
+            "INSERT INTO job_records VALUES ('artifact','checkpoint',?)",
+            (b"original checkpoint bytes",),
+        )
+    packet = handoff.make_handoff(path, job, [13])
+    assert packet is not None
+    assert handoff.reuse_handoff(packet, path, job, [13]) is not None
+    with sqlite3.connect(path / "state.sqlite3") as db:
+        db.execute("UPDATE job_records SET value=?", (b"changed checkpoint bytes",))
+    assert handoff.reuse_handoff(packet, path, job, [13]) is None

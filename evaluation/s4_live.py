@@ -2,8 +2,10 @@
 
 import json
 import os
+import re
 import sys
 import time
+import traceback
 from decimal import Decimal
 from pathlib import Path
 
@@ -35,7 +37,28 @@ def main():
             out.parent / "paid-calls.jsonl",
         )
         fence.task, fence.limit_usd = "S4-v13cache", Decimal(".40")
-        return fence.guarded(original, "openai", lambda *a: Decimal(".02"))(probe, *args, **kwargs)
+        try:
+            return fence.guarded(original, "openai", lambda *a: Decimal(".02"))(
+                probe, *args, **kwargs
+            )
+        except Exception as error:
+            code = str(error)
+            safe = code if re.fullmatch(r"[A-Z][A-Z0-9_]+", code) else None
+            with (out.parent / "live-errors.jsonl").open("a") as log:
+                log.write(
+                    json.dumps(
+                        dict(
+                            type=type(error).__name__,
+                            code=safe,
+                            frames=[
+                                dict(file=Path(frame.filename).name, line=frame.lineno)
+                                for frame in traceback.extract_tb(error.__traceback__)
+                            ],
+                        )
+                    )
+                    + "\n"
+                )
+            raise
 
     OpenAIProbe.complete = guarded
     sys.argv = [

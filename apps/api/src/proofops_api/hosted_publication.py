@@ -91,10 +91,21 @@ def _authoritative_state(path):
     # Result reads may populate only derived evidence-search caches. Pin all
     # durable run/checkpoint/tag/review records around the actual verification.
     digest = hashlib.sha256()
+
+    def row_hash(row):
+        return canonical_hash(
+            [
+                dict(sqlite_type="blob", sha256=hashlib.sha256(value).hexdigest())
+                if isinstance(value, bytes)
+                else value
+                for value in row
+            ]
+        ).encode()
+
     with sqlite3.connect((path / "state.sqlite3").resolve().as_uri() + "?mode=ro", uri=True) as db:
         db.execute("BEGIN")
         for row in db.execute("SELECT run_id,payload FROM run_snapshots ORDER BY run_id"):
-            digest.update(canonical_hash(row).encode())
+            digest.update(row_hash(row))
         digest.update(b"job_records")
         if db.execute("SELECT 1 FROM sqlite_master WHERE name='job_records'").fetchone():
             for row in db.execute(
@@ -102,7 +113,7 @@ def _authoritative_state(path):
                 "WHERE kind NOT IN ('document_evidence_search','element_evidence_search') "
                 "ORDER BY kind,record_id"
             ):
-                digest.update(canonical_hash(row).encode())
+                digest.update(row_hash(row))
     return digest.hexdigest()
 
 
