@@ -29,7 +29,9 @@ def state(tmp_path, monkeypatch):
             (local_run, json.dumps(dict(analysis_profile_policy=S4_POLICY))),
         )
     calls = []
-    content = json.dumps(dict(tenant_id=tenant, page_map=[13], result={"hold": "unknown"})).encode()
+    content = json.dumps(
+        dict(tenant_id=tenant, page_map=[13], source_hashes={}, result={"hold": "unknown"})
+    ).encode()
     monkeypatch.setattr(
         "proofops_api.hosted_results.result_snapshot", lambda *a: calls.append(1) or content
     )
@@ -171,3 +173,32 @@ def test_publisher_uses_handoff_and_preserves_immutable_revision(state, monkeypa
         with pytest.raises(sqlite3.IntegrityError):
             db.execute("UPDATE result_snapshots SET sha256='tampered'")
     assert store.get_run(auth.tenant_id, job["run_id"])["status"] == "partial_blocked"
+
+
+@pytest.mark.parametrize("changed", ["receipt", "source", "snapshot"])
+def test_mutation_during_child_verification_cannot_be_byte_pinned(state, monkeypatch, changed):
+    path, job, _, content = state
+
+    def raced(*args):
+        if changed == "snapshot":
+            with sqlite3.connect(path / "state.sqlite3") as db:
+                db.execute("UPDATE run_snapshots SET payload='{}'")
+        else:
+            file = (
+                path / "receipt.json"
+                if changed == "receipt"
+                else next((path / "objects").rglob("*.pdf"))
+            )
+            file.write_bytes(b"changed during verification")
+        return content
+
+    monkeypatch.setattr("proofops_api.hosted_results.result_snapshot", raced)
+    assert handoff.make_handoff(path, job, [13]) is None
+
+
+@pytest.mark.parametrize("content", [None, 42, []])
+def test_malformed_child_packet_uses_original_replay(state, content):
+    path, job, _, _ = state
+    packet = json.loads(handoff.make_handoff(path, job, [13]))
+    packet["content"] = content
+    assert handoff.reuse_handoff(json.dumps(packet).encode(), path, job, [13]) is None

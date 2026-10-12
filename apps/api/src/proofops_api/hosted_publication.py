@@ -87,18 +87,55 @@ def _pins(path):
     return pins
 
 
+def _authoritative_state(path):
+    # Result reads may populate only derived evidence-search caches. Pin all
+    # durable run/checkpoint/tag/review records around the actual verification.
+    with sqlite3.connect((path / "state.sqlite3").resolve().as_uri() + "?mode=ro", uri=True) as db:
+        snapshots = db.execute(
+            "SELECT run_id,payload FROM run_snapshots ORDER BY run_id"
+        ).fetchall()
+        records = []
+        if db.execute("SELECT 1 FROM sqlite_master WHERE name='job_records'").fetchone():
+            records = db.execute(
+                "SELECT kind,record_id,value FROM job_records "
+                "WHERE kind NOT IN ('document_evidence_search','element_evidence_search') "
+                "ORDER BY kind,record_id"
+            ).fetchall()
+    return canonical_hash(dict(snapshots=snapshots, records=records))
+
+
 def make_handoff(path, job, pages):
     """Called inside the trusted child, after durable analysis and before exit."""
     from proofops_api.hosted_results import result_snapshot
 
     try:
         context = _context(path, job, pages)
-        _pins(path)  # Reject symlinks before any read through the result services.
+        before = _pins(path)  # Reject symlinks before any source read.
+        durable = _authoritative_state(path)
         content = result_snapshot(path, job["tenant_id"], pages)
+        after = _pins(path)
+
+        # SQLite readers can add derived searches, but source/graph/receipt
+        # files and every authoritative record must remain byte-identical.
+        def without_db(pins):
+            return {
+                k: v
+                for k, v in pins.items()
+                if k not in {"state.sqlite3", "state.sqlite3-wal", "state.sqlite3-shm"}
+            }
+
+        snapshot = json.loads(content)
+        if (
+            without_db(before) != without_db(after)
+            or durable != _authoritative_state(path)
+            or context != _context(path, job, pages)
+            or any(after.get(k) != v for k, v in snapshot["source_hashes"].items())
+        ):
+            return None
         packet = json.dumps(
             dict(
                 context=context,
-                pins=_pins(path),
+                pins=after,
                 content=content.decode(),
                 content_sha256=hashlib.sha256(content).hexdigest(),
             ),
@@ -107,7 +144,7 @@ def make_handoff(path, job, pages):
             ensure_ascii=False,
         ).encode()
         return packet if len(packet) <= MAX_BYTES else None
-    except (OSError, ValueError, KeyError, TypeError, IndexError, sqlite3.Error):
+    except (OSError, ValueError, KeyError, TypeError, IndexError, AttributeError, sqlite3.Error):
         return None  # The parent retains the original guarded cold replay.
 
 
@@ -126,5 +163,5 @@ def reuse_handoff(packet, path, job, pages):
         if snapshot["tenant_id"] != job["tenant_id"] or snapshot["page_map"] != pages:
             return None
         return content
-    except (OSError, ValueError, KeyError, TypeError, IndexError, sqlite3.Error):
+    except (OSError, ValueError, KeyError, TypeError, IndexError, AttributeError, sqlite3.Error):
         return None
