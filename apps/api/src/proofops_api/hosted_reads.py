@@ -247,6 +247,28 @@ class HostedReads:
         if database.is_symlink() or path.is_symlink() or (path / "pilot.json").is_symlink():
             raise ValueError("database")
         from proofops.application.tagging.fact_assembly_c3 import PROFILE as C3_PROFILE
+        from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
+
+        if pilot.get("publication_profile") == C4_PROFILE:
+            from proofops.adapters.local.c4_publication import LocalC4Publication
+
+            publication = LocalC4Publication(path)
+            inputs = publication.load_inputs(tenant, local_run, pilot["claim_id"])
+            graph = inputs.original
+            if prepared_page not in pilot["selected_pages"] or row["prepared_sha256"] not in (
+                None,
+                graph.source_sha256,
+            ):
+                raise ValueError("C4 source page binding")
+            block = next(
+                b for b in graph.blocks if b.page_num == prepared_page and b.winner is not None
+            )
+            return (
+                graph.document_version_id,
+                graph.parse_manifest_id,
+                publication.runs.snapshot(tenant, local_run)["c4_evidence_sha256"],
+                block.candidates[block.winner].geometry,
+            )
 
         if pilot.get("publication_profile") == C3_PROFILE:
             from proofops.adapters.local.c3_publication import LocalC3Publication
@@ -390,9 +412,14 @@ class HostedReads:
                     from proofops.application.tagging.fact_assembly_c3 import (
                         REVIEWED_IDENTITY,
                     )
+                    from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
 
                     pilot = json.loads((path / "pilot.json").read_text())
-                    if pilot.get("publication_profile") != C3_PROFILE or selected != [36]:
+                    c4 = pilot.get("publication_profile") == C4_PROFILE
+                    if c4:
+                        if selected != pilot["selected_pages"]:
+                            raise HostedError("SOURCE_REFERENCE_MISMATCH", 409)
+                    elif pilot.get("publication_profile") != C3_PROFILE or selected != [36]:
                         raise HostedError("SOURCE_REFERENCE_MISMATCH", 409)
                 reference_page = (
                     physical_page if original_refs else selected.index(physical_page) + 1
@@ -426,8 +453,18 @@ class HostedReads:
                         raise ValueError("prepared hash")
                     source = self.store.analysis_source(directory, dict(doc))
                     source_sha = file_sha256(source)
-                    if original_refs and source_sha != REVIEWED_IDENTITY["original_sha256"]:
-                        raise ValueError("C3 uploaded original mismatch")
+                    if original_refs:
+                        if c4:
+                            from proofops.adapters.local.c4_publication import LocalC4Publication
+
+                            frozen = LocalC4Publication(path).runs.snapshot(
+                                auth.tenant_id, pilot["run_id"]
+                            )
+                            expected_original = frozen["document"]["sha256"]
+                        else:
+                            expected_original = REVIEWED_IDENTITY["original_sha256"]
+                        if source_sha != expected_original:
+                            raise ValueError("uploaded original mismatch")
                     key = (
                         str(self.store.root),
                         auth.tenant_id,

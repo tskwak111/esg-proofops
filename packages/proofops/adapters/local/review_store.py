@@ -388,6 +388,17 @@ class LocalSQLiteReviewStore:
             ).fetchone()
             frozen = json.loads(row[0]) if row else {}
             from proofops.application.tagging.fact_assembly_c3 import POLICY, POLICY_HASH, PROFILE
+            from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
+
+            if inputs.fact_assembly_profile == C4_PROFILE:
+                from proofops.application.tagging.fact_assembly_c4 import (
+                    POLICY as C4_POLICY,
+                )
+                from proofops.application.tagging.fact_assembly_c4 import (
+                    POLICY_HASH as C4_HASH,
+                )
+
+                POLICY, POLICY_HASH, PROFILE = C4_POLICY, C4_HASH, C4_PROFILE
 
             if inputs.fact_assembly_profile == PROFILE:
                 if (

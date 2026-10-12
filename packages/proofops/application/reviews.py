@@ -34,6 +34,7 @@ from proofops.application.tagging.consensus import (
 )
 from proofops.application.tagging.fact_assembly_c2 import FactAssemblyReceiptV1
 from proofops.application.tagging.fact_assembly_c3 import PROFILE as C3_PROFILE
+from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
 from proofops.application.tagging.report_level_link import replay_report_level_link, strict_fallback
 from proofops.application.tagging.service import TagRun
 from proofops.domain.audit import AuditConflict
@@ -154,12 +155,26 @@ class ReviewInputs:
 
             if self.fact_assembly_profile == PROFILE:
                 snapshot["fact_assembly"] = dict(profile=PROFILE, sha256=POLICY_HASH)
+        if self.fact_assembly_profile == C4_PROFILE and self.fact_assembly_receipt is not None:
+            from proofops.application.tagging.fact_assembly_c4 import POLICY_HASH as C4_HASH
+
+            snapshot["fact_assembly"] = dict(profile=C4_PROFILE, sha256=C4_HASH)
         return snapshot
 
     def validate(self) -> None:
         claim, data = self.context.claim, self.packet.to_dict()
         from proofops.application.tagging.fact_assembly_c3 import PROFILE, validate_publication
 
+        if self.fact_assembly_profile == C4_PROFILE:
+            from proofops.application.tagging.fact_assembly_c4 import (
+                validate_publication as c4_validate,
+            )
+
+            try:
+                c4_validate(self)
+            except (ValueError, KeyError, TypeError) as exc:
+                raise ReviewRejected("C4_PUBLICATION_REPLAY_MISMATCH", 409) from exc
+            return
         if self.fact_assembly_profile == PROFILE:
             try:
                 validate_publication(self)
@@ -1223,7 +1238,7 @@ class ReviewService:
                 for r in inputs.tag_runs
                 if r.guarded
             }
-            if inputs.fact_assembly_profile == C3_PROFILE:
+            if inputs.fact_assembly_profile in (C3_PROFILE, C4_PROFILE):
                 headers = {
                     (r["raw"]["safe_harbor_category"], r["raw"]["superlative_quote"])
                     for r in inputs.fact_assembly_receipt.to_dict()["raw_receipts"]
@@ -1235,7 +1250,7 @@ class ReviewService:
                 # Only the confirmed classification changes; the observed headers
                 # above stay pinned in the receipt and in ``inputs``.
                 category = corrected_category
-            if inputs.fact_assembly_profile == C3_PROFILE:
+            if inputs.fact_assembly_profile in (C3_PROFILE, C4_PROFILE):
                 first = inputs.consensus.confirmed_tags
             else:
                 first = inputs.tag_runs[0]
@@ -1260,9 +1275,9 @@ class ReviewService:
                 replace(inputs.rule_context, decision_revision=decision_revision),
                 inputs.rulepack,
             )
-            if (
-                inputs.fact_assembly_receipt is not None
-                and inputs.fact_assembly_profile != C3_PROFILE
+            if inputs.fact_assembly_receipt is not None and inputs.fact_assembly_profile not in (
+                C3_PROFILE,
+                C4_PROFILE,
             ):
                 # A reviewer cannot activate an unpublished experimental profile.
                 # CAS has already been checked by the store; no revision is written.

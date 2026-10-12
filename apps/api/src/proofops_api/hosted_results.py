@@ -25,6 +25,14 @@ def services(path: Path, tenant: str):
     if manifest["tenant_id"] != tenant:
         raise HostedError("RESOURCE_NOT_FOUND", 404)
     from proofops.application.tagging.fact_assembly_c3 import PROFILE as C3_PROFILE
+    from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
+
+    if manifest.get("publication_profile") == C4_PROFILE:
+        from proofops.adapters.local.c4_publication import LocalC4Publication
+
+        publication = LocalC4Publication(path)
+        yield manifest["run_id"], None, publication, publication.service
+        return
 
     if manifest.get("publication_profile") == C3_PROFILE:
         from proofops.adapters.local.c3_publication import LocalC3Publication
@@ -67,9 +75,18 @@ def services(path: Path, tenant: str):
 
 def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
     from proofops.application.tagging.fact_assembly_c3 import PROFILE as C3_PROFILE
+    from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
 
     if (path / "pilot.json").is_file():
         manifest = json.loads((path / "pilot.json").read_text())
+        if manifest.get("publication_profile") == C4_PROFILE:
+            if manifest["tenant_id"] != tenant:
+                raise HostedError("RESOURCE_NOT_FOUND", 404)
+            if selected_pages != manifest["selected_pages"]:
+                raise HostedError("C4_SOURCE_PAGE_MISMATCH", 409)
+            from proofops.adapters.local.c4_publication import LocalC4Publication
+
+            return LocalC4Publication(path).result(tenant, manifest["run_id"], manifest["claim_id"])
         if manifest.get("publication_profile") == C3_PROFILE:
             if manifest["tenant_id"] != tenant:
                 raise HostedError("RESOURCE_NOT_FOUND", 404)
@@ -380,6 +397,9 @@ def result_snapshot(path: Path, tenant: str, selected_pages: list[int]) -> bytes
     }
     if (path / "c3-evidence.json").is_file():
         for name in ("original.pdf", "c3-evidence.json", "pilot.json"):
+            sources[name] = hashlib.sha256((path / name).read_bytes()).hexdigest()
+    if (path / "c4-evidence.json").is_file():
+        for name in ("original.pdf", "c4-evidence.json", "pilot.json"):
             sources[name] = hashlib.sha256((path / name).read_bytes()).hexdigest()
     return json.dumps(
         dict(tenant_id=tenant, page_map=selected_pages, source_hashes=sources, result=result),
