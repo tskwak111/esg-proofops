@@ -34,3 +34,14 @@ A3 미리보기는 C3에서만 DPI를 낮춰 기존 2,000px/400만 픽셀/timeou
 평가: `python -m evaluation.c3_activation requests|api|assess`.
 실호출은 명시 `api` 단계만이며 기존 R108 누적 fence와 더 엄격한 USD0.50 한도를
 사용한다(작업 승인 상한 USD0.60). 키는 출력하지 않는다.
+
+## I11 / v12 한정 채택
+
+v12의 `direct_certification_policy`는 기존 C3 policy/hash를 그대로 채택한다.
+`certification_profile_for`는 R8의 tenant/original/claim/claim hash/packet/graph/rulepack
+모든 pin이 일치하는 경우에만 C3를 선택한다. 선택 함수는 검증된 receipt·원문 replay와
+Python decided·If-Match·불변 revision을 대체하지 않는다. 임의 보고서의 일반 자동
+확정은 C4/R9에 의해 기본 비활성이다. 과거 v11·K10·C2/C3/C4 reader는 보존한다.
+API/DB migration과 운영 설정 변경은 없으며 새 기본값의 rollback은 기존 reader를
+유지한 채 신규 실행의 정책 배정만 되돌린다. LG p24 G3는 원문에 2019년과 951만
+tCO₂e가 함께 있지만 저장 태깅이 미해결이므로 재추출 전 unknown/보류를 유지한다.

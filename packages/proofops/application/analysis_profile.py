@@ -24,6 +24,9 @@ from proofops.application.tagging.dec24 import (
     INTEGRATED_DEFINITIONS_HASH,
     INTEGRATED_V2_DEFINITIONS_HASH,
 )
+from proofops.application.tagging.fact_assembly_c3 import POLICY as C3_POLICY
+from proofops.application.tagging.fact_assembly_c3 import REVIEWED_IDENTITY as C3_IDENTITY
+from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
 from proofops.application.tagging.finals_i4 import POLICY as I4_PROMPT_POLICY
 from proofops.application.tagging.k1_semantics import DEFINITIONS as K1_DEFINITIONS
 from proofops.application.tagging.k1_semantics import POLICY as K1_SEMANTIC_POLICY
@@ -653,7 +656,15 @@ FINALS_K10_V2_POLICY = FINALS_K10_POLICY | dict(
     semantic_admission=K10_SEMANTIC_V2_POLICY,
     semantic_admission_sha256=canonical_hash(K10_SEMANTIC_V2_POLICY),
 )
-V2_POLICY = FINALS_I10_POLICY
+# R9: retain only R8-approved C3 identity; C4 general discovery is disabled by default.
+FINALS_I11_POLICY = FINALS_K10_V2_POLICY | dict(
+    integration_profile="finals-20261013-v12",
+    direct_certification_policy=C3_POLICY,
+    direct_certification_policy_sha256=canonical_hash(C3_POLICY),
+    general_certification=dict(profile=C4_PROFILE, enabled=False, reason="R9-context-exclusions"),
+    residual_review="LG-p24-G3-baseline-year-value-reextraction; keep-unresolved",
+)
+V2_POLICY = FINALS_I11_POLICY
 
 
 def policy_for(profile, *, pinned_hash=None):
@@ -683,6 +694,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_I10_POLICY,
             FINALS_K10_POLICY,
             FINALS_K10_V2_POLICY,
             FINALS_C24_POLICY,
@@ -787,6 +799,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FINALS_I10_POLICY,
             FINALS_K10_POLICY,
             FINALS_K10_V2_POLICY,
             FINALS_C24_POLICY,
@@ -931,3 +944,15 @@ def apply_pilot_profile(args):
     if profile in (V2_PROFILE, J3_PROFILE, J7_PROFILE, J8_PROFILE):
         args.position_context_order = False
         args.preliminary_goal_role = True
+
+
+def certification_profile_for(identity, *, pinned_hash=None):
+    """V12 authorizes only the exact reviewed C3 input; C4 cannot be selected."""
+    policy = policy_for(V2_PROFILE, pinned_hash=pinned_hash)
+    if policy.get("direct_certification_policy") != C3_POLICY:
+        return None
+    if policy.get("direct_certification_policy_sha256") != canonical_hash(C3_POLICY):
+        raise ValueError("CERTIFICATION_POLICY_PIN_MISMATCH")
+    if all(identity.get(key) == value for key, value in C3_IDENTITY.items()):
+        return C3_POLICY["profile"]
+    return None

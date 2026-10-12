@@ -10,7 +10,9 @@ from proofops.domain.provenance import canonical_hash
 def test_v11_default_promotes_quality_diagnostics_and_scope_without_reduction():
     from evaluation.e06_scope import POLICY_SHA256, VERSION
 
-    selected = profiles.policy_for(profiles.V2_PROFILE)
+    selected = profiles.policy_for(
+        profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_I10_POLICY)
+    )
     assert selected["integration_profile"] == "finals-20261013-v11"
     for key in ("structural_quality_policy", "activity_table_policy", "tagging_prompt_policy"):
         assert selected[key] == profiles.FINALS_Q1_POLICY[key]

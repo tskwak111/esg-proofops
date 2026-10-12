@@ -89,7 +89,9 @@ def test_v10_fake_transport_uses_selected_scheduler_and_preserves_accounting(tmp
     from tests.test_t1_403_retry import costs, setup, success, wire
 
     store, auth, _, probe, _ = setup(tmp_path, monkeypatch, cap=".08")
-    selected = profiles.policy_for(profiles.V2_PROFILE)
+    selected = profiles.policy_for(
+        profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_C24_POLICY)
+    )
     probe.configure_response_policy(
         dict(
             tenant_id=auth.tenant_id,
