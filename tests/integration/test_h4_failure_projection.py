@@ -115,5 +115,8 @@ def test_pending_tag_job_preserves_committed_extracted_claims(tmp_path, monkeypa
     monkeypatch.setattr(hosted_results, "services", services)
     result = hosted_results.read_result(published, TENANT, [1, 2, 3])
     assert result["claims"]
-    assert result["hold_reasons"] == ["PROBE_REQUEST_TOO_LARGE"]
+    assert result["hold_reasons"] == ["PROBE_REQUEST_TOO_LARGE", "CLAIM_PAGE_PARSE_FAILURE"]
+    assert {
+        p["physical_page"] for p in result["pipeline"]["extraction_outcome"]["page_failures"]
+    } == {1, 3}
     assert all(c["confirmed_grade"] is None for c in result["claims"])
