@@ -537,6 +537,35 @@ FINALS_I8_POLICY = FINALS_K9_POLICY | dict(integration_profile="finals-20261012-
 V2_POLICY = FINALS_I8_POLICY
 
 
+# S4 is opt-in; the deployed v7 policy and all historical reader bytes stay pinned.
+VERIFIED_READ_V8_POLICY = VERIFIED_READ_V7_POLICY | dict(
+    profile="exact-verified-read-v8",
+    fresh_attestation="whole-byte-identical-v6-v9-v10-v11-v12-v13",
+    v13_replay_sha256="4ef2bc4795b8a755bd9e8180dfaf0fe848e355ef2db67d554775ecadc3b1a4d4",
+    raw_ocr_profiles=[
+        "upstage-ocr-page-v6",
+        "upstage-ocr-page-v9",
+        "upstage-ocr-page-v10",
+        "upstage-ocr-page-v11",
+        "upstage-ocr-page-v12",
+        "upstage-ocr-page-v13",
+    ],
+    cold_claim_replay="offline-v13-two-cpu-raw-read-s4-v1",
+)
+S4_PUBLICATION_POLICY = dict(
+    profile="private-child-byte-pinned-publication-s4-v1",
+    transport="inherited-anonymous-fd-no-persistent-cache",
+    admission="exact-workspace-tenant-run-fence-pages-reader-runtime-bytes",
+    fallback="original-source-replay",
+    max_bytes=32 * 1024 * 1024,
+)
+S4_POLICY = FINALS_I7_POLICY | dict(
+    integration_profile="finals-s4-v13cache-v1",
+    verified_read_cache=VERIFIED_READ_V8_POLICY,
+    publication_handoff=S4_PUBLICATION_POLICY,
+)
+
+
 def policy_for(profile, *, pinned_hash=None):
     if profile == J7_PROFILE:
         choices = (J7_POLICY,)
@@ -555,6 +584,7 @@ def policy_for(profile, *, pinned_hash=None):
             FINALS_K9_V2_POLICY,
             FINALS_K9_V3_POLICY,
             FINALS_K9_V4_POLICY,
+            S4_POLICY,
             FINALS_I6_POLICY,
             FINALS_K7_POLICY,
             FINALS_K8_POLICY,
@@ -633,6 +663,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
             FINALS_K9_V2_POLICY,
             FINALS_K9_V3_POLICY,
             FINALS_K9_V4_POLICY,
+            S4_POLICY,
             FINALS_K7_POLICY,
             FINALS_K8_POLICY,
             FINALS_K8_V2_POLICY,

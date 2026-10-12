@@ -240,6 +240,7 @@ def attest_claims(*, reader, graph, source, refs, tenant_id, cache, run_id=None)
             VERIFIED_READ_V5_POLICY,
             VERIFIED_READ_V6_POLICY,
             VERIFIED_READ_V7_POLICY,
+            VERIFIED_READ_V8_POLICY,
         )
 
         if (
@@ -258,6 +259,10 @@ def attest_claims(*, reader, graph, source, refs, tenant_id, cache, run_id=None)
             or (
                 reader.PROFILE in VERIFIED_READ_V7_POLICY["raw_ocr_profiles"]
                 and _execution_policy() == VERIFIED_READ_V7_POLICY
+            )
+            or (
+                reader.PROFILE in VERIFIED_READ_V8_POLICY["raw_ocr_profiles"]
+                and _execution_policy() == VERIFIED_READ_V8_POLICY
             )
         ):
             from proofops.adapters.local.pa7_raster_cache import attest

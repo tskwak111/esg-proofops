@@ -367,6 +367,12 @@ def main(
                 mode = next(m for m in ("standard", "enhanced") if m in values[0]["usage"])
                 responses[mode] = values
 
+            for path in (state / "parser-prepared" / "upstage-cache").rglob("*.json"):
+                cached = json.loads(path.read_bytes())
+                if "raw_batches" in cached:
+                    assert canonical_hash(cached["raw_batches"]) == cached["response_sha256"]
+                    responses.setdefault(cached["mode"], cached["raw_batches"])
+
             class RetainedParse(UpstageParseProbe):
                 def parse_async(self, pdf_bytes, *, request_id, mode="standard"):
                     receipt = receipts[mode]

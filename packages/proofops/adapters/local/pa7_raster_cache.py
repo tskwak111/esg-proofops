@@ -20,6 +20,7 @@ from proofops.application.analysis_profile import (
     VERIFIED_READ_V5_POLICY,
     VERIFIED_READ_V6_POLICY,
     VERIFIED_READ_V7_POLICY,
+    VERIFIED_READ_V8_POLICY,
 )
 from proofops.domain.provenance import canonical_hash
 
@@ -133,17 +134,24 @@ def bounded_reader(reader, *, tenant_id, run_id):
     instance = reader.for_run(run_id)
     original = instance._claim_receipt.__func__
     heading_wrapper = None
-    if reader.PROFILE == "upstage-ocr-page-v12":
+    if reader.PROFILE in ("upstage-ocr-page-v12", "upstage-ocr-page-v13"):
         from proofops.adapters.local.verified_read_cache import _execution_policy
 
         if (
-            _execution_policy() != VERIFIED_READ_V7_POLICY
+            _execution_policy() not in (VERIFIED_READ_V7_POLICY, VERIFIED_READ_V8_POLICY)
             or sha256(Path(reader.__file__).read_bytes()).hexdigest()
-            != VERIFIED_READ_V7_POLICY["v12_replay_sha256"]
+            != (
+                VERIFIED_READ_V8_POLICY
+                if reader.PROFILE.endswith("v13")
+                else VERIFIED_READ_V7_POLICY
+            )["v13_replay_sha256" if reader.PROFILE.endswith("v13") else "v12_replay_sha256"]
+            or (reader.PROFILE.endswith("v13") and _execution_policy() != VERIFIED_READ_V8_POLICY)
         ):
             raise ValueError("PA7_RASTER_READER_BINDING_MISMATCH")
         heading_wrapper = original
-        original = super(type(instance), instance)._claim_receipt.__func__
+        from proofops.adapters.local import upstage_ocr_profile_v12
+
+        original = super(upstage_ocr_profile_v12.Reader, instance)._claim_receipt.__func__
     if original.__globals__.get("LocalRasterReader") is not LocalRasterReader:
         raise ValueError("PA7_RASTER_READER_BINDING_MISMATCH")
     function = FunctionType(
@@ -175,6 +183,7 @@ def bounded_reader(reader, *, tenant_id, run_id):
             VERIFIED_READ_V5_POLICY,
             VERIFIED_READ_V6_POLICY,
             VERIFIED_READ_V7_POLICY,
+            VERIFIED_READ_V8_POLICY,
         ):
             with ProcessPoolExecutor(
                 max_workers=VERIFIED_READ_V5_POLICY["raw_ocr_workers"],

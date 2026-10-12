@@ -137,6 +137,7 @@ def prepare_argv(pdf, state, tenant, config, options=None):
                 FINALS_I3_POLICY,
                 S1_POLICY,
                 S2_POLICY,
+                S4_POLICY,
                 W3_POLICY,
                 policy_for,
             )
@@ -149,6 +150,7 @@ def prepare_argv(pdf, state, tenant, config, options=None):
                 canonical_hash(FINALS_I3_POLICY),
                 canonical_hash(S1_POLICY),
                 canonical_hash(S2_POLICY),
+                canonical_hash(S4_POLICY),
             }:
                 raise ValueError("HOSTED_PROFILE_PIN_MISMATCH")
             argv += ["--analysis-policy-sha256", options["analysis_profile_sha256"]]
@@ -410,13 +412,20 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
 def main():
     settings = HostedSettings.from_env(os.environ)
     store = HostedStore(settings)
-    run, fence, workspace = sys.argv[1:]
+    run, fence, workspace = sys.argv[1:4]
     with store.transaction() as db:
         job = dict(db.execute("SELECT * FROM runs WHERE run_id=?", (run,)).fetchone())
         if job["fence"] != int(fence):
             raise ValueError("LEASE_LOST")
         store._fenced(db, job, time.time())
-    drive(store, job, Path(workspace), read_operator_config(settings.live_config))
+    state, _ = drive(store, job, Path(workspace), read_operator_config(settings.live_config))
+    if len(sys.argv) == 5:
+        from proofops_api.hosted_publication import make_handoff
+
+        packet = make_handoff(state, job, json.loads(job["pages"]))
+        if packet is not None:
+            with os.fdopen(os.dup(int(sys.argv[4])), "wb") as publication:
+                publication.write(packet)
 
 
 if __name__ == "__main__":

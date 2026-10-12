@@ -249,10 +249,17 @@ def main():
                     )
                 ]
             receipt = next(r for r in retained if "duration_seconds" in r and r["mode"] == mode)
+            retained_batches = [
+                json.loads(path.read_text())
+                for path in (source / "parse-responses").glob("*-async.json")
+            ] + [
+                json.loads(path.read_text())["raw_batches"]
+                for path in (source / "parser-prepared" / "upstage-cache").rglob("*.json")
+                if "raw_batches" in json.loads(path.read_text())
+            ]
             batches = next(
                 value
-                for path in (source / "parse-responses").glob("*-async.json")
-                for value in [json.loads(path.read_text())]
+                for value in retained_batches
                 if canonical_hash(value) == receipt["response_sha256"]
             )
             from hashlib import sha256
@@ -376,8 +383,12 @@ def main():
                 "geometry.json",
                 "table-repair.json",
                 "launcher-stderr.txt",
+                "local-selected.pdf",
+                "local-selected.json",
+                "local-page-map.json",
             ):
-                shutil.copy2(original_dir / name, work / name)
+                if (original_dir / name).is_file():
+                    shutil.copy2(original_dir / name, work / name)
 
         worker.parser._execute = raw_parser
 
