@@ -25,7 +25,7 @@ def main():
         int(sys.argv[4]),
     )
     lab = root / "outputs/agent-results/R108-redesign/lab"
-    source = lab / "perf/I7/native" / case / case
+    source = out.parent / "live-inputs" / case
     original = OpenAIProbe.complete
 
     def guarded(probe, *args, **kwargs):
