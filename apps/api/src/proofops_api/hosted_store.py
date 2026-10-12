@@ -900,6 +900,7 @@ class HostedStore:
                             str(self.analysis_source(path, doc)),
                             str(output),
                             doc["sha256"],
+                            auth.tenant_id,
                         ],
                         timeout=90,
                         check=True,

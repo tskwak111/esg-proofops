@@ -111,6 +111,7 @@ def main(
             "h1",
             "i5_tables",
             "k6",
+            "q1",
             "k1",
             "k3",
             "sentence_prefix",

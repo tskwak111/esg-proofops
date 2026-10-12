@@ -11,10 +11,33 @@ def main():
     resource.setrlimit(resource.RLIMIT_FSIZE, (8 * 1024 * 1024, 8 * 1024 * 1024))
     if sys.platform == "linux":
         resource.setrlimit(resource.RLIMIT_AS, (512 * 1024 * 1024, 512 * 1024 * 1024))
+    from proofops.application.analysis_profile import V2_PROFILE, policy_for
+
     from evaluation.hosted_scope_plan import inspect_streaming
 
+    pdf = Path(sys.argv[1])
+    source_sha = sys.argv[3] if len(sys.argv) > 3 else None
+    policy = policy_for(V2_PROFILE)
+    reader = None
+
+    def discovery(page):
+        nonlocal reader
+        if reader is None:
+            from evaluation.scope_discovery_ocr import CPUDiscoveryReader
+
+            reader = CPUDiscoveryReader(
+                pdf,
+                tenant_id=sys.argv[4],
+                cache_dir=Path(sys.argv[2]).parent / "discovery-cache",
+                source_sha256=source_sha,
+            )
+        return reader(page)
+
     plan = inspect_streaming(
-        Path(sys.argv[1]), source_sha256=sys.argv[3] if len(sys.argv) > 3 else None
+        pdf,
+        source_sha256=source_sha,
+        scope_profile=policy.get("scope_profile"),
+        discovery_reader=discovery if len(sys.argv) > 4 else None,
     )
     plan["source_path"] = "original.pdf"
     # Path is private operational metadata; hash the sanitized proposal actually stored.

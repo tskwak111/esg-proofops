@@ -622,7 +622,19 @@ FINALS_E05_POLICY = FINALS_I9_POLICY | dict(
     integration_profile="finals-20261013-e05-diagnostics-v1",
     http_diagnostic_policy=HTTP_DIAGNOSTIC_POLICY,
 )
-V2_POLICY = FINALS_C24_POLICY
+FINALS_I10_POLICY = (
+    FINALS_C24_POLICY
+    | {key: value for key, value in FINALS_Q1_POLICY.items() if value != FINALS_I9_POLICY.get(key)}
+    | dict(
+        integration_profile="finals-20261013-v11",
+        http_diagnostic_policy=HTTP_DIAGNOSTIC_POLICY,
+        scope_ranking="E06-scope-v1",
+        scope_policy_sha256="e9e826265f104448226f18924eb152f373cc43622f0fbda29ceaa9dda92216d0",
+        scope_profile="E06",
+        scope_discovery="scope-ocr-fallback-v1",
+    )
+)
+V2_POLICY = FINALS_I10_POLICY
 
 
 def policy_for(profile, *, pinned_hash=None):
@@ -637,6 +649,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_C24_POLICY,
             FINALS_Q1_POLICY,
             FINALS_E05_POLICY,
             FINALS_I9_POLICY,
@@ -721,6 +734,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FINALS_C24_POLICY,
             FINALS_Q1_POLICY,
             FINALS_E05_POLICY,
             FINALS_I9_POLICY,

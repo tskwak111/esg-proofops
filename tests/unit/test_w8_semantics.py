@@ -104,9 +104,11 @@ def test_new_policy_keeps_old_pins_and_prompt_bytes():
         FINALS_I3_POLICY,
         FINALS_I4_POLICY,
         K1_POLICY,
-        V2_POLICY,
         V2_PRE_W8_POLICY,
         policy_for,
+    )
+    from proofops.application.analysis_profile import (
+        FINALS_I9_POLICY as V2_POLICY,
     )
     from proofops.application.tagging.quality import ELEMENT_DEFINITIONS
     from proofops.application.tagging.semantic_admission import DEFINITIONS, POLICY_HASH

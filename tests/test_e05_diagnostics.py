@@ -208,11 +208,17 @@ def test_real_tls_empty_403_records_negotiation_and_handshake(tmp_path, monkeypa
     assert "PRIVATE-PROMPT" not in raw
 
 
-def test_e05_public_projection_keeps_sibling_and_holds_failed_claim(tmp_path, monkeypatch):
+@pytest.mark.parametrize(
+    "policy_name",
+    ["FINALS_E05_POLICY", "FINALS_C24_POLICY", "FINALS_Q1_POLICY", "FINALS_I10_POLICY"],
+)
+def test_e05_public_projection_keeps_sibling_and_holds_failed_claim(
+    tmp_path, monkeypatch, policy_name
+):
     from contextlib import contextmanager
     from types import SimpleNamespace
 
-    from proofops.application.analysis_profile import FINALS_E05_POLICY
+    from proofops.application import analysis_profile
     from proofops_api import hosted_results
 
     from tests.unit.test_pb1_source import fixture
@@ -258,7 +264,10 @@ def test_e05_public_projection_keeps_sibling_and_holds_failed_claim(tmp_path, mo
     tags = SimpleNamespace(
         _load_snapshot_with_evidence=lambda *a: (
             dict(
-                analysis_profile_policy_sha256=canonical_hash(FINALS_E05_POLICY), claims=projections
+                analysis_profile_policy_sha256=canonical_hash(
+                    getattr(analysis_profile, policy_name)
+                ),
+                claims=projections,
             ),
             (None, SimpleNamespace(claims=claims), graph),
         )

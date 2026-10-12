@@ -23,6 +23,10 @@ from evaluation.i5_live import I5Budget
 from evaluation.k8_authorization import fresh_grants
 from scripts.finals_demo import FinalsBudget
 
+TASK = "I9-integration"
+BUDGET = "1.5"
+MODULE = "evaluation.i9_live"
+
 
 class I9Budget(I5Budget):
     def reserve(self, bound):
@@ -62,7 +66,7 @@ def child(args):
             {"openai": probe.ledger.resolve()},
             out.parent / "paid-calls.jsonl",
         )
-        fence.task, fence.limit_usd = "I9-integration", Decimal("1.5")
+        fence.task, fence.limit_usd = TASK, Decimal(BUDGET)
         try:
             return fence.guarded(original, "openai", lambda *a: Decimal(".02"))(probe, *a, **kw)
         finally:
@@ -95,8 +99,8 @@ def child(args):
         claim_pages={args.company: source_claim_pages(source)},
         workers=args.workers,
         requests_per_second=args.rps,
-        budget="1.5",
-        event_id="I9-USD1.5",
+        budget=BUDGET,
+        event_id=TASK,
         integration_policy=FINALS_I9_POLICY,
         source_states={args.company: source},
         extraction_batch_calls=100,
@@ -169,7 +173,7 @@ def main():
             [
                 sys.executable,
                 "-m",
-                "evaluation.i9_live",
+                MODULE,
                 *sys.argv[1:],
                 "--publication-fd",
                 str(fd.fileno()),

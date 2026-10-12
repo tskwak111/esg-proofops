@@ -7,7 +7,9 @@ from proofops_api.hosted_analysis import operator_profiles
 
 
 def test_v10_default_changes_only_execution_limits():
-    policy = profiles.policy_for(profiles.V2_PROFILE)
+    policy = profiles.policy_for(
+        profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_C24_POLICY)
+    )
     assert policy["integration_profile"] == "finals-20261012-v10"
     assert policy == profiles.FINALS_I9_POLICY | dict(
         integration_profile="finals-20261012-v10",

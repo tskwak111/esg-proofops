@@ -95,6 +95,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
         projections = {r["claim_id"]: r for r in tag_snapshot.get("claims", [])}
         reasons = {cid: r.get("reason") for cid, r in projections.items()}
         from proofops.application.analysis_profile import (
+            FINALS_C24_POLICY,
             FINALS_E05_POLICY,
             FINALS_F1_INITIAL_POLICY,
             FINALS_F1_POLICY,
@@ -102,12 +103,17 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             FINALS_I7_POLICY,
             FINALS_I8_POLICY,
             FINALS_I9_POLICY,
+            FINALS_I10_POLICY,
+            FINALS_Q1_POLICY,
             S4_POLICY,
         )
         from proofops.application.provider_resilience import PROJECTION_POLICY, claim_hold_reason
         from proofops.domain.provenance import canonical_hash
 
         f1 = tag_snapshot.get("analysis_profile_policy_sha256") in {
+            canonical_hash(FINALS_C24_POLICY),
+            canonical_hash(FINALS_I10_POLICY),
+            canonical_hash(FINALS_Q1_POLICY),
             canonical_hash(FINALS_E05_POLICY),
             canonical_hash(FINALS_F1_INITIAL_POLICY),
             canonical_hash(FINALS_F1_POLICY),
@@ -165,6 +171,8 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
         from proofops.domain.provenance import canonical_hash
 
         pb1 = tag_snapshot.get("analysis_profile_policy_sha256") in {
+            canonical_hash(FINALS_C24_POLICY),
+            canonical_hash(FINALS_Q1_POLICY),
             canonical_hash(FINALS_E05_POLICY),
             canonical_hash(FINALS_F1_INITIAL_POLICY),
             canonical_hash(FINALS_F1_POLICY),
@@ -225,6 +233,8 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                     if row:
                         summary["table_observation"] = row
                         if tag_snapshot.get("analysis_profile_policy_sha256") in {
+                            canonical_hash(FINALS_C24_POLICY),
+                            canonical_hash(FINALS_Q1_POLICY),
                             canonical_hash(FINALS_E05_POLICY),
                             canonical_hash(FINALS_F1_INITIAL_POLICY),
                             canonical_hash(FINALS_F1_POLICY),

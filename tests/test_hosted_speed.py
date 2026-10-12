@@ -124,7 +124,14 @@ def test_operator_concurrency(configured, expected):
 
 @pytest.mark.parametrize("configured", [True, False, 0, 17, "8", 1.5, None])
 def test_invalid_operator_concurrency(configured):
+    from proofops.application.analysis_profile import FINALS_I9_POLICY
+    from proofops.domain.provenance import canonical_hash
     from proofops_api.hosted_analysis import operator_profiles
 
     with pytest.raises(ValueError, match="HOSTED_LLM_CONCURRENCY_INVALID"):
-        operator_profiles({"llm_max_workers": configured})
+        operator_profiles(
+            {
+                "llm_max_workers": configured,
+                "analysis_policy_sha256": canonical_hash(FINALS_I9_POLICY),
+            }
+        )
