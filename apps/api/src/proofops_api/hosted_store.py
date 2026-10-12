@@ -1550,7 +1550,9 @@ class HostedStore:
                     (job["run_id"], claims_extracted or 0, claims_processed or 0),
                 )
 
-    def publish_analysis(self, job: dict, source: Path, status: str, error: str | None) -> None:
+    def publish_analysis(
+        self, job: dict, source: Path, status: str, error: str | None, *, publication_handoff=None
+    ) -> None:
         from proofops_api.hosted_results import result_snapshot
 
         if status not in {"completed", "partial_blocked"}:
@@ -1558,7 +1560,12 @@ class HostedStore:
         self.update_progress(job, "result", 95)
         # The worker owns analysis.lock while validating its private workspace.
         # Replay must never hold the control writer or run on a GET request.
-        content = result_snapshot(source, job["tenant_id"], json.loads(job["pages"]))
+        from proofops_api.hosted_publication import reuse_handoff
+
+        pages = json.loads(job["pages"])
+        content = reuse_handoff(publication_handoff, source, job, pages)
+        if content is None:
+            content = result_snapshot(source, job["tenant_id"], pages)
         with self.transaction() as db:
             self._fenced(db, job, time.time())
             target = (

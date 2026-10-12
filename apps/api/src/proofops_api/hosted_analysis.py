@@ -12,7 +12,7 @@ import time
 from datetime import date
 from decimal import ROUND_CEILING, Decimal
 from pathlib import Path
-from tempfile import TemporaryDirectory
+from tempfile import TemporaryDirectory, TemporaryFile
 from uuid import uuid4
 
 from proofops.adapters.local.openai import (
@@ -466,17 +466,19 @@ def acquire_analysis_lock(lock, *, timeout=2):
             time.sleep(min(0.1, max(0, deadline - time.monotonic())))
 
 
-def run_analysis_process(command, store, job, lock):
+def run_analysis_process(command, store, job, lock, *, publication_fd=None):
     from proofops_api.hosted_store import HostedError
 
     deadline = time.monotonic() + ANALYSIS_TIMEOUT_SECONDS
     next_heartbeat = time.monotonic() + HEARTBEAT_SECONDS
     bounded = store.settings.max_active_runs == 2
+    if publication_fd is not None:
+        command = [*command, str(publication_fd)]
     process = subprocess.Popen(
         command,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
-        pass_fds=(lock.fileno(),),
+        pass_fds=(lock.fileno(),) + ((publication_fd,) if publication_fd is not None else ()),
         start_new_session=True,
     )
     try:
@@ -540,22 +542,34 @@ def execute_analysis(store, job, prepared):
                     job, state, "partial_blocked", "LINUX_SOURCE_READER_UNRESOLVED"
                 )
                 return
-            run_analysis_process(
-                [
-                    sys.executable,
-                    "-m",
-                    "evaluation.hosted_r108",
-                    job["run_id"],
-                    str(job["fence"]),
-                    str(workspace),
-                ],
-                store,
-                job,
-                lock,
-            )
+            # Anonymous, parent-owned FD: no workspace file can impersonate a
+            # child attestation. Keep analysis.lock through byte-pin comparison.
+            from proofops_api.hosted_publication import MAX_BYTES
+
+            with TemporaryFile() as publication:
+                run_analysis_process(
+                    [
+                        sys.executable,
+                        "-m",
+                        "evaluation.hosted_r108",
+                        job["run_id"],
+                        str(job["fence"]),
+                        str(workspace),
+                    ],
+                    store,
+                    job,
+                    lock,
+                    publication_fd=publication.fileno(),
+                )
+                publication.seek(0)
+                packet = publication.read(MAX_BYTES + 1)
             outcome = json.loads((workspace / "state" / "outcome.json").read_text())
             store.publish_analysis(
-                job, workspace / "state", outcome["status"], outcome.get("reason")
+                job,
+                workspace / "state",
+                outcome["status"],
+                outcome.get("reason"),
+                publication_handoff=packet,
             )
     finally:
         lock.close()

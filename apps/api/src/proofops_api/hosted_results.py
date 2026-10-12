@@ -99,6 +99,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             FINALS_F1_POLICY,
             FINALS_F1_TRANSPORT_POLICY,
             FINALS_I7_POLICY,
+            S4_POLICY,
         )
         from proofops.application.provider_resilience import PROJECTION_POLICY, claim_hold_reason
         from proofops.domain.provenance import canonical_hash
@@ -108,6 +109,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             canonical_hash(FINALS_F1_POLICY),
             canonical_hash(FINALS_F1_TRANSPORT_POLICY),
             canonical_hash(FINALS_I7_POLICY),
+            canonical_hash(S4_POLICY),
         }
         if f1:
             for cid, projection in projections.items():
@@ -161,6 +163,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             canonical_hash(FINALS_F1_POLICY),
             canonical_hash(FINALS_F1_TRANSPORT_POLICY),
             canonical_hash(S2_POLICY),
+            canonical_hash(S4_POLICY),
             canonical_hash(V2_POLICY),
             canonical_hash(FINALS_I3_POLICY),
             canonical_hash(FINALS_I4_POLICY),
@@ -218,6 +221,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                             canonical_hash(FINALS_F1_POLICY),
                             canonical_hash(FINALS_F1_TRANSPORT_POLICY),
                             canonical_hash(S2_POLICY),
+                            canonical_hash(S4_POLICY),
                             canonical_hash(V2_POLICY),
                             canonical_hash(FINALS_I3_POLICY),
                             canonical_hash(FINALS_I4_POLICY),
