@@ -82,6 +82,60 @@ POLICY_SHA256 = canonical_hash(POLICY)
 RANKING_VERSION = "W4-v2"
 RANKING_POLICY = POLICY | dict(version=RANKING_VERSION, ranking=SIGNAL_POLICY)
 RANKING_POLICY_SHA256 = canonical_hash(RANKING_POLICY)
+ASSURANCE_VERSION = "E02-v1"
+
+
+def _assurance_policy_hash():
+    from proofops.application.evidence.assurance_catalog import POLICY_SHA256
+
+    return canonical_hash(
+        {
+            "version": ASSURANCE_VERSION,
+            "base_scope_sha256": RANKING_POLICY_SHA256,
+            "assurance_catalog_sha256": POLICY_SHA256,
+        }
+    )
+
+
+def _with_assurance_bundles(plan, page_texts):
+    from proofops.application.evidence.assurance_catalog import discover_bundles, select_bundles
+
+    discovery = discover_bundles(
+        page_texts, page_count=plan["page_count"], source_sha256=plan["source_sha256"]
+    )
+    plan["base_scope_plan_sha256"] = plan.pop("plan_sha256")
+    plan.update(
+        version=ASSURANCE_VERSION,
+        method=ASSURANCE_VERSION,
+        policy_sha256=_assurance_policy_hash(),
+        assurance_discovery=discovery,
+    )
+    if plan["selected_claim_pages"]:
+        selected = select_bundles(
+            discovery,
+            claim_pages=plan["selected_claim_pages"],
+            union_cap=min(plan["page_count"], plan["settings"]["max_evidence_pages"]),
+        )
+        union = set(selected["selected_pages"])
+        opinion_pages = {p for b in discovery["bundles"] for p in b["pages"]}
+        for page in plan["selected_evidence_pages"]:
+            if page not in opinion_pages and len(union) < selected["union_cap"]:
+                union.add(page)
+        plan["selected_evidence_pages"] = sorted(union)
+        plan["evidence_only_pages"] = sorted(union - set(plan["selected_claim_pages"]))
+        plan["evidence_candidate_pages"] = sorted(
+            set(plan["evidence_candidate_pages"]) | opinion_pages
+        )
+        plan["excluded_evidence_candidate_pages"] = sorted(
+            set(plan["evidence_candidate_pages"]) - union
+        )
+        plan["assurance_selection"] = selected
+        for record in plan["pages"]:
+            record["evidence_selected"] = record["page"] in union
+            if record["page"] in opinion_pages:
+                record["reasons"].append("assurance_bundle_discovery_only")
+    plan["plan_sha256"] = canonical_hash(plan)
+    return plan
 
 
 def _normal(text):
@@ -115,6 +169,19 @@ def build_plan(
         raise ValueError("environment limit must be an integer in 1..10")
     if type(max_evidence_pages) is not int or not 10 <= max_evidence_pages <= 500:
         raise ValueError("evidence limit must be an integer in 10..500 (includes claims)")
+    if ranking_policy == ASSURANCE_VERSION:
+        return _with_assurance_bundles(
+            build_plan(
+                study,
+                page_texts,
+                max_environment_pages=max_environment_pages,
+                max_evidence_pages=max_evidence_pages,
+                page_headings=page_headings,
+                page_primary_headings=page_primary_headings,
+                ranking_policy=RANKING_VERSION,
+            ),
+            page_texts,
+        )
     if ranking_policy not in (VERSION, RANKING_VERSION):
         raise ValueError("unsupported scope policy")
     if ranking_policy == RANKING_VERSION and max_evidence_pages > 30:
@@ -471,6 +538,7 @@ def validate_selection(
         VERSION: POLICY_SHA256,
         RANKING_VERSION: RANKING_POLICY_SHA256,
         E06_VERSION: E06_HASH,
+        ASSURANCE_VERSION: _assurance_policy_hash(),
     }
     plan_version = plan.get("version")
     if (
@@ -503,6 +571,11 @@ def validate_selection(
         raise ValueError("scope exceeds declared page cap")
     if not set(claims) <= set(evidence):
         raise ValueError("claim pages must be a subset of evidence pages")
+    if plan_version == ASSURANCE_VERSION:
+        for bundle in plan["assurance_discovery"]["bundles"]:
+            selected = set(evidence) & set(bundle["pages"])
+            if selected and selected != set(bundle["pages"]):
+                raise ValueError("partial assurance bundle requires a new scope proposal")
     categories = {r["page"]: r["category"] for r in plan["pages"]}
     if sum(categories.get(p) == "ceo_message" for p in claims) > 2:
         raise ValueError("scope exceeds two CEO pages")
@@ -545,6 +618,19 @@ def validate_selection(
         applied["manual_override"] = True
     if manual_selection:
         applied["manual_selection"] = True
+    if plan_version == ASSURANCE_VERSION:
+        bundles = plan["assurance_discovery"]["bundles"]
+        incomplete = any(
+            not set(b["pages"]) <= set(evidence)
+            or b["boundary_state"] != "candidate_complete"
+            or b["reasons"]
+            for b in bundles
+        )
+        applied.update(
+            assurance_discovery_sha256=plan["assurance_discovery"]["discovery_sha256"],
+            assembly_policy_sha256=plan["assurance_discovery"]["policy_sha256"],
+            evidence_bundle_status="evidence_bundle_incomplete" if incomplete else "candidate_only",
+        )
     applied["selection_sha256"] = canonical_hash(applied)
     return applied
 
@@ -556,7 +642,9 @@ def main():
     cli.add_argument("--environment-pages", type=int, default=8)
     cli.add_argument("--evidence-pages", type=int, default=30)
     cli.add_argument(
-        "--ranking-policy", choices=(VERSION, RANKING_VERSION), default=RANKING_VERSION
+        "--ranking-policy",
+        choices=(VERSION, RANKING_VERSION, ASSURANCE_VERSION),
+        default=RANKING_VERSION,
     )
     args = cli.parse_args()
     plan = inspect(
