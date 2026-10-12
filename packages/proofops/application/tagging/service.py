@@ -403,6 +403,7 @@ def tag_replicates(
         from proofops.application.tagging.k7_wire import POLICY_K8 as K8_WIRE
         from proofops.application.tagging.k7_wire import POLICY_K8_V2 as K8_WIRE_V2
         from proofops.application.tagging.k7_wire import POLICY_K8_V3 as K8_WIRE_V3
+        from proofops.application.tagging.k7_wire import POLICY_K10 as K10_WIRE
         from proofops.application.tagging.k7_wire import POLICY_V1 as K7_WIRE_V1
 
         if data["tagging_wire_policy"] not in (
@@ -411,11 +412,12 @@ def tag_replicates(
             K8_WIRE,
             K8_WIRE_V2,
             K8_WIRE_V3,
+            K10_WIRE,
         ):
             raise DomainValidationError("K7_WIRE_POLICY_MISMATCH")
         user_data["tagging_wire_policy"] = (
             data["tagging_wire_policy"]
-            if data["tagging_wire_policy"] in (K8_WIRE, K8_WIRE_V2, K8_WIRE_V3)
+            if data["tagging_wire_policy"] in (K8_WIRE, K8_WIRE_V2, K8_WIRE_V3, K10_WIRE)
             else K7_WIRE
         )
     sentence_interpretation = None
@@ -432,6 +434,7 @@ def tag_replicates(
             "bounded-interpretation-k8-v1",
             "bounded-interpretation-k8-v2",
             "bounded-interpretation-k8-v3",
+            "bounded-interpretation-k10-v1",
         ) and (sentence_interpretation is not None):
             focal = next(
                 b for b in original.blocks if b.source_id == claim.source_refs[0].source_id

@@ -171,6 +171,11 @@ class RoleProviderConcurrency(ProviderConcurrency):
     def bind(self, probe):
         # This binding is explicitly selected by the S5 execution policy. The
         # normal F1 bind/call/pace path remains unchanged for old runs.
+        if not hasattr(self, "connection_pool"):
+            from proofops.adapters.local.openai_connections import OpenAIConnections
+
+            self.connection_pool = OpenAIConnections()
+        probe.connection_pool = self.connection_pool
         probe.http_admission_snapshot = self.snapshot
         probe.http_recent_request_counts = self.recent_requests
         probe.http_transport_pacing = lambda: self.pace_transport(probe._dispatch_context.get())

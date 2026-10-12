@@ -290,6 +290,10 @@ class HostedOpenAILunaProbe(OpenAIProbe):
                 raise ValueError("HOSTED_MODEL_MISMATCH")
             return request | dict(actual_usd=rounded_cost(token_cost(data["usage"])), payload=data)
 
+        from proofops.adapters.local.openai_connections import OpenAIConnectNotSent
+        from proofops.adapters.local.provider_concurrency import ProviderCircuitOpen
+        from proofops.adapters.local.provider_scheduler import ProviderAdmissionDeferred
+
         scope = self._dispatch_context.get()
         for attempt in range(2):
             allow = (
@@ -299,6 +303,14 @@ class HostedOpenAILunaProbe(OpenAIProbe):
                 and attempt == 0
             )
             call_id = str(uuid4())
+            if self.transport_policy:
+                import sqlite3
+
+                with sqlite3.connect(self.ledger, timeout=30) as db:
+                    db.execute(
+                        "INSERT INTO probe_transport_attempts VALUES (?,?,?,'reserved',NULL)",
+                        (call_id, scope["request_id"], "0.02"),
+                    )
             try:
                 if self.http_dispatch_guard and not getattr(self, "provider_scheduler", None):
                     admission = getattr(self, "http_dispatch_admission", None)
@@ -317,8 +329,34 @@ class HostedOpenAILunaProbe(OpenAIProbe):
                         allow_transient_403=allow,
                         allow_model_partial=self.provider_resilience is not None,
                         allow_response_uncertainty=self.response_uncertainty_policy is not None,
+                        allow_connect_not_sent=self.transport_policy is not None,
                     )
+                if self.transport_policy:
+                    self._finish_transport_attempt(call_id, "response_received", None)
                 return response["payload"]
+            except OpenAIConnectNotSent as error:
+                if not self.transport_policy:
+                    raise
+                self._finish_transport_attempt(
+                    call_id, "never_sent", json.dumps(error.diagnostic, sort_keys=True)
+                )
+                if attempt != 0 or scope["transport_retries"]:
+                    self._settle_never_sent(scope["request_id"])
+                    raise ValueError("PROVIDER_PROCESSING_FAILED") from None
+                scope["transport_retries"].append(
+                    dict(
+                        policy_sha256=canonical_hash(self.transport_policy),
+                        failed_call_id=call_id,
+                        dispatch_state="never_sent",
+                        diagnostic_sha256=canonical_hash(error.diagnostic),
+                    )
+                )
+                self._authorize_response_request()
+                from proofops.adapters.local.openai import now as price_now
+
+                if price_now() >= PRICE_RECHECK_AT:
+                    self._settle_never_sent(scope["request_id"])
+                    raise ValueError("PRICE_RECHECK_REQUIRED")
             except OpenAITransient403 as error:
                 if not allow:
                     raise
@@ -342,6 +380,15 @@ class HostedOpenAILunaProbe(OpenAIProbe):
                 if price_now() >= PRICE_RECHECK_AT:
                     raise ValueError("PRICE_RECHECK_REQUIRED")
                 self._authorize_response_request()
+            except (ProviderCircuitOpen, ProviderAdmissionDeferred):
+                if self.transport_policy:
+                    self._finish_transport_attempt(call_id, "never_sent", None)
+                    self._settle_never_sent(scope["request_id"])
+                raise
+            except BaseException:
+                if self.transport_policy:
+                    self._finish_transport_attempt(call_id, "unknown", None)
+                raise
         raise ValueError("OPENAI_HTTP_403")
 
 

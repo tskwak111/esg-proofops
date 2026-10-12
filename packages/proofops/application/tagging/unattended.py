@@ -92,6 +92,8 @@ def provisional_result(
     if len(provider_ids) != len(set(provider_ids)):
         return empty_provisional("PROVIDER_RESPONSE_REPLAY")
     data = packet.to_dict()
+    from proofops.application.tagging.k10_contract import SEMANTIC_POLICY as K10_POLICY
+    from proofops.application.tagging.k10_contract import SEMANTIC_V2_POLICY as K10_V2_POLICY
     from proofops.application.tagging.q1_contract import SEMANTIC_POLICY as Q1_POLICY
 
     ordered = sorted(runs, key=lambda run: run.replicate_id)
@@ -182,9 +184,11 @@ def provisional_result(
     from proofops.application.tagging.k4_contract import SEMANTIC_POLICY, scope3_evidence
 
     scope3_refs = (
-        scope3_evidence(data, original) if semantic_policy in (SEMANTIC_POLICY, Q1_POLICY) else []
+        scope3_evidence(data, original)
+        if semantic_policy in (SEMANTIC_POLICY, Q1_POLICY, K10_POLICY, K10_V2_POLICY)
+        else []
     )
-    if semantic_policy == Q1_POLICY:
+    if semantic_policy in (Q1_POLICY, K10_POLICY, K10_V2_POLICY):
         from proofops.application.tagging.q1_contract import forecast_evidence
 
         forecast_refs = forecast_evidence(data, original)
@@ -297,7 +301,11 @@ def provisional_result(
         from proofops.application.tagging.k1_semantics import track_requires_review
 
         claim_quote = " ".join(r["quote"] for r in data["claim_source_refs"])
-        if semantic_policy in (SEMANTIC_POLICY, Q1_POLICY) and data["track"] == "goal" and original:
+        if (
+            semantic_policy in (SEMANTIC_POLICY, Q1_POLICY, K10_POLICY, K10_V2_POLICY)
+            and data["track"] == "goal"
+            and original
+        ):
             from types import SimpleNamespace
 
             from proofops.application.ingest.j7_split import goal_requires_retag
@@ -320,9 +328,13 @@ def provisional_result(
                 )
         from proofops.application.tagging.k1_semantics import masked_pue
 
-        if semantic_policy in (K1_POLICY, SEMANTIC_POLICY, Q1_POLICY) and (
-            track_requires_review(claim_quote, data["track"]) or masked_pue(claim_quote)
-        ):
+        if semantic_policy in (
+            K1_POLICY,
+            SEMANTIC_POLICY,
+            Q1_POLICY,
+            K10_POLICY,
+            K10_V2_POLICY,
+        ) and (track_requires_review(claim_quote, data["track"]) or masked_pue(claim_quote)):
             wrong_track = track_requires_review(claim_quote, data["track"])
             result.update(
                 evidence_grade=None,

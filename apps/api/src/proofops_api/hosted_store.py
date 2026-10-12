@@ -1365,6 +1365,7 @@ class HostedStore:
         allow_transient_403: bool = False,
         allow_model_partial: bool = False,
         allow_response_uncertainty: bool = False,
+        allow_connect_not_sent: bool = False,
     ) -> dict:
         """Broker boundary for a future approved adapter. No HTTP/provider implementation here."""
         if (
@@ -1436,7 +1437,22 @@ class HostedStore:
             # An uncertain model transport is a per-claim hold, not a lost run fence.
             # Unknown receipts and non-model failures retain the existing terminal guard.
             from proofops.adapters.local.openai import OpenAITransient403
+            from proofops.adapters.local.openai_connections import OpenAIConnectNotSent
 
+            if (
+                allow_connect_not_sent is True
+                and provider == "openai"
+                and isinstance(exc, OpenAIConnectNotSent)
+            ):
+                # This typed proof originates exclusively before HTTP request().
+                # Settle this broker reservation at zero; a retry needs a new call_id.
+                with self.transaction() as db:
+                    db.execute(
+                        "UPDATE deletion.costs SET actual=0,status='settled' "
+                        "WHERE run_id=? AND call_id=? AND status='reserved'",
+                        (job["run_id"], call_id),
+                    )
+                raise
             transient_denial = (
                 allow_transient_403 is True
                 and provider == "openai"

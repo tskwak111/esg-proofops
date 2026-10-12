@@ -11,6 +11,7 @@ from proofops.application.ingest.k6_coverage import POLICY as K6_COVERAGE_POLICY
 from proofops.application.ingest.q1_tables import POLICY as Q1_TABLE_POLICY
 from proofops.application.ingest.sentence_prefix import POLICY as PREFIX_POLICY
 from proofops.application.openai_retry import POLICY as T1_RETRY_POLICY
+from proofops.application.openai_transport import POLICY as K10_TRANSPORT_POLICY
 from proofops.application.provider_resilience import (
     HTTP_DIAGNOSTIC_POLICY,
     RESPONSE_ERROR_DIAGNOSTIC_POLICY,
@@ -39,6 +40,7 @@ from proofops.application.tagging.k7_wire import POLICY as K7_WIRE_POLICY
 from proofops.application.tagging.k7_wire import POLICY_K8 as K8_WIRE_POLICY
 from proofops.application.tagging.k7_wire import POLICY_K8_V2 as K8_WIRE_V2_POLICY
 from proofops.application.tagging.k7_wire import POLICY_K8_V3 as K8_WIRE_V3_POLICY
+from proofops.application.tagging.k7_wire import POLICY_K10 as K10_WIRE_POLICY
 from proofops.application.tagging.k7_wire import POLICY_V1 as K7_WIRE_V1_POLICY
 from proofops.application.tagging.k9_contract import BINDING_POLICY as K9_BINDING_POLICY
 from proofops.application.tagging.k9_contract import BINDING_V1_POLICY as K9_BINDING_V1_POLICY
@@ -47,6 +49,8 @@ from proofops.application.tagging.k9_contract import BINDING_V3_POLICY as K9_BIN
 from proofops.application.tagging.k9_contract import BINDING_V4_POLICY as K9_BINDING_V4_POLICY
 from proofops.application.tagging.k9_contract import PROFILE as K9_PROMPT_PROFILE
 from proofops.application.tagging.k9_contract import PROMPT_POLICY as K9_PROMPT_POLICY
+from proofops.application.tagging.k10_contract import SEMANTIC_POLICY as K10_SEMANTIC_POLICY
+from proofops.application.tagging.k10_contract import SEMANTIC_V2_POLICY as K10_SEMANTIC_V2_POLICY
 from proofops.application.tagging.q1_contract import PROMPT_POLICY as Q1_PROMPT_POLICY
 from proofops.application.tagging.q1_contract import SEMANTIC_POLICY as Q1_SEMANTIC_POLICY
 from proofops.application.tagging.quality import ELEMENT_DEFINITIONS_HASH
@@ -634,6 +638,21 @@ FINALS_I10_POLICY = (
         scope_discovery="scope-ocr-fallback-v1",
     )
 )
+
+FINALS_K10_POLICY = FINALS_I10_POLICY | dict(
+    integration_profile="finals-20261013-k10-v1",
+    semantic_admission=K10_SEMANTIC_POLICY,
+    semantic_admission_sha256=canonical_hash(K10_SEMANTIC_POLICY),
+    tagging_wire_policy=K10_WIRE_POLICY,
+    tagging_wire_policy_sha256=canonical_hash(K10_WIRE_POLICY),
+    openai_transport_policy=K10_TRANSPORT_POLICY,
+    openai_transport_policy_sha256=canonical_hash(K10_TRANSPORT_POLICY),
+)
+FINALS_K10_V2_POLICY = FINALS_K10_POLICY | dict(
+    integration_profile="finals-20261013-k10-v2",
+    semantic_admission=K10_SEMANTIC_V2_POLICY,
+    semantic_admission_sha256=canonical_hash(K10_SEMANTIC_V2_POLICY),
+)
 V2_POLICY = FINALS_I10_POLICY
 
 
@@ -649,6 +668,8 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_K10_POLICY,
+            FINALS_K10_V2_POLICY,
             FINALS_C24_POLICY,
             FINALS_Q1_POLICY,
             FINALS_E05_POLICY,
@@ -734,6 +755,8 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FINALS_K10_POLICY,
+            FINALS_K10_V2_POLICY,
             FINALS_C24_POLICY,
             FINALS_Q1_POLICY,
             FINALS_E05_POLICY,

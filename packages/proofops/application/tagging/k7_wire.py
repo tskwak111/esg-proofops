@@ -3,6 +3,7 @@
 import json
 from copy import deepcopy
 
+from proofops.application.tagging.k10_contract import GUIDANCE as K10_GUIDANCE
 from proofops.domain.provenance import canonical_hash
 
 POLICY_V1 = dict(
@@ -65,6 +66,13 @@ POLICY_K8_V3 = POLICY_K8_V2 | dict(
     profile="bounded-interpretation-k8-v3",
     named_means_guidance_sha256=canonical_hash(NAMED_MEANS_GUIDANCE),
     named_means_trigger="management-atomic-quote-literal-insulation-only",
+)
+
+
+POLICY_K10 = POLICY_K8_V3 | dict(
+    profile="bounded-interpretation-k10-v1",
+    guidance_sha256=canonical_hash(K10_GUIDANCE),
+    renderer="compact-common-original-track-tail-k10-v1",
 )
 
 

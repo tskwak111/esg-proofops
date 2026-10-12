@@ -624,6 +624,9 @@ class UpstageTaggingTransport:
             from proofops.application.ingest.display_text import SYSTEM_SUFFIX
 
             wire_system += SYSTEM_SUFFIX
+        from proofops.application.tagging.k7_wire import POLICY_K10
+
+        k10 = data.get("tagging_wire_policy") == POLICY_K10
         k9 = data.get("local_implementation_binding_policy") is not None
         if k9:
             from proofops.application.tagging.k9_contract import (
@@ -648,8 +651,13 @@ class UpstageTaggingTransport:
         if settings.system_prompt == K4_ELEMENTS:
             if response_policy is None:
                 raise ValueError("I4_RESPONSE_POLICY_REQUIRED")
-            wire_system = elements_k4(schema, classification)
-            if k9:
+            if k10:
+                from proofops.application.tagging.k10_contract import elements
+
+                wire_system = elements(schema, classification)
+            else:
+                wire_system = elements_k4(schema, classification)
+            if k9 and not k10:
                 from proofops.application.tagging.k9_contract import element_guidance_for
 
                 wire_system += element_guidance_for(k9_binding, data.get("atomic_quote", ""))
@@ -674,6 +682,7 @@ class UpstageTaggingTransport:
                 POLICY_K8,
                 POLICY_K8_V2,
                 POLICY_K8_V3,
+                POLICY_K10,
                 POLICY_V1,
                 fit_context,
             )
@@ -684,6 +693,7 @@ class UpstageTaggingTransport:
                 POLICY_K8,
                 POLICY_K8_V2,
                 POLICY_K8_V3,
+                POLICY_K10,
             ):
                 raise ValueError("K7_WIRE_POLICY_MISMATCH")
             if data["tagging_wire_policy"] == POLICY_K8 and classification["track"] == "management":

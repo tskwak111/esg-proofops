@@ -136,6 +136,8 @@ class OpenAIProbe(OpenRouterProbe):
     http_dispatch_guard = False
     response_uncertainty_policy = None
     http_diagnostic_policy = None
+    transport_policy = None
+    connection_pool = None
 
     def _authorize_response_request(self):
         """Hosted adapters recheck their live owner/source before cache access."""
@@ -150,6 +152,7 @@ class OpenAIProbe(OpenRouterProbe):
         self.http_dispatch_guard = False
         self.response_uncertainty_policy = None
         self.http_diagnostic_policy = None
+        self.transport_policy = None
         if "model_response_policy" not in policy:
             self.response_policy = None
             self.wire_policy = WIRE_POLICY
@@ -170,6 +173,23 @@ class OpenAIProbe(OpenRouterProbe):
             analysis_policy_sha256=canonical_hash(policy),
         )
         self.response_role = role
+        if "openai_transport_policy" in policy:
+            from proofops.adapters.local.openai_connections import OpenAIConnections
+            from proofops.application.openai_transport import POLICY as transport_policy
+
+            if policy["openai_transport_policy"] != transport_policy or policy.get(
+                "openai_transport_policy_sha256"
+            ) != canonical_hash(transport_policy):
+                raise ValueError("OPENAI_TRANSPORT_POLICY_MISMATCH")
+            self.transport_policy = transport_policy
+            if self.connection_pool is None:
+                self.connection_pool = OpenAIConnections()
+            with sqlite3.connect(self.ledger) as db:
+                db.execute(
+                    "CREATE TABLE IF NOT EXISTS probe_transport_attempts ("
+                    "attempt_id TEXT PRIMARY KEY, request_id TEXT NOT NULL, bound TEXT NOT NULL, "
+                    "state TEXT NOT NULL, diagnostic TEXT)"
+                )
         if "http_diagnostic_policy" in policy:
             from proofops.application.provider_resilience import HTTP_DIAGNOSTIC_POLICY
 
@@ -209,6 +229,10 @@ class OpenAIProbe(OpenRouterProbe):
         self.wire_policy = WIRE_POLICY | dict(
             top_p=1, model_response_policy_sha256=canonical_hash(MODEL_RESPONSE_POLICY)
         )
+        if self.transport_policy:
+            self.wire_policy = self.wire_policy | dict(
+                transport_policy_sha256=canonical_hash(self.transport_policy)
+            )
         if "openai_retry_policy" in policy:
             if policy["openai_retry_policy"] != HTTP_RETRY_POLICY:
                 raise ValueError("OPENAI_RETRY_POLICY_MISMATCH")
@@ -459,8 +483,93 @@ class OpenAIProbe(OpenRouterProbe):
     def _post(self, body, *, client_request_id=None):
         # Hosted transport has already admitted before its broker reservation.
         scope = self.physical_attempt_scope() if client_request_id is None else nullcontext()
-        with scope:
-            return self._post_admitted(body, client_request_id=client_request_id)
+        if not self.transport_policy or client_request_id is not None:
+            with scope:
+                return self._post_admitted(body, client_request_id=client_request_id)
+        from proofops.adapters.local.openai_connections import OpenAIConnectNotSent
+        from proofops.adapters.local.provider_concurrency import ProviderCircuitOpen
+        from proofops.adapters.local.provider_scheduler import ProviderAdmissionDeferred
+
+        dispatch = self._dispatch_context.get()
+        for attempt in range(2):
+            attempt_id = str(uuid4())
+            # A distinct physical reservation is bounded by the still-reserved
+            # logical USD.02 envelope. The first proven-unsent attempt costs zero.
+            # No two possibly delivered attempts share this retry authorization.
+            with sqlite3.connect(self.ledger, timeout=30) as db:
+                row = db.execute(
+                    "SELECT receipt FROM probe_calls WHERE request_id=?", (dispatch["request_id"],)
+                ).fetchone()
+                if row != (None,):
+                    raise ValueError("TRANSPORT_RESERVATION_REQUIRED")
+                db.execute(
+                    "INSERT INTO probe_transport_attempts VALUES (?,?,?,'reserved',NULL)",
+                    (attempt_id, dispatch["request_id"], POLICY["reservation_usd"]),
+                )
+            try:
+                with self.physical_attempt_scope():
+                    data = self._post_admitted(body, client_request_id=attempt_id)
+                state, diagnostic = "response_received", None
+            except OpenAIConnectNotSent as error:
+                state, diagnostic = "never_sent", json.dumps(error.diagnostic, sort_keys=True)
+                self._finish_transport_attempt(attempt_id, state, diagnostic)
+                if attempt == 0 and not dispatch["transport_retries"]:
+                    dispatch["transport_retries"].append(
+                        dict(
+                            policy_sha256=canonical_hash(self.transport_policy),
+                            failed_attempt_id=attempt_id,
+                            dispatch_state="never_sent",
+                            diagnostic_sha256=canonical_hash(error.diagnostic),
+                        )
+                    )
+                    self._authorize_response_request()
+                    if now() >= PRICE_RECHECK_AT:
+                        self._settle_never_sent(dispatch["request_id"])
+                        raise ValueError("PRICE_RECHECK_REQUIRED")
+                    continue
+                self._settle_never_sent(dispatch["request_id"])
+                raise ValueError("PROVIDER_PROCESSING_FAILED") from None
+            except (ProviderCircuitOpen, ProviderAdmissionDeferred):
+                self._finish_transport_attempt(attempt_id, "never_sent", None)
+                self._settle_never_sent(dispatch["request_id"])
+                raise
+            except BaseException:
+                self._finish_transport_attempt(attempt_id, "unknown", None)
+                raise
+            self._finish_transport_attempt(attempt_id, state, diagnostic)
+            return data
+        raise ValueError("PROVIDER_PROCESSING_FAILED")
+
+    def _finish_transport_attempt(self, attempt_id, state, diagnostic):
+        with sqlite3.connect(self.ledger, timeout=30) as db:
+            db.execute(
+                "UPDATE probe_transport_attempts SET state=?,diagnostic=? "
+                "WHERE attempt_id=? AND state='reserved'",
+                (state, diagnostic, attempt_id),
+            )
+
+    def _settle_never_sent(self, request_id):
+        with sqlite3.connect(self.ledger, timeout=30) as db:
+            states = [
+                r[0]
+                for r in db.execute(
+                    "SELECT state FROM probe_transport_attempts WHERE request_id=?", (request_id,)
+                )
+            ]
+            if not states or any(state != "never_sent" for state in states):
+                return  # A prior schema attempt may already have reached the provider.
+            receipt = dict(
+                request_id=request_id,
+                schema_valid=False,
+                cost_with_vat_reserve_usd="0",
+                dispatch_state="never_sent",
+                cost_source="explicit_connect_failure_before_http_send",
+            )
+            db.execute(
+                "UPDATE probe_calls SET committed='0',receipt=? "
+                "WHERE request_id=? AND receipt IS NULL",
+                (json.dumps(receipt), request_id),
+            )
 
     def _post_admitted(self, body, *, client_request_id=None):
         # Hosted adapters admit each physical attempt before broker reservation.
@@ -472,7 +581,14 @@ class OpenAIProbe(OpenRouterProbe):
             admission = getattr(self, "http_dispatch_admission", None)
             if admission is not None:
                 admission()
-        connection = http.client.HTTPSConnection("api.openai.com", timeout=90)
+        pool = self.connection_pool if self.transport_policy else None
+        if pool:
+            connection, connection_id, reused = pool.take()
+        else:
+            connection = http.client.HTTPSConnection("api.openai.com", timeout=90)
+            connection_id, reused = str(uuid4()), False
+        reusable = False
+        request_started = False
         started = time.monotonic()
         response = raw = None
         trace = None
@@ -480,9 +596,9 @@ class OpenAIProbe(OpenRouterProbe):
             trace = dict(
                 started_at=now().isoformat(),
                 started_monotonic=started,
-                connection_id=str(uuid4()),
-                connection_new=True,
-                connection_reused=False,
+                connection_id=connection_id,
+                connection_new=not reused,
+                connection_reused=reused,
                 dns_ms=None,
                 connect_ms=None,
                 tls_ms=None,
@@ -533,10 +649,14 @@ class OpenAIProbe(OpenRouterProbe):
                 )
                 # The regular request() also calls connect(). This separates the
                 # combined DNS/TCP/TLS stage without changing Host/SNI/TLS/wire.
-                if hasattr(connection, "connect"):
+                if not reused and hasattr(connection, "connect"):
                     connecting = time.monotonic()
                     connection.connect()
                     trace["connect_tls_ms"] = round((time.monotonic() - connecting) * 1000, 2)
+                    trace["tls_session_reused"] = getattr(connection.sock, "session_reused", None)
+                if reused:
+                    connection.auto_open = 0  # Never reconnect implicitly after request starts.
+            request_started = True
             connection.request(
                 "POST",
                 "/v1/chat/completions",
@@ -615,10 +735,22 @@ class OpenAIProbe(OpenRouterProbe):
                 raise ValueError("OPENAI_RESPONSE_TOO_LARGE")
             data = json.loads(raw)
             data["openai_request_id"] = response.getheader("x-request-id")
+            reusable = pool is not None and not response.will_close
+            if self.transport_policy and self._dispatch_context.get() is not None:
+                self._dispatch_context.get().setdefault("connection_attempts", []).append(
+                    dict(
+                        connection_id=connection_id,
+                        connection_reused=reused,
+                        connect_tls_ms=trace.get("connect_tls_ms") if trace else None,
+                        tls_session_reused=trace.get("tls_session_reused") if trace else None,
+                        total_ms=round((time.monotonic() - started) * 1000, 2),
+                    )
+                )
             return data
         except (OSError, http.client.HTTPException, json.JSONDecodeError, UnicodeError) as error:
+            diagnostic = None
             if self.response_uncertainty_policy:
-                self._record_http_error(
+                diagnostic = self._record_http_error(
                     body,
                     response.status if response is not None else None,
                     raw or b"",
@@ -637,12 +769,28 @@ class OpenAIProbe(OpenRouterProbe):
                         exception_type=type(error).__name__,
                         response_received=response is not None,
                         body_received=raw is not None,
+                        **(
+                            dict(
+                                request_started=request_started,
+                                delivery_state="unknown" if request_started else "never_sent",
+                                transport_policy_sha256=canonical_hash(self.transport_policy),
+                            )
+                            if self.transport_policy
+                            else {}
+                        ),
                     ),
                     transport_context=transport_context(),
                 )
+            if self.transport_policy and not request_started:
+                from proofops.adapters.local.openai_connections import OpenAIConnectNotSent
+
+                raise OpenAIConnectNotSent(diagnostic) from None
             raise
         finally:
-            connection.close()
+            if reusable:
+                pool.release(connection, connection_id)
+            else:
+                connection.close()
 
     def complete(
         self, system, user_json, *, request_id, max_tokens=1024, json_mode=False, schema_json=None
@@ -928,6 +1076,8 @@ class OpenAIProbe(OpenRouterProbe):
         scope = self._dispatch_context.get()
         if scope and scope["transport_retries"]:
             receipt["transport_retries"] = scope["transport_retries"]
+        if self.transport_policy:
+            receipt["connection_attempts"] = scope.get("connection_attempts", [])
         if getattr(self, "provider_scheduler", None):
             receipt["provider_scheduler"] = dict(
                 policy_sha256=canonical_hash(self.provider_scheduler),
@@ -948,4 +1098,11 @@ class OpenAIProbe(OpenRouterProbe):
             ).rowcount
             if changed != 1:
                 raise ValueError("BUDGET_SETTLEMENT_INVALID")
+        if self.transport_policy:
+            with sqlite3.connect(self.ledger, timeout=30) as db:
+                db.execute(
+                    "UPDATE probe_transport_attempts SET state='settled' "
+                    "WHERE request_id=? AND state='response_received'",
+                    (request_id,),
+                )
         return {**receipt, "content": content}

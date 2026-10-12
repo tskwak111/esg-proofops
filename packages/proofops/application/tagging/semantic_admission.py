@@ -64,9 +64,11 @@ POLICY_HASH = canonical_hash(POLICY)
 def validate_policy(policy: dict) -> None:
     from proofops.application.tagging.k1_semantics import POLICY as K1_POLICY
     from proofops.application.tagging.k4_contract import SEMANTIC_POLICY
+    from proofops.application.tagging.k10_contract import SEMANTIC_POLICY as K10_POLICY
+    from proofops.application.tagging.k10_contract import SEMANTIC_V2_POLICY as K10_V2_POLICY
     from proofops.application.tagging.q1_contract import SEMANTIC_POLICY as Q1_POLICY
 
-    if policy not in (POLICY, K1_POLICY, SEMANTIC_POLICY, Q1_POLICY):
+    if policy not in (POLICY, K1_POLICY, SEMANTIC_POLICY, Q1_POLICY, K10_POLICY, K10_V2_POLICY):
         raise ValueError("SEMANTIC_ADMISSION_POLICY_UNKNOWN")
 
 
@@ -76,12 +78,18 @@ def guard_element(element: LlmElement, *, policy=None, claim_quote="") -> LlmEle
         from proofops.application.tagging.k1_semantics import guard
 
         admitted = guard(guard_element(element), claim_quote=claim_quote)
+        from proofops.application.tagging.k10_contract import SEMANTIC_POLICY as K10_POLICY
+        from proofops.application.tagging.k10_contract import SEMANTIC_V2_POLICY as K10_V2_POLICY
         from proofops.application.tagging.q1_contract import SEMANTIC_POLICY as Q1_POLICY
 
-        if policy == Q1_POLICY:
+        if policy in (Q1_POLICY, K10_POLICY, K10_V2_POLICY):
             from proofops.application.tagging.q1_contract import guard as q1_guard
 
             admitted = q1_guard(admitted)
+        if policy in (K10_POLICY, K10_V2_POLICY):
+            from proofops.application.tagging.k10_contract import guard as k10_guard
+
+            admitted = k10_guard(admitted, policy=policy)
         return admitted
     if element.state != "present":
         return element
@@ -144,9 +152,11 @@ def estimate_refs(
     if policy is not None and policy != POLICY:
         validate_policy(policy)
         from proofops.application.tagging.k4_contract import SEMANTIC_POLICY
+        from proofops.application.tagging.k10_contract import SEMANTIC_POLICY as K10_POLICY
+        from proofops.application.tagging.k10_contract import SEMANTIC_V2_POLICY as K10_V2_POLICY
         from proofops.application.tagging.q1_contract import SEMANTIC_POLICY as Q1_POLICY
 
-        if policy in (SEMANTIC_POLICY, Q1_POLICY):
+        if policy in (SEMANTIC_POLICY, Q1_POLICY, K10_POLICY, K10_V2_POLICY):
             from proofops.application.tagging.k4_contract import estimate_evidence
 
             return estimate_evidence(data, original)

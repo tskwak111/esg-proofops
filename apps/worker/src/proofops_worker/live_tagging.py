@@ -384,6 +384,7 @@ class LiveTaggingRuntime:
             from proofops.application.tagging.k7_wire import POLICY_K8 as K8_WIRE
             from proofops.application.tagging.k7_wire import POLICY_K8_V2 as K8_WIRE_V2
             from proofops.application.tagging.k7_wire import POLICY_K8_V3 as K8_WIRE_V3
+            from proofops.application.tagging.k7_wire import POLICY_K10 as K10_WIRE
             from proofops.application.tagging.k7_wire import POLICY_V1 as K7_WIRE_V1
 
             if policy["tagging_wire_policy"] not in (
@@ -392,6 +393,7 @@ class LiveTaggingRuntime:
                 K8_WIRE,
                 K8_WIRE_V2,
                 K8_WIRE_V3,
+                K10_WIRE,
             ):
                 raise ValueError("K7_WIRE_POLICY_MISMATCH")
             data["tagging_wire_policy"] = policy["tagging_wire_policy"]
@@ -744,9 +746,13 @@ class LiveTaggingRuntime:
             from proofops.application.tagging.k4_contract import SEMANTIC_POLICY, estimate_evidence
 
             semantic = self.snapshot.get("analysis_profile_policy", {}).get("semantic_admission")
+            from proofops.application.tagging.k10_contract import SEMANTIC_POLICY as K10_POLICY
+            from proofops.application.tagging.k10_contract import (
+                SEMANTIC_V2_POLICY as K10_V2_POLICY,
+            )
             from proofops.application.tagging.q1_contract import SEMANTIC_POLICY as Q1_POLICY
 
-            if semantic == Q1_POLICY:
+            if semantic in (Q1_POLICY, K10_POLICY, K10_V2_POLICY):
                 from proofops.application.tagging.q1_contract import forecast_quote
 
                 if forecast_quote(claim.quote) and result.safe_harbor_category != "forward_looking":
@@ -771,7 +777,7 @@ class LiveTaggingRuntime:
                 ):
                     raise ValueError("K6_RISK_WITHOUT_COMPANY_COMMITMENT")
             if (
-                semantic in (SEMANTIC_POLICY, Q1_POLICY)
+                semantic in (SEMANTIC_POLICY, Q1_POLICY, K10_POLICY, K10_V2_POLICY)
                 and result.track
                 and result.track.track == "goal"
             ):
@@ -780,7 +786,7 @@ class LiveTaggingRuntime:
                 if goal_requires_retag(claim, graph):
                     raise ValueError("K4_CONNECTIVE_GOAL_RETAG_REQUIRED")
             if (
-                semantic in (SEMANTIC_POLICY, Q1_POLICY)
+                semantic in (SEMANTIC_POLICY, Q1_POLICY, K10_POLICY, K10_V2_POLICY)
                 and result.safe_harbor_category == "emissions_estimate"
             ):
                 sources = dict(
@@ -799,7 +805,7 @@ class LiveTaggingRuntime:
                     )
 
             if (
-                semantic in (K1_POLICY, SEMANTIC_POLICY, Q1_POLICY)
+                semantic in (K1_POLICY, SEMANTIC_POLICY, Q1_POLICY, K10_POLICY, K10_V2_POLICY)
                 and result.track is not None
                 and track_requires_review(claim.quote, result.track.track)
             ):
@@ -807,7 +813,10 @@ class LiveTaggingRuntime:
             if (
                 pb1
                 and result.safe_harbor_category == "forward_looking"
-                and not (semantic == Q1_POLICY and forecast_quote(claim.quote))
+                and not (
+                    semantic in (Q1_POLICY, K10_POLICY, K10_V2_POLICY)
+                    and forecast_quote(claim.quote)
+                )
             ):
                 from proofops.application.tagging.pb1_classification import forward_candidate
 
