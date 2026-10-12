@@ -6,13 +6,19 @@ import pytest
 
 
 def test_v2_policy_keeps_ev1_and_disables_overlap():
-    from proofops.application.analysis_profile import POLICY, V2_POLICY, apply_pilot_profile
+    from proofops.application.analysis_profile import FINALS_I8_POLICY as V2_POLICY
+    from proofops.application.analysis_profile import POLICY, apply_pilot_profile
+    from proofops.domain.provenance import canonical_hash
 
     assert POLICY["pipeline_graph"] == "full-parse-only-v1"
     assert V2_POLICY["stage_overlap"] is False
     assert V2_POLICY["max_http_workers"] == 8
     assert V2_POLICY["evidence_source"] == "evidence-source-v1"
-    args = SimpleNamespace(analysis_profile="finals-unattended-v2", resume=False)
+    args = SimpleNamespace(
+        analysis_profile="finals-unattended-v2",
+        resume=False,
+        analysis_policy_sha256=canonical_hash(V2_POLICY),
+    )
     apply_pilot_profile(args)
     assert args.pipeline_profile == "finals-unattended-v2"
     assert args.verify_claim_spans and args.extraction_fragment_guard

@@ -46,12 +46,14 @@ def test_v7_composes_k8_and_f1_without_rewriting_prior_pins():
 
 
 def test_v7_operator_defaults_are_eight_workers_batch100_four_rps_one_run(tmp_path):
-    policy = profiles.policy_for(profiles.V2_PROFILE)
-    operator = operator_profiles({})
+    pin = canonical_hash(profiles.FINALS_I7_POLICY)
+    policy = profiles.policy_for(profiles.V2_PROFILE, pinned_hash=pin)
+    config = dict(analysis_policy_sha256=pin)
+    operator = operator_profiles(config)
     assert operator["llm_max_workers"] == 8
     assert operator["extract_batch_calls"] == 100
-    assert operator_profiles({"llm_max_workers": 16})["llm_max_workers"] == 8
-    assert operator_profiles({"extract_batch_calls": 20})["extract_batch_calls"] == 20
+    assert operator_profiles(config | {"llm_max_workers": 16})["llm_max_workers"] == 8
+    assert operator_profiles(config | {"extract_batch_calls": 20})["extract_batch_calls"] == 20
     assert policy["provider_resilience"]["requests_per_second"] == 4
     assert policy["provider_resilience"]["consecutive_denials"] == 3
     settings = HostedSettings(tmp_path, "https://localhost", "x" * 32, "i7")

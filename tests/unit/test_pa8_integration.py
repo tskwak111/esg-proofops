@@ -9,6 +9,7 @@ import pytest
 from proofops.application.analysis_profile import (
     FINALS_I2_POLICY,
     FINALS_I5_POLICY,
+    FINALS_I8_POLICY,
     MODEL_RESPONSE_POLICY,
     V2_PA4_POLICY,
     V2_PB7_POLICY,
@@ -80,7 +81,7 @@ def test_every_historical_policy_remains_readable():
     )
     assert V2_POLICY["source"] == "upstage-ocr-page-v13"
     assert V2_PRE_D24_POLICY["verified_read_cache"]["profile"] == "exact-verified-read-v4"
-    assert V2_POLICY["verified_read_cache"]["profile"] == "exact-verified-read-v7"
+    assert FINALS_I8_POLICY["verified_read_cache"]["profile"] == "exact-verified-read-v7"
 
 
 @pytest.mark.parametrize("change", ["tenant", "replica", "receipt", "graph", "policy"])
@@ -182,6 +183,10 @@ def test_hosted_reuse_rechecks_live_fence_and_source_before_cache_access(
     )
     first.response_cache_path = cache
     first.configure_response_policy(scope, role="extract")
+    from proofops.adapters.local.provider_scheduler import RoleProviderConcurrency
+
+    gate = RoleProviderConcurrency(8)
+    gate.bind(first)
     first.complete("JSON", "{}", request_id="first", json_mode=True)
     second = HostedOpenAILunaProbe(
         "fake",
@@ -192,6 +197,7 @@ def test_hosted_reuse_rechecks_live_fence_and_source_before_cache_access(
     )
     second.response_cache_path = cache
     second.configure_response_policy(scope, role="extract")
+    gate.bind(second)
     if change == "cancel":
         store.cancel(auth, job["run_id"], now=time.time())
     elif change == "expired":
