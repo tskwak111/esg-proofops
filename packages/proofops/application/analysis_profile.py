@@ -537,7 +537,6 @@ FINALS_K9_POLICY = FINALS_K9_V4_POLICY | dict(
 
 # Adopt final K9 semantics for new runs; preserve every earlier pin verbatim.
 FINALS_I8_POLICY = FINALS_K9_POLICY | dict(integration_profile="finals-20261012-v8")
-V2_POLICY = FINALS_I8_POLICY
 
 
 # S4 is opt-in; the deployed v7 policy and all historical reader bytes stay pinned.
@@ -579,6 +578,24 @@ FINALS_S5_POLICY = FINALS_I7_POLICY | dict(
     worker_resources="worker-resources-s5-v1",
 )
 
+# Execution-only integration; the v8 source, tagging and domain policies remain fixed.
+FINALS_I9_POLICY = (
+    FINALS_I8_POLICY
+    | {key: S4_POLICY[key] for key in ("verified_read_cache", "publication_handoff")}
+    | {
+        key: FINALS_S5_POLICY[key]
+        for key in (
+            "provider_scheduler",
+            "http_dispatch_guard",
+            "http_admission",
+            "max_http_workers",
+            "worker_resources",
+        )
+    }
+    | dict(integration_profile="finals-20261012-v9")
+)
+V2_POLICY = FINALS_I9_POLICY
+
 
 def policy_for(profile, *, pinned_hash=None):
     if profile == J7_PROFILE:
@@ -592,6 +609,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_I8_POLICY,
             FINALS_I7_POLICY,
             FINALS_K9_POLICY,
             FINALS_K9_INITIAL_POLICY,
@@ -672,6 +690,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FINALS_I8_POLICY,
             FINALS_I7_POLICY,
             FINALS_K9_POLICY,
             FINALS_K9_INITIAL_POLICY,

@@ -47,6 +47,8 @@ def main(
 ):
     selected_policy = integration_policy or V2_POLICY
     ceiling = Decimal("0.8") if selected_policy.get("provider_resilience") else Decimal("0.6")
+    if selected_policy.get("integration_profile") == "finals-20261012-v9":
+        ceiling = Decimal("1.5")  # int-I9.md authorizes a shared USD1.50 task fence.
     if not Decimal(0) < Decimal(budget) <= ceiling:
         raise ValueError("CANARY_BUDGET_INVALID")
     physical_pages = claim_pages or dict(naver=[84, 88], kia=[26, 106])

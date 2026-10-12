@@ -247,6 +247,6 @@ def test_explicit_s4_policy_keeps_v7_default_and_historical_hash():
         canonical_hash(FINALS_I7_POLICY)
         == "0d10ccb21b953f5c29846438fb72538baf50ebd280c45d89b5adbf727c6c9efb"
     )
-    assert policy_for(V2_PROFILE) == FINALS_I7_POLICY
+    assert policy_for(V2_PROFILE, pinned_hash=canonical_hash(FINALS_I7_POLICY)) == FINALS_I7_POLICY
     assert policy_for(V2_PROFILE, pinned_hash=canonical_hash(S4_POLICY)) == S4_POLICY
     assert publication_policy_for(V2_PROFILE, pinned_hash=canonical_hash(S4_POLICY)) == S4_POLICY

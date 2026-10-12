@@ -140,14 +140,21 @@ def bounded_reader(reader, *, tenant_id, run_id):
         from proofops.adapters.local.verified_read_cache import _execution_policy
 
         if (
-            (not resources_enabled() and _execution_policy() not in (VERIFIED_READ_V7_POLICY, VERIFIED_READ_V8_POLICY))
+            (
+                not resources_enabled()
+                and _execution_policy() not in (VERIFIED_READ_V7_POLICY, VERIFIED_READ_V8_POLICY)
+            )
             or sha256(Path(reader.__file__).read_bytes()).hexdigest()
             != (
                 VERIFIED_READ_V8_POLICY
                 if reader.PROFILE.endswith("v13")
                 else VERIFIED_READ_V7_POLICY
             )["v13_replay_sha256" if reader.PROFILE.endswith("v13") else "v12_replay_sha256"]
-            or (reader.PROFILE.endswith("v13") and not resources_enabled() and _execution_policy() != VERIFIED_READ_V8_POLICY)
+            or (
+                reader.PROFILE.endswith("v13")
+                and not resources_enabled()
+                and _execution_policy() != VERIFIED_READ_V8_POLICY
+            )
         ):
             raise ValueError("PA7_RASTER_READER_BINDING_MISMATCH")
         heading_wrapper = original

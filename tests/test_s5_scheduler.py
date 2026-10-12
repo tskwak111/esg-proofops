@@ -27,7 +27,9 @@ def test_runtime_controls_are_consumed_only_by_new_policy():
         == "0d10ccb21b953f5c29846438fb72538baf50ebd280c45d89b5adbf727c6c9efb"
     )
     with pytest.raises(ValueError, match="SCHEDULER_POLICY_REQUIRED"):
-        operator_profiles(dict(llm_requests_per_second=6))
+        operator_profiles(
+            dict(analysis_policy_sha256=canonical_hash(FINALS_I7_POLICY), llm_requests_per_second=6)
+        )
     for invalid in (True, 0, 9, 1.5, "6"):
         with pytest.raises(ValueError, match="RPS_INVALID"):
             operator_profiles(config | dict(llm_requests_per_second=invalid))

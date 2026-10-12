@@ -100,6 +100,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             FINALS_F1_TRANSPORT_POLICY,
             FINALS_I7_POLICY,
             FINALS_I8_POLICY,
+            FINALS_I9_POLICY,
             S4_POLICY,
         )
         from proofops.application.provider_resilience import PROJECTION_POLICY, claim_hold_reason
@@ -111,6 +112,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             canonical_hash(FINALS_F1_TRANSPORT_POLICY),
             canonical_hash(FINALS_I7_POLICY),
             canonical_hash(FINALS_I8_POLICY),
+            canonical_hash(FINALS_I9_POLICY),
             canonical_hash(S4_POLICY),
         }
         if f1:

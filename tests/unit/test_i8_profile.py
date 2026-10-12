@@ -6,7 +6,9 @@ from proofops.domain.provenance import canonical_hash
 
 
 def test_v8_default_uses_final_k9_without_changing_v7():
-    current = profiles.policy_for(profiles.V2_PROFILE)
+    current = profiles.policy_for(
+        profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_I8_POLICY)
+    )
     assert current["integration_profile"] == "finals-20261012-v8"
     assert current == profiles.FINALS_K9_POLICY | dict(integration_profile="finals-20261012-v8")
     assert canonical_hash(profiles.FINALS_I7_POLICY) == (
@@ -38,7 +40,9 @@ def test_v8_preserves_all_finals_publication_and_replay_pins():
 
 
 def test_v8_keeps_live_resource_and_resilience_contracts():
-    policy = profiles.policy_for(profiles.V2_PROFILE)
+    policy = profiles.policy_for(
+        profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_I8_POLICY)
+    )
     assert policy["max_http_workers"] == 8
     assert policy["extract_batch_calls"] == 100
     assert policy["max_active_runs"] == 1
@@ -49,7 +53,9 @@ def test_v8_provider_failure_preserves_pending_charge_and_sibling_call(tmp_path,
     from tests.test_t1_403_retry import costs, setup, success, wire
 
     store, auth, job, probe, _ = setup(tmp_path, monkeypatch, cap=".08")
-    policy = profiles.policy_for(profiles.V2_PROFILE)
+    policy = profiles.policy_for(
+        profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_I8_POLICY)
+    )
     probe.configure_response_policy(
         dict(
             tenant_id=auth.tenant_id,
