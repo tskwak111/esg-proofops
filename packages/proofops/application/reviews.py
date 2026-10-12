@@ -32,6 +32,7 @@ from proofops.application.tagging.consensus import (
     ConsensusResult,
     form_consensus,
 )
+from proofops.application.tagging.fact_assembly_c2 import FactAssemblyReceiptV1
 from proofops.application.tagging.report_level_link import replay_report_level_link, strict_fallback
 from proofops.application.tagging.service import TagRun
 from proofops.domain.audit import AuditConflict
@@ -105,6 +106,7 @@ class ReviewInputs:
     fact_assembly_profile: str = "strict-v1"
     report_level_link: dict | None = None
     report_level_review: tuple[dict, ...] = ()
+    fact_assembly_receipt: FactAssemblyReceiptV1 | None = None
 
     def snapshot(self) -> dict:
         snapshot = dict(
@@ -145,10 +147,28 @@ class ReviewInputs:
         if self.report_level_link is not None:
             snapshot["report_level_link"] = self.report_level_link
             snapshot["report_level_review"] = list(self.report_level_review)
+        if self.fact_assembly_receipt is not None:
+            snapshot["fact_assembly_receipt"] = self.fact_assembly_receipt.to_dict()
         return snapshot
 
     def validate(self) -> None:
         claim, data = self.context.claim, self.packet.to_dict()
+        if self.fact_assembly_receipt is not None:
+            from proofops.application.tagging.fact_assembly_c2 import replay
+
+            try:
+                replay(
+                    self.fact_assembly_receipt.to_dict(),
+                    context=self.context,
+                    graph=self.original,
+                    packet=self.packet,
+                    rulepack=self.rulepack,
+                    tag_revision=self.tag_revision,
+                )
+            except (ValueError, KeyError, TypeError) as exc:
+                raise ReviewRejected("FACT_ASSEMBLY_REPLAY_MISMATCH", 409) from exc
+            if self.decision is not None:
+                raise ReviewRejected("C2_PUBLICATION_DISABLED", 409)
         if (
             (claim.tenant_id, self.original.tenant_id, self.rulepack.tenant_id)
             != (self.rule_context.tenant_id,) * 3
@@ -1219,6 +1239,10 @@ class ReviewService:
                 replace(inputs.rule_context, decision_revision=decision_revision),
                 inputs.rulepack,
             )
+            if inputs.fact_assembly_receipt is not None:
+                # A reviewer cannot activate an unpublished experimental profile.
+                # CAS has already been checked by the store; no revision is written.
+                raise ReviewRejected("C2_PUBLICATION_DISABLED", 409)
             # Preserve the engine semantic hash exactly; review status is provenance metadata.
             api = decision.to_api_dict() | {"review_status": review_status}
             tag = dict(

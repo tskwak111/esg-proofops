@@ -811,6 +811,7 @@ class LocalTagStore:
             raw.get("fact_assembly", {}).get("profile", "strict-v1"),
             link_config,
             link_receipts,
+            _fact_assembly_reader(raw.get("fact_assembly_receipt")),
         )
         inputs.validate()
         if _tag_replay_hash(inputs.snapshot()) != _tag_replay_hash(raw):
@@ -830,3 +831,17 @@ class LocalTagStore:
             if canonical_hash(replayed) != canonical_hash(receipt["source_receipt"]):
                 raise ValueError("REPORT_LEVEL_LINK_REPLAY_MISMATCH")
         return inputs
+
+
+def _fact_assembly_reader(raw):
+    """Opaque versioned artifact; replay remains ReviewInputs' responsibility."""
+    if raw is None:
+        return None
+    from proofops.application.tagging.fact_assembly_c2 import SCHEMA, FactAssemblyReceiptV1
+
+    if not isinstance(raw, dict) or raw.get("schema") != SCHEMA:
+        raise ValueError("FACT_ASSEMBLY_VERSION_UNSUPPORTED")
+    content = {k: v for k, v in raw.items() if k != "receipt_sha256"}
+    return FactAssemblyReceiptV1(
+        json.dumps(content, ensure_ascii=False, sort_keys=True), raw["receipt_sha256"]
+    )

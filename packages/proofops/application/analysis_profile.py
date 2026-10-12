@@ -657,7 +657,12 @@ V2_POLICY = FINALS_I10_POLICY
 
 
 def policy_for(profile, *, pinned_hash=None):
-    if profile == J7_PROFILE:
+    from proofops.application.tagging.fact_assembly_c2 import POLICY as C2_POLICY
+    from proofops.application.tagging.fact_assembly_c2 import PROFILE as C2_PROFILE
+
+    if profile == C2_PROFILE:
+        choices = (C2_POLICY,)
+    elif profile == J7_PROFILE:
         choices = (J7_POLICY,)
     elif profile == J8_PROFILE:
         choices = (J8_POLICY,)
@@ -751,6 +756,13 @@ def policy_for(profile, *, pinned_hash=None):
 
 
 def publication_policy_for(profile, *, pinned_hash=None):
+    from proofops.application.tagging.fact_assembly_c2 import PROFILE as C2_PROFILE
+    from proofops.application.tagging.fact_assembly_c2 import (
+        publication_policy_for as c2_publication,
+    )
+
+    if profile == C2_PROFILE:
+        return c2_publication(profile, pinned_hash=pinned_hash)
     policy = policy_for(profile, pinned_hash=pinned_hash)
     allowed = (
         (
