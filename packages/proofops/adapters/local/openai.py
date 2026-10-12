@@ -10,7 +10,7 @@ import os
 import re
 import sqlite3
 import time
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from contextvars import ContextVar
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
@@ -144,6 +144,7 @@ class OpenAIProbe(OpenRouterProbe):
         policy = snapshot.get("analysis_profile_policy", {})
         self.http_retry_policy = None
         self.provider_resilience = None
+        self.provider_scheduler = None
         self.http_dispatch_guard = False
         self.response_uncertainty_policy = None
         if "model_response_policy" not in policy:
@@ -172,8 +173,14 @@ class OpenAIProbe(OpenRouterProbe):
             if policy["provider_resilience"] != resilience:
                 raise ValueError("PROVIDER_RESILIENCE_POLICY_MISMATCH")
             self.provider_resilience = resilience
-            self.http_dispatch_guard = (
-                policy.get("http_dispatch_guard") == "physical-attempt-paced4-denial3-f1-v2"
+            from proofops.application.provider_resilience import SCHEDULER_POLICY
+
+            if "provider_scheduler" in policy and policy["provider_scheduler"] != SCHEDULER_POLICY:
+                raise ValueError("PROVIDER_SCHEDULER_POLICY_MISMATCH")
+            self.provider_scheduler = policy.get("provider_scheduler")
+            self.http_dispatch_guard = policy.get("http_dispatch_guard") in (
+                "physical-attempt-paced4-denial3-f1-v2",
+                SCHEDULER_POLICY["profile"],
             )
             if "response_uncertainty_policy" in policy:
                 from proofops.application.provider_resilience import (
@@ -423,9 +430,26 @@ class OpenAIProbe(OpenRouterProbe):
             pass
         return diagnostic
 
+    def physical_attempt_scope(self):
+        if getattr(self, "provider_scheduler", None) is None:
+            return nullcontext()
+        if not hasattr(self, "http_attempt_scope"):
+            raise ValueError("PROVIDER_SCHEDULER_BINDING_REQUIRED")
+        return self.http_attempt_scope()
+
     def _post(self, body, *, client_request_id=None):
+        # Hosted transport has already admitted before its broker reservation.
+        scope = self.physical_attempt_scope() if client_request_id is None else nullcontext()
+        with scope:
+            return self._post_admitted(body, client_request_id=client_request_id)
+
+    def _post_admitted(self, body, *, client_request_id=None):
         # Hosted adapters admit each physical attempt before broker reservation.
-        if self.http_dispatch_guard and client_request_id is None:
+        if (
+            self.http_dispatch_guard
+            and client_request_id is None
+            and not getattr(self, "provider_scheduler", None)
+        ):
             admission = getattr(self, "http_dispatch_admission", None)
             if admission is not None:
                 admission()
@@ -433,15 +457,19 @@ class OpenAIProbe(OpenRouterProbe):
         started = time.monotonic()
         response = raw = None
         try:
+            encoded = json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode()
+            headers = {
+                "Authorization": "Bearer " + self._key,
+                "Content-Type": "application/json",
+                **({"X-Client-Request-Id": client_request_id} if client_request_id else {}),
+            }
+            if getattr(self, "provider_scheduler", None):
+                self.http_transport_pacing()
             connection.request(
                 "POST",
                 "/v1/chat/completions",
-                body=json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode(),
-                headers={
-                    "Authorization": "Bearer " + self._key,
-                    "Content-Type": "application/json",
-                    **({"X-Client-Request-Id": client_request_id} if client_request_id else {}),
-                },
+                body=encoded,
+                headers=headers,
             )
             response = connection.getresponse()
             self.rate_limit_headers = {
@@ -678,6 +706,8 @@ class OpenAIProbe(OpenRouterProbe):
                 "INSERT INTO probe_calls VALUES (?,?,?,NULL)",
                 (request_id, canonical_hash(body), POLICY["reservation_usd"]),
             )
+        if getattr(self, "provider_scheduler", None):
+            self._dispatch_context.get()["local_reserved_monotonic"] = time.monotonic()
         attempts, total_cost, input_tokens, output_tokens = [], Decimal(0), 0, 0
         for attempt in range(2):
             if now() >= PRICE_RECHECK_AT:
@@ -698,12 +728,15 @@ class OpenAIProbe(OpenRouterProbe):
                     os.fsync(stream.fileno())
             except Exception as error:
                 from proofops.adapters.local.provider_concurrency import ProviderCircuitOpen
+                from proofops.adapters.local.provider_scheduler import ProviderAdmissionDeferred
                 from proofops.application.budget import BudgetExceeded
                 from proofops.application.provider_resilience import ISOLATED_CODES
 
                 if isinstance(error, BudgetExceeded):
                     raise
-                if self.http_dispatch_guard and isinstance(error, ProviderCircuitOpen):
+                if self.http_dispatch_guard and isinstance(
+                    error, ProviderCircuitOpen | ProviderAdmissionDeferred
+                ):
                     # This typed rejection is raised before transport and broker
                     # admission. It proves this attempt was never sent; actual
                     # provider failures keep their full uncertain reservation.
@@ -711,7 +744,7 @@ class OpenAIProbe(OpenRouterProbe):
                         request_id=request_id,
                         schema_valid=False,
                         cost_with_vat_reserve_usd="0",
-                        error="PROVIDER_CIRCUIT_OPEN",
+                        error=str(error),
                         dispatch_state="never_sent",
                         cost_source="physical_admission_denied",
                     )
@@ -722,7 +755,7 @@ class OpenAIProbe(OpenRouterProbe):
                                 "WHERE request_id=? AND receipt IS NULL",
                                 (json.dumps(receipt, sort_keys=True), request_id),
                             )
-                    raise ValueError("PROVIDER_CIRCUIT_OPEN") from None
+                    raise ValueError(str(error)) from None
                 code = str(error)
                 if self.provider_resilience and (
                     code in ISOLATED_CODES | {"PROCESSING_UNCERTAIN", "OPENAI_REQUEST_FAILED"}
@@ -817,6 +850,13 @@ class OpenAIProbe(OpenRouterProbe):
         scope = self._dispatch_context.get()
         if scope and scope["transport_retries"]:
             receipt["transport_retries"] = scope["transport_retries"]
+        if getattr(self, "provider_scheduler", None):
+            receipt["provider_scheduler"] = dict(
+                policy_sha256=canonical_hash(self.provider_scheduler),
+                local_reserved_monotonic=scope.get("local_reserved_monotonic"),
+                attempts=scope.get("physical_attempts", []),
+                receipt_persist_started_monotonic=time.monotonic(),
+            )
         with sqlite3.connect(self.ledger) as db:
             changed = db.execute(
                 "UPDATE probe_calls SET committed=?, receipt=? WHERE request_id=? "

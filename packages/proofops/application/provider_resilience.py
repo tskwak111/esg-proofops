@@ -10,6 +10,20 @@ POLICY = dict(
     circuit_scope="new-model-dispatches",
     publication="partial-with-failure-count",
 )
+# S5 is an execution contract. Historical F1 resilience and transport pins stay
+# byte-equivalent; live settings are frozen separately for each new run.
+SCHEDULER_POLICY = dict(
+    profile="physical-attempt-role-queues-s5-v1",
+    roles=["elements", "relation", "preliminary", "extract"],
+    priority="tagging-critical-path-first-fifo-within-role",
+    max_priority_bypass=8,
+    concurrency="physical-attempt-only-shared-across-roles-and-retries",
+    pacing="uniform-start-spacing-no-burst",
+    default_workers=8,
+    max_workers=16,
+    default_rps=4,
+    max_rps=8,
+)
 ISOLATED_CODES = frozenset({"PROVIDER_PROCESSING_FAILED", "PROVIDER_CIRCUIT_OPEN"})
 RESPONSE_ERROR_DIAGNOSTIC_POLICY = dict(
     profile="openai-response-uncertainty-f1-v1",

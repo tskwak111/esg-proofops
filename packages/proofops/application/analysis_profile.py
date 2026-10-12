@@ -11,7 +11,10 @@ from proofops.application.ingest.k6_coverage import POLICY as K6_COVERAGE_POLICY
 from proofops.application.ingest.sentence_prefix import POLICY as PREFIX_POLICY
 from proofops.application.openai_retry import POLICY as T1_RETRY_POLICY
 from proofops.application.provider_resilience import POLICY as F1_RESILIENCE_POLICY
-from proofops.application.provider_resilience import RESPONSE_ERROR_DIAGNOSTIC_POLICY
+from proofops.application.provider_resilience import (
+    RESPONSE_ERROR_DIAGNOSTIC_POLICY,
+    SCHEDULER_POLICY,
+)
 from proofops.application.tagging.dec24 import (
     DEFINITIONS_HASH,
     INTEGRATED_DEFINITIONS_HASH,
@@ -491,6 +494,17 @@ FINALS_I7_POLICY = (
 )
 V2_POLICY = FINALS_I7_POLICY
 
+# Explicit opt-in until real LG + Kakao promotion gates pass. The default and
+# every existing source/model/rule policy remain available for historical replay.
+FINALS_S5_POLICY = FINALS_I7_POLICY | dict(
+    integration_profile="finals-20261012-s5-pacing-v1",
+    provider_scheduler=SCHEDULER_POLICY,
+    http_dispatch_guard=SCHEDULER_POLICY["profile"],
+    http_admission="shared-physical-role-fair-s5-v1",
+    max_http_workers=16,
+    worker_resources="worker-resources-s5-v1",
+)
+
 
 def policy_for(profile, *, pinned_hash=None):
     if profile == J7_PROFILE:
@@ -504,6 +518,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_S5_POLICY,
             FINALS_I6_POLICY,
             FINALS_K7_POLICY,
             FINALS_K8_POLICY,
@@ -576,6 +591,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FINALS_S5_POLICY,
             FINALS_K7_POLICY,
             FINALS_K8_POLICY,
             FINALS_K8_V2_POLICY,

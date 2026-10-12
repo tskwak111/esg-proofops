@@ -1053,10 +1053,10 @@ class HostedStore:
                 if len(options["claim_pages"]) > 10:
                     raise HostedError("PAGE_SELECTION_INVALID", 422)
                 operator_pin = None
+                config = {}
                 if self.settings.live_config is not None:
-                    operator_pin = json.loads(self.settings.live_config.read_text()).get(
-                        "analysis_policy_sha256"
-                    )
+                    config = json.loads(self.settings.live_config.read_text())
+                    operator_pin = config.get("analysis_policy_sha256")
                 options.update(
                     pipeline_profile=pipeline_profile,
                     analysis_profile=pipeline_profile,
@@ -1064,6 +1064,17 @@ class HostedStore:
                         publication_policy_for(pipeline_profile, pinned_hash=operator_pin)
                     ),
                 )
+                from proofops_api.hosted_analysis import operator_profiles
+
+                execution = publication_policy_for(pipeline_profile, pinned_hash=operator_pin)
+                if execution.get("provider_scheduler"):
+                    profiles = operator_profiles(config | dict(analysis_profile=pipeline_profile))
+                    frozen = {
+                        k: profiles[k] for k in ("llm_max_workers", "llm_requests_per_second")
+                    }
+                    options.update(
+                        provider_execution=frozen, provider_execution_sha256=canonical_hash(frozen)
+                    )
             body_hash = digest(json.dumps([document, selected, options]))
             replay = self._replay(db, auth, "run", key, body_hash)
             if replay:
