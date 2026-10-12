@@ -6,8 +6,11 @@ from proofops.domain.provenance import canonical_hash
 
 def test_i6_composes_i5_context_and_coverage_without_changing_old_pins():
     policy = profiles.FINALS_I6_POLICY
-    assert profiles.policy_for(profiles.V2_PROFILE) == policy
-    assert profiles.publication_policy_for(profiles.V2_PROFILE) == policy
+    assert profiles.policy_for(profiles.V2_PROFILE, pinned_hash=canonical_hash(policy)) == policy
+    assert (
+        profiles.publication_policy_for(profiles.V2_PROFILE, pinned_hash=canonical_hash(policy))
+        == policy
+    )
     assert policy["integration_profile"] == "finals-20261012-v6"
     for key in ("source", "verified_read_cache", "tagging_budget", "table_failure_profile"):
         assert policy[key] == profiles.FINALS_I5_POLICY[key]
@@ -36,7 +39,9 @@ def test_i6_composes_i5_context_and_coverage_without_changing_old_pins():
         assert canonical_hash(old) == digest
         assert profiles.policy_for(profiles.V2_PROFILE, pinned_hash=digest) == old
         assert profiles.publication_policy_for(profiles.V2_PROFILE, pinned_hash=digest) == old
-    args = Namespace(analysis_profile=profiles.V2_PROFILE)
+    args = Namespace(
+        analysis_profile=profiles.V2_PROFILE, analysis_policy_sha256=canonical_hash(policy)
+    )
     profiles.apply_pilot_profile(args)
     assert args.extraction_i4_identity and args.extraction_h1
     assert args.extraction_i5_tables and args.extraction_k6

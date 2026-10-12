@@ -34,7 +34,9 @@ def test_i5_composes_i4_h1_s2_and_keeps_historical_pins():
     assert args.parser_local_resource_policy == "selected-pdf-h1-v1"
     assert args.claim_source_profile == "upstage-ocr-page-v12"
     assert args.tagging_max_calls == 2000
-    config = dict(analysis_profile=profiles.V2_PROFILE)
+    config = dict(
+        analysis_profile=profiles.V2_PROFILE, analysis_policy_sha256=canonical_hash(policy)
+    )
     assert operator_profiles(config)["llm_max_workers"] == 16
     assert operator_profiles(config | dict(llm_max_workers=8))["llm_max_workers"] == 8
     assert (

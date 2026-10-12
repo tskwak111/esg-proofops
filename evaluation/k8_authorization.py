@@ -6,7 +6,7 @@ from uuid import uuid4
 from proofops.domain.provenance import canonical_hash
 
 
-def fresh_grants(snapshot):
+def fresh_grants(snapshot, *, approved_by="authorized-local-operator:fix-K8.md"):
     now = datetime.now(UTC)
     changes = {}
     fields = [("runtime", "runtime_binding_id"), ("consent", "consent_profile_id")]
@@ -28,7 +28,7 @@ def fresh_grants(snapshot):
             id_field: str(uuid4()),
             "approved_at": now.isoformat(),
             "expires_at": (now + timedelta(hours=8)).isoformat(),
-            "approved_by": "authorized-local-operator:fix-K8.md",
+            "approved_by": approved_by,
         }
         changes[field] = grant
         changes[field + "_artifact_hash"] = canonical_hash(grant)

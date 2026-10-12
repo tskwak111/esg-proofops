@@ -21,15 +21,16 @@ from evaluation.i5_live import I5Budget
 class F1OCRBudget:
     """Both existing money fences cover missing OCR in disposable local fixtures."""
 
-    def __init__(self, shared, grant, run, events):
+    def __init__(self, shared, grant, run, events, *, task="F1-resilience", limit=".8"):
         self.shared, self.grant, self.run, self.events = shared, grant, run, events
+        self.task, self.limit = task, Decimal(limit)
 
     def run_options(self, job):
         return {}
 
     def dispatch(self, job, provider, call_id, input_sha, bound, transport, **kwargs):
         fence = I5Budget(self.shared, {}, self.events)
-        fence.task, fence.limit_usd = "F1-resilience", Decimal(".8")
+        fence.task, fence.limit_usd = self.task, self.limit
         fence.reserve(bound)
         reserved = sent = False
         charged = Decimal(0)
@@ -83,7 +84,13 @@ def source_claim_pages(source_state):
     return [manifest["selected_pages"][page - 1] for page in limits["claim_pages"]]
 
 
-def run():
+def run(
+    *,
+    integration_policy=FINALS_F1_POLICY,
+    task="F1-resilience",
+    limit=".8",
+    local_grant_factory=None,
+):
     root = Path(sys.argv[sys.argv.index("--root") + 1])
     output = Path(sys.argv[sys.argv.index("--output") + 1])
     case = sys.argv.pop(1)
@@ -107,7 +114,9 @@ def run():
     )
     ocr_run = "F1-ocr-" + str(uuid4())
     grant.configure_run(ocr_run, day=time.strftime("%Y-%m-%d", time.gmtime()), run_limit=".8")
-    budget = F1OCRBudget(shared, grant, ocr_run, output.parent / "ocr-calls.jsonl")
+    budget = F1OCRBudget(
+        shared, grant, ocr_run, output.parent / "ocr-calls.jsonl", task=task, limit=limit
+    )
     os.environ["UPSTAGE_API_KEY"] = read_key(str(root / ".env.upstage.local"), "UPSTAGE_API_KEY")
 
     class MissingOCR(hosted_ocr.HostedOCRStore):
@@ -133,7 +142,7 @@ def run():
         fence = I5Budget(
             shared, {"openai": probe.ledger.resolve()}, output.parent / "paid-calls.jsonl"
         )
-        fence.task, fence.limit_usd = "F1-resilience", Decimal(".8")
+        fence.task, fence.limit_usd = task, Decimal(limit)
         return fence.guarded(original, "openai", lambda *a: Decimal(".02"))(probe, *a, **kw)
 
     OpenAIProbe.complete = guarded
@@ -142,7 +151,8 @@ def run():
         workers=8,
         budget=".8",
         event_id="F1-USD0.8",
-        integration_policy=FINALS_F1_POLICY,
+        integration_policy=integration_policy,
+        local_grant_factory=local_grant_factory,
         source_states={case: source_state},
         extraction_batch_calls=100,
     )

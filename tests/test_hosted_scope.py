@@ -268,6 +268,10 @@ def test_hosted_budget_denial_survives_provider_sanitization(tmp_path, provider,
     )
 
     class Denied:
+        def document_dir(self, tenant_id, document_id):
+            assert (tenant_id, document_id) == ("owner", "document")
+            return tmp_path / "private-document"
+
         def dispatch(self, *args, **kwargs):
             raise HostedError("BUDGET_EXCEEDED")
 
@@ -276,7 +280,12 @@ def test_hosted_budget_denial_survives_provider_sanitization(tmp_path, provider,
         "openrouter": HostedLunaProbe,
         "parse": HostedParseProbe,
     }[provider]
-    probe = probe_type("dummy-local-test", tmp_path / f"{provider}.sqlite3", store=Denied(), job={})
+    probe = probe_type(
+        "dummy-local-test",
+        tmp_path / f"{provider}.sqlite3",
+        store=Denied(),
+        job={"tenant_id": "owner", "document_id": "document"},
+    )
     with pytest.raises(BudgetExceeded, match="BUDGET_EXHAUSTED"):
         if provider == "parse":
             probe.parse_async(pdf(3), request_id="hs1-budget-denied")

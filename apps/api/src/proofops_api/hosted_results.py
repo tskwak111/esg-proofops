@@ -98,6 +98,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             FINALS_F1_INITIAL_POLICY,
             FINALS_F1_POLICY,
             FINALS_F1_TRANSPORT_POLICY,
+            FINALS_I7_POLICY,
         )
         from proofops.application.provider_resilience import PROJECTION_POLICY, claim_hold_reason
         from proofops.domain.provenance import canonical_hash
@@ -106,6 +107,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             canonical_hash(FINALS_F1_INITIAL_POLICY),
             canonical_hash(FINALS_F1_POLICY),
             canonical_hash(FINALS_F1_TRANSPORT_POLICY),
+            canonical_hash(FINALS_I7_POLICY),
         }
         if f1:
             for cid, projection in projections.items():
@@ -124,6 +126,8 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             FINALS_I1_INITIAL_POLICY,
             FINALS_I3_POLICY,
             FINALS_I4_POLICY,
+            FINALS_I5_POLICY,
+            FINALS_I6_POLICY,
             S1_POLICY,
             S2_POLICY,
             V2_D24_POLICY,
@@ -160,6 +164,8 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             canonical_hash(V2_POLICY),
             canonical_hash(FINALS_I3_POLICY),
             canonical_hash(FINALS_I4_POLICY),
+            canonical_hash(FINALS_I5_POLICY),
+            canonical_hash(FINALS_I6_POLICY),
             canonical_hash(S1_POLICY),
             canonical_hash(FINALS_I1_INITIAL_POLICY),
             canonical_hash(V2_D24_POLICY),
@@ -215,6 +221,8 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                             canonical_hash(V2_POLICY),
                             canonical_hash(FINALS_I3_POLICY),
                             canonical_hash(FINALS_I4_POLICY),
+                            canonical_hash(FINALS_I5_POLICY),
+                            canonical_hash(FINALS_I6_POLICY),
                             canonical_hash(S1_POLICY),
                             canonical_hash(FINALS_I1_INITIAL_POLICY),
                             canonical_hash(V2_D24_POLICY),

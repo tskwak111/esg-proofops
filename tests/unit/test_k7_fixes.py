@@ -181,7 +181,10 @@ def test_new_policy_is_explicit_and_keeps_v6_hash():
         canonical_hash(FINALS_I6_POLICY)
         == "568a110f32d723be3e569b14f12e676035175f19413c855e61d99d02870845b8"
     )
-    assert policy_for("finals-unattended-v2") == FINALS_I6_POLICY
+    assert (
+        policy_for("finals-unattended-v2", pinned_hash=canonical_hash(FINALS_I6_POLICY))
+        == FINALS_I6_POLICY
+    )
     digest = canonical_hash(FINALS_K7_POLICY)
     assert policy_for("finals-unattended-v2", pinned_hash=digest) == FINALS_K7_POLICY
     assert publication_policy_for("finals-unattended-v2", pinned_hash=digest) == FINALS_K7_POLICY

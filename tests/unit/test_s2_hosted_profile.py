@@ -18,12 +18,15 @@ def test_s2_private_pin_selects_16_and_claim_budget_but_preserves_i3():
     config = dict(analysis_profile="finals-unattended-v2", analysis_policy_sha256=pin)
     assert operator_profiles(config)["llm_max_workers"] == 16
     assert operator_profiles(config | dict(llm_max_workers=8))["llm_max_workers"] == 8
-    assert operator_profiles(dict(analysis_profile="finals-unattended-v2"))["llm_max_workers"] == 16
+    assert operator_profiles(dict(analysis_profile="finals-unattended-v2"))["llm_max_workers"] == 8
     assert (
         policy_for("finals-unattended-v2", pinned_hash=canonical_hash(FINALS_I3_POLICY))
         == FINALS_I3_POLICY
     )
-    assert policy_for("finals-unattended-v2") == FINALS_I6_POLICY
+    assert (
+        policy_for("finals-unattended-v2", pinned_hash=canonical_hash(FINALS_I6_POLICY))
+        == FINALS_I6_POLICY
+    )
     assert (
         policy_for("finals-unattended-v2", pinned_hash=canonical_hash(FINALS_I5_POLICY))
         == FINALS_I5_POLICY

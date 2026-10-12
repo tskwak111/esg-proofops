@@ -479,6 +479,18 @@ FINALS_F1_POLICY = FINALS_F1_TRANSPORT_POLICY | dict(
     response_uncertainty_policy=RESPONSE_ERROR_DIAGNOSTIC_POLICY,
 )
 
+# Adopt the complete K8 source/wire and F1 transport contracts only for new runs.
+FINALS_I7_POLICY = (
+    FINALS_K8_V3_POLICY
+    | {k: v for k, v in FINALS_F1_POLICY.items() if v != FINALS_I5_POLICY.get(k)}
+    | dict(
+        integration_profile="finals-20261012-v7",
+        extract_batch_calls=100,
+        max_active_runs=1,
+    )
+)
+V2_POLICY = FINALS_I7_POLICY
+
 
 def policy_for(profile, *, pinned_hash=None):
     if profile == J7_PROFILE:
@@ -492,6 +504,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_I6_POLICY,
             FINALS_K7_POLICY,
             FINALS_K8_POLICY,
             FINALS_K8_V2_POLICY,

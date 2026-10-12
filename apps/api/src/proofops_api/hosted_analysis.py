@@ -86,7 +86,7 @@ def operator_profiles(config: dict) -> dict:
         raise ValueError("HOSTED_LLM_CONCURRENCY_INVALID")
     if policy.get("openai_retry_policy") == T1_RETRY_POLICY:
         workers = min(workers, policy["max_http_workers"])
-    batch_calls = config.get("extract_batch_calls", 20)
+    batch_calls = config.get("extract_batch_calls", policy.get("extract_batch_calls", 20))
     if type(batch_calls) is not int or not 1 <= batch_calls <= MAX_EXTRACTION_BATCH_CALLS:
         raise ValueError("HOSTED_EXTRACT_BATCH_INVALID")
     analysis = config.get("analysis_profile", default_analysis_profile())

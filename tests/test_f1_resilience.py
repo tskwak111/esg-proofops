@@ -63,7 +63,10 @@ def test_denial_circuit_stops_before_reservation_and_survives_restart(tmp_path, 
 
 
 def test_new_policy_is_explicit_only():
-    assert policy_for("finals-unattended-v2") == FINALS_I5_POLICY
+    assert (
+        policy_for("finals-unattended-v2", pinned_hash=canonical_hash(FINALS_I5_POLICY))
+        == FINALS_I5_POLICY
+    )
     assert (
         policy_for("finals-unattended-v2", pinned_hash=canonical_hash(FINALS_F1_POLICY))
         == FINALS_F1_POLICY

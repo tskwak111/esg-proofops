@@ -17,7 +17,10 @@ def test_k8_is_explicit_and_preserves_k7_and_default():
         canonical_hash(FINALS_K7_POLICY)
         == "9762279aac6d10ce95aa029bb99d9157a5d1e3b437e6e7ddf28f5c8b3c1192de"
     )
-    assert policy_for("finals-unattended-v2") == FINALS_I6_POLICY
+    assert (
+        policy_for("finals-unattended-v2", pinned_hash=canonical_hash(FINALS_I6_POLICY))
+        == FINALS_I6_POLICY
+    )
     digest = canonical_hash(FINALS_K8_POLICY)
     assert digest != canonical_hash(FINALS_K7_POLICY)
     assert policy_for("finals-unattended-v2", pinned_hash=digest) == FINALS_K8_POLICY

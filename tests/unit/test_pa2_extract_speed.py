@@ -126,7 +126,7 @@ def test_operator_batch_and_concurrency_settings_pin_only_new_runs(tmp_path, mon
         period_start="2024-01-01",
         period_end="2024-12-31",
     )
-    assert operator_profiles(config)["llm_max_workers"] == 16
+    assert operator_profiles(config)["llm_max_workers"] == 8
     pdf = tmp_path / "selected.pdf"
     writer = PdfWriter()
     writer.add_blank_page(300, 300)
@@ -149,7 +149,7 @@ def test_operator_batch_and_concurrency_settings_pin_only_new_runs(tmp_path, mon
         ]["profile"]
         == "exact-verified-read-v4"
     )
-    assert operator_profiles({})["extract_batch_calls"] == 20
+    assert operator_profiles({})["extract_batch_calls"] == 100
     for invalid in (0, 257, True, "32"):
         with pytest.raises(ValueError, match="HOSTED_EXTRACT_BATCH_INVALID"):
             operator_profiles(config | dict(extract_batch_calls=invalid))

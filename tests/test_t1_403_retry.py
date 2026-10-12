@@ -161,7 +161,10 @@ def test_historical_policy_does_not_retry_structured_overload(tmp_path, monkeypa
         probe.complete("JSON", "{}", request_id="t1-call")
     assert len(calls) == 1 and not sleeps
     assert "http_retry_policy_sha256" not in probe.wire_policy
-    assert policy_for("finals-unattended-v2") == FINALS_I5_POLICY
+    assert (
+        policy_for("finals-unattended-v2", pinned_hash=canonical_hash(FINALS_I5_POLICY))
+        == FINALS_I5_POLICY
+    )
     assert (
         policy_for("finals-unattended-v2", pinned_hash=canonical_hash(FINALS_T1_POLICY))
         == FINALS_T1_POLICY
@@ -243,7 +246,12 @@ def test_opt_in_caps_workers_without_changing_v5_or_accepting_mutated_policy(tmp
         )
     )
     assert profiles["llm_max_workers"] == 8
-    assert hosted_analysis.operator_profiles(dict(llm_max_workers=16))["llm_max_workers"] == 16
+    assert (
+        hosted_analysis.operator_profiles(
+            dict(llm_max_workers=16, analysis_policy_sha256=canonical_hash(FINALS_I5_POLICY))
+        )["llm_max_workers"]
+        == 16
+    )
     policy = FINALS_T1_POLICY | dict(openai_retry_policy=POLICY | dict(max_retries=2))
     probe = openai.OpenAIProbe("fake", tmp_path / "local.sqlite3")
     with pytest.raises(ValueError, match="OPENAI_RETRY_POLICY_MISMATCH"):
