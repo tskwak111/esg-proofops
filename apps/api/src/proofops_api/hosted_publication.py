@@ -90,18 +90,20 @@ def _pins(path):
 def _authoritative_state(path):
     # Result reads may populate only derived evidence-search caches. Pin all
     # durable run/checkpoint/tag/review records around the actual verification.
+    digest = hashlib.sha256()
     with sqlite3.connect((path / "state.sqlite3").resolve().as_uri() + "?mode=ro", uri=True) as db:
-        snapshots = db.execute(
-            "SELECT run_id,payload FROM run_snapshots ORDER BY run_id"
-        ).fetchall()
-        records = []
+        db.execute("BEGIN")
+        for row in db.execute("SELECT run_id,payload FROM run_snapshots ORDER BY run_id"):
+            digest.update(canonical_hash(row).encode())
+        digest.update(b"job_records")
         if db.execute("SELECT 1 FROM sqlite_master WHERE name='job_records'").fetchone():
-            records = db.execute(
+            for row in db.execute(
                 "SELECT kind,record_id,value FROM job_records "
                 "WHERE kind NOT IN ('document_evidence_search','element_evidence_search') "
                 "ORDER BY kind,record_id"
-            ).fetchall()
-    return canonical_hash(dict(snapshots=snapshots, records=records))
+            ):
+                digest.update(canonical_hash(row).encode())
+    return digest.hexdigest()
 
 
 def make_handoff(path, job, pages):
