@@ -41,7 +41,7 @@ def ref_key(ref):
     return ref.source_id, ref.char_start, ref.char_end, ref.quote, ref.raw_text_sha256
 
 
-def main(*, integration_policy=FINALS_I1_POLICY, baseline_dir=None):
+def main(*, integration_policy=FINALS_I1_POLICY, baseline_dir=None, retained_prose_only=False):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
@@ -144,6 +144,7 @@ def main(*, integration_policy=FINALS_I1_POLICY, baseline_dir=None):
             extraction_h1=bool(integration_policy.get("selected_boundary_recovery")),
             extraction_i5_tables=bool(integration_policy.get("table_failure_profile")),
             extraction_k6=k6,
+            extraction_q1=bool(integration_policy.get("activity_table_policy")),
         )
         # The original byte-identical extractor options reproduce the retained
         # selection. Origin/main has these same policies; its hash is recorded.
@@ -157,7 +158,12 @@ def main(*, integration_policy=FINALS_I1_POLICY, baseline_dir=None):
                 == (receipt["artifact_sha256"])
             )
             assert receipt["source_sha256"] == sha256(source).hexdigest()
-            assert receipt["policy"] == native.claim_source_policy()
+            if not retained_prose_only:
+                assert receipt["policy"] == native.claim_source_policy()
+            # Explicit offline historical measurement: hashes/source identity
+            # above still hold; native bbox literals below independently check
+            # retained prose approvals. This never approves a runtime source or
+            # claims that an unavailable current OCR runtime reproduced a proof.
             for item in receipt["records"]:
                 ref = item["ref"]
                 key = (
@@ -644,6 +650,15 @@ def main(*, integration_policy=FINALS_I1_POLICY, baseline_dir=None):
                 "New table IDs use conservative overlap projections, not new model votes.",
                 "Changed quotes need fresh tagging; old grades are not transferred.",
                 "W3 overlap remains disabled; server timing is not measured.",
+                *(
+                    [
+                        "Prose uses immutable historical attestations plus fresh native "
+                        "bbox literals; "
+                        "current OCR policy equivalence not_run."
+                    ]
+                    if retained_prose_only
+                    else []
+                ),
             ],
         ),
     )
