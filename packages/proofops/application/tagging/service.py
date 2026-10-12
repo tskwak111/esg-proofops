@@ -373,11 +373,24 @@ def tag_replicates(
         user_data["display_text"] = data["display_text"]
     if "tagging_wire_policy" in data:
         from proofops.application.tagging.k7_wire import POLICY as K7_WIRE
+        from proofops.application.tagging.k7_wire import POLICY_K8 as K8_WIRE
+        from proofops.application.tagging.k7_wire import POLICY_K8_V2 as K8_WIRE_V2
+        from proofops.application.tagging.k7_wire import POLICY_K8_V3 as K8_WIRE_V3
         from proofops.application.tagging.k7_wire import POLICY_V1 as K7_WIRE_V1
 
-        if data["tagging_wire_policy"] not in (K7_WIRE, K7_WIRE_V1):
+        if data["tagging_wire_policy"] not in (
+            K7_WIRE,
+            K7_WIRE_V1,
+            K8_WIRE,
+            K8_WIRE_V2,
+            K8_WIRE_V3,
+        ):
             raise DomainValidationError("K7_WIRE_POLICY_MISMATCH")
-        user_data["tagging_wire_policy"] = K7_WIRE
+        user_data["tagging_wire_policy"] = (
+            data["tagging_wire_policy"]
+            if data["tagging_wire_policy"] in (K8_WIRE, K8_WIRE_V2, K8_WIRE_V3)
+            else K7_WIRE
+        )
     sentence_interpretation = None
     if "sentence_context" in data:
         from proofops.application.ingest.k5_context import sentence_context
@@ -387,9 +400,12 @@ def tag_replicates(
             raise DomainValidationError("SENTENCE_CONTEXT_SOURCE_MISMATCH")
         # Interpretation references do not enter approved_refs/source_candidates.
         user_data["sentence_context"] = sentence_interpretation
-        if data.get("tagging_wire_policy", {}).get(
-            "profile"
-        ) == "bounded-interpretation-k7-v2" and (sentence_interpretation is not None):
+        if data.get("tagging_wire_policy", {}).get("profile") in (
+            "bounded-interpretation-k7-v2",
+            "bounded-interpretation-k8-v1",
+            "bounded-interpretation-k8-v2",
+            "bounded-interpretation-k8-v3",
+        ) and (sentence_interpretation is not None):
             focal = next(
                 b for b in original.blocks if b.source_id == claim.source_refs[0].source_id
             )

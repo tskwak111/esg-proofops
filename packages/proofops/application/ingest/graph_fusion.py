@@ -110,7 +110,7 @@ class ParserProfile:
             raise ValueError("unsupported local parser resource policy")
         if self.table_claims_profile not in (None, "pb1-v1", "pb1-w9-v1"):
             raise ValueError("unsupported table claims profile")
-        if self.source_recovery not in (None, "ps1-v1"):
+        if self.source_recovery not in (None, "ps1-v1", "native-continuation-k8-v1"):
             raise ValueError("unsupported source recovery policy")
         if self.failure_policy not in (None, "partial-v1") or (
             self.failure_policy is not None and self.parser_mode != "mixed-v1"

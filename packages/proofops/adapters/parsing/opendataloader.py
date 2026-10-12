@@ -691,6 +691,9 @@ class OpenDataLoaderParser(ParserPort):
                 if profile.source_recovery is not None:
                     from proofops.adapters.parsing.source_recovery import recover_sources
 
+                    if profile.source_recovery == "native-continuation-k8-v1":
+                        from proofops.adapters.parsing.k8_source_recovery import recover_sources
+
                     recovered, recovery = recover_sources(
                         source, tuple(candidates), references=recovery_references
                     )

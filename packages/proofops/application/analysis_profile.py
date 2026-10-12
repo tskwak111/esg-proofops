@@ -27,6 +27,9 @@ from proofops.application.tagging.k4_contract import (
 from proofops.application.tagging.k6_citations import POLICY as K6_CITATION_POLICY
 from proofops.application.tagging.k6_citations import RISK_POLICY as K6_RISK_POLICY
 from proofops.application.tagging.k7_wire import POLICY as K7_WIRE_POLICY
+from proofops.application.tagging.k7_wire import POLICY_K8 as K8_WIRE_POLICY
+from proofops.application.tagging.k7_wire import POLICY_K8_V2 as K8_WIRE_V2_POLICY
+from proofops.application.tagging.k7_wire import POLICY_K8_V3 as K8_WIRE_V3_POLICY
 from proofops.application.tagging.k7_wire import POLICY_V1 as K7_WIRE_V1_POLICY
 from proofops.application.tagging.quality import ELEMENT_DEFINITIONS_HASH
 from proofops.application.tagging.semantic_admission import POLICY as W8_POLICY
@@ -434,6 +437,25 @@ FINALS_K7_POLICY = FINALS_I6_POLICY | dict(
 FINALS_K7_V1_POLICY = FINALS_K7_POLICY | dict(tagging_wire_policy=K7_WIRE_V1_POLICY)
 
 
+FINALS_K8_POLICY = FINALS_K7_POLICY | dict(
+    integration_profile="finals-20261012-r4-k8",
+    tagging_wire_policy=K8_WIRE_POLICY,
+    parser_source_recovery="native-continuation-k8-v1",
+)
+
+
+FINALS_K8_V2_POLICY = FINALS_K8_POLICY | dict(
+    integration_profile="finals-20261012-r4-k8-v2",
+    tagging_wire_policy=K8_WIRE_V2_POLICY,
+)
+
+
+FINALS_K8_V3_POLICY = FINALS_K8_V2_POLICY | dict(
+    integration_profile="finals-20261012-r4-k8-v3",
+    tagging_wire_policy=K8_WIRE_V3_POLICY,
+)
+
+
 def policy_for(profile, *, pinned_hash=None):
     if profile == J7_PROFILE:
         choices = (J7_POLICY,)
@@ -447,6 +469,9 @@ def policy_for(profile, *, pinned_hash=None):
         choices = (
             V2_POLICY,
             FINALS_K7_POLICY,
+            FINALS_K8_POLICY,
+            FINALS_K8_V2_POLICY,
+            FINALS_K8_V3_POLICY,
             FINALS_K7_V1_POLICY,
             FINALS_I5_POLICY,
             FINALS_I5_INITIAL_POLICY,
@@ -511,6 +536,9 @@ def publication_policy_for(profile, *, pinned_hash=None):
         (
             policy_for(profile),
             FINALS_K7_POLICY,
+            FINALS_K8_POLICY,
+            FINALS_K8_V2_POLICY,
+            FINALS_K8_V3_POLICY,
             FINALS_K7_V1_POLICY,
             FINALS_I6_POLICY,
             FINALS_I5_POLICY,
@@ -549,6 +577,8 @@ def apply_pilot_profile(args):
     args.tagging_prompt_profile = selected.get("tagging_prompt_profile")
     args.extraction_i4_identity = bool(selected.get("extraction_selection_ids"))
     args.parser_local_resource_policy = selected.get("local_resource_policy")
+    if selected.get("parser_source_recovery"):
+        args.parser_source_recovery = selected["parser_source_recovery"]
     args.extraction_h1 = bool(selected.get("selected_boundary_recovery"))
     args.extraction_i5_tables = selected.get("table_failure_profile") == "i5-grid-unreadable-v1"
     if selected.get("tagging_budget") == S2_POLICY["tagging_budget"]:

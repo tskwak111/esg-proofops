@@ -927,7 +927,7 @@ def main():
     parser.add_argument("--parser", choices=("upstage", "local", "mixed-v1"), default="upstage")
     parser.add_argument(
         "--parser-source-recovery",
-        choices=("ps1-v1",),
+        choices=("ps1-v1", "native-continuation-k8-v1"),
         help="NEW run only: literal location recovery and paragraph continuation.",
     )
     parser.add_argument("--report-year", type=int)

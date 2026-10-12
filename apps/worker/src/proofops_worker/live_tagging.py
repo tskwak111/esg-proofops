@@ -370,9 +370,18 @@ class LiveTaggingRuntime:
             data["sentence_context"] = configured_context(claim, self.graph, policy)
         if "tagging_wire_policy" in policy:
             from proofops.application.tagging.k7_wire import POLICY as K7_WIRE
+            from proofops.application.tagging.k7_wire import POLICY_K8 as K8_WIRE
+            from proofops.application.tagging.k7_wire import POLICY_K8_V2 as K8_WIRE_V2
+            from proofops.application.tagging.k7_wire import POLICY_K8_V3 as K8_WIRE_V3
             from proofops.application.tagging.k7_wire import POLICY_V1 as K7_WIRE_V1
 
-            if policy["tagging_wire_policy"] not in (K7_WIRE, K7_WIRE_V1):
+            if policy["tagging_wire_policy"] not in (
+                K7_WIRE,
+                K7_WIRE_V1,
+                K8_WIRE,
+                K8_WIRE_V2,
+                K8_WIRE_V3,
+            ):
                 raise ValueError("K7_WIRE_POLICY_MISMATCH")
             data["tagging_wire_policy"] = policy["tagging_wire_policy"]
         if policy.get("table_evidence") in (

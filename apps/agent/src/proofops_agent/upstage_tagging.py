@@ -634,13 +634,38 @@ class UpstageTaggingTransport:
         if "tagging_wire_policy" in data:
             from proofops.application.tagging.k7_wire import (
                 INSTRUCTIONS,
+                MANAGEMENT_GUIDANCE,
+                MANAGEMENT_GUIDANCE_V2,
+                NAMED_MEANS_GUIDANCE,
                 POLICY,
+                POLICY_K8,
+                POLICY_K8_V2,
+                POLICY_K8_V3,
                 POLICY_V1,
                 fit_context,
             )
 
-            if data["tagging_wire_policy"] not in (POLICY, POLICY_V1):
+            if data["tagging_wire_policy"] not in (
+                POLICY,
+                POLICY_V1,
+                POLICY_K8,
+                POLICY_K8_V2,
+                POLICY_K8_V3,
+            ):
                 raise ValueError("K7_WIRE_POLICY_MISMATCH")
+            if data["tagging_wire_policy"] == POLICY_K8 and classification["track"] == "management":
+                wire_system += MANAGEMENT_GUIDANCE
+            if (
+                data["tagging_wire_policy"] in (POLICY_K8_V2, POLICY_K8_V3)
+                and classification["track"] == "management"
+            ):
+                wire_system += MANAGEMENT_GUIDANCE_V2
+            if (
+                data["tagging_wire_policy"] == POLICY_K8_V3
+                and classification["track"] == "management"
+                and "단열" in data.get("atomic_quote", "")
+            ):
+                wire_system += NAMED_MEANS_GUIDANCE
             wire_system += INSTRUCTIONS
             wire_user = fit_context(
                 wire_system,

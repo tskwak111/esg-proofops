@@ -42,6 +42,7 @@ def main(
     integration_policy=None,
     source_states=None,
     extraction_batch_calls=None,
+    local_grant_factory=None,
 ):
     selected_policy = integration_policy or V2_POLICY
     if not Decimal(0) < Decimal(budget) <= Decimal("0.6"):
@@ -160,6 +161,8 @@ def main(
         parser_path = output / "parser.json"
         config = json.loads(parser_path.read_text())
         config.update(table_claims_profile="pb1-w9-v1")
+        if selected_policy.get("parser_source_recovery"):
+            config["source_recovery"] = selected_policy["parser_source_recovery"]
         if selected_policy.get("local_resource_policy"):
             config["local_resource_policy"] = selected_policy["local_resource_policy"]
         parser_path.write_text(json.dumps(config))
@@ -171,6 +174,22 @@ def main(
             frozen = json.loads(
                 db.execute("SELECT payload FROM run_snapshots WHERE run_id=?", (run,)).fetchone()[0]
             )
+            if local_grant_factory is not None:
+                frozen.update(local_grant_factory(frozen))
+                (output / "local-approval.json").write_text(
+                    json.dumps(
+                        {
+                            k: frozen[k]
+                            for k in (
+                                "runtime",
+                                "consent",
+                                "runtime_artifact_hash",
+                                "consent_artifact_hash",
+                            )
+                        },
+                        indent=2,
+                    )
+                )
             if extraction_batch_calls is not None:
                 from proofops.application.claim_scope import MAX_EXTRACTION_BATCH_CALLS
 
@@ -191,6 +210,11 @@ def main(
             if source_policy:
                 frozen["claim_source_policy"] = source_policy
             for prefix in ("tagging", "preliminary", "relation"):
+                if local_grant_factory is not None:
+                    frozen[prefix + "_settings"]["binding"]["binding_id"] = frozen[
+                        prefix + "_runtime"
+                    ]["runtime_binding_id"]
+                    settings[prefix + "_settings"] = frozen[prefix + "_settings"]
                 frozen[prefix + "_settings_hash"] = canonical_hash(frozen[prefix + "_settings"])
                 frozen[prefix + "_runtime"]["runtime_binding_id"] = frozen[prefix + "_settings"][
                     "binding"
@@ -200,6 +224,22 @@ def main(
                 ]
                 frozen[prefix + "_runtime_artifact_hash"] = canonical_hash(
                     frozen[prefix + "_runtime"]
+                )
+            if local_grant_factory is not None:
+                settings_path.write_text(json.dumps(settings))
+                approval_keys = [
+                    "runtime",
+                    "consent",
+                    "runtime_artifact_hash",
+                    "consent_artifact_hash",
+                ]
+                approval_keys += [
+                    prefix + suffix
+                    for prefix in ("preliminary", "tagging", "relation")
+                    for suffix in ("_runtime", "_runtime_artifact_hash")
+                ]
+                (output / "local-approval.json").write_text(
+                    json.dumps({k: frozen[k] for k in approval_keys}, indent=2)
                 )
             frozen["input_reservation_policy_hash"] = canonical_hash(
                 frozen["input_reservation_policy"]
@@ -227,6 +267,25 @@ def main(
                 db.execute(sql)
         registry = Registry.sqlite(output / "state.sqlite3")
         try:
+            if local_grant_factory is not None:
+                for field, kind, id_field in (
+                    ("runtime", "runtime", "runtime_binding_id"),
+                    ("consent", "consent", "consent_profile_id"),
+                ):
+                    grant = frozen[field]
+                    registry.with_option(
+                        tenant,
+                        kind,
+                        grant[id_field],
+                        "K8 authorized local canary " + field,
+                        status="approved",
+                        version="1",
+                        artifact=grant,
+                        sha256=canonical_hash(grant),
+                        approved_by=grant["approved_by"],
+                        approved_at=grant["approved_at"],
+                        local_synthetic=False,
+                    )
             for prefix in ("tagging", "preliminary", "relation"):
                 runtime = frozen[prefix + "_runtime"]
                 registry.with_option(

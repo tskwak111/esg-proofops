@@ -1,0 +1,120 @@
+[
+  {
+    "tenant_id": "00e40b62-5fe9-4978-ac63-4f35614ff133",
+    "document_version_id": "8db6ccfa-9365-4ec6-a41a-870fa0289db3",
+    "parse_manifest_id": "ee4ce93d-9042-5677-b807-e0b0e8ce425f",
+    "source_sha256": "5e2a7ad43b4e25f3c6d5a5858fdeaf963f03068412dbaf21f604f6ca5fd4f871",
+    "parser_run_id": "9248cc8e-6ba8-4e27-b565-c8de089a49da",
+    "parser_name": "upstage_async_standard",
+    "parser_version": "document-parse-260128",
+    "parser_family": "upstage-document-parse",
+    "config_hash": "009bbb18b990b506eaa0d61a9d407c8d469b3d91371a0a635123db3237b8018f",
+    "blocks": [
+      {
+        "kind": "paragraph",
+        "source": {
+          "document_version_id": "8db6ccfa-9365-4ec6-a41a-870fa0289db3",
+          "parse_manifest_id": "ee4ce93d-9042-5677-b807-e0b0e8ce425f",
+          "parser_run_id": "9248cc8e-6ba8-4e27-b565-c8de089a49da",
+          "source_native_id": "up-standard-0-34",
+          "physical_page": 1,
+          "printed_page_label": null,
+          "native_bbox": [
+            621.9812999999999,
+            191.81740000000002,
+            894.5488200000003,
+            425.509
+          ],
+          "native_coordinate_system": "pdf_bottom_left_points",
+          "raw_text": "SK하이닉스의 Scope 1 온실가스 배출은 주로 공정 내에서 사용되는 공정가스\n배출로 이뤄집니다. SK하이닉스는 넷 제로 달성을 위해 공정 내에서 공정가스 사\n용을 저감할 수 있는 다양한 방안을 발굴·적용하고 있으며 지구온난화지수(GWP,\nGlobal Warming Potential)가 낮은 대체가스를 개발해 도입하고 있습니다.\n먼저, 공정가스 저감을 위해 식각(Etch) 및 박막 증착(Thinfilm) 공정에서 챔\n버(Chamber) 세정용으로 사용하고 있는 과불화탄소(PFCs) 사용 저감을 위해\nToF-MS 및 OES 분석 장비를 활용한 세정 공정의 부산물 분석 결과를 기반으\n로 공정 최적화를 진행하고 있습니다. 이와 함께, 역시 챔버 세정에 주로 사용하\n는 삼불화질소(NF3)를 지구온난화지수가 낮은 가스로 변경하기 위한 전환 평가\n및 양산 적용을 지속 확대하고 있으며, 공정가스 투입량 자체를 줄이기 위해 식각\n공정 내 공정가스 사용량이 많은 공정을 선정해 혼합 가스 도입을 위한 평가를 진\n행하고 양산 적용을 추진하고 있습니다.\n또한 SK하이닉스는 중장기적 관점에서 저(低) GWP 대체가스 개발을 지속하고\n있습니다. SK하이닉스가 개발·평가 중인 4종의 대체가스는 기존의 식각, 박막 증\n착, 확산(Diffusion) 공정 등에서 사용되는 PFCs를 대체할 수 있을 것으로 기대\n하고 있습니다. SK하이닉스는 Scope 1 온실가스 배출량 감축을 최대화할 수 있",
+          "char_start": 0,
+          "char_end": 717
+        },
+        "geometry": {
+          "width_pt": 935.433,
+          "height_pt": 595.276,
+          "rotation": 0,
+          "crop_box": [
+            0.0,
+            0.0,
+            935.433,
+            595.276
+          ]
+        },
+        "context": [
+          "section=Targets and Progress",
+          "provider_bbox=620.286,160.248,896.145,412.467",
+          "pb1_table_claims",
+          "pb1-w9-v1",
+          "h1-origin-context-v1",
+          "native_char_start=0",
+          "native_char_end=558",
+          "mixed_parser_name=upstage_async_standard",
+          "mixed_parser_version=document-parse-260128"
+        ],
+        "parser_bbox": null,
+        "parser_coordinate_system": "pdf_bottom_left_points",
+        "parser_to_canonical": null,
+        "table_native_id": null,
+        "row_number": null,
+        "column_number": null,
+        "row_span": null,
+        "column_span": null
+      },
+      {
+        "kind": "paragraph",
+        "source": {
+          "document_version_id": "8db6ccfa-9365-4ec6-a41a-870fa0289db3",
+          "parse_manifest_id": "ee4ce93d-9042-5677-b807-e0b0e8ce425f",
+          "parser_run_id": "9248cc8e-6ba8-4e27-b565-c8de089a49da",
+          "source_native_id": "up-standard-0-35",
+          "physical_page": 1,
+          "printed_page_label": null,
+          "native_bbox": [
+            622.9924926757812,
+            185.28372192382812,
+            849.6432495117188,
+            193.2877197265625
+          ],
+          "native_coordinate_system": "pdf_bottom_left_points",
+          "raw_text": "도록 대체가스 개발 및 양산 적용을 위한 노력을 지속할 계획입니다.",
+          "char_start": 0,
+          "char_end": 37
+        },
+        "geometry": {
+          "width_pt": 935.433,
+          "height_pt": 595.276,
+          "rotation": 0,
+          "crop_box": [
+            0.0,
+            0.0,
+            935.433,
+            595.276
+          ]
+        },
+        "context": [
+          "section=Targets and Progress",
+          "provider_bbox=621.689,408.895,851.150,419.312",
+          "pb1_table_claims",
+          "pb1-w9-v1",
+          "h1-origin-context-v1",
+          "native_char_start=1435",
+          "native_char_end=1463",
+          "native_glyph_ink_box",
+          "mixed_parser_name=upstage_async_standard",
+          "mixed_parser_version=document-parse-260128"
+        ],
+        "parser_bbox": null,
+        "parser_coordinate_system": "pdf_bottom_left_points",
+        "parser_to_canonical": null,
+        "table_native_id": null,
+        "row_number": null,
+        "column_number": null,
+        "row_span": null,
+        "column_span": null
+      }
+    ],
+    "edges": [],
+    "synthetic": false
+  }
+]
