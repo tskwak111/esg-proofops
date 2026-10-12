@@ -15,6 +15,8 @@ from types import FunctionType, MethodType, SimpleNamespace
 from zlib import compress, decompress
 
 from proofops.adapters.local.local_raster_reader import LocalRasterReader
+from proofops.adapters.local.worker_resources import enabled as resources_enabled
+from proofops.adapters.local.worker_resources import ocr_workers, shared_ocr_pool
 from proofops.application.analysis_profile import (
     VERIFIED_READ_V4_POLICY,
     VERIFIED_READ_V5_POLICY,
@@ -133,17 +135,18 @@ def bounded_reader(reader, *, tenant_id, run_id):
     instance = reader.for_run(run_id)
     original = instance._claim_receipt.__func__
     heading_wrapper = None
-    if reader.PROFILE == "upstage-ocr-page-v12":
+    if reader.PROFILE == "upstage-ocr-page-v12" or (
+        reader.PROFILE == "upstage-ocr-page-v13" and resources_enabled()
+    ):
+        from proofops.adapters.local import upstage_ocr_profile_v12 as heading
         from proofops.adapters.local.verified_read_cache import _execution_policy
 
-        if (
-            _execution_policy() != VERIFIED_READ_V7_POLICY
-            or sha256(Path(reader.__file__).read_bytes()).hexdigest()
-            != VERIFIED_READ_V7_POLICY["v12_replay_sha256"]
-        ):
+        if (not resources_enabled() and _execution_policy() != VERIFIED_READ_V7_POLICY) or sha256(
+            Path(heading.__file__).read_bytes()
+        ).hexdigest() != VERIFIED_READ_V7_POLICY["v12_replay_sha256"]:
             raise ValueError("PA7_RASTER_READER_BINDING_MISMATCH")
         heading_wrapper = original
-        original = super(type(instance), instance)._claim_receipt.__func__
+        original = super(heading.Reader, instance)._claim_receipt.__func__
     if original.__globals__.get("LocalRasterReader") is not LocalRasterReader:
         raise ValueError("PA7_RASTER_READER_BINDING_MISMATCH")
     function = FunctionType(
@@ -171,13 +174,19 @@ def bounded_reader(reader, *, tenant_id, run_id):
     with scope(tenant_id, run_id, reader.claim_source_policy()):
         from proofops.adapters.local.verified_read_cache import _execution_policy
 
-        if _execution_policy() in (
+        if resources_enabled():
+            token = _pool.set(shared_ocr_pool())
+            try:
+                yield instance
+            finally:
+                _pool.reset(token)
+        elif _execution_policy() in (
             VERIFIED_READ_V5_POLICY,
             VERIFIED_READ_V6_POLICY,
             VERIFIED_READ_V7_POLICY,
         ):
             with ProcessPoolExecutor(
-                max_workers=VERIFIED_READ_V5_POLICY["raw_ocr_workers"],
+                max_workers=ocr_workers(),
                 mp_context=get_context("spawn"),
             ) as pool:
                 token = _pool.set(pool)
