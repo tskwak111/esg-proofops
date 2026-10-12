@@ -235,6 +235,7 @@ def attest_claims(*, reader, graph, source, refs, tenant_id, cache, run_id=None)
     }:
         refs = tuple(refs)
         from proofops.adapters.local.verified_read_cache import _execution_policy
+        from proofops.adapters.local.worker_resources import enabled as resources_enabled
         from proofops.application.analysis_profile import (
             VERIFIED_READ_V4_POLICY,
             VERIFIED_READ_V5_POLICY,
@@ -244,7 +245,8 @@ def attest_claims(*, reader, graph, source, refs, tenant_id, cache, run_id=None)
         )
 
         if (
-            (
+            (resources_enabled() and reader.PROFILE == "upstage-ocr-page-v13")
+            or (
                 reader.PROFILE == "upstage-ocr-page-v9"
                 and _execution_policy() == VERIFIED_READ_V4_POLICY
             )

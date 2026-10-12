@@ -48,6 +48,14 @@ def prepare_argv(pdf, state, tenant, config, options=None):
     config = config | (dict(analysis_profile=selected) if selected else {})
     if options.get("analysis_profile_sha256"):
         config["analysis_policy_sha256"] = options["analysis_profile_sha256"]
+        from proofops.application.analysis_profile import publication_policy_for
+
+        pinned = publication_policy_for(
+            config.get("analysis_profile", "finals-unattended-v2"),
+            pinned_hash=options["analysis_profile_sha256"],
+        )
+        if not pinned.get("provider_scheduler"):
+            config = {k: v for k, v in config.items() if k != "llm_requests_per_second"}
     profiles = operator_profiles(config)
     argv = [
         "hosted-r108",
@@ -135,6 +143,7 @@ def prepare_argv(pdf, state, tenant, config, options=None):
         if options.get("analysis_profile_sha256"):
             from proofops.application.analysis_profile import (
                 FINALS_I3_POLICY,
+                FINALS_S5_POLICY,
                 S1_POLICY,
                 S2_POLICY,
                 S4_POLICY,
@@ -151,6 +160,7 @@ def prepare_argv(pdf, state, tenant, config, options=None):
                 canonical_hash(S1_POLICY),
                 canonical_hash(S2_POLICY),
                 canonical_hash(S4_POLICY),
+                canonical_hash(FINALS_S5_POLICY),
             }:
                 raise ValueError("HOSTED_PROFILE_PIN_MISMATCH")
             argv += ["--analysis-policy-sha256", options["analysis_profile_sha256"]]
@@ -194,6 +204,32 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
     else:
         # Stored pre-HS3 runs must keep their original operator composition.
         config = dict(analysis_profile="r108-default") | config
+    if "provider_execution" in options:
+        from proofops.domain.provenance import canonical_hash
+
+        if canonical_hash(options["provider_execution"]) != options["provider_execution_sha256"]:
+            raise ValueError("PROVIDER_EXECUTION_PIN_MISMATCH")
+        config = config | options["provider_execution"]
+    from proofops.application.analysis_profile import publication_policy_for
+
+    selected = (
+        publication_policy_for(
+            config["analysis_profile"], pinned_hash=config.get("analysis_policy_sha256")
+        )
+        if (config["analysis_profile"] in FINALS_PROFILES)
+        else {}
+    )
+    resource_runtime = None
+    if selected.get("provider_scheduler") and "provider_execution" not in options:
+        raise ValueError("PROVIDER_EXECUTION_PIN_REQUIRED")
+    if not selected.get("provider_scheduler"):
+        config = {k: v for k, v in config.items() if k != "llm_requests_per_second"}
+    if selected.get("worker_resources"):
+        from proofops.adapters.local.worker_resources import apply_resources
+
+        resource_runtime = apply_resources()
+    else:
+        os.environ.pop("PROOFOPS_RESOURCE_PROFILE", None)
     old_argv = sys.argv
     sys.argv = prepare_argv(workspace / "selected.pdf", state, job["tenant_id"], config, options)
     try:
@@ -202,6 +238,22 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
     finally:
         sys.argv = old_argv
     manifest = json.loads((state / "pilot.json").read_text())
+    if resource_runtime is not None:
+        from proofops.domain.provenance import canonical_hash
+
+        # Private create-only runtime evidence; not an imported source approval.
+        with (state / "worker-runtime.json").open("x") as stream:
+            json.dump(
+                dict(
+                    resources=resource_runtime,
+                    provider_execution=options.get("provider_execution"),
+                    policy_sha256=canonical_hash(selected),
+                ),
+                stream,
+            )
+            stream.flush()
+            os.fsync(stream.fileno())
+        (state / "worker-runtime.json").chmod(0o400)
     # Keys stay inside the private process; fake transports use explicit dummy keys.
     profiles = operator_profiles(config)
     llm_provider = profiles["llm_provider"]
@@ -255,7 +307,8 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
     cache = execution.get("verified_read_cache", {})
     os.environ["PROOFOPS_VERIFIED_READ_CACHE"] = cache.get("profile", "disabled")
     if profiles["analysis_profile"] in FINALS_PROFILES:
-        os.environ["PROOFOPS_DISPLAY_PREFETCH_WORKERS"] = "4"
+        if resource_runtime is None:
+            os.environ["PROOFOPS_DISPLAY_PREFETCH_WORKERS"] = "4"
     observed = []
     stage_seconds = {}
     extraction_stop = None
@@ -285,8 +338,16 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
     if execution.get("execution_profile") in ("w3-speed-v1", "s2-server-v1"):
         from proofops.adapters.local.provider_concurrency import ProviderConcurrency
 
-        provider_gate = ProviderConcurrency(
+        gate_type = ProviderConcurrency
+        gate_options = {}
+        if execution.get("provider_scheduler"):
+            from proofops.adapters.local.provider_scheduler import RoleProviderConcurrency
+
+            gate_type = RoleProviderConcurrency
+            gate_options["requests_per_second"] = profiles["llm_requests_per_second"]
+        provider_gate = gate_type(
             profiles["llm_max_workers"],
+            **gate_options,
             max_cooldown_seconds=execution["http_max_cooldown_seconds"],
             resilience_directory=(
                 store.document_dir(job["tenant_id"], job["document_id"])

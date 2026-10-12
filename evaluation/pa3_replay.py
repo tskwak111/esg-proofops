@@ -40,6 +40,21 @@ def normalize_timing(value):
     return value
 
 
+def retained_parse_batches(source, receipt):
+    from proofops.domain.provenance import canonical_hash
+
+    candidates = [
+        json.loads(path.read_text()) for path in (source / "parse-responses").glob("*-async.json")
+    ]
+    for path in (source / "parser-prepared" / "upstage-cache").rglob("*.json"):
+        value = json.loads(path.read_text())
+        if "raw_batches" in value:
+            candidates.append(value["raw_batches"])
+    return next(
+        value for value in candidates if canonical_hash(value) == receipt["response_sha256"]
+    )
+
+
 def fixture(source, output, stage):
     assert not output.exists() and source != output
     output.mkdir(parents=True, mode=0o700)
@@ -133,6 +148,7 @@ def main():
     args.add_argument("--stage", choices=("parse", "tag", "pipeline", "extraction"), required=True)
     args.add_argument("--cache-profile", default="exact-verified-read-v2")
     args.add_argument("--workers", type=int, default=8)
+    args.add_argument("--scheduler-rps", type=int, choices=range(1, 9))
     args.add_argument("--rtt-ms", type=float, default=150)
     args.add_argument("--recorded-wait", action="store_true")
     args.add_argument("--no-profile", action="store_true")
@@ -180,6 +196,15 @@ def main():
         for d in [json.loads(p.read_text())]
     }
     local = threading.local()
+    scheduler = None
+    if args.scheduler_rps:
+        from proofops.adapters.local.provider_scheduler import RoleProviderConcurrency
+
+        scheduler = RoleProviderConcurrency(
+            args.workers,
+            requests_per_second=args.scheduler_rps,
+            resilience_directory=output / "scheduler-events",
+        )
     events, counts = [], {}
     lock = threading.Lock()
     with sqlite3.connect((source / ledger_name).as_uri() + "?mode=ro", uri=True) as db:
@@ -203,6 +228,13 @@ def main():
             return expected
 
         def _post(self, body, **kwargs):
+            if scheduler is None:
+                return self._retained_post(body, **kwargs)
+            role = provider_receipts[local.request_id]["response_request"]["role"]
+            with scheduler.attempt(role):
+                return self._retained_post(body, **kwargs)
+
+        def _retained_post(self, body, **kwargs):
             key = local.request_id
             retained = requests[key]
             expected = self.request_body(
@@ -216,12 +248,14 @@ def main():
             with lock:
                 attempt = counts.get(key, 0)
                 counts[key] = attempt + 1
-            start = time.monotonic()
             wait = (
                 provider_receipts[key]["attempts"][attempt]["latency_ms"] / 1000
                 if args.recorded_wait
                 else args.rtt_ms / 1000
             )
+            # Wire validation/body preparation precede the physical transport
+            # boundary, matching OpenAIProbe._post_admitted.
+            start = scheduler.pace_transport() if scheduler else time.monotonic()
             time.sleep(wait)
             with lock:
                 events.append(
@@ -249,19 +283,7 @@ def main():
                     )
                 ]
             receipt = next(r for r in retained if "duration_seconds" in r and r["mode"] == mode)
-            retained_batches = [
-                json.loads(path.read_text())
-                for path in (source / "parse-responses").glob("*-async.json")
-            ] + [
-                json.loads(path.read_text())["raw_batches"]
-                for path in (source / "parser-prepared" / "upstage-cache").rglob("*.json")
-                if "raw_batches" in json.loads(path.read_text())
-            ]
-            batches = next(
-                value
-                for value in retained_batches
-                if canonical_hash(value) == receipt["response_sha256"]
-            )
+            batches = retained_parse_batches(source, receipt)
             from hashlib import sha256
 
             from proofops.adapters.local.upstage_parse import PARSE_MODEL_PINNED
@@ -530,6 +552,14 @@ def main():
             events=events,
             stage_seconds=stage_times,
         )
+        if scheduler is not None:
+            from proofops.application.analysis_profile import FINALS_S5_POLICY
+
+            measurement.update(
+                scheduler=scheduler.snapshot(),
+                execution_policy_sha256=canonical_hash(FINALS_S5_POLICY),
+                replay_policy="historical-pins-retained; S5-physical-queue-only",
+            )
         (output / "checkpoint.json").write_text(json.dumps(result, ensure_ascii=False))
         (output / "measurement.json").write_text(json.dumps(measurement, indent=2))
         print(json.dumps({k: v for k, v in measurement.items() if k != "events"}), flush=True)

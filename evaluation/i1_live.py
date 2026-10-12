@@ -43,6 +43,7 @@ def main(
     source_states=None,
     extraction_batch_calls=None,
     local_grant_factory=None,
+    requests_per_second=4,
 ):
     selected_policy = integration_policy or V2_POLICY
     ceiling = Decimal("0.8") if selected_policy.get("provider_resilience") else Decimal("0.6")
@@ -321,8 +322,18 @@ def main(
 
     harness.pin_scratch_policy = pin
     original_build = composition.build_composition
-    admission = ProviderConcurrency(
+    gate_type = ProviderConcurrency
+    gate_options = {}
+    if selected_policy.get("provider_scheduler"):
+        from proofops.adapters.local.provider_scheduler import RoleProviderConcurrency
+        from proofops.adapters.local.worker_resources import apply_resources
+
+        apply_resources()
+        gate_type = RoleProviderConcurrency
+        gate_options["requests_per_second"] = requests_per_second
+    admission = gate_type(
         workers,
+        **gate_options,
         resilience_directory=args.output / "provider-events"
         if selected_policy.get("provider_resilience")
         else None,

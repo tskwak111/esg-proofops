@@ -15,6 +15,8 @@ from types import FunctionType, MethodType, SimpleNamespace
 from zlib import compress, decompress
 
 from proofops.adapters.local.local_raster_reader import LocalRasterReader
+from proofops.adapters.local.worker_resources import enabled as resources_enabled
+from proofops.adapters.local.worker_resources import ocr_workers, shared_ocr_pool
 from proofops.application.analysis_profile import (
     VERIFIED_READ_V4_POLICY,
     VERIFIED_READ_V5_POLICY,
@@ -138,14 +140,14 @@ def bounded_reader(reader, *, tenant_id, run_id):
         from proofops.adapters.local.verified_read_cache import _execution_policy
 
         if (
-            _execution_policy() not in (VERIFIED_READ_V7_POLICY, VERIFIED_READ_V8_POLICY)
+            (not resources_enabled() and _execution_policy() not in (VERIFIED_READ_V7_POLICY, VERIFIED_READ_V8_POLICY))
             or sha256(Path(reader.__file__).read_bytes()).hexdigest()
             != (
                 VERIFIED_READ_V8_POLICY
                 if reader.PROFILE.endswith("v13")
                 else VERIFIED_READ_V7_POLICY
             )["v13_replay_sha256" if reader.PROFILE.endswith("v13") else "v12_replay_sha256"]
-            or (reader.PROFILE.endswith("v13") and _execution_policy() != VERIFIED_READ_V8_POLICY)
+            or (reader.PROFILE.endswith("v13") and not resources_enabled() and _execution_policy() != VERIFIED_READ_V8_POLICY)
         ):
             raise ValueError("PA7_RASTER_READER_BINDING_MISMATCH")
         heading_wrapper = original
@@ -179,14 +181,20 @@ def bounded_reader(reader, *, tenant_id, run_id):
     with scope(tenant_id, run_id, reader.claim_source_policy()):
         from proofops.adapters.local.verified_read_cache import _execution_policy
 
-        if _execution_policy() in (
+        if resources_enabled():
+            token = _pool.set(shared_ocr_pool())
+            try:
+                yield instance
+            finally:
+                _pool.reset(token)
+        elif _execution_policy() in (
             VERIFIED_READ_V5_POLICY,
             VERIFIED_READ_V6_POLICY,
             VERIFIED_READ_V7_POLICY,
             VERIFIED_READ_V8_POLICY,
         ):
             with ProcessPoolExecutor(
-                max_workers=VERIFIED_READ_V5_POLICY["raw_ocr_workers"],
+                max_workers=ocr_workers(),
                 mp_context=get_context("spawn"),
             ) as pool:
                 token = _pool.set(pool)

@@ -80,12 +80,20 @@ def operator_profiles(config: dict) -> dict:
         else {}
     )
     workers = config.get(
-        "llm_max_workers", policy["max_http_workers"] if policy.get("tagging_budget") else 8
+        "llm_max_workers",
+        policy.get("provider_scheduler", {}).get(
+            "default_workers", policy["max_http_workers"] if policy.get("tagging_budget") else 8
+        ),
     )
     if type(workers) is not int or not 1 <= workers <= 16:
         raise ValueError("HOSTED_LLM_CONCURRENCY_INVALID")
     if policy.get("openai_retry_policy") == T1_RETRY_POLICY:
         workers = min(workers, policy["max_http_workers"])
+    rps = config.get("llm_requests_per_second", 4)
+    if type(rps) is not int or not 1 <= rps <= 8:
+        raise ValueError("HOSTED_LLM_RPS_INVALID")
+    if "llm_requests_per_second" in config and not policy.get("provider_scheduler"):
+        raise ValueError("PROVIDER_SCHEDULER_POLICY_REQUIRED")
     batch_calls = config.get("extract_batch_calls", policy.get("extract_batch_calls", 20))
     if type(batch_calls) is not int or not 1 <= batch_calls <= MAX_EXTRACTION_BATCH_CALLS:
         raise ValueError("HOSTED_EXTRACT_BATCH_INVALID")
@@ -130,6 +138,7 @@ def operator_profiles(config: dict) -> dict:
     approval = RENDERED_READER_POLICY["gate_passed"].get(reader, {})
     return PROFILES | dict(
         llm_max_workers=workers,
+        llm_requests_per_second=rps,
         extract_batch_calls=batch_calls,
         llm_provider=llm_provider,
         llm_provider_options=["openai", "openrouter"],
@@ -264,6 +273,8 @@ class HostedOpenAILunaProbe(OpenAIProbe):
             raise ValueError("HOSTED_WIRE_POLICY_REQUIRED")
 
         def transport(request):
+            if self.post and getattr(self, "provider_scheduler", None):
+                self.http_transport_pacing()
             data = (
                 self.post(body)
                 if self.post
@@ -285,23 +296,24 @@ class HostedOpenAILunaProbe(OpenAIProbe):
             )
             call_id = str(uuid4())
             try:
-                if self.http_dispatch_guard:
+                if self.http_dispatch_guard and not getattr(self, "provider_scheduler", None):
                     admission = getattr(self, "http_dispatch_admission", None)
                     if admission is not None:
                         admission()
-                response = broker_dispatch(
-                    self.store,
-                    self.job,
-                    "openai",
-                    call_id,
-                    canonical_hash(body),
-                    Decimal("0.011"),
-                    transport,
-                    now=time.time(),
-                    allow_transient_403=allow,
-                    allow_model_partial=self.provider_resilience is not None,
-                    allow_response_uncertainty=self.response_uncertainty_policy is not None,
-                )
+                with self.physical_attempt_scope():
+                    response = broker_dispatch(
+                        self.store,
+                        self.job,
+                        "openai",
+                        call_id,
+                        canonical_hash(body),
+                        Decimal("0.011"),
+                        transport,
+                        now=time.time(),
+                        allow_transient_403=allow,
+                        allow_model_partial=self.provider_resilience is not None,
+                        allow_response_uncertainty=self.response_uncertainty_policy is not None,
+                    )
                 return response["payload"]
             except OpenAITransient403 as error:
                 if not allow:
