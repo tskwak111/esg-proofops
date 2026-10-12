@@ -464,7 +464,14 @@ def validate_selection(
         raise ValueError("manual selection must be boolean")
     if not isinstance(plan, dict):
         raise ValueError("scope-plan must be a JSON object")
-    policies = {VERSION: POLICY_SHA256, RANKING_VERSION: RANKING_POLICY_SHA256}
+    from evaluation.e06_scope import POLICY_SHA256 as E06_HASH
+    from evaluation.e06_scope import VERSION as E06_VERSION
+
+    policies = {
+        VERSION: POLICY_SHA256,
+        RANKING_VERSION: RANKING_POLICY_SHA256,
+        E06_VERSION: E06_HASH,
+    }
     plan_version = plan.get("version")
     if (
         not isinstance(plan_version, str)
@@ -491,7 +498,8 @@ def validate_selection(
             or selected != sorted(set(selected))
         ):
             raise ValueError("selection must be sorted unique physical pages")
-    if len(claims) > 10 or len(evidence) > min(30, plan["settings"]["max_evidence_pages"]):
+    claim_cap = plan["settings"].get("claim_page_cap", 10) if plan_version == E06_VERSION else 10
+    if len(claims) > claim_cap or len(evidence) > min(30, plan["settings"]["max_evidence_pages"]):
         raise ValueError("scope exceeds declared page cap")
     if not set(claims) <= set(evidence):
         raise ValueError("claim pages must be a subset of evidence pages")
@@ -516,6 +524,21 @@ def validate_selection(
         ),
         proposal_sha256=plan["plan_sha256"],
     )
+    if plan_version == E06_VERSION:
+        missing = sorted(
+            {
+                p
+                for b in plan.get("discovered_assurance_bundles", [])
+                for p in b
+                if p not in evidence
+            }
+        )
+        applied.update(
+            evidence_bundle_incomplete=bool(missing),
+            missing_bundle_pages=missing,
+            scope_incomplete=plan.get("scope_incomplete", False),
+            assurance_status="undetermined",
+        )
     if manual_override:
         if plan["status"] != "failed":
             raise ValueError("manual recovery requires a failed automatic scope")
