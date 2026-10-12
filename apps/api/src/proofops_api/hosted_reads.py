@@ -246,6 +246,25 @@ class HostedReads:
         database = path / "state.sqlite3"
         if database.is_symlink() or path.is_symlink() or (path / "pilot.json").is_symlink():
             raise ValueError("database")
+        from proofops.application.tagging.fact_assembly_c3 import PROFILE as C3_PROFILE
+
+        if pilot.get("publication_profile") == C3_PROFILE:
+            from proofops.adapters.local.c3_publication import LocalC3Publication
+
+            publication = LocalC3Publication(path)
+            inputs = publication.load_inputs(tenant, local_run, pilot["claim_id"])
+            graph = inputs.original
+            if prepared_page != 36 or row["prepared_sha256"] not in (None, graph.source_sha256):
+                raise ValueError("C3 source page binding")
+            block = next(
+                b for b in graph.blocks if b.page_num == prepared_page and b.winner is not None
+            )
+            return (
+                graph.document_version_id,
+                graph.parse_manifest_id,
+                publication.runs.snapshot(tenant, local_run)["c3_evidence_sha256"],
+                block.candidates[block.winner].geometry,
+            )
         with closing(sqlite3.connect(database.as_uri() + "?mode=ro", uri=True)) as db:
             db.execute("BEGIN")
             snapshot = json.loads(
@@ -361,12 +380,29 @@ class HostedReads:
                 if physical_page not in selected:
                     raise HostedError("SOURCE_REFERENCE_NOT_FOUND", 404)
                 result = self.store._result(db, row)
+                directory = self.store.document_dir(auth.tenant_id, row["document_id"])
+                path = directory / "analysis" / run
+                original_refs = any(
+                    c.get("source_ref_page_space") == "original" for c in result.get("claims", [])
+                )
+                if original_refs:
+                    from proofops.application.tagging.fact_assembly_c3 import PROFILE as C3_PROFILE
+                    from proofops.application.tagging.fact_assembly_c3 import (
+                        REVIEWED_IDENTITY,
+                    )
+
+                    pilot = json.loads((path / "pilot.json").read_text())
+                    if pilot.get("publication_profile") != C3_PROFILE or selected != [36]:
+                        raise HostedError("SOURCE_REFERENCE_MISMATCH", 409)
+                reference_page = (
+                    physical_page if original_refs else selected.index(physical_page) + 1
+                )
                 refs = [
                     (identity, ref)
                     for cid, items in self._refs(result)
                     for identity, ref in items
                     if (claim_id is None or cid == claim_id)
-                    and ref["page_num"] == selected.index(physical_page) + 1
+                    and ref["page_num"] == reference_page
                     and (source_id is None or ref["source_id"] == source_id)
                 ]
                 if not refs:
@@ -375,7 +411,7 @@ class HostedReads:
                 path = directory / "analysis" / run
                 try:
                     version, manifest, manifest_sha, geometry = self._anchor(
-                        path, row, selected.index(physical_page) + 1
+                        path, row, reference_page
                     )
                     if (document_version_id is not None and document_version_id != version) or any(
                         ref["document_version_id"] != version
@@ -384,10 +420,14 @@ class HostedReads:
                     ):
                         raise HostedError("SOURCE_REFERENCE_MISMATCH", 409)
                     prepared = directory / f"{run}.prepared.pdf"
-                    if prepared.is_symlink() or file_sha256(prepared) != row["prepared_sha256"]:
+                    if not original_refs and (
+                        prepared.is_symlink() or file_sha256(prepared) != row["prepared_sha256"]
+                    ):
                         raise ValueError("prepared hash")
                     source = self.store.analysis_source(directory, dict(doc))
                     source_sha = file_sha256(source)
+                    if original_refs and source_sha != REVIEWED_IDENTITY["original_sha256"]:
+                        raise ValueError("C3 uploaded original mismatch")
                     key = (
                         str(self.store.root),
                         auth.tenant_id,
@@ -417,9 +457,18 @@ class HostedReads:
             if cached:
                 png, metadata = cached
             else:
-                png, metadata = render(
-                    Path(scratch) / "source.pdf", physical_page, geometry, Path(scratch)
-                )
+                if original_refs:
+                    png, metadata = render(
+                        Path(scratch) / "source.pdf",
+                        physical_page,
+                        geometry,
+                        Path(scratch),
+                        fit_page=True,
+                    )
+                else:
+                    png, metadata = render(
+                        Path(scratch) / "source.pdf", physical_page, geometry, Path(scratch)
+                    )
             # A cache or subprocess can outlive a membership revoke, deletion or expiry.
             from proofops.application.authorization import (
                 CapabilityDeniedError,

@@ -387,6 +387,27 @@ class LocalSQLiteReviewStore:
                 (inputs.context.claim.tenant_id, inputs.run_id),
             ).fetchone()
             frozen = json.loads(row[0]) if row else {}
+            from proofops.application.tagging.fact_assembly_c3 import POLICY, POLICY_HASH, PROFILE
+
+            if inputs.fact_assembly_profile == PROFILE:
+                if (
+                    frozen.get("analysis_profile_policy") != POLICY
+                    or frozen.get("analysis_profile_policy_sha256") != POLICY_HASH
+                    or frozen.get("input_hash")
+                    != canonical_hash({k: v for k, v in frozen.items() if k != "input_hash"})
+                    or frozen.get("tenant_id") != inputs.original.tenant_id
+                    or frozen.get("run_id") != inputs.run_id
+                    or frozen.get("document")
+                    != dict(
+                        version_id=inputs.original.document_version_id,
+                        sha256=inputs.original.source_sha256,
+                    )
+                    or canonical_hash(frozen.get("rulepack"))
+                    != canonical_hash(asdict(inputs.rulepack))
+                ):
+                    raise ValueError("C3 live publication pins mismatch")
+                inputs.validate()
+                return
             settings = tagging_settings(frozen)
             packet = inputs.packet.to_dict()
             prompt_hash = canonical_hash(

@@ -24,6 +24,14 @@ def services(path: Path, tenant: str):
     manifest = json.loads((path / "pilot.json").read_text())
     if manifest["tenant_id"] != tenant:
         raise HostedError("RESOURCE_NOT_FOUND", 404)
+    from proofops.application.tagging.fact_assembly_c3 import PROFILE as C3_PROFILE
+
+    if manifest.get("publication_profile") == C3_PROFILE:
+        from proofops.adapters.local.c3_publication import LocalC3Publication
+
+        publication = LocalC3Publication(path)
+        yield manifest["run_id"], None, publication, publication.service
+        return
     database = path / "state.sqlite3"
     registry = Registry.sqlite(database)
     uploads = UploadService(database, path / "objects", registry)
@@ -58,6 +66,18 @@ def services(path: Path, tenant: str):
 
 
 def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
+    from proofops.application.tagging.fact_assembly_c3 import PROFILE as C3_PROFILE
+
+    if (path / "pilot.json").is_file():
+        manifest = json.loads((path / "pilot.json").read_text())
+        if manifest.get("publication_profile") == C3_PROFILE:
+            if manifest["tenant_id"] != tenant:
+                raise HostedError("RESOURCE_NOT_FOUND", 404)
+            if selected_pages != [36]:
+                raise HostedError("C3_SOURCE_PAGE_MISMATCH", 409)
+            from proofops.adapters.local.c3_publication import LocalC3Publication
+
+            return LocalC3Publication(path).result(tenant, manifest["run_id"], manifest["claim_id"])
     outcome = json.loads((path / "outcome.json").read_text())
     if not (path / "pilot.json").is_file():
         return dict(
@@ -358,6 +378,9 @@ def result_snapshot(path: Path, tenant: str, selected_pages: list[int]) -> bytes
         for source in sorted((path / "objects" / "original").rglob("*"))
         if source.is_file()
     }
+    if (path / "c3-evidence.json").is_file():
+        for name in ("original.pdf", "c3-evidence.json", "pilot.json"):
+            sources[name] = hashlib.sha256((path / name).read_bytes()).hexdigest()
     return json.dumps(
         dict(tenant_id=tenant, page_map=selected_pages, source_hashes=sources, result=result),
         sort_keys=True,

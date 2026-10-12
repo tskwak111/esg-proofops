@@ -20,7 +20,7 @@ TIMEOUT_SECONDS = 15
 MEMORY_BYTES = 512 * 1024 * 1024
 
 
-def render(source: Path, page: int, geometry, root: Path) -> tuple[bytes, dict]:
+def render(source: Path, page: int, geometry, root: Path, *, fit_page=False) -> tuple[bytes, dict]:
     from proofops.adapters.parsing.opendataloader import OpenDataLoaderParser, ParseFailure
 
     from proofops_api.hosted_store import HostedError
@@ -32,7 +32,14 @@ def render(source: Path, page: int, geometry, root: Path) -> tuple[bytes, dict]:
         work = Path(temporary)
         # Caller holds a private verified snapshot; child accesses no shared payload.
         os.link(source, work / "source.pdf")
-        (work / "request.json").write_text(json.dumps(dict(page=page, geometry=asdict(geometry))))
+        dpi = (
+            min(DPI, (MAX_DIMENSION - 1) * 72 / max(geometry.width_pt, geometry.height_pt))
+            if fit_page
+            else DPI
+        )
+        (work / "request.json").write_text(
+            json.dumps(dict(page=page, geometry=asdict(geometry), dpi=dpi))
+        )
         try:
             OpenDataLoaderParser._execute(
                 [sys.executable, "-I", str(Path(__file__).resolve()), str(work)],
@@ -82,7 +89,10 @@ def _child(work: Path) -> None:
                 )
             ):
                 raise ValueError("pinned geometry mismatch")
-            scale = DPI / 72
+            dpi = request.get("dpi", DPI)
+            if type(dpi) not in (float, int) or not math.isfinite(dpi) or not 0 < dpi <= DPI:
+                raise ValueError("invalid preview DPI")
+            scale = dpi / 72
             if (
                 math.ceil(width * scale) > MAX_DIMENSION
                 or math.ceil(height * scale) > MAX_DIMENSION
@@ -99,7 +109,7 @@ def _child(work: Path) -> None:
                     metadata = dict(
                         width_px=image.width,
                         height_px=image.height,
-                        dpi=DPI,
+                        dpi=dpi,
                         width_pt=width,
                         height_pt=height,
                         rotation=rotation,
