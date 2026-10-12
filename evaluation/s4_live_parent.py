@@ -1,6 +1,7 @@
 """Exercise the actual private child FD protocol, then the guarded parent reuse."""
 
 import json
+import shutil
 import subprocess
 import sys
 import time
@@ -36,6 +37,13 @@ def main():
     content = reuse_handoff(packet, state, job, manifest["selected_pages"])
     if content is None:
         raise ValueError("S4_PARENT_BYTE_PIN_REJECTED")
+    # Include the publisher's actual file operations in the boundary timing.
+    # HostedStore's fenced DB/revision integration is covered separately.
+    published = out / "publication-final"
+    shutil.copytree(state, published)
+    immutable = published / "result-1.json"
+    immutable.write_bytes(content)
+    immutable.chmod(0o400)
     parent_seconds = time.monotonic() - begin
     (state / "result.json").write_bytes(content)
     summary = json.loads((out / "child-timing.json").read_text()) | dict(
@@ -45,6 +53,7 @@ def main():
         result_bytes=len(content),
         private_fd=True,
         parent_cold_replay_calls=0,
+        copied_publication=str(published),
     )
     (out / "summary.json").write_text(json.dumps(summary, indent=2))
     print(json.dumps(summary), flush=True)
