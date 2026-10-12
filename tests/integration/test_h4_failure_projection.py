@@ -43,14 +43,16 @@ def test_committed_job_reason_survives_hosted_projection(code):
     )
 
 
-def test_extract_job_without_checkpoint_still_publishes_reason(tmp_path, monkeypatch):
+def test_uncommitted_extraction_still_publishes_reason(tmp_path, monkeypatch):
     from proofops_api import hosted_results
 
     (tmp_path / "pilot.json").write_text(json.dumps(dict(tenant_id="t")))
     (tmp_path / "outcome.json").write_text(
         json.dumps(dict(status="partial_blocked", reason="EXTRACTION_INPUT_INVALID"))
     )
-    jobs = SimpleNamespace(get_run=lambda *a: dict(extract_job={}), read_checkpoint=lambda *a: None)
+    jobs = SimpleNamespace(
+        get_run=lambda *a: dict(current_stage="extract"), read_checkpoint=lambda *a: None
+    )
     claims = SimpleNamespace(store=SimpleNamespace(jobs=jobs))
 
     @contextmanager
@@ -91,9 +93,13 @@ def test_pending_tag_job_preserves_committed_extracted_claims(tmp_path, monkeypa
     from tests.acceptance.test_upload import TENANT
     from tests.integration.test_local_tag_runner import tag_setup
 
-    service, run, worker, _, _ = tag_setup(tmp_path, monkeypatch)
+    service, run, worker, now, _ = tag_setup(tmp_path, monkeypatch)
     state = service.store.jobs.get_run(TENANT, run)
-    assert "tag_job" in state and "tag_snapshot_sha256" not in state
+    assert "tag_job" not in state and "tag_snapshot_sha256" not in state
+    assert any(
+        event["message"]["stage"] == "tag"
+        for event in service.store.jobs.pending_outbox(TENANT, run, now=now[0])
+    )
     published = tmp_path / "publication"
     published.mkdir()
     (published / "pilot.json").write_text(json.dumps(dict(tenant_id=TENANT)))

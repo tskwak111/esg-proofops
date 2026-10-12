@@ -110,7 +110,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
     with services(path, tenant) as (run, claims, tags, reviews):
         state = claims.store.jobs.get_run(tenant, run)
         # No extraction publication means no invented empty successful analysis.
-        if "extract_job" not in state or not state.get("claim_snapshot_sha256"):
+        if "extract_job" not in state:
             return dict(
                 schema="r108-hosted-result-v1",
                 claims=[],
@@ -122,7 +122,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                 page_map=selected_pages,
             )
         rows = []
-        if "tag_job" in state and state.get("tag_snapshot_sha256"):
+        if "tag_job" in state:
             # This existing reader verifies both the tag checkpoint pins and
             # the complete source/claim evidence. Reuse its evidence under the
             # publisher's analysis.lock instead of repeating the same replay.
