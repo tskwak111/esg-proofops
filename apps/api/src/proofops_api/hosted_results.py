@@ -94,13 +94,18 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             tag_snapshot, evidence = {}, claims.load_evidence(tenant, run)
         projections = {r["claim_id"]: r for r in tag_snapshot.get("claims", [])}
         reasons = {cid: r.get("reason") for cid, r in projections.items()}
-        from proofops.application.analysis_profile import FINALS_F1_INITIAL_POLICY, FINALS_F1_POLICY
+        from proofops.application.analysis_profile import (
+            FINALS_F1_INITIAL_POLICY,
+            FINALS_F1_POLICY,
+            FINALS_F1_TRANSPORT_POLICY,
+        )
         from proofops.application.provider_resilience import PROJECTION_POLICY, claim_hold_reason
         from proofops.domain.provenance import canonical_hash
 
         f1 = tag_snapshot.get("analysis_profile_policy_sha256") in {
             canonical_hash(FINALS_F1_INITIAL_POLICY),
             canonical_hash(FINALS_F1_POLICY),
+            canonical_hash(FINALS_F1_TRANSPORT_POLICY),
         }
         if f1:
             for cid, projection in projections.items():
@@ -150,6 +155,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
         pb1 = tag_snapshot.get("analysis_profile_policy_sha256") in {
             canonical_hash(FINALS_F1_INITIAL_POLICY),
             canonical_hash(FINALS_F1_POLICY),
+            canonical_hash(FINALS_F1_TRANSPORT_POLICY),
             canonical_hash(S2_POLICY),
             canonical_hash(V2_POLICY),
             canonical_hash(FINALS_I3_POLICY),
@@ -204,6 +210,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                         if tag_snapshot.get("analysis_profile_policy_sha256") in {
                             canonical_hash(FINALS_F1_INITIAL_POLICY),
                             canonical_hash(FINALS_F1_POLICY),
+                            canonical_hash(FINALS_F1_TRANSPORT_POLICY),
                             canonical_hash(S2_POLICY),
                             canonical_hash(V2_POLICY),
                             canonical_hash(FINALS_I3_POLICY),

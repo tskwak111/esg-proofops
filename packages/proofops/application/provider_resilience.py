@@ -11,6 +11,13 @@ POLICY = dict(
     publication="partial-with-failure-count",
 )
 ISOLATED_CODES = frozenset({"PROVIDER_PROCESSING_FAILED", "PROVIDER_CIRCUIT_OPEN"})
+RESPONSE_ERROR_DIAGNOSTIC_POLICY = dict(
+    profile="openai-response-uncertainty-f1-v1",
+    received_http="preserve-status-and-safe-headers",
+    missing_response="null-status-and-body-hash",
+    exception="type-only-no-message",
+    cost="retain-uncertainty",
+)
 
 INITIAL_PROJECTION_POLICY = dict(
     profile="provider-failure-projection-f1-v1",

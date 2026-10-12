@@ -150,6 +150,8 @@ def test_partial_result_publication_retains_accounting_pending(tmp_path, monkeyp
     assert result["pipeline"]["provider_failures"]["total"] == 1
     assert costs(store)[0][1] == "accounting_pending"
 
+    assert store.get_run(auth.tenant_id, probe.job["run_id"])["status"] == "partial_blocked"
+
 
 def test_physical_circuit_guard_is_proven_unsent_and_does_not_change_other_costs(
     tmp_path, monkeypatch
@@ -285,3 +287,66 @@ def test_measurement_keeps_evidence_only_pages_out_of_claim_scope(tmp_path):
         )
     )
     assert source_claim_pages(tmp_path) == [19]
+
+
+def test_malformed_http200_preserves_received_status_and_headers(tmp_path, monkeypatch):
+    store, auth, _, probe, _ = setup(tmp_path, monkeypatch, cap=".08")
+    configure(probe, auth)
+    wire(
+        monkeypatch,
+        iter([(200, b"", {"server": "cloudflare", "cf-ray": "edge-123", "set-cookie": "secret"})]),
+    )
+    with pytest.raises(ValueError, match="PROVIDER_PROCESSING_FAILED"):
+        probe.complete("JSON", "{}", request_id="malformed", json_mode=True)
+    diagnostic = json.loads(next(probe.http_error_directory.glob("*.http-error.json")).read_text())
+    assert diagnostic["http_status"] == 200
+    assert diagnostic["exception_type"] == "JSONDecodeError" and diagnostic["response_received"]
+    assert diagnostic["headers"] == {"server": "cloudflare", "cf-ray": "edge-123"}
+    assert store.get_run(auth.tenant_id, probe.job["run_id"])["status"] == "running"
+    assert costs(store)[0][1] == "accounting_pending"
+
+
+def test_no_http_response_has_null_status_and_hash_not_fake_empty_body(tmp_path, monkeypatch):
+    from proofops.adapters.local import openai
+
+    store, auth, _, probe, _ = setup(tmp_path, monkeypatch, cap=".08")
+    configure(probe, auth)
+    wire(monkeypatch, iter([success()]))
+    monkeypatch.setattr(
+        openai.http.client.HTTPSConnection,
+        "getresponse",
+        lambda self: (_ for _ in ()).throw(TimeoutError("must-not-be-recorded")),
+    )
+    with pytest.raises(ValueError, match="PROVIDER_PROCESSING_FAILED"):
+        probe.complete("JSON", "{}", request_id="no-response", json_mode=True)
+    file = next(probe.http_error_directory.glob("*.http-error.json"))
+    d = json.loads(file.read_text())
+    assert d["http_status"] is None and d["response_body_sha256"] is None
+    assert d["exception_type"] == "TimeoutError" and not d["response_received"]
+    assert "must-not-be-recorded" not in file.read_text()
+    assert store.get_run(auth.tenant_id, probe.job["run_id"])["status"] == "running"
+    assert costs(store)[0][1] == "accounting_pending"
+
+
+def test_old_f1_v2_malformed_response_contract_is_preserved(tmp_path, monkeypatch):
+    from proofops.application.analysis_profile import FINALS_F1_TRANSPORT_POLICY
+
+    store, auth, _, probe, _ = setup(tmp_path, monkeypatch, cap=".08")
+    probe.configure_response_policy(
+        dict(
+            tenant_id=auth.tenant_id,
+            document=dict(sha256="a" * 64),
+            analysis_profile_policy=FINALS_F1_TRANSPORT_POLICY,
+            analysis_profile_policy_sha256=canonical_hash(FINALS_F1_TRANSPORT_POLICY),
+        ),
+        role="extract",
+    )
+    wire(monkeypatch, iter([(200, b"", {})]))
+    with pytest.raises(ValueError, match="OPENAI_REQUEST_FAILED"):
+        probe.complete("JSON", "{}", request_id="legacy-malformed", json_mode=True)
+    assert store.get_run(auth.tenant_id, probe.job["run_id"])["status"] == "accounting_pending"
+    assert not list(probe.http_error_directory.glob("*.http-error.json"))
+    assert (
+        policy_for("finals-unattended-v2", pinned_hash=canonical_hash(FINALS_F1_TRANSPORT_POLICY))
+        == FINALS_F1_TRANSPORT_POLICY
+    )

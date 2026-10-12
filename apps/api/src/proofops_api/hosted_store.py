@@ -23,6 +23,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
+from http.client import HTTPException
 from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from typing import Any
@@ -1300,6 +1301,7 @@ class HostedStore:
         now: float,
         allow_transient_403: bool = False,
         allow_model_partial: bool = False,
+        allow_response_uncertainty: bool = False,
     ) -> dict:
         """Broker boundary for a future approved adapter. No HTTP/provider implementation here."""
         if (
@@ -1386,6 +1388,10 @@ class HostedStore:
                 and (
                     cause in {"PROVIDER_ACCESS_DENIED", "PROVIDER_UNAVAILABLE"}
                     or model_network_failure
+                    or (
+                        allow_response_uncertainty is True
+                        and isinstance(exc, json.JSONDecodeError | UnicodeError | HTTPException)
+                    )
                 )
             )
             with self.transaction() as db:

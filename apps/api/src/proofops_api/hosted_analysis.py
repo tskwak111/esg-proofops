@@ -300,6 +300,7 @@ class HostedOpenAILunaProbe(OpenAIProbe):
                     now=time.time(),
                     allow_transient_403=allow,
                     allow_model_partial=self.provider_resilience is not None,
+                    allow_response_uncertainty=self.response_uncertainty_policy is not None,
                 )
                 return response["payload"]
             except OpenAITransient403 as error:

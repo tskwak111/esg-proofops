@@ -133,6 +133,7 @@ class OpenAIProbe(OpenRouterProbe):
     http_retry_policy = None
     provider_resilience = None
     http_dispatch_guard = False
+    response_uncertainty_policy = None
 
     def _authorize_response_request(self):
         """Hosted adapters recheck their live owner/source before cache access."""
@@ -144,6 +145,7 @@ class OpenAIProbe(OpenRouterProbe):
         self.http_retry_policy = None
         self.provider_resilience = None
         self.http_dispatch_guard = False
+        self.response_uncertainty_policy = None
         if "model_response_policy" not in policy:
             self.response_policy = None
             self.wire_policy = WIRE_POLICY
@@ -173,6 +175,14 @@ class OpenAIProbe(OpenRouterProbe):
             self.http_dispatch_guard = (
                 policy.get("http_dispatch_guard") == "physical-attempt-paced4-denial3-f1-v2"
             )
+            if "response_uncertainty_policy" in policy:
+                from proofops.application.provider_resilience import (
+                    RESPONSE_ERROR_DIAGNOSTIC_POLICY,
+                )
+
+                if policy["response_uncertainty_policy"] != RESPONSE_ERROR_DIAGNOSTIC_POLICY:
+                    raise ValueError("RESPONSE_UNCERTAINTY_POLICY_MISMATCH")
+                self.response_uncertainty_policy = RESPONSE_ERROR_DIAGNOSTIC_POLICY
         self.wire_policy = WIRE_POLICY | dict(
             top_p=1, model_response_policy_sha256=canonical_hash(MODEL_RESPONSE_POLICY)
         )
@@ -313,6 +323,7 @@ class OpenAIProbe(OpenRouterProbe):
         client_request_id=None,
         headers=None,
         latency_ms=None,
+        response_failure=None,
     ):
         """Keep denial identifiers without persisting messages, inputs or cookies."""
 
@@ -385,6 +396,19 @@ class OpenAIProbe(OpenRouterProbe):
                 self.http_admission_snapshot() if hasattr(self, "http_admission_snapshot") else None
             ),
         )
+        if response_failure is not None:
+            from proofops.application.provider_resilience import RESPONSE_ERROR_DIAGNOSTIC_POLICY
+
+            diagnostic.update(
+                diagnostic_policy_sha256=canonical_hash(RESPONSE_ERROR_DIAGNOSTIC_POLICY),
+                **response_failure,
+            )
+            if not response_failure["body_received"]:
+                diagnostic.update(
+                    response_body_sha256=None,
+                    response_body_bytes_read=None,
+                    response_body_truncated=None,
+                )
         try:
             directory = getattr(self, "http_error_directory", self._responses)
             directory.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -407,6 +431,7 @@ class OpenAIProbe(OpenRouterProbe):
                 admission()
         connection = http.client.HTTPSConnection("api.openai.com", timeout=90)
         started = time.monotonic()
+        response = raw = None
         try:
             connection.request(
                 "POST",
@@ -486,6 +511,30 @@ class OpenAIProbe(OpenRouterProbe):
             data = json.loads(raw)
             data["openai_request_id"] = response.getheader("x-request-id")
             return data
+        except (OSError, http.client.HTTPException, json.JSONDecodeError, UnicodeError) as error:
+            if self.response_uncertainty_policy:
+                self._record_http_error(
+                    body,
+                    response.status if response is not None else None,
+                    raw or b"",
+                    {},
+                    response.getheader("x-request-id") if response is not None else None,
+                    response.getheader("retry-after") if response is not None else None,
+                    client_request_id=client_request_id,
+                    headers={
+                        name: response.getheader(name)
+                        for name in ("server", "content-type", "cf-ray")
+                    }
+                    if response is not None
+                    else {},
+                    latency_ms=round((time.monotonic() - started) * 1000, 2),
+                    response_failure=dict(
+                        exception_type=type(error).__name__,
+                        response_received=response is not None,
+                        body_received=raw is not None,
+                    ),
+                )
+            raise
         finally:
             connection.close()
 
@@ -680,6 +729,12 @@ class OpenAIProbe(OpenRouterProbe):
                     or code == "OPENAI_HTTP_403"
                     or re.fullmatch(r"OPENAI_HTTP_5\d\d", code)
                     or isinstance(error, OSError)
+                    or (
+                        self.response_uncertainty_policy
+                        and isinstance(
+                            error, json.JSONDecodeError | UnicodeError | http.client.HTTPException
+                        )
+                    )
                 ):
                     raise ValueError("PROVIDER_PROCESSING_FAILED") from None
                 if code not in {

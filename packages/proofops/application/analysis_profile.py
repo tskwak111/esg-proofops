@@ -11,6 +11,7 @@ from proofops.application.ingest.k6_coverage import POLICY as K6_COVERAGE_POLICY
 from proofops.application.ingest.sentence_prefix import POLICY as PREFIX_POLICY
 from proofops.application.openai_retry import POLICY as T1_RETRY_POLICY
 from proofops.application.provider_resilience import POLICY as F1_RESILIENCE_POLICY
+from proofops.application.provider_resilience import RESPONSE_ERROR_DIAGNOSTIC_POLICY
 from proofops.application.tagging.dec24 import (
     DEFINITIONS_HASH,
     INTEGRATED_DEFINITIONS_HASH,
@@ -469,9 +470,13 @@ FINALS_F1_INITIAL_POLICY = FINALS_T1_POLICY | dict(
     provider_resilience=F1_RESILIENCE_POLICY,
     http_admission="per-run-8-paced4-denial3-f1-v1",
 )
-FINALS_F1_POLICY = FINALS_F1_INITIAL_POLICY | dict(
+FINALS_F1_TRANSPORT_POLICY = FINALS_F1_INITIAL_POLICY | dict(
     integration_profile="finals-20261012-f1-resilience-v2",
     http_dispatch_guard="physical-attempt-paced4-denial3-f1-v2",
+)
+FINALS_F1_POLICY = FINALS_F1_TRANSPORT_POLICY | dict(
+    integration_profile="finals-20261012-f1-resilience-v3",
+    response_uncertainty_policy=RESPONSE_ERROR_DIAGNOSTIC_POLICY,
 )
 
 
@@ -495,6 +500,7 @@ def policy_for(profile, *, pinned_hash=None):
             FINALS_I5_POLICY,
             FINALS_T1_POLICY,
             FINALS_F1_POLICY,
+            FINALS_F1_TRANSPORT_POLICY,
             FINALS_F1_INITIAL_POLICY,
             FINALS_I5_INITIAL_POLICY,
             FINALS_I4_POLICY,
@@ -566,6 +572,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
             FINALS_I5_POLICY,
             FINALS_T1_POLICY,
             FINALS_F1_POLICY,
+            FINALS_F1_TRANSPORT_POLICY,
             FINALS_F1_INITIAL_POLICY,
             FINALS_I5_INITIAL_POLICY,
             FINALS_I4_POLICY,
