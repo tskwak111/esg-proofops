@@ -109,8 +109,6 @@ def hold_projection(item, *, profile=None):
 
 def _cause_specific_hold(item):
     result = hold_projection(item, profile="dec24-v1")
-    if result.get("display_type") != "hold" or result.get("evidence_grade"):
-        return result
     codes = {
         (record.get("stable_reason") or {}).get("error_code")
         for key in ("preliminary_records", "relation_records")
@@ -119,6 +117,23 @@ def _cause_specific_hold(item):
     codes.add(item.get("reason"))
     for run in item.get("tag_runs", []):
         codes.update(run.get("errors", []))
+    if (
+        "Q1_FORWARD_LOOKING_CATEGORY_REVIEW" in codes
+        or result.get("reason") == "Q1_FORWARD_LOOKING_CATEGORY_REVIEW"
+    ):
+        return result | dict(
+            evidence_grade=None,
+            label=None,
+            grade_range=None,
+            grade_basis="retag_required",
+            display_type="hold",
+            display="미래 전망 · 가정·시나리오 검토 필요",
+            hold_reasons=["미래 전망의 일반 성과등급 보류", "세이프하버 범주·가정·한계 확인 필요"],
+            safe_harbor_candidate="forward_looking",
+            gap_ids=["GAP-001", "GAP-002"],
+        )
+    if result.get("display_type") != "hold" or result.get("evidence_grade"):
+        return result
     reasons = [r for r in result.get("hold_reasons", []) if r != "근거 없음"]
     display_failed = "DISPLAY_QUOTE_UNRESOLVED" in codes or any(
         (record.get("values") or {}).get("dimension_restore_errors")

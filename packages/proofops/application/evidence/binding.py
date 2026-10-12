@@ -142,6 +142,7 @@ def accept_binding(
     element_id: str,
     local_value_identity: bool = False,
     local_binding_policy: Mapping | None = None,
+    structural_policy: Mapping | None = None,
 ) -> BindingState:
     """Check source identity, literal roles, table coordinates and allowed scope.
 
@@ -158,6 +159,10 @@ def accept_binding(
         raise DomainValidationError("SourceRef and pinned rulepack required")
     _require_uuid("tenant_id", tenant_id)
     claim = context.claim
+    if structural_policy is not None:
+        from proofops.application.tagging.q1_contract import validate_policy
+
+        validate_policy(structural_policy)
     _require_uuid("claim_id", claim.claim_id)
     if (claim.tenant_id, original.tenant_id, rulepack.tenant_id) != (tenant_id,) * 3 or (
         claim.document_version_id,
@@ -386,7 +391,15 @@ def accept_binding(
             if "accepted" not in role_states:
                 unresolved = True
             if name == "reporting_period" and not is_supported_period(value.quote):
-                unresolved = True
+                from proofops.application.tagging.q1_contract import observed_period
+
+                if not (
+                    structural_policy is not None
+                    and direct
+                    and intrinsic
+                    and observed_period(value.quote)
+                ):
+                    unresolved = True
         if (
             expected is not None
             and actual is not None

@@ -656,6 +656,14 @@ class UpstageTaggingTransport:
             # Authorization above covered these server policies before projection.
             data.pop("tagging_response_policy", None)
             data.pop("selected_quantity_policy", None)
+        if "structural_quality_policy" in data:
+            from proofops.application.tagging.q1_contract import (
+                element_guidance,
+                validate_policy,
+            )
+
+            validate_policy(data.pop("structural_quality_policy"))
+            wire_system += element_guidance(data.get("atomic_quote", ""))
         if "tagging_wire_policy" in data:
             from proofops.application.tagging.k7_wire import (
                 INSTRUCTIONS,

@@ -471,14 +471,22 @@ def live_tagging_settings(
         from proofops.application.tagging.finals_i4 import K4_ELEMENTS, K4_PRELIMINARY, PROFILE
         from proofops.application.tagging.k9_contract import PRELIMINARY as K9_PRELIMINARY
         from proofops.application.tagging.k9_contract import PROFILE as K9_PROFILE
+        from proofops.application.tagging.q1_contract import PRELIMINARY as Q1_PRELIMINARY
+        from proofops.application.tagging.q1_contract import PROFILE as Q1_PROFILE
 
         if (
-            prompt_profile not in (PROFILE, K9_PROFILE)
+            prompt_profile not in (PROFILE, K9_PROFILE, Q1_PROFILE)
             or not preliminary_pb1
             or not compact_element_wire
         ):
             raise ValueError("TAGGING_PROMPT_PROFILE_INVALID")
-        preliminary_prompt = K9_PRELIMINARY if prompt_profile == K9_PROFILE else K4_PRELIMINARY
+        preliminary_prompt = (
+            Q1_PRELIMINARY
+            if prompt_profile == Q1_PROFILE
+            else K9_PRELIMINARY
+            if prompt_profile == K9_PROFILE
+            else K4_PRELIMINARY
+        )
         element_prompt = K4_ELEMENTS
         settings["tagging_prompt_profile"] = prompt_profile
     profiles: tuple[tuple[str, str, str, str, int], ...] = (
@@ -784,6 +792,7 @@ def apply_resume_metadata(args, saved: dict) -> None:
     args.extraction_h1 = bool(saved.get("extraction_h1", False))
     args.extraction_i5_tables = bool(saved.get("extraction_i5_tables", False))
     args.extraction_k6 = bool(saved.get("extraction_k6", False))
+    args.extraction_q1 = bool(saved.get("extraction_q1", False))
     args.extraction_pb1_context_guard = bool(saved.get("extraction_pb1_context_guard", False))
     args.extraction_table_footnotes = bool(saved.get("extraction_table_footnotes", False))
     args.extraction_source_ids = bool(saved.get("extraction_source_ids", False))
@@ -1307,6 +1316,7 @@ def main():
     args.extraction_i3_wire = False
     args.extraction_i4_identity = False
     args.extraction_k6 = False
+    args.extraction_q1 = False
     apply_pilot_profile(args)
     try:
         apply_finals_candidate(args)
@@ -1704,6 +1714,7 @@ def main():
                     extraction_h1=getattr(args, "extraction_h1", False),
                     extraction_i5_tables=getattr(args, "extraction_i5_tables", False),
                     extraction_k6=args.extraction_k6,
+                    extraction_q1=args.extraction_q1,
                     extraction_pb1_context_guard=args.extraction_pb1_context_guard,
                     extraction_table_footnotes=args.extraction_table_footnotes,
                     extraction_table_rows=args.extraction_table_rows,
@@ -1776,6 +1787,8 @@ def main():
             settings["extraction_j8"] = True
         if args.extraction_k6:
             settings["extraction_k6"] = True
+        if args.extraction_q1:
+            settings["extraction_q1"] = True
         if args.extraction_i4_identity:
             settings["extraction_i4_identity"] = True
         if args.extraction_i3_wire:
@@ -2319,6 +2332,8 @@ def main():
             manifest["extraction_j8"] = True
         if args.extraction_k6:
             manifest["extraction_k6"] = True
+        if args.extraction_q1:
+            manifest["extraction_q1"] = True
         if args.extraction_i4_identity:
             manifest["extraction_i4_identity"] = True
         if args.extraction_i3_wire:
@@ -2444,6 +2459,7 @@ def main():
             "extraction_h1",
             "extraction_i5_tables",
             "extraction_k6",
+            "extraction_q1",
             "extraction_pb1_context_guard",
             "extraction_table_footnotes",
         ):

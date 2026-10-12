@@ -49,6 +49,7 @@ _SETTINGS_FIELDS = frozenset(
         "extraction_h1",
         "extraction_i5_tables",
         "extraction_k6",
+        "extraction_q1",
         "extraction_pb1_context_guard",
         "extraction_table_footnotes",
         "extraction_table_rows",
@@ -366,6 +367,10 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
                 selected_policy.get("coverage_policy")
             ):
                 raise _invalid()
+            if bool(settings.get("extraction_q1", False)) != bool(
+                selected_policy.get("activity_table_policy")
+            ):
+                raise ValueError("Q1_EXTRACTION_PROFILE_MISMATCH")
             prompt_profile = selected_policy.get("tagging_prompt_profile")
             if prompt_profile:
                 from proofops.application.tagging.finals_i4 import (
@@ -375,12 +380,20 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
                 )
                 from proofops.application.tagging.k9_contract import PRELIMINARY as K9_PRELIMINARY
                 from proofops.application.tagging.k9_contract import PROFILE as K9_PROFILE
+                from proofops.application.tagging.q1_contract import PRELIMINARY as Q1_PRELIMINARY
+                from proofops.application.tagging.q1_contract import PROFILE as Q1_PROFILE
 
                 if (
-                    prompt_profile not in (PROFILE, K9_PROFILE)
+                    prompt_profile not in (PROFILE, K9_PROFILE, Q1_PROFILE)
                     or settings.get("tagging_prompt_profile") != prompt_profile
                     or settings.get("preliminary_settings", {}).get("system_prompt")
-                    != (K9_PRELIMINARY if prompt_profile == K9_PROFILE else K4_PRELIMINARY)
+                    != (
+                        Q1_PRELIMINARY
+                        if prompt_profile == Q1_PROFILE
+                        else K9_PRELIMINARY
+                        if prompt_profile == K9_PROFILE
+                        else K4_PRELIMINARY
+                    )
                     or settings.get("tagging_settings", {}).get("system_prompt") != K4_ELEMENTS
                 ):
                     raise _invalid()
@@ -434,6 +447,7 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         "extraction_h1",
         "extraction_i5_tables",
         "extraction_k6",
+        "extraction_q1",
         "extraction_pb1_context_guard",
         "extraction_table_footnotes",
         "extraction_table_rows",

@@ -64,8 +64,9 @@ POLICY_HASH = canonical_hash(POLICY)
 def validate_policy(policy: dict) -> None:
     from proofops.application.tagging.k1_semantics import POLICY as K1_POLICY
     from proofops.application.tagging.k4_contract import SEMANTIC_POLICY
+    from proofops.application.tagging.q1_contract import SEMANTIC_POLICY as Q1_POLICY
 
-    if policy not in (POLICY, K1_POLICY, SEMANTIC_POLICY):
+    if policy not in (POLICY, K1_POLICY, SEMANTIC_POLICY, Q1_POLICY):
         raise ValueError("SEMANTIC_ADMISSION_POLICY_UNKNOWN")
 
 
@@ -74,7 +75,14 @@ def guard_element(element: LlmElement, *, policy=None, claim_quote="") -> LlmEle
         validate_policy(policy)
         from proofops.application.tagging.k1_semantics import guard
 
-        return guard(guard_element(element), claim_quote=claim_quote)
+        admitted = guard(guard_element(element), claim_quote=claim_quote)
+        from proofops.application.tagging.q1_contract import SEMANTIC_POLICY as Q1_POLICY
+
+        if policy == Q1_POLICY:
+            from proofops.application.tagging.q1_contract import guard as q1_guard
+
+            admitted = q1_guard(admitted)
+        return admitted
     if element.state != "present":
         return element
     quotes = [" ".join(ref.quote.split()) for ref in element.evidence_refs]
@@ -136,8 +144,9 @@ def estimate_refs(
     if policy is not None and policy != POLICY:
         validate_policy(policy)
         from proofops.application.tagging.k4_contract import SEMANTIC_POLICY
+        from proofops.application.tagging.q1_contract import SEMANTIC_POLICY as Q1_POLICY
 
-        if policy == SEMANTIC_POLICY:
+        if policy in (SEMANTIC_POLICY, Q1_POLICY):
             from proofops.application.tagging.k4_contract import estimate_evidence
 
             return estimate_evidence(data, original)

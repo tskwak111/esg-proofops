@@ -543,6 +543,7 @@ def _profile_with_options(
     extraction_h1: bool = False,
     extraction_i5_tables: bool = False,
     extraction_k6: bool = False,
+    extraction_q1: bool = False,
 ) -> ExtractionProfile:
     """Versioned extraction profile for an explicit option combination.
 
@@ -699,6 +700,10 @@ def _profile_with_options(
         from proofops.application.ingest.k6_coverage import POLICY as K6_POLICY
 
         descriptor.append(K6_POLICY)
+    if extraction_q1:
+        from proofops.application.ingest.q1_tables import POLICY as Q1_POLICY
+
+        descriptor.append(Q1_POLICY)
     if extraction_j8:
         from proofops.application.ingest.j8_cells import POLICY as J8_POLICY
 
@@ -858,7 +863,10 @@ class UpstageClaimExtractor:
         extraction_h1: bool = False,
         extraction_i5_tables: bool = False,
         extraction_k6: bool = False,
+        extraction_q1: bool = False,
     ) -> None:
+        if type(extraction_q1) is not bool or (extraction_q1 and not extraction_j8):
+            raise ValueError("Q1_EXTRACTION_PROFILE_INVALID")
         if type(extraction_k6) is not bool or (extraction_k6 and not extraction_j8):
             raise ValueError("K6_EXTRACTION_PROFILE_INVALID")
         if not callable(getattr(probe, "complete", None)):
@@ -926,6 +934,7 @@ class UpstageClaimExtractor:
             extraction_h1=extraction_h1,
             extraction_i5_tables=extraction_i5_tables,
             extraction_k6=extraction_k6,
+            extraction_q1=extraction_q1,
         )
         if type(max_tokens) is not int or not 1 <= max_tokens <= 4096:
             raise ValueError("UPSTAGE_MAX_TOKENS_INVALID")
@@ -952,6 +961,7 @@ class UpstageClaimExtractor:
         self._j7 = extraction_j7
         self._j8 = extraction_j8
         self._k6 = extraction_k6
+        self._q1 = extraction_q1
         self._i3_wire = extraction_i3_wire
         self._i4_identity = extraction_i4_identity
         self._h1 = extraction_h1
@@ -1763,6 +1773,22 @@ class UpstageClaimExtractor:
                     kind=packet["untrusted_document_data"]["kind"],
                 )
                 spans = self._validate_spans({"spans": selected}, text)
+            if (
+                self._q1
+                and packet is not None
+                and packet["untrusted_document_data"]["kind"] == "table"
+            ):
+                from proofops.application.ingest.j8_cells import graph_cells
+                from proofops.application.ingest.q1_tables import retain_activities
+
+                self._validate_context_graph(packet, context_graph)
+                block = next(b for b in context_graph.blocks if b.source_id == source_id)
+                selected, diagnostics["q1_activity_rescue"] = retain_activities(
+                    [asdict(s) | dict(topic_ids=list(s.topic_ids)) for s in spans],
+                    text,
+                    graph_cells(block, context_graph),
+                )
+                spans = self._validate_spans({"spans": selected}, text)
             return spans, diagnostics
         quotes = self._quotes(payload)
         span_dicts = []
@@ -1966,6 +1992,8 @@ class UpstageClaimExtractor:
                 from proofops.application.ingest.j8_cells import cell_entries, graph_cells
 
                 cells = graph_cells(block, context_graph)
+            if self._q1:
+                from proofops.application.ingest.q1_tables import cell_entries
             if self._j8 or any("\n" in c["text"] for c in cells):
                 entries = cell_entries(text, cells, source_id=data["source_id"])
                 if len(entries) > ROW_POLICY["max_candidates"]:

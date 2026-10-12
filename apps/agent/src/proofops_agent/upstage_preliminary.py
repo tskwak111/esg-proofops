@@ -209,11 +209,13 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
             from proofops.application.tagging.finals_i4 import K4_PRELIMINARY
             from proofops.application.tagging.k1_semantics import GUIDANCE
             from proofops.application.tagging.k9_contract import PRELIMINARY as K9_PRELIMINARY
+            from proofops.application.tagging.q1_contract import PRELIMINARY as Q1_PRELIMINARY
 
             if settings.system_prompt in (
                 expected_prompt + "\n" + GUIDANCE,
                 K4_PRELIMINARY,
                 K9_PRELIMINARY,
+                Q1_PRELIMINARY,
             ):
                 expected_prompt = settings.system_prompt
         if (
@@ -397,11 +399,13 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
             from proofops.application.tagging.finals_i4 import K4_PRELIMINARY
             from proofops.application.tagging.k1_semantics import GUIDANCE
             from proofops.application.tagging.k9_contract import PRELIMINARY as K9_PRELIMINARY
+            from proofops.application.tagging.q1_contract import PRELIMINARY as Q1_PRELIMINARY
 
             if settings.system_prompt in (
                 expected_prompt + "\n" + GUIDANCE,
                 K4_PRELIMINARY,
                 K9_PRELIMINARY,
+                Q1_PRELIMINARY,
             ):
                 expected_prompt = settings.system_prompt
         # Mandatory callback plus common tenant/claim/request UUID, packet/
@@ -594,16 +598,25 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
         from proofops.application.tagging.finals_i4 import K4_PRELIMINARY, preliminary_k4
         from proofops.application.tagging.k9_contract import PRELIMINARY as K9_PRELIMINARY
         from proofops.application.tagging.k9_contract import preliminary as preliminary_k9
+        from proofops.application.tagging.q1_contract import PRELIMINARY as Q1_PRELIMINARY
+        from proofops.application.tagging.q1_contract import preliminary as preliminary_q1
 
-        if settings.system_prompt in (K4_PRELIMINARY, K9_PRELIMINARY):
+        if settings.system_prompt in (K4_PRELIMINARY, K9_PRELIMINARY, Q1_PRELIMINARY):
             if response_policy is None:
                 raise ValueError("I4_RESPONSE_POLICY_REQUIRED")
             renderer = (
-                preliminary_k9 if settings.system_prompt == K9_PRELIMINARY else preliminary_k4
+                preliminary_q1
+                if settings.system_prompt == Q1_PRELIMINARY
+                else preliminary_k9
+                if settings.system_prompt == K9_PRELIMINARY
+                else preliminary_k4
             )
             if user.pop("k9_targeted_wire_policy", None) is not None:
                 quote = user["untrusted_document_data"]["sources"][0]["text"]
-                system = preliminary_k9(json.loads(schema_json), quote=quote)
+                renderer = (
+                    preliminary_q1 if settings.system_prompt == Q1_PRELIMINARY else preliminary_k9
+                )
+                system = renderer(json.loads(schema_json), quote=quote)
             else:
                 system = renderer(json.loads(schema_json))
         wire_user = json.dumps(user, ensure_ascii=False, sort_keys=True, separators=(",", ":"))

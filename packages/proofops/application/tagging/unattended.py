@@ -92,6 +92,8 @@ def provisional_result(
     if len(provider_ids) != len(set(provider_ids)):
         return empty_provisional("PROVIDER_RESPONSE_REPLAY")
     data = packet.to_dict()
+    from proofops.application.tagging.q1_contract import SEMANTIC_POLICY as Q1_POLICY
+
     ordered = sorted(runs, key=lambda run: run.replicate_id)
     facts, elements = [], []
     for eid in data["allowed_elements"]:
@@ -179,7 +181,36 @@ def provisional_result(
         estimate_evidence = estimate_refs(data, original, policy=semantic_policy)
     from proofops.application.tagging.k4_contract import SEMANTIC_POLICY, scope3_evidence
 
-    scope3_refs = scope3_evidence(data, original) if semantic_policy == SEMANTIC_POLICY else []
+    scope3_refs = (
+        scope3_evidence(data, original) if semantic_policy in (SEMANTIC_POLICY, Q1_POLICY) else []
+    )
+    if semantic_policy == Q1_POLICY:
+        from proofops.application.tagging.q1_contract import forecast_evidence
+
+        forecast_refs = forecast_evidence(data, original)
+        if forecast_refs:
+            from proofops.domain.provenance import canonical_hash
+
+            return empty_provisional("Q1_FORWARD_LOOKING_CATEGORY_REVIEW") | dict(
+                elements=elements,
+                grade_range=None,
+                grade_basis="retag_required",
+                display_type="hold",
+                display="미래 전망 · 가정·시나리오 검토 필요",
+                hold_reasons=[
+                    "미래 전망의 일반 성과등급 보류",
+                    "세이프하버 범주·가정·한계 확인 필요",
+                ],
+                track=data["track"],
+                safe_harbor_category=data.get("safe_harbor_category"),
+                safe_harbor_candidate="forward_looking",
+                gap_ids=["GAP-001", "GAP-002"],
+                forecast_evidence_refs=forecast_refs,
+                semantic_policy_sha256=canonical_hash(semantic_policy),
+                semantic_hash=canonical_hash(
+                    dict(packet=packet.packet_sha256, policy=semantic_policy, refs=forecast_refs)
+                ),
+            )
     headers = Counter(
         run.guarded.superlative_quote for run in ordered if run.guarded is not None
     ).most_common(1)
@@ -266,7 +297,7 @@ def provisional_result(
         from proofops.application.tagging.k1_semantics import track_requires_review
 
         claim_quote = " ".join(r["quote"] for r in data["claim_source_refs"])
-        if semantic_policy == SEMANTIC_POLICY and data["track"] == "goal" and original:
+        if semantic_policy in (SEMANTIC_POLICY, Q1_POLICY) and data["track"] == "goal" and original:
             from types import SimpleNamespace
 
             from proofops.application.ingest.j7_split import goal_requires_retag
@@ -289,7 +320,7 @@ def provisional_result(
                 )
         from proofops.application.tagging.k1_semantics import masked_pue
 
-        if semantic_policy in (K1_POLICY, SEMANTIC_POLICY) and (
+        if semantic_policy in (K1_POLICY, SEMANTIC_POLICY, Q1_POLICY) and (
             track_requires_review(claim_quote, data["track"]) or masked_pue(claim_quote)
         ):
             wrong_track = track_requires_review(claim_quote, data["track"])

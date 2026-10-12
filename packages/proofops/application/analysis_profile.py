@@ -8,6 +8,7 @@ from proofops.application.ingest.k1_boundaries import POLICY_HASH as K1_BOUNDARY
 from proofops.application.ingest.k3_table_routing import POLICY as K3_ROUTING_POLICY
 from proofops.application.ingest.k5_context import POLICY as K5_CONTEXT_POLICY
 from proofops.application.ingest.k6_coverage import POLICY as K6_COVERAGE_POLICY
+from proofops.application.ingest.q1_tables import POLICY as Q1_TABLE_POLICY
 from proofops.application.ingest.sentence_prefix import POLICY as PREFIX_POLICY
 from proofops.application.openai_retry import POLICY as T1_RETRY_POLICY
 from proofops.application.provider_resilience import POLICY as F1_RESILIENCE_POLICY
@@ -45,6 +46,8 @@ from proofops.application.tagging.k9_contract import BINDING_V3_POLICY as K9_BIN
 from proofops.application.tagging.k9_contract import BINDING_V4_POLICY as K9_BINDING_V4_POLICY
 from proofops.application.tagging.k9_contract import PROFILE as K9_PROMPT_PROFILE
 from proofops.application.tagging.k9_contract import PROMPT_POLICY as K9_PROMPT_POLICY
+from proofops.application.tagging.q1_contract import PROMPT_POLICY as Q1_PROMPT_POLICY
+from proofops.application.tagging.q1_contract import SEMANTIC_POLICY as Q1_SEMANTIC_POLICY
 from proofops.application.tagging.quality import ELEMENT_DEFINITIONS_HASH
 from proofops.application.tagging.semantic_admission import POLICY as W8_POLICY
 from proofops.application.tagging.semantic_admission import POLICY_HASH as W8_POLICY_HASH
@@ -601,7 +604,20 @@ FINALS_C24_POLICY = FINALS_I9_POLICY | dict(
     provider_scheduler=SCHEDULER_C24_POLICY,
     http_dispatch_guard=SCHEDULER_C24_POLICY["profile"],
 )
-V2_POLICY = FINALS_C24_POLICY
+
+FINALS_Q1_POLICY = FINALS_I9_POLICY | dict(
+    integration_profile="finals-q1-structural-v1",
+    semantic_admission=Q1_SEMANTIC_POLICY,
+    semantic_admission_sha256=canonical_hash(Q1_SEMANTIC_POLICY),
+    structural_quality_policy=Q1_SEMANTIC_POLICY,
+    structural_quality_policy_sha256=canonical_hash(Q1_SEMANTIC_POLICY),
+    activity_table_policy=Q1_TABLE_POLICY,
+    activity_table_policy_sha256=canonical_hash(Q1_TABLE_POLICY),
+    tagging_prompt_profile=Q1_PROMPT_POLICY["profile"],
+    tagging_prompt_policy=Q1_PROMPT_POLICY,
+    tagging_prompt_policy_sha256=canonical_hash(Q1_PROMPT_POLICY),
+)
+V2_POLICY = FINALS_C24_POLICY  # Q1 is explicit opt-in pending coordinator promotion.
 
 
 def policy_for(profile, *, pinned_hash=None):
@@ -616,6 +632,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_Q1_POLICY,
             FINALS_I9_POLICY,
             FINALS_I8_POLICY,
             FINALS_I7_POLICY,
@@ -698,6 +715,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FINALS_Q1_POLICY,
             FINALS_I9_POLICY,
             FINALS_I8_POLICY,
             FINALS_I7_POLICY,
@@ -761,6 +779,7 @@ def apply_pilot_profile(args):
     if selected.get("tagging_budget") == S2_POLICY["tagging_budget"]:
         args.tagging_max_calls = selected["tagging_budget"]["max_calls"]
     args.extraction_k6 = bool(selected.get("coverage_policy"))
+    args.extraction_q1 = bool(selected.get("activity_table_policy"))
     if profile in (V2_PROFILE, J3_PROFILE, J7_PROFILE, J8_PROFILE):
         args.extraction_fragment_guard = True
         args.extraction_pb1 = True

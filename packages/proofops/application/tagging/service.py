@@ -239,6 +239,11 @@ def tag_replicates(
     data = packet.to_dict()
     local_recovery = data.get("local_element_recovery_policy")
     implementation_binding = data.get("local_implementation_binding_policy")
+    structural_policy = data.get("structural_quality_policy")
+    if structural_policy is not None:
+        from proofops.application.tagging.q1_contract import validate_policy as validate_structural
+
+        validate_structural(structural_policy)
     if implementation_binding is not None:
         from proofops.application.tagging.k9_contract import (
             BINDING_POLICY,
@@ -389,6 +394,8 @@ def tag_replicates(
     }
     if implementation_binding is not None:
         user_data["local_implementation_binding_policy"] = implementation_binding
+    if structural_policy is not None:
+        user_data["structural_quality_policy"] = structural_policy
     if "display_text" in data:
         user_data["display_text"] = data["display_text"]
     if "tagging_wire_policy" in data:
@@ -800,6 +807,7 @@ def tag_replicates(
                                 element_id=element.element_id,
                                 local_value_identity=local_recovery is not None,
                                 local_binding_policy=implementation_binding,
+                                structural_policy=structural_policy,
                             )
                             != "accepted"
                         ):

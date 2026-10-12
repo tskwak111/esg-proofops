@@ -420,7 +420,11 @@ class LiveTaggingRuntime:
                 if policy["table_evidence"] == ROW_UNIT_POLICY["profile"]
                 else POLICY,
             )
-        for key in ("tagging_response_policy", "selected_quantity_policy"):
+        for key in (
+            "tagging_response_policy",
+            "selected_quantity_policy",
+            "structural_quality_policy",
+        ):
             if key in policy:
                 data[key] = policy[key]
         if "local_implementation_binding_policy" in policy:
@@ -591,11 +595,13 @@ class LiveTaggingRuntime:
                 from proofops.application.tagging.finals_i4 import K4_PRELIMINARY
                 from proofops.application.tagging.k1_semantics import GUIDANCE
                 from proofops.application.tagging.k9_contract import PRELIMINARY as K9_PRELIMINARY
+                from proofops.application.tagging.q1_contract import PRELIMINARY as Q1_PRELIMINARY
 
                 if self.preliminary_settings.system_prompt in (
                     COMPACT_PROMPT + "\n" + GUIDANCE,
                     K4_PRELIMINARY,
                     K9_PRELIMINARY,
+                    Q1_PRELIMINARY,
                 ):
                     packet["prompt_sha256"] = canonical_hash(
                         self.preliminary_settings.system_prompt
@@ -738,6 +744,13 @@ class LiveTaggingRuntime:
             from proofops.application.tagging.k4_contract import SEMANTIC_POLICY, estimate_evidence
 
             semantic = self.snapshot.get("analysis_profile_policy", {}).get("semantic_admission")
+            from proofops.application.tagging.q1_contract import SEMANTIC_POLICY as Q1_POLICY
+
+            if semantic == Q1_POLICY:
+                from proofops.application.tagging.q1_contract import forecast_quote
+
+                if forecast_quote(claim.quote) and result.safe_harbor_category != "forward_looking":
+                    raise ValueError("Q1_FORWARD_LOOKING_CATEGORY_REVIEW")
             risk_policy = self.snapshot.get("analysis_profile_policy", {}).get(
                 "risk_classification_policy"
             )
@@ -757,12 +770,19 @@ class LiveTaggingRuntime:
                     and risk_without_commitment(claim.quote)
                 ):
                     raise ValueError("K6_RISK_WITHOUT_COMPANY_COMMITMENT")
-            if semantic == SEMANTIC_POLICY and result.track and result.track.track == "goal":
+            if (
+                semantic in (SEMANTIC_POLICY, Q1_POLICY)
+                and result.track
+                and result.track.track == "goal"
+            ):
                 from proofops.application.ingest.j7_split import goal_requires_retag
 
                 if goal_requires_retag(claim, graph):
                     raise ValueError("K4_CONNECTIVE_GOAL_RETAG_REQUIRED")
-            if semantic == SEMANTIC_POLICY and result.safe_harbor_category == "emissions_estimate":
+            if (
+                semantic in (SEMANTIC_POLICY, Q1_POLICY)
+                and result.safe_harbor_category == "emissions_estimate"
+            ):
                 sources = dict(
                     tenant_id=graph.tenant_id,
                     document_version_id=graph.document_version_id,
@@ -779,12 +799,16 @@ class LiveTaggingRuntime:
                     )
 
             if (
-                semantic in (K1_POLICY, SEMANTIC_POLICY)
+                semantic in (K1_POLICY, SEMANTIC_POLICY, Q1_POLICY)
                 and result.track is not None
                 and track_requires_review(claim.quote, result.track.track)
             ):
                 raise ValueError("K1_PUE_PERFORMANCE_RETAG_REQUIRED")
-            if pb1 and result.safe_harbor_category == "forward_looking":
+            if (
+                pb1
+                and result.safe_harbor_category == "forward_looking"
+                and not (semantic == Q1_POLICY and forecast_quote(claim.quote))
+            ):
                 from proofops.application.tagging.pb1_classification import forward_candidate
 
                 category, reason = forward_candidate(claim.quote)
