@@ -4,6 +4,17 @@ from proofops.application import analysis_profile as profiles
 from proofops.domain.provenance import canonical_hash
 
 
+def test_v9_operator_controls_apply_to_the_current_default():
+    from proofops_api.hosted_analysis import operator_profiles
+
+    for workers, rps in ((8, 4), (12, 6), (16, 8)):
+        configured = operator_profiles(dict(llm_max_workers=workers, llm_requests_per_second=rps))
+        assert configured["llm_max_workers"] == workers
+        assert configured["llm_requests_per_second"] == rps
+    default = operator_profiles({})
+    assert (default["llm_max_workers"], default["llm_requests_per_second"]) == (8, 4)
+
+
 def test_v9_default_composes_v8_s4_s5_without_domain_changes():
     policy = profiles.policy_for(profiles.V2_PROFILE)
     assert policy["integration_profile"] == "finals-20261012-v9"

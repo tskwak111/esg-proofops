@@ -113,9 +113,12 @@ def test_publication_replay_releases_writer_and_rechecks_cancellation(
 
 @pytest.mark.parametrize("configured,expected", [(None, 8), (1, 1), (8, 8), (16, 8)])
 def test_operator_concurrency(configured, expected):
+    from proofops.application.analysis_profile import FINALS_I8_POLICY
+    from proofops.domain.provenance import canonical_hash
     from proofops_api.hosted_analysis import operator_profiles
 
     config = {} if configured is None else {"llm_max_workers": configured}
+    config["analysis_policy_sha256"] = canonical_hash(FINALS_I8_POLICY)
     assert operator_profiles(config)["llm_max_workers"] == expected
 
 
