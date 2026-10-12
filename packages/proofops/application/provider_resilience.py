@@ -36,6 +36,15 @@ RESPONSE_ERROR_DIAGNOSTIC_POLICY = dict(
     exception="type-only-no-message",
     cost="retain-uncertainty",
 )
+HTTP_DIAGNOSTIC_POLICY = dict(
+    profile="openai-http-diagnostics-e05-v1",
+    transport="unchanged-stdlib-fresh-http1-tls-verified",
+    context="wire-sha256-utc-monotonic-role-replica-reservation-connection",
+    timings="connect-tls-combined-ttfb-total;unmeasured-stages-null",
+    headers="allowlist-bounded-no-secret-body-cookie",
+    storage="private-immutable-document-owned-sidecar",
+    cost="uncertain-reservation-retained;no-new-retry",
+)
 
 INITIAL_PROJECTION_POLICY = dict(
     profile="provider-failure-projection-f1-v1",

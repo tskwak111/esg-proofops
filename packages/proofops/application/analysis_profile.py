@@ -11,12 +11,13 @@ from proofops.application.ingest.k6_coverage import POLICY as K6_COVERAGE_POLICY
 from proofops.application.ingest.q1_tables import POLICY as Q1_TABLE_POLICY
 from proofops.application.ingest.sentence_prefix import POLICY as PREFIX_POLICY
 from proofops.application.openai_retry import POLICY as T1_RETRY_POLICY
-from proofops.application.provider_resilience import POLICY as F1_RESILIENCE_POLICY
 from proofops.application.provider_resilience import (
+    HTTP_DIAGNOSTIC_POLICY,
     RESPONSE_ERROR_DIAGNOSTIC_POLICY,
     SCHEDULER_C24_POLICY,
     SCHEDULER_POLICY,
 )
+from proofops.application.provider_resilience import POLICY as F1_RESILIENCE_POLICY
 from proofops.application.tagging.dec24 import (
     DEFINITIONS_HASH,
     INTEGRATED_DEFINITIONS_HASH,
@@ -617,7 +618,11 @@ FINALS_Q1_POLICY = FINALS_I9_POLICY | dict(
     tagging_prompt_policy=Q1_PROMPT_POLICY,
     tagging_prompt_policy_sha256=canonical_hash(Q1_PROMPT_POLICY),
 )
-V2_POLICY = FINALS_C24_POLICY  # Q1 is explicit opt-in pending coordinator promotion.
+FINALS_E05_POLICY = FINALS_I9_POLICY | dict(
+    integration_profile="finals-20261013-e05-diagnostics-v1",
+    http_diagnostic_policy=HTTP_DIAGNOSTIC_POLICY,
+)
+V2_POLICY = FINALS_C24_POLICY
 
 
 def policy_for(profile, *, pinned_hash=None):
@@ -633,6 +638,7 @@ def policy_for(profile, *, pinned_hash=None):
         choices = (
             V2_POLICY,
             FINALS_Q1_POLICY,
+            FINALS_E05_POLICY,
             FINALS_I9_POLICY,
             FINALS_I8_POLICY,
             FINALS_I7_POLICY,
@@ -716,6 +722,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
         (
             policy_for(profile),
             FINALS_Q1_POLICY,
+            FINALS_E05_POLICY,
             FINALS_I9_POLICY,
             FINALS_I8_POLICY,
             FINALS_I7_POLICY,

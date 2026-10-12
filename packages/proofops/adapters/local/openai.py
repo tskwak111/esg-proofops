@@ -16,6 +16,7 @@ from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from email.utils import parsedate_to_datetime
 from pathlib import Path
+from uuid import uuid4
 
 from jsonschema import Draft202012Validator, FormatChecker, ValidationError
 
@@ -134,6 +135,7 @@ class OpenAIProbe(OpenRouterProbe):
     provider_resilience = None
     http_dispatch_guard = False
     response_uncertainty_policy = None
+    http_diagnostic_policy = None
 
     def _authorize_response_request(self):
         """Hosted adapters recheck their live owner/source before cache access."""
@@ -147,6 +149,7 @@ class OpenAIProbe(OpenRouterProbe):
         self.provider_scheduler = None
         self.http_dispatch_guard = False
         self.response_uncertainty_policy = None
+        self.http_diagnostic_policy = None
         if "model_response_policy" not in policy:
             self.response_policy = None
             self.wire_policy = WIRE_POLICY
@@ -167,6 +170,12 @@ class OpenAIProbe(OpenRouterProbe):
             analysis_policy_sha256=canonical_hash(policy),
         )
         self.response_role = role
+        if "http_diagnostic_policy" in policy:
+            from proofops.application.provider_resilience import HTTP_DIAGNOSTIC_POLICY
+
+            if policy["http_diagnostic_policy"] != HTTP_DIAGNOSTIC_POLICY:
+                raise ValueError("HTTP_DIAGNOSTIC_POLICY_MISMATCH")
+            self.http_diagnostic_policy = HTTP_DIAGNOSTIC_POLICY
         if "provider_resilience" in policy:
             from proofops.application.provider_resilience import POLICY as resilience
 
@@ -338,6 +347,7 @@ class OpenAIProbe(OpenRouterProbe):
         headers=None,
         latency_ms=None,
         response_failure=None,
+        transport_context=None,
     ):
         """Keep denial identifiers without persisting messages, inputs or cookies."""
 
@@ -423,6 +433,8 @@ class OpenAIProbe(OpenRouterProbe):
                     response_body_bytes_read=None,
                     response_body_truncated=None,
                 )
+        if transport_context is not None:
+            diagnostic.update(transport_context)
         try:
             directory = getattr(self, "http_error_directory", self._responses)
             directory.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -463,6 +475,39 @@ class OpenAIProbe(OpenRouterProbe):
         connection = http.client.HTTPSConnection("api.openai.com", timeout=90)
         started = time.monotonic()
         response = raw = None
+        trace = None
+        if self.http_diagnostic_policy:
+            trace = dict(
+                started_at=now().isoformat(),
+                started_monotonic=started,
+                connection_id=str(uuid4()),
+                connection_new=True,
+                connection_reused=False,
+                dns_ms=None,
+                connect_ms=None,
+                tls_ms=None,
+                connect_tls_ms=None,
+                ttfb_ms=None,
+            )
+
+        def transport_context():
+            if trace is None:
+                return None
+            from proofops.adapters.local.http_diagnostics import error_context
+
+            finished = time.monotonic()
+            return error_context(
+                self,
+                trace
+                | dict(
+                    finished_at=now().isoformat(),
+                    finished_monotonic=finished,
+                    total_ms=round((finished - started) * 1000, 2),
+                ),
+                response,
+                client_request_id,
+            )
+
         try:
             encoded = json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode()
             headers = {
@@ -472,6 +517,26 @@ class OpenAIProbe(OpenRouterProbe):
             }
             if getattr(self, "provider_scheduler", None):
                 self.http_transport_pacing()
+            if trace is not None:
+                trace.update(
+                    wire_sha256=hashlib.sha256(encoded).hexdigest(),
+                    transport_started_monotonic=time.monotonic(),
+                    request_header_names=sorted(
+                        set(headers) | {"Host", "Accept-Encoding", "Content-Length"}
+                    ),
+                    request_header_settings={
+                        "content-type": "application/json",
+                        "host": "api.openai.com",
+                        "accept-encoding": "identity",
+                        "content-length": str(len(encoded)),
+                    },
+                )
+                # The regular request() also calls connect(). This separates the
+                # combined DNS/TCP/TLS stage without changing Host/SNI/TLS/wire.
+                if hasattr(connection, "connect"):
+                    connecting = time.monotonic()
+                    connection.connect()
+                    trace["connect_tls_ms"] = round((time.monotonic() - connecting) * 1000, 2)
             connection.request(
                 "POST",
                 "/v1/chat/completions",
@@ -479,6 +544,10 @@ class OpenAIProbe(OpenRouterProbe):
                 headers=headers,
             )
             response = connection.getresponse()
+            if trace is not None:
+                trace["ttfb_ms"] = round(
+                    (time.monotonic() - trace["transport_started_monotonic"]) * 1000, 2
+                )
             self.rate_limit_headers = {
                 name: response.getheader(name)
                 for name in (
@@ -511,6 +580,7 @@ class OpenAIProbe(OpenRouterProbe):
                         for name in ("server", "content-type", "cf-ray")
                     },
                     latency_ms=round((time.monotonic() - started) * 1000, 2),
+                    transport_context=transport_context(),
                 )
                 if isinstance(error, dict) and error.get("code") in {
                     "insufficient_quota",
@@ -568,6 +638,7 @@ class OpenAIProbe(OpenRouterProbe):
                         response_received=response is not None,
                         body_received=raw is not None,
                     ),
+                    transport_context=transport_context(),
                 )
             raise
         finally:

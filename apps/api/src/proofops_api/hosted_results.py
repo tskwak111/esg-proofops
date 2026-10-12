@@ -95,6 +95,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
         projections = {r["claim_id"]: r for r in tag_snapshot.get("claims", [])}
         reasons = {cid: r.get("reason") for cid, r in projections.items()}
         from proofops.application.analysis_profile import (
+            FINALS_E05_POLICY,
             FINALS_F1_INITIAL_POLICY,
             FINALS_F1_POLICY,
             FINALS_F1_TRANSPORT_POLICY,
@@ -107,6 +108,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
         from proofops.domain.provenance import canonical_hash
 
         f1 = tag_snapshot.get("analysis_profile_policy_sha256") in {
+            canonical_hash(FINALS_E05_POLICY),
             canonical_hash(FINALS_F1_INITIAL_POLICY),
             canonical_hash(FINALS_F1_POLICY),
             canonical_hash(FINALS_F1_TRANSPORT_POLICY),
@@ -163,6 +165,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
         from proofops.domain.provenance import canonical_hash
 
         pb1 = tag_snapshot.get("analysis_profile_policy_sha256") in {
+            canonical_hash(FINALS_E05_POLICY),
             canonical_hash(FINALS_F1_INITIAL_POLICY),
             canonical_hash(FINALS_F1_POLICY),
             canonical_hash(FINALS_F1_TRANSPORT_POLICY),
@@ -222,6 +225,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                     if row:
                         summary["table_observation"] = row
                         if tag_snapshot.get("analysis_profile_policy_sha256") in {
+                            canonical_hash(FINALS_E05_POLICY),
                             canonical_hash(FINALS_F1_INITIAL_POLICY),
                             canonical_hash(FINALS_F1_POLICY),
                             canonical_hash(FINALS_F1_TRANSPORT_POLICY),

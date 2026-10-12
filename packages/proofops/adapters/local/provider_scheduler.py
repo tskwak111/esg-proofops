@@ -34,6 +34,7 @@ class RoleProviderConcurrency(ProviderConcurrency):
         self.sequence = 0
         self.queue_seconds = 0.0
         self.completed_by_role = dict.fromkeys(self.queues, 0)
+        self.transport_starts = deque()
 
     def enqueue(self, role):
         if role not in self.queues:
@@ -151,14 +152,27 @@ class RoleProviderConcurrency(ProviderConcurrency):
             current = self.clock()
             self.transport_not_before = current + 1 / self.requests_per_second
             self.physical_attempts += 1
+            self.transport_starts.append(current)
+            while self.transport_starts and self.transport_starts[0] < current - 60:
+                self.transport_starts.popleft()
             if diagnostics is not None:
                 diagnostics["physical_attempts"][-1]["transport_started_monotonic"] = current
             return current
+
+    def recent_requests(self):
+        """Diagnostic counts only; do not add fields to historical snapshots."""
+        with self.condition:
+            current = self.clock()
+            return dict(
+                recent_requests_1s=sum(t > current - 1 for t in self.transport_starts),
+                recent_requests_60s=sum(t > current - 60 for t in self.transport_starts),
+            )
 
     def bind(self, probe):
         # This binding is explicitly selected by the S5 execution policy. The
         # normal F1 bind/call/pace path remains unchanged for old runs.
         probe.http_admission_snapshot = self.snapshot
+        probe.http_recent_request_counts = self.recent_requests
         probe.http_transport_pacing = lambda: self.pace_transport(probe._dispatch_context.get())
         probe.http_attempt_scope = lambda: self.attempt(
             (probe._response_context.get() or (probe.response_role, 0))[0],
