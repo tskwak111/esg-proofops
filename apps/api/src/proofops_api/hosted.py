@@ -9,11 +9,13 @@ import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from fastapi import Depends, FastAPI, Query, Request, Response
 from fastapi import Path as PathParam
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from proofops.application.authorization import (
     AuthContext,
@@ -43,6 +45,20 @@ UPLOAD_NOTICE = (
 class Invitation(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     code: Annotated[str, Field(min_length=32, max_length=128)]
+
+
+class AccessPassword(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    role: Literal["admin", "organizer"]
+    password: Annotated[
+        str,
+        Field(
+            min_length=1,
+            max_length=128,
+            repr=False,
+            json_schema_extra={"writeOnly": True, "format": "password"},
+        ),
+    ]
 
 
 class RunCreate(BaseModel):
@@ -218,8 +234,17 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
                 }
             },
             status_code=exc.status,
-            headers={"Retry-After": "60"} if exc.status == 429 or exc.code == "MAINTENANCE" else {},
+            headers={"Retry-After": str(exc.retry_after or 60)}
+            if exc.status == 429 or exc.code == "MAINTENANCE"
+            else {},
         )
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_error(request: Request, exc: RequestValidationError):
+        # Pydantic's default errors echo submitted passwords/codes in `input`.
+        if request.url.path in {"/v1/auth/access-password", "/v1/auth/invitation"}:
+            return JSONResponse({"error": {"code": "VALIDATION_ERROR"}}, status_code=422)
+        return await request_validation_exception_handler(request, exc)
 
     @app.exception_handler(sqlite3.DatabaseError)
     @app.exception_handler(OSError)
@@ -261,6 +286,9 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
                 now,
             )
             store.sessions.touch(sid, now)
+            parts = request.url.path.strip("/").split("/")
+            if len(parts) >= 3 and parts[0] == "v1" and parts[1] in {"documents", "runs"}:
+                store.require_owned_resource(auth, parts[1], parts[2])
             return auth
         except SessionExpiredError:
             raise HostedError("AUTH_REQUIRED", 401) from None
@@ -270,12 +298,19 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
             raise HostedError("RESOURCE_NOT_FOUND", 404) from None
 
     def session_body(sid: str) -> dict:
-        record = get_live_session(session_id=sid, now=time.time(), session_port=store.sessions)
+        try:
+            record = get_live_session(session_id=sid, now=time.time(), session_port=store.sessions)
+        except SessionExpiredError:
+            raise HostedError("AUTH_REQUIRED", 401) from None
         membership = store.memberships.get(record.active_tenant_id or "", record.user_sub)
         return {
             "user_id": record.user_sub,
             "tenant_id": record.active_tenant_id,
-            "role": membership.role if membership else None,
+            "role": record.user_sub.removeprefix("access-password:")
+            if record.user_sub.startswith("access-password:")
+            else membership.role
+            if membership
+            else None,
             "csrf_token": store.sessions.csrf_token_for(sid),
             "expires_at": _epoch_to_rfc3339(record.expires_at),
         }
@@ -292,6 +327,25 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
         store.consume("invitation-login", 10, time.time())
         sid = store.redeem(body.code, now=time.time())
         set_cookie(response, sid)
+        return session_body(sid)
+
+    @app.post("/v1/auth/access-password")
+    def password_login(body: AccessPassword, request: Request, response: Response) -> dict:
+        if request.headers.get("Origin") != settings.origin:
+            raise HostedError("CSRF_INVALID", 403)
+        peer = request.client.host if request.client else "unknown"
+        if peer in settings.auth_trusted_proxies:
+            from ipaddress import ip_address
+
+            # Only trust a configured immediate proxy; use its rightmost XFF hop.
+            forwarded = request.headers.get("X-Forwarded-For", "").split(",")[-1].strip()
+            try:
+                peer = str(ip_address(forwarded))
+            except ValueError:
+                pass
+        sid = store.access.login(body.role, body.password, ip=peer, now=time.time())
+        set_cookie(response, sid)
+        response.headers["Cache-Control"] = "private, no-store"
         return session_body(sid)
 
     @app.get("/v1/session")

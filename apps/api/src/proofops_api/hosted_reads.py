@@ -117,18 +117,30 @@ class HostedReads:
         if not 1 <= limit <= 100 or kind not in ("documents", "runs"):
             raise HostedError("VALIDATION_ERROR", 422)
         position = self._cursor(auth, kind, document, cursor)
+        from proofops_api.hosted_access import is_organizer
+
+        personal = is_organizer(auth)
         with self.store.transaction() as db:
             if document:
                 self.store._document(db, auth.tenant_id, document)
+                self.store._require_document_owner(db, auth, document)
             if kind == "documents":
                 sql = (
                     "SELECT * FROM (SELECT d.*,row_number() OVER "
                     "(ORDER BY created,document_id) AS ordinal "
                     "FROM documents d WHERE tenant_id=? AND expires>? AND NOT EXISTS "
                     "(SELECT 1 FROM deletion.tombstones t WHERE t.tenant_id=d.tenant_id "
-                    "AND t.document_id=d.document_id)) WHERE 1=1"
+                    "AND t.document_id=d.document_id)"
                 )
                 params = [auth.tenant_id, now]
+                if personal:
+                    sql += (
+                        " AND EXISTS (SELECT 1 FROM document_owners o WHERE "
+                        "o.tenant_id=d.tenant_id AND o.document_id=d.document_id "
+                        "AND o.user_hash=?)"
+                    )
+                    params.append(self.store.user_hash(auth.user_sub))
+                sql += ") WHERE 1=1"
                 key = "document_id"
             else:
                 sql = (
@@ -138,6 +150,13 @@ class HostedReads:
                     "AND t.document_id=r.document_id)"
                 )
                 params = [auth.tenant_id, now]
+                if personal:
+                    sql += (
+                        " AND r.user_hash=? AND EXISTS (SELECT 1 FROM document_owners o "
+                        "WHERE o.tenant_id=r.tenant_id AND o.document_id=r.document_id "
+                        "AND o.user_hash=?)"
+                    )
+                    params.extend([self.store.user_hash(auth.user_sub)] * 2)
                 key = "run_id"
                 if document:
                     sql += " AND r.document_id=?"

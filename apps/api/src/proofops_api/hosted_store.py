@@ -63,9 +63,10 @@ CONTROL_MESSAGES = {
 
 
 class HostedError(ValueError):
-    def __init__(self, code: str, status: int = 409):
+    def __init__(self, code: str, status: int = 409, *, retry_after: int | None = None):
         super().__init__(code)
         self.code, self.status = code, status
+        self.retry_after = retry_after
 
 
 def digest(value: str | bytes) -> str:
@@ -136,6 +137,8 @@ class HostedSettings:
     max_active_runs: int = 1
     user_active_runs: int = 1
     daily_runs: int = 10
+    access_config: Path | None = None
+    auth_trusted_proxies: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         from urllib.parse import urlsplit
@@ -158,6 +161,12 @@ class HostedSettings:
             )
         if self.backend not in {"r108", "legacy", "static"}:
             raise ValueError("invalid analysis backend")
+        if self.access_config is not None and not self.access_config.is_absolute():
+            raise ValueError("absolute private access config required")
+        from ipaddress import ip_address
+
+        for proxy in self.auth_trusted_proxies:
+            ip_address(proxy)
         if type(self.max_active_runs) is not int or self.max_active_runs not in (1, 2):
             raise ValueError("HOSTED_RUN_CONCURRENCY_INVALID")
         if not self.live_disabled:
@@ -222,6 +231,12 @@ class HostedSettings:
             max_active_runs=int(env.get("HOSTED_MAX_ACTIVE_RUNS", "1")),
             user_active_runs=int(env.get("HOSTED_USER_ACTIVE_RUNS", "1")),
             daily_runs=int(env.get("HOSTED_DAILY_RUNS", "10")),
+            access_config=Path(env.get("HOSTED_ACCESS_CONFIG", "/run/private/access.json")),
+            auth_trusted_proxies=tuple(
+                value.strip()
+                for value in env.get("HOSTED_AUTH_TRUSTED_PROXIES", "").split(",")
+                if value.strip()
+            ),
         )
 
 
@@ -237,6 +252,7 @@ class SQLiteSessions:
     def get(self, sid: str) -> SessionRecord | None:
         with self.store.transaction() as db:
             row = db.execute("SELECT * FROM sessions WHERE sid_hash=?", (digest(sid),)).fetchone()
+            valid = row is not None and self.store.access.session_valid(db, row, time.time())
         if row is None:
             return None
         return SessionRecord(
@@ -246,7 +262,7 @@ class SQLiteSessions:
             row["csrf_hash"],
             row["expires"],
             row["idle"],
-            bool(row["revoked"]),
+            bool(row["revoked"]) or not valid,
         )
 
     def revoke(self, sid: str) -> None:
@@ -278,6 +294,11 @@ class SQLiteSessions:
                     row["expires"],
                     min(row["expires"], now + 1800),
                 ),
+            )
+            db.execute(
+                "INSERT INTO access_sessions SELECT ?,role,session_epoch FROM access_sessions "
+                "WHERE sid_hash=?",
+                (digest(new_id), digest(sid)),
             )
         record = self.get(new_id)
         assert record is not None
@@ -316,7 +337,11 @@ class HostedStore:
         self.ledger = self.root / "deletions.sqlite3"
         self.sessions = SQLiteSessions(self)
         self.memberships = SQLiteMemberships(self)
+        from proofops_api.hosted_access import AccessPasswords
+
+        self.access = AccessPasswords(self)
         with self.transaction() as db:
+            self.access.migrate(db)
             db.execute("CREATE TABLE IF NOT EXISTS hosted_schema (version INTEGER PRIMARY KEY)")
             versions = db.execute("SELECT version FROM hosted_schema").fetchall()
             if versions and [row[0] for row in versions] != [1]:
@@ -439,7 +464,7 @@ class HostedStore:
     def invite(self, tenant: str, user: str, role: str, *, now: float) -> str:
         identifier(tenant)
         MembershipRecord(tenant, user, role, "active")  # type: ignore[arg-type]
-        if not user or len(user) > 200:
+        if not user or len(user) > 200 or user.startswith("access-password:"):
             raise ValueError("invalid user")
         code = secrets.token_urlsafe(32)
         with self.transaction() as db:
@@ -523,6 +548,31 @@ class HostedStore:
     def get_document(self, tenant: str, document: str) -> dict:
         with self.transaction() as db:
             return dict(self._document(db, tenant, document))
+
+    def require_owned_resource(self, auth: Any, kind: str, resource: str) -> None:
+        """Opaque denial for organizer resources, including nested source/result routes."""
+        from proofops_api.hosted_access import is_organizer
+
+        if not is_organizer(auth):
+            return
+        with self.transaction() as db:
+            if kind == "runs":
+                row = self._run(db, auth.tenant_id, resource)
+                if row["user_hash"] != self.user_hash(auth.user_sub):
+                    raise HostedError("RESOURCE_NOT_FOUND", 404)
+                resource = row["document_id"]
+            self._require_document_owner(db, auth, resource)
+
+    def _require_document_owner(self, db: Any, auth: Any, document: str) -> None:
+        from proofops_api.hosted_access import is_organizer
+
+        if is_organizer(auth):
+            owner = db.execute(
+                "SELECT user_hash FROM document_owners WHERE tenant_id=? AND document_id=?",
+                (auth.tenant_id, document),
+            ).fetchone()
+            if owner is None or owner[0] != self.user_hash(auth.user_sub):
+                raise HostedError("RESOURCE_NOT_FOUND", 404)
 
     def _replay(
         self, db: sqlite3.Connection, auth: Any, route: str, key: str, body_hash: str
@@ -993,6 +1043,7 @@ class HostedStore:
             raise HostedError("ANALYSIS_DISABLED", 503)
         with self.transaction() as db:
             doc = self._document(db, auth.tenant_id, document)
+            self._require_document_owner(db, auth, document)
             if now >= doc["expires"]:
                 raise HostedError("SOURCE_EXPIRED", 409)
             options = None
@@ -1819,6 +1870,7 @@ class HostedStore:
                     shutil.rmtree(target)
                 db.execute("DELETE FROM backups WHERE path=?", (backup[0],))
             db.execute("DELETE FROM sessions WHERE expires<=? OR idle<=? OR revoked=1", (now, now))
+            self.access.maintain(db, now, self.settings.audit_days)
             db.execute("DELETE FROM invitations WHERE expires<=? OR used=1", (now,))
             db.execute("DELETE FROM rate_limits WHERE bucket<?", (int(now // 60) - 2,))
             cutoff = now - self.settings.audit_days * 86400
@@ -1880,7 +1932,17 @@ class HostedStore:
             try:
                 source.backup(destination)
                 destination.execute("PRAGMA secure_delete=ON")
-                for table in ("sessions", "invitations", "memberships", "rate_limits", "backups"):
+                for table in (
+                    "sessions",
+                    "invitations",
+                    "memberships",
+                    "rate_limits",
+                    "backups",
+                    "access_sessions",
+                    "access_login_failures",
+                    "access_login_locks",
+                    "access_auth_audit",
+                ):
                     destination.execute(f"DELETE FROM {table}")
                 destination.commit()
                 destination.execute("VACUUM")

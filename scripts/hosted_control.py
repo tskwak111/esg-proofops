@@ -9,6 +9,8 @@ import os
 import time
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from contextlib import ExitStack
+from dataclasses import replace
+from datetime import datetime
 from pathlib import Path
 
 from proofops_api.hosted_store import HostedError, HostedSettings, HostedStore, digest, micros, usd
@@ -139,6 +141,26 @@ def main() -> None:
     invite.add_argument("--tenant", required=True)
     invite.add_argument("--user", required=True)
     invite.add_argument("--role", choices=("viewer", "editor", "reviewer", "admin"), required=True)
+    access = sub.add_parser("access-password")
+    access_commands = access.add_subparsers(dest="access_command", required=True)
+    password_set = access_commands.add_parser("set")
+    password_set.add_argument("--role", choices=("admin", "organizer"), required=True)
+    password_set.add_argument(
+        "--tenant", help="Required on first set; reuse existing tenant on rotation"
+    )
+    password_set.add_argument("--expires", default="2026-10-20T23:59:00+09:00")
+    password_set.add_argument("--from-file", type=Path, required=True)
+    rotation = password_set.add_mutually_exclusive_group()
+    rotation.add_argument(
+        "--revoke-sessions", dest="revoke_sessions", action="store_true", default=True
+    )
+    rotation.add_argument("--keep-sessions", dest="revoke_sessions", action="store_false")
+    password_disable = access_commands.add_parser("disable")
+    password_disable.add_argument("--role", choices=("admin", "organizer"), required=True)
+    for item in (password_set, password_disable):
+        item.add_argument(
+            "--config", type=Path, help="Private config path override; default HOSTED_ACCESS_CONFIG"
+        )
     worker = sub.add_parser("worker")
     worker.add_argument("--once", action="store_true")
     sub.add_parser("maintain")
@@ -156,9 +178,41 @@ def main() -> None:
     args = parser.parse_args()
     if args.command == "wait-idle" and args.timeout < 0:
         parser.error("--timeout must be nonnegative")
-    store = HostedStore(HostedSettings.from_env(os.environ))
+    settings = HostedSettings.from_env(os.environ)
+    if args.command == "access-password" and args.config is not None:
+        settings = replace(settings, access_config=args.config)
+    store = HostedStore(settings)
     if args.command == "invite":
         print(store.invite(args.tenant, args.user, args.role, now=time.time()))
+    elif args.command == "access-password":
+        from proofops_api.hosted_access import read_password
+
+        if args.access_command == "set":
+            try:
+                expiry = datetime.fromisoformat(args.expires)
+                if expiry.tzinfo is None:
+                    raise ValueError()
+            except ValueError:
+                parser.error("--expires requires an ISO8601 timestamp with timezone")
+            store.access.set_password(
+                args.role,
+                read_password(args.from_file),
+                tenant=args.tenant,
+                expires=expiry.timestamp(),
+                now=time.time(),
+                revoke_sessions=args.revoke_sessions,
+            )
+        else:
+            store.access.disable(args.role, now=time.time())
+        print(
+            json.dumps(
+                {
+                    "status": "ok",
+                    "role": args.role,
+                    "config_path": str(store.settings.access_config),
+                }
+            )
+        )
     elif args.command == "maintain":
         store.maintain(now=time.time())
     elif args.command in {"drain", "resume"}:
