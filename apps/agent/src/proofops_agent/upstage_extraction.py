@@ -1453,6 +1453,10 @@ class UpstageClaimExtractor:
             ):
                 raise ValueError("EXTRACTION_RECEIPT_EXISTS")
             error = stored.get("error")
+            from proofops.application.provider_resilience import ISOLATED_CODES
+
+            if getattr(self._probe, "provider_resilience", None) and error in ISOLATED_CODES:
+                raise ExtractionOutputError(error)
             if error in {"UPSTAGE_REQUEST_FAILED", "UPSTREAM_UNAVAILABLE"}:
                 # A fresh network failure still stops its batch in _fail. On an
                 # explicit continuation, retain this source as failed/unknown
@@ -2383,6 +2387,10 @@ class UpstageClaimExtractor:
     ) -> None:
         if transport:
             error = code if code in UPSTAGE_TRANSPORT_STOP_CODES else "UPSTREAM_UNAVAILABLE"
+            from proofops.application.provider_resilience import ISOLATED_CODES
+
+            if getattr(self._probe, "provider_resilience", None) and code in ISOLATED_CODES:
+                error = code
         else:
             error = "MODEL_SPAN_OR_SCHEMA_INVALID"
         self._write(
@@ -2390,6 +2398,8 @@ class UpstageClaimExtractor:
             canonical_json({"request_id": request_id, "packet_sha256": packet_sha, "error": error}),
         )
         if transport:
+            if getattr(self._probe, "provider_resilience", None) and code in ISOLATED_CODES:
+                raise ExtractionOutputError(error)
             if self._recorded_truncation(directory, request_id, error):
                 raise ExtractionOutputError("MODEL_OUTPUT_TRUNCATED")
             raise ValueError(error)

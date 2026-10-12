@@ -94,6 +94,23 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             tag_snapshot, evidence = {}, claims.load_evidence(tenant, run)
         projections = {r["claim_id"]: r for r in tag_snapshot.get("claims", [])}
         reasons = {cid: r.get("reason") for cid, r in projections.items()}
+        from proofops.application.analysis_profile import FINALS_F1_INITIAL_POLICY, FINALS_F1_POLICY
+        from proofops.application.provider_resilience import PROJECTION_POLICY, claim_hold_reason
+        from proofops.domain.provenance import canonical_hash
+
+        f1 = tag_snapshot.get("analysis_profile_policy_sha256") in {
+            canonical_hash(FINALS_F1_INITIAL_POLICY),
+            canonical_hash(FINALS_F1_POLICY),
+        }
+        if f1:
+            for cid, projection in projections.items():
+                if reason := claim_hold_reason(projection):
+                    reasons[cid] = reason
+            # Each newly published result identifies its display contract. Old
+            # result snapshots continue to be served by their immutable bytes.
+            outcome = outcome | dict(
+                provider_failure_projection_sha256=canonical_hash(PROJECTION_POLICY)
+            )
         # The publisher holds analysis.lock; these source artifacts cannot change
         # while building this snapshot. Replay all source guards once, then retain
         # the same graph for every claim's identity-checked missing-evidence search.
@@ -131,6 +148,8 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
         from proofops.domain.provenance import canonical_hash
 
         pb1 = tag_snapshot.get("analysis_profile_policy_sha256") in {
+            canonical_hash(FINALS_F1_INITIAL_POLICY),
+            canonical_hash(FINALS_F1_POLICY),
             canonical_hash(S2_POLICY),
             canonical_hash(V2_POLICY),
             canonical_hash(FINALS_I3_POLICY),
@@ -183,6 +202,8 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                     if row:
                         summary["table_observation"] = row
                         if tag_snapshot.get("analysis_profile_policy_sha256") in {
+                            canonical_hash(FINALS_F1_INITIAL_POLICY),
+                            canonical_hash(FINALS_F1_POLICY),
                             canonical_hash(S2_POLICY),
                             canonical_hash(V2_POLICY),
                             canonical_hash(FINALS_I3_POLICY),
@@ -237,6 +258,12 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                     pipeline_status=projection["status"],
                     provisional_track=projection.get("frozen_packet", {}).get("track"),
                 )
+                if f1 and reasons.get(claim.claim_id) in {
+                    "PROVIDER_PROCESSING_FAILED",
+                    "PROVIDER_CIRCUIT_OPEN",
+                }:
+                    summary["pipeline_status"] = "needs_review"
+                    summary["decision"] = decision = None
             rows.append(
                 summary
                 | dict(

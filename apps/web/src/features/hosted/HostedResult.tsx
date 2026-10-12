@@ -22,6 +22,10 @@ export function ResultView({ result, role, client, runId, onReload }: { result: 
       <span>추출 주장 <b>{counts.total}</b>건</span><span>원문 검증 <b>{counts.verified}</b>건</span>
       <span>확정 등급 <b>{counts.confirmed}</b>건</span><span>사람 검토 대기 <b>{counts.open}</b>건</span>
     </div>
+    {!!result.pipeline?.provider_failures?.total && <p className="hosted-notice" role="status">
+      일부 처리 실패·보류 {result.pipeline.provider_failures.total}건 (모델 호출 기준) · 제공자 오류 {result.pipeline.provider_failures.failed_calls}건,
+      추가 호출 보류 {result.pipeline.provider_failures.deferred_calls}건. 처리된 결과를 표시합니다.
+    </p>}
     {result.hold_reasons.length > 0 && <div className="hosted-notice" role="status">
       <h3>보류 사유</h3>
       <ul>{result.hold_reasons.map(code => <li key={code}>{holdReasonText(code)}</li>)}</ul>

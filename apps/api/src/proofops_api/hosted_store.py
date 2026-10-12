@@ -1299,6 +1299,7 @@ class HostedStore:
         *,
         now: float,
         allow_transient_403: bool = False,
+        allow_model_partial: bool = False,
     ) -> dict:
         """Broker boundary for a future approved adapter. No HTTP/provider implementation here."""
         if (
@@ -1379,6 +1380,14 @@ class HostedStore:
             model_network_failure = provider in {"openai", "openrouter"} and isinstance(
                 exc, OSError
             )
+            isolated_model_failure = (
+                allow_model_partial is True
+                and provider == "openai"
+                and (
+                    cause in {"PROVIDER_ACCESS_DENIED", "PROVIDER_UNAVAILABLE"}
+                    or model_network_failure
+                )
+            )
             with self.transaction() as db:
                 db.execute(
                     "UPDATE deletion.costs SET status='accounting_pending' "
@@ -1386,7 +1395,11 @@ class HostedStore:
                     "AND status='reserved'",
                     (job["run_id"], call_id),
                 )
-                if not model_network_failure and not transient_denial:
+                if (
+                    not model_network_failure
+                    and not transient_denial
+                    and not isolated_model_failure
+                ):
                     db.execute(
                         "UPDATE runs SET "
                         "status=?,fence=fence+1,error_code=?,lease_until=0 "

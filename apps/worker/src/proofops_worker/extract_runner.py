@@ -46,6 +46,29 @@ from proofops_worker.consumer import StageFailure, consume_job, with_lease_heart
 from proofops_worker.telemetry import observe_job
 
 
+def _f1_failure_origin(error, snapshot):
+    """F1 private diagnosis without exception messages or document/credential text."""
+    if not snapshot.get("analysis_profile_policy", {}).get("provider_resilience"):
+        return
+    trace = error.__traceback__
+    if trace is None:
+        return
+    while trace.tb_next is not None:
+        trace = trace.tb_next
+    print(
+        json.dumps(
+            dict(
+                event="f1_extraction_failure_origin",
+                exception_type=type(error).__name__,
+                file=os.path.basename(trace.tb_frame.f_code.co_filename),
+                function=trace.tb_frame.f_code.co_name,
+                line=trace.tb_lineno,
+            )
+        ),
+        flush=True,
+    )
+
+
 def _candidate_extract(live, packet, snapshot):
     try:
         return live.extract(packet)
@@ -728,6 +751,7 @@ class LocalExtractRunner:
             except LeaseLost:
                 raise StageFailure("LEASE_LOST", usage=usage) from None
             except ValueError as error:
+                _f1_failure_origin(error, snapshot)
                 code = str(error)
                 if code not in UPSTAGE_TRANSPORT_STOP_CODES | {
                     "LOCAL_TEST_AUTHORIZATION_INVALID",
@@ -737,7 +761,8 @@ class LocalExtractRunner:
                 if code == "ACCOUNTING_UNAVAILABLE":
                     usage.update(model_calls=None, accounting_complete=False)
                 raise StageFailure(code, usage=usage) from None
-            except (KeyError, TypeError, ParseFailure, UploadRejected):
+            except (KeyError, TypeError, ParseFailure, UploadRejected) as error:
+                _f1_failure_origin(error, snapshot)
                 raise StageFailure("EXTRACTION_INPUT_INVALID", usage=usage) from None
 
         result = consume_job(
@@ -1047,6 +1072,7 @@ class LocalExtractRunner:
                 except LeaseLost:
                     raise StageFailure("LEASE_LOST", usage=usage) from None
                 except ValueError as error:
+                    _f1_failure_origin(error, snapshot)
                     code = str(error)
                     if code not in UPSTAGE_TRANSPORT_STOP_CODES | {
                         "LOCAL_TEST_AUTHORIZATION_INVALID",
@@ -1056,7 +1082,8 @@ class LocalExtractRunner:
                     if code == "ACCOUNTING_UNAVAILABLE":
                         usage.update(model_calls=None, accounting_complete=False)
                     raise StageFailure(code, usage=usage) from None
-                except (KeyError, TypeError, ParseFailure, UploadRejected):
+                except (KeyError, TypeError, ParseFailure, UploadRejected) as error:
+                    _f1_failure_origin(error, snapshot)
                     raise StageFailure("EXTRACTION_INPUT_INVALID", usage=usage) from None
 
             result = consume_job(

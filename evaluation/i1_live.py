@@ -45,7 +45,8 @@ def main(
     local_grant_factory=None,
 ):
     selected_policy = integration_policy or V2_POLICY
-    if not Decimal(0) < Decimal(budget) <= Decimal("0.6"):
+    ceiling = Decimal("0.8") if selected_policy.get("provider_resilience") else Decimal("0.6")
+    if not Decimal(0) < Decimal(budget) <= ceiling:
         raise ValueError("CANARY_BUDGET_INVALID")
     physical_pages = claim_pages or dict(naver=[84, 88], kia=[26, 106])
     parser = argparse.ArgumentParser(description=__doc__)
@@ -320,7 +321,12 @@ def main(
 
     harness.pin_scratch_policy = pin
     original_build = composition.build_composition
-    admission = ProviderConcurrency(workers)
+    admission = ProviderConcurrency(
+        workers,
+        resilience_directory=args.output / "provider-events"
+        if selected_policy.get("provider_resilience")
+        else None,
+    )
     original_candidate_batch = upstage_document.candidate_batch
 
     def candidate_batch(*a, **kw):
@@ -444,7 +450,7 @@ def main(
             return original_post(probe, body, **kwargs)
         except ValueError as error:
             code = str(error)
-            if code.startswith("OPENAI_HTTP_"):
+            if code.startswith("OPENAI_HTTP_") and not selected_policy.get("provider_resilience"):
                 stopped.append(dict(company=company, code=code))
             raise
 

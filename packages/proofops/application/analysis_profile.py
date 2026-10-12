@@ -10,6 +10,7 @@ from proofops.application.ingest.k5_context import POLICY as K5_CONTEXT_POLICY
 from proofops.application.ingest.k6_coverage import POLICY as K6_COVERAGE_POLICY
 from proofops.application.ingest.sentence_prefix import POLICY as PREFIX_POLICY
 from proofops.application.openai_retry import POLICY as T1_RETRY_POLICY
+from proofops.application.provider_resilience import POLICY as F1_RESILIENCE_POLICY
 from proofops.application.tagging.dec24 import (
     DEFINITIONS_HASH,
     INTEGRATED_DEFINITIONS_HASH,
@@ -463,6 +464,15 @@ FINALS_T1_POLICY = FINALS_I5_POLICY | dict(
     http_admission="per-run-8-structured-overload-403-once-t1-v1",
     max_http_workers=8,
 )
+FINALS_F1_INITIAL_POLICY = FINALS_T1_POLICY | dict(
+    integration_profile="finals-20261012-f1-resilience-v1",
+    provider_resilience=F1_RESILIENCE_POLICY,
+    http_admission="per-run-8-paced4-denial3-f1-v1",
+)
+FINALS_F1_POLICY = FINALS_F1_INITIAL_POLICY | dict(
+    integration_profile="finals-20261012-f1-resilience-v2",
+    http_dispatch_guard="physical-attempt-paced4-denial3-f1-v2",
+)
 
 
 def policy_for(profile, *, pinned_hash=None):
@@ -484,6 +494,8 @@ def policy_for(profile, *, pinned_hash=None):
             FINALS_K7_V1_POLICY,
             FINALS_I5_POLICY,
             FINALS_T1_POLICY,
+            FINALS_F1_POLICY,
+            FINALS_F1_INITIAL_POLICY,
             FINALS_I5_INITIAL_POLICY,
             FINALS_I4_POLICY,
             FINALS_H1_POLICY,
@@ -545,7 +557,6 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
-<<<<<<< HEAD
             FINALS_K7_POLICY,
             FINALS_K8_POLICY,
             FINALS_K8_V2_POLICY,
@@ -553,9 +564,9 @@ def publication_policy_for(profile, *, pinned_hash=None):
             FINALS_K7_V1_POLICY,
             FINALS_I6_POLICY,
             FINALS_I5_POLICY,
-=======
             FINALS_T1_POLICY,
->>>>>>> d0d93e2 (fix: bound opt-in structured OpenAI 403 recovery through broker)
+            FINALS_F1_POLICY,
+            FINALS_F1_INITIAL_POLICY,
             FINALS_I5_INITIAL_POLICY,
             FINALS_I4_POLICY,
             FINALS_H1_POLICY,

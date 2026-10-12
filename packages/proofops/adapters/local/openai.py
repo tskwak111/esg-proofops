@@ -131,6 +131,8 @@ class OpenAIProbe(OpenRouterProbe):
     response_policy = None
     wire_policy = WIRE_POLICY
     http_retry_policy = None
+    provider_resilience = None
+    http_dispatch_guard = False
 
     def _authorize_response_request(self):
         """Hosted adapters recheck their live owner/source before cache access."""
@@ -140,6 +142,8 @@ class OpenAIProbe(OpenRouterProbe):
 
         policy = snapshot.get("analysis_profile_policy", {})
         self.http_retry_policy = None
+        self.provider_resilience = None
+        self.http_dispatch_guard = False
         if "model_response_policy" not in policy:
             self.response_policy = None
             self.wire_policy = WIRE_POLICY
@@ -160,6 +164,15 @@ class OpenAIProbe(OpenRouterProbe):
             analysis_policy_sha256=canonical_hash(policy),
         )
         self.response_role = role
+        if "provider_resilience" in policy:
+            from proofops.application.provider_resilience import POLICY as resilience
+
+            if policy["provider_resilience"] != resilience:
+                raise ValueError("PROVIDER_RESILIENCE_POLICY_MISMATCH")
+            self.provider_resilience = resilience
+            self.http_dispatch_guard = (
+                policy.get("http_dispatch_guard") == "physical-attempt-paced4-denial3-f1-v2"
+            )
         self.wire_policy = WIRE_POLICY | dict(
             top_p=1, model_response_policy_sha256=canonical_hash(MODEL_RESPONSE_POLICY)
         )
@@ -387,6 +400,11 @@ class OpenAIProbe(OpenRouterProbe):
         return diagnostic
 
     def _post(self, body, *, client_request_id=None):
+        # Hosted adapters admit each physical attempt before broker reservation.
+        if self.http_dispatch_guard and client_request_id is None:
+            admission = getattr(self, "http_dispatch_admission", None)
+            if admission is not None:
+                admission()
         connection = http.client.HTTPSConnection("api.openai.com", timeout=90)
         started = time.monotonic()
         try:
@@ -630,11 +648,40 @@ class OpenAIProbe(OpenRouterProbe):
                     stream.flush()
                     os.fsync(stream.fileno())
             except Exception as error:
+                from proofops.adapters.local.provider_concurrency import ProviderCircuitOpen
                 from proofops.application.budget import BudgetExceeded
+                from proofops.application.provider_resilience import ISOLATED_CODES
 
                 if isinstance(error, BudgetExceeded):
                     raise
+                if self.http_dispatch_guard and isinstance(error, ProviderCircuitOpen):
+                    # This typed rejection is raised before transport and broker
+                    # admission. It proves this attempt was never sent; actual
+                    # provider failures keep their full uncertain reservation.
+                    receipt = dict(
+                        request_id=request_id,
+                        schema_valid=False,
+                        cost_with_vat_reserve_usd="0",
+                        error="PROVIDER_CIRCUIT_OPEN",
+                        dispatch_state="never_sent",
+                        cost_source="physical_admission_denied",
+                    )
+                    if attempt == 0 and not self._dispatch_context.get()["transport_retries"]:
+                        with sqlite3.connect(self.ledger, timeout=30) as db:
+                            db.execute(
+                                "UPDATE probe_calls SET committed='0',receipt=? "
+                                "WHERE request_id=? AND receipt IS NULL",
+                                (json.dumps(receipt, sort_keys=True), request_id),
+                            )
+                    raise ValueError("PROVIDER_CIRCUIT_OPEN") from None
                 code = str(error)
+                if self.provider_resilience and (
+                    code in ISOLATED_CODES | {"PROCESSING_UNCERTAIN", "OPENAI_REQUEST_FAILED"}
+                    or code == "OPENAI_HTTP_403"
+                    or re.fullmatch(r"OPENAI_HTTP_5\d\d", code)
+                    or isinstance(error, OSError)
+                ):
+                    raise ValueError("PROVIDER_PROCESSING_FAILED") from None
                 if code not in {
                     f"OPENAI_HTTP_{n}" for n in (400, 401, 403, 404, 429, 500, 502, 503)
                 } | {"OPENAI_INSUFFICIENT_QUOTA", "PROCESSING_UNCERTAIN", "PRICE_RECHECK_REQUIRED"}:

@@ -888,14 +888,21 @@ class UpstageTaggingTransport:
             )
         except Exception as error:
             code = str(error)
+            from proofops.application.provider_resilience import ISOLATED_CODES
+
+            isolated = bool(
+                getattr(self._probe, "provider_resilience", None) and code in ISOLATED_CODES
+            )
             if code in {"R108_FINALS_BUDGET_EXHAUSTED", "R108_FINALS_CUMULATIVE_BUDGET_EXHAUSTED"}:
                 code = "BUDGET_EXHAUSTED"
-            elif code not in UPSTAGE_TRANSPORT_STOP_CODES | {"PROCESSING_UNCERTAIN"}:
+            elif not isolated and code not in UPSTAGE_TRANSPORT_STOP_CODES | {
+                "PROCESSING_UNCERTAIN"
+            }:
                 code = "UPSTREAM_UNAVAILABLE"
             # Only hosted broker transport uncertainty is isolated to this request.
             # Its failed receipt and pending money remain immutable; mkdir/ledger
             # guards still forbid repeating it. Other failures stop the root as before.
-            if code != "PROCESSING_UNCERTAIN":
+            if not isolated and code != "PROCESSING_UNCERTAIN":
                 # Exclusive creation prevents overwriting an earlier failure receipt.
                 if not stop.exists():
                     write(stop, canonical_json(dict(code=code, request_id=request["request_id"])))

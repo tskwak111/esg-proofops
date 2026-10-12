@@ -286,6 +286,13 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
         provider_gate = ProviderConcurrency(
             profiles["llm_max_workers"],
             max_cooldown_seconds=execution["http_max_cooldown_seconds"],
+            resilience_directory=(
+                store.document_dir(job["tenant_id"], job["document_id"])
+                / "provider-resilience"
+                / job["run_id"]
+                if execution.get("provider_resilience")
+                else None
+            ),
         )
         original_llm = factories["llm"]
         original_parse = factories["parse"]
@@ -387,6 +394,15 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
     )
     if provider_gate is not None:
         result["provider_concurrency"] = provider_gate.snapshot()
+        admission = result["provider_concurrency"]
+        if execution.get("provider_resilience"):
+            failed = admission["failed_calls"]
+            deferred = admission["circuit_deferred"]
+            result["provider_failures"] = dict(
+                failed_calls=failed, deferred_calls=deferred, total=failed + deferred
+            )
+            if failed or deferred:
+                result.update(status="partial_blocked", reason="PROVIDER_PROCESSING_FAILED")
     (state / "outcome.json").write_text(json.dumps(result))
     return state, result
 

@@ -285,6 +285,10 @@ class HostedOpenAILunaProbe(OpenAIProbe):
             )
             call_id = str(uuid4())
             try:
+                if self.http_dispatch_guard:
+                    admission = getattr(self, "http_dispatch_admission", None)
+                    if admission is not None:
+                        admission()
                 response = broker_dispatch(
                     self.store,
                     self.job,
@@ -295,6 +299,7 @@ class HostedOpenAILunaProbe(OpenAIProbe):
                     transport,
                     now=time.time(),
                     allow_transient_403=allow,
+                    allow_model_partial=self.provider_resilience is not None,
                 )
                 return response["payload"]
             except OpenAITransient403 as error:

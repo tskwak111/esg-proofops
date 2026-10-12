@@ -68,7 +68,7 @@ export type ResultClaim = {
 export type ResultReview = { review_id: string; run_id: string; claim_id: string; status: string; revision: number; base_tag_revision: number; reason_codes: string[] };
 export type HostedResult = {
   schema: string; claims: ResultClaim[]; reviews: ResultReview[]; hold_reasons: string[]; page_map: number[];
-  pipeline?: { status?: string; reason?: string | null; reporting_scope?: Partial<ReportingScope> };
+  pipeline?: { status?: string; reason?: string | null; reporting_scope?: Partial<ReportingScope>; provider_failures?: { failed_calls: number; deferred_calls: number; total: number } };
   possible_grade_range?: GradeRange | null; confirmed_grade?: string | null;
 };
 export type ResolveBody = {
@@ -284,6 +284,8 @@ const blockedReasons: Record<string, string> = {
   SOURCE_VALIDATION_REQUIRED: "원문 대조가 끝나지 않아 판정하지 않았습니다.",
   CONSENSUS_UNRESOLVED: "모델 판독이 합의되지 않아 요소 상태가 확정되지 않았습니다.",
   PROCESSING_UNCERTAIN: "처리 불확실 — 네트워크 응답을 확인하지 못해 해당 주장만 보류했습니다.",
+  PROVIDER_PROCESSING_FAILED: "제공자 오류로 일부 처리가 실패했습니다. 해당 호출의 주장·요소는 미처리 상태로 보류하고 처리된 결과를 표시합니다.",
+  PROVIDER_CIRCUIT_OPEN: "권한 거부가 반복되어 추가 모델 호출을 보류했습니다. 처리된 결과를 표시합니다.",
   PRELIMINARY_TAGS_UNRESOLVED: "예비 분류(트랙)가 합의되지 않아 요소를 판정하지 않았습니다.",
   RELATION_TAGS_UNRESOLVED: "주장과 근거의 관계가 정리되지 않아 요소를 판정하지 않았습니다.",
   REPLICA_UNRESOLVED: "반복 판독 결과가 일치하지 않습니다.",
