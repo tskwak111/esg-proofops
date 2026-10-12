@@ -37,7 +37,7 @@ def check(
         rulepack=pack(),
         element_id=element_id,
         local_value_identity=True,
-        local_implementation_policy=policy,
+        local_binding_policy=policy,
     )
 
 
@@ -92,13 +92,13 @@ def test_k9_asserted_wrong_entity_is_still_rejected():
             rulepack=pack(),
             element_id="M4",
             local_value_identity=True,
-            local_implementation_policy=BINDING_POLICY,
+            local_binding_policy=BINDING_POLICY,
         )
         == "rejected"
     )
 
 
-def test_k9_policy_is_explicit_and_v7_hash_and_default_are_unchanged():
+def test_k9_policy_and_v7_hash_remain_readable_after_adoption():
     from proofops.application.analysis_profile import (
         FINALS_I7_POLICY,
         FINALS_K9_POLICY,
@@ -111,7 +111,10 @@ def test_k9_policy_is_explicit_and_v7_hash_and_default_are_unchanged():
         canonical_hash(FINALS_I7_POLICY)
         == "0d10ccb21b953f5c29846438fb72538baf50ebd280c45d89b5adbf727c6c9efb"
     )
-    assert policy_for("finals-unattended-v2") == FINALS_I7_POLICY
+    assert (
+        policy_for("finals-unattended-v2", pinned_hash=canonical_hash(FINALS_I7_POLICY))
+        == FINALS_I7_POLICY
+    )
     for policy in (FINALS_I7_POLICY, FINALS_K9_POLICY):
         assert policy_for("finals-unattended-v2", pinned_hash=canonical_hash(policy)) == policy
         assert (
@@ -242,7 +245,7 @@ def test_k9_g4_requires_verified_scope_definition_and_local_facility():
             tenant_id=graph.tenant_id,
             rulepack=pack(),
             element_id="G4",
-            local_implementation_policy=BINDING_POLICY,
+            local_binding_policy=BINDING_POLICY,
         )
         == "accepted"
     )
@@ -274,7 +277,7 @@ def test_k9_g4_requires_verified_scope_definition_and_local_facility():
             tenant_id=graph.tenant_id,
             rulepack=pack(),
             element_id="G4",
-            local_implementation_policy=BINDING_POLICY,
+            local_binding_policy=BINDING_POLICY,
         )
         == "rejected"
     )

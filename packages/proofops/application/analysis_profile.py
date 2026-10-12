@@ -498,7 +498,7 @@ FINALS_I7_POLICY = (
 )
 V2_POLICY = FINALS_I7_POLICY
 
-# Opt-in candidate only: default v7 and every historical hash remain readable.
+# Historical K9 candidate pins remain readable after default adoption.
 FINALS_K9_INITIAL_POLICY = FINALS_I7_POLICY | dict(
     integration_profile="finals-20261012-v7fix-k9",
     tagging_prompt_profile=K9_PROMPT_PROFILE,
@@ -532,6 +532,10 @@ FINALS_K9_POLICY = FINALS_K9_V4_POLICY | dict(
     local_implementation_binding_policy_sha256=canonical_hash(K9_BINDING_POLICY),
 )
 
+# Adopt final K9 semantics for new runs; preserve every earlier pin verbatim.
+FINALS_I8_POLICY = FINALS_K9_POLICY | dict(integration_profile="finals-20261012-v8")
+V2_POLICY = FINALS_I8_POLICY
+
 
 def policy_for(profile, *, pinned_hash=None):
     if profile == J7_PROFILE:
@@ -545,6 +549,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_I7_POLICY,
             FINALS_K9_POLICY,
             FINALS_K9_INITIAL_POLICY,
             FINALS_K9_V2_POLICY,
@@ -622,6 +627,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FINALS_I7_POLICY,
             FINALS_K9_POLICY,
             FINALS_K9_INITIAL_POLICY,
             FINALS_K9_V2_POLICY,

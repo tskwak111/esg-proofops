@@ -141,7 +141,7 @@ def accept_binding(
     rulepack: RulePackSnapshot,
     element_id: str,
     local_value_identity: bool = False,
-    local_implementation_policy: Mapping | None = None,
+    local_binding_policy: Mapping | None = None,
 ) -> BindingState:
     """Check source identity, literal roles, table coordinates and allowed scope.
 
@@ -206,7 +206,7 @@ def accept_binding(
         if state == "rejected":
             return state
         unresolved |= state == "undetermined"
-    if local_implementation_policy is not None:
+    if local_binding_policy is not None:
         from proofops.application.tagging.k9_contract import (
             BINDING_POLICY,
             BINDING_V1_POLICY,
@@ -216,7 +216,7 @@ def accept_binding(
             scope_definition_identity,
         )
 
-        if local_implementation_policy not in (
+        if local_binding_policy not in (
             BINDING_POLICY,
             BINDING_V1_POLICY,
             BINDING_V2_POLICY,
@@ -227,9 +227,7 @@ def accept_binding(
         if (
             not unresolved
             and element_id == "G4"
-            and scope_definition_identity(
-                context, ref, original, policy=local_implementation_policy
-            )
+            and scope_definition_identity(context, ref, original, policy=local_binding_policy)
         ):
             for name, value in context.dimensions.items():
                 if value is None:
@@ -318,13 +316,13 @@ def accept_binding(
     local = any(contains(source, ref) for source in claim.source_refs)
     direct = local and "local_claim" in scopes
     intrinsic = False
-    if local_implementation_policy is not None:
+    if local_binding_policy is not None:
         from proofops.application.tagging.k9_contract import (
             BINDING_POLICY,
             local_implementation_identity,
         )
 
-        if local_implementation_policy not in (
+        if local_binding_policy not in (
             BINDING_POLICY,
             BINDING_V1_POLICY,
             BINDING_V2_POLICY,
@@ -334,7 +332,7 @@ def accept_binding(
             raise DomainValidationError("K9_BINDING_POLICY_MISMATCH")
         if direct and element_id in BINDING_POLICY["elements"]:
             intrinsic = local_implementation_identity(
-                context, ref, original, policy=local_implementation_policy, element_id=element_id
+                context, ref, original, policy=local_binding_policy, element_id=element_id
             )
     if local_value_identity and direct:
         from proofops.application.tagging.k2_recovery import local_intrinsic

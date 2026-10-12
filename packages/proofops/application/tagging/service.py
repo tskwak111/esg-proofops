@@ -799,7 +799,7 @@ def tag_replicates(
                                 rulepack=rulepack,
                                 element_id=element.element_id,
                                 local_value_identity=local_recovery is not None,
-                                local_implementation_policy=implementation_binding,
+                                local_binding_policy=implementation_binding,
                             )
                             != "accepted"
                         ):

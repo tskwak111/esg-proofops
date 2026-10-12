@@ -7,7 +7,9 @@ from proofops_api.hosted_store import HostedSettings
 
 
 def test_v7_composes_k8_and_f1_without_rewriting_prior_pins():
-    policy = profiles.policy_for(profiles.V2_PROFILE)
+    policy = profiles.policy_for(
+        profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_I7_POLICY)
+    )
     assert policy["integration_profile"] == "finals-20261012-v7"
     for key, value in profiles.FINALS_K8_V3_POLICY.items():
         if key not in {"integration_profile", "max_http_workers", "http_admission"}:
