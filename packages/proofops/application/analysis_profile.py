@@ -34,6 +34,13 @@ from proofops.application.tagging.k7_wire import POLICY_K8 as K8_WIRE_POLICY
 from proofops.application.tagging.k7_wire import POLICY_K8_V2 as K8_WIRE_V2_POLICY
 from proofops.application.tagging.k7_wire import POLICY_K8_V3 as K8_WIRE_V3_POLICY
 from proofops.application.tagging.k7_wire import POLICY_V1 as K7_WIRE_V1_POLICY
+from proofops.application.tagging.k9_contract import BINDING_POLICY as K9_BINDING_POLICY
+from proofops.application.tagging.k9_contract import BINDING_V1_POLICY as K9_BINDING_V1_POLICY
+from proofops.application.tagging.k9_contract import BINDING_V2_POLICY as K9_BINDING_V2_POLICY
+from proofops.application.tagging.k9_contract import BINDING_V3_POLICY as K9_BINDING_V3_POLICY
+from proofops.application.tagging.k9_contract import BINDING_V4_POLICY as K9_BINDING_V4_POLICY
+from proofops.application.tagging.k9_contract import PROFILE as K9_PROMPT_PROFILE
+from proofops.application.tagging.k9_contract import PROMPT_POLICY as K9_PROMPT_POLICY
 from proofops.application.tagging.quality import ELEMENT_DEFINITIONS_HASH
 from proofops.application.tagging.semantic_admission import POLICY as W8_POLICY
 from proofops.application.tagging.semantic_admission import POLICY_HASH as W8_POLICY_HASH
@@ -491,6 +498,40 @@ FINALS_I7_POLICY = (
 )
 V2_POLICY = FINALS_I7_POLICY
 
+# Opt-in candidate only: default v7 and every historical hash remain readable.
+FINALS_K9_INITIAL_POLICY = FINALS_I7_POLICY | dict(
+    integration_profile="finals-20261012-v7fix-k9",
+    tagging_prompt_profile=K9_PROMPT_PROFILE,
+    tagging_prompt_policy=K9_PROMPT_POLICY,
+    tagging_prompt_policy_sha256=canonical_hash(K9_PROMPT_POLICY),
+    local_implementation_binding_policy=K9_BINDING_V1_POLICY,
+    local_implementation_binding_policy_sha256=canonical_hash(K9_BINDING_V1_POLICY),
+)
+
+FINALS_K9_V2_POLICY = FINALS_K9_INITIAL_POLICY | dict(
+    integration_profile="finals-20261012-v7fix-k9-v2",
+    local_implementation_binding_policy=K9_BINDING_V2_POLICY,
+    local_implementation_binding_policy_sha256=canonical_hash(K9_BINDING_V2_POLICY),
+)
+
+FINALS_K9_V3_POLICY = FINALS_K9_V2_POLICY | dict(
+    integration_profile="finals-20261012-v7fix-k9-v3",
+    local_implementation_binding_policy=K9_BINDING_V3_POLICY,
+    local_implementation_binding_policy_sha256=canonical_hash(K9_BINDING_V3_POLICY),
+)
+
+FINALS_K9_V4_POLICY = FINALS_K9_V3_POLICY | dict(
+    integration_profile="finals-20261012-v7fix-k9-v4",
+    local_implementation_binding_policy=K9_BINDING_V4_POLICY,
+    local_implementation_binding_policy_sha256=canonical_hash(K9_BINDING_V4_POLICY),
+)
+
+FINALS_K9_POLICY = FINALS_K9_V4_POLICY | dict(
+    integration_profile="finals-20261012-v7fix-k9-v5",
+    local_implementation_binding_policy=K9_BINDING_POLICY,
+    local_implementation_binding_policy_sha256=canonical_hash(K9_BINDING_POLICY),
+)
+
 
 def policy_for(profile, *, pinned_hash=None):
     if profile == J7_PROFILE:
@@ -504,6 +545,11 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_K9_POLICY,
+            FINALS_K9_INITIAL_POLICY,
+            FINALS_K9_V2_POLICY,
+            FINALS_K9_V3_POLICY,
+            FINALS_K9_V4_POLICY,
             FINALS_I6_POLICY,
             FINALS_K7_POLICY,
             FINALS_K8_POLICY,
@@ -576,6 +622,11 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FINALS_K9_POLICY,
+            FINALS_K9_INITIAL_POLICY,
+            FINALS_K9_V2_POLICY,
+            FINALS_K9_V3_POLICY,
+            FINALS_K9_V4_POLICY,
             FINALS_K7_POLICY,
             FINALS_K8_POLICY,
             FINALS_K8_V2_POLICY,

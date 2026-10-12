@@ -373,11 +373,14 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
                     K4_PRELIMINARY,
                     PROFILE,
                 )
+                from proofops.application.tagging.k9_contract import PRELIMINARY as K9_PRELIMINARY
+                from proofops.application.tagging.k9_contract import PROFILE as K9_PROFILE
 
                 if (
-                    settings.get("tagging_prompt_profile") != PROFILE
+                    prompt_profile not in (PROFILE, K9_PROFILE)
+                    or settings.get("tagging_prompt_profile") != prompt_profile
                     or settings.get("preliminary_settings", {}).get("system_prompt")
-                    != K4_PRELIMINARY
+                    != (K9_PRELIMINARY if prompt_profile == K9_PROFILE else K4_PRELIMINARY)
                     or settings.get("tagging_settings", {}).get("system_prompt") != K4_ELEMENTS
                 ):
                     raise _invalid()

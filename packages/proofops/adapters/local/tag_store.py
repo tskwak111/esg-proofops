@@ -631,6 +631,17 @@ class LocalTagStore:
                 tenant_id=tenant_id,
                 policy=policy,
             )
+        if policy.get("local_implementation_binding_policy"):
+            from proofops.adapters.local.k9_scope_sources import scope_graph
+
+            graph, _ = scope_graph(
+                graph,
+                self.uploads.read_original(tenant_id, graph.document_version_id),
+                discovery.claims,
+                tenant_id=tenant_id,
+                run_id=snapshot["run_id"],
+                policy=policy,
+            )
         return extraction, discovery, graph
 
     def _load_snapshot_with_evidence(self, tenant_id, run_id):

@@ -259,6 +259,18 @@ class LocalTagRunner:
                 tenant_id=tenant,
                 policy=snapshot["analysis_profile_policy"],
             )
+        scope_records = {}
+        if snapshot.get("analysis_profile_policy", {}).get("local_implementation_binding_policy"):
+            from proofops.adapters.local.k9_scope_sources import scope_graph
+
+            graph, scope_records = scope_graph(
+                graph,
+                self.uploads.read_original(tenant, graph.document_version_id),
+                discovery.claims,
+                tenant_id=tenant,
+                run_id=run_id,
+                policy=snapshot["analysis_profile_policy"],
+            )
         semantic_policy = snapshot.get("analysis_profile_policy", {}).get("semantic_admission")
         if semantic_policy is not None:
             from proofops.application.tagging.semantic_admission import validate_policy
@@ -293,6 +305,7 @@ class LocalTagRunner:
             if self.live_factory is None:
                 raise ValueError("LIVE_TAGGING_RUNTIME_REQUIRED")
             live = self.live_factory(self, snapshot, graph, lease, usage)
+            live.scope_records = scope_records
             live.heartbeat_state = heartbeat_state
             if live.synthetic is not False:
                 raise ValueError("LIVE_TAGGING_PROVENANCE_REQUIRED")
@@ -1056,6 +1069,8 @@ class LocalTagRunner:
             ),
             synthetic=live is None,
         )
+        if scope_records:
+            envelope["k9_scope_source_attestations"] = scope_records
         if recovery is not None:
             # Auditable record of what this operation actually attempted, carried and
             # spent, kept beside the stage it committed.

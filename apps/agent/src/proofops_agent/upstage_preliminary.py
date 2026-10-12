@@ -208,8 +208,13 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
         if settings.model_profile == COMPACT_PROFILE:
             from proofops.application.tagging.finals_i4 import K4_PRELIMINARY
             from proofops.application.tagging.k1_semantics import GUIDANCE
+            from proofops.application.tagging.k9_contract import PRELIMINARY as K9_PRELIMINARY
 
-            if settings.system_prompt in (expected_prompt + "\n" + GUIDANCE, K4_PRELIMINARY):
+            if settings.system_prompt in (
+                expected_prompt + "\n" + GUIDANCE,
+                K4_PRELIMINARY,
+                K9_PRELIMINARY,
+            ):
                 expected_prompt = settings.system_prompt
         if (
             not isinstance(probe, self._probe_type())
@@ -391,8 +396,13 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
         if settings.model_profile == COMPACT_PROFILE:
             from proofops.application.tagging.finals_i4 import K4_PRELIMINARY
             from proofops.application.tagging.k1_semantics import GUIDANCE
+            from proofops.application.tagging.k9_contract import PRELIMINARY as K9_PRELIMINARY
 
-            if settings.system_prompt in (expected_prompt + "\n" + GUIDANCE, K4_PRELIMINARY):
+            if settings.system_prompt in (
+                expected_prompt + "\n" + GUIDANCE,
+                K4_PRELIMINARY,
+                K9_PRELIMINARY,
+            ):
                 expected_prompt = settings.system_prompt
         # Mandatory callback plus common tenant/claim/request UUID, packet/
         # signature SHA, settings/binding/model/region/temperature/replica/
@@ -421,6 +431,12 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
             if response_policy != RESPONSE_POLICY:
                 raise ValueError("K4_RESPONSE_POLICY_MISMATCH")
             expected_keys = expected_keys | {"preliminary_response_policy"}
+        if isinstance(user, dict) and "k9_targeted_wire_policy" in user:
+            from proofops.application.tagging.k9_contract import BINDING_POLICY, BINDING_V4_POLICY
+
+            if user["k9_targeted_wire_policy"] not in (BINDING_POLICY, BINDING_V4_POLICY):
+                raise ValueError("K9_BINDING_POLICY_MISMATCH")
+            expected_keys = expected_keys | {"k9_targeted_wire_policy"}
         if catalog is not None:
             expected_keys = expected_keys | {"display_text"}
             if isinstance(user, dict) and "preliminary_recovery_policy" in user:
@@ -576,11 +592,20 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
             system = system.replace(settings.schema_json, schema_json, 1)
             user.pop("preliminary_response_policy")
         from proofops.application.tagging.finals_i4 import K4_PRELIMINARY, preliminary_k4
+        from proofops.application.tagging.k9_contract import PRELIMINARY as K9_PRELIMINARY
+        from proofops.application.tagging.k9_contract import preliminary as preliminary_k9
 
-        if settings.system_prompt == K4_PRELIMINARY:
+        if settings.system_prompt in (K4_PRELIMINARY, K9_PRELIMINARY):
             if response_policy is None:
                 raise ValueError("I4_RESPONSE_POLICY_REQUIRED")
-            system = preliminary_k4(json.loads(schema_json))
+            renderer = (
+                preliminary_k9 if settings.system_prompt == K9_PRELIMINARY else preliminary_k4
+            )
+            if user.pop("k9_targeted_wire_policy", None) is not None:
+                quote = user["untrusted_document_data"]["sources"][0]["text"]
+                system = preliminary_k9(json.loads(schema_json), quote=quote)
+            else:
+                system = renderer(json.loads(schema_json))
         wire_user = json.dumps(user, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         return system, wire_user, {}, authorization, schema_json
 

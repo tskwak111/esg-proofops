@@ -469,10 +469,17 @@ def live_tagging_settings(
         preliminary_prompt += "\n" + GUIDANCE
     if prompt_profile is not None:
         from proofops.application.tagging.finals_i4 import K4_ELEMENTS, K4_PRELIMINARY, PROFILE
+        from proofops.application.tagging.k9_contract import PRELIMINARY as K9_PRELIMINARY
+        from proofops.application.tagging.k9_contract import PROFILE as K9_PROFILE
 
-        if prompt_profile != PROFILE or not preliminary_pb1 or not compact_element_wire:
+        if (
+            prompt_profile not in (PROFILE, K9_PROFILE)
+            or not preliminary_pb1
+            or not compact_element_wire
+        ):
             raise ValueError("TAGGING_PROMPT_PROFILE_INVALID")
-        preliminary_prompt, element_prompt = K4_PRELIMINARY, K4_ELEMENTS
+        preliminary_prompt = K9_PRELIMINARY if prompt_profile == K9_PROFILE else K4_PRELIMINARY
+        element_prompt = K4_ELEMENTS
         settings["tagging_prompt_profile"] = prompt_profile
     profiles: tuple[tuple[str, str, str, str, int], ...] = (
         (

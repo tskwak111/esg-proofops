@@ -141,6 +141,7 @@ def accept_binding(
     rulepack: RulePackSnapshot,
     element_id: str,
     local_value_identity: bool = False,
+    local_implementation_policy: Mapping | None = None,
 ) -> BindingState:
     """Check source identity, literal roles, table coordinates and allowed scope.
 
@@ -205,6 +206,53 @@ def accept_binding(
         if state == "rejected":
             return state
         unresolved |= state == "undetermined"
+    if local_implementation_policy is not None:
+        from proofops.application.tagging.k9_contract import (
+            BINDING_POLICY,
+            BINDING_V1_POLICY,
+            BINDING_V2_POLICY,
+            BINDING_V3_POLICY,
+            BINDING_V4_POLICY,
+            scope_definition_identity,
+        )
+
+        if local_implementation_policy not in (
+            BINDING_POLICY,
+            BINDING_V1_POLICY,
+            BINDING_V2_POLICY,
+            BINDING_V3_POLICY,
+            BINDING_V4_POLICY,
+        ):
+            raise DomainValidationError("K9_BINDING_POLICY_MISMATCH")
+        if (
+            not unresolved
+            and element_id == "G4"
+            and scope_definition_identity(
+                context, ref, original, policy=local_implementation_policy
+            )
+        ):
+            for name, value in context.dimensions.items():
+                if value is None:
+                    continue
+                state = checked(value)
+                if state != "accepted":
+                    return state
+                if name == "scope" and _axis_cues(value.quote, "scope") != _axis_cues(
+                    ref.quote, "scope"
+                ):
+                    return "rejected"
+                if name != "scope" and not any(
+                    value.source_id == s.source_id
+                    and s.char_start <= value.char_start < value.char_end <= s.char_end
+                    for s in claim.source_refs
+                ):
+                    return "rejected"
+                actual = evidence_dimensions.get(name)
+                if actual is not None and (
+                    checked(actual) != "accepted" or actual.quote != value.quote
+                ):
+                    return "rejected"
+            return "accepted"
     if unresolved or relation_tags is None:
         return "undetermined"
 
@@ -270,10 +318,28 @@ def accept_binding(
     local = any(contains(source, ref) for source in claim.source_refs)
     direct = local and "local_claim" in scopes
     intrinsic = False
+    if local_implementation_policy is not None:
+        from proofops.application.tagging.k9_contract import (
+            BINDING_POLICY,
+            local_implementation_identity,
+        )
+
+        if local_implementation_policy not in (
+            BINDING_POLICY,
+            BINDING_V1_POLICY,
+            BINDING_V2_POLICY,
+            BINDING_V3_POLICY,
+            BINDING_V4_POLICY,
+        ):
+            raise DomainValidationError("K9_BINDING_POLICY_MISMATCH")
+        if direct and element_id in BINDING_POLICY["elements"]:
+            intrinsic = local_implementation_identity(
+                context, ref, original, policy=local_implementation_policy, element_id=element_id
+            )
     if local_value_identity and direct:
         from proofops.application.tagging.k2_recovery import local_intrinsic
 
-        intrinsic = local_intrinsic(claim, ref, element_id)
+        intrinsic |= local_intrinsic(claim, ref, element_id)
         # The scalar/year/means belongs to this atomic claim, not a cross-source
         # join. Null axes do not deny that literal identity; asserted roles still
         # undergo the same source, containment, period and contradiction checks.

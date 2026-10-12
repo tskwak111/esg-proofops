@@ -624,10 +624,35 @@ class UpstageTaggingTransport:
             from proofops.application.ingest.display_text import SYSTEM_SUFFIX
 
             wire_system += SYSTEM_SUFFIX
+        k9 = data.get("local_implementation_binding_policy") is not None
+        if k9:
+            from proofops.application.tagging.k9_contract import (
+                BINDING_POLICY,
+                BINDING_V1_POLICY,
+                BINDING_V2_POLICY,
+                BINDING_V3_POLICY,
+                BINDING_V4_POLICY,
+                ELEMENT_GUIDANCE,
+            )
+
+            k9_binding = data.pop("local_implementation_binding_policy")
+            if k9_binding not in (
+                BINDING_V1_POLICY,
+                BINDING_V2_POLICY,
+                BINDING_V3_POLICY,
+                BINDING_V4_POLICY,
+                BINDING_POLICY,
+            ):
+                raise ValueError("K9_BINDING_POLICY_MISMATCH")
+            wire_system += ELEMENT_GUIDANCE
         if settings.system_prompt == K4_ELEMENTS:
             if response_policy is None:
                 raise ValueError("I4_RESPONSE_POLICY_REQUIRED")
             wire_system = elements_k4(schema, classification)
+            if k9:
+                from proofops.application.tagging.k9_contract import element_guidance_for
+
+                wire_system += element_guidance_for(k9_binding, data.get("atomic_quote", ""))
             # Authorization above covered these server policies before projection.
             data.pop("tagging_response_policy", None)
             data.pop("selected_quantity_policy", None)

@@ -364,6 +364,17 @@ class LiveTaggingRuntime:
 
         data = packet.to_dict()
         data.pop("packet_sha256")
+        scope_refs = (
+            getattr(self, "scope_records", {})
+            .get(claim.claim_id if claim else None, {})
+            .get("source_refs", [])
+        )
+        if scope_refs and "G4" in data["allowed_elements"]:
+            for ref in scope_refs:
+                candidate = next(
+                    c for c in data["evidence_candidates"] if c["source_id"] == ref["source_id"]
+                )
+                candidate["source_refs"].append(ref)
         if k5:
             if claim is None or claim.claim_id != data["claim_id"]:
                 raise ValueError("SENTENCE_CONTEXT_CLAIM_REQUIRED")
@@ -412,6 +423,28 @@ class LiveTaggingRuntime:
         for key in ("tagging_response_policy", "selected_quantity_policy"):
             if key in policy:
                 data[key] = policy[key]
+        if "local_implementation_binding_policy" in policy:
+            from proofops.application.tagging.k9_contract import (
+                BINDING_POLICY,
+                BINDING_V1_POLICY,
+                BINDING_V2_POLICY,
+                BINDING_V3_POLICY,
+                BINDING_V4_POLICY,
+            )
+
+            if policy["local_implementation_binding_policy"] not in (
+                BINDING_V1_POLICY,
+                BINDING_V2_POLICY,
+                BINDING_V3_POLICY,
+                BINDING_V4_POLICY,
+                BINDING_POLICY,
+            ) or policy.get("local_implementation_binding_policy_sha256") != canonical_hash(
+                policy["local_implementation_binding_policy"]
+            ):
+                raise ValueError("K9_BINDING_POLICY_MISMATCH")
+            data["local_implementation_binding_policy"] = policy[
+                "local_implementation_binding_policy"
+            ]
         if display_catalog is not None:
             data["display_text"] = display_catalog.element_pins(data)
         if policy.get("hold_recovery_policy") is not None:
@@ -557,10 +590,12 @@ class LiveTaggingRuntime:
                 packet["prompt_sha256"] = canonical_hash(COMPACT_PROMPT)
                 from proofops.application.tagging.finals_i4 import K4_PRELIMINARY
                 from proofops.application.tagging.k1_semantics import GUIDANCE
+                from proofops.application.tagging.k9_contract import PRELIMINARY as K9_PRELIMINARY
 
                 if self.preliminary_settings.system_prompt in (
                     COMPACT_PROMPT + "\n" + GUIDANCE,
                     K4_PRELIMINARY,
+                    K9_PRELIMINARY,
                 ):
                     packet["prompt_sha256"] = canonical_hash(
                         self.preliminary_settings.system_prompt
@@ -645,6 +680,15 @@ class LiveTaggingRuntime:
                 ) != canonical_hash(recovery):
                     raise ValueError("K2_RECOVERY_POLICY_PIN_MISMATCH")
                 packet["preliminary_recovery_policy"] = recovery
+
+        from proofops.application.tagging.k9_contract import BINDING_POLICY, BINDING_V4_POLICY
+
+        if self.snapshot.get("analysis_profile_policy", {}).get(
+            "local_implementation_binding_policy"
+        ) in (BINDING_POLICY, BINDING_V4_POLICY):
+            packet["k9_targeted_wire_policy"] = self.snapshot["analysis_profile_policy"][
+                "local_implementation_binding_policy"
+            ]
 
         def validate(raw):
             restoration = {}

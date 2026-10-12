@@ -238,6 +238,24 @@ def tag_replicates(
         raise DomainValidationError("immutable packet and claim context required")
     data = packet.to_dict()
     local_recovery = data.get("local_element_recovery_policy")
+    implementation_binding = data.get("local_implementation_binding_policy")
+    if implementation_binding is not None:
+        from proofops.application.tagging.k9_contract import (
+            BINDING_POLICY,
+            BINDING_V1_POLICY,
+            BINDING_V2_POLICY,
+            BINDING_V3_POLICY,
+            BINDING_V4_POLICY,
+        )
+
+        if implementation_binding not in (
+            BINDING_V1_POLICY,
+            BINDING_V2_POLICY,
+            BINDING_V3_POLICY,
+            BINDING_V4_POLICY,
+            BINDING_POLICY,
+        ):
+            raise DomainValidationError("K9_BINDING_POLICY_MISMATCH")
     if local_recovery is not None:
         from proofops.application.tagging.k2_recovery import validate_policy
 
@@ -369,6 +387,8 @@ def tag_replicates(
             "search_coverage",
         )
     }
+    if implementation_binding is not None:
+        user_data["local_implementation_binding_policy"] = implementation_binding
     if "display_text" in data:
         user_data["display_text"] = data["display_text"]
     if "tagging_wire_policy" in data:
@@ -715,6 +735,15 @@ def tag_replicates(
                         policy=data["table_evidence_policy"],
                     )
                 state = element.state
+                if (
+                    implementation_binding is not None
+                    and element.element_id == "G4"
+                    and state == "present"
+                ):
+                    from proofops.application.tagging.k9_contract import g4_complete
+
+                    if not g4_complete(element, context, original, policy=implementation_binding):
+                        state = "unknown"
                 scope_reason = scope_rejection_reason(
                     element.element_id,
                     element.evidence_refs,
@@ -728,6 +757,21 @@ def tag_replicates(
                 scope_set = set()
                 if state == "present":
                     for source in element.evidence_refs:
+                        if implementation_binding is not None and element.element_id != "G4":
+                            from proofops.application.tagging.k9_contract import (
+                                scope_definition_refs,
+                            )
+
+                            if any(
+                                r.source_id == source.source_id
+                                and r.char_start
+                                <= source.char_start
+                                < source.char_end
+                                <= r.char_end
+                                for r in scope_definition_refs(claim, original)
+                            ):
+                                state = "unknown"
+                                break
                         candidate = source_candidates.get(source.source_id)
                         contained = any(
                             s.source_id == source.source_id
@@ -755,6 +799,7 @@ def tag_replicates(
                                 rulepack=rulepack,
                                 element_id=element.element_id,
                                 local_value_identity=local_recovery is not None,
+                                local_implementation_policy=implementation_binding,
                             )
                             != "accepted"
                         ):
