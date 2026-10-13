@@ -4,11 +4,13 @@ from proofops.application import analysis_profile as profiles
 from proofops.domain.provenance import canonical_hash
 
 
-def test_v12_default_activates_reviewed_certification_and_k10_v2():
+def test_v12_pinned_policy_activates_reviewed_certification_and_k10_v2():
     from proofops.application.tagging.fact_assembly_c3 import POLICY, POLICY_HASH
     from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
 
-    selected = profiles.policy_for(profiles.V2_PROFILE)
+    selected = profiles.policy_for(
+        profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_I11_POLICY)
+    )
     assert selected["integration_profile"] == "finals-20261013-v12"
     for key, value in profiles.FINALS_K10_V2_POLICY.items():
         if key != "integration_profile":

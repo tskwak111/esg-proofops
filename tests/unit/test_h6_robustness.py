@@ -20,7 +20,7 @@ from tests.integration.test_mixed_parser import document
 from tests.integration.test_upstage_ocr_page import response, store
 
 
-def test_h6_is_opt_in_and_keeps_k11_and_v12_hashes():
+def test_h6_keeps_k11_and_v12_hashes():
     from proofops.application.analysis_profile import (
         FINALS_H6_POLICY,
         FINALS_I11_POLICY,
@@ -31,7 +31,9 @@ def test_h6_is_opt_in_and_keeps_k11_and_v12_hashes():
         publication_policy_for,
     )
 
-    assert V2_POLICY == FINALS_I11_POLICY
+    assert policy_for(V2_PROFILE, pinned_hash=canonical_hash(FINALS_I11_POLICY)) == (
+        FINALS_I11_POLICY
+    )
     assert canonical_hash(FINALS_I11_POLICY) == (
         "0f7f5cd6f7b009d3e2d25bf049da7d91bc9675c595714555e365f16244f15559"
     )

@@ -666,8 +666,6 @@ FINALS_I11_POLICY = FINALS_K10_V2_POLICY | dict(
     general_certification=dict(profile=C4_PROFILE, enabled=False, reason="R9-context-exclusions"),
     residual_review="LG-p24-G3-baseline-year-value-reextraction; keep-unresolved",
 )
-V2_POLICY = FINALS_I11_POLICY
-
 # Opt-in re-extraction only. Historical defaults/readers and raw votes are immutable.
 FINALS_K11_V1_POLICY = FINALS_I11_POLICY | dict(
     integration_profile="finals-20261013-k11-v1",
@@ -704,6 +702,13 @@ FINALS_H6_POLICY = FINALS_K11_POLICY | dict(
 )
 
 
+# I12: promote the retained K11 v2/H6 contract without mutating historical pins.
+FINALS_I12_POLICY = FINALS_H6_POLICY | dict(
+    integration_profile="finals-20261013-v13",
+)
+V2_POLICY = FINALS_I12_POLICY
+
+
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
     from proofops.application.tagging.fact_assembly_c4 import publication_policy_for as c4_policy
@@ -731,6 +736,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_I11_POLICY,
             FINALS_K11_V1_POLICY,
             FINALS_K11_POLICY,
             FINALS_H4_POLICY,
@@ -841,6 +847,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FINALS_I11_POLICY,
             FINALS_K11_V1_POLICY,
             FINALS_K11_POLICY,
             FINALS_H4_POLICY,
@@ -997,7 +1004,7 @@ def apply_pilot_profile(args):
 
 
 def certification_profile_for(identity, *, pinned_hash=None):
-    """V12 authorizes only the exact reviewed C3 input; C4 cannot be selected."""
+    """V12 and successors authorize only the exact reviewed C3 input."""
     policy = policy_for(V2_PROFILE, pinned_hash=pinned_hash)
     if policy.get("direct_certification_policy") != C3_POLICY:
         return None

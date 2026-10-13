@@ -46,7 +46,7 @@ def test_k11_real_wire_routes_compound_baseline_without_changing_old_reader(tmp_
     )
 
 
-def test_k11_opt_in_policy_and_publication_keep_v12_default_and_pins():
+def test_k11_policy_and_publication_keep_v12_and_k11_pins():
     from proofops.application.analysis_profile import (
         FINALS_I11_POLICY,
         FINALS_K10_POLICY,
@@ -58,7 +58,9 @@ def test_k11_opt_in_policy_and_publication_keep_v12_default_and_pins():
         publication_policy_for,
     )
 
-    assert policy_for(V2_PROFILE) == FINALS_I11_POLICY
+    assert policy_for(V2_PROFILE, pinned_hash=canonical_hash(FINALS_I11_POLICY)) == (
+        FINALS_I11_POLICY
+    )
     assert canonical_hash(FINALS_K11_POLICY) != canonical_hash(FINALS_I11_POLICY)
     for policy in (
         FINALS_I11_POLICY,

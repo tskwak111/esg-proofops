@@ -10,6 +10,7 @@ from proofops.application.analysis_profile import (
     FINALS_I2_POLICY,
     FINALS_I5_POLICY,
     FINALS_I8_POLICY,
+    FINALS_I11_POLICY,
     MODEL_RESPONSE_POLICY,
     V2_PA4_POLICY,
     V2_PB7_POLICY,
@@ -79,7 +80,8 @@ def test_every_historical_policy_remains_readable():
         policy_for("finals-unattended-v2", pinned_hash=canonical_hash(FINALS_I2_POLICY))["source"]
         == "upstage-ocr-page-v10"
     )
-    assert V2_POLICY["source"] == "upstage-ocr-page-v13"
+    assert FINALS_I11_POLICY["source"] == "upstage-ocr-page-v13"
+    assert V2_POLICY["source"] == "upstage-ocr-page-v14"
     assert V2_PRE_D24_POLICY["verified_read_cache"]["profile"] == "exact-verified-read-v4"
     assert FINALS_I8_POLICY["verified_read_cache"]["profile"] == "exact-verified-read-v7"
 
