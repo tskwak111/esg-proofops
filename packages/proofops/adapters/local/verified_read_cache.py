@@ -372,6 +372,7 @@ def reuse_fresh_attestation(*, reader, policy, receipt, graph, source, discovery
         "upstage-ocr-page-v12",
         "upstage-ocr-page-v13",
         "upstage-ocr-page-v14",
+        "upstage-ocr-page-v15",
     ):
         return _project_owned_cells(receipt, graph, discovery, tenant_id, failed_state="candidate")
     return _project_whole_attestation(receipt, graph, discovery, tenant_id, refs_field="records")
