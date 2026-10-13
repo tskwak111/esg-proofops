@@ -1,6 +1,7 @@
 """Original glyph/font proof for a narrow mislabeled strategy section title."""
 
 import io
+import json
 from contextlib import closing
 from dataclasses import asdict, replace
 from hashlib import sha256
@@ -101,6 +102,7 @@ def native_figure_candidates(graph, source):
         CanonicalEdge,
     )
     from proofops.application.ingest.k6_coverage import (
+        FIGURE_CONTEXT_MARKER,
         FIGURE_MARKER,
         FIGURE_POLICY,
         native_figure_bullets,
@@ -137,6 +139,8 @@ def native_figure_candidates(graph, source):
             ):
                 continue
             candidate = block.candidates[block.winner]
+            if FIGURE_CONTEXT_MARKER in candidate.context:
+                continue  # interpretation blocks are never a second candidate origin
             box, geometry = _provider_box(candidate), candidate.geometry
             if (
                 box is None
@@ -174,10 +178,14 @@ def native_figure_candidates(graph, source):
                 continue
             # Split at any outside glyph or backward/large vertical jump. Never
             # delete another column's text and manufacture adjacency.
-            groups, current, previous = [], [], None
+            groups, current, previous, clipped = [], [], None, False
             for glyph in glyphs:
                 a = glyph["bbox"]
                 inside = box[0] <= a[0] < a[2] <= box[2] and box[1] <= a[1] < a[3] <= box[3]
+                intersects = max(box[0], a[0]) < min(box[2], a[2]) and max(box[1], a[1]) < min(
+                    box[3], a[3]
+                )
+                clipped |= intersects and not inside
                 center = (a[1] + a[3]) / 2
                 jump = previous is not None and not -4 <= center - previous <= 24
                 if not inside or jump:
@@ -189,6 +197,71 @@ def native_figure_candidates(graph, source):
                     previous = center
             if current:
                 groups.append(current)
+            if (
+                clipped
+                or len(groups) > FIGURE_POLICY["max_context_groups"]
+                or sum(group[-1]["index"] + 2 - group[0]["index"] for group in groups)
+                > FIGURE_POLICY["max_chars"]
+            ):
+                receipt["unresolved"].append(
+                    dict(source_id=block.source_id, reason="native_context_ambiguous")
+                )
+                continue
+            # Each group is its own contiguous native slice and located SourceRef.
+            # Preserve ALL groups, including headings and distant trailing limits;
+            # no synthesized adjacency, semantic inference or evidence authority.
+            context_blocks = []
+            run = candidate.source.parser_run_id
+            family = next(b.parser_family for b in graph.candidates if b.parser_run_id == run)
+            for group in groups:
+                offset, end = group[0]["index"], group[-1]["index"] + 1
+                ident = (
+                    "qc-context-"
+                    + canonical_hash(
+                        dict(
+                            origin=block.source_id, start=offset, end=end, policy_sha256=policy_sha
+                        )
+                    )[:24]
+                )
+                bounds = tuple(
+                    fn(g["bbox"][i] for g in group) for i, fn in enumerate((min, min, max, max))
+                )
+                quote = text[offset:end]
+                native = replace(
+                    candidate.source,
+                    source_native_id=ident,
+                    raw_text=quote,
+                    char_start=0,
+                    char_end=len(quote),
+                    native_bbox=(
+                        bounds[0],
+                        geometry.height_pt - bounds[3],
+                        bounds[2],
+                        geometry.height_pt - bounds[1],
+                    ),
+                )
+                derived = replace(
+                    candidate,
+                    kind="figure",
+                    source=native,
+                    parser_bbox=None,
+                    parser_to_canonical=None,
+                    context=(
+                        FIGURE_CONTEXT_MARKER,
+                        "qc_native_policy=" + policy_sha,
+                        "qc_native_origin=" + block.source_id,
+                    ),
+                )
+                sid = str(
+                    uuid5(UUID(graph.parse_manifest_id), f"{graph.tenant_id}:{((run, ident),)}")
+                )
+                context_blocks.append(
+                    (
+                        CanonicalBlock(sid, "figure", (derived,), (family,), "unverified", 0),
+                        CandidateEdge(ident, candidate.source.source_native_id, "derived_from"),
+                    )
+                )
+            context_ids = [b.source_id for b, _ in context_blocks]
             found = 0
             for group in groups:
                 offset = group[0]["index"]
@@ -238,6 +311,7 @@ def native_figure_candidates(graph, source):
                             FIGURE_MARKER,
                             "qc_native_policy=" + policy_sha,
                             "qc_native_origin=" + block.source_id,
+                            "qc_native_context_ids=" + json.dumps(context_ids),
                         ),
                     )
                     run = native.parser_run_id
@@ -266,10 +340,18 @@ def native_figure_candidates(graph, source):
                             native_start=offset + start,
                             native_end=offset + end,
                             verification_state="candidate",
+                            context_source_refs=[asdict(b.source_ref()) for b, _ in context_blocks],
                         )
                     )
                     existing.add((block.page_num, compact))
                     found += 1
+            if found:
+                for context_block, context_edge in context_blocks:
+                    additions.append(context_block)
+                    edges.append(
+                        CanonicalEdge(context_block.source_id, block.source_id, "derived_from")
+                    )
+                    by_run.setdefault(run, []).append((context_block.candidates[0], context_edge))
             if not found:
                 receipt["unresolved"].append(
                     dict(source_id=block.source_id, reason="no_new_bullet")

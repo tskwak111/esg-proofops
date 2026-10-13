@@ -800,6 +800,8 @@ def _qc_figure_suffix():
     return (
         "\nQC: native figure bullets are complete literal PDF text candidates. "
         "Select each supplied bullet independently, keeping its conditions and exclusions. "
+        "Read all supplied native parent_paragraph context, including preceding future-plan "
+        "headings and trailing cancellation or However clauses; never turn a plan into attainment. "
         "Do not select department headers, logos, isolated chart values or infer arrows, "
         "reporting frequency, attainment or source verification. Fresh tagging is required."
     )
@@ -2000,20 +2002,27 @@ class UpstageClaimExtractor:
         data = packet["untrusted_document_data"]
         kind = data["kind"]
         if self._qc_native_figures:
-            from proofops.application.ingest.k6_coverage import FIGURE_MARKER, FIGURE_POLICY
+            from proofops.application.ingest.k6_coverage import (
+                FIGURE_MARKER,
+                FIGURE_POLICY,
+                FIGURE_V1_MARKER,
+                FIGURE_V1_POLICY,
+            )
 
             self._validate_context_graph(packet, context_graph)
             block = next(b for b in context_graph.blocks if b.source_id == data["source_id"])
             context = block.candidates[block.winner].context
-            if FIGURE_MARKER in context:
+            marker = FIGURE_MARKER if FIGURE_MARKER in context else FIGURE_V1_MARKER
+            policy = FIGURE_POLICY if marker == FIGURE_MARKER else FIGURE_V1_POLICY
+            if marker in context:
                 if (
                     kind != "paragraph"
-                    or "qc_native_policy=" + canonical_hash(FIGURE_POLICY) not in context
+                    or "qc_native_policy=" + canonical_hash(policy) not in context
                 ):
                     raise ExtractionOutputError("QC_NATIVE_FIGURE_POLICY_MISMATCH")
                 return [
                     dict(
-                        sentence_id=f"{data['source_id']}:{FIGURE_MARKER}:0:{len(text)}",
+                        sentence_id=f"{data['source_id']}:{marker}:0:{len(text)}",
                         text=text,
                         char_start=0,
                         char_end=len(text),
@@ -2367,6 +2376,16 @@ class UpstageClaimExtractor:
         if len(matches) != 1:
             raise ValueError("EXTRACTION_CONTEXT_FOCAL_INVALID")
         focal = matches[0]
+        if self._qc_native_figures:
+            from proofops.application.ingest.k6_coverage import native_figure_context_blocks
+
+            native_context = native_figure_context_blocks(focal, context_graph)
+            if native_context:
+                if sum(len(b.raw_text) + 1 for b in native_context) > self._context_chars:
+                    raise ExtractionOutputError("QC_NATIVE_FIGURE_CONTEXT_TOO_LARGE")
+                return [
+                    _context_entry(i, b, "parent_paragraph") for i, b in enumerate(native_context)
+                ], []
         neighbours, omitted = _bounded_context_blocks(
             context_graph,
             (focal.source_ref(),),
