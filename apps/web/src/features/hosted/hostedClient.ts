@@ -68,6 +68,7 @@ export type ResultClaim = {
 export type ResultReview = { review_id: string; run_id: string; claim_id: string; status: string; revision: number; base_tag_revision: number; reason_codes: string[] };
 export type HostedResult = {
   schema: string; claims: ResultClaim[]; reviews: ResultReview[]; hold_reasons: string[]; page_map: number[];
+  hold_reason_details?: { code: string; message: string }[];
   pipeline?: { status?: string; reason?: string | null; reporting_scope?: Partial<ReportingScope>; provider_failures?: { failed_calls: number; deferred_calls: number; total: number }; extraction_outcome?: { status: string; code: string; selected_claim_pages: number[]; parsed_claim_blocks: number; processed_blocks: number; page_failures: { physical_page: number; code: string }[] } };
   possible_grade_range?: GradeRange | null; confirmed_grade?: string | null;
 };
@@ -215,7 +216,7 @@ export function createHostedClient(options: ClientOptions = {}) {
     scopePlan: (documentId: string) => request<ScopePlan>("POST", `/v1/documents/${encodeURIComponent(documentId)}/scope-plan`),
     getScopePlan: (documentId: string) => request<ScopePlan>("GET", `/v1/documents/${encodeURIComponent(documentId)}/scope-plan`),
     editScope: (documentId: string, scope: ScopePlan, claims: number[], evidence: number[], period?: ReportingScopeInput) =>
-      request<ScopePlan>("POST", `/v1/documents/${encodeURIComponent(documentId)}/scope-plan/selection`, { json: { selected_claim_pages: claims, selected_evidence_pages: evidence, ...(period ? { reporting_scope: period } : {}) }, headers: { "If-Match": `"${scope.revision}"` } }),
+      request<ScopePlan>("POST", `/v1/documents/${encodeURIComponent(documentId)}/scope-plan/selection`, { json: { selected_claim_pages: claims, selected_evidence_pages: evidence, manual_selection: true, ...(period ? { reporting_scope: period } : {}) }, headers: { "If-Match": `"${scope.revision}"` } }),
     createRun: (documentId: string, scope: ScopePlan, key = newIdempotencyKey(), profile?: string) =>
       request<HostedRun>("POST", "/v1/runs", { json: { document_id: documentId, scope_selection_sha256: scope.selection?.selection_sha256 }, headers: { "Idempotency-Key": key, ...(profile ? { "X-Pipeline-Profile": profile } : {}) } }),
     getRun: (statusUrl: string, signal?: AbortSignal) => request<HostedRun>("GET", statusUrl, { signal }),
@@ -312,7 +313,9 @@ const blockedReasons: Record<string, string> = {
   REPLICA_UNRESOLVED: "반복 판독 결과가 일치하지 않습니다.",
 };
 /** Korean text for a backend hold/reason code; unknown codes are shown as codes, never dropped. */
-export function holdReasonText(code: string): string {
+export function holdReasonText(code: string, details?: { code: string; message: string }[]): string {
+  const detail = details?.find(item => item.code === code)?.message;
+  if (detail) return detail;
   if (blockedReasons[code]) return blockedReasons[code];
   if (/^REVIEW:/.test(code)) return `${code.slice(7)} 요소 사람 확인 필요`;
   return `보류 사유 코드: ${code}`;
@@ -323,7 +326,7 @@ export function runOutcome(run: HostedRun): { kind: "pending" | "blocked" | "com
     case "accounting_pending": return { kind: "blocked", title: "분석 중단 · 비용 정산 확인 중", reasons: [holdReasonText(provider ?? run.error_code ?? "ACCOUNTING_PENDING")] };
     case "partial_blocked": {
       const codes = run.result?.hold_reasons?.length ? run.result.hold_reasons : run.error_code ? [run.error_code] : [];
-      const reasons = codes.length ? codes.map(holdReasonText) : ["분석이 일부만 진행되어 보류되었습니다."];
+      const reasons = codes.length ? codes.map(code => holdReasonText(code, run.result?.hold_reason_details)) : ["분석이 일부만 진행되어 보류되었습니다."];
       reasons.push("보류는 ‘근거 없음’이 아닙니다. 판정되지 않은 주장의 근거는 확인되지 않은 상태이며, 확정 등급을 부여하지 않았습니다.");
       return { kind: "blocked", title: "보류", reasons };
     }

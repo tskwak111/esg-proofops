@@ -28,7 +28,7 @@ export function ResultView({ result, role, client, runId, onReload }: { result: 
     </p>}
     {result.hold_reasons.length > 0 && <div className="hosted-notice" role="status">
       <h3>보류 사유</h3>
-      <ul>{result.hold_reasons.map(code => <li key={code}>{holdReasonText(code)}</li>)}</ul>
+      <ul>{result.hold_reasons.map(code => <li key={code}>{holdReasonText(code, result.hold_reason_details)}</li>)}</ul>
       <p>보류·확인되지 않음은 ‘근거 없음’이 아닙니다. 확정 등급은 규칙 판정이 끝난 주장에만 표시되며 전체 보고서 등급은 만들지 않습니다.</p>
     </div>}
     {result.pipeline?.reporting_scope?.report_year != null && <p className="hosted-note">보고 범위: {result.pipeline.reporting_scope.report_year}년 ({result.pipeline.reporting_scope.period_start} ~ {result.pipeline.reporting_scope.period_end})</p>}

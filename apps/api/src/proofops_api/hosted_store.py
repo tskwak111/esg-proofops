@@ -35,6 +35,7 @@ from proofops.application.authorization import MembershipRecord, SessionExpiredE
 from proofops.application.pipeline_failures import MESSAGES as PIPELINE_MESSAGES
 from proofops.application.pipeline_failures import PUBLIC_CODES
 from proofops.application.uploads_security import (
+    HOSTED_NULL_NAVIGATION_PROFILE,
     PdfLimits,
     UploadRejected,
     verify_pdf_file,
@@ -646,6 +647,7 @@ class HostedStore:
                 pages = verify_pdf_file(
                     source,
                     PdfLimits(
+                        policy_profile=HOSTED_NULL_NAVIGATION_PROFILE,
                         max_bytes=self.settings.max_upload_bytes,
                         max_decoded_bytes=512 * 1024 * 1024,
                     ),
@@ -1703,7 +1705,14 @@ class HostedStore:
             for relative, expected in snapshot["source_hashes"].items():
                 if digest((path / relative).read_bytes()) != expected:
                     raise ValueError("source hash mismatch")
-            return snapshot["result"]
+            from proofops.application.pipeline_failures import public_reason_details
+
+            result = snapshot["result"]
+            if result.get("hold_reasons"):
+                return result | dict(
+                    hold_reason_details=public_reason_details(result["hold_reasons"])
+                )
+            return result
         except (OSError, ValueError, KeyError, TypeError):
             raise HostedError("RESULT_INTEGRITY_UNAVAILABLE", 409) from None
 

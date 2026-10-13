@@ -2,7 +2,8 @@
 
 MESSAGES = {
     "PARSER_FAILED": (
-        "PDF 구조를 읽지 못했습니다. PDF 뷰어에서 " "다시 저장한 파일로 새 분석을 접수해 주세요."
+        "문서 파싱에 실패해 분석을 중단했습니다. 처리되지 않은 원문은 판정하지 않았습니다. "
+        "운영자의 파싱 확인이 필요합니다."
     ),
     "PARSER_MEMORY_LIMIT": (
         "PDF 파싱이 메모리 한도에 도달했습니다. 선택 " "쪽을 줄여 새 분석을 접수해 주세요."
@@ -79,3 +80,15 @@ MESSAGES = {
     ),
 }
 PUBLIC_CODES = frozenset(MESSAGES) | {"BUDGET_EXHAUSTED", "ACCOUNTING_UNAVAILABLE"}
+
+
+def public_reason_details(codes):
+    """Display metadata only: do not rewrite historical result/decision bytes."""
+    return [
+        dict(
+            code=code,
+            message=MESSAGES.get(code)
+            or "처리를 완료하지 못해 판정을 보류했습니다. 운영자의 처리 기록 확인이 필요합니다.",
+        )
+        for code in codes
+    ]

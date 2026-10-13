@@ -19,6 +19,9 @@ from tempfile import NamedTemporaryFile, TemporaryDirectory
 from time import monotonic
 from typing import Any
 
+HOSTED_NULL_NAVIGATION_PROFILE = "hosted-null-navigation-hx2-v1"
+STRICT_PROFILES = frozenset({"strict-v1", HOSTED_NULL_NAVIGATION_PROFILE})
+
 
 class UploadRejected(ValueError):
     """Code-only failure with optional structured inspection status; no source/parser text."""
@@ -42,7 +45,7 @@ class PdfLimits:
     cpu_seconds: int = 20
 
     def __post_init__(self) -> None:
-        if self.policy_profile not in {"strict-v1", "display-v2"}:
+        if self.policy_profile not in {*STRICT_PROFILES, "display-v2"}:
             raise ValueError("Unsupported PDF security profile")
         for key, value in asdict(self).items():
             if key == "policy_profile":
@@ -185,7 +188,7 @@ def verify_quarantined_pdf(
                     raise UploadRejected("UPLOAD_INTEGRITY_MISMATCH")
                 display_content = None
                 analysis_content = None
-                if limits.policy_profile == "strict-v1" and result.get("security", {}).get(
+                if limits.policy_profile in STRICT_PROFILES and result.get("security", {}).get(
                     "encrypted"
                 ):
                     with display_path.open("rb") as analysis_file:
@@ -227,7 +230,7 @@ def verify_pdf_file(
     """Strict verification of a service-owned disk snapshot; no whole-file body copy."""
     from hashlib import file_digest
 
-    if limits.policy_profile != "strict-v1":
+    if limits.policy_profile not in STRICT_PROFILES:
         raise UploadRejected("PDF_INVALID")
     if path.is_symlink() or path.stat().st_size != expected_size:
         raise UploadRejected("UPLOAD_INTEGRITY_MISMATCH")
@@ -620,6 +623,15 @@ def _inspect_legacy(
                 if len(destination) < 2:
                     return False
                 page_ref = destination[0]
+                if (
+                    limits.policy_profile == HOSTED_NULL_NAVIGATION_PROFILE
+                    and isinstance(page_ref, IndirectObject)
+                    and page_ref.idnum == 0
+                    and page_ref.generation == 0
+                ):
+                    # An internal GoTo with a null page is an inert no-op, not an
+                    # external file or an executable action. Do not resolve it.
+                    return True
                 page_target = (
                     page_ref.get_object() if isinstance(page_ref, IndirectObject) else page_ref
                 )
@@ -800,9 +812,20 @@ def _inspect_legacy(
                 allow_user_named_action=allow_uri,
             )
 
+        null_references = 0
         while pending:
             value = pending.pop()
             if isinstance(value, IndirectObject):
+                # Object 0 is the reserved null object. Orion's optional structure
+                # entries use 0 0 R; there is no payload to resolve or execute.
+                # Every nonzero reference and all action targets stay strict.
+                if (
+                    limits.policy_profile == HOSTED_NULL_NAVIGATION_PROFILE
+                    and value.idnum == 0
+                    and value.generation == 0
+                ):
+                    null_references += 1
+                    continue
                 value = value.get_object()
             if isinstance(value, DictionaryObject | ArrayObject):
                 if id(value) in seen:
@@ -920,6 +943,7 @@ def _inspect_legacy(
             security.update(
                 encrypted=encrypted,
                 parser_xref_recovered=recover_xref,
+                null_object_references=null_references,
                 objects=len(references),
                 nodes=len(seen),
                 decoded_bytes=decoded,
@@ -951,7 +975,7 @@ def _inspect_strict(path: str, limits: PdfLimits, output: Path | None = None) ->
     with Path(path).open("rb") as source:
         original_sha = file_digest(source, "sha256").hexdigest()
     security.update(
-        policy_profile="strict-v1",
+        policy_profile=limits.policy_profile,
         source_sha256=original_sha,
         original_inspection="complete",
         limits=asdict(limits),

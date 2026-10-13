@@ -7,6 +7,25 @@ require.extensions['.ts'] = (module, filename) => module._compile(ts.transpileMo
 const { HostedApiError, createHostedClient, describeError } = require('./hostedClient.ts');
 const { runOutcome } = require('./hostedClient.ts');
 
+test('manual scope edits declare the manual selection and preserve revision fencing', async () => {
+  let sent;
+  const client = createHostedClient({ fetchImpl: async (url, init) => {
+    sent = init;
+    return new Response(JSON.stringify({ revision: 2 }));
+  } });
+  await client.editScope('sk-fixture', { revision: 1 }, [3, 11], [3, 11, 135]);
+  assert.equal(JSON.parse(sent.body).manual_selection, true);
+  assert.deepEqual(JSON.parse(sent.body).selected_claim_pages, [3, 11]);
+  assert.equal(sent.headers['If-Match'], '"1"');
+});
+
+test('unknown failure codes retain server-provided detail', () => {
+  const { holdReasonText } = require('./hostedClient.ts');
+  const detail = '원문을 처리하지 못했습니다. 운영자 확인이 필요합니다.';
+  assert.equal(holdReasonText('FUTURE_PARSER_FAILURE', [{ code: 'FUTURE_PARSER_FAILURE', message: detail }]), detail);
+  assert.match(holdReasonText('PARSER_FAILED'), /파싱.*운영자/);
+});
+
 test('H5 native reader and page render limits expose concrete reasons without evidence absence', () => {
   for (const [code, cause] of [
     ['PARSER_NATIVE_TEXT_UNREADABLE', /보조 텍스트 파서/],

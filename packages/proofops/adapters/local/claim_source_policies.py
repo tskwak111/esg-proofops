@@ -16,6 +16,16 @@ module, and both keep their original receipt schema and bytes.
 
 from collections.abc import Mapping
 
+# One registry owns source replay, publication and parser-native binding. Reader
+# modules remain byte-pinned; adding a shipped profile cannot omit a second gate.
+PAGE_OCR_PROFILES = {
+    "upstage-ocr-page-v1": "proofops.adapters.local.upstage_ocr_profile",
+    **{
+        f"upstage-ocr-page-v{version}": f"proofops.adapters.local.upstage_ocr_profile_v{version}"
+        for version in range(2, 15)
+    },
+}
+
 RENDER_RESOLUTION_POLICY_SCHEMA = "claim_span_render_resolution_policy_v1"
 # R19 bullet-alignment wrapper. It WRAPS the render-resolution wrapper rather
 # than replacing it, so pinning it preserves render resolution instead of
@@ -116,22 +126,7 @@ def claim_source_reader(policy):
             if policy != wrapper.claim_source_policy():
                 raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")
             return wrapper
-        if policy.get("profile") in {
-            "upstage-ocr-page-v1",
-            "upstage-ocr-page-v2",
-            "upstage-ocr-page-v3",
-            "upstage-ocr-page-v4",
-            "upstage-ocr-page-v5",
-            "upstage-ocr-page-v6",
-            "upstage-ocr-page-v7",
-            "upstage-ocr-page-v8",
-            "upstage-ocr-page-v9",
-            "upstage-ocr-page-v10",
-            "upstage-ocr-page-v11",
-            "upstage-ocr-page-v12",
-            "upstage-ocr-page-v13",
-            "upstage-ocr-page-v14",
-        }:
+        if policy.get("profile") in PAGE_OCR_PROFILES:
             upstage_ocr_profile = page_ocr_profile(policy["profile"])
 
             if policy != upstage_ocr_profile.claim_source_policy():
@@ -176,22 +171,7 @@ def publication_reader(policy):
     """
     from proofops.adapters.local import claim_source_verification as base
 
-    if isinstance(policy, Mapping) and policy.get("profile") in {
-        "upstage-ocr-page-v1",
-        "upstage-ocr-page-v2",
-        "upstage-ocr-page-v3",
-        "upstage-ocr-page-v4",
-        "upstage-ocr-page-v5",
-        "upstage-ocr-page-v6",
-        "upstage-ocr-page-v7",
-        "upstage-ocr-page-v8",
-        "upstage-ocr-page-v9",
-        "upstage-ocr-page-v10",
-        "upstage-ocr-page-v11",
-        "upstage-ocr-page-v12",
-        "upstage-ocr-page-v13",
-        "upstage-ocr-page-v14",
-    }:
+    if isinstance(policy, Mapping) and policy.get("profile") in PAGE_OCR_PROFILES:
         return claim_source_reader(policy)
     for module in (base, *_wrappers()):
         if policy == module.claim_source_policy():
@@ -220,22 +200,7 @@ def attest_claims(*, reader, graph, source, refs, tenant_id, cache, run_id=None)
     publication can match them instead of repeating the same whole-ref read.
     The published bytes are unchanged either way.
     """
-    if getattr(reader, "PROFILE", None) in {
-        "upstage-ocr-page-v1",
-        "upstage-ocr-page-v2",
-        "upstage-ocr-page-v3",
-        "upstage-ocr-page-v4",
-        "upstage-ocr-page-v5",
-        "upstage-ocr-page-v6",
-        "upstage-ocr-page-v7",
-        "upstage-ocr-page-v8",
-        "upstage-ocr-page-v9",
-        "upstage-ocr-page-v10",
-        "upstage-ocr-page-v11",
-        "upstage-ocr-page-v12",
-        "upstage-ocr-page-v13",
-        "upstage-ocr-page-v14",
-    }:
+    if getattr(reader, "PROFILE", None) in PAGE_OCR_PROFILES:
         refs = tuple(refs)
         from proofops.adapters.local.verified_read_cache import _execution_policy
         from proofops.adapters.local.worker_resources import enabled as resources_enabled
@@ -311,61 +276,9 @@ def attest_claims(*, reader, graph, source, refs, tenant_id, cache, run_id=None)
 
 
 def page_ocr_profile(profile):
-    if profile == "upstage-ocr-page-v14":
-        from proofops.adapters.local import upstage_ocr_profile_v14
+    """Resolve only shipped registry entries; never import an untrusted module name."""
+    from importlib import import_module
 
-        return upstage_ocr_profile_v14
-    if profile == "upstage-ocr-page-v13":
-        from proofops.adapters.local import upstage_ocr_profile_v13
-
-        return upstage_ocr_profile_v13
-    if profile == "upstage-ocr-page-v12":
-        from proofops.adapters.local import upstage_ocr_profile_v12
-
-        return upstage_ocr_profile_v12
-    """Resolve the explicitly versioned mapping; never reinterpret old receipts."""
-    if profile == "upstage-ocr-page-v11":
-        from proofops.adapters.local import upstage_ocr_profile_v11
-
-        return upstage_ocr_profile_v11
-    if profile == "upstage-ocr-page-v10":
-        from proofops.adapters.local import upstage_ocr_profile_v10
-
-        return upstage_ocr_profile_v10
-    if profile == "upstage-ocr-page-v9":
-        from proofops.adapters.local import upstage_ocr_profile_v9
-
-        return upstage_ocr_profile_v9
-    if profile == "upstage-ocr-page-v8":
-        from proofops.adapters.local import upstage_ocr_profile_v8
-
-        return upstage_ocr_profile_v8
-    if profile == "upstage-ocr-page-v7":
-        from proofops.adapters.local import upstage_ocr_profile_v7
-
-        return upstage_ocr_profile_v7
-    if profile == "upstage-ocr-page-v6":
-        from proofops.adapters.local import upstage_ocr_profile_v6
-
-        return upstage_ocr_profile_v6
-    if profile == "upstage-ocr-page-v5":
-        from proofops.adapters.local import upstage_ocr_profile_v5
-
-        return upstage_ocr_profile_v5
-    if profile == "upstage-ocr-page-v4":
-        from proofops.adapters.local import upstage_ocr_profile_v4
-
-        return upstage_ocr_profile_v4
-    if profile == "upstage-ocr-page-v1":
-        from proofops.adapters.local import upstage_ocr_profile
-
-        return upstage_ocr_profile
-    if profile == "upstage-ocr-page-v2":
-        from proofops.adapters.local import upstage_ocr_profile_v2
-
-        return upstage_ocr_profile_v2
-    if profile == "upstage-ocr-page-v3":
-        from proofops.adapters.local import upstage_ocr_profile_v3
-
-        return upstage_ocr_profile_v3
-    raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")
+    if not isinstance(profile, str) or profile not in PAGE_OCR_PROFILES:
+        raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")
+    return import_module(PAGE_OCR_PROFILES[profile])
