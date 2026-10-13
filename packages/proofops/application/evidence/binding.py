@@ -143,6 +143,7 @@ def accept_binding(
     local_value_identity: bool = False,
     local_binding_policy: Mapping | None = None,
     structural_policy: Mapping | None = None,
+    diagnostics: list[str] | None = None,
 ) -> BindingState:
     """Check source identity, literal roles, table coordinates and allowed scope.
 
@@ -163,6 +164,17 @@ def accept_binding(
         from proofops.application.tagging.q1_contract import validate_policy
 
         validate_policy(structural_policy)
+
+    def diagnose(reason: str):
+        from proofops.application.tagging.q1_contract import R12_POLICY
+
+        if (
+            structural_policy == R12_POLICY
+            and diagnostics is not None
+            and reason not in diagnostics
+        ):
+            diagnostics.append(reason)
+
     _require_uuid("claim_id", claim.claim_id)
     if (claim.tenant_id, original.tenant_id, rulepack.tenant_id) != (tenant_id,) * 3 or (
         claim.document_version_id,
@@ -175,6 +187,7 @@ def accept_binding(
     if definition is None:
         raise DomainValidationError("unknown element")
     if scope_rejection_reason(element_id, (ref,), rulepack=rulepack, original=original):
+        diagnose("source_scope_rejected")
         return "rejected"
     evidence_dimensions = _dimensions(relation_tags) if relation_tags is not None else {}
     blocks = {block.source_id: block for block in original.blocks}
@@ -188,9 +201,11 @@ def accept_binding(
             original.document_version_id,
             original.parse_manifest_id,
         ) or source.source_id not in blocks:
+            diagnose("source_identity_rejected")
             return "rejected"
         block = blocks[source.source_id]
         if block.winner is None:
+            diagnose("source_unresolved")
             return "undetermined"  # conflicted/missing winner stays blocked
         result = verify_source_ref(source, original, tenant_id=tenant_id)
         if result.verification_state == "verified":
@@ -200,7 +215,9 @@ def accept_binding(
         if block.quality != "verified":
             # ordinary unverified/unlocated block without a trusted verified span:
             # unresolved source quality, not a source-identity rejection.
+            diagnose("source_unverified")
             return "undetermined"
+        diagnose("source_literal_rejected")
         return "rejected"
 
     if not claim.source_refs or claim.quote != " ".join(s.quote for s in claim.source_refs):
@@ -257,6 +274,7 @@ def accept_binding(
                     return "rejected"
             return "accepted"
     if unresolved or relation_tags is None:
+        diagnose("claim_source_unverified" if unresolved else "relation_tags_unresolved")
         return "undetermined"
 
     def selected(source: SourceRef):
@@ -371,6 +389,7 @@ def accept_binding(
         if (expected is None or actual is None) and (
             not direct or (explicit_axis_unknown and not intrinsic)
         ):
+            diagnose(f"dimension_unresolved:{name}")
             unresolved = True
             continue
         states = [checked(value) for value in (expected, actual) if value is not None]
@@ -387,6 +406,7 @@ def accept_binding(
                 attributed(value, target, atomic=in_claim, dimension=name) for target in targets
             ]
             if all(state == "rejected" for state in role_states):
+                diagnose(f"role_attribution_rejected:{name}")
                 return "rejected"
             if "accepted" not in role_states:
                 unresolved = True
@@ -397,14 +417,16 @@ def accept_binding(
                     structural_policy is not None
                     and direct
                     and intrinsic
-                    and observed_period(value.quote)
+                    and observed_period(value.quote, policy=structural_policy)
                 ):
+                    diagnose("period_syntax_unsupported")
                     unresolved = True
         if (
             expected is not None
             and actual is not None
             and (normalize("NFC", expected.quote).strip() != normalize("NFC", actual.quote).strip())
         ):
+            diagnose(f"dimension_mismatch:{name}")
             return "rejected"
     if unresolved:
         return "undetermined"

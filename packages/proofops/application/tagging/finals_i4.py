@@ -32,12 +32,14 @@ def _require_k4_schema(schema):
         raise ValueError("K4_WIRE_SCHEMA_EXTRA_PROPERTIES_PROHIBITED")
 
 
-def preliminary_k4(schema):
+def preliminary_k4(schema, *, quality_policy=None):
     _require_k4_schema(schema)
-    return K4_PRELIMINARY.replace("{{OUTPUT_SCHEMA_JSON}}", canonical_json(schema))
+    return K4_PRELIMINARY.replace(
+        "{{OUTPUT_SCHEMA_JSON}}", canonical_json(schema)
+    ) + _quality_guidance(quality_policy, preliminary=True)
 
 
-def elements_k4(schema, classification):
+def elements_k4(schema, classification, *, quality_policy=None):
     _require_k4_schema(schema)
     track = classification.get("track")
     if track not in ("goal", "performance", "management"):
@@ -54,4 +56,21 @@ def elements_k4(schema, classification):
         "\n\n".join(parts)
         .replace("{{OUTPUT_SCHEMA_JSON}}", canonical_json(schema))
         .replace("{{CLASSIFICATION_JSON}}", canonical_json(classification))
+    ) + _quality_guidance(quality_policy)
+
+
+def _quality_guidance(policy, *, preliminary=False):
+    from proofops.application.tagging.q1_contract import (
+        R12_CLASSIFICATION_GUIDANCE,
+        R12_ELEMENT_GUIDANCE,
+        R12_POLICY,
+        validate_policy,
+    )
+
+    if policy is not None:
+        validate_policy(policy)
+    return (
+        (R12_CLASSIFICATION_GUIDANCE if preliminary else R12_ELEMENT_GUIDANCE)
+        if policy == R12_POLICY
+        else ""
     )
