@@ -268,7 +268,7 @@ const blockedReasons: Record<string, string> = {
   PARSER_FAILED: "문서 파싱에 실패해 분석을 중단했습니다. 처리되지 않은 원문은 판정하지 않았습니다. 운영자의 파싱 확인이 필요합니다.",
   PARSER_MEMORY_LIMIT: "PDF 파싱이 메모리 한도에 도달했습니다. 선택 쪽을 줄여 새 분석을 접수해 주세요.",
   PARSER_MEMORY_WATCHDOG_UNAVAILABLE: "서버의 파싱 자원 감시가 준비되지 않았습니다. 운영자 확인이 필요합니다.",
-  PARSER_PDF_INVALID: "PDF 내부 구조가 손상되어 읽지 못했습니다. PDF 뷰어에서 다시 저장한 파일로 업로드해 주세요.",
+  PARSER_PDF_INVALID: "PDF 내부 구조를 읽지 못했습니다. PDF 뷰어에서 다시 저장한 파일로 업로드해 주세요.",
   PARSER_GEOMETRY_INVALID: "PDF의 원문 좌표를 검증하지 못했습니다. 해당 원문은 판정하지 않았습니다.",
   CLAIM_PAGES_UNREADABLE: "선택한 주장 쪽을 읽지 못했습니다. 다른 쪽 또는 다시 저장한 PDF로 접수해 주세요.",
   CLAIM_PAGE_PARSE_FAILURE: "일부 주장 쪽을 읽지 못했습니다. 처리된 주장만 표시하며 누락 쪽은 판정하지 않았습니다.",
