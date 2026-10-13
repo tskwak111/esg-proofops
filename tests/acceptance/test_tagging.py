@@ -4,7 +4,7 @@ import json
 import time
 from dataclasses import asdict, replace
 from pathlib import Path
-from threading import Lock
+from threading import Barrier, Lock
 from uuid import UUID
 
 import pytest
@@ -156,6 +156,7 @@ def test_parallel_replicas_keep_order_and_reserve_before_send(tmp_path):
     inputs = setup(tmp_path)
     original = inputs["invoke"]
     lock = Lock()
+    entered = Barrier(3)
     active = peak = 0
 
     def slow(request):
@@ -163,8 +164,11 @@ def test_parallel_replicas_keep_order_and_reserve_before_send(tmp_path):
         with lock:
             active += 1
             peak = max(peak, active)
-        time.sleep(0.03 if request["replicate_id"] == 1 else 0.01)
         try:
+            # Prove simultaneous dispatch independently of source-validation
+            # latency and OS scheduling. Serial execution breaks this barrier.
+            entered.wait(timeout=5)
+            time.sleep(0.03 if request["replicate_id"] == 1 else 0.01)
             return original(request)
         finally:
             with lock:

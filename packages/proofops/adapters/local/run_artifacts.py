@@ -206,22 +206,9 @@ def accepted_native_policy_digests():
     present and hash-verified, so this never allowlists a bare hash.
     """
     digests = {canonical_hash(native_paragraph_policy())}
-    from proofops.adapters.local.claim_source_policies import page_ocr_profile
+    from proofops.adapters.local.claim_source_policies import PAGE_OCR_PROFILES, page_ocr_profile
 
-    for profile in (
-        "upstage-ocr-page-v1",
-        "upstage-ocr-page-v2",
-        "upstage-ocr-page-v3",
-        "upstage-ocr-page-v4",
-        "upstage-ocr-page-v5",
-        "upstage-ocr-page-v6",
-        "upstage-ocr-page-v7",
-        "upstage-ocr-page-v8",
-        "upstage-ocr-page-v9",
-        "upstage-ocr-page-v10",
-        "upstage-ocr-page-v14",
-        "upstage-ocr-page-v15",
-    ):
+    for profile in PAGE_OCR_PROFILES:
         digests.add(canonical_hash(page_ocr_profile(profile).native_policy()))
     from proofops.adapters.local import frozen_native_replay
 
@@ -411,21 +398,12 @@ def load_run_evidence(store, uploads, parser, *, tenant_id: str, run_id: str):
         validate_raster_checkpoint_bindings(db, store.jobs, message, snapshot, envelope)
     policy = store.jobs.parser_note_policy(message)
     native_policy = store.jobs.parser_native_policy(message)
+    from proofops.adapters.local.claim_source_policies import PAGE_OCR_PROFILES
+
     if native_policy is not None:
-        if native_policy.get("mode") in {
-            "upstage-ocr-page-v1",
-            "upstage-ocr-page-v2",
-            "upstage-ocr-page-v3",
-            "upstage-ocr-page-v4",
-            "upstage-ocr-page-v5",
-            "upstage-ocr-page-v6",
-            "upstage-ocr-page-v7",
-            "upstage-ocr-page-v8",
-            "upstage-ocr-page-v9",
-            "upstage-ocr-page-v10",
-            "upstage-ocr-page-v14",
-            "upstage-ocr-page-v15",
-        } and (native_receipt is None or native_receipt.get("run_id") != run_id):
+        if native_policy.get("mode") in PAGE_OCR_PROFILES and (
+            native_receipt is None or native_receipt.get("run_id") != run_id
+        ):
             raise ParseFailure("NATIVE_PARAGRAPH_CHECKPOINT_INVALID")
         if (
             envelope.get("schema")

@@ -21,6 +21,7 @@
 !evaluation/hosted_scope_plan.py
 !evaluation/report_scope.py
 !evaluation/report_sections.py
+!evaluation/*.py
 !config/
 !config/**
 !contracts/
@@ -33,6 +34,8 @@
 !deploy/
 !deploy/public/
 !deploy/public/smoke.py
+!deploy/public/offline_smoke.py
+!deploy/public/offline_fixture.py
 **/__pycache__/
 **/*.pyc
 **/.env*

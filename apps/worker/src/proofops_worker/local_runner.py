@@ -168,23 +168,9 @@ class LocalParserRunner:
         run = self.store.jobs.get_run(tenant_id, run_id)
         native_policy = native_paragraph_policy() if self.verify_paragraphs else None
         page_reader = None
-        if snapshot.get("claim_source_policy", {}).get("profile") in {
-            "upstage-ocr-page-v1",
-            "upstage-ocr-page-v2",
-            "upstage-ocr-page-v3",
-            "upstage-ocr-page-v4",
-            "upstage-ocr-page-v5",
-            "upstage-ocr-page-v6",
-            "upstage-ocr-page-v7",
-            "upstage-ocr-page-v8",
-            "upstage-ocr-page-v9",
-            "upstage-ocr-page-v10",
-            "upstage-ocr-page-v11",
-            "upstage-ocr-page-v12",
-            "upstage-ocr-page-v13",
-            "upstage-ocr-page-v14",
-            "upstage-ocr-page-v15",
-        }:
+        from proofops.adapters.local.claim_source_policies import PAGE_OCR_PROFILES
+
+        if snapshot.get("claim_source_policy", {}).get("profile") in PAGE_OCR_PROFILES:
             from proofops.adapters.local.claim_source_policies import claim_source_reader
 
             ocr_profile = claim_source_reader(snapshot["claim_source_policy"])
