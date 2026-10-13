@@ -199,7 +199,9 @@ def _batch(
         raise ParseFailure("PARSER_SCHEMA_INVALID")
     partial_blocks = profile.failure_policy == "partial-v4"
     occurrences: dict[str, int] = {}
-    stack = [(node, None, None, None, 0, False) for node in reversed(raw["kids"])]
+    stack: list[tuple[dict[str, Any], str | None, int | None, str | None, int, bool]] = [
+        (node, None, None, None, 0, False) for node in reversed(raw["kids"])
+    ]
     while stack:
         node, parent, inherited_page, table_id, depth, geometry_hold = stack.pop()
         if not isinstance(node, dict) or depth > 100 or len(blocks) >= 100000:
