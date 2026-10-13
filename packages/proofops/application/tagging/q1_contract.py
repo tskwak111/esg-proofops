@@ -111,13 +111,37 @@ R12_POLICY = SEMANTIC_POLICY | dict(
     max_request_bytes=16384,
 )
 
+# A new opt-in revision: never add these vetoes to historical Q1/R12 policies.
+QA2_ELEMENT_GUIDANCE = (
+    "\nQA2: 실시할 예정·실시할 방침·취득할 계획은 완료 실적이나 인증 보유가 아니다. "
+    "M4/M3의 해당 인용은 unknown으로 보류하며 수치·연도가 있어도 승격하지 않는다. "
+    "인용을 줄여 예정·방침 문맥을 숨기지 않는다. 별도 완료 원문은 독립 검토한다."
+)
+QA2_FUTURE_IMPLEMENTATION = (
+    r"(?:할|받을|얻을|갖출)\s*(?:예정|방침|계획)|"
+    r"(?:실시|시행|운영|수행|진행|취득|획득|인증|검증|심사|교육|훈련|수료|개최|도입)"
+    r"\s*(?:예정|계획)(?:입니다|이다|임|\s|$)"
+)
+QA2_POLICY = R12_POLICY | dict(
+    profile="tagging-structural-quality-qa2-f1-f2-v1",
+    elements_sha256=canonical_hash(R12_ELEMENT_GUIDANCE + QA2_ELEMENT_GUIDANCE),
+    future_implementation=QA2_FUTURE_IMPLEMENTATION,
+    future_admission="selected-citation-and-containing-atomic-sentence;M3-M4;unknown-only-v1",
+    future_guidance_sha256=canonical_hash(QA2_ELEMENT_GUIDANCE),
+)
+QUALITY_POLICIES = (R12_POLICY, QA2_POLICY)
+
 
 def validate_policy(policy):
-    if policy not in (SEMANTIC_POLICY, R12_POLICY):
+    if policy not in (SEMANTIC_POLICY, *QUALITY_POLICIES):
         raise ValueError("Q1_STRUCTURAL_POLICY_MISMATCH")
 
 
-def guard(element):
+def guard(element, *, policy=None, claim_quote=""):
+    if policy is not None:
+        validate_policy(policy)
+    if policy == QA2_POLICY:
+        element = future_implementation_guard(element, claim_quote=claim_quote)
     if element.state != "present":
         return element
     quotes = [" ".join(r.quote.split()) for r in element.evidence_refs]
@@ -144,6 +168,32 @@ def guard(element):
         )
         if reason
         else element
+    )
+
+
+def future_implementation_guard(element, *, claim_quote=""):
+    """QA2's sole added veto; do not reapply unrelated historical Q1 rules."""
+    if element.state != "present" or element.element_id not in ("M3", "M4"):
+        return element
+    quotes = [" ".join(r.quote.split()) for r in element.evidence_refs]
+    if quotes and all(_future_support(q, claim_quote) for q in quotes):
+        return replace(
+            element,
+            state="unknown",
+            normalized_value=None,
+            credited_from=None,
+            reason_code="QA2_FUTURE_IMPLEMENTATION_REQUIRES_REVIEW",
+        )
+    return element
+
+
+def _future_support(quote, claim_quote):
+    # Source/binding validation precedes this veto in the service. Use only the
+    # selected literal or its containing atomic sentence, never nearby sources.
+    sentences = re.split(r"[。!?;\n]|(?<=\.)\s", claim_quote)
+    contexts = [" ".join(s.split()) for s in sentences if quote in " ".join(s.split())]
+    return bool(re.search(QA2_FUTURE_IMPLEMENTATION, quote)) or bool(
+        contexts and all(re.search(QA2_FUTURE_IMPLEMENTATION, s) for s in contexts)
     )
 
 
@@ -178,7 +228,7 @@ def observed_period(value, *, policy=None):
         validate_policy(policy)
     if re.fullmatch(OBSERVED_YEAR, value.strip()):
         return True
-    if policy != R12_POLICY:
+    if policy not in QUALITY_POLICIES:
         return False
     match = re.fullmatch(R12_OBSERVED_PERIOD, value.strip())
     if match is None:
@@ -209,7 +259,7 @@ def preliminary(schema, *, quote=None, policy=None):
     return (
         old(schema, quote=quote)
         + (CLASSIFICATION_GUIDANCE if quote is None or guidance_target(quote) else "")
-        + (R12_CLASSIFICATION_GUIDANCE if policy == R12_POLICY else "")
+        + (R12_CLASSIFICATION_GUIDANCE if policy in QUALITY_POLICIES else "")
     )
 
 

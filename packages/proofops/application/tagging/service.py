@@ -240,9 +240,9 @@ def tag_replicates(
     local_recovery = data.get("local_element_recovery_policy")
     implementation_binding = data.get("local_implementation_binding_policy")
     structural_policy = data.get("structural_quality_policy")
-    from proofops.application.tagging.q1_contract import R12_POLICY
+    from proofops.application.tagging.q1_contract import QA2_POLICY, QUALITY_POLICIES
 
-    r12_quality = structural_policy == R12_POLICY
+    r12_quality = structural_policy in QUALITY_POLICIES
     if structural_policy is not None:
         from proofops.application.tagging.q1_contract import validate_policy as validate_structural
 
@@ -885,6 +885,17 @@ def tag_replicates(
                     admitted = guard_element(
                         replace(element, evidence_refs=tuple(refs)),
                         policy=semantic_policy,
+                        claim_quote=claim.quote,
+                    )
+                    if admitted.state != "present":
+                        state, semantic_reason = admitted.state, admitted.reason_code
+                if structural_policy == QA2_POLICY and state == "present":
+                    from proofops.application.tagging.q1_contract import (
+                        future_implementation_guard,
+                    )
+
+                    admitted = future_implementation_guard(
+                        replace(element, evidence_refs=tuple(refs)),
                         claim_quote=claim.quote,
                     )
                     if admitted.state != "present":

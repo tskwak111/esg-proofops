@@ -61,16 +61,18 @@ def elements_k4(schema, classification, *, quality_policy=None):
 
 def _quality_guidance(policy, *, preliminary=False):
     from proofops.application.tagging.q1_contract import (
+        QA2_ELEMENT_GUIDANCE,
+        QA2_POLICY,
+        QUALITY_POLICIES,
         R12_CLASSIFICATION_GUIDANCE,
         R12_ELEMENT_GUIDANCE,
-        R12_POLICY,
         validate_policy,
     )
 
     if policy is not None:
         validate_policy(policy)
-    return (
-        (R12_CLASSIFICATION_GUIDANCE if preliminary else R12_ELEMENT_GUIDANCE)
-        if policy == R12_POLICY
-        else ""
-    )
+    if policy not in QUALITY_POLICIES:
+        return ""
+    if preliminary:
+        return R12_CLASSIFICATION_GUIDANCE
+    return R12_ELEMENT_GUIDANCE + (QA2_ELEMENT_GUIDANCE if policy == QA2_POLICY else "")

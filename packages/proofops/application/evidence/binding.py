@@ -166,10 +166,10 @@ def accept_binding(
         validate_policy(structural_policy)
 
     def diagnose(reason: str):
-        from proofops.application.tagging.q1_contract import R12_POLICY
+        from proofops.application.tagging.q1_contract import QUALITY_POLICIES
 
         if (
-            structural_policy == R12_POLICY
+            structural_policy in QUALITY_POLICIES
             and diagnostics is not None
             and reason not in diagnostics
         ):
