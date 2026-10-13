@@ -1600,15 +1600,15 @@ def main():
         claim_pages = sorted(set(int(p) for p in args.claim_pages.split(",")))
         if not claim_pages or not set(claim_pages) <= set(pages):
             parser.error("--claim-pages must be a non-empty subset of --pages")
-    from proofops.application.uploads_security import PdfLimits
+    from evaluation.scope_input import MAX_UPLOAD_BYTES
 
-    limit = PdfLimits().max_bytes
+    limit = MAX_UPLOAD_BYTES
     try:
         source_size = args.pdf.stat().st_size
     except OSError as exc:
         parser.error(f"Cannot read --pdf: {exc}")
     if source_size > limit:
-        parser.error(f"--pdf exceeds the supported upload limit of {limit} bytes (100 MiB)")
+        parser.error(f"--pdf exceeds the supported upload limit of {limit} bytes (150 MiB)")
     state = args.state.resolve()
     state.mkdir(parents=True, exist_ok=True, mode=0o700)
     manifest_path = state / "pilot.json"

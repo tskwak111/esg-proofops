@@ -509,9 +509,15 @@ def toc_text_fallback(pdf, reader, issues):
 
 
 def inspect(pdf: Path):
+    from evaluation.scope_input import bind_original, scope_input
+
+    with scope_input(pdf) as (analysis, digest, metadata):
+        study = _inspect(analysis)
+        return bind_original(study, pdf, digest, metadata, hash_field="map_sha256")
+
+
+def _inspect(pdf: Path):
     # Existing ingest gates still own production acceptance; this is a bounded local study.
-    if pdf.stat().st_size > 100 * 1024 * 1024:
-        raise ValueError("local section study limit: 100 MiB")
     with pdf.open("rb") as stream:
         digest = file_digest(stream, "sha256").hexdigest()
     reader = PdfReader(pdf)

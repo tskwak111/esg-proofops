@@ -448,9 +448,22 @@ def build_plan(
 def inspect(
     pdf: Path, *, max_environment_pages=8, max_evidence_pages=30, ranking_policy=RANKING_VERSION
 ):
+    from evaluation.scope_input import bind_original, scope_input
+
+    with scope_input(pdf) as (analysis, digest, metadata):
+        plan = _inspect(
+            analysis,
+            max_environment_pages=max_environment_pages,
+            max_evidence_pages=max_evidence_pages,
+            ranking_policy=ranking_policy,
+        )
+        return bind_original(plan, pdf, digest, metadata, hash_field="plan_sha256")
+
+
+def _inspect(
+    pdf: Path, *, max_environment_pages=8, max_evidence_pages=30, ranking_policy=RANKING_VERSION
+):
     """Original bytes only. A section-reader failure becomes explicit native fallback."""
-    if pdf.stat().st_size > 100 * 1024 * 1024:
-        raise ValueError("local scope study limit: 100 MiB")
     with pdf.open("rb") as stream:
         digest = file_digest(stream, "sha256").hexdigest()
     reader = PdfReader(pdf)

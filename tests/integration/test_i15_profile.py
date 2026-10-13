@@ -22,14 +22,23 @@ from tests.integration.test_qc2_figure_context import figure
 
 def test_v15_default_and_historical_v14_pin():
     selected = profiles.policy_for(profiles.V2_PROFILE)
-    assert selected == profiles.FINALS_I15_POLICY
-    assert selected == profiles.FINALS_I13_POLICY | dict(
+    from proofops.application.input_failures import POLICY as HX5_POLICY
+
+    assert selected == profiles.FINALS_HX5_POLICY
+    assert profiles.FINALS_I15_POLICY == profiles.FINALS_I13_POLICY | dict(
         integration_profile="finals-20261014-v15",
         structural_quality_policy=QA2_POLICY,
         structural_quality_policy_sha256=canonical_hash(QA2_POLICY),
         native_figure_policy=FIGURE_POLICY,
         native_figure_policy_sha256=canonical_hash(FIGURE_POLICY),
     )
+    assert selected == profiles.FINALS_I15_POLICY | dict(
+        input_failure_policy=HX5_POLICY,
+        input_failure_policy_sha256=canonical_hash(HX5_POLICY),
+    )
+    assert profiles.policy_for(
+        profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_I15_POLICY)
+    ) == profiles.FINALS_I15_POLICY
     pin = "05770a9a6e8a4a42270666b28234bd0f0103634397a717a42934a96f2f89a11c"
     assert canonical_hash(selected) != pin
     assert profiles.policy_for(profiles.V2_PROFILE, pinned_hash=pin) == profiles.FINALS_I13_POLICY
