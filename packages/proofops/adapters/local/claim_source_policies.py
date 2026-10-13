@@ -131,6 +131,7 @@ def claim_source_reader(policy):
             "upstage-ocr-page-v12",
             "upstage-ocr-page-v13",
             "upstage-ocr-page-v14",
+            "upstage-ocr-page-v15",
         }:
             upstage_ocr_profile = page_ocr_profile(policy["profile"])
 
@@ -191,6 +192,7 @@ def publication_reader(policy):
         "upstage-ocr-page-v12",
         "upstage-ocr-page-v13",
         "upstage-ocr-page-v14",
+        "upstage-ocr-page-v15",
     }:
         return claim_source_reader(policy)
     for module in (base, *_wrappers()):
@@ -235,6 +237,7 @@ def attest_claims(*, reader, graph, source, refs, tenant_id, cache, run_id=None)
         "upstage-ocr-page-v12",
         "upstage-ocr-page-v13",
         "upstage-ocr-page-v14",
+        "upstage-ocr-page-v15",
     }:
         refs = tuple(refs)
         from proofops.adapters.local.verified_read_cache import _execution_policy
@@ -311,6 +314,10 @@ def attest_claims(*, reader, graph, source, refs, tenant_id, cache, run_id=None)
 
 
 def page_ocr_profile(profile):
+    if profile == "upstage-ocr-page-v15":
+        from proofops.adapters.local import upstage_ocr_profile_v15
+
+        return upstage_ocr_profile_v15
     if profile == "upstage-ocr-page-v14":
         from proofops.adapters.local import upstage_ocr_profile_v14
 

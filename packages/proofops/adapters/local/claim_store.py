@@ -143,6 +143,7 @@ class LocalClaimStore:
                 "upstage-ocr-page-v12",
                 "upstage-ocr-page-v13",
                 "upstage-ocr-page-v14",
+                "upstage-ocr-page-v15",
             }:
                 if envelope["claim_source_attestation"].get("run_id") != run_id:
                     raise ValueError("OCR_POLICY_OR_RUN_MISMATCH")
@@ -452,6 +453,7 @@ def validate_extract_commit(db, jobs, run, message, envelope, next_job, *, now):
                     "upstage-ocr-page-v12",
                     "upstage-ocr-page-v13",
                     "upstage-ocr-page-v14",
+                    "upstage-ocr-page-v15",
                 }
                 and receipt.get("run_id") != message.run_id
             )
