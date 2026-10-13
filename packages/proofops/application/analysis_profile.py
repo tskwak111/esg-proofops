@@ -54,6 +54,8 @@ from proofops.application.tagging.k9_contract import PROFILE as K9_PROMPT_PROFIL
 from proofops.application.tagging.k9_contract import PROMPT_POLICY as K9_PROMPT_POLICY
 from proofops.application.tagging.k10_contract import SEMANTIC_POLICY as K10_SEMANTIC_POLICY
 from proofops.application.tagging.k10_contract import SEMANTIC_V2_POLICY as K10_SEMANTIC_V2_POLICY
+from proofops.application.tagging.k11_contract import WIRE_POLICY as K11_WIRE_POLICY
+from proofops.application.tagging.k11_contract import WIRE_V1_POLICY as K11_WIRE_V1_POLICY
 from proofops.application.tagging.q1_contract import PROMPT_POLICY as Q1_PROMPT_POLICY
 from proofops.application.tagging.q1_contract import SEMANTIC_POLICY as Q1_SEMANTIC_POLICY
 from proofops.application.tagging.quality import ELEMENT_DEFINITIONS_HASH
@@ -666,6 +668,19 @@ FINALS_I11_POLICY = FINALS_K10_V2_POLICY | dict(
 )
 V2_POLICY = FINALS_I11_POLICY
 
+# Opt-in re-extraction only. Historical defaults/readers and raw votes are immutable.
+FINALS_K11_V1_POLICY = FINALS_I11_POLICY | dict(
+    integration_profile="finals-20261013-k11-v1",
+    tagging_wire_policy=K11_WIRE_V1_POLICY,
+    tagging_wire_policy_sha256=canonical_hash(K11_WIRE_V1_POLICY),
+    residual_review="G3-requires-fresh-validated-year-and-value; G4-and-grades-remain-independent",
+)
+FINALS_K11_POLICY = FINALS_K11_V1_POLICY | dict(
+    integration_profile="finals-20261013-k11-v2",
+    tagging_wire_policy=K11_WIRE_POLICY,
+    tagging_wire_policy_sha256=canonical_hash(K11_WIRE_POLICY),
+)
+
 
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
@@ -694,6 +709,8 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_K11_V1_POLICY,
+            FINALS_K11_POLICY,
             FINALS_I10_POLICY,
             FINALS_K10_POLICY,
             FINALS_K10_V2_POLICY,
@@ -799,6 +816,8 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FINALS_K11_V1_POLICY,
+            FINALS_K11_POLICY,
             FINALS_I10_POLICY,
             FINALS_K10_POLICY,
             FINALS_K10_V2_POLICY,

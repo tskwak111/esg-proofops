@@ -625,8 +625,11 @@ class UpstageTaggingTransport:
 
             wire_system += SYSTEM_SUFFIX
         from proofops.application.tagging.k7_wire import POLICY_K10
+        from proofops.application.tagging.k11_contract import WIRE_POLICY as K11_WIRE_POLICY
+        from proofops.application.tagging.k11_contract import WIRE_V1_POLICY as K11_WIRE_V1_POLICY
 
-        k10 = data.get("tagging_wire_policy") == POLICY_K10
+        k11 = data.get("tagging_wire_policy") in (K11_WIRE_V1_POLICY, K11_WIRE_POLICY)
+        k10 = data.get("tagging_wire_policy") == POLICY_K10 or k11
         k9 = data.get("local_implementation_binding_policy") is not None
         if k9:
             from proofops.application.tagging.k9_contract import (
@@ -654,7 +657,14 @@ class UpstageTaggingTransport:
             if k10:
                 from proofops.application.tagging.k10_contract import elements
 
-                wire_system = elements(schema, classification)
+                if k11:
+                    from proofops.application.tagging.k11_contract import elements as k11_elements
+
+                    wire_system = k11_elements(
+                        schema, classification, policy=data["tagging_wire_policy"]
+                    )
+                else:
+                    wire_system = elements(schema, classification)
             else:
                 wire_system = elements_k4(schema, classification)
             if k9 and not k10:
@@ -694,6 +704,8 @@ class UpstageTaggingTransport:
                 POLICY_K8_V2,
                 POLICY_K8_V3,
                 POLICY_K10,
+                K11_WIRE_POLICY,
+                K11_WIRE_V1_POLICY,
             ):
                 raise ValueError("K7_WIRE_POLICY_MISMATCH")
             if data["tagging_wire_policy"] == POLICY_K8 and classification["track"] == "management":

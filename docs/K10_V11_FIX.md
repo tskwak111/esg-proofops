@@ -39,3 +39,19 @@ probe_calls 비용을 그대로 읽는다. 기존 원장·예약·불변 영수�
 Rollback은 신규 K10 배정을 중단하고 기존 v11 hash를 선택한다. K10 산출물은
 호환 reader에 보존하며, K10을 모르는 reader에 신규 결과를 배정하지 않는다.
 새 dependency·모델 변경·rulepack 변경·push/배포/클라우드 변경은 없다.
+
+## K11: 동일 주장 기준연도·기준값 재추출
+
+K11 opt-in `finals-20261013-k11-v2`는 G3에 기준연도와 기준값을 각각 원문 인용하고,
+`normalized_value`를 단위 포함 기준값 인용 그대로 반환하도록 명시한다.
+기준 수준 유지 목표는 동일 값의 G2/G3 역할을 원문 문맥으로 확인하며 다른 주장의 값을
+차용하지 않는다. 서버의 인용·귀속·정규값 일치·K=3 가드와 Python 등급 계산은 그대로다.
+LG p24 기존 응답은 두 값을 인용했지만 정규값 null로 보류됐다. 새 독립 3응답은 G3와
+G2 모두 `951만 tCO₂e`로 합의했다. G4·G5·G6는 unknown이고 공개 확정등급은 미생성이다.
+v12 기본값, K10 v1/v2, K11 중간 v1의 정책 hash·renderer·저장 응답을 보존한다.
+새 v2 정책 hash는 `01ed39928d5a5c35671a78bd6eedb8e42b68a7ea40a1b0fccf4e444b32047c02`다.
+API·DB·DTO 변경과 migration은 없다. 롤백은 K11 hash 선택을 중단하고 원래 v12 pin을
+사용한다. 새 태깅·근거 산출물을 삭제하거나 기존 revision을 덮어쓰지 않는다.
+재현: `python -m evaluation.k11_baseline --root <repo-root> --output <new-output> --live`.
+실호출은 task USD0.2 및 공유 누적 원장을 적용한다. 저장 응답 검증은 `--verify-saved`로
+실행하며 네트워크를 차단한다. K11 보고서의 회귀 재생은 추출 성능·모델 정확도를 혼동하지 않는다.
