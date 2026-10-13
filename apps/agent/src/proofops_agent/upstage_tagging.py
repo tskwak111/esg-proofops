@@ -651,6 +651,7 @@ class UpstageTaggingTransport:
             ):
                 raise ValueError("K9_BINDING_POLICY_MISMATCH")
             wire_system += ELEMENT_GUIDANCE
+        quality_policy = data.get("structural_quality_policy")
         if settings.system_prompt == K4_ELEMENTS:
             if response_policy is None:
                 raise ValueError("I4_RESPONSE_POLICY_REQUIRED")
@@ -661,12 +662,15 @@ class UpstageTaggingTransport:
                     from proofops.application.tagging.k11_contract import elements as k11_elements
 
                     wire_system = k11_elements(
-                        schema, classification, policy=data["tagging_wire_policy"]
+                        schema,
+                        classification,
+                        policy=data["tagging_wire_policy"],
+                        quality_policy=quality_policy,
                     )
                 else:
-                    wire_system = elements(schema, classification)
+                    wire_system = elements(schema, classification, quality_policy=quality_policy)
             else:
-                wire_system = elements_k4(schema, classification)
+                wire_system = elements_k4(schema, classification, quality_policy=quality_policy)
             if k9 and not k10:
                 from proofops.application.tagging.k9_contract import element_guidance_for
 

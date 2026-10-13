@@ -46,6 +46,7 @@ _SETTINGS_FIELDS = frozenset(
         "extraction_j8",
         "extraction_i3_wire",
         "extraction_i4_identity",
+        "extraction_qc_native_figures",
         "extraction_h1",
         "extraction_i5_tables",
         "extraction_k6",
@@ -371,6 +372,10 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
                 selected_policy.get("activity_table_policy")
             ):
                 raise ValueError("Q1_EXTRACTION_PROFILE_MISMATCH")
+            if bool(settings.get("extraction_qc_native_figures", False)) != bool(
+                selected_policy.get("native_figure_policy")
+            ):
+                raise ValueError("QC_NATIVE_FIGURE_PROFILE_MISMATCH")
             prompt_profile = selected_policy.get("tagging_prompt_profile")
             if prompt_profile:
                 from proofops.application.tagging.finals_i4 import (
@@ -444,6 +449,7 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         "extraction_j8",
         "extraction_i3_wire",
         "extraction_i4_identity",
+        "extraction_qc_native_figures",
         "extraction_h1",
         "extraction_i5_tables",
         "extraction_k6",

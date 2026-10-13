@@ -330,6 +330,9 @@ def build_composition(
                         extraction_j8=settings.get("extraction_j8", False),
                         extraction_i3_wire=settings.get("extraction_i3_wire", False),
                         extraction_i4_identity=settings.get("extraction_i4_identity", False),
+                        extraction_qc_native_figures=settings.get(
+                            "extraction_qc_native_figures", False
+                        ),
                         extraction_h1=settings.get("extraction_h1", False),
                         extraction_i5_tables=settings.get("extraction_i5_tables", False),
                         extraction_k6=settings.get("extraction_k6", False),
@@ -370,6 +373,9 @@ def build_composition(
                     extraction_j8=settings.get("extraction_j8", False),
                     extraction_i3_wire=settings.get("extraction_i3_wire", False),
                     extraction_i4_identity=settings.get("extraction_i4_identity", False),
+                    extraction_qc_native_figures=settings.get(
+                        "extraction_qc_native_figures", False
+                    ),
                     extraction_h1=settings.get("extraction_h1", False),
                     extraction_i5_tables=settings.get("extraction_i5_tables", False),
                     extraction_k6=settings.get("extraction_k6", False),

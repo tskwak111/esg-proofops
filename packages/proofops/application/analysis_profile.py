@@ -7,6 +7,7 @@ from proofops.application.ingest.j8_cells import POLICY as J8_CELLS_POLICY
 from proofops.application.ingest.k1_boundaries import POLICY_HASH as K1_BOUNDARY_HASH
 from proofops.application.ingest.k3_table_routing import POLICY as K3_ROUTING_POLICY
 from proofops.application.ingest.k5_context import POLICY as K5_CONTEXT_POLICY
+from proofops.application.ingest.k6_coverage import FIGURE_POLICY as QC2_FIGURE_POLICY
 from proofops.application.ingest.k6_coverage import POLICY as K6_COVERAGE_POLICY
 from proofops.application.ingest.q1_tables import POLICY as Q1_TABLE_POLICY
 from proofops.application.ingest.sentence_prefix import POLICY as PREFIX_POLICY
@@ -57,6 +58,7 @@ from proofops.application.tagging.k10_contract import SEMANTIC_V2_POLICY as K10_
 from proofops.application.tagging.k11_contract import WIRE_POLICY as K11_WIRE_POLICY
 from proofops.application.tagging.k11_contract import WIRE_V1_POLICY as K11_WIRE_V1_POLICY
 from proofops.application.tagging.q1_contract import PROMPT_POLICY as Q1_PROMPT_POLICY
+from proofops.application.tagging.q1_contract import QA2_POLICY
 from proofops.application.tagging.q1_contract import SEMANTIC_POLICY as Q1_SEMANTIC_POLICY
 from proofops.application.tagging.quality import ELEMENT_DEFINITIONS_HASH
 from proofops.application.tagging.semantic_admission import POLICY as W8_POLICY
@@ -718,7 +720,15 @@ FINALS_H7_POLICY = FINALS_H6_POLICY | dict(
 FINALS_I13_POLICY = FINALS_H7_POLICY | dict(
     integration_profile="finals-20261013-v14",
 )
-V2_POLICY = FINALS_I13_POLICY
+# I15: activate QA2 admission and QC2 candidate discovery only for new runs.
+FINALS_I15_POLICY = FINALS_I13_POLICY | dict(
+    integration_profile="finals-20261014-v15",
+    structural_quality_policy=QA2_POLICY,
+    structural_quality_policy_sha256=canonical_hash(QA2_POLICY),
+    native_figure_policy=QC2_FIGURE_POLICY,
+    native_figure_policy_sha256=canonical_hash(QC2_FIGURE_POLICY),
+)
+V2_POLICY = FINALS_I15_POLICY
 
 
 def policy_for(profile, *, pinned_hash=None):
@@ -748,6 +758,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_I13_POLICY,
             FINALS_I12_POLICY,
             FINALS_I11_POLICY,
             FINALS_K11_V1_POLICY,
@@ -861,6 +872,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FINALS_I13_POLICY,
             FINALS_I12_POLICY,
             FINALS_I11_POLICY,
             FINALS_K11_V1_POLICY,
@@ -930,6 +942,7 @@ def apply_pilot_profile(args):
     args.analysis_policy_sha256 = canonical_hash(selected)
     args.tagging_prompt_profile = selected.get("tagging_prompt_profile")
     args.extraction_i4_identity = bool(selected.get("extraction_selection_ids"))
+    args.extraction_qc_native_figures = bool(selected.get("native_figure_policy"))
     args.parser_local_resource_policy = selected.get("local_resource_policy")
     args.parser_failure_policy = selected.get("parser_failure_policy")
     if selected.get("parser_source_recovery"):

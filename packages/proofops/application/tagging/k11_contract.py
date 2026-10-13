@@ -39,11 +39,11 @@ WIRE_POLICY = WIRE_V1_POLICY | dict(
 )
 
 
-def elements(schema, classification, *, policy=WIRE_POLICY):
+def elements(schema, classification, *, policy=WIRE_POLICY, quality_policy=None):
     from proofops.application.tagging.k10_contract import elements as previous
 
     if policy not in (WIRE_V1_POLICY, WIRE_POLICY):
         raise ValueError("K11_WIRE_POLICY_MISMATCH")
-    rendered = previous(schema, classification)
+    rendered = previous(schema, classification, quality_policy=quality_policy)
     guidance = GUIDANCE_V1 if policy == WIRE_V1_POLICY else GUIDANCE
     return rendered + (guidance if classification["track"] == "goal" else "")

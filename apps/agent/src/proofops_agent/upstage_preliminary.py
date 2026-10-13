@@ -441,6 +441,12 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
             if user["k9_targeted_wire_policy"] not in (BINDING_POLICY, BINDING_V4_POLICY):
                 raise ValueError("K9_BINDING_POLICY_MISMATCH")
             expected_keys = expected_keys | {"k9_targeted_wire_policy"}
+        quality_policy = user.get("structural_quality_policy") if isinstance(user, dict) else None
+        if quality_policy is not None:
+            from proofops.application.tagging.q1_contract import validate_policy
+
+            validate_policy(quality_policy)
+            expected_keys = expected_keys | {"structural_quality_policy"}
         if catalog is not None:
             expected_keys = expected_keys | {"display_text"}
             if isinstance(user, dict) and "preliminary_recovery_policy" in user:
@@ -619,6 +625,11 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
                 system = renderer(json.loads(schema_json), quote=quote)
             else:
                 system = renderer(json.loads(schema_json))
+        if quality_policy is not None:
+            from proofops.application.tagging.finals_i4 import _quality_guidance
+
+            system += _quality_guidance(quality_policy, preliminary=True)
+            user.pop("structural_quality_policy")
         wire_user = json.dumps(user, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         return system, wire_user, {}, authorization, schema_json
 

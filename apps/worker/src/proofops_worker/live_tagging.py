@@ -702,6 +702,14 @@ class LiveTaggingRuntime:
                 "local_implementation_binding_policy"
             ]
 
+        quality_policy = self.snapshot.get("analysis_profile_policy", {}).get(
+            "structural_quality_policy"
+        )
+        from proofops.application.tagging.q1_contract import QUALITY_POLICIES
+
+        if quality_policy in QUALITY_POLICIES:
+            packet["structural_quality_policy"] = quality_policy
+
         def validate(raw):
             restoration = {}
             if display_catalog is not None:

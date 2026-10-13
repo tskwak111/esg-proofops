@@ -9,7 +9,9 @@ from proofops.domain.provenance import canonical_hash
 
 
 def test_v14_default_is_exact_h7_contract_with_a_new_pin():
-    selected = profiles.policy_for(profiles.V2_PROFILE)
+    selected = profiles.policy_for(
+        profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_I13_POLICY)
+    )
     assert selected == profiles.FINALS_I13_POLICY
     assert selected == profiles.FINALS_H7_POLICY | dict(integration_profile="finals-20261013-v14")
     assert canonical_hash(selected) == (
@@ -58,6 +60,7 @@ def test_historical_pins_remain_exact_for_read_and_publication(policy, digest):
 def test_v14_pilot_wires_h6_parser_and_h7_reader_without_upgrading_resumes():
     args = Namespace(
         analysis_profile=profiles.V2_PROFILE,
+        analysis_policy_sha256=canonical_hash(profiles.FINALS_I13_POLICY),
         resume=False,
     )
     profiles.apply_pilot_profile(args)

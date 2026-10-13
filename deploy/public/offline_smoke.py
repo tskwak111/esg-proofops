@@ -117,9 +117,16 @@ def verify():
     message = JobMessage(**local_run["parse_job"])
     policy = jobs.parser_native_policy(message)
     assert policy == page_ocr_profile(manifest["claim_source_profile"]).native_policy()
-    assert V2_POLICY["integration_profile"] == "finals-20261013-v14"
+    assert V2_POLICY["integration_profile"] == "finals-20261014-v15"
     assert manifest["claim_source_profile"] == "upstage-ocr-page-v15"
     assert manifest["analysis_policy_sha256"] == canonical_hash(V2_POLICY)
+    assert manifest["extraction_qc_native_figures"] is True
+    saved_settings = json.loads((state / "settings.json").read_text())
+    assert saved_settings["extraction_qc_native_figures"] is True
+    from proofops.application.tagging.q1_contract import QA2_POLICY
+
+    assert V2_POLICY["structural_quality_policy"] == QA2_POLICY
+
     snapshot_sha = hashlib.sha256((state / "result-1.json").read_bytes()).hexdigest()
     if record.get("snapshot_sha256"):
         assert record["snapshot_sha256"] == snapshot_sha

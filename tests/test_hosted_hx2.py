@@ -96,7 +96,11 @@ def test_new_registry_entry_needs_no_separate_native_binding_or_replay_allowlist
 def test_public_default_upload_binding_parse_extract_tag_publication(
     settings, tmp_path, monkeypatch
 ):
+    import pypdfium2  # Load the host library before the simulated Linux platform.
+
     from evaluation.hosted_r108 import drive
+
+    assert pypdfium2
 
     monkeypatch.setattr(os, "environ", os.environ.copy())
     monkeypatch.delenv("HOSTED_ANALYSIS_PROFILE", raising=False)
@@ -157,9 +161,16 @@ def test_public_default_upload_binding_parse_extract_tag_publication(
     assert not data["hold_reasons"]
     state = store.document_dir(tenant, document) / "analysis" / done["run_id"]
     manifest = json.loads((state / "pilot.json").read_text())
-    assert V2_POLICY["integration_profile"] == "finals-20261013-v14"
+    assert V2_POLICY["integration_profile"] == "finals-20261014-v15"
     assert manifest["claim_source_profile"] == "upstage-ocr-page-v15"
     assert manifest["analysis_policy_sha256"] == canonical_hash(V2_POLICY)
+    assert manifest["extraction_qc_native_figures"] is True
+    saved_settings = json.loads((state / "settings.json").read_text())
+    assert saved_settings["extraction_qc_native_figures"] is True
+    from proofops.application.tagging.q1_contract import QA2_POLICY
+
+    assert V2_POLICY["structural_quality_policy"] == QA2_POLICY
+
     from proofops.adapters.local.run_store import LocalSQLiteRunStore
 
     jobs = LocalSQLiteRunStore(state / "state.sqlite3").jobs

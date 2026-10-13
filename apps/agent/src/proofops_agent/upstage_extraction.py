@@ -2144,8 +2144,6 @@ class UpstageClaimExtractor:
         if self._j8:
             system_prompt += _j8_suffix()
             data["candidate_profile"] = "j8-owned-cell-candidates-v1"
-        if self._qc_native_figures:
-            system_prompt += _qc_figure_suffix()
         user_data: dict[str, Any] = {
             "tenant_id": packet["tenant_id"],
             "document_version_id": packet["document_version_id"],
@@ -2167,6 +2165,8 @@ class UpstageClaimExtractor:
             for i, entry in enumerate(user_data["untrusted_document_data"]["source_sentences"]):
                 entry["sentence_id"] = f"c{i}"
             system_prompt += _i4_identity_suffix()
+        if self._qc_native_figures:
+            system_prompt += _qc_figure_suffix()
         if self._j3:
             user_data["selected_span_policy_sha256"] = self._profile.rule_sha256
         content_sha = canonical_hash({"system_prompt": system_prompt, "user_data": user_data})

@@ -608,6 +608,23 @@ def load_run_evidence(store, uploads, parser, *, tenant_id: str, run_id: str):
         table_read_metadata,
     )
 
+    # Parser checkpoint hashes describe the original graph. QC2 derives only a
+    # new discovery graph after all original-source replay checks have passed;
+    # extraction, tagging and historical claim reads must use the same projection.
+    if snapshot.get("analysis_profile_policy", {}).get("native_figure_policy"):
+        from proofops.adapters.local.h1_native_title import native_figure_candidates
+        from proofops.application.analysis_profile import policy_for
+        from proofops.application.ingest.k6_coverage import FIGURE_POLICY
+
+        selected = policy_for(
+            snapshot["pipeline_profile"], pinned_hash=snapshot["analysis_profile_policy_sha256"]
+        )
+        if selected.get("native_figure_policy") != FIGURE_POLICY or selected.get(
+            "native_figure_policy_sha256"
+        ) != canonical_hash(FIGURE_POLICY):
+            raise ParseFailure("QC_NATIVE_FIGURE_PROFILE_MISMATCH")
+        graph, _ = native_figure_candidates(graph, source.content)
+
     compatibility = [table_read_metadata(graph)]
     if native_receipt is not None:
         compatibility.append(receipt_read_metadata(native_receipt))
