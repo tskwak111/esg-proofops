@@ -220,6 +220,33 @@ def test_join_preserves_fragment_refs_and_requests_the_whole_span():
     assert asdict(replay) == asdict(graph)
 
 
+def test_qc_existing_ps1_restores_esg_reporting_with_exclusion_and_both_refs():
+    first = "We report renewable energy performance to the ESG"
+    last = "committee regularly, except the cancelled project."
+    source, manifest, run = fixture([(30, 50, first), (30, 64, last)])
+    original = batch(
+        source,
+        manifest,
+        run,
+        [
+            block(source, manifest, run, "front", first, (30, 40, 290, 52)),
+            block(source, manifest, run, "tail", last, (30, 54, 280, 66)),
+        ],
+    )
+    recovered, receipt = recover(source, [original])
+    assert receipt["joined"] == 1
+    assert [b.source.raw_text for b in recovered[0].blocks[:2]] == [first, last]
+    graph = fuse_candidates(recovered, tenant_id=source.tenant_id)
+    from proofops.application.ingest.source_continuations import continuations, fragment_refs
+
+    (parts,) = continuations(graph).values()
+    refs = fragment_refs(parts, 0, len(first) + 1 + len(last))
+    assert [r.quote for r in refs] == [first, last]
+    assert all(r.verification_state == "candidate" for r in refs)
+    assert receipt["joins"][0]["quote"] == first + "\n" + last
+    assert "cancelled" in refs[-1].quote
+
+
 @pytest.mark.parametrize(
     "kind,text,box",
     [

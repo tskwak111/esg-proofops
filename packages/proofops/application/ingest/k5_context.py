@@ -168,7 +168,12 @@ def sentence_context(claim, graph):
     block = next((b for b in graph.blocks if b.source_id == focal.source_id), None)
     if block is None or block.winner is None or block.bbox is None:
         return None
-    if block.kind == "table":
+    from proofops.application.ingest.k6_coverage import native_figure_context_blocks
+
+    native_context = native_figure_context_blocks(block, graph)
+    if native_context:
+        refs = [_ref(b, 0, len(b.raw_text), graph) for b in native_context]
+    elif block.kind == "table":
         refs = _table_refs(block, focal, graph)
     elif _prose(block):
         start, end = _bounds(block.raw_text, focal.char_start, focal.char_end)

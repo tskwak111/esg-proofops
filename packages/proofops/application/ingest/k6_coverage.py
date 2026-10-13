@@ -1,5 +1,6 @@
 """Explicit observed headers and literal target rescue; no source/grade credit."""
 
+import json
 import re
 
 from proofops.application.ingest import w9_tables as w9
@@ -21,6 +22,110 @@ POLICY = dict(
     evidence="same-checked-parser-grid; no-source-or-tag-credit; reverify-new-spans",
     old_policy="default-w9-parameters-and-I4-selections-unchanged",
 )
+
+# Separate opt-in contract: the historical K6 policy and its hash stay frozen.
+FIGURE_V1_MARKER = "qc-native-figure-bullets-v1"
+FIGURE_BULLET = r"(?m)^[ \t]*[•▪●\-][ \t]+"
+FIGURE_END = (
+    r"(?:운영|이행|수행|추진|수립|관리|지원|설치|감축|전환|실시|취소|제외|보류)"
+    r"(?:합니다|했습니다|하고 있습니다|한다|함)?[.!。]?\s*$"
+)
+FIGURE_V1_POLICY = dict(
+    profile=FIGURE_V1_MARKER,
+    text="contiguous-original-PDFium-codepoints; located-glyphs-in-own-figure-region",
+    bullets=FIGURE_BULLET,
+    complete_ending=FIGURE_END,
+    english="complete-sentence-with-explicit-action-predicate",
+    layout="no-upward-native-order-jump-over-4pt; no-line-gap-over-24pt",
+    selection="whole-literal-bullet; model-selects-source-ID; no-caption-text",
+    authority="candidate-only; fresh-source-verification-and-three-independent-tags-required",
+    max_chars=2000,
+    max_bullets=24,
+)
+FIGURE_MARKER = "qc-native-figure-bullets-v2"
+FIGURE_CONTEXT_MARKER = "qc-native-figure-context-v2"
+FIGURE_POLICY = FIGURE_V1_POLICY | dict(
+    profile=FIGURE_MARKER,
+    context="all-native-groups-in-own-figure; source-bound-interpretation-only; no-truncation",
+    ambiguity="clipped-glyph-or-unbounded-context-defers-whole-figure",
+    max_context_groups=24,
+)
+
+
+def native_figure_context_blocks(block, graph):
+    """Resolve mandatory native context only for the new opt-in candidate graph."""
+    if block.winner is None:
+        return ()
+    context = block.candidates[block.winner].context
+    if FIGURE_MARKER not in context:
+        return ()  # historical candidate graphs keep their original interpretation
+    pins = [
+        c.removeprefix("qc_native_context_ids=")
+        for c in context
+        if c.startswith("qc_native_context_ids=")
+    ]
+    origins = [c for c in context if c.startswith("qc_native_origin=")]
+    policy = "qc_native_policy=" + canonical_hash(FIGURE_POLICY)
+    if len(pins) != 1 or len(origins) != 1 or policy not in context:
+        raise ValueError("QC_NATIVE_FIGURE_CONTEXT_INVALID")
+    ids = json.loads(pins[0])
+    if (
+        not isinstance(ids, list)
+        or not ids
+        or not all(isinstance(s, str) for s in ids)
+        or len(set(ids)) != len(ids)
+        or len(ids) > FIGURE_POLICY["max_context_groups"]
+    ):
+        raise ValueError("QC_NATIVE_FIGURE_CONTEXT_INVALID")
+    blocks = {b.source_id: b for b in graph.blocks}
+    result = tuple(blocks.get(s) for s in ids)
+    origin = origins[0].split("=", 1)[1]
+    for item in result:
+        if (
+            item is None
+            or item.winner is None
+            or item.page_num != block.page_num
+            or item.kind != "figure"
+            or item.bbox is None
+            or item.quality not in ("verified", "unverified")
+            or not {FIGURE_CONTEXT_MARKER, policy, origins[0]}.issubset(
+                item.candidates[item.winner].context
+            )
+            or not any(
+                e.source_id == item.source_id
+                and e.target_id == origin
+                and e.relation == "derived_from"
+                for e in graph.edges
+            )
+        ):
+            raise ValueError("QC_NATIVE_FIGURE_CONTEXT_INVALID")
+    if sum(len(b.raw_text) + 1 for b in result) > FIGURE_POLICY["max_chars"]:
+        raise ValueError("QC_NATIVE_FIGURE_CONTEXT_TOO_LARGE")
+    return result
+
+
+def native_figure_bullets(text):
+    """Offer complete literal bullets, retaining trailing conditions and exclusions."""
+    starts = [m.start() for m in re.finditer(FIGURE_BULLET, text)]
+    if not starts:
+        return []
+    result = []
+    for start, end in zip(starts, [*starts[1:], len(text)], strict=True):
+        while start < end and text[start].isspace():
+            start += 1
+        while end > start and text[end - 1].isspace():
+            end -= 1
+        quote = text[start:end]
+        english = re.search(
+            r"\b(?:operate|implemented|installed|manage|support|reduced|perform)\b.+[.!]\s*$",
+            quote,
+            re.I,
+        )
+        if 12 <= len(quote) <= FIGURE_POLICY["max_chars"] and (
+            re.search(FIGURE_END, quote) or english
+        ):
+            result.append((start, end, quote))
+    return result[: FIGURE_POLICY["max_bullets"]]
 
 
 def observations(text, *, cells=None, context="", limit=24):

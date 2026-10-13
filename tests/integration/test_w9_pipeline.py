@@ -149,3 +149,76 @@ def test_new_pilot_persists_w9_and_resume_keeps_its_pins(tmp_path, monkeypatch):
     assert pilot.main() == 0
     assert all((state / name).read_bytes() == raw for name, raw in saved.items())
     assert V2_POLICY["table_claims"] == PROFILE
+
+
+def test_native_figure_bullets_enter_real_discovery_only_by_opt_in(tmp_path):
+    from proofops.application.claims import ClaimScope, discover_atomic_claims
+    from proofops.application.ingest.graph_fusion import fuse_candidates
+    from proofops_agent.upstage_extraction import GraphBoundExtractor
+
+    from tests.integration.test_parser_source_recovery import batch, block, fixture
+
+    quote = "- We operate a renewable energy task force."
+    source, manifest, run = fixture([(30, 50, "Environment Department"), (30, 65, quote)])
+    original = batch(
+        source,
+        manifest,
+        run,
+        [
+            block(
+                source,
+                manifest,
+                run,
+                "diagram",
+                "Generated diagram description",
+                None,
+                kind="figure",
+                context=("provider_bbox=25,35,290,80", "vision_only"),
+            )
+        ],
+    )
+    graph = fuse_candidates((original,), tenant_id=source.tenant_id)
+
+    class Selector:
+        model = "solar-pro3"
+        calls = 0
+
+        def complete(self, system, user, *, request_id, **kwargs):
+            self.calls += 1
+            request = json.loads(user)
+            entries = request["untrusted_document_data"]["source_sentences"]
+            return dict(content=json.dumps({"sentence_ids": [e["sentence_id"] for e in entries]}))
+
+    options = dict(
+        extraction_source_ids=True,
+        extraction_context=True,
+        extraction_table_rows=True,
+        extraction_w9=True,
+        extraction_pb1=True,
+    )
+    probe = Selector()
+    old = UpstageClaimExtractor(probe, tmp_path / "old", **options)
+    scope = ClaimScope(source.tenant_id, source.document_version_id, manifest)
+    assert not discover_atomic_claims(
+        graph, scope, extractor=GraphBoundExtractor(old, graph)
+    ).claims
+    assert probe.calls == 0
+    new = UpstageClaimExtractor(
+        probe, tmp_path / "new", extraction_qc_native_figures=True, **options
+    )
+    bound = GraphBoundExtractor(new, graph, source.content)
+    discovered = discover_atomic_claims(bound.graph, scope, extractor=bound)
+    assert [c.quote for c in discovered.claims] == [quote]
+    assert probe.calls == 1
+    claim = discovered.claims[0]
+    assert claim.source_quality == "unverified"
+    assert all(r.verification_state == "candidate" for r in claim.source_refs)
+    assert all(b in bound.graph.blocks for b in graph.blocks)
+    assert (
+        bound.native_figure_receipt["candidates"][0]["origin_source_id"]
+        == graph.blocks[0].source_id
+    )
+    assert old.profile.rule_sha256 != new.profile.rule_sha256
+    assert old.profile.prompt_sha256 != new.profile.prompt_sha256
+    assert discover_atomic_claims(bound.graph, scope, extractor=bound) == discovered
+    assert probe.calls == 1  # immutable new-profile receipt replay
