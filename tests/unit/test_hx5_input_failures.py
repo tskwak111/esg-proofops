@@ -217,3 +217,38 @@ def test_scope_accepts_hosted_size_and_rejects_excess_before_read(tmp_path, monk
     with pytest.raises(ValueError, match="150 MiB"):
         with module.scope_input(source):
             pass
+
+
+def test_upload_metadata_contract_matches_hosted_limit():
+    from proofops.application.uploads import UploadRejected, validate_payload
+    from proofops_api.routers.documents import UploadComplete
+    from pydantic import ValidationError
+
+    body = dict(size_bytes=HOSTED_MAX_UPLOAD_BYTES, sha256="a" * 64)
+    assert validate_payload("complete", body) == body
+    assert UploadComplete(**body).size_bytes == HOSTED_MAX_UPLOAD_BYTES
+    oversized = body | dict(size_bytes=HOSTED_MAX_UPLOAD_BYTES + 1)
+    with pytest.raises(UploadRejected, match="UPLOAD_LIMIT_EXCEEDED"):
+        validate_payload("complete", oversized)
+    with pytest.raises(ValidationError):
+        UploadComplete(**oversized)
+
+
+def test_original_read_retains_large_upload_and_checks_integrity(tmp_path):
+    from proofops.application.uploads import UploadRejected, UploadService
+
+    path = tmp_path / "original/tenant/version.pdf"
+    path.parent.mkdir(parents=True)
+    with path.open("wb") as stream:
+        stream.truncate(100 * 1024 * 1024 + 1)
+    from hashlib import file_digest
+
+    with path.open("rb") as stream:
+        digest = file_digest(stream, "sha256").hexdigest()
+    snapshot = dict(metadata=dict(size_bytes=path.stat().st_size), sha256=digest)
+    owner = SimpleNamespace(root=tmp_path, version_snapshot=lambda *args: snapshot)
+    content = UploadService.read_original(owner, "tenant", "version")
+    assert len(content) == snapshot["metadata"]["size_bytes"]
+    snapshot["sha256"] = "0" * 64
+    with pytest.raises(UploadRejected, match="UPLOAD_INTEGRITY_MISMATCH"):
+        UploadService.read_original(owner, "tenant", "version")
