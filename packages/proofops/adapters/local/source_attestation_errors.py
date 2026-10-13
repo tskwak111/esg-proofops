@@ -9,6 +9,18 @@ def source_failure_code(error):
     if not isinstance(error, ValueError):
         return None
     code = str(error)
+    if code in {
+        "BUDGET_EXHAUSTED",
+        "H2_BUDGET_EXHAUSTED",
+        "H2_CUMULATIVE_BUDGET_EXHAUSTED",
+        "H3_BUDGET_EXHAUSTED",
+        "H3_CUMULATIVE_BUDGET_EXHAUSTED",
+        "H4_BUDGET_EXHAUSTED",
+        "H4_CUMULATIVE_BUDGET_EXHAUSTED",
+        "H5_BUDGET_EXHAUSTED",
+        "H5_CUMULATIVE_BUDGET_EXHAUSTED",
+    }:
+        return "BUDGET_EXHAUSTED"
     if code.startswith(
         (
             "OCR_COLLECTION_FAILED_RESERVATION_RETAINED:",

@@ -20,6 +20,13 @@ def test_original_large_pdf_page_is_render_limit_without_paid_ocr():
     assert source_failure_code(ValueError("SOURCE_INTEGRITY_MISMATCH")) is None
 
 
+@pytest.mark.parametrize("code", ["H2_CUMULATIVE_BUDGET_EXHAUSTED", "H5_BUDGET_EXHAUSTED"])
+def test_source_ocr_budget_stop_is_not_mislabeled_as_pdf_parse_failure(code):
+    from proofops.adapters.local.source_attestation_errors import source_failure_code
+
+    assert source_failure_code(ValueError(code)) == "BUDGET_EXHAUSTED"
+
+
 def test_pdfminer_eof_is_specific_and_keeps_private_diagnostic(tmp_path, monkeypatch):
     from contextlib import contextmanager
 
