@@ -706,13 +706,19 @@ FINALS_H6_POLICY = FINALS_K11_POLICY | dict(
 FINALS_I12_POLICY = FINALS_H6_POLICY | dict(
     integration_profile="finals-20261013-v13",
 )
-V2_POLICY = FINALS_I12_POLICY
 
 
 FINALS_H7_POLICY = FINALS_H6_POLICY | dict(
     integration_profile="finals-20261013-h7-original-source-v1",
     source="upstage-ocr-page-v15",
 )
+
+
+# I13: enable H7 for new runs; historical policies remain explicitly selectable.
+FINALS_I13_POLICY = FINALS_H7_POLICY | dict(
+    integration_profile="finals-20261013-v14",
+)
+V2_POLICY = FINALS_I13_POLICY
 
 
 def policy_for(profile, *, pinned_hash=None):
@@ -742,6 +748,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_I12_POLICY,
             FINALS_I11_POLICY,
             FINALS_K11_V1_POLICY,
             FINALS_K11_POLICY,
@@ -854,6 +861,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FINALS_I12_POLICY,
             FINALS_I11_POLICY,
             FINALS_K11_V1_POLICY,
             FINALS_K11_POLICY,

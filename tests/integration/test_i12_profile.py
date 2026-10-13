@@ -8,8 +8,10 @@ from proofops.application.tagging.fact_assembly_c3 import PROFILE, REVIEWED_IDEN
 from proofops.domain.provenance import canonical_hash
 
 
-def test_v13_default_is_exact_h6_contract_with_a_new_pin():
-    selected = profiles.policy_for(profiles.V2_PROFILE)
+def test_v13_pin_is_exact_h6_contract_with_a_new_pin():
+    selected = profiles.policy_for(
+        profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_I12_POLICY)
+    )
     assert selected == profiles.FINALS_I12_POLICY
     assert selected == profiles.FINALS_H6_POLICY | dict(integration_profile="finals-20261013-v13")
     assert canonical_hash(selected) == (
@@ -18,7 +20,10 @@ def test_v13_default_is_exact_h6_contract_with_a_new_pin():
     assert selected["tagging_wire_policy"] == profiles.FINALS_K11_POLICY["tagging_wire_policy"]
     assert selected["general_certification"]["enabled"] is False
     assert selected["replicas"] == 3
-    assert profiles.publication_policy_for(profiles.V2_PROFILE) == selected
+    assert (
+        profiles.publication_policy_for(profiles.V2_PROFILE, pinned_hash=canonical_hash(selected))
+        == selected
+    )
 
 
 @pytest.mark.parametrize(
@@ -45,7 +50,11 @@ def test_historical_pins_remain_exact_for_read_and_publication(policy, digest):
 
 
 def test_v13_pilot_wires_h6_parser_and_reader_without_upgrading_resumes():
-    args = Namespace(analysis_profile=profiles.V2_PROFILE, resume=False)
+    args = Namespace(
+        analysis_profile=profiles.V2_PROFILE,
+        resume=False,
+        analysis_policy_sha256=canonical_hash(profiles.FINALS_I12_POLICY),
+    )
     profiles.apply_pilot_profile(args)
     assert args.analysis_policy_sha256 == canonical_hash(profiles.FINALS_I12_POLICY)
     assert args.parser_local_resource_policy == "selected-pdf-h6-v1"
