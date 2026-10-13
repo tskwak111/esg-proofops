@@ -518,6 +518,12 @@ def load_run_evidence(store, uploads, parser, *, tenant_id: str, run_id: str):
         from proofops.adapters.local.verified_read_cache import replay_cached as replay_verified
 
         def replay_native(r, g, s, *, tenant_id):
+            if (native_policy or {}).get("mode") == "upstage-ocr-page-v16":
+                from proofops.adapters.local import upstage_ocr_profile_v16 as hx4
+
+                if native_policy != hx4.native_policy():
+                    raise ValueError("OCR_POLICY_OR_RUN_MISMATCH")
+                return hx4.for_run(r["run_id"]).replay_native_sources(r, g, s, tenant_id=tenant_id)
             if (native_policy or {}).get("mode") == "upstage-ocr-page-v15":
                 from proofops.adapters.local import upstage_ocr_profile_v15 as h7
 

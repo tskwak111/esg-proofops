@@ -42,7 +42,12 @@ from proofops.application.ingest.graph_fusion import (
 )
 from proofops.application.ports.parsing import ParserPort
 from proofops.application.uploads_security import PdfLimits, QuarantinedPdf, verify_quarantined_pdf
-from proofops.domain.documents import NativeSource, PageGeometry, _compose_affine
+from proofops.domain.documents import (
+    NativeSource,
+    PageGeometry,
+    _compose_affine,
+    _require_finite_bbox,
+)
 from proofops.domain.errors import DomainValidationError
 
 
@@ -80,6 +85,7 @@ def _table_verifier(policy_hash):
         "upstage-ocr-page-v10",
         "upstage-ocr-page-v14",
         "upstage-ocr-page-v15",
+        "upstage-ocr-page-v16",
     ):
         profile = page_ocr_profile(name)
         if policy_hash == profile.table_policy_sha256():
@@ -120,6 +126,7 @@ def _locates_auxiliary_cells(profile):
                 "upstage-ocr-page-v10",
                 "upstage-ocr-page-v14",
                 "upstage-ocr-page-v15",
+                "upstage-ocr-page-v16",
             )
         ),
     }
@@ -190,17 +197,24 @@ def _batch(
     edges: list[CandidateEdge] = []
     if not isinstance(raw.get("kids"), list):
         raise ParseFailure("PARSER_SCHEMA_INVALID")
-    stack: list[tuple[dict[str, Any], str | None, int | None, str | None, int]] = [
-        (node, None, None, None, 0) for node in reversed(raw["kids"])
-    ]
+    partial_blocks = profile.failure_policy == "partial-v4"
+    occurrences: dict[str, int] = {}
+    stack = [(node, None, None, None, 0, False) for node in reversed(raw["kids"])]
     while stack:
-        node, parent, inherited_page, table_id, depth = stack.pop()
+        node, parent, inherited_page, table_id, depth, geometry_hold = stack.pop()
         if not isinstance(node, dict) or depth > 100 or len(blocks) >= 100000:
             raise ParseFailure("PARSER_OUTPUT_LIMIT")
         native_id = str(node["id"])
         page = node.get("page number", inherited_page)
         if type(page) is not int or str(page) not in geometries:
             raise ParseFailure("PARSER_PAGE_MAPPING_INVALID")
+        if partial_blocks:
+            # ODL reuses IDs on different pages within the same JVM output.
+            # Qualify each occurrence before constructing parent/table edges.
+            key = f"hx4-p{page}-{native_id}"
+            occurrence = occurrences.get(key, 0)
+            occurrences[key] = occurrence + 1
+            native_id = f"{key}-n{occurrence}"
         info = geometries[str(page)]
         geometry = _geometry(info["crop"])
         kind = {
@@ -236,7 +250,20 @@ def _batch(
             to_canonical = (1.0, 0.0, 0.0, -1.0, 0.0, geometry.height_pt)
             to_native = _compose_affine(invert_affine(geometry.to_canonical_affine()), to_canonical)
             coordinate_system = "opendataloader_display_bottom_left_points"
-        native_bbox = _transform_box(raw_bbox, to_native)
+        try:
+            native_bbox = _transform_box(raw_bbox, to_native)
+            if native_bbox is not None:
+                _require_finite_bbox("native_bbox", native_bbox)
+        except (ParseFailure, DomainValidationError) as error:
+            if not partial_blocks or (
+                isinstance(error, ParseFailure) and str(error) != "PARSER_GEOMETRY_INVALID"
+            ):
+                raise
+            geometry_hold = True
+        if geometry_hold:
+            # Raw JSON retains the rejected coordinates. An unknown, unlocated
+            # candidate cannot be admitted as prose or borrowed as a table owner.
+            native_bbox, raw_bbox, kind = None, None, "unknown"
         text = _node_text(node)
         native = NativeSource(
             source.document_version_id,
@@ -254,6 +281,8 @@ def _batch(
         context = tuple(
             f"{key}={node[key]}" for key in ("row number", "column number") if key in node
         )
+        if geometry_hold:
+            context += ("hx4_geometry_invalid=true",)
         blocks.append(
             CandidateBlock(
                 kind,
@@ -279,7 +308,7 @@ def _batch(
             child for key in ("kids", "rows", "cells", "list items") for child in node.get(key, [])
         ]
         for child in reversed(children):
-            stack.append((child, native_id, page, table_id, depth + 1))
+            stack.append((child, native_id, page, table_id, depth + 1, geometry_hold))
     name = "pdfplumber" if auxiliary else "opendataloader"
     return CandidateBatch(
         source.tenant_id,
@@ -317,6 +346,17 @@ def _with_quality_issues(graph, selected, profile, vision_pages=()):
                 )
             )
     for block in graph.blocks:
+        if any("hx4_geometry_invalid=true" in c.context for c in block.candidates):
+            issues.append(
+                QualityIssue(
+                    str(uuid5(UUID(block.source_id), "hx4-geometry-invalid")),
+                    "source_geometry_invalid",
+                    block.page_num,
+                    (block.source_id,),
+                    "unreadable",
+                    "Invalid parser coordinates retained in raw artifacts; source unresolved.",
+                )
+            )
         if (
             block.kind == "table"
             and block.page_num not in vision_pages
@@ -512,11 +552,12 @@ class OpenDataLoaderParser(ParserPort):
                             "partial-v1",
                             "partial-v2",
                             "partial-v3",
+                            "partial-v4",
                         } and (
                             str(exc).startswith("UPSTAGE_")
                             or str(exc).endswith("BUDGET_EXHAUSTED")
                             or (
-                                profile.failure_policy == "partial-v3"
+                                profile.failure_policy in {"partial-v3", "partial-v4"}
                                 and str(exc)
                                 in {"PARSER_SUBSET_PDF_INVALID", "PARSER_NATIVE_TEXT_UNREADABLE"}
                             )
@@ -590,6 +631,7 @@ class OpenDataLoaderParser(ParserPort):
                                 "partial-v1",
                                 "partial-v2",
                                 "partial-v3",
+                                "partial-v4",
                             } and (
                                 str(exc).startswith("UPSTAGE_")
                                 or str(exc).endswith("BUDGET_EXHAUSTED")
@@ -667,7 +709,12 @@ class OpenDataLoaderParser(ParserPort):
                         ),
                         fallback_pages=fallback_pages,
                     )
-                    if profile.failure_policy in {"partial-v1", "partial-v2", "partial-v3"}:
+                    if profile.failure_policy in {
+                        "partial-v1",
+                        "partial-v2",
+                        "partial-v3",
+                        "partial-v4",
+                    }:
                         upstage_output["failed_batches"] = failed_batches
                         if standard_failure is not None:
                             upstage_output["standard"]["error_code"] = standard_failure[
@@ -742,7 +789,7 @@ class OpenDataLoaderParser(ParserPort):
                             source, tuple(candidates), references=recovery_references
                         )
                     except PdfminerException:
-                        if profile.failure_policy != "partial-v3":
+                        if profile.failure_policy not in {"partial-v3", "partial-v4"}:
                             raise
                         recovered = tuple(candidates)
                         recovery = dict(
@@ -777,7 +824,7 @@ class OpenDataLoaderParser(ParserPort):
                     graph, failures(json.loads((work / "h6-local.json").read_bytes()))
                 )
             if (
-                profile.failure_policy in {"partial-v1", "partial-v2", "partial-v3"}
+                profile.failure_policy in {"partial-v1", "partial-v2", "partial-v3", "partial-v4"}
                 and upstage_output is not None
             ):
                 from proofops.adapters.parsing.mixed_routing import with_failures
@@ -810,6 +857,7 @@ class OpenDataLoaderParser(ParserPort):
                     "upstage-ocr-page-v10",
                     "upstage-ocr-page-v14",
                     "upstage-ocr-page-v15",
+                    "upstage-ocr-page-v16",
                 }:
                     if page_reader is None:
                         raise ParseFailure("OCR_RUN_REQUIRED")
@@ -1075,6 +1123,7 @@ class OpenDataLoaderParser(ParserPort):
                         "partial-v1",
                         "partial-v2",
                         "partial-v3",
+                        "partial-v4",
                     }:
                         if record.get("raw_batches") != [] or not any(
                             f["mode"] == "standard" and f["error_code"] == record.get("error_code")
@@ -1171,7 +1220,7 @@ class OpenDataLoaderParser(ParserPort):
 
                 restored = with_failures(restored, failures(values["h6-local.json"]))
             if (
-                profile.failure_policy in {"partial-v1", "partial-v2", "partial-v3"}
+                profile.failure_policy in {"partial-v1", "partial-v2", "partial-v3", "partial-v4"}
                 and upstage_output is not None
             ):
                 from proofops.adapters.parsing.mixed_routing import with_failures
