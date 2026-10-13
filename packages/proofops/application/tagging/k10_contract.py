@@ -67,11 +67,11 @@ def guard(element, *, policy=SEMANTIC_POLICY):
     )
 
 
-def elements(schema, classification):
+def elements(schema, classification, *, quality_policy=None):
     """Short common contract with the unchanged track-specific rule cards and tail."""
     from proofops.application.tagging.finals_i4 import elements_k4
 
-    rendered = elements_k4(schema, classification)
+    rendered = elements_k4(schema, classification, quality_policy=quality_policy)
     marker = "This rule reference is tagging guidance, not an approval of the draft rulepack."
     _, tail = rendered.split(marker, 1)
     return (

@@ -240,6 +240,9 @@ def tag_replicates(
     local_recovery = data.get("local_element_recovery_policy")
     implementation_binding = data.get("local_implementation_binding_policy")
     structural_policy = data.get("structural_quality_policy")
+    from proofops.application.tagging.q1_contract import QA2_POLICY, QUALITY_POLICIES
+
+    r12_quality = structural_policy in QUALITY_POLICIES
     if structural_policy is not None:
         from proofops.application.tagging.q1_contract import validate_policy as validate_structural
 
@@ -752,6 +755,7 @@ def tag_replicates(
                         policy=data["table_evidence_policy"],
                     )
                 state = element.state
+                binding_reasons: list[str] = []
                 if (
                     implementation_binding is not None
                     and element.element_id == "G4"
@@ -803,9 +807,16 @@ def tag_replicates(
                             not in definitions[element.element_id]["source_scopes"]
                         ):
                             state = "unknown"
+                            if r12_quality:
+                                binding_reasons.append("evidence_catalog_rejected")
                             break
                         verified = verify_source_ref(source, original, tenant_id=tenant_id)
-                        if verified.verification_state != "verified" or (
+                        if verified.verification_state != "verified":
+                            state = "unknown"
+                            if r12_quality:
+                                binding_reasons.append("source_unverified")
+                            break
+                        if (
                             not table_selected
                             and accept_binding(
                                 context,
@@ -818,6 +829,7 @@ def tag_replicates(
                                 local_value_identity=local_recovery is not None,
                                 local_binding_policy=implementation_binding,
                                 structural_policy=structural_policy,
+                                diagnostics=binding_reasons if r12_quality else None,
                             )
                             != "accepted"
                         ):
@@ -877,6 +889,17 @@ def tag_replicates(
                     )
                     if admitted.state != "present":
                         state, semantic_reason = admitted.state, admitted.reason_code
+                if structural_policy == QA2_POLICY and state == "present":
+                    from proofops.application.tagging.q1_contract import (
+                        future_implementation_guard,
+                    )
+
+                    admitted = future_implementation_guard(
+                        replace(element, evidence_refs=tuple(refs)),
+                        claim_quote=claim.quote,
+                    )
+                    if admitted.state != "present":
+                        state, semantic_reason = admitted.state, admitted.reason_code
                 if element.element_id == "P6" and element.state in ("present", "conflict"):
                     # Both agreement AND contradiction require the numeric service.
                     # Retain the raw vote and citations for review, never a model verdict.
@@ -884,6 +907,9 @@ def tag_replicates(
                     errors.append("DETERMINISTIC_CHECK_REQUIRED:P6")
                 if state in ("unknown", "conflict"):
                     errors.append(f"UNRESOLVED:{element.element_id}")
+                    errors.extend(
+                        f"UNRESOLVED:{element.element_id}:{reason}" for reason in binding_reasons
+                    )
                     if scope_reason:
                         errors.append(f"{scope_reason}:{element.element_id}")
                 scope = next(
@@ -913,8 +939,9 @@ def tag_replicates(
                         evidence_refs=tuple(refs) if state == "present" else element.evidence_refs,
                         normalized_value=element.normalized_value if state == "present" else None,
                         credited_from=element.credited_from if state == "present" else None,
-                        reason_code=semantic_reason or scope_reason
-                        if (semantic_reason or scope_reason) and state == "unknown"
+                        reason_code=semantic_reason or scope_reason or binding_reasons[0]
+                        if (semantic_reason or scope_reason or binding_reasons)
+                        and state == "unknown"
                         else element.reason_code,
                     )
                 )

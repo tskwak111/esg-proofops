@@ -2,6 +2,7 @@
 
 import re
 from dataclasses import asdict, replace
+from datetime import date
 
 from proofops.application.tagging.k4_contract import SEMANTIC_POLICY as BASE
 from proofops.application.tagging.k9_contract import PRELIMINARY as K9_PRELIMINARY
@@ -81,13 +82,66 @@ SEMANTIC_POLICY = BASE | dict(
     category="verified-local-forecast-candidate; retag-and-GAP-001-hold; no-legal-effect",
 )
 
+# Internal opt-in only: historical policy dictionaries and prompt bytes remain pinned.
+R12_CLASSIFICATION_GUIDANCE = (
+    "\nR12-F1: 술어·수량·진행 상태로 분류한다. 정량 없는 교육 실시·조사 수행과 "
+    "명시적 승인·감독·보고 절차는 management 후보, 수료 인원 등 직접 수치 보고는 "
+    "performance 후보, 교육 예정·달성 목표는 goal 후보다. 시제만으로 선택하지 않는다. "
+    "혼합 주장은 원자 분리 검토 대상으로 남기며 한 트랙으로 강제하지 않는다."
+)
+R12_ELEMENT_GUIDANCE = (
+    "\nR12-F1: M1의 명시적 교육·조사 방법 또는 승인·감독·보고 절차, M4의 구체 실시 "
+    "사실, M5의 담당조직·역할은 각각 독립된 원문 인용으로 태깅한다. M5를 M1에 복사하지 "
+    "않으며 역할·예정·대응 방안만으로 M4 완료 실적을 만들지 않는다. ISO 내부심사원 "
+    "교육은 교육 자체의 외부인증 M3가 아니고 ISCC 획득 대응 방안은 인증 보유가 아니다. "
+    "M3는 별도 직접 외부검증 원문이 없으면 unknown이다. 예시는 근거가 아니다."
+)
+R12_OBSERVED_PERIOD = (
+    r"(?P<year>(?:19|20)[0-9]{2})\s*년"
+    r"(?:도|\s*(?P<month>[0-9]{1,2})\s*월"
+    r"(?:\s*(?P<day>[0-9]{1,2})\s*일)?(?:\s*기준)?)"
+)
+R12_POLICY = SEMANTIC_POLICY | dict(
+    profile="tagging-structural-quality-r12-f1-f2-v1",
+    classification_sha256=canonical_hash(R12_CLASSIFICATION_GUIDANCE),
+    elements_sha256=canonical_hash(R12_ELEMENT_GUIDANCE),
+    observed_period=R12_OBSERVED_PERIOD,
+    period_admission="valid-calendar-literal;direct-and-existing-intrinsic-only",
+    diagnostics="retain-binding-rejection-reasons-v1",
+    max_request_bytes=16384,
+)
+
+# A new opt-in revision: never add these vetoes to historical Q1/R12 policies.
+QA2_ELEMENT_GUIDANCE = (
+    "\nQA2: 실시할 예정·실시할 방침·취득할 계획은 완료 실적이나 인증 보유가 아니다. "
+    "M4/M3의 해당 인용은 unknown으로 보류하며 수치·연도가 있어도 승격하지 않는다. "
+    "인용을 줄여 예정·방침 문맥을 숨기지 않는다. 별도 완료 원문은 독립 검토한다."
+)
+QA2_FUTURE_IMPLEMENTATION = (
+    r"(?:할|받을|얻을|갖출)\s*(?:예정|방침|계획)|"
+    r"(?:실시|시행|운영|수행|진행|취득|획득|인증|검증|심사|교육|훈련|수료|개최|도입)"
+    r"\s*(?:예정|계획)(?:입니다|이다|임|\s|$)"
+)
+QA2_POLICY = R12_POLICY | dict(
+    profile="tagging-structural-quality-qa2-f1-f2-v1",
+    elements_sha256=canonical_hash(R12_ELEMENT_GUIDANCE + QA2_ELEMENT_GUIDANCE),
+    future_implementation=QA2_FUTURE_IMPLEMENTATION,
+    future_admission="selected-citation-and-containing-atomic-sentence;M3-M4;unknown-only-v1",
+    future_guidance_sha256=canonical_hash(QA2_ELEMENT_GUIDANCE),
+)
+QUALITY_POLICIES = (R12_POLICY, QA2_POLICY)
+
 
 def validate_policy(policy):
-    if policy != SEMANTIC_POLICY:
+    if policy not in (SEMANTIC_POLICY, *QUALITY_POLICIES):
         raise ValueError("Q1_STRUCTURAL_POLICY_MISMATCH")
 
 
-def guard(element):
+def guard(element, *, policy=None, claim_quote=""):
+    if policy is not None:
+        validate_policy(policy)
+    if policy == QA2_POLICY:
+        element = future_implementation_guard(element, claim_quote=claim_quote)
     if element.state != "present":
         return element
     quotes = [" ".join(r.quote.split()) for r in element.evidence_refs]
@@ -117,6 +171,32 @@ def guard(element):
     )
 
 
+def future_implementation_guard(element, *, claim_quote=""):
+    """QA2's sole added veto; do not reapply unrelated historical Q1 rules."""
+    if element.state != "present" or element.element_id not in ("M3", "M4"):
+        return element
+    quotes = [" ".join(r.quote.split()) for r in element.evidence_refs]
+    if quotes and all(_future_support(q, claim_quote) for q in quotes):
+        return replace(
+            element,
+            state="unknown",
+            normalized_value=None,
+            credited_from=None,
+            reason_code="QA2_FUTURE_IMPLEMENTATION_REQUIRES_REVIEW",
+        )
+    return element
+
+
+def _future_support(quote, claim_quote):
+    # Source/binding validation precedes this veto in the service. Use only the
+    # selected literal or its containing atomic sentence, never nearby sources.
+    sentences = re.split(r"[。!?;\n]|(?<=\.)\s", claim_quote)
+    contexts = [" ".join(s.split()) for s in sentences if quote in " ".join(s.split())]
+    return bool(re.search(QA2_FUTURE_IMPLEMENTATION, quote)) or bool(
+        contexts and all(re.search(QA2_FUTURE_IMPLEMENTATION, s) for s in contexts)
+    )
+
+
 def forecast_quote(quote):
     text = " ".join(quote.split())
     return bool(re.search(FUTURE, text) and re.search(FORECAST, text))
@@ -142,9 +222,22 @@ def forecast_evidence(data, graph):
     )
 
 
-def observed_period(value):
+def observed_period(value, *, policy=None):
     """Accept only a literal annual observation with a Korean case suffix."""
-    return bool(re.fullmatch(OBSERVED_YEAR, value.strip()))
+    if policy is not None:
+        validate_policy(policy)
+    if re.fullmatch(OBSERVED_YEAR, value.strip()):
+        return True
+    if policy not in QUALITY_POLICIES:
+        return False
+    match = re.fullmatch(R12_OBSERVED_PERIOD, value.strip())
+    if match is None:
+        return False
+    try:
+        date(int(match["year"]), int(match["month"] or 1), int(match["day"] or 1))
+    except ValueError:
+        return False
+    return True
 
 
 def guidance_target(quote):
@@ -158,11 +251,15 @@ def guidance_target(quote):
     )
 
 
-def preliminary(schema, *, quote=None):
+def preliminary(schema, *, quote=None, policy=None):
     from proofops.application.tagging.k9_contract import preliminary as old
 
-    return old(schema, quote=quote) + (
-        CLASSIFICATION_GUIDANCE if quote is None or guidance_target(quote) else ""
+    if policy is not None:
+        validate_policy(policy)
+    return (
+        old(schema, quote=quote)
+        + (CLASSIFICATION_GUIDANCE if quote is None or guidance_target(quote) else "")
+        + (R12_CLASSIFICATION_GUIDANCE if policy in QUALITY_POLICIES else "")
     )
 
 
