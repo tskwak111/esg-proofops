@@ -415,6 +415,8 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
                 failure = stage_failure_code(worker.store.jobs, stage_messages)
                 if failure:
                     extraction_stop = failure
+                    if failure == "BUDGET_EXHAUSTED" and outcome == "failed":
+                        outcome = "budget_unanalyzed"
                 observed.append(dict(stage=stage, outcome=outcome))
                 if stage == "extract" and outcome == "committed":
                     from proofops_worker.extract_batch import run_batches

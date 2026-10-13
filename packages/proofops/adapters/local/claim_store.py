@@ -142,6 +142,7 @@ class LocalClaimStore:
                 "upstage-ocr-page-v11",
                 "upstage-ocr-page-v12",
                 "upstage-ocr-page-v13",
+                "upstage-ocr-page-v14",
             }:
                 if envelope["claim_source_attestation"].get("run_id") != run_id:
                     raise ValueError("OCR_POLICY_OR_RUN_MISMATCH")
@@ -259,6 +260,23 @@ class LocalClaimStore:
             track = tag["inputs"]["packet"]["track"]
         return claim.to_summary() | dict(
             track=track, decision=current["decision"], revision=tag["tag_revision"]
+        )
+
+    def outcome_projection(self, tenant_id, run_id, *, discovery=None):
+        """Expose only the same immutable checkpoint already admitted by load()."""
+        run = self.store.jobs.get_run(tenant_id, run_id)
+        checkpoint = self.store.jobs.read_checkpoint(JobMessage(**run["extract_job"]))
+        if checkpoint is None or sha256(checkpoint).hexdigest() != run["claim_snapshot_sha256"]:
+            raise ValueError("CLAIM_SNAPSHOT_HASH_MISMATCH")
+        envelope = json.loads(checkpoint)
+        if discovery is not None and canonical_hash(envelope["discovery"]) != canonical_hash(
+            asdict(discovery)
+        ):
+            raise ValueError("CLAIM_SNAPSHOT_REPLAY_MISMATCH")
+        return (
+            {"extraction_outcome": envelope["extraction_outcome"]}
+            if ("extraction_outcome" in envelope)
+            else {}
         )
 
     def page(self, discovery, run_id, *, cursor, limit, now, track, grade, review_status):
@@ -433,6 +451,7 @@ def validate_extract_commit(db, jobs, run, message, envelope, next_job, *, now):
                     "upstage-ocr-page-v11",
                     "upstage-ocr-page-v12",
                     "upstage-ocr-page-v13",
+                    "upstage-ocr-page-v14",
                 }
                 and receipt.get("run_id") != message.run_id
             )
@@ -524,7 +543,8 @@ def extraction_outcome(graph, discovery, *, claim_pages, include_source_failures
     ]
     if failed_sources:
         status, code = (
-            "partial" if discovery.claims else "blocked", "CLAIM_SOURCE_EXTRACTION_FAILURE"
+            "partial" if discovery.claims else "blocked",
+            "CLAIM_SOURCE_EXTRACTION_FAILURE",
         )
     elif discovery.claims:
         status, code = ("partial", "CLAIM_PAGE_PARSE_FAILURE") if failures else ("claims", "OK")

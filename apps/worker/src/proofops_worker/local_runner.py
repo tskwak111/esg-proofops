@@ -32,8 +32,6 @@ from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
 from pypdf.errors import PdfReadError
 
-from pypdf.errors import PdfReadError
-
 from proofops_worker.consumer import StageFailure, consume_job, with_lease_heartbeat
 from proofops_worker.extract_runner import paragraph_priority
 from proofops_worker.telemetry import observe_job
@@ -184,6 +182,7 @@ class LocalParserRunner:
             "upstage-ocr-page-v11",
             "upstage-ocr-page-v12",
             "upstage-ocr-page-v13",
+            "upstage-ocr-page-v14",
         }:
             from proofops.adapters.local.claim_source_policies import claim_source_reader
 
@@ -411,7 +410,8 @@ class LocalParserRunner:
                             physical_pages=evidence_pages,
                             **(
                                 {"run_id": run_id}
-                                if ev1.PROFILE == "evidence-source-ocr-v1"
+                                if ev1.PROFILE
+                                in {"evidence-source-ocr-v1", "evidence-source-h6-v1"}
                                 else {}
                             ),
                         )

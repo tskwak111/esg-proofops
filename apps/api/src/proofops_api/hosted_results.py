@@ -138,6 +138,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             FINALS_F1_POLICY,
             FINALS_F1_TRANSPORT_POLICY,
             FINALS_H4_POLICY,
+            FINALS_H6_POLICY,
             FINALS_I7_POLICY,
             FINALS_I8_POLICY,
             FINALS_I9_POLICY,
@@ -153,6 +154,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
 
         f1 = tag_snapshot.get("analysis_profile_policy_sha256") in {
             canonical_hash(FINALS_H4_POLICY),
+            canonical_hash(FINALS_H6_POLICY),
             canonical_hash(FINALS_C24_POLICY),
             canonical_hash(FINALS_I10_POLICY),
             canonical_hash(FINALS_I11_POLICY),
@@ -181,7 +183,10 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
         # while building this snapshot. Replay all source guards once, then retain
         # the same graph for every claim's identity-checked missing-evidence search.
         _, discovery, original_graph = evidence
-        outcome = outcome | claims.outcome_projection(tenant, run, discovery=discovery)
+        # Older claim-store facades retain their existing result contract.
+        # The concrete store's projection checks the admitted checkpoint hash.
+        if project_outcome := getattr(claims, "outcome_projection", None):
+            outcome = outcome | project_outcome(tenant, run, discovery=discovery)
         from proofops.application.analysis_profile import (
             FINALS_I1_INITIAL_POLICY,
             FINALS_I3_POLICY,
@@ -218,6 +223,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
 
         pb1 = tag_snapshot.get("analysis_profile_policy_sha256") in {
             canonical_hash(FINALS_H4_POLICY),
+            canonical_hash(FINALS_H6_POLICY),
             canonical_hash(FINALS_C24_POLICY),
             canonical_hash(FINALS_Q1_POLICY),
             canonical_hash(FINALS_E05_POLICY),
@@ -284,6 +290,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                         summary["table_observation"] = row
                         if tag_snapshot.get("analysis_profile_policy_sha256") in {
                             canonical_hash(FINALS_H4_POLICY),
+                            canonical_hash(FINALS_H6_POLICY),
                             canonical_hash(FINALS_C24_POLICY),
                             canonical_hash(FINALS_Q1_POLICY),
                             canonical_hash(FINALS_E05_POLICY),

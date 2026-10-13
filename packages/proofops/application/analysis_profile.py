@@ -694,6 +694,16 @@ FINALS_H5_POLICY = FINALS_H4_POLICY | dict(
 )
 
 
+FINALS_H6_POLICY = FINALS_K11_POLICY | dict(
+    integration_profile="finals-20261013-h6-robustness-v1",
+    parser_failure_policy="partial-v3",
+    local_resource_policy="selected-pdf-h6-v1",
+    source="upstage-ocr-page-v14",
+    candidate_failure_policy="invalid-table-unknown-v1",
+    failure_diagnostics="h5-render-limit-and-native-text-eof-v1",
+)
+
+
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
     from proofops.application.tagging.fact_assembly_c4 import publication_policy_for as c4_policy
@@ -725,6 +735,7 @@ def policy_for(profile, *, pinned_hash=None):
             FINALS_K11_POLICY,
             FINALS_H4_POLICY,
             FINALS_H5_POLICY,
+            FINALS_H6_POLICY,
             FINALS_I10_POLICY,
             FINALS_K10_POLICY,
             FINALS_K10_V2_POLICY,
@@ -834,6 +845,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
             FINALS_K11_POLICY,
             FINALS_H4_POLICY,
             FINALS_H5_POLICY,
+            FINALS_H6_POLICY,
             FINALS_I10_POLICY,
             FINALS_K10_POLICY,
             FINALS_K10_V2_POLICY,
@@ -896,6 +908,7 @@ def apply_pilot_profile(args):
     args.tagging_prompt_profile = selected.get("tagging_prompt_profile")
     args.extraction_i4_identity = bool(selected.get("extraction_selection_ids"))
     args.parser_local_resource_policy = selected.get("local_resource_policy")
+    args.parser_failure_policy = selected.get("parser_failure_policy")
     if selected.get("parser_source_recovery"):
         args.parser_source_recovery = selected["parser_source_recovery"]
     args.extraction_h1 = bool(selected.get("selected_boundary_recovery"))
@@ -935,6 +948,7 @@ def apply_pilot_profile(args):
         "upstage-ocr-page-v11",
         "upstage-ocr-page-v12",
         "upstage-ocr-page-v13",
+        "upstage-ocr-page-v14",
     ):
         args.claim_source_profile = (
             selected["source"] if selected.get("table_worker_routing") else "upstage-ocr-page-v10"
@@ -951,6 +965,7 @@ def apply_pilot_profile(args):
         "upstage-ocr-page-v11",
         "upstage-ocr-page-v12",
         "upstage-ocr-page-v13",
+        "upstage-ocr-page-v14",
     }:
         args.claim_source_profile = "claim-source-v3"
     args.verify_claim_spans = True

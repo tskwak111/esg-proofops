@@ -113,7 +113,16 @@ class FinalsBudget:
                     raise ValueError("R108_FINALS_UNSETTLED_RETRY_FORBIDDEN")
                 return original(probe, *args, **kwargs)
             bound = reserve(args, kwargs)
-            self.reserve(bound)
+            try:
+                self.reserve(bound)
+            except ValueError as denied_error:
+                from proofops.adapters.local.source_attestation_errors import source_failure_code
+
+                # Carry H5's denied-dispatch fix into the shared fence. Provider
+                # adapters recognize this code and preserve it as a money stop.
+                if source_failure_code(denied_error) == "BUDGET_EXHAUSTED":
+                    raise ValueError("BUDGET_EXHAUSTED") from None
+                raise
             started, error = time.monotonic(), None
             try:
                 return original(probe, *args, **kwargs)

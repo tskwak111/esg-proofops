@@ -19,6 +19,8 @@ def source_failure_code(error):
         "H4_CUMULATIVE_BUDGET_EXHAUSTED",
         "H5_BUDGET_EXHAUSTED",
         "H5_CUMULATIVE_BUDGET_EXHAUSTED",
+        "R108_FINALS_BUDGET_EXHAUSTED",
+        "R108_FINALS_CUMULATIVE_BUDGET_EXHAUSTED",
     }:
         return "BUDGET_EXHAUSTED"
     if code.startswith(

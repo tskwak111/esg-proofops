@@ -210,7 +210,13 @@ def test_real_tls_empty_403_records_negotiation_and_handshake(tmp_path, monkeypa
 
 @pytest.mark.parametrize(
     "policy_name",
-    ["FINALS_E05_POLICY", "FINALS_C24_POLICY", "FINALS_Q1_POLICY", "FINALS_I10_POLICY"],
+    [
+        "FINALS_E05_POLICY",
+        "FINALS_C24_POLICY",
+        "FINALS_Q1_POLICY",
+        "FINALS_I10_POLICY",
+        "FINALS_H6_POLICY",
+    ],
 )
 def test_e05_public_projection_keeps_sibling_and_holds_failed_claim(
     tmp_path, monkeypatch, policy_name

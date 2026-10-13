@@ -697,6 +697,9 @@ class RunService:
                 }:
                     from proofops.adapters.local import evidence_source_ocr_v1 as evidence
 
+                if (self.claim_source_policy or {}).get("profile") == "upstage-ocr-page-v14":
+                    from proofops.adapters.local import evidence_source_h6 as evidence
+
                 # EV1 accepts only a nonempty evidence-only page selection.
                 # All-claim scopes retain their normal claim/native verification.
                 if set(snapshot["selected_pages"]) - set(

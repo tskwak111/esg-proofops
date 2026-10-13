@@ -78,6 +78,7 @@ def _table_verifier(policy_hash):
         "upstage-ocr-page-v8",
         "upstage-ocr-page-v9",
         "upstage-ocr-page-v10",
+        "upstage-ocr-page-v14",
     ):
         profile = page_ocr_profile(name)
         if policy_hash == profile.table_policy_sha256():
@@ -116,6 +117,7 @@ def _locates_auxiliary_cells(profile):
                 "upstage-ocr-page-v8",
                 "upstage-ocr-page-v9",
                 "upstage-ocr-page-v10",
+                "upstage-ocr-page-v14",
             )
         ),
     }
@@ -404,7 +406,12 @@ class OpenDataLoaderParser(ParserPort):
             )
             env = _child_environment(java, work, profile)
             command = [sys.executable, "-I", str(Path(__file__).resolve()), str(work)]
-            self._execute(command, work, env, profile)
+            if profile.local_resource_policy == "selected-pdf-h6-v1":
+                from proofops.adapters.parsing.h6_local_pages import execute
+
+                execute(command, work, env, profile, self._execute)
+            else:
+                self._execute(command, work, env, profile)
             try:
                 geometries = json.loads((work / "geometry.json").read_bytes())
                 raw = json.loads((work / "source.json").read_bytes())
@@ -449,6 +456,21 @@ class OpenDataLoaderParser(ParserPort):
                     from proofops.domain.provenance import canonical_hash
 
                     def upstage_call(pages, mode):
+                        h6 = profile.local_resource_policy == "selected-pdf-h6-v1"
+                        if h6:
+                            # A repaired parser derivative cannot ground provider text
+                            # against an unreadable original. Avoid a useless paid call.
+                            import io
+
+                            import pdfplumber
+                            from pdfplumber.utils.exceptions import PdfminerException
+                            from proofops.adapters.parsing.h6_local_pages import subset
+
+                            try:
+                                with pdfplumber.open(io.BytesIO(source.content)):
+                                    pass
+                            except PdfminerException:
+                                raise ValueError("PARSER_NATIVE_TEXT_UNREADABLE") from None
                         cache_dir = self.artifact_root / "upstage-cache" / tenant_id
                         cache_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
                         key = sha256(
@@ -458,6 +480,7 @@ class OpenDataLoaderParser(ParserPort):
                                     pages=pages,
                                     model=UPSTAGE_MODEL,
                                     mode=mode,
+                                    **({"subset_policy": "selected-pdf-h6-v1"} if h6 else {}),
                                 )
                             )
                         ).hexdigest()
@@ -468,7 +491,9 @@ class OpenDataLoaderParser(ParserPort):
                                 raise ParseFailure("UPSTAGE_CACHE_INTEGRITY_MISMATCH")
                             return result, True
                         result = self.upstage_probe.parse_async(
-                            selected_pdf(source.content, pages),
+                            subset(source.content, pages)
+                            if h6
+                            else selected_pdf(source.content, pages),
                             request_id=str(uuid4()),
                             mode=mode,
                         )
@@ -481,8 +506,18 @@ class OpenDataLoaderParser(ParserPort):
                     try:
                         standard, standard_hit = upstage_call(paid_pages, "standard")
                     except ValueError as exc:
-                        if profile.failure_policy == "partial-v1" and (
-                            str(exc).startswith("UPSTAGE_") or str(exc).endswith("BUDGET_EXHAUSTED")
+                        if profile.failure_policy in {
+                            "partial-v1",
+                            "partial-v2",
+                            "partial-v3",
+                        } and (
+                            str(exc).startswith("UPSTAGE_")
+                            or str(exc).endswith("BUDGET_EXHAUSTED")
+                            or (
+                                profile.failure_policy == "partial-v3"
+                                and str(exc)
+                                in {"PARSER_SUBSET_PDF_INVALID", "PARSER_NATIVE_TEXT_UNREADABLE"}
+                            )
                         ):
                             standard_failure = dict(
                                 mode="standard", pages=list(paid_pages), error_code=str(exc)
@@ -549,7 +584,11 @@ class OpenDataLoaderParser(ParserPort):
                         try:
                             enhanced, enhanced_hit = upstage_call(pages, "enhanced")
                         except ValueError as exc:
-                            if profile.failure_policy == "partial-v1" and (
+                            if profile.failure_policy in {
+                                "partial-v1",
+                                "partial-v2",
+                                "partial-v3",
+                            } and (
                                 str(exc).startswith("UPSTAGE_")
                                 or str(exc).endswith("BUDGET_EXHAUSTED")
                             ):
@@ -626,7 +665,7 @@ class OpenDataLoaderParser(ParserPort):
                         ),
                         fallback_pages=fallback_pages,
                     )
-                    if profile.failure_policy == "partial-v1":
+                    if profile.failure_policy in {"partial-v1", "partial-v2", "partial-v3"}:
                         upstage_output["failed_batches"] = failed_batches
                         if standard_failure is not None:
                             upstage_output["standard"]["error_code"] = standard_failure[
@@ -694,9 +733,22 @@ class OpenDataLoaderParser(ParserPort):
                     if profile.source_recovery == "native-continuation-k8-v1":
                         from proofops.adapters.parsing.k8_source_recovery import recover_sources
 
-                    recovered, recovery = recover_sources(
-                        source, tuple(candidates), references=recovery_references
-                    )
+                    from pdfplumber.utils.exceptions import PdfminerException
+
+                    try:
+                        recovered, recovery = recover_sources(
+                            source, tuple(candidates), references=recovery_references
+                        )
+                    except PdfminerException:
+                        if profile.failure_policy != "partial-v3":
+                            raise
+                        recovered = tuple(candidates)
+                        recovery = dict(
+                            profile=profile.source_recovery,
+                            source_sha256=source.sha256,
+                            status="unreadable",
+                            reason="PARSER_NATIVE_TEXT_UNREADABLE",
+                        )
                     candidates = list(recovered)
                     (work / "source-recovery.json").write_bytes(_json(recovery))
                 graph = fuse_candidates(
@@ -715,7 +767,17 @@ class OpenDataLoaderParser(ParserPort):
                 profile,
                 () if vision_metrics is None else vision_metrics["pages_routed"],
             )
-            if profile.failure_policy == "partial-v1" and upstage_output is not None:
+            if profile.local_resource_policy == "selected-pdf-h6-v1":
+                from proofops.adapters.parsing.h6_local_pages import failures
+                from proofops.adapters.parsing.mixed_routing import with_failures
+
+                graph = with_failures(
+                    graph, failures(json.loads((work / "h6-local.json").read_bytes()))
+                )
+            if (
+                profile.failure_policy in {"partial-v1", "partial-v2", "partial-v3"}
+                and upstage_output is not None
+            ):
                 from proofops.adapters.parsing.mixed_routing import with_failures
 
                 graph = with_failures(graph, upstage_output["failed_batches"])
@@ -744,6 +806,7 @@ class OpenDataLoaderParser(ParserPort):
                     "upstage-ocr-page-v8",
                     "upstage-ocr-page-v9",
                     "upstage-ocr-page-v10",
+                    "upstage-ocr-page-v14",
                 }:
                     if page_reader is None:
                         raise ParseFailure("OCR_RUN_REQUIRED")
@@ -925,10 +988,12 @@ class OpenDataLoaderParser(ParserPort):
                 required.add("page-routing.json")
             elif "page-routing.json" in artifacts or "page_parser_provenance" in manifest:
                 raise ValueError("unconfigured mixed routing")
-            if profile.local_resource_policy is not None:
+            if profile.local_resource_policy == "selected-pdf-h1-v1":
                 required.update(
                     {"local-selected.pdf", "local-selected.json", "local-page-map.json"}
                 )
+            elif profile.local_resource_policy == "selected-pdf-h6-v1":
+                required.add("h6-local.json")
             elif {
                 "local-selected.pdf",
                 "local-selected.json",
@@ -949,7 +1014,9 @@ class OpenDataLoaderParser(ParserPort):
                 data = path.read_bytes()
                 if sha256(data).hexdigest() != digest:
                     raise ValueError("artifact hash")
-                if name in {
+                if (
+                    profile.local_resource_policy == "selected-pdf-h6-v1" and name.endswith(".json")
+                ) or name in {
                     "graph.json",
                     "quality.json",
                     "candidates.json",
@@ -963,7 +1030,17 @@ class OpenDataLoaderParser(ParserPort):
                     "local-page-map.json",
                 }:
                     values[name] = json.loads(data)
-            if profile.local_resource_policy is not None:
+            if profile.local_resource_policy == "selected-pdf-h6-v1":
+                from proofops.adapters.parsing.h6_local_pages import validate
+
+                validate(
+                    values["h6-local.json"],
+                    values,
+                    artifacts,
+                    source,
+                    manifest["selected_physical_pages"],
+                )
+            elif profile.local_resource_policy is not None:
                 from proofops.adapters.parsing.h1_local_pages import POLICY, restore_pages
                 from proofops.domain.provenance import canonical_hash
 
@@ -991,7 +1068,11 @@ class OpenDataLoaderParser(ParserPort):
                 ):
                     raise ValueError("upstage artifact missing")
                 for record in [upstage_output["standard"], *upstage_output.get("enhanced", [])]:
-                    if record["receipt"] is None and profile.failure_policy == "partial-v1":
+                    if record["receipt"] is None and profile.failure_policy in {
+                        "partial-v1",
+                        "partial-v2",
+                        "partial-v3",
+                    }:
                         if record.get("raw_batches") != [] or not any(
                             f["mode"] == "standard" and f["error_code"] == record.get("error_code")
                             for f in upstage_output["failed_batches"]
@@ -1081,7 +1162,15 @@ class OpenDataLoaderParser(ParserPort):
                 profile,
                 () if vision_metrics is None else vision_metrics["pages_routed"],
             )
-            if profile.failure_policy == "partial-v1" and upstage_output is not None:
+            if profile.local_resource_policy == "selected-pdf-h6-v1":
+                from proofops.adapters.parsing.h6_local_pages import failures
+                from proofops.adapters.parsing.mixed_routing import with_failures
+
+                restored = with_failures(restored, failures(values["h6-local.json"]))
+            if (
+                profile.failure_policy in {"partial-v1", "partial-v2", "partial-v3"}
+                and upstage_output is not None
+            ):
                 from proofops.adapters.parsing.mixed_routing import with_failures
 
                 restored = with_failures(restored, upstage_output["failed_batches"])
@@ -1351,6 +1440,13 @@ def _child(work: Path) -> None:
     import opendataloader_pdf
 
     input_path, java_pages = work / "source.pdf", selected
+    h6 = profile.get("local_resource_policy") == "selected-pdf-h6-v1"
+    if h6:
+        from proofops.adapters.parsing.h6_local_pages import subset
+
+        input_path = work / "h6-selected.pdf"
+        input_path.write_bytes(subset((work / "source.pdf").read_bytes(), tuple(selected)))
+        java_pages = tuple(range(1, len(selected) + 1))
     if profile.get("local_resource_policy") == "selected-pdf-h1-v1":
         from proofops.adapters.parsing.h1_local_pages import prepare
 
@@ -1392,19 +1488,29 @@ def _child(work: Path) -> None:
                 )
             )
         )
+    elif h6:
+        from proofops.adapters.parsing.h6_local_pages import remap
+
+        raw_subset = json.loads((work / "h6-selected.json").read_bytes())
+        (work / "source.json").write_bytes(
+            _json(remap(raw_subset, selected, len(reader.pages), ""))
+        )
+        (work / "source.md").write_bytes((work / "h6-selected.md").read_bytes())
+        if not profile["table_auxiliary"]:
+            (work / "auxiliary.json").write_bytes(_json(dict(kids=[])))
     if profile.get("table_structure_repair") in ("odl_header_v1", "odl_header_v2"):
         import pdfplumber
         from proofops.adapters.parsing.odl_table_repair import repair_stacked_headers
 
         # Unsupported page transforms remain untouched, never guessed.
         words_by_page = {}
-        with pdfplumber.open(work / "source.pdf") as document:
+        with pdfplumber.open(input_path if h6 else work / "source.pdf") as document:
             for number in selected:
                 info = geometries[str(number)]
                 crop, media = info["crop"], info["media"]
                 if crop != media or crop["rotation"] or crop["crop_box"][:2] != (0, 0):
                     continue
-                page = document.pages[number - 1]
+                page = document.pages[selected.index(number) if h6 else number - 1]
                 words_by_page[number] = [
                     {
                         "text": word["text"],
@@ -1435,9 +1541,9 @@ def _child(work: Path) -> None:
         import pdfplumber
 
         nodes = []
-        with pdfplumber.open(work / "source.pdf") as document:
+        with pdfplumber.open(input_path if h6 else work / "source.pdf") as document:
             for number in selected:
-                page = document.pages[number - 1]
+                page = document.pages[selected.index(number) if h6 else number - 1]
                 for index, table in enumerate(page.find_tables()):
                     table_id = f"p{number}-t{index}"
                     options = {}
@@ -1498,9 +1604,9 @@ def _child(work: Path) -> None:
             # ink it owns; a table whose ownership is not exact stays untouched.
             words_by_page = {}
             source_pdf_bytes = (work / "source.pdf").read_bytes()
-            with pdfplumber.open(work / "source.pdf") as document:
+            with pdfplumber.open(input_path if h6 else work / "source.pdf") as document:
                 for number in selected:
-                    page = document.pages[number - 1]
+                    page = document.pages[selected.index(number) if h6 else number - 1]
                     raw_words = page.extract_words()
                     if not raw_words:
                         continue

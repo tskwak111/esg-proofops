@@ -106,16 +106,22 @@ class ParserProfile:
     local_resource_policy: str | None = None
 
     def __post_init__(self):
-        if self.local_resource_policy not in (None, "selected-pdf-h1-v1"):
+        if self.local_resource_policy not in (None, "selected-pdf-h1-v1", "selected-pdf-h6-v1"):
             raise ValueError("unsupported local parser resource policy")
         if self.table_claims_profile not in (None, "pb1-v1", "pb1-w9-v1"):
             raise ValueError("unsupported table claims profile")
         if self.source_recovery not in (None, "ps1-v1", "native-continuation-k8-v1"):
             raise ValueError("unsupported source recovery policy")
-        if self.failure_policy not in (None, "partial-v1") or (
-            self.failure_policy is not None and self.parser_mode != "mixed-v1"
+        if self.failure_policy not in (None, "partial-v1", "partial-v2", "partial-v3") or (
+            self.failure_policy is not None
+            and self.parser_mode != "mixed-v1"
+            and self.local_resource_policy != "selected-pdf-h6-v1"
         ):
             raise ValueError("invalid parser failure policy")
+        if (self.failure_policy == "partial-v3") != (
+            self.local_resource_policy == "selected-pdf-h6-v1"
+        ):
+            raise ValueError("H6 resource and failure policies must be pinned together")
         _require_uuid("parse_manifest_id", self.parse_manifest_id)
         pages = tuple(self.physical_pages)
         if (

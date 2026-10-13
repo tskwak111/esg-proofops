@@ -636,6 +636,7 @@ def claim_source_policy_for(args):
         "upstage-ocr-page-v11",
         "upstage-ocr-page-v12",
         "upstage-ocr-page-v13",
+        "upstage-ocr-page-v14",
     }:
         from proofops.adapters.local.claim_source_policies import page_ocr_profile
 
@@ -1130,6 +1131,7 @@ def main():
             "upstage-ocr-page-v11",
             "upstage-ocr-page-v12",
             "upstage-ocr-page-v13",
+            "upstage-ocr-page-v14",
             "table-claim-spans-v1",
             "claim-source-v3",
         ],
@@ -1638,6 +1640,7 @@ def main():
             "upstage-ocr-page-v11",
             "upstage-ocr-page-v12",
             "upstage-ocr-page-v13",
+            "upstage-ocr-page-v14",
         }:
             if args.raster_ocr or args.native_quote_typography:
                 parser.error("page OCR requires no raster/native quote-typography composition")
@@ -1665,7 +1668,7 @@ def main():
             claim_physical_pages=tuple(claim_pages or ()) if args.parser == "mixed-v1" else (),
             mixed_ocr_max_pages=args.mixed_ocr_max_pages,
             failure_policy=(
-                "partial-v1"
+                getattr(args, "parser_failure_policy", None) or "partial-v1"
                 if args.pipeline_profile
                 in (
                     "finals-unattended-v1",
