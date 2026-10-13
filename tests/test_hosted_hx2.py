@@ -66,7 +66,7 @@ def test_new_registry_entry_needs_no_separate_native_binding_or_replay_allowlist
     # Model a future shipped reader without inventing its verification semantics.
     # Only the registry is extended; all native gates must follow automatically.
     name = "proofops.adapters.local.hx2_future_test_reader"
-    profile = "upstage-ocr-page-v16"
+    profile = "upstage-ocr-page-v17"
     module = ModuleType(name)
     policy = page_ocr_profile("upstage-ocr-page-v14").native_policy() | {"mode": profile}
     source_policy = page_ocr_profile("upstage-ocr-page-v14").claim_source_policy() | {
@@ -157,8 +157,8 @@ def test_public_default_upload_binding_parse_extract_tag_publication(
     assert not data["hold_reasons"]
     state = store.document_dir(tenant, document) / "analysis" / done["run_id"]
     manifest = json.loads((state / "pilot.json").read_text())
-    assert V2_POLICY["integration_profile"] == "finals-20261013-v14"
-    assert manifest["claim_source_profile"] == "upstage-ocr-page-v15"
+    assert V2_POLICY["integration_profile"] == "finals-20261014-hx3"
+    assert manifest["claim_source_profile"] == "upstage-ocr-page-v16"
     assert manifest["analysis_policy_sha256"] == canonical_hash(V2_POLICY)
     from proofops.adapters.local.run_store import LocalSQLiteRunStore
 

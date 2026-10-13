@@ -718,7 +718,13 @@ FINALS_H7_POLICY = FINALS_H6_POLICY | dict(
 FINALS_I13_POLICY = FINALS_H7_POLICY | dict(
     integration_profile="finals-20261013-v14",
 )
-V2_POLICY = FINALS_I13_POLICY
+FINALS_HX3_POLICY = FINALS_I13_POLICY | dict(
+    integration_profile="finals-20261014-hx3",
+    source="upstage-ocr-page-v16",
+    result_outcome_projection="admitted-extraction-checkpoint-hx3-v1",
+    failure_diagnostics="source-item-holds-and-code-locations-hx3-v1",
+)
+V2_POLICY = FINALS_HX3_POLICY
 
 
 def policy_for(profile, *, pinned_hash=None):
@@ -748,6 +754,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_I13_POLICY,
             FINALS_I12_POLICY,
             FINALS_I11_POLICY,
             FINALS_K11_V1_POLICY,
@@ -861,6 +868,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FINALS_I13_POLICY,
             FINALS_I12_POLICY,
             FINALS_I11_POLICY,
             FINALS_K11_V1_POLICY,
@@ -973,6 +981,7 @@ def apply_pilot_profile(args):
         "upstage-ocr-page-v13",
         "upstage-ocr-page-v14",
         "upstage-ocr-page-v15",
+        "upstage-ocr-page-v16",
     ):
         args.claim_source_profile = (
             selected["source"] if selected.get("table_worker_routing") else "upstage-ocr-page-v10"
@@ -991,6 +1000,7 @@ def apply_pilot_profile(args):
         "upstage-ocr-page-v13",
         "upstage-ocr-page-v14",
         "upstage-ocr-page-v15",
+        "upstage-ocr-page-v16",
     }:
         args.claim_source_profile = "claim-source-v3"
     args.verify_claim_spans = True
