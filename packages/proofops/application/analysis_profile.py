@@ -738,6 +738,11 @@ FINALS_HX4_POLICY = FINALS_I15_POLICY | dict(
     parser_block_failure="page-qualified-occurrence-ids; invalid-subtree-unlocated-unknown",
 )
 
+FINALS_HX4_COMPLETE_POLICY = FINALS_HX4_POLICY | dict(
+    integration_profile="finals-20261014-hx4-parse-v2",
+    source="upstage-ocr-page-v17",
+)
+
 
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
@@ -767,6 +772,7 @@ def policy_for(profile, *, pinned_hash=None):
         choices = (
             V2_POLICY,
             FINALS_HX4_POLICY,
+            FINALS_HX4_COMPLETE_POLICY,
             FINALS_I13_POLICY,
             FINALS_I12_POLICY,
             FINALS_I11_POLICY,
@@ -882,6 +888,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
         (
             policy_for(profile),
             FINALS_HX4_POLICY,
+            FINALS_HX4_COMPLETE_POLICY,
             FINALS_I13_POLICY,
             FINALS_I12_POLICY,
             FINALS_I11_POLICY,
@@ -997,6 +1004,7 @@ def apply_pilot_profile(args):
         "upstage-ocr-page-v14",
         "upstage-ocr-page-v15",
         "upstage-ocr-page-v16",
+        "upstage-ocr-page-v17",
     ):
         args.claim_source_profile = (
             selected["source"] if selected.get("table_worker_routing") else "upstage-ocr-page-v10"
@@ -1016,6 +1024,7 @@ def apply_pilot_profile(args):
         "upstage-ocr-page-v14",
         "upstage-ocr-page-v15",
         "upstage-ocr-page-v16",
+        "upstage-ocr-page-v17",
     }:
         args.claim_source_profile = "claim-source-v3"
     args.verify_claim_spans = True

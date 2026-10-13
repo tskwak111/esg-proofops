@@ -178,3 +178,59 @@ def test_hx4_pin_keeps_v15_and_source_reader_hashes():
     p.apply_pilot_profile(args)
     assert args.parser_failure_policy == "partial-v4"
     assert args.claim_source_profile == "upstage-ocr-page-v16"
+
+
+def test_claim_unreadable_receipt_keeps_provenance_and_rejects_tampered_records(monkeypatch):
+    from proofops.adapters.local import upstage_ocr_profile_v17 as reader
+
+    from tests.integration.test_claim_source_v3 import synthetic
+
+    pdf, graph, ref = synthetic("Environmental policy 10%")
+
+    def fallback(self, graph, source, refs, *, tenant_id):
+        return self._finish(
+            dict(
+                schema="claim_source_h6_unreadable_v1",
+                records=[
+                    dict(ref=asdict(ref), status="unresolved", reason="native_text_unreadable")
+                ],
+                pb1_cell_proofs=[],
+            ),
+            {},
+        )
+
+    monkeypatch.setattr(reader._wrapper.Reader, "attest_claim_spans", fallback)
+    instance = reader.for_run("55555555-5555-4555-8555-555555555555")
+    receipt = instance.attest_claim_spans(graph, pdf, (ref,), tenant_id=graph.tenant_id)
+    assert receipt["tenant_id"] == graph.tenant_id
+    assert receipt["document_version_id"] == graph.document_version_id
+    assert receipt["parse_manifest_id"] == graph.parse_manifest_id
+    assert receipt["source_sha256"] == graph.source_sha256
+    assert receipt["graph_sha256"] == canonical_hash(asdict(graph))
+    assert receipt["records"][0]["status"] == "unresolved"
+    assert (
+        instance.recompute_claim_receipt(receipt, graph, pdf, (ref,), tenant_id=graph.tenant_id)
+        == receipt
+    )
+    altered = deepcopy(receipt)
+    altered["records"][0]["status"] = "verified"
+    with pytest.raises(ValueError, match="RECEIPT_MISMATCH"):
+        instance.recompute_claim_receipt(altered, graph, pdf, (ref,), tenant_id=graph.tenant_id)
+
+
+def test_complete_hx4_pin_preserves_initial_hx4_reader_and_resolves_v17():
+    from proofops.adapters.local.claim_source_policies import page_ocr_profile
+    from proofops.application import analysis_profile as p
+
+    selected = p.FINALS_HX4_COMPLETE_POLICY
+    pin = canonical_hash(selected)
+    assert p.policy_for(p.V2_PROFILE, pinned_hash=pin) == selected
+    assert p.publication_policy_for(p.V2_PROFILE, pinned_hash=pin) == selected
+    assert (
+        p.policy_for(p.V2_PROFILE, pinned_hash=canonical_hash(p.FINALS_HX4_POLICY))
+        == p.FINALS_HX4_POLICY
+    )
+    assert page_ocr_profile(selected["source"]).PROFILE == "upstage-ocr-page-v17"
+    args = SimpleNamespace(analysis_profile=p.V2_PROFILE, analysis_policy_sha256=pin)
+    p.apply_pilot_profile(args)
+    assert args.claim_source_profile == "upstage-ocr-page-v17"

@@ -22,7 +22,7 @@ PAGE_OCR_PROFILES = {
     "upstage-ocr-page-v1": "proofops.adapters.local.upstage_ocr_profile",
     **{
         f"upstage-ocr-page-v{version}": f"proofops.adapters.local.upstage_ocr_profile_v{version}"
-        for version in range(2, 17)
+        for version in range(2, 18)
     },
 }
 

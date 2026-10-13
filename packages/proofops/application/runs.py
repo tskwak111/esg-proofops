@@ -703,7 +703,10 @@ class RunService:
                 if (self.claim_source_policy or {}).get("profile") == "upstage-ocr-page-v15":
                     from proofops.adapters.local import evidence_source_h7 as evidence
 
-                if (self.claim_source_policy or {}).get("profile") == "upstage-ocr-page-v16":
+                if (self.claim_source_policy or {}).get("profile") in {
+                    "upstage-ocr-page-v16",
+                    "upstage-ocr-page-v17",
+                }:
                     from proofops.adapters.local import evidence_source_hx4 as evidence
 
                 # EV1 accepts only a nonempty evidence-only page selection.

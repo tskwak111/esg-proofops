@@ -12,7 +12,7 @@ import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-from proofops.application.analysis_profile import FINALS_HX4_POLICY
+from proofops.application.analysis_profile import FINALS_HX4_COMPLETE_POLICY
 from proofops.domain.provenance import canonical_hash
 
 SLUGS = (
@@ -31,13 +31,14 @@ def main():
     parser.add_argument("--baseline", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--workers", type=int, default=3)
+    parser.add_argument("--select", choices=SLUGS, action="append")
     parser.add_argument("--slug", choices=SLUGS)
     args = parser.parse_args()
     # evaluation is a namespace package; local product modules stay first.
     sys.path.append(str(args.harness.resolve()))
     from evaluation import q2_corpus as corpus
 
-    corpus.V2_POLICY = FINALS_HX4_POLICY
+    corpus.V2_POLICY = FINALS_HX4_COMPLETE_POLICY
     if args.slug:
         corpus.run_one(args.output, args.slug)
         return
@@ -47,6 +48,8 @@ def main():
     before = corpus.read(args.baseline / "manifest.json")
     reports = []
     for slug in SLUGS:
+        if args.select and slug not in args.select:
+            continue
         record = next(r for r in before["reports"] if r["slug"] == slug)
         record = record | {"retained_state": str(args.baseline / slug / "state")}
         reports.append(record)
@@ -85,7 +88,7 @@ def main():
         return corpus.read(folder / "summary.json")
 
     with ThreadPoolExecutor(max_workers=args.workers) as pool:
-        for future in as_completed([pool.submit(call, s) for s in SLUGS]):
+        for future in as_completed([pool.submit(call, r["slug"]) for r in reports]):
             row = future.result()
             print(
                 json.dumps(
