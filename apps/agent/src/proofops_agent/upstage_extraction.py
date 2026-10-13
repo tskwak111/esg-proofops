@@ -544,6 +544,7 @@ def _profile_with_options(
     extraction_i5_tables: bool = False,
     extraction_k6: bool = False,
     extraction_q1: bool = False,
+    extraction_qc_native_figures: bool = False,
 ) -> ExtractionProfile:
     """Versioned extraction profile for an explicit option combination.
 
@@ -562,6 +563,11 @@ def _profile_with_options(
     ``assertion_prompt`` and pins its own rule entry and prompt suffix, so a
     complete-selection run can never replay an assertion-only receipt.
     """
+    if type(extraction_qc_native_figures) is not bool or (
+        extraction_qc_native_figures
+        and not (source_ids and extraction_context and extraction_table_rows and extraction_w9)
+    ):
+        raise ValueError("QC_NATIVE_FIGURE_PROFILE_INVALID")
     if type(extraction_i4_identity) is not bool or (extraction_i4_identity and not source_ids):
         raise ValueError("EXTRACTION_I4_IDENTITY_INVALID")
     if type(extraction_i5_tables) is not bool or (extraction_i5_tables and not extraction_j8):
@@ -644,6 +650,13 @@ def _profile_with_options(
     if display_text_profile not in (None, PROFILE):
         raise ValueError("DISPLAY_PROFILE_INVALID")
     descriptor: list[Any] = [*_RULE_DESCRIPTOR]
+    if extraction_qc_native_figures:
+        from proofops.adapters.local.h1_native_title import native_figure_builder_policy
+        from proofops.application.ingest.k6_coverage import FIGURE_POLICY
+
+        descriptor.append(
+            dict(native_figure_policy=FIGURE_POLICY, builder=native_figure_builder_policy())
+        )
     if extraction_i5_tables:
         descriptor.append({"table_failure": "i5-grid-unreadable-v1"})
     if extraction_h1:
@@ -776,9 +789,19 @@ def _profile_with_options(
             + (_display_suffix() if display_text_profile else "")
             + (_i3_wire_suffix() if extraction_i3_wire else "")
             + (_i4_identity_suffix() if extraction_i4_identity else "")
+            + (_qc_figure_suffix() if extraction_qc_native_figures else "")
         ),
         rule_sha256=canonical_hash(descriptor),
         synthetic=False,
+    )
+
+
+def _qc_figure_suffix():
+    return (
+        "\nQC: native figure bullets are complete literal PDF text candidates. "
+        "Select each supplied bullet independently, keeping its conditions and exclusions. "
+        "Do not select department headers, logos, isolated chart values or infer arrows, "
+        "reporting frequency, attainment or source verification. Fresh tagging is required."
     )
 
 
@@ -864,6 +887,7 @@ class UpstageClaimExtractor:
         extraction_i5_tables: bool = False,
         extraction_k6: bool = False,
         extraction_q1: bool = False,
+        extraction_qc_native_figures: bool = False,
     ) -> None:
         if type(extraction_q1) is not bool or (extraction_q1 and not extraction_j8):
             raise ValueError("Q1_EXTRACTION_PROFILE_INVALID")
@@ -935,6 +959,7 @@ class UpstageClaimExtractor:
             extraction_i5_tables=extraction_i5_tables,
             extraction_k6=extraction_k6,
             extraction_q1=extraction_q1,
+            extraction_qc_native_figures=extraction_qc_native_figures,
         )
         if type(max_tokens) is not int or not 1 <= max_tokens <= 4096:
             raise ValueError("UPSTAGE_MAX_TOKENS_INVALID")
@@ -962,6 +987,7 @@ class UpstageClaimExtractor:
         self._j8 = extraction_j8
         self._k6 = extraction_k6
         self._q1 = extraction_q1
+        self._qc_native_figures = extraction_qc_native_figures
         self._i3_wire = extraction_i3_wire
         self._i4_identity = extraction_i4_identity
         self._h1 = extraction_h1
@@ -1973,6 +1999,27 @@ class UpstageClaimExtractor:
     def _row_entries(self, packet, text, context_blocks, *, context_graph=None):
         data = packet["untrusted_document_data"]
         kind = data["kind"]
+        if self._qc_native_figures:
+            from proofops.application.ingest.k6_coverage import FIGURE_MARKER, FIGURE_POLICY
+
+            self._validate_context_graph(packet, context_graph)
+            block = next(b for b in context_graph.blocks if b.source_id == data["source_id"])
+            context = block.candidates[block.winner].context
+            if FIGURE_MARKER in context:
+                if (
+                    kind != "paragraph"
+                    or "qc_native_policy=" + canonical_hash(FIGURE_POLICY) not in context
+                ):
+                    raise ExtractionOutputError("QC_NATIVE_FIGURE_POLICY_MISMATCH")
+                return [
+                    dict(
+                        sentence_id=f"{data['source_id']}:{FIGURE_MARKER}:0:{len(text)}",
+                        text=text,
+                        char_start=0,
+                        char_end=len(text),
+                        binding_status="undetermined",
+                    )
+                ]
         if kind not in ("table", "table_row", "table_cell", "figure"):
             return [
                 {"sentence_id": sid, "text": text[a:b], "char_start": a, "char_end": b}
@@ -2088,6 +2135,8 @@ class UpstageClaimExtractor:
         if self._j8:
             system_prompt += _j8_suffix()
             data["candidate_profile"] = "j8-owned-cell-candidates-v1"
+        if self._qc_native_figures:
+            system_prompt += _qc_figure_suffix()
         user_data: dict[str, Any] = {
             "tenant_id": packet["tenant_id"],
             "document_version_id": packet["document_version_id"],
@@ -2469,6 +2518,14 @@ class GraphBoundExtractor:
         self._display_prefetch_workers = display_prefetch_workers
         self._inner = inner
         self._graph = graph
+        self.native_figure_receipt = None
+        if getattr(inner, "_qc_native_figures", False):
+            if source is None:
+                raise ValueError("QC_NATIVE_FIGURE_SOURCE_REQUIRED")
+            from proofops.adapters.local.h1_native_title import native_figure_candidates
+
+            self._graph, self.native_figure_receipt = native_figure_candidates(graph, source)
+            graph = self._graph
         self._display_catalog = None
         self._h1_title_catalog = None
         if getattr(inner, "_h1", False) and source is not None:
@@ -2501,6 +2558,11 @@ class GraphBoundExtractor:
             and " " in blocks[sid].raw_text
         }
         self._display_catalog.prefetch_pages(pages, max_workers=self._display_prefetch_workers)
+
+    @property
+    def graph(self):
+        """Use this derived graph for discovery under the explicit QC profile."""
+        return self._graph
 
     @property
     def profile(self):  # ClaimExtractorPort: frozen discovery reads this.

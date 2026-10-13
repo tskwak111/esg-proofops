@@ -22,6 +22,50 @@ POLICY = dict(
     old_policy="default-w9-parameters-and-I4-selections-unchanged",
 )
 
+# Separate opt-in contract: the historical K6 policy and its hash stay frozen.
+FIGURE_MARKER = "qc-native-figure-bullets-v1"
+FIGURE_BULLET = r"(?m)^[ \t]*[•▪●\-][ \t]+"
+FIGURE_END = (
+    r"(?:운영|이행|수행|추진|수립|관리|지원|설치|감축|전환|실시|취소|제외|보류)"
+    r"(?:합니다|했습니다|하고 있습니다|한다|함)?[.!。]?\s*$"
+)
+FIGURE_POLICY = dict(
+    profile=FIGURE_MARKER,
+    text="contiguous-original-PDFium-codepoints; located-glyphs-in-own-figure-region",
+    bullets=FIGURE_BULLET,
+    complete_ending=FIGURE_END,
+    english="complete-sentence-with-explicit-action-predicate",
+    layout="no-upward-native-order-jump-over-4pt; no-line-gap-over-24pt",
+    selection="whole-literal-bullet; model-selects-source-ID; no-caption-text",
+    authority="candidate-only; fresh-source-verification-and-three-independent-tags-required",
+    max_chars=2000,
+    max_bullets=24,
+)
+
+
+def native_figure_bullets(text):
+    """Offer complete literal bullets, retaining trailing conditions and exclusions."""
+    starts = [m.start() for m in re.finditer(FIGURE_BULLET, text)]
+    if not starts:
+        return []
+    result = []
+    for start, end in zip(starts, [*starts[1:], len(text)], strict=True):
+        while start < end and text[start].isspace():
+            start += 1
+        while end > start and text[end - 1].isspace():
+            end -= 1
+        quote = text[start:end]
+        english = re.search(
+            r"\b(?:operate|implemented|installed|manage|support|reduced|perform)\b.+[.!]\s*$",
+            quote,
+            re.I,
+        )
+        if 12 <= len(quote) <= FIGURE_POLICY["max_chars"] and (
+            re.search(FIGURE_END, quote) or english
+        ):
+            result.append((start, end, quote))
+    return result[: FIGURE_POLICY["max_bullets"]]
+
 
 def observations(text, *, cells=None, context="", limit=24):
     # Preserve historical W9 code bytes and outputs. Only newly supported
