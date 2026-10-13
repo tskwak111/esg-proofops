@@ -688,6 +688,11 @@ FINALS_H4_POLICY = FINALS_I11_POLICY | dict(
     candidate_failure_policy="invalid-table-unknown-v1",
 )
 
+FINALS_H5_POLICY = FINALS_H4_POLICY | dict(
+    integration_profile="finals-20261013-h5-risk-v1",
+    failure_diagnostics="h5-render-limit-and-native-text-eof-v1",
+)
+
 
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
@@ -719,6 +724,7 @@ def policy_for(profile, *, pinned_hash=None):
             FINALS_K11_V1_POLICY,
             FINALS_K11_POLICY,
             FINALS_H4_POLICY,
+            FINALS_H5_POLICY,
             FINALS_I10_POLICY,
             FINALS_K10_POLICY,
             FINALS_K10_V2_POLICY,
@@ -827,6 +833,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
             FINALS_K11_V1_POLICY,
             FINALS_K11_POLICY,
             FINALS_H4_POLICY,
+            FINALS_H5_POLICY,
             FINALS_I10_POLICY,
             FINALS_K10_POLICY,
             FINALS_K10_V2_POLICY,

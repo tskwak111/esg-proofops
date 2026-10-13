@@ -1188,6 +1188,9 @@ class OpenDataLoaderParser(ParserPort):
                         code = (
                             "PARSER_JAVA_HEAP_EXHAUSTED"
                             if b"java.lang.OutOfMemoryError: Java heap space" in stderr
+                            else "PARSER_NATIVE_TEXT_UNREADABLE"
+                            if b"pdfplumber.utils.exceptions.PdfminerException: Unexpected EOF"
+                            in stderr
                             else "PARSER_FAILED"
                         )
                         failure = ParseFailure(code)

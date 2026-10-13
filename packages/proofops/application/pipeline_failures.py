@@ -18,6 +18,10 @@ MESSAGES = {
         "PDF 뷰어에서 다시 저장한 파일로 업로드해 "
         "주세요."
     ),
+    "PARSER_NATIVE_TEXT_UNREADABLE": (
+        "PDF의 보조 텍스트 파서가 파일 구조를 읽지 못했습니다. "
+        "원문과 처리 중 남긴 후보는 보존하며 확인되지 않은 내용은 판정하지 않았습니다."
+    ),
     "PARSER_GEOMETRY_INVALID": (
         "PDF의 원문 좌표를 검증하지 못했습니다. 해당 " "원문은 판정하지 않았습니다."
     ),
@@ -39,6 +43,10 @@ MESSAGES = {
     ),
     "SOURCE_ATTESTATION_GEOMETRY_UNSUPPORTED": (
         "이 PDF의 회전·좌표 형식을 원문 대조기가 " "지원하지 않아 해당 주장을 보류했습니다."
+    ),
+    "SOURCE_ATTESTATION_RENDER_LIMIT": (
+        "PDF 쪽의 이미지 크기가 원문 대조 한도를 초과했습니다. "
+        "해당 원문은 판정하지 않았으며 운영자의 쪽 크기 확인이 필요합니다."
     ),
     "EXTRACTION_INPUT_INVALID": (
         "주장 추출 입력을 검증하지 못했습니다. 원문·처리 "

@@ -21,4 +21,6 @@ def source_failure_code(error):
         return "SOURCE_ATTESTATION_REPLAY_MISMATCH"
     if code == "OCR_GEOMETRY_UNSUPPORTED":
         return "SOURCE_ATTESTATION_GEOMETRY_UNSUPPORTED"
+    if code == "OCR_RENDER_LIMIT":
+        return "SOURCE_ATTESTATION_RENDER_LIMIT"
     return None

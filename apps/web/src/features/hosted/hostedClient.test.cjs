@@ -7,6 +7,18 @@ require.extensions['.ts'] = (module, filename) => module._compile(ts.transpileMo
 const { HostedApiError, createHostedClient, describeError } = require('./hostedClient.ts');
 const { runOutcome } = require('./hostedClient.ts');
 
+test('H5 native reader and page render limits expose concrete reasons without evidence absence', () => {
+  for (const [code, cause] of [
+    ['PARSER_NATIVE_TEXT_UNREADABLE', /보조 텍스트 파서/],
+    ['SOURCE_ATTESTATION_RENDER_LIMIT', /이미지 크기.*한도/],
+  ]) {
+    const failed = runOutcome({ status: 'failed', error_code: code });
+    assert.match(failed.reasons.join(' '), cause);
+    assert.match(failed.reasons.join(' '), /판정하지 않았습니다/);
+    assert.doesNotMatch(failed.reasons.join(' '), /근거 없음/);
+  }
+});
+
 test('parser memory and corrupt table failures remain explicit and never claim evidence absence', () => {
   for (const code of ['PARSER_JAVA_HEAP_EXHAUSTED', 'W9_GRID_TEXT_MISMATCH', 'PARSER_FAILED']) {
     const failed = runOutcome({ status: 'failed', error_code: code });
