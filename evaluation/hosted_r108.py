@@ -9,6 +9,7 @@ from contextlib import nullcontext
 from pathlib import Path
 
 from proofops.adapters.local.upstage import UpstageProbe
+from proofops.application.pipeline_failures import PUBLIC_CODES
 from proofops.application.ports.jobs import JobMessage
 from proofops_api.hosted_analysis import (
     FINALS_PROFILES,
@@ -21,6 +22,15 @@ from proofops_api.hosted_analysis import (
 )
 from proofops_api.hosted_store import HostedSettings, HostedStore
 from proofops_worker.composition import build_composition
+
+
+def stage_failure_code(jobs, messages):
+    """Read durable job codes, never expose exception messages or source text."""
+    for message in messages:
+        code = jobs.get_job(message).get("error_code")
+        if code in PUBLIC_CODES:
+            return code
+    return None
 
 
 def pinned_reporting_scope(config, options):
@@ -394,24 +404,17 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
                 claim_progress=claim_progress,
             )
             try:
-                parse_messages = (
-                    [
-                        JobMessage(**event["message"])
-                        for event in worker.store.jobs.pending_outbox(
-                            job["tenant_id"], manifest["run_id"], now=int(time.time())
-                        )
-                        if event["message"]["stage"] == "parse"
-                    ]
-                    if stage == "parse"
-                    else []
-                )
+                stage_messages = [
+                    JobMessage(**event["message"])
+                    for event in worker.store.jobs.pending_outbox(
+                        job["tenant_id"], manifest["run_id"], now=int(time.time())
+                    )
+                    if event["message"]["stage"] == stage
+                ]
                 outcome = worker.run_once(tenant_id=job["tenant_id"], run_id=manifest["run_id"])
-                if outcome == "failed" and stage == "parse":
-                    if any(
-                        worker.store.jobs.get_job(message)["error_code"] == "BUDGET_EXHAUSTED"
-                        for message in parse_messages
-                    ):
-                        outcome = "budget_unanalyzed"
+                failure = stage_failure_code(worker.store.jobs, stage_messages)
+                if failure:
+                    extraction_stop = failure
                 observed.append(dict(stage=stage, outcome=outcome))
                 if stage == "extract" and outcome == "committed":
                     from proofops_worker.extract_batch import run_batches
@@ -465,6 +468,7 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
         scope=store.run_options(job),
         pipeline_profile=store.run_options(job).get("pipeline_profile", "strict-v1"),
         reporting_scope=pinned_reporting_scope(config, options),
+        pipeline_failure_projection="specific-pipeline-reasons-h4-v1",
     )
     if provider_gate is not None:
         result["provider_concurrency"] = provider_gate.snapshot()

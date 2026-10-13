@@ -914,6 +914,8 @@ class OpenAIProbe(OpenRouterProbe):
     ):
         if now() >= PRICE_RECHECK_AT:
             raise ValueError("PRICE_RECHECK_REQUIRED")
+        if self.provider_scheduler is not None and not hasattr(self, "http_attempt_scope"):
+            raise ValueError("PROVIDER_SCHEDULER_BINDING_REQUIRED")
         body = self.request_body(
             system, user_json, request_id=request_id, max_tokens=max_tokens, json_mode=json_mode
         )

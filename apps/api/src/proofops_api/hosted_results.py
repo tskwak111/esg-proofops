@@ -110,7 +110,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
     with services(path, tenant) as (run, claims, tags, reviews):
         state = claims.store.jobs.get_run(tenant, run)
         # No extraction publication means no invented empty successful analysis.
-        if "extract_job" not in state:
+        if "extract_job" not in state or not state.get("claim_snapshot_sha256"):
             return dict(
                 schema="r108-hosted-result-v1",
                 claims=[],
@@ -122,7 +122,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                 page_map=selected_pages,
             )
         rows = []
-        if "tag_job" in state:
+        if "tag_job" in state and state.get("tag_snapshot_sha256"):
             # This existing reader verifies both the tag checkpoint pins and
             # the complete source/claim evidence. Reuse its evidence under the
             # publisher's analysis.lock instead of repeating the same replay.
@@ -137,6 +137,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             FINALS_F1_INITIAL_POLICY,
             FINALS_F1_POLICY,
             FINALS_F1_TRANSPORT_POLICY,
+            FINALS_H4_POLICY,
             FINALS_I7_POLICY,
             FINALS_I8_POLICY,
             FINALS_I9_POLICY,
@@ -151,6 +152,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
         from proofops.domain.provenance import canonical_hash
 
         f1 = tag_snapshot.get("analysis_profile_policy_sha256") in {
+            canonical_hash(FINALS_H4_POLICY),
             canonical_hash(FINALS_C24_POLICY),
             canonical_hash(FINALS_I10_POLICY),
             canonical_hash(FINALS_I11_POLICY),
@@ -179,6 +181,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
         # while building this snapshot. Replay all source guards once, then retain
         # the same graph for every claim's identity-checked missing-evidence search.
         _, discovery, original_graph = evidence
+        outcome = outcome | claims.outcome_projection(tenant, run, discovery=discovery)
         from proofops.application.analysis_profile import (
             FINALS_I1_INITIAL_POLICY,
             FINALS_I3_POLICY,
@@ -214,6 +217,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
         from proofops.domain.provenance import canonical_hash
 
         pb1 = tag_snapshot.get("analysis_profile_policy_sha256") in {
+            canonical_hash(FINALS_H4_POLICY),
             canonical_hash(FINALS_C24_POLICY),
             canonical_hash(FINALS_Q1_POLICY),
             canonical_hash(FINALS_E05_POLICY),
@@ -279,6 +283,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                     if row:
                         summary["table_observation"] = row
                         if tag_snapshot.get("analysis_profile_policy_sha256") in {
+                            canonical_hash(FINALS_H4_POLICY),
                             canonical_hash(FINALS_C24_POLICY),
                             canonical_hash(FINALS_Q1_POLICY),
                             canonical_hash(FINALS_E05_POLICY),
@@ -385,7 +390,16 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             schema="r108-hosted-result-v1",
             claims=rows,
             reviews=page["items"],
-            hold_reasons=[outcome["reason"]] if outcome.get("reason") else [],
+            hold_reasons=list(
+                dict.fromkeys(
+                    ([outcome["reason"]] if outcome.get("reason") else [])
+                    + (
+                        [outcome["extraction_outcome"]["code"]]
+                        if outcome.get("extraction_outcome", {}).get("code") not in (None, "OK")
+                        else []
+                    )
+                )
+            ),
             pipeline=outcome,
             page_map=selected_pages,
         )

@@ -20,11 +20,13 @@ from proofops.adapters.local.claim_store import (
     deferred_payload,
     discovery_coverage,
     extraction_batch_state,
+    extraction_outcome,
     extraction_profile,
     guard_extract_continuation,
     snapshot_pins,
 )
 from proofops.adapters.local.run_artifacts import load_run_graph
+from proofops.adapters.local.source_attestation_errors import source_failure_code
 from proofops.adapters.local.upstage import UPSTAGE_TRANSPORT_STOP_CODES
 from proofops.adapters.local.verified_read_cache import fresh_execution_enabled
 from proofops.adapters.parsing.opendataloader import ParseFailure
@@ -41,6 +43,7 @@ from proofops.application.telemetry import TraceContext
 from proofops.application.uploads_security import UploadRejected
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
+from pypdf.errors import PdfReadError
 
 from proofops_worker.consumer import StageFailure, consume_job, with_lease_heartbeat
 from proofops_worker.telemetry import observe_job
@@ -443,6 +446,16 @@ class LocalExtractRunner:
             discovery=asdict(discovery),
             synthetic=discovery.synthetic,
             coverage=discovery_coverage(json.loads(checkpoint)["coverage"], graph, discovery),
+            extraction_outcome=extraction_outcome(
+                graph,
+                discovery,
+                claim_pages=snapshot.get("extraction_limits", {}).get("claim_pages")
+                or snapshot["selected_pages"],
+                include_source_failures=snapshot.get("analysis_profile_policy", {}).get(
+                    "candidate_failure_policy"
+                )
+                == "invalid-table-unknown-v1",
+            ),
         )
         if "claim_source_policy" in snapshot:
             from proofops.adapters.local.claim_source_policies import (
@@ -761,9 +774,11 @@ class LocalExtractRunner:
                 if code == "ACCOUNTING_UNAVAILABLE":
                     usage.update(model_calls=None, accounting_complete=False)
                 raise StageFailure(code, usage=usage) from None
-            except (KeyError, TypeError, ParseFailure, UploadRejected) as error:
+            except (KeyError, TypeError, ParseFailure, UploadRejected, PdfReadError) as error:
                 _f1_failure_origin(error, snapshot)
-                raise StageFailure("EXTRACTION_INPUT_INVALID", usage=usage) from None
+                raise StageFailure(
+                    source_failure_code(error) or "EXTRACTION_INPUT_INVALID", usage=usage
+                ) from None
 
         result = consume_job(
             self.store.jobs,
@@ -1028,6 +1043,16 @@ class LocalExtractRunner:
                     payload.update(
                         discovery=asdict(discovery),
                         synthetic=discovery.synthetic,
+                        extraction_outcome=extraction_outcome(
+                            graph,
+                            discovery,
+                            claim_pages=snapshot.get("extraction_limits", {}).get("claim_pages")
+                            or snapshot["selected_pages"],
+                            include_source_failures=snapshot.get("analysis_profile_policy", {}).get(
+                                "candidate_failure_policy"
+                            )
+                            == "invalid-table-unknown-v1",
+                        ),
                         coverage=coverage,
                     )
                     if (
@@ -1082,9 +1107,11 @@ class LocalExtractRunner:
                     if code == "ACCOUNTING_UNAVAILABLE":
                         usage.update(model_calls=None, accounting_complete=False)
                     raise StageFailure(code, usage=usage) from None
-                except (KeyError, TypeError, ParseFailure, UploadRejected) as error:
+                except (KeyError, TypeError, ParseFailure, UploadRejected, PdfReadError) as error:
                     _f1_failure_origin(error, snapshot)
-                    raise StageFailure("EXTRACTION_INPUT_INVALID", usage=usage) from None
+                    raise StageFailure(
+                        source_failure_code(error) or "EXTRACTION_INPUT_INVALID", usage=usage
+                    ) from None
 
             result = consume_job(
                 self.store.jobs,

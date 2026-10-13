@@ -33,7 +33,14 @@ export function ResultView({ result, role, client, runId, onReload }: { result: 
     </div>}
     {result.pipeline?.reporting_scope?.report_year != null && <p className="hosted-note">보고 범위: {result.pipeline.reporting_scope.report_year}년 ({result.pipeline.reporting_scope.period_start} ~ {result.pipeline.reporting_scope.period_end})</p>}
     {result.pipeline?.reporting_scope?.warning && <p className="hosted-note" role="status">{result.pipeline.reporting_scope.warning}</p>}
-    {!result.claims.length ? <p className="empty">{result.pipeline?.status === "completed"
+    {!!result.pipeline?.extraction_outcome?.page_failures?.length && <div className="hosted-notice" role="status" aria-label="읽지 못한 쪽">
+      <h3>읽지 못한 쪽</h3>
+      <ul>{result.pipeline.extraction_outcome.page_failures.map(item => <li key={`${item.physical_page}-${item.code}`}>
+        {pageLabel(result, item.physical_page)} · {holdReasonText(item.code)}
+      </li>)}</ul>
+      <p>처리된 주장은 계속 표시합니다. 읽지 못한 원문은 근거 부재로 판정하지 않았습니다.</p>
+    </div>}
+    {!result.claims.length ? <p className="empty">{result.pipeline?.status === "completed" && !result.hold_reasons.length
       ? "선택한 범위의 분석이 정상 완료되었으나 환경 주장을 발견하지 못했습니다. 보고서 전체에 주장이 없다는 뜻은 아닙니다."
       : "분석이 보류되어 표시할 주장이 없습니다. 처리 단계와 보류 사유를 확인해 주세요. 근거 없음으로 판정한 결과가 아닙니다."}</p> :
       <div className="claims-layout live-claims-layout">

@@ -503,6 +503,52 @@ def discovery_coverage(parsed_coverage, graph, discovery):
     )
 
 
+def extraction_outcome(graph, discovery, *, claim_pages, include_source_failures=False):
+    """Explain empty/partial discovery without inferring absence from unreadable pages."""
+    pages = set(claim_pages)
+    failures = sorted(
+        {
+            (issue.page_num, issue.reason)
+            for issue in graph.issues
+            if issue.page_num in pages
+            and issue.kind in {"parser_batch_failed", "no_extractable_text"}
+        }
+    )
+    blocks = [block for block in graph.blocks if block.page_num in pages]
+    failed_sources = [
+        dict(source_id=exclusion.source_id, physical_page=exclusion.page_num)
+        for exclusion in discovery.exclusions
+        if include_source_failures
+        and exclusion.page_num in pages
+        and exclusion.reason == "extraction_failed"
+    ]
+    if failed_sources:
+        status, code = (
+            "partial" if discovery.claims else "blocked", "CLAIM_SOURCE_EXTRACTION_FAILURE"
+        )
+    elif discovery.claims:
+        status, code = ("partial", "CLAIM_PAGE_PARSE_FAILURE") if failures else ("claims", "OK")
+    elif failures:
+        status, code = "blocked", "CLAIM_PAGES_UNREADABLE"
+    elif not blocks:
+        status, code = "empty", "NO_EXTRACTABLE_CLAIM_BLOCKS"
+    elif not discovery.processed_source_ids:
+        status, code = "empty", "NO_ELIGIBLE_CLAIM_BLOCKS"
+    else:
+        status, code = "empty", "NO_CLAIMS_IN_PROCESSED_BLOCKS"
+    result = dict(
+        status=status,
+        code=code,
+        selected_claim_pages=sorted(pages),
+        parsed_claim_blocks=len(blocks),
+        processed_blocks=len(discovery.processed_source_ids),
+        page_failures=[dict(physical_page=page, code=reason) for page, reason in failures],
+    )
+    if include_source_failures:
+        result["failed_sources"] = failed_sources
+    return result
+
+
 # A deferred source was answered locally, without a model call: it carries one
 # unknown span over its whole text. ``beyond_extraction_limit`` and
 # ``extraction_budget_stop`` stay eligible for a later batch;

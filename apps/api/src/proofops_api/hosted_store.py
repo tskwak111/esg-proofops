@@ -32,6 +32,8 @@ from zoneinfo import ZoneInfo
 
 from proofops.adapters.local.provider_errors import MESSAGES, provider_error_code
 from proofops.application.authorization import MembershipRecord, SessionExpiredError, SessionRecord
+from proofops.application.pipeline_failures import MESSAGES as PIPELINE_MESSAGES
+from proofops.application.pipeline_failures import PUBLIC_CODES
 from proofops.application.uploads_security import (
     PdfLimits,
     UploadRejected,
@@ -778,6 +780,7 @@ class HostedStore:
             "error_code": row["error_code"],
             "error_message": CONTROL_MESSAGES.get(raw_error)
             or MESSAGES.get(raw_error)
+            or PIPELINE_MESSAGES.get(raw_error)
             or (PROVIDER_LIMIT_MESSAGE if row["error_code"] in ALL_PROVIDER_LIMIT_CODES else None),
             "provider_error_code": cause,
             "provider_error_message": MESSAGES.get(cause),
@@ -1569,7 +1572,7 @@ class HostedStore:
                 exc.code
                 if isinstance(exc, HostedError)
                 else str(exc)
-                if str(exc) in ALL_PROVIDER_LIMIT_CODES
+                if str(exc) in ALL_PROVIDER_LIMIT_CODES | PUBLIC_CODES
                 else "ANALYSIS_WORKER_FAILED"
                 if prepared is not None
                 else "PREPARE_FAILED"

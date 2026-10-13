@@ -30,6 +30,9 @@ from proofops.application.telemetry import Telemetry, TraceContext
 from proofops.application.uploads_security import UploadRejected
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
+from pypdf.errors import PdfReadError
+
+from pypdf.errors import PdfReadError
 
 from proofops_worker.consumer import StageFailure, consume_job, with_lease_heartbeat
 from proofops_worker.extract_runner import paragraph_priority
@@ -613,8 +616,35 @@ class LocalParserRunner:
                     raise StageFailure(str(exc), usage=usage) from None
                 except BudgetExceeded:
                     raise StageFailure("BUDGET_EXHAUSTED", usage=usage) from None
-                except (OSError, ValueError, KeyError, TypeError):
-                    raise StageFailure("PARSER_FAILED", usage=usage) from None
+                except (OSError, ValueError, KeyError, TypeError, PdfReadError) as error:
+                    partial = getattr(error, "partial_artifact", None)
+                    if partial is not None:
+                        usage["uncommitted_parser_candidates"] = dict(
+                            artifact=str(partial),
+                            committed=False,
+                            sha256=sha256((partial / "failure.json").read_bytes()).hexdigest(),
+                        )
+                    import traceback
+
+                    origin = traceback.extract_tb(error.__traceback__)[-1]
+                    usage["parser_failure_origin"] = dict(
+                        exception_type=type(error).__name__,
+                        file=Path(origin.filename).name,
+                        function=origin.name,
+                        line=origin.lineno,
+                    )
+                    print(
+                        json.dumps(
+                            dict(event="parser_failure_origin", **usage["parser_failure_origin"])
+                        ),
+                        file=sys.stderr,
+                    )
+                    from proofops.adapters.local.source_attestation_errors import (
+                        source_failure_code,
+                    )
+
+                    code = source_failure_code(error) or "PARSER_FAILED"
+                    raise StageFailure(code, usage=usage) from None
                 finally:
                     note_identifiers = self.store.jobs.parser_note_requests(message)
                     if raster_enabled:
