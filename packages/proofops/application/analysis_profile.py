@@ -741,7 +741,31 @@ FINALS_I16_POLICY = FINALS_I15_POLICY | dict(
     result_outcome_projection=FINALS_HX3_POLICY["result_outcome_projection"],
     failure_diagnostics=FINALS_HX3_POLICY["failure_diagnostics"],
 )
-V2_POLICY = FINALS_I16_POLICY
+VERIFIED_READ_V9_POLICY = VERIFIED_READ_V8_POLICY | dict(
+    profile="exact-verified-read-v9",
+    fresh_attestation="whole-byte-identical-v17-rg1",
+    v17_replay_sha256="5b32b114258b27b36461f130ff42b9aabd15dd0c7335a7829cdca63de4ba9d3d",
+    raw_ocr_profiles=[
+        "upstage-ocr-page-v6",
+        "upstage-ocr-page-v9",
+        "upstage-ocr-page-v10",
+        "upstage-ocr-page-v11",
+        "upstage-ocr-page-v12",
+        "upstage-ocr-page-v13",
+        "upstage-ocr-page-v17",
+    ],
+)
+RG1_PUBLICATION_POLICY = S4_PUBLICATION_POLICY | dict(
+    profile="private-child-byte-pinned-publication-rg1-v1",
+)
+FINALS_RG1_POLICY = FINALS_I16_POLICY | dict(
+    integration_profile="finals-20261014-rg1",
+    source="upstage-ocr-page-v17",
+    local_resource_policy="selected-pdf-h6-v2",
+    verified_read_cache=VERIFIED_READ_V9_POLICY,
+    publication_handoff=RG1_PUBLICATION_POLICY,
+)
+V2_POLICY = FINALS_RG1_POLICY
 
 
 def policy_for(profile, *, pinned_hash=None):
@@ -771,6 +795,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_I16_POLICY,
             FINALS_I15_POLICY,
             FINALS_HX3_POLICY,
             FINALS_I13_POLICY,
@@ -887,6 +912,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FINALS_I16_POLICY,
             FINALS_I15_POLICY,
             FINALS_HX3_POLICY,
             FINALS_I13_POLICY,
@@ -1004,6 +1030,7 @@ def apply_pilot_profile(args):
         "upstage-ocr-page-v14",
         "upstage-ocr-page-v15",
         "upstage-ocr-page-v16",
+        "upstage-ocr-page-v17",
     ):
         args.claim_source_profile = (
             selected["source"] if selected.get("table_worker_routing") else "upstage-ocr-page-v10"
@@ -1023,6 +1050,7 @@ def apply_pilot_profile(args):
         "upstage-ocr-page-v14",
         "upstage-ocr-page-v15",
         "upstage-ocr-page-v16",
+        "upstage-ocr-page-v17",
     }:
         args.claim_source_profile = "claim-source-v3"
     args.verify_claim_spans = True

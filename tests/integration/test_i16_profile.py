@@ -9,7 +9,9 @@ from proofops.domain.provenance import canonical_hash
 
 
 def test_v16_default_is_v15_plus_exact_hx3_delta():
-    selected = profiles.policy_for(profiles.V2_PROFILE)
+    selected = profiles.policy_for(
+        profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_I16_POLICY)
+    )
     assert selected == profiles.FINALS_I16_POLICY
     assert selected == profiles.FINALS_I15_POLICY | dict(
         integration_profile="finals-20261014-v16",
@@ -22,12 +24,19 @@ def test_v16_default_is_v15_plus_exact_hx3_delta():
     assert reader.native_policy()["mode"] == selected["source"]
     assert selected["general_certification"]["enabled"] is False
     assert selected["replicas"] == 3
-    args = Namespace(analysis_profile=profiles.V2_PROFILE, resume=False)
+    args = Namespace(
+        analysis_profile=profiles.V2_PROFILE,
+        resume=False,
+        analysis_policy_sha256=canonical_hash(selected),
+    )
     profiles.apply_pilot_profile(args)
     assert args.analysis_policy_sha256 == canonical_hash(selected)
     assert args.claim_source_profile == selected["source"]
     assert args.extraction_qc_native_figures is True
-    assert profiles.publication_policy_for(profiles.V2_PROFILE) == selected
+    assert (
+        profiles.publication_policy_for(profiles.V2_PROFILE, pinned_hash=canonical_hash(selected))
+        == selected
+    )
 
 
 @pytest.mark.parametrize(

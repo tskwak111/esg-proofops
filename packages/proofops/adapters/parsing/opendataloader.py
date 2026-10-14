@@ -81,6 +81,7 @@ def _table_verifier(policy_hash):
         "upstage-ocr-page-v14",
         "upstage-ocr-page-v15",
         "upstage-ocr-page-v16",
+        "upstage-ocr-page-v17",
     ):
         profile = page_ocr_profile(name)
         if policy_hash == profile.table_policy_sha256():
@@ -122,6 +123,7 @@ def _locates_auxiliary_cells(profile):
                 "upstage-ocr-page-v14",
                 "upstage-ocr-page-v15",
                 "upstage-ocr-page-v16",
+                "upstage-ocr-page-v17",
             )
         ),
     }
@@ -176,6 +178,17 @@ def _node_text(node: dict, depth=0) -> str:
     return ("\t" if key == "cells" else "\n").join(
         _node_text(child, depth + 1) for child in children
     )
+
+
+def _local_pages(profile):
+    from proofops.adapters.parsing import h6_local_pages, h6_local_pages_v2
+
+    resource = (
+        profile.get("local_resource_policy")
+        if isinstance(profile, dict)
+        else profile.local_resource_policy
+    )
+    return h6_local_pages_v2 if resource == "selected-pdf-h6-v2" else h6_local_pages
 
 
 def _batch(
@@ -410,8 +423,8 @@ class OpenDataLoaderParser(ParserPort):
             )
             env = _child_environment(java, work, profile)
             command = [sys.executable, "-I", str(Path(__file__).resolve()), str(work)]
-            if profile.local_resource_policy == "selected-pdf-h6-v1":
-                from proofops.adapters.parsing.h6_local_pages import execute
+            if profile.local_resource_policy in {"selected-pdf-h6-v1", "selected-pdf-h6-v2"}:
+                execute = _local_pages(profile).execute
 
                 execute(command, work, env, profile, self._execute)
             else:
@@ -460,7 +473,10 @@ class OpenDataLoaderParser(ParserPort):
                     from proofops.domain.provenance import canonical_hash
 
                     def upstage_call(pages, mode):
-                        h6 = profile.local_resource_policy == "selected-pdf-h6-v1"
+                        h6 = profile.local_resource_policy in {
+                            "selected-pdf-h6-v1",
+                            "selected-pdf-h6-v2",
+                        }
                         if h6:
                             # A repaired parser derivative cannot ground provider text
                             # against an unreadable original. Avoid a useless paid call.
@@ -468,7 +484,8 @@ class OpenDataLoaderParser(ParserPort):
 
                             import pdfplumber
                             from pdfplumber.utils.exceptions import PdfminerException
-                            from proofops.adapters.parsing.h6_local_pages import subset
+
+                            subset = _local_pages(profile).subset
 
                             try:
                                 with pdfplumber.open(io.BytesIO(source.content)):
@@ -771,8 +788,8 @@ class OpenDataLoaderParser(ParserPort):
                 profile,
                 () if vision_metrics is None else vision_metrics["pages_routed"],
             )
-            if profile.local_resource_policy == "selected-pdf-h6-v1":
-                from proofops.adapters.parsing.h6_local_pages import failures
+            if profile.local_resource_policy in {"selected-pdf-h6-v1", "selected-pdf-h6-v2"}:
+                failures = _local_pages(profile).failures
                 from proofops.adapters.parsing.mixed_routing import with_failures
 
                 graph = with_failures(
@@ -813,6 +830,7 @@ class OpenDataLoaderParser(ParserPort):
                     "upstage-ocr-page-v14",
                     "upstage-ocr-page-v15",
                     "upstage-ocr-page-v16",
+                    "upstage-ocr-page-v17",
                 }:
                     if page_reader is None:
                         raise ParseFailure("OCR_RUN_REQUIRED")
@@ -998,7 +1016,7 @@ class OpenDataLoaderParser(ParserPort):
                 required.update(
                     {"local-selected.pdf", "local-selected.json", "local-page-map.json"}
                 )
-            elif profile.local_resource_policy == "selected-pdf-h6-v1":
+            elif profile.local_resource_policy in {"selected-pdf-h6-v1", "selected-pdf-h6-v2"}:
                 required.add("h6-local.json")
             elif {
                 "local-selected.pdf",
@@ -1021,7 +1039,8 @@ class OpenDataLoaderParser(ParserPort):
                 if sha256(data).hexdigest() != digest:
                     raise ValueError("artifact hash")
                 if (
-                    profile.local_resource_policy == "selected-pdf-h6-v1" and name.endswith(".json")
+                    profile.local_resource_policy in {"selected-pdf-h6-v1", "selected-pdf-h6-v2"}
+                    and name.endswith(".json")
                 ) or name in {
                     "graph.json",
                     "quality.json",
@@ -1036,8 +1055,8 @@ class OpenDataLoaderParser(ParserPort):
                     "local-page-map.json",
                 }:
                     values[name] = json.loads(data)
-            if profile.local_resource_policy == "selected-pdf-h6-v1":
-                from proofops.adapters.parsing.h6_local_pages import validate
+            if profile.local_resource_policy in {"selected-pdf-h6-v1", "selected-pdf-h6-v2"}:
+                validate = _local_pages(profile).validate
 
                 validate(
                     values["h6-local.json"],
@@ -1168,8 +1187,8 @@ class OpenDataLoaderParser(ParserPort):
                 profile,
                 () if vision_metrics is None else vision_metrics["pages_routed"],
             )
-            if profile.local_resource_policy == "selected-pdf-h6-v1":
-                from proofops.adapters.parsing.h6_local_pages import failures
+            if profile.local_resource_policy in {"selected-pdf-h6-v1", "selected-pdf-h6-v2"}:
+                failures = _local_pages(profile).failures
                 from proofops.adapters.parsing.mixed_routing import with_failures
 
                 restored = with_failures(restored, failures(values["h6-local.json"]))
@@ -1446,9 +1465,9 @@ def _child(work: Path) -> None:
     import opendataloader_pdf
 
     input_path, java_pages = work / "source.pdf", selected
-    h6 = profile.get("local_resource_policy") == "selected-pdf-h6-v1"
+    h6 = profile.get("local_resource_policy") in {"selected-pdf-h6-v1", "selected-pdf-h6-v2"}
     if h6:
-        from proofops.adapters.parsing.h6_local_pages import subset
+        subset = _local_pages(profile).subset
 
         input_path = work / "h6-selected.pdf"
         input_path.write_bytes(subset((work / "source.pdf").read_bytes(), tuple(selected)))
@@ -1495,7 +1514,7 @@ def _child(work: Path) -> None:
             )
         )
     elif h6:
-        from proofops.adapters.parsing.h6_local_pages import remap
+        remap = _local_pages(profile).remap
 
         raw_subset = json.loads((work / "h6-selected.json").read_bytes())
         (work / "source.json").write_bytes(

@@ -525,8 +525,13 @@ def load_run_evidence(store, uploads, parser, *, tenant_id: str, run_id: str):
         from proofops.adapters.local.verified_read_cache import replay_cached as replay_verified
 
         def replay_native(r, g, s, *, tenant_id):
-            if (native_policy or {}).get("mode") == "upstage-ocr-page-v16":
-                from proofops.adapters.local import upstage_ocr_profile_v16 as hx3
+            if (native_policy or {}).get("mode") in {
+                "upstage-ocr-page-v16",
+                "upstage-ocr-page-v17",
+            }:
+                from proofops.adapters.local.claim_source_policies import page_ocr_profile
+
+                hx3 = page_ocr_profile(native_policy["mode"])
 
                 if native_policy != hx3.native_policy():
                     raise ValueError("OCR_POLICY_OR_RUN_MISMATCH")
