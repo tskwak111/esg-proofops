@@ -567,4 +567,7 @@ _replay = _exec_private(
     "proofops.adapters.local._d2_hx5_replay",
 )
 _replay.for_run = for_run
+# The re-exported function is nested in its own private replay module, so the
+# assignment above does not replace that function's global reader factory.
+_replay.replay_claim_spans.__globals__["for_run"] = for_run
 replay_claim_spans = _replay.replay_claim_spans

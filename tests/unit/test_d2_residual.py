@@ -331,3 +331,7 @@ def test_versioned_transport_exposes_only_fixed_timeout_and_format_codes():
         )(b"png")
     with pytest.raises(ValueError, match="^UPSTAGE_OCR_INVALID_RESPONSE$"):
         d2_reader._checked_transport(lambda _: (b"not-json", "request-id"))(b"png")
+
+
+def test_claim_replay_dispatches_through_the_current_d2_reader():
+    assert d2_reader.replay_claim_spans.__globals__["for_run"] is d2_reader.for_run
