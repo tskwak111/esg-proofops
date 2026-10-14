@@ -76,11 +76,11 @@ def test_v21_claim_reader_keeps_v20_parser_and_table_policies():
 
 
 def test_v21_attestation_preserves_worker_checkpoint_identity(monkeypatch):
+    from types import SimpleNamespace
+
     from proofops.adapters.local import upstage_ocr_profile_v21 as reader
 
     from tests.integration.test_claim_source_v3 import synthetic
-
-    from types import SimpleNamespace
 
     monkeypatch.setattr(reader.PageOCRStore, "from_env", lambda: SimpleNamespace())
     source, graph, ref = synthetic("ESG policy 10% achieved")
