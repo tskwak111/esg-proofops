@@ -295,4 +295,13 @@ def page_ocr_profile(profile, *, policy=None, native=False):
         expected = candidate.native_policy() if native else candidate.claim_source_policy()
         if policy == expected:
             return candidate
+    if profile == "upstage-ocr-page-v21":
+        from proofops.adapters.local.historical_claim_replay import (
+            historical_upstage_ocr_v21_reader,
+        )
+
+        historical = historical_upstage_ocr_v21_reader()
+        expected = historical.native_policy() if native else historical.claim_source_policy()
+        if policy == expected:
+            return historical
     raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")

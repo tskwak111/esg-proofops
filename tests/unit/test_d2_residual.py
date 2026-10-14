@@ -220,6 +220,70 @@ def test_attestation_holds_only_the_page_with_a_known_ocr_acquisition_failure():
     ) == receipt
 
 
+def test_page_attestations_keep_their_nested_receipt_hashes_independent():
+    from proofops.domain.provenance import canonical_hash
+
+    from tests.integration.test_claim_source_verification import inputs
+
+    source, graph, ref = inputs()
+    second = replace(ref, page_num=2)
+
+    class Previous:
+        _saved_collections = None
+
+        def attest_claim_spans(self, graph, source, refs, *, tenant_id):
+            ref = asdict(tuple(refs)[0])
+            page = ref["page_num"]
+            base = dict(
+                tenant_id=tenant_id,
+                document_version_id=graph.document_version_id,
+                parse_manifest_id=graph.parse_manifest_id,
+                source_sha256=graph.source_sha256,
+                schema="claim_source_hx5_attestation_v1",
+                pb1_cell_proofs=[],
+                records=[dict(ref=ref, status="verified")],
+                baseline_receipt=dict(
+                    baseline_receipt=dict(
+                        baseline_receipt=dict(bullet_alignment_attestation_sha256=f"page-{page}")
+                    )
+                ),
+            )
+            base["artifact_sha256"] = canonical_hash(base)
+            return dict(base, base_receipt=base)
+
+    reader = object.__new__(d2_reader.Reader)
+    reader.run_id = "d2-page-receipt-test"
+    reader.previous = Previous()
+    receipt = reader.attest_claim_spans(
+        graph, source, (ref, second), tenant_id=graph.tenant_id
+    )
+
+    pages = receipt["base_receipt"]["page_receipts"]
+    assert [item["page_num"] for item in pages] == [ref.page_num, second.page_num]
+    assert [
+        item["receipt"]["baseline_receipt"]["baseline_receipt"]["baseline_receipt"]
+        ["bullet_alignment_attestation_sha256"]
+        for item in pages
+    ] == [f"page-{ref.page_num}", "page-2"]
+    assert [record["status"] for record in receipt["records"]] == ["verified", "verified"]
+    assert reader.recompute_claim_receipt(
+        receipt, graph, source, (ref, second), tenant_id=graph.tenant_id
+    ) == receipt
+
+
+def test_historical_d2_policy_routes_to_the_byte_pinned_reader():
+    from proofops.adapters.local.claim_source_policies import page_ocr_profile
+    from proofops.adapters.local.historical_claim_replay import historical_upstage_ocr_v21_reader
+
+    historical = historical_upstage_ocr_v21_reader()
+    assert page_ocr_profile(
+        historical.PROFILE, policy=historical.claim_source_policy()
+    ) is historical
+    assert page_ocr_profile(
+        historical.PROFILE, policy=historical.native_policy(), native=True
+    ) is historical
+
+
 def test_only_known_acquisition_codes_are_classified_and_deferred():
     from proofops.adapters.local.claim_store import _deferred_reason
     from proofops.adapters.local.source_attestation_errors import ocr_acquisition_failure_code

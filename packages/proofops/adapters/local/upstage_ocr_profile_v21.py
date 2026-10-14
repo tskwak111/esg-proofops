@@ -33,10 +33,18 @@ OCR_ACQUISITION_REASON_PREFIX = "ocr_acquisition_unresolved:"
 # Their embedded reader policy still identifies the exact D2 reader; replay
 # accepts this digest only after recomputing and matching the complete receipt.
 _HISTORICAL_TABLE_POLICY_SHA256 = frozenset(
-    {"baf6b4ae937e1b66f626e838986b952804ca7303872e7d4a9d7577257d415eaf"}
+    {
+        "baf6b4ae937e1b66f626e838986b952804ca7303872e7d4a9d7577257d415eaf",
+        # D2 receipt policy before page-local claim attestations kept their
+        # nested baseline receipt hashes intact.
+        "38ee915518756b6578573d93bc9c80a1fb85bb1f9ce3e1d0cdae50ab6bf5c337",
+    }
 )
 _HISTORICAL_READER_POLICY_SHA256 = frozenset(
-    {"dd40a1c77c4dbb26c7f5047e07028cc272f6ae8381dadcb0073c002f1b00613b"}
+    {
+        "dd40a1c77c4dbb26c7f5047e07028cc272f6ae8381dadcb0073c002f1b00613b",
+        "f80c93a6b7efccb3130c94c7faab9f33bbcc0760a70f824d5b58dc8cce938350",
+    }
 )
 _PAGE_OCR_SOURCE = Path(__file__).with_name("upstage_ocr_page.py")
 
@@ -217,6 +225,13 @@ _ReaderBase = _reader.Reader
 
 def _saved_page_collections(receipt):
     base = receipt.get("base_receipt", {}) if isinstance(receipt, dict) else {}
+    if isinstance(base, dict) and base.get("schema") == "claim_source_hx5_page_attestation_v1":
+        collections = []
+        for entry in base.get("page_receipts", []):
+            item = entry.get("receipt", {}) if isinstance(entry, dict) else {}
+            if isinstance(item, dict):
+                collections.extend(item.get("page_collections", []))
+        return _unique(collections)
     return base.get("page_collections", []) if isinstance(base, dict) else []
 
 
@@ -244,27 +259,6 @@ def _unique(values):
             seen.add(digest)
             result.append(deepcopy(value))
     return result
-
-
-def _merge_receipt(left, right):
-    merged = deepcopy(left)
-    for key, value in right.items():
-        if key == "artifact_sha256":
-            continue
-        if key not in merged:
-            merged[key] = deepcopy(value)
-        elif isinstance(merged[key], dict) and isinstance(value, dict):
-            merged[key] = _merge_receipt(merged[key], value)
-        elif isinstance(merged[key], list) and isinstance(value, list):
-            values = merged[key] + value
-            merged[key] = sorted(set(values)) if key == "physical_pages" else _unique(values)
-        elif merged[key] != value:
-            raise ValueError("OCR_PAGE_ATTESTATION_MERGE_MISMATCH")
-    if "artifact_sha256" in left or "artifact_sha256" in right:
-        merged["artifact_sha256"] = canonical_hash(
-            {key: value for key, value in merged.items() if key != "artifact_sha256"}
-        )
-    return merged
 
 
 def _ref_key(ref):
@@ -437,7 +431,7 @@ class Reader(_ReaderBase):
             for item in (active_collections or [])
             if isinstance(item, dict)
         }
-        successful, failed = [], []
+        page_receipts, records, cell_proofs, failed = [], [], [], []
         for page in sorted({ref.page_num for ref in refs}):
             page_refs = tuple(ref for ref in refs if ref.page_num == page)
             held_refs = [saved_failures.get(_ref_key(asdict(ref))) for ref in page_refs]
@@ -449,11 +443,12 @@ class Reader(_ReaderBase):
                     continue
             try:
                 if work_refs:
-                    successful.append(
-                        self.previous.attest_claim_spans(
-                            graph, source, work_refs, tenant_id=tenant_id
-                        )
+                    item = self.previous.attest_claim_spans(
+                        graph, source, work_refs, tenant_id=tenant_id
                     )
+                    page_receipts.append(dict(page_num=page, receipt=item))
+                    records.extend(item.get("records", []))
+                    cell_proofs.extend(item.get("pb1_cell_proofs", []))
             except ValueError as error:
                 code = ocr_acquisition_failure_code(error)
                 if code is None and str(error) == "OCR_REPLAY_PAGE_MISSING":
@@ -473,20 +468,14 @@ class Reader(_ReaderBase):
                 )
             failed.extend(deepcopy(record) for record in held if record not in failed)
 
-        if successful:
-            merged = successful[0]
-            for item in successful[1:]:
-                merged = _merge_receipt(merged, item)
-        else:
-            merged = dict(
-                **self._identity(graph),
-                schema="claim_source_hx5_attestation_v1",
-                pb1_cell_proofs=[],
-                records=[],
-            )
-        if failed:
-            merged["records"] = _unique(merged.get("records", []) + failed)
-        return self._receipt(merged)
+        base = dict(
+            **self._identity(graph),
+            schema="claim_source_hx5_page_attestation_v1",
+            pb1_cell_proofs=_unique(cell_proofs),
+            records=_unique(records + failed),
+            page_receipts=page_receipts,
+        )
+        return self._receipt(base)
 
     def recompute_claim_receipt(self, receipt, graph, source, refs, *, tenant_id):
         if receipt.get("policy") != claim_source_policy() or receipt.get("run_id") != self.run_id:
