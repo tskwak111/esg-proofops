@@ -11,7 +11,7 @@ import pdfplumber
 import pypdfium2 as pdfium
 from proofops.adapters.parsing.mixed_routing import keep, readable
 from proofops.adapters.parsing.upstage_document import candidate_batch
-from proofops.application.ingest.page_recovery_policy import POLICY
+from proofops.application.ingest.page_recovery_policy import CLAIM_LAYOUT_POLICY, POLICY
 
 TRANSIENT = {f"UPSTAGE_HTTP_{s}" for s in (429, 500, 502, 503, 504)}
 STOP = {
@@ -63,14 +63,15 @@ def native_pages(source, selected, candidates):
     return result
 
 
-def recover(source, profile, selected, candidates, call, *, config_hash):
-    local = native_pages(source, selected, candidates)
+def recover(source, profile, selected, candidates, call, *, config_hash, claim_layout=False):
+    readable_local = native_pages(source, selected, candidates)
     claims = list(profile.claim_physical_pages)
+    local = sorted(set(readable_local) - set(claims)) if claim_layout else readable_local
     rejected = sorted(set(selected) - set(local) - set(claims))
     ocr = rejected[: profile.mixed_ocr_max_pages]
     paid = sorted((set(claims) | set(ocr)) - set(local))
-    batches = [keep(batch, local) for batch in candidates]
     failures, records, recovered = [], [], []
+    provider_batches = []
     stop = None
     for number in paid:
         if stop is not None:
@@ -87,7 +88,7 @@ def recover(source, profile, selected, candidates, call, *, config_hash):
                     mode="standard",
                     config_hash=config_hash,
                 )
-                batches.append(batch)
+                provider_batches.append(batch)
                 records.append(
                     dict(
                         pages=[number],
@@ -119,6 +120,11 @@ def recover(source, profile, selected, candidates, call, *, config_hash):
                 if code in STOP or code.endswith("BUDGET_EXHAUSTED"):
                     stop = code
                 break
+    if claim_layout:
+        # A failed provider page may retain its already readable local candidates.
+        # The failure remains explicit; neither route grants source verification.
+        local = sorted(set(local) | (set(readable_local) - set(recovered)))
+    batches = [keep(batch, local) for batch in candidates] + provider_batches
     unreadable = sorted(set(selected) - set(local) - set(recovered))
     routing = dict(
         version="mixed-hx6-v1",
@@ -129,7 +135,11 @@ def recover(source, profile, selected, candidates, call, *, config_hash):
         provider_pages=recovered,
         unreadable_pages=unreadable,
     )
-    output = dict(profile=POLICY, page_records=records, failed_batches=failures)
+    output = dict(
+        profile=CLAIM_LAYOUT_POLICY if claim_layout else POLICY,
+        page_records=records,
+        failed_batches=failures,
+    )
     return batches, routing, output
 
 

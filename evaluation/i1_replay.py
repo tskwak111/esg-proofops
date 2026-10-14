@@ -139,6 +139,7 @@ def main(*, integration_policy=FINALS_I1_POLICY, baseline_dir=None, retained_pro
             extraction_j7=j7,
             extraction_j8=j8,
             extraction_i3_wire=bool(integration_policy.get("extraction_wire")),
+            extraction_located_table_context=bool(integration_policy.get("located_table_context")),
             extraction_k1=bool(integration_policy.get("extraction_k1")),
             extraction_k3=k3,
             extraction_h1=bool(integration_policy.get("selected_boundary_recovery")),

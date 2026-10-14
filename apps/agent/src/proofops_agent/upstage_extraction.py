@@ -535,6 +535,7 @@ def _profile_with_options(
     extraction_sentence_prefix: bool = False,
     extraction_k1: bool = False,
     extraction_table_footnotes: bool = False,
+    extraction_located_table_context: bool = False,
     extraction_j3: bool = False,
     extraction_j7: bool = False,
     extraction_j8: bool = False,
@@ -568,6 +569,10 @@ def _profile_with_options(
         and not (source_ids and extraction_context and extraction_table_rows and extraction_w9)
     ):
         raise ValueError("QC_NATIVE_FIGURE_PROFILE_INVALID")
+    if type(extraction_located_table_context) is not bool or (
+        extraction_located_table_context and not extraction_table_footnotes
+    ):
+        raise ValueError("EXTRACTION_LOCATED_TABLE_CONTEXT_INVALID")
     if type(extraction_i4_identity) is not bool or (extraction_i4_identity and not source_ids):
         raise ValueError("EXTRACTION_I4_IDENTITY_INVALID")
     if type(extraction_i5_tables) is not bool or (extraction_i5_tables and not extraction_j8):
@@ -650,6 +655,10 @@ def _profile_with_options(
     if display_text_profile not in (None, PROFILE):
         raise ValueError("DISPLAY_PROFILE_INVALID")
     descriptor: list[Any] = [*_RULE_DESCRIPTOR]
+    if extraction_located_table_context:
+        from proofops.application.tagging.dec24 import LOCATED_TABLE_CONTEXT_POLICY
+
+        descriptor.append(LOCATED_TABLE_CONTEXT_POLICY)
     if extraction_qc_native_figures:
         from proofops.adapters.local.h1_native_title import native_figure_builder_policy
         from proofops.application.ingest.k6_coverage import FIGURE_POLICY
@@ -880,6 +889,7 @@ class UpstageClaimExtractor:
         extraction_sentence_prefix: bool = False,
         extraction_k1: bool = False,
         extraction_table_footnotes: bool = False,
+        extraction_located_table_context: bool = False,
         extraction_j3: bool = False,
         extraction_j7: bool = False,
         extraction_j8: bool = False,
@@ -952,6 +962,7 @@ class UpstageClaimExtractor:
             extraction_sentence_prefix=extraction_sentence_prefix,
             extraction_k1=extraction_k1,
             extraction_table_footnotes=extraction_table_footnotes,
+            extraction_located_table_context=extraction_located_table_context,
             extraction_j3=extraction_j3,
             extraction_j7=extraction_j7,
             extraction_j8=extraction_j8,
@@ -980,6 +991,7 @@ class UpstageClaimExtractor:
         self._sentence_prefix = extraction_sentence_prefix
         self._k1 = extraction_k1
         self._table_footnotes = extraction_table_footnotes
+        self._located_table_context = extraction_located_table_context
         self._pb1_context_guard = extraction_pb1_context_guard
         self._pb1 = extraction_pb1
         self._w9 = extraction_w9
@@ -1357,9 +1369,9 @@ class UpstageClaimExtractor:
         )
         self._write(directory / "raw_response.json", canonical_json(metadata))
         if isinstance(result, dict) and result.get("schema_valid") is False:
-            self._fail(directory, packet_sha, request_id, "MODEL_SPAN_OR_SCHEMA_INVALID")
+            self._fail(directory, packet_sha, request_id, "MODEL_SCHEMA_INVALID")
         if not isinstance(result, dict) or not isinstance(result.get("content"), str):
-            self._fail(directory, packet_sha, request_id, "MODEL_SPAN_OR_SCHEMA_INVALID")
+            self._fail(directory, packet_sha, request_id, "MODEL_SCHEMA_INVALID")
         try:
             payload = json.loads(result["content"])
             spans, rejected = self._resolve_payload(
@@ -1370,8 +1382,17 @@ class UpstageClaimExtractor:
                 packet=packet,
                 context_graph=context_graph,
             )
-        except (ValueError, TypeError, json.JSONDecodeError):
-            self._fail(directory, packet_sha, request_id, "MODEL_SPAN_OR_SCHEMA_INVALID")
+        except (ValueError, TypeError) as error:
+            # Public error compatibility is unchanged. New-policy receipts keep
+            # a bounded diagnostic code, never arbitrary exception/source text.
+            code = (
+                "MODEL_JSON_INVALID"
+                if isinstance(error, json.JSONDecodeError)
+                else "MODEL_SELECTOR_INVALID"
+                if str(error) == "unknown or repeated sentence id"
+                else "MODEL_SPAN_INVALID"
+            )
+            self._fail(directory, packet_sha, request_id, code)
         resolved = [
             {
                 "char_start": span.char_start,
@@ -1709,7 +1730,9 @@ class UpstageClaimExtractor:
             if self._table_footnotes and packet is not None:
                 from proofops.application.tagging.dec24 import adjacent_table, table_footnote
 
-                table_context = adjacent_table(packet, context_graph)
+                table_context = adjacent_table(
+                    packet, context_graph, located_only=self._located_table_context
+                )
                 excluded = [
                     span
                     for span in spans
@@ -2491,7 +2514,22 @@ class UpstageClaimExtractor:
             error = "MODEL_SPAN_OR_SCHEMA_INVALID"
         self._write(
             directory / "failure.json",
-            canonical_json({"request_id": request_id, "packet_sha256": packet_sha, "error": error}),
+            canonical_json(
+                {"request_id": request_id, "packet_sha256": packet_sha, "error": error}
+                | (
+                    {"reason_code": code}
+                    if self._located_table_context
+                    and not transport
+                    and code
+                    in {
+                        "MODEL_JSON_INVALID",
+                        "MODEL_SCHEMA_INVALID",
+                        "MODEL_SELECTOR_INVALID",
+                        "MODEL_SPAN_INVALID",
+                    }
+                    else {}
+                )
+            ),
         )
         if transport:
             if getattr(self._probe, "provider_resilience", None) and code in ISOLATED_CODES:
