@@ -65,6 +65,26 @@ class ExtractionProfile:
 class ExtractionOutputError(ValueError):
     """Rejected model content; preserve this block as unknown and continue."""
 
+    def __init__(self, message: str, *, failure_code: str | None = None):
+        super().__init__(message)
+        # Only bounded diagnostic identifiers cross into immutable discovery
+        # records. Exception text may contain provider payloads or credentials.
+        self.failure_code = (
+            failure_code
+            if isinstance(failure_code, str)
+            and re.fullmatch(
+                r"(?:MODEL|EXTRACTION|UPSTAGE|UPSTREAM|TABLE|DISPLAY)_[A-Z0-9_]{1,72}",
+                failure_code,
+            )
+            else None
+        )
+
+
+FAILURE_DIAGNOSTICS_POLICY = {
+    "version": "source-extraction-failure-codes-v1",
+    "scope": "per-source-safe-code;raw-block-retained;failed-source-remains-unknown",
+}
+
 
 class ClaimExtractorPort(Protocol):
     @property
@@ -302,7 +322,22 @@ def discover_atomic_claims(
         packet_hash = canonical_hash(packet)
         try:
             payload = extractor.extract(packet)
-        except (TimeoutError, ConnectionError, ExtractionOutputError):
+        except ExtractionOutputError as error:
+            failure_reason = error.failure_code or "extraction_failed"
+            receipts.append(
+                ExtractionReceipt(block.source_id, packet_hash, None, None, profile, "failed")
+            )
+            exclusions.append(
+                ClaimExclusion(
+                    block.source_id,
+                    block.page_num,
+                    failure_reason,
+                    "unknown",
+                    block.source_ref(),
+                )
+            )
+            continue
+        except (TimeoutError, ConnectionError):
             receipts.append(
                 ExtractionReceipt(block.source_id, packet_hash, None, None, profile, "failed")
             )
@@ -316,7 +351,24 @@ def discover_atomic_claims(
                 )
             )
             continue
-        spans = validate_extraction_response(payload, text)
+        try:
+            spans = validate_extraction_response(payload, text)
+        except (ValueError, TypeError, KeyError):
+            # A malformed model span/schema is a source-level refusal, not a
+            # parser transport failure and never an empty/verified claim set.
+            receipts.append(
+                ExtractionReceipt(block.source_id, packet_hash, None, None, profile, "failed")
+            )
+            exclusions.append(
+                ClaimExclusion(
+                    block.source_id,
+                    block.page_num,
+                    "MODEL_SPAN_OR_SCHEMA_INVALID",
+                    "unknown",
+                    block.source_ref(),
+                )
+            )
+            continue
         receipt = ExtractionReceipt(
             block.source_id,
             packet_hash,

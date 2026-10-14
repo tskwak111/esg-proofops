@@ -11,7 +11,12 @@ from hashlib import sha256
 from proofops.adapters.local.claim_source_policies import PAGE_OCR_PROFILES
 from proofops.adapters.local.run_artifacts import load_run_graph
 from proofops.application.claim_scope import claim_pages_for
-from proofops.application.claims import ClaimScope, ExtractionProfile, discover_atomic_claims
+from proofops.application.claims import (
+    ClaimScope,
+    ExtractionOutputError,
+    ExtractionProfile,
+    discover_atomic_claims,
+)
 from proofops.application.ports.jobs import JobMessage
 from proofops.domain.provenance import canonical_hash
 
@@ -48,15 +53,20 @@ def claim_scope(snapshot, graph):
 
 
 class _RecordedExtractor:
-    def __init__(self, profile, receipts):
+    def __init__(self, profile, receipts, *, failures=None):
         self.profile = profile
         self.receipts = {item["packet_sha256"]: item for item in receipts}
+        self.failures = failures or {}
         if len(self.receipts) != len(receipts):
             raise ValueError("duplicate extraction receipts")
 
     def extract(self, packet):
         receipt = self.receipts[canonical_hash(packet)]
         if receipt["status"] == "failed":
+            source_id = packet["untrusted_document_data"]["source_id"]
+            reason = self.failures.get(source_id, "extraction_failed")
+            if reason != "extraction_failed":
+                raise ExtractionOutputError(reason, failure_code=reason)
             raise TimeoutError
         return json.loads(receipt["raw_response_json"])
 
@@ -111,10 +121,25 @@ class LocalClaimStore:
         expected = snapshot_pins(snapshot, graph, profile, parse_checkpoint)
         if any(envelope.get(key) != value for key, value in expected.items()):
             raise ValueError("CLAIM_SNAPSHOT_INPUT_MISMATCH")
+        failed_exclusions = {
+            item["source_id"]: item["reason"]
+            for item in envelope["discovery"]["exclusions"]
+            if item.get("state") == "unknown"
+            and (
+                item.get("reason") == "extraction_failed"
+                or item.get("reason", "").startswith(
+                    ("MODEL_", "EXTRACTION_", "UPSTAGE_", "UPSTREAM_", "TABLE_", "DISPLAY_")
+                )
+            )
+        }
         discovery = discover_atomic_claims(
             graph,
             claim_scope(snapshot, graph),
-            extractor=_RecordedExtractor(profile, envelope["discovery"]["receipts"]),
+            extractor=_RecordedExtractor(
+                profile,
+                envelope["discovery"]["receipts"],
+                failures=failed_exclusions,
+            ),
         )
         if (
             canonical_hash(asdict(discovery)) != canonical_hash(envelope["discovery"])
@@ -508,11 +533,21 @@ def extraction_outcome(graph, discovery, *, claim_pages, include_source_failures
     )
     blocks = [block for block in graph.blocks if block.page_num in pages]
     failed_sources = [
-        dict(source_id=exclusion.source_id, physical_page=exclusion.page_num)
+        dict(
+            source_id=exclusion.source_id,
+            physical_page=exclusion.page_num,
+            failure_code=(
+                exclusion.reason if exclusion.reason != "extraction_failed" else "TRANSPORT_FAILED"
+            ),
+        )
         for exclusion in discovery.exclusions
-        if include_source_failures
-        and exclusion.page_num in pages
-        and exclusion.reason == "extraction_failed"
+        if exclusion.page_num in pages
+        and (
+            exclusion.reason == "extraction_failed"
+            or exclusion.reason.startswith(
+                ("MODEL_", "EXTRACTION_", "UPSTAGE_", "UPSTREAM_", "TABLE_", "DISPLAY_")
+            )
+        )
     ]
     if failed_sources:
         status, code = (

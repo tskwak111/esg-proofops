@@ -23,7 +23,7 @@ from pypdf import PdfReader
 from evaluation.report_sections import POLICY_HASH, build_map
 from evaluation.report_sections import inspect as inspect_sections
 from evaluation.scope_claim_signals import POLICY as SIGNAL_POLICY
-from evaluation.scope_claim_signals import claim_signals
+from evaluation.scope_claim_signals import SOURCE_SUPPORT_POLICY, claim_signals, claim_support_signals
 
 VERSION = "AS1-v1"
 CEO_PATTERN = (
@@ -82,6 +82,13 @@ POLICY_SHA256 = canonical_hash(POLICY)
 RANKING_VERSION = "W4-v2"
 RANKING_POLICY = POLICY | dict(version=RANKING_VERSION, ranking=SIGNAL_POLICY)
 RANKING_POLICY_SHA256 = canonical_hash(RANKING_POLICY)
+SUPPORT_VERSION = "W5-v1"
+SUPPORT_POLICY = RANKING_POLICY | dict(
+    version=SUPPORT_VERSION,
+    source_backed_claim_support=SOURCE_SUPPORT_POLICY,
+    printed_page_map="visible_numeric_labels_verified_in_consecutive_runs_of_3_or_more",
+)
+SUPPORT_POLICY_SHA256 = canonical_hash(SUPPORT_POLICY)
 ASSURANCE_VERSION = "E02-v1"
 
 
@@ -154,6 +161,43 @@ def _ceo_title(title):
     return re.fullmatch(CEO_PATTERN, _normal(title).strip(), re.I) is not None
 
 
+def _verified_native_printed_page_map(page_texts):
+    """Map visible numeric labels only when a three-page sequence verifies the mapping."""
+    candidates = {}
+    for page, text in page_texts.items():
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        edge_lines = lines[:3] + lines[-3:]
+        labels = list(dict.fromkeys(line for line in edge_lines if re.fullmatch(r"\d{1,4}", line)))
+        if len(labels) == 1:
+            candidates[page] = labels[0]
+
+    mapped = []
+    pages = sorted(candidates)
+    index = 0
+    while index < len(pages):
+        start = index
+        while (
+            index + 1 < len(pages)
+            and pages[index + 1] == pages[index] + 1
+            and int(candidates[pages[index + 1]]) == int(candidates[pages[index]]) + 1
+        ):
+            index += 1
+        run = pages[start : index + 1]
+        if len(run) >= 3:
+            mapped.extend(
+                dict(
+                    printed_label=candidates[page],
+                    pdf_page=page,
+                    mapping_method="verified_consecutive_native_header_run",
+                    run_start_pdf_page=run[0],
+                    run_end_pdf_page=run[-1],
+                )
+                for page in run
+            )
+        index += 1
+    return mapped
+
+
 def build_plan(
     study,
     page_texts,
@@ -182,10 +226,10 @@ def build_plan(
             ),
             page_texts,
         )
-    if ranking_policy not in (VERSION, RANKING_VERSION):
+    if ranking_policy not in (VERSION, RANKING_VERSION, SUPPORT_VERSION):
         raise ValueError("unsupported scope policy")
-    if ranking_policy == RANKING_VERSION and max_evidence_pages > 30:
-        raise ValueError("W4 evidence limit must not exceed 30 (includes claims)")
+    if ranking_policy in (RANKING_VERSION, SUPPORT_VERSION) and max_evidence_pages > 30:
+        raise ValueError("W4/W5 evidence limit must not exceed 30 (includes claims)")
     count = study["page_count"]
     roles, anchors, range_anchors = {}, {}, {}
     for section in study["sections"]:
@@ -345,14 +389,17 @@ def build_plan(
                 evidence_selected=False,
             )
         )
-        if ranking_policy == RANKING_VERSION:
-            score, signals = claim_signals(body, headings)
+        if ranking_policy in (RANKING_VERSION, SUPPORT_VERSION):
+            scorer = claim_support_signals if ranking_policy == SUPPORT_VERSION else claim_signals
+            score, signals = scorer(body, headings)
             records[-1].update(claim_signal_score=score, claim_signals=signals)
     by_page = {r["page"]: r for r in records}
     ranked_env = sorted(
         env,
         key=lambda p: (
-            (-by_page[p]["claim_signal_score"],) if ranking_policy == RANKING_VERSION else ()
+            (-by_page[p]["claim_signal_score"],)
+            if ranking_policy in (RANKING_VERSION, SUPPORT_VERSION)
+            else ()
         )
         + (
             -by_page[p]["environmental_density"],
@@ -361,6 +408,7 @@ def build_plan(
             p,
         ),
     )
+    ranked_claim_candidates = sorted(ceos) + ranked_env
     selected_ceos = sorted(ceos)[:2]
     selected_env = ranked_env[: min(max_environment_pages, 10 - len(selected_ceos))]
     # Never run CEO-only as a successful environmental scope.
@@ -389,6 +437,26 @@ def build_plan(
             record["reasons"].append(
                 "excluded_by_declared_cap" if selected_claims else "scope_failed_no_paid_dispatch"
             )
+        if ranking_policy == SUPPORT_VERSION and p in ceos + env:
+            candidate_rank = ranked_claim_candidates.index(p) + 1
+            record["claim_selection_decision"] = dict(
+                stage="claim_page_selection",
+                selected=p in selected_claims,
+                candidate_rank=candidate_rank,
+                extraction_status="not_evaluated",
+                reason=(
+                    "selected_by_same_page_quantified_assurance_priority"
+                    if p in selected_claims
+                    and record["claim_signals"]["same_page_quantified_assurance"]
+                    else "selected_within_claim_page_cap"
+                    if p in selected_claims
+                    else "same_page_signal_below_claim_page_cap"
+                    if record["claim_signals"]["same_page_quantified_assurance"]
+                    else "excluded_by_claim_page_cap"
+                ),
+                ranking_only=True,
+                evidence_verified=False,
+            )
     plan = dict(
         version=ranking_policy,
         status="candidate_only" if selected_claims else "failed",
@@ -396,7 +464,11 @@ def build_plan(
         source_sha256=study["source_sha256"],
         page_count=count,
         policy_sha256=(
-            RANKING_POLICY_SHA256 if ranking_policy == RANKING_VERSION else POLICY_SHA256
+            SUPPORT_POLICY_SHA256
+            if ranking_policy == SUPPORT_VERSION
+            else RANKING_POLICY_SHA256
+            if ranking_policy == RANKING_VERSION
+            else POLICY_SHA256
         ),
         settings=dict(
             max_environment_pages=max_environment_pages,
@@ -441,6 +513,11 @@ def build_plan(
             "Edit only selected_claim_pages/selected_evidence_pages; validate source before use.",
         ],
     )
+    if ranking_policy == SUPPORT_VERSION:
+        plan["printed_page_map"] = _verified_native_printed_page_map(page_texts)
+        plan["page_map_policy"] = (
+            "visible_numeric_labels_verified_in_consecutive_runs_of_3_or_more"
+        )
     plan["plan_sha256"] = canonical_hash(plan)
     return plan
 
@@ -550,6 +627,7 @@ def validate_selection(
     policies = {
         VERSION: POLICY_SHA256,
         RANKING_VERSION: RANKING_POLICY_SHA256,
+        SUPPORT_VERSION: SUPPORT_POLICY_SHA256,
         E06_VERSION: E06_HASH,
         ASSURANCE_VERSION: _assurance_policy_hash(),
     }
@@ -656,7 +734,7 @@ def main():
     cli.add_argument("--evidence-pages", type=int, default=30)
     cli.add_argument(
         "--ranking-policy",
-        choices=(VERSION, RANKING_VERSION, ASSURANCE_VERSION),
+        choices=(VERSION, RANKING_VERSION, SUPPORT_VERSION, ASSURANCE_VERSION),
         default=RANKING_VERSION,
     )
     args = cli.parse_args()

@@ -764,6 +764,10 @@ def apply_resume_metadata(args, saved: dict) -> None:
     args.extraction_table_rows = bool(saved.get("extraction_table_rows", False))
     args.extraction_recall_prompt = bool(saved.get("extraction_recall_prompt", False))
     args.extraction_atomic = bool(saved.get("extraction_atomic", False))
+    args.extraction_atomic_v3 = bool(saved.get("extraction_atomic_v3", False))
+    args.extraction_failure_diagnostics = bool(
+        saved.get("extraction_failure_diagnostics", False)
+    )
     args.extraction_linewrap_join = bool(saved.get("extraction_linewrap_join", False))
     args.extraction_fragment_guard = bool(saved.get("extraction_fragment_guard", False))
     args.extraction_sentence_prefix = bool(saved.get("extraction_sentence_prefix", False))
@@ -1229,6 +1233,16 @@ def main():
         "Pinned on resume; use a new state for the challenger.",
     )
     parser.add_argument(
+        "--extraction-atomic-v3",
+        action="store_true",
+        help="Opt-in explicit recognition/award atom split; requires --extraction-atomic.",
+    )
+    parser.add_argument(
+        "--extraction-failure-diagnostics",
+        action="store_true",
+        help="Retain bounded per-source model/schema failure codes; requires source IDs.",
+    )
+    parser.add_argument(
         "--extraction-linewrap-join",
         action="store_true",
         help="Opt-in selected-linewrap-join-v1: join selected prose continuations only. "
@@ -1371,6 +1385,8 @@ def main():
         requested_rows = args.extraction_table_rows
         requested_recall = args.extraction_recall_prompt
         requested_atomic = args.extraction_atomic
+        requested_atomic_v3 = args.extraction_atomic_v3
+        requested_failure_diagnostics = args.extraction_failure_diagnostics
         requested_sentence_prefix = args.extraction_sentence_prefix
         requested_k1 = args.extraction_k1
         requested_j7 = args.extraction_j7
@@ -1409,6 +1425,10 @@ def main():
             parser.error("--resume cannot add extraction recall prompt; create a new run")
         if requested_atomic and not args.extraction_atomic:
             parser.error("--resume cannot add extraction atomic; create a new run")
+        if requested_atomic_v3 and not args.extraction_atomic_v3:
+            parser.error("--resume cannot add extraction atomic v3; create a new run")
+        if requested_failure_diagnostics and not args.extraction_failure_diagnostics:
+            parser.error("--resume cannot add extraction failure diagnostics; create a new run")
         if requested_sentence_prefix and not args.extraction_sentence_prefix:
             parser.error("--resume cannot add extraction sentence prefix; create a new run")
         if requested_k1 and not args.extraction_k1:
@@ -1528,6 +1548,10 @@ def main():
         parser.error("row/recall profiles cannot mix with --extraction-atomic")
     if args.extraction_atomic and not args.extraction_source_ids:
         parser.error("--extraction-atomic requires --extraction-source-ids")
+    if args.extraction_atomic_v3 and not args.extraction_atomic:
+        parser.error("--extraction-atomic-v3 requires --extraction-atomic")
+    if args.extraction_failure_diagnostics and not args.extraction_source_ids:
+        parser.error("--extraction-failure-diagnostics requires --extraction-source-ids")
     if args.extraction_sentence_prefix and (
         not args.extraction_context or not args.extraction_linewrap_join or args.extraction_atomic
     ):
@@ -1666,6 +1690,8 @@ def main():
                     extraction_table_context=args.extraction_table_context,
                     source_ids=args.extraction_source_ids,
                     extraction_atomic=args.extraction_atomic,
+                    extraction_atomic_v3=args.extraction_atomic_v3,
+                    extraction_failure_diagnostics=args.extraction_failure_diagnostics,
                     extraction_linewrap_join=args.extraction_linewrap_join,
                     extraction_fragment_guard=args.extraction_fragment_guard,
                     extraction_sentence_prefix=args.extraction_sentence_prefix,
@@ -1740,6 +1766,10 @@ def main():
             settings["extraction_recall_prompt"] = True
         if args.extraction_atomic:
             settings["extraction_atomic"] = True
+        if args.extraction_atomic_v3:
+            settings["extraction_atomic_v3"] = True
+        if args.extraction_failure_diagnostics:
+            settings["extraction_failure_diagnostics"] = True
         if args.extraction_linewrap_join:
             settings["extraction_linewrap_join"] = True
         if args.extraction_sentence_prefix:
@@ -2281,6 +2311,18 @@ def main():
                 extraction_profile=extraction_profile,
                 atomic_policy_sha256=canonical_hash(POLICY),
             )
+        if args.extraction_atomic_v3:
+            from proofops.application.ingest.atomic_candidates import POLICY_V3, PROFILE_V3
+            from proofops.domain.provenance import canonical_hash
+
+            manifest.update(
+                extraction_atomic_v3=True,
+                extraction_profile_name=PROFILE_V3,
+                extraction_profile=extraction_profile,
+                atomic_policy_sha256=canonical_hash(POLICY_V3),
+            )
+        if args.extraction_failure_diagnostics:
+            manifest["extraction_failure_diagnostics"] = True
         if args.extraction_source_ids:
             manifest["extraction_source_ids"] = True
         if args.extraction_assertion_prompt:
@@ -2448,6 +2490,17 @@ def main():
                 raise ValueError(name + " policy changed; create a new state directory")
         if manifest.get("extraction_atomic", False) != args.extraction_atomic:
             raise ValueError("pilot extraction atomic policy changed; create a new state directory")
+        if manifest.get("extraction_atomic_v3", False) != args.extraction_atomic_v3:
+            raise ValueError(
+                "pilot extraction atomic v3 policy changed; create a new state directory"
+            )
+        if (
+            manifest.get("extraction_failure_diagnostics", False)
+            != args.extraction_failure_diagnostics
+        ):
+            raise ValueError(
+                "pilot extraction failure diagnostics changed; create a new state directory"
+            )
         if manifest.get("extraction_linewrap_join", False) != args.extraction_linewrap_join:
             raise ValueError(
                 "pilot extraction linewrap join policy changed; create a new state directory"

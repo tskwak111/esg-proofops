@@ -101,6 +101,23 @@ def test_multiple_target_years_do_not_cut_decimal_comma_or_percent():
     assert quotes(text) == [text]
 
 
+def test_v3_splits_kakao_award_recognition_from_iso_assertion_and_v2_is_frozen():
+    text = (
+        "카카오 데이터센터 안산은 시공 계획 단계부터 운영까지 에너지 절감 기술과 "
+        "친환경 설계를 적용했습니다. "
+        "그 결과 친환경 건축인증인 LEED Certified 등급을 획득하여 부지 선정, 대지 환경, "
+        "수자원 효율성, 에너지 및 대기환경 등 항목에서 친환경 성과 효율성을 입증했습니다. "
+        "또한 소비자시민모임에서 주최하는 에너지위너상을 수상하여 친환경 및 에너지 절감 운영을 "
+        "인정받았으며, ISO 14001 인증을 통해 체계적인 환경 관리 역량을 유지하고 있습니다."
+    )
+    v2 = quotes(text, policy_version=2)
+    v3 = quotes(text, policy_version=3)
+    iso = "ISO 14001 인증을 통해 체계적인 환경 관리 역량을 유지하고 있습니다."
+    assert len(v2) == 3 and "ISO 14001" in v2[-1] and "에너지위너상" in v2[-1]
+    assert len(v3) == 4 and v3[-1] == iso
+    assert v3[:2] == v2[:2]
+
+
 def test_climate_governance_and_target_management_are_candidates_without_fragmenting_lists():
     text = "기후변화 위원회는 넷 제로 및 RE100의 연도별 목표와 이행 전략을 수립하고 있습니다."
     assert quotes(text) == [text]

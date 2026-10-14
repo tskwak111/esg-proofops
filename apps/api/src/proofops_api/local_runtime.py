@@ -34,6 +34,8 @@ _SETTINGS_FIELDS = frozenset(
         "extraction_table_context",
         "extraction_source_ids",
         "extraction_atomic",
+        "extraction_atomic_v3",
+        "extraction_failure_diagnostics",
         "extraction_linewrap_join",
         "extraction_fragment_guard",
         "extraction_sentence_prefix",
@@ -283,7 +285,12 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
     extraction_mode = env.get("LOCAL_EXTRACTION_MODE", "")
     tagging_mode = env.get("LOCAL_TAGGING_MODE", "")
     fact_assembly_profile = env.get("LOCAL_FACT_ASSEMBLY_PROFILE", "strict-v1")
-    if fact_assembly_profile not in ("strict-v1", "partial-facts-v1", "partial-facts-v2"):
+    if fact_assembly_profile not in (
+        "strict-v1",
+        "partial-facts-v1",
+        "partial-facts-v2",
+        "grade-relevant-unanimity-v1",
+    ):
         raise _invalid()
     if not parser_path:
         if settings_path or extraction_mode or tagging_mode or fact_assembly_profile != "strict-v1":
@@ -438,6 +445,8 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         "extraction_table_context",
         "extraction_source_ids",
         "extraction_atomic",
+        "extraction_atomic_v3",
+        "extraction_failure_diagnostics",
         "extraction_linewrap_join",
         "extraction_fragment_guard",
         "extraction_sentence_prefix",
@@ -557,6 +566,15 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
     ):
         raise _invalid()
     if "extraction_atomic" in settings and settings.get("extraction_source_ids") is not True:
+        raise _invalid()
+    if "extraction_atomic_v3" in settings and (
+        settings.get("extraction_atomic") is not True
+        or settings.get("extraction_source_ids") is not True
+    ):
+        raise _invalid()
+    if "extraction_failure_diagnostics" in settings and (
+        settings.get("extraction_source_ids") is not True
+    ):
         raise _invalid()
     if "extraction_linewrap_join" in settings and (
         settings.get("extraction_source_ids") is not True

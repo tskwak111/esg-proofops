@@ -45,6 +45,7 @@ CLAIM_SOURCE_POLICY_SCHEMAS = frozenset(
     {
         "claim_source_policy_v1",
         "claim_source_policy_v2",
+        "claim_source_render_conditioned_policy_v1",
         RENDER_RESOLUTION_POLICY_SCHEMA,
         BULLET_ALIGNMENT_POLICY_SCHEMA,
         TYPOGRAPHY_POLICY_SCHEMA,
@@ -93,6 +94,12 @@ def _source_v3():
     return claim_source_verification_v3
 
 
+def _source_v4():
+    from proofops.adapters.local import claim_source_verification_v4
+
+    return claim_source_verification_v4
+
+
 def _table_claims():
     from proofops.adapters.local import table_claim_source_verification
 
@@ -103,6 +110,7 @@ def _wrappers():
     """Every wrapper module, outermost first. Additive: the base verifier's own
     dispatch is untouched and each wrapper keeps its own distinct policy."""
     return (
+        _source_v4(),
         _source_v3(),
         _table_claims(),
         _glyph_alignment(),
@@ -124,6 +132,11 @@ def claim_source_reader(policy):
     from proofops.adapters.local import claim_source_verification as base
 
     if isinstance(policy, Mapping):
+        if policy.get("profile") == "claim-source-v4":
+            wrapper = _source_v4()
+            if policy != wrapper.claim_source_policy():
+                raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")
+            return wrapper
         if policy.get("profile") == "claim-source-v3":
             wrapper = _source_v3()
             if policy != wrapper.claim_source_policy():

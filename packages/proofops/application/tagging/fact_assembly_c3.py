@@ -122,9 +122,13 @@ def publication_policy_for(profile, *, pinned_hash=None):
     return dict(POLICY)
 
 
-def publication_values(receipt, *, rulepack, tag_revision):
+def publication_values(
+    receipt, *, rulepack, tag_revision, require_public=True, local_synthetic=False
+):
     """Reconstruct Python facts from the individually guarded matcher outputs."""
-    if not receipt["public_auto_confirmed"]:
+    if type(local_synthetic) is not bool:
+        raise ValueError("C3_LOCAL_SYNTHETIC_FLAG_INVALID")
+    if require_public and not receipt["public_auto_confirmed"]:
         raise ValueError("C3_PUBLICATION_NOT_ELIGIBLE")
     identity = receipt["identity"]
     first = receipt["raw_receipts"][0]
@@ -179,6 +183,7 @@ def publication_values(receipt, *, rulepack, tag_revision):
             identity["document_version_id"],
             identity["claim_id"],
             identity["packet_sha256"],
+            local_synthetic=local_synthetic,
         ),
         rulepack,
     )

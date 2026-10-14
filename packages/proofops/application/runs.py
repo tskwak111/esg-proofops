@@ -214,6 +214,7 @@ class RunService:
                 # Opt-in rendered-side-only typography wrapper, which
                 # wraps the one above. Same refusal guarantee.
                 "claim_span_typography_policy_v1",
+                "claim_source_render_conditioned_policy_v1",
             }
             or extraction_mode != "upstage_probe"
         ):

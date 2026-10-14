@@ -421,6 +421,9 @@ class HostedReads:
                 from proofops.application.tagging.fact_assembly_c3 import (
                     REVIEWED_IDENTITY,
                 )
+                from proofops.application.tagging.fact_assembly_c3_v2 import (
+                    PROFILE as C3_V2_PROFILE,
+                )
                 from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
 
                 pilot = json.loads((path / "pilot.json").read_text())
@@ -428,7 +431,10 @@ class HostedReads:
                 if c4:
                     if selected != pilot["selected_pages"]:
                         raise HostedError("SOURCE_REFERENCE_MISMATCH", 409)
-                elif pilot.get("publication_profile") != C3_PROFILE or selected != [36]:
+                elif pilot.get("publication_profile") not in (
+                    C3_PROFILE,
+                    C3_V2_PROFILE,
+                ) or selected != [36]:
                     raise HostedError("SOURCE_REFERENCE_MISMATCH", 409)
             reference_page = physical_page if original_refs else selected.index(physical_page) + 1
             refs = [
@@ -458,12 +464,12 @@ class HostedReads:
                 source = self.store.analysis_source(directory, dict(doc))
                 source_sha = file_sha256(source)
                 if original_refs:
-                    if c4:
+                    if c4 or pilot.get("publication_profile") == C3_V2_PROFILE:
+                        from proofops.adapters.local.c3_publication import LocalC3Publication
                         from proofops.adapters.local.c4_publication import LocalC4Publication
 
-                        frozen = LocalC4Publication(path).runs.snapshot(
-                            auth.tenant_id, pilot["run_id"]
-                        )
+                        publication = LocalC4Publication(path) if c4 else LocalC3Publication(path)
+                        frozen = publication.runs.snapshot(auth.tenant_id, pilot["run_id"])
                         expected_original = frozen["document"]["sha256"]
                     else:
                         expected_original = REVIEWED_IDENTITY["original_sha256"]

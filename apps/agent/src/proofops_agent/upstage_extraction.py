@@ -22,6 +22,7 @@ from proofops.adapters.local.upstage import MODEL as UPSTAGE_MODEL
 from proofops.adapters.local.upstage import MODEL_PRO4, UPSTAGE_TRANSPORT_STOP_CODES
 from proofops.adapters.local.upstage import request_usage as _shared_request_usage
 from proofops.application.claims import (
+    FAILURE_DIAGNOSTICS_POLICY,
     ExtractionOutputError,
     ExtractionProfile,
     validate_extraction_response,
@@ -29,9 +30,11 @@ from proofops.application.claims import (
 from proofops.application.ingest.atomic_candidates import (
     POLICY as ATOMIC_POLICY,
 )
+from proofops.application.ingest.atomic_candidates import POLICY_V3 as ATOMIC_POLICY_V3
 from proofops.application.ingest.atomic_candidates import (
     PROFILE as ATOMIC_PROFILE,
 )
+from proofops.application.ingest.atomic_candidates import PROFILE_V3 as ATOMIC_PROFILE_V3
 from proofops.application.ingest.atomic_candidates import (
     atomic_candidates,
 )
@@ -194,6 +197,13 @@ ATOMIC_SYSTEM_PROMPT = (
     "Actual company quantities explicitly reported in an assurance appendix can qualify. "
     "A chart phrase with a dated target/value qualifies; an isolated chart label does not. "
     "If no supplied atom qualifies, return an empty sentence_ids array."
+)
+ATOMIC_V3_SYSTEM_PROMPT = ATOMIC_SYSTEM_PROMPT.replace(
+    "extraction-atomic-v2:", "extraction-atomic-v3:"
+).replace(
+    "completed result and future plan.",
+    "completed result and future plan. Split a completed recognition/award statement "
+    "from an adjacent ISO certification assertion when the source supplies both.",
 )
 ROW_SYSTEM_SUFFIX = (
     " extraction-table-rows-v1: source_sentences may include literal table/chart rows or cells. "
@@ -477,10 +487,13 @@ def _system_prompt(
     assertion_prompt: bool = False,
     complete_selection: bool = False,
     extraction_atomic: bool = False,
+    extraction_atomic_v3: bool = False,
     extraction_table_rows: bool = False,
     extraction_recall_prompt: bool = False,
 ) -> str:
     """The exact prompt sent for an option combination; legacy shapes untouched."""
+    if extraction_atomic_v3:
+        return ATOMIC_V3_SYSTEM_PROMPT
     if extraction_atomic:
         return ATOMIC_SYSTEM_PROMPT
     if not source_ids:
@@ -524,6 +537,8 @@ def _profile_with_options(
     wire_policy_version: int = 1,
     display_text_profile: str | None = None,
     extraction_atomic: bool = False,
+    extraction_atomic_v3: bool = False,
+    extraction_failure_diagnostics: bool = False,
     extraction_linewrap_join: bool = False,
     extraction_fragment_guard: bool = False,
     extraction_table_rows: bool = False,
@@ -609,6 +624,8 @@ def _profile_with_options(
             extraction_content_bounds,
             position_order,
             extraction_atomic,
+            extraction_atomic_v3,
+            extraction_failure_diagnostics,
             extraction_linewrap_join,
             extraction_fragment_guard,
             extraction_table_rows,
@@ -625,6 +642,10 @@ def _profile_with_options(
         raise ValueError("UPSTAGE_PROFILE_OPTION_INVALID")
     if extraction_atomic and not source_ids:
         raise ValueError("UPSTAGE_PROFILE_OPTION_INVALID")
+    if extraction_atomic_v3 and not extraction_atomic:
+        raise ValueError("UPSTAGE_ATOMIC_V3_REQUIRES_ATOMIC_PROFILE")
+    if extraction_failure_diagnostics and not source_ids:
+        raise ValueError("UPSTAGE_FAILURE_DIAGNOSTICS_REQUIRES_SOURCE_IDS")
     if extraction_sentence_prefix and (
         not extraction_linewrap_join or extraction_atomic or not extraction_context
     ):
@@ -684,8 +705,12 @@ def _profile_with_options(
         descriptor.append(LINEWRAP_JOIN_POLICY)
     if extraction_fragment_guard:
         descriptor.append("selected-linewrap-fragments-v1")
-    if extraction_atomic:
+    if extraction_atomic and not extraction_atomic_v3:
         descriptor.append({**ATOMIC_POLICY, "max_candidates": _MAX_ATOMIC_CANDIDATES})
+    if extraction_atomic_v3:
+        descriptor.append({**ATOMIC_POLICY_V3, "max_candidates": _MAX_ATOMIC_CANDIDATES})
+    if extraction_failure_diagnostics:
+        descriptor.append(FAILURE_DIAGNOSTICS_POLICY)
     if extraction_table_rows:
         descriptor.append(ROW_POLICY)
     if extraction_recall_prompt:
@@ -790,6 +815,7 @@ def _profile_with_options(
                 assertion_prompt=assertion_prompt,
                 complete_selection=complete_selection,
                 extraction_atomic=extraction_atomic,
+                extraction_atomic_v3=extraction_atomic_v3,
                 extraction_table_rows=extraction_table_rows,
                 extraction_recall_prompt=extraction_recall_prompt,
             )
@@ -878,6 +904,8 @@ class UpstageClaimExtractor:
         position_order: bool = False,
         display_text_profile: str | None = None,
         extraction_atomic: bool = False,
+        extraction_atomic_v3: bool = False,
+        extraction_failure_diagnostics: bool = False,
         extraction_linewrap_join: bool = False,
         extraction_fragment_guard: bool = False,
         extraction_table_rows: bool = False,
@@ -938,6 +966,14 @@ class UpstageClaimExtractor:
             raise ValueError("UPSTAGE_EXTRACTION_COMPLETE_SELECTION_INVALID")
         if type(extraction_atomic) is not bool or (extraction_atomic and not extraction_source_ids):
             raise ValueError("UPSTAGE_EXTRACTION_ATOMIC_INVALID")
+        if type(extraction_atomic_v3) is not bool or (
+            extraction_atomic_v3 and not extraction_atomic
+        ):
+            raise ValueError("UPSTAGE_EXTRACTION_ATOMIC_V3_INVALID")
+        if type(extraction_failure_diagnostics) is not bool or (
+            extraction_failure_diagnostics and not extraction_source_ids
+        ):
+            raise ValueError("UPSTAGE_FAILURE_DIAGNOSTICS_INVALID")
         profile = _profile_with_options(
             getattr(probe, "model", UPSTAGE_MODEL),
             year_notation=extraction_year_notation,
@@ -951,6 +987,8 @@ class UpstageClaimExtractor:
             wire_policy_version=getattr(probe, "wire_policy_version", 1),
             display_text_profile=display_text_profile,
             extraction_atomic=extraction_atomic,
+            extraction_atomic_v3=extraction_atomic_v3,
+            extraction_failure_diagnostics=extraction_failure_diagnostics,
             extraction_linewrap_join=extraction_linewrap_join,
             extraction_fragment_guard=extraction_fragment_guard,
             extraction_table_rows=extraction_table_rows,
@@ -1009,6 +1047,8 @@ class UpstageClaimExtractor:
         self._table_rows = extraction_table_rows
         self._recall_prompt = extraction_recall_prompt
         self._atomic = extraction_atomic
+        self._atomic_v3 = extraction_atomic_v3
+        self._failure_diagnostics = extraction_failure_diagnostics
         self._linewrap_join = extraction_linewrap_join
         self._fragment_guard = extraction_fragment_guard
         self._year_notation = extraction_year_notation
@@ -1521,12 +1561,22 @@ class UpstageClaimExtractor:
                 # explicit continuation, retain this source as failed/unknown
                 # without repeating its possibly billed call or halting every
                 # later source. Budget/auth/integrity stops remain unchanged.
-                raise ExtractionOutputError("PREVIOUS_TRANSPORT_FAILED")
+                raise ExtractionOutputError(
+                    "PREVIOUS_TRANSPORT_FAILED",
+                    failure_code=(
+                        stored.get("reason_code") or error
+                        if self._failure_diagnostics
+                        else None
+                    ),
+                )
             if error in UPSTAGE_TRANSPORT_STOP_CODES:
                 if self._recorded_truncation(directory, request_id, error):
                     raise ExtractionOutputError("MODEL_OUTPUT_TRUNCATED")
                 raise ValueError(error)
-            raise ExtractionOutputError(error or "MODEL_SPAN_OR_SCHEMA_INVALID")
+            raise ExtractionOutputError(
+                error or "MODEL_SPAN_OR_SCHEMA_INVALID",
+                failure_code=(stored.get("reason_code") if self._failure_diagnostics else None),
+            )
 
         # Missing raw cannot claim model result
         raw_path = directory / "raw_response.json"
@@ -1996,7 +2046,11 @@ class UpstageClaimExtractor:
         data = packet["untrusted_document_data"]
         axes = tuple(b["text"] for b in context_blocks if b["role"].startswith("table_"))
         candidates = atomic_candidates(
-            text, kind=data.get("kind", "paragraph"), table_context=axes, diagnostics=diagnostics
+            text,
+            kind=data.get("kind", "paragraph"),
+            table_context=axes,
+            diagnostics=diagnostics,
+            policy_version=3 if self._atomic_v3 else 2,
         )
         if len(candidates) > _MAX_ATOMIC_CANDIDATES:
             raise ExtractionOutputError("EXTRACTION_SOURCE_SENTENCES_UNBOUNDED")
@@ -2008,7 +2062,11 @@ class UpstageClaimExtractor:
                     end -= 1
             entries.append(
                 {
-                    "sentence_id": f"{data['source_id']}:{ATOMIC_PROFILE}:{c.start}:{end}",
+                    "sentence_id": (
+                        f"{data['source_id']}:"
+                        f"{ATOMIC_PROFILE_V3 if self._atomic_v3 else ATOMIC_PROFILE}:"
+                        f"{c.start}:{end}"
+                    ),
                     "text": text[c.start : end],
                     "char_start": c.start,
                     "char_end": end,
@@ -2143,7 +2201,7 @@ class UpstageClaimExtractor:
                 packet, text, context_blocks, diagnostics=diagnostics
             )
             data["candidate_diagnostics"] = diagnostics
-            data["candidate_profile"] = ATOMIC_PROFILE
+            data["candidate_profile"] = ATOMIC_PROFILE_V3 if self._atomic_v3 else ATOMIC_PROFILE
         if self._table_rows:
             data["source_sentences"] = self._row_entries(
                 packet, text, context_blocks, context_graph=context_graph
@@ -2159,6 +2217,7 @@ class UpstageClaimExtractor:
             assertion_prompt=self._assertion_prompt,
             complete_selection=self._complete_selection,
             extraction_atomic=self._atomic,
+            extraction_atomic_v3=self._atomic_v3,
             extraction_table_rows=self._table_rows,
             extraction_recall_prompt=self._recall_prompt,
         )
@@ -2518,7 +2577,7 @@ class UpstageClaimExtractor:
                 {"request_id": request_id, "packet_sha256": packet_sha, "error": error}
                 | (
                     {"reason_code": code}
-                    if self._located_table_context
+                    if (self._located_table_context or self._failure_diagnostics)
                     and not transport
                     and code
                     in {
@@ -2533,11 +2592,18 @@ class UpstageClaimExtractor:
         )
         if transport:
             if getattr(self._probe, "provider_resilience", None) and code in ISOLATED_CODES:
-                raise ExtractionOutputError(error)
+                raise ExtractionOutputError(
+                    error, failure_code=code if self._failure_diagnostics else None
+                )
             if self._recorded_truncation(directory, request_id, error):
-                raise ExtractionOutputError("MODEL_OUTPUT_TRUNCATED")
+                raise ExtractionOutputError(
+                    "MODEL_OUTPUT_TRUNCATED",
+                    failure_code=code if self._failure_diagnostics else None,
+                )
             raise ValueError(error)
-        raise ExtractionOutputError(error)
+        raise ExtractionOutputError(
+            error, failure_code=code if self._failure_diagnostics else None
+        )
 
     def _recorded_truncation(self, directory: Path, request_id: str, error: str) -> bool:
         if error != "UPSTAGE_RECEIPT_INVALID_RESERVATION_RETAINED":

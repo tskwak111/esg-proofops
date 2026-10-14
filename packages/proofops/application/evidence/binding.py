@@ -143,6 +143,7 @@ def accept_binding(
     local_value_identity: bool = False,
     local_binding_policy: Mapping | None = None,
     structural_policy: Mapping | None = None,
+    allow_edge_whitespace: bool = False,
     diagnostics: list[str] | None = None,
 ) -> BindingState:
     """Check source identity, literal roles, table coordinates and allowed scope.
@@ -164,6 +165,8 @@ def accept_binding(
         from proofops.application.tagging.q1_contract import validate_policy
 
         validate_policy(structural_policy)
+    if type(allow_edge_whitespace) is not bool:
+        raise DomainValidationError("edge-whitespace binding policy must be boolean")
 
     def diagnose(reason: str):
         from proofops.application.tagging.q1_contract import QUALITY_POLICIES
@@ -286,6 +289,17 @@ def accept_binding(
             outer.char_start <= inner.char_start < inner.char_end <= outer.char_end
         )
 
+    def whitespace_encloses(outer: SourceRef, inner: SourceRef) -> bool:
+        """Permit an exact claim quote with only source-bound edge whitespace."""
+        if outer.source_id != inner.source_id or outer.quote.strip() != inner.quote:
+            return False
+        leading = len(outer.quote) - len(outer.quote.lstrip())
+        trailing = len(outer.quote) - len(outer.quote.rstrip())
+        return (
+            outer.char_start + leading == inner.char_start
+            and outer.char_end - trailing == inner.char_end
+        )
+
     def same_table(left: SourceRef, right: SourceRef) -> bool:
         a, b = selected(left), selected(right)
         return bool(a.table_native_id) and (
@@ -336,7 +350,11 @@ def accept_binding(
         return "rejected"
 
     scopes = definition["source_scopes"]
-    local = any(contains(source, ref) for source in claim.source_refs)
+    local = any(
+        contains(source, ref)
+        or (allow_edge_whitespace and whitespace_encloses(ref, source))
+        for source in claim.source_refs
+    )
     direct = local and "local_claim" in scopes
     intrinsic = False
     if local_binding_policy is not None:

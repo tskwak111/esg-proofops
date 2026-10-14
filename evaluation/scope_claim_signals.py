@@ -25,6 +25,12 @@ HEADING = (
     r"target|progress|approach|performance|action"
 )
 TABLE_UNIT = r"tco2[- ]?(?:eq?|e)?|mwh|gwh|kwh|천\s*m3|톤|%"
+ASSURANCE = (
+    r"limited\s+assurance|reasonable\s+assurance|moderate\s+assurance|"
+    r"independent\s+(?:limited\s+)?assurance|aa1000as|isae\s*3000|"
+    r"제\s*3\s*자\s*(?:검증|보증)|제3자\s*(?:검증|보증)|"
+    r"제한적\s*(?:검증|보증)|외부\s*(?:검증|보증)"
+)
 WEIGHTS_CAPS = {
     "target_year": [3, 4],
     "metric": [2, 8],
@@ -44,6 +50,14 @@ POLICY = {
     "normalization": "NFKC_casefold_whitespace_join",
     "table_density": "environment_metric_unit_line_with_3_numeric_cells; cap_4_rows",
     "native_subheading": "short_body_line_up_to_60_chars; unique_headings; cap_3",
+}
+SOURCE_SUPPORT_POLICY = {
+    "version": "same-page-quantified-assurance-v1",
+    "assurance_pattern": ASSURANCE,
+    "metric_environment_context_chars": 120,
+    "max_metric_to_assurance_chars": 900,
+    "bonus": 24,
+    "scope": "one physical page; ranking hint only; never evidence admission",
 }
 
 
@@ -66,3 +80,34 @@ def claim_signals(body: str, headings: list[str]) -> tuple[int, dict[str, int]]:
     )
     score = sum(weight * min(signals[name], cap) for name, (weight, cap) in WEIGHTS_CAPS.items())
     return score, signals
+
+
+def claim_support_signals(body: str, headings: list[str]) -> tuple[int, dict[str, int]]:
+    """Boost an environmental metric page only when assurance text is nearby on that page.
+
+    The caller supplies one physical page at a time. This score helps choose pages for
+    inspection; it does not bind a claim to an assurance statement or verify evidence.
+    """
+    score, signals = claim_signals(body, headings)
+    text = re.sub(r"\s+", " ", unicodedata.normalize("NFKC", body).casefold())
+    metric_positions = [
+        match.start()
+        for match in re.finditer(PATTERNS["metric"], text)
+        if re.search(
+            ENVIRONMENT,
+            text[
+                max(0, match.start() - SOURCE_SUPPORT_POLICY["metric_environment_context_chars"])
+                : match.end() + SOURCE_SUPPORT_POLICY["metric_environment_context_chars"]
+            ],
+        )
+    ]
+    assurance_positions = [match.start() for match in re.finditer(ASSURANCE, text, re.I)]
+    paired = int(
+        any(
+            abs(metric - assurance) <= SOURCE_SUPPORT_POLICY["max_metric_to_assurance_chars"]
+            for metric in metric_positions
+            for assurance in assurance_positions
+        )
+    )
+    signals["same_page_quantified_assurance"] = paired
+    return score + SOURCE_SUPPORT_POLICY["bonus"] * paired, signals

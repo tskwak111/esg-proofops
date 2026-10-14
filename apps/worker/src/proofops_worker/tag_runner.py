@@ -154,6 +154,16 @@ def _source_traceable(claim, graph):
     return bool(claim.source_refs)
 
 
+def _atomic_v3_binding_enabled(snapshot, claim):
+    """Use the narrow source-edge rule only for the frozen atomic-v3 prompt."""
+    profile = snapshot.get("extraction_profile")
+    if not isinstance(profile, dict) or profile != asdict(claim.receipt.profile):
+        return False
+    from proofops_agent.upstage_extraction import ATOMIC_V3_SYSTEM_PROMPT
+
+    return profile.get("prompt_sha256") == canonical_hash(ATOMIC_V3_SYSTEM_PROMPT)
+
+
 class _LocalClaimSearch:
     """Bounded synthetic local search; only retrieval's verified atomic source is used."""
 
@@ -708,6 +718,7 @@ class LocalTagRunner:
                     now=lambda: int(self.clock()),
                     pipeline_profile=snapshot.get("pipeline_profile"),
                     semantic_policy=semantic_policy,
+                    allow_edge_whitespace=_atomic_v3_binding_enabled(snapshot, claim),
                     max_workers=(
                         1
                         if parallel_claims
