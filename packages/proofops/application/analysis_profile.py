@@ -9,6 +9,7 @@ from proofops.application.ingest.k3_table_routing import POLICY as K3_ROUTING_PO
 from proofops.application.ingest.k5_context import POLICY as K5_CONTEXT_POLICY
 from proofops.application.ingest.k6_coverage import FIGURE_POLICY as QC2_FIGURE_POLICY
 from proofops.application.ingest.k6_coverage import POLICY as K6_COVERAGE_POLICY
+from proofops.application.ingest.page_recovery_policy import POLICY as HX6_RECOVERY_POLICY
 from proofops.application.ingest.q1_tables import POLICY as Q1_TABLE_POLICY
 from proofops.application.ingest.sentence_prefix import POLICY as PREFIX_POLICY
 from proofops.application.openai_retry import POLICY as T1_RETRY_POLICY
@@ -744,6 +745,14 @@ FINALS_HX4_COMPLETE_POLICY = FINALS_HX4_POLICY | dict(
 )
 
 
+FINALS_HX6_POLICY = FINALS_HX4_COMPLETE_POLICY | dict(
+    integration_profile="finals-20261014-hx6-upstage-v1",
+    parser_failure_policy="partial-v5",
+    page_recovery_policy=HX6_RECOVERY_POLICY,
+    page_recovery_policy_sha256=canonical_hash(HX6_RECOVERY_POLICY),
+)
+
+
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
     from proofops.application.tagging.fact_assembly_c4 import publication_policy_for as c4_policy
@@ -773,6 +782,7 @@ def policy_for(profile, *, pinned_hash=None):
             V2_POLICY,
             FINALS_HX4_POLICY,
             FINALS_HX4_COMPLETE_POLICY,
+            FINALS_HX6_POLICY,
             FINALS_I13_POLICY,
             FINALS_I12_POLICY,
             FINALS_I11_POLICY,
@@ -889,6 +899,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
             policy_for(profile),
             FINALS_HX4_POLICY,
             FINALS_HX4_COMPLETE_POLICY,
+            FINALS_HX6_POLICY,
             FINALS_I13_POLICY,
             FINALS_I12_POLICY,
             FINALS_I11_POLICY,
@@ -987,6 +998,10 @@ def apply_pilot_profile(args):
         args.preliminary_actor_role = True
     # Hosted Linux uses its independently approved OCR reader. Keep that explicit
     # source policy pinned in the run; other callers retain the SV1 native policy.
+    if selected.get("page_recovery_policy") == HX6_RECOVERY_POLICY:
+        # HX6 needs the complete original-byte reader even when hosted Darwin's
+        # initial arguments requested the older glyph-only source profile.
+        args.claim_source_profile = selected["source"]
     if profile in (V2_PROFILE, J3_PROFILE, J7_PROFILE, J8_PROFILE) and getattr(
         args, "claim_source_profile", None
     ) in (
