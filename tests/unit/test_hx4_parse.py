@@ -234,3 +234,22 @@ def test_complete_hx4_pin_preserves_initial_hx4_reader_and_resolves_v17():
     args = SimpleNamespace(analysis_profile=p.V2_PROFILE, analysis_policy_sha256=pin)
     p.apply_pilot_profile(args)
     assert args.claim_source_profile == "upstage-ocr-page-v17"
+
+
+def test_empty_facility_scope_does_not_parse_damaged_pdf_but_keeps_identity_guard(monkeypatch):
+    from pdfplumber.utils.exceptions import PdfminerException
+    from proofops.adapters.local import k4_facilities
+
+    from tests.integration.test_claim_source_v3 import synthetic
+
+    pdf, graph, _ = synthetic("Environmental policy 10%")
+
+    def damaged(*a, **k):
+        raise PdfminerException("Unexpected EOF")
+
+    monkeypatch.setattr(k4_facilities.pdfplumber, "open", damaged)
+    assert k4_facilities.restore_facilities(graph, pdf, (), tenant_id=graph.tenant_id) == {}
+    with pytest.raises(ValueError, match="SOURCE_MISMATCH"):
+        k4_facilities.restore_facilities(graph, pdf + b"x", (), tenant_id=graph.tenant_id)
+    with pytest.raises(ValueError, match="SOURCE_MISMATCH"):
+        k4_facilities.restore_facilities(graph, pdf, (), tenant_id="foreign")

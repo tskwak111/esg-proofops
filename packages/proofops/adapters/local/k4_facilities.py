@@ -26,6 +26,10 @@ PROFILE = POLICY["profile"]
 def restore_facilities(graph, source, claims, *, tenant_id):
     if tenant_id != graph.tenant_id or sha256(source).hexdigest() != graph.source_sha256:
         raise ValueError("K4_FACILITY_SOURCE_MISMATCH")
+    if not claims:
+        # No facility dimension can be attributed without a claim. Retain the
+        # source guard, but do not reopen unreadable bytes for an empty scope.
+        return {}
     blocks = {b.source_id: b for b in graph.blocks}
     results = {}
     with pdfplumber.open(io.BytesIO(source)) as pdf:
