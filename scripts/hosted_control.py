@@ -5,7 +5,10 @@ from __future__ import annotations
 import argparse
 import fcntl
 import json
+import logging
 import os
+import sqlite3
+import threading
 import time
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from contextlib import ExitStack
@@ -13,7 +16,9 @@ from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 
+from proofops_api.hosted_sqlite import is_busy
 from proofops_api.hosted_store import HostedError, HostedSettings, HostedStore, digest, micros, usd
+from proofops_api.hosted_worker_health import WorkerHeartbeat
 
 
 def wait_idle(store, *, timeout, clock=time.monotonic, sleep=time.sleep):
@@ -31,10 +36,22 @@ def wait_idle(store, *, timeout, clock=time.monotonic, sleep=time.sleep):
         sleep(min(1, remaining))
 
 
-def worker_loop(store, *, once=False):
+def worker_loop(store, *, once=False, stop=None, interval=1, heartbeat=None):
     """Each slot launches an isolated analysis subprocess; DB claims remain atomic."""
+    stop = stop if stop is not None else threading.Event()
+    heartbeat = heartbeat or WorkerHeartbeat(store.settings.root)
+    logger = logging.getLogger(__name__)
+
+    def failed(exc, phase):
+        # No exception messages/tracebacks: they can include private provider data.
+        logger.warning("hosted worker failure phase=%s type=%s", phase, type(exc).__name__)
+        heartbeat.write(state="degraded", error=exc)
+
     with ThreadPoolExecutor(max_workers=store.settings.max_active_runs) as pool:
-        store.maintain(now=time.time())
+        try:
+            store.maintain(now=time.time())
+        except Exception as exc:
+            failed(exc, "maintenance")
         if once:
             futures = [
                 pool.submit(store.tick, now=time.time())
@@ -43,19 +60,56 @@ def worker_loop(store, *, once=False):
             return [future.result() for future in futures]
         active = set()
         last_maintenance = time.monotonic()
-        while True:
+        while not stop.is_set():
             if time.monotonic() - last_maintenance >= 60:
-                store.maintain(now=time.time())
+                try:
+                    store.maintain(now=time.time())
+                except Exception as exc:
+                    failed(exc, "maintenance")
                 last_maintenance = time.monotonic()
             while len(active) < store.settings.max_active_runs:
                 active.add(pool.submit(store.tick, now=time.time()))
             completed, active = wait(active, timeout=1, return_when=FIRST_COMPLETED)
             idle = bool(completed)
             for future in completed:
-                if future.result() is not None:
-                    idle = False
+                try:
+                    if future.result() is not None:
+                        idle = False
+                    heartbeat.record["last_successful_tick_at"] = time.time()
+                    heartbeat.record["last_error_type"] = None
+                except Exception as exc:
+                    # Retain the durable fence/reservations. A new tick can claim
+                    # only queued work; it cannot redeliver an uncertain dispatch.
+                    failed(exc, "tick")
+            heartbeat.write(
+                state="degraded" if heartbeat.record["last_error_type"] else "running",
+                active=len(active),
+            )
             if idle:
-                time.sleep(1)
+                stop.wait(interval)
+    heartbeat.write(state="stopped")
+
+
+def run_worker(settings, *, once=False, stop=None):
+    """A busy startup waits in this process instead of triggering container restarts."""
+    stop = stop if stop is not None else threading.Event()
+    heartbeat = WorkerHeartbeat(settings.root)
+    settings.root.mkdir(parents=True, mode=0o700, exist_ok=True)
+    while not stop.is_set():
+        heartbeat.write(state="initializing")
+        try:
+            store = HostedStore(settings)
+            break
+        except sqlite3.OperationalError as exc:
+            if not is_busy(exc) or once:
+                raise
+            heartbeat.write(state="degraded", error=exc)
+            logging.getLogger(__name__).warning("hosted worker startup database busy")
+            stop.wait(1)
+    else:
+        heartbeat.write(state="stopped")
+        return None
+    return worker_loop(store, once=once, stop=stop, heartbeat=heartbeat)
 
 
 def reconcile(store, receipt, evidence: Path, *, apply=False):
@@ -181,6 +235,9 @@ def main() -> None:
     settings = HostedSettings.from_env(os.environ)
     if args.command == "access-password" and args.config is not None:
         settings = replace(settings, access_config=args.config)
+    if args.command == "worker":
+        run_worker(settings, once=args.once)
+        return
     store = HostedStore(settings)
     if args.command == "invite":
         print(store.invite(args.tenant, args.user, args.role, now=time.time()))
@@ -234,8 +291,6 @@ def main() -> None:
         store.backup(args.path, now=time.time())
     elif args.command == "restore":
         store.restore(args.path, now=time.time())
-    elif args.command == "worker":
-        worker_loop(store, once=args.once)
 
 
 if __name__ == "__main__":

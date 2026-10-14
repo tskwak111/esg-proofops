@@ -19,7 +19,7 @@ import subprocess
 import sys
 import time
 from collections.abc import Callable, Iterator
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
@@ -41,6 +41,8 @@ from proofops.application.uploads_security import (
     UploadRejected,
     verify_pdf_file,
 )
+
+from proofops_api.hosted_sqlite import BUSY_TIMEOUT_MS, retry_busy
 
 MICRO = Decimal(1_000_000)
 RUN_LEASE_SECONDS = 1900
@@ -256,7 +258,7 @@ class SQLiteSessions:
         ).hexdigest()
 
     def get(self, sid: str) -> SessionRecord | None:
-        with self.store.transaction() as db:
+        with self.store.transaction(readonly=True) as db:
             row = db.execute("SELECT * FROM sessions WHERE sid_hash=?", (digest(sid),)).fetchone()
             valid = row is not None and self.store.access.session_valid(db, row, time.time())
         if row is None:
@@ -316,7 +318,7 @@ class SQLiteMemberships:
         self.store = store
 
     def get(self, tenant_id: str, user_sub: str) -> MembershipRecord | None:
-        with self.store.transaction() as db:
+        with self.store.transaction(readonly=True) as db:
             row = db.execute(
                 "SELECT role,status FROM memberships WHERE tenant_id=? AND user_id=?",
                 (tenant_id, user_sub),
@@ -324,7 +326,7 @@ class SQLiteMemberships:
         return MembershipRecord(tenant_id, user_sub, row[0], row[1]) if row else None
 
     def tenant_exists(self, tenant_id: str) -> bool:
-        with self.store.transaction() as db:
+        with self.store.transaction(readonly=True) as db:
             return (
                 db.execute("SELECT 1 FROM memberships WHERE tenant_id=?", (tenant_id,)).fetchone()
                 is not None
@@ -444,20 +446,54 @@ class HostedStore:
         self.replay_deletions(now=time.time())
 
     @contextmanager
-    def transaction(self, *, expiry_cutoff: float | None = None) -> Iterator[sqlite3.Connection]:
-        db = sqlite3.connect(self.path, timeout=10, isolation_level=None)
-        db.row_factory = sqlite3.Row
-        db.create_function(
-            "retention_expired",
-            1,
-            lambda created: int(expiry_cutoff is not None and created <= expiry_cutoff),
-        )
+    def transaction(
+        self, *, expiry_cutoff: float | None = None, readonly: bool = False
+    ) -> Iterator[sqlite3.Connection]:
+        # Keep rollback journals: WAL loses cross-file atomicity for the attached
+        # money/tombstone ledger. Reads need a snapshot, not a reserved writer.
+        def acquire():
+            db = sqlite3.connect(self.path, timeout=BUSY_TIMEOUT_MS / 1000, isolation_level=None)
+            db.row_factory = sqlite3.Row
+            db.create_function(
+                "retention_expired",
+                1,
+                lambda created: int(expiry_cutoff is not None and created <= expiry_cutoff),
+            )
+            try:
+                # ATTACH itself can encounter a pending writer. Recreate the
+                # connection on BUSY, before any caller side effects can execute.
+                db.execute(f"PRAGMA busy_timeout={BUSY_TIMEOUT_MS}")
+                db.execute("ATTACH DATABASE ? AS deletion", (str(self.ledger),))
+                if readonly:
+                    db.execute("PRAGMA query_only=ON")
+                    db.execute("BEGIN")
+                    # Take both read locks before yielding to avoid a reader /
+                    # attached-ledger commit lock cycle.
+                    for schema in ("main", "deletion"):
+                        db.execute(
+                            f"SELECT rootpage FROM {schema}.sqlite_master LIMIT 1"
+                        ).fetchall()
+                else:
+                    db.execute("PRAGMA secure_delete=ON")
+                    db.execute("BEGIN IMMEDIATE")
+                return db
+            except BaseException:
+                db.rollback()
+                db.close()
+                raise
+
+        db = retry_busy(acquire, phase="acquire")
         try:
-            db.execute("ATTACH DATABASE ? AS deletion", (str(self.ledger),))
-            db.execute("PRAGMA secure_delete=ON")
-            db.execute("BEGIN IMMEDIATE")
+            started = time.monotonic()
             yield db
-            db.commit()
+            # A busy COMMIT keeps this exact transaction open. Retry COMMIT only;
+            # yielding the body again would duplicate files or provider effects.
+            retry_busy(db.commit, phase="commit")
+            elapsed = time.monotonic() - started
+            if not readonly and elapsed >= 1:
+                logging.getLogger(__name__).warning(
+                    "hosted sqlite writer elapsed_ms=%d", int(elapsed * 1000)
+                )
         except BaseException:
             db.rollback()
             raise
@@ -552,7 +588,7 @@ class HostedStore:
         return row
 
     def get_document(self, tenant: str, document: str) -> dict:
-        with self.transaction() as db:
+        with self.transaction(readonly=True) as db:
             return dict(self._document(db, tenant, document))
 
     def require_owned_resource(self, auth: Any, kind: str, resource: str) -> None:
@@ -561,7 +597,7 @@ class HostedStore:
 
         if not is_organizer(auth):
             return
-        with self.transaction() as db:
+        with self.transaction(readonly=True) as db:
             if kind == "runs":
                 row = self._run(db, auth.tenant_id, resource)
                 if row["user_hash"] != self.user_hash(auth.user_sub):
@@ -796,7 +832,7 @@ class HostedStore:
     def provider_limits(self) -> dict:
         """Observed service availability only; never probe providers on public GETs."""
         limits = {}
-        with self.transaction() as db:
+        with self.transaction(readonly=True) as db:
             for provider, codes in PROVIDER_LIMIT_CODES.items():
                 parameters = tuple(sorted(codes))
                 placeholders = ",".join("?" for _ in parameters)
@@ -828,7 +864,7 @@ class HostedStore:
     def get_run(self, tenant: str, run: str) -> dict:
         lock = None
         try:
-            with self.transaction() as db:
+            with self.transaction(readonly=True) as db:
                 row = self._run(db, tenant, run)
                 result = self._project_run(row, db, inline_result=False)
                 if result["result_url"]:
@@ -841,7 +877,7 @@ class HostedStore:
                 result["result"] = self._result(None, row)
                 # A deletion may fence the leased payload while hashes are read.
                 # Never expose bytes after its tombstone commits.
-                with self.transaction() as db:
+                with self.transaction(readonly=True) as db:
                     self._run(db, tenant, run)
             return result
         finally:
@@ -877,7 +913,7 @@ class HostedStore:
         return scope
 
     def get_scope(self, tenant: str, document: str) -> dict:
-        with self.transaction() as db:
+        with self.transaction(readonly=True) as db:
             return self._scope(db, tenant, document)
 
     def generate_scope(self, auth, document: str) -> dict:
@@ -1316,20 +1352,27 @@ class HostedStore:
                 "UPDATE runs SET lease_until=? WHERE run_id=?",
                 (now + RUN_LEASE_SECONDS, job["run_id"]),
             )
+        job["lease_until"] = now + RUN_LEASE_SECONDS
 
     def prepare(self, job: dict, *, now: float) -> Path:
-        # Copy the verified source on disk under the deletion/backup writer fence.
-        with TemporaryDirectory(prefix="proofops-prepare-", dir=self.settings.root) as scratch:
+        # Lease source bytes separately from the DB snapshot; deletion remains
+        # fenced throughout copying and the actual prepare subprocess.
+        with (
+            TemporaryDirectory(prefix="proofops-prepare-", dir=self.settings.root) as scratch,
+            ExitStack() as leases,
+        ):
             source, output = Path(scratch) / "source.pdf", Path(scratch) / "selected.pdf"
-            with self.transaction() as db:
+            with self.transaction(readonly=True) as db:
                 row = self._fenced(db, job, now)
                 doc = self._document(db, job["tenant_id"], job["document_id"])
                 if now >= doc["expires"]:
                     raise HostedError("SOURCE_EXPIRED")
                 path = self.document_dir(job["tenant_id"], job["document_id"])
-                analysis = self.analysis_source(path, dict(doc))
-                copy_verified_file(analysis, source, file_sha256(analysis))
+                lock = leases.enter_context((path / "analysis.lock").open("a+b"))
+                fcntl.flock(lock, fcntl.LOCK_SH | fcntl.LOCK_NB)
                 pages = row["pages"]
+            analysis = self.analysis_source(path, dict(doc))
+            copy_verified_file(analysis, source, file_sha256(analysis))
             try:
                 subprocess.run(
                     [
@@ -1350,10 +1393,10 @@ class HostedStore:
             if output.stat().st_size > 50 * 1024 * 1024:
                 raise HostedError("PREPARE_TOO_LARGE")
             prepared_sha = file_sha256(output)
+            prepared = path / f'{job["run_id"]}.prepared.pdf'
+            copy_verified_file(output, prepared, prepared_sha)
             with self.transaction() as db:
                 self._fenced(db, job, time.time())
-                prepared = path / f'{job["run_id"]}.prepared.pdf'
-                copy_verified_file(output, prepared, prepared_sha)
                 db.execute(
                     "UPDATE runs SET prepared_sha256=? WHERE run_id=?",
                     (prepared_sha, job["run_id"]),
@@ -1668,22 +1711,30 @@ class HostedStore:
         content = reuse_handoff(publication_handoff, source, job, pages)
         if content is None:
             content = result_snapshot(source, job["tenant_id"], pages)
-        with self.transaction() as db:
-            self._fenced(db, job, time.time())
-            target = (
-                self.document_dir(job["tenant_id"], job["document_id"]) / "analysis" / job["run_id"]
-            )
-            target.parent.mkdir(mode=0o700, exist_ok=True)
-            shutil.copytree(source, target)
-            self._publish_snapshot(db, job["run_id"], target, content)
-            db.execute(
-                "INSERT OR REPLACE INTO run_progress VALUES (?, 'result',100,1)", (job["run_id"],)
-            )
-            db.execute(
-                "UPDATE runs SET status=?,error_code=?,lease_until=0 WHERE run_id=?",
-                (status, error, job["run_id"]),
-            )
-            self._settle_envelope(db, job["run_id"])
+        # Stage potentially large receipts outside the writer; the final fence
+        # and same-filesystem rename publish them together with the DB anchor.
+        with TemporaryDirectory(prefix="proofops-publication-", dir=self.root) as scratch:
+            staged = Path(scratch) / "artifacts"
+            shutil.copytree(source, staged)
+            with self.transaction() as db:
+                self._fenced(db, job, time.time())
+                target = (
+                    self.document_dir(job["tenant_id"], job["document_id"])
+                    / "analysis"
+                    / job["run_id"]
+                )
+                target.parent.mkdir(mode=0o700, exist_ok=True)
+                os.rename(staged, target)
+                self._publish_snapshot(db, job["run_id"], target, content)
+                db.execute(
+                    "INSERT OR REPLACE INTO run_progress VALUES (?, 'result',100,1)",
+                    (job["run_id"],),
+                )
+                db.execute(
+                    "UPDATE runs SET status=?,error_code=?,lease_until=0 WHERE run_id=?",
+                    (status, error, job["run_id"]),
+                )
+                self._settle_envelope(db, job["run_id"])
 
     def _publish_snapshot(self, db: sqlite3.Connection, run: str, path: Path, content: bytes):
         revision = db.execute(
@@ -1697,7 +1748,7 @@ class HostedStore:
     def _result(self, db: sqlite3.Connection | None, row: sqlite3.Row) -> dict:
         path = self.document_dir(row["tenant_id"], row["document_id"]) / "analysis" / row["run_id"]
         if db is None:
-            with self.transaction() as connection:
+            with self.transaction(readonly=True) as connection:
                 anchor = connection.execute(
                     "SELECT revision,sha256 FROM result_snapshots WHERE run_id=? "
                     "ORDER BY revision DESC LIMIT 1",
@@ -1784,7 +1835,7 @@ class HostedStore:
             return self._project_run(self._run(db, auth.tenant_id, run), db)
 
     def budget_totals(self) -> dict:
-        with self.transaction() as db:
+        with self.transaction(readonly=True) as db:
             total = db.execute(
                 "SELECT coalesce(sum(amount),0) FROM deletion.spend WHERE event_id=?",
                 (self.settings.event_id,),
@@ -1830,24 +1881,28 @@ class HostedStore:
     def _purge(self, tenant: str, document: str, now: float) -> dict:
         status = "completed"
         try:
+            with self.transaction(readonly=True) as db:
+                if not self._deleted(db, tenant, document):
+                    raise HostedError("TOMBSTONE_REQUIRED")
+                backups = db.execute("SELECT path FROM backups").fetchall()
+            path = self.document_dir(tenant, document)
+            if path.exists():
+                lock_path = path / "analysis.lock"
+                if lock_path.exists():
+                    # The committed tombstone fences new users; keep the existing
+                    # document lease while removing bytes, without a DB writer.
+                    with lock_path.open("a+b") as lock:
+                        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        shutil.rmtree(path)
+                else:
+                    shutil.rmtree(path)
+            for backup in backups:
+                target = Path(backup[0]) / "artifacts" / tenant / document
+                if target.exists():
+                    shutil.rmtree(target)
             with self.transaction() as db:
                 if not self._deleted(db, tenant, document):
                     raise HostedError("TOMBSTONE_REQUIRED")
-                path = self.document_dir(tenant, document)
-                if path.exists():
-                    lock_path = path / "analysis.lock"
-                    if lock_path.exists():
-                        # Tombstone already fenced dispatch/publication. Do not
-                        # unlink working source bytes while a child still owns them.
-                        with lock_path.open("a+b") as lock:
-                            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                            shutil.rmtree(path)
-                    else:
-                        shutil.rmtree(path)
-                for backup in db.execute("SELECT path FROM backups").fetchall():
-                    target = Path(backup[0]) / "artifacts" / tenant / document
-                    if target.exists():
-                        shutil.rmtree(target)
                 runs = db.execute(
                     "SELECT run_id FROM runs WHERE tenant_id=? AND document_id=?",
                     (tenant, document),
@@ -1891,7 +1946,7 @@ class HostedStore:
         return {"deletion_id": row[0], "status": status, "requested_at": row[1]}
 
     def replay_deletions(self, *, now: float) -> None:
-        with self.transaction() as db:
+        with self.transaction(readonly=True) as db:
             rows = db.execute("SELECT tenant_id,document_id FROM deletion.tombstones").fetchall()
         for row in rows:
             result = self._purge(row[0], row[1], now)
@@ -1899,6 +1954,16 @@ class HostedStore:
                 raise HostedError("PURGE_INCOMPLETE", 503)
 
     def maintain(self, *, now: float) -> None:
+        # API and worker both maintain this volume. Serialize filesystem GC
+        # separately so slow unlink never reserves the control/ledger writer.
+        with (self.root / "maintenance.lock").open("a+b") as lock:
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                return
+            self._maintain(now=now)
+
+    def _maintain(self, *, now: float) -> None:
         with self.transaction() as db:
             self._expire_running(db, now)
             expired = db.execute(
@@ -1911,11 +1976,6 @@ class HostedStore:
                         (row[0], row[1], str(uuid4()), now, digest("expiry")),
                     )
             backups = db.execute("SELECT path FROM backups WHERE expires<=?", (now,)).fetchall()
-            for backup in backups:
-                target = Path(backup[0])
-                if target.exists():
-                    shutil.rmtree(target)
-                db.execute("DELETE FROM backups WHERE path=?", (backup[0],))
             db.execute("DELETE FROM sessions WHERE expires<=? OR idle<=? OR revoked=1", (now, now))
             self.access.maintain(db, now, self.settings.audit_days)
             db.execute("DELETE FROM invitations WHERE expires<=? OR used=1", (now,))
@@ -1937,6 +1997,12 @@ class HostedStore:
                 )
                 db.execute("DELETE FROM deletion.costs WHERE run_id=?", (run[0],))
                 db.execute("DELETE FROM deletion.spend WHERE run_id=?", (run[0],))
+        for backup in backups:
+            target = Path(backup[0])
+            if target.exists():
+                shutil.rmtree(target)
+            with self.transaction() as db:
+                db.execute("DELETE FROM backups WHERE path=? AND expires<=?", (backup[0], now))
         self.replay_deletions(now=now)
         with self.transaction(expiry_cutoff=now - self.settings.audit_days * 86400) as db:
             expired = db.execute(
@@ -1954,6 +2020,8 @@ class HostedStore:
                     "DELETE FROM deletion.attempts WHERE tenant_id=? AND document_id=?", tuple(row)
                 )
         # Remove unreferenced files left by a crashed upload; no content enters logs.
+        trash = self.root / ".maintenance-trash"
+        trash.mkdir(mode=0o700, exist_ok=True)
         with self.transaction() as db:
             known = {
                 (row[0], row[1])
@@ -1964,7 +2032,10 @@ class HostedStore:
                 for tenant in payloads.iterdir():
                     for doc in tenant.iterdir():
                         if (tenant.name, doc.name) not in known:
-                            shutil.rmtree(doc)
+                            # Atomic detachment keeps the upload race fenced.
+                            os.rename(doc, trash / str(uuid4()))
+        for orphan in trash.iterdir():
+            shutil.rmtree(orphan)
 
     def backup(self, target: Path, *, now: float) -> Path:
         """Operator-only stopped-service backup, allowlist excludes raw bytes and sessions."""

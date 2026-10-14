@@ -3,6 +3,7 @@
 import asyncio
 import fcntl
 import json
+import logging
 import os
 import sqlite3
 import time
@@ -249,6 +250,14 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
     @app.exception_handler(sqlite3.DatabaseError)
     @app.exception_handler(OSError)
     async def storage_error(request: Request, exc: Exception):
+        from traceback import extract_tb
+
+        logging.getLogger(__name__).warning(
+            "hosted storage failure type=%s sqlite_code=%s frames=%s",
+            type(exc).__name__,
+            getattr(exc, "sqlite_errorname", None),
+            [(Path(f.filename).name, f.name, f.lineno) for f in extract_tb(exc.__traceback__)[-4:]],
+        )
         return JSONResponse({"error": {"code": "DEPENDENCY_UNAVAILABLE"}}, status_code=503)
 
     def current(request: Request) -> AuthContext:
@@ -446,7 +455,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
     def ready() -> dict:
         from proofops_api.hosted_analysis import runtime_profiles
 
-        with store.transaction() as db:
+        with store.transaction(readonly=True) as db:
             db.execute("SELECT version FROM hosted_schema").fetchone()
             failed = db.execute("SELECT 1 FROM deletion.attempts WHERE status='failed'").fetchone()
         return {

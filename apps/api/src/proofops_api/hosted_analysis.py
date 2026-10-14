@@ -550,7 +550,13 @@ def run_analysis_process(command, store, job, lock, *, publication_fd=None):
             if remaining <= 0:
                 raise subprocess.TimeoutExpired(command, ANALYSIS_TIMEOUT_SECONDS)
             try:
-                code = process.wait(timeout=min(2 if bounded else HEARTBEAT_SECONDS, remaining))
+                code = process.wait(
+                    timeout=min(
+                        2 if bounded else HEARTBEAT_SECONDS,
+                        remaining,
+                        max(0.05, next_heartbeat - time.monotonic()),
+                    )
+                )
                 if code:
                     raise subprocess.CalledProcessError(code, command)
                 return
@@ -560,8 +566,20 @@ def run_analysis_process(command, store, job, lock, *, publication_fd=None):
                 if bounded and process_tree_bytes(process.pid) > TWO_SLOT_MEMORY_BYTES:
                     raise HostedError("ANALYSIS_MEMORY_LIMIT") from None
                 if time.monotonic() >= next_heartbeat:
-                    store.renew_lease(job, now=time.time())
-                    next_heartbeat = time.monotonic() + HEARTBEAT_SECONDS
+                    from proofops_api.hosted_sqlite import is_busy
+
+                    try:
+                        store.renew_lease(job, now=time.time())
+                    except Exception as exc:
+                        if not is_busy(exc):
+                            raise
+                        if time.time() >= job["lease_until"]:
+                            raise HostedError("LEASE_LOST") from None
+                        # The existing fence is still valid: keep this child,
+                        # never launch a replacement or repeat a provider call.
+                        next_heartbeat = time.monotonic() + 1
+                    else:
+                        next_heartbeat = time.monotonic() + HEARTBEAT_SECONDS
     finally:
         # Reap the entire private session, including a parser/OCR child after an
         # interrupted parent. Its inherited document lock must not outlive the slot.
