@@ -1136,9 +1136,10 @@ def apply_pilot_profile(args):
         args.claim_source_profile = (
             selected["source"] if selected.get("table_worker_routing") else "upstage-ocr-page-v10"
         )
-    if getattr(args, "claim_source_profile", None) not in (
+    allowed_source_profiles = (
         PAGE_OCR_PROFILES.keys() - {"upstage-ocr-page-v1", "upstage-ocr-page-v2"}
-    ):
+    ) | {"claim-source-v4"}
+    if getattr(args, "claim_source_profile", None) not in allowed_source_profiles:
         args.claim_source_profile = "claim-source-v3"
     if selected == FINALS_HX4_POLICY:
         args.claim_source_profile = "upstage-ocr-page-v16-hx4"
