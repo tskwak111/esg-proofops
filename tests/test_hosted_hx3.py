@@ -54,9 +54,12 @@ def test_hx3_pin_preserves_v14_and_routes_new_readers():
     from proofops.adapters.local.evidence_source_policies import evidence_source_reader
     from proofops.adapters.local.run_artifacts import accepted_native_policy_digests
 
-    args = SimpleNamespace(analysis_profile=profiles.V2_PROFILE, resume=False)
+    pin = canonical_hash(profiles.FINALS_I16_POLICY)
+    args = SimpleNamespace(
+        analysis_profile=profiles.V2_PROFILE, resume=False, analysis_policy_sha256=pin
+    )
     profiles.apply_pilot_profile(args)
-    assert profiles.V2_POLICY == profiles.FINALS_I16_POLICY
+    assert profiles.policy_for(profiles.V2_PROFILE, pinned_hash=pin) == profiles.FINALS_I16_POLICY
     assert args.claim_source_profile == hx3.PROFILE
     assert args.analysis_policy_sha256 != canonical_hash(profiles.FINALS_I13_POLICY)
     assert canonical_hash(profiles.FINALS_I13_POLICY) == (

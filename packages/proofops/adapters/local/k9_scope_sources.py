@@ -44,23 +44,35 @@ def scope_graph(graph, source, claims, *, tenant_id, run_id, policy):
     # Native text, glyphs, annotations and visible-text/OCR checks stay identical
     # to the run's v13 reader. Only individually verified spans gain authority.
     reader = upstage_ocr_profile_v13.for_run(run_id)
-    if policy.get("source") == "upstage-ocr-page-v16":
-        from proofops.adapters.local import upstage_ocr_profile_v16
+    if policy.get("source") == "upstage-ocr-page-v16" and policy.get("input_failure_policy"):
+        from proofops.adapters.local import upstage_ocr_profile_hx5_v16 as upstage_ocr_profile_v16
 
         reader = upstage_ocr_profile_v16.for_run(run_id)
+    if policy.get("source") == "upstage-ocr-page-v18":
+        from proofops.adapters.local import upstage_ocr_profile_v18
+
+        reader = upstage_ocr_profile_v18.for_run(run_id)
     from proofops.adapters.local.source_attestation_errors import source_failure_code
     from proofops.application.input_failures import POLICY, RECOVERABLE_SOURCE_CODES
 
     if policy.get("input_failure_policy") is not None:
-        if (
-            policy["input_failure_policy"] != POLICY
-            or policy.get("input_failure_policy_sha256") != canonical_hash(POLICY)
-        ):
+        if policy["input_failure_policy"] != POLICY or policy.get(
+            "input_failure_policy_sha256"
+        ) != canonical_hash(POLICY):
             raise ValueError("INPUT_FAILURE_POLICY_MISMATCH")
         receipts, records = [], []
         for ref in refs:
             try:
                 part = reader.attest_claim_spans(graph, source, (ref,), tenant_id=tenant_id)
+            except PdfminerException:
+                if (
+                    policy.get("auxiliary_native_failure")
+                    != "unreadable-no-supplemental-credit-hx6-v1"
+                ):
+                    raise
+                records.append(
+                    dict(ref=asdict(ref), status="unresolved", reason="SOURCE_UNREADABLE")
+                )
             except ValueError as error:
                 code = source_failure_code(error)
                 if code not in RECOVERABLE_SOURCE_CODES:
@@ -78,7 +90,12 @@ def scope_graph(graph, source, claims, *, tenant_id, run_id, policy):
         )
         receipt["artifact_sha256"] = canonical_hash(receipt)
     else:
-        receipt = reader.attest_claim_spans(graph, source, refs, tenant_id=tenant_id)
+        try:
+            receipt = reader.attest_claim_spans(graph, source, refs, tenant_id=tenant_id)
+        except PdfminerException:
+            if policy.get("auxiliary_native_failure") != "unreadable-no-supplemental-credit-hx6-v1":
+                raise
+            return graph, {}
     approved = tuple(
         replace(SourceRef(**r["ref"]), verification_state="verified")
         for r in receipt["records"]

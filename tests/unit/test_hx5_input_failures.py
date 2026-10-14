@@ -256,7 +256,7 @@ def test_original_read_retains_large_upload_and_checks_integrity(tmp_path):
 
 def test_large_source_proofs_remain_unresolved_and_replay_is_strict(monkeypatch):
     from proofops.adapters.local import evidence_source_hx5 as evidence
-    from proofops.adapters.local import upstage_ocr_profile_v16 as native
+    from proofops.adapters.local import upstage_ocr_profile_hx5_v16 as native
 
     from tests.unit.test_k5_context import case
 

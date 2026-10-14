@@ -38,7 +38,7 @@ def native_pages(source, selected, candidates):
                     b.source.raw_text
                     for batch in candidates
                     for b in batch.blocks
-                    if b.source.physical_page == number and b.kind in {"paragraph", "heading"}
+                    if b.source.physical_page == number and b.kind == "paragraph"
                 )
                 try:
                     if document is not None:

@@ -80,5 +80,5 @@ disable_error_code = ["name-defined"]
 # HX3 privately executes the byte-pinned v15 module before subclassing Reader.
 # Mypy cannot resolve that runtime-created base; retain all other type checks.
 [[tool.mypy.overrides]]
-module = ["adapters.local.upstage_ocr_profile_v16"]
+module = ["adapters.local.upstage_ocr_profile_v16", "adapters.local.upstage_ocr_profile_hx4_v16", "adapters.local.upstage_ocr_profile_v18"]
 disable_error_code = ["name-defined"]

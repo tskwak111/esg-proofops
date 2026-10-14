@@ -113,7 +113,7 @@ def test_empty_evidence_graph_returns_bound_empty_receipt_and_replays():
 
 
 def test_unreadable_native_receipt_has_full_checkpoint_provenance(monkeypatch):
-    from proofops.adapters.local import upstage_ocr_profile_v16 as reader
+    from proofops.adapters.local import upstage_ocr_profile_hx4_v16 as reader
     from proofops.adapters.local.run_artifacts import checkpoint_native_attestation
 
     from tests.integration.test_claim_source_v3 import synthetic
@@ -168,7 +168,10 @@ def test_hx4_pin_keeps_v15_and_source_reader_hashes():
     pin = canonical_hash(p.FINALS_HX4_POLICY)
     assert p.policy_for(p.V2_PROFILE, pinned_hash=pin) == p.FINALS_HX4_POLICY
     assert p.publication_policy_for(p.V2_PROFILE, pinned_hash=pin) == p.FINALS_HX4_POLICY
-    assert p.policy_for(p.V2_PROFILE) == p.FINALS_I15_POLICY
+    assert (
+        p.policy_for(p.V2_PROFILE, pinned_hash=canonical_hash(p.FINALS_I15_POLICY))
+        == p.FINALS_I15_POLICY
+    )
     assert (
         canonical_hash(p.FINALS_I13_POLICY)
         == "05770a9a6e8a4a42270666b28234bd0f0103634397a717a42934a96f2f89a11c"
@@ -177,7 +180,7 @@ def test_hx4_pin_keeps_v15_and_source_reader_hashes():
     args = SimpleNamespace(analysis_profile=p.V2_PROFILE, analysis_policy_sha256=pin)
     p.apply_pilot_profile(args)
     assert args.parser_failure_policy == "partial-v4"
-    assert args.claim_source_profile == "upstage-ocr-page-v16"
+    assert args.claim_source_profile == "upstage-ocr-page-v16-hx4"
 
 
 def test_claim_unreadable_receipt_keeps_provenance_and_rejects_tampered_records(monkeypatch):

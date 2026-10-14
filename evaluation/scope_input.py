@@ -30,7 +30,7 @@ def scope_input(pdf: Path):
     with pdf.open("rb") as stream:
         digest = file_digest(stream, "sha256").hexdigest()
     reader = PdfReader(pdf)
-    metadata = {}
+    metadata: dict = {}
     with TemporaryDirectory(prefix="proofops-scope-input-") as scratch:
         analysis = pdf
         if reader.is_encrypted:

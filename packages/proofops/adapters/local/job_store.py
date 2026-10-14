@@ -433,7 +433,7 @@ class LocalSQLiteJobStore:
 
             mode = policy.get("mode") if isinstance(policy, dict) else None
             try:
-                expected = page_ocr_profile(mode).native_policy()
+                expected = page_ocr_profile(mode, policy=policy, native=True).native_policy()
             except ValueError:
                 raise ValueError("NATIVE_PARAGRAPH_POLICY_MISMATCH") from None
             if policy != expected:

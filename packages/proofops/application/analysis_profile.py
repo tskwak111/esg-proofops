@@ -782,6 +782,20 @@ FINALS_HX5_V1_POLICY = FINALS_I15_POLICY | dict(
 FINALS_HX5_POLICY = FINALS_HX5_V1_POLICY | dict(source="upstage-ocr-page-v16")
 
 
+# Additive integration: historical names and policy dictionaries stay unchanged.
+FINALS_I17_POLICY = (
+    FINALS_I16_POLICY
+    | {k: v for k, v in FINALS_HX6_RESILIENT_POLICY.items() if v != FINALS_I15_POLICY.get(k)}
+    | dict(
+        integration_profile="finals-20261014-v17",
+        source="upstage-ocr-page-v18",
+        input_failure_policy=HX5_INPUT_POLICY,
+        input_failure_policy_sha256=canonical_hash(HX5_INPUT_POLICY),
+    )
+)
+V2_POLICY = FINALS_I17_POLICY
+
+
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
     from proofops.application.tagging.fact_assembly_c4 import publication_policy_for as c4_policy
@@ -809,6 +823,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_I16_POLICY,
             FINALS_I15_POLICY,
             FINALS_HX3_POLICY,
             FINALS_HX4_POLICY,
@@ -932,6 +947,9 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FINALS_I16_POLICY,
+            FINALS_HX5_POLICY,
+            FINALS_HX5_V1_POLICY,
             FINALS_I15_POLICY,
             FINALS_HX3_POLICY,
             FINALS_HX4_POLICY,
@@ -1059,6 +1077,9 @@ def apply_pilot_profile(args):
         "upstage-ocr-page-v15",
         "upstage-ocr-page-v16",
         "upstage-ocr-page-v17",
+        "upstage-ocr-page-v18",
+        "upstage-ocr-page-v16-hx4",
+        "upstage-ocr-page-v16-hx5",
     ):
         args.claim_source_profile = (
             selected["source"] if selected.get("table_worker_routing") else "upstage-ocr-page-v10"
@@ -1079,8 +1100,15 @@ def apply_pilot_profile(args):
         "upstage-ocr-page-v15",
         "upstage-ocr-page-v16",
         "upstage-ocr-page-v17",
+        "upstage-ocr-page-v18",
+        "upstage-ocr-page-v16-hx4",
+        "upstage-ocr-page-v16-hx5",
     }:
         args.claim_source_profile = "claim-source-v3"
+    if selected == FINALS_HX4_POLICY:
+        args.claim_source_profile = "upstage-ocr-page-v16-hx4"
+    elif selected == FINALS_HX5_POLICY:
+        args.claim_source_profile = "upstage-ocr-page-v16-hx5"
     args.verify_claim_spans = True
     args.extraction_linewrap_join = True
     args.vision_parse = "off"

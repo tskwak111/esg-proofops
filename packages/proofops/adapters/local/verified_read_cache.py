@@ -375,6 +375,9 @@ def reuse_fresh_attestation(*, reader, policy, receipt, graph, source, discovery
         "upstage-ocr-page-v15",
         "upstage-ocr-page-v16",
         "upstage-ocr-page-v17",
+        "upstage-ocr-page-v18",
+        "upstage-ocr-page-v16-hx4",
+        "upstage-ocr-page-v16-hx5",
     ):
         return _project_owned_cells(receipt, graph, discovery, tenant_id, failed_state="candidate")
     return _project_whole_attestation(receipt, graph, discovery, tenant_id, refs_field="records")
@@ -601,7 +604,15 @@ def replay_cached(
     ):
         from proofops.adapters.local.claim_source_policies import page_ocr_profile
 
-        if page_ocr_profile(policy["mode"]).native_policy() != policy:
+        try:
+            selected = (
+                page_ocr_profile(policy["mode"], policy=policy, native=True)
+                if policy["mode"] == "upstage-ocr-page-v16"
+                else page_ocr_profile(policy["mode"])
+            )
+        except ValueError:
+            raise ValueError("NATIVE_PARAGRAPH_POLICY_MISMATCH") from None
+        if selected.native_policy() != policy:
             raise ValueError("NATIVE_PARAGRAPH_POLICY_MISMATCH")
     from proofops.adapters.local.local_raster_reader import runtime_policy
     from proofops.adapters.local.receipt_environment_compat import read_profile
@@ -612,7 +623,15 @@ def replay_cached(
     ):
         from proofops.adapters.local.claim_source_policies import page_ocr_profile
 
-        live_claim_policy = page_ocr_profile(policy["profile"]).claim_source_policy()
+        selected = page_ocr_profile(policy["profile"])
+        if policy["profile"] == "upstage-ocr-page-v16":
+            try:
+                selected = page_ocr_profile(policy["profile"], policy=policy)
+            except ValueError:
+                # A changed live verifier must invalidate the cache and reach
+                # the original cold replay, which still enforces its policy.
+                pass
+        live_claim_policy = selected.claim_source_policy()
     if _parse_enabled() and reader_name.endswith(".evidence_source_ocr_v1"):
         from proofops.adapters.local import evidence_source_ocr_v1
 

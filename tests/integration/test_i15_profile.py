@@ -32,14 +32,19 @@ def test_v15_default_and_historical_v14_pin():
         native_figure_policy=FIGURE_POLICY,
         native_figure_policy_sha256=canonical_hash(FIGURE_POLICY),
     )
-    assert selected == profiles.FINALS_I15_POLICY | dict(
+    from proofops.application.input_failures import POLICY as HX5_POLICY
+
+    assert profiles.FINALS_HX5_POLICY == profiles.FINALS_I15_POLICY | dict(
         source="upstage-ocr-page-v16",
         input_failure_policy=HX5_POLICY,
         input_failure_policy_sha256=canonical_hash(HX5_POLICY),
     )
-    assert profiles.policy_for(
-        profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_I15_POLICY)
-    ) == profiles.FINALS_I15_POLICY
+    assert (
+        profiles.policy_for(
+            profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_I15_POLICY)
+        )
+        == profiles.FINALS_I15_POLICY
+    )
     pin = "05770a9a6e8a4a42270666b28234bd0f0103634397a717a42934a96f2f89a11c"
     assert canonical_hash(selected) != pin
     assert profiles.policy_for(profiles.V2_PROFILE, pinned_hash=pin) == profiles.FINALS_I13_POLICY
@@ -47,7 +52,7 @@ def test_v15_default_and_historical_v14_pin():
         profiles.FINALS_I13_POLICY
     )
     assert selected["source"] in PAGE_OCR_PROFILES
-    assert page_ocr_profile(selected["source"]).native_policy()["mode"] == "upstage-ocr-page-v16"
+    assert page_ocr_profile(selected["source"]).native_policy()["mode"] == "upstage-ocr-page-v15"
     for policy in (selected, profiles.FINALS_I13_POLICY):
         args = Namespace(
             analysis_profile=profiles.V2_PROFILE, analysis_policy_sha256=canonical_hash(policy)

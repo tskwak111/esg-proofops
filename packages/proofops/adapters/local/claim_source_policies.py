@@ -22,8 +22,10 @@ PAGE_OCR_PROFILES = {
     "upstage-ocr-page-v1": "proofops.adapters.local.upstage_ocr_profile",
     **{
         f"upstage-ocr-page-v{version}": f"proofops.adapters.local.upstage_ocr_profile_v{version}"
-        for version in range(2, 18)
+        for version in range(2, 19)
     },
+    "upstage-ocr-page-v16-hx4": "proofops.adapters.local.upstage_ocr_profile_hx4_v16",
+    "upstage-ocr-page-v16-hx5": "proofops.adapters.local.upstage_ocr_profile_hx5_v16",
 }
 
 RENDER_RESOLUTION_POLICY_SCHEMA = "claim_span_render_resolution_policy_v1"
@@ -127,11 +129,7 @@ def claim_source_reader(policy):
                 raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")
             return wrapper
         if policy.get("profile") in PAGE_OCR_PROFILES:
-            upstage_ocr_profile = page_ocr_profile(policy["profile"])
-
-            if policy != upstage_ocr_profile.claim_source_policy():
-                raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")
-            return upstage_ocr_profile
+            return page_ocr_profile(policy["profile"], policy=policy)
         if policy.get("profile") == _table_claims().PROFILE:
             wrapper = _table_claims()
             if policy != wrapper.claim_source_policy():
@@ -275,10 +273,23 @@ def attest_claims(*, reader, graph, source, refs, tenant_id, cache, run_id=None)
     return receipt
 
 
-def page_ocr_profile(profile):
+def page_ocr_profile(profile, *, policy=None, native=False):
     """Resolve only shipped registry entries; never import an untrusted module name."""
     from importlib import import_module
 
     if not isinstance(profile, str) or profile not in PAGE_OCR_PROFILES:
         raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")
-    return import_module(PAGE_OCR_PROFILES[profile])
+    module = import_module(PAGE_OCR_PROFILES[profile])
+    if policy is None:
+        return module
+    candidates = [module]
+    if profile == "upstage-ocr-page-v16":
+        candidates.extend(
+            import_module(PAGE_OCR_PROFILES[name])
+            for name in ("upstage-ocr-page-v16-hx4", "upstage-ocr-page-v16-hx5")
+        )
+    for candidate in candidates:
+        expected = candidate.native_policy() if native else candidate.claim_source_policy()
+        if policy == expected:
+            return candidate
+    raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")

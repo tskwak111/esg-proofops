@@ -57,7 +57,10 @@ def test_single_page_failures_have_bounded_transient_only_retry(monkeypatch, cod
 def test_new_pin_preserves_hx4_and_default():
     from proofops.application import analysis_profile as p
 
-    assert p.policy_for(p.V2_PROFILE) == p.FINALS_I15_POLICY
+    assert (
+        p.policy_for(p.V2_PROFILE, pinned_hash=canonical_hash(p.FINALS_I15_POLICY))
+        == p.FINALS_I15_POLICY
+    )
     assert (
         p.policy_for(p.V2_PROFILE, pinned_hash=canonical_hash(p.FINALS_HX6_POLICY))
         == p.FINALS_HX6_POLICY
@@ -125,15 +128,43 @@ def test_display_eof_keeps_raw_quote_and_never_promotes_source(monkeypatch):
 
 
 def test_parser_native_recovery_and_checkpoint_replay(tmp_path):
+    import io
     from hashlib import sha256
     from uuid import uuid4
 
     from proofops.adapters.parsing.opendataloader import OpenDataLoaderParser
     from proofops.application.ingest.graph_fusion import ParserProfile, SourceArtifact
+    from pypdf import PdfReader, PdfWriter
 
     from deploy.public.offline_fixture import source_pdf
 
-    pdf = source_pdf()
+    # Native paragraph recovery requires paragraph candidates. The release
+    # fixture's single 16pt line is a heading and now correctly uses the parser
+    # fallback, covered separately by I17's heading-only regression.
+    writer = PdfWriter()
+    writer.append(PdfReader(io.BytesIO(source_pdf())))
+    for number, page in enumerate(writer.pages):
+        contents = page.get_contents()
+        paragraph = (
+            b"BT /F1 18 Tf 40 350 Td (Environmental report) Tj ET "
+            b"BT /F1 10 Tf 40 250 Td "
+            b"(Acme reduced energy use by 20 percent in 2024.) Tj "
+            b"0 -12 Td (The company also used renewable electricity at its facilities.) Tj "
+            b"0 -12 Td (Its environmental report describes these operational improvements.) Tj ET"
+        )
+        if number:
+            paragraph = (
+                b"BT /F1 18 Tf 40 350 Td (Water management) Tj ET "
+                b"BT /F1 10 Tf 40 250 Td "
+                b"(The second facility recycled water during 2024.) Tj "
+                b"0 -12 Td (Wastewater treatment reduced freshwater consumption by 15 percent.) Tj "
+                b"0 -12 Td (Annual monitoring recorded the corresponding operating volumes.) Tj ET"
+            )
+        contents.set_data(paragraph)
+        page.replace_contents(contents)
+    output = io.BytesIO()
+    writer.write(output)
+    pdf = output.getvalue()
     source = SourceArtifact(
         str(uuid4()), str(uuid4()), str(uuid4()), sha256(pdf).hexdigest(), "v1", pdf
     )
@@ -155,6 +186,7 @@ def test_parser_native_recovery_and_checkpoint_replay(tmp_path):
     parser = OpenDataLoaderParser(tmp_path / "parser", upstage_probe=Offline())
     graph = parser.parse(source, profile, tenant_id=source.tenant_id)
     assert {b.page_num for b in graph.blocks if b.sources[0].raw_text} == {1, 2}
+    assert {b.page_num for b in graph.blocks if b.kind == "paragraph"} == {1, 2}
     assert all(b.quality != "verified" for b in graph.blocks)
     assert (
         parser.load_verified(source, profile, tenant_id=source.tenant_id).to_dict()
