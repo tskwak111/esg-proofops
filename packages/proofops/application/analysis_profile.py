@@ -728,7 +728,20 @@ FINALS_I15_POLICY = FINALS_I13_POLICY | dict(
     native_figure_policy=QC2_FIGURE_POLICY,
     native_figure_policy_sha256=canonical_hash(QC2_FIGURE_POLICY),
 )
-V2_POLICY = FINALS_I15_POLICY
+FINALS_HX3_POLICY = FINALS_I13_POLICY | dict(
+    integration_profile="finals-20261014-hx3",
+    source="upstage-ocr-page-v16",
+    result_outcome_projection="admitted-extraction-checkpoint-hx3-v1",
+    failure_diagnostics="source-item-holds-and-code-locations-hx3-v1",
+)
+# I16: keep both historical branches intact and add HX3 to the v15 chain.
+FINALS_I16_POLICY = FINALS_I15_POLICY | dict(
+    integration_profile="finals-20261014-v16",
+    source=FINALS_HX3_POLICY["source"],
+    result_outcome_projection=FINALS_HX3_POLICY["result_outcome_projection"],
+    failure_diagnostics=FINALS_HX3_POLICY["failure_diagnostics"],
+)
+V2_POLICY = FINALS_I16_POLICY
 
 
 def policy_for(profile, *, pinned_hash=None):
@@ -758,6 +771,8 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_I15_POLICY,
+            FINALS_HX3_POLICY,
             FINALS_I13_POLICY,
             FINALS_I12_POLICY,
             FINALS_I11_POLICY,
@@ -872,6 +887,8 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FINALS_I15_POLICY,
+            FINALS_HX3_POLICY,
             FINALS_I13_POLICY,
             FINALS_I12_POLICY,
             FINALS_I11_POLICY,
@@ -986,6 +1003,7 @@ def apply_pilot_profile(args):
         "upstage-ocr-page-v13",
         "upstage-ocr-page-v14",
         "upstage-ocr-page-v15",
+        "upstage-ocr-page-v16",
     ):
         args.claim_source_profile = (
             selected["source"] if selected.get("table_worker_routing") else "upstage-ocr-page-v10"
@@ -1004,6 +1022,7 @@ def apply_pilot_profile(args):
         "upstage-ocr-page-v13",
         "upstage-ocr-page-v14",
         "upstage-ocr-page-v15",
+        "upstage-ocr-page-v16",
     }:
         args.claim_source_profile = "claim-source-v3"
     args.verify_claim_spans = True

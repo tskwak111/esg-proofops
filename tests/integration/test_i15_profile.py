@@ -21,7 +21,9 @@ from tests.integration.test_qc2_figure_context import figure
 
 
 def test_v15_default_and_historical_v14_pin():
-    selected = profiles.policy_for(profiles.V2_PROFILE)
+    selected = profiles.policy_for(
+        profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_I15_POLICY)
+    )
     assert selected == profiles.FINALS_I15_POLICY
     assert selected == profiles.FINALS_I13_POLICY | dict(
         integration_profile="finals-20261014-v15",

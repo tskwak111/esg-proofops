@@ -182,11 +182,13 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
         # The publisher holds analysis.lock; these source artifacts cannot change
         # while building this snapshot. Replay all source guards once, then retain
         # the same graph for every claim's identity-checked missing-evidence search.
-        _, discovery, original_graph = evidence
+        extraction_checkpoint, discovery, original_graph = evidence
         # Older claim-store facades retain their existing result contract.
         # The concrete store's projection checks the admitted checkpoint hash.
         if project_outcome := getattr(claims, "outcome_projection", None):
-            outcome = outcome | project_outcome(tenant, run, discovery=discovery)
+            outcome = outcome | project_outcome(
+                tenant, run, admitted_checkpoint=extraction_checkpoint
+            )
         from proofops.application.analysis_profile import (
             FINALS_I1_INITIAL_POLICY,
             FINALS_I3_POLICY,

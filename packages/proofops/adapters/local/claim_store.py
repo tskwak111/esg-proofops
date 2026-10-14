@@ -144,6 +144,7 @@ class LocalClaimStore:
                 "upstage-ocr-page-v13",
                 "upstage-ocr-page-v14",
                 "upstage-ocr-page-v15",
+                "upstage-ocr-page-v16",
             }:
                 if envelope["claim_source_attestation"].get("run_id") != run_id:
                     raise ValueError("OCR_POLICY_OR_RUN_MISMATCH")
@@ -263,15 +264,18 @@ class LocalClaimStore:
             track=track, decision=current["decision"], revision=tag["tag_revision"]
         )
 
-    def outcome_projection(self, tenant_id, run_id, *, discovery=None):
+    def outcome_projection(self, tenant_id, run_id, *, admitted_checkpoint=None):
         """Expose only the same immutable checkpoint already admitted by load()."""
         run = self.store.jobs.get_run(tenant_id, run_id)
         checkpoint = self.store.jobs.read_checkpoint(JobMessage(**run["extract_job"]))
         if checkpoint is None or sha256(checkpoint).hexdigest() != run["claim_snapshot_sha256"]:
             raise ValueError("CLAIM_SNAPSHOT_HASH_MISMATCH")
         envelope = json.loads(checkpoint)
-        if discovery is not None and canonical_hash(envelope["discovery"]) != canonical_hash(
-            asdict(discovery)
+        # load_evidence validates this immutable envelope before source replay.
+        # The returned discovery can then gain verified spans/source quality;
+        # those admission results are deliberately absent from extraction bytes.
+        if admitted_checkpoint is not None and canonical_hash(envelope) != canonical_hash(
+            admitted_checkpoint
         ):
             raise ValueError("CLAIM_SNAPSHOT_REPLAY_MISMATCH")
         return (
@@ -454,6 +458,7 @@ def validate_extract_commit(db, jobs, run, message, envelope, next_job, *, now):
                     "upstage-ocr-page-v13",
                     "upstage-ocr-page-v14",
                     "upstage-ocr-page-v15",
+                    "upstage-ocr-page-v16",
                 }
                 and receipt.get("run_id") != message.run_id
             )

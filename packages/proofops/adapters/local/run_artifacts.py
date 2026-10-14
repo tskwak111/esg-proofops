@@ -324,7 +324,14 @@ def checkpoint_native_attestation(envelope):
         or not isinstance(receipt.get("parse_manifest_id"), str)
         or not isinstance(receipt.get("source_sha256"), str)
         or not isinstance(receipt.get("input_graph_sha256"), str)
-        or policy_digest not in accepted_native_policy_digests()
+        # The fresh base digest is always in the accepted set. Avoid constructing
+        # every archived OCR policy inside the commit transaction for that case;
+        # registry construction can outlast a short parser lease after keepalive
+        # has stopped. Historical digests retain the full byte-verified check.
+        or (
+            policy_digest != canonical_hash(native_paragraph_policy())
+            and policy_digest not in accepted_native_policy_digests()
+        )
     ):
         raise ParseFailure("NATIVE_PARAGRAPH_CHECKPOINT_INVALID")
     return receipt
@@ -518,6 +525,12 @@ def load_run_evidence(store, uploads, parser, *, tenant_id: str, run_id: str):
         from proofops.adapters.local.verified_read_cache import replay_cached as replay_verified
 
         def replay_native(r, g, s, *, tenant_id):
+            if (native_policy or {}).get("mode") == "upstage-ocr-page-v16":
+                from proofops.adapters.local import upstage_ocr_profile_v16 as hx3
+
+                if native_policy != hx3.native_policy():
+                    raise ValueError("OCR_POLICY_OR_RUN_MISMATCH")
+                return hx3.for_run(r["run_id"]).replay_native_sources(r, g, s, tenant_id=tenant_id)
             if (native_policy or {}).get("mode") == "upstage-ocr-page-v15":
                 from proofops.adapters.local import upstage_ocr_profile_v15 as h7
 

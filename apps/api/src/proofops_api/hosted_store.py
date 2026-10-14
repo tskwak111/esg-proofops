@@ -31,6 +31,7 @@ from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
 
 from proofops.adapters.local.provider_errors import MESSAGES, provider_error_code
+from proofops.adapters.local.source_hx3 import failure_location
 from proofops.application.authorization import MembershipRecord, SessionExpiredError, SessionRecord
 from proofops.application.pipeline_failures import MESSAGES as PIPELINE_MESSAGES
 from proofops.application.pipeline_failures import PUBLIC_CODES
@@ -43,6 +44,8 @@ from proofops.application.uploads_security import (
 
 MICRO = Decimal(1_000_000)
 RUN_LEASE_SECONDS = 1900
+
+
 TERMINAL = ("partial_blocked", "completed", "cancelled", "failed")
 OPENROUTER_LIMIT_CODES = frozenset({"OPENROUTER_HTTP_402", "OPENROUTER_HTTP_403"})
 OPENAI_LIMIT_CODES = frozenset({"OPENAI_HTTP_401", "OPENAI_HTTP_429", "OPENAI_INSUFFICIENT_QUOTA"})
@@ -1580,6 +1583,16 @@ class HostedStore:
                 else "PREPARE_FAILED"
             )
             with self.transaction() as db:
+                progress = db.execute(
+                    "SELECT stage FROM run_progress WHERE run_id=?", (job["run_id"],)
+                ).fetchone()
+                stage = (
+                    progress[0]
+                    if progress and progress[0] in {"parse", "extract", "tag", "result"}
+                    else "prepare"
+                    if prepared is None
+                    else "analysis"
+                )
                 row = db.execute(
                     "SELECT status,fence,error_code FROM runs WHERE run_id=?", (job["run_id"],)
                 ).fetchone()
@@ -1593,7 +1606,12 @@ class HostedStore:
                     )
                     self._settle_envelope(db, job["run_id"])
             logging.getLogger(__name__).warning(
-                "hosted run %s failed: %s (%s)", job["run_id"], code, type(exc).__name__
+                "hosted run %s failed: %s (%s) stage=%s location=%s",
+                job["run_id"],
+                code,
+                type(exc).__name__,
+                stage,
+                failure_location(exc),
             )
         try:
             return self.get_run(job["tenant_id"], job["run_id"])
