@@ -1,0 +1,11 @@
+{
+  "run_id": "2813a669-d631-40cf-a89f-984c618297b0",
+  "accepted_at_unix": 1791968580.0194793,
+  "artifact_mtime_unix": {
+    "outcome.json": 1791969392.4437995,
+    "result-1.json": 1791969485.4871094
+  },
+  "server_to_snapshot_seconds": 905.467630147934,
+  "publication_from_outcome_mtime_seconds": 93.0433099269867,
+  "failure_records": []
+}

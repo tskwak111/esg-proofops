@@ -16,7 +16,11 @@ while [[ $# -gt 0 ]]; do
     --drain-timeout)
       [[ ${0##*/} == deploy.sh && ${2:-} =~ ^[0-9]{1,5}$ ]] || { echo 'Invalid drain timeout.' >&2; exit 2; }
       DRAIN_TIMEOUT=$2; shift 2 ;;
-    *) echo 'Usage: script [--apply]; deploy.sh also accepts [--force-restart] [--drain-timeout SECONDS]' >&2; exit 2 ;;
+    --worker-cpus|--worker-memory)
+      [[ ${0##*/} == deploy.sh && -n ${2:-} ]] || { echo 'Worker options are for deploy.sh only and require a value.' >&2; exit 2; }
+      case "$1" in --worker-cpus) WORKER_CPUS=$2;; --worker-memory) WORKER_MEMORY=$2;; esac
+      shift 2 ;;
+    *) echo 'Usage: script [--apply]; deploy.sh also accepts [--force-restart] [--drain-timeout SECONDS] [--worker-cpus CPUS] [--worker-memory MEMORY]' >&2; exit 2 ;;
   esac
 done
 export REGION=${REGION:-ap-southeast-2} PROFILE=${PROFILE:-proofops-deploy}
@@ -30,3 +34,7 @@ AWS=(aws --profile "$PROFILE" --region "$REGION" --no-cli-pager)
 preview() { printf 'DRY RUN:'; printf ' %q' "$@"; printf '\n'; }
 aws_run() { if "$APPLY"; then "${AWS[@]}" "$@"; else preview "${AWS[@]}" "$@"; fi; }
 need() { [[ -n ${!1:-} ]] || { echo "Set $1 (see RUNBOOK)." >&2; exit 2; }; }
+write_compose_env() {
+  printf 'IMAGE=%s\nCADDY_IMAGE=caddy:2.10.2-alpine\nAPI_HOST=%s.sslip.io\nACME_EMAIL=%s\nLOCAL_PORT=8000\nWORKER_CPUS=%s\nWORKER_MEMORY=%s\n' \
+    "$IMAGE" "$STATIC_IP" "$ACME_EMAIL" "$WORKER_CPUS" "$WORKER_MEMORY" > "$1"
+}
