@@ -33,6 +33,7 @@ def test_v15_default_and_historical_v14_pin():
         native_figure_policy_sha256=canonical_hash(FIGURE_POLICY),
     )
     assert selected == profiles.FINALS_I15_POLICY | dict(
+        source="upstage-ocr-page-v16",
         input_failure_policy=HX5_POLICY,
         input_failure_policy_sha256=canonical_hash(HX5_POLICY),
     )
@@ -46,14 +47,14 @@ def test_v15_default_and_historical_v14_pin():
         profiles.FINALS_I13_POLICY
     )
     assert selected["source"] in PAGE_OCR_PROFILES
-    assert page_ocr_profile(selected["source"]).native_policy()["mode"] == "upstage-ocr-page-v15"
+    assert page_ocr_profile(selected["source"]).native_policy()["mode"] == "upstage-ocr-page-v16"
     for policy in (selected, profiles.FINALS_I13_POLICY):
         args = Namespace(
             analysis_profile=profiles.V2_PROFILE, analysis_policy_sha256=canonical_hash(policy)
         )
         profiles.apply_pilot_profile(args)
         assert args.extraction_qc_native_figures == (policy == selected)
-        assert args.claim_source_profile == "upstage-ocr-page-v15"
+        assert args.claim_source_profile == policy["source"]
 
 
 def test_full_v15_extractor_keeps_i4_qc2_wire_pins_and_restriction_refs(tmp_path):

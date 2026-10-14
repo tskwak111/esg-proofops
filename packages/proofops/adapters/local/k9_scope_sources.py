@@ -42,6 +42,10 @@ def scope_graph(graph, source, claims, *, tenant_id, run_id, policy):
     # Native text, glyphs, annotations and visible-text/OCR checks stay identical
     # to the run's v13 reader. Only individually verified spans gain authority.
     reader = upstage_ocr_profile_v13.for_run(run_id)
+    if policy.get("source") == "upstage-ocr-page-v16":
+        from proofops.adapters.local import upstage_ocr_profile_v16
+
+        reader = upstage_ocr_profile_v16.for_run(run_id)
     from proofops.adapters.local.source_attestation_errors import source_failure_code
     from proofops.application.input_failures import POLICY, RECOVERABLE_SOURCE_CODES
 

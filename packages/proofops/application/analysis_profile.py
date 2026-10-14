@@ -729,10 +729,11 @@ FINALS_I15_POLICY = FINALS_I13_POLICY | dict(
     native_figure_policy=QC2_FIGURE_POLICY,
     native_figure_policy_sha256=canonical_hash(QC2_FIGURE_POLICY),
 )
-FINALS_HX5_POLICY = FINALS_I15_POLICY | dict(
+FINALS_HX5_V1_POLICY = FINALS_I15_POLICY | dict(
     input_failure_policy=HX5_INPUT_POLICY,
     input_failure_policy_sha256=canonical_hash(HX5_INPUT_POLICY),
 )
+FINALS_HX5_POLICY = FINALS_HX5_V1_POLICY | dict(source="upstage-ocr-page-v16")
 V2_POLICY = FINALS_HX5_POLICY
 
 
@@ -763,6 +764,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_HX5_V1_POLICY,
             FINALS_I15_POLICY,
             FINALS_I13_POLICY,
             FINALS_I12_POLICY,
@@ -992,6 +994,7 @@ def apply_pilot_profile(args):
         "upstage-ocr-page-v13",
         "upstage-ocr-page-v14",
         "upstage-ocr-page-v15",
+        "upstage-ocr-page-v16",
     ):
         args.claim_source_profile = (
             selected["source"] if selected.get("table_worker_routing") else "upstage-ocr-page-v10"
@@ -1010,6 +1013,7 @@ def apply_pilot_profile(args):
         "upstage-ocr-page-v13",
         "upstage-ocr-page-v14",
         "upstage-ocr-page-v15",
+        "upstage-ocr-page-v16",
     }:
         args.claim_source_profile = "claim-source-v3"
     args.verify_claim_spans = True

@@ -252,3 +252,47 @@ def test_original_read_retains_large_upload_and_checks_integrity(tmp_path):
     snapshot["sha256"] = "0" * 64
     with pytest.raises(UploadRejected, match="UPLOAD_INTEGRITY_MISMATCH"):
         UploadService.read_original(owner, "tenant", "version")
+
+
+def test_large_source_proofs_remain_unresolved_and_replay_is_strict(monkeypatch):
+    from proofops.adapters.local import evidence_source_hx5 as evidence
+    from proofops.adapters.local import upstage_ocr_profile_v16 as native
+
+    from tests.unit.test_k5_context import case
+
+    graph, claim = case(
+        ["2024년 온실가스를 줄였습니다."],
+        (0, "2024년 온실가스를 줄였습니다."),
+        quality="unverified",
+    )
+    source = b"immutable-original"
+    graph = replace(graph, source_sha256=sha256(source).hexdigest())
+    graph = replace(
+        graph,
+        candidates=tuple(replace(b, source_sha256=graph.source_sha256) for b in graph.candidates),
+    )
+    monkeypatch.setattr(native, "LEGACY_PROOF_BYTES", 1)
+    monkeypatch.setattr(evidence, "LEGACY_PROOF_BYTES", 1)
+    reader = native.for_run(str(uuid4()))
+    receipt = reader.attest_native_sources(graph, source, tenant_id=graph.tenant_id)
+    assert all(r["status"] == "unresolved" for r in receipt["records"])
+    assert reader.replay_native_sources(receipt, graph, source, tenant_id=graph.tenant_id) is graph
+    spans = reader.attest_claim_spans(graph, source, claim.source_refs, tenant_id=graph.tenant_id)
+    assert all(r["status"] == "unresolved" for r in spans["records"])
+    with pytest.raises(ValueError, match="OCR_CLAIM_RECEIPT_MISMATCH"):
+        reader.recompute_claim_receipt(
+            spans | dict(run_id=str(uuid4())),
+            graph,
+            source,
+            claim.source_refs,
+            tenant_id=graph.tenant_id,
+        )
+    ev = evidence.attest_evidence_sources(graph, source, tenant_id=graph.tenant_id)
+    assert all(r["status"] == "unresolved" for r in ev["records"])
+    assert evidence.replay_evidence_sources(ev, graph, source, tenant_id=graph.tenant_id) is graph
+    with pytest.raises(ValueError, match="EVIDENCE_SOURCE_RECEIPT_MISMATCH"):
+        evidence.replay_evidence_sources(
+            ev | dict(artifact_sha256="0" * 64), graph, source, tenant_id=graph.tenant_id
+        )
+    with pytest.raises(ValueError, match="CLAIM_SOURCE_MISMATCH"):
+        reader.attest_native_sources(graph, b"changed", tenant_id=graph.tenant_id)
