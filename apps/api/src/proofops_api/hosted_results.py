@@ -25,6 +25,7 @@ def services(path: Path, tenant: str):
     if manifest["tenant_id"] != tenant:
         raise HostedError("RESOURCE_NOT_FOUND", 404)
     from proofops.application.tagging.fact_assembly_c3 import PROFILE as C3_PROFILE
+    from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
     from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
 
     if manifest.get("publication_profile") == C4_PROFILE:
@@ -34,7 +35,7 @@ def services(path: Path, tenant: str):
         yield manifest["run_id"], None, publication, publication.service
         return
 
-    if manifest.get("publication_profile") == C3_PROFILE:
+    if manifest.get("publication_profile") in (C3_PROFILE, C3_V2_PROFILE):
         from proofops.adapters.local.c3_publication import LocalC3Publication
 
         publication = LocalC3Publication(path)
@@ -75,6 +76,7 @@ def services(path: Path, tenant: str):
 
 def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
     from proofops.application.tagging.fact_assembly_c3 import PROFILE as C3_PROFILE
+    from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
     from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
 
     if (path / "pilot.json").is_file():
@@ -87,7 +89,7 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             from proofops.adapters.local.c4_publication import LocalC4Publication
 
             return LocalC4Publication(path).result(tenant, manifest["run_id"], manifest["claim_id"])
-        if manifest.get("publication_profile") == C3_PROFILE:
+        if manifest.get("publication_profile") in (C3_PROFILE, C3_V2_PROFILE):
             if manifest["tenant_id"] != tenant:
                 raise HostedError("RESOURCE_NOT_FOUND", 404)
             if selected_pages != [36]:

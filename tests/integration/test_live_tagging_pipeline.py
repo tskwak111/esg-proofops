@@ -417,7 +417,10 @@ def test_live_pipeline_publishes_candidate_review_and_replays(tmp_path, monkeypa
     assert "1234 tCO2e" not in ctx["stream"].getvalue()
 
 
-@pytest.mark.parametrize("selected", ["strict-v1", "partial-facts-v1"])
+@pytest.mark.parametrize(
+    "selected",
+    ["strict-v1", "partial-facts-v1", "grade-relevant-unanimity-v1"],
+)
 def test_fact_assembly_env_selection_is_pinned_and_replayed(tmp_path, monkeypatch, selected):
     from proofops.adapters.local.run_store import LocalSQLiteRunStore
     from proofops_api.local_runtime import load_local_runtime

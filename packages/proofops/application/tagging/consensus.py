@@ -15,9 +15,19 @@ PARTIAL_FACTS_V1 = "partial-facts-v1"
 PARTIAL_FACTS_HASH = canonical_hash({"fact_assembly": PARTIAL_FACTS_V1})
 PARTIAL_FACTS_V2 = "partial-facts-v2"
 PARTIAL_FACTS_V2_HASH = canonical_hash({"fact_assembly": PARTIAL_FACTS_V2})
+GRADE_RELEVANT_UNANIMITY_V1 = "grade-relevant-unanimity-v1"
+GRADE_RELEVANT_UNANIMITY_POLICY = {
+    "profile": GRADE_RELEVANT_UNANIMITY_V1,
+    "grade_facts": "three_independent_source_bound_votes_must_agree",
+    "disagreement": "conflict",
+    "unresolved": "preserve_unknown_conflict_unreadable",
+    "lower_bound": "python_grade_range_only_never_confirmed_grade",
+}
+GRADE_RELEVANT_UNANIMITY_HASH = canonical_hash({"fact_assembly": GRADE_RELEVANT_UNANIMITY_POLICY})
 PARTIAL_FACTS_PROFILES = {
     PARTIAL_FACTS_V1: PARTIAL_FACTS_HASH,
     PARTIAL_FACTS_V2: PARTIAL_FACTS_V2_HASH,
+    GRADE_RELEVANT_UNANIMITY_V1: GRADE_RELEVANT_UNANIMITY_HASH,
 }
 
 

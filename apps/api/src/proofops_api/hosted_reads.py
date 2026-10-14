@@ -247,6 +247,7 @@ class HostedReads:
         if database.is_symlink() or path.is_symlink() or (path / "pilot.json").is_symlink():
             raise ValueError("database")
         from proofops.application.tagging.fact_assembly_c3 import PROFILE as C3_PROFILE
+        from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
         from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
 
         if pilot.get("publication_profile") == C4_PROFILE:
@@ -270,7 +271,7 @@ class HostedReads:
                 block.candidates[block.winner].geometry,
             )
 
-        if pilot.get("publication_profile") == C3_PROFILE:
+        if pilot.get("publication_profile") in (C3_PROFILE, C3_V2_PROFILE):
             from proofops.adapters.local.c3_publication import LocalC3Publication
 
             publication = LocalC3Publication(path)
@@ -412,14 +413,18 @@ class HostedReads:
                     from proofops.application.tagging.fact_assembly_c3 import (
                         REVIEWED_IDENTITY,
                     )
+                    from proofops.application.tagging.fact_assembly_c3_v2 import (
+                        PROFILE as C3_V2_PROFILE,
+                    )
                     from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
 
                     pilot = json.loads((path / "pilot.json").read_text())
                     c4 = pilot.get("publication_profile") == C4_PROFILE
+                    c3 = pilot.get("publication_profile") in (C3_PROFILE, C3_V2_PROFILE)
                     if c4:
                         if selected != pilot["selected_pages"]:
                             raise HostedError("SOURCE_REFERENCE_MISMATCH", 409)
-                    elif pilot.get("publication_profile") != C3_PROFILE or selected != [36]:
+                    elif not c3 or selected != [36]:
                         raise HostedError("SOURCE_REFERENCE_MISMATCH", 409)
                 reference_page = (
                     physical_page if original_refs else selected.index(physical_page) + 1
@@ -454,12 +459,23 @@ class HostedReads:
                     source = self.store.analysis_source(directory, dict(doc))
                     source_sha = file_sha256(source)
                     if original_refs:
-                        if c4:
-                            from proofops.adapters.local.c4_publication import LocalC4Publication
+                        if c4 or pilot.get("publication_profile") == C3_V2_PROFILE:
+                            if c4:
+                                from proofops.adapters.local.c4_publication import (
+                                    LocalC4Publication,
+                                )
 
-                            frozen = LocalC4Publication(path).runs.snapshot(
-                                auth.tenant_id, pilot["run_id"]
-                            )
+                                frozen = LocalC4Publication(path).runs.snapshot(
+                                    auth.tenant_id, pilot["run_id"]
+                                )
+                            else:
+                                from proofops.adapters.local.c3_publication import (
+                                    LocalC3Publication,
+                                )
+
+                                frozen = LocalC3Publication(path).runs.snapshot(
+                                    auth.tenant_id, pilot["run_id"]
+                                )
                             expected_original = frozen["document"]["sha256"]
                         else:
                             expected_original = REVIEWED_IDENTITY["original_sha256"]
