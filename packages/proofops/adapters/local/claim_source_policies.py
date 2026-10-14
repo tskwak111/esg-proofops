@@ -135,7 +135,11 @@ def claim_source_reader(policy):
         if policy.get("profile") == "claim-source-v4":
             wrapper = _source_v4()
             if policy != wrapper.claim_source_policy():
-                raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")
+                from proofops.adapters.local.historical_prose_replay import historical_prose_reader
+
+                wrapper = historical_prose_reader()
+                if policy != wrapper.claim_source_policy():
+                    raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")
             return wrapper
         if policy.get("profile") == "claim-source-v3":
             wrapper = _source_v3()
@@ -184,6 +188,11 @@ def publication_reader(policy):
     from proofops.adapters.local import claim_source_verification as base
 
     if isinstance(policy, Mapping) and policy.get("profile") in PAGE_OCR_PROFILES:
+        if policy.get("profile") == "upstage-ocr-page-v21":
+            module = page_ocr_profile(policy["profile"])
+            if page_ocr_profile(policy["profile"], policy=policy) is not module:
+                raise ValueError("CLAIM_SOURCE_POLICY_MISMATCH")
+            return module
         return claim_source_reader(policy)
     for module in (base, *_wrappers()):
         if policy == module.claim_source_policy():
@@ -327,4 +336,10 @@ def page_ocr_profile(profile, *, policy=None, native=False):
         expected = candidate.native_policy() if native else candidate.claim_source_policy()
         if policy == expected:
             return candidate
+    if profile == "upstage-ocr-page-v21" and not native:
+        from proofops.adapters.local.historical_prose_replay import historical_prose_reader
+
+        historical = historical_prose_reader(page_ocr=True)
+        if policy == historical.claim_source_policy():
+            return historical
     raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")

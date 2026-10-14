@@ -251,12 +251,29 @@ def _render_type_proof(native_page, glyphs):
     textpage = native_page.get_textpage()
     try:
         try:
-            objects = list(native_page.get_objects(max_depth=15, textpage=textpage))
+            # Form bounds, transforms, group opacity and inherited clips cannot
+            # be proved by flattening child objects. Only page-owned text can
+            # use this shortcut; overlapping forms require the pixel reader.
+            objects = list(native_page.get_objects(max_depth=1, textpage=textpage))
+            owners = [
+                ctypes.cast(
+                    raw.FPDFText_GetTextObject(textpage, glyph["index"]), ctypes.c_void_p
+                ).value
+                for glyph in glyphs
+            ]
         except Exception:
             return dict(status="pixel_required", reason="page_object_inventory_unavailable")
+        if not all(owners):
+            return dict(status="pixel_required", reason="quote_glyph_owner_unavailable")
         if len(objects) > 10000:
             return dict(status="pixel_required", reason="page_object_inventory_too_large")
         page_height = native_page.get_height()
+        if any(
+            not (0 <= g["bbox"][0] < g["bbox"][2] <= native_page.get_width())
+            or not (0 <= g["bbox"][1] < g["bbox"][3] <= page_height)
+            for g in glyphs
+        ):
+            return dict(status="pixel_required", reason="quote_glyph_outside_visible_page")
         visible_matches = [False] * len(glyphs)
         checked_objects = []
         for obj in objects:
@@ -297,7 +314,21 @@ def _render_type_proof(native_page, glyphs):
                     reason="non_text_object_overlaps_quote",
                     object_type=int(obj.type),
                 )
+            object_id = ctypes.cast(obj.raw, ctypes.c_void_p).value
+            if any(owners[index] != object_id for index in matched):
+                return dict(status="pixel_required", reason="other_text_object_overlaps_quote")
             try:
+                clip = raw.FPDFPageObj_GetClipPath(obj.raw)
+                if not clip:
+                    return dict(status="pixel_required", reason="text_clip_inventory_unavailable")
+                # In pinned PDFium a valid object's clip returns -1 only when
+                # HasRef() is false (no active clip). Zero paths can still mean
+                # a TEXT clip; W/W* paths can contain holes or be empty. None
+                # of these is proved by an enclosing bounding rectangle.
+                if raw.FPDFClipPath_CountPaths(clip) != -1:
+                    return dict(status="pixel_required", reason="active_clip_requires_pixels")
+                if raw.FPDFPageObj_HasTransparency(obj.raw):
+                    return dict(status="pixel_required", reason="text_transparency_requires_pixels")
                 mode = raw.FPDFTextObj_GetTextRenderMode(obj.raw)
                 object_text = obj.extract()
             except Exception:
@@ -325,12 +356,11 @@ def _render_type_proof(native_page, glyphs):
                 else (colors["fill"], colors["stroke"])
             )
             if any(
-                color is None or color[3] < 224 or max(color[:3]) > 232 for color in active_colors
+                color is None or color[3] != 255 or max(color[:3]) > 232 for color in active_colors
             ):
                 return dict(status="pixel_required", reason="text_paint_visibility_ambiguous")
             for index in matched:
-                if glyphs[index]["char"] in object_text:
-                    visible_matches[index] = True
+                visible_matches[index] = True
             checked_objects.append(
                 dict(
                     type=int(obj.type),
@@ -338,6 +368,8 @@ def _render_type_proof(native_page, glyphs):
                     fill_color=colors["fill"],
                     stroke_color=colors["stroke"],
                     text_sha256=sha256(object_text.encode("utf-8")).hexdigest(),
+                    clipping="none",
+                    opaque=True,
                 )
             )
         if not all(visible_matches):
