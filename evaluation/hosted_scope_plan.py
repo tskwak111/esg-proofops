@@ -218,7 +218,14 @@ def inspect_streaming(
                 ]
                 headings[number] = list(dict.fromkeys(evidence_titles + found))
                 primary[number] = headings[number]
-        plan = build_scope(study, texts, headings=headings, primary=primary, discovery=discovery)
+        plan = build_scope(
+            study,
+            texts,
+            headings=headings,
+            primary=primary,
+            discovery=discovery,
+            ranking_policy=ranking_policy,
+        )
         plan["native_unreadable_pages"] = baseline["unreadable_pages"]
         if discovery is not None:
             plan["discovery_route_candidate_pages"] = sorted(

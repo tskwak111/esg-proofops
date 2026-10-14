@@ -625,12 +625,14 @@ def validate_selection(
         raise ValueError("scope-plan must be a JSON object")
     from evaluation.e06_scope import POLICY_SHA256 as E06_HASH
     from evaluation.e06_scope import VERSION as E06_VERSION
+    from evaluation.e06_scope import W5_SCOPE_POLICY_SHA256, W5_SCOPE_VERSION
 
     policies = {
         VERSION: POLICY_SHA256,
         RANKING_VERSION: RANKING_POLICY_SHA256,
         SUPPORT_VERSION: SUPPORT_POLICY_SHA256,
         E06_VERSION: E06_HASH,
+        W5_SCOPE_VERSION: W5_SCOPE_POLICY_SHA256,
         ASSURANCE_VERSION: _assurance_policy_hash(),
     }
     plan_version = plan.get("version")
@@ -659,7 +661,11 @@ def validate_selection(
             or selected != sorted(set(selected))
         ):
             raise ValueError("selection must be sorted unique physical pages")
-    claim_cap = plan["settings"].get("claim_page_cap", 10) if plan_version == E06_VERSION else 10
+    claim_cap = (
+        plan["settings"].get("claim_page_cap", 10)
+        if plan_version in (E06_VERSION, W5_SCOPE_VERSION)
+        else 10
+    )
     if len(claims) > claim_cap or len(evidence) > min(30, plan["settings"]["max_evidence_pages"]):
         raise ValueError("scope exceeds declared page cap")
     if not set(claims) <= set(evidence):

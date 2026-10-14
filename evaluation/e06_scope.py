@@ -11,8 +11,16 @@ from copy import deepcopy
 
 from proofops.domain.provenance import canonical_hash
 
-from evaluation.report_scope import ENV_GROUPS, RANKING_POLICY_SHA256, _normal, build_plan
-from evaluation.scope_claim_signals import claim_signals
+from evaluation.report_scope import (
+    ENV_GROUPS,
+    RANKING_POLICY_SHA256,
+    RANKING_VERSION,
+    SUPPORT_POLICY_SHA256,
+    SUPPORT_VERSION,
+    _normal,
+    build_plan,
+)
+from evaluation.scope_claim_signals import claim_signals, claim_support_signals
 
 VERSION = "E06-scope-v1"
 SUMMARY_HEADING = (
@@ -40,6 +48,9 @@ POLICY = {
     "adoption": "requires_source_binding_and_paired_parse_or_wall_measurement; default_not_adopted",
 }
 POLICY_SHA256 = canonical_hash(POLICY)
+W5_SCOPE_VERSION = "E06-W5-scope-v1"
+W5_SCOPE_POLICY = POLICY | dict(version=W5_SCOPE_VERSION, base_policy_sha256=SUPPORT_POLICY_SHA256)
+W5_SCOPE_POLICY_SHA256 = canonical_hash(W5_SCOPE_POLICY)
 
 
 def _seal(plan):
@@ -76,14 +87,27 @@ def _topic(text):
     return best if hits[best] else "environment"
 
 
-def build_scope(study, texts, *, headings=None, primary=None, discovery=None):
+def build_scope(
+    study, texts, *, headings=None, primary=None, discovery=None, ranking_policy=RANKING_VERSION
+):
     """Recover actionable summaries and spare-slot diversity without hardcoded pages."""
-    plan = deepcopy(build_plan(study, texts, page_headings=headings, page_primary_headings=primary))
+    if ranking_policy not in (RANKING_VERSION, SUPPORT_VERSION):
+        raise ValueError("unsupported E06 ranking policy")
+    plan = deepcopy(
+        build_plan(
+            study,
+            texts,
+            page_headings=headings,
+            page_primary_headings=primary,
+            ranking_policy=ranking_policy,
+        )
+    )
     baseline_sha = plan["plan_sha256"]
     rows = {r["page"]: r for r in plan["pages"]}
     for p, row in rows.items():
         text = texts.get(p, "")
-        score, signals = claim_signals(text, (headings or {}).get(p, []))
+        scorer = claim_support_signals if ranking_policy == SUPPORT_VERSION else claim_signals
+        score, signals = scorer(text, (headings or {}).get(p, []))
         row.update(
             dominant_environment_topic=_topic(text), claim_signal_score=score, claim_signals=signals
         )
@@ -158,9 +182,11 @@ def build_scope(study, texts, *, headings=None, primary=None, discovery=None):
         )
         evidence = selected | set(extras[: 30 - len(selected)])
     plan.update(
-        version=VERSION,
-        policy_sha256=POLICY_SHA256,
-        method=VERSION,
+        version=W5_SCOPE_VERSION if ranking_policy == SUPPORT_VERSION else VERSION,
+        policy_sha256=W5_SCOPE_POLICY_SHA256
+        if ranking_policy == SUPPORT_VERSION
+        else POLICY_SHA256,
+        method=W5_SCOPE_VERSION if ranking_policy == SUPPORT_VERSION else VERSION,
         baseline_plan_sha256=baseline_sha,
         assurance_status="undetermined",
     )

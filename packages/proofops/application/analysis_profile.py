@@ -855,12 +855,17 @@ FINALS_I20_POLICY = FINALS_I19_POLICY | dict(
     integration_profile="finals-20261015-v20",
     source="upstage-ocr-page-v21",
     scope_ranking="W5-v1",
+    scope_policy_sha256="61610ca926232d8cfa00c5a0634a8b042a855df58bb5dbdce894a9b4a1704adf",
     scope_ranking_policy_sha256="2d4e44da6505e873151bc172ae999a2307a1ec6b552c9c5912be049155c4e264",
     extraction_candidate_profile="extraction-atomic-v3",
     extraction_failure_diagnostics=True,
     fact_assembly_profile="grade-relevant-unanimity-v1",
     direct_certification_policy=C3_V2_POLICY,
     direct_certification_policy_sha256=canonical_hash(C3_V2_POLICY),
+)
+# Retain the first local v20 pin emitted before E06/W5 composition was corrected.
+FINALS_I20_INITIAL_POLICY = FINALS_I20_POLICY | dict(
+    scope_policy_sha256=FINALS_I19_POLICY["scope_policy_sha256"]
 )
 V2_POLICY = FINALS_I20_POLICY
 
@@ -899,6 +904,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_I20_INITIAL_POLICY,
             FINALS_I19_POLICY,
             FINALS_P2_POLICY,
             FINALS_P3_POLICY,
@@ -1036,6 +1042,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FINALS_I20_INITIAL_POLICY,
             FINALS_I19_POLICY,
             FINALS_P2_POLICY,
             FINALS_P3_POLICY,

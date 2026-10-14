@@ -26,7 +26,12 @@ def test_v20_default_and_old_v19_pin_are_both_dispatchable():
     assert not policy["general_certification"]["enabled"]
     assert policy["replicas"] == 3
     assert canonical_hash(policy) != canonical_hash(profiles.FINALS_I19_POLICY)
-    for old in (profiles.FINALS_I19_POLICY, profiles.FINALS_P2_POLICY, profiles.FINALS_I18_POLICY):
+    for old in (
+        profiles.FINALS_I20_INITIAL_POLICY,
+        profiles.FINALS_I19_POLICY,
+        profiles.FINALS_P2_POLICY,
+        profiles.FINALS_I18_POLICY,
+    ):
         digest = canonical_hash(old)
         assert profiles.policy_for(profiles.V2_PROFILE, pinned_hash=digest) == old
         assert profiles.publication_policy_for(profiles.V2_PROFILE, pinned_hash=digest) == old

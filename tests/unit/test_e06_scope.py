@@ -351,3 +351,34 @@ def test_s14_edit_cannot_exceed_claim_cap_and_bundle_edits_remain_incomplete():
     assert selected["evidence_bundle_incomplete"] is True
     assert selected["missing_bundle_pages"] == [31]
     assert selected["assurance_status"] == "undetermined"
+
+
+def test_w5_ranking_survives_e06_recovery_with_a_distinct_replay_policy():
+    from evaluation.e06_scope import (
+        POLICY_SHA256,
+        W5_SCOPE_POLICY_SHA256,
+        W5_SCOPE_VERSION,
+        build_scope,
+    )
+    from evaluation.report_scope import SUPPORT_VERSION
+
+    study, texts, headings = fixture()
+    texts[14] = (
+        "Climate emissions energy performance. " * 8
+        + "Environmental emissions decreased 4,753 tCO2eq. Limited Assurance was completed."
+    )
+    base = build_plan(study, texts, page_headings=headings, ranking_policy=SUPPORT_VERSION)
+    combined = build_scope(study, texts, headings=headings, ranking_policy=SUPPORT_VERSION)
+    old = build_scope(study, texts, headings=headings)
+    assert set(base["selected_claim_pages"]) <= set(combined["selected_claim_pages"])
+    assert combined["pages"][13]["claim_signals"]["same_page_quantified_assurance"] == 1
+    assert combined["version"] == W5_SCOPE_VERSION
+    assert combined["policy_sha256"] == W5_SCOPE_POLICY_SHA256 != POLICY_SHA256
+    assert old["policy_sha256"] == POLICY_SHA256
+    assert (
+        validate_selection(combined, "a" * 64, 40)["claim_pages"]
+        == combined["selected_claim_pages"]
+    )
+    assert len(combined["selected_claim_pages"]) <= 10
+    assert len(combined["selected_evidence_pages"]) <= 30
+    assert combined["source_quality"] == "unverified"
