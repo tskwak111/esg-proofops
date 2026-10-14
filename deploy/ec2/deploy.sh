@@ -1,7 +1,15 @@
 #!/usr/bin/env bash
 # shellcheck source=common.sh
 source "$(dirname "$0")/common.sh"
+WORKER_CPUS=${WORKER_CPUS:-6.0}
+WORKER_MEMORY=${WORKER_MEMORY:-12g}
+[[ $WORKER_CPUS =~ ^[0-9]{1,2}(\.[0-9]{1,3})?$ ]] &&
+  awk -v cpus="$WORKER_CPUS" 'BEGIN { exit !(cpus >= 0.25 && cpus <= 64) }' &&
+  [[ $WORKER_MEMORY =~ ^[1-9][0-9]{0,5}[mg]$ ]] || {
+    echo 'Invalid worker resources: CPU 0.25..64 and memory in m/g required.' >&2; exit 2;
+  }
 if ! "$APPLY"; then
+  printf 'DRY RUN: WORKER_CPUS=%s WORKER_MEMORY=%s\n' "$WORKER_CPUS" "$WORKER_MEMORY"
   echo 'DRY RUN: verify archive SHA/architecture and private runtime config; SSH verifies uname; scp archive/config; docker load; pull Caddy; drain -> wait-idle -> restart -> healthy -> resume. No SSH/cloud calls.'
   exit
 fi
@@ -29,7 +37,7 @@ trap cleanup EXIT
 "${SCP[@]}" "$IMAGE_ARCHIVE" "ubuntu@$STATIC_IP:$remote/image.tar"
 "${SCP[@]}" "$RUNTIME_ENV" "ubuntu@$STATIC_IP:$remote/runtime.env"
 "${SCP[@]}" "$HERE/compose.yaml" "$HERE/Caddyfile" "ubuntu@$STATIC_IP:$remote/"
-printf 'IMAGE=%s\nCADDY_IMAGE=caddy:2.10.2-alpine\nAPI_HOST=%s.sslip.io\nACME_EMAIL=%s\nLOCAL_PORT=8000\n' "$IMAGE" "$STATIC_IP" "$ACME_EMAIL" > "$STATE_DIR/compose.env"
+write_compose_env "$STATE_DIR/compose.env"
 "${SCP[@]}" "$STATE_DIR/compose.env" "ubuntu@$STATIC_IP:$remote/compose.env"
 "${SCP[@]}" "$HERE/../public/drain-restart.sh" "ubuntu@$STATIC_IP:$remote/"
 # No keys in command args, user-data, env output or logs. Existing data/ledger preserved.
