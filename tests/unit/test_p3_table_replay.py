@@ -159,9 +159,13 @@ def test_new_policy_and_historical_v19_dispatch_remain_distinct():
         profiles.FINALS_P2_POLICY,
         profiles.FINALS_P3_POLICY,
         profiles.FINALS_I19_POLICY,
+        profiles.FINALS_I20_POLICY,
     ):
         pin = canonical_hash(policy)
         assert profiles.policy_for(profiles.V2_PROFILE, pinned_hash=pin) == policy
         assert profiles.publication_policy_for(profiles.V2_PROFILE, pinned_hash=pin) == policy
-    assert profiles.V2_POLICY == profiles.FINALS_I19_POLICY
+    assert profiles.V2_POLICY == profiles.FINALS_I20_POLICY
+    assert canonical_hash(profiles.FINALS_I19_POLICY) == (
+        "6fe453450016e3cf363a08e8c092941834c5052bb0cf324a3399d8c0b17bd61a"
+    )
     assert canonical_hash(reader.claim_source_policy()) != canonical_hash(old.claim_source_policy())
