@@ -199,7 +199,7 @@ def _batch(
     edges: list[CandidateEdge] = []
     if not isinstance(raw.get("kids"), list):
         raise ParseFailure("PARSER_SCHEMA_INVALID")
-    partial_blocks = profile.failure_policy == "partial-v4"
+    partial_blocks = profile.failure_policy in {"partial-v4", "partial-v5"}
     occurrences: dict[str, int] = {}
     stack: list[tuple[dict[str, Any], str | None, int | None, str | None, int, bool]] = [
         (node, None, None, None, 0, False) for node in reversed(raw["kids"])
@@ -503,7 +503,9 @@ class OpenDataLoaderParser(ParserPort):
 
                     def upstage_call(pages, mode):
                         h6 = profile.local_resource_policy == "selected-pdf-h6-v1"
-                        if h6:
+                        from proofops.adapters.parsing.h6_local_pages import subset
+
+                        if h6 and profile.failure_policy != "partial-v5":
                             # A repaired parser derivative cannot ground provider text
                             # against an unreadable original. Avoid a useless paid call.
                             import io
@@ -548,189 +550,217 @@ class OpenDataLoaderParser(ParserPort):
                         os.replace(temporary, path)
                         return result, False
 
-                    standard_failure = None
-                    try:
-                        standard, standard_hit = upstage_call(paid_pages, "standard")
-                    except ValueError as exc:
-                        if profile.failure_policy in {
-                            "partial-v1",
-                            "partial-v2",
-                            "partial-v3",
-                            "partial-v4",
-                        } and (
-                            str(exc).startswith("UPSTAGE_")
-                            or str(exc).endswith("BUDGET_EXHAUSTED")
-                            or (
-                                profile.failure_policy in {"partial-v3", "partial-v4"}
-                                and str(exc)
-                                in {"PARSER_SUBSET_PDF_INVALID", "PARSER_NATIVE_TEXT_UNREADABLE"}
-                            )
-                        ):
-                            standard_failure = dict(
-                                mode="standard", pages=list(paid_pages), error_code=str(exc)
-                            )
-                            # Explicit failure artifact, not a provider receipt.
-                            standard = dict(raw_batches=[], error_code=str(exc))
-                            standard_hit = False
-                        elif (
-                            routing is None
-                            or not routing["ocr_pages"]
-                            or not str(exc).endswith("BUDGET_EXHAUSTED")
-                        ):
-                            raise
-                        else:
-                            routing["ocr_pages"] = []
-                            paid_pages = tuple(routing["claim_pages"])
-                            standard, standard_hit = upstage_call(paid_pages, "standard")
-                    if standard_failure is None:
-                        upstage_batch, standard_metrics = candidate_batch(
+                    if profile.failure_policy == "partial-v5":
+                        from proofops.adapters.parsing.hx6_upstage import recover
+
+                        candidates, routing, upstage_output = recover(
                             source,
                             profile,
-                            paid_pages,
-                            standard["raw_batches"],
-                            mode="standard",
+                            selected,
+                            candidates,
+                            upstage_call,
                             config_hash=profile_hash,
                         )
+                        fallback_pages = ()
                     else:
-                        upstage_batch = replace(
-                            candidates[0],
-                            blocks=(),
-                            edges=(),
-                            parser_name="upstage_async_standard",
-                            parser_version=UPSTAGE_MODEL,
-                            parser_family="upstage-document-parse",
-                            parser_run_id=str(uuid4()),
-                        )
-                        standard_metrics = dict(
-                            selected_pages=list(paid_pages),
-                            html_failed_pages=[],
-                            low_grounding_pages=[],
-                            gemini_pages=[],
-                        )
-                    from proofops.adapters.parsing.gemini_vision import fragment
-
-                    local_prose = [
-                        block.source.raw_text
-                        for batch in candidates
-                        for block in batch.blocks
-                        if block.kind == "paragraph" and block.source.physical_page in selected
-                    ]
-                    standard_metrics["fragment_rate_local"] = sum(map(fragment, local_prose)) / max(
-                        1, len(local_prose)
-                    )
-                    upstage_batches = [upstage_batch]
-                    enhanced_records = []
-                    failed_batches = [] if standard_failure is None else [standard_failure]
-                    enhanced_pages = sorted(
-                        set(standard_metrics["html_failed_pages"])
-                        | set(standard_metrics["low_grounding_pages"])
-                    )
-                    completed_enhanced_pages: set[int] = set()
-                    for start in range(0, len(enhanced_pages), 30):
-                        pages = tuple(enhanced_pages[start : start + 30])
+                        standard_failure = None
                         try:
-                            enhanced, enhanced_hit = upstage_call(pages, "enhanced")
+                            standard, standard_hit = upstage_call(paid_pages, "standard")
                         except ValueError as exc:
                             if profile.failure_policy in {
                                 "partial-v1",
                                 "partial-v2",
                                 "partial-v3",
                                 "partial-v4",
+                                "partial-v5",
                             } and (
                                 str(exc).startswith("UPSTAGE_")
                                 or str(exc).endswith("BUDGET_EXHAUSTED")
-                            ):
-                                # Optional enhancement: preserve standard output.
-                                # No paid retries; uncertain charge stays reserved.
-                                failed_batches.append(
-                                    dict(mode="enhanced", pages=list(pages), error_code=str(exc))
+                                or (
+                                    profile.failure_policy
+                                    in {"partial-v3", "partial-v4", "partial-v5"}
+                                    and str(exc)
+                                    in {
+                                        "PARSER_SUBSET_PDF_INVALID",
+                                        "PARSER_NATIVE_TEXT_UNREADABLE",
+                                    }
                                 )
-                                continue
-                            if str(exc) != "BUDGET_EXHAUSTED" and not (
-                                profile.parser_mode == "mixed-v1"
-                                and str(exc).endswith("BUDGET_EXHAUSTED")
+                            ):
+                                standard_failure = dict(
+                                    mode="standard", pages=list(paid_pages), error_code=str(exc)
+                                )
+                                # Explicit failure artifact, not a provider receipt.
+                                standard = dict(raw_batches=[], error_code=str(exc))
+                                standard_hit = False
+                            elif (
+                                routing is None
+                                or not routing["ocr_pages"]
+                                or not str(exc).endswith("BUDGET_EXHAUSTED")
                             ):
                                 raise
-                            break
-                        improved, metrics = candidate_batch(
-                            source,
-                            profile,
-                            pages,
-                            enhanced["raw_batches"],
-                            mode="enhanced",
-                            config_hash=profile_hash,
+                            else:
+                                routing["ocr_pages"] = []
+                                paid_pages = tuple(routing["claim_pages"])
+                                standard, standard_hit = upstage_call(paid_pages, "standard")
+                        if standard_failure is None:
+                            upstage_batch, standard_metrics = candidate_batch(
+                                source,
+                                profile,
+                                paid_pages,
+                                standard["raw_batches"],
+                                mode="standard",
+                                config_hash=profile_hash,
+                            )
+                        else:
+                            upstage_batch = replace(
+                                candidates[0],
+                                blocks=(),
+                                edges=(),
+                                parser_name="upstage_async_standard",
+                                parser_version=UPSTAGE_MODEL,
+                                parser_family="upstage-document-parse",
+                                parser_run_id=str(uuid4()),
+                            )
+                            standard_metrics = dict(
+                                selected_pages=list(paid_pages),
+                                html_failed_pages=[],
+                                low_grounding_pages=[],
+                                gemini_pages=[],
+                            )
+                        from proofops.adapters.parsing.gemini_vision import fragment
+
+                        local_prose = [
+                            block.source.raw_text
+                            for batch in candidates
+                            for block in batch.blocks
+                            if block.kind == "paragraph" and block.source.physical_page in selected
+                        ]
+                        standard_metrics["fragment_rate_local"] = sum(
+                            map(fragment, local_prose)
+                        ) / max(1, len(local_prose))
+                        upstage_batches = [upstage_batch]
+                        enhanced_records = []
+                        failed_batches = [] if standard_failure is None else [standard_failure]
+                        enhanced_pages = sorted(
+                            set(standard_metrics["html_failed_pages"])
+                            | set(standard_metrics["low_grounding_pages"])
                         )
-                        upstage_batches.append(improved)
-                        completed_enhanced_pages.update(pages)
-                        enhanced_records.append(
-                            dict(
-                                receipt={k: v for k, v in enhanced.items() if k != "raw_batches"},
-                                metrics=metrics,
-                                cache_hit=enhanced_hit,
-                                raw_batches=enhanced["raw_batches"],
+                        completed_enhanced_pages: set[int] = set()
+                        for start in range(0, len(enhanced_pages), 30):
+                            pages = tuple(enhanced_pages[start : start + 30])
+                            try:
+                                enhanced, enhanced_hit = upstage_call(pages, "enhanced")
+                            except ValueError as exc:
+                                if profile.failure_policy in {
+                                    "partial-v1",
+                                    "partial-v2",
+                                    "partial-v3",
+                                    "partial-v4",
+                                    "partial-v5",
+                                } and (
+                                    str(exc).startswith("UPSTAGE_")
+                                    or str(exc).endswith("BUDGET_EXHAUSTED")
+                                ):
+                                    # Optional enhancement: preserve standard output.
+                                    # No paid retries; uncertain charge stays reserved.
+                                    failed_batches.append(
+                                        dict(
+                                            mode="enhanced", pages=list(pages), error_code=str(exc)
+                                        )
+                                    )
+                                    continue
+                                if str(exc) != "BUDGET_EXHAUSTED" and not (
+                                    profile.parser_mode == "mixed-v1"
+                                    and str(exc).endswith("BUDGET_EXHAUSTED")
+                                ):
+                                    raise
+                                break
+                            improved, metrics = candidate_batch(
+                                source,
+                                profile,
+                                pages,
+                                enhanced["raw_batches"],
+                                mode="enhanced",
+                                config_hash=profile_hash,
+                            )
+                            upstage_batches.append(improved)
+                            completed_enhanced_pages.update(pages)
+                            enhanced_records.append(
+                                dict(
+                                    receipt={
+                                        k: v for k, v in enhanced.items() if k != "raw_batches"
+                                    },
+                                    metrics=metrics,
+                                    cache_hit=enhanced_hit,
+                                    raw_batches=enhanced["raw_batches"],
+                                )
+                            )
+                        if completed_enhanced_pages:
+                            kept = tuple(
+                                block
+                                for block in upstage_batch.blocks
+                                if block.source.physical_page not in completed_enhanced_pages
+                            )
+                            ids = {block.source.source_native_id for block in kept}
+                            upstage_batches[0] = replace(
+                                upstage_batch,
+                                blocks=kept,
+                                edges=tuple(
+                                    edge
+                                    for edge in upstage_batch.edges
+                                    if edge.source_native_id in ids and edge.target_native_id in ids
+                                ),
+                            )
+                        fallback_pages = tuple(
+                            sorted(
+                                (set(standard_metrics["gemini_pages"]) - completed_enhanced_pages)
+                                | {
+                                    p
+                                    for record in enhanced_records
+                                    for p in record["metrics"]["gemini_pages"]
+                                }
                             )
                         )
-                    if completed_enhanced_pages:
-                        kept = tuple(
-                            block
-                            for block in upstage_batch.blocks
-                            if block.source.physical_page not in completed_enhanced_pages
-                        )
-                        ids = {block.source.source_native_id for block in kept}
-                        upstage_batches[0] = replace(
-                            upstage_batch,
-                            blocks=kept,
-                            edges=tuple(
-                                edge
-                                for edge in upstage_batch.edges
-                                if edge.source_native_id in ids and edge.target_native_id in ids
+                        upstage_output = dict(
+                            standard=dict(
+                                receipt=(
+                                    {k: v for k, v in standard.items() if k != "raw_batches"}
+                                    if standard_failure is None
+                                    else None
+                                ),
+                                metrics=standard_metrics,
+                                cache_hit=standard_hit,
+                                raw_batches=standard["raw_batches"],
                             ),
-                        )
-                    fallback_pages = tuple(
-                        sorted(
-                            (set(standard_metrics["gemini_pages"]) - completed_enhanced_pages)
-                            | {
-                                p
-                                for record in enhanced_records
-                                for p in record["metrics"]["gemini_pages"]
-                            }
-                        )
-                    )
-                    upstage_output = dict(
-                        standard=dict(
-                            receipt=(
-                                {k: v for k, v in standard.items() if k != "raw_batches"}
-                                if standard_failure is None
-                                else None
+                            enhanced=enhanced_records,
+                            enhanced_deferred_pages=sorted(
+                                set(enhanced_pages) - completed_enhanced_pages
                             ),
-                            metrics=standard_metrics,
-                            cache_hit=standard_hit,
-                            raw_batches=standard["raw_batches"],
-                        ),
-                        enhanced=enhanced_records,
-                        enhanced_deferred_pages=sorted(
-                            set(enhanced_pages) - completed_enhanced_pages
-                        ),
-                        fallback_pages=fallback_pages,
-                    )
-                    if profile.failure_policy in {
-                        "partial-v1",
-                        "partial-v2",
-                        "partial-v3",
-                        "partial-v4",
-                    }:
-                        upstage_output["failed_batches"] = failed_batches
-                        if standard_failure is not None:
-                            upstage_output["standard"]["error_code"] = standard_failure[
-                                "error_code"
+                            fallback_pages=fallback_pages,
+                        )
+                        if profile.failure_policy in {
+                            "partial-v1",
+                            "partial-v2",
+                            "partial-v3",
+                            "partial-v4",
+                            "partial-v5",
+                        }:
+                            upstage_output["failed_batches"] = failed_batches
+                            if standard_failure is not None:
+                                upstage_output["standard"]["error_code"] = standard_failure[
+                                    "error_code"
+                                ]
+                        if routing is None:
+                            candidates = [
+                                replace(batch, blocks=(), edges=()) for batch in candidates
                             ]
-                    if routing is None:
-                        candidates = [replace(batch, blocks=(), edges=()) for batch in candidates]
-                    else:
-                        from proofops.adapters.parsing.mixed_routing import keep
+                        else:
+                            from proofops.adapters.parsing.mixed_routing import keep
 
-                        candidates = [keep(batch, routing["local_pages"]) for batch in candidates]
-                    candidates.extend(upstage_batches)
+                            candidates = [
+                                keep(batch, routing["local_pages"]) for batch in candidates
+                            ]
+                        candidates.extend(upstage_batches)
                 if profile.vision_parse != "off":
                     from proofops.adapters.parsing.gemini_vision import parse_pages
 
@@ -793,7 +823,7 @@ class OpenDataLoaderParser(ParserPort):
                             source, tuple(candidates), references=recovery_references
                         )
                     except PdfminerException:
-                        if profile.failure_policy not in {"partial-v3", "partial-v4"}:
+                        if profile.failure_policy not in {"partial-v3", "partial-v4", "partial-v5"}:
                             raise
                         recovered = tuple(candidates)
                         recovery = dict(
@@ -828,7 +858,8 @@ class OpenDataLoaderParser(ParserPort):
                     graph, failures(json.loads((work / "h6-local.json").read_bytes()))
                 )
             if (
-                profile.failure_policy in {"partial-v1", "partial-v2", "partial-v3", "partial-v4"}
+                profile.failure_policy
+                in {"partial-v1", "partial-v2", "partial-v3", "partial-v4", "partial-v5"}
                 and upstage_output is not None
             ):
                 from proofops.adapters.parsing.mixed_routing import with_failures
@@ -910,6 +941,15 @@ class OpenDataLoaderParser(ParserPort):
                 vision_parse=vision_metrics,
                 upstage_parse=None
                 if upstage_output is None
+                else dict(
+                    profile=upstage_output["profile"],
+                    page_receipts=[
+                        dict(pages=r["pages"], receipt=r["receipt"], cache_hit=r["cache_hit"])
+                        for r in upstage_output["page_records"]
+                    ],
+                    failed_batches=upstage_output["failed_batches"],
+                )
+                if profile.failure_policy == "partial-v5"
                 else dict(
                     standard=dict(
                         upstage_output["standard"]["metrics"],
@@ -1119,28 +1159,45 @@ class OpenDataLoaderParser(ParserPort):
             if profile.parser_mode in ("upstage", "mixed-v1"):
                 from proofops.domain.provenance import canonical_hash
 
-                if not isinstance(upstage_output, dict) or not isinstance(
-                    upstage_output.get("standard"), dict
-                ):
-                    raise ValueError("upstage artifact missing")
-                for record in [upstage_output["standard"], *upstage_output.get("enhanced", [])]:
-                    if record["receipt"] is None and profile.failure_policy in {
-                        "partial-v1",
-                        "partial-v2",
-                        "partial-v3",
-                        "partial-v4",
-                    }:
-                        if record.get("raw_batches") != [] or not any(
-                            f["mode"] == "standard" and f["error_code"] == record.get("error_code")
-                            for f in upstage_output["failed_batches"]
-                        ):
-                            raise ValueError("invalid failed parser artifact")
-                        continue
+                if profile.failure_policy == "partial-v5":
+                    from proofops.adapters.parsing.hx6_upstage import POLICY
+
                     if (
-                        canonical_hash(record["raw_batches"])
-                        != record["receipt"]["response_sha256"]
+                        not isinstance(upstage_output, dict)
+                        or upstage_output.get("profile") != POLICY
                     ):
-                        raise ValueError("upstage response mismatch")
+                        raise ValueError("HX6 parser policy mismatch")
+                    for record in upstage_output["page_records"]:
+                        if (
+                            canonical_hash(record["raw_batches"])
+                            != record["receipt"]["response_sha256"]
+                        ):
+                            raise ValueError("upstage response mismatch")
+                else:
+                    if not isinstance(upstage_output, dict) or not isinstance(
+                        upstage_output.get("standard"), dict
+                    ):
+                        raise ValueError("upstage artifact missing")
+                    for record in [upstage_output["standard"], *upstage_output.get("enhanced", [])]:
+                        if record["receipt"] is None and profile.failure_policy in {
+                            "partial-v1",
+                            "partial-v2",
+                            "partial-v3",
+                            "partial-v4",
+                            "partial-v5",
+                        }:
+                            if record.get("raw_batches") != [] or not any(
+                                f["mode"] == "standard"
+                                and f["error_code"] == record.get("error_code")
+                                for f in upstage_output["failed_batches"]
+                            ):
+                                raise ValueError("invalid failed parser artifact")
+                            continue
+                        if (
+                            canonical_hash(record["raw_batches"])
+                            != record["receipt"]["response_sha256"]
+                        ):
+                            raise ValueError("upstage response mismatch")
             vision_metrics = values.get("vision.json")
             if profile.vision_parse != "off":
                 from proofops.adapters.parsing.gemini_vision import MODEL, PROMPT_HASH
@@ -1192,21 +1249,42 @@ class OpenDataLoaderParser(ParserPort):
                 from proofops.adapters.parsing.mixed_routing import provenance
 
                 routing = values["page-routing.json"]
-                claims, local, rejected, ocr = (
-                    routing[k]
-                    for k in ("claim_pages", "local_pages", "rejected_native_pages", "ocr_pages")
-                )
-                if (
-                    claims != list(profile.claim_physical_pages)
-                    or any(x != sorted(set(x)) for x in (claims, local, rejected, ocr))
-                    or set(claims) & (set(local) | set(rejected))
-                    or set(local) & set(rejected)
-                    or set(claims + local + rejected) != set(selected)
-                    or not set(ocr) <= set(rejected[: profile.mixed_ocr_max_pages])
-                    or manifest["page_parser_provenance"]
-                    != provenance(routing, candidates, selected)
-                ):
-                    raise ValueError("mixed routing provenance mismatch")
+                if profile.failure_policy == "partial-v5":
+                    from proofops.adapters.parsing.hx6_upstage import provenance as hx6_provenance
+
+                    groups = [
+                        routing[k] for k in ("local_pages", "provider_pages", "unreadable_pages")
+                    ]
+                    if (
+                        routing["version"] != "mixed-hx6-v1"
+                        or routing["claim_pages"] != list(profile.claim_physical_pages)
+                        or any(g != sorted(set(g)) for g in groups)
+                        or sorted(p for g in groups for p in g) != selected
+                        or manifest["page_parser_provenance"]
+                        != hx6_provenance(routing, candidates, selected)
+                    ):
+                        raise ValueError("mixed routing provenance mismatch")
+                else:
+                    claims, local, rejected, ocr = (
+                        routing[k]
+                        for k in (
+                            "claim_pages",
+                            "local_pages",
+                            "rejected_native_pages",
+                            "ocr_pages",
+                        )
+                    )
+                    if (
+                        claims != list(profile.claim_physical_pages)
+                        or any(x != sorted(set(x)) for x in (claims, local, rejected, ocr))
+                        or set(claims) & (set(local) | set(rejected))
+                        or set(local) & set(rejected)
+                        or set(claims + local + rejected) != set(selected)
+                        or not set(ocr) <= set(rejected[: profile.mixed_ocr_max_pages])
+                        or manifest["page_parser_provenance"]
+                        != provenance(routing, candidates, selected)
+                    ):
+                        raise ValueError("mixed routing provenance mismatch")
             if any(block.page_num not in selected for block in graph.blocks):
                 raise ValueError("unselected block")
             issues = tuple(
@@ -1225,7 +1303,8 @@ class OpenDataLoaderParser(ParserPort):
 
                 restored = with_failures(restored, failures(values["h6-local.json"]))
             if (
-                profile.failure_policy in {"partial-v1", "partial-v2", "partial-v3", "partial-v4"}
+                profile.failure_policy
+                in {"partial-v1", "partial-v2", "partial-v3", "partial-v4", "partial-v5"}
                 and upstage_output is not None
             ):
                 from proofops.adapters.parsing.mixed_routing import with_failures
@@ -1248,11 +1327,14 @@ class OpenDataLoaderParser(ParserPort):
             if profile.parser_mode in ("upstage", "mixed-v1"):
                 from proofops.adapters.parsing.upstage_document import MODEL as UPSTAGE_MODEL
 
-                expected_parsers["upstage_async_standard"] = (
-                    UPSTAGE_MODEL,
-                    "upstage-document-parse",
-                )
-                if upstage_output is not None and upstage_output["enhanced"]:
+                if profile.failure_policy != "partial-v5" or (
+                    isinstance(upstage_output, dict) and upstage_output.get("page_records")
+                ):
+                    expected_parsers["upstage_async_standard"] = (
+                        UPSTAGE_MODEL,
+                        "upstage-document-parse",
+                    )
+                if upstage_output is not None and upstage_output.get("enhanced"):
                     expected_parsers["upstage_async_enhanced"] = (
                         UPSTAGE_MODEL,
                         "upstage-document-parse",

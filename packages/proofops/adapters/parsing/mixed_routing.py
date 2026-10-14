@@ -73,6 +73,10 @@ def annotate(batch):
 
 
 def provenance(routing, candidates, selected):
+    if routing["version"] == "mixed-hx6-v1":
+        from proofops.adapters.parsing.hx6_upstage import provenance as hx6_provenance
+
+        return hx6_provenance(routing, candidates, selected)
     if routing["version"] != "mixed-v1":
         raise ValueError("unsupported page routing version")
     records = []

@@ -118,13 +118,14 @@ class ParserProfile:
             "partial-v2",
             "partial-v3",
             "partial-v4",
+            "partial-v5",
         ) or (
             self.failure_policy is not None
             and self.parser_mode != "mixed-v1"
             and self.local_resource_policy != "selected-pdf-h6-v1"
         ):
             raise ValueError("invalid parser failure policy")
-        if (self.failure_policy in {"partial-v3", "partial-v4"}) != (
+        if (self.failure_policy in {"partial-v3", "partial-v4", "partial-v5"}) != (
             self.local_resource_policy == "selected-pdf-h6-v1"
         ):
             raise ValueError("H6 resource and failure policies must be pinned together")
