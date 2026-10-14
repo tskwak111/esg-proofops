@@ -529,3 +529,17 @@ H1 추출은 이미 선택된 긴 heading에도 기존 줄바꿈/prefix 규칙�
 v11 reader, 선택 필드 없는 ParserProfile은 당시 의미로 읽는다. 롤백은 새 배정을 중단하고
 명시적 I3 pin으로 새 실행을 만들며 H1 reader와 저장 산출물은 보존한다. 로컬 실증은
 배포·실제 EC2 변경·전체 보고서/등급 정확도 보장을 의미하지 않는다.
+
+### P3 · 표 receipt의 실패 예약 fresh/cold 일치 (2026-10-14)
+
+새 `finals-20261014-p3-table-replay-v1` 정책은 `upstage-ocr-page-v20`을 사용한다.
+OCR 수집의 실패·미완료 예약(`OCR_PENDING_OR_FAILED`,
+`OCR_COLLECTION_FAILED_RESERVATION_RETAINED:*`)은 저장 collection이 없는 cold
+재생과 동일하게 기존 원본 바이트의 로컬 raster 증명을 다시 수행한다. 예약·미정산
+비용은 보존하고 재생은 provider fetch를 호출하지 않는다. 로컬 증명이 실패하면
+unresolved이며, provider 실패 자체를 verified 근거로 사용하지 않는다.
+원문·tenant·collection 검증 오류와 receipt 전체 hash 비교는 그대로 유지한다.
+새 reader·분석 정책은 별도 hash로 저장하며 v19 및 이전 reader bytes·정책·receipt·
+revision·보고서는 변경하지 않는다. API/DB migration·새 의존성은 없다.
+Rollback은 새 실행을 기존 I18 정책 hash에 고정하고 v20 저장 산출물의 reader를
+보존한다. parser timeout·추출 품질·실 API 정확도는 이 수정의 검증 범위가 아니다.

@@ -139,6 +139,7 @@ class HostedSettings:
     run_usd: Decimal = Decimal("1.0")
     day_usd: Decimal = Decimal("7")
     event_usd: Decimal = Decimal("7")
+    event_usd_ceiling: Decimal = Decimal("7")
     user_daily_runs: int = 6
     max_active_runs: int = 1
     user_active_runs: int = 1
@@ -201,9 +202,11 @@ class HostedSettings:
             raise ValueError("limits exceed P1 ceilings")
         if not self.active_days <= self.backup_days <= self.audit_days:
             raise ValueError("retention order invalid")
-        for amount, ceiling in ((self.run_usd, "1.0"), (self.day_usd, "7"), (self.event_usd, "7")):
+        for amount, ceiling in ((self.run_usd, "1.0"), (self.day_usd, "7")):
             if not 0 < micros(amount) <= micros(ceiling):
                 raise ValueError("budget exceeds DEC-22 ceilings")
+        if not 0 < micros(self.event_usd) <= micros(self.event_usd_ceiling):
+            raise ValueError("budget exceeds DEC-22 ceilings")
 
     @classmethod
     def from_env(cls, env: Any) -> HostedSettings:
@@ -233,6 +236,7 @@ class HostedSettings:
             run_usd=Decimal(env.get("HOSTED_RUN_USD", "1.0")),
             day_usd=Decimal(env.get("HOSTED_DAY_USD", "7")),
             event_usd=Decimal(env.get("HOSTED_EVENT_USD", "7")),
+            event_usd_ceiling=Decimal(env.get("HOSTED_EVENT_USD_CEILING", "7")),
             user_daily_runs=int(env.get("HOSTED_USER_DAILY_RUNS", "6")),
             max_active_runs=int(env.get("HOSTED_MAX_ACTIVE_RUNS", "1")),
             user_active_runs=int(env.get("HOSTED_USER_ACTIVE_RUNS", "1")),

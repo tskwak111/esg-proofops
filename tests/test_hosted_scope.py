@@ -85,6 +85,38 @@ def test_runtime_dec22_and_unattended_defaults(settings):
         replace(settings, run_usd=runtime.run_usd + 1)
 
 
+def test_event_ceiling_requires_explicit_env_setting_and_keeps_run_day_caps(settings):
+    env = {
+        "APP_ENV": "hosted",
+        "HOSTED_DATA_DIR": str(settings.root),
+        "APP_ORIGIN": settings.origin,
+        "HOSTED_SESSION_SECRET": settings.secret,
+        "HOSTED_EVENT_ID": settings.event_id,
+    }
+    with pytest.raises(ValueError):
+        HostedSettings.from_env(env | {"HOSTED_EVENT_USD": "15"})
+
+    approved = HostedSettings.from_env(
+        env | {"HOSTED_EVENT_USD": "15", "HOSTED_EVENT_USD_CEILING": "15"}
+    )
+    assert approved.event_usd == approved.event_usd_ceiling == 15
+    for change in (
+        {"HOSTED_RUN_USD": "1.01"},
+        {"HOSTED_DAY_USD": "7.01"},
+        {"HOSTED_EVENT_USD": "15.000001"},
+        {"HOSTED_EVENT_USD_CEILING": "NaN"},
+    ):
+        with pytest.raises(ValueError):
+            HostedSettings.from_env(
+                env
+                | {
+                    "HOSTED_EVENT_USD": "15",
+                    "HOSTED_EVENT_USD_CEILING": "15",
+                }
+                | change
+            )
+
+
 def test_http_scope_edit_and_pinned_run(store, settings):
     app = create_hosted_app(settings)
     client, headers, _, _ = login(app, store)
