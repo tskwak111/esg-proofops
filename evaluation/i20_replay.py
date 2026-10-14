@@ -36,8 +36,8 @@ class SelectedReplay(BaseExtractor):
         blocks = self._context_for(packet, context_graph)[0] if self._context else []
         entries = self._row_entries(packet, text, blocks, context_graph=context_graph)
         nominated = [
-            entry["sentence_id"]
-            for entry in entries
+            f"c{index}" if self._i4_identity else entry["sentence_id"]
+            for index, entry in enumerate(entries)
             if any(
                 span.char_start < entry["char_end"]
                 and entry["char_start"] < span.char_end

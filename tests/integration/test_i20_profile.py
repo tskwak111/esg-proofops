@@ -38,7 +38,10 @@ def test_v20_default_and_old_v19_pin_are_both_dispatchable():
     assert args.claim_source_profile == "upstage-ocr-page-v21"
 
 
-def test_combined_atomic_prose_retains_table_mode_and_exact_selected_offsets(tmp_path):
+@pytest.mark.parametrize("dispatch_local_ids", [False, True])
+def test_combined_atomic_prose_retains_table_mode_and_exact_selected_offsets(
+    tmp_path, dispatch_local_ids
+):
     text = (
         "또한 소비자시민모임에서 주최하는 에너지위너상을 수상하여 친환경 및 에너지 절감 운영을 "
         "인정받았으며, ISO 14001 인증을 통해 체계적인 환경 관리 역량을 유지하고 있습니다."
@@ -52,6 +55,7 @@ def test_combined_atomic_prose_retains_table_mode_and_exact_selected_offsets(tmp
         extraction_linewrap_join=True,
         extraction_atomic_v3=True,
         extraction_failure_diagnostics=True,
+        extraction_i4_identity=dispatch_local_ids,
     )
     data = packet(text)
     data["extraction_profile"] = asdict(extractor.profile)
@@ -101,3 +105,29 @@ def test_v21_attestation_preserves_worker_checkpoint_identity(monkeypatch):
         reader.for_run(proof["run_id"]).recompute_claim_receipt(
             proof | dict(artifact_sha256="0" * 64), graph, source, (ref,), tenant_id=graph.tenant_id
         )
+
+
+def test_hosted_preparation_accepts_the_historical_v19_pin(tmp_path):
+    from pypdf import PdfWriter
+
+    from evaluation.hosted_r108 import prepare_argv
+
+    pdf = tmp_path / "selected.pdf"
+    writer = PdfWriter()
+    writer.add_blank_page(300, 300)
+    writer.write(pdf)
+    pin = canonical_hash(profiles.FINALS_I19_POLICY)
+    argv = prepare_argv(
+        pdf,
+        tmp_path / "state",
+        "11111111-1111-4111-8111-111111111111",
+        dict(report_year=2025, period_start="2024-01-01", period_end="2024-12-31"),
+        dict(
+            pages=[36],
+            claim_pages=[36],
+            pipeline_profile=profiles.V2_PROFILE,
+            analysis_profile_sha256=pin,
+        ),
+    )
+    assert argv[argv.index("--analysis-policy-sha256") + 1] == pin
+    assert "--analysis-profile" in argv

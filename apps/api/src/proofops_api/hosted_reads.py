@@ -440,10 +440,13 @@ class HostedReads:
                 if c4:
                     if selected != pilot["selected_pages"]:
                         raise HostedError("SOURCE_REFERENCE_MISMATCH", 409)
-                elif pilot.get("publication_profile") not in (
-                    C3_PROFILE,
-                    C3_V2_PROFILE,
-                ) or selected != [36]:
+                elif pilot.get("publication_profile") not in (C3_PROFILE, C3_V2_PROFILE):
+                    raise HostedError("SOURCE_REFERENCE_MISMATCH", 409)
+                elif selected != [36] and not (
+                    path.name == "bounded-c3"
+                    and pilot.get("publication_profile") == C3_V2_PROFILE
+                    and 36 in selected
+                ):
                     raise HostedError("SOURCE_REFERENCE_MISMATCH", 409)
             reference_page = physical_page if original_refs else selected.index(physical_page) + 1
             refs = [
