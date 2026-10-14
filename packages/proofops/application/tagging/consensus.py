@@ -24,10 +24,18 @@ GRADE_RELEVANT_UNANIMITY_POLICY = {
     "lower_bound": "python_grade_range_only_never_confirmed_grade",
 }
 GRADE_RELEVANT_UNANIMITY_HASH = canonical_hash({"fact_assembly": GRADE_RELEVANT_UNANIMITY_POLICY})
+GRADE_RELEVANT_UNANIMITY_V2 = "grade-relevant-unanimity-v2"
+GRADE_RELEVANT_UNANIMITY_V2_POLICY = GRADE_RELEVANT_UNANIMITY_POLICY | dict(
+    profile=GRADE_RELEVANT_UNANIMITY_V2, unanimous_conflict="preserve_conflict_candidate_only"
+)
+GRADE_RELEVANT_UNANIMITY_V2_HASH = canonical_hash(
+    {"fact_assembly": GRADE_RELEVANT_UNANIMITY_V2_POLICY}
+)
 PARTIAL_FACTS_PROFILES = {
     PARTIAL_FACTS_V1: PARTIAL_FACTS_HASH,
     PARTIAL_FACTS_V2: PARTIAL_FACTS_V2_HASH,
     GRADE_RELEVANT_UNANIMITY_V1: GRADE_RELEVANT_UNANIMITY_HASH,
+    GRADE_RELEVANT_UNANIMITY_V2: GRADE_RELEVANT_UNANIMITY_V2_HASH,
 }
 
 
@@ -165,6 +173,7 @@ def form_consensus(
             tag_revision,
             rule_gaps,
             citation_unavailable=profile == PARTIAL_FACTS_V2,
+            preserve_conflict=profile == GRADE_RELEVANT_UNANIMITY_V2,
         )
     reasons = list(rule_gaps)
     provider_ids = [
@@ -280,6 +289,7 @@ def _partial_facts(
     rule_gaps,
     *,
     citation_unavailable=False,
+    preserve_conflict=False,
 ):
     """Assemble complete guarded element states without asserting a missing search was negative."""
     headers = {
@@ -350,8 +360,8 @@ def _partial_facts(
             and all(ref.verification_state == "verified" for e in votes for ref in e.evidence_refs)
         ):
             state = "present"
-        elif votes[0].state == "unknown":
-            state = "unknown"
+        elif votes[0].state == "unknown" or (preserve_conflict and votes[0].state == "conflict"):
+            state = votes[0].state
         else:
             # LLM absence/N/A never supplies search coverage or applicability authority.
             state = "unknown"

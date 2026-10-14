@@ -290,6 +290,7 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         "partial-facts-v1",
         "partial-facts-v2",
         "grade-relevant-unanimity-v1",
+        "grade-relevant-unanimity-v2",
     ):
         raise _invalid()
     if not parser_path:

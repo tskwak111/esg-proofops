@@ -110,6 +110,7 @@ class LocalSQLiteRunStore:
                     "partial-facts-v1",
                     "partial-facts-v2",
                     "grade-relevant-unanimity-v1",
+                    "grade-relevant-unanimity-v2",
                 ):
                     raise ValueError("unknown fact assembly profile")
                 if "report_level_link" in snapshot:

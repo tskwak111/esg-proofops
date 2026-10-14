@@ -26,7 +26,7 @@ from proofops.domain.rules.engine import RuleContext
 from proofops.domain.values import SourceRef
 
 
-def _profile_module(profile):
+def _profile_module(profile, *, pinned_hash=None):
     if profile == PROFILE:
         from proofops.application.tagging import fact_assembly_c3 as module
 
@@ -36,6 +36,8 @@ def _profile_module(profile):
     if profile == C3_V2_PROFILE:
         from proofops.application.tagging import fact_assembly_c3_v2 as module
 
+        if pinned_hash == module.legacy.POLICY_HASH:
+            return module.legacy
         return module
     raise ValueError("C3_PUBLICATION_PROFILE_UNKNOWN")
 
@@ -57,6 +59,8 @@ class LocalC3Publication:
         receipt_data = receipt.to_dict()
         profile = profile or receipt_data.get("policy", {}).get("profile", PROFILE)
         module = _profile_module(profile)
+        if receipt_data.get("policy_sha256") != module.POLICY_HASH:
+            raise ValueError("C3_CURRENT_POLICY_REQUIRED")
         consensus, decision = module.publication_values(
             receipt_data, rulepack=case["rulepack"], tag_revision=1
         )
@@ -126,7 +130,7 @@ class LocalC3Publication:
     def load_inputs(self, tenant, run, claim_id):
         frozen = self.runs.snapshot(tenant, run)
         profile = frozen.get("analysis_profile_policy", {}).get("profile")
-        module = _profile_module(profile)
+        module = _profile_module(profile, pinned_hash=frozen.get("analysis_profile_policy_sha256"))
         policy = module.publication_policy_for(
             profile, pinned_hash=frozen.get("analysis_profile_policy_sha256")
         )
@@ -214,7 +218,10 @@ class LocalC3Publication:
         decision = record["api"] | dict(excluded_elements=record["decision"]["excluded_elements"])
         auto = tag["origin"] == "consensus"
         claim = inputs.context.claim
-        module = _profile_module(inputs.fact_assembly_profile)
+        module = _profile_module(
+            inputs.fact_assembly_profile,
+            pinned_hash=inputs.fact_assembly_receipt.to_dict()["policy_sha256"],
+        )
         version = "c3_v1" if inputs.fact_assembly_profile == PROFILE else "c3_v2"
         return dict(
             schema="r108-hosted-result-v1",

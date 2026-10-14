@@ -6,7 +6,7 @@ from dataclasses import asdict
 import pytest
 from proofops.adapters.local.claim_source_policies import page_ocr_profile, publication_reader
 from proofops.application import analysis_profile as profiles
-from proofops.application.tagging import fact_assembly_c3_v2 as c3
+from proofops.application.tagging import fact_assembly_c3_v2_legacy as c3
 from proofops.domain.provenance import canonical_hash
 from proofops_agent.upstage_extraction import UpstageClaimExtractor
 from proofops_api.hosted_analysis import operator_profiles

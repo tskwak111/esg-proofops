@@ -164,7 +164,7 @@ def test_new_policy_and_historical_v19_dispatch_remain_distinct():
         pin = canonical_hash(policy)
         assert profiles.policy_for(profiles.V2_PROFILE, pinned_hash=pin) == policy
         assert profiles.publication_policy_for(profiles.V2_PROFILE, pinned_hash=pin) == policy
-    assert profiles.V2_POLICY == profiles.FINALS_I21_POLICY
+    assert profiles.V2_POLICY == profiles.FINALS_I22_POLICY
     assert canonical_hash(profiles.FINALS_I19_POLICY) == (
         "6fe453450016e3cf363a08e8c092941834c5052bb0cf324a3399d8c0b17bd61a"
     )

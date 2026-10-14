@@ -16,7 +16,9 @@ from tests.integration.test_claim_source_v3 import synthetic
 
 def test_v21_default_changes_only_execution_and_preserves_v20_and_s2_pins():
     old = profiles.FINALS_I20_POLICY
-    policy = profiles.policy_for(profiles.V2_PROFILE)
+    policy = profiles.policy_for(
+        profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_I21_POLICY)
+    )
     assert canonical_hash(old) == "56bbc5fa8c2f1fd9e9c709c82ba473dec20b907e44195256caaf86e8a926ca32"
     assert policy == profiles.FINALS_I21_POLICY
     assert policy["integration_profile"] == "finals-20261015-v21"
