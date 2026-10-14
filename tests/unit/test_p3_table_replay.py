@@ -154,9 +154,13 @@ def test_new_policy_and_historical_v19_dispatch_remain_distinct():
         assert (
             page_ocr_profile(module.PROFILE, policy=module.native_policy(), native=True) is module
         )
-    for policy in (profiles.FINALS_I18_POLICY, profiles.FINALS_P3_POLICY):
+    for policy in (
+        profiles.FINALS_I18_POLICY,
+        profiles.FINALS_P3_POLICY,
+        profiles.FINALS_D2_POLICY,
+    ):
         pin = canonical_hash(policy)
         assert profiles.policy_for(profiles.V2_PROFILE, pinned_hash=pin) == policy
         assert profiles.publication_policy_for(profiles.V2_PROFILE, pinned_hash=pin) == policy
-    assert profiles.V2_POLICY == profiles.FINALS_P3_POLICY
+    assert profiles.V2_POLICY == profiles.FINALS_D2_POLICY
     assert canonical_hash(reader.claim_source_policy()) != canonical_hash(old.claim_source_policy())

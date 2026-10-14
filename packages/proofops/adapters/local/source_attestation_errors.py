@@ -1,5 +1,37 @@
 """Fixed source-confirmation failure codes shared by parser and extraction workers."""
 
+import re
+
+_OCR_ACQUISITION_CODES = frozenset(
+    {
+        "OCR_PENDING_OR_FAILED",
+        "OCR_BUDGET_EXHAUSTED",
+        "OCR_RESPONSE_TOO_LARGE",
+        "UPSTAGE_OCR_REQUEST_FAILED",
+        "UPSTAGE_OCR_TIMEOUT",
+        "UPSTAGE_OCR_INVALID_RESPONSE",
+    }
+)
+
+
+def ocr_acquisition_failure_code(error):
+    """Return a fixed, safe OCR acquisition code; reject identity/integrity errors."""
+    if not isinstance(error, ValueError):
+        return None
+    code = str(error)
+    for prefix in (
+        "OCR_PAGE_ACQUISITION_FAILED:",
+        "OCR_COLLECTION_FAILED_RESERVATION_RETAINED:",
+    ):
+        if code.startswith(prefix):
+            code = code[len(prefix) :]
+            break
+    if code in _OCR_ACQUISITION_CODES:
+        return code
+    if re.fullmatch(r"UPSTAGE_HTTP_[1-5][0-9]{2}", code):
+        return code
+    return None
+
 
 def source_failure_code(error):
     from pypdf.errors import PdfReadError

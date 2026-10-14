@@ -10,6 +10,7 @@ from hashlib import sha256
 
 from proofops.adapters.local.claim_source_policies import PAGE_OCR_PROFILES
 from proofops.adapters.local.run_artifacts import load_run_graph
+from proofops.adapters.local.source_attestation_errors import ocr_acquisition_failure_code
 from proofops.application.claim_scope import claim_pages_for
 from proofops.application.claims import ClaimScope, ExtractionProfile, discover_atomic_claims
 from proofops.application.ports.jobs import JobMessage
@@ -550,11 +551,21 @@ DEFERRED_LIMIT_REASON = "beyond_extraction_limit"
 DEFERRED_BUDGET_REASON = "extraction_budget_stop"
 DEFERRED_KIND_REASON = "non_paragraph_kind"
 DEFERRED_REASONS = frozenset((DEFERRED_LIMIT_REASON, DEFERRED_BUDGET_REASON, DEFERRED_KIND_REASON))
+OCR_ACQUISITION_REASON_PREFIX = "ocr_acquisition_unresolved:"
+
+
+def _is_deferred_reason(reason):
+    if reason in DEFERRED_REASONS:
+        return True
+    if not isinstance(reason, str) or not reason.startswith(OCR_ACQUISITION_REASON_PREFIX):
+        return False
+    code = reason[len(OCR_ACQUISITION_REASON_PREFIX) :]
+    return ocr_acquisition_failure_code(ValueError(code)) == code
 
 
 def deferred_payload(text: str, reason: str) -> dict:
     """The local, model-free answer for a source outside this batch."""
-    if reason not in DEFERRED_REASONS:
+    if not _is_deferred_reason(reason):
         raise ValueError("EXTRACTION_INPUT_INVALID")
     return {
         "spans": [
@@ -580,7 +591,7 @@ def _deferred_reason(raw_response_json):
         return None
     span = spans[0]
     reason = span.get("reason")
-    if span.get("kind") == "unknown" and reason in DEFERRED_REASONS:
+    if span.get("kind") == "unknown" and _is_deferred_reason(reason):
         return reason
     return None
 

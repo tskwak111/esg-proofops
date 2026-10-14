@@ -531,3 +531,13 @@ unresolved이며, provider 실패 자체를 verified 근거로 사용하지 않�
 revision·보고서는 변경하지 않는다. API/DB migration·새 의존성은 없다.
 Rollback은 새 실행을 기존 I18 정책 hash에 고정하고 v20 저장 산출물의 reader를
 보존한다. parser timeout·추출 품질·실 API 정확도는 이 수정의 검증 범위가 아니다.
+
+### D2 · saved OCR replay와 page-local acquisition hold (2026-10-15)
+
+새 `finals-20261015-d2-residual-v1` 정책은 `upstage-ocr-page-v21`을 사용한다.
+table replay는 receipt의 page collection을 실제 OCR 실행 reader에 바인딩한 뒤
+기존 전체 receipt hash 검사를 다시 수행한다. OCR acquisition의 정해진 timeout,
+HTTP, format, budget 오류는 해당 page의 claim span을 `unresolved`로 기록하고
+원인 코드를 receipt에 보존한다. 다른 page는 계속 확인하며, tenant·source·collection
+identity 오류와 receipt hash 검사는 유지한다. v20 및 이전 reader와 저장 policy는
+변경하지 않고, 새 실행만 v21을 선택한다.
