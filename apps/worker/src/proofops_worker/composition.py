@@ -322,6 +322,9 @@ def build_composition(
                         extraction_table_footnotes=settings.get(
                             "extraction_table_footnotes", False
                         ),
+                        extraction_located_table_context=settings.get(
+                            "extraction_located_table_context", False
+                        ),
                         extraction_pb1=settings.get("extraction_pb1", False),
                         extraction_w9=settings.get("extraction_w9", False),
                         extraction_j3=settings.get("extraction_j3", False),
@@ -365,6 +368,9 @@ def build_composition(
                     extraction_sentence_prefix=settings.get("extraction_sentence_prefix", False),
                     extraction_k1=settings.get("extraction_k1", False),
                     extraction_table_footnotes=settings.get("extraction_table_footnotes", False),
+                    extraction_located_table_context=settings.get(
+                        "extraction_located_table_context", False
+                    ),
                     extraction_pb1=settings.get("extraction_pb1", False),
                     extraction_w9=settings.get("extraction_w9", False),
                     extraction_j3=settings.get("extraction_j3", False),

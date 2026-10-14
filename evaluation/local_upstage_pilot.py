@@ -783,6 +783,9 @@ def apply_resume_metadata(args, saved: dict) -> None:
     args.extraction_q1 = bool(saved.get("extraction_q1", False))
     args.extraction_pb1_context_guard = bool(saved.get("extraction_pb1_context_guard", False))
     args.extraction_table_footnotes = bool(saved.get("extraction_table_footnotes", False))
+    args.extraction_located_table_context = bool(
+        saved.get("extraction_located_table_context", False)
+    )
     args.extraction_source_ids = bool(saved.get("extraction_source_ids", False))
     args.extraction_assertion_prompt = bool(saved.get("extraction_assertion_prompt", False))
     args.extraction_complete_selection = bool(saved.get("extraction_complete_selection", False))
@@ -1682,6 +1685,9 @@ def main():
                     extraction_q1=args.extraction_q1,
                     extraction_pb1_context_guard=args.extraction_pb1_context_guard,
                     extraction_table_footnotes=args.extraction_table_footnotes,
+                    extraction_located_table_context=getattr(
+                        args, "extraction_located_table_context", False
+                    ),
                     extraction_table_rows=args.extraction_table_rows,
                     extraction_recall_prompt=args.extraction_recall_prompt,
                     assertion_prompt=args.extraction_assertion_prompt,
@@ -1748,6 +1754,8 @@ def main():
             settings["extraction_k3"] = True
         if args.extraction_table_footnotes:
             settings["extraction_table_footnotes"] = True
+        if getattr(args, "extraction_located_table_context", False):
+            settings["extraction_located_table_context"] = True
         if args.extraction_j8:
             settings["extraction_j8"] = True
         if args.extraction_k6:
@@ -2295,6 +2303,8 @@ def main():
             manifest["extraction_k3"] = True
         if args.extraction_table_footnotes:
             manifest["extraction_table_footnotes"] = True
+        if getattr(args, "extraction_located_table_context", False):
+            manifest["extraction_located_table_context"] = True
         if args.extraction_j8:
             manifest["extraction_j8"] = True
         if args.extraction_k6:
@@ -2432,6 +2442,7 @@ def main():
             "extraction_q1",
             "extraction_pb1_context_guard",
             "extraction_table_footnotes",
+            "extraction_located_table_context",
         ):
             if manifest.get(name, False) != getattr(args, name, False):
                 raise ValueError(name + " policy changed; create a new state directory")

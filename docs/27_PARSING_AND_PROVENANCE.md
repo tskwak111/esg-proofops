@@ -116,6 +116,18 @@ span, 부모 표 관계와 충돌은 보존하며, 이 매칭으로 정확도나
 
 `source_quality`: verified / unverified / conflicted / unreadable / unlocated. verified 도 현실 세계의 진실을 의미하지 않고 해당 추출값의 출처 확인 상태다. 파서 전반 정확도의 신뢰구간처럼 표현하지 않는다.
 
+### P2 · 추출 문맥 격리와 주장 쪽 구조 복원 (2026-10-14)
+
+새 `finals-20261014-p2-v1` 정책은 `extraction_located_table_context`를 별도
+추출 profile hash에 포함한다. 위치 없는 표는 인접 각주 문맥으로 사용하지 않고
+다른 위치 있는 표를 계속 확인한다. 잘못된 원시 좌표·unreadable 이슈와
+`SourceRef` 거부는 유지하며 좌표를 자르거나 원문 검증을 승인하지 않는다.
+`partial-v6`는 선택된 주장 쪽에 기존 예산·단일 쪽·유한 재시도 가드 안에서
+provider 구조 후보를 우선 사용한다. 실패하면 이미 읽을 수 있던 로컬 후보와
+실패 기록을 함께 보존한다. 근거 쪽의 로컬 라우팅 및 원문·표 귀속 검증은 유지한다.
+기존 정책·추출 profile·`partial-v5` 재생은 그대로다. API/DB migration은 없고,
+rollback은 새 실행을 v18 pin에 배정하되 새 산출물과 P2 reader를 보존한다.
+
 ## 6. 표 정규화
 
 각 `MetricObservation`은 metric_raw, metric_id(optional), scope, scope2_basis, category, subject, organizational_boundary, reporting_period, baseline_period, unit_raw, unit_canonical, scale_multiplier, value_raw, value_decimal, denominator, assurance_ref, source_refs, table_id/row/column, footnotes, quality 를 갖는다.

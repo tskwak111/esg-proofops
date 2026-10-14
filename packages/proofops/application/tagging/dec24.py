@@ -76,6 +76,12 @@ TABLE_FOOTNOTE_POLICY = dict(
     table_context="same-page-table-immediately-above-with-horizontal-overlap-60pt",
     action="exclude-selected-span; retain-receipt-and-source-as-table-context",
 )
+LOCATED_TABLE_CONTEXT_POLICY = dict(
+    profile="located-table-context-p2-v1",
+    geometry="only-located-focal-and-table; preserve-invalid-native-coordinates-and-issues",
+    isolation="unlocated-table-is-not-adjacency-context; continue-with-located-peers",
+    authority="context-only; unchanged-source-span-selector-and-evidence-guards",
+)
 
 
 def table_footnote(quote, *, kind, table_context=False):
@@ -84,7 +90,7 @@ def table_footnote(quote, *, kind, table_context=False):
     return bool(_SUPERSCRIPT.match(quote) or (_NUMBERED.match(quote) and _NOTE.search(quote)))
 
 
-def adjacent_table(packet, graph):
+def adjacent_table(packet, graph, *, located_only=False):
     """Geometry supplies note context only, never semantic evidence attribution."""
     if packet is None or graph is None:
         return False
@@ -92,11 +98,15 @@ def adjacent_table(packet, graph):
     focal = next((b for b in graph.blocks if b.source_id == data["source_id"]), None)
     if focal is None or focal.winner is None:
         return False
+    if located_only and focal.bbox is None:
+        return False
     box = focal.source_ref().bbox
     if box is None:
         return False
     for block in graph.blocks:
         if block.kind != "table" or block.page_num != focal.page_num or block.winner is None:
+            continue
+        if located_only and block.bbox is None:
             continue
         table = block.source_ref().bbox
         if table and 0 <= box[1] - table[3] <= 60 and max(box[0], table[0]) < min(box[2], table[2]):

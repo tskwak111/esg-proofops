@@ -47,6 +47,7 @@ def flags(policy=FINALS_H1_POLICY):
         "k3",
         "sentence_prefix",
         "table_footnotes",
+        "located_table_context",
         "h1",
         "i4_identity",
         "i5_tables",

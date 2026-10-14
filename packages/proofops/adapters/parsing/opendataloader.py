@@ -178,7 +178,7 @@ def _batch(
     edges: list[CandidateEdge] = []
     if not isinstance(raw.get("kids"), list):
         raise ParseFailure("PARSER_SCHEMA_INVALID")
-    partial_blocks = profile.failure_policy in {"partial-v4", "partial-v5"}
+    partial_blocks = profile.failure_policy in {"partial-v4", "partial-v5", "partial-v6"}
     occurrences: dict[str, int] = {}
     stack: list[tuple[dict[str, Any], str | None, int | None, str | None, int, bool]] = [
         (node, None, None, None, 0, False) for node in reversed(raw["kids"])
@@ -487,7 +487,7 @@ class OpenDataLoaderParser(ParserPort):
                         }
                         subset = _local_pages(profile).subset
 
-                        if h6 and profile.failure_policy != "partial-v5":
+                        if h6 and profile.failure_policy not in {"partial-v5", "partial-v6"}:
                             # A repaired parser derivative cannot ground provider text
                             # against an unreadable original. Avoid a useless paid call.
                             import io
@@ -533,7 +533,7 @@ class OpenDataLoaderParser(ParserPort):
                         os.replace(temporary, path)
                         return result, False
 
-                    if profile.failure_policy == "partial-v5":
+                    if profile.failure_policy in {"partial-v5", "partial-v6"}:
                         from proofops.adapters.parsing.hx6_upstage import recover
 
                         candidates, routing, upstage_output = recover(
@@ -543,6 +543,7 @@ class OpenDataLoaderParser(ParserPort):
                             candidates,
                             upstage_call,
                             config_hash=profile_hash,
+                            claim_layout=profile.failure_policy == "partial-v6",
                         )
                         fallback_pages = ()
                     else:
@@ -556,12 +557,13 @@ class OpenDataLoaderParser(ParserPort):
                                 "partial-v3",
                                 "partial-v4",
                                 "partial-v5",
+                                "partial-v6",
                             } and (
                                 str(exc).startswith("UPSTAGE_")
                                 or str(exc).endswith("BUDGET_EXHAUSTED")
                                 or (
                                     profile.failure_policy
-                                    in {"partial-v3", "partial-v4", "partial-v5"}
+                                    in {"partial-v3", "partial-v4", "partial-v5", "partial-v6"}
                                     and str(exc)
                                     in {
                                         "PARSER_SUBSET_PDF_INVALID",
@@ -640,6 +642,7 @@ class OpenDataLoaderParser(ParserPort):
                                     "partial-v3",
                                     "partial-v4",
                                     "partial-v5",
+                                    "partial-v6",
                                 } and (
                                     str(exc).startswith("UPSTAGE_")
                                     or str(exc).endswith("BUDGET_EXHAUSTED")
@@ -727,6 +730,7 @@ class OpenDataLoaderParser(ParserPort):
                             "partial-v3",
                             "partial-v4",
                             "partial-v5",
+                            "partial-v6",
                         }:
                             upstage_output["failed_batches"] = failed_batches
                             if standard_failure is not None:
@@ -806,7 +810,12 @@ class OpenDataLoaderParser(ParserPort):
                             source, tuple(candidates), references=recovery_references
                         )
                     except PdfminerException:
-                        if profile.failure_policy not in {"partial-v3", "partial-v4", "partial-v5"}:
+                        if profile.failure_policy not in {
+                            "partial-v3",
+                            "partial-v4",
+                            "partial-v5",
+                            "partial-v6",
+                        }:
                             raise
                         recovered = tuple(candidates)
                         recovery = dict(
@@ -842,7 +851,14 @@ class OpenDataLoaderParser(ParserPort):
                 )
             if (
                 profile.failure_policy
-                in {"partial-v1", "partial-v2", "partial-v3", "partial-v4", "partial-v5"}
+                in {
+                    "partial-v1",
+                    "partial-v2",
+                    "partial-v3",
+                    "partial-v4",
+                    "partial-v5",
+                    "partial-v6",
+                }
                 and upstage_output is not None
             ):
                 from proofops.adapters.parsing.mixed_routing import with_failures
@@ -917,7 +933,7 @@ class OpenDataLoaderParser(ParserPort):
                     ],
                     failed_batches=upstage_output["failed_batches"],
                 )
-                if profile.failure_policy == "partial-v5"
+                if profile.failure_policy in {"partial-v5", "partial-v6"}
                 else dict(
                     standard=dict(
                         upstage_output["standard"]["metrics"],
@@ -1128,12 +1144,18 @@ class OpenDataLoaderParser(ParserPort):
             if profile.parser_mode in ("upstage", "mixed-v1"):
                 from proofops.domain.provenance import canonical_hash
 
-                if profile.failure_policy == "partial-v5":
-                    from proofops.adapters.parsing.hx6_upstage import POLICY
+                if profile.failure_policy in {"partial-v5", "partial-v6"}:
+                    from proofops.application.ingest.page_recovery_policy import (
+                        CLAIM_LAYOUT_POLICY,
+                        POLICY,
+                    )
 
+                    recovery_policy = (
+                        CLAIM_LAYOUT_POLICY if profile.failure_policy == "partial-v6" else POLICY
+                    )
                     if (
                         not isinstance(upstage_output, dict)
-                        or upstage_output.get("profile") != POLICY
+                        or upstage_output.get("profile") != recovery_policy
                     ):
                         raise ValueError("HX6 parser policy mismatch")
                     for record in upstage_output["page_records"]:
@@ -1154,6 +1176,7 @@ class OpenDataLoaderParser(ParserPort):
                             "partial-v3",
                             "partial-v4",
                             "partial-v5",
+                            "partial-v6",
                         }:
                             if record.get("raw_batches") != [] or not any(
                                 f["mode"] == "standard"
@@ -1218,7 +1241,7 @@ class OpenDataLoaderParser(ParserPort):
                 from proofops.adapters.parsing.mixed_routing import provenance
 
                 routing = values["page-routing.json"]
-                if profile.failure_policy == "partial-v5":
+                if profile.failure_policy in {"partial-v5", "partial-v6"}:
                     from proofops.adapters.parsing.hx6_upstage import provenance as hx6_provenance
 
                     groups = [
@@ -1273,7 +1296,14 @@ class OpenDataLoaderParser(ParserPort):
                 restored = with_failures(restored, failures(values["h6-local.json"]))
             if (
                 profile.failure_policy
-                in {"partial-v1", "partial-v2", "partial-v3", "partial-v4", "partial-v5"}
+                in {
+                    "partial-v1",
+                    "partial-v2",
+                    "partial-v3",
+                    "partial-v4",
+                    "partial-v5",
+                    "partial-v6",
+                }
                 and upstage_output is not None
             ):
                 from proofops.adapters.parsing.mixed_routing import with_failures
@@ -1296,7 +1326,7 @@ class OpenDataLoaderParser(ParserPort):
             if profile.parser_mode in ("upstage", "mixed-v1"):
                 from proofops.adapters.parsing.upstage_document import MODEL as UPSTAGE_MODEL
 
-                if profile.failure_policy != "partial-v5" or (
+                if profile.failure_policy not in {"partial-v5", "partial-v6"} or (
                     isinstance(upstage_output, dict) and upstage_output.get("page_records")
                 ):
                     expected_parsers["upstage_async_standard"] = (

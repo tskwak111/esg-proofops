@@ -10,6 +10,7 @@ from proofops.application.ingest.k3_table_routing import POLICY as K3_ROUTING_PO
 from proofops.application.ingest.k5_context import POLICY as K5_CONTEXT_POLICY
 from proofops.application.ingest.k6_coverage import FIGURE_POLICY as QC2_FIGURE_POLICY
 from proofops.application.ingest.k6_coverage import POLICY as K6_COVERAGE_POLICY
+from proofops.application.ingest.page_recovery_policy import CLAIM_LAYOUT_POLICY
 from proofops.application.ingest.page_recovery_policy import POLICY as HX6_RECOVERY_POLICY
 from proofops.application.ingest.q1_tables import POLICY as Q1_TABLE_POLICY
 from proofops.application.ingest.sentence_prefix import POLICY as PREFIX_POLICY
@@ -27,6 +28,7 @@ from proofops.application.tagging.dec24 import (
     DEFINITIONS_HASH,
     INTEGRATED_DEFINITIONS_HASH,
     INTEGRATED_V2_DEFINITIONS_HASH,
+    LOCATED_TABLE_CONTEXT_POLICY,
 )
 from proofops.application.tagging.fact_assembly_c3 import POLICY as C3_POLICY
 from proofops.application.tagging.fact_assembly_c3 import REVIEWED_IDENTITY as C3_IDENTITY
@@ -836,6 +838,16 @@ FINALS_I18_POLICY = FINALS_I17_POLICY | dict(
 V2_POLICY = FINALS_I18_POLICY
 
 
+FINALS_P2_POLICY = FINALS_I18_POLICY | dict(
+    integration_profile="finals-20261014-p2-v1",
+    located_table_context=LOCATED_TABLE_CONTEXT_POLICY,
+    parser_failure_policy="partial-v6",
+    page_recovery_policy=CLAIM_LAYOUT_POLICY,
+    page_recovery_policy_sha256=canonical_hash(CLAIM_LAYOUT_POLICY),
+)
+V2_POLICY = FINALS_P2_POLICY
+
+
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
     from proofops.application.tagging.fact_assembly_c4 import publication_policy_for as c4_policy
@@ -863,6 +875,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_I18_POLICY,
             FINALS_I17_POLICY,
             FINALS_RG1_POLICY,
             FINALS_I16_POLICY,
@@ -989,6 +1002,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FINALS_I18_POLICY,
             FINALS_I17_POLICY,
             FINALS_RG1_POLICY,
             FINALS_I16_POLICY,
@@ -1072,6 +1086,7 @@ def apply_pilot_profile(args):
     args.tagging_prompt_profile = selected.get("tagging_prompt_profile")
     args.extraction_i4_identity = bool(selected.get("extraction_selection_ids"))
     args.extraction_qc_native_figures = bool(selected.get("native_figure_policy"))
+    args.extraction_located_table_context = bool(selected.get("located_table_context"))
     args.parser_local_resource_policy = selected.get("local_resource_policy")
     args.parser_failure_policy = selected.get("parser_failure_policy")
     if selected.get("parser_source_recovery"):
@@ -1099,7 +1114,7 @@ def apply_pilot_profile(args):
         args.preliminary_actor_role = True
     # Hosted Linux uses its independently approved OCR reader. Keep that explicit
     # source policy pinned in the run; other callers retain the SV1 native policy.
-    if selected.get("page_recovery_policy") == HX6_RECOVERY_POLICY:
+    if selected.get("page_recovery_policy") in (HX6_RECOVERY_POLICY, CLAIM_LAYOUT_POLICY):
         # HX6 needs the complete original-byte reader even when hosted Darwin's
         # initial arguments requested the older glyph-only source profile.
         args.claim_source_profile = selected["source"]
