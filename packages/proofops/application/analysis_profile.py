@@ -847,6 +847,19 @@ FINALS_P2_POLICY = FINALS_I18_POLICY | dict(
 )
 V2_POLICY = FINALS_P2_POLICY
 
+VERIFIED_READ_V11_POLICY = VERIFIED_READ_V10_POLICY | dict(
+    profile="exact-verified-read-v11",
+    cold_parse_replay="one-whole-registered-v19-i17-recomputation-s2-v1",
+    terminal_batch_replay="stop-after-committed-empty-pending-v1",
+    max_entries=8,
+    table_replay_sha256="b7c45f03899c893c1e560fd69929de8284ffd6407a524fa7994f4e298eb205d3",
+    policy_snapshot_sha256="988b4ea0537bf53665b2ed7c94ab67f5d0ee225e19e86dc259b7f594859054fb",
+)
+FINALS_S2_SPEED_POLICY = FINALS_P2_POLICY | dict(
+    integration_profile="finals-20261015-s2-speed-v1",
+    verified_read_cache=VERIFIED_READ_V11_POLICY,
+)
+
 
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
@@ -875,6 +888,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_S2_SPEED_POLICY,
             FINALS_I18_POLICY,
             FINALS_I17_POLICY,
             FINALS_RG1_POLICY,
@@ -1002,6 +1016,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FINALS_S2_SPEED_POLICY,
             FINALS_I18_POLICY,
             FINALS_I17_POLICY,
             FINALS_RG1_POLICY,

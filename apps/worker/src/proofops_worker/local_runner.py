@@ -338,6 +338,34 @@ class LocalParserRunner:
                         if page_reader is not None:
                             attest_native_sources = page_reader.attest_native_sources
                             replay_native_sources = page_reader.replay_native_sources
+                            from proofops.adapters.local.verified_read_cache import (
+                                _execution_policy,
+                            )
+                            from proofops.application.analysis_profile import (
+                                VERIFIED_READ_V11_POLICY,
+                            )
+
+                            if (
+                                _execution_policy() == VERIFIED_READ_V11_POLICY
+                                and native_policy.get("mode") == "upstage-ocr-page-v19"
+                            ):
+                                from proofops.adapters.local.claim_source_policies import (
+                                    page_ocr_profile,
+                                )
+                                from proofops.adapters.local.s2_reader_execution import reader_scope
+
+                                source_reader = page_ocr_profile(
+                                    native_policy["mode"], policy=native_policy, native=True
+                                )
+
+                                def attest_native_sources(g, s, *, tenant_id, geometry_mode):
+                                    with reader_scope(
+                                        source_reader, run_id=run_id, tenant_id=tenant_id
+                                    ) as instance:
+                                        return instance.attest_native_sources(
+                                            g, s, tenant_id=tenant_id, geometry_mode=geometry_mode
+                                        )
+
                         native_receipt = attest_native_sources(
                             graph, source.content, tenant_id=tenant_id, geometry_mode="glyph"
                         )

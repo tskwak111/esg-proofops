@@ -35,3 +35,34 @@ reader에 해당 실행을 배정하지 않는다. I4 통합 시 위 실행·bud
 실험의 USD0.60 공유 원장은 생산 실행의 USD1 한도와 별도다. 서버는 읽기 전용으로
 조회했고 push·배포·EC2/runtime.env 변경은 하지 않는다. 실제 측정·제한은 요청된
 `outputs/agent-results/R108-redesign/lab/perf/S2/S2-REPORT.md`와 원자료에 기록한다.
+
+## 2026-10-15: v18/P2 기준 S2 회귀 수정
+
+위 I3 실험의 `S2_POLICY`와 이번 `FINALS_S2_SPEED_POLICY`는 별도 정책이다.
+이번 정책은 `FINALS_P2_POLICY`의 새 opt-in이며 기본 P2와 과거 정책은 보존한다.
+원문 reader v19, P2 파서·좌표 가드, 동결된 packet과 3 replica는 그대로다.
+
+- `exact-verified-read-v11`은 native/table v19 및 evidence I17의 전체 receipt를
+  원본에서 한 번 재계산하고 전체 바이트 해시가 일치한 뒤 기존 projection을 적용한다.
+  중첩 wrapper가 같은 원문 검증을 다시 호출하는 부분만 생략한다. cold claim 검증,
+  transient 실패의 재시도와 unknown/보류 상태는 유지한다.
+- 원문 reader의 private instance 메서드만 복제하여 한 번의 검증 안에서 동일한
+  policy dict를 재사용한다. 양 경계에서 전체 reader/runtime policy를 다시 대조하며
+  변경 시 실패한다. 공유·frozen module의 globals나 파일은 수정하지 않는다.
+  새 파싱의 native 증명 생성에도 같은 실행 경로를 적용한다.
+- 기존 PA7의 성공한 raw CPU OCR만 tenant/run/source/crop/padding/runtime 범위에서
+  재사용한다. 2개 spawn process와 OMP 1, 8MiB/256개 상한을 유지한다.
+  원문·glyph·귀속·수치 검사는 매번 실행하고 실패 OCR은 캐시에 넣지 않는다.
+- whole receipt cache는 8개/32MiB로 제한한다. 메모리에 검증한 결과만 보관하며
+  파일에서 cache를 불러오지 않는다. 원문·graph·전체 receipt·policy·tenant·runtime
+  중 하나라도 바뀌면 새 검증을 수행한다.
+- 새 table adapter와 policy snapshot 구현은 별도 SHA로 고정한다. 기존
+  `parse_table_cache.py`의 byte pin과 I4/S1 과거 reader를 그대로 보존한다.
+- 새 pin은 기존 anonymous-FD 게시 경로에도 등록한다. workspace 파일·권한·run·
+  fence·페이지·reader/runtime 검사는 그대로이며 불일치하면 cold replay로 복귀한다.
+- 마지막 continuation이 source 증명을 포함한 revision을 commit하고 pending이
+  비었으면 추가 no-op batch를 실행하지 않는다. 태깅과 게시는 기존 원문 검증을
+  계속 수행한다. 중간 revision, 실패·보류, lease·취소·예산 처리는 그대로다.
+
+API/DB migration과 새 dependency는 없다. Rollback은 새 pin의 접수를 중단하고
+기존 P2로 새 실행을 배정하며, 새 pin과 기존 실행의 reader·산출물은 보존한다.

@@ -209,9 +209,18 @@ def attest_claims(*, reader, graph, source, refs, tenant_id, cache, run_id=None)
             VERIFIED_READ_V6_POLICY,
             VERIFIED_READ_V7_POLICY,
             VERIFIED_READ_V8_POLICY,
+            VERIFIED_READ_V11_POLICY,
         )
 
         if (
+            reader.PROFILE == "upstage-ocr-page-v19"
+            and _execution_policy() == VERIFIED_READ_V11_POLICY
+        ):
+            from proofops.adapters.local.s2_reader_execution import reader_scope
+
+            with reader_scope(reader, run_id=run_id, tenant_id=tenant_id) as instance:
+                receipt = instance.attest_claim_spans(graph, source, refs, tenant_id=tenant_id)
+        elif (
             (resources_enabled() and reader.PROFILE == "upstage-ocr-page-v13")
             or (
                 reader.PROFILE == "upstage-ocr-page-v9"

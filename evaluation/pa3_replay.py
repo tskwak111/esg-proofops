@@ -33,7 +33,8 @@ def normalize_timing(value):
         return {
             k: normalize_timing(v)
             for k, v in value.items()
-            if k not in {"latency_ms", "duration_seconds"}
+            if k
+            not in {"latency_ms", "duration_seconds", "provider_scheduler", "connection_attempts"}
         }
     if isinstance(value, list):
         return [normalize_timing(v) for v in value]
@@ -397,6 +398,35 @@ def main():
         upstage_document.candidate_batch = pinned_candidate_batch
 
         def raw_parser(command, work, env, profile):
+            if (original_dir / "h6-local.json").is_file():
+                retained = json.loads((original_dir / "h6-local.json").read_bytes())
+                selected = json.loads((work / "request.json").read_bytes())["selected"]
+                record = next(
+                    b
+                    for b in retained["batches"]
+                    if b["status"] == "parsed" and b["pages"] == selected
+                )
+                prefix = record["prefix"]
+                for name in ("source.json", "auxiliary.json", "geometry.json"):
+                    shutil.copy2(original_dir / (prefix + name), work / name)
+                shutil.copy2(original_dir / (prefix + "h6-selected.pdf"), work / "h6-selected.pdf")
+                shutil.copy2(original_dir / "source.md", work / "source.md")
+                repaired = json.loads((original_dir / "source-repaired.json").read_bytes())
+
+                def unprefix(value):
+                    if isinstance(value, dict):
+                        return {
+                            k: v.removeprefix(prefix)
+                            if k == "id" and isinstance(v, str)
+                            else unprefix(v)
+                            for k, v in value.items()
+                        }
+                    return [unprefix(v) for v in value] if isinstance(value, list) else value
+
+                (work / "source-repaired.json").write_text(json.dumps(unprefix(repaired)))
+                repair = json.loads((original_dir / "table-repair.json").read_bytes())
+                (work / "table-repair.json").write_text(json.dumps(repair["batches"][0]))
+                return
             for name in (
                 "source.json",
                 "source.md",
