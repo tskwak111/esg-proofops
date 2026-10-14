@@ -91,6 +91,39 @@ def test_transport_audit_does_not_expose_exception_message(tmp_path, monkeypatch
     assert '"request_bytes"' in audit
 
 
+def test_complete_pin_keeps_the_existing_hx6_policy():
+    from proofops.application import analysis_profile as p
+
+    assert canonical_hash(p.FINALS_HX6_POLICY) == (
+        "c3270adcfda417650089a988cdd83d8958fa99ace9b9873b36e560f09656e754"
+    )
+    assert (
+        p.policy_for(p.V2_PROFILE, pinned_hash=canonical_hash(p.FINALS_HX6_COMPLETE_POLICY))
+        == p.FINALS_HX6_COMPLETE_POLICY
+    )
+
+
+def test_display_eof_keeps_raw_quote_and_never_promotes_source(monkeypatch):
+    from copy import deepcopy
+    from dataclasses import asdict
+
+    from pdfplumber.utils.exceptions import PdfminerException
+    from proofops.adapters.local import glyph_display_text as display
+
+    from tests.integration.test_claim_source_v3 import synthetic
+
+    pdf, graph, ref = synthetic("Environmental policy reduces greenhouse gas emissions")
+    original = deepcopy(graph)
+    monkeypatch.setattr(
+        display.pdfplumber,
+        "open",
+        lambda *a, **k: (_ for _ in ()).throw(PdfminerException("Unexpected EOF")),
+    )
+    pin = display.GlyphDisplayCatalog(graph, pdf).pin(asdict(ref))
+    assert pin["text"] == ref.quote and pin["deleted_offsets"] == []
+    assert graph == original
+
+
 def test_parser_native_recovery_and_checkpoint_replay(tmp_path):
     from hashlib import sha256
     from uuid import uuid4

@@ -751,6 +751,12 @@ FINALS_HX6_POLICY = FINALS_HX4_COMPLETE_POLICY | dict(
     page_recovery_policy=HX6_RECOVERY_POLICY,
     page_recovery_policy_sha256=canonical_hash(HX6_RECOVERY_POLICY),
 )
+FINALS_HX6_COMPLETE_POLICY = FINALS_HX6_POLICY | dict(
+    integration_profile="finals-20261014-hx6-upstage-v2",
+    display_failure_policy=(
+        "pdfminer-eof-no-display-deletions; raw-quotes-and-source-gates-retained"
+    ),
+)
 
 
 def policy_for(profile, *, pinned_hash=None):
@@ -783,6 +789,7 @@ def policy_for(profile, *, pinned_hash=None):
             FINALS_HX4_POLICY,
             FINALS_HX4_COMPLETE_POLICY,
             FINALS_HX6_POLICY,
+            FINALS_HX6_COMPLETE_POLICY,
             FINALS_I13_POLICY,
             FINALS_I12_POLICY,
             FINALS_I11_POLICY,
@@ -900,6 +907,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
             FINALS_HX4_POLICY,
             FINALS_HX4_COMPLETE_POLICY,
             FINALS_HX6_POLICY,
+            FINALS_HX6_COMPLETE_POLICY,
             FINALS_I13_POLICY,
             FINALS_I12_POLICY,
             FINALS_I11_POLICY,

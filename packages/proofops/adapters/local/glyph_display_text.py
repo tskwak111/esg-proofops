@@ -16,6 +16,7 @@ from typing import Any
 import pdfplumber
 import pypdfium2 as pdfium
 import pypdfium2.raw as pdfraw
+from pdfplumber.utils.exceptions import PdfminerException
 
 from proofops.adapters.local.glyph_alignment_verification import _same_line, _same_row
 from proofops.adapters.local.native_glyph_geometry import native_word_ink_geometry
@@ -306,12 +307,17 @@ class GlyphDisplayCatalog:
 
 
 def _read_display_page(source, page_num):
-    with pdfplumber.open(io.BytesIO(source)) as doc:
-        page = doc.pages[page_num - 1]
-        native = [
-            dict(index=i, text=w["text"], bbox=[w["x0"], w["top"], w["x1"], w["bottom"]])
-            for i, w in enumerate(page.extract_words(return_chars=True))
-        ]
+    try:
+        with pdfplumber.open(io.BytesIO(source)) as doc:
+            page = doc.pages[page_num - 1]
+            native = [
+                dict(index=i, text=w["text"], bbox=[w["x0"], w["top"], w["x1"], w["bottom"]])
+                for i, w in enumerate(page.extract_words(return_chars=True))
+            ]
+    except PdfminerException:
+        # No glyph/space proof means no display deletions. Keep the exact raw
+        # quote and its identity; this helper never admits or verifies sources.
+        return [], {}, set(), None
     if not native or len(native) > 1000:
         return native, {}, set(), None
     try:
