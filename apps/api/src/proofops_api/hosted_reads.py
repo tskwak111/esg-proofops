@@ -10,7 +10,7 @@ import math
 import sqlite3
 import time
 from collections import OrderedDict
-from contextlib import closing, contextmanager
+from contextlib import ExitStack, closing, contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -120,7 +120,7 @@ class HostedReads:
         from proofops_api.hosted_access import is_organizer
 
         personal = is_organizer(auth)
-        with self.store.transaction() as db:
+        with self.store.transaction(readonly=True) as db:
             if document:
                 self.store._document(db, auth.tenant_id, document)
                 self.store._require_document_owner(db, auth, document)
@@ -169,6 +169,7 @@ class HostedReads:
             params.append(limit + 1)
             rows = db.execute(sql, params).fetchall()
             items = []
+            result_runs = []
             for row in rows[:limit]:
                 if kind == "documents":
                     items.append(
@@ -191,7 +192,7 @@ class HostedReads:
                     projected = self.store._project_run(row, db, inline_result=False)
                     if projected["result_url"]:
                         # Same source-integrity guard as individual GET.
-                        self.store._result(db, row)
+                        result_runs.append(row["run_id"])
                     fields = (
                         "run_id",
                         "document_id",
@@ -221,7 +222,9 @@ class HostedReads:
                 if len(rows) > limit
                 else None
             )
-            return dict(items=items, next_cursor=next_cursor)
+        for run in result_runs:
+            self.store.get_run(auth.tenant_id, run)
+        return dict(items=items, next_cursor=next_cursor)
 
     def _live_run(self, db, auth, run, now):
         identity = db.execute(
@@ -395,102 +398,103 @@ class HostedReads:
         identifier(run)
         if not auth.has_capability("viewer"):
             raise HostedError("FORBIDDEN", 403)
-        with TemporaryDirectory(prefix=".source-read-", dir=self.store.root) as scratch:
-            with self.store.transaction() as db:
+        with (
+            TemporaryDirectory(prefix=".source-read-", dir=self.store.root) as scratch,
+            ExitStack() as leases,
+        ):
+            with self.store.transaction(readonly=True) as db:
                 row, doc = self._live_run(db, auth, run, time.time())
-                selected = json.loads(row["pages"])
-                if physical_page not in selected:
-                    raise HostedError("SOURCE_REFERENCE_NOT_FOUND", 404)
-                result = self.store._result(db, row)
                 directory = self.store.document_dir(auth.tenant_id, row["document_id"])
-                path = directory / "analysis" / run
-                original_refs = any(
-                    c.get("source_ref_page_space") == "original" for c in result.get("claims", [])
+                lock = leases.enter_context((directory / "analysis.lock").open("a+b"))
+                fcntl.flock(lock, fcntl.LOCK_SH | fcntl.LOCK_NB)
+            selected = json.loads(row["pages"])
+            if physical_page not in selected:
+                raise HostedError("SOURCE_REFERENCE_NOT_FOUND", 404)
+            result = self.store._result(None, row)
+            directory = self.store.document_dir(auth.tenant_id, row["document_id"])
+            path = directory / "analysis" / run
+            original_refs = any(
+                c.get("source_ref_page_space") == "original" for c in result.get("claims", [])
+            )
+            if original_refs:
+                from proofops.application.tagging.fact_assembly_c3 import PROFILE as C3_PROFILE
+                from proofops.application.tagging.fact_assembly_c3 import (
+                    REVIEWED_IDENTITY,
                 )
-                if original_refs:
-                    from proofops.application.tagging.fact_assembly_c3 import PROFILE as C3_PROFILE
-                    from proofops.application.tagging.fact_assembly_c3 import (
-                        REVIEWED_IDENTITY,
-                    )
-                    from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
+                from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
 
-                    pilot = json.loads((path / "pilot.json").read_text())
-                    c4 = pilot.get("publication_profile") == C4_PROFILE
-                    if c4:
-                        if selected != pilot["selected_pages"]:
-                            raise HostedError("SOURCE_REFERENCE_MISMATCH", 409)
-                    elif pilot.get("publication_profile") != C3_PROFILE or selected != [36]:
+                pilot = json.loads((path / "pilot.json").read_text())
+                c4 = pilot.get("publication_profile") == C4_PROFILE
+                if c4:
+                    if selected != pilot["selected_pages"]:
                         raise HostedError("SOURCE_REFERENCE_MISMATCH", 409)
-                reference_page = (
-                    physical_page if original_refs else selected.index(physical_page) + 1
-                )
-                refs = [
-                    (identity, ref)
-                    for cid, items in self._refs(result)
-                    for identity, ref in items
-                    if (claim_id is None or cid == claim_id)
-                    and ref["page_num"] == reference_page
-                    and (source_id is None or ref["source_id"] == source_id)
-                ]
-                if not refs:
-                    raise HostedError("SOURCE_REFERENCE_NOT_FOUND", 404)
-                directory = self.store.document_dir(auth.tenant_id, row["document_id"])
-                path = directory / "analysis" / run
-                try:
-                    version, manifest, manifest_sha, geometry = self._anchor(
-                        path, row, reference_page
-                    )
-                    if (document_version_id is not None and document_version_id != version) or any(
-                        ref["document_version_id"] != version
-                        or ref["parse_manifest_id"] != manifest
-                        for _, ref in refs
-                    ):
-                        raise HostedError("SOURCE_REFERENCE_MISMATCH", 409)
-                    prepared = directory / f"{run}.prepared.pdf"
-                    if not original_refs and (
-                        prepared.is_symlink() or file_sha256(prepared) != row["prepared_sha256"]
-                    ):
-                        raise ValueError("prepared hash")
-                    source = self.store.analysis_source(directory, dict(doc))
-                    source_sha = file_sha256(source)
-                    if original_refs:
-                        if c4:
-                            from proofops.adapters.local.c4_publication import LocalC4Publication
-
-                            frozen = LocalC4Publication(path).runs.snapshot(
-                                auth.tenant_id, pilot["run_id"]
-                            )
-                            expected_original = frozen["document"]["sha256"]
-                        else:
-                            expected_original = REVIEWED_IDENTITY["original_sha256"]
-                        if source_sha != expected_original:
-                            raise ValueError("uploaded original mismatch")
-                    key = (
-                        str(self.store.root),
-                        auth.tenant_id,
-                        row["document_id"],
-                        doc["sha256"],
-                        source_sha,
-                        row["prepared_sha256"],
-                        manifest_sha,
-                        physical_page,
-                    )
-                    cached = _cached(key, doc["expires"], time.time())
-                    if not cached:
-                        copy_verified_file(source, Path(scratch) / "source.pdf", source_sha)
-                except HostedError as exc:
-                    if exc.code == "SOURCE_REFERENCE_MISMATCH":
-                        raise
-                    raise HostedError("SOURCE_INTEGRITY_UNAVAILABLE", 409) from None
-                except (
-                    OSError,
-                    ValueError,
-                    KeyError,
-                    TypeError,
-                    IndexError,
-                    sqlite3.DatabaseError,
+                elif pilot.get("publication_profile") != C3_PROFILE or selected != [36]:
+                    raise HostedError("SOURCE_REFERENCE_MISMATCH", 409)
+            reference_page = physical_page if original_refs else selected.index(physical_page) + 1
+            refs = [
+                (identity, ref)
+                for cid, items in self._refs(result)
+                for identity, ref in items
+                if (claim_id is None or cid == claim_id)
+                and ref["page_num"] == reference_page
+                and (source_id is None or ref["source_id"] == source_id)
+            ]
+            if not refs:
+                raise HostedError("SOURCE_REFERENCE_NOT_FOUND", 404)
+            directory = self.store.document_dir(auth.tenant_id, row["document_id"])
+            path = directory / "analysis" / run
+            try:
+                version, manifest, manifest_sha, geometry = self._anchor(path, row, reference_page)
+                if (document_version_id is not None and document_version_id != version) or any(
+                    ref["document_version_id"] != version or ref["parse_manifest_id"] != manifest
+                    for _, ref in refs
                 ):
-                    raise HostedError("SOURCE_INTEGRITY_UNAVAILABLE", 409) from None
+                    raise HostedError("SOURCE_REFERENCE_MISMATCH", 409)
+                prepared = directory / f"{run}.prepared.pdf"
+                if not original_refs and (
+                    prepared.is_symlink() or file_sha256(prepared) != row["prepared_sha256"]
+                ):
+                    raise ValueError("prepared hash")
+                source = self.store.analysis_source(directory, dict(doc))
+                source_sha = file_sha256(source)
+                if original_refs:
+                    if c4:
+                        from proofops.adapters.local.c4_publication import LocalC4Publication
+
+                        frozen = LocalC4Publication(path).runs.snapshot(
+                            auth.tenant_id, pilot["run_id"]
+                        )
+                        expected_original = frozen["document"]["sha256"]
+                    else:
+                        expected_original = REVIEWED_IDENTITY["original_sha256"]
+                    if source_sha != expected_original:
+                        raise ValueError("uploaded original mismatch")
+                key = (
+                    str(self.store.root),
+                    auth.tenant_id,
+                    row["document_id"],
+                    doc["sha256"],
+                    source_sha,
+                    row["prepared_sha256"],
+                    manifest_sha,
+                    physical_page,
+                )
+                cached = _cached(key, doc["expires"], time.time())
+                if not cached:
+                    copy_verified_file(source, Path(scratch) / "source.pdf", source_sha)
+            except HostedError as exc:
+                if exc.code == "SOURCE_REFERENCE_MISMATCH":
+                    raise
+                raise HostedError("SOURCE_INTEGRITY_UNAVAILABLE", 409) from None
+            except (
+                OSError,
+                ValueError,
+                KeyError,
+                TypeError,
+                IndexError,
+                sqlite3.DatabaseError,
+            ):
+                raise HostedError("SOURCE_INTEGRITY_UNAVAILABLE", 409) from None
             if cached:
                 png, metadata = cached
             else:
@@ -530,7 +534,7 @@ class HostedReads:
                 raise HostedError("FORBIDDEN", 403) from None
             except TenantNotFoundError:
                 raise HostedError("RESOURCE_NOT_FOUND", 404) from None
-            with self.store.transaction() as db:
+            with self.store.transaction(readonly=True) as db:
                 self._live_run(db, auth, run, time.time())
                 if not cached:
                     _cached(key, doc["expires"], time.time(), (png, metadata))
