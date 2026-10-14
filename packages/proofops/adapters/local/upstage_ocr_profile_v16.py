@@ -75,12 +75,21 @@ class Reader:
         )
         return receipt
 
+    def _identity(self, graph):
+        return dict(
+            tenant_id=graph.tenant_id,
+            document_version_id=graph.document_version_id,
+            parse_manifest_id=graph.parse_manifest_id,
+            source_sha256=graph.source_sha256,
+            input_graph_sha256=canonical_hash(asdict(graph)),
+        )
+
     def attest_native_sources(self, graph, source, *, tenant_id, geometry_mode="glyph"):
         large = self._large(graph, source, tenant_id)
         base = (
             dict(
-                source_sha256=graph.source_sha256,
-                input_graph_sha256=canonical_hash(asdict(graph)),
+                **self._identity(graph),
+                schema="native_paragraph_attestation_v2",
                 geometry_mode=geometry_mode,
                 records=[
                     dict(
@@ -115,8 +124,8 @@ class Reader:
         large = self._large(graph, source, tenant_id)
         base = (
             dict(
-                source_sha256=graph.source_sha256,
-                input_graph_sha256=canonical_hash(asdict(graph)),
+                **self._identity(graph),
+                schema="claim_source_hx5_attestation_v1",
                 records=[
                     dict(ref=asdict(r), status="unresolved", reason="SOURCE_PROOF_INPUT_LIMIT")
                     for r in refs
@@ -136,8 +145,8 @@ class Reader:
     def attest_tables(self, graph, source, *, tenant_id):
         if self._large(graph, source, tenant_id):
             base = dict(
-                source_sha256=graph.source_sha256,
-                input_graph_sha256=canonical_hash(asdict(graph)),
+                **self._identity(graph),
+                schema="table_source_hx5_attestation_v1",
                 records=[
                     dict(
                         source_id=b.source_id,

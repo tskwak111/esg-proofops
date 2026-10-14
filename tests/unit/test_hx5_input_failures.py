@@ -275,6 +275,18 @@ def test_large_source_proofs_remain_unresolved_and_replay_is_strict(monkeypatch)
     monkeypatch.setattr(evidence, "LEGACY_PROOF_BYTES", 1)
     reader = native.for_run(str(uuid4()))
     receipt = reader.attest_native_sources(graph, source, tenant_id=graph.tenant_id)
+    from proofops.adapters.local.run_artifacts import checkpoint_native_attestation
+
+    assert (
+        checkpoint_native_attestation(
+            dict(
+                schema="local_parser_checkpoint_v4",
+                native_paragraph_attestation=receipt,
+                native_paragraph_policy_sha256=canonical_hash(native.native_policy()),
+            )
+        )
+        == receipt
+    )
     assert all(r["status"] == "unresolved" for r in receipt["records"])
     assert reader.replay_native_sources(receipt, graph, source, tenant_id=graph.tenant_id) is graph
     spans = reader.attest_claim_spans(graph, source, claim.source_refs, tenant_id=graph.tenant_id)
