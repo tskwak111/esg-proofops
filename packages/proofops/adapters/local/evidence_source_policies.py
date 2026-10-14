@@ -5,10 +5,12 @@ from proofops.adapters.local import evidence_source_verification_v1 as apple
 
 
 def evidence_source_reader(policy):
-    from proofops.adapters.local import evidence_source_h6, evidence_source_h7, evidence_source_hx3
+    from proofops.adapters.local import evidence_source_h6, evidence_source_h7, evidence_source_hx3, evidence_source_hx4
 
     if policy == evidence_source_hx3.policy():
         return evidence_source_hx3
+    if policy == evidence_source_hx4.policy():
+        return evidence_source_hx4
 
     if policy == evidence_source_h7.policy():
         return evidence_source_h7

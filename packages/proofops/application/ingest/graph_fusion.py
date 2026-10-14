@@ -112,13 +112,19 @@ class ParserProfile:
             raise ValueError("unsupported table claims profile")
         if self.source_recovery not in (None, "ps1-v1", "native-continuation-k8-v1"):
             raise ValueError("unsupported source recovery policy")
-        if self.failure_policy not in (None, "partial-v1", "partial-v2", "partial-v3") or (
+        if self.failure_policy not in (
+            None,
+            "partial-v1",
+            "partial-v2",
+            "partial-v3",
+            "partial-v4",
+        ) or (
             self.failure_policy is not None
             and self.parser_mode != "mixed-v1"
             and self.local_resource_policy != "selected-pdf-h6-v1"
         ):
             raise ValueError("invalid parser failure policy")
-        if (self.failure_policy == "partial-v3") != (
+        if (self.failure_policy in {"partial-v3", "partial-v4"}) != (
             self.local_resource_policy == "selected-pdf-h6-v1"
         ):
             raise ValueError("H6 resource and failure policies must be pinned together")
