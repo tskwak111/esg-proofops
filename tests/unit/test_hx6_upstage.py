@@ -270,3 +270,42 @@ def test_provider_page_failure_keeps_other_page_and_replays(tmp_path, monkeypatc
         parser.load_verified(source, profile, tenant_id=source.tenant_id).to_dict()
         == graph.to_dict()
     )
+
+
+def test_auxiliary_eof_withholds_sources_and_keeps_legacy_failure(monkeypatch):
+    from pdfplumber.utils.exceptions import PdfminerException
+    from proofops.adapters.local import k6_facilities, k9_scope_sources, upstage_ocr_profile_v13
+    from proofops.application.analysis_profile import FINALS_HX6_POLICY, FINALS_HX6_RESILIENT_POLICY
+
+    from tests.integration.test_claim_source_v3 import synthetic
+
+    pdf, graph, ref = synthetic("We reduce greenhouse gas emissions through environmental policy.")
+    claim = SimpleNamespace(
+        tenant_id=graph.tenant_id,
+        document_version_id=graph.document_version_id,
+        parse_manifest_id=graph.parse_manifest_id,
+        source_sha256=graph.source_sha256,
+        claim_id="claim",
+        source_refs=(ref,),
+    )
+
+    def failed(*args, **kwargs):
+        raise PdfminerException("Unexpected EOF")
+
+    monkeypatch.setattr(k6_facilities, "restore_facilities", failed)
+    monkeypatch.setattr(k9_scope_sources, "scope_definition_refs", lambda *args: (ref,))
+    monkeypatch.setattr(
+        upstage_ocr_profile_v13, "for_run", lambda *args: SimpleNamespace(attest_claim_spans=failed)
+    )
+    for policy, blocked in [(FINALS_HX6_POLICY, True), (FINALS_HX6_RESILIENT_POLICY, False)]:
+        for read, args in [
+            (k6_facilities.facility_graph, {}),
+            (k9_scope_sources.scope_graph, {"run_id": "run"}),
+        ]:
+            if blocked:
+                with pytest.raises(PdfminerException):
+                    read(graph, pdf, (claim,), tenant_id=graph.tenant_id, policy=policy, **args)
+            else:
+                assert read(
+                    graph, pdf, (claim,), tenant_id=graph.tenant_id, policy=policy, **args
+                ) == (graph, {})

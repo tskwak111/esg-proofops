@@ -757,6 +757,10 @@ FINALS_HX6_COMPLETE_POLICY = FINALS_HX6_POLICY | dict(
         "pdfminer-eof-no-display-deletions; raw-quotes-and-source-gates-retained"
     ),
 )
+FINALS_HX6_RESILIENT_POLICY = FINALS_HX6_COMPLETE_POLICY | dict(
+    integration_profile="finals-20261014-hx6-upstage-v3",
+    auxiliary_native_failure="unreadable-no-supplemental-credit-hx6-v1",
+)
 
 
 def policy_for(profile, *, pinned_hash=None):
@@ -790,6 +794,7 @@ def policy_for(profile, *, pinned_hash=None):
             FINALS_HX4_COMPLETE_POLICY,
             FINALS_HX6_POLICY,
             FINALS_HX6_COMPLETE_POLICY,
+            FINALS_HX6_RESILIENT_POLICY,
             FINALS_I13_POLICY,
             FINALS_I12_POLICY,
             FINALS_I11_POLICY,
@@ -908,6 +913,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
             FINALS_HX4_COMPLETE_POLICY,
             FINALS_HX6_POLICY,
             FINALS_HX6_COMPLETE_POLICY,
+            FINALS_HX6_RESILIENT_POLICY,
             FINALS_I13_POLICY,
             FINALS_I12_POLICY,
             FINALS_I11_POLICY,

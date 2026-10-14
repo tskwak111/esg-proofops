@@ -3,6 +3,8 @@
 from dataclasses import asdict, replace
 from hashlib import sha256
 
+from pdfplumber.utils.exceptions import PdfminerException
+
 from proofops.application.evidence.span_citations import span_verified_graph
 from proofops.application.tagging.k9_contract import (
     BINDING_POLICY,
@@ -41,9 +43,14 @@ def scope_graph(graph, source, claims, *, tenant_id, run_id, policy):
 
     # Native text, glyphs, annotations and visible-text/OCR checks stay identical
     # to the run's v13 reader. Only individually verified spans gain authority.
-    receipt = upstage_ocr_profile_v13.for_run(run_id).attest_claim_spans(
-        graph, source, refs, tenant_id=tenant_id
-    )
+    try:
+        receipt = upstage_ocr_profile_v13.for_run(run_id).attest_claim_spans(
+            graph, source, refs, tenant_id=tenant_id
+        )
+    except PdfminerException:
+        if policy.get("auxiliary_native_failure") != "unreadable-no-supplemental-credit-hx6-v1":
+            raise
+        return graph, {}
     approved = tuple(
         replace(SourceRef(**r["ref"]), verification_state="verified")
         for r in receipt["records"]
