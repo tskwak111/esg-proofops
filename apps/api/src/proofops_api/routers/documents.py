@@ -54,7 +54,7 @@ class Document(StrictDTO):
 
 class UploadComplete(StrictDTO):
     sha256: Annotated[str, Field(pattern="^[0-9a-f]{64}$")]
-    size_bytes: Annotated[int, Field(ge=1, le=104857600)]
+    size_bytes: Annotated[int, Field(ge=1, le=157286400)]
 
 
 class VersionCreate(UploadComplete):

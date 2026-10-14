@@ -249,13 +249,13 @@ def test_element_prompt_distinguishes_target_deadline_from_event_date():
 def test_pilot_oversized_pdf_rejected_before_state_creation(tmp_path, monkeypatch, capsys):
     import sys
 
-    from proofops.application.uploads_security import PdfLimits
+    from proofops.application.input_failures import HOSTED_MAX_UPLOAD_BYTES
 
     from evaluation import local_upstage_pilot as pilot
 
     source = tmp_path / "oversized.pdf"
     with source.open("wb") as stream:
-        stream.truncate(PdfLimits().max_bytes + 1)
+        stream.truncate(HOSTED_MAX_UPLOAD_BYTES + 1)
     state = tmp_path / "new-state"
     monkeypatch.setattr(
         sys,
@@ -279,7 +279,7 @@ def test_pilot_oversized_pdf_rejected_before_state_creation(tmp_path, monkeypatc
     with pytest.raises(SystemExit) as error:
         pilot.main()
     assert error.value.code == 2
-    assert "104857600 bytes" in capsys.readouterr().err
+    assert "157286400 bytes" in capsys.readouterr().err
     assert not state.exists()
 
 

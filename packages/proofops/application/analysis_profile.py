@@ -12,6 +12,7 @@ from proofops.application.ingest.k6_coverage import POLICY as K6_COVERAGE_POLICY
 from proofops.application.ingest.page_recovery_policy import POLICY as HX6_RECOVERY_POLICY
 from proofops.application.ingest.q1_tables import POLICY as Q1_TABLE_POLICY
 from proofops.application.ingest.sentence_prefix import POLICY as PREFIX_POLICY
+from proofops.application.input_failures import POLICY as HX5_INPUT_POLICY
 from proofops.application.openai_retry import POLICY as T1_RETRY_POLICY
 from proofops.application.openai_transport import POLICY as K10_TRANSPORT_POLICY
 from proofops.application.provider_resilience import (
@@ -774,6 +775,11 @@ FINALS_HX6_RESILIENT_POLICY = FINALS_HX6_COMPLETE_POLICY | dict(
     integration_profile="finals-20261014-hx6-upstage-v3",
     auxiliary_native_failure="unreadable-no-supplemental-credit-hx6-v1",
 )
+FINALS_HX5_V1_POLICY = FINALS_I15_POLICY | dict(
+    input_failure_policy=HX5_INPUT_POLICY,
+    input_failure_policy_sha256=canonical_hash(HX5_INPUT_POLICY),
+)
+FINALS_HX5_POLICY = FINALS_HX5_V1_POLICY | dict(source="upstage-ocr-page-v16")
 
 
 def policy_for(profile, *, pinned_hash=None):
@@ -810,6 +816,8 @@ def policy_for(profile, *, pinned_hash=None):
             FINALS_HX6_POLICY,
             FINALS_HX6_COMPLETE_POLICY,
             FINALS_HX6_RESILIENT_POLICY,
+            FINALS_HX5_POLICY,
+            FINALS_HX5_V1_POLICY,
             FINALS_I13_POLICY,
             FINALS_I12_POLICY,
             FINALS_I11_POLICY,

@@ -11,6 +11,10 @@ def evidence_source_reader(policy):
         return evidence_source_hx3
     if policy == evidence_source_hx4.policy():
         return evidence_source_hx4
+    from proofops.adapters.local import evidence_source_hx5
+
+    if policy == evidence_source_hx5.policy():
+        return evidence_source_hx5
 
     if policy == evidence_source_h7.policy():
         return evidence_source_h7

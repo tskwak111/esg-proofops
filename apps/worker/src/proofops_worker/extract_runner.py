@@ -77,6 +77,16 @@ def _candidate_extract(live, packet, snapshot):
         return live.extract(packet)
     except ValueError as error:
         code = str(error)
+        from proofops.application.input_failures import POLICY, TABLE_ERRORS
+
+        policy = snapshot.get("analysis_profile_policy", {})
+        if (
+            policy.get("input_failure_policy") == POLICY
+            and policy.get("input_failure_policy_sha256") == canonical_hash(POLICY)
+            and packet.get("untrusted_document_data", {}).get("kind") == "table"
+            and code in TABLE_ERRORS
+        ):
+            raise ExtractionOutputError("TABLE_GRID_UNREADABLE") from None
         if snapshot.get("pipeline_profile") in (
             "unattended-v1",
             "finals-unattended-v1",

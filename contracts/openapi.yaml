@@ -5620,7 +5620,7 @@ components:
         size_bytes:
           type: integer
           minimum: 1
-          maximum: 104857600
+          maximum: 157286400
         sha256: &id002
           type: string
           pattern: ^[0-9a-f]{64}$
@@ -5692,7 +5692,7 @@ components:
         size_bytes:
           type: integer
           minimum: 1
-          maximum: 104857600
+          maximum: 157286400
       required:
       - sha256
       - size_bytes

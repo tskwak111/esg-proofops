@@ -122,15 +122,15 @@ def _pdf_page_count(pdf: Path) -> int:
 
 def _validate_pdf_file(pdf: Path) -> None:
     """Refuse unsupported files before reading contents or discovering scope."""
-    from proofops.application.uploads_security import PdfLimits
+    from evaluation.scope_input import MAX_UPLOAD_BYTES
 
     if not pdf.is_file():
         raise PlanError(f"--pdf not found: {pdf}")
     if pdf.suffix.lower() != ".pdf":
         raise PlanError(f"--pdf must be a .pdf file: {pdf}")
-    limit = PdfLimits().max_bytes
+    limit = MAX_UPLOAD_BYTES
     if pdf.stat().st_size > limit:
-        raise PlanError(f"--pdf exceeds the supported upload limit of {limit} bytes (100 MiB)")
+        raise PlanError(f"--pdf exceeds the supported upload limit of {limit} bytes (150 MiB)")
 
 
 def validate_pdf(pdf: Path, pages: list[int]) -> int:
