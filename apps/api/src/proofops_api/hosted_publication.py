@@ -20,6 +20,8 @@ from proofops.application.analysis_profile import (
     VERIFIED_READ_V8_POLICY,
     VERIFIED_READ_V9_POLICY,
     VERIFIED_READ_V10_POLICY,
+    VERIFIED_READ_V11_POLICY,
+    VERIFIED_READ_V12_POLICY,
 )
 from proofops.domain.provenance import canonical_hash
 
@@ -68,7 +70,11 @@ def _context(path, job, pages):
         policy.get("source"),
     )
     registered = False
-    if eligible[:2] == (VERIFIED_READ_V10_POLICY, I18_PUBLICATION_POLICY):
+    if eligible[:2] in (
+        (VERIFIED_READ_V10_POLICY, I18_PUBLICATION_POLICY),
+        (VERIFIED_READ_V11_POLICY, I18_PUBLICATION_POLICY),
+        (VERIFIED_READ_V12_POLICY, I18_PUBLICATION_POLICY),
+    ):
         from proofops.adapters.local.claim_source_policies import page_ocr_profile
         from proofops.application.analysis_profile import V2_PROFILE, policy_for
 

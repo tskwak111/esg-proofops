@@ -869,6 +869,32 @@ FINALS_I20_INITIAL_POLICY = FINALS_I20_POLICY | dict(
 )
 V2_POLICY = FINALS_I20_POLICY
 
+VERIFIED_READ_V11_POLICY = VERIFIED_READ_V10_POLICY | dict(
+    profile="exact-verified-read-v11",
+    cold_parse_replay="one-whole-registered-v19-i17-recomputation-s2-v1",
+    terminal_batch_replay="stop-after-committed-empty-pending-v1",
+    max_entries=8,
+    table_replay_sha256="b7c45f03899c893c1e560fd69929de8284ffd6407a524fa7994f4e298eb205d3",
+    policy_snapshot_sha256="988b4ea0537bf53665b2ed7c94ab67f5d0ee225e19e86dc259b7f594859054fb",
+)
+FINALS_S2_SPEED_POLICY = FINALS_P2_POLICY | dict(
+    integration_profile="finals-20261015-s2-speed-v1",
+    verified_read_cache=VERIFIED_READ_V11_POLICY,
+)
+
+
+VERIFIED_READ_V12_POLICY = VERIFIED_READ_V11_POLICY | dict(
+    profile="exact-verified-read-v12",
+    cold_parse_replay="one-whole-registered-v20-i17-recomputation-i21-v1",
+    table_replay_sha256="3165cc56a0f9129e1a580d91a23728b63ffa508ec83076f15053c923388ff3a6",
+    policy_snapshot_sha256="54970a389b72ae448a1423ea0b37a2c9a26e8b507fbd7a341ccf8e45e96c7382",
+)
+FINALS_I21_POLICY = FINALS_I20_POLICY | dict(
+    integration_profile="finals-20261015-v21",
+    verified_read_cache=VERIFIED_READ_V12_POLICY,
+)
+V2_POLICY = FINALS_I21_POLICY
+
 
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
@@ -904,10 +930,12 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_I20_POLICY,
             FINALS_I20_INITIAL_POLICY,
             FINALS_I19_POLICY,
             FINALS_P2_POLICY,
             FINALS_P3_POLICY,
+            FINALS_S2_SPEED_POLICY,
             FINALS_I18_POLICY,
             FINALS_I17_POLICY,
             FINALS_RG1_POLICY,
@@ -1042,10 +1070,12 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FINALS_I20_POLICY,
             FINALS_I20_INITIAL_POLICY,
             FINALS_I19_POLICY,
             FINALS_P2_POLICY,
             FINALS_P3_POLICY,
+            FINALS_S2_SPEED_POLICY,
             FINALS_I18_POLICY,
             FINALS_I17_POLICY,
             FINALS_RG1_POLICY,

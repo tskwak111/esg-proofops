@@ -882,7 +882,7 @@ class OpenDataLoaderParser(ParserPort):
                     if page_reader is None:
                         raise ParseFailure("OCR_RUN_REQUIRED")
                     verifier = page_reader
-                from proofops.adapters.local import parse_table_cache
+                from proofops.adapters.local import i21_table_replay as parse_table_cache
 
                 receipt = parse_table_cache.attest(
                     verifier, graph, source.content, tenant_id=tenant_id
@@ -1356,7 +1356,7 @@ class OpenDataLoaderParser(ParserPort):
                 raise ValueError("parser run mismatch")
             if profile.table_source_policy_sha256 is not None:
                 verifier = _table_verifier(profile.table_source_policy_sha256)
-                from proofops.adapters.local import parse_table_cache
+                from proofops.adapters.local import i21_table_replay as parse_table_cache
                 from proofops.adapters.local.receipt_environment_compat import (
                     record_table_read,
                 )

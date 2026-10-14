@@ -103,6 +103,7 @@ def main():
     parser.add_argument("--workers", type=int, default=8)
     parser.add_argument("--rtt-ms", type=float, default=150)
     parser.add_argument("--verify-original", action="store_true")
+    parser.add_argument("--no-profile", action="store_true")
     parser.add_argument(
         "--cache-profile",
         choices=(
@@ -111,6 +112,8 @@ def main():
             "exact-verified-read-v2",
             "exact-verified-read-v3",
             "exact-verified-read-v4",
+            "exact-verified-read-v10",
+            "exact-verified-read-v11",
         ),
         default="exact-verified-read-v2",
     )
@@ -190,7 +193,8 @@ def main():
     worker.clock = lambda: datetime.fromisoformat(checked.replace("Z", "+00:00")).timestamp() + 600
     profiler = cProfile.Profile()
     started = time.monotonic()
-    profiler.enable()
+    if not args.no_profile:
+        profiler.enable()
     try:
         with reader_scope(ReplayOCRStore(output / "upstage.sqlite3")):
             status = worker.run_once(tenant_id=tenant, run_id=run)
@@ -279,7 +283,8 @@ def main():
         print(json.dumps({k: v for k, v in result.items() if k != "events"}), flush=True)
     finally:
         profiler.disable()
-        profiler.dump_stats(str(output / "extract.prof"))
+        if not args.no_profile:
+            profiler.dump_stats(str(output / "extract.prof"))
         worker.uploads.close()
         worker.uploads.registry.close()
 

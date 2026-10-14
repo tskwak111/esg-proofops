@@ -16,7 +16,9 @@ from tests.integration.test_upstage_extraction import packet
 
 
 def test_v20_default_and_old_v19_pin_are_both_dispatchable():
-    policy = profiles.policy_for(profiles.V2_PROFILE)
+    policy = profiles.policy_for(
+        profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_I20_POLICY)
+    )
     assert policy == profiles.FINALS_I20_POLICY
     assert policy["integration_profile"] == "finals-20261015-v20"
     assert policy["source"] == "upstage-ocr-page-v21"
@@ -36,7 +38,11 @@ def test_v20_default_and_old_v19_pin_are_both_dispatchable():
         assert profiles.policy_for(profiles.V2_PROFILE, pinned_hash=digest) == old
         assert profiles.publication_policy_for(profiles.V2_PROFILE, pinned_hash=digest) == old
     assert operator_profiles({})["analysis_profile"] == profiles.V2_PROFILE
-    args = Namespace(analysis_profile=profiles.V2_PROFILE, resume=False)
+    args = Namespace(
+        analysis_profile=profiles.V2_PROFILE,
+        resume=False,
+        analysis_policy_sha256=canonical_hash(profiles.FINALS_I20_POLICY),
+    )
     profiles.apply_pilot_profile(args)
     assert args.extraction_atomic_v3 and args.extraction_failure_diagnostics
     assert args.extraction_table_rows and args.extraction_linewrap_join
@@ -112,7 +118,16 @@ def test_v21_attestation_preserves_worker_checkpoint_identity(monkeypatch):
         )
 
 
-def test_hosted_preparation_accepts_the_historical_v19_pin(tmp_path):
+@pytest.mark.parametrize(
+    "policy",
+    [
+        profiles.FINALS_I19_POLICY,
+        profiles.FINALS_I20_POLICY,
+        profiles.FINALS_I20_INITIAL_POLICY,
+        profiles.FINALS_S2_SPEED_POLICY,
+    ],
+)
+def test_hosted_preparation_accepts_the_historical_v19_pin(tmp_path, policy):
     from pypdf import PdfWriter
 
     from evaluation.hosted_r108 import prepare_argv
@@ -121,7 +136,7 @@ def test_hosted_preparation_accepts_the_historical_v19_pin(tmp_path):
     writer = PdfWriter()
     writer.add_blank_page(300, 300)
     writer.write(pdf)
-    pin = canonical_hash(profiles.FINALS_I19_POLICY)
+    pin = canonical_hash(policy)
     argv = prepare_argv(
         pdf,
         tmp_path / "state",
