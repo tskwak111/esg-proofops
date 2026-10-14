@@ -23,6 +23,7 @@ from time import monotonic, sleep
 from typing import Any
 from uuid import UUID, uuid4, uuid5
 
+from proofops.adapters.local.claim_source_policies import PAGE_OCR_PROFILES
 from proofops.adapters.parsing.windows_isolation import (
     IsolationUnavailable,
     kill_and_reap,
@@ -72,25 +73,7 @@ def _table_verifier(policy_hash):
         return selected
     from proofops.adapters.local.claim_source_policies import page_ocr_profile
 
-    for name in (
-        "upstage-ocr-page-v1",
-        "upstage-ocr-page-v2",
-        "upstage-ocr-page-v3",
-        "upstage-ocr-page-v4",
-        "upstage-ocr-page-v5",
-        "upstage-ocr-page-v6",
-        "upstage-ocr-page-v7",
-        "upstage-ocr-page-v8",
-        "upstage-ocr-page-v9",
-        "upstage-ocr-page-v10",
-        "upstage-ocr-page-v14",
-        "upstage-ocr-page-v15",
-        "upstage-ocr-page-v16",
-        "upstage-ocr-page-v17",
-        "upstage-ocr-page-v18",
-        "upstage-ocr-page-v16-hx4",
-        "upstage-ocr-page-v16-hx5",
-    ):
+    for name in PAGE_OCR_PROFILES:
         profile = page_ocr_profile(name)
         if policy_hash == profile.table_policy_sha256():
             return profile
@@ -115,28 +98,7 @@ def _locates_auxiliary_cells(profile):
 
     return policy_hash in {
         selected.policy_sha256(),
-        *(
-            page_ocr_profile(name).table_policy_sha256()
-            for name in (
-                "upstage-ocr-page-v1",
-                "upstage-ocr-page-v2",
-                "upstage-ocr-page-v3",
-                "upstage-ocr-page-v4",
-                "upstage-ocr-page-v5",
-                "upstage-ocr-page-v6",
-                "upstage-ocr-page-v7",
-                "upstage-ocr-page-v8",
-                "upstage-ocr-page-v9",
-                "upstage-ocr-page-v10",
-                "upstage-ocr-page-v14",
-                "upstage-ocr-page-v15",
-                "upstage-ocr-page-v16",
-                "upstage-ocr-page-v17",
-                "upstage-ocr-page-v18",
-                "upstage-ocr-page-v16-hx4",
-                "upstage-ocr-page-v16-hx5",
-            )
-        ),
+        *(page_ocr_profile(name).table_policy_sha256() for name in PAGE_OCR_PROFILES),
     }
 
 
@@ -189,6 +151,17 @@ def _node_text(node: dict, depth=0) -> str:
     return ("\t" if key == "cells" else "\n").join(
         _node_text(child, depth + 1) for child in children
     )
+
+
+def _local_pages(profile):
+    from proofops.adapters.parsing import h6_local_pages, h6_local_pages_v2
+
+    resource = (
+        profile.get("local_resource_policy")
+        if isinstance(profile, dict)
+        else profile.local_resource_policy
+    )
+    return h6_local_pages_v2 if resource == "selected-pdf-h6-v2" else h6_local_pages
 
 
 def _batch(
@@ -458,8 +431,8 @@ class OpenDataLoaderParser(ParserPort):
             )
             env = _child_environment(java, work, profile)
             command = [sys.executable, "-I", str(Path(__file__).resolve()), str(work)]
-            if profile.local_resource_policy == "selected-pdf-h6-v1":
-                from proofops.adapters.parsing.h6_local_pages import execute
+            if profile.local_resource_policy in {"selected-pdf-h6-v1", "selected-pdf-h6-v2"}:
+                execute = _local_pages(profile).execute
 
                 execute(command, work, env, profile, self._execute)
             else:
@@ -508,8 +481,11 @@ class OpenDataLoaderParser(ParserPort):
                     from proofops.domain.provenance import canonical_hash
 
                     def upstage_call(pages, mode):
-                        h6 = profile.local_resource_policy == "selected-pdf-h6-v1"
-                        from proofops.adapters.parsing.h6_local_pages import subset
+                        h6 = profile.local_resource_policy in {
+                            "selected-pdf-h6-v1",
+                            "selected-pdf-h6-v2",
+                        }
+                        subset = _local_pages(profile).subset
 
                         if h6 and profile.failure_policy != "partial-v5":
                             # A repaired parser derivative cannot ground provider text
@@ -518,7 +494,8 @@ class OpenDataLoaderParser(ParserPort):
 
                             import pdfplumber
                             from pdfplumber.utils.exceptions import PdfminerException
-                            from proofops.adapters.parsing.h6_local_pages import subset
+
+                            subset = _local_pages(profile).subset
 
                             try:
                                 with pdfplumber.open(io.BytesIO(source.content)):
@@ -856,8 +833,8 @@ class OpenDataLoaderParser(ParserPort):
                 profile,
                 () if vision_metrics is None else vision_metrics["pages_routed"],
             )
-            if profile.local_resource_policy == "selected-pdf-h6-v1":
-                from proofops.adapters.parsing.h6_local_pages import failures
+            if profile.local_resource_policy in {"selected-pdf-h6-v1", "selected-pdf-h6-v2"}:
+                failures = _local_pages(profile).failures
                 from proofops.adapters.parsing.mixed_routing import with_failures
 
                 graph = with_failures(
@@ -885,25 +862,7 @@ class OpenDataLoaderParser(ParserPort):
             returned_graph = graph
             if profile.table_source_policy_sha256 is not None:
                 verifier = _table_verifier(profile.table_source_policy_sha256)
-                if getattr(verifier, "PROFILE", None) in {
-                    "upstage-ocr-page-v1",
-                    "upstage-ocr-page-v2",
-                    "upstage-ocr-page-v3",
-                    "upstage-ocr-page-v4",
-                    "upstage-ocr-page-v5",
-                    "upstage-ocr-page-v6",
-                    "upstage-ocr-page-v7",
-                    "upstage-ocr-page-v8",
-                    "upstage-ocr-page-v9",
-                    "upstage-ocr-page-v10",
-                    "upstage-ocr-page-v14",
-                    "upstage-ocr-page-v15",
-                    "upstage-ocr-page-v16",
-                    "upstage-ocr-page-v17",
-                    "upstage-ocr-page-v18",
-                    "upstage-ocr-page-v16-hx4",
-                    "upstage-ocr-page-v16-hx5",
-                }:
+                if getattr(verifier, "PROFILE", None) in PAGE_OCR_PROFILES:
                     if page_reader is None:
                         raise ParseFailure("OCR_RUN_REQUIRED")
                     verifier = page_reader
@@ -1097,7 +1056,7 @@ class OpenDataLoaderParser(ParserPort):
                 required.update(
                     {"local-selected.pdf", "local-selected.json", "local-page-map.json"}
                 )
-            elif profile.local_resource_policy == "selected-pdf-h6-v1":
+            elif profile.local_resource_policy in {"selected-pdf-h6-v1", "selected-pdf-h6-v2"}:
                 required.add("h6-local.json")
             elif {
                 "local-selected.pdf",
@@ -1120,7 +1079,8 @@ class OpenDataLoaderParser(ParserPort):
                 if sha256(data).hexdigest() != digest:
                     raise ValueError("artifact hash")
                 if (
-                    profile.local_resource_policy == "selected-pdf-h6-v1" and name.endswith(".json")
+                    profile.local_resource_policy in {"selected-pdf-h6-v1", "selected-pdf-h6-v2"}
+                    and name.endswith(".json")
                 ) or name in {
                     "graph.json",
                     "quality.json",
@@ -1135,8 +1095,8 @@ class OpenDataLoaderParser(ParserPort):
                     "local-page-map.json",
                 }:
                     values[name] = json.loads(data)
-            if profile.local_resource_policy == "selected-pdf-h6-v1":
-                from proofops.adapters.parsing.h6_local_pages import validate
+            if profile.local_resource_policy in {"selected-pdf-h6-v1", "selected-pdf-h6-v2"}:
+                validate = _local_pages(profile).validate
 
                 validate(
                     values["h6-local.json"],
@@ -1306,8 +1266,8 @@ class OpenDataLoaderParser(ParserPort):
                 profile,
                 () if vision_metrics is None else vision_metrics["pages_routed"],
             )
-            if profile.local_resource_policy == "selected-pdf-h6-v1":
-                from proofops.adapters.parsing.h6_local_pages import failures
+            if profile.local_resource_policy in {"selected-pdf-h6-v1", "selected-pdf-h6-v2"}:
+                failures = _local_pages(profile).failures
                 from proofops.adapters.parsing.mixed_routing import with_failures
 
                 restored = with_failures(restored, failures(values["h6-local.json"]))
@@ -1588,9 +1548,9 @@ def _child(work: Path) -> None:
     import opendataloader_pdf
 
     input_path, java_pages = work / "source.pdf", selected
-    h6 = profile.get("local_resource_policy") == "selected-pdf-h6-v1"
+    h6 = profile.get("local_resource_policy") in {"selected-pdf-h6-v1", "selected-pdf-h6-v2"}
     if h6:
-        from proofops.adapters.parsing.h6_local_pages import subset
+        subset = _local_pages(profile).subset
 
         input_path = work / "h6-selected.pdf"
         input_path.write_bytes(subset((work / "source.pdf").read_bytes(), tuple(selected)))
@@ -1637,7 +1597,7 @@ def _child(work: Path) -> None:
             )
         )
     elif h6:
-        from proofops.adapters.parsing.h6_local_pages import remap
+        remap = _local_pages(profile).remap
 
         raw_subset = json.loads((work / "h6-selected.json").read_bytes())
         (work / "source.json").write_bytes(

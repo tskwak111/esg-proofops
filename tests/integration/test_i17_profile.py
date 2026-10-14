@@ -18,7 +18,9 @@ from proofops.domain.provenance import canonical_hash
 
 
 def test_v17_default_composes_all_hotfixes_and_hosted_reader():
-    policy = profiles.policy_for(profiles.V2_PROFILE)
+    policy = profiles.policy_for(
+        profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_I17_POLICY)
+    )
     assert policy == profiles.FINALS_I17_POLICY
     assert policy["integration_profile"] == "finals-20261014-v17"
     assert policy["source"] == reader.PROFILE
@@ -34,7 +36,11 @@ def test_v17_default_composes_all_hotfixes_and_hosted_reader():
     ):
         assert policy[key] == profiles.FINALS_HX6_RESILIENT_POLICY[key]
     assert policy["input_failure_policy"] == profiles.FINALS_HX5_POLICY["input_failure_policy"]
-    args = Namespace(analysis_profile=profiles.V2_PROFILE, resume=False)
+    args = Namespace(
+        analysis_profile=profiles.V2_PROFILE,
+        resume=False,
+        analysis_policy_sha256=canonical_hash(policy),
+    )
     profiles.apply_pilot_profile(args)
     assert args.analysis_policy_sha256 == canonical_hash(policy)
     assert args.claim_source_profile == reader.PROFILE

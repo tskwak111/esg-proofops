@@ -9,6 +9,7 @@ from dataclasses import asdict
 from hashlib import sha256
 
 from proofops.adapters.cache.aws import CacheNamespace, CacheRequest
+from proofops.adapters.local.claim_source_policies import PAGE_OCR_PROFILES
 from proofops.adapters.local.claim_store import LocalClaimStore
 from proofops.application.budget import TokenUsage
 from proofops.application.evidence.binding import ClaimContext
@@ -327,28 +328,7 @@ def _stored_context_reader(
             else (receipt.get("receipts") or {}).get("paragraph")
         )
         if paragraph is None and receipt.get("schema") == "context_source_attestation_v1":
-            if run_policy and run_policy.get("profile") in {
-                "upstage-ocr-page-v1",
-                "upstage-ocr-page-v2",
-                "upstage-ocr-page-v3",
-                "upstage-ocr-page-v4",
-                "upstage-ocr-page-v5",
-                "upstage-ocr-page-v6",
-                "upstage-ocr-page-v7",
-                "upstage-ocr-page-v8",
-                "upstage-ocr-page-v9",
-                "upstage-ocr-page-v10",
-                "upstage-ocr-page-v11",
-                "upstage-ocr-page-v12",
-                "upstage-ocr-page-v13",
-                "upstage-ocr-page-v14",
-                "upstage-ocr-page-v15",
-                "upstage-ocr-page-v16",
-                "upstage-ocr-page-v17",
-                "upstage-ocr-page-v18",
-                "upstage-ocr-page-v16-hx4",
-                "upstage-ocr-page-v16-hx5",
-            }:
+            if run_policy and run_policy.get("profile") in PAGE_OCR_PROFILES:
                 from proofops.adapters.local.claim_source_policies import claim_source_reader
 
                 table_span_policy = claim_source_reader(run_policy).table_span_policy
@@ -476,28 +456,7 @@ class LocalTagStore:
             raise ValueError("CONTEXT_SOURCE_MISMATCH")
 
         def attest_paragraphs(selected):
-            if reader_policy and reader_policy.get("profile") in {
-                "upstage-ocr-page-v1",
-                "upstage-ocr-page-v2",
-                "upstage-ocr-page-v3",
-                "upstage-ocr-page-v4",
-                "upstage-ocr-page-v5",
-                "upstage-ocr-page-v6",
-                "upstage-ocr-page-v7",
-                "upstage-ocr-page-v8",
-                "upstage-ocr-page-v9",
-                "upstage-ocr-page-v10",
-                "upstage-ocr-page-v11",
-                "upstage-ocr-page-v12",
-                "upstage-ocr-page-v13",
-                "upstage-ocr-page-v14",
-                "upstage-ocr-page-v15",
-                "upstage-ocr-page-v16",
-                "upstage-ocr-page-v17",
-                "upstage-ocr-page-v18",
-                "upstage-ocr-page-v16-hx4",
-                "upstage-ocr-page-v16-hx5",
-            }:
+            if reader_policy and reader_policy.get("profile") in PAGE_OCR_PROFILES:
                 for_run = reader.for_run
 
                 if stored_receipt is not None:
@@ -532,28 +491,7 @@ class LocalTagStore:
         )
         paragraphs = tuple(ref for ref in unresolved if kinds[ref.source_id] == "paragraph")
         tables = tuple(ref for ref in unresolved if kinds[ref.source_id] != "paragraph")
-        if reader_policy and reader_policy.get("profile") in {
-            "upstage-ocr-page-v1",
-            "upstage-ocr-page-v2",
-            "upstage-ocr-page-v3",
-            "upstage-ocr-page-v4",
-            "upstage-ocr-page-v5",
-            "upstage-ocr-page-v6",
-            "upstage-ocr-page-v7",
-            "upstage-ocr-page-v8",
-            "upstage-ocr-page-v9",
-            "upstage-ocr-page-v10",
-            "upstage-ocr-page-v11",
-            "upstage-ocr-page-v12",
-            "upstage-ocr-page-v13",
-            "upstage-ocr-page-v14",
-            "upstage-ocr-page-v15",
-            "upstage-ocr-page-v16",
-            "upstage-ocr-page-v17",
-            "upstage-ocr-page-v18",
-            "upstage-ocr-page-v16-hx4",
-            "upstage-ocr-page-v16-hx5",
-        }:
+        if reader_policy and reader_policy.get("profile") in PAGE_OCR_PROFILES:
             page_reader = reader.for_run(run_id)
             table_span_policy = reader.table_span_policy
             if stored_receipt is not None:

@@ -13,15 +13,24 @@ import sqlite3
 import sys
 from pathlib import Path
 
-from proofops.application.analysis_profile import S4_PUBLICATION_POLICY, VERIFIED_READ_V8_POLICY
+from proofops.application.analysis_profile import (
+    I18_PUBLICATION_POLICY,
+    RG1_PUBLICATION_POLICY,
+    S4_PUBLICATION_POLICY,
+    VERIFIED_READ_V8_POLICY,
+    VERIFIED_READ_V9_POLICY,
+    VERIFIED_READ_V10_POLICY,
+)
 from proofops.domain.provenance import canonical_hash
 
 MAX_BYTES = S4_PUBLICATION_POLICY["max_bytes"]
 
 
-def runtime_identity():
+def runtime_identity(profile="upstage-ocr-page-v13", policy=None):
     import proofops
-    from proofops.adapters.local import upstage_ocr_profile_v13 as reader
+    from proofops.adapters.local.claim_source_policies import page_ocr_profile
+
+    reader = page_ocr_profile(profile, policy=policy)
     from proofops.adapters.local.local_raster_reader import runtime_policy
     from proofops.adapters.local.receipt_environment_compat import read_profile
 
@@ -53,10 +62,25 @@ def _context(path, job, pages):
             ).fetchone()[0]
         )
     policy = snapshot["analysis_profile_policy"]
-    if (
-        policy.get("verified_read_cache") != VERIFIED_READ_V8_POLICY
-        or policy.get("publication_handoff") != S4_PUBLICATION_POLICY
-        or policy.get("source") != "upstage-ocr-page-v13"
+    eligible = (
+        policy.get("verified_read_cache"),
+        policy.get("publication_handoff"),
+        policy.get("source"),
+    )
+    registered = False
+    if eligible[:2] == (VERIFIED_READ_V10_POLICY, I18_PUBLICATION_POLICY):
+        from proofops.adapters.local.claim_source_policies import page_ocr_profile
+        from proofops.application.analysis_profile import V2_PROFILE, policy_for
+
+        try:
+            registered = policy_for(V2_PROFILE, pinned_hash=canonical_hash(policy)) == policy
+            reader = page_ocr_profile(policy["source"], policy=snapshot["claim_source_policy"])
+            registered = registered and reader.PROFILE == policy["source"]
+        except (ValueError, KeyError):
+            registered = False
+    if not registered and eligible not in (
+        (VERIFIED_READ_V8_POLICY, S4_PUBLICATION_POLICY, "upstage-ocr-page-v13"),
+        (VERIFIED_READ_V9_POLICY, RG1_PUBLICATION_POLICY, "upstage-ocr-page-v17"),
     ):
         raise ValueError("PUBLICATION_POLICY_INELIGIBLE")
     return dict(
@@ -67,8 +91,8 @@ def _context(path, job, pages):
         local_run_id=manifest["run_id"],
         page_map=pages,
         analysis_policy_sha256=canonical_hash(policy),
-        execution=S4_PUBLICATION_POLICY,
-        reader_runtime=runtime_identity(),
+        execution=policy["publication_handoff"],
+        reader_runtime=runtime_identity(policy["source"], snapshot.get("claim_source_policy")),
     )
 
 

@@ -8,6 +8,7 @@ from copy import deepcopy
 from dataclasses import asdict
 from hashlib import sha256
 
+from proofops.adapters.local.claim_source_policies import PAGE_OCR_PROFILES
 from proofops.adapters.local.run_artifacts import load_run_graph
 from proofops.application.claim_scope import claim_pages_for
 from proofops.application.claims import ClaimScope, ExtractionProfile, discover_atomic_claims
@@ -128,28 +129,7 @@ class LocalClaimStore:
             from proofops.adapters.local.run_artifacts import load_run_inputs
 
             reader = claim_source_reader(snapshot["claim_source_policy"])
-            if snapshot["claim_source_policy"].get("profile") in {
-                "upstage-ocr-page-v1",
-                "upstage-ocr-page-v2",
-                "upstage-ocr-page-v3",
-                "upstage-ocr-page-v4",
-                "upstage-ocr-page-v5",
-                "upstage-ocr-page-v6",
-                "upstage-ocr-page-v7",
-                "upstage-ocr-page-v8",
-                "upstage-ocr-page-v9",
-                "upstage-ocr-page-v10",
-                "upstage-ocr-page-v11",
-                "upstage-ocr-page-v12",
-                "upstage-ocr-page-v13",
-                "upstage-ocr-page-v14",
-                "upstage-ocr-page-v15",
-                "upstage-ocr-page-v16",
-                "upstage-ocr-page-v17",
-                "upstage-ocr-page-v18",
-                "upstage-ocr-page-v16-hx4",
-                "upstage-ocr-page-v16-hx5",
-            }:
+            if snapshot["claim_source_policy"].get("profile") in PAGE_OCR_PROFILES:
                 if envelope["claim_source_attestation"].get("run_id") != run_id:
                     raise ValueError("OCR_POLICY_OR_RUN_MISMATCH")
             _, source, _ = load_run_inputs(
@@ -445,29 +425,7 @@ def validate_extract_commit(db, jobs, run, message, envelope, next_job, *, now):
         if (
             envelope.get("schema") != "local_extract_checkpoint_v2"
             or (
-                snapshot["claim_source_policy"].get("profile")
-                in {
-                    "upstage-ocr-page-v1",
-                    "upstage-ocr-page-v2",
-                    "upstage-ocr-page-v3",
-                    "upstage-ocr-page-v4",
-                    "upstage-ocr-page-v5",
-                    "upstage-ocr-page-v6",
-                    "upstage-ocr-page-v7",
-                    "upstage-ocr-page-v8",
-                    "upstage-ocr-page-v9",
-                    "upstage-ocr-page-v10",
-                    "upstage-ocr-page-v11",
-                    "upstage-ocr-page-v12",
-                    "upstage-ocr-page-v13",
-                    "upstage-ocr-page-v14",
-                    "upstage-ocr-page-v15",
-                    "upstage-ocr-page-v16",
-                    "upstage-ocr-page-v17",
-                    "upstage-ocr-page-v18",
-                    "upstage-ocr-page-v16-hx4",
-                    "upstage-ocr-page-v16-hx5",
-                }
+                snapshot["claim_source_policy"].get("profile") in PAGE_OCR_PROFILES
                 and receipt.get("run_id") != message.run_id
             )
             or receipt.get("policy") != snapshot["claim_source_policy"]

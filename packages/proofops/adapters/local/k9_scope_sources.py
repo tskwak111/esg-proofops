@@ -48,10 +48,14 @@ def scope_graph(graph, source, claims, *, tenant_id, run_id, policy):
         from proofops.adapters.local import upstage_ocr_profile_hx5_v16 as upstage_ocr_profile_v16
 
         reader = upstage_ocr_profile_v16.for_run(run_id)
-    if policy.get("source") == "upstage-ocr-page-v18":
-        from proofops.adapters.local import upstage_ocr_profile_v18
+    from proofops.adapters.local.claim_source_policies import PAGE_OCR_PROFILES, page_ocr_profile
 
-        reader = upstage_ocr_profile_v18.for_run(run_id)
+    if (
+        policy.get("input_failure_policy")
+        and policy.get("source") in PAGE_OCR_PROFILES
+        and policy["source"] != "upstage-ocr-page-v16"
+    ):
+        reader = page_ocr_profile(policy["source"]).for_run(run_id)
     from proofops.adapters.local.source_attestation_errors import source_failure_code
     from proofops.application.input_failures import POLICY, RECOVERABLE_SOURCE_CODES
 

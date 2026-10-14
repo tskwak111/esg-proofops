@@ -1,5 +1,6 @@
 """One explicitly selected profile; old configurations remain byte-identical."""
 
+from proofops.adapters.local.claim_source_policies import PAGE_OCR_PROFILES
 from proofops.application.ingest.h1_boundaries import POLICY as H1_BOUNDARY_POLICY
 from proofops.application.ingest.i3_wire import POLICY as I3_WIRE_POLICY
 from proofops.application.ingest.j7_split import CONTEXT_POLICY
@@ -745,6 +746,31 @@ FINALS_I16_POLICY = FINALS_I15_POLICY | dict(
 )
 V2_POLICY = FINALS_I16_POLICY
 
+VERIFIED_READ_V9_POLICY = VERIFIED_READ_V8_POLICY | dict(
+    profile="exact-verified-read-v9",
+    fresh_attestation="whole-byte-identical-v17-rg1",
+    v17_replay_sha256="5b32b114258b27b36461f130ff42b9aabd15dd0c7335a7829cdca63de4ba9d3d",
+    raw_ocr_profiles=[
+        "upstage-ocr-page-v6",
+        "upstage-ocr-page-v9",
+        "upstage-ocr-page-v10",
+        "upstage-ocr-page-v11",
+        "upstage-ocr-page-v12",
+        "upstage-ocr-page-v13",
+        "upstage-ocr-page-v17",
+    ],
+)
+RG1_PUBLICATION_POLICY = S4_PUBLICATION_POLICY | dict(
+    profile="private-child-byte-pinned-publication-rg1-v1",
+)
+FINALS_RG1_POLICY = FINALS_I16_POLICY | dict(
+    integration_profile="finals-20261014-rg1",
+    source="upstage-ocr-page-v17",
+    local_resource_policy="selected-pdf-h6-v2",
+    verified_read_cache=VERIFIED_READ_V9_POLICY,
+    publication_handoff=RG1_PUBLICATION_POLICY,
+)
+
 # Explicit hotfix pin: integration can adopt it without rewriting any v15 run.
 FINALS_HX4_POLICY = FINALS_I15_POLICY | dict(
     integration_profile="finals-20261014-hx4-parse-v1",
@@ -793,7 +819,21 @@ FINALS_I17_POLICY = (
         input_failure_policy_sha256=canonical_hash(HX5_INPUT_POLICY),
     )
 )
-V2_POLICY = FINALS_I17_POLICY
+VERIFIED_READ_V10_POLICY = VERIFIED_READ_V9_POLICY | dict(
+    profile="exact-verified-read-v10",
+    fresh_attestation="registered-whole-receipt-and-policy-v1",
+)
+I18_PUBLICATION_POLICY = S4_PUBLICATION_POLICY | dict(
+    profile="private-child-registered-policy-publication-v1",
+)
+FINALS_I18_POLICY = FINALS_I17_POLICY | dict(
+    integration_profile="finals-20261014-v18",
+    source="upstage-ocr-page-v19",
+    local_resource_policy="selected-pdf-h6-v2",
+    verified_read_cache=VERIFIED_READ_V10_POLICY,
+    publication_handoff=I18_PUBLICATION_POLICY,
+)
+V2_POLICY = FINALS_I18_POLICY
 
 
 def policy_for(profile, *, pinned_hash=None):
@@ -823,6 +863,8 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_I17_POLICY,
+            FINALS_RG1_POLICY,
             FINALS_I16_POLICY,
             FINALS_I15_POLICY,
             FINALS_HX3_POLICY,
@@ -947,6 +989,8 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FINALS_I17_POLICY,
+            FINALS_RG1_POLICY,
             FINALS_I16_POLICY,
             FINALS_HX5_POLICY,
             FINALS_HX5_V1_POLICY,
@@ -1061,54 +1105,32 @@ def apply_pilot_profile(args):
         args.claim_source_profile = selected["source"]
     if profile in (V2_PROFILE, J3_PROFILE, J7_PROFILE, J8_PROFILE) and getattr(
         args, "claim_source_profile", None
-    ) in (
+    ) in {
         None,
         "claim-source-v3",
-        "upstage-ocr-page-v5",
-        "upstage-ocr-page-v6",
-        "upstage-ocr-page-v7",
-        "upstage-ocr-page-v8",
-        "upstage-ocr-page-v9",
-        "upstage-ocr-page-v10",
-        "upstage-ocr-page-v11",
-        "upstage-ocr-page-v12",
-        "upstage-ocr-page-v13",
-        "upstage-ocr-page-v14",
-        "upstage-ocr-page-v15",
-        "upstage-ocr-page-v16",
-        "upstage-ocr-page-v17",
-        "upstage-ocr-page-v18",
-        "upstage-ocr-page-v16-hx4",
-        "upstage-ocr-page-v16-hx5",
-    ):
+        *(
+            PAGE_OCR_PROFILES.keys()
+            - {
+                "upstage-ocr-page-v1",
+                "upstage-ocr-page-v2",
+                "upstage-ocr-page-v3",
+                "upstage-ocr-page-v4",
+            }
+        ),
+    }:
         args.claim_source_profile = (
             selected["source"] if selected.get("table_worker_routing") else "upstage-ocr-page-v10"
         )
-    if getattr(args, "claim_source_profile", None) not in {
-        "upstage-ocr-page-v3",
-        "upstage-ocr-page-v4",
-        "upstage-ocr-page-v5",
-        "upstage-ocr-page-v6",
-        "upstage-ocr-page-v7",
-        "upstage-ocr-page-v8",
-        "upstage-ocr-page-v9",
-        "upstage-ocr-page-v10",
-        "upstage-ocr-page-v11",
-        "upstage-ocr-page-v12",
-        "upstage-ocr-page-v13",
-        "upstage-ocr-page-v14",
-        "upstage-ocr-page-v15",
-        "upstage-ocr-page-v16",
-        "upstage-ocr-page-v17",
-        "upstage-ocr-page-v18",
-        "upstage-ocr-page-v16-hx4",
-        "upstage-ocr-page-v16-hx5",
-    }:
+    if getattr(args, "claim_source_profile", None) not in (
+        PAGE_OCR_PROFILES.keys() - {"upstage-ocr-page-v1", "upstage-ocr-page-v2"}
+    ):
         args.claim_source_profile = "claim-source-v3"
     if selected == FINALS_HX4_POLICY:
         args.claim_source_profile = "upstage-ocr-page-v16-hx4"
     elif selected == FINALS_HX5_POLICY:
         args.claim_source_profile = "upstage-ocr-page-v16-hx5"
+    elif selected == FINALS_RG1_POLICY:
+        args.claim_source_profile = "upstage-ocr-page-v17-rg1"
     args.verify_claim_spans = True
     args.extraction_linewrap_join = True
     args.vision_parse = "off"

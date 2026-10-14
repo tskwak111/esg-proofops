@@ -22,8 +22,9 @@ PAGE_OCR_PROFILES = {
     "upstage-ocr-page-v1": "proofops.adapters.local.upstage_ocr_profile",
     **{
         f"upstage-ocr-page-v{version}": f"proofops.adapters.local.upstage_ocr_profile_v{version}"
-        for version in range(2, 19)
+        for version in range(2, 20)
     },
+    "upstage-ocr-page-v17-rg1": "proofops.adapters.local.upstage_ocr_profile_rg1_v17",
     "upstage-ocr-page-v16-hx4": "proofops.adapters.local.upstage_ocr_profile_hx4_v16",
     "upstage-ocr-page-v16-hx5": "proofops.adapters.local.upstage_ocr_profile_hx5_v16",
 }
@@ -288,6 +289,8 @@ def page_ocr_profile(profile, *, policy=None, native=False):
             import_module(PAGE_OCR_PROFILES[name])
             for name in ("upstage-ocr-page-v16-hx4", "upstage-ocr-page-v16-hx5")
         )
+    if profile == "upstage-ocr-page-v17":
+        candidates.append(import_module(PAGE_OCR_PROFILES["upstage-ocr-page-v17-rg1"]))
     for candidate in candidates:
         expected = candidate.native_policy() if native else candidate.claim_source_policy()
         if policy == expected:

@@ -23,6 +23,8 @@ from proofops.application.analysis_profile import (
     VERIFIED_READ_V6_POLICY,
     VERIFIED_READ_V7_POLICY,
     VERIFIED_READ_V8_POLICY,
+    VERIFIED_READ_V9_POLICY,
+    VERIFIED_READ_V10_POLICY,
 )
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
@@ -42,6 +44,8 @@ def fresh_execution_enabled():
         VERIFIED_READ_V6_POLICY["profile"],
         VERIFIED_READ_V7_POLICY["profile"],
         VERIFIED_READ_V8_POLICY["profile"],
+        VERIFIED_READ_V9_POLICY["profile"],
+        VERIFIED_READ_V10_POLICY["profile"],
     )
 
 
@@ -55,6 +59,8 @@ def _execution_policy():
         VERIFIED_READ_V6_POLICY,
         VERIFIED_READ_V7_POLICY,
         VERIFIED_READ_V8_POLICY,
+        VERIFIED_READ_V9_POLICY,
+        VERIFIED_READ_V10_POLICY,
     ):
         if os.environ.get("PROOFOPS_VERIFIED_READ_CACHE") == policy["profile"]:
             return policy
@@ -69,6 +75,8 @@ def _parse_enabled():
         VERIFIED_READ_V6_POLICY,
         VERIFIED_READ_V7_POLICY,
         VERIFIED_READ_V8_POLICY,
+        VERIFIED_READ_V9_POLICY,
+        VERIFIED_READ_V10_POLICY,
     )
 
 
@@ -82,6 +90,32 @@ def _parse_projection_pinned(reader_name, policy):
 
     if not _parse_enabled():
         return False
+    if _execution_policy() == VERIFIED_READ_V10_POLICY:
+        try:
+            if reader_name.startswith("native:"):
+                page_ocr_profile(policy["mode"], policy=policy, native=True)
+                return True
+            from proofops.adapters.local.evidence_source_policies import evidence_source_reader
+
+            return evidence_source_reader(policy).__name__ == reader_name
+        except (ValueError, KeyError, TypeError):
+            return False
+    if _execution_policy() == VERIFIED_READ_V9_POLICY:
+        if reader_name == "native:upstage-ocr-page-v17":
+            reader = page_ocr_profile("upstage-ocr-page-v17", policy=policy, native=True)
+            return (
+                policy == reader.native_policy()
+                and sha256(Path(reader.__file__).read_bytes()).hexdigest()
+                == VERIFIED_READ_V9_POLICY["v17_replay_sha256"]
+            )
+        from proofops.adapters.local import evidence_source_hx3
+
+        if reader_name == evidence_source_hx3.__name__:
+            return (
+                policy == evidence_source_hx3.policy()
+                and sha256(Path(base.__file__).read_bytes()).hexdigest()
+                == "d006dd1f3534080ad947b28fbfbedd57e97580b67ea3bb397dbb403ce01b01f6"
+            )
     if reader_name == "native:upstage-ocr-page-v6":
         return (
             policy == page_ocr_profile("upstage-ocr-page-v6").native_policy()
@@ -154,6 +188,20 @@ def _project_parse(receipt, graph, *, native):
         for k, v in receipt.items()
         if k not in {"run_id", "page_collections", "rendered_reader_profile", "artifact_sha256"}
     }
+    if receipt.get("schema") == "evidence_source_i17_attestation_v1":
+        if receipt["source_sha256"] != graph.source_sha256:
+            raise ValueError("EVIDENCE_SOURCE_MISMATCH")
+        if "tables" not in receipt["base_receipt"] or receipt.get("scope", "").startswith(
+            "empty-selection"
+        ):
+            return graph
+        return _project_parse(receipt["base_receipt"], graph, native=False)
+    hx3 = receipt.get("schema") in {
+        "evidence_source_hx3_attestation_v1",
+        "evidence_source_hx4_attestation_v1",
+    }
+    if hx3:
+        base = receipt
     members = {sid for t in base["tables"] if t["status"] == "verified" for sid in t["member_ids"]}
     table_ids = {t["table_id"] for t in base["tables"] if t["status"] == "verified"}
     checked = replace(
@@ -176,7 +224,9 @@ def _project_parse(receipt, graph, *, native):
         if r["kind"] == "paragraph" and r["status"] == "verified"
     )
     return span_verified_graph(
-        checked, tuple(getattr(graph, "verified_spans", ()) or ()) + refs, canonical_hash(base)
+        checked,
+        tuple(getattr(graph, "verified_spans", ()) or ()) + refs,
+        receipt["artifact_sha256"] if hx3 else canonical_hash(base),
     )
 
 
@@ -233,6 +283,13 @@ def _fresh_key(reader, policy, receipt, graph, source, refs, tenant_id):
     from proofops.adapters.local.receipt_environment_compat import read_profile
 
     profile = policy.get("profile")
+    registered = False
+    if _execution_policy() == VERIFIED_READ_V10_POLICY:
+        try:
+            registered = reader is page_ocr_profile(profile, policy=policy)
+        except ValueError:
+            pass
+
     pinned_v9 = (
         _execution_policy()
         in (
@@ -241,6 +298,8 @@ def _fresh_key(reader, policy, receipt, graph, source, refs, tenant_id):
             VERIFIED_READ_V6_POLICY,
             VERIFIED_READ_V7_POLICY,
             VERIFIED_READ_V8_POLICY,
+            VERIFIED_READ_V9_POLICY,
+            VERIFIED_READ_V10_POLICY,
         )
         and profile == "upstage-ocr-page-v9"
         and reader is page_ocr_profile(profile)
@@ -261,6 +320,8 @@ def _fresh_key(reader, policy, receipt, graph, source, refs, tenant_id):
             VERIFIED_READ_V6_POLICY,
             VERIFIED_READ_V7_POLICY,
             VERIFIED_READ_V8_POLICY,
+            VERIFIED_READ_V9_POLICY,
+            VERIFIED_READ_V10_POLICY,
         )
         and profile == "upstage-ocr-page-v10"
         and reader is page_ocr_profile(profile)
@@ -278,7 +339,8 @@ def _fresh_key(reader, policy, receipt, graph, source, refs, tenant_id):
         and receipt.get("schema") == "claim_source_k3_extension_v1"
     )
     pinned_v12 = (
-        _execution_policy() in (VERIFIED_READ_V7_POLICY, VERIFIED_READ_V8_POLICY)
+        _execution_policy()
+        in (VERIFIED_READ_V7_POLICY, VERIFIED_READ_V8_POLICY, VERIFIED_READ_V9_POLICY)
         and profile == "upstage-ocr-page-v12"
         and reader is page_ocr_profile(profile)
         and sha256(Path(reader.__file__).read_bytes()).hexdigest()
@@ -293,7 +355,15 @@ def _fresh_key(reader, policy, receipt, graph, source, refs, tenant_id):
         == VERIFIED_READ_V8_POLICY["v13_replay_sha256"]
         and receipt.get("schema") == "claim_source_k7_extension_v1"
     )
-    if pinned_v13 and (
+    pinned_v17 = (
+        _execution_policy() == VERIFIED_READ_V9_POLICY
+        and profile == "upstage-ocr-page-v17"
+        and reader is page_ocr_profile(profile, policy=policy)
+        and sha256(Path(reader.__file__).read_bytes()).hexdigest()
+        == VERIFIED_READ_V9_POLICY["v17_replay_sha256"]
+        and receipt.get("schema") == "claim_source_k7_extension_v1"
+    )
+    if (registered or pinned_v13 or pinned_v17) and (
         receipt.get("tenant_id") != tenant_id
         or graph.tenant_id != tenant_id
         or receipt.get("document_version_id") != graph.document_version_id
@@ -307,7 +377,16 @@ def _fresh_key(reader, policy, receipt, graph, source, refs, tenant_id):
         return None
     if (
         not fresh_execution_enabled()
-        or not (pinned_v6 or pinned_v9 or pinned_v10 or pinned_v11 or pinned_v12 or pinned_v13)
+        or not (
+            registered
+            or pinned_v6
+            or pinned_v9
+            or pinned_v10
+            or pinned_v11
+            or pinned_v12
+            or pinned_v13
+            or pinned_v17
+        )
         or reader.claim_source_policy() != policy
         or receipt.get("policy") != policy
         or not receipt.get("run_id")
@@ -366,7 +445,7 @@ def reuse_fresh_attestation(*, reader, policy, receipt, graph, source, discovery
     compare_receipts(receipt, receipt, profile=read_profile())
     if policy.get("profile") == "upstage-ocr-page-v9":
         return _project_v9(receipt, graph, discovery, tenant_id)
-    if policy.get("profile") in (
+    if _execution_policy() == VERIFIED_READ_V10_POLICY or policy.get("profile") in (
         "upstage-ocr-page-v10",
         "upstage-ocr-page-v11",
         "upstage-ocr-page-v12",
@@ -375,9 +454,6 @@ def reuse_fresh_attestation(*, reader, policy, receipt, graph, source, discovery
         "upstage-ocr-page-v15",
         "upstage-ocr-page-v16",
         "upstage-ocr-page-v17",
-        "upstage-ocr-page-v18",
-        "upstage-ocr-page-v16-hx4",
-        "upstage-ocr-page-v16-hx5",
     ):
         return _project_owned_cells(receipt, graph, discovery, tenant_id, failed_state="candidate")
     return _project_whole_attestation(receipt, graph, discovery, tenant_id, refs_field="records")
@@ -468,6 +544,7 @@ def _transient(value):
             "local_raster_read_unresolved",
             "fallback_reader_unavailable",
             "ocr_reader_unavailable",
+            "source_item_read_unresolved",
         }:
             return True
         return any(_transient(item) for item in value.values())
@@ -562,7 +639,8 @@ def replay_cached(
                     raise
                 return recompute(receipt, graph, source, discovery, tenant_id=tenant_id)
         if (
-            _execution_policy() in (VERIFIED_READ_V7_POLICY, VERIFIED_READ_V8_POLICY)
+            _execution_policy()
+            in (VERIFIED_READ_V7_POLICY, VERIFIED_READ_V8_POLICY, VERIFIED_READ_V9_POLICY)
             and discovery is not None
             and reader_name.endswith(".upstage_ocr_profile_v12")
         ):
@@ -604,15 +682,7 @@ def replay_cached(
     ):
         from proofops.adapters.local.claim_source_policies import page_ocr_profile
 
-        try:
-            selected = (
-                page_ocr_profile(policy["mode"], policy=policy, native=True)
-                if policy["mode"] == "upstage-ocr-page-v16"
-                else page_ocr_profile(policy["mode"])
-            )
-        except ValueError:
-            raise ValueError("NATIVE_PARAGRAPH_POLICY_MISMATCH") from None
-        if selected.native_policy() != policy:
+        if page_ocr_profile(policy["mode"], policy=policy, native=True).native_policy() != policy:
             raise ValueError("NATIVE_PARAGRAPH_POLICY_MISMATCH")
     from proofops.adapters.local.local_raster_reader import runtime_policy
     from proofops.adapters.local.receipt_environment_compat import read_profile
@@ -623,15 +693,7 @@ def replay_cached(
     ):
         from proofops.adapters.local.claim_source_policies import page_ocr_profile
 
-        selected = page_ocr_profile(policy["profile"])
-        if policy["profile"] == "upstage-ocr-page-v16":
-            try:
-                selected = page_ocr_profile(policy["profile"], policy=policy)
-            except ValueError:
-                # A changed live verifier must invalidate the cache and reach
-                # the original cold replay, which still enforces its policy.
-                pass
-        live_claim_policy = selected.claim_source_policy()
+        live_claim_policy = page_ocr_profile(policy["profile"]).claim_source_policy()
     if _parse_enabled() and reader_name.endswith(".evidence_source_ocr_v1"):
         from proofops.adapters.local import evidence_source_ocr_v1
 

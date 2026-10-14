@@ -23,6 +23,7 @@ from uuid import UUID, uuid4
 
 import yaml  # type: ignore[import-untyped]
 from fastapi import Request
+from proofops.adapters.local.claim_source_policies import PAGE_OCR_PROFILES
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -622,28 +623,7 @@ def claim_source_policy_for(args):
         from proofops.adapters.local.claim_source_verification_v3 import claim_source_policy
 
         return claim_source_policy()
-    if profile in {
-        "upstage-ocr-page-v1",
-        "upstage-ocr-page-v2",
-        "upstage-ocr-page-v3",
-        "upstage-ocr-page-v4",
-        "upstage-ocr-page-v5",
-        "upstage-ocr-page-v6",
-        "upstage-ocr-page-v7",
-        "upstage-ocr-page-v8",
-        "upstage-ocr-page-v9",
-        "upstage-ocr-page-v10",
-        "upstage-ocr-page-v11",
-        "upstage-ocr-page-v12",
-        "upstage-ocr-page-v13",
-        "upstage-ocr-page-v14",
-        "upstage-ocr-page-v15",
-        "upstage-ocr-page-v16",
-        "upstage-ocr-page-v17",
-        "upstage-ocr-page-v18",
-        "upstage-ocr-page-v16-hx4",
-        "upstage-ocr-page-v16-hx5",
-    }:
+    if profile in PAGE_OCR_PROFILES:
         from proofops.adapters.local.claim_source_policies import page_ocr_profile
 
         return page_ocr_profile(profile).claim_source_policy()
@@ -1125,28 +1105,9 @@ def main():
         "--rendered-reader-profile",
         choices=[
             "glyph-alignment-v1",
-            "upstage-ocr-page-v1",
-            "upstage-ocr-page-v2",
-            "upstage-ocr-page-v3",
-            "upstage-ocr-page-v4",
-            "upstage-ocr-page-v5",
-            "upstage-ocr-page-v6",
-            "upstage-ocr-page-v7",
-            "upstage-ocr-page-v8",
-            "upstage-ocr-page-v9",
-            "upstage-ocr-page-v10",
-            "upstage-ocr-page-v11",
-            "upstage-ocr-page-v12",
-            "upstage-ocr-page-v13",
-            "upstage-ocr-page-v14",
-            "upstage-ocr-page-v15",
-            "upstage-ocr-page-v16",
-            "upstage-ocr-page-v17",
-            "upstage-ocr-page-v18",
-            "upstage-ocr-page-v16-hx4",
-            "upstage-ocr-page-v16-hx5",
             "table-claim-spans-v1",
             "claim-source-v3",
+            *PAGE_OCR_PROFILES,
         ],
         help="Pin source reader for a NEW run; requires --verify-claim-spans.",
     )
@@ -1640,28 +1601,7 @@ def main():
                 policy_sha256 as table_policy,
             )
 
-        if args.claim_source_profile in {
-            "upstage-ocr-page-v1",
-            "upstage-ocr-page-v2",
-            "upstage-ocr-page-v3",
-            "upstage-ocr-page-v4",
-            "upstage-ocr-page-v5",
-            "upstage-ocr-page-v6",
-            "upstage-ocr-page-v7",
-            "upstage-ocr-page-v8",
-            "upstage-ocr-page-v9",
-            "upstage-ocr-page-v10",
-            "upstage-ocr-page-v11",
-            "upstage-ocr-page-v12",
-            "upstage-ocr-page-v13",
-            "upstage-ocr-page-v14",
-            "upstage-ocr-page-v15",
-            "upstage-ocr-page-v16",
-            "upstage-ocr-page-v17",
-            "upstage-ocr-page-v18",
-            "upstage-ocr-page-v16-hx4",
-            "upstage-ocr-page-v16-hx5",
-        }:
+        if args.claim_source_profile in PAGE_OCR_PROFILES:
             if args.raster_ocr or args.native_quote_typography:
                 parser.error("page OCR requires no raster/native quote-typography composition")
             if args.verify_tables or args.verify_merged_tables or args.verify_selected_cells:
