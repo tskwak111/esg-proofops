@@ -278,7 +278,10 @@ def build_composition(
             recall_opt_in = settings.get("extraction_recall_prompt", False)
             if type(rows_opt_in) is not bool or type(recall_opt_in) is not bool:
                 raise ValueError("EXTRACTION_PROFILE_MISMATCH")
+            source_ids_opt_in = settings.get("extraction_source_ids") is True
             atomic_opt_in = settings.get("extraction_atomic") is True
+            atomic_v3_opt_in = settings.get("extraction_atomic_v3") is True
+            failure_diagnostics_opt_in = settings.get("extraction_failure_diagnostics") is True
             linewrap_join = settings.get("extraction_linewrap_join") is True
             fragment_guard = settings.get("extraction_fragment_guard", False)
             if type(fragment_guard) is not bool:
@@ -293,7 +296,14 @@ def build_composition(
                 not atomic_opt_in or settings.get("extraction_source_ids") is not True
             ):
                 raise ValueError("EXTRACTION_PROFILE_MISMATCH")
-            source_ids_opt_in = settings.get("extraction_source_ids") is True
+            if "extraction_atomic_v3" in settings and (
+                not atomic_v3_opt_in or not atomic_opt_in or not source_ids_opt_in
+            ):
+                raise ValueError("EXTRACTION_PROFILE_MISMATCH")
+            if "extraction_failure_diagnostics" in settings and (
+                not failure_diagnostics_opt_in or not source_ids_opt_in
+            ):
+                raise ValueError("EXTRACTION_PROFILE_MISMATCH")
             assertion_prompt_opt_in = settings.get("extraction_assertion_prompt") is True
             complete_selection_opt_in = settings.get("extraction_complete_selection") is True
             content_bounds_opt_in = settings.get("extraction_content_bounds") is True
@@ -302,7 +312,14 @@ def build_composition(
             position_order = settings.get("position_context_order") == CONTEXT_POSITION_ORDER
             if settings.get("position_context_order") is not None and not position_order:
                 raise ValueError("EXTRACTION_CONTEXT_ORDER_MISMATCH")
-            if year_notation or context_opt_in or source_ids_opt_in or display_profile:
+            if (
+                year_notation
+                or context_opt_in
+                or source_ids_opt_in
+                or display_profile
+                or atomic_v3_opt_in
+                or failure_diagnostics_opt_in
+            ):
                 # New-run opt-in only: the frozen settings must carry the exact
                 # option-combination profile hash, otherwise fail closed.
                 if frozen_profile != asdict(
@@ -313,6 +330,8 @@ def build_composition(
                         extraction_table_context=table_context_opt_in,
                         source_ids=source_ids_opt_in,
                         extraction_atomic=atomic_opt_in,
+                        extraction_atomic_v3=atomic_v3_opt_in,
+                        extraction_failure_diagnostics=failure_diagnostics_opt_in,
                         extraction_linewrap_join=linewrap_join,
                         extraction_fragment_guard=fragment_guard,
                         extraction_sentence_prefix=settings.get(
@@ -363,6 +382,8 @@ def build_composition(
                     extraction_table_context=table_context_opt_in,
                     extraction_source_ids=source_ids_opt_in,
                     extraction_atomic=atomic_opt_in,
+                    extraction_atomic_v3=atomic_v3_opt_in,
+                    extraction_failure_diagnostics=failure_diagnostics_opt_in,
                     extraction_linewrap_join=linewrap_join,
                     extraction_fragment_guard=fragment_guard,
                     extraction_sentence_prefix=settings.get("extraction_sentence_prefix", False),

@@ -464,7 +464,8 @@ class LocalExtractRunner:
                 include_source_failures=snapshot.get("analysis_profile_policy", {}).get(
                     "candidate_failure_policy"
                 )
-                == "invalid-table-unknown-v1",
+                == "invalid-table-unknown-v1"
+                or getattr(self.extractor, "_failure_diagnostics", False),
             ),
         )
         if "claim_source_policy" in snapshot:
@@ -1061,7 +1062,8 @@ class LocalExtractRunner:
                             include_source_failures=snapshot.get("analysis_profile_policy", {}).get(
                                 "candidate_failure_policy"
                             )
-                            == "invalid-table-unknown-v1",
+                            == "invalid-table-unknown-v1"
+                            or getattr(self.extractor, "_failure_diagnostics", False),
                         ),
                         coverage=coverage,
                     )

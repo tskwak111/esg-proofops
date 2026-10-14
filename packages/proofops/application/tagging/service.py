@@ -218,6 +218,7 @@ def tag_replicates(
     max_workers: int = 1,
     pipeline_profile: str | None = None,
     semantic_policy: dict | None = None,
+    allow_edge_whitespace: bool = False,
 ) -> tuple[TagRun, ...]:
     """Execute or recover replicas 1/2/3, preserving failures and budget stops.
 
@@ -236,6 +237,8 @@ def tag_replicates(
         raise DomainValidationError("TAGGING_INPUT_COUNTER_REQUIRED")
     if not isinstance(packet, EvidencePacket) or not isinstance(context, ClaimContext):
         raise DomainValidationError("immutable packet and claim context required")
+    if type(allow_edge_whitespace) is not bool:
+        raise DomainValidationError("edge-whitespace binding policy must be boolean")
     data = packet.to_dict()
     local_recovery = data.get("local_element_recovery_policy")
     implementation_binding = data.get("local_implementation_binding_policy")
@@ -829,6 +832,7 @@ def tag_replicates(
                                 local_value_identity=local_recovery is not None,
                                 local_binding_policy=implementation_binding,
                                 structural_policy=structural_policy,
+                                allow_edge_whitespace=allow_edge_whitespace,
                                 diagnostics=binding_reasons if r12_quality else None,
                             )
                             != "accepted"

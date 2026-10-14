@@ -12,6 +12,7 @@ import re
 from dataclasses import dataclass
 
 PROFILE = "extraction-atomic-v2"
+PROFILE_V3 = "extraction-atomic-v3"
 ENVIRONMENT = (
     r"환경|기후|탄\s*소|온실가스|Scope\s*[123]|CO2|CCS|수소|배출량|배출권|에너지|재생|재활용|용수|폐수|폐기물|생물다양성|"
     r"생태|오염|넷\s*제로|RE100|공정가스|대체가스|스크러버|태양광|전력|"
@@ -41,6 +42,10 @@ CONNECTIVE = (
     r"(?:했으며|하였으며|하였고|했고|하고\s*있으며|하고\s*있고|하였으나|했으나)\s*,?\s+|"
     r"중으로\s+|;\s+|,\s+(?=(?:19|20)\d{2}\s*년(?:까지|부터))"
 )
+# V3 adds completed award/recognition predicates so a sentence such as
+# "에너지위너상을 수상하여 ... 인정받았으며, ISO 14001 인증을 ..." is split
+# before the ISO assertion. V2's selector and policy bytes remain unchanged.
+CONNECTIVE_V3 = r"(?:받았으며|받았고)\s*,?\s+"
 TARGET_YEAR = r"(?<!\d)(?:19|20)\d{2}\s*년(?:까지|부터)"
 CONJUNCTION = r"\s+(?:및|and)\s+"
 QUANTITY = r"\d[\d,.]*\s*(?:천|만|억)?\s*(?:" + UNIT + r")"
@@ -74,6 +79,13 @@ POLICY = {
     "purpose": PURPOSE,
     "purpose_prior_predicate": PURPOSE_PRIOR_PREDICATE,
     "source_policy": "literal-disjoint-atoms-parent-context-only-resolved-table-axes-v2",
+}
+POLICY_V3 = {
+    **POLICY,
+    "profile": PROFILE_V3,
+    "additional_connective": CONNECTIVE_V3,
+    "binding_policy": "same-source-exact-claim-edge-whitespace-v1",
+    "source_policy": "literal-disjoint-atoms-explicit-recognition-split-v3",
 }
 
 
@@ -149,6 +161,7 @@ def atomic_candidates(
     kind: str = "paragraph",
     table_context: tuple[str, ...] = (),
     diagnostics: dict[str, int] | None = None,
+    policy_version: int = 2,
 ) -> tuple[AtomicCandidate, ...]:
     """Plan candidates; line wraps remain literal inside their parent sentence.
 
@@ -157,6 +170,9 @@ def atomic_candidates(
     cuts require assertions on both sides; metric enumeration cuts require two
     independent metric names, so Scope 1/2 and lists of means stay together.
     """
+    if type(policy_version) is not int or policy_version not in (2, 3):
+        raise ValueError("ATOMIC_CANDIDATE_POLICY_UNSUPPORTED")
+    connectives = (CONNECTIVE, CONNECTIVE_V3) if policy_version == 3 else (CONNECTIVE,)
     result = []
     counts = dict.fromkeys(
         (
@@ -192,10 +208,11 @@ def atomic_candidates(
             continue
         counts["eligible_parent_count"] += 1
         cuts = {start, end}
-        for match in re.finditer(CONNECTIVE, value):
-            before, after = value[: match.end()], value[match.end() :]
-            if _has(ASSERTION, before) and (_has(ASSERTION, after) or _quantity(after)):
-                cuts.add(start + match.end())
+        for connective in connectives:
+            for match in re.finditer(connective, value):
+                before, after = value[: match.end()], value[match.end() :]
+                if _has(ASSERTION, before) and (_has(ASSERTION, after) or _quantity(after)):
+                    cuts.add(start + match.end())
         years = list(re.finditer(TARGET_YEAR, value))
         for year in years[1:]:
             cuts.add(start + year.start())
