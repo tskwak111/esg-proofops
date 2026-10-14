@@ -1,7 +1,12 @@
 """Fail closed on regressions through the exact server image's API/worker/FD path.
 
 python scripts/predeploy_gate.py --manifest CASES.json --output /tmp/predeploy \
-  --image proofops-r108-public:ec1-arm64-e1d0c4b
+  --image proofops-r108-public:ec1-arm64-ca141f0
+
+Compare an already captured result without Docker or provider calls:
+python scripts/predeploy_gate.py --manifest CASES.json --output /tmp/e12-check \
+  --captured-result tests/fixtures/predeploy/E12-lg.result.json \
+  --case lg13 --captured-seconds 905.467630147934
 
 CASES.json has three cases (kind: lg13, kakao, table), each with original pdf,
 source_sha256, pages, claim_pages, reporting_scope, recorded_states and baseline
@@ -15,6 +20,7 @@ fixed. Replay timing excludes provider latency and is not a live speed claim.
 import argparse
 import hashlib
 import json
+import math
 import os
 import secrets
 import shutil
@@ -70,13 +76,19 @@ def compare(observation, baseline):
         failures.append("pipeline_blocked")
     extraction = pipeline.get("extraction_outcome", {})
     if extraction and (
-        extraction.get("status") != "completed"
+        extraction.get("status") not in {"completed", "claims"}
+        or (extraction.get("status") == "claims" and extraction.get("code") != "OK")
         or extraction.get("failed_sources")
         or extraction.get("page_failures")
     ):
         failures.append("extraction_partial")
     seconds = observation.get("seconds")
-    if seconds is None or seconds > baseline["max_seconds"]:
+    if (
+        type(seconds) not in (int, float)
+        or not math.isfinite(seconds)
+        or seconds < 0
+        or seconds > baseline["max_seconds"]
+    ):
         failures.append(f'time:{seconds}>{baseline["max_seconds"]}')
     if observation.get("unsettled_costs"):
         failures.append("unsettled_reservations")
@@ -112,6 +124,20 @@ def validate_manifest(manifest):
             raise ValueError("Invalid selected scope")
         if case["kind"] == "lg13" and len(case["pages"]) != 13:
             raise ValueError("LG13 must retain all thirteen selected pages")
+
+
+def compare_captured(path, case, seconds):
+    """Compare a retained API result; this is evidence, not an image E2E run."""
+    raw = path.read_bytes()
+    observation = dict(status="completed", result=json.loads(raw), seconds=seconds)
+    return dict(
+        schema="predeploy-captured-comparison-v1",
+        mode="captured-result-only",
+        case=case["kind"],
+        result_path=str(path.resolve()),
+        result_sha256=hashlib.sha256(raw).hexdigest(),
+        **compare(observation, case["baseline"]),
+    )
 
 
 def docker(*args, timeout=120):
@@ -180,7 +206,7 @@ def health(container):
     raise RuntimeError("API health unavailable")
 
 
-def run_case(case, base, output, image_id, harness, timeout):
+def run_case(case, base, output, image_id, harness, timeout, capture_misses=False):
     directory = output / case["kind"]
     directory.mkdir()
     record = dict(status="failed", case=case["kind"], failures=[])
@@ -204,6 +230,9 @@ def run_case(case, base, output, image_id, harness, timeout):
                 "PROOFOPS_PDFIUM_WORKERS=4\n"
             )
             env.flush()
+            if capture_misses:
+                env.write("PREDEPLOY_CAPTURE_MISSES=1\n")
+                env.flush()
             common = [
                 "--network",
                 "none",
@@ -322,7 +351,7 @@ def run_case(case, base, output, image_id, harness, timeout):
         # Preserve the exact unmatched public-report wire for fixture diagnosis.
         # No production credentials are mounted in these isolated containers.
         files = subprocess.run(
-            ["docker", "exec", name, "sh", "-c", "ls /data/gate-miss-*.json 2>/dev/null"],
+            ["docker", "exec", name, "sh", "-c", "ls /data/gate-miss-* 2>/dev/null"],
             capture_output=True,
             text=True,
         )
@@ -355,15 +384,35 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--image", help="Exact already built server image/tag/digest")
+    mode.add_argument("--captured-result", type=Path, help="Retained API result JSON; no image run")
+    parser.add_argument("--case", choices=("lg13", "kakao", "table"))
     parser.add_argument(
-        "--image", required=True, help="Exact already built server image/tag/digest"
+        "--captured-seconds", type=float, help="Captured accepted-to-result seconds"
     )
     parser.add_argument(
         "--timeout", type=int, default=1800, help="Per-case worker watchdog seconds"
     )
+    parser.add_argument(
+        "--capture-misses",
+        action="store_true",
+        help="Copy unmatched OCR PNGs/parse PDFs for offline fixture recovery",
+    )
     args = parser.parse_args()
     manifest = json.loads(args.manifest.read_text())
     validate_manifest(manifest)
+    if args.captured_result:
+        if args.case is None or args.captured_seconds is None:
+            parser.error("--captured-result requires --case and --captured-seconds")
+        case = next(c for c in manifest["cases"] if c["kind"] == args.case)
+        result = compare_captured(args.captured_result, case, args.captured_seconds)
+        args.output.mkdir(parents=True, exist_ok=False)
+        (args.output / "captured-comparison.json").write_text(json.dumps(result, indent=2) + "\n")
+        print(json.dumps(result), flush=True)
+        return 0 if result["status"] == "passed" else 1
+    if args.case is not None or args.captured_seconds is not None:
+        parser.error("--case and --captured-seconds are only for --captured-result")
     if not 1 <= args.timeout <= 7200:
         parser.error("--timeout must be 1..7200")
     args.output.mkdir(parents=True, exist_ok=False)
@@ -378,6 +427,7 @@ def main():
         cases=[],
         status="failed",
         timing_scope="accepted-to-first-result; offline-provider-I/O",
+        mode="strict-offline-gate",
     )
     with tempfile.TemporaryDirectory(prefix="proofops-p5-harness-") as temp:
         harness = Path(temp)
@@ -391,7 +441,13 @@ def main():
         for case in manifest["cases"]:
             print(f'Running {case["kind"]} through {image_id}', flush=True)
             row = run_case(
-                case, args.manifest.resolve().parent, args.output, image_id, harness, args.timeout
+                case,
+                args.manifest.resolve().parent,
+                args.output,
+                image_id,
+                harness,
+                args.timeout,
+                args.capture_misses,
             )
             result["cases"].append(row)
             print(

@@ -17,10 +17,58 @@ import urllib.request
 from pathlib import Path
 from uuid import uuid4
 
-from predeploy_replies import lookup_reply, normalized_wire, remap_response
+from predeploy_replies import (
+    digest,
+    lookup_reply,
+    normalized_wire,
+    pdfium_transport_key,
+    remap_response,
+)
 
 DATA = Path("/data")
 FIXTURE = Path("/fixtures")
+
+
+def parse_request_key(pdf, mode, pages, model, *, asynchronous):
+    body = dict(
+        model=model,
+        mode=mode,
+        pdf_sha256=hashlib.sha256(pdf).hexdigest(),
+        pages=pages,
+        bytes_len=len(pdf),
+    )
+    if asynchronous:
+        body["transport"] = "async"
+    return digest(body)
+
+
+def next_reply_attempt(uses, key, body):
+    # Fresh claim/request UUIDs may share a normalized wire. They are separate
+    # logical calls, each entitled to the first recorded reply. Only retries of
+    # the same actual wire consume that call's subsequent recorded attempts.
+    identity = (key, digest(body))
+    index = uses.get(identity, 0)
+    uses[identity] = index + 1
+    return index
+
+
+def capture_input_miss(key, content, *, kind):
+    """Save an unmatched public-report input with private permissions."""
+    extension = {"ocr": ".png", "parse": ".pdf"}[kind]
+    path = DATA / ("gate-miss-" + kind + "-" + key + extension)
+    try:
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError:
+        if path.read_bytes() != content:
+            raise ValueError("PREDEPLOY_CAPTURE_HASH_COLLISION") from None
+        return path.name
+    try:
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(content)
+    except BaseException:
+        path.unlink(missing_ok=True)
+        raise
+    return path.name
 
 
 def audit(event, **values):
@@ -92,8 +140,7 @@ def install():
         if reordered:
             audit("extraction_context_order_normalized", wire_sha256=key)
         with lock:
-            index = uses.get(key, 0)
-            uses[key] = index + 1
+            index = next_reply_attempt(uses, key, body)
         if index >= len(candidates):
             audit("fixture_miss", provider="llm", wire_sha256=key, replica=replica)
             raise ValueError("PREDEPLOY_RECORDED_ATTEMPT_MISSING")
@@ -126,6 +173,9 @@ def install():
         key = hashlib.sha256(png).hexdigest()
         record = load()["ocr"].get(key)
         if record is None:
+            if os.environ.get("PREDEPLOY_CAPTURE_MISSES") == "1":
+                name = capture_input_miss(key, png, kind="ocr")
+                audit("fixture_miss_capture", provider="ocr", png_sha256=key, file=name)
             audit("fixture_miss", provider="ocr", png_sha256=key)
             raise ValueError("PREDEPLOY_RECORDED_PNG_MISSING")
         raw = bytes.fromhex(record["response_hex"])
@@ -134,15 +184,59 @@ def install():
         audit("recorded_reply", provider="ocr", response_sha256=record["response_sha256"])
         return raw, "offline-recorded-ocr"
 
-    def parse(pdf, mode):
-        key = hashlib.sha256(pdf).hexdigest()
-        if key not in load()["parse"]:
-            audit("fixture_miss", provider="parse", pdf_sha256=key)
+    def parse(probe, pdf, mode):
+        import io
+
+        from proofops.adapters.local.upstage_parse import PARSE_MODEL_PINNED
+        from pypdf import PdfReader
+
+        key = parse_request_key(
+            pdf,
+            mode,
+            len(PdfReader(io.BytesIO(pdf)).pages),
+            PARSE_MODEL_PINNED,
+            asynchronous=probe.integrated,
+        )
+        record = load()["parse"].get(key)
+        if record is None:
+            transport_key = pdfium_transport_key(
+                pdf,
+                mode,
+                PARSE_MODEL_PINNED,
+                asynchronous=probe.integrated,
+            )
+            saved_key = load().get("parse_aliases", {}).get(transport_key)
+            if saved_key is not None:
+                key, record = saved_key, load()["parse"][saved_key]
+                audit(
+                    "parse_pdfium_metadata_normalized",
+                    request_sha256=key,
+                    pdfium_transport_key=transport_key,
+                )
+        if record is None:
+            if os.environ.get("PREDEPLOY_CAPTURE_MISSES") == "1":
+                name = capture_input_miss(key, pdf, kind="parse")
+                audit("fixture_miss_capture", provider="parse", request_sha256=key, file=name)
+            audit(
+                "fixture_miss",
+                provider="parse",
+                request_sha256=key,
+                pdf_sha256=hashlib.sha256(pdf).hexdigest(),
+            )
             raise ValueError("PREDEPLOY_RECORDED_PDF_MISSING")
-        return dict(request_id="offline-" + key)
+        if (
+            record["asynchronous"] != probe.integrated
+            or record["mode"] != mode
+            or digest(record["response"], ensure_ascii=True) != record["response_sha256"]
+        ):
+            raise ValueError("PREDEPLOY_RESPONSE_HASH_MISMATCH")
+        if probe.integrated:
+            return dict(request_id="offline-" + key)
+        audit("recorded_reply", provider="parse", response_sha256=record["response_sha256"])
+        return record["response"]
 
     def status(probe, request):
-        outputs = load()["parse"][request.removeprefix("offline-")]
+        outputs = load()["parse"][request.removeprefix("offline-")]["response"]
         pages = sum(
             len(r["elements"]) > 0 and len({e["page"] for e in r["elements"]}) for r in outputs
         )
@@ -160,19 +254,24 @@ def install():
     def download(url):
         request, index = url.rsplit("/", 2)[-2:]
         audit("recorded_reply", provider="parse")
-        return load()["parse"][request.removeprefix("offline-")][int(index)]
+        return load()["parse"][request.removeprefix("offline-")]["response"][int(index)]
 
     def inject(cls, post):
         original = cls.__init__
 
         def init(self, *args, **kwargs):
-            kwargs["post"] = (lambda body: llm(self, body)) if post == "llm" else post
+            if post == "llm":
+                kwargs["post"] = lambda body: llm(self, body)
+            elif post == "parse":
+                kwargs["post"] = lambda pdf, mode: parse(self, pdf, mode)
+            else:
+                kwargs["post"] = post
             original(self, *args, **kwargs)
 
         cls.__init__ = init
 
     inject(analysis.HostedOpenAILunaProbe, "llm")
-    inject(analysis.HostedParseProbe, parse)
+    inject(analysis.HostedParseProbe, "parse")
     inject(hosted_ocr.HostedOCRStore, ocr)
     UpstageParseProbe._async_status = status
     UpstageParseProbe._async_download = staticmethod(download)

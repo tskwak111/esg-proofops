@@ -25,10 +25,44 @@ IDENTITY_HASHES = {
 }
 
 
-def digest(value):
+def digest(value, *, ensure_ascii=False):
     return hashlib.sha256(
-        json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode()
+        json.dumps(value, sort_keys=True, ensure_ascii=ensure_ascii, separators=(",", ":")).encode()
     ).hexdigest()
+
+
+def pdfium_transport_key(pdf, mode, model, *, asynchronous):
+    """Ignore only PDFium's clock/ID fields; bind every other submitted byte.
+
+    PDFium regenerates these two transport metadata fields for each subset.
+    Only its exact Info object and final trailer are eligible, never page text.
+    Non-PDFium layouts have no alternate match.
+    """
+    info = re.search(
+        rb"\r\n3 0 obj\r\n<</CreationDate\((D:\d{14}[+-]\d{2}'\d{2}')\)"
+        rb"/Creator\(PDFium\)/Producer\(PDFium\)>>\r\nendobj\r\n",
+        pdf,
+    )
+    trailer = re.search(
+        rb"\r\ntrailer\r\n<<\r\n/Root 1 0 R\r\n/Info 3 0 R\r\n/Size \d+"
+        rb"/ID\[<([0-9A-F]{32})><([0-9A-F]{32})>\]>>\r\n"
+        rb"startxref\r\n\d+\r\n%%EOF\r\n\Z",
+        pdf,
+    )
+    if info is None or trailer is None:
+        return None
+    normalized = bytearray(pdf)
+    normalized[info.start(1) : info.end(1)] = b"D:00000000000000+00'00'"
+    for group in (1, 2):
+        normalized[trailer.start(group) : trailer.end(group)] = b"0" * 32
+    return digest(
+        dict(
+            pdf_sha256=hashlib.sha256(normalized).hexdigest(),
+            model=model,
+            mode=mode,
+            asynchronous=asynchronous,
+        )
+    )
 
 
 def normalized_wire(body, replica):
@@ -95,6 +129,18 @@ def lookup_reply(body, replica, records):
             candidate["messages"][1]["content"] = json.dumps(modified)
             key, identities = normalized_wire(candidate, replica)
             if key in records:
+                # Located-quote selectors address context_index; their original
+                # ordering must remain exact. Only sentence-ID-only replies can
+                # safely tolerate UUID-dependent context tie breaking.
+                try:
+                    payloads = [json.loads(record["content"]) for record in records[key]]
+                except json.JSONDecodeError:
+                    continue
+                if not all(
+                    isinstance(payload, dict) and set(payload) == {"sentence_ids"}
+                    for payload in payloads
+                ):
+                    continue
                 return key, identities, True
     return None
 
@@ -104,6 +150,7 @@ def compile_replies(states):
     records = {}
     ocr = {}
     parse = {}
+    parse_aliases = {}
     origins = []
     import sqlite3
 
@@ -118,14 +165,20 @@ def compile_replies(states):
             for key, value in bundle["ocr"].items():
                 ocr.setdefault(key, value)
             for key, value in bundle["parse"].items():
+                if not isinstance(value, dict) or "response" not in value:
+                    raise ValueError("Legacy parse fixture must be recompiled from its ledger")
                 parse.setdefault(key, value)
+            for key, signature in bundle.get("parse_aliases", {}).items():
+                if key in parse_aliases and parse_aliases[key] != signature:
+                    raise ValueError("Conflicting PDFium transport alias")
+                parse_aliases[key] = signature
             origins.extend(bundle["origins"])
             continue
         requests = sorted((state / "extraction-receipts").glob("*/request.json"))
         requests += sorted((state / "tagging-receipts").glob("*/*/*/request.json"))
         for path in requests:
-            request = json.loads(path.read_text())
-            request = request.get("request", request)
+            envelope = json.loads(path.read_text())
+            request = envelope.get("request", envelope)
             response_path = path.with_name(
                 "raw_response.json"
                 if path.parent.parent.name == "extraction-receipts"
@@ -143,8 +196,10 @@ def compile_replies(states):
             body = dict(
                 model="gpt-6-luna",
                 messages=[
-                    dict(role="system", content=request["system_prompt"]),
-                    dict(role="user", content=request["user_json"]),
+                    dict(
+                        role="system", content=envelope.get("wire_system", request["system_prompt"])
+                    ),
+                    dict(role="user", content=envelope.get("wire_user_json", request["user_json"])),
                 ],
                 max_completion_tokens=request.get("max_tokens", 1024),
                 temperature=0,
@@ -187,13 +242,45 @@ def compile_replies(states):
                                 response_sha256=hashlib.sha256(raw).hexdigest(),
                             ),
                         )
-        for path in sorted((state / "parse-responses").glob("*-async.json")):
-            # Production saves these under the exact submitted PDF SHA.
-            parse.setdefault(path.name.removesuffix("-async.json"), json.loads(path.read_text()))
+                if "probe_calls" in tables:
+                    for request_id, signature, receipt_json in db.execute(
+                        "SELECT request_id,signature,receipt FROM probe_calls "
+                        "WHERE receipt IS NOT NULL"
+                    ):
+                        # Archive names hash request IDs, not PDF bytes. The ledger
+                        # signature binds model, mode, PDF hash, pages and length.
+                        for asynchronous in (False, True):
+                            suffix = "-async.json" if asynchronous else ".json"
+                            path = state / "parse-responses" / (digest(request_id) + suffix)
+                            if not path.exists():
+                                continue
+                            response = json.loads(path.read_text())
+                            receipt = json.loads(receipt_json)
+                            response_hash = digest(response, ensure_ascii=True)
+                            if response_hash != receipt["response_sha256"]:
+                                raise ValueError("Recorded parse response hash mismatch")
+                            parse.setdefault(
+                                signature,
+                                dict(
+                                    asynchronous=asynchronous,
+                                    mode=receipt["mode"],
+                                    response=response,
+                                    response_sha256=response_hash,
+                                ),
+                            )
+                            origins.append(
+                                dict(
+                                    path=str(path),
+                                    sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
+                                )
+                            )
+    if any(signature not in parse for signature in parse_aliases.values()):
+        raise ValueError("PDFium transport alias has no retained response")
     return dict(
         schema="predeploy-recorded-transports-v1",
         llm=records,
         ocr=ocr,
         parse=parse,
+        parse_aliases=parse_aliases,
         origins=origins,
     )
