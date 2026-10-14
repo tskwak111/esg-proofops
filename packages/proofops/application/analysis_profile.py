@@ -33,6 +33,7 @@ from proofops.application.tagging.dec24 import (
 from proofops.application.tagging.fact_assembly_c3 import POLICY as C3_POLICY
 from proofops.application.tagging.fact_assembly_c3 import REVIEWED_IDENTITY as C3_IDENTITY
 from proofops.application.tagging.fact_assembly_c3_v2 import POLICY as C3_V2_POLICY
+from proofops.application.tagging.fact_assembly_c3_v2_legacy import POLICY as C3_V2_LEGACY_POLICY
 from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
 from proofops.application.tagging.finals_i4 import POLICY as I4_PROMPT_POLICY
 from proofops.application.tagging.k1_semantics import DEFINITIONS as K1_DEFINITIONS
@@ -851,7 +852,7 @@ FINALS_I19_POLICY = FINALS_P2_POLICY | dict(
     integration_profile="finals-20261015-v19",
     source="upstage-ocr-page-v20",
 )
-FINALS_I20_POLICY = FINALS_I19_POLICY | dict(
+FINALS_I20_PRE_FXB_POLICY = FINALS_I19_POLICY | dict(
     integration_profile="finals-20261015-v20",
     source="upstage-ocr-page-v21",
     scope_ranking="W5-v1",
@@ -860,12 +861,17 @@ FINALS_I20_POLICY = FINALS_I19_POLICY | dict(
     extraction_candidate_profile="extraction-atomic-v3",
     extraction_failure_diagnostics=True,
     fact_assembly_profile="grade-relevant-unanimity-v1",
-    direct_certification_policy=C3_V2_POLICY,
-    direct_certification_policy_sha256=canonical_hash(C3_V2_POLICY),
+    direct_certification_policy=C3_V2_LEGACY_POLICY,
+    direct_certification_policy_sha256=canonical_hash(C3_V2_LEGACY_POLICY),
 )
 # Retain the first local v20 pin emitted before E06/W5 composition was corrected.
-FINALS_I20_INITIAL_POLICY = FINALS_I20_POLICY | dict(
+FINALS_I20_INITIAL_POLICY = FINALS_I20_PRE_FXB_POLICY | dict(
     scope_policy_sha256=FINALS_I19_POLICY["scope_policy_sha256"]
+)
+FINALS_I20_POLICY = FINALS_I20_PRE_FXB_POLICY | dict(
+    fact_assembly_profile="grade-relevant-unanimity-v2",
+    direct_certification_policy=C3_V2_POLICY,
+    direct_certification_policy_sha256=canonical_hash(C3_V2_POLICY),
 )
 V2_POLICY = FINALS_I20_POLICY
 
@@ -904,6 +910,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_I20_PRE_FXB_POLICY,
             FINALS_I20_INITIAL_POLICY,
             FINALS_I19_POLICY,
             FINALS_P2_POLICY,
@@ -1042,6 +1049,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FINALS_I20_PRE_FXB_POLICY,
             FINALS_I20_INITIAL_POLICY,
             FINALS_I19_POLICY,
             FINALS_P2_POLICY,

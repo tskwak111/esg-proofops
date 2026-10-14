@@ -161,9 +161,10 @@ class ReviewInputs:
 
             snapshot["fact_assembly"] = dict(profile=C4_PROFILE, sha256=C4_HASH)
         if self.fact_assembly_profile == C3_V2_PROFILE and self.fact_assembly_receipt is not None:
-            from proofops.application.tagging.fact_assembly_c3_v2 import POLICY_HASH as C3_V2_HASH
-
-            snapshot["fact_assembly"] = dict(profile=C3_V2_PROFILE, sha256=C3_V2_HASH)
+            snapshot["fact_assembly"] = dict(
+                profile=C3_V2_PROFILE,
+                sha256=self.fact_assembly_receipt.to_dict()["policy_sha256"],
+            )
         return snapshot
 
     def validate(self) -> None:

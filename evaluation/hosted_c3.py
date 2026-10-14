@@ -7,6 +7,7 @@ from hashlib import sha256
 from uuid import NAMESPACE_URL, uuid5
 
 from proofops.adapters.local.c3_processing import prepare_case, process_case
+from proofops.adapters.local.c3_transport import authenticate_response
 from proofops.adapters.local.run_store import LocalSQLiteRunStore
 from proofops.adapters.parsing.opendataloader import OpenDataLoaderParser
 from proofops.application.ingest.graph_fusion import ParserProfile, SourceArtifact
@@ -75,6 +76,8 @@ def publish_current(store, job, state, policy, factory, *, simulated=False):
                 json_mode=True,
                 schema_json=request["schema_json"],
             )
+        if not simulated:
+            response = authenticate_response(request, response, probe)
         return response | dict(simulated=simulated)
 
     result = process_case(

@@ -80,6 +80,43 @@ def test_two_of_three_vote_on_grade_relevant_fact_remains_conflicted(tmp_path):
     assert result.review_status == "needs_review"
 
 
+def test_new_f5_policy_preserves_unanimous_conflict_and_historical_replay(tmp_path):
+    inputs = setup(tmp_path)
+    runs = []
+    for run in execute(inputs):
+        elements = tuple(
+            replace(e, state="conflict", evidence_refs=(), normalized_value=None)
+            if e.element_id == "P1"
+            else e
+            for e in run.guarded.elements
+        )
+        runs.append(
+            replace(run, product_variant=False, guarded=replace(run.guarded, elements=elements))
+        )
+    options = dict(
+        packet=inputs["packet"], rulepack=inputs["rulepack"], tenant_id=TENANT, tag_revision=1
+    )
+    historical = form_consensus(tuple(runs), profile=PROFILE, **options)
+    assert historical.candidate_elements[0].state == "unknown"
+    current = form_consensus(tuple(runs), profile="grade-relevant-unanimity-v2", **options)
+    assert current.candidate_elements[0].state == "conflict"
+    assert current.review_status == "needs_review"
+    facts = {f.name: f.state for f in current.confirmed_tags.facts}
+    assert facts["quantitative_or_qualified_ordinal"] == "conflict"
+    decision = evaluate(
+        current.confirmed_tags,
+        RuleContext(
+            TENANT,
+            inputs["context"].claim.document_version_id,
+            inputs["context"].claim.claim_id,
+            inputs["packet"].packet_sha256,
+            local_synthetic=True,
+        ),
+        inputs["rulepack"],
+    )
+    assert decision.evidence_grade is None and decision.label is None
+
+
 @pytest.mark.parametrize("element_id", ["P2", "P4"])
 def test_two_of_three_baseline_or_assurance_votes_cannot_publish_higher_grade(tmp_path, element_id):
     inputs = setup(tmp_path)

@@ -28,6 +28,16 @@ def test_analysis_policy_dispatch_adds_c3_v2_without_repinning_c3_v1():
     assert publication_policy_for(c3_v2.PROFILE, pinned_hash=c3_v2.POLICY_HASH) == c3_v2.POLICY
     assert policy_for(C3_V1_PROFILE, pinned_hash=C3_V1_HASH) == C3_V1_POLICY
     assert publication_policy_for(C3_V1_PROFILE, pinned_hash=C3_V1_HASH) == C3_V1_POLICY
+    assert (
+        c3_v2.legacy.POLICY_HASH
+        == "2291a8e0cc28a6128d467297cde38008ce0ae3a93345026bfedfa1d4986e4bf1"
+    )
+    assert policy_for(c3_v2.PROFILE, pinned_hash=c3_v2.legacy.POLICY_HASH) == c3_v2.legacy.POLICY
+    assert (
+        publication_policy_for(c3_v2.PROFILE, pinned_hash=c3_v2.legacy.POLICY_HASH)
+        == c3_v2.legacy.POLICY
+    )
+    assert c3_v2.POLICY_HASH != c3_v2.legacy.POLICY_HASH
     with pytest.raises(ValueError, match="C3_V2_PUBLICATION_PROFILE_MISMATCH"):
         policy_for(c3_v2.PROFILE, pinned_hash=C3_V1_HASH)
 

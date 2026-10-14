@@ -21,13 +21,14 @@ def test_v20_default_and_old_v19_pin_are_both_dispatchable():
     assert policy["integration_profile"] == "finals-20261015-v20"
     assert policy["source"] == "upstage-ocr-page-v21"
     assert policy["scope_ranking"] == "W5-v1"
-    assert policy["fact_assembly_profile"] == "grade-relevant-unanimity-v1"
+    assert policy["fact_assembly_profile"] == "grade-relevant-unanimity-v2"
     assert policy["direct_certification_policy"] == c3.POLICY
     assert not policy["general_certification"]["enabled"]
     assert policy["replicas"] == 3
     assert canonical_hash(policy) != canonical_hash(profiles.FINALS_I19_POLICY)
     for old in (
         profiles.FINALS_I20_INITIAL_POLICY,
+        profiles.FINALS_I20_PRE_FXB_POLICY,
         profiles.FINALS_I19_POLICY,
         profiles.FINALS_P2_POLICY,
         profiles.FINALS_I18_POLICY,
