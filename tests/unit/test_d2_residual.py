@@ -63,6 +63,121 @@ def test_replay_receipt_hash_rejects_a_rehashed_forgery():
         d2_reader.Reader.replay_tables(instance, forged, graph, b"source", tenant_id="tenant")
 
 
+def test_d2_replays_the_pinned_historical_table_policy_with_a_full_receipt_match(monkeypatch):
+    graph = object()
+    historical_policy = {"profile": "legacy-v21-reader-policy-test"}
+    monkeypatch.setattr(
+        d2_reader,
+        "_HISTORICAL_READER_POLICY_SHA256",
+        {d2_reader.canonical_hash(historical_policy)},
+    )
+    collection = {"manifest": {"physical_page": 1}, "request_id": "saved"}
+    expected = {
+        "schema": "native_selected_cell_table_source_v3",
+        "rendered_reader_profile": d2_reader.PROFILE,
+        "run_id": "d2-legacy-table-test",
+        "reader_policy": d2_reader.native_policy(),
+        "policy_sha256": d2_reader.table_policy_sha256(),
+        "base_receipt": {"page_collections": [collection], "records": [{"status": "verified"}]},
+    }
+    expected["artifact_sha256"] = d2_reader.canonical_hash(
+        {key: value for key, value in expected.items() if key != "artifact_sha256"}
+    )
+    historical = deepcopy(expected)
+    historical["reader_policy"] = historical_policy
+    historical["policy_sha256"] = next(iter(d2_reader._HISTORICAL_TABLE_POLICY_SHA256))
+    historical["artifact_sha256"] = d2_reader.canonical_hash(
+        {key: value for key, value in historical.items() if key != "artifact_sha256"}
+    )
+    instance, _active = _reader_for_replay(d2_reader, expected, graph, [collection])
+    instance.run_id = expected["run_id"]
+    instance.attest_tables = lambda *args, **kwargs: expected
+
+    assert d2_reader.Reader.replay_tables(
+        instance, historical, graph, b"source", tenant_id="tenant"
+    ) is graph
+
+
+def test_d2_rejects_a_rehashed_historical_table_receipt_forgery(monkeypatch):
+    graph = object()
+    historical_policy = {"profile": "legacy-v21-reader-policy-test"}
+    monkeypatch.setattr(
+        d2_reader,
+        "_HISTORICAL_READER_POLICY_SHA256",
+        {d2_reader.canonical_hash(historical_policy)},
+    )
+    expected = {
+        "schema": "native_selected_cell_table_source_v3",
+        "rendered_reader_profile": d2_reader.PROFILE,
+        "run_id": "d2-legacy-table-test",
+        "reader_policy": d2_reader.native_policy(),
+        "policy_sha256": d2_reader.table_policy_sha256(),
+        "base_receipt": {"page_collections": [], "records": [{"status": "verified"}]},
+    }
+    expected["artifact_sha256"] = d2_reader.canonical_hash(
+        {key: value for key, value in expected.items() if key != "artifact_sha256"}
+    )
+    forged = deepcopy(expected)
+    forged["reader_policy"] = historical_policy
+    forged["policy_sha256"] = next(iter(d2_reader._HISTORICAL_TABLE_POLICY_SHA256))
+    forged["base_receipt"]["records"][0]["status"] = "unresolved"
+    forged["artifact_sha256"] = d2_reader.canonical_hash(
+        {key: value for key, value in forged.items() if key != "artifact_sha256"}
+    )
+    instance, _ = _reader_for_replay(d2_reader, expected, graph, [])
+    instance.run_id = expected["run_id"]
+    instance.attest_tables = lambda *args, **kwargs: expected
+
+    with pytest.raises(ValueError, match="OCR_TABLE_RECEIPT_MISMATCH"):
+        d2_reader.Reader.replay_tables(instance, forged, graph, b"source", tenant_id="tenant")
+
+
+def test_table_rendered_read_holds_and_replays_only_known_acquisition_failures():
+    page = SimpleNamespace(page_number=2)
+    box = [0, 0, 1, 1]
+    holds = {}
+    failed_read = d2_reader._hold_table_acquisition_failure(
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            ValueError("OCR_PAGE_ACQUISITION_FAILED:UPSTAGE_HTTP_429")
+        ),
+        holds,
+        {},
+    )
+    with pytest.raises(
+        ValueError,
+        match="^ocr_acquisition_unresolved:UPSTAGE_HTTP_429$",
+    ):
+        failed_read(page, box)
+    assert holds[(2, (0.0, 0.0, 1.0, 1.0))] == (
+        "ocr_acquisition_unresolved:UPSTAGE_HTTP_429"
+    )
+
+    replay_holds = d2_reader._saved_table_acquisition_holds(
+        {
+            "table_acquisition_holds": [
+                dict(page=2, box=box, reason="ocr_acquisition_unresolved:UPSTAGE_HTTP_429")
+            ]
+        }
+    )
+    replayed_holds = {}
+    missing_replay_read = d2_reader._hold_table_acquisition_failure(
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(ValueError("OCR_REPLAY_PAGE_MISSING")),
+        replayed_holds,
+        replay_holds,
+    )
+    with pytest.raises(ValueError, match="^ocr_acquisition_unresolved:UPSTAGE_HTTP_429$"):
+        missing_replay_read(page, box)
+    assert replayed_holds == holds
+
+    integrity_failure = d2_reader._hold_table_acquisition_failure(
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(ValueError("OCR_COLLECTION_UNTRUSTED")),
+        {},
+        {},
+    )
+    with pytest.raises(ValueError, match="^OCR_COLLECTION_UNTRUSTED$"):
+        integrity_failure(page, box)
+
+
 def test_attestation_holds_only_the_page_with_a_known_ocr_acquisition_failure():
     from tests.integration.test_claim_source_verification import inputs
 
