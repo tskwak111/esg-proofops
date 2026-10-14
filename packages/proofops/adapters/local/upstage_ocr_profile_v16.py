@@ -82,9 +82,12 @@ class Reader:
             parse_manifest_id=graph.parse_manifest_id,
             source_sha256=graph.source_sha256,
             input_graph_sha256=canonical_hash(asdict(graph)),
+            graph_sha256=canonical_hash(asdict(graph)),
         )
 
     def attest_native_sources(self, graph, source, *, tenant_id, geometry_mode="glyph"):
+        if geometry_mode not in {"glyph", "font"}:
+            raise ValueError("unsupported native geometry mode")
         large = self._large(graph, source, tenant_id)
         base = (
             dict(

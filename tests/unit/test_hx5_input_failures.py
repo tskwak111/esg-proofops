@@ -290,6 +290,7 @@ def test_large_source_proofs_remain_unresolved_and_replay_is_strict(monkeypatch)
     assert all(r["status"] == "unresolved" for r in receipt["records"])
     assert reader.replay_native_sources(receipt, graph, source, tenant_id=graph.tenant_id) is graph
     spans = reader.attest_claim_spans(graph, source, claim.source_refs, tenant_id=graph.tenant_id)
+    assert spans["graph_sha256"] == canonical_hash(asdict(graph))
     assert all(r["status"] == "unresolved" for r in spans["records"])
     with pytest.raises(ValueError, match="OCR_CLAIM_RECEIPT_MISMATCH"):
         reader.recompute_claim_receipt(
@@ -300,6 +301,10 @@ def test_large_source_proofs_remain_unresolved_and_replay_is_strict(monkeypatch)
             tenant_id=graph.tenant_id,
         )
     ev = evidence.attest_evidence_sources(graph, source, tenant_id=graph.tenant_id)
+    with pytest.raises(ValueError, match="EVIDENCE_PAGE_SELECTION_INVALID"):
+        evidence.attest_evidence_sources(
+            graph, source, tenant_id=graph.tenant_id, physical_pages=()
+        )
     assert all(r["status"] == "unresolved" for r in ev["records"])
     assert evidence.replay_evidence_sources(ev, graph, source, tenant_id=graph.tenant_id) is graph
     with pytest.raises(ValueError, match="EVIDENCE_SOURCE_RECEIPT_MISMATCH"):

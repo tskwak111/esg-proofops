@@ -33,7 +33,11 @@ def attest_evidence_sources(graph, source, *, tenant_id, physical_pages=None):
         or sha256(source).hexdigest() != graph.source_sha256
     ):
         raise ValueError("EVIDENCE_SOURCE_MISMATCH")
-    pages = tuple(physical_pages or sorted({b.page_num for b in graph.blocks}))
+    pages = (
+        tuple(sorted({b.page_num for b in graph.blocks}))
+        if physical_pages is None
+        else tuple(physical_pages)
+    )
     if (
         not pages
         or tuple(sorted(set(pages))) != pages
