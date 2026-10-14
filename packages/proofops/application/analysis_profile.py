@@ -833,7 +833,11 @@ FINALS_I18_POLICY = FINALS_I17_POLICY | dict(
     verified_read_cache=VERIFIED_READ_V10_POLICY,
     publication_handoff=I18_PUBLICATION_POLICY,
 )
-V2_POLICY = FINALS_I18_POLICY
+FINALS_P3_POLICY = FINALS_I18_POLICY | dict(
+    integration_profile="finals-20261014-p3-table-replay-v1",
+    source="upstage-ocr-page-v20",
+)
+V2_POLICY = FINALS_P3_POLICY
 
 
 def policy_for(profile, *, pinned_hash=None):
@@ -863,6 +867,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_I18_POLICY,
             FINALS_I17_POLICY,
             FINALS_RG1_POLICY,
             FINALS_I16_POLICY,
@@ -989,6 +994,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FINALS_I18_POLICY,
             FINALS_I17_POLICY,
             FINALS_RG1_POLICY,
             FINALS_I16_POLICY,
