@@ -292,6 +292,22 @@ def test_large_source_proofs_remain_unresolved_and_replay_is_strict(monkeypatch)
     spans = reader.attest_claim_spans(graph, source, claim.source_refs, tenant_id=graph.tenant_id)
     assert spans["graph_sha256"] == canonical_hash(asdict(graph))
     assert all(r["status"] == "unresolved" for r in spans["records"])
+    from proofops.adapters.local.claim_source_verification import discovery_refs
+    from proofops_agent.extraction import SyntheticClaimExtractor
+
+    discovery = discover_atomic_claims(
+        graph,
+        ClaimScope(graph.tenant_id, graph.document_version_id, graph.parse_manifest_id),
+        extractor=SyntheticClaimExtractor(),
+    )
+    replay_receipt = reader.attest_claim_spans(
+        graph, source, discovery_refs(discovery), tenant_id=graph.tenant_id
+    )
+    replayed, scoped = native.replay_claim_spans(
+        replay_receipt, graph, source, discovery, tenant_id=graph.tenant_id
+    )
+    assert all(c.source_quality != "verified" for c in replayed.claims)
+    assert not scoped.verified_spans
     with pytest.raises(ValueError, match="OCR_CLAIM_RECEIPT_MISMATCH"):
         reader.recompute_claim_receipt(
             spans | dict(run_id=str(uuid4())),

@@ -129,6 +129,7 @@ class Reader:
             dict(
                 **self._identity(graph),
                 schema="claim_source_hx5_attestation_v1",
+                pb1_cell_proofs=[],
                 records=[
                     dict(ref=asdict(r), status="unresolved", reason="SOURCE_PROOF_INPUT_LIMIT")
                     for r in refs
