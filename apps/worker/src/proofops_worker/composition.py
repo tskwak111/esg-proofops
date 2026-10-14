@@ -297,7 +297,7 @@ def build_composition(
             ):
                 raise ValueError("EXTRACTION_PROFILE_MISMATCH")
             if "extraction_atomic_v3" in settings and (
-                not atomic_v3_opt_in or not atomic_opt_in or not source_ids_opt_in
+                not atomic_v3_opt_in or not (atomic_opt_in or rows_opt_in) or not source_ids_opt_in
             ):
                 raise ValueError("EXTRACTION_PROFILE_MISMATCH")
             if "extraction_failure_diagnostics" in settings and (

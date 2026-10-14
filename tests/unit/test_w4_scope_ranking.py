@@ -238,7 +238,9 @@ def test_new_opt_in_hash_does_not_change_w4_or_as1_replay_hashes():
     w4 = build_plan(study, texts, ranking_policy="W4-v2")
     w5 = build_plan(study, texts, ranking_policy=SUPPORT_VERSION)
 
-    assert as1["policy_sha256"] == "f13af2b8475ee1b3bb2fdfae111dea98cb0d8372e33efcd4d4b134378056e231"
+    assert (
+        as1["policy_sha256"] == "f13af2b8475ee1b3bb2fdfae111dea98cb0d8372e33efcd4d4b134378056e231"
+    )
     assert w4["policy_sha256"] == RANKING_POLICY_SHA256
     assert w4["policy_sha256"] == "542b59b0512b48f5e88b8ef508a64072a3112e2b6ec97bbbcbbadc2ce038f986"
     assert w5["policy_sha256"] == SUPPORT_POLICY_SHA256

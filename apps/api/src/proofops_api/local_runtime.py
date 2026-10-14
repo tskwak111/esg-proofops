@@ -568,7 +568,10 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
     if "extraction_atomic" in settings and settings.get("extraction_source_ids") is not True:
         raise _invalid()
     if "extraction_atomic_v3" in settings and (
-        settings.get("extraction_atomic") is not True
+        not (
+            settings.get("extraction_atomic") is True
+            or settings.get("extraction_table_rows") is True
+        )
         or settings.get("extraction_source_ids") is not True
     ):
         raise _invalid()
@@ -700,6 +703,8 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         runtime["tagging_mode"] = tagging_mode
     elif "tagging_settings" in settings or "relation_settings" in settings:
         raise _invalid()
+    if "analysis_policy_sha256" in settings:
+        fact_assembly_profile = selected_policy.get("fact_assembly_profile", fact_assembly_profile)
     if fact_assembly_profile != "strict-v1":
         if not tagging_mode:
             raise _invalid()

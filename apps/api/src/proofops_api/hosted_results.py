@@ -75,6 +75,20 @@ def services(path: Path, tenant: str):
 
 
 def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
+    result = _read_result(path, tenant, selected_pages)
+    bounded = path / "bounded-c3"
+    if (bounded / "pilot.json").is_file():
+        if bounded.is_symlink() or 36 not in selected_pages:
+            raise HostedError("C3_SOURCE_PAGE_MISMATCH", 409)
+        extra = _read_result(bounded, tenant, [36])
+        for claim in extra["claims"]:
+            claim["page_num"] = selected_pages.index(36) + 1
+        result["claims"].extend(extra["claims"])
+        result["reviews"].extend(extra["reviews"])
+    return result
+
+
+def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
     from proofops.application.tagging.fact_assembly_c3 import PROFILE as C3_PROFILE
     from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
     from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
@@ -430,6 +444,10 @@ def result_snapshot(path: Path, tenant: str, selected_pages: list[int]) -> bytes
     if (path / "c4-evidence.json").is_file():
         for name in ("original.pdf", "c4-evidence.json", "pilot.json"):
             sources[name] = hashlib.sha256((path / name).read_bytes()).hexdigest()
+    if (path / "bounded-c3" / "pilot.json").is_file():
+        for name in ("original.pdf", "c3-evidence.json", "pilot.json"):
+            key = "bounded-c3/" + name
+            sources[key] = hashlib.sha256((path / key).read_bytes()).hexdigest()
     return json.dumps(
         dict(tenant_id=tenant, page_map=selected_pages, source_hashes=sources, result=result),
         sort_keys=True,
@@ -439,6 +457,11 @@ def result_snapshot(path: Path, tenant: str, selected_pages: list[int]) -> bytes
 
 
 def resolve_review(path, auth, review, body, if_match, key):
+    bounded = path / "bounded-c3"
+    if (bounded / "pilot.json").is_file():
+        extra = _read_result(bounded, auth.tenant_id, [36])
+        if any(row["review_id"] == review for row in extra["reviews"]):
+            path = bounded
     with services(path, auth.tenant_id) as (run, claims, tags, reviews):
         try:
             record = reviews.store.get(auth.tenant_id, review)

@@ -495,6 +495,19 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
             )
             if failed or deferred:
                 result.update(status="partial_blocked", reason="PROVIDER_PROCESSING_FAILED")
+    if complete and execution.get("direct_certification_policy", {}).get("profile") == (
+        "management-direct-certification-c3-v2"
+    ):
+        from evaluation.hosted_c3 import publish_current
+
+        try:
+            result["bounded_c3"] = publish_current(
+                store, job, state, execution, factories["llm"], simulated=llm_post is not None
+            )
+        except (ValueError, OSError, KeyError, RuntimeError):
+            # Keep completed regular claims; a failed bounded candidate never
+            # creates confirmation authority or turns missing evidence absent.
+            result["bounded_c3"] = dict(status="current_source_or_tags_unresolved", published=False)
     (state / "outcome.json").write_text(json.dumps(result))
     return state, result
 

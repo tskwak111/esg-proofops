@@ -37,6 +37,9 @@ def main():
         pdf,
         source_sha256=source_sha,
         scope_profile=policy.get("scope_profile"),
+        ranking_policy=policy.get("scope_ranking")
+        if policy.get("scope_ranking") == "W5-v1"
+        else "W4-v2",
         discovery_reader=discovery if len(sys.argv) > 4 else None,
     )
     plan["source_path"] = "original.pdf"

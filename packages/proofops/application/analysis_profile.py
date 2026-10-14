@@ -32,6 +32,7 @@ from proofops.application.tagging.dec24 import (
 )
 from proofops.application.tagging.fact_assembly_c3 import POLICY as C3_POLICY
 from proofops.application.tagging.fact_assembly_c3 import REVIEWED_IDENTITY as C3_IDENTITY
+from proofops.application.tagging.fact_assembly_c3_v2 import POLICY as C3_V2_POLICY
 from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
 from proofops.application.tagging.finals_i4 import POLICY as I4_PROMPT_POLICY
 from proofops.application.tagging.k1_semantics import DEFINITIONS as K1_DEFINITIONS
@@ -850,7 +851,18 @@ FINALS_I19_POLICY = FINALS_P2_POLICY | dict(
     integration_profile="finals-20261015-v19",
     source="upstage-ocr-page-v20",
 )
-V2_POLICY = FINALS_I19_POLICY
+FINALS_I20_POLICY = FINALS_I19_POLICY | dict(
+    integration_profile="finals-20261015-v20",
+    source="upstage-ocr-page-v21",
+    scope_ranking="W5-v1",
+    scope_ranking_policy_sha256="2d4e44da6505e873151bc172ae999a2307a1ec6b552c9c5912be049155c4e264",
+    extraction_candidate_profile="extraction-atomic-v3",
+    extraction_failure_diagnostics=True,
+    fact_assembly_profile="grade-relevant-unanimity-v1",
+    direct_certification_policy=C3_V2_POLICY,
+    direct_certification_policy_sha256=canonical_hash(C3_V2_POLICY),
+)
+V2_POLICY = FINALS_I20_POLICY
 
 
 def policy_for(profile, *, pinned_hash=None):
@@ -887,6 +899,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_I19_POLICY,
             FINALS_P2_POLICY,
             FINALS_P3_POLICY,
             FINALS_I18_POLICY,
@@ -1023,6 +1036,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FINALS_I19_POLICY,
             FINALS_P2_POLICY,
             FINALS_P3_POLICY,
             FINALS_I18_POLICY,
@@ -1107,6 +1121,10 @@ def apply_pilot_profile(args):
     selected = policy_for(profile, pinned_hash=getattr(args, "analysis_policy_sha256", None))
     args.analysis_policy_sha256 = canonical_hash(selected)
     args.tagging_prompt_profile = selected.get("tagging_prompt_profile")
+    args.extraction_atomic_v3 = (
+        selected.get("extraction_candidate_profile") == "extraction-atomic-v3"
+    )
+    args.extraction_failure_diagnostics = bool(selected.get("extraction_failure_diagnostics"))
     args.extraction_i4_identity = bool(selected.get("extraction_selection_ids"))
     args.extraction_qc_native_figures = bool(selected.get("native_figure_policy"))
     args.extraction_located_table_context = bool(selected.get("located_table_context"))
@@ -1201,6 +1219,14 @@ def apply_pilot_profile(args):
 def certification_profile_for(identity, *, pinned_hash=None):
     """V12 and successors authorize only the exact reviewed C3 input."""
     policy = policy_for(V2_PROFILE, pinned_hash=pinned_hash)
+    if policy.get("direct_certification_policy") == C3_V2_POLICY:
+        # Retain the legacy exact-identity lookup for existing callers; new
+        # source-stable runs use prepare_case and the V2 fingerprint gate.
+        return (
+            C3_POLICY["profile"]
+            if all(identity.get(key) == value for key, value in C3_IDENTITY.items())
+            else None
+        )
     if policy.get("direct_certification_policy") != C3_POLICY:
         return None
     if policy.get("direct_certification_policy_sha256") != canonical_hash(C3_POLICY):

@@ -248,17 +248,11 @@ def test_kakao_p50_v3_binds_only_iso_atomic_claim_for_m1_and_m4(tmp_path):
     assert len(discovery.claims) == 4
     assert iso_claim.claim_id and iso_claim.source_quality == "verified"
     assert all(
-        claim.claim_id != iso_claim.claim_id
-        for claim in discovery.claims
-        if claim is not iso_claim
+        claim.claim_id != iso_claim.claim_id for claim in discovery.claims if claim is not iso_claim
     )
-    assert _atomic_v3_binding_enabled(
-        {"extraction_profile": asdict(extractor.profile)}, iso_claim
-    )
+    assert _atomic_v3_binding_enabled({"extraction_profile": asdict(extractor.profile)}, iso_claim)
     legacy_profile = _profile_with_options(source_ids=True, extraction_atomic=True)
-    assert not _atomic_v3_binding_enabled(
-        {"extraction_profile": asdict(legacy_profile)}, iso_claim
-    )
+    assert not _atomic_v3_binding_enabled({"extraction_profile": asdict(legacy_profile)}, iso_claim)
 
     original = pack()
     claim_source = iso_claim.source_refs[0]

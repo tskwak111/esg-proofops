@@ -765,9 +765,7 @@ def apply_resume_metadata(args, saved: dict) -> None:
     args.extraction_recall_prompt = bool(saved.get("extraction_recall_prompt", False))
     args.extraction_atomic = bool(saved.get("extraction_atomic", False))
     args.extraction_atomic_v3 = bool(saved.get("extraction_atomic_v3", False))
-    args.extraction_failure_diagnostics = bool(
-        saved.get("extraction_failure_diagnostics", False)
-    )
+    args.extraction_failure_diagnostics = bool(saved.get("extraction_failure_diagnostics", False))
     args.extraction_linewrap_join = bool(saved.get("extraction_linewrap_join", False))
     args.extraction_fragment_guard = bool(saved.get("extraction_fragment_guard", False))
     args.extraction_sentence_prefix = bool(saved.get("extraction_sentence_prefix", False))
@@ -1548,7 +1546,7 @@ def main():
         parser.error("row/recall profiles cannot mix with --extraction-atomic")
     if args.extraction_atomic and not args.extraction_source_ids:
         parser.error("--extraction-atomic requires --extraction-source-ids")
-    if args.extraction_atomic_v3 and not args.extraction_atomic:
+    if args.extraction_atomic_v3 and not (args.extraction_atomic or args.extraction_table_rows):
         parser.error("--extraction-atomic-v3 requires --extraction-atomic")
     if args.extraction_failure_diagnostics and not args.extraction_source_ids:
         parser.error("--extraction-failure-diagnostics requires --extraction-source-ids")

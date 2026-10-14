@@ -492,7 +492,7 @@ def _system_prompt(
     extraction_recall_prompt: bool = False,
 ) -> str:
     """The exact prompt sent for an option combination; legacy shapes untouched."""
-    if extraction_atomic_v3:
+    if extraction_atomic_v3 and extraction_atomic:
         return ATOMIC_V3_SYSTEM_PROMPT
     if extraction_atomic:
         return ATOMIC_SYSTEM_PROMPT
@@ -518,6 +518,8 @@ def _system_prompt(
         prompt = prompt + COMPLETE_SELECTION_SYSTEM_SUFFIX
     if extraction_table_rows:
         prompt += ROW_SYSTEM_SUFFIX
+    if extraction_atomic_v3:
+        prompt += "\n" + ATOMIC_V3_SYSTEM_PROMPT
     if extraction_recall_prompt:
         prompt += RECALL_SYSTEM_SUFFIX
     return prompt
@@ -642,7 +644,7 @@ def _profile_with_options(
         raise ValueError("UPSTAGE_PROFILE_OPTION_INVALID")
     if extraction_atomic and not source_ids:
         raise ValueError("UPSTAGE_PROFILE_OPTION_INVALID")
-    if extraction_atomic_v3 and not extraction_atomic:
+    if extraction_atomic_v3 and not (extraction_atomic or extraction_table_rows):
         raise ValueError("UPSTAGE_ATOMIC_V3_REQUIRES_ATOMIC_PROFILE")
     if extraction_failure_diagnostics and not source_ids:
         raise ValueError("UPSTAGE_FAILURE_DIAGNOSTICS_REQUIRES_SOURCE_IDS")
@@ -967,7 +969,7 @@ class UpstageClaimExtractor:
         if type(extraction_atomic) is not bool or (extraction_atomic and not extraction_source_ids):
             raise ValueError("UPSTAGE_EXTRACTION_ATOMIC_INVALID")
         if type(extraction_atomic_v3) is not bool or (
-            extraction_atomic_v3 and not extraction_atomic
+            extraction_atomic_v3 and not (extraction_atomic or extraction_table_rows)
         ):
             raise ValueError("UPSTAGE_EXTRACTION_ATOMIC_V3_INVALID")
         if type(extraction_failure_diagnostics) is not bool or (
@@ -1564,9 +1566,7 @@ class UpstageClaimExtractor:
                 raise ExtractionOutputError(
                     "PREVIOUS_TRANSPORT_FAILED",
                     failure_code=(
-                        stored.get("reason_code") or error
-                        if self._failure_diagnostics
-                        else None
+                        stored.get("reason_code") or error if self._failure_diagnostics else None
                     ),
                 )
             if error in UPSTAGE_TRANSPORT_STOP_CODES:
@@ -1755,6 +1755,13 @@ class UpstageClaimExtractor:
                 ),
                 join_lines=(
                     self._linewrap_join
+                    and not (
+                        self._atomic_v3
+                        and any(
+                            "extraction-atomic-v3:" in sid
+                            for sid in payload.get("sentence_ids", [])
+                        )
+                    )
                     and packet is not None
                     and (
                         packet["untrusted_document_data"]["kind"] == "paragraph"
@@ -2111,6 +2118,16 @@ class UpstageClaimExtractor:
                     )
                 ]
         if kind not in ("table", "table_row", "table_cell", "figure"):
+            if self._atomic_v3:
+                # The combined profile keeps the mature v19 sentence/line-wrap
+                # path unless the v3 recognition split actually changes an atom.
+                # Standalone atomic mode still applies the complete v3 policy.
+                current = self._atomic_entries(packet, text, context_blocks)
+                old = atomic_candidates(text, kind=kind, policy_version=2)
+                if [(entry["char_start"], entry["char_end"]) for entry in current] != [
+                    (candidate.start, candidate.end) for candidate in old
+                ]:
+                    return current
             return [
                 {"sentence_id": sid, "text": text[a:b], "char_start": a, "char_end": b}
                 for sid, (a, b) in self._sentence_index(
@@ -2601,9 +2618,7 @@ class UpstageClaimExtractor:
                     failure_code=code if self._failure_diagnostics else None,
                 )
             raise ValueError(error)
-        raise ExtractionOutputError(
-            error, failure_code=code if self._failure_diagnostics else None
-        )
+        raise ExtractionOutputError(error, failure_code=code if self._failure_diagnostics else None)
 
     def _recorded_truncation(self, directory: Path, request_id: str, error: str) -> bool:
         if error != "UPSTAGE_RECEIPT_INVALID_RESERVATION_RETAINED":

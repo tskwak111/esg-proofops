@@ -161,7 +161,11 @@ def _atomic_v3_binding_enabled(snapshot, claim):
         return False
     from proofops_agent.upstage_extraction import ATOMIC_V3_SYSTEM_PROMPT
 
-    return profile.get("prompt_sha256") == canonical_hash(ATOMIC_V3_SYSTEM_PROMPT)
+    return (
+        profile.get("prompt_sha256") == canonical_hash(ATOMIC_V3_SYSTEM_PROMPT)
+        or snapshot.get("analysis_profile_policy", {}).get("extraction_candidate_profile")
+        == "extraction-atomic-v3"
+    )
 
 
 class _LocalClaimSearch:

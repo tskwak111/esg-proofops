@@ -250,6 +250,7 @@ class HostedReads:
         if database.is_symlink() or path.is_symlink() or (path / "pilot.json").is_symlink():
             raise ValueError("database")
         from proofops.application.tagging.fact_assembly_c3 import PROFILE as C3_PROFILE
+        from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
         from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
 
         if pilot.get("publication_profile") == C4_PROFILE:
@@ -273,13 +274,16 @@ class HostedReads:
                 block.candidates[block.winner].geometry,
             )
 
-        if pilot.get("publication_profile") == C3_PROFILE:
+        if pilot.get("publication_profile") in (C3_PROFILE, C3_V2_PROFILE):
             from proofops.adapters.local.c3_publication import LocalC3Publication
 
             publication = LocalC3Publication(path)
             inputs = publication.load_inputs(tenant, local_run, pilot["claim_id"])
             graph = inputs.original
-            if prepared_page != 36 or row["prepared_sha256"] not in (None, graph.source_sha256):
+            if prepared_page != 36 or (
+                pilot.get("publication_profile") == C3_PROFILE
+                and row["prepared_sha256"] not in (None, graph.source_sha256)
+            ):
                 raise ValueError("C3 source page binding")
             block = next(
                 b for b in graph.blocks if b.page_num == prepared_page and b.winner is not None
@@ -414,8 +418,13 @@ class HostedReads:
             directory = self.store.document_dir(auth.tenant_id, row["document_id"])
             path = directory / "analysis" / run
             original_refs = any(
-                c.get("source_ref_page_space") == "original" for c in result.get("claims", [])
+                c.get("source_ref_page_space") == "original"
+                and (claim_id is None or c["claim_id"] == claim_id)
+                and (c.get("original_page_num") == physical_page)
+                for c in result.get("claims", [])
             )
+            if original_refs and (path / "bounded-c3" / "pilot.json").is_file():
+                path = path / "bounded-c3"
             if original_refs:
                 from proofops.application.tagging.fact_assembly_c3 import PROFILE as C3_PROFILE
                 from proofops.application.tagging.fact_assembly_c3 import (
@@ -448,7 +457,6 @@ class HostedReads:
             if not refs:
                 raise HostedError("SOURCE_REFERENCE_NOT_FOUND", 404)
             directory = self.store.document_dir(auth.tenant_id, row["document_id"])
-            path = directory / "analysis" / run
             try:
                 version, manifest, manifest_sha, geometry = self._anchor(path, row, reference_page)
                 if (document_version_id is not None and document_version_id != version) or any(

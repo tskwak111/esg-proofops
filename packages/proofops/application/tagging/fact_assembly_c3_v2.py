@@ -9,6 +9,7 @@ from proofops.domain.provenance import canonical_hash
 from proofops.domain.rules.engine import evaluate
 
 PROFILE = "management-direct-certification-c3-v2"
+DISPLAY = c3.DISPLAY
 _PREVIOUS_POLICY = {key: value for key, value in c3.POLICY.items() if key != "reviewed_identity"}
 
 

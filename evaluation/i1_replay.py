@@ -377,7 +377,15 @@ def main(*, integration_policy=FINALS_I1_POLICY, baseline_dir=None, retained_pro
                     ocr = state / "upstage.sqlite3"
                     input_hashes[str(ocr)] = sha256(ocr.read_bytes()).hexdigest()
                     with reader_scope(ReplayOCRStore(ocr)):
-                        receipt = upstage_ocr_profile_v11.attest_claim_spans(
+                        changed_reader = upstage_ocr_profile_v11
+                        if (
+                            integration_policy.get("extraction_candidate_profile")
+                            == "extraction-atomic-v3"
+                        ):
+                            from proofops.adapters.local import upstage_ocr_profile_v21
+
+                            changed_reader = upstage_ocr_profile_v21
+                        receipt = changed_reader.attest_claim_spans(
                             new_graph,
                             source,
                             changed_refs,

@@ -23,7 +23,11 @@ from pypdf import PdfReader
 from evaluation.report_sections import POLICY_HASH, build_map
 from evaluation.report_sections import inspect as inspect_sections
 from evaluation.scope_claim_signals import POLICY as SIGNAL_POLICY
-from evaluation.scope_claim_signals import SOURCE_SUPPORT_POLICY, claim_signals, claim_support_signals
+from evaluation.scope_claim_signals import (
+    SOURCE_SUPPORT_POLICY,
+    claim_signals,
+    claim_support_signals,
+)
 
 VERSION = "AS1-v1"
 CEO_PATTERN = (
@@ -515,9 +519,7 @@ def build_plan(
     )
     if ranking_policy == SUPPORT_VERSION:
         plan["printed_page_map"] = _verified_native_printed_page_map(page_texts)
-        plan["page_map_policy"] = (
-            "visible_numeric_labels_verified_in_consecutive_runs_of_3_or_more"
-        )
+        plan["page_map_policy"] = "visible_numeric_labels_verified_in_consecutive_runs_of_3_or_more"
     plan["plan_sha256"] = canonical_hash(plan)
     return plan
 

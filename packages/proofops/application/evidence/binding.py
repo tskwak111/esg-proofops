@@ -351,8 +351,7 @@ def accept_binding(
 
     scopes = definition["source_scopes"]
     local = any(
-        contains(source, ref)
-        or (allow_edge_whitespace and whitespace_encloses(ref, source))
+        contains(source, ref) or (allow_edge_whitespace and whitespace_encloses(ref, source))
         for source in claim.source_refs
     )
     direct = local and "local_claim" in scopes

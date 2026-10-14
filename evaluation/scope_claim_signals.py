@@ -2,6 +2,7 @@
 
 import re
 import unicodedata
+from typing import TypedDict
 
 ENVIRONMENT = (
     r"기후|탄소|온실가스|배출|에너지|전력|재생|태양광|용수|수자원|폐기물|재활용|"
@@ -51,7 +52,18 @@ POLICY = {
     "table_density": "environment_metric_unit_line_with_3_numeric_cells; cap_4_rows",
     "native_subheading": "short_body_line_up_to_60_chars; unique_headings; cap_3",
 }
-SOURCE_SUPPORT_POLICY = {
+
+
+class SourceSupportPolicy(TypedDict):
+    version: str
+    assurance_pattern: str
+    metric_environment_context_chars: int
+    max_metric_to_assurance_chars: int
+    bonus: int
+    scope: str
+
+
+SOURCE_SUPPORT_POLICY: SourceSupportPolicy = {
     "version": "same-page-quantified-assurance-v1",
     "assurance_pattern": ASSURANCE,
     "metric_environment_context_chars": 120,
@@ -96,8 +108,9 @@ def claim_support_signals(body: str, headings: list[str]) -> tuple[int, dict[str
         if re.search(
             ENVIRONMENT,
             text[
-                max(0, match.start() - SOURCE_SUPPORT_POLICY["metric_environment_context_chars"])
-                : match.end() + SOURCE_SUPPORT_POLICY["metric_environment_context_chars"]
+                max(
+                    0, match.start() - SOURCE_SUPPORT_POLICY["metric_environment_context_chars"]
+                ) : match.end() + SOURCE_SUPPORT_POLICY["metric_environment_context_chars"]
             ],
         )
     ]
