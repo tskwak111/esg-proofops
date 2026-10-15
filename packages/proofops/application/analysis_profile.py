@@ -1,6 +1,7 @@
 """One explicitly selected profile; old configurations remain byte-identical."""
 
 from proofops.adapters.local.claim_source_policies import PAGE_OCR_PROFILES
+from proofops.application.ingest.fxg_wire import POLICY as FXG_WIRE_POLICY
 from proofops.application.ingest.h1_boundaries import POLICY as H1_BOUNDARY_POLICY
 from proofops.application.ingest.i3_wire import POLICY as I3_WIRE_POLICY
 from proofops.application.ingest.j7_split import CONTEXT_POLICY
@@ -922,6 +923,16 @@ FINALS_I23_POLICY = FINALS_I22_POLICY | dict(
 V2_POLICY = FINALS_I23_POLICY
 
 
+# FXG is opt-in: the public default and all earlier policy dictionaries stay fixed.
+
+FXG_POLICY = FINALS_I23_POLICY | dict(
+    integration_profile="fxg_extraction_receipt_v1",
+    source="fxg_claim_source_v1",
+    fxg_extraction_wire_policy=FXG_WIRE_POLICY,
+    fxg_extraction_wire_policy_sha256=canonical_hash(FXG_WIRE_POLICY),
+)
+
+
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
     from proofops.application.tagging.fact_assembly_c3_v2 import (
@@ -957,6 +968,7 @@ def policy_for(profile, *, pinned_hash=None):
         choices = (
             V2_POLICY,
             FINALS_D2_POLICY,
+            FXG_POLICY,
             FINALS_I22_POLICY,
             FINALS_FXC_POLICY,
             FINALS_I21_POLICY,
@@ -1102,6 +1114,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
         (
             policy_for(profile),
             FINALS_D2_POLICY,
+            FXG_POLICY,
             FINALS_I22_POLICY,
             FINALS_FXC_POLICY,
             FINALS_I21_POLICY,
@@ -1200,6 +1213,7 @@ def apply_pilot_profile(args):
     args.extraction_failure_diagnostics = bool(selected.get("extraction_failure_diagnostics"))
     args.extraction_i4_identity = bool(selected.get("extraction_selection_ids"))
     args.extraction_qc_native_figures = bool(selected.get("native_figure_policy"))
+    args.extraction_fxg_split = bool(selected.get("fxg_extraction_wire_policy"))
     args.extraction_located_table_context = bool(selected.get("located_table_context"))
     args.parser_local_resource_policy = selected.get("local_resource_policy")
     args.parser_failure_policy = selected.get("parser_failure_policy")
