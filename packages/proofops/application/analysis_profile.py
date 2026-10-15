@@ -1049,6 +1049,21 @@ FINALS_I25_POLICY = (
 )
 V2_POLICY = FINALS_I25_POLICY
 
+# Explicit pin only: never changes the public/default v25 profile.
+OPS2_POLICY = FINALS_I25_POLICY | dict(
+    integration_profile="ops2_finals-20261016-v1",
+    ops2_provider_fallback=dict(
+        profile="ops2_openrouter_fallback_v1",
+        primary="gpt-6-luna",
+        fallback="openai/gpt-6-luna",
+        consecutive_http_failures=3,
+        triggers=["billing_not_active", "http_429_403_k3", "network_failure"],
+        uncertain_costs="retain",
+        replicas="three_independent_current_responses",
+    ),
+    ops2_page_render="ops2_fit_page_v1",
+)
+
 
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
@@ -1084,6 +1099,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            OPS2_POLICY,
             FINALS_I24_POLICY,
             FINALS_I23_POLICY,
             V3_POLICY,
@@ -1242,6 +1258,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            OPS2_POLICY,
             FINALS_I24_POLICY,
             FINALS_I23_POLICY,
             V3_POLICY,

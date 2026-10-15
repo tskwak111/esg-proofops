@@ -722,6 +722,8 @@ class OpenAIProbe(OpenRouterProbe):
                 ):
                     raise OpenAITransient403(delay=delay, diagnostic=diagnostic)
                 problem = ValueError(f"OPENAI_HTTP_{response.status}")
+                if isinstance(error, dict) and error.get("code") == "billing_not_active":
+                    problem.provider_error_code = "billing_not_active"
                 if response.status == 429:
                     # Preserve the finite code; never expose the response body.
                     setattr(

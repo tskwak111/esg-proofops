@@ -182,7 +182,17 @@ def read_operator_config(path: Path | None) -> dict:
     provider = profiles["llm_provider"]
     config["llm_provider"] = provider
     key_name = "openai_key_file" if provider == "openai" else "openrouter_key_file"
-    for name in (key_name, "upstage_key_file"):
+    from proofops.application.analysis_profile import policy_for
+
+    selected = (
+        policy_for(profiles["analysis_profile"], pinned_hash=config.get("analysis_policy_sha256"))
+        if profiles["analysis_profile"] in FINALS_PROFILES
+        else {}
+    )
+    keys = [key_name, "upstage_key_file"]
+    if selected.get("ops2_provider_fallback"):
+        keys.append("openrouter_key_file")
+    for name in keys:
         key_path = Path(config.get(name, ""))
         if not key_path.is_absolute() or not key_path.is_file():
             raise ValueError("HOSTED_KEY_FILE_REQUIRED")
@@ -330,6 +340,7 @@ class HostedOpenAILunaProbe(OpenAIProbe):
                         allow_model_partial=self.provider_resilience is not None,
                         allow_response_uncertainty=self.response_uncertainty_policy is not None,
                         allow_connect_not_sent=self.transport_policy is not None,
+                        allow_ops2_fallback=getattr(self, "ops2_enabled", False),
                     )
                 if self.transport_policy:
                     self._finish_transport_attempt(call_id, "response_received", None)
@@ -340,6 +351,9 @@ class HostedOpenAILunaProbe(OpenAIProbe):
                 self._finish_transport_attempt(
                     call_id, "never_sent", json.dumps(error.diagnostic, sort_keys=True)
                 )
+                if getattr(self, "ops2_enabled", False):
+                    self._settle_never_sent(scope["request_id"])
+                    raise
                 if attempt != 0 or scope["transport_retries"]:
                     self._settle_never_sent(scope["request_id"])
                     raise ValueError("PROVIDER_PROCESSING_FAILED") from None
