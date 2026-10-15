@@ -138,6 +138,7 @@ class OpenAIProbe(OpenRouterProbe):
     http_diagnostic_policy = None
     transport_policy = None
     connection_pool = None
+    max_request_bytes = WIRE_POLICY["max_request_bytes"]
 
     def _authorize_response_request(self):
         """Hosted adapters recheck their live owner/source before cache access."""
@@ -146,6 +147,11 @@ class OpenAIProbe(OpenRouterProbe):
         from proofops.application.analysis_profile import MODEL_RESPONSE_POLICY
 
         policy = snapshot.get("analysis_profile_policy", {})
+        from proofops.application.fxh_policy import POLICY as FXH_POLICY
+        from proofops.application.fxh_policy import enabled as fxh_enabled
+
+        fxh = fxh_enabled(policy)
+        self.max_request_bytes = WIRE_POLICY["max_request_bytes"]
         self.http_retry_policy = None
         self.provider_resilience = None
         self.provider_scheduler = None
@@ -240,6 +246,8 @@ class OpenAIProbe(OpenRouterProbe):
             self.wire_policy = self.wire_policy | dict(
                 http_retry_policy_sha256=HTTP_RETRY_POLICY_HASH
             )
+        if fxh:
+            self.max_request_bytes = FXH_POLICY["max_request_bytes"]
 
     @contextmanager
     def response_context(self, *, role, replica):
@@ -353,7 +361,7 @@ class OpenAIProbe(OpenRouterProbe):
             body["top_p"] = 1
         if (
             len(json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode())
-            > WIRE_POLICY["max_request_bytes"]
+            > self.max_request_bytes
         ):
             raise ValueError("PROBE_REQUEST_TOO_LARGE")
         return body

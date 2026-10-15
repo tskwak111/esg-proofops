@@ -64,11 +64,23 @@ def selection_from_snapshot(snapshot, graph, run_id):
         page_space="document_physical_1_based",
         inventory_policy_sha256=POLICY_HASH,
     )
+    from proofops.application.fxh_policy import POLICY as FXH_POLICY
+    from proofops.application.fxh_policy import enabled as fxh_enabled
+
+    if fxh_enabled(snapshot.get("analysis_profile_policy", {})):
+        result["fxh_inventory_execution"] = FXH_POLICY
     validate_selection(result, graph)
     return result
 
 
 def validate_selection(selection, graph):
+    from proofops.application.fxh_policy import POLICY as FXH_POLICY
+
+    if (
+        "fxh_inventory_execution" in selection
+        and selection["fxh_inventory_execution"] != FXH_POLICY
+    ):
+        raise ValueError("FXH_INVENTORY_POLICY_MISMATCH")
     expected = dict(
         tenant_id=graph.tenant_id,
         document_version_id=graph.document_version_id,
@@ -104,6 +116,8 @@ def _split(text, limit):
 
 def plan_inventory(graph, selection):
     validate_selection(selection, graph)
+    execution = selection.get("fxh_inventory_execution")
+    limit = execution["inventory_chunk_bytes"] if execution else POLICY["max_chunk_utf8_bytes"]
     chunks, pages = [], []
     for page in selection["selected_pages"]:
         blocks = sorted((b for b in graph.blocks if b.page_num == page), key=lambda b: b.source_id)
@@ -116,18 +130,24 @@ def plan_inventory(graph, selection):
             if block.winner is None or not block.raw_text.strip():
                 errors.append("BLOCK_UNREADABLE:" + block.source_id)
                 continue
+            if execution and block.bbox is None:
+                errors.append("BLOCK_UNLOCATED:" + block.source_id)
+                continue
             ref = verify_source_ref(block.source_ref(), graph, tenant_id=graph.tenant_id)
             if ref.verification_state != "verified":
                 errors.append("BLOCK_UNVERIFIED:" + block.source_id)
                 continue
-            for start, end in _split(block.raw_text, POLICY["max_chunk_utf8_bytes"]):
+            for start, end in _split(block.raw_text, limit):
                 span = replace(ref, char_start=start, char_end=end, quote=block.raw_text[start:end])
                 spans.append(dict(source_ref=asdict(span), kind=block.kind))
         # Greedy page-local packing. Long blocks split with exact offsets; no truncation.
         groups, current, size = [], [], 0
         for span in spans:
             cost = len(span["source_ref"]["quote"].encode("utf-8"))
-            if current and size + cost > POLICY["max_chunk_utf8_bytes"]:
+            if current and (
+                size + cost > limit
+                or (execution and len(current) >= execution["inventory_chunk_spans"])
+            ):
                 groups.append(current)
                 current, size = [], 0
             current.append(span)
