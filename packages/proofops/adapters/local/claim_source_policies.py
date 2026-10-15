@@ -336,6 +336,21 @@ def page_ocr_profile(profile, *, policy=None, native=False):
         expected = candidate.native_policy() if native else candidate.claim_source_policy()
         if policy == expected:
             return candidate
+    if profile == "upstage-ocr-page-v21":
+        from proofops.adapters.local import upstage_ocr_profile_d2_v21
+        from proofops.adapters.local.historical_claim_replay import (
+            historical_upstage_ocr_v21_reader,
+        )
+        from proofops.adapters.local.historical_prose_replay import historical_pre_d2_reader
+
+        for historical in (
+            upstage_ocr_profile_d2_v21,
+            historical_upstage_ocr_v21_reader(),
+            historical_pre_d2_reader(),
+        ):
+            expected = historical.native_policy() if native else historical.claim_source_policy()
+            if policy == expected:
+                return historical
     if profile == "upstage-ocr-page-v21" and not native:
         from proofops.adapters.local.historical_prose_replay import historical_prose_reader
 

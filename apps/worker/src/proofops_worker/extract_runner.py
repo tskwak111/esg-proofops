@@ -15,7 +15,9 @@ from proofops.adapters.local.claim_store import (
     DEFERRED_BUDGET_REASON,
     DEFERRED_KIND_REASON,
     DEFERRED_LIMIT_REASON,
+    OCR_ACQUISITION_REASON_PREFIX,
     LocalClaimStore,
+    _deferred_reason,
     claim_scope,
     deferred_payload,
     discovery_coverage,
@@ -26,7 +28,10 @@ from proofops.adapters.local.claim_store import (
     snapshot_pins,
 )
 from proofops.adapters.local.run_artifacts import load_run_graph
-from proofops.adapters.local.source_attestation_errors import source_failure_code
+from proofops.adapters.local.source_attestation_errors import (
+    ocr_acquisition_failure_code,
+    source_failure_code,
+)
 from proofops.adapters.local.upstage import UPSTAGE_TRANSPORT_STOP_CODES
 from proofops.adapters.local.verified_read_cache import fresh_execution_enabled
 from proofops.adapters.parsing.opendataloader import ParseFailure
@@ -80,6 +85,11 @@ def _candidate_extract(live, packet, snapshot):
         from proofops.application.input_failures import POLICY, TABLE_ERRORS
 
         policy = snapshot.get("analysis_profile_policy", {})
+        acquisition_code = ocr_acquisition_failure_code(error)
+        if acquisition_code and policy.get("provider_resilience"):
+            text = packet.get("untrusted_document_data", {}).get("text")
+            if isinstance(text, str) and text.strip():
+                return deferred_payload(text, OCR_ACQUISITION_REASON_PREFIX + acquisition_code)
         if (
             policy.get("input_failure_policy") == POLICY
             and policy.get("input_failure_policy_sha256") == canonical_hash(POLICY)
@@ -416,7 +426,11 @@ class _ContinuingExtractor:
             self.stop_code, self.stop_source = code, source_id
             self.deferred[source_id] = DEFERRED_BUDGET_REASON
             return deferred_payload(text, DEFERRED_BUDGET_REASON)
-        self.processed.add(source_id)
+        deferred = _deferred_reason(canonical_json(payload))
+        if deferred:
+            self.deferred[source_id] = deferred
+        else:
+            self.processed.add(source_id)
         return payload
 
 
@@ -777,7 +791,10 @@ class LocalExtractRunner:
             except ValueError as error:
                 _f1_failure_origin(error, snapshot)
                 code = str(error)
-                if code not in UPSTAGE_TRANSPORT_STOP_CODES | {
+                acquisition_code = ocr_acquisition_failure_code(error)
+                if acquisition_code:
+                    code = "OCR_PAGE_ACQUISITION_FAILED:" + acquisition_code
+                elif code not in UPSTAGE_TRANSPORT_STOP_CODES | {
                     "LOCAL_TEST_AUTHORIZATION_INVALID",
                     "ACCOUNTING_UNAVAILABLE",
                 }:
@@ -1111,7 +1128,10 @@ class LocalExtractRunner:
                 except ValueError as error:
                     _f1_failure_origin(error, snapshot)
                     code = str(error)
-                    if code not in UPSTAGE_TRANSPORT_STOP_CODES | {
+                    acquisition_code = ocr_acquisition_failure_code(error)
+                    if acquisition_code:
+                        code = "OCR_PAGE_ACQUISITION_FAILED:" + acquisition_code
+                    elif code not in UPSTAGE_TRANSPORT_STOP_CODES | {
                         "LOCAL_TEST_AUTHORIZATION_INVALID",
                         "ACCOUNTING_UNAVAILABLE",
                     }:

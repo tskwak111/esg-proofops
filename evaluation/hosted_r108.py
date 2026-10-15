@@ -153,8 +153,10 @@ def prepare_argv(pdf, state, tenant, config, options=None):
         if options.get("analysis_profile_sha256"):
             from proofops.application.analysis_profile import (
                 FINALS_C24_POLICY,
+                FINALS_D2_POLICY,
                 FINALS_E05_POLICY,
                 FINALS_FXB_POLICY,
+                FINALS_FXC_POLICY,
                 FINALS_HX6_COMPLETE_POLICY,
                 FINALS_HX6_POLICY,
                 FINALS_HX6_RESILIENT_POLICY,
@@ -167,6 +169,7 @@ def prepare_argv(pdf, state, tenant, config, options=None):
                 FINALS_I20_INITIAL_POLICY,
                 FINALS_I20_POLICY,
                 FINALS_I21_POLICY,
+                FINALS_I22_POLICY,
                 FINALS_Q1_POLICY,
                 FINALS_RG1_POLICY,
                 FINALS_S2_SPEED_POLICY,
@@ -183,7 +186,9 @@ def prepare_argv(pdf, state, tenant, config, options=None):
             if options["analysis_profile_sha256"] not in {
                 canonical_hash(policy_for(profiles["analysis_profile"])),
                 canonical_hash(FINALS_E05_POLICY),
+                canonical_hash(FINALS_D2_POLICY),
                 canonical_hash(FINALS_FXB_POLICY),
+                canonical_hash(FINALS_FXC_POLICY),
                 canonical_hash(FINALS_HX6_POLICY),
                 canonical_hash(FINALS_HX6_COMPLETE_POLICY),
                 canonical_hash(FINALS_HX6_RESILIENT_POLICY),
@@ -199,6 +204,7 @@ def prepare_argv(pdf, state, tenant, config, options=None):
                 canonical_hash(FINALS_I20_INITIAL_POLICY),
                 canonical_hash(FINALS_I20_POLICY),
                 canonical_hash(FINALS_I21_POLICY),
+                canonical_hash(FINALS_I22_POLICY),
                 canonical_hash(FINALS_RG1_POLICY),
                 canonical_hash(S1_POLICY),
                 canonical_hash(S2_POLICY),

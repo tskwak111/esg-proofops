@@ -51,6 +51,8 @@ select = ["E", "F", "I", "UP"]
 [tool.ruff.format]
 exclude = [
   "packages/proofops/adapters/local/_frozen_verifiers/**",
+  "packages/proofops/adapters/local/_frozen_upstage_ocr_profile_v21_20261015.py",
+  "packages/proofops/adapters/local/upstage_ocr_profile_d2_v21.py",
   "packages/proofops/adapters/local/claim_span_bullet_alignment.py",
   "packages/proofops/adapters/local/claim_span_render_resolution.py",
 ]
@@ -82,3 +84,12 @@ disable_error_code = ["name-defined"]
 [[tool.mypy.overrides]]
 module = ["adapters.local.upstage_ocr_profile_v16", "adapters.local.upstage_ocr_profile_hx4_v16", "adapters.local.upstage_ocr_profile_v18"]
 disable_error_code = ["name-defined"]
+
+# D2's byte-pinned modules subclass Reader returned by private execution. Mypy
+# cannot type that runtime base; retain every other diagnostic in these modules.
+[[tool.mypy.overrides]]
+module = [
+  "adapters.local.upstage_ocr_profile_d2_v21",
+  "adapters.local._frozen_upstage_ocr_profile_v21_20261015",
+]
+disable_error_code = ["valid-type", "misc"]

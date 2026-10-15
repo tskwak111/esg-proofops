@@ -1,4 +1,4 @@
-"""I20 composes render-conditioned prose with the unchanged v20 table/page reader."""
+"""V23 composes FXA render-conditioned prose with the D2 page-local OCR reader."""
 
 from dataclasses import asdict
 from hashlib import sha256
@@ -6,12 +6,12 @@ from pathlib import Path
 
 from proofops.adapters.local import claim_source_verification as strict
 from proofops.adapters.local import claim_source_verification_v4 as prose
-from proofops.adapters.local import upstage_ocr_profile_v20 as previous
+from proofops.adapters.local import upstage_ocr_profile_d2_v21 as previous
 from proofops.domain.provenance import canonical_hash
 
 PROFILE = "upstage-ocr-page-v21"
 PageOCRStore = previous.PageOCRStore
-# Parser-native, evidence and table receipts retain the v20 verifier verbatim.
+# Native, evidence and table paths use the complete D2 reader.
 native_policy = previous.native_policy
 table_policy_sha256 = previous.table_policy_sha256
 table_span_policy = previous.table_span_policy
@@ -27,7 +27,7 @@ def claim_source_policy():
         prose_policy_sha256=canonical_hash(prose.claim_source_policy()),
         evidence_policy=previous.claim_source_policy()["evidence_policy"],
         verifier_sha256=sha256(Path(__file__).read_bytes()).hexdigest(),
-        admission="v4-verified-paragraphs; v20-for-remaining-spans",
+        admission="v4-verified-paragraphs; d2-for-remaining-spans",
     )
 
 
@@ -39,7 +39,9 @@ class Reader:
     def __getattr__(self, name):
         return getattr(self.previous, name)
 
-    def attest_claim_spans(self, graph, source, refs, *, tenant_id, run_id=None):
+    def attest_claim_spans(
+        self, graph, source, refs, *, tenant_id, run_id=None, previous_receipt=None
+    ):
         refs = tuple(refs)
         blocks = {b.source_id: b for b in graph.blocks}
         large = self.previous._large(graph, source, tenant_id)
@@ -60,8 +62,12 @@ class Reader:
             input_graph_sha256=canonical_hash(asdict(graph)),
             graph_sha256=canonical_hash(asdict(graph)),
             prose_receipt=prose_receipt,
-            previous_receipt=self.previous.attest_claim_spans(
-                graph, source, rest, tenant_id=tenant_id
+            previous_receipt=(
+                self.previous.attest_claim_spans(graph, source, rest, tenant_id=tenant_id)
+                if previous_receipt is None
+                else self.previous.recompute_claim_receipt(
+                    previous_receipt, graph, source, rest, tenant_id=tenant_id
+                )
             ),
         )
         body["pb1_cell_proofs"] = body["previous_receipt"]["pb1_cell_proofs"]
@@ -81,11 +87,14 @@ class Reader:
 
     def recompute_claim_receipt(self, receipt, graph, source, refs, *, tenant_id):
         # Retain authenticated page collections for cold replay; acquisition is
-        # never needed for prose and v20 still owns table availability handling.
-        from proofops.adapters.local import upstage_ocr_profile_v19 as v19
-
-        with v19.execution.retained_collections(self.previous, receipt["previous_receipt"]):
-            expected = self.attest_claim_spans(graph, source, refs, tenant_id=tenant_id)
+        # never needed for prose; D2 retains page-local acquisition failures.
+        expected = self.attest_claim_spans(
+            graph,
+            source,
+            refs,
+            tenant_id=tenant_id,
+            previous_receipt=receipt["previous_receipt"],
+        )
         if canonical_hash(receipt) != canonical_hash(expected):
             raise ValueError("I20_CLAIM_RECEIPT_MISMATCH")
         return expected

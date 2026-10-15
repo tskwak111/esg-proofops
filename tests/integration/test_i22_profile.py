@@ -8,7 +8,9 @@ from proofops.domain.provenance import canonical_hash
 
 
 def test_v22_default_activates_fixes_and_retains_v21_execution():
-    policy = profiles.policy_for(profiles.V2_PROFILE)
+    policy = profiles.policy_for(
+        profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_I22_POLICY)
+    )
     assert policy == profiles.FINALS_I22_POLICY
     assert policy["integration_profile"] == "finals-20261015-v22"
     assert policy["fact_assembly_profile"] == "grade-relevant-unanimity-v2"
@@ -68,6 +70,9 @@ def test_hosted_preparation_retains_v21_and_fxb_pins(tmp_path):
         profiles.FINALS_I21_POLICY,
         profiles.FINALS_FXB_POLICY,
         profiles.FINALS_I22_POLICY,
+        profiles.FINALS_I23_POLICY,
+        profiles.FINALS_FXC_POLICY,
+        profiles.FINALS_D2_POLICY,
     ):
         pin = canonical_hash(policy)
         argv = prepare_argv(

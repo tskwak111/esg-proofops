@@ -35,3 +35,15 @@ def historical_prose_reader(*, page_ocr=False):
     )
     reader.prose = prose
     return reader
+
+
+def historical_pre_d2_reader():
+    """Replay the exact FXA/I22 wrapper without changing current reader globals."""
+    name = "upstage_ocr_v21_pre_d2.py"
+    path = _ROOT / name
+    if (
+        sha256(path.read_bytes()).hexdigest()
+        != "e365f48e672edf2353185a5756a95ab98b5ddd0636496ce78b5a8114190218db"
+    ):
+        raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")
+    return _exec_private(_ROOT, name, "proofops.adapters.local._i23_old_i22")
