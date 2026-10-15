@@ -185,6 +185,7 @@ def test_organizer_inventory_and_all_individual_resources_are_private(configured
     for path in (
         f'/v1/documents/{other_doc["document_id"]}',
         f'/v1/documents/{other_doc["document_id"]}/scope-plan',
+        f'/v1/documents/{other_doc["document_id"]}/original',
         f'/v1/runs?document_id={other_doc["document_id"]}',
         f'/v1/runs/{other_run["run_id"]}',
         f'/v1/runs/{other_run["run_id"]}/result',
