@@ -33,6 +33,7 @@ PAGE_OCR_PROFILES = {
     "i24_claim_source_v1": "proofops.adapters.local.i24_claim_source",
     "fxh_claim_source_v1": "proofops.adapters.local.fxh_claim_source",
     "s5_claim_source_v1": "proofops.adapters.local.s5_claim_source",
+    "rb3_claim_source_v1": "proofops.adapters.local.rb3_claim_source",
 }
 
 RENDER_RESOLUTION_POLICY_SCHEMA = "claim_span_render_resolution_policy_v1"
