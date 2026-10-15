@@ -16,6 +16,7 @@ from pathlib import Path
 from proofops.application.analysis_profile import (
     I18_PUBLICATION_POLICY,
     RG1_PUBLICATION_POLICY,
+    S3_VERIFIED_READ_V13_POLICY,
     S4_PUBLICATION_POLICY,
     VERIFIED_READ_V8_POLICY,
     VERIFIED_READ_V9_POLICY,
@@ -74,6 +75,7 @@ def _context(path, job, pages):
         (VERIFIED_READ_V10_POLICY, I18_PUBLICATION_POLICY),
         (VERIFIED_READ_V11_POLICY, I18_PUBLICATION_POLICY),
         (VERIFIED_READ_V12_POLICY, I18_PUBLICATION_POLICY),
+        (S3_VERIFIED_READ_V13_POLICY, I18_PUBLICATION_POLICY),
     ):
         from proofops.adapters.local.claim_source_policies import page_ocr_profile
         from proofops.application.analysis_profile import V2_PROFILE, policy_for

@@ -342,24 +342,36 @@ class LocalParserRunner:
                                 _execution_policy,
                             )
                             from proofops.application.analysis_profile import (
+                                S3_VERIFIED_READ_V13_POLICY,
                                 VERIFIED_READ_V11_POLICY,
                                 VERIFIED_READ_V12_POLICY,
                             )
 
                             if (
-                                _execution_policy() == VERIFIED_READ_V11_POLICY
-                                and native_policy.get("mode") == "upstage-ocr-page-v19"
-                            ) or (
-                                _execution_policy() == VERIFIED_READ_V12_POLICY
-                                and native_policy.get("mode")
-                                in {"upstage-ocr-page-v19", "upstage-ocr-page-v20"}
+                                (
+                                    _execution_policy() == VERIFIED_READ_V11_POLICY
+                                    and native_policy.get("mode") == "upstage-ocr-page-v19"
+                                )
+                                or (
+                                    _execution_policy()
+                                    in (VERIFIED_READ_V12_POLICY, S3_VERIFIED_READ_V13_POLICY)
+                                    and native_policy.get("mode")
+                                    in {"upstage-ocr-page-v19", "upstage-ocr-page-v20"}
+                                )
+                                or (
+                                    _execution_policy() == S3_VERIFIED_READ_V13_POLICY
+                                    and native_policy.get("mode") == "upstage-ocr-page-v21"
+                                )
                             ):
                                 from proofops.adapters.local.claim_source_policies import (
                                     page_ocr_profile,
                                 )
                                 from proofops.adapters.local.s2_reader_execution import reader_scope
 
-                                if _execution_policy() == VERIFIED_READ_V12_POLICY:
+                                if _execution_policy() in (
+                                    VERIFIED_READ_V12_POLICY,
+                                    S3_VERIFIED_READ_V13_POLICY,
+                                ):
                                     from proofops.adapters.local.i21_reader_execution import (
                                         reader_scope,
                                     )

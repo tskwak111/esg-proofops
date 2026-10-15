@@ -178,7 +178,12 @@ def _batch(
     edges: list[CandidateEdge] = []
     if not isinstance(raw.get("kids"), list):
         raise ParseFailure("PARSER_SCHEMA_INVALID")
-    partial_blocks = profile.failure_policy in {"partial-v4", "partial-v5", "partial-v6"}
+    partial_blocks = profile.failure_policy in {
+        "partial-v4",
+        "partial-v5",
+        "partial-v6",
+        "s3_partial-v7",
+    }
     occurrences: dict[str, int] = {}
     stack: list[tuple[dict[str, Any], str | None, int | None, str | None, int, bool]] = [
         (node, None, None, None, 0, False) for node in reversed(raw["kids"])
@@ -471,6 +476,8 @@ class OpenDataLoaderParser(ParserPort):
                 if profile.parser_mode in ("upstage", "mixed-v1"):
                     if self.upstage_probe is None:
                         raise ParseFailure("UPSTAGE_RUNTIME_REQUIRED")
+                    from threading import Lock
+
                     from proofops.adapters.parsing.upstage_document import (
                         MODEL as UPSTAGE_MODEL,
                     )
@@ -480,6 +487,8 @@ class OpenDataLoaderParser(ParserPort):
                     )
                     from proofops.domain.provenance import canonical_hash
 
+                    subset_lock = Lock()
+
                     def upstage_call(pages, mode):
                         h6 = profile.local_resource_policy in {
                             "selected-pdf-h6-v1",
@@ -487,7 +496,11 @@ class OpenDataLoaderParser(ParserPort):
                         }
                         subset = _local_pages(profile).subset
 
-                        if h6 and profile.failure_policy not in {"partial-v5", "partial-v6"}:
+                        if h6 and profile.failure_policy not in {
+                            "partial-v5",
+                            "partial-v6",
+                            "s3_partial-v7",
+                        }:
                             # A repaired parser derivative cannot ground provider text
                             # against an unreadable original. Avoid a useless paid call.
                             import io
@@ -521,10 +534,16 @@ class OpenDataLoaderParser(ParserPort):
                             if canonical_hash(result["raw_batches"]) != result["response_sha256"]:
                                 raise ParseFailure("UPSTAGE_CACHE_INTEGRITY_MISMATCH")
                             return result, True
+                        # A s3_partial-v7 wave overlaps HTTP only. PDFium subset handles
+                        # are created and closed under one lock; grounding follows the wave.
+                        with subset_lock:
+                            payload = (
+                                subset(source.content, pages)
+                                if h6
+                                else selected_pdf(source.content, pages)
+                            )
                         result = self.upstage_probe.parse_async(
-                            subset(source.content, pages)
-                            if h6
-                            else selected_pdf(source.content, pages),
+                            payload,
                             request_id=str(uuid4()),
                             mode=mode,
                         )
@@ -533,7 +552,7 @@ class OpenDataLoaderParser(ParserPort):
                         os.replace(temporary, path)
                         return result, False
 
-                    if profile.failure_policy in {"partial-v5", "partial-v6"}:
+                    if profile.failure_policy in {"partial-v5", "partial-v6", "s3_partial-v7"}:
                         from proofops.adapters.parsing.hx6_upstage import recover
 
                         candidates, routing, upstage_output = recover(
@@ -543,7 +562,8 @@ class OpenDataLoaderParser(ParserPort):
                             candidates,
                             upstage_call,
                             config_hash=profile_hash,
-                            claim_layout=profile.failure_policy == "partial-v6",
+                            claim_layout=profile.failure_policy in {"partial-v6", "s3_partial-v7"},
+                            page_workers=4 if profile.failure_policy == "s3_partial-v7" else 1,
                         )
                         fallback_pages = ()
                     else:
@@ -558,12 +578,19 @@ class OpenDataLoaderParser(ParserPort):
                                 "partial-v4",
                                 "partial-v5",
                                 "partial-v6",
+                                "s3_partial-v7",
                             } and (
                                 str(exc).startswith("UPSTAGE_")
                                 or str(exc).endswith("BUDGET_EXHAUSTED")
                                 or (
                                     profile.failure_policy
-                                    in {"partial-v3", "partial-v4", "partial-v5", "partial-v6"}
+                                    in {
+                                        "partial-v3",
+                                        "partial-v4",
+                                        "partial-v5",
+                                        "partial-v6",
+                                        "s3_partial-v7",
+                                    }
                                     and str(exc)
                                     in {
                                         "PARSER_SUBSET_PDF_INVALID",
@@ -643,6 +670,7 @@ class OpenDataLoaderParser(ParserPort):
                                     "partial-v4",
                                     "partial-v5",
                                     "partial-v6",
+                                    "s3_partial-v7",
                                 } and (
                                     str(exc).startswith("UPSTAGE_")
                                     or str(exc).endswith("BUDGET_EXHAUSTED")
@@ -731,6 +759,7 @@ class OpenDataLoaderParser(ParserPort):
                             "partial-v4",
                             "partial-v5",
                             "partial-v6",
+                            "s3_partial-v7",
                         }:
                             upstage_output["failed_batches"] = failed_batches
                             if standard_failure is not None:
@@ -815,6 +844,7 @@ class OpenDataLoaderParser(ParserPort):
                             "partial-v4",
                             "partial-v5",
                             "partial-v6",
+                            "s3_partial-v7",
                         }:
                             raise
                         recovered = tuple(candidates)
@@ -858,6 +888,7 @@ class OpenDataLoaderParser(ParserPort):
                     "partial-v4",
                     "partial-v5",
                     "partial-v6",
+                    "s3_partial-v7",
                 }
                 and upstage_output is not None
             ):
@@ -882,7 +913,7 @@ class OpenDataLoaderParser(ParserPort):
                     if page_reader is None:
                         raise ParseFailure("OCR_RUN_REQUIRED")
                     verifier = page_reader
-                from proofops.adapters.local import i21_table_replay as parse_table_cache
+                from proofops.adapters.local import s3_table_replay as parse_table_cache
 
                 receipt = parse_table_cache.attest(
                     verifier, graph, source.content, tenant_id=tenant_id
@@ -933,7 +964,7 @@ class OpenDataLoaderParser(ParserPort):
                     ],
                     failed_batches=upstage_output["failed_batches"],
                 )
-                if profile.failure_policy in {"partial-v5", "partial-v6"}
+                if profile.failure_policy in {"partial-v5", "partial-v6", "s3_partial-v7"}
                 else dict(
                     standard=dict(
                         upstage_output["standard"]["metrics"],
@@ -1144,14 +1175,19 @@ class OpenDataLoaderParser(ParserPort):
             if profile.parser_mode in ("upstage", "mixed-v1"):
                 from proofops.domain.provenance import canonical_hash
 
-                if profile.failure_policy in {"partial-v5", "partial-v6"}:
+                if profile.failure_policy in {"partial-v5", "partial-v6", "s3_partial-v7"}:
                     from proofops.application.ingest.page_recovery_policy import (
                         CLAIM_LAYOUT_POLICY,
                         POLICY,
+                        S3_CLAIM_LAYOUT_POLICY,
                     )
 
                     recovery_policy = (
-                        CLAIM_LAYOUT_POLICY if profile.failure_policy == "partial-v6" else POLICY
+                        S3_CLAIM_LAYOUT_POLICY
+                        if profile.failure_policy == "s3_partial-v7"
+                        else CLAIM_LAYOUT_POLICY
+                        if profile.failure_policy == "partial-v6"
+                        else POLICY
                     )
                     if (
                         not isinstance(upstage_output, dict)
@@ -1177,6 +1213,7 @@ class OpenDataLoaderParser(ParserPort):
                             "partial-v4",
                             "partial-v5",
                             "partial-v6",
+                            "s3_partial-v7",
                         }:
                             if record.get("raw_batches") != [] or not any(
                                 f["mode"] == "standard"
@@ -1241,7 +1278,7 @@ class OpenDataLoaderParser(ParserPort):
                 from proofops.adapters.parsing.mixed_routing import provenance
 
                 routing = values["page-routing.json"]
-                if profile.failure_policy in {"partial-v5", "partial-v6"}:
+                if profile.failure_policy in {"partial-v5", "partial-v6", "s3_partial-v7"}:
                     from proofops.adapters.parsing.hx6_upstage import provenance as hx6_provenance
 
                     groups = [
@@ -1303,6 +1340,7 @@ class OpenDataLoaderParser(ParserPort):
                     "partial-v4",
                     "partial-v5",
                     "partial-v6",
+                    "s3_partial-v7",
                 }
                 and upstage_output is not None
             ):
@@ -1326,7 +1364,7 @@ class OpenDataLoaderParser(ParserPort):
             if profile.parser_mode in ("upstage", "mixed-v1"):
                 from proofops.adapters.parsing.upstage_document import MODEL as UPSTAGE_MODEL
 
-                if profile.failure_policy not in {"partial-v5", "partial-v6"} or (
+                if profile.failure_policy not in {"partial-v5", "partial-v6", "s3_partial-v7"} or (
                     isinstance(upstage_output, dict) and upstage_output.get("page_records")
                 ):
                     expected_parsers["upstage_async_standard"] = (
@@ -1356,7 +1394,7 @@ class OpenDataLoaderParser(ParserPort):
                 raise ValueError("parser run mismatch")
             if profile.table_source_policy_sha256 is not None:
                 verifier = _table_verifier(profile.table_source_policy_sha256)
-                from proofops.adapters.local import i21_table_replay as parse_table_cache
+                from proofops.adapters.local import s3_table_replay as parse_table_cache
                 from proofops.adapters.local.receipt_environment_compat import (
                     record_table_read,
                 )
