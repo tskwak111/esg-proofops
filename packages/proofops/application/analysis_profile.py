@@ -28,6 +28,7 @@ from proofops.application.provider_resilience import (
     SCHEDULER_POLICY,
 )
 from proofops.application.provider_resilience import POLICY as F1_RESILIENCE_POLICY
+from proofops.application.rb1_input_isolation import POLICY as RB1_INPUT_POLICY
 from proofops.application.tagging.analysis_scope import confirmation_policy as sc1_policy
 from proofops.application.tagging.dec24 import (
     DEFINITIONS_HASH,
@@ -1058,6 +1059,15 @@ FXH_POLICY = FINALS_I25_POLICY | dict(
 )
 
 
+# RB1 remains an explicit new-run pin; I26 can compose these two fields onto v26.
+
+RB1_POLICY = FXH_POLICY | dict(
+    integration_profile="rb1_finals_table_isolation_v1",
+    rb1_input_isolation=RB1_INPUT_POLICY,
+    rb1_input_isolation_sha256=canonical_hash(RB1_INPUT_POLICY),
+)
+
+
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
     from proofops.application.tagging.fact_assembly_c3_v2 import (
@@ -1093,6 +1103,7 @@ def policy_for(profile, *, pinned_hash=None):
         choices = (
             V2_POLICY,
             FXH_POLICY,
+            RB1_POLICY,
             FINALS_I24_POLICY,
             FINALS_I23_POLICY,
             V3_POLICY,
@@ -1252,6 +1263,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
         (
             policy_for(profile),
             FXH_POLICY,
+            RB1_POLICY,
             FINALS_I24_POLICY,
             FINALS_I23_POLICY,
             V3_POLICY,

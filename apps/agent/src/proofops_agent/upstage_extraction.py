@@ -2748,7 +2748,13 @@ class GraphBoundExtractor:
     """
 
     def __init__(
-        self, inner: Any, graph: Any, source: bytes | None = None, *, display_prefetch_workers=1
+        self,
+        inner: Any,
+        graph: Any,
+        source: bytes | None = None,
+        *,
+        display_prefetch_workers=1,
+        rb1=None,
     ) -> None:
         if not (
             getattr(inner, "_context", False) or getattr(inner, "_display_text_profile", None)
@@ -2757,6 +2763,7 @@ class GraphBoundExtractor:
         if type(display_prefetch_workers) is not int or not 1 <= display_prefetch_workers <= 4:
             raise ValueError("DISPLAY_PREFETCH_WORKERS_INVALID")
         self._display_prefetch_workers = display_prefetch_workers
+        self._rb1 = rb1
         self._inner = inner
         self._graph = graph
         self.native_figure_receipt = None
@@ -2787,10 +2794,18 @@ class GraphBoundExtractor:
             # Keep packet and focal identity checks before the optional CPU work.
             self._inner._packet_text(packet)
             self._inner._validate_context_graph(packet, self._graph)
-            selected.add(packet["untrusted_document_data"]["source_id"])
+            sid = packet["untrusted_document_data"]["source_id"]
+            if self._rb1 is not None and sid in self._rb1.failures:
+                continue
             if self._inner._context:
-                context, _ = self._inner._context_for(packet, self._graph)
+                try:
+                    context, _ = self._inner._context_for(packet, self._graph)
+                except ValueError as error:
+                    if self._rb1 is None or not self._rb1.capture(sid, error):
+                        raise
+                    continue
                 selected.update(b["source_id"] for b in context)
+            selected.add(sid)
         pages = {
             blocks[sid].page_num
             for sid in selected
@@ -2810,6 +2825,12 @@ class GraphBoundExtractor:
         return self._inner.profile
 
     def extract(self, packet: dict) -> dict:
+        if self._rb1 is not None and self._rb1.active:
+            sid = packet["untrusted_document_data"]["source_id"]
+            if sid in self._rb1.failures:
+                self._inner._packet_text(packet)
+                self._inner._validate_context_graph(packet, self._graph)
+                self._rb1.check(sid)
         if getattr(self._inner, "_display_text_profile", None) and self._display_catalog is None:
             raise ExtractionOutputError("DISPLAY_SOURCE_UNAVAILABLE")
         try:
@@ -2828,6 +2849,10 @@ class GraphBoundExtractor:
                 ),
             )
         except ValueError as error:
+            if self._rb1 is not None and self._rb1.capture(
+                packet["untrusted_document_data"]["source_id"], error
+            ):
+                self._rb1.check(packet["untrusted_document_data"]["source_id"])
             if (
                 getattr(self._inner, "_i5_tables", False)
                 and getattr(self._inner, "_j8", False)
