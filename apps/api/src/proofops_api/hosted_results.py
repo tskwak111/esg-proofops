@@ -395,6 +395,18 @@ def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                 }:
                     summary["pipeline_status"] = "needs_review"
                     summary["decision"] = decision = None
+            # SC1 is a separate additive result, preserving legacy grade semantics.
+            if "sc1_confirmation" in projection:
+                summary.update(
+                    {
+                        k: projection.get(k)
+                        for k in (
+                            "sc1_confirmation",
+                            "sc1_elements",
+                            "sc1_hold_reason",
+                        )
+                    }
+                )
             rows.append(
                 summary
                 | dict(

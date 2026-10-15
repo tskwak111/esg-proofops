@@ -624,6 +624,45 @@ class LocalTagStore:
         expected = tag_pins(snapshot, extraction, run["claim_snapshot_sha256"])
         if any(envelope.get(k) != v for k, v in expected.items()):
             raise ValueError("TAG_CHECKPOINT_PIN_MISMATCH")
+        sc1_policy = snapshot.get("analysis_profile_policy", {}).get("sc1_scope_confirmation")
+        if sc1_policy is not None:
+            from proofops.application.tagging.analysis_scope import InventoryIndex, analyze_record
+
+            inventory = envelope.get("sc1_inventory")
+            index = InventoryIndex(inventory, evidence[2]) if inventory is not None else None
+            if index is not None:
+                from proofops.application.tagging.element_inventory import selection_from_snapshot
+
+                if index.inventory["selection"] != selection_from_snapshot(
+                    snapshot, evidence[2], run_id
+                ):
+                    raise ValueError("SC1_INVENTORY_SELECTION_MISMATCH")
+            claims = {c.claim_id: c for c in evidence[1].claims}
+            pack = RulePackSnapshot(**snapshot["rulepack"])
+            for item in envelope["claims"]:
+                receipt = item.get("sc1_scope_receipt")
+                if receipt is not None:
+                    if index is None:
+                        raise ValueError("SC1_INVENTORY_MISSING")
+                    replayed = analyze_record(
+                        item,
+                        claims[item["claim_id"]],
+                        evidence[2],
+                        pack,
+                        index,
+                        required_present_votes=sc1_policy["agreement"]["required_present_votes"],
+                        local_synthetic=envelope["synthetic"],
+                    )
+                    if canonical_hash(replayed) != canonical_hash(receipt) or any(
+                        item.get(k) != receipt[k] for k in ("sc1_confirmation", "sc1_elements")
+                    ):
+                        raise ValueError("SC1_SCOPE_RECEIPT_MISMATCH")
+                elif item.get("sc1_confirmation") is not None:
+                    raise ValueError("SC1_CONFIRMATION_WITHOUT_RECEIPT")
+        elif "sc1_inventory" in envelope or any(
+            item.get("sc1_confirmation") for item in envelope["claims"]
+        ):
+            raise ValueError("SC1_UNPINNED_CONFIRMATION")
         return envelope, evidence
 
     def load_snapshot(self, tenant_id, run_id):
