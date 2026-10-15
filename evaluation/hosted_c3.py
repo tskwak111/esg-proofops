@@ -82,6 +82,8 @@ def publish_current(store, job, state, policy, factory, *, simulated=False):
                 json_mode=True,
                 schema_json=request["schema_json"],
             )
+        if policy.get("s5_c3_response_binding") and response.get("schema_valid") is not True:
+            raise ValueError("C3_CURRENT_RESPONSE_INVALID")
         if not simulated:
             response = authenticate_response(request, response, probe)
         return response | dict(simulated=simulated)

@@ -16,7 +16,8 @@ class SC1InventoryProvider:
     policy creates a different artifact; existing revisions are never overwritten.
     """
 
-    def __init__(self, path, *, model_sha256, invoke):
+    def __init__(self, path, *, model_sha256, invoke, build=build_inventory):
+        self.build = build
         self.path = Path(path)
         self.model_sha256, self.invoke = model_sha256, invoke
 
@@ -32,7 +33,7 @@ class SC1InventoryProvider:
                 if result["selection"] != selection or result["model_sha256"] != self.model_sha256:
                     raise ValueError("SC1_IMMUTABLE_INVENTORY_MISMATCH")
                 return replay_inventory(result, graph)
-            result = build_inventory(
+            result = self.build(
                 graph, selection, model_sha256=self.model_sha256, invoke=self.invoke
             )
             # Exclusive creation prevents overwrites even by a non-cooperating writer.

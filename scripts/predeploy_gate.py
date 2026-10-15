@@ -219,6 +219,7 @@ def run_case(
     compare_result=compare,
     response_event="recorded_reply",
     verification_in_observer=False,
+    keep_session_alive=False,
 ):
     directory = output / case["kind"]
     directory.mkdir()
@@ -331,6 +332,7 @@ def run_case(
                 "--once",
             )
             deadline = time.monotonic() + timeout
+            next_keepalive = time.monotonic() + 240
             while True:
                 state = json.loads(docker("inspect", name + "-worker"))[0]["State"]
                 if not state["Running"]:
@@ -341,6 +343,10 @@ def run_case(
                     record["failures"].append("worker_timeout")
                     docker("stop", "--time", "1", name + "-worker")
                     break
+                if keep_session_alive and time.monotonic() >= next_keepalive:
+                    phase(name, "keepalive")
+                    record["session_keepalives"] = record.get("session_keepalives", 0) + 1
+                    next_keepalive = time.monotonic() + 240
                 time.sleep(2)
             # GET runs through the API's cold artifact replay and source guards.
             observation = verification()
@@ -394,6 +400,11 @@ def run_case(
             (directory / "harness-failure.log").write_text(error.output or "")
     finally:
         subprocess.run(["docker", "rm", "-f", name + "-observer"], capture_output=True)
+        # Failed/expired runs still need the same call-level diagnostic evidence.
+        subprocess.run(
+            ["docker", "cp", name + ":/data/gate-audit.jsonl", str(directory / "audit.jsonl")],
+            capture_output=True,
+        )
         # Preserve the exact unmatched public-report wire for fixture diagnosis.
         # No production credentials are mounted in these isolated containers.
         files = subprocess.run(

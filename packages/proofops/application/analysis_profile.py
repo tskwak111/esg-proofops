@@ -29,6 +29,7 @@ from proofops.application.provider_resilience import (
 )
 from proofops.application.provider_resilience import POLICY as F1_RESILIENCE_POLICY
 from proofops.application.tagging.analysis_scope import confirmation_policy as sc1_policy
+from proofops.application.tagging.c3_request_binding import S5_POLICY as S5_C3_BINDING
 from proofops.application.tagging.dec24 import (
     DEFINITIONS_HASH,
     INTEGRATED_DEFINITIONS_HASH,
@@ -1082,6 +1083,18 @@ FINALS_I26_POLICY = FXH_POLICY | dict(
 V2_POLICY = FINALS_I26_POLICY
 
 
+
+# S5 is explicit-hash only. V26 and every earlier entry stay byte-identical.
+S5_LIVE_POLICY = FINALS_I26_POLICY | dict(
+    integration_profile="s5_finals_live_speed_v1",
+    source="s5_claim_source_v1",
+    extract_batch_calls=256,
+    s5_inventory_execution="s5_bounded_parallel_chunks_v1",
+    s5_usage_accounting="s5_final_reporting_snapshot_v1",
+    s5_c3_response_binding=S5_C3_BINDING,
+)
+
+
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
     from proofops.application.tagging.fact_assembly_c3_v2 import (
@@ -1116,6 +1129,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            S5_LIVE_POLICY,
             FXH_POLICY,
             OPS2_POLICY,
             FINALS_I25_POLICY,
@@ -1277,6 +1291,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            S5_LIVE_POLICY,
             FXH_POLICY,
             OPS2_POLICY,
             FINALS_I25_POLICY,

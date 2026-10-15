@@ -3,6 +3,8 @@
 import json
 from contextlib import nullcontext
 from decimal import Decimal
+from functools import partial
+from threading import Event
 
 from proofops.adapters.local.sc1_inventory_store import SC1InventoryProvider
 from proofops.application.budget import BudgetCall, BudgetExceeded, TokenUsage
@@ -62,11 +64,15 @@ def load_inventory(live, graph, selection):
         authorize=live._authorize,
         resume=live.resume,
     )
+    parallel = live.snapshot.get("analysis_profile_policy", {}).get("s5_inventory_execution")
+    if parallel not in (None, "s5_bounded_parallel_chunks_v1"):
+        raise ValueError("S5_INVENTORY_EXECUTION_MISMATCH")
     stopped = False
+    stop_event = Event()
 
     def invoke(original):
         nonlocal stopped
-        if stopped:
+        if stopped or (parallel and stop_event.is_set()):
             raise ValueError("SC1_INVENTORY_STOPPED")
         live._fence()
         request = transport_request(original, live.settings)
@@ -160,14 +166,24 @@ def load_inventory(live, graph, selection):
                 and response is not None
                 and response.usage.status == "succeeded"
             )
+            if parallel and stopped:
+                stop_event.set()
             raise
         finally:
             live.account(request["request_id"])
 
+    build_options = {}
+    if parallel:
+        from proofops.adapters.local.s5_inventory_execution import build_inventory
+
+        build_options["build"] = partial(
+            build_inventory, max_workers=live.runner.max_workers, stopped=stop_event.is_set
+        )
     provider = SC1InventoryProvider(
         live.receipts / "sc1-inventory-artifacts",
         model_sha256=live.settings.model_sha256,
         invoke=invoke,
+        **build_options,
     )
     result = provider(graph, selection)
     live._fence()

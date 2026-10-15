@@ -88,6 +88,9 @@ def validate_kakao(case):
 
 
 def prepare(case, base, directory):
+    batch_calls = case.get("extract_batch_calls", 100)
+    if type(batch_calls) is not int or not 1 <= batch_calls <= 256:
+        raise ValueError("FRESH_EXTRACTION_BATCH_INVALID")
     directory.mkdir()
     source = (base / case["pdf"]).resolve()
     if hashlib.sha256(source.read_bytes()).hexdigest() != case["source_sha256"]:
@@ -107,7 +110,7 @@ def prepare(case, base, directory):
         analysis_profile="finals-unattended-v2",
         llm_max_workers=4,
         llm_requests_per_second=8,
-        extract_batch_calls=100,
+        extract_batch_calls=batch_calls,
         **case["reporting_scope"],
     )
     if case.get("analysis_policy_sha256"):
@@ -217,6 +220,7 @@ def main():
     parser.add_argument("--image", required=True)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--timeout", type=int, default=2400)
+    parser.add_argument("--timing", action="store_true", help="Observe per-function durations")
     args = parser.parse_args()
     manifest = json.loads(args.manifest.read_text())
     validate_manifest(manifest)
@@ -228,6 +232,8 @@ def main():
     args.output.mkdir(parents=True, exist_ok=False)
     generator = ROOT / "scripts" / "fresh_e2e_runtime.py"
     shutil.copyfile(generator, args.output / "fresh_e2e_runtime.py")
+    if args.timing:
+        shutil.copyfile(ROOT / "scripts/fresh_e2e_timing.py", args.output / "fresh_e2e_timing.py")
     records = []
     with tempfile.TemporaryDirectory(prefix="fxh-harness-") as temp:
         harness = Path(temp)
@@ -239,11 +245,26 @@ def main():
         ):
             shutil.copyfile(ROOT / "scripts" / source, harness / target)
         (harness / "sitecustomize.py").write_text(
-            "from fresh_e2e_runtime import install\ninstall()\n"
+            "import os,traceback\ntry:\n"
+            + (
+                " from fresh_e2e_timing import install as timing\n timing()\n"
+                if args.timing
+                else ""
+            )
+            + " from fresh_e2e_runtime import install\n install()\n"
+            + "except BaseException:\n traceback.print_exc()\n os._exit(70)\n"
         )
+        if args.timing:
+            shutil.copyfile(ROOT / "scripts/fresh_e2e_timing.py", harness / "fresh_e2e_timing.py")
         (harness / "predeploy_runtime.py").write_text(
             "import json,sys\nfrom fresh_e2e_runtime import intake,verify\n"
-            "print(json.dumps({'intake':intake,'verify':verify}[sys.argv[1]]()))\n"
+            "from predeploy_runtime_base import DATA,request\n"
+            "def keepalive():\n"
+            " record=json.loads((DATA/'gate-session.json').read_text())\n"
+            " status,_=request(record['run']['status_url'],auth=record['auth'])\n"
+            " return {'status':status['status']}\n"
+            "print(json.dumps({'intake':intake,'verify':verify,'keepalive':keepalive}"
+            "[sys.argv[1]]()))\n"
         )
         for case in manifest["cases"]:
             baseline = case["baseline"]
@@ -260,8 +281,18 @@ def main():
                 compare_result=compare,
                 response_event="generated_reply",
                 verification_in_observer=True,
+                keep_session_alive=True,
             )
             record["simulated"] = True
+            if args.timing:
+                from fresh_e2e_timing import summarize
+
+                audit_path = args.output / case["kind"] / "audit.jsonl"
+                if audit_path.exists():
+                    events = [json.loads(line) for line in audit_path.read_text().splitlines()]
+                    (audit_path.parent / "function-timing.json").write_text(
+                        json.dumps(summarize(events), indent=2) + "\n"
+                    )
             records.append(record)
     report = dict(
         schema="fxh-fresh-e2e-v1",
@@ -273,6 +304,10 @@ def main():
         status="passed" if all(r["status"] == "passed" for r in records) else "failed",
         cases=records,
     )
+    if args.timing:
+        report["timing_observer_sha256"] = hashlib.sha256(
+            (args.output / "fresh_e2e_timing.py").read_bytes()
+        ).hexdigest()
     (args.output / "fresh-e2e-gate.json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report, indent=2))
     return 0 if report["status"] == "passed" else 1

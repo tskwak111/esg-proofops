@@ -41,11 +41,27 @@ POLICY = dict(
 )
 
 
+# The old request never sent vote_schema to the model: schema_json was only a
+# local validator argument. New runs explicitly bind the transmitted schema.
+S5_SYSTEM = SYSTEM + "\nRequired response JSON schema: " + json.dumps(vote_schema())
+S5_POLICY = POLICY | dict(
+    profile="s5_c3_schema_wire_v1",
+    prompt_sha256=canonical_hash([S5_SYSTEM, vote_schema()]),
+)
+
+
+def response_binding_policy(analysis_policy):
+    selected = analysis_policy.get("s5_c3_response_binding")
+    if selected is not None and selected != S5_POLICY:
+        raise ValueError("S5_C3_BINDING_POLICY_MISMATCH")
+    return S5_POLICY if selected is not None else POLICY
+
+
 def current_request(identity, claim_quote, sources, analysis_policy, replica):
     request = dict(
         identity=identity,
         replica=replica,
-        system=SYSTEM,
+        system=S5_SYSTEM if response_binding_policy(analysis_policy) == S5_POLICY else SYSTEM,
         schema_json=json.dumps(vote_schema()),
         max_tokens=1800,
         snapshot=dict(
@@ -72,6 +88,7 @@ def current_request(identity, claim_quote, sources, analysis_policy, replica):
 
 
 def request_binding(request):
+    policy = response_binding_policy(request["snapshot"]["analysis_profile_policy"])
     wire = WIRE_DEFAULTS | dict(
         messages=[
             dict(role="system", content=request["system"]),
@@ -85,8 +102,8 @@ def request_binding(request):
         role="elements",
         wire_sha256=canonical_hash(wire),
         schema_sha256=canonical_hash(request["schema_json"]),
-        model_sha256=POLICY["model_sha256"],
-        prompt_sha256=POLICY["prompt_sha256"],
+        model_sha256=policy["model_sha256"],
+        prompt_sha256=policy["prompt_sha256"],
         analysis_policy_sha256=request["snapshot"]["analysis_profile_policy_sha256"],
         packet_sha256=request["identity"]["packet_sha256"],
         request_id=request["id"],

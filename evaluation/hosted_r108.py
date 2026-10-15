@@ -180,6 +180,7 @@ def prepare_argv(pdf, state, tenant, config, options=None):
                 S1_POLICY,
                 S2_POLICY,
                 S4_POLICY,
+                S5_LIVE_POLICY,
                 W3_POLICY,
                 policy_for,
             )
@@ -215,6 +216,7 @@ def prepare_argv(pdf, state, tenant, config, options=None):
                 canonical_hash(S1_POLICY),
                 canonical_hash(S2_POLICY),
                 canonical_hash(S4_POLICY),
+                canonical_hash(S5_LIVE_POLICY),
                 canonical_hash(FINALS_S5_POLICY),
                 canonical_hash(FINALS_S2_SPEED_POLICY),
             }:
