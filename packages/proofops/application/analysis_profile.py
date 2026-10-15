@@ -930,6 +930,10 @@ FXE_POLICY = FINALS_I23_POLICY | dict(
     integration_profile="fxe_finals-20261015-v1",
     source="fxe_upstage-ocr-page-v21",
 )
+FXF_POLICY = FXE_POLICY | dict(
+    integration_profile="fxf_finals-20261015-v1",
+    source="fxf_upstage-ocr-page-v21",
+)
 # Explicit QT1 opt-in; the default and all historical policy hashes stay frozen.
 
 QT1_POLICY = FINALS_I23_POLICY | dict(
@@ -1022,6 +1026,7 @@ def policy_for(profile, *, pinned_hash=None):
         choices = (
             V2_POLICY,
             FINALS_I23_POLICY,
+            FXF_POLICY,
             FXE_POLICY,
             QT1_POLICY,
             QT2_ELEMENTS_POLICY,
@@ -1174,6 +1179,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
         (
             policy_for(profile),
             FINALS_I23_POLICY,
+            FXF_POLICY,
             FXE_POLICY,
             QT1_POLICY,
             QT2_ELEMENTS_POLICY,
