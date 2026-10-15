@@ -455,6 +455,14 @@ class LiveTaggingRuntime:
             data["local_implementation_binding_policy"] = policy[
                 "local_implementation_binding_policy"
             ]
+        if "qt2_contextual_elements_policy" in policy:
+            from proofops.application.tagging.qt2_context import augment_packet, validate_policy
+
+            contextual = policy["qt2_contextual_elements_policy"]
+            validate_policy(contextual)
+            if policy.get("qt2_contextual_elements_policy_sha256") != canonical_hash(contextual):
+                raise ValueError("QT2_CONTEXT_POLICY_PIN_MISMATCH")
+            data = augment_packet(data, claim, self.graph, tenant_id=self.graph.tenant_id)
         if display_catalog is not None:
             data["display_text"] = display_catalog.element_pins(data)
         if policy.get("hold_recovery_policy") is not None:
