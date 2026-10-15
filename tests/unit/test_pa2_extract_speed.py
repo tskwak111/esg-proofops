@@ -162,7 +162,13 @@ def test_operator_batch_and_concurrency_settings_pin_only_new_runs(tmp_path, mon
         ]["profile"]
         == "exact-verified-read-v4"
     )
-    assert operator_profiles({})["extract_batch_calls"] == 100
+    assert operator_profiles({})["extract_batch_calls"] == 256
+    assert (
+        operator_profiles({"analysis_policy_sha256": canonical_hash(FINALS_I8_POLICY)})[
+            "extract_batch_calls"
+        ]
+        == 100
+    )
     for invalid in (0, 257, True, "32"):
         with pytest.raises(ValueError, match="HOSTED_EXTRACT_BATCH_INVALID"):
             operator_profiles(config | dict(extract_batch_calls=invalid))
