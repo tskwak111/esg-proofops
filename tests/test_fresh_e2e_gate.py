@@ -39,6 +39,7 @@ def example(gate):
             claims=[dict(source_quality="verified")] * 107, pipeline=dict(status="completed")
         ),
         c3_generated_calls=3,
+        w18=dict(exact_refs=1, default_unchanged=True),
         inventory_completed=27,
         inventory_planned=27,
         outcome=dict(stage_seconds=deepcopy(baseline["stage_seconds"])),
@@ -79,6 +80,7 @@ def test_fresh_gate_rejects_replay_scope_reduction_and_loose_baseline(gate):
         "unsettled",
         "publish",
         "clock",
+        "w18",
     ],
 )
 def test_fresh_gate_cannot_pass_each_regression(gate, failure):
@@ -101,6 +103,8 @@ def test_fresh_gate_cannot_pass_each_regression(gate, failure):
         observed["unsettled_costs"] = 1
     elif failure == "clock":
         observed["clock_discontinuity_seconds"] = 30
+    elif failure == "w18":
+        observed["w18"] = dict(exact_refs=0, default_unchanged=True)
     else:
         del observed["outcome"]["stage_seconds"]["publish"]
     assert gate.compare(observed, case["baseline"])["status"] == "failed"
@@ -157,3 +161,45 @@ def test_native_ocr_simulation_requires_exact_pixels(gate, monkeypatch):
     changed = io.BytesIO()
     original.save(changed, format="PNG")
     assert runtime.native_ocr(changed.getvalue()) is None
+
+
+def test_kakao_auto_gate_retains_source_boundary_and_strict_timings(gate):
+    _, observed = example(gate)
+    case = dict(
+        kind="kakao",
+        source_sha256=gate.KAKAO_SHA256,
+        selection_mode="automatic",
+        baseline=dict(
+            evidence="E14 Kakao",
+            min_claims=133,
+            stage_seconds=gate.KAKAO_STAGES,
+            max_stage_ratio=1.5,
+            max_seconds=2567.7,
+            c3_scope="outside_approved_source",
+        ),
+    )
+    gate.validate_manifest(dict(cases=[case]))
+    observed["result"]["claims"] = [dict(source_quality="verified")] * 133
+    observed.update(
+        c3_generated_calls=0,
+        selection=dict(
+            automatic=True,
+            pages=[51],
+            claim_pages=[51],
+            proposal=dict(selected_evidence_pages=[51], selected_claim_pages=[51]),
+        ),
+    )
+    observed["outcome"] = dict(
+        stage_seconds=gate.KAKAO_STAGES,
+        bounded_c3=dict(status="outside_approved_source", published=False),
+    )
+    assert gate.compare(observed, case["baseline"])["status"] == "passed"
+    for update in (dict(c3_generated_calls=3), dict(selection={}), dict(inventory_completed=0)):
+        assert gate.compare(observed | update, case["baseline"])["status"] == "failed"
+    for update in (dict(pages=[51]), dict(selection_mode="manual"), dict(recorded_states=["old"])):
+        with pytest.raises(ValueError):
+            gate.validate_manifest(dict(cases=[case | update]))
+    with pytest.raises(ValueError):
+        gate.validate_manifest(
+            dict(cases=[case | dict(baseline=case["baseline"] | dict(max_seconds=3000))])
+        )

@@ -340,13 +340,14 @@ def test_deploy_accepts_dec22_and_explicit_live_opt_in(tmp_path):
     assert "HOSTED_RUN_USD=1.0" in env and "HOSTED_DAY_USD=7" in env
     assert "HOSTED_EVENT_USD=7" in env and "LIVE_DISABLED=true" in env
     config = tmp_path / "live.json"
-    for key in ("openai", "upstage"):
+    for key in ("openai", "openrouter", "upstage"):
         (tmp_path / f"{key}.key").write_text("offline-test-only")
     config.write_text(
         json.dumps(
             dict(
                 enabled=True,
                 openai_key_file=str(tmp_path / "openai.key"),
+                openrouter_key_file=str(tmp_path / "openrouter.key"),
                 upstage_key_file=str(tmp_path / "upstage.key"),
                 report_year=2025,
                 period_start="2024-01-01",

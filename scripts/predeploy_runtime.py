@@ -335,14 +335,25 @@ def intake(*, tenant_id=None):
     )
     path = f'/v1/documents/{document["document_id"]}/scope-plan'
     scope, headers = request(path, body={}, auth=auth)
+    automatic = case.get("selection_mode") == "automatic"
+    # The response uses pages/claim_pages; the edit request uses selected_*.
+    # Record the same proposed arrays in request form, without choosing pages.
+    proposal = dict(
+        selected_claim_pages=scope["selection"]["claim_pages"],
+        selected_evidence_pages=scope["selection"]["pages"],
+    )
     scope, _ = request(
         path + "/selection",
         auth=auth,
         headers={"If-Match": headers["ETag"]},
         body=dict(
-            selected_claim_pages=case["claim_pages"],
-            selected_evidence_pages=case["pages"],
-            manual_selection=True,
+            selected_claim_pages=proposal["selected_claim_pages"]
+            if automatic
+            else case["claim_pages"],
+            selected_evidence_pages=proposal["selected_evidence_pages"]
+            if automatic
+            else case["pages"],
+            manual_selection=not automatic,
             reporting_scope=case["reporting_scope"],
         ),
     )
@@ -358,7 +369,16 @@ def intake(*, tenant_id=None):
     )
     (DATA / "gate-session.json").write_text(
         json.dumps(
-            dict(auth=auth, tenant=tenant, document=document, run=run, accepted_monotonic=started)
+            dict(
+                auth=auth,
+                tenant=tenant,
+                document=document,
+                run=run,
+                accepted_monotonic=started,
+                automatic_selection=automatic,
+                proposal=proposal,
+                selection=scope["selection"],
+            )
         )
     )
     return dict(

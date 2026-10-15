@@ -60,7 +60,11 @@ def probe_for(settings, tmp_path, failure, state=None):
 
 
 def test_pin_default_and_historical_replay_unchanged():
-    assert policy_for("finals-unattended-v2") == FINALS_I25_POLICY
+    assert policy_for("finals-unattended-v2") != OPS2_POLICY
+    assert (
+        policy_for("finals-unattended-v2", pinned_hash=canonical_hash(FINALS_I25_POLICY))
+        == FINALS_I25_POLICY
+    )
     assert (
         policy_for("finals-unattended-v2", pinned_hash=canonical_hash(OPS2_POLICY)) == OPS2_POLICY
     )
@@ -255,10 +259,46 @@ def test_configured_scheduler_keeps_k3_and_independent_context(settings, tmp_pat
     with probe.response_context(role="elements", replica=3):
         result = probe.complete("x", "{}", request_id="configured-3", json_mode=True)
     assert gate.circuit_open and result["provider"] == "openrouter"
+    assert gate.failed_calls == 3
+    assert probe.ops2_state.summary()["recovered_primary_failures"] == 1
     assert store.get_run(auth.tenant_id, job["run_id"])["status"] == "running"
     with pytest.raises(ValueError, match="MODEL_RESPONSE_REPLICA_REQUIRED"):
         probe.complete("x", "{}", request_id="missing-replica", json_mode=True)
     assert len(seen) == 4
+
+
+@pytest.mark.parametrize("invalid_reply", [False, True])
+def test_failed_or_invalid_fallback_does_not_recover_primary_failure(
+    settings, tmp_path, invalid_reply
+):
+    from proofops.adapters.local.provider_scheduler import RoleProviderConcurrency
+
+    probe, _, auth, _, _ = probe_for(settings, tmp_path, OSError("offline"))
+    probe.configure_response_policy(
+        dict(
+            tenant_id=auth.tenant_id,
+            document=dict(sha256="a" * 64),
+            analysis_profile_policy=OPS2_POLICY,
+            analysis_profile_policy_sha256=canonical_hash(OPS2_POLICY),
+        ),
+        role="extract",
+    )
+    gate = RoleProviderConcurrency(1, cooldown_seconds=0)
+    gate.bind(probe)
+    schema = json.dumps({"type": "object", "required": ["missing"]})
+    if invalid_reply:
+        result = probe.complete("x", "{}", request_id="invalid", schema_json=schema)
+        assert result["schema_valid"] is False
+    else:
+
+        def unavailable(body):
+            raise ValueError("OPENROUTER_HTTP_402")
+
+        probe.ops2_post = unavailable
+        with pytest.raises(ValueError):
+            probe.complete("x", "{}", request_id="unavailable", schema_json=schema)
+    assert gate.failed_calls == 1
+    assert probe.ops2_state.summary()["recovered_primary_failures"] == 0
 
 
 def test_billing_error_decoded_from_real_transport_shape(settings, tmp_path, monkeypatch):

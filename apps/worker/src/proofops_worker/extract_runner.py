@@ -140,8 +140,19 @@ def _is_text_candidate(
         from proofops.application.ingest.qt1_tables import candidates_for
 
         table = next((b for b in graph.blocks if b.source_id == source_id), None)
-        if table is not None and candidates_for(table, graph):
-            return True
+        if table is not None:
+            try:
+                if candidates_for(table, graph):
+                    return True
+            except ValueError as error:
+                from proofops.application.input_failures import TABLE_ERRORS
+
+                if str(error) not in TABLE_ERRORS:
+                    raise
+                # Routing is not source admission. Let the extractor's pinned
+                # table-failure policy retain this source as unknown; it still
+                # rejects a missing grid before any paid model dispatch.
+                return True
     if extraction_k3 and extraction_table_rows and kind == "table" and graph is not None:
         from proofops.application.ingest.w9_tables import cell_entries, graph_cells, observations
 

@@ -20,13 +20,23 @@ ROOT = Path(__file__).resolve().parents[1]
 LG_SHA256 = "c6395dd2be7948d85fa2b52c6edb61367fa6610c6f389c2478b44cb4cfcb5bde"
 LG_PAGES = [24, 32, 36, 40, 41, 44, 100, 109, 110, 111, 112, 113, 117]
 LG_CLAIM_PAGES = [24, 32, 36, 40, 41, 44, 100, 113]
+KAKAO_SHA256 = "43804a2d5eccfc6aa9c5b5480ec6714c7d07bea13ed68729c0af7a3b622ce76d"
+KAKAO_STAGES = dict(parse=450.42, extract=549.58, tag=516.49, publish=184.29)
 
 
 def validate_manifest(manifest):
     cases = manifest.get("cases", [])
-    if len(cases) != 1:
+    kinds = [c.get("kind") for c in cases]
+    if not cases or len(kinds) != len(set(kinds)) or set(kinds) - {"lg13", "kakao"}:
         raise ValueError("FRESH_LG13_CASE_REQUIRED")
-    case = cases[0]
+    for case in cases:
+        if case["kind"] == "kakao":
+            validate_kakao(case)
+        else:
+            validate_lg(case)
+
+
+def validate_lg(case):
     if (
         case.get("kind") != "lg13"
         or case.get("source_sha256") != LG_SHA256
@@ -49,6 +59,32 @@ def validate_manifest(manifest):
         or not 0 < baseline["max_seconds"] <= 984.6
     ):
         raise ValueError("FRESH_E14_BASELINE_REQUIRED")
+    if baseline.get("c3_scope") or case.get("selection_mode") == "automatic":
+        raise ValueError("FRESH_E14_SCOPE_REQUIRED")
+
+
+def validate_kakao(case):
+    if (
+        case.get("source_sha256") != KAKAO_SHA256
+        or case.get("selection_mode") != "automatic"
+        or case.get("pages") is not None
+        or case.get("claim_pages") is not None
+        or case.get("recorded_states")
+    ):
+        raise ValueError("FRESH_KAKAO_AUTOMATIC_SCOPE_REQUIRED")
+    baseline = case.get("baseline", {})
+    if (
+        not baseline.get("evidence")
+        or type(baseline.get("min_claims")) is not int
+        or baseline["min_claims"] < 133
+        or baseline.get("stage_seconds") != KAKAO_STAGES
+        or type(baseline.get("max_stage_ratio")) not in (int, float)
+        or not 1 <= baseline["max_stage_ratio"] <= 1.5
+        or type(baseline.get("max_seconds")) not in (int, float)
+        or not 0 < baseline["max_seconds"] <= 2567.7
+        or baseline.get("c3_scope") != "outside_approved_source"
+    ):
+        raise ValueError("FRESH_KAKAO_BASELINE_REQUIRED")
 
 
 def prepare(case, base, directory):
@@ -58,13 +94,14 @@ def prepare(case, base, directory):
         raise ValueError("FRESH_ORIGINAL_SHA_MISMATCH")
     shutil.copyfile(source, directory / "original.pdf")
     (directory / "case.json").write_text(json.dumps(case))
-    for provider in ("openai", "upstage"):
+    for provider in ("openai", "openrouter", "upstage"):
         (directory / f"dummy-{provider}.env").write_text(
             f"{provider.upper()}_API_KEY=offline-test\n"
         )
     config = dict(
         enabled=True,
         openai_key_file="/fixtures/dummy-openai.env",
+        openrouter_key_file="/fixtures/dummy-openrouter.env",
         upstage_key_file="/fixtures/dummy-upstage.env",
         llm_provider="openai",
         analysis_profile="finals-unattended-v2",
@@ -93,12 +130,30 @@ def compare(observation, baseline):
     verified = sum(c.get("source_quality") == "verified" for c in claims)
     if not verified:
         failures.append("no_positive_source_proof")
+    w18 = observation.get("w18", {})
+    if w18.get("exact_refs", 0) <= 0 or w18.get("default_unchanged") is not True:
+        failures.append("W18_EXACT_COORDINATES_REQUIRED")
     if any(c.get("confirmed_grade") is not None for c in claims):
         failures.append("unknown_simulation_published_confirmation")
     result = observation.get("result") or {}
     if result.get("pipeline", {}).get("status") != "completed" or result.get("hold_reasons"):
         failures.append("pipeline_blocked")
-    if observation.get("c3_generated_calls") != 3:
+    if baseline.get("c3_scope") == "outside_approved_source":
+        if observation.get("c3_generated_calls") != 0 or (
+            observation.get("outcome", {}).get("bounded_c3", {}).get("status")
+            != "outside_approved_source"
+        ):
+            failures.append("C3_UNAPPROVED_SOURCE_DISPATCH")
+        selection = observation.get("selection", {})
+        proposal = selection.get("proposal", {})
+        if (
+            selection.get("automatic") is not True
+            or selection.get("pages") != proposal.get("selected_evidence_pages")
+            or selection.get("claim_pages") != proposal.get("selected_claim_pages")
+            or 51 not in selection.get("claim_pages", [])
+        ):
+            failures.append("KAKAO_AUTOMATIC_SELECTION_REQUIRED")
+    elif observation.get("c3_generated_calls") != 3:
         failures.append("C3_FRESH_THREE_CALLS_REQUIRED")
     if (observation.get("outcome", {}).get("bounded_c3") or {}).get("published"):
         failures.append("unknown_simulation_c3_confirmation")
@@ -139,6 +194,8 @@ def compare(observation, baseline):
         claims=len(claims),
         verified=verified,
         c3_generated_calls=observation.get("c3_generated_calls"),
+        selection=observation.get("selection"),
+        w18=observation.get("w18"),
         bounded_c3=observation.get("outcome", {}).get("bounded_c3"),
         hold_distribution=reasons,
         errors=errors,

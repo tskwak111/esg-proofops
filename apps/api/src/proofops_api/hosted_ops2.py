@@ -64,6 +64,9 @@ class FallbackState:
                 bounded_c3="openai_bound_only; fallback_cannot_confirm",
                 provider_changed=bool(self.receipts),
                 calls=list(self.receipts),
+                recovered_primary_failures=sum(
+                    receipt["recovered_primary_failures"] for receipt in self.receipts
+                ),
                 publication="existing_three_replica_authentication_required",
             )
 
@@ -97,13 +100,24 @@ class OPS2Probe(HostedOpenAILunaProbe):
             response = super()._post(body)
         except Exception as error:
             trigger = fallback_trigger(error)
-            self.ops2_failure.set(trigger)
+            # The scheduler has already closed each physical attempt. Retain
+            # only this logical request's failures; other requests remain blocked.
+            attempts = (self._dispatch_context.get() or {}).get("physical_attempts", [])
+            self.ops2_failure.set(
+                dict(
+                    trigger=trigger,
+                    failed_calls=sum(attempt.get("error_code") is not None for attempt in attempts),
+                )
+                if trigger is not None
+                else None
+            )
             self.ops2_state.observe(trigger)
             raise
         self.ops2_state.observe(None)
         return response
 
     def complete(self, system, user_json, *, request_id, **kwargs):
+        recovered = 0
         if self.ops2_state.reason is not None:
             with sqlite3.connect(self.ledger) as db:
                 if db.execute(
@@ -117,6 +131,7 @@ class OPS2Probe(HostedOpenAILunaProbe):
             except Exception:
                 if self.ops2_failure.get() is None or self.ops2_state.reason is None:
                     raise
+                recovered = self.ops2_failure.get()["failed_calls"]
             finally:
                 self.ops2_failure.reset(token)
         self._authorize_response_request()
@@ -147,6 +162,7 @@ class OPS2Probe(HostedOpenAILunaProbe):
                         {k: v for k, v in result.items() if k != "content"}
                     ),
                     cost_usd=result["cost_with_vat_reserve_usd"],
+                    recovered_primary_failures=recovered if result["schema_valid"] is True else 0,
                 )
             )
         return result

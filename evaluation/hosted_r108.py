@@ -390,12 +390,12 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
 
         factories["llm"] = scoped_llm
 
+    c3_factory = factories["llm"]
     ops2_state = None
     if execution.get("ops2_provider_fallback"):
         from proofops_api.hosted_ops2 import FallbackState, OPS2Probe
 
         ops2_state = FallbackState()
-        llm_probe = OPS2Probe
 
         def ops2_llm(key, ledger, **kw):
             probe = OPS2Probe(
@@ -440,10 +440,16 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
             ),
         )
         original_llm = factories["llm"]
+        original_c3_llm = c3_factory
         original_parse = factories["parse"]
 
         def bounded_llm(*a, **k):
             return provider_gate.bind(original_llm(*a, **k))
+
+        def bounded_c3_llm(*a, **k):
+            return provider_gate.bind(original_c3_llm(*a, **k))
+
+        c3_factory = bounded_c3_llm
 
         def bounded_parse(*a, **k):
             probe = original_parse(*a, **k)
@@ -542,7 +548,14 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
             result["provider_failures"] = dict(
                 failed_calls=failed, deferred_calls=deferred, total=failed + deferred
             )
-            if failed or deferred:
+            recovered = 0
+            if ops2_state is not None:
+                recovered = min(failed, ops2_state.summary()["recovered_primary_failures"])
+                result["provider_failures"].update(
+                    recovered_by_fallback=recovered,
+                    unresolved_total=failed - recovered + deferred,
+                )
+            if failed > recovered or deferred:
                 result.update(status="partial_blocked", reason="PROVIDER_PROCESSING_FAILED")
     if complete and execution.get("direct_certification_policy", {}).get("profile") == (
         "management-direct-certification-c3-v2"
@@ -565,7 +578,7 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
                 ),
             ):
                 result["bounded_c3"] = publish_current(
-                    store, job, state, execution, factories["llm"], simulated=llm_post is not None
+                    store, job, state, execution, c3_factory, simulated=llm_post is not None
                 )
         except (ValueError, OSError, KeyError, RuntimeError) as error:
             # Keep completed regular claims; a failed bounded candidate never

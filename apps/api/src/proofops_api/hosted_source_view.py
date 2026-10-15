@@ -274,9 +274,13 @@ def project_source_view(reads, row, doc, result, *, w18=False):
             )
             if w18:
                 display_ref = ref
-                if kind == "claim" and (claim.get("source_status") or {}).get(
-                    "status", claim.get("source_quality")
-                ) != "verified":
+                if (
+                    kind == "claim"
+                    and (claim.get("source_status") or {}).get(
+                        "status", claim.get("source_quality")
+                    )
+                    != "verified"
+                ):
                     display_ref = ref | {"verification_state": "unverified"}
                 w18_requests.append((refs[-1], display_ref, path, anchor, original))
         claims.append(claim | dict(w16_source_view=dict(quote=claim["quote"], refs=refs)))

@@ -23,6 +23,7 @@ from uuid import uuid4
 
 from predeploy_runtime_base import audit as base_audit
 from predeploy_runtime_base import intake as base_intake
+from predeploy_runtime_base import request as api_request
 from predeploy_runtime_base import verify as base_verify
 
 
@@ -291,10 +292,14 @@ def _native_ocr_locked(png):
         _native_pages = {}
         source = Path("/fixtures/original.pdf").read_bytes()
         case = json.loads(Path("/fixtures/case.json").read_text())
+        pages = case.get("pages")
+        if case.get("selection_mode") == "automatic":
+            session = json.loads(Path("/data/gate-session.json").read_text())
+            pages = session["run"]["selected_pages"]
         if hashlib.sha256(source).hexdigest() != case["source_sha256"]:
             raise ValueError("FRESH_ORIGINAL_SHA_MISMATCH")
         with pdfplumber.open(io.BytesIO(source)) as pdf:
-            for number in case["pages"]:
+            for number in pages:
                 page = pdf.pages[number - 1]
                 words = page.extract_words()
                 for render in (upstage_ocr_page.render_page, source_fxf.render_page):
@@ -417,6 +422,34 @@ def verify():
     result = base_verify()
     data = Path("/data")
     session = json.loads((data / "gate-session.json").read_text())
+    result["selection"] = dict(
+        automatic=session["automatic_selection"],
+        proposal=session["proposal"],
+        accepted=session["selection"],
+        pages=session["run"]["selected_pages"],
+        claim_pages=session["run"]["claim_pages"],
+    )
+    if result.get("result") is not None:
+        route = session["run"]["status_url"] + "/result?w18=true"
+        located, _ = api_request(route, auth=session["auth"])
+        exact, reasons = 0, Counter()
+
+        def strip_w18(value):
+            nonlocal exact
+            if isinstance(value, dict):
+                if value.get("w18_line_rects") or value.get("w18_cell_rects"):
+                    exact += 1
+                if value.get("w18_reason"):
+                    reasons[value["w18_reason"]] += 1
+                return {k: strip_w18(v) for k, v in value.items() if not k.startswith("w18_")}
+            if isinstance(value, list):
+                return [strip_w18(v) for v in value]
+            return value
+
+        unchanged = strip_w18(located) == result["result"]
+        result["w18"] = dict(exact_refs=exact, reasons=dict(reasons), default_unchanged=unchanged)
+        if not unchanged:
+            raise ValueError("W18_CHANGED_EXISTING_RESULT")
     state = (
         data
         / "payloads"

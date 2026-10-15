@@ -6,8 +6,10 @@ from proofops.application.tagging.v1_activity_links import policy_from_profile
 from proofops.domain.provenance import canonical_hash
 
 
-def test_default_composes_each_reviewed_delta_and_keeps_every_old_pin():
-    current = profiles.policy_for(profiles.V2_PROFILE)
+def test_v25_composes_each_reviewed_delta_and_keeps_every_old_pin():
+    current = profiles.policy_for(
+        profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_I25_POLICY)
+    )
     assert current == profiles.FINALS_I25_POLICY
     assert current["integration_profile"] == "finals-20261015-v25"
     for policy in (profiles.V1_ACTIVITY_POLICY, profiles.QT1_V25_POLICY, profiles.V3_POLICY):
@@ -35,7 +37,7 @@ def test_default_composes_each_reviewed_delta_and_keeps_every_old_pin():
     assert canonical_hash(current) != old
 
 
-def test_hosted_new_runs_choose_v25_and_explicit_v24_is_retained(tmp_path):
+def test_hosted_current_and_explicit_v24_are_retained(tmp_path):
     from evaluation.hosted_r108 import prepare_argv
     from tests.test_hosted_analysis import source_pdf
 

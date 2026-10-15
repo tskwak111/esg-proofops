@@ -36,6 +36,20 @@ _cache_lock = Lock()
 _render_lock = Lock()
 
 
+def _ops2_fit_page(options):
+    from proofops.application.analysis_profile import policy_for
+
+    # Read the persisted pin; never apply today's default to an older run.
+    pin = options.get("analysis_profile_sha256")
+    if pin is None:
+        return False
+    try:
+        policy = policy_for(options.get("analysis_profile"), pinned_hash=pin)
+    except ValueError:
+        return False
+    return policy.get("ops2_page_render") == "ops2_fit_page_v1"
+
+
 def clear_source_cache() -> None:
     with _cache_lock:
         _cache.clear()
@@ -515,11 +529,7 @@ class HostedReads:
             if cached:
                 png, metadata = cached
             else:
-                from proofops.application.analysis_profile import OPS2_POLICY
-
-                ops2_fit = self.store.run_options(row).get(
-                    "analysis_profile_sha256"
-                ) == canonical_hash(OPS2_POLICY)
+                ops2_fit = _ops2_fit_page(self.store.run_options(row))
                 if original_refs or ops2_fit:
                     png, metadata = render(
                         Path(scratch) / "source.pdf",

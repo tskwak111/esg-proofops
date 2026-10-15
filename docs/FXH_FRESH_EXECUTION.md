@@ -1,7 +1,7 @@
 # FXH fresh execution repair
 
 `fxh_finals_fresh_v1` is explicitly selected by the SHA of
-`analysis_profile.FXH_POLICY`. V25 remains the default; V23/V24/V25 pins and
+`analysis_profile.FXH_POLICY`. I26 composes it into the new v26 default; V23/V24/V25 pins and
 historical source readers remain unchanged. Roll back by selecting the previous
 analysis pin for new runs, retaining all existing receipts and registered readers.
 
@@ -43,13 +43,31 @@ uv run python scripts/fresh_e2e_gate.py \
   --output /path/to/new-output-directory
 ```
 
-The manifest has one `lg13` case: original LG PDF path and SHA, approved tenant,
+The manifest accepts `lg13` and/or `kakao` (one case per kind). The LG case has
+the original LG PDF path and SHA, approved tenant,
 E14's fixed 13 selected / 8 claim pages, reporting scope, and baseline. Required
 baseline: at least 107 claims; parse/extract/tag/publish seconds
 199.32/161.02/228.37/52.55; stage ratio at most 1.5 and total at most 984.6 seconds.
 Include `analysis_policy_sha256` to test FXH; omit it for the image's own default.
 See `validate_manifest` for exact identity and scope. No saved-response input is
 accepted. Keep the manifest and generator identical between baseline/candidate.
+
+I26's Kakao case requires `selection_mode="automatic"` and no supplied page lists.
+The real scope-plan API proposes the pages; the harness submits those same lists
+with `manual_selection=false` and preserves the proposal and accepted selection.
+Page 51 must be a claim page. The fixed E14 timing reference is parse/extract/tag/
+publish 450.42/549.58/516.49/184.29 seconds, each at most 1.5x, total at most
+2567.7 seconds, and at least 133 claims. E14's executed 30/9-page selection differs
+from the current automatic selection, so this is a fixed execution ceiling, not
+an equal-scope speed or accuracy claim.
+
+LG requires three current C3 calls. Kakao requires zero C3 calls and
+`outside_approved_source`: the frozen C3 tenant/original binding authorizes only
+LG. The gate never broadens that authorization to satisfy a call counter.
+Both documents require SC1 completion and zero replica/input errors. W18 must
+produce exact coordinates via `?w18=true` without changing existing result fields.
+Dummy OpenAI, Upstage and OpenRouter files satisfy configuration validation;
+no real key or external network is available.
 
 The launcher resolves the image ID and requires Linux arm64. Separate real API
 and worker containers run with no network, dummy keys, a fresh volume, server

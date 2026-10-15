@@ -61,6 +61,7 @@ def test_hx5_never_recovers_integrity_failure(code):
 
 def test_failed_table_does_not_discard_neighboring_claims():
     from proofops_agent.extraction import SyntheticClaimExtractor
+    from proofops_worker.extract_runner import select_batch_paragraph_sources
 
     from tests.unit.test_k5_context import case
 
@@ -69,6 +70,11 @@ def test_failed_table_does_not_discard_neighboring_claims():
         (1, "2024년 온실가스 배출량을 10% 줄였습니다."),
         kinds=["table", "paragraph"],
     )
+    scope = ClaimScope(graph.tenant_id, graph.document_version_id, graph.parse_manifest_id)
+    # QT1 routing visits a real table without an owned grid before model dispatch.
+    # It must reach the pinned source-local failure handler, not abort the batch.
+    selected = select_batch_paragraph_sources(graph, scope, 100, extraction_qt1=True)
+    assert selected == {block.source_id for block in graph.blocks}
     inner = SyntheticClaimExtractor()
 
     def extract(packet):
@@ -86,7 +92,7 @@ def test_failed_table_does_not_discard_neighboring_claims():
 
     result = discover_atomic_claims(
         graph,
-        ClaimScope(graph.tenant_id, graph.document_version_id, graph.parse_manifest_id),
+        scope,
         extractor=Bound(),
     )
     assert result.claims and all(
@@ -98,6 +104,23 @@ def test_failed_table_does_not_discard_neighboring_claims():
     assert any(
         r.source_id == graph.blocks[0].source_id and r.status == "failed" for r in result.receipts
     )
+
+
+def test_qt1_routing_never_recovers_identity_failure(monkeypatch):
+    from proofops.application.ingest import qt1_tables
+    from proofops_worker.extract_runner import select_batch_paragraph_sources
+
+    from tests.unit.test_k5_context import case
+
+    graph, _ = case(["table"], (0, "table"), kinds=["table"])
+
+    def invalid(*args):
+        raise ValueError("UPSTAGE_CONTEXT_IDENTITY_MISMATCH")
+
+    monkeypatch.setattr(qt1_tables, "candidates_for", invalid)
+    scope = ClaimScope(graph.tenant_id, graph.document_version_id, graph.parse_manifest_id)
+    with pytest.raises(ValueError, match="UPSTAGE_CONTEXT_IDENTITY_MISMATCH"):
+        select_batch_paragraph_sources(graph, scope, 100, extraction_qt1=True)
 
 
 @pytest.mark.parametrize(

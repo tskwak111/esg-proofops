@@ -10,6 +10,7 @@ from proofops_agent.fxg_extraction import plan
 class Probe:
     request_body = OpenAIProbe.request_body
     response_policy = {"enabled": True}
+    max_request_bytes = OpenAIProbe.max_request_bytes
 
 
 def wire():

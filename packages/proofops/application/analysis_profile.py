@@ -1072,6 +1072,15 @@ FXH_POLICY = FINALS_I25_POLICY | dict(
     fxh_runtime=FXH_RUNTIME_POLICY,
 )
 
+# I26 activates only the reviewed runtime deltas. Standalone and historical pins
+# remain unchanged; chart recovery remains a separate evaluation tool.
+FINALS_I26_POLICY = FXH_POLICY | dict(
+    integration_profile="finals-20261016-v26",
+    ops2_provider_fallback=OPS2_POLICY["ops2_provider_fallback"],
+    ops2_page_render=OPS2_POLICY["ops2_page_render"],
+)
+V2_POLICY = FINALS_I26_POLICY
+
 
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
@@ -1109,6 +1118,7 @@ def policy_for(profile, *, pinned_hash=None):
             V2_POLICY,
             FXH_POLICY,
             OPS2_POLICY,
+            FINALS_I25_POLICY,
             FINALS_I24_POLICY,
             FINALS_I23_POLICY,
             V3_POLICY,
@@ -1269,6 +1279,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
             policy_for(profile),
             FXH_POLICY,
             OPS2_POLICY,
+            FINALS_I25_POLICY,
             FINALS_I24_POLICY,
             FINALS_I23_POLICY,
             V3_POLICY,

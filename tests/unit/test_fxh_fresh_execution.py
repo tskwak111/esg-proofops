@@ -46,7 +46,13 @@ def test_fxh_pin_is_selectable_but_never_becomes_the_default():
         == profiles.FXH_POLICY
     )
 
-    assert profiles.policy_for(profiles.V2_PROFILE) == profiles.FINALS_I25_POLICY
+    assert profiles.policy_for(profiles.V2_PROFILE) != profiles.FXH_POLICY
+    assert (
+        profiles.policy_for(
+            profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_I25_POLICY)
+        )
+        == profiles.FINALS_I25_POLICY
+    )
     assert (
         profiles.policy_for(profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FXH_POLICY))
         == profiles.FXH_POLICY
