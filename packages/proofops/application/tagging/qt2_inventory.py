@@ -100,9 +100,16 @@ def _candidate_element(candidate, context, graph, *, tenant_id, rulepack):
 
 def link_inventory(context, inventory, graph, *, run_id, tenant_id, rulepack):
     """Replay SC1, then return additive QT2 links with the immutable inventory hash."""
+    from proofops.application.tagging.analysis_scope import InventoryIndex
     from proofops.application.tagging.element_inventory import replay_inventory
 
-    inventory = replay_inventory(inventory, graph)
+    if isinstance(inventory, InventoryIndex) and inventory.graph is not graph:
+        raise ValueError("QT2_INVENTORY_GRAPH_MISMATCH")
+    inventory = (
+        inventory.inventory
+        if isinstance(inventory, InventoryIndex)
+        else replay_inventory(inventory, graph)
+    )
     selection = inventory["selection"]
     claim = context.claim
     if (

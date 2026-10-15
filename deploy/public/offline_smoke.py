@@ -117,10 +117,10 @@ def verify():
     message = JobMessage(**local_run["parse_job"])
     policy = jobs.parser_native_policy(message)
     assert policy == page_ocr_profile(manifest["claim_source_profile"]).native_policy()
-    assert V2_POLICY["integration_profile"] == "finals-20261015-v23"
-    assert V2_POLICY["parser_failure_policy"] == "partial-v6"
+    assert V2_POLICY["integration_profile"] == "finals-20261015-v24"
+    assert V2_POLICY["parser_failure_policy"] == "s3_partial-v7"
     assert V2_POLICY["located_table_context"]["profile"] == "located-table-context-p2-v1"
-    assert manifest["claim_source_profile"] == "upstage-ocr-page-v21"
+    assert manifest["claim_source_profile"] == "fxe_upstage-ocr-page-v21"
     assert manifest["analysis_policy_sha256"] == canonical_hash(V2_POLICY)
     assert manifest["extraction_qc_native_figures"] is True
     saved_settings = json.loads((state / "settings.json").read_text())
@@ -128,6 +128,15 @@ def verify():
     from proofops.application.tagging.q1_contract import QA2_POLICY
 
     assert V2_POLICY["structural_quality_policy"] == QA2_POLICY
+
+    tag = json.loads(jobs.read_checkpoint(JobMessage(**local_run["tag_job"])))
+    inventory = tag["sc1_inventory"]
+    plan = tag["sc1_inventory_plan"]
+    assert inventory["completed_calls"] == inventory["planned_calls"] > 0
+    assert plan["completed_calls"] == plan["planned_calls"] == inventory["completed_calls"]
+    assert len(inventory["raw_responses"]) == plan["completed_calls"]
+    assert inventory["selection"]["run_id"] == manifest["run_id"]
+    assert inventory["selection"]["tenant_id"] == record["tenant"]
 
     snapshot_sha = hashlib.sha256((state / "result-1.json").read_bytes()).hexdigest()
     if record.get("snapshot_sha256"):
@@ -152,6 +161,9 @@ def verify():
         stages=result["pipeline"]["stages"],
         stage_seconds=result["pipeline"]["stage_seconds"],
         source_preserved=True,
+        sc1_inventory_calls=plan["completed_calls"],
+        sc1_inventory_sha256=inventory["inventory_sha256"],
+        sc1_inventory_reserved_usd=plan["reserved_usd_upper_bound"],
         snapshot_sha256=snapshot_sha,
         real_provider_calls=0,
     )

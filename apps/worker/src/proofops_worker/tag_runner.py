@@ -299,15 +299,6 @@ class LocalTagRunner:
             required = sc1_policy.get("agreement", {}).get("required_present_votes")
             if sc1_policy != confirmation_policy(required):
                 raise ValueError("SC1_POLICY_MISMATCH")
-            # One provider invocation per run, never per claim. The provider must
-            # retain its immutable inventory for resume; missing inventory stays held.
-            if self.sc1_inventory_provider is not None:
-                selection = selection_from_snapshot(snapshot, graph, run_id)
-                inventory = self.sc1_inventory_provider(graph, selection)
-                sc1_index = InventoryIndex(inventory, graph)
-                if sc1_index.inventory["selection"] != selection:
-                    raise ValueError("SC1_INVENTORY_SELECTION_MISMATCH")
-                envelope["sc1_inventory"] = sc1_index.inventory
         semantic_policy = snapshot.get("analysis_profile_policy", {}).get("semantic_admission")
         if semantic_policy is not None:
             from proofops.application.tagging.semantic_admission import validate_policy
@@ -399,6 +390,32 @@ class LocalTagRunner:
             scheduled_claims = sorted(discovery.claims, key=priority)
         if parallel_claims:
             live.replica_workers = 1  # cap all claim calls at self.max_workers
+
+        if sc1_policy is not None:
+            if evidence is not None:
+                raise ValueError("SC1_FINAL_GRAPH_REQUIRED")
+            selection = selection_from_snapshot(snapshot, graph, run_id)
+            inventory = None
+            if self.sc1_inventory_provider is not None:
+                inventory = self.sc1_inventory_provider(graph, selection)
+            elif live is not None and snapshot.get("analysis_profile_policy", {}).get(
+                "sc1_inventory_transport"
+            ):
+                from proofops.application.budget import BudgetExceeded as InventoryBudgetExceeded
+
+                from proofops_worker.sc1_inventory import load_inventory
+
+                try:
+                    inventory = load_inventory(live, graph, selection)
+                except InventoryBudgetExceeded:
+                    envelope["sc1_inventory_hold_reason"] = "SC1_INVENTORY_BUDGET_EXHAUSTED"
+            if inventory is not None:
+                sc1_index = InventoryIndex(inventory, graph)
+                if sc1_index.inventory["selection"] != selection:
+                    raise ValueError("SC1_INVENTORY_SELECTION_MISMATCH")
+                envelope["sc1_inventory"] = sc1_index.inventory
+            if live is not None and "sc1_inventory_plan" in usage:
+                envelope["sc1_inventory_plan"] = usage["sc1_inventory_plan"]
 
         progress = {}
         budget_stopped = False
@@ -625,6 +642,19 @@ class LocalTagRunner:
                     )
                     records.append(item)
                     continue
+                if sc1_index is not None and snapshot.get("analysis_profile_policy", {}).get(
+                    "qt2_contextual_elements_policy"
+                ):
+                    from proofops.application.tagging.qt2_inventory import link_inventory
+
+                    item["qt2_inventory_links"] = link_inventory(
+                        context,
+                        sc1_index,
+                        graph,
+                        run_id=run_id,
+                        tenant_id=tenant,
+                        rulepack=rulepack,
+                    )
                 packet = freeze_track_packet(original_packet, track=track, rulepack=rulepack)
                 if facility_candidates:
                     from proofops.application.tagging.k6_facilities import augment_packet
@@ -1072,6 +1102,9 @@ class LocalTagRunner:
                         sc1_index,
                         required_present_votes=sc1_policy["agreement"]["required_present_votes"],
                         local_synthetic=live is None,
+                        grade_agreement_policy=snapshot.get("analysis_profile_policy", {}).get(
+                            "grade_required_agreement_policy"
+                        ),
                     )
                     record["sc1_scope_receipt"] = receipt
                     record["sc1_confirmation"] = receipt["sc1_confirmation"]

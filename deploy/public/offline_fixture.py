@@ -132,6 +132,13 @@ def fake_llm(body):
     data = user["untrusted_document_data"]
     if "source_sentences" in data:
         payload = dict(sentence_ids=[s["sentence_id"] for s in data["source_sentences"]])
+    elif "spans" in data and user.get("policy_sha256"):
+        payload = dict(
+            complete=True,
+            records=[],
+            packet_sha256=user["packet_sha256"],
+            replicate_id=user["replicate_id"],
+        )
     elif user.get("schema") == "source-relations-occurrence-v3":
         payload = dict(
             relations=[

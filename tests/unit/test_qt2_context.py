@@ -120,7 +120,9 @@ def test_qt2_is_opt_in_and_historical_policies_stay_default():
     )
     from proofops.domain.provenance import canonical_hash
 
-    assert policy_for(V2_PROFILE) == FINALS_I23_POLICY
+    assert (
+        policy_for(V2_PROFILE, pinned_hash=canonical_hash(FINALS_I23_POLICY)) == FINALS_I23_POLICY
+    )
     assert QT2_ELEMENTS_POLICY != FINALS_I23_POLICY
     for policy in (FINALS_I23_POLICY, QT2_ELEMENTS_POLICY):
         assert policy_for(V2_PROFILE, pinned_hash=canonical_hash(policy)) == policy

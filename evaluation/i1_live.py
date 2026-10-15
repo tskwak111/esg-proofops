@@ -19,6 +19,7 @@ from pathlib import Path
 from uuid import UUID
 
 from proofops.adapters.local import openai, spend_guard
+from proofops.adapters.local.claim_source_policies import PAGE_OCR_PROFILES
 from proofops.adapters.local.provider_concurrency import ProviderConcurrency
 from proofops.adapters.local.upstage_parse import PARSE_MODEL_PINNED, UpstageParseProbe
 from proofops.adapters.parsing import opendataloader, upstage_document
@@ -112,6 +113,7 @@ def main(
             "i5_tables",
             "k6",
             "q1",
+            "qt1",
             "k1",
             "k3",
             "sentence_prefix",
@@ -123,7 +125,7 @@ def main(
             else:
                 settings.pop(name, None)
         source_policy = None
-        if options.claim_source_profile.startswith("upstage-ocr-page-"):
+        if options.claim_source_profile in PAGE_OCR_PROFILES:
             from proofops.adapters.local.claim_source_policies import page_ocr_profile
 
             source_policy = page_ocr_profile(options.claim_source_profile).claim_source_policy()

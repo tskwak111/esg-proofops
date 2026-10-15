@@ -38,6 +38,10 @@ from proofops.application.tagging.fact_assembly_c3_v2 import POLICY as C3_V2_POL
 from proofops.application.tagging.fact_assembly_c3_v2_legacy import POLICY as C3_V2_LEGACY_POLICY
 from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
 from proofops.application.tagging.finals_i4 import POLICY as I4_PROMPT_POLICY
+from proofops.application.tagging.grade_required_agreement_policy import (
+    DEFAULT_POLICY as R18_POLICY,
+)
+from proofops.application.tagging.i24_inventory import POLICY as I24_INVENTORY_POLICY
 from proofops.application.tagging.k1_semantics import DEFINITIONS as K1_DEFINITIONS
 from proofops.application.tagging.k1_semantics import POLICY as K1_SEMANTIC_POLICY
 from proofops.application.tagging.k2_recovery import POLICY as K2_RECOVERY_POLICY
@@ -964,6 +968,25 @@ S3_SPEED_POLICY = FINALS_I23_POLICY | dict(
 )
 
 
+# I24 alone selects these reviewed opt-ins for new runs; historical pins remain registered.
+
+
+FINALS_I24_POLICY = FINALS_I23_POLICY | dict(
+    integration_profile="finals-20261015-v24",
+    source=FXE_POLICY["source"],
+    qt1_table_recovery_policy=QT1_TABLE_POLICY,
+    qt2_contextual_elements_policy=QT2_CONTEXT_POLICY,
+    qt2_contextual_elements_policy_sha256=canonical_hash(QT2_CONTEXT_POLICY),
+    sc1_scope_confirmation=sc1_policy(3),
+    sc1_inventory_transport=I24_INVENTORY_POLICY,
+    grade_required_agreement_policy=R18_POLICY.to_dict(),
+    grade_required_agreement_policy_sha256=R18_POLICY.sha256,
+    parser_failure_policy=S3_SPEED_POLICY["parser_failure_policy"],
+    verified_read_cache=S3_VERIFIED_READ_V13_POLICY,
+)
+V2_POLICY = FINALS_I24_POLICY
+
+
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
     from proofops.application.tagging.fact_assembly_c3_v2 import (
@@ -998,6 +1021,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_I23_POLICY,
             FXE_POLICY,
             QT1_POLICY,
             QT2_ELEMENTS_POLICY,
@@ -1149,6 +1173,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FINALS_I23_POLICY,
             FXE_POLICY,
             QT1_POLICY,
             QT2_ELEMENTS_POLICY,

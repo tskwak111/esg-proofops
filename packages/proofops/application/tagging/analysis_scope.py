@@ -33,7 +33,7 @@ def agreement_policy(required=3):
     )
 
 
-def _consensus(runs, packet, pack, revision, required=3):
+def _consensus(runs, packet, pack, revision, required=3, grade_agreement_policy=None):
     # Reuse the existing independent request/model/packet/tenant contract first.
     result = form_consensus(
         runs,
@@ -45,6 +45,62 @@ def _consensus(runs, packet, pack, revision, required=3):
     )
     if not _healthy(runs) or result.reasons == ("PARTIAL_FACTS_UNSAFE",):
         return result
+    r18 = None
+    if grade_agreement_policy is not None:
+        from proofops.application.tagging.grade_required_agreement_policy import (
+            GradeRequiredAgreementPolicy,
+            assess_grade_required_facts,
+        )
+
+        policy = GradeRequiredAgreementPolicy(required)
+        if grade_agreement_policy != policy.to_dict():
+            raise ValueError("SC1_R18_POLICY_MISMATCH")
+        guarded_replicas = []
+        for run in runs:
+            provider = json.loads(run.provider_response_json or "{}")
+            origin = provider.get("saved_response_origin", {})
+            guarded_replicas.append(
+                dict(
+                    replicate_id=run.replicate_id,
+                    request_id=run.request.request_id,
+                    provider_request_id=run.usage.provider_request_id,
+                    context_sha256=canonical_hash(
+                        dict(
+                            packet=run.packet_sha256,
+                            tenant=run.tenant_id,
+                            run=run.run_id,
+                            claim=run.claim_id,
+                            graph=run.graph_sha256,
+                            rule=run.rule_sha256,
+                            model=run.model_sha256,
+                            prompt=run.prompt_sha256,
+                        )
+                    ),
+                    current_response_bound=not (
+                        provider.get("response_reuse")
+                        or origin.get("replay")
+                        or origin.get("fresh_model_call") is False
+                    ),
+                    elements={
+                        e.element_id: dict(
+                            state=e.state,
+                            binding="accepted"
+                            if dict(run.binding_hashes).get(e.element_id)
+                            else "unresolved",
+                            binding_sha256=dict(run.binding_hashes).get(e.element_id),
+                            source_refs=[asdict(r) for r in e.evidence_refs],
+                            normalized_value=e.normalized_value,
+                        )
+                        for e in run.guarded.elements
+                    },
+                )
+            )
+        r18 = assess_grade_required_facts(
+            guarded_replicas,
+            required_element_ids=packet.to_dict()["allowed_elements"],
+            claim_source_verified=True,
+            policy=policy,
+        )
     data = packet.to_dict()
     elements, facts = [], []
     for eid, names in MAPPINGS[data["track"]].items():
@@ -58,7 +114,14 @@ def _consensus(runs, packet, pack, revision, required=3):
         if contrary or len(keys) > 1:
             state = "conflict"
         elif (
-            len(positives) >= required
+            (
+                r18 is None
+                or (
+                    r18["elements"][eid]["admitted"]
+                    and all(r.startswith("GRADE_FACT_UNRESOLVED:") for r in r18["reasons"])
+                )
+            )
+            and len(positives) >= required
             and len(keys) == 1
             and all(e and e.state in ("present", "unknown") for e in votes)
             and all(
@@ -248,6 +311,7 @@ def analyze_scope(
     prior_projection=None,
     tag_revision=1,
     required_present_votes=3,
+    grade_agreement_policy=None,
 ):
     policy = confirmation_policy(required_present_votes)
     index = inventory if isinstance(inventory, InventoryIndex) else InventoryIndex(inventory, graph)
@@ -283,7 +347,9 @@ def analyze_scope(
         confirmation_policy_sha256=canonical_hash(policy),
         agreement_policy=policy["agreement"],
     )
-    consensus = _consensus(runs, packet, rulepack, tag_revision, required_present_votes)
+    consensus = _consensus(
+        runs, packet, rulepack, tag_revision, required_present_votes, grade_agreement_policy
+    )
     tags = consensus.confirmed_tags
     reasons, searches, decision = [], [], None
     if not scope["selected_pages"] or scope["uninspected_pages"]:
@@ -441,6 +507,9 @@ def analyze_scope(
         reasons=reasons,
         prior_projection_sha256=canonical_hash(prior_projection),
     )
+    if grade_agreement_policy is not None:
+        body["grade_required_agreement_policy"] = grade_agreement_policy
+        body["grade_required_agreement_policy_sha256"] = canonical_hash(grade_agreement_policy)
     receipt_hash = canonical_hash(body)
     absent = [f.name for f in facts.values() if f.state == "absent_in_scope"]
     if absent and not reasons and not any(f.state == "conflict" for f in facts.values()):
@@ -484,6 +553,7 @@ def replay_scope(receipt, **inputs):
         **inputs,
         tag_revision=receipt["tag_revision"],
         required_present_votes=receipt["policy"]["agreement"]["required_present_votes"],
+        grade_agreement_policy=receipt.get("grade_required_agreement_policy"),
     )
     if canonical_hash(expected) != canonical_hash(receipt):
         raise ValueError("SC1_REPLAY_MISMATCH")
@@ -520,7 +590,15 @@ def read_runs(values):
 
 
 def analyze_record(
-    record, claim, graph, rulepack, inventory, *, required_present_votes, local_synthetic
+    record,
+    claim,
+    graph,
+    rulepack,
+    inventory,
+    *,
+    required_present_votes,
+    local_synthetic,
+    grade_agreement_policy=None,
 ):
     from proofops.application.evidence.binding import ClaimContext
     from proofops.application.evidence.retrieval import freeze_packet
@@ -549,4 +627,5 @@ def analyze_record(
         inventory=inventory,
         prior_projection=record["provisional_grade"],
         required_present_votes=required_present_votes,
+        grade_agreement_policy=grade_agreement_policy,
     )

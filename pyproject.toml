@@ -20,6 +20,7 @@ dev = [
   "pyyaml>=6.0,<7",
   "pip-audit==2.10.1",
   "h2==4.4.1",
+  "types-pyyaml>=6.0.12.20260906",
 ]
 
 [tool.uv.workspace]

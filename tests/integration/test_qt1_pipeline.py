@@ -126,7 +126,10 @@ def test_new_profile_create_resume_and_tamper_guard(tmp_path, monkeypatch):
     from evaluation import local_upstage_pilot as pilot
     from tests.integration.test_finals_candidate_profile import create_argv
 
-    assert policy_for("finals-unattended-v2") == FINALS_I23_POLICY
+    assert (
+        policy_for("finals-unattended-v2", pinned_hash=canonical_hash(FINALS_I23_POLICY))
+        == FINALS_I23_POLICY
+    )
     pin = canonical_hash(QT1_POLICY)
     assert publication_policy_for("finals-unattended-v2", pinned_hash=pin) == QT1_POLICY
     monkeypatch.setattr(os, "environ", os.environ.copy())

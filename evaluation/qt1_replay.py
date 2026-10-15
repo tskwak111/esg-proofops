@@ -84,9 +84,12 @@ def table_delta(graph, pages, previous, refs_fn, page_fn):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, required=True)
+    parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     lab = args.root / "outputs/agent-results/R108-redesign/lab"
-    out = lab / "quality/QT1"
+    inputs = lab / "quality/QT1"
+    out = args.output or inputs
+    out.mkdir(parents=True, exist_ok=True)
 
     def deny(*args, **kwargs):
         raise AssertionError("QT1_REPLAY_NETWORK_FORBIDDEN")
@@ -98,7 +101,7 @@ def main():
     inventory, r17_predictions = {}, {}
     for report in audit["reports"]:
         name = report["case"]
-        prep = next((out / "inputs" / name).rglob("candidates.json"))
+        prep = next((inputs / "inputs" / name).rglob("candidates.json"))
         snapshot, manifest = load(prep), load(prep.parent / "manifest.json")
         graph = fuse_candidates(
             candidates_from_snapshot(snapshot),

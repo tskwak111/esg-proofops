@@ -292,7 +292,9 @@ def test_new_registry_entries_do_not_change_default():
         sc1_inventory_policies,
     )
 
-    assert policy_for(V2_PROFILE) == FINALS_I23_POLICY
+    assert (
+        policy_for(V2_PROFILE, pinned_hash=canonical_hash(FINALS_I23_POLICY)) == FINALS_I23_POLICY
+    )
     for policy in sc1_inventory_policies:
         digest = canonical_hash(policy)
         assert policy_for(V2_PROFILE, pinned_hash=digest) == policy

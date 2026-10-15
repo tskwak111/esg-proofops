@@ -773,6 +773,10 @@ def test_relabelled_claim_version_cannot_reuse_original_graph(tmp_path):
     assert inputs["invoke"].requests == []
 
 
+_MALFORMED_USAGE: tuple[object, ...] = (None, [], "invalid", {"input_tokens": "ten"})
+_MALFORMED_CONTENT: tuple[object, ...] = (None, 1, {}, "invalid")
+
+
 @pytest.mark.parametrize(
     "raw_provider",
     [
@@ -785,11 +789,11 @@ def test_relabelled_claim_version_cannot_reuse_original_graph(tmp_path):
                     "usage": usage,
                 }
             )
-            for usage in (None, [], "invalid", {"input_tokens": "ten"})
+            for usage in _MALFORMED_USAGE
         ],
         *[
             json.dumps({"content": content, "stop_reason": "end_turn", "usage": {}})
-            for content in (None, 1, {}, "invalid")
+            for content in _MALFORMED_CONTENT
         ],
     ],
 )

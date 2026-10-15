@@ -12,7 +12,9 @@ from proofops.domain.provenance import canonical_hash
 
 
 def test_v23_default_composes_v22_and_d2_and_keeps_historical_pins():
-    policy = profiles.policy_for(profiles.V2_PROFILE)
+    policy = profiles.policy_for(
+        profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_I23_POLICY)
+    )
     assert policy == profiles.FINALS_I23_POLICY
     assert policy["integration_profile"] == "finals-20261015-v23"
     assert policy["fact_assembly_profile"] == "grade-relevant-unanimity-v3"

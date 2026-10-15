@@ -652,6 +652,9 @@ class LocalTagStore:
                         index,
                         required_present_votes=sc1_policy["agreement"]["required_present_votes"],
                         local_synthetic=envelope["synthetic"],
+                        grade_agreement_policy=snapshot.get("analysis_profile_policy", {}).get(
+                            "grade_required_agreement_policy"
+                        ),
                     )
                     if canonical_hash(replayed) != canonical_hash(receipt) or any(
                         item.get(k) != receipt[k] for k in ("sc1_confirmation", "sc1_elements")

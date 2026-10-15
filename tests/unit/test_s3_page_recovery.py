@@ -88,7 +88,7 @@ def test_new_policy_is_opt_in_and_historical_pins_unchanged():
 
     old_hash = "66669e915909dc62460931410c06215c4e520688523ada7f9bdb0e89724541b7"
     assert canonical_hash(p.FINALS_I23_POLICY) == old_hash
-    assert p.policy_for(p.V2_PROFILE) == p.FINALS_I23_POLICY
+    assert p.policy_for(p.V2_PROFILE, pinned_hash=old_hash) == p.FINALS_I23_POLICY
     new = p.S3_SPEED_POLICY
     assert new["parser_failure_policy"] == "s3_partial-v7"
     assert {
