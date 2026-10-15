@@ -183,6 +183,10 @@ class LiveTaggingRuntime:
             tagging_settings(snapshot, relation=True) if "relation_settings" in snapshot else None
         )
         self.request_ids = set()
+        accounting = snapshot.get("analysis_profile_policy", {}).get("s5_usage_accounting")
+        if accounting not in (None, "s5_final_reporting_snapshot_v1"):
+            raise ValueError("S5_USAGE_ACCOUNTING_POLICY_MISMATCH")
+        self._s5_defer_accounting = accounting is not None
         self._account_lock = Lock()
         self.previously_accounted = {
             identifier
@@ -529,8 +533,17 @@ class LiveTaggingRuntime:
         with self._account_lock:
             if request_id not in self.previously_accounted:
                 self.request_ids.add(request_id)
-            self.usage.update(request_usage(self.ledger, sorted(self.request_ids)))
-            self.usage["tag_request_ids"] = sorted(self.request_ids)
+            if not self._s5_defer_accounting:
+                self._update_accounting()
+
+    def _update_accounting(self):
+        identifiers = sorted(self.request_ids)
+        self.usage.update(request_usage(self.ledger, identifiers))
+        self.usage["tag_request_ids"] = identifiers
+
+    def flush_accounting(self):
+        with self._account_lock:
+            self._update_accounting()
 
     def invoke(self, request):
         try:

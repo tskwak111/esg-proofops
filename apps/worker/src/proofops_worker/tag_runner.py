@@ -236,7 +236,17 @@ class LocalTagRunner:
                 self.reviews.store.publish_transaction(db, inputs, review)
                 jobs._bump_run(db, jobs._get(db, tenant, run_id, "run", "META"))
 
-    def _execute(
+    def _execute(self, *args, **kwargs):
+        accounting_flushers = []
+        try:
+            return self._execute_tag(*args, accounting_flushers=accounting_flushers, **kwargs)
+        finally:
+            # Per-call reserve/dispatch/settlement already ran durably. Refresh
+            # the reporting projection even if tagging fails or loses its lease.
+            for flush in accounting_flushers:
+                flush()
+
+    def _execute_tag(
         self,
         lease,
         snapshot,
@@ -246,6 +256,7 @@ class LocalTagRunner:
         heartbeat_state=None,
         deferred=None,
         evidence=None,
+        accounting_flushers=None,
     ):
         message = lease.message
         tenant, run_id = message.tenant_id, message.run_id
@@ -335,6 +346,8 @@ class LocalTagRunner:
             if self.live_factory is None:
                 raise ValueError("LIVE_TAGGING_RUNTIME_REQUIRED")
             live = self.live_factory(self, snapshot, graph, lease, usage)
+            if getattr(live, "_s5_defer_accounting", False):
+                accounting_flushers.append(live.flush_accounting)
             live.scope_records = scope_records
             live.heartbeat_state = heartbeat_state
             if live.synthetic is not False:

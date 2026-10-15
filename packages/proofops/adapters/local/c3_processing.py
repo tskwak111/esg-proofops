@@ -17,9 +17,8 @@ from proofops.application.evidence.retrieval import (
 )
 from proofops.application.evidence.span_citations import verify_source_ref
 from proofops.application.tagging import fact_assembly_c3_v2 as c3
-from proofops.application.tagging.c3_request_binding import POLICY as RESPONSE_BINDING_POLICY
 from proofops.application.tagging.c3_request_binding import SYSTEM as SYSTEM
-from proofops.application.tagging.c3_request_binding import current_request
+from proofops.application.tagging.c3_request_binding import current_request, request_binding
 from proofops.application.tagging.tracks import TrackCandidate
 from proofops.domain.provenance import canonical_hash
 
@@ -175,7 +174,7 @@ def process_case(case, source, *, output, transport, analysis_policy):
             provider=response["provider"],
             simulated=response["simulated"],
             model_sha256=response["model_binding_sha256"],
-            prompt_sha256=RESPONSE_BINDING_POLICY["prompt_sha256"],
+            prompt_sha256=request_binding(request)["prompt_sha256"],
             raw=json.loads(response["content"]),
         )
         if "saved_response_origin" in response:
