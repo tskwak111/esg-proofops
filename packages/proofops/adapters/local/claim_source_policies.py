@@ -24,6 +24,7 @@ PAGE_OCR_PROFILES = {
         f"upstage-ocr-page-v{version}": f"proofops.adapters.local.upstage_ocr_profile_v{version}"
         for version in range(2, 22)
     },
+    "fxf_upstage-ocr-page-v21": "proofops.adapters.local.upstage_ocr_profile_fxf",
     "fxe_upstage-ocr-page-v21": "proofops.adapters.local.upstage_ocr_profile_fxe",
     "upstage-ocr-page-v17-rg1": "proofops.adapters.local.upstage_ocr_profile_rg1_v17",
     "upstage-ocr-page-v16-hx4": "proofops.adapters.local.upstage_ocr_profile_hx4_v16",
