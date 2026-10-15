@@ -644,7 +644,10 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
 
     @app.get("/v1/runs/{run_id}/result")
     def result(
-        run_id: UUID, response: Response, auth: Annotated[AuthContext, Depends(current)]
+        run_id: UUID,
+        response: Response,
+        auth: Annotated[AuthContext, Depends(current)],
+        w18: bool = False,
     ) -> dict:
         from proofops_api.hosted_source_view import project_source_view
 
@@ -653,7 +656,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
             row = store._run(db, auth.tenant_id, str(run_id))
             doc = store._document(db, auth.tenant_id, row["document_id"])
         response.headers["Cache-Control"] = "private, no-store"
-        return project_source_view(reads, row, doc, stored)
+        return project_source_view(reads, row, doc, stored, w18=w18)
 
     @app.post("/v1/runs/{run_id}/reviews/{review_id}/resolve")
     def resolve_review(
