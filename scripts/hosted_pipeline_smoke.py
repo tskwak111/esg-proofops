@@ -32,6 +32,8 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--image", default="proofops-public:hx2-offline")
     parser.add_argument("--skip-build", action="store_true")
+    parser.add_argument("--worker-cpus", default="6")
+    parser.add_argument("--worker-memory", default="12g")
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     result = dict(status="failed", real_provider_calls=0, runtime_network="none")
@@ -99,9 +101,9 @@ def main():
                 "--name",
                 name + "-worker",
                 "--memory",
-                "12g",
+                args.worker_memory,
                 "--cpus",
-                "6",
+                args.worker_cpus,
                 *common,
                 args.image,
                 "python",

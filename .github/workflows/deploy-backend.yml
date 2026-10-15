@@ -1,0 +1,127 @@
+name: Deploy backend
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never cancel a running drain/restart. The server lock also covers manual deploys.
+concurrency:
+  group: proofops-backend-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: >-
+      github.repository == 'tskwak111/esg-proofops' &&
+      github.ref == 'refs/heads/main' && vars.BACKEND_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 90
+    # Required reviewers / main-only branches MUST be configured before enabling.
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+      ECR_REPO: ${{ vars.ECR_REPO }}
+      INSTANCE_ID: ${{ vars.INSTANCE_ID }}
+      REGION: ${{ vars.REGION }}
+      AWS_PAGER: ''
+      AWS_RETRY_MODE: standard
+      AWS_MAX_ATTEMPTS: '3'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Validate deployment inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ $REGION == ap-southeast-2 ]]
+          [[ $INSTANCE_ID == i-01fec46ef85815a17 ]]
+          [[ $AWS_ROLE_ARN =~ ^arn:aws:iam::([0-9]{12}):role/proofops-github-deploy$ ]]
+          account=${BASH_REMATCH[1]}
+          [[ $ECR_REPO =~ ^[0-9]{12}\.dkr\.ecr\.ap-southeast-2\.amazonaws\.com/[a-z0-9]+([._/-][a-z0-9]+)*$ ]]
+          [[ $ECR_REPO == "$account.dkr.ecr.$REGION.amazonaws.com/"* ]]
+          [[ $GITHUB_SHA =~ ^[0-9a-f]{40}$ ]]
+          [[ $(uname -m) == aarch64 ]]
+          command -v aws docker python3 jq
+          echo "DEPLOY_IMAGE=$ECR_REPO:$GITHUB_SHA" >> "$GITHUB_ENV"
+      - name: Build arm64 release
+        run: |
+          docker build --platform linux/arm64 -f deploy/public/Dockerfile -t "$DEPLOY_IMAGE" .
+          test "$(docker image inspect --format '{{.Architecture}}' "$DEPLOY_IMAGE")" = arm64
+      - name: Offline API and worker pipeline gate
+        run: >-
+          python3 scripts/hosted_pipeline_smoke.py --skip-build
+          --image "$DEPLOY_IMAGE" --output "$RUNNER_TEMP/ci1-smoke"
+          --worker-cpus 2 --worker-memory 5g
+      - name: Assume deployment role via OIDC
+        uses: aws-actions/configure-aws-credentials@00943011d9042930efac3dcd3a170e4273319bc8 # v5.1.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.REGION }}
+          role-session-name: ci1-${{ github.run_id }}-${{ github.run_attempt }}
+          role-duration-seconds: 3600
+          unset-current-credentials: true
+      - name: Push tested commit image
+        shell: bash
+        run: |
+          set -euo pipefail
+          registry=${ECR_REPO%%/*}
+          trap 'docker logout "$registry" >/dev/null 2>&1 || true' EXIT
+          aws ecr get-login-password --region "$REGION" |
+            docker login --username AWS --password-stdin "$registry"
+          docker push "$DEPLOY_IMAGE"
+      - name: Deploy through SSM and verify final health result
+        timeout-minutes: 45
+        shell: bash
+        run: |
+          set -euo pipefail
+          # All interpolated values passed validation above; no shell input from dispatch.
+          command="/srv/proofops/deploy-from-ecr.sh --apply '$DEPLOY_IMAGE' '$REGION'"
+          params=$(jq -cn --arg command "$command" '{commands:[$command],executionTimeout:["2400"]}')
+          command_id=$(aws ssm send-command --region "$REGION" \
+            --instance-ids "$INSTANCE_ID" --document-name AWS-RunShellScript \
+            --timeout-seconds 120 --parameters "$params" \
+            --comment "CI1 commit $GITHUB_SHA" --query Command.CommandId --output text)
+          [[ $command_id =~ ^[0-9a-f-]{36}$ ]]
+          echo "SSM command: $command_id" >> "$GITHUB_STEP_SUMMARY"
+          # A single send; bounded polling handles SSM eventual consistency without redeploying.
+          deadline=$((SECONDS + 2580))
+          while (( SECONDS < deadline )); do
+            if result=$(aws ssm get-command-invocation --region "$REGION" \
+              --command-id "$command_id" --instance-id "$INSTANCE_ID" \
+              --output json 2> "$RUNNER_TEMP/ci1-ssm-error"); then
+              status=$(jq -r '.Status' <<< "$result")
+              case "$status" in
+                Success)
+                  jq -e '.ResponseCode == 0' <<< "$result" >/dev/null
+                  marker="DEPLOYED image=$DEPLOY_IMAGE api=healthy worker=healthy ready=ok resumed=true"
+                  jq -er '.StandardOutputContent' <<< "$result" | grep -Fx -- "$marker"
+                  echo "Deployed $GITHUB_SHA: API/worker healthy, ready, resumed." >> "$GITHUB_STEP_SUMMARY"
+                  exit 0 ;;
+                Pending|InProgress|Delayed) ;;
+                *)
+                  echo "SSM failed: $status ($command_id). Inspect rollback in the AWS console." >&2
+                  exit 1 ;;
+              esac
+            elif ! grep -q 'InvocationDoesNotExist' "$RUNNER_TEMP/ci1-ssm-error"; then
+              echo 'SSM status query failed; inspect command in AWS console before retrying.' >&2
+              exit 1
+            fi
+            sleep 10
+          done
+          echo "SSM polling timed out ($command_id); command may still run. Inspect before retry." >&2
+          exit 1
+      - name: Preserve offline smoke result
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ci1-offline-smoke-${{ github.sha }}
+          path: ${{ runner.temp }}/ci1-smoke/pipeline-smoke.json
+          if-no-files-found: ignore
