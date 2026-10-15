@@ -978,7 +978,9 @@ S3_SPEED_POLICY = FINALS_I23_POLICY | dict(
 
 FINALS_I24_POLICY = FINALS_I23_POLICY | dict(
     integration_profile="finals-20261015-v24",
-    source=FXF_POLICY["source"],
+    source="i24_claim_source_v1",
+    fxg_extraction_wire_policy=FXG_WIRE_POLICY,
+    fxg_extraction_wire_policy_sha256=canonical_hash(FXG_WIRE_POLICY),
     qt1_table_recovery_policy=QT1_TABLE_POLICY,
     qt2_contextual_elements_policy=QT2_CONTEXT_POLICY,
     qt2_contextual_elements_policy_sha256=canonical_hash(QT2_CONTEXT_POLICY),

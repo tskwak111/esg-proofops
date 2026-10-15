@@ -120,11 +120,14 @@ def verify():
     assert V2_POLICY["integration_profile"] == "finals-20261015-v24"
     assert V2_POLICY["parser_failure_policy"] == "s3_partial-v7"
     assert V2_POLICY["located_table_context"]["profile"] == "located-table-context-p2-v1"
-    assert manifest["claim_source_profile"] == "fxf_upstage-ocr-page-v21"
+    assert manifest["claim_source_profile"] == "i24_claim_source_v1"
     assert manifest["analysis_policy_sha256"] == canonical_hash(V2_POLICY)
     assert manifest["extraction_qc_native_figures"] is True
     saved_settings = json.loads((state / "settings.json").read_text())
     assert saved_settings["extraction_qc_native_figures"] is True
+    assert manifest["extraction_fxg_split"] is True
+    assert saved_settings["extraction_fxg_split"] is True
+    assert saved_settings["extraction_qt1"] is True
     from proofops.application.tagging.q1_contract import QA2_POLICY
 
     assert V2_POLICY["structural_quality_policy"] == QA2_POLICY
@@ -158,6 +161,7 @@ def verify():
         native_mode=policy["mode"],
         integration_profile=V2_POLICY["integration_profile"],
         claim_source_profile=manifest["claim_source_profile"],
+        fxg_extraction_split=manifest["extraction_fxg_split"],
         stages=result["pipeline"]["stages"],
         stage_seconds=result["pipeline"]["stage_seconds"],
         source_preserved=True,

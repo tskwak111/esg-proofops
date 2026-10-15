@@ -16,7 +16,12 @@ from tests.integration.test_upstage_ocr_page import store
 
 
 def test_opt_in_policy_preserves_defaults_and_historical_readers():
-    assert profiles.policy_for(profiles.V2_PROFILE) == profiles.FINALS_I23_POLICY
+    assert (
+        profiles.policy_for(
+            profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_I23_POLICY)
+        )
+        == profiles.FINALS_I23_POLICY
+    )
     assert (
         profiles.policy_for(profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FXG_POLICY))
         == profiles.FXG_POLICY
