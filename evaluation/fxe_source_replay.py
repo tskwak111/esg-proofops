@@ -33,9 +33,7 @@ def load_fixture(path):
     parse, extract = read("parse.json"), read("extract.json")
     assert sha256((path / "manifest.json").read_bytes()).hexdigest() == extract["manifest_sha256"]
     for name in ("graph.json", "quality.json", "candidates.json"):
-        assert (
-            sha256((path / name).read_bytes()).hexdigest() == manifest["artifacts"][name]
-        )
+        assert sha256((path / name).read_bytes()).hexdigest() == manifest["artifacts"][name]
     source = (path / "selected.pdf").read_bytes()
     assert sha256(source).hexdigest() == extract["source_sha256"] == manifest["source_sha256"]
     graph = fuse_candidates(

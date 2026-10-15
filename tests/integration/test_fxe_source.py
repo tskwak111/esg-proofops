@@ -120,9 +120,7 @@ def test_new_profile_does_not_reinterpret_v23_policy():
         canonical_hash(FINALS_I23_POLICY)
         == "66669e915909dc62460931410c06215c4e520688523ada7f9bdb0e89724541b7"
     )
-    assert (
-        policy_for(V2_PROFILE, pinned_hash=canonical_hash(FXE_POLICY)) == FXE_POLICY
-    )
+    assert policy_for(V2_PROFILE, pinned_hash=canonical_hash(FXE_POLICY)) == FXE_POLICY
     changed = deepcopy(fxe.claim_source_policy())
     changed["verifier_sha256"] = "0" * 64
     with pytest.raises(ValueError):
