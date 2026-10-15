@@ -5,8 +5,8 @@ from dataclasses import asdict
 from pathlib import Path
 from uuid import NAMESPACE_URL, uuid5
 
-from proofops.adapters.local.c2_selected_sources import attest, replay
 from proofops.adapters.local.c3_publication import LocalC3Publication
+from proofops.adapters.local.c3_source import attest, replay
 from proofops.adapters.local.evidence_search import LocalEvidenceSearch
 from proofops.application.claims import Claim, ExtractionProfile, ExtractionReceipt
 from proofops.application.evidence.binding import ClaimContext
@@ -56,8 +56,13 @@ def prepare_case(graph, source, rulepack, *, run_id):
         return None
     start = headers[0].normalized_text.index("2025")
     refs.append(headers[0].source_ref(normalized_char_start=start, normalized_char_end=start + 4))
-    source_receipt = attest(graph, source, refs, tenant_id=graph.tenant_id)
-    graph = replay(source_receipt, graph, source, tenant_id=graph.tenant_id)
+    source_receipt = attest(graph, source, refs, tenant_id=graph.tenant_id, run_id=run_id)
+    if any(
+        record["status"] != "verified"
+        for record in source_receipt["claim_source_receipt"]["records"]
+    ):
+        return None
+    graph = replay(source_receipt, graph, source, tenant_id=graph.tenant_id, run_id=run_id)
     refs = tuple(verify_source_ref(r, graph, tenant_id=graph.tenant_id) for r in refs)
     if any(ref.verification_state != "verified" for ref in refs):
         return None

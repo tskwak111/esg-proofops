@@ -5,7 +5,7 @@ from dataclasses import asdict, replace
 from hashlib import sha256
 from pathlib import Path
 
-from proofops.adapters.local.c2_selected_sources import replay as replay_source
+from proofops.adapters.local.c3_source import replay as replay_source
 from proofops.adapters.local.review_store import LocalSQLiteReviewStore
 from proofops.adapters.local.run_store import LocalSQLiteRunStore
 from proofops.adapters.local.tag_store import _fact_assembly_reader
@@ -158,6 +158,7 @@ class LocalC3Publication:
             graph,
             (self.path / "original.pdf").read_bytes(),
             tenant_id=tenant,
+            run_id=run,
         )
         value = raw["claim"]
         extraction = value["receipt"]
