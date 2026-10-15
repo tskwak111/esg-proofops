@@ -53,6 +53,7 @@ _SETTINGS_FIELDS = frozenset(
         "extraction_i5_tables",
         "extraction_k6",
         "extraction_q1",
+        "extraction_qt1",
         "extraction_pb1_context_guard",
         "extraction_table_footnotes",
         "extraction_located_table_context",
@@ -382,6 +383,10 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
                 selected_policy.get("activity_table_policy")
             ):
                 raise ValueError("Q1_EXTRACTION_PROFILE_MISMATCH")
+            if bool(settings.get("extraction_qt1", False)) != bool(
+                selected_policy.get("qt1_table_recovery_policy")
+            ):
+                raise ValueError("QT1_EXTRACTION_PROFILE_MISMATCH")
             if bool(settings.get("extraction_qc_native_figures", False)) != bool(
                 selected_policy.get("native_figure_policy")
             ):
@@ -466,6 +471,7 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         "extraction_i5_tables",
         "extraction_k6",
         "extraction_q1",
+        "extraction_qt1",
         "extraction_pb1_context_guard",
         "extraction_table_footnotes",
         "extraction_located_table_context",

@@ -783,6 +783,7 @@ def apply_resume_metadata(args, saved: dict) -> None:
     args.extraction_i5_tables = bool(saved.get("extraction_i5_tables", False))
     args.extraction_k6 = bool(saved.get("extraction_k6", False))
     args.extraction_q1 = bool(saved.get("extraction_q1", False))
+    args.extraction_qt1 = bool(saved.get("extraction_qt1", False))
     args.extraction_pb1_context_guard = bool(saved.get("extraction_pb1_context_guard", False))
     args.extraction_table_footnotes = bool(saved.get("extraction_table_footnotes", False))
     args.extraction_located_table_context = bool(
@@ -1309,6 +1310,7 @@ def main():
     args.extraction_qc_native_figures = False
     args.extraction_k6 = False
     args.extraction_q1 = False
+    args.extraction_qt1 = False
     apply_pilot_profile(args)
     try:
         apply_finals_candidate(args)
@@ -1707,6 +1709,7 @@ def main():
                     extraction_i5_tables=getattr(args, "extraction_i5_tables", False),
                     extraction_k6=args.extraction_k6,
                     extraction_q1=args.extraction_q1,
+                    extraction_qt1=args.extraction_qt1,
                     extraction_pb1_context_guard=args.extraction_pb1_context_guard,
                     extraction_table_footnotes=args.extraction_table_footnotes,
                     extraction_located_table_context=getattr(
@@ -1790,6 +1793,8 @@ def main():
             settings["extraction_k6"] = True
         if args.extraction_q1:
             settings["extraction_q1"] = True
+        if args.extraction_qt1:
+            settings["extraction_qt1"] = True
         if args.extraction_i4_identity:
             settings["extraction_i4_identity"] = True
         if args.extraction_qc_native_figures:
@@ -2351,6 +2356,8 @@ def main():
             manifest["extraction_k6"] = True
         if args.extraction_q1:
             manifest["extraction_q1"] = True
+        if args.extraction_qt1:
+            manifest["extraction_qt1"] = True
         if args.extraction_i4_identity:
             manifest["extraction_i4_identity"] = True
         if args.extraction_qc_native_figures:
@@ -2480,6 +2487,7 @@ def main():
             "extraction_i5_tables",
             "extraction_k6",
             "extraction_q1",
+            "extraction_qt1",
             "extraction_pb1_context_guard",
             "extraction_table_footnotes",
             "extraction_located_table_context",

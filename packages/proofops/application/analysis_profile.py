@@ -13,6 +13,7 @@ from proofops.application.ingest.k6_coverage import POLICY as K6_COVERAGE_POLICY
 from proofops.application.ingest.page_recovery_policy import CLAIM_LAYOUT_POLICY
 from proofops.application.ingest.page_recovery_policy import POLICY as HX6_RECOVERY_POLICY
 from proofops.application.ingest.q1_tables import POLICY as Q1_TABLE_POLICY
+from proofops.application.ingest.qt1_tables import POLICY as QT1_TABLE_POLICY
 from proofops.application.ingest.sentence_prefix import POLICY as PREFIX_POLICY
 from proofops.application.input_failures import POLICY as HX5_INPUT_POLICY
 from proofops.application.openai_retry import POLICY as T1_RETRY_POLICY
@@ -919,6 +920,12 @@ FINALS_I23_POLICY = FINALS_I22_POLICY | dict(
     integration_profile="finals-20261015-v23",
     fact_assembly_profile="grade-relevant-unanimity-v3",
 )
+# Explicit QT1 opt-in; the default and all historical policy hashes stay frozen.
+
+QT1_POLICY = FINALS_I23_POLICY | dict(
+    integration_profile="finals-20261015-qt1-v1",
+    qt1_table_recovery_policy=QT1_TABLE_POLICY,
+)
 V2_POLICY = FINALS_I23_POLICY
 
 
@@ -956,6 +963,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            QT1_POLICY,
             FINALS_D2_POLICY,
             FINALS_I22_POLICY,
             FINALS_FXC_POLICY,
@@ -1101,6 +1109,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            QT1_POLICY,
             FINALS_D2_POLICY,
             FINALS_I22_POLICY,
             FINALS_FXC_POLICY,
@@ -1211,6 +1220,7 @@ def apply_pilot_profile(args):
         args.tagging_max_calls = selected["tagging_budget"]["max_calls"]
     args.extraction_k6 = bool(selected.get("coverage_policy"))
     args.extraction_q1 = bool(selected.get("activity_table_policy"))
+    args.extraction_qt1 = bool(selected.get("qt1_table_recovery_policy"))
     if profile in (V2_PROFILE, J3_PROFILE, J7_PROFILE, J8_PROFILE):
         args.extraction_fragment_guard = True
         args.extraction_pb1 = True

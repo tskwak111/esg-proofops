@@ -1,0 +1,3427 @@
+{
+  "468098f5-1dd5-5e48-9672-c38667557f84": {
+    "case": "lg",
+    "text": "추진 과제\t주요 내용\t감축 기여도\n에너지 효율화\t고효율 설비 교체, 폐열·에너지 회수 등\t3%\n저탄소 연료 전환\t바이오매스 열병합발전, 분해로 수소 혼소 등\t25%\n재생에너지\tPPA, REC 등 (태양광, 육상풍력)\t72%\n합계\t\t100%",
+    "cells": [
+      {
+        "text": "합계",
+        "row": 4,
+        "column": 0,
+        "row_span": 1,
+        "column_span": 2,
+        "source_id": "3d4e675c-4088-5a4b-8d8a-d39a8f76a1be",
+        "bbox": [
+          577.113,
+          420.24942680250206,
+          591.846820095,
+          428.7769268025021
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "고효율 설비 교체, 폐열·에너지 회수 등",
+        "row": 1,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "3f0be7fb-386f-5b90-9ad1-04f5e649b878",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "주요 내용",
+        "row": 0,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "5072b798-2946-5fa5-b7f0-28e9b51469cb",
+        "bbox": [
+          667.65225,
+          300.24942680250206,
+          699.0730150950001,
+          308.7769268025021
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "에너지 효율화",
+        "row": 1,
+        "column": 0,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "578c410a-cf02-553b-b459-16a78e2a69bc",
+        "bbox": [
+          549.96075,
+          328.74942680250206,
+          596.284112595,
+          337.2769268025021
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "바이오매스 열병합발전, 분해로 수소 혼소 등",
+        "row": 2,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "68e47e53-8d68-5329-92d5-3ef44877931a",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "추진 과제",
+        "row": 0,
+        "column": 0,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "887fab88-ff7b-5a17-81f4-7f6ff3c8f0b3",
+        "bbox": [
+          568.76925,
+          300.24942680250206,
+          600.1900150950001,
+          308.7769268025021
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "25%",
+        "row": 2,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "a30051f1-251c-5e1f-9c62-d9840eb844cb",
+        "bbox": [
+          779.0625,
+          361.74942680250206,
+          796.4967058875,
+          370.2769268025021
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "72%",
+        "row": 3,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "b7e6505c-d745-5478-892b-c2be5ec89835",
+        "bbox": [
+          779.4525,
+          393.99942680250206,
+          796.5036433875,
+          402.5269268025021
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "재생에너지",
+        "row": 3,
+        "column": 0,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "bce3c2b9-b1b4-5f32-8146-cb7ff62373e5",
+        "bbox": [
+          549.96075,
+          393.99942680250206,
+          586.786150095,
+          402.5269268025021
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "3%",
+        "row": 1,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "bcf101ad-789c-5017-9c02-9d4e6e86769a",
+        "bbox": [
+          783.8925,
+          328.74942680250206,
+          796.5027733875,
+          337.2769268025021
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "PPA, REC 등 (태양광, 육상풍력)",
+        "row": 3,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "d6507e90-a7d8-5865-8fa2-edcf3dad1245",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "100%",
+        "row": 4,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "d953f81f-b739-5154-a902-8e91eeba8b9c",
+        "bbox": [
+          773.0775,
+          420.24942680250206,
+          796.5015124275,
+          428.7769268025021
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "저탄소 연료 전환",
+        "row": 2,
+        "column": 0,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "e02b32ea-9b4e-5459-b479-e606450ad2cf",
+        "bbox": [
+          549.96075,
+          361.74942680250206,
+          605.7820750950001,
+          370.2769268025021
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "감축 기여도",
+        "row": 0,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "e0868ea5-bb92-52db-bcd3-dd3ec9b8ee76",
+        "bbox": [
+          752.7225,
+          300.24942680250206,
+          791.5071250949999,
+          308.7769268025021
+        ],
+        "location_quality": "located"
+      }
+    ],
+    "context": [
+      "section=온실가스 감축 전략",
+      "provider_bbox=541.355,291.110,804.960,436.069",
+      "pb1_table_claims",
+      "pb1-w9-v1",
+      "provider_declared_grid_region",
+      "mixed_parser_name=upstage_async_standard",
+      "mixed_parser_version=document-parse-260128"
+    ]
+  },
+  "c0d4444c-6cba-5785-9a3e-602509adba3b": {
+    "case": "lg",
+    "text": "구분\t주요 활동\t기대 효과\n설비 효율 개선\t원심분리기 성능 개선 및 운전 조건 최적화\t설비 운영 효율 향상을 통한 전력 및 스팀 사용량 절감\n열에너지 회수\t열교환기 설치 및 폐증기 회수 시스템 구축\t공정 열효율 향상 및 폐에너지 재활용을 통한 온실가스 배출 저감\n동력 최적화\t고효율 설비 적용을 통한 냉각수 펌프 운영 최적화\t동력 손실 저감을 통한 전력 사용량 절감\n공정 구조 개선\tBatch 공정을 연속공정으로 전환\t공정 효율 향상에 따른 전력 및 스팀 사용량 절감",
+    "cells": [
+      {
+        "text": "공정 열효율 향상 및 폐에너지 재활용을 통한 온실가스 배출 저감",
+        "row": 2,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "2638fe86-5cac-5347-983a-f1ee94292418",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "공정 효율 향상에 따른 전력 및 스팀 사용량 절감",
+        "row": 4,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "33ea7ee9-1bf9-5e7b-beda-c7affc0835e2",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "설비 효율 개선",
+        "row": 1,
+        "column": 0,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "45c591a5-7fed-575a-a617-39cc6d7524db",
+        "bbox": [
+          413.80050000000006,
+          537.9994268025021,
+          462.2579650950001,
+          546.5269268025021
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "열교환기 설치 및 폐증기 회수 시스템 구축",
+        "row": 2,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "4a04dedd-a936-5099-9640-c123451ca8b0",
+        "bbox": [
+          500.70675000000006,
+          570.9994268025021,
+          638.7030850950002,
+          579.5269268025021
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "고효율 설비 적용을 통한 냉각수 펌프 운영 최적화",
+        "row": 3,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "5582e8c0-20cf-5684-99ba-5dfbd1535492",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "동력 최적화",
+        "row": 3,
+        "column": 0,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "6206178f-515f-537c-9414-1d8b4e8d6277",
+        "bbox": [
+          418.54650000000004,
+          603.9994268025021,
+          457.50600259500004,
+          612.5269268025021
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "구분",
+        "row": 0,
+        "column": 0,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "628685cc-7fc5-598c-8176-12a6eaa5bb5c",
+        "bbox": [
+          430.66425000000004,
+          511.74942680250206,
+          445.3980700950001,
+          520.2769268025021
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "동력 손실 저감을 통한 전력 사용량 절감",
+        "row": 3,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "78599c53-632c-54cb-949e-916200043ee5",
+        "bbox": [
+          661.16025,
+          603.9994268025021,
+          791.792725095,
+          612.5269268025021
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "원심분리기 성능 개선 및 운전 조건 최적화",
+        "row": 1,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "829ff1ee-9781-5d58-8bf2-4324760f0a58",
+        "bbox": [
+          500.70675000000006,
+          537.9994268025021,
+          638.7030850950002,
+          546.5269268025021
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "Batch 공정을 연속공정으로 전환",
+        "row": 4,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "9dd9d25c-b365-5ff8-a720-dc49e6d9fe34",
+        "bbox": [
+          515.016,
+          636.9994268025021,
+          624.4021825950002,
+          645.5269268025021
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "기대 효과",
+        "row": 0,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "9e373294-f6e2-5dee-9778-6e13573edfad",
+        "bbox": [
+          710.76525,
+          511.74942680250206,
+          742.186015095,
+          520.2769268025021
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "열에너지 회수",
+        "row": 2,
+        "column": 0,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "cfc9a9d2-a40e-583b-aea1-26b08e7e7a3e",
+        "bbox": [
+          414.86699999999996,
+          570.9994268025021,
+          461.190362595,
+          579.5269268025021
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "공정 구조 개선",
+        "row": 4,
+        "column": 0,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "ea81b109-a02e-55c2-8da4-d2b0a19f494c",
+        "bbox": [
+          413.80050000000006,
+          636.9994268025021,
+          462.2579650950001,
+          645.5269268025021
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "주요 활동",
+        "row": 0,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "f239c122-a1fb-5572-a9a0-09423a1ccfae",
+        "bbox": [
+          554.004,
+          511.74942680250206,
+          585.4247650950001,
+          520.2769268025021
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "설비 운영 효율 향상을 통한 전력 및 스팀 사용량 절감",
+        "row": 1,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "f3014638-03dd-56b4-80be-416e90105bed",
+        "bbox": null,
+        "location_quality": "unlocated"
+      }
+    ],
+    "context": [
+      "section=에너지 효율화",
+      "provider_bbox=384.589,505.392,804.455,657.379",
+      "pb1_table_claims",
+      "pb1-w9-v1",
+      "provider_declared_grid_region",
+      "mixed_parser_name=upstage_async_standard",
+      "mixed_parser_version=document-parse-260128"
+    ]
+  },
+  "6f7a8883-6fcc-5df8-ace8-38cecd4c6732": {
+    "case": "kakao",
+    "text": "환경영향 완화 요소\t\t환경영향 완화 효과2)\n에너지 효율화\t① 냉동기 프리쿨링 운전\t냉동기 운전모드 최적화를 통한 감축 효과 (연간 3 tCO₂eq)\n\t② 냉수펌프 운영 최적화\t냉수펌프 효율 운영을 통한 감축 효과 (연간 253 tCO₂eq)\n\t③ 공조설비 운영 최적화\tFWU 온도 상향 및 팬 풍량 최적화 통한 감축 효과 (연간 994 tCO₂eq)\n\t④ Hot Aisle Containment 적용\t냉기·열기 분리 시스템 적용을 통한 냉방 효율 향상\n\t⑤ UPS 운영 최적화\t미가동 UPS 바이패스 운영을 통한 감축 효과 (연간 524 tCO₂eq)\n\t⑥ 에너지 사용량 모니터링 시스템\t설비 운영 상태를 실시간으로 모니터링하여 에너지 효율 향상 지원\n\t⑦ LED 조명 및 조명제어 시스템\t조명 제어 스케줄링을 통한 감축 효과 (연간 72 tCO₂eq)\n재생 에너지 및 저탄소 전원\t⑧ 태양광 패널\t태양광 발전 자가소비를 통한 감축 효과 (연간 402 tCO₂eq)\n\t⑨ 친환경 연료 전지\t친환경 분산전원을 활용한 전력 생산\n\t⑩ 탄소 영향을 고려한 인프라 투자\t내부탄소가격제를 활용하여 설비 투자 단계부터 탄소 영향을 고려\n친환경 건축\t⑪ 고성능 로이 복층유리 및 단열재\t외부 열 유입 및 내부 열 손실을 최소화하여 냉난방 에너지 사용 저감\n\t⑫ 수평 테라스 및 이중외피\t직사광선 차단 및 이중외피를 통한 냉방 부하 저감\n수자원 관리\t⑬ 절수 기기\t물 사용량 절감을 위한 절수 설비 적용\n\t⑭ 우수조 및 중수 재이용 시스템\t빗물을 저장·재활용하여 용수 사용을 대체 (연간 170.5m3), 용수 순환체계를 구축하여 중수 재이용 (연간 283.6m3)\n기후변화 대응 인프라\t⑮ 기후 리스크를 고려한 부지 설계\t집중호우 및 침수 위험에 대응할 수 있도록 주변 부지 대비 상향 설계",
+    "cells": [
+      {
+        "text": "환경영향 완화 요소",
+        "row": 0,
+        "column": 0,
+        "row_span": 1,
+        "column_span": 2,
+        "source_id": "05cff314-f0a9-569c-9510-373963d85a61",
+        "bbox": [
+          545.1437,
+          210.80509999999998,
+          598.7777,
+          217.80509999999998
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "에너지 효율화",
+        "row": 1,
+        "column": 0,
+        "row_span": 7,
+        "column_span": 1,
+        "source_id": "06f3a82a-1e32-50a9-806e-3464cbb775c7",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "① 냉동기 프리쿨링 운전",
+        "row": 1,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "08cec53c-0f93-50f1-9fcd-5f497d1bdde2",
+        "bbox": [
+          535.7456,
+          229.20619999999997,
+          602.9806000000001,
+          236.52119999999996
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "② 냉수펌프 운영 최적화",
+        "row": 2,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "0b29bca7-7292-5902-8575-bdd85067e847",
+        "bbox": [
+          535.7456,
+          248.12019999999995,
+          602.9806000000001,
+          255.43519999999995
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "집중호우 및 침수 위험에 대응할 수 있도록 주변 부지 대비 상향 설계",
+        "row": 15,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "0cb25759-1c77-53b3-8b16-480e8ebc2260",
+        "bbox": [
+          645.0245,
+          511.0696,
+          831.6655000000003,
+          518.0695999999999
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "냉수펌프 효율 운영을 통한 감축 효과 (연간 253 tCO₂eq)",
+        "row": 2,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "0d4c90dc-e287-59d0-bd90-ebc0f1869da9",
+        "bbox": [
+          645.0226,
+          247.86819999999994,
+          808.9906000000001,
+          254.86819999999994
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "⑮ 기후 리스크를 고려한 부지 설계",
+        "row": 15,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "0d5e3af3-1f96-54a2-835b-638ae68c8320",
+        "bbox": [
+          535.7475,
+          511.3216,
+          631.1645000000001,
+          518.6365999999999
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "직사광선 차단 및 이중외피를 통한 냉방 부하 저감",
+        "row": 12,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "1064652a-4f65-5ba4-98ec-975170c1754b",
+        "bbox": [
+          645.0226,
+          437.0011999999998,
+          781.5996000000002,
+          444.0011999999998
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "⑥ 에너지 사용량 모니터링 시스템",
+        "row": 6,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "333821ac-8d8c-5ac5-b49f-0532e48f362f",
+        "bbox": [
+          535.7456,
+          323.7761999999999,
+          629.6716000000001,
+          331.0911999999999
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "빗물을 저장·재활용하여 용수 사용을 대체 (연간 170.5m3), 용수 순환체계를 구축하여 중수 재이용 (연간 283.6m3)",
+        "row": 14,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "33565099-5c22-5a68-b103-aa898c3b29d2",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "친환경 분산전원을 활용한 전력 생산",
+        "row": 9,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "34d77fea-e5a6-5c86-8c30-218b30088fb3",
+        "bbox": [
+          645.0226,
+          380.25919999999985,
+          744.3666000000001,
+          387.25919999999985
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "⑨ 친환경 연료 전지",
+        "row": 9,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "36b26635-e433-580a-900d-8d56a401dd98",
+        "bbox": [
+          535.7456,
+          380.51119999999986,
+          590.3806000000001,
+          387.82619999999986
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "외부 열 유입 및 내부 열 손실을 최소화하여 냉난방 에너지 사용 저감",
+        "row": 11,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "41af28f1-4294-5f77-9b87-8a4ca51c0cb6",
+        "bbox": [
+          645.0226,
+          418.0871999999998,
+          831.6636000000003,
+          425.0871999999998
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "수자원 관리",
+        "row": 13,
+        "column": 0,
+        "row_span": 2,
+        "column_span": 1,
+        "source_id": "4a345194-69c3-5ad5-b753-79253207416e",
+        "bbox": [
+          498.8976,
+          465.3721999999998,
+          517.9376000000001,
+          484.37019999999984
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "조명 제어 스케줄링을 통한 감축 효과 (연간 72 tCO₂eq)",
+        "row": 7,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "4c1e7fb1-e0f0-5212-b87e-beadba473ab8",
+        "bbox": [
+          645.0226,
+          342.4381999999999,
+          804.4126000000001,
+          349.4381999999999
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "⑭ 우수조 및 중수 재이용 시스템",
+        "row": 14,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "4e274ba6-dd86-5e74-9946-694f5376be4f",
+        "bbox": [
+          535.7456,
+          481.0731999999998,
+          624.8626,
+          488.3881999999998
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "④ Hot Aisle Containment 적용",
+        "row": 4,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "583b761a-9e8a-5d5d-996f-a9e58808e744",
+        "bbox": [
+          535.7456,
+          285.94819999999993,
+          636.5596,
+          293.2631999999999
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "냉기·열기 분리 시스템 적용을 통한 냉방 효율 향상",
+        "row": 4,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "5f09e525-a560-51ad-8c5e-b352266a261c",
+        "bbox": [
+          645.0226,
+          285.6961999999999,
+          781.5296000000001,
+          292.6961999999999
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "환경영향 완화 효과2)",
+        "row": 0,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "60cd8b4e-3866-5397-8227-c10489a5c51e",
+        "bbox": [
+          713.0667,
+          210.66626899999994,
+          771.012471,
+          217.80509999999998
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "냉동기 운전모드 최적화를 통한 감축 효과 (연간 3 tCO₂eq)",
+        "row": 1,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "7e7b3477-34de-5fb3-b886-2a0bf8c1dad8",
+        "bbox": [
+          645.0226,
+          228.95419999999996,
+          812.3996000000001,
+          235.95419999999996
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "⑪ 고성능 로이 복층유리 및 단열재",
+        "row": 11,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "86dcad1b-1f63-5347-9bdd-e7d11e2728b7",
+        "bbox": [
+          535.7456,
+          418.33919999999983,
+          631.1626000000001,
+          425.65419999999983
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "기후변화 대응 인프라",
+        "row": 15,
+        "column": 0,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "890e110c-92b2-5ac1-bc93-b01479684b54",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "⑧ 태양광 패널",
+        "row": 8,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "9e9c71dc-75d2-5537-a16c-00eae1319a57",
+        "bbox": [
+          535.7456,
+          361.5971999999999,
+          576.2896000000001,
+          368.91219999999987
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "⑬ 절수 기기",
+        "row": 13,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "a098f312-f92a-55d4-abdb-10494f3cd2b0",
+        "bbox": [
+          535.7456,
+          456.1601999999998,
+          569.9896,
+          463.4751999999998
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "미가동 UPS 바이패스 운영을 통한 감축 효과 (연간 524 tCO₂eq)",
+        "row": 5,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "a234b926-704d-5b91-87f8-8eb58d62142f",
+        "bbox": [
+          645.0226,
+          304.6101999999999,
+          831.1316000000002,
+          311.6101999999999
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "내부탄소가격제를 활용하여 설비 투자 단계부터 탄소 영향을 고려",
+        "row": 10,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "a339fa9e-99cd-5566-b7ce-0dc1234e13ac",
+        "bbox": [
+          645.0226,
+          399.17319999999984,
+          825.6996000000003,
+          406.17319999999984
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "FWU 온도 상향 및 팬 풍량 최적화 통한 감축 효과 (연간 994 tCO₂eq)",
+        "row": 3,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "aa48ec33-81a0-5d44-84a2-0a37c9bdc9c9",
+        "bbox": [
+          645.0226,
+          266.78219999999993,
+          838.4606000000002,
+          273.78219999999993
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "⑫ 수평 테라스 및 이중외피",
+        "row": 12,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "aa6ddae2-25be-5ccd-b0eb-6c8776b1e44f",
+        "bbox": [
+          535.7456,
+          437.2531999999998,
+          610.7716,
+          444.5681999999998
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "⑤ UPS 운영 최적화",
+        "row": 5,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "ac437a9d-708d-5a41-b549-1c89bfdd2c8f",
+        "bbox": [
+          535.7456,
+          304.8621999999999,
+          592.1306000000001,
+          312.1771999999999
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "⑩ 탄소 영향을 고려한 인프라 투자",
+        "row": 10,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "ad8c0802-3b0d-525b-8926-b773b1219603",
+        "bbox": [
+          535.7456,
+          399.42519999999985,
+          631.3586,
+          406.74019999999985
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "설비 운영 상태를 실시간으로 모니터링하여 에너지 효율 향상 지원",
+        "row": 6,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "b54892b0-b4aa-5be0-8f1b-8fb24ac930c0",
+        "bbox": [
+          645.0226,
+          323.5241999999999,
+          827.1906000000002,
+          330.5241999999999
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "③ 공조설비 운영 최적화",
+        "row": 3,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "b5802d9a-fca4-5f93-b259-6631f6d2ae69",
+        "bbox": [
+          535.7456,
+          267.03419999999994,
+          602.9806000000001,
+          274.34919999999994
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "친환경 건축",
+        "row": 11,
+        "column": 0,
+        "row_span": 2,
+        "column_span": 1,
+        "source_id": "bd1443aa-b3f4-5afd-8b50-835aaa916c90",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "재생 에너지 및 저탄소 전원",
+        "row": 8,
+        "column": 0,
+        "row_span": 3,
+        "column_span": 1,
+        "source_id": "c291ce70-b338-530a-a062-5afc42711207",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "물 사용량 절감을 위한 절수 설비 적용",
+        "row": 13,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "d367ff2d-5999-5a2d-9bbb-2f4a8303b12c",
+        "bbox": [
+          645.0226,
+          455.90819999999985,
+          748.6086000000001,
+          462.90819999999985
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "⑦ LED 조명 및 조명제어 시스템",
+        "row": 7,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "eb157b3c-a18d-5666-bb3c-f34761e83a10",
+        "bbox": [
+          535.7456,
+          342.6901999999999,
+          625.4786000000001,
+          350.0051999999999
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "태양광 발전 자가소비를 통한 감축 효과 (연간 402 tCO₂eq)",
+        "row": 8,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "faa3bb1a-abc6-541d-910a-d857c107aeca",
+        "bbox": [
+          645.0226,
+          361.34519999999986,
+          815.2906,
+          368.34519999999986
+        ],
+        "location_quality": "located"
+      }
+    ],
+    "context": [
+      "section=데이터센터 환경영향 완화 요소1)",
+      "provider_bbox=497.377,202.734,840.051,527.868",
+      "pb1_table_claims",
+      "pb1-w9-v1",
+      "provider_declared_grid_region",
+      "mixed_parser_name=upstage_async_standard",
+      "mixed_parser_version=document-parse-260128"
+    ]
+  },
+  "329e3926-72d9-5f66-8274-1f75f2251b0a": {
+    "case": "kakao",
+    "text": "2025년\t목표1)\t성과\n재생에너지 전환율 (%)\t10.0%\t11.5%\n용수 취수 집약도(m3/억 원)\t13.4\t11.8\n폐기물 배출 집약도(톤/억 원)\t0.027\t0.024\n온실가스 배출 집약도(tCO2eq/억 원)1)\t3.72\t3.99\n에너지 사용 집약도(GJ/억 원)\t78.0\t93.9",
+    "cells": [
+      {
+        "text": "0.027",
+        "row": 3,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "1df7e905-db41-5a2c-93b7-61f90006638d",
+        "bbox": [
+          365.2903,
+          442.54839999999996,
+          385.5973,
+          449.54839999999996
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "10.0%",
+        "row": 1,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "243aa09f-cc50-5c62-a49e-8feafd7cdd88",
+        "bbox": [
+          365.38219999999995,
+          407.5512,
+          385.50719999999995,
+          414.5512
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "3.99",
+        "row": 4,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "2a4c6818-50e1-51dc-b350-1ba33defd8a5",
+        "bbox": [
+          400.4844,
+          460.0456,
+          416.7384,
+          467.0456
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "78.0",
+        "row": 5,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "5538cb79-369e-5a2b-9952-b6d6d6a247e4",
+        "bbox": [
+          367.5914,
+          477.5456,
+          383.29940000000005,
+          484.5456
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "폐기물 배출 집약도(톤/억 원)",
+        "row": 3,
+        "column": 0,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "5773ab7e-0235-5360-9f2a-e0507754cb86",
+        "bbox": [
+          246.61230000000003,
+          442.54839999999996,
+          330.10830000000004,
+          449.54839999999996
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "목표1)",
+        "row": 0,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "6009110b-0798-5f70-91e2-e60be173f0f8",
+        "bbox": [
+          367.1402,
+          389.96836899999994,
+          383.760766,
+          397.1072
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "11.8",
+        "row": 2,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "7007ec90-88dc-5024-a118-72fe22e88d02",
+        "bbox": [
+          401.5013,
+          425.0484,
+          415.72530000000006,
+          432.0484
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "13.4",
+        "row": 2,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "78509f46-b712-5801-9597-7a1a75315924",
+        "bbox": [
+          367.9713,
+          425.0484,
+          382.9233,
+          432.0484
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "재생에너지 전환율 (%)",
+        "row": 1,
+        "column": 0,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "8d6ad9b7-79e7-5b21-929b-e239667294b6",
+        "bbox": [
+          246.61319999999998,
+          407.5512,
+          310.83820000000003,
+          414.5512
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "93.9",
+        "row": 5,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "8ec4096e-373f-5fb4-bba4-68d01aa9478f",
+        "bbox": [
+          400.48440000000005,
+          477.5456,
+          416.7384,
+          484.5456
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "11.5%",
+        "row": 1,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "90c90cfd-e3cd-5892-ac4c-f354c1051e70",
+        "bbox": [
+          398.91919999999993,
+          407.5512,
+          418.3021999999999,
+          414.5512
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "3.72",
+        "row": 4,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "a1dae3cc-34b0-5033-b30e-2b092ed23fac",
+        "bbox": [
+          367.5844,
+          460.0456,
+          383.3134,
+          467.0456
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "용수 취수 집약도(m3/억 원)",
+        "row": 2,
+        "column": 0,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "a5d71ada-2e3a-58d5-a201-63fd86fbc7cc",
+        "bbox": [
+          246.61319999999995,
+          424.93292099999996,
+          327.37129999999996,
+          432.0512
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "0.024",
+        "row": 3,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "a62a7804-0c78-5051-8c1b-7b82236de5df",
+        "bbox": [
+          398.4563,
+          442.54839999999996,
+          418.7633,
+          449.54839999999996
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "온실가스 배출 집약도(tCO2eq/억 원)1)",
+        "row": 4,
+        "column": 0,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "ac7f9949-4ec5-516e-b325-e5573fbc9021",
+        "bbox": [
+          246.6123,
+          459.930121,
+          358.14765,
+          467.04839999999996
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "에너지 사용 집약도(GJ/억 원)",
+        "row": 5,
+        "column": 0,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "c9d00313-4ea9-5189-80ab-e272911573b9",
+        "bbox": [
+          246.6104,
+          477.5456,
+          332.6754,
+          484.5456
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "성과",
+        "row": 0,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "ca0a3e20-fc0e-563f-b22c-f6beabc7f85c",
+        "bbox": [
+          402.2442,
+          390.1072,
+          414.9842,
+          397.1072
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "2025년",
+        "row": 0,
+        "column": 0,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "fd5aeed3-0b0a-5ac5-a588-043b3ca81e79",
+        "bbox": [
+          246.6142,
+          390.1072,
+          272.1082,
+          397.1072
+        ],
+        "location_quality": "located"
+      }
+    ],
+    "context": [
+      "section=중점영역",
+      "provider_bbox=240.729,382.394,426.250,488.579",
+      "pb1_table_claims",
+      "pb1-w9-v1",
+      "derived_from_native_cells",
+      "mixed_parser_name=upstage_async_standard",
+      "mixed_parser_version=document-parse-260128"
+    ]
+  },
+  "de20bbd7-eb74-5ed4-bd29-ec6bf1b6b358": {
+    "case": "kakao",
+    "text": "사업장\t2030년\t\t2050년\t\n\tSSP1-2.6\tSSP5-8.5\tSSP1-2.6\tSSP5-8.5\n제주 오피스\t낮음\t낮음\t낮음\t낮음\n판교 아지트\t중간~높음\t중간~높음\t중간~높음\t중간~높음\n용인 AI 캠퍼스\t중간~높음\t중간~높음\t중간~높음\t중간~높음\n데이터센터 안산\t중간~높음\t중간~높음\t낮음~중간\t중간~높음",
+    "cells": [
+      {
+        "text": "중간~높음",
+        "row": 4,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "07dd34d0-dd81-521a-bda7-b2c56a53cc82",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "중간~높음",
+        "row": 4,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "1dd76633-82a3-5877-a342-f13c7471e3a7",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "중간~높음",
+        "row": 3,
+        "column": 3,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "31d04933-d8ea-58c4-ac8d-108f89cb3bff",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "판교 아지트",
+        "row": 3,
+        "column": 0,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "347ea2ed-3a99-55de-bfa2-ccb05caca4e3",
+        "bbox": [
+          370.34610000000004,
+          496.96869999999996,
+          403.51210000000003,
+          503.96869999999996
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "데이터센터 안산",
+        "row": 5,
+        "column": 0,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "3a32687d-03e7-5456-adb2-f7d6e8a63268",
+        "bbox": [
+          364.0600999999999,
+          531.9687,
+          409.82609999999994,
+          538.9687
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "SSP5-8.5",
+        "row": 1,
+        "column": 4,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "3eda1684-239d-516f-a600-f0e8bc036ca9",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "중간~높음",
+        "row": 5,
+        "column": 4,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "51af65bc-bb90-5736-8941-45e609a84615",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "2030년",
+        "row": 0,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 2,
+        "source_id": "55c13cd4-ac2e-5e7a-8e02-0140af3576e1",
+        "bbox": [
+          562.4821000000001,
+          453.02969999999993,
+          587.9131000000001,
+          460.02969999999993
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "SSP1-2.6",
+        "row": 1,
+        "column": 3,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "67353f5c-b03a-5d8c-99c5-0845df11ea23",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "SSP5-8.5",
+        "row": 1,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "6aca57e7-7cb7-5f89-b10a-4780b9131d51",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "낮음",
+        "row": 2,
+        "column": 4,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "7080b190-3240-5c6d-9da2-b12362515554",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "중간~높음",
+        "row": 4,
+        "column": 3,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "712c2e47-3fb7-5173-8717-e18efabe8919",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "낮음~중간",
+        "row": 5,
+        "column": 3,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "7165ecf5-8f5a-561f-85c6-a75d78fd9b43",
+        "bbox": [
+          691.7440999999999,
+          531.9687,
+          721.5990999999999,
+          538.9687
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "중간~높음",
+        "row": 3,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "774397f2-f2c1-592c-8dc9-4ec096b8a471",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "2050년",
+        "row": 0,
+        "column": 3,
+        "row_span": 1,
+        "column_span": 2,
+        "source_id": "780a2537-7464-5373-97b4-857b2fff28ca",
+        "bbox": [
+          737.7551000000001,
+          453.02969999999993,
+          763.1861000000001,
+          460.02969999999993
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "낮음",
+        "row": 2,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "8290e5cd-c153-56b3-ba72-e470f65d07d3",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "제주 오피스",
+        "row": 2,
+        "column": 0,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "914386c9-b9f7-5bc4-a123-435a439c3864",
+        "bbox": [
+          370.3391000000001,
+          479.46869999999996,
+          403.5051000000001,
+          486.46869999999996
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "SSP1-2.6",
+        "row": 1,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "a722b659-3e16-53f5-a856-634011832f85",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "낮음",
+        "row": 2,
+        "column": 3,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "aa704b53-04e1-5d1d-bea0-c50963964567",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "사업장",
+        "row": 0,
+        "column": 0,
+        "row_span": 2,
+        "column_span": 1,
+        "source_id": "acc3f938-a4ef-5cb0-b8bb-16895f3e472c",
+        "bbox": [
+          377.4091,
+          458.94469999999995,
+          396.44910000000004,
+          465.94469999999995
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "중간~높음",
+        "row": 5,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "bf90954f-09b8-5ed4-af24-0a6ae95435e5",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "낮음",
+        "row": 2,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "c70be2ae-417c-5730-9aa3-8eb9d0188735",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "중간~높음",
+        "row": 3,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "d080140b-aff0-5763-b32d-d8e8974da188",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "중간~높음",
+        "row": 3,
+        "column": 4,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "e1ac9a7a-c2b7-5389-b3bc-549a9f0529a6",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "중간~높음",
+        "row": 5,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "e932a753-2ad7-5cf4-8641-8fbf6c5507ea",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "용인 AI 캠퍼스",
+        "row": 4,
+        "column": 0,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "ed0fe791-def1-538b-a3f8-2e7456ca0c3e",
+        "bbox": [
+          366.1531,
+          514.4687,
+          407.7121,
+          521.4687
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "중간~높음",
+        "row": 4,
+        "column": 4,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "ee43015a-fc24-5fb3-a10d-090f9292bab4",
+        "bbox": null,
+        "location_quality": "unlocated"
+      }
+    ],
+    "context": [
+      "section=수자원 리스크 분석 결과1)",
+      "provider_bbox=285.528,448.271,839.439,543.401",
+      "pb1_table_claims",
+      "pb1-w9-v1",
+      "provider_declared_grid_region",
+      "mixed_parser_name=upstage_async_standard",
+      "mixed_parser_version=document-parse-260128"
+    ]
+  },
+  "7e673343-fb53-5928-8a55-bdf58e52a2a7": {
+    "case": "lge",
+    "text": "구분\t\t단위\t2022\t2023\t2024\n재생 불가능 연료 직접 온실가스 배출량 (Scope 1)\tLNG도시가스(한국)\tTJ\t548\t496\t564\n\tLNG도시가스(해외)\t\t845\t615\t537\n\t석탄(한국)\t\t0\t0\t0\n\t석탄(해외)\t\t0\t0\t0\n\t기타(한국)\t\t67\t56\t40\n\t기타(해외)\t\t450\t557\t533\n\t소계\t\t1,910\t1,724\t1,674\n재생에너지 사용\t태양광1)\t\t33\t64\t190\n\t풍력\t\t212\t268\t310\n\t바이오매스\t\t-\t1\t-\n\t기타\t\t115\t122\t169\n\t소계\t\t360\t455\t670\n에너지2)\t전기(한국)\t\t1,736\t1,686\t1,744\n\t전기(해외)\t\t2,678\t2,808\t2,919\n\t스팀(한국)\t\t335\t310\t197\n\t스팀(해외)\t\t2\t2\t21\n에너지 집약도(원단위)3)\t\tTJ/천억 원\t8.0\t7.8\t7.5",
+    "cells": [
+      {
+        "text": "전기(한국)",
+        "row": 13,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "13cc6232-ec82-5bb7-8f53-26ac39c12d61",
+        "bbox": [
+          645.5,
+          1451.7001,
+          764.27,
+          1481.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "TJ",
+        "row": 1,
+        "column": 2,
+        "row_span": 16,
+        "column_span": 1,
+        "source_id": "146e4cc7-f286-5847-9779-e3349e6633d9",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "2,808",
+        "row": 14,
+        "column": 4,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "158e5e11-6d1d-5835-9ac0-5bee01633cb0",
+        "bbox": [
+          1428.47,
+          1521.6901,
+          1504.49,
+          1551.6901
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "0",
+        "row": 4,
+        "column": 3,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "1617930b-5115-5a2d-84d9-025a45345112",
+        "bbox": [
+          1279.6103000000003,
+          821.6901,
+          1297.4903000000004,
+          851.6901
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "455",
+        "row": 12,
+        "column": 4,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "1bd443a4-75c4-55e5-9406-f36673ce7de4",
+        "bbox": [
+          1453.35,
+          1381.6601,
+          1504.5,
+          1411.6601
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "소계",
+        "row": 12,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "1be3a6fb-ffb9-5504-b2bc-24505b63b2e5",
+        "bbox": [
+          645.51,
+          1381.6601,
+          695.0699999999999,
+          1411.6601
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "풍력",
+        "row": 9,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "1c202fc9-bc24-50ae-9cbf-24c29fbaa5b3",
+        "bbox": [
+          645.5100000000002,
+          1171.6901,
+          694.2900000000002,
+          1201.6901
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "0",
+        "row": 3,
+        "column": 3,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "1f5ace21-36e2-533f-8032-03a68610c489",
+        "bbox": [
+          1279.6103,
+          751.7001,
+          1297.4903000000002,
+          781.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "548",
+        "row": 1,
+        "column": 3,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "206ef768-09ba-562c-ae3a-baeb9c1b797a",
+        "bbox": [
+          1245.8303,
+          611.7201,
+          1297.4903000000002,
+          641.7201
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "소계",
+        "row": 7,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "25dd7bc9-86e2-5494-8a10-d6a8959d4f35",
+        "bbox": [
+          645.5003000000003,
+          1031.6601,
+          695.0603000000002,
+          1061.6601
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "190",
+        "row": 8,
+        "column": 5,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "2a7180c1-fa0d-5b21-819d-8710bd1dcf2b",
+        "bbox": [
+          1662.8100000000002,
+          1101.7001,
+          1711.5000000000002,
+          1131.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "-",
+        "row": 10,
+        "column": 3,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "2c07b3e9-5218-5bf5-a178-4edb5355dc50",
+        "bbox": [
+          1285.8600000000001,
+          1241.6801,
+          1297.5000000000002,
+          1271.6801
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "1,674",
+        "row": 7,
+        "column": 5,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "36644309-4d5b-5f79-917b-77fc5a81ca7d",
+        "bbox": [
+          1638.3803000000005,
+          1031.6601,
+          1711.4903000000006,
+          1061.6601
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "197",
+        "row": 15,
+        "column": 5,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "3aaf993f-9e49-5e65-bf53-6a5903620947",
+        "bbox": [
+          1664.8700000000003,
+          1591.6801,
+          1711.4900000000002,
+          1621.6801
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "스팀(한국)",
+        "row": 15,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "3ac0533f-09e4-5c90-975f-92b43408e1b2",
+        "bbox": [
+          645.5,
+          1591.6801,
+          764.27,
+          1621.6801
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "21",
+        "row": 16,
+        "column": 5,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "3df1d489-5af9-58f6-9447-a6e9cfc61ebc",
+        "bbox": [
+          1682.1200000000001,
+          1661.6701,
+          1711.4900000000002,
+          1691.6701
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "670",
+        "row": 12,
+        "column": 5,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "40c56e8f-4d56-58da-88e7-3e0989194104",
+        "bbox": [
+          1659.24,
+          1381.6601,
+          1711.5,
+          1411.6601
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "전기(해외)",
+        "row": 14,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "42f6a0e6-6887-5afe-869c-96ecf7f6a210",
+        "bbox": [
+          645.5,
+          1521.6901,
+          764.27,
+          1551.6901
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "64",
+        "row": 8,
+        "column": 4,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "4508d6a8-0f5f-5e61-9ae5-def82a61c06d",
+        "bbox": [
+          1469.13,
+          1101.7001,
+          1504.5000000000002,
+          1131.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "LNG도시가스(한국)",
+        "row": 1,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "46188ecd-30e9-546d-805f-2b91e4c04cd3",
+        "bbox": [
+          645.4703,
+          611.7201,
+          868.0102999999999,
+          641.7201
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "0",
+        "row": 4,
+        "column": 5,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "46e8e8c3-ceb5-53f3-9e34-8e79d3d62cd9",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "에너지2)",
+        "row": 13,
+        "column": 0,
+        "row_span": 4,
+        "column_span": 1,
+        "source_id": "47c36150-c79c-580f-9b47-246608e61361",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "2",
+        "row": 16,
+        "column": 3,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "49247bd5-44d9-5860-83ab-a1adfee8881d",
+        "bbox": [
+          1281.0500000000002,
+          1661.6701,
+          1297.4900000000002,
+          1691.6701
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "0",
+        "row": 4,
+        "column": 4,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "4ebfd4e0-708a-56d6-b9d4-f196fafd73dd",
+        "bbox": [
+          1486.6103000000003,
+          821.6901,
+          1504.4903000000004,
+          851.6901
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "360",
+        "row": 12,
+        "column": 3,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "4fd8f17f-5478-5acd-bddf-15b043fccde2",
+        "bbox": [
+          1243.77,
+          1381.6601,
+          1297.5,
+          1411.6601
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "450",
+        "row": 6,
+        "column": 3,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "539d740e-955c-5d64-9665-e66dbec6401a",
+        "bbox": [
+          1245.8303000000003,
+          961.6701,
+          1297.4903000000004,
+          991.6701
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "7.8",
+        "row": 17,
+        "column": 4,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "55103a51-11a6-5e47-8055-3f9a6e864886",
+        "bbox": [
+          1464.77,
+          1731.7001,
+          1504.49,
+          1761.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "TJ/천억 원",
+        "row": 17,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "575f8abc-e86a-515c-bcbe-d58d7435235b",
+        "bbox": [
+          966.5,
+          1731.7001,
+          1085.6000000000001,
+          1761.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "33",
+        "row": 8,
+        "column": 3,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "5943d568-af6c-5b90-b954-5e2a97aa7375",
+        "bbox": [
+          1264.14,
+          1101.7001,
+          1297.5000000000002,
+          1131.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "단위",
+        "row": 0,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "5defa462-3a9d-5f2e-840c-8ea75f9086b2",
+        "bbox": [
+          1003.7302999999999,
+          541.7001,
+          1053.2903,
+          571.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "2022",
+        "row": 0,
+        "column": 3,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "5f89d9f4-78f0-55ff-91b2-6b48ce785a1b",
+        "bbox": [
+          1169.0902999999998,
+          541.7001,
+          1238.9303,
+          571.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "2",
+        "row": 16,
+        "column": 4,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "6045bfdf-bd5d-5340-81d7-51bedea6194a",
+        "bbox": [
+          1488.0500000000002,
+          1661.6701,
+          1504.4900000000002,
+          1691.6701
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "기타",
+        "row": 11,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "64473755-bacf-57b3-a7ba-6fbda9c49e6e",
+        "bbox": [
+          645.51,
+          1311.6701,
+          694.29,
+          1341.6701
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "1",
+        "row": 10,
+        "column": 4,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "6a893dfd-963b-5b99-8d83-05145b2fb3eb",
+        "bbox": [
+          1491.5700000000002,
+          1241.6801,
+          1504.5000000000002,
+          1271.6801
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "1,744",
+        "row": 13,
+        "column": 5,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "6e930c3f-8adf-5638-bcc5-831aa707bbd9",
+        "bbox": [
+          1641.83,
+          1451.7001,
+          1711.49,
+          1481.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "재생에너지 사용",
+        "row": 8,
+        "column": 0,
+        "row_span": 5,
+        "column_span": 1,
+        "source_id": "7db0c516-1820-568a-aa20-9c1986aa56ff",
+        "bbox": [
+          159.9803000000004,
+          1241.6601,
+          339.1103000000004,
+          1271.6601
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "기타(해외)",
+        "row": 6,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "83433299-5ef3-5cf0-bc05-7c33f9e40642",
+        "bbox": [
+          645.5003000000004,
+          961.6701,
+          764.2703000000004,
+          991.6701
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "기타(한국)",
+        "row": 5,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "836e500e-83d7-59a0-9421-304cf98e7178",
+        "bbox": [
+          645.5003000000004,
+          891.6801,
+          764.2703000000004,
+          921.6801
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "40",
+        "row": 5,
+        "column": 5,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "862fbde1-e6bd-5aa9-bb6a-660d9efc7629",
+        "bbox": [
+          1676.1203000000003,
+          891.6801,
+          1711.4903000000004,
+          921.6801
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "LNG도시가스(해외)",
+        "row": 2,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "940035ed-ffbb-5cfd-aec7-b7886e8cbae1",
+        "bbox": [
+          645.5003,
+          681.7101,
+          868.0403,
+          711.7101
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "석탄(해외)",
+        "row": 4,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "9a534590-ae2b-5d5f-b030-51633435a7c8",
+        "bbox": [
+          645.5003000000002,
+          821.6901,
+          764.2703000000001,
+          851.6901
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "1,910",
+        "row": 7,
+        "column": 3,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "9bd7f71e-ab92-58fc-8532-022a25159f9f",
+        "bbox": [
+          1226.1803000000004,
+          1031.6601,
+          1297.4903000000004,
+          1061.6601
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "에너지 집약도(원단위)3)",
+        "row": 17,
+        "column": 0,
+        "row_span": 1,
+        "column_span": 2,
+        "source_id": "9dd5567e-40a4-5104-b2a5-8b4a65d13b1d",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "태양광1)",
+        "row": 8,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "9dfd2ee7-7978-5311-bf14-74850d18317b",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "56",
+        "row": 5,
+        "column": 4,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "9fd2141d-54b7-5911-84f4-d57f88edd3ed",
+        "bbox": [
+          1470.3203000000003,
+          891.6801,
+          1504.4903000000004,
+          921.6801
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "1,736",
+        "row": 13,
+        "column": 3,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "a71f8b31-74e3-55c1-864b-3692faaca107",
+        "bbox": [
+          1228.25,
+          1451.7001,
+          1297.49,
+          1481.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "1,724",
+        "row": 7,
+        "column": 4,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "a8cf4353-7fea-5b8c-a147-eb51ec00de29",
+        "bbox": [
+          1432.1003000000005,
+          1031.6601,
+          1504.4903000000006,
+          1061.6601
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "845",
+        "row": 2,
+        "column": 3,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "ab878267-816c-5368-8c9a-f5e81d11f953",
+        "bbox": [
+          1245.8303,
+          681.7101,
+          1297.4903,
+          711.7101
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "구분",
+        "row": 0,
+        "column": 0,
+        "row_span": 1,
+        "column_span": 2,
+        "source_id": "ac290d71-ec9d-5e95-8cfd-a6a6142e907d",
+        "bbox": [
+          528.4703,
+          541.7001,
+          578.0302999999999,
+          571.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "2,919",
+        "row": 14,
+        "column": 5,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "afbea013-8539-506f-83f1-3b4a5af205d4",
+        "bbox": [
+          1640.42,
+          1521.6901,
+          1711.49,
+          1551.6901
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "268",
+        "row": 9,
+        "column": 4,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "b1eae871-744a-54a6-9c79-1cab6c4b0850",
+        "bbox": [
+          1452.3000000000002,
+          1171.6901,
+          1504.5000000000002,
+          1201.6901
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "615",
+        "row": 2,
+        "column": 4,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "b6a0d086-3eb4-5d0c-b747-5b4954ff5b79",
+        "bbox": [
+          1457.3903,
+          681.7101,
+          1504.4903,
+          711.7101
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "8.0",
+        "row": 17,
+        "column": 3,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "b6a71d7f-9d0a-53c7-b197-80f48b154ea3",
+        "bbox": [
+          1255.7,
+          1731.7001,
+          1297.4900000000002,
+          1761.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "67",
+        "row": 5,
+        "column": 3,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "ba3b8f0b-6d94-5baa-bf23-947119054e95",
+        "bbox": [
+          1263.8003000000003,
+          891.6801,
+          1297.4903000000004,
+          921.6801
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "바이오매스",
+        "row": 10,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "bac07e04-d000-57e1-acf4-f29680887dca",
+        "bbox": [
+          645.5100000000001,
+          1241.6801,
+          767.4600000000002,
+          1271.6801
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "557",
+        "row": 6,
+        "column": 4,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "bdaae3b0-056c-5018-946c-6466360a21d6",
+        "bbox": [
+          1456.1003000000003,
+          961.6701,
+          1504.4903000000002,
+          991.6701
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "564",
+        "row": 1,
+        "column": 5,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "c1c3bc26-e024-5741-9c83-1c293fc8c206",
+        "bbox": [
+          1659.8303,
+          611.7201,
+          1711.4903000000002,
+          641.7201
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "7.5",
+        "row": 17,
+        "column": 5,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "cab37cb6-9ad3-5641-8216-b13a053639f8",
+        "bbox": [
+          1673.36,
+          1731.7001,
+          1711.4899999999998,
+          1761.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "496",
+        "row": 1,
+        "column": 4,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "cedae389-fda6-572a-a263-92f78fcf61d2",
+        "bbox": [
+          1451.2403000000002,
+          611.7201,
+          1504.4903000000002,
+          641.7201
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "스팀(해외)",
+        "row": 16,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "d3ef408c-832a-54a3-b2f6-782f5395e746",
+        "bbox": [
+          645.5000000000003,
+          1661.6701,
+          764.2700000000003,
+          1691.6701
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "169",
+        "row": 11,
+        "column": 5,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "d68992b2-ee77-5315-a598-6e1814762242",
+        "bbox": [
+          1662.81,
+          1311.6701,
+          1711.5,
+          1341.6701
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "석탄(한국)",
+        "row": 3,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "d768ed05-e570-55d9-87e1-77d91539dd0a",
+        "bbox": [
+          645.5003,
+          751.7001,
+          764.2703,
+          781.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "212",
+        "row": 9,
+        "column": 3,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "db1a0ab3-46e3-53e2-b634-41ca4f007fc9",
+        "bbox": [
+          1251.69,
+          1171.6901,
+          1297.5,
+          1201.6901
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "2024",
+        "row": 0,
+        "column": 5,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "dd76ab25-3c45-5a48-b623-dd0b53508358",
+        "bbox": [
+          1582.8802999999998,
+          541.7001,
+          1653.1103,
+          571.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "537",
+        "row": 2,
+        "column": 5,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "df045869-b48f-5112-a5cf-301c50dbd557",
+        "bbox": [
+          1662.7103,
+          681.7101,
+          1711.4903,
+          711.7101
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "122",
+        "row": 11,
+        "column": 4,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "e04c13c7-05e3-5e15-982b-0b52aeded0f9",
+        "bbox": [
+          1458.6899999999998,
+          1311.6701,
+          1504.5,
+          1341.6701
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "310",
+        "row": 15,
+        "column": 4,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "e105b16a-3f54-57c5-9cbb-281b74b178bd",
+        "bbox": [
+          1457.0000000000002,
+          1591.6801,
+          1504.4900000000002,
+          1621.6801
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "310",
+        "row": 9,
+        "column": 5,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "e3da4dee-0384-5960-a1ec-004024946575",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "0",
+        "row": 3,
+        "column": 4,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "e5c97745-44c9-52d4-90e8-156563f3df96",
+        "bbox": [
+          1486.6103,
+          751.7001,
+          1504.4903000000002,
+          781.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "2,678",
+        "row": 14,
+        "column": 3,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "e69fdcb9-d5f0-50f1-953a-3c88bfb409c8",
+        "bbox": [
+          1223.54,
+          1521.6901,
+          1297.49,
+          1551.6901
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "335",
+        "row": 15,
+        "column": 3,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "e6b37fe6-1970-519d-ac23-1d1bd64d5485",
+        "bbox": [
+          1247.8400000000001,
+          1591.6801,
+          1297.49,
+          1621.6801
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "2023",
+        "row": 0,
+        "column": 4,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "edff5fb8-b107-5e5e-a468-f71f98c24a08",
+        "bbox": [
+          1375.8503,
+          541.7001,
+          1446.1403,
+          571.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "533",
+        "row": 6,
+        "column": 5,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "ee50f494-4cf5-5425-a906-0dd8d82c1815",
+        "bbox": [
+          1661.8403000000003,
+          961.6701,
+          1711.4903000000004,
+          991.6701
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "1,686",
+        "row": 13,
+        "column": 4,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "ef131ec4-227d-5b0c-9f9d-777c5473c7a0",
+        "bbox": [
+          1431.98,
+          1451.7001,
+          1504.4900000000002,
+          1481.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "재생 불가능 연료 직접 온실가스 배출량 (Scope 1)",
+        "row": 1,
+        "column": 0,
+        "row_span": 7,
+        "column_span": 1,
+        "source_id": "f21bb8bc-43cb-57d4-9c4e-aa9d94f5b47e",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "0",
+        "row": 3,
+        "column": 5,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "f44f472e-b3bf-54f5-aa6c-439c1a1a0c41",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "115",
+        "row": 11,
+        "column": 3,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "f67c5c0f-7266-5dd3-81d0-d26680af62e7",
+        "bbox": [
+          1255.35,
+          1311.6701,
+          1297.4999999999998,
+          1341.6701
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "-",
+        "row": 10,
+        "column": 5,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "fb86fc44-5b97-5b12-b546-c6855b82e510",
+        "bbox": null,
+        "location_quality": "unlocated"
+      }
+    ],
+    "context": [
+      "section=조직 에너지 사용량",
+      "provider_bbox=144.554,515.388,1724.732,1782.838",
+      "pb1_table_claims",
+      "pb1-w9-v1",
+      "provider_declared_grid_region",
+      "mixed_parser_name=upstage_async_standard",
+      "mixed_parser_version=document-parse-260128"
+    ]
+  },
+  "b218787d-cdbe-5f52-91f1-93f825f7ef37": {
+    "case": "lge",
+    "text": "지역\t단위\t2022년\t2023년7)\t2024년\n유럽\t톤\t152,185\t101,898\t124,089\n한국\t\t121,831\t126,848\t125,138\n북미2)\t\t27,572\t30,635\t28,334\n아시아3)\t\t148,221\t134,110\t151,774\nCIS4)\t\t23,677\t10,291\t92\n중남미5)\t\t16,545\t51,361\t95,905\n아프리카6)\t\t7,394\t7,298\t7,298",
+    "cells": [
+      {
+        "text": "51,361",
+        "row": 6,
+        "column": 3,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "0b64af51-11c3-5ac0-9131-b36b33823752",
+        "bbox": [
+          2987.5606,
+          1596.7001,
+          3068.7105999999994,
+          1626.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "지역",
+        "row": 0,
+        "column": 0,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "0ebcb354-130c-519a-86bd-fe368ce4e784",
+        "bbox": [
+          1953.8706,
+          1272.7001,
+          2003.4306,
+          1302.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "CIS4)",
+        "row": 5,
+        "column": 0,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "251feaa8-f1b9-525f-b6d5-cb38375a0d33",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "톤",
+        "row": 1,
+        "column": 1,
+        "row_span": 7,
+        "column_span": 1,
+        "source_id": "254bccea-c1d7-5a3b-902d-536e7c44e42a",
+        "bbox": [
+          2280.7558999999997,
+          1488.7001,
+          2305.1458999999995,
+          1518.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "95,905",
+        "row": 6,
+        "column": 4,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "339678df-960c-530e-8919-d1e90266a57a",
+        "bbox": [
+          3292.3606,
+          1596.7001,
+          3383.0206,
+          1626.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "아시아3)",
+        "row": 4,
+        "column": 0,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "343b506d-a88a-5376-b0bc-5d7b3fb8e414",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "아프리카6)",
+        "row": 7,
+        "column": 0,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "37782305-1b1f-5e1d-9142-8424b1b14281",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "134,110",
+        "row": 4,
+        "column": 3,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "3b03e457-2210-56d5-9b34-b5c8913bd577",
+        "bbox": [
+          2971.9312999999997,
+          1488.7001,
+          3068.7113,
+          1518.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "101,898",
+        "row": 1,
+        "column": 3,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "3b57d625-3fac-5388-94e4-4b0a109f1fa4",
+        "bbox": [
+          2965.3858999999998,
+          1326.7001,
+          3068.7059,
+          1356.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "16,545",
+        "row": 6,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "3b674a59-2384-5bed-80dd-b976fb3b10b2",
+        "bbox": [
+          2669.0806,
+          1596.7001,
+          2754.4006,
+          1626.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "7,394",
+        "row": 7,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "3cc2362d-76cf-59df-863a-affbcede48a3",
+        "bbox": [
+          2681.8008,
+          1650.7001,
+          2754.4008,
+          1680.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "27,572",
+        "row": 3,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "456420cf-fb5a-5427-a209-56171bacf85a",
+        "bbox": [
+          2667.6714,
+          1434.7001,
+          2754.4014,
+          1464.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "30,635",
+        "row": 3,
+        "column": 3,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "4c1bcf73-df2e-5bdb-9a26-704116eec118",
+        "bbox": [
+          2977.3614000000002,
+          1434.7001,
+          3068.7114,
+          1464.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "북미2)",
+        "row": 3,
+        "column": 0,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "4e4089f4-8dfb-56d8-a994-425e485092bf",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "28,334",
+        "row": 3,
+        "column": 4,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "5cfc4151-8c3b-5463-84a9-529ffc83cfaa",
+        "bbox": [
+          3291.9114,
+          1434.7001,
+          3383.0213999999996,
+          1464.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "124,089",
+        "row": 1,
+        "column": 4,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "61506089-7914-58cf-91e1-6cb7fc08016f",
+        "bbox": [
+          3276.5759,
+          1326.7001,
+          3383.0159,
+          1356.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "92",
+        "row": 5,
+        "column": 4,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "7cb55db1-f1f9-5cf6-bb80-068f88bd074c",
+        "bbox": [
+          3349.0011,
+          1542.7001,
+          3383.0211,
+          1572.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "152,185",
+        "row": 1,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "8431cc5e-e2b2-528a-8033-cd997720dda4",
+        "bbox": [
+          2655.6958999999997,
+          1326.7001,
+          2754.3958999999995,
+          1356.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "126,848",
+        "row": 2,
+        "column": 3,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "871fa2e9-924d-50da-8ee7-bc9d1e4182a5",
+        "bbox": [
+          2962.2659,
+          1380.7001,
+          3068.7059,
+          1410.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "2022년",
+        "row": 0,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "8c97262c-886a-59c8-94be-d245fc28832b",
+        "bbox": [
+          2559.9606000000003,
+          1272.7001,
+          2654.5806000000007,
+          1302.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "151,774",
+        "row": 4,
+        "column": 4,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "924d1590-e139-5813-9233-db630ff11dd7",
+        "bbox": [
+          3285.8212999999996,
+          1488.7001,
+          3383.0212999999994,
+          1518.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "125,138",
+        "row": 2,
+        "column": 4,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "9bc2b558-cad4-5de8-b035-e5c6fafabbe9",
+        "bbox": [
+          3283.9258999999997,
+          1380.7001,
+          3383.0159,
+          1410.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "148,221",
+        "row": 4,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "a822e06b-4249-56c0-8f90-6139cd493be7",
+        "bbox": [
+          2654.3513,
+          1488.7001,
+          2754.4012999999995,
+          1518.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "2023년7)",
+        "row": 0,
+        "column": 3,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "a82de103-610b-5efa-bb6d-d64141d32ffb",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "10,291",
+        "row": 5,
+        "column": 3,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "a8e63e63-55a9-50ad-8210-11ee612a9dd4",
+        "bbox": [
+          2986.2111,
+          1542.7001,
+          3068.7111,
+          1572.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "23,677",
+        "row": 5,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "aabcae58-fd44-5e1f-bec0-8400055c86a7",
+        "bbox": [
+          2667.3411,
+          1542.7001,
+          2754.4011,
+          1572.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "121,831",
+        "row": 2,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "bf43155d-71e1-5777-b3ec-b5daebd8de78",
+        "bbox": [
+          2658.6659,
+          1380.7001,
+          2754.3959,
+          1410.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "중남미5)",
+        "row": 6,
+        "column": 0,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "bf7ad731-218e-5cbe-b08f-a9fb69073a8c",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "유럽",
+        "row": 1,
+        "column": 0,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "ca85e4d3-0d81-5eac-aa18-ba731e36c2c1",
+        "bbox": [
+          1831.5058999999997,
+          1326.7001,
+          1879.9858999999997,
+          1356.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "7,298",
+        "row": 7,
+        "column": 3,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "cb730731-d220-5832-9b73-1151cd9f4489",
+        "bbox": [
+          2995.9608,
+          1650.7001,
+          3068.7108,
+          1680.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "단위",
+        "row": 0,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "d2bafac0-c1a4-5a4a-a80e-4add52368f19",
+        "bbox": [
+          2268.1806,
+          1272.7001,
+          2317.7406000000005,
+          1302.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "2024년",
+        "row": 0,
+        "column": 4,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "dd723764-49c0-543d-b4d8-c4fcaccff52d",
+        "bbox": [
+          3188.3459,
+          1272.7001,
+          3283.3559,
+          1302.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "한국",
+        "row": 2,
+        "column": 0,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "e212c52c-1849-5545-9200-bfb495dd3d08",
+        "bbox": [
+          1831.5058999999999,
+          1380.7001,
+          1879.9859,
+          1410.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "7,298",
+        "row": 7,
+        "column": 4,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "e75691ad-8a67-501d-a4d1-f0d9fb9a274f",
+        "bbox": null,
+        "location_quality": "unlocated"
+      }
+    ],
+    "context": [
+      "section=지역별 폐전자제품 회수/처리 실적1)",
+      "provider_bbox=1817.913,1256.820,3398.446,1693.082",
+      "pb1_table_claims",
+      "pb1-w9-v1",
+      "provider_declared_grid_region",
+      "mixed_parser_name=upstage_async_standard",
+      "mixed_parser_version=document-parse-260128"
+    ]
+  },
+  "979e59fd-01eb-5f30-9768-9541f6160519": {
+    "case": "lge",
+    "text": "2022년\t2023년\t2024년\n• ‘포장설계 지침서’ 기반 사업부별 포장재 사용량 및 포장 부피 절감\t• 폐스티로폼이 50% 함유된 재활용 완충재 개발 및 적용 • 친환경 인쇄 및 FSC 인증 확대\t• 공기청정기(몽블랑, 24kg): 고중량 대응 펄프몰드 개발 완료 및 적용 중 • 청소기(NR, 25kg): 고중량 대응 펄프몰드 개발 진행 중",
+    "cells": [
+      {
+        "text": "• ‘포장설계 지침서’ 기반 사업부별 포장재 사용량 및 포장 부피 절감",
+        "row": 1,
+        "column": 0,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "0b6f1c82-052f-582d-b4bb-8670b156a475",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "2023년",
+        "row": 0,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "3144ee2b-74bb-5c96-9627-81d823e09b8e",
+        "bbox": [
+          2559.7273999999998,
+          757.7001,
+          2654.7974,
+          787.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "• 공기청정기(몽블랑, 24kg): 고중량 대응 펄프몰드 개발 완료 및 적용 중 • 청소기(NR, 25kg): 고중량 대응 펄프몰드 개발 진행 중",
+        "row": 1,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "5cc1efd3-f54b-50d9-9b60-049e7ddbd584",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "2022년",
+        "row": 0,
+        "column": 0,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "ed845e0c-8fd4-595a-86d3-d49c73844670",
+        "bbox": [
+          2036.7074,
+          757.7001,
+          2130.1274000000003,
+          787.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "• 폐스티로폼이 50% 함유된 재활용 완충재 개발 및 적용 • 친환경 인쇄 및 FSC 인증 확대",
+        "row": 1,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "f793f6ee-44b3-5041-9d4c-26a1a748d2d6",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "2024년",
+        "row": 0,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "fc63c0e7-7d91-534a-ae5b-a6fe0edbb87e",
+        "bbox": [
+          3084.1874,
+          757.7001,
+          3177.9974,
+          787.7001
+        ],
+        "location_quality": "located"
+      }
+    ],
+    "context": [
+      "section=친환경 포장 개선 실적",
+      "provider_bbox=1819.330,731.039,3396.320,1027.942",
+      "pb1_table_claims",
+      "pb1-w9-v1",
+      "provider_declared_grid_region",
+      "mixed_parser_name=upstage_async_standard",
+      "mixed_parser_version=document-parse-260128"
+    ]
+  },
+  "c41115f7-e1f9-59f5-9d22-58ff14bd737b": {
+    "case": "lge",
+    "text": "중량\t제품 부피\t포장재 중량\t재활용 플라스틱\n19% 감소(2.8kg)\t7% 감소(0.013m3)\t3% 감소(0.11kg)\t신규 적용(재활용 플라스틱 0.71kg)",
+    "cells": [
+      {
+        "text": "7% 감소(0.013m3)",
+        "row": 1,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "17bbef0a-34e2-57da-bffc-159c4a09b78c",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "재활용 플라스틱",
+        "row": 0,
+        "column": 3,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "295f5e45-bcc8-529e-90e6-eb5a3de56945",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "신규 적용(재활용 플라스틱 0.71kg)",
+        "row": 1,
+        "column": 3,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "2ec0f8e1-bf19-505d-a91b-6a4074536f92",
+        "bbox": [
+          1229.0912,
+          1798.7001,
+          1625.9012,
+          1828.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "중량",
+        "row": 0,
+        "column": 0,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "31dabe59-381b-5a0a-ac08-ac65487788a1",
+        "bbox": null,
+        "location_quality": "unlocated"
+      },
+      {
+        "text": "제품 부피",
+        "row": 0,
+        "column": 1,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "33f70539-af96-5747-a7e0-0dd59588f334",
+        "bbox": [
+          587.9970000000001,
+          1728.7001,
+          695.517,
+          1758.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "포장재 중량",
+        "row": 0,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "9cf98a08-84a7-51d1-b978-92e9b8939345",
+        "bbox": [
+          903.4470000000001,
+          1728.7001,
+          1035.747,
+          1758.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "3% 감소(0.11kg)",
+        "row": 1,
+        "column": 2,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "c3f253a1-240f-505b-9e72-24981696d0f5",
+        "bbox": [
+          870.8912,
+          1798.7001,
+          1068.2911999999997,
+          1828.7001
+        ],
+        "location_quality": "located"
+      },
+      {
+        "text": "19% 감소(2.8kg)",
+        "row": 1,
+        "column": 0,
+        "row_span": 1,
+        "column_span": 1,
+        "source_id": "c442ceff-d334-5cb3-9d54-550e3d83252b",
+        "bbox": [
+          212.87700000000018,
+          1798.6901,
+          414.9870000000002,
+          1828.6901
+        ],
+        "location_quality": "located"
+      }
+    ],
+    "context": [
+      "section=TV 모델(모델명 50UR8250KNA) 개선 성과",
+      "provider_bbox=147.035,1704.419,1722.961,1848.029",
+      "pb1_table_claims",
+      "pb1-w9-v1",
+      "provider_declared_grid_region",
+      "mixed_parser_name=upstage_async_standard",
+      "mixed_parser_version=document-parse-260128"
+    ]
+  }
+}
