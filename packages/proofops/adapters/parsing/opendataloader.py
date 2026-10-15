@@ -1008,6 +1008,19 @@ class OpenDataLoaderParser(ParserPort):
                 from proofops.adapters.parsing.mixed_routing import provenance
 
                 manifest["page_parser_provenance"] = provenance(routing, graph.candidates, selected)
+            if profile.output_policy == "rb2-output-v1":
+                from proofops.adapters.parsing.rb2_output import ARTIFACT, GRAPH_ARTIFACT, compact
+
+                receipt = compact(work, profile, manifest_bytes=len(_json(manifest)))
+                if receipt is not None:
+                    artifacts.pop("candidates.json")
+                    artifacts[ARTIFACT] = sha256((work / ARTIFACT).read_bytes()).hexdigest()
+                    if receipt.get("graph") is not None:
+                        artifacts.pop("graph.json")
+                        artifacts[GRAPH_ARTIFACT] = sha256(
+                            (work / GRAPH_ARTIFACT).read_bytes()
+                        ).hexdigest()
+                    manifest["rb2_output"] = receipt
             (work / "manifest.json").write_bytes(_json(manifest))
             if sum(path.stat().st_size for path in work.iterdir()) > profile.max_output_bytes:
                 raise ParseFailure("PARSER_OUTPUT_LIMIT")
@@ -1077,6 +1090,33 @@ class OpenDataLoaderParser(ParserPort):
                 "source.json",
                 "source.md",
             }
+            from proofops.adapters.parsing.rb2_output import (
+                ARTIFACT,
+                GRAPH_ARTIFACT,
+                read_candidates,
+            )
+
+            compacted = manifest.get("rb2_output")
+            if compacted is not None:
+                if (
+                    not isinstance(compacted, dict)
+                    or profile.output_policy != "rb2-output-v1"
+                    or "candidates.json" in artifacts
+                ):
+                    raise ValueError("unconfigured candidate compaction")
+                required.remove("candidates.json")
+                required.add(ARTIFACT)
+                if compacted.get("graph") is not None:
+                    if "graph.json" in artifacts:
+                        raise ValueError("duplicate compacted graph")
+                    required.remove("graph.json")
+                    required.add(GRAPH_ARTIFACT)
+                elif GRAPH_ARTIFACT in artifacts:
+                    raise ValueError("unconfigured graph compaction")
+            elif ARTIFACT in artifacts:
+                raise ValueError("unconfigured candidate compaction")
+            elif GRAPH_ARTIFACT in artifacts:
+                raise ValueError("unconfigured graph compaction")
             if profile.table_auxiliary:
                 required.add("auxiliary.json")
             if profile.source_recovery is not None:
@@ -1125,6 +1165,10 @@ class OpenDataLoaderParser(ParserPort):
                 data = path.read_bytes()
                 if sha256(data).hexdigest() != digest:
                     raise ValueError("artifact hash")
+                if name == ARTIFACT:
+                    values["candidates.json"] = read_candidates(data, profile, compacted)
+                if name == GRAPH_ARTIFACT:
+                    values["graph.json"] = read_candidates(data, profile, compacted["graph"])
                 if (
                     profile.local_resource_policy in {"selected-pdf-h6-v1", "selected-pdf-h6-v2"}
                     and name.endswith(".json")

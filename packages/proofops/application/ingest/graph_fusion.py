@@ -104,8 +104,11 @@ class ParserProfile:
     source_recovery: str | None = None
     table_claims_profile: str | None = None
     local_resource_policy: str | None = None
+    output_policy: str | None = None
 
     def __post_init__(self):
+        if self.output_policy not in (None, "rb2-output-v1"):
+            raise ValueError("unsupported parser output policy")
         if self.local_resource_policy not in (
             None,
             "selected-pdf-h1-v1",
@@ -201,6 +204,8 @@ class ParserProfile:
     def invocation_snapshot(self) -> dict:
         """Keep historical invocation hashes when optional tuning is absent."""
         values = asdict(self)
+        if self.output_policy is None:
+            values.pop("output_policy")
         if self.local_resource_policy is None:
             values.pop("local_resource_policy")
         if self.table_claims_profile is None:
