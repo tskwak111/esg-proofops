@@ -206,7 +206,20 @@ def health(container):
     raise RuntimeError("API health unavailable")
 
 
-def run_case(case, base, output, image_id, harness, timeout, capture_misses=False):
+def run_case(
+    case,
+    base,
+    output,
+    image_id,
+    harness,
+    timeout,
+    capture_misses=False,
+    *,
+    prepare_case=prepare,
+    compare_result=compare,
+    response_event="recorded_reply",
+    verification_in_observer=False,
+):
     directory = output / case["kind"]
     directory.mkdir()
     record = dict(status="failed", case=case["kind"], failures=[])
@@ -214,7 +227,7 @@ def run_case(case, base, output, image_id, harness, timeout, capture_misses=Fals
     volume = name + "-data"
     try:
         fixtures = directory / "fixtures"
-        record["fixtures"] = prepare(case, base, fixtures)
+        record["fixtures"] = prepare_case(case, base, fixtures)
         docker("volume", "create", volume)
         with tempfile.NamedTemporaryFile("w", suffix=".env") as env:
             os.chmod(env.name, 0o600)
@@ -254,6 +267,34 @@ def run_case(case, base, output, image_id, harness, timeout, capture_misses=Fals
                 "--mount",
                 f"type=bind,src={harness},dst=/harness,readonly",
             ]
+
+            def verification():
+                if not verification_in_observer:
+                    return phase(name, "verify")
+                # Inspect large receipt DBs without consuming the API's 512 MiB.
+                # Share only its already-isolated loopback namespace; no external network.
+                output = docker(
+                    "run",
+                    "--rm",
+                    "--name",
+                    name + "-observer",
+                    "--network",
+                    "container:" + name,
+                    "--memory",
+                    CAPS["worker_memory"],
+                    "--memory-swap",
+                    CAPS["worker_memory"],
+                    "--cpus",
+                    "1",
+                    *common[2:],
+                    image_id,
+                    "python",
+                    "/harness/predeploy_runtime.py",
+                    "verify",
+                    timeout=180,
+                )
+                return json.loads(output.splitlines()[-1])
+
             docker(
                 "run",
                 "-d",
@@ -302,9 +343,9 @@ def run_case(case, base, output, image_id, harness, timeout, capture_misses=Fals
                     break
                 time.sleep(2)
             # GET runs through the API's cold artifact replay and source guards.
-            observation = phase(name, "verify")
+            observation = verification()
             (directory / "observation.json").write_text(json.dumps(observation, indent=2))
-            comparison = compare(observation, case["baseline"])
+            comparison = compare_result(observation, case["baseline"])
             comparison["failures"] = record["failures"] + comparison["failures"]
             record.update(comparison)
             if record.get("worker_exit_code") != 0 or record.get("worker_oom"):
@@ -312,7 +353,7 @@ def run_case(case, base, output, image_id, harness, timeout, capture_misses=Fals
             if observation["status"] == "completed":
                 docker("restart", name)
                 health(name)
-                restart = phase(name, "verify")
+                restart = verification()
                 if (
                     restart["result"] != observation["result"]
                     or restart["snapshot_sha256"] != observation["snapshot_sha256"]
@@ -323,7 +364,9 @@ def run_case(case, base, output, image_id, harness, timeout, capture_misses=Fals
             (directory / "audit.jsonl").write_text(audit_text + "\n")
             events = [json.loads(line) for line in audit_text.splitlines()]
             record["fixture_misses"] = sum(e["event"] == "fixture_miss" for e in events)
-            record["recorded_replies"] = sum(e["event"] == "recorded_reply" for e in events)
+            record[response_event + "_count"] = sum(e["event"] == response_event for e in events)
+            if response_event == "recorded_reply":
+                record["recorded_replies"] = record["recorded_reply_count"]
             if record["fixture_misses"]:
                 record["failures"].append("recorded_wire_or_image_gap")
             subprocesses = [e for e in events if e["event"] == "analysis_subprocess"]
@@ -340,6 +383,8 @@ def run_case(case, base, output, image_id, harness, timeout, capture_misses=Fals
                 info = json.loads(docker("inspect", container))[0]
                 if info["RestartCount"]:
                     record["failures"].append("unexpected_container_restart")
+                if info["State"]["OOMKilled"]:
+                    record["failures"].append("container_oom")
             record["status"] = "failed" if record["failures"] else "passed"
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
         # No arbitrary exception messages/credentials in the summary.
@@ -348,6 +393,7 @@ def run_case(case, base, output, image_id, harness, timeout, capture_misses=Fals
         if isinstance(error, subprocess.CalledProcessError):
             (directory / "harness-failure.log").write_text(error.output or "")
     finally:
+        subprocess.run(["docker", "rm", "-f", name + "-observer"], capture_output=True)
         # Preserve the exact unmatched public-report wire for fixture diagnosis.
         # No production credentials are mounted in these isolated containers.
         files = subprocess.run(

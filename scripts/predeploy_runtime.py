@@ -315,14 +315,14 @@ def request(path, *, body=None, auth=None, headers=None, pdf=False):
         return json.load(response), response.headers
 
 
-def intake():
+def intake(*, tenant_id=None):
     from proofops_api.hosted_store import HostedSettings, HostedStore
 
     case = json.loads((FIXTURE / "case.json").read_text())
     source = (FIXTURE / "original.pdf").read_bytes()
     assert hashlib.sha256(source).hexdigest() == case["source_sha256"]
     store = HostedStore(HostedSettings.from_env(os.environ))
-    tenant = str(uuid4())
+    tenant = tenant_id or str(uuid4())
     invite = store.invite(tenant, str(uuid4()), "editor", now=time.time())
     session, headers = request("/v1/auth/invitation", body=dict(code=invite))
     auth = dict(cookie=headers["Set-Cookie"].split(";", 1)[0], csrf=session["csrf_token"])
