@@ -79,12 +79,18 @@ def test_combined_atomic_prose_retains_table_mode_and_exact_selected_offsets(
     assert len(probe.calls) == 1
 
 
-def test_v21_claim_reader_keeps_v20_parser_and_table_policies():
+def test_historical_v21_keeps_v20_policies_and_current_publication_is_guarded():
     current = page_ocr_profile("upstage-ocr-page-v21")
     previous = page_ocr_profile("upstage-ocr-page-v20")
     assert publication_reader(current.claim_source_policy()) is current
-    assert current.native_policy() == previous.native_policy()
-    assert current.table_span_policy() == previous.table_span_policy()
+    from proofops.adapters.local.historical_prose_replay import historical_pre_d2_reader
+
+    historical = historical_pre_d2_reader()
+    pinned = page_ocr_profile("upstage-ocr-page-v21", policy=historical.claim_source_policy())
+    assert pinned.native_policy() == previous.native_policy()
+    assert pinned.table_span_policy() == previous.table_span_policy()
+    with pytest.raises(ValueError, match="CLAIM_SOURCE_POLICY_MISMATCH"):
+        publication_reader(pinned.claim_source_policy())
     altered = current.claim_source_policy() | dict(verifier_sha256="0" * 64)
     with pytest.raises(ValueError, match="CLAIM_SOURCE_POLICY_UNKNOWN"):
         publication_reader(altered)

@@ -28,6 +28,9 @@ def test_v23_default_composes_v22_and_d2_and_keeps_historical_pins():
     )
     reader = page_ocr_profile(policy["source"])
     assert reader.previous is d2
+    assert reader.native_policy() == d2.native_policy()
+    assert reader.table_span_policy() == d2.table_span_policy()
+    assert reader.table_policy_sha256() == d2.table_policy_sha256()
     assert publication_reader(reader.claim_source_policy()) is reader
     old = historical_pre_d2_reader()
     assert sha256(Path(old.__file__).read_bytes()).hexdigest() == (
