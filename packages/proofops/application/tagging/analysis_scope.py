@@ -12,7 +12,7 @@ from proofops.domain.provenance import canonical_hash
 from proofops.domain.rules.analysis_scope import POLICY_HASH as RULE_HASH
 from proofops.domain.rules.analysis_scope import evaluate_scope
 from proofops.domain.rules.engine import MAPPINGS, ConfirmedFact, ConfirmedTags, evaluate
-from proofops.domain.values import llm_tags_from_dict
+from proofops.domain.values import SourceRef, llm_tags_from_dict
 
 SCHEMA = "sc1-scope-confirmation-v1"
 ATTRIBUTE_ROLES = dict(
@@ -312,8 +312,16 @@ def analyze_scope(
     tag_revision=1,
     required_present_votes=3,
     grade_agreement_policy=None,
+    v1_activity_policy=None,
 ):
     policy = confirmation_policy(required_present_votes)
+    if v1_activity_policy is not None:
+        from proofops.application.tagging.v1_activity_links import validate_policy
+
+        validate_policy(v1_activity_policy)
+        if required_present_votes != 3:
+            raise ValueError("V1_ACTIVITY_REQUIRES_THREE_REPLICAS")
+        policy = policy | dict(v1_activity_links=v1_activity_policy)
     index = inventory if isinstance(inventory, InventoryIndex) else InventoryIndex(inventory, graph)
     data, selected = packet.to_dict(), index.inventory["selection"]
     if (
@@ -351,6 +359,23 @@ def analyze_scope(
         runs, packet, rulepack, tag_revision, required_present_votes, grade_agreement_policy
     )
     tags = consensus.confirmed_tags
+    v1_links = None
+    base_rulepack = rulepack
+    if v1_activity_policy is not None:
+        from proofops.application.tagging.v1_activity_links import (
+            effective_rulepack,
+            link_inventory,
+        )
+
+        v1_links = link_inventory(
+            context,
+            index,
+            graph,
+            run_id=data["run_id"],
+            tenant_id=data["tenant_id"],
+            rulepack=rulepack,
+            policy=v1_activity_policy,
+        )
     reasons, searches, decision = [], [], None
     if not scope["selected_pages"] or scope["uninspected_pages"]:
         reasons.append("SC1_UNINSPECTED_PAGES")
@@ -398,6 +423,39 @@ def analyze_scope(
         reasons.append("SC1_SYNTHETIC_INVENTORY_NOT_PUBLIC")
     if any(r.synthetic for r in runs) and not rule_context.local_synthetic:
         reasons.append("SC1_SYNTHETIC_TAGS_NOT_PUBLIC")
+    if v1_links is not None and v1_links["unresolved_elements"]:
+        reasons.append("V1_ACTIVITY_INVENTORY_UNRESOLVED")
+    if v1_links is not None and any(
+        link["element"]["element_id"] in index.uncovered for link in v1_links["links"]
+    ):
+        reasons.append("V1_ACTIVITY_UNCOVERED_CUES")
+    # New positives are facts from the retained inventory, not fabricated claim
+    # replicas. Keep raw claim votes immutable and every existing safety hold.
+    # Unresolved absence keys do not invalidate a fully attributed positive link.
+    positive_holds = [r for r in reasons if r != "SC1_CLAIM_ATTRIBUTES_UNRESOLVED"]
+    if v1_links is not None and tags and tags.track == "management" and not positive_holds:
+        linked = {f.name: f for f in tags.facts}
+        for link in v1_links["links"]:
+            eid = link["element"]["element_id"]
+            names = MAPPINGS[tags.track][eid]
+            if any(linked[name].state != "unknown" for name in names):
+                continue
+            # A competing unresolved/contrary inventory candidate is still a hold.
+            if key is not None and index.state(eid, key, 3)[0] == "conflict":
+                continue
+            refs = tuple(SourceRef(**r) for r in link["element"]["evidence_refs"])
+            for name in names:
+                linked[name] = ConfirmedFact(
+                    name,
+                    "present",
+                    refs,
+                    graph.tenant_id,
+                    True,
+                    True,
+                    source_scope=link["source_scope"],
+                )
+        tags = replace(tags, facts=tuple(linked.values()))
+        rulepack = effective_rulepack(rulepack)
     base = evaluate(tags, rule_context, rulepack) if tags else None
     facts = {f.name: f for f in tags.facts} if tags else {}
     if base and base.grade_floor and base.grade_floor > "E0" and not reasons:
@@ -418,7 +476,6 @@ def analyze_scope(
                 # Use the existing binding boundary. QT2 can reuse the inventory;
                 # SC1 does not change its general retrieval/linking implementation.
                 from proofops.application.evidence.binding import accept_binding
-                from proofops.domain.values import SourceRef
 
                 accepted = []
                 scopes = set()
@@ -494,6 +551,16 @@ def analyze_scope(
             )
     elif not reasons:
         reasons.append("SC1_VERIFIED_LOWER_BOUND_REQUIRED")
+    fully_linked = (
+        v1_links is not None
+        and base
+        and base.decision_status == "decided"
+        and not positive_holds
+        and v1_links["links"]
+        and not any(link["element"]["element_id"] in index.uncovered for link in v1_links["links"])
+    )
+    if fully_linked:
+        reasons = [r for r in reasons if r != "SC1_CLAIM_ATTRIBUTES_UNRESOLVED"]
     body = dict(
         schema=SCHEMA,
         policy=policy,
@@ -510,6 +577,13 @@ def analyze_scope(
     if grade_agreement_policy is not None:
         body["grade_required_agreement_policy"] = grade_agreement_policy
         body["grade_required_agreement_policy_sha256"] = canonical_hash(grade_agreement_policy)
+    if v1_links is not None:
+        body.update(
+            v1_activity_links=v1_links,
+            v1_base_rulepack_sha256=base_rulepack.sha256,
+            v1_effective_rulepack=asdict(rulepack),
+            v1_projection=base.to_api_dict() if base else None,
+        )
     receipt_hash = canonical_hash(body)
     absent = [f.name for f in facts.values() if f.state == "absent_in_scope"]
     if absent and not reasons and not any(f.state == "conflict" for f in facts.values()):
@@ -524,6 +598,10 @@ def analyze_scope(
         )
         if decision.decision_status != "decided":
             decision = None
+    elif fully_linked:
+        from proofops.application.tagging.v1_activity_links import confirmed_decision
+
+        decision = confirmed_decision(base, scope, receipt_hash)
     return body | dict(
         receipt_sha256=receipt_hash,
         sc1_confirmation=decision.to_api_dict() if decision else None,
@@ -554,6 +632,7 @@ def replay_scope(receipt, **inputs):
         tag_revision=receipt["tag_revision"],
         required_present_votes=receipt["policy"]["agreement"]["required_present_votes"],
         grade_agreement_policy=receipt.get("grade_required_agreement_policy"),
+        v1_activity_policy=receipt["policy"].get("v1_activity_links"),
     )
     if canonical_hash(expected) != canonical_hash(receipt):
         raise ValueError("SC1_REPLAY_MISMATCH")
@@ -599,6 +678,7 @@ def analyze_record(
     required_present_votes,
     local_synthetic,
     grade_agreement_policy=None,
+    v1_activity_policy=None,
 ):
     from proofops.application.evidence.binding import ClaimContext
     from proofops.application.evidence.retrieval import freeze_packet
@@ -628,4 +708,5 @@ def analyze_record(
         prior_projection=record["provisional_grade"],
         required_present_votes=required_present_votes,
         grade_agreement_policy=grade_agreement_policy,
+        v1_activity_policy=v1_activity_policy,
     )
