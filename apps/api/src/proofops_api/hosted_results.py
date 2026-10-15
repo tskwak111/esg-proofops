@@ -163,6 +163,7 @@ def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             FINALS_K10_POLICY,
             FINALS_K10_V2_POLICY,
             FINALS_Q1_POLICY,
+            QT1_POLICY,
             S4_POLICY,
         )
         from proofops.application.provider_resilience import PROJECTION_POLICY, claim_hold_reason
@@ -251,6 +252,7 @@ def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             canonical_hash(S2_POLICY),
             canonical_hash(S4_POLICY),
             canonical_hash(V2_POLICY),
+            canonical_hash(QT1_POLICY),
             canonical_hash(FINALS_I10_POLICY),
             canonical_hash(FINALS_K10_POLICY),
             canonical_hash(FINALS_K10_V2_POLICY),
@@ -289,6 +291,16 @@ def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
         for claim in discovery.claims:
             current = claims.current_tag(tenant, run, claim.claim_id)
             summary = claims.summary(claim, current)
+            if tag_snapshot.get("analysis_profile_policy_sha256") == canonical_hash(QT1_POLICY):
+                from proofops.application.ingest.qt1_tables import candidates_for
+
+                ref = claim.source_refs[0]
+                table = blocks[ref.source_id]
+                summary["qt1_table_recovery"] = [
+                    r
+                    for r in candidates_for(table, original_graph)
+                    if r["start"] <= ref.char_start < ref.char_end <= r["end"]
+                ]
             if pb1:
                 summary["duplicate_occurrences"] = groups.get(
                     canonical_hash(" ".join(claim.quote.split())), [claim.claim_id]
@@ -318,6 +330,7 @@ def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                             canonical_hash(S2_POLICY),
                             canonical_hash(S4_POLICY),
                             canonical_hash(V2_POLICY),
+                            canonical_hash(QT1_POLICY),
                             canonical_hash(FINALS_I10_POLICY),
                             canonical_hash(FINALS_K10_POLICY),
                             canonical_hash(FINALS_K10_V2_POLICY),

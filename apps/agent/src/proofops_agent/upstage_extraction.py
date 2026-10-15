@@ -562,6 +562,7 @@ def _profile_with_options(
     extraction_i5_tables: bool = False,
     extraction_k6: bool = False,
     extraction_q1: bool = False,
+    extraction_qt1: bool = False,
     extraction_qc_native_figures: bool = False,
 ) -> ExtractionProfile:
     """Versioned extraction profile for an explicit option combination.
@@ -581,6 +582,11 @@ def _profile_with_options(
     ``assertion_prompt`` and pins its own rule entry and prompt suffix, so a
     complete-selection run can never replay an assertion-only receipt.
     """
+    if type(extraction_qt1) is not bool or (
+        extraction_qt1
+        and not (source_ids and extraction_context and extraction_j8 and extraction_k6)
+    ):
+        raise ValueError("QT1_EXTRACTION_PROFILE_INVALID")
     if type(extraction_qc_native_figures) is not bool or (
         extraction_qc_native_figures
         and not (source_ids and extraction_context and extraction_table_rows and extraction_w9)
@@ -749,6 +755,10 @@ def _profile_with_options(
         from proofops.application.ingest.k6_coverage import POLICY as K6_POLICY
 
         descriptor.append(K6_POLICY)
+    if extraction_qt1:
+        from proofops.application.ingest.qt1_tables import POLICY as QT1_POLICY
+
+        descriptor.append(QT1_POLICY)
     if extraction_q1:
         from proofops.application.ingest.q1_tables import POLICY as Q1_POLICY
 
@@ -929,6 +939,7 @@ class UpstageClaimExtractor:
         extraction_i5_tables: bool = False,
         extraction_k6: bool = False,
         extraction_q1: bool = False,
+        extraction_qt1: bool = False,
         extraction_qc_native_figures: bool = False,
     ) -> None:
         if type(extraction_q1) is not bool or (extraction_q1 and not extraction_j8):
@@ -1012,6 +1023,7 @@ class UpstageClaimExtractor:
             extraction_i5_tables=extraction_i5_tables,
             extraction_k6=extraction_k6,
             extraction_q1=extraction_q1,
+            extraction_qt1=extraction_qt1,
             extraction_qc_native_figures=extraction_qc_native_figures,
         )
         if type(max_tokens) is not int or not 1 <= max_tokens <= 4096:
@@ -1041,6 +1053,7 @@ class UpstageClaimExtractor:
         self._j8 = extraction_j8
         self._k6 = extraction_k6
         self._q1 = extraction_q1
+        self._qt1 = extraction_qt1
         self._qc_native_figures = extraction_qc_native_figures
         self._i3_wire = extraction_i3_wire
         self._i4_identity = extraction_i4_identity
@@ -1106,6 +1119,48 @@ class UpstageClaimExtractor:
         return self.cumulative_usage()
 
     def extract(
+        self, packet: dict, *, context_graph=None, display_catalog=None, h1_title_catalog=None
+    ) -> dict:
+        result = self._extract(
+            packet,
+            context_graph=context_graph,
+            display_catalog=display_catalog,
+            h1_title_catalog=h1_title_catalog,
+        )
+        if not self._qt1 or packet["untrusted_document_data"]["kind"] != "table":
+            return result
+        self._validate_context_graph(packet, context_graph)
+        from proofops.application.ingest.qt1_tables import candidates_for, reconcile
+
+        data = packet["untrusted_document_data"]
+        block = next(b for b in context_graph.blocks if b.source_id == data["source_id"])
+        candidates = candidates_for(block, context_graph)
+        spans, coverage = reconcile(data["text"], candidates, result["spans"])
+        self._validate_spans({"spans": spans}, data["text"])
+        record = dict(
+            packet=packet,
+            profile=asdict(self.profile),
+            candidates=candidates,
+            coverage=coverage,
+            before=result,
+            after=dict(spans=spans),
+        )
+        path = self._receipts / (
+            "qt1-"
+            + canonical_hash(
+                dict(packet=packet, profile=asdict(self.profile), candidates=candidates)
+            )
+            + ".json"
+        )
+        encoded = canonical_json(record)
+        if path.exists():
+            if path.read_text() != encoded:
+                raise ValueError("QT1_EXTRACTION_REPLAY_MISMATCH")
+        else:
+            self._write(path, encoded)
+        return {"spans": spans}
+
+    def _extract(
         self,
         packet: dict,
         *,

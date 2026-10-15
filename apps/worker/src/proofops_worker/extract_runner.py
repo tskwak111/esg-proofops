@@ -128,10 +128,17 @@ def _is_text_candidate(
     *,
     extraction_table_rows=False,
     extraction_k3=False,
+    extraction_qt1=False,
     graph=None,
     source_id=None,
     cells=None,
 ) -> bool:
+    if extraction_qt1 and kind == "table" and graph is not None:
+        from proofops.application.ingest.qt1_tables import candidates_for
+
+        table = next((b for b in graph.blocks if b.source_id == source_id), None)
+        if table is not None and candidates_for(table, graph):
+            return True
     if extraction_k3 and extraction_table_rows and kind == "table" and graph is not None:
         from proofops.application.ingest.w9_tables import cell_entries, graph_cells, observations
 
@@ -250,6 +257,7 @@ def select_batch_paragraph_sources(
     completed=frozenset(),
     extraction_table_rows=False,
     extraction_k3=False,
+    extraction_qt1=False,
 ) -> set[str]:
     """Next bounded window of eligible prose sources, skipping completed ones.
 
@@ -274,6 +282,7 @@ def select_batch_paragraph_sources(
             block.normalized_text,
             extraction_table_rows=extraction_table_rows,
             extraction_k3=extraction_k3,
+            extraction_qt1=extraction_qt1,
             graph=graph,
             source_id=block.source_id,
         )
@@ -286,7 +295,13 @@ def select_batch_paragraph_sources(
 
 
 def select_stable_paragraph_sources(
-    graph, scope, max_calls: int, *, extraction_table_rows=False, extraction_k3=False
+    graph,
+    scope,
+    max_calls: int,
+    *,
+    extraction_table_rows=False,
+    extraction_k3=False,
+    extraction_qt1=False,
 ) -> set[str]:
     """Prioritize prose within a bounded preview; retain short candidates after it."""
     return select_batch_paragraph_sources(
@@ -295,6 +310,7 @@ def select_stable_paragraph_sources(
         max_calls,
         extraction_table_rows=extraction_table_rows,
         extraction_k3=extraction_k3,
+        extraction_qt1=extraction_qt1,
     )
 
 
@@ -360,11 +376,13 @@ class _ContinuingExtractor:
         total_budget: int | None = None,
         extraction_table_rows: bool = False,
         extraction_k3: bool = False,
+        extraction_qt1: bool = False,
         graph=None,
     ):
         self.profile = profile
         self._table_rows = extraction_table_rows
         self._k3 = extraction_k3
+        self._qt1 = extraction_qt1
         self._graph = graph
         self._live = live
         self._prior = prior
@@ -397,6 +415,7 @@ class _ContinuingExtractor:
             text,
             extraction_table_rows=self._table_rows,
             extraction_k3=self._k3,
+            extraction_qt1=self._qt1,
             graph=self._graph,
             source_id=source_id,
         ):
@@ -623,6 +642,7 @@ class LocalExtractRunner:
             completed=completed,
             extraction_table_rows=getattr(self.extractor, "_table_rows", False),
             extraction_k3=getattr(self.extractor, "_k3", False),
+            extraction_qt1=getattr(self.extractor, "_qt1", False),
         )
         summary = dict(
             status="idle",
@@ -771,6 +791,7 @@ class LocalExtractRunner:
                     total_budget=total_budget,
                     extraction_table_rows=getattr(runner.extractor, "_table_rows", False),
                     extraction_k3=getattr(runner.extractor, "_k3", False),
+                    extraction_qt1=getattr(runner.extractor, "_qt1", False),
                     graph=graph,
                 )
                 discovery = discover_atomic_claims(graph, scope, extractor=extractor)
@@ -927,6 +948,7 @@ class LocalExtractRunner:
                             effective_max,
                             extraction_table_rows=getattr(runner.extractor, "_table_rows", False),
                             extraction_k3=getattr(runner.extractor, "_k3", False),
+                            extraction_qt1=getattr(runner.extractor, "_qt1", False),
                         )
 
                     class FencedExtractor:
@@ -947,6 +969,7 @@ class LocalExtractRunner:
                                             runner.extractor, "_table_rows", False
                                         ),
                                         extraction_k3=getattr(runner.extractor, "_k3", False),
+                                        extraction_qt1=getattr(runner.extractor, "_qt1", False),
                                         graph=graph,
                                         source_id=data["source_id"],
                                     )
