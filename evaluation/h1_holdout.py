@@ -17,6 +17,7 @@ from time import monotonic
 from proofops.adapters.local import upstage_ocr_profile_v11 as native
 from proofops.adapters.local.claim_source_verification import discovery_refs
 from proofops.adapters.local.openai import OpenAIProbe
+from proofops.adapters.parsing.parser_artifacts import iter_parser_artifacts, read_parser_json
 from proofops.application.analysis_profile import FINALS_I3_POLICY, apply_pilot_profile
 from proofops.application.claims import discover_atomic_claims
 from proofops.domain.provenance import canonical_hash
@@ -41,7 +42,7 @@ CASES = {
 
 
 def read(path):
-    return json.loads(path.read_text())
+    return read_parser_json(path)
 
 
 def write(path, value):
@@ -155,7 +156,7 @@ def measure(label, company, *, policy=FINALS_I3_POLICY, grid_bypass=False):
             for p in [
                 state / "state.sqlite3",
                 state / "pilot.json",
-                *state.rglob("candidates.json"),
+                *iter_parser_artifacts(state, "candidates.json"),
             ]:
                 hashes[str(p)] = sha256(p.read_bytes()).hexdigest()
             with reader_scope(ReplayOCRStore(state / "ocr-attestation.sqlite3")):

@@ -8,6 +8,7 @@ from collections import Counter
 from dataclasses import replace
 from pathlib import Path
 
+from proofops.adapters.parsing.parser_artifacts import parser_artifact_path, read_parser_json
 from proofops.application.evidence.relation_attribution import (
     LEGACY_POLICY as POLICY,
 )
@@ -24,7 +25,7 @@ def digest(path):
 
 
 def read(path):
-    return json.loads(path.read_text())
+    return read_parser_json(path)
 
 
 def artifacts(path):
@@ -45,8 +46,8 @@ def saved_blocks(state):
     blocks, pins = {}, []
     for manifest in (state / "parser-prepared").rglob("manifest.json"):
         meta = read(manifest)
-        graph_path = manifest.with_name("graph.json")
-        assert digest(graph_path) == meta["artifacts"]["graph.json"]
+        graph_path = parser_artifact_path(manifest.with_name("graph.json"), manifest=meta)
+        assert digest(graph_path) == meta["artifacts"][graph_path.name]
         graph = read(graph_path)
         for block in graph["blocks"]:
             assert (

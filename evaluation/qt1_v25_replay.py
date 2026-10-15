@@ -17,6 +17,7 @@ from uuid import uuid4
 
 from proofops.adapters.aws.usage import LocalSQLiteUsageStore
 from proofops.adapters.cache.aws import ImmutableResponseCache, InMemoryImmutableCacheClient
+from proofops.adapters.parsing.parser_artifacts import iter_parser_artifacts
 from proofops.application.analysis_profile import FINALS_I24_POLICY, QT1_V25_POLICY
 from proofops.application.budget import BudgetLimits, RoleLimit, TokenUsage
 from proofops.application.evidence.binding import local_relation_tags
@@ -173,7 +174,7 @@ def main():
         directory = lab / "quality/QT2/stored" / report["run_id"]
         for path in [
             directory / "job-artifacts.json",
-            *directory.rglob("candidates.json"),
+            *iter_parser_artifacts(directory, "candidates.json"),
             *directory.rglob("manifest.json"),
         ]:
             manifest[str(path)] = sha256(path.read_bytes()).hexdigest()

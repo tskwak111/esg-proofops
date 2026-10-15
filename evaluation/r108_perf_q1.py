@@ -20,6 +20,11 @@ from dataclasses import asdict
 from difflib import SequenceMatcher
 from pathlib import Path
 
+from proofops.adapters.parsing.parser_artifacts import (
+    iter_parser_artifacts,
+    parser_artifact_path,
+    read_parser_json,
+)
 from proofops.domain.provenance import canonical_hash
 from proofops_agent.upstage_extraction import LINEWRAP_JOIN_POLICY, UpstageClaimExtractor
 
@@ -32,9 +37,10 @@ INPUT_HASHES = {}
 
 
 def read(path):
+    path = parser_artifact_path(path)
     raw = path.read_bytes()
     INPUT_HASHES[str(path)] = hashlib.sha256(raw).hexdigest()
-    return json.loads(raw)
+    return read_parser_json(path)
 
 
 def records(path):
@@ -178,7 +184,7 @@ def audit_company(company, gold, matcher, temporary):
     extraction = next(x for x in artifacts if "discovery" in x)
     tagging = next(x for x in artifacts if "tagging_settings" in x)
     tags = {x["claim_id"]: x for x in tagging["claims"]}
-    graph_paths = list(root.rglob("graph.json"))
+    graph_paths = list(iter_parser_artifacts(root, "graph.json"))
     assert len(graph_paths) == 1
     graph = read(graph_paths[0])
     run = matcher.normalize_run(funnel)

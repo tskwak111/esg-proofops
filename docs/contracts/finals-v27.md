@@ -2,7 +2,8 @@
 
 `finals-20261016-v27` composes the immutable v26 policy with S5's source reader,
 256-call extraction batches, concurrent SC1 chunks, final usage reporting and C3
-wire-schema binding; RB3 deadline admission; and RB1 source/claim input isolation.
+wire-schema binding; RB3 deadline admission; RB1 source/claim input isolation;
+and RB2 parser-output compaction and native reporting-period detection.
 The public default selects v27. All earlier explicit analysis and publication pins,
 including v26, remain admitted. API and database schemas require no migration.
 
@@ -34,6 +35,15 @@ only those calls from the run-blocking provider total. Its raw failure count and
 money ledger are unchanged. Completed means ordinary processing finished; it is
 not evidence that SC1 scope was confirmed or that uncertain spend was settled.
 RB3 time holds and other unresolved provider failures still make runs partial.
+
+The RB2 addendum selects `parser_output_policy=rb2-output-v1` and
+`reporting_period_policy=rb2-native-period-v1`. The original v27 hash remains
+selectable for existing receipts. Oversized combined parser output first compacts
+candidates, then the graph when necessary, without dropping nodes or changing
+the 20 MB limit. Offline readers and W18 resolve the manifest's stored filename,
+verify its SHA-256 and use RB2's bounded decompressor with the original-byte hash.
+Source, tenant and manifest anchors remain required at their existing boundaries.
+The new period heading remains inspection-only; exceptions cannot confirm scope.
 
 Rollback new work to commit `919ea82`/the v26 pin. Preserve new v27 artifacts and
 serve them with a compatible reader; never reinterpret them using v26 or erase

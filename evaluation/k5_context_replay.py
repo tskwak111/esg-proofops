@@ -9,6 +9,11 @@ from hashlib import sha256
 from pathlib import Path
 from time import monotonic
 
+from proofops.adapters.parsing.parser_artifacts import (
+    iter_parser_artifacts,
+    parser_artifact_path,
+    read_parser_json,
+)
 from proofops.application.analysis_profile import FINALS_I4_POLICY, FINALS_K5_POLICY
 from proofops.application.ingest.graph_fusion import candidates_from_snapshot, fuse_candidates
 from proofops.application.ingest.k5_context import sentence_context
@@ -29,8 +34,9 @@ def main():
     started, hashes = monotonic(), {}
 
     def read(path):
+        path = parser_artifact_path(path)
         hashes[str(path)] = sha256(path.read_bytes()).hexdigest()
-        return json.loads(path.read_text())
+        return read_parser_json(path)
 
     def write(name, value):
         (output / name).write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n")
@@ -76,7 +82,7 @@ def main():
 
     # Actual I4 parser identity for B-NAVER (derived physical p2 -> original p88).
     directory = lab / "perf/I4/native-final/stage-B/naver"
-    path = next(directory.rglob("candidates.json"))
+    path = next(iter_parser_artifacts(directory, "candidates.json"))
     batches = candidates_from_snapshot(read(path))
     manifest = read(path.parent / "manifest.json")
     graph = fuse_candidates(
@@ -126,7 +132,9 @@ def main():
             hashes[str(state / "state.sqlite3")] = sha256(
                 (state / "state.sqlite3").read_bytes()
             ).hexdigest()
-            for candidate_path in (state / "parser-prepared").rglob("candidates.json"):
+            for candidate_path in iter_parser_artifacts(
+                state / "parser-prepared", "candidates.json"
+            ):
                 read(candidate_path)
             disc_path = lab / f"fix/H1/h1-final/{company}/{state_name}/discovery.json"
             claims = discovery_from_record(read(disc_path)).claims

@@ -23,6 +23,7 @@ from proofops.adapters.local.claim_source_policies import PAGE_OCR_PROFILES
 from proofops.adapters.local.provider_concurrency import ProviderConcurrency
 from proofops.adapters.local.upstage_parse import PARSE_MODEL_PINNED, UpstageParseProbe
 from proofops.adapters.parsing import opendataloader, upstage_document
+from proofops.adapters.parsing.parser_artifacts import iter_parser_artifacts, read_parser_json
 from proofops.application.analysis_profile import V2_POLICY, apply_pilot_profile
 from proofops.application.ingest.graph_fusion import ParserProfile
 from proofops.application.registry import Registry
@@ -347,7 +348,9 @@ def main(
 
     def candidate_batch(*a, **kw):
         state = state_for(company)
-        batches = json.loads(next((state / "parser-prepared").rglob("candidates.json")).read_text())
+        batches = read_parser_json(
+            next(iter_parser_artifacts(state / "parser-prepared", "candidates.json"))
+        )
         identifier = next(
             b["parser_run_id"] for b in batches if b["parser_name"] == "upstage_async_" + kw["mode"]
         )

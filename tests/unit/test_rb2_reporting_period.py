@@ -35,8 +35,10 @@ def test_new_heading_does_not_adopt_targets_or_conflicts():
         assert detect({2: text}, 101, "a" * 64)["selected"] is None
 
 
-def test_rb2_registration_is_opt_in_and_leaves_historical_hashes():
+def test_rb2_registration_and_v27_default_leave_historical_hashes():
     from proofops.application.analysis_profile import (
+        FINALS_I25_POLICY,
+        FINALS_I27_POLICY,
         FXH_POLICY,
         RB2_POLICY,
         V2_POLICY,
@@ -48,9 +50,12 @@ def test_rb2_registration_is_opt_in_and_leaves_historical_hashes():
     assert canonical_hash(FXH_POLICY) == (
         "aabfb9ee0a2351cb84b39b1474ccd45cbeb50bb33dee39d6f9a0f39189c41e09"
     )
-    assert canonical_hash(V2_POLICY) == (
+    assert canonical_hash(FINALS_I25_POLICY) == (
         "2ed6dc6869c35a152887db1d55629c19a0902e95b8b50b64e5f52af25c86f4c0"
     )
+    assert V2_POLICY == FINALS_I27_POLICY
+    assert V2_POLICY["parser_output_policy"] == "rb2-output-v1"
+    assert V2_POLICY["reporting_period_policy"] == "rb2-native-period-v1"
     assert policy_for(V2_PROFILE) == V2_POLICY
     pin = canonical_hash(RB2_POLICY)
     assert pin != canonical_hash(FXH_POLICY)

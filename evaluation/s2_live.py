@@ -21,6 +21,7 @@ from proofops.adapters.local import spend_guard
 from proofops.adapters.local.provider_concurrency import ProviderConcurrency
 from proofops.adapters.local.upstage_parse import PARSE_MODEL_PINNED
 from proofops.adapters.parsing import upstage_document
+from proofops.adapters.parsing.parser_artifacts import iter_parser_artifacts, read_parser_json
 from proofops.application.analysis_profile import FINALS_I3_POLICY, S2_POLICY
 from proofops.domain.provenance import canonical_hash
 from proofops_worker import composition
@@ -121,8 +122,8 @@ def main():
         )
         for mode, receipt in parse_receipts.items()
     }
-    candidates = json.loads(
-        next((args.source / "parser-prepared").rglob("candidates.json")).read_text()
+    candidates = read_parser_json(
+        next(iter_parser_artifacts(args.source / "parser-prepared", "candidates.json"))
     )
     ids = {c["parser_name"]: UUID(c["parser_run_id"]) for c in candidates}
     original_candidates = upstage_document.candidate_batch

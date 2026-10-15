@@ -17,6 +17,7 @@ from time import monotonic
 
 from proofops.adapters.local import claim_source_verification as paragraphs
 from proofops.adapters.local import upstage_ocr_profile_v10 as tables
+from proofops.adapters.parsing.parser_artifacts import iter_parser_artifacts, read_parser_json
 from proofops.application.analysis_profile import J7_POLICY
 from proofops.application.claims import validate_extraction_response
 from proofops.application.ingest.graph_fusion import candidates_from_snapshot, fuse_candidates
@@ -76,8 +77,8 @@ def main():
     predictions, changes = {}, []
     for company, attempt in [("naver", "attempt9"), ("kia", "attempt8")]:
         state = root / ".local/perf-b/outputs/pb1/live" / company / attempt / "workspace/state"
-        path = next(state.rglob("candidates.json"))
-        batches = candidates_from_snapshot(json.loads(path.read_text()))
+        path = next(iter_parser_artifacts(state, "candidates.json"))
+        batches = candidates_from_snapshot(read_parser_json(path))
         graph = fuse_candidates(
             batches, tenant_id=batches[0].tenant_id, fusion_version=5, mixed_parser=True
         )

@@ -13,6 +13,7 @@ from proofops.adapters.local import evidence_source_h6 as h6
 from proofops.adapters.local import evidence_source_h7 as h7
 from proofops.adapters.local import evidence_source_verification_v1 as original_resolution
 from proofops.adapters.parsing.opendataloader import OpenDataLoaderParser
+from proofops.adapters.parsing.parser_artifacts import parser_artifact_path
 from proofops.application.ingest.graph_fusion import ParserProfile, SourceArtifact, fuse_candidates
 
 
@@ -165,7 +166,9 @@ def main():
                 artifact, profile, tenant_id=artifact.tenant_id
             )
             hashes = {
-                name: sha256((folder / name).read_bytes()).hexdigest()
+                parser_artifact_path(folder / name).name: sha256(
+                    parser_artifact_path(folder / name).read_bytes()
+                ).hexdigest()
                 for name in ("manifest.json", "graph.json", "candidates.json", "quality.json")
             }
             result[slug] = measure(graph, content, item["selected_pages"], args.out / slug)

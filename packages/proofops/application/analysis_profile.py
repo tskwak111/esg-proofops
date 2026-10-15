@@ -1132,6 +1132,14 @@ RB2_POLICY = FXH_POLICY | dict(
     reporting_period_policy="rb2-native-period-v1",
 )
 
+# Keep the pre-addendum I27 pin readable for its already-created receipts.
+FINALS_I27_PRE_RB2_POLICY = FINALS_I27_POLICY
+FINALS_I27_POLICY = FINALS_I27_PRE_RB2_POLICY | dict(
+    parser_output_policy=RB2_POLICY["parser_output_policy"],
+    reporting_period_policy=RB2_POLICY["reporting_period_policy"],
+)
+V2_POLICY = FINALS_I27_POLICY
+
 
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
@@ -1167,6 +1175,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_I27_PRE_RB2_POLICY,
             FINALS_I26_POLICY,
             S5_LIVE_POLICY,
             FXH_POLICY,
@@ -1333,6 +1342,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FINALS_I27_PRE_RB2_POLICY,
             FINALS_I26_POLICY,
             S5_LIVE_POLICY,
             FXH_POLICY,

@@ -13,6 +13,8 @@ from hashlib import sha256
 from pathlib import Path
 from time import monotonic
 
+from proofops.adapters.parsing.parser_artifacts import read_parser_json
+
 
 def deny_network(*args, **kwargs):
     raise AssertionError("PB3_NETWORK_FORBIDDEN")
@@ -134,7 +136,7 @@ def main():
     socket.create_connection = deny_network
 
     def load(name):
-        return json.loads((source_dir / name).read_bytes())
+        return read_parser_json(source_dir / name)
 
     def write(name, value):
         (output / name).write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n")

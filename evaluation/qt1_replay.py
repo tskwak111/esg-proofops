@@ -12,6 +12,7 @@ from dataclasses import asdict
 from hashlib import sha256
 from pathlib import Path
 
+from proofops.adapters.parsing.parser_artifacts import iter_parser_artifacts, read_parser_json
 from proofops.application.analysis_profile import QT1_POLICY, V2_POLICY
 from proofops.application.ingest.graph_fusion import candidates_from_snapshot, fuse_candidates
 from proofops.application.ingest.qt1_tables import candidates_for, reconcile
@@ -22,7 +23,7 @@ from evaluation.pa9_source_gate import fixture
 
 
 def load(path):
-    return json.loads(path.read_text())
+    return read_parser_json(path)
 
 
 def write(path, value):
@@ -101,7 +102,7 @@ def main():
     inventory, r17_predictions = {}, {}
     for report in audit["reports"]:
         name = report["case"]
-        prep = next((inputs / "inputs" / name).rglob("candidates.json"))
+        prep = next(iter_parser_artifacts(inputs / "inputs" / name, "candidates.json"))
         snapshot, manifest = load(prep), load(prep.parent / "manifest.json")
         graph = fuse_candidates(
             candidates_from_snapshot(snapshot),

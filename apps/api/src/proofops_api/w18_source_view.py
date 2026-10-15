@@ -15,6 +15,7 @@ from tempfile import TemporaryDirectory
 from threading import Lock
 from types import SimpleNamespace
 
+from proofops.adapters.parsing.parser_artifacts import read_parser_json
 from proofops.application.ingest.geometry import project_native_bbox
 from proofops.domain.provenance import canonical_hash
 
@@ -70,9 +71,7 @@ def _graph(path, row, doc, anchor, original):
         manifest, digest = _read_json(directory / "manifest.json")
         if digest != expected or manifest["tenant_id"] != row["tenant_id"]:
             raise ValueError("manifest hash")
-        graph, digest = _read_json(directory / "graph.json")
-        if digest != manifest["artifacts"]["graph.json"]:
-            raise ValueError("graph hash")
+        graph = read_parser_json(directory / "graph.json", manifest=manifest)
         blocks = graph["blocks"]
         source_sha = row["prepared_sha256"]
     if (graph["document_version_id"], graph["parse_manifest_id"], graph["source_sha256"]) != (

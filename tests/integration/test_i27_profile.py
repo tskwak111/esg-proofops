@@ -13,9 +13,19 @@ def test_v27_composition_and_historical_pins():
         rb1_input_isolation=profiles.RB1_POLICY["rb1_input_isolation"],
         rb1_input_isolation_sha256=profiles.RB1_POLICY["rb1_input_isolation_sha256"],
         i27_sc1_optional_transient=profiles.I27_INVENTORY_POLICY,
+        parser_output_policy="rb2-output-v1",
+        reporting_period_policy="rb2-native-period-v1",
     )
     assert current["source"] == "s5_claim_source_v1"
     for policy, digest in (
+        (
+            profiles.FINALS_I27_PRE_RB2_POLICY,
+            "708418f03dfe8a852b667790639029e3da9a1dabd218390b82a0a3d99b770d67",
+        ),
+        (
+            profiles.RB2_POLICY,
+            "96a26526bdd10b4cc4cd4d24b3d85f2ce83dfe4ceebf63b1bf8e2d3bc20de070",
+        ),
         (
             profiles.FINALS_I26_POLICY,
             "ac9eb6466f3bdbc2653b140507a2ae2447ce008b4ec1dbb4de78cfb4e7d746fe",

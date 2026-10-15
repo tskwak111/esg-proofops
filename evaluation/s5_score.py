@@ -11,6 +11,7 @@ from pathlib import Path
 
 from proofops.adapters.local.spend_guard import SpendGuard
 from proofops.adapters.parsing.opendataloader import candidates_from_snapshot
+from proofops.adapters.parsing.parser_artifacts import read_parser_json
 from proofops.application.analysis_profile import FINALS_S5_POLICY
 from proofops.application.ingest.graph_fusion import QualityIssue, fuse_candidates
 from proofops.domain.provenance import canonical_hash
@@ -38,7 +39,7 @@ def main():
     out = args.output
 
     def read(path):
-        return json.loads(path.read_text())
+        return read_parser_json(path)
 
     comparison = read(out / "comparison.json")
     replay = {}

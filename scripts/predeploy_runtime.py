@@ -407,8 +407,13 @@ def verify():
     fingerprint = None
     runtime = None
     table_blocks = 0
-    for graph_path in (state / "parser-prepared").rglob("graph.json"):
-        graph = json.loads(graph_path.read_text())
+    from proofops.adapters.parsing.parser_artifacts import (
+        iter_parser_artifacts,
+        read_parser_json,
+    )
+
+    for graph_path in iter_parser_artifacts(state / "parser-prepared", "graph.json"):
+        graph = read_parser_json(graph_path)
         table_blocks += sum(b["kind"] == "table" for b in graph["blocks"])
     if (state / "result-1.json").exists():
         fingerprint = hashlib.sha256((state / "result-1.json").read_bytes()).hexdigest()

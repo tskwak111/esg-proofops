@@ -13,6 +13,7 @@ from dataclasses import asdict, replace
 from pathlib import Path
 from uuid import uuid4
 
+from proofops.adapters.parsing.parser_artifacts import read_parser_json
 from proofops.application.claims import Claim
 from proofops.application.evidence.binding import ClaimContext, local_relation_tags
 from proofops.application.evidence.retrieval import freeze_packet
@@ -24,7 +25,7 @@ from proofops.domain.values import SourceRef
 
 
 def read(path):
-    return json.loads(path.read_text())
+    return read_parser_json(path)
 
 
 def ref(raw):

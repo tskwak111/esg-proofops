@@ -5,6 +5,7 @@ import re
 import sqlite3
 from copy import deepcopy
 
+from proofops.adapters.parsing.parser_artifacts import iter_parser_artifacts, read_parser_json
 from proofops.application.tagging.fact_assembly_c3 import POLICY_HASH, assemble, safety_reasons
 from proofops.domain.provenance import canonical_hash
 
@@ -125,8 +126,8 @@ def main():
         write(f"{name}-original-page-map.json", mapping)
         corpus.append((name, claims, False, str(folder / "extract-checkpoint.json")))
         # Scan ALL selected parser pages, including evidence-only pages that have no claims.
-        graph_path = next(folder.rglob("graph.json"))
-        graph = json.loads(graph_path.read_text())
+        graph_path = next(iter_parser_artifacts(folder, "graph.json"))
+        graph = read_parser_json(graph_path)
         blocks = graph.get("blocks", [])
         iso = [b for b in blocks if re.search(r"ISO\s*14001", b.get("normalized_text", ""), re.I)]
         write(

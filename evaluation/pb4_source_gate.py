@@ -9,6 +9,7 @@ from hashlib import sha256
 from pathlib import Path
 from time import monotonic
 
+from proofops.adapters.parsing.parser_artifacts import read_parser_json
 from proofops.domain.provenance import canonical_hash
 
 
@@ -40,7 +41,7 @@ def main():
     socket.create_connection = deny_network
 
     def load(name):
-        return json.loads((args.input / name).read_bytes())
+        return read_parser_json(args.input / name)
 
     def write(name, value):
         (args.output / name).write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n")

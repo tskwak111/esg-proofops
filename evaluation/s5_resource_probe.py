@@ -13,6 +13,7 @@ from proofops.adapters.local.claim_source_policies import page_ocr_profile
 from proofops.adapters.local.pa7_raster_cache import attest, clear
 from proofops.adapters.local.worker_resources import apply_resources, close_ocr_pool
 from proofops.adapters.parsing.opendataloader import candidates_from_snapshot
+from proofops.adapters.parsing.parser_artifacts import read_parser_json
 from proofops.application.ingest.graph_fusion import QualityIssue, fuse_candidates
 from proofops.domain.provenance import canonical_hash
 from proofops_api.hosted_ocr import ReplayOCRStore, reader_scope
@@ -33,12 +34,12 @@ def main():
     prepared = next((args.source / "parser-prepared").rglob("manifest.json")).parent
     saved = json.loads((prepared / "manifest.json").read_text())
     graph = fuse_candidates(
-        candidates_from_snapshot(json.loads((prepared / "candidates.json").read_text())),
+        candidates_from_snapshot(read_parser_json(prepared / "candidates.json")),
         tenant_id=snapshot["tenant_id"],
         fusion_version=saved["fusion_version"],
         mixed_parser=True,
     )
-    assert graph.to_dict() == json.loads((prepared / "graph.json").read_text())
+    assert graph.to_dict() == read_parser_json(prepared / "graph.json")
     graph = replace(
         graph,
         issues=tuple(

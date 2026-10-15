@@ -15,6 +15,8 @@ from datetime import datetime
 from pathlib import Path
 from uuid import UUID
 
+from proofops.adapters.parsing.parser_artifacts import read_parser_json
+
 
 def checkpoint(directory, stage):
     with sqlite3.connect((directory / "state.sqlite3").as_uri() + "?mode=ro", uri=True) as db:
@@ -372,7 +374,7 @@ def main():
         from proofops.adapters.parsing import opendataloader, upstage_document
 
         original_dir = next((source / "parser-prepared").rglob("manifest.json")).parent
-        batches = json.loads((original_dir / "candidates.json").read_text())
+        batches = read_parser_json(original_dir / "candidates.json")
         ids = {b["parser_name"]: UUID(b["parser_run_id"]) for b in batches}
         original_batch = opendataloader._batch
 

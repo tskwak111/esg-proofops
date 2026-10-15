@@ -9,6 +9,7 @@ from pathlib import Path
 from time import monotonic
 
 from proofops.adapters.local import upstage_ocr_profile_v10 as native
+from proofops.adapters.parsing.parser_artifacts import iter_parser_artifacts, read_parser_json
 from proofops.application.analysis_profile import J8_POLICY
 from proofops.application.ingest.graph_fusion import candidates_from_snapshot, fuse_candidates
 from proofops.application.ingest.j8_cells import POLICY, cell_entries, graph_cells
@@ -51,8 +52,8 @@ def load_case(root, case):
     company = case["company"]
     attempt = {"naver": "attempt9", "kia": "attempt8"}[company]
     state = root / ".local/perf-b/outputs/pb1/live" / company / attempt / "workspace/state"
-    path = next(state.rglob("candidates.json"))
-    batches = candidates_from_snapshot(json.loads(path.read_text()))
+    path = next(iter_parser_artifacts(state, "candidates.json"))
+    batches = candidates_from_snapshot(read_parser_json(path))
     manifest = case["packet"]["parse_manifest_id"]
     batches = tuple(
         replace(

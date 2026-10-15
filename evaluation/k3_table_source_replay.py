@@ -9,6 +9,7 @@ from time import monotonic
 from types import SimpleNamespace
 
 from proofops.adapters.local import upstage_ocr_profile_v11 as native
+from proofops.adapters.parsing.parser_artifacts import iter_parser_artifacts, read_parser_json
 from proofops.application.analysis_profile import K3_POLICY
 from proofops.application.ingest.graph_fusion import candidates_from_snapshot, fuse_candidates
 from proofops.domain.provenance import canonical_hash
@@ -45,7 +46,9 @@ def main():
     for company in ("naver", "kia"):
         root = args.lab / "perf/I1/stage-B-compact" / company
         cp = json.loads(read(root / "extract-checkpoint.json"))
-        raw = json.loads(read(next((root / "parser-prepared").rglob("candidates.json"))))
+        candidate_path = next(iter_parser_artifacts(root / "parser-prepared", "candidates.json"))
+        read(candidate_path)  # Retain the exact physical-file audit hash.
+        raw = read_parser_json(candidate_path)
         graph = fuse_candidates(
             candidates_from_snapshot(raw),
             tenant_id=raw[0]["tenant_id"],

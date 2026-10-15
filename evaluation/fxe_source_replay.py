@@ -15,6 +15,7 @@ from proofops.adapters.local import upstage_ocr_profile_fxe as fxe
 from proofops.adapters.local.claim_source_verification import discovery_refs
 from proofops.adapters.local.upstage_ocr_page import PageOCRStore
 from proofops.adapters.local.verified_read_cache import _project_owned_cells, _project_parse
+from proofops.adapters.parsing.parser_artifacts import parser_artifact_path, read_parser_json
 from proofops.application.ingest.graph_fusion import (
     QualityIssue,
     candidates_from_snapshot,
@@ -27,13 +28,14 @@ from evaluation.pa9_source_gate import discovery_from_record
 
 def load_fixture(path):
     def read(name):
-        return json.loads((path / name).read_bytes())
+        return read_parser_json(path / name)
 
     snapshot, manifest = read("snapshot.json"), read("manifest.json")
     parse, extract = read("parse.json"), read("extract.json")
     assert sha256((path / "manifest.json").read_bytes()).hexdigest() == extract["manifest_sha256"]
     for name in ("graph.json", "quality.json", "candidates.json"):
-        assert sha256((path / name).read_bytes()).hexdigest() == manifest["artifacts"][name]
+        artifact = parser_artifact_path(path / name, manifest=manifest)
+        assert sha256(artifact.read_bytes()).hexdigest() == manifest["artifacts"][artifact.name]
     source = (path / "selected.pdf").read_bytes()
     assert sha256(source).hexdigest() == extract["source_sha256"] == manifest["source_sha256"]
     graph = fuse_candidates(
