@@ -359,6 +359,8 @@ class HostedStore:
             if versions and [row[0] for row in versions] != [1]:
                 raise ValueError("unsupported hosted schema")
             db.execute("INSERT OR IGNORE INTO hosted_schema VALUES (1)")
+            db.execute("""CREATE TABLE IF NOT EXISTS ops2_provider_observations (
+                provider TEXT PRIMARY KEY, observed REAL NOT NULL, error_code TEXT)""")
             db.execute("""CREATE TABLE IF NOT EXISTS admission_control (
                 id INTEGER PRIMARY KEY CHECK(id=1),
                 draining INTEGER NOT NULL CHECK(draining IN (0,1)), updated REAL NOT NULL)""")
@@ -841,15 +843,30 @@ class HostedStore:
                 parameters = tuple(sorted(codes))
                 placeholders = ",".join("?" for _ in parameters)
                 row = db.execute(
-                    f"SELECT error_code FROM runs WHERE error_code IN ({placeholders}) "
+                    f"SELECT error_code,created FROM runs WHERE error_code IN ({placeholders}) "
                     "ORDER BY created DESC,run_id DESC LIMIT 1",
                     parameters,
                 ).fetchone()
+                observed = db.execute(
+                    "SELECT error_code,observed FROM ops2_provider_observations WHERE provider=?",
+                    (provider,),
+                ).fetchone()
+                recovered = bool(
+                    observed and observed[0] is None and (row is None or observed[1] >= row[1])
+                )
+                if observed and observed[0] in codes and (row is None or observed[1] >= row[1]):
+                    row = observed
+                if recovered:
+                    row = None
                 limits[provider] = {
-                    "status": "blocked" if row else "unknown",
+                    "status": "blocked" if row else "available" if recovered else "unknown",
                     "error_code": row[0] if row else None,
                     "remaining_usd": None,
-                    "source": "observed_http_failure" if row else "not_queried",
+                    "source": "observed_http_failure"
+                    if row
+                    else "observed_http_success"
+                    if recovered
+                    else "not_queried",
                     "retryable": False,
                     "message": PROVIDER_LIMIT_MESSAGE if row else None,
                 }
@@ -1421,6 +1438,7 @@ class HostedStore:
         allow_model_partial: bool = False,
         allow_response_uncertainty: bool = False,
         allow_connect_not_sent: bool = False,
+        allow_ops2_fallback: bool = False,
     ) -> dict:
         """Broker boundary for a future approved adapter. No HTTP/provider implementation here."""
         if (
@@ -1460,6 +1478,13 @@ class HostedStore:
             if actual > reserved:
                 raise HostedError("RECEIPT_BOUND_EXCEEDED")
             with self.transaction() as db:
+                db.execute(
+                    "INSERT INTO ops2_provider_observations VALUES (?,?,NULL) "
+                    "ON CONFLICT(provider) DO UPDATE SET observed=excluded.observed,"
+                    "error_code=NULL "
+                    "WHERE excluded.observed>=ops2_provider_observations.observed",
+                    (provider, time.time()),
+                )
                 # A late cancelled/deleted result may settle money, but cannot publish payload.
                 db.execute(
                     "UPDATE deletion.costs SET actual=?,status='settled' "
@@ -1477,7 +1502,18 @@ class HostedStore:
             # A rejected quota call is terminal, but its unknown cost still needs
             # operator reconciliation. Never release reservations or redeliver it.
             limit_code = str(exc)
+            observation_code = (
+                "OPENAI_INSUFFICIENT_QUOTA"
+                if provider == "openai"
+                and getattr(exc, "provider_error_code", None) == "billing_not_active"
+                else limit_code
+            )
             quota_blocked = limit_code in PROVIDER_LIMIT_CODES.get(provider, ())
+            from proofops_api.hosted_ops2 import fallback_trigger
+
+            ops2_failure = (
+                allow_ops2_fallback is True and provider == "openai" and bool(fallback_trigger(exc))
+            )
             cause = provider_error_code(provider, limit_code)
             if cause:
                 logging.getLogger(__name__).warning(
@@ -1529,6 +1565,14 @@ class HostedStore:
                 )
             )
             with self.transaction() as db:
+                if observation_code in PROVIDER_LIMIT_CODES.get(provider, ()):
+                    db.execute(
+                        "INSERT INTO ops2_provider_observations VALUES (?,?,?) "
+                        "ON CONFLICT(provider) DO UPDATE SET observed=excluded.observed,"
+                        "error_code=excluded.error_code "
+                        "WHERE excluded.observed>=ops2_provider_observations.observed",
+                        (provider, time.time(), observation_code),
+                    )
                 db.execute(
                     "UPDATE deletion.costs SET status='accounting_pending' "
                     "WHERE run_id=? AND call_id=? "
@@ -1536,7 +1580,8 @@ class HostedStore:
                     (job["run_id"], call_id),
                 )
                 if (
-                    not model_network_failure
+                    not ops2_failure
+                    and not model_network_failure
                     and not transient_denial
                     and not isolated_model_failure
                 ):

@@ -390,6 +390,31 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
 
         factories["llm"] = scoped_llm
 
+    ops2_state = None
+    if execution.get("ops2_provider_fallback"):
+        from proofops_api.hosted_ops2 import FallbackState, OPS2Probe
+
+        ops2_state = FallbackState()
+        llm_probe = OPS2Probe
+
+        def ops2_llm(key, ledger, **kw):
+            probe = OPS2Probe(
+                luna_key,
+                ledger,
+                store=store,
+                job=job,
+                post=llm_post,
+                fallback_state=ops2_state,
+                fallback_key=lambda: read_key(config["openrouter_key_file"], "OPENROUTER_API_KEY"),
+                **kw,
+            )
+            probe.response_cache_path = (
+                store.document_dir(job["tenant_id"], job["document_id"]) / "model-responses.sqlite3"
+            )
+            return probe
+
+        factories["llm"] = ops2_llm
+
     provider_gate = None
     if execution.get("execution_profile") in ("w3-speed-v1", "s2-server-v1"):
         from proofops.adapters.local.provider_concurrency import ProviderConcurrency
@@ -553,6 +578,8 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
                 result["bounded_c3"]["fxh_error_code"] = (
                     code if re.fullmatch(r"[A-Z][A-Z0-9_]{1,100}", code) else type(error).__name__
                 )
+    if ops2_state is not None:
+        result["ops2_provider_fallback"] = ops2_state.summary()
     (state / "outcome.json").write_text(json.dumps(result))
     return state, result
 

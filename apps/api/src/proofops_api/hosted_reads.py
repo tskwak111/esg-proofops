@@ -515,7 +515,12 @@ class HostedReads:
             if cached:
                 png, metadata = cached
             else:
-                if original_refs:
+                from proofops.application.analysis_profile import OPS2_POLICY
+
+                ops2_fit = self.store.run_options(row).get(
+                    "analysis_profile_sha256"
+                ) == canonical_hash(OPS2_POLICY)
+                if original_refs or ops2_fit:
                     png, metadata = render(
                         Path(scratch) / "source.pdf",
                         physical_page,
