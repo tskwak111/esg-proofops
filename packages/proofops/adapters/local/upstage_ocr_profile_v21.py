@@ -10,7 +10,9 @@ from proofops.adapters.local import upstage_ocr_profile_d2_v21 as previous
 from proofops.domain.provenance import canonical_hash
 
 PROFILE = "upstage-ocr-page-v21"
-PageOCRStore = previous.PageOCRStore
+# Preserve the historical/hosted store injection surface. D2 wraps this store
+# through its own PageOCRStore.from_env before reading.
+PageOCRStore = previous.BasePageOCRStore
 # Native, evidence and table paths use the complete D2 reader.
 native_policy = previous.native_policy
 table_policy_sha256 = previous.table_policy_sha256
