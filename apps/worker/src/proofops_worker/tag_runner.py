@@ -664,6 +664,27 @@ class LocalTagRunner:
                     )
                 if live is not None:
                     packet = live.display_packet(packet, claim=claim)
+                    if snapshot.get("analysis_profile_policy", {}).get("qt1_baseline_policy"):
+                        from proofops.application.evidence.retrieval import freeze_packet
+                        from proofops.application.tagging.qt1_baseline import (
+                            POLICY,
+                            augment_packet,
+                            baseline_links,
+                        )
+
+                        if snapshot["analysis_profile_policy"]["qt1_baseline_policy"] != POLICY:
+                            raise ValueError("QT1_BASELINE_POLICY_MISMATCH")
+                        if sc1_index is not None and track.track == "goal":
+                            receipt = baseline_links(
+                                context, sc1_index, graph, run_id=run_id, tenant_id=tenant
+                            )
+                            data = packet.to_dict()
+                            data.pop("packet_sha256")
+                            data = augment_packet(data, receipt)
+                            if live.display_catalog is not None:
+                                data["display_text"] = live.display_catalog.element_pins(data)
+                            packet = freeze_packet(data)
+                            item["qt1_baseline_receipt"] = receipt
                     live.allow_packet(claim.claim_id, packet.packet_sha256)
                     if snapshot.get("relation_settings") is not None:
                         external_roles = live.relations(claim, packet)
@@ -775,6 +796,7 @@ class LocalTagRunner:
                     now=lambda: int(self.clock()),
                     pipeline_profile=snapshot.get("pipeline_profile"),
                     semantic_policy=semantic_policy,
+                    qt1_baseline_inventory=sc1_index,
                     allow_edge_whitespace=_atomic_v3_binding_enabled(snapshot, claim),
                     max_workers=(
                         1

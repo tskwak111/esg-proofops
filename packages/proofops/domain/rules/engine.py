@@ -16,6 +16,8 @@ from proofops.domain.errors import DomainValidationError
 from proofops.domain.rulepacks import RulePackSnapshot, canonical_json
 from proofops.domain.rules import goal, management, performance
 from proofops.domain.rules.exceptions import apply_source_exceptions
+from proofops.domain.rules.qt1_baseline import ENGINE_VERSION as QT1_ENGINE_VERSION
+from proofops.domain.rules.qt1_baseline import approved_fact
 from proofops.domain.values import (
     ELEMENT_STATES,
     GRADE_LABEL_MAP,
@@ -275,7 +277,9 @@ def _validate_inputs(tags: ConfirmedTags, context: RuleContext, pack: RulePackSn
         if fact.name == "external_verification":
             scopes = ["local_claim", "global_bound"]
         # Partly unresolved explicit_link scopes are not automatically expanded (GAP-004).
-        if fact.source_scope not in scopes or fact.source_scope == "explicit_link":
+        if (
+            fact.source_scope not in scopes or fact.source_scope == "explicit_link"
+        ) and not approved_fact(tags.track, fact):
             raise DomainValidationError("source scope is not approved for this fact")
         if fact.name == "assurance_covered" and fact.normalized_value != "covered":
             raise DomainValidationError("assurance requires covered status, not a provider name")
@@ -441,7 +445,11 @@ def _evaluate(tags, context, pack, *, analysis_scope=False):
         decision,
         semantic_hash=_hash(
             {
-                "engine_version": ENGINE_VERSION,
+                "engine_version": (
+                    ENGINE_VERSION + "+" + QT1_ENGINE_VERSION
+                    if any(approved_fact(tags.track, f) for f in tags.facts)
+                    else ENGINE_VERSION
+                ),
                 "tags": asdict(tags),
                 "context": asdict(context),
                 "pack_sha256": pack.sha256,

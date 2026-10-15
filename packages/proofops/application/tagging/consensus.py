@@ -231,7 +231,16 @@ def form_consensus(
         candidates.append(candidate)
         scopes = {dict(run.source_scopes).get(element_id) for run in ordered if run.guarded}
         scope = next(
-            (scope for scope in ("global_bound", "same_table", "local_claim") if scope in scopes),
+            (
+                scope
+                for scope in (
+                    "qt1_maintenance_baseline_v1",
+                    "global_bound",
+                    "same_table",
+                    "local_claim",
+                )
+                if scope in scopes
+            ),
             "local_claim",
         )
         if count != 3 or candidate.state in ("unknown", "conflict"):
@@ -400,7 +409,17 @@ def _partial_facts(
             reasons.append(f"REVIEW:{element_id}")
         scopes = {dict(run.source_scopes).get(element_id) for run in ordered if run.guarded}
         scope = next(
-            (s for s in ("global_bound", "same_table", "local_claim") if s in scopes), "local_claim"
+            (
+                s
+                for s in (
+                    "qt1_maintenance_baseline_v1",
+                    "global_bound",
+                    "same_table",
+                    "local_claim",
+                )
+                if s in scopes
+            ),
+            "local_claim",
         )
         for name in MAPPINGS[track][element_id]:
             facts.append(

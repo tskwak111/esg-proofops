@@ -14,6 +14,7 @@ from proofops.application.ingest.k6_coverage import POLICY as K6_COVERAGE_POLICY
 from proofops.application.ingest.page_recovery_policy import CLAIM_LAYOUT_POLICY
 from proofops.application.ingest.page_recovery_policy import POLICY as HX6_RECOVERY_POLICY
 from proofops.application.ingest.q1_tables import POLICY as Q1_TABLE_POLICY
+from proofops.application.ingest.qt1_goal_split import POLICY as QT1_GOAL_SPLIT_POLICY
 from proofops.application.ingest.qt1_tables import POLICY as QT1_TABLE_POLICY
 from proofops.application.ingest.sentence_prefix import POLICY as PREFIX_POLICY
 from proofops.application.input_failures import POLICY as HX5_INPUT_POLICY
@@ -74,6 +75,8 @@ from proofops.application.tagging.k11_contract import WIRE_V1_POLICY as K11_WIRE
 from proofops.application.tagging.q1_contract import PROMPT_POLICY as Q1_PROMPT_POLICY
 from proofops.application.tagging.q1_contract import QA2_POLICY
 from proofops.application.tagging.q1_contract import SEMANTIC_POLICY as Q1_SEMANTIC_POLICY
+from proofops.application.tagging.qt1_baseline import POLICY as QT1_BASELINE_POLICY
+from proofops.application.tagging.qt1_tuples import POLICY as QT1_TUPLE_POLICY
 from proofops.application.tagging.qt2_context import POLICY as QT2_CONTEXT_POLICY
 from proofops.application.tagging.quality import ELEMENT_DEFINITIONS_HASH
 from proofops.application.tagging.semantic_admission import POLICY as W8_POLICY
@@ -1003,6 +1006,14 @@ FXG_POLICY = FINALS_I23_POLICY | dict(
     fxg_extraction_wire_policy_sha256=canonical_hash(FXG_WIRE_POLICY),
 )
 
+# V2/R19-T02,T05: additive opt-in; I25 chooses whether to compose/activate it.
+QT1_V25_POLICY = FINALS_I24_POLICY | dict(
+    integration_profile="qt1_v25_table_baseline_v1",
+    qt1_tuple_policy=QT1_TUPLE_POLICY,
+    qt1_baseline_policy=QT1_BASELINE_POLICY,
+    qt1_goal_split_policy=QT1_GOAL_SPLIT_POLICY,
+)
+
 
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
@@ -1157,6 +1168,7 @@ def policy_for(profile, *, pinned_hash=None):
         raise ValueError("ANALYSIS_PROFILE_UNKNOWN")
     if profile == V2_PROFILE:
         choices = (*choices, *sc1_inventory_policies)
+        choices = (*choices, QT1_V25_POLICY)
     for policy in choices:
         if pinned_hash is None or canonical_hash(policy) == pinned_hash:
             return policy
@@ -1276,6 +1288,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     )
     if profile == V2_PROFILE:
         allowed = (*allowed, *sc1_inventory_policies)
+        allowed = (*allowed, QT1_V25_POLICY)
     if policy not in allowed:
         raise ValueError("ANALYSIS_PROFILE_PUBLICATION_PIN_MISMATCH")
     return policy
@@ -1301,6 +1314,7 @@ def apply_pilot_profile(args):
     args.extraction_i4_identity = bool(selected.get("extraction_selection_ids"))
     args.extraction_qc_native_figures = bool(selected.get("native_figure_policy"))
     args.extraction_fxg_split = bool(selected.get("fxg_extraction_wire_policy"))
+    args.extraction_qt1_goal_split = bool(selected.get("qt1_goal_split_policy"))
     args.extraction_located_table_context = bool(selected.get("located_table_context"))
     args.parser_local_resource_policy = selected.get("local_resource_policy")
     args.parser_failure_policy = selected.get("parser_failure_policy")

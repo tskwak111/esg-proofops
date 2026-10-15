@@ -219,6 +219,7 @@ def tag_replicates(
     pipeline_profile: str | None = None,
     semantic_policy: dict | None = None,
     allow_edge_whitespace: bool = False,
+    qt1_baseline_inventory=None,
 ) -> tuple[TagRun, ...]:
     """Execute or recover replicas 1/2/3, preserving failures and budget stops.
 
@@ -240,6 +241,19 @@ def tag_replicates(
     if type(allow_edge_whitespace) is not bool:
         raise DomainValidationError("edge-whitespace binding policy must be boolean")
     data = packet.to_dict()
+    qt1_tuples, qt1_links = [], []
+    if "qt1_tuple_policy" in data:
+        from proofops.application.tagging.qt1_tuples import validate_packet
+
+        qt1_tuples = validate_packet(data, context.claim, original, tenant_id=tenant_id)
+    if "qt1_baseline_receipt" in data:
+        from proofops.application.tagging.qt1_baseline import validate_packet as validate_baseline
+
+        if qt1_baseline_inventory is None:
+            raise DomainValidationError("QT1_BASELINE_INVENTORY_REQUIRED")
+        qt1_links = validate_baseline(
+            data, context, qt1_baseline_inventory, original, tenant_id=tenant_id
+        )
     contextual_policy = data.get("qt2_contextual_elements_policy")
     if contextual_policy is not None:
         from proofops.application.tagging.qt2_context import accepts_context
@@ -406,6 +420,15 @@ def tag_replicates(
     }
     if contextual_policy is not None:
         user_data["qt2_contextual_elements_policy"] = contextual_policy
+    if "qt1_tuple_policy" in data:
+        user_data["qt1_tuple_policy"] = data["qt1_tuple_policy"]
+        user_data["qt1_table_tuples"] = qt1_tuples
+    if "qt1_baseline_receipt" in data:
+        user_data["qt1_baseline_policy"] = data["qt1_baseline_receipt"]["policy"]
+        user_data["qt1_baseline_links"] = [
+            {k: link[k] for k in ("value", "unit", "period", "meaning", "elements")}
+            for link in qt1_links
+        ]
     if implementation_binding is not None:
         user_data["local_implementation_binding_policy"] = implementation_binding
     if structural_policy is not None:
@@ -739,7 +762,9 @@ def tag_replicates(
             elif raw_tags.superlative_quote and raw_tags.superlative_quote not in claim.quote:
                 errors.append("SUPERLATIVE_SOURCE_INVALID")
             for element in raw_tags.elements:
+                model_element = element
                 table_selected = False
+                qt1_table_selected = baseline_selected = False
                 if data.get("table_evidence_policy", {}).get("profile") in (
                     "table-selected-evidence-pb2-v1",
                     "table-selected-evidence-k4-v1",
@@ -771,6 +796,21 @@ def tag_replicates(
                     element, table_selected = prepare_table(
                         element, claim, original, tenant_id=tenant_id
                     )
+                if qt1_tuples:
+                    from proofops.application.tagging.qt1_tuples import (
+                        prepare_element as qt1_prepare,
+                    )
+
+                    selected_element, qt1_table_selected = qt1_prepare(model_element, qt1_tuples)
+                    if qt1_table_selected:
+                        element = selected_element
+                    table_selected |= qt1_table_selected
+                if qt1_links:
+                    from proofops.application.tagging.qt1_baseline import (
+                        prepare_element as baseline_prepare,
+                    )
+
+                    element, baseline_selected = baseline_prepare(element, qt1_links)
                 state = element.state
                 binding_reasons: list[str] = []
                 if (
@@ -822,6 +862,7 @@ def tag_replicates(
                             or element.element_id not in candidate["allowed_elements"]
                             or candidate["source_scope"]
                             not in definitions[element.element_id]["source_scopes"]
+                            and not (baseline_selected or qt1_table_selected)
                         ):
                             state = "unknown"
                             if r12_quality:
@@ -835,6 +876,7 @@ def tag_replicates(
                             break
                         if (
                             not table_selected
+                            and not baseline_selected
                             and not (
                                 contextual_policy is not None
                                 and accepts_context(
@@ -865,7 +907,14 @@ def tag_replicates(
                             state = "unknown"
                             break
                         refs.append(verified)
-                        scope_set.add(candidate["source_scope"])
+                        if baseline_selected:
+                            from proofops.domain.rules.qt1_baseline import SOURCE_SCOPE
+
+                            scope_set.add(SOURCE_SCOPE)
+                        else:
+                            scope_set.add(
+                                "same_table" if qt1_table_selected else candidate["source_scope"]
+                            )
                     if local_recovery is not None and state == "present":
                         from proofops.application.tagging.k2_recovery import recover_value
 
@@ -950,7 +999,12 @@ def tag_replicates(
                 scope = next(
                     (
                         scope
-                        for scope in ("global_bound", "same_table", "local_claim")
+                        for scope in (
+                            "qt1_maintenance_baseline_v1",
+                            "global_bound",
+                            "same_table",
+                            "local_claim",
+                        )
                         if scope in scope_set
                     ),
                     "local_claim",
