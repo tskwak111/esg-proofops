@@ -24,6 +24,7 @@ from proofops.application.provider_resilience import (
     SCHEDULER_POLICY,
 )
 from proofops.application.provider_resilience import POLICY as F1_RESILIENCE_POLICY
+from proofops.application.tagging.analysis_scope import confirmation_policy as sc1_policy
 from proofops.application.tagging.dec24 import (
     DEFINITIONS_HASH,
     INTEGRATED_DEFINITIONS_HASH,
@@ -921,6 +922,17 @@ FINALS_I23_POLICY = FINALS_I22_POLICY | dict(
 )
 V2_POLICY = FINALS_I23_POLICY
 
+# SC1 is opt-in by exact hash; preserve the default and every historical entry.
+
+sc1_inventory_policies = tuple(
+    FINALS_I23_POLICY
+    | dict(
+        integration_profile=f"sc1_inventory_scope_{votes}of3_v1",
+        sc1_scope_confirmation=sc1_policy(votes),
+    )
+    for votes in (3, 2, 1)
+)
+
 
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
@@ -1066,6 +1078,8 @@ def policy_for(profile, *, pinned_hash=None):
         )
     else:
         raise ValueError("ANALYSIS_PROFILE_UNKNOWN")
+    if profile == V2_PROFILE:
+        choices = (*choices, *sc1_inventory_policies)
     for policy in choices:
         if pinned_hash is None or canonical_hash(policy) == pinned_hash:
             return policy
@@ -1176,6 +1190,8 @@ def publication_policy_for(profile, *, pinned_hash=None):
         if profile == V2_PROFILE
         else (policy_for(profile),)
     )
+    if profile == V2_PROFILE:
+        allowed = (*allowed, *sc1_inventory_policies)
     if policy not in allowed:
         raise ValueError("ANALYSIS_PROFILE_PUBLICATION_PIN_MISMATCH")
     return policy

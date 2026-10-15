@@ -191,6 +191,7 @@ class LocalTagRunner:
         clock=time.time,
         max_workers=8,
         claim_progress=None,
+        sc1_inventory_provider=None,
     ):
         if not uploads.local_synthetic:
             raise ValueError("local tagging requires local storage")
@@ -210,6 +211,7 @@ class LocalTagRunner:
         self.resume = None
         self.max_workers = max_workers
         self.claim_progress = claim_progress
+        self.sc1_inventory_provider = sc1_inventory_provider
         self.claims = LocalClaimStore(store, uploads, parser)
         self.live_factory = live_factory
         self.tags = LocalTagStore(store, uploads, parser)
@@ -285,6 +287,27 @@ class LocalTagRunner:
                 run_id=run_id,
                 policy=snapshot["analysis_profile_policy"],
             )
+        sc1_policy = snapshot.get("analysis_profile_policy", {}).get("sc1_scope_confirmation")
+        sc1_index = None
+        if sc1_policy is not None:
+            from proofops.application.tagging.analysis_scope import (
+                InventoryIndex,
+                confirmation_policy,
+            )
+            from proofops.application.tagging.element_inventory import selection_from_snapshot
+
+            required = sc1_policy.get("agreement", {}).get("required_present_votes")
+            if sc1_policy != confirmation_policy(required):
+                raise ValueError("SC1_POLICY_MISMATCH")
+            # One provider invocation per run, never per claim. The provider must
+            # retain its immutable inventory for resume; missing inventory stays held.
+            if self.sc1_inventory_provider is not None:
+                selection = selection_from_snapshot(snapshot, graph, run_id)
+                inventory = self.sc1_inventory_provider(graph, selection)
+                sc1_index = InventoryIndex(inventory, graph)
+                if sc1_index.inventory["selection"] != selection:
+                    raise ValueError("SC1_INVENTORY_SELECTION_MISMATCH")
+                envelope["sc1_inventory"] = sc1_index.inventory
         semantic_policy = snapshot.get("analysis_profile_policy", {}).get("semantic_admission")
         if semantic_policy is not None:
             from proofops.application.tagging.semantic_admission import validate_policy
@@ -741,6 +764,10 @@ class LocalTagRunner:
                 if not self.store.jobs.can_call(lease, now=int(self.clock())):
                     raise LeaseLost("LEASE_LOST")
                 if unattended:
+                    if sc1_policy is not None:
+                        item["sc1_dimensions"] = {
+                            k: asdict(v) if v else None for k, v in context.dimensions.items()
+                        }
                     rule_context = RuleContext(
                         tenant,
                         graph.document_version_id,
@@ -1031,6 +1058,25 @@ class LocalTagRunner:
                 record["sentence_context"] = configured_context(
                     claim, graph, snapshot["analysis_profile_policy"]
                 )
+            if sc1_policy is not None:
+                record["sc1_confirmation"] = None
+                record["sc1_hold_reason"] = "SC1_INVENTORY_UNAVAILABLE"
+                if sc1_index is not None and record.get("tag_runs") and "sc1_dimensions" in record:
+                    from proofops.application.tagging.analysis_scope import analyze_record
+
+                    receipt = analyze_record(
+                        record,
+                        claim,
+                        graph,
+                        rulepack,
+                        sc1_index,
+                        required_present_votes=sc1_policy["agreement"]["required_present_votes"],
+                        local_synthetic=live is None,
+                    )
+                    record["sc1_scope_receipt"] = receipt
+                    record["sc1_confirmation"] = receipt["sc1_confirmation"]
+                    record["sc1_elements"] = receipt["sc1_elements"]
+                    record["sc1_hold_reason"] = ",".join(receipt["reasons"]) or None
             callback = getattr(self, "claim_progress", None)
             if callback is not None:
                 callback(claim.claim_id, len(discovery.claims))

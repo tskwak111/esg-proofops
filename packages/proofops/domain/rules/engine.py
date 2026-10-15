@@ -10,7 +10,7 @@ from __future__ import annotations
 import hashlib
 from dataclasses import asdict, dataclass, replace
 from itertools import product
-from typing import Any
+from typing import Any, Literal
 
 from proofops.domain.errors import DomainValidationError
 from proofops.domain.rulepacks import RulePackSnapshot, canonical_json
@@ -43,7 +43,7 @@ MAPPINGS = {
 @dataclass(frozen=True, slots=True)
 class ConfirmedFact:
     name: str
-    state: ElementState
+    state: ElementState | Literal["absent_in_scope"]
     evidence_refs: tuple[SourceRef, ...] = ()
     source_tenant_id: str | None = None
     citation_verified: bool = False
@@ -53,7 +53,11 @@ class ConfirmedFact:
     normalized_value: str | None = None
 
     def __post_init__(self) -> None:
-        if not isinstance(self.name, str) or not self.name or self.state not in ELEMENT_STATES:
+        if (
+            not isinstance(self.name, str)
+            or not self.name
+            or self.state not in (*ELEMENT_STATES, "absent_in_scope")
+        ):
             raise DomainValidationError("invalid confirmed fact")
         if self.normalized_value is not None and not isinstance(self.normalized_value, str):
             raise DomainValidationError("normalized_value must be a string or null")
@@ -279,6 +283,14 @@ def _validate_inputs(tags: ConfirmedTags, context: RuleContext, pack: RulePackSn
 
 def evaluate(tags: ConfirmedTags, context: RuleContext, pack: RulePackSnapshot) -> Decision:
     """Evaluate explicit source branches; never infer absent from unresolved evidence."""
+    if not isinstance(tags, ConfirmedTags):
+        raise DomainValidationError("expected ConfirmedTags and RuleContext")
+    if any(f.state == "absent_in_scope" for f in tags.facts):
+        raise DomainValidationError("scoped absence requires analysis-scope rule profile")
+    return _evaluate(tags, context, pack)
+
+
+def _evaluate(tags, context, pack, *, analysis_scope=False):
     effect = apply_source_exceptions(tags, context, pack)
     elements = MAPPINGS[tags.track]
     definitions = {e["id"]: e for e in pack.file_content("rubric/elements.yaml")["elements"]}
@@ -287,7 +299,9 @@ def evaluate(tags: ConfirmedTags, context: RuleContext, pack: RulePackSnapshot) 
     def state(name: str) -> str:
         if effect.ordinal_state is not None and name in performance.ELEMENTS["P1"]:
             return effect.ordinal_state
-        return facts[name].state if name in facts else "unknown"
+        value = facts[name].state if name in facts else "unknown"
+        # Interpret the scoped state only in DEC-85; retain it in tags and hashes.
+        return "absent" if analysis_scope and value == "absent_in_scope" else value
 
     missing, unresolved, excluded, additional = [], [], [], []
     bases = []

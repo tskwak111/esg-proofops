@@ -179,6 +179,16 @@ class LocalExportStore:
         from proofops.adapters.local.tag_store import LocalTagStore
 
         tags = LocalTagStore(self.runs, self.claims.uploads, self.claims.parser)
+        sc1_snapshot = None
+        if (
+            "tag_job" in initial
+            and self.runs.snapshot(tenant, run_id)
+            .get("analysis_profile_policy", {})
+            .get("sc1_scope_confirmation")
+            is not None
+        ):
+            sc1_snapshot = tags.load_snapshot(tenant, run_id)
+        sc1_records = {r["claim_id"]: r for r in (sc1_snapshot or {}).get("claims", [])}
         evidence_results = {}
         for claim in claims:
             current = self.claims.current_tag(tenant, run_id, claim.claim_id)
@@ -426,6 +436,20 @@ class LocalExportStore:
                                 table[digest] = entry
                                 captured_bytes += len(canonical_json(entry).encode())
                 record["element_evidence"] = evidence_results[claim_id]
+                if claim_id in sc1_records:
+                    source = sc1_records[claim_id]
+                    record.update(
+                        {
+                            k: source[k]
+                            for k in (
+                                "sc1_confirmation",
+                                "sc1_elements",
+                                "sc1_hold_reason",
+                                "sc1_scope_receipt",
+                            )
+                            if k in source
+                        }
+                    )
                 if shared_elements == ELEMENT_EVIDENCE_V1:
                     # Encode before counting bytes. Tables are shared across claims,
                     # and the unchanged freeze guard counts their keys/envelopes too.
@@ -482,6 +506,8 @@ class LocalExportStore:
             submitted = self.claims.submitted_reviews(tenant, run_id, connection=db)
             if submitted:
                 manifest["submitted_reviews"] = submitted
+            if sc1_snapshot is not None and "sc1_inventory" in sc1_snapshot:
+                manifest["sc1_inventory"] = sc1_snapshot["sc1_inventory"]
             return dict(manifest=manifest, decisions=records)
 
     def freeze(self, tenant, export_id, captured):
