@@ -921,6 +921,19 @@ FINALS_I23_POLICY = FINALS_I22_POLICY | dict(
 )
 V2_POLICY = FINALS_I23_POLICY
 
+S3_VERIFIED_READ_V13_POLICY = VERIFIED_READ_V12_POLICY | dict(
+    profile="s3_exact-verified-read-v13",
+    cold_parse_replay="one-whole-registered-v21-i17-recomputation-s3-v1",
+    table_replay_sha256="ed8e027626498f1ae4902d233143585cd245ccc0ee59b656d33be929706cff5f",
+)
+
+# Explicit opt-in: source readers, model wires and all three replicas stay v23.
+S3_SPEED_POLICY = FINALS_I23_POLICY | dict(
+    integration_profile="s3_finals-20261015-speed-v1",
+    parser_failure_policy="s3_partial-v7",
+    verified_read_cache=S3_VERIFIED_READ_V13_POLICY,
+)
+
 
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
@@ -956,6 +969,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            S3_SPEED_POLICY,
             FINALS_D2_POLICY,
             FINALS_I22_POLICY,
             FINALS_FXC_POLICY,
@@ -1101,6 +1115,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            S3_SPEED_POLICY,
             FINALS_D2_POLICY,
             FINALS_I22_POLICY,
             FINALS_FXC_POLICY,

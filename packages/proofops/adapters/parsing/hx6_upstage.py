@@ -5,13 +5,19 @@ still attest every claim/table; a route never grants verified or present.
 """
 
 import io
+from concurrent.futures import ThreadPoolExecutor, wait
+from contextvars import copy_context
 from time import sleep
 
 import pdfplumber
 import pypdfium2 as pdfium
 from proofops.adapters.parsing.mixed_routing import keep, readable
 from proofops.adapters.parsing.upstage_document import candidate_batch
-from proofops.application.ingest.page_recovery_policy import CLAIM_LAYOUT_POLICY, POLICY
+from proofops.application.ingest.page_recovery_policy import (
+    CLAIM_LAYOUT_POLICY,
+    POLICY,
+    S3_CLAIM_LAYOUT_POLICY,
+)
 
 TRANSIENT = {f"UPSTAGE_HTTP_{s}" for s in (429, 500, 502, 503, 504)}
 STOP = {
@@ -63,7 +69,43 @@ def native_pages(source, selected, candidates):
     return result
 
 
-def recover(source, profile, selected, candidates, call, *, config_hash, claim_layout=False):
+def _page_calls(paid, call, stopped, workers):
+    if workers == 1:
+        for number in paid:
+            yield number, None, None
+        return
+    # Finish each bounded wave before native grounding: PDFium is not thread safe.
+    # Every request retains its own ledger reservation, retry and response receipt.
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        for offset in range(0, len(paid), workers):
+            wave = paid[offset : offset + workers]
+            if stopped():
+                for number in wave:
+                    yield number, None, None
+                continue
+            futures = [pool.submit(copy_context().run, call, (n,), "standard") for n in wave]
+            # Wait for *all* transports/subset work before yielding to candidate_batch.
+            # Keep exceptions on futures so the existing per-page failure path handles them.
+            wait(futures)
+            # Inspect the whole completed wave before allowing any retry. A terminal
+            # stop on a later page must also suppress an earlier transient retry.
+            stop_code = None
+            for future in futures:
+                error = future.exception()
+                if isinstance(error, ValueError):
+                    code = str(error)
+                    if code in STOP or code.endswith("BUDGET_EXHAUSTED"):
+                        stop_code = code if code in STOP else "BUDGET_EXHAUSTED"
+                        break
+            for number, future in zip(wave, futures, strict=True):
+                yield number, future, stop_code
+
+
+def recover(
+    source, profile, selected, candidates, call, *, config_hash, claim_layout=False, page_workers=1
+):
+    if page_workers not in (1, 4) or (page_workers != 1 and not claim_layout):
+        raise ValueError("UPSTAGE_PAGE_WORKERS_INVALID")
     readable_local = native_pages(source, selected, candidates)
     claims = list(profile.claim_physical_pages)
     local = sorted(set(readable_local) - set(claims)) if claim_layout else readable_local
@@ -73,13 +115,20 @@ def recover(source, profile, selected, candidates, call, *, config_hash, claim_l
     failures, records, recovered = [], [], []
     provider_batches = []
     stop = None
-    for number in paid:
-        if stop is not None:
+    for number, initial, wave_stop in _page_calls(
+        paid, call, lambda: stop is not None, page_workers
+    ):
+        stop = stop or wave_stop
+        if stop is not None and initial is None:
             failures.append(dict(mode="standard", pages=[number], error_code=stop))
             continue
         for attempt in range(2):
             try:
-                result, hit = call((number,), "standard")
+                result, hit = (
+                    initial.result()
+                    if attempt == 0 and initial is not None
+                    else call((number,), "standard")
+                )
                 batch, metrics = candidate_batch(
                     source,
                     profile,
@@ -113,7 +162,7 @@ def recover(source, profile, selected, candidates, call, *, config_hash, claim_l
 
                 if not re.fullmatch(r"[A-Z][A-Z0-9_]{1,80}", code):
                     code = "UPSTAGE_REQUEST_FAILED"
-                if code in TRANSIENT and attempt == 0:
+                if code in TRANSIENT and attempt == 0 and stop is None:
                     sleep(1)
                     continue
                 failures.append(dict(mode="standard", pages=[number], error_code=code))
@@ -136,7 +185,13 @@ def recover(source, profile, selected, candidates, call, *, config_hash, claim_l
         unreadable_pages=unreadable,
     )
     output = dict(
-        profile=CLAIM_LAYOUT_POLICY if claim_layout else POLICY,
+        profile=(
+            S3_CLAIM_LAYOUT_POLICY
+            if page_workers == 4
+            else CLAIM_LAYOUT_POLICY
+            if claim_layout
+            else POLICY
+        ),
         page_records=records,
         failed_batches=failures,
     )

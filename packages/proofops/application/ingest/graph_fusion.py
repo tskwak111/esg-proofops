@@ -125,15 +125,17 @@ class ParserProfile:
             "partial-v4",
             "partial-v5",
             "partial-v6",
+            "s3_partial-v7",
         ) or (
             self.failure_policy is not None
             and self.parser_mode != "mixed-v1"
             and self.local_resource_policy not in {"selected-pdf-h6-v1", "selected-pdf-h6-v2"}
         ):
             raise ValueError("invalid parser failure policy")
-        if (self.failure_policy in {"partial-v3", "partial-v4", "partial-v5", "partial-v6"}) != (
-            self.local_resource_policy in {"selected-pdf-h6-v1", "selected-pdf-h6-v2"}
-        ):
+        if (
+            self.failure_policy
+            in {"partial-v3", "partial-v4", "partial-v5", "partial-v6", "s3_partial-v7"}
+        ) != (self.local_resource_policy in {"selected-pdf-h6-v1", "selected-pdf-h6-v2"}):
             raise ValueError("H6 resource and failure policies must be pinned together")
         _require_uuid("parse_manifest_id", self.parse_manifest_id)
         pages = tuple(self.physical_pages)

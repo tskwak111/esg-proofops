@@ -226,6 +226,7 @@ def attest_claims(*, reader, graph, source, refs, tenant_id, cache, run_id=None)
         from proofops.adapters.local.verified_read_cache import _execution_policy
         from proofops.adapters.local.worker_resources import enabled as resources_enabled
         from proofops.application.analysis_profile import (
+            S3_VERIFIED_READ_V13_POLICY,
             VERIFIED_READ_V4_POLICY,
             VERIFIED_READ_V5_POLICY,
             VERIFIED_READ_V6_POLICY,
@@ -235,7 +236,10 @@ def attest_claims(*, reader, graph, source, refs, tenant_id, cache, run_id=None)
             VERIFIED_READ_V12_POLICY,
         )
 
-        if _execution_policy() == VERIFIED_READ_V12_POLICY and reader.PROFILE in {
+        if _execution_policy() in (
+            VERIFIED_READ_V12_POLICY,
+            S3_VERIFIED_READ_V13_POLICY,
+        ) and reader.PROFILE in {
             "upstage-ocr-page-v19",
             "upstage-ocr-page-v20",
             "upstage-ocr-page-v21",
