@@ -189,7 +189,7 @@ def _stored_glyphs(path, evidence_hash, ref, physical, source_sha, geometry):
     return None
 
 
-def project_source_view(reads, row, doc, result):
+def project_source_view(reads, row, doc, result, *, w18=False):
     """Add nullable locations using only the existing pinned snapshot/geometry reader."""
     root = (
         reads.store.document_dir(row["tenant_id"], row["document_id"]) / "analysis" / row["run_id"]
@@ -197,6 +197,7 @@ def project_source_view(reads, row, doc, result):
     pages = result["page_map"]
     anchors = {}
     claims = []
+    w18_requests = []
     for claim in result.get("claims", []):
         original = claim.get("source_ref_page_space") == "original"
         path = (
@@ -271,7 +272,18 @@ def project_source_view(reads, row, doc, result):
                     location=location,
                 )
             )
+            if w18:
+                display_ref = ref
+                if kind == "claim" and (claim.get("source_status") or {}).get(
+                    "status", claim.get("source_quality")
+                ) != "verified":
+                    display_ref = ref | {"verification_state": "unverified"}
+                w18_requests.append((refs[-1], display_ref, path, anchor, original))
         claims.append(claim | dict(w16_source_view=dict(quote=claim["quote"], refs=refs)))
+    if w18:
+        from proofops_api.w18_source_view import enrich
+
+        enrich(reads, row, doc, w18_requests)
     return result | dict(
         claims=claims,
         w16_source_document=dict(

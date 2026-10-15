@@ -780,3 +780,38 @@ publish page tags under a future full-graph hash or weaken source verification.
 Roll back future preparations by removing the explicit W3 pin and choosing the
 existing worker setting; retain W3 readers for stored W3 snapshots. An older
 binary cannot recompute a W3-pinned snapshot. W3 makes local commits only.
+
+### W18 opt-in source display coordinates
+
+`GET /v1/runs/{run_id}/result?w18=true` adds `w18_*` fields to each existing
+`w16_source_view.refs` entry. Omitted/false retains the W16 response. This is a
+read-time display projection, with no migration, snapshot rewrite, source
+approval, tagging or grade change. The viewer explicitly requests this option.
+
+`w18_line_rects` contains unions of adjacent original-PDF PDFium glyph boxes;
+`w18_cell_rects` contains a pinned parse-graph cell bbox for table-cell refs.
+Both are nullable. `w18_coordinates` declares PDF points, top-left origin,
+rotated CropBox display space, `x0,y0,x1,y1`, page size/rotation/CropBox, original
+SHA-256, physical page and exact parser character offsets. `w18_reason` is null
+on success, otherwise an unavailable/ambiguous/integrity/timeout/busy reason.
+`w18_verification_state` reflects the existing verification state; unverified
+claims never receive an exact display location. Existing fields are unchanged.
+
+The full hash-bound source text must align literally and uniquely to native
+characters within its stored region (whitespace only may differ); parser offsets
+select the quote from that map. No fuzzy matching, Unicode substitutions, bbox
+interpolation or approximate quote boxes are allowed. Original bytes are hashed
+every read in an isolated child, with a 6-second worker deadline, an 8-second
+cooperative total W18 projection budget, 512 MiB memory,
+32 MiB output and 40,000-character page limit. Page inventories are cached for
+at most five minutes/retention expiry, partitioned by store/tenant/document/SHA,
+and bounded by 64 pages/32 MiB. Admission is nonblocking. Missing pages after a
+bounded reader failure stay null. These bounds cover W18 PDF work, not the
+existing result reader's independent IO/authorization work.
+
+UI order: W18 exact/cell, W16 exact/cell, uniquely matching same-page PDF.js DOM
+text range labelled “텍스트 검색 위치”, then a dashed paragraph region. Text search
+normalizes whitespace only. Unverified claims show “위치 미확인”. Hold summaries
+and short Korean per-claim reasons are display projections of existing causes;
+unknown reasons remain explicitly unknown. Rollback by omitting `w18=true` and
+restoring the previous frontend; historical results require no changes.
