@@ -67,6 +67,7 @@ from proofops.application.tagging.k11_contract import WIRE_V1_POLICY as K11_WIRE
 from proofops.application.tagging.q1_contract import PROMPT_POLICY as Q1_PROMPT_POLICY
 from proofops.application.tagging.q1_contract import QA2_POLICY
 from proofops.application.tagging.q1_contract import SEMANTIC_POLICY as Q1_SEMANTIC_POLICY
+from proofops.application.tagging.qt2_context import POLICY as QT2_CONTEXT_POLICY
 from proofops.application.tagging.quality import ELEMENT_DEFINITIONS_HASH
 from proofops.application.tagging.semantic_admission import POLICY as W8_POLICY
 from proofops.application.tagging.semantic_admission import POLICY_HASH as W8_POLICY_HASH
@@ -919,6 +920,12 @@ FINALS_I23_POLICY = FINALS_I22_POLICY | dict(
     integration_profile="finals-20261015-v23",
     fact_assembly_profile="grade-relevant-unanimity-v3",
 )
+
+QT2_ELEMENTS_POLICY = FINALS_I23_POLICY | dict(
+    integration_profile="qt2-finals-20261015-v1",
+    qt2_contextual_elements_policy=QT2_CONTEXT_POLICY,
+    qt2_contextual_elements_policy_sha256=canonical_hash(QT2_CONTEXT_POLICY),
+)
 V2_POLICY = FINALS_I23_POLICY
 
 
@@ -956,6 +963,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            QT2_ELEMENTS_POLICY,
             FINALS_D2_POLICY,
             FINALS_I22_POLICY,
             FINALS_FXC_POLICY,
@@ -1101,6 +1109,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            QT2_ELEMENTS_POLICY,
             FINALS_D2_POLICY,
             FINALS_I22_POLICY,
             FINALS_FXC_POLICY,

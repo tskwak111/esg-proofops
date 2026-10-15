@@ -240,6 +240,12 @@ def tag_replicates(
     if type(allow_edge_whitespace) is not bool:
         raise DomainValidationError("edge-whitespace binding policy must be boolean")
     data = packet.to_dict()
+    contextual_policy = data.get("qt2_contextual_elements_policy")
+    if contextual_policy is not None:
+        from proofops.application.tagging.qt2_context import accepts_context
+        from proofops.application.tagging.qt2_context import validate_policy as validate_contextual
+
+        validate_contextual(contextual_policy)
     local_recovery = data.get("local_element_recovery_policy")
     implementation_binding = data.get("local_implementation_binding_policy")
     structural_policy = data.get("structural_quality_policy")
@@ -398,6 +404,8 @@ def tag_replicates(
             "search_coverage",
         )
     }
+    if contextual_policy is not None:
+        user_data["qt2_contextual_elements_policy"] = contextual_policy
     if implementation_binding is not None:
         user_data["local_implementation_binding_policy"] = implementation_binding
     if structural_policy is not None:
@@ -757,6 +765,12 @@ def tag_replicates(
                         tenant_id=tenant_id,
                         policy=data["table_evidence_policy"],
                     )
+                if contextual_policy is not None and not table_selected:
+                    from proofops.application.tagging.qt2_context import prepare_table
+
+                    element, table_selected = prepare_table(
+                        element, claim, original, tenant_id=tenant_id
+                    )
                 state = element.state
                 binding_reasons: list[str] = []
                 if (
@@ -821,6 +835,17 @@ def tag_replicates(
                             break
                         if (
                             not table_selected
+                            and not (
+                                contextual_policy is not None
+                                and accepts_context(
+                                    context,
+                                    verified,
+                                    original,
+                                    tenant_id=tenant_id,
+                                    element_id=element.element_id,
+                                    relation_tags=relation_tags_for(verified, relation_tags),
+                                )
+                            )
                             and accept_binding(
                                 context,
                                 verified,
@@ -891,6 +916,12 @@ def tag_replicates(
                         policy=semantic_policy,
                         claim_quote=claim.quote,
                     )
+                    if admitted.state != "present":
+                        state, semantic_reason = admitted.state, admitted.reason_code
+                if contextual_policy is not None and state == "present":
+                    from proofops.application.tagging.qt2_context import guard as contextual_guard
+
+                    admitted = contextual_guard(replace(element, evidence_refs=tuple(refs)))
                     if admitted.state != "present":
                         state, semantic_reason = admitted.state, admitted.reason_code
                 if structural_policy == QA2_POLICY and state == "present":
