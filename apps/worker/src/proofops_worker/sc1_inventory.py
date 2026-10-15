@@ -69,6 +69,11 @@ def load_inventory(live, graph, selection):
         if stopped:
             raise ValueError("SC1_INVENTORY_STOPPED")
         live._fence()
+        from proofops.application.rb3_deadline import admit
+
+        if not admit(live.runner, live.snapshot, "tag"):
+            stopped = True
+            raise ValueError("TIME_BUDGET")
         request = transport_request(original, live.settings)
         live.allow_packet(request["claim_id"], request["packet_sha256"])
         call = BudgetCall(
