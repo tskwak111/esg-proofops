@@ -45,6 +45,7 @@ from proofops.application.claims import (
 from proofops.application.ports.jobs import JobMessage, LeaseLost
 from proofops.application.preflight import check_local_upstage_binding
 from proofops.application.rb3_deadline import admit as rb3_admit
+from proofops.application.rb1_input_isolation import InputIsolation
 from proofops.application.telemetry import TraceContext
 from proofops.application.uploads_security import UploadRejected
 from proofops.domain.provenance import canonical_hash
@@ -136,7 +137,32 @@ def _is_text_candidate(
     graph=None,
     source_id=None,
     cells=None,
+    rb1=None,
 ) -> bool:
+    if rb1 is not None and rb1.active:
+        try:
+            # Validate before I26's legacy routing fallback can consume the error.
+            # This replaces, rather than repeats, QT1 selection for the RB1 pin.
+            if extraction_qt1 and kind == "table" and graph is not None:
+                from proofops.application.ingest.qt1_tables import candidates_for
+
+                table = next((b for b in graph.blocks if b.source_id == source_id), None)
+                if table is not None and candidates_for(table, graph):
+                    return True
+            return _is_text_candidate(
+                kind,
+                text,
+                extraction_table_rows=extraction_table_rows,
+                extraction_k3=extraction_k3,
+                extraction_qt1=False,
+                graph=graph,
+                source_id=source_id,
+                cells=cells,
+            )
+        except ValueError as error:
+            if not rb1.capture(source_id, error):
+                raise
+            return False
     if extraction_qt1 and kind == "table" and graph is not None:
         from proofops.application.ingest.qt1_tables import candidates_for
 
@@ -302,6 +328,7 @@ def select_batch_paragraph_sources(
     extraction_table_rows=False,
     extraction_k3=False,
     extraction_qt1=False,
+    rb1=None,
 ) -> set[str]:
     """Next bounded window of eligible prose sources, skipping completed ones.
 
@@ -329,6 +356,7 @@ def select_batch_paragraph_sources(
             extraction_qt1=extraction_qt1,
             graph=graph,
             source_id=block.source_id,
+            rb1=rb1,
         )
         and block.normalized_text.strip()
         and block.source_id not in completed
@@ -346,6 +374,7 @@ def select_stable_paragraph_sources(
     extraction_table_rows=False,
     extraction_k3=False,
     extraction_qt1=False,
+    rb1=None,
 ) -> set[str]:
     """Prioritize prose within a bounded preview; retain short candidates after it."""
     return select_batch_paragraph_sources(
@@ -355,6 +384,7 @@ def select_stable_paragraph_sources(
         extraction_table_rows=extraction_table_rows,
         extraction_k3=extraction_k3,
         extraction_qt1=extraction_qt1,
+        rb1=rb1,
     )
 
 
@@ -373,7 +403,7 @@ def _extractor_role_budget(snapshot: dict) -> int | None:
     return None
 
 
-def _live_extractor(extractor, graph, source=None):
+def _live_extractor(extractor, graph, source=None, *, rb1=None):
     """Bind the run graph for a context-mode extractor; legacy passes through.
 
     Composition already built the context profile exactly when the frozen
@@ -392,6 +422,7 @@ def _live_extractor(extractor, graph, source=None):
         graph,
         source,
         display_prefetch_workers=int(os.environ.get("PROOFOPS_DISPLAY_PREFETCH_WORKERS", "1")),
+        rb1=rb1,
     )
 
 
@@ -422,12 +453,14 @@ class _ContinuingExtractor:
         extraction_k3: bool = False,
         extraction_qt1: bool = False,
         graph=None,
+        rb1=None,
     ):
         self.profile = profile
         self._table_rows = extraction_table_rows
         self._k3 = extraction_k3
         self._qt1 = extraction_qt1
         self._graph = graph
+        self._rb1 = rb1
         self._live = live
         self._prior = prior
         self._prior_failed = prior_failed or {}
@@ -445,6 +478,8 @@ class _ContinuingExtractor:
     def extract(self, packet):
         data = packet["untrusted_document_data"]
         source_id, text = data["source_id"], data["text"]
+        if self._rb1 is not None:
+            self._rb1.check(source_id)
         receipt = self._prior.get(source_id)
         if receipt is not None and receipt["packet_sha256"] == canonical_hash(packet):
             self.replayed.add(source_id)
@@ -462,6 +497,7 @@ class _ContinuingExtractor:
             extraction_qt1=self._qt1,
             graph=self._graph,
             source_id=source_id,
+            rb1=self._rb1,
         ):
             reason = DEFERRED_KIND_REASON
         elif self.stop_code is not None and source_id not in getattr(self._live, "prepaid", ()):
@@ -681,6 +717,12 @@ class LocalExtractRunner:
         )
         prior_calls = max(prior_charged, charged_from_usage)
         completed = set(state["model_processed"]) | set(state["failed"])
+        rb1 = InputIsolation(snapshot.get("analysis_profile_policy", {}))
+        if rb1.active:
+            for excluded in prior_envelope["discovery"]["exclusions"]:
+                code = excluded["reason"]
+                if code.startswith("TABLE_RB1_"):
+                    rb1.capture(excluded["source_id"], ValueError(code.removeprefix("TABLE_RB1_")))
         window = select_batch_paragraph_sources(
             graph,
             scope,
@@ -689,6 +731,7 @@ class LocalExtractRunner:
             extraction_table_rows=getattr(self.extractor, "_table_rows", False),
             extraction_k3=getattr(self.extractor, "_k3", False),
             extraction_qt1=getattr(self.extractor, "_qt1", False),
+            rb1=rb1,
         )
         summary = dict(
             status="idle",
@@ -746,7 +789,7 @@ class LocalExtractRunner:
                 if getattr(runner.extractor, "_display_text_profile", None)
                 else None
             )
-            live_extractor = _live_extractor(runner.extractor, graph, source)
+            live_extractor = _live_extractor(runner.extractor, graph, source, rb1=rb1)
             fxg_guard = fxg_dispatch_guard(
                 runner,
                 lease,
@@ -856,6 +899,7 @@ class LocalExtractRunner:
                     extraction_k3=getattr(runner.extractor, "_k3", False),
                     extraction_qt1=getattr(runner.extractor, "_qt1", False),
                     graph=graph,
+                    rb1=rb1,
                 )
                 discovery = discover_atomic_claims(graph, scope, extractor=extractor)
                 payload = self._publication_payload(
@@ -976,6 +1020,7 @@ class LocalExtractRunner:
                         self.store, self.uploads, self.parser, tenant_id=tenant_id, run_id=run_id
                     )
                     runner = self
+                    rb1 = InputIsolation(snapshot.get("analysis_profile_policy", {}))
                     display_profile = getattr(runner.extractor, "_display_text_profile", None)
                     if display_profile:
                         from proofops.application.ingest.display_text import POLICY, PROFILE
@@ -992,7 +1037,7 @@ class LocalExtractRunner:
                         if display_profile
                         else None
                     )
-                    live_extractor = _live_extractor(runner.extractor, graph, source)
+                    live_extractor = _live_extractor(runner.extractor, graph, source, rb1=rb1)
                     role_budget = _extractor_role_budget(snapshot)
                     effective_max = (
                         (
@@ -1015,6 +1060,7 @@ class LocalExtractRunner:
                             extraction_table_rows=getattr(runner.extractor, "_table_rows", False),
                             extraction_k3=getattr(runner.extractor, "_k3", False),
                             extraction_qt1=getattr(runner.extractor, "_qt1", False),
+                            rb1=rb1,
                         )
 
                     class FencedExtractor:
@@ -1023,6 +1069,7 @@ class LocalExtractRunner:
                             self.calls = 0
 
                         def extract(self, packet):
+                            rb1.check(packet["untrusted_document_data"]["source_id"])
                             fence_provider_call(runner, lease, usage)
                             if is_real:
                                 data = packet["untrusted_document_data"]
@@ -1038,6 +1085,7 @@ class LocalExtractRunner:
                                         extraction_qt1=getattr(runner.extractor, "_qt1", False),
                                         graph=graph,
                                         source_id=data["source_id"],
+                                        rb1=rb1,
                                     )
                                     else "beyond_extraction_limit"
                                     if data.get("source_id") not in eligible_sources

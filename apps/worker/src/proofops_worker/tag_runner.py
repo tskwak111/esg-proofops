@@ -32,6 +32,7 @@ from proofops.application.evidence.retrieval import (
     unattended_packet,
 )
 from proofops.application.ports.jobs import JobMessage, LeaseLost
+from proofops.application.rb1_input_isolation import InputIsolation, held_claim, tag_input_code
 from proofops.application.reviews import ReviewInputs, ReviewService
 from proofops.application.tagging.consensus import (
     form_consensus,
@@ -258,6 +259,7 @@ class LocalTagRunner:
         evidence=None,
         accounting_flushers=None,
     ):
+        rb1 = InputIsolation(snapshot.get("analysis_profile_policy", {}))
         message = lease.message
         tenant, run_id = message.tenant_id, message.run_id
         extraction, discovery, graph = evidence or self.claims.load_evidence(tenant, run_id)
@@ -1045,6 +1047,8 @@ class LocalTagRunner:
             except Exception as error:
                 from proofops.application.budget import BudgetExceeded
 
+                if rb1.active and tag_input_code(error):
+                    return held_claim(claim, error)
                 result = progress.get(claim.claim_id, item)
                 budget_error = isinstance(error, BudgetExceeded) or str(error) in {
                     "BUDGET_EXHAUSTED",
@@ -1121,8 +1125,10 @@ class LocalTagRunner:
                 tenant_id=tenant,
             )
 
-        def reported_claim(claim):
+        def project_claim(claim):
             record = isolated_claim(claim)
+            if rb1.active and "rb1_input_hold" in record:
+                return record
             if snapshot.get("analysis_profile_policy", {}).get("facility_dimensions"):
                 record["source_dimensions"] = facility_dimensions.get(
                     claim.claim_id, dict(facility=dict(state="unresolved", value=None))
@@ -1159,6 +1165,15 @@ class LocalTagRunner:
                     record["sc1_confirmation"] = receipt["sc1_confirmation"]
                     record["sc1_elements"] = receipt["sc1_elements"]
                     record["sc1_hold_reason"] = ",".join(receipt["reasons"]) or None
+            return record
+
+        def reported_claim(claim):
+            try:
+                record = project_claim(claim)
+            except (ValueError, KeyError, TypeError) as error:
+                if not rb1.active or not tag_input_code(error):
+                    raise
+                record = held_claim(claim, error)
             callback = getattr(self, "claim_progress", None)
             if callback is not None:
                 callback(claim.claim_id, len(discovery.claims))
