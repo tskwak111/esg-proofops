@@ -1,6 +1,10 @@
 """Safe public explanations of pipeline stops; no evidence or grade inference."""
 
 MESSAGES = {
+    "TIME_BUDGET": (
+        "분석 시간 한도로 새 처리를 중단했습니다. 완료된 결과와 미처리 주장을 구분해 "
+        "보존했으며, 미처리 주장은 판정 보류입니다. 원문의 근거 부재를 뜻하지 않습니다."
+    ),
     "PARSER_FAILED": (
         "문서 파싱에 실패해 분석을 중단했습니다. 처리되지 않은 원문은 판정하지 않았습니다. "
         "운영자의 파싱 확인이 필요합니다."

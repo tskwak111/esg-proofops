@@ -44,6 +44,7 @@ from proofops.application.claims import (
 )
 from proofops.application.ports.jobs import JobMessage, LeaseLost
 from proofops.application.preflight import check_local_upstage_binding
+from proofops.application.rb3_deadline import admit as rb3_admit
 from proofops.application.telemetry import TraceContext
 from proofops.application.uploads_security import UploadRejected
 from proofops.domain.provenance import canonical_hash
@@ -580,6 +581,8 @@ class LocalExtractRunner:
             return dict(status="cancelled")
         if "extract_job" not in run:
             return dict(status="no_revision", detail="run the extract stage once first")
+        if not rb3_admit(self, snapshot, "extract"):
+            return dict(status="partial", stop_code="TIME_BUDGET")
         try:
             with self.store.jobs._transaction() as db:
                 current = self.store.jobs._get(db, tenant_id, run_id, "run", "META")
@@ -750,6 +753,10 @@ class LocalExtractRunner:
 
                 def extract(self, packet):
                     fence_provider_call(runner, lease, usage)
+                    if not rb3_admit(runner, snapshot, "extract"):
+                        return deferred_payload(
+                            packet["untrusted_document_data"]["text"], "TIME_BUDGET"
+                        )
                     if not profile.synthetic:
                         authorization = check_local_upstage_binding(
                             binding=snapshot["runtime"],
@@ -1039,6 +1046,8 @@ class LocalExtractRunner:
                                             )
                                         ]
                                     }
+                                if not rb3_admit(runner, snapshot, "extract"):
+                                    return deferred_payload(data["text"], "TIME_BUDGET")
                                 authorization = check_local_upstage_binding(
                                     binding=snapshot["runtime"],
                                     consent=snapshot["consent"],

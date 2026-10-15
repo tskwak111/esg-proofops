@@ -585,7 +585,9 @@ def extraction_outcome(graph, discovery, *, claim_pages, include_source_failures
 DEFERRED_LIMIT_REASON = "beyond_extraction_limit"
 DEFERRED_BUDGET_REASON = "extraction_budget_stop"
 DEFERRED_KIND_REASON = "non_paragraph_kind"
-DEFERRED_REASONS = frozenset((DEFERRED_LIMIT_REASON, DEFERRED_BUDGET_REASON, DEFERRED_KIND_REASON))
+DEFERRED_REASONS = frozenset(
+    (DEFERRED_LIMIT_REASON, DEFERRED_BUDGET_REASON, DEFERRED_KIND_REASON, "TIME_BUDGET")
+)
 OCR_ACQUISITION_REASON_PREFIX = "ocr_acquisition_unresolved:"
 
 

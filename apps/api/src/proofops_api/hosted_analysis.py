@@ -543,6 +543,7 @@ def run_analysis_process(command, store, job, lock, *, publication_fd=None):
         stderr=subprocess.DEVNULL,
         pass_fds=(lock.fileno(),) + ((publication_fd,) if publication_fd is not None else ()),
         start_new_session=True,
+        env=os.environ | {"PROOFOPS_RB3_HARD_DEADLINE": str(deadline)},
     )
     try:
         while True:

@@ -28,6 +28,7 @@ from proofops.application.provider_resilience import (
     SCHEDULER_POLICY,
 )
 from proofops.application.provider_resilience import POLICY as F1_RESILIENCE_POLICY
+from proofops.application.rb3_deadline import POLICY as RB3_DEADLINE_POLICY
 from proofops.application.tagging.analysis_scope import confirmation_policy as sc1_policy
 from proofops.application.tagging.dec24 import (
     DEFINITIONS_HASH,
@@ -1057,6 +1058,13 @@ FXH_POLICY = FINALS_I25_POLICY | dict(
     fxh_runtime=FXH_RUNTIME_POLICY,
 )
 
+# RB3 is selectable only by a new explicit pin; the v25 default stays frozen.
+RB3_POLICY = FXH_POLICY | dict(
+    integration_profile="rb3_deadline_v1",
+    rb3_deadline=RB3_DEADLINE_POLICY,
+    source="rb3_claim_source_v1",
+)
+
 
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
@@ -1093,6 +1101,7 @@ def policy_for(profile, *, pinned_hash=None):
         choices = (
             V2_POLICY,
             FXH_POLICY,
+            RB3_POLICY,
             FINALS_I24_POLICY,
             FINALS_I23_POLICY,
             V3_POLICY,
@@ -1252,6 +1261,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
         (
             policy_for(profile),
             FXH_POLICY,
+            RB3_POLICY,
             FINALS_I24_POLICY,
             FINALS_I23_POLICY,
             V3_POLICY,

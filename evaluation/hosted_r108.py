@@ -177,6 +177,7 @@ def prepare_argv(pdf, state, tenant, config, options=None):
                 FINALS_S2_SPEED_POLICY,
                 FINALS_S5_POLICY,
                 FXH_POLICY,
+                RB3_POLICY,
                 S1_POLICY,
                 S2_POLICY,
                 S4_POLICY,
@@ -211,6 +212,7 @@ def prepare_argv(pdf, state, tenant, config, options=None):
                 canonical_hash(FINALS_I23_POLICY),
                 canonical_hash(FINALS_I24_POLICY),
                 canonical_hash(FXH_POLICY),
+                canonical_hash(RB3_POLICY),
                 canonical_hash(FINALS_RG1_POLICY),
                 canonical_hash(S1_POLICY),
                 canonical_hash(S2_POLICY),
@@ -276,6 +278,9 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
         else {}
     )
     resource_runtime = None
+    from proofops.application.rb3_deadline import from_parent
+
+    deadline = from_parent(selected)
     if selected.get("provider_scheduler") and "provider_execution" not in options:
         raise ValueError("PROVIDER_EXECUTION_PIN_REQUIRED")
     if not selected.get("provider_scheduler"):
@@ -439,6 +444,8 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
                 provider_ledgers=(upstage_ledger, luna_ledger),
                 claim_progress=claim_progress,
             )
+            if deadline is not None:
+                worker.rb3_deadline = deadline
             try:
                 stage_messages = [
                     JobMessage(**event["message"])
@@ -486,6 +493,8 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
                 worker.uploads.registry.close()
     # Preserve genuine partial work and reasons. Only completed tag publication
     # may be called completed; domain decisions still carry their own hold states.
+    if deadline is not None and deadline.summary()["stopped_stages"] and not extraction_stop:
+        extraction_stop = "TIME_BUDGET"
     complete = bool(
         not extraction_stop and observed and observed[-1] == dict(stage="tag", outcome="completed")
     )
@@ -508,6 +517,8 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
         reporting_scope=pinned_reporting_scope(config, options),
         pipeline_failure_projection="specific-pipeline-reasons-h4-v1",
     )
+    if deadline is not None:
+        result["rb3_deadline"] = deadline.summary()
     if provider_gate is not None:
         result["provider_concurrency"] = provider_gate.snapshot()
         admission = result["provider_concurrency"]
