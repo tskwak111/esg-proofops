@@ -78,6 +78,7 @@ from proofops.application.tagging.qt2_context import POLICY as QT2_CONTEXT_POLIC
 from proofops.application.tagging.quality import ELEMENT_DEFINITIONS_HASH
 from proofops.application.tagging.semantic_admission import POLICY as W8_POLICY
 from proofops.application.tagging.semantic_admission import POLICY_HASH as W8_POLICY_HASH
+from proofops.application.tagging.v1_activity_links import POLICY as V1_ACTIVITY_LINK_POLICY
 from proofops.domain.provenance import canonical_hash
 
 PROFILE = "finals-unattended-v1"
@@ -1003,6 +1004,14 @@ FXG_POLICY = FINALS_I23_POLICY | dict(
     fxg_extraction_wire_policy_sha256=canonical_hash(FXG_WIRE_POLICY),
 )
 
+# R19-T01/T07 + DEC-93 AP-06: explicit opt-in; v24 remains the default.
+
+V1_ACTIVITY_POLICY = FINALS_I24_POLICY | dict(
+    integration_profile="v1_activity_links_r19_ap06_v1",
+    v1_activity_links=V1_ACTIVITY_LINK_POLICY,
+    v1_activity_links_sha256=canonical_hash(V1_ACTIVITY_LINK_POLICY),
+)
+
 
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
@@ -1157,6 +1166,7 @@ def policy_for(profile, *, pinned_hash=None):
         raise ValueError("ANALYSIS_PROFILE_UNKNOWN")
     if profile == V2_PROFILE:
         choices = (*choices, *sc1_inventory_policies)
+        choices = (*choices, V1_ACTIVITY_POLICY)
     for policy in choices:
         if pinned_hash is None or canonical_hash(policy) == pinned_hash:
             return policy
@@ -1276,6 +1286,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     )
     if profile == V2_PROFILE:
         allowed = (*allowed, *sc1_inventory_policies)
+        allowed = (*allowed, V1_ACTIVITY_POLICY)
     if policy not in allowed:
         raise ValueError("ANALYSIS_PROFILE_PUBLICATION_PIN_MISMATCH")
     return policy

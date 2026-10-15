@@ -1093,6 +1093,7 @@ class LocalTagRunner:
                 record["sc1_hold_reason"] = "SC1_INVENTORY_UNAVAILABLE"
                 if sc1_index is not None and record.get("tag_runs") and "sc1_dimensions" in record:
                     from proofops.application.tagging.analysis_scope import analyze_record
+                    from proofops.application.tagging.v1_activity_links import policy_from_profile
 
                     receipt = analyze_record(
                         record,
@@ -1104,6 +1105,9 @@ class LocalTagRunner:
                         local_synthetic=live is None,
                         grade_agreement_policy=snapshot.get("analysis_profile_policy", {}).get(
                             "grade_required_agreement_policy"
+                        ),
+                        v1_activity_policy=policy_from_profile(
+                            snapshot.get("analysis_profile_policy", {})
                         ),
                     )
                     record["sc1_scope_receipt"] = receipt

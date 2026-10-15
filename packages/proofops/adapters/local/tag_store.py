@@ -627,6 +627,7 @@ class LocalTagStore:
         sc1_policy = snapshot.get("analysis_profile_policy", {}).get("sc1_scope_confirmation")
         if sc1_policy is not None:
             from proofops.application.tagging.analysis_scope import InventoryIndex, analyze_record
+            from proofops.application.tagging.v1_activity_links import policy_from_profile
 
             inventory = envelope.get("sc1_inventory")
             index = InventoryIndex(inventory, evidence[2]) if inventory is not None else None
@@ -654,6 +655,9 @@ class LocalTagStore:
                         local_synthetic=envelope["synthetic"],
                         grade_agreement_policy=snapshot.get("analysis_profile_policy", {}).get(
                             "grade_required_agreement_policy"
+                        ),
+                        v1_activity_policy=policy_from_profile(
+                            snapshot.get("analysis_profile_policy", {})
                         ),
                     )
                     if canonical_hash(replayed) != canonical_hash(receipt) or any(
