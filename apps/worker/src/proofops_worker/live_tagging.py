@@ -463,6 +463,12 @@ class LiveTaggingRuntime:
             if policy.get("qt2_contextual_elements_policy_sha256") != canonical_hash(contextual):
                 raise ValueError("QT2_CONTEXT_POLICY_PIN_MISMATCH")
             data = augment_packet(data, claim, self.graph, tenant_id=self.graph.tenant_id)
+        if "qt1_tuple_policy" in policy:
+            from proofops.application.tagging.qt1_tuples import POLICY, augment_packet
+
+            if policy["qt1_tuple_policy"] != POLICY:
+                raise ValueError("QT1_TUPLE_POLICY_MISMATCH")
+            data = augment_packet(data, claim, self.graph, tenant_id=self.graph.tenant_id)
         if display_catalog is not None:
             data["display_text"] = display_catalog.element_pins(data)
         if policy.get("hold_recovery_policy") is not None:

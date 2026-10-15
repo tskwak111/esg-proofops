@@ -181,3 +181,37 @@ M1/M2/P2는 같은 문단의 명시적인 주어 연속만 허용하는 지침�
 추가하고 DB/HTTP DTO migration은 없다. 이전 실행의 reader와 hash 선택을 보존한다.
 Rollback은 새 정책 배정을 중단하고 새 산출물을 호환 reader에 남기거나 미지원으로
 거부한다. 기존 unknown/conflict를 저장 응답 재생만으로 present로 승격하지 않는다.
+
+## DEC-93/AP-03 · QT1 V25 유지목표 기준값 연결 (2026-10-15, opt-in)
+
+R19-T02/T05와 DEC-93 승인에 따라 `qt1_v25_table_baseline_v1`만 GAP-004의
+온실가스 유지목표 연결을 제한적으로 허용한다. 승인 근거는 R108-redesign의
+`lab/autonomy/DECISION-LOG.md` DEC-93 및 `tasks/v25-V2.md`다. 기존 DEC-24 지침,
+rubric/element 정의, SC1 inventory 형식, QT1 추출/표 파서와 QT2 정책은 불변이다.
+기본 배정은 I24이며 새 레지스트리 항목을 명시적으로 pin한 실행만 사용한다.
+
+선택 범위 안에서 재생 검증한 SC1의 서로 다른 3개 present 응답은 후보만 제공한다.
+목표 원문에 기준연도·유지 의미·절대량 GHG 단위가 명시되고 검증된 주체/지표/
+사업장/Scope 역할이 있어야 한다. 같은 tenant/run/document version/manifest/graph,
+주체·지표·단위·배율·조직 경계·Scope·기준연도인 관측 문단 또는 같은 표의
+검증된 값/연도/단위만 receipt에 기록한다. 누락 역할, 원단위, 전망, 상충 수치,
+미판독/미검증 후보는 보류하고 선택 밖은 `not_run`이다.
+
+최종 각 replica가 값·단위·기준연도 원문을 별도로 선택한 G2와 G3에만
+`qt1_maintenance_baseline_v1` scope를 부여한다. G2는 목표수치, G3는 기준연도와
+기준값으로 각각 기록한다. 유지→0% 감축, 목표연도→기준연도, 전망→실적 변환은
+하지 않는다. 일반 `explicit_link`는 계속 거절하며 비GHG 직접근거 규칙과
+세이프하버 E/label null은 그대로다. 새 scope fact가 있을 때만 engine semantic
+hash에 버전 suffix를 추가하므로 기존 판정 replay hash는 바뀌지 않는다.
+
+표 tuple은 원문 값·단위·기간·행·각주를 독립 검증한다. P2는 같은 행/단위의
+이전 관측치와 비교연도에만 연결한다. 목표열·각주 marker·날짜·`-`를 관측값으로
+승격하지 않으며 TV 0.71kg에 다른 본문 연도/모델을 붙이지 않는다. 이미 선택한
+복합 유지목표만 기존 atomic planner로 분해하며 자식 claim은 원문 재검증·재태깅이
+필요하다. 부모의 등급·표·연도·검증 boolean을 자식에게 상속하지 않는다.
+
+호환성: packet/item의 `qt1_*`와 선택 설정 `extraction_qt1_goal_split`만 추가하며
+DB/HTTP migration은 없다. 기존 설정에 필드가 없으면 false다. 새 pin을 중단하면
+rollback되며 저장된 새 revision을 기존 revision에 덮어쓰지 않는다.
+I24 SHA `775e8d04aaed82bd86c002402f3b80fdabd7206e69a1e768403cbc0644638501` →
+QT1 V25 SHA `1e5a2898ec1154597a16214c87f4076617362ce635dcdcdde96886b31741c880`.

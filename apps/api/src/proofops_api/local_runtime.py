@@ -50,6 +50,7 @@ _SETTINGS_FIELDS = frozenset(
         "extraction_i4_identity",
         "extraction_qc_native_figures",
         "extraction_fxg_split",
+        "extraction_qt1_goal_split",
         "extraction_h1",
         "extraction_i5_tables",
         "extraction_k6",
@@ -396,6 +397,10 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
                 selected_policy.get("fxg_extraction_wire_policy")
             ):
                 raise ValueError("EXTRACTION_FXG_PROFILE_MISMATCH")
+            if bool(settings.get("extraction_qt1_goal_split", False)) != bool(
+                selected_policy.get("qt1_goal_split_policy")
+            ):
+                raise ValueError("QT1_GOAL_SPLIT_PROFILE_MISMATCH")
             prompt_profile = selected_policy.get("tagging_prompt_profile")
             if prompt_profile:
                 from proofops.application.tagging.finals_i4 import (
@@ -473,6 +478,7 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         "extraction_i4_identity",
         "extraction_qc_native_figures",
         "extraction_fxg_split",
+        "extraction_qt1_goal_split",
         "extraction_h1",
         "extraction_i5_tables",
         "extraction_k6",

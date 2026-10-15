@@ -565,6 +565,7 @@ def _profile_with_options(
     extraction_qt1: bool = False,
     extraction_qc_native_figures: bool = False,
     extraction_fxg_split: bool = False,
+    extraction_qt1_goal_split: bool = False,
 ) -> ExtractionProfile:
     """Versioned extraction profile for an explicit option combination.
 
@@ -590,6 +591,10 @@ def _profile_with_options(
         raise ValueError("QT1_EXTRACTION_PROFILE_INVALID")
     if type(extraction_fxg_split) is not bool or (extraction_fxg_split and not source_ids):
         raise ValueError("EXTRACTION_FXG_PROFILE_INVALID")
+    if type(extraction_qt1_goal_split) is not bool or (
+        extraction_qt1_goal_split and not source_ids
+    ):
+        raise ValueError("QT1_GOAL_SPLIT_PROFILE_INVALID")
     if type(extraction_qc_native_figures) is not bool or (
         extraction_qc_native_figures
         and not (source_ids and extraction_context and extraction_table_rows and extraction_w9)
@@ -785,6 +790,10 @@ def _profile_with_options(
         from proofops.application.ingest.fxg_wire import POLICY as FXG_POLICY
 
         descriptor.append(FXG_POLICY)
+    if extraction_qt1_goal_split:
+        from proofops.application.ingest.qt1_goal_split import POLICY as QT1_GOAL_SPLIT_POLICY
+
+        descriptor.append(QT1_GOAL_SPLIT_POLICY)
     if display_text_profile:
         descriptor.append(POLICY)
     if year_notation:
@@ -949,6 +958,7 @@ class UpstageClaimExtractor:
         extraction_qt1: bool = False,
         extraction_qc_native_figures: bool = False,
         extraction_fxg_split: bool = False,
+        extraction_qt1_goal_split: bool = False,
     ) -> None:
         if type(extraction_q1) is not bool or (extraction_q1 and not extraction_j8):
             raise ValueError("Q1_EXTRACTION_PROFILE_INVALID")
@@ -1034,6 +1044,7 @@ class UpstageClaimExtractor:
             extraction_qt1=extraction_qt1,
             extraction_qc_native_figures=extraction_qc_native_figures,
             extraction_fxg_split=extraction_fxg_split,
+            extraction_qt1_goal_split=extraction_qt1_goal_split,
         )
         if type(max_tokens) is not int or not 1 <= max_tokens <= 4096:
             raise ValueError("UPSTAGE_MAX_TOKENS_INVALID")
@@ -1065,6 +1076,7 @@ class UpstageClaimExtractor:
         self._qt1 = extraction_qt1
         self._qc_native_figures = extraction_qc_native_figures
         self._fxg_split = extraction_fxg_split
+        self._qt1_goal_split = extraction_qt1_goal_split
         self._i3_wire = extraction_i3_wire
         self._i4_identity = extraction_i4_identity
         self._h1 = extraction_h1
@@ -1918,6 +1930,16 @@ class UpstageClaimExtractor:
                     ] = changes
                 else:
                     diagnostics["j7_refinements" if self._j7 else "j3_refinements"] = changes
+            if self._qt1_goal_split and packet is not None:
+                from proofops.application.ingest.qt1_goal_split import refine_selected
+
+                selected, changes = refine_selected(
+                    [asdict(s) | dict(topic_ids=list(s.topic_ids)) for s in spans],
+                    text,
+                    kind=packet["untrusted_document_data"]["kind"],
+                )
+                spans = self._validate_spans({"spans": selected}, text)
+                diagnostics["qt1_goal_refinements"] = changes
             if self._k1 and packet is not None:
                 from proofops.application.ingest.k1_boundaries import trim_table_labels
 

@@ -456,6 +456,34 @@ class UpstageTaggingTransport:
             for key, ref in refs.items()
         }
         table = data.pop("table_observation_evidence", None)
+        for field in ("qt1_table_tuples", "qt1_baseline_links"):
+            if field not in data:
+                continue
+            compact = []
+            for item in data.pop(field):
+                value = {}
+                for role in ("value", "unit", "period"):
+                    source = item[role]
+                    matches = [
+                        key
+                        for key, ref in refs.items()
+                        if all(
+                            ref.get(k) == source[k]
+                            for k in ("source_id", "char_start", "char_end", "quote")
+                        )
+                    ]
+                    if not matches:
+                        raise ValueError("QT1_EVIDENCE_CATALOG_MISMATCH")
+                    value[role + "_id"] = matches[0]
+                value.update(
+                    {
+                        k: item[k]
+                        for k in ("year", "period_role", "meaning", "elements")
+                        if k in item
+                    }
+                )
+                compact.append(value)
+            data[field] = compact
         if table is not None:
 
             def cell_id(source):
@@ -690,6 +718,18 @@ class UpstageTaggingTransport:
             from proofops.application.tagging.qt2_context import GUIDANCE, validate_policy
 
             validate_policy(data.pop("qt2_contextual_elements_policy"))
+            wire_system += "\n" + GUIDANCE
+        if "qt1_tuple_policy" in data:
+            from proofops.application.tagging.qt1_tuples import GUIDANCE, POLICY
+
+            if data.pop("qt1_tuple_policy") != POLICY:
+                raise ValueError("QT1_TUPLE_POLICY_MISMATCH")
+            wire_system += "\n" + GUIDANCE
+        if "qt1_baseline_policy" in data:
+            from proofops.application.tagging.qt1_baseline import GUIDANCE, POLICY
+
+            if data.pop("qt1_baseline_policy") != POLICY:
+                raise ValueError("QT1_BASELINE_POLICY_MISMATCH")
             wire_system += "\n" + GUIDANCE
         if "tagging_wire_policy" in data:
             from proofops.application.tagging.k7_wire import (
