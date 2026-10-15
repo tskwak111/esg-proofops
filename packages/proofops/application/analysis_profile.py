@@ -919,6 +919,10 @@ FINALS_I23_POLICY = FINALS_I22_POLICY | dict(
     integration_profile="finals-20261015-v23",
     fact_assembly_profile="grade-relevant-unanimity-v3",
 )
+FXE_POLICY = FINALS_I23_POLICY | dict(
+    integration_profile="fxe_finals-20261015-v1",
+    source="fxe_upstage-ocr-page-v21",
+)
 V2_POLICY = FINALS_I23_POLICY
 
 
@@ -956,6 +960,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FXE_POLICY,
             FINALS_D2_POLICY,
             FINALS_I22_POLICY,
             FINALS_FXC_POLICY,
@@ -1101,6 +1106,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FXE_POLICY,
             FINALS_D2_POLICY,
             FINALS_I22_POLICY,
             FINALS_FXC_POLICY,
