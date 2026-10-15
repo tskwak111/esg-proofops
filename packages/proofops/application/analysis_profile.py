@@ -1039,6 +1039,17 @@ V3_POLICY = FINALS_I24_POLICY | dict(
 )
 
 
+# I25 composes reviewed deltas; every historical and standalone pin stays readable.
+FINALS_I25_POLICY = (
+    FINALS_I24_POLICY
+    | {k: v for k, v in V1_ACTIVITY_POLICY.items() if v != FINALS_I24_POLICY.get(k)}
+    | {k: v for k, v in QT1_V25_POLICY.items() if v != FINALS_I24_POLICY.get(k)}
+    | {k: v for k, v in V3_POLICY.items() if v != FINALS_I24_POLICY.get(k)}
+    | dict(integration_profile="finals-20261015-v25")
+)
+V2_POLICY = FINALS_I25_POLICY
+
+
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
     from proofops.application.tagging.fact_assembly_c3_v2 import (
@@ -1073,6 +1084,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_I24_POLICY,
             FINALS_I23_POLICY,
             V3_POLICY,
             FXF_POLICY,
@@ -1230,6 +1242,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FINALS_I24_POLICY,
             FINALS_I23_POLICY,
             V3_POLICY,
             FXF_POLICY,

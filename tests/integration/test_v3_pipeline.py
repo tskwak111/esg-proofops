@@ -6,7 +6,7 @@ import sys
 from dataclasses import asdict, replace
 
 import pytest
-from proofops.application.analysis_profile import FINALS_I24_POLICY, V3_POLICY
+from proofops.application.analysis_profile import FINALS_I24_POLICY, FINALS_I25_POLICY, V3_POLICY
 from proofops.application.budget import TokenUsage
 from proofops.application.evidence.binding import ClaimContext, local_relation_tags
 from proofops.application.evidence.retrieval import freeze_track_packet, retrieve_evidence
@@ -21,7 +21,8 @@ from tests.acceptance.test_tagging import setup
 from tests.unit.test_k5_context import case
 
 
-def test_create_resume_pins_v3_and_rejects_wrong_prompt(tmp_path, monkeypatch):
+@pytest.mark.parametrize("active_policy", [V3_POLICY, FINALS_I25_POLICY])
+def test_create_resume_pins_v3_and_rejects_wrong_prompt(tmp_path, monkeypatch, active_policy):
     from proofops_api.local_runtime import load_local_runtime
 
     from evaluation import local_upstage_pilot as pilot
@@ -36,7 +37,7 @@ def test_create_resume_pins_v3_and_rejects_wrong_prompt(tmp_path, monkeypatch):
             "--analysis-profile",
             "finals-unattended-v2",
             "--analysis-policy-sha256",
-            canonical_hash(V3_POLICY),
+            canonical_hash(active_policy),
             "--pages",
             "1",
             "--claim-pages",
@@ -54,7 +55,7 @@ def test_create_resume_pins_v3_and_rejects_wrong_prompt(tmp_path, monkeypatch):
         LOCAL_TAGGING_MODE="upstage_local",
         LOCAL_LLM_PROVIDER="openai",
     )
-    assert load_local_runtime(env)["analysis_policy_sha256"] == canonical_hash(V3_POLICY)
+    assert load_local_runtime(env)["analysis_policy_sha256"] == canonical_hash(active_policy)
     before = (state / "settings.json").read_bytes()
     settings = json.loads(before)
     settings["preliminary_settings"]["system_prompt"] += " forged"
@@ -66,10 +67,11 @@ def test_create_resume_pins_v3_and_rejects_wrong_prompt(tmp_path, monkeypatch):
     assert (state / "settings.json").read_bytes() == before
 
 
+@pytest.mark.parametrize("active_policy", [V3_POLICY, FINALS_I25_POLICY])
 @pytest.mark.parametrize("enabled", [False, True])
 @pytest.mark.parametrize("raw_category", [None, "forward_looking"])
 def test_simple_target_through_preliminary_requires_fresh_category(
-    tmp_path, monkeypatch, enabled, raw_category
+    tmp_path, monkeypatch, enabled, raw_category, active_policy
 ):
     from tests.integration.test_live_tagging_worker import configured
 
@@ -77,7 +79,7 @@ def test_simple_target_through_preliminary_requires_fresh_category(
     quote = "가상기업은 2030년까지 배출량을 20% 감축하겠습니다."
     graph, claim = case([quote], (0, quote))
     runtime.graph = graph
-    runtime.snapshot["analysis_profile_policy"] = V3_POLICY if enabled else FINALS_I24_POLICY
+    runtime.snapshot["analysis_profile_policy"] = active_policy if enabled else FINALS_I24_POLICY
 
     def replicas(prefix, selected, packet, settings, transport, records, validate, **kwargs):
         raw = dict(
@@ -103,6 +105,7 @@ PRECEDING = "가상기업은 환경투자 검토를 환경투자심의위원회 
 CLAIM = "가상기업은 환경투자 검토 체계를 갖추고 있습니다."
 
 
+@pytest.mark.parametrize("active_policy", [V3_POLICY, FINALS_I25_POLICY])
 @pytest.mark.parametrize(
     "enabled,raw_state,expected",
     [
@@ -113,7 +116,7 @@ CLAIM = "가상기업은 환경투자 검토 체계를 갖추고 있습니다."
     ],
 )
 def test_m1_preceding_means_through_three_source_guarded_replicas(
-    tmp_path, enabled, raw_state, expected
+    tmp_path, enabled, raw_state, expected, active_policy
 ):
     inputs = setup(tmp_path)
     graph, claim = case([PRECEDING + " " + CLAIM], (0, CLAIM))
@@ -141,7 +144,7 @@ def test_m1_preceding_means_through_three_source_guarded_replicas(
     packet = freeze_track_packet(packet, track=track, rulepack=inputs["rulepack"])
     runtime = object.__new__(LiveTaggingRuntime)
     runtime.graph = graph
-    runtime.snapshot = dict(analysis_profile_policy=V3_POLICY if enabled else FINALS_I24_POLICY)
+    runtime.snapshot = dict(analysis_profile_policy=active_policy if enabled else FINALS_I24_POLICY)
     packet = runtime.display_packet(packet, claim=claim)
     seen = []
 

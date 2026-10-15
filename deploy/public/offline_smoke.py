@@ -117,7 +117,7 @@ def verify():
     message = JobMessage(**local_run["parse_job"])
     policy = jobs.parser_native_policy(message)
     assert policy == page_ocr_profile(manifest["claim_source_profile"]).native_policy()
-    assert V2_POLICY["integration_profile"] == "finals-20261015-v24"
+    assert V2_POLICY["integration_profile"] == "finals-20261015-v25"
     assert V2_POLICY["parser_failure_policy"] == "s3_partial-v7"
     assert V2_POLICY["located_table_context"]["profile"] == "located-table-context-p2-v1"
     assert manifest["claim_source_profile"] == "i24_claim_source_v1"
@@ -128,6 +128,11 @@ def verify():
     assert manifest["extraction_fxg_split"] is True
     assert saved_settings["extraction_fxg_split"] is True
     assert saved_settings["extraction_qt1"] is True
+    assert saved_settings["analysis_policy_sha256"] == canonical_hash(V2_POLICY)
+    assert saved_settings["extraction_qt1_goal_split"] is True
+    assert V2_POLICY["v1_activity_links"]
+    assert V2_POLICY["qt1_baseline_policy"]
+    assert V2_POLICY["v3_dec92_policy"]
     from proofops.application.tagging.q1_contract import QA2_POLICY
 
     assert V2_POLICY["structural_quality_policy"] == QA2_POLICY

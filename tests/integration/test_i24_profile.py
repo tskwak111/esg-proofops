@@ -4,8 +4,10 @@ from proofops.application import analysis_profile as profiles
 from proofops.domain.provenance import canonical_hash
 
 
-def test_v24_default_composes_all_and_keeps_v23():
-    p = profiles.policy_for(profiles.V2_PROFILE)
+def test_v24_pin_composes_all_and_keeps_v23():
+    p = profiles.policy_for(
+        profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_I24_POLICY)
+    )
     assert p["integration_profile"] == "finals-20261015-v24"
     assert p["source"] == "i24_claim_source_v1"
     assert p["fxg_extraction_wire_policy"] == profiles.FXG_POLICY["fxg_extraction_wire_policy"]

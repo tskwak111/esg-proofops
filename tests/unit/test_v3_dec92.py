@@ -83,7 +83,9 @@ def test_historical_policy_prompt_and_target_replay():
     assert canonical_hash(PRELIMINARY) == (
         "6f8cf2e4d892b0904fbf61ab2a8ec215ac1cc0b963916119d21492135ec9bf31"
     )
-    assert policy_for(V2_PROFILE) == FINALS_I24_POLICY
+    assert (
+        policy_for(V2_PROFILE, pinned_hash=canonical_hash(FINALS_I24_POLICY)) == FINALS_I24_POLICY
+    )
     assert publication_policy_for(V2_PROFILE, pinned_hash=canonical_hash(V3_POLICY)) == V3_POLICY
     assert "goal with category null" not in NEW_PROMPT
     for text in ("2030년까지 배출량을 20% 감축하겠습니다.", "2050년 넷제로와 RE100을 선언합니다."):

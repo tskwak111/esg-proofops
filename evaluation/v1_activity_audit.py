@@ -15,7 +15,7 @@ from hashlib import sha256
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from proofops.application.analysis_profile import V1_ACTIVITY_POLICY, V2_POLICY
+from proofops.application.analysis_profile import FINALS_I24_POLICY, V1_ACTIVITY_POLICY
 from proofops.application.tagging.analysis_scope import InventoryIndex, analyze_scope
 from proofops.application.tagging.element_inventory import (
     assemble_inventory,
@@ -201,7 +201,7 @@ def main():
         model_calls=0,
         actual_openai_api_calls=0,
         network="denied",
-        v24_default_sha256=canonical_hash(V2_POLICY),
+        v24_default_sha256=canonical_hash(FINALS_I24_POLICY),
         opt_in_sha256=canonical_hash(V1_ACTIVITY_POLICY),
         r17=reports,
         r17_rows=rows,

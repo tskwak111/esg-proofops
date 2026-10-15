@@ -413,6 +413,8 @@ def run(root, output, predictions_path=None):
             "overlay_sha256": overlay["overlay_sha256"],
             "policy_sha256": overlay["policy_sha256"],
             "input_identity_sha256": baseline["input_identity_sha256"],
+            "candidate_label": candidate["label"],
+            "candidate_limitations": candidate.get("limitations", []),
             "decision_sections": sections,
             "inputs_sha256": inputs.hashes,
             "evaluator_sha256": {
@@ -462,9 +464,24 @@ def run(root, output, predictions_path=None):
         [
             "| DL4 | pending scope | 28 | 24 |",
             "",
-            "Gold-only overlay on identical frozen predictions; no model improvement claim.",
+            (
+                "Gold-only overlay on identical frozen predictions; no model improvement claim."
+                if candidate == baseline
+                else (
+                    f"Candidate: {candidate['label']}. Frozen diagnostic comparison; "
+                    "no live model improvement claim."
+                )
+            ),
             "DL4/holdout grades and element metrics: not_run (extraction only).",
-            "R17 grades are E14 exports; element states are v24 QT2 replay, not v24 live results.",
+            (
+                "R17 grades are E14 exports; element states are v24 QT2 replay, "
+                "not v24 live results."
+                if candidate == baseline
+                else (
+                    "R17 candidate grade/element origins and limitations are recorded "
+                    "in the prediction manifest."
+                )
+            ),
             "Legacy DL3 denominator 156 is separate from DL4 denominator 131.",
             "R17 source omissions 102 and QT1 recoveries are historical, not V4 gains.",
         ]

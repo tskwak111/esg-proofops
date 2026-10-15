@@ -440,7 +440,9 @@ def test_new_profile_is_additive_and_keeps_v24_default():
     )
     from proofops.domain.provenance import canonical_hash
 
-    assert policy_for(V2_PROFILE) == FINALS_I24_POLICY
+    assert (
+        policy_for(V2_PROFILE, pinned_hash=canonical_hash(FINALS_I24_POLICY)) == FINALS_I24_POLICY
+    )
     pin = canonical_hash(V1_ACTIVITY_POLICY)
     assert policy_for(V2_PROFILE, pinned_hash=pin) == V1_ACTIVITY_POLICY
     assert publication_policy_for(V2_PROFILE, pinned_hash=pin) == V1_ACTIVITY_POLICY

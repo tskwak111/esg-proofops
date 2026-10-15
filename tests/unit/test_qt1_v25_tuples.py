@@ -88,7 +88,9 @@ def test_default_and_historical_hashes_remain_registered():
     )
     from proofops.domain.provenance import canonical_hash
 
-    assert policy_for(V2_PROFILE) == FINALS_I24_POLICY
+    assert (
+        policy_for(V2_PROFILE, pinned_hash=canonical_hash(FINALS_I24_POLICY)) == FINALS_I24_POLICY
+    )
     assert (
         canonical_hash(FINALS_I24_POLICY)
         == "775e8d04aaed82bd86c002402f3b80fdabd7206e69a1e768403cbc0644638501"
