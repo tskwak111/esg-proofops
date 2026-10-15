@@ -1,6 +1,7 @@
 """SC1 wire over the existing authorized, fenced, immutable tagging transport."""
 
 import json
+from dataclasses import replace
 
 from proofops.application.tagging.i24_inventory import SCHEMA, WIRE_PROMPT, transport_request
 from proofops.domain.rulepacks import canonical_json
@@ -52,3 +53,17 @@ class SC1InventoryTransport(UpstageTaggingTransport):
         if not Draft202012Validator(SCHEMA).is_valid(payload):
             raise ValueError("SC1_RESPONSE_SCHEMA_INVALID")
         return payload
+
+    def _response_metadata(self, response):
+        from proofops.adapters.local.i27_inventory_execution import current
+
+        request = current.get()
+        if request is None or not request["attempts"]:
+            return response
+        request["degraded"] = bool(request["terminal_code"] and response.usage.status == "failed")
+        return replace(
+            response,
+            provider_response_json=canonical_json(
+                json.loads(response.provider_response_json or "{}") | dict(i27_sc1_failure=request)
+            ),
+        )

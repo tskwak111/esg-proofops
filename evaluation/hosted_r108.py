@@ -172,13 +172,16 @@ def prepare_argv(pdf, state, tenant, config, options=None):
                 FINALS_I22_POLICY,
                 FINALS_I23_POLICY,
                 FINALS_I24_POLICY,
+                FINALS_I25_POLICY,
+                FINALS_I26_POLICY,
                 FINALS_Q1_POLICY,
                 FINALS_RG1_POLICY,
                 FINALS_S2_SPEED_POLICY,
                 FINALS_S5_POLICY,
                 FXH_POLICY,
-                RB3_POLICY,
+                OPS2_POLICY,
                 RB1_POLICY,
+                RB3_POLICY,
                 S1_POLICY,
                 S2_POLICY,
                 S4_POLICY,
@@ -213,6 +216,9 @@ def prepare_argv(pdf, state, tenant, config, options=None):
                 canonical_hash(FINALS_I22_POLICY),
                 canonical_hash(FINALS_I23_POLICY),
                 canonical_hash(FINALS_I24_POLICY),
+                canonical_hash(FINALS_I25_POLICY),
+                canonical_hash(FINALS_I26_POLICY),
+                canonical_hash(OPS2_POLICY),
                 canonical_hash(FXH_POLICY),
                 canonical_hash(RB3_POLICY),
                 canonical_hash(RB1_POLICY),
@@ -424,6 +430,9 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
 
         factories["llm"] = ops2_llm
 
+    from proofops.adapters.local.i27_inventory_execution import Failures
+
+    inventory_failures = Failures() if execution.get("i27_sc1_optional_transient") else None
     provider_gate = None
     if execution.get("execution_profile") in ("w3-speed-v1", "s2-server-v1"):
         from proofops.adapters.local.provider_concurrency import ProviderConcurrency
@@ -453,7 +462,10 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
         original_parse = factories["parse"]
 
         def bounded_llm(*a, **k):
-            return provider_gate.bind(original_llm(*a, **k))
+            probe = provider_gate.bind(original_llm(*a, **k))
+            if inventory_failures is not None:
+                probe.i27_inventory_failures = inventory_failures
+            return probe
 
         def bounded_c3_llm(*a, **k):
             return provider_gate.bind(original_c3_llm(*a, **k))
@@ -570,7 +582,15 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
                     recovered_by_fallback=recovered,
                     unresolved_total=failed - recovered + deferred,
                 )
-            if failed > recovered or deferred:
+            optional = 0
+            if inventory_failures is not None:
+                result["i27_sc1_failures"] = inventory_failures.summary()
+                optional = result["i27_sc1_failures"]["optional_failed_calls"]
+                result["provider_failures"].update(
+                    optional_inventory_failures=optional,
+                    unresolved_total=max(0, failed - recovered - optional) + deferred,
+                )
+            if failed > recovered + optional or deferred:
                 result.update(status="partial_blocked", reason="PROVIDER_PROCESSING_FAILED")
     if complete and execution.get("direct_certification_policy", {}).get("profile") == (
         "management-direct-certification-c3-v2"

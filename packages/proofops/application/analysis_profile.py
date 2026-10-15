@@ -2,6 +2,7 @@
 
 from proofops.adapters.local.claim_source_policies import PAGE_OCR_PROFILES
 from proofops.application.fxh_policy import POLICY as FXH_RUNTIME_POLICY
+from proofops.application.i27_inventory import POLICY as I27_INVENTORY_POLICY
 from proofops.application.ingest.fxg_wire import POLICY as FXG_WIRE_POLICY
 from proofops.application.ingest.h1_boundaries import POLICY as H1_BOUNDARY_POLICY
 from proofops.application.ingest.i3_wire import POLICY as I3_WIRE_POLICY
@@ -28,8 +29,8 @@ from proofops.application.provider_resilience import (
     SCHEDULER_POLICY,
 )
 from proofops.application.provider_resilience import POLICY as F1_RESILIENCE_POLICY
-from proofops.application.rb3_deadline import POLICY as RB3_DEADLINE_POLICY
 from proofops.application.rb1_input_isolation import POLICY as RB1_INPUT_POLICY
+from proofops.application.rb3_deadline import POLICY as RB3_DEADLINE_POLICY
 from proofops.application.tagging.analysis_scope import confirmation_policy as sc1_policy
 from proofops.application.tagging.c3_request_binding import S5_POLICY as S5_C3_BINDING
 from proofops.application.tagging.dec24 import (
@@ -1085,7 +1086,6 @@ FINALS_I26_POLICY = FXH_POLICY | dict(
 V2_POLICY = FINALS_I26_POLICY
 
 
-
 # S5 is explicit-hash only. V26 and every earlier entry stay byte-identical.
 S5_LIVE_POLICY = FINALS_I26_POLICY | dict(
     integration_profile="s5_finals_live_speed_v1",
@@ -1111,6 +1111,18 @@ RB1_POLICY = FXH_POLICY | dict(
     rb1_input_isolation=RB1_INPUT_POLICY,
     rb1_input_isolation_sha256=canonical_hash(RB1_INPUT_POLICY),
 )
+
+
+# V27 uses the S5 source reader once; RB3 contributes admission only. Historical
+# source modules remain byte-pinned for existing standalone receipts.
+FINALS_I27_POLICY = S5_LIVE_POLICY | dict(
+    integration_profile="finals-20261016-v27",
+    rb3_deadline=RB3_DEADLINE_POLICY,
+    rb1_input_isolation=RB1_INPUT_POLICY,
+    rb1_input_isolation_sha256=canonical_hash(RB1_INPUT_POLICY),
+    i27_sc1_optional_transient=I27_INVENTORY_POLICY,
+)
+V2_POLICY = FINALS_I27_POLICY
 
 
 def policy_for(profile, *, pinned_hash=None):
@@ -1147,6 +1159,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_I26_POLICY,
             S5_LIVE_POLICY,
             FXH_POLICY,
             OPS2_POLICY,
@@ -1311,6 +1324,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FINALS_I26_POLICY,
             S5_LIVE_POLICY,
             FXH_POLICY,
             OPS2_POLICY,

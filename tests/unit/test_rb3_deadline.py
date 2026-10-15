@@ -69,7 +69,9 @@ def test_rb3_pin_is_registered_without_changing_fxh_or_default():
     assert canonical_hash(FXH_POLICY) == (
         "aabfb9ee0a2351cb84b39b1474ccd45cbeb50bb33dee39d6f9a0f39189c41e09"
     )
-    assert policy_for(V2_PROFILE) == FINALS_I25_POLICY
+    assert (
+        policy_for(V2_PROFILE, pinned_hash=canonical_hash(FINALS_I25_POLICY)) == FINALS_I25_POLICY
+    )
     assert policy_for(V2_PROFILE, pinned_hash=canonical_hash(RB3_POLICY)) == RB3_POLICY
     assert publication_policy_for(V2_PROFILE, pinned_hash=canonical_hash(RB3_POLICY)) == RB3_POLICY
 

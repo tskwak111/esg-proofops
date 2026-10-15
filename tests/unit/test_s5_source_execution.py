@@ -25,7 +25,12 @@ def test_policy_dag_evaluation_is_exact_and_does_not_retain_stale_values(monkeyp
 def test_s5_is_opt_in_and_previous_analysis_pins_are_unchanged():
     from proofops.application import analysis_profile as profiles
 
-    assert profiles.policy_for(profiles.V2_PROFILE) == profiles.FINALS_I26_POLICY
+    assert (
+        profiles.policy_for(
+            profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_I26_POLICY)
+        )
+        == profiles.FINALS_I26_POLICY
+    )
     for policy in (profiles.FXH_POLICY, profiles.S5_LIVE_POLICY):
         pin = canonical_hash(policy)
         assert profiles.policy_for(profiles.V2_PROFILE, pinned_hash=pin) == policy

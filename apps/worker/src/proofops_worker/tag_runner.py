@@ -993,14 +993,15 @@ class LocalTagRunner:
 
         def isolated_claim(claim):
             nonlocal budget_stopped
-            from proofops.application.rb3_deadline import admit, held_claim
+            from proofops.application.rb3_deadline import admit
+            from proofops.application.rb3_deadline import held_claim as deadline_held_claim
 
             if not admit(self, snapshot, "tag"):
                 if heartbeat_state is not None:
                     heartbeat_state.check()
                 if not self.store.jobs.can_call(lease, now=int(self.clock())):
                     raise LeaseLost("LEASE_LOST")
-                return held_claim(claim)
+                return deadline_held_claim(claim)
             if claim.claim_id in pipelined:
                 record = dict(pipelined[claim.claim_id])
                 record["source_status"] = source_status(claim)

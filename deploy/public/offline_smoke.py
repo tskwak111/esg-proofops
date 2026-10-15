@@ -73,6 +73,7 @@ def worker():
     workspace.mkdir()
 
     def analyze(store, job, prepared):
+        os.environ["PROOFOPS_RB3_HARD_DEADLINE"] = str(time.monotonic() + 1800)
         (workspace / "selected.pdf").write_bytes(prepared.read_bytes())
         with async_parse_replies() as submit:
             state, outcome = drive(

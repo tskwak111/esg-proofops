@@ -21,6 +21,16 @@ def load_inventory(live, graph, selection):
         raise ValueError("SC1_HOSTED_POLICY_OR_GRAPH_MISMATCH")
     if live.settings.model_id != "gpt-6-luna":
         raise ValueError("SC1_HOSTED_MODEL_UNSUPPORTED")
+    from proofops.adapters.local.i27_inventory_execution import Failures, request_scope
+    from proofops.application.i27_inventory import POLICY as I27_POLICY
+
+    optional = live.snapshot.get("analysis_profile_policy", {}).get("i27_sc1_optional_transient")
+    if optional is not None and optional != I27_POLICY:
+        raise ValueError("I27_SC1_FAILURE_POLICY_MISMATCH")
+    failures = getattr(live.probe, "i27_inventory_failures", None)
+    if optional and failures is None:
+        failures = Failures()
+        live.probe.i27_inventory_failures = failures
     live._fence()
     plan = plan_inventory(graph, selection)
     calls = 3 * len(plan["chunks"])
@@ -47,7 +57,7 @@ def load_inventory(live, graph, selection):
         / Decimal(1_000_000)
         * Decimal("1.10")
     )
-    estimated = reserve * calls
+    estimated = reserve * calls * (1 + I27_POLICY["max_retries"] if optional else 1)
     live.usage["sc1_inventory_plan"] = dict(
         planned_calls=calls,
         max_calls=POLICY["max_calls"],
@@ -135,10 +145,28 @@ def load_inventory(live, graph, selection):
                     if hasattr(live.probe, "response_context")
                     else nullcontext()
                 )
-                with context:
+                with (
+                    context,
+                    request_scope(optional, original, failures) if optional else nullcontext(),
+                ):
                     response = transport.invoke(request)
             live.runner.store.usage.record_usage(call, response.usage, now=int(live.runner.clock()))
+            provider = json.loads(response.provider_response_json or "{}")
+            failure = provider.get("i27_sc1_failure") if optional else None
+            if failure is not None:
+                if failure["request_id"] != request["request_id"]:
+                    raise ValueError("I27_SC1_FAILURE_REQUEST_MISMATCH")
+                failures.record(failure)
             if response.usage.status != "succeeded" or not response.raw_response_json:
+                if failure is not None and failure["degraded"]:
+                    # Preserve a failed vote and its reason in the immutable
+                    # inventory; no absent/present substitute is manufactured.
+                    return dict(
+                        request_id=original["request_id"],
+                        status="failed",
+                        i27_sc1_failure=failure,
+                        reason="SC1_OPTIONAL_TRANSIENT_UNINSPECTED",
+                    )
                 raise ValueError("SC1_PROVIDER_FAILED")
             result = {
                 k: original[k]
@@ -161,6 +189,8 @@ def load_inventory(live, graph, selection):
                 replayed_from_other_request=bool(provider.get("response_reuse")),
                 transport_request_sha256=canonical_hash(request),
             )
+            if failure is not None:
+                result["i27_sc1_failure"] = failure
             return result
         except Exception as error:
             # A settled invalid answer poisons this chunk, not unrelated pages.
@@ -195,5 +225,10 @@ def load_inventory(live, graph, selection):
     # Reopening a completed immutable artifact must also expose its settled usage.
     for request_id in result["raw_responses"]:
         live.account(request_id)
+    if optional:
+        for value in result["raw_responses"].values():
+            if isinstance(value, dict) and value.get("i27_sc1_failure"):
+                failures.record(value["i27_sc1_failure"])
+        live.usage["i27_sc1_failures"] = failures.summary()
     live.usage["sc1_inventory_plan"]["completed_calls"] = result["completed_calls"]
     return result

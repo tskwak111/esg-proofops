@@ -289,23 +289,33 @@ class HostedOpenAILunaProbe(OpenAIProbe):
         def transport(request):
             if self.post and getattr(self, "provider_scheduler", None):
                 self.http_transport_pacing()
-            data = (
-                self.post(body)
-                if self.post
-                else super(HostedOpenAILunaProbe, self)._post(
-                    body, client_request_id=request["request_id"]
+            try:
+                data = (
+                    self.post(body)
+                    if self.post
+                    else super(HostedOpenAILunaProbe, self)._post(
+                        body, client_request_id=request["request_id"]
+                    )
                 )
-            )
+            except TimeoutError:
+                if inventory is not None:
+                    inventory["terminal_code"] = "SC1_PROVIDER_TIMEOUT"
+                raise
             if data.get("model") != OPENAI_MODEL:
                 raise ValueError("HOSTED_MODEL_MISMATCH")
             return request | dict(actual_usd=rounded_cost(token_cost(data["usage"])), payload=data)
 
+        from proofops.adapters.local.i27_inventory_execution import current, transient_code
         from proofops.adapters.local.openai_connections import OpenAIConnectNotSent
         from proofops.adapters.local.provider_concurrency import ProviderCircuitOpen
         from proofops.adapters.local.provider_scheduler import ProviderAdmissionDeferred
+        from proofops.application.i27_inventory import POLICY as I27_POLICY
 
+        inventory = current.get()
         scope = self._dispatch_context.get()
         for attempt in range(2):
+            if inventory is not None:
+                inventory["terminal_code"] = None
             allow = (
                 self.http_retry_policy == T1_RETRY_POLICY
                 and scope is not None
@@ -344,6 +354,8 @@ class HostedOpenAILunaProbe(OpenAIProbe):
                     )
                 if self.transport_policy:
                     self._finish_transport_attempt(call_id, "response_received", None)
+                if inventory is not None:
+                    inventory["terminal_code"] = None
                 return response["payload"]
             except OpenAIConnectNotSent as error:
                 if not self.transport_policy:
@@ -399,9 +411,47 @@ class HostedOpenAILunaProbe(OpenAIProbe):
                     self._finish_transport_attempt(call_id, "never_sent", None)
                     self._settle_never_sent(scope["request_id"])
                 raise
-            except BaseException:
+            except BaseException as error:
                 if self.transport_policy:
                     self._finish_transport_attempt(call_id, "unknown", None)
+                code = transient_code(error) if inventory is not None else None
+                if (
+                    inventory is not None
+                    and str(error) == "PROCESSING_UNCERTAIN"
+                    and inventory["terminal_code"] == "SC1_PROVIDER_TIMEOUT"
+                ):
+                    code = "SC1_PROVIDER_TIMEOUT"
+                if inventory is not None:
+                    inventory["terminal_code"] = code
+                if code is not None:
+                    inventory["attempts"].append(dict(call_id=call_id, code=code))
+                    if (
+                        code.startswith("OPENAI_HTTP_5")
+                        and attempt == 0
+                        and inventory["retries"] < I27_POLICY["max_retries"]
+                        and scope is not None
+                        and not scope["transport_retries"]
+                    ):
+                        delay = I27_POLICY["backoff_base_seconds"] * (
+                            I27_POLICY["backoff_multiplier"] ** inventory["retries"]
+                        )
+                        inventory["retries"] += 1
+                        scope["transport_retries"].append(
+                            dict(
+                                policy_sha256=canonical_hash(I27_POLICY),
+                                failed_call_id=call_id,
+                                delay_seconds=delay,
+                            )
+                        )
+                        time.sleep(delay)
+                        from proofops.adapters.local.openai import now as price_now
+
+                        if price_now() >= PRICE_RECHECK_AT:
+                            inventory["terminal_code"] = None
+                            raise ValueError("PRICE_RECHECK_REQUIRED")
+                        inventory["terminal_code"] = None
+                        self._authorize_response_request()
+                        continue
                 raise
         raise ValueError("OPENAI_HTTP_403")
 

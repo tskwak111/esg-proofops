@@ -44,8 +44,8 @@ from proofops.application.claims import (
 )
 from proofops.application.ports.jobs import JobMessage, LeaseLost
 from proofops.application.preflight import check_local_upstage_binding
-from proofops.application.rb3_deadline import admit as rb3_admit
 from proofops.application.rb1_input_isolation import InputIsolation
+from proofops.application.rb3_deadline import admit as rb3_admit
 from proofops.application.telemetry import TraceContext
 from proofops.application.uploads_security import UploadRejected
 from proofops.domain.provenance import canonical_hash

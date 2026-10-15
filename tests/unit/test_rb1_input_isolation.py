@@ -20,7 +20,12 @@ def isolation():
 
 def test_rb1_pin_is_opt_in_and_old_policies_keep_their_hashes():
     policy = profiles.RB1_POLICY
-    assert profiles.policy_for(profiles.V2_PROFILE) == profiles.FINALS_I25_POLICY
+    assert (
+        profiles.policy_for(
+            profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_I25_POLICY)
+        )
+        == profiles.FINALS_I25_POLICY
+    )
     assert (
         profiles.publication_policy_for(profiles.V2_PROFILE, pinned_hash=canonical_hash(policy))
         == policy

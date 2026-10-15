@@ -1076,7 +1076,11 @@ class UpstageTaggingTransport:
                 False,
                 canonical_json(receipt),
             )
+        response = self._response_metadata(response)
         write(directory / "response.json", canonical_json(asdict(response)))
+        return response
+
+    def _response_metadata(self, response):
         return response
 
     @staticmethod

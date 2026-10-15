@@ -99,7 +99,19 @@ class OPS2Probe(HostedOpenAILunaProbe):
         try:
             response = super()._post(body)
         except Exception as error:
-            trigger = fallback_trigger(error)
+            from proofops.adapters.local.i27_inventory_execution import current, transient_code
+
+            # Optional SC1 timeouts/5xx stay local to the chunk. Billing and
+            # 429/403 still follow the existing run-wide fallback policy.
+            trigger = (
+                None
+                if current.get() is not None
+                and (
+                    transient_code(error)
+                    or current.get()["terminal_code"] == "SC1_PROVIDER_TIMEOUT"
+                )
+                else fallback_trigger(error)
+            )
             # The scheduler has already closed each physical attempt. Retain
             # only this logical request's failures; other requests remain blocked.
             attempts = (self._dispatch_context.get() or {}).get("physical_attempts", [])

@@ -6,8 +6,10 @@ from proofops.application import analysis_profile as profiles
 from proofops.domain.provenance import canonical_hash
 
 
-def test_v26_default_has_exact_reviewed_deltas_and_keeps_pins():
-    current = profiles.policy_for(profiles.V2_PROFILE)
+def test_v26_pin_has_exact_reviewed_deltas_and_keeps_pins():
+    current = profiles.policy_for(
+        profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_I26_POLICY)
+    )
     assert current == profiles.FINALS_I26_POLICY
     assert current["integration_profile"] == "finals-20261016-v26"
     expected = profiles.FXH_POLICY | dict(
