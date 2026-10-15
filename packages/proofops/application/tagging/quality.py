@@ -39,6 +39,10 @@ LADDER = {
 
 def hold_projection(item, *, profile=None):
     """Explain an uninformative whole-pack range without changing facts or grades."""
+    if profile == "v3-dec92-v1":
+        from proofops.application.tagging.v3_dec92 import hold_projection as v3_hold
+
+        return v3_hold(item)
     if profile == "k2-v1":
         return _cause_specific_hold(item)
     result = item["provisional_grade"]

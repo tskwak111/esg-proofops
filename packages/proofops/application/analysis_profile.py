@@ -82,6 +82,8 @@ from proofops.application.tagging.quality import ELEMENT_DEFINITIONS_HASH
 from proofops.application.tagging.semantic_admission import POLICY as W8_POLICY
 from proofops.application.tagging.semantic_admission import POLICY_HASH as W8_POLICY_HASH
 from proofops.application.tagging.v1_activity_links import POLICY as V1_ACTIVITY_LINK_POLICY
+from proofops.application.tagging.v3_dec92 import POLICY as V3_DEC92_POLICY
+from proofops.application.tagging.v3_dec92 import PROMPT_POLICY as V3_PROMPT_POLICY
 from proofops.domain.provenance import canonical_hash
 
 PROFILE = "finals-unattended-v1"
@@ -1024,6 +1026,19 @@ QT1_V25_POLICY = FINALS_I24_POLICY | dict(
 )
 
 
+# V3 is an exact-hash opt-in; the public v24 default and old entries stay frozen.
+
+V3_POLICY = FINALS_I24_POLICY | dict(
+    integration_profile="v3_finals_dec92_v1",
+    v3_dec92_policy=V3_DEC92_POLICY,
+    v3_dec92_policy_sha256=canonical_hash(V3_DEC92_POLICY),
+    tagging_prompt_profile=V3_PROMPT_POLICY["profile"],
+    tagging_prompt_policy=V3_PROMPT_POLICY,
+    tagging_prompt_policy_sha256=canonical_hash(V3_PROMPT_POLICY),
+    hold_display="v3-dec92-v1",
+)
+
+
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
     from proofops.application.tagging.fact_assembly_c3_v2 import (
@@ -1059,6 +1074,7 @@ def policy_for(profile, *, pinned_hash=None):
         choices = (
             V2_POLICY,
             FINALS_I23_POLICY,
+            V3_POLICY,
             FXF_POLICY,
             FXE_POLICY,
             QT1_POLICY,
@@ -1215,6 +1231,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
         (
             policy_for(profile),
             FINALS_I23_POLICY,
+            V3_POLICY,
             FXF_POLICY,
             FXE_POLICY,
             QT1_POLICY,

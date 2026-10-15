@@ -469,6 +469,14 @@ class LiveTaggingRuntime:
             if policy["qt1_tuple_policy"] != POLICY:
                 raise ValueError("QT1_TUPLE_POLICY_MISMATCH")
             data = augment_packet(data, claim, self.graph, tenant_id=self.graph.tenant_id)
+        if "v3_dec92_policy" in policy:
+            from proofops.application.tagging.v3_context import augment_packet as v3_augment
+            from proofops.application.tagging.v3_dec92 import validate_policy as validate_v3
+
+            validate_v3(policy["v3_dec92_policy"])
+            if policy.get("v3_dec92_policy_sha256") != canonical_hash(policy["v3_dec92_policy"]):
+                raise ValueError("V3_DEC92_POLICY_PIN_MISMATCH")
+            data = v3_augment(data, claim, self.graph, tenant_id=self.graph.tenant_id)
         if display_catalog is not None:
             data["display_text"] = display_catalog.element_pins(data)
         if policy.get("hold_recovery_policy") is not None:
@@ -616,12 +624,14 @@ class LiveTaggingRuntime:
                 from proofops.application.tagging.k1_semantics import GUIDANCE
                 from proofops.application.tagging.k9_contract import PRELIMINARY as K9_PRELIMINARY
                 from proofops.application.tagging.q1_contract import PRELIMINARY as Q1_PRELIMINARY
+                from proofops.application.tagging.v3_dec92 import PRELIMINARY as V3_PRELIMINARY
 
                 if self.preliminary_settings.system_prompt in (
                     COMPACT_PROMPT + "\n" + GUIDANCE,
                     K4_PRELIMINARY,
                     K9_PRELIMINARY,
                     Q1_PRELIMINARY,
+                    V3_PRELIMINARY,
                 ):
                     packet["prompt_sha256"] = canonical_hash(
                         self.preliminary_settings.system_prompt
@@ -778,7 +788,18 @@ class LiveTaggingRuntime:
             )
             from proofops.application.tagging.q1_contract import SEMANTIC_POLICY as Q1_POLICY
 
-            if semantic in (Q1_POLICY, K10_POLICY, K10_V2_POLICY):
+            v3_policy = self.snapshot.get("analysis_profile_policy", {}).get("v3_dec92_policy")
+            if v3_policy is not None:
+                from proofops.application.tagging.v3_dec92 import validate_classification
+                from proofops.application.tagging.v3_dec92 import validate_policy as validate_v3
+
+                validate_v3(v3_policy)
+                if self.snapshot["analysis_profile_policy"].get(
+                    "v3_dec92_policy_sha256"
+                ) != canonical_hash(v3_policy):
+                    raise ValueError("V3_DEC92_POLICY_PIN_MISMATCH")
+                result = validate_classification(result, claim, graph)
+            if v3_policy is None and semantic in (Q1_POLICY, K10_POLICY, K10_V2_POLICY):
                 from proofops.application.tagging.q1_contract import forecast_quote
 
                 if forecast_quote(claim.quote) and result.safe_harbor_category != "forward_looking":
@@ -838,6 +859,7 @@ class LiveTaggingRuntime:
                 raise ValueError("K1_PUE_PERFORMANCE_RETAG_REQUIRED")
             if (
                 pb1
+                and v3_policy is None
                 and result.safe_harbor_category == "forward_looking"
                 and not (
                     semantic in (Q1_POLICY, K10_POLICY, K10_V2_POLICY)

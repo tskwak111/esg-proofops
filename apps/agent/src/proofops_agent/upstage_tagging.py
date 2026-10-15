@@ -714,6 +714,11 @@ class UpstageTaggingTransport:
 
             validate_policy(data.pop("structural_quality_policy"))
             wire_system += element_guidance(data.get("atomic_quote", ""))
+        if "v3_dec92_policy" in data:
+            from proofops.application.tagging.v3_dec92 import ELEMENT_GUIDANCE, validate_policy
+
+            validate_policy(data.pop("v3_dec92_policy"))
+            wire_system += "\n" + ELEMENT_GUIDANCE
         if "qt2_contextual_elements_policy" in data:
             from proofops.application.tagging.qt2_context import GUIDANCE, validate_policy
 
