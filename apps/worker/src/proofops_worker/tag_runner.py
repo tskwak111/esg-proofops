@@ -309,7 +309,9 @@ class LocalTagRunner:
             ):
                 raise ValueError("SEMANTIC_ADMISSION_POLICY_PIN_MISMATCH")
         hold_profile = (
-            "k2-v1"
+            "v3-dec92-v1"
+            if snapshot.get("analysis_profile_policy", {}).get("hold_display") == "v3-dec92-v1"
+            else "k2-v1"
             if snapshot.get("analysis_profile_policy", {}).get("hold_display")
             == "cause-specific-k2-v1"
             else "dec24-v1"
@@ -819,7 +821,7 @@ class LocalTagRunner:
                             packet,
                             rulepack,
                             rule_context,
-                            profile=hold_profile,
+                            profile="k2-v1" if hold_profile == "v3-dec92-v1" else hold_profile,
                             semantic_policy=semantic_policy,
                             original=graph,
                             range_profile=snapshot.get("pipeline_profile")

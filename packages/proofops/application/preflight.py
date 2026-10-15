@@ -756,6 +756,9 @@ def check_local_upstage_tagger(
                 __import__(
                     "proofops.application.tagging.q1_contract", fromlist=["PRELIMINARY"]
                 ).PRELIMINARY,
+                __import__(
+                    "proofops.application.tagging.v3_dec92", fromlist=["PRELIMINARY"]
+                ).PRELIMINARY,
             )
         )
         or relation_settings_contract_valid(settings)

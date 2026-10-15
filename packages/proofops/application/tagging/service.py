@@ -246,6 +246,12 @@ def tag_replicates(
         from proofops.application.tagging.qt2_context import validate_policy as validate_contextual
 
         validate_contextual(contextual_policy)
+    v3_policy = data.get("v3_dec92_policy")
+    if v3_policy is not None:
+        from proofops.application.tagging.v3_context import accepts_context as accepts_v3
+        from proofops.application.tagging.v3_dec92 import validate_policy as validate_v3
+
+        validate_v3(v3_policy)
     local_recovery = data.get("local_element_recovery_policy")
     implementation_binding = data.get("local_implementation_binding_policy")
     structural_policy = data.get("structural_quality_policy")
@@ -406,6 +412,8 @@ def tag_replicates(
     }
     if contextual_policy is not None:
         user_data["qt2_contextual_elements_policy"] = contextual_policy
+    if v3_policy is not None:
+        user_data["v3_dec92_policy"] = v3_policy
     if implementation_binding is not None:
         user_data["local_implementation_binding_policy"] = implementation_binding
     if structural_policy is not None:
@@ -846,6 +854,17 @@ def tag_replicates(
                                     relation_tags=relation_tags_for(verified, relation_tags),
                                 )
                             )
+                            and not (
+                                v3_policy is not None
+                                and accepts_v3(
+                                    context,
+                                    verified,
+                                    original,
+                                    tenant_id=tenant_id,
+                                    element_id=element.element_id,
+                                    relation_tags=relation_tags_for(verified, relation_tags),
+                                )
+                            )
                             and accept_binding(
                                 context,
                                 verified,
@@ -932,6 +951,14 @@ def tag_replicates(
                     admitted = future_implementation_guard(
                         replace(element, evidence_refs=tuple(refs)),
                         claim_quote=claim.quote,
+                    )
+                    if admitted.state != "present":
+                        state, semantic_reason = admitted.state, admitted.reason_code
+                if v3_policy is not None and state == "present":
+                    from proofops.application.tagging.v3_dec92 import guard as v3_guard
+
+                    admitted = v3_guard(
+                        replace(element, evidence_refs=tuple(refs)), claim_quote=claim.quote
                     )
                     if admitted.state != "present":
                         state, semantic_reason = admitted.state, admitted.reason_code
