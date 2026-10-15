@@ -184,7 +184,16 @@ def test_public_default_upload_binding_parse_extract_tag_publication(
         canonical_hash(policy)
     )
     snapshot = (state / "result-1.json").read_bytes()
-    assert create_hosted_app(settings).state.composition.get_result(tenant, done["run_id"]) == data
+    # W16 adds read-time source coordinates; every frozen result field remains exact.
+    frozen = create_hosted_app(settings).state.composition.get_result(tenant, done["run_id"])
+    assert {k: v for k, v in data.items() if k not in ("w16_source_document", "claims")} == {
+        k: v for k, v in frozen.items() if k != "claims"
+    }
+    assert [
+        {k: v for k, v in c.items() if k != "w16_source_view"} for c in data["claims"]
+    ] == frozen["claims"]
+    assert data["w16_source_document"]["document_id"] == document
+    assert all(c["w16_source_view"]["quote"] == c["quote"] for c in data["claims"])
     assert (state / "result-1.json").read_bytes() == snapshot
     foreign, _, _, _ = login(app, store)
     assert foreign.get(done["result_url"]).status_code == 404

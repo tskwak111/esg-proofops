@@ -214,8 +214,10 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
             "Idempotency-Key",
             "If-Match",
             "X-Pipeline-Profile",
+            "Range",
+            "If-Range",
         ],
-        expose_headers=["Retry-After", "ETag"],
+        expose_headers=["Retry-After", "ETag", "X-Source-SHA256", "Accept-Ranges", "Content-Range"],
     )
     app.add_middleware(BrowserSecurityHeadersMiddleware)
 
@@ -502,6 +504,16 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
     def document(document_id: UUID, auth: Annotated[AuthContext, Depends(current)]) -> dict:
         return store.get_document(auth.tenant_id, str(document_id))
 
+    @app.get("/v1/documents/{document_id}/original", response_class=Response)
+    def document_original(
+        document_id: UUID,
+        auth: Annotated[AuthContext, Depends(current)],
+        sha256: Annotated[str | None, Query(pattern=r"^[0-9a-f]{64}$")] = None,
+    ):
+        from proofops_api.hosted_source_view import original_pdf
+
+        return original_pdf(store, auth, str(document_id), sha256)
+
     @app.get("/v1/documents/{document_id}/scope-plan")
     def scope_get(
         document_id: UUID, response: Response, auth: Annotated[AuthContext, Depends(current)]
@@ -631,8 +643,17 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
         return store.get_run(auth.tenant_id, str(run_id))
 
     @app.get("/v1/runs/{run_id}/result")
-    def result(run_id: UUID, auth: Annotated[AuthContext, Depends(current)]) -> dict:
-        return store.get_result(auth.tenant_id, str(run_id))
+    def result(
+        run_id: UUID, response: Response, auth: Annotated[AuthContext, Depends(current)]
+    ) -> dict:
+        from proofops_api.hosted_source_view import project_source_view
+
+        stored = store.get_result(auth.tenant_id, str(run_id))
+        with store.transaction(readonly=True) as db:
+            row = store._run(db, auth.tenant_id, str(run_id))
+            doc = store._document(db, auth.tenant_id, row["document_id"])
+        response.headers["Cache-Control"] = "private, no-store"
+        return project_source_view(reads, row, doc, stored)
 
     @app.post("/v1/runs/{run_id}/reviews/{review_id}/resolve")
     def resolve_review(
