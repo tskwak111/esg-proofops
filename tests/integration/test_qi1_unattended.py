@@ -1,6 +1,21 @@
+import time
+
+import pytest
+from proofops.application.rb3_deadline import Deadline
 from proofops.application.runs import RunService
+from proofops_worker.extract_runner import LocalExtractRunner
+from proofops_worker.tag_runner import LocalTagRunner
 
 from tests.integration.test_local_tag_runner import TENANT, verified_setup
+
+
+@pytest.fixture(autouse=True)
+def parent_deadline(monkeypatch):
+    # These fixtures construct workers directly; hosted_r108 supplies the same
+    # run-local deadline to both workers when executing the current v2 profile.
+    deadline = Deadline(time.monotonic() + 1800)
+    for worker in (LocalExtractRunner, LocalTagRunner):
+        monkeypatch.setattr(worker, "rb3_deadline", deadline, raising=False)
 
 
 def test_v2_live_run_keeps_capacity_and_analysis_policies_separate(tmp_path, monkeypatch):
