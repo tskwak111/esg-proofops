@@ -29,6 +29,7 @@ PAGE_OCR_PROFILES = {
     "upstage-ocr-page-v17-rg1": "proofops.adapters.local.upstage_ocr_profile_rg1_v17",
     "upstage-ocr-page-v16-hx4": "proofops.adapters.local.upstage_ocr_profile_hx4_v16",
     "upstage-ocr-page-v16-hx5": "proofops.adapters.local.upstage_ocr_profile_hx5_v16",
+    "fxg_claim_source_v1": "proofops.adapters.local.fxg_claim_source",
 }
 
 RENDER_RESOLUTION_POLICY_SCHEMA = "claim_span_render_resolution_policy_v1"

@@ -77,9 +77,12 @@ def _f1_failure_origin(error, snapshot):
     )
 
 
-def _candidate_extract(live, packet, snapshot):
+def _candidate_extract(live, packet, snapshot, *, fxg_guard=None):
     try:
-        return live.extract(packet)
+        from proofops.application.ingest.fxg_wire import dispatch_scope
+
+        with dispatch_scope(fxg_guard):
+            return live.extract(packet)
     except ValueError as error:
         code = str(error)
         from proofops.application.input_failures import POLICY, TABLE_ERRORS
@@ -169,6 +172,35 @@ def fence_provider_call(runner, lease, usage):
         runner.store.jobs.heartbeat(lease, now=int(runner.clock()), lease_seconds=300)
     except LeaseLost:
         raise StageFailure("LEASE_LOST", usage=usage) from None
+
+
+def fxg_dispatch_guard(runner, lease, usage, snapshot, graph, profile, limit):
+    """Additional FXG requests retain the original per-attempt authority and caps."""
+    if not getattr(runner.extractor, "_fxg_split", False):
+        return None
+    remaining, lock = limit, Lock()
+
+    def guard():
+        nonlocal remaining
+        with lock:
+            if remaining <= 0:
+                raise ValueError("BUDGET_EXHAUSTED")
+            fence_provider_call(runner, lease, usage)
+            authorization = check_local_upstage_binding(
+                binding=snapshot["runtime"],
+                consent=snapshot["consent"],
+                auth=AuthContext(
+                    "local-worker", graph.tenant_id, "viewer", frozenset(), snapshot["run_id"]
+                ),
+                checked_at=datetime.fromtimestamp(runner.clock(), UTC).isoformat(),
+                source_sha256=graph.source_sha256,
+                model_sha256=profile.model_sha256,
+            )
+            if not authorization.ready:
+                raise ValueError("LOCAL_TEST_AUTHORIZATION_INVALID")
+            remaining -= 1
+
+    return guard
 
 
 def prefetch_packets(packets, invoke, *, max_workers=16, on_page=None, prepare_pages=None):
@@ -701,6 +733,17 @@ class LocalExtractRunner:
                 else None
             )
             live_extractor = _live_extractor(runner.extractor, graph, source)
+            fxg_guard = fxg_dispatch_guard(
+                runner,
+                lease,
+                usage,
+                snapshot,
+                graph,
+                profile,
+                min(batch_calls, total_budget - prior_calls)
+                if total_budget is not None
+                else batch_calls,
+            )
 
             class FencedLive:
                 profile_ = profile
@@ -723,7 +766,9 @@ class LocalExtractRunner:
                     with usage_lock:
                         usage["extractor_calls"] += 1
                     try:
-                        return _candidate_extract(live_extractor, packet, snapshot)
+                        return _candidate_extract(
+                            live_extractor, packet, snapshot, fxg_guard=fxg_guard
+                        )
                     finally:
                         sync_usage()
 
@@ -940,6 +985,9 @@ class LocalExtractRunner:
                         if is_real
                         else 0
                     )
+                    fxg_guard = fxg_dispatch_guard(
+                        runner, lease, usage, snapshot, graph, profile, effective_max
+                    )
                     eligible_sources: set[str] | None = None
                     if is_real:
                         eligible_sources = select_stable_paragraph_sources(
@@ -1009,7 +1057,9 @@ class LocalExtractRunner:
                                 self.calls += 1
                                 usage["extractor_calls"] += 1
                             try:
-                                return _candidate_extract(live_extractor, packet, snapshot)
+                                return _candidate_extract(
+                                    live_extractor, packet, snapshot, fxg_guard=fxg_guard
+                                )
                             finally:
                                 sync_usage()
 

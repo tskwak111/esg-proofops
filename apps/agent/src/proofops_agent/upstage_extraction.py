@@ -564,6 +564,7 @@ def _profile_with_options(
     extraction_q1: bool = False,
     extraction_qt1: bool = False,
     extraction_qc_native_figures: bool = False,
+    extraction_fxg_split: bool = False,
 ) -> ExtractionProfile:
     """Versioned extraction profile for an explicit option combination.
 
@@ -587,6 +588,8 @@ def _profile_with_options(
         and not (source_ids and extraction_context and extraction_j8 and extraction_k6)
     ):
         raise ValueError("QT1_EXTRACTION_PROFILE_INVALID")
+    if type(extraction_fxg_split) is not bool or (extraction_fxg_split and not source_ids):
+        raise ValueError("EXTRACTION_FXG_PROFILE_INVALID")
     if type(extraction_qc_native_figures) is not bool or (
         extraction_qc_native_figures
         and not (source_ids and extraction_context and extraction_table_rows and extraction_w9)
@@ -778,6 +781,10 @@ def _profile_with_options(
                 ids="c0..cN; exact unique enum; original offsets retained",
             )
         )
+    if extraction_fxg_split:
+        from proofops.application.ingest.fxg_wire import POLICY as FXG_POLICY
+
+        descriptor.append(FXG_POLICY)
     if display_text_profile:
         descriptor.append(POLICY)
     if year_notation:
@@ -941,6 +948,7 @@ class UpstageClaimExtractor:
         extraction_q1: bool = False,
         extraction_qt1: bool = False,
         extraction_qc_native_figures: bool = False,
+        extraction_fxg_split: bool = False,
     ) -> None:
         if type(extraction_q1) is not bool or (extraction_q1 and not extraction_j8):
             raise ValueError("Q1_EXTRACTION_PROFILE_INVALID")
@@ -1025,6 +1033,7 @@ class UpstageClaimExtractor:
             extraction_q1=extraction_q1,
             extraction_qt1=extraction_qt1,
             extraction_qc_native_figures=extraction_qc_native_figures,
+            extraction_fxg_split=extraction_fxg_split,
         )
         if type(max_tokens) is not int or not 1 <= max_tokens <= 4096:
             raise ValueError("UPSTAGE_MAX_TOKENS_INVALID")
@@ -1055,6 +1064,7 @@ class UpstageClaimExtractor:
         self._q1 = extraction_q1
         self._qt1 = extraction_qt1
         self._qc_native_figures = extraction_qc_native_figures
+        self._fxg_split = extraction_fxg_split
         self._i3_wire = extraction_i3_wire
         self._i4_identity = extraction_i4_identity
         self._h1 = extraction_h1
@@ -1347,7 +1357,23 @@ class UpstageClaimExtractor:
                 "max_tokens": self._max_tokens,
                 "json_mode": True,
             }
+        if self._fxg_split and user_data["untrusted_document_data"]["source_sentences"]:
+            from proofops_agent.fxg_extraction import extract_parts, plan
+
+            parts = plan(self._probe, system_prompt, user_data, max_tokens=self._max_tokens)
+            if len(parts) > 1:
+                return extract_parts(
+                    self, packet, system_prompt, user_data, parts, context_graph=context_graph
+                )
         directory = self._receipts / request_id
+        if (
+            self._fxg_split
+            and user_data["untrusted_document_data"]["source_sentences"]
+            and not directory.exists()
+        ):
+            from proofops.application.ingest.fxg_wire import before_dispatch
+
+            before_dispatch()
         try:
             directory.mkdir(mode=0o700)
         except FileExistsError:

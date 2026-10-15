@@ -779,6 +779,7 @@ def apply_resume_metadata(args, saved: dict) -> None:
     args.extraction_i3_wire = bool(saved.get("extraction_i3_wire", False))
     args.extraction_i4_identity = bool(saved.get("extraction_i4_identity", False))
     args.extraction_qc_native_figures = bool(saved.get("extraction_qc_native_figures", False))
+    args.extraction_fxg_split = bool(saved.get("extraction_fxg_split", False))
     args.extraction_h1 = bool(saved.get("extraction_h1", False))
     args.extraction_i5_tables = bool(saved.get("extraction_i5_tables", False))
     args.extraction_k6 = bool(saved.get("extraction_k6", False))
@@ -1705,6 +1706,7 @@ def main():
                     extraction_i3_wire=args.extraction_i3_wire,
                     extraction_i4_identity=args.extraction_i4_identity,
                     extraction_qc_native_figures=args.extraction_qc_native_figures,
+                    extraction_fxg_split=getattr(args, "extraction_fxg_split", False),
                     extraction_h1=getattr(args, "extraction_h1", False),
                     extraction_i5_tables=getattr(args, "extraction_i5_tables", False),
                     extraction_k6=args.extraction_k6,
@@ -1797,6 +1799,8 @@ def main():
             settings["extraction_qt1"] = True
         if args.extraction_i4_identity:
             settings["extraction_i4_identity"] = True
+        if getattr(args, "extraction_fxg_split", False):
+            settings["extraction_fxg_split"] = True
         if args.extraction_qc_native_figures:
             settings["extraction_qc_native_figures"] = True
         if args.extraction_i3_wire:
@@ -2360,6 +2364,8 @@ def main():
             manifest["extraction_qt1"] = True
         if args.extraction_i4_identity:
             manifest["extraction_i4_identity"] = True
+        if getattr(args, "extraction_fxg_split", False):
+            manifest["extraction_fxg_split"] = True
         if args.extraction_qc_native_figures:
             manifest["extraction_qc_native_figures"] = True
         if args.extraction_i3_wire:
@@ -2483,6 +2489,7 @@ def main():
             "extraction_i3_wire",
             "extraction_i4_identity",
             "extraction_qc_native_figures",
+            "extraction_fxg_split",
             "extraction_h1",
             "extraction_i5_tables",
             "extraction_k6",
