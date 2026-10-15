@@ -130,11 +130,17 @@ def test_image_backed_text_layer_requires_pixel_confirmation(monkeypatch):
     batch = replace(graph.candidates[0], source_sha256=graph.source_sha256)
     graph = replace(graph, candidates=(batch,))
     ref = graph.blocks[0].source_ref()
-    monkeypatch.setattr(
-        v4.v3,
-        "_rendered_text",
-        lambda *a, **k: dict(status="read", text="incorrect OCR value 1235"),
-    )
+    from proofops.adapters.local import claim_source_verification as strict
+    from proofops.adapters.local import claim_span_bullet_alignment as bullet
+
+    # Inject the same failing pixel read across the full v3 chain on Linux
+    # and macOS, so this checks a mismatch rather than platform availability.
+    for module in (strict, bullet, v4.v3):
+        monkeypatch.setattr(
+            module,
+            "_rendered_text",
+            lambda *a, **k: dict(status="read", text="incorrect OCR value 1235"),
+        )
     record = v4.attest_claim_spans(graph, source, (ref,), tenant_id=TENANT)["records"][0]
     assert record["status"] == "unresolved"
     assert record["reason"] == "rendered_quote_unresolved"
