@@ -10,6 +10,7 @@ import ctypes
 import math
 import re
 import signal
+from collections.abc import Callable
 from hashlib import file_digest
 from importlib.metadata import version
 from pathlib import Path
@@ -101,6 +102,7 @@ def inspect_streaming(
     discovery_reader=None,
     max_discovery_pages=24,
     discovery_wall_seconds=60,
+    reporting_period_policy=None,
 ):
     if pdf.stat().st_size > 150 * 1024 * 1024:
         raise ValueError("hosted scope limit: 150 MiB")
@@ -259,9 +261,17 @@ def inspect_streaming(
             raise ValueError("source changed during discovery inspection")
     from evaluation.reporting_period import detect_reporting_period
 
+    period_detector: Callable[[dict, int, str], dict] = detect_reporting_period
+    if reporting_period_policy is not None:
+        from evaluation.rb2_reporting_period import PROFILE, detect
+
+        if reporting_period_policy != PROFILE:
+            raise ValueError("unsupported reporting period policy")
+        period_detector = detect
+
     # OCR is discovery-only, including reporting period. It is not a trusted
     # native snippet for period auto-confirmation.
     native_texts = {p: t for p, t in texts.items() if p not in plan.get("discovery_only_pages", [])}
-    plan["reporting_period_detection"] = detect_reporting_period(native_texts, count, digest)
+    plan["reporting_period_detection"] = period_detector(native_texts, count, digest)
     plan["plan_sha256"] = canonical_hash({k: v for k, v in plan.items() if k != "plan_sha256"})
     return plan

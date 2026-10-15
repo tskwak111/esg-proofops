@@ -1058,6 +1058,14 @@ FXH_POLICY = FINALS_I25_POLICY | dict(
 )
 
 
+# RB2 is additive. I26 may compose these two selectors into its new policy hash.
+RB2_POLICY = FXH_POLICY | dict(
+    integration_profile="rb2_parser_limit_v1",
+    parser_output_policy="rb2-output-v1",
+    reporting_period_policy="rb2-native-period-v1",
+)
+
+
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
     from proofops.application.tagging.fact_assembly_c3_v2 import (
@@ -1093,6 +1101,7 @@ def policy_for(profile, *, pinned_hash=None):
         choices = (
             V2_POLICY,
             FXH_POLICY,
+            RB2_POLICY,
             FINALS_I24_POLICY,
             FINALS_I23_POLICY,
             V3_POLICY,
@@ -1252,6 +1261,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
         (
             policy_for(profile),
             FXH_POLICY,
+            RB2_POLICY,
             FINALS_I24_POLICY,
             FINALS_I23_POLICY,
             V3_POLICY,
@@ -1369,6 +1379,7 @@ def apply_pilot_profile(args):
     args.extraction_located_table_context = bool(selected.get("located_table_context"))
     args.parser_local_resource_policy = selected.get("local_resource_policy")
     args.parser_failure_policy = selected.get("parser_failure_policy")
+    args.parser_output_policy = selected.get("parser_output_policy")
     if selected.get("parser_source_recovery"):
         args.parser_source_recovery = selected["parser_source_recovery"]
     args.extraction_h1 = bool(selected.get("selected_boundary_recovery"))

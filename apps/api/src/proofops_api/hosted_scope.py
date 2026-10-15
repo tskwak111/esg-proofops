@@ -1,6 +1,7 @@
 """Free AS1 inspection in a resource-bounded child, no provider transport."""
 
 import json
+import os
 import resource
 import sys
 from pathlib import Path
@@ -14,6 +15,7 @@ def main():
     from proofops.application.analysis_profile import V2_PROFILE, policy_for
 
     from evaluation.hosted_scope_plan import inspect_streaming
+    from evaluation.rb2_reporting_period import configured_profile
 
     pdf = Path(sys.argv[1])
     source_sha = sys.argv[3] if len(sys.argv) > 3 else None
@@ -41,6 +43,7 @@ def main():
         if policy.get("scope_ranking") == "W5-v1"
         else "W4-v2",
         discovery_reader=discovery if len(sys.argv) > 4 else None,
+        reporting_period_policy=configured_profile(os.environ.get("HOSTED_LIVE_CONFIG")),
     )
     plan["source_path"] = "original.pdf"
     # Path is private operational metadata; hash the sanitized proposal actually stored.
