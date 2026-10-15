@@ -66,7 +66,8 @@ def held_claim(claim, error):
         tag_runs=[],
         decision=None,
         review_inputs=None,
-        provisional_grade=empty_provisional("TAG_INPUT_INVALID"),
+        provisional_grade=empty_provisional("TAG_INPUT_INVALID")
+        | dict(display="판정 보류", display_type="hold", hold_reasons=["입력 검증 실패"]),
         rb1_input_hold=dict(
             code="TAG_INPUT_INVALID",
             cause=tag_input_code(error),

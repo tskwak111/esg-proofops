@@ -164,6 +164,7 @@ def test_tag_input_failure_holds_only_affected_claim(tmp_path, monkeypatch, phas
     assert first.quote not in json.dumps(bad["rb1_input_hold"], ensure_ascii=False)
     assert bad["decision"] is None and bad["review_inputs"] is None
     assert bad["provisional_grade"]["evidence_grade"] is None
+    assert bad["provisional_grade"]["display_type"] == "hold"
     assert not bad["tag_runs"]
     assert len(good["tag_runs"]) == 3
     assert seen == [first.claim_id, second.claim_id]
