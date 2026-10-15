@@ -875,6 +875,10 @@ FINALS_FXB_POLICY = FINALS_I20_POLICY | dict(
     direct_certification_policy=C3_V2_POLICY,
     direct_certification_policy_sha256=canonical_hash(C3_V2_POLICY),
 )
+FINALS_I20_PRE_FXC_POLICY = FINALS_FXB_POLICY
+FINALS_FXC_POLICY = FINALS_FXB_POLICY | dict(
+    fact_assembly_profile="grade-relevant-unanimity-v3",
+)
 V2_POLICY = FINALS_I20_POLICY
 
 VERIFIED_READ_V11_POLICY = VERIFIED_READ_V10_POLICY | dict(
@@ -907,7 +911,11 @@ FINALS_I22_POLICY = FINALS_I21_POLICY | dict(
     direct_certification_policy=C3_V2_POLICY,
     direct_certification_policy_sha256=canonical_hash(C3_V2_POLICY),
 )
-V2_POLICY = FINALS_I22_POLICY
+FINALS_I23_POLICY = FINALS_I22_POLICY | dict(
+    integration_profile="finals-20261015-v23",
+    fact_assembly_profile="grade-relevant-unanimity-v3",
+)
+V2_POLICY = FINALS_I23_POLICY
 
 
 def policy_for(profile, *, pinned_hash=None):
@@ -944,6 +952,8 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_I22_POLICY,
+            FINALS_FXC_POLICY,
             FINALS_I21_POLICY,
             FINALS_I20_POLICY,
             FINALS_FXB_POLICY,
@@ -1086,6 +1096,8 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FINALS_I22_POLICY,
+            FINALS_FXC_POLICY,
             FINALS_I21_POLICY,
             FINALS_I20_POLICY,
             FINALS_FXB_POLICY,
