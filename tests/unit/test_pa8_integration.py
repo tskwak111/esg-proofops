@@ -81,7 +81,7 @@ def test_every_historical_policy_remains_readable():
         == "upstage-ocr-page-v10"
     )
     assert FINALS_I11_POLICY["source"] == "upstage-ocr-page-v13"
-    assert V2_POLICY["source"] == "fxe_upstage-ocr-page-v21"
+    assert V2_POLICY["source"] == "fxf_upstage-ocr-page-v21"
     assert V2_PRE_D24_POLICY["verified_read_cache"]["profile"] == "exact-verified-read-v4"
     assert FINALS_I8_POLICY["verified_read_cache"]["profile"] == "exact-verified-read-v7"
 

@@ -164,7 +164,7 @@ def test_public_default_upload_binding_parse_extract_tag_publication(
     assert V2_POLICY["integration_profile"] == "finals-20261015-v24"
     assert V2_POLICY["parser_failure_policy"] == "s3_partial-v7"
     assert V2_POLICY["located_table_context"]["profile"] == "located-table-context-p2-v1"
-    assert manifest["claim_source_profile"] == "fxe_upstage-ocr-page-v21"
+    assert manifest["claim_source_profile"] == "fxf_upstage-ocr-page-v21"
     assert manifest["analysis_policy_sha256"] == canonical_hash(V2_POLICY)
     assert manifest["extraction_qc_native_figures"] is True
     saved_settings = json.loads((state / "settings.json").read_text())

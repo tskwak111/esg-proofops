@@ -132,6 +132,7 @@ def test_profile_dispatch_and_composed_cold_replay(monkeypatch):
     from proofops.adapters.local import upstage_ocr_profile_fxf as new
     from proofops.adapters.local.claim_source_policies import page_ocr_profile, publication_reader
     from proofops.application.analysis_profile import (
+        FINALS_I23_POLICY,
         FXE_POLICY,
         FXF_POLICY,
         V2_PROFILE,
@@ -142,7 +143,10 @@ def test_profile_dispatch_and_composed_cold_replay(monkeypatch):
 
     from tests.acceptance.test_parsing import TENANT
 
-    assert policy_for(V2_PROFILE)["integration_profile"] == "finals-20261015-v23"
+    assert (
+        policy_for(V2_PROFILE, pinned_hash=canonical_hash(FINALS_I23_POLICY))["integration_profile"]
+        == "finals-20261015-v23"
+    )
     assert (
         canonical_hash(FXE_POLICY)
         == "7e74fff1c7f7795512c93321e21cee387c00e2f829d57bd8e56b26b07cadbcd0"

@@ -121,3 +121,40 @@ def test_d2_table_acquisition_failure_is_rechecked_on_every_read(monkeypatch):
     cache.replay_cached(**args)
     cache.replay_cached(**args)
     assert calls == [1, 1]
+
+
+@pytest.mark.parametrize("profile", ["fxe_upstage-ocr-page-v21", "fxf_upstage-ocr-page-v21"])
+def test_prefixed_claim_reader_uses_full_replay_and_invalidates_warm_cache(monkeypatch, profile):
+    from tests.unit.test_pa1_replay_cache import Graph
+
+    reader = page_ocr_profile(profile)
+    policy = reader.claim_source_policy()
+    current = dict(policy)
+    calls = []
+    monkeypatch.setattr(reader, "claim_source_policy", lambda: dict(current))
+    monkeypatch.setenv("PROOFOPS_VERIFIED_READ_CACHE", "s3_exact-verified-read-v13")
+    cache._results.clear()
+
+    def recompute(*a, **k):
+        calls.append(1)
+        if current != policy:
+            raise ValueError("OCR_POLICY_OR_RUN_MISMATCH")
+        return Graph("verified")
+
+    args = dict(
+        reader_name=reader.__name__,
+        policy=policy,
+        receipt={},
+        graph=Graph("source"),
+        discovery=Graph("claims"),
+        source=b"pdf",
+        tenant_id="tenant",
+        recompute=recompute,
+    )
+    assert cache.replay_cached(**args) == Graph("verified")
+    assert cache.replay_cached(**args) == Graph("verified")
+    assert len(calls) == 1
+    current["verifier_sha256"] = "0" * 64
+    with pytest.raises(ValueError, match="OCR_POLICY_OR_RUN_MISMATCH"):
+        cache.replay_cached(**args)
+    assert len(calls) == 2

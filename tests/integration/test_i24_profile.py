@@ -7,7 +7,7 @@ from proofops.domain.provenance import canonical_hash
 def test_v24_default_composes_all_and_keeps_v23():
     p = profiles.policy_for(profiles.V2_PROFILE)
     assert p["integration_profile"] == "finals-20261015-v24"
-    assert p["source"] == profiles.FXE_POLICY["source"]
+    assert p["source"] == profiles.FXF_POLICY["source"]
     assert p["qt1_table_recovery_policy"] == profiles.QT1_POLICY["qt1_table_recovery_policy"]
     assert (
         p["qt2_contextual_elements_policy"]

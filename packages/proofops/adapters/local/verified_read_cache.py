@@ -762,15 +762,15 @@ def replay_cached(
 
         if page_ocr_profile(policy["mode"], policy=policy, native=True).native_policy() != policy:
             raise ValueError("NATIVE_PARAGRAPH_POLICY_MISMATCH")
+    from proofops.adapters.local.claim_source_policies import PAGE_OCR_PROFILES, page_ocr_profile
     from proofops.adapters.local.local_raster_reader import runtime_policy
     from proofops.adapters.local.receipt_environment_compat import read_profile
 
     live_claim_policy = None
-    if fresh_execution_enabled() and (policy or {}).get("profile", "").startswith(
-        "upstage-ocr-page-"
+    profile = (policy or {}).get("profile", "")
+    if fresh_execution_enabled() and (
+        profile.startswith("upstage-ocr-page-") or profile in PAGE_OCR_PROFILES
     ):
-        from proofops.adapters.local.claim_source_policies import page_ocr_profile
-
         live_claim_policy = page_ocr_profile(policy["profile"]).claim_source_policy()
     if _parse_enabled() and reader_name.endswith(".evidence_source_ocr_v1"):
         from proofops.adapters.local import evidence_source_ocr_v1
