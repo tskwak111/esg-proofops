@@ -60,9 +60,15 @@ def publish_current(store, job, state, policy, factory, *, simulated=False):
         ),
         tenant_id=job["tenant_id"],
     )
-    case = prepare_case(graph, original, pack, run_id=manifest["run_id"])
+    from proofops.application.fxh_policy import enabled as fxh_enabled
+
+    diagnostics = {} if fxh_enabled(policy) else None
+    case = prepare_case(graph, original, pack, run_id=manifest["run_id"], diagnostics=diagnostics)
     if case is None:
-        return dict(status="current_source_unresolved", published=False)
+        result = dict(status="current_source_unresolved", published=False)
+        if diagnostics is not None:
+            result["fxh_source_diagnostics"] = diagnostics
+        return result
     probe = factory("", state / "luna.sqlite3", wire_policy_version=2)
 
     def transport(request):

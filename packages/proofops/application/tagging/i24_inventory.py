@@ -83,6 +83,12 @@ def transport_request(request, settings):
     """Wrap the SC1 packet without changing its independent request identity."""
     from dataclasses import asdict
 
+    from proofops.application.fxh_policy import POLICY as FXH_POLICY
+
+    execution = request["untrusted_document_data"]["selection"].get("fxh_inventory_execution")
+    if execution is not None and execution != FXH_POLICY:
+        raise ValueError("FXH_INVENTORY_POLICY_MISMATCH")
+
     if request != inventory_request(
         request["untrusted_document_data"], request["replicate_id"], settings.model_sha256
     ):
@@ -100,7 +106,10 @@ def transport_request(request, settings):
         system_prompt=PROMPT,
         user_json=canonical_json(request),
         temperature=0,
-        max_tokens=min(settings.max_tokens, POLICY["max_output_tokens"]),
+        max_tokens=min(
+            settings.max_tokens,
+            (execution["inventory_output_tokens"] if execution else POLICY["max_output_tokens"]),
+        ),
         sc1_transport_policy_sha256=canonical_hash(POLICY),
     )
     return body | dict(request_signature=canonical_hash(body))

@@ -1,6 +1,7 @@
 """One explicitly selected profile; old configurations remain byte-identical."""
 
 from proofops.adapters.local.claim_source_policies import PAGE_OCR_PROFILES
+from proofops.application.fxh_policy import POLICY as FXH_RUNTIME_POLICY
 from proofops.application.ingest.fxg_wire import POLICY as FXG_WIRE_POLICY
 from proofops.application.ingest.h1_boundaries import POLICY as H1_BOUNDARY_POLICY
 from proofops.application.ingest.i3_wire import POLICY as I3_WIRE_POLICY
@@ -1050,6 +1051,13 @@ FINALS_I25_POLICY = (
 V2_POLICY = FINALS_I25_POLICY
 
 
+FXH_POLICY = FINALS_I25_POLICY | dict(
+    integration_profile="fxh_finals_fresh_v1",
+    source="fxh_claim_source_v1",
+    fxh_runtime=FXH_RUNTIME_POLICY,
+)
+
+
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
     from proofops.application.tagging.fact_assembly_c3_v2 import (
@@ -1084,6 +1092,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FXH_POLICY,
             FINALS_I24_POLICY,
             FINALS_I23_POLICY,
             V3_POLICY,
@@ -1242,6 +1251,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FXH_POLICY,
             FINALS_I24_POLICY,
             FINALS_I23_POLICY,
             V3_POLICY,

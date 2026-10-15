@@ -72,6 +72,7 @@ def test_fresh_gate_rejects_replay_scope_reduction_and_loose_baseline(gate):
         "TAGGING_INPUT_COUNT_INVALID",
         "inventory",
         "c3",
+        "c3_confirmation",
         "time",
         "proof",
         "empty",
@@ -88,6 +89,8 @@ def test_fresh_gate_cannot_pass_each_regression(gate, failure):
         observed["inventory_completed"] = 0
     elif failure == "c3":
         observed["c3_generated_calls"] = 0
+    elif failure == "c3_confirmation":
+        observed["outcome"]["bounded_c3"] = dict(published=True)
     elif failure == "time":
         observed["outcome"]["stage_seconds"]["extract"] = 486
     elif failure == "proof":

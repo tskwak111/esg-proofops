@@ -111,9 +111,26 @@ class HostedOCRStore(PageOCRStore):
         return super()._reserve(image, tenant_id, run_id, force)
 
     @contextmanager
+    def original_page_scope(self):
+        """C3 parses the original; keep fallback admission in prepared-page space."""
+        previous = getattr(self._fallback, "original_pages", None)
+        self._fallback.original_pages = {
+            page: index for index, page in enumerate(json.loads(self.job["pages"]), 1)
+        }
+        try:
+            yield
+        finally:
+            self._fallback.original_pages = previous
+
+    @contextmanager
     def claim_fallback_scope(self, page):
         # The prepared PDF's original-page map identifies claim pages. Evidence
         # pages never enter the new paid fallback, even when selected for parsing.
+        original_pages = getattr(self._fallback, "original_pages", None)
+        if original_pages is not None:
+            if type(page) is not int or page not in original_pages:
+                raise ValueError("OCR_CLAIM_FALLBACK_SCOPE_INVALID")
+            page = original_pages[page]
         with self._fallback_lock:
             if page not in self._claim_pages or (
                 page not in self._fallback_pages and len(self._fallback_pages) >= 10

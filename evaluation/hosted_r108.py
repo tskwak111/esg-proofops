@@ -176,6 +176,7 @@ def prepare_argv(pdf, state, tenant, config, options=None):
                 FINALS_RG1_POLICY,
                 FINALS_S2_SPEED_POLICY,
                 FINALS_S5_POLICY,
+                FXH_POLICY,
                 S1_POLICY,
                 S2_POLICY,
                 S4_POLICY,
@@ -209,6 +210,7 @@ def prepare_argv(pdf, state, tenant, config, options=None):
                 canonical_hash(FINALS_I22_POLICY),
                 canonical_hash(FINALS_I23_POLICY),
                 canonical_hash(FINALS_I24_POLICY),
+                canonical_hash(FXH_POLICY),
                 canonical_hash(FINALS_RG1_POLICY),
                 canonical_hash(S1_POLICY),
                 canonical_hash(S2_POLICY),
@@ -323,20 +325,20 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
     upstage_ledger, luna_ledger = state / "upstage.sqlite3", state / "luna.sqlite3"
     UpstageProbe(parse_key, upstage_ledger)  # local receipts only; hosted broker grants money
     scope = nullcontext()
+    hosted_ocr_store = None
     if profiles["source_reader"].startswith("upstage-ocr-page-"):
         from proofops_api.hosted_ocr import HostedOCRStore, reader_scope
 
         os.environ["UPSTAGE_API_KEY"] = parse_key
-        scope = reader_scope(
-            HostedOCRStore(
-                upstage_ledger,
-                state / "ocr-spend.json",
-                store=store,
-                job=job,
-                local_run_id=manifest["run_id"],
-                post=ocr_post,
-            )
+        hosted_ocr_store = HostedOCRStore(
+            upstage_ledger,
+            state / "ocr-spend.json",
+            store=store,
+            job=job,
+            local_run_id=manifest["run_id"],
+            post=ocr_post,
         )
+        scope = reader_scope(hosted_ocr_store)
     factories = {
         "parse": lambda ledger: HostedParseProbe(
             parse_key,
@@ -520,16 +522,37 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
     if complete and execution.get("direct_certification_policy", {}).get("profile") == (
         "management-direct-certification-c3-v2"
     ):
+        from proofops.application.fxh_policy import enabled as fxh_enabled
+
         from evaluation.hosted_c3 import publish_current
 
         try:
-            result["bounded_c3"] = publish_current(
-                store, job, state, execution, factories["llm"], simulated=llm_post is not None
-            )
-        except (ValueError, OSError, KeyError, RuntimeError):
+            with (
+                (
+                    reader_scope(hosted_ocr_store)
+                    if fxh_enabled(execution) and hosted_ocr_store is not None
+                    else nullcontext()
+                ),
+                (
+                    hosted_ocr_store.original_page_scope()
+                    if fxh_enabled(execution) and hosted_ocr_store is not None
+                    else nullcontext()
+                ),
+            ):
+                result["bounded_c3"] = publish_current(
+                    store, job, state, execution, factories["llm"], simulated=llm_post is not None
+                )
+        except (ValueError, OSError, KeyError, RuntimeError) as error:
             # Keep completed regular claims; a failed bounded candidate never
             # creates confirmation authority or turns missing evidence absent.
             result["bounded_c3"] = dict(status="current_source_or_tags_unresolved", published=False)
+            if fxh_enabled(execution):
+                import re
+
+                code = str(error)
+                result["bounded_c3"]["fxh_error_code"] = (
+                    code if re.fullmatch(r"[A-Z][A-Z0-9_]{1,100}", code) else type(error).__name__
+                )
     (state / "outcome.json").write_text(json.dumps(result))
     return state, result
 

@@ -100,6 +100,8 @@ def compare(observation, baseline):
         failures.append("pipeline_blocked")
     if observation.get("c3_generated_calls") != 3:
         failures.append("C3_FRESH_THREE_CALLS_REQUIRED")
+    if (observation.get("outcome", {}).get("bounded_c3") or {}).get("published"):
+        failures.append("unknown_simulation_c3_confirmation")
     errors = observation.get("errors", {})
     reasons = observation.get("hold_distribution", {})
     for name in ("REPLICA_HEADER_UNRESOLVED", "TAG_INPUT_INVALID", "TAGGING_INPUT_COUNT_INVALID"):
@@ -137,6 +139,7 @@ def compare(observation, baseline):
         claims=len(claims),
         verified=verified,
         c3_generated_calls=observation.get("c3_generated_calls"),
+        bounded_c3=observation.get("outcome", {}).get("bounded_c3"),
         hold_distribution=reasons,
         errors=errors,
         inventory_completed=observation.get("inventory_completed"),

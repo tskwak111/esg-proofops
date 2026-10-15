@@ -24,7 +24,15 @@ from proofops.application.tagging.tracks import TrackCandidate
 from proofops.domain.provenance import canonical_hash
 
 
-def prepare_case(graph, source, rulepack, *, run_id):
+def prepare_case(graph, source, rulepack, *, run_id, diagnostics=None):
+    def unresolved(code, records=()):
+        if diagnostics is not None:
+            diagnostics.update(
+                code=code,
+                source_records=[dict(status=r["status"], reason=r.get("reason")) for r in records],
+            )
+        return None
+
     approved = c3.REVIEWED_SOURCE_IDENTITY
     if (
         graph.tenant_id != approved["tenant_id"]
@@ -32,7 +40,7 @@ def prepare_case(graph, source, rulepack, *, run_id):
         or rulepack.tenant_id != graph.tenant_id
         or rulepack.sha256 != approved["rulepack_sha256"]
     ):
-        return None
+        return unresolved("C3_SOURCE_IDENTITY_MISMATCH")
     statement = approved["statement_spans"][0]
     matches = []
     for block in graph.blocks:
@@ -42,7 +50,7 @@ def prepare_case(graph, source, rulepack, *, run_id):
         if block.raw_text[a:b] == approved["normalized_exact_claim"]:
             matches.append(block.source_ref(normalized_char_start=a, normalized_char_end=b))
     if len(matches) != 1:
-        return None
+        return unresolved("C3_STATEMENT_MATCH_UNRESOLVED")
     refs = matches
     headers = [
         block
@@ -53,7 +61,7 @@ def prepare_case(graph, source, rulepack, *, run_id):
         and "지속가능경영보고서 2025" in block.normalized_text
     ]
     if len(headers) != 1:
-        return None
+        return unresolved("C3_YEAR_HEADER_UNRESOLVED")
     start = headers[0].normalized_text.index("2025")
     refs.append(headers[0].source_ref(normalized_char_start=start, normalized_char_end=start + 4))
     source_receipt = attest(graph, source, refs, tenant_id=graph.tenant_id, run_id=run_id)
@@ -61,11 +69,13 @@ def prepare_case(graph, source, rulepack, *, run_id):
         record["status"] != "verified"
         for record in source_receipt["claim_source_receipt"]["records"]
     ):
-        return None
+        return unresolved(
+            "C3_SOURCE_ATTESTATION_UNRESOLVED", source_receipt["claim_source_receipt"]["records"]
+        )
     graph = replay(source_receipt, graph, source, tenant_id=graph.tenant_id, run_id=run_id)
     refs = tuple(verify_source_ref(r, graph, tenant_id=graph.tenant_id) for r in refs)
     if any(ref.verification_state != "verified" for ref in refs):
-        return None
+        return unresolved("C3_SOURCE_REPLAY_UNRESOLVED")
     claim = Claim(
         str(uuid5(NAMESPACE_URL, run_id + ":" + c3.REVIEWED_SOURCE_FINGERPRINT_SHA256)),
         graph.tenant_id,

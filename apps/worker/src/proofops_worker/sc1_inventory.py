@@ -26,7 +26,11 @@ def load_inventory(live, graph, selection):
     # and the most expensive input token category. This is a reservation, not spend.
     from proofops.adapters.local.openai import PRICE
 
-    output = min(live.settings.max_tokens, POLICY["max_output_tokens"])
+    execution = selection.get("fxh_inventory_execution")
+    output = min(
+        live.settings.max_tokens,
+        (execution["inventory_output_tokens"] if execution else POLICY["max_output_tokens"]),
+    )
     reserve = (
         (
             Decimal(live._capacity(live.settings.model_id))
@@ -81,6 +85,7 @@ def load_inventory(live, graph, selection):
             request["replicate_id"],
         )
         directory = live.receipts / "sc1-inventory" / request["request_id"]
+        response = None
         try:
             capacity = transport.count_input_tokens(
                 request, counter=lambda s, u: live._capacity(live.settings.model_id)
@@ -146,8 +151,15 @@ def load_inventory(live, graph, selection):
                 transport_request_sha256=canonical_hash(request),
             )
             return result
-        except Exception:
-            stopped = True
+        except Exception as error:
+            # A settled invalid answer poisons this chunk, not unrelated pages.
+            # Budget, authorization, lease and transport uncertainty still stop.
+            stopped = not (
+                execution
+                and str(error) == "SC1_PROVIDER_FAILED"
+                and response is not None
+                and response.usage.status == "succeeded"
+            )
             raise
         finally:
             live.account(request["request_id"])
