@@ -53,3 +53,33 @@ def test_v22_registry_preserves_exact_historical_and_standalone_fxb_pins():
         assert pin == expected
         assert profiles.policy_for(profiles.V2_PROFILE, pinned_hash=pin) == policy
         assert profiles.publication_policy_for(profiles.V2_PROFILE, pinned_hash=pin) == policy
+
+
+def test_hosted_preparation_retains_v21_and_fxb_pins(tmp_path):
+    from pypdf import PdfWriter
+
+    from evaluation.hosted_r108 import prepare_argv
+
+    pdf = tmp_path / "selected.pdf"
+    writer = PdfWriter()
+    writer.add_blank_page(300, 300)
+    writer.write(pdf)
+    for policy in (
+        profiles.FINALS_I21_POLICY,
+        profiles.FINALS_FXB_POLICY,
+        profiles.FINALS_I22_POLICY,
+    ):
+        pin = canonical_hash(policy)
+        argv = prepare_argv(
+            pdf,
+            tmp_path / pin,
+            "11111111-1111-4111-8111-111111111111",
+            dict(report_year=2025, period_start="2024-01-01", period_end="2024-12-31"),
+            dict(
+                pages=[36],
+                claim_pages=[36],
+                pipeline_profile=profiles.V2_PROFILE,
+                analysis_profile_sha256=pin,
+            ),
+        )
+        assert argv[argv.index("--analysis-policy-sha256") + 1] == pin
