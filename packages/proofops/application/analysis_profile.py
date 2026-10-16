@@ -33,6 +33,8 @@ from proofops.application.rb1_input_isolation import POLICY as RB1_INPUT_POLICY
 from proofops.application.rb3_deadline import POLICY as RB3_DEADLINE_POLICY
 from proofops.application.tagging.analysis_scope import confirmation_policy as sc1_policy
 from proofops.application.tagging.c3_request_binding import S5_POLICY as S5_C3_BINDING
+from proofops.application.tagging.cf5_context import POLICY as CF5_CONTEXT_POLICY
+from proofops.application.tagging.cf5_context import PROFILE as CF5_PROMPT_PROFILE
 from proofops.application.tagging.dec24 import (
     DEFINITIONS_HASH,
     INTEGRATED_DEFINITIONS_HASH,
@@ -1141,6 +1143,18 @@ FINALS_I27_POLICY = FINALS_I27_PRE_RB2_POLICY | dict(
 V2_POLICY = FINALS_I27_POLICY
 
 
+# CF5 is a separately pinned trial; the public V2 default remains v27.
+
+CF5_POLICY = FINALS_I27_POLICY | dict(
+    integration_profile="cf5_finals_complete_context_v1",
+    tagging_prompt_profile=CF5_PROMPT_PROFILE,
+    tagging_prompt_policy=CF5_CONTEXT_POLICY,
+    tagging_prompt_policy_sha256=canonical_hash(CF5_CONTEXT_POLICY),
+    cf5_context_policy=CF5_CONTEXT_POLICY,
+    cf5_context_policy_sha256=canonical_hash(CF5_CONTEXT_POLICY),
+)
+
+
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
     from proofops.application.tagging.fact_assembly_c3_v2 import (
@@ -1176,6 +1190,7 @@ def policy_for(profile, *, pinned_hash=None):
         choices = (
             V2_POLICY,
             FINALS_I27_PRE_RB2_POLICY,
+            CF5_POLICY,
             FINALS_I26_POLICY,
             S5_LIVE_POLICY,
             FXH_POLICY,
@@ -1343,6 +1358,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
         (
             policy_for(profile),
             FINALS_I27_PRE_RB2_POLICY,
+            CF5_POLICY,
             FINALS_I26_POLICY,
             S5_LIVE_POLICY,
             FXH_POLICY,

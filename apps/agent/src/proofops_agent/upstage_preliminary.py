@@ -34,6 +34,9 @@ from pathlib import Path
 from proofops.adapters.local.openrouter import OpenRouterProbe
 from proofops.adapters.local.upstage import UpstageProbe
 from proofops.application.preflight import Preflight
+from proofops.application.tagging.cf5_context import PRELIMINARY as CF5_PRELIMINARY
+from proofops.application.tagging.cf5_context import preliminary as preliminary_cf5
+from proofops.application.tagging.cf5_context import validate_packet as validate_cf5_packet
 from proofops.application.tagging.pb1_classification import COMPACT_PROFILE, COMPACT_PROMPT
 from proofops.application.tagging.pb1_classification import SYSTEM_SUFFIX as PB1_SUFFIX
 from proofops.application.tagging.preliminary import (
@@ -218,6 +221,7 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
                 K9_PRELIMINARY,
                 Q1_PRELIMINARY,
                 V3_PRELIMINARY,
+                CF5_PRELIMINARY,
             ):
                 expected_prompt = settings.system_prompt
         if (
@@ -290,6 +294,9 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
         frozen packet, so all replicas and receipts describe exactly the same
         bounded input. An oversized sources-only packet still fails normally.
         """
+        if self._settings.system_prompt == CF5_PRELIMINARY:
+            validate_cf5_packet(packet)
+            return deepcopy(packet)
         bounded = deepcopy(packet)
         data = bounded["untrusted_document_data"]
         blocks = data.get("context_blocks", [])
@@ -410,6 +417,7 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
                 K9_PRELIMINARY,
                 Q1_PRELIMINARY,
                 V3_PRELIMINARY,
+                CF5_PRELIMINARY,
             ):
                 expected_prompt = settings.system_prompt
         # Mandatory callback plus common tenant/claim/request UUID, packet/
@@ -427,6 +435,9 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
             user = json.loads(request["user_json"])
         except (TypeError, ValueError, KeyError):
             raise ValueError("UPSTAGE_PRELIMINARY_PACKET_INVALID") from None
+        if settings.system_prompt == CF5_PRELIMINARY:
+            validate_cf5_packet(user)
+            expected_keys = expected_keys | {"cf5_context_policy", "cf5_context_sha256"}
         if fallback_sources:
             system = replace(settings, system_prompt=SENTENCE_FALLBACK_BASE_PROMPT).rendered_system
         catalog = getattr(self, "_display_catalog", None)
@@ -618,11 +629,14 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
             K9_PRELIMINARY,
             Q1_PRELIMINARY,
             V3_PRELIMINARY,
+            CF5_PRELIMINARY,
         ):
             if response_policy is None:
                 raise ValueError("I4_RESPONSE_POLICY_REQUIRED")
             renderer = (
-                preliminary_v3
+                preliminary_cf5
+                if settings.system_prompt == CF5_PRELIMINARY
+                else preliminary_v3
                 if settings.system_prompt == V3_PRELIMINARY
                 else preliminary_q1
                 if settings.system_prompt == Q1_PRELIMINARY
@@ -633,7 +647,9 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
             if user.pop("k9_targeted_wire_policy", None) is not None:
                 quote = user["untrusted_document_data"]["sources"][0]["text"]
                 renderer = (
-                    preliminary_v3
+                    preliminary_cf5
+                    if settings.system_prompt == CF5_PRELIMINARY
+                    else preliminary_v3
                     if settings.system_prompt == V3_PRELIMINARY
                     else preliminary_q1
                     if settings.system_prompt == Q1_PRELIMINARY
