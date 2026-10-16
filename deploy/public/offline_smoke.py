@@ -26,6 +26,7 @@ from evaluation.hosted_r108 import drive
 
 ROOT = Path(os.environ.get("HOSTED_DATA_DIR", "/data"))
 RECORD = ROOT / "offline-smoke.json"
+PERIOD = dict(report_year=2024, period_start="2024-01-01", period_end="2024-12-31")
 
 
 def request(path, *, body=None, cookie=None, csrf=None, key=None, pdf=False):
@@ -46,6 +47,7 @@ def request(path, *, body=None, cookie=None, csrf=None, key=None, pdf=False):
 
 
 def intake():
+    (ROOT / "offline-operator.json").write_text(json.dumps(PERIOD))
     store = HostedStore(HostedSettings.from_env(os.environ))
     tenant = str(uuid4())
     invite = store.invite(tenant, str(uuid4()), "editor", now=time.time())
@@ -80,7 +82,7 @@ def worker():
                 store,
                 job,
                 workspace,
-                dict(report_year=2024, period_start="2024-01-01", period_end="2024-12-31"),
+                PERIOD,
                 llm_post=fake_llm,
                 parse_post=submit,
                 ocr_post=fake_page_ocr,
@@ -158,6 +160,12 @@ def verify():
             db.execute("SELECT count(*) FROM deletion.costs WHERE status!='settled'").fetchone()[0]
             == 0
         )
+    if record.get("reuse_run"):
+        copied, _ = request(
+            record["reuse_run"]["result_url"] + "?w18=true", cookie=record["auth"]["cookie"]
+        )
+        assert canonical_hash(copied) == record["reuse_result_sha256"]
+        assert copied["reuse"]["cost_usd"] == "0.000000"
     return dict(
         phase="verify",
         status="passed",
@@ -176,14 +184,85 @@ def verify():
         sc1_inventory_reserved_usd=plan["reserved_usd_upper_bound"],
         snapshot_sha256=snapshot_sha,
         real_provider_calls=0,
+        reuse_survived_restart=bool(record.get("reuse_run")),
+    )
+
+
+def reuse():
+    record = json.loads(RECORD.read_text())
+    store = HostedStore(HostedSettings.from_env(os.environ))
+    assert store.settings.rc1_reuse_enabled
+    before = store.budget_totals()
+    first_run, _ = request(record["run"]["status_url"], cookie=record["auth"]["cookie"])
+    original, _ = request(first_run["result_url"], cookie=record["auth"]["cookie"])
+    started = time.monotonic()
+    document, _ = request(
+        "/v1/documents",
+        body=source_pdf(),
+        pdf=True,
+        key="offline-smoke-reuse-upload01",
+        **record["auth"],
+    )
+    assert document["sha256"] == record["document"]["sha256"]
+    run, _ = request(
+        "/v1/runs",
+        body=dict(document_id=document["document_id"], selected_pages=[1, 2]),
+        key="offline-smoke-reuse-run01",
+        **record["auth"],
+    )
+    assert run["status"] == "completed" and run["run_id"] != record["run"]["run_id"], run
+    copied, _ = request(run["result_url"] + "?w18=true", cookie=record["auth"]["cookie"])
+    metadata = copied["reuse"]
+    assert metadata["reused"] and metadata["analyzed_at"]
+    assert metadata["source_policy_sha256"] == canonical_hash(V2_POLICY)
+    assert metadata["cost_usd"] == "0.000000" and metadata["provider_calls"] == 0
+    assert metadata["review_supported"] is False
+    assert copied["w16_source_document"]["document_id"] == document["document_id"]
+    assert [(c["quote"], c["confirmed_grade"]) for c in copied["claims"]] == [
+        (c["quote"], c["confirmed_grade"]) for c in original["claims"]
+    ]
+    assert store.budget_totals() == before
+    with store.transaction(readonly=True) as db:
+        for table in ("spend", "costs"):
+            assert (
+                db.execute(
+                    f"SELECT count(*) FROM deletion.{table} WHERE run_id=?", (run["run_id"],)
+                ).fetchone()[0]
+                == 0
+            )
+        assert (
+            db.execute("SELECT envelope FROM runs WHERE run_id=?", (run["run_id"],)).fetchone()[0]
+            == 0
+        )
+        assert (
+            db.execute(
+                "SELECT source_run_id FROM rc1_reuse_audit WHERE run_id=?", (run["run_id"],)
+            ).fetchone()[0]
+            == record["run"]["run_id"]
+        )
+    assert store.claim(now=time.time()) is None
+    record.update(reuse_run=run, reuse_result_sha256=canonical_hash(copied))
+    RECORD.write_text(json.dumps(record))
+    return dict(
+        phase="reuse",
+        status="passed",
+        claims=len(copied["claims"]),
+        seconds=time.monotonic() - started,
+        reuse=metadata,
+        separate_run=True,
+        budget_unchanged=True,
+        spend_rows=0,
+        provider_cost_rows=0,
+        real_provider_calls=0,
     )
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("phase", choices=("intake", "worker", "verify"))
+    phases = dict(intake=intake, worker=worker, verify=verify, reuse=reuse)
+    parser.add_argument("phase", choices=tuple(phases))
     args = parser.parse_args()
-    print(json.dumps({"intake": intake, "worker": worker, "verify": verify}[args.phase]()))
+    print(json.dumps(phases[args.phase]()))
 
 
 if __name__ == "__main__":

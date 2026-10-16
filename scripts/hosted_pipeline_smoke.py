@@ -58,6 +58,7 @@ def main():
                 + secrets.token_urlsafe(48)
                 + "\nHOSTED_ACCEPT_UPLOADS=true\nHOSTED_CONSENT_VERSION=hx2-offline-test\n"
                 "R108_ACCEPT_NEW_RUNS=true\nANALYSIS_BACKEND=r108\nLIVE_DISABLED=true\n"
+                "RC1_RESULT_REUSE_ENABLED=true\nHOSTED_LIVE_CONFIG=/data/offline-operator.json\n"
             )
             env.flush()
             common = [
@@ -114,6 +115,7 @@ def main():
             )
             result["worker"] = json.loads(output.splitlines()[-1])
             result["verification"] = phase(name, "verify")
+            result["reuse_verification"] = phase(name, "reuse")
             run("restart", name)
             # Restart waits for process start; phase retries only loopback connection failures.
             for attempt in range(20):
