@@ -52,3 +52,12 @@ def test_offline_smoke_answers_compact_cf1_inventory_without_claim_id():
     )
     payload = json.loads(response["choices"][0]["message"]["content"])
     assert payload == dict(complete=True, records=[], packet_sha256="a" * 64, replicate_id=2)
+
+
+def test_integrated_worker_replays_cf6_without_promoting_synthetic_inputs(tmp_path, monkeypatch):
+    from tests.integration import test_cf6_confirmation as fixture
+
+    monkeypatch.setattr(fixture, "CF6_POLICY", profiles.V2_POLICY)
+    fixture.test_worker_checkpoint_wires_cf6_and_replays_without_synthetic_promotion(
+        tmp_path, monkeypatch
+    )
