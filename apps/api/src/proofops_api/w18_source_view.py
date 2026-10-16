@@ -11,8 +11,8 @@ from collections import OrderedDict
 from dataclasses import asdict
 from hashlib import sha256
 from pathlib import Path
-from tempfile import TemporaryDirectory
-from threading import Lock
+from tempfile import NamedTemporaryFile, TemporaryDirectory
+from threading import Lock, Thread
 from types import SimpleNamespace
 
 from proofops.adapters.parsing.parser_artifacts import read_parser_json
@@ -22,6 +22,9 @@ from proofops.domain.provenance import canonical_hash
 W18_TIMEOUT_SECONDS = 6
 W18_TOTAL_SECONDS = 8
 W18_CACHE_BYTES = 32 * 1024 * 1024
+W19_DISK_BYTES = 32 * 1024 * 1024  # Per document; removed with its retention purge.
+W19_WARM_SECONDS = 120
+_warm_lock = Lock()
 _cache: OrderedDict[tuple, tuple[float, bytes]] = OrderedDict()
 _lock = Lock()
 
@@ -133,7 +136,19 @@ def _lines(boxes):
     return lines
 
 
-def locate(ref, block, inventory, geometry, *, deadline=None):
+def _project_inventory(inventory, geometry, *, deadline=None):
+    """Project each glyph once; keep the same affine arithmetic as W18."""
+    chars = []
+    for offset, (char, index, native) in enumerate(inventory["chars"]):
+        if deadline is not None and offset % 1024 == 0 and time.monotonic() >= deadline:
+            raise ValueError("coordinate_timeout")
+        bounds = project_native_bbox(native, geometry) if native is not None else None
+        if bounds is not None:
+            chars.append((char, index, bounds))
+    return chars
+
+
+def locate(ref, block, inventory, geometry, *, deadline=None, projected=None):
     """Bind exact parser offsets through a literal, unique full-source character map."""
     text = _source(ref, block)
     page = inventory["page"]
@@ -147,11 +162,12 @@ def locate(ref, block, inventory, geometry, *, deadline=None):
         return None, [block["bbox"]]
     box = block["bbox"]
     chars = []
-    for offset, (char, index, native) in enumerate(inventory["chars"]):
+    if projected is None:
+        projected = _project_inventory(inventory, geometry, deadline=deadline)
+    for offset, (char, index, bounds) in enumerate(projected):
         if deadline is not None and offset % 1024 == 0 and time.monotonic() >= deadline:
             raise ValueError("coordinate_timeout")
-        bounds = project_native_bbox(native, geometry) if native is not None else None
-        if bounds is not None and (
+        if (
             box[0] <= (bounds[0] + bounds[2]) / 2 <= box[2]
             and box[1] <= (bounds[1] + bounds[3]) / 2 <= box[3]
         ):
@@ -175,19 +191,78 @@ def locate(ref, block, inventory, geometry, *, deadline=None):
     return _lines([c[2] for c in selected]), None
 
 
+def _disk_inventory(directory, scope, page, doc, data=None):
+    """Private, bounded, disposable pages; never an alternate source authority."""
+    cache = directory / "w19-inventory"
+    if cache.is_symlink():
+        raise ValueError("unsafe inventory cache")
+    binding = [*scope[1:], page]
+    name = sha256(json.dumps(binding).encode()).hexdigest() + ".json"
+    file = cache / name
+    if data is None:
+        if not file.exists():
+            return None
+        if file.stat().st_size > W19_DISK_BYTES:
+            raise ValueError("inventory cache size")
+        envelope, _ = _read_json(file)
+        if not isinstance(envelope, dict) or not isinstance(envelope.get("payload"), str):
+            raise ValueError("inventory cache format")
+        payload = envelope["payload"].encode()
+        if (
+            envelope["schema"] != 1
+            or envelope["binding"] != binding
+            or envelope["expires"] != doc["expires"]
+            or time.time() >= envelope["expires"]
+            or sha256(payload).hexdigest() != envelope["sha256"]
+        ):
+            raise ValueError("inventory cache binding")
+        return payload
+    if time.time() >= doc["expires"]:
+        return None
+    cache.mkdir(mode=0o700, exist_ok=True)
+    payload = json.dumps(
+        dict(
+            schema=1,
+            binding=binding,
+            expires=doc["expires"],
+            sha256=sha256(data).hexdigest(),
+            payload=data.decode(),
+        )
+    ).encode()
+    if len(payload) > W19_DISK_BYTES:
+        return None
+    # All writers hold w18-coordinates.lock, including background warmers.
+    for abandoned in cache.glob(".page-*"):
+        abandoned.unlink()  # Recover a writer interrupted before its atomic rename.
+    entries = sorted(cache.glob("*.json"), key=lambda p: p.lstat().st_mtime)
+    total = sum(p.lstat().st_size for p in entries)
+    for entry in entries:
+        if entry == file or total + len(payload) > W19_DISK_BYTES:
+            total -= entry.lstat().st_size
+            entry.unlink()
+    with NamedTemporaryFile(dir=cache, prefix=".page-", delete=False) as output:
+        temporary = Path(output.name)
+        try:
+            output.write(payload)
+            output.flush()
+            temporary.replace(file)
+        finally:
+            temporary.unlink(missing_ok=True)
+    return data
+
+
 def _inventories(store, row, doc, pages, *, deadline=None):
-    """Single bounded child, per-page tenant/SHA cache, exact-byte hash on every read."""
+    """Bounded child, durable tenant/SHA pages, exact original hash on every read."""
     from proofops.adapters.parsing.opendataloader import OpenDataLoaderParser, ParseFailure
 
     scope = (str(store.root), row["tenant_id"], row["document_id"], doc["sha256"])
     now = time.time()
+    if now >= doc["expires"]:
+        raise ValueError("original_integrity_unavailable")
     for key in list(_cache):
         if _cache[key][0] <= now:
             del _cache[key]
-    found = {
-        page: json.loads(_cache[scope + (page,)][1]) for page in pages if scope + (page,) in _cache
-    }
-    missing = sorted(pages - found.keys())
+    found = {}
     directory = store.document_dir(row["tenant_id"], row["document_id"])
     profile = SimpleNamespace(
         timeout_seconds=min(W18_TIMEOUT_SECONDS, max(0.001, deadline - time.monotonic()))
@@ -201,6 +276,19 @@ def _inventories(store, row, doc, pages, *, deadline=None):
         TemporaryDirectory(prefix=".w18-", dir=store.root) as temporary,
     ):
         fcntl.flock(lease, fcntl.LOCK_SH | fcntl.LOCK_NB)
+        for page in pages:
+            key = scope + (page,)
+            try:
+                data = (
+                    _cache[key][1]
+                    if key in _cache
+                    else _disk_inventory(directory, scope, page, doc)
+                )
+                if data is not None:
+                    found[page] = json.loads(data)
+            except (OSError, ValueError, KeyError, TypeError):
+                pass  # Corrupt/old derived data is recomputed from authenticated PDF bytes.
+        missing = sorted(pages - found.keys())
         work = Path(temporary)
         (work / "request.json").write_text(
             json.dumps(
@@ -227,6 +315,11 @@ def _inventories(store, row, doc, pages, *, deadline=None):
                 else "page_inventory_unavailable"
             )
         if not (work / "verified.json").exists():
+            # A deadline before SHA verification is retryable, never a cache admission.
+            if failure == "coordinate_timeout":
+                return {}, failure
+            raise ValueError("original_integrity_unavailable")
+        if time.time() >= doc["expires"]:
             raise ValueError("original_integrity_unavailable")
         for page in missing:
             file = work / f"page-{page}.json"
@@ -237,11 +330,41 @@ def _inventories(store, row, doc, pages, *, deadline=None):
                 found[page] = json.loads(data)
             except ValueError:
                 continue
-            _cache[scope + (page,)] = (min(doc["expires"], now + 300), data)
+            _cache[scope + (page,)] = (doc["expires"], data)
             _cache.move_to_end(scope + (page,))
+            try:
+                _disk_inventory(directory, scope, page, doc, data)
+            except (OSError, ValueError):
+                pass  # A full/read-only cache must not discard valid in-flight coordinates.
         while len(_cache) > 64 or sum(len(v[1]) for v in _cache.values()) > W18_CACHE_BYTES:
             _cache.popitem(last=False)
     return found, failure
+
+
+def _warm_pages(store, row, doc, pages):
+    """One bounded background warmer; page-sized batches make durable progress."""
+    stop = time.monotonic() + W19_WARM_SECONDS
+    try:
+        for page in sorted(pages):
+            if time.monotonic() >= stop or time.time() >= doc["expires"]:
+                break
+            # Never hold a DB writer or recreate a deleted document directory.
+            with _lock, (store.root / "w18-coordinates.lock").open("a+b") as lease:
+                fcntl.flock(lease, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                _inventories(store, row, doc, {page}, deadline=stop)
+    except (OSError, ValueError):
+        pass  # A later read can retry; deletion/integrity failures remain closed.
+    finally:
+        _warm_lock.release()
+
+
+def _schedule_warm(store, row, doc, pages):
+    if not pages or not _warm_lock.acquire(blocking=False):
+        return
+    try:
+        Thread(target=_warm_pages, args=(store, dict(row), dict(doc), pages), daemon=True).start()
+    except RuntimeError:
+        _warm_lock.release()
 
 
 def enrich(reads, row, doc, requests):
@@ -249,6 +372,7 @@ def enrich(reads, row, doc, requests):
     deadline = time.monotonic() + W18_TOTAL_SECONDS
     pending = []
     graphs = {}
+    retry_pages = set()
     for view, ref, path, anchor, original in requests:
         view.update(
             w18_line_rects=None,
@@ -264,6 +388,7 @@ def enrich(reads, row, doc, requests):
             continue
         if time.monotonic() >= deadline:
             view["w18_reason"] = "coordinate_timeout"
+            retry_pages.add(view["physical_page"])
             continue
         try:
             key = (path, anchor[:3], original)
@@ -275,17 +400,20 @@ def enrich(reads, row, doc, requests):
         except (OSError, ValueError, KeyError, TypeError, IndexError):
             view["w18_reason"] = "source_offset_or_graph_mismatch"
     if not pending:
+        _schedule_warm(reads.store, row, doc, retry_pages)
         return
     if not _lock.acquire(blocking=False):
         for view, *_ in pending:
             view["w18_reason"] = "coordinate_busy"
         return
+    pages = {}
     try:
         with (reads.store.root / "w18-coordinates.lock").open("a+b") as lease:
             fcntl.flock(lease, fcntl.LOCK_EX | fcntl.LOCK_NB)
             pages, reason = _inventories(
                 reads.store, row, doc, {v[0]["physical_page"] for v in pending}, deadline=deadline
             )
+        projected_pages = {}
         for view, ref, block, geometry in pending:
             try:
                 if time.monotonic() >= deadline:
@@ -293,7 +421,27 @@ def enrich(reads, row, doc, requests):
                 inventory = pages.get(view["physical_page"])
                 if inventory is None:
                     raise ValueError(reason)
-                lines, cells = locate(ref, block, inventory, geometry, deadline=deadline)
+                # Geometry is part of the key: one anchor must never lend its transform
+                # to a different parser page, even if both name the same physical page.
+                key = (
+                    view["physical_page"],
+                    geometry.width_pt,
+                    geometry.height_pt,
+                    geometry.rotation,
+                    tuple(geometry.crop_box),
+                )
+                if block["kind"] != "table_cell" and key not in projected_pages:
+                    projected_pages[key] = _project_inventory(
+                        inventory, geometry, deadline=deadline
+                    )
+                lines, cells = locate(
+                    ref,
+                    block,
+                    inventory,
+                    geometry,
+                    deadline=deadline,
+                    projected=projected_pages.get(key),
+                )
                 view.update(
                     w18_line_rects=lines,
                     w18_cell_rects=cells,
@@ -314,8 +462,17 @@ def enrich(reads, row, doc, requests):
                 view["w18_reason"] = (
                     str(exc) if isinstance(exc, ValueError) else "coordinate_unavailable"
                 )
+    except BlockingIOError:
+        for view, *_ in pending:
+            view["w18_reason"] = "coordinate_busy"
     except (OSError, ValueError):
         for view, *_ in pending:
             view["w18_reason"] = "original_integrity_or_reader_unavailable"
     finally:
         _lock.release()
+    retry_pages = {
+        view["physical_page"]
+        for view, *_ in requests
+        if view.get("w18_reason") == "coordinate_timeout" and view.get("location") is not None
+    }
+    _schedule_warm(reads.store, row, doc, retry_pages - pages.keys())
