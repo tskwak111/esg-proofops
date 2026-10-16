@@ -37,9 +37,7 @@ def main():
         raise AssertionError("K9_REPLAY_NETWORK_FORBIDDEN")
 
     socket.socket.connect = socket.socket.connect_ex = socket.create_connection = deny
-    root = Path(
-        "/path/to/ESG_ProofOps/outputs/agent-results/R108-redesign/lab/perf/I7/native"
-    )
+    root = Path("/path/to/ESG_ProofOps/outputs/agent-results/R108-redesign/lab/perf/I7/native")
     cases, inputs = [], {}
     with tempfile.TemporaryDirectory(prefix="proofops-k9-guard-") as directory:
         for company, suffix in (
