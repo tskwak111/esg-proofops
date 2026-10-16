@@ -16,6 +16,28 @@ settings = base.settings
 store = base.store
 
 
+def test_metadata_upload_cors_allows_only_configured_origin(store, settings):
+    from fastapi.testclient import TestClient
+
+    client = TestClient(create_hosted_app(settings))
+    headers = {
+        "Origin": settings.origin,
+        "Access-Control-Request-Method": "POST",
+        "Access-Control-Request-Headers": (
+            "Content-Type,X-CSRF-Token,Idempotency-Key,X-UX1-Metadata"
+        ),
+    }
+    response = client.options("/v1/documents", headers=headers)
+    assert response.status_code == 200, response.text
+    assert response.headers["access-control-allow-origin"] == settings.origin
+    assert "x-ux1-metadata" in response.headers["access-control-allow-headers"].lower()
+    rejected = client.options(
+        "/v1/documents", headers=headers | {"Origin": "https://untrusted.example"}
+    )
+    assert rejected.status_code == 400
+    assert "access-control-allow-origin" not in rejected.headers
+
+
 def test_metadata_is_opt_in_bounded_and_cannot_set_paths():
     assert parse_metadata(None) is None
     value = {"policy_sha256": UX1_POLICY_SHA256, "original_filename": "../회사 2025.pdf"}

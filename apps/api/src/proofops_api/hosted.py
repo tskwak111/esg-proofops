@@ -215,6 +215,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
             "Idempotency-Key",
             "If-Match",
             "X-Pipeline-Profile",
+            "X-UX1-Metadata",
             "Range",
             "If-Range",
         ],
