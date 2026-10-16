@@ -8,7 +8,9 @@ V29B_HASH = "9fd37ccb4d397e2b3b4c0a468502cca4aed18dbb5d9a0853a72e0d7cae33153d"
 
 
 def test_v29c_composition_and_v29b_replay():
-    current = profiles.policy_for(profiles.V2_PROFILE)
+    current = profiles.policy_for(
+        profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_I30_POLICY)
+    )
     assert current == profiles.FINALS_I29B_POLICY | dict(
         integration_profile="finals-20261017-v29c",
         spt_claim_pipeline=profiles.SPT_POLICY["spt_claim_pipeline"],

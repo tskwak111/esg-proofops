@@ -600,7 +600,18 @@ class HostedStore:
 
     def get_document(self, tenant: str, document: str) -> dict:
         with self.transaction(readonly=True) as db:
-            return dict(self._document(db, tenant, document))
+            return dict(self._document(db, tenant, document)) | self.ux1_document_metadata(
+                tenant, document
+            )
+
+    def ux1_document_metadata(self, tenant: str, document: str) -> dict:
+        # Caller must first enforce document visibility/tombstones using _document or collection.
+        path = self.document_dir(tenant, document) / "ux1-metadata.json"
+        try:
+            value = json.loads(path.read_text())
+        except (OSError, ValueError):
+            return {}
+        return {"ux1_metadata": value} if isinstance(value, dict) else {}
 
     def require_owned_resource(self, auth: Any, kind: str, resource: str) -> None:
         """Opaque denial for organizer resources, including nested source/result routes."""
@@ -676,7 +687,9 @@ class HostedStore:
             staged.flush()
             return self.upload_file(auth, Path(staged.name), key, now=now)
 
-    def upload_file(self, auth: Any, source: Path, key: str, *, now: float) -> dict:
+    def upload_file(
+        self, auth: Any, source: Path, key: str, *, now: float, ux1_metadata: dict | None = None
+    ) -> dict:
         if not auth.has_capability("editor"):
             raise HostedError("FORBIDDEN", 403)
         if not self.settings.accept_uploads or not self.settings.consent_version:
@@ -688,7 +701,9 @@ class HostedStore:
         with self.transaction() as db:
             replay = self._replay(db, auth, "upload", key, sha)
             if replay:
-                return dict(self._document(db, auth.tenant_id, replay))
+                return dict(
+                    self._document(db, auth.tenant_id, replay)
+                ) | self.ux1_document_metadata(auth.tenant_id, replay)
         doc = str(uuid4())
         with TemporaryDirectory(prefix="proofops-upload-", dir=self.settings.root) as scratch:
             security: dict[str, Any] = {}
@@ -711,13 +726,17 @@ class HostedStore:
             with self.transaction() as db:
                 replay = self._replay(db, auth, "upload", key, sha)
                 if replay:
-                    return dict(self._document(db, auth.tenant_id, replay))
+                    return dict(
+                        self._document(db, auth.tenant_id, replay)
+                    ) | self.ux1_document_metadata(auth.tenant_id, replay)
                 path = self.document_dir(auth.tenant_id, doc)
                 path.mkdir(parents=True, mode=0o700)
                 copy_verified_file(source, path / "original.pdf", sha)
                 if security.get("encrypted"):
                     copy_verified_file(derived, path / "decrypted.pdf", security["analysis_sha256"])
                 self._write(path / "upload-security.json", json.dumps(security).encode())
+                if ux1_metadata is not None:
+                    self._write(path / "ux1-metadata.json", json.dumps(ux1_metadata).encode())
                 db.execute(
                     "INSERT INTO documents VALUES (?,?,?,?,?,?,?,?)",
                     (
@@ -736,7 +755,9 @@ class HostedStore:
                     (auth.tenant_id, doc, self.user_hash(auth.user_sub)),
                 )
                 self._remember(db, auth, "upload", key, sha, doc, doc, now)
-                return dict(self._document(db, auth.tenant_id, doc))
+                return dict(self._document(db, auth.tenant_id, doc)) | self.ux1_document_metadata(
+                    auth.tenant_id, doc
+                )
 
     def analysis_source(self, directory: Path, document: dict) -> Path:
         """Tenant-owned immutable original plus verified, byte-bound plaintext derivative."""

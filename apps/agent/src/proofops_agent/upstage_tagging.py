@@ -456,6 +456,39 @@ class UpstageTaggingTransport:
             for key, ref in refs.items()
         }
         table = data.pop("table_observation_evidence", None)
+        if "tb1_table_bundles" in data:
+            from proofops.application.tagging.tb1_table_bundles import bundle_refs
+
+            def tb1_id(source):
+                matches = [
+                    key
+                    for key, ref in refs.items()
+                    if all(
+                        ref.get(k) == source[k]
+                        for k in ("source_id", "char_start", "char_end", "quote")
+                    )
+                ]
+                if not matches:
+                    raise ValueError("TB1_EVIDENCE_CATALOG_MISMATCH")
+                return matches[0]
+
+            data["tb1_table_bundles"] = [
+                {
+                    **{
+                        k: item[k]
+                        for k in ("row_number", "column_number", "year", "period_role", "focal")
+                    },
+                    **{k + "_id": tb1_id(item[k]) for k in ("value", "unit", "period")},
+                    **{
+                        k + "_ids": [tb1_id(r) for r in item[k]]
+                        for k in ("row_labels", "column_headers", "notes")
+                    },
+                    "required_ids": [tb1_id(r) for r in bundle_refs(item)],
+                }
+                for item in data["tb1_table_bundles"]
+            ]
+            if data["tb1_table_bundles"] and "qt1_table_tuples" in data:
+                data["qt1_table_tuples"] = []
         for field in ("qt1_table_tuples", "qt1_baseline_links"):
             if field not in data:
                 continue
@@ -729,12 +762,19 @@ class UpstageTaggingTransport:
 
             if data.pop("qt1_tuple_policy") != POLICY:
                 raise ValueError("QT1_TUPLE_POLICY_MISMATCH")
-            wire_system += "\n" + GUIDANCE
+            if not data.get("tb1_table_bundles"):
+                wire_system += "\n" + GUIDANCE
         if "qt1_baseline_policy" in data:
             from proofops.application.tagging.qt1_baseline import GUIDANCE, POLICY
 
             if data.pop("qt1_baseline_policy") != POLICY:
                 raise ValueError("QT1_BASELINE_POLICY_MISMATCH")
+            wire_system += "\n" + GUIDANCE
+        if "tb1_table_policy" in data:
+            from proofops.application.tagging.tb1_table_bundles import GUIDANCE, POLICY
+
+            if data.pop("tb1_table_policy") != POLICY:
+                raise ValueError("TB1_TABLE_POLICY_MISMATCH")
             wire_system += "\n" + GUIDANCE
         if "tagging_wire_policy" in data:
             from proofops.application.tagging.k7_wire import (

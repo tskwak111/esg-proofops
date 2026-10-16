@@ -186,6 +186,7 @@ def prepare_argv(pdf, state, tenant, config, options=None):
                 FINALS_I29_INITIAL_POLICY,
                 FINALS_I29_POLICY,
                 FINALS_I29B_POLICY,
+                FINALS_I30_POLICY,
                 FINALS_Q1_POLICY,
                 FINALS_RG1_POLICY,
                 FINALS_S2_SPEED_POLICY,
@@ -205,6 +206,7 @@ def prepare_argv(pdf, state, tenant, config, options=None):
                 SPG_POLICY,
                 SPP_POLICY,
                 SPT_POLICY,
+                TB1_POLICY,
                 W3_POLICY,
                 policy_for,
             )
@@ -214,6 +216,7 @@ def prepare_argv(pdf, state, tenant, config, options=None):
             if options["analysis_profile_sha256"] not in {
                 canonical_hash(policy_for(profiles["analysis_profile"])),
                 canonical_hash(CF5_POLICY),
+                canonical_hash(TB1_POLICY),
                 canonical_hash(FINALS_E05_POLICY),
                 canonical_hash(FINALS_D2_POLICY),
                 canonical_hash(FINALS_FXB_POLICY),
@@ -242,6 +245,7 @@ def prepare_argv(pdf, state, tenant, config, options=None):
                 canonical_hash(FINALS_I27_POLICY),
                 canonical_hash(FINALS_I27_PRE_RB2_POLICY),
                 canonical_hash(FINALS_I28_POLICY),
+                canonical_hash(FINALS_I30_POLICY),
                 canonical_hash(FINALS_I29B_POLICY),
                 canonical_hash(FINALS_I29_INITIAL_POLICY),
                 canonical_hash(FINALS_I29_POLICY),
