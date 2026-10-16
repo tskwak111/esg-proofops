@@ -71,6 +71,7 @@ class RunCreate(BaseModel):
     ) = None
 
     scope_selection_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")] | None = None
+    force_fresh: Annotated[bool, Field(strict=True)] = False
 
 
 class ReportingScopeEdit(BaseModel):
@@ -567,6 +568,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
             auto_scope=True,
             scope_selection_sha256=body.scope_selection_sha256,
             pipeline_profile=request.headers.get("X-Pipeline-Profile", default_pipeline),
+            force_fresh=body.force_fresh,
         )
 
     @app.get("/v1/runs")

@@ -148,6 +148,7 @@ class HostedSettings:
     daily_runs: int = 10
     access_config: Path | None = None
     auth_trusted_proxies: tuple[str, ...] = ()
+    rc1_reuse_enabled: bool = False
 
     def __post_init__(self) -> None:
         from urllib.parse import urlsplit
@@ -229,6 +230,7 @@ class HostedSettings:
             consent_version=env.get("HOSTED_CONSENT_VERSION", ""),
             backend=env.get("ANALYSIS_BACKEND", "static"),
             accept_runs=flag("R108_ACCEPT_NEW_RUNS", "false"),
+            rc1_reuse_enabled=flag("RC1_RESULT_REUSE_ENABLED", "false"),
             live_disabled=flag("LIVE_DISABLED", "true"),
             live_config=Path(env["HOSTED_LIVE_CONFIG"]) if env.get("HOSTED_LIVE_CONFIG") else None,
             max_upload_bytes=int(env.get("HOSTED_MAX_UPLOAD_BYTES", "157286400")),
@@ -441,6 +443,9 @@ class HostedStore:
                 BEFORE INSERT ON tombstones WHEN EXISTS(SELECT 1 FROM tombstones
                     WHERE tenant_id=NEW.tenant_id AND document_id=NEW.document_id)
                 BEGIN SELECT RAISE(ABORT,'immutable tombstone'); END""")
+            from proofops_api.hosted_reuse import migrate
+
+            migrate(db)
         for path in (self.path, self.ledger):
             os.chmod(path, 0o600)
         with self.transaction() as db:
@@ -1102,8 +1107,11 @@ class HostedStore:
         auto_scope: bool = False,
         scope_selection_sha256: str | None = None,
         pipeline_profile: str = "unattended-v1",
+        force_fresh: bool = False,
     ) -> dict:
         if not auth.has_capability("editor"):
+            raise HostedError("FORBIDDEN", 403)
+        if force_fresh and not auth.has_capability("admin"):
             raise HostedError("FORBIDDEN", 403)
         if not self.settings.accept_runs or self.settings.backend != "r108":
             raise HostedError("ANALYSIS_DISABLED", 503)
@@ -1192,7 +1200,16 @@ class HostedStore:
                     options.update(
                         provider_execution=frozen, provider_execution_sha256=canonical_hash(frozen)
                     )
+                if self.settings.rc1_reuse_enabled and "reporting_scope" not in options:
+                    from evaluation.reporting_period import validate_period
+
+                    try:
+                        options["reporting_scope"] = validate_period(config)
+                    except ValueError:
+                        pass  # Unknown period cannot match a reusable publication.
             body_hash = digest(json.dumps([document, selected, options]))
+            if force_fresh:
+                body_hash = digest(body_hash + ":force_fresh")
             replay = self._replay(db, auth, "run", key, body_hash)
             if replay:
                 return self._project_run(self._run(db, auth.tenant_id, replay), db)
@@ -1200,6 +1217,16 @@ class HostedStore:
                 raise HostedError("MAINTENANCE", 503)
             if not (self.document_dir(auth.tenant_id, document) / "original.pdf").is_file():
                 raise HostedError("SOURCE_UNAVAILABLE")
+            if self.settings.rc1_reuse_enabled:
+                from proofops_api.hosted_reuse import try_reuse
+
+                self.analysis_source(self.document_dir(auth.tenant_id, document), dict(doc))
+                if not force_fresh:
+                    reused = try_reuse(
+                        self, db, auth, doc, options, key=key, body_hash=body_hash, now=now
+                    )
+                    if reused is not None:
+                        return reused
             user = self.user_hash(auth.user_sub)
             # Per-user slot pressure queues work; admission still reserves the
             # complete envelope and checks the global queue, count and USD caps.
@@ -1826,6 +1853,10 @@ class HostedStore:
             from proofops.application.pipeline_failures import public_reason_details
 
             result = snapshot["result"]
+            if result.get("reuse", {}).get("reused"):
+                from proofops_api.hosted_reuse import verify_copy
+
+                verify_copy(self, row, result)
             if result.get("hold_reasons"):
                 return result | dict(
                     hold_reason_details=public_reason_details(result["hold_reasons"])
@@ -1851,6 +1882,8 @@ class HostedStore:
             row = self._run(db, auth.tenant_id, run)
             if row["status"] not in {"completed", "partial_blocked"}:
                 raise HostedError("ANALYSIS_RESULT_UNAVAILABLE")
+            if db.execute("SELECT 1 FROM rc1_reuse_audit WHERE run_id=?", (run,)).fetchone():
+                raise HostedError("REUSED_RESULT_READ_ONLY", 409)
             path = self.document_dir(auth.tenant_id, row["document_id"]) / "analysis" / run
             # Shared payload lease lets GETs continue reading the prior immutable
             # snapshot while one review at a time publishes a validated revision.
@@ -2030,6 +2063,7 @@ class HostedStore:
             db.execute("DELETE FROM invitations WHERE expires<=? OR used=1", (now,))
             db.execute("DELETE FROM rate_limits WHERE bucket<?", (int(now // 60) - 2,))
             cutoff = now - self.settings.audit_days * 86400
+            db.execute("DELETE FROM rc1_reuse_audit WHERE created<?", (cutoff,))
             db.execute("DELETE FROM deletion.source_retention WHERE created<?", (cutoff,))
             # Remove per-run audit after30d, retaining only a subject-free event aggregate.
             # Unreconciled money cannot be discarded to free budget.
