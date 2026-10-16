@@ -114,7 +114,9 @@ def _receipt(data):
     )
 
 
-def assemble(votes, *, context, graph, packet, rulepack, tag_revision=1):
+def assemble(
+    votes, *, context, graph, packet, rulepack, tag_revision=1, source_scoped_quotes=False
+):
     claim = context.claim
     data = packet.to_dict()
     identity = dict(
@@ -215,6 +217,22 @@ def assemble(votes, *, context, graph, packet, rulepack, tag_revision=1):
             return None
         block = next(b for b in graph.blocks if b.source_id == source.source_id)
         # Use the graph's existing normalized-to-native offset mapping.
+        if source_scoped_quotes:
+            # CF2: an earlier occurrence outside the supplied source must not
+            # hide its unique in-span occurrence. Never widen the admitted span.
+            matches = []
+            start = block.normalized_text.find(quote)
+            while start >= 0:
+                ref = block.source_ref(
+                    normalized_char_start=start, normalized_char_end=start + len(quote)
+                )
+                if source.char_start <= ref.char_start < ref.char_end <= source.char_end:
+                    matches.append(ref)
+                start = block.normalized_text.find(quote, start + 1)
+            if len(matches) != 1:
+                return None
+            checked = verify_source_ref(matches[0], graph, tenant_id=claim.tenant_id)
+            return checked if checked.verification_state == "verified" else None
         start = block.normalized_text.find(quote)
         if start < 0:
             return None

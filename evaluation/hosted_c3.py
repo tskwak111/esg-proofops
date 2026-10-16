@@ -93,10 +93,16 @@ def publish_current(store, job, state, policy, factory, *, simulated=False):
     )
     # Durable provenance is retained in the immutable C3 tag revision, not a
     # precomputed grade imported into the regular claim store.
-    return dict(
+    outcome = dict(
         status="published" if result["published"] else "needs_review",
         published=result["published"],
         receipt_sha256=result["receipt"]["receipt_sha256"],
         current_claim_id=case["context"].claim.claim_id,
         parser_sha256=sha256(json.dumps(asdict(graph), sort_keys=True).encode()).hexdigest(),
     )
+    if "cf2_receipt_path" in result:
+        outcome.update(
+            cf2_receipt_path=result["cf2_receipt_path"],
+            cf2_unresolved=result["receipt"]["unresolved"],
+        )
+    return outcome

@@ -6,8 +6,13 @@ from dataclasses import asdict
 from proofops.application.tagging import fact_assembly_c2 as c2
 from proofops.application.tagging import fact_assembly_c3 as c3
 from proofops.application.tagging import fact_assembly_c3_v2_legacy as legacy
+from proofops.application.tagging.c3_request_binding import (
+    CF2_POLICY,
+    current_request,
+    fresh_response_bound,
+    response_binding_policy,
+)
 from proofops.application.tagging.c3_request_binding import POLICY as RESPONSE_BINDING_POLICY
-from proofops.application.tagging.c3_request_binding import current_request, fresh_response_bound
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rules.engine import evaluate
 
@@ -143,11 +148,14 @@ POLICY_HASH = canonical_hash(POLICY)
 
 def assemble(votes, *, analysis_policy=None, **inputs):
     """Recompute candidates; only authenticated current responses can publish."""
-    result = c3.assemble(votes, **inputs).to_dict()
+    cf2 = bool(analysis_policy and response_binding_policy(analysis_policy) == CF2_POLICY)
+    result = c3.assemble(votes, source_scoped_quotes=cf2, **inputs).to_dict()
     result.pop("receipt_sha256")
     result.update(policy=POLICY, policy_sha256=POLICY_HASH)
     for derived in result["derived_results"]:
-        derived["matcher_policy_sha256"] = POLICY_HASH
+        derived["matcher_policy_sha256"] = (
+            canonical_hash([POLICY, CF2_POLICY]) if cf2 else POLICY_HASH
+        )
     try:
         fingerprint = source_fingerprint_payload(result)
     except (KeyError, TypeError, ValueError):
