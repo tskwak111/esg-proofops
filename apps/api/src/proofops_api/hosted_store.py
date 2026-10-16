@@ -19,10 +19,11 @@ import subprocess
 import sys
 import time
 from collections.abc import Callable, Iterator
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
+from http.client import HTTPException
 from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from typing import Any
@@ -30,15 +31,23 @@ from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
 
 from proofops.adapters.local.provider_errors import MESSAGES, provider_error_code
+from proofops.adapters.local.source_hx3 import failure_location
 from proofops.application.authorization import MembershipRecord, SessionExpiredError, SessionRecord
+from proofops.application.pipeline_failures import MESSAGES as PIPELINE_MESSAGES
+from proofops.application.pipeline_failures import PUBLIC_CODES
 from proofops.application.uploads_security import (
+    HOSTED_NULL_NAVIGATION_PROFILE,
     PdfLimits,
     UploadRejected,
     verify_pdf_file,
 )
 
+from proofops_api.hosted_sqlite import BUSY_TIMEOUT_MS, retry_busy
+
 MICRO = Decimal(1_000_000)
 RUN_LEASE_SECONDS = 1900
+
+
 TERMINAL = ("partial_blocked", "completed", "cancelled", "failed")
 OPENROUTER_LIMIT_CODES = frozenset({"OPENROUTER_HTTP_402", "OPENROUTER_HTTP_403"})
 OPENAI_LIMIT_CODES = frozenset({"OPENAI_HTTP_401", "OPENAI_HTTP_429", "OPENAI_INSUFFICIENT_QUOTA"})
@@ -62,9 +71,10 @@ CONTROL_MESSAGES = {
 
 
 class HostedError(ValueError):
-    def __init__(self, code: str, status: int = 409):
+    def __init__(self, code: str, status: int = 409, *, retry_after: int | None = None):
         super().__init__(code)
         self.code, self.status = code, status
+        self.retry_after = retry_after
 
 
 def digest(value: str | bytes) -> str:
@@ -131,10 +141,14 @@ class HostedSettings:
     run_usd: Decimal = Decimal("1.0")
     day_usd: Decimal = Decimal("7")
     event_usd: Decimal = Decimal("7")
+    event_usd_ceiling: Decimal = Decimal("7")
     user_daily_runs: int = 6
     max_active_runs: int = 1
     user_active_runs: int = 1
     daily_runs: int = 10
+    access_config: Path | None = None
+    auth_trusted_proxies: tuple[str, ...] = ()
+    rc1_reuse_enabled: bool = False
 
     def __post_init__(self) -> None:
         from urllib.parse import urlsplit
@@ -157,6 +171,12 @@ class HostedSettings:
             )
         if self.backend not in {"r108", "legacy", "static"}:
             raise ValueError("invalid analysis backend")
+        if self.access_config is not None and not self.access_config.is_absolute():
+            raise ValueError("absolute private access config required")
+        from ipaddress import ip_address
+
+        for proxy in self.auth_trusted_proxies:
+            ip_address(proxy)
         if type(self.max_active_runs) is not int or self.max_active_runs not in (1, 2):
             raise ValueError("HOSTED_RUN_CONCURRENCY_INVALID")
         if not self.live_disabled:
@@ -185,9 +205,11 @@ class HostedSettings:
             raise ValueError("limits exceed P1 ceilings")
         if not self.active_days <= self.backup_days <= self.audit_days:
             raise ValueError("retention order invalid")
-        for amount, ceiling in ((self.run_usd, "1.0"), (self.day_usd, "7"), (self.event_usd, "7")):
+        for amount, ceiling in ((self.run_usd, "1.0"), (self.day_usd, "7")):
             if not 0 < micros(amount) <= micros(ceiling):
                 raise ValueError("budget exceeds DEC-22 ceilings")
+        if not 0 < micros(self.event_usd) <= micros(self.event_usd_ceiling):
+            raise ValueError("budget exceeds DEC-22 ceilings")
 
     @classmethod
     def from_env(cls, env: Any) -> HostedSettings:
@@ -208,6 +230,7 @@ class HostedSettings:
             consent_version=env.get("HOSTED_CONSENT_VERSION", ""),
             backend=env.get("ANALYSIS_BACKEND", "static"),
             accept_runs=flag("R108_ACCEPT_NEW_RUNS", "false"),
+            rc1_reuse_enabled=flag("RC1_RESULT_REUSE_ENABLED", "false"),
             live_disabled=flag("LIVE_DISABLED", "true"),
             live_config=Path(env["HOSTED_LIVE_CONFIG"]) if env.get("HOSTED_LIVE_CONFIG") else None,
             max_upload_bytes=int(env.get("HOSTED_MAX_UPLOAD_BYTES", "157286400")),
@@ -217,10 +240,17 @@ class HostedSettings:
             run_usd=Decimal(env.get("HOSTED_RUN_USD", "1.0")),
             day_usd=Decimal(env.get("HOSTED_DAY_USD", "7")),
             event_usd=Decimal(env.get("HOSTED_EVENT_USD", "7")),
+            event_usd_ceiling=Decimal(env.get("HOSTED_EVENT_USD_CEILING", "7")),
             user_daily_runs=int(env.get("HOSTED_USER_DAILY_RUNS", "6")),
             max_active_runs=int(env.get("HOSTED_MAX_ACTIVE_RUNS", "1")),
             user_active_runs=int(env.get("HOSTED_USER_ACTIVE_RUNS", "1")),
             daily_runs=int(env.get("HOSTED_DAILY_RUNS", "10")),
+            access_config=Path(env.get("HOSTED_ACCESS_CONFIG", "/run/private/access.json")),
+            auth_trusted_proxies=tuple(
+                value.strip()
+                for value in env.get("HOSTED_AUTH_TRUSTED_PROXIES", "").split(",")
+                if value.strip()
+            ),
         )
 
 
@@ -234,8 +264,9 @@ class SQLiteSessions:
         ).hexdigest()
 
     def get(self, sid: str) -> SessionRecord | None:
-        with self.store.transaction() as db:
+        with self.store.transaction(readonly=True) as db:
             row = db.execute("SELECT * FROM sessions WHERE sid_hash=?", (digest(sid),)).fetchone()
+            valid = row is not None and self.store.access.session_valid(db, row, time.time())
         if row is None:
             return None
         return SessionRecord(
@@ -245,7 +276,7 @@ class SQLiteSessions:
             row["csrf_hash"],
             row["expires"],
             row["idle"],
-            bool(row["revoked"]),
+            bool(row["revoked"]) or not valid,
         )
 
     def revoke(self, sid: str) -> None:
@@ -278,6 +309,11 @@ class SQLiteSessions:
                     min(row["expires"], now + 1800),
                 ),
             )
+            db.execute(
+                "INSERT INTO access_sessions SELECT ?,role,session_epoch FROM access_sessions "
+                "WHERE sid_hash=?",
+                (digest(new_id), digest(sid)),
+            )
         record = self.get(new_id)
         assert record is not None
         return record
@@ -288,7 +324,7 @@ class SQLiteMemberships:
         self.store = store
 
     def get(self, tenant_id: str, user_sub: str) -> MembershipRecord | None:
-        with self.store.transaction() as db:
+        with self.store.transaction(readonly=True) as db:
             row = db.execute(
                 "SELECT role,status FROM memberships WHERE tenant_id=? AND user_id=?",
                 (tenant_id, user_sub),
@@ -296,7 +332,7 @@ class SQLiteMemberships:
         return MembershipRecord(tenant_id, user_sub, row[0], row[1]) if row else None
 
     def tenant_exists(self, tenant_id: str) -> bool:
-        with self.store.transaction() as db:
+        with self.store.transaction(readonly=True) as db:
             return (
                 db.execute("SELECT 1 FROM memberships WHERE tenant_id=?", (tenant_id,)).fetchone()
                 is not None
@@ -315,12 +351,18 @@ class HostedStore:
         self.ledger = self.root / "deletions.sqlite3"
         self.sessions = SQLiteSessions(self)
         self.memberships = SQLiteMemberships(self)
+        from proofops_api.hosted_access import AccessPasswords
+
+        self.access = AccessPasswords(self)
         with self.transaction() as db:
+            self.access.migrate(db)
             db.execute("CREATE TABLE IF NOT EXISTS hosted_schema (version INTEGER PRIMARY KEY)")
             versions = db.execute("SELECT version FROM hosted_schema").fetchall()
             if versions and [row[0] for row in versions] != [1]:
                 raise ValueError("unsupported hosted schema")
             db.execute("INSERT OR IGNORE INTO hosted_schema VALUES (1)")
+            db.execute("""CREATE TABLE IF NOT EXISTS ops2_provider_observations (
+                provider TEXT PRIMARY KEY, observed REAL NOT NULL, error_code TEXT)""")
             db.execute("""CREATE TABLE IF NOT EXISTS admission_control (
                 id INTEGER PRIMARY KEY CHECK(id=1),
                 draining INTEGER NOT NULL CHECK(draining IN (0,1)), updated REAL NOT NULL)""")
@@ -401,6 +443,9 @@ class HostedStore:
                 BEFORE INSERT ON tombstones WHEN EXISTS(SELECT 1 FROM tombstones
                     WHERE tenant_id=NEW.tenant_id AND document_id=NEW.document_id)
                 BEGIN SELECT RAISE(ABORT,'immutable tombstone'); END""")
+            from proofops_api.hosted_reuse import migrate
+
+            migrate(db)
         for path in (self.path, self.ledger):
             os.chmod(path, 0o600)
         with self.transaction() as db:
@@ -412,20 +457,54 @@ class HostedStore:
         self.replay_deletions(now=time.time())
 
     @contextmanager
-    def transaction(self, *, expiry_cutoff: float | None = None) -> Iterator[sqlite3.Connection]:
-        db = sqlite3.connect(self.path, timeout=10, isolation_level=None)
-        db.row_factory = sqlite3.Row
-        db.create_function(
-            "retention_expired",
-            1,
-            lambda created: int(expiry_cutoff is not None and created <= expiry_cutoff),
-        )
+    def transaction(
+        self, *, expiry_cutoff: float | None = None, readonly: bool = False
+    ) -> Iterator[sqlite3.Connection]:
+        # Keep rollback journals: WAL loses cross-file atomicity for the attached
+        # money/tombstone ledger. Reads need a snapshot, not a reserved writer.
+        def acquire():
+            db = sqlite3.connect(self.path, timeout=BUSY_TIMEOUT_MS / 1000, isolation_level=None)
+            db.row_factory = sqlite3.Row
+            db.create_function(
+                "retention_expired",
+                1,
+                lambda created: int(expiry_cutoff is not None and created <= expiry_cutoff),
+            )
+            try:
+                # ATTACH itself can encounter a pending writer. Recreate the
+                # connection on BUSY, before any caller side effects can execute.
+                db.execute(f"PRAGMA busy_timeout={BUSY_TIMEOUT_MS}")
+                db.execute("ATTACH DATABASE ? AS deletion", (str(self.ledger),))
+                if readonly:
+                    db.execute("PRAGMA query_only=ON")
+                    db.execute("BEGIN")
+                    # Take both read locks before yielding to avoid a reader /
+                    # attached-ledger commit lock cycle.
+                    for schema in ("main", "deletion"):
+                        db.execute(
+                            f"SELECT rootpage FROM {schema}.sqlite_master LIMIT 1"
+                        ).fetchall()
+                else:
+                    db.execute("PRAGMA secure_delete=ON")
+                    db.execute("BEGIN IMMEDIATE")
+                return db
+            except BaseException:
+                db.rollback()
+                db.close()
+                raise
+
+        db = retry_busy(acquire, phase="acquire")
         try:
-            db.execute("ATTACH DATABASE ? AS deletion", (str(self.ledger),))
-            db.execute("PRAGMA secure_delete=ON")
-            db.execute("BEGIN IMMEDIATE")
+            started = time.monotonic()
             yield db
-            db.commit()
+            # A busy COMMIT keeps this exact transaction open. Retry COMMIT only;
+            # yielding the body again would duplicate files or provider effects.
+            retry_busy(db.commit, phase="commit")
+            elapsed = time.monotonic() - started
+            if not readonly and elapsed >= 1:
+                logging.getLogger(__name__).warning(
+                    "hosted sqlite writer elapsed_ms=%d", int(elapsed * 1000)
+                )
         except BaseException:
             db.rollback()
             raise
@@ -438,7 +517,7 @@ class HostedStore:
     def invite(self, tenant: str, user: str, role: str, *, now: float) -> str:
         identifier(tenant)
         MembershipRecord(tenant, user, role, "active")  # type: ignore[arg-type]
-        if not user or len(user) > 200:
+        if not user or len(user) > 200 or user.startswith("access-password:"):
             raise ValueError("invalid user")
         code = secrets.token_urlsafe(32)
         with self.transaction() as db:
@@ -520,8 +599,33 @@ class HostedStore:
         return row
 
     def get_document(self, tenant: str, document: str) -> dict:
-        with self.transaction() as db:
+        with self.transaction(readonly=True) as db:
             return dict(self._document(db, tenant, document))
+
+    def require_owned_resource(self, auth: Any, kind: str, resource: str) -> None:
+        """Opaque denial for organizer resources, including nested source/result routes."""
+        from proofops_api.hosted_access import is_organizer
+
+        if not is_organizer(auth):
+            return
+        with self.transaction(readonly=True) as db:
+            if kind == "runs":
+                row = self._run(db, auth.tenant_id, resource)
+                if row["user_hash"] != self.user_hash(auth.user_sub):
+                    raise HostedError("RESOURCE_NOT_FOUND", 404)
+                resource = row["document_id"]
+            self._require_document_owner(db, auth, resource)
+
+    def _require_document_owner(self, db: Any, auth: Any, document: str) -> None:
+        from proofops_api.hosted_access import is_organizer
+
+        if is_organizer(auth):
+            owner = db.execute(
+                "SELECT user_hash FROM document_owners WHERE tenant_id=? AND document_id=?",
+                (auth.tenant_id, document),
+            ).fetchone()
+            if owner is None or owner[0] != self.user_hash(auth.user_sub):
+                raise HostedError("RESOURCE_NOT_FOUND", 404)
 
     def _replay(
         self, db: sqlite3.Connection, auth: Any, route: str, key: str, body_hash: str
@@ -593,6 +697,7 @@ class HostedStore:
                 pages = verify_pdf_file(
                     source,
                     PdfLimits(
+                        policy_profile=HOSTED_NULL_NAVIGATION_PROFILE,
                         max_bytes=self.settings.max_upload_bytes,
                         max_decoded_bytes=512 * 1024 * 1024,
                     ),
@@ -727,6 +832,7 @@ class HostedStore:
             "error_code": row["error_code"],
             "error_message": CONTROL_MESSAGES.get(raw_error)
             or MESSAGES.get(raw_error)
+            or PIPELINE_MESSAGES.get(raw_error)
             or (PROVIDER_LIMIT_MESSAGE if row["error_code"] in ALL_PROVIDER_LIMIT_CODES else None),
             "provider_error_code": cause,
             "provider_error_message": MESSAGES.get(cause),
@@ -737,20 +843,35 @@ class HostedStore:
     def provider_limits(self) -> dict:
         """Observed service availability only; never probe providers on public GETs."""
         limits = {}
-        with self.transaction() as db:
+        with self.transaction(readonly=True) as db:
             for provider, codes in PROVIDER_LIMIT_CODES.items():
                 parameters = tuple(sorted(codes))
                 placeholders = ",".join("?" for _ in parameters)
                 row = db.execute(
-                    f"SELECT error_code FROM runs WHERE error_code IN ({placeholders}) "
+                    f"SELECT error_code,created FROM runs WHERE error_code IN ({placeholders}) "
                     "ORDER BY created DESC,run_id DESC LIMIT 1",
                     parameters,
                 ).fetchone()
+                observed = db.execute(
+                    "SELECT error_code,observed FROM ops2_provider_observations WHERE provider=?",
+                    (provider,),
+                ).fetchone()
+                recovered = bool(
+                    observed and observed[0] is None and (row is None or observed[1] >= row[1])
+                )
+                if observed and observed[0] in codes and (row is None or observed[1] >= row[1]):
+                    row = observed
+                if recovered:
+                    row = None
                 limits[provider] = {
-                    "status": "blocked" if row else "unknown",
+                    "status": "blocked" if row else "available" if recovered else "unknown",
                     "error_code": row[0] if row else None,
                     "remaining_usd": None,
-                    "source": "observed_http_failure" if row else "not_queried",
+                    "source": "observed_http_failure"
+                    if row
+                    else "observed_http_success"
+                    if recovered
+                    else "not_queried",
                     "retryable": False,
                     "message": PROVIDER_LIMIT_MESSAGE if row else None,
                 }
@@ -769,7 +890,7 @@ class HostedStore:
     def get_run(self, tenant: str, run: str) -> dict:
         lock = None
         try:
-            with self.transaction() as db:
+            with self.transaction(readonly=True) as db:
                 row = self._run(db, tenant, run)
                 result = self._project_run(row, db, inline_result=False)
                 if result["result_url"]:
@@ -782,7 +903,7 @@ class HostedStore:
                 result["result"] = self._result(None, row)
                 # A deletion may fence the leased payload while hashes are read.
                 # Never expose bytes after its tombstone commits.
-                with self.transaction() as db:
+                with self.transaction(readonly=True) as db:
                     self._run(db, tenant, run)
             return result
         finally:
@@ -818,7 +939,7 @@ class HostedStore:
         return scope
 
     def get_scope(self, tenant: str, document: str) -> dict:
-        with self.transaction() as db:
+        with self.transaction(readonly=True) as db:
             return self._scope(db, tenant, document)
 
     def generate_scope(self, auth, document: str) -> dict:
@@ -849,6 +970,7 @@ class HostedStore:
                             str(self.analysis_source(path, doc)),
                             str(output),
                             doc["sha256"],
+                            auth.tenant_id,
                         ],
                         timeout=90,
                         check=True,
@@ -985,13 +1107,17 @@ class HostedStore:
         auto_scope: bool = False,
         scope_selection_sha256: str | None = None,
         pipeline_profile: str = "unattended-v1",
+        force_fresh: bool = False,
     ) -> dict:
         if not auth.has_capability("editor"):
+            raise HostedError("FORBIDDEN", 403)
+        if force_fresh and not auth.has_capability("admin"):
             raise HostedError("FORBIDDEN", 403)
         if not self.settings.accept_runs or self.settings.backend != "r108":
             raise HostedError("ANALYSIS_DISABLED", 503)
         with self.transaction() as db:
             doc = self._document(db, auth.tenant_id, document)
+            self._require_document_owner(db, auth, document)
             if now >= doc["expires"]:
                 raise HostedError("SOURCE_EXPIRED", 409)
             options = None
@@ -1042,7 +1168,7 @@ class HostedStore:
             if pipeline_profile not in {"unattended-v1", "strict-v1", *FINALS_PROFILES}:
                 raise HostedError("PIPELINE_PROFILE_INVALID", 422)
             if pipeline_profile in FINALS_PROFILES:
-                from proofops.application.analysis_profile import policy_for
+                from proofops.application.analysis_profile import publication_policy_for
                 from proofops.domain.provenance import canonical_hash
 
                 if options is None:
@@ -1051,12 +1177,39 @@ class HostedStore:
                     )
                 if len(options["claim_pages"]) > 10:
                     raise HostedError("PAGE_SELECTION_INVALID", 422)
+                operator_pin = None
+                config = {}
+                if self.settings.live_config is not None:
+                    config = json.loads(self.settings.live_config.read_text())
+                    operator_pin = config.get("analysis_policy_sha256")
                 options.update(
                     pipeline_profile=pipeline_profile,
                     analysis_profile=pipeline_profile,
-                    analysis_profile_sha256=canonical_hash(policy_for(pipeline_profile)),
+                    analysis_profile_sha256=canonical_hash(
+                        publication_policy_for(pipeline_profile, pinned_hash=operator_pin)
+                    ),
                 )
+                from proofops_api.hosted_analysis import operator_profiles
+
+                execution = publication_policy_for(pipeline_profile, pinned_hash=operator_pin)
+                if execution.get("provider_scheduler"):
+                    profiles = operator_profiles(config | dict(analysis_profile=pipeline_profile))
+                    frozen = {
+                        k: profiles[k] for k in ("llm_max_workers", "llm_requests_per_second")
+                    }
+                    options.update(
+                        provider_execution=frozen, provider_execution_sha256=canonical_hash(frozen)
+                    )
+                if self.settings.rc1_reuse_enabled and "reporting_scope" not in options:
+                    from evaluation.reporting_period import validate_period
+
+                    try:
+                        options["reporting_scope"] = validate_period(config)
+                    except ValueError:
+                        pass  # Unknown period cannot match a reusable publication.
             body_hash = digest(json.dumps([document, selected, options]))
+            if force_fresh:
+                body_hash = digest(body_hash + ":force_fresh")
             replay = self._replay(db, auth, "run", key, body_hash)
             if replay:
                 return self._project_run(self._run(db, auth.tenant_id, replay), db)
@@ -1064,6 +1217,16 @@ class HostedStore:
                 raise HostedError("MAINTENANCE", 503)
             if not (self.document_dir(auth.tenant_id, document) / "original.pdf").is_file():
                 raise HostedError("SOURCE_UNAVAILABLE")
+            if self.settings.rc1_reuse_enabled:
+                from proofops_api.hosted_reuse import try_reuse
+
+                self.analysis_source(self.document_dir(auth.tenant_id, document), dict(doc))
+                if not force_fresh:
+                    reused = try_reuse(
+                        self, db, auth, doc, options, key=key, body_hash=body_hash, now=now
+                    )
+                    if reused is not None:
+                        return reused
             user = self.user_hash(auth.user_sub)
             # Per-user slot pressure queues work; admission still reserves the
             # complete envelope and checks the global queue, count and USD caps.
@@ -1237,20 +1400,27 @@ class HostedStore:
                 "UPDATE runs SET lease_until=? WHERE run_id=?",
                 (now + RUN_LEASE_SECONDS, job["run_id"]),
             )
+        job["lease_until"] = now + RUN_LEASE_SECONDS
 
     def prepare(self, job: dict, *, now: float) -> Path:
-        # Copy the verified source on disk under the deletion/backup writer fence.
-        with TemporaryDirectory(prefix="proofops-prepare-", dir=self.settings.root) as scratch:
+        # Lease source bytes separately from the DB snapshot; deletion remains
+        # fenced throughout copying and the actual prepare subprocess.
+        with (
+            TemporaryDirectory(prefix="proofops-prepare-", dir=self.settings.root) as scratch,
+            ExitStack() as leases,
+        ):
             source, output = Path(scratch) / "source.pdf", Path(scratch) / "selected.pdf"
-            with self.transaction() as db:
+            with self.transaction(readonly=True) as db:
                 row = self._fenced(db, job, now)
                 doc = self._document(db, job["tenant_id"], job["document_id"])
                 if now >= doc["expires"]:
                     raise HostedError("SOURCE_EXPIRED")
                 path = self.document_dir(job["tenant_id"], job["document_id"])
-                analysis = self.analysis_source(path, dict(doc))
-                copy_verified_file(analysis, source, file_sha256(analysis))
+                lock = leases.enter_context((path / "analysis.lock").open("a+b"))
+                fcntl.flock(lock, fcntl.LOCK_SH | fcntl.LOCK_NB)
                 pages = row["pages"]
+            analysis = self.analysis_source(path, dict(doc))
+            copy_verified_file(analysis, source, file_sha256(analysis))
             try:
                 subprocess.run(
                     [
@@ -1271,10 +1441,10 @@ class HostedStore:
             if output.stat().st_size > 50 * 1024 * 1024:
                 raise HostedError("PREPARE_TOO_LARGE")
             prepared_sha = file_sha256(output)
+            prepared = path / f'{job["run_id"]}.prepared.pdf'
+            copy_verified_file(output, prepared, prepared_sha)
             with self.transaction() as db:
                 self._fenced(db, job, time.time())
-                prepared = path / f'{job["run_id"]}.prepared.pdf'
-                copy_verified_file(output, prepared, prepared_sha)
                 db.execute(
                     "UPDATE runs SET prepared_sha256=? WHERE run_id=?",
                     (prepared_sha, job["run_id"]),
@@ -1291,6 +1461,11 @@ class HostedStore:
         transport: Callable[[dict], dict],
         *,
         now: float,
+        allow_transient_403: bool = False,
+        allow_model_partial: bool = False,
+        allow_response_uncertainty: bool = False,
+        allow_connect_not_sent: bool = False,
+        allow_ops2_fallback: bool = False,
     ) -> dict:
         """Broker boundary for a future approved adapter. No HTTP/provider implementation here."""
         if (
@@ -1330,6 +1505,13 @@ class HostedStore:
             if actual > reserved:
                 raise HostedError("RECEIPT_BOUND_EXCEEDED")
             with self.transaction() as db:
+                db.execute(
+                    "INSERT INTO ops2_provider_observations VALUES (?,?,NULL) "
+                    "ON CONFLICT(provider) DO UPDATE SET observed=excluded.observed,"
+                    "error_code=NULL "
+                    "WHERE excluded.observed>=ops2_provider_observations.observed",
+                    (provider, time.time()),
+                )
                 # A late cancelled/deleted result may settle money, but cannot publish payload.
                 db.execute(
                     "UPDATE deletion.costs SET actual=?,status='settled' "
@@ -1347,7 +1529,18 @@ class HostedStore:
             # A rejected quota call is terminal, but its unknown cost still needs
             # operator reconciliation. Never release reservations or redeliver it.
             limit_code = str(exc)
+            observation_code = (
+                "OPENAI_INSUFFICIENT_QUOTA"
+                if provider == "openai"
+                and getattr(exc, "provider_error_code", None) == "billing_not_active"
+                else limit_code
+            )
             quota_blocked = limit_code in PROVIDER_LIMIT_CODES.get(provider, ())
+            from proofops_api.hosted_ops2 import fallback_trigger
+
+            ops2_failure = (
+                allow_ops2_fallback is True and provider == "openai" and bool(fallback_trigger(exc))
+            )
             cause = provider_error_code(provider, limit_code)
             if cause:
                 logging.getLogger(__name__).warning(
@@ -1361,17 +1554,64 @@ class HostedStore:
                 )
             # An uncertain model transport is a per-claim hold, not a lost run fence.
             # Unknown receipts and non-model failures retain the existing terminal guard.
+            from proofops.adapters.local.openai import OpenAITransient403
+            from proofops.adapters.local.openai_connections import OpenAIConnectNotSent
+
+            if (
+                allow_connect_not_sent is True
+                and provider == "openai"
+                and isinstance(exc, OpenAIConnectNotSent)
+            ):
+                # This typed proof originates exclusively before HTTP request().
+                # Settle this broker reservation at zero; a retry needs a new call_id.
+                with self.transaction() as db:
+                    db.execute(
+                        "UPDATE deletion.costs SET actual=0,status='settled' "
+                        "WHERE run_id=? AND call_id=? AND status='reserved'",
+                        (job["run_id"], call_id),
+                    )
+                raise
+            transient_denial = (
+                allow_transient_403 is True
+                and provider == "openai"
+                and isinstance(exc, OpenAITransient403)
+            )
             model_network_failure = provider in {"openai", "openrouter"} and isinstance(
                 exc, OSError
             )
+            isolated_model_failure = (
+                allow_model_partial is True
+                and provider == "openai"
+                and (
+                    cause in {"PROVIDER_ACCESS_DENIED", "PROVIDER_UNAVAILABLE"}
+                    or model_network_failure
+                    or (
+                        allow_response_uncertainty is True
+                        and isinstance(exc, json.JSONDecodeError | UnicodeError | HTTPException)
+                    )
+                )
+            )
             with self.transaction() as db:
+                if observation_code in PROVIDER_LIMIT_CODES.get(provider, ()):
+                    db.execute(
+                        "INSERT INTO ops2_provider_observations VALUES (?,?,?) "
+                        "ON CONFLICT(provider) DO UPDATE SET observed=excluded.observed,"
+                        "error_code=excluded.error_code "
+                        "WHERE excluded.observed>=ops2_provider_observations.observed",
+                        (provider, time.time(), observation_code),
+                    )
                 db.execute(
                     "UPDATE deletion.costs SET status='accounting_pending' "
                     "WHERE run_id=? AND call_id=? "
                     "AND status='reserved'",
                     (job["run_id"], call_id),
                 )
-                if not model_network_failure:
+                if (
+                    not ops2_failure
+                    and not model_network_failure
+                    and not transient_denial
+                    and not isolated_model_failure
+                ):
                     db.execute(
                         "UPDATE runs SET "
                         "status=?,fence=fence+1,error_code=?,lease_until=0 "
@@ -1456,12 +1696,22 @@ class HostedStore:
                 exc.code
                 if isinstance(exc, HostedError)
                 else str(exc)
-                if str(exc) in ALL_PROVIDER_LIMIT_CODES
+                if str(exc) in ALL_PROVIDER_LIMIT_CODES | PUBLIC_CODES
                 else "ANALYSIS_WORKER_FAILED"
                 if prepared is not None
                 else "PREPARE_FAILED"
             )
             with self.transaction() as db:
+                progress = db.execute(
+                    "SELECT stage FROM run_progress WHERE run_id=?", (job["run_id"],)
+                ).fetchone()
+                stage = (
+                    progress[0]
+                    if progress and progress[0] in {"parse", "extract", "tag", "result"}
+                    else "prepare"
+                    if prepared is None
+                    else "analysis"
+                )
                 row = db.execute(
                     "SELECT status,fence,error_code FROM runs WHERE run_id=?", (job["run_id"],)
                 ).fetchone()
@@ -1475,7 +1725,12 @@ class HostedStore:
                     )
                     self._settle_envelope(db, job["run_id"])
             logging.getLogger(__name__).warning(
-                "hosted run %s failed: %s (%s)", job["run_id"], code, type(exc).__name__
+                "hosted run %s failed: %s (%s) stage=%s location=%s",
+                job["run_id"],
+                code,
+                type(exc).__name__,
+                stage,
+                failure_location(exc),
             )
         try:
             return self.get_run(job["tenant_id"], job["run_id"])
@@ -1516,7 +1771,9 @@ class HostedStore:
                     (job["run_id"], claims_extracted or 0, claims_processed or 0),
                 )
 
-    def publish_analysis(self, job: dict, source: Path, status: str, error: str | None) -> None:
+    def publish_analysis(
+        self, job: dict, source: Path, status: str, error: str | None, *, publication_handoff=None
+    ) -> None:
         from proofops_api.hosted_results import result_snapshot
 
         if status not in {"completed", "partial_blocked"}:
@@ -1524,23 +1781,36 @@ class HostedStore:
         self.update_progress(job, "result", 95)
         # The worker owns analysis.lock while validating its private workspace.
         # Replay must never hold the control writer or run on a GET request.
-        content = result_snapshot(source, job["tenant_id"], json.loads(job["pages"]))
-        with self.transaction() as db:
-            self._fenced(db, job, time.time())
-            target = (
-                self.document_dir(job["tenant_id"], job["document_id"]) / "analysis" / job["run_id"]
-            )
-            target.parent.mkdir(mode=0o700, exist_ok=True)
-            shutil.copytree(source, target)
-            self._publish_snapshot(db, job["run_id"], target, content)
-            db.execute(
-                "INSERT OR REPLACE INTO run_progress VALUES (?, 'result',100,1)", (job["run_id"],)
-            )
-            db.execute(
-                "UPDATE runs SET status=?,error_code=?,lease_until=0 WHERE run_id=?",
-                (status, error, job["run_id"]),
-            )
-            self._settle_envelope(db, job["run_id"])
+        from proofops_api.hosted_publication import reuse_handoff
+
+        pages = json.loads(job["pages"])
+        content = reuse_handoff(publication_handoff, source, job, pages)
+        if content is None:
+            content = result_snapshot(source, job["tenant_id"], pages)
+        # Stage potentially large receipts outside the writer; the final fence
+        # and same-filesystem rename publish them together with the DB anchor.
+        with TemporaryDirectory(prefix="proofops-publication-", dir=self.root) as scratch:
+            staged = Path(scratch) / "artifacts"
+            shutil.copytree(source, staged)
+            with self.transaction() as db:
+                self._fenced(db, job, time.time())
+                target = (
+                    self.document_dir(job["tenant_id"], job["document_id"])
+                    / "analysis"
+                    / job["run_id"]
+                )
+                target.parent.mkdir(mode=0o700, exist_ok=True)
+                os.rename(staged, target)
+                self._publish_snapshot(db, job["run_id"], target, content)
+                db.execute(
+                    "INSERT OR REPLACE INTO run_progress VALUES (?, 'result',100,1)",
+                    (job["run_id"],),
+                )
+                db.execute(
+                    "UPDATE runs SET status=?,error_code=?,lease_until=0 WHERE run_id=?",
+                    (status, error, job["run_id"]),
+                )
+                self._settle_envelope(db, job["run_id"])
 
     def _publish_snapshot(self, db: sqlite3.Connection, run: str, path: Path, content: bytes):
         revision = db.execute(
@@ -1554,7 +1824,7 @@ class HostedStore:
     def _result(self, db: sqlite3.Connection | None, row: sqlite3.Row) -> dict:
         path = self.document_dir(row["tenant_id"], row["document_id"]) / "analysis" / row["run_id"]
         if db is None:
-            with self.transaction() as connection:
+            with self.transaction(readonly=True) as connection:
                 anchor = connection.execute(
                     "SELECT revision,sha256 FROM result_snapshots WHERE run_id=? "
                     "ORDER BY revision DESC LIMIT 1",
@@ -1580,7 +1850,18 @@ class HostedStore:
             for relative, expected in snapshot["source_hashes"].items():
                 if digest((path / relative).read_bytes()) != expected:
                     raise ValueError("source hash mismatch")
-            return snapshot["result"]
+            from proofops.application.pipeline_failures import public_reason_details
+
+            result = snapshot["result"]
+            if result.get("reuse", {}).get("reused"):
+                from proofops_api.hosted_reuse import verify_copy
+
+                verify_copy(self, row, result)
+            if result.get("hold_reasons"):
+                return result | dict(
+                    hold_reason_details=public_reason_details(result["hold_reasons"])
+                )
+            return result
         except (OSError, ValueError, KeyError, TypeError):
             raise HostedError("RESULT_INTEGRITY_UNAVAILABLE", 409) from None
 
@@ -1601,6 +1882,8 @@ class HostedStore:
             row = self._run(db, auth.tenant_id, run)
             if row["status"] not in {"completed", "partial_blocked"}:
                 raise HostedError("ANALYSIS_RESULT_UNAVAILABLE")
+            if db.execute("SELECT 1 FROM rc1_reuse_audit WHERE run_id=?", (run,)).fetchone():
+                raise HostedError("REUSED_RESULT_READ_ONLY", 409)
             path = self.document_dir(auth.tenant_id, row["document_id"]) / "analysis" / run
             # Shared payload lease lets GETs continue reading the prior immutable
             # snapshot while one review at a time publishes a validated revision.
@@ -1634,7 +1917,7 @@ class HostedStore:
             return self._project_run(self._run(db, auth.tenant_id, run), db)
 
     def budget_totals(self) -> dict:
-        with self.transaction() as db:
+        with self.transaction(readonly=True) as db:
             total = db.execute(
                 "SELECT coalesce(sum(amount),0) FROM deletion.spend WHERE event_id=?",
                 (self.settings.event_id,),
@@ -1680,24 +1963,28 @@ class HostedStore:
     def _purge(self, tenant: str, document: str, now: float) -> dict:
         status = "completed"
         try:
+            with self.transaction(readonly=True) as db:
+                if not self._deleted(db, tenant, document):
+                    raise HostedError("TOMBSTONE_REQUIRED")
+                backups = db.execute("SELECT path FROM backups").fetchall()
+            path = self.document_dir(tenant, document)
+            if path.exists():
+                lock_path = path / "analysis.lock"
+                if lock_path.exists():
+                    # The committed tombstone fences new users; keep the existing
+                    # document lease while removing bytes, without a DB writer.
+                    with lock_path.open("a+b") as lock:
+                        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        shutil.rmtree(path)
+                else:
+                    shutil.rmtree(path)
+            for backup in backups:
+                target = Path(backup[0]) / "artifacts" / tenant / document
+                if target.exists():
+                    shutil.rmtree(target)
             with self.transaction() as db:
                 if not self._deleted(db, tenant, document):
                     raise HostedError("TOMBSTONE_REQUIRED")
-                path = self.document_dir(tenant, document)
-                if path.exists():
-                    lock_path = path / "analysis.lock"
-                    if lock_path.exists():
-                        # Tombstone already fenced dispatch/publication. Do not
-                        # unlink working source bytes while a child still owns them.
-                        with lock_path.open("a+b") as lock:
-                            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                            shutil.rmtree(path)
-                    else:
-                        shutil.rmtree(path)
-                for backup in db.execute("SELECT path FROM backups").fetchall():
-                    target = Path(backup[0]) / "artifacts" / tenant / document
-                    if target.exists():
-                        shutil.rmtree(target)
                 runs = db.execute(
                     "SELECT run_id FROM runs WHERE tenant_id=? AND document_id=?",
                     (tenant, document),
@@ -1741,7 +2028,7 @@ class HostedStore:
         return {"deletion_id": row[0], "status": status, "requested_at": row[1]}
 
     def replay_deletions(self, *, now: float) -> None:
-        with self.transaction() as db:
+        with self.transaction(readonly=True) as db:
             rows = db.execute("SELECT tenant_id,document_id FROM deletion.tombstones").fetchall()
         for row in rows:
             result = self._purge(row[0], row[1], now)
@@ -1749,6 +2036,16 @@ class HostedStore:
                 raise HostedError("PURGE_INCOMPLETE", 503)
 
     def maintain(self, *, now: float) -> None:
+        # API and worker both maintain this volume. Serialize filesystem GC
+        # separately so slow unlink never reserves the control/ledger writer.
+        with (self.root / "maintenance.lock").open("a+b") as lock:
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                return
+            self._maintain(now=now)
+
+    def _maintain(self, *, now: float) -> None:
         with self.transaction() as db:
             self._expire_running(db, now)
             expired = db.execute(
@@ -1761,15 +2058,12 @@ class HostedStore:
                         (row[0], row[1], str(uuid4()), now, digest("expiry")),
                     )
             backups = db.execute("SELECT path FROM backups WHERE expires<=?", (now,)).fetchall()
-            for backup in backups:
-                target = Path(backup[0])
-                if target.exists():
-                    shutil.rmtree(target)
-                db.execute("DELETE FROM backups WHERE path=?", (backup[0],))
             db.execute("DELETE FROM sessions WHERE expires<=? OR idle<=? OR revoked=1", (now, now))
+            self.access.maintain(db, now, self.settings.audit_days)
             db.execute("DELETE FROM invitations WHERE expires<=? OR used=1", (now,))
             db.execute("DELETE FROM rate_limits WHERE bucket<?", (int(now // 60) - 2,))
             cutoff = now - self.settings.audit_days * 86400
+            db.execute("DELETE FROM rc1_reuse_audit WHERE created<?", (cutoff,))
             db.execute("DELETE FROM deletion.source_retention WHERE created<?", (cutoff,))
             # Remove per-run audit after30d, retaining only a subject-free event aggregate.
             # Unreconciled money cannot be discarded to free budget.
@@ -1786,6 +2080,12 @@ class HostedStore:
                 )
                 db.execute("DELETE FROM deletion.costs WHERE run_id=?", (run[0],))
                 db.execute("DELETE FROM deletion.spend WHERE run_id=?", (run[0],))
+        for backup in backups:
+            target = Path(backup[0])
+            if target.exists():
+                shutil.rmtree(target)
+            with self.transaction() as db:
+                db.execute("DELETE FROM backups WHERE path=? AND expires<=?", (backup[0], now))
         self.replay_deletions(now=now)
         with self.transaction(expiry_cutoff=now - self.settings.audit_days * 86400) as db:
             expired = db.execute(
@@ -1803,6 +2103,8 @@ class HostedStore:
                     "DELETE FROM deletion.attempts WHERE tenant_id=? AND document_id=?", tuple(row)
                 )
         # Remove unreferenced files left by a crashed upload; no content enters logs.
+        trash = self.root / ".maintenance-trash"
+        trash.mkdir(mode=0o700, exist_ok=True)
         with self.transaction() as db:
             known = {
                 (row[0], row[1])
@@ -1813,7 +2115,10 @@ class HostedStore:
                 for tenant in payloads.iterdir():
                     for doc in tenant.iterdir():
                         if (tenant.name, doc.name) not in known:
-                            shutil.rmtree(doc)
+                            # Atomic detachment keeps the upload race fenced.
+                            os.rename(doc, trash / str(uuid4()))
+        for orphan in trash.iterdir():
+            shutil.rmtree(orphan)
 
     def backup(self, target: Path, *, now: float) -> Path:
         """Operator-only stopped-service backup, allowlist excludes raw bytes and sessions."""
@@ -1828,7 +2133,17 @@ class HostedStore:
             try:
                 source.backup(destination)
                 destination.execute("PRAGMA secure_delete=ON")
-                for table in ("sessions", "invitations", "memberships", "rate_limits", "backups"):
+                for table in (
+                    "sessions",
+                    "invitations",
+                    "memberships",
+                    "rate_limits",
+                    "backups",
+                    "access_sessions",
+                    "access_login_failures",
+                    "access_login_locks",
+                    "access_auth_audit",
+                ):
                     destination.execute(f"DELETE FROM {table}")
                 destination.commit()
                 destination.execute("VACUUM")

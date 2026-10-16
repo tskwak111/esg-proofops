@@ -18,6 +18,8 @@ from datetime import UTC, datetime
 from typing import Any, TextIO
 from uuid import UUID, uuid4
 
+from proofops.application.pipeline_failures import PUBLIC_CODES
+
 _EVENTS = frozenset({"api_request", "model_call", "operation_completed", "operation_failed"})
 _STAGES = frozenset(
     "API RUNTIME UPLOAD PARSE EXTRACT RETRIEVE TAG AGGREGATE RULE REVIEW EXPORT".split()
@@ -33,6 +35,7 @@ BASIS_UNVERIFIED RETAG_REQUIRED EXPORT_SNAPSHOT_BUSY REPORT_NOT_FINALIZABLE LEAS
 DEPENDENCY_UNAVAILABLE SQS_RECEIVE_LIMIT LEASE_HEARTBEAT_FAILED UNEXPECTED_ERROR
 PARSER_FAILED PARSER_JAVA_HEAP_EXHAUSTED""".split()
 )
+_CODES = _CODES | PUBLIC_CODES
 _METRICS = frozenset(
     """queue_oldest_age job_retry_count dlq_messages parser_page_count
 unreadable_count table_conflicts citation_rejected binding_undetermined three_run_disagreement

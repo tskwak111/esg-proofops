@@ -9,6 +9,7 @@ from pathlib import Path
 from time import monotonic
 
 from proofops.adapters.local import claim_source_verification_v3 as verifier
+from proofops.adapters.parsing.parser_artifacts import parser_artifact_path, read_parser_json
 from proofops.application.ingest.graph_fusion import candidates_from_snapshot, fuse_candidates
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.values import SourceRef
@@ -31,18 +32,16 @@ def main():
         state_hash = sha256((state / "state.sqlite3").read_bytes()).hexdigest()
         funnel, extract, parse, folder, pdf = load_state(state)
         original = pdf.read_bytes()
-        batches = candidates_from_snapshot(json.loads((folder / "candidates.json").read_text()))
+        batches = candidates_from_snapshot(read_parser_json(folder / "candidates.json"))
         manifest_bytes = (folder / "manifest.json").read_bytes()
         assert sha256(manifest_bytes).hexdigest() == extract["manifest_sha256"]
         manifest = json.loads(manifest_bytes)
         graph = fuse_candidates(
             batches, tenant_id=funnel["tenant_id"], fusion_version=manifest.get("fusion_version", 1)
         )
-        assert graph.to_dict() == json.loads((folder / "graph.json").read_text())
-        assert (
-            sha256((folder / "graph.json").read_bytes()).hexdigest()
-            == parse["artifacts"]["graph.json"]
-        )
+        assert graph.to_dict() == read_parser_json(folder / "graph.json")
+        graph_path = parser_artifact_path(folder / "graph.json", manifest=manifest)
+        assert sha256(graph_path.read_bytes()).hexdigest() == parse["artifacts"][graph_path.name]
         baseline = extract["claim_source_attestation"]
         copy = dict(baseline)
         digest = copy.pop("artifact_sha256")

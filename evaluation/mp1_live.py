@@ -9,7 +9,7 @@ from decimal import Decimal
 from pathlib import Path
 from threading import Semaphore
 
-ROOT = Path("/Users/ss020/Dev/ESG_ProofOps")
+ROOT = Path("/path/to/ESG_ProofOps")
 OUT = ROOT / "outputs/agent-results/R108-redesign/lab/parse/MP1"
 
 

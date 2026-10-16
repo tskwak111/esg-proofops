@@ -158,7 +158,10 @@ def _lineage_identity(block: CanonicalBlock) -> tuple[str, int] | None:
 
 
 def _focal_cell(
-    ref: SourceRef, blocks: dict[str, CanonicalBlock], parents: dict[str, tuple[str, ...]]
+    ref: SourceRef,
+    blocks: dict[str, CanonicalBlock],
+    parents: dict[str, tuple[str, ...]],
+    graph: CanonicalDocumentGraph,
 ) -> CanonicalBlock | None:
     """The unambiguous nearest ancestor carrying complete table coordinates.
 
@@ -180,9 +183,14 @@ def _focal_cell(
     if block.kind == "table" and "pb1_table_claims" in block.candidates[block.winner].context:
         from proofops.application.ingest.pb1_tables import observations
 
-        rows = observations(
-            block.normalized_text, context=" ".join(block.candidates[block.winner].context)
-        )
+        if "h1-origin-context-v1" in block.candidates[block.winner].context:
+            from proofops.application.ingest.w9_tables import observations_for
+
+            rows = observations_for(block, graph)
+        else:
+            rows = observations(
+                block.normalized_text, context=" ".join(block.candidates[block.winner].context)
+            )
         row = next(
             (r for r in rows if r["start"] <= ref.char_start < ref.char_end <= r["end"]), None
         )
@@ -196,6 +204,14 @@ def _focal_cell(
                 and b.candidates[b.winner].row_number == row["row"]
                 and b.candidates[b.winner].column_number == row["value_column"]
             ]
+            if "h1-origin-context-v1" in block.candidates[block.winner].context:
+                origin = block.candidates[block.winner].source
+                cells = [
+                    b
+                    for b in cells
+                    if b.candidates[b.winner].source.parser_run_id == origin.parser_run_id
+                    and b.candidates[b.winner].table_native_id == origin.source_native_id
+                ]
             return cells[0] if len(cells) == 1 else None
     if _coordinates(block) is not None:
         return block
@@ -367,7 +383,7 @@ def table_structural_sources(
     claim_source_ids = {ref.source_id for ref in refs}
     focal_cells: dict[str, tuple[CanonicalBlock, tuple[str, int, int, int, int]]] = {}
     for ref in refs:
-        cell = _focal_cell(ref, blocks, parents)
+        cell = _focal_cell(ref, blocks, parents, graph)
         coordinates = None if cell is None else _coordinates(cell)
         if cell is None or coordinates is None:
             # Hold the whole claim: offering one cell's axes as context for a

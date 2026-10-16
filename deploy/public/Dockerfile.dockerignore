@@ -16,10 +16,12 @@
 !evaluation/
 !evaluation/__init__.py
 !evaluation/local_upstage_pilot.py
+!evaluation/w9_table_replay.py
 !evaluation/hosted_r108.py
 !evaluation/hosted_scope_plan.py
 !evaluation/report_scope.py
 !evaluation/report_sections.py
+!evaluation/*.py
 !config/
 !config/**
 !contracts/
@@ -32,6 +34,8 @@
 !deploy/
 !deploy/public/
 !deploy/public/smoke.py
+!deploy/public/offline_smoke.py
+!deploy/public/offline_fixture.py
 **/__pycache__/
 **/*.pyc
 **/.env*

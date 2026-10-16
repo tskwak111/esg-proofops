@@ -8,10 +8,18 @@ from copy import deepcopy
 from dataclasses import asdict
 from hashlib import sha256
 
+from proofops.adapters.local.claim_source_policies import PAGE_OCR_PROFILES
 from proofops.adapters.local.run_artifacts import load_run_graph
+from proofops.adapters.local.source_attestation_errors import ocr_acquisition_failure_code
 from proofops.application.claim_scope import claim_pages_for
-from proofops.application.claims import ClaimScope, ExtractionProfile, discover_atomic_claims
+from proofops.application.claims import (
+    ClaimScope,
+    ExtractionOutputError,
+    ExtractionProfile,
+    discover_atomic_claims,
+)
 from proofops.application.ports.jobs import JobMessage
+from proofops.application.rb4_memory import enabled as rb4_memory_enabled
 from proofops.domain.provenance import canonical_hash
 
 
@@ -47,15 +55,20 @@ def claim_scope(snapshot, graph):
 
 
 class _RecordedExtractor:
-    def __init__(self, profile, receipts):
+    def __init__(self, profile, receipts, *, failures=None):
         self.profile = profile
         self.receipts = {item["packet_sha256"]: item for item in receipts}
+        self.failures = failures or {}
         if len(self.receipts) != len(receipts):
             raise ValueError("duplicate extraction receipts")
 
     def extract(self, packet):
         receipt = self.receipts[canonical_hash(packet)]
         if receipt["status"] == "failed":
+            source_id = packet["untrusted_document_data"]["source_id"]
+            reason = self.failures.get(source_id, "extraction_failed")
+            if reason != "extraction_failed":
+                raise ExtractionOutputError(reason, failure_code=reason)
             raise TimeoutError
         return json.loads(receipt["raw_response_json"])
 
@@ -99,6 +112,10 @@ class LocalClaimStore:
         if payload is None or sha256(payload).hexdigest() != run["claim_snapshot_sha256"]:
             raise ValueError("CLAIM_SNAPSHOT_HASH_MISMATCH")
         envelope = json.loads(payload)
+        release_inputs = rb4_memory_enabled(snapshot)
+        if release_inputs:
+            # The immutable checkpoint digest was checked before decoding.
+            del payload
         graph = load_run_graph(
             self.store, self.uploads, self.parser, tenant_id=tenant_id, run_id=run_id
         )
@@ -110,10 +127,25 @@ class LocalClaimStore:
         expected = snapshot_pins(snapshot, graph, profile, parse_checkpoint)
         if any(envelope.get(key) != value for key, value in expected.items()):
             raise ValueError("CLAIM_SNAPSHOT_INPUT_MISMATCH")
+        failed_exclusions = {
+            item["source_id"]: item["reason"]
+            for item in envelope["discovery"]["exclusions"]
+            if item.get("state") == "unknown"
+            and (
+                item.get("reason") == "extraction_failed"
+                or item.get("reason", "").startswith(
+                    ("MODEL_", "EXTRACTION_", "UPSTAGE_", "UPSTREAM_", "TABLE_", "DISPLAY_")
+                )
+            )
+        }
         discovery = discover_atomic_claims(
             graph,
             claim_scope(snapshot, graph),
-            extractor=_RecordedExtractor(profile, envelope["discovery"]["receipts"]),
+            extractor=_RecordedExtractor(
+                profile,
+                envelope["discovery"]["receipts"],
+                failures=failed_exclusions,
+            ),
         )
         if (
             canonical_hash(asdict(discovery)) != canonical_hash(envelope["discovery"])
@@ -122,24 +154,15 @@ class LocalClaimStore:
             != discovery_coverage(json.loads(parse_checkpoint)["coverage"], graph, discovery)
         ):
             raise ValueError("CLAIM_SNAPSHOT_REPLAY_MISMATCH")
+        if release_inputs:
+            del parse_checkpoint
         if "claim_source_policy" in snapshot:
             from proofops.adapters.local.claim_source_policies import claim_source_reader
             from proofops.adapters.local.native_replay_cache import replay_claims_cached
             from proofops.adapters.local.run_artifacts import load_run_inputs
 
             reader = claim_source_reader(snapshot["claim_source_policy"])
-            if snapshot["claim_source_policy"].get("profile") in {
-                "upstage-ocr-page-v1",
-                "upstage-ocr-page-v2",
-                "upstage-ocr-page-v3",
-                "upstage-ocr-page-v4",
-                "upstage-ocr-page-v5",
-                "upstage-ocr-page-v6",
-                "upstage-ocr-page-v7",
-                "upstage-ocr-page-v8",
-                "upstage-ocr-page-v9",
-                "upstage-ocr-page-v10",
-            }:
+            if snapshot["claim_source_policy"].get("profile") in PAGE_OCR_PROFILES:
                 if envelope["claim_source_attestation"].get("run_id") != run_id:
                     raise ValueError("OCR_POLICY_OR_RUN_MISMATCH")
             _, source, _ = load_run_inputs(
@@ -256,6 +279,44 @@ class LocalClaimStore:
             track = tag["inputs"]["packet"]["track"]
         return claim.to_summary() | dict(
             track=track, decision=current["decision"], revision=tag["tag_revision"]
+        )
+
+    def outcome_projection(self, tenant_id, run_id, *, admitted_checkpoint=None):
+        """Expose only the same immutable checkpoint already admitted by load()."""
+        run = self.store.jobs.get_run(tenant_id, run_id)
+        checkpoint = self.store.jobs.read_checkpoint(JobMessage(**run["extract_job"]))
+        if checkpoint is None or sha256(checkpoint).hexdigest() != run["claim_snapshot_sha256"]:
+            raise ValueError("CLAIM_SNAPSHOT_HASH_MISMATCH")
+        if admitted_checkpoint is not None and rb4_memory_enabled(
+            self.store.snapshot(tenant_id, run_id)
+        ):
+            # Current writers store canonical JSON. Its checked byte digest can
+            # admit the already-replayed envelope without a second decoded tree.
+            del checkpoint
+            if canonical_hash(admitted_checkpoint) == run["claim_snapshot_sha256"]:
+                return (
+                    {"extraction_outcome": admitted_checkpoint["extraction_outcome"]}
+                    if "extraction_outcome" in admitted_checkpoint
+                    else {}
+                )
+            # Preserve the original semantic comparison for noncanonical JSON
+            # encodings too. Re-read bytes only on this uncommon fallback, and
+            # check the same immutable head before decoding them.
+            checkpoint = self.store.jobs.read_checkpoint(JobMessage(**run["extract_job"]))
+            if checkpoint is None or sha256(checkpoint).hexdigest() != run["claim_snapshot_sha256"]:
+                raise ValueError("CLAIM_SNAPSHOT_HASH_MISMATCH")
+        envelope = json.loads(checkpoint)
+        # load_evidence validates this immutable envelope before source replay.
+        # The returned discovery can then gain verified spans/source quality;
+        # those admission results are deliberately absent from extraction bytes.
+        if admitted_checkpoint is not None and canonical_hash(envelope) != canonical_hash(
+            admitted_checkpoint
+        ):
+            raise ValueError("CLAIM_SNAPSHOT_REPLAY_MISMATCH")
+        return (
+            {"extraction_outcome": envelope["extraction_outcome"]}
+            if ("extraction_outcome" in envelope)
+            else {}
         )
 
     def page(self, discovery, run_id, *, cursor, limit, now, track, grade, review_status):
@@ -415,19 +476,7 @@ def validate_extract_commit(db, jobs, run, message, envelope, next_job, *, now):
         if (
             envelope.get("schema") != "local_extract_checkpoint_v2"
             or (
-                snapshot["claim_source_policy"].get("profile")
-                in {
-                    "upstage-ocr-page-v1",
-                    "upstage-ocr-page-v2",
-                    "upstage-ocr-page-v3",
-                    "upstage-ocr-page-v4",
-                    "upstage-ocr-page-v5",
-                    "upstage-ocr-page-v6",
-                    "upstage-ocr-page-v7",
-                    "upstage-ocr-page-v8",
-                    "upstage-ocr-page-v9",
-                    "upstage-ocr-page-v10",
-                }
+                snapshot["claim_source_policy"].get("profile") in PAGE_OCR_PROFILES
                 and receipt.get("run_id") != message.run_id
             )
             or receipt.get("policy") != snapshot["claim_source_policy"]
@@ -497,6 +546,63 @@ def discovery_coverage(parsed_coverage, graph, discovery):
     )
 
 
+def extraction_outcome(graph, discovery, *, claim_pages, include_source_failures=False):
+    """Explain empty/partial discovery without inferring absence from unreadable pages."""
+    pages = set(claim_pages)
+    failures = sorted(
+        {
+            (issue.page_num, issue.reason)
+            for issue in graph.issues
+            if issue.page_num in pages
+            and issue.kind in {"parser_batch_failed", "no_extractable_text"}
+        }
+    )
+    blocks = [block for block in graph.blocks if block.page_num in pages]
+    failed_sources = [
+        dict(
+            source_id=exclusion.source_id,
+            physical_page=exclusion.page_num,
+            failure_code=(
+                exclusion.reason if exclusion.reason != "extraction_failed" else "TRANSPORT_FAILED"
+            ),
+        )
+        for exclusion in discovery.exclusions
+        if exclusion.page_num in pages
+        and (
+            exclusion.reason == "extraction_failed"
+            or exclusion.reason.startswith(
+                ("MODEL_", "EXTRACTION_", "UPSTAGE_", "UPSTREAM_", "TABLE_", "DISPLAY_")
+            )
+        )
+    ]
+    if failed_sources:
+        status, code = (
+            "partial" if discovery.claims else "blocked",
+            "CLAIM_SOURCE_EXTRACTION_FAILURE",
+        )
+    elif discovery.claims:
+        status, code = ("partial", "CLAIM_PAGE_PARSE_FAILURE") if failures else ("claims", "OK")
+    elif failures:
+        status, code = "blocked", "CLAIM_PAGES_UNREADABLE"
+    elif not blocks:
+        status, code = "empty", "NO_EXTRACTABLE_CLAIM_BLOCKS"
+    elif not discovery.processed_source_ids:
+        status, code = "empty", "NO_ELIGIBLE_CLAIM_BLOCKS"
+    else:
+        status, code = "empty", "NO_CLAIMS_IN_PROCESSED_BLOCKS"
+    result = dict(
+        status=status,
+        code=code,
+        selected_claim_pages=sorted(pages),
+        parsed_claim_blocks=len(blocks),
+        processed_blocks=len(discovery.processed_source_ids),
+        page_failures=[dict(physical_page=page, code=reason) for page, reason in failures],
+    )
+    if include_source_failures:
+        result["failed_sources"] = failed_sources
+    return result
+
+
 # A deferred source was answered locally, without a model call: it carries one
 # unknown span over its whole text. ``beyond_extraction_limit`` and
 # ``extraction_budget_stop`` stay eligible for a later batch;
@@ -504,12 +610,24 @@ def discovery_coverage(parsed_coverage, graph, discovery):
 DEFERRED_LIMIT_REASON = "beyond_extraction_limit"
 DEFERRED_BUDGET_REASON = "extraction_budget_stop"
 DEFERRED_KIND_REASON = "non_paragraph_kind"
-DEFERRED_REASONS = frozenset((DEFERRED_LIMIT_REASON, DEFERRED_BUDGET_REASON, DEFERRED_KIND_REASON))
+DEFERRED_REASONS = frozenset(
+    (DEFERRED_LIMIT_REASON, DEFERRED_BUDGET_REASON, DEFERRED_KIND_REASON, "TIME_BUDGET")
+)
+OCR_ACQUISITION_REASON_PREFIX = "ocr_acquisition_unresolved:"
+
+
+def _is_deferred_reason(reason):
+    if reason in DEFERRED_REASONS:
+        return True
+    if not isinstance(reason, str) or not reason.startswith(OCR_ACQUISITION_REASON_PREFIX):
+        return False
+    code = reason[len(OCR_ACQUISITION_REASON_PREFIX) :]
+    return ocr_acquisition_failure_code(ValueError(code)) == code
 
 
 def deferred_payload(text: str, reason: str) -> dict:
     """The local, model-free answer for a source outside this batch."""
-    if reason not in DEFERRED_REASONS:
+    if not _is_deferred_reason(reason):
         raise ValueError("EXTRACTION_INPUT_INVALID")
     return {
         "spans": [
@@ -535,7 +653,7 @@ def _deferred_reason(raw_response_json):
         return None
     span = spans[0]
     reason = span.get("reason")
-    if span.get("kind") == "unknown" and reason in DEFERRED_REASONS:
+    if span.get("kind") == "unknown" and _is_deferred_reason(reason):
         return reason
     return None
 

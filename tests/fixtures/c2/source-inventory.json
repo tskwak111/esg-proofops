@@ -1,0 +1,12 @@
+[
+  {
+    "company": "kakao",
+    "source_sha256": "43804a2d5eccfc6aa9c5b5480ec6714c7d07bea13ed68729c0af7a3b622ce76d",
+    "pages": 139
+  },
+  {
+    "company": "lg",
+    "source_sha256": "c6395dd2be7948d85fa2b52c6edb61367fa6610c6f389c2478b44cb4cfcb5bde",
+    "pages": 119
+  }
+]

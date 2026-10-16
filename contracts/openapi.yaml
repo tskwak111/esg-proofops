@@ -5620,7 +5620,7 @@ components:
         size_bytes:
           type: integer
           minimum: 1
-          maximum: 104857600
+          maximum: 157286400
         sha256: &id002
           type: string
           pattern: ^[0-9a-f]{64}$
@@ -5692,7 +5692,7 @@ components:
         size_bytes:
           type: integer
           minimum: 1
-          maximum: 104857600
+          maximum: 157286400
       required:
       - sha256
       - size_bytes
@@ -6624,6 +6624,10 @@ components:
       type: object
       additionalProperties: false
       properties:
+        sentence_context:
+          anyOf:
+          - $ref: '#/components/schemas/SentenceContext'
+          - type: 'null'
         source_status:
           anyOf:
           - type: object
@@ -6684,6 +6688,29 @@ components:
       - blocked_reason
       - blocked_action
       - field_agreements
+    SentenceContext:
+      type: object
+      additionalProperties: false
+      properties:
+        policy:
+          type: object
+          additionalProperties: true
+        text:
+          type: string
+        source_refs:
+          type: array
+          items:
+            $ref: '#/components/schemas/SourceRef'
+        verification_state:
+          type: string
+          enum: [verified, candidate]
+        role:
+          type: string
+          enum: [parent_paragraph]
+        rule_credit:
+          type: boolean
+          const: false
+      required: [policy, text, source_refs, verification_state, role, rule_credit]
     RawCandidate:
       type: object
       additionalProperties: false

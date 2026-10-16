@@ -42,7 +42,7 @@
     "original_action_object": 92,
     "generation": 0,
     "action": "{'/D': 'InDesign ClipboardScrap1::0', '/F': IndirectObject(93, 0, 4606423504), '/NewWindow': False, '/S': '/GoToR'}",
-    "method": "Original action dictionary cloned with its Filespec; blank page and Link trigger stub"
+    "method": "Original action dictionary cloned with its Filespec; blank page and Link trigger stub; private designer home path in /F and /UF replaced by a public fixture path; action type and destination retained"
   },
   {
     "fixture": "6-click.pdf",

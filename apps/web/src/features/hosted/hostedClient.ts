@@ -58,6 +58,10 @@ export type MissingEvidence = {
   candidate_refs?: SourceRefDto[]; search?: { absence_admissible?: boolean; scope_note?: string };
 };
 export type ResultClaim = {
+  cf6_status?: "confirmed" | "held";
+  cf6_track?: string | null;
+  cf6_hold_reasons?: string[];
+  cf6_elements?: { element_id: string; state: string; votes: number; evidence_refs: SourceRefDto[] }[];
   claim_id: string; page_num: number; original_page_num: number; quote: string; track: string | null; topic_ids?: string[];
   decision: ResultDecision | null; revision: number; source_refs: SourceRefDto[]; source_quality: string; elements: ResultElement[];
   source_status?: { status: string; reason?: string; display: string };
@@ -68,7 +72,8 @@ export type ResultClaim = {
 export type ResultReview = { review_id: string; run_id: string; claim_id: string; status: string; revision: number; base_tag_revision: number; reason_codes: string[] };
 export type HostedResult = {
   schema: string; claims: ResultClaim[]; reviews: ResultReview[]; hold_reasons: string[]; page_map: number[];
-  pipeline?: { status?: string; reason?: string | null; reporting_scope?: Partial<ReportingScope> };
+  hold_reason_details?: { code: string; message: string }[];
+  pipeline?: { status?: string; reason?: string | null; reporting_scope?: Partial<ReportingScope>; provider_failures?: { failed_calls: number; deferred_calls: number; total: number }; extraction_outcome?: { status: string; code: string; selected_claim_pages: number[]; parsed_claim_blocks: number; processed_blocks: number; page_failures: { physical_page: number; code: string }[] } };
   possible_grade_range?: GradeRange | null; confirmed_grade?: string | null;
 };
 export type ResolveBody = {
@@ -141,6 +146,7 @@ const pdfRejections = /PDF|ENCRYPT|PASSWORD|PAGE|ACTIVE|MALFORMED|LIMIT/i;
 
 export function describeError(error: HostedApiError): string {
   const { status, code, retryAfter } = error;
+  if (blockedReasons[code] && !codeMessages[code]) return blockedReasons[code];
   if (codeMessages[code] && !["QUEUE_FULL", "RATE_LIMITED"].includes(code)) return codeMessages[code];
   if (status === 429) {
     const wait = retryAfter ? ` ${retryAfter}초 뒤에 다시 시도해 주세요.` : " 잠시 후 다시 시도해 주세요.";
@@ -214,7 +220,7 @@ export function createHostedClient(options: ClientOptions = {}) {
     scopePlan: (documentId: string) => request<ScopePlan>("POST", `/v1/documents/${encodeURIComponent(documentId)}/scope-plan`),
     getScopePlan: (documentId: string) => request<ScopePlan>("GET", `/v1/documents/${encodeURIComponent(documentId)}/scope-plan`),
     editScope: (documentId: string, scope: ScopePlan, claims: number[], evidence: number[], period?: ReportingScopeInput) =>
-      request<ScopePlan>("POST", `/v1/documents/${encodeURIComponent(documentId)}/scope-plan/selection`, { json: { selected_claim_pages: claims, selected_evidence_pages: evidence, ...(period ? { reporting_scope: period } : {}) }, headers: { "If-Match": `"${scope.revision}"` } }),
+      request<ScopePlan>("POST", `/v1/documents/${encodeURIComponent(documentId)}/scope-plan/selection`, { json: { selected_claim_pages: claims, selected_evidence_pages: evidence, manual_selection: true, ...(period ? { reporting_scope: period } : {}) }, headers: { "If-Match": `"${scope.revision}"` } }),
     createRun: (documentId: string, scope: ScopePlan, key = newIdempotencyKey(), profile?: string) =>
       request<HostedRun>("POST", "/v1/runs", { json: { document_id: documentId, scope_selection_sha256: scope.selection?.selection_sha256 }, headers: { "Idempotency-Key": key, ...(profile ? { "X-Pipeline-Profile": profile } : {}) } }),
     getRun: (statusUrl: string, signal?: AbortSignal) => request<HostedRun>("GET", statusUrl, { signal }),
@@ -262,6 +268,29 @@ const blockedReasons: Record<string, string> = {
   PROVIDER_UNAVAILABLE: "분석 API에 일시적인 서버 오류가 발생했습니다.",
   ACCOUNTING_PENDING: "비용 정산 확인 중입니다. 운영자 확인이 필요합니다.",
   ANALYSIS_MEMORY_LIMIT: "동시 분석의 메모리 한도에 도달해 중단되었습니다. 운영자 확인이 필요합니다.",
+  PARSER_JAVA_HEAP_EXHAUSTED: "문서 파싱의 메모리 한도로 분석이 중단되었습니다. 처리되지 않은 원문은 판정하지 않았습니다. 운영자 확인 후 새 분석으로 접수해 주세요.",
+  W9_GRID_TEXT_MISMATCH: "표 원문과 셀 구조가 일치하지 않아 분석을 중단했습니다. 해당 원문은 판정하지 않았습니다. 운영자의 파싱 확인이 필요합니다.",
+  PARSER_FAILED: "문서 파싱에 실패해 분석을 중단했습니다. 처리되지 않은 원문은 판정하지 않았습니다. 운영자의 파싱 확인이 필요합니다.",
+  PARSER_MEMORY_LIMIT: "PDF 파싱이 메모리 한도에 도달했습니다. 선택 쪽을 줄여 새 분석을 접수해 주세요.",
+  PARSER_MEMORY_WATCHDOG_UNAVAILABLE: "서버의 파싱 자원 감시가 준비되지 않았습니다. 운영자 확인이 필요합니다.",
+  PARSER_PDF_INVALID: "PDF 내부 구조를 읽지 못했습니다. PDF 뷰어에서 다시 저장한 파일로 업로드해 주세요.",
+  PARSER_NATIVE_TEXT_UNREADABLE: "PDF의 보조 텍스트 파서가 파일 구조를 읽지 못해 분석을 중단했습니다. 원문과 처리 중 남긴 후보는 보존하며, 확인되지 않은 내용은 판정하지 않았습니다.",
+  PARSER_GEOMETRY_INVALID: "PDF의 원문 좌표를 검증하지 못했습니다. 해당 원문은 판정하지 않았습니다.",
+  CLAIM_PAGES_UNREADABLE: "선택한 주장 쪽을 읽지 못했습니다. 다른 쪽 또는 다시 저장한 PDF로 접수해 주세요.",
+  CLAIM_PAGE_PARSE_FAILURE: "일부 주장 쪽을 읽지 못했습니다. 처리된 주장만 표시하며 누락 쪽은 판정하지 않았습니다.",
+  CLAIM_SOURCE_EXTRACTION_FAILURE: "일부 원문에서 주장을 추출하지 못했습니다. 처리된 주장만 표시합니다.",
+  SOURCE_ATTESTATION_UNAVAILABLE: "원문 대조를 완료하지 못했습니다. 해당 주장은 보류하며 운영자 확인이 필요합니다.",
+  SOURCE_ATTESTATION_REPLAY_MISMATCH: "원문 대조 기록의 재검증이 일치하지 않습니다. 기존 기록을 보존하고 해당 주장을 보류했습니다.",
+  SOURCE_ATTESTATION_GEOMETRY_UNSUPPORTED: "이 PDF의 회전·좌표 형식을 원문 대조기가 지원하지 않아 해당 주장을 보류했습니다.",
+  SOURCE_ATTESTATION_RENDER_LIMIT: "PDF 쪽의 이미지 크기가 원문 대조 한도를 초과했습니다. 해당 원문은 확인되지 않아 판정하지 않았습니다. 운영자의 쪽 크기 확인이 필요합니다.",
+  EXTRACTION_INPUT_INVALID: "주장 추출 입력을 검증하지 못했습니다. 원문·처리 기록은 보존하며 운영자 확인이 필요합니다.",
+  PROBE_REQUEST_TOO_LARGE: "선택한 원문의 모델 요청이 크기 한도를 초과했습니다. 선택 쪽을 줄여 새 분석을 접수해 주세요.",
+  PDF_PASSWORD_REQUIRED: "암호화된 PDF를 처리하지 못했습니다. 열기 암호를 해제한 PDF로 다시 업로드해 주세요.",
+  PDF_INVALID: "PDF 보안 검사를 완료하지 못했습니다. PDF 뷰어에서 다시 저장한 파일로 업로드해 주세요.",
+  UPLOAD_LIMIT_EXCEEDED: "PDF가 서버의 파일 크기·페이지 수 또는 내부 처리 한도를 초과했습니다. 업로드 안내의 한도를 확인해 주세요.",
+  NO_EXTRACTABLE_CLAIM_BLOCKS: "선택 범위에 읽을 수 있는 주장 블록이 없습니다. 다른 쪽을 선택해 주세요.",
+  NO_ELIGIBLE_CLAIM_BLOCKS: "선택 범위에 주장 추출 대상 블록이 없습니다. 다른 쪽을 선택해 주세요.",
+  NO_CLAIMS_IN_PROCESSED_BLOCKS: "처리한 선택 범위에서 환경 주장을 추출하지 못했습니다. 보고서 전체의 근거 부재를 뜻하지 않습니다.",
   OPENAI_HTTP_401: providerLimitMessage,
   OPENAI_HTTP_429: providerLimitMessage,
   OPENAI_INSUFFICIENT_QUOTA: providerLimitMessage,
@@ -281,12 +310,16 @@ const blockedReasons: Record<string, string> = {
   SOURCE_VALIDATION_REQUIRED: "원문 대조가 끝나지 않아 판정하지 않았습니다.",
   CONSENSUS_UNRESOLVED: "모델 판독이 합의되지 않아 요소 상태가 확정되지 않았습니다.",
   PROCESSING_UNCERTAIN: "처리 불확실 — 네트워크 응답을 확인하지 못해 해당 주장만 보류했습니다.",
+  PROVIDER_PROCESSING_FAILED: "제공자 오류로 일부 처리가 실패했습니다. 해당 호출의 주장·요소는 미처리 상태로 보류하고 처리된 결과를 표시합니다.",
+  PROVIDER_CIRCUIT_OPEN: "권한 거부가 반복되어 추가 모델 호출을 보류했습니다. 처리된 결과를 표시합니다.",
   PRELIMINARY_TAGS_UNRESOLVED: "예비 분류(트랙)가 합의되지 않아 요소를 판정하지 않았습니다.",
   RELATION_TAGS_UNRESOLVED: "주장과 근거의 관계가 정리되지 않아 요소를 판정하지 않았습니다.",
   REPLICA_UNRESOLVED: "반복 판독 결과가 일치하지 않습니다.",
 };
 /** Korean text for a backend hold/reason code; unknown codes are shown as codes, never dropped. */
-export function holdReasonText(code: string): string {
+export function holdReasonText(code: string, details?: { code: string; message: string }[]): string {
+  const detail = details?.find(item => item.code === code)?.message;
+  if (detail) return detail;
   if (blockedReasons[code]) return blockedReasons[code];
   if (/^REVIEW:/.test(code)) return `${code.slice(7)} 요소 사람 확인 필요`;
   return `보류 사유 코드: ${code}`;
@@ -297,7 +330,7 @@ export function runOutcome(run: HostedRun): { kind: "pending" | "blocked" | "com
     case "accounting_pending": return { kind: "blocked", title: "분석 중단 · 비용 정산 확인 중", reasons: [holdReasonText(provider ?? run.error_code ?? "ACCOUNTING_PENDING")] };
     case "partial_blocked": {
       const codes = run.result?.hold_reasons?.length ? run.result.hold_reasons : run.error_code ? [run.error_code] : [];
-      const reasons = codes.length ? codes.map(holdReasonText) : ["분석이 일부만 진행되어 보류되었습니다."];
+      const reasons = codes.length ? codes.map(code => holdReasonText(code, run.result?.hold_reason_details)) : ["분석이 일부만 진행되어 보류되었습니다."];
       reasons.push("보류는 ‘근거 없음’이 아닙니다. 판정되지 않은 주장의 근거는 확인되지 않은 상태이며, 확정 등급을 부여하지 않았습니다.");
       return { kind: "blocked", title: "보류", reasons };
     }

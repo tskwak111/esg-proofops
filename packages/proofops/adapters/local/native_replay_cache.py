@@ -13,6 +13,7 @@ from marshal import loads as marshal_loads
 from threading import Lock
 from zlib import compress, decompress
 
+from proofops.adapters.local.claim_source_policies import PAGE_OCR_PROFILES
 from proofops.adapters.local.receipt_environment_compat import (
     STRICT,
     compare_receipts,
@@ -421,18 +422,7 @@ def _reuse_wrapper_replay(reader, policy, receipt, graph, source, discovery, ten
 
 def replay_claims_cached(*, reader, policy, receipt, graph, source, discovery, tenant_id):
     """Reuse a successful original-byte replay only for identical pinned inputs."""
-    if policy.get("profile") in {
-        "upstage-ocr-page-v1",
-        "upstage-ocr-page-v2",
-        "upstage-ocr-page-v3",
-        "upstage-ocr-page-v4",
-        "upstage-ocr-page-v5",
-        "upstage-ocr-page-v6",
-        "upstage-ocr-page-v7",
-        "upstage-ocr-page-v8",
-        "upstage-ocr-page-v9",
-        "upstage-ocr-page-v10",
-    }:
+    if policy.get("profile") in PAGE_OCR_PROFILES:
         from proofops.adapters.local.verified_read_cache import replay_cached as replay_ocr_cached
         from proofops.adapters.local.verified_read_cache import reuse_fresh_attestation
 

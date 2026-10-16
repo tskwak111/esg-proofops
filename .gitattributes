@@ -9,3 +9,6 @@
 # SBOM metadata also pins the raw lockfile bytes.
 /uv.lock text eol=lf
 /pnpm-lock.yaml text eol=lf
+
+# PDF fixture offsets and source hashes require unchanged binary bytes.
+*.pdf binary

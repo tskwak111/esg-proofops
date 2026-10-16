@@ -19,6 +19,8 @@ dev = [
   "jsonschema>=4.18,<5",
   "pyyaml>=6.0,<7",
   "pip-audit==2.10.1",
+  "h2==4.4.1",
+  "types-pyyaml>=6.0.12.20260906",
 ]
 
 [tool.uv.workspace]
@@ -50,6 +52,8 @@ select = ["E", "F", "I", "UP"]
 [tool.ruff.format]
 exclude = [
   "packages/proofops/adapters/local/_frozen_verifiers/**",
+  "packages/proofops/adapters/local/_frozen_upstage_ocr_profile_v21_20261015.py",
+  "packages/proofops/adapters/local/upstage_ocr_profile_d2_v21.py",
   "packages/proofops/adapters/local/claim_span_bullet_alignment.py",
   "packages/proofops/adapters/local/claim_span_render_resolution.py",
 ]
@@ -70,5 +74,23 @@ mypy_path = ["packages/proofops", "apps/api/src", "apps/worker/src", "apps/agent
 module = [
   "adapters.local.upstage_ocr_profile_v7",
   "adapters.local.upstage_ocr_profile_v8",
+    # HX4 also uses an instance-private, byte-pinned Reader class at runtime.
+    "adapters.local.upstage_ocr_profile_v16",
+    "adapters.local.upstage_ocr_profile_v17",
 ]
 disable_error_code = ["name-defined"]
+
+# HX3 privately executes the byte-pinned v15 module before subclassing Reader.
+# Mypy cannot resolve that runtime-created base; retain all other type checks.
+[[tool.mypy.overrides]]
+module = ["adapters.local.upstage_ocr_profile_v16", "adapters.local.upstage_ocr_profile_hx4_v16", "adapters.local.upstage_ocr_profile_v18"]
+disable_error_code = ["name-defined"]
+
+# D2's byte-pinned modules subclass Reader returned by private execution. Mypy
+# cannot type that runtime base; retain every other diagnostic in these modules.
+[[tool.mypy.overrides]]
+module = [
+  "adapters.local.upstage_ocr_profile_d2_v21",
+  "adapters.local._frozen_upstage_ocr_profile_v21_20261015",
+]
+disable_error_code = ["valid-type", "misc"]

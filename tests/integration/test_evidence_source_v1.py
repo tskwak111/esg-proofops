@@ -26,7 +26,7 @@ def real_inputs(company):
             Path(__file__).parents[1] / "fixtures/evidence_source_v1" / (company + ".json")
         ).read_text()
     )
-    root = Path("/Users/ss020/Dev/ESG_ProofOps")
+    root = Path("/path/to/ESG_ProofOps")
     source_path = root / data["source_path"]
     if not source_path.is_file():
         pytest.skip("local R108 asset: original report PDF is unavailable in this checkout")

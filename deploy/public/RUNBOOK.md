@@ -9,7 +9,7 @@ All metrics below must be interpreted as offline control-plane/upload/prepare sm
 not live OCR/JVM/LLM peak RSS or a completed end-to-end analysis capacity claim.
 
 ```sh
-cd /Users/ss020/Dev/ESG_ProofOps/.local/r108-public
+cd /path/to/ESG_ProofOps/.local/r108-public
 uv sync --frozen --all-packages
 open -a Docker
 # Wait for docker info to succeed, then build. No provider or AWS keys are supplied.
@@ -75,7 +75,9 @@ key files or provide them to the browser. Run the existing `hosted_control.py wo
 macOS worker uses an isolated subprocess with its own document-scoped receipts,
 SQLite state and selected PDF. It never points at the research state/cache/budget
 DB. Hosted money/fences remain authoritative and are checked before each transport.
-One active run is capped at1800seconds of pipeline execution; unknown dispatch on
+One active run defaults to a2700second pipeline watchdog (HF2/v29b). Set
+`HOSTED_ANALYSIS_TIMEOUT_SECONDS=2700` in runtime.env; an existing explicit1800
+overrides the new default. The1900second lease renews every30seconds. Unknown dispatch on
 crash/timeout retains the reservation and needs reconciliation. The analysis lock
 is inherited by its child: a parent crash cannot make purge unlink active source
 files. A tombstoned worker cannot dispatch or publish; maintenance retries purge
@@ -84,7 +86,7 @@ relabelled as empty evidence. Linux source-reader release remains blocked as abo
 
 For the explicitly authorized local Mac canary only:
 `python scripts/hosted_live_probe.py --pdf <existing-original.pdf> --pages 22,41
---output <new-private-dir> --research-root /Users/ss020/Dev/ESG_ProofOps`.
+--output <new-private-dir> --research-root /path/to/ESG_ProofOps`.
 This opens loopback Uvicorn, authenticates through the hosted API, uploads the
 original, accepts exactly2pages, and runs one worker. Before transport it reserves
 USD.30 in the existing lab/sprint3/E2E/r108-spend.json under its shared decision lock;
@@ -123,7 +125,7 @@ Budgets는 정확한 `proofops-r108-monthly-20` ARN으로 제한하고 legacy `a
 관리자가 Billing 설정을 확인한다. 알림 이메일·계정 ID를 공개 repo에 저장하지 않는다.
 
 ```sh
-cd /Users/ss020/Dev/ESG_ProofOps/.local/r108-public
+cd /path/to/ESG_ProofOps/.local/r108-public
 aws configure --profile proofops-deploy
 # prompt: local access key / secret key / ap-northeast-2 / json
 export PROFILE=proofops-deploy REGION=ap-northeast-2 NAME=proofops-r108 ARCH=amd64
@@ -227,7 +229,7 @@ deploy/lightsail/keys.sh --apply    # 선택적 준비; 서버 UID10001/GID10001
 ### 4. 제출 사이트 rewrite와 빌드 (현재 checkout은 수정하지 않음)
 
 ```sh
-export WEB_CHECKOUT=/Users/ss020/Dev/ESG_ProofOps/.local/esg-submission-hosted
+export WEB_CHECKOUT=/path/to/ESG_ProofOps/.local/esg-submission-hosted
 python3 deploy/lightsail/configure-web.py --checkout "$WEB_CHECKOUT" --static-ip "$STATIC_IP"
 python3 deploy/lightsail/configure-web.py --checkout "$WEB_CHECKOUT" --static-ip "$STATIC_IP" --apply
 git -C "$WEB_CHECKOUT" diff -- vercel.json
@@ -528,7 +530,7 @@ Vercel `/api/live-*` 데모의 OpenRouter 키·인메모리 제한(#5)은 별도
 
 ## P3-EC2 — 시드니 EC2 arm64 실행 준비 (EC1/EC2R, 2026-10-10)
 
-계정 `753036488189`는 AWS 프로젝트 **Sky is the Limit** 소속이며 프로젝트 리전은
+계정 `000000000000`는 AWS 프로젝트 **Sky is the Limit** 소속이며 프로젝트 리전은
 시드니 `ap-southeast-2`다. 조정자가 확인한 사실: 서울 `ap-northeast-2`는 조직 SCP가
 EC2와 Lightsail 모두 명시 거부하며, 다른 리전에는 이 SCP 거부가 확인되지 않았다.
 이는 다른 리전의 실제 생성 권한·용량 보장이 아니다. 이 키트는 승인된 시드니로만 제한한다.
@@ -540,7 +542,7 @@ SSH, 실제 TLS/배포, 유료 모델 호출은 실행하지 않았다.** 아래
 
 ### 1. 사용자 준비와 정책 부착
 
-AWS 계정 `753036488189`의 관리자가 `deploy/ec2/iam-policy.json`으로 **고객 관리형 정책**을
+AWS 계정 `000000000000`의 관리자가 `deploy/ec2/iam-policy.json`으로 **고객 관리형 정책**을
 만들어 IAM 사용자 `proofops-deploy`에 붙인다. 정책은 공백 제외 6,032자로 관리형6,144자
 제한 안에 있으며 사용자 inline 정책 총2,048자 제한에 맞지 않는다. 실제 정책 부착은
 EC1에서 하지 않았다. 인스턴스 프로파일·`iam:PassRole`·STS Allow는 필요하지 않다.
@@ -561,8 +563,8 @@ Ubuntu24.04 arm64 이름/SSM 조회로 확인한다. IAM 정책만으로 SSH CID
 
 ```sh
 # 지정된 worktree에서 실행. 키값을 출력하거나 shell tracing을 켜지 않는다.
-cd /Users/ss020/Dev/ESG_ProofOps/.local/r108-public
-export PROFILE=proofops-deploy REGION=ap-southeast-2 ACCOUNT_ID=753036488189
+cd /path/to/ESG_ProofOps/.local/r108-public
+export PROFILE=proofops-deploy REGION=ap-southeast-2 ACCOUNT_ID=000000000000
 export NAME=proofops-r108 ARCH=arm64 IMAGE=proofops-r108-public:ec1-arm64
 export STATE_DIR="$PWD/deploy/ec2/.state"  # EC2 전용; Lightsail 상태와 섞지 않는다.
 export SSH_KEY=/private/path/proofops-ec2

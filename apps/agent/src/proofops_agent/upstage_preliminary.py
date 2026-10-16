@@ -34,6 +34,9 @@ from pathlib import Path
 from proofops.adapters.local.openrouter import OpenRouterProbe
 from proofops.adapters.local.upstage import UpstageProbe
 from proofops.application.preflight import Preflight
+from proofops.application.tagging.cf5_context import PRELIMINARY as CF5_PRELIMINARY
+from proofops.application.tagging.cf5_context import preliminary as preliminary_cf5
+from proofops.application.tagging.cf5_context import validate_packet as validate_cf5_packet
 from proofops.application.tagging.pb1_classification import COMPACT_PROFILE, COMPACT_PROMPT
 from proofops.application.tagging.pb1_classification import SYSTEM_SUFFIX as PB1_SUFFIX
 from proofops.application.tagging.preliminary import (
@@ -205,6 +208,22 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
             expected_prompt = SYSTEM_PROMPT
         else:
             raise ValueError("UPSTAGE_TAGGING_BINDING_INVALID")
+        if settings.model_profile == COMPACT_PROFILE:
+            from proofops.application.tagging.finals_i4 import K4_PRELIMINARY
+            from proofops.application.tagging.k1_semantics import GUIDANCE
+            from proofops.application.tagging.k9_contract import PRELIMINARY as K9_PRELIMINARY
+            from proofops.application.tagging.q1_contract import PRELIMINARY as Q1_PRELIMINARY
+            from proofops.application.tagging.v3_dec92 import PRELIMINARY as V3_PRELIMINARY
+
+            if settings.system_prompt in (
+                expected_prompt + "\n" + GUIDANCE,
+                K4_PRELIMINARY,
+                K9_PRELIMINARY,
+                Q1_PRELIMINARY,
+                V3_PRELIMINARY,
+                CF5_PRELIMINARY,
+            ):
+                expected_prompt = settings.system_prompt
         if (
             not isinstance(probe, self._probe_type())
             or not isinstance(settings, TaggingSettings)
@@ -275,6 +294,9 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
         frozen packet, so all replicas and receipts describe exactly the same
         bounded input. An oversized sources-only packet still fails normally.
         """
+        if self._settings.system_prompt == CF5_PRELIMINARY:
+            validate_cf5_packet(packet)
+            return deepcopy(packet)
         bounded = deepcopy(packet)
         data = bounded["untrusted_document_data"]
         blocks = data.get("context_blocks", [])
@@ -382,6 +404,22 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
         else:
             expected_schema, expected_prompt = SCHEMA, SYSTEM_PROMPT
             expected_keys = _ENVELOPE_KEYS
+        if settings.model_profile == COMPACT_PROFILE:
+            from proofops.application.tagging.finals_i4 import K4_PRELIMINARY
+            from proofops.application.tagging.k1_semantics import GUIDANCE
+            from proofops.application.tagging.k9_contract import PRELIMINARY as K9_PRELIMINARY
+            from proofops.application.tagging.q1_contract import PRELIMINARY as Q1_PRELIMINARY
+            from proofops.application.tagging.v3_dec92 import PRELIMINARY as V3_PRELIMINARY
+
+            if settings.system_prompt in (
+                expected_prompt + "\n" + GUIDANCE,
+                K4_PRELIMINARY,
+                K9_PRELIMINARY,
+                Q1_PRELIMINARY,
+                V3_PRELIMINARY,
+                CF5_PRELIMINARY,
+            ):
+                expected_prompt = settings.system_prompt
         # Mandatory callback plus common tenant/claim/request UUID, packet/
         # signature SHA, settings/binding/model/region/temperature/replica/
         # output-cap validation; raises before any spend on failure.
@@ -397,11 +435,40 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
             user = json.loads(request["user_json"])
         except (TypeError, ValueError, KeyError):
             raise ValueError("UPSTAGE_PRELIMINARY_PACKET_INVALID") from None
+        if settings.system_prompt == CF5_PRELIMINARY:
+            validate_cf5_packet(user)
+            expected_keys = expected_keys | {"cf5_context_policy", "cf5_context_sha256"}
         if fallback_sources:
             system = replace(settings, system_prompt=SENTENCE_FALLBACK_BASE_PROMPT).rendered_system
         catalog = getattr(self, "_display_catalog", None)
+        response_policy = (
+            user.get("preliminary_response_policy") if isinstance(user, dict) else None
+        )
+        if response_policy is not None:
+            from proofops.application.tagging.k4_contract import RESPONSE_POLICY
+
+            if response_policy != RESPONSE_POLICY:
+                raise ValueError("K4_RESPONSE_POLICY_MISMATCH")
+            expected_keys = expected_keys | {"preliminary_response_policy"}
+        if isinstance(user, dict) and "k9_targeted_wire_policy" in user:
+            from proofops.application.tagging.k9_contract import BINDING_POLICY, BINDING_V4_POLICY
+
+            if user["k9_targeted_wire_policy"] not in (BINDING_POLICY, BINDING_V4_POLICY):
+                raise ValueError("K9_BINDING_POLICY_MISMATCH")
+            expected_keys = expected_keys | {"k9_targeted_wire_policy"}
+        quality_policy = user.get("structural_quality_policy") if isinstance(user, dict) else None
+        if quality_policy is not None:
+            from proofops.application.tagging.q1_contract import validate_policy
+
+            validate_policy(quality_policy)
+            expected_keys = expected_keys | {"structural_quality_policy"}
         if catalog is not None:
             expected_keys = expected_keys | {"display_text"}
+            if isinstance(user, dict) and "preliminary_recovery_policy" in user:
+                from proofops.application.tagging.k2_recovery import validate_policy
+
+                validate_policy(user["preliminary_recovery_policy"])
+                expected_keys = expected_keys | {"preliminary_recovery_policy"}
         if not isinstance(user, dict) or set(user) != expected_keys:
             raise ValueError("UPSTAGE_PRELIMINARY_PACKET_INVALID")
         if user["schema"] != expected_schema:
@@ -472,6 +539,9 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
         if catalog is not None:
             from proofops.application.ingest.display_text import POLICY, SYSTEM_SUFFIX
 
+            # Remove server-only metadata only AFTER the full authorized packet
+            # identity check. It never enters the provider wire or instructions.
+            user.pop("preliminary_recovery_policy", None)
             display = user.pop("display_text")
             if display["policy"] != POLICY or len(display["sources"]) != len(sources):
                 raise ValueError("DISPLAY_PACKET_MISMATCH")
@@ -497,7 +567,6 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
             user["display_policy"] = POLICY
             user["display_map_sha256"] = canonical_hash(display)
             system += SYSTEM_SUFFIX
-        wire_user = json.dumps(user, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         schema_json = settings.schema_json
         if "preliminary_fact_fields" in request:
             if (
@@ -538,6 +607,63 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
                     "include only when explicitly applicable in this atomic claim or its verified "
                     "table axes; omit unrelated axes. An applicable unresolved axis stays null."
                 )
+        if response_policy is not None:
+            schema = json.loads(schema_json)
+            schema["properties"].pop("claim_id")
+            schema["required"].remove("claim_id")
+            schema_json = json.dumps(
+                schema, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+            )
+            system = system.replace(settings.schema_json, schema_json, 1)
+            user.pop("preliminary_response_policy")
+        from proofops.application.tagging.finals_i4 import K4_PRELIMINARY, preliminary_k4
+        from proofops.application.tagging.k9_contract import PRELIMINARY as K9_PRELIMINARY
+        from proofops.application.tagging.k9_contract import preliminary as preliminary_k9
+        from proofops.application.tagging.q1_contract import PRELIMINARY as Q1_PRELIMINARY
+        from proofops.application.tagging.q1_contract import preliminary as preliminary_q1
+        from proofops.application.tagging.v3_dec92 import PRELIMINARY as V3_PRELIMINARY
+        from proofops.application.tagging.v3_dec92 import preliminary as preliminary_v3
+
+        if settings.system_prompt in (
+            K4_PRELIMINARY,
+            K9_PRELIMINARY,
+            Q1_PRELIMINARY,
+            V3_PRELIMINARY,
+            CF5_PRELIMINARY,
+        ):
+            if response_policy is None:
+                raise ValueError("I4_RESPONSE_POLICY_REQUIRED")
+            renderer = (
+                preliminary_cf5
+                if settings.system_prompt == CF5_PRELIMINARY
+                else preliminary_v3
+                if settings.system_prompt == V3_PRELIMINARY
+                else preliminary_q1
+                if settings.system_prompt == Q1_PRELIMINARY
+                else preliminary_k9
+                if settings.system_prompt == K9_PRELIMINARY
+                else preliminary_k4
+            )
+            if user.pop("k9_targeted_wire_policy", None) is not None:
+                quote = user["untrusted_document_data"]["sources"][0]["text"]
+                renderer = (
+                    preliminary_cf5
+                    if settings.system_prompt == CF5_PRELIMINARY
+                    else preliminary_v3
+                    if settings.system_prompt == V3_PRELIMINARY
+                    else preliminary_q1
+                    if settings.system_prompt == Q1_PRELIMINARY
+                    else preliminary_k9
+                )
+                system = renderer(json.loads(schema_json), quote=quote)
+            else:
+                system = renderer(json.loads(schema_json))
+        if quality_policy is not None:
+            from proofops.application.tagging.finals_i4 import _quality_guidance
+
+            system += _quality_guidance(quality_policy, preliminary=True)
+            user.pop("structural_quality_policy")
+        wire_user = json.dumps(user, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         return system, wire_user, {}, authorization, schema_json
 
     @staticmethod

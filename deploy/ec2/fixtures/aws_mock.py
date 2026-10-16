@@ -37,7 +37,7 @@ def tags(kind):
 
 r: dict[str, Any] = {}
 if op == "get-caller-identity":
-    r = {"Account": os.environ.get("MOCK_ACCOUNT", "753036488189")}
+    r = {"Account": os.environ.get("MOCK_ACCOUNT", "000000000000")}
     if "--query" in a:
         print(r["Account"])
         sys.exit()
@@ -242,7 +242,7 @@ elif op == "wait":
     pass
 elif op == "create-budget":
     budget = filearg("--cli-input-json")
-    assert budget["AccountId"] == "753036488189"
+    assert budget["AccountId"] == "000000000000"
     assert budget["Budget"]["BudgetLimit"] == {"Amount": "20", "Unit": "USD"}
     assert len(budget["NotificationsWithSubscribers"]) == 3
 elif op == "describe-budget":

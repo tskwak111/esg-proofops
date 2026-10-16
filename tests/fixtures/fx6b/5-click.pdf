@@ -2,30 +2,32 @@
 %‚„œ”
 1 0 obj
 <<
-/Producer (pypdf)
+/Type /Catalog
+/Pages 2 0 R
 >>
 endobj
 2 0 obj
 <<
 /Type /Pages
 /Count 1
-/Kids [ 4 0 R ]
+/Kids [ 3 0 R ]
 >>
 endobj
 3 0 obj
-<<
-/Type /Catalog
-/Pages 2 0 R
->>
-endobj
-4 0 obj
 <<
 /Type /Page
 /Resources <<
 >>
 /MediaBox [ 0.0 0.0 600 800 ]
 /Parent 2 0 R
-/Annots [ 7 0 R ]
+/Annots [ 4 0 R ]
+>>
+endobj
+4 0 obj
+<<
+/Type /Annot
+/Subtype /Link
+/A 5 0 R
 >>
 endobj
 5 0 obj
@@ -38,34 +40,32 @@ endobj
 endobj
 6 0 obj
 <<
-/F (\057C\057Users\057\265\360\300\332\300\316\306\300\057AppData\057Local\057Adobe\057InDesign\057Version 20\0560\055J\057ko\137KR\057Caches\057InDesign ClipboardScrap1\056pdf)
+/F (\057C\057Public\057Fixtures\057InDesign ClipboardScrap1\056pdf)
 /Type /Filespec
-/UF (\376\377\000\057\000C\000\057\000U\000s\000e\000r\000s\000\057\265\024\307\220\307x\323\000\000\057\000A\000p\000p\000D\000a\000t\000a\000\057\000L\000o\000c\000a\000l\000\057\000A\000d\000o\000b\000e\000\057\000I\000n\000D\000e\000s\000i\000g\000n\000\057\000V\000e\000r\000s\000i\000o\000n\000 \0002\0000\000\056\0000\000\055\000J\000\057\000k\000o\000\137\000K\000R\000\057\000C\000a\000c\000h\000e\000s\000\057\000I\000n\000D\000e\000s\000i\000g\000n\000 \000C\000l\000i\000p\000b\000o\000a\000r\000d\000S\000c\000r\000a\000p\0001\000\056\000p\000d\000f)
+/UF (\057C\057Public\057Fixtures\057InDesign ClipboardScrap1\056pdf)
 >>
 endobj
 7 0 obj
 <<
-/Type /Annot
-/Subtype /Link
-/A 5 0 R
+/Producer (pypdf)
 >>
 endobj
 xref
 0 8
 0000000000 65535 f 
 0000000015 00000 n 
-0000000054 00000 n 
-0000000113 00000 n 
-0000000162 00000 n 
-0000000274 00000 n 
-0000000370 00000 n 
-0000001149 00000 n 
+0000000064 00000 n 
+0000000123 00000 n 
+0000000235 00000 n 
+0000000293 00000 n 
+0000000389 00000 n 
+0000000563 00000 n 
 trailer
 <<
 /Size 8
-/Root 3 0 R
-/Info 1 0 R
+/Root 1 0 R
+/Info 7 0 R
 >>
 startxref
-1207
+602
 %%EOF

@@ -35,7 +35,7 @@ from proofops.application.tagging.table_sources import table_structural_sources
 from proofops.application.uploads import UploadService
 from proofops.domain.provenance import canonical_hash
 
-ROOT = Path("/Users/ss020/Dev/ESG_ProofOps")
+ROOT = Path("/path/to/ESG_ProofOps")
 LAB = ROOT / "outputs/agent-results/R108-redesign/lab"
 OUT = LAB / "perf"
 HASHES = {}

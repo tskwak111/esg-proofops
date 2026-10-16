@@ -15,6 +15,8 @@ from datetime import datetime
 from pathlib import Path
 from uuid import UUID
 
+from proofops.adapters.parsing.parser_artifacts import read_parser_json
+
 
 def checkpoint(directory, stage):
     with sqlite3.connect((directory / "state.sqlite3").as_uri() + "?mode=ro", uri=True) as db:
@@ -33,11 +35,27 @@ def normalize_timing(value):
         return {
             k: normalize_timing(v)
             for k, v in value.items()
-            if k not in {"latency_ms", "duration_seconds"}
+            if k
+            not in {"latency_ms", "duration_seconds", "provider_scheduler", "connection_attempts"}
         }
     if isinstance(value, list):
         return [normalize_timing(v) for v in value]
     return value
+
+
+def retained_parse_batches(source, receipt):
+    from proofops.domain.provenance import canonical_hash
+
+    candidates = [
+        json.loads(path.read_text()) for path in (source / "parse-responses").glob("*-async.json")
+    ]
+    for path in (source / "parser-prepared" / "upstage-cache").rglob("*.json"):
+        value = json.loads(path.read_text())
+        if "raw_batches" in value:
+            candidates.append(value["raw_batches"])
+    return next(
+        value for value in candidates if canonical_hash(value) == receipt["response_sha256"]
+    )
 
 
 def fixture(source, output, stage):
@@ -130,14 +148,27 @@ def main():
     args = argparse.ArgumentParser()
     args.add_argument("--source", type=Path, required=True)
     args.add_argument("--output", type=Path, required=True)
-    args.add_argument("--stage", choices=("parse", "tag", "pipeline"), required=True)
+    args.add_argument("--stage", choices=("parse", "tag", "pipeline", "extraction"), required=True)
     args.add_argument("--cache-profile", default="exact-verified-read-v2")
     args.add_argument("--workers", type=int, default=8)
+    args.add_argument("--scheduler-rps", type=int, choices=range(1, 9))
     args.add_argument("--rtt-ms", type=float, default=150)
     args.add_argument("--recorded-wait", action="store_true")
+    args.add_argument("--no-profile", action="store_true")
+    args.add_argument("--trace-failures", action="store_true")
     args = args.parse_args()
     source, output = args.source.resolve(), args.output.resolve()
-    first_stage = "parse" if args.stage == "pipeline" else args.stage
+    ledger_name = next(
+        (
+            name
+            for name in ("luna.sqlite3", "live-luna.sqlite3")
+            if (source / name).is_file() and (source / (name + ".responses")).is_dir()
+        ),
+        None,
+    )
+    if ledger_name is None:
+        raise ValueError("REPLAY_RETAINED_MODEL_LEDGER_REQUIRED")
+    first_stage = "parse" if args.stage in ("pipeline", "extraction") else args.stage
     tenant, run = fixture(source, output, first_stage)
     os.environ.update(
         APP_ENV="local",
@@ -164,13 +195,22 @@ def main():
     )
     responses = {
         (d["request_id"], d["attempt"]): d["provider_response"]
-        for p in (source / "luna.sqlite3.responses").glob("*.json")
+        for p in (source / (ledger_name + ".responses")).glob("*.json")
         for d in [json.loads(p.read_text())]
     }
     local = threading.local()
+    scheduler = None
+    if args.scheduler_rps:
+        from proofops.adapters.local.provider_scheduler import RoleProviderConcurrency
+
+        scheduler = RoleProviderConcurrency(
+            args.workers,
+            requests_per_second=args.scheduler_rps,
+            resilience_directory=output / "scheduler-events",
+        )
     events, counts = [], {}
     lock = threading.Lock()
-    with sqlite3.connect((source / "luna.sqlite3").as_uri() + "?mode=ro", uri=True) as db:
+    with sqlite3.connect((source / ledger_name).as_uri() + "?mode=ro", uri=True) as db:
         provider_receipts = {
             key: json.loads(v)
             for key, v in db.execute(
@@ -191,6 +231,13 @@ def main():
             return expected
 
         def _post(self, body, **kwargs):
+            if scheduler is None:
+                return self._retained_post(body, **kwargs)
+            role = provider_receipts[local.request_id]["response_request"]["role"]
+            with scheduler.attempt(role):
+                return self._retained_post(body, **kwargs)
+
+        def _retained_post(self, body, **kwargs):
             key = local.request_id
             retained = requests[key]
             expected = self.request_body(
@@ -204,15 +251,27 @@ def main():
             with lock:
                 attempt = counts.get(key, 0)
                 counts[key] = attempt + 1
-            start = time.monotonic()
             wait = (
                 provider_receipts[key]["attempts"][attempt]["latency_ms"] / 1000
                 if args.recorded_wait
                 else args.rtt_ms / 1000
             )
+            # Wire validation/body preparation precede the physical transport
+            # boundary, matching OpenAIProbe._post_admitted.
+            start = scheduler.pace_transport() if scheduler else time.monotonic()
             time.sleep(wait)
             with lock:
-                events.append(dict(function="llm", start=start, seconds=time.monotonic() - start))
+                events.append(
+                    dict(
+                        function="llm",
+                        start=start,
+                        seconds=time.monotonic() - start,
+                        request_id=key,
+                        thread=threading.get_ident(),
+                        recorded_seconds=provider_receipts[key]["attempts"][attempt]["latency_ms"]
+                        / 1000,
+                    )
+                )
             return json.loads(json.dumps(responses[key, attempt]))
 
     class ReplayParse(UpstageParseProbe):
@@ -227,9 +286,7 @@ def main():
                     )
                 ]
             receipt = next(r for r in retained if "duration_seconds" in r and r["mode"] == mode)
-            batches = json.loads(
-                next((source / "parse-responses").glob("*-async.json")).read_text()
-            )
+            batches = retained_parse_batches(source, receipt)
             from hashlib import sha256
 
             from proofops.adapters.local.upstage_parse import PARSE_MODEL_PINNED
@@ -260,7 +317,12 @@ def main():
             result = super().parse_async(pdf_bytes, request_id=request_id, mode=mode)
             with lock:
                 events.append(
-                    dict(function="upstage.parse", start=start, seconds=time.monotonic() - start)
+                    dict(
+                        function="upstage.parse",
+                        start=start,
+                        seconds=time.monotonic() - start,
+                        recorded_seconds=receipt["duration_seconds"],
+                    )
                 )
             # Retain the provider's measured duration as immutable provenance;
             # the experiment's actual wall time is recorded separately above.
@@ -312,7 +374,7 @@ def main():
         from proofops.adapters.parsing import opendataloader, upstage_document
 
         original_dir = next((source / "parser-prepared").rglob("manifest.json")).parent
-        batches = json.loads((original_dir / "candidates.json").read_text())
+        batches = read_parser_json(original_dir / "candidates.json")
         ids = {b["parser_name"]: UUID(b["parser_run_id"]) for b in batches}
         original_batch = opendataloader._batch
 
@@ -325,9 +387,48 @@ def main():
                 opendataloader.uuid4 = previous
 
         opendataloader._batch = batch
-        upstage_document.uuid4 = lambda: ids["upstage_async_standard"]
+        candidate_batch = upstage_document.candidate_batch
+
+        def pinned_candidate_batch(*a, mode, **k):
+            previous = upstage_document.uuid4
+            upstage_document.uuid4 = lambda: ids["upstage_async_" + mode]
+            try:
+                return candidate_batch(*a, mode=mode, **k)
+            finally:
+                upstage_document.uuid4 = previous
+
+        upstage_document.candidate_batch = pinned_candidate_batch
 
         def raw_parser(command, work, env, profile):
+            if (original_dir / "h6-local.json").is_file():
+                retained = json.loads((original_dir / "h6-local.json").read_bytes())
+                selected = json.loads((work / "request.json").read_bytes())["selected"]
+                record = next(
+                    b
+                    for b in retained["batches"]
+                    if b["status"] == "parsed" and b["pages"] == selected
+                )
+                prefix = record["prefix"]
+                for name in ("source.json", "auxiliary.json", "geometry.json"):
+                    shutil.copy2(original_dir / (prefix + name), work / name)
+                shutil.copy2(original_dir / (prefix + "h6-selected.pdf"), work / "h6-selected.pdf")
+                shutil.copy2(original_dir / "source.md", work / "source.md")
+                repaired = json.loads((original_dir / "source-repaired.json").read_bytes())
+
+                def unprefix(value):
+                    if isinstance(value, dict):
+                        return {
+                            k: v.removeprefix(prefix)
+                            if k == "id" and isinstance(v, str)
+                            else unprefix(v)
+                            for k, v in value.items()
+                        }
+                    return [unprefix(v) for v in value] if isinstance(value, list) else value
+
+                (work / "source-repaired.json").write_text(json.dumps(unprefix(repaired)))
+                repair = json.loads((original_dir / "table-repair.json").read_bytes())
+                (work / "table-repair.json").write_text(json.dumps(repair["batches"][0]))
+                return
             for name in (
                 "source.json",
                 "source.md",
@@ -336,8 +437,12 @@ def main():
                 "geometry.json",
                 "table-repair.json",
                 "launcher-stderr.txt",
+                "local-selected.pdf",
+                "local-selected.json",
+                "local-page-map.json",
             ):
-                shutil.copy2(original_dir / name, work / name)
+                if (original_dir / name).is_file():
+                    shutil.copy2(original_dir / name, work / name)
 
         worker.parser._execute = raw_parser
 
@@ -372,20 +477,54 @@ def main():
     ):
         instrument(owner, name)
     main_profile = cProfile.Profile()
+
+    def measured_call(operation, *a, **k):
+        if args.no_profile:
+            return operation(*a, **k)
+        return main_profile.runcall(operation, *a, **k)
+
     start = time.monotonic()
     stage_times = {}
     try:
         with reader_scope(ReplayOCRStore(output / "upstage.sqlite3")):
             begin = time.monotonic()
-            status = main_profile.runcall(worker.run_once, tenant_id=tenant, run_id=run)
+            status = measured_call(worker.run_once, tenant_id=tenant, run_id=run)
             stage_times[first_stage] = time.monotonic() - begin
-            if args.stage == "pipeline":
+            events.append(
+                dict(function="stage." + first_stage, start=begin, seconds=stage_times[first_stage])
+            )
+            if args.stage in ("pipeline", "extraction"):
                 assert status == "committed", status
                 factories = dict(
                     llm=lambda key, ledger, **kw: ReplayProbe("offline-fixture", ledger, **kw),
                     parse=lambda ledger: ReplayParse("offline-fixture", ledger),
                 )
-                for stage in ("extract", "tag"):
+                for stage in ("extract",) if args.stage == "extraction" else ("extract", "tag"):
+                    if args.trace_failures and stage == "extract":
+
+                        def trace(frame, event, value):
+                            filename = frame.f_code.co_filename
+                            if event == "exception" and filename.endswith(
+                                ("extract_runner.py", "pa7_raster_cache.py")
+                            ):
+                                kind = value[0].__name__
+                                print(
+                                    json.dumps(
+                                        dict(
+                                            event="w3_failure_frame",
+                                            file=Path(filename).name,
+                                            line=frame.f_lineno,
+                                            exception_type=kind,
+                                        )
+                                    ),
+                                    flush=True,
+                                )
+                            return trace
+
+                        import sys
+
+                        sys.settrace(trace)
+                        threading.settrace(trace)
                     worker.uploads.close()
                     worker.uploads.registry.close()
                     worker = build_composition(
@@ -403,18 +542,27 @@ def main():
                         + 600
                     )
                     begin = time.monotonic()
-                    status = main_profile.runcall(worker.run_once, tenant_id=tenant, run_id=run)
+                    status = measured_call(worker.run_once, tenant_id=tenant, run_id=run)
                     if stage == "extract":
                         assert status == "committed", status
                         from proofops_worker.extract_batch import run_batches
 
-                        main_profile.runcall(
+                        measured_call(
                             run_batches, worker, tenant_id=tenant, run_id=run, batches=100
                         )
                     stage_times[stage] = time.monotonic() - begin
+                    events.append(
+                        dict(function="stage." + stage, start=begin, seconds=stage_times[stage])
+                    )
         seconds = time.monotonic() - start
         assert status == ("completed" if args.stage in ("tag", "pipeline") else "committed"), status
-        final_stage = "tag" if args.stage == "pipeline" else args.stage
+        final_stage = (
+            "tag"
+            if args.stage == "pipeline"
+            else "extract"
+            if args.stage == "extraction"
+            else args.stage
+        )
         result = checkpoint(output, final_stage)
         expected = checkpoint(source, final_stage)
         identical = normalize_timing(result) == normalize_timing(expected)
@@ -425,6 +573,7 @@ def main():
             cache_profile=args.cache_profile,
             rtt_ms=args.rtt_ms,
             recorded_wait=args.recorded_wait,
+            profiled=not args.no_profile,
             replay_calls=sum(counts.values()),
             live_provider_calls=0,
             paid_usd="0",
@@ -435,6 +584,14 @@ def main():
             events=events,
             stage_seconds=stage_times,
         )
+        if scheduler is not None:
+            from proofops.application.analysis_profile import FINALS_S5_POLICY
+
+            measurement.update(
+                scheduler=scheduler.snapshot(),
+                execution_policy_sha256=canonical_hash(FINALS_S5_POLICY),
+                replay_policy="historical-pins-retained; S5-physical-queue-only",
+            )
         (output / "checkpoint.json").write_text(json.dumps(result, ensure_ascii=False))
         (output / "measurement.json").write_text(json.dumps(measurement, indent=2))
         print(json.dumps({k: v for k, v in measurement.items() if k != "events"}), flush=True)
@@ -445,7 +602,8 @@ def main():
             )
         assert identical, "PA3_RESULT_CHANGED"
     finally:
-        main_profile.dump_stats(str(output / "main.prof"))
+        if not args.no_profile:
+            main_profile.dump_stats(str(output / "main.prof"))
         worker.uploads.close()
         worker.uploads.registry.close()
 

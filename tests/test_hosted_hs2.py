@@ -52,7 +52,14 @@ def test_failed_scope_manual_selection_preserves_unreadable_and_caps(store):
     doc = store.upload(auth, pdf(32), "hs2-manual-upload", now=time.time())
     original = store.generate_scope(auth, doc["document_id"])
     assert original["plan"]["status"] == "failed"
-    changed = store.edit_scope(auth, doc["document_id"], [1, 2], [1, 2, 3], '"1"')
+    changed = store.edit_scope(
+        auth,
+        doc["document_id"],
+        [1, 2],
+        [1, 2, 3],
+        '"1"',
+        reporting_scope=dict(report_year=2025, period_start="2024-01-01", period_end="2024-12-31"),
+    )
     assert changed["revision"] == 2
     assert changed["plan"] == original["plan"] | dict(
         selected_claim_pages=[1, 2], selected_evidence_pages=[1, 2, 3]
@@ -241,6 +248,24 @@ def test_process_wait_renews_lease_and_preserves_total_timeout(store, tmp_path, 
             )
 
 
+def test_heartbeat_keeps_1900_second_lease_valid_through_2700_seconds(store):
+    from proofops_api.hosted_analysis import HEARTBEAT_SECONDS
+    from proofops_api.hosted_store import RUN_LEASE_SECONDS
+
+    queued(store, "hf2-2700-second-run")
+    start = time.time()
+    job = store.claim(now=start)
+    assert RUN_LEASE_SECONDS == 1900
+    assert HEARTBEAT_SECONDS == 30
+    for elapsed in range(HEARTBEAT_SECONDS, 2701, HEARTBEAT_SECONDS):
+        store.renew_lease(job, now=start + elapsed)
+        assert job["lease_until"] == start + elapsed + RUN_LEASE_SECONDS
+    with store.transaction() as db:
+        assert store._fenced(db, job, start + 2700)["status"] == "running"
+    with pytest.raises(HostedError, match="LEASE_LOST"):
+        store.renew_lease(job, now=job["lease_until"])
+
+
 @pytest.mark.parametrize("already_settled", [False, True])
 def test_operator_reconciliation_requires_exact_export_and_preserves_unknown(
     store, tmp_path, already_settled
@@ -333,13 +358,14 @@ def test_deploy_accepts_dec22_and_explicit_live_opt_in(tmp_path):
     assert "HOSTED_RUN_USD=1.0" in env and "HOSTED_DAY_USD=7" in env
     assert "HOSTED_EVENT_USD=7" in env and "LIVE_DISABLED=true" in env
     config = tmp_path / "live.json"
-    for key in ("openai", "upstage"):
+    for key in ("openai", "openrouter", "upstage"):
         (tmp_path / f"{key}.key").write_text("offline-test-only")
     config.write_text(
         json.dumps(
             dict(
                 enabled=True,
                 openai_key_file=str(tmp_path / "openai.key"),
+                openrouter_key_file=str(tmp_path / "openrouter.key"),
                 upstage_key_file=str(tmp_path / "upstage.key"),
                 report_year=2025,
                 period_start="2024-01-01",

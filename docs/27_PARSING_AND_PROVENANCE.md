@@ -116,6 +116,18 @@ span, 부모 표 관계와 충돌은 보존하며, 이 매칭으로 정확도나
 
 `source_quality`: verified / unverified / conflicted / unreadable / unlocated. verified 도 현실 세계의 진실을 의미하지 않고 해당 추출값의 출처 확인 상태다. 파서 전반 정확도의 신뢰구간처럼 표현하지 않는다.
 
+### P2 · 추출 문맥 격리와 주장 쪽 구조 복원 (2026-10-14)
+
+새 `finals-20261014-p2-v1` 정책은 `extraction_located_table_context`를 별도
+추출 profile hash에 포함한다. 위치 없는 표는 인접 각주 문맥으로 사용하지 않고
+다른 위치 있는 표를 계속 확인한다. 잘못된 원시 좌표·unreadable 이슈와
+`SourceRef` 거부는 유지하며 좌표를 자르거나 원문 검증을 승인하지 않는다.
+`partial-v6`는 선택된 주장 쪽에 기존 예산·단일 쪽·유한 재시도 가드 안에서
+provider 구조 후보를 우선 사용한다. 실패하면 이미 읽을 수 있던 로컬 후보와
+실패 기록을 함께 보존한다. 근거 쪽의 로컬 라우팅 및 원문·표 귀속 검증은 유지한다.
+기존 정책·추출 profile·`partial-v5` 재생은 그대로다. API/DB migration은 없고,
+rollback은 새 실행을 v18 pin에 배정하되 새 산출물과 P2 reader를 보존한다.
+
 ## 6. 표 정규화
 
 각 `MetricObservation`은 metric_raw, metric_id(optional), scope, scope2_basis, category, subject, organizational_boundary, reporting_period, baseline_period, unit_raw, unit_canonical, scale_multiplier, value_raw, value_decimal, denominator, assurance_ref, source_refs, table_id/row/column, footnotes, quality 를 갖는다.
@@ -173,6 +185,25 @@ rollback하면 이 경로의 실행을 중단하고 저장된 결과/receipt는 
 실증 fixture 실행은 실제 모델 태깅·원문 품질 승인으로 간주하지 않는다.
 
 ## 9. 평가와 승인
+
+### K6 선택적 추출·시설 후보 계약
+
+`finals-unattended-v2`의 명시적 K6 정책 pin은 동일 parser grid의
+`2024년 실적` 같은 관측연도 헤더와 `tCO2-eq` 단위를 지원한다. 원문 셀·행·좌표는
+바꾸지 않는다. 명시적 환경 목표 술어와 기한/비율이 있는 원문 단락을 누락 복구
+후보로 보존하며, 여러 목표가 있는 부모 단락은 문맥을 보존한 채 재태깅 대상이다.
+새 주장에는 기존 태깅·등급·verified 상태를 이전하지 않는다.
+
+반복 단위는 모델이 선택한 동일 인용의 유일한 바로 앞 숫자에만 연결한다.
+원문 존재·귀속·요소 검사는 계속 필수다. 투자 필요성 증가만 서술한 goal 표는
+회사 약속으로 확정하지 않고 검토 대상으로 보존한다. 복원 시설 헤더는 원본 PDF의
+native 증명과 함께 M2/G4/P3 후보로 전달하며, 요소 투표나 보증 covered를 생성하지
+않는다. 보증 지표·기간·사업 범위 매칭 계약은 그대로다.
+
+K6 시설 span graph는 새 실행과 저장 결과 reload에서 같은 원본·정책으로 재구성한다.
+공개 API/DB 변경·migration은 없고, 내부 settings의 `extraction_k6`와 정책 hash를
+함께 검증한다. I4·이전 정책과 reader bytes는 유지한다. Rollback은 새 실행을 I4
+pin으로 생성하고 K6 reader는 보존하는 방식이다. 이전 revision/report를 덮어쓰지 않는다.
 
 최소 6개 보고서의 60개 표/레이아웃 영역을 초기 개발 벤치마크 목표로 잡는다. 디지털·다단·병합표·단위각주·보증서·스캔을 구분하고 실측 전 수치를 비워둔다. 비교군은 기존 parser baseline, OpenDataLoader local, 제한적 hybrid, 최종 조합이다. 측정은 cell exact match, 값-연도-단위 tuple exact match, bbox/페이지 정확성, 충돌 탐지 재현율, UNREADABLE 비율, 시간/비용이다. TEDS 만으로 숫자 정확도를 대체하지 않는다.
 
@@ -429,3 +460,96 @@ strict 객체/노드 상한은 KT의 실제 검사 결과에 따라 100,000→25
 display-v2의 제거 정책과 완료된 태깅·판정·보고서는 변경하지 않는다. rollback은
 FX6b commit revert이며 이미 저장된 원본/파생물은 보존한다. 되돌린 버전에서는 새로
 접수된 암호화 원본의 후속 준비가 실패할 수 있어 intake를 닫고 버전을 맞춰야 한다.
+
+## W9 표 후보 정책 (2026-10-11)
+
+새 `finals-unattended-v2` 실행은 `table_claims=pb1-w9-v1` 및
+`extraction_w9=true`를 고정한다. 이전 `pb1-v1`·분석/추출 hash와 receipt는
+그대로 재생한다. 동일 표 머리·라벨의 환경 맥락과 명시 단위 셀
+(`kg/백만 원`, `대`, `톤/년` 등)을 사용하며 재무표에는 환경 맥락을 차용하지 않는다.
+셀 내부 개행이 있는 표의 일반 후보는 명시 격자의 단일 셀 인용으로 한정하고 명시 bullet만 셀 내부에서 분리한다.
+단순 행 표는 기존 행 후보를 유지한다. 적용기술이 표시된 셀은 맥락으로 남긴다.
+Provider의 chart/figure 합성 수치는 일반 주장 후보에서 제외하고 독립 판독 경로에 남긴다.
+
+기존 결과의 optional `table_observation` 안에 `metric_path`, `column_path`,
+`metric_path_sources`, `metric_path_usage=display_only_not_evidence`를 추가한다.
+명시 row/column span 및 국내/해외·오염물질 원단위의 제한된 표시 계층만 사용한다.
+빈 라벨의 무조건 상속, 새 present·등급 인정, 행/열/연도 원문검증 완화는 없다.
+API의 필수 필드 및 DB schema 변경/migration은 없다. 이전 reader는 추가 표시 필드를
+무시할 수 있다. 롤백은 새 실행 정책을 이전 hash로 되돌리고, W9 실행을 이전 추출기로
+재개하지 않는다. 이전/새 revision·receipt·보고서는 보존한다.
+
+### K3 표 원문 검증·워커 라우팅 (로컬 opt-in)
+
+`K3_POLICY`는 기존 `FINALS_I1_POLICY`를 보존하는 별도 hash다. 신규 로컬 실행에서
+`--analysis-profile finals-unattended-v2 --analysis-policy-sha256 <K3_POLICY hash>`를
+지정하면 `extraction_k3`와 `upstage-ocr-page-v11`을 함께 동결한다. 기본 I1 정책은
+변경하지 않는다. 워커의 최초 선택·단일 실행·연속 배치는 같은 원문 grid의 W9
+최신연도 관측/셀 후보를 사용하므로, 기존 단위/환경 어휘 사전필터가 차량 대수 표를
+다시 차단하지 않는다. 이 선택은 근거 승인이나 부재 판정이 아니며 비용·scope·lease
+상한을 우회하지 않는다.
+
+v11은 v6 본문 검증과 v10 표 검증을 유지하고, 행 높이가 서로 다른 표의 **한 셀 안
+단일 bullet**만 추가 검토한다. 원본 PDF의 긴 세로 구획선과 독립적으로 읽은 각 열
+머리를 먼저 확인한다. 해당 열에서 고유한 원문 인용과 glyph 순서·줄간 간격·저장
+좌표를 검증한다. 셀/행 결합, 상태 문구 재배치, 다른 시설 머리 붙이기, 숫자·단위
+수정은 허용하지 않는다. 머리·회수 좌표는 receipt의 proof이며 의미 귀속 승인이
+아니다. 기존 paragraph/table 블록·revision·보고서를 변경하지 않는다.
+
+공개 API/DB schema·migration 변경은 없다. 신규 option은 기존 opaque settings와
+불변 실행 snapshot에 저장하고, policy hash가 맞는 reader만 발행/재생할 수 있다.
+롤백은 신규 K3 생성 중단이며 이미 생성한 K3 reader는 남겨 replay를 보존한다.
+17건 저장 입력의 원문 재생에서는 14건을 확인했고 NAVER-02/05/21은 보류했다.
+잘못 붙은 문구/잘린 좌표를 verified로 바꾸지 않는다. 새 태깅·등급은 별도 검증 전
+`not_run`이며, 이 결과 때문에 기본 정책을 K3로 자동 채택하지 않는다.
+
+### H1 · 선택 페이지 JVM 입력과 origin-cell 문맥 (새 실행만)
+
+`local_resource_policy=selected-pdf-h1-v1`은 원본 업로드 검사를 먼저 통과한 뒤,
+Java에 선택 쪽만 복제한 PDF를 준다. 원본의 페이지 객체·표시 geometry를 유지하고,
+subset PDF/원시 JSON, subset→원본 물리쪽 매핑, 각 해시를 불변 manifest에 보존한다.
+중첩된 `page number`를 명시 매핑하며 원본 PDF·과거 산출물은 수정하지 않는다.
+JVM의 `-Xmx`는 기존과 같이 parser memory의 절반이며 timeout/output/child containment도
+유지한다. 페이지가 적어도 문서 전체 font preprocessing을 하던 heap 실패를 이 경로로
+제한한다. 새 API/DB 필드는 없고 내부 ParserProfile의 선택 필드만 추가한다.
+
+같은 정책의 `h1-origin-context-v1` 표는 문맥 조회에서 실제 origin cell의 행·열·span과
+parser run을 사용한다. 셀 내 줄바꿈을 새 행으로 해석하지 않으며 exact grid 문자열이
+불일치하거나 원문 lineage가 모호하면 계속 거부한다. 문맥 복원은 근거 승인이 아니다.
+H1 추출은 이미 선택된 긴 heading에도 기존 줄바꿈/prefix 규칙을 적용한다. 명시적
+목표 경계 주석과, 원본 glyph·선언 영역·글자 크기로 확인한 좁은 전략 소제목은 문맥으로
+남긴다. 원문·반복 모델 응답은 보존하며 다른 source의 문장을 채워 넣지 않는다.
+
+`upstage-ocr-page-v12`는 source-invalid heading과 완결된 단일 셀 서술의 원문 검증
+자격만 확장한다. 기존 native/glyph/수치/주석/가시 원문 판독 검사를 다시 통과해야 하며,
+숫자 단독 셀의 행·연도 근거, 의미 귀속, 태깅 합의, Python 등급 계약은 그대로다.
+`unknown/conflict/unreadable`이나 실패한 판독은 absent 또는 present로 바꾸지 않는다.
+
+`FINALS_H1_POLICY`와 추출/파싱/source 정책은 새 해시를 갖는다. 기존 `FINALS_I3_POLICY`,
+v11 reader, 선택 필드 없는 ParserProfile은 당시 의미로 읽는다. 롤백은 새 배정을 중단하고
+명시적 I3 pin으로 새 실행을 만들며 H1 reader와 저장 산출물은 보존한다. 로컬 실증은
+배포·실제 EC2 변경·전체 보고서/등급 정확도 보장을 의미하지 않는다.
+
+### P3 · 표 receipt의 실패 예약 fresh/cold 일치 (2026-10-14)
+
+새 `finals-20261014-p3-table-replay-v1` 정책은 `upstage-ocr-page-v20`을 사용한다.
+OCR 수집의 실패·미완료 예약(`OCR_PENDING_OR_FAILED`,
+`OCR_COLLECTION_FAILED_RESERVATION_RETAINED:*`)은 저장 collection이 없는 cold
+재생과 동일하게 기존 원본 바이트의 로컬 raster 증명을 다시 수행한다. 예약·미정산
+비용은 보존하고 재생은 provider fetch를 호출하지 않는다. 로컬 증명이 실패하면
+unresolved이며, provider 실패 자체를 verified 근거로 사용하지 않는다.
+원문·tenant·collection 검증 오류와 receipt 전체 hash 비교는 그대로 유지한다.
+새 reader·분석 정책은 별도 hash로 저장하며 v19 및 이전 reader bytes·정책·receipt·
+revision·보고서는 변경하지 않는다. API/DB migration·새 의존성은 없다.
+Rollback은 새 실행을 기존 I18 정책 hash에 고정하고 v20 저장 산출물의 reader를
+보존한다. parser timeout·추출 품질·실 API 정확도는 이 수정의 검증 범위가 아니다.
+
+### D2 · saved OCR replay와 page-local acquisition hold (2026-10-15)
+
+새 `finals-20261015-d2-residual-v1` 정책은 `upstage-ocr-page-v21`을 사용한다.
+table replay는 receipt의 page collection을 실제 OCR 실행 reader에 바인딩한 뒤
+기존 전체 receipt hash 검사를 다시 수행한다. OCR acquisition의 정해진 timeout,
+HTTP, format, budget 오류는 해당 page의 claim span을 `unresolved`로 기록하고
+원인 코드를 receipt에 보존한다. 다른 page는 계속 확인하며, tenant·source·collection
+identity 오류와 receipt hash 검사는 유지한다. v20 및 이전 reader와 저장 policy는
+변경하지 않고, 새 실행만 v21을 선택한다.

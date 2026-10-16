@@ -113,7 +113,16 @@ class FinalsBudget:
                     raise ValueError("R108_FINALS_UNSETTLED_RETRY_FORBIDDEN")
                 return original(probe, *args, **kwargs)
             bound = reserve(args, kwargs)
-            self.reserve(bound)
+            try:
+                self.reserve(bound)
+            except ValueError as denied_error:
+                from proofops.adapters.local.source_attestation_errors import source_failure_code
+
+                # Carry H5's denied-dispatch fix into the shared fence. Provider
+                # adapters recognize this code and preserve it as a money stop.
+                if source_failure_code(denied_error) == "BUDGET_EXHAUSTED":
+                    raise ValueError("BUDGET_EXHAUSTED") from None
+                raise
             started, error = time.monotonic(), None
             try:
                 return original(probe, *args, **kwargs)
@@ -272,7 +281,7 @@ def configure_concurrency() -> int:
         workers = workers or int(os.environ.get("LOCAL_LLM_MAX_WORKERS", "8"))
     except ValueError:
         raise ValueError("LOCAL_LLM_CONFIGURATION_INVALID") from None
-    if not 1 <= workers <= 16:
+    if not 1 <= workers <= 24:
         raise ValueError("LOCAL_LLM_CONFIGURATION_INVALID")
     os.environ["LOCAL_LLM_MAX_WORKERS"] = str(workers)
     return workers

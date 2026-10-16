@@ -111,17 +111,27 @@ def test_publication_replay_releases_writer_and_rechecks_cancellation(
         assert db.execute("SELECT count(*) FROM result_snapshots").fetchone()[0] == 0
 
 
-@pytest.mark.parametrize("configured,expected", [(None, 8), (1, 1), (8, 8), (16, 16)])
+@pytest.mark.parametrize("configured,expected", [(None, 8), (1, 1), (8, 8), (16, 8)])
 def test_operator_concurrency(configured, expected):
+    from proofops.application.analysis_profile import FINALS_I8_POLICY
+    from proofops.domain.provenance import canonical_hash
     from proofops_api.hosted_analysis import operator_profiles
 
     config = {} if configured is None else {"llm_max_workers": configured}
+    config["analysis_policy_sha256"] = canonical_hash(FINALS_I8_POLICY)
     assert operator_profiles(config)["llm_max_workers"] == expected
 
 
 @pytest.mark.parametrize("configured", [True, False, 0, 17, "8", 1.5, None])
 def test_invalid_operator_concurrency(configured):
+    from proofops.application.analysis_profile import FINALS_I9_POLICY
+    from proofops.domain.provenance import canonical_hash
     from proofops_api.hosted_analysis import operator_profiles
 
     with pytest.raises(ValueError, match="HOSTED_LLM_CONCURRENCY_INVALID"):
-        operator_profiles({"llm_max_workers": configured})
+        operator_profiles(
+            {
+                "llm_max_workers": configured,
+                "analysis_policy_sha256": canonical_hash(FINALS_I9_POLICY),
+            }
+        )

@@ -81,7 +81,8 @@ UPSTAGE_PRELIMINARY_PROMPT_INVALID UPSTAGE_PRELIMINARY_SYSTEM_REQUIRED
 UPSTAGE_PRELIMINARY_PACKET_INVALID UPSTAGE_PRELIMINARY_PACKET_MISMATCH
 UPSTAGE_PRELIMINARY_CONTEXT_POLICY_INVALID UPSTAGE_PRELIMINARY_SOURCES_REQUIRED
 UPSTAGE_PRELIMINARY_TABLE_SOURCE_INVALID UPSTAGE_PRELIMINARY_TABLE_POLICY_INVALID
-UPSTAGE_PRELIMINARY_CONTEXT_INVALID RELATION_PACKET_MISMATCH RELATION_CLAIM_MISMATCH""".split()
+UPSTAGE_PRELIMINARY_CONTEXT_INVALID RELATION_PACKET_MISMATCH RELATION_CLAIM_MISMATCH
+K1_PUE_PERFORMANCE_RETAG_REQUIRED K4_CONNECTIVE_GOAL_RETAG_REQUIRED""".split()
 )
 
 
@@ -113,6 +114,18 @@ class LiveTaggingRuntime:
     def _check_heartbeat(self):
         if self.heartbeat_state is not None:
             self.heartbeat_state.check()
+
+    def reserve_tag_call(self, call, **kwargs):
+        """The claim-volume allowance never replaces persisted or USD limits."""
+        if not hasattr(self, "s2_call_allowance"):
+            return self.runner.store.usage.reserve_budget(call, **kwargs)
+        with self._account_lock:
+            if len(self.s2_reserved_calls) >= self.s2_call_allowance:
+                raise BudgetExceeded("BUDGET_EXHAUSTED: claim-volume call allowance")
+            reserved = self.runner.store.usage.reserve_budget(call, **kwargs)
+            if reserved:
+                self.s2_reserved_calls.add((call.request_id, call.attempt))
+            return reserved
 
     def __init__(self, runner, snapshot, graph, lease, usage, *, probe, ledger, receipts):
         from proofops.application.evidence.relation_attribution import snapshot_policy
@@ -170,6 +183,10 @@ class LiveTaggingRuntime:
             tagging_settings(snapshot, relation=True) if "relation_settings" in snapshot else None
         )
         self.request_ids = set()
+        accounting = snapshot.get("analysis_profile_policy", {}).get("s5_usage_accounting")
+        if accounting not in (None, "s5_final_reporting_snapshot_v1"):
+            raise ValueError("S5_USAGE_ACCOUNTING_POLICY_MISMATCH")
+        self._s5_defer_accounting = accounting is not None
         self._account_lock = Lock()
         self.previously_accounted = {
             identifier
@@ -340,20 +357,141 @@ class LiveTaggingRuntime:
 
     def display_packet(self, packet, *, claim=None):
         display_catalog = getattr(self, "display_catalog", None)
-        if display_catalog is None:
+        policy = getattr(self, "snapshot", {}).get("analysis_profile_policy", {})
+        from proofops.application.ingest.k5_context import POLICY as K5_POLICY
+        from proofops.application.ingest.k5_context import configured_context
+
+        k5 = policy.get("sentence_context_policy") == K5_POLICY
+        if display_catalog is None and not k5:
             return packet
         from proofops.application.evidence.retrieval import freeze_packet
 
         data = packet.to_dict()
         data.pop("packet_sha256")
-        policy = self.snapshot.get("analysis_profile_policy", {})
-        if policy.get("table_evidence") == "table-selected-evidence-pb2-v1":
-            from proofops.application.tagging.pb2_table_evidence import augment_packet
+        scope_refs = (
+            getattr(self, "scope_records", {})
+            .get(claim.claim_id if claim else None, {})
+            .get("source_refs", [])
+        )
+        if scope_refs and "G4" in data["allowed_elements"]:
+            for ref in scope_refs:
+                candidate = next(
+                    c for c in data["evidence_candidates"] if c["source_id"] == ref["source_id"]
+                )
+                candidate["source_refs"].append(ref)
+        if k5:
+            if claim is None or claim.claim_id != data["claim_id"]:
+                raise ValueError("SENTENCE_CONTEXT_CLAIM_REQUIRED")
+            data["sentence_context"] = configured_context(claim, self.graph, policy)
+        if "tagging_wire_policy" in policy:
+            from proofops.application.tagging.k7_wire import POLICY as K7_WIRE
+            from proofops.application.tagging.k7_wire import POLICY_K8 as K8_WIRE
+            from proofops.application.tagging.k7_wire import POLICY_K8_V2 as K8_WIRE_V2
+            from proofops.application.tagging.k7_wire import POLICY_K8_V3 as K8_WIRE_V3
+            from proofops.application.tagging.k7_wire import POLICY_K10 as K10_WIRE
+            from proofops.application.tagging.k7_wire import POLICY_V1 as K7_WIRE_V1
+            from proofops.application.tagging.k11_contract import WIRE_POLICY as K11_WIRE
+            from proofops.application.tagging.k11_contract import WIRE_V1_POLICY as K11_WIRE_V1
+
+            if policy["tagging_wire_policy"] not in (
+                K7_WIRE,
+                K7_WIRE_V1,
+                K8_WIRE,
+                K8_WIRE_V2,
+                K8_WIRE_V3,
+                K10_WIRE,
+                K11_WIRE,
+                K11_WIRE_V1,
+            ):
+                raise ValueError("K7_WIRE_POLICY_MISMATCH")
+            data["tagging_wire_policy"] = policy["tagging_wire_policy"]
+        if policy.get("table_evidence") in (
+            "table-selected-evidence-pb2-v1",
+            "table-selected-evidence-k4-v1",
+            "table-selected-evidence-k7-v1",
+        ):
+            from proofops.application.tagging.pb2_table_evidence import (
+                OBSERVED_POLICY,
+                POLICY,
+                ROW_UNIT_POLICY,
+                augment_packet,
+            )
 
             if claim is None or claim.claim_id != data["claim_id"]:
                 raise ValueError("TABLE_EVIDENCE_CLAIM_REQUIRED")
+            data = augment_packet(
+                data,
+                claim,
+                self.graph,
+                tenant_id=self.graph.tenant_id,
+                policy=OBSERVED_POLICY
+                if policy["table_evidence"] == OBSERVED_POLICY["profile"]
+                else ROW_UNIT_POLICY
+                if policy["table_evidence"] == ROW_UNIT_POLICY["profile"]
+                else POLICY,
+            )
+        for key in (
+            "tagging_response_policy",
+            "selected_quantity_policy",
+            "structural_quality_policy",
+        ):
+            if key in policy:
+                data[key] = policy[key]
+        if "local_implementation_binding_policy" in policy:
+            from proofops.application.tagging.k9_contract import (
+                BINDING_POLICY,
+                BINDING_V1_POLICY,
+                BINDING_V2_POLICY,
+                BINDING_V3_POLICY,
+                BINDING_V4_POLICY,
+            )
+
+            if policy["local_implementation_binding_policy"] not in (
+                BINDING_V1_POLICY,
+                BINDING_V2_POLICY,
+                BINDING_V3_POLICY,
+                BINDING_V4_POLICY,
+                BINDING_POLICY,
+            ) or policy.get("local_implementation_binding_policy_sha256") != canonical_hash(
+                policy["local_implementation_binding_policy"]
+            ):
+                raise ValueError("K9_BINDING_POLICY_MISMATCH")
+            data["local_implementation_binding_policy"] = policy[
+                "local_implementation_binding_policy"
+            ]
+        if "qt2_contextual_elements_policy" in policy:
+            from proofops.application.tagging.qt2_context import augment_packet, validate_policy
+
+            contextual = policy["qt2_contextual_elements_policy"]
+            validate_policy(contextual)
+            if policy.get("qt2_contextual_elements_policy_sha256") != canonical_hash(contextual):
+                raise ValueError("QT2_CONTEXT_POLICY_PIN_MISMATCH")
             data = augment_packet(data, claim, self.graph, tenant_id=self.graph.tenant_id)
-        data["display_text"] = display_catalog.element_pins(data)
+        if "qt1_tuple_policy" in policy:
+            from proofops.application.tagging.qt1_tuples import POLICY, augment_packet
+
+            if policy["qt1_tuple_policy"] != POLICY:
+                raise ValueError("QT1_TUPLE_POLICY_MISMATCH")
+            data = augment_packet(data, claim, self.graph, tenant_id=self.graph.tenant_id)
+        if "v3_dec92_policy" in policy:
+            from proofops.application.tagging.v3_context import augment_packet as v3_augment
+            from proofops.application.tagging.v3_dec92 import validate_policy as validate_v3
+
+            validate_v3(policy["v3_dec92_policy"])
+            if policy.get("v3_dec92_policy_sha256") != canonical_hash(policy["v3_dec92_policy"]):
+                raise ValueError("V3_DEC92_POLICY_PIN_MISMATCH")
+            data = v3_augment(data, claim, self.graph, tenant_id=self.graph.tenant_id)
+        if display_catalog is not None:
+            data["display_text"] = display_catalog.element_pins(data)
+        if policy.get("hold_recovery_policy") is not None:
+            from proofops.application.tagging.k2_recovery import validate_policy
+
+            validate_policy(policy["hold_recovery_policy"])
+            if policy.get("hold_recovery_policy_sha256") != canonical_hash(
+                policy["hold_recovery_policy"]
+            ):
+                raise ValueError("K2_RECOVERY_POLICY_PIN_MISMATCH")
+            data["local_element_recovery_policy"] = policy["hold_recovery_policy"]
         if self.snapshot.get("analysis_profile_policy", {}).get("hold_recovery") == "hf1-v1":
             from proofops.application.tagging.citation_restore import POLICY
 
@@ -364,6 +502,10 @@ class LiveTaggingRuntime:
             data["citation_restore_policy"] = POLICY
         if policy.get("citation_restore") == "citation-selected-value-pb6-v1":
             from proofops.application.tagging.pb6_citation_restore import POLICY
+
+            data["citation_restore_policy"] = POLICY
+        if policy.get("citation_restore") == "citation-selected-adjacent-unit-k6-v1":
+            from proofops.application.tagging.k6_citations import POLICY
 
             data["citation_restore_policy"] = POLICY
         return freeze_packet(data)
@@ -391,8 +533,17 @@ class LiveTaggingRuntime:
         with self._account_lock:
             if request_id not in self.previously_accounted:
                 self.request_ids.add(request_id)
-            self.usage.update(request_usage(self.ledger, sorted(self.request_ids)))
-            self.usage["tag_request_ids"] = sorted(self.request_ids)
+            if not self._s5_defer_accounting:
+                self._update_accounting()
+
+    def _update_accounting(self):
+        identifiers = sorted(self.request_ids)
+        self.usage.update(request_usage(self.ledger, identifiers))
+        self.usage["tag_request_ids"] = identifiers
+
+    def flush_accounting(self):
+        with self._account_lock:
+            self._update_accounting()
 
     def invoke(self, request):
         try:
@@ -411,7 +562,15 @@ class LiveTaggingRuntime:
             "unattended-v1",
             "finals-unattended-v1",
             "finals-unattended-v2",
+            "finals-unattended-j3-v1",
+            "finals-unattended-j7-v1",
+            "finals-unattended-j8-v1",
         )
+        from proofops.application.tagging import cf5_context
+
+        cf5 = cf5_context.enabled(self.snapshot.get("analysis_profile_policy", {}))
+        if cf5 and self.preliminary_settings.system_prompt != cf5_context.PRELIMINARY:
+            raise ValueError("CF5_CONTEXT_PROMPT_MISMATCH")
         profile = self.preliminary_settings.model_profile
         from proofops.application.tagging.preliminary import CONTEXT_POSITION_ORDER
 
@@ -479,6 +638,23 @@ class LiveTaggingRuntime:
                 from proofops.application.tagging.pb1_classification import COMPACT_PROMPT
 
                 packet["prompt_sha256"] = canonical_hash(COMPACT_PROMPT)
+                from proofops.application.tagging.finals_i4 import K4_PRELIMINARY
+                from proofops.application.tagging.k1_semantics import GUIDANCE
+                from proofops.application.tagging.k9_contract import PRELIMINARY as K9_PRELIMINARY
+                from proofops.application.tagging.q1_contract import PRELIMINARY as Q1_PRELIMINARY
+                from proofops.application.tagging.v3_dec92 import PRELIMINARY as V3_PRELIMINARY
+
+                if self.preliminary_settings.system_prompt in (
+                    COMPACT_PROMPT + "\n" + GUIDANCE,
+                    K4_PRELIMINARY,
+                    K9_PRELIMINARY,
+                    Q1_PRELIMINARY,
+                    V3_PRELIMINARY,
+                    cf5_context.PRELIMINARY,
+                ):
+                    packet["prompt_sha256"] = canonical_hash(
+                        self.preliminary_settings.system_prompt
+                    )
             else:
                 packet["prompt_sha256"] = canonical_hash(PB1_SYSTEM_PROMPT)
         if fallback:
@@ -494,7 +670,40 @@ class LiveTaggingRuntime:
                 elif entry["source_id"] not in data["omitted_source_ids"]:
                     data["omitted_source_ids"].append(entry["source_id"])
             data["context_blocks"] = verified_context
+        if self.snapshot.get("analysis_profile_policy", {}).get("sentence_context_policy"):
+            from proofops.application.ingest.k5_context import (
+                configured_context,
+                preliminary_context,
+            )
+
+            complete = configured_context(claim, graph, self.snapshot["analysis_profile_policy"])
+            packet = preliminary_context(packet, complete)
+        response_policy = self.snapshot.get("analysis_profile_policy", {}).get(
+            "preliminary_response_policy"
+        )
+        if response_policy is not None:
+            from proofops.application.tagging.k4_contract import RESPONSE_POLICY
+
+            if response_policy != RESPONSE_POLICY:
+                raise ValueError("K4_RESPONSE_POLICY_MISMATCH")
+            packet["preliminary_response_policy"] = response_policy
+        if cf5:
+            packet = cf5_context.preserve_context(packet, claim, graph)
         packet = self.preliminary_transport.bound_context(packet)
+        if not cf5 and self.snapshot.get("analysis_profile_policy", {}).get(
+            "sentence_context_policy"
+        ):
+            from copy import deepcopy
+
+            from proofops.application.ingest.k5_context import POLICY as K5_POLICY
+
+            if complete and complete["policy"] == K5_POLICY:
+                expected = preliminary_context(deepcopy(packet), complete)
+                if (
+                    packet["untrusted_document_data"]["context_blocks"]
+                    != expected["untrusted_document_data"]["context_blocks"]
+                ):
+                    raise ValueError("K5_SENTENCE_CONTEXT_WIRE_OMITTED")
         if sentence_context and not sentence_context_ready(claim, packet):
             if not fallback:
                 self.preliminary_records[claim.claim_id] = []
@@ -520,10 +729,39 @@ class LiveTaggingRuntime:
                 structural = table_structural_sources(graph, sources, tenant_id=self.auth.tenant_id)
                 sources = (*sources, *(item.ref for item in structural.verified))
             packet["display_text"] = display_catalog.preliminary_pins(packet, sources)
+            recovery = self.snapshot.get("analysis_profile_policy", {}).get("hold_recovery_policy")
+            if recovery is not None:
+                from proofops.application.tagging.k2_recovery import validate_policy
+
+                validate_policy(recovery)
+                if self.snapshot["analysis_profile_policy"].get(
+                    "hold_recovery_policy_sha256"
+                ) != canonical_hash(recovery):
+                    raise ValueError("K2_RECOVERY_POLICY_PIN_MISMATCH")
+                packet["preliminary_recovery_policy"] = recovery
+
+        from proofops.application.tagging.k9_contract import BINDING_POLICY, BINDING_V4_POLICY
+
+        if self.snapshot.get("analysis_profile_policy", {}).get(
+            "local_implementation_binding_policy"
+        ) in (BINDING_POLICY, BINDING_V4_POLICY):
+            packet["k9_targeted_wire_policy"] = self.snapshot["analysis_profile_policy"][
+                "local_implementation_binding_policy"
+            ]
+
+        quality_policy = self.snapshot.get("analysis_profile_policy", {}).get(
+            "structural_quality_policy"
+        )
+        from proofops.application.tagging.q1_contract import QUALITY_POLICIES
+
+        if quality_policy in QUALITY_POLICIES:
+            packet["structural_quality_policy"] = quality_policy
 
         def validate(raw):
+            restoration = {}
             if display_catalog is not None:
                 raw = display_catalog.restore_preliminary(raw, packet)
+                restoration = raw.pop("dimension_restore_errors", {})
             auxiliary = None
             from proofops.application.tagging.pb2_preliminary import enabled as pb2_enabled
 
@@ -562,7 +800,95 @@ class LiveTaggingRuntime:
                     )
                 )
             )
-            if pb1 and result.safe_harbor_category == "forward_looking":
+            from proofops.application.tagging.k1_semantics import POLICY as K1_POLICY
+            from proofops.application.tagging.k1_semantics import track_requires_review
+            from proofops.application.tagging.k4_contract import SEMANTIC_POLICY, estimate_evidence
+
+            semantic = self.snapshot.get("analysis_profile_policy", {}).get("semantic_admission")
+            from proofops.application.tagging.k10_contract import SEMANTIC_POLICY as K10_POLICY
+            from proofops.application.tagging.k10_contract import (
+                SEMANTIC_V2_POLICY as K10_V2_POLICY,
+            )
+            from proofops.application.tagging.q1_contract import SEMANTIC_POLICY as Q1_POLICY
+
+            v3_policy = self.snapshot.get("analysis_profile_policy", {}).get("v3_dec92_policy")
+            if v3_policy is not None:
+                from proofops.application.tagging.v3_dec92 import validate_classification
+                from proofops.application.tagging.v3_dec92 import validate_policy as validate_v3
+
+                validate_v3(v3_policy)
+                if self.snapshot["analysis_profile_policy"].get(
+                    "v3_dec92_policy_sha256"
+                ) != canonical_hash(v3_policy):
+                    raise ValueError("V3_DEC92_POLICY_PIN_MISMATCH")
+                result = validate_classification(result, claim, graph)
+            if v3_policy is None and semantic in (Q1_POLICY, K10_POLICY, K10_V2_POLICY):
+                from proofops.application.tagging.q1_contract import forecast_quote
+
+                if forecast_quote(claim.quote) and result.safe_harbor_category != "forward_looking":
+                    raise ValueError("Q1_FORWARD_LOOKING_CATEGORY_REVIEW")
+            risk_policy = self.snapshot.get("analysis_profile_policy", {}).get(
+                "risk_classification_policy"
+            )
+            if risk_policy is not None:
+                from proofops.application.tagging.k6_citations import (
+                    RISK_POLICY,
+                    risk_without_commitment,
+                )
+
+                if risk_policy != RISK_POLICY or self.snapshot["analysis_profile_policy"].get(
+                    "risk_classification_policy_sha256"
+                ) != canonical_hash(RISK_POLICY):
+                    raise ValueError("K6_RISK_POLICY_MISMATCH")
+                if (
+                    result.track
+                    and result.track.track == "goal"
+                    and risk_without_commitment(claim.quote)
+                ):
+                    raise ValueError("K6_RISK_WITHOUT_COMPANY_COMMITMENT")
+            if (
+                semantic in (SEMANTIC_POLICY, Q1_POLICY, K10_POLICY, K10_V2_POLICY)
+                and result.track
+                and result.track.track == "goal"
+            ):
+                from proofops.application.ingest.j7_split import goal_requires_retag
+
+                if goal_requires_retag(claim, graph):
+                    raise ValueError("K4_CONNECTIVE_GOAL_RETAG_REQUIRED")
+            if (
+                semantic in (SEMANTIC_POLICY, Q1_POLICY, K10_POLICY, K10_V2_POLICY)
+                and result.safe_harbor_category == "emissions_estimate"
+            ):
+                sources = dict(
+                    tenant_id=graph.tenant_id,
+                    document_version_id=graph.document_version_id,
+                    claim_source_refs=[asdict(r) for r in claim.source_refs],
+                    safe_harbor_category=result.safe_harbor_category,
+                )
+                if not estimate_evidence(sources, graph):
+                    result = replace(
+                        result,
+                        safe_harbor_category=None,
+                        track=replace(result.track, safe_harbor_category=None)
+                        if result.track
+                        else None,
+                    )
+
+            if (
+                semantic in (K1_POLICY, SEMANTIC_POLICY, Q1_POLICY, K10_POLICY, K10_V2_POLICY)
+                and result.track is not None
+                and track_requires_review(claim.quote, result.track.track)
+            ):
+                raise ValueError("K1_PUE_PERFORMANCE_RETAG_REQUIRED")
+            if (
+                pb1
+                and v3_policy is None
+                and result.safe_harbor_category == "forward_looking"
+                and not (
+                    semantic in (Q1_POLICY, K10_POLICY, K10_V2_POLICY)
+                    and forecast_quote(claim.quote)
+                )
+            ):
                 from proofops.application.tagging.pb1_classification import forward_candidate
 
                 category, reason = forward_candidate(claim.quote)
@@ -591,6 +917,7 @@ class LiveTaggingRuntime:
                 },
                 safe_harbor_category=result.safe_harbor_category,
                 **attribution,
+                **({"dimension_restore_errors": restoration} if restoration else {}),
             )
 
         results = self._source_replicas(
@@ -614,6 +941,10 @@ class LiveTaggingRuntime:
                 (r.track.track if r.track else None, r.safe_harbor_category) for r in results
             )
             header, count = votes.most_common(1)[0]
+            if cf5 and not cf5_context.header_agreed(
+                [(r.track.track if r.track else None, r.safe_harbor_category) for r in results]
+            ):
+                return None
             if count < 2 or header[0] is None:
                 return None
             winners = [
@@ -624,7 +955,11 @@ class LiveTaggingRuntime:
                 values = [r.context.dimensions.get(key) for r in winners]
                 dimensions[key] = values[0] if all(v == values[0] for v in values) else None
             self.preliminary_records[claim.claim_id].append(
-                dict(status="provisional_majority", votes=count, total_replicas=3)
+                dict(
+                    status="cf5_unanimous" if cf5 else "provisional_majority",
+                    votes=count,
+                    total_replicas=3,
+                )
             )
             context = ClaimContext(claim, dimensions)
             return winners[0].track, context, local_relation_tags(context)
@@ -1213,6 +1548,9 @@ class LiveTaggingRuntime:
                     "unattended-v1",
                     "finals-unattended-v1",
                     "finals-unattended-v2",
+                    "finals-unattended-j3-v1",
+                    "finals-unattended-j7-v1",
+                    "finals-unattended-j8-v1",
                 ):
                     request["pipeline_profile"] = self.snapshot["pipeline_profile"]
                 request["request_signature"] = canonical_hash(request)
@@ -1260,7 +1598,7 @@ class LiveTaggingRuntime:
                         )
                         with lock:
                             self._check_heartbeat()
-                            if not self.runner.store.usage.reserve_budget(
+                            if not self.reserve_tag_call(
                                 call,
                                 input_tokens=capacity,
                                 max_output_tokens=settings.max_tokens,
@@ -1389,6 +1727,9 @@ class LiveTaggingRuntime:
             "unattended-v1",
             "finals-unattended-v1",
             "finals-unattended-v2",
+            "finals-unattended-j3-v1",
+            "finals-unattended-j7-v1",
+            "finals-unattended-j8-v1",
         )
         if failed and not (unattended_majority and len(results) >= 2):
             return None

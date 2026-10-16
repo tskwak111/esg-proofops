@@ -140,6 +140,11 @@ def accept_binding(
     tenant_id: str,
     rulepack: RulePackSnapshot,
     element_id: str,
+    local_value_identity: bool = False,
+    local_binding_policy: Mapping | None = None,
+    structural_policy: Mapping | None = None,
+    allow_edge_whitespace: bool = False,
+    diagnostics: list[str] | None = None,
 ) -> BindingState:
     """Check source identity, literal roles, table coordinates and allowed scope.
 
@@ -156,6 +161,23 @@ def accept_binding(
         raise DomainValidationError("SourceRef and pinned rulepack required")
     _require_uuid("tenant_id", tenant_id)
     claim = context.claim
+    if structural_policy is not None:
+        from proofops.application.tagging.q1_contract import validate_policy
+
+        validate_policy(structural_policy)
+    if type(allow_edge_whitespace) is not bool:
+        raise DomainValidationError("edge-whitespace binding policy must be boolean")
+
+    def diagnose(reason: str):
+        from proofops.application.tagging.q1_contract import QUALITY_POLICIES
+
+        if (
+            structural_policy in QUALITY_POLICIES
+            and diagnostics is not None
+            and reason not in diagnostics
+        ):
+            diagnostics.append(reason)
+
     _require_uuid("claim_id", claim.claim_id)
     if (claim.tenant_id, original.tenant_id, rulepack.tenant_id) != (tenant_id,) * 3 or (
         claim.document_version_id,
@@ -168,6 +190,7 @@ def accept_binding(
     if definition is None:
         raise DomainValidationError("unknown element")
     if scope_rejection_reason(element_id, (ref,), rulepack=rulepack, original=original):
+        diagnose("source_scope_rejected")
         return "rejected"
     evidence_dimensions = _dimensions(relation_tags) if relation_tags is not None else {}
     blocks = {block.source_id: block for block in original.blocks}
@@ -181,9 +204,11 @@ def accept_binding(
             original.document_version_id,
             original.parse_manifest_id,
         ) or source.source_id not in blocks:
+            diagnose("source_identity_rejected")
             return "rejected"
         block = blocks[source.source_id]
         if block.winner is None:
+            diagnose("source_unresolved")
             return "undetermined"  # conflicted/missing winner stays blocked
         result = verify_source_ref(source, original, tenant_id=tenant_id)
         if result.verification_state == "verified":
@@ -193,7 +218,9 @@ def accept_binding(
         if block.quality != "verified":
             # ordinary unverified/unlocated block without a trusted verified span:
             # unresolved source quality, not a source-identity rejection.
+            diagnose("source_unverified")
             return "undetermined"
+        diagnose("source_literal_rejected")
         return "rejected"
 
     if not claim.source_refs or claim.quote != " ".join(s.quote for s in claim.source_refs):
@@ -204,7 +231,53 @@ def accept_binding(
         if state == "rejected":
             return state
         unresolved |= state == "undetermined"
+    if local_binding_policy is not None:
+        from proofops.application.tagging.k9_contract import (
+            BINDING_POLICY,
+            BINDING_V1_POLICY,
+            BINDING_V2_POLICY,
+            BINDING_V3_POLICY,
+            BINDING_V4_POLICY,
+            scope_definition_identity,
+        )
+
+        if local_binding_policy not in (
+            BINDING_POLICY,
+            BINDING_V1_POLICY,
+            BINDING_V2_POLICY,
+            BINDING_V3_POLICY,
+            BINDING_V4_POLICY,
+        ):
+            raise DomainValidationError("K9_BINDING_POLICY_MISMATCH")
+        if (
+            not unresolved
+            and element_id == "G4"
+            and scope_definition_identity(context, ref, original, policy=local_binding_policy)
+        ):
+            for name, value in context.dimensions.items():
+                if value is None:
+                    continue
+                state = checked(value)
+                if state != "accepted":
+                    return state
+                if name == "scope" and _axis_cues(value.quote, "scope") != _axis_cues(
+                    ref.quote, "scope"
+                ):
+                    return "rejected"
+                if name != "scope" and not any(
+                    value.source_id == s.source_id
+                    and s.char_start <= value.char_start < value.char_end <= s.char_end
+                    for s in claim.source_refs
+                ):
+                    return "rejected"
+                actual = evidence_dimensions.get(name)
+                if actual is not None and (
+                    checked(actual) != "accepted" or actual.quote != value.quote
+                ):
+                    return "rejected"
+            return "accepted"
     if unresolved or relation_tags is None:
+        diagnose("claim_source_unverified" if unresolved else "relation_tags_unresolved")
         return "undetermined"
 
     def selected(source: SourceRef):
@@ -214,6 +287,17 @@ def accept_binding(
     def contains(outer: SourceRef, inner: SourceRef) -> bool:
         return outer.source_id == inner.source_id and (
             outer.char_start <= inner.char_start < inner.char_end <= outer.char_end
+        )
+
+    def whitespace_encloses(outer: SourceRef, inner: SourceRef) -> bool:
+        """Permit an exact claim quote with only source-bound edge whitespace."""
+        if outer.source_id != inner.source_id or outer.quote.strip() != inner.quote:
+            return False
+        leading = len(outer.quote) - len(outer.quote.lstrip())
+        trailing = len(outer.quote) - len(outer.quote.rstrip())
+        return (
+            outer.char_start + leading == inner.char_start
+            and outer.char_end - trailing == inner.char_end
         )
 
     def same_table(left: SourceRef, right: SourceRef) -> bool:
@@ -266,8 +350,37 @@ def accept_binding(
         return "rejected"
 
     scopes = definition["source_scopes"]
-    local = any(contains(source, ref) for source in claim.source_refs)
+    local = any(
+        contains(source, ref) or (allow_edge_whitespace and whitespace_encloses(ref, source))
+        for source in claim.source_refs
+    )
     direct = local and "local_claim" in scopes
+    intrinsic = False
+    if local_binding_policy is not None:
+        from proofops.application.tagging.k9_contract import (
+            BINDING_POLICY,
+            local_implementation_identity,
+        )
+
+        if local_binding_policy not in (
+            BINDING_POLICY,
+            BINDING_V1_POLICY,
+            BINDING_V2_POLICY,
+            BINDING_V3_POLICY,
+            BINDING_V4_POLICY,
+        ):
+            raise DomainValidationError("K9_BINDING_POLICY_MISMATCH")
+        if direct and element_id in BINDING_POLICY["elements"]:
+            intrinsic = local_implementation_identity(
+                context, ref, original, policy=local_binding_policy, element_id=element_id
+            )
+    if local_value_identity and direct:
+        from proofops.application.tagging.k2_recovery import local_intrinsic
+
+        intrinsic |= local_intrinsic(claim, ref, element_id)
+        # The scalar/year/means belongs to this atomic claim, not a cross-source
+        # join. Null axes do not deny that literal identity; asserted roles still
+        # undergo the same source, containment, period and contradiction checks.
     if not direct:
         # A numeric subspan may omit its boundary qualifier: inspect its containing
         # canonical block too. Multiple contexts conservatively require review.
@@ -290,7 +403,10 @@ def accept_binding(
             (name in context.dimensions and expected is None)
             or (name in evidence_dimensions and actual is None)
         )
-        if (expected is None or actual is None) and (not direct or explicit_axis_unknown):
+        if (expected is None or actual is None) and (
+            not direct or (explicit_axis_unknown and not intrinsic)
+        ):
+            diagnose(f"dimension_unresolved:{name}")
             unresolved = True
             continue
         states = [checked(value) for value in (expected, actual) if value is not None]
@@ -302,21 +418,32 @@ def accept_binding(
         for value, in_claim in ((expected, True), (actual, direct)):
             if value is None:
                 continue  # Local identity does not invent the missing semantic role.
-            targets = claim.source_refs if in_claim else (ref,)
+            targets = claim.source_refs if in_claim or intrinsic else (ref,)
             role_states = [
                 attributed(value, target, atomic=in_claim, dimension=name) for target in targets
             ]
             if all(state == "rejected" for state in role_states):
+                diagnose(f"role_attribution_rejected:{name}")
                 return "rejected"
             if "accepted" not in role_states:
                 unresolved = True
             if name == "reporting_period" and not is_supported_period(value.quote):
-                unresolved = True
+                from proofops.application.tagging.q1_contract import observed_period
+
+                if not (
+                    structural_policy is not None
+                    and direct
+                    and intrinsic
+                    and observed_period(value.quote, policy=structural_policy)
+                ):
+                    diagnose("period_syntax_unsupported")
+                    unresolved = True
         if (
             expected is not None
             and actual is not None
             and (normalize("NFC", expected.quote).strip() != normalize("NFC", actual.quote).strip())
         ):
+            diagnose(f"dimension_mismatch:{name}")
             return "rejected"
     if unresolved:
         return "undetermined"

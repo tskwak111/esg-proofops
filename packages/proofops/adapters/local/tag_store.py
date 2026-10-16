@@ -9,6 +9,7 @@ from dataclasses import asdict
 from hashlib import sha256
 
 from proofops.adapters.cache.aws import CacheNamespace, CacheRequest
+from proofops.adapters.local.claim_source_policies import PAGE_OCR_PROFILES
 from proofops.adapters.local.claim_store import LocalClaimStore
 from proofops.application.budget import TokenUsage
 from proofops.application.evidence.binding import ClaimContext
@@ -327,18 +328,7 @@ def _stored_context_reader(
             else (receipt.get("receipts") or {}).get("paragraph")
         )
         if paragraph is None and receipt.get("schema") == "context_source_attestation_v1":
-            if run_policy and run_policy.get("profile") in {
-                "upstage-ocr-page-v1",
-                "upstage-ocr-page-v2",
-                "upstage-ocr-page-v3",
-                "upstage-ocr-page-v4",
-                "upstage-ocr-page-v5",
-                "upstage-ocr-page-v6",
-                "upstage-ocr-page-v7",
-                "upstage-ocr-page-v8",
-                "upstage-ocr-page-v9",
-                "upstage-ocr-page-v10",
-            }:
+            if run_policy and run_policy.get("profile") in PAGE_OCR_PROFILES:
                 from proofops.adapters.local.claim_source_policies import claim_source_reader
 
                 table_span_policy = claim_source_reader(run_policy).table_span_policy
@@ -466,18 +456,7 @@ class LocalTagStore:
             raise ValueError("CONTEXT_SOURCE_MISMATCH")
 
         def attest_paragraphs(selected):
-            if reader_policy and reader_policy.get("profile") in {
-                "upstage-ocr-page-v1",
-                "upstage-ocr-page-v2",
-                "upstage-ocr-page-v3",
-                "upstage-ocr-page-v4",
-                "upstage-ocr-page-v5",
-                "upstage-ocr-page-v6",
-                "upstage-ocr-page-v7",
-                "upstage-ocr-page-v8",
-                "upstage-ocr-page-v9",
-                "upstage-ocr-page-v10",
-            }:
+            if reader_policy and reader_policy.get("profile") in PAGE_OCR_PROFILES:
                 for_run = reader.for_run
 
                 if stored_receipt is not None:
@@ -512,18 +491,7 @@ class LocalTagStore:
         )
         paragraphs = tuple(ref for ref in unresolved if kinds[ref.source_id] == "paragraph")
         tables = tuple(ref for ref in unresolved if kinds[ref.source_id] != "paragraph")
-        if reader_policy and reader_policy.get("profile") in {
-            "upstage-ocr-page-v1",
-            "upstage-ocr-page-v2",
-            "upstage-ocr-page-v3",
-            "upstage-ocr-page-v4",
-            "upstage-ocr-page-v5",
-            "upstage-ocr-page-v6",
-            "upstage-ocr-page-v7",
-            "upstage-ocr-page-v8",
-            "upstage-ocr-page-v9",
-            "upstage-ocr-page-v10",
-        }:
+        if reader_policy and reader_policy.get("profile") in PAGE_OCR_PROFILES:
             page_reader = reader.for_run(run_id)
             table_span_policy = reader.table_span_policy
             if stored_receipt is not None:
@@ -615,6 +583,32 @@ class LocalTagStore:
         )
         return scoped, receipt
 
+    def _facility_evidence(self, evidence, snapshot, tenant_id):
+        extraction, discovery, graph = evidence
+        policy = snapshot.get("analysis_profile_policy", {})
+        if policy.get("facility_tagging_candidates") is not None:
+            from proofops.adapters.local.k6_facilities import facility_graph
+
+            graph, _ = facility_graph(
+                graph,
+                self.uploads.read_original(tenant_id, graph.document_version_id),
+                discovery.claims,
+                tenant_id=tenant_id,
+                policy=policy,
+            )
+        if policy.get("local_implementation_binding_policy"):
+            from proofops.adapters.local.k9_scope_sources import scope_graph
+
+            graph, _ = scope_graph(
+                graph,
+                self.uploads.read_original(tenant_id, graph.document_version_id),
+                discovery.claims,
+                tenant_id=tenant_id,
+                run_id=snapshot["run_id"],
+                policy=policy,
+            )
+        return extraction, discovery, graph
+
     def _load_snapshot_with_evidence(self, tenant_id, run_id):
         # Share the evidence replay used to verify the tag checkpoint pins.
         run = self.store.jobs.get_run(tenant_id, run_id)
@@ -626,9 +620,79 @@ class LocalTagStore:
         evidence = self.claims.load_evidence(tenant_id, run_id)
         extraction = evidence[0]
         snapshot = self.store.snapshot(tenant_id, run_id)
+        evidence = self._facility_evidence(evidence, snapshot, tenant_id)
         expected = tag_pins(snapshot, extraction, run["claim_snapshot_sha256"])
         if any(envelope.get(k) != v for k, v in expected.items()):
             raise ValueError("TAG_CHECKPOINT_PIN_MISMATCH")
+        sc1_policy = snapshot.get("analysis_profile_policy", {}).get("sc1_scope_confirmation")
+        if sc1_policy is not None:
+            from proofops.application.tagging.analysis_scope import InventoryIndex, analyze_record
+            from proofops.application.tagging.v1_activity_links import policy_from_profile
+
+            inventory = envelope.get("sc1_inventory")
+            index = InventoryIndex(inventory, evidence[2]) if inventory is not None else None
+            if index is not None:
+                from proofops.application.tagging.element_inventory import selection_from_snapshot
+
+                if index.inventory["selection"] != selection_from_snapshot(
+                    snapshot, evidence[2], run_id
+                ):
+                    raise ValueError("SC1_INVENTORY_SELECTION_MISMATCH")
+            claims = {c.claim_id: c for c in evidence[1].claims}
+            pack = RulePackSnapshot(**snapshot["rulepack"])
+            for item in envelope["claims"]:
+                receipt = item.get("sc1_scope_receipt")
+                if receipt is not None:
+                    if index is None:
+                        raise ValueError("SC1_INVENTORY_MISSING")
+                    replayed = analyze_record(
+                        item,
+                        claims[item["claim_id"]],
+                        evidence[2],
+                        pack,
+                        index,
+                        required_present_votes=sc1_policy["agreement"]["required_present_votes"],
+                        local_synthetic=envelope["synthetic"],
+                        grade_agreement_policy=snapshot.get("analysis_profile_policy", {}).get(
+                            "grade_required_agreement_policy"
+                        ),
+                        v1_activity_policy=policy_from_profile(
+                            snapshot.get("analysis_profile_policy", {})
+                        ),
+                    )
+                    if canonical_hash(replayed) != canonical_hash(receipt) or any(
+                        item.get(k) != receipt[k] for k in ("sc1_confirmation", "sc1_elements")
+                    ):
+                        raise ValueError("SC1_SCOPE_RECEIPT_MISMATCH")
+                elif item.get("sc1_confirmation") is not None:
+                    raise ValueError("SC1_CONFIRMATION_WITHOUT_RECEIPT")
+        elif "sc1_inventory" in envelope or any(
+            item.get("sc1_confirmation") for item in envelope["claims"]
+        ):
+            raise ValueError("SC1_UNPINNED_CONFIRMATION")
+        cf6_policy = snapshot.get("analysis_profile_policy", {}).get("cf6_confirmation")
+        for item in envelope["claims"]:
+            receipt = item.get("cf6_receipt")
+            if receipt is not None:
+                if cf6_policy is None:
+                    raise ValueError("CF6_UNPINNED_CONFIRMATION")
+                from proofops.application.tagging.cf6_confirmation import analyze_record
+
+                claim = next(c for c in evidence[1].claims if c.claim_id == item["claim_id"])
+                replayed = analyze_record(
+                    item,
+                    claim,
+                    evidence[2],
+                    RulePackSnapshot(**snapshot["rulepack"]),
+                    snapshot["analysis_profile_policy"],
+                )
+                if (
+                    canonical_hash(replayed) != canonical_hash(receipt)
+                    or item.get("cf6_confirmation") != replayed["cf6_confirmation"]
+                ):
+                    raise ValueError("CF6_RECEIPT_MISMATCH")
+            elif item.get("cf6_confirmation") is not None:
+                raise ValueError("CF6_CONFIRMATION_WITHOUT_RECEIPT")
         return envelope, evidence
 
     def load_snapshot(self, tenant_id, run_id):
@@ -663,6 +727,8 @@ class LocalTagStore:
                 raise KeyError("tagged claim not published") from None
             raw = published.get("inputs")
             snapshot = self.store.snapshot(tenant_id, run_id)
+            evidence = self._facility_evidence(evidence, snapshot, tenant_id)
+            graph = evidence[2]
             # Keep snapshot-policy validation from the checkpoint path. Its
             # extraction graph pin is distinct from the attested graph below.
             tag_pins(snapshot, evidence[0], run["claim_snapshot_sha256"])
@@ -773,6 +839,7 @@ class LocalTagStore:
             raw.get("fact_assembly", {}).get("profile", "strict-v1"),
             link_config,
             link_receipts,
+            _fact_assembly_reader(raw.get("fact_assembly_receipt")),
         )
         inputs.validate()
         if _tag_replay_hash(inputs.snapshot()) != _tag_replay_hash(raw):
@@ -792,3 +859,17 @@ class LocalTagStore:
             if canonical_hash(replayed) != canonical_hash(receipt["source_receipt"]):
                 raise ValueError("REPORT_LEVEL_LINK_REPLAY_MISMATCH")
         return inputs
+
+
+def _fact_assembly_reader(raw):
+    """Opaque versioned artifact; replay remains ReviewInputs' responsibility."""
+    if raw is None:
+        return None
+    from proofops.application.tagging.fact_assembly_c2 import SCHEMA, FactAssemblyReceiptV1
+
+    if not isinstance(raw, dict) or raw.get("schema") != SCHEMA:
+        raise ValueError("FACT_ASSEMBLY_VERSION_UNSUPPORTED")
+    content = {k: v for k, v in raw.items() if k != "receipt_sha256"}
+    return FactAssemblyReceiptV1(
+        json.dumps(content, ensure_ascii=False, sort_keys=True), raw["receipt_sha256"]
+    )

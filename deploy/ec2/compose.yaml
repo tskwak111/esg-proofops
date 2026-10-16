@@ -31,12 +31,24 @@ services:
     ports: ["127.0.0.1:${LOCAL_PORT:-8000}:8000"]
   worker:
     <<: *app
-    mem_limit: 2560m
-    memswap_limit: 2560m
-    cpus: 1.5
+    mem_limit: ${WORKER_MEMORY:-2560m}
+    memswap_limit: ${WORKER_MEMORY:-2560m}
+    cpus: ${WORKER_CPUS:-1.5}
+    environment:
+      APP_ENV: hosted
+      MODEL_ADAPTER: disabled
+      HOSTED_DATA_DIR: /data
+      PROOFOPS_WORKER_CPUS: ${WORKER_CPUS:-1.5}
+      PROOFOPS_WORKER_MEMORY: ${WORKER_MEMORY:-2560m}
+      PROOFOPS_OCR_PROCESSES: ${OCR_PROCESSES:-2}
+      PROOFOPS_PDFIUM_WORKERS: ${PDFIUM_WORKERS:-4}
     command: [python, scripts/hosted_control.py, worker]
     healthcheck:
-      disable: true
+      test: [CMD, python, -m, proofops_api.hosted_worker_health]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
     depends_on:
       api:
         condition: service_healthy

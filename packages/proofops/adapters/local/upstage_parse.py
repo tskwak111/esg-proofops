@@ -17,7 +17,9 @@ import http.client
 import io
 import json
 import sqlite3
+import ssl
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from decimal import Decimal
 from time import monotonic, sleep
@@ -34,6 +36,21 @@ MAX_PDF_BYTES = 10 * 1024 * 1024
 MAX_PAGES = 10
 MIN_PAGES = 1
 MAX_RESPONSE_BYTES = 1_048_576
+
+
+def transport_failure(error):
+    """Closed codes and exception classes only; exception messages can contain keys."""
+    import re
+
+    if isinstance(error, TimeoutError):
+        return "UPSTAGE_REQUEST_TIMEOUT"
+    if isinstance(error, ssl.SSLError):
+        return "UPSTAGE_TLS_FAILED"
+    if isinstance(error, ConnectionError | OSError | http.client.HTTPException):
+        return "UPSTAGE_CONNECTION_FAILED"
+    code = str(error)
+    return code if re.fullmatch(r"UPSTAGE_[A-Z0-9_]{1,72}", code) else "UPSTAGE_REQUEST_FAILED"
+
 
 COST_PER_PAGE = {
     "standard": Decimal("0.011"),
@@ -53,6 +70,34 @@ PRICE_SNAPSHOT = {
 
 class UpstageParseProbe(UpstageProbe):
     """Local evaluation transport for Document Parse; not production approval."""
+
+    download_workers = 1
+
+    def _download_retry(self, url):
+        # GET is safe to repeat against the accepted job. Never repeat its POST.
+        for attempt in range(3):
+            try:
+                return self._async_download(url)
+            except (ValueError, OSError, http.client.HTTPException) as error:
+                code = transport_failure(error)
+                if attempt == 2 or code not in {
+                    "UPSTAGE_REQUEST_TIMEOUT",
+                    "UPSTAGE_CONNECTION_FAILED",
+                    *(f"UPSTAGE_DOWNLOAD_HTTP_{s}" for s in (429, 500, 502, 503, 504)),
+                }:
+                    raise
+                sleep(1)
+
+    def _download_batches(self, items):
+        if type(self.download_workers) is not int or not 1 <= self.download_workers <= 4:
+            raise ValueError("UPSTAGE_DOWNLOAD_CONCURRENCY_INVALID")
+        urls = [item["download_url"] for item in items]
+        if self.download_workers == 1 or len(urls) < 2:
+            return [self._download_retry(url) for url in urls]
+        # Paid POST remains a single page-batched request. GET outputs and error
+        # propagation retain provider order, independent of completion order.
+        with ThreadPoolExecutor(max_workers=self.download_workers) as pool:
+            return list(pool.map(self._download_retry, urls))
 
     def _reserve_async(self, request_id, body, cost):
         """Additive metadata; retain every historical USD1 reservation and policy."""
@@ -257,9 +302,15 @@ class UpstageParseProbe(UpstageProbe):
             pages=pages,
             mode=mode,
             bound_usd=str(cost),
+            request_bytes=len(pdf_bytes),
+            post_timeout_seconds=60,
+            poll_timeout_seconds=30,
+            deadline_seconds=180,
+            download_workers=self.download_workers,
         )
         started = monotonic()
         try:
+            self._dispatch_audit(request_id, io_stage="submit")
             submitted = self._post_parse(pdf_bytes, mode, "/v1/document-digitization/async")
             provider_id = submitted.get("request_id")
             if not isinstance(provider_id, str) or not provider_id or "/" in provider_id:
@@ -269,22 +320,28 @@ class UpstageParseProbe(UpstageProbe):
             transient_failures = 0
             while True:
                 try:
+                    self._dispatch_audit(request_id, io_stage="poll")
                     status = self._async_status(provider_id)
-                except ValueError as error:
+                except (ValueError, OSError, http.client.HTTPException) as error:
                     if (
-                        str(error)
+                        transport_failure(error)
                         not in {
                             "UPSTAGE_HTTP_429",
                             "UPSTAGE_HTTP_500",
                             "UPSTAGE_HTTP_502",
                             "UPSTAGE_HTTP_503",
+                            "UPSTAGE_HTTP_504",
+                            "UPSTAGE_REQUEST_TIMEOUT",
+                            "UPSTAGE_CONNECTION_FAILED",
                         }
                         or transient_failures >= 2
                         or monotonic() >= deadline
                     ):
                         raise
                     transient_failures += 1
-                    self._dispatch_audit(request_id, phase="poll_retry", error_code=str(error))
+                    self._dispatch_audit(
+                        request_id, phase="poll_retry", error_code=transport_failure(error)
+                    )
                     sleep(1)
                     continue
                 if status.get("status") == "completed":
@@ -313,7 +370,8 @@ class UpstageParseProbe(UpstageProbe):
                 or len(status["batches"]) != (pages + 9) // 10
             ):
                 raise ValueError("UPSTAGE_ASYNC_RESPONSE_INVALID")
-            batches = [self._async_download(item["download_url"]) for item in status["batches"]]
+            self._dispatch_audit(request_id, io_stage="download")
+            batches = self._download_batches(status["batches"])
             seen = set()
             for batch in batches:
                 if batch.get("model") not in ALLOWED_MODELS or not isinstance(
@@ -331,10 +389,20 @@ class UpstageParseProbe(UpstageProbe):
             if seen != set(range(1, pages + 1)):
                 raise ValueError("UPSTAGE_ASYNC_RESPONSE_INVALID")
         except Exception as error:
-            code = str(error)
+            code = transport_failure(error)
             if not code.startswith("UPSTAGE_") or self._api_key in code:
                 code = "UPSTAGE_REQUEST_FAILED"
-            self._dispatch_audit(request_id, phase="failed", error_code=code)
+            self._dispatch_audit(
+                request_id,
+                phase="failed",
+                error_code=code,
+                exception_type=type(error).__name__
+                if type(error).__module__ in {"builtins", "ssl", "http.client", "json.decoder"}
+                else "Other",
+                elapsed_seconds=round(monotonic() - started, 3),
+                http_status=getattr(error, "http_status", None),
+                provider_error_code=getattr(error, "provider_error_code", None),
+            )
             raise ValueError(code) from None
         archive = self.ledger.parent / "parse-responses"
         archive.mkdir(exist_ok=True, mode=0o700)

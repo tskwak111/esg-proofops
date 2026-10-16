@@ -6,7 +6,7 @@ export async function check() {
   const routerResource = performance.getEntriesByType('resource').find(r => /\/\.vite\/deps\/react-router\.js/.test(r.name));
   const { MemoryRouter } = await import(routerResource.name);
   const { ClaimWorkspace } = await import('/src/features/claims/ClaimWorkspace.tsx');
-  const fixture = await (await fetch('/@fs/Users/ss020/Dev/ESG_ProofOps/.local/r108-sprint1/.local/r108-mc2-ui-fixture.json')).json();
+  const fixture = await (await fetch('/@fs/path/to/ESG_ProofOps/.local/r108-sprint1/.local/r108-mc2-ui-fixture.json')).json();
   const nativeFetch = window.fetch;
   window.fetch = async (url, init) => String(url).includes(`/claims/${fixture.detail.claim.claim_id}`)
     ? Response.json(fixture.detail) : nativeFetch(url, init);

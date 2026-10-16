@@ -6,7 +6,7 @@ from collections import Counter
 from hashlib import sha256
 from pathlib import Path
 
-ROOT = Path("/Users/ss020/Dev/ESG_ProofOps")
+ROOT = Path("/path/to/ESG_ProofOps")
 OUT = ROOT / "outputs/agent-results/R108-redesign/lab/integ/INT1"
 
 

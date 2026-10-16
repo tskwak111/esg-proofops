@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 from threading import Lock
 from time import monotonic_ns
@@ -322,6 +322,8 @@ class UpstageTaggingTransport:
         return authorization
 
     def _wire_request(self, request: dict) -> tuple[str, str, dict[str, dict], Preflight, str]:
+        from proofops.application.tagging.finals_i4 import K4_ELEMENTS, elements_k4
+
         settings = self._settings
         authorization = self._authorize_request(request)
         system = request["system_prompt"]
@@ -454,6 +456,34 @@ class UpstageTaggingTransport:
             for key, ref in refs.items()
         }
         table = data.pop("table_observation_evidence", None)
+        for field in ("qt1_table_tuples", "qt1_baseline_links"):
+            if field not in data:
+                continue
+            compact = []
+            for item in data.pop(field):
+                value = {}
+                for role in ("value", "unit", "period"):
+                    source = item[role]
+                    matches = [
+                        key
+                        for key, ref in refs.items()
+                        if all(
+                            ref.get(k) == source[k]
+                            for k in ("source_id", "char_start", "char_end", "quote")
+                        )
+                    ]
+                    if not matches:
+                        raise ValueError("QT1_EVIDENCE_CATALOG_MISMATCH")
+                    value[role + "_id"] = matches[0]
+                value.update(
+                    {
+                        k: item[k]
+                        for k in ("year", "period_role", "meaning", "elements")
+                        if k in item
+                    }
+                )
+                compact.append(value)
+            data[field] = compact
         if table is not None:
 
             def cell_id(source):
@@ -519,6 +549,15 @@ class UpstageTaggingTransport:
         }
         schema["$defs"]["Element"]["properties"]["element_id"] = {"enum": allowed}
         schema["properties"]["elements"].update(minItems=len(allowed), maxItems=len(allowed))
+        response_policy = data.get("tagging_response_policy")
+        if response_policy is not None:
+            from proofops.application.tagging.k4_contract import RESPONSE_POLICY
+
+            if response_policy != RESPONSE_POLICY:
+                raise ValueError("K4_RESPONSE_POLICY_MISMATCH")
+            for field in ("claim_id", "packet_sha256", "replicate_id"):
+                schema["properties"].pop(field)
+                schema["required"].remove(field)
         instructions = (
             "\nTransport contract compact-evidence-ids-v1: evidence_refs contains only "
             "evidence_catalog IDs such as e0. Select IDs; never repeat or alter source text, "
@@ -558,7 +597,7 @@ class UpstageTaggingTransport:
             marker = (
                 "This rule reference is tagging guidance, not an approval of the draft rulepack.\n"
             )
-            if marker in system:
+            if marker in system and settings.system_prompt != K4_ELEMENTS:
                 head, tail = system.split(marker, 1)
                 reference, end = json.JSONDecoder().raw_decode(tail)
                 cards = [e for e in reference["elements"] if e["id"] in allowed]
@@ -613,6 +652,142 @@ class UpstageTaggingTransport:
             from proofops.application.ingest.display_text import SYSTEM_SUFFIX
 
             wire_system += SYSTEM_SUFFIX
+        from proofops.application.tagging.k7_wire import POLICY_K10
+        from proofops.application.tagging.k11_contract import WIRE_POLICY as K11_WIRE_POLICY
+        from proofops.application.tagging.k11_contract import WIRE_V1_POLICY as K11_WIRE_V1_POLICY
+
+        k11 = data.get("tagging_wire_policy") in (K11_WIRE_V1_POLICY, K11_WIRE_POLICY)
+        k10 = data.get("tagging_wire_policy") == POLICY_K10 or k11
+        k9 = data.get("local_implementation_binding_policy") is not None
+        if k9:
+            from proofops.application.tagging.k9_contract import (
+                BINDING_POLICY,
+                BINDING_V1_POLICY,
+                BINDING_V2_POLICY,
+                BINDING_V3_POLICY,
+                BINDING_V4_POLICY,
+                ELEMENT_GUIDANCE,
+            )
+
+            k9_binding = data.pop("local_implementation_binding_policy")
+            if k9_binding not in (
+                BINDING_V1_POLICY,
+                BINDING_V2_POLICY,
+                BINDING_V3_POLICY,
+                BINDING_V4_POLICY,
+                BINDING_POLICY,
+            ):
+                raise ValueError("K9_BINDING_POLICY_MISMATCH")
+            wire_system += ELEMENT_GUIDANCE
+        quality_policy = data.get("structural_quality_policy")
+        if settings.system_prompt == K4_ELEMENTS:
+            if response_policy is None:
+                raise ValueError("I4_RESPONSE_POLICY_REQUIRED")
+            if k10:
+                from proofops.application.tagging.k10_contract import elements
+
+                if k11:
+                    from proofops.application.tagging.k11_contract import elements as k11_elements
+
+                    wire_system = k11_elements(
+                        schema,
+                        classification,
+                        policy=data["tagging_wire_policy"],
+                        quality_policy=quality_policy,
+                    )
+                else:
+                    wire_system = elements(schema, classification, quality_policy=quality_policy)
+            else:
+                wire_system = elements_k4(schema, classification, quality_policy=quality_policy)
+            if k9 and not k10:
+                from proofops.application.tagging.k9_contract import element_guidance_for
+
+                wire_system += element_guidance_for(k9_binding, data.get("atomic_quote", ""))
+            # Authorization above covered these server policies before projection.
+            data.pop("tagging_response_policy", None)
+            data.pop("selected_quantity_policy", None)
+        if "structural_quality_policy" in data:
+            from proofops.application.tagging.q1_contract import (
+                element_guidance,
+                validate_policy,
+            )
+
+            validate_policy(data.pop("structural_quality_policy"))
+            wire_system += element_guidance(data.get("atomic_quote", ""))
+        if "v3_dec92_policy" in data:
+            from proofops.application.tagging.v3_dec92 import ELEMENT_GUIDANCE, validate_policy
+
+            validate_policy(data.pop("v3_dec92_policy"))
+            wire_system += "\n" + ELEMENT_GUIDANCE
+        if "qt2_contextual_elements_policy" in data:
+            from proofops.application.tagging.qt2_context import GUIDANCE, validate_policy
+
+            validate_policy(data.pop("qt2_contextual_elements_policy"))
+            wire_system += "\n" + GUIDANCE
+        if "qt1_tuple_policy" in data:
+            from proofops.application.tagging.qt1_tuples import GUIDANCE, POLICY
+
+            if data.pop("qt1_tuple_policy") != POLICY:
+                raise ValueError("QT1_TUPLE_POLICY_MISMATCH")
+            wire_system += "\n" + GUIDANCE
+        if "qt1_baseline_policy" in data:
+            from proofops.application.tagging.qt1_baseline import GUIDANCE, POLICY
+
+            if data.pop("qt1_baseline_policy") != POLICY:
+                raise ValueError("QT1_BASELINE_POLICY_MISMATCH")
+            wire_system += "\n" + GUIDANCE
+        if "tagging_wire_policy" in data:
+            from proofops.application.tagging.k7_wire import (
+                INSTRUCTIONS,
+                MANAGEMENT_GUIDANCE,
+                MANAGEMENT_GUIDANCE_V2,
+                NAMED_MEANS_GUIDANCE,
+                POLICY,
+                POLICY_K8,
+                POLICY_K8_V2,
+                POLICY_K8_V3,
+                POLICY_K10,
+                POLICY_V1,
+                fit_context,
+            )
+
+            if data["tagging_wire_policy"] not in (
+                POLICY,
+                POLICY_V1,
+                POLICY_K8,
+                POLICY_K8_V2,
+                POLICY_K8_V3,
+                POLICY_K10,
+                K11_WIRE_POLICY,
+                K11_WIRE_V1_POLICY,
+            ):
+                raise ValueError("K7_WIRE_POLICY_MISMATCH")
+            if data["tagging_wire_policy"] == POLICY_K8 and classification["track"] == "management":
+                wire_system += MANAGEMENT_GUIDANCE
+            if (
+                data["tagging_wire_policy"] in (POLICY_K8_V2, POLICY_K8_V3)
+                and classification["track"] == "management"
+            ):
+                wire_system += MANAGEMENT_GUIDANCE_V2
+            if (
+                data["tagging_wire_policy"] == POLICY_K8_V3
+                and classification["track"] == "management"
+                and "단열" in data.get("atomic_quote", "")
+            ):
+                wire_system += NAMED_MEANS_GUIDANCE
+            wire_system += INSTRUCTIONS
+            wire_user = fit_context(
+                wire_system,
+                user,
+                lambda system, value: self._probe.request_body(
+                    system,
+                    value,
+                    request_id=request["request_id"],
+                    max_tokens=request["max_tokens"],
+                    json_mode=True,
+                ),
+            )
+            return wire_system, wire_user, refs, authorization, canonical_json(schema)
         wire_user = json.dumps(user, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         return wire_system, wire_user, refs, authorization, canonical_json(schema)
 
@@ -642,14 +817,17 @@ class UpstageTaggingTransport:
             raise ValueError("DISPLAY_MAP_REQUIRED")
         if policy is not None:
             from proofops.application.tagging.citation_restore import POLICY, restore_whitespace
+            from proofops.application.tagging.k6_citations import POLICY as K6_POLICY
             from proofops.application.tagging.pb2_citation_restore import POLICY as TABLE_POLICY
             from proofops.application.tagging.pb2_citation_restore import restore_table
             from proofops.application.tagging.pb6_citation_restore import POLICY as VALUE_POLICY
 
-            if policy not in (POLICY, TABLE_POLICY, VALUE_POLICY):
+            if policy not in (POLICY, TABLE_POLICY, VALUE_POLICY, K6_POLICY):
                 raise ValueError("CITATION_RESTORE_POLICY_UNKNOWN")
             restore = (
-                restore_table if policy in (TABLE_POLICY, VALUE_POLICY) else restore_whitespace
+                restore_table
+                if policy in (TABLE_POLICY, VALUE_POLICY, K6_POLICY)
+                else restore_whitespace
             )
             return restore(quote, original)
         span = UpstageClaimExtractor._locate(quote, original["quote"])
@@ -662,16 +840,21 @@ class UpstageTaggingTransport:
     def restore_payload(self, payload, refs, *, policy=None):
         if policy is not None:
             from proofops.application.tagging.citation_restore import POLICY
+            from proofops.application.tagging.k6_citations import POLICY as K6_POLICY
             from proofops.application.tagging.pb2_citation_restore import POLICY as TABLE_POLICY
             from proofops.application.tagging.pb6_citation_restore import POLICY as VALUE_POLICY
 
-            if policy not in (POLICY, TABLE_POLICY, VALUE_POLICY):
+            if policy not in (POLICY, TABLE_POLICY, VALUE_POLICY, K6_POLICY):
                 raise ValueError("CITATION_RESTORE_POLICY_UNKNOWN")
         for element in payload.get("elements", []):
             try:
                 selected = element["evidence_refs"]
                 if not isinstance(selected, list):
                     raise ValueError("invalid references")
+                if policy is not None and policy == K6_POLICY:
+                    from proofops.application.tagging.k6_citations import anchor_units
+
+                    selected = anchor_units(selected, refs)
                 element["evidence_refs"] = [
                     self._restore_ref(key, refs, policy=policy) for key in selected
                 ]
@@ -690,7 +873,7 @@ class UpstageTaggingTransport:
                     CONSISTENCY_PROFILE,
                 ):
                     self._refine_g1_year(element)
-                if policy is not None and policy == VALUE_POLICY:
+                if policy is not None and policy in (VALUE_POLICY, K6_POLICY):
                     from proofops.application.tagging.pb6_citation_restore import (
                         refine_selected_value,
                     )
@@ -814,14 +997,21 @@ class UpstageTaggingTransport:
             )
         except Exception as error:
             code = str(error)
+            from proofops.application.provider_resilience import ISOLATED_CODES
+
+            isolated = bool(
+                getattr(self._probe, "provider_resilience", None) and code in ISOLATED_CODES
+            )
             if code in {"R108_FINALS_BUDGET_EXHAUSTED", "R108_FINALS_CUMULATIVE_BUDGET_EXHAUSTED"}:
                 code = "BUDGET_EXHAUSTED"
-            elif code not in UPSTAGE_TRANSPORT_STOP_CODES | {"PROCESSING_UNCERTAIN"}:
+            elif not isolated and code not in UPSTAGE_TRANSPORT_STOP_CODES | {
+                "PROCESSING_UNCERTAIN"
+            }:
                 code = "UPSTREAM_UNAVAILABLE"
             # Only hosted broker transport uncertainty is isolated to this request.
             # Its failed receipt and pending money remain immutable; mkdir/ledger
             # guards still forbid repeating it. Other failures stop the root as before.
-            if code != "PROCESSING_UNCERTAIN":
+            if not isolated and code != "PROCESSING_UNCERTAIN":
                 # Exclusive creation prevents overwriting an earlier failure receipt.
                 if not stop.exists():
                     write(stop, canonical_json(dict(code=code, request_id=request["request_id"])))
@@ -843,6 +1033,27 @@ class UpstageTaggingTransport:
                 if receipt.get("schema_valid") is False:
                     raise ValueError("provider schema invalid")
                 payload = json.loads(receipt["content"])
+                response_policy = json.loads(request["user_json"])["untrusted_document_data"].get(
+                    "tagging_response_policy"
+                )
+                preliminary_policy = json.loads(request["user_json"]).get(
+                    "preliminary_response_policy"
+                )
+                if response_policy is not None or preliminary_policy is not None:
+                    from jsonschema import Draft202012Validator
+
+                    if not Draft202012Validator(json.loads(wire_schema)).is_valid(payload):
+                        raise ValueError("K4_RAW_RESPONSE_SCHEMA_INVALID")
+                if response_policy is not None:
+                    from proofops.application.tagging.k4_contract import bind_response
+
+                    payload = bind_response(payload, request, policy=response_policy)
+                if preliminary_policy is not None:
+                    from proofops.application.tagging.k4_contract import bind_response
+
+                    payload = bind_response(payload, request, policy=preliminary_policy)
+                    payload.pop("packet_sha256")
+                    payload.pop("replicate_id")
                 restore_policy = json.loads(request["user_json"])["untrusted_document_data"].get(
                     "citation_restore_policy"
                 )
@@ -865,7 +1076,31 @@ class UpstageTaggingTransport:
                 False,
                 canonical_json(receipt),
             )
+        if request.get("cf6_confirmation") is not None:
+            from proofops.adapters.local.cf6_transport import authenticate
+
+            try:
+                response = authenticate(
+                    request,
+                    response,
+                    self._probe,
+                    settings=settings,
+                    wire_system=wire_system,
+                    wire_user=wire_user,
+                    wire_schema=wire_schema,
+                )
+            except (ValueError, KeyError, TypeError, OSError):
+                # Preserve successful usage/raw evidence; lack of authenticated
+                # freshness blocks only CF6 publication, not the paid receipt.
+                provider = json.loads(response.provider_response_json or "{}")
+                provider.pop("cf6_transport_receipt", None)
+                provider["cf6_transport_rejection"] = "CURRENT_ORIGIN_NOT_AUTHENTICATED"
+                response = replace(response, provider_response_json=canonical_json(provider))
+        response = self._response_metadata(response)
         write(directory / "response.json", canonical_json(asdict(response)))
+        return response
+
+    def _response_metadata(self, response):
         return response
 
     @staticmethod

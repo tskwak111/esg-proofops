@@ -387,6 +387,58 @@ class LocalSQLiteReviewStore:
                 (inputs.context.claim.tenant_id, inputs.run_id),
             ).fetchone()
             frozen = json.loads(row[0]) if row else {}
+            from proofops.application.tagging.fact_assembly_c3 import POLICY, POLICY_HASH, PROFILE
+            from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
+            from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
+
+            if inputs.fact_assembly_profile == C3_V2_PROFILE:
+                from proofops.application.tagging import fact_assembly_c3_v2 as c3_v2
+
+                POLICY_HASH = inputs.fact_assembly_receipt.to_dict()["policy_sha256"]
+                POLICY = c3_v2.publication_policy_for(C3_V2_PROFILE, pinned_hash=POLICY_HASH)
+                PROFILE = C3_V2_PROFILE
+                if (
+                    POLICY_HASH == c3_v2.legacy.POLICY_HASH
+                    and self.jobs._raw(
+                        db,
+                        inputs.context.claim.tenant_id,
+                        inputs.run_id,
+                        "claim_head",
+                        inputs.context.claim.claim_id,
+                    )
+                    is None
+                ):
+                    raise ValueError("C3_CURRENT_POLICY_REQUIRED")
+
+            if inputs.fact_assembly_profile == C4_PROFILE:
+                from proofops.application.tagging.fact_assembly_c4 import (
+                    POLICY as C4_POLICY,
+                )
+                from proofops.application.tagging.fact_assembly_c4 import (
+                    POLICY_HASH as C4_HASH,
+                )
+
+                POLICY, POLICY_HASH, PROFILE = C4_POLICY, C4_HASH, C4_PROFILE
+
+            if inputs.fact_assembly_profile == PROFILE:
+                if (
+                    frozen.get("analysis_profile_policy") != POLICY
+                    or frozen.get("analysis_profile_policy_sha256") != POLICY_HASH
+                    or frozen.get("input_hash")
+                    != canonical_hash({k: v for k, v in frozen.items() if k != "input_hash"})
+                    or frozen.get("tenant_id") != inputs.original.tenant_id
+                    or frozen.get("run_id") != inputs.run_id
+                    or frozen.get("document")
+                    != dict(
+                        version_id=inputs.original.document_version_id,
+                        sha256=inputs.original.source_sha256,
+                    )
+                    or canonical_hash(frozen.get("rulepack"))
+                    != canonical_hash(asdict(inputs.rulepack))
+                ):
+                    raise ValueError("C3 live publication pins mismatch")
+                inputs.validate()
+                return
             settings = tagging_settings(frozen)
             packet = inputs.packet.to_dict()
             prompt_hash = canonical_hash(

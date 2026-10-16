@@ -394,8 +394,10 @@ are preserved; manual selection never grants evidence admission or absence right
 Disabled live runs publish a genuine partial_blocked snapshot with zero claims and
 LIVE_BINDING_UNAVAILABLE. Parser budget denial is budget_unanalyzed/BUDGET_EXHAUSTED,
 not ANALYSIS_WORKER_FAILED; no missing source is fabricated as absent.
-Pipeline timeout is1800s (measured30-page runs605s/406s); lease1900s renews every30s
+Pipeline timeout defaults to2700s (HF2/v29b); lease1900s renews every30s
 while the parent waits, and on stage updates. Expired workers lose their fence.
+`HOSTED_ANALYSIS_TIMEOUT_SECONDS` overrides the default; an explicit1800 must be
+changed to2700 for the new deadline. Historical RB3 v1 admission remains pinned.
 An intact independent spend ledger and zero cost rows prove zero provider dispatch;
 only those expired runs automatically settle zero and release the queue. Every
 recorded dispatch retains the reconciliation guard, including uncertain charges.
@@ -744,3 +746,74 @@ Rollback prepares future runs using the pre-PA8 builder while retaining readers
 for PA8 snapshots and origin receipts; a pre-PA8 binary rejects the new hash.
 Do not remove pending fences or reset spend. PA8 uses retained responses with
 network disabled, makes no paid calls, and performs no push or deployment.
+
+## W3 opt-in scheduling and source reads (2026-10-11)
+
+The default v2 policy is unchanged. Operators may explicitly pin `W3_POLICY` via
+`analysis_policy_sha256` in the private live configuration, or use the pilot's
+`--analysis-policy-sha256`. New preparations accept only the current policy or
+W3; historical hashes remain read-only replay choices. The selected hash is
+stored before provider dispatch and is part of the immutable run input. No
+public request field, DB migration, dependency or budget change is required.
+
+W3 uses `exact-verified-read-v5`: complete fresh v10 receipts can be reused only
+with identical source, tenant/run, graph, refs, reader bytes and runtime. Native
+cell failures retain v10's candidate state. The two crop-padding OCR reads run
+in isolated processes; only successful raw reads enter the bounded 8-MiB cache.
+Upstage retains one async page-batched POST and validates downloads in provider
+order, with at most four parallel GETs. No new paid page request is introduced.
+
+All LLM roles share a per-run admission limit (operator range 1–16). A 429 halves
+future admission and pauses new dispatch briefly; the failed request is never
+retried by this gate. A valid `Retry-After` is a minimum; delays over 30 seconds
+defer further dispatch. Spending/quota errors retain their separate finite code.
+The existing hosted broker may fence the run on a failed dispatch and retain
+accounting-pending reservations; the gate does not release money or resume it.
+Provider/broker reservations, schema-attempt charges,
+uncertain-dispatch fences, cancellation and source authority checks still apply.
+Two runs have separate gates, so their total allowed concurrency is the sum.
+This is an in-flight cap, not an account RPM/TPM guarantee. Accounting reads
+batch up to 500 requested IDs per SQL query, retaining source order, unsettled
+reservations, foreign-ID exclusion and fresh settlement reads without a cache.
+
+Stage overlap remains disabled pending an invariant gate: early page attestation
+changes the full graph/packet lineage used by current retained requests. Do not
+publish page tags under a future full-graph hash or weaken source verification.
+Roll back future preparations by removing the explicit W3 pin and choosing the
+existing worker setting; retain W3 readers for stored W3 snapshots. An older
+binary cannot recompute a W3-pinned snapshot. W3 makes local commits only.
+
+### W18 opt-in source display coordinates
+
+`GET /v1/runs/{run_id}/result?w18=true` adds `w18_*` fields to each existing
+`w16_source_view.refs` entry. Omitted/false retains the W16 response. This is a
+read-time display projection, with no migration, snapshot rewrite, source
+approval, tagging or grade change. The viewer explicitly requests this option.
+
+`w18_line_rects` contains unions of adjacent original-PDF PDFium glyph boxes;
+`w18_cell_rects` contains a pinned parse-graph cell bbox for table-cell refs.
+Both are nullable. `w18_coordinates` declares PDF points, top-left origin,
+rotated CropBox display space, `x0,y0,x1,y1`, page size/rotation/CropBox, original
+SHA-256, physical page and exact parser character offsets. `w18_reason` is null
+on success, otherwise an unavailable/ambiguous/integrity/timeout/busy reason.
+`w18_verification_state` reflects the existing verification state; unverified
+claims never receive an exact display location. Existing fields are unchanged.
+
+The full hash-bound source text must align literally and uniquely to native
+characters within its stored region (whitespace only may differ); parser offsets
+select the quote from that map. No fuzzy matching, Unicode substitutions, bbox
+interpolation or approximate quote boxes are allowed. Original bytes are hashed
+every read in an isolated child, with a 6-second worker deadline, an 8-second
+cooperative total W18 projection budget, 512 MiB memory,
+32 MiB output and 40,000-character page limit. Page inventories are cached for
+at most five minutes/retention expiry, partitioned by store/tenant/document/SHA,
+and bounded by 64 pages/32 MiB. Admission is nonblocking. Missing pages after a
+bounded reader failure stay null. These bounds cover W18 PDF work, not the
+existing result reader's independent IO/authorization work.
+
+UI order: W18 exact/cell, W16 exact/cell, uniquely matching same-page PDF.js DOM
+text range labelled “텍스트 검색 위치”, then a dashed paragraph region. Text search
+normalizes whitespace only. Unverified claims show “위치 미확인”. Hold summaries
+and short Korean per-claim reasons are display projections of existing causes;
+unknown reasons remain explicitly unknown. Rollback by omitting `w18=true` and
+restoring the previous frontend; historical results require no changes.

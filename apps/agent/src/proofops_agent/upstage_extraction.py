@@ -22,6 +22,7 @@ from proofops.adapters.local.upstage import MODEL as UPSTAGE_MODEL
 from proofops.adapters.local.upstage import MODEL_PRO4, UPSTAGE_TRANSPORT_STOP_CODES
 from proofops.adapters.local.upstage import request_usage as _shared_request_usage
 from proofops.application.claims import (
+    FAILURE_DIAGNOSTICS_POLICY,
     ExtractionOutputError,
     ExtractionProfile,
     validate_extraction_response,
@@ -29,9 +30,11 @@ from proofops.application.claims import (
 from proofops.application.ingest.atomic_candidates import (
     POLICY as ATOMIC_POLICY,
 )
+from proofops.application.ingest.atomic_candidates import POLICY_V3 as ATOMIC_POLICY_V3
 from proofops.application.ingest.atomic_candidates import (
     PROFILE as ATOMIC_PROFILE,
 )
+from proofops.application.ingest.atomic_candidates import PROFILE_V3 as ATOMIC_PROFILE_V3
 from proofops.application.ingest.atomic_candidates import (
     atomic_candidates,
 )
@@ -194,6 +197,13 @@ ATOMIC_SYSTEM_PROMPT = (
     "Actual company quantities explicitly reported in an assurance appendix can qualify. "
     "A chart phrase with a dated target/value qualifies; an isolated chart label does not. "
     "If no supplied atom qualifies, return an empty sentence_ids array."
+)
+ATOMIC_V3_SYSTEM_PROMPT = ATOMIC_SYSTEM_PROMPT.replace(
+    "extraction-atomic-v2:", "extraction-atomic-v3:"
+).replace(
+    "completed result and future plan.",
+    "completed result and future plan. Split a completed recognition/award statement "
+    "from an adjacent ISO certification assertion when the source supplies both.",
 )
 ROW_SYSTEM_SUFFIX = (
     " extraction-table-rows-v1: source_sentences may include literal table/chart rows or cells. "
@@ -477,10 +487,13 @@ def _system_prompt(
     assertion_prompt: bool = False,
     complete_selection: bool = False,
     extraction_atomic: bool = False,
+    extraction_atomic_v3: bool = False,
     extraction_table_rows: bool = False,
     extraction_recall_prompt: bool = False,
 ) -> str:
     """The exact prompt sent for an option combination; legacy shapes untouched."""
+    if extraction_atomic_v3 and extraction_atomic:
+        return ATOMIC_V3_SYSTEM_PROMPT
     if extraction_atomic:
         return ATOMIC_SYSTEM_PROMPT
     if not source_ids:
@@ -505,6 +518,8 @@ def _system_prompt(
         prompt = prompt + COMPLETE_SELECTION_SYSTEM_SUFFIX
     if extraction_table_rows:
         prompt += ROW_SYSTEM_SUFFIX
+    if extraction_atomic_v3:
+        prompt += "\n" + ATOMIC_V3_SYSTEM_PROMPT
     if extraction_recall_prompt:
         prompt += RECALL_SYSTEM_SUFFIX
     return prompt
@@ -524,12 +539,33 @@ def _profile_with_options(
     wire_policy_version: int = 1,
     display_text_profile: str | None = None,
     extraction_atomic: bool = False,
+    extraction_atomic_v3: bool = False,
+    extraction_failure_diagnostics: bool = False,
     extraction_linewrap_join: bool = False,
     extraction_fragment_guard: bool = False,
     extraction_table_rows: bool = False,
     extraction_recall_prompt: bool = False,
     extraction_pb1: bool = False,
     extraction_pb1_context_guard: bool = False,
+    extraction_w9: bool = False,
+    extraction_k3: bool = False,
+    extraction_sentence_prefix: bool = False,
+    extraction_k1: bool = False,
+    extraction_table_footnotes: bool = False,
+    extraction_located_table_context: bool = False,
+    extraction_j3: bool = False,
+    extraction_j7: bool = False,
+    extraction_j8: bool = False,
+    extraction_i3_wire: bool = False,
+    extraction_i4_identity: bool = False,
+    extraction_h1: bool = False,
+    extraction_i5_tables: bool = False,
+    extraction_k6: bool = False,
+    extraction_q1: bool = False,
+    extraction_qt1: bool = False,
+    extraction_qc_native_figures: bool = False,
+    extraction_fxg_split: bool = False,
+    extraction_qt1_goal_split: bool = False,
 ) -> ExtractionProfile:
     """Versioned extraction profile for an explicit option combination.
 
@@ -548,6 +584,46 @@ def _profile_with_options(
     ``assertion_prompt`` and pins its own rule entry and prompt suffix, so a
     complete-selection run can never replay an assertion-only receipt.
     """
+    if type(extraction_qt1) is not bool or (
+        extraction_qt1
+        and not (source_ids and extraction_context and extraction_j8 and extraction_k6)
+    ):
+        raise ValueError("QT1_EXTRACTION_PROFILE_INVALID")
+    if type(extraction_fxg_split) is not bool or (extraction_fxg_split and not source_ids):
+        raise ValueError("EXTRACTION_FXG_PROFILE_INVALID")
+    if type(extraction_qt1_goal_split) is not bool or (
+        extraction_qt1_goal_split and not source_ids
+    ):
+        raise ValueError("QT1_GOAL_SPLIT_PROFILE_INVALID")
+    if type(extraction_qc_native_figures) is not bool or (
+        extraction_qc_native_figures
+        and not (source_ids and extraction_context and extraction_table_rows and extraction_w9)
+    ):
+        raise ValueError("QC_NATIVE_FIGURE_PROFILE_INVALID")
+    if type(extraction_located_table_context) is not bool or (
+        extraction_located_table_context and not extraction_table_footnotes
+    ):
+        raise ValueError("EXTRACTION_LOCATED_TABLE_CONTEXT_INVALID")
+    if type(extraction_i4_identity) is not bool or (extraction_i4_identity and not source_ids):
+        raise ValueError("EXTRACTION_I4_IDENTITY_INVALID")
+    if type(extraction_i5_tables) is not bool or (extraction_i5_tables and not extraction_j8):
+        raise ValueError("EXTRACTION_I5_TABLE_GUARD_INVALID")
+    if type(extraction_h1) is not bool or (extraction_h1 and not extraction_linewrap_join):
+        raise ValueError("EXTRACTION_H1_INVALID")
+    if type(extraction_i3_wire) is not bool or (extraction_i3_wire and not extraction_j8):
+        raise ValueError("EXTRACTION_I3_WIRE_INVALID")
+    if type(extraction_j7) is not bool or (extraction_j7 and not extraction_j3):
+        raise ValueError("EXTRACTION_J7_INVALID")
+    if type(extraction_j8) is not bool or (
+        extraction_j8 and not (extraction_j3 and extraction_table_rows)
+    ):
+        raise ValueError("EXTRACTION_J8_INVALID")
+    if type(extraction_j3) is not bool or (extraction_j3 and not (extraction_w9 and source_ids)):
+        raise ValueError("EXTRACTION_J3_INVALID")
+    if type(extraction_k3) is not bool or (extraction_k3 and not extraction_w9):
+        raise ValueError("UPSTAGE_PROFILE_OPTION_INVALID")
+    if type(extraction_w9) is not bool or (extraction_w9 and not extraction_pb1):
+        raise ValueError("EXTRACTION_W9_INVALID")
     from proofops.adapters.local.openrouter import MODEL as LUNA_MODEL
 
     if model not in (UPSTAGE_MODEL, MODEL_PRO4, LUNA_MODEL, "gpt-6-luna"):
@@ -564,10 +640,15 @@ def _profile_with_options(
             extraction_content_bounds,
             position_order,
             extraction_atomic,
+            extraction_atomic_v3,
+            extraction_failure_diagnostics,
             extraction_linewrap_join,
             extraction_fragment_guard,
             extraction_table_rows,
             extraction_recall_prompt,
+            extraction_sentence_prefix,
+            extraction_k1,
+            extraction_table_footnotes,
         )
     ):
         raise ValueError("UPSTAGE_PROFILE_OPTION_INVALID")
@@ -577,8 +658,20 @@ def _profile_with_options(
         raise ValueError("UPSTAGE_PROFILE_OPTION_INVALID")
     if extraction_atomic and not source_ids:
         raise ValueError("UPSTAGE_PROFILE_OPTION_INVALID")
+    if extraction_atomic_v3 and not (extraction_atomic or extraction_table_rows):
+        raise ValueError("UPSTAGE_ATOMIC_V3_REQUIRES_ATOMIC_PROFILE")
+    if extraction_failure_diagnostics and not source_ids:
+        raise ValueError("UPSTAGE_FAILURE_DIAGNOSTICS_REQUIRES_SOURCE_IDS")
+    if extraction_sentence_prefix and (
+        not extraction_linewrap_join or extraction_atomic or not extraction_context
+    ):
+        raise ValueError("UPSTAGE_EXTRACTION_SENTENCE_PREFIX_INVALID")
     if extraction_linewrap_join and (not source_ids or extraction_atomic):
         raise ValueError("UPSTAGE_EXTRACTION_LINEWRAP_JOIN_INVALID")
+    if extraction_table_footnotes and not source_ids:
+        raise ValueError("UPSTAGE_EXTRACTION_TABLE_FOOTNOTES_INVALID")
+    if extraction_k1 and (not source_ids or not extraction_table_rows):
+        raise ValueError("EXTRACTION_K1_INVALID")
     if extraction_fragment_guard and not extraction_linewrap_join:
         raise ValueError("UPSTAGE_EXTRACTION_FRAGMENT_GUARD_INVALID")
     if extraction_table_context and not extraction_context:
@@ -599,16 +692,49 @@ def _profile_with_options(
     if display_text_profile not in (None, PROFILE):
         raise ValueError("DISPLAY_PROFILE_INVALID")
     descriptor: list[Any] = [*_RULE_DESCRIPTOR]
+    if extraction_located_table_context:
+        from proofops.application.tagging.dec24 import LOCATED_TABLE_CONTEXT_POLICY
+
+        descriptor.append(LOCATED_TABLE_CONTEXT_POLICY)
+    if extraction_qc_native_figures:
+        from proofops.adapters.local.h1_native_title import native_figure_builder_policy
+        from proofops.application.ingest.k6_coverage import FIGURE_POLICY
+
+        descriptor.append(
+            dict(native_figure_policy=FIGURE_POLICY, builder=native_figure_builder_policy())
+        )
+    if extraction_i5_tables:
+        descriptor.append({"table_failure": "i5-grid-unreadable-v1"})
+    if extraction_h1:
+        from proofops.application.ingest.h1_boundaries import POLICY as H1_POLICY
+
+        descriptor.append(H1_POLICY)
+    if extraction_k1:
+        from proofops.application.ingest.k1_boundaries import POLICY as K1_POLICY
+
+        descriptor.append(K1_POLICY)
+    if extraction_sentence_prefix:
+        from proofops.application.ingest.sentence_prefix import POLICY as PREFIX_POLICY
+
+        descriptor.append(PREFIX_POLICY)
     if extraction_linewrap_join:
         descriptor.append(LINEWRAP_JOIN_POLICY)
     if extraction_fragment_guard:
         descriptor.append("selected-linewrap-fragments-v1")
-    if extraction_atomic:
+    if extraction_atomic and not extraction_atomic_v3:
         descriptor.append({**ATOMIC_POLICY, "max_candidates": _MAX_ATOMIC_CANDIDATES})
+    if extraction_atomic_v3:
+        descriptor.append({**ATOMIC_POLICY_V3, "max_candidates": _MAX_ATOMIC_CANDIDATES})
+    if extraction_failure_diagnostics:
+        descriptor.append(FAILURE_DIAGNOSTICS_POLICY)
     if extraction_table_rows:
         descriptor.append(ROW_POLICY)
     if extraction_recall_prompt:
         descriptor.append("extraction-recall-examples-v1")
+    if extraction_table_footnotes:
+        from proofops.application.tagging.dec24 import TABLE_FOOTNOTE_POLICY
+
+        descriptor.append(TABLE_FOOTNOTE_POLICY)
     if extraction_pb1_context_guard:
         from proofops.application.ingest.pb1_fragments import TABLE_CONTEXT_POLICY
 
@@ -617,6 +743,57 @@ def _profile_with_options(
         from proofops.application.ingest.pb1_tables import POLICY as PB1_POLICY
 
         descriptor.append(PB1_POLICY)
+    if extraction_w9:
+        from proofops.application.ingest.w9_tables import POLICY as W9_POLICY
+
+        descriptor.append(W9_POLICY)
+    if extraction_j3:
+        from proofops.application.ingest.j3_recall import POLICY as J3_POLICY
+
+        descriptor.append(J3_POLICY)
+    if extraction_k3:
+        from proofops.application.ingest.k3_table_routing import POLICY as K3_POLICY
+
+        descriptor.append(K3_POLICY)
+    if extraction_j7:
+        from proofops.application.ingest.j7_split import POLICY as J7_POLICY
+
+        descriptor.append(J7_POLICY)
+    if extraction_k6:
+        from proofops.application.ingest.k6_coverage import POLICY as K6_POLICY
+
+        descriptor.append(K6_POLICY)
+    if extraction_qt1:
+        from proofops.application.ingest.qt1_tables import POLICY as QT1_POLICY
+
+        descriptor.append(QT1_POLICY)
+    if extraction_q1:
+        from proofops.application.ingest.q1_tables import POLICY as Q1_POLICY
+
+        descriptor.append(Q1_POLICY)
+    if extraction_j8:
+        from proofops.application.ingest.j8_cells import POLICY as J8_POLICY
+
+        descriptor.append(J8_POLICY)
+    if extraction_i3_wire:
+        from proofops.application.ingest.i3_wire import POLICY as I3_WIRE_POLICY
+
+        descriptor.append(I3_WIRE_POLICY)
+    if extraction_i4_identity:
+        descriptor.append(
+            dict(
+                profile="dispatch-local-selection-i4-v1",
+                ids="c0..cN; exact unique enum; original offsets retained",
+            )
+        )
+    if extraction_fxg_split:
+        from proofops.application.ingest.fxg_wire import POLICY as FXG_POLICY
+
+        descriptor.append(FXG_POLICY)
+    if extraction_qt1_goal_split:
+        from proofops.application.ingest.qt1_goal_split import POLICY as QT1_GOAL_SPLIT_POLICY
+
+        descriptor.append(QT1_GOAL_SPLIT_POLICY)
     if display_text_profile:
         descriptor.append(POLICY)
     if year_notation:
@@ -666,20 +843,74 @@ def _profile_with_options(
                 assertion_prompt=assertion_prompt,
                 complete_selection=complete_selection,
                 extraction_atomic=extraction_atomic,
+                extraction_atomic_v3=extraction_atomic_v3,
                 extraction_table_rows=extraction_table_rows,
                 extraction_recall_prompt=extraction_recall_prompt,
             )
+            + (_w9_suffix() if extraction_w9 else "")
+            + (_j8_suffix() if extraction_j8 else "")
             + (_display_suffix() if display_text_profile else "")
+            + (_i3_wire_suffix() if extraction_i3_wire else "")
+            + (_i4_identity_suffix() if extraction_i4_identity else "")
+            + (_qc_figure_suffix() if extraction_qc_native_figures else "")
         ),
         rule_sha256=canonical_hash(descriptor),
         synthetic=False,
     )
 
 
+def _qc_figure_suffix():
+    return (
+        "\nQC: native figure bullets are complete literal PDF text candidates. "
+        "Select each supplied bullet independently, keeping its conditions and exclusions. "
+        "Read all supplied native parent_paragraph context, including preceding future-plan "
+        "headings and trailing cancellation or However clauses; never turn a plan into attainment. "
+        "Do not select department headers, logos, isolated chart values or infer arrows, "
+        "reporting frequency, attainment or source verification. Fresh tagging is required."
+    )
+
+
+def _i4_identity_suffix():
+    return (
+        "\nI4: sentence_ids are dispatch-local selectors c0, c1, etc. Return only exact "
+        "supplied selectors, once each. Never emit or copy UUIDs; the server retains "
+        "original source identities and offsets."
+    )
+
+
+def _i3_wire_suffix():
+    from proofops.application.ingest.i3_wire import GUIDANCE
+
+    return "\n" + GUIDANCE
+
+
 def _display_suffix():
     from proofops.application.ingest.display_text import SYSTEM_SUFFIX
 
     return SYSTEM_SUFFIX
+
+
+def _j8_suffix():
+    return (
+        " J8: candidates are literal owned cells or cell bullets. Select environmental"
+        " disclosures including self-contained KPI action cells, numeric results and"
+        " dated implemented means. A first-column KPI action describing what the company"
+        " established or expanded is an independent assertion even when another cell"
+        " lists its implementation details. Do not discard that action as a heading or"
+        " as a duplicate of different means/results. Candidate roles are selection hints"
+        " only. Headers, generic introductions, footnotes and"
+        " identical unfinished/completed duplicates are context only. Context never"
+        " donates numbers, years, subjects or evidence verification."
+    )
+
+
+def _w9_suffix():
+    return (
+        " W9: each table source sentence stays inside one literal cell when cells have line breaks."
+        " Explicit bullets may be separate IDs; wrapped lines stay inside the bullet and cell."
+        " Column headers are context, never quoted evidence or a donor of numbers/years."
+        " Provider chart tables require independent source verification and are excluded here."
+    )
 
 
 class UpstageClaimExtractor:
@@ -701,13 +932,38 @@ class UpstageClaimExtractor:
         position_order: bool = False,
         display_text_profile: str | None = None,
         extraction_atomic: bool = False,
+        extraction_atomic_v3: bool = False,
+        extraction_failure_diagnostics: bool = False,
         extraction_linewrap_join: bool = False,
         extraction_fragment_guard: bool = False,
         extraction_table_rows: bool = False,
         extraction_recall_prompt: bool = False,
         extraction_pb1: bool = False,
         extraction_pb1_context_guard: bool = False,
+        extraction_w9: bool = False,
+        extraction_k3: bool = False,
+        extraction_sentence_prefix: bool = False,
+        extraction_k1: bool = False,
+        extraction_table_footnotes: bool = False,
+        extraction_located_table_context: bool = False,
+        extraction_j3: bool = False,
+        extraction_j7: bool = False,
+        extraction_j8: bool = False,
+        extraction_i3_wire: bool = False,
+        extraction_i4_identity: bool = False,
+        extraction_h1: bool = False,
+        extraction_i5_tables: bool = False,
+        extraction_k6: bool = False,
+        extraction_q1: bool = False,
+        extraction_qt1: bool = False,
+        extraction_qc_native_figures: bool = False,
+        extraction_fxg_split: bool = False,
+        extraction_qt1_goal_split: bool = False,
     ) -> None:
+        if type(extraction_q1) is not bool or (extraction_q1 and not extraction_j8):
+            raise ValueError("Q1_EXTRACTION_PROFILE_INVALID")
+        if type(extraction_k6) is not bool or (extraction_k6 and not extraction_j8):
+            raise ValueError("K6_EXTRACTION_PROFILE_INVALID")
         if not callable(getattr(probe, "complete", None)):
             raise ValueError("UPSTAGE_PROBE_REQUIRED")
         if type(extraction_year_notation) is not bool:
@@ -741,6 +997,14 @@ class UpstageClaimExtractor:
             raise ValueError("UPSTAGE_EXTRACTION_COMPLETE_SELECTION_INVALID")
         if type(extraction_atomic) is not bool or (extraction_atomic and not extraction_source_ids):
             raise ValueError("UPSTAGE_EXTRACTION_ATOMIC_INVALID")
+        if type(extraction_atomic_v3) is not bool or (
+            extraction_atomic_v3 and not (extraction_atomic or extraction_table_rows)
+        ):
+            raise ValueError("UPSTAGE_EXTRACTION_ATOMIC_V3_INVALID")
+        if type(extraction_failure_diagnostics) is not bool or (
+            extraction_failure_diagnostics and not extraction_source_ids
+        ):
+            raise ValueError("UPSTAGE_FAILURE_DIAGNOSTICS_INVALID")
         profile = _profile_with_options(
             getattr(probe, "model", UPSTAGE_MODEL),
             year_notation=extraction_year_notation,
@@ -754,12 +1018,33 @@ class UpstageClaimExtractor:
             wire_policy_version=getattr(probe, "wire_policy_version", 1),
             display_text_profile=display_text_profile,
             extraction_atomic=extraction_atomic,
+            extraction_atomic_v3=extraction_atomic_v3,
+            extraction_failure_diagnostics=extraction_failure_diagnostics,
             extraction_linewrap_join=extraction_linewrap_join,
             extraction_fragment_guard=extraction_fragment_guard,
             extraction_table_rows=extraction_table_rows,
             extraction_recall_prompt=extraction_recall_prompt,
             extraction_pb1=extraction_pb1,
             extraction_pb1_context_guard=extraction_pb1_context_guard,
+            extraction_w9=extraction_w9,
+            extraction_k3=extraction_k3,
+            extraction_sentence_prefix=extraction_sentence_prefix,
+            extraction_k1=extraction_k1,
+            extraction_table_footnotes=extraction_table_footnotes,
+            extraction_located_table_context=extraction_located_table_context,
+            extraction_j3=extraction_j3,
+            extraction_j7=extraction_j7,
+            extraction_j8=extraction_j8,
+            extraction_i3_wire=extraction_i3_wire,
+            extraction_i4_identity=extraction_i4_identity,
+            extraction_h1=extraction_h1,
+            extraction_i5_tables=extraction_i5_tables,
+            extraction_k6=extraction_k6,
+            extraction_q1=extraction_q1,
+            extraction_qt1=extraction_qt1,
+            extraction_qc_native_figures=extraction_qc_native_figures,
+            extraction_fxg_split=extraction_fxg_split,
+            extraction_qt1_goal_split=extraction_qt1_goal_split,
         )
         if type(max_tokens) is not int or not 1 <= max_tokens <= 4096:
             raise ValueError("UPSTAGE_MAX_TOKENS_INVALID")
@@ -775,11 +1060,32 @@ class UpstageClaimExtractor:
             extraction_pb1_context_guard and not extraction_pb1
         ):
             raise ValueError("EXTRACTION_PB1_CONTEXT_GUARD_INVALID")
+        self._sentence_prefix = extraction_sentence_prefix
+        self._k1 = extraction_k1
+        self._table_footnotes = extraction_table_footnotes
+        self._located_table_context = extraction_located_table_context
         self._pb1_context_guard = extraction_pb1_context_guard
         self._pb1 = extraction_pb1
+        self._w9 = extraction_w9
+        self._j3 = extraction_j3
+        self._k3 = extraction_k3
+        self._j7 = extraction_j7
+        self._j8 = extraction_j8
+        self._k6 = extraction_k6
+        self._q1 = extraction_q1
+        self._qt1 = extraction_qt1
+        self._qc_native_figures = extraction_qc_native_figures
+        self._fxg_split = extraction_fxg_split
+        self._qt1_goal_split = extraction_qt1_goal_split
+        self._i3_wire = extraction_i3_wire
+        self._i4_identity = extraction_i4_identity
+        self._h1 = extraction_h1
+        self._i5_tables = extraction_i5_tables
         self._table_rows = extraction_table_rows
         self._recall_prompt = extraction_recall_prompt
         self._atomic = extraction_atomic
+        self._atomic_v3 = extraction_atomic_v3
+        self._failure_diagnostics = extraction_failure_diagnostics
         self._linewrap_join = extraction_linewrap_join
         self._fragment_guard = extraction_fragment_guard
         self._year_notation = extraction_year_notation
@@ -834,7 +1140,56 @@ class UpstageClaimExtractor:
     def usage(self) -> dict[str, Any]:
         return self.cumulative_usage()
 
-    def extract(self, packet: dict, *, context_graph: Any = None, display_catalog=None) -> dict:
+    def extract(
+        self, packet: dict, *, context_graph=None, display_catalog=None, h1_title_catalog=None
+    ) -> dict:
+        result = self._extract(
+            packet,
+            context_graph=context_graph,
+            display_catalog=display_catalog,
+            h1_title_catalog=h1_title_catalog,
+        )
+        if not self._qt1 or packet["untrusted_document_data"]["kind"] != "table":
+            return result
+        self._validate_context_graph(packet, context_graph)
+        from proofops.application.ingest.qt1_tables import candidates_for, reconcile
+
+        data = packet["untrusted_document_data"]
+        block = next(b for b in context_graph.blocks if b.source_id == data["source_id"])
+        candidates = candidates_for(block, context_graph)
+        spans, coverage = reconcile(data["text"], candidates, result["spans"])
+        self._validate_spans({"spans": spans}, data["text"])
+        record = dict(
+            packet=packet,
+            profile=asdict(self.profile),
+            candidates=candidates,
+            coverage=coverage,
+            before=result,
+            after=dict(spans=spans),
+        )
+        path = self._receipts / (
+            "qt1-"
+            + canonical_hash(
+                dict(packet=packet, profile=asdict(self.profile), candidates=candidates)
+            )
+            + ".json"
+        )
+        encoded = canonical_json(record)
+        if path.exists():
+            if path.read_text() != encoded:
+                raise ValueError("QT1_EXTRACTION_REPLAY_MISMATCH")
+        else:
+            self._write(path, encoded)
+        return {"spans": spans}
+
+    def _extract(
+        self,
+        packet: dict,
+        *,
+        context_graph: Any = None,
+        display_catalog=None,
+        h1_title_catalog=None,
+    ) -> dict:
         """Extract atomic claims from ``packet``'s own text only.
 
         Production context path (R03f): when this extractor was built with
@@ -866,6 +1221,15 @@ class UpstageClaimExtractor:
         when the context option is on.
         """
         text = self._packet_text(packet)
+        if self._h1 and h1_title_catalog is not None:
+            self._validate_context_graph(packet, h1_title_catalog.graph)
+            packet = packet | {
+                "h1_native_title": h1_title_catalog.proof(
+                    packet["untrusted_document_data"]["source_id"]
+                )
+            }
+        if self._w9 and packet["untrusted_document_data"]["kind"] == "figure":
+            return {"spans": []}
         if self._pb1 and packet["untrusted_document_data"]["kind"] == "table":
             self._require_graph(packet, context_graph)
             from proofops.application.ingest.pb1_tables import observations
@@ -873,7 +1237,23 @@ class UpstageClaimExtractor:
             data = packet["untrusted_document_data"]
             block = next(b for b in context_graph.blocks if b.source_id == data["source_id"])
             context = " ".join(block.candidates[block.winner].context)
-            rows = observations(text, context=context) if data["kind"] == "table" else []
+            if self._w9:
+                from proofops.application.ingest.w9_tables import observations_for
+
+                if self._j8:
+                    from proofops.application.ingest.j8_cells import observations_for
+
+                if self._k6:
+                    from proofops.application.ingest.k6_coverage import observations_for
+
+                raw_rows = observations_for(block, context_graph)
+            else:
+                raw_rows = observations(text, context=context)
+            rows = raw_rows
+            if self._table_footnotes:
+                from proofops.application.tagging.dec24 import table_footnote
+
+                rows = [r for r in raw_rows if not table_footnote(r["quote"], kind="table")]
             result: dict[str, Any] = {
                 "spans": [
                     dict(
@@ -887,12 +1267,30 @@ class UpstageClaimExtractor:
                     for r in rows
                 ]
             }
+            boundary_records = []
+            if self._k1:
+                from proofops.application.ingest.k1_boundaries import trim_table_labels
+
+                result["spans"], boundary_records = trim_table_labels(
+                    result["spans"], text, kind="table"
+                )
             self._validate_spans(result, text)
-            directory = self._receipts / ("pb1-" + canonical_hash(packet))
+            directory = self._receipts / (
+                "pb1-" + canonical_hash({"packet": packet, "policy": self._profile.rule_sha256})
+                if self._w9
+                else "pb1-" + canonical_hash(packet)
+            )
             if not directory.exists():
                 directory.mkdir(mode=0o700)
                 self._write(directory / "packet.json", canonical_json(packet))
-                self._write(directory / "observations.json", canonical_json(rows))
+                self._write(directory / "observations.json", canonical_json(raw_rows))
+                if self._k1:
+                    self._write(directory / "k1-boundaries.json", canonical_json(boundary_records))
+                if self._table_footnotes:
+                    self._write(
+                        directory / "table-context-exclusions.json",
+                        canonical_json([r for r in raw_rows if r not in rows]),
+                    )
                 self._write(directory / "result.json", canonical_json(result))
             elif json.loads((directory / "result.json").read_text()) != result:
                 raise ValueError("EXTRACTION_PB1_REPLAY_MISMATCH")
@@ -971,7 +1369,23 @@ class UpstageClaimExtractor:
                 "max_tokens": self._max_tokens,
                 "json_mode": True,
             }
+        if self._fxg_split and user_data["untrusted_document_data"]["source_sentences"]:
+            from proofops_agent.fxg_extraction import extract_parts, plan
+
+            parts = plan(self._probe, system_prompt, user_data, max_tokens=self._max_tokens)
+            if len(parts) > 1:
+                return extract_parts(
+                    self, packet, system_prompt, user_data, parts, context_graph=context_graph
+                )
         directory = self._receipts / request_id
+        if (
+            self._fxg_split
+            and user_data["untrusted_document_data"]["source_sentences"]
+            and not directory.exists()
+        ):
+            from proofops.application.ingest.fxg_wire import before_dispatch
+
+            before_dispatch()
         try:
             directory.mkdir(mode=0o700)
         except FileExistsError:
@@ -1028,7 +1442,7 @@ class UpstageClaimExtractor:
         if not local_empty:
             self._request_ids.append((packet["parse_manifest_id"], request_id))
         try:
-            schema = (
+            schema: dict[str, Any] = (
                 {
                     "type": "object",
                     "properties": {"sentence_ids": {"type": "array", "items": {"type": "string"}}},
@@ -1043,6 +1457,16 @@ class UpstageClaimExtractor:
                     "additionalProperties": False,
                 }
             )
+            if self._i4_identity:
+                selectors = [
+                    e["sentence_id"]
+                    for e in user_data["untrusted_document_data"]["source_sentences"]
+                ]
+                if selectors:
+                    schema["properties"]["sentence_ids"].update(
+                        uniqueItems=True, maxItems=len(selectors)
+                    )
+                    schema["properties"]["sentence_ids"]["items"] = {"enum": selectors}
             result = (
                 {"provider": "local", "content": '{"sentence_ids":[]}'}
                 if local_empty
@@ -1080,9 +1504,9 @@ class UpstageClaimExtractor:
         )
         self._write(directory / "raw_response.json", canonical_json(metadata))
         if isinstance(result, dict) and result.get("schema_valid") is False:
-            self._fail(directory, packet_sha, request_id, "MODEL_SPAN_OR_SCHEMA_INVALID")
+            self._fail(directory, packet_sha, request_id, "MODEL_SCHEMA_INVALID")
         if not isinstance(result, dict) or not isinstance(result.get("content"), str):
-            self._fail(directory, packet_sha, request_id, "MODEL_SPAN_OR_SCHEMA_INVALID")
+            self._fail(directory, packet_sha, request_id, "MODEL_SCHEMA_INVALID")
         try:
             payload = json.loads(result["content"])
             spans, rejected = self._resolve_payload(
@@ -1093,8 +1517,17 @@ class UpstageClaimExtractor:
                 packet=packet,
                 context_graph=context_graph,
             )
-        except (ValueError, TypeError, json.JSONDecodeError):
-            self._fail(directory, packet_sha, request_id, "MODEL_SPAN_OR_SCHEMA_INVALID")
+        except (ValueError, TypeError) as error:
+            # Public error compatibility is unchanged. New-policy receipts keep
+            # a bounded diagnostic code, never arbitrary exception/source text.
+            code = (
+                "MODEL_JSON_INVALID"
+                if isinstance(error, json.JSONDecodeError)
+                else "MODEL_SELECTOR_INVALID"
+                if str(error) == "unknown or repeated sentence id"
+                else "MODEL_SPAN_INVALID"
+            )
+            self._fail(directory, packet_sha, request_id, code)
         resolved = [
             {
                 "char_start": span.char_start,
@@ -1214,17 +1647,29 @@ class UpstageClaimExtractor:
             ):
                 raise ValueError("EXTRACTION_RECEIPT_EXISTS")
             error = stored.get("error")
+            from proofops.application.provider_resilience import ISOLATED_CODES
+
+            if getattr(self._probe, "provider_resilience", None) and error in ISOLATED_CODES:
+                raise ExtractionOutputError(error)
             if error in {"UPSTAGE_REQUEST_FAILED", "UPSTREAM_UNAVAILABLE"}:
                 # A fresh network failure still stops its batch in _fail. On an
                 # explicit continuation, retain this source as failed/unknown
                 # without repeating its possibly billed call or halting every
                 # later source. Budget/auth/integrity stops remain unchanged.
-                raise ExtractionOutputError("PREVIOUS_TRANSPORT_FAILED")
+                raise ExtractionOutputError(
+                    "PREVIOUS_TRANSPORT_FAILED",
+                    failure_code=(
+                        stored.get("reason_code") or error if self._failure_diagnostics else None
+                    ),
+                )
             if error in UPSTAGE_TRANSPORT_STOP_CODES:
                 if self._recorded_truncation(directory, request_id, error):
                     raise ExtractionOutputError("MODEL_OUTPUT_TRUNCATED")
                 raise ValueError(error)
-            raise ExtractionOutputError(error or "MODEL_SPAN_OR_SCHEMA_INVALID")
+            raise ExtractionOutputError(
+                error or "MODEL_SPAN_OR_SCHEMA_INVALID",
+                failure_code=(stored.get("reason_code") if self._failure_diagnostics else None),
+            )
 
         # Missing raw cannot claim model result
         raw_path = directory / "raw_response.json"
@@ -1296,6 +1741,17 @@ class UpstageClaimExtractor:
                     self._position_order
                     and stored_result.get("context_ordering") != self._context_order_policy()
                 )
+                or (
+                    self._j3
+                    and any(
+                        stored_result.get(key) != rejected.get(key)
+                        for key in (
+                            ("j7_refinements", "j7_refinement_rejected")
+                            if self._j7
+                            else ("j3_refinements", "j3_refinement_rejected")
+                        )
+                    )
+                )
                 or not isinstance(stored_result.get("spans"), list)
                 or stored_result.get("spans") != resolved
             ):
@@ -1366,7 +1822,7 @@ class UpstageClaimExtractor:
                     for entry in (
                         self._atomic_entries(packet, text, blocks)
                         if self._atomic
-                        else self._row_entries(packet, text, blocks)
+                        else self._row_entries(packet, text, blocks, context_graph=context_graph)
                     )
                 ]
             spans, diagnostics = self._resolve_sentence_ids(
@@ -1374,10 +1830,37 @@ class UpstageClaimExtractor:
                 text,
                 source_id,
                 index=atomic_index,
+                paragraph_kind=(
+                    "derived_paragraph"
+                    if self._sentence_prefix
+                    and context_graph is not None
+                    and any(
+                        e.source_id == source_id and e.relation == "derived_from"
+                        for e in context_graph.edges
+                    )
+                    else "paragraph"
+                    if self._h1
+                    and packet
+                    and packet["untrusted_document_data"]["kind"] == "heading"
+                    else packet["untrusted_document_data"]["kind"]
+                    if packet
+                    else None
+                ),
                 join_lines=(
                     self._linewrap_join
+                    and not (
+                        self._atomic_v3
+                        and any(
+                            "extraction-atomic-v3:" in sid
+                            for sid in payload.get("sentence_ids", [])
+                        )
+                    )
                     and packet is not None
-                    and packet["untrusted_document_data"]["kind"] == "paragraph"
+                    and (
+                        packet["untrusted_document_data"]["kind"] == "paragraph"
+                        or self._h1
+                        and packet["untrusted_document_data"]["kind"] == "heading"
+                    )
                 ),
             )
             if (
@@ -1394,6 +1877,129 @@ class UpstageClaimExtractor:
                     if table_context_row(span.quote)
                 ]
                 spans = tuple(span for span in spans if not table_context_row(span.quote))
+            if self._table_footnotes and packet is not None:
+                from proofops.application.tagging.dec24 import adjacent_table, table_footnote
+
+                table_context = adjacent_table(
+                    packet, context_graph, located_only=self._located_table_context
+                )
+                excluded = [
+                    span
+                    for span in spans
+                    if table_footnote(
+                        span.quote,
+                        kind=packet["untrusted_document_data"]["kind"],
+                        table_context=table_context,
+                    )
+                ]
+                diagnostics["table_footnote_excluded"] = [
+                    dict(
+                        char_start=span.char_start,
+                        char_end=span.char_end,
+                        reason="table_context_only_dec24",
+                    )
+                    for span in excluded
+                ]
+                spans = tuple(span for span in spans if span not in excluded)
+            if self._j3 and packet is not None:
+                if self._j7:
+                    from proofops.application.ingest.j7_split import refine_selected
+                else:
+                    from proofops.application.ingest.j3_recall import refine_selected
+                from proofops.application.ingest.w9_tables import graph_cells, observations_for
+
+                kind = packet["untrusted_document_data"]["kind"]
+                cells = None
+                if kind == "table":
+                    self._validate_context_graph(packet, context_graph)
+                    table = next(b for b in context_graph.blocks if b.source_id == source_id)
+                    # PB1 time-series observations keep value/unit/year together.
+                    if not observations_for(table, context_graph):
+                        cells = graph_cells(table, context_graph)
+                refined, changes = refine_selected(
+                    [dict(asdict(span), topic_ids=list(span.topic_ids)) for span in spans],
+                    text,
+                    kind=kind,
+                    cells=cells,
+                )
+                try:
+                    spans = self._validate_spans({"spans": refined}, text)
+                except ValueError:
+                    diagnostics[
+                        "j7_refinement_rejected" if self._j7 else "j3_refinement_rejected"
+                    ] = changes
+                else:
+                    diagnostics["j7_refinements" if self._j7 else "j3_refinements"] = changes
+            if self._qt1_goal_split and packet is not None:
+                from proofops.application.ingest.qt1_goal_split import refine_selected
+
+                selected, changes = refine_selected(
+                    [asdict(s) | dict(topic_ids=list(s.topic_ids)) for s in spans],
+                    text,
+                    kind=packet["untrusted_document_data"]["kind"],
+                )
+                spans = self._validate_spans({"spans": selected}, text)
+                diagnostics["qt1_goal_refinements"] = changes
+            if self._k1 and packet is not None:
+                from proofops.application.ingest.k1_boundaries import trim_table_labels
+
+                selected, diagnostics["k1_boundaries"] = trim_table_labels(
+                    [asdict(s) | dict(topic_ids=list(s.topic_ids)) for s in spans],
+                    text,
+                    kind=packet["untrusted_document_data"]["kind"],
+                )
+                spans = self._validate_spans({"spans": selected}, text)
+            if self._h1:
+                from proofops.application.ingest.h1_boundaries import scope_note, strategy_title
+
+                notes = [span for span in spans if scope_note(span.quote)]
+                diagnostics["h1_scope_notes"] = [
+                    dict(
+                        char_start=span.char_start,
+                        char_end=span.char_end,
+                        reason="explicit_target_boundary_note_context_only",
+                    )
+                    for span in notes
+                ]
+                spans = tuple(span for span in spans if span not in notes)
+                title = packet.get("h1_native_title", {}) if packet else {}
+                if title.get("is_title") is True and strategy_title(text):
+                    from proofops.application.ingest.h1_boundaries import POLICY as H1_POLICY
+
+                    if (
+                        title.get("source_id") != source_id
+                        or title.get("source_sha256") != packet.get("source_sha256")
+                        or title.get("quote_sha256") != canonical_hash(text)
+                        or title.get("policy_sha256") != canonical_hash(H1_POLICY)
+                    ):
+                        raise ExtractionOutputError("H1_TITLE_PROOF_INVALID")
+                    diagnostics["h1_native_title"] = title
+                    spans = tuple(span for span in spans if span.quote != text)
+            if self._k6 and packet is not None:
+                from proofops.application.ingest.k6_coverage import rescue_targets
+
+                selected, diagnostics["k6_target_rescue"] = rescue_targets(
+                    [asdict(s) | dict(topic_ids=list(s.topic_ids)) for s in spans],
+                    text,
+                    kind=packet["untrusted_document_data"]["kind"],
+                )
+                spans = self._validate_spans({"spans": selected}, text)
+            if (
+                self._q1
+                and packet is not None
+                and packet["untrusted_document_data"]["kind"] == "table"
+            ):
+                from proofops.application.ingest.j8_cells import graph_cells
+                from proofops.application.ingest.q1_tables import retain_activities
+
+                self._validate_context_graph(packet, context_graph)
+                block = next(b for b in context_graph.blocks if b.source_id == source_id)
+                selected, diagnostics["q1_activity_rescue"] = retain_activities(
+                    [asdict(s) | dict(topic_ids=list(s.topic_ids)) for s in spans],
+                    text,
+                    graph_cells(block, context_graph),
+                )
+                spans = self._validate_spans({"spans": selected}, text)
             return spans, diagnostics
         quotes = self._quotes(payload)
         span_dicts = []
@@ -1431,7 +2037,14 @@ class UpstageClaimExtractor:
         }
 
     def _resolve_sentence_ids(
-        self, payload: Any, text: str, source_id: str, *, index=None, join_lines=False
+        self,
+        payload: Any,
+        text: str,
+        source_id: str,
+        *,
+        index=None,
+        join_lines=False,
+        paragraph_kind=None,
     ) -> tuple[tuple, dict[str, Any]]:
         """Restore exact source spans for selected sentence ids; reject everything else."""
         if (
@@ -1445,6 +2058,8 @@ class UpstageClaimExtractor:
             if index is not None
             else self._sentence_index(text, source_id, self._content_bounds)
         )
+        if self._i4_identity:
+            allowed = {f"c{i}": span for i, span in enumerate(allowed.values())}
         selected = []
         seen: set[str] = set()
         for sentence_id in payload["sentence_ids"]:
@@ -1485,12 +2100,21 @@ class UpstageClaimExtractor:
                 span_dicts.append(span)
         if selected and not span_dicts:
             raise ValueError("no usable selected sentences")
+        prefix_records = []
+        if self._sentence_prefix and join_lines:
+            from proofops.application.ingest.sentence_prefix import expand_sentence_prefixes
+
+            span_dicts, prefix_records = expand_sentence_prefixes(
+                span_dicts, text, kind=paragraph_kind
+            )
+            self._validate_spans({"spans": span_dicts}, text)
         if join_lines:
             span_dicts = join_selected_linewraps(
                 span_dicts, text, fragment_guard="pb1-v1" if self._pb1 else self._fragment_guard
             )
         return self._validate_spans({"spans": span_dicts}, text), {
-            "rejected_sentence_ids": rejected_sentence_ids
+            "rejected_sentence_ids": rejected_sentence_ids,
+            **({"sentence_prefix": prefix_records} if self._sentence_prefix else {}),
         }
 
     @staticmethod
@@ -1532,7 +2156,11 @@ class UpstageClaimExtractor:
         data = packet["untrusted_document_data"]
         axes = tuple(b["text"] for b in context_blocks if b["role"].startswith("table_"))
         candidates = atomic_candidates(
-            text, kind=data.get("kind", "paragraph"), table_context=axes, diagnostics=diagnostics
+            text,
+            kind=data.get("kind", "paragraph"),
+            table_context=axes,
+            diagnostics=diagnostics,
+            policy_version=3 if self._atomic_v3 else 2,
         )
         if len(candidates) > _MAX_ATOMIC_CANDIDATES:
             raise ExtractionOutputError("EXTRACTION_SOURCE_SENTENCES_UNBOUNDED")
@@ -1544,7 +2172,11 @@ class UpstageClaimExtractor:
                     end -= 1
             entries.append(
                 {
-                    "sentence_id": f"{data['source_id']}:{ATOMIC_PROFILE}:{c.start}:{end}",
+                    "sentence_id": (
+                        f"{data['source_id']}:"
+                        f"{ATOMIC_PROFILE_V3 if self._atomic_v3 else ATOMIC_PROFILE}:"
+                        f"{c.start}:{end}"
+                    ),
                     "text": text[c.start : end],
                     "char_start": c.start,
                     "char_end": end,
@@ -1557,16 +2189,73 @@ class UpstageClaimExtractor:
             )
         return entries
 
-    def _row_entries(self, packet, text, context_blocks):
+    def _row_entries(self, packet, text, context_blocks, *, context_graph=None):
         data = packet["untrusted_document_data"]
         kind = data["kind"]
+        if self._qc_native_figures:
+            from proofops.application.ingest.k6_coverage import (
+                FIGURE_MARKER,
+                FIGURE_POLICY,
+                FIGURE_V1_MARKER,
+                FIGURE_V1_POLICY,
+            )
+
+            self._validate_context_graph(packet, context_graph)
+            block = next(b for b in context_graph.blocks if b.source_id == data["source_id"])
+            context = block.candidates[block.winner].context
+            marker = FIGURE_MARKER if FIGURE_MARKER in context else FIGURE_V1_MARKER
+            policy = FIGURE_POLICY if marker == FIGURE_MARKER else FIGURE_V1_POLICY
+            if marker in context:
+                if (
+                    kind != "paragraph"
+                    or "qc_native_policy=" + canonical_hash(policy) not in context
+                ):
+                    raise ExtractionOutputError("QC_NATIVE_FIGURE_POLICY_MISMATCH")
+                return [
+                    dict(
+                        sentence_id=f"{data['source_id']}:{marker}:0:{len(text)}",
+                        text=text,
+                        char_start=0,
+                        char_end=len(text),
+                        binding_status="undetermined",
+                    )
+                ]
         if kind not in ("table", "table_row", "table_cell", "figure"):
+            if self._atomic_v3:
+                # The combined profile keeps the mature v19 sentence/line-wrap
+                # path unless the v3 recognition split actually changes an atom.
+                # Standalone atomic mode still applies the complete v3 policy.
+                current = self._atomic_entries(packet, text, context_blocks)
+                old = atomic_candidates(text, kind=kind, policy_version=2)
+                if [(entry["char_start"], entry["char_end"]) for entry in current] != [
+                    (candidate.start, candidate.end) for candidate in old
+                ]:
+                    return current
             return [
                 {"sentence_id": sid, "text": text[a:b], "char_start": a, "char_end": b}
                 for sid, (a, b) in self._sentence_index(
                     text, data["source_id"], self._content_bounds
                 )
             ]
+        if self._w9 and kind == "figure":
+            return []
+        if self._w9 and kind == "table":
+            from proofops.application.ingest.w9_tables import cell_entries, graph_cells
+
+            self._validate_context_graph(packet, context_graph)
+            block = next(b for b in context_graph.blocks if b.source_id == data["source_id"])
+            cells = graph_cells(block, context_graph)
+            if self._j8:
+                from proofops.application.ingest.j8_cells import cell_entries, graph_cells
+
+                cells = graph_cells(block, context_graph)
+            if self._q1:
+                from proofops.application.ingest.q1_tables import cell_entries
+            if self._j8 or any("\n" in c["text"] for c in cells):
+                entries = cell_entries(text, cells, source_id=data["source_id"])
+                if len(entries) > ROW_POLICY["max_candidates"]:
+                    raise ExtractionOutputError("EXTRACTION_SOURCE_SENTENCES_UNBOUNDED")
+                return entries
         axes = [b for b in context_blocks if b["role"].startswith("table_")]
         candidates = row_candidates(text, kind=kind, table_context=tuple(b["text"] for b in axes))
         if len(candidates) > ROW_POLICY["max_candidates"]:
@@ -1632,9 +2321,11 @@ class UpstageClaimExtractor:
                 packet, text, context_blocks, diagnostics=diagnostics
             )
             data["candidate_diagnostics"] = diagnostics
-            data["candidate_profile"] = ATOMIC_PROFILE
+            data["candidate_profile"] = ATOMIC_PROFILE_V3 if self._atomic_v3 else ATOMIC_PROFILE
         if self._table_rows:
-            data["source_sentences"] = self._row_entries(packet, text, context_blocks)
+            data["source_sentences"] = self._row_entries(
+                packet, text, context_blocks, context_graph=context_graph
+            )
             data["candidate_profile"] = ROW_PROFILE
         if self._context:
             data["context_blocks"] = context_blocks
@@ -1646,9 +2337,15 @@ class UpstageClaimExtractor:
             assertion_prompt=self._assertion_prompt,
             complete_selection=self._complete_selection,
             extraction_atomic=self._atomic,
+            extraction_atomic_v3=self._atomic_v3,
             extraction_table_rows=self._table_rows,
             extraction_recall_prompt=self._recall_prompt,
         )
+        if self._w9:
+            system_prompt += _w9_suffix()
+        if self._j8:
+            system_prompt += _j8_suffix()
+            data["candidate_profile"] = "j8-owned-cell-candidates-v1"
         user_data: dict[str, Any] = {
             "tenant_id": packet["tenant_id"],
             "document_version_id": packet["document_version_id"],
@@ -1661,6 +2358,19 @@ class UpstageClaimExtractor:
         system_prompt, user_data = self._display_wire(
             packet, system_prompt, user_data, display_catalog
         )
+        if self._i3_wire:
+            from proofops.application.ingest.i3_wire import compact
+
+            user_data["untrusted_document_data"] = compact(user_data["untrusted_document_data"])
+            system_prompt += _i3_wire_suffix()
+        if self._i4_identity:
+            for i, entry in enumerate(user_data["untrusted_document_data"]["source_sentences"]):
+                entry["sentence_id"] = f"c{i}"
+            system_prompt += _i4_identity_suffix()
+        if self._qc_native_figures:
+            system_prompt += _qc_figure_suffix()
+        if self._j3:
+            user_data["selected_span_policy_sha256"] = self._profile.rule_sha256
         content_sha = canonical_hash({"system_prompt": system_prompt, "user_data": user_data})
         request_id = str(uuid5(UUID(packet["parse_manifest_id"]), packet_sha + ":" + content_sha))
         return system_prompt, {**user_data, "request_id": request_id}, request_id
@@ -1868,6 +2578,16 @@ class UpstageClaimExtractor:
         if len(matches) != 1:
             raise ValueError("EXTRACTION_CONTEXT_FOCAL_INVALID")
         focal = matches[0]
+        if self._qc_native_figures:
+            from proofops.application.ingest.k6_coverage import native_figure_context_blocks
+
+            native_context = native_figure_context_blocks(focal, context_graph)
+            if native_context:
+                if sum(len(b.raw_text) + 1 for b in native_context) > self._context_chars:
+                    raise ExtractionOutputError("QC_NATIVE_FIGURE_CONTEXT_TOO_LARGE")
+                return [
+                    _context_entry(i, b, "parent_paragraph") for i, b in enumerate(native_context)
+                ], []
         neighbours, omitted = _bounded_context_blocks(
             context_graph,
             (focal.source_ref(),),
@@ -1965,17 +2685,43 @@ class UpstageClaimExtractor:
     ) -> None:
         if transport:
             error = code if code in UPSTAGE_TRANSPORT_STOP_CODES else "UPSTREAM_UNAVAILABLE"
+            from proofops.application.provider_resilience import ISOLATED_CODES
+
+            if getattr(self._probe, "provider_resilience", None) and code in ISOLATED_CODES:
+                error = code
         else:
             error = "MODEL_SPAN_OR_SCHEMA_INVALID"
         self._write(
             directory / "failure.json",
-            canonical_json({"request_id": request_id, "packet_sha256": packet_sha, "error": error}),
+            canonical_json(
+                {"request_id": request_id, "packet_sha256": packet_sha, "error": error}
+                | (
+                    {"reason_code": code}
+                    if (self._located_table_context or self._failure_diagnostics)
+                    and not transport
+                    and code
+                    in {
+                        "MODEL_JSON_INVALID",
+                        "MODEL_SCHEMA_INVALID",
+                        "MODEL_SELECTOR_INVALID",
+                        "MODEL_SPAN_INVALID",
+                    }
+                    else {}
+                )
+            ),
         )
         if transport:
+            if getattr(self._probe, "provider_resilience", None) and code in ISOLATED_CODES:
+                raise ExtractionOutputError(
+                    error, failure_code=code if self._failure_diagnostics else None
+                )
             if self._recorded_truncation(directory, request_id, error):
-                raise ExtractionOutputError("MODEL_OUTPUT_TRUNCATED")
+                raise ExtractionOutputError(
+                    "MODEL_OUTPUT_TRUNCATED",
+                    failure_code=code if self._failure_diagnostics else None,
+                )
             raise ValueError(error)
-        raise ExtractionOutputError(error)
+        raise ExtractionOutputError(error, failure_code=code if self._failure_diagnostics else None)
 
     def _recorded_truncation(self, directory: Path, request_id: str, error: str) -> bool:
         if error != "UPSTAGE_RECEIPT_INVALID_RESERVATION_RETAINED":
@@ -2002,7 +2748,13 @@ class GraphBoundExtractor:
     """
 
     def __init__(
-        self, inner: Any, graph: Any, source: bytes | None = None, *, display_prefetch_workers=1
+        self,
+        inner: Any,
+        graph: Any,
+        source: bytes | None = None,
+        *,
+        display_prefetch_workers=1,
+        rb1=None,
     ) -> None:
         if not (
             getattr(inner, "_context", False) or getattr(inner, "_display_text_profile", None)
@@ -2011,9 +2763,23 @@ class GraphBoundExtractor:
         if type(display_prefetch_workers) is not int or not 1 <= display_prefetch_workers <= 4:
             raise ValueError("DISPLAY_PREFETCH_WORKERS_INVALID")
         self._display_prefetch_workers = display_prefetch_workers
+        self._rb1 = rb1
         self._inner = inner
         self._graph = graph
+        self.native_figure_receipt = None
+        if getattr(inner, "_qc_native_figures", False):
+            if source is None:
+                raise ValueError("QC_NATIVE_FIGURE_SOURCE_REQUIRED")
+            from proofops.adapters.local.h1_native_title import native_figure_candidates
+
+            self._graph, self.native_figure_receipt = native_figure_candidates(graph, source)
+            graph = self._graph
         self._display_catalog = None
+        self._h1_title_catalog = None
+        if getattr(inner, "_h1", False) and source is not None:
+            from proofops.adapters.local.h1_native_title import NativeTitleCatalog
+
+            self._h1_title_catalog = NativeTitleCatalog(graph, source)
         if getattr(inner, "_display_text_profile", None) and source is not None:
             from proofops.adapters.local.glyph_display_text import GlyphDisplayCatalog
 
@@ -2028,10 +2794,18 @@ class GraphBoundExtractor:
             # Keep packet and focal identity checks before the optional CPU work.
             self._inner._packet_text(packet)
             self._inner._validate_context_graph(packet, self._graph)
-            selected.add(packet["untrusted_document_data"]["source_id"])
+            sid = packet["untrusted_document_data"]["source_id"]
+            if self._rb1 is not None and sid in self._rb1.failures:
+                continue
             if self._inner._context:
-                context, _ = self._inner._context_for(packet, self._graph)
+                try:
+                    context, _ = self._inner._context_for(packet, self._graph)
+                except ValueError as error:
+                    if self._rb1 is None or not self._rb1.capture(sid, error):
+                        raise
+                    continue
                 selected.update(b["source_id"] for b in context)
+            selected.add(sid)
         pages = {
             blocks[sid].page_num
             for sid in selected
@@ -2042,18 +2816,50 @@ class GraphBoundExtractor:
         self._display_catalog.prefetch_pages(pages, max_workers=self._display_prefetch_workers)
 
     @property
+    def graph(self):
+        """Use this derived graph for discovery under the explicit QC profile."""
+        return self._graph
+
+    @property
     def profile(self):  # ClaimExtractorPort: frozen discovery reads this.
         return self._inner.profile
 
     def extract(self, packet: dict) -> dict:
+        if self._rb1 is not None and self._rb1.active:
+            sid = packet["untrusted_document_data"]["source_id"]
+            if sid in self._rb1.failures:
+                self._inner._packet_text(packet)
+                self._inner._validate_context_graph(packet, self._graph)
+                self._rb1.check(sid)
         if getattr(self._inner, "_display_text_profile", None) and self._display_catalog is None:
             raise ExtractionOutputError("DISPLAY_SOURCE_UNAVAILABLE")
-        return self._inner.extract(
-            packet,
-            context_graph=self._graph,
-            **(
-                {"display_catalog": self._display_catalog}
-                if self._display_catalog is not None
-                else {}
-            ),
-        )
+        try:
+            return self._inner.extract(
+                packet,
+                context_graph=self._graph,
+                **(
+                    {"h1_title_catalog": self._h1_title_catalog}
+                    if self._h1_title_catalog is not None
+                    else {}
+                ),
+                **(
+                    {"display_catalog": self._display_catalog}
+                    if self._display_catalog is not None
+                    else {}
+                ),
+            )
+        except ValueError as error:
+            if self._rb1 is not None and self._rb1.capture(
+                packet["untrusted_document_data"]["source_id"], error
+            ):
+                self._rb1.check(packet["untrusted_document_data"]["source_id"])
+            if (
+                getattr(self._inner, "_i5_tables", False)
+                and getattr(self._inner, "_j8", False)
+                and packet.get("untrusted_document_data", {}).get("kind") == "table"
+                and str(error) in {"J8_GRID_MISSING", "J8_GRID_INVALID", "J8_GRID_OVERLAP"}
+            ):
+                # ClaimDiscovery records a failed source and an unknown exclusion;
+                # no empty/non-claim result or invented cell/evidence is admitted.
+                raise ExtractionOutputError("TABLE_GRID_UNREADABLE") from None
+            raise

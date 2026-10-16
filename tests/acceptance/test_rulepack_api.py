@@ -6,6 +6,7 @@ import sqlite3
 import time
 from dataclasses import replace
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 from fastapi import FastAPI
@@ -18,6 +19,9 @@ from proofops.application.rulepacks import (
     compute_pack_sha256,
 )
 from proofops_api.auth import AuthStore
+
+if TYPE_CHECKING:
+    from proofops.adapters.local.rulepack_store import RulePackSqliteStore
 
 TENANT_A = "11111111-1111-4111-8111-111111111111"
 TENANT_B = "22222222-2222-4222-8222-222222222222"
@@ -71,7 +75,7 @@ def _pack(
     return RulePackRecord.from_dict(data)
 
 
-def _client(tmp_path: Path, *, role: str = "admin") -> tuple[TestClient, object, str]:
+def _client(tmp_path: Path, *, role: str = "admin") -> tuple[TestClient, RulePackSqliteStore, str]:
     try:
         from proofops.adapters.local.rulepack_store import RulePackSqliteStore
         from proofops_api.rulepacks import build_rulepack_router
@@ -834,6 +838,7 @@ def test_promote_and_review_pack_helper_gives_new_run_active_pack_opt_in(
 
 def test_generated_openapi_matches_activation_contract(tmp_path: Path) -> None:
     client, _store, _csrf_token = _client(tmp_path)
+    assert isinstance(client.app, FastAPI)
     operation = client.app.openapi()["paths"]["/v1/rule-packs/{rule_pack_id}/activate"]["post"]
 
     assert operation["operationId"] == "rulepack_activate"

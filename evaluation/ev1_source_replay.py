@@ -12,6 +12,7 @@ from time import monotonic
 
 from proofops.adapters.local import evidence_source_verification_v1 as verifier
 from proofops.adapters.local.evidence_search import LocalEvidenceSearch
+from proofops.adapters.parsing.parser_artifacts import parser_artifact_path, read_parser_json
 from proofops.application.claims import Claim, ExtractionProfile, ExtractionReceipt
 from proofops.application.evidence.retrieval import retrieve_evidence
 from proofops.application.evidence.span_citations import span_verified_graph, verify_source_ref
@@ -24,7 +25,7 @@ from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import RulePackSnapshot
 from proofops.domain.values import SourceRef
 
-ROOT = Path("/Users/ss020/Dev/ESG_ProofOps")
+ROOT = Path("/path/to/ESG_ProofOps")
 BASE = ROOT / "outputs/agent-results/R108-redesign/lab/parse/MP1"
 OUT = ROOT / "outputs/agent-results/R108-redesign/lab/source/EV1"
 
@@ -63,17 +64,17 @@ def load(company):
         assert sha256((folder / name).read_bytes()).hexdigest() == digest
     manifest = json.loads(manifest_bytes)
     graph = fuse_candidates(
-        candidates_from_snapshot(json.loads((folder / "candidates.json").read_bytes())),
+        candidates_from_snapshot(read_parser_json(folder / "candidates.json")),
         tenant_id=parse["tenant_id"],
         fusion_version=manifest["fusion_version"],
         mixed_parser=True,
     )
-    assert graph.to_dict() == json.loads((folder / "graph.json").read_bytes())
+    assert graph.to_dict() == read_parser_json(folder / "graph.json")
     graph = replace(
         graph,
         issues=tuple(
             QualityIssue(**{**issue, "source_ids": tuple(issue["source_ids"])})
-            for issue in json.loads((folder / "quality.json").read_bytes())
+            for issue in read_parser_json(folder / "quality.json")
         ),
     )
     native = parse["native_paragraph_attestation"]
@@ -92,9 +93,9 @@ def load(company):
         str(p): sha256(p.read_bytes()).hexdigest()
         for p in (
             state / "state.sqlite3",
-            folder / "candidates.json",
+            parser_artifact_path(folder / "candidates.json", manifest=manifest),
             folder / "manifest.json",
-            folder / "graph.json",
+            parser_artifact_path(folder / "graph.json", manifest=manifest),
             source_path,
         )
     }

@@ -1,5 +1,5 @@
 import json
-from dataclasses import asdict
+from dataclasses import asdict, replace
 
 import pytest
 from proofops.application.claims import ExtractionOutputError
@@ -38,9 +38,17 @@ def test_opt_in_atomic_wire_exact_spans_and_replay(tmp_path):
 def test_atomic_profile_distinct_and_requires_id_selection(tmp_path):
     base = _profile_with_options(source_ids=True)
     atomic = _profile_with_options(source_ids=True, extraction_atomic=True)
+    atomic_v3 = _profile_with_options(
+        source_ids=True,
+        extraction_atomic=True,
+        extraction_atomic_v3=True,
+        extraction_failure_diagnostics=True,
+    )
     assert base.model_sha256 == atomic.model_sha256
     assert base.prompt_sha256 != atomic.prompt_sha256
     assert base.rule_sha256 != atomic.rule_sha256
+    assert atomic_v3.prompt_sha256 != atomic.prompt_sha256
+    assert atomic_v3.rule_sha256 != atomic.rule_sha256
     with pytest.raises(ValueError):
         UpstageClaimExtractor(FakeProbe(), tmp_path, extraction_atomic=True)
 
@@ -201,3 +209,138 @@ def test_dependent_parent_never_expands_selected_source_ref_or_approves_evidence
     diagnostic = json.loads(receipt.read_text())
     assert diagnostic["context_dependent_count"] == 1
     assert diagnostic["model_call_skipped"] is False
+
+
+KAKAO_P50 = (
+    "카카오 데이터센터 안산은 시공 계획 단계부터 운영까지 에너지 절감 기술과 "
+    "친환경 설계를 적용했습니다. "
+    "그 결과 친환경 건축인증인 LEED Certified 등급을 획득하여 부지 선정, 대지 환경, "
+    "수자원 효율성, 에너지 및 대기환경 등 항목에서 친환경 성과 효율성을 입증했습니다. "
+    "또한 소비자시민모임에서 주최하는 에너지위너상을 수상하여 친환경 및 에너지 절감 운영을 "
+    "인정받았으며, ISO 14001 인증을 통해 체계적인 환경 관리 역량을 유지하고 있습니다."
+)
+KAKAO_ISO = "ISO 14001 인증을 통해 체계적인 환경 관리 역량을 유지하고 있습니다."
+
+
+def test_kakao_p50_v3_binds_only_iso_atomic_claim_for_m1_and_m4(tmp_path):
+    from proofops.application.claims import ClaimScope, discover_atomic_claims
+    from proofops.application.evidence.binding import ClaimContext, accept_binding
+    from proofops_worker.tag_runner import _atomic_v3_binding_enabled
+
+    from tests.acceptance.test_claims import MANIFEST, TENANT, VERSION, graph_of
+    from tests.acceptance.test_rules import pack
+
+    graph = graph_of(KAKAO_P50)
+    graph = replace(
+        graph, blocks=tuple(replace(block, quality="verified") for block in graph.blocks)
+    )
+    extractor = UpstageClaimExtractor(
+        SelectAll(),
+        tmp_path,
+        extraction_source_ids=True,
+        extraction_atomic=True,
+        extraction_atomic_v3=True,
+    )
+    discovery = discover_atomic_claims(
+        graph, ClaimScope(TENANT, VERSION, MANIFEST), extractor=extractor
+    )
+    iso_claim = next(claim for claim in discovery.claims if claim.quote == KAKAO_ISO)
+    assert len(discovery.claims) == 4
+    assert iso_claim.claim_id and iso_claim.source_quality == "verified"
+    assert all(
+        claim.claim_id != iso_claim.claim_id for claim in discovery.claims if claim is not iso_claim
+    )
+    assert _atomic_v3_binding_enabled({"extraction_profile": asdict(extractor.profile)}, iso_claim)
+    legacy_profile = _profile_with_options(source_ids=True, extraction_atomic=True)
+    assert not _atomic_v3_binding_enabled({"extraction_profile": asdict(legacy_profile)}, iso_claim)
+
+    original = pack()
+    claim_source = iso_claim.source_refs[0]
+
+    def subspan(quote):
+        offset = claim_source.quote.index(quote)
+        return replace(
+            claim_source,
+            char_start=claim_source.char_start + offset,
+            char_end=claim_source.char_start + offset + len(quote),
+            quote=quote,
+        )
+
+    def bind(ref, element, *, edge_whitespace=False):
+        return accept_binding(
+            ClaimContext(iso_claim, {}),
+            ref,
+            {},
+            original=graph,
+            tenant_id=TENANT,
+            rulepack=original,
+            element_id=element,
+            allow_edge_whitespace=edge_whitespace,
+        )
+
+    # The two short replica quotes share the same literal ISO claim. M1 is an
+    # ISO method assertion; M4 remains claim-local and cannot be satisfied by
+    # the unrelated LEED or award atoms.
+    for _replica in range(2, 4):
+        assert bind(subspan("ISO 14001 인증"), "M1") == "accepted"
+        spaced_quote = replace(
+            claim_source,
+            char_start=claim_source.char_start - 1,
+            quote=" " + KAKAO_ISO,
+        )
+        assert bind(spaced_quote, "M4") != "accepted"
+        assert bind(spaced_quote, "M4", edge_whitespace=True) == "accepted"
+    full_paragraph = next(block for block in graph.blocks if block.page_num == 1).source_ref()
+    assert bind(full_paragraph, "M4") != "accepted"
+    unrelated_claims = (
+        next(claim for claim in discovery.claims if "LEED Certified" in claim.quote),
+        next(claim for claim in discovery.claims if "에너지위너상" in claim.quote),
+    )
+    for unrelated_claim in unrelated_claims:
+        unrelated_ref = unrelated_claim.source_refs[0]
+        assert bind(unrelated_ref, "M1") != "accepted"
+        assert bind(unrelated_ref, "M4") != "accepted"
+    assert all(
+        ref.verification_state == "candidate"
+        for claim in discovery.claims
+        for ref in claim.source_refs
+    )
+
+
+def test_model_schema_refusal_keeps_source_unknown_and_replays_its_failure_code(tmp_path):
+    from proofops.adapters.local.claim_store import extraction_outcome
+    from proofops.application.claims import ClaimScope, discover_atomic_claims
+
+    from tests.acceptance.test_claims import MANIFEST, TENANT, VERSION, graph_of
+
+    text = "당사는 2024년 온실가스 배출량을 8% 감축했습니다."
+    graph = graph_of(text)
+    probe = FakeProbe("{malformed-json")
+    extractor = UpstageClaimExtractor(
+        probe,
+        tmp_path,
+        extraction_source_ids=True,
+        extraction_failure_diagnostics=True,
+    )
+    result = discover_atomic_claims(
+        graph, ClaimScope(TENANT, VERSION, MANIFEST), extractor=extractor
+    )
+    assert result.claims == ()
+    assert result.processed_source_ids == ()
+    assert len(result.receipts) == 1 and result.receipts[0].status == "failed"
+    failure = result.exclusions[0]
+    assert failure.reason == "MODEL_JSON_INVALID" and failure.state == "unknown"
+    assert failure.source_ref.quote == text
+
+    outcome = extraction_outcome(graph, result, claim_pages=(1,), include_source_failures=True)
+    assert outcome["status"] == "blocked"
+    assert outcome["code"] == "CLAIM_SOURCE_EXTRACTION_FAILURE"
+    assert outcome["page_failures"] == []
+    assert outcome["failed_sources"] == [
+        dict(source_id=failure.source_id, physical_page=1, failure_code="MODEL_JSON_INVALID")
+    ]
+    replay = discover_atomic_claims(
+        graph, ClaimScope(TENANT, VERSION, MANIFEST), extractor=extractor
+    )
+    assert replay == result
+    assert len(probe.calls) == 1

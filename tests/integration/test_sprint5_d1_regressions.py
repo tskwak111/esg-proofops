@@ -43,7 +43,8 @@ def test_batch_continuation_passes_original_to_graph_bound_extractor(tmp_path, m
     expected = runner.uploads.read_original(TENANT, graph.document_version_id)
     received = []
 
-    def bind(extractor, graph, source=None):
+    def bind(extractor, graph, source=None, *, rb1=None):
+        assert not rb1.active  # This historical fixture does not opt in to isolation.
         received.append(source)
         assert source == expected
         return extractor

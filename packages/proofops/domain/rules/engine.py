@@ -10,12 +10,14 @@ from __future__ import annotations
 import hashlib
 from dataclasses import asdict, dataclass, replace
 from itertools import product
-from typing import Any
+from typing import Any, Literal
 
 from proofops.domain.errors import DomainValidationError
 from proofops.domain.rulepacks import RulePackSnapshot, canonical_json
 from proofops.domain.rules import goal, management, performance
 from proofops.domain.rules.exceptions import apply_source_exceptions
+from proofops.domain.rules.qt1_baseline import ENGINE_VERSION as QT1_ENGINE_VERSION
+from proofops.domain.rules.qt1_baseline import approved_fact
 from proofops.domain.values import (
     ELEMENT_STATES,
     GRADE_LABEL_MAP,
@@ -43,7 +45,7 @@ MAPPINGS = {
 @dataclass(frozen=True, slots=True)
 class ConfirmedFact:
     name: str
-    state: ElementState
+    state: ElementState | Literal["absent_in_scope"]
     evidence_refs: tuple[SourceRef, ...] = ()
     source_tenant_id: str | None = None
     citation_verified: bool = False
@@ -53,7 +55,11 @@ class ConfirmedFact:
     normalized_value: str | None = None
 
     def __post_init__(self) -> None:
-        if not isinstance(self.name, str) or not self.name or self.state not in ELEMENT_STATES:
+        if (
+            not isinstance(self.name, str)
+            or not self.name
+            or self.state not in (*ELEMENT_STATES, "absent_in_scope")
+        ):
             raise DomainValidationError("invalid confirmed fact")
         if self.normalized_value is not None and not isinstance(self.normalized_value, str):
             raise DomainValidationError("normalized_value must be a string or null")
@@ -271,7 +277,9 @@ def _validate_inputs(tags: ConfirmedTags, context: RuleContext, pack: RulePackSn
         if fact.name == "external_verification":
             scopes = ["local_claim", "global_bound"]
         # Partly unresolved explicit_link scopes are not automatically expanded (GAP-004).
-        if fact.source_scope not in scopes or fact.source_scope == "explicit_link":
+        if (
+            fact.source_scope not in scopes or fact.source_scope == "explicit_link"
+        ) and not approved_fact(tags.track, fact):
             raise DomainValidationError("source scope is not approved for this fact")
         if fact.name == "assurance_covered" and fact.normalized_value != "covered":
             raise DomainValidationError("assurance requires covered status, not a provider name")
@@ -279,7 +287,15 @@ def _validate_inputs(tags: ConfirmedTags, context: RuleContext, pack: RulePackSn
 
 def evaluate(tags: ConfirmedTags, context: RuleContext, pack: RulePackSnapshot) -> Decision:
     """Evaluate explicit source branches; never infer absent from unresolved evidence."""
-    effect = apply_source_exceptions(tags, context, pack)
+    if not isinstance(tags, ConfirmedTags):
+        raise DomainValidationError("expected ConfirmedTags and RuleContext")
+    if any(f.state == "absent_in_scope" for f in tags.facts):
+        raise DomainValidationError("scoped absence requires analysis-scope rule profile")
+    return _evaluate(tags, context, pack)
+
+
+def _evaluate(tags, context, pack, *, analysis_scope=False, dec127=False):
+    effect = apply_source_exceptions(tags, context, pack, analysis_scope=dec127)
     elements = MAPPINGS[tags.track]
     definitions = {e["id"]: e for e in pack.file_content("rubric/elements.yaml")["elements"]}
     facts = {f.name: f for f in tags.facts}
@@ -287,7 +303,9 @@ def evaluate(tags: ConfirmedTags, context: RuleContext, pack: RulePackSnapshot) 
     def state(name: str) -> str:
         if effect.ordinal_state is not None and name in performance.ELEMENTS["P1"]:
             return effect.ordinal_state
-        return facts[name].state if name in facts else "unknown"
+        value = facts[name].state if name in facts else "unknown"
+        # Interpret the scoped state only in DEC-85; retain it in tags and hashes.
+        return "absent" if analysis_scope and value == "absent_in_scope" else value
 
     missing, unresolved, excluded, additional = [], [], [], []
     bases = []
@@ -316,6 +334,18 @@ def evaluate(tags: ConfirmedTags, context: RuleContext, pack: RulePackSnapshot) 
     if additional_policy not in (None, ADDITIONAL_REPORT_ONLY):
         raise DomainValidationError("unsupported additional element policy")
     branches = rubric["branches"]
+    if dec127 and tags.track == "management":
+        # Original §4.3 E0 = substantiation effectively absent; §4.4 E1 needs
+        # named means/concrete implementation. DEC-127 makes non-observation
+        # conclusive inside this scope. Do not fabricate a willingness quote.
+        branches = [
+            *(branch for branch in branches if branch["id"] != "MGMT_WILLINGNESS"),
+            dict(
+                id="MGMT_NO_MEANS_IN_SCOPE_E0",
+                when={"named_means_or_concrete_state": False},
+                grade="E0",
+            ),
+        ]
     names = {
         name
         for branch in branches
@@ -427,7 +457,11 @@ def evaluate(tags: ConfirmedTags, context: RuleContext, pack: RulePackSnapshot) 
         decision,
         semantic_hash=_hash(
             {
-                "engine_version": ENGINE_VERSION,
+                "engine_version": (
+                    ENGINE_VERSION + "+" + QT1_ENGINE_VERSION
+                    if any(approved_fact(tags.track, f) for f in tags.facts)
+                    else ENGINE_VERSION
+                ),
                 "tags": asdict(tags),
                 "context": asdict(context),
                 "pack_sha256": pack.sha256,

@@ -7,6 +7,47 @@ require.extensions['.ts'] = (module, filename) => module._compile(ts.transpileMo
 const { HostedApiError, createHostedClient, describeError } = require('./hostedClient.ts');
 const { runOutcome } = require('./hostedClient.ts');
 
+test('manual scope edits declare the manual selection and preserve revision fencing', async () => {
+  let sent;
+  const client = createHostedClient({ fetchImpl: async (url, init) => {
+    sent = init;
+    return new Response(JSON.stringify({ revision: 2 }));
+  } });
+  await client.editScope('sk-fixture', { revision: 1 }, [3, 11], [3, 11, 135]);
+  assert.equal(JSON.parse(sent.body).manual_selection, true);
+  assert.deepEqual(JSON.parse(sent.body).selected_claim_pages, [3, 11]);
+  assert.equal(sent.headers['If-Match'], '"1"');
+});
+
+test('unknown failure codes retain server-provided detail', () => {
+  const { holdReasonText } = require('./hostedClient.ts');
+  const detail = '원문을 처리하지 못했습니다. 운영자 확인이 필요합니다.';
+  assert.equal(holdReasonText('FUTURE_PARSER_FAILURE', [{ code: 'FUTURE_PARSER_FAILURE', message: detail }]), detail);
+  assert.match(holdReasonText('PARSER_FAILED'), /파싱.*운영자/);
+});
+
+test('H5 native reader and page render limits expose concrete reasons without evidence absence', () => {
+  for (const [code, cause] of [
+    ['PARSER_NATIVE_TEXT_UNREADABLE', /보조 텍스트 파서/],
+    ['SOURCE_ATTESTATION_RENDER_LIMIT', /이미지 크기.*한도/],
+  ]) {
+    const failed = runOutcome({ status: 'failed', error_code: code });
+    assert.match(failed.reasons.join(' '), cause);
+    assert.match(failed.reasons.join(' '), /판정하지 않았습니다/);
+    assert.doesNotMatch(failed.reasons.join(' '), /근거 없음/);
+  }
+});
+
+test('parser memory and corrupt table failures remain explicit and never claim evidence absence', () => {
+  for (const code of ['PARSER_JAVA_HEAP_EXHAUSTED', 'W9_GRID_TEXT_MISMATCH', 'PARSER_FAILED']) {
+    const failed = runOutcome({ status: 'failed', error_code: code });
+    assert.equal(failed.kind, 'failed');
+    assert.match(failed.reasons.join(' '), /파싱|표 원문/);
+    assert.match(failed.reasons.join(' '), /판정하지 않았습니다/);
+    assert.doesNotMatch(failed.reasons.join(' '), /근거 없음|완료/);
+  }
+});
+
 test('maintenance and expired worker lease remain explicit without retrying uncertain work', () => {
   assert.match(describeError(new HostedApiError(503, 'MAINTENANCE', 60, '/v1/runs')), /서버 점검.*진행 중 분석.*점검 후/);
   const held = runOutcome({ status: 'accounting_pending', error_code: 'LEASE_EXPIRED' });

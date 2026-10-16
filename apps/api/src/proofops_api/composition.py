@@ -119,7 +119,15 @@ def build_composition() -> ApiComposition:
         )
 
     registry = Registry.sqlite(database_path, active_rule_packs=active_rule_packs)
-    uploads = UploadService(database_path, database_path.parent / "objects", registry)
+    from proofops.application.input_failures import HOSTED_MAX_UPLOAD_BYTES
+    from proofops.application.uploads_security import PdfLimits
+
+    uploads = UploadService(
+        database_path,
+        database_path.parent / "objects",
+        registry,
+        limits=PdfLimits.display(max_bytes=HOSTED_MAX_UPLOAD_BYTES),
+    )
     allowed_regions = tuple(
         region.strip()
         for region in os.environ.get("MODEL_ALLOWED_PROCESSING_REGIONS", "").split(",")

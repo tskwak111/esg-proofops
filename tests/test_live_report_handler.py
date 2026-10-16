@@ -13,7 +13,7 @@ spec = importlib.util.spec_from_file_location("live_report", MODULE)
 report = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(report)
 KIA = Path(
-    "/Users/ss020/Dev/ESG_ProofOps/outputs/data-manager-handoff-20260922/데이터관리자_2차검토_20260922/04_원문/기아_2025_지속가능경영보고서.pdf"
+    "/path/to/ESG_ProofOps/outputs/data-manager-handoff-20260922/데이터관리자_2차검토_20260922/04_원문/기아_2025_지속가능경영보고서.pdf"
 )
 
 

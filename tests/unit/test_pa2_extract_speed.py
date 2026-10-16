@@ -112,6 +112,8 @@ def test_operator_batch_and_concurrency_settings_pin_only_new_runs(tmp_path, mon
     import sqlite3
     import sys
 
+    from proofops.application.analysis_profile import FINALS_I8_POLICY
+    from proofops.domain.provenance import canonical_hash
     from proofops_api.hosted_analysis import operator_profiles
     from pypdf import PdfWriter
 
@@ -120,18 +122,29 @@ def test_operator_batch_and_concurrency_settings_pin_only_new_runs(tmp_path, mon
 
     config = dict(
         analysis_profile="finals-unattended-v2",
+        analysis_policy_sha256=canonical_hash(FINALS_I8_POLICY),
         llm_max_workers=16,
         extract_batch_calls=32,
         report_year=2025,
         period_start="2024-01-01",
         period_end="2024-12-31",
     )
-    assert operator_profiles(config)["llm_max_workers"] == 16
+    assert operator_profiles(config)["llm_max_workers"] == 8
     pdf = tmp_path / "selected.pdf"
     writer = PdfWriter()
     writer.add_blank_page(300, 300)
     writer.write(pdf)
-    monkeypatch.setattr(sys, "argv", prepare_argv(pdf, tmp_path / "state", TENANT, config))
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        prepare_argv(
+            pdf,
+            tmp_path / "state",
+            TENANT,
+            config,
+            dict(analysis_profile_sha256=canonical_hash(FINALS_I8_POLICY)),
+        ),
+    )
     assert pilot.main() == 0
     with sqlite3.connect(tmp_path / "state/state.sqlite3") as db:
         snapshot = json.loads(db.execute("SELECT payload FROM run_snapshots").fetchone()[0])
@@ -139,9 +152,23 @@ def test_operator_batch_and_concurrency_settings_pin_only_new_runs(tmp_path, mon
     assert snapshot["analysis_profile_policy"]["stage_overlap"] is False
     assert (
         snapshot["analysis_profile_policy"]["verified_read_cache"]["profile"]
+        == "exact-verified-read-v7"
+    )
+    from proofops.application.analysis_profile import V2_PRE_D24_POLICY, policy_for
+
+    assert (
+        policy_for("finals-unattended-v2", pinned_hash=canonical_hash(V2_PRE_D24_POLICY))[
+            "verified_read_cache"
+        ]["profile"]
         == "exact-verified-read-v4"
     )
-    assert operator_profiles({})["extract_batch_calls"] == 20
+    assert operator_profiles({})["extract_batch_calls"] == 256
+    assert (
+        operator_profiles({"analysis_policy_sha256": canonical_hash(FINALS_I8_POLICY)})[
+            "extract_batch_calls"
+        ]
+        == 100
+    )
     for invalid in (0, 257, True, "32"):
         with pytest.raises(ValueError, match="HOSTED_EXTRACT_BATCH_INVALID"):
             operator_profiles(config | dict(extract_batch_calls=invalid))

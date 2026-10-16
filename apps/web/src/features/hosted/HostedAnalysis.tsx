@@ -84,7 +84,7 @@ export function HostedAnalysis({ client: injected }: { client?: HostedClient }) 
       const key = crypto.randomUUID();
       try {
         if (new TextDecoder().decode(await file.slice(0, 4).arrayBuffer()) !== "%PDF") throw new Error("PDF 파일을 선택해 주세요.");
-        if (runtime && file.size > runtime.limits.max_upload_bytes) throw new Error(`PDF가 ${Math.floor(runtime.limits.max_upload_bytes / 1048576)}MB를 넘습니다.`);
+        if (runtime && file.size > runtime.limits.max_upload_bytes) throw new Error(`PDF가 ${Math.floor(runtime.limits.max_upload_bytes / 1048576)}MiB를 넘습니다.`);
         const doc = await client.uploadDocument(file, undefined, controller.signal);
         if (!controller.signal.aborted) setIntake(items => [...items, { key, name: file.name, doc }]);
       } catch (err) {
@@ -116,6 +116,7 @@ export function HostedAnalysis({ client: injected }: { client?: HostedClient }) 
   else body = <>
     {runtime && !runtime.live_analysis && <RuntimeOff runtime={runtime} />}
     {runtime && <p className="hosted-notice-text" data-testid="upload-notice">{runtime.upload_notice}</p>}
+    {runtime && <p className="hosted-note" aria-label="업로드 제한">파일 최대 {Math.floor(runtime.limits.max_upload_bytes / 1048576)}MiB · {runtime.limits.max_pdf_pages}쪽. 서버가 PDF 내부 구조와 보안을 검사합니다.</p>}
     <div className="hosted-upload">
       <label>PDF 보고서<input ref={fileInput} type="file" accept=".pdf,application/pdf" multiple disabled={!!busy} onChange={event => setFiles(Array.from(event.target.files ?? []))} /></label>
       <button type="button" disabled={!files.length || !!busy || runtime?.accept_uploads === false} onClick={() => void upload()}>업로드</button>

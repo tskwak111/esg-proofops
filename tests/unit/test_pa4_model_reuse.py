@@ -113,7 +113,7 @@ def test_parallel_same_replica_single_flight(tmp_path):
 def test_uncertain_and_tampered_receipt_cannot_be_reused(tmp_path):
     first = probe(tmp_path, "first")
     first._post = lambda _: (_ for _ in ()).throw(TimeoutError())
-    with pytest.raises(ValueError, match="OPENAI_REQUEST_FAILED"):
+    with pytest.raises(ValueError, match="^PROVIDER_PROCESSING_FAILED$"):
         first.complete("JSON", "{}", request_id="a", json_mode=True)
     second = probe(tmp_path, "second")
     second._post = lambda _: pytest.fail("uncertain duplicate")

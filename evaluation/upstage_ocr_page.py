@@ -20,6 +20,11 @@ from uuid import uuid4
 
 from proofops.adapters.local.upstage_ocr_page import PageOCRStore, parse_response, render_page
 from proofops.adapters.local.upstage_ocr_profile import Reader, claim_source_policy, native_policy
+from proofops.adapters.parsing.parser_artifacts import (
+    iter_parser_artifacts,
+    parser_artifact_path,
+    read_parser_json,
+)
 from proofops.application.evidence.citations import _normalized
 from proofops.application.ingest.graph_fusion import (
     QualityIssue,
@@ -47,16 +52,17 @@ def write(path, value):
 
 def stored_inputs(state):
     pilot = json.loads((state / "pilot.json").read_text())
-    file = next((state / "parser-prepared").rglob("graph.json"))
+    file = next(iter_parser_artifacts(state / "parser-prepared", "graph.json"))
     manifest = json.loads(file.with_name("manifest.json").read_text())
     for name in ("graph.json", "candidates.json", "quality.json"):
-        assert sha256(file.with_name(name).read_bytes()).hexdigest() == manifest["artifacts"][name]
+        artifact = parser_artifact_path(file.with_name(name), manifest=manifest)
+        assert sha256(artifact.read_bytes()).hexdigest() == manifest["artifacts"][artifact.name]
     graph = fuse_candidates(
-        candidates_from_snapshot(json.loads(file.with_name("candidates.json").read_text())),
+        candidates_from_snapshot(read_parser_json(file.with_name("candidates.json"))),
         tenant_id=pilot["tenant_id"],
         fusion_version=manifest["fusion_version"],
     )
-    assert graph.to_dict() == json.loads(file.read_text())
+    assert graph.to_dict() == read_parser_json(file)
     issues = tuple(
         QualityIssue(**(v | {"source_ids": tuple(v["source_ids"])}))
         for v in json.loads(file.with_name("quality.json").read_text())
@@ -95,7 +101,10 @@ def prepare(root, out):
             / "states"
             / (company + "-attempt3" if folder.startswith("sprint5") else company)
         )
-        if not next((state / "parser-prepared").rglob("graph.json"), None) and company == "posco":
+        if (
+            not next(iter_parser_artifacts(state / "parser-prepared", "graph.json"), None)
+            and company == "posco"
+        ):
             state = state.with_name("posco-attempt2")
         pilot, graph, source, native, claim = stored_inputs(state)
         for num in selected:

@@ -1,0 +1,483 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "policy",
+    "policy_sha256",
+    "identity",
+    "statement_id",
+    "statement_boundary",
+    "raw_receipts",
+    "derived_results",
+    "resolved_3_of_3",
+    "engine_decision",
+    "candidate_auto_confirmed",
+    "public_auto_confirmed",
+    "simulated",
+    "provider",
+    "exclusions",
+    "unresolved",
+    "receipt_sha256"
+  ],
+  "properties": {
+    "schema": {
+      "const": "FactAssemblyReceiptV1"
+    },
+    "policy": {
+      "type": "object"
+    },
+    "policy_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "identity": {
+      "type": "object",
+      "required": [
+        "tenant_id",
+        "document_version_id",
+        "original_sha256",
+        "parse_manifest_id",
+        "graph_sha256",
+        "claim_id",
+        "claim_sha256",
+        "claim_revision",
+        "packet_sha256",
+        "rulepack_sha256"
+      ]
+    },
+    "statement_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "statement_boundary": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object"
+      }
+    },
+    "raw_receipts": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "required": [
+          "identity",
+          "replicate_id",
+          "request_id",
+          "request_sha256",
+          "provider_request_id",
+          "model_sha256",
+          "prompt_sha256",
+          "raw",
+          "raw_sha256",
+          "vote_sha256",
+          "provider",
+          "simulated"
+        ],
+        "properties": {
+          "raw": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "track": {
+                "enum": [
+                  "management",
+                  "performance",
+                  "goal",
+                  null
+                ]
+              },
+              "safe_harbor_category": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "superlative_quote": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "period_kind": {
+                "enum": [
+                  "report_context",
+                  "explicit_current",
+                  null
+                ]
+              },
+              "dimensions": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "activity": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "source_index": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "quote": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "source_index",
+                          "quote"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "period": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "source_index": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "quote": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "source_index",
+                          "quote"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "boundary": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "source_index": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "quote": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "source_index",
+                          "quote"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "activity",
+                  "period",
+                  "boundary"
+                ]
+              },
+              "elements": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "M1": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "state": {
+                        "enum": [
+                          "present",
+                          "unknown",
+                          "conflict"
+                        ]
+                      },
+                      "evidence": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "source_index": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1
+                              },
+                              "quote": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "source_index",
+                              "quote"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "state",
+                      "evidence"
+                    ]
+                  },
+                  "M2": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "state": {
+                        "enum": [
+                          "present",
+                          "unknown",
+                          "conflict"
+                        ]
+                      },
+                      "evidence": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "source_index": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1
+                              },
+                              "quote": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "source_index",
+                              "quote"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "state",
+                      "evidence"
+                    ]
+                  },
+                  "M3": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "state": {
+                        "enum": [
+                          "present",
+                          "unknown",
+                          "conflict"
+                        ]
+                      },
+                      "evidence": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "source_index": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1
+                              },
+                              "quote": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "source_index",
+                              "quote"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "state",
+                      "evidence"
+                    ]
+                  },
+                  "M4": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "state": {
+                        "enum": [
+                          "present",
+                          "unknown",
+                          "conflict"
+                        ]
+                      },
+                      "evidence": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "source_index": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1
+                              },
+                              "quote": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "source_index",
+                              "quote"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "state",
+                      "evidence"
+                    ]
+                  }
+                },
+                "required": [
+                  "M1",
+                  "M2",
+                  "M3",
+                  "M4"
+                ]
+              },
+              "triggers": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "governance_claim": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "compensation_link_claim": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "governance_claim",
+                  "compensation_link_claim"
+                ]
+              }
+            },
+            "required": [
+              "track",
+              "safe_harbor_category",
+              "superlative_quote",
+              "period_kind",
+              "dimensions",
+              "elements",
+              "triggers"
+            ]
+          },
+          "replicate_id": {
+            "enum": [
+              1,
+              2,
+              3
+            ]
+          },
+          "simulated": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "derived_results": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "required": [
+          "replicate_id",
+          "matcher_policy_sha256",
+          "input_sha256",
+          "result",
+          "output_sha256",
+          "agreement_value",
+          "agreement_sha256"
+        ]
+      }
+    },
+    "resolved_3_of_3": {
+      "type": "boolean"
+    },
+    "engine_decision": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "candidate_auto_confirmed": {
+      "type": "boolean"
+    },
+    "public_auto_confirmed": {
+      "const": false
+    },
+    "simulated": {
+      "type": "boolean"
+    },
+    "provider": {
+      "type": "string"
+    },
+    "exclusions": {
+      "type": "array"
+    },
+    "unresolved": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "receipt_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

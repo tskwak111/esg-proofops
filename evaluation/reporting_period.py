@@ -100,14 +100,14 @@ def _periods(text):
     return result
 
 
-def detect_reporting_period(texts, page_count, source_sha256):
+def detect_reporting_period(texts, page_count, source_sha256, *, _anchor=ANCHOR, _version=VERSION):
     candidates, exceptions, seen = [], [], set()
     inspected = sorted(
         set(range(1, min(12, page_count) + 1)) | set(range(max(1, page_count - 11), page_count + 1))
     )
     for page in inspected:
         text = texts.get(page, "")
-        for anchor in ANCHOR.finditer(text):
+        for anchor in _anchor.finditer(text):
             # Only headings/declarations about the report, not assurance boilerplate.
             line_start = text.rfind("\n", 0, anchor.start()) + 1
             prefix = text[line_start : anchor.start()].strip()
@@ -145,7 +145,8 @@ def detect_reporting_period(texts, page_count, source_sha256):
                 exception = EXCEPTION.search(quote)
                 central = quote[: exception.start()] if exception else quote
                 relevant = bool(
-                    ANCHOR.search(quote) or re.search(r"재무\s*성과|사업\s*성과|경영\s*성과", quote)
+                    _anchor.search(quote)
+                    or re.search(r"재무\s*성과|사업\s*성과|경영\s*성과", quote)
                 ) and not re.search(
                     r"최초\s*발간|발행일|발간일|이전\s*보고서|검증방법|검증\s*기간", quote
                 )
@@ -187,7 +188,7 @@ def detect_reporting_period(texts, page_count, source_sha256):
     }
     return dict(
         native_pages=native_pages,
-        version=VERSION,
+        version=_version,
         status=status,
         selected=selected,
         candidates=candidates,

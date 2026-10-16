@@ -122,15 +122,15 @@ def _pdf_page_count(pdf: Path) -> int:
 
 def _validate_pdf_file(pdf: Path) -> None:
     """Refuse unsupported files before reading contents or discovering scope."""
-    from proofops.application.uploads_security import PdfLimits
+    from evaluation.scope_input import MAX_UPLOAD_BYTES
 
     if not pdf.is_file():
         raise PlanError(f"--pdf not found: {pdf}")
     if pdf.suffix.lower() != ".pdf":
         raise PlanError(f"--pdf must be a .pdf file: {pdf}")
-    limit = PdfLimits().max_bytes
+    limit = MAX_UPLOAD_BYTES
     if pdf.stat().st_size > limit:
-        raise PlanError(f"--pdf exceeds the supported upload limit of {limit} bytes (100 MiB)")
+        raise PlanError(f"--pdf exceeds the supported upload limit of {limit} bytes (150 MiB)")
 
 
 def validate_pdf(pdf: Path, pages: list[int]) -> int:
@@ -456,14 +456,17 @@ def plan_run(args: argparse.Namespace) -> dict:
             args.key_file = PROJECT_ROOT / ".env.openai.local"
         if not args.pages and not getattr(args, "scope_plan", None):
             args.auto_scope = True
-            args.auto_scope_policy = "bounded-v1"
+            if getattr(args, "auto_scope_policy", "legacy") == "legacy":
+                from proofops.application.analysis_profile import policy_for
+
+                args.auto_scope_policy = policy_for(args.analysis_profile)["scope"]
         args.parser_max_output_bytes = args.parser_max_output_bytes or 134217728
     pdf = args.pdf.expanduser().resolve()
     auto_scope_proposal: dict | None = None
     auto_scope_applied: dict | None = None
     auto_scope_artifact: Path | None = None
     scope_path = getattr(args, "scope_plan", None)
-    bounded = getattr(args, "auto_scope_policy", "legacy") == "bounded-v1"
+    bounded = getattr(args, "auto_scope_policy", "legacy") in ("bounded-v1", "bounded-v2")
     environment_limit = getattr(args, "auto_scope_environment_pages", None)
     evidence_limit = getattr(args, "auto_scope_evidence_pages", None)
     if (
@@ -501,6 +504,9 @@ def plan_run(args: argparse.Namespace) -> dict:
                     pdf,
                     max_environment_pages=8 if environment_limit is None else environment_limit,
                     max_evidence_pages=30 if evidence_limit is None else evidence_limit,
+                    ranking_policy=(
+                        "W4-v2" if args.auto_scope_policy == "bounded-v2" else "AS1-v1"
+                    ),
                 )
             source_hash = sha256(pdf.read_bytes()).hexdigest()
             if auto_scope_proposal["source_sha256"] != source_hash:
@@ -783,9 +789,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--auto-scope-policy",
-        choices=("legacy", "bounded-v1"),
+        choices=("legacy", "bounded-v1", "bounded-v2"),
         default="legacy",
-        help="Opt-in AS1 bounded-v1: CEO + environmental density; claims <=10, evidence <=30.",
+        help="bounded-v1: AS1 replay; bounded-v2: W4 claim signals; claims <=10, evidence <=30.",
     )
     parser.add_argument(
         "--auto-scope-environment-pages",

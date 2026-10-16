@@ -148,6 +148,7 @@ class RunService:
         tagging_mode: str | None = None,
         fact_assembly_profile: str = "strict-v1",
         pipeline_profile: str | None = None,
+        analysis_policy_sha256: str | None = None,
         report_level_link=None,
         preliminary_settings: TaggingSettings | None = None,
         relation_settings: TaggingSettings | None = None,
@@ -213,6 +214,7 @@ class RunService:
                 # Opt-in rendered-side-only typography wrapper, which
                 # wraps the one above. Same refusal guarantee.
                 "claim_span_typography_policy_v1",
+                "claim_source_render_conditioned_policy_v1",
             }
             or extraction_mode != "upstage_probe"
         ):
@@ -230,9 +232,17 @@ class RunService:
             "unattended-v1",
             "finals-unattended-v1",
             "finals-unattended-v2",
+            "finals-unattended-j3-v1",
+            "finals-unattended-j7-v1",
+            "finals-unattended-j8-v1",
         ):
             raise ValueError("unknown pipeline profile")
         self.pipeline_profile = pipeline_profile
+        if analysis_policy_sha256 is not None:
+            from proofops.application.analysis_profile import publication_policy_for
+
+            publication_policy_for(pipeline_profile, pinned_hash=analysis_policy_sha256)
+        self.analysis_policy_sha256 = analysis_policy_sha256
         self.tagging_settings, self.tagging_mode = tagging_settings, tagging_mode
         if report_level_link is not None and (tagging_mode is None or tagging_settings is None):
             raise ValueError("report-level link requires tagging")
@@ -658,10 +668,18 @@ class RunService:
         )
         if self.pipeline_profile is not None:
             snapshot["pipeline_profile"] = self.pipeline_profile
-            if self.pipeline_profile in ("finals-unattended-v1", "finals-unattended-v2"):
-                from proofops.application.analysis_profile import policy_for
+            if self.pipeline_profile in (
+                "finals-unattended-v1",
+                "finals-unattended-v2",
+                "finals-unattended-j3-v1",
+                "finals-unattended-j7-v1",
+                "finals-unattended-j8-v1",
+            ):
+                from proofops.application.analysis_profile import publication_policy_for
 
-                analysis_policy = policy_for(self.pipeline_profile)
+                analysis_policy = publication_policy_for(
+                    self.pipeline_profile, pinned_hash=self.analysis_policy_sha256
+                )
                 snapshot["analysis_profile_policy"] = _detach(analysis_policy)
                 snapshot["analysis_profile_policy_sha256"] = canonical_hash(analysis_policy)
                 from proofops.adapters.local import evidence_source_verification_v1 as evidence
@@ -674,8 +692,49 @@ class RunService:
                     "upstage-ocr-page-v8",
                     "upstage-ocr-page-v9",
                     "upstage-ocr-page-v10",
+                    "upstage-ocr-page-v11",
+                    "upstage-ocr-page-v12",
+                    "upstage-ocr-page-v13",
                 }:
                     from proofops.adapters.local import evidence_source_ocr_v1 as evidence
+
+                if (self.claim_source_policy or {}).get("profile") == "upstage-ocr-page-v14":
+                    from proofops.adapters.local import evidence_source_h6 as evidence
+
+                if (self.claim_source_policy or {}).get("profile") == "upstage-ocr-page-v15":
+                    from proofops.adapters.local import evidence_source_h7 as evidence
+
+                if (self.claim_source_policy or {}).get("profile") in {
+                    "upstage-ocr-page-v16",
+                    "upstage-ocr-page-v17",
+                }:
+                    from proofops.adapters.local import evidence_source_hx3 as evidence
+                if (self.claim_source_policy or {}).get("profile") == "upstage-ocr-page-v17":
+                    from proofops.adapters.local import evidence_source_hx4 as evidence
+
+                if (self.claim_source_policy or {}).get("profile") == "upstage-ocr-page-v16":
+                    from proofops.adapters.local import (
+                        evidence_source_hx4,
+                        evidence_source_hx5,
+                        upstage_ocr_profile_hx4_v16,
+                        upstage_ocr_profile_hx5_v16,
+                    )
+                    from proofops.adapters.local.claim_source_policies import claim_source_reader
+
+                    selected_reader = claim_source_reader(self.claim_source_policy)
+                    if selected_reader is upstage_ocr_profile_hx5_v16:
+                        evidence = evidence_source_hx5
+                    elif selected_reader is upstage_ocr_profile_hx4_v16:
+                        evidence = evidence_source_hx4
+                if (self.claim_source_policy or {}).get("profile") == "upstage-ocr-page-v18":
+                    from proofops.adapters.local import evidence_source_i17 as evidence
+
+                if (self.claim_source_policy or {}).get("evidence_policy"):
+                    from proofops.adapters.local.evidence_source_policies import (
+                        evidence_source_reader,
+                    )
+
+                    evidence = evidence_source_reader(self.claim_source_policy["evidence_policy"])
 
                 # EV1 accepts only a nonempty evidence-only page selection.
                 # All-claim scopes retain their normal claim/native verification.

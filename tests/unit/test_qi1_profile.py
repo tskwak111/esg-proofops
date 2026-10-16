@@ -6,13 +6,19 @@ import pytest
 
 
 def test_v2_policy_keeps_ev1_and_disables_overlap():
-    from proofops.application.analysis_profile import POLICY, V2_POLICY, apply_pilot_profile
+    from proofops.application.analysis_profile import FINALS_I8_POLICY as V2_POLICY
+    from proofops.application.analysis_profile import POLICY, apply_pilot_profile
+    from proofops.domain.provenance import canonical_hash
 
     assert POLICY["pipeline_graph"] == "full-parse-only-v1"
     assert V2_POLICY["stage_overlap"] is False
-    assert V2_POLICY["max_http_workers"] == 16
+    assert V2_POLICY["max_http_workers"] == 8
     assert V2_POLICY["evidence_source"] == "evidence-source-v1"
-    args = SimpleNamespace(analysis_profile="finals-unattended-v2", resume=False)
+    args = SimpleNamespace(
+        analysis_profile="finals-unattended-v2",
+        resume=False,
+        analysis_policy_sha256=canonical_hash(V2_POLICY),
+    )
     apply_pilot_profile(args)
     assert args.pipeline_profile == "finals-unattended-v2"
     assert args.verify_claim_spans and args.extraction_fragment_guard
@@ -32,7 +38,7 @@ def test_initial_v2_policy_remains_readable_by_exact_pinned_hash():
 
 
 def test_v2_prompt_is_opt_in_and_pins_definition_hash():
-    from proofops.application.analysis_profile import V2_POLICY
+    from proofops.application.analysis_profile import V2_PRE_D24_POLICY
     from proofops.application.tagging.quality import ELEMENT_DEFINITIONS, ELEMENT_DEFINITIONS_HASH
 
     from evaluation.local_upstage_pilot import live_tagging_settings
@@ -44,7 +50,7 @@ def test_v2_prompt_is_opt_in_and_pins_definition_hash():
     assert (
         old["preliminary_settings"]["system_prompt"] == new["preliminary_settings"]["system_prompt"]
     )
-    assert V2_POLICY["element_definitions_sha256"] == ELEMENT_DEFINITIONS_HASH
+    assert V2_PRE_D24_POLICY["element_definitions_sha256"] == ELEMENT_DEFINITIONS_HASH
 
 
 @pytest.mark.parametrize(

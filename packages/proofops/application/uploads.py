@@ -98,7 +98,9 @@ def validate_payload(kind: str, body: Mapping[str, Any]) -> dict[str, Any]:
         or re.fullmatch("[0-9a-f]{64}", result["sha256"]) is None
     ):
         raise UploadRejected("VALIDATION_ERROR")
-    if result["size_bytes"] > 104_857_600:
+    from proofops.application.input_failures import HOSTED_MAX_UPLOAD_BYTES
+
+    if result["size_bytes"] > HOSTED_MAX_UPLOAD_BYTES:
         raise UploadRejected("UPLOAD_LIMIT_EXCEEDED")
     if kind == "version":
         _text(result["filename"])
@@ -743,10 +745,14 @@ class UploadService:
         }
 
     def read_original(self, tenant: str, version_id: str) -> bytes:
+        from proofops.application.input_failures import HOSTED_MAX_UPLOAD_BYTES
+
         snapshot = self.version_snapshot(tenant, version_id)
         path = self.root / "original" / tenant / f"{version_id}.pdf"
         with path.open("rb") as original:
-            content = original.read(min(snapshot["metadata"]["size_bytes"], 104_857_600) + 1)
+            content = original.read(
+                min(snapshot["metadata"]["size_bytes"], HOSTED_MAX_UPLOAD_BYTES) + 1
+            )
         if (
             len(content) != snapshot["metadata"]["size_bytes"]
             or sha256(content).hexdigest() != snapshot["sha256"]

@@ -16,6 +16,27 @@ module, and both keep their original receipt schema and bytes.
 
 from collections.abc import Mapping
 
+# One registry owns source replay, publication and parser-native binding. Reader
+# modules remain byte-pinned; adding a shipped profile cannot omit a second gate.
+PAGE_OCR_PROFILES = {
+    "upstage-ocr-page-v1": "proofops.adapters.local.upstage_ocr_profile",
+    **{
+        f"upstage-ocr-page-v{version}": f"proofops.adapters.local.upstage_ocr_profile_v{version}"
+        for version in range(2, 22)
+    },
+    "fxf_upstage-ocr-page-v21": "proofops.adapters.local.upstage_ocr_profile_fxf",
+    "fxe_upstage-ocr-page-v21": "proofops.adapters.local.upstage_ocr_profile_fxe",
+    "upstage-ocr-page-v17-rg1": "proofops.adapters.local.upstage_ocr_profile_rg1_v17",
+    "upstage-ocr-page-v16-hx4": "proofops.adapters.local.upstage_ocr_profile_hx4_v16",
+    "upstage-ocr-page-v16-hx5": "proofops.adapters.local.upstage_ocr_profile_hx5_v16",
+    "fxg_claim_source_v1": "proofops.adapters.local.fxg_claim_source",
+    "i24_claim_source_v1": "proofops.adapters.local.i24_claim_source",
+    "fxh_claim_source_v1": "proofops.adapters.local.fxh_claim_source",
+    "s5_claim_source_v1": "proofops.adapters.local.s5_claim_source",
+    "rb3_claim_source_v1": "proofops.adapters.local.rb3_claim_source",
+    "cf4_claim_source_v1": "proofops.adapters.local.cf4_claim_source",
+}
+
 RENDER_RESOLUTION_POLICY_SCHEMA = "claim_span_render_resolution_policy_v1"
 # R19 bullet-alignment wrapper. It WRAPS the render-resolution wrapper rather
 # than replacing it, so pinning it preserves render resolution instead of
@@ -32,6 +53,7 @@ CLAIM_SOURCE_POLICY_SCHEMAS = frozenset(
     {
         "claim_source_policy_v1",
         "claim_source_policy_v2",
+        "claim_source_render_conditioned_policy_v1",
         RENDER_RESOLUTION_POLICY_SCHEMA,
         BULLET_ALIGNMENT_POLICY_SCHEMA,
         TYPOGRAPHY_POLICY_SCHEMA,
@@ -80,6 +102,12 @@ def _source_v3():
     return claim_source_verification_v3
 
 
+def _source_v4():
+    from proofops.adapters.local import claim_source_verification_v4
+
+    return claim_source_verification_v4
+
+
 def _table_claims():
     from proofops.adapters.local import table_claim_source_verification
 
@@ -90,6 +118,7 @@ def _wrappers():
     """Every wrapper module, outermost first. Additive: the base verifier's own
     dispatch is untouched and each wrapper keeps its own distinct policy."""
     return (
+        _source_v4(),
         _source_v3(),
         _table_claims(),
         _glyph_alignment(),
@@ -111,28 +140,22 @@ def claim_source_reader(policy):
     from proofops.adapters.local import claim_source_verification as base
 
     if isinstance(policy, Mapping):
+        if policy.get("profile") == "claim-source-v4":
+            wrapper = _source_v4()
+            if policy != wrapper.claim_source_policy():
+                from proofops.adapters.local.historical_prose_replay import historical_prose_reader
+
+                wrapper = historical_prose_reader()
+                if policy != wrapper.claim_source_policy():
+                    raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")
+            return wrapper
         if policy.get("profile") == "claim-source-v3":
             wrapper = _source_v3()
             if policy != wrapper.claim_source_policy():
                 raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")
             return wrapper
-        if policy.get("profile") in {
-            "upstage-ocr-page-v1",
-            "upstage-ocr-page-v2",
-            "upstage-ocr-page-v3",
-            "upstage-ocr-page-v4",
-            "upstage-ocr-page-v5",
-            "upstage-ocr-page-v6",
-            "upstage-ocr-page-v7",
-            "upstage-ocr-page-v8",
-            "upstage-ocr-page-v9",
-            "upstage-ocr-page-v10",
-        }:
-            upstage_ocr_profile = page_ocr_profile(policy["profile"])
-
-            if policy != upstage_ocr_profile.claim_source_policy():
-                raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")
-            return upstage_ocr_profile
+        if policy.get("profile") in PAGE_OCR_PROFILES:
+            return page_ocr_profile(policy["profile"], policy=policy)
         if policy.get("profile") == _table_claims().PROFILE:
             wrapper = _table_claims()
             if policy != wrapper.claim_source_policy():
@@ -172,18 +195,12 @@ def publication_reader(policy):
     """
     from proofops.adapters.local import claim_source_verification as base
 
-    if isinstance(policy, Mapping) and policy.get("profile") in {
-        "upstage-ocr-page-v1",
-        "upstage-ocr-page-v2",
-        "upstage-ocr-page-v3",
-        "upstage-ocr-page-v4",
-        "upstage-ocr-page-v5",
-        "upstage-ocr-page-v6",
-        "upstage-ocr-page-v7",
-        "upstage-ocr-page-v8",
-        "upstage-ocr-page-v9",
-        "upstage-ocr-page-v10",
-    }:
+    if isinstance(policy, Mapping) and policy.get("profile") in PAGE_OCR_PROFILES:
+        if policy.get("profile") == "upstage-ocr-page-v21":
+            module = page_ocr_profile(policy["profile"])
+            if page_ocr_profile(policy["profile"], policy=policy) is not module:
+                raise ValueError("CLAIM_SOURCE_POLICY_MISMATCH")
+            return module
         return claim_source_reader(policy)
     for module in (base, *_wrappers()):
         if policy == module.claim_source_policy():
@@ -212,25 +229,63 @@ def attest_claims(*, reader, graph, source, refs, tenant_id, cache, run_id=None)
     publication can match them instead of repeating the same whole-ref read.
     The published bytes are unchanged either way.
     """
-    if getattr(reader, "PROFILE", None) in {
-        "upstage-ocr-page-v1",
-        "upstage-ocr-page-v2",
-        "upstage-ocr-page-v3",
-        "upstage-ocr-page-v4",
-        "upstage-ocr-page-v5",
-        "upstage-ocr-page-v6",
-        "upstage-ocr-page-v7",
-        "upstage-ocr-page-v8",
-        "upstage-ocr-page-v9",
-        "upstage-ocr-page-v10",
-    }:
+    if getattr(reader, "PROFILE", None) in PAGE_OCR_PROFILES:
         refs = tuple(refs)
         from proofops.adapters.local.verified_read_cache import _execution_policy
-        from proofops.application.analysis_profile import VERIFIED_READ_V4_POLICY
+        from proofops.adapters.local.worker_resources import enabled as resources_enabled
+        from proofops.application.analysis_profile import (
+            S3_VERIFIED_READ_V13_POLICY,
+            VERIFIED_READ_V4_POLICY,
+            VERIFIED_READ_V5_POLICY,
+            VERIFIED_READ_V6_POLICY,
+            VERIFIED_READ_V7_POLICY,
+            VERIFIED_READ_V8_POLICY,
+            VERIFIED_READ_V11_POLICY,
+            VERIFIED_READ_V12_POLICY,
+        )
 
-        if (
-            reader.PROFILE == "upstage-ocr-page-v9"
-            and _execution_policy() == VERIFIED_READ_V4_POLICY
+        if _execution_policy() in (
+            VERIFIED_READ_V12_POLICY,
+            S3_VERIFIED_READ_V13_POLICY,
+        ) and reader.PROFILE in {
+            "upstage-ocr-page-v19",
+            "upstage-ocr-page-v20",
+            "upstage-ocr-page-v21",
+        }:
+            from proofops.adapters.local.i21_reader_execution import reader_scope
+
+            with reader_scope(reader, run_id=run_id, tenant_id=tenant_id) as instance:
+                receipt = instance.attest_claim_spans(graph, source, refs, tenant_id=tenant_id)
+        elif (
+            reader.PROFILE == "upstage-ocr-page-v19"
+            and _execution_policy() == VERIFIED_READ_V11_POLICY
+        ):
+            from proofops.adapters.local.s2_reader_execution import reader_scope
+
+            with reader_scope(reader, run_id=run_id, tenant_id=tenant_id) as instance:
+                receipt = instance.attest_claim_spans(graph, source, refs, tenant_id=tenant_id)
+        elif (
+            (resources_enabled() and reader.PROFILE == "upstage-ocr-page-v13")
+            or (
+                reader.PROFILE == "upstage-ocr-page-v9"
+                and _execution_policy() == VERIFIED_READ_V4_POLICY
+            )
+            or (
+                reader.PROFILE in VERIFIED_READ_V5_POLICY["raw_ocr_profiles"]
+                and _execution_policy() == VERIFIED_READ_V5_POLICY
+            )
+            or (
+                reader.PROFILE in VERIFIED_READ_V6_POLICY["raw_ocr_profiles"]
+                and _execution_policy() == VERIFIED_READ_V6_POLICY
+            )
+            or (
+                reader.PROFILE in VERIFIED_READ_V7_POLICY["raw_ocr_profiles"]
+                and _execution_policy() == VERIFIED_READ_V7_POLICY
+            )
+            or (
+                reader.PROFILE in VERIFIED_READ_V8_POLICY["raw_ocr_profiles"]
+                and _execution_policy() == VERIFIED_READ_V8_POLICY
+            )
         ):
             from proofops.adapters.local.pa7_raster_cache import attest
 
@@ -272,46 +327,46 @@ def attest_claims(*, reader, graph, source, refs, tenant_id, cache, run_id=None)
     return receipt
 
 
-def page_ocr_profile(profile):
-    """Resolve the explicitly versioned mapping; never reinterpret old receipts."""
-    if profile == "upstage-ocr-page-v10":
-        from proofops.adapters.local import upstage_ocr_profile_v10
+def page_ocr_profile(profile, *, policy=None, native=False):
+    """Resolve only shipped registry entries; never import an untrusted module name."""
+    from importlib import import_module
 
-        return upstage_ocr_profile_v10
-    if profile == "upstage-ocr-page-v9":
-        from proofops.adapters.local import upstage_ocr_profile_v9
+    if not isinstance(profile, str) or profile not in PAGE_OCR_PROFILES:
+        raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")
+    module = import_module(PAGE_OCR_PROFILES[profile])
+    if policy is None:
+        return module
+    candidates = [module]
+    if profile == "upstage-ocr-page-v16":
+        candidates.extend(
+            import_module(PAGE_OCR_PROFILES[name])
+            for name in ("upstage-ocr-page-v16-hx4", "upstage-ocr-page-v16-hx5")
+        )
+    if profile == "upstage-ocr-page-v17":
+        candidates.append(import_module(PAGE_OCR_PROFILES["upstage-ocr-page-v17-rg1"]))
+    for candidate in candidates:
+        expected = candidate.native_policy() if native else candidate.claim_source_policy()
+        if policy == expected:
+            return candidate
+    if profile == "upstage-ocr-page-v21":
+        from proofops.adapters.local import upstage_ocr_profile_d2_v21
+        from proofops.adapters.local.historical_claim_replay import (
+            historical_upstage_ocr_v21_reader,
+        )
+        from proofops.adapters.local.historical_prose_replay import historical_pre_d2_reader
 
-        return upstage_ocr_profile_v9
-    if profile == "upstage-ocr-page-v8":
-        from proofops.adapters.local import upstage_ocr_profile_v8
+        for historical in (
+            upstage_ocr_profile_d2_v21,
+            historical_upstage_ocr_v21_reader(),
+            historical_pre_d2_reader(),
+        ):
+            expected = historical.native_policy() if native else historical.claim_source_policy()
+            if policy == expected:
+                return historical
+    if profile == "upstage-ocr-page-v21" and not native:
+        from proofops.adapters.local.historical_prose_replay import historical_prose_reader
 
-        return upstage_ocr_profile_v8
-    if profile == "upstage-ocr-page-v7":
-        from proofops.adapters.local import upstage_ocr_profile_v7
-
-        return upstage_ocr_profile_v7
-    if profile == "upstage-ocr-page-v6":
-        from proofops.adapters.local import upstage_ocr_profile_v6
-
-        return upstage_ocr_profile_v6
-    if profile == "upstage-ocr-page-v5":
-        from proofops.adapters.local import upstage_ocr_profile_v5
-
-        return upstage_ocr_profile_v5
-    if profile == "upstage-ocr-page-v4":
-        from proofops.adapters.local import upstage_ocr_profile_v4
-
-        return upstage_ocr_profile_v4
-    if profile == "upstage-ocr-page-v1":
-        from proofops.adapters.local import upstage_ocr_profile
-
-        return upstage_ocr_profile
-    if profile == "upstage-ocr-page-v2":
-        from proofops.adapters.local import upstage_ocr_profile_v2
-
-        return upstage_ocr_profile_v2
-    if profile == "upstage-ocr-page-v3":
-        from proofops.adapters.local import upstage_ocr_profile_v3
-
-        return upstage_ocr_profile_v3
+        historical = historical_prose_reader(page_ocr=True)
+        if policy == historical.claim_source_policy():
+            return historical
     raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")

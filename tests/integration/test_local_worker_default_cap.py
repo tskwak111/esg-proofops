@@ -7,8 +7,15 @@ from tests.integration.test_local_tag_runner import TENANT, tag_setup
 
 @pytest.mark.parametrize("configured,expected", [(None, 8), ("4", 4), ("16", 16)])
 def test_worker_composition_preserves_operator_cap(tmp_path, monkeypatch, configured, expected):
+    import json
+    from uuid import uuid4
+
+    from proofops.application.ingest.graph_fusion import ParserProfile
     from proofops_worker.composition import build_composition
 
+    config = tmp_path / "parser.json"
+    config.write_text(json.dumps(ParserProfile(str(uuid4())).config_snapshot()))
+    monkeypatch.setenv("LOCAL_PARSER_PROFILE_PATH", str(config))
     monkeypatch.setenv("LOCAL_DATABASE_PATH", str(tmp_path / "state.sqlite3"))
     monkeypatch.setenv("LOCAL_TAGGING_MODE", "local_synthetic")
     monkeypatch.delenv("LOCAL_LLM_MAX_WORKERS", raising=False)

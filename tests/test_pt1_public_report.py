@@ -6,7 +6,7 @@ from tests.test_live_report_handler import report
 
 def test_public_unverified_claim_gets_provisional_not_confirmed(monkeypatch):
     monkeypatch.setenv("DEMO_ACCESS_CODE", "PT1-test")
-    monkeypatch.setattr(report, "check_limits", lambda *_: None)
+    monkeypatch.setattr(report, "check_limits", lambda *_, **__: None)
     parsed = {
         "model": "document-parse-260128",
         "usage": {"standard": [1], "pages": 1},

@@ -12,7 +12,7 @@ from pathlib import Path
 from threading import Semaphore
 from uuid import uuid4
 
-ROOT = Path("/Users/ss020/Dev/ESG_ProofOps")
+ROOT = Path("/path/to/ESG_ProofOps")
 APP = ROOT / ".local/r108-q9"
 OUT = ROOT / "outputs/agent-results/R108-redesign/lab/perf/PF1"
 SPEND = ROOT / "outputs/agent-results/R108-redesign/lab/sprint3/E2E/r108-spend.json"

@@ -168,6 +168,15 @@ class RawCandidate(StrictDTO):
     reason: str | None = None
 
 
+class SentenceContext(StrictDTO):
+    policy: dict
+    text: str
+    source_refs: list[SourceRef]
+    verification_state: Literal["verified", "candidate"]
+    role: Literal["parent_paragraph"]
+    rule_credit: Literal[False]
+
+
 class ReviewProjection(StrictDTO):
     """Additive, read-only view of a blocked/in-progress tagging attempt.
 
@@ -188,6 +197,7 @@ class ReviewProjection(StrictDTO):
     blocked_action: str | None
     field_agreements: list[FieldAgreement]
     raw_candidates: list[RawCandidate] = Field(default_factory=list)
+    sentence_context: SentenceContext | None = None
     source_status: dict | None = None
     provisional_grade: dict | None = None
     pipeline_stage: str | None = None
@@ -329,6 +339,7 @@ def build_claims_router(claims, auth_store, *, tags=None, assurance=None, clock=
             "original_packet" in item
             or "preliminary_agreement" in item
             or "raw_candidate_review" in item
+            or "sentence_context" in item
         )
         if blocked_reason is None and not has_projection_fields:
             # Older record predating this projection: nothing additive to show.
@@ -405,6 +416,12 @@ def build_claims_router(claims, auth_store, *, tags=None, assurance=None, clock=
             field_agreements=agreements,
             raw_candidates=raw_candidates,
             **(
+                {"sentence_context": item["sentence_context"]}
+                if (item.get("sentence_context") or {}).get("policy", {}).get("profile")
+                == "literal-sentence-context-k5-v1"
+                else {}
+            ),
+            **(
                 {
                     "source_status": item["source_status"],
                     "provisional_grade": item["provisional_grade"],
@@ -417,7 +434,7 @@ def build_claims_router(claims, auth_store, *, tags=None, assurance=None, clock=
 
     def detail_payload(body):
         result = ClaimDetail.model_validate_json(json.dumps(body)).model_dump(mode="json")
-        for key in ("source_status", "provisional_grade", "pipeline_stage"):
+        for key in ("source_status", "provisional_grade", "pipeline_stage", "sentence_context"):
             if result["claim"].get(key) is None:
                 result["claim"].pop(key, None)
             if result.get("review_projection") and result["review_projection"].get(key) is None:
@@ -499,6 +516,9 @@ def build_claims_router(claims, auth_store, *, tags=None, assurance=None, clock=
                 "unattended-v1",
                 "finals-unattended-v1",
                 "finals-unattended-v2",
+                "finals-unattended-j3-v1",
+                "finals-unattended-j7-v1",
+                "finals-unattended-j8-v1",
             ):
                 try:
                     provisional_items = {
