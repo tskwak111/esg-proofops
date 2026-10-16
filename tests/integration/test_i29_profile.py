@@ -11,7 +11,7 @@ def test_v29_composition_and_historical_publication():
         "source": profiles.CF4_SOURCE_POLICY["source"],
         "cf2_c3_response_binding": profiles.CF2_C3_POLICY["cf2_c3_response_binding"],
         "cf1_inventory": profiles.CF1_POLICY["cf1_inventory"],
-        "cf6_confirmation": profiles.CF6_POLICY["cf6_confirmation"],
+        "cf6_confirmation": profiles.CF6_V2_POLICY["cf6_confirmation"],
         **{
             key: value
             for key, value in profiles.CF5_POLICY.items()
@@ -22,7 +22,12 @@ def test_v29_composition_and_historical_publication():
     assert canonical_hash(profiles.FINALS_I28_POLICY) == (
         "31808287164e43e17495bccb17e31e7c53c7746ff0f7c9148276958f7d28cab2"
     )
-    for selected in (current, profiles.FINALS_I28_POLICY, profiles.FINALS_I27_POLICY):
+    for selected in (
+        current,
+        profiles.FINALS_I29_INITIAL_POLICY,
+        profiles.FINALS_I28_POLICY,
+        profiles.FINALS_I27_POLICY,
+    ):
         pin = canonical_hash(selected)
         assert profiles.policy_for(profiles.V2_PROFILE, pinned_hash=pin) == selected
         assert profiles.publication_policy_for(profiles.V2_PROFILE, pinned_hash=pin) == selected
@@ -57,7 +62,7 @@ def test_offline_smoke_answers_compact_cf1_inventory_without_claim_id():
 def test_integrated_worker_replays_cf6_without_promoting_synthetic_inputs(tmp_path, monkeypatch):
     from tests.integration import test_cf6_confirmation as fixture
 
-    monkeypatch.setattr(fixture, "CF6_POLICY", profiles.V2_POLICY)
+    monkeypatch.setattr(fixture, "CF6_V2_POLICY", profiles.V2_POLICY)
     fixture.test_worker_checkpoint_wires_cf6_and_replays_without_synthetic_promotion(
         tmp_path, monkeypatch
     )

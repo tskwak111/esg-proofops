@@ -1225,7 +1225,7 @@ CF6_V2_POLICY = FINALS_I27_POLICY | dict(
 
 # I29 activates the authorized DEC-125/127 composition on v28. Keep every
 # constituent policy unchanged so saved responses retain their original reader.
-FINALS_I29_POLICY = FINALS_I28_POLICY | dict(
+FINALS_I29_INITIAL_POLICY = FINALS_I28_POLICY | dict(
     integration_profile="finals-20261016-v29",
     source=CF4_SOURCE_POLICY["source"],
     cf2_c3_response_binding=CF2_C3_POLICY["cf2_c3_response_binding"],
@@ -1236,6 +1236,9 @@ FINALS_I29_POLICY = FINALS_I28_POLICY | dict(
     tagging_prompt_policy_sha256=CF5_POLICY["tagging_prompt_policy_sha256"],
     cf5_context_policy=CF5_POLICY["cf5_context_policy"],
     cf5_context_policy_sha256=CF5_POLICY["cf5_context_policy_sha256"],
+)
+FINALS_I29_POLICY = FINALS_I29_INITIAL_POLICY | dict(
+    cf6_confirmation=CF6_V2_POLICY["cf6_confirmation"],
 )
 V2_POLICY = FINALS_I29_POLICY
 
@@ -1274,6 +1277,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_I29_INITIAL_POLICY,
             FINALS_I28_POLICY,
             FINALS_I27_POLICY,
             CF2_C3_POLICY,
@@ -1449,6 +1453,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FINALS_I29_INITIAL_POLICY,
             FINALS_I28_POLICY,
             FINALS_I27_POLICY,
             FINALS_I27_PRE_RB2_POLICY,
