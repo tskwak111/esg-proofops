@@ -7,7 +7,9 @@ from proofops.domain.provenance import canonical_hash
 
 
 def test_v28_composition_and_v27_replay():
-    current = profiles.policy_for(profiles.V2_PROFILE)
+    current = profiles.policy_for(
+        profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_I28_POLICY)
+    )
     assert current == profiles.FINALS_I28_POLICY
     assert current == profiles.FINALS_I27_POLICY | dict(
         integration_profile="finals-20261016-v28",

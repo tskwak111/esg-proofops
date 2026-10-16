@@ -174,7 +174,12 @@ def test_opt_in_policy_leaves_default_and_historical_hashes():
     from proofops.application import analysis_profile as profiles
     from proofops.domain.provenance import canonical_hash
 
-    assert profiles.policy_for(profiles.V2_PROFILE) == profiles.FINALS_I27_POLICY
+    assert (
+        profiles.policy_for(
+            profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_I27_POLICY)
+        )
+        == profiles.FINALS_I27_POLICY
+    )
     assert (
         profiles.publication_policy_for(
             profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.CF4_SOURCE_POLICY)

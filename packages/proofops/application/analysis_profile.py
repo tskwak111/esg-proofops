@@ -36,10 +36,10 @@ from proofops.application.rb4_memory import PUBLICATION_POLICY as RB4_PUBLICATIO
 from proofops.application.tagging.analysis_scope import confirmation_policy as sc1_policy
 from proofops.application.tagging.c3_request_binding import CF2_POLICY as CF2_C3_BINDING
 from proofops.application.tagging.c3_request_binding import S5_POLICY as S5_C3_BINDING
-from proofops.application.tagging.cf5_context import POLICY as CF5_CONTEXT_POLICY
-from proofops.application.tagging.cf5_context import PROFILE as CF5_PROMPT_PROFILE
 from proofops.application.tagging.cf1_inventory import MAJORITY_POLICY as CF1_MAJORITY_POLICY
 from proofops.application.tagging.cf1_inventory import POLICY as CF1_INVENTORY_POLICY
+from proofops.application.tagging.cf5_context import POLICY as CF5_CONTEXT_POLICY
+from proofops.application.tagging.cf5_context import PROFILE as CF5_PROMPT_PROFILE
 from proofops.application.tagging.cf6_confirmation import POLICY as CF6_CONFIRMATION_POLICY
 from proofops.application.tagging.dec24 import (
     DEFINITIONS_HASH,
@@ -1218,6 +1218,23 @@ CF6_POLICY = FINALS_I27_POLICY | dict(
 )
 
 
+# I29 activates the authorized DEC-125/127 composition on v28. Keep every
+# constituent policy unchanged so saved responses retain their original reader.
+FINALS_I29_POLICY = FINALS_I28_POLICY | dict(
+    integration_profile="finals-20261016-v29",
+    source=CF4_SOURCE_POLICY["source"],
+    cf2_c3_response_binding=CF2_C3_POLICY["cf2_c3_response_binding"],
+    cf1_inventory=CF1_POLICY["cf1_inventory"],
+    cf6_confirmation=CF6_POLICY["cf6_confirmation"],
+    tagging_prompt_profile=CF5_POLICY["tagging_prompt_profile"],
+    tagging_prompt_policy=CF5_POLICY["tagging_prompt_policy"],
+    tagging_prompt_policy_sha256=CF5_POLICY["tagging_prompt_policy_sha256"],
+    cf5_context_policy=CF5_POLICY["cf5_context_policy"],
+    cf5_context_policy_sha256=CF5_POLICY["cf5_context_policy_sha256"],
+)
+V2_POLICY = FINALS_I29_POLICY
+
+
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
     from proofops.application.tagging.fact_assembly_c3_v2 import (
@@ -1252,6 +1269,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_I28_POLICY,
             FINALS_I27_POLICY,
             CF2_C3_POLICY,
             FINALS_I27_PRE_RB2_POLICY,
@@ -1426,6 +1444,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FINALS_I28_POLICY,
             FINALS_I27_POLICY,
             FINALS_I27_PRE_RB2_POLICY,
             CF5_POLICY,

@@ -101,11 +101,7 @@ def preserve_context(packet, claim, graph):
     # Keep already selected captions, footnotes, origin headers and continuations.
     # A future-plan caption can govern the focal row even outside its own block.
     # Widening a focal block must not silently discard that existing qualifier.
-    entries.extend(
-        entry
-        for entry in data["context_blocks"]
-        if entry["source_id"] not in own_ids
-    )
+    entries.extend(entry for entry in data["context_blocks"] if entry["source_id"] not in own_ids)
     limits = result["context_policy"]
     # Table-axis entries already have their own table_policy bound. They are
     # retained unchanged and do not consume the ordinary prose block allowance.

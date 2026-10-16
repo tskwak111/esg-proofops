@@ -25,7 +25,12 @@ def test_cf1_pin_and_request_identity_are_opt_in(tmp_path):
     )
     assert old["prompt_sha256"] != new["prompt_sha256"]
     assert old["request_id"] != new["request_id"]
-    assert profiles.policy_for(profiles.V2_PROFILE) == profiles.FINALS_I27_POLICY
+    assert (
+        profiles.policy_for(
+            profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_I27_POLICY)
+        )
+        == profiles.FINALS_I27_POLICY
+    )
     assert (
         profiles.publication_policy_for(
             profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.CF1_POLICY)

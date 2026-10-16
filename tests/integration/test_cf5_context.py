@@ -64,7 +64,12 @@ def test_opt_in_pin_does_not_change_v27():
     assert canonical_hash(profiles.FINALS_I27_POLICY) == (
         "fcd788f4c89034141c8767913f1c1acabdaefa1c8f543cdc5231903f05fa1804"
     )
-    assert profiles.policy_for(profiles.V2_PROFILE) == profiles.FINALS_I27_POLICY
+    assert (
+        profiles.policy_for(
+            profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_I27_POLICY)
+        )
+        == profiles.FINALS_I27_POLICY
+    )
     policy = profiles.CF5_POLICY
     assert profiles.policy_for(profiles.V2_PROFILE, pinned_hash=canonical_hash(policy)) == policy
     assert (

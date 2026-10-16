@@ -162,10 +162,10 @@ def test_public_default_upload_binding_parse_extract_tag_publication(
     assert not data["hold_reasons"]
     state = store.document_dir(tenant, document) / "analysis" / done["run_id"]
     manifest = json.loads((state / "pilot.json").read_text())
-    assert V2_POLICY["integration_profile"] == "finals-20261016-v28"
+    assert V2_POLICY["integration_profile"] == "finals-20261016-v29"
     assert V2_POLICY["parser_failure_policy"] == "s3_partial-v7"
     assert V2_POLICY["located_table_context"]["profile"] == "located-table-context-p2-v1"
-    assert manifest["claim_source_profile"] == "s5_claim_source_v1"
+    assert manifest["claim_source_profile"] == "cf4_claim_source_v1"
     assert manifest["analysis_policy_sha256"] == canonical_hash(V2_POLICY)
     assert manifest["extraction_qc_native_figures"] is True
     saved_settings = json.loads((state / "settings.json").read_text())
