@@ -4,8 +4,7 @@ from pathlib import Path
 import pytest
 from proofops.application.evidence.assurance_boundaries_c2 import discover_segments
 
-ROOT = Path("/path/to/ESG_ProofOps")
-DATA = ROOT / "outputs/agent-results/R108-redesign/lab/fix/E02"
+DATA = Path(__file__).resolve().parents[1] / "fixtures/c2"
 
 
 def test_reviewed_original_boundaries_and_shared_page_are_separate():

@@ -8,6 +8,8 @@ import pytest
 from proofops.adapters.parsing import hx6_upstage as hx6
 from proofops.domain.provenance import canonical_hash
 
+from tests.acceptance.test_parsing import JAVA
+
 
 def test_four_page_transport_overlaps_and_grounding_waits_for_wave(monkeypatch):
     monkeypatch.setattr(hx6, "native_pages", lambda *a: [])
@@ -146,7 +148,7 @@ def test_parallel_parser_roundtrip_preserves_source_and_rejects_tampering(tmp_pa
         str(uuid4()),
         physical_pages=(1, 2),
         claim_physical_pages=(1, 2),
-        java_executable="/opt/homebrew/opt/openjdk@21/bin/java",
+        java_executable=JAVA,
         parser_mode="mixed-v1",
         local_resource_policy="selected-pdf-h6-v2",
         failure_policy="s3_partial-v7",

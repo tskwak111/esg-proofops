@@ -1,0 +1,71 @@
+%PDF-1.3
+%‚„œ”
+1 0 obj
+<<
+/Type /Catalog
+/Pages 2 0 R
+>>
+endobj
+2 0 obj
+<<
+/Type /Pages
+/Count 1
+/Kids [ 3 0 R ]
+>>
+endobj
+3 0 obj
+<<
+/Type /Page
+/Resources <<
+>>
+/MediaBox [ 0.0 0.0 600 800 ]
+/Parent 2 0 R
+/Annots [ 4 0 R ]
+>>
+endobj
+4 0 obj
+<<
+/Type /Annot
+/Subtype /Link
+/A 5 0 R
+>>
+endobj
+5 0 obj
+<<
+/D (InDesign ClipboardScrap1\072\0720)
+/F 6 0 R
+/NewWindow false
+/S /GoToR
+>>
+endobj
+6 0 obj
+<<
+/F (\057C\057Public\057Fixtures\057InDesign ClipboardScrap1\056pdf)
+/Type /Filespec
+/UF (\057C\057Public\057Fixtures\057InDesign ClipboardScrap1\056pdf)
+>>
+endobj
+7 0 obj
+<<
+/Producer (pypdf)
+>>
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000123 00000 n 
+0000000235 00000 n 
+0000000293 00000 n 
+0000000389 00000 n 
+0000000563 00000 n 
+trailer
+<<
+/Size 8
+/Root 1 0 R
+/Info 7 0 R
+>>
+startxref
+602
+%%EOF

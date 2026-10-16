@@ -56,3 +56,18 @@ outputs/handoff-packages/
 /docs/DEVELOPER_B_POLICY_PROPOSALS.md
 /docs/R00_DOMAIN_DECISIONS.md
 /docs/evidence/pa7-extract-replay.json
+
+# Reviewed synthetic PDFs and public report excerpts used by offline regressions.
+!/tests/fixtures/fx6b/1-click.pdf
+!/tests/fixtures/fx6b/2-click.pdf
+!/tests/fixtures/fx6b/3-click.pdf
+!/tests/fixtures/fx6b/4-click.pdf
+!/tests/fixtures/fx6b/5-click.pdf
+!/tests/fixtures/fx6b/6-click.pdf
+!/tests/fixtures/fx6b/7-owner-metadata.pdf
+!/tests/fixtures/fx6b/8-owner-metadata.pdf
+!/tests/fixtures/k7/hyundai.pdf
+!/tests/fixtures/k8/sk19.pdf
+!/tests/fixtures/pa9/kia.pdf
+!/tests/fixtures/pa9/naver.pdf
+!/tests/fixtures/pb4/naver-p88.pdf

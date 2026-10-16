@@ -9,13 +9,22 @@ on:
 jobs:
   python:
     runs-on: ubuntu-24.04
+    # Match the locked CPU OCR and font runtime used by deploy/public/Dockerfile.
+    container: python:3.12.14-slim-trixie
+    defaults:
+      run:
+        shell: bash
     permissions:
       contents: read
     steps:
+      - name: Install pinned original-source reader runtime
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends git ca-certificates procps libfontconfig1 fonts-noto-cjk \
+            tesseract-ocr=5.5.0-1+b1 libtesseract5=5.5.0-1+b1 \
+            tesseract-ocr-eng=1:4.1.0-2 tesseract-ocr-kor=1:4.1.0-2
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38
-        with:
-          python-version: "3.12"
+      # Python 3.12 is pinned by the container image.
       - uses: astral-sh/setup-uv@445689ea25e0de0a23313031f5fe577c74ae45a1 # v6.3.0
         with:
           enable-cache: true
@@ -126,13 +135,22 @@ jobs:
 
   supply-chain:
     runs-on: ubuntu-24.04
+    # Match the locked CPU OCR and font runtime used by deploy/public/Dockerfile.
+    container: python:3.12.14-slim-trixie
+    defaults:
+      run:
+        shell: bash
     permissions:
       contents: read
     steps:
+      - name: Install pinned original-source reader runtime
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends git ca-certificates procps libfontconfig1 fonts-noto-cjk \
+            tesseract-ocr=5.5.0-1+b1 libtesseract5=5.5.0-1+b1 \
+            tesseract-ocr-eng=1:4.1.0-2 tesseract-ocr-kor=1:4.1.0-2
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38
-        with:
-          python-version: "3.12"
+      # Python 3.12 is pinned by the container image.
       - uses: astral-sh/setup-uv@445689ea25e0de0a23313031f5fe577c74ae45a1
         with:
           enable-cache: true

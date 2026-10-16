@@ -5,6 +5,8 @@ import pytest
 from proofops.adapters.parsing import hx6_upstage as hx6
 from proofops.domain.provenance import canonical_hash
 
+from tests.acceptance.test_parsing import JAVA
+
 
 def test_native_claims_survive_provider_outage_without_source_promotion(monkeypatch):
     from tests.integration.test_claim_source_v3 import synthetic
@@ -172,7 +174,7 @@ def test_parser_native_recovery_and_checkpoint_replay(tmp_path):
         str(uuid4()),
         physical_pages=(1, 2),
         claim_physical_pages=(1, 2),
-        java_executable="/opt/homebrew/opt/openjdk@21/bin/java",
+        java_executable=JAVA,
         parser_mode="mixed-v1",
         local_resource_policy="selected-pdf-h6-v1",
         failure_policy="partial-v5",
@@ -274,7 +276,7 @@ def test_provider_page_failure_keeps_other_page_and_replays(tmp_path, monkeypatc
         str(uuid4()),
         physical_pages=(1, 2),
         claim_physical_pages=(1, 2),
-        java_executable="/opt/homebrew/opt/openjdk@21/bin/java",
+        java_executable=JAVA,
         parser_mode="mixed-v1",
         local_resource_policy="selected-pdf-h6-v1",
         failure_policy="partial-v5",

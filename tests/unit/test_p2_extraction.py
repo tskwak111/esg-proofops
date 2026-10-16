@@ -8,6 +8,7 @@ from proofops.application.ingest.graph_fusion import CanonicalBlock
 from proofops.application.tagging.dec24 import adjacent_table
 from proofops.domain.errors import DomainValidationError
 
+from tests.acceptance.test_parsing import JAVA
 from tests.integration.test_claim_source_v3 import synthetic
 
 
@@ -154,7 +155,7 @@ def test_claim_layout_parser_replays_new_policy_and_rejects_policy_tampering(tmp
         str(uuid4()),
         physical_pages=(1, 2),
         claim_physical_pages=(1,),
-        java_executable="/opt/homebrew/opt/openjdk@21/bin/java",
+        java_executable=JAVA,
         parser_mode="mixed-v1",
         local_resource_policy="selected-pdf-h6-v2",
         failure_policy="partial-v6",

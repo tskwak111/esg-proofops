@@ -1,0 +1,1 @@
+Public sustainability-report assurance excerpts from Kakao 2025 (physical pages 130–139) and LG Chem 2025 (117–119). Native discovery text is preserved verbatim, including the shared LG page and blank Kakao back cover. Original PDF hashes remain in source-inventory.json; local source paths and timings are excluded. These discovery fixtures do not grant evidence admission.

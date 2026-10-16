@@ -41,6 +41,7 @@ def test_rb2_registration_and_v29_default_leave_historical_hashes():
         FINALS_I27_POLICY,
         FINALS_I28_POLICY,
         FINALS_I29_POLICY,
+        FINALS_I29B_POLICY,
         FXH_POLICY,
         RB2_POLICY,
         V2_POLICY,
@@ -55,7 +56,10 @@ def test_rb2_registration_and_v29_default_leave_historical_hashes():
     assert canonical_hash(FINALS_I25_POLICY) == (
         "2ed6dc6869c35a152887db1d55629c19a0902e95b8b50b64e5f52af25c86f4c0"
     )
-    assert V2_POLICY == FINALS_I29_POLICY
+    assert V2_POLICY == FINALS_I29B_POLICY
+    assert (
+        policy_for(V2_PROFILE, pinned_hash=canonical_hash(FINALS_I29_POLICY)) == FINALS_I29_POLICY
+    )
     assert (
         policy_for(V2_PROFILE, pinned_hash=canonical_hash(FINALS_I28_POLICY)) == FINALS_I28_POLICY
     )
