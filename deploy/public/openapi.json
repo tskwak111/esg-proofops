@@ -814,6 +814,12 @@
               }
             ],
             "title": "Scope Selection Sha256"
+          },
+          "force_fresh": {
+            "type": "boolean",
+            "title": "Force Fresh",
+            "default": false,
+            "description": "Admin only: bypass published-result reuse."
           }
         },
         "additionalProperties": false,

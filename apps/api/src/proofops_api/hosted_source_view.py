@@ -191,6 +191,11 @@ def _stored_glyphs(path, evidence_hash, ref, physical, source_sha, geometry):
 
 def project_source_view(reads, row, doc, result, *, w18=False):
     """Add nullable locations using only the existing pinned snapshot/geometry reader."""
+    if result.get("reuse", {}).get("reused"):
+        from proofops_api.hosted_reuse import source_document, verify_copy
+
+        verify_copy(reads.store, row, result)
+        return result | dict(w16_source_document=source_document(doc))
     root = (
         reads.store.document_dir(row["tenant_id"], row["document_id"]) / "analysis" / row["run_id"]
     )
