@@ -456,7 +456,10 @@ def test_worker_checkpoint_wires_cf6_and_replays_without_synthetic_promotion(tmp
     service, run_id, runner, _, _ = verified_setup(tmp_path, monkeypatch)
     from proofops.application.rb3_deadline import Deadline
 
-    runner.rb3_deadline = Deadline(1800, clock=lambda: 0)
+    deadline_policy = CF6_V2_POLICY["rb3_deadline"]
+    runner.rb3_deadline = Deadline(
+        deadline_policy["hard_cap_seconds"], policy=deadline_policy, clock=lambda: 0
+    )
     execute_worker = runner._execute
     captured = []
 

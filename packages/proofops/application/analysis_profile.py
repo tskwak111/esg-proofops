@@ -31,6 +31,7 @@ from proofops.application.provider_resilience import (
 from proofops.application.provider_resilience import POLICY as F1_RESILIENCE_POLICY
 from proofops.application.rb1_input_isolation import POLICY as RB1_INPUT_POLICY
 from proofops.application.rb3_deadline import POLICY as RB3_DEADLINE_POLICY
+from proofops.application.rb3_deadline import POLICY_V2 as RB3_DEADLINE_V2_POLICY
 from proofops.application.rb4_memory import POLICY as RB4_MEMORY_POLICY
 from proofops.application.rb4_memory import PUBLICATION_POLICY as RB4_PUBLICATION_POLICY
 from proofops.application.tagging.analysis_scope import confirmation_policy as sc1_policy
@@ -1240,7 +1241,12 @@ FINALS_I29_INITIAL_POLICY = FINALS_I28_POLICY | dict(
 FINALS_I29_POLICY = FINALS_I29_INITIAL_POLICY | dict(
     cf6_confirmation=CF6_V2_POLICY["cf6_confirmation"],
 )
-V2_POLICY = FINALS_I29_POLICY
+# HF2 changes only deadline admission. Historical v29 remains exactly pinned.
+FINALS_I29B_POLICY = FINALS_I29_POLICY | dict(
+    integration_profile="finals-20261016-v29b",
+    rb3_deadline=RB3_DEADLINE_V2_POLICY,
+)
+V2_POLICY = FINALS_I29B_POLICY
 
 
 def policy_for(profile, *, pinned_hash=None):
@@ -1277,6 +1283,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_I29_POLICY,
             FINALS_I29_INITIAL_POLICY,
             FINALS_I28_POLICY,
             FINALS_I27_POLICY,
@@ -1453,6 +1460,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FINALS_I29_POLICY,
             FINALS_I29_INITIAL_POLICY,
             FINALS_I28_POLICY,
             FINALS_I27_POLICY,

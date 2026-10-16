@@ -75,7 +75,9 @@ key files or provide them to the browser. Run the existing `hosted_control.py wo
 macOS worker uses an isolated subprocess with its own document-scoped receipts,
 SQLite state and selected PDF. It never points at the research state/cache/budget
 DB. Hosted money/fences remain authoritative and are checked before each transport.
-One active run is capped at1800seconds of pipeline execution; unknown dispatch on
+One active run defaults to a2700second pipeline watchdog (HF2/v29b). Set
+`HOSTED_ANALYSIS_TIMEOUT_SECONDS=2700` in runtime.env; an existing explicit1800
+overrides the new default. The1900second lease renews every30seconds. Unknown dispatch on
 crash/timeout retains the reservation and needs reconciliation. The analysis lock
 is inherited by its child: a parent crash cannot make purge unlink active source
 files. A tombstoned worker cannot dispatch or publish; maintenance retries purge

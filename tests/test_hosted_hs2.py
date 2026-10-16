@@ -248,6 +248,24 @@ def test_process_wait_renews_lease_and_preserves_total_timeout(store, tmp_path, 
             )
 
 
+def test_heartbeat_keeps_1900_second_lease_valid_through_2700_seconds(store):
+    from proofops_api.hosted_analysis import HEARTBEAT_SECONDS
+    from proofops_api.hosted_store import RUN_LEASE_SECONDS
+
+    queued(store, "hf2-2700-second-run")
+    start = time.time()
+    job = store.claim(now=start)
+    assert RUN_LEASE_SECONDS == 1900
+    assert HEARTBEAT_SECONDS == 30
+    for elapsed in range(HEARTBEAT_SECONDS, 2701, HEARTBEAT_SECONDS):
+        store.renew_lease(job, now=start + elapsed)
+        assert job["lease_until"] == start + elapsed + RUN_LEASE_SECONDS
+    with store.transaction() as db:
+        assert store._fenced(db, job, start + 2700)["status"] == "running"
+    with pytest.raises(HostedError, match="LEASE_LOST"):
+        store.renew_lease(job, now=job["lease_until"])
+
+
 @pytest.mark.parametrize("already_settled", [False, True])
 def test_operator_reconciliation_requires_exact_export_and_preserves_unknown(
     store, tmp_path, already_settled

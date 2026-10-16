@@ -562,7 +562,7 @@ class HostedParseProbe(UpstageParseProbe):
 
 
 # Wall-clock cap for one analysis subprocess; the per-run USD cap still bounds spend.
-ANALYSIS_TIMEOUT_SECONDS = int(os.environ.get("HOSTED_ANALYSIS_TIMEOUT_SECONDS", "1800"))
+ANALYSIS_TIMEOUT_SECONDS = int(os.environ.get("HOSTED_ANALYSIS_TIMEOUT_SECONDS", "2700"))
 HEARTBEAT_SECONDS = 30
 TWO_SLOT_MEMORY_BYTES = 1100 * 1024 * 1024
 

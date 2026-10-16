@@ -5,7 +5,9 @@ from proofops.domain.provenance import canonical_hash
 
 
 def test_v29_composition_and_historical_publication():
-    current = profiles.policy_for(profiles.V2_PROFILE)
+    current = profiles.policy_for(
+        profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_I29_POLICY)
+    )
     expected = profiles.FINALS_I28_POLICY | {
         "integration_profile": "finals-20261016-v29",
         "source": profiles.CF4_SOURCE_POLICY["source"],

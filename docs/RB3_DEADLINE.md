@@ -48,3 +48,37 @@ has not extracted a genuine claim cannot manufacture one to avoid a zero count.
 Validation uses the real Linux arm64 API/worker/FD path with fresh generated
 transports, external network disabled and serialized simulations. Simulator claim
 volume and native-derived OCR are not live-model accuracy or latency evidence.
+
+## HF2 / v29b deadline policy
+
+The default `finals-20261016-v29b` composes v29 with `rb3_deadline_v2` only:
+hard cap 2,700 seconds, extraction reserve 1,200 seconds, tagging reserve 300
+seconds. At the full parent deadline, new extraction stops at 1,500 seconds and
+tagging/inventory at 2,400 seconds. The 300-second reserve covers in-flight work
+and publication (about 140 seconds in the reported observation); it is not a
+guarantee that every input completes. A shorter parent deadline still wins.
+
+`POLICY` remains v1 with its original values; `POLICY_V2` is additive. Both exact
+policies are accepted, the runtime must match its snapshot, and summaries report
+the selected version. Historical v29 hash
+`6dfce1611d0293822638a569bebd40c5e6bafcaf5fffe70922016dead84c1b1d` remains
+selectable for execution and publication. Rollback selects that pin for new runs;
+saved artifacts and prior revisions are preserved.
+
+The hosted parent watchdog now defaults to 2,700 seconds. For deployment, set
+`HOSTED_ANALYSIS_TIMEOUT_SECONDS=2700` in the coordinator-managed `runtime.env`;
+an existing explicit `1800` overrides the new code default and must be replaced.
+If unset, no environment change is technically required with the new image.
+Apply through the normal drain/recreate workflow; this change does not edit a
+running service. An operator-pinned v29 policy must also be changed to v29b (hash
+`9fd37ccb4d397e2b3b4c0a468502cca4aed18dbb5d9a0853a72e0d7cae33153d`) or omitted
+to use the new default.
+
+The run lease remains 1,900 seconds, renewed every 30 seconds while the child
+runs; this is a renewable fence, not a total duration limit. Browser polling runs
+until terminal status and refreshes the 1,800-second idle session. SC1 uses the
+same RB3 tag admission. W18 coordinate limits (6-second subprocess, 8-second
+request, 120-second warmup) are per-request display bounds and remain unchanged.
+Other fixed 1,800 values are session-idle limits or model token/call caps, not the
+pipeline deadline. Offline smoke uses the hosted timeout; external fresh/replay
+gate watchdogs should be invoked with `--timeout 3000` for a full v2 run.

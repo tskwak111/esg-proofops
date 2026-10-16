@@ -75,7 +75,9 @@ def worker():
     workspace.mkdir()
 
     def analyze(store, job, prepared):
-        os.environ["PROOFOPS_RB3_HARD_DEADLINE"] = str(time.monotonic() + 1800)
+        from proofops_api.hosted_analysis import ANALYSIS_TIMEOUT_SECONDS
+
+        os.environ["PROOFOPS_RB3_HARD_DEADLINE"] = str(time.monotonic() + ANALYSIS_TIMEOUT_SECONDS)
         (workspace / "selected.pdf").write_bytes(prepared.read_bytes())
         with async_parse_replies() as submit:
             state, outcome = drive(
@@ -120,7 +122,7 @@ def verify():
     message = JobMessage(**local_run["parse_job"])
     policy = jobs.parser_native_policy(message)
     assert policy == page_ocr_profile(manifest["claim_source_profile"]).native_policy()
-    assert V2_POLICY["integration_profile"] == "finals-20261016-v29"
+    assert V2_POLICY["integration_profile"] == "finals-20261016-v29b"
     assert V2_POLICY["parser_failure_policy"] == "s3_partial-v7"
     assert V2_POLICY["located_table_context"]["profile"] == "located-table-context-p2-v1"
     assert manifest["claim_source_profile"] == "cf4_claim_source_v1"

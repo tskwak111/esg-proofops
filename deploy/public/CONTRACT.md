@@ -394,8 +394,10 @@ are preserved; manual selection never grants evidence admission or absence right
 Disabled live runs publish a genuine partial_blocked snapshot with zero claims and
 LIVE_BINDING_UNAVAILABLE. Parser budget denial is budget_unanalyzed/BUDGET_EXHAUSTED,
 not ANALYSIS_WORKER_FAILED; no missing source is fabricated as absent.
-Pipeline timeout is1800s (measured30-page runs605s/406s); lease1900s renews every30s
+Pipeline timeout defaults to2700s (HF2/v29b); lease1900s renews every30s
 while the parent waits, and on stage updates. Expired workers lose their fence.
+`HOSTED_ANALYSIS_TIMEOUT_SECONDS` overrides the default; an explicit1800 must be
+changed to2700 for the new deadline. Historical RB3 v1 admission remains pinned.
 An intact independent spend ledger and zero cost rows prove zero provider dispatch;
 only those expired runs automatically settle zero and release the queue. Every
 recorded dispatch retains the reconciliation guard, including uncertain charges.
