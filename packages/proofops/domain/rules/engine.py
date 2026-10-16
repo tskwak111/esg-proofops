@@ -294,8 +294,8 @@ def evaluate(tags: ConfirmedTags, context: RuleContext, pack: RulePackSnapshot) 
     return _evaluate(tags, context, pack)
 
 
-def _evaluate(tags, context, pack, *, analysis_scope=False):
-    effect = apply_source_exceptions(tags, context, pack)
+def _evaluate(tags, context, pack, *, analysis_scope=False, dec127=False):
+    effect = apply_source_exceptions(tags, context, pack, analysis_scope=dec127)
     elements = MAPPINGS[tags.track]
     definitions = {e["id"]: e for e in pack.file_content("rubric/elements.yaml")["elements"]}
     facts = {f.name: f for f in tags.facts}
@@ -334,6 +334,18 @@ def _evaluate(tags, context, pack, *, analysis_scope=False):
     if additional_policy not in (None, ADDITIONAL_REPORT_ONLY):
         raise DomainValidationError("unsupported additional element policy")
     branches = rubric["branches"]
+    if dec127 and tags.track == "management":
+        # Original §4.3 E0 = substantiation effectively absent; §4.4 E1 needs
+        # named means/concrete implementation. DEC-127 makes non-observation
+        # conclusive inside this scope. Do not fabricate a willingness quote.
+        branches = [
+            *(branch for branch in branches if branch["id"] != "MGMT_WILLINGNESS"),
+            dict(
+                id="MGMT_NO_MEANS_IN_SCOPE_E0",
+                when={"named_means_or_concrete_state": False},
+                grade="E0",
+            ),
+        ]
     names = {
         name
         for branch in branches

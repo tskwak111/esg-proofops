@@ -30,7 +30,7 @@ class ExceptionEffect:
 
 
 def apply_source_exceptions(
-    tags: ConfirmedTags, context: RuleContext, pack: RulePackSnapshot
+    tags: ConfirmedTags, context: RuleContext, pack: RulePackSnapshot, *, analysis_scope=False
 ) -> ExceptionEffect:
     """Return an override/cap/gap without assigning a label or mutating inputs."""
     from proofops.domain.rules.engine import _validate_inputs
@@ -39,7 +39,8 @@ def apply_source_exceptions(
     facts = {fact.name: fact for fact in tags.facts}
 
     def state(name: str) -> str:
-        return facts[name].state if name in facts else "unknown"
+        value = facts[name].state if name in facts else "unknown"
+        return "absent" if analysis_scope and value == "absent_in_scope" else value
 
     special = pack.file_content("rubric/exceptions.yaml")["superlative"]
     has_superlative = bool(tags.superlative_quote) or (

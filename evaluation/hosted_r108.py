@@ -157,6 +157,7 @@ def prepare_argv(pdf, state, tenant, config, options=None):
                 CF4_SOURCE_POLICY,
                 CF5_POLICY,
                 CF6_POLICY,
+                CF6_V2_POLICY,
                 FINALS_C24_POLICY,
                 FINALS_D2_POLICY,
                 FINALS_E05_POLICY,
@@ -251,6 +252,7 @@ def prepare_argv(pdf, state, tenant, config, options=None):
                 canonical_hash(FINALS_S5_POLICY),
                 canonical_hash(FINALS_S2_SPEED_POLICY),
                 canonical_hash(CF6_POLICY),
+                canonical_hash(CF6_V2_POLICY),
             }:
                 raise ValueError("HOSTED_PROFILE_PIN_MISMATCH")
             argv += ["--analysis-policy-sha256", options["analysis_profile_sha256"]]

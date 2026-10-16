@@ -6,7 +6,7 @@ from dataclasses import asdict, replace
 
 import pytest
 from proofops.application.analysis_profile import (
-    CF6_POLICY,
+    CF6_V2_POLICY,
     V2_POLICY,
     policy_for,
     publication_policy_for,
@@ -330,7 +330,7 @@ def test_registry_is_opt_in_and_old_policy_stays_default(tmp_path):
 
     source = tmp_path / "source.pdf"
     source.write_bytes(document().content)
-    pin = canonical_hash(CF6_POLICY)
+    pin = canonical_hash(CF6_V2_POLICY)
     argv = prepare_argv(
         source,
         tmp_path / "state",
@@ -348,9 +348,10 @@ def test_registry_is_opt_in_and_old_policy_stays_default(tmp_path):
     assert policy_for("finals-unattended-v2") == before
     for selector in (policy_for, publication_policy_for):
         assert (
-            selector("finals-unattended-v2", pinned_hash=canonical_hash(CF6_POLICY)) == CF6_POLICY
+            selector("finals-unattended-v2", pinned_hash=canonical_hash(CF6_V2_POLICY))
+            == CF6_V2_POLICY
         )
-    assert CF6_POLICY != before and V2_POLICY == before
+    assert CF6_V2_POLICY != before and V2_POLICY == before
 
 
 @pytest.mark.parametrize(
@@ -447,7 +448,7 @@ def test_worker_checkpoint_wires_cf6_and_replays_without_synthetic_promotion(tmp
     def configured(self, *args, **kwargs):
         kwargs.update(
             pipeline_profile="finals-unattended-v2",
-            analysis_policy_sha256=canonical_hash(CF6_POLICY),
+            analysis_policy_sha256=canonical_hash(CF6_V2_POLICY),
         )
         init(self, *args, **kwargs)
 
@@ -477,6 +478,90 @@ def test_worker_checkpoint_wires_cf6_and_replays_without_synthetic_promotion(tmp
     for record in tagged:
         assert record["cf6_confirmation"] is None
         assert "CF6_CURRENT_RESPONSES_REQUIRED" in record["cf6_receipt"]["reasons"]
-        assert record["frozen_packet"]["cf6_analysis_policy_sha256"] == canonical_hash(CF6_POLICY)
+        assert record["frozen_packet"]["cf6_analysis_policy_sha256"] == canonical_hash(
+            CF6_V2_POLICY
+        )
         assert record["provisional_grade"]["decision_status"] == "provisional"
     assert runner.tags.load_snapshot(TENANT, run_id) == envelope
+
+
+@pytest.mark.parametrize(
+    "version,source_quality,expected",
+    [(2, "verified", "E0"), (2, "unverified", None), (1, "verified", None)],
+)
+def test_management_all_unknown_reaches_public_confirmation_with_v1_replay(
+    tmp_path, version, source_quality, expected
+):
+    inputs, runs, _ = prepared(tmp_path)
+    selected = dict(cf6_confirmation=policy(version=version))
+    data = inputs["packet"].to_dict()
+    data.pop("packet_sha256")
+    data.update(
+        track="management",
+        allowed_elements=[f"M{i}" for i in range(1, 7)],
+        cf6_confirmation=selected["cf6_confirmation"],
+        cf6_analysis_policy_sha256=canonical_hash(selected),
+    )
+    inputs["packet"] = freeze_packet(data)
+    inputs["context"] = replace(
+        inputs["context"], claim=replace(inputs["context"].claim, source_quality=source_quality)
+    )
+    changed = []
+    for r in runs:
+        guarded = replace(
+            r.guarded,
+            track="management",
+            packet_sha256=inputs["packet"].packet_sha256,
+            elements=tuple(
+                replace(
+                    e, element_id=f"M{i}", state="unknown", evidence_refs=(), normalized_value=None
+                )
+                for i, e in enumerate(r.guarded.elements, 1)
+            ),
+        )
+        changed.append(
+            seal(
+                replace(
+                    r,
+                    packet_sha256=inputs["packet"].packet_sha256,
+                    guarded=guarded,
+                    raw_response_json=json.dumps(asdict(guarded)),
+                    binding_hashes=(),
+                    source_scopes=(),
+                ),
+                selected,
+            )
+        )
+    result = assess(inputs, tuple(changed), selected)
+    assert (result["cf6_confirmation"] or {}).get("evidence_grade") == expected
+    assert all(e["state"] == "absent_in_scope" for e in result["elements"])
+    if version == 2:
+        assert result["engine_decision"]["decision_status"] == "decided"
+        assert "MGMT_NO_MEANS_IN_SCOPE_E0" in result["engine_decision"]["rule_ids"]
+        assert result["engine_decision"]["missing_elements"] == ["M1", "M2", "M3", "M4"]
+    if source_quality == "unverified":
+        assert "CF6_CLAIM_SOURCE_UNVERIFIED" in result["reasons"]
+
+
+def test_surviving_auxiliary_conflict_cannot_publish_even_if_ladder_decides(tmp_path, monkeypatch):
+    from proofops.application.tagging import cf6_confirmation
+    from proofops.domain.rules.engine import ConfirmedFact
+
+    inputs, runs, selected = prepared(tmp_path)
+    original = cf6_confirmation.form_consensus
+
+    def with_conflict(*args, **kwargs):
+        result = original(*args, **kwargs)
+        tags = result.confirmed_tags
+        assert tags is not None
+        return replace(
+            result,
+            confirmed_tags=replace(
+                tags, facts=(*tags.facts, ConfirmedFact("comparison_basis", "conflict"))
+            ),
+        )
+
+    monkeypatch.setattr(cf6_confirmation, "form_consensus", with_conflict)
+    result = assess(inputs, runs, selected)
+    assert result["cf6_confirmation"] is None
+    assert "CF6_CONFLICT:comparison_basis" in result["reasons"]
