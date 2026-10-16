@@ -1263,6 +1263,13 @@ SPE_POLICY = FINALS_I29B_POLICY | dict(
     source="spe_claim_source_v1",
 )
 
+# SPP is a parser-only opt-in candidate. Integration may compose this selector
+# onto the finals candidate; old policies and the hosted default stay unchanged.
+SPP_POLICY = FINALS_I29B_POLICY | dict(
+    integration_profile="spp_finals_parse_v1",
+    parser_execution_policy="spp-parse-v1",
+)
+
 
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
@@ -1298,6 +1305,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            SPP_POLICY,
             FINALS_I29_POLICY,
             FINALS_I29_INITIAL_POLICY,
             FINALS_I28_POLICY,
@@ -1477,6 +1485,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            SPP_POLICY,
             FINALS_I29_POLICY,
             FINALS_I29_INITIAL_POLICY,
             FINALS_I28_POLICY,
@@ -1615,6 +1624,7 @@ def apply_pilot_profile(args):
     args.parser_local_resource_policy = selected.get("local_resource_policy")
     args.parser_failure_policy = selected.get("parser_failure_policy")
     args.parser_output_policy = selected.get("parser_output_policy")
+    args.parser_execution_policy = selected.get("parser_execution_policy")
     if selected.get("parser_source_recovery"):
         args.parser_source_recovery = selected["parser_source_recovery"]
     args.extraction_h1 = bool(selected.get("selected_boundary_recovery"))

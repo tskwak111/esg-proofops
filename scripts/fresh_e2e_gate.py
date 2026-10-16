@@ -256,6 +256,9 @@ def main():
         )
         if args.timing:
             shutil.copyfile(ROOT / "scripts/fresh_e2e_timing.py", harness / "fresh_e2e_timing.py")
+            shutil.copyfile(
+                ROOT / "scripts/fresh_parser_timing.py", harness / "fresh_parser_timing.py"
+            )
         (harness / "predeploy_runtime.py").write_text(
             "import json,sys\nfrom fresh_e2e_runtime import intake,verify\n"
             "from predeploy_runtime_base import DATA,request\n"

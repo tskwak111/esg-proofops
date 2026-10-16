@@ -448,6 +448,7 @@ def verify():
 
         unchanged = strip_w18(located) == result["result"]
         result["w18"] = dict(exact_refs=exact, reasons=dict(reasons), default_unchanged=unchanged)
+        result["w18_result"] = located
         if not unchanged:
             raise ValueError("W18_CHANGED_EXISTING_RESULT")
     state = (

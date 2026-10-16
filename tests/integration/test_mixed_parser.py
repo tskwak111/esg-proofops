@@ -196,6 +196,8 @@ def test_single_mode_snapshots_remain_byte_identical(mode):
     assert legacy.pop("local_resource_policy") is None
     # RB2's absent selector is likewise excluded from the historical wire.
     assert legacy.pop("output_policy") is None
+    # SPP's new opt-in field is absent from the same historical wire shape.
+    assert legacy.pop("execution_policy") is None
     for field in ("table_text_y_tolerance", "table_source_policy_sha256", "table_structure_repair"):
         legacy.pop(field)
     for field in ("vision_parse", "upstage_glyph_boxes", "upstage_region_words"):
