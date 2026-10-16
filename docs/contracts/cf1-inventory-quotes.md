@@ -6,6 +6,24 @@ quote wire with the old unanimity behavior for comparison. Both require an
 explicit hash; the v27 default and every existing registered pin are unchanged.
 The hosted child allowlist accepts both pins. No deployment is included.
 
+DEC-127 supersedes the confirmation prerequisite described below for new runs
+using CF6's policy. After three-replica claim tagging, unresolved elements in
+the analyzed pages become `absent_in_scope` under that policy even when SC1
+inspection fails. CF1 supplies inspection evidence and diagnostics; SC1 success,
+fully inspected pages, and an SC1 receipt are not prerequisites for CF6
+confirmation. An unverified claim source, unresolved track, rule GAP, unprocessed
+TIME_BUDGET case, or verified source conflict remains a hold as specified in
+DEC-127. Present still requires verified source evidence.
+
+CF6 owns that new decision/publication path. Compose the CF1 inventory component
+into CF6's new hashed policy rather than replacing CF6 with the standalone
+`CF1_POLICY` or inheriting all SC1 hold reasons as publication blockers. Retain
+inspection diagnostics and verified contrary evidence, including
+`cf1_contrary_records`, for CF6's conflict handling. Keep the existing CF1 pins
+and replay behavior immutable. The measurements below concern DEC-85/DEC-125;
+they are not measurements of DEC-127. CF1/CF6 combined runtime behavior has not
+been tested here. This handoff changes documentation only.
+
 Saved E17 LG receipts have 39 invalid replies: 31 invalid period spans,
 4 attributes without a structural binding, 3 out-of-chunk spans, and one
 duplicate candidate. E16 additionally has truncated JSON and a transport
@@ -61,15 +79,18 @@ unresolved contrary attribution; DEC-125 confirms none. Additional source-qualit
 and rotating-quorum checks retain their holds. These fixtures do not establish
 production semantic accuracy; old behavior is preserved rather than rewritten.
 
-CF1 does **not** establish the requested positive production confirmation count.
+Under the prior DEC-85/DEC-125 gate, CF1 did **not** establish a positive
+production confirmation count.
 All E16/E17 selected pages have unverified/unlocated/unreadable or missing source
-content. Even perfect response validity cannot overcome that independent gate.
+content. Perfect response validity cannot overcome that historical SC1 gate;
+DEC-127 does not make its clearance a confirmation prerequisite.
 The R20 174 reviewed claims have zero new absent_in_scope/confirmations at both
 thresholds; PDF hashes and native claim quotes were rechecked, while earlier
 semantic adjudications were reused. R17's 114 claims have no paired fresh CF1
 whole-scope rerun. Zero promotions is not positive accuracy evidence. Source
-coverage must be repaired by its owning workstream and measured with fresh
-complete-scope receipts before enabling the new pin.
+coverage remains an inspection-quality limitation. CF6 owns the DEC-127
+confirmation measurements; these historical counts must not be reused as its
+results or as a reason to keep its confirmation path gated on SC1.
 
 Validation, LG13 timing results, known baseline test failures, the exact pins,
 and the Korean report are retained in the parent repository at
