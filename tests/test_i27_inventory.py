@@ -164,8 +164,9 @@ def test_hosted_optional_sc1_failure_completes_with_uncertain_costs(tmp_path, mo
 
     def fail_inventory(body):
         request = json.loads(body["messages"][1]["content"])
-        if request.get("untrusted_document_data", {}).get("chunk_sha256"):
-            requests.append(request["request_id"])
+        # CF1 compacts the wire; chunk/request IDs remain in authenticated receipts.
+        if "spans" in request.get("untrusted_document_data", {}) and request.get("packet_sha256"):
+            requests.append((request["packet_sha256"], request["replicate_id"]))
             if kind == "timeout":
                 raise TimeoutError("offline SC1 timeout")
             raise ValueError("OPENAI_HTTP_503")
