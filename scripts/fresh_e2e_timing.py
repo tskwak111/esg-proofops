@@ -8,11 +8,39 @@ import functools
 import importlib
 import importlib.util
 import inspect
+import json
 import re
 import sys
 import threading
 import time
 from collections import Counter
+from pathlib import Path
+
+
+def observe_parser_child(owner, parser_path):
+    from predeploy_runtime_base import audit
+
+    execute = owner._execute
+    parser_path = Path(parser_path).resolve()
+
+    def child(command, work, env, profile):
+        # _execute also isolates unrelated helpers, including the W18 glyph
+        # reader. Only replace the actual parser entrypoint.
+        if not (
+            len(command) == 4 and command[1] == "-I" and Path(command[2]).resolve() == parser_path
+        ):
+            return execute(command, work, env, profile)
+        entry = Path(__file__).with_name("fresh_parser_timing.py")
+        try:
+            return execute([*command[:-2], str(entry), str(work)], work, env, profile)
+        finally:
+            path = work / "spp-timing.json"
+            if path.exists():
+                for record in json.loads(path.read_bytes()):
+                    audit("function_timing", **record)
+                path.unlink()
+
+    owner._execute = staticmethod(child)
 
 
 def observe(owner, name, *, label=None):
@@ -134,26 +162,9 @@ def install():
     # The product's -I child intentionally excludes sitecustomize. Use a private
     # harness entrypoint invoking that exact child, then remove only its timing
     # sidecar before the parent hashes artifacts. Production code is untouched.
-    from pathlib import Path
+    from proofops.adapters.parsing import opendataloader
 
-    from proofops.adapters.parsing.opendataloader import OpenDataLoaderParser
-
-    execute = OpenDataLoaderParser._execute
-
-    def child(command, work, env, profile):
-        import json
-
-        entry = Path(__file__).with_name("fresh_parser_timing.py")
-        try:
-            return execute([*command[:-2], str(entry), str(work)], work, env, profile)
-        finally:
-            path = work / "spp-timing.json"
-            if path.exists():
-                for record in json.loads(path.read_bytes()):
-                    audit("function_timing", **record)
-                path.unlink()
-
-    OpenDataLoaderParser._execute = staticmethod(child)
+    observe_parser_child(opendataloader.OpenDataLoaderParser, opendataloader.__file__)
 
 
 def summarize(events):
