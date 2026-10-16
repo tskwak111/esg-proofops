@@ -15,7 +15,13 @@ from proofops.domain.provenance import canonical_hash
 def test_rb4_is_a_new_explicit_pin_composing_both_guards(selected):
     pin = canonical_hash(selected)
     assert pin not in {canonical_hash(profiles.RB1_POLICY), canonical_hash(profiles.RB3_POLICY)}
-    assert profiles.policy_for(profiles.V2_PROFILE) == profiles.FINALS_I28_POLICY
+    assert profiles.policy_for(profiles.V2_PROFILE) == profiles.FINALS_I29_POLICY
+    assert (
+        profiles.policy_for(
+            profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_I28_POLICY)
+        )
+        == profiles.FINALS_I28_POLICY
+    )
     assert profiles.policy_for(profiles.V2_PROFILE, pinned_hash=pin) == selected
     assert profiles.publication_policy_for(profiles.V2_PROFILE, pinned_hash=pin) == selected
     assert InputIsolation(selected).active

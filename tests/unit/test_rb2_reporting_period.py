@@ -35,11 +35,12 @@ def test_new_heading_does_not_adopt_targets_or_conflicts():
         assert detect({2: text}, 101, "a" * 64)["selected"] is None
 
 
-def test_rb2_registration_and_v28_default_leave_historical_hashes():
+def test_rb2_registration_and_v29_default_leave_historical_hashes():
     from proofops.application.analysis_profile import (
         FINALS_I25_POLICY,
         FINALS_I27_POLICY,
         FINALS_I28_POLICY,
+        FINALS_I29_POLICY,
         FXH_POLICY,
         RB2_POLICY,
         V2_POLICY,
@@ -54,7 +55,10 @@ def test_rb2_registration_and_v28_default_leave_historical_hashes():
     assert canonical_hash(FINALS_I25_POLICY) == (
         "2ed6dc6869c35a152887db1d55629c19a0902e95b8b50b64e5f52af25c86f4c0"
     )
-    assert V2_POLICY == FINALS_I28_POLICY
+    assert V2_POLICY == FINALS_I29_POLICY
+    assert (
+        policy_for(V2_PROFILE, pinned_hash=canonical_hash(FINALS_I28_POLICY)) == FINALS_I28_POLICY
+    )
     assert canonical_hash(FINALS_I27_POLICY) == (
         "fcd788f4c89034141c8767913f1c1acabdaefa1c8f543cdc5231903f05fa1804"
     )
