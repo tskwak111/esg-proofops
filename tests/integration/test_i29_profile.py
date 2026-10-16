@@ -33,3 +33,22 @@ def test_v29_hosted_and_v28_replay_pin(tmp_path):
 
     for selected in (profiles.policy_for(profiles.V2_PROFILE), profiles.FINALS_I28_POLICY):
         test_hosted_child_preserves_integrated_pins(tmp_path, selected)
+
+
+def test_offline_smoke_answers_compact_cf1_inventory_without_claim_id():
+    import json
+
+    from deploy.public.offline_fixture import fake_llm
+
+    wire = dict(
+        packet_sha256="a" * 64,
+        replicate_id=2,
+        untrusted_document_data=dict(spans=[dict(id="s0", quote="fixture", cue_elements=[])]),
+    )
+    response = fake_llm(
+        dict(
+            model="gpt-6-luna", messages=[dict(content="inventory"), dict(content=json.dumps(wire))]
+        )
+    )
+    payload = json.loads(response["choices"][0]["message"]["content"])
+    assert payload == dict(complete=True, records=[], packet_sha256="a" * 64, replicate_id=2)
