@@ -37,8 +37,18 @@ Policy objects, original receipts, source graphs and prior result revisions are
 immutable. Saved server vote evaluation is counterfactual only: it cannot reseal
 old responses, publish new confirmations or measure changed prompts/OCR.
 
-No database migration is needed. Rollback uses `e6b1a8f` and the v28 pin for new
-work; v29 results remain under a compatible reader. Deployment and rollback both
+RC1 `514887e` adds opt-in sealed result reuse after resolved policy/scope options
+and before quota admission. `RC1_RESULT_REUSE_ENABLED` defaults to false; the
+coordinator controls activation in `runtime.env`. The cache key includes the
+assigned analysis pin, effective scope and reporting period, so v28 cannot seed
+v29. Reuse creates a separate immutable run with no provider cost or reservation.
+Its additive audit table/index/trigger initialize with the existing control DB;
+existing rows and result revisions are not rewritten. See `rc1-result-reuse-v1.md`.
+
+Rollback uses `e6b1a8f` and the v28 pin for new work. First disable result reuse;
+RC1 copies must remain behind an RC1-compatible reader because a pre-RC1 reader
+lacks detached-copy integrity and coordinate support. v29 results also remain
+under a compatible reader. Deployment and rollback both
 require the existing API 1536 MiB compose override. I29 does not push, deploy,
 change EC2 or call the real OpenAI API. Local evidence and the final deployment
 handoff are in `outputs/agent-results/R108-redesign/lab/perf/I29/` in the project root.
