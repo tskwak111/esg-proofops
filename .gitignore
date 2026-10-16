@@ -56,13 +56,3 @@ outputs/handoff-packages/
 /docs/DEVELOPER_B_POLICY_PROPOSALS.md
 /docs/R00_DOMAIN_DECISIONS.md
 /docs/evidence/pa7-extract-replay.json
-/tests/fixtures/predeploy/E12-lg.result.json
-/tests/fixtures/predeploy/E12-lg.server-timing.json
-/tests/fixtures/predeploy/E9-lg.measurement.json
-/tests/fixtures/qt1/kia-106-parse.json
-/tests/fixtures/qt1/r17-tables.json
-/tests/fixtures/qt1/selected-parse.json
-/tests/fixtures/w9/cr2-tables.json
-/tests/integration/hx1_lgchem_failure.json
-/tests/fixtures/pipeline/live-extraction/extraction-year-abbreviation/packet.json
-/tests/fixtures/pipeline/live-extraction/extraction-year-abbreviation/raw_response.json
