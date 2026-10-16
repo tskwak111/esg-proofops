@@ -96,6 +96,7 @@ from proofops.application.tagging.qt2_context import POLICY as QT2_CONTEXT_POLIC
 from proofops.application.tagging.quality import ELEMENT_DEFINITIONS_HASH
 from proofops.application.tagging.semantic_admission import POLICY as W8_POLICY
 from proofops.application.tagging.semantic_admission import POLICY_HASH as W8_POLICY_HASH
+from proofops.application.tagging.spt_pipeline import POLICY as SPT_PIPELINE_POLICY
 from proofops.application.tagging.v1_activity_links import POLICY as V1_ACTIVITY_LINK_POLICY
 from proofops.application.tagging.v3_dec92 import POLICY as V3_DEC92_POLICY
 from proofops.application.tagging.v3_dec92 import PROMPT_POLICY as V3_PROMPT_POLICY
@@ -1248,6 +1249,14 @@ FINALS_I29B_POLICY = FINALS_I29_POLICY | dict(
 )
 V2_POLICY = FINALS_I29B_POLICY
 
+# SPT is explicit-hash only. The coordinator can compose spt_claim_pipeline onto
+# its next candidate; defaults, model/source pins and HTTP limits stay unchanged.
+
+SPT_POLICY = FINALS_I29B_POLICY | dict(
+    integration_profile="spt_claim_pipeline_v1",
+    spt_claim_pipeline=SPT_PIPELINE_POLICY,
+)
+
 
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
@@ -1425,6 +1434,7 @@ def policy_for(profile, *, pinned_hash=None):
         choices = (*choices, CF6_POLICY, CF6_V2_POLICY)
         choices = (*choices, V1_ACTIVITY_POLICY)
         choices = (*choices, QT1_V25_POLICY)
+        choices = (*choices, SPT_POLICY)
     for policy in choices:
         if pinned_hash is None or canonical_hash(policy) == pinned_hash:
             return policy
@@ -1566,6 +1576,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
         allowed = (*allowed, CF6_POLICY, CF6_V2_POLICY)
         allowed = (*allowed, V1_ACTIVITY_POLICY)
         allowed = (*allowed, QT1_V25_POLICY)
+        allowed = (*allowed, SPT_POLICY)
     if policy not in allowed:
         raise ValueError("ANALYSIS_PROFILE_PUBLICATION_PIN_MISMATCH")
     return policy
