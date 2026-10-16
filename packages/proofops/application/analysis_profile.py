@@ -1174,6 +1174,13 @@ FINALS_I28_POLICY = FINALS_I27_POLICY | dict(
 V2_POLICY = FINALS_I28_POLICY
 
 
+# CF4 is explicit-hash only; historical/default v27 remains unchanged.
+CF4_SOURCE_POLICY = FINALS_I27_POLICY | dict(
+    integration_profile="cf4_source_recovery_v1",
+    source="cf4_claim_source_v1",
+)
+
+
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
     from proofops.application.tagging.fact_assembly_c3_v2 import (
@@ -1213,6 +1220,7 @@ def policy_for(profile, *, pinned_hash=None):
             FINALS_I27_PRE_RB2_POLICY,
             FINALS_I26_POLICY,
             S5_LIVE_POLICY,
+            CF4_SOURCE_POLICY,
             FXH_POLICY,
             OPS2_POLICY,
             FINALS_I25_POLICY,
@@ -1383,6 +1391,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
             FINALS_I27_PRE_RB2_POLICY,
             FINALS_I26_POLICY,
             S5_LIVE_POLICY,
+            CF4_SOURCE_POLICY,
             FXH_POLICY,
             OPS2_POLICY,
             FINALS_I25_POLICY,

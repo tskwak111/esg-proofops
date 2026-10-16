@@ -152,6 +152,7 @@ def prepare_argv(pdf, state, tenant, config, options=None):
             )
         if options.get("analysis_profile_sha256"):
             from proofops.application.analysis_profile import (
+                CF4_SOURCE_POLICY,
                 FINALS_C24_POLICY,
                 FINALS_D2_POLICY,
                 FINALS_E05_POLICY,
@@ -206,6 +207,7 @@ def prepare_argv(pdf, state, tenant, config, options=None):
                 canonical_hash(FINALS_HX6_POLICY),
                 canonical_hash(FINALS_HX6_COMPLETE_POLICY),
                 canonical_hash(FINALS_HX6_RESILIENT_POLICY),
+                canonical_hash(CF4_SOURCE_POLICY),
                 canonical_hash(FINALS_C24_POLICY),
                 canonical_hash(FINALS_Q1_POLICY),
                 canonical_hash(W3_POLICY),
