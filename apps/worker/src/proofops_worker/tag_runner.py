@@ -679,6 +679,23 @@ class LocalTagRunner:
                     packet = augment_packet(
                         packet, facility_dimensions.get(claim.claim_id, {}), graph, tenant_id=tenant
                     )
+                cf6_policy = snapshot.get("analysis_profile_policy", {}).get("cf6_confirmation")
+                if cf6_policy is not None:
+                    from proofops.application.evidence.retrieval import freeze_packet
+
+                    packet = freeze_packet(
+                        {k: v for k, v in packet.to_dict().items() if k != "packet_sha256"}
+                        | dict(
+                            cf6_confirmation=cf6_policy,
+                            cf6_selected_pages=sorted(
+                                set(snapshot.get("selected_pages") or ())
+                                or {block.page_num for block in graph.blocks}
+                            ),
+                            cf6_analysis_policy_sha256=canonical_hash(
+                                snapshot["analysis_profile_policy"]
+                            ),
+                        )
+                    )
                 if live is not None:
                     packet = live.display_packet(packet, claim=claim)
                     if snapshot.get("analysis_profile_policy", {}).get("qt1_baseline_policy"):
@@ -1166,6 +1183,20 @@ class LocalTagRunner:
                     record["sc1_confirmation"] = receipt["sc1_confirmation"]
                     record["sc1_elements"] = receipt["sc1_elements"]
                     record["sc1_hold_reason"] = ",".join(receipt["reasons"]) or None
+            if snapshot.get("analysis_profile_policy", {}).get("cf6_confirmation") is not None:
+                record["cf6_confirmation"] = None
+                if record.get("tag_runs") and record.get("frozen_packet"):
+                    from proofops.application.tagging.cf6_confirmation import analyze_record
+
+                    receipt = analyze_record(
+                        record,
+                        claim,
+                        graph,
+                        rulepack,
+                        snapshot["analysis_profile_policy"],
+                    )
+                    record["cf6_receipt"] = receipt
+                    record["cf6_confirmation"] = receipt["cf6_confirmation"]
             return record
 
         def reported_claim(claim):

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 from threading import Lock
 from time import monotonic_ns
@@ -1076,6 +1076,26 @@ class UpstageTaggingTransport:
                 False,
                 canonical_json(receipt),
             )
+        if request.get("cf6_confirmation") is not None:
+            from proofops.adapters.local.cf6_transport import authenticate
+
+            try:
+                response = authenticate(
+                    request,
+                    response,
+                    self._probe,
+                    settings=settings,
+                    wire_system=wire_system,
+                    wire_user=wire_user,
+                    wire_schema=wire_schema,
+                )
+            except (ValueError, KeyError, TypeError, OSError):
+                # Preserve successful usage/raw evidence; lack of authenticated
+                # freshness blocks only CF6 publication, not the paid receipt.
+                provider = json.loads(response.provider_response_json or "{}")
+                provider.pop("cf6_transport_receipt", None)
+                provider["cf6_transport_rejection"] = "CURRENT_ORIGIN_NOT_AUTHENTICATED"
+                response = replace(response, provider_response_json=canonical_json(provider))
         response = self._response_metadata(response)
         write(directory / "response.json", canonical_json(asdict(response)))
         return response

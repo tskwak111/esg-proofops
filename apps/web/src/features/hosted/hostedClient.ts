@@ -58,6 +58,10 @@ export type MissingEvidence = {
   candidate_refs?: SourceRefDto[]; search?: { absence_admissible?: boolean; scope_note?: string };
 };
 export type ResultClaim = {
+  cf6_status?: "confirmed" | "held";
+  cf6_track?: string | null;
+  cf6_hold_reasons?: string[];
+  cf6_elements?: { element_id: string; state: string; votes: number; evidence_refs: SourceRefDto[] }[];
   claim_id: string; page_num: number; original_page_num: number; quote: string; track: string | null; topic_ids?: string[];
   decision: ResultDecision | null; revision: number; source_refs: SourceRefDto[]; source_quality: string; elements: ResultElement[];
   source_status?: { status: string; reason?: string; display: string };

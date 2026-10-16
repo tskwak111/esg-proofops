@@ -637,6 +637,11 @@ def tag_replicates(
                         temperature=settings.temperature,
                         max_tokens=settings.max_tokens,
                     )
+                    if data.get("cf6_confirmation") is not None:
+                        model_request.update(
+                            cf6_confirmation=data["cf6_confirmation"],
+                            cf6_analysis_policy_sha256=data["cf6_analysis_policy_sha256"],
+                        )
                     try:
                         input_tokens = count(
                             "input_tokens",
