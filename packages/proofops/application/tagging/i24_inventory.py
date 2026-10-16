@@ -103,7 +103,7 @@ def transport_request(request, settings):
         model_id=settings.model_id,
         model_profile=settings.model_profile,
         region=settings.region,
-        system_prompt=PROMPT,
+        system_prompt=request["system_prompt"],
         user_json=canonical_json(request),
         temperature=0,
         max_tokens=min(

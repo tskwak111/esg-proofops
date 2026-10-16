@@ -69,11 +69,18 @@ def selection_from_snapshot(snapshot, graph, run_id):
 
     if fxh_enabled(snapshot.get("analysis_profile_policy", {})):
         result["fxh_inventory_execution"] = FXH_POLICY
+    from proofops.application.tagging.cf1_inventory import enabled as cf1_enabled
+
+    if cf1_enabled(snapshot.get("analysis_profile_policy", {})):
+        result["cf1_inventory"] = snapshot["analysis_profile_policy"]["cf1_inventory"]
     validate_selection(result, graph)
     return result
 
 
 def validate_selection(selection, graph):
+    from proofops.application.tagging.cf1_inventory import enabled as cf1_enabled
+
+    cf1_enabled(selection)
     from proofops.application.fxh_policy import POLICY as FXH_POLICY
 
     if (
@@ -178,6 +185,10 @@ def inventory_request(chunk, replica, model_sha256):
     _require_sha256("model_sha256", model_sha256)
     if replica not in (1, 2, 3):
         raise ValueError("SC1_REPLICA_INVALID")
+    from proofops.application.tagging.cf1_inventory import PROMPT as CF1_PROMPT
+    from proofops.application.tagging.cf1_inventory import enabled as cf1_enabled
+
+    prompt = CF1_PROMPT if cf1_enabled(chunk["selection"]) else PROMPT
     request = dict(
         run_id=chunk["selection"]["run_id"],
         tenant_id=chunk["selection"]["tenant_id"],
@@ -185,9 +196,9 @@ def inventory_request(chunk, replica, model_sha256):
         packet_sha256=chunk["chunk_sha256"],
         replicate_id=replica,
         model_sha256=model_sha256,
-        prompt_sha256=POLICY["prompt_sha256"],
+        prompt_sha256=canonical_hash(prompt),
         policy_sha256=POLICY_HASH,
-        system_prompt=PROMPT,
+        system_prompt=prompt,
         untrusted_document_data=chunk,
     )
     request["request_signature"] = canonical_hash(request)
@@ -294,12 +305,18 @@ def _cues(chunk):
 
 
 def assemble_inventory(plan, responses, *, graph, model_sha256):
+    from proofops.application.tagging.cf1_inventory import absence_policy, restore_response
+    from proofops.application.tagging.cf1_inventory import enabled as cf1_enabled
+
+    cf1 = cf1_enabled(plan["selection"])
+    majority = absence_policy(plan["selection"]) is not None
     expected = plan_inventory(graph, plan["selection"])
     if canonical_hash(expected) != canonical_hash(plan):
         raise ValueError("SC1_PLAN_MISMATCH")
     candidates, chunks, all_requests, all_providers = {}, [], set(), set()
     for chunk in plan["chunks"]:
         votes, errors, records_by_replica = [], [], {}
+        contrary_records = []
         for replica in (1, 2, 3):
             request = inventory_request(chunk, replica, model_sha256)
             response = responses.get(request["request_id"])
@@ -330,10 +347,32 @@ def assemble_inventory(plan, responses, *, graph, model_sha256):
                 raise ValueError("SC1_DUPLICATE_REQUEST")
             all_requests.add(request["request_id"])
             guarded = []
+            validation_error = None
             if valid:
                 all_providers.add(response["provider_response_id"])
                 try:
                     raw = json.loads(response["raw_response_json"])
+                    # Veto-only salvage: authentication and exact source guards still apply.
+                    # A bad sibling record must not hide verified contrary evidence.
+                    if (
+                        majority
+                        and isinstance(raw, dict)
+                        and (
+                            raw.get("packet_sha256") == request["packet_sha256"]
+                            and raw.get("replicate_id") == replica
+                            and isinstance(raw.get("records"), list)
+                        )
+                    ):
+                        for record in raw["records"]:
+                            try:
+                                one = restore_response(raw | dict(records=[record]), chunk)
+                                verified = _guard_record(one["records"][0], chunk, graph)
+                                if verified["state"] in ("present", "conflict"):
+                                    contrary_records.append(verified | dict(replicate_id=replica))
+                            except (ValueError, TypeError, KeyError):
+                                pass
+                    if cf1:
+                        raw = restore_response(raw, chunk)
                     if (
                         set(raw) != {"complete", "records", "packet_sha256", "replicate_id"}
                         or raw["packet_sha256"] != request["packet_sha256"]
@@ -345,13 +384,21 @@ def assemble_inventory(plan, responses, *, graph, model_sha256):
                     guarded = [_guard_record(r, chunk, graph) for r in raw["records"]]
                     if len({r["candidate_id"] for r in guarded}) != len(guarded):
                         raise ValueError("SC1_DUPLICATE_CANDIDATE")
-                except (ValueError, TypeError, KeyError):
+                except (ValueError, TypeError, KeyError) as error:
                     valid = False
+                    validation_error = (
+                        str(error)
+                        if str(error).startswith(("SC1_", "CF1_"))
+                        else "CF1_RESPONSE_INVALID"
+                    )
             if not valid:
                 errors.append("REPLICA_UNINSPECTED:" + str(replica))
                 guarded = []
             records_by_replica[replica] = guarded
-            votes.append(dict(request=request, response=response, valid=bool(valid)))
+            vote = dict(request=request, response=response, valid=bool(valid))
+            if cf1 and not valid:
+                vote["cf1_validation_error"] = validation_error or "CF1_RESPONSE_IDENTITY_OR_STATUS"
+            votes.append(vote)
             for record in guarded:
                 candidate = candidates.setdefault(
                     record["candidate_id"],
@@ -366,16 +413,20 @@ def assemble_inventory(plan, responses, *, graph, model_sha256):
                 )
                 candidate["votes"][str(replica)] = record
         uncovered = []
+        covered_replicas = {v["request"]["replicate_id"] for v in votes if v["valid"]}
         for cue in _cues(chunk):
-            if any(
-                not any(
+            missing = {
+                replica
+                for replica in (1, 2, 3)
+                if not any(
                     r["element_id"] == cue["element_id"]
                     and r["source_id"] == cue["source_id"]
                     and r["char_start"] <= cue["char_start"] < cue["char_end"] <= r["char_end"]
                     for r in records_by_replica[replica]
                 )
-                for replica in (1, 2, 3)
-            ):
+            }
+            covered_replicas -= missing
+            if missing:
                 uncovered.append(cue)
         chunks.append(
             dict(
@@ -384,6 +435,14 @@ def assemble_inventory(plan, responses, *, graph, model_sha256):
                 votes=votes,
                 errors=errors,
                 uncovered_cues=uncovered,
+                **(
+                    dict(
+                        cf1_inspected_replicas=sorted(covered_replicas),
+                        cf1_contrary_records=contrary_records,
+                    )
+                    if majority
+                    else {}
+                ),
             )
         )
     expected_ids = {
@@ -395,7 +454,13 @@ def assemble_inventory(plan, responses, *, graph, model_sha256):
         raise ValueError("SC1_RESPONSE_OUTSIDE_RUN")
     pages = []
     for page in plan["pages"]:
-        failed = any(c["errors"] for c in chunks if c["physical_page"] == page["physical_page"])
+        page_chunks = [c for c in chunks if c["physical_page"] == page["physical_page"]]
+        failed = any(c["errors"] for c in page_chunks)
+        if majority:
+            inspected = {1, 2, 3}
+            for c in page_chunks:
+                inspected.intersection_update(c["cf1_inspected_replicas"])
+            failed = len(inspected) < 2
         pages.append(
             page
             | dict(

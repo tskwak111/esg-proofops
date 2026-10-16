@@ -254,6 +254,9 @@ class InventoryIndex:
     def __init__(self, inventory, graph):
         self.inventory = replay_inventory(inventory, graph)
         self.graph = graph
+        from proofops.application.tagging.cf1_inventory import absence_policy
+
+        self.absence_agreement = absence_policy(self.inventory["selection"])
         self.by_element = {}
         for candidate in inventory["candidates"]:
             self.by_element.setdefault(candidate["element_id"], []).append(candidate)
@@ -262,6 +265,46 @@ class InventoryIndex:
         }
 
     def state(self, element_id, key, required):
+        original = self._unanimous_state(element_id, key, required)
+        if self.absence_agreement is None or key is None:
+            return original
+        eligible = {1, 2, 3}
+        contrary = []
+        negative = False
+        ids = set(original[2])
+        for chunk in self.inventory["chunks"]:
+            eligible.intersection_update(chunk["cf1_inspected_replicas"])
+            for record in chunk["cf1_contrary_records"]:
+                if record["element_id"] == element_id and _candidate_key(record) in (None, key):
+                    contrary.append(record)
+                    ids.add(record["candidate_id"])
+        for candidate in self.by_element.get(element_id, []):
+            votes = candidate["votes"]
+            if all(_candidate_key(v) not in (None, key) for v in votes.values()):
+                continue
+            ids.add(candidate["candidate_id"])
+            negative |= any(v["state"] == "not_applicable" for v in votes.values())
+            for replica in tuple(eligible):
+                vote = votes.get(str(replica))
+                if vote is None or _candidate_key(vote) is None:
+                    eligible.discard(replica)
+                elif _candidate_key(vote) == key and vote["state"] != "not_applicable":
+                    eligible.discard(replica)
+        # Verified contrary evidence cannot be outvoted, including a verified
+        # record from an otherwise invalid reply. Unanimous positives are kept.
+        if original[0] == "conflict" or any(r["state"] == "conflict" for r in contrary):
+            return "conflict", (), sorted(ids)
+        if contrary and (
+            negative or len(eligible) >= self.absence_agreement["required_absence_votes"]
+        ):
+            return "conflict", (), sorted(ids)
+        if original[0] == "present":
+            return original
+        if len(eligible) >= self.absence_agreement["required_absence_votes"]:
+            return "absent_in_scope", (), sorted(ids)
+        return "unknown", (), sorted(ids)
+
+    def _unanimous_state(self, element_id, key, required):
         if key is None:
             return "unknown", (), []
         positives, states, ids = [], [], []
@@ -323,6 +366,8 @@ def analyze_scope(
             raise ValueError("V1_ACTIVITY_REQUIRES_THREE_REPLICAS")
         policy = policy | dict(v1_activity_links=v1_activity_policy)
     index = inventory if isinstance(inventory, InventoryIndex) else InventoryIndex(inventory, graph)
+    if index.absence_agreement is not None:
+        policy = policy | dict(cf1_absence_agreement=index.absence_agreement)
     data, selected = packet.to_dict(), index.inventory["selection"]
     if (
         selected["run_id"],
