@@ -26,6 +26,7 @@ def test_optional_tolerance_preserves_legacy_identity_and_binds_explicit_value()
     assert legacy.pop("source_recovery") is None
     assert legacy.pop("local_resource_policy") is None
     assert legacy.pop("output_policy") is None
+    assert legacy.pop("execution_policy") is None
     assert legacy.pop("vision_parse") == "off"
     assert legacy.pop("parser_mode") == "local"
     assert legacy.pop("upstage_glyph_boxes") is False
