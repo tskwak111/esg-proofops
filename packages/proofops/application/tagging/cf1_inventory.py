@@ -117,7 +117,15 @@ def wire_request(original):
         replicate_id=original["replicate_id"],
         untrusted_document_data=dict(spans=spans),
     )
-    system = PROMPT + "\nElement cue hints: " + canonical_json(INVENTORY_POLICY["terms"])
+    # JSON mode requires a JSON instruction in the messages. The probe's
+    # schema_json argument validates locally; it does not transmit the schema.
+    system = (
+        PROMPT
+        + "\nJSON schema: "
+        + canonical_json(SCHEMA)
+        + "\nElement cue hints: "
+        + canonical_json(INVENTORY_POLICY["terms"])
+    )
     return system, canonical_json(wire), canonical_json(SCHEMA)
 
 

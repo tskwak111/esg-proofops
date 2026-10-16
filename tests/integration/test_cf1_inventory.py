@@ -173,6 +173,13 @@ def test_cf1_real_worker_transport_receipts_and_replay(tmp_path, monkeypatch):
 
     def post(body):
         calls.append(body)
+        # OpenAI JSON mode rejects a request unless a message mentions JSON.
+        # schema_json in probe.complete is only a local response validator.
+        from proofops.application.tagging.cf1_inventory import SCHEMA
+        from proofops.domain.rulepacks import canonical_json
+
+        assert body["response_format"] == {"type": "json_object"}
+        assert "JSON schema: " + canonical_json(SCHEMA) in body["messages"][0]["content"]
         user = json.loads(body["messages"][1]["content"])
         assert "char_start" not in body["messages"][1]["content"]
         assert user["untrusted_document_data"]["spans"][0]["cue_elements"]
