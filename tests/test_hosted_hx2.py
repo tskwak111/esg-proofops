@@ -190,9 +190,19 @@ def test_public_default_upload_binding_parse_extract_tag_publication(
         canonical_hash(policy)
     )
     snapshot = (state / "result-1.json").read_bytes()
-    # W16 adds read-time source coordinates; every frozen result field remains exact.
+    # W16 and UX1 add read-time data; every frozen result field remains exact.
     frozen = create_hosted_app(settings).state.composition.get_result(tenant, done["run_id"])
-    assert {k: v for k, v in data.items() if k not in ("w16_source_document", "claims")} == {
+    from proofops_api.hosted_ux1 import UX1_POLICY_SHA256
+
+    projected_pipeline = data["pipeline"].copy()
+    assert projected_pipeline.pop("ux1_data") == {
+        "table_count": 0,
+        "table_count_basis": "selected_parser_table_blocks",
+        "policy_sha256": UX1_POLICY_SHA256,
+    }
+    assert "ux1_data" not in frozen["pipeline"]
+    comparable = data | {"pipeline": projected_pipeline}
+    assert {k: v for k, v in comparable.items() if k not in ("w16_source_document", "claims")} == {
         k: v for k, v in frozen.items() if k != "claims"
     }
     assert [
