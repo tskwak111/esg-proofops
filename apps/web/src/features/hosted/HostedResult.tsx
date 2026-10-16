@@ -47,9 +47,9 @@ export function ResultView({ result, role, client, runId, onReload }: { result: 
         <div className="claim-list" aria-label="분석 결과 주장 목록">{result.claims.map(claim => {
           const grade = gradeSummary(claim);
           return <button type="button" className={`claim-item ${selected?.claim_id === claim.claim_id ? "selected" : ""}`} key={claim.claim_id} onClick={() => setSelectedId(claim.claim_id)}>
-            <div className="claim-item-top"><span>{pageLabel(result, claim.page_num)} · {claim.track ? trackText[claim.track] ?? claim.track : claim.provisional_track ? `${trackText[claim.provisional_track] ?? claim.provisional_track} · 잠정 분류` : "분류 미합의"}</span>
+            <div className="claim-item-top"><span>{pageLabel(result, claim.page_num)} · {(claim.cf6_track || claim.track) ? trackText[(claim.cf6_track || claim.track)!] ?? (claim.cf6_track || claim.track) : claim.provisional_track ? `${trackText[claim.provisional_track] ?? claim.provisional_track} · 잠정 분류` : "분류 미합의"}</span>
               <span className={`mini-status ${grade.confirmed ? "good" : "warn"}`}>{grade.confirmed ? decisionLine(claim.decision) : "확정 등급 아님"}</span></div>
-            <p>{claim.quote}</p><small>{sourceQualityText(claim.source_quality)}{claim.hold_reason ? ` · ${holdReasonText(claim.hold_reason)}` : ""}</small></button>;
+            <p>{claim.quote}</p><small>{sourceQualityText(claim.source_quality)}{claim.cf6_status !== "confirmed" && claim.hold_reason ? ` · ${holdReasonText(claim.hold_reason)}` : ""}</small></button>;
         })}</div>
         {selected && <ClaimPanel key={selected.claim_id} claim={selected} result={result} role={role} client={client} runId={runId} onReload={onReload} />}
       </div>}
@@ -65,15 +65,16 @@ function ClaimPanel({ claim, result, role, client, runId, onReload }: { claim: R
     <div className="source-quote"><span>{claim.source_quality === "verified" ? "보고서 원문" : "추출 문장"} · {refPages.join(", ") || pageLabel(result, claim.page_num)}</span>
       <blockquote>“{claim.quote}”</blockquote><small>{sourceQualityText(claim.source_quality)}</small></div>
     <div className="decision-panel" data-testid="grade-panel">
-      <span>{claim.track ? `${trackText[claim.track] ?? claim.track} 트랙` : claim.provisional_track ? `${trackText[claim.provisional_track] ?? claim.provisional_track} 트랙 · 잠정 분류` : "트랙 합의 전"}</span>
+      <span>{(claim.cf6_track || claim.track) ? `${trackText[(claim.cf6_track || claim.track)!] ?? (claim.cf6_track || claim.track)} 트랙` : claim.provisional_track ? `${trackText[claim.provisional_track] ?? claim.provisional_track} 트랙 · 잠정 분류` : "트랙 합의 전"}</span>
       <strong>{grade.headline}</strong>
       <p>{grade.note}</p>
-      {claim.provisional_grade && <ProvisionalHold grade={claim.provisional_grade} />}
+      {!claim.cf6_status && claim.provisional_grade && <ProvisionalHold grade={claim.provisional_grade} />}
     </div>
     {claim.pipeline_stage && <p>처리 단계: {claim.pipeline_stage} · {claim.pipeline_status}</p>}
     {claim.source_status && <p>{claim.source_status.display} · {claim.source_status.reason}</p>}
-    {claim.hold_reason && <p className="hosted-note">보류 사유: {holdReasonText(claim.hold_reason)}</p>}
-    {claim.provisional_grade?.elements?.length ? <div className="detail-block"><h4>잠정 요소 · 미확정</h4><table className="element-table"><thead><tr><th>요소</th><th>상태</th><th>반복 판독</th><th>검증 인용</th></tr></thead><tbody>{claim.provisional_grade.elements.map(element => <tr key={element.element_id}><th>{elementLabels[element.element_id] ?? element.element_id}</th><td>{elementStateText(element.state, "verified")}</td><td>{element.votes}/{element.total_replicas}</td><td>{element.evidence_refs.map((ref, index) => <p key={index}>{pageLabel(result, ref.page_num)} · {ref.quote}</p>)}</td></tr>)}</tbody></table></div> : null}
+    {claim.cf6_status !== "confirmed" && claim.hold_reason && <p className="hosted-note">보류 사유: {holdReasonText(claim.hold_reason)}</p>}
+    {!claim.cf6_status && claim.provisional_grade?.elements?.length ? <div className="detail-block"><h4>잠정 요소 · 미확정</h4><table className="element-table"><thead><tr><th>요소</th><th>상태</th><th>반복 판독</th><th>검증 인용</th></tr></thead><tbody>{claim.provisional_grade.elements.map(element => <tr key={element.element_id}><th>{elementLabels[element.element_id] ?? element.element_id}</th><td>{elementStateText(element.state, "verified")}</td><td>{element.votes}/{element.total_replicas}</td><td>{element.evidence_refs.map((ref, index) => <p key={index}>{pageLabel(result, ref.page_num)} · {ref.quote}</p>)}</td></tr>)}</tbody></table></div> : null}
+    {!!claim.cf6_elements?.length && <div className="detail-block"><h4>분석 요소</h4><table className="element-table"><thead><tr><th>요소</th><th>상태</th><th>검증 인용</th></tr></thead><tbody>{claim.cf6_elements.map(element => <tr key={element.element_id}><th>{elementLabels[element.element_id] ?? element.element_id}</th><td>{elementStateText(element.state, "verified")}</td><td>{element.evidence_refs.map((ref, index) => <p key={index}>{pageLabel(result, ref.page_num)} · {ref.quote}</p>)}</td></tr>)}</tbody></table></div>}
     <div className="detail-block"><h4>요소별 근거</h4>
       {claim.elements.length ? <div className="element-table-wrap"><table className="element-table"><thead><tr><th>요소</th><th>상태</th><th>근거 문구</th></tr></thead><tbody>
         {claim.elements.map(element => {
@@ -83,7 +84,7 @@ function ClaimPanel({ claim, result, role, client, runId, onReload }: { claim: R
             <td>{element.evidence_refs.length ? element.evidence_refs.map((ref, index) => <p key={index}><small>{pageLabel(result, ref.page_num)}</small> “{ref.quote}”</p>)
               : <span className="no-evidence">{element.state === "unknown" ? "연결된 근거 문구 없음 · 근거가 없다는 뜻이 아닙니다" : "연결된 근거 문구 없음"}{missing?.undetermined_reason ? ` (${missing.undetermined_reason})` : ""}</span>}</td></tr>;
         })}</tbody></table></div>
-        : <p className="caption">요소 태깅 전입니다. 빈 요소를 ‘근거 없음’으로 보지 않습니다.</p>}
+        : claim.cf6_elements?.length ? null : <p className="caption">요소 태깅 전입니다. 빈 요소를 ‘근거 없음’으로 보지 않습니다.</p>}
     </div>
     {review && canReview(role) && client && runId && <ReviewForm key={`${review.review_id}:${review.revision}`} claim={claim} review={review} client={client} runId={runId} onReload={onReload} result={result} />}
     {review && !canReview(role) && <p className="hosted-note">이 주장은 사람 검토를 기다립니다. 이 검토는 reviewer 또는 admin 역할만 처리할 수 있습니다.</p>}

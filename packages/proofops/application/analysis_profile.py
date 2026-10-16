@@ -40,6 +40,7 @@ from proofops.application.tagging.cf5_context import POLICY as CF5_CONTEXT_POLIC
 from proofops.application.tagging.cf5_context import PROFILE as CF5_PROMPT_PROFILE
 from proofops.application.tagging.cf1_inventory import MAJORITY_POLICY as CF1_MAJORITY_POLICY
 from proofops.application.tagging.cf1_inventory import POLICY as CF1_INVENTORY_POLICY
+from proofops.application.tagging.cf6_confirmation import POLICY as CF6_CONFIRMATION_POLICY
 from proofops.application.tagging.dec24 import (
     DEFINITIONS_HASH,
     INTEGRATED_DEFINITIONS_HASH,
@@ -1209,6 +1210,14 @@ CF1_POLICY = CF1_3OF3_POLICY | dict(
 )
 
 
+# CF6 is append-only and must be explicitly pinned. I28/CF1 may compose these
+# fields onto their new finals policy; V2_POLICY and old hash entries stay intact.
+CF6_POLICY = FINALS_I27_POLICY | dict(
+    integration_profile="cf6_finals_default_candidate_dec127_v1",
+    cf6_confirmation=CF6_CONFIRMATION_POLICY,
+)
+
+
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
     from proofops.application.tagging.fact_assembly_c3_v2 import (
@@ -1379,6 +1388,7 @@ def policy_for(profile, *, pinned_hash=None):
         raise ValueError("ANALYSIS_PROFILE_UNKNOWN")
     if profile == V2_PROFILE:
         choices = (*choices, *sc1_inventory_policies, CF1_3OF3_POLICY, CF1_POLICY)
+        choices = (*choices, CF6_POLICY)
         choices = (*choices, V1_ACTIVITY_POLICY)
         choices = (*choices, QT1_V25_POLICY)
     for policy in choices:
@@ -1516,6 +1526,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     )
     if profile == V2_PROFILE:
         allowed = (*allowed, *sc1_inventory_policies, CF1_3OF3_POLICY, CF1_POLICY)
+        allowed = (*allowed, CF6_POLICY)
         allowed = (*allowed, V1_ACTIVITY_POLICY)
         allowed = (*allowed, QT1_V25_POLICY)
     if policy not in allowed:

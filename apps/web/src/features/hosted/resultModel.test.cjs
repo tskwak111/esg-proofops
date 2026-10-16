@@ -59,3 +59,22 @@ test("v2 whole range shows actionable hold without confirming unknown", () => {
   assert.match(html, /원문 확인 필요/);
   assert.doesNotMatch(html, /확정 등급 E[0-3]/);
 });
+
+test("CF6 confirmed scope displays the decided grade and scoped absence", () => {
+  const confirmed = { ...claim, source_quality: "verified", hold_reason: null,
+    cf6_status: "confirmed", cf6_track: "performance", confirmed_grade: "E0",
+    decision: { decision_status: "decided", evidence_grade: "E0", label: "UNSUBSTANTIATED", review_status: "auto_confirmed" },
+    cf6_elements: [{ element_id: "P1", state: "absent_in_scope", votes: 0, evidence_refs: [] }] };
+  const html = renderToStaticMarkup(React.createElement(ResultView, { result: { ...result, claims: [confirmed] } }));
+  assert.equal(gradeSummary(confirmed).confirmed, true);
+  assert.match(html, /확정 등급 E0/);
+  assert.match(html, /분석 범위 내 근거 없음/);
+  assert.doesNotMatch(html, /잠정 요소|잠정 등급|잠정 분류|요소 태깅 전/);
+});
+test("CF6 held state takes priority over retained provisional diagnostics", () => {
+  const held = { ...claim, cf6_status: "held" };
+  assert.equal(gradeSummary(held).headline, "판정 보류");
+  const html = renderToStaticMarkup(React.createElement(ResultView, { result: { ...result, claims: [held] } }));
+  assert.match(html, /판정 보류/);
+  assert.doesNotMatch(html, /잠정 등급 E1|확정 등급 E1/);
+});

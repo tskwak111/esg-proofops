@@ -213,6 +213,7 @@ def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                 # Legacy facades without outcome admission keep their contract.
                 del evidence, extraction_checkpoint
         from proofops.application.analysis_profile import (
+            CF6_POLICY,
             FINALS_I1_INITIAL_POLICY,
             FINALS_I3_POLICY,
             FINALS_I4_POLICY,
@@ -252,6 +253,7 @@ def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
         from proofops.domain.provenance import canonical_hash
 
         pb1 = tag_snapshot.get("analysis_profile_policy_sha256") in {
+            canonical_hash(CF6_POLICY),
             canonical_hash(FINALS_H4_POLICY),
             canonical_hash(FINALS_H6_POLICY),
             canonical_hash(FINALS_C24_POLICY),
@@ -335,6 +337,7 @@ def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                     if row:
                         summary["table_observation"] = row
                         if tag_snapshot.get("analysis_profile_policy_sha256") in {
+                            canonical_hash(CF6_POLICY),
                             canonical_hash(FINALS_H4_POLICY),
                             canonical_hash(FINALS_H6_POLICY),
                             canonical_hash(FINALS_C24_POLICY),
@@ -429,6 +432,23 @@ def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                             "sc1_hold_reason",
                         )
                     }
+                )
+            if "cf6_confirmation" in projection:
+                summary["cf6_confirmation"] = projection["cf6_confirmation"]
+                if decision is None and projection["cf6_confirmation"] is not None:
+                    decision = projection["cf6_confirmation"]
+                    summary["decision"] = decision
+                summary["cf6_status"] = (
+                    "confirmed" if (decision or {}).get("evidence_grade") else "held"
+                )
+                summary["cf6_elements"] = projection.get("cf6_receipt", {}).get("elements", [])
+                summary["cf6_hold_reasons"] = projection.get("cf6_receipt", {}).get(
+                    "reasons", [projection.get("reason") or "CF6_TAGGING_INCOMPLETE"]
+                )
+                summary["cf6_track"] = (
+                    projection.get("frozen_packet", {}).get("track")
+                    if projection["cf6_confirmation"] is not None
+                    else None
                 )
             rows.append(
                 summary

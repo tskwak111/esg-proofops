@@ -670,6 +670,29 @@ class LocalTagStore:
             item.get("sc1_confirmation") for item in envelope["claims"]
         ):
             raise ValueError("SC1_UNPINNED_CONFIRMATION")
+        cf6_policy = snapshot.get("analysis_profile_policy", {}).get("cf6_confirmation")
+        for item in envelope["claims"]:
+            receipt = item.get("cf6_receipt")
+            if receipt is not None:
+                if cf6_policy is None:
+                    raise ValueError("CF6_UNPINNED_CONFIRMATION")
+                from proofops.application.tagging.cf6_confirmation import analyze_record
+
+                claim = next(c for c in evidence[1].claims if c.claim_id == item["claim_id"])
+                replayed = analyze_record(
+                    item,
+                    claim,
+                    evidence[2],
+                    RulePackSnapshot(**snapshot["rulepack"]),
+                    snapshot["analysis_profile_policy"],
+                )
+                if (
+                    canonical_hash(replayed) != canonical_hash(receipt)
+                    or item.get("cf6_confirmation") != replayed["cf6_confirmation"]
+                ):
+                    raise ValueError("CF6_RECEIPT_MISMATCH")
+            elif item.get("cf6_confirmation") is not None:
+                raise ValueError("CF6_CONFIRMATION_WITHOUT_RECEIPT")
         return envelope, evidence
 
     def load_snapshot(self, tenant_id, run_id):

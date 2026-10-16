@@ -9,6 +9,7 @@ export function elementStateText(state: string, sourceQuality: string): string {
   if (state === "present") return sourceQuality === "verified" ? "근거 확인" : "원문 대조 필요";
   if (state === "unknown") return "확인되지 않음(근거 없음 아님)";
   if (state === "absent") return "근거 없음(검증된 검색 범위)";
+  if (state === "absent_in_scope") return "분석 범위 내 근거 없음";
   if (state === "conflict") return "근거 충돌";
   if (state === "not_applicable") return "비적용";
   return state;
@@ -39,6 +40,9 @@ export function gradeSummary(claim: ResultClaim): { confirmed: boolean; headline
   if (grade) {
     const prov = reviewStatusText(claim.decision?.review_status);
     return { confirmed: true, headline: `확정 등급 ${decisionLine(claim.decision) ?? grade}`, note: prov };
+  }
+  if (claim.cf6_status === "held") {
+    return { confirmed: false, headline: "판정 보류", note: "원문 검증·유형 합의·규칙 적용 또는 처리 완료 조건이 충족되지 않았습니다." };
   }
   if (claim.provisional_grade) {
     const provisional = claim.provisional_grade;
