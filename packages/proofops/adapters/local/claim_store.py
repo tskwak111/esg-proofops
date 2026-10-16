@@ -19,6 +19,7 @@ from proofops.application.claims import (
     discover_atomic_claims,
 )
 from proofops.application.ports.jobs import JobMessage
+from proofops.application.rb4_memory import enabled as rb4_memory_enabled
 from proofops.domain.provenance import canonical_hash
 
 
@@ -111,6 +112,10 @@ class LocalClaimStore:
         if payload is None or sha256(payload).hexdigest() != run["claim_snapshot_sha256"]:
             raise ValueError("CLAIM_SNAPSHOT_HASH_MISMATCH")
         envelope = json.loads(payload)
+        release_inputs = rb4_memory_enabled(snapshot)
+        if release_inputs:
+            # The immutable checkpoint digest was checked before decoding.
+            del payload
         graph = load_run_graph(
             self.store, self.uploads, self.parser, tenant_id=tenant_id, run_id=run_id
         )
@@ -149,6 +154,8 @@ class LocalClaimStore:
             != discovery_coverage(json.loads(parse_checkpoint)["coverage"], graph, discovery)
         ):
             raise ValueError("CLAIM_SNAPSHOT_REPLAY_MISMATCH")
+        if release_inputs:
+            del parse_checkpoint
         if "claim_source_policy" in snapshot:
             from proofops.adapters.local.claim_source_policies import claim_source_reader
             from proofops.adapters.local.native_replay_cache import replay_claims_cached
@@ -280,6 +287,24 @@ class LocalClaimStore:
         checkpoint = self.store.jobs.read_checkpoint(JobMessage(**run["extract_job"]))
         if checkpoint is None or sha256(checkpoint).hexdigest() != run["claim_snapshot_sha256"]:
             raise ValueError("CLAIM_SNAPSHOT_HASH_MISMATCH")
+        if admitted_checkpoint is not None and rb4_memory_enabled(
+            self.store.snapshot(tenant_id, run_id)
+        ):
+            # Current writers store canonical JSON. Its checked byte digest can
+            # admit the already-replayed envelope without a second decoded tree.
+            del checkpoint
+            if canonical_hash(admitted_checkpoint) == run["claim_snapshot_sha256"]:
+                return (
+                    {"extraction_outcome": admitted_checkpoint["extraction_outcome"]}
+                    if "extraction_outcome" in admitted_checkpoint
+                    else {}
+                )
+            # Preserve the original semantic comparison for noncanonical JSON
+            # encodings too. Re-read bytes only on this uncommon fallback, and
+            # check the same immutable head before decoding them.
+            checkpoint = self.store.jobs.read_checkpoint(JobMessage(**run["extract_job"]))
+            if checkpoint is None or sha256(checkpoint).hexdigest() != run["claim_snapshot_sha256"]:
+                raise ValueError("CLAIM_SNAPSHOT_HASH_MISMATCH")
         envelope = json.loads(checkpoint)
         # load_evidence validates this immutable envelope before source replay.
         # The returned discovery can then gain verified spans/source quality;

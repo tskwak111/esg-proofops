@@ -24,6 +24,8 @@ from proofops.application.analysis_profile import (
     VERIFIED_READ_V11_POLICY,
     VERIFIED_READ_V12_POLICY,
 )
+from proofops.application.rb4_memory import PUBLICATION_POLICY as RB4_PUBLICATION_POLICY
+from proofops.application.rb4_memory import publication_enabled as rb4_publication_enabled
 from proofops.domain.provenance import canonical_hash
 
 MAX_BYTES = S4_PUBLICATION_POLICY["max_bytes"]
@@ -91,7 +93,7 @@ def _context(path, job, pages):
         (VERIFIED_READ_V9_POLICY, RG1_PUBLICATION_POLICY, "upstage-ocr-page-v17"),
     ):
         raise ValueError("PUBLICATION_POLICY_INELIGIBLE")
-    return dict(
+    context = dict(
         workspace=str(path.resolve()),
         tenant_id=job["tenant_id"],
         run_id=job["run_id"],
@@ -102,6 +104,9 @@ def _context(path, job, pages):
         execution=policy["publication_handoff"],
         reader_runtime=runtime_identity(policy["source"], snapshot.get("claim_source_policy")),
     )
+    if rb4_publication_enabled(policy):
+        context["rb4_publication_digest"] = RB4_PUBLICATION_POLICY
+    return context
 
 
 def _file_hash(path):
@@ -119,7 +124,7 @@ def _pins(path):
     return pins
 
 
-def _authoritative_state(path):
+def _authoritative_state(path, *, stream_records=False):
     # Result reads may populate only derived evidence-search caches. Pin all
     # durable run/checkpoint/tag/review records around the actual verification.
     digest = hashlib.sha256()
@@ -140,12 +145,27 @@ def _authoritative_state(path):
             digest.update(row_hash(row))
         digest.update(b"job_records")
         if db.execute("SELECT 1 FROM sqlite_master WHERE name='job_records'").fetchone():
-            for row in db.execute(
-                "SELECT kind,record_id,value FROM job_records "
-                "WHERE kind NOT IN ('document_evidence_search','element_evidence_search') "
-                "ORDER BY kind,record_id"
-            ):
-                digest.update(row_hash(row))
+            if stream_records:
+                # Sorting the BLOB values spills whole checkpoint histories to
+                # SQLite temp storage. Keep the original table-scan/tie order,
+                # sort only small keys, and hash every complete value in turn.
+                keys = db.execute(
+                    "SELECT rowid,kind,record_id FROM job_records NOT INDEXED "
+                    "WHERE kind NOT IN ('document_evidence_search','element_evidence_search') "
+                    "ORDER BY kind,record_id,rowid"
+                )
+                for rowid, kind, record_id in keys:
+                    value = db.execute(
+                        "SELECT value FROM job_records WHERE rowid=?", (rowid,)
+                    ).fetchone()[0]
+                    digest.update(row_hash((kind, record_id, value)))
+            else:
+                for row in db.execute(
+                    "SELECT kind,record_id,value FROM job_records "
+                    "WHERE kind NOT IN ('document_evidence_search','element_evidence_search') "
+                    "ORDER BY kind,record_id"
+                ):
+                    digest.update(row_hash(row))
     return digest.hexdigest()
 
 
@@ -155,8 +175,9 @@ def make_handoff(path, job, pages):
 
     try:
         context = _context(path, job, pages)
+        stream_records = context.get("rb4_publication_digest") == RB4_PUBLICATION_POLICY
         before = _pins(path)  # Reject symlinks before any source read.
-        durable = _authoritative_state(path)
+        durable = _authoritative_state(path, stream_records=stream_records)
         content = result_snapshot(path, job["tenant_id"], pages)
         after = _pins(path)
 
@@ -172,7 +193,7 @@ def make_handoff(path, job, pages):
         snapshot = json.loads(content)
         if (
             without_db(before) != without_db(after)
-            or durable != _authoritative_state(path)
+            or durable != _authoritative_state(path, stream_records=stream_records)
             or context != _context(path, job, pages)
             or any(after.get(k) != v for k, v in snapshot["source_hashes"].items())
         ):

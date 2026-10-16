@@ -31,6 +31,8 @@ from proofops.application.provider_resilience import (
 from proofops.application.provider_resilience import POLICY as F1_RESILIENCE_POLICY
 from proofops.application.rb1_input_isolation import POLICY as RB1_INPUT_POLICY
 from proofops.application.rb3_deadline import POLICY as RB3_DEADLINE_POLICY
+from proofops.application.rb4_memory import POLICY as RB4_MEMORY_POLICY
+from proofops.application.rb4_memory import PUBLICATION_POLICY as RB4_PUBLICATION_POLICY
 from proofops.application.tagging.analysis_scope import confirmation_policy as sc1_policy
 from proofops.application.tagging.c3_request_binding import S5_POLICY as S5_C3_BINDING
 from proofops.application.tagging.dec24 import (
@@ -1141,6 +1143,29 @@ FINALS_I27_POLICY = FINALS_I27_PRE_RB2_POLICY | dict(
 V2_POLICY = FINALS_I27_POLICY
 
 
+RB4_POLICY = RB3_POLICY | dict(
+    integration_profile="rb4_memory_v1",
+    rb1_input_isolation=RB1_INPUT_POLICY,
+    rb1_input_isolation_sha256=canonical_hash(RB1_INPUT_POLICY),
+    rb4_memory=RB4_MEMORY_POLICY,
+)
+
+RB4_STREAM_POLICY = RB4_POLICY | dict(
+    integration_profile="rb4_memory_stream_v2",
+    rb4_publication_digest=RB4_PUBLICATION_POLICY,
+)
+
+
+# I28 activates only RB4's memory deltas on the complete v27 composition.
+# Preserve v27 and both standalone RB4 pins for immutable receipt replay.
+FINALS_I28_POLICY = FINALS_I27_POLICY | dict(
+    integration_profile="finals-20261016-v28",
+    rb4_memory=RB4_STREAM_POLICY["rb4_memory"],
+    rb4_publication_digest=RB4_STREAM_POLICY["rb4_publication_digest"],
+)
+V2_POLICY = FINALS_I28_POLICY
+
+
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
     from proofops.application.tagging.fact_assembly_c3_v2 import (
@@ -1175,6 +1200,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_I27_POLICY,
             FINALS_I27_PRE_RB2_POLICY,
             FINALS_I26_POLICY,
             S5_LIVE_POLICY,
@@ -1184,6 +1210,8 @@ def policy_for(profile, *, pinned_hash=None):
             RB3_POLICY,
             RB1_POLICY,
             RB2_POLICY,
+            RB4_POLICY,
+            RB4_STREAM_POLICY,
             FINALS_I24_POLICY,
             FINALS_I23_POLICY,
             V3_POLICY,
@@ -1342,6 +1370,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FINALS_I27_POLICY,
             FINALS_I27_PRE_RB2_POLICY,
             FINALS_I26_POLICY,
             S5_LIVE_POLICY,
@@ -1351,6 +1380,8 @@ def publication_policy_for(profile, *, pinned_hash=None):
             RB3_POLICY,
             RB1_POLICY,
             RB2_POLICY,
+            RB4_POLICY,
+            RB4_STREAM_POLICY,
             FINALS_I24_POLICY,
             FINALS_I23_POLICY,
             V3_POLICY,

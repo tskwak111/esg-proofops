@@ -33,6 +33,7 @@ from proofops.application.evidence.retrieval import (
 )
 from proofops.application.ports.jobs import JobMessage, LeaseLost
 from proofops.application.rb1_input_isolation import InputIsolation, held_claim, tag_input_code
+from proofops.application.rb4_memory import enabled as rb4_memory_enabled
 from proofops.application.reviews import ReviewInputs, ReviewService
 from proofops.application.tagging.consensus import (
     form_consensus,
@@ -269,9 +270,23 @@ class LocalTagRunner:
             graph.document_version_id,
         ):
             raise ValueError("TAG_INPUT_MISMATCH")
-        envelope = tag_pins(
-            snapshot, extraction, run.get("claim_snapshot_sha256", canonical_hash(extraction))
-        )
+        if rb4_memory_enabled(snapshot):
+            checkpoint_hash = (
+                run["claim_snapshot_sha256"]
+                if "claim_snapshot_sha256" in run
+                else canonical_hash(extraction)
+            )
+            envelope = tag_pins(snapshot, extraction, checkpoint_hash)
+            # load_evidence has fully replayed the source proof. The tag stage
+            # uses its verified graph and these metadata/coverage fields; it
+            # never needs to retain the decoded proof tree as well.
+            extraction = {
+                key: value for key, value in extraction.items() if key != "claim_source_attestation"
+            }
+        else:
+            envelope = tag_pins(
+                snapshot, extraction, run.get("claim_snapshot_sha256", canonical_hash(extraction))
+            )
         rulepack = RulePackSnapshot(**snapshot["rulepack"])
         settings = tagging_settings(snapshot) if snapshot.get("tagging_settings") else None
         facility_dimensions = {}

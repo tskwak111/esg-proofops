@@ -5,7 +5,10 @@ from proofops.domain.provenance import canonical_hash
 
 
 def test_v27_composition_and_historical_pins():
-    current = profiles.policy_for(profiles.V2_PROFILE)
+    current = profiles.policy_for(
+        profiles.V2_PROFILE,
+        pinned_hash="fcd788f4c89034141c8767913f1c1acabdaefa1c8f543cdc5231903f05fa1804",
+    )
     assert current == profiles.FINALS_I27_POLICY
     assert current == profiles.S5_LIVE_POLICY | dict(
         integration_profile="finals-20261016-v27",

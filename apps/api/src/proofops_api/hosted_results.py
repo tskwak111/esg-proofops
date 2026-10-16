@@ -206,6 +206,12 @@ def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             outcome = outcome | project_outcome(
                 tenant, run, admitted_checkpoint=extraction_checkpoint
             )
+            from proofops.application.rb4_memory import enabled as rb4_memory_enabled
+
+            if rb4_memory_enabled(claims.store.snapshot(tenant, run)):
+                # Source replay, tag pins and outcome admission are complete.
+                # Legacy facades without outcome admission keep their contract.
+                del evidence, extraction_checkpoint
         from proofops.application.analysis_profile import (
             FINALS_I1_INITIAL_POLICY,
             FINALS_I3_POLICY,
@@ -214,6 +220,7 @@ def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             FINALS_I6_POLICY,
             FINALS_I23_POLICY,
             FINALS_I26_POLICY,
+            FINALS_I27_POLICY,
             FINALS_I27_PRE_RB2_POLICY,
             S1_POLICY,
             S2_POLICY,
@@ -258,6 +265,7 @@ def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             canonical_hash(V2_POLICY),
             canonical_hash(S5_LIVE_POLICY),
             canonical_hash(FINALS_I26_POLICY),
+            canonical_hash(FINALS_I27_POLICY),
             canonical_hash(FINALS_I27_PRE_RB2_POLICY),
             canonical_hash(FINALS_I23_POLICY),
             canonical_hash(QT1_POLICY),
@@ -340,6 +348,7 @@ def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                             canonical_hash(V2_POLICY),
                             canonical_hash(S5_LIVE_POLICY),
                             canonical_hash(FINALS_I26_POLICY),
+                            canonical_hash(FINALS_I27_POLICY),
                             canonical_hash(FINALS_I27_PRE_RB2_POLICY),
                             canonical_hash(FINALS_I23_POLICY),
                             canonical_hash(QT1_POLICY),

@@ -4,7 +4,8 @@ import json
 from contextlib import contextmanager
 from types import SimpleNamespace
 
-from proofops.application.analysis_profile import S2_POLICY
+import pytest
+from proofops.application.analysis_profile import FINALS_I27_POLICY, FINALS_I28_POLICY, S2_POLICY
 from proofops.domain.provenance import canonical_hash
 from proofops_api import hosted_results
 
@@ -12,7 +13,8 @@ from tests.integration.test_batch_attestation_cache import discovery_for
 from tests.unit.test_pb1_source import fixture
 
 
-def test_s2_result_keeps_occurrence_metadata(tmp_path, monkeypatch):
+@pytest.mark.parametrize("policy", [S2_POLICY, FINALS_I27_POLICY, FINALS_I28_POLICY])
+def test_result_keeps_occurrence_metadata_with_legacy_facade(tmp_path, monkeypatch, policy):
     graph, source, ref = fixture()
     discovery = discovery_for(graph, (ref,))
     (tmp_path / "outcome.json").write_text(json.dumps(dict(status="completed")))
@@ -27,7 +29,7 @@ def test_s2_result_keeps_occurrence_metadata(tmp_path, monkeypatch):
     )
     tags = SimpleNamespace(
         _load_snapshot_with_evidence=lambda *a: (
-            dict(analysis_profile_policy_sha256=canonical_hash(S2_POLICY), claims=[]),
+            dict(analysis_profile_policy_sha256=canonical_hash(policy), claims=[]),
             ({}, discovery, graph),
         )
     )
@@ -40,3 +42,5 @@ def test_s2_result_keeps_occurrence_metadata(tmp_path, monkeypatch):
     monkeypatch.setattr(hosted_results, "services", services)
     result = hosted_results.read_result(tmp_path, source.tenant_id, [1])
     assert result["claims"][0]["duplicate_occurrences"] == [discovery.claims[0].claim_id]
+    assert result["claims"][0]["table_observation"]["verification_state"] == "unresolved"
+    assert result["claims"][0]["table_observation"]["cell_source_refs"] == {}
