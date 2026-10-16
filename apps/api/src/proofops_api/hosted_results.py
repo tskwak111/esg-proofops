@@ -229,6 +229,7 @@ def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             S1_POLICY,
             S2_POLICY,
             S5_LIVE_POLICY,
+            SPG_POLICY,
             V2_D24_POLICY,
             V2_PA9_POLICY,
             V2_PB1_COMPACT_POLICY,
@@ -270,6 +271,7 @@ def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             canonical_hash(S4_POLICY),
             canonical_hash(V2_POLICY),
             canonical_hash(S5_LIVE_POLICY),
+            canonical_hash(SPG_POLICY),
             canonical_hash(FINALS_I26_POLICY),
             canonical_hash(FINALS_I27_POLICY),
             canonical_hash(FINALS_I27_PRE_RB2_POLICY),
@@ -310,10 +312,28 @@ def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
         }
         groups = occurrence_groups(discovery.claims) if pb1 else {}
         blocks = {b.source_id: b for b in original_graph.blocks}
+        from proofops.adapters.local.spg_search_projection import begin as spg_projection
         from proofops.application.evidence.span_citations import verify_source_ref
 
+        search_projection = (
+            spg_projection(claims, tenant, run, original_graph)
+            if hasattr(claims.store, "snapshot")
+            else None
+        )
+        current_tags = None
+        if search_projection is not None:
+            with claims.store.jobs._transaction() as db:
+                current_tags = {
+                    c.claim_id: claims.current_tag(tenant, run, c.claim_id, connection=db)
+                    for c in discovery.claims
+                }
+
         for claim in discovery.claims:
-            current = claims.current_tag(tenant, run, claim.claim_id)
+            current = (
+                current_tags[claim.claim_id]
+                if current_tags is not None
+                else claims.current_tag(tenant, run, claim.claim_id)
+            )
             summary = claims.summary(claim, current)
             if tag_snapshot.get("analysis_profile_policy_sha256") == canonical_hash(QT1_POLICY):
                 from proofops.application.ingest.qt1_tables import candidates_for
@@ -357,6 +377,7 @@ def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                             canonical_hash(S4_POLICY),
                             canonical_hash(V2_POLICY),
                             canonical_hash(S5_LIVE_POLICY),
+                            canonical_hash(SPG_POLICY),
                             canonical_hash(FINALS_I26_POLICY),
                             canonical_hash(FINALS_I27_POLICY),
                             canonical_hash(FINALS_I27_PRE_RB2_POLICY),
@@ -487,6 +508,8 @@ def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                     ),
                 )
             )
+        if search_projection is not None:
+            search_projection.finish()
         page = reviews.store.page(tenant, run, cursor=None, limit=100, now=0, cursors=claims.store)
         return dict(
             schema="r108-hosted-result-v1",

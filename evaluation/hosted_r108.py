@@ -200,6 +200,7 @@ def prepare_argv(pdf, state, tenant, config, options=None):
                 S2_POLICY,
                 S4_POLICY,
                 S5_LIVE_POLICY,
+                SPG_POLICY,
                 W3_POLICY,
                 policy_for,
             )
@@ -253,6 +254,7 @@ def prepare_argv(pdf, state, tenant, config, options=None):
                 canonical_hash(S2_POLICY),
                 canonical_hash(S4_POLICY),
                 canonical_hash(S5_LIVE_POLICY),
+                canonical_hash(SPG_POLICY),
                 canonical_hash(FINALS_S5_POLICY),
                 canonical_hash(FINALS_S2_SPEED_POLICY),
                 canonical_hash(CF6_POLICY),
@@ -508,10 +510,18 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
         factories["llm"] = bounded_llm
         factories["parse"] = bounded_parse
 
+    coordinate_warm = None
     with scope:
         for stage, progress in (("parse", 15), ("extract", 45), ("tag", 75)):
             started = time.monotonic()
             store.update_progress(job, stage, progress)
+            if stage == "tag":
+                from proofops.application.spg_publication import enabled as spg_enabled
+
+                if spg_enabled(execution):
+                    from proofops_api.spg_coordinates import start
+
+                    coordinate_warm = start(store, job, workspace)
             worker = build_composition(
                 stage=stage,
                 verify_paragraphs=stage == "parse",
@@ -566,6 +576,8 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
                 stage_seconds[stage] = round(time.monotonic() - started, 6)
                 worker.uploads.close()
                 worker.uploads.registry.close()
+    if coordinate_warm is not None:
+        coordinate_warm.join(timeout=1)
     # Preserve genuine partial work and reasons. Only completed tag publication
     # may be called completed; domain decisions still carry their own hold states.
     if deadline is not None and deadline.summary()["stopped_stages"] and not extraction_stop:
@@ -669,14 +681,39 @@ def main():
         if job["fence"] != int(fence):
             raise ValueError("LEASE_LOST")
         store._fenced(db, job, time.time())
-    state, _ = drive(store, job, Path(workspace), read_operator_config(settings.live_config))
-    if len(sys.argv) == 5:
-        from proofops_api.hosted_publication import make_handoff
+    from proofops.adapters.local.spg_verified_evidence import publication_session
+    from proofops.application.analysis_profile import publication_policy_for
+    from proofops.application.spg_publication import enabled as spg_enabled
 
-        packet = make_handoff(state, job, json.loads(job["pages"]))
-        if packet is not None:
-            with os.fdopen(os.dup(int(sys.argv[4])), "wb") as publication:
-                publication.write(packet)
+    options = store.run_options(job)
+    policy = (
+        publication_policy_for(
+            options["analysis_profile"], pinned_hash=options.get("analysis_profile_sha256")
+        )
+        if options.get("analysis_profile") in FINALS_PROFILES
+        else {}
+    )
+
+    def check_lease():
+        with store.transaction(readonly=True) as db:
+            store._fenced(db, job, time.time())
+
+    scope = (
+        publication_session(
+            Path(workspace) / "state", job["tenant_id"], (job["run_id"], job["fence"]), check_lease
+        )
+        if spg_enabled(policy)
+        else nullcontext()
+    )
+    with scope:
+        state, _ = drive(store, job, Path(workspace), read_operator_config(settings.live_config))
+        if len(sys.argv) == 5:
+            from proofops_api.hosted_publication import make_handoff
+
+            packet = make_handoff(state, job, json.loads(job["pages"]))
+            if packet is not None:
+                with os.fdopen(os.dup(int(sys.argv[4])), "wb") as publication:
+                    publication.write(packet)
 
 
 if __name__ == "__main__":

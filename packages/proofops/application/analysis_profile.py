@@ -34,6 +34,7 @@ from proofops.application.rb3_deadline import POLICY as RB3_DEADLINE_POLICY
 from proofops.application.rb3_deadline import POLICY_V2 as RB3_DEADLINE_V2_POLICY
 from proofops.application.rb4_memory import POLICY as RB4_MEMORY_POLICY
 from proofops.application.rb4_memory import PUBLICATION_POLICY as RB4_PUBLICATION_POLICY
+from proofops.application.spg_publication import POLICY as SPG_PUBLICATION_POLICY
 from proofops.application.tagging.analysis_scope import confirmation_policy as sc1_policy
 from proofops.application.tagging.c3_request_binding import CF2_POLICY as CF2_C3_BINDING
 from proofops.application.tagging.c3_request_binding import S5_POLICY as S5_C3_BINDING
@@ -1248,6 +1249,14 @@ FINALS_I29B_POLICY = FINALS_I29_POLICY | dict(
 )
 V2_POLICY = FINALS_I29B_POLICY
 
+# SPG is a new opt-in hash. The coordinator may compose this execution field
+# into a later finals candidate; no existing publication/default pin changes.
+
+SPG_POLICY = FINALS_I29B_POLICY | dict(
+    integration_profile="spg_publication_v1",
+    spg_publication=SPG_PUBLICATION_POLICY,
+)
+
 
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
@@ -1425,6 +1434,7 @@ def policy_for(profile, *, pinned_hash=None):
         choices = (*choices, CF6_POLICY, CF6_V2_POLICY)
         choices = (*choices, V1_ACTIVITY_POLICY)
         choices = (*choices, QT1_V25_POLICY)
+        choices = (*choices, SPG_POLICY)
     for policy in choices:
         if pinned_hash is None or canonical_hash(policy) == pinned_hash:
             return policy
@@ -1566,6 +1576,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
         allowed = (*allowed, CF6_POLICY, CF6_V2_POLICY)
         allowed = (*allowed, V1_ACTIVITY_POLICY)
         allowed = (*allowed, QT1_V25_POLICY)
+        allowed = (*allowed, SPG_POLICY)
     if policy not in allowed:
         raise ValueError("ANALYSIS_PROFILE_PUBLICATION_PIN_MISMATCH")
     return policy
