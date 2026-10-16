@@ -33,6 +33,8 @@ from proofops.application.rb1_input_isolation import POLICY as RB1_INPUT_POLICY
 from proofops.application.rb3_deadline import POLICY as RB3_DEADLINE_POLICY
 from proofops.application.tagging.analysis_scope import confirmation_policy as sc1_policy
 from proofops.application.tagging.c3_request_binding import S5_POLICY as S5_C3_BINDING
+from proofops.application.tagging.cf1_inventory import MAJORITY_POLICY as CF1_MAJORITY_POLICY
+from proofops.application.tagging.cf1_inventory import POLICY as CF1_INVENTORY_POLICY
 from proofops.application.tagging.dec24 import (
     DEFINITIONS_HASH,
     INTEGRATED_DEFINITIONS_HASH,
@@ -1141,6 +1143,18 @@ FINALS_I27_POLICY = FINALS_I27_PRE_RB2_POLICY | dict(
 V2_POLICY = FINALS_I27_POLICY
 
 
+# CF1 is selectable only by exact hash; v27 default and historical pins stay fixed.
+CF1_3OF3_POLICY = FINALS_I27_POLICY | dict(
+    integration_profile="cf1_finals_inventory_quotes_v1",
+    cf1_inventory=CF1_INVENTORY_POLICY,
+)
+
+CF1_POLICY = CF1_3OF3_POLICY | dict(
+    integration_profile="cf1_finals_inventory_dec125_v1",
+    cf1_inventory=CF1_MAJORITY_POLICY,
+)
+
+
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
     from proofops.application.tagging.fact_assembly_c3_v2 import (
@@ -1304,7 +1318,7 @@ def policy_for(profile, *, pinned_hash=None):
     else:
         raise ValueError("ANALYSIS_PROFILE_UNKNOWN")
     if profile == V2_PROFILE:
-        choices = (*choices, *sc1_inventory_policies)
+        choices = (*choices, *sc1_inventory_policies, CF1_3OF3_POLICY, CF1_POLICY)
         choices = (*choices, V1_ACTIVITY_POLICY)
         choices = (*choices, QT1_V25_POLICY)
     for policy in choices:
@@ -1436,7 +1450,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
         else (policy_for(profile),)
     )
     if profile == V2_PROFILE:
-        allowed = (*allowed, *sc1_inventory_policies)
+        allowed = (*allowed, *sc1_inventory_policies, CF1_3OF3_POLICY, CF1_POLICY)
         allowed = (*allowed, V1_ACTIVITY_POLICY)
         allowed = (*allowed, QT1_V25_POLICY)
     if policy not in allowed:

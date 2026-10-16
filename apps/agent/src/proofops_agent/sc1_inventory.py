@@ -21,6 +21,12 @@ class SC1InventoryTransport(UpstageTaggingTransport):
         original = json.loads(request["user_json"])
         if request != transport_request(original, self._settings):
             raise ValueError("SC1_TRANSPORT_REQUEST_MISMATCH")
+        from proofops.application.tagging.cf1_inventory import enabled as cf1_enabled
+        from proofops.application.tagging.cf1_inventory import wire_request
+
+        if cf1_enabled(original["untrusted_document_data"]["selection"]):
+            system, user, schema = wire_request(original)
+            return system, user, {"cf1": True}, authorization, schema
         # Send only the exact text offsets and IDs; full original geometry and
         # provenance stay in the authenticated request receipt, not token overhead.
         chunk = original["untrusted_document_data"]
@@ -49,8 +55,10 @@ class SC1InventoryTransport(UpstageTaggingTransport):
 
     def restore_payload(self, payload, refs, *, policy=None):
         from jsonschema import Draft202012Validator
+        from proofops.application.tagging.cf1_inventory import SCHEMA as CF1_SCHEMA
 
-        if not Draft202012Validator(SCHEMA).is_valid(payload):
+        schema = CF1_SCHEMA if refs.get("cf1") else SCHEMA
+        if not Draft202012Validator(schema).is_valid(payload):
             raise ValueError("SC1_RESPONSE_SCHEMA_INVALID")
         return payload
 
