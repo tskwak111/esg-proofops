@@ -1,8 +1,10 @@
 """DEC-68 bounded current-run C3 path. The caller owns transport authorization."""
 
 import json
+import os
 from dataclasses import asdict
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from uuid import NAMESPACE_URL, uuid5
 
 from proofops.adapters.local.c3_publication import LocalC3Publication
@@ -17,8 +19,13 @@ from proofops.application.evidence.retrieval import (
 )
 from proofops.application.evidence.span_citations import verify_source_ref
 from proofops.application.tagging import fact_assembly_c3_v2 as c3
+from proofops.application.tagging.c3_request_binding import (
+    CF2_POLICY,
+    current_request,
+    request_binding,
+    response_binding_policy,
+)
 from proofops.application.tagging.c3_request_binding import SYSTEM as SYSTEM
-from proofops.application.tagging.c3_request_binding import current_request, request_binding
 from proofops.application.tagging.tracks import TrackCandidate
 from proofops.domain.provenance import canonical_hash
 
@@ -188,6 +195,26 @@ def process_case(case, source, *, output, transport, analysis_policy):
         **{k: case[k] for k in ("context", "graph", "packet", "rulepack")},
     )
     result = dict(receipt=receipt.to_dict(), published=False)
+    if response_binding_policy(analysis_policy) == CF2_POLICY:
+        # A diagnostic receipt is not a published revision. Save both accepted
+        # and rejected assemblies before either the review return or DB writes.
+        output = Path(output)
+        directory = output / "cf2-receipts"
+        target = directory / (receipt.receipt_sha256 + ".json")
+        if output.is_symlink() or directory.is_symlink() or target.is_symlink():
+            raise ValueError("C3_UNSAFE_ARTIFACT_PATH")
+        directory.mkdir(parents=True, exist_ok=True)
+        content = json.dumps(result["receipt"], ensure_ascii=False, sort_keys=True)
+        with NamedTemporaryFile(mode="w", dir=directory, encoding="utf-8") as staged:
+            staged.write(content)
+            staged.flush()
+            os.fsync(staged.fileno())
+            try:
+                os.link(staged.name, target)  # Atomic create-only; no partial receipt on retry.
+            except FileExistsError:
+                if target.read_text() != content:
+                    raise ValueError("CF2_RECEIPT_CONFLICT") from None
+        result["cf2_receipt_path"] = str(target.relative_to(output))
     if not receipt.to_dict()["public_auto_confirmed"]:
         return result
     output = Path(output)

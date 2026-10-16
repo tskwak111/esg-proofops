@@ -49,19 +49,52 @@ S5_POLICY = POLICY | dict(
     prompt_sha256=canonical_hash([S5_SYSTEM, vote_schema()]),
 )
 
+# CF2 supplies the conditional definitions that the bounded wire omitted. This
+# guides new tagging only; true/null votes still take the unchanged review gate.
+CF2_SYSTEM = (
+    S5_SYSTEM
+    + """
+조건부 trigger는 이 원자 주장(claim)의 내용만 독립적으로 판단한다.
+governance_claim은 담당 조직·책임자·위원회의 권한/책임/감독/의사결정 체계를
+주장하는 경우 true다. 환경경영시스템 운영, ISO 인증, 운영 적정성 내부 감사만으로
+담당 조직·거버넌스를 주장한다고 추론하지 마라. '이사회가 환경경영을 감독한다'는
+true이고, 조직/책임 주체 없이 '시스템의 운영 적정성을 내부 감사로 점검한다'는
+그 자체로 governance 주장이 아니다. 두 내용이 함께 있으면 true를 보존한다.
+compensation_link_claim은 임직원/경영진 보상·평가와 환경 성과의 연계를 주장하는
+경우 true다. 원자 주장에 해당 내용이 없으면 false, 판단 불가/상충이면 null이다.
+다른 문단의 조직이나 보상 언급을 이 원자 주장의 trigger로 가져오지 마라.
+"""
+)
+CF2_POLICY = S5_POLICY | dict(
+    profile="cf2_c3_scoped_quotes_v1",
+    prompt_sha256=canonical_hash([CF2_SYSTEM, vote_schema()]),
+    quote_lookup="unique_verified_occurrence_within_supplied_source_span",
+    persistence="content_addressed_assembly_before_publication_gate",
+)
+
 
 def response_binding_policy(analysis_policy):
     selected = analysis_policy.get("s5_c3_response_binding")
     if selected is not None and selected != S5_POLICY:
         raise ValueError("S5_C3_BINDING_POLICY_MISMATCH")
+    cf2 = analysis_policy.get("cf2_c3_response_binding")
+    if cf2 is not None:
+        if cf2 != CF2_POLICY:
+            raise ValueError("CF2_C3_BINDING_POLICY_MISMATCH")
+        return CF2_POLICY
     return S5_POLICY if selected is not None else POLICY
 
 
 def current_request(identity, claim_quote, sources, analysis_policy, replica):
+    binding = response_binding_policy(analysis_policy)
     request = dict(
         identity=identity,
         replica=replica,
-        system=S5_SYSTEM if response_binding_policy(analysis_policy) == S5_POLICY else SYSTEM,
+        system=CF2_SYSTEM
+        if binding == CF2_POLICY
+        else S5_SYSTEM
+        if binding == S5_POLICY
+        else SYSTEM,
         schema_json=json.dumps(vote_schema()),
         max_tokens=1800,
         snapshot=dict(

@@ -32,6 +32,7 @@ from proofops.application.provider_resilience import POLICY as F1_RESILIENCE_POL
 from proofops.application.rb1_input_isolation import POLICY as RB1_INPUT_POLICY
 from proofops.application.rb3_deadline import POLICY as RB3_DEADLINE_POLICY
 from proofops.application.tagging.analysis_scope import confirmation_policy as sc1_policy
+from proofops.application.tagging.c3_request_binding import CF2_POLICY as CF2_C3_BINDING
 from proofops.application.tagging.c3_request_binding import S5_POLICY as S5_C3_BINDING
 from proofops.application.tagging.dec24 import (
     DEFINITIONS_HASH,
@@ -1140,6 +1141,13 @@ FINALS_I27_POLICY = FINALS_I27_PRE_RB2_POLICY | dict(
 )
 V2_POLICY = FINALS_I27_POLICY
 
+# CF2 is an explicit new-run pin. I28 may compose its selector; defaults and
+# every earlier policy object remain unchanged for historical replay.
+CF2_C3_POLICY = FINALS_I27_POLICY | dict(
+    integration_profile="cf2_c3_v1",
+    cf2_c3_response_binding=CF2_C3_BINDING,
+)
+
 
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
@@ -1175,6 +1183,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            CF2_C3_POLICY,
             FINALS_I27_PRE_RB2_POLICY,
             FINALS_I26_POLICY,
             S5_LIVE_POLICY,
