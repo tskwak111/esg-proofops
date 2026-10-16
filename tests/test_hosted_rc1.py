@@ -337,8 +337,10 @@ def test_coordinate_contention_retries_without_spend_or_freezing_missing_geometr
 def test_offline_pipeline_copy_keeps_w16_w18_coordinates_and_pdf(store, monkeypatch, tmp_path):
     import os
     import socket
+    import sys
     from pathlib import Path
     from tempfile import TemporaryDirectory
+    from types import SimpleNamespace
 
     from proofops_api import hosted_analysis
 
@@ -352,7 +354,10 @@ def test_offline_pipeline_copy_keeps_w16_w18_coordinates_and_pdf(store, monkeypa
 
     monkeypatch.setattr(os, "environ", os.environ.copy())
     monkeypatch.setenv("PROOFOPS_RB3_HARD_DEADLINE", str(time.monotonic() + 1800))
-    monkeypatch.setattr(hosted_analysis.sys, "platform", "linux")
+    # Keep parent/isolated-child policy hashes on the actual host platform.
+    monkeypatch.setattr(
+        hosted_analysis, "sys", SimpleNamespace(platform="linux", executable=sys.executable)
+    )
     monkeypatch.setattr(socket, "create_connection", lambda *a, **k: pytest.fail("no network"))
     owner = actor(store)
     first = create(store, owner, source_pdf())

@@ -7,7 +7,7 @@ import socket
 import sys
 import time
 from copy import deepcopy
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 
 import pytest
 from proofops.adapters.local.claim_source_policies import PAGE_OCR_PROFILES, page_ocr_profile
@@ -105,7 +105,12 @@ def test_public_default_upload_binding_parse_extract_tag_publication(
     monkeypatch.setattr(os, "environ", os.environ.copy())
     monkeypatch.delenv("HOSTED_ANALYSIS_PROFILE", raising=False)
     monkeypatch.setenv("PROOFOPS_RB3_HARD_DEADLINE", str(time.monotonic() + 1800))
-    monkeypatch.setattr("proofops_api.hosted_analysis.sys.platform", "linux")
+    # Select the hosted Linux reader without changing the native parser's
+    # platform-derived policy hash relative to its isolated child process.
+    monkeypatch.setattr(
+        "proofops_api.hosted_analysis.sys",
+        SimpleNamespace(platform="linux", executable=sys.executable),
+    )
     monkeypatch.setattr(socket, "create_connection", lambda *a, **k: pytest.fail("live network"))
     app = create_hosted_app(settings)
     store = app.state.composition
