@@ -566,6 +566,11 @@ class LiveTaggingRuntime:
             "finals-unattended-j7-v1",
             "finals-unattended-j8-v1",
         )
+        from proofops.application.tagging import cf5_context
+
+        cf5 = cf5_context.enabled(self.snapshot.get("analysis_profile_policy", {}))
+        if cf5 and self.preliminary_settings.system_prompt != cf5_context.PRELIMINARY:
+            raise ValueError("CF5_CONTEXT_PROMPT_MISMATCH")
         profile = self.preliminary_settings.model_profile
         from proofops.application.tagging.preliminary import CONTEXT_POSITION_ORDER
 
@@ -645,6 +650,7 @@ class LiveTaggingRuntime:
                     K9_PRELIMINARY,
                     Q1_PRELIMINARY,
                     V3_PRELIMINARY,
+                    cf5_context.PRELIMINARY,
                 ):
                     packet["prompt_sha256"] = canonical_hash(
                         self.preliminary_settings.system_prompt
@@ -681,8 +687,12 @@ class LiveTaggingRuntime:
             if response_policy != RESPONSE_POLICY:
                 raise ValueError("K4_RESPONSE_POLICY_MISMATCH")
             packet["preliminary_response_policy"] = response_policy
+        if cf5:
+            packet = cf5_context.preserve_context(packet, claim, graph)
         packet = self.preliminary_transport.bound_context(packet)
-        if self.snapshot.get("analysis_profile_policy", {}).get("sentence_context_policy"):
+        if not cf5 and self.snapshot.get("analysis_profile_policy", {}).get(
+            "sentence_context_policy"
+        ):
             from copy import deepcopy
 
             from proofops.application.ingest.k5_context import POLICY as K5_POLICY
@@ -931,6 +941,10 @@ class LiveTaggingRuntime:
                 (r.track.track if r.track else None, r.safe_harbor_category) for r in results
             )
             header, count = votes.most_common(1)[0]
+            if cf5 and not cf5_context.header_agreed(
+                [(r.track.track if r.track else None, r.safe_harbor_category) for r in results]
+            ):
+                return None
             if count < 2 or header[0] is None:
                 return None
             winners = [
@@ -941,7 +955,11 @@ class LiveTaggingRuntime:
                 values = [r.context.dimensions.get(key) for r in winners]
                 dimensions[key] = values[0] if all(v == values[0] for v in values) else None
             self.preliminary_records[claim.claim_id].append(
-                dict(status="provisional_majority", votes=count, total_replicas=3)
+                dict(
+                    status="cf5_unanimous" if cf5 else "provisional_majority",
+                    votes=count,
+                    total_replicas=3,
+                )
             )
             context = ClaimContext(claim, dimensions)
             return winners[0].track, context, local_relation_tags(context)

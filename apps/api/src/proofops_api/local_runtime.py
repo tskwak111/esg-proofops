@@ -403,6 +403,8 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
                 raise ValueError("QT1_GOAL_SPLIT_PROFILE_MISMATCH")
             prompt_profile = selected_policy.get("tagging_prompt_profile")
             if prompt_profile:
+                from proofops.application.tagging.cf5_context import PRELIMINARY as CF5_PRELIMINARY
+                from proofops.application.tagging.cf5_context import PROFILE as CF5_PROFILE
                 from proofops.application.tagging.finals_i4 import (
                     K4_ELEMENTS,
                     K4_PRELIMINARY,
@@ -416,11 +418,13 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
                 from proofops.application.tagging.v3_dec92 import PROFILE as V3_PROFILE
 
                 if (
-                    prompt_profile not in (PROFILE, K9_PROFILE, Q1_PROFILE, V3_PROFILE)
+                    prompt_profile not in (PROFILE, K9_PROFILE, Q1_PROFILE, V3_PROFILE, CF5_PROFILE)
                     or settings.get("tagging_prompt_profile") != prompt_profile
                     or settings.get("preliminary_settings", {}).get("system_prompt")
                     != (
-                        V3_PRELIMINARY
+                        CF5_PRELIMINARY
+                        if prompt_profile == CF5_PROFILE
+                        else V3_PRELIMINARY
                         if prompt_profile == V3_PROFILE
                         else Q1_PRELIMINARY
                         if prompt_profile == Q1_PROFILE

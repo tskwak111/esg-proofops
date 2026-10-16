@@ -469,6 +469,8 @@ def live_tagging_settings(
 
         preliminary_prompt += "\n" + GUIDANCE
     if prompt_profile is not None:
+        from proofops.application.tagging.cf5_context import PRELIMINARY as CF5_PRELIMINARY
+        from proofops.application.tagging.cf5_context import PROFILE as CF5_PROFILE
         from proofops.application.tagging.finals_i4 import K4_ELEMENTS, K4_PRELIMINARY, PROFILE
         from proofops.application.tagging.k9_contract import PRELIMINARY as K9_PRELIMINARY
         from proofops.application.tagging.k9_contract import PROFILE as K9_PROFILE
@@ -478,13 +480,15 @@ def live_tagging_settings(
         from proofops.application.tagging.v3_dec92 import PROFILE as V3_PROFILE
 
         if (
-            prompt_profile not in (PROFILE, K9_PROFILE, Q1_PROFILE, V3_PROFILE)
+            prompt_profile not in (PROFILE, K9_PROFILE, Q1_PROFILE, V3_PROFILE, CF5_PROFILE)
             or not preliminary_pb1
             or not compact_element_wire
         ):
             raise ValueError("TAGGING_PROMPT_PROFILE_INVALID")
         preliminary_prompt = (
-            V3_PRELIMINARY
+            CF5_PRELIMINARY
+            if prompt_profile == CF5_PROFILE
+            else V3_PRELIMINARY
             if prompt_profile == V3_PROFILE
             else Q1_PRELIMINARY
             if prompt_profile == Q1_PROFILE
