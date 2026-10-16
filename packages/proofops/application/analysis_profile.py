@@ -30,6 +30,8 @@ from proofops.application.provider_resilience import (
 from proofops.application.provider_resilience import POLICY as F1_RESILIENCE_POLICY
 from proofops.application.rb1_input_isolation import POLICY as RB1_INPUT_POLICY
 from proofops.application.rb3_deadline import POLICY as RB3_DEADLINE_POLICY
+from proofops.application.rb4_memory import POLICY as RB4_MEMORY_POLICY
+from proofops.application.rb4_memory import PUBLICATION_POLICY as RB4_PUBLICATION_POLICY
 from proofops.application.tagging.analysis_scope import confirmation_policy as sc1_policy
 from proofops.application.tagging.dec24 import (
     DEFINITIONS_HASH,
@@ -1076,6 +1078,19 @@ RB1_POLICY = FXH_POLICY | dict(
 )
 
 
+RB4_POLICY = RB3_POLICY | dict(
+    integration_profile="rb4_memory_v1",
+    rb1_input_isolation=RB1_INPUT_POLICY,
+    rb1_input_isolation_sha256=canonical_hash(RB1_INPUT_POLICY),
+    rb4_memory=RB4_MEMORY_POLICY,
+)
+
+RB4_STREAM_POLICY = RB4_POLICY | dict(
+    integration_profile="rb4_memory_stream_v2",
+    rb4_publication_digest=RB4_PUBLICATION_POLICY,
+)
+
+
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
     from proofops.application.tagging.fact_assembly_c3_v2 import (
@@ -1113,6 +1128,8 @@ def policy_for(profile, *, pinned_hash=None):
             FXH_POLICY,
             RB1_POLICY,
             RB3_POLICY,
+            RB4_POLICY,
+            RB4_STREAM_POLICY,
             FINALS_I24_POLICY,
             FINALS_I23_POLICY,
             V3_POLICY,
@@ -1274,6 +1291,8 @@ def publication_policy_for(profile, *, pinned_hash=None):
             FXH_POLICY,
             RB1_POLICY,
             RB3_POLICY,
+            RB4_POLICY,
+            RB4_STREAM_POLICY,
             FINALS_I24_POLICY,
             FINALS_I23_POLICY,
             V3_POLICY,

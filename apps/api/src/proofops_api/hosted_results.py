@@ -206,6 +206,12 @@ def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             outcome = outcome | project_outcome(
                 tenant, run, admitted_checkpoint=extraction_checkpoint
             )
+        from proofops.application.rb4_memory import enabled as rb4_memory_enabled
+
+        if rb4_memory_enabled(claims.store.snapshot(tenant, run)):
+            # Source replay, tag pins and outcome admission are complete. The
+            # remaining projection uses discovery and the verified graph only.
+            del evidence, extraction_checkpoint
         from proofops.application.analysis_profile import (
             FINALS_I1_INITIAL_POLICY,
             FINALS_I3_POLICY,

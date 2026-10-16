@@ -46,6 +46,7 @@ from proofops.application.ports.jobs import JobMessage, LeaseLost
 from proofops.application.preflight import check_local_upstage_binding
 from proofops.application.rb1_input_isolation import InputIsolation
 from proofops.application.rb3_deadline import admit as rb3_admit
+from proofops.application.rb4_memory import enabled as rb4_memory_enabled
 from proofops.application.telemetry import TraceContext
 from proofops.application.uploads_security import UploadRejected
 from proofops.domain.provenance import canonical_hash
@@ -712,6 +713,11 @@ class LocalExtractRunner:
                 code = excluded["reason"]
                 if code.startswith("TABLE_RB1_"):
                     rb1.capture(excluded["source_id"], ValueError(code.removeprefix("TABLE_RB1_")))
+        if rb4_memory_enabled(snapshot):
+            # Replay and both head/fence checks above are complete. Continuation
+            # needs only the source response receipts in state, not the large
+            # nested source-proof tree from the previous checkpoint.
+            del prior_envelope
         window = select_batch_paragraph_sources(
             graph,
             scope,
