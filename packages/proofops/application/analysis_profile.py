@@ -1248,6 +1248,12 @@ FINALS_I29B_POLICY = FINALS_I29_POLICY | dict(
 )
 V2_POLICY = FINALS_I29B_POLICY
 
+# SPE is opt-in; integration may compose this source selector onto its new pin.
+SPE_POLICY = FINALS_I29B_POLICY | dict(
+    integration_profile="finals-20261016-spe-v1",
+    source="spe_claim_source_v1",
+)
+
 
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
@@ -1359,6 +1365,7 @@ def policy_for(profile, *, pinned_hash=None):
             FINALS_K9_V4_POLICY,
             S4_POLICY,
             FINALS_S5_POLICY,
+            SPE_POLICY,
             FINALS_I6_POLICY,
             FINALS_K7_POLICY,
             FINALS_K8_POLICY,
@@ -1535,6 +1542,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
             FINALS_K9_V4_POLICY,
             S4_POLICY,
             FINALS_S5_POLICY,
+            SPE_POLICY,
             FINALS_K7_POLICY,
             FINALS_K8_POLICY,
             FINALS_K8_V2_POLICY,
