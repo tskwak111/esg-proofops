@@ -406,6 +406,9 @@ class LocalTagRunner:
             and reprocess is None
         )
         scheduled_claims = discovery.claims
+        from proofops.application.tagging.spt_pipeline import configured as spt_configured
+
+        spt_pipeline = spt_configured(snapshot.get("analysis_profile_policy", {}))
         s2_budget = snapshot.get("analysis_profile_policy", {}).get("tagging_budget")
         if s2_budget is not None:
             from proofops.application.tagging.s2_budget import POLICY, call_allowance, priority
@@ -1226,7 +1229,11 @@ class LocalTagRunner:
                 callback(claim.claim_id, len(discovery.claims))
             return record
 
-        if parallel_claims:
+        if parallel_claims and spt_pipeline:
+            from proofops_worker.spt_pipeline import run_claims
+
+            records = run_claims(reported_claim, scheduled_claims, http_workers=self.max_workers)
+        elif parallel_claims:
             with ThreadPoolExecutor(max_workers=self.max_workers) as pool:
                 records = list(pool.map(reported_claim, scheduled_claims))
         else:
