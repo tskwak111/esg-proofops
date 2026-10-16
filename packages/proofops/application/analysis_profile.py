@@ -1279,6 +1279,17 @@ SPG_POLICY = FINALS_I29B_POLICY | dict(
     spg_publication=SPG_PUBLICATION_POLICY,
 )
 
+# I30 activates only the four reviewed execution fields. Keep the individual
+# candidates and v29b intact for saved receipts and explicit rollback pins.
+FINALS_I30_POLICY = FINALS_I29B_POLICY | dict(
+    integration_profile="finals-20261017-v29c",
+    spt_claim_pipeline=SPT_POLICY["spt_claim_pipeline"],
+    source=SPE_POLICY["source"],
+    parser_execution_policy=SPP_POLICY["parser_execution_policy"],
+    spg_publication=SPG_POLICY["spg_publication"],
+)
+V2_POLICY = FINALS_I30_POLICY
+
 
 def policy_for(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
@@ -1314,6 +1325,7 @@ def policy_for(profile, *, pinned_hash=None):
     elif profile == V2_PROFILE:
         choices = (
             V2_POLICY,
+            FINALS_I29B_POLICY,
             SPP_POLICY,
             FINALS_I29_POLICY,
             FINALS_I29_INITIAL_POLICY,
@@ -1495,6 +1507,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
     allowed = (
         (
             policy_for(profile),
+            FINALS_I29B_POLICY,
             SPP_POLICY,
             FINALS_I29_POLICY,
             FINALS_I29_INITIAL_POLICY,

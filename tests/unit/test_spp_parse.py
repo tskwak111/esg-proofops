@@ -30,7 +30,10 @@ def test_new_analysis_pin_preserves_every_v29b_semantic_field():
     from proofops.application import analysis_profile as p
     from proofops.domain.provenance import canonical_hash
 
-    assert p.policy_for(p.V2_PROFILE) == p.FINALS_I29B_POLICY
+    assert (
+        p.policy_for(p.V2_PROFILE, pinned_hash=canonical_hash(p.FINALS_I29B_POLICY))
+        == p.FINALS_I29B_POLICY
+    )
     candidate = p.SPP_POLICY
     assert candidate == p.FINALS_I29B_POLICY | dict(
         integration_profile="spp_finals_parse_v1", parser_execution_policy="spp-parse-v1"

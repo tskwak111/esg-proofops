@@ -83,14 +83,19 @@ def test_priority_retains_source_and_budget_class_and_starts_long_tail_first():
 
 def test_opt_in_default_replay_and_guard_policy():
     selected = profiles.SPT_POLICY
-    assert profiles.policy_for(profiles.V2_PROFILE) == profiles.FINALS_I29B_POLICY
+    assert (
+        profiles.policy_for(
+            profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_I29B_POLICY)
+        )
+        == profiles.FINALS_I29B_POLICY
+    )
     for policy in (profiles.FINALS_I29B_POLICY, profiles.FINALS_I29_POLICY, selected):
         assert (
             profiles.policy_for(profiles.V2_PROFILE, pinned_hash=canonical_hash(policy)) == policy
         )
     assert configured(selected)
-    assert not configured(profiles.V2_POLICY)
-    assert selected == profiles.V2_POLICY | {
+    assert not configured(profiles.FINALS_I29B_POLICY)
+    assert selected == profiles.FINALS_I29B_POLICY | {
         "integration_profile": "spt_claim_pipeline_v1",
         "spt_claim_pipeline": selected["spt_claim_pipeline"],
     }

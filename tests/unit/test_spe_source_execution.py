@@ -120,7 +120,12 @@ def test_opt_in_policy_preserves_default_and_is_registered():
     from proofops.adapters.local.claim_source_policies import page_ocr_profile
     from proofops.application import analysis_profile as profiles
 
-    assert profiles.V2_POLICY is profiles.FINALS_I29B_POLICY
+    assert (
+        profiles.policy_for(
+            profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_I29B_POLICY)
+        )
+        is profiles.FINALS_I29B_POLICY
+    )
     pin = canonical_hash(profiles.SPE_POLICY)
     assert pin != canonical_hash(profiles.V2_POLICY)
     assert profiles.policy_for(profiles.V2_PROFILE, pinned_hash=pin) == profiles.SPE_POLICY

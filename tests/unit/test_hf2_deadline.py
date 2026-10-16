@@ -11,7 +11,9 @@ V29_HASH = "6dfce1611d0293822638a569bebd40c5e6bafcaf5fffe70922016dead84c1b1d"
 
 
 def test_v29b_changes_only_deadline_and_keeps_v29_replay():
-    current = profiles.policy_for(profiles.V2_PROFILE)
+    current = profiles.policy_for(
+        profiles.V2_PROFILE, pinned_hash=canonical_hash(profiles.FINALS_I29B_POLICY)
+    )
     assert current["integration_profile"] == "finals-20261016-v29b"
     assert current == profiles.FINALS_I29_POLICY | dict(
         integration_profile="finals-20261016-v29b", rb3_deadline=rb3.POLICY_V2

@@ -22,7 +22,9 @@ from proofops.domain.provenance import canonical_hash
 
 
 def test_spg_is_opt_in_and_only_adds_execution_policy():
-    assert policy_for(V2_PROFILE) == FINALS_I29B_POLICY
+    assert (
+        policy_for(V2_PROFILE, pinned_hash=canonical_hash(FINALS_I29B_POLICY)) == FINALS_I29B_POLICY
+    )
     assert SPG_POLICY == FINALS_I29B_POLICY | {
         "integration_profile": "spg_publication_v1",
         "spg_publication": POLICY,
