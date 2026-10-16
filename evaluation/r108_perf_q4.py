@@ -21,12 +21,17 @@ from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
 
+from proofops.adapters.parsing.parser_artifacts import (
+    iter_parser_artifacts,
+    parser_artifact_path,
+    read_parser_json,
+)
 from proofops.application.ingest.graph_fusion import candidates_from_snapshot, fuse_candidates
 from proofops.domain.provenance import canonical_hash
 from proofops_agent.upstage_extraction import UpstageClaimExtractor
 from proofops_worker.extract_runner import select_stable_paragraph_sources
 
-ROOT = Path("/Users/ss020/Dev/ESG_ProofOps")
+ROOT = Path("/path/to/ESG_ProofOps")
 LAB = ROOT / "outputs/agent-results/R108-redesign/lab"
 E2E = LAB / "sprint5/E2E3"
 OUT = LAB / "perf"
@@ -35,9 +40,10 @@ INPUT_HASHES = {}
 
 
 def read(path):
+    path = parser_artifact_path(path)
     raw = path.read_bytes()
     INPUT_HASHES[str(path)] = hashlib.sha256(raw).hexdigest()
-    return json.loads(raw)
+    return read_parser_json(path)
 
 
 def save(path, data):
@@ -68,7 +74,7 @@ def setup(company, directory):
     state = E2E / "states" / (company + "-attempt3")
     settings = read(state / "settings.json")
     manifest = read(state / "pilot.json")
-    graph_path = next(state.rglob("graph.json"))
+    graph_path = next(iter_parser_artifacts(state, "graph.json"))
     gm = read(graph_path.parent / "manifest.json")
     candidates = candidates_from_snapshot(read(graph_path.parent / "candidates.json"))
     graph = fuse_candidates(

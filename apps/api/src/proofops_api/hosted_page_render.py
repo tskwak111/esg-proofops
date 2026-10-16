@@ -1,4 +1,4 @@
-"""Fixed-DPI PDFium previews in the existing bounded process sandbox."""
+"""Bounded PDFium previews with opt-in adaptive DPI and sanitized failure reasons."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ TIMEOUT_SECONDS = 15
 MEMORY_BYTES = 512 * 1024 * 1024
 
 
-def render(source: Path, page: int, geometry, root: Path) -> tuple[bytes, dict]:
+def render(source: Path, page: int, geometry, root: Path, *, fit_page=False) -> tuple[bytes, dict]:
     from proofops.adapters.parsing.opendataloader import OpenDataLoaderParser, ParseFailure
 
     from proofops_api.hosted_store import HostedError
@@ -32,7 +32,18 @@ def render(source: Path, page: int, geometry, root: Path) -> tuple[bytes, dict]:
         work = Path(temporary)
         # Caller holds a private verified snapshot; child accesses no shared payload.
         os.link(source, work / "source.pdf")
-        (work / "request.json").write_text(json.dumps(dict(page=page, geometry=asdict(geometry))))
+        dpi = (
+            min(
+                DPI,
+                (MAX_DIMENSION - 1) * 72 / max(geometry.width_pt, geometry.height_pt),
+                72 * math.sqrt((MAX_PIXELS - 4000) / (geometry.width_pt * geometry.height_pt)),
+            )
+            if fit_page
+            else DPI
+        )
+        (work / "request.json").write_text(
+            json.dumps(dict(page=page, geometry=asdict(geometry), dpi=dpi))
+        )
         try:
             OpenDataLoaderParser._execute(
                 [sys.executable, "-I", str(Path(__file__).resolve()), str(work)],
@@ -53,8 +64,23 @@ def render(source: Path, page: int, geometry, root: Path) -> tuple[bytes, dict]:
             ):
                 raise ValueError("invalid output")
             return png, metadata
-        except (OSError, ValueError, KeyError, struct.error, ParseFailure):
-            raise HostedError("SOURCE_RENDER_UNAVAILABLE", 422) from None
+        except (OSError, ValueError, KeyError, struct.error, ParseFailure) as error:
+            if not fit_page:
+                raise HostedError("SOURCE_RENDER_UNAVAILABLE", 422) from None
+            reason = "OUTPUT_INVALID"
+            if isinstance(error, ParseFailure):
+                reason = "TIMEOUT" if str(error) == "PARSER_TIMEOUT" else "SANDBOX_FAILED"
+                failure = work / "failure.json"
+                if failure.is_file():
+                    try:
+                        code = json.loads(failure.read_bytes()).get("reason")
+                        if code in {"GEOMETRY_MISMATCH", "PDF_INVALID", "PIXEL_BOUNDS"}:
+                            reason = code
+                    except (ValueError, OSError):
+                        pass
+            elif isinstance(error, OSError):
+                reason = "IO_FAILED"
+            raise HostedError("SOURCE_RENDER_UNAVAILABLE_" + reason, 422) from None
 
 
 def _child(work: Path) -> None:
@@ -82,7 +108,10 @@ def _child(work: Path) -> None:
                 )
             ):
                 raise ValueError("pinned geometry mismatch")
-            scale = DPI / 72
+            dpi = request.get("dpi", DPI)
+            if type(dpi) not in (float, int) or not math.isfinite(dpi) or not 0 < dpi <= DPI:
+                raise ValueError("invalid preview DPI")
+            scale = dpi / 72
             if (
                 math.ceil(width * scale) > MAX_DIMENSION
                 or math.ceil(height * scale) > MAX_DIMENSION
@@ -99,7 +128,7 @@ def _child(work: Path) -> None:
                     metadata = dict(
                         width_px=image.width,
                         height_px=image.height,
-                        dpi=DPI,
+                        dpi=dpi,
                         width_pt=width,
                         height_pt=height,
                         rotation=rotation,
@@ -115,4 +144,13 @@ def _child(work: Path) -> None:
 
 
 if __name__ == "__main__":
-    _child(Path(sys.argv[1]))
+    work = Path(sys.argv[1])
+    try:
+        _child(work)
+    except Exception as error:
+        reason = {
+            "pinned geometry mismatch": "GEOMETRY_MISMATCH",
+            "page exceeds fixed DPI bounds": "PIXEL_BOUNDS",
+        }.get(str(error), "PDF_INVALID")
+        (work / "failure.json").write_text(json.dumps(dict(reason=reason)))
+        sys.exit(1)

@@ -9,6 +9,7 @@ from hashlib import sha256
 from pathlib import Path
 from time import monotonic
 
+from proofops.adapters.parsing.parser_artifacts import iter_parser_artifacts, read_parser_json
 from proofops.application.claims import (
     Claim,
     ClaimDiscovery,
@@ -75,15 +76,15 @@ def fixture(path):
         snapshot = json.loads(db.execute("SELECT payload FROM run_snapshots").fetchone()[0])
     parse = checkpoint(path, "parse")
     extract = checkpoint(path, "extract")
-    prep = next((path / "parser-prepared").rglob("candidates.json")).parent
+    prep = next(iter_parser_artifacts(path / "parser-prepared", "candidates.json")).parent
     manifest = json.loads((prep / "manifest.json").read_text())
     graph = fuse_candidates(
-        candidates_from_snapshot(json.loads((prep / "candidates.json").read_text())),
+        candidates_from_snapshot(read_parser_json(prep / "candidates.json")),
         tenant_id=snapshot["tenant_id"],
         fusion_version=manifest["fusion_version"],
         mixed_parser=True,
     )
-    assert graph.to_dict() == json.loads((prep / "graph.json").read_text()), "PA9_GRAPH_CHANGED"
+    assert graph.to_dict() == read_parser_json(prep / "graph.json"), "PA9_GRAPH_CHANGED"
     graph = replace(
         graph,
         issues=tuple(

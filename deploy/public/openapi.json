@@ -686,6 +686,51 @@
           }
         }
       }
+    },
+    "/v1/auth/access-password": {
+      "post": {
+        "summary": "Login with reusable private access password",
+        "operationId": "password_login_v1_auth_access_password_post",
+        "description": "Exact production Origin required. Organizer sees only its role-account uploads and runs. Same session/CSRF policies and budgets as invitation login.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccessPassword"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Existing session body; external role admin or organizer; Secure HttpOnly cookie"
+          },
+          "401": {
+            "description": "ACCESS_PASSWORD_INVALID; wrong, disabled, expired or unconfigured"
+          },
+          "403": {
+            "description": "CSRF_INVALID; missing or mismatched Origin"
+          },
+          "422": {
+            "description": "VALIDATION_ERROR; credential inputs never echoed"
+          },
+          "429": {
+            "description": "ACCESS_PASSWORD_LOCKED",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds remaining before retry",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "ACCESS_CONFIG_INVALID or DEPENDENCY_UNAVAILABLE"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -769,6 +814,12 @@
               }
             ],
             "title": "Scope Selection Sha256"
+          },
+          "force_fresh": {
+            "type": "boolean",
+            "title": "Force Fresh",
+            "default": false,
+            "description": "Admin only: bypass published-result reuse."
           }
         },
         "additionalProperties": false,
@@ -861,6 +912,31 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "AccessPassword": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "organizer"
+            ]
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "minLength": 1,
+            "maxLength": 128,
+            "writeOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "role",
+          "password"
+        ],
+        "title": "AccessPassword"
       }
     }
   }

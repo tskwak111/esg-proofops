@@ -7,7 +7,9 @@ from contextlib import closing
 from hashlib import sha256
 from pathlib import Path
 
-ROOT = Path("/Users/ss020/Dev/ESG_ProofOps")
+from proofops.adapters.parsing.parser_artifacts import parser_artifact_path
+
+ROOT = Path("/path/to/ESG_ProofOps")
 BASE = ROOT / "outputs/agent-results/R108-redesign/lab/sprint6/E2E8"
 OUT = ROOT / "outputs/agent-results/R108-redesign/lab/source/SV1"
 
@@ -42,8 +44,9 @@ def load_state(path):
         / extract["document_version_id"]
         / extract["parse_manifest_id"]
     )
-    candidates_bytes = (folder / "candidates.json").read_bytes()
-    assert sha256(candidates_bytes).hexdigest() == parse["artifacts"]["candidates.json"]
+    candidates = parser_artifact_path(folder / "candidates.json")
+    candidates_bytes = candidates.read_bytes()
+    assert sha256(candidates_bytes).hexdigest() == parse["artifacts"][candidates.name]
     pdfs = [
         p
         for p in (path / "objects/original").glob("**/*.pdf")

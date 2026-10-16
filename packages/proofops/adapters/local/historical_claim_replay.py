@@ -11,6 +11,9 @@ from pathlib import Path
 from proofops.adapters.local.frozen_native_replay import _exec_private
 
 _ROOT = Path(__file__).parent
+_UPSTAGE_V21_FILE = "_frozen_upstage_ocr_profile_v21_20261015.py"
+_UPSTAGE_V21_SOURCE_SHA256 = "356cf8cdfbc5f11f29f0f266a1bd35d9cef8c47bfb8e92088c9fb896d19b8602"
+_UPSTAGE_V21_READER = None
 _PINNED = (
     (
         "_frozen_verifiers/claims_pre_continuations.py",
@@ -61,3 +64,22 @@ def historical_typography_reader():
     typography = load("_frozen_verifiers/claim_span_typography_v1")
     typography.base, typography.baseline = base, bullet
     return typography
+
+
+def historical_upstage_ocr_v21_reader():
+    """Load the exact D2 reader policy used before page receipt aggregation."""
+    global _UPSTAGE_V21_READER
+
+    path = _ROOT / _UPSTAGE_V21_FILE
+    if not path.is_file() or sha256(path.read_bytes()).hexdigest() != _UPSTAGE_V21_SOURCE_SHA256:
+        raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")
+    if _UPSTAGE_V21_READER is None:
+        reader = _exec_private(
+            _ROOT,
+            _UPSTAGE_V21_FILE,
+            "proofops.adapters.local._historical_upstage_ocr_profile_v21",
+        )
+        if reader.PROFILE != "upstage-ocr-page-v21":
+            raise ValueError("CLAIM_SOURCE_POLICY_UNKNOWN")
+        _UPSTAGE_V21_READER = reader
+    return _UPSTAGE_V21_READER

@@ -92,6 +92,22 @@ def run_batches(
         )
         if summary["status"] in _STOP_STATUSES or summary.get("stop_code"):
             break
+        from proofops.adapters.local.verified_read_cache import _execution_policy
+        from proofops.application.analysis_profile import (
+            S3_VERIFIED_READ_V13_POLICY,
+            VERIFIED_READ_V11_POLICY,
+            VERIFIED_READ_V12_POLICY,
+        )
+
+        if (
+            _execution_policy()
+            in (VERIFIED_READ_V11_POLICY, VERIFIED_READ_V12_POLICY, S3_VERIFIED_READ_V13_POLICY)
+            and summary["status"] == "committed"
+            and summary.get("pending_after") == []
+        ):
+            # The committed revision already proves its sources. Tagging and
+            # publication still verify them; no extra batch can discover work.
+            break
     return results
 
 

@@ -346,6 +346,72 @@ def test_run_settings_accept_approved_extraction_opt_ins(tmp_path: Path) -> None
     assert runtime["extraction_profile"].synthetic is False
 
 
+def test_run_settings_pin_atomic_v3_and_failure_diagnostics_profiles(tmp_path: Path) -> None:
+    from dataclasses import asdict
+
+    from proofops_agent.upstage_extraction import _profile_with_options
+    from proofops_api.local_runtime import load_local_runtime
+
+    parser_path = _write_json(tmp_path / "parser.json", _parser_snapshot())
+    profile = asdict(
+        _profile_with_options(
+            "solar-pro3",
+            source_ids=True,
+            extraction_atomic=True,
+            extraction_atomic_v3=True,
+            extraction_failure_diagnostics=True,
+        )
+    )
+    settings_path = _write_json(
+        tmp_path / "run.json",
+        {
+            "build_root": str(tmp_path),
+            "budget_limits": _budget_limits(),
+            "extraction_profile": profile,
+            "extraction_limits": {"max_calls": 2, "max_output_tokens": 128},
+            "extraction_source_ids": True,
+            "extraction_atomic": True,
+            "extraction_atomic_v3": True,
+            "extraction_failure_diagnostics": True,
+        },
+    )
+    runtime = load_local_runtime(
+        {
+            "LOCAL_PARSER_PROFILE_PATH": str(parser_path),
+            "LOCAL_RUN_SETTINGS_PATH": str(settings_path),
+            "LOCAL_EXTRACTION_MODE": "upstage_probe",
+        }
+    )
+    assert runtime["extraction_profile"].rule_sha256 == profile["rule_sha256"]
+
+
+@pytest.mark.parametrize(
+    "flags",
+    [
+        {"extraction_source_ids": True, "extraction_atomic_v3": True},
+        {"extraction_atomic": True, "extraction_failure_diagnostics": True},
+    ],
+)
+def test_run_settings_reject_new_extraction_flags_without_dependencies(
+    tmp_path: Path, flags: dict[str, bool]
+) -> None:
+    from proofops_api.local_runtime import load_local_runtime
+
+    parser_path = _write_json(tmp_path / "parser.json", _parser_snapshot())
+    settings_path = _write_json(
+        tmp_path / "run.json",
+        {"build_root": str(tmp_path), "budget_limits": _budget_limits(), **flags},
+    )
+    with pytest.raises(ValueError, match="LOCAL_RUNTIME_CONFIG_INVALID"):
+        load_local_runtime(
+            {
+                "LOCAL_PARSER_PROFILE_PATH": str(parser_path),
+                "LOCAL_RUN_SETTINGS_PATH": str(settings_path),
+                "LOCAL_EXTRACTION_MODE": "upstage_probe",
+            }
+        )
+
+
 @pytest.mark.parametrize("content_bounds", [False, True])
 @pytest.mark.parametrize("complete_selection", [False, True])
 def test_run_settings_accept_the_assertion_prompt_opt_in(

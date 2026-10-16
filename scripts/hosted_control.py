@@ -5,13 +5,20 @@ from __future__ import annotations
 import argparse
 import fcntl
 import json
+import logging
 import os
+import sqlite3
+import threading
 import time
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from contextlib import ExitStack
+from dataclasses import replace
+from datetime import datetime
 from pathlib import Path
 
+from proofops_api.hosted_sqlite import is_busy
 from proofops_api.hosted_store import HostedError, HostedSettings, HostedStore, digest, micros, usd
+from proofops_api.hosted_worker_health import WorkerHeartbeat
 
 
 def wait_idle(store, *, timeout, clock=time.monotonic, sleep=time.sleep):
@@ -29,10 +36,22 @@ def wait_idle(store, *, timeout, clock=time.monotonic, sleep=time.sleep):
         sleep(min(1, remaining))
 
 
-def worker_loop(store, *, once=False):
+def worker_loop(store, *, once=False, stop=None, interval=1, heartbeat=None):
     """Each slot launches an isolated analysis subprocess; DB claims remain atomic."""
+    stop = stop if stop is not None else threading.Event()
+    heartbeat = heartbeat or WorkerHeartbeat(store.settings.root)
+    logger = logging.getLogger(__name__)
+
+    def failed(exc, phase):
+        # No exception messages/tracebacks: they can include private provider data.
+        logger.warning("hosted worker failure phase=%s type=%s", phase, type(exc).__name__)
+        heartbeat.write(state="degraded", error=exc)
+
     with ThreadPoolExecutor(max_workers=store.settings.max_active_runs) as pool:
-        store.maintain(now=time.time())
+        try:
+            store.maintain(now=time.time())
+        except Exception as exc:
+            failed(exc, "maintenance")
         if once:
             futures = [
                 pool.submit(store.tick, now=time.time())
@@ -41,19 +60,56 @@ def worker_loop(store, *, once=False):
             return [future.result() for future in futures]
         active = set()
         last_maintenance = time.monotonic()
-        while True:
+        while not stop.is_set():
             if time.monotonic() - last_maintenance >= 60:
-                store.maintain(now=time.time())
+                try:
+                    store.maintain(now=time.time())
+                except Exception as exc:
+                    failed(exc, "maintenance")
                 last_maintenance = time.monotonic()
             while len(active) < store.settings.max_active_runs:
                 active.add(pool.submit(store.tick, now=time.time()))
             completed, active = wait(active, timeout=1, return_when=FIRST_COMPLETED)
             idle = bool(completed)
             for future in completed:
-                if future.result() is not None:
-                    idle = False
+                try:
+                    if future.result() is not None:
+                        idle = False
+                    heartbeat.record["last_successful_tick_at"] = time.time()
+                    heartbeat.record["last_error_type"] = None
+                except Exception as exc:
+                    # Retain the durable fence/reservations. A new tick can claim
+                    # only queued work; it cannot redeliver an uncertain dispatch.
+                    failed(exc, "tick")
+            heartbeat.write(
+                state="degraded" if heartbeat.record["last_error_type"] else "running",
+                active=len(active),
+            )
             if idle:
-                time.sleep(1)
+                stop.wait(interval)
+    heartbeat.write(state="stopped")
+
+
+def run_worker(settings, *, once=False, stop=None):
+    """A busy startup waits in this process instead of triggering container restarts."""
+    stop = stop if stop is not None else threading.Event()
+    heartbeat = WorkerHeartbeat(settings.root)
+    settings.root.mkdir(parents=True, mode=0o700, exist_ok=True)
+    while not stop.is_set():
+        heartbeat.write(state="initializing")
+        try:
+            store = HostedStore(settings)
+            break
+        except sqlite3.OperationalError as exc:
+            if not is_busy(exc) or once:
+                raise
+            heartbeat.write(state="degraded", error=exc)
+            logging.getLogger(__name__).warning("hosted worker startup database busy")
+            stop.wait(1)
+    else:
+        heartbeat.write(state="stopped")
+        return None
+    return worker_loop(store, once=once, stop=stop, heartbeat=heartbeat)
 
 
 def reconcile(store, receipt, evidence: Path, *, apply=False):
@@ -139,6 +195,26 @@ def main() -> None:
     invite.add_argument("--tenant", required=True)
     invite.add_argument("--user", required=True)
     invite.add_argument("--role", choices=("viewer", "editor", "reviewer", "admin"), required=True)
+    access = sub.add_parser("access-password")
+    access_commands = access.add_subparsers(dest="access_command", required=True)
+    password_set = access_commands.add_parser("set")
+    password_set.add_argument("--role", choices=("admin", "organizer"), required=True)
+    password_set.add_argument(
+        "--tenant", help="Required on first set; reuse existing tenant on rotation"
+    )
+    password_set.add_argument("--expires", default="2026-10-20T23:59:00+09:00")
+    password_set.add_argument("--from-file", type=Path, required=True)
+    rotation = password_set.add_mutually_exclusive_group()
+    rotation.add_argument(
+        "--revoke-sessions", dest="revoke_sessions", action="store_true", default=True
+    )
+    rotation.add_argument("--keep-sessions", dest="revoke_sessions", action="store_false")
+    password_disable = access_commands.add_parser("disable")
+    password_disable.add_argument("--role", choices=("admin", "organizer"), required=True)
+    for item in (password_set, password_disable):
+        item.add_argument(
+            "--config", type=Path, help="Private config path override; default HOSTED_ACCESS_CONFIG"
+        )
     worker = sub.add_parser("worker")
     worker.add_argument("--once", action="store_true")
     sub.add_parser("maintain")
@@ -156,9 +232,44 @@ def main() -> None:
     args = parser.parse_args()
     if args.command == "wait-idle" and args.timeout < 0:
         parser.error("--timeout must be nonnegative")
-    store = HostedStore(HostedSettings.from_env(os.environ))
+    settings = HostedSettings.from_env(os.environ)
+    if args.command == "access-password" and args.config is not None:
+        settings = replace(settings, access_config=args.config)
+    if args.command == "worker":
+        run_worker(settings, once=args.once)
+        return
+    store = HostedStore(settings)
     if args.command == "invite":
         print(store.invite(args.tenant, args.user, args.role, now=time.time()))
+    elif args.command == "access-password":
+        from proofops_api.hosted_access import read_password
+
+        if args.access_command == "set":
+            try:
+                expiry = datetime.fromisoformat(args.expires)
+                if expiry.tzinfo is None:
+                    raise ValueError()
+            except ValueError:
+                parser.error("--expires requires an ISO8601 timestamp with timezone")
+            store.access.set_password(
+                args.role,
+                read_password(args.from_file),
+                tenant=args.tenant,
+                expires=expiry.timestamp(),
+                now=time.time(),
+                revoke_sessions=args.revoke_sessions,
+            )
+        else:
+            store.access.disable(args.role, now=time.time())
+        print(
+            json.dumps(
+                {
+                    "status": "ok",
+                    "role": args.role,
+                    "config_path": str(store.settings.access_config),
+                }
+            )
+        )
     elif args.command == "maintain":
         store.maintain(now=time.time())
     elif args.command in {"drain", "resume"}:
@@ -180,8 +291,6 @@ def main() -> None:
         store.backup(args.path, now=time.time())
     elif args.command == "restore":
         store.restore(args.path, now=time.time())
-    elif args.command == "worker":
-        worker_loop(store, once=args.once)
 
 
 if __name__ == "__main__":

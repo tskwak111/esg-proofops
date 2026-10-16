@@ -52,11 +52,15 @@ def test_ev1_policy_is_pinned_only_for_nonempty_evidence_scope(
         manifest["tenant_id"], manifest["run_id"]
     )
     assert snapshot["claim_source_policy"]["profile"] == (
-        "upstage-ocr-page-v10" if profile == "finals-unattended-v2" else "upstage-ocr-page-v5"
+        "cf4_claim_source_v1" if profile == "finals-unattended-v2" else "upstage-ocr-page-v5"
     )
     assert snapshot["parser_profile"]["claim_physical_pages"] == ([1] if claims == [10] else [1, 2])
     if claims == [10]:
-        assert snapshot["evidence_source_policy"]["profile"] == "evidence-source-ocr-v1"
+        assert snapshot["evidence_source_policy"]["profile"] == (
+            "evidence-source-i17-v1"
+            if profile == "finals-unattended-v2"
+            else "evidence-source-ocr-v1"
+        )
     else:
         assert "evidence_source_policy" not in snapshot
 

@@ -160,6 +160,7 @@ def test_real_gaps_only_hold_display_and_legacy_unchanged():
 
 def test_new_default_has_new_hash_and_old_v2_pins_still_resolve():
     from proofops.application.analysis_profile import (
+        FINALS_I2_POLICY,
         V2_POLICY,
         V2_PRE_HF1_POLICY,
         apply_pilot_profile,
@@ -178,8 +179,11 @@ def test_new_default_has_new_hash_and_old_v2_pins_still_resolve():
         claim_source_profile="upstage-ocr-page-v5",
     )
     apply_pilot_profile(args)
-    assert args.claim_source_profile == "upstage-ocr-page-v10"
+    assert args.claim_source_profile == "cf4_claim_source_v1"
     assert args.extraction_pb1 and args.extraction_table_rows
+    args.analysis_policy_sha256 = canonical_hash(FINALS_I2_POLICY)
+    apply_pilot_profile(args)
+    assert args.claim_source_profile == "upstage-ocr-page-v10"
 
 
 def test_v6_composition_keeps_v5_policy_and_replays_without_transport(tmp_path, monkeypatch):

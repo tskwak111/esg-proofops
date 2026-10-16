@@ -10,6 +10,7 @@ import ctypes
 import math
 import re
 import signal
+from collections.abc import Callable
 from hashlib import file_digest
 from importlib.metadata import version
 from pathlib import Path
@@ -19,7 +20,7 @@ import pypdfium2 as pdfium
 import pypdfium2.raw as raw
 from proofops.domain.provenance import canonical_hash
 
-from evaluation.report_scope import _ceo_title, build_plan
+from evaluation.report_scope import RANKING_VERSION, _ceo_title, build_plan
 from evaluation.report_sections import build_map, role
 
 
@@ -92,7 +93,17 @@ def _page_text(document, index):
         page.close()  # Free page/XObject/text caches before loading the next page.
 
 
-def inspect_streaming(pdf: Path, *, source_sha256: str | None = None):
+def inspect_streaming(
+    pdf: Path,
+    *,
+    source_sha256: str | None = None,
+    ranking_policy=RANKING_VERSION,
+    scope_profile=None,
+    discovery_reader=None,
+    max_discovery_pages=24,
+    discovery_wall_seconds=60,
+    reporting_period_policy=None,
+):
     if pdf.stat().st_size > 150 * 1024 * 1024:
         raise ValueError("hosted scope limit: 150 MiB")
     with pdf.open("rb") as stream:
@@ -160,9 +171,107 @@ def inspect_streaming(pdf: Path, *, source_sha256: str | None = None):
         issues=issues,
         parser_versions={"pypdfium2": version("pypdfium2")},
     )
-    plan = build_plan(study, texts, page_headings=headings, page_primary_headings=primary)
+    plan = build_plan(
+        study,
+        texts,
+        page_headings=headings,
+        page_primary_headings=primary,
+        ranking_policy=ranking_policy,
+    )
+    if scope_profile is not None:
+        if scope_profile not in ("E06", "S18", "S14"):
+            raise ValueError("unsupported scope profile")
+        from evaluation.e06_scope import (
+            assurance_bundles,
+            build_scope,
+            compact_plan,
+            support_candidate_pages,
+        )
+        from evaluation.scope_discovery_ocr import discover
+
+        baseline = plan
+        discovery = None
+        if discovery_reader is not None and plan["status"] == "failed" and plan["unreadable_pages"]:
+            discovery = discover(
+                count,
+                sorted(set(range(1, count + 1)) - set(plan["unreadable_pages"])),
+                discovery_reader,
+                source_sha256=digest,
+                max_pages=max_discovery_pages,
+                wall_seconds=discovery_wall_seconds,
+            )
+            for number, text in discovery["texts"].items():
+                texts[number] = text
+                # OCR has no trusted typography. Use only literal environmental
+                # strings as discovery hints, never fabricate native headings.
+                from evaluation.report_scope import ENV_GROUPS, EVIDENCE_PATTERNS
+
+                found = [
+                    m.group(0)
+                    for pattern in ENV_GROUPS.values()
+                    for m in re.finditer(pattern, text, re.I)
+                ]
+                # A leading literal assurance title routes to evidence-only;
+                # footer navigation elsewhere cannot become a page heading.
+                evidence_titles = [
+                    m.group(0)
+                    for pattern in EVIDENCE_PATTERNS.values()
+                    for m in re.finditer(pattern, text[:200], re.I)
+                ]
+                headings[number] = list(dict.fromkeys(evidence_titles + found))
+                primary[number] = headings[number]
+        plan = build_scope(
+            study,
+            texts,
+            headings=headings,
+            primary=primary,
+            discovery=discovery,
+            ranking_policy=ranking_policy,
+        )
+        plan["native_unreadable_pages"] = baseline["unreadable_pages"]
+        if discovery is not None:
+            plan["discovery_route_candidate_pages"] = sorted(
+                p
+                for p, text in discovery["texts"].items()
+                if re.search(r"환경|기후|온실가스|검증|climate|environment|assurance", text, re.I)
+            )
+            for row in plan["pages"]:
+                if row["page"] in discovery["texts"]:
+                    row["discovery_text_sha256"] = row["native_text_sha256"]
+                    row["native_text_sha256"] = baseline["pages"][row["page"] - 1][
+                        "native_text_sha256"
+                    ]
+                    row["snippet_origin"] = "ocr_discovery"
+                    row["source_verified"] = False
+            plan["discovery_complete"] = not discovery["scope_incomplete"]
+            # Search exhaustion is not a usable environmental scope.
+            plan["scope_incomplete"] = discovery["scope_incomplete"] or plan["status"] == "failed"
+        if scope_profile != "E06":
+            # Reduction freezes existing claim inputs. Recovery is a separate
+            # profile, so evidence caps do not quietly alter extraction recall.
+            plan = compact_plan(
+                baseline,
+                texts,
+                profile=scope_profile,
+                required_pages=support_candidate_pages(baseline, texts, headings),
+                assurance_bundles=assurance_bundles(baseline, headings),
+            )
+    with pdf.open("rb") as stream:
+        if file_digest(stream, "sha256").hexdigest() != input_digest:
+            raise ValueError("source changed during discovery inspection")
     from evaluation.reporting_period import detect_reporting_period
 
-    plan["reporting_period_detection"] = detect_reporting_period(texts, count, digest)
+    period_detector: Callable[[dict, int, str], dict] = detect_reporting_period
+    if reporting_period_policy is not None:
+        from evaluation.rb2_reporting_period import PROFILE, detect
+
+        if reporting_period_policy != PROFILE:
+            raise ValueError("unsupported reporting period policy")
+        period_detector = detect
+
+    # OCR is discovery-only, including reporting period. It is not a trusted
+    # native snippet for period auto-confirmation.
+    native_texts = {p: t for p, t in texts.items() if p not in plan.get("discovery_only_pages", [])}
+    plan["reporting_period_detection"] = period_detector(native_texts, count, digest)
     plan["plan_sha256"] = canonical_hash({k: v for k, v in plan.items() if k != "plan_sha256"})
     return plan

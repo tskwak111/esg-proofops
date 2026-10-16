@@ -54,7 +54,7 @@
         "ec2:RunInstances"
       ],
       "Resource": [
-        "arn:aws:ec2:ap-southeast-2:753036488189:subnet/*"
+        "arn:aws:ec2:ap-southeast-2:000000000000:subnet/*"
       ],
       "Condition": {
         "StringEquals": {
@@ -69,7 +69,7 @@
         "ec2:CreateSecurityGroup"
       ],
       "Resource": [
-        "arn:aws:ec2:ap-southeast-2:753036488189:vpc/*"
+        "arn:aws:ec2:ap-southeast-2:000000000000:vpc/*"
       ],
       "Condition": {
         "StringEquals": {
@@ -84,8 +84,8 @@
         "ec2:RunInstances"
       ],
       "Resource": [
-        "arn:aws:ec2:ap-southeast-2:753036488189:security-group/*",
-        "arn:aws:ec2:ap-southeast-2:753036488189:key-pair/proofops-r108*"
+        "arn:aws:ec2:ap-southeast-2:000000000000:security-group/*",
+        "arn:aws:ec2:ap-southeast-2:000000000000:key-pair/proofops-r108*"
       ],
       "Condition": {
         "StringEquals": {
@@ -104,7 +104,7 @@
         "ec2:RunInstances"
       ],
       "Resource": [
-        "arn:aws:ec2:ap-southeast-2:753036488189:instance/*"
+        "arn:aws:ec2:ap-southeast-2:000000000000:instance/*"
       ],
       "Condition": {
         "StringEquals": {
@@ -126,7 +126,7 @@
         "ec2:RunInstances"
       ],
       "Resource": [
-        "arn:aws:ec2:ap-southeast-2:753036488189:volume/*"
+        "arn:aws:ec2:ap-southeast-2:000000000000:volume/*"
       ],
       "Condition": {
         "StringEquals": {
@@ -152,7 +152,7 @@
         "ec2:RunInstances"
       ],
       "Resource": [
-        "arn:aws:ec2:ap-southeast-2:753036488189:network-interface/*"
+        "arn:aws:ec2:ap-southeast-2:000000000000:network-interface/*"
       ],
       "Condition": {
         "StringEquals": {
@@ -173,9 +173,9 @@
         "ec2:AllocateAddress"
       ],
       "Resource": [
-        "arn:aws:ec2:ap-southeast-2:753036488189:key-pair/proofops-r108*",
-        "arn:aws:ec2:ap-southeast-2:753036488189:security-group/*",
-        "arn:aws:ec2:ap-southeast-2:753036488189:elastic-ip/*"
+        "arn:aws:ec2:ap-southeast-2:000000000000:key-pair/proofops-r108*",
+        "arn:aws:ec2:ap-southeast-2:000000000000:security-group/*",
+        "arn:aws:ec2:ap-southeast-2:000000000000:elastic-ip/*"
       ],
       "Condition": {
         "StringEquals": {
@@ -196,7 +196,7 @@
         "ec2:DeleteSecurityGroup"
       ],
       "Resource": [
-        "arn:aws:ec2:ap-southeast-2:753036488189:security-group/*"
+        "arn:aws:ec2:ap-southeast-2:000000000000:security-group/*"
       ],
       "Condition": {
         "StringEquals": {
@@ -218,10 +218,10 @@
         "ec2:DeleteKeyPair"
       ],
       "Resource": [
-        "arn:aws:ec2:ap-southeast-2:753036488189:elastic-ip/*",
-        "arn:aws:ec2:ap-southeast-2:753036488189:instance/*",
-        "arn:aws:ec2:ap-southeast-2:753036488189:network-interface/*",
-        "arn:aws:ec2:ap-southeast-2:753036488189:key-pair/proofops-r108*"
+        "arn:aws:ec2:ap-southeast-2:000000000000:elastic-ip/*",
+        "arn:aws:ec2:ap-southeast-2:000000000000:instance/*",
+        "arn:aws:ec2:ap-southeast-2:000000000000:network-interface/*",
+        "arn:aws:ec2:ap-southeast-2:000000000000:key-pair/proofops-r108*"
       ],
       "Condition": {
         "StringEquals": {
@@ -241,7 +241,7 @@
         "ec2:TerminateInstances"
       ],
       "Resource": [
-        "arn:aws:ec2:ap-southeast-2:753036488189:instance/*"
+        "arn:aws:ec2:ap-southeast-2:000000000000:instance/*"
       ],
       "Condition": {
         "StringEquals": {
@@ -261,12 +261,12 @@
         "ec2:CreateTags"
       ],
       "Resource": [
-        "arn:aws:ec2:ap-southeast-2:753036488189:instance/*",
-        "arn:aws:ec2:ap-southeast-2:753036488189:volume/*",
-        "arn:aws:ec2:ap-southeast-2:753036488189:network-interface/*",
-        "arn:aws:ec2:ap-southeast-2:753036488189:security-group/*",
-        "arn:aws:ec2:ap-southeast-2:753036488189:key-pair/proofops-r108*",
-        "arn:aws:ec2:ap-southeast-2:753036488189:elastic-ip/*"
+        "arn:aws:ec2:ap-southeast-2:000000000000:instance/*",
+        "arn:aws:ec2:ap-southeast-2:000000000000:volume/*",
+        "arn:aws:ec2:ap-southeast-2:000000000000:network-interface/*",
+        "arn:aws:ec2:ap-southeast-2:000000000000:security-group/*",
+        "arn:aws:ec2:ap-southeast-2:000000000000:key-pair/proofops-r108*",
+        "arn:aws:ec2:ap-southeast-2:000000000000:elastic-ip/*"
       ],
       "Condition": {
         "StringEquals": {
@@ -315,7 +315,7 @@
         "servicequotas:GetServiceQuota"
       ],
       "Resource": [
-        "arn:aws:servicequotas:ap-southeast-2:753036488189:ec2/L-1216C47A"
+        "arn:aws:servicequotas:ap-southeast-2:000000000000:ec2/L-1216C47A"
       ],
       "Condition": {
         "StringEquals": {
@@ -331,7 +331,7 @@
         "budgets:ViewBudget"
       ],
       "Resource": [
-        "arn:aws:budgets::753036488189:budget/proofops-r108-monthly-20"
+        "arn:aws:budgets::000000000000:budget/proofops-r108-monthly-20"
       ]
     }
   ]

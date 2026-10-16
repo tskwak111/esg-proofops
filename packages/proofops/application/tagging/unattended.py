@@ -52,12 +52,31 @@ def project_decision(decision, *, elements=(), profile=None):
         semantic_hash=decision.semantic_hash,
     )
 
-    if profile == "hf1-v1":
+    if profile in ("hf1-v1", "dec24-v1", "k2-v1"):
         projection["gap_ids"] = list(decision.gap_ids)
     return projection
 
 
-def provisional_result(runs, packet, rulepack, context, *, range_profile=False, profile=None):
+def provisional_result(
+    runs,
+    packet,
+    rulepack,
+    context,
+    *,
+    range_profile=False,
+    profile=None,
+    semantic_policy=None,
+    original=None,
+):
+    if semantic_policy is not None:
+        from proofops.application.tagging.semantic_admission import guard_runs, validate_policy
+
+        validate_policy(semantic_policy)
+        runs = guard_runs(
+            runs,
+            policy=semantic_policy,
+            claim_quote=" ".join(r["quote"] for r in packet.to_dict()["claim_source_refs"]),
+        )
     # Reuse the strict provenance/independent-replica validation, never its confirmation.
     form_consensus(
         runs,
@@ -73,6 +92,10 @@ def provisional_result(runs, packet, rulepack, context, *, range_profile=False, 
     if len(provider_ids) != len(set(provider_ids)):
         return empty_provisional("PROVIDER_RESPONSE_REPLAY")
     data = packet.to_dict()
+    from proofops.application.tagging.k10_contract import SEMANTIC_POLICY as K10_POLICY
+    from proofops.application.tagging.k10_contract import SEMANTIC_V2_POLICY as K10_V2_POLICY
+    from proofops.application.tagging.q1_contract import SEMANTIC_POLICY as Q1_POLICY
+
     ordered = sorted(runs, key=lambda run: run.replicate_id)
     facts, elements = [], []
     for eid in data["allowed_elements"]:
@@ -153,12 +176,54 @@ def provisional_result(runs, packet, rulepack, context, *, range_profile=False, 
                 else ConfirmedFact(name, state)
             )
     first = ordered[0]
+    estimate_evidence = []
+    if semantic_policy is not None:
+        from proofops.application.tagging.semantic_admission import estimate_refs
+
+        estimate_evidence = estimate_refs(data, original, policy=semantic_policy)
+    from proofops.application.tagging.k4_contract import SEMANTIC_POLICY, scope3_evidence
+
+    scope3_refs = (
+        scope3_evidence(data, original)
+        if semantic_policy in (SEMANTIC_POLICY, Q1_POLICY, K10_POLICY, K10_V2_POLICY)
+        else []
+    )
+    if semantic_policy in (Q1_POLICY, K10_POLICY, K10_V2_POLICY):
+        from proofops.application.tagging.q1_contract import forecast_evidence
+
+        forecast_refs = forecast_evidence(data, original)
+        if forecast_refs:
+            from proofops.domain.provenance import canonical_hash
+
+            return empty_provisional("Q1_FORWARD_LOOKING_CATEGORY_REVIEW") | dict(
+                elements=elements,
+                grade_range=None,
+                grade_basis="retag_required",
+                display_type="hold",
+                display="미래 전망 · 가정·시나리오 검토 필요",
+                hold_reasons=[
+                    "미래 전망의 일반 성과등급 보류",
+                    "세이프하버 범주·가정·한계 확인 필요",
+                ],
+                track=data["track"],
+                safe_harbor_category=data.get("safe_harbor_category"),
+                safe_harbor_candidate="forward_looking",
+                gap_ids=["GAP-001", "GAP-002"],
+                forecast_evidence_refs=forecast_refs,
+                semantic_policy_sha256=canonical_hash(semantic_policy),
+                semantic_hash=canonical_hash(
+                    dict(packet=packet.packet_sha256, policy=semantic_policy, refs=forecast_refs)
+                ),
+            )
     headers = Counter(
         run.guarded.superlative_quote for run in ordered if run.guarded is not None
     ).most_common(1)
     if not headers or headers[0][1] < 2:
         reason = "SUPERLATIVE_UNRESOLVED"
-        if profile == "hf1-v1" and sum(run.guarded is not None for run in ordered) < 2:
+        if (
+            profile in ("hf1-v1", "dec24-v1", "k2-v1")
+            and sum(run.guarded is not None for run in ordered) < 2
+        ):
             reason = (
                 "CITATION_REPLICAS_UNRESOLVED"
                 if any(
@@ -166,7 +231,17 @@ def provisional_result(runs, packet, rulepack, context, *, range_profile=False, 
                 )
                 else "REPLICA_HEADER_UNRESOLVED"
             )
-        return empty_provisional(reason) | dict(elements=elements)
+        early = empty_provisional(reason) | dict(elements=elements)
+        if scope3_refs:
+            early.update(
+                display_type="hold",
+                display="판정 보류",
+                hold_reasons=["Scope 3 · 산정 근거 확인 필요", "태깅 불일치"],
+                grade_basis="scope3_calculation_hold",
+                grade_range=None,
+                scope3_evidence_refs=scope3_refs,
+            )
+        return early
     tags = ConfirmedTags(
         context.tenant_id,
         data["document_version_id"],
@@ -179,16 +254,113 @@ def provisional_result(runs, packet, rulepack, context, *, range_profile=False, 
         first.prompt_sha256,
         tuple(run.semantic_hash for run in ordered),
         rulepack.ontology_version,
-        data.get("safe_harbor_category"),
+        "emissions_estimate" if estimate_evidence else data.get("safe_harbor_category"),
         headers[0][0],
         first.product_variant,
     )
     result = project_decision(evaluate(tags, context, rulepack), elements=elements, profile=profile)
+    if semantic_policy is not None:
+        from proofops.domain.provenance import canonical_hash
+
+        result = result | dict(
+            semantic_policy_sha256=canonical_hash(semantic_policy),
+            semantic_hash=canonical_hash(
+                dict(
+                    decision=result["semantic_hash"],
+                    policy=semantic_policy,
+                    estimate_evidence=estimate_evidence,
+                )
+            ),
+        )
+        if estimate_evidence:
+            result.update(
+                evidence_grade=None,
+                label=None,
+                grade_range=None,
+                grade_basis="estimate_hold",
+                display_type="hold",
+                display="추정치 · 산정 근거 확인 필요",
+                reason="DEC24_EMISSIONS_ESTIMATE_REVIEW",
+                gap_ids=["GAP-001"],
+                hold_reasons=["추정치 · 산정 근거 확인 필요"],
+                estimate_evidence_refs=estimate_evidence,
+            )
+        elif scope3_refs:
+            result.update(
+                evidence_grade=None,
+                label=None,
+                grade_range=None,
+                grade_basis="scope3_calculation_hold",
+                display_type="hold",
+                display="판정 보류",
+                reason="K4_SCOPE3_CALCULATION_REVIEW",
+                hold_reasons=["Scope 3 · 산정 근거 확인 필요"],
+                scope3_evidence_refs=scope3_refs,
+            )
+        from proofops.application.tagging.k1_semantics import POLICY as K1_POLICY
+        from proofops.application.tagging.k1_semantics import track_requires_review
+
+        claim_quote = " ".join(r["quote"] for r in data["claim_source_refs"])
+        if (
+            semantic_policy in (SEMANTIC_POLICY, Q1_POLICY, K10_POLICY, K10_V2_POLICY)
+            and data["track"] == "goal"
+            and original
+        ):
+            from types import SimpleNamespace
+
+            from proofops.application.ingest.j7_split import goal_requires_retag
+            from proofops.domain.values import SourceRef
+
+            claim_view = SimpleNamespace(
+                tenant_id=data["tenant_id"],
+                source_refs=tuple(SourceRef(**r) for r in data["claim_source_refs"]),
+            )
+            if goal_requires_retag(claim_view, original):
+                result.update(
+                    evidence_grade=None,
+                    label=None,
+                    grade_range=None,
+                    grade_basis="retag_required",
+                    display_type="hold",
+                    display="판정 보류",
+                    reason="K4_CONNECTIVE_GOAL_RETAG_REQUIRED",
+                    hold_reasons=["이행 문장의 접속절 · 트랙 재태깅 필요"],
+                )
+        from proofops.application.tagging.k1_semantics import masked_pue
+
+        if semantic_policy in (
+            K1_POLICY,
+            SEMANTIC_POLICY,
+            Q1_POLICY,
+            K10_POLICY,
+            K10_V2_POLICY,
+        ) and (track_requires_review(claim_quote, data["track"]) or masked_pue(claim_quote)):
+            wrong_track = track_requires_review(claim_quote, data["track"])
+            result.update(
+                evidence_grade=None,
+                label=None,
+                grade_range=None,
+                grade_basis="retag_required",
+                display_type="hold",
+                display="성과지표 · 트랙·범위값 재태깅 필요"
+                if wrong_track
+                else "PUE 범위값 · 해석 확인 필요",
+                reason="K1_PUE_PERFORMANCE_RETAG_REQUIRED"
+                if wrong_track
+                else "K1_PUE_MASKED_VALUE_REVIEW",
+                hold_reasons=[
+                    "성과지표 · 트랙·범위값 재태깅 필요"
+                    if wrong_track
+                    else "PUE 범위값 · 해석 확인 필요"
+                ],
+            )
     return ensure_range(result, rulepack, tags=tags, context=context) if range_profile else result
 
 
 def ensure_range(result, rulepack, *, tags=None, context=None):
     """Only the integrated profile fills an empty display slot; confirmed data stays null."""
+    if result.get("grade_basis") in {"estimate_hold", "retag_required", "scope3_calculation_hold"}:
+        return result
     if result.get("evidence_grade"):
         return result | dict(display_type="numeric")
     if (

@@ -79,6 +79,38 @@ def fake_parse(content, mode):
     )
 
 
+def fake_page_ocr(_png):
+    with pdfplumber.open(io.BytesIO(source_pdf())) as pdf:
+        page = pdf.pages[0]
+        words = [
+            dict(
+                id=i,
+                text=w["text"],
+                confidence=0.99,
+                boundingBox=dict(
+                    vertices=[
+                        dict(x=x * 3, y=y * 3)
+                        for x, y in (
+                            (w["x0"], w["top"]),
+                            (w["x1"], w["top"]),
+                            (w["x1"], w["bottom"]),
+                            (w["x0"], w["bottom"]),
+                        )
+                    ]
+                ),
+            )
+            for i, w in enumerate(page.extract_words())
+        ]
+        raw = dict(
+            apiVersion="1.1",
+            modelVersion="ocr-260930",
+            numBilledPages=1,
+            stored=False,
+            pages=[dict(id=0, width=page.width * 3, height=page.height * 3, words=words)],
+        )
+    return json.dumps(raw).encode(), "fake-page-ocr"
+
+
 def fake_llm(body):
     user = json.loads(body["messages"][1]["content"])
     data = user["untrusted_document_data"]
@@ -156,6 +188,7 @@ def fake_analysis(store, job, prepared):
             ),
             llm_post=fake_llm,
             parse_post=fake_parse,
+            ocr_post=fake_page_ocr,
         )
         os.environ.clear()
         os.environ.update(saved_env)

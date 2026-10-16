@@ -736,9 +736,33 @@ def check_local_upstage_tagger(
         or (
             settings.model_profile == "upstage-preliminary-source-quotes-pb1-compact-v1"
             and settings.system_prompt
-            == __import__(
-                "proofops.application.tagging.pb1_classification", fromlist=["COMPACT_PROMPT"]
-            ).COMPACT_PROMPT
+            in (
+                __import__(
+                    "proofops.application.tagging.pb1_classification", fromlist=["COMPACT_PROMPT"]
+                ).COMPACT_PROMPT,
+                __import__(
+                    "proofops.application.tagging.pb1_classification", fromlist=["COMPACT_PROMPT"]
+                ).COMPACT_PROMPT
+                + "\n"
+                + __import__(
+                    "proofops.application.tagging.k1_semantics", fromlist=["GUIDANCE"]
+                ).GUIDANCE,
+                __import__(
+                    "proofops.application.tagging.finals_i4", fromlist=["K4_PRELIMINARY"]
+                ).K4_PRELIMINARY,
+                __import__(
+                    "proofops.application.tagging.k9_contract", fromlist=["PRELIMINARY"]
+                ).PRELIMINARY,
+                __import__(
+                    "proofops.application.tagging.q1_contract", fromlist=["PRELIMINARY"]
+                ).PRELIMINARY,
+                __import__(
+                    "proofops.application.tagging.v3_dec92", fromlist=["PRELIMINARY"]
+                ).PRELIMINARY,
+                __import__(
+                    "proofops.application.tagging.cf5_context", fromlist=["PRELIMINARY"]
+                ).PRELIMINARY,
+            )
         )
         or relation_settings_contract_valid(settings)
     )

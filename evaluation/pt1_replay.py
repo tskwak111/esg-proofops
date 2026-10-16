@@ -19,7 +19,7 @@ from proofops.domain.values import llm_tags_from_dict
 
 from evaluation.sv1_source_audit import BASE
 
-OUT = Path("/Users/ss020/Dev/ESG_ProofOps/outputs/agent-results/R108-redesign/lab/pipeline/PT1")
+OUT = Path("/path/to/ESG_ProofOps/outputs/agent-results/R108-redesign/lab/pipeline/PT1")
 
 
 def decode_runs(entries):

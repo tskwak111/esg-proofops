@@ -608,6 +608,19 @@ def build_report_model(
         raise ValueError("decisions contain claims outside the snapshot")
     for claim in claims:
         record = decisions[claim["claim_id"]]
+        if record is not None and "sc1_confirmation" in record:
+            claim.update(
+                {
+                    k: _copy(record[k])
+                    for k in (
+                        "sc1_confirmation",
+                        "sc1_elements",
+                        "sc1_hold_reason",
+                        "sc1_scope_receipt",
+                    )
+                    if k in record
+                }
+            )
         quote = record.get("claim_quote") if record is not None else None
         if quote is not None and (not isinstance(quote, str) or not quote.strip()):
             raise ValueError("claim_quote must be non-empty text or null")
@@ -732,6 +745,8 @@ def render_report(model: Mapping[str, object], output_format: str) -> bytes:
             "tag_elements",
             "grade_range",
         )
+        if any("sc1_confirmation" in claim for claim in claims):
+            fields += ("sc1_confirmation", "sc1_elements", "sc1_hold_reason", "sc1_scope_receipt")
         if any("element_evidence" in claim for claim in claims):
             fields += ("element_evidence",)
         if "element_evidence_encoding" in model:
@@ -770,6 +785,19 @@ def render_report(model: Mapping[str, object], output_format: str) -> bytes:
                 if claim["evidence_grade"] is not None
                 else "미판정"
             )
+            scoped = claim.get("sc1_confirmation")
+            if scoped:
+                scope = scoped["confirmation_scope"]
+                grade_label += (
+                    " · "
+                    + str(scoped["evidence_grade"])
+                    + " 분석 범위 기준 확정"
+                    + " · 선택 물리 쪽 "
+                    + str(scope["selected_pages"])
+                    + " / 전체 "
+                    + str(scope["document_total_pages"])
+                    + "쪽"
+                )
             grade_range = claim.get("grade_range")
             range_html = (
                 f"<p>가능 등급 범위: {escape(grade_range['floor'])} ~ "

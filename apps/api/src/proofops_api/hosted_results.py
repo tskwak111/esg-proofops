@@ -24,6 +24,23 @@ def services(path: Path, tenant: str):
     manifest = json.loads((path / "pilot.json").read_text())
     if manifest["tenant_id"] != tenant:
         raise HostedError("RESOURCE_NOT_FOUND", 404)
+    from proofops.application.tagging.fact_assembly_c3 import PROFILE as C3_PROFILE
+    from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
+    from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
+
+    if manifest.get("publication_profile") == C4_PROFILE:
+        from proofops.adapters.local.c4_publication import LocalC4Publication
+
+        publication = LocalC4Publication(path)
+        yield manifest["run_id"], None, publication, publication.service
+        return
+
+    if manifest.get("publication_profile") in (C3_PROFILE, C3_V2_PROFILE):
+        from proofops.adapters.local.c3_publication import LocalC3Publication
+
+        publication = LocalC3Publication(path)
+        yield manifest["run_id"], None, publication, publication.service
+        return
     database = path / "state.sqlite3"
     registry = Registry.sqlite(database)
     uploads = UploadService(database, path / "objects", registry)
@@ -58,6 +75,42 @@ def services(path: Path, tenant: str):
 
 
 def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
+    result = _read_result(path, tenant, selected_pages)
+    bounded = path / "bounded-c3"
+    if (bounded / "pilot.json").is_file():
+        if bounded.is_symlink() or 36 not in selected_pages:
+            raise HostedError("C3_SOURCE_PAGE_MISMATCH", 409)
+        extra = _read_result(bounded, tenant, [36])
+        for claim in extra["claims"]:
+            claim["page_num"] = selected_pages.index(36) + 1
+        result["claims"].extend(extra["claims"])
+        result["reviews"].extend(extra["reviews"])
+    return result
+
+
+def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
+    from proofops.application.tagging.fact_assembly_c3 import PROFILE as C3_PROFILE
+    from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
+    from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
+
+    if (path / "pilot.json").is_file():
+        manifest = json.loads((path / "pilot.json").read_text())
+        if manifest.get("publication_profile") == C4_PROFILE:
+            if manifest["tenant_id"] != tenant:
+                raise HostedError("RESOURCE_NOT_FOUND", 404)
+            if selected_pages != manifest["selected_pages"]:
+                raise HostedError("C4_SOURCE_PAGE_MISMATCH", 409)
+            from proofops.adapters.local.c4_publication import LocalC4Publication
+
+            return LocalC4Publication(path).result(tenant, manifest["run_id"], manifest["claim_id"])
+        if manifest.get("publication_profile") in (C3_PROFILE, C3_V2_PROFILE):
+            if manifest["tenant_id"] != tenant:
+                raise HostedError("RESOURCE_NOT_FOUND", 404)
+            if selected_pages != [36]:
+                raise HostedError("C3_SOURCE_PAGE_MISMATCH", 409)
+            from proofops.adapters.local.c3_publication import LocalC3Publication
+
+            return LocalC3Publication(path).result(tenant, manifest["run_id"], manifest["claim_id"])
     outcome = json.loads((path / "outcome.json").read_text())
     if not (path / "pilot.json").is_file():
         return dict(
@@ -94,11 +147,89 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             tag_snapshot, evidence = {}, claims.load_evidence(tenant, run)
         projections = {r["claim_id"]: r for r in tag_snapshot.get("claims", [])}
         reasons = {cid: r.get("reason") for cid, r in projections.items()}
+        from proofops.application.analysis_profile import (
+            FINALS_C24_POLICY,
+            FINALS_E05_POLICY,
+            FINALS_F1_INITIAL_POLICY,
+            FINALS_F1_POLICY,
+            FINALS_F1_TRANSPORT_POLICY,
+            FINALS_H4_POLICY,
+            FINALS_H6_POLICY,
+            FINALS_I7_POLICY,
+            FINALS_I8_POLICY,
+            FINALS_I9_POLICY,
+            FINALS_I10_POLICY,
+            FINALS_I11_POLICY,
+            FINALS_K10_POLICY,
+            FINALS_K10_V2_POLICY,
+            FINALS_Q1_POLICY,
+            QT1_POLICY,
+            S4_POLICY,
+        )
+        from proofops.application.provider_resilience import PROJECTION_POLICY, claim_hold_reason
+        from proofops.domain.provenance import canonical_hash
+
+        f1 = tag_snapshot.get("analysis_profile_policy_sha256") in {
+            canonical_hash(FINALS_H4_POLICY),
+            canonical_hash(FINALS_H6_POLICY),
+            canonical_hash(FINALS_C24_POLICY),
+            canonical_hash(FINALS_I10_POLICY),
+            canonical_hash(FINALS_I11_POLICY),
+            canonical_hash(FINALS_K10_POLICY),
+            canonical_hash(FINALS_K10_V2_POLICY),
+            canonical_hash(FINALS_Q1_POLICY),
+            canonical_hash(FINALS_E05_POLICY),
+            canonical_hash(FINALS_F1_INITIAL_POLICY),
+            canonical_hash(FINALS_F1_POLICY),
+            canonical_hash(FINALS_F1_TRANSPORT_POLICY),
+            canonical_hash(FINALS_I7_POLICY),
+            canonical_hash(FINALS_I8_POLICY),
+            canonical_hash(FINALS_I9_POLICY),
+            canonical_hash(S4_POLICY),
+        }
+        if f1:
+            for cid, projection in projections.items():
+                if reason := claim_hold_reason(projection):
+                    reasons[cid] = reason
+            # Each newly published result identifies its display contract. Old
+            # result snapshots continue to be served by their immutable bytes.
+            outcome = outcome | dict(
+                provider_failure_projection_sha256=canonical_hash(PROJECTION_POLICY)
+            )
         # The publisher holds analysis.lock; these source artifacts cannot change
         # while building this snapshot. Replay all source guards once, then retain
         # the same graph for every claim's identity-checked missing-evidence search.
-        _, discovery, original_graph = evidence
+        extraction_checkpoint, discovery, original_graph = evidence
+        # Older claim-store facades retain their existing result contract.
+        # The concrete store's projection checks the admitted checkpoint hash.
+        if project_outcome := getattr(claims, "outcome_projection", None):
+            outcome = outcome | project_outcome(
+                tenant, run, admitted_checkpoint=extraction_checkpoint
+            )
+            from proofops.application.rb4_memory import enabled as rb4_memory_enabled
+
+            if rb4_memory_enabled(claims.store.snapshot(tenant, run)):
+                # Source replay, tag pins and outcome admission are complete.
+                # Legacy facades without outcome admission keep their contract.
+                del evidence, extraction_checkpoint
         from proofops.application.analysis_profile import (
+            CF6_POLICY,
+            CF6_V2_POLICY,
+            FINALS_I1_INITIAL_POLICY,
+            FINALS_I3_POLICY,
+            FINALS_I4_POLICY,
+            FINALS_I5_POLICY,
+            FINALS_I6_POLICY,
+            FINALS_I23_POLICY,
+            FINALS_I26_POLICY,
+            FINALS_I27_POLICY,
+            FINALS_I27_PRE_RB2_POLICY,
+            FINALS_I28_POLICY,
+            FINALS_I29_INITIAL_POLICY,
+            S1_POLICY,
+            S2_POLICY,
+            S5_LIVE_POLICY,
+            V2_D24_POLICY,
             V2_PA9_POLICY,
             V2_PB1_COMPACT_POLICY,
             V2_PB1_INITIAL_POLICY,
@@ -109,16 +240,60 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             V2_PB4_POLICY,
             V2_PB7_POLICY,
             V2_POLICY,
+            V2_PRE_D24_POLICY,
             V2_PRE_PA7_POLICY,
             V2_PRE_PA8_POLICY,
             V2_PRE_PA9_POLICY,
             V2_PRE_PB4_POLICY,
+            V2_PRE_W8_POLICY,
+            V2_PRE_W9_POLICY,
+            V2_W8_POLICY,
+            V2_W9_POLICY,
+            W3_POLICY,
         )
-        from proofops.application.ingest.pb1_tables import observations, occurrence_groups
+        from proofops.application.ingest.pb1_tables import occurrence_groups
+        from proofops.application.ingest.w9_tables import observations_for
         from proofops.domain.provenance import canonical_hash
 
         pb1 = tag_snapshot.get("analysis_profile_policy_sha256") in {
+            canonical_hash(CF6_POLICY),
+            canonical_hash(CF6_V2_POLICY),
+            canonical_hash(FINALS_H4_POLICY),
+            canonical_hash(FINALS_H6_POLICY),
+            canonical_hash(FINALS_C24_POLICY),
+            canonical_hash(FINALS_Q1_POLICY),
+            canonical_hash(FINALS_E05_POLICY),
+            canonical_hash(FINALS_F1_INITIAL_POLICY),
+            canonical_hash(FINALS_F1_POLICY),
+            canonical_hash(FINALS_F1_TRANSPORT_POLICY),
+            canonical_hash(S2_POLICY),
+            canonical_hash(S4_POLICY),
             canonical_hash(V2_POLICY),
+            canonical_hash(S5_LIVE_POLICY),
+            canonical_hash(FINALS_I26_POLICY),
+            canonical_hash(FINALS_I27_POLICY),
+            canonical_hash(FINALS_I27_PRE_RB2_POLICY),
+            canonical_hash(FINALS_I28_POLICY),
+            canonical_hash(FINALS_I29_INITIAL_POLICY),
+            canonical_hash(FINALS_I23_POLICY),
+            canonical_hash(QT1_POLICY),
+            canonical_hash(FINALS_I10_POLICY),
+            canonical_hash(FINALS_K10_POLICY),
+            canonical_hash(FINALS_K10_V2_POLICY),
+            canonical_hash(FINALS_I8_POLICY),
+            canonical_hash(FINALS_I3_POLICY),
+            canonical_hash(FINALS_I4_POLICY),
+            canonical_hash(FINALS_I5_POLICY),
+            canonical_hash(FINALS_I6_POLICY),
+            canonical_hash(S1_POLICY),
+            canonical_hash(FINALS_I1_INITIAL_POLICY),
+            canonical_hash(V2_D24_POLICY),
+            canonical_hash(V2_W9_POLICY),
+            canonical_hash(W3_POLICY),
+            canonical_hash(V2_PRE_W9_POLICY),
+            canonical_hash(V2_PRE_W8_POLICY),
+            canonical_hash(V2_W8_POLICY),
+            canonical_hash(V2_PRE_D24_POLICY),
             canonical_hash(V2_PA9_POLICY),
             canonical_hash(V2_PB7_POLICY),
             canonical_hash(V2_PRE_PA7_POLICY),
@@ -140,6 +315,16 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
         for claim in discovery.claims:
             current = claims.current_tag(tenant, run, claim.claim_id)
             summary = claims.summary(claim, current)
+            if tag_snapshot.get("analysis_profile_policy_sha256") == canonical_hash(QT1_POLICY):
+                from proofops.application.ingest.qt1_tables import candidates_for
+
+                ref = claim.source_refs[0]
+                table = blocks[ref.source_id]
+                summary["qt1_table_recovery"] = [
+                    r
+                    for r in candidates_for(table, original_graph)
+                    if r["start"] <= ref.char_start < ref.char_end <= r["end"]
+                ]
             if pb1:
                 summary["duplicate_occurrences"] = groups.get(
                     canonical_hash(" ".join(claim.quote.split())), [claim.claim_id]
@@ -147,11 +332,10 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                 ref = claim.source_refs[0]
                 block = blocks[ref.source_id]
                 if block.kind == "table" and block.winner is not None:
-                    context = " ".join(block.candidates[block.winner].context)
                     row = next(
                         (
                             r
-                            for r in observations(block.normalized_text, context=context)
+                            for r in observations_for(block, original_graph)
                             if r["start"] <= ref.char_start < ref.char_end <= r["end"]
                         ),
                         None,
@@ -159,7 +343,44 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                     if row:
                         summary["table_observation"] = row
                         if tag_snapshot.get("analysis_profile_policy_sha256") in {
+                            canonical_hash(CF6_POLICY),
+                            canonical_hash(CF6_V2_POLICY),
+                            canonical_hash(FINALS_H4_POLICY),
+                            canonical_hash(FINALS_H6_POLICY),
+                            canonical_hash(FINALS_C24_POLICY),
+                            canonical_hash(FINALS_Q1_POLICY),
+                            canonical_hash(FINALS_E05_POLICY),
+                            canonical_hash(FINALS_F1_INITIAL_POLICY),
+                            canonical_hash(FINALS_F1_POLICY),
+                            canonical_hash(FINALS_F1_TRANSPORT_POLICY),
+                            canonical_hash(S2_POLICY),
+                            canonical_hash(S4_POLICY),
                             canonical_hash(V2_POLICY),
+                            canonical_hash(S5_LIVE_POLICY),
+                            canonical_hash(FINALS_I26_POLICY),
+                            canonical_hash(FINALS_I27_POLICY),
+                            canonical_hash(FINALS_I27_PRE_RB2_POLICY),
+                            canonical_hash(FINALS_I28_POLICY),
+                            canonical_hash(FINALS_I29_INITIAL_POLICY),
+                            canonical_hash(FINALS_I23_POLICY),
+                            canonical_hash(QT1_POLICY),
+                            canonical_hash(FINALS_I10_POLICY),
+                            canonical_hash(FINALS_K10_POLICY),
+                            canonical_hash(FINALS_K10_V2_POLICY),
+                            canonical_hash(FINALS_I8_POLICY),
+                            canonical_hash(FINALS_I3_POLICY),
+                            canonical_hash(FINALS_I4_POLICY),
+                            canonical_hash(FINALS_I5_POLICY),
+                            canonical_hash(FINALS_I6_POLICY),
+                            canonical_hash(S1_POLICY),
+                            canonical_hash(FINALS_I1_INITIAL_POLICY),
+                            canonical_hash(V2_D24_POLICY),
+                            canonical_hash(V2_W9_POLICY),
+                            canonical_hash(W3_POLICY),
+                            canonical_hash(V2_PRE_W9_POLICY),
+                            canonical_hash(V2_PRE_W8_POLICY),
+                            canonical_hash(V2_W8_POLICY),
+                            canonical_hash(V2_PRE_D24_POLICY),
                             canonical_hash(V2_PA9_POLICY),
                             canonical_hash(V2_PB7_POLICY),
                             canonical_hash(V2_PRE_PA7_POLICY),
@@ -201,6 +422,43 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                     pipeline_status=projection["status"],
                     provisional_track=projection.get("frozen_packet", {}).get("track"),
                 )
+                if f1 and reasons.get(claim.claim_id) in {
+                    "PROVIDER_PROCESSING_FAILED",
+                    "PROVIDER_CIRCUIT_OPEN",
+                }:
+                    summary["pipeline_status"] = "needs_review"
+                    summary["decision"] = decision = None
+            if "rb1_input_hold" in projection:
+                summary["rb1_input_hold"] = projection["rb1_input_hold"]
+            # SC1 is a separate additive result, preserving legacy grade semantics.
+            if "sc1_confirmation" in projection:
+                summary.update(
+                    {
+                        k: projection.get(k)
+                        for k in (
+                            "sc1_confirmation",
+                            "sc1_elements",
+                            "sc1_hold_reason",
+                        )
+                    }
+                )
+            if "cf6_confirmation" in projection:
+                summary["cf6_confirmation"] = projection["cf6_confirmation"]
+                if decision is None and projection["cf6_confirmation"] is not None:
+                    decision = projection["cf6_confirmation"]
+                    summary["decision"] = decision
+                summary["cf6_status"] = (
+                    "confirmed" if (decision or {}).get("evidence_grade") else "held"
+                )
+                summary["cf6_elements"] = projection.get("cf6_receipt", {}).get("elements", [])
+                summary["cf6_hold_reasons"] = projection.get("cf6_receipt", {}).get(
+                    "reasons", [projection.get("reason") or "CF6_TAGGING_INCOMPLETE"]
+                )
+                summary["cf6_track"] = (
+                    projection.get("frozen_packet", {}).get("track")
+                    if projection["cf6_confirmation"] is not None
+                    else None
+                )
             rows.append(
                 summary
                 | dict(
@@ -234,7 +492,16 @@ def read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             schema="r108-hosted-result-v1",
             claims=rows,
             reviews=page["items"],
-            hold_reasons=[outcome["reason"]] if outcome.get("reason") else [],
+            hold_reasons=list(
+                dict.fromkeys(
+                    ([outcome["reason"]] if outcome.get("reason") else [])
+                    + (
+                        [outcome["extraction_outcome"]["code"]]
+                        if outcome.get("extraction_outcome", {}).get("code") not in (None, "OK")
+                        else []
+                    )
+                )
+            ),
             pipeline=outcome,
             page_map=selected_pages,
         )
@@ -248,6 +515,16 @@ def result_snapshot(path: Path, tenant: str, selected_pages: list[int]) -> bytes
         for source in sorted((path / "objects" / "original").rglob("*"))
         if source.is_file()
     }
+    if (path / "c3-evidence.json").is_file():
+        for name in ("original.pdf", "c3-evidence.json", "pilot.json"):
+            sources[name] = hashlib.sha256((path / name).read_bytes()).hexdigest()
+    if (path / "c4-evidence.json").is_file():
+        for name in ("original.pdf", "c4-evidence.json", "pilot.json"):
+            sources[name] = hashlib.sha256((path / name).read_bytes()).hexdigest()
+    if (path / "bounded-c3" / "pilot.json").is_file():
+        for name in ("original.pdf", "c3-evidence.json", "pilot.json"):
+            key = "bounded-c3/" + name
+            sources[key] = hashlib.sha256((path / key).read_bytes()).hexdigest()
     return json.dumps(
         dict(tenant_id=tenant, page_map=selected_pages, source_hashes=sources, result=result),
         sort_keys=True,
@@ -257,6 +534,11 @@ def result_snapshot(path: Path, tenant: str, selected_pages: list[int]) -> bytes
 
 
 def resolve_review(path, auth, review, body, if_match, key):
+    bounded = path / "bounded-c3"
+    if (bounded / "pilot.json").is_file():
+        extra = _read_result(bounded, auth.tenant_id, [36])
+        if any(row["review_id"] == review for row in extra["reviews"]):
+            path = bounded
     with services(path, auth.tenant_id) as (run, claims, tags, reviews):
         try:
             record = reviews.store.get(auth.tenant_id, review)

@@ -209,7 +209,7 @@
         "size_bytes": {
           "type": "integer",
           "minimum": 1,
-          "maximum": 104857600
+          "maximum": 157286400
         },
         "sha256": {
           "type": "string",
@@ -318,7 +318,7 @@
         "size_bytes": {
           "type": "integer",
           "minimum": 1,
-          "maximum": 104857600
+          "maximum": 157286400
         }
       },
       "required": [
@@ -1532,6 +1532,17 @@
               "type": "null"
             }
           ]
+        },
+        "sentence_context": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SentenceContext"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -4458,6 +4469,55 @@
         "search"
       ],
       "title": "ElementEvidenceSearch",
+      "type": "object"
+    },
+    "SentenceContext": {
+      "additionalProperties": false,
+      "properties": {
+        "policy": {
+          "additionalProperties": true,
+          "title": "Policy",
+          "type": "object"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "source_refs": {
+          "items": {
+            "$ref": "#/$defs/SourceRef"
+          },
+          "title": "Source Refs",
+          "type": "array"
+        },
+        "verification_state": {
+          "enum": [
+            "verified",
+            "candidate"
+          ],
+          "title": "Verification State",
+          "type": "string"
+        },
+        "role": {
+          "const": "parent_paragraph",
+          "title": "Role",
+          "type": "string"
+        },
+        "rule_credit": {
+          "const": false,
+          "title": "Rule Credit",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "policy",
+        "text",
+        "source_refs",
+        "verification_state",
+        "role",
+        "rule_credit"
+      ],
+      "title": "SentenceContext",
       "type": "object"
     }
   }

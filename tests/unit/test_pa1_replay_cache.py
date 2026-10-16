@@ -98,7 +98,7 @@ def test_warm_native_cache_rechecks_current_reader_policy(monkeypatch):
     monkeypatch.setattr(
         claim_source_policies,
         "page_ocr_profile",
-        lambda _: SimpleNamespace(native_policy=lambda: current),
+        lambda _, **kwargs: SimpleNamespace(native_policy=lambda: current),
     )
     args = dict(
         reader_name="native:upstage-ocr-page-v6",

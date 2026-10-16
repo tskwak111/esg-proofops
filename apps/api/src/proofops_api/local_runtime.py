@@ -26,6 +26,7 @@ _SETTINGS_FIELDS = frozenset(
         "build_root",
         "r108_profile",
         "pipeline_profile",
+        "analysis_policy_sha256",
         "budget_limits",
         "extraction_profile",
         "extraction_year_notation",
@@ -33,10 +34,31 @@ _SETTINGS_FIELDS = frozenset(
         "extraction_table_context",
         "extraction_source_ids",
         "extraction_atomic",
+        "extraction_atomic_v3",
+        "extraction_failure_diagnostics",
         "extraction_linewrap_join",
         "extraction_fragment_guard",
+        "extraction_sentence_prefix",
+        "extraction_k1",
         "extraction_pb1",
+        "extraction_w9",
+        "extraction_j3",
+        "extraction_k3",
+        "extraction_j7",
+        "extraction_j8",
+        "extraction_i3_wire",
+        "extraction_i4_identity",
+        "extraction_qc_native_figures",
+        "extraction_fxg_split",
+        "extraction_qt1_goal_split",
+        "extraction_h1",
+        "extraction_i5_tables",
+        "extraction_k6",
+        "extraction_q1",
+        "extraction_qt1",
         "extraction_pb1_context_guard",
+        "extraction_table_footnotes",
+        "extraction_located_table_context",
         "extraction_table_rows",
         "extraction_recall_prompt",
         "extraction_assertion_prompt",
@@ -44,6 +66,7 @@ _SETTINGS_FIELDS = frozenset(
         "extraction_content_bounds",
         "position_context_order",
         "tagging_settings",
+        "tagging_prompt_profile",
         "preliminary_settings",
         "relation_settings",
         "decision_settings",
@@ -265,7 +288,14 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
     extraction_mode = env.get("LOCAL_EXTRACTION_MODE", "")
     tagging_mode = env.get("LOCAL_TAGGING_MODE", "")
     fact_assembly_profile = env.get("LOCAL_FACT_ASSEMBLY_PROFILE", "strict-v1")
-    if fact_assembly_profile not in ("strict-v1", "partial-facts-v1", "partial-facts-v2"):
+    if fact_assembly_profile not in (
+        "strict-v1",
+        "partial-facts-v1",
+        "partial-facts-v2",
+        "grade-relevant-unanimity-v1",
+        "grade-relevant-unanimity-v2",
+        "grade-relevant-unanimity-v3",
+    ):
         raise _invalid()
     if not parser_path:
         if settings_path or extraction_mode or tagging_mode or fact_assembly_profile != "strict-v1":
@@ -316,11 +346,100 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
     if "pipeline_profile" in settings:
         if (
             settings["pipeline_profile"]
-            not in ("unattended-v1", "finals-unattended-v1", "finals-unattended-v2")
+            not in (
+                "unattended-v1",
+                "finals-unattended-v1",
+                "finals-unattended-v2",
+                "finals-unattended-j3-v1",
+                "finals-unattended-j7-v1",
+                "finals-unattended-j8-v1",
+            )
             or not tagging_mode
         ):
             raise _invalid()
         runtime["pipeline_profile"] = settings["pipeline_profile"]
+    if "analysis_policy_sha256" in settings:
+        from proofops.application.analysis_profile import publication_policy_for
+
+        pin = settings["analysis_policy_sha256"]
+        if not isinstance(pin, str) or len(pin) != 64:
+            raise _invalid()
+        try:
+            selected_policy = publication_policy_for(
+                settings.get("pipeline_profile"), pinned_hash=pin
+            )
+            if selected_policy.get("extraction_selection_ids") and (
+                settings.get("extraction_i4_identity") is not True
+            ):
+                raise _invalid()
+            if (
+                selected_policy.get("table_failure_profile")
+                and settings.get("extraction_i5_tables") is not True
+            ):
+                raise _invalid()
+            if bool(settings.get("extraction_k6", False)) != bool(
+                selected_policy.get("coverage_policy")
+            ):
+                raise _invalid()
+            if bool(settings.get("extraction_q1", False)) != bool(
+                selected_policy.get("activity_table_policy")
+            ):
+                raise ValueError("Q1_EXTRACTION_PROFILE_MISMATCH")
+            if bool(settings.get("extraction_qt1", False)) != bool(
+                selected_policy.get("qt1_table_recovery_policy")
+            ):
+                raise ValueError("QT1_EXTRACTION_PROFILE_MISMATCH")
+            if bool(settings.get("extraction_qc_native_figures", False)) != bool(
+                selected_policy.get("native_figure_policy")
+            ):
+                raise ValueError("QC_NATIVE_FIGURE_PROFILE_MISMATCH")
+            if bool(settings.get("extraction_fxg_split", False)) != bool(
+                selected_policy.get("fxg_extraction_wire_policy")
+            ):
+                raise ValueError("EXTRACTION_FXG_PROFILE_MISMATCH")
+            if bool(settings.get("extraction_qt1_goal_split", False)) != bool(
+                selected_policy.get("qt1_goal_split_policy")
+            ):
+                raise ValueError("QT1_GOAL_SPLIT_PROFILE_MISMATCH")
+            prompt_profile = selected_policy.get("tagging_prompt_profile")
+            if prompt_profile:
+                from proofops.application.tagging.cf5_context import PRELIMINARY as CF5_PRELIMINARY
+                from proofops.application.tagging.cf5_context import PROFILE as CF5_PROFILE
+                from proofops.application.tagging.finals_i4 import (
+                    K4_ELEMENTS,
+                    K4_PRELIMINARY,
+                    PROFILE,
+                )
+                from proofops.application.tagging.k9_contract import PRELIMINARY as K9_PRELIMINARY
+                from proofops.application.tagging.k9_contract import PROFILE as K9_PROFILE
+                from proofops.application.tagging.q1_contract import PRELIMINARY as Q1_PRELIMINARY
+                from proofops.application.tagging.q1_contract import PROFILE as Q1_PROFILE
+                from proofops.application.tagging.v3_dec92 import PRELIMINARY as V3_PRELIMINARY
+                from proofops.application.tagging.v3_dec92 import PROFILE as V3_PROFILE
+
+                if (
+                    prompt_profile not in (PROFILE, K9_PROFILE, Q1_PROFILE, V3_PROFILE, CF5_PROFILE)
+                    or settings.get("tagging_prompt_profile") != prompt_profile
+                    or settings.get("preliminary_settings", {}).get("system_prompt")
+                    != (
+                        CF5_PRELIMINARY
+                        if prompt_profile == CF5_PROFILE
+                        else V3_PRELIMINARY
+                        if prompt_profile == V3_PROFILE
+                        else Q1_PRELIMINARY
+                        if prompt_profile == Q1_PROFILE
+                        else K9_PRELIMINARY
+                        if prompt_profile == K9_PROFILE
+                        else K4_PRELIMINARY
+                    )
+                    or settings.get("tagging_settings", {}).get("system_prompt") != K4_ELEMENTS
+                ):
+                    raise _invalid()
+            elif settings.get("tagging_prompt_profile"):
+                raise _invalid()
+        except ValueError:
+            raise _invalid() from None
+        runtime["analysis_policy_sha256"] = pin
     if "claim_source_policy" in settings:
         from proofops.adapters.local.claim_source_policies import claim_source_reader
 
@@ -351,10 +470,31 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         "extraction_table_context",
         "extraction_source_ids",
         "extraction_atomic",
+        "extraction_atomic_v3",
+        "extraction_failure_diagnostics",
         "extraction_linewrap_join",
         "extraction_fragment_guard",
+        "extraction_sentence_prefix",
+        "extraction_k1",
         "extraction_pb1",
+        "extraction_w9",
+        "extraction_j3",
+        "extraction_k3",
+        "extraction_j7",
+        "extraction_j8",
+        "extraction_i3_wire",
+        "extraction_i4_identity",
+        "extraction_qc_native_figures",
+        "extraction_fxg_split",
+        "extraction_qt1_goal_split",
+        "extraction_h1",
+        "extraction_i5_tables",
+        "extraction_k6",
+        "extraction_q1",
+        "extraction_qt1",
         "extraction_pb1_context_guard",
+        "extraction_table_footnotes",
+        "extraction_located_table_context",
         "extraction_table_rows",
         "extraction_recall_prompt",
         "extraction_assertion_prompt",
@@ -367,13 +507,105 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         # reconstructs the matching extractor profile from the settings file.
         if flag in settings and (settings[flag] is not True or extraction_mode != "upstage_probe"):
             raise _invalid()
+    if settings.get("extraction_i4_identity"):
+        from proofops.application.analysis_profile import policy_for
+
+        selected = policy_for(
+            settings.get("pipeline_profile"), pinned_hash=settings.get("analysis_policy_sha256")
+        )
+        if selected.get(
+            "extraction_selection_ids"
+        ) != "dispatch-local-selection-i4-v1" or not settings.get("extraction_source_ids"):
+            raise ValueError("EXTRACTION_I4_IDENTITY_INVALID")
+    if settings.get("extraction_j7") and settings.get("extraction_j3") is not True:
+        raise ValueError("EXTRACTION_J7_INVALID")
+    if settings.get("extraction_h1"):
+        from proofops.application.analysis_profile import policy_for
+
+        selected = policy_for(
+            settings.get("pipeline_profile"), pinned_hash=settings.get("analysis_policy_sha256")
+        )
+        if (
+            not settings.get("extraction_linewrap_join")
+            or selected.get("selected_boundary_recovery") != "h1-selected-boundaries-v1"
+        ):
+            raise ValueError("EXTRACTION_H1_INVALID")
+    if settings.get("extraction_i3_wire"):
+        from proofops.application.analysis_profile import policy_for
+
+        selected = policy_for(
+            settings.get("pipeline_profile"), pinned_hash=settings.get("analysis_policy_sha256")
+        )
+        if (
+            not settings.get("extraction_j8")
+            or selected.get("extraction_wire") != "owned-cell-compact-i3-v1"
+        ):
+            raise ValueError("EXTRACTION_I3_WIRE_INVALID")
+    if settings.get("extraction_j8") and not (
+        settings.get("extraction_j3") is True
+        and settings.get("extraction_table_rows") is True
+        and settings.get("pipeline_profile") in ("finals-unattended-v2", "finals-unattended-j8-v1")
+    ):
+        raise ValueError("EXTRACTION_J8_INVALID")
+    if settings.get("extraction_j8") and settings.get("pipeline_profile") == "finals-unattended-v2":
+        from proofops.application.analysis_profile import policy_for
+
+        selected = policy_for(
+            "finals-unattended-v2", pinned_hash=settings.get("analysis_policy_sha256")
+        )
+        if selected.get("table_cells") != "j8-owned-cell-candidates-v1":
+            raise ValueError("EXTRACTION_J8_INVALID")
+    if settings.get("pipeline_profile") == "finals-unattended-j8-v1" and not settings.get(
+        "extraction_j8"
+    ):
+        raise ValueError("EXTRACTION_J8_INVALID")
+    if settings.get("extraction_j3") and not (
+        settings.get("extraction_w9") is True and settings.get("extraction_source_ids") is True
+    ):
+        raise ValueError("EXTRACTION_J3_INVALID")
+    if settings.get("extraction_k3") and settings.get("extraction_w9") is not True:
+        raise _invalid()
+    if settings.get("extraction_w9") and settings.get("extraction_pb1") is not True:
+        raise _invalid()
+    if settings.get("extraction_k1") and (
+        settings.get("extraction_source_ids") is not True
+        or settings.get("extraction_table_rows") is not True
+    ):
+        raise _invalid()
     for flag in ("extraction_table_rows", "extraction_recall_prompt"):
         if flag in settings and (
             settings.get("extraction_source_ids") is not True
             or settings.get("extraction_atomic") is True
         ):
             raise _invalid()
+    if "extraction_sentence_prefix" in settings and (
+        settings.get("extraction_context") is not True
+        or settings.get("extraction_linewrap_join") is not True
+        or settings.get("extraction_atomic") is True
+    ):
+        raise _invalid()
+    if (
+        "extraction_table_footnotes" in settings
+        and settings.get("extraction_source_ids") is not True
+    ):
+        raise _invalid()
+    if "extraction_located_table_context" in settings and (
+        settings.get("extraction_table_footnotes") is not True
+    ):
+        raise _invalid()
     if "extraction_atomic" in settings and settings.get("extraction_source_ids") is not True:
+        raise _invalid()
+    if "extraction_atomic_v3" in settings and (
+        not (
+            settings.get("extraction_atomic") is True
+            or settings.get("extraction_table_rows") is True
+        )
+        or settings.get("extraction_source_ids") is not True
+    ):
+        raise _invalid()
+    if "extraction_failure_diagnostics" in settings and (
+        settings.get("extraction_source_ids") is not True
+    ):
         raise _invalid()
     if "extraction_linewrap_join" in settings and (
         settings.get("extraction_source_ids") is not True
@@ -499,6 +731,8 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         runtime["tagging_mode"] = tagging_mode
     elif "tagging_settings" in settings or "relation_settings" in settings:
         raise _invalid()
+    if "analysis_policy_sha256" in settings:
+        fact_assembly_profile = selected_policy.get("fact_assembly_profile", fact_assembly_profile)
     if fact_assembly_profile != "strict-v1":
         if not tagging_mode:
             raise _invalid()

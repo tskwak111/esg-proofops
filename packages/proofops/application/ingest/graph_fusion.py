@@ -103,16 +103,43 @@ class ParserProfile:
     failure_policy: str | None = None
     source_recovery: str | None = None
     table_claims_profile: str | None = None
+    local_resource_policy: str | None = None
+    output_policy: str | None = None
 
     def __post_init__(self):
-        if self.table_claims_profile not in (None, "pb1-v1"):
+        if self.output_policy not in (None, "rb2-output-v1"):
+            raise ValueError("unsupported parser output policy")
+        if self.local_resource_policy not in (
+            None,
+            "selected-pdf-h1-v1",
+            "selected-pdf-h6-v1",
+            "selected-pdf-h6-v2",
+        ):
+            raise ValueError("unsupported local parser resource policy")
+        if self.table_claims_profile not in (None, "pb1-v1", "pb1-w9-v1"):
             raise ValueError("unsupported table claims profile")
-        if self.source_recovery not in (None, "ps1-v1"):
+        if self.source_recovery not in (None, "ps1-v1", "native-continuation-k8-v1"):
             raise ValueError("unsupported source recovery policy")
-        if self.failure_policy not in (None, "partial-v1") or (
-            self.failure_policy is not None and self.parser_mode != "mixed-v1"
+        if self.failure_policy not in (
+            None,
+            "partial-v1",
+            "partial-v2",
+            "partial-v3",
+            "partial-v4",
+            "partial-v5",
+            "partial-v6",
+            "s3_partial-v7",
+        ) or (
+            self.failure_policy is not None
+            and self.parser_mode != "mixed-v1"
+            and self.local_resource_policy not in {"selected-pdf-h6-v1", "selected-pdf-h6-v2"}
         ):
             raise ValueError("invalid parser failure policy")
+        if (
+            self.failure_policy
+            in {"partial-v3", "partial-v4", "partial-v5", "partial-v6", "s3_partial-v7"}
+        ) != (self.local_resource_policy in {"selected-pdf-h6-v1", "selected-pdf-h6-v2"}):
+            raise ValueError("H6 resource and failure policies must be pinned together")
         _require_uuid("parse_manifest_id", self.parse_manifest_id)
         pages = tuple(self.physical_pages)
         if (
@@ -177,6 +204,10 @@ class ParserProfile:
     def invocation_snapshot(self) -> dict:
         """Keep historical invocation hashes when optional tuning is absent."""
         values = asdict(self)
+        if self.output_policy is None:
+            values.pop("output_policy")
+        if self.local_resource_policy is None:
+            values.pop("local_resource_policy")
         if self.table_claims_profile is None:
             values.pop("table_claims_profile")
         if self.source_recovery is None:

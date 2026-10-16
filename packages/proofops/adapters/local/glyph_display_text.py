@@ -16,6 +16,7 @@ from typing import Any
 import pdfplumber
 import pypdfium2 as pdfium
 import pypdfium2.raw as pdfraw
+from pdfplumber.utils.exceptions import PdfminerException
 
 from proofops.adapters.local.glyph_alignment_verification import _same_line, _same_row
 from proofops.adapters.local.native_glyph_geometry import native_word_ink_geometry
@@ -214,14 +215,17 @@ class GlyphDisplayCatalog:
         else:
             from proofops.application.tagging.citation_restore import POLICY as RESTORE_POLICY
             from proofops.application.tagging.citation_restore import restore_whitespace
+            from proofops.application.tagging.k6_citations import POLICY as K6_POLICY
             from proofops.application.tagging.pb2_citation_restore import POLICY as TABLE_POLICY
             from proofops.application.tagging.pb2_citation_restore import restore_table
             from proofops.application.tagging.pb6_citation_restore import POLICY as VALUE_POLICY
 
-            if policy not in (RESTORE_POLICY, TABLE_POLICY, VALUE_POLICY):
+            if policy not in (RESTORE_POLICY, TABLE_POLICY, VALUE_POLICY, K6_POLICY):
                 raise ValueError("CITATION_RESTORE_POLICY_UNKNOWN")
             restore = (
-                restore_table if policy in (TABLE_POLICY, VALUE_POLICY) else restore_whitespace
+                restore_table
+                if policy in (TABLE_POLICY, VALUE_POLICY, K6_POLICY)
+                else restore_whitespace
             )
             selected = restore(selection, dict(quote=mapping.text, char_start=0))
             start, end = mapping.raw_span(selected["char_start"], selected["char_end"])
@@ -257,10 +261,17 @@ class GlyphDisplayCatalog:
     def restore_preliminary(self, response, packet):
         from copy import deepcopy
 
+        if "dimension_restore_errors" in response:
+            raise ValueError("DISPLAY_PRELIMINARY_SELECTION")
         restored = deepcopy(response)
         pins = packet["display_text"]["sources"]
         sources = packet["untrusted_document_data"]["sources"]
-        for span in restored.get("dimensions", {}).values():
+        recovery = packet.get("preliminary_recovery_policy")
+        if recovery is not None:
+            from proofops.application.tagging.k2_recovery import validate_policy
+
+            validate_policy(recovery)
+        for role, span in restored.get("dimensions", {}).items():
             if span is None:
                 continue
             if set(span) != {"source_index", "quote"} or type(span["source_index"]) is not int:
@@ -270,18 +281,43 @@ class GlyphDisplayCatalog:
                 raise ValueError("DISPLAY_PRELIMINARY_SELECTION")
             pin = pins[index]
             mapping = display_alignment(sources[index]["text"], pin["deleted_offsets"])
-            start, end, quote = locate_display(span["quote"], mapping)
+            try:
+                start, end, quote = locate_display(span["quote"], mapping)
+            except ValueError:
+                if recovery is None:
+                    raise
+                from proofops.application.tagging.citation_restore import restore_whitespace
+
+                try:
+                    selected = restore_whitespace(
+                        span["quote"], dict(quote=mapping.text, char_start=0)
+                    )
+                    start, end = mapping.raw_span(selected["char_start"], selected["char_end"])
+                    quote = mapping.raw[start:end]
+                except ValueError:
+                    # The unresolved role has no location. Do not select the first
+                    # occurrence, concatenate fragments or discard a valid header.
+                    restored["dimensions"][role] = None
+                    restored.setdefault("dimension_restore_errors", {})[role] = (
+                        "DISPLAY_QUOTE_UNRESOLVED"
+                    )
+                    continue
             span.update(quote=quote, start=start, end=end)
         return restored
 
 
 def _read_display_page(source, page_num):
-    with pdfplumber.open(io.BytesIO(source)) as doc:
-        page = doc.pages[page_num - 1]
-        native = [
-            dict(index=i, text=w["text"], bbox=[w["x0"], w["top"], w["x1"], w["bottom"]])
-            for i, w in enumerate(page.extract_words(return_chars=True))
-        ]
+    try:
+        with pdfplumber.open(io.BytesIO(source)) as doc:
+            page = doc.pages[page_num - 1]
+            native = [
+                dict(index=i, text=w["text"], bbox=[w["x0"], w["top"], w["x1"], w["bottom"]])
+                for i, w in enumerate(page.extract_words(return_chars=True))
+            ]
+    except PdfminerException:
+        # No glyph/space proof means no display deletions. Keep the exact raw
+        # quote and its identity; this helper never admits or verifies sources.
+        return [], {}, set(), None
     if not native or len(native) > 1000:
         return native, {}, set(), None
     try:

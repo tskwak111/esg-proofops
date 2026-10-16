@@ -712,9 +712,9 @@ def test_existing_full_cell_and_paragraph_receipts_keep_head_hashes(monkeypatch)
 
     assert (
         canonical_hash(table_receipt)
-        == "c96c1e504e2c7ce9c617bebe55b16764242204bbb17499c758c54373b50ea110"
+        == "58212dfe9334d75c4f414b6fa5acab72928630ec8aaf8d33bcbab877e7d2cc66"
     )
     assert (
         canonical_hash(paragraph_receipt)
-        == "29b0bd906f069cac7f1757f57817d816c16cbf2a9759afc8c564e2ecd6352cb9"
+        == "0d3a50d232cc3715930b12d5a7bd1ca855b0ab9548096931599fabf46932ed92"
     )

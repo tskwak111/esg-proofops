@@ -49,7 +49,14 @@ for k in ("HOSTED_ACCEPT_UPLOADS", "R108_ACCEPT_NEW_RUNS"):
         raise SystemExit("Set explicit acceptance flags")
 if env["HOSTED_ACCEPT_UPLOADS"] == "true" and not env.get("HOSTED_CONSENT_VERSION"):
     raise SystemExit("Upload consent required")
-for k, cap in [("HOSTED_RUN_USD", "1.0"), ("HOSTED_DAY_USD", "7"), ("HOSTED_EVENT_USD", "7")]:
+# DEC-22 defaults; an operator may raise the event ceiling only with an explicit,
+# separately approved HOSTED_EVENT_USD_CEILING (DEC-65: user approved USD15 on 2026-10-14).
+event_ceiling = env.get("HOSTED_EVENT_USD_CEILING", "7")
+for k, cap in [
+    ("HOSTED_RUN_USD", "1.0"),
+    ("HOSTED_DAY_USD", "7"),
+    ("HOSTED_EVENT_USD", event_ceiling),
+]:
     amount = Decimal(env[k])
     if not amount.is_finite() or not 0 < amount <= Decimal(cap):
         raise SystemExit("DEC-22 cost cap exceeded")

@@ -15,7 +15,7 @@ from pypdf.generic import ArrayObject, DictionaryObject, NameObject, RectangleOb
 from tests.acceptance.test_parsing import TENANT, candidate
 from tests.integration.test_claim_source_verification import geometry_pdf
 
-ROOT = Path("/Users/ss020/Dev/ESG_ProofOps")
+ROOT = Path("/path/to/ESG_ProofOps")
 FIXTURES = Path(__file__).parents[1] / "fixtures/claim_source_v3"
 
 

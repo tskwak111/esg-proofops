@@ -47,6 +47,26 @@ def upstage_http_error(response):
             code = error.get("code") if isinstance(error, dict) else None
         except (ValueError, TypeError, AttributeError):
             pass
-    if response.status == 403 and code == "api_key_is_not_allowed":
-        return ValueError("UPSTAGE_API_KEY_IS_NOT_ALLOWED")
-    return ValueError(f"UPSTAGE_HTTP_{response.status}")
+    result = ValueError(
+        "UPSTAGE_API_KEY_IS_NOT_ALLOWED"
+        if response.status == 403 and code == "api_key_is_not_allowed"
+        else f"UPSTAGE_HTTP_{response.status}"
+    )
+    result.http_status = response.status
+    result.provider_error_code = (
+        code
+        if isinstance(code, str)
+        and code
+        in {
+            "api_key_is_not_allowed",
+            "rate_limit_exceeded",
+            "invalid_api_key",
+            "invalid_request",
+            "internal_server_error",
+            "request_timeout",
+            "file_size_exceeded",
+            "page_limit_exceeded",
+        }
+        else None
+    )
+    return result

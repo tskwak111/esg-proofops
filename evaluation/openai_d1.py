@@ -23,7 +23,7 @@ from proofops.adapters.parsing import gemini_vision
 from evaluation import local_upstage_pilot as pilot
 from scripts.finals_demo import FinalsBudget, parse_bound, pilot_argv
 
-ROOT = Path("/Users/ss020/Dev/ESG_ProofOps")
+ROOT = Path("/path/to/ESG_ProofOps")
 LAB = ROOT / "outputs/agent-results/R108-redesign/lab"
 OUT = LAB / "openai"
 

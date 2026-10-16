@@ -20,7 +20,8 @@ COPY prompts ./prompts
 COPY scripts/hosted_control.py ./scripts/hosted_control.py
 COPY scripts/review_rulepack.py ./scripts/review_rulepack.py
 COPY deploy/public/smoke.py ./deploy/public/smoke.py
-RUN uv sync --frozen --no-dev --all-packages --no-cache \
+COPY deploy/public/offline_smoke.py deploy/public/offline_fixture.py ./deploy/public/
+RUN UV_HTTP_TIMEOUT=120 uv sync --frozen --no-dev --all-packages --no-cache \
     && useradd --uid 10001 --create-home proofops \
     && mkdir /data && chown proofops:proofops /data
 ENV PATH="/app/.venv/bin:${PATH}" \

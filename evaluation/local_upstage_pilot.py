@@ -23,6 +23,7 @@ from uuid import UUID, uuid4
 
 import yaml  # type: ignore[import-untyped]
 from fastapi import Request
+from proofops.adapters.local.claim_source_policies import PAGE_OCR_PROFILES
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -210,6 +211,7 @@ def live_tagging_settings(
     element_consistency: bool = False,
     position_context_order: bool = False,
     capacity_refresh: bool = False,
+    prompt_profile: str | None = None,
     element_definition_profile: str | None = None,
 ) -> dict:
     """Explicit bounded pilot config; grants are registered separately by main."""
@@ -347,7 +349,7 @@ def live_tagging_settings(
         "remain unknown. This changes citation granularity only, never evidence admission "
         "or grading. Validate this equality for every element before submitting."
     )
-    settings = {}
+    settings: dict[str, Any] = {}
     if preliminary_pb1:
         element_prompt += (
             "\nPB1 time-series row: the latest explicitly observed year column is the primary "
@@ -356,11 +358,33 @@ def live_tagging_settings(
             "explicit column-year header. Do not borrow numbers from other rows."
         )
     if element_definition_profile is not None:
-        if element_definition_profile != "qi1-v1":
-            raise ValueError("ELEMENT_DEFINITION_PROFILE_UNKNOWN")
-        from proofops.application.tagging.quality import ELEMENT_DEFINITIONS
+        if element_definition_profile == "qi1-v1":
+            from proofops.application.tagging.quality import ELEMENT_DEFINITIONS
 
-        element_prompt += "\n" + ELEMENT_DEFINITIONS
+            element_prompt += "\n" + ELEMENT_DEFINITIONS
+        elif element_definition_profile == "dec24-v1":
+            from proofops.application.tagging.dec24 import DEFINITIONS
+
+            element_prompt += "\n" + DEFINITIONS
+        elif element_definition_profile == "w8-v1":
+            from proofops.application.tagging.quality import ELEMENT_DEFINITIONS
+            from proofops.application.tagging.semantic_admission import DEFINITIONS
+
+            element_prompt += "\n" + ELEMENT_DEFINITIONS + "\n" + DEFINITIONS
+        elif element_definition_profile == "finals-i1-v1":
+            from proofops.application.tagging.dec24 import INTEGRATED_DEFINITIONS
+
+            element_prompt += "\n" + INTEGRATED_DEFINITIONS
+        elif element_definition_profile == "finals-i1-v2":
+            from proofops.application.tagging.dec24 import INTEGRATED_V2_DEFINITIONS
+
+            element_prompt += "\n" + INTEGRATED_V2_DEFINITIONS
+        elif element_definition_profile == "k1-v1":
+            from proofops.application.tagging.k1_semantics import DEFINITIONS
+
+            element_prompt += "\n" + DEFINITIONS
+        else:
+            raise ValueError("ELEMENT_DEFINITION_PROFILE_UNKNOWN")
     if preliminary_sentence_context:
         from proofops.application.tagging.preliminary import (
             SENTENCE_CONTEXT_PROFILE,
@@ -440,6 +464,40 @@ def live_tagging_settings(
     else:
         preliminary_profile = "upstage-preliminary-source-quotes-v1"
         preliminary_prompt = SYSTEM_PROMPT
+    if element_definition_profile == "k1-v1" and preliminary_pb1:
+        from proofops.application.tagging.k1_semantics import GUIDANCE
+
+        preliminary_prompt += "\n" + GUIDANCE
+    if prompt_profile is not None:
+        from proofops.application.tagging.cf5_context import PRELIMINARY as CF5_PRELIMINARY
+        from proofops.application.tagging.cf5_context import PROFILE as CF5_PROFILE
+        from proofops.application.tagging.finals_i4 import K4_ELEMENTS, K4_PRELIMINARY, PROFILE
+        from proofops.application.tagging.k9_contract import PRELIMINARY as K9_PRELIMINARY
+        from proofops.application.tagging.k9_contract import PROFILE as K9_PROFILE
+        from proofops.application.tagging.q1_contract import PRELIMINARY as Q1_PRELIMINARY
+        from proofops.application.tagging.q1_contract import PROFILE as Q1_PROFILE
+        from proofops.application.tagging.v3_dec92 import PRELIMINARY as V3_PRELIMINARY
+        from proofops.application.tagging.v3_dec92 import PROFILE as V3_PROFILE
+
+        if (
+            prompt_profile not in (PROFILE, K9_PROFILE, Q1_PROFILE, V3_PROFILE, CF5_PROFILE)
+            or not preliminary_pb1
+            or not compact_element_wire
+        ):
+            raise ValueError("TAGGING_PROMPT_PROFILE_INVALID")
+        preliminary_prompt = (
+            CF5_PRELIMINARY
+            if prompt_profile == CF5_PROFILE
+            else V3_PRELIMINARY
+            if prompt_profile == V3_PROFILE
+            else Q1_PRELIMINARY
+            if prompt_profile == Q1_PROFILE
+            else K9_PRELIMINARY
+            if prompt_profile == K9_PROFILE
+            else K4_PRELIMINARY
+        )
+        element_prompt = K4_ELEMENTS
+        settings["tagging_prompt_profile"] = prompt_profile
     profiles: tuple[tuple[str, str, str, str, int], ...] = (
         (
             "preliminary",
@@ -551,6 +609,14 @@ def parser_memory_limit(value):
     return value
 
 
+def parser_java_executable():
+    """Use the installed Java 21 path; the adapter validates its actual version."""
+    import shutil
+
+    local = Path("/opt/homebrew/opt/openjdk@21/bin/java")
+    return str(local) if local.is_file() else shutil.which("java") or "java"
+
+
 def claim_source_policy_for(args):
     """Policy pinned for a NEW run's claim-span verification.
 
@@ -565,18 +631,7 @@ def claim_source_policy_for(args):
         from proofops.adapters.local.claim_source_verification_v3 import claim_source_policy
 
         return claim_source_policy()
-    if profile in {
-        "upstage-ocr-page-v1",
-        "upstage-ocr-page-v2",
-        "upstage-ocr-page-v3",
-        "upstage-ocr-page-v4",
-        "upstage-ocr-page-v5",
-        "upstage-ocr-page-v6",
-        "upstage-ocr-page-v7",
-        "upstage-ocr-page-v8",
-        "upstage-ocr-page-v9",
-        "upstage-ocr-page-v10",
-    }:
+    if profile in PAGE_OCR_PROFILES:
         from proofops.adapters.local.claim_source_policies import page_ocr_profile
 
         return page_ocr_profile(profile).claim_source_policy()
@@ -717,10 +772,33 @@ def apply_resume_metadata(args, saved: dict) -> None:
     args.extraction_table_rows = bool(saved.get("extraction_table_rows", False))
     args.extraction_recall_prompt = bool(saved.get("extraction_recall_prompt", False))
     args.extraction_atomic = bool(saved.get("extraction_atomic", False))
+    args.extraction_atomic_v3 = bool(saved.get("extraction_atomic_v3", False))
+    args.extraction_failure_diagnostics = bool(saved.get("extraction_failure_diagnostics", False))
     args.extraction_linewrap_join = bool(saved.get("extraction_linewrap_join", False))
     args.extraction_fragment_guard = bool(saved.get("extraction_fragment_guard", False))
+    args.extraction_sentence_prefix = bool(saved.get("extraction_sentence_prefix", False))
+    args.extraction_k1 = bool(saved.get("extraction_k1", False))
     args.extraction_pb1 = bool(saved.get("extraction_pb1", False))
+    args.extraction_w9 = bool(saved.get("extraction_w9", False))
+    args.extraction_j3 = bool(saved.get("extraction_j3", False))
+    args.extraction_k3 = bool(saved.get("extraction_k3", False))
+    args.extraction_j7 = bool(saved.get("extraction_j7", False))
+    args.extraction_j8 = bool(saved.get("extraction_j8", False))
+    args.extraction_i3_wire = bool(saved.get("extraction_i3_wire", False))
+    args.extraction_i4_identity = bool(saved.get("extraction_i4_identity", False))
+    args.extraction_qc_native_figures = bool(saved.get("extraction_qc_native_figures", False))
+    args.extraction_fxg_split = bool(saved.get("extraction_fxg_split", False))
+    args.extraction_qt1_goal_split = bool(saved.get("extraction_qt1_goal_split", False))
+    args.extraction_h1 = bool(saved.get("extraction_h1", False))
+    args.extraction_i5_tables = bool(saved.get("extraction_i5_tables", False))
+    args.extraction_k6 = bool(saved.get("extraction_k6", False))
+    args.extraction_q1 = bool(saved.get("extraction_q1", False))
+    args.extraction_qt1 = bool(saved.get("extraction_qt1", False))
     args.extraction_pb1_context_guard = bool(saved.get("extraction_pb1_context_guard", False))
+    args.extraction_table_footnotes = bool(saved.get("extraction_table_footnotes", False))
+    args.extraction_located_table_context = bool(
+        saved.get("extraction_located_table_context", False)
+    )
     args.extraction_source_ids = bool(saved.get("extraction_source_ids", False))
     args.extraction_assertion_prompt = bool(saved.get("extraction_assertion_prompt", False))
     args.extraction_complete_selection = bool(saved.get("extraction_complete_selection", False))
@@ -743,7 +821,13 @@ def apply_resume_metadata(args, saved: dict) -> None:
 
 
 def run_live_stages(args, *, tenant_id: str, run_id: str) -> dict:
-    if getattr(args, "pipeline_profile", None) in ("finals-unattended-v1", "finals-unattended-v2"):
+    if getattr(args, "pipeline_profile", None) in (
+        "finals-unattended-v1",
+        "finals-unattended-v2",
+        "finals-unattended-j3-v1",
+        "finals-unattended-j7-v1",
+        "finals-unattended-j8-v1",
+    ):
         from proofops.adapters.local.profile_runtime import spend_session
 
         with spend_session(run_id):
@@ -776,7 +860,14 @@ def _run_live_stages(args, *, tenant_id: str, run_id: str) -> dict:
                 and args.extraction_total_calls > args.max_calls
                 and not (
                     getattr(args, "pipeline_profile", None)
-                    in ("unattended-v1", "finals-unattended-v1", "finals-unattended-v2")
+                    in (
+                        "unattended-v1",
+                        "finals-unattended-v1",
+                        "finals-unattended-v2",
+                        "finals-unattended-j3-v1",
+                        "finals-unattended-j7-v1",
+                        "finals-unattended-j8-v1",
+                    )
                     and "tag_job" in worker.store.jobs.get_run(tenant, run_id)
                 )
             ):
@@ -856,7 +947,7 @@ def main():
     parser.add_argument("--parser", choices=("upstage", "local", "mixed-v1"), default="upstage")
     parser.add_argument(
         "--parser-source-recovery",
-        choices=("ps1-v1",),
+        choices=("ps1-v1", "native-continuation-k8-v1"),
         help="NEW run only: literal location recovery and paragraph continuation.",
     )
     parser.add_argument("--report-year", type=int)
@@ -876,8 +967,15 @@ def main():
         default=None,
         help="NEW run parser artifact cap (default 20000000; max 128 MiB).",
     )
+    parser.add_argument("--extraction-sentence-prefix", action="store_true")
+    parser.add_argument("--extraction-k1", action="store_true")
     parser.add_argument("--extraction-pb1", action="store_true")
+    parser.add_argument("--extraction-w9", action="store_true")
+    parser.add_argument("--extraction-j3", action="store_true")
+    parser.add_argument("--extraction-k3", action="store_true")
+    parser.add_argument("--extraction-j7", action="store_true")
     parser.add_argument("--extraction-pb1-context-guard", action="store_true")
+    parser.add_argument("--extraction-table-footnotes", action="store_true")
     parser.add_argument("--max-calls", type=int, default=8)
     parser.add_argument(
         "--parser-memory-bytes",
@@ -996,7 +1094,14 @@ def main():
     parser.add_argument("--invoke", action="store_true")
     parser.add_argument(
         "--pipeline-profile",
-        choices=["unattended-v1", "finals-unattended-v1", "finals-unattended-v2"],
+        choices=[
+            "unattended-v1",
+            "finals-unattended-v1",
+            "finals-unattended-v2",
+            "finals-unattended-j3-v1",
+            "finals-unattended-j7-v1",
+            "finals-unattended-j8-v1",
+        ],
         help="New run only: read-only provisional results and claim-isolated completion.",
     )
     parser.add_argument("--live-tagging", action="store_true")
@@ -1016,18 +1121,9 @@ def main():
         "--rendered-reader-profile",
         choices=[
             "glyph-alignment-v1",
-            "upstage-ocr-page-v1",
-            "upstage-ocr-page-v2",
-            "upstage-ocr-page-v3",
-            "upstage-ocr-page-v4",
-            "upstage-ocr-page-v5",
-            "upstage-ocr-page-v6",
-            "upstage-ocr-page-v7",
-            "upstage-ocr-page-v8",
-            "upstage-ocr-page-v9",
-            "upstage-ocr-page-v10",
             "table-claim-spans-v1",
             "claim-source-v3",
+            *PAGE_OCR_PROFILES,
         ],
         help="Pin source reader for a NEW run; requires --verify-claim-spans.",
     )
@@ -1146,6 +1242,16 @@ def main():
         "Pinned on resume; use a new state for the challenger.",
     )
     parser.add_argument(
+        "--extraction-atomic-v3",
+        action="store_true",
+        help="Opt-in explicit recognition/award atom split; requires --extraction-atomic.",
+    )
+    parser.add_argument(
+        "--extraction-failure-diagnostics",
+        action="store_true",
+        help="Retain bounded per-source model/schema failure codes; requires source IDs.",
+    )
+    parser.add_argument(
         "--extraction-linewrap-join",
         action="store_true",
         help="Opt-in selected-linewrap-join-v1: join selected prose continuations only. "
@@ -1194,12 +1300,27 @@ def main():
         "Does not authorize model calls.",
     )
     parser.add_argument(
-        "--analysis-profile", choices=["finals-unattended-v1", "finals-unattended-v2"]
+        "--analysis-profile",
+        choices=[
+            "finals-unattended-v1",
+            "finals-unattended-v2",
+            "finals-unattended-j3-v1",
+            "finals-unattended-j7-v1",
+            "finals-unattended-j8-v1",
+        ],
     )
+    parser.add_argument("--analysis-policy-sha256", help="Explicit known execution policy pin")
     parser.add_argument("--extraction-fragment-guard", action="store_true")
     args = parser.parse_args()
     from proofops.application.analysis_profile import apply_pilot_profile
 
+    args.extraction_j8 = False
+    args.extraction_i3_wire = False
+    args.extraction_i4_identity = False
+    args.extraction_qc_native_figures = False
+    args.extraction_k6 = False
+    args.extraction_q1 = False
+    args.extraction_qt1 = False
     apply_pilot_profile(args)
     try:
         apply_finals_candidate(args)
@@ -1244,6 +1365,7 @@ def main():
             parser.error("existing pilot parser memory limit changed; create a new run")
         for field, default in (
             ("pipeline_profile", None),
+            ("analysis_policy_sha256", None),
             ("relation_profile", "source-quotes-v1"),
             ("preliminary_profile", None),
             ("claim_source_profile", None),
@@ -1273,6 +1395,11 @@ def main():
         requested_rows = args.extraction_table_rows
         requested_recall = args.extraction_recall_prompt
         requested_atomic = args.extraction_atomic
+        requested_atomic_v3 = args.extraction_atomic_v3
+        requested_failure_diagnostics = args.extraction_failure_diagnostics
+        requested_sentence_prefix = args.extraction_sentence_prefix
+        requested_k1 = args.extraction_k1
+        requested_j7 = args.extraction_j7
         requested_linewrap_join = args.extraction_linewrap_join
         requested_source_ids = args.extraction_source_ids
         requested_assertion_prompt = args.extraction_assertion_prompt
@@ -1308,6 +1435,16 @@ def main():
             parser.error("--resume cannot add extraction recall prompt; create a new run")
         if requested_atomic and not args.extraction_atomic:
             parser.error("--resume cannot add extraction atomic; create a new run")
+        if requested_atomic_v3 and not args.extraction_atomic_v3:
+            parser.error("--resume cannot add extraction atomic v3; create a new run")
+        if requested_failure_diagnostics and not args.extraction_failure_diagnostics:
+            parser.error("--resume cannot add extraction failure diagnostics; create a new run")
+        if requested_sentence_prefix and not args.extraction_sentence_prefix:
+            parser.error("--resume cannot add extraction sentence prefix; create a new run")
+        if requested_k1 and not args.extraction_k1:
+            parser.error("--resume cannot add K1 boundaries; create a new run")
+        if requested_j7 and not args.extraction_j7:
+            parser.error("--resume cannot add extraction J7; create a new run")
         if requested_linewrap_join and not args.extraction_linewrap_join:
             parser.error("--resume cannot add extraction linewrap join; create a new run")
         if requested_source_ids and not args.extraction_source_ids:
@@ -1421,6 +1558,17 @@ def main():
         parser.error("row/recall profiles cannot mix with --extraction-atomic")
     if args.extraction_atomic and not args.extraction_source_ids:
         parser.error("--extraction-atomic requires --extraction-source-ids")
+    if args.extraction_atomic_v3 and not (args.extraction_atomic or args.extraction_table_rows):
+        parser.error("--extraction-atomic-v3 requires --extraction-atomic")
+    if args.extraction_failure_diagnostics and not args.extraction_source_ids:
+        parser.error("--extraction-failure-diagnostics requires --extraction-source-ids")
+    if args.extraction_sentence_prefix and (
+        not args.extraction_context or not args.extraction_linewrap_join or args.extraction_atomic
+    ):
+        parser.error(
+            "--extraction-sentence-prefix requires --extraction-context and "
+            "--extraction-linewrap-join without atomic"
+        )
     if args.extraction_linewrap_join and (not args.extraction_source_ids or args.extraction_atomic):
         parser.error(
             "--extraction-linewrap-join requires --extraction-source-ids and no atomic mode"
@@ -1460,15 +1608,15 @@ def main():
         claim_pages = sorted(set(int(p) for p in args.claim_pages.split(",")))
         if not claim_pages or not set(claim_pages) <= set(pages):
             parser.error("--claim-pages must be a non-empty subset of --pages")
-    from proofops.application.uploads_security import PdfLimits
+    from evaluation.scope_input import MAX_UPLOAD_BYTES
 
-    limit = PdfLimits().max_bytes
+    limit = MAX_UPLOAD_BYTES
     try:
         source_size = args.pdf.stat().st_size
     except OSError as exc:
         parser.error(f"Cannot read --pdf: {exc}")
     if source_size > limit:
-        parser.error(f"--pdf exceeds the supported upload limit of {limit} bytes (100 MiB)")
+        parser.error(f"--pdf exceeds the supported upload limit of {limit} bytes (150 MiB)")
     state = args.state.resolve()
     state.mkdir(parents=True, exist_ok=True, mode=0o700)
     manifest_path = state / "pilot.json"
@@ -1490,18 +1638,7 @@ def main():
                 policy_sha256 as table_policy,
             )
 
-        if args.claim_source_profile in {
-            "upstage-ocr-page-v1",
-            "upstage-ocr-page-v2",
-            "upstage-ocr-page-v3",
-            "upstage-ocr-page-v4",
-            "upstage-ocr-page-v5",
-            "upstage-ocr-page-v6",
-            "upstage-ocr-page-v7",
-            "upstage-ocr-page-v8",
-            "upstage-ocr-page-v9",
-            "upstage-ocr-page-v10",
-        }:
+        if args.claim_source_profile in PAGE_OCR_PROFILES:
             if args.raster_ocr or args.native_quote_typography:
                 parser.error("page OCR requires no raster/native quote-typography composition")
             if args.verify_tables or args.verify_merged_tables or args.verify_selected_cells:
@@ -1511,9 +1648,12 @@ def main():
 
         config = ParserProfile(
             str(uuid4()),
-            java_executable="/opt/homebrew/opt/openjdk@21/bin/java",
+            max_bytes=MAX_UPLOAD_BYTES,
+            java_executable=parser_java_executable(),
             timeout_seconds=120,
             memory_bytes=parser_memory_limit(args.parser_memory_bytes),
+            local_resource_policy=getattr(args, "parser_local_resource_policy", None),
+            output_policy=getattr(args, "parser_output_policy", None),
             max_output_bytes=parser_output_limit(args.parser_max_output_bytes),
             table_source_policy_sha256=(
                 table_policy()
@@ -1527,14 +1667,23 @@ def main():
             claim_physical_pages=tuple(claim_pages or ()) if args.parser == "mixed-v1" else (),
             mixed_ocr_max_pages=args.mixed_ocr_max_pages,
             failure_policy=(
-                "partial-v1"
-                if args.pipeline_profile in ("finals-unattended-v1", "finals-unattended-v2")
+                getattr(args, "parser_failure_policy", None) or "partial-v1"
+                if args.pipeline_profile
+                in (
+                    "finals-unattended-v1",
+                    "finals-unattended-v2",
+                    "finals-unattended-j3-v1",
+                    "finals-unattended-j7-v1",
+                    "finals-unattended-j8-v1",
+                )
                 else None
             ),
             upstage_glyph_boxes=args.parser in ("upstage", "mixed-v1"),
             upstage_region_words=args.parser in ("upstage", "mixed-v1"),
             source_recovery=args.parser_source_recovery,
-            table_claims_profile="pb1-v1" if args.extraction_pb1 else None,
+            table_claims_profile=("pb1-w9-v1" if args.extraction_w9 else "pb1-v1")
+            if args.extraction_pb1
+            else None,
         )
         (state / "parser.json").write_text(json.dumps(config.config_snapshot()))
         if (
@@ -1552,10 +1701,33 @@ def main():
                     extraction_table_context=args.extraction_table_context,
                     source_ids=args.extraction_source_ids,
                     extraction_atomic=args.extraction_atomic,
+                    extraction_atomic_v3=args.extraction_atomic_v3,
+                    extraction_failure_diagnostics=args.extraction_failure_diagnostics,
                     extraction_linewrap_join=args.extraction_linewrap_join,
                     extraction_fragment_guard=args.extraction_fragment_guard,
+                    extraction_sentence_prefix=args.extraction_sentence_prefix,
+                    extraction_k1=args.extraction_k1,
                     extraction_pb1=args.extraction_pb1,
+                    extraction_w9=args.extraction_w9,
+                    extraction_j3=args.extraction_j3,
+                    extraction_k3=args.extraction_k3,
+                    extraction_j7=args.extraction_j7,
+                    extraction_j8=args.extraction_j8,
+                    extraction_i3_wire=args.extraction_i3_wire,
+                    extraction_i4_identity=args.extraction_i4_identity,
+                    extraction_qc_native_figures=args.extraction_qc_native_figures,
+                    extraction_fxg_split=getattr(args, "extraction_fxg_split", False),
+                    extraction_qt1_goal_split=getattr(args, "extraction_qt1_goal_split", False),
+                    extraction_h1=getattr(args, "extraction_h1", False),
+                    extraction_i5_tables=getattr(args, "extraction_i5_tables", False),
+                    extraction_k6=args.extraction_k6,
+                    extraction_q1=args.extraction_q1,
+                    extraction_qt1=args.extraction_qt1,
                     extraction_pb1_context_guard=args.extraction_pb1_context_guard,
+                    extraction_table_footnotes=args.extraction_table_footnotes,
+                    extraction_located_table_context=getattr(
+                        args, "extraction_located_table_context", False
+                    ),
                     extraction_table_rows=args.extraction_table_rows,
                     extraction_recall_prompt=args.extraction_recall_prompt,
                     assertion_prompt=args.extraction_assertion_prompt,
@@ -1608,10 +1780,52 @@ def main():
             settings["extraction_recall_prompt"] = True
         if args.extraction_atomic:
             settings["extraction_atomic"] = True
+        if args.extraction_atomic_v3:
+            settings["extraction_atomic_v3"] = True
+        if args.extraction_failure_diagnostics:
+            settings["extraction_failure_diagnostics"] = True
         if args.extraction_linewrap_join:
             settings["extraction_linewrap_join"] = True
+        if args.extraction_sentence_prefix:
+            settings["extraction_sentence_prefix"] = True
+        if args.extraction_k1:
+            settings["extraction_k1"] = True
         if args.extraction_pb1_context_guard:
             settings["extraction_pb1_context_guard"] = True
+        if args.extraction_w9:
+            settings["extraction_w9"] = True
+        if args.extraction_k3:
+            settings["extraction_k3"] = True
+        if args.extraction_table_footnotes:
+            settings["extraction_table_footnotes"] = True
+        if getattr(args, "extraction_located_table_context", False):
+            settings["extraction_located_table_context"] = True
+        if args.extraction_j8:
+            settings["extraction_j8"] = True
+        if args.extraction_k6:
+            settings["extraction_k6"] = True
+        if args.extraction_q1:
+            settings["extraction_q1"] = True
+        if args.extraction_qt1:
+            settings["extraction_qt1"] = True
+        if args.extraction_i4_identity:
+            settings["extraction_i4_identity"] = True
+        if getattr(args, "extraction_fxg_split", False):
+            settings["extraction_fxg_split"] = True
+        if getattr(args, "extraction_qt1_goal_split", False):
+            settings["extraction_qt1_goal_split"] = True
+        if args.extraction_qc_native_figures:
+            settings["extraction_qc_native_figures"] = True
+        if args.extraction_i3_wire:
+            settings["extraction_i3_wire"] = True
+        if getattr(args, "extraction_h1", False):
+            settings["extraction_h1"] = True
+        if getattr(args, "extraction_i5_tables", False):
+            settings["extraction_i5_tables"] = True
+        if args.extraction_j3:
+            settings["extraction_j3"] = True
+        if args.extraction_j7:
+            settings["extraction_j7"] = True
         if args.extraction_pb1:
             settings["extraction_pb1"] = True
         if args.extraction_fragment_guard:
@@ -1631,12 +1845,37 @@ def main():
             settings["claim_source_policy"] = claim_source_policy_for(args)
         if args.pipeline_profile:
             settings["pipeline_profile"] = args.pipeline_profile
+        if args.analysis_policy_sha256:
+            from proofops.application.analysis_profile import policy_for
+
+            policy_for(args.pipeline_profile, pinned_hash=args.analysis_policy_sha256)
+            settings["analysis_policy_sha256"] = args.analysis_policy_sha256
         if args.live_tagging:
+            from proofops.application.analysis_profile import policy_for
+
+            analysis_policy = (
+                policy_for(args.pipeline_profile, pinned_hash=args.analysis_policy_sha256)
+                if args.pipeline_profile == "finals-unattended-v2"
+                else {}
+            )
+            definition_profile = analysis_policy.get("element_definition_profile", "qi1-v1")
+            if (
+                definition_profile not in ("finals-i1-v1", "finals-i1-v2")
+                and analysis_policy.get("semantic_definition_profile") == "w8-v1"
+            ):
+                definition_profile = "w8-v1"
             settings.update(
                 live_tagging_settings(
                     args.tagging_max_calls,
-                    element_definition_profile="qi1-v1"
-                    if args.pipeline_profile == "finals-unattended-v2"
+                    prompt_profile=getattr(args, "tagging_prompt_profile", None),
+                    element_definition_profile=definition_profile
+                    if args.pipeline_profile
+                    in (
+                        "finals-unattended-v2",
+                        "finals-unattended-j3-v1",
+                        "finals-unattended-j7-v1",
+                        "finals-unattended-j8-v1",
+                    )
                     else None,
                     model_id=(
                         "gpt-6-luna" if args.llm_provider == "openai" else "openai/gpt-6-luna"
@@ -2014,6 +2253,7 @@ def main():
             verify_claim_spans=args.verify_claim_spans,
             model=args.model,
             pipeline_profile=args.pipeline_profile,
+            analysis_policy_sha256=args.analysis_policy_sha256,
             live_tagging=args.live_tagging,
             tagging_max_calls=args.tagging_max_calls if args.live_tagging else None,
         )
@@ -2091,6 +2331,18 @@ def main():
                 extraction_profile=extraction_profile,
                 atomic_policy_sha256=canonical_hash(POLICY),
             )
+        if args.extraction_atomic_v3:
+            from proofops.application.ingest.atomic_candidates import POLICY_V3, PROFILE_V3
+            from proofops.domain.provenance import canonical_hash
+
+            manifest.update(
+                extraction_atomic_v3=True,
+                extraction_profile_name=PROFILE_V3,
+                extraction_profile=extraction_profile,
+                atomic_policy_sha256=canonical_hash(POLICY_V3),
+            )
+        if args.extraction_failure_diagnostics:
+            manifest["extraction_failure_diagnostics"] = True
         if args.extraction_source_ids:
             manifest["extraction_source_ids"] = True
         if args.extraction_assertion_prompt:
@@ -2101,8 +2353,46 @@ def main():
             manifest["extraction_content_bounds"] = True
         if args.extraction_linewrap_join:
             manifest["extraction_linewrap_join"] = True
+        if args.extraction_sentence_prefix:
+            manifest["extraction_sentence_prefix"] = True
+        if args.extraction_k1:
+            manifest["extraction_k1"] = True
         if args.extraction_pb1_context_guard:
             manifest["extraction_pb1_context_guard"] = True
+        if args.extraction_w9:
+            manifest["extraction_w9"] = True
+        if args.extraction_k3:
+            manifest["extraction_k3"] = True
+        if args.extraction_table_footnotes:
+            manifest["extraction_table_footnotes"] = True
+        if getattr(args, "extraction_located_table_context", False):
+            manifest["extraction_located_table_context"] = True
+        if args.extraction_j8:
+            manifest["extraction_j8"] = True
+        if args.extraction_k6:
+            manifest["extraction_k6"] = True
+        if args.extraction_q1:
+            manifest["extraction_q1"] = True
+        if args.extraction_qt1:
+            manifest["extraction_qt1"] = True
+        if args.extraction_i4_identity:
+            manifest["extraction_i4_identity"] = True
+        if getattr(args, "extraction_fxg_split", False):
+            manifest["extraction_fxg_split"] = True
+        if getattr(args, "extraction_qt1_goal_split", False):
+            manifest["extraction_qt1_goal_split"] = True
+        if args.extraction_qc_native_figures:
+            manifest["extraction_qc_native_figures"] = True
+        if args.extraction_i3_wire:
+            manifest["extraction_i3_wire"] = True
+        if getattr(args, "extraction_h1", False):
+            manifest["extraction_h1"] = True
+        if getattr(args, "extraction_i5_tables", False):
+            manifest["extraction_i5_tables"] = True
+        if args.extraction_j3:
+            manifest["extraction_j3"] = True
+        if args.extraction_j7:
+            manifest["extraction_j7"] = True
         if args.extraction_pb1:
             manifest["extraction_pb1"] = True
         if args.extraction_fragment_guard:
@@ -2200,16 +2490,46 @@ def main():
                 "pilot extraction table context policy changed; create a new state directory"
             )
         for name in (
+            "extraction_sentence_prefix",
+            "extraction_k1",
             "extraction_table_rows",
             "extraction_recall_prompt",
             "extraction_fragment_guard",
             "extraction_pb1",
+            "extraction_w9",
+            "extraction_j3",
+            "extraction_k3",
+            "extraction_j7",
+            "extraction_j8",
+            "extraction_i3_wire",
+            "extraction_i4_identity",
+            "extraction_qc_native_figures",
+            "extraction_fxg_split",
+            "extraction_qt1_goal_split",
+            "extraction_h1",
+            "extraction_i5_tables",
+            "extraction_k6",
+            "extraction_q1",
+            "extraction_qt1",
             "extraction_pb1_context_guard",
+            "extraction_table_footnotes",
+            "extraction_located_table_context",
         ):
-            if manifest.get(name, False) != getattr(args, name):
+            if manifest.get(name, False) != getattr(args, name, False):
                 raise ValueError(name + " policy changed; create a new state directory")
         if manifest.get("extraction_atomic", False) != args.extraction_atomic:
             raise ValueError("pilot extraction atomic policy changed; create a new state directory")
+        if manifest.get("extraction_atomic_v3", False) != args.extraction_atomic_v3:
+            raise ValueError(
+                "pilot extraction atomic v3 policy changed; create a new state directory"
+            )
+        if (
+            manifest.get("extraction_failure_diagnostics", False)
+            != args.extraction_failure_diagnostics
+        ):
+            raise ValueError(
+                "pilot extraction failure diagnostics changed; create a new state directory"
+            )
         if manifest.get("extraction_linewrap_join", False) != args.extraction_linewrap_join:
             raise ValueError(
                 "pilot extraction linewrap join policy changed; create a new state directory"

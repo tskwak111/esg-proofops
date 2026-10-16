@@ -6,7 +6,9 @@ from collections import Counter
 from hashlib import sha256
 from pathlib import Path
 
-ROOT = Path("/Users/ss020/Dev/ESG_ProofOps")
+from proofops.adapters.parsing.parser_artifacts import read_parser_json
+
+ROOT = Path("/path/to/ESG_ProofOps")
 OUT = ROOT / "outputs/agent-results/R108-redesign/lab/integ/INT2"
 
 
@@ -58,7 +60,7 @@ def measure(company):
     assert sha256((folder / "manifest.json").read_bytes()).hexdigest() == parse["manifest_sha256"]
     for name, digest in parse["artifacts"].items():
         assert sha256((folder / name).read_bytes()).hexdigest() == digest
-    graph = json.loads((folder / "graph.json").read_text())
+    graph = read_parser_json(folder / "graph.json")
     local_pages = {
         p["physical_page"]
         for p in parse["page_parser_provenance"]

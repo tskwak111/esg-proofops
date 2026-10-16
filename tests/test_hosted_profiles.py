@@ -131,6 +131,7 @@ def test_hosted_operator_choice_excludes_regressed_v1_but_warns_on_existing_conf
     assert "E2E5" in profiles["analysis_profile_warning"]
     assert hosted_analysis.operator_profiles({})["analysis_profile"] == "finals-unattended-v2"
     assert hosted_analysis.operator_profiles({})["llm_max_workers"] == 8
+    assert hosted_analysis.operator_profiles({"llm_max_workers": 8})["llm_max_workers"] == 8
     assert hosted_analysis.operator_profiles({})["llm_provider"] == "openai"
     assert hosted_analysis.operator_profiles({})["llm_provider_options"] == [
         "openai",

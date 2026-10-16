@@ -11,7 +11,7 @@
     "properties": [
       {
         "name": "proofops:uv.lock:sha256",
-        "value": "ff126a192459877ab65f361d92c01165ffc8e2b1af51677a870908b96a542df7"
+        "value": "90f31e8f8cbab78c364fd7b8b0fa3e7636138ec2dc1b4bb41987085576a4f21c"
       },
       {
         "name": "proofops:pnpm-lock.yaml:sha256",
@@ -964,6 +964,18 @@
     },
     {
       "type": "library",
+      "name": "h2",
+      "version": "4.4.1",
+      "purl": "pkg:pypi/h2@4.4.1"
+    },
+    {
+      "type": "library",
+      "name": "hpack",
+      "version": "4.2.0",
+      "purl": "pkg:pypi/hpack@4.2.0"
+    },
+    {
+      "type": "library",
       "name": "httpcore",
       "version": "1.0.9",
       "purl": "pkg:pypi/httpcore@1.0.9"
@@ -973,6 +985,12 @@
       "name": "httpx",
       "version": "0.28.1",
       "purl": "pkg:pypi/httpx@0.28.1"
+    },
+    {
+      "type": "library",
+      "name": "hyperframe",
+      "version": "6.1.0",
+      "purl": "pkg:pypi/hyperframe@6.1.0"
     },
     {
       "type": "library",
@@ -1273,6 +1291,12 @@
       "name": "tomli-w",
       "version": "1.2.0",
       "purl": "pkg:pypi/tomli-w@1.2.0"
+    },
+    {
+      "type": "library",
+      "name": "types-pyyaml",
+      "version": "6.0.12.20260906",
+      "purl": "pkg:pypi/types-pyyaml@6.0.12.20260906"
     },
     {
       "type": "library",

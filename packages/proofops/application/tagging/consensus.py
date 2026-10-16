@@ -15,9 +15,36 @@ PARTIAL_FACTS_V1 = "partial-facts-v1"
 PARTIAL_FACTS_HASH = canonical_hash({"fact_assembly": PARTIAL_FACTS_V1})
 PARTIAL_FACTS_V2 = "partial-facts-v2"
 PARTIAL_FACTS_V2_HASH = canonical_hash({"fact_assembly": PARTIAL_FACTS_V2})
+GRADE_RELEVANT_UNANIMITY_V1 = "grade-relevant-unanimity-v1"
+GRADE_RELEVANT_UNANIMITY_POLICY = {
+    "profile": GRADE_RELEVANT_UNANIMITY_V1,
+    "grade_facts": "three_independent_source_bound_votes_must_agree",
+    "disagreement": "conflict",
+    "unresolved": "preserve_unknown_conflict_unreadable",
+    "lower_bound": "python_grade_range_only_never_confirmed_grade",
+}
+GRADE_RELEVANT_UNANIMITY_HASH = canonical_hash({"fact_assembly": GRADE_RELEVANT_UNANIMITY_POLICY})
+GRADE_RELEVANT_UNANIMITY_V2 = "grade-relevant-unanimity-v2"
+GRADE_RELEVANT_UNANIMITY_V2_POLICY = GRADE_RELEVANT_UNANIMITY_POLICY | dict(
+    profile=GRADE_RELEVANT_UNANIMITY_V2, unanimous_conflict="preserve_conflict_candidate_only"
+)
+GRADE_RELEVANT_UNANIMITY_V2_HASH = canonical_hash(
+    {"fact_assembly": GRADE_RELEVANT_UNANIMITY_V2_POLICY}
+)
+GRADE_RELEVANT_UNANIMITY_V3 = "grade-relevant-unanimity-v3"
+GRADE_RELEVANT_UNANIMITY_V3_POLICY = GRADE_RELEVANT_UNANIMITY_V2_POLICY | dict(
+    profile=GRADE_RELEVANT_UNANIMITY_V3,
+    partial_failure_conflict="preserve_surviving_conflict_candidate_only",
+)
+GRADE_RELEVANT_UNANIMITY_V3_HASH = canonical_hash(
+    {"fact_assembly": GRADE_RELEVANT_UNANIMITY_V3_POLICY}
+)
 PARTIAL_FACTS_PROFILES = {
     PARTIAL_FACTS_V1: PARTIAL_FACTS_HASH,
     PARTIAL_FACTS_V2: PARTIAL_FACTS_V2_HASH,
+    GRADE_RELEVANT_UNANIMITY_V1: GRADE_RELEVANT_UNANIMITY_HASH,
+    GRADE_RELEVANT_UNANIMITY_V2: GRADE_RELEVANT_UNANIMITY_V2_HASH,
+    GRADE_RELEVANT_UNANIMITY_V3: GRADE_RELEVANT_UNANIMITY_V3_HASH,
 }
 
 
@@ -155,6 +182,8 @@ def form_consensus(
             tag_revision,
             rule_gaps,
             citation_unavailable=profile == PARTIAL_FACTS_V2,
+            preserve_conflict=profile in (GRADE_RELEVANT_UNANIMITY_V2, GRADE_RELEVANT_UNANIMITY_V3),
+            preserve_surviving_conflict=profile == GRADE_RELEVANT_UNANIMITY_V3,
         )
     reasons = list(rule_gaps)
     provider_ids = [
@@ -202,7 +231,16 @@ def form_consensus(
         candidates.append(candidate)
         scopes = {dict(run.source_scopes).get(element_id) for run in ordered if run.guarded}
         scope = next(
-            (scope for scope in ("global_bound", "same_table", "local_claim") if scope in scopes),
+            (
+                scope
+                for scope in (
+                    "qt1_maintenance_baseline_v1",
+                    "global_bound",
+                    "same_table",
+                    "local_claim",
+                )
+                if scope in scopes
+            ),
             "local_claim",
         )
         if count != 3 or candidate.state in ("unknown", "conflict"):
@@ -270,6 +308,8 @@ def _partial_facts(
     rule_gaps,
     *,
     citation_unavailable=False,
+    preserve_conflict=False,
+    preserve_surviving_conflict=False,
 ):
     """Assemble complete guarded element states without asserting a missing search was negative."""
     headers = {
@@ -332,6 +372,9 @@ def _partial_facts(
         valid_keys = {key for key in keys if key is not None}
         if len(valid_keys) > 1:
             state = "conflict"
+        elif preserve_surviving_conflict and any(e and e.state == "conflict" for e in votes):
+            # A failed replica cannot erase a guarded conflict in a surviving vote.
+            state = "conflict"
         elif any(key is None for key in keys):
             state = "unknown"
         elif (
@@ -340,8 +383,8 @@ def _partial_facts(
             and all(ref.verification_state == "verified" for e in votes for ref in e.evidence_refs)
         ):
             state = "present"
-        elif votes[0].state == "unknown":
-            state = "unknown"
+        elif votes[0].state == "unknown" or (preserve_conflict and votes[0].state == "conflict"):
+            state = votes[0].state
         else:
             # LLM absence/N/A never supplies search coverage or applicability authority.
             state = "unknown"
@@ -366,7 +409,17 @@ def _partial_facts(
             reasons.append(f"REVIEW:{element_id}")
         scopes = {dict(run.source_scopes).get(element_id) for run in ordered if run.guarded}
         scope = next(
-            (s for s in ("global_bound", "same_table", "local_claim") if s in scopes), "local_claim"
+            (
+                s
+                for s in (
+                    "qt1_maintenance_baseline_v1",
+                    "global_bound",
+                    "same_table",
+                    "local_claim",
+                )
+                if s in scopes
+            ),
+            "local_claim",
         )
         for name in MAPPINGS[track][element_id]:
             facts.append(

@@ -14,7 +14,7 @@ from pypdf import PdfWriter
 from scripts.finals_demo import FinalsBudget, parse_bound, pilot_argv
 
 
-@pytest.mark.parametrize("configured", [None, "1", "4", "16"])
+@pytest.mark.parametrize("configured", [None, "1", "4", "16", "24"])
 def test_finals_concurrency_defaults_to_8_and_preserves_operator_cap(monkeypatch, configured):
     from scripts.finals_demo import configure_concurrency
 
@@ -25,7 +25,7 @@ def test_finals_concurrency_defaults_to_8_and_preserves_operator_cap(monkeypatch
     assert int(os.environ["LOCAL_LLM_MAX_WORKERS"]) == int(configured or "8")
 
 
-@pytest.mark.parametrize("configured", ["", "0", "17", "nan", "1.5"])
+@pytest.mark.parametrize("configured", ["", "0", "25", "nan", "1.5"])
 def test_finals_invalid_concurrency_fails_before_launch(monkeypatch, configured):
     from scripts.finals_demo import configure_concurrency
 
@@ -39,7 +39,7 @@ def test_main_checks_concurrency_before_state_or_paid_setup(monkeypatch):
 
     from scripts.finals_demo import main
 
-    monkeypatch.setenv("LOCAL_LLM_MAX_WORKERS", "17")
+    monkeypatch.setenv("LOCAL_LLM_MAX_WORKERS", "25")
     monkeypatch.setattr(
         sys,
         "argv",

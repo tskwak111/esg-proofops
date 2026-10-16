@@ -8,7 +8,7 @@ only when the model's own normalized selection covers the current value.
 from dataclasses import asdict, replace
 
 from proofops.application.evidence.span_citations import verify_source_ref
-from proofops.application.ingest.pb1_tables import observations
+from proofops.application.ingest.w9_tables import observations_for
 from proofops.domain.provenance import canonical_hash
 
 POLICY = dict(
@@ -18,9 +18,23 @@ POLICY = dict(
     present="model-selection-required",
 )
 POLICY_HASH = canonical_hash(POLICY)
+ROW_UNIT_POLICY = POLICY | dict(
+    profile="table-selected-evidence-k4-v1",
+    missing_unit_cell="same-verified-row-unique-literal-subspan-only",
+)
+OBSERVED_POLICY = ROW_UNIT_POLICY | dict(
+    profile="table-selected-evidence-k7-v1",
+    observed_headers="k6-explicit-grid; verified-native-cell-year-only",
+)
 
 
-def observation_sources(claim, graph, *, tenant_id):
+def _observed_header(text, year):
+    from proofops.application.ingest.k6_coverage import YEAR
+
+    return YEAR.fullmatch(text.strip()) is not None and text.strip().startswith(year)
+
+
+def observation_sources(claim, graph, *, tenant_id, recover_row_unit=False, observed_headers=False):
     if tenant_id != graph.tenant_id or claim.tenant_id != tenant_id or len(claim.source_refs) != 1:
         return None
     ref = claim.source_refs[0]
@@ -33,10 +47,13 @@ def observation_sources(claim, graph, *, tenant_id):
     context = table.candidates[table.winner].context
     if "pb1_table_claims" not in context:
         return None
+    read_observations = observations_for
+    if observed_headers:
+        from proofops.application.ingest.k6_coverage import observations_for as read_observations
     obs = next(
         (
             o
-            for o in observations(table.normalized_text, context=" ".join(context))
+            for o in read_observations(table, graph)
             if o["start"] == ref.char_start and o["end"] == ref.char_end
         ),
         None,
@@ -80,6 +97,19 @@ def observation_sources(claim, graph, *, tenant_id):
     if value is None or len(units) != 1 or header is None:
         return None
     year = verify_source_ref(header.source_ref(), graph, tenant_id=tenant_id)
+    if recover_row_unit and units[0]["ref"].verification_state != "verified":
+        spec = units[0]
+        # An unlocated parser cell cannot acquire invented coordinates. The
+        # complete row already independently passed source verification.
+        if ref.quote.count(spec["ref"].quote) == 1:
+            narrow = replace(
+                ref,
+                char_start=spec["start"],
+                char_end=spec["end"],
+                quote=spec["ref"].quote,
+                verification_state="candidate",
+            )
+            units[0] = spec | dict(ref=verify_source_ref(narrow, graph, tenant_id=tenant_id))
     required = (value["ref"], units[0]["ref"], year)
     if any(r.verification_state != "verified" for r in required):
         return None
@@ -91,7 +121,11 @@ def observation_sources(claim, graph, *, tenant_id):
             for (r, c), b in grid.items()
             if r < obs["row"]
             and c == item["column"]
-            and b.raw_text.strip() in (item["year"], item["year"] + "년")
+            and (
+                b.raw_text.strip() in (item["year"], item["year"] + "년")
+                or observed_headers
+                and _observed_header(b.raw_text, item["year"])
+            )
         ]
         if val is not None and len(heads) == 1:
             head = verify_source_ref(heads[0].source_ref(), graph, tenant_id=tenant_id)
@@ -108,11 +142,19 @@ def observation_sources(claim, graph, *, tenant_id):
     )
 
 
-def augment_packet(data, claim, graph, *, tenant_id):
-    data["table_evidence_policy"] = POLICY
+def augment_packet(data, claim, graph, *, tenant_id, policy=POLICY):
+    if policy not in (POLICY, ROW_UNIT_POLICY, OBSERVED_POLICY):
+        raise ValueError("TABLE_EVIDENCE_POLICY_MISMATCH")
+    data["table_evidence_policy"] = policy
     if not {"P1", "P2"}.intersection(data["allowed_elements"]):
         return data
-    sources = observation_sources(claim, graph, tenant_id=tenant_id)
+    sources = observation_sources(
+        claim,
+        graph,
+        tenant_id=tenant_id,
+        recover_row_unit=policy in (ROW_UNIT_POLICY, OBSERVED_POLICY),
+        observed_headers=policy == OBSERVED_POLICY,
+    )
     if sources is None:
         return data
     candidates = data["evidence_candidates"]
@@ -121,6 +163,13 @@ def augment_packet(data, claim, graph, *, tenant_id):
     for comp in sources["comparisons"]:
         refs += [comp["value"]["ref"], comp["year"]]
     for ref in refs:
+        existing = next((c for c in candidates if c["source_id"] == ref.source_id), None)
+        if (
+            policy in (ROW_UNIT_POLICY, OBSERVED_POLICY)
+            and existing is not None
+            and asdict(ref) not in existing["source_refs"]
+        ):
+            existing["source_refs"].append(asdict(ref))
         if ref.source_id not in ids:
             candidates.append(
                 dict(
@@ -132,7 +181,7 @@ def augment_packet(data, claim, graph, *, tenant_id):
             )
             ids.add(ref.source_id)
     data["table_observation_evidence"] = dict(
-        policy_sha256=POLICY_HASH,
+        policy_sha256=canonical_hash(policy),
         observation=sources["observation"],
         value=asdict(sources["value"]["ref"]),
         unit=asdict(sources["unit"]["ref"]),
@@ -145,10 +194,16 @@ def augment_packet(data, claim, graph, *, tenant_id):
     return data
 
 
-def prepare_element(element, claim, graph, *, tenant_id):
+def prepare_element(element, claim, graph, *, tenant_id, policy=POLICY):
     if element.state != "present" or element.element_id not in ("P1", "P2"):
         return element, False
-    sources = observation_sources(claim, graph, tenant_id=tenant_id)
+    sources = observation_sources(
+        claim,
+        graph,
+        tenant_id=tenant_id,
+        recover_row_unit=policy in (ROW_UNIT_POLICY, OBSERVED_POLICY),
+        observed_headers=policy == OBSERVED_POLICY,
+    )
     if sources is None or not element.evidence_refs or element.normalized_value is None:
         return element, False
     refs = element.evidence_refs
@@ -225,6 +280,7 @@ def validated_observation(data, claim, graph, *, tenant_id):
         claim,
         graph,
         tenant_id=tenant_id,
+        policy=data.get("table_evidence_policy", POLICY),
     ).get("table_observation_evidence")
     if canonical_hash(data["table_observation_evidence"]) != canonical_hash(expected):
         raise DomainValidationError("table observation evidence mismatch")

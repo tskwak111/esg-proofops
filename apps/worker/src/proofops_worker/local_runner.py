@@ -30,6 +30,7 @@ from proofops.application.telemetry import Telemetry, TraceContext
 from proofops.application.uploads_security import UploadRejected
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
+from pypdf.errors import PdfReadError
 
 from proofops_worker.consumer import StageFailure, consume_job, with_lease_heartbeat
 from proofops_worker.extract_runner import paragraph_priority
@@ -146,6 +147,17 @@ class LocalParserRunner:
     def run_once(
         self, *, tenant_id: str, run_id: str, note_review_artifacts: tuple[str, ...] = ()
     ) -> str:
+        from proofops.adapters.local.i4_parse_scope import for_snapshot
+
+        snapshot = self.store.snapshot(tenant_id, run_id)
+        with for_snapshot(snapshot, tenant_id, run_id):
+            return self._run_once(
+                tenant_id=tenant_id, run_id=run_id, note_review_artifacts=note_review_artifacts
+            )
+
+    def _run_once(
+        self, *, tenant_id: str, run_id: str, note_review_artifacts: tuple[str, ...] = ()
+    ) -> str:
         if not isinstance(note_review_artifacts, tuple):
             raise ValueError("note reviews must be an immutable tuple")
         if note_review_artifacts and self.note_client is not None:
@@ -156,18 +168,9 @@ class LocalParserRunner:
         run = self.store.jobs.get_run(tenant_id, run_id)
         native_policy = native_paragraph_policy() if self.verify_paragraphs else None
         page_reader = None
-        if snapshot.get("claim_source_policy", {}).get("profile") in {
-            "upstage-ocr-page-v1",
-            "upstage-ocr-page-v2",
-            "upstage-ocr-page-v3",
-            "upstage-ocr-page-v4",
-            "upstage-ocr-page-v5",
-            "upstage-ocr-page-v6",
-            "upstage-ocr-page-v7",
-            "upstage-ocr-page-v8",
-            "upstage-ocr-page-v9",
-            "upstage-ocr-page-v10",
-        }:
+        from proofops.adapters.local.claim_source_policies import PAGE_OCR_PROFILES
+
+        if snapshot.get("claim_source_policy", {}).get("profile") in PAGE_OCR_PROFILES:
             from proofops.adapters.local.claim_source_policies import claim_source_reader
 
             ocr_profile = claim_source_reader(snapshot["claim_source_policy"])
@@ -335,6 +338,56 @@ class LocalParserRunner:
                         if page_reader is not None:
                             attest_native_sources = page_reader.attest_native_sources
                             replay_native_sources = page_reader.replay_native_sources
+                            from proofops.adapters.local.verified_read_cache import (
+                                _execution_policy,
+                            )
+                            from proofops.application.analysis_profile import (
+                                S3_VERIFIED_READ_V13_POLICY,
+                                VERIFIED_READ_V11_POLICY,
+                                VERIFIED_READ_V12_POLICY,
+                            )
+
+                            if (
+                                (
+                                    _execution_policy() == VERIFIED_READ_V11_POLICY
+                                    and native_policy.get("mode") == "upstage-ocr-page-v19"
+                                )
+                                or (
+                                    _execution_policy()
+                                    in (VERIFIED_READ_V12_POLICY, S3_VERIFIED_READ_V13_POLICY)
+                                    and native_policy.get("mode")
+                                    in {"upstage-ocr-page-v19", "upstage-ocr-page-v20"}
+                                )
+                                or (
+                                    _execution_policy() == S3_VERIFIED_READ_V13_POLICY
+                                    and native_policy.get("mode") == "upstage-ocr-page-v21"
+                                )
+                            ):
+                                from proofops.adapters.local.claim_source_policies import (
+                                    page_ocr_profile,
+                                )
+                                from proofops.adapters.local.s2_reader_execution import reader_scope
+
+                                if _execution_policy() in (
+                                    VERIFIED_READ_V12_POLICY,
+                                    S3_VERIFIED_READ_V13_POLICY,
+                                ):
+                                    from proofops.adapters.local.i21_reader_execution import (
+                                        reader_scope,
+                                    )
+
+                                source_reader = page_ocr_profile(
+                                    native_policy["mode"], policy=native_policy, native=True
+                                )
+
+                                def attest_native_sources(g, s, *, tenant_id, geometry_mode):
+                                    with reader_scope(
+                                        source_reader, run_id=run_id, tenant_id=tenant_id
+                                    ) as instance:
+                                        return instance.attest_native_sources(
+                                            g, s, tenant_id=tenant_id, geometry_mode=geometry_mode
+                                        )
+
                         native_receipt = attest_native_sources(
                             graph, source.content, tenant_id=tenant_id, geometry_mode="glyph"
                         )
@@ -394,7 +447,8 @@ class LocalParserRunner:
                             physical_pages=evidence_pages,
                             **(
                                 {"run_id": run_id}
-                                if ev1.PROFILE == "evidence-source-ocr-v1"
+                                if ev1.PROFILE
+                                in {"evidence-source-ocr-v1", "evidence-source-h6-v1"}
                                 else {}
                             ),
                         )
@@ -599,8 +653,35 @@ class LocalParserRunner:
                     raise StageFailure(str(exc), usage=usage) from None
                 except BudgetExceeded:
                     raise StageFailure("BUDGET_EXHAUSTED", usage=usage) from None
-                except (OSError, ValueError, KeyError, TypeError):
-                    raise StageFailure("PARSER_FAILED", usage=usage) from None
+                except (OSError, ValueError, KeyError, TypeError, PdfReadError) as error:
+                    partial = getattr(error, "partial_artifact", None)
+                    if partial is not None:
+                        usage["uncommitted_parser_candidates"] = dict(
+                            artifact=str(partial),
+                            committed=False,
+                            sha256=sha256((partial / "failure.json").read_bytes()).hexdigest(),
+                        )
+                    import traceback
+
+                    origin = traceback.extract_tb(error.__traceback__)[-1]
+                    usage["parser_failure_origin"] = dict(
+                        exception_type=type(error).__name__,
+                        file=Path(origin.filename).name,
+                        function=origin.name,
+                        line=origin.lineno,
+                    )
+                    print(
+                        json.dumps(
+                            dict(event="parser_failure_origin", **usage["parser_failure_origin"])
+                        ),
+                        file=sys.stderr,
+                    )
+                    from proofops.adapters.local.source_attestation_errors import (
+                        source_failure_code,
+                    )
+
+                    code = source_failure_code(error) or "PARSER_FAILED"
+                    raise StageFailure(code, usage=usage) from None
                 finally:
                     note_identifiers = self.store.jobs.parser_note_requests(message)
                     if raster_enabled:

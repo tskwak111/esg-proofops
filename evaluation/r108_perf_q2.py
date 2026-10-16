@@ -44,7 +44,7 @@ from proofops.domain.rulepacks import RulePackSnapshot
 from proofops.domain.values import SourceRef
 from proofops_agent.upstage_tagging import CONSISTENCY_PROFILE, UpstageTaggingTransport
 
-ROOT = Path("/Users/ss020/Dev/ESG_ProofOps")
+ROOT = Path("/path/to/ESG_ProofOps")
 SOURCE = ROOT / ".local/r108-finals.INGDai/live"
 LAB = ROOT / "outputs/agent-results/R108-redesign/lab/perf"
 SPEND = ROOT / "outputs/agent-results/R108-redesign/lab/sprint3/E2E/r108-spend.json"

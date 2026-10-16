@@ -14,7 +14,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 PROJECT = "proofops-r108"
 REGION = "ap-southeast-2"
-ACCOUNT = "753036488189"
+ACCOUNT = "000000000000"
 AMI_PARAMETER = "/aws/service/canonical/ubuntu/server/24.04/stable/current/arm64/hvm/ebs-gp3/ami-id"
 QUOTA = "L-1216C47A"
 

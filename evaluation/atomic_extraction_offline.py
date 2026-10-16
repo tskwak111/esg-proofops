@@ -16,6 +16,11 @@ from dataclasses import asdict
 from hashlib import sha256
 from pathlib import Path
 
+from proofops.adapters.parsing.parser_artifacts import (
+    iter_parser_artifacts,
+    parser_artifact_path,
+    read_parser_json,
+)
 from proofops.application.claims import ExtractionOutputError, validate_extraction_response
 from proofops.application.ingest.atomic_candidates import PROFILE, atomic_candidates
 from proofops.application.ingest.graph_fusion import candidates_from_snapshot, fuse_candidates
@@ -29,7 +34,7 @@ class NoProvider:
 
 
 def read(path):
-    return json.loads(path.read_text(encoding="utf-8"))
+    return read_parser_json(path)
 
 
 def digest(path):
@@ -203,14 +208,14 @@ def evaluate(lab_root: Path, output: Path, *, baseline: Path | None = None) -> d
         state = lab_root / "sprint5/E2E3/states" / f"{company}-attempt3"
         pilot = read(state / "pilot.json")
         pages = set(pilot["claim_pages"])
-        paths = list((state / "parser-prepared").glob("*/*/*/graph.json"))
+        paths = list(iter_parser_artifacts(state / "parser-prepared", "graph.json"))
         if len(paths) != 1:
             raise ValueError("AMBIGUOUS_SAVED_GRAPH")
         path = paths[0]
         manifest = read(path.parent / "manifest.json")
         for name in ("graph.json", "candidates.json"):
-            source = path.parent / name
-            if digest(source) != manifest["artifacts"][name]:
+            source = parser_artifact_path(path.parent / name, manifest=manifest)
+            if digest(source) != manifest["artifacts"][source.name]:
                 raise ValueError("SAVED_INPUT_HASH_MISMATCH")
             inputs.append({"path": str(source), "sha256": digest(source)})
         graph = fuse_candidates(

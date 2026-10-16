@@ -1,0 +1,337 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "track": {
+      "enum": [
+        "management",
+        "performance",
+        "goal",
+        null
+      ]
+    },
+    "safe_harbor_category": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "superlative_quote": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "period_kind": {
+      "enum": [
+        "report_context",
+        "explicit_current",
+        null
+      ]
+    },
+    "dimensions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "activity": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "source_index": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "quote": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "source_index",
+                "quote"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "period": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "source_index": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "quote": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "source_index",
+                "quote"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "boundary": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "source_index": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "quote": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "source_index",
+                "quote"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "activity",
+        "period",
+        "boundary"
+      ]
+    },
+    "elements": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "M1": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "state": {
+              "enum": [
+                "present",
+                "unknown",
+                "conflict"
+              ]
+            },
+            "evidence": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "source_index": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "quote": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "source_index",
+                    "quote"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "state",
+            "evidence"
+          ]
+        },
+        "M2": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "state": {
+              "enum": [
+                "present",
+                "unknown",
+                "conflict"
+              ]
+            },
+            "evidence": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "source_index": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "quote": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "source_index",
+                    "quote"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "state",
+            "evidence"
+          ]
+        },
+        "M3": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "state": {
+              "enum": [
+                "present",
+                "unknown",
+                "conflict"
+              ]
+            },
+            "evidence": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "source_index": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "quote": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "source_index",
+                    "quote"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "state",
+            "evidence"
+          ]
+        },
+        "M4": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "state": {
+              "enum": [
+                "present",
+                "unknown",
+                "conflict"
+              ]
+            },
+            "evidence": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "source_index": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "quote": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "source_index",
+                    "quote"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "state",
+            "evidence"
+          ]
+        }
+      },
+      "required": [
+        "M1",
+        "M2",
+        "M3",
+        "M4"
+      ]
+    },
+    "triggers": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "governance_claim": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "compensation_link_claim": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "governance_claim",
+        "compensation_link_claim"
+      ]
+    }
+  },
+  "required": [
+    "track",
+    "safe_harbor_category",
+    "superlative_quote",
+    "period_kind",
+    "dimensions",
+    "elements",
+    "triggers"
+  ]
+}

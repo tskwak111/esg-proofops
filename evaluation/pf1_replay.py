@@ -10,7 +10,7 @@ from pathlib import Path
 from proofops.adapters.local.glyph_display_text import GlyphDisplayCatalog
 from proofops.domain.provenance import canonical_hash
 
-ROOT = Path("/Users/ss020/Dev/ESG_ProofOps")
+ROOT = Path("/path/to/ESG_ProofOps")
 OUT = ROOT / "outputs/agent-results/R108-redesign/lab/perf/PF1"
 
 

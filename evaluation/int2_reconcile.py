@@ -10,7 +10,7 @@ from proofops.domain.provenance import canonical_hash
 
 from scripts.finals_demo import FinalsBudget
 
-ROOT = Path("/Users/ss020/Dev/ESG_ProofOps")
+ROOT = Path("/path/to/ESG_ProofOps")
 OUT = ROOT / "outputs/agent-results/R108-redesign/lab/integ/INT2"
 REQUEST = "ecd3ba44-ee9b-4614-b31a-7ed6f29559df"
 PROVIDER = "e2bbed91-05fc-40b6-bbc7-6139f0d8d1ac"

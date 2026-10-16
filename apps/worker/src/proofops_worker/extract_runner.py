@@ -15,16 +15,23 @@ from proofops.adapters.local.claim_store import (
     DEFERRED_BUDGET_REASON,
     DEFERRED_KIND_REASON,
     DEFERRED_LIMIT_REASON,
+    OCR_ACQUISITION_REASON_PREFIX,
     LocalClaimStore,
+    _deferred_reason,
     claim_scope,
     deferred_payload,
     discovery_coverage,
     extraction_batch_state,
+    extraction_outcome,
     extraction_profile,
     guard_extract_continuation,
     snapshot_pins,
 )
 from proofops.adapters.local.run_artifacts import load_run_graph
+from proofops.adapters.local.source_attestation_errors import (
+    ocr_acquisition_failure_code,
+    source_failure_code,
+)
 from proofops.adapters.local.upstage import UPSTAGE_TRANSPORT_STOP_CODES
 from proofops.adapters.local.verified_read_cache import fresh_execution_enabled
 from proofops.adapters.parsing.opendataloader import ParseFailure
@@ -37,24 +44,72 @@ from proofops.application.claims import (
 )
 from proofops.application.ports.jobs import JobMessage, LeaseLost
 from proofops.application.preflight import check_local_upstage_binding
+from proofops.application.rb1_input_isolation import InputIsolation
+from proofops.application.rb3_deadline import admit as rb3_admit
+from proofops.application.rb4_memory import enabled as rb4_memory_enabled
 from proofops.application.telemetry import TraceContext
 from proofops.application.uploads_security import UploadRejected
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
+from pypdf.errors import PdfReadError
 
 from proofops_worker.consumer import StageFailure, consume_job, with_lease_heartbeat
 from proofops_worker.telemetry import observe_job
 
 
-def _candidate_extract(live, packet, snapshot):
+def _f1_failure_origin(error, snapshot):
+    """F1 private diagnosis without exception messages or document/credential text."""
+    if not snapshot.get("analysis_profile_policy", {}).get("provider_resilience"):
+        return
+    trace = error.__traceback__
+    if trace is None:
+        return
+    while trace.tb_next is not None:
+        trace = trace.tb_next
+    print(
+        json.dumps(
+            dict(
+                event="f1_extraction_failure_origin",
+                exception_type=type(error).__name__,
+                file=os.path.basename(trace.tb_frame.f_code.co_filename),
+                function=trace.tb_frame.f_code.co_name,
+                line=trace.tb_lineno,
+            )
+        ),
+        flush=True,
+    )
+
+
+def _candidate_extract(live, packet, snapshot, *, fxg_guard=None):
     try:
-        return live.extract(packet)
+        from proofops.application.ingest.fxg_wire import dispatch_scope
+
+        with dispatch_scope(fxg_guard):
+            return live.extract(packet)
     except ValueError as error:
         code = str(error)
+        from proofops.application.input_failures import POLICY, TABLE_ERRORS
+
+        policy = snapshot.get("analysis_profile_policy", {})
+        acquisition_code = ocr_acquisition_failure_code(error)
+        if acquisition_code and policy.get("provider_resilience"):
+            text = packet.get("untrusted_document_data", {}).get("text")
+            if isinstance(text, str) and text.strip():
+                return deferred_payload(text, OCR_ACQUISITION_REASON_PREFIX + acquisition_code)
+        if (
+            policy.get("input_failure_policy") == POLICY
+            and policy.get("input_failure_policy_sha256") == canonical_hash(POLICY)
+            and packet.get("untrusted_document_data", {}).get("kind") == "table"
+            and code in TABLE_ERRORS
+        ):
+            raise ExtractionOutputError("TABLE_GRID_UNREADABLE") from None
         if snapshot.get("pipeline_profile") in (
             "unattended-v1",
             "finals-unattended-v1",
             "finals-unattended-v2",
+            "finals-unattended-j3-v1",
+            "finals-unattended-j7-v1",
+            "finals-unattended-j8-v1",
         ) and (
             code
             in {
@@ -73,7 +128,67 @@ def _candidate_extract(live, packet, snapshot):
         raise
 
 
-def _is_text_candidate(kind: str, text: str, *, extraction_table_rows=False) -> bool:
+def _is_text_candidate(
+    kind: str,
+    text: str,
+    *,
+    extraction_table_rows=False,
+    extraction_k3=False,
+    extraction_qt1=False,
+    graph=None,
+    source_id=None,
+    cells=None,
+    rb1=None,
+) -> bool:
+    if rb1 is not None and rb1.active:
+        try:
+            # Validate before I26's legacy routing fallback can consume the error.
+            # This replaces, rather than repeats, QT1 selection for the RB1 pin.
+            if extraction_qt1 and kind == "table" and graph is not None:
+                from proofops.application.ingest.qt1_tables import candidates_for
+
+                table = next((b for b in graph.blocks if b.source_id == source_id), None)
+                if table is not None and candidates_for(table, graph):
+                    return True
+            return _is_text_candidate(
+                kind,
+                text,
+                extraction_table_rows=extraction_table_rows,
+                extraction_k3=extraction_k3,
+                extraction_qt1=False,
+                graph=graph,
+                source_id=source_id,
+                cells=cells,
+            )
+        except ValueError as error:
+            if not rb1.capture(source_id, error):
+                raise
+            return False
+    if extraction_qt1 and kind == "table" and graph is not None:
+        from proofops.application.ingest.qt1_tables import candidates_for
+
+        table = next((b for b in graph.blocks if b.source_id == source_id), None)
+        if table is not None:
+            try:
+                if candidates_for(table, graph):
+                    return True
+            except ValueError as error:
+                from proofops.application.input_failures import TABLE_ERRORS
+
+                if str(error) not in TABLE_ERRORS:
+                    raise
+                # Routing is not source admission. Let the extractor's pinned
+                # table-failure policy retain this source as unknown; it still
+                # rejects a missing grid before any paid model dispatch.
+                return True
+    if extraction_k3 and extraction_table_rows and kind == "table" and graph is not None:
+        from proofops.application.ingest.w9_tables import cell_entries, graph_cells, observations
+
+        table = next((b for b in graph.blocks if b.source_id == source_id), None)
+        if table is not None and table.kind == kind and table.normalized_text == text:
+            owned = graph_cells(table, graph) if cells is None else cells
+            if observations(text, cells=owned) or cell_entries(text, owned, source_id=source_id):
+                return True
     # ponytail: length is a routing heuristic, not a claim/absence classifier.
     if extraction_table_rows and kind in ("table", "table_row", "table_cell", "figure"):
         from proofops.application.ingest.table_row_candidates import row_candidates
@@ -96,6 +211,35 @@ def fence_provider_call(runner, lease, usage):
         runner.store.jobs.heartbeat(lease, now=int(runner.clock()), lease_seconds=300)
     except LeaseLost:
         raise StageFailure("LEASE_LOST", usage=usage) from None
+
+
+def fxg_dispatch_guard(runner, lease, usage, snapshot, graph, profile, limit):
+    """Additional FXG requests retain the original per-attempt authority and caps."""
+    if not getattr(runner.extractor, "_fxg_split", False):
+        return None
+    remaining, lock = limit, Lock()
+
+    def guard():
+        nonlocal remaining
+        with lock:
+            if remaining <= 0:
+                raise ValueError("BUDGET_EXHAUSTED")
+            fence_provider_call(runner, lease, usage)
+            authorization = check_local_upstage_binding(
+                binding=snapshot["runtime"],
+                consent=snapshot["consent"],
+                auth=AuthContext(
+                    "local-worker", graph.tenant_id, "viewer", frozenset(), snapshot["run_id"]
+                ),
+                checked_at=datetime.fromtimestamp(runner.clock(), UTC).isoformat(),
+                source_sha256=graph.source_sha256,
+                model_sha256=profile.model_sha256,
+            )
+            if not authorization.ready:
+                raise ValueError("LOCAL_TEST_AUTHORIZATION_INVALID")
+            remaining -= 1
+
+    return guard
 
 
 def prefetch_packets(packets, invoke, *, max_workers=16, on_page=None, prepare_pages=None):
@@ -177,7 +321,15 @@ def paragraph_priority(block):
 
 
 def select_batch_paragraph_sources(
-    graph, scope, max_calls: int, *, completed=frozenset(), extraction_table_rows=False
+    graph,
+    scope,
+    max_calls: int,
+    *,
+    completed=frozenset(),
+    extraction_table_rows=False,
+    extraction_k3=False,
+    extraction_qt1=False,
+    rb1=None,
 ) -> set[str]:
     """Next bounded window of eligible prose sources, skipping completed ones.
 
@@ -198,7 +350,14 @@ def select_batch_paragraph_sources(
         and block.quality in ("verified", "unverified")
         and block.winner is not None
         and _is_text_candidate(
-            block.kind, block.normalized_text, extraction_table_rows=extraction_table_rows
+            block.kind,
+            block.normalized_text,
+            extraction_table_rows=extraction_table_rows,
+            extraction_k3=extraction_k3,
+            extraction_qt1=extraction_qt1,
+            graph=graph,
+            source_id=block.source_id,
+            rb1=rb1,
         )
         and block.normalized_text.strip()
         and block.source_id not in completed
@@ -209,11 +368,24 @@ def select_batch_paragraph_sources(
 
 
 def select_stable_paragraph_sources(
-    graph, scope, max_calls: int, *, extraction_table_rows=False
+    graph,
+    scope,
+    max_calls: int,
+    *,
+    extraction_table_rows=False,
+    extraction_k3=False,
+    extraction_qt1=False,
+    rb1=None,
 ) -> set[str]:
     """Prioritize prose within a bounded preview; retain short candidates after it."""
     return select_batch_paragraph_sources(
-        graph, scope, max_calls, extraction_table_rows=extraction_table_rows
+        graph,
+        scope,
+        max_calls,
+        extraction_table_rows=extraction_table_rows,
+        extraction_k3=extraction_k3,
+        extraction_qt1=extraction_qt1,
+        rb1=rb1,
     )
 
 
@@ -232,7 +404,7 @@ def _extractor_role_budget(snapshot: dict) -> int | None:
     return None
 
 
-def _live_extractor(extractor, graph, source=None):
+def _live_extractor(extractor, graph, source=None, *, rb1=None):
     """Bind the run graph for a context-mode extractor; legacy passes through.
 
     Composition already built the context profile exactly when the frozen
@@ -251,6 +423,7 @@ def _live_extractor(extractor, graph, source=None):
         graph,
         source,
         display_prefetch_workers=int(os.environ.get("PROOFOPS_DISPLAY_PREFETCH_WORKERS", "1")),
+        rb1=rb1,
     )
 
 
@@ -278,9 +451,17 @@ class _ContinuingExtractor:
         prior_calls: int = 0,
         total_budget: int | None = None,
         extraction_table_rows: bool = False,
+        extraction_k3: bool = False,
+        extraction_qt1: bool = False,
+        graph=None,
+        rb1=None,
     ):
         self.profile = profile
         self._table_rows = extraction_table_rows
+        self._k3 = extraction_k3
+        self._qt1 = extraction_qt1
+        self._graph = graph
+        self._rb1 = rb1
         self._live = live
         self._prior = prior
         self._prior_failed = prior_failed or {}
@@ -298,6 +479,8 @@ class _ContinuingExtractor:
     def extract(self, packet):
         data = packet["untrusted_document_data"]
         source_id, text = data["source_id"], data["text"]
+        if self._rb1 is not None:
+            self._rb1.check(source_id)
         receipt = self._prior.get(source_id)
         if receipt is not None and receipt["packet_sha256"] == canonical_hash(packet):
             self.replayed.add(source_id)
@@ -307,7 +490,16 @@ class _ContinuingExtractor:
             self.replayed.add(source_id)
             raise ExtractionOutputError("PREVIOUS_EXTRACTION_FAILED")
         reason = None
-        if not _is_text_candidate(data["kind"], text, extraction_table_rows=self._table_rows):
+        if not _is_text_candidate(
+            data["kind"],
+            text,
+            extraction_table_rows=self._table_rows,
+            extraction_k3=self._k3,
+            extraction_qt1=self._qt1,
+            graph=self._graph,
+            source_id=source_id,
+            rb1=self._rb1,
+        ):
             reason = DEFERRED_KIND_REASON
         elif self.stop_code is not None and source_id not in getattr(self._live, "prepaid", ()):
             reason = DEFERRED_BUDGET_REASON
@@ -334,7 +526,11 @@ class _ContinuingExtractor:
             self.stop_code, self.stop_source = code, source_id
             self.deferred[source_id] = DEFERRED_BUDGET_REASON
             return deferred_payload(text, DEFERRED_BUDGET_REASON)
-        self.processed.add(source_id)
+        deferred = _deferred_reason(canonical_json(payload))
+        if deferred:
+            self.deferred[source_id] = deferred
+        else:
+            self.processed.add(source_id)
         return payload
 
 
@@ -353,7 +549,7 @@ class LocalExtractRunner:
     ):
         if not uploads.local_synthetic:
             raise ValueError("local extraction requires local storage")
-        if type(max_workers) is not int or not 1 <= max_workers <= 16:
+        if type(max_workers) is not int or not 1 <= max_workers <= 24:
             raise ValueError("EXTRACTION_CONCURRENCY_INVALID")
         self.store, self.uploads, self.parser = store, uploads, parser
         self.extractor, self.telemetry, self.clock = extractor, telemetry, clock
@@ -374,6 +570,17 @@ class LocalExtractRunner:
             discovery=asdict(discovery),
             synthetic=discovery.synthetic,
             coverage=discovery_coverage(json.loads(checkpoint)["coverage"], graph, discovery),
+            extraction_outcome=extraction_outcome(
+                graph,
+                discovery,
+                claim_pages=snapshot.get("extraction_limits", {}).get("claim_pages")
+                or snapshot["selected_pages"],
+                include_source_failures=snapshot.get("analysis_profile_policy", {}).get(
+                    "candidate_failure_policy"
+                )
+                == "invalid-table-unknown-v1"
+                or getattr(self.extractor, "_failure_diagnostics", False),
+            ),
         )
         if "claim_source_policy" in snapshot:
             from proofops.adapters.local.claim_source_policies import (
@@ -422,6 +629,8 @@ class LocalExtractRunner:
             return dict(status="cancelled")
         if "extract_job" not in run:
             return dict(status="no_revision", detail="run the extract stage once first")
+        if not rb3_admit(self, snapshot, "extract"):
+            return dict(status="partial", stop_code="TIME_BUDGET")
         try:
             with self.store.jobs._transaction() as db:
                 current = self.store.jobs._get(db, tenant_id, run_id, "run", "META")
@@ -509,12 +718,26 @@ class LocalExtractRunner:
         )
         prior_calls = max(prior_charged, charged_from_usage)
         completed = set(state["model_processed"]) | set(state["failed"])
+        rb1 = InputIsolation(snapshot.get("analysis_profile_policy", {}))
+        if rb1.active:
+            for excluded in prior_envelope["discovery"]["exclusions"]:
+                code = excluded["reason"]
+                if code.startswith("TABLE_RB1_"):
+                    rb1.capture(excluded["source_id"], ValueError(code.removeprefix("TABLE_RB1_")))
+        if rb4_memory_enabled(snapshot):
+            # Replay and both head/fence checks above are complete. Continuation
+            # needs only the source response receipts in state, not the large
+            # nested source-proof tree from the previous checkpoint.
+            del prior_envelope
         window = select_batch_paragraph_sources(
             graph,
             scope,
             batch_calls,
             completed=completed,
             extraction_table_rows=getattr(self.extractor, "_table_rows", False),
+            extraction_k3=getattr(self.extractor, "_k3", False),
+            extraction_qt1=getattr(self.extractor, "_qt1", False),
+            rb1=rb1,
         )
         summary = dict(
             status="idle",
@@ -572,13 +795,28 @@ class LocalExtractRunner:
                 if getattr(runner.extractor, "_display_text_profile", None)
                 else None
             )
-            live_extractor = _live_extractor(runner.extractor, graph, source)
+            live_extractor = _live_extractor(runner.extractor, graph, source, rb1=rb1)
+            fxg_guard = fxg_dispatch_guard(
+                runner,
+                lease,
+                usage,
+                snapshot,
+                graph,
+                profile,
+                min(batch_calls, total_budget - prior_calls)
+                if total_budget is not None
+                else batch_calls,
+            )
 
             class FencedLive:
                 profile_ = profile
 
                 def extract(self, packet):
                     fence_provider_call(runner, lease, usage)
+                    if not rb3_admit(runner, snapshot, "extract"):
+                        return deferred_payload(
+                            packet["untrusted_document_data"]["text"], "TIME_BUDGET"
+                        )
                     if not profile.synthetic:
                         authorization = check_local_upstage_binding(
                             binding=snapshot["runtime"],
@@ -595,7 +833,9 @@ class LocalExtractRunner:
                     with usage_lock:
                         usage["extractor_calls"] += 1
                     try:
-                        return _candidate_extract(live_extractor, packet, snapshot)
+                        return _candidate_extract(
+                            live_extractor, packet, snapshot, fxg_guard=fxg_guard
+                        )
                     finally:
                         sync_usage()
 
@@ -662,6 +902,10 @@ class LocalExtractRunner:
                     prior_calls=prior_calls,
                     total_budget=total_budget,
                     extraction_table_rows=getattr(runner.extractor, "_table_rows", False),
+                    extraction_k3=getattr(runner.extractor, "_k3", False),
+                    extraction_qt1=getattr(runner.extractor, "_qt1", False),
+                    graph=graph,
+                    rb1=rb1,
                 )
                 discovery = discover_atomic_claims(graph, scope, extractor=extractor)
                 payload = self._publication_payload(
@@ -679,8 +923,12 @@ class LocalExtractRunner:
             except LeaseLost:
                 raise StageFailure("LEASE_LOST", usage=usage) from None
             except ValueError as error:
+                _f1_failure_origin(error, snapshot)
                 code = str(error)
-                if code not in UPSTAGE_TRANSPORT_STOP_CODES | {
+                acquisition_code = ocr_acquisition_failure_code(error)
+                if acquisition_code:
+                    code = "OCR_PAGE_ACQUISITION_FAILED:" + acquisition_code
+                elif code not in UPSTAGE_TRANSPORT_STOP_CODES | {
                     "LOCAL_TEST_AUTHORIZATION_INVALID",
                     "ACCOUNTING_UNAVAILABLE",
                 }:
@@ -688,8 +936,11 @@ class LocalExtractRunner:
                 if code == "ACCOUNTING_UNAVAILABLE":
                     usage.update(model_calls=None, accounting_complete=False)
                 raise StageFailure(code, usage=usage) from None
-            except (KeyError, TypeError, ParseFailure, UploadRejected):
-                raise StageFailure("EXTRACTION_INPUT_INVALID", usage=usage) from None
+            except (KeyError, TypeError, ParseFailure, UploadRejected, PdfReadError) as error:
+                _f1_failure_origin(error, snapshot)
+                raise StageFailure(
+                    source_failure_code(error) or "EXTRACTION_INPUT_INVALID", usage=usage
+                ) from None
 
         result = consume_job(
             self.store.jobs,
@@ -775,6 +1026,7 @@ class LocalExtractRunner:
                         self.store, self.uploads, self.parser, tenant_id=tenant_id, run_id=run_id
                     )
                     runner = self
+                    rb1 = InputIsolation(snapshot.get("analysis_profile_policy", {}))
                     display_profile = getattr(runner.extractor, "_display_text_profile", None)
                     if display_profile:
                         from proofops.application.ingest.display_text import POLICY, PROFILE
@@ -791,7 +1043,7 @@ class LocalExtractRunner:
                         if display_profile
                         else None
                     )
-                    live_extractor = _live_extractor(runner.extractor, graph, source)
+                    live_extractor = _live_extractor(runner.extractor, graph, source, rb1=rb1)
                     role_budget = _extractor_role_budget(snapshot)
                     effective_max = (
                         (
@@ -802,6 +1054,9 @@ class LocalExtractRunner:
                         if is_real
                         else 0
                     )
+                    fxg_guard = fxg_dispatch_guard(
+                        runner, lease, usage, snapshot, graph, profile, effective_max
+                    )
                     eligible_sources: set[str] | None = None
                     if is_real:
                         eligible_sources = select_stable_paragraph_sources(
@@ -809,6 +1064,9 @@ class LocalExtractRunner:
                             claim_scope(snapshot, graph),
                             effective_max,
                             extraction_table_rows=getattr(runner.extractor, "_table_rows", False),
+                            extraction_k3=getattr(runner.extractor, "_k3", False),
+                            extraction_qt1=getattr(runner.extractor, "_qt1", False),
+                            rb1=rb1,
                         )
 
                     class FencedExtractor:
@@ -817,6 +1075,7 @@ class LocalExtractRunner:
                             self.calls = 0
 
                         def extract(self, packet):
+                            rb1.check(packet["untrusted_document_data"]["source_id"])
                             fence_provider_call(runner, lease, usage)
                             if is_real:
                                 data = packet["untrusted_document_data"]
@@ -828,6 +1087,11 @@ class LocalExtractRunner:
                                         extraction_table_rows=getattr(
                                             runner.extractor, "_table_rows", False
                                         ),
+                                        extraction_k3=getattr(runner.extractor, "_k3", False),
+                                        extraction_qt1=getattr(runner.extractor, "_qt1", False),
+                                        graph=graph,
+                                        source_id=data["source_id"],
+                                        rb1=rb1,
                                     )
                                     else "beyond_extraction_limit"
                                     if data.get("source_id") not in eligible_sources
@@ -847,6 +1111,8 @@ class LocalExtractRunner:
                                             )
                                         ]
                                     }
+                                if not rb3_admit(runner, snapshot, "extract"):
+                                    return deferred_payload(data["text"], "TIME_BUDGET")
                                 authorization = check_local_upstage_binding(
                                     binding=snapshot["runtime"],
                                     consent=snapshot["consent"],
@@ -865,7 +1131,9 @@ class LocalExtractRunner:
                                 self.calls += 1
                                 usage["extractor_calls"] += 1
                             try:
-                                return _candidate_extract(live_extractor, packet, snapshot)
+                                return _candidate_extract(
+                                    live_extractor, packet, snapshot, fxg_guard=fxg_guard
+                                )
                             finally:
                                 sync_usage()
 
@@ -950,6 +1218,17 @@ class LocalExtractRunner:
                     payload.update(
                         discovery=asdict(discovery),
                         synthetic=discovery.synthetic,
+                        extraction_outcome=extraction_outcome(
+                            graph,
+                            discovery,
+                            claim_pages=snapshot.get("extraction_limits", {}).get("claim_pages")
+                            or snapshot["selected_pages"],
+                            include_source_failures=snapshot.get("analysis_profile_policy", {}).get(
+                                "candidate_failure_policy"
+                            )
+                            == "invalid-table-unknown-v1"
+                            or getattr(self.extractor, "_failure_diagnostics", False),
+                        ),
                         coverage=coverage,
                     )
                     if (
@@ -981,15 +1260,25 @@ class LocalExtractRunner:
                             refs=discovery_refs(discovery),
                             tenant_id=tenant_id,
                             cache=snapshot.get("pipeline_profile")
-                            in ("finals-unattended-v1", "finals-unattended-v2"),
+                            in (
+                                "finals-unattended-v1",
+                                "finals-unattended-v2",
+                                "finals-unattended-j3-v1",
+                                "finals-unattended-j7-v1",
+                                "finals-unattended-j8-v1",
+                            ),
                             run_id=run_id,
                         )
                     return canonical_json(payload).encode(), usage
                 except LeaseLost:
                     raise StageFailure("LEASE_LOST", usage=usage) from None
                 except ValueError as error:
+                    _f1_failure_origin(error, snapshot)
                     code = str(error)
-                    if code not in UPSTAGE_TRANSPORT_STOP_CODES | {
+                    acquisition_code = ocr_acquisition_failure_code(error)
+                    if acquisition_code:
+                        code = "OCR_PAGE_ACQUISITION_FAILED:" + acquisition_code
+                    elif code not in UPSTAGE_TRANSPORT_STOP_CODES | {
                         "LOCAL_TEST_AUTHORIZATION_INVALID",
                         "ACCOUNTING_UNAVAILABLE",
                     }:
@@ -997,8 +1286,11 @@ class LocalExtractRunner:
                     if code == "ACCOUNTING_UNAVAILABLE":
                         usage.update(model_calls=None, accounting_complete=False)
                     raise StageFailure(code, usage=usage) from None
-                except (KeyError, TypeError, ParseFailure, UploadRejected):
-                    raise StageFailure("EXTRACTION_INPUT_INVALID", usage=usage) from None
+                except (KeyError, TypeError, ParseFailure, UploadRejected, PdfReadError) as error:
+                    _f1_failure_origin(error, snapshot)
+                    raise StageFailure(
+                        source_failure_code(error) or "EXTRACTION_INPUT_INVALID", usage=usage
+                    ) from None
 
             result = consume_job(
                 self.store.jobs,

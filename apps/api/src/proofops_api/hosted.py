@@ -3,17 +3,20 @@
 import asyncio
 import fcntl
 import json
+import logging
 import os
 import sqlite3
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from fastapi import Depends, FastAPI, Query, Request, Response
 from fastapi import Path as PathParam
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from proofops.application.authorization import (
     AuthContext,
@@ -45,6 +48,20 @@ class Invitation(BaseModel):
     code: Annotated[str, Field(min_length=32, max_length=128)]
 
 
+class AccessPassword(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    role: Literal["admin", "organizer"]
+    password: Annotated[
+        str,
+        Field(
+            min_length=1,
+            max_length=128,
+            repr=False,
+            json_schema_extra={"writeOnly": True, "format": "password"},
+        ),
+    ]
+
+
 class RunCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     document_id: UUID
@@ -54,6 +71,7 @@ class RunCreate(BaseModel):
     ) = None
 
     scope_selection_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")] | None = None
+    force_fresh: Annotated[bool, Field(strict=True)] = False
 
 
 class ReportingScopeEdit(BaseModel):
@@ -197,8 +215,10 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
             "Idempotency-Key",
             "If-Match",
             "X-Pipeline-Profile",
+            "Range",
+            "If-Range",
         ],
-        expose_headers=["Retry-After", "ETag"],
+        expose_headers=["Retry-After", "ETag", "X-Source-SHA256", "Accept-Ranges", "Content-Range"],
     )
     app.add_middleware(BrowserSecurityHeadersMiddleware)
 
@@ -218,12 +238,29 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
                 }
             },
             status_code=exc.status,
-            headers={"Retry-After": "60"} if exc.status == 429 or exc.code == "MAINTENANCE" else {},
+            headers={"Retry-After": str(exc.retry_after or 60)}
+            if exc.status == 429 or exc.code == "MAINTENANCE"
+            else {},
         )
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_error(request: Request, exc: RequestValidationError):
+        # Pydantic's default errors echo submitted passwords/codes in `input`.
+        if request.url.path in {"/v1/auth/access-password", "/v1/auth/invitation"}:
+            return JSONResponse({"error": {"code": "VALIDATION_ERROR"}}, status_code=422)
+        return await request_validation_exception_handler(request, exc)
 
     @app.exception_handler(sqlite3.DatabaseError)
     @app.exception_handler(OSError)
     async def storage_error(request: Request, exc: Exception):
+        from traceback import extract_tb
+
+        logging.getLogger(__name__).warning(
+            "hosted storage failure type=%s sqlite_code=%s frames=%s",
+            type(exc).__name__,
+            getattr(exc, "sqlite_errorname", None),
+            [(Path(f.filename).name, f.name, f.lineno) for f in extract_tb(exc.__traceback__)[-4:]],
+        )
         return JSONResponse({"error": {"code": "DEPENDENCY_UNAVAILABLE"}}, status_code=503)
 
     def current(request: Request) -> AuthContext:
@@ -261,6 +298,9 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
                 now,
             )
             store.sessions.touch(sid, now)
+            parts = request.url.path.strip("/").split("/")
+            if len(parts) >= 3 and parts[0] == "v1" and parts[1] in {"documents", "runs"}:
+                store.require_owned_resource(auth, parts[1], parts[2])
             return auth
         except SessionExpiredError:
             raise HostedError("AUTH_REQUIRED", 401) from None
@@ -270,12 +310,19 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
             raise HostedError("RESOURCE_NOT_FOUND", 404) from None
 
     def session_body(sid: str) -> dict:
-        record = get_live_session(session_id=sid, now=time.time(), session_port=store.sessions)
+        try:
+            record = get_live_session(session_id=sid, now=time.time(), session_port=store.sessions)
+        except SessionExpiredError:
+            raise HostedError("AUTH_REQUIRED", 401) from None
         membership = store.memberships.get(record.active_tenant_id or "", record.user_sub)
         return {
             "user_id": record.user_sub,
             "tenant_id": record.active_tenant_id,
-            "role": membership.role if membership else None,
+            "role": record.user_sub.removeprefix("access-password:")
+            if record.user_sub.startswith("access-password:")
+            else membership.role
+            if membership
+            else None,
             "csrf_token": store.sessions.csrf_token_for(sid),
             "expires_at": _epoch_to_rfc3339(record.expires_at),
         }
@@ -292,6 +339,25 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
         store.consume("invitation-login", 10, time.time())
         sid = store.redeem(body.code, now=time.time())
         set_cookie(response, sid)
+        return session_body(sid)
+
+    @app.post("/v1/auth/access-password")
+    def password_login(body: AccessPassword, request: Request, response: Response) -> dict:
+        if request.headers.get("Origin") != settings.origin:
+            raise HostedError("CSRF_INVALID", 403)
+        peer = request.client.host if request.client else "unknown"
+        if peer in settings.auth_trusted_proxies:
+            from ipaddress import ip_address
+
+            # Only trust a configured immediate proxy; use its rightmost XFF hop.
+            forwarded = request.headers.get("X-Forwarded-For", "").split(",")[-1].strip()
+            try:
+                peer = str(ip_address(forwarded))
+            except ValueError:
+                pass
+        sid = store.access.login(body.role, body.password, ip=peer, now=time.time())
+        set_cookie(response, sid)
+        response.headers["Cache-Control"] = "private, no-store"
         return session_body(sid)
 
     @app.get("/v1/session")
@@ -392,7 +458,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
     def ready() -> dict:
         from proofops_api.hosted_analysis import runtime_profiles
 
-        with store.transaction() as db:
+        with store.transaction(readonly=True) as db:
             db.execute("SELECT version FROM hosted_schema").fetchone()
             failed = db.execute("SELECT 1 FROM deletion.attempts WHERE status='failed'").fetchone()
         return {
@@ -438,6 +504,16 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
     @app.get("/v1/documents/{document_id}")
     def document(document_id: UUID, auth: Annotated[AuthContext, Depends(current)]) -> dict:
         return store.get_document(auth.tenant_id, str(document_id))
+
+    @app.get("/v1/documents/{document_id}/original", response_class=Response)
+    def document_original(
+        document_id: UUID,
+        auth: Annotated[AuthContext, Depends(current)],
+        sha256: Annotated[str | None, Query(pattern=r"^[0-9a-f]{64}$")] = None,
+    ):
+        from proofops_api.hosted_source_view import original_pdf
+
+        return original_pdf(store, auth, str(document_id), sha256)
 
     @app.get("/v1/documents/{document_id}/scope-plan")
     def scope_get(
@@ -492,6 +568,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
             auto_scope=True,
             scope_selection_sha256=body.scope_selection_sha256,
             pipeline_profile=request.headers.get("X-Pipeline-Profile", default_pipeline),
+            force_fresh=body.force_fresh,
         )
 
     @app.get("/v1/runs")
@@ -568,8 +645,20 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
         return store.get_run(auth.tenant_id, str(run_id))
 
     @app.get("/v1/runs/{run_id}/result")
-    def result(run_id: UUID, auth: Annotated[AuthContext, Depends(current)]) -> dict:
-        return store.get_result(auth.tenant_id, str(run_id))
+    def result(
+        run_id: UUID,
+        response: Response,
+        auth: Annotated[AuthContext, Depends(current)],
+        w18: bool = False,
+    ) -> dict:
+        from proofops_api.hosted_source_view import project_source_view
+
+        stored = store.get_result(auth.tenant_id, str(run_id))
+        with store.transaction(readonly=True) as db:
+            row = store._run(db, auth.tenant_id, str(run_id))
+            doc = store._document(db, auth.tenant_id, row["document_id"])
+        response.headers["Cache-Control"] = "private, no-store"
+        return project_source_view(reads, row, doc, stored, w18=w18)
 
     @app.post("/v1/runs/{run_id}/reviews/{review_id}/resolve")
     def resolve_review(

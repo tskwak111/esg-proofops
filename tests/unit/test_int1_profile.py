@@ -42,7 +42,7 @@ def test_rate_headers_never_increase_workers_when_unobserved():
                 "x-ratelimit-remaining-tokens": "1900000",
             }
         )
-        == 16
+        == 24
     )
     assert (
         workers_from_headers(

@@ -24,7 +24,7 @@ def workers_from_headers(headers):
         tokens = min(
             int(headers["x-ratelimit-limit-tokens"]), int(headers["x-ratelimit-remaining-tokens"])
         )
-        return max(1, min(16, requests // 2, tokens // (2 * (32768 + 4096))))
+        return max(1, min(24, requests // 2, tokens // (2 * (32768 + 4096))))
     except (TypeError, KeyError, ValueError):
         return 8  # unobserved headers never authorize an increase
 

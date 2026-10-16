@@ -2,11 +2,15 @@
 
 import pytest
 from proofops.application.analysis_profile import (
+    FINALS_I5_POLICY,
     MODEL_RESPONSE_POLICY,
     V2_PB6_POLICY,
     V2_PB7_POLICY,
     V2_POLICY,
+    V2_PRE_D24_POLICY,
     V2_PRE_PB7_POLICY,
+    V2_PRE_W9_POLICY,
+    V2_W9_POLICY,
     policy_for,
 )
 from proofops.domain.provenance import canonical_hash
@@ -29,8 +33,22 @@ def test_pb7_policy_adds_only_pb6_selection_and_integrated_default_keeps_it():
     assert V2_PB7_POLICY == V2_PRE_PB7_POLICY | dict(
         citation_restore="citation-selected-value-pb6-v1"
     )
-    assert V2_POLICY == V2_PB7_POLICY | dict(
+    assert V2_PRE_W9_POLICY == V2_PB7_POLICY | dict(
         source="upstage-ocr-page-v10", table_native_ownership="native-grid-pa9-v1"
+    )
+    assert V2_W9_POLICY == V2_PRE_W9_POLICY | dict(
+        table_claims="pb1-w9-v1",
+        table_cells="pb1-w9-v1",
+        table_figures="independent-reader-only-w9-v1",
+    )
+    assert V2_PRE_D24_POLICY == V2_PB7_POLICY | dict(
+        source="upstage-ocr-page-v10", table_native_ownership="native-grid-pa9-v1"
+    )
+    assert (
+        policy_for("finals-unattended-v2", pinned_hash=canonical_hash(FINALS_I5_POLICY))[
+            "citation_restore"
+        ]
+        == V2_PRE_D24_POLICY["citation_restore"]
     )
     assert V2_POLICY["model_response_policy"] == MODEL_RESPONSE_POLICY
     assert policy_for("finals-unattended-v2") == V2_POLICY
