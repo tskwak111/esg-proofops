@@ -208,6 +208,7 @@ def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
             )
         from proofops.application.analysis_profile import (
             CF6_POLICY,
+            CF6_V2_POLICY,
             FINALS_I1_INITIAL_POLICY,
             FINALS_I3_POLICY,
             FINALS_I4_POLICY,
@@ -247,6 +248,7 @@ def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
 
         pb1 = tag_snapshot.get("analysis_profile_policy_sha256") in {
             canonical_hash(CF6_POLICY),
+            canonical_hash(CF6_V2_POLICY),
             canonical_hash(FINALS_H4_POLICY),
             canonical_hash(FINALS_H6_POLICY),
             canonical_hash(FINALS_C24_POLICY),
@@ -330,6 +332,7 @@ def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
                         summary["table_observation"] = row
                         if tag_snapshot.get("analysis_profile_policy_sha256") in {
                             canonical_hash(CF6_POLICY),
+                            canonical_hash(CF6_V2_POLICY),
                             canonical_hash(FINALS_H4_POLICY),
                             canonical_hash(FINALS_H6_POLICY),
                             canonical_hash(FINALS_C24_POLICY),

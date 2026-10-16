@@ -33,7 +33,8 @@ from proofops.application.rb1_input_isolation import POLICY as RB1_INPUT_POLICY
 from proofops.application.rb3_deadline import POLICY as RB3_DEADLINE_POLICY
 from proofops.application.tagging.analysis_scope import confirmation_policy as sc1_policy
 from proofops.application.tagging.c3_request_binding import S5_POLICY as S5_C3_BINDING
-from proofops.application.tagging.cf6_confirmation import POLICY as CF6_CONFIRMATION_POLICY
+from proofops.application.tagging.cf6_confirmation import POLICY as CF6_V2_CONFIRMATION_POLICY
+from proofops.application.tagging.cf6_confirmation import POLICY_V1 as CF6_CONFIRMATION_POLICY
 from proofops.application.tagging.dec24 import (
     DEFINITIONS_HASH,
     INTEGRATED_DEFINITIONS_HASH,
@@ -1148,6 +1149,10 @@ CF6_POLICY = FINALS_I27_POLICY | dict(
     integration_profile="cf6_finals_default_candidate_dec127_v1",
     cf6_confirmation=CF6_CONFIRMATION_POLICY,
 )
+CF6_V2_POLICY = FINALS_I27_POLICY | dict(
+    integration_profile="cf6_finals_default_candidate_dec127_v2",
+    cf6_confirmation=CF6_V2_CONFIRMATION_POLICY,
+)
 
 
 def policy_for(profile, *, pinned_hash=None):
@@ -1313,7 +1318,7 @@ def policy_for(profile, *, pinned_hash=None):
     else:
         raise ValueError("ANALYSIS_PROFILE_UNKNOWN")
     if profile == V2_PROFILE:
-        choices = (*choices, *sc1_inventory_policies, CF6_POLICY)
+        choices = (*choices, *sc1_inventory_policies, CF6_POLICY, CF6_V2_POLICY)
         choices = (*choices, V1_ACTIVITY_POLICY)
         choices = (*choices, QT1_V25_POLICY)
     for policy in choices:
@@ -1445,7 +1450,7 @@ def publication_policy_for(profile, *, pinned_hash=None):
         else (policy_for(profile),)
     )
     if profile == V2_PROFILE:
-        allowed = (*allowed, *sc1_inventory_policies, CF6_POLICY)
+        allowed = (*allowed, *sc1_inventory_policies, CF6_POLICY, CF6_V2_POLICY)
         allowed = (*allowed, V1_ACTIVITY_POLICY)
         allowed = (*allowed, QT1_V25_POLICY)
     if policy not in allowed:

@@ -11,21 +11,24 @@ from proofops.application.evidence.span_citations import verify_source_ref
 from proofops.application.tagging.consensus import form_consensus
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rules.cf6_scope import POLICY as SCOPE_POLICY
-from proofops.domain.rules.cf6_scope import evaluate_scope
+from proofops.domain.rules.cf6_scope import POLICY_V1 as SCOPE_POLICY_V1
+from proofops.domain.rules.cf6_scope import evaluate_scope, gap_details, resolve_exception_facts
 from proofops.domain.rules.engine import MAPPINGS, ConfirmedFact, ConfirmedTags, evaluate
 
 
-def policy(required=2):
+def policy(required=2, *, version=2):
     if type(required) is not int or required not in (2, 3):
         raise ValueError("CF6_THRESHOLD_INVALID")
+    if type(version) is not int or version not in (1, 2):
+        raise ValueError("CF6_VERSION_INVALID")
     return dict(
-        profile="cf6_dec125_dec127_confirmation_v1",
+        profile=f"cf6_dec125_dec127_confirmation_v{version}",
         required_votes=required,
         replicas=3,
         track_votes=3,
         present="verified_source_same_value_binding_scope",
         absent="unknown_after_three_completed_replicas_is_absent_in_scope_DEC127",
-        scope_rules=SCOPE_POLICY,
+        scope_rules=SCOPE_POLICY if version == 2 else SCOPE_POLICY_V1,
         dissent="verified_opposite_or_any_conflict_preserved; unknown_allowed",
         unreadable="hold",
         publication="all_ladder_elements_resolved_python_decided_current_authenticated_responses",
@@ -34,6 +37,7 @@ def policy(required=2):
 
 
 POLICY = policy()
+POLICY_V1 = policy(version=1)
 POLICY_HASH = canonical_hash(POLICY)
 LADDER = dict(
     management=("M1", "M2", "M3"),
@@ -44,7 +48,10 @@ LADDER = dict(
 
 def selected_policy(analysis_policy):
     selected = analysis_policy.get("cf6_confirmation")
-    if selected is not None and selected != policy(selected.get("required_votes")):
+    if selected is not None and selected not in (
+        policy(selected.get("required_votes"), version=1),
+        policy(selected.get("required_votes")),
+    ):
         raise ValueError("CF6_POLICY_MISMATCH")
     return selected
 
@@ -118,6 +125,7 @@ def confirmation_result(
     if selected is None:
         raise ValueError("CF6_POLICY_REQUIRED")
     required = selected["required_votes"]
+    revised = selected["scope_rules"] == SCOPE_POLICY
     data = packet.to_dict()
     baseline = form_consensus(
         runs,
@@ -191,7 +199,7 @@ def confirmation_result(
         graph_sha256=data["graph_sha256"],
         selected_pages=pages,
         absence_basis="system_not_found_or_not_linked_after_three_replicas",
-        rule_policy_sha256=canonical_hash(SCOPE_POLICY),
+        rule_policy_sha256=canonical_hash(selected["scope_rules"]),
     )
     # GAP-005 retains an already-decided E grade with sublabel=null (domain §31).
     # Grade-blocking GAPs remain held; no new label mapping is invented here.
@@ -205,7 +213,9 @@ def confirmation_result(
         "scope3_calculation_hold",
     }:
         reasons.append("CF6_EXISTING_SAFETY_HOLD")
-    if any(h[1] or h[2] for h in headers) or any(r.product_variant for r in ordered):
+    if not revised and (
+        any(h[1] or h[2] for h in headers) or any(r.product_variant for r in ordered)
+    ):
         reasons.append("CF6_EXCEPTION_REVIEW_REQUIRED")
     providers = [r.usage.provider_request_id for r in ordered if r.usage]
     if len(set(providers)) != 3 or not all(providers):
@@ -342,6 +352,15 @@ def confirmation_result(
         headers[0][2] if headers else None,
         first.product_variant,
     )
+    if revised and completed and valid_scope:
+        tags = resolve_exception_facts(
+            tags,
+            claim_source_refs=claim.source_refs
+            if "CF6_CLAIM_SOURCE_UNVERIFIED" not in reasons
+            else (),
+        )
+        facts = list(tags.facts)
+        reasons.extend("CF6_CONFLICT:" + f.name for f in facts if f.state == "conflict")
     absent = [f.name for f in facts if f.state == "absent_in_scope"]
     if absent and any(f.state == "conflict" for f in facts):
         # Keep the conflict and the scoped non-observation, without asking the
@@ -386,6 +405,15 @@ def confirmation_result(
         prompt_sha256=first.prompt_sha256,
         prior_projection_sha256=canonical_hash(prior_projection),
     )
+    if revised:
+        body.update(
+            rule_gap_details=gap_details(tags, rulepack, decision),
+            auxiliary_facts=[
+                asdict(f)
+                for f in tags.facts
+                if f.name not in {n for ns in MAPPINGS[data["track"]].values() for n in ns}
+            ],
+        )
     receipt_hash = canonical_hash(body)
     confirmed = (
         None
