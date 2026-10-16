@@ -19,6 +19,7 @@ import subprocess
 import time
 from hashlib import sha256
 from types import SimpleNamespace
+from typing import Any
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -50,7 +51,9 @@ baseline.write_bytes(
     )
 )
 spec = importlib.util.spec_from_file_location("baseline_w18", baseline)
-old = importlib.util.module_from_spec(spec)
+if spec is None or spec.loader is None:
+    raise ImportError("Cannot load the saved W18 baseline module")
+old: Any = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(old)
 old.__file__ = w18.__file__
 inputs = json.loads((PERF / "E16/inputs.json").read_bytes())
@@ -88,7 +91,7 @@ for event, name in [("E17", "lg"), ("E16", "kakao"), ("E16", "lge")]:
     url = f"/v1/runs/{run}/result"
     plain = client.get(url).content
     versions = {}
-    stats = {}
+    stats: dict[str, Any] = {}
     new_enrich = w18.enrich
     observed = json.loads((PERF / event / f"{name}.w18-result.json").read_bytes())
     observed_refs = [r for c in observed["claims"] for r in c["w16_source_view"]["refs"]]
