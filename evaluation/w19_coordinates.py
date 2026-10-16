@@ -98,9 +98,7 @@ for event, name in [("E17", "lg"), ("E16", "kakao"), ("E16", "lge")]:
         reasons=dict(collections.Counter(r["w18_reason"] or "exact" for r in observed_refs)),
     )
     artifact_hashes = {
-        p: sha256(p.read_bytes()).hexdigest()
-        for p in path.rglob("*")
-        if p.is_file()
+        p: sha256(p.read_bytes()).hexdigest() for p in path.rglob("*") if p.is_file()
     }
     native_project = w18.project_native_bbox
     counter = [0]
@@ -160,8 +158,7 @@ for event, name in [("E17", "lg"), ("E16", "kakao"), ("E16", "lge")]:
     assert versions["w19_cold"] == versions["w19_memory"] == versions["w19_disk"]
     stats["legacy_http_bytes_unchanged"] = True
     assert all(
-        sha256(p.read_bytes()).hexdigest() == digest
-        for p, digest in artifact_hashes.items()
+        sha256(p.read_bytes()).hexdigest() == digest for p, digest in artifact_hashes.items()
     )
     stats["publication_bytes_unchanged"] = True
     assert stats["w19_cold"]["reasons"].get("coordinate_timeout", 0) == 0
