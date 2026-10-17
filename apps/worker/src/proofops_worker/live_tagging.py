@@ -695,8 +695,9 @@ class LiveTaggingRuntime:
             if response_policy != RESPONSE_POLICY:
                 raise ValueError("K4_RESPONSE_POLICY_MISMATCH")
             packet["preliminary_response_policy"] = response_policy
+        context_receipt = {}
         if cf5:
-            packet = cf5_context.preserve_context(packet, claim, graph)
+            packet = cf5_context.preserve_context(packet, claim, graph, receipt=context_receipt)
         packet = self.preliminary_transport.bound_context(packet)
         if not cf5 and self.snapshot.get("analysis_profile_policy", {}).get(
             "sentence_context_policy"
@@ -937,6 +938,7 @@ class LiveTaggingRuntime:
             self.preliminary_records,
             validate,
             **({"require_consensus": False} if decision or unattended else {}),
+            **({"context_receipt": context_receipt} if context_receipt else {}),
         )
         if decision:
             return self._decision_preliminary(claim, packet, results)
@@ -1511,6 +1513,7 @@ class LiveTaggingRuntime:
         *,
         retrieval_packet_sha256=None,
         require_consensus=True,
+        context_receipt=None,
     ):
         packet_hash = canonical_hash(packet)
         self.allow_packet(claim.claim_id, packet_hash)
@@ -1577,6 +1580,8 @@ class LiveTaggingRuntime:
                 )
                 directory = self.receipts / prefix / request_id
                 record = dict(request_id=request_id, replicate_id=replica, status="unresolved")
+                if context_receipt:
+                    record.update(context_receipt)
                 records.append(record)
                 response = None
                 try:

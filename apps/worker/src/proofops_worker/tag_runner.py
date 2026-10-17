@@ -37,6 +37,7 @@ from proofops.application.ports.jobs import JobMessage, LeaseLost
 from proofops.application.rb1_input_isolation import InputIsolation, held_claim, tag_input_code
 from proofops.application.rb4_memory import enabled as rb4_memory_enabled
 from proofops.application.reviews import ReviewInputs, ReviewService
+from proofops.application.tagging.cf5_context import PreliminaryContextTooLarge
 from proofops.application.tagging.consensus import (
     form_consensus,
     reviewable_checkpoint,
@@ -1092,6 +1093,9 @@ class LocalTagRunner:
                 result = process_claim(claim)
             except (LeaseLost, TagHeartbeatFailed):
                 raise
+            except PreliminaryContextTooLarge:
+                result = progress.get(claim.claim_id, item)
+                result.update(status="needs_review", reason="CF5_CONTEXT_TOO_LARGE")
             except Exception as error:
                 from proofops.application.budget import BudgetExceeded
 

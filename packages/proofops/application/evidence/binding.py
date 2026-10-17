@@ -223,7 +223,9 @@ def accept_binding(
         diagnose("source_literal_rejected")
         return "rejected"
 
-    if not claim.source_refs or claim.quote != " ".join(s.quote for s in claim.source_refs):
+    from proofops.application.ingest.source_continuations import claim_quote_matches_sources
+
+    if not claim_quote_matches_sources(claim.quote, claim.source_refs, original):
         return "rejected"
     unresolved = claim.source_quality != "verified"
     for source in (*claim.source_refs, ref):
