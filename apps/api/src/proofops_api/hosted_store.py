@@ -1538,7 +1538,7 @@ class HostedStore:
         phase = "reservation"
         try:
             started = time.monotonic()
-            with self.transaction(operation="dispatch_reserve") as db:
+            with self.transaction(lock_wait_seconds=30, operation="dispatch_reserve") as db:
                 row = self._fenced(db, job, now + time.monotonic() - started)
                 if db.execute(
                     "SELECT 1 FROM deletion.costs WHERE run_id=? AND call_id=?",

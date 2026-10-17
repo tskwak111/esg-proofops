@@ -2,11 +2,15 @@
 
 import json
 import sqlite3
+import time
 from contextlib import contextmanager
+from decimal import Decimal
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
 from proofops.application.provider_resilience import POLICY
+from proofops_api import hosted_sqlite
 
 from tests.test_hosted_hf7 import configured
 from tests.unit.test_openai_luna import response
@@ -150,3 +154,96 @@ def test_skipped_database_diagnostic_explains_size_cap(tmp_path, monkeypatch):
     assert failure["sqlite_errorcode"] == sqlite3.SQLITE_FULL
     assert failure["exception_type"] == "OperationalError"
     assert "private database path" not in json.dumps(manifest)
+
+
+@pytest.mark.parametrize("boundary", ["acquire", "commit"])
+@pytest.mark.parametrize("release_after", [15, 29, 31])
+def test_reservation_busy_has_bounded_wait_without_replay(
+    tmp_path, monkeypatch, boundary, release_after
+):
+    store, _, job, _ = configured(tmp_path, monkeypatch)
+    clock = [0.0]
+    armed = [False]
+    calls, writes, errors = [], [], []
+    connect = sqlite3.connect
+
+    def sleep(seconds):
+        clock[0] += seconds
+
+    def busy():
+        if armed[0] and clock[0] < release_after:
+            error = sqlite3.OperationalError("private SQL and credentials")
+            error.sqlite_errorcode = sqlite3.SQLITE_BUSY
+            errors.append(error)
+            raise error
+
+    class Connection(sqlite3.Connection):
+        def execute(self, sql, *args, **kwargs):
+            if boundary == "acquire" and sql == "BEGIN IMMEDIATE":
+                busy()
+            if sql.startswith("INSERT INTO deletion.costs"):
+                writes.append(sql)
+            return super().execute(sql, *args, **kwargs)
+
+        def commit(self):
+            if boundary == "commit":
+                busy()
+            return super().commit()
+
+    monkeypatch.setattr(
+        hosted_sqlite, "time", SimpleNamespace(monotonic=lambda: clock[0], sleep=sleep)
+    )
+    monkeypatch.setattr(sqlite3, "connect", lambda *a, **kw: connect(*a, **kw, factory=Connection))
+
+    def transport(request):
+        calls.append(request)
+        armed[0] = False
+        return request | dict(actual_usd=".001")
+
+    def dispatch():
+        return store.dispatch(
+            job,
+            "openai",
+            "reserve-busy",
+            "a" * 64,
+            Decimal(".011"),
+            transport,
+            now=time.time(),
+            diagnostic_context=dict(state=tmp_path),
+        )
+
+    with store.transaction(readonly=True) as db:
+        before_run = tuple(db.execute("SELECT * FROM runs").fetchone())
+        before_spend = tuple(db.execute("SELECT * FROM deletion.spend").fetchone())
+    armed[0] = True
+    if release_after > 30:
+        with pytest.raises(sqlite3.OperationalError) as caught:
+            dispatch()
+        assert caught.value is errors[-1]  # Propagate the original exhausted BUSY.
+        assert clock[0] == 30 and calls == []
+        armed[0] = False
+        with store.transaction(readonly=True) as db:
+            assert db.execute("SELECT count(*) FROM deletion.costs").fetchone()[0] == 0
+            assert tuple(db.execute("SELECT * FROM runs").fetchone()) == before_run
+            assert tuple(db.execute("SELECT * FROM deletion.spend").fetchone()) == before_spend
+        path = tmp_path / "dispatch-failures/reserve-busy.json"
+        diagnostic = json.loads(path.read_text())
+        assert diagnostic["phase"] == "reservation"
+        assert diagnostic["exception_type"] == "OperationalError"
+        assert diagnostic["sqlite_errorcode"] == sqlite3.SQLITE_BUSY
+        assert "busy" in diagnostic["location"]
+        assert "private SQL" not in path.read_text() and path.stat().st_mode & 0o077 == 0
+        assert len(writes) == (1 if boundary == "commit" else 0)
+    else:
+        assert dispatch()["actual_usd"] == ".001"
+        assert release_after <= clock[0] < 30
+        assert len(calls) == len(writes) == 1
+        with store.transaction(readonly=True) as db:
+            assert tuple(db.execute("SELECT actual,status FROM deletion.costs").fetchone()) == (
+                1000,
+                "settled",
+            )
+            assert tuple(db.execute("SELECT * FROM runs").fetchone()) == before_run
+            assert tuple(db.execute("SELECT * FROM deletion.spend").fetchone()) == before_spend
+        assert not (tmp_path / "dispatch-failures").exists()
+    store.renew_lease(job, now=time.time())

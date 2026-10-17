@@ -195,7 +195,12 @@ def retain_failure(store, job, workspace, error=None):
 def record_dispatch_failure(store, job, call_id, provider, input_sha, phase, error, context):
     """Finite metadata at the boundary before an exception changes run state."""
     # Kept in the same capped failure capture; no prompts, responses, or keys.
-    state = context.get("state") if context and store.settings.retain_failed_analysis else None
+    settings = getattr(store, "settings", None)
+    state = (
+        context.get("state")
+        if context and getattr(settings, "retain_failed_analysis", False)
+        else None
+    )
     if state is None:
         return
     record = failure_record(error) | dict(
