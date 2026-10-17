@@ -154,7 +154,10 @@ def test_network_uncertainty_can_publish_without_releasing_money(
     assert store.get_result(auth.tenant_id, job["run_id"])["claims"] == snapshot["claims"]
 
 
-def test_uncertain_claim_in_real_local_pipeline_keeps_other_claims(settings, monkeypatch):
+@pytest.mark.parametrize("normalized", [False, True])
+def test_uncertain_claim_in_real_local_pipeline_keeps_other_claims(
+    settings, monkeypatch, normalized
+):
     import os
     import socket
     from tempfile import TemporaryDirectory
@@ -177,6 +180,8 @@ def test_uncertain_claim_in_real_local_pipeline_keeps_other_claims(settings, mon
         data = json.loads(body["messages"][1]["content"])["untrusted_document_data"]
         if "allowed_elements" in data and not failed:
             failed.append(True)
+            if normalized:
+                raise ValueError("PROCESSING_UNCERTAIN")
             raise ssl.SSLEOFError("injected once")
         return fake_llm(body)
 
@@ -202,6 +207,7 @@ def test_uncertain_claim_in_real_local_pipeline_keeps_other_claims(settings, mon
 
     done = store.tick(now=time.time(), analysis=analyze)
     assert failed and done["result_url"], done
+    assert done["status"] == "completed", done
     claims = done["result"]["claims"]
     held = [claim for claim in claims if claim["hold_reason"] == "PROCESSING_UNCERTAIN"]
     others = [claim for claim in claims if claim["hold_reason"] != "PROCESSING_UNCERTAIN"]

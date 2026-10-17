@@ -1,0 +1,2223 @@
+{
+  "snapshot": [
+    {
+      "tenant_id": "d1b9e025-a759-4d28-8713-cbb5940ec89b",
+      "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+      "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+      "source_sha256": "271eed3a9fa3599555e488fb21fd3193f94364fba6b16cafcf84d52dd9e54a20",
+      "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+      "parser_name": "upstage_async_standard",
+      "parser_version": "document-parse-260128",
+      "parser_family": "upstage-document-parse",
+      "config_hash": "97555dcfb13eb909664e58994b5ffede212230b92211a887655b212759e59ef0",
+      "blocks": [
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c0",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": [
+              499.8806,
+              264.29879999999997,
+              561.895,
+              271.29879999999997
+            ],
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "기후 관련 위험 및 기회",
+            "char_start": 0,
+            "char_end": 13
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "derived_from_native_cells",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 0,
+          "column_number": 0,
+          "row_span": 1,
+          "column_span": 2
+        },
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c1",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": [
+              614.98454,
+              264.29879999999997,
+              641.32694,
+              271.29879999999997
+            ],
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "현재 조치",
+            "char_start": 0,
+            "char_end": 5
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "derived_from_native_cells",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 0,
+          "column_number": 2,
+          "row_span": 1,
+          "column_span": 1
+        },
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c2",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": [
+              731.24782,
+              264.29879999999997,
+              757.59022,
+              271.29879999999997
+            ],
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "향후 계획",
+            "char_start": 0,
+            "char_end": 5
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "derived_from_native_cells",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 0,
+          "column_number": 3,
+          "row_span": 1,
+          "column_span": 1
+        },
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c3",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": null,
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "물리 위험",
+            "char_start": 0,
+            "char_end": 5
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "vision_only",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 1,
+          "column_number": 0,
+          "row_span": 2,
+          "column_span": 1
+        },
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c4",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": [
+              514.58145,
+              251.72889999999995,
+              526.1111500000001,
+              258.22889999999995
+            ],
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "태풍",
+            "char_start": 0,
+            "char_end": 2
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "derived_from_native_cells",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 1,
+          "column_number": 1,
+          "row_span": 1,
+          "column_span": 1
+        },
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c5",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": [
+              572.8245,
+              251.72909999999996,
+              674.99202,
+              258.22909999999996
+            ],
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "- 주요 구조물 점검 및 보수, 재난 보험 가입",
+            "char_start": 0,
+            "char_end": 26
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "derived_from_native_cells",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 1,
+          "column_number": 2,
+          "row_span": 1,
+          "column_span": 1
+        },
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c6",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": [
+              689.0445,
+              251.72909999999996,
+              733.490148,
+              258.22909999999996
+            ],
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "- 시설 안정성 강화",
+            "char_start": 0,
+            "char_end": 11
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "derived_from_native_cells",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 1,
+          "column_number": 3,
+          "row_span": 1,
+          "column_span": 1
+        },
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c7",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": [
+              514.5792,
+              240.69369999999998,
+              526.1089000000001,
+              247.19369999999998
+            ],
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "가뭄",
+            "char_start": 0,
+            "char_end": 2
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "derived_from_native_cells",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 2,
+          "column_number": 1,
+          "row_span": 1,
+          "column_span": 1
+        },
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c8",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": [
+              572.8245,
+              240.69369999999998,
+              654.1941,
+              247.19369999999998
+            ],
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "- 용수 재이용 확대 및 취수량 절감",
+            "char_start": 0,
+            "char_end": 20
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "derived_from_native_cells",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 2,
+          "column_number": 2,
+          "row_span": 1,
+          "column_span": 1
+        },
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c9",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": [
+              689.0445,
+              240.69369999999998,
+              777.3117960000001,
+              247.19369999999998
+            ],
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "- 신규 사업장 검토 시 관련 위험 고려",
+            "char_start": 0,
+            "char_end": 22
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "derived_from_native_cells",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 2,
+          "column_number": 3,
+          "row_span": 1,
+          "column_span": 1
+        },
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c10",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": null,
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "전환 위험",
+            "char_start": 0,
+            "char_end": 5
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "vision_only",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 3,
+          "column_number": 0,
+          "row_span": 5,
+          "column_span": 1
+        },
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c11",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": [
+              514.58145,
+              229.65800000000002,
+              551.9733500000001,
+              236.15800000000002
+            ],
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "탄소 가격 상승",
+            "char_start": 0,
+            "char_end": 8
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "derived_from_native_cells",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 3,
+          "column_number": 1,
+          "row_span": 1,
+          "column_span": 1
+        },
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c12",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": [
+              572.8245,
+              229.6583,
+              661.000692,
+              236.1583
+            ],
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "- 직접 배출량 감축 전략 수립 및 실행",
+            "char_start": 0,
+            "char_end": 22
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "derived_from_native_cells",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 3,
+          "column_number": 2,
+          "row_span": 1,
+          "column_span": 1
+        },
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c13",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": [
+              689.0445,
+              229.6583,
+              751.339668,
+              236.1583
+            ],
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "- 온실가스 배출 관리 강화",
+            "char_start": 0,
+            "char_end": 15
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "derived_from_native_cells",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 3,
+          "column_number": 3,
+          "row_span": 1,
+          "column_span": 1
+        },
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c14",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": [
+              514.5792,
+              204.45349999999996,
+              558.36021,
+              219.45550000000003
+            ],
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "국내외 법/규제의 변화",
+            "char_start": 0,
+            "char_end": 12
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "derived_from_native_cells",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 4,
+          "column_number": 1,
+          "row_span": 1,
+          "column_span": 1
+        },
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c15",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": null,
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "- 탄소중립 및 재생에너지 전환 추진 - LCA 시스템 구축 - 연결기준 온실가스 배출량 관리",
+            "char_start": 0,
+            "char_end": 52
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "vision_only",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 4,
+          "column_number": 2,
+          "row_span": 1,
+          "column_span": 1
+        },
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c16",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": null,
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "- Scope 3 산정 체계 고도화 및 관리 대상 확대 - 제품 탄소발자국 저감 위한 파트너사와의 협력 활동 강화",
+            "char_start": 0,
+            "char_end": 63
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "vision_only",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 4,
+          "column_number": 3,
+          "row_span": 1,
+          "column_span": 1
+        },
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c17",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": null,
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "법/규제 미준수로 인한 제재 및 소송",
+            "char_start": 0,
+            "char_end": 20
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "vision_only",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 5,
+          "column_number": 1,
+          "row_span": 1,
+          "column_span": 1
+        },
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c18",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": [
+              572.8245,
+              183.3492,
+              670.0873799999999,
+              189.8492
+            ],
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "- 글로벌 규제 모니터링 및 대응방안 수립",
+            "char_start": 0,
+            "char_end": 23
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "derived_from_native_cells",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 5,
+          "column_number": 2,
+          "row_span": 1,
+          "column_span": 1
+        },
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c19",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": [
+              689.0445,
+              183.3492,
+              797.0077319999999,
+              189.8492
+            ],
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "- 기후변화 거버넌스 및 리스크 관리체계 강화",
+            "char_start": 0,
+            "char_end": 25
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "derived_from_native_cells",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 5,
+          "column_number": 3,
+          "row_span": 1,
+          "column_span": 1
+        },
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c20",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": null,
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "저탄소",
+            "char_start": 0,
+            "char_end": 3
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "vision_only",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 6,
+          "column_number": 1,
+          "row_span": 1,
+          "column_span": 1
+        },
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c21",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": null,
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "- 기술",
+            "char_start": 0,
+            "char_end": 4
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "vision_only",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 6,
+          "column_number": 2,
+          "row_span": 1,
+          "column_span": 1
+        },
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c22",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": null,
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "저탄소화,",
+            "char_start": 0,
+            "char_end": 5
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "vision_only",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 6,
+          "column_number": 3,
+          "row_span": 1,
+          "column_span": 1
+        },
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c23",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": null,
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "제품/서비스 개발 저탄소 제품/ 서비스에 대한 선호도 대응 미흡",
+            "char_start": 0,
+            "char_end": 35
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "vision_only",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 7,
+          "column_number": 1,
+          "row_span": 1,
+          "column_span": 1
+        },
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c24",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": null,
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "제품 저탄소화, 고효율화 투자",
+            "char_start": 0,
+            "char_end": 16
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "vision_only",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 7,
+          "column_number": 2,
+          "row_span": 1,
+          "column_span": 1
+        },
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c25",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": null,
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "- 제품 고효율화 기술 투자 확대 - 고객 및 시장 요구사항 파악 및 선제적 대응 지속",
+            "char_start": 0,
+            "char_end": 48
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "vision_only",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 7,
+          "column_number": 3,
+          "row_span": 1,
+          "column_span": 1
+        },
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c26",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": null,
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "기회",
+            "char_start": 0,
+            "char_end": 2
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "vision_only",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 8,
+          "column_number": 0,
+          "row_span": 4,
+          "column_span": 1
+        },
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c27",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": null,
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "고객 탄소 저감 생산 공정",
+            "char_start": 0,
+            "char_end": 14
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "vision_only",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 8,
+          "column_number": 1,
+          "row_span": 1,
+          "column_span": 1
+        },
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c28",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": null,
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "- LCA 시스템 구축 및 재생에너지 사용 확대 - 연도별 전기, LNG 사용량 절감 목표 이행 - 노후 설비 교체, 운전효율 향상 등 절감 과제 수행 - 공정 물류 시뮬레이션을 통한 생산 효율 최적화",
+            "char_start": 0,
+            "char_end": 112
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "vision_only",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 8,
+          "column_number": 2,
+          "row_span": 1,
+          "column_span": 1
+        },
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c29",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": null,
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "- 스마트팩토리와 연동한 사업장 에너지 관리시스템 고도화",
+            "char_start": 0,
+            "char_end": 31
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "vision_only",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 8,
+          "column_number": 3,
+          "row_span": 1,
+          "column_span": 1
+        },
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c30",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": null,
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "전환",
+            "char_start": 0,
+            "char_end": 2
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "vision_only",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 9,
+          "column_number": 1,
+          "row_span": 1,
+          "column_span": 1
+        },
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c31",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": [
+              572.7433799999999,
+              81.7733,
+              671.6043239999999,
+              88.2733
+            ],
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "- 자동화를 통한 공정 내 물류·면적 최적화",
+            "char_start": 0,
+            "char_end": 24
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "derived_from_native_cells",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 9,
+          "column_number": 2,
+          "row_span": 1,
+          "column_span": 1
+        },
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c32",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": null,
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "",
+            "char_start": 0,
+            "char_end": 0
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "vision_only",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 9,
+          "column_number": 3,
+          "row_span": 1,
+          "column_span": 1
+        },
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c33",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": null,
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "제품/자원의 재활용 및 재이용",
+            "char_start": 0,
+            "char_end": 16
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "vision_only",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 10,
+          "column_number": 1,
+          "row_span": 1,
+          "column_span": 1
+        },
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c34",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": null,
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "- 핵심 원재료 재활용 비율 확대 - RE100 가입 및 ‘50년 100% 전환 목표 선언 - 환경 경영 전략과제 운영",
+            "char_start": 0,
+            "char_end": 66
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "vision_only",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 10,
+          "column_number": 2,
+          "row_span": 1,
+          "column_span": 1
+        },
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c35",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": null,
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "- 재활용 소재 회수율 향상 기술 지속 개발 PPA 확대",
+            "char_start": 0,
+            "char_end": 31
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "vision_only",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 10,
+          "column_number": 3,
+          "row_span": 1,
+          "column_span": 1
+        },
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c36",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": [
+              514.5792,
+              36.73509999999999,
+              551.9711000000001,
+              43.23509999999999
+            ],
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "생산 비용 절감",
+            "char_start": 0,
+            "char_end": 8
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "derived_from_native_cells",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 11,
+          "column_number": 1,
+          "row_span": 1,
+          "column_span": 1
+        },
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c37",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": null,
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "- 에너지 사용량 감축 및 에너지 효율 향상 기술 도입",
+            "char_start": 0,
+            "char_end": 30
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "vision_only",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 11,
+          "column_number": 2,
+          "row_span": 1,
+          "column_span": 1
+        },
+        {
+          "kind": "table_cell",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18-c38",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": null,
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "- - 에너지 효율 향상 기술 투자 확대",
+            "char_start": 0,
+            "char_end": 22
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "vision_only",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": "up-standard-0-18",
+          "row_number": 11,
+          "column_number": 3,
+          "row_span": 1,
+          "column_span": 1
+        },
+        {
+          "kind": "table",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "40be4b6c-f423-4c92-bed1-ef5dc63d430e",
+            "source_native_id": "up-standard-0-18",
+            "physical_page": 3,
+            "printed_page_label": null,
+            "native_bbox": [
+              490.693896,
+              14.853539800000021,
+              803.0220660000001,
+              282.2739491
+            ],
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "기후 관련 위험 및 기회\t\t현재 조치\t향후 계획\n물리 위험\t태풍\t- 주요 구조물 점검 및 보수, 재난 보험 가입\t- 시설 안정성 강화\n\t가뭄\t- 용수 재이용 확대 및 취수량 절감\t- 신규 사업장 검토 시 관련 위험 고려\n전환 위험\t탄소 가격 상승\t- 직접 배출량 감축 전략 수립 및 실행\t- 온실가스 배출 관리 강화\n\t국내외 법/규제의 변화\t- 탄소중립 및 재생에너지 전환 추진 - LCA 시스템 구축 - 연결기준 온실가스 배출량 관리\t- Scope 3 산정 체계 고도화 및 관리 대상 확대 - 제품 탄소발자국 저감 위한 파트너사와의 협력 활동 강화\n\t법/규제 미준수로 인한 제재 및 소송\t- 글로벌 규제 모니터링 및 대응방안 수립\t- 기후변화 거버넌스 및 리스크 관리체계 강화\n\t저탄소\t- 기술\t저탄소화,\n\t제품/서비스 개발 저탄소 제품/ 서비스에 대한 선호도 대응 미흡\t제품 저탄소화, 고효율화 투자\t- 제품 고효율화 기술 투자 확대 - 고객 및 시장 요구사항 파악 및 선제적 대응 지속\n기회\t고객 탄소 저감 생산 공정\t- LCA 시스템 구축 및 재생에너지 사용 확대 - 연도별 전기, LNG 사용량 절감 목표 이행 - 노후 설비 교체, 운전효율 향상 등 절감 과제 수행 - 공정 물류 시뮬레이션을 통한 생산 효율 최적화\t- 스마트팩토리와 연동한 사업장 에너지 관리시스템 고도화\n\t전환\t- 자동화를 통한 공정 내 물류·면적 최적화\t\n\t제품/자원의 재활용 및 재이용\t- 핵심 원재료 재활용 비율 확대 - RE100 가입 및 ‘50년 100% 전환 목표 선언 - 환경 경영 전략과제 운영\t- 재활용 소재 회수율 향상 기술 지속 개발 PPA 확대\n\t생산 비용 절감\t- 에너지 사용량 감축 및 에너지 효율 향상 기술 도입\t- - 에너지 효율 향상 기술 투자 확대",
+            "char_start": 0,
+            "char_end": 872
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=완화 및 적응을 위한 현재 조치 및 향후 계획",
+            "provider_bbox=490.694,284.655,803.022,552.075",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "provider_declared_grid_region",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": null,
+          "row_number": null,
+          "column_number": null,
+          "row_span": null,
+          "column_span": null
+        }
+      ],
+      "edges": [
+        {
+          "source_native_id": "up-standard-0-18-c0",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        },
+        {
+          "source_native_id": "up-standard-0-18-c1",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        },
+        {
+          "source_native_id": "up-standard-0-18-c2",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        },
+        {
+          "source_native_id": "up-standard-0-18-c3",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        },
+        {
+          "source_native_id": "up-standard-0-18-c4",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        },
+        {
+          "source_native_id": "up-standard-0-18-c5",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        },
+        {
+          "source_native_id": "up-standard-0-18-c6",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        },
+        {
+          "source_native_id": "up-standard-0-18-c7",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        },
+        {
+          "source_native_id": "up-standard-0-18-c8",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        },
+        {
+          "source_native_id": "up-standard-0-18-c9",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        },
+        {
+          "source_native_id": "up-standard-0-18-c10",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        },
+        {
+          "source_native_id": "up-standard-0-18-c11",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        },
+        {
+          "source_native_id": "up-standard-0-18-c12",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        },
+        {
+          "source_native_id": "up-standard-0-18-c13",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        },
+        {
+          "source_native_id": "up-standard-0-18-c14",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        },
+        {
+          "source_native_id": "up-standard-0-18-c15",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        },
+        {
+          "source_native_id": "up-standard-0-18-c16",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        },
+        {
+          "source_native_id": "up-standard-0-18-c17",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        },
+        {
+          "source_native_id": "up-standard-0-18-c18",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        },
+        {
+          "source_native_id": "up-standard-0-18-c19",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        },
+        {
+          "source_native_id": "up-standard-0-18-c20",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        },
+        {
+          "source_native_id": "up-standard-0-18-c21",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        },
+        {
+          "source_native_id": "up-standard-0-18-c22",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        },
+        {
+          "source_native_id": "up-standard-0-18-c23",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        },
+        {
+          "source_native_id": "up-standard-0-18-c24",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        },
+        {
+          "source_native_id": "up-standard-0-18-c25",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        },
+        {
+          "source_native_id": "up-standard-0-18-c26",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        },
+        {
+          "source_native_id": "up-standard-0-18-c27",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        },
+        {
+          "source_native_id": "up-standard-0-18-c28",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        },
+        {
+          "source_native_id": "up-standard-0-18-c29",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        },
+        {
+          "source_native_id": "up-standard-0-18-c30",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        },
+        {
+          "source_native_id": "up-standard-0-18-c31",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        },
+        {
+          "source_native_id": "up-standard-0-18-c32",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        },
+        {
+          "source_native_id": "up-standard-0-18-c33",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        },
+        {
+          "source_native_id": "up-standard-0-18-c34",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        },
+        {
+          "source_native_id": "up-standard-0-18-c35",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        },
+        {
+          "source_native_id": "up-standard-0-18-c36",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        },
+        {
+          "source_native_id": "up-standard-0-18-c37",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        },
+        {
+          "source_native_id": "up-standard-0-18-c38",
+          "target_native_id": "up-standard-0-18",
+          "relation": "table_parent"
+        }
+      ],
+      "synthetic": false
+    },
+    {
+      "tenant_id": "d1b9e025-a759-4d28-8713-cbb5940ec89b",
+      "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+      "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+      "source_sha256": "271eed3a9fa3599555e488fb21fd3193f94364fba6b16cafcf84d52dd9e54a20",
+      "parser_run_id": "f205b2d3-4f48-4393-8e6a-42411a768c13",
+      "parser_name": "upstage_async_standard",
+      "parser_version": "document-parse-260128",
+      "parser_family": "upstage-document-parse",
+      "config_hash": "97555dcfb13eb909664e58994b5ffede212230b92211a887655b212759e59ef0",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "source": {
+            "document_version_id": "01156f7a-54cb-4ee8-924d-f7090674beba",
+            "parse_manifest_id": "a2409e53-1dbe-59d1-873a-30dabea07a4b",
+            "parser_run_id": "f205b2d3-4f48-4393-8e6a-42411a768c13",
+            "source_native_id": "up-standard-0-17",
+            "physical_page": 1,
+            "printed_page_label": null,
+            "native_bbox": [
+              147.7191162109375,
+              82.68280029296875,
+              381.0521545410156,
+              91.1697998046875
+            ],
+            "native_coordinate_system": "pdf_bottom_left_points",
+            "raw_text": "2050년 탄소중립 달성과 자원순환 확대를 위해 노력하고 있습니다.",
+            "char_start": 0,
+            "char_end": 37
+          },
+          "geometry": {
+            "width_pt": 836.22,
+            "height_pt": 566.929,
+            "rotation": 0,
+            "crop_box": [
+              0.0,
+              0.0,
+              836.22,
+              566.929
+            ]
+          },
+          "context": [
+            "section=삼성SDI 대표이사 최 주 선",
+            "provider_bbox=146.506,482.967,382.571,493.795",
+            "pb1_table_claims",
+            "pb1-w9-v1",
+            "native_char_start=1106",
+            "native_char_end=1136",
+            "native_glyph_ink_box",
+            "mixed_parser_name=upstage_async_standard",
+            "mixed_parser_version=document-parse-260128"
+          ],
+          "parser_bbox": null,
+          "parser_coordinate_system": "pdf_bottom_left_points",
+          "parser_to_canonical": null,
+          "table_native_id": null,
+          "row_number": null,
+          "column_number": null,
+          "row_span": null,
+          "column_span": null
+        }
+      ],
+      "edges": [],
+      "synthetic": false
+    }
+  ],
+  "fusion_version": 5,
+  "source_sha256": "271eed3a9fa3599555e488fb21fd3193f94364fba6b16cafcf84d52dd9e54a20",
+  "manifest_sha256": "718f19089d9d7d23be631019f1ff167b06218b2d677e507dd52912165d63abf6",
+  "bad_source_id": "5045a7f6-c62a-5880-b319-c3db047abece",
+  "good_source_id": "1955201a-36f3-57bd-9ac4-f2f5d0b8ab78",
+  "original_page": 34,
+  "results": {
+    "5045a7f6-c62a-5880-b319-c3db047abece": [
+      {
+        "char_end": 99,
+        "char_start": 79,
+        "kind": "claim",
+        "quote": "- 용수 재이용 확대 및 취수량 절감",
+        "reason": null,
+        "topic_ids": [
+          "environment"
+        ]
+      },
+      {
+        "char_end": 160,
+        "char_start": 138,
+        "kind": "claim",
+        "quote": "- 직접 배출량 감축 전략 수립 및 실행",
+        "reason": null,
+        "topic_ids": [
+          "environment"
+        ]
+      },
+      {
+        "char_end": 176,
+        "char_start": 161,
+        "kind": "claim",
+        "quote": "- 온실가스 배출 관리 강화",
+        "reason": null,
+        "topic_ids": [
+          "environment"
+        ]
+      },
+      {
+        "char_end": 243,
+        "char_start": 191,
+        "kind": "claim",
+        "quote": "- 탄소중립 및 재생에너지 전환 추진 - LCA 시스템 구축 - 연결기준 온실가스 배출량 관리",
+        "reason": null,
+        "topic_ids": [
+          "environment"
+        ]
+      },
+      {
+        "char_end": 307,
+        "char_start": 244,
+        "kind": "claim",
+        "quote": "- Scope 3 산정 체계 고도화 및 관리 대상 확대 - 제품 탄소발자국 저감 위한 파트너사와의 협력 활동 강화",
+        "reason": null,
+        "topic_ids": [
+          "environment"
+        ]
+      },
+      {
+        "char_end": 629,
+        "char_start": 517,
+        "kind": "claim",
+        "quote": "- LCA 시스템 구축 및 재생에너지 사용 확대 - 연도별 전기, LNG 사용량 절감 목표 이행 - 노후 설비 교체, 운전효율 향상 등 절감 과제 수행 - 공정 물류 시뮬레이션을 통한 생산 효율 최적화",
+        "reason": null,
+        "topic_ids": [
+          "environment"
+        ]
+      },
+      {
+        "char_end": 661,
+        "char_start": 630,
+        "kind": "claim",
+        "quote": "- 스마트팩토리와 연동한 사업장 에너지 관리시스템 고도화",
+        "reason": null,
+        "topic_ids": [
+          "environment"
+        ]
+      }
+    ],
+    "1955201a-36f3-57bd-9ac4-f2f5d0b8ab78": [
+      {
+        "char_end": 37,
+        "char_start": 0,
+        "kind": "claim",
+        "quote": "2050년 탄소중립 달성과 자원순환 확대를 위해 노력하고 있습니다.",
+        "reason": null,
+        "topic_ids": [
+          "environment"
+        ]
+      }
+    ]
+  }
+}

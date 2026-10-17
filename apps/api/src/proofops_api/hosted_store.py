@@ -1608,8 +1608,8 @@ class HostedStore:
                 and provider == "openai"
                 and isinstance(exc, OpenAITransient403)
             )
-            model_network_failure = provider in {"openai", "openrouter"} and isinstance(
-                exc, OSError
+            model_network_failure = provider in {"openai", "openrouter"} and (
+                isinstance(exc, OSError) or limit_code == "PROCESSING_UNCERTAIN"
             )
             isolated_model_failure = (
                 allow_model_partial is True
