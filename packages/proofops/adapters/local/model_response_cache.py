@@ -11,6 +11,7 @@ import sqlite3
 import time
 from pathlib import Path
 
+from proofops.adapters.local.sqlite_busy import connection
 from proofops.domain.provenance import canonical_hash
 
 
@@ -18,7 +19,7 @@ class ModelResponseCache:
     def __init__(self, path):
         self.path = Path(path)
         self.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-        with sqlite3.connect(self.path, timeout=30) as db:
+        with connection(self.path) as db:
             db.execute(
                 "CREATE TABLE IF NOT EXISTS model_responses_v1 ("
                 "key TEXT PRIMARY KEY, ledger TEXT NOT NULL, request_id TEXT NOT NULL, "
@@ -39,8 +40,7 @@ class ModelResponseCache:
     def claim(self, key, ledger, request_id):
         deadline = time.monotonic() + 30
         while True:
-            with sqlite3.connect(self.path, timeout=30) as db:
-                db.execute("BEGIN IMMEDIATE")
+            with connection(self.path) as db:
                 row = db.execute(
                     "SELECT ledger,request_id,payload,sha256 FROM model_responses_v1 WHERE key=?",
                     (key,),
@@ -78,7 +78,7 @@ class ModelResponseCache:
             else:
                 # Retained local experiment rows created before origin-copy
                 # publication remain verifiable against their original ledgers.
-                with sqlite3.connect(Path(ledger).as_uri() + "?mode=ro", uri=True) as db:
+                with connection(Path(ledger).as_uri() + "?mode=ro", uri=True, readonly=True) as db:
                     original = db.execute(
                         "SELECT committed,receipt,signature FROM probe_calls WHERE request_id=?",
                         (request_id,),
@@ -109,7 +109,7 @@ class ModelResponseCache:
             raise ValueError("MODEL_RESPONSE_CACHE_INVALID") from None
 
     def publish(self, key, result):
-        with sqlite3.connect(self.path, timeout=30) as db:
+        with connection(self.path, readonly=True) as db:
             row = db.execute(
                 "SELECT ledger,request_id FROM model_responses_v1 WHERE key=? AND payload IS NULL",
                 (key,),
@@ -139,7 +139,7 @@ class ModelResponseCache:
             json.dump(origin, stream, sort_keys=True)
             stream.flush()
             os.fsync(stream.fileno())
-        with sqlite3.connect(self.path, timeout=30) as db:
+        with connection(self.path) as db:
             changed = db.execute(
                 "UPDATE model_responses_v1 SET ledger=?,payload=?,sha256=? "
                 "WHERE key=? AND payload IS NULL",
@@ -154,12 +154,12 @@ class ModelResponseCache:
                 raise ValueError("MODEL_RESPONSE_CACHE_INVALID")
 
     def release_unsent_or_invalid(self, key, ledger, request_id):
-        with sqlite3.connect(ledger, timeout=30) as db:
+        with connection(ledger, readonly=True) as db:
             row = db.execute(
                 "SELECT receipt FROM probe_calls WHERE request_id=?", (request_id,)
             ).fetchone()
         # No provider reservation, or a known settled schema failure: no reusable
         # result. An unfinished reservation keeps its dispatch fence indefinitely.
         if row is None or (row[0] is not None and json.loads(row[0]).get("schema_valid") is False):
-            with sqlite3.connect(self.path, timeout=30) as db:
+            with connection(self.path) as db:
                 db.execute("DELETE FROM model_responses_v1 WHERE key=? AND payload IS NULL", (key,))

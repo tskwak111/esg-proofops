@@ -222,6 +222,7 @@ class HostedReads:
                         "error_message",
                         "claims_extracted",
                         "claims_processed",
+                        "claim_stage_counts",
                         "queue_position",
                     )
                     items.append(

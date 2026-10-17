@@ -426,6 +426,7 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
     stage_seconds = {}
     extraction_stop = None
     processed_claims = set()
+    stage_claims = {stage: set() for stage in ("preliminary", "relation", "elements")}
     progress_lock = threading.Lock()
 
     def claim_progress(claim_id, total):
@@ -433,6 +434,17 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
             processed_claims.add(claim_id)
             store.update_progress(
                 job, "tag", 75, claims_extracted=total, claims_processed=len(processed_claims)
+            )
+
+    def claim_stage_progress(claim_id, total, stage):
+        with progress_lock:
+            stage_claims[stage].add(claim_id)
+            store.update_progress(
+                job,
+                "tag",
+                75,
+                claims_extracted=total,
+                claim_stage_counts={key: len(value) for key, value in stage_claims.items()},
             )
 
     if execution.get("model_response_policy"):
@@ -540,6 +552,7 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
                 provider_factories=factories,
                 provider_ledgers=(upstage_ledger, luna_ledger),
                 claim_progress=claim_progress,
+                claim_stage_progress=claim_stage_progress,
             )
             if deadline is not None:
                 worker.rb3_deadline = deadline

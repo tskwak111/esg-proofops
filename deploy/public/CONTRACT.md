@@ -817,3 +817,31 @@ normalizes whitespace only. Unverified claims show “위치 미확인”. Hold 
 and short Korean per-claim reasons are display projections of existing causes;
 unknown reasons remain explicitly unknown. Rollback by omitting `w18=true` and
 restoring the previous frontend; historical results require no changes.
+
+### FX4 · SQLite contention and per-claim stage progress (2026-10-17)
+
+`GET /v1/runs/{id}` and hosted run-list rows add `claim_stage_counts` with
+non-negative integer keys `preliminary`, `relation`, and `elements`. Each count is
+updated when a claim finishes that stage, before the whole claim completes.
+Counts describe processing, not confirmed evidence or grades. `claims_processed`
+continues to count terminal claims. Old clients can ignore the new field; old runs
+and reused runs without stage observations return zero for each key.
+
+The worker deduplicates claim IDs per stage; persisted counters only increase.
+Updates retain the hosted tenant/run/fence/cancellation checks and do not make a
+result available. Startup creates the additive `run_claim_stage_progress` table
+in hosted schema 1; retention purges it with the run. No existing columns or
+model schemas change. Rollback can leave the unused table in place.
+
+Preliminary state/usage, registry reads, tag cache, OpenAI receipt ledger and
+exact-response cache use short 250ms SQLite waits with a 30-second retry budget
+for BUSY/LOCKED acquisition and COMMIT (up to one final 250ms SQLite wait).
+Transaction bodies and provider calls are never replayed. Writers acquire
+IMMEDIATE before reads; failed bodies roll back. The pre-existing hosted
+control/deletion-ledger retry and HF3 heartbeat retry remain unchanged. Job fence
+checks account for lock acquisition time; a wait cannot revive an expired lease.
+Other SQLite OperationalErrors still hold the claim with the same reason code;
+its immutable tag checkpoint additionally records `sqlite_error` with an integer
+SQLite code and allowlisted message summary. SQL, paths, identifiers, credentials,
+and arbitrary exception text are not copied. Policy dictionaries, prompts, model
+schemas, wire and the v29d analysis pin remain unchanged.

@@ -24,6 +24,7 @@ from proofops.adapters.local.audit_store import (
     initialize_audit_schema,
     read_audit_head,
 )
+from proofops.adapters.local.sqlite_busy import connection
 from proofops.application.ports.jobs import JobConflict, JobLease, JobMessage, LeaseLost
 from proofops.domain.audit import ChangeSet
 from proofops.domain.provenance import canonical_hash
@@ -82,6 +83,10 @@ class LocalSQLiteJobStore:
     @contextmanager
     def _transaction(self, *, timeout=10) -> Iterator[sqlite3.Connection]:
         # ponytail: one SQLite writer; use DynamoDB transactions for distributed workers.
+        if timeout == 10:
+            with connection(self.path) as db:
+                yield db
+            return
         db = sqlite3.connect(self.path, timeout=timeout, isolation_level=None)
         try:
             db.execute("BEGIN IMMEDIATE")
@@ -354,6 +359,7 @@ class LocalSQLiteJobStore:
             return lease
 
     def _owned(self, db, lease, now) -> tuple[dict[str, Any], dict[str, Any]] | None:
+        now += int(getattr(db, "acquire_wait_seconds", 0))
         message = lease.message
         try:
             job = self._job(db, message)

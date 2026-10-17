@@ -387,6 +387,9 @@ class HostedStore:
                 run_id TEXT PRIMARY KEY, stage TEXT, progress INTEGER, result_ready INTEGER)""")
             db.execute("""CREATE TABLE IF NOT EXISTS run_claim_progress (
                 run_id TEXT PRIMARY KEY, extracted INTEGER NOT NULL, processed INTEGER NOT NULL)""")
+            db.execute("""CREATE TABLE IF NOT EXISTS run_claim_stage_progress (
+                run_id TEXT NOT NULL, stage TEXT NOT NULL, completed INTEGER NOT NULL,
+                PRIMARY KEY(run_id, stage))""")
             db.execute("""CREATE TABLE IF NOT EXISTS result_snapshots (
                 run_id TEXT, revision INTEGER, sha256 TEXT NOT NULL,
                 PRIMARY KEY(run_id,revision))""")
@@ -845,6 +848,14 @@ class HostedStore:
             "progress": progress["progress"] / 100 if progress else 0,
             "claims_extracted": counts["extracted"] if counts else 0,
             "claims_processed": counts["processed"] if counts else 0,
+            "claim_stage_counts": {"preliminary": 0, "relation": 0, "elements": 0}
+            | {
+                stage: completed
+                for stage, completed in db.execute(
+                    "SELECT stage,completed FROM run_claim_stage_progress WHERE run_id=?",
+                    (row["run_id"],),
+                )
+            },
             "queue_position": queue if row["status"] == "queued" else None,
             "user_active_count": user_counts[0],
             "user_processing_count": user_counts[1],
@@ -1768,7 +1779,14 @@ class HostedStore:
         *,
         claims_extracted: int | None = None,
         claims_processed: int | None = None,
+        claim_stage_counts: dict[str, int] | None = None,
     ) -> None:
+        if claim_stage_counts is not None and (
+            not isinstance(claim_stage_counts, dict)
+            or set(claim_stage_counts) - {"preliminary", "relation", "elements"}
+            or any(type(count) is not int or count < 0 for count in claim_stage_counts.values())
+        ):
+            raise ValueError("invalid claim stage progress")
         for count in (claims_extracted, claims_processed):
             if count is not None and (type(count) is not int or count < 0):
                 raise ValueError("invalid claim progress")
@@ -1790,6 +1808,12 @@ class HostedStore:
                     "DO UPDATE SET extracted=max(extracted,excluded.extracted),"
                     "processed=max(processed,excluded.processed)",
                     (job["run_id"], claims_extracted or 0, claims_processed or 0),
+                )
+            for claim_stage, completed in (claim_stage_counts or {}).items():
+                db.execute(
+                    "INSERT INTO run_claim_stage_progress VALUES (?,?,?) ON CONFLICT(run_id,stage) "
+                    "DO UPDATE SET completed=max(completed,excluded.completed)",
+                    (job["run_id"], claim_stage, completed),
                 )
 
     def publish_analysis(
@@ -2014,6 +2038,7 @@ class HostedStore:
                     self._settle_envelope(db, run[0])
                     db.execute("DELETE FROM run_progress WHERE run_id=?", (run[0],))
                     db.execute("DELETE FROM run_claim_progress WHERE run_id=?", (run[0],))
+                    db.execute("DELETE FROM run_claim_stage_progress WHERE run_id=?", (run[0],))
                     db.execute("DELETE FROM result_snapshots WHERE run_id=?", (run[0],))
                 db.execute(
                     "DELETE FROM document_owners WHERE tenant_id=? AND document_id=?",
