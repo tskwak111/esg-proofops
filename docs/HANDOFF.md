@@ -1,6 +1,7 @@
 # ESG ProofOps 개발 인수인계 — finals v29d + FX4
 
-2026-10-17 코드 기준: 백엔드 `fa02cb3e`(v29d + FX4), 웹 `5d314a7`. 공개 release는 이 스냅샷에서
+2026-10-17 코드 기준: 백엔드 `c3b42b02`(v29d + FX4), 웹 `5d314a7`.
+읽기 snapshot은 `PRAGMA schema_version`으로 고정한다. 공개 release는 이 스냅샷에서
 비공개 자료를 제외한 별도 커밋이다. 서버 접속·배포·새 모델 호출 없이 작성했다.
 
 ## 제품과 실행 경계

@@ -57,7 +57,8 @@ def connection(path, *, readonly=False, uri=False):
             try:
                 db.execute("BEGIN" if readonly else "BEGIN IMMEDIATE")
                 if readonly:
-                    db.execute("SELECT rootpage FROM sqlite_master LIMIT 1").fetchall()
+                    # Reading the schema cookie pins the snapshot without a data SELECT.
+                    db.execute("PRAGMA schema_version").fetchall()
             except BaseException:
                 db.rollback()
                 raise
