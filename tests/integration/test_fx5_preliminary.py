@@ -395,6 +395,7 @@ def test_duplicate_refs_do_not_authorize_a_repeated_claim_quote():
 
 def test_duplicate_cannot_hide_out_of_bounds_candidate_span():
     from proofops.domain.errors import DomainValidationError
+
     from tests.unit.test_k5_context import case
 
     graph, claim = case(["literal whole block"], (0, "literal whole block"), quality="unverified")
