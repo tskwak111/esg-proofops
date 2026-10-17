@@ -100,9 +100,11 @@ def test_event_ceiling_requires_explicit_env_setting_and_keeps_run_day_caps(sett
         env | {"HOSTED_EVENT_USD": "15", "HOSTED_EVENT_USD_CEILING": "15"}
     )
     assert approved.event_usd == approved.event_usd_ceiling == 15
+    daily = HostedSettings.from_env(env | {"HOSTED_DAY_USD": "15"})
+    assert daily.day_usd == 15
     for change in (
         {"HOSTED_RUN_USD": "1.01"},
-        {"HOSTED_DAY_USD": "7.01"},
+        {"HOSTED_DAY_USD": "15.01"},
         {"HOSTED_EVENT_USD": "15.000001"},
         {"HOSTED_EVENT_USD_CEILING": "NaN"},
     ):
