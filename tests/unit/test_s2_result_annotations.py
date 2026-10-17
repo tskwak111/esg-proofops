@@ -10,6 +10,8 @@ from proofops.application.analysis_profile import (
     FINALS_I28_POLICY,
     FINALS_I29_POLICY,
     FINALS_I29B_POLICY,
+    FINALS_I30_POLICY,
+    FINALS_I31_POLICY,
     S2_POLICY,
 )
 from proofops.domain.provenance import canonical_hash
@@ -21,7 +23,15 @@ from tests.unit.test_pb1_source import fixture
 
 @pytest.mark.parametrize(
     "policy",
-    [S2_POLICY, FINALS_I27_POLICY, FINALS_I28_POLICY, FINALS_I29_POLICY, FINALS_I29B_POLICY],
+    [
+        S2_POLICY,
+        FINALS_I27_POLICY,
+        FINALS_I28_POLICY,
+        FINALS_I29_POLICY,
+        FINALS_I29B_POLICY,
+        FINALS_I30_POLICY,
+        FINALS_I31_POLICY,
+    ],
 )
 def test_result_keeps_occurrence_metadata_with_legacy_facade(tmp_path, monkeypatch, policy):
     graph, source, ref = fixture()

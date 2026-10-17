@@ -29,11 +29,12 @@ def test_upload_150_mib_streams_to_private_file(settings, monkeypatch):
     observed = []
     original = store.upload_file
 
-    def capture(auth, path, key, *, now):
+    def capture(auth, path, key, *, now, ux1_metadata=None):
         assert isinstance(path, Path) and path.is_file()
         assert path.stat().st_mode & 0o077 == 0
+        assert ux1_metadata is None
         observed.append(path)
-        return original(auth, path, key, now=now)
+        return original(auth, path, key, now=now, ux1_metadata=ux1_metadata)
 
     monkeypatch.setattr(store, "upload_file", capture)
     content = pdf() + b"\n%" + b"x" * (51 * 1024 * 1024)

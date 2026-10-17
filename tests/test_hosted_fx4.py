@@ -166,3 +166,32 @@ def test_extraction_stop_still_tags_claims_and_reports_live_counts(settings, mon
     assert len(result["claims"]) == 2
     assert any(row["claims_processed"] == 1 and row["result_url"] is None for row in observed)
     assert any(row["stage"] == "result" and row["progress"] == 0.95 for row in observed)
+
+
+def test_claim_stage_counts_are_additive_monotonic_durable_and_fenced(settings):
+    store, auth, job = job_setup(settings)
+    before = store.get_run(auth.tenant_id, job["run_id"])
+    assert before["claim_stage_counts"] == {"preliminary": 0, "relation": 0, "elements": 0}
+    store.update_progress(
+        job, "tag", 75, claims_extracted=51, claim_stage_counts={"preliminary": 12}
+    )
+    store.update_progress(job, "tag", 75, claim_stage_counts={"preliminary": 11, "relation": 3})
+    run = HostedStore(settings).get_run(auth.tenant_id, job["run_id"])
+    assert run["claim_stage_counts"] == {"preliminary": 12, "relation": 3, "elements": 0}
+    assert run["claims_processed"] == 0 and run["result_url"] is None
+    for invalid in ({"private": 1}, {"preliminary": True}, {"elements": -1}):
+        with pytest.raises(ValueError, match="invalid claim stage progress"):
+            store.update_progress(job, "tag", 75, claim_stage_counts=invalid)
+    store.cancel(auth, job["run_id"], now=time.time())
+    with pytest.raises(HostedError, match="LEASE_LOST"):
+        store.update_progress(job, "tag", 75, claim_stage_counts={"elements": 10})
+
+
+def test_claim_stage_counts_follow_retention_purge(settings):
+    import sqlite3
+
+    store, auth, job = job_setup(settings)
+    store.update_progress(job, "tag", 75, claim_stage_counts={"preliminary": 1})
+    store.delete_document(auth, job["document_id"], "fx4-count-purge-key", now=time.time())
+    with sqlite3.connect(store.path) as db:
+        assert db.execute("SELECT * FROM run_claim_stage_progress").fetchall() == []

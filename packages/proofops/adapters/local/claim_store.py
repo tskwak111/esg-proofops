@@ -83,6 +83,17 @@ class LocalClaimStore:
         return deepcopy(self._read_compatibility.get())
 
     def load_evidence(self, tenant_id, run_id, *, for_extraction=False):
+        from proofops.adapters.local.spg_verified_evidence import read_evidence
+
+        return read_evidence(
+            self,
+            tenant_id,
+            run_id,
+            for_extraction=for_extraction,
+            cold=lambda: self._load_evidence(tenant_id, run_id, for_extraction=for_extraction),
+        )
+
+    def _load_evidence(self, tenant_id, run_id, *, for_extraction=False):
         """Replay once; extraction reuses the parse graph without claim-span annotations.
 
         The default graph retains verified claim spans for evidence consumers. The

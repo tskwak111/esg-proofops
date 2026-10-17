@@ -93,6 +93,11 @@ def _locates_auxiliary_cells(profile):
     )
     if policy_hash is None:
         return False
+    from proofops.adapters.parsing import spp_execution
+
+    if spp_execution.enabled(profile):
+        spp_execution.table_verifier(policy_hash)
+        return True
     from proofops.adapters.local import selected_cell_table_verification as selected
     from proofops.adapters.local.claim_source_policies import page_ocr_profile
 
@@ -436,10 +441,28 @@ class OpenDataLoaderParser(ParserPort):
             )
             env = _child_environment(java, work, profile)
             command = [sys.executable, "-I", str(Path(__file__).resolve()), str(work)]
+            from proofops.adapters.parsing import spp_execution
+
+            spp_requests = None
+            if spp_execution.enabled(profile):
+                if profile.parser_mode == "mixed-v1":
+                    if self.upstage_probe is None:
+                        raise ParseFailure("UPSTAGE_RUNTIME_REQUIRED")
+                    spp_requests = spp_execution.PageRequests(
+                        source,
+                        profile,
+                        selected,
+                        self.artifact_root / "upstage-cache" / tenant_id,
+                        self.upstage_probe,
+                    )
             if profile.local_resource_policy in {"selected-pdf-h6-v1", "selected-pdf-h6-v2"}:
                 execute = _local_pages(profile).execute
-
-                execute(command, work, env, profile, self._execute)
+                if spp_requests is not None:
+                    spp_requests.execute_local(
+                        lambda: execute(command, work, env, profile, self._execute)
+                    )
+                else:
+                    execute(command, work, env, profile, self._execute)
             else:
                 self._execute(command, work, env, profile)
             try:
@@ -560,7 +583,7 @@ class OpenDataLoaderParser(ParserPort):
                             profile,
                             selected,
                             candidates,
-                            upstage_call,
+                            spp_requests if spp_requests is not None else upstage_call,
                             config_hash=profile_hash,
                             claim_layout=profile.failure_policy in {"partial-v6", "s3_partial-v7"},
                             page_workers=4 if profile.failure_policy == "s3_partial-v7" else 1,
@@ -908,7 +931,7 @@ class OpenDataLoaderParser(ParserPort):
                 (work / "upstage.json").write_bytes(_json(upstage_output))
             returned_graph = graph
             if profile.table_source_policy_sha256 is not None:
-                verifier = _table_verifier(profile.table_source_policy_sha256)
+                verifier = _profile_table_verifier(profile)
                 if getattr(verifier, "PROFILE", None) in PAGE_OCR_PROFILES:
                     if page_reader is None:
                         raise ParseFailure("OCR_RUN_REQUIRED")
@@ -1437,7 +1460,7 @@ class OpenDataLoaderParser(ParserPort):
             ]:
                 raise ValueError("parser run mismatch")
             if profile.table_source_policy_sha256 is not None:
-                verifier = _table_verifier(profile.table_source_policy_sha256)
+                verifier = _profile_table_verifier(profile)
                 from proofops.adapters.local import s3_table_replay as parse_table_cache
                 from proofops.adapters.local.receipt_environment_compat import (
                     record_table_read,
@@ -1627,7 +1650,27 @@ def _child_environment(java: str, work: Path, profile) -> dict[str, str]:
     }
 
 
+def _profile_table_verifier(profile):
+    from proofops.adapters.parsing import spp_execution
+
+    if spp_execution.enabled(profile):
+        return spp_execution.table_verifier(profile.table_source_policy_sha256)
+    return _table_verifier(profile.table_source_policy_sha256)
+
+
 def _child(work: Path) -> None:
+    from proofops.adapters.parsing import spp_execution
+
+    profile = json.loads((work / "request.json").read_bytes())["profile"]
+    cache = spp_execution.LocalPageCache() if spp_execution.enabled(profile) else None
+    try:
+        _child_body(work, cache)
+    finally:
+        if cache is not None:
+            cache.close()
+
+
+def _child_body(work: Path, page_cache=None) -> None:
     from pypdf import PdfReader
 
     request = json.loads((work / "request.json").read_bytes())
@@ -1640,6 +1683,7 @@ def _child(work: Path) -> None:
     if reader.is_encrypted and not reader.decrypt(""):
         raise ParseFailure("PDF_PASSWORD_REQUIRED")
     geometries = {}
+    page_labels = reader.page_labels if page_cache is not None else None
     for number in selected:
         page = reader.pages[number - 1]
         rotation = int(page.rotation) % 360
@@ -1654,7 +1698,7 @@ def _child(work: Path) -> None:
         geometries[str(number)] = dict(
             crop=box_geometry(page.cropbox),
             media=box_geometry(page.mediabox),
-            printed_page_label=reader.page_labels[number - 1],
+            printed_page_label=(page_labels or reader.page_labels)[number - 1],
         )
     (work / "geometry.json").write_bytes(_json(geometries))
     import opendataloader_pdf
@@ -1724,7 +1768,8 @@ def _child(work: Path) -> None:
 
         # Unsupported page transforms remain untouched, never guessed.
         words_by_page = {}
-        with pdfplumber.open(input_path if h6 else work / "source.pdf") as document:
+        open_pdf = page_cache.open if page_cache is not None else pdfplumber.open
+        with open_pdf(input_path if h6 else work / "source.pdf") as document:
             for number in selected:
                 info = geometries[str(number)]
                 crop, media = info["crop"], info["media"]
@@ -1761,7 +1806,8 @@ def _child(work: Path) -> None:
         import pdfplumber
 
         nodes = []
-        with pdfplumber.open(input_path if h6 else work / "source.pdf") as document:
+        open_pdf = page_cache.open if page_cache is not None else pdfplumber.open
+        with open_pdf(input_path if h6 else work / "source.pdf") as document:
             for number in selected:
                 page = document.pages[selected.index(number) if h6 else number - 1]
                 for index, table in enumerate(page.find_tables()):
@@ -1824,7 +1870,7 @@ def _child(work: Path) -> None:
             # ink it owns; a table whose ownership is not exact stays untouched.
             words_by_page = {}
             source_pdf_bytes = (work / "source.pdf").read_bytes()
-            with pdfplumber.open(input_path if h6 else work / "source.pdf") as document:
+            with open_pdf(input_path if h6 else work / "source.pdf") as document:
                 for number in selected:
                     page = document.pages[selected.index(number) if h6 else number - 1]
                     raw_words = page.extract_words()

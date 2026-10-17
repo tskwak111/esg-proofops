@@ -322,7 +322,17 @@ def missing_evidence(
         or claim.source_sha256 != graph.source_sha256
     ):
         raise ValueError("element search claim/graph identity mismatch")
-    snapshot = claims.store.snapshot(tenant, run_id)
+    from proofops.adapters.local.spg_search_projection import put as put_search
+    from proofops.adapters.local.spg_search_projection import raw as raw_search
+
+    projection = getattr(claims, "_spg_projection", None)
+    if projection is not None and (
+        projection.graph is not graph or (projection.tenant, projection.run_id) != (tenant, run_id)
+    ):
+        raise ValueError("SPG_PROJECTION_SCOPE_MISMATCH")
+    snapshot = (
+        projection.snapshot if projection is not None else claims.store.snapshot(tenant, run_id)
+    )
     identity = dict(
         tenant_id=tenant,
         run_id=run_id,
@@ -333,9 +343,10 @@ def missing_evidence(
     )
     key = canonical_hash(identity | {"profile_sha256": SEARCH_PROFILE_HASH})
     jobs = claims.store.jobs
-    with jobs._transaction() as db:
-        raw = jobs._raw(db, tenant, run_id, "document_evidence_search", key)
-    if raw is not None:
+    raw = raw_search(jobs, tenant, run_id, "document_evidence_search", key, projection)
+    if projection is not None and projection.document is not None:
+        document = projection.document
+    elif raw is not None:
         document = json.loads(raw)
         if (
             any(document.get(k) != v for k, v in identity.items())
@@ -353,11 +364,9 @@ def missing_evidence(
             selected_pages=snapshot["selected_pages"],
             environment_pages=snapshot.get("extraction_limits", {}).get("claim_pages", ()),
         )
-        with jobs._transaction() as db:
-            if jobs._raw(db, tenant, run_id, "document_evidence_search", key) is None:
-                jobs._put(
-                    db, tenant, run_id, "document_evidence_search", key, document, immutable=True
-                )
+        put_search(jobs, tenant, run_id, "document_evidence_search", key, document, projection)
+    if projection is not None:
+        projection.document = document
     # Recheck citation/binding before reuse. Pin every input that affects search
     # and display, including graph quality and the currently validated facts.
     confirmed = validated_present_refs(elements, inputs, claim, graph)
@@ -386,15 +395,16 @@ def missing_evidence(
         profile_sha256=SEARCH_PROFILE_HASH,
         tag_sha256=canonical_hash(elements),
         track=track,
-        graph_sha256=canonical_hash(asdict(graph)),
+        graph_sha256=projection.graph_hash
+        if projection is not None
+        else canonical_hash(asdict(graph)),
         document_search_sha256=document["artifact_sha256"],
         confirmed_refs_sha256=canonical_hash(confirmed),
     )
     if inputs is not None and report_level_policies(inputs.rulepack)["M2"] == ACTIVITY_SCOPE_V2:
         pins["scope_rulepack_sha256"] = inputs.rulepack.sha256
     element_key = "input:" + canonical_hash(pins)
-    with jobs._transaction() as db:
-        cached = jobs._raw(db, tenant, run_id, "element_evidence_search", element_key)
+    cached = raw_search(jobs, tenant, run_id, "element_evidence_search", element_key, projection)
     if cached is not None:
         artifact = json.loads(cached)
         if any(artifact.get(k) != v for k, v in pins.items()) or artifact.get(
@@ -464,12 +474,5 @@ def missing_evidence(
     result = json.loads(canonical_json(result))
     payload = pins | {"elements": result}
     artifact = payload | {"artifact_sha256": canonical_hash(payload)}
-    with jobs._transaction() as db:
-        prior = jobs._raw(db, tenant, run_id, "element_evidence_search", element_key)
-        if prior is None:
-            jobs._put(
-                db, tenant, run_id, "element_evidence_search", element_key, artifact, immutable=True
-            )
-        elif canonical_hash(json.loads(prior)) != canonical_hash(artifact):
-            raise ValueError("element search artifact mismatch")
+    put_search(jobs, tenant, run_id, "element_evidence_search", element_key, artifact, projection)
     return result

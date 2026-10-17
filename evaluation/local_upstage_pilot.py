@@ -1654,6 +1654,7 @@ def main():
             memory_bytes=parser_memory_limit(args.parser_memory_bytes),
             local_resource_policy=getattr(args, "parser_local_resource_policy", None),
             output_policy=getattr(args, "parser_output_policy", None),
+            execution_policy=getattr(args, "parser_execution_policy", None),
             max_output_bytes=parser_output_limit(args.parser_max_output_bytes),
             table_source_policy_sha256=(
                 table_policy()

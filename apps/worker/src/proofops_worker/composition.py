@@ -33,6 +33,7 @@ def build_composition(
     provider_factories=None,
     provider_ledgers=None,
     claim_progress=None,
+    claim_stage_progress=None,
 ) -> LocalParserRunner | LocalExtractRunner | LocalTagRunner:
     if type(native_typography_tolerance) is not bool or (
         native_typography_tolerance and (not verify_paragraphs or stage != "parse" or raster_ocr)
@@ -197,6 +198,7 @@ def build_composition(
             live_factory=live_factory,
             max_workers=max_workers,
             claim_progress=claim_progress,
+            claim_stage_progress=claim_stage_progress,
         )
     if stage == "extract":
         from proofops_agent.extraction import SyntheticClaimExtractor
@@ -455,6 +457,7 @@ def build_composition(
                 provider_factories=provider_factories,
                 provider_ledgers=provider_ledgers,
                 claim_progress=claim_progress,
+                claim_stage_progress=claim_stage_progress,
             ),
         )
     return runner

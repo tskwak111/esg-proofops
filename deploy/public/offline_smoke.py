@@ -122,10 +122,13 @@ def verify():
     message = JobMessage(**local_run["parse_job"])
     policy = jobs.parser_native_policy(message)
     assert policy == page_ocr_profile(manifest["claim_source_profile"]).native_policy()
-    assert V2_POLICY["integration_profile"] == "finals-20261016-v29b"
+    assert V2_POLICY["integration_profile"] == "finals-20261017-v29d"
+    assert V2_POLICY["parser_execution_policy"] == "spp-parse-v1"
+    assert V2_POLICY["spt_claim_pipeline"]["profile"] == "spt_claim_pipeline_v1"
+    assert V2_POLICY["spg_publication"]["profile"] == "spg_publication_v1"
     assert V2_POLICY["parser_failure_policy"] == "s3_partial-v7"
     assert V2_POLICY["located_table_context"]["profile"] == "located-table-context-p2-v1"
-    assert manifest["claim_source_profile"] == "cf4_claim_source_v1"
+    assert manifest["claim_source_profile"] == "i31_claim_source_v1"
     assert manifest["analysis_policy_sha256"] == canonical_hash(V2_POLICY)
     assert manifest["extraction_qc_native_figures"] is True
     saved_settings = json.loads((state / "settings.json").read_text())
