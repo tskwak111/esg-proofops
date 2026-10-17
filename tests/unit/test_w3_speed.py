@@ -319,7 +319,12 @@ def test_usage_reads_are_batched_but_unsettled_and_foreign_calls_stay_separate(
         committed_or_reserved_usd="10.010000",
         unknown_reservation_cost_usd="unknown",
     )
-    assert len(selects) <= 3
+    # FX4 acquires the read snapshot before yielding the connection. Keep that
+    # exact single acquisition separate from the unchanged W3 ledger-read cap.
+    assert selects[0] == "SELECT rootpage FROM sqlite_master LIMIT 1"
+    usage_selects = selects[1:]
+    assert all(" FROM probe_calls WHERE request_id IN (" in sql for sql in usage_selects)
+    assert len(usage_selects) <= 3
 
 
 def test_operator_w3_pin_reaches_preparation_and_frozen_run(tmp_path, monkeypatch):
