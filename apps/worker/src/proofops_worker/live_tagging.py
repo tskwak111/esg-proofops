@@ -37,7 +37,7 @@ from proofops.application.tagging.relations import (
     relation_request,
     validate_relations,
 )
-from proofops.application.tagging.service import RawTagResponse
+from proofops.application.tagging.service import RawTagResponse, output_reservation_tokens
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
 from proofops.domain.values import _source_ref_from_dict
@@ -1614,7 +1614,13 @@ class LiveTaggingRuntime:
                             if not self.reserve_tag_call(
                                 call,
                                 input_tokens=capacity,
-                                max_output_tokens=settings.max_tokens,
+                                # Source transports aggregate schema-retry usage just
+                                # like element tagging; reserve every allowed output.
+                                max_output_tokens=output_reservation_tokens(
+                                    model_id=settings.model_id,
+                                    max_tokens=settings.max_tokens,
+                                    synthetic=settings.binding.synthetic,
+                                ),
                                 pricing=None,
                                 now=int(self.runner.clock()),
                             ):
