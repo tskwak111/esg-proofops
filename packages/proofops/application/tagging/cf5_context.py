@@ -51,6 +51,10 @@ POLICY = dict(
 )
 
 
+class PreliminaryContextTooLarge(ValueError):
+    """The focal block itself cannot fit the frozen bound; leave it for review."""
+
+
 def enabled(configured):
     policy = configured.get("cf5_context_policy")
     if policy is None:
@@ -68,11 +72,12 @@ def header_agreed(headers):
     )
 
 
-def preserve_context(packet, claim, graph):
+def preserve_context(packet, claim, graph, *, receipt=None):
     """Widen only interpretation of the focal block; never numbered sources.
 
     The full table retains literal row/header/footnote text without fabricating an
-    axis association. Larger blocks stay held rather than losing a future clause.
+    axis association. On overflow keep the focal block, then nearest whole
+    context entries that fit. Never cut a governing clause inside a block.
     """
     from proofops.application.tagging.preliminary import _sources
 
@@ -100,7 +105,7 @@ def preserve_context(packet, claim, graph):
         )
     # Keep already selected captions, footnotes, origin headers and continuations.
     # A future-plan caption can govern the focal row even outside its own block.
-    # Widening a focal block must not silently discard that existing qualifier.
+    # Overflow omissions are recorded explicitly in the context receipt.
     entries.extend(entry for entry in data["context_blocks"] if entry["source_id"] not in own_ids)
     limits = result["context_policy"]
     # Table-axis entries already have their own table_policy bound. They are
@@ -110,7 +115,40 @@ def preserve_context(packet, claim, graph):
         len(ordinary) > limits["max_context_blocks"]
         or sum(len(e["text"]) for e in ordinary) > limits["max_context_chars"]
     ):
-        raise ValueError("CF5_CONTEXT_TOO_LARGE")
+        focal = entries[0]
+        if limits["max_context_blocks"] < 1 or len(focal["text"]) > limits["max_context_chars"]:
+            raise PreliminaryContextTooLarge("CF5_CONTEXT_TOO_LARGE")
+
+        def distance(entry):
+            box, origin = entry["source_ref"].get("bbox"), focal["source_ref"]["bbox"]
+            squared = (
+                ((box[0] + box[2] - origin[0] - origin[2]) / 2) ** 2
+                + ((box[1] + box[3] - origin[1] - origin[3]) / 2) ** 2
+                if box is not None and origin is not None
+                else float("inf")
+            )
+            return (
+                abs(entry["page_num"] - focal["page_num"]),
+                squared,
+                entry["source_id"],
+                entry["source_ref"]["char_start"],
+                entry["source_ref"]["char_end"],
+                entry["role"],
+            )
+
+        selected, used = [focal], len(focal["text"])
+        for entry in sorted(ordinary[1:], key=distance):
+            if (
+                len(selected) < limits["max_context_blocks"]
+                and used + len(entry["text"]) <= limits["max_context_chars"]
+            ):
+                selected.append(entry)
+                used += len(entry["text"])
+        omitted = sorted({e["source_id"] for e in ordinary if e not in selected})
+        entries = selected + [e for e in entries if e["role"].startswith("table_")]
+        data["omitted_source_ids"] = list(dict.fromkeys(data["omitted_source_ids"] + omitted))
+        if receipt is not None:
+            receipt.update(cf5_context_truncated=True, cf5_omitted_source_ids=omitted)
     data["context_blocks"] = [e | dict(context_index=i) for i, e in enumerate(entries)]
     kept = {e["source_id"] for e in entries}
     data["omitted_source_ids"] = list(
