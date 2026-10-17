@@ -34,6 +34,10 @@ proofops-agent = { workspace = true }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+  "legacy_pin: explicitly pinned historical or experimental policy reproduction",
+  "slow: measured expensive cold integration, external-process, or replay workload",
+]
 pythonpath = ["."]
 
 [tool.ruff]

@@ -203,3 +203,205 @@ def test_kakao_auto_gate_retains_source_boundary_and_strict_timings(gate):
         gate.validate_manifest(
             dict(cases=[case | dict(baseline=case["baseline"] | dict(max_seconds=3000))])
         )
+
+
+def current_example(gate):
+    from proofops.application import analysis_profile as profiles
+    from proofops.domain.provenance import canonical_hash
+
+    case, observed = example(gate)
+    policy = profiles.V2_POLICY
+    pin = canonical_hash(policy)
+    observed["runtime"] = dict(policy_sha256=pin)
+    scope = dict(
+        absence_basis="system_not_found_or_not_linked_after_three_replicas",
+        rule_policy_sha256=canonical_hash(policy["cf6_confirmation"]["scope_rules"]),
+        selected_pages=[1],
+        tenant_id="tenant",
+        document_version_id="document",
+        run_id="run",
+    )
+    decision = dict(
+        evidence_grade="E0",
+        decision_status="decided",
+        label="UNSUBSTANTIATED",
+        review_status="auto_confirmed",
+        rule_ids=["MGMT_NO_MEANS_IN_SCOPE_E0"],
+        confirmation_basis="cf6_element_agreement",
+        confirmation_scope=scope,
+        confirmation_policy_sha256=canonical_hash(policy["cf6_confirmation"]),
+        analysis_policy_sha256=pin,
+        cf6_receipt_sha256="a" * 64,
+        rule_pack_sha256="b" * 64,
+        model_sha256="c" * 64,
+        prompt_sha256="d" * 64,
+    )
+    claim = dict(
+        source_quality="verified",
+        confirmed_grade="E0",
+        cf6_status="confirmed",
+        cf6_track="management",
+        cf6_hold_reasons=[],
+        hold_reason=None,
+        cf6_confirmation=decision,
+        decision=deepcopy(decision),
+        cf6_elements=[
+            dict(
+                element_id=f"M{i}",
+                state="absent_in_scope",
+                absence_basis="DEC127_SYSTEM_NON_OBSERVATION",
+                evidence_refs=[],
+            )
+            for i in range(1, 7)
+        ],
+    )
+    observed["result"]["claims"] = [deepcopy(claim) for _ in range(107)]
+    return case, observed
+
+
+def test_dec127_unknown_simulation_can_confirm_only_scoped_rule_e0(gate):
+    case, observed = current_example(gate)
+    assert gate.compare(observed, case["baseline"])["status"] == "passed"
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "E1",
+        "E2",
+        "E3",
+        "unknown",
+        "conflict",
+        "present",
+        "missing_elements",
+        "absence_basis",
+        "decision_grade",
+        "rule",
+        "source",
+        "hold",
+        "policy",
+        "scope",
+        "receipt",
+        "decision_missing",
+        "confirmation_missing",
+    ],
+)
+def test_dec127_rejects_confirmation_inconsistency(gate, change):
+    case, observed = current_example(gate)
+    c = observed["result"]["claims"][0]
+    if change in {"E1", "E2", "E3"}:
+        c["confirmed_grade"] = change
+    elif change in {"unknown", "conflict", "present"}:
+        c["cf6_elements"][0]["state"] = change
+    elif change == "missing_elements":
+        c["cf6_elements"] = []
+    elif change == "absence_basis":
+        c["cf6_elements"][0]["absence_basis"] = "invented"
+    elif change == "decision_grade":
+        c["decision"]["evidence_grade"] = "E1"
+    elif change == "rule":
+        c["decision"]["rule_ids"] = ["MGMT_E3"]
+        c["cf6_confirmation"] = deepcopy(c["decision"])
+    elif change == "source":
+        c["source_quality"] = "unverified"
+    elif change == "hold":
+        c["cf6_hold_reasons"] = ["CF6_TIME_BUDGET"]
+    elif change == "policy":
+        observed["runtime"]["policy_sha256"] = "0" * 64
+    elif change == "scope":
+        c["decision"]["confirmation_scope"]["selected_pages"] = []
+        c["cf6_confirmation"] = deepcopy(c["decision"])
+    elif change == "receipt":
+        c["decision"]["cf6_receipt_sha256"] = ""
+        c["cf6_confirmation"] = deepcopy(c["decision"])
+    elif change == "decision_missing":
+        c["decision"] = None
+    elif change == "confirmation_missing":
+        c["cf6_confirmation"] = None
+    assert gate.compare(observed, case["baseline"])["status"] == "failed"
+
+
+@pytest.mark.parametrize(
+    "reason,quality,valid",
+    [
+        ("CF6_CLAIM_SOURCE_UNVERIFIED", "unverified", True),
+        ("CF6_CLAIM_SOURCE_UNVERIFIED", "verified", False),
+        ("CF6_TIME_BUDGET", "verified", True),
+        ("MADE_UP_HOLD", "unverified", False),
+        ("", "unverified", False),
+    ],
+)
+def test_dec127_requires_valid_hold_reason(gate, reason, quality, valid):
+    case, observed = current_example(gate)
+    observed["result"]["claims"][0].update(
+        confirmed_grade=None,
+        decision=None,
+        cf6_confirmation=None,
+        cf6_status="held",
+        cf6_hold_reasons=[reason] if reason else [],
+        source_quality=quality,
+    )
+    assert (gate.compare(observed, case["baseline"])["status"] == "passed") is valid
+
+
+@pytest.mark.parametrize("name", ["FINALS_I26_POLICY", "FINALS_I28_POLICY"])
+def test_historical_pins_still_forbid_even_e0_confirmation(gate, name):
+    from proofops.application import analysis_profile as profiles
+    from proofops.domain.provenance import canonical_hash
+
+    case, observed = current_example(gate)
+    observed["runtime"]["policy_sha256"] = canonical_hash(getattr(profiles, name))
+    assert (
+        "unknown_simulation_published_confirmation"
+        in gate.compare(observed, case["baseline"])["failures"]
+    )
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "missing_runtime",
+        "different_outcome",
+        "scope_policy",
+        "analysis_pin",
+        "confirmation_pin",
+        "missing_e0_rule",
+        "label",
+        "status",
+        "absence_scope",
+        "model_hash",
+    ],
+)
+def test_dec127_requires_bound_policy_and_rule_provenance(gate, change):
+    case, observed = current_example(gate)
+    claim = observed["result"]["claims"][0]
+    decision = claim["decision"]
+    if change == "missing_runtime":
+        observed.pop("runtime")
+    elif change == "different_outcome":
+        observed["outcome"]["scope"] = dict(analysis_profile_sha256="f" * 64)
+    elif change == "scope_policy":
+        decision["confirmation_scope"]["rule_policy_sha256"] = "f" * 64
+    elif change == "analysis_pin":
+        decision["analysis_policy_sha256"] = "f" * 64
+    elif change == "confirmation_pin":
+        decision["confirmation_policy_sha256"] = "f" * 64
+    elif change == "missing_e0_rule":
+        decision["rule_ids"] = []
+    elif change == "label":
+        decision["label"] = "SUBSTANTIATED"
+    elif change == "status":
+        decision["decision_status"] = "blocked_rule_gap"
+    elif change == "absence_scope":
+        decision["confirmation_scope"]["absence_basis"] = "document_exhaustive"
+    elif change == "model_hash":
+        decision["model_sha256"] = "not-a-hash"
+    claim["cf6_confirmation"] = deepcopy(decision)
+    assert gate.compare(observed, case["baseline"])["status"] == "failed"
+
+
+def test_missing_policy_cannot_bypass_current_hold_validation(gate):
+    case, observed = current_example(gate)
+    observed.pop("runtime")
+    observed["result"]["claims"] = [dict(source_quality="verified", cf6_status="held")] * 107
+    assert "simulation_policy_missing" in gate.compare(observed, case["baseline"])["failures"]

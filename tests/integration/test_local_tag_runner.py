@@ -668,6 +668,10 @@ def test_tag_renewal_failure_stops_reservations_and_returns_specific_code(tmp_pa
     assert failed_job["message"]["stage"] == "tag"
     assert failed_job["heartbeat_at"] is not None
     assert jobs.read_checkpoint(message) is None
+    retained = jobs.get_usage(message, fencing_token=failed_job["fencing_token"])
+    assert retained["lease_heartbeat_failure"] == dict(
+        database="job_state", source="background", exception_type="LeaseLost", sqlite_errorcode=None
+    )
 
 
 def test_failed_renewal_during_last_element_call_prevents_claim_publication(tmp_path, monkeypatch):

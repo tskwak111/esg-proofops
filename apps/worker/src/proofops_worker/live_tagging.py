@@ -37,7 +37,7 @@ from proofops.application.tagging.relations import (
     relation_request,
     validate_relations,
 )
-from proofops.application.tagging.service import RawTagResponse
+from proofops.application.tagging.service import RawTagResponse, output_reservation_tokens
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
 from proofops.domain.values import _source_ref_from_dict
@@ -48,7 +48,7 @@ from proofops_agent.upstage_tagging import (
     UpstageTaggingTransport,
 )
 
-from proofops_worker.consumer import TagHeartbeatFailed
+from proofops_worker.consumer import TagHeartbeatFailed, point_heartbeat
 
 # The local stop conditions this module raises itself, per replica prefix. Recording
 # only these keeps a durable record free of arbitrary exception text while still
@@ -299,10 +299,12 @@ class LiveTaggingRuntime:
         if not _parse_enabled() and not self.runner.store.jobs.can_call(self.lease, now=now):
             raise LeaseLost("LEASE_LOST")
         try:
-            self.runner.store.jobs.heartbeat(self.lease, now=now, lease_seconds=300)
+            point_heartbeat(
+                self.runner.store.jobs, self.lease, self.runner.clock, state=self.heartbeat_state
+            )
         except Exception as error:
             if self.heartbeat_state is not None:
-                self.heartbeat_state.fail()
+                self.heartbeat_state.fail(error)
             if isinstance(error, LeaseLost):
                 raise
             raise TagHeartbeatFailed() from None
@@ -695,8 +697,9 @@ class LiveTaggingRuntime:
             if response_policy != RESPONSE_POLICY:
                 raise ValueError("K4_RESPONSE_POLICY_MISMATCH")
             packet["preliminary_response_policy"] = response_policy
+        context_receipt = {}
         if cf5:
-            packet = cf5_context.preserve_context(packet, claim, graph)
+            packet = cf5_context.preserve_context(packet, claim, graph, receipt=context_receipt)
         packet = self.preliminary_transport.bound_context(packet)
         if not cf5 and self.snapshot.get("analysis_profile_policy", {}).get(
             "sentence_context_policy"
@@ -937,6 +940,7 @@ class LiveTaggingRuntime:
             self.preliminary_records,
             validate,
             **({"require_consensus": False} if decision or unattended else {}),
+            **({"context_receipt": context_receipt} if context_receipt else {}),
         )
         if decision:
             return self._decision_preliminary(claim, packet, results)
@@ -1511,6 +1515,7 @@ class LiveTaggingRuntime:
         *,
         retrieval_packet_sha256=None,
         require_consensus=True,
+        context_receipt=None,
     ):
         packet_hash = canonical_hash(packet)
         self.allow_packet(claim.claim_id, packet_hash)
@@ -1577,6 +1582,8 @@ class LiveTaggingRuntime:
                 )
                 directory = self.receipts / prefix / request_id
                 record = dict(request_id=request_id, replicate_id=replica, status="unresolved")
+                if context_receipt:
+                    record.update(context_receipt)
                 records.append(record)
                 response = None
                 try:
@@ -1609,7 +1616,13 @@ class LiveTaggingRuntime:
                             if not self.reserve_tag_call(
                                 call,
                                 input_tokens=capacity,
-                                max_output_tokens=settings.max_tokens,
+                                # Source transports aggregate schema-retry usage just
+                                # like element tagging; reserve every allowed output.
+                                max_output_tokens=output_reservation_tokens(
+                                    model_id=settings.model_id,
+                                    max_tokens=settings.max_tokens,
+                                    synthetic=settings.binding.synthetic,
+                                ),
                                 pricing=None,
                                 now=int(self.runner.clock()),
                             ):

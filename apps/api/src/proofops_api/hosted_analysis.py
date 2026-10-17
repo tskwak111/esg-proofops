@@ -12,7 +12,7 @@ import time
 from datetime import date
 from decimal import ROUND_CEILING, Decimal
 from pathlib import Path
-from tempfile import TemporaryDirectory, TemporaryFile
+from tempfile import TemporaryFile
 from uuid import uuid4
 
 from proofops.adapters.local.openai import (
@@ -273,8 +273,8 @@ class HostedOpenAILunaProbe(OpenAIProbe):
     def _authorize_response_request(self):
         from proofops_api.hosted_store import HostedError
 
-        now = time.time()
-        with self.store.transaction() as db:
+        with self.store.transaction(readonly=True, operation="response_authorize") as db:
+            now = time.time()
             self.store._fenced(db, self.job, now)
             doc = self.store._document(db, self.job["tenant_id"], self.job["document_id"])
             if now >= doc["expires"]:
@@ -287,8 +287,9 @@ class HostedOpenAILunaProbe(OpenAIProbe):
             raise ValueError("HOSTED_WIRE_POLICY_REQUIRED")
 
         def transport(request):
-            if self.post and getattr(self, "provider_scheduler", None):
-                self.http_transport_pacing()
+            with control_before_send():
+                if self.post and getattr(self, "provider_scheduler", None):
+                    self.http_transport_pacing()
             try:
                 data = (
                     self.post(body)
@@ -306,13 +307,22 @@ class HostedOpenAILunaProbe(OpenAIProbe):
             return request | dict(actual_usd=rounded_cost(token_cost(data["usage"])), payload=data)
 
         from proofops.adapters.local.i27_inventory_execution import current, transient_code
-        from proofops.adapters.local.openai_connections import OpenAIConnectNotSent
+        from proofops.adapters.local.openai_connections import (
+            OpenAIConnectNotSent,
+            OpenAIControlNotSent,
+            control_before_send,
+        )
         from proofops.adapters.local.provider_concurrency import ProviderCircuitOpen
         from proofops.adapters.local.provider_scheduler import ProviderAdmissionDeferred
         from proofops.application.i27_inventory import POLICY as I27_POLICY
 
         inventory = current.get()
         scope = self._dispatch_context.get()
+        diagnostic_context = dict(
+            state=self.ledger.parent,
+            role=(self._response_context.get() or (getattr(self, "response_role", None), 0))[0],
+            request_bytes=len(json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode()),
+        )
         for attempt in range(2):
             if inventory is not None:
                 inventory["terminal_code"] = None
@@ -351,12 +361,18 @@ class HostedOpenAILunaProbe(OpenAIProbe):
                         allow_response_uncertainty=self.response_uncertainty_policy is not None,
                         allow_connect_not_sent=self.transport_policy is not None,
                         allow_ops2_fallback=getattr(self, "ops2_enabled", False),
+                        diagnostic_context=diagnostic_context,
                     )
                 if self.transport_policy:
                     self._finish_transport_attempt(call_id, "response_received", None)
                 if inventory is not None:
                     inventory["terminal_code"] = None
                 return response["payload"]
+            except OpenAIControlNotSent as error:
+                if self.transport_policy:
+                    self._finish_transport_attempt(call_id, "never_sent", None)
+                    self._settle_never_sent(scope["request_id"])
+                raise error.signal from None
             except OpenAIConnectNotSent as error:
                 if not self.transport_policy:
                     raise
@@ -412,6 +428,20 @@ class HostedOpenAILunaProbe(OpenAIProbe):
                     self._settle_never_sent(scope["request_id"])
                 raise
             except BaseException as error:
+                from proofops_api.hosted_diagnostics import record_dispatch_failure
+
+                # Also cover scheduler/probe bookkeeping outside broker_dispatch.
+                # A more precise broker diagnostic for this call_id wins O_EXCL.
+                record_dispatch_failure(
+                    self.store,
+                    self.job,
+                    call_id,
+                    "openai",
+                    canonical_hash(body),
+                    "probe_attempt",
+                    error,
+                    diagnostic_context,
+                )
                 if self.transport_policy:
                     self._finish_transport_attempt(call_id, "unknown", None)
                 code = transient_code(error) if inventory is not None else None
@@ -656,6 +686,8 @@ def run_analysis_process(command, store, job, lock, *, publication_fd=None):
 
 
 def execute_analysis(store, job, prepared):
+    from proofops_api.hosted_diagnostics import analysis_workspace
+
     config = read_operator_config(store.settings.live_config)
     profiles = operator_profiles(config)
     with store.transaction() as db:
@@ -666,8 +698,7 @@ def execute_analysis(store, job, prepared):
     try:
         acquire_analysis_lock(lock)
         store.renew_lease(job, now=time.time())
-        with TemporaryDirectory(prefix="analysis-work-", dir=directory) as scratch:
-            workspace = Path(scratch)
+        with analysis_workspace(store, job, directory) as workspace:
             os.chmod(workspace, 0o700)
             (workspace / "selected.pdf").write_bytes(prepared.read_bytes())
             if profiles["source_reader"] == "unresolved":

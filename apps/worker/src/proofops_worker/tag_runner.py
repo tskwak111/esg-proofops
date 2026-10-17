@@ -33,10 +33,11 @@ from proofops.application.evidence.retrieval import (
     retrieve_evidence,
     unattended_packet,
 )
-from proofops.application.ports.jobs import JobMessage, LeaseLost
+from proofops.application.ports.jobs import JobControlSignal, JobMessage, LeaseLost
 from proofops.application.rb1_input_isolation import InputIsolation, held_claim, tag_input_code
 from proofops.application.rb4_memory import enabled as rb4_memory_enabled
 from proofops.application.reviews import ReviewInputs, ReviewService
+from proofops.application.tagging.cf5_context import PreliminaryContextTooLarge
 from proofops.application.tagging.consensus import (
     form_consensus,
     reviewable_checkpoint,
@@ -60,6 +61,7 @@ from proofops_worker.consumer import (
     LeaseHeartbeatState,
     StageFailure,
     TagHeartbeatFailed,
+    point_heartbeat,
     with_lease_heartbeat,
 )
 from proofops_worker.tag_recovery import TagRecovery
@@ -67,7 +69,7 @@ from proofops_worker.tag_reprocess import TagReprocess
 from proofops_worker.telemetry import observe_job
 
 
-class _TagFenceLost(BaseException):
+class _TagFenceLost(JobControlSignal):
     """Escape tagger's provider-error boundary without fabricating a response."""
 
 
@@ -774,19 +776,18 @@ class LocalTagRunner:
                     ):
                         raise _TagFenceLost()
                     try:
-                        self.store.jobs.heartbeat(lease, now=int(self.clock()), lease_seconds=300)
-                    except LeaseLost:
+                        point_heartbeat(self.store.jobs, lease, self.clock, state=heartbeat_state)
+                    except LeaseLost as error:
                         if _parse_enabled():
                             raise _TagFenceLost() from None
                         if heartbeat_state is not None:
-                            heartbeat_state.fail()
+                            heartbeat_state.fail(error)
                         raise TagHeartbeatFailed() from None
-                    except Exception:
+                    except Exception as error:
                         if heartbeat_state is not None:
-                            heartbeat_state.fail()
+                            heartbeat_state.fail(error)
                         raise TagHeartbeatFailed() from None
                     if heartbeat_state is not None:
-                        heartbeat_state.last_successful_at = int(self.clock())
                         heartbeat_state.check()
                     if live is None:
                         usage["synthetic_calls"] += 1
@@ -806,21 +807,20 @@ class LocalTagRunner:
                         ):
                             raise LeaseLost("LEASE_LOST")
                         try:
-                            runner.store.jobs.heartbeat(
-                                lease, now=int(runner.clock()), lease_seconds=300
+                            point_heartbeat(
+                                runner.store.jobs, lease, runner.clock, state=heartbeat_state
                             )
-                        except LeaseLost:
+                        except LeaseLost as error:
                             if _parse_enabled():
                                 raise
                             if heartbeat_state is not None:
-                                heartbeat_state.fail()
+                                heartbeat_state.fail(error)
                             raise TagHeartbeatFailed() from None
-                        except Exception:
+                        except Exception as error:
                             if heartbeat_state is not None:
-                                heartbeat_state.fail()
+                                heartbeat_state.fail(error)
                             raise TagHeartbeatFailed() from None
                         if heartbeat_state is not None:
-                            heartbeat_state.last_successful_at = int(runner.clock())
                             with heartbeat_state.lock:
                                 heartbeat_state.check()
                                 return runner.store.usage.reserve_budget(*args, **kwargs)
@@ -1092,6 +1092,9 @@ class LocalTagRunner:
                 result = process_claim(claim)
             except (LeaseLost, TagHeartbeatFailed):
                 raise
+            except PreliminaryContextTooLarge:
+                result = progress.get(claim.claim_id, item)
+                result.update(status="needs_review", reason="CF5_CONTEXT_TOO_LARGE")
             except Exception as error:
                 from proofops.application.budget import BudgetExceeded
 
@@ -1343,7 +1346,7 @@ class LocalTagRunner:
                     expected_attempts=event["attempts"],
                 )
                 return "ignored"
-            usage = {"model_calls": 0, "synthetic_calls": 0}
+            usage: dict = {"model_calls": 0, "synthetic_calls": 0}
             heartbeat_state = LeaseHeartbeatState(int(self.clock()))
             deferred: list[ReviewInputs] = []
 
@@ -1390,6 +1393,8 @@ class LocalTagRunner:
                 # step between two point-heartbeats outlived the lease window).
                 # This is a distinct, recoverable cause from an input/logic error:
                 # record it as such instead of folding it into TAG_INPUT_INVALID.
+                if heartbeat_state.failure is not None:
+                    failure.usage["lease_heartbeat_failure"] = heartbeat_state.failure
                 jobs.record_usage(lease, failure.usage)
                 try:
                     jobs.fail_job(lease, error_code=failure.error_code, now=int(self.clock()))
@@ -1413,6 +1418,8 @@ class LocalTagRunner:
                     else "failed"
                 )
             except TagHeartbeatFailed:
+                if heartbeat_state.failure is not None:
+                    usage["lease_heartbeat_failure"] = heartbeat_state.failure
                 jobs.record_usage(lease, usage)
                 try:
                     jobs.fail_job(lease, error_code="LEASE_HEARTBEAT_FAILED", now=int(self.clock()))
@@ -1428,6 +1435,8 @@ class LocalTagRunner:
                 )
                 return "LEASE_HEARTBEAT_FAILED"
             except (LeaseLost, _TagFenceLost):
+                if heartbeat_state.failure is not None:
+                    usage["lease_heartbeat_failure"] = heartbeat_state.failure
                 jobs.record_usage(lease, usage)
                 try:
                     jobs.fail_job(lease, error_code="LEASE_LOST", now=int(self.clock()))
