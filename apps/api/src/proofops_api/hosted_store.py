@@ -1535,28 +1535,41 @@ class HostedStore:
         reserved = micros(bound)
         if reserved <= 0:
             raise HostedError("DISPATCH_INVALID", 422)
-        started = time.monotonic()
-        with self.transaction(operation="dispatch_reserve") as db:
-            row = self._fenced(db, job, now + time.monotonic() - started)
-            if db.execute(
-                "SELECT 1 FROM deletion.costs WHERE run_id=? AND call_id=?",
-                (job["run_id"], call_id),
-            ).fetchone():
-                raise HostedError("DISPATCH_ALREADY_RECORDED")
-            total = db.execute(
-                "SELECT coalesce(sum(CASE WHEN status='settled' THEN actual ELSE bound END),0) "
-                "FROM deletion.costs WHERE run_id=?",
-                (job["run_id"],),
-            ).fetchone()[0]
-            if total + reserved > row["envelope"]:
-                raise HostedError("BUDGET_EXCEEDED", 429)
-            request = {"request_id": str(uuid4()), "provider": provider, "input_sha256": input_sha}
-            db.execute(
-                "INSERT INTO deletion.costs VALUES (?,?,?,?,?,?,NULL,'reserved',?)",
-                (job["run_id"], call_id, request["request_id"], provider, input_sha, reserved, now),
-            )
-        phase = "transport"
+        phase = "reservation"
         try:
+            started = time.monotonic()
+            with self.transaction(operation="dispatch_reserve") as db:
+                row = self._fenced(db, job, now + time.monotonic() - started)
+                if db.execute(
+                    "SELECT 1 FROM deletion.costs WHERE run_id=? AND call_id=?",
+                    (job["run_id"], call_id),
+                ).fetchone():
+                    raise HostedError("DISPATCH_ALREADY_RECORDED")
+                total = db.execute(
+                    "SELECT coalesce(sum(CASE WHEN status='settled' THEN actual ELSE bound END),0) "
+                    "FROM deletion.costs WHERE run_id=?",
+                    (job["run_id"],),
+                ).fetchone()[0]
+                if total + reserved > row["envelope"]:
+                    raise HostedError("BUDGET_EXCEEDED", 429)
+                request = {
+                    "request_id": str(uuid4()),
+                    "provider": provider,
+                    "input_sha256": input_sha,
+                }
+                db.execute(
+                    "INSERT INTO deletion.costs VALUES (?,?,?,?,?,?,NULL,'reserved',?)",
+                    (
+                        job["run_id"],
+                        call_id,
+                        request["request_id"],
+                        provider,
+                        input_sha,
+                        reserved,
+                        now,
+                    ),
+                )
+            phase = "transport"
             response = transport(request)
             phase = "receipt_validation"
             if any(response.get(k) != v for k, v in request.items()):
@@ -1594,6 +1607,10 @@ class HostedStore:
             record_dispatch_failure(
                 self, job, call_id, provider, input_sha, phase, exc, diagnostic_context
             )
+            if phase == "reservation":
+                # Admission failed before transport. Preserve its original error
+                # and all money/ownership state; diagnostics never authorize retry.
+                raise
             # A rejected quota call is terminal, but its unknown cost still needs
             # operator reconciliation. Never release reservations or redeliver it.
             limit_code = str(exc)

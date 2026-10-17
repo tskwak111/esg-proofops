@@ -318,6 +318,11 @@ class HostedOpenAILunaProbe(OpenAIProbe):
 
         inventory = current.get()
         scope = self._dispatch_context.get()
+        diagnostic_context = dict(
+            state=self.ledger.parent,
+            role=(self._response_context.get() or (getattr(self, "response_role", None), 0))[0],
+            request_bytes=len(json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode()),
+        )
         for attempt in range(2):
             if inventory is not None:
                 inventory["terminal_code"] = None
@@ -356,16 +361,7 @@ class HostedOpenAILunaProbe(OpenAIProbe):
                         allow_response_uncertainty=self.response_uncertainty_policy is not None,
                         allow_connect_not_sent=self.transport_policy is not None,
                         allow_ops2_fallback=getattr(self, "ops2_enabled", False),
-                        diagnostic_context=dict(
-                            state=self.ledger.parent,
-                            role=(
-                                self._response_context.get()
-                                or (getattr(self, "response_role", None), 0)
-                            )[0],
-                            request_bytes=len(
-                                json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode()
-                            ),
-                        ),
+                        diagnostic_context=diagnostic_context,
                     )
                 if self.transport_policy:
                     self._finish_transport_attempt(call_id, "response_received", None)
@@ -432,6 +428,20 @@ class HostedOpenAILunaProbe(OpenAIProbe):
                     self._settle_never_sent(scope["request_id"])
                 raise
             except BaseException as error:
+                from proofops_api.hosted_diagnostics import record_dispatch_failure
+
+                # Also cover scheduler/probe bookkeeping outside broker_dispatch.
+                # A more precise broker diagnostic for this call_id wins O_EXCL.
+                record_dispatch_failure(
+                    self.store,
+                    self.job,
+                    call_id,
+                    "openai",
+                    canonical_hash(body),
+                    "probe_attempt",
+                    error,
+                    diagnostic_context,
+                )
                 if self.transport_policy:
                     self._finish_transport_attempt(call_id, "unknown", None)
                 code = transient_code(error) if inventory is not None else None

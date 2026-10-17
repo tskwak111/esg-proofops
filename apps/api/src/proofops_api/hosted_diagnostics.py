@@ -131,6 +131,7 @@ def retain_failure(store, job, workspace, error=None):
                 database_mode="diagnostic_projection_not_recovery",
                 files=[],
                 skipped=0,
+                database_failures=[],
             )
             remaining -= 16384  # bounded manifest reserve
             for name, tables in TABLES.items():
@@ -139,10 +140,11 @@ def retain_failure(store, job, workspace, error=None):
                     continue
                 try:
                     _database(source, destination, tables, remaining)
-                except sqlite3.Error:
+                except sqlite3.Error as exc:
                     destination.unlink(missing_ok=True)
                     destination.with_name(name + "-journal").unlink(missing_ok=True)
                     manifest["skipped"] += 1
+                    manifest["database_failures"].append(dict(file=name, **failure_record(exc)))
                     continue
                 size = destination.stat().st_size
                 if size > remaining:
