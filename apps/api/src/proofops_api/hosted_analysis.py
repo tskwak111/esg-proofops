@@ -12,7 +12,7 @@ import time
 from datetime import date
 from decimal import ROUND_CEILING, Decimal
 from pathlib import Path
-from tempfile import TemporaryDirectory, TemporaryFile
+from tempfile import TemporaryFile
 from uuid import uuid4
 
 from proofops.adapters.local.openai import (
@@ -351,6 +351,13 @@ class HostedOpenAILunaProbe(OpenAIProbe):
                         allow_response_uncertainty=self.response_uncertainty_policy is not None,
                         allow_connect_not_sent=self.transport_policy is not None,
                         allow_ops2_fallback=getattr(self, "ops2_enabled", False),
+                        diagnostic_context=dict(
+                            state=self.ledger.parent,
+                            role=(self._response_context.get() or (self.response_role, 0))[0],
+                            request_bytes=len(
+                                json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode()
+                            ),
+                        ),
                     )
                 if self.transport_policy:
                     self._finish_transport_attempt(call_id, "response_received", None)
@@ -656,6 +663,8 @@ def run_analysis_process(command, store, job, lock, *, publication_fd=None):
 
 
 def execute_analysis(store, job, prepared):
+    from proofops_api.hosted_diagnostics import analysis_workspace
+
     config = read_operator_config(store.settings.live_config)
     profiles = operator_profiles(config)
     with store.transaction() as db:
@@ -666,8 +675,7 @@ def execute_analysis(store, job, prepared):
     try:
         acquire_analysis_lock(lock)
         store.renew_lease(job, now=time.time())
-        with TemporaryDirectory(prefix="analysis-work-", dir=directory) as scratch:
-            workspace = Path(scratch)
+        with analysis_workspace(store, job, directory) as workspace:
             os.chmod(workspace, 0o700)
             (workspace / "selected.pdf").write_bytes(prepared.read_bytes())
             if profiles["source_reader"] == "unresolved":

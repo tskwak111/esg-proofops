@@ -776,15 +776,15 @@ class LocalTagRunner:
                         raise _TagFenceLost()
                     try:
                         self.store.jobs.heartbeat(lease, now=int(self.clock()), lease_seconds=300)
-                    except LeaseLost:
+                    except LeaseLost as error:
                         if _parse_enabled():
                             raise _TagFenceLost() from None
                         if heartbeat_state is not None:
-                            heartbeat_state.fail()
+                            heartbeat_state.fail(error)
                         raise TagHeartbeatFailed() from None
-                    except Exception:
+                    except Exception as error:
                         if heartbeat_state is not None:
-                            heartbeat_state.fail()
+                            heartbeat_state.fail(error)
                         raise TagHeartbeatFailed() from None
                     if heartbeat_state is not None:
                         heartbeat_state.last_successful_at = int(self.clock())
@@ -810,15 +810,15 @@ class LocalTagRunner:
                             runner.store.jobs.heartbeat(
                                 lease, now=int(runner.clock()), lease_seconds=300
                             )
-                        except LeaseLost:
+                        except LeaseLost as error:
                             if _parse_enabled():
                                 raise
                             if heartbeat_state is not None:
-                                heartbeat_state.fail()
+                                heartbeat_state.fail(error)
                             raise TagHeartbeatFailed() from None
-                        except Exception:
+                        except Exception as error:
                             if heartbeat_state is not None:
-                                heartbeat_state.fail()
+                                heartbeat_state.fail(error)
                             raise TagHeartbeatFailed() from None
                         if heartbeat_state is not None:
                             heartbeat_state.last_successful_at = int(runner.clock())

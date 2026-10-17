@@ -4,7 +4,7 @@ import sqlite3
 import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
-from threading import Event
+from threading import Event, Lock
 from types import SimpleNamespace
 
 import pytest
@@ -112,3 +112,83 @@ def test_busy_retry_is_bounded_without_replaying_other_operations(tmp_path, monk
         store.heartbeat(lease, now=101, lease_seconds=300)
     assert len(attempts) > 1
     assert 30 <= elapsed[0] <= 30.25
+
+
+def test_redundant_point_renewals_do_not_rewrite_identical_lease(tmp_path, monkeypatch):
+    """SPT counts/reserves/invokes in parallel, often in the same clock second."""
+    store = seeded(tmp_path / "jobs.sqlite")
+    lease = store.claim_job(MESSAGE, owner="worker", now=100, lease_seconds=300)
+    writes = []
+    save = store._save_job
+
+    def recorded(db, message, job):
+        writes.append((job["heartbeat_at"], job["lease_until"]))
+        return save(db, message, job)
+
+    monkeypatch.setattr(store, "_save_job", recorded)
+    for _ in range(32):
+        assert store.heartbeat(lease, now=101, lease_seconds=300).lease_until == 401
+    assert writes == [(101, 401)]
+    # A larger requested duration is a real renewal even in the same second.
+    assert store.heartbeat(lease, now=101, lease_seconds=400).lease_until == 501
+    assert writes == [(101, 401), (101, 501)]
+
+
+def test_parallel_heartbeats_have_one_sqlite_waiter(tmp_path, monkeypatch):
+    store = seeded(tmp_path / "jobs.sqlite")
+    lease = store.claim_job(MESSAGE, owner="worker", now=100, lease_seconds=300)
+    transaction = store._transaction
+    counts = dict(active=0, peak=0)
+    counter_lock = Lock()
+
+    @contextmanager
+    def observed(**kwargs):
+        with counter_lock:
+            counts["active"] += 1
+            counts["peak"] = max(counts["peak"], counts["active"])
+        try:
+            # Represents a writer/commit delay; peers must queue before SQLite.
+            time.sleep(0.02)
+            with transaction(**kwargs) as db:
+                yield db
+        finally:
+            with counter_lock:
+                counts["active"] -= 1
+
+    monkeypatch.setattr(store, "_transaction", observed)
+    with ThreadPoolExecutor(16) as pool:
+        renewed = list(
+            pool.map(lambda _: store.heartbeat(lease, now=101, lease_seconds=300), range(32))
+        )
+    assert all(r.lease_until >= 401 for r in renewed)
+    assert counts == dict(active=0, peak=1)
+
+
+def test_heartbeat_queue_wait_counts_toward_expiry(tmp_path):
+    store = seeded(tmp_path / "jobs.sqlite")
+    lease = store.claim_job(MESSAGE, owner="worker", now=100, lease_seconds=1)
+    with ThreadPoolExecutor(1) as pool:
+        store._heartbeat_lock.acquire()
+        try:
+            future = pool.submit(store.heartbeat, lease, now=100, lease_seconds=300)
+            time.sleep(1.2)
+        finally:
+            store._heartbeat_lock.release()
+        with pytest.raises(LeaseLost):
+            future.result(timeout=2)
+    assert store.get_job(MESSAGE)["lease_until"] == 101
+
+
+def test_heartbeat_queue_timeout_is_busy_without_entering_sqlite(tmp_path, monkeypatch):
+    store = seeded(tmp_path / "jobs.sqlite")
+    lease = store.claim_job(MESSAGE, owner="worker", now=100, lease_seconds=300)
+
+    def denied(*, timeout):
+        assert timeout == 30
+        return False
+
+    monkeypatch.setattr(store, "_heartbeat_lock", SimpleNamespace(acquire=denied))
+    monkeypatch.setattr(store, "_transaction", lambda **_: pytest.fail("must not enter SQLite"))
+    with pytest.raises(sqlite3.OperationalError) as raised:
+        store.heartbeat(lease, now=101, lease_seconds=300)
+    assert raised.value.sqlite_errorcode == sqlite3.SQLITE_BUSY

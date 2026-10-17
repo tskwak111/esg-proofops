@@ -149,11 +149,18 @@ class HostedSettings:
     access_config: Path | None = None
     auth_trusted_proxies: tuple[str, ...] = ()
     rc1_reuse_enabled: bool = False
+    retain_failed_analysis: bool = True
+    failure_diagnostics_max_bytes: int = 512 * 1024 * 1024
 
     def __post_init__(self) -> None:
         from urllib.parse import urlsplit
 
         parsed = urlsplit(self.origin)
+        if type(self.retain_failed_analysis) is not bool or (
+            type(self.failure_diagnostics_max_bytes) is not int
+            or not 16384 <= self.failure_diagnostics_max_bytes <= 512 * 1024 * 1024
+        ):
+            raise ValueError("HOSTED_FAILURE_DIAGNOSTICS_INVALID")
         if (
             parsed.scheme != "https"
             or not parsed.hostname
@@ -246,6 +253,10 @@ class HostedSettings:
             max_active_runs=int(env.get("HOSTED_MAX_ACTIVE_RUNS", "1")),
             user_active_runs=int(env.get("HOSTED_USER_ACTIVE_RUNS", "1")),
             daily_runs=int(env.get("HOSTED_DAILY_RUNS", "10")),
+            retain_failed_analysis=flag("HOSTED_RETAIN_FAILED_ANALYSIS", "true"),
+            failure_diagnostics_max_bytes=int(
+                env.get("HOSTED_FAILURE_DIAGNOSTICS_MAX_BYTES", "536870912")
+            ),
             access_config=Path(env.get("HOSTED_ACCESS_CONFIG", "/run/private/access.json")),
             auth_trusted_proxies=tuple(
                 value.strip()
@@ -1511,6 +1522,7 @@ class HostedStore:
         allow_response_uncertainty: bool = False,
         allow_connect_not_sent: bool = False,
         allow_ops2_fallback: bool = False,
+        diagnostic_context: dict | None = None,
     ) -> dict:
         """Broker boundary for a future approved adapter. No HTTP/provider implementation here."""
         if (
@@ -1543,13 +1555,16 @@ class HostedStore:
                 "INSERT INTO deletion.costs VALUES (?,?,?,?,?,?,NULL,'reserved',?)",
                 (job["run_id"], call_id, request["request_id"], provider, input_sha, reserved, now),
             )
+        phase = "transport"
         try:
             response = transport(request)
+            phase = "receipt_validation"
             if any(response.get(k) != v for k, v in request.items()):
                 raise HostedError("RECEIPT_MISMATCH")
             actual = micros(response["actual_usd"])
             if actual > reserved:
                 raise HostedError("RECEIPT_BOUND_EXCEEDED")
+            phase = "settlement"
             with self.transaction(operation="dispatch_settle") as db:
                 db.execute(
                     "INSERT INTO ops2_provider_observations VALUES (?,?,NULL) "
@@ -1572,6 +1587,11 @@ class HostedStore:
                     self._settle_envelope(db, job["run_id"])
             return response
         except BaseException as exc:
+            from proofops_api.hosted_diagnostics import record_dispatch_failure
+
+            record_dispatch_failure(
+                self, job, call_id, provider, input_sha, phase, exc, diagnostic_context
+            )
             # A rejected quota call is terminal, but its unknown cost still needs
             # operator reconciliation. Never release reservations or redeliver it.
             limit_code = str(exc)

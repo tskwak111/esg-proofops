@@ -734,7 +734,16 @@ def main():
         else nullcontext()
     )
     with scope:
-        state, _ = drive(store, job, Path(workspace), read_operator_config(settings.live_config))
+        try:
+            state, _ = drive(
+                store, job, Path(workspace), read_operator_config(settings.live_config)
+            )
+        except BaseException as error:
+            from proofops_api.hosted_diagnostics import write_child_failure
+
+            if settings.retain_failed_analysis:
+                write_child_failure(Path(workspace) / "state", error)
+            raise
         if len(sys.argv) == 5:
             from proofops_api.hosted_publication import make_handoff
 

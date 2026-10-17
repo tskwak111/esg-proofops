@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+import threading
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -68,6 +69,7 @@ class LocalSQLiteJobStore:
         if str(path) == ":memory:":
             raise ValueError("durable jobs require a file-backed database")
         self.path = str(path)
+        self._heartbeat_lock = threading.Lock()
         with self._transaction() as db:
             initialize_audit_schema(db)
             db.execute("CREATE TABLE IF NOT EXISTS job_schema (version INTEGER PRIMARY KEY)")
@@ -385,6 +387,22 @@ class LocalSQLiteJobStore:
     def heartbeat(self, lease: JobLease, *, now: int, lease_seconds: int) -> JobLease:
         self._time(now, lease_seconds)
         started = time.monotonic()
+        # SPT's sibling claims otherwise compete with one another as SQLite
+        # writers, repeatedly timing out and retrying the same renewal. Queue
+        # them in this worker only; every call still enters SQLite and rechecks
+        # persisted authority. Queue time counts toward both expiry and budget.
+        if not self._heartbeat_lock.acquire(timeout=30):
+            error = sqlite3.OperationalError("heartbeat writer queue busy")
+            error.sqlite_errorcode = sqlite3.SQLITE_BUSY
+            raise error
+        try:
+            return self._renew_heartbeat(
+                lease, now=now, lease_seconds=lease_seconds, started=started
+            )
+        finally:
+            self._heartbeat_lock.release()
+
+    def _renew_heartbeat(self, lease, *, now, lease_seconds, started):
         # Renewal has its own bounded busy path. SPT's ready claims can keep
         # SQLite's single writer busy beyond a normal transaction's ten-second
         # wait without losing the five-minute job lease. Retry only this
@@ -401,11 +419,16 @@ class LocalSQLiteJobStore:
                     if owned is None:
                         raise LeaseLost("LEASE_LOST")
                     job, _ = owned
-                    job.update(
-                        heartbeat_at=max(job["heartbeat_at"], current),
-                        lease_until=max(job["lease_until"], current + lease_seconds),
-                    )
-                    self._save_job(db, lease.message, job)
+                    heartbeat_at = max(job["heartbeat_at"], current)
+                    lease_until = max(job["lease_until"], current + lease_seconds)
+                    # Parallel tag preflight/reserve/invoke boundaries often
+                    # renew the same lease in the same second. Keep the writer
+                    # fence and fresh _owned check, but do not dirty pages/fsync
+                    # an identical record at every boundary. A later timestamp
+                    # or longer requested duration still performs the renewal.
+                    if (heartbeat_at, lease_until) != (job["heartbeat_at"], job["lease_until"]):
+                        job.update(heartbeat_at=heartbeat_at, lease_until=lease_until)
+                        self._save_job(db, lease.message, job)
                     return JobLease(
                         lease.message,
                         lease.owner,

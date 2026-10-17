@@ -69,3 +69,31 @@ usage record (`lease_heartbeat_failure`), distinguishing point and background
 renewals even when the hosted child stderr is discarded. SQL, messages, paths,
 provider content and credentials are excluded. These diagnostics do not change
 failure handling, retries, job status, publication permission or accounting.
+
+HF6 queues sibling heartbeats behind one process-local lock per job-store instance
+so only one heartbeat waits on SQLite at a time. Queue time counts toward the
+same 30s busy budget and persisted lease expiry. Identical heartbeat UPDATEs within
+the same timestamp are suppressed. Every call still acquires the SQLite writer
+and rechecks cancellation, owner,
+attempt, fence and expiry; advancing time or requesting a longer lease writes the
+renewal normally. Busy budgets and lease durations are unchanged.
+
+`HOSTED_RETAIN_FAILED_ANALYSIS=true` is the production default. After reaping a
+failed analysis child, while still owning the document file lease, the parent
+keeps bounded diagnostic projections under the private document directory at
+`analysis-failures/<run_id>-<fence>/`. Partial outcomes are retained too; completed
+workspaces are cleaned normally. Each capture is limited to 128 MiB and 2,048
+receipt files. A cross-process lock enforces a store-wide byte cap, configured by
+`HOSTED_FAILURE_DIAGNOSTICS_MAX_BYTES` (default and maximum 512 MiB). Full capacity
+or contention skips capture; diagnostics never authorize a retry or hide failure.
+
+Only job/snapshot/usage and provider accounting tables plus internal receipts are
+copied, not entire SQLite files or deleted pages. These projections are diagnostic
+evidence, not resumable databases. Environment, live configuration, credentials,
+identity/cursor tables, uploads and stderr are excluded. Dispatch failures record
+role, request byte count/hash, phase, exception category, numeric SQLite code and
+code location without exception messages. Point-heartbeat failures preserve the
+same sanitized cause already recorded for background renewals. Directories are
+0700, files 0600, and document purge removes the capture under existing ownership.
+No public endpoint exposes these files. Disable retention with the flag above;
+rollback requires no schema migration or policy rewrite.
