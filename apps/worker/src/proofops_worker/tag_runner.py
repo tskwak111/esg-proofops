@@ -1347,7 +1347,7 @@ class LocalTagRunner:
                     expected_attempts=event["attempts"],
                 )
                 return "ignored"
-            usage = {"model_calls": 0, "synthetic_calls": 0}
+            usage: dict = {"model_calls": 0, "synthetic_calls": 0}
             heartbeat_state = LeaseHeartbeatState(int(self.clock()))
             deferred: list[ReviewInputs] = []
 
@@ -1394,6 +1394,8 @@ class LocalTagRunner:
                 # step between two point-heartbeats outlived the lease window).
                 # This is a distinct, recoverable cause from an input/logic error:
                 # record it as such instead of folding it into TAG_INPUT_INVALID.
+                if heartbeat_state.failure is not None:
+                    failure.usage["lease_heartbeat_failure"] = heartbeat_state.failure
                 jobs.record_usage(lease, failure.usage)
                 try:
                     jobs.fail_job(lease, error_code=failure.error_code, now=int(self.clock()))
@@ -1417,6 +1419,8 @@ class LocalTagRunner:
                     else "failed"
                 )
             except TagHeartbeatFailed:
+                if heartbeat_state.failure is not None:
+                    usage["lease_heartbeat_failure"] = heartbeat_state.failure
                 jobs.record_usage(lease, usage)
                 try:
                     jobs.fail_job(lease, error_code="LEASE_HEARTBEAT_FAILED", now=int(self.clock()))
@@ -1432,6 +1436,8 @@ class LocalTagRunner:
                 )
                 return "LEASE_HEARTBEAT_FAILED"
             except (LeaseLost, _TagFenceLost):
+                if heartbeat_state.failure is not None:
+                    usage["lease_heartbeat_failure"] = heartbeat_state.failure
                 jobs.record_usage(lease, usage)
                 try:
                     jobs.fail_job(lease, error_code="LEASE_LOST", now=int(self.clock()))

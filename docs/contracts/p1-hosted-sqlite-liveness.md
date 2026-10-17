@@ -44,3 +44,28 @@ Compose healthcheck (the old image has no worker-health module); schema and save
 evidence remain compatible. The heartbeat/trash directories contain no evidence
 policy or money state; do not delete pending trash as a substitute for retention
 cleanup. New deployments must keep the existing source/receipt readers available.
+
+HF4 keeps the schema, attached rollback journals and policy pins unchanged.
+Hosted renewal alone now has a 30s BUSY budget (ordinary operations retain 10s);
+it rechecks the persisted document/status/fence/expiry after acquiring the writer,
+using monotonic elapsed time, and never shortens an already newer lease. Dispatch
+reservation also rechecks expiry after waiting, before any charge or transport.
+Response-cache authorization takes a read snapshot; broker reservation still
+performs the authoritative write fence before every transport.
+
+Hosted claim callbacks coalesce their unique counters to at most one write per
+second, with an immediate first processed claim and an explicit final flush after
+tagging, including partial results. These are advisory counters only: no budget,
+reservation, receipt, authority or inner-job fence is batched. Abrupt process loss
+can leave the latest unflushed counters absent; it cannot publish a result.
+Initial result bytes and their fsync/hash are staged outside the writer, then the
+same final fenced transaction installs the directory and immutable snapshot
+anchor. Later review revisions keep their existing serialization. No migration is
+needed; rollback restores the previous code without rewriting saved artifacts.
+
+BUSY/slow-writer logs identify the control operation. Failed tag renewals also
+retain the first exception type and numeric SQLite code in the existing immutable
+usage record (`lease_heartbeat_failure`), distinguishing point and background
+renewals even when the hosted child stderr is discarded. SQL, messages, paths,
+provider content and credentials are excluded. These diagnostics do not change
+failure handling, retries, job status, publication permission or accounting.

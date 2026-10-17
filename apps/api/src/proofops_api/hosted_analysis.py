@@ -273,8 +273,8 @@ class HostedOpenAILunaProbe(OpenAIProbe):
     def _authorize_response_request(self):
         from proofops_api.hosted_store import HostedError
 
-        now = time.time()
-        with self.store.transaction() as db:
+        with self.store.transaction(readonly=True, operation="response_authorize") as db:
+            now = time.time()
             self.store._fenced(db, self.job, now)
             doc = self.store._document(db, self.job["tenant_id"], self.job["document_id"])
             if now >= doc["expires"]:

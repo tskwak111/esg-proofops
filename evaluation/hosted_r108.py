@@ -3,7 +3,6 @@
 import json
 import os
 import sys
-import threading
 import time
 from contextlib import nullcontext
 from pathlib import Path
@@ -440,27 +439,9 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
     observed = []
     stage_seconds = {}
     extraction_stop = None
-    processed_claims = set()
-    stage_claims = {stage: set() for stage in ("preliminary", "relation", "elements")}
-    progress_lock = threading.Lock()
+    from proofops_api.hosted_progress import ClaimProgress
 
-    def claim_progress(claim_id, total):
-        with progress_lock:
-            processed_claims.add(claim_id)
-            store.update_progress(
-                job, "tag", 75, claims_extracted=total, claims_processed=len(processed_claims)
-            )
-
-    def claim_stage_progress(claim_id, total, stage):
-        with progress_lock:
-            stage_claims[stage].add(claim_id)
-            store.update_progress(
-                job,
-                "tag",
-                75,
-                claims_extracted=total,
-                claim_stage_counts={key: len(value) for key, value in stage_claims.items()},
-            )
+    claim_progress = ClaimProgress(store, job)
 
     if execution.get("model_response_policy"):
         # Document payload ownership makes authorized purge remove cached model
@@ -566,8 +547,8 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
                 verify_paragraphs=stage == "parse",
                 provider_factories=factories,
                 provider_ledgers=(upstage_ledger, luna_ledger),
-                claim_progress=claim_progress,
-                claim_stage_progress=claim_stage_progress,
+                claim_progress=claim_progress.claim,
+                claim_stage_progress=claim_progress.stage,
             )
             if deadline is not None:
                 worker.rb3_deadline = deadline
@@ -580,6 +561,8 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
                     if event["message"]["stage"] == stage
                 ]
                 outcome = worker.run_once(tenant_id=job["tenant_id"], run_id=manifest["run_id"])
+                if stage == "tag":
+                    claim_progress.flush()
                 failure = stage_failure_code(worker.store.jobs, stage_messages)
                 if failure:
                     extraction_stop = failure

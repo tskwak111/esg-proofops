@@ -28,14 +28,29 @@ class TagHeartbeatFailed(BaseException):
     """Stop tagging outside provider-error handlers after a failed renewal."""
 
 
+def heartbeat_failure(error, *, source):
+    # Persist a cause even when the hosted subprocess's stderr is discarded.
+    # Exception messages, SQL, paths, lease identifiers and credentials stay out.
+    code = getattr(error, "sqlite_errorcode", None)
+    return dict(
+        database="job_state",
+        source=source,
+        exception_type=type(error).__name__,
+        sqlite_errorcode=code if type(code) is int else None,
+    )
+
+
 @dataclass
 class LeaseHeartbeatState:
     last_successful_at: int
     failed: Event = field(default_factory=Event)
     lock: Any = field(default_factory=Lock)
+    failure: dict | None = None
 
-    def fail(self):
+    def fail(self, error=None):
         with self.lock:
+            if not self.failed.is_set() and error is not None:
+                self.failure = heartbeat_failure(error, source="point")
             self.failed.set()
 
     def check(self):
@@ -67,7 +82,8 @@ def with_lease_heartbeat(store, lease, clock, operation, *, state=None):
                     return
                 try:
                     store.heartbeat(lease, now=int(clock()), lease_seconds=lease_seconds)
-                except Exception:
+                except Exception as error:
+                    state.failure = heartbeat_failure(error, source="background")
                     state.failed.set()
                     return
                 state.last_successful_at = int(clock())

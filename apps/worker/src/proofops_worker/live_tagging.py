@@ -302,7 +302,7 @@ class LiveTaggingRuntime:
             self.runner.store.jobs.heartbeat(self.lease, now=now, lease_seconds=300)
         except Exception as error:
             if self.heartbeat_state is not None:
-                self.heartbeat_state.fail()
+                self.heartbeat_state.fail(error)
             if isinstance(error, LeaseLost):
                 raise
             raise TagHeartbeatFailed() from None

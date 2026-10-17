@@ -462,7 +462,12 @@ class HostedStore:
 
     @contextmanager
     def transaction(
-        self, *, expiry_cutoff: float | None = None, readonly: bool = False
+        self,
+        *,
+        expiry_cutoff: float | None = None,
+        readonly: bool = False,
+        lock_wait_seconds: float | None = None,
+        operation: str = "transaction",
     ) -> Iterator[sqlite3.Connection]:
         # Keep rollback journals: WAL loses cross-file atomicity for the attached
         # money/tombstone ledger. Reads need a snapshot, not a reserved writer.
@@ -497,17 +502,19 @@ class HostedStore:
                 db.close()
                 raise
 
-        db = retry_busy(acquire, phase="acquire")
+        db = retry_busy(acquire, phase=f"{operation}:acquire", wait_seconds=lock_wait_seconds)
         try:
             started = time.monotonic()
             yield db
             # A busy COMMIT keeps this exact transaction open. Retry COMMIT only;
             # yielding the body again would duplicate files or provider effects.
-            retry_busy(db.commit, phase="commit")
+            retry_busy(db.commit, phase=f"{operation}:commit", wait_seconds=lock_wait_seconds)
             elapsed = time.monotonic() - started
             if not readonly and elapsed >= 1:
                 logging.getLogger(__name__).warning(
-                    "hosted sqlite writer elapsed_ms=%d", int(elapsed * 1000)
+                    "hosted sqlite writer operation=%s elapsed_ms=%d",
+                    operation,
+                    int(elapsed * 1000),
                 )
         except BaseException:
             db.rollback()
@@ -1427,13 +1434,18 @@ class HostedStore:
         return row
 
     def renew_lease(self, job: dict, *, now: float) -> None:
-        with self.transaction() as db:
-            self._fenced(db, job, now)
+        started = time.monotonic()
+        # Like the inner job heartbeat, only renewal gets a longer BUSY budget.
+        # Acquisition/COMMIT may retry; the fenced body is never replayed.
+        with self.transaction(lock_wait_seconds=30, operation="renew_lease") as db:
+            current = now + time.monotonic() - started
+            row = self._fenced(db, job, current)
+            lease_until = max(row["lease_until"], current + RUN_LEASE_SECONDS)
             db.execute(
                 "UPDATE runs SET lease_until=? WHERE run_id=?",
-                (now + RUN_LEASE_SECONDS, job["run_id"]),
+                (lease_until, job["run_id"]),
             )
-        job["lease_until"] = now + RUN_LEASE_SECONDS
+        job["lease_until"] = lease_until
 
     def prepare(self, job: dict, *, now: float) -> Path:
         # Lease source bytes separately from the DB snapshot; deletion remains
@@ -1511,8 +1523,9 @@ class HostedStore:
         reserved = micros(bound)
         if reserved <= 0:
             raise HostedError("DISPATCH_INVALID", 422)
-        with self.transaction() as db:
-            row = self._fenced(db, job, now)
+        started = time.monotonic()
+        with self.transaction(operation="dispatch_reserve") as db:
+            row = self._fenced(db, job, now + time.monotonic() - started)
             if db.execute(
                 "SELECT 1 FROM deletion.costs WHERE run_id=? AND call_id=?",
                 (job["run_id"], call_id),
@@ -1537,7 +1550,7 @@ class HostedStore:
             actual = micros(response["actual_usd"])
             if actual > reserved:
                 raise HostedError("RECEIPT_BOUND_EXCEEDED")
-            with self.transaction() as db:
+            with self.transaction(operation="dispatch_settle") as db:
                 db.execute(
                     "INSERT INTO ops2_provider_observations VALUES (?,?,NULL) "
                     "ON CONFLICT(provider) DO UPDATE SET observed=excluded.observed,"
@@ -1791,7 +1804,7 @@ class HostedStore:
         for count in (claims_extracted, claims_processed):
             if count is not None and (type(count) is not int or count < 0):
                 raise ValueError("invalid claim progress")
-        with self.transaction() as db:
+        with self.transaction(operation="progress") as db:
             now = time.time()
             self._fenced(db, job, now)
             db.execute(
@@ -1838,8 +1851,19 @@ class HostedStore:
         with TemporaryDirectory(prefix="proofops-publication-", dir=self.root) as scratch:
             staged = Path(scratch) / "artifacts"
             shutil.copytree(source, staged)
-            with self.transaction() as db:
+            # Initial publication is create-only. Flush the snapshot with the
+            # receipts before acquiring either DB writer; install its anchor
+            # only after rechecking the current run/document/fence.
+            snapshot = staged / "result-1.json"
+            self._write(snapshot, content)
+            snapshot.chmod(0o400)
+            snapshot_hash = digest(content)
+            with self.transaction(operation="publish") as db:
                 self._fenced(db, job, time.time())
+                if db.execute(
+                    "SELECT 1 FROM result_snapshots WHERE run_id=?", (job["run_id"],)
+                ).fetchone():
+                    raise HostedError("ANALYSIS_RESULT_UNAVAILABLE")
                 target = (
                     self.document_dir(job["tenant_id"], job["document_id"])
                     / "analysis"
@@ -1847,7 +1871,9 @@ class HostedStore:
                 )
                 target.parent.mkdir(mode=0o700, exist_ok=True)
                 os.rename(staged, target)
-                self._publish_snapshot(db, job["run_id"], target, content)
+                db.execute(
+                    "INSERT INTO result_snapshots VALUES (?,1,?)", (job["run_id"], snapshot_hash)
+                )
                 db.execute(
                     "INSERT OR REPLACE INTO run_progress VALUES (?, 'result',100,1)",
                     (job["run_id"],),
