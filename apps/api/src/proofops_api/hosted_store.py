@@ -205,7 +205,8 @@ class HostedSettings:
             raise ValueError("limits exceed P1 ceilings")
         if not self.active_days <= self.backup_days <= self.audit_days:
             raise ValueError("retention order invalid")
-        for amount, ceiling in ((self.run_usd, "1.0"), (self.day_usd, "7")):
+        # DEC-191: the operator-approved daily ceiling is USD 15; run and event caps are unchanged.
+        for amount, ceiling in ((self.run_usd, "1.0"), (self.day_usd, "15")):
             if not 0 < micros(amount) <= micros(ceiling):
                 raise ValueError("budget exceeds DEC-22 ceilings")
         if not 0 < micros(self.event_usd) <= micros(self.event_usd_ceiling):
