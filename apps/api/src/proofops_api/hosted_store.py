@@ -1621,15 +1621,22 @@ class HostedStore:
             # An uncertain model transport is a per-claim hold, not a lost run fence.
             # Unknown receipts and non-model failures retain the existing terminal guard.
             from proofops.adapters.local.openai import OpenAITransient403
-            from proofops.adapters.local.openai_connections import OpenAIConnectNotSent
+            from proofops.adapters.local.openai_connections import (
+                OpenAIConnectNotSent,
+                OpenAIControlNotSent,
+            )
 
             if (
-                allow_connect_not_sent is True
+                phase == "transport"
                 and provider == "openai"
-                and isinstance(exc, OpenAIConnectNotSent)
+                and (
+                    isinstance(exc, OpenAIControlNotSent)
+                    or (allow_connect_not_sent is True and isinstance(exc, OpenAIConnectNotSent))
+                )
             ):
                 # This typed proof originates exclusively before HTTP request().
-                # Settle this broker reservation at zero; a retry needs a new call_id.
+                # Settle only this reservation. Control stops propagate without retry;
+                # a connect retry still needs its existing policy and a new call_id.
                 with self.transaction() as db:
                     db.execute(
                         "UPDATE deletion.costs SET actual=0,status='settled' "

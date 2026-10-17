@@ -2,13 +2,20 @@
 
 from __future__ import annotations
 
+import sqlite3
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from random import random
 from threading import Event, Lock, Thread
 from typing import Any
 
-from proofops.application.ports.jobs import JobLease, JobMessage, JobRepository, LeaseLost
+from proofops.application.ports.jobs import (
+    JobControlSignal,
+    JobLease,
+    JobMessage,
+    JobRepository,
+    LeaseLost,
+)
 from proofops.domain.values import _require_strict_int
 
 
@@ -24,7 +31,7 @@ class StageFailure(Exception):
         self.retry_after = retry_after
 
 
-class TagHeartbeatFailed(BaseException):
+class TagHeartbeatFailed(JobControlSignal):
     """Stop tagging outside provider-error handlers after a failed renewal."""
 
 
@@ -46,6 +53,7 @@ class LeaseHeartbeatState:
     failed: Event = field(default_factory=Event)
     lock: Any = field(default_factory=Lock)
     failure: dict | None = None
+    renewed_until: int = 0
 
     def fail(self, error=None):
         with self.lock:
@@ -56,6 +64,42 @@ class LeaseHeartbeatState:
     def check(self):
         if self.failed.is_set():
             raise TagHeartbeatFailed()
+
+
+def point_heartbeat(store, lease, clock, *, state=None, lease_seconds=300):
+    """Defer only an exhausted BUSY renewal while persisted authority is still valid.
+
+    120 seconds leaves a 30s keepalive interval, a 30s renewal budget, a 30s
+    ownership-read budget and 30s headroom. This is no lease extension: only
+    an actual successful renewal advances the remembered expiry. Every fallback
+    must freshly pass can_call, including owner/cancel/attempt/fence/expiry.
+    """
+    if state is not None:
+        state.check()
+    now = int(clock())
+    try:
+        renewed = store.heartbeat(lease, now=now, lease_seconds=lease_seconds)
+    except sqlite3.OperationalError as error:
+        code = getattr(error, "sqlite_errorcode", None)
+        if type(code) is not int or code & 0xFF != sqlite3.SQLITE_BUSY:
+            raise
+        if not store.can_call(lease, now=int(clock())):
+            raise LeaseLost("LEASE_LOST") from None
+        if state is None:
+            remaining = lease.lease_until - int(clock())
+        else:
+            with state.lock:
+                state.check()
+                remaining = max(lease.lease_until, state.renewed_until) - int(clock())
+        if remaining < 120:
+            raise
+        return
+    if state is not None:
+        with state.lock:
+            state.last_successful_at = max(state.last_successful_at, now)
+            if isinstance(renewed, JobLease):
+                state.renewed_until = max(state.renewed_until, renewed.lease_until)
+            state.check()
 
 
 def with_lease_heartbeat(store, lease, clock, operation, *, state=None):
@@ -81,12 +125,17 @@ def with_lease_heartbeat(store, lease, clock, operation, *, state=None):
                 if state.failed.is_set():
                     return
                 try:
-                    store.heartbeat(lease, now=int(clock()), lease_seconds=lease_seconds)
+                    now = int(clock())
+                    renewed = store.heartbeat(lease, now=now, lease_seconds=lease_seconds)
                 except Exception as error:
+                    # Background work may have no further admission boundary;
+                    # unlike a point renewal, keepalive failures remain fatal.
                     state.failure = heartbeat_failure(error, source="background")
                     state.failed.set()
                     return
-                state.last_successful_at = int(clock())
+                state.last_successful_at = max(state.last_successful_at, now)
+                if isinstance(renewed, JobLease):
+                    state.renewed_until = max(state.renewed_until, renewed.lease_until)
 
     thread = Thread(target=keepalive, name=f"lease-heartbeat:{lease.message.job_id}")
     thread.start()

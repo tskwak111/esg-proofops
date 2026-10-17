@@ -48,7 +48,7 @@ from proofops_agent.upstage_tagging import (
     UpstageTaggingTransport,
 )
 
-from proofops_worker.consumer import TagHeartbeatFailed
+from proofops_worker.consumer import TagHeartbeatFailed, point_heartbeat
 
 # The local stop conditions this module raises itself, per replica prefix. Recording
 # only these keeps a durable record free of arbitrary exception text while still
@@ -299,7 +299,9 @@ class LiveTaggingRuntime:
         if not _parse_enabled() and not self.runner.store.jobs.can_call(self.lease, now=now):
             raise LeaseLost("LEASE_LOST")
         try:
-            self.runner.store.jobs.heartbeat(self.lease, now=now, lease_seconds=300)
+            point_heartbeat(
+                self.runner.store.jobs, self.lease, self.runner.clock, state=self.heartbeat_state
+            )
         except Exception as error:
             if self.heartbeat_state is not None:
                 self.heartbeat_state.fail(error)

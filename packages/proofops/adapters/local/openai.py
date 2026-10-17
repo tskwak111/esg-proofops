@@ -490,12 +490,21 @@ class OpenAIProbe(OpenRouterProbe):
         return self.http_attempt_scope()
 
     def _post(self, body, *, client_request_id=None):
+        from proofops.adapters.local.openai_connections import (
+            OpenAIConnectNotSent,
+            OpenAIControlNotSent,
+        )
+
         # Hosted transport has already admitted before its broker reservation.
         scope = self.physical_attempt_scope() if client_request_id is None else nullcontext()
         if not self.transport_policy or client_request_id is not None:
-            with scope:
-                return self._post_admitted(body, client_request_id=client_request_id)
-        from proofops.adapters.local.openai_connections import OpenAIConnectNotSent
+            try:
+                with scope:
+                    return self._post_admitted(body, client_request_id=client_request_id)
+            except OpenAIControlNotSent as error:
+                if client_request_id is None:
+                    raise error.signal from None
+                raise  # The hosted broker still needs the pre-send proof.
         from proofops.adapters.local.provider_concurrency import ProviderCircuitOpen
         from proofops.adapters.local.provider_scheduler import ProviderAdmissionDeferred
 
@@ -519,6 +528,10 @@ class OpenAIProbe(OpenRouterProbe):
                 with self.physical_attempt_scope():
                     data = self._post_admitted(body, client_request_id=attempt_id)
                 state, diagnostic = "response_received", None
+            except OpenAIControlNotSent as error:
+                self._finish_transport_attempt(attempt_id, "never_sent", None)
+                self._settle_never_sent(dispatch["request_id"])
+                raise error.signal from None
             except OpenAIConnectNotSent as error:
                 state, diagnostic = "never_sent", json.dumps(error.diagnostic, sort_keys=True)
                 self._finish_transport_attempt(attempt_id, state, diagnostic)
@@ -581,21 +594,28 @@ class OpenAIProbe(OpenRouterProbe):
             )
 
     def _post_admitted(self, body, *, client_request_id=None):
+        from proofops.adapters.local.openai_connections import (
+            OpenAIControlNotSent,
+            control_before_send,
+        )
+        from proofops.application.ports.jobs import JobControlSignal, LeaseLost
+
         # Hosted adapters admit each physical attempt before broker reservation.
-        if (
-            self.http_dispatch_guard
-            and client_request_id is None
-            and not getattr(self, "provider_scheduler", None)
-        ):
-            admission = getattr(self, "http_dispatch_admission", None)
-            if admission is not None:
-                admission()
-        pool = self.connection_pool if self.transport_policy else None
-        if pool:
-            connection, connection_id, reused = pool.take()
-        else:
-            connection = http.client.HTTPSConnection("api.openai.com", timeout=90)
-            connection_id, reused = str(uuid4()), False
+        with control_before_send():
+            if (
+                self.http_dispatch_guard
+                and client_request_id is None
+                and not getattr(self, "provider_scheduler", None)
+            ):
+                admission = getattr(self, "http_dispatch_admission", None)
+                if admission is not None:
+                    admission()
+            pool = self.connection_pool if self.transport_policy else None
+            if pool:
+                connection, connection_id, reused = pool.take()
+            else:
+                connection = http.client.HTTPSConnection("api.openai.com", timeout=90)
+                connection_id, reused = str(uuid4()), False
         reusable = False
         request_started = False
         started = time.monotonic()
@@ -758,6 +778,10 @@ class OpenAIProbe(OpenRouterProbe):
                     )
                 )
             return data
+        except (JobControlSignal, LeaseLost) as error:
+            if not request_started:
+                raise OpenAIControlNotSent(error) from None
+            raise
         except (OSError, http.client.HTTPException, json.JSONDecodeError, UnicodeError) as error:
             diagnostic = None
             if self.response_uncertainty_policy:
@@ -965,9 +989,10 @@ class OpenAIProbe(OpenRouterProbe):
                 from proofops.adapters.local.provider_concurrency import ProviderCircuitOpen
                 from proofops.adapters.local.provider_scheduler import ProviderAdmissionDeferred
                 from proofops.application.budget import BudgetExceeded
+                from proofops.application.ports.jobs import LeaseLost
                 from proofops.application.provider_resilience import ISOLATED_CODES
 
-                if isinstance(error, BudgetExceeded):
+                if isinstance(error, BudgetExceeded | LeaseLost):
                     raise
                 if self.http_dispatch_guard and isinstance(
                     error, ProviderCircuitOpen | ProviderAdmissionDeferred

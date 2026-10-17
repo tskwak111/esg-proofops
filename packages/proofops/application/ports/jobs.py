@@ -13,6 +13,10 @@ class JobConflict(ValueError):
     """Revision/idempotency/immutable input conflict; callers must not merge it."""
 
 
+class JobControlSignal(BaseException):
+    """Stop worker execution without being swallowed by provider-error handlers."""
+
+
 class LeaseLost(ValueError):
     """Expired, cancelled or superseded worker ownership."""
 

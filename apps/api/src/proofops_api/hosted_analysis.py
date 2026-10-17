@@ -287,8 +287,9 @@ class HostedOpenAILunaProbe(OpenAIProbe):
             raise ValueError("HOSTED_WIRE_POLICY_REQUIRED")
 
         def transport(request):
-            if self.post and getattr(self, "provider_scheduler", None):
-                self.http_transport_pacing()
+            with control_before_send():
+                if self.post and getattr(self, "provider_scheduler", None):
+                    self.http_transport_pacing()
             try:
                 data = (
                     self.post(body)
@@ -306,7 +307,11 @@ class HostedOpenAILunaProbe(OpenAIProbe):
             return request | dict(actual_usd=rounded_cost(token_cost(data["usage"])), payload=data)
 
         from proofops.adapters.local.i27_inventory_execution import current, transient_code
-        from proofops.adapters.local.openai_connections import OpenAIConnectNotSent
+        from proofops.adapters.local.openai_connections import (
+            OpenAIConnectNotSent,
+            OpenAIControlNotSent,
+            control_before_send,
+        )
         from proofops.adapters.local.provider_concurrency import ProviderCircuitOpen
         from proofops.adapters.local.provider_scheduler import ProviderAdmissionDeferred
         from proofops.application.i27_inventory import POLICY as I27_POLICY
@@ -364,6 +369,11 @@ class HostedOpenAILunaProbe(OpenAIProbe):
                 if inventory is not None:
                     inventory["terminal_code"] = None
                 return response["payload"]
+            except OpenAIControlNotSent as error:
+                if self.transport_policy:
+                    self._finish_transport_attempt(call_id, "never_sent", None)
+                    self._settle_never_sent(scope["request_id"])
+                raise error.signal from None
             except OpenAIConnectNotSent as error:
                 if not self.transport_policy:
                     raise
