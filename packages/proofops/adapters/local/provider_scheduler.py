@@ -100,14 +100,19 @@ class RoleProviderConcurrency(ProviderConcurrency):
                 self.condition.notify_all()
                 raise
         code = None
+        uncertain = False
         if diagnostics is not None:
             diagnostics.setdefault("physical_attempts", []).append(record)
         try:
             yield
         except BaseException as error:
             from proofops.adapters.local.openai import OpenAITransient403
+            from proofops.adapters.local.openai_connections import OpenAIConnectNotSent
 
             raw = str(error)
+            uncertain = raw == "PROCESSING_UNCERTAIN" or (
+                isinstance(error, OSError) and not isinstance(error, OpenAIConnectNotSent)
+            )
             code = raw if raw.startswith("OPENAI_HTTP_") else "PROCESSING_UNCERTAIN"
             if isinstance(error, OpenAITransient403):
                 code = "TRANSIENT_OVERLOAD"
@@ -126,10 +131,10 @@ class RoleProviderConcurrency(ProviderConcurrency):
             try:
                 # Persist K=3 outcomes before releasing the slot to queued work.
                 if self.resilience_directory is not None:
-                    self.observe(code)
+                    self.observe(code, uncertain=uncertain)
                 else:
                     with self.condition:
-                        self._observe(code)
+                        self._observe(code, uncertain=uncertain)
                 record.update(finished_monotonic=self.clock(), error_code=code)
             finally:
                 with self.condition:
