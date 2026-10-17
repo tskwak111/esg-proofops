@@ -776,9 +776,7 @@ class LocalTagRunner:
                     ):
                         raise _TagFenceLost()
                     try:
-                        point_heartbeat(
-                            self.store.jobs, lease, self.clock, state=heartbeat_state
-                        )
+                        point_heartbeat(self.store.jobs, lease, self.clock, state=heartbeat_state)
                     except LeaseLost as error:
                         if _parse_enabled():
                             raise _TagFenceLost() from None

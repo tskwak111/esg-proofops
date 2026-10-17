@@ -4,12 +4,15 @@ import sqlite3
 import time
 from contextlib import contextmanager
 from decimal import Decimal
+from types import SimpleNamespace
 
 import pytest
+from proofops.adapters.local.openai_connections import OpenAIConnectNotSent, OpenAIControlNotSent
 from proofops.adapters.local.provider_scheduler import RoleProviderConcurrency
 from proofops.application.analysis_profile import V2_POLICY
 from proofops.application.ports.jobs import LeaseLost
 from proofops.domain.provenance import canonical_hash
+from proofops_api import hosted_sqlite
 from proofops_api.hosted_store import HostedError
 from proofops_worker.consumer import TagHeartbeatFailed
 from proofops_worker.tag_runner import _TagFenceLost
@@ -173,3 +176,91 @@ def test_unsent_schema_retry_does_not_release_prior_delivered_logical_budget(tmp
         rows = db.execute("SELECT actual,status FROM deletion.costs ORDER BY created").fetchall()
     assert rows[0][0] > 0 and rows[0][1] == "settled"
     assert tuple(rows[1]) == (0, "settled")
+
+
+@pytest.mark.parametrize("boundary", ["acquire", "commit"])
+@pytest.mark.parametrize("outcome", ["success", "control_unsent", "connect_unsent", "failure"])
+@pytest.mark.parametrize("release_after", [15, 29])
+def test_dispatch_accounting_survives_busy_beyond_ten_seconds(
+    tmp_path, monkeypatch, boundary, outcome, release_after
+):
+    store, _, job, _, _ = setup(tmp_path, monkeypatch)
+    clock = [0.0]
+    armed = []
+    calls = []
+    writes = []
+    connect = sqlite3.connect
+    error = {
+        "control_unsent": OpenAIControlNotSent(TagHeartbeatFailed()),
+        "connect_unsent": OpenAIConnectNotSent({}),
+        "failure": TagHeartbeatFailed(),
+    }.get(outcome)
+
+    def sleep(seconds):
+        clock[0] += seconds
+
+    def busy():
+        if armed and clock[0] < release_after:
+            exc = sqlite3.OperationalError("database is locked")
+            exc.sqlite_errorcode = sqlite3.SQLITE_BUSY
+            raise exc
+
+    class Connection(sqlite3.Connection):
+        def execute(self, sql, *args, **kwargs):
+            if boundary == "acquire" and sql == "BEGIN IMMEDIATE":
+                busy()
+            if armed and sql.startswith("UPDATE deletion.costs"):
+                writes.append(sql)
+            return super().execute(sql, *args, **kwargs)
+
+        def commit(self):
+            if boundary == "commit":
+                busy()
+            return super().commit()
+
+    monkeypatch.setattr(
+        hosted_sqlite, "time", SimpleNamespace(monotonic=lambda: clock[0], sleep=sleep)
+    )
+    monkeypatch.setattr(sqlite3, "connect", lambda *a, **kw: connect(*a, **kw, factory=Connection))
+
+    def transport(request):
+        calls.append(request)
+        armed.append(True)
+        if error is not None:
+            raise error
+        return request | dict(actual_usd=".001")
+
+    def dispatch():
+        return store.dispatch(
+            job,
+            "openai",
+            "slow-accounting",
+            "a" * 64,
+            Decimal(".011"),
+            transport,
+            now=time.time(),
+            allow_connect_not_sent=True,
+        )
+
+    if error is None:
+        assert dispatch()["actual_usd"] == ".001"
+    else:
+        with pytest.raises(type(error)) as caught:
+            dispatch()
+        assert caught.value is error
+    assert release_after <= clock[0] < 30
+    assert len(calls) == len(writes) == 1  # Neither transport nor transaction body is replayed.
+    with store.transaction(readonly=True) as db:
+        cost = tuple(db.execute("SELECT actual,status FROM deletion.costs").fetchone())
+        run = tuple(db.execute("SELECT status,fence FROM runs").fetchone())
+        spend = db.execute("SELECT status FROM deletion.spend").fetchone()[0]
+    if outcome == "failure":
+        assert cost == (None, "accounting_pending")
+        assert run == ("accounting_pending", job["fence"] + 1)
+        assert spend == "accounting_pending"
+        with pytest.raises(HostedError, match="LEASE_LOST"):
+            store.renew_lease(job, now=time.time())
+    else:
+        assert cost == (1000 if outcome == "success" else 0, "settled")
+        assert run == ("running", job["fence"])
+        store.renew_lease(job, now=time.time())

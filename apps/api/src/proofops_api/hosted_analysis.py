@@ -358,7 +358,10 @@ class HostedOpenAILunaProbe(OpenAIProbe):
                         allow_ops2_fallback=getattr(self, "ops2_enabled", False),
                         diagnostic_context=dict(
                             state=self.ledger.parent,
-                            role=(self._response_context.get() or (self.response_role, 0))[0],
+                            role=(
+                                self._response_context.get()
+                                or (getattr(self, "response_role", None), 0)
+                            )[0],
                             request_bytes=len(
                                 json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode()
                             ),

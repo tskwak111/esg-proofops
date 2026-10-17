@@ -185,3 +185,42 @@ def test_dispatch_diagnostic_retains_cause_without_exception_text(setup, tmp_pat
             None,
             "accounting_pending",
         )
+
+
+@pytest.mark.parametrize("retain", [False, True])
+def test_legacy_probe_without_response_role_preserves_uncertain_accounting(setup, tmp_path, retain):
+    import ssl
+
+    from proofops_api.hosted_analysis import HostedOpenAILunaProbe
+
+    store, _, job = setup
+    store.settings = replace(store.settings, retain_failed_analysis=retain)
+    probe = HostedOpenAILunaProbe("offline-only", tmp_path / "legacy.db", store=store, job=job)
+    assert not hasattr(probe, "response_role")
+    calls = []
+
+    def fail(body):
+        calls.append(body)
+        raise ssl.SSLEOFError("never-copy-credential")
+
+    probe.post = fail
+    with pytest.raises(HostedError, match="^PROCESSING_UNCERTAIN$"):
+        probe._post(probe.request_body("Return JSON", "{}", request_id="legacy"))
+    assert len(calls) == 1
+    with store.transaction(readonly=True) as db:
+        assert tuple(db.execute("SELECT actual,status FROM deletion.costs").fetchone()) == (
+            None,
+            "accounting_pending",
+        )
+        assert tuple(db.execute("SELECT status,fence FROM runs").fetchone()) == (
+            "running",
+            job["fence"],
+        )
+    records = list((tmp_path / "dispatch-failures").glob("*.json"))
+    assert len(records) == int(retain)
+    if retain:
+        raw = records[0].read_text()
+        record = json.loads(raw)
+        assert record["role"] is None and record["phase"] == "transport"
+        assert record["exception_type"] == "SSLEOFError"
+        assert "never-copy-credential" not in raw

@@ -1565,7 +1565,9 @@ class HostedStore:
             if actual > reserved:
                 raise HostedError("RECEIPT_BOUND_EXCEEDED")
             phase = "settlement"
-            with self.transaction(operation="dispatch_settle") as db:
+            # A response and its cost already exist; tolerate the same bounded
+            # writer contention as lease renewal without replaying transport.
+            with self.transaction(lock_wait_seconds=30, operation="dispatch_settle") as db:
                 db.execute(
                     "INSERT INTO ops2_provider_observations VALUES (?,?,NULL) "
                     "ON CONFLICT(provider) DO UPDATE SET observed=excluded.observed,"
@@ -1637,7 +1639,7 @@ class HostedStore:
                 # This typed proof originates exclusively before HTTP request().
                 # Settle only this reservation. Control stops propagate without retry;
                 # a connect retry still needs its existing policy and a new call_id.
-                with self.transaction() as db:
+                with self.transaction(lock_wait_seconds=30) as db:
                     db.execute(
                         "UPDATE deletion.costs SET actual=0,status='settled' "
                         "WHERE run_id=? AND call_id=? AND status='reserved'",
@@ -1664,7 +1666,7 @@ class HostedStore:
                     )
                 )
             )
-            with self.transaction() as db:
+            with self.transaction(lock_wait_seconds=30) as db:
                 if observation_code in PROVIDER_LIMIT_CODES.get(provider, ()):
                     db.execute(
                         "INSERT INTO ops2_provider_observations VALUES (?,?,?) "
