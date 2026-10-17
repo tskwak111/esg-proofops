@@ -54,7 +54,7 @@ if env["HOSTED_ACCEPT_UPLOADS"] == "true" and not env.get("HOSTED_CONSENT_VERSIO
 event_ceiling = env.get("HOSTED_EVENT_USD_CEILING", "7")
 for k, cap in [
     ("HOSTED_RUN_USD", "1.0"),
-    ("HOSTED_DAY_USD", "7"),
+    ("HOSTED_DAY_USD", "15"),  # DEC-191: operator-approved daily ceiling
     ("HOSTED_EVENT_USD", event_ceiling),
 ]:
     amount = Decimal(env[k])
