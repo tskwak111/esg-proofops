@@ -23,6 +23,7 @@ from jsonschema import Draft202012Validator, FormatChecker, ValidationError
 # Ledger policy remains byte-identical to existing Decisions policy: never reset spend.
 from proofops.adapters.local.decisions import OPENAI_POLICY as POLICY
 from proofops.adapters.local.openrouter import OpenRouterProbe
+from proofops.adapters.local.sqlite_busy import connection
 from proofops.application.openai_retry import POLICY as HTTP_RETRY_POLICY
 from proofops.application.openai_retry import POLICY_HASH as HTTP_RETRY_POLICY_HASH
 from proofops.domain.provenance import canonical_hash
@@ -190,7 +191,7 @@ class OpenAIProbe(OpenRouterProbe):
             self.transport_policy = transport_policy
             if self.connection_pool is None:
                 self.connection_pool = OpenAIConnections()
-            with sqlite3.connect(self.ledger) as db:
+            with connection(self.ledger) as db:
                 db.execute(
                     "CREATE TABLE IF NOT EXISTS probe_transport_attempts ("
                     "attempt_id TEXT PRIMARY KEY, request_id TEXT NOT NULL, bound TEXT NOT NULL, "
@@ -273,7 +274,7 @@ class OpenAIProbe(OpenRouterProbe):
         self.model, self._key, self.ledger = model, api_key, Path(ledger)
         self.wire_policy_version = wire_policy_version
         self.ledger.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        with sqlite3.connect(self.ledger) as db:
+        with connection(self.ledger) as db:
             db.execute(
                 "CREATE TABLE IF NOT EXISTS probe_policy (id INTEGER PRIMARY KEY, body TEXT)"
             )
@@ -319,7 +320,7 @@ class OpenAIProbe(OpenRouterProbe):
         return total
 
     def summary(self):
-        with sqlite3.connect(self.ledger) as db:
+        with connection(self.ledger, readonly=True) as db:
             total = self._total(db)
             calls, unsettled = db.execute(
                 "SELECT count(*), sum(receipt IS NULL) FROM probe_calls"
@@ -504,7 +505,7 @@ class OpenAIProbe(OpenRouterProbe):
             # A distinct physical reservation is bounded by the still-reserved
             # logical USD.02 envelope. The first proven-unsent attempt costs zero.
             # No two possibly delivered attempts share this retry authorization.
-            with sqlite3.connect(self.ledger, timeout=30) as db:
+            with connection(self.ledger) as db:
                 row = db.execute(
                     "SELECT receipt FROM probe_calls WHERE request_id=?", (dispatch["request_id"],)
                 ).fetchone()
@@ -549,7 +550,7 @@ class OpenAIProbe(OpenRouterProbe):
         raise ValueError("PROVIDER_PROCESSING_FAILED")
 
     def _finish_transport_attempt(self, attempt_id, state, diagnostic):
-        with sqlite3.connect(self.ledger, timeout=30) as db:
+        with connection(self.ledger) as db:
             db.execute(
                 "UPDATE probe_transport_attempts SET state=?,diagnostic=? "
                 "WHERE attempt_id=? AND state='reserved'",
@@ -557,7 +558,7 @@ class OpenAIProbe(OpenRouterProbe):
             )
 
     def _settle_never_sent(self, request_id):
-        with sqlite3.connect(self.ledger, timeout=30) as db:
+        with connection(self.ledger) as db:
             states = [
                 r[0]
                 for r in db.execute(
@@ -835,7 +836,7 @@ class OpenAIProbe(OpenRouterProbe):
             schema_sha256=canonical_hash(schema_json),
         )
         key = canonical_hash(response_request)
-        with sqlite3.connect(self.ledger, timeout=30) as db:
+        with connection(self.ledger, readonly=True) as db:
             if db.execute("SELECT 1 FROM probe_calls WHERE request_id=?", (request_id,)).fetchone():
                 raise ValueError("DUPLICATE_PROBE_REQUEST")
         self._authorize_response_request()
@@ -866,8 +867,7 @@ class OpenAIProbe(OpenRouterProbe):
                 ),
             )
             receipt = {k: v for k, v in result.items() if k != "content"}
-            with sqlite3.connect(self.ledger, timeout=30) as db:
-                db.execute("BEGIN IMMEDIATE")
+            with connection(self.ledger) as db:
                 self._total(db)
                 try:
                     db.execute(
@@ -932,8 +932,7 @@ class OpenAIProbe(OpenRouterProbe):
             if schema_json is not None
             else None
         )
-        with sqlite3.connect(self.ledger, timeout=10) as db:
-            db.execute("BEGIN IMMEDIATE")
+        with connection(self.ledger) as db:
             if db.execute("SELECT 1 FROM probe_calls WHERE request_id=?", (request_id,)).fetchone():
                 raise ValueError("DUPLICATE_PROBE_REQUEST")
             if self._total(db) + Decimal(POLICY["reservation_usd"]) > Decimal(POLICY["limit_usd"]):
@@ -985,7 +984,7 @@ class OpenAIProbe(OpenRouterProbe):
                         cost_source="physical_admission_denied",
                     )
                     if attempt == 0 and not self._dispatch_context.get()["transport_retries"]:
-                        with sqlite3.connect(self.ledger, timeout=30) as db:
+                        with connection(self.ledger) as db:
                             db.execute(
                                 "UPDATE probe_calls SET committed='0',receipt=? "
                                 "WHERE request_id=? AND receipt IS NULL",
@@ -1095,7 +1094,7 @@ class OpenAIProbe(OpenRouterProbe):
                 attempts=scope.get("physical_attempts", []),
                 receipt_persist_started_monotonic=time.monotonic(),
             )
-        with sqlite3.connect(self.ledger) as db:
+        with connection(self.ledger) as db:
             changed = db.execute(
                 "UPDATE probe_calls SET committed=?, receipt=? WHERE request_id=? "
                 "AND receipt IS NULL AND committed=?",
@@ -1109,7 +1108,7 @@ class OpenAIProbe(OpenRouterProbe):
             if changed != 1:
                 raise ValueError("BUDGET_SETTLEMENT_INVALID")
         if self.transport_policy:
-            with sqlite3.connect(self.ledger, timeout=30) as db:
+            with connection(self.ledger) as db:
                 db.execute(
                     "UPDATE probe_transport_attempts SET state='settled' "
                     "WHERE request_id=? AND state='response_received'",

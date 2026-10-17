@@ -473,6 +473,14 @@ class LiveTaggingRuntime:
             if policy["qt1_tuple_policy"] != POLICY:
                 raise ValueError("QT1_TUPLE_POLICY_MISMATCH")
             data = augment_packet(data, claim, self.graph, tenant_id=self.graph.tenant_id)
+        if "tb1_table_policy" in policy:
+            from proofops.application.tagging.tb1_table_bundles import POLICY, augment_packet
+
+            if policy["tb1_table_policy"] != POLICY or policy.get(
+                "tb1_table_policy_sha256"
+            ) != canonical_hash(POLICY):
+                raise ValueError("TB1_TABLE_POLICY_MISMATCH")
+            augment_packet(data, claim, self.graph, tenant_id=self.auth.tenant_id)
         if "v3_dec92_policy" in policy:
             from proofops.application.tagging.v3_context import augment_packet as v3_augment
             from proofops.application.tagging.v3_dec92 import validate_policy as validate_v3

@@ -1,7 +1,6 @@
-# ESG ProofOps 개발 인수인계 — finals v29b
+# ESG ProofOps 개발 인수인계 — finals v29d + FX4
 
-2026-10-16 운영 기준: 백엔드 `6bd7fc3438354369904c978ac5fb8fcd85cea0a8`,
-웹 `4fcbaa81297c0a95337a7abb23b7e550b5e662f9`. 공개 release는 이 스냅샷에서
+2026-10-17 코드 기준: 백엔드 `fa02cb3e`(v29d + FX4), 웹 `5d314a7`. 공개 release는 이 스냅샷에서
 비공개 자료를 제외한 별도 커밋이다. 서버 접속·배포·새 모델 호출 없이 작성했다.
 
 ## 제품과 실행 경계
@@ -44,7 +43,7 @@ S3/DynamoDB/Bedrock/AgentCore 구성은 현재 hosted 배포와 구분한다.
 원문 v2와 [Master](00_MASTER_SPEC.md)를 기본으로 읽되, 아래는 후속 사용자 승인으로
 변경된 범위다. 비공개 결정 로그 자체는 공개 저장소에 포함하지 않는다.
 
-| 결정 | 의미 및 v29b 적용 |
+| 결정 | 의미 및 현재 적용 |
 | --- | --- |
 | DEC-85 | `absent_in_scope`를 문서 전체 부재와 구분. 초기에는 범위 재탐색·3/3 미발견을 요구했다. 현재의 추가 허용은 DEC-125/127로 한정한다. |
 | DEC-92 | 주변 문맥으로 독립 주장/근거 설명을 구분하고 표의 행/값을 대조한다. 세부 허용은 DEC-93 승인 범위로 구현한다. |
@@ -52,6 +51,7 @@ S3/DynamoDB/Bedrock/AgentCore 구성은 현재 hosted 배포와 구분한다.
 | DEC-123 | 화면은 범위 기준 확정을 일반 “확정”으로 합산·표시한다. API의 범위·정책·원시 근거 필드는 유지한다. |
 | DEC-125 | 완료된 3회 중 요소 2/3의 검증된 값·귀속·범위 합의 허용. 검증된 반대 근거나 충돌은 차단한다. 유형은 3/3 유지. 선택 쪽 밖 근거 탐색 확대도 승인되었지만 CF7은 v29b에 통합되지 않았으므로 전체 문서 탐색 완료로 표현하지 않는다. |
 | DEC-127 | 3회 태깅 완료 후 분석한 쪽 안에서 검증·연결하지 못한 요소를 `absent_in_scope`로 처리한다. SC1 완전 탐색은 더 이상 선행 조건이 아니다. 문서 자체에 근거가 없다는 뜻이 아니며 시스템 개선 후 새 분석에서 present로 바뀔 수 있다. |
+| DEC-154 | 다른 주체가 명시되지 않은 단일 회사 보고서는 보고 회사를 기본 주체로 삼고 지표·기간이 일치하는 원격 근거를 허용하는 승인이다. 그러나 EV2/EV3 원격 근거 경로는 이 최종 코드에 통합되지 않았다. TB1의 같은 표 셀 결합과 구분하며 승인만으로 원격 present가 구현되었다고 설명하지 않는다. |
 
 현재 구현은 [CF6 계약](CF6_ELEMENT_CONFIRMATION.md),
 `application/tagging/cf6_confirmation.py` 및 `domain/rules/cf6_scope.py`를 함께 확인한다.
@@ -61,10 +61,21 @@ S3/DynamoDB/Bedrock/AgentCore 구성은 현재 hosted 배포와 구분한다.
 
 ## 현재 정책과 시간·비용 한계
 
-`finals-unattended-v2`의 기본은 `finals-20261016-v29b`다.
-정책 SHA256은 `9fd37ccb4d397e2b3b4c0a468502cca4aed18dbb5d9a0853a72e0d7cae33153d`.
-v29에 HF1의 SC1 JSON schema 지시 복원과 HF2의 RB3 v2 시간 정책이 반영된 운영 코드다.
-기존 정책 객체·원문 reader·receipt 해시를 스타일 정리로 바꾸지 않는다.
+`finals-unattended-v2`의 기본은 `finals-20261017-v29d`다.
+정책 SHA256은 `f29385d0c74d1520350deb06eaa9e11b72c5829dfaefeb2417c4e8ac0fed4ebd`.
+v29b의 근거·비용·시간 가드를 유지하면서 다음 구성을 적용한다.
+
+| 구성 | 책임과 확인 위치 |
+| --- | --- |
+| SPT | `application/tagging/spt_pipeline.py`, worker의 동명 모듈: 제한된 주장 파이프라인 스케줄링, HTTP 동시성·replica 3회 유지 |
+| SPE | `adapters/local/spe_source_execution.py`: 원문 검증 실행 재사용과 범위 제한, 원본·정책·receipt 결속 유지 |
+| SPP | `adapters/parsing/spp_execution.py`: 파서 실행 조정, 이전 파서 정책·해시 재생 보존 |
+| SPG | `spg_verified_evidence.py`, `spg_publication.py`, API `spg_coordinates.py`: 검증된 게시 자료·좌표 재사용, 변조·다른 실행·테넌트 차단 |
+| HF3 | `adapters/local/job_store.py`: 일시 SQLite 경합에 lease 갱신 재시도, 실제 소유권 상실·취소·기한 fencing 유지 |
+| FX4 | `adapters/local/sqlite_busy.py` 및 claim/cache 저장소: 트랜잭션 진입·commit의 제한된 busy 재시도, 본문·공급자 호출 재실행 금지, claim 단계 진단 |
+| TB1 | `tagging/tb1_table_bundles.py`, `tb1_claim_source.py`: 같은 표의 값·연도·단위·헤더를 원문 검증 후 결합, 다른 주체·기간·표와 충돌 차단 |
+| UX1 | `hosted_ux1.py`: 파일명·제목 메타데이터와 검증된 표 개수의 부가 표시, 새 정책 기본 활성화, 과거 snapshot 불변 |
+| PC1 | `analysis_profile.py`는 현재 기본값·호환 API, `policies/legacy/analysis_profiles.py`는 과거 정책, `policies/registry.py`는 재생·hosted 허용 레지스트리. 정책 객체·해시·순서 보존 |
 
 - 최대 분석 시간 2,700초, 신규 추출 투입은 1,500초, 태깅/SC1은 2,400초까지다.
   마지막 300초는 진행 중 작업과 게시 여유다. 더 짧은 부모 제한이 우선하며 입력에 따라
@@ -74,7 +85,7 @@ v29에 HF1의 SC1 JSON schema 지시 복원과 HF2의 RB3 v2 시간 정책이 �
   전송 전 예약·후정산을 유지하고 미정산 비용을 삭제하거나 자동 재호출하지 않는다.
   이 가드는 인프라 전체 청구액 상한이 아니다.
 - CF3는 잘못된 present 후보가 관측되어 미통합, S7은 속도 이득 대비 동결 위험으로 미통합이다.
-  CF7도 미통합이다. 해당 브랜치의 성과를 v29b 기능으로 표시하지 않는다.
+  CF7도 미통합이다. 해당 브랜치의 성과를 v29d 기능으로 표시하지 않는다.
 - DEC-127은 못 찾은 근거를 범위 내 부재로 확정하므로 실제 원문에 근거가 있어도 과소등급이
   생길 수 있다. “확정”은 시스템 규칙 계산의 완료이며 전문가 정답·현실의 진실 보장이 아니다.
 
@@ -115,7 +126,7 @@ RC1은 감사 테이블·인덱스·불변 트리거를 추가하는 idempotent 
    이를 그대로 시작하면 안 된다. 운영 override의 API `mem_limit`와 `memswap_limit`는
    모두 `1536m`이다. worker 6 CPU/12GiB·tmpfs 512MiB도 기존 운영 설정과 함께 확인한다.
    `deploy.sh`/systemd가 override를 자동 보존한다고 가정하지 말고 실제 unit의 compose 인자를 확인한다.
-5. HF2 watchdog과 실제 배정 정책이 함께 v29b인지 확인한다. 기존 명시적 1,800초 설정은
+5. 실제 배정 정책이 v29d이고 watchdog이 2,700초인지 확인한다. 기존 명시적 1,800초 설정은
    새 코드 기본값보다 우선하므로 설정만 남기고 이미지 교체를 완료했다고 판단하지 않는다.
 
 ```yaml
@@ -127,7 +138,7 @@ services:
 ```
 
 ```bash
-# 승인된 서버에서 실행할 예시. HO1에서는 실행하지 않았다.
+# 승인된 서버에서 실행할 예시. 이 공개 준비 작업에서는 실행하지 않았다.
 cd /srv/proofops
 sudo docker compose --env-file compose.env -f compose.yaml -f compose.ops2.yaml exec -T api python scripts/hosted_control.py drain
 sudo docker compose --env-file compose.env -f compose.yaml -f compose.ops2.yaml exec -T api python scripts/hosted_control.py wait-idle --timeout 600
@@ -148,45 +159,46 @@ sudo docker compose --env-file compose.env -f compose.yaml -f compose.ops2.yaml 
 중지하고 RC1 사본은 호환 reader에서 유지해야 한다. 시간 제한·API1536MiB override도 함께
 복원한다. 데이터/비용 장부 삭제, 과거 revision 덮어쓰기, 임의 down/prune은 롤백이 아니다.
 
-## 검증 재사용과 공개 checkout의 제약
+## 배포 전 실서버 wire 검사와 알려진 한계
 
-기존 I29 검증: 전체 pytest 8,560 통과·2 실패·90 생략 후 잘못된 CF1 오류 주입을 수정하고
-해당 파일 11개 통과. 전체 재실행은 없었다. RC1 통합 후 lint/format/type과 로컬 이미지
-smoke는 통과했다. HF2(`6bd7fc34`)는 집중 44개·replay 48개, lint/format/변경 type,
-Linux arm64 이미지와 네트워크 차단 LG13 모의 파이프라인을 통과했다.
-이는 실모델 정확도·운영 대용량 완료·현재 release 전체 테스트 통과의 주장이 아니다.
+운영 설정은 비공개 `HOSTED_LIVE_CONFIG`에서 `llm_max_workers=16`,
+`llm_requests_per_second=8`, 환경에서 `HOSTED_ANALYSIS_TIMEOUT_SECONDS=2700`을
+명시하고 API 메모리·swap을 모두 `1536m`으로 유지한다. 코드 기본값을 운영 실효값으로
+간주하지 않는다. 위 설정은 추천 운영 계약이며 이 PR이 서버 설정을 바꾸지는 않는다.
 
-공개 release는 내부 보고서·결정 로그·평가 원시자료·PDF·개인 경로·실제 계정 식별자를 제외한다.
-평가 도구 및 회귀 테스트 코드는 보존한다. 일부 테스트가 읽는 private fixture는 별도 공급이
-필요하므로 공개 checkout만으로 전체 테스트가 통과하지 않는다. 테스트를 삭제/skip하거나
-기대값을 낮추지 않는다. 병합 전 조정자는 비공개 fixture 공급 방식을 정하고 해당 CI를 확인해야 한다.
-공개 main의 기존 이력에 이미 포함된 자료는 이 release에서 지워도 과거 이력에 남는다.
+1. 배포 승인 후 정확한 이미지·백엔드 커밋·웹 버전·정책 SHA를 대조한다. 실제 compose
+   override, 프로세스 환경과 로드된 config에서 16/8·2700·1536m을 비공개로 확인한다.
+2. 배포 전 승인된 검증 서버/후보 이미지에서 권리가 확인된 대표 PDF를 실제 웹→프록시→API
+   경로로 업로드한다. 관리자 `force_fresh`로 RC1 적중을 피하되 별도 비용 승인과 기존
+   예산 예약·가격 만료·정산 가드를 통과해야 한다. API 키·쿠키·PDF·응답 원문은 Git에 넣지 않는다.
+3. 업로드 CORS preflight와 `X-UX1-Metadata` 전달, 제목/파일명 저장,
+   run의 frozen v29d 정책 SHA·범위·기간·원본 해시를 확인한다. metadata의 잘못된
+   정책/필드/길이와 다른 테넌트 접근은 거부되어야 한다.
+4. 서버의 실제 provider wire 메타데이터로 요청 시작/종료·HTTP 상태·retry·동시성·RPS·
+   replica 구분을 확인한다. 요청 본문의 비밀값이나 원문은 공개하지 않는다. parse/extract/
+   tag/publish 시간과 claim 단계 진행을 대조하고 SQLite busy가 lease 상실이나 모델 중복
+   호출로 이어지지 않는지 확인한다. mock/replay CI를 실호출 검사로 대체하지 않는다.
+5. 게시 결과의 TB1 값·연도·단위·행/열·원문 하이라이트와 보류 이유, UX1 표 개수/보고서
+   비교/내보내기를 확인한다. 원문 검증 실패·충돌·미완료 replica는 present나 부재로
+   바뀌면 안 된다. 실제 wire·원문 검사 미완료 시 배포 통과로 기록하지 않는다.
+6. fresh 결과와 동일 PDF의 RC1 사본을 따로 확인한다. 사본의 권한·읽기 전용·분석 시각,
+   재사용 시 모델 호출/예약 비용 0, 이전 실행의 reader 호환성을 확인한다.
 
-HO1에서는 정리 브랜치의 Ruff와 빌드만 실행하며 전체 테스트·AWS·실모델 호출은 `not_run`이다.
-검사 명령/결과와 공개 PR 초안은 별도 비공개 인수인계 산출물에 기록한다.
+DEC-154의 원격 근거 확대는 미통합이다. DEC-127의 범위 내 부재는 문서 전체 부재가
+아니며 과소등급 가능성이 남는다. TIME_BUDGET/부분 완료, 판독 실패, 원격 근거 누락은
+개선된 스케줄링으로 자동 해결된 것으로 보지 않는다. RC1 중복 주장 ID 잔류 한계와
+큰 웹 번들 경고도 별도 확인 대상이다. FX4 재시도는 유한하며 장기 lock·소유권 상실은
+실패해야 한다. 실제 서버 wire 검사·AWS 배포·유료 모델 호출은 이 공개 준비 작업에서
+실행하지 않았다.
 
-### 비공개 fixture 공급
+## 공개 checkout과 검증 범위
 
-권한 있는 개발자는 원본 SHA·사용 권한을 확인하고 비공개 자료를 아래 원래 상대 경로로
-공급한다. 공개 PR의 비신뢰 코드에 비공개 코퍼스/자격 증명을 자동 제공하지 않는다.
-`git add -f`로 제외 자료를 되돌리지 않는다.
+HO1의 비공개 자료 제외·계정 핀 자리표시자·개인 경로 정리와 CI2의 이식성 수정을
+유지한다. 회귀 검증에 필요한 공개 발췌/합성 PDF와 최소 fixture는 출처와 함께 유지한다.
+`tests/fixtures/pc1_policy_equivalence.json`은 정책 호환성의 고정 기대값이며 실행 결과
+보고서가 아니다. 테스트 삭제·skip 추가·기대값 약화로 공개 CI를 통과시키지 않는다.
+기존 main의 과거 이력은 새 스냅샷만으로 지워지지 않으며 원격 이력을 재작성하지 않는다.
 
-| 필요한 자료 | 관련 검사 예시 |
-| --- | --- |
-| `tests/fixtures/fx6b/*.pdf` | `tests/test_upload_fx6b.py` |
-| `tests/fixtures/k7`, `tests/fixtures/k8`의 PDF | K7/K8 원문 검증 회귀 |
-| `tests/fixtures/pa9/*.pdf`, `tests/fixtures/pb4/*.pdf` | PA9/PB4 원문 레이아웃 회귀 |
-| `tests/fixtures/predeploy/` | `tests/test_predeploy_gate.py` |
-| `tests/fixtures/qt1/`, `tests/fixtures/w9/` | QT1/W9 파싱·표 회귀 |
-| `tests/integration/hx1_lgchem_failure.json` | `tests/integration/test_hx1_elements.py` |
-| `tests/fixtures/pipeline/live-extraction/extraction-year-abbreviation/`의 packet/raw response | 해당 추출 연도·원문 재생 회귀 |
-
-## 다음 개발자가 먼저 할 일
-
-1. 공개 PR은 비공개 fixture 공급 및 이미 공개된 자료의 이력 처리 검토 후 병합한다.
-2. 대표 고정 입력의 parse/extract/tag/publish 시간을 측정한다. 원문 검증/receipt 재생과 게시
-   비용을 먼저 분리하고, S7은 결과 동일성·보류/오확정 변화·실측 이득을 확인하기 전 통합하지 않는다.
-3. 실제 근거가 있는 과소등급 표본으로 검색·패킷 누락을 개선한다. present의 원문/귀속 가드를
-   완화하거나 unknown을 조용히 바꿔 성과를 만들지 않는다. 새 정책과 새 revision으로 검증한다.
-4. 프런트에서 CF6 확정/보류·SC1 범위·RC1 읽기 전용/분석 일시·중복 주장 그룹을 확인한다.
-   모바일·원문 PDF 좌표·내보내기·세션 만료/재접속을 실제 API와 함께 검사한다.
+PR의 정확한 head에서 CI 8개 job을 확인한 뒤 조정자가 검토·병합한다. 현재 PR 생성은
+배포 승인이나 실모델 정확도 검증을 의미하지 않는다. 검사 결과와 비공개 스캔 세부는
+저장소 밖의 인수인계 산출물로 관리한다.

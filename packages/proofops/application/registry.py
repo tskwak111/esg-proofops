@@ -19,6 +19,8 @@ from types import MappingProxyType
 from typing import Any
 from uuid import UUID, uuid4
 
+from proofops.adapters.local.sqlite_busy import connection, retry_busy
+
 _OPTION_KINDS = ("rights", "consent", "runtime")
 _OPTION_STATUSES = ("approved", "unverified", "disabled")
 _MODES = ("disclosure", "advertising")
@@ -114,25 +116,27 @@ class Registry:
         self._lock = RLock()
         self._database: sqlite3.Connection | None = None
         if database_path is not None:
-            self._database = sqlite3.connect(str(database_path), check_same_thread=False)
-            self._database.execute(
-                "CREATE TABLE IF NOT EXISTS registry_metadata "
-                "(key TEXT PRIMARY KEY, value TEXT NOT NULL)"
+            with connection(database_path) as db:
+                db.execute(
+                    "CREATE TABLE IF NOT EXISTS registry_metadata "
+                    "(key TEXT PRIMARY KEY, value TEXT NOT NULL)"
+                )
+                version = db.execute(
+                    "SELECT value FROM registry_metadata WHERE key='schema_version'"
+                ).fetchone()
+                if version is not None and version[0] != "1":
+                    raise ValueError("unsupported registry schema version")
+                db.execute(
+                    "CREATE TABLE IF NOT EXISTS registry_state "
+                    "(key TEXT PRIMARY KEY, value TEXT NOT NULL)"
+                )
+                db.execute(
+                    "INSERT OR IGNORE INTO registry_metadata(key, value) "
+                    "VALUES ('schema_version', '1')"
+                )
+            self._database = sqlite3.connect(
+                str(database_path), check_same_thread=False, timeout=0.25
             )
-            version = self._database.execute(
-                "SELECT value FROM registry_metadata WHERE key='schema_version'"
-            ).fetchone()
-            if version is not None and version[0] != "1":
-                self.close()
-                raise ValueError("unsupported registry schema version")
-            self._database.execute(
-                "CREATE TABLE IF NOT EXISTS registry_state "
-                "(key TEXT PRIMARY KEY, value TEXT NOT NULL)"
-            )
-            self._database.execute(
-                "INSERT OR IGNORE INTO registry_metadata(key, value) VALUES ('schema_version', '1')"
-            )
-            self._database.commit()
             self._load()
 
     @classmethod
@@ -510,12 +514,12 @@ class Registry:
                 return
             begun = False
             try:
-                self._database.execute("BEGIN IMMEDIATE")
+                retry_busy(lambda: self._database.execute("BEGIN IMMEDIATE"))
                 begun = True
                 self._load()
                 yield
                 self._persist()
-                self._database.execute("COMMIT")
+                retry_busy(self._database.commit)
             except BaseException:
                 if begun:
                     self._database.execute("ROLLBACK")
@@ -532,9 +536,11 @@ class Registry:
 
     def _load(self) -> None:
         assert self._database is not None
-        row = self._database.execute(
-            "SELECT value FROM registry_state WHERE key = 'state'"
-        ).fetchone()
+        row = retry_busy(
+            lambda: self._database.execute(
+                "SELECT value FROM registry_state WHERE key = 'state'"
+            ).fetchone()
+        )
         data: dict[str, Any] = json.loads(row[0]) if row is not None else _empty_state()
         self._epoch = int(data["epoch"])
         self._companies = {

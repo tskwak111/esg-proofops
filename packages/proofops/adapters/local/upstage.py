@@ -19,6 +19,7 @@ from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
+from proofops.adapters.local.sqlite_busy import connection
 from proofops.application.budget import PricingSnapshot, TokenUsage, usage_cost
 from proofops.domain.provenance import canonical_hash
 
@@ -130,7 +131,7 @@ def request_usage(ledger, request_ids) -> dict:
     try:
         uri = Path(ledger).resolve().as_uri() + "?mode=ro"
         entries = []
-        with sqlite3.connect(uri, uri=True) as db:
+        with connection(uri, uri=True, readonly=True) as db:
             if all(isinstance(identifier, str) for identifier in identifiers):
                 rows: dict[str, tuple[str, str | None]] = {}
                 # Keep below SQLite's portable bind limit. Read fresh rows each

@@ -105,8 +105,20 @@ class ParserProfile:
     table_claims_profile: str | None = None
     local_resource_policy: str | None = None
     output_policy: str | None = None
+    execution_policy: str | None = None
 
     def __post_init__(self):
+        if self.execution_policy not in (None, "spp-parse-v1"):
+            raise ValueError("unsupported parser execution policy")
+        if (
+            self.execution_policy is not None
+            and self.parser_mode == "mixed-v1"
+            and (
+                self.failure_policy != "s3_partial-v7"
+                or self.local_resource_policy != "selected-pdf-h6-v2"
+            )
+        ):
+            raise ValueError("SPP requires the existing S3 routing and H6 batching")
         if self.output_policy not in (None, "rb2-output-v1"):
             raise ValueError("unsupported parser output policy")
         if self.local_resource_policy not in (
@@ -204,6 +216,8 @@ class ParserProfile:
     def invocation_snapshot(self) -> dict:
         """Keep historical invocation hashes when optional tuning is absent."""
         values = asdict(self)
+        if self.execution_policy is None:
+            values.pop("execution_policy")
         if self.output_policy is None:
             values.pop("output_policy")
         if self.local_resource_policy is None:

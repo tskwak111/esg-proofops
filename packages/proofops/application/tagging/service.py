@@ -241,6 +241,11 @@ def tag_replicates(
     if type(allow_edge_whitespace) is not bool:
         raise DomainValidationError("edge-whitespace binding policy must be boolean")
     data = packet.to_dict()
+    tb1_bundles = []
+    if "tb1_table_policy" in data:
+        from proofops.application.tagging.tb1_table_bundles import validate_packet as tb1_validate
+
+        tb1_bundles = tb1_validate(data, context.claim, original, tenant_id=tenant_id)
     qt1_tuples, qt1_links = [], []
     if "qt1_tuple_policy" in data:
         from proofops.application.tagging.qt1_tuples import validate_packet
@@ -426,6 +431,9 @@ def tag_replicates(
     }
     if contextual_policy is not None:
         user_data["qt2_contextual_elements_policy"] = contextual_policy
+    if "tb1_table_policy" in data:
+        user_data["tb1_table_policy"] = data["tb1_table_policy"]
+        user_data["tb1_table_bundles"] = tb1_bundles
     if "qt1_tuple_policy" in data:
         user_data["qt1_tuple_policy"] = data["qt1_tuple_policy"]
         user_data["qt1_table_tuples"] = qt1_tuples
@@ -777,6 +785,7 @@ def tag_replicates(
             for element in raw_tags.elements:
                 model_element = element
                 table_selected = False
+                tb1_selected = False
                 qt1_table_selected = baseline_selected = False
                 if data.get("table_evidence_policy", {}).get("profile") in (
                     "table-selected-evidence-pb2-v1",
@@ -824,7 +833,28 @@ def tag_replicates(
                     )
 
                     element, baseline_selected = baseline_prepare(element, qt1_links)
+                if tb1_bundles:
+                    from proofops.application.tagging.tb1_table_bundles import (
+                        prepare_element as tb1_prepare,
+                    )
+
+                    selected_element, tb1_selected = tb1_prepare(model_element, tb1_bundles)
+                    if tb1_selected:
+                        element = selected_element
+                    table_selected |= tb1_selected
                 state = element.state
+                if tb1_bundles and state == "present" and not tb1_selected:
+                    from proofops.application.tagging.tb1_table_bundles import ELEMENTS, bundle_refs
+
+                    tb1_ids = {item["table_id"] for item in tb1_bundles} | {
+                        r["source_id"] for item in tb1_bundles for r in bundle_refs(item)
+                    }
+                    if element.element_id in ELEMENTS and any(
+                        r.source_id in tb1_ids for r in model_element.evidence_refs
+                    ):
+                        # A rejected bundle cannot bypass its row/column gates
+                        # through a legacy local-span or single-cell binding.
+                        state = "unknown"
                 binding_reasons: list[str] = []
                 if (
                     implementation_binding is not None
@@ -875,7 +905,7 @@ def tag_replicates(
                             or element.element_id not in candidate["allowed_elements"]
                             or candidate["source_scope"]
                             not in definitions[element.element_id]["source_scopes"]
-                            and not (baseline_selected or qt1_table_selected)
+                            and not (baseline_selected or qt1_table_selected or tb1_selected)
                         ):
                             state = "unknown"
                             if r12_quality:
@@ -937,7 +967,9 @@ def tag_replicates(
                             scope_set.add(SOURCE_SCOPE)
                         else:
                             scope_set.add(
-                                "same_table" if qt1_table_selected else candidate["source_scope"]
+                                "same_table"
+                                if qt1_table_selected or tb1_selected
+                                else candidate["source_scope"]
                             )
                     if local_recovery is not None and state == "present":
                         from proofops.application.tagging.k2_recovery import recover_value

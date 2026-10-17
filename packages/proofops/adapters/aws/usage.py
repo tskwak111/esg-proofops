@@ -14,6 +14,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
+from proofops.adapters.local.sqlite_busy import connection
 from proofops.application.budget import (
     BudgetCall,
     BudgetConflict,
@@ -56,16 +57,8 @@ class LocalSQLiteUsageStore:
     @contextmanager
     def _transaction(self) -> Iterator[sqlite3.Connection]:
         # ponytail: SQLite serializes writers; use DynamoDB transactions for distributed usage.
-        db = sqlite3.connect(self.path, isolation_level=None, timeout=10)
-        try:
-            db.execute("BEGIN IMMEDIATE")
+        with connection(self.path) as db:
             yield db
-            db.commit()
-        except BaseException:
-            db.rollback()
-            raise
-        finally:
-            db.close()
 
     @staticmethod
     def _json(value) -> str:

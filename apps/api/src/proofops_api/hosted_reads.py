@@ -201,6 +201,7 @@ class HostedReads:
                             display_name=f"보고서 {row['ordinal']}",
                             uploaded_at=_iso(row["created"]),
                         )
+                        | self.store.ux1_document_metadata(auth.tenant_id, row["document_id"])
                     )
                 else:
                     projected = self.store._project_run(row, db, inline_result=False)
@@ -221,6 +222,7 @@ class HostedReads:
                         "error_message",
                         "claims_extracted",
                         "claims_processed",
+                        "claim_stage_counts",
                         "queue_position",
                     )
                     items.append(

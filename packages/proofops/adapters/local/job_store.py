@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from copy import deepcopy
@@ -23,6 +24,7 @@ from proofops.adapters.local.audit_store import (
     initialize_audit_schema,
     read_audit_head,
 )
+from proofops.adapters.local.sqlite_busy import connection
 from proofops.application.ports.jobs import JobConflict, JobLease, JobMessage, LeaseLost
 from proofops.domain.audit import ChangeSet
 from proofops.domain.provenance import canonical_hash
@@ -79,9 +81,13 @@ class LocalSQLiteJobStore:
                 PRIMARY KEY (tenant_id, run_id, kind, record_id))""")
 
     @contextmanager
-    def _transaction(self) -> Iterator[sqlite3.Connection]:
+    def _transaction(self, *, timeout=10) -> Iterator[sqlite3.Connection]:
         # ponytail: one SQLite writer; use DynamoDB transactions for distributed workers.
-        db = sqlite3.connect(self.path, timeout=10, isolation_level=None)
+        if timeout == 10:
+            with connection(self.path) as db:
+                yield db
+            return
+        db = sqlite3.connect(self.path, timeout=timeout, isolation_level=None)
         try:
             db.execute("BEGIN IMMEDIATE")
             yield db
@@ -353,6 +359,7 @@ class LocalSQLiteJobStore:
             return lease
 
     def _owned(self, db, lease, now) -> tuple[dict[str, Any], dict[str, Any]] | None:
+        now += int(getattr(db, "acquire_wait_seconds", 0))
         message = lease.message
         try:
             job = self._job(db, message)
@@ -377,16 +384,44 @@ class LocalSQLiteJobStore:
 
     def heartbeat(self, lease: JobLease, *, now: int, lease_seconds: int) -> JobLease:
         self._time(now, lease_seconds)
-        with self._transaction() as db:
-            owned = self._owned(db, lease, now)
-            if owned is None:
-                raise LeaseLost("LEASE_LOST")
-            job, _ = owned
-            job.update(heartbeat_at=now, lease_until=max(job["lease_until"], now + lease_seconds))
-            self._save_job(db, lease.message, job)
-            return JobLease(
-                lease.message, lease.owner, lease.fencing_token, lease.attempt, job["lease_until"]
-            )
+        started = time.monotonic()
+        # Renewal has its own bounded busy path. SPT's ready claims can keep
+        # SQLite's single writer busy beyond a normal transaction's ten-second
+        # wait without losing the five-minute job lease. Retry only this
+        # idempotent renewal, never a provider call or a transaction with usage.
+        deadline = started + 30
+        while True:
+            try:
+                with self._transaction(timeout=0.25) as db:
+                    # The caller sampled `now` BEFORE waiting for the writer.
+                    # Recheck the persisted fence at acquisition time; neither
+                    # retries nor a stale JobLease may resurrect an expired job.
+                    current = now + int(time.monotonic() - started)
+                    owned = self._owned(db, lease, current)
+                    if owned is None:
+                        raise LeaseLost("LEASE_LOST")
+                    job, _ = owned
+                    job.update(
+                        heartbeat_at=max(job["heartbeat_at"], current),
+                        lease_until=max(job["lease_until"], current + lease_seconds),
+                    )
+                    self._save_job(db, lease.message, job)
+                    return JobLease(
+                        lease.message,
+                        lease.owner,
+                        lease.fencing_token,
+                        lease.attempt,
+                        job["lease_until"],
+                    )
+            except sqlite3.OperationalError as error:
+                code = getattr(error, "sqlite_errorcode", None)
+                if (
+                    code is None
+                    or code & 0xFF != sqlite3.SQLITE_BUSY
+                    or time.monotonic() >= deadline
+                ):
+                    raise
+                time.sleep(min(0.05, max(0, deadline - time.monotonic())))
 
     def bind_parser_note_policy(self, lease, policy, *, now):
         self._time(now)

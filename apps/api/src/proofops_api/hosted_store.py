@@ -387,6 +387,9 @@ class HostedStore:
                 run_id TEXT PRIMARY KEY, stage TEXT, progress INTEGER, result_ready INTEGER)""")
             db.execute("""CREATE TABLE IF NOT EXISTS run_claim_progress (
                 run_id TEXT PRIMARY KEY, extracted INTEGER NOT NULL, processed INTEGER NOT NULL)""")
+            db.execute("""CREATE TABLE IF NOT EXISTS run_claim_stage_progress (
+                run_id TEXT NOT NULL, stage TEXT NOT NULL, completed INTEGER NOT NULL,
+                PRIMARY KEY(run_id, stage))""")
             db.execute("""CREATE TABLE IF NOT EXISTS result_snapshots (
                 run_id TEXT, revision INTEGER, sha256 TEXT NOT NULL,
                 PRIMARY KEY(run_id,revision))""")
@@ -600,7 +603,18 @@ class HostedStore:
 
     def get_document(self, tenant: str, document: str) -> dict:
         with self.transaction(readonly=True) as db:
-            return dict(self._document(db, tenant, document))
+            return dict(self._document(db, tenant, document)) | self.ux1_document_metadata(
+                tenant, document
+            )
+
+    def ux1_document_metadata(self, tenant: str, document: str) -> dict:
+        # Caller must first enforce document visibility/tombstones using _document or collection.
+        path = self.document_dir(tenant, document) / "ux1-metadata.json"
+        try:
+            value = json.loads(path.read_text())
+        except (OSError, ValueError):
+            return {}
+        return {"ux1_metadata": value} if isinstance(value, dict) else {}
 
     def require_owned_resource(self, auth: Any, kind: str, resource: str) -> None:
         """Opaque denial for organizer resources, including nested source/result routes."""
@@ -676,7 +690,9 @@ class HostedStore:
             staged.flush()
             return self.upload_file(auth, Path(staged.name), key, now=now)
 
-    def upload_file(self, auth: Any, source: Path, key: str, *, now: float) -> dict:
+    def upload_file(
+        self, auth: Any, source: Path, key: str, *, now: float, ux1_metadata: dict | None = None
+    ) -> dict:
         if not auth.has_capability("editor"):
             raise HostedError("FORBIDDEN", 403)
         if not self.settings.accept_uploads or not self.settings.consent_version:
@@ -688,7 +704,9 @@ class HostedStore:
         with self.transaction() as db:
             replay = self._replay(db, auth, "upload", key, sha)
             if replay:
-                return dict(self._document(db, auth.tenant_id, replay))
+                return dict(
+                    self._document(db, auth.tenant_id, replay)
+                ) | self.ux1_document_metadata(auth.tenant_id, replay)
         doc = str(uuid4())
         with TemporaryDirectory(prefix="proofops-upload-", dir=self.settings.root) as scratch:
             security: dict[str, Any] = {}
@@ -711,13 +729,17 @@ class HostedStore:
             with self.transaction() as db:
                 replay = self._replay(db, auth, "upload", key, sha)
                 if replay:
-                    return dict(self._document(db, auth.tenant_id, replay))
+                    return dict(
+                        self._document(db, auth.tenant_id, replay)
+                    ) | self.ux1_document_metadata(auth.tenant_id, replay)
                 path = self.document_dir(auth.tenant_id, doc)
                 path.mkdir(parents=True, mode=0o700)
                 copy_verified_file(source, path / "original.pdf", sha)
                 if security.get("encrypted"):
                     copy_verified_file(derived, path / "decrypted.pdf", security["analysis_sha256"])
                 self._write(path / "upload-security.json", json.dumps(security).encode())
+                if ux1_metadata is not None:
+                    self._write(path / "ux1-metadata.json", json.dumps(ux1_metadata).encode())
                 db.execute(
                     "INSERT INTO documents VALUES (?,?,?,?,?,?,?,?)",
                     (
@@ -736,7 +758,9 @@ class HostedStore:
                     (auth.tenant_id, doc, self.user_hash(auth.user_sub)),
                 )
                 self._remember(db, auth, "upload", key, sha, doc, doc, now)
-                return dict(self._document(db, auth.tenant_id, doc))
+                return dict(self._document(db, auth.tenant_id, doc)) | self.ux1_document_metadata(
+                    auth.tenant_id, doc
+                )
 
     def analysis_source(self, directory: Path, document: dict) -> Path:
         """Tenant-owned immutable original plus verified, byte-bound plaintext derivative."""
@@ -824,6 +848,14 @@ class HostedStore:
             "progress": progress["progress"] / 100 if progress else 0,
             "claims_extracted": counts["extracted"] if counts else 0,
             "claims_processed": counts["processed"] if counts else 0,
+            "claim_stage_counts": {"preliminary": 0, "relation": 0, "elements": 0}
+            | {
+                stage: completed
+                for stage, completed in db.execute(
+                    "SELECT stage,completed FROM run_claim_stage_progress WHERE run_id=?",
+                    (row["run_id"],),
+                )
+            },
             "queue_position": queue if row["status"] == "queued" else None,
             "user_active_count": user_counts[0],
             "user_processing_count": user_counts[1],
@@ -1747,7 +1779,14 @@ class HostedStore:
         *,
         claims_extracted: int | None = None,
         claims_processed: int | None = None,
+        claim_stage_counts: dict[str, int] | None = None,
     ) -> None:
+        if claim_stage_counts is not None and (
+            not isinstance(claim_stage_counts, dict)
+            or set(claim_stage_counts) - {"preliminary", "relation", "elements"}
+            or any(type(count) is not int or count < 0 for count in claim_stage_counts.values())
+        ):
+            raise ValueError("invalid claim stage progress")
         for count in (claims_extracted, claims_processed):
             if count is not None and (type(count) is not int or count < 0):
                 raise ValueError("invalid claim progress")
@@ -1769,6 +1808,12 @@ class HostedStore:
                     "DO UPDATE SET extracted=max(extracted,excluded.extracted),"
                     "processed=max(processed,excluded.processed)",
                     (job["run_id"], claims_extracted or 0, claims_processed or 0),
+                )
+            for claim_stage, completed in (claim_stage_counts or {}).items():
+                db.execute(
+                    "INSERT INTO run_claim_stage_progress VALUES (?,?,?) ON CONFLICT(run_id,stage) "
+                    "DO UPDATE SET completed=max(completed,excluded.completed)",
+                    (job["run_id"], claim_stage, completed),
                 )
 
     def publish_analysis(
@@ -1993,6 +2038,7 @@ class HostedStore:
                     self._settle_envelope(db, run[0])
                     db.execute("DELETE FROM run_progress WHERE run_id=?", (run[0],))
                     db.execute("DELETE FROM run_claim_progress WHERE run_id=?", (run[0],))
+                    db.execute("DELETE FROM run_claim_stage_progress WHERE run_id=?", (run[0],))
                     db.execute("DELETE FROM result_snapshots WHERE run_id=?", (run[0],))
                 db.execute(
                     "DELETE FROM document_owners WHERE tenant_id=? AND document_id=?",

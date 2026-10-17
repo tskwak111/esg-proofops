@@ -215,6 +215,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
             "Idempotency-Key",
             "If-Match",
             "X-Pipeline-Profile",
+            "X-UX1-Metadata",
             "Range",
             "If-Range",
         ],
@@ -475,6 +476,9 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
             raise HostedError("UPLOAD_DISABLED", 503)
         if request.headers.get("Content-Type", "").split(";")[0] != "application/pdf":
             raise HostedError("PDF_CONTENT_TYPE_REQUIRED", 415)
+        from proofops_api.hosted_ux1 import parse_metadata
+
+        ux1_metadata = parse_metadata(request.headers.get("X-UX1-Metadata"))
         # Service-owned disk staging: bound each ASGI chunk without retaining the body.
         with NamedTemporaryFile(prefix="upload-", dir=settings.root) as staged:
             size = 0
@@ -491,6 +495,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
                 Path(staged.name),
                 request.headers.get("Idempotency-Key", ""),
                 now=time.time(),
+                ux1_metadata=ux1_metadata,
             )
 
     @app.get("/v1/documents")
@@ -650,6 +655,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
         response: Response,
         auth: Annotated[AuthContext, Depends(current)],
         w18: bool = False,
+        ux1: Annotated[str | None, Query(max_length=64)] = None,
     ) -> dict:
         from proofops_api.hosted_source_view import project_source_view
 
@@ -658,7 +664,12 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
             row = store._run(db, auth.tenant_id, str(run_id))
             doc = store._document(db, auth.tenant_id, row["document_id"])
         response.headers["Cache-Control"] = "private, no-store"
-        return project_source_view(reads, row, doc, stored, w18=w18)
+        projected = project_source_view(reads, row, doc, stored, w18=w18)
+        from proofops_api.hosted_ux1 import UX1_POLICY_SHA256, enabled_for, project_data
+
+        if ux1 == UX1_POLICY_SHA256 or enabled_for(store.run_options(row)):
+            projected = project_data(reads, row, projected)
+        return projected
 
     @app.post("/v1/runs/{run_id}/reviews/{review_id}/resolve")
     def resolve_review(

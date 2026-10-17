@@ -6,6 +6,7 @@ missing track nor absent runtime configuration selects a default product model.
 """
 
 import json
+import sqlite3
 import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
@@ -21,6 +22,7 @@ from proofops.adapters.local.evidence_search import (
 )
 from proofops.adapters.local.gri_routing import LocalGRIRouting
 from proofops.adapters.local.review_store import LocalSQLiteReviewStore
+from proofops.adapters.local.sqlite_busy import error_summary
 from proofops.adapters.local.tag_cache import SQLiteImmutableCacheClient
 from proofops.adapters.local.tag_store import LocalTagStore, tag_pins, tagging_settings
 from proofops.adapters.local.verified_read_cache import _parse_enabled
@@ -193,6 +195,7 @@ class LocalTagRunner:
         clock=time.time,
         max_workers=8,
         claim_progress=None,
+        claim_stage_progress=None,
         sc1_inventory_provider=None,
     ):
         if not uploads.local_synthetic:
@@ -213,6 +216,7 @@ class LocalTagRunner:
         self.resume = None
         self.max_workers = max_workers
         self.claim_progress = claim_progress
+        self.claim_stage_progress = claim_stage_progress
         self.sc1_inventory_provider = sc1_inventory_provider
         self.claims = LocalClaimStore(store, uploads, parser)
         self.live_factory = live_factory
@@ -406,6 +410,9 @@ class LocalTagRunner:
             and reprocess is None
         )
         scheduled_claims = discovery.claims
+        from proofops.application.tagging.spt_pipeline import configured as spt_configured
+
+        spt_pipeline = spt_configured(snapshot.get("analysis_profile_policy", {}))
         s2_budget = snapshot.get("analysis_profile_policy", {}).get("tagging_budget")
         if s2_budget is not None:
             from proofops.application.tagging.s2_budget import POLICY, call_allowance, priority
@@ -464,6 +471,11 @@ class LocalTagRunner:
                     ):
                         raise ValueError("PIPELINE_CLAIM_MISMATCH")
                     pipelined[cid] = record
+
+        def report_stage(claim, stage):
+            callback = getattr(self, "claim_stage_progress", None)
+            if callback is not None:
+                callback(claim.claim_id, len(discovery.claims), stage)
 
         def process_claim(claim):
             records = []
@@ -604,6 +616,7 @@ class LocalTagRunner:
                             raise ValueError("PRELIMINARY_CLAIM_MISMATCH")
                     else:
                         preliminary = preliminary_supplier(claim, graph)
+                        report_stage(claim, "preliminary")
                         if live is not None:
                             item["preliminary_records"] = live.preliminary_records.get(
                                 claim.claim_id, []
@@ -824,6 +837,7 @@ class LocalTagRunner:
                                 return runner.store.usage.mark_dispatched(call)
                         return runner.store.usage.mark_dispatched(call)
 
+                report_stage(claim, "relation")
                 if unattended:
                     item["stage"] = "elements"
                 tag_runs = tag_replicates(
@@ -857,6 +871,7 @@ class LocalTagRunner:
                         else 1
                     ),
                 )
+                report_stage(claim, "elements")
                 if live is not None:
                     for tag_run in tag_runs:
                         live.account(tag_run.request.request_id)
@@ -1088,6 +1103,8 @@ class LocalTagRunner:
                     "R108_FINALS_BUDGET_EXHAUSTED",
                     "R108_FINALS_CUMULATIVE_BUDGET_EXHAUSTED",
                 }
+                if isinstance(error, sqlite3.OperationalError):
+                    result["sqlite_error"] = error_summary(error)
                 result.update(
                     status="budget_unanalyzed" if budget_error else "failed",
                     reason="BUDGET_EXHAUSTED"
@@ -1226,7 +1243,11 @@ class LocalTagRunner:
                 callback(claim.claim_id, len(discovery.claims))
             return record
 
-        if parallel_claims:
+        if parallel_claims and spt_pipeline:
+            from proofops_worker.spt_pipeline import run_claims
+
+            records = run_claims(reported_claim, scheduled_claims, http_workers=self.max_workers)
+        elif parallel_claims:
             with ThreadPoolExecutor(max_workers=self.max_workers) as pool:
                 records = list(pool.map(reported_claim, scheduled_claims))
         else:

@@ -4,7 +4,7 @@
 
 이 저장소는 **분석 서버·파이프라인 제출물**입니다. 공개 웹은 별도 웹 제출물에서 배포합니다. [웹 서비스](https://esg-proofops.vercel.app)의 `/demo`에서 저장 사례를 보고, `/analyze`에서 초대 로그인 후 보고서를 접수합니다. 새 분석은 비용이 발생하며 서버의 접수·예산 상태에 따릅니다.
 
-운영 v29b의 후속 승인·배포·롤백·재사용 계약은 [개발 인수인계](docs/HANDOFF.md)를 먼저 읽습니다. 초기 명세와 달라진 DEC-125/127의 적용 범위도 이 문서에 명시했습니다.
+최종 v29d + FX4의 후속 승인·배포·롤백·재사용 계약은 [개발 인수인계](docs/HANDOFF.md)를 먼저 읽습니다. 초기 명세와 달라진 DEC-125/127/154의 적용 범위도 이 문서에 명시했습니다.
 
 빠른 읽기: 아래 9단계 → 원문·판정 원칙 → 실행 방법 → 측정과 한계 순서로 확인하면 전체 흐름을 볼 수 있습니다. 도메인 정본은 [원문 v2](sources/PROJECT_DOMAIN_V2_ORIGINAL.md), 구현 계약은 [Master](docs/00_MASTER_SPEC.md)입니다.
 
@@ -107,12 +107,12 @@ sudo docker compose --env-file compose.env -f compose.yaml exec -T api python sc
 
 ## 현재 한계와 공개 checkout
 
-v29b의 TIME_BUDGET, 일일 USD7 코드 상한, CF3/S7 미통합, DEC-127 과소등급 위험,
-RC1 사본의 중복 주장 ID와 rollback reader 제약은 [인수인계](docs/HANDOFF.md)에 정리했습니다.
-이전 I29·HF2 검증을 재사용하며 모의 테스트 수를 모델 정확도로 표현하지 않습니다.
+v29d + FX4의 처리 구조, TIME_BUDGET, 일일 USD7 코드 상한, DEC-154 원격 근거 미통합,
+DEC-127 과소등급 위험과 RC1 호환성 한계는 [인수인계](docs/HANDOFF.md)에 정리했습니다.
+모의·재생 테스트를 실모델 정확도나 서버 wire 검증으로 표현하지 않습니다.
 
-내부 보고서·결정 로그·평가 원시자료·PDF는 공개 release에서 제외했습니다.
-이를 읽는 회귀 테스트는 삭제하거나 약화하지 않았으므로 별도 비공개 fixture 공급이 필요합니다.
+내부 보고서·결정 로그·평가 원시자료·개인 경로는 공개 release에서 제외합니다.
+CI2에서 정리한 공개 발췌/합성 회귀 fixture와 이식 가능한 CI 환경을 유지합니다.
 공개 계정 자리표시자는 실제 계정 일치 가드를 통과하지 못합니다. 배포 전 승인된 비공개 사본에서
-계정 핀과 기존 SSM 설정, `compose.ops2.yaml`의 API1536MiB override를 확인해야 합니다.
-실제 모델·AWS 시험과 공개 checkout 전체 회귀는 HO1에서 `not_run`입니다.
+계정 핀과 기존 SSM 설정, 동시성/RPS 16/8, timeout 2700초와 API1536MiB override를 확인합니다.
+실제 모델·AWS 시험 및 배포는 이 공개 준비 범위에 포함되지 않습니다.

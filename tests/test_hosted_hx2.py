@@ -7,7 +7,7 @@ import socket
 import sys
 import time
 from copy import deepcopy
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 
 import pytest
 from proofops.adapters.local.claim_source_policies import PAGE_OCR_PROFILES, page_ocr_profile
@@ -105,7 +105,12 @@ def test_public_default_upload_binding_parse_extract_tag_publication(
     monkeypatch.setattr(os, "environ", os.environ.copy())
     monkeypatch.delenv("HOSTED_ANALYSIS_PROFILE", raising=False)
     monkeypatch.setenv("PROOFOPS_RB3_HARD_DEADLINE", str(time.monotonic() + 1800))
-    monkeypatch.setattr("proofops_api.hosted_analysis.sys.platform", "linux")
+    # Select the hosted Linux reader without changing the native parser's
+    # platform-derived policy hash relative to its isolated child process.
+    monkeypatch.setattr(
+        "proofops_api.hosted_analysis.sys",
+        SimpleNamespace(platform="linux", executable=sys.executable),
+    )
     monkeypatch.setattr(socket, "create_connection", lambda *a, **k: pytest.fail("live network"))
     app = create_hosted_app(settings)
     store = app.state.composition
@@ -162,10 +167,10 @@ def test_public_default_upload_binding_parse_extract_tag_publication(
     assert not data["hold_reasons"]
     state = store.document_dir(tenant, document) / "analysis" / done["run_id"]
     manifest = json.loads((state / "pilot.json").read_text())
-    assert V2_POLICY["integration_profile"] == "finals-20261016-v29b"
+    assert V2_POLICY["integration_profile"] == "finals-20261017-v29d"
     assert V2_POLICY["parser_failure_policy"] == "s3_partial-v7"
     assert V2_POLICY["located_table_context"]["profile"] == "located-table-context-p2-v1"
-    assert manifest["claim_source_profile"] == "cf4_claim_source_v1"
+    assert manifest["claim_source_profile"] == "i31_claim_source_v1"
     assert manifest["analysis_policy_sha256"] == canonical_hash(V2_POLICY)
     assert manifest["extraction_qc_native_figures"] is True
     saved_settings = json.loads((state / "settings.json").read_text())
@@ -185,9 +190,19 @@ def test_public_default_upload_binding_parse_extract_tag_publication(
         canonical_hash(policy)
     )
     snapshot = (state / "result-1.json").read_bytes()
-    # W16 adds read-time source coordinates; every frozen result field remains exact.
+    # W16 and UX1 add read-time data; every frozen result field remains exact.
     frozen = create_hosted_app(settings).state.composition.get_result(tenant, done["run_id"])
-    assert {k: v for k, v in data.items() if k not in ("w16_source_document", "claims")} == {
+    from proofops_api.hosted_ux1 import UX1_POLICY_SHA256
+
+    projected_pipeline = data["pipeline"].copy()
+    assert projected_pipeline.pop("ux1_data") == {
+        "table_count": 0,
+        "table_count_basis": "selected_parser_table_blocks",
+        "policy_sha256": UX1_POLICY_SHA256,
+    }
+    assert "ux1_data" not in frozen["pipeline"]
+    comparable = data | {"pipeline": projected_pipeline}
+    assert {k: v for k, v in comparable.items() if k not in ("w16_source_document", "claims")} == {
         k: v for k, v in frozen.items() if k != "claims"
     }
     assert [

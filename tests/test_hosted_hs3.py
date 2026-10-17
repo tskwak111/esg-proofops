@@ -55,7 +55,7 @@ def test_profile_prepares_mixed_and_approved_linux_source(tmp_path, monkeypatch,
     assert frozen["pipeline_profile"] == profile
     assert bool(frozen.get("extraction_fxg_split")) == (profile == "finals-unattended-v2")
     assert frozen["claim_source_policy"]["profile"] == (
-        "cf4_claim_source_v1" if profile == "finals-unattended-v2" else "upstage-ocr-page-v5"
+        "i31_claim_source_v1" if profile == "finals-unattended-v2" else "upstage-ocr-page-v5"
     )
     from proofops.adapters.local.run_store import LocalSQLiteRunStore
 
