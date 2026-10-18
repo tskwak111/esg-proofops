@@ -124,14 +124,14 @@ class GuestAccess:
             raise HostedError("GUEST_DAILY_LIMIT", 429)
 
     def check_upload(self, db: sqlite3.Connection, auth: AuthContext, now: float) -> None:
-        if (
-            is_guest(auth)
-            and db.execute(
-                "SELECT count(*) FROM guest_audit WHERE tenant_id=? AND day=? AND event='upload'",
-                (auth.tenant_id, day(now)),
-            ).fetchone()[0]
-            >= 5
-        ):
+        if not is_guest(auth):
+            return
+        tenant_count, total_count = db.execute(
+            "SELECT coalesce(sum(tenant_id=?),0),count(*) FROM guest_audit "
+            "WHERE day=? AND event='upload' AND role='guest'",
+            (auth.tenant_id, day(now)),
+        ).fetchone()
+        if tenant_count >= 5 or total_count >= self.store.settings.guest_uploads_per_day:
             raise HostedError("GUEST_UPLOAD_LIMIT", 429)
 
     def audit(

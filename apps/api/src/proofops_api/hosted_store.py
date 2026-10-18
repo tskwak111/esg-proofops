@@ -151,6 +151,7 @@ class HostedSettings:
     guest_access_until: datetime | None = None
     guest_fresh_runs_per_day: int = 2
     guest_sessions_per_ip_hour: int = 30
+    guest_uploads_per_day: int = 60
     showcase_tenant: str = ""
     rc1_reuse_enabled: bool = False
     retain_failed_analysis: bool = True
@@ -170,6 +171,8 @@ class HostedSettings:
             or not 1 <= self.guest_fresh_runs_per_day <= 5
             or type(self.guest_sessions_per_ip_hour) is not int
             or self.guest_sessions_per_ip_hour < 1
+            or type(self.guest_uploads_per_day) is not int
+            or self.guest_uploads_per_day < 1
         ):
             raise ValueError("HOSTED_GUEST_LIMIT_INVALID")
         if not isinstance(self.showcase_tenant, str):
@@ -288,6 +291,7 @@ class HostedSettings:
             else None,
             guest_fresh_runs_per_day=int(env.get("HOSTED_GUEST_FRESH_RUNS_PER_DAY", "2")),
             guest_sessions_per_ip_hour=int(env.get("HOSTED_GUEST_SESSIONS_PER_IP_HOUR", "30")),
+            guest_uploads_per_day=int(env.get("HOSTED_GUEST_UPLOADS_PER_DAY", "60")),
             showcase_tenant=env.get("HOSTED_SHOWCASE_TENANT", ""),
         )
 

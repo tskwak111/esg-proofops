@@ -73,6 +73,7 @@ def test_guest_settings_env_validation(tmp_path):
     assert defaults.guest_access_until is None
     assert defaults.guest_fresh_runs_per_day == 2
     assert defaults.guest_sessions_per_ip_hour == 30
+    assert defaults.guest_uploads_per_day == 60
     assert defaults.showcase_tenant == ""
     configured = HostedSettings.from_env(
         env
@@ -80,18 +81,23 @@ def test_guest_settings_env_validation(tmp_path):
             "HOSTED_GUEST_ACCESS_UNTIL": "2026-10-20T23:59:00+09:00",
             "HOSTED_GUEST_FRESH_RUNS_PER_DAY": "5",
             "HOSTED_GUEST_SESSIONS_PER_IP_HOUR": "40",
+            "HOSTED_GUEST_UPLOADS_PER_DAY": "70",
             "HOSTED_SHOWCASE_TENANT": "d1b9e025-a759-4d28-8713-cbb5940ec89b",
         }
     )
     assert configured.guest_access_until.utcoffset() == timedelta(hours=9)
     assert configured.guest_fresh_runs_per_day == 5
     assert configured.guest_sessions_per_ip_hour == 40
+    assert configured.guest_uploads_per_day == 70
     for name, value in (
         ("HOSTED_GUEST_ACCESS_UNTIL", "bad"),
         ("HOSTED_GUEST_ACCESS_UNTIL", "2026-10-20T23:59:00"),
         ("HOSTED_GUEST_FRESH_RUNS_PER_DAY", "0"),
         ("HOSTED_GUEST_FRESH_RUNS_PER_DAY", "6"),
         ("HOSTED_GUEST_SESSIONS_PER_IP_HOUR", "0"),
+        ("HOSTED_GUEST_UPLOADS_PER_DAY", "0"),
+        ("HOSTED_GUEST_UPLOADS_PER_DAY", "-1"),
+        ("HOSTED_GUEST_UPLOADS_PER_DAY", "bad"),
         ("HOSTED_SHOWCASE_TENANT", "../private"),
     ):
         with pytest.raises(ValueError):
@@ -809,3 +815,68 @@ def test_guest_rejected_pdf_and_closed_window_cannot_bypass_guards(settings):
     expired.cookies.update(client.cookies)
     assert expired.get("/v1/session").status_code == 401
     assert expired.post("/v1/documents", content=b"pdf", headers=headers).status_code == 401
+
+
+def test_guest_global_upload_limit_http_replay_restart_delete_and_kst(settings):
+    from proofops_api.hosted_store import HostedError, HostedStore
+
+    from tests.test_hosted_public import actor, pdf
+
+    settings = replace(settings, guest_uploads_per_day=2)
+    app = create_hosted_app(settings)
+    first, headers, _ = guest(app)
+    second, other_headers, _ = guest(app)
+    own = upload(first, headers)
+    upload(second, other_headers)
+    assert upload(first, headers)["document_id"] == own["document_id"]
+    denied = second.post(
+        "/v1/documents",
+        content=pdf(),
+        headers=other_headers
+        | {"Content-Type": "application/pdf", "Idempotency-Key": "i35-denied-upload"},
+    )
+    assert denied.status_code == 429 and denied.json()["code"] == "GUEST_UPLOAD_LIMIT"
+    store = HostedStore(settings)
+    auth = guest_actor(store, first)
+    store.delete_document(auth, own["document_id"], "i35-delete-upload", now=time.time())
+    with pytest.raises(HostedError, match="GUEST_UPLOAD_LIMIT"):
+        store.upload(auth, pdf(), "i35-after-restart", now=time.time())
+    # Non-guests remain outside this quota.
+    store.upload(actor(store), pdf(), "i35-admin-upload", now=time.time())
+    with store.transaction() as db:
+        db.execute("DELETE FROM guest_audit WHERE event='upload'")
+    before_midnight = datetime(2026, 10, 18, 14, 59, 59, tzinfo=UTC).timestamp()
+    store.upload(auth, pdf(), "i35-before-midnight1", now=before_midnight)
+    store.upload(guest_actor(store, second), pdf(), "i35-before-midnight2", now=before_midnight)
+    with pytest.raises(HostedError, match="GUEST_UPLOAD_LIMIT"):
+        store.upload(auth, pdf(), "i35-before-midnight3", now=before_midnight)
+    assert store.upload(auth, pdf(), "i35-after-midnight", now=before_midnight + 1)
+
+
+def test_guest_global_upload_limit_atomic_across_tenants(settings):
+    from concurrent.futures import ThreadPoolExecutor
+
+    from proofops_api.hosted_store import HostedError
+
+    from tests.test_hosted_public import pdf
+
+    app = create_hosted_app(replace(settings, guest_uploads_per_day=1))
+    store = app.state.composition
+    actors = [guest_actor(store, guest(app)[0]) for _ in range(4)]
+
+    def create(i):
+        try:
+            store.upload(actors[i], pdf(), f"i35-global-race-{i:04}", now=time.time())
+            return "uploaded"
+        except HostedError as exc:
+            return exc.code
+
+    with ThreadPoolExecutor(4) as pool:
+        results = list(pool.map(create, range(4)))
+    assert results.count("uploaded") == 1
+    assert results.count("GUEST_UPLOAD_LIMIT") == 3
+    with store.transaction(readonly=True) as db:
+        assert db.execute("SELECT count(*) FROM documents").fetchone()[0] == 1
+        assert (
+            db.execute("SELECT count(*) FROM guest_audit WHERE event='upload'").fetchone()[0] == 1
+        )

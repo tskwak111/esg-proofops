@@ -12,11 +12,15 @@
 | `HOSTED_GUEST_ACCESS_UNTIL` | `2026-10-20T23:59:00+09:00` (행사 종료 권장값). 시간대 있는 ISO8601. 없거나 만료되면 신규 발급과 기존 guest 인증 비활성 |
 | `HOSTED_GUEST_FRESH_RUNS_PER_DAY` | `2`, 정수 1~5 |
 | `HOSTED_GUEST_SESSIONS_PER_IP_HOUR` | `30`, 양의 정수. 직전 3600초의 성공 발급 수 |
+| `HOSTED_GUEST_UPLOADS_PER_DAY` | `60`, 양의 정수. KST 일일 모든 guest tenant의 성공 업로드 합산 상한 |
 | `HOSTED_SHOWCASE_TENANT` | `d1b9e025-a759-4d28-8713-cbb5940ec89b`. 정규 UUID, 빈 값이면 비활성 |
 
 기존 `HOSTED_AUTH_TRUSTED_PROXIES`는 운영 프록시의 실제 immediate peer만 유지한다.
 이 목록에 있는 peer에서만 X-Forwarded-For의 마지막 IP를 신뢰한다. 클라이언트가
 직접 보낸 XFF나 앞쪽 hop은 한도를 우회하지 못한다. 프록시 구성은 이 작업에서 변경하지 않는다.
+운영 Vercel→Caddy→API 프록시 뒤에서는 peer IP가 사실상 하나이므로 IP당 세션
+한도가 전체 세션 한도로 동작한다. 운영값은 `HOSTED_GUEST_SESSIONS_PER_IP_HOUR=600`
+(시간당 600회)이며 전역 업로드 한도와 함께 적용한다.
 기존 실행/업로드 플래그·동의 버전·RC1 설정을 유지한다. 승인된 비용 상한
 `HOSTED_RUN_USD=1`, `HOSTED_DAY_USD=15`, `HOSTED_EVENT_USD=30`,
 `HOSTED_EVENT_USD_CEILING=30`을 올리지 않는다. 더 낮은 기존 설정은 그대로 적용된다.
@@ -46,6 +50,9 @@
   실패·취소·삭제·재시작으로 횟수가 복원되지 않는다. RC1 재사용과 같은 idempotency
   재요청은 이 검사보다 먼저 처리된다. 재사용은 새 spend/외부 호출을 만들지 않는다.
   기존 전체/사용자 실행 수·대기열·비용 상한은 함께 적용된다.
+- 전체 guest tenant 합산 하루 성공 업로드는 `HOSTED_GUEST_UPLOADS_PER_DAY`(기본 60건)까지다.
+  초과 시 HTTP 429 `GUEST_UPLOAD_LIMIT`; KST 자정에 새 일자를 집계한다. 비게스트는 제외한다.
+  재시도·삭제·재시작으로 집계가 복원되지 않으며 저장 transaction에서 원자적으로 재검사한다.
 - guest tenant당 하루 성공 업로드 5건. 동일 idempotency 재시도는 추가 집계하지 않는다.
   기본 새 분석 2건 외 재업로드·재사용 탐색 3건을 허용하는 행사 기준이다.
   삭제 후 재업로드도 5건 한도를 복원하지 않으며 검증 전과 저장 transaction 안에서
