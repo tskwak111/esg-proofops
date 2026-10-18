@@ -71,3 +71,8 @@ outputs/handoff-packages/
 !/tests/fixtures/pa9/kia.pdf
 !/tests/fixtures/pa9/naver.pdf
 !/tests/fixtures/pb4/naver-p88.pdf
+
+# Generated PDF.js assets and private web regression inputs.
+apps/web/public/pdfjs/
+/apps/web/test/fixtures/w12/kakao.result.json
+/apps/web/test/fixtures/w12/lg.result.json

@@ -19,7 +19,7 @@
   /* ink */
   --ink: #161616;
   --ink-2: #45433F;
-  --muted: #7B7872;
+  --muted: #65625C;
   --line: #E9E4DB;
   --line-2: #D8D2C7;
 
@@ -48,6 +48,13 @@
   --mono: 'SF Mono', 'JetBrains Mono', ui-monospace, Menlo, monospace;
   --ease: cubic-bezier(.2, .7, .1, 1);
   --wrap: 1180px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
 }
 
 *, *::before, *::after { box-sizing: border-box }
