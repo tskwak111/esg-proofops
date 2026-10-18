@@ -310,6 +310,7 @@ export function PartialClaimSummary({
   if (!isHeld) return null;
 
   const presentElements = elements.filter(e => e.state === "present" && e.evidence_refs.some(ref => ref.verification_state === "verified"));
+  const unverifiedValues = elements.filter(e => e.state === "present" && !e.evidence_refs.some(ref => ref.verification_state === "verified") && e.normalized_value !== null);
   const candidates: ReviewCandidate[] = elements.filter(e => e.state === "unknown" || e.state === "conflict")
     .flatMap(e => e.evidence_refs.map(source_ref => ({ source_ref, status: "unconfirmed" as const, reason: `${e.element_id}: ${elementStateText[e.state]}` })));
   const allSources = [...sources.map(ref => ({ ref, label: "주장 원문" })), ...elements.flatMap(e => e.evidence_refs.map(ref => ({ ref, label: `${e.element_id} ${e.state === "present" ? "요소 인용" : "미확정 후보"}` })))];
@@ -320,8 +321,14 @@ export function PartialClaimSummary({
   return <section aria-labelledby="partial-summary-heading" className="provisional-hold">
     <h3 id="partial-summary-heading">검토 중인 내용</h3>
     <p>현재까지 추출된 내용입니다. 최종 판정이나 사람 검토 완료를 뜻하지 않습니다.</p>
+    {unverifiedValues.length ? <section aria-label="원문 미연결 추출값">
+      <h4>검토 후보 · 추출값 원문 연결 필요</h4>
+      <p>서버가 추출한 값이며, 원문 근거가 연결되기 전에는 확인된 사실이나 판정 근거로 인정하지 않습니다.</p>
+      <ul>{unverifiedValues.map(element => <li key={element.element_id}>{getElementLabel(element.element_id)} · 추출 값: {element.normalized_value}</li>)}</ul>
+    </section> : null}
+    {!elements.length && !rawCandidates.length && !sources.length ? <p>표시할 추출 값이 아직 없습니다.</p> : null}
     <MissingEvidenceCard facts={presentElements.map(e => `${getElementLabel(e.element_id)}: 서버 태깅 present${e.normalized_value !== null ? ` · 값 ${e.normalized_value}` : ""} (등급 미확정)`)}
-      sources={allSources} reasons={[...(holdReasons ?? []), ...(projection?.blocked_reason ? [projection.blocked_action || "판정이 보류되어 원문과 처리 상태를 확인해야 합니다."] : []), ...(decision?.gap_ids.length ? [`규칙 GAP: ${decision.gap_ids.join(", ")}`] : [])]}
+      sources={allSources} reasons={[...(holdReasons ?? []), ...(projection?.blocked_reason ? [projection.blocked_action || "판정이 보류되어 원문과 처리 상태를 확인해야 합니다."] : []), ...(decision?.gap_ids?.length ? [`규칙 GAP: ${decision.gap_ids.join(", ")}`] : [])]}
       evidenceNote={evidenceNote} nextChecks={projection?.blocked_action ? [projection.blocked_action] : []} onSourceOpen={open} />
     <details><summary>검토 후보 · 항목 연결 확인 필요 ({candidates.length}건)</summary><RawCandidatesList candidates={candidates} onSourceOpen={onSourceOpen} /></details>
     {rawCandidates.length ? <details><summary>추가 검색 후보 {rawCandidates.length}건 · 원문 검증 필요</summary>
@@ -463,7 +470,7 @@ function ClaimDetailView({ apiBase = "", csrfToken, tenantKey, session, runId, c
         <PartialClaimSummary decision={decision} elements={elements} rawCandidates={projection?.raw_candidates ?? []} projection={projection} sources={detail.source_refs} holdReasons={detail.hold_reasons} evidenceNote={detail.evidence_note} onSourceOpen={source => setSourceOpen(current => ({ source, nonce: (current?.nonce ?? 0) + 1 }))} />
         <p>{detail.claim.quote}</p><p>트랙: {track ? trackText[track] : "미분류"}</p><p>판정: <StatusBadge label={decisionText(decision)} tone={decisionTone(decision)} /></p>{decision?.grade_range ? <p>가능 등급 범위: {decision.grade_range.floor} ~ {decision.grade_range.ceiling} (확정 등급 아님) · 확인하면 범위가 좁혀지는 요소: {decision.grade_range.open_elements.map(getElementLabel).join(", ")}</p> : null}
         {decision?.review_status ? <p>검토 상태: <StatusBadge label={reviewStatusText[decision.review_status]} tone={decision.review_status === "human_confirmed" ? "success" : "warning"} /></p> : null}
-        {decision?.gap_ids.length ? <p>규칙 판정 보류(다음 규칙 항목이 갈리거나 정의되지 않음): {decision.gap_ids.join(", ")}</p> : null}
+        {decision?.gap_ids?.length ? <p>규칙 판정 보류(다음 규칙 항목이 갈리거나 정의되지 않음): {decision.gap_ids.join(", ")}</p> : null}
         {decision?.missing_elements.length ? <p>아직 충족이 확인되지 않은 요소: {decision.missing_elements.map(getElementLabel).join(", ")}</p> : null}
         {detail.rulepack_approved_by?.startsWith("ai-delegated-review:")
           ? <p role="status">이 판정에 쓰인 규칙집은 AI 프로젝트 검토(사람 전문가 승인 아님)로 활성화되었습니다.</p>

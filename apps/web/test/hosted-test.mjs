@@ -254,6 +254,16 @@ const detailCard = html(createElement(cw.PartialClaimSummary, {
 }));
 for (const expected of ["확인된 사실", "정확한 원문", "미해결 원인", "다음 확인", "88쪽", "232.2 MWh", "서버 원인 설명 그대로", "동일 시설의 표 행을 확인해 주세요."]) assert.ok(detailCard.includes(expected), expected);
 assert.doesNotMatch(detailCard, /누락된 입증 요소|기업.*결손|원문에서 확인 안 됨/);
+// A raw extracted value without a verified reference stays outside confirmed facts.
+const unlinkedValueHtml = html(createElement(cw.PartialClaimSummary, {
+  decision: { decision_status: "not_run", missing_elements: [] },
+  elements: [{ element_id: "G1", state: "present", normalized_value: "2040년 <b>후보</b>", evidence_refs: [] }],
+  rawCandidates: [], onSourceOpen() {},
+}));
+assert.match(unlinkedValueHtml, /원문 미연결 추출값/);
+assert.match(unlinkedValueHtml, /2040년 &lt;b&gt;후보&lt;\/b&gt;/);
+assert.doesNotMatch(unlinkedValueHtml, /<b>후보<\/b>/);
+assert.doesNotMatch(unlinkedValueHtml.slice(unlinkedValueHtml.indexOf('class="missing-evidence-card"')), /2040년/);
 // W21: stage/progress values remain explicit; unavailable counts are not invented.
 const progressHtml = html(createElement(v.RunOutcomeView, { run: { ...run, status: "running", stage: "tag", progress: .65, claims_extracted: 12 } })).replace(/<!-- -->/g, "");
 assert.match(progressHtml, /진행 65%/);
