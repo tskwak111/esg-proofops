@@ -13,7 +13,7 @@
 | `HOSTED_GUEST_FRESH_RUNS_PER_DAY` | `2`, 정수 1~5 |
 | `HOSTED_GUEST_SESSIONS_PER_IP_HOUR` | `30`, 양의 정수. 직전 3600초의 성공 발급 수 |
 | `HOSTED_GUEST_UPLOADS_PER_DAY` | `60`, 양의 정수. KST 일일 모든 guest tenant의 성공 업로드 합산 상한 |
-| `HOSTED_SHOWCASE_TENANT` | `d1b9e025-a759-4d28-8713-cbb5940ec89b`. 정규 UUID, 빈 값이면 비활성 |
+| `HOSTED_SHOWCASE_TENANT` | 쇼케이스 원본 tenant의 정규 UUID, 빈 값이면 비활성 |
 
 기존 `HOSTED_AUTH_TRUSTED_PROXIES`는 운영 프록시의 실제 immediate peer만 유지한다.
 이 목록에 있는 peer에서만 X-Forwarded-For의 마지막 IP를 신뢰한다. 클라이언트가

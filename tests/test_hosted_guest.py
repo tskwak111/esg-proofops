@@ -82,7 +82,7 @@ def test_guest_settings_env_validation(tmp_path):
             "HOSTED_GUEST_FRESH_RUNS_PER_DAY": "5",
             "HOSTED_GUEST_SESSIONS_PER_IP_HOUR": "40",
             "HOSTED_GUEST_UPLOADS_PER_DAY": "70",
-            "HOSTED_SHOWCASE_TENANT": "d1b9e025-a759-4d28-8713-cbb5940ec89b",
+            "HOSTED_SHOWCASE_TENANT": "5f0c2a7e-1b3d-4c8e-9a6f-2d4b8c1e7a90",
         }
     )
     assert configured.guest_access_until.utcoffset() == timedelta(hours=9)
