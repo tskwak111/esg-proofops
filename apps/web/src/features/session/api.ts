@@ -54,10 +54,8 @@ export function errorMessage(reason: unknown, fallback: string): string {
       return "로그인 서비스를 사용할 수 없습니다. 관리자에게 구성을 요청해 주세요.";
     case "UPLOAD_LIMIT_EXCEEDED":
       return "PDF가 파일 크기·페이지 수 또는 내부 처리 한도를 초과했습니다. 100MiB 이하인 파일도 내부 구조에 따라 처리되지 않을 수 있습니다.";
-    case "PDF_PASSWORD_REQUIRED":
-      return "PDF를 여는 암호가 필요합니다. 열기 암호를 해제한 PDF로 다시 업로드해 주세요.";
     case "PDF_INVALID":
-      return "PDF 원본의 전체 보안 검사를 완료하지 못했습니다. PDF 뷰어에서 다시 저장한 파일로 업로드해 주세요.";
+      return "서버가 유효한 PDF로 확인하지 못했습니다.";
     case "UPLOAD_INTEGRITY_MISMATCH":
       return "업로드한 파일의 무결성 검증에 실패했습니다.";
     case "UPLOAD_EXPIRED":
@@ -66,14 +64,10 @@ export function errorMessage(reason: unknown, fallback: string): string {
       return "승인된 실행 구성과 사전 점검 상태를 확인해 주세요.";
     case "STALE_RUN_REVISION":
       return "실행 상태가 변경되었습니다. 최신 상태를 확인한 뒤 다시 시도해 주세요.";
-    case "RETAG_REQUIRED":
-      return reason.message;
     case "TENANT_RUN_LIMIT":
       return "동시에 실행할 수 있는 문서 수를 초과했습니다. 진행 중인 실행을 확인해 주세요.";
     case "REPORT_NOT_FINALIZABLE":
       return "미완료 항목이 있습니다. 검토를 마치거나 부분 결과 허용을 선택해 주세요.";
-    case "EXPORT_SIZE_LIMIT":
-      return "내보내기 처리 한도(32 MiB 또는 주장 1,000건)를 초과했습니다. PDF 쪽수가 적어도 검토 근거·원본 입력·이력의 크기로 한도를 넘을 수 있습니다. 같은 실행의 재시도나 형식 변경으로는 저장할 검토 스냅샷이 줄지 않습니다. 현재 화면에서 주장별 결과를 확인하고, 내보내기가 필요하면 관리자에게 문의해 주세요. (EXPORT_SIZE_LIMIT)";
     default:
       return fallback;
   }

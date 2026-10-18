@@ -60,7 +60,7 @@ IAM → Roles → Create role → Custom trust policy, 이름 **proofops-github-
       "Sid": "DeployOneInstance",
       "Effect": "Allow",
       "Action": "ssm:SendCommand",
-      "Resource": ["arn:aws:ec2:ap-southeast-2:000000000000:instance/i-01fec46ef85815a17", "arn:aws:ssm:ap-southeast-2::document/AWS-RunShellScript"]
+      "Resource": ["arn:aws:ec2:ap-southeast-2:000000000000:instance/<OPERATOR_PROVIDED_INSTANCE_ID>", "arn:aws:ssm:ap-southeast-2::document/AWS-RunShellScript"]
     },
     {
       "Sid": "ReadCommandResult",
@@ -117,7 +117,7 @@ production → Environment variables에 다음 값을 등록한다. Secret이 �
 |---|---|
 | AWS_ROLE_ARN | `arn:aws:iam::000000000000:role/proofops-github-deploy` |
 | ECR_REPO | `000000000000.dkr.ecr.ap-southeast-2.amazonaws.com/proofops-r108` (전체 URI, 태그 제외) |
-| INSTANCE_ID | `i-01fec46ef85815a17` |
+| INSTANCE_ID | `<OPERATOR_PROVIDED_INSTANCE_ID>` |
 | REGION | `ap-southeast-2` |
 
 Actions 정책에서 SHA 고정 checkout/upload-artifact/aws-actions를 허용한다. `ubuntu-24.04-arm` 사용 가능 여부와 runner의 Docker·AWS CLI·Python·jq를 확인한다. 스모크는 runner용 worker 2 CPU/5 GiB를 사용하며 운영 compose 자원값은 바꾸지 않는다. [GitHub runner 사양](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)

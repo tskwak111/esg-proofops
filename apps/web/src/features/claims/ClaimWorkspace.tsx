@@ -2,10 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { SourceViewer, type SourceOpenRequest } from "../../components/SourceViewer";
 import { StatusBadge } from "../../components/StatusBadge";
-import { MissingEvidenceCard, type ElementEvidence } from "./MissingEvidenceCard";
-import { ReviewCandidatePanel } from "./ReviewCandidatePanel";
 import { PreliminaryClassification } from "./PreliminaryClassification";
-import { ProvisionalHold, type HoldExplanation } from "./ProvisionalHold";
 import { ApiError, errorMessage, isSessionError, requestJson, type Session } from "../session/api";
 import {
   ReviewWorkspace,
@@ -15,7 +12,8 @@ import {
   type ReviewSnapshot,
   type SourceRef,
 } from "../reviews/ReviewWorkspace";
-import { getElementLabel, getReasonLabel } from "../labels";
+import { MissingEvidenceCard, type CardSourceRef } from "./MissingEvidenceCard";
+import { getElementLabel } from "../labels";
 
 type Track = "goal" | "performance" | "management";
 type ReviewStatus = "auto_confirmed" | "needs_review" | "human_confirmed" | "ai_delegated_confirmed";
@@ -68,20 +66,11 @@ type ReviewCandidate = {
 };
 type ReviewProjection = {
   schema_version: 1;
-  source_status?: { status: string; display: string; reason: string | null } | null;
-  provisional_grade?: (HoldExplanation & { evidence_grade: string | null; display: string; grade_basis?: string; grade_range?: { floor: string; ceiling: string }; elements: { element_id: string; state: string; votes: number; total_replicas: number }[] }) | null;
-  pipeline_stage?: string | null;
   candidate_snippets: string[];
   blocked_reason: string | null;
   blocked_action: string | null;
   field_agreements: FieldAgreement[];
   raw_candidates?: ReviewCandidate[];
-  sentence_context?: {
-    text: string;
-    source_refs: SourceRef[];
-    verification_state: "verified" | "candidate";
-    rule_credit: false;
-  } | null;
 };
 // Optional review context; P6 stays on hold without a same-scope table observation.
 type ReviewedContextConsidered = { source_ref: SourceRef; status: string };
@@ -101,7 +90,6 @@ type ReviewedContext = {
   };
 };
 type ClaimDetail = {
-  element_evidence?: ElementEvidence[];
   claim: ClaimSummary;
   source_refs: SourceRef[];
   elements: ReviewElement[];
@@ -109,6 +97,8 @@ type ClaimDetail = {
   replicate_request_ids: string[];
   packet_sha256: string | null;
   tag_status?: "tagged" | "untagged" | null;
+  hold_reasons?: string[];
+  evidence_note?: string;
   suggestion: string | null;
   basis_refs: Array<{
     standard: string;
@@ -291,7 +281,7 @@ export function ReviewedContextSection({ context }: { context: ReviewedContext }
 function RawCandidatesList({ candidates, onSourceOpen }: { candidates: ReviewCandidate[]; onSourceOpen: (source: SourceRef) => void }) {
   if (candidates.length === 0) return <p>표시할 근거 후보가 아직 없습니다.</p>;
   return <ul>{candidates.map((cand, index) => <li key={`${cand.source_ref.source_id}:${index}`}>
-    <p><strong>원문 {cand.source_ref.page_num}쪽</strong> · {cand.status === "unverified" ? "미검증 근거 후보" : "검토 후보 · 항목 연결 미확정"}{cand.reason ? ` (${cand.reason})` : ""}</p>
+    <p><strong>원문 {cand.source_ref.page_num}쪽</strong> · {cand.status === "unverified" ? "미검증 근거 후보" : "검토 후보 · 항목 연결 미확정"}{cand.reason && cand.status !== "unverified" ? ` (${cand.reason})` : ""}</p>
     <p>{cand.source_ref.quote}</p>
     <button type="button" onClick={() => onSourceOpen(cand.source_ref)}>원문 {cand.source_ref.page_num}쪽 보기</button>
   </li>)}</ul>;
@@ -302,64 +292,42 @@ export function PartialClaimSummary({
   elements,
   rawCandidates,
   projection,
+  sources = [],
+  holdReasons,
+  evidenceNote,
   onSourceOpen,
 }: {
   decision: Decision | null;
   elements: ReviewElement[];
   rawCandidates: ReviewCandidate[];
   projection?: ReviewProjection | null;
+  sources?: SourceRef[];
+  holdReasons?: string[];
+  evidenceNote?: string;
   onSourceOpen: (source: SourceRef) => void;
 }) {
   const isHeld = !decision || decision.decision_status === "blocked_evidence" || decision.decision_status === "blocked_rule_gap" || decision.decision_status === "not_run";
   if (!isHeld) return null;
 
-  const presentElements = elements.filter(e => e.state === "present");
-  const missingLabels = decision?.missing_elements?.map(getElementLabel) ?? [];
-
-  const reason = "현재까지 추출된 내용입니다. 최종 판정이나 사람 검토 완료를 뜻하지 않습니다.";
-  const action = projection?.blocked_action || "검토 후보의 원문과 항목 연결을 확인해 주세요. 확인되지 않은 항목은 미확정 상태로 유지됩니다.";
-
-  const elementCandidates: ReviewCandidate[] = elements
-    .filter(e => e.state === "unknown" || e.state === "conflict")
-    .flatMap(e => e.evidence_refs.map(ref => ({
-      source_ref: ref,
-      status: "unconfirmed",
-      reason: `${getElementLabel(e.element_id)} 후보 (${elementStateText[e.state]})`
-    })));
-
-
-  return (
-    <section aria-labelledby="partial-summary-heading" style={{ padding: "16px", background: "#f8f9fa", border: "1px solid #dee2e6", marginBottom: "24px", borderRadius: "4px" }}>
-      <h3 id="partial-summary-heading">검토 중인 내용</h3>
-      {projection?.source_status && <p>{projection.source_status.display}</p>}
-      {projection?.provisional_grade && <div><p><strong>{projection.provisional_grade.display_type === "hold" ? "판정 보류" : projection.provisional_grade.evidence_grade || (projection.provisional_grade.grade_range ? `${projection.provisional_grade.grade_range.floor}~${projection.provisional_grade.grade_range.ceiling}` : "등급 산출 보류")} · {projection.provisional_grade.display}</strong>{projection.provisional_grade.grade_basis === "reachable_floor" ? " · 확인된 근거 기준 하한" : ""}</p><ProvisionalHold grade={projection.provisional_grade} /><ul>{projection.provisional_grade.elements.map(e => <li key={e.element_id}>{getElementLabel(e.element_id)} · {e.state} · {e.votes}/{e.total_replicas} · 잠정</li>)}</ul></div>}
-      <p role="status">
-        <strong>상태 및 조치:</strong> {reason}
-        {missingLabels.length > 0 ? ` 누락된 입증 요소(${missingLabels.join(", ")})를 보완하기 위해 ` : " "}
-        {action}
-      </p>
-
-      <h4>추출된 항목 (present)</h4>
-      {presentElements.length > 0 ? (
-        <ul>
-          {presentElements.map(e => (
-            <li key={e.element_id}>
-              {getElementLabel(e.element_id)}
-              {e.normalized_value !== null ? ` (추출 값: ${e.normalized_value})` : ""}
-            </li>
-          ))}
-        </ul>
-      ) : <p>표시할 추출 값이 아직 없습니다.</p>}
-
-      <h4>검토 후보 · 항목 연결 확인 필요</h4>
-      <RawCandidatesList candidates={elementCandidates} onSourceOpen={onSourceOpen} />
-      {rawCandidates.length ? <details>
-        <summary>추가 검색 후보 {rawCandidates.length}건 · 원문 검증 필요</summary>
-        <p>주변 문맥을 찾기 위한 검색 결과입니다. 해당 항목의 근거로 채택된 것은 아닙니다.</p>
-        <RawCandidatesList candidates={rawCandidates} onSourceOpen={onSourceOpen} />
-      </details> : null}
-    </section>
-  );
+  const presentElements = elements.filter(e => e.state === "present" && e.evidence_refs.some(ref => ref.verification_state === "verified"));
+  const candidates: ReviewCandidate[] = elements.filter(e => e.state === "unknown" || e.state === "conflict")
+    .flatMap(e => e.evidence_refs.map(source_ref => ({ source_ref, status: "unconfirmed" as const, reason: `${e.element_id}: ${elementStateText[e.state]}` })));
+  const allSources = [...sources.map(ref => ({ ref, label: "주장 원문" })), ...elements.flatMap(e => e.evidence_refs.map(ref => ({ ref, label: `${e.element_id} ${e.state === "present" ? "요소 인용" : "미확정 후보"}` })))];
+  const open = (ref: CardSourceRef) => {
+    const original = allSources.find(item => item.ref === ref)?.ref;
+    if (original) onSourceOpen(original);
+  };
+  return <section aria-labelledby="partial-summary-heading" className="provisional-hold">
+    <h3 id="partial-summary-heading">검토 중인 내용</h3>
+    <p>현재까지 추출된 내용입니다. 최종 판정이나 사람 검토 완료를 뜻하지 않습니다.</p>
+    <MissingEvidenceCard facts={presentElements.map(e => `${getElementLabel(e.element_id)}: 서버 태깅 present${e.normalized_value !== null ? ` · 값 ${e.normalized_value}` : ""} (등급 미확정)`)}
+      sources={allSources} reasons={[...(holdReasons ?? []), ...(projection?.blocked_reason ? [projection.blocked_action || "판정이 보류되어 원문과 처리 상태를 확인해야 합니다."] : []), ...(decision?.gap_ids.length ? [`규칙 GAP: ${decision.gap_ids.join(", ")}`] : [])]}
+      evidenceNote={evidenceNote} nextChecks={projection?.blocked_action ? [projection.blocked_action] : []} onSourceOpen={open} />
+    <details><summary>검토 후보 · 항목 연결 확인 필요 ({candidates.length}건)</summary><RawCandidatesList candidates={candidates} onSourceOpen={onSourceOpen} /></details>
+    {rawCandidates.length ? <details><summary>추가 검색 후보 {rawCandidates.length}건 · 원문 검증 필요</summary>
+      <p>해당 항목의 근거로 채택된 것은 아닙니다.</p><RawCandidatesList candidates={rawCandidates} onSourceOpen={onSourceOpen} />
+    </details> : null}
+  </section>;
 }
 
 export function ClaimWorkspace(props: ClaimWorkspaceProps) {
@@ -484,26 +452,15 @@ function ClaimDetailView({ apiBase = "", csrfToken, tenantKey, session, runId, c
   const track = detail.claim.track;
   const elements = track ? completeElements(track, detail.elements) : detail.elements;
   const projection = detail.review_projection;
-  const sentenceContext = projection?.sentence_context;
   const isHeld = !decision || decision.decision_status === "blocked_evidence" || decision.decision_status === "blocked_rule_gap" || decision.decision_status === "not_run";
   return <section aria-labelledby="claim-heading">
     <h1 id="claim-heading">주장 상세</h1>
     <p><Link to={`/runs/${runId}/claims`}>주장 목록으로</Link></p>
     {untagged ? <p role="status">태깅 결과가 게시되지 않은 주장입니다. 처리 대기, 원문 검증 또는 주장 분류가 보류된 경우가 포함됩니다. 아래에서 원문을 확인할 수 있으며, 태깅 편집은 태그가 게시된 뒤에 가능합니다.</p> : null}
-    {sentenceContext ? <section aria-labelledby="sentence-context-heading">
-      <h2 id="sentence-context-heading">주장의 원문 문맥</h2>
-      <p style={{ whiteSpace: "pre-wrap" }}>{sentenceContext.text}</p>
-      <p>{sentenceContext.verification_state === "verified" ? "원문 위치 확인됨" : "원문 위치 확인 필요"} · 문맥은 주장 해석을 돕는 자료입니다. 수치·연도·입증 요소는 개별 근거를 확인합니다.</p>
-      <ul>{sentenceContext.source_refs.map((source, index) => <li key={`${source.source_id}:${index}`}>
-        <button type="button" onClick={() => setSourceOpen(current => ({ source, nonce: (current?.nonce ?? 0) + 1 }))}>문맥 원문 {index + 1} · {source.page_num}쪽</button>
-      </li>)}</ul>
-    </section> : null}
-    <ReviewCandidatePanel sources={detail.source_refs} candidateCount={projection?.raw_candidates?.length ?? 0}
-      replicaCount={detail.replicate_request_ids.length} decisionStatus={decision?.decision_status ?? null} />
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))", gap: 24 }}>
+    <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 3fr) minmax(280px, 2fr)", gap: 24 }}>
       <SourceViewer key={`${tenantKey}:${runId}:${claimId}`} apiBase={apiBase} csrfToken={csrfToken} runId={runId} sources={detail.source_refs} openRequest={sourceOpen} onSessionInvalid={onSessionInvalid} />
       <section aria-labelledby="evidence-heading"><h2 id="evidence-heading">태깅과 판정</h2>
-        <PartialClaimSummary decision={decision} elements={elements} rawCandidates={projection?.raw_candidates ?? []} projection={projection} onSourceOpen={source => setSourceOpen(current => ({ source, nonce: (current?.nonce ?? 0) + 1 }))} />
+        <PartialClaimSummary decision={decision} elements={elements} rawCandidates={projection?.raw_candidates ?? []} projection={projection} sources={detail.source_refs} holdReasons={detail.hold_reasons} evidenceNote={detail.evidence_note} onSourceOpen={source => setSourceOpen(current => ({ source, nonce: (current?.nonce ?? 0) + 1 }))} />
         <p>{detail.claim.quote}</p><p>트랙: {track ? trackText[track] : "미분류"}</p><p>판정: <StatusBadge label={decisionText(decision)} tone={decisionTone(decision)} /></p>{decision?.grade_range ? <p>가능 등급 범위: {decision.grade_range.floor} ~ {decision.grade_range.ceiling} (확정 등급 아님) · 확인하면 범위가 좁혀지는 요소: {decision.grade_range.open_elements.map(getElementLabel).join(", ")}</p> : null}
         {decision?.review_status ? <p>검토 상태: <StatusBadge label={reviewStatusText[decision.review_status]} tone={decision.review_status === "human_confirmed" ? "success" : "warning"} /></p> : null}
         {decision?.gap_ids.length ? <p>규칙 판정 보류(다음 규칙 항목이 갈리거나 정의되지 않음): {decision.gap_ids.join(", ")}</p> : null}
@@ -511,10 +468,8 @@ function ClaimDetailView({ apiBase = "", csrfToken, tenantKey, session, runId, c
         {detail.rulepack_approved_by?.startsWith("ai-delegated-review:")
           ? <p role="status">이 판정에 쓰인 규칙집은 AI 프로젝트 검토(사람 전문가 승인 아님)로 활성화되었습니다.</p>
           : null}
-        <MissingEvidenceCard elements={detail.element_evidence ?? []} onSourceOpen={source => setSourceOpen(current => ({ source, nonce: (current?.nonce ?? 0) + 1 }))} />
         <details><summary>전체 항목 상세 ({elements.length}개)</summary>{elements.length === 0 ? <p>{untagged ? "게시된 요소가 없습니다. 원문 검증 또는 분류가 보류된 경우 추가 검토가 필요합니다." : "표시할 요소가 없습니다."}</p> : <ul>{elements.map(element => <li key={element.element_id}>
           {getElementLabel(element.element_id)}: {elementStateText[element.state]} · 근거 {element.evidence_refs.length}개
-          {element.reason_code ? <p>요소 검토 사유: {getReasonLabel(element.reason_code)}</p> : null}
           {element.normalized_value !== null ? <p>값: {element.normalized_value}</p> : null}
           {element.evidence_refs.length ? <details data-element-evidence={element.element_id}>
             <summary>{element.element_id} 근거 내용</summary>
@@ -550,7 +505,7 @@ function ClaimDetailView({ apiBase = "", csrfToken, tenantKey, session, runId, c
         </section> : null}
         {projection && projection.schema_version === 1 ? <section aria-labelledby="review-projection-heading"><h3 id="review-projection-heading">모델 태깅 당시 후보 (미확정)</h3>
           <p role="status">모델 태깅 당시의 미확정 기록입니다. 현재 검토 결과는 위의 태깅과 판정에 표시됩니다. 후보를 채택하려면 원문 검증을 통과해야 합니다.</p>
-          {projection.blocked_reason ? <p>태깅 당시 보류 사유: {getReasonLabel(projection.blocked_reason)}</p> : null}
+          {projection.blocked_reason ? <p>태깅 당시 보류 사유: {projection.blocked_reason}</p> : null}
           {projection.blocked_action ? <p>태깅 당시 안내: {projection.blocked_action}</p> : null}
           {projection.candidate_snippets.length ? <ul>{projection.candidate_snippets.map((snippet, index) => <li key={index}>{snippet}</li>)}</ul> : null}
           {projection.field_agreements.length ? <details><summary>모델 응답 필드 상세 ({projection.field_agreements.length}개)</summary>

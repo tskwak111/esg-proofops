@@ -232,12 +232,6 @@ export function RunProgress({
         ))}
       </ol>
 
-      <section aria-labelledby="execution-context-heading">
-        <h3 id="execution-context-heading">실행 방식과 처리 범위</h3>
-        <p>실행 모드: 미제공 · cached(저장 결과), local(로컬 처리), replay(저장 응답 재생) 여부를 현재 실행 정보로 확인할 수 없습니다.</p>
-        <p>태깅 프로필: 미제공 · preview 1회와 durable 3회는 서로 다른 처리 방식입니다. 진행 완료나 캐시 적중 수로 프로필을 추정하지 않습니다.</p>
-        <p>선택 쪽 수: 미제공 · 아래 처리 쪽 수는 선택 쪽 수와 다를 수 있습니다.</p>
-      </section>
       <CoveragePanel status={run.status} coverage={run.coverage} />
 
       <section aria-labelledby="cost-heading">

@@ -1,6 +1,6 @@
 # 백엔드·프런트 배포 인수인계
 
-대상은 백엔드 `tskwak111/esg-proofops`, EC2 `i-01fec46ef85815a17`(ap-southeast-2, arm64, Ubuntu 24.04)이다. CI1은 로컬 파일·검증 결과이며 운영에 적용되지 않았다. 관리자는 [콘솔 설정 절차](../deploy/ec2/admin-setup.md)를 완료한 뒤 활성화한다. 기존 애플리케이션 정책·기본 프로필·테스트 기준은 유지한다.
+대상은 백엔드 `tskwak111/esg-proofops`, EC2 `<OPERATOR_PROVIDED_INSTANCE_ID>`(ap-southeast-2, arm64, Ubuntu 24.04)이다. CI1은 로컬 파일·검증 결과이며 운영에 적용되지 않았다. 관리자는 [콘솔 설정 절차](../deploy/ec2/admin-setup.md)를 완료한 뒤 활성화한다. 기존 애플리케이션 정책·기본 프로필·테스트 기준은 유지한다.
 
 ## 자동 백엔드 배포
 

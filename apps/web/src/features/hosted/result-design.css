@@ -1,0 +1,537 @@
+/* =====================================================================
+ * 결과 탭 패널 디자인 (proofops-after-tabs.css 기준)
+ * 앱 CSS(hosted.css, static-demo.css) 뒤에 불러오는 덮어쓰기 파일이라 !important를 유지합니다.
+ * rd- 접두 클래스는 요약 대시보드(UX1Insights.tsx ResultDashboard) 마크업용입니다.
+ * ===================================================================== */
+
+
+/* ---------------------------------------------------------------------
+ * 0. 토큰
+ * ------------------------------------------------------------------- */
+:root{
+  --rd-green:#3F5B45; --rd-ink:#161616; --rd-mute:#65625C; --rd-ink-2:#45433F;
+  --rd-line:#E9E4DB;  --rd-paper:#F9F8F4;
+  --rd-sans:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,sans-serif;
+  --rd-serif:"Noto Serif KR","Nanum Myeongjo",serif;
+  --rd-mono:"SF Mono","JetBrains Mono",ui-monospace,Menlo,monospace;
+
+  /* 등급 색 (진한 초록 → 중립 회색) */
+  --g3:#3F5B45; --g2:#6E8B72; --g1:#A9BEA9; --g0:#D8D3C8; --hold:#CFC9BD;
+
+  /* 간격·글자 */
+  --sp:24px;        /* 카드·섹션 사이 */
+  --pad:24px;       /* 카드 안쪽 좌우 */
+  --t-small:12.5px; /* 보조 글씨 */
+
+  /* 버튼 */
+  --btn-h:36px; --btn-h-sm:30px; --btn-r:8px;
+  --btn-bd:#D8D2C7; --btn-bd-hover:#BFB8AA; --btn-hover:#F4F2EC; --btn-active:#ECE9E1;
+}
+
+
+/* ---------------------------------------------------------------------
+ * 1. 공통
+ * ------------------------------------------------------------------- */
+.hosted-result, .hosted-result *{font-variant-numeric:tabular-nums;}
+.hosted-result b{font-weight:700;}
+
+/* 패널 안 라벨(아이브로): 한글이라 자간 0 */
+.result-tabpanel .eyebrow{letter-spacing:0 !important;font-size:12px !important;font-weight:600 !important;color:var(--rd-green) !important;text-transform:none !important;}
+
+/* 표 머리글: 한글에 넓은 자간 제거 */
+.hosted-result th{letter-spacing:0 !important;font-size:12px !important;font-weight:600 !important;color:var(--rd-mute) !important;}
+
+/* 보조색 통일, 11px 이하 금지 */
+.hosted-result small, .split-note{color:var(--rd-mute) !important;}
+.hosted-result code{font-size:11.5px !important;}
+
+/* 인용문 왼쪽 굵은 선 제거 */
+.hosted-result blockquote{border-left:0 !important;padding-left:0 !important;}
+
+/* 탭 패널: 세로 간격 24px 하나로 */
+.result-tabpanel{display:grid !important;gap:var(--sp) !important;align-content:start;padding-top:0 !important;margin-top:0 !important;}
+.result-tabpanel > *{margin-top:0 !important;margin-bottom:0 !important;}
+
+
+/* ---------------------------------------------------------------------
+ * 2. 버튼 · 입력 (패널 안)
+ * ------------------------------------------------------------------- */
+/* 2-1. 보조 버튼 (기본) */
+.result-tabpanel .hosted-secondary,
+.hosted-result .result-back, .hosted-result .claim-source-button, .hosted-result .result-detail-close, .hosted-result .more-button,
+.source-split .split-heading button, .source-split .split-toolbar button, .source-split .split-retry,
+.hosted-result .detail-block button, .source-split .split-evidence-picker button, .source-split .split-citations button, .source-split .split-citation button{
+  display:inline-flex !important;align-items:center !important;justify-content:center !important;gap:6px !important;
+  width:auto;height:var(--btn-h) !important;min-height:var(--btn-h) !important;padding:0 14px !important;
+  border:1px solid var(--btn-bd) !important;border-radius:var(--btn-r) !important;background:#fff !important;box-shadow:none !important;
+  font-family:inherit !important;font-size:13px !important;font-weight:500 !important;line-height:1 !important;letter-spacing:-0.005em !important;
+  color:var(--rd-ink) !important;white-space:nowrap !important;text-decoration:none !important;cursor:pointer;
+  transition:background .15s, border-color .15s;
+}
+.result-tabpanel .hosted-secondary:hover,
+.hosted-result .result-back:hover, .hosted-result .claim-source-button:hover, .hosted-result .result-detail-close:hover, .hosted-result .more-button:hover,
+.source-split .split-heading button:hover, .source-split .split-toolbar button:hover:not(:disabled), .source-split .split-retry:hover,
+.hosted-result .detail-block button:hover, .source-split .split-evidence-picker button:hover, .source-split .split-citations button:hover, .source-split .split-citation button:hover{
+  background:var(--btn-hover) !important;border-color:var(--btn-bd-hover) !important;
+}
+.result-tabpanel button:active:not(:disabled){background:var(--btn-active) !important;}
+.result-tabpanel button:focus-visible, .result-tabpanel select:focus-visible, .result-tabpanel input:focus-visible{outline:2px solid var(--rd-green) !important;outline-offset:2px !important;}
+.result-tabpanel button:disabled{opacity:.45 !important;cursor:not-allowed !important;background:#fff !important;}
+
+/* 2-2. 정사각 아이콘 버튼 (닫기, 쪽 이동, 확대·축소) */
+.hosted-result .result-detail-close,
+.source-split .split-heading button[aria-expanded="true"],
+.source-split .split-toolbar button:is([aria-label*="이전"],[aria-label*="다음"],[aria-label*="축소"],[aria-label*="확대"]){
+  width:var(--btn-h) !important;padding:0 !important;font-size:16px !important;
+}
+
+/* 2-3. 작은 버튼: 이 인용의 원문 보기 / p.N 근거 표시 / 요소 근거 칩 */
+.hosted-result .detail-block button, .source-split .split-evidence-picker button, .source-split .split-citations button, .source-split .split-citation button{
+  height:var(--btn-h-sm) !important;min-height:var(--btn-h-sm) !important;padding:0 10px !important;
+  font-size:12.5px !important;font-weight:600 !important;color:var(--rd-green) !important;
+}
+.hosted-result .detail-block button{margin:8px 0 0 !important;}
+.source-split .split-citations button, .source-split .split-citation button{margin-top:6px !important;}
+.hosted-result .detail-block button::after, .source-split .split-citations button::after, .source-split .split-citation button::after{content:'→';font-weight:500;}
+
+/* 2-4. 주 버튼 */
+.result-tabpanel .hosted-primary{
+  display:inline-flex !important;align-items:center !important;justify-content:center !important;
+  height:var(--btn-h) !important;min-height:var(--btn-h) !important;padding:0 16px !important;
+  border:1px solid var(--rd-green) !important;border-radius:var(--btn-r) !important;background:var(--rd-green) !important;box-shadow:none !important;
+  color:#fff !important;font-size:13px !important;font-weight:600 !important;line-height:1 !important;
+}
+.result-tabpanel .hosted-primary:hover:not(:disabled){background:#344C3A !important;border-color:#344C3A !important;}
+
+/* 2-5. 텍스트 버튼 / 위험 동작 */
+.hosted-text-button{color:var(--rd-green) !important;font-weight:600 !important;}
+.hosted-result .hosted-danger, .hosted-document-footer .hosted-danger{height:auto !important;min-height:0 !important;padding:4px 0 !important;border:0 !important;background:transparent !important;
+  font-size:12.5px !important;text-decoration:underline !important;text-underline-offset:3px;}
+
+/* 2-6. 선택 상자·입력칸: 버튼과 같은 36px / 8px / 화살표 통일 */
+.result-tabpanel select{
+  -webkit-appearance:none !important;appearance:none !important;
+  height:var(--btn-h) !important;min-height:var(--btn-h) !important;padding:0 32px 0 12px !important;
+  border:1px solid var(--btn-bd) !important;border-radius:var(--btn-r) !important;
+  background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2365625C' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 12px center !important;
+  font-size:13px !important;font-weight:500 !important;line-height:1 !important;color:var(--rd-ink) !important;cursor:pointer;
+}
+.result-tabpanel select:hover{border-color:var(--btn-bd-hover) !important;}
+.result-tabpanel input[type=text], .result-tabpanel input[type=search], .result-tabpanel input[type=number], .result-tabpanel input:not([type]){
+  height:var(--btn-h) !important;min-height:var(--btn-h) !important;padding:0 12px !important;
+  border:1px solid var(--btn-bd) !important;border-radius:var(--btn-r) !important;font-size:13px !important;font-weight:500 !important;
+}
+
+
+/* ---------------------------------------------------------------------
+ * 3. 요약 탭
+ * ------------------------------------------------------------------- */
+/* 3-1. 부분 완료 안내: 박스 → 한 줄 */
+.result-execution.partial{display:flex !important;flex-wrap:wrap;align-items:baseline;gap:4px 12px;
+  margin:0 !important;padding:0 !important;border:0 !important;border-radius:0 !important;background:transparent !important;box-shadow:none !important;}
+.result-execution.partial::before, .result-execution.partial::after{display:none !important;}
+.result-execution.partial h3{display:flex;align-items:center;gap:8px;margin:0 !important;white-space:normal;
+  font-size:13.5px !important;font-weight:650 !important;line-height:1.5 !important;letter-spacing:-0.01em !important;color:var(--rd-ink) !important;}
+.result-execution.partial h3::before{content:'';width:7px;height:7px;border-radius:50%;background:#B9A57A;display:inline-block;}
+.result-execution.partial > p{margin:0 !important;font-size:13px !important;color:var(--rd-mute) !important;}
+.result-execution.partial .result-run-notice{margin:0 !important;padding:0 !important;min-height:0 !important;border:0 !important;background:transparent !important;box-shadow:none !important;}
+.result-execution.partial .result-run-notice summary{padding:0 !important;min-height:0 !important;font-size:13px !important;font-weight:600 !important;line-height:1.5 !important;color:var(--rd-green) !important;cursor:pointer;}
+
+/* 3-3. 요약 대시보드 (새 마크업) */
+.rd-overview{background:#fff;border:1px solid var(--rd-line);border-radius:16px;overflow:hidden;}
+
+.rd-insight{display:flex;align-items:baseline;gap:12px;padding:16px var(--pad);border-bottom:1px solid var(--rd-line);background:#fff;}
+.rd-insight span{flex:0 0 auto;font-size:12px;font-weight:600;color:var(--rd-green);}
+.rd-insight p{margin:0;font-size:15px;font-weight:500;line-height:1.55;letter-spacing:-0.015em;color:var(--rd-ink);}
+.rd-insight p b{font-weight:700;}
+
+/* 숫자 4칸 · 구분선은 1px gap 방식(아래 패널 세로선과 정확히 정렬) */
+.rd-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--rd-line);border-bottom:1px solid var(--rd-line);}
+.rd-kpis > div{min-width:0;padding:20px var(--pad);background:#fff;}
+.rd-kpis span{display:block;font-size:var(--t-small);font-weight:500;line-height:1.4;color:var(--rd-mute);}
+.rd-kpis strong{display:block;margin:10px 0 8px;font-size:32px;font-weight:700;line-height:1;letter-spacing:-0.03em;color:var(--rd-ink);}
+.rd-kpis strong small{margin-left:3px;font-size:13px;font-weight:500;letter-spacing:0;color:var(--rd-mute) !important;}
+.rd-kpis em{display:block;font-style:normal;font-size:var(--t-small);line-height:1.5;letter-spacing:-0.005em;color:var(--rd-mute);}
+.rd-kpis .rd-key strong{color:var(--rd-green);}
+
+.rd-panels{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--rd-line);}
+.rd-panel{min-width:0;padding:20px var(--pad) var(--pad);background:#fff;}
+.rd-panel header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;}
+.rd-panel h3{margin:0 !important;font-size:15px !important;font-weight:650 !important;line-height:1.4 !important;letter-spacing:-0.015em !important;}
+.rd-panel header span{font-size:var(--t-small);line-height:1.5;color:var(--rd-mute);}
+
+.rd-bar{display:flex;gap:2px;height:10px;border-radius:5px;overflow:hidden;background:var(--rd-paper);}
+.rd-bar i{display:block;height:100%;}
+.rd-legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:12px;font-size:var(--t-small);line-height:1.5;color:var(--rd-mute);}
+.rd-legend b{margin-left:4px;font-weight:600;color:var(--rd-ink);}
+.rd-sw{display:inline-block;width:8px;height:8px;margin-right:6px;border-radius:2px;vertical-align:0;}
+
+/* 등급 분포 표 (행 높이 40px) */
+.rd-rows{margin-top:16px;}
+.rd-row{display:grid;grid-template-columns:30px 1fr auto 44px;gap:10px;align-items:center;min-height:40px;box-sizing:border-box;
+  border-bottom:1px solid var(--rd-line);font-size:13px;line-height:1.5;}
+.rd-row b{font-size:12.5px;font-weight:650;}
+.rd-row span{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:var(--rd-mute);}
+.rd-row strong{font-weight:600;text-align:right;}
+.rd-row em{font-style:normal;font-size:var(--t-small);text-align:right;color:var(--rd-mute);}
+
+/* 판정 상태 패널 안 '주요 보류 사유' (기존 .ux1-holds를 이 패널로 옮겨 렌더) */
+.rd-panel h4.rd-holds-h{margin:20px 0 4px !important;font-size:var(--t-small) !important;font-weight:600 !important;line-height:1.4 !important;letter-spacing:0 !important;color:var(--rd-mute) !important;}
+.rd-panel .ux1-holds{display:block !important;margin:8px 0 0 !important;padding:0 !important;border-top:1px solid var(--rd-line) !important;}
+.rd-panel .ux1-holds li{margin:0 !important;list-style:none;}
+.rd-panel .ux1-holds button{display:flex !important;justify-content:space-between !important;align-items:center !important;gap:10px !important;
+  width:100% !important;min-height:40px !important;padding:0 !important;text-align:left !important;
+  border:0 !important;border-bottom:1px solid var(--rd-line) !important;border-radius:0 !important;background:transparent !important;box-shadow:none !important;
+  font-size:13px !important;line-height:1.5 !important;color:var(--rd-ink) !important;}
+.rd-panel .ux1-holds button:hover{color:var(--rd-green) !important;}
+.rd-panel .ux1-holds button b{margin-left:auto;font-weight:600 !important;}
+.rd-panel .ux1-holds button::after{content:'›';font-size:15px;color:var(--rd-mute);}
+
+/* 3-4. 어디부터 근거를 보강할까요? */
+.ux1-card{margin-top:0 !important;padding:var(--pad) !important;border:1px solid var(--rd-line) !important;border-radius:16px !important;background:#fff !important;box-shadow:none !important;}
+.ux1-card > h3{margin:4px 0 20px !important;font-size:20px !important;font-weight:700 !important;line-height:1.4 !important;letter-spacing:-0.025em !important;}
+.ux1-summary-grid{column-gap:48px !important;}
+.ux1-summary-grid h4{margin:0 0 4px !important;font-size:15px !important;font-weight:650 !important;line-height:1.4 !important;letter-spacing:-0.015em !important;}
+.ux1-summary-grid h4 + .caption{margin-top:0 !important;margin-bottom:8px !important;}
+.ux1-summary-grid .caption{font-size:var(--t-small) !important;line-height:1.5 !important;letter-spacing:-0.005em !important;}
+
+/* 보강 필요 영역 목록 */
+.ux1-needs{margin:0 !important;padding:0 !important;border-top:1px solid var(--rd-line) !important;}
+.ux1-needs li{gap:4px 12px !important;align-items:baseline !important;padding:14px 0 !important;line-height:1.5 !important;}
+.ux1-needs li b, .ux1-needs li strong{font-size:15px !important;font-weight:650 !important;line-height:1.5 !important;letter-spacing:-0.015em !important;}
+.ux1-needs li span{display:block;margin-top:0 !important;font-size:13px !important;line-height:1.6 !important;color:var(--rd-mute) !important;}
+
+/* 주요 확정 주장: 번호 마커 제거 */
+.ux1-top{margin:0 !important;padding:0 !important;list-style:none !important;border-top:1px solid var(--rd-line);}
+.ux1-top li{margin:0 !important;padding:0 !important;font-size:14px !important;}
+.ux1-top button{gap:4px !important;width:100% !important;padding:14px 0 !important;text-align:left !important;
+  border:0 !important;border-bottom:1px solid var(--rd-line) !important;border-radius:0 !important;background:transparent !important;box-shadow:none !important;color:var(--rd-ink) !important;}
+.ux1-top button b{display:block !important;margin:0 !important;padding:0 !important;background:transparent !important;
+  font-size:var(--t-small) !important;font-weight:600 !important;line-height:1.5 !important;color:var(--rd-green) !important;}
+.ux1-top button span{font-size:14px !important;line-height:1.6 !important;letter-spacing:-0.005em !important;color:var(--rd-ink) !important;}
+
+
+/* ---------------------------------------------------------------------
+ * 4. 문장별 결과 탭
+ * ------------------------------------------------------------------- */
+/* 4-1. 머리 */
+.result-claims .card-heading h2{margin:4px 0 !important;font-size:22px !important;line-height:1.35 !important;}
+.result-claims .card-heading p:not(.eyebrow){margin:0 !important;font-size:13.5px !important;color:var(--rd-mute) !important;}
+
+/* 개수 배지: 얇은 모노 → 시스템 산세리프 */
+.queue-tabs{margin-bottom:20px !important;}
+.queue-tabs button{font-size:15px !important;}
+.queue-tabs button span, .result-claims .card-heading > span, .result-claims .card-heading > span *{
+  margin-left:6px;font-family:var(--rd-sans) !important;font-size:13px !important;font-weight:500 !important;line-height:1.5 !important;letter-spacing:0 !important;color:var(--rd-mute) !important;}
+.queue-tabs button[aria-selected="true"] span{color:var(--rd-ink) !important;}
+
+/* 4-2. 필터 */
+.result-browser-controls{margin-bottom:8px !important;}
+.filters label{font-size:12px !important;}
+.filters label > select, .filters label > input{margin-top:6px !important;}
+
+/* 적용 중인 보류 사유 필터 → 칩 */
+.result-filter-chip{display:inline-flex !important;align-items:center;gap:6px;max-width:100%;margin:12px 0 !important;padding:6px 6px 6px 12px !important;
+  border:1px solid var(--rd-line) !important;border-radius:999px !important;background:var(--rd-paper) !important;font-size:13px !important;color:var(--rd-mute) !important;}
+.result-filter-chip strong{display:inline-block;max-width:360px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;vertical-align:bottom;font-weight:600 !important;color:var(--rd-ink) !important;}
+.result-filter-chip .hosted-text-button{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;padding:0 !important;
+  border:0 !important;border-radius:50%;background:transparent !important;font-size:0 !important;text-decoration:none !important;cursor:pointer;}
+.result-filter-chip .hosted-text-button::before{content:'×';font-size:16px;line-height:1;color:var(--rd-mute);}
+.result-filter-chip .hosted-text-button:hover{background:var(--rd-line) !important;}
+
+/* 4-3. 목록 */
+.claim-item{background:transparent !important;border-left:0 !important;border-radius:0 !important;box-shadow:none !important;}
+.claim-item.selected{background:var(--rd-paper) !important;box-shadow:none !important;}
+.claim-item-top{align-items:baseline !important;}
+.claim-item-top, .claim-item-top > span, .mini-status{font-family:var(--rd-sans) !important;font-size:var(--t-small) !important;line-height:1.5 !important;letter-spacing:0 !important;}
+.mini-status{padding:0 !important;background:transparent !important;font-weight:600 !important;color:var(--rd-green) !important;}
+.mini-status.warn{color:var(--rd-mute) !important;}
+.claim-item .claim-quote{margin:8px 0 !important;font-size:15.5px !important;font-weight:500 !important;line-height:1.65 !important;letter-spacing:-0.01em !important;color:var(--rd-ink) !important;}
+
+/* 보류 사유: 회색 한 줄 (말줄임). 사유 필터가 걸려 있으면 숨김 */
+.hosted-result .w18-hold-reason{margin:0 !important;padding:0 !important;border:0 !important;background:transparent !important;
+  font-size:var(--t-small) !important;font-weight:400 !important;color:var(--rd-mute) !important;}
+.claim-item .w18-hold-reason, .split-claim .w18-hold-reason{display:-webkit-box !important;-webkit-box-orient:vertical;-webkit-line-clamp:1;overflow:hidden !important;}
+.result-claims:has(.result-filter-chip) .claim-item .w18-hold-reason{display:none !important;}
+.claim-item .claim-evidence-line{display:block !important;margin-top:2px;font-size:var(--t-small) !important;}
+
+.hosted-result .more-button{width:100% !important;margin-top:12px !important;color:var(--rd-mute) !important;}
+
+/* 4-4. 주장 상세: 판정 결과를 맨 위로 */
+@media (min-width:1025px){ .hosted-result .claim-detail{display:flex !important;flex-direction:column !important;} }
+@media (max-width:1024px){ .hosted-result.is-detail-open .claim-detail{display:flex !important;flex-direction:column !important;} }
+.claim-detail > *{order:5;}
+.claim-detail > .detail-top{order:0;}
+.claim-detail > .result-back{order:1;align-self:flex-start;margin:0 0 4px !important;}
+.claim-detail > .decision-panel{order:2;}
+.claim-detail > .source-quote{order:3;}
+.claim-detail > .ux1-why{order:4;}
+.claim-detail .detail-top{align-items:flex-start !important;}
+.claim-detail p{line-height:1.7 !important;}
+.claim-detail h4{margin:0 0 6px !important;font-size:15px !important;line-height:1.4 !important;letter-spacing:-0.015em !important;}
+
+.decision-panel, .decision-panel.is-provisional{background:transparent !important;border-left:0 !important;box-shadow:none !important;}
+.claim-detail .decision-panel{padding:16px 0 !important;border-top:1px solid var(--rd-line) !important;}
+.claim-detail .decision-panel > span{display:block;margin-bottom:2px;}
+.claim-detail .decision-panel strong{font-size:22px !important;font-weight:700 !important;line-height:1.35 !important;letter-spacing:-0.025em !important;color:var(--rd-ink) !important;}
+.claim-detail .decision-panel p{margin:2px 0 0 !important;font-size:13px !important;color:var(--rd-mute) !important;}
+
+.claim-detail .source-quote blockquote{font-size:17px !important;line-height:1.6 !important;letter-spacing:-0.015em !important;}
+.claim-detail .source-quote small{display:block !important;}
+.claim-detail .claim-source-button{margin-top:12px !important;}
+.claim-detail .w18-hold-reason{display:block !important;}
+
+.ux1-why{padding:20px 0 !important;border:0 !important;border-top:1px solid var(--rd-line) !important;border-radius:0 !important;background:transparent !important;box-shadow:none !important;}
+
+/* 요소별 근거: 인용 메타 */
+.result-citation{margin-bottom:14px !important;}
+.result-citation small{font-family:var(--rd-sans) !important;font-size:12px !important;letter-spacing:0 !important;color:var(--rd-mute) !important;}
+.detail-block b{font-weight:700 !important;}
+
+/* 4-5. 넓은 화면: 목록 안쪽 스크롤 제거, 상세 패널만 따라 내려옴
+ *      top 값 = 사이트 헤더 높이(--header-h) + 탭 바 높이(--result-tabs-h) + 12px */
+@media (min-width:1100px){
+  .hosted-result .claim-list{max-height:none !important;overflow:visible !important;}
+  .hosted-result .claim-detail{position:sticky !important;top:calc(var(--header-h, 69px) + var(--result-tabs-h, 69px) + 12px) !important;
+    max-height:calc(100vh - var(--header-h, 69px) - var(--result-tabs-h, 69px) - 28px) !important;overflow:auto !important;}
+}
+
+
+/* ---------------------------------------------------------------------
+ * 5. 원문 대조 탭
+ * ------------------------------------------------------------------- */
+.split-heading{padding:18px var(--pad) !important;background:#fff !important;border-bottom:1px solid var(--rd-line) !important;}
+.split-heading h3{margin:0 !important;font-size:18px !important;line-height:1.4 !important;letter-spacing:-0.02em !important;}
+.split-heading p{margin:2px 0 0 !important;font-size:13px !important;color:var(--rd-mute) !important;}
+.split-search{font-size:var(--t-small) !important;}
+
+/* 왼쪽 주장 카드: 왼쪽 굵은 선 제거, 선택 시 테두리만 초록 */
+.source-split .split-claim, .source-split .split-claim.on-page{padding:14px 16px !important;border:1px solid var(--rd-line) !important;border-radius:12px !important;background:#fff !important;box-shadow:none !important;}
+.source-split .split-claim.selected{border-color:var(--rd-green) !important;background:var(--rd-paper) !important;box-shadow:none !important;}
+.split-claim p{margin:8px 0 6px !important;font-size:14.5px !important;line-height:1.65 !important;letter-spacing:-0.01em !important;}
+.split-claim small{font-family:var(--rd-sans) !important;font-size:var(--t-small) !important;line-height:1.5 !important;letter-spacing:0 !important;}
+.split-claim .w18-hold-reason{margin-top:6px !important;}
+.split-status, .split-status.hold, .split-status.confirmed, .split-status.provisional{padding:0 !important;background:transparent !important;
+  font-size:12px !important;font-weight:600 !important;line-height:1.5 !important;color:var(--rd-mute) !important;}
+.split-status.confirmed{color:var(--rd-green) !important;}
+@media (min-width:1100px){ .split-claim-list{max-height:calc(100vh - 200px) !important;} }
+
+/* 툴바 */
+.split-toolbar{gap:8px !important;row-gap:8px !important;}
+.source-split .split-toolbar input{width:56px !important;padding:0 6px !important;text-align:center;}
+
+/* 요소 근거 선택 */
+.split-evidence-picker{padding:0 !important;border-radius:10px !important;}
+.split-evidence-picker > summary{min-height:0 !important;padding:10px 14px !important;font-size:13.5px !important;}
+.split-evidence-picker .split-citations{margin:0 !important;padding:14px 14px 12px !important;}
+.split-evidence-picker .split-citation{padding:8px 12px !important;margin:6px 0 !important;}
+.split-evidence-picker .split-citation.active{border-color:var(--rd-green) !important;background:var(--rd-paper) !important;}
+.split-evidence-picker .split-citation blockquote{margin:2px 0 4px !important;}
+.split-evidence-picker .split-citation button{margin-top:0 !important;}
+
+/* 범례 + PDF 하이라이트 색 (쨍한 노랑·파랑 → 테마 톤) */
+.split-legend{gap:16px !important;font-size:var(--t-small) !important;color:var(--rd-mute) !important;}
+.split-legend span::before{width:10px !important;height:10px !important;margin-right:6px !important;border:0 !important;border-radius:3px !important;vertical-align:0 !important;}
+.split-legend .claim::before{background:rgba(214,178,94,.45) !important;}
+.split-legend .evidence::before{background:rgba(128,173,128,.5) !important;}
+.split-legend .exact::before{background:#DCD8CF !important;}
+.split-legend .region::before{background:transparent !important;border:1px dashed var(--rd-mute) !important;}
+.split-highlight.claim rect{fill:#D6B25E !important;fill-opacity:.3 !important;}
+.split-highlight.evidence rect{fill:#80AD80 !important;fill-opacity:.32 !important;stroke:#3F5B45 !important;}
+.split-highlight.region rect{stroke:#8A7A4A !important;}
+.split-highlight.evidence.region rect{stroke:#3F5B45 !important;}
+.split-legend .estimated::before{background:transparent !important;border:2px dashed #8246af !important;}
+.split-highlight.claim.estimated rect{fill:none !important;stroke:#8246af !important;}
+.split-estimated-note{color:#69368e !important;}
+
+
+/* ---------------------------------------------------------------------
+ * 6. 분석 정보 탭
+ * ------------------------------------------------------------------- */
+/* 6-1. 실행 요약 · 진행 상태 */
+.hosted-run-summary{padding:16px var(--pad) !important;border:1px solid var(--rd-line) !important;border-radius:16px !important;box-shadow:none !important;}
+.hosted-run-summary > summary{min-height:0 !important;padding:0 !important;font-size:14px !important;line-height:1.5 !important;}
+.hosted-run-summary .hosted-secondary{margin-top:8px !important;}
+.hosted-state{border:1px solid var(--rd-line) !important;background:transparent !important;color:var(--rd-mute) !important;}
+.hosted-outcome, .hosted-outcome.hosted-blocked{border:1px solid var(--rd-line) !important;border-radius:12px !important;background:var(--rd-paper) !important;box-shadow:none !important;}
+.hosted-outcome h3 small{letter-spacing:0 !important;}
+
+
+/* 6-3. 분석한 데이터: '분석 사례' 수치 카드와 같은 서체 */
+.ux1-data-grid{display:grid !important;grid-template-columns:repeat(4,1fr) !important;gap:0 !important;margin:8px 0 0 !important;}
+.ux1-data-grid > div{margin:0 !important;padding:20px 24px 24px !important;border-right:1px solid var(--rd-line) !important;}
+.ux1-data-grid > div:first-child{padding-left:0 !important;}
+.ux1-data-grid > div:last-child{padding-right:0 !important;border-right:0 !important;}
+.ux1-data-grid dt{font-family:var(--rd-sans) !important;font-size:13px !important;font-weight:500 !important;line-height:1.65 !important;letter-spacing:-0.005em !important;color:var(--rd-ink-2) !important;}
+.ux1-data-grid dd{margin:14px 0 6px !important;white-space:nowrap;font-family:var(--rd-serif) !important;font-size:46px !important;font-weight:400 !important;line-height:1 !important;letter-spacing:-0.02em !important;color:var(--rd-ink) !important;}
+.ux1-data-grid dd small{margin-left:5px !important;font-family:var(--rd-sans) !important;font-size:14px !important;font-weight:500 !important;letter-spacing:0 !important;color:var(--rd-mute) !important;}
+.ux1-data-grid p{margin:0 !important;font-size:12.5px !important;line-height:1.65 !important;color:var(--rd-mute) !important;}
+
+/* 6-4. 보류 사유별 집계 · 집계와 판정 기준: 카드 + 40px 표 행 */
+.w18-hold-summary, .result-count-note{padding:16px var(--pad) !important;border:1px solid var(--rd-line) !important;border-radius:16px !important;background:#fff !important;box-shadow:none !important;}
+.w18-hold-summary > summary, .result-count-note > summary{font-size:15px !important;font-weight:650 !important;line-height:1.4 !important;letter-spacing:-0.015em !important;cursor:pointer;}
+.w18-hold-summary ul{display:block !important;margin:12px 0 0 !important;padding:0 !important;list-style:none !important;border-top:1px solid var(--rd-line);}
+.w18-hold-summary li{display:flex !important;justify-content:space-between !important;align-items:center !important;gap:16px;min-height:40px;margin:0 !important;padding:0 !important;
+  border-bottom:1px solid var(--rd-line);font-size:13.5px !important;line-height:1.5 !important;}
+.w18-hold-summary li::before, .w18-hold-summary li::marker{content:none !important;display:none !important;}
+.w18-hold-summary li strong{flex:0 0 auto;font-size:13.5px !important;font-weight:600 !important;}
+.w18-hold-summary .caption, .result-count-note p{margin:12px 0 0 !important;font-size:13px !important;line-height:1.65 !important;color:var(--rd-mute) !important;}
+
+/* 6-5. 처리 시간 · 보고 범위 (두 줄을 붙여서) · 분석 범위 */
+.result-tabpanel-info > p.caption, .result-tabpanel-info > p.hosted-note{font-size:var(--t-small) !important;line-height:1.5 !important;color:var(--rd-mute) !important;}
+.result-tabpanel-info > p.caption + p.hosted-note{margin-top:calc(-1 * var(--sp) + 4px) !important;}
+.result-scope{padding:20px var(--pad) !important;border:1px solid var(--rd-line) !important;border-radius:16px !important;background:#fff !important;box-shadow:none !important;}
+.result-scope h3{margin:0 0 8px !important;font-size:15px !important;font-weight:650 !important;line-height:1.4 !important;}
+.result-scope p{margin:4px 0 0 !important;font-size:13.5px !important;line-height:1.65 !important;}
+
+
+/* ---------------------------------------------------------------------
+ * 7. 하단: 업로드한 PDF 삭제
+ * ------------------------------------------------------------------- */
+.hosted-document-footer{display:flex !important;justify-content:space-between !important;align-items:center !important;padding:8px 0 !important;
+  border:0 !important;background:transparent !important;box-shadow:none !important;}
+.hosted-document-footer .hosted-danger{color:#9B3B2F !important;}
+.hosted-document-footer .hosted-note{font-size:12px !important;color:var(--rd-mute) !important;}
+
+
+/* ---------------------------------------------------------------------
+ * 7-1. 결과 링크 첫 로딩: 제목·탭 모양 자리 표시
+ * ------------------------------------------------------------------- */
+.result-skeleton{display:grid;gap:14px;padding:8px 0 24px;}
+.result-skeleton i{display:block;border-radius:8px;background:linear-gradient(90deg,var(--rd-line) 0%,var(--rd-paper) 50%,var(--rd-line) 100%);background-size:200% 100%;animation:result-skeleton 1.4s ease-in-out infinite;}
+.result-skeleton-title{width:min(420px,70%);height:32px;}
+.result-skeleton-line{width:min(640px,90%);height:14px;}
+.result-skeleton-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px;}
+.result-skeleton-tabs i{height:48px;}
+.result-skeleton-block{height:320px;border-radius:16px !important;}
+@keyframes result-skeleton{from{background-position:100% 0;}to{background-position:-100% 0;}}
+@media (prefers-reduced-motion:reduce){ .result-skeleton i{animation:none;} }
+
+
+/* ---------------------------------------------------------------------
+ * 8. 모바일 (≤720px)
+ * ------------------------------------------------------------------- */
+@media (max-width:720px){
+  .rd-insight{flex-direction:column;gap:4px;}
+  .rd-kpis{grid-template-columns:1fr 1fr !important;}
+  .rd-panels{grid-template-columns:1fr !important;}
+  .ux1-data-grid{grid-template-columns:1fr 1fr !important;}
+  .ux1-data-grid > div{padding-left:0 !important;border-right:0 !important;}
+}
+
+/* Long verified/total values need a full row on narrow phones. */
+@media (max-width:420px){
+  .ux1-data-grid{grid-template-columns:1fr !important;}
+}
+
+/* =====================================================================
+ * [부록 A] 탭 위 영역 — '요약본 · PDF 저장' 높이 맞춤
+ *  헤더 수정 이후에 바꾼 부분이라 따로 둠. 이미 반영했다면 지워도 됩니다.
+ * ===================================================================== */
+.ux1-export{display:flex !important;align-items:center !important;gap:8px !important;margin:0 !important;padding:0 !important;}
+.ux1-export > *{margin:0 !important;}
+.ux1-export label{display:flex !important;align-items:center !important;margin:0 !important;padding:0 !important;font-size:0 !important;line-height:0 !important;}
+.ux1-export select{
+  -webkit-appearance:none !important;appearance:none !important;margin:0 !important;   /* ← 숨은 margin-top 8px가 4px 어긋남의 원인 */
+  min-width:104px !important;height:var(--btn-h) !important;min-height:var(--btn-h) !important;padding:0 32px 0 12px !important;
+  border:1px solid var(--btn-bd) !important;border-radius:var(--btn-r) !important;
+  background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2365625C' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 12px center !important;
+  font-size:13px !important;font-weight:500 !important;line-height:1 !important;color:var(--rd-ink) !important;
+}
+.ux1-export .hosted-primary{
+  display:inline-flex !important;align-items:center !important;justify-content:center !important;
+  height:var(--btn-h) !important;min-height:var(--btn-h) !important;padding:0 16px !important;white-space:nowrap;
+  border:1px solid var(--rd-green) !important;border-radius:var(--btn-r) !important;background:var(--rd-green) !important;
+  color:#fff !important;font-size:13px !important;font-weight:600 !important;line-height:1 !important;box-shadow:none !important;
+}
+.ux1-export .hosted-primary:hover:not(:disabled){background:#344C3A !important;border-color:#344C3A !important;}
+.ux1-export .caption{display:none !important;}
+
+
+@media print{
+  .hosted-result .claim-detail{position:static !important;max-height:none !important;overflow:visible !important;}
+}
+
+
+/* =====================================================================
+ * 결과 탭 정리 (proofops-result-serif.css 기준)
+ * ===================================================================== */
+/* 탭: 개수와 설명 제거 */
+.result-tabs .result-tab-badge, .result-tabs .result-tab-hint{display:none !important;}
+.result-tabs > button{padding:14px 20px !important;}
+/* 제목 아래 설명 한 줄 */
+.result-heading p:not(.eyebrow){max-width:none !important;}
+
+/* 원문 대조 탭 */
+/* 1. 내보내기 줄과 탭 사이 간격 */
+.ux1-export{margin-bottom:20px !important;}
+.result-tabs{margin-top:0 !important;}
+/* 2. 선택한 주장 카드: 진한 초록 테두리 → 연한 초록 바탕 + 연한 테두리 */
+.source-split .split-claim.selected{border:1px solid #C9D6C7 !important;background:#F1F5F0 !important;box-shadow:none !important;}
+.source-split .split-claim:not(.selected){border:1px solid #E9E4DB !important;background:#fff !important;}
+.source-split .split-claim:not(.selected):hover{border-color:#D8D2C7 !important;background:#FCFBF8 !important;}
+/* 3. 검색칸과 주장 카드의 좌우 끝 맞춤 (스크롤바 자리를 둘 다 똑같이 확보) */
+.split-search{padding:16px 16px 12px !important;overflow:hidden;scrollbar-gutter:stable;}
+.split-claim-list{padding:0 16px 16px !important;scrollbar-gutter:stable;}
+.split-search input{width:100% !important;box-sizing:border-box !important;}
+.split-claim{width:100% !important;box-sizing:border-box !important;}
+
+/* Live showcase: the original editorial Demo layout, with wrapping company tabs. */
+.examples-main .example-company-tabs { flex-wrap: wrap; gap: 16px 28px; margin-top: 28px; }
+.examples-main .example-company-tabs a { display: grid; gap: 4px; min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.example-company-tabs strong { font-weight: 600; }
+.example-company-tabs small, .example-company-tabs a > span { font-size: 11px; font-weight: 400; color: var(--muted); }
+.examples-main .example-editorial-heading { padding: 48px 0 40px; }
+.examples-main .example-editorial-heading h1 { overflow-wrap: anywhere; }
+.examples-main .funnel-card .card-heading { flex-wrap: wrap; gap: 12px; }
+.examples-main .funnel-card .caption { margin-top: 22px; }
+.example-grade-bars { margin: 26px 0 20px; }
+.example-grade-row { display: grid; grid-template-columns: 38px 1fr 42px; align-items: center; gap: 16px; padding: 10px 0; font-size: 13.5px; }
+.example-grade-row strong { text-align: right; font: 600 13px var(--mono); }
+.example-grade-row .e2 i { background: var(--e2); }
+.example-grade-row .e1 i { background: var(--e1); }
+.example-grade-row .e0 i { background: var(--e0); }
+.examples-main > section { opacity: 1; transform: none; }
+@media (max-width: 600px) {
+  .examples-main .example-company-tabs { gap: 14px 20px; }
+  .examples-main .example-editorial-heading { padding: 36px 0 28px; }
+  .examples-main .overview-grid { gap: 20px; }
+}
+
+/* 결과 보고서 내보내기: PDF 리포트 저장 버튼과 같은 모양 */
+.hosted-result .result-heading .result-export{
+  display:inline-flex !important;align-items:center !important;justify-content:center !important;
+  height:var(--btn-h) !important;min-height:var(--btn-h) !important;padding:0 16px !important;white-space:nowrap;
+  border:1px solid var(--rd-green) !important;border-radius:var(--btn-r) !important;background:var(--rd-green) !important;
+  color:#fff !important;font-size:13px !important;font-weight:600 !important;line-height:1 !important;box-shadow:none !important;
+}
+.hosted-result .result-heading .result-export:hover:not(:disabled){background:#344C3A !important;border-color:#344C3A !important;}
+
+/* 보고서 구성 선택은 결과 보고서 내보내기 버튼 왼쪽에 붙음 */
+.hosted-result .result-heading > .ux1-export{flex-shrink:0;margin:12px 0 0 !important;}
+/* 라벨 글자는 숨겨져 있어 gap만 남으면 선택칸이 8px 밀림 */
+.hosted-result .result-heading > .ux1-export label{gap:0 !important;}
+@media (max-width:600px){ .hosted-result .result-heading > .ux1-export{width:100%;margin:12px 0 8px !important;} .hosted-result .result-heading > .ux1-export .result-export{flex:1;} }
+
+/* 보강 영역만 남은 종합 요약은 한 단 */
+.ux1-summary-grid.is-single{grid-template-columns:minmax(0,1fr) !important;}
+
+/* 요약 탭 하단 분석 정보 */
+.rd-info .ux1-data-grid dd.rd-info-text{font-size:15px !important;font-weight:600 !important;line-height:1.5 !important;}
+.rd-info .ux1-data-grid p{margin:4px 0 0 !important;font-size:12px !important;line-height:1.5 !important;color:var(--rd-mute) !important;overflow-wrap:anywhere;}
+.rd-info details{margin-top:12px;font-size:13px;}
+.rd-info details summary{cursor:pointer;font-weight:600;}
+.rd-info details ul{margin:8px 0 0;padding-left:18px;}
+/* 분석 정보: 3열 × 2행, 줄 시작·끝 칸은 바깥 여백 없음 */
+.rd-info .ux1-data-grid{grid-template-columns:repeat(3,minmax(0,1fr)) !important;row-gap:8px !important;}
+.rd-info .ux1-data-grid > div{padding:16px 24px !important;border-right:1px solid var(--rd-line) !important;}
+.rd-info .ux1-data-grid > div:nth-child(3n+1){padding-left:0 !important;}
+.rd-info .ux1-data-grid > div:nth-child(3n), .rd-info .ux1-data-grid > div:last-child{padding-right:0 !important;border-right:0 !important;}
+.rd-info .ux1-data-grid dd{margin:10px 0 4px !important;font-size:34px !important;}
+@media (max-width:760px){ .rd-info .ux1-data-grid{grid-template-columns:1fr 1fr !important;} .rd-info .ux1-data-grid > div{padding:12px 0 !important;border-right:0 !important;} }
+
+/* 결과 탭: 각 칸 가운데 정렬 */
+.hosted-analysis .hosted-result .result-tabs [role=tab]{justify-items:center !important;text-align:center !important;}
+
+/* 나란히 놓인 두 패널: 등급 표의 줄을 왼쪽 보류 사유 목록의 줄과 맞춤 (범례 12+19, 소제목 20+18+4, 목록 간격 4 = 37px, 1행 40px 동일) */
+@media (min-width:721px){ .rd-panels > .rd-panel:nth-child(2) .rd-rows{margin-top:37px;} }

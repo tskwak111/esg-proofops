@@ -1,8 +1,10 @@
 # ESG ProofOps — 공시 문장의 원문 근거 점검
 
-지속가능성 공시 PDF에서 환경 주장을 찾아 **같은 공시의 원문 근거로 어디까지 확인할 수 있는지** E0–E3와 보류 사유로 보여줍니다. 기업의 실제 성과·진위·그린워싱·위법 여부를 판정하거나 법적 면책을 보장하지 않습니다.
+이 저장소는 ESG ProofOps의 **개발 저장소**입니다. 지속가능성 공시 PDF에서 환경 주장을 찾아 **같은 공시의 원문 근거로 어디까지 확인할 수 있는지** E0–E3와 보류 사유로 보여줍니다. 기업의 실제 성과·진위·그린워싱·위법 여부를 판정하거나 법적 면책을 보장하지 않습니다.
 
-이 저장소는 **분석 서버·파이프라인 제출물**입니다. 공개 웹은 별도 웹 제출물에서 배포합니다. [웹 서비스](https://esg-proofops.vercel.app)의 `/demo`에서 저장 사례를 보고, `/analyze`에서 초대 로그인 후 보고서를 접수합니다. 새 분석은 비용이 발생하며 서버의 접수·예산 상태에 따릅니다.
+공개 웹은 [제출 저장소](https://github.com/tskwak111/esg-proofops-submission)의 main에서 배포하며, 이 개발 저장소의 웹도 제출 기준 `379f98b`에 맞춰 동기화했습니다. [웹 서비스](https://esg-proofops.vercel.app)는 **2026-10-20 23:59 KST까지 비밀번호 없는 공개 체험**을 제공합니다. 방문자별 자료가 분리되고 새 분석은 방문자당 하루 2건이며, 우측 상단 **관리자 로그인**은 별도 계정으로 이용합니다. 체험 종료 후에는 서비스의 로그인·이용 안내를 확인합니다.
+
+`/demo`의 분석 사례는 **NAVER 2025 단일 현재 결과**입니다. 결과는 **요약 / 문장별 결과 / 원문 대조** 3개 탭으로 보고, **보관함**(`/archive`)에서 내 보고서를 다시 엽니다. 원문 미확인 위치는 점선과 **추정 위치(원문 대조 전)**로 구분합니다. 새 분석은 서버의 접수·예산 상태에 따릅니다.
 
 최종 v29d + FX4의 후속 승인·배포·롤백·재사용 계약은 [개발 인수인계](docs/HANDOFF.md)를 먼저 읽습니다. 초기 명세와 달라진 DEC-125/127/154의 적용 범위도 이 문서에 명시했습니다.
 
@@ -22,24 +24,24 @@
 | 6. 요소 태깅 | 같은 고정 근거 패킷을 읽는 독립 replica 3회가 연도·수치·방법·범위·보증 등을 태깅합니다. |
 | 7. 3회 합의 | 요소별 반복 판독 결과를 확인합니다. 완료된 3회 중 요소 2/3의 검증된 합의를 허용하며 유형은 3/3을 유지합니다. 충돌·판독 불가·미완료는 보류합니다. |
 | 8. 등급 계산 | 순수 Python 규칙엔진이 승인된 트랙별 사다리를 적용합니다. 미해결 입력·규칙은 보류/가능 범위로 남깁니다. |
-| 9. 결과 화면 | 주장·근거·검증된 원문 위치·잠정/확정 등급·보류 사유와 검토 이력을 제공합니다. |
+| 9. 결과 화면 | 주장·근거·검증된 원문 위치·확정 등급·보류 사유와 검토 이력을 제공합니다. |
 
 ## 판정에서 지키는 원칙
 
 - **LLM은 추출·태깅만 수행합니다.** E0–E3와 라벨 계산은 Python 규칙엔진의 책임입니다. E3는 `SUBSTANTIATED`, E1/E2는 `INCOMPLETE`, E0는 `UNSUBSTANTIATED`이며 보류는 E0가 아닙니다.
 - **범위 내 부재와 문서 전체 부재를 구분합니다.** DEC-127 승인으로 3회 태깅 완료 후 분석한 쪽 안에서 검증·연결하지 못한 요소는 `absent_in_scope`가 됩니다. `conflict`·`unreadable`·TIME_BUDGET 미처리는 이 전환 대상이 아닙니다. 검증된 원문 인용과 해당 주장에 대한 귀속이 없으면 `present`로 인정하지 않습니다.
 - **숫자·목표연도는 해당 주장/동일 표의 직접 근거를 확인합니다.** 방법론·범위·보증의 전역 근거를 모든 요소로 확대하지 않습니다. DEC-93의 기준연도·기준값 연결은 동일 주체·지표·단위·경계와 검증 원문이 일치하는 제한적 예외입니다.
-- **위치 확인은 진위나 등급 확정이 아닙니다.** 원문 쪽 이미지에는 검증된 좌표만 표시하고 미검증 ref는 그대로 알립니다. [파싱·근거 계약](docs/27_PARSING_AND_PROVENANCE.md) · [원문 읽기 API](docs/hosted-read-api.md)
+- **위치 확인은 진위나 등급 확정이 아닙니다.** 검증된 좌표와 원문 미확인 주장의 추정 위치를 구분하며, 점선 추정 위치를 검증된 근거로 인정하지 않습니다. [파싱·근거 계약](docs/27_PARSING_AND_PROVENANCE.md) · [원문 읽기 API](docs/hosted-read-api.md)
 - **3회 태깅의 replica를 유지합니다.** 동일 캐시 응답을 3회 합의로 세지 않습니다. 합의가 있어도 원문·귀속·규칙 게이트를 통과해야 합니다.
 - **기록은 불변입니다.** 테넌트·문서 버전·모델/프롬프트/규칙 해시를 보존합니다. 사람은 태그를 수정하고 `If-Match`로 충돌을 막으며 새 revision을 만듭니다. [규칙 계약](docs/28_RULE_ENGINE_CONTRACT.md) · [미정 도메인](docs/31_DOMAIN_IMPLEMENTATION_GAPS.md)
 
-## 현재 제출 경로의 시스템 구성
+## 현재 운영 경로의 시스템 구성
 
 ![브라우저와 Vercel에서 시드니 EC2의 Caddy·API·worker·SQLite를 거쳐 Upstage와 OpenAI로 연결](docs/images/proofops-architecture-paper-color.png)
 
 `브라우저 → Vercel 웹 /hosted-api → EC2 시드니(ap-southeast-2) Caddy → FastAPI → 작업 대기열/worker → Upstage 파싱·OCR / OpenAI 추출·태깅` 구조입니다. 서버는 SQLite와 비공개 로컬 파일로 원본·체크포인트·비용 영수증을 보관합니다. 설계 문서의 다른 AWS 서비스 구성은 이 hosted 경로의 배포 완료를 의미하지 않습니다.
 
-Hosted 비용은 **실행 USD1·일 USD7 코드 상한**이며 더 낮은 운영 설정이 우선합니다. 행사 상한과 승인 ceiling은 별도 운영 설정입니다. 전송 전에 비용을 예약하고 응답 후 정산합니다. 미정산·불확실한 호출의 예약을 지우거나 자동 재전송하지 않습니다. 원본은 기본 7일 보관하며 삭제·권한·원문 무결성 가드를 유지합니다. 이 상한은 모델 처리 비용 가드이며 EC2/Vercel 전체 청구 상한은 아닙니다. [Hosted 계약](deploy/public/CONTRACT.md)
+Hosted 비용은 **실행 USD1·일 USD15 코드 상한**이며 **일일 설정 기본값은 USD7**입니다. 기본값과 코드 상한은 다르며, 더 낮은 운영 설정이 우선합니다. 행사 상한과 승인 ceiling은 별도 운영 설정입니다. 전송 전에 비용을 예약하고 응답 후 정산합니다. 미정산·불확실한 호출의 예약을 지우거나 자동 재전송하지 않습니다. 원본은 기본 7일 보관하며 삭제·권한·원문 무결성 가드를 유지합니다. 이 상한은 모델 처리 비용 가드이며 EC2/Vercel 전체 청구 상한은 아닙니다. [Hosted 계약](deploy/public/CONTRACT.md)
 
 ## 디렉터리 안내
 
@@ -49,7 +51,7 @@ Hosted 비용은 **실행 USD1·일 USD7 코드 상한**이며 더 낮은 운영
 | [packages/proofops/application](packages/proofops/application) | 실행·근거 검색·합의·규칙 적용 orchestration |
 | [packages/proofops/adapters](packages/proofops/adapters) | 파서·OCR·저장소·공급자 연결 |
 | [apps/api](apps/api) · [apps/worker](apps/worker) · [apps/agent](apps/agent) | HTTP/인증·작업 처리·모델 태깅 실행 경계 |
-| [apps/web](apps/web) | 서버와 함께 보존하는 웹 개발 코드; 공개 웹 배포는 별도 제출물 |
+| [apps/web](apps/web) | 제출 main `379f98b` 기준으로 동기화한 웹 개발 코드; 공개 배포는 제출 저장소 기준 |
 | [evaluation](evaluation) · [tests](tests) | 평가·재생 도구와 unit/integration/contract/security 검사 |
 | [contracts](contracts) · [config](config) | 기계 판독 계약·고정 규칙/정책 |
 | [deploy/ec2](deploy/ec2) · [deploy/public](deploy/public) | 배포 키트·runtime 템플릿·운영/rollback 계약 |
@@ -83,7 +85,7 @@ uv run pytest tests/acceptance/test_rules.py tests/test_hosted_public.py tests/t
 uv run ruff check packages/proofops/domain
 ```
 
-웹은 별도 제출물 README의 `pnpm` 실행/검사 안내를 따릅니다. 기존 원문·태깅·판정·비용 장부의 불변 기록을 유지하며 예산을 새 장부로 초기화하지 않습니다.
+웹은 [웹 개발 안내](apps/web/README.md)의 `pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm --filter proofops-web test:ci`, `pnpm build`로 확인합니다. 전체 `pnpm test`에 추가로 필요한 비공개 fixture도 해당 안내에 명시했습니다. 기존 원문·태깅·판정·비용 장부의 불변 기록을 유지하며 예산을 새 장부로 초기화하지 않습니다.
 
 ## 배포와 운영 — 조정자 전용
 
@@ -107,7 +109,7 @@ sudo docker compose --env-file compose.env -f compose.yaml exec -T api python sc
 
 ## 현재 한계와 공개 checkout
 
-v29d + FX4의 처리 구조, TIME_BUDGET, 일일 USD7 코드 상한, DEC-154 원격 근거 미통합,
+v29d + FX4의 처리 구조, TIME_BUDGET, 일일 기본값 USD7·코드 상한 USD15, DEC-154 원격 근거 미통합,
 DEC-127 과소등급 위험과 RC1 호환성 한계는 [인수인계](docs/HANDOFF.md)에 정리했습니다.
 모의·재생 테스트를 실모델 정확도나 서버 wire 검증으로 표현하지 않습니다.
 

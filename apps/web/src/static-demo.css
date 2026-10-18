@@ -28,6 +28,9 @@
 .site-header nav a:hover { color: var(--ink) }
 .header-actions { display: flex; justify-content: flex-end; gap: 8px }
 .menu-toggle { display: none }
+.admin-login { justify-self: end; font-size: 13px; font-weight: 600; color: var(--ink-2); border: 1px solid var(--line); border-radius: 999px; padding: 8px 16px; transition: color .2s, border-color .2s }
+.admin-login:hover { color: var(--ink); border-color: var(--ink-2) }
+.site-header nav a.nav-admin-login { display: none !important }
 
 /* pills */
 .pill { display: inline-flex; align-items: center; gap: 10px; height: 40px; padding: 0 20px; border-radius: 999px; font-size: 14px; font-weight: 500; transition: background .2s, border-color .2s, transform .2s }
@@ -46,8 +49,8 @@
 .serif { font-family: var(--serif); font-weight: 400; letter-spacing: -.01em }
 .hero { max-width: 1100px; margin: 0 auto; padding: 96px 40px 110px; text-align: center }
 .hero h1 { font-family: var(--serif); font-weight: 400; font-size: clamp(34px, 4.4vw, 58px); line-height: 1.22; letter-spacing: -.02em; color: var(--ink); animation: rise .9s var(--ease) both }
-.hero-sub { max-width: 760px; margin: 26px auto 34px !important; font-size: 17.5px; line-height: 1.75; color: var(--ink-2); animation: rise .9s .08s var(--ease) both }
-.hero > .pill { height: 50px; padding: 0 26px; font-size: 15px; animation: rise .9s .16s var(--ease) both }
+.hero-sub { max-width: 760px; margin: 40px auto 18px !important; font-size: 16px; line-height: 1.75; color: var(--ink-2); animation: rise .9s .08s var(--ease) both }
+.hero > .pill { position: relative; top: 40px; height: 50px; padding: 0 26px; font-size: 15px; animation: rise .9s .16s var(--ease) both }
 @keyframes rise { from { opacity: 0; transform: translateY(16px) } }
 @keyframes appear { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: none } }
 .prompt { max-width: 680px; margin: 72px auto 0; text-align: left; background: #fff; border: 1px solid var(--card-line); border-radius: 16px; padding: 16px 16px 12px; box-shadow: 0 1px 2px rgba(22, 22, 22, .04), 0 12px 32px -18px rgba(22, 22, 22, .18); animation: rise 1s .24s var(--ease) both; transition: box-shadow .25s, border-color .25s }
@@ -71,7 +74,7 @@
 .card p { font-size: 14.5px; line-height: 1.75; color: var(--ink-2) }
 a.card:hover, .features .card:hover, .steps .card:hover { transform: translateY(-3px); box-shadow: 0 18px 36px -24px rgba(22, 22, 22, .3) }
 .steps { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px }
-.num { width: 40px; height: 40px; border-radius: 50%; background: var(--coral-soft); color: var(--coral); display: grid; place-items: center; font: 400 17px var(--serif); margin-bottom: 22px }
+.num { width: 40px; height: 40px; border-radius: 50%; background: var(--beige); color: var(--coral); display: grid; place-items: center; font: 400 17px var(--serif); margin-bottom: 22px }
 .proof { margin-top: 110px; text-align: center }
 .proof-kicker { font-size: 12.5px; color: var(--muted); letter-spacing: .08em }
 .proof h3.serif { margin: 12px 0 44px; font-size: clamp(22px, 2.4vw, 30px); font-weight: 400 }
@@ -80,6 +83,7 @@ a.card:hover, .features .card:hover, .steps .card:hover { transform: translateY(
 .proof dt { font-size: 13px; color: var(--muted) }
 .proof dd { margin: 10px 0 0; font: 400 clamp(38px, 4vw, 54px)/1 var(--serif); letter-spacing: -.02em; color: var(--ink) }
 .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px }
+.features-2 { grid-template-columns: repeat(2, 1fr) }
 .features .card { min-height: 190px }
 .uses .use { display: grid; grid-template-columns: 1fr 1fr; gap: 72px; align-items: center; padding: 64px 0; border-bottom: 1px solid var(--line-2) }
 .uses .use:first-child { padding-top: 8px } .uses .use:last-child { border-bottom: 0 }
@@ -118,11 +122,7 @@ a.card:hover, .features .card:hover, .steps .card:hover { transform: translateY(
 .tools { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px }
 .tool { padding: 14px 14px 22px; color: var(--ink) !important }
 .tool h3 { margin: 18px 8px 6px; font-size: 16px } .tool p { margin: 0 8px; font-size: 13.5px; color: var(--muted) }
-.thumb { height: 150px; border-radius: 10px; background: var(--beige); position: relative; overflow: hidden; display: grid; gap: 8px; padding: 18px; grid-template-rows: 12px 1fr }
-.thumb i { display: block; border-radius: 4px; background: #fff }
-.thumb i:first-child { width: 45%; background: var(--line-2) }
-.thumb i:nth-child(2) { height: 100%; }
-.thumb i:nth-child(3), .thumb i:nth-child(4) { display: none }
+.product-preview { display: block; width: 100%; height: auto; aspect-ratio: 9 / 5; object-fit: contain; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
 .t-results { background: #2B2A27 } .t-results i:first-child { background: rgba(255, 255, 255, .3) } .t-results i:nth-child(2) { background: linear-gradient(90deg, var(--e3) 0 20%, var(--e2) 20% 42%, var(--e1) 42% 70%, var(--e0) 70%); height: 10px; align-self: end }
 .t-report i:nth-child(2) { background: #fff; box-shadow: inset 0 26px 0 -14px var(--beige) }
 .t-live { background: #1B1B1B } .t-live i:first-child { background: rgba(255, 255, 255, .3) } .t-live i:nth-child(2) { background: #2A2A2A; border: 1px solid #3a3a3a }
@@ -198,8 +198,9 @@ a.card:hover, .features .card:hover, .steps .card:hover { transform: translateY(
 /* claims */
 .claims-section { background: #fff; border: 1px solid var(--card-line); border-radius: 14px; padding: 32px; margin-bottom: 40px }
 .claims-section .card-heading p:last-child { color: var(--muted); font-size: 14px; margin-top: 8px }
-.queue-tabs { display: flex; gap: 32px; border-bottom: 1px solid var(--line); margin: 36px 0 28px; overflow-x: auto }
-.queue-tabs button { white-space: nowrap; min-height: 0; border: 0; border-radius: 0; border-bottom: 1px solid transparent; margin-bottom: -1px; padding: 10px 0 14px; background: none; color: var(--muted); font-size: 14px; font-weight: 600 }
+/* Inset rule instead of a border: tabs' underline overlays it without overflowing the scroll box. */
+.queue-tabs { display: flex; gap: 32px; box-shadow: inset 0 -1px 0 var(--line); margin: 36px 0 28px; overflow-x: auto; overflow-y: hidden }
+.queue-tabs button { white-space: nowrap; min-height: 0; border: 0; border-radius: 0; border-bottom: 1px solid transparent; margin-bottom: 0; padding: 10px 0 14px; background: none; color: var(--muted); font-size: 14px; font-weight: 600 }
 .queue-tabs button:hover:not(:disabled) { color: var(--ink) }
 .queue-tabs button[aria-selected=true] { border-color: var(--ink); color: var(--ink) }
 .queue-tabs span { margin-left: 8px; font: 500 12px var(--mono); color: var(--muted) }
@@ -315,6 +316,7 @@ a.card:hover, .features .card:hover, .steps .card:hover { transform: translateY(
   .menu-toggle { display: inline-flex; gap: 8px; min-height: 36px; padding: 0 12px; font-size: 13px; background: transparent }
   .site-header nav { display: none; position: absolute; top: 60px; left: 0; right: 0; flex-direction: column; align-items: flex-start; gap: 0; padding: 8px 20px 20px; background: var(--paper); border-bottom: 1px solid var(--line) }
   .site-header.is-dark nav { background: var(--forest) }
+  .admin-login { display: none } .site-header nav a.nav-admin-login { display: block !important }
   .site-header nav.open { display: flex } .site-header nav a { padding: 12px 0; width: 100%; font-size: 16px }
   .header-cta { display: none }
   .hero { padding-top: 64px } .hero-copy h1 { font-size: 40px }
@@ -347,7 +349,7 @@ a.card:hover, .features .card:hover, .steps .card:hover { transform: translateY(
   .site-header nav.open { display: flex } .site-header nav a { padding: 12px 0; width: 100%; font-size: 16px }
   .menu-toggle { display: inline-flex; gap: 8px; min-height: 36px; padding: 0 14px; font-size: 13px; background: #fff }
   .header-actions { display: none }
-  .hero { padding: 64px 20px 80px } .hero-sub { font-size: 16px }
+  .hero { padding: 64px 20px 80px } .hero-sub { font-size: 15px }
   .prompt { margin-top: 48px } .chips .chip:nth-child(n+3) { display: none }
   .sec { padding: 84px 20px } .sec h2.serif { margin-bottom: 40px }
   .steps, .features, .tools { grid-template-columns: 1fr }
@@ -361,7 +363,7 @@ main.landing > section.sec { padding: 120px 40px }
 main.landing > section.hero { padding: 96px 40px 110px }
 .demo-site .sec > * { margin-left: auto; margin-right: auto }
 .demo-site .sec > h2.serif { margin-bottom: 64px }
-.demo-site .hero-sub { margin: 26px auto 34px }
+.demo-site .hero-sub { margin: 40px auto 18px }
 .demo-site .prompt { margin: 72px auto 0 }
 @media (max-width: 760px) { main.landing > section.sec { padding: 84px 20px } main.landing > section.hero { padding: 64px 20px 80px } .demo-site .sec > h2.serif { margin-bottom: 40px } .demo-site .prompt { margin-top: 48px } }
 
@@ -409,7 +411,8 @@ main.landing > section.hero { padding: 96px 40px 110px }
 .live-report-sections small { color: var(--muted) }
 .live-report-sections p, .live-report-selection { color: var(--muted) !important; font-size: 12px !important; line-height: 1.7; overflow-wrap: anywhere }
 .live-report-selection { margin-top: 12px !important }
-.hero h1.hero-brand { font-size: clamp(64px, 9vw, 128px); line-height: 1.02; letter-spacing: -.035em; margin-top: 8px }
+.hero h1.hero-brand { font-size: clamp(76px, 11.5vw, 176px); line-height: 1.02; letter-spacing: -.035em; margin-top: 0 }
+.hero > .eyebrow-c { margin-bottom: 4px !important }
 /* Element glossary: three aligned columns instead of one long list */
 .decision-guide > h3 { font-size: 17px; margin: 44px 0 16px; padding-top: 18px; border-top: 1px solid var(--line-2) }
 .guide-elements { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 40px; margin-top: 0 }
@@ -434,12 +437,11 @@ main.landing > section.hero { padding: 96px 40px 110px }
 .criteria-card dl { margin: 0 }
 .criteria-card dl > div { display: grid; grid-template-columns: 150px 1fr; gap: 14px; padding: 12px 0; border-top: 1px solid var(--line) }
 .criteria-card dt { font-weight: 600; color: var(--ink); display: grid; gap: 2px }
-.criteria-card dt small { font: 600 11px var(--mono); color: var(--green); letter-spacing: .02em }
+.criteria-card dt small { font-family: inherit; font-size: 11px; font-weight: 600; line-height: 1.4; color: var(--green); letter-spacing: .06em }
 .criteria-card dd { margin: 0; font-size: 14px; color: var(--ink-2); line-height: 1.6 }
 .criteria-note { max-width: 1060px; margin: 22px auto 0 !important; font-size: 14px; color: var(--ink-2); line-height: 1.7; text-align: left }
 @media (max-width: 860px) { .criteria { grid-template-columns: 1fr } .criteria-card dl > div { grid-template-columns: 1fr } }
 .guide-main > section.faq:last-child { padding-bottom: 8px !important }
-.guide-cta { margin: 48px 0 0 !important }
 .analyze-heading p.analyze-lead { max-width: none; font-size: 14.5px; line-height: 1.85; letter-spacing: -.025em; white-space: normal }
 /* Landing hero fills the first screen; the next section starts below the fold */
 main.landing:not(.guide-main) > section.hero { min-height: calc(100vh - var(--header-h, 69px)); min-height: calc(100svh - var(--header-h, 69px)); display: flex; flex-direction: column; justify-content: center; align-items: center; padding-top: 48px; padding-bottom: 56px }
@@ -456,9 +458,57 @@ main.landing .faq-inner li:last-child { margin-bottom: 0 !important }
 .claim-list button.claim-item { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; min-height: 0; font: inherit; font-weight: inherit; color: inherit; cursor: pointer }
 .claim-list button.claim-item:hover:not(:disabled) { border-color: var(--line) }
 .live-claims-layout { margin-top: 20px }
+.duplicate-count { display: inline-block; margin: 0 8px 7px 0; padding: 3px 8px; border-radius: 999px; background: #f1eee6; color: var(--ink-2); font-size: 11px; font-weight: 700 }
+.claim-list .claim-table-context { display: grid; gap: 4px; margin: 6px 0 8px; color: var(--ink-2); font-size: 11px; line-height: 1.55; overflow-wrap: anywhere }
+.claim-list .claim-table-context span { display: block }
+.table-observation-detail { border-top: 1px solid var(--line); padding: 16px 0; color: var(--ink-2); overflow-wrap: anywhere }
+.table-observation-detail h4 { margin: 0 0 7px; font-size: 13px }
+.table-observation-detail p { margin: 0; font-size: 13px; line-height: 1.65 }
+.duplicate-detail ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none }
+.duplicate-detail li button { display: grid; gap: 4px; width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink-2); text-align: left; font: inherit; font-size: 12px; overflow-wrap: anywhere }
+.duplicate-detail li button[aria-pressed=true] { border-color: var(--green); box-shadow: inset 3px 0 var(--green) }
+.duplicate-detail li button span { line-height: 1.55 }
 /* Header: menu centred between equal side columns now that the action buttons are gone */
 @media (min-width: 761px) { .site-header-inner { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) !important } .site-header-inner > .brand { justify-self: start } }
 
 /* Guide page: compact intro and centred section headings like the other guide blocks */
 main.guide-main > section.hero { padding: 96px 40px 72px !important }
 main.guide-main .uses-head { text-align: center }
+
+.claim-detail, .claim-list { scroll-margin-top: 84px }
+.prompt > h2 { font-size: 19px; margin: 20px 24px 10px }
+.prompt > p { margin: 0 24px 20px; color: var(--ink-2); line-height: 1.7 }
+
+/* PA6 authenticated source pages: normalized overlays share the image canvas. */
+.source-controls { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:12px 0; }
+.source-controls label { display:flex; align-items:center; gap:8px; }
+.source-scroll { max-width:100%; overflow:auto; border:1px solid var(--line); background:var(--paper); }
+.source-canvas { position:relative; flex-shrink:0; }
+.source-canvas img { display:block; width:100%; height:100%; }
+.source-highlight { position:absolute; border:2px solid #b95a12; background:rgba(255,183,62,.22); pointer-events:none; box-sizing:border-box; }
+.demo-site:has(.analyze-main .hosted-analysis) .site-header { border-bottom: 1px solid var(--line) }
+.demo-site:has(.analyze-main .hosted-analysis) .site-header nav a,
+.demo-site:has(.analyze-main .hosted-analysis) .footer-inner nav a { display: inline-flex; align-items: center; min-height: 44px }
+.demo-site:has(.analyze-main .hosted-analysis) .footer-inner { gap: 24px; flex-wrap: wrap }
+.demo-site:has(.analyze-main .hosted-analysis) .footer-inner > div { flex: 1 1 360px; max-width: 520px }
+.demo-site:has(.analyze-main .hosted-analysis) .footer-inner > nav { gap: 16px }
+.demo-site:has(.analyze-main .hosted-analysis) .footer-inner > span { padding-top: 12px }
+@media (max-width: 760px) {
+  .demo-site:has(.analyze-main .hosted-analysis) .footer-inner > div { flex: initial }
+}
+.source-viewer { min-width:0; }
+.source-controls label { white-space:nowrap; flex-wrap:wrap; }
+
+/* X3: existing result cards, exact server quotes and actionable holds. */
+.missing-evidence-card { min-width: 0; border-left: 3px solid #bc914d; padding: 0 0 0 14px; }
+.missing-evidence-card h4 { margin: 18px 0 8px; font-size: 14px; }
+.missing-evidence-card h4:first-child { margin-top: 8px; }
+.missing-evidence-card p, .missing-evidence-card li { overflow-wrap: anywhere; line-height: 1.65; }
+.missing-evidence-card ul { padding-left: 20px; margin: 6px 0 12px; }
+.missing-evidence-card blockquote { margin: 8px 0 12px; white-space: pre-wrap; color: inherit; }
+.hold-source-list { list-style: none; padding-left: 0 !important; }
+.hold-missing-fields { font-size: 12px; color: #605e57; padding: 10px 12px; background: #f4f2ed; border-radius: 6px; }
+
+.missing-evidence-card strong { display: inline; margin: 0; font-family: inherit; font-size: inherit; font-weight: 600; line-height: inherit; color: inherit; }
+.missing-evidence-card p { letter-spacing: normal; }
+.site-header.is-dark .admin-login { color: rgba(255,255,255,.88); border-color: rgba(255,255,255,.35) }

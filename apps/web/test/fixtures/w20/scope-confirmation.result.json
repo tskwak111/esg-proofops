@@ -1,0 +1,451 @@
+{
+  "schema": "r108-hosted-result-v1",
+  "claims": [
+    {
+      "claim_id": "scope-only",
+      "page_num": 1,
+      "original_page_num": 24,
+      "quote": "범위 내 검색이 완료된 합성 주장",
+      "track": "management",
+      "revision": 1,
+      "source_refs": [
+        {
+          "source_id": "w20-source",
+          "document_version_id": "w20-version",
+          "parse_manifest_id": "w20-parse",
+          "page_num": 1,
+          "printed_page_label": null,
+          "bbox": null,
+          "raw_text_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "quote": "환경 관리 체계를 운영합니다.",
+          "char_start": 0,
+          "char_end": 17,
+          "location_quality": "located",
+          "verification_state": "verified"
+        }
+      ],
+      "source_quality": "verified",
+      "elements": [
+        {
+          "element_id": "M1",
+          "state": "present",
+          "evidence_refs": [
+            {
+              "source_id": "w20-source",
+              "document_version_id": "w20-version",
+              "parse_manifest_id": "w20-parse",
+              "page_num": 1,
+              "printed_page_label": null,
+              "bbox": null,
+              "raw_text_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "quote": "환경 관리 체계를 운영합니다.",
+              "char_start": 0,
+              "char_end": 17,
+              "location_quality": "located",
+              "verification_state": "verified"
+            }
+          ],
+          "normalized_value": null,
+          "credited_from": null,
+          "reason_code": null
+        },
+        {
+          "element_id": "M2",
+          "state": "unknown",
+          "evidence_refs": [],
+          "normalized_value": null,
+          "credited_from": null,
+          "reason_code": null
+        }
+      ],
+      "missing_evidence": [],
+      "confirmed_grade": null,
+      "possible_grade_range": null,
+      "hold_reason": "blocked_evidence",
+      "decision": null,
+      "provisional_grade": {
+        "evidence_grade": "E1",
+        "display": "잠정·미확정",
+        "reason": "needs_review",
+        "grade_basis": "reachable_floor"
+      },
+      "sc1_confirmation": {
+        "decision_status": "decided",
+        "evidence_grade": "E1",
+        "label": "INCOMPLETE",
+        "review_status": "needs_review",
+        "gap_ids": [],
+        "grade_range": null,
+        "confirmation_basis": "analysis_scope",
+        "confirmation_display": "분석 범위 기준 확정",
+        "confirmation_policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "confirmation_scope": {
+          "selected_pages": [
+            24,
+            25,
+            26
+          ],
+          "inspected_pages": [
+            24,
+            25,
+            26
+          ],
+          "uninspected_pages": [],
+          "document_total_pages": 40
+        }
+      },
+      "sc1_elements": [
+        {
+          "element_id": "M1",
+          "state": "present",
+          "inventory_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        {
+          "element_id": "M2",
+          "state": "absent_in_scope",
+          "inventory_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
+      ],
+      "sc1_hold_reason": null
+    },
+    {
+      "claim_id": "legacy",
+      "page_num": 1,
+      "original_page_num": 24,
+      "quote": "기존 공개 확정 합성 주장",
+      "track": "management",
+      "revision": 1,
+      "source_refs": [
+        {
+          "source_id": "w20-source",
+          "document_version_id": "w20-version",
+          "parse_manifest_id": "w20-parse",
+          "page_num": 1,
+          "printed_page_label": null,
+          "bbox": null,
+          "raw_text_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "quote": "환경 관리 체계를 운영합니다.",
+          "char_start": 0,
+          "char_end": 17,
+          "location_quality": "located",
+          "verification_state": "verified"
+        }
+      ],
+      "source_quality": "verified",
+      "elements": [
+        {
+          "element_id": "M1",
+          "state": "present",
+          "evidence_refs": [
+            {
+              "source_id": "w20-source",
+              "document_version_id": "w20-version",
+              "parse_manifest_id": "w20-parse",
+              "page_num": 1,
+              "printed_page_label": null,
+              "bbox": null,
+              "raw_text_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "quote": "환경 관리 체계를 운영합니다.",
+              "char_start": 0,
+              "char_end": 17,
+              "location_quality": "located",
+              "verification_state": "verified"
+            }
+          ],
+          "normalized_value": null,
+          "credited_from": null,
+          "reason_code": null
+        },
+        {
+          "element_id": "M2",
+          "state": "unknown",
+          "evidence_refs": [],
+          "normalized_value": null,
+          "credited_from": null,
+          "reason_code": null
+        }
+      ],
+      "missing_evidence": [],
+      "confirmed_grade": "E1",
+      "possible_grade_range": null,
+      "hold_reason": null,
+      "decision": {
+        "decision_status": "decided",
+        "evidence_grade": "E1",
+        "label": "INCOMPLETE",
+        "review_status": "human_confirmed"
+      },
+      "provisional_grade": {
+        "evidence_grade": "E1",
+        "display": "잠정·미확정",
+        "reason": "needs_review",
+        "grade_basis": "reachable_floor"
+      }
+    },
+    {
+      "claim_id": "both",
+      "page_num": 1,
+      "original_page_num": 24,
+      "quote": "두 확정 경로가 겹치는 합성 주장",
+      "track": "management",
+      "revision": 1,
+      "source_refs": [
+        {
+          "source_id": "w20-source",
+          "document_version_id": "w20-version",
+          "parse_manifest_id": "w20-parse",
+          "page_num": 1,
+          "printed_page_label": null,
+          "bbox": null,
+          "raw_text_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "quote": "환경 관리 체계를 운영합니다.",
+          "char_start": 0,
+          "char_end": 17,
+          "location_quality": "located",
+          "verification_state": "verified"
+        }
+      ],
+      "source_quality": "verified",
+      "elements": [
+        {
+          "element_id": "M1",
+          "state": "present",
+          "evidence_refs": [
+            {
+              "source_id": "w20-source",
+              "document_version_id": "w20-version",
+              "parse_manifest_id": "w20-parse",
+              "page_num": 1,
+              "printed_page_label": null,
+              "bbox": null,
+              "raw_text_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "quote": "환경 관리 체계를 운영합니다.",
+              "char_start": 0,
+              "char_end": 17,
+              "location_quality": "located",
+              "verification_state": "verified"
+            }
+          ],
+          "normalized_value": null,
+          "credited_from": null,
+          "reason_code": null
+        },
+        {
+          "element_id": "M2",
+          "state": "unknown",
+          "evidence_refs": [],
+          "normalized_value": null,
+          "credited_from": null,
+          "reason_code": null
+        }
+      ],
+      "missing_evidence": [],
+      "confirmed_grade": "E1",
+      "possible_grade_range": null,
+      "hold_reason": null,
+      "decision": {
+        "decision_status": "decided",
+        "evidence_grade": "E1",
+        "label": "INCOMPLETE",
+        "review_status": "human_confirmed"
+      },
+      "provisional_grade": {
+        "evidence_grade": "E1",
+        "display": "잠정·미확정",
+        "reason": "needs_review",
+        "grade_basis": "reachable_floor"
+      },
+      "sc1_confirmation": {
+        "decision_status": "decided",
+        "evidence_grade": "E1",
+        "label": "INCOMPLETE",
+        "review_status": "needs_review",
+        "gap_ids": [],
+        "grade_range": null,
+        "confirmation_basis": "analysis_scope",
+        "confirmation_display": "분석 범위 기준 확정",
+        "confirmation_policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "confirmation_scope": {
+          "selected_pages": [
+            24,
+            25,
+            26
+          ],
+          "inspected_pages": [
+            24,
+            25,
+            26
+          ],
+          "uninspected_pages": [],
+          "document_total_pages": 40
+        }
+      },
+      "sc1_elements": [
+        {
+          "element_id": "M1",
+          "state": "present",
+          "inventory_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        {
+          "element_id": "M2",
+          "state": "absent_in_scope",
+          "inventory_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
+      ],
+      "sc1_hold_reason": null
+    },
+    {
+      "claim_id": "provisional",
+      "page_num": 1,
+      "original_page_num": 24,
+      "quote": "잠정 합성 주장",
+      "track": "management",
+      "revision": 1,
+      "source_refs": [
+        {
+          "source_id": "w20-source",
+          "document_version_id": "w20-version",
+          "parse_manifest_id": "w20-parse",
+          "page_num": 1,
+          "printed_page_label": null,
+          "bbox": null,
+          "raw_text_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "quote": "환경 관리 체계를 운영합니다.",
+          "char_start": 0,
+          "char_end": 17,
+          "location_quality": "located",
+          "verification_state": "verified"
+        }
+      ],
+      "source_quality": "verified",
+      "elements": [
+        {
+          "element_id": "M1",
+          "state": "present",
+          "evidence_refs": [
+            {
+              "source_id": "w20-source",
+              "document_version_id": "w20-version",
+              "parse_manifest_id": "w20-parse",
+              "page_num": 1,
+              "printed_page_label": null,
+              "bbox": null,
+              "raw_text_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "quote": "환경 관리 체계를 운영합니다.",
+              "char_start": 0,
+              "char_end": 17,
+              "location_quality": "located",
+              "verification_state": "verified"
+            }
+          ],
+          "normalized_value": null,
+          "credited_from": null,
+          "reason_code": null
+        },
+        {
+          "element_id": "M2",
+          "state": "unknown",
+          "evidence_refs": [],
+          "normalized_value": null,
+          "credited_from": null,
+          "reason_code": null
+        }
+      ],
+      "missing_evidence": [],
+      "confirmed_grade": null,
+      "possible_grade_range": null,
+      "hold_reason": "blocked_evidence",
+      "decision": null,
+      "provisional_grade": {
+        "evidence_grade": "E1",
+        "display": "잠정·미확정",
+        "reason": "needs_review",
+        "grade_basis": "reachable_floor"
+      }
+    },
+    {
+      "claim_id": "held",
+      "page_num": 1,
+      "original_page_num": 24,
+      "quote": "보류 합성 주장",
+      "track": "management",
+      "revision": 1,
+      "source_refs": [
+        {
+          "source_id": "w20-source",
+          "document_version_id": "w20-version",
+          "parse_manifest_id": "w20-parse",
+          "page_num": 1,
+          "printed_page_label": null,
+          "bbox": null,
+          "raw_text_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "quote": "환경 관리 체계를 운영합니다.",
+          "char_start": 0,
+          "char_end": 17,
+          "location_quality": "located",
+          "verification_state": "verified"
+        }
+      ],
+      "source_quality": "verified",
+      "elements": [
+        {
+          "element_id": "M1",
+          "state": "present",
+          "evidence_refs": [
+            {
+              "source_id": "w20-source",
+              "document_version_id": "w20-version",
+              "parse_manifest_id": "w20-parse",
+              "page_num": 1,
+              "printed_page_label": null,
+              "bbox": null,
+              "raw_text_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "quote": "환경 관리 체계를 운영합니다.",
+              "char_start": 0,
+              "char_end": 17,
+              "location_quality": "located",
+              "verification_state": "verified"
+            }
+          ],
+          "normalized_value": null,
+          "credited_from": null,
+          "reason_code": null
+        },
+        {
+          "element_id": "M2",
+          "state": "unknown",
+          "evidence_refs": [],
+          "normalized_value": null,
+          "credited_from": null,
+          "reason_code": null
+        }
+      ],
+      "missing_evidence": [],
+      "confirmed_grade": null,
+      "possible_grade_range": null,
+      "hold_reason": "blocked_evidence",
+      "decision": null,
+      "provisional_grade": null
+    }
+  ],
+  "reviews": [],
+  "hold_reasons": [],
+  "page_map": [
+    24,
+    25,
+    26
+  ],
+  "pipeline": {
+    "status": "completed",
+    "scope": {
+      "pages": [
+        24,
+        25,
+        26
+      ],
+      "claim_pages": [
+        24
+      ]
+    }
+  }
+}
