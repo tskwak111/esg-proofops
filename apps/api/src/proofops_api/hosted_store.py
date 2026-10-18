@@ -149,11 +149,18 @@ class HostedSettings:
     access_config: Path | None = None
     auth_trusted_proxies: tuple[str, ...] = ()
     rc1_reuse_enabled: bool = False
+    retain_failed_analysis: bool = True
+    failure_diagnostics_max_bytes: int = 512 * 1024 * 1024
 
     def __post_init__(self) -> None:
         from urllib.parse import urlsplit
 
         parsed = urlsplit(self.origin)
+        if type(self.retain_failed_analysis) is not bool or (
+            type(self.failure_diagnostics_max_bytes) is not int
+            or not 16384 <= self.failure_diagnostics_max_bytes <= 512 * 1024 * 1024
+        ):
+            raise ValueError("HOSTED_FAILURE_DIAGNOSTICS_INVALID")
         if (
             parsed.scheme != "https"
             or not parsed.hostname
@@ -205,7 +212,8 @@ class HostedSettings:
             raise ValueError("limits exceed P1 ceilings")
         if not self.active_days <= self.backup_days <= self.audit_days:
             raise ValueError("retention order invalid")
-        for amount, ceiling in ((self.run_usd, "1.0"), (self.day_usd, "7")):
+        # DEC-191: the operator-approved daily ceiling is USD 15; run and event caps are unchanged.
+        for amount, ceiling in ((self.run_usd, "1.0"), (self.day_usd, "15")):
             if not 0 < micros(amount) <= micros(ceiling):
                 raise ValueError("budget exceeds DEC-22 ceilings")
         if not 0 < micros(self.event_usd) <= micros(self.event_usd_ceiling):
@@ -245,6 +253,10 @@ class HostedSettings:
             max_active_runs=int(env.get("HOSTED_MAX_ACTIVE_RUNS", "1")),
             user_active_runs=int(env.get("HOSTED_USER_ACTIVE_RUNS", "1")),
             daily_runs=int(env.get("HOSTED_DAILY_RUNS", "10")),
+            retain_failed_analysis=flag("HOSTED_RETAIN_FAILED_ANALYSIS", "true"),
+            failure_diagnostics_max_bytes=int(
+                env.get("HOSTED_FAILURE_DIAGNOSTICS_MAX_BYTES", "536870912")
+            ),
             access_config=Path(env.get("HOSTED_ACCESS_CONFIG", "/run/private/access.json")),
             auth_trusted_proxies=tuple(
                 value.strip()
@@ -461,7 +473,12 @@ class HostedStore:
 
     @contextmanager
     def transaction(
-        self, *, expiry_cutoff: float | None = None, readonly: bool = False
+        self,
+        *,
+        expiry_cutoff: float | None = None,
+        readonly: bool = False,
+        lock_wait_seconds: float | None = None,
+        operation: str = "transaction",
     ) -> Iterator[sqlite3.Connection]:
         # Keep rollback journals: WAL loses cross-file atomicity for the attached
         # money/tombstone ledger. Reads need a snapshot, not a reserved writer.
@@ -496,17 +513,19 @@ class HostedStore:
                 db.close()
                 raise
 
-        db = retry_busy(acquire, phase="acquire")
+        db = retry_busy(acquire, phase=f"{operation}:acquire", wait_seconds=lock_wait_seconds)
         try:
             started = time.monotonic()
             yield db
             # A busy COMMIT keeps this exact transaction open. Retry COMMIT only;
             # yielding the body again would duplicate files or provider effects.
-            retry_busy(db.commit, phase="commit")
+            retry_busy(db.commit, phase=f"{operation}:commit", wait_seconds=lock_wait_seconds)
             elapsed = time.monotonic() - started
             if not readonly and elapsed >= 1:
                 logging.getLogger(__name__).warning(
-                    "hosted sqlite writer elapsed_ms=%d", int(elapsed * 1000)
+                    "hosted sqlite writer operation=%s elapsed_ms=%d",
+                    operation,
+                    int(elapsed * 1000),
                 )
         except BaseException:
             db.rollback()
@@ -1426,13 +1445,18 @@ class HostedStore:
         return row
 
     def renew_lease(self, job: dict, *, now: float) -> None:
-        with self.transaction() as db:
-            self._fenced(db, job, now)
+        started = time.monotonic()
+        # Like the inner job heartbeat, only renewal gets a longer BUSY budget.
+        # Acquisition/COMMIT may retry; the fenced body is never replayed.
+        with self.transaction(lock_wait_seconds=30, operation="renew_lease") as db:
+            current = now + time.monotonic() - started
+            row = self._fenced(db, job, current)
+            lease_until = max(row["lease_until"], current + RUN_LEASE_SECONDS)
             db.execute(
                 "UPDATE runs SET lease_until=? WHERE run_id=?",
-                (now + RUN_LEASE_SECONDS, job["run_id"]),
+                (lease_until, job["run_id"]),
             )
-        job["lease_until"] = now + RUN_LEASE_SECONDS
+        job["lease_until"] = lease_until
 
     def prepare(self, job: dict, *, now: float) -> Path:
         # Lease source bytes separately from the DB snapshot; deletion remains
@@ -1498,6 +1522,7 @@ class HostedStore:
         allow_response_uncertainty: bool = False,
         allow_connect_not_sent: bool = False,
         allow_ops2_fallback: bool = False,
+        diagnostic_context: dict | None = None,
     ) -> dict:
         """Broker boundary for a future approved adapter. No HTTP/provider implementation here."""
         if (
@@ -1510,33 +1535,52 @@ class HostedStore:
         reserved = micros(bound)
         if reserved <= 0:
             raise HostedError("DISPATCH_INVALID", 422)
-        with self.transaction() as db:
-            row = self._fenced(db, job, now)
-            if db.execute(
-                "SELECT 1 FROM deletion.costs WHERE run_id=? AND call_id=?",
-                (job["run_id"], call_id),
-            ).fetchone():
-                raise HostedError("DISPATCH_ALREADY_RECORDED")
-            total = db.execute(
-                "SELECT coalesce(sum(CASE WHEN status='settled' THEN actual ELSE bound END),0) "
-                "FROM deletion.costs WHERE run_id=?",
-                (job["run_id"],),
-            ).fetchone()[0]
-            if total + reserved > row["envelope"]:
-                raise HostedError("BUDGET_EXCEEDED", 429)
-            request = {"request_id": str(uuid4()), "provider": provider, "input_sha256": input_sha}
-            db.execute(
-                "INSERT INTO deletion.costs VALUES (?,?,?,?,?,?,NULL,'reserved',?)",
-                (job["run_id"], call_id, request["request_id"], provider, input_sha, reserved, now),
-            )
+        phase = "reservation"
         try:
+            started = time.monotonic()
+            with self.transaction(lock_wait_seconds=30, operation="dispatch_reserve") as db:
+                row = self._fenced(db, job, now + time.monotonic() - started)
+                if db.execute(
+                    "SELECT 1 FROM deletion.costs WHERE run_id=? AND call_id=?",
+                    (job["run_id"], call_id),
+                ).fetchone():
+                    raise HostedError("DISPATCH_ALREADY_RECORDED")
+                total = db.execute(
+                    "SELECT coalesce(sum(CASE WHEN status='settled' THEN actual ELSE bound END),0) "
+                    "FROM deletion.costs WHERE run_id=?",
+                    (job["run_id"],),
+                ).fetchone()[0]
+                if total + reserved > row["envelope"]:
+                    raise HostedError("BUDGET_EXCEEDED", 429)
+                request = {
+                    "request_id": str(uuid4()),
+                    "provider": provider,
+                    "input_sha256": input_sha,
+                }
+                db.execute(
+                    "INSERT INTO deletion.costs VALUES (?,?,?,?,?,?,NULL,'reserved',?)",
+                    (
+                        job["run_id"],
+                        call_id,
+                        request["request_id"],
+                        provider,
+                        input_sha,
+                        reserved,
+                        now,
+                    ),
+                )
+            phase = "transport"
             response = transport(request)
+            phase = "receipt_validation"
             if any(response.get(k) != v for k, v in request.items()):
                 raise HostedError("RECEIPT_MISMATCH")
             actual = micros(response["actual_usd"])
             if actual > reserved:
                 raise HostedError("RECEIPT_BOUND_EXCEEDED")
-            with self.transaction() as db:
+            phase = "settlement"
+            # A response and its cost already exist; tolerate the same bounded
+            # writer contention as lease renewal without replaying transport.
+            with self.transaction(lock_wait_seconds=30, operation="dispatch_settle") as db:
                 db.execute(
                     "INSERT INTO ops2_provider_observations VALUES (?,?,NULL) "
                     "ON CONFLICT(provider) DO UPDATE SET observed=excluded.observed,"
@@ -1558,6 +1602,15 @@ class HostedStore:
                     self._settle_envelope(db, job["run_id"])
             return response
         except BaseException as exc:
+            from proofops_api.hosted_diagnostics import record_dispatch_failure
+
+            record_dispatch_failure(
+                self, job, call_id, provider, input_sha, phase, exc, diagnostic_context
+            )
+            if phase == "reservation":
+                # Admission failed before transport. Preserve its original error
+                # and all money/ownership state; diagnostics never authorize retry.
+                raise
             # A rejected quota call is terminal, but its unknown cost still needs
             # operator reconciliation. Never release reservations or redeliver it.
             limit_code = str(exc)
@@ -1587,16 +1640,23 @@ class HostedStore:
             # An uncertain model transport is a per-claim hold, not a lost run fence.
             # Unknown receipts and non-model failures retain the existing terminal guard.
             from proofops.adapters.local.openai import OpenAITransient403
-            from proofops.adapters.local.openai_connections import OpenAIConnectNotSent
+            from proofops.adapters.local.openai_connections import (
+                OpenAIConnectNotSent,
+                OpenAIControlNotSent,
+            )
 
             if (
-                allow_connect_not_sent is True
+                phase == "transport"
                 and provider == "openai"
-                and isinstance(exc, OpenAIConnectNotSent)
+                and (
+                    isinstance(exc, OpenAIControlNotSent)
+                    or (allow_connect_not_sent is True and isinstance(exc, OpenAIConnectNotSent))
+                )
             ):
                 # This typed proof originates exclusively before HTTP request().
-                # Settle this broker reservation at zero; a retry needs a new call_id.
-                with self.transaction() as db:
+                # Settle only this reservation. Control stops propagate without retry;
+                # a connect retry still needs its existing policy and a new call_id.
+                with self.transaction(lock_wait_seconds=30) as db:
                     db.execute(
                         "UPDATE deletion.costs SET actual=0,status='settled' "
                         "WHERE run_id=? AND call_id=? AND status='reserved'",
@@ -1608,8 +1668,8 @@ class HostedStore:
                 and provider == "openai"
                 and isinstance(exc, OpenAITransient403)
             )
-            model_network_failure = provider in {"openai", "openrouter"} and isinstance(
-                exc, OSError
+            model_network_failure = provider in {"openai", "openrouter"} and (
+                isinstance(exc, OSError) or limit_code == "PROCESSING_UNCERTAIN"
             )
             isolated_model_failure = (
                 allow_model_partial is True
@@ -1623,7 +1683,7 @@ class HostedStore:
                     )
                 )
             )
-            with self.transaction() as db:
+            with self.transaction(lock_wait_seconds=30) as db:
                 if observation_code in PROVIDER_LIMIT_CODES.get(provider, ()):
                     db.execute(
                         "INSERT INTO ops2_provider_observations VALUES (?,?,?) "
@@ -1790,7 +1850,7 @@ class HostedStore:
         for count in (claims_extracted, claims_processed):
             if count is not None and (type(count) is not int or count < 0):
                 raise ValueError("invalid claim progress")
-        with self.transaction() as db:
+        with self.transaction(operation="progress") as db:
             now = time.time()
             self._fenced(db, job, now)
             db.execute(
@@ -1837,8 +1897,19 @@ class HostedStore:
         with TemporaryDirectory(prefix="proofops-publication-", dir=self.root) as scratch:
             staged = Path(scratch) / "artifacts"
             shutil.copytree(source, staged)
-            with self.transaction() as db:
+            # Initial publication is create-only. Flush the snapshot with the
+            # receipts before acquiring either DB writer; install its anchor
+            # only after rechecking the current run/document/fence.
+            snapshot = staged / "result-1.json"
+            self._write(snapshot, content)
+            snapshot.chmod(0o400)
+            snapshot_hash = digest(content)
+            with self.transaction(operation="publish") as db:
                 self._fenced(db, job, time.time())
+                if db.execute(
+                    "SELECT 1 FROM result_snapshots WHERE run_id=?", (job["run_id"],)
+                ).fetchone():
+                    raise HostedError("ANALYSIS_RESULT_UNAVAILABLE")
                 target = (
                     self.document_dir(job["tenant_id"], job["document_id"])
                     / "analysis"
@@ -1846,7 +1917,9 @@ class HostedStore:
                 )
                 target.parent.mkdir(mode=0o700, exist_ok=True)
                 os.rename(staged, target)
-                self._publish_snapshot(db, job["run_id"], target, content)
+                db.execute(
+                    "INSERT INTO result_snapshots VALUES (?,1,?)", (job["run_id"], snapshot_hash)
+                )
                 db.execute(
                     "INSERT OR REPLACE INTO run_progress VALUES (?, 'result',100,1)",
                     (job["run_id"],),

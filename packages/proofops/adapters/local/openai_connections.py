@@ -3,10 +3,29 @@
 import http.client
 import ssl
 import time
+from contextlib import contextmanager
 from threading import Lock
 from uuid import uuid4
 
 from proofops.application.openai_transport import POLICY
+from proofops.application.ports.jobs import JobControlSignal, LeaseLost
+
+
+class OpenAIControlNotSent(BaseException):
+    """Typed proof of a control stop before request(); never a retry authorization."""
+
+    def __init__(self, signal):
+        self.signal = signal
+        super().__init__("OPENAI_CONTROL_NEVER_SENT")
+
+
+@contextmanager
+def control_before_send():
+    """Use only around work that cannot write HTTP request bytes."""
+    try:
+        yield
+    except (JobControlSignal, LeaseLost) as error:
+        raise OpenAIControlNotSent(error) from None
 
 
 class OpenAIConnectNotSent(OSError):

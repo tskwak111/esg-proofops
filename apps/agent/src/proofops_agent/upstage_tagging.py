@@ -1039,6 +1039,14 @@ class UpstageTaggingTransport:
             code = str(error)
             from proofops.application.provider_resilience import ISOLATED_CODES
 
+            # The probe normalizes unrecognized request failures only after its
+            # typed guards. Under request-only resilience this is a failed vote,
+            # not permission to stop the shared receipt root for other claims.
+            if (
+                getattr(self._probe, "provider_resilience", None)
+                and code == "OPENAI_REQUEST_FAILED"
+            ):
+                code = "PROVIDER_PROCESSING_FAILED"
             isolated = bool(
                 getattr(self._probe, "provider_resilience", None) and code in ISOLATED_CODES
             )

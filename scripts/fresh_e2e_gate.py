@@ -123,6 +123,145 @@ def prepare(case, base, directory):
     )
 
 
+def simulation_confirmation_failures(observation):
+    """Check the executed policy, never infer DEC-127 from a claimed E0 grade.
+
+    Historical observations without a runtime pin retain the original strict
+    gate. Unknown pins fail closed. The unknown-only simulator cannot supply
+    present elements, so even a superficially well-formed E1+ is a regression.
+    """
+    from proofops.application.analysis_profile import V2_PROFILE, policy_for
+    from proofops.domain.provenance import canonical_hash
+
+    claims = (observation.get("result") or {}).get("claims", [])
+    pin = (observation.get("runtime") or {}).get("policy_sha256")
+    selected = None
+    if not pin and any("cf6_status" in c for c in claims):
+        return ["simulation_policy_missing"]
+    if pin:
+        try:
+            selected = policy_for(V2_PROFILE, pinned_hash=pin).get("cf6_confirmation")
+        except ValueError:
+            return ["simulation_policy_unknown"]
+    if selected is None:
+        return (
+            ["unknown_simulation_published_confirmation"]
+            if any(c.get("confirmed_grade") is not None for c in claims)
+            else []
+        )
+    observed_pin = observation.get("outcome", {}).get("scope", {}).get("analysis_profile_sha256")
+    failures = set()
+    if observed_pin is not None and observed_pin != pin:
+        failures.add("simulation_policy_mismatch")
+    e0_rules = {
+        "management": {"MGMT_NO_MEANS_IN_SCOPE_E0"},
+        "goal": {"GOAL_NO_YEAR"},
+        "performance": {"PERF_NO_VALUE"},
+    }
+    hold_codes = {
+        "CF6_REPLICAS_UNRESOLVED",
+        "CF6_CURRENT_RESPONSES_REQUIRED",
+        "CF6_TRACK_CATEGORY_UNANIMITY_REQUIRED",
+        "CF6_CLAIM_SOURCE_UNVERIFIED",
+        "CF6_PACKET_POLICY_MISMATCH",
+        "CF6_SELECTED_SCOPE_REQUIRED",
+        "CF6_RULE_GAP",
+        "CF6_TIME_BUDGET",
+        "CF6_EXISTING_SAFETY_HOLD",
+        "CF6_EXCEPTION_REVIEW_REQUIRED",
+        "CF6_PROVIDER_REPLAY",
+        "CF6_TAGGING_INCOMPLETE",
+        "CF6_ENGINE:blocked_evidence",
+        "CF6_ENGINE:blocked_rule_gap",
+    }
+    for claim in claims:
+        grade = claim.get("confirmed_grade")
+        decision = claim.get("decision") or {}
+        confirmation = claim.get("cf6_confirmation") or {}
+        elements = claim.get("cf6_elements") or []
+        reasons = claim.get("cf6_hold_reasons") or []
+        if any(e.get("state") == "present" for e in elements):
+            failures.add("unknown_simulation_present_element")
+        if grade is None:
+            valid_reasons = bool(reasons) and all(
+                r in hold_codes
+                or (
+                    isinstance(r, str)
+                    and r.startswith(("CF6_CONFLICT:", "CF6_LADDER_UNRESOLVED:"))
+                    and any(
+                        e.get("element_id") == r.split(":", 1)[1]
+                        and e.get("state") in {"unknown", "conflict", "unreadable"}
+                        for e in elements
+                    )
+                )
+                for r in reasons
+            )
+            if (
+                not valid_reasons
+                or claim.get("cf6_status") != "held"
+                or confirmation
+                or decision.get("evidence_grade") is not None
+                or (
+                    "CF6_CLAIM_SOURCE_UNVERIFIED" in reasons
+                    and claim.get("source_quality") == "verified"
+                )
+            ):
+                failures.add("unknown_simulation_invalid_hold")
+            continue
+        if grade != "E0":
+            failures.add("unknown_simulation_non_e0_confirmation")
+        track = claim.get("cf6_track")
+        scope = decision.get("confirmation_scope") or {}
+        expected_elements = {
+            "management": {f"M{i}" for i in range(1, 7)},
+            "performance": {f"P{i}" for i in range(1, 7)},
+            "goal": {f"G{i}" for i in range(1, 9)},
+        }.get(track, set())
+        if (
+            not expected_elements
+            or {e.get("element_id") for e in elements} != expected_elements
+            or len(elements) != len(expected_elements)
+            or any(
+                e.get("state") != "absent_in_scope"
+                or e.get("absence_basis") != "DEC127_SYSTEM_NON_OBSERVATION"
+                or e.get("evidence_refs")
+                for e in elements
+            )
+        ):
+            failures.add("unknown_simulation_absence_basis_invalid")
+        if (
+            claim.get("source_quality") != "verified"
+            or claim.get("cf6_status") != "confirmed"
+            or reasons
+            or claim.get("hold_reason")
+            or not decision
+            or decision != confirmation
+            or decision.get("evidence_grade") != "E0"
+            or decision.get("decision_status") != "decided"
+            or decision.get("label") != "UNSUBSTANTIATED"
+            or decision.get("review_status") != "auto_confirmed"
+            or not decision.get("rule_ids")
+            or not set(decision["rule_ids"]) <= e0_rules.get(track, set())
+            or decision.get("analysis_policy_sha256") != pin
+            or decision.get("confirmation_policy_sha256") != canonical_hash(selected)
+            or decision.get("confirmation_basis") != "cf6_element_agreement"
+            or scope.get("rule_policy_sha256") != canonical_hash(selected["scope_rules"])
+            or scope.get("absence_basis") != "system_not_found_or_not_linked_after_three_replicas"
+            or not all(
+                scope.get(k)
+                for k in ("selected_pages", "tenant_id", "run_id", "document_version_id")
+            )
+            or not all(
+                isinstance(decision.get(k), str)
+                and len(decision[k]) == 64
+                and all(c in "0123456789abcdef" for c in decision[k])
+                for k in ("cf6_receipt_sha256", "rule_pack_sha256", "model_sha256", "prompt_sha256")
+            )
+        ):
+            failures.add("unknown_simulation_e0_rule_invalid")
+    return sorted(failures)
+
+
 def compare(observation, baseline):
     failures = []
     claims = (observation.get("result") or {}).get("claims", [])
@@ -136,8 +275,7 @@ def compare(observation, baseline):
     w18 = observation.get("w18", {})
     if w18.get("exact_refs", 0) <= 0 or w18.get("default_unchanged") is not True:
         failures.append("W18_EXACT_COORDINATES_REQUIRED")
-    if any(c.get("confirmed_grade") is not None for c in claims):
-        failures.append("unknown_simulation_published_confirmation")
+    failures.extend(simulation_confirmation_failures(observation))
     result = observation.get("result") or {}
     if result.get("pipeline", {}).get("status") != "completed" or result.get("hold_reasons"):
         failures.append("pipeline_blocked")

@@ -285,7 +285,9 @@ def retrieve_evidence(
     claim_refs = tuple(
         verify_source_ref(ref, original, tenant_id=tenant_id) for ref in claim.source_refs
     )
-    if not claim_refs or claim.quote != " ".join(ref.quote for ref in claim_refs):
+    from proofops.application.ingest.source_continuations import claim_quote_matches_sources
+
+    if not claim_quote_matches_sources(claim.quote, claim_refs, original):
         raise DomainValidationError("claim quote/source mismatch")
     if any(
         ref.source_id not in blocks

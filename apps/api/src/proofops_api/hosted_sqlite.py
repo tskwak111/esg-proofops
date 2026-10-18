@@ -19,8 +19,8 @@ def is_busy(exc):
     )
 
 
-def retry_busy(operation, *, phase):
-    deadline = time.monotonic() + LOCK_WAIT_SECONDS
+def retry_busy(operation, *, phase, wait_seconds=None):
+    deadline = time.monotonic() + (LOCK_WAIT_SECONDS if wait_seconds is None else wait_seconds)
     retries = 0
     while True:
         try:

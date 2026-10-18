@@ -36,6 +36,7 @@ class ProviderConcurrency:
         self.deferred = False
         self.resilience_directory = Path(resilience_directory) if resilience_directory else None
         self.consecutive_denials = self.failed_calls = self.circuit_deferred = 0
+        self.uncertain_calls = 0
         self.circuit_open = False
         self.events = 0
         self.http_not_before = 0.0
@@ -43,20 +44,23 @@ class ProviderConcurrency:
             self.resilience_directory.mkdir(parents=True, exist_ok=True, mode=0o700)
             for path in sorted(self.resilience_directory.glob("*.json")):
                 event = json.loads(path.read_text())
-                self._observe(event["code"])
+                self._observe(event["code"], uncertain=event.get("uncertain") is True)
                 self.events += 1
 
-    def _observe(self, code):
+    def _observe(self, code, *, uncertain=False):
         from proofops.application.provider_resilience import POLICY
 
         if code is not None:
             self.failed_calls += 1
+            self.uncertain_calls += int(uncertain)
         self.consecutive_denials = self.consecutive_denials + 1 if code == "OPENAI_HTTP_403" else 0
         self.circuit_open |= self.consecutive_denials >= POLICY["consecutive_denials"]
 
-    def observe(self, code):
+    def observe(self, code, *, uncertain=False):
         with self.condition:
             event = dict(code=code, observed_at_ns=time.time_ns())
+            if uncertain:
+                event["uncertain"] = True
             path = self.resilience_directory / f"{self.events + 1:08}.json"
             with path.open("x") as stream:
                 json.dump(event, stream)
@@ -64,7 +68,7 @@ class ProviderConcurrency:
                 os.fsync(stream.fileno())
             path.chmod(0o400)
             self.events += 1
-            self._observe(code)
+            self._observe(code, uncertain=uncertain)
             self.condition.notify_all()
 
     def pace_http(self):
@@ -136,6 +140,7 @@ class ProviderConcurrency:
 
             def observed_post(*a, **k):
                 from proofops.adapters.local.openai import OpenAITransient403
+                from proofops.adapters.local.openai_connections import OpenAIConnectNotSent
                 from proofops.application.provider_resilience import POLICY
 
                 if not getattr(probe, "http_dispatch_guard", False):
@@ -153,7 +158,12 @@ class ProviderConcurrency:
                     code = raw if raw.startswith("OPENAI_HTTP_") else "PROCESSING_UNCERTAIN"
                     if isinstance(error, OpenAITransient403):
                         code = "TRANSIENT_OVERLOAD"
-                    self.observe(code)
+                    self.observe(
+                        code,
+                        uncertain=raw == "PROCESSING_UNCERTAIN"
+                        or isinstance(error, OSError)
+                        and not isinstance(error, OpenAIConnectNotSent),
+                    )
                     raise
                 self.observe(None)
                 return result

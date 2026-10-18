@@ -133,7 +133,8 @@ def test_lease_covers_measured_time_and_heartbeat_extends_it(store):
     store.renew_lease(job, now=before + 605)
     with store.transaction() as db:
         row = store._fenced(db, job, before + 1901)
-        assert row["lease_until"] == before + 605 + 1900
+        # HF4 adds only the measured writer wait to the renewal; it must never be shorter.
+        assert before + 605 + 1900 <= row["lease_until"] < before + 605 + 1900 + 1
 
 
 def test_scope_openapi_declares_cas():
@@ -259,7 +260,8 @@ def test_heartbeat_keeps_1900_second_lease_valid_through_2700_seconds(store):
     assert HEARTBEAT_SECONDS == 30
     for elapsed in range(HEARTBEAT_SECONDS, 2701, HEARTBEAT_SECONDS):
         store.renew_lease(job, now=start + elapsed)
-        assert job["lease_until"] == start + elapsed + RUN_LEASE_SECONDS
+        expected = start + elapsed + RUN_LEASE_SECONDS
+        assert expected <= job["lease_until"] < expected + 1  # plus measured writer wait
     with store.transaction() as db:
         assert store._fenced(db, job, start + 2700)["status"] == "running"
     with pytest.raises(HostedError, match="LEASE_LOST"):

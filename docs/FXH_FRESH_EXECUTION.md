@@ -32,7 +32,8 @@ Its original page numbers map back to the same prepared-page claim allowance;
 the original p36 cannot be mistaken for prepared page 36. Evidence-only pages,
 unselected pages, the ten-page fallback limit and broker accounting still hold.
 The approved tenant, original bytes, rulepack, exact spans and three fresh bound
-responses remain mandatory. Unknown evidence still cannot publish confirmation.
+responses remain mandatory. Historical pre-DEC-127 pins still cannot publish confirmation from unknown tags.
+DEC-127 pins may publish only the scoped E0 result described below.
 
 ## Offline fresh gate
 
@@ -92,3 +93,32 @@ greater than five seconds fail the gate; do not change lease guards to absorb a
 suspended host. On macOS, run the command under `caffeinate -i` for stable timing.
 The original E15 SC1 truncation and Kakao geometry failures also need the focused
 regression tests: deterministic replies cannot reproduce every provider failure.
+
+
+## TS1 / DEC-127 simulation confirmation gate
+
+The gate resolves the **executed** `worker-runtime.json` policy hash against the
+registered analysis policies. A policy without `cf6_confirmation` retains the
+original zero-confirmation check. An unknown policy fails closed; missing policy
+identity cannot bypass validation of CF6 results. A reported outcome policy must
+agree with the worker runtime pin. This includes v29d and explicitly registered
+DEC-127 predecessors, without changing historical policy bytes.
+
+For the unknown-only simulator, each confirmed claim must be E0 with verified
+claim source, the complete track element set in `absent_in_scope`, and
+`DEC127_SYSTEM_NON_OBSERVATION` as the absence basis. Public decision and CF6
+confirmation must agree, with the correct E0 Python rule, selected-scope basis,
+analysis/confirmation/scope-rule hashes and nonempty receipt/model/prompt/rulepack
+hashes. No present element or E1–E3 confirmation is accepted. Held claims need a
+recognized CF6 reason and no confirmed decision; a source-unverified reason
+cannot accompany a source-verified claim. The historical provisional projection
+is retained and is not mistaken for the final CF6 publication state.
+
+C3's zero-confirmation rule, original PDF/tenant/scope checks, W18, cost settlement,
+SC1 completeness, replica/input errors and timing ceilings remain unchanged.
+These are offline wiring and consistency checks, not semantic-accuracy evidence.
+Run the focused positive/negative controls with:
+
+```sh
+uv run pytest -q tests/test_fresh_e2e_gate.py
+```

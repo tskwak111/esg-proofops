@@ -14,6 +14,10 @@ from proofops.application.claims import Claim
 from proofops.application.evidence.binding import ClaimContext
 from proofops.application.evidence.span_citations import verify_source_ref
 from proofops.application.ingest.graph_fusion import CanonicalBlock, CanonicalDocumentGraph
+from proofops.application.ingest.source_continuations import (
+    canonical_source_refs,
+    claim_quote_matches_sources,
+)
 from proofops.application.tagging.table_sources import (
     TABLE_SOURCE_POLICY,
     table_structural_sources,
@@ -319,7 +323,6 @@ def _sources(
         != (graph.document_version_id, graph.parse_manifest_id, graph.source_sha256)
         or (claim.source_quality != "verified" and not allow_unverified)
         or not claim.source_refs
-        or claim.quote != " ".join(ref.quote for ref in claim.source_refs)
     ):
         raise DomainValidationError("preliminary source identity or quality mismatch")
     verified = tuple(
@@ -342,12 +345,24 @@ def _sources(
             if (
                 any(
                     getattr(ref, k) != getattr(canonical, k)
-                    for k in ("page_num", "bbox", "raw_text_sha256", "printed_page_label")
+                    for k in (
+                        "document_version_id",
+                        "parse_manifest_id",
+                        "page_num",
+                        "bbox",
+                        "raw_text_sha256",
+                        "printed_page_label",
+                    )
                 )
+                or not 0 <= ref.char_start < ref.char_end <= len(block.raw_text)
                 or block.raw_text[ref.char_start : ref.char_end] != ref.quote
             ):
                 raise DomainValidationError("candidate literal source mismatch")
-    return verified
+    # Validate all input locations before eliminating parser copies, so a bad
+    # duplicate cannot conceal a foreign artifact or altered literal span.
+    if not claim_quote_matches_sources(claim.quote, verified, graph):
+        raise DomainValidationError("preliminary source identity or quality mismatch")
+    return canonical_source_refs(verified)
 
 
 def _sentence_window(text, start, end):

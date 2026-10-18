@@ -1158,7 +1158,15 @@ class UpstageClaimExtractor:
         block = next(b for b in context_graph.blocks if b.source_id == data["source_id"])
         candidates = candidates_for(block, context_graph)
         spans, coverage = reconcile(data["text"], candidates, result["spans"])
-        self._validate_spans({"spans": spans}, data["text"])
+        try:
+            self._validate_spans({"spans": spans}, data["text"])
+        except ValueError:
+            # Recovered table spans pass the same quote/offset guards as model
+            # spans. A rejected table remains unknown without losing siblings.
+            # Identity, grid and immutable receipt checks stay outside this catch.
+            raise ExtractionOutputError(
+                "TABLE_QT1_SPAN_INVALID", failure_code="TABLE_QT1_SPAN_INVALID"
+            ) from None
         record = dict(
             packet=packet,
             profile=asdict(self.profile),

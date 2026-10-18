@@ -44,3 +44,56 @@ Compose healthcheck (the old image has no worker-health module); schema and save
 evidence remain compatible. The heartbeat/trash directories contain no evidence
 policy or money state; do not delete pending trash as a substitute for retention
 cleanup. New deployments must keep the existing source/receipt readers available.
+
+HF4 keeps the schema, attached rollback journals and policy pins unchanged.
+Hosted renewal alone now has a 30s BUSY budget (ordinary operations retain 10s);
+it rechecks the persisted document/status/fence/expiry after acquiring the writer,
+using monotonic elapsed time, and never shortens an already newer lease. Dispatch
+reservation also rechecks expiry after waiting, before any charge or transport.
+Response-cache authorization takes a read snapshot; broker reservation still
+performs the authoritative write fence before every transport.
+
+Hosted claim callbacks coalesce their unique counters to at most one write per
+second, with an immediate first processed claim and an explicit final flush after
+tagging, including partial results. These are advisory counters only: no budget,
+reservation, receipt, authority or inner-job fence is batched. Abrupt process loss
+can leave the latest unflushed counters absent; it cannot publish a result.
+Initial result bytes and their fsync/hash are staged outside the writer, then the
+same final fenced transaction installs the directory and immutable snapshot
+anchor. Later review revisions keep their existing serialization. No migration is
+needed; rollback restores the previous code without rewriting saved artifacts.
+
+BUSY/slow-writer logs identify the control operation. Failed tag renewals also
+retain the first exception type and numeric SQLite code in the existing immutable
+usage record (`lease_heartbeat_failure`), distinguishing point and background
+renewals even when the hosted child stderr is discarded. SQL, messages, paths,
+provider content and credentials are excluded. These diagnostics do not change
+failure handling, retries, job status, publication permission or accounting.
+
+HF6 queues sibling heartbeats behind one process-local lock per job-store instance
+so only one heartbeat waits on SQLite at a time. Queue time counts toward the
+same 30s busy budget and persisted lease expiry. Identical heartbeat UPDATEs within
+the same timestamp are suppressed. Every call still acquires the SQLite writer
+and rechecks cancellation, owner,
+attempt, fence and expiry; advancing time or requesting a longer lease writes the
+renewal normally. Busy budgets and lease durations are unchanged.
+
+`HOSTED_RETAIN_FAILED_ANALYSIS=true` is the production default. After reaping a
+failed analysis child, while still owning the document file lease, the parent
+keeps bounded diagnostic projections under the private document directory at
+`analysis-failures/<run_id>-<fence>/`. Partial outcomes are retained too; completed
+workspaces are cleaned normally. Each capture is limited to 128 MiB and 2,048
+receipt files. A cross-process lock enforces a store-wide byte cap, configured by
+`HOSTED_FAILURE_DIAGNOSTICS_MAX_BYTES` (default and maximum 512 MiB). Full capacity
+or contention skips capture; diagnostics never authorize a retry or hide failure.
+
+Only job/snapshot/usage and provider accounting tables plus internal receipts are
+copied, not entire SQLite files or deleted pages. These projections are diagnostic
+evidence, not resumable databases. Environment, live configuration, credentials,
+identity/cursor tables, uploads and stderr are excluded. Dispatch failures record
+role, request byte count/hash, phase, exception category, numeric SQLite code and
+code location without exception messages. Point-heartbeat failures preserve the
+same sanitized cause already recorded for background renewals. Directories are
+0700, files 0600, and document purge removes the capture under existing ownership.
+No public endpoint exposes these files. Disable retention with the flag above;
+rollback requires no schema migration or policy rewrite.

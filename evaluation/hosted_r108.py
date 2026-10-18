@@ -3,7 +3,6 @@
 import json
 import os
 import sys
-import threading
 import time
 from contextlib import nullcontext
 from pathlib import Path
@@ -302,6 +301,21 @@ def prepare_argv(pdf, state, tenant, config, options=None):
     return argv
 
 
+def provider_failure_blocks_completion(admission, *, complete, recovered=0, optional=0):
+    failed, deferred = admission["failed_calls"], admission["circuit_deferred"]
+    # Finished tagging already holds the affected request. One known uncertain
+    # delivery may publish completed work; generic errors and repeated failures
+    # retain the existing partial/circuit outcome. Money is settled separately.
+    isolated = (
+        complete
+        and not deferred
+        and not admission.get("circuit_open")
+        and failed == 1
+        and admission.get("uncertain_calls", 0) == 1
+    )
+    return bool((failed > recovered + optional or deferred) and not isolated)
+
+
 def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_post=None):
     from evaluation import local_upstage_pilot as pilot
 
@@ -425,27 +439,9 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
     observed = []
     stage_seconds = {}
     extraction_stop = None
-    processed_claims = set()
-    stage_claims = {stage: set() for stage in ("preliminary", "relation", "elements")}
-    progress_lock = threading.Lock()
+    from proofops_api.hosted_progress import ClaimProgress
 
-    def claim_progress(claim_id, total):
-        with progress_lock:
-            processed_claims.add(claim_id)
-            store.update_progress(
-                job, "tag", 75, claims_extracted=total, claims_processed=len(processed_claims)
-            )
-
-    def claim_stage_progress(claim_id, total, stage):
-        with progress_lock:
-            stage_claims[stage].add(claim_id)
-            store.update_progress(
-                job,
-                "tag",
-                75,
-                claims_extracted=total,
-                claim_stage_counts={key: len(value) for key, value in stage_claims.items()},
-            )
+    claim_progress = ClaimProgress(store, job)
 
     if execution.get("model_response_policy"):
         # Document payload ownership makes authorized purge remove cached model
@@ -551,8 +547,8 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
                 verify_paragraphs=stage == "parse",
                 provider_factories=factories,
                 provider_ledgers=(upstage_ledger, luna_ledger),
-                claim_progress=claim_progress,
-                claim_stage_progress=claim_stage_progress,
+                claim_progress=claim_progress.claim,
+                claim_stage_progress=claim_progress.stage,
             )
             if deadline is not None:
                 worker.rb3_deadline = deadline
@@ -565,6 +561,8 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
                     if event["message"]["stage"] == stage
                 ]
                 outcome = worker.run_once(tenant_id=job["tenant_id"], run_id=manifest["run_id"])
+                if stage == "tag":
+                    claim_progress.flush()
                 failure = stage_failure_code(worker.store.jobs, stage_messages)
                 if failure:
                     extraction_stop = failure
@@ -655,7 +653,12 @@ def drive(store, job, workspace, config, *, llm_post=None, parse_post=None, ocr_
                     optional_inventory_failures=optional,
                     unresolved_total=max(0, failed - recovered - optional) + deferred,
                 )
-            if failed > recovered + optional or deferred:
+            if provider_failure_blocks_completion(
+                admission | dict(uncertain_calls=provider_gate.uncertain_calls),
+                complete=complete,
+                recovered=recovered,
+                optional=optional,
+            ):
                 result.update(status="partial_blocked", reason="PROVIDER_PROCESSING_FAILED")
     if complete and execution.get("direct_certification_policy", {}).get("profile") == (
         "management-direct-certification-c3-v2"
@@ -731,7 +734,16 @@ def main():
         else nullcontext()
     )
     with scope:
-        state, _ = drive(store, job, Path(workspace), read_operator_config(settings.live_config))
+        try:
+            state, _ = drive(
+                store, job, Path(workspace), read_operator_config(settings.live_config)
+            )
+        except BaseException as error:
+            from proofops_api.hosted_diagnostics import write_child_failure
+
+            if settings.retain_failed_analysis:
+                write_child_failure(Path(workspace) / "state", error)
+            raise
         if len(sys.argv) == 5:
             from proofops_api.hosted_publication import make_handoff
 
