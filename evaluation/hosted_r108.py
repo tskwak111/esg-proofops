@@ -298,6 +298,14 @@ def prepare_argv(pdf, state, tenant, config, options=None):
                     flag = "--capacity-policy-refresh"
                 if flag not in argv:
                     argv.append(flag)
+    # Large-page reports exceed the pilot's 768 MiB local parser default and
+    # bisect until the shared parse deadline expires. Operator-set; unset keeps
+    # the default. Not part of the analysis policy hash or RC1 reuse key.
+    memory = os.environ.get("HOSTED_PARSER_MEMORY_BYTES", "").strip()
+    if memory:
+        if not memory.isdigit() or not 1 <= int(memory) <= 4 * 1024**3:
+            raise ValueError("HOSTED_PARSER_MEMORY_BYTES_INVALID")
+        argv += ["--parser-memory-bytes", memory]
     return argv
 
 
