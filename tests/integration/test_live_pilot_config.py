@@ -409,3 +409,287 @@ def test_new_local_approval_profiles_use_bounded_24h_lifetime(tmp_path, monkeypa
     resumed_row = conn.execute("SELECT value FROM registry_state WHERE key = 'state'").fetchone()
     conn.close()
     assert resumed_row == row  # Exact match, untouched
+
+
+# Captured against cefcb2d0 before splitting main. Normalize only per-run UUIDs
+# and checkout/temp/toolchain paths; policy hashes and JSON key order stay pinned.
+_PILOT_EQUIVALENCE = {
+    "default": {
+        "parser": (
+            "d9bb0c364f49cb8f03938637f370589c491d0cb9fe11fc98a2da75d7f1a022cc",
+            "0e9f3d02d267ca01d454ce5c426db3d0bcb1ae0f19827a8d54a105407daaf685",
+        ),
+        "settings": (
+            "0512ed12102e2d7f29fea2b13d3fdbf215d5d14a3ffccf77ce54e0f4b265b424",
+            "793b9c15af0e482406eb8215c621b5193d29359d87cdf3f6ea0bedb13dfc2cda",
+        ),
+        "pilot": (
+            "ffbfb9a993f0a8e96dc9dad5d3492a6d4c12ce42477a24e6e08ca34adb8548be",
+            "5c0d31a352583d097fd47a9dc9db2c67e6c8067998eec41a2c06d57ecd149c9e",
+        ),
+    },
+    "historical": {
+        "parser": (
+            "ef4e8c0ee14963dba0a64cf6ec25383fd943f85f3b2fce12114b7ff2445f15b6",
+            "29890f7b055bcb7d0279795a30df76cf59bd1ce1bef0b0f95c8a3c3f3d1cac32",
+        ),
+        "settings": (
+            "f31fbe342a37783162824a35f71315b78532bf0fcfc20bf67b100b580118d8b8",
+            "4e72970700511f1bf7bbfdb6d0429c8e3b37804e65b0d710bc5665b89107da2a",
+        ),
+        "pilot": (
+            "566a75cd18ab072d6927379de8e058097aebfce939198795873181070a2c18ca",
+            "3b307f69680f0002bec7811fccbadc4107cfd6615d3dac9007c2f265e16e703a",
+        ),
+    },
+    "hosted": {
+        "parser": (
+            "fe77bc13741c721a8d8a5d1f9ba11eca16e9589ec850fe4402932d32aff7b017",
+            "dd148f1668610c089e634cf8a3e25145517d43e6ff5e4980f303f5076c048445",
+        ),
+        "settings": (
+            "4925569bd2e2c86619436355528a4f1d90ec5c1ea610b6a0f5af52ead452863d",
+            "f2ecfd34284e2180727c1e53201662a7f77e300ab3ba401b134a0711151b4766",
+        ),
+        "pilot": (
+            "d3f2b1629fb41a28e3c4b8c6a807254211982cac69fbbbd7af3894ca1305264d",
+            "5d0e785034692ffe0970de3d0e091168cc6eb8cd30378cc00130f75bc365488c",
+        ),
+    },
+}
+
+
+def _pilot_artifact_fingerprints(artifacts, *, root, temporary):
+    import hashlib
+    import json
+    from uuid import UUID
+
+    from proofops.domain.provenance import canonical_hash
+
+    identifiers = {}
+
+    def normalize(value):
+        if isinstance(value, dict):
+            return {key: normalize(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [normalize(item) for item in value]
+        if isinstance(value, str):
+            try:
+                UUID(value)
+            except ValueError:
+                return value.replace(str(temporary), "<temporary>").replace(str(root), "<root>")
+            return identifiers.setdefault(value, f"<uuid-{len(identifiers)}>")
+        return value
+
+    normalized = normalize(artifacts)
+    return {
+        name: (
+            canonical_hash(payload),
+            hashlib.sha256(json.dumps(payload, ensure_ascii=False).encode()).hexdigest(),
+        )
+        for name, payload in normalized.items()
+    }
+
+
+@pytest.mark.parametrize("case", ["default", "historical", "hosted"])
+def test_pilot_creation_and_resume_equivalence(case, tmp_path, monkeypatch):
+    import json
+    import os
+    import socket
+    import sqlite3
+    import sys
+    from datetime import UTC, datetime
+
+    from proofops.adapters.local import local_raster_reader, openai
+    from pypdf import PdfWriter
+
+    from evaluation import hosted_r108
+    from evaluation import local_upstage_pilot as pilot
+
+    def deny_network(*args, **kwargs):
+        raise AssertionError("equivalence must remain offline")
+
+    monkeypatch.setattr(socket.socket, "connect", deny_network)
+    monkeypatch.setattr(socket, "create_connection", deny_network)
+    monkeypatch.setattr(os, "environ", os.environ.copy())
+    monkeypatch.delenv("HOSTED_PARSER_MEMORY_BYTES", raising=False)
+    # Freeze provider price validity only; authorization/lease clocks stay real.
+    monkeypatch.setattr(openai, "now", lambda: datetime(2026, 10, 18, tzinfo=UTC))
+    monkeypatch.setattr(pilot, "parser_java_executable", lambda: "java")
+    which = local_raster_reader.shutil.which
+    # Use the same unavailable optional CPU OCR runtime on macOS and Linux;
+    # retain the real reader source, lock, renderer and policy hashes.
+    monkeypatch.setattr(
+        local_raster_reader.shutil,
+        "which",
+        lambda name: None if name == "tesseract" else which(name),
+    )
+    pdf = tmp_path / "sample.pdf"
+    writer = PdfWriter()
+    for _ in range(2):
+        writer.add_blank_page(width=72, height=72)
+    with pdf.open("wb") as stream:
+        writer.write(stream)
+    state = tmp_path / "state"
+    period = dict(report_year=2025, period_start="2024-01-01", period_end="2024-12-31")
+    argv = ["pilot", "--pdf", str(pdf), "--state", str(state), "--pages", "2,1,2"]
+    for key, value in period.items():
+        argv.extend(["--" + key.replace("_", "-"), str(value)])
+    if case == "historical":
+        argv += ["--parser", "local", "--llm-provider", "upstage", "--model", "solar-pro3"]
+    elif case == "hosted":
+        argv = hosted_r108.prepare_argv(
+            pdf,
+            state,
+            "11111111-1111-4111-8111-111111111111",
+            dict(
+                analysis_profile="finals-unattended-v2",
+                rendered_reader_profile="upstage-ocr-page-v10",
+                **period,
+            ),
+        )
+    monkeypatch.setattr(sys, "argv", argv)
+    assert pilot.main() == 0
+    names = ("parser", "settings", "pilot")
+    original = {name: (state / f"{name}.json").read_bytes() for name in names}
+    artifacts = {name: json.loads(content) for name, content in original.items()}
+    assert artifacts["pilot"]["selected_pages"] == [1, 2]
+    assert artifacts["pilot"]["source_path"] == str(pdf)
+    assert artifacts["pilot"]["production_ready"] is False
+    assert list(artifacts["settings"]["budget_limits"]["roles"])[0]["role"] == "extractor"
+    actual = _pilot_artifact_fingerprints(artifacts, root=pilot.ROOT, temporary=tmp_path)
+    # Registry artifacts include rights, runtime and consent expiry; resume must
+    # preserve their exact stored bytes as well as the settings and pilot pins.
+    with sqlite3.connect(state / "state.sqlite3") as db:
+        registered = db.execute("SELECT value FROM registry_state WHERE key = 'state'").fetchone()
+    monkeypatch.setattr(sys, "argv", ["pilot", "--state", str(state), "--resume"])
+    assert pilot.main() == 0
+    assert {name: (state / f"{name}.json").read_bytes() for name in names} == original
+    with sqlite3.connect(state / "state.sqlite3") as db:
+        assert (
+            db.execute("SELECT value FROM registry_state WHERE key = 'state'").fetchone()
+            == registered
+        )
+    pdf.write_bytes(pdf.read_bytes() + b"\n% changed synthetic source\n")
+    with pytest.raises(ValueError, match="^pilot source changed$"):
+        pilot.main()
+    assert actual == _PILOT_EQUIVALENCE[case], (case, actual)
+
+
+@pytest.mark.parametrize("server_failure", [False, True])
+def test_pilot_serve_equivalence(tmp_path, monkeypatch, server_failure):
+    import json
+    import os
+    import socket
+    import sys
+    from types import SimpleNamespace
+
+    import uvicorn
+    from fastapi.staticfiles import StaticFiles
+    from fastapi.testclient import TestClient
+    from pypdf import PdfWriter
+
+    from evaluation import local_upstage_pilot as pilot
+    from evaluation import serve_worker
+
+    def deny_network(*args, **kwargs):
+        raise AssertionError("serve characterization must remain offline")
+
+    monkeypatch.setattr(socket.socket, "connect", deny_network)
+    monkeypatch.setattr(socket, "create_connection", deny_network)
+    monkeypatch.setattr(os, "environ", os.environ.copy())
+    pdf = tmp_path / "sample.pdf"
+    writer = PdfWriter()
+    writer.add_blank_page(width=72, height=72)
+    with pdf.open("wb") as stream:
+        writer.write(stream)
+    key_file = tmp_path / "test.env"
+    key_file.write_text("UPSTAGE_API_KEY=offline-test-only\n")
+    state = tmp_path / "state"
+    assets = tmp_path / "assets"
+    assets.mkdir()
+
+    def static_assets(*, directory):
+        assert directory == pilot.ROOT / "apps/web/dist/assets"
+        return StaticFiles(directory=assets)
+
+    monkeypatch.setattr("fastapi.staticfiles.StaticFiles", static_assets)
+    events = []
+    thread = SimpleNamespace(is_alive=lambda: True, join=lambda **kw: events.append(("join", kw)))
+    stop = SimpleNamespace(set=lambda: events.append("stop"))
+
+    def start(build_stage, runs, tenant):
+        assert callable(build_stage)
+        assert runs.store.jobs is not None
+        assert tenant
+        assert os.environ["UPSTAGE_API_KEY"] == "offline-test-only"
+        events.append("start")
+        return thread, stop
+
+    def serve(app, **options):
+        assert options == dict(host="127.0.0.1", port=port, access_log=False)
+        browser = json.loads((state / "browser.json").read_text())
+        assert (state / "browser.json").stat().st_mode & 0o777 == 0o600
+        with TestClient(app, base_url=f"https://localhost:{port}") as client:
+            assert client.get("/local/submission").status_code == 401
+            response = client.get(
+                browser["login_url"].replace("http:", "https:"), follow_redirects=False
+            )
+            assert response.status_code == 303
+            assert response.headers["location"] == "/documents/new"
+            assert all(
+                flag in response.headers["set-cookie"]
+                for flag in ("Secure", "HttpOnly", "SameSite=strict")
+            )
+            metadata = client.get("/local/submission")
+            assert metadata.status_code == 200
+            assert metadata.headers["cache-control"] == "no-store"
+            body = metadata.json()
+            assert body["worker_enabled"] is True
+            assert body["selected_pages"] == [1]
+            assert body["candidate_rule_pack_id"]
+            assert client.get("/local/missing").status_code == 404
+        events.append("serve")
+        if server_failure:
+            raise RuntimeError("synthetic server failure")
+
+    monkeypatch.setattr(serve_worker, "start_background", start)
+    monkeypatch.setattr(uvicorn, "run", serve)
+    # Only reserve an ephemeral loopback port; the uvicorn boundary is replaced.
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "pilot",
+            "--pdf",
+            str(pdf),
+            "--state",
+            str(state),
+            "--report-year",
+            "2025",
+            "--period-start",
+            "2024-01-01",
+            "--period-end",
+            "2024-12-31",
+            "--parser",
+            "local",
+            "--llm-provider",
+            "upstage",
+            "--key-file",
+            str(key_file),
+            "--serve",
+            "--serve-worker",
+            "--port",
+            str(port),
+        ],
+    )
+    if server_failure:
+        with pytest.raises(RuntimeError, match="^synthetic server failure$"):
+            pilot.main()
+    else:
+        assert pilot.main() == 0
+    assert events == ["start", "serve", "stop", ("join", {"timeout": 10})]
+    assert "UPSTAGE_API_KEY" not in os.environ

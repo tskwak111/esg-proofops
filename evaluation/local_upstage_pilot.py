@@ -922,11 +922,8 @@ def _run_live_stages(args, *, tenant_id: str, run_id: str) -> dict:
     return result
 
 
-def main():
-    # Use the installed CLI toolchain without changing the system Xcode selection.
-    cli_tools = Path("/Library/Developer/CommandLineTools")
-    if sys.platform == "darwin" and (cli_tools / "usr/bin/swift").is_file():
-        os.environ.setdefault("DEVELOPER_DIR", str(cli_tools))
+def _build_parser():
+    """Construct the existing CLI without parsing or applying profiles."""
     parser = argparse.ArgumentParser(description=__doc__)
     # --pdf/--report-year/--period-* are only needed to *create* a new pilot.
     # On --resume they are read back from the saved pilot.json so an operator
@@ -1311,320 +1308,262 @@ def main():
     )
     parser.add_argument("--analysis-policy-sha256", help="Explicit known execution policy pin")
     parser.add_argument("--extraction-fragment-guard", action="store_true")
-    args = parser.parse_args()
-    from proofops.application.analysis_profile import apply_pilot_profile
+    return parser
 
-    args.extraction_j8 = False
-    args.extraction_i3_wire = False
-    args.extraction_i4_identity = False
-    args.extraction_qc_native_figures = False
-    args.extraction_k6 = False
-    args.extraction_q1 = False
-    args.extraction_qt1 = False
-    apply_pilot_profile(args)
-    try:
-        apply_finals_candidate(args)
-    except ValueError as exc:
-        parser.error(str(exc))
-    if args.vision_parse is None:
-        args.vision_parse = "auto" if args.parser in ("upstage", "mixed-v1") else "off"
-    if args.parser in ("upstage", "mixed-v1") and args.vision_parse == "all":
-        parser.error("--vision-parse all requires --parser local")
-    if not args.resume:
-        if args.llm_provider in ("openrouter", "openai"):
-            if args.model is not None:
-                parser.error("--model requires --llm-provider upstage")
-            args.model = "gpt-6-luna" if args.llm_provider == "openai" else "openai/gpt-6-luna"
-        else:
-            args.model = args.model or "solar-pro3"
-    if args.serve_worker and not args.serve:
-        parser.error("--serve-worker requires --serve")
-    if args.serve:
-        if not 1 <= args.port <= 65535:
-            parser.error("--port must be between 1 and 65535")
-        with socket.socket() as probe:
-            try:
-                probe.bind(("127.0.0.1", args.port))
-            except OSError:
-                parser.error("Port is in use; use the existing review URL or another --port")
-    try:
-        parser_output_limit(args.parser_max_output_bytes)
-        parser_memory_limit(args.parser_memory_bytes)
-    except ValueError as exc:
-        parser.error(str(exc))
-    resume_state = args.state.resolve()
-    resume_manifest = resume_state / "pilot.json"
-    if resume_manifest.exists():
-        saved = json.loads(resume_manifest.read_text())
-        requested_profile = finals_candidate_profile(args)
-        if requested_profile is not None and saved.get("r108_profile") != requested_profile:
-            parser.error(f"cannot add {requested_profile} to an existing run; create a new run")
-        if args.parser_memory_bytes is not None and args.parser_memory_bytes != saved.get(
-            "parser_memory_bytes", 768 * 1024 * 1024
-        ):
-            parser.error("existing pilot parser memory limit changed; create a new run")
-        for field, default in (
-            ("pipeline_profile", None),
-            ("analysis_policy_sha256", None),
-            ("relation_profile", "source-quotes-v1"),
-            ("preliminary_profile", None),
-            ("claim_source_profile", None),
-            ("display_text_profile", None),
-        ):
-            requested = getattr(args, field)
-            if requested is not None and requested != saved.get(field, default):
-                parser.error(f"existing pilot {field} profile changed; create a new run")
-    try:
-        company_body = pilot_company_body(
-            args.company_name,
-            args.company_registration,
-            existing=args.resume or resume_manifest.exists(),
-        )
-    except ValueError as exc:
-        parser.error(str(exc))
-    if args.resume:
-        if args.invoke:
-            parser.error("--resume is read-only for model calls; omit --invoke")
-        if args.ai_project_review:
-            parser.error("--ai-project-review only applies to a NEW run; omit it with --resume")
-        if not resume_manifest.exists():
-            parser.error(f"--resume requires an existing pilot.json under {resume_state}")
-        requested_year_notation = args.extraction_year_notation
-        requested_context = args.extraction_context
-        requested_table_context = args.extraction_table_context
-        requested_rows = args.extraction_table_rows
-        requested_recall = args.extraction_recall_prompt
-        requested_atomic = args.extraction_atomic
-        requested_atomic_v3 = args.extraction_atomic_v3
-        requested_failure_diagnostics = args.extraction_failure_diagnostics
-        requested_sentence_prefix = args.extraction_sentence_prefix
-        requested_k1 = args.extraction_k1
-        requested_j7 = args.extraction_j7
-        requested_linewrap_join = args.extraction_linewrap_join
-        requested_source_ids = args.extraction_source_ids
-        requested_assertion_prompt = args.extraction_assertion_prompt
-        requested_complete_selection = args.extraction_complete_selection
-        requested_content_bounds = args.extraction_content_bounds
-        requested_preliminary_table = args.preliminary_table_context
-        requested_preliminary_role = args.preliminary_table_role
-        requested_preliminary_goal_role = args.preliminary_goal_role
-        requested_preliminary_sentence_fallback = args.preliminary_sentence_fallback
-        requested_preliminary_sentence_context = args.preliminary_sentence_context
-        requested_preliminary_actor_role = args.preliminary_actor_role
-        requested_preliminary_p2 = args.preliminary_p2
-        requested_compact_element_wire = args.compact_element_wire
-        requested_element_consistency = args.element_consistency
-        requested_position_order = args.position_context_order
-        requested_capacity_refresh = getattr(args, "capacity_refresh", False)
-        requested_render_resolution = args.claim_span_render_resolution
-        requested_bullet_spacing = args.claim_span_bullet_spacing
-        requested_typography = args.claim_span_typography
-        try:
-            apply_resume_metadata(args, json.loads(resume_manifest.read_text()))
-        except ValueError as exc:
-            parser.error(str(exc))
-        if requested_year_notation and not args.extraction_year_notation:
-            parser.error("--resume cannot add extraction year-notation; create a new run")
-        if requested_context and not args.extraction_context:
-            parser.error("--resume cannot add extraction context; create a new run")
-        if requested_table_context and not args.extraction_table_context:
-            parser.error("--resume cannot add extraction table context; create a new run")
-        if requested_rows and not args.extraction_table_rows:
-            parser.error("--resume cannot add extraction table rows; create a new run")
-        if requested_recall and not args.extraction_recall_prompt:
-            parser.error("--resume cannot add extraction recall prompt; create a new run")
-        if requested_atomic and not args.extraction_atomic:
-            parser.error("--resume cannot add extraction atomic; create a new run")
-        if requested_atomic_v3 and not args.extraction_atomic_v3:
-            parser.error("--resume cannot add extraction atomic v3; create a new run")
-        if requested_failure_diagnostics and not args.extraction_failure_diagnostics:
-            parser.error("--resume cannot add extraction failure diagnostics; create a new run")
-        if requested_sentence_prefix and not args.extraction_sentence_prefix:
-            parser.error("--resume cannot add extraction sentence prefix; create a new run")
-        if requested_k1 and not args.extraction_k1:
-            parser.error("--resume cannot add K1 boundaries; create a new run")
-        if requested_j7 and not args.extraction_j7:
-            parser.error("--resume cannot add extraction J7; create a new run")
-        if requested_linewrap_join and not args.extraction_linewrap_join:
-            parser.error("--resume cannot add extraction linewrap join; create a new run")
-        if requested_source_ids and not args.extraction_source_ids:
-            parser.error("--resume cannot add extraction source-id selection; create a new run")
-        if requested_assertion_prompt and not args.extraction_assertion_prompt:
-            parser.error("--resume cannot add extraction assertion prompt; create a new run")
-        if requested_complete_selection and not args.extraction_complete_selection:
-            parser.error("--resume cannot add extraction complete selection; create a new run")
-        if requested_content_bounds and not args.extraction_content_bounds:
-            parser.error("--resume cannot add extraction content bounds; create a new run")
-        if requested_preliminary_table and not args.preliminary_table_context:
-            parser.error("--resume cannot add preliminary table context; create a new run")
-        if requested_preliminary_role and not args.preliminary_table_role:
-            parser.error("--resume cannot add preliminary table role resolution; create a new run")
-        if requested_preliminary_goal_role and not args.preliminary_goal_role:
-            parser.error("--resume cannot add preliminary goal role; create a new run")
-        if requested_preliminary_sentence_fallback and not args.preliminary_sentence_fallback:
-            parser.error("--resume cannot add sentence fallback; create a new run")
-        if requested_preliminary_sentence_context and not args.preliminary_sentence_context:
-            parser.error("--resume cannot add sentence context; create a new run")
-        if requested_preliminary_actor_role and not args.preliminary_actor_role:
-            parser.error("--resume cannot add preliminary actor role; create a new run")
-        if requested_preliminary_p2 and not args.preliminary_p2:
-            parser.error("--resume cannot add preliminary P2; create a new run")
-        if requested_element_consistency and not args.element_consistency:
-            parser.error("--resume cannot add element consistency; create a new run")
-        if requested_compact_element_wire and not args.compact_element_wire:
-            parser.error("--resume cannot add compact element wire; create a new run")
-        if requested_position_order and not args.position_context_order:
-            parser.error("--resume cannot add position context order; create a new run")
-        if requested_capacity_refresh and not args.capacity_refresh:
-            parser.error("--resume cannot add capacity refresh; create a new run")
-        if requested_render_resolution and not args.claim_span_render_resolution:
-            parser.error("--resume cannot add claim-span render resolution; create a new run")
-        if requested_bullet_spacing and not args.claim_span_bullet_spacing:
-            parser.error("--resume cannot add claim-span bullet spacing; create a new run")
-        if requested_typography and not args.claim_span_typography:
-            parser.error("--resume cannot add claim-span typography; create a new run")
-    elif (
-        args.pdf is None
-        or args.report_year is None
-        or args.period_start is None
-        or (args.period_end is None)
-    ):
-        parser.error("--pdf, --report-year, --period-start and --period-end are required")
-    if (args.preliminary_profile or args.relation_profile == "decision-gate-v1") and (
-        not args.live_tagging or args.llm_provider != "openrouter" or args.position_context_order
-    ):
-        parser.error(
-            "decision profiles require --live-tagging --llm-provider openrouter "
-            "and source context order"
-        )
-    if args.relation_profile is None:
-        args.relation_profile = "source-quotes-v1"
-    if args.relation_profile != "source-quotes-v1" and not args.live_relations:
-        parser.error("--relation-profile requires --live-relations")
-    if args.claim_source_profile is not None and not args.verify_claim_spans:
-        parser.error("--claim-source-profile requires --verify-claim-spans")
-    if args.key_file is None:
-        args.key_file = ROOT / (f".env.{args.llm_provider}.local")
-    if args.live_relations and not args.live_tagging:
-        parser.error("--live-relations requires --live-tagging")
-    if args.element_consistency and not args.live_tagging:
-        parser.error("--element-consistency requires --live-tagging")
-    if args.compact_element_wire and not args.live_tagging:
-        parser.error("--compact-element-wire requires --live-tagging")
-    if args.preliminary_sentence_fallback and not args.preliminary_sentence_context:
-        parser.error("--preliminary-sentence-fallback requires --preliminary-sentence-context")
-    if args.preliminary_sentence_context and (
-        not args.preliminary_actor_role
-        or args.preliminary_p2
-        or args.preliminary_profile
-        or args.position_context_order
-    ):
-        parser.error("--preliminary-sentence-context requires actor role and excludes alternatives")
-    if args.preliminary_context and not args.live_tagging:
-        parser.error("--preliminary-context requires --live-tagging")
-    if args.preliminary_table_context and not args.preliminary_context:
-        parser.error("--preliminary-table-context requires --preliminary-context")
-    if args.preliminary_table_role and not args.preliminary_table_context:
-        parser.error("--preliminary-table-role requires --preliminary-table-context")
-    if args.preliminary_goal_role and not args.preliminary_table_role:
-        parser.error("--preliminary-goal-role requires --preliminary-table-role")
-    if args.preliminary_p2 and (
-        not args.preliminary_table_role or args.preliminary_goal_role or args.preliminary_actor_role
-    ):
-        parser.error("--preliminary-p2 requires only --preliminary-table-role")
-    if args.position_context_order and not args.extraction_context:
-        parser.error("--position-context-order requires --extraction-context")
-    if args.position_context_order and args.live_tagging and not args.preliminary_table_role:
-        parser.error("--position-context-order with live tagging requires --preliminary-table-role")
-    if args.position_context_order and (args.preliminary_goal_role or args.preliminary_actor_role):
-        parser.error("--position-context-order requires only preliminary table role")
-    if args.claim_span_render_resolution and not args.verify_claim_spans:
-        parser.error("--claim-span-render-resolution requires --verify-claim-spans")
-    if args.claim_span_bullet_spacing and not args.claim_span_render_resolution:
-        # Refused rather than silently overriding one recovery with the other.
-        parser.error("--claim-span-bullet-spacing requires --claim-span-render-resolution")
-    if args.claim_span_typography and not args.claim_span_bullet_spacing:
-        # Same reason: the typography wrapper wraps the bullet wrapper's own
-        # rendered read, so it cannot replace it.
-        parser.error("--claim-span-typography requires --claim-span-bullet-spacing")
-    if args.extraction_table_context and not args.extraction_context:
-        parser.error("--extraction-table-context requires --extraction-context")
-    for name in ("table_rows", "recall_prompt"):
-        if getattr(args, "extraction_" + name) and not args.extraction_source_ids:
-            parser.error(
-                "--extraction-" + name.replace("_", "-") + " requires --extraction-source-ids"
-            )
-    if args.extraction_atomic and (args.extraction_table_rows or args.extraction_recall_prompt):
-        parser.error("row/recall profiles cannot mix with --extraction-atomic")
-    if args.extraction_atomic and not args.extraction_source_ids:
-        parser.error("--extraction-atomic requires --extraction-source-ids")
-    if args.extraction_atomic_v3 and not (args.extraction_atomic or args.extraction_table_rows):
-        parser.error("--extraction-atomic-v3 requires --extraction-atomic")
-    if args.extraction_failure_diagnostics and not args.extraction_source_ids:
-        parser.error("--extraction-failure-diagnostics requires --extraction-source-ids")
-    if args.extraction_sentence_prefix and (
-        not args.extraction_context or not args.extraction_linewrap_join or args.extraction_atomic
-    ):
-        parser.error(
-            "--extraction-sentence-prefix requires --extraction-context and "
-            "--extraction-linewrap-join without atomic"
-        )
-    if args.extraction_linewrap_join and (not args.extraction_source_ids or args.extraction_atomic):
-        parser.error(
-            "--extraction-linewrap-join requires --extraction-source-ids and no atomic mode"
-        )
-    if args.extraction_content_bounds and not args.extraction_source_ids:
-        parser.error("--extraction-content-bounds requires --extraction-source-ids")
-    if args.extraction_assertion_prompt and not args.extraction_source_ids:
-        parser.error("--extraction-assertion-prompt requires --extraction-source-ids")
-    if args.extraction_complete_selection and not args.extraction_assertion_prompt:
-        parser.error("--extraction-complete-selection requires --extraction-assertion-prompt")
-    if args.raster_ocr and not args.verify_paragraphs:
-        parser.error("--raster-ocr requires --verify-paragraphs")
-    if args.native_quote_typography and (not args.verify_paragraphs or args.raster_ocr):
-        parser.error("--native-quote-typography requires --verify-paragraphs without --raster-ocr")
-    raster = (
-        raster_settings(max_pages=args.raster_max_pages, max_calls=args.raster_max_calls)
-        if args.raster_ocr
-        else {}
-    )
-    if not 0 <= args.mixed_ocr_max_pages <= 30 or (
-        args.mixed_ocr_max_pages and args.parser != "mixed-v1"
-    ):
-        parser.error("mixed OCR allowance requires mixed-v1 and 0..30 pages")
-    if args.parser == "mixed-v1" and not args.claim_pages:
-        parser.error("mixed-v1 requires explicit --claim-pages")
-    pages = sorted(set(int(p) for p in args.pages.split(",")))
-    from proofops.application.claim_scope import MAX_EXTRACTION_BATCH_CALLS
 
-    if not 1 <= args.max_calls <= MAX_EXTRACTION_BATCH_CALLS or not pages or min(pages) < 1:
-        parser.error("invalid declared pages/call limit")
+def _restore_resume_args(args, parser, resume_state, resume_manifest):
+    """Restore saved inputs and reject new capabilities on a read-only resume."""
+    if args.invoke:
+        parser.error("--resume is read-only for model calls; omit --invoke")
+    if args.ai_project_review:
+        parser.error("--ai-project-review only applies to a NEW run; omit it with --resume")
+    if not resume_manifest.exists():
+        parser.error(f"--resume requires an existing pilot.json under {resume_state}")
+    requested_year_notation = args.extraction_year_notation
+    requested_context = args.extraction_context
+    requested_table_context = args.extraction_table_context
+    requested_rows = args.extraction_table_rows
+    requested_recall = args.extraction_recall_prompt
+    requested_atomic = args.extraction_atomic
+    requested_atomic_v3 = args.extraction_atomic_v3
+    requested_failure_diagnostics = args.extraction_failure_diagnostics
+    requested_sentence_prefix = args.extraction_sentence_prefix
+    requested_k1 = args.extraction_k1
+    requested_j7 = args.extraction_j7
+    requested_linewrap_join = args.extraction_linewrap_join
+    requested_source_ids = args.extraction_source_ids
+    requested_assertion_prompt = args.extraction_assertion_prompt
+    requested_complete_selection = args.extraction_complete_selection
+    requested_content_bounds = args.extraction_content_bounds
+    requested_preliminary_table = args.preliminary_table_context
+    requested_preliminary_role = args.preliminary_table_role
+    requested_preliminary_goal_role = args.preliminary_goal_role
+    requested_preliminary_sentence_fallback = args.preliminary_sentence_fallback
+    requested_preliminary_sentence_context = args.preliminary_sentence_context
+    requested_preliminary_actor_role = args.preliminary_actor_role
+    requested_preliminary_p2 = args.preliminary_p2
+    requested_compact_element_wire = args.compact_element_wire
+    requested_element_consistency = args.element_consistency
+    requested_position_order = args.position_context_order
+    requested_capacity_refresh = getattr(args, "capacity_refresh", False)
+    requested_render_resolution = args.claim_span_render_resolution
+    requested_bullet_spacing = args.claim_span_bullet_spacing
+    requested_typography = args.claim_span_typography
     try:
-        extraction_budget = extraction_budget_settings(args.max_calls, args.extraction_total_calls)
+        apply_resume_metadata(args, json.loads(resume_manifest.read_text()))
     except ValueError as exc:
         parser.error(str(exc))
-    claim_pages: list[int] | None = None
-    if args.claim_pages is not None:
-        claim_pages = sorted(set(int(p) for p in args.claim_pages.split(",")))
-        if not claim_pages or not set(claim_pages) <= set(pages):
-            parser.error("--claim-pages must be a non-empty subset of --pages")
-    from evaluation.scope_input import MAX_UPLOAD_BYTES
+    if requested_year_notation and not args.extraction_year_notation:
+        parser.error("--resume cannot add extraction year-notation; create a new run")
+    if requested_context and not args.extraction_context:
+        parser.error("--resume cannot add extraction context; create a new run")
+    if requested_table_context and not args.extraction_table_context:
+        parser.error("--resume cannot add extraction table context; create a new run")
+    if requested_rows and not args.extraction_table_rows:
+        parser.error("--resume cannot add extraction table rows; create a new run")
+    if requested_recall and not args.extraction_recall_prompt:
+        parser.error("--resume cannot add extraction recall prompt; create a new run")
+    if requested_atomic and not args.extraction_atomic:
+        parser.error("--resume cannot add extraction atomic; create a new run")
+    if requested_atomic_v3 and not args.extraction_atomic_v3:
+        parser.error("--resume cannot add extraction atomic v3; create a new run")
+    if requested_failure_diagnostics and not args.extraction_failure_diagnostics:
+        parser.error("--resume cannot add extraction failure diagnostics; create a new run")
+    if requested_sentence_prefix and not args.extraction_sentence_prefix:
+        parser.error("--resume cannot add extraction sentence prefix; create a new run")
+    if requested_k1 and not args.extraction_k1:
+        parser.error("--resume cannot add K1 boundaries; create a new run")
+    if requested_j7 and not args.extraction_j7:
+        parser.error("--resume cannot add extraction J7; create a new run")
+    if requested_linewrap_join and not args.extraction_linewrap_join:
+        parser.error("--resume cannot add extraction linewrap join; create a new run")
+    if requested_source_ids and not args.extraction_source_ids:
+        parser.error("--resume cannot add extraction source-id selection; create a new run")
+    if requested_assertion_prompt and not args.extraction_assertion_prompt:
+        parser.error("--resume cannot add extraction assertion prompt; create a new run")
+    if requested_complete_selection and not args.extraction_complete_selection:
+        parser.error("--resume cannot add extraction complete selection; create a new run")
+    if requested_content_bounds and not args.extraction_content_bounds:
+        parser.error("--resume cannot add extraction content bounds; create a new run")
+    if requested_preliminary_table and not args.preliminary_table_context:
+        parser.error("--resume cannot add preliminary table context; create a new run")
+    if requested_preliminary_role and not args.preliminary_table_role:
+        parser.error("--resume cannot add preliminary table role resolution; create a new run")
+    if requested_preliminary_goal_role and not args.preliminary_goal_role:
+        parser.error("--resume cannot add preliminary goal role; create a new run")
+    if requested_preliminary_sentence_fallback and not args.preliminary_sentence_fallback:
+        parser.error("--resume cannot add sentence fallback; create a new run")
+    if requested_preliminary_sentence_context and not args.preliminary_sentence_context:
+        parser.error("--resume cannot add sentence context; create a new run")
+    if requested_preliminary_actor_role and not args.preliminary_actor_role:
+        parser.error("--resume cannot add preliminary actor role; create a new run")
+    if requested_preliminary_p2 and not args.preliminary_p2:
+        parser.error("--resume cannot add preliminary P2; create a new run")
+    if requested_element_consistency and not args.element_consistency:
+        parser.error("--resume cannot add element consistency; create a new run")
+    if requested_compact_element_wire and not args.compact_element_wire:
+        parser.error("--resume cannot add compact element wire; create a new run")
+    if requested_position_order and not args.position_context_order:
+        parser.error("--resume cannot add position context order; create a new run")
+    if requested_capacity_refresh and not args.capacity_refresh:
+        parser.error("--resume cannot add capacity refresh; create a new run")
+    if requested_render_resolution and not args.claim_span_render_resolution:
+        parser.error("--resume cannot add claim-span render resolution; create a new run")
+    if requested_bullet_spacing and not args.claim_span_bullet_spacing:
+        parser.error("--resume cannot add claim-span bullet spacing; create a new run")
+    if requested_typography and not args.claim_span_typography:
+        parser.error("--resume cannot add claim-span typography; create a new run")
 
-    limit = MAX_UPLOAD_BYTES
-    try:
-        source_size = args.pdf.stat().st_size
-    except OSError as exc:
-        parser.error(f"Cannot read --pdf: {exc}")
-    if source_size > limit:
-        parser.error(f"--pdf exceeds the supported upload limit of {limit} bytes (150 MiB)")
-    state = args.state.resolve()
-    state.mkdir(parents=True, exist_ok=True, mode=0o700)
-    manifest_path = state / "pilot.json"
-    source = args.pdf.resolve().read_bytes()
-    digest = sha256(source).hexdigest()
-    origin = f"http://localhost:{args.port}"
+
+def _validate_existing_pilot(args, parser, manifest, *, raster, digest, claim_pages):
+    """Reject changes to the saved source, scope, and policy before execution."""
+    if manifest.get("vision_parse", "off") != args.vision_parse:
+        raise ValueError("pilot vision parse policy changed; create a new state directory")
+    if manifest.get("mixed_ocr_max_pages", 0) != args.mixed_ocr_max_pages:
+        raise ValueError("existing pilot mixed OCR allowance changed; create a new run")
+    if manifest.get("parser_mode", "local") != args.parser:
+        raise ValueError("pilot parser mode changed; create a new state directory")
+    if manifest.get("capacity_refresh", False) != getattr(args, "capacity_refresh", False):
+        raise ValueError("pilot capacity refresh policy changed; create a new state directory")
+    if args.extraction_total_calls is not None and (
+        manifest.get("extraction_total_calls") != args.extraction_total_calls
+    ):
+        raise ValueError("pilot extraction total changed; create a new state directory")
+    if manifest.get("raster_ocr", False) != args.raster_ocr or (
+        args.raster_ocr and manifest.get("raster_policy") != raster["raster_policy"]
+    ):
+        raise ValueError("pilot raster policy changed; create a new state directory")
+    if manifest.get("preliminary_profile") != args.preliminary_profile:
+        raise ValueError("existing pilot preliminary profile changed; create a new run")
+    if manifest.get("relation_profile", "source-quotes-v1") != args.relation_profile:
+        raise ValueError("pilot relation profile changed; create a new state directory")
+    if manifest.get("display_text_profile") != args.display_text_profile:
+        raise ValueError("pilot display text profile changed; create a new state directory")
+    if manifest.get("claim_source_profile") != args.claim_source_profile:
+        raise ValueError("pilot claim source profile changed; create a new state directory")
+    if manifest.get("live_relations", False) != args.live_relations:
+        raise ValueError("pilot relation policy changed; create a new state directory")
+    if manifest.get("preliminary_context", False) != args.preliminary_context:
+        raise ValueError("pilot preliminary context policy changed; create a new state directory")
+    if manifest.get("preliminary_table_context", False) != args.preliminary_table_context:
+        raise ValueError("pilot preliminary table policy changed; create a new state directory")
+    if manifest.get("preliminary_table_role", False) != args.preliminary_table_role:
+        raise ValueError("pilot preliminary table role policy changed; create a new state dir")
+    if manifest.get("preliminary_goal_role", False) != args.preliminary_goal_role:
+        raise ValueError("pilot preliminary goal role policy changed; create a new state dir")
+    if manifest.get("preliminary_sentence_fallback", False) != args.preliminary_sentence_fallback:
+        raise ValueError("pilot sentence fallback policy changed; create a new state dir")
+    if manifest.get("preliminary_sentence_context", False) != args.preliminary_sentence_context:
+        raise ValueError("pilot sentence context policy changed; create a new state dir")
+    if manifest.get("preliminary_p2", False) != args.preliminary_p2:
+        raise ValueError("pilot preliminary P2 policy changed; create a new state dir")
+    if manifest.get("element_consistency", False) != args.element_consistency:
+        raise ValueError("pilot element consistency changed; create a new state dir")
+    if manifest.get("compact_element_wire", False) != args.compact_element_wire:
+        raise ValueError("pilot element wire policy changed; create a new state dir")
+    if args.position_context_order:
+        from proofops.application.tagging.preliminary import CONTEXT_POSITION_ORDER
+
+        if manifest.get("position_context_order") != CONTEXT_POSITION_ORDER:
+            raise ValueError("pilot context order policy changed; create a new state dir")
+    elif manifest.get("position_context_order") is not None:
+        raise ValueError("pilot context order policy changed; create a new state dir")
+    if manifest.get("live_tagging", False) != args.live_tagging or (
+        args.live_tagging and manifest.get("tagging_max_calls") != args.tagging_max_calls
+    ):
+        raise ValueError("pilot tagging policy changed; create a new state directory")
+    if manifest.get("repair_table_headers", False) != args.repair_table_headers:
+        raise ValueError("pilot table repair changed; create a new state directory")
+    if manifest.get("verify_merged_tables", False) != args.verify_merged_tables:
+        raise ValueError("pilot merged table verification changed; create a new state directory")
+    if manifest.get("verify_tables", False) != args.verify_tables:
+        raise ValueError("pilot table verification changed; create a new state directory")
+    if manifest.get("verify_selected_cells", False) != args.verify_selected_cells:
+        raise ValueError("pilot selected cell policy changed; create a new state directory")
+    if manifest.get("native_quote_typography", False) != args.native_quote_typography:
+        raise ValueError("pilot quote typography policy changed; create a new state directory")
+    if manifest.get("extraction_year_notation", False) != args.extraction_year_notation:
+        raise ValueError(
+            "pilot extraction year-notation policy changed; create a new state directory"
+        )
+    if manifest.get("extraction_context", False) != args.extraction_context:
+        raise ValueError("pilot extraction context policy changed; create a new state directory")
+    if manifest.get("extraction_table_context", False) != args.extraction_table_context:
+        raise ValueError(
+            "pilot extraction table context policy changed; create a new state directory"
+        )
+    for name in (
+        "extraction_sentence_prefix",
+        "extraction_k1",
+        "extraction_table_rows",
+        "extraction_recall_prompt",
+        "extraction_fragment_guard",
+        "extraction_pb1",
+        "extraction_w9",
+        "extraction_j3",
+        "extraction_k3",
+        "extraction_j7",
+        "extraction_j8",
+        "extraction_i3_wire",
+        "extraction_i4_identity",
+        "extraction_qc_native_figures",
+        "extraction_fxg_split",
+        "extraction_qt1_goal_split",
+        "extraction_h1",
+        "extraction_i5_tables",
+        "extraction_k6",
+        "extraction_q1",
+        "extraction_qt1",
+        "extraction_pb1_context_guard",
+        "extraction_table_footnotes",
+        "extraction_located_table_context",
+    ):
+        if manifest.get(name, False) != getattr(args, name, False):
+            raise ValueError(name + " policy changed; create a new state directory")
+    if manifest.get("extraction_atomic", False) != args.extraction_atomic:
+        raise ValueError("pilot extraction atomic policy changed; create a new state directory")
+    if manifest.get("extraction_atomic_v3", False) != args.extraction_atomic_v3:
+        raise ValueError("pilot extraction atomic v3 policy changed; create a new state directory")
+    if manifest.get("extraction_failure_diagnostics", False) != args.extraction_failure_diagnostics:
+        raise ValueError(
+            "pilot extraction failure diagnostics changed; create a new state directory"
+        )
+    if manifest.get("extraction_linewrap_join", False) != args.extraction_linewrap_join:
+        raise ValueError(
+            "pilot extraction linewrap join policy changed; create a new state directory"
+        )
+    if manifest.get("extraction_source_ids", False) != args.extraction_source_ids:
+        raise ValueError("pilot extraction source-id policy changed; create a new state directory")
+    if manifest.get("extraction_content_bounds", False) != args.extraction_content_bounds:
+        raise ValueError(
+            "pilot extraction content-bounds policy changed; create a new state directory"
+        )
+    if manifest["source_sha256"] != digest:
+        raise ValueError("pilot source changed")
+    if manifest.get("claim_pages") != claim_pages:
+        raise ValueError("pilot claim-page scope changed; create a new state directory")
+    if manifest.get("verify_claim_spans", False) != args.verify_claim_spans:
+        parser.error("Existing state has a different claim span policy")
+    if manifest.get("claim_span_render_resolution", False) != args.claim_span_render_resolution:
+        parser.error("Existing state has a different claim span render-resolution policy")
+    if manifest.get("claim_span_bullet_spacing", False) != args.claim_span_bullet_spacing:
+        parser.error("Existing state has a different claim span bullet-spacing policy")
+    if manifest.get("claim_span_typography", False) != args.claim_span_typography:
+        parser.error("Existing state has a different claim span typography policy")
+    if manifest.get("verify_paragraphs", False) != args.verify_paragraphs:
+        raise ValueError("pilot verification policy changed; create a new state directory")
+    if manifest.get("model", "solar-pro3") != args.model:
+        raise ValueError("pilot model changed; create a new state directory")
+
+
+def _prepare_run_settings(
+    args, parser, *, state, manifest_path, pages, claim_pages, extraction_budget, raster
+):
+    """Write new-run settings; preserve existing parser and settings files on resume."""
     from proofops.application.ingest.graph_fusion import ParserProfile
     from proofops_agent.upstage_extraction import _profile_with_options
+
+    from evaluation.scope_input import MAX_UPLOAD_BYTES
 
     if not manifest_path.exists():
         from proofops.adapters.local.table_source_verification import policy_sha256 as table_policy
@@ -1934,6 +1873,362 @@ def main():
                     )
                 )
         (state / "settings.json").write_text(json.dumps(settings))
+        return settings, extraction_profile
+    return None, None
+
+
+def _serve_pilot(args, *, response, app, c, user, tenant, run_id, manifest, state, origin):
+    """Serve authenticated local review and clean up an explicitly enabled worker."""
+    # A fresh worker session has no published claims yet. Serve its upload
+    # entry without invoking the initial queued run or weakening read-only replays.
+    fresh_worker = (
+        args.serve_worker
+        and response.status_code == 409
+        and c.runs.store.jobs.get_run(tenant, run_id).get("status") == "queued"
+    )
+    if response.status_code != 200 and not fresh_worker:
+        raise SystemExit(
+            f"Cannot serve this run: claims HTTP {response.status_code}; "
+            "inspect the saved inspection JSON"
+        )
+    import uvicorn
+    from fastapi import HTTPException
+    from fastapi.responses import FileResponse
+    from fastapi.staticfiles import StaticFiles
+
+    login_token = secrets.token_urlsafe(24)
+
+    @app.get("/__local/" + login_token, include_in_schema=False)
+    def login():
+        return local_login_response(
+            c.auth_store.sessions, user, tenant, run_id, new_analysis=fresh_worker
+        )
+
+    app.mount("/assets", StaticFiles(directory=ROOT / "apps/web/dist/assets"))
+
+    # Authoritative candidate rule pack comes from the created run's frozen
+    # META, never fabricated: the pilot registers only a draft pack, so this
+    # id is a tagging-only reference the frontend labels as such. It is never
+    # an approval and does not activate anything.
+    run_meta = c.runs.store.jobs.get_run(tenant, run_id)
+    candidate_rule_pack_id = run_meta.get("rule_pack_id")
+    served_pages = list(manifest.get("selected_pages", []))
+
+    @app.get("/local/submission", include_in_schema=False)
+    def local_submission(request: Request):
+        from fastapi.responses import JSONResponse
+        from proofops_api.auth import _authorize
+        from starlette.responses import Response as _Response
+
+        # Reuse the shared tenant authorization + HTTP error mapping.
+        result = _authorize(request, c.auth_store, time.time(), "viewer")
+        if isinstance(result, _Response):
+            return result
+        if result.tenant_id != tenant:
+            return JSONResponse(
+                {"error": {"code": "RESOURCE_NOT_FOUND", "message": "tenant not found"}},
+                status_code=404,
+            )
+        return JSONResponse(
+            dict(
+                worker_enabled=bool(worker_thread and worker_thread.is_alive()),
+                candidate_rule_pack_id=candidate_rule_pack_id,
+                selected_pages=served_pages,
+            ),
+            headers={"Cache-Control": "no-store"},
+        )
+
+    @app.get("/{path:path}", include_in_schema=False)
+    def web(path: str):
+        if path.startswith(("v1/", "local/", "__local/")):
+            raise HTTPException(404)
+        return FileResponse(ROOT / "apps/web/dist/index.html")
+
+    worker_thread = worker_stop = None
+    if args.serve_worker:
+        # Paid consent: reuse the same Upstage key + shared USD20 ledger the
+        # one-shot --invoke path uses; the loop mints no new allowance.
+        key_lines = args.key_file.read_text().splitlines()
+        key_name = {
+            "openai": "OPENAI_API_KEY",
+            "openrouter": "OPENROUTER_API_KEY",
+            "upstage": "UPSTAGE_API_KEY",
+        }[args.llm_provider]
+        os.environ[key_name] = next(
+            line.split("=", 1)[1].strip().strip('"').strip("'")
+            for line in key_lines
+            if line.startswith(key_name + "=")
+        )
+        if args.parser in ("upstage", "mixed-v1") and key_name != "UPSTAGE_API_KEY":
+            os.environ["UPSTAGE_API_KEY"] = next(
+                line.split("=", 1)[1].strip().strip('"').strip("'")
+                for line in (ROOT / ".env.upstage.local").read_text().splitlines()
+                if line.startswith("UPSTAGE_API_KEY=")
+            )
+        if args.vision_parse != "off" and key_name != "OPENROUTER_API_KEY":
+            os.environ["OPENROUTER_API_KEY"] = next(
+                line.split("=", 1)[1].strip().strip('"').strip("'")
+                for line in (ROOT / ".env.openrouter.local").read_text().splitlines()
+                if line.startswith("OPENROUTER_API_KEY=")
+            )
+        from proofops_worker.composition import build_composition
+
+        from evaluation.serve_worker import start_background
+
+        def build_stage(*, stage):
+            return build_composition(
+                stage=stage,
+                verify_paragraphs=args.verify_paragraphs and stage == "parse",
+                native_typography_tolerance=args.native_quote_typography and stage == "parse",
+                raster_ocr=args.raster_ocr and stage == "parse",
+            )
+
+        worker_thread, worker_stop = start_background(build_stage, c.runs, tenant)
+        print("Local serve-worker enabled: driving new web-queued runs", flush=True)
+
+    (state / "browser.json").write_text(
+        json.dumps(dict(login_url=origin + "/__local/" + login_token, run_id=run_id))
+    )
+    (state / "browser.json").chmod(0o600)
+    print("Open review: " + origin + "/__local/" + login_token, flush=True)
+    try:
+        uvicorn.run(app, host="127.0.0.1", port=args.port, access_log=False)
+    finally:
+        if worker_stop is not None:
+            worker_stop.set()
+            worker_thread.join(timeout=10)
+            os.environ.pop(key_name, None)
+
+
+def main():
+    # Use the installed CLI toolchain without changing the system Xcode selection.
+    cli_tools = Path("/Library/Developer/CommandLineTools")
+    if sys.platform == "darwin" and (cli_tools / "usr/bin/swift").is_file():
+        os.environ.setdefault("DEVELOPER_DIR", str(cli_tools))
+    parser = _build_parser()
+    args = parser.parse_args()
+    from proofops.application.analysis_profile import apply_pilot_profile
+
+    args.extraction_j8 = False
+    args.extraction_i3_wire = False
+    args.extraction_i4_identity = False
+    args.extraction_qc_native_figures = False
+    args.extraction_k6 = False
+    args.extraction_q1 = False
+    args.extraction_qt1 = False
+    apply_pilot_profile(args)
+    try:
+        apply_finals_candidate(args)
+    except ValueError as exc:
+        parser.error(str(exc))
+    if args.vision_parse is None:
+        args.vision_parse = "auto" if args.parser in ("upstage", "mixed-v1") else "off"
+    if args.parser in ("upstage", "mixed-v1") and args.vision_parse == "all":
+        parser.error("--vision-parse all requires --parser local")
+    if not args.resume:
+        if args.llm_provider in ("openrouter", "openai"):
+            if args.model is not None:
+                parser.error("--model requires --llm-provider upstage")
+            args.model = "gpt-6-luna" if args.llm_provider == "openai" else "openai/gpt-6-luna"
+        else:
+            args.model = args.model or "solar-pro3"
+    if args.serve_worker and not args.serve:
+        parser.error("--serve-worker requires --serve")
+    if args.serve:
+        if not 1 <= args.port <= 65535:
+            parser.error("--port must be between 1 and 65535")
+        with socket.socket() as probe:
+            try:
+                probe.bind(("127.0.0.1", args.port))
+            except OSError:
+                parser.error("Port is in use; use the existing review URL or another --port")
+    try:
+        parser_output_limit(args.parser_max_output_bytes)
+        parser_memory_limit(args.parser_memory_bytes)
+    except ValueError as exc:
+        parser.error(str(exc))
+    resume_state = args.state.resolve()
+    resume_manifest = resume_state / "pilot.json"
+    if resume_manifest.exists():
+        saved = json.loads(resume_manifest.read_text())
+        requested_profile = finals_candidate_profile(args)
+        if requested_profile is not None and saved.get("r108_profile") != requested_profile:
+            parser.error(f"cannot add {requested_profile} to an existing run; create a new run")
+        if args.parser_memory_bytes is not None and args.parser_memory_bytes != saved.get(
+            "parser_memory_bytes", 768 * 1024 * 1024
+        ):
+            parser.error("existing pilot parser memory limit changed; create a new run")
+        for field, default in (
+            ("pipeline_profile", None),
+            ("analysis_policy_sha256", None),
+            ("relation_profile", "source-quotes-v1"),
+            ("preliminary_profile", None),
+            ("claim_source_profile", None),
+            ("display_text_profile", None),
+        ):
+            requested = getattr(args, field)
+            if requested is not None and requested != saved.get(field, default):
+                parser.error(f"existing pilot {field} profile changed; create a new run")
+    try:
+        company_body = pilot_company_body(
+            args.company_name,
+            args.company_registration,
+            existing=args.resume or resume_manifest.exists(),
+        )
+    except ValueError as exc:
+        parser.error(str(exc))
+    if args.resume:
+        _restore_resume_args(args, parser, resume_state, resume_manifest)
+    elif (
+        args.pdf is None
+        or args.report_year is None
+        or args.period_start is None
+        or (args.period_end is None)
+    ):
+        parser.error("--pdf, --report-year, --period-start and --period-end are required")
+    if (args.preliminary_profile or args.relation_profile == "decision-gate-v1") and (
+        not args.live_tagging or args.llm_provider != "openrouter" or args.position_context_order
+    ):
+        parser.error(
+            "decision profiles require --live-tagging --llm-provider openrouter "
+            "and source context order"
+        )
+    if args.relation_profile is None:
+        args.relation_profile = "source-quotes-v1"
+    if args.relation_profile != "source-quotes-v1" and not args.live_relations:
+        parser.error("--relation-profile requires --live-relations")
+    if args.claim_source_profile is not None and not args.verify_claim_spans:
+        parser.error("--claim-source-profile requires --verify-claim-spans")
+    if args.key_file is None:
+        args.key_file = ROOT / (f".env.{args.llm_provider}.local")
+    if args.live_relations and not args.live_tagging:
+        parser.error("--live-relations requires --live-tagging")
+    if args.element_consistency and not args.live_tagging:
+        parser.error("--element-consistency requires --live-tagging")
+    if args.compact_element_wire and not args.live_tagging:
+        parser.error("--compact-element-wire requires --live-tagging")
+    if args.preliminary_sentence_fallback and not args.preliminary_sentence_context:
+        parser.error("--preliminary-sentence-fallback requires --preliminary-sentence-context")
+    if args.preliminary_sentence_context and (
+        not args.preliminary_actor_role
+        or args.preliminary_p2
+        or args.preliminary_profile
+        or args.position_context_order
+    ):
+        parser.error("--preliminary-sentence-context requires actor role and excludes alternatives")
+    if args.preliminary_context and not args.live_tagging:
+        parser.error("--preliminary-context requires --live-tagging")
+    if args.preliminary_table_context and not args.preliminary_context:
+        parser.error("--preliminary-table-context requires --preliminary-context")
+    if args.preliminary_table_role and not args.preliminary_table_context:
+        parser.error("--preliminary-table-role requires --preliminary-table-context")
+    if args.preliminary_goal_role and not args.preliminary_table_role:
+        parser.error("--preliminary-goal-role requires --preliminary-table-role")
+    if args.preliminary_p2 and (
+        not args.preliminary_table_role or args.preliminary_goal_role or args.preliminary_actor_role
+    ):
+        parser.error("--preliminary-p2 requires only --preliminary-table-role")
+    if args.position_context_order and not args.extraction_context:
+        parser.error("--position-context-order requires --extraction-context")
+    if args.position_context_order and args.live_tagging and not args.preliminary_table_role:
+        parser.error("--position-context-order with live tagging requires --preliminary-table-role")
+    if args.position_context_order and (args.preliminary_goal_role or args.preliminary_actor_role):
+        parser.error("--position-context-order requires only preliminary table role")
+    if args.claim_span_render_resolution and not args.verify_claim_spans:
+        parser.error("--claim-span-render-resolution requires --verify-claim-spans")
+    if args.claim_span_bullet_spacing and not args.claim_span_render_resolution:
+        # Refused rather than silently overriding one recovery with the other.
+        parser.error("--claim-span-bullet-spacing requires --claim-span-render-resolution")
+    if args.claim_span_typography and not args.claim_span_bullet_spacing:
+        # Same reason: the typography wrapper wraps the bullet wrapper's own
+        # rendered read, so it cannot replace it.
+        parser.error("--claim-span-typography requires --claim-span-bullet-spacing")
+    if args.extraction_table_context and not args.extraction_context:
+        parser.error("--extraction-table-context requires --extraction-context")
+    for name in ("table_rows", "recall_prompt"):
+        if getattr(args, "extraction_" + name) and not args.extraction_source_ids:
+            parser.error(
+                "--extraction-" + name.replace("_", "-") + " requires --extraction-source-ids"
+            )
+    if args.extraction_atomic and (args.extraction_table_rows or args.extraction_recall_prompt):
+        parser.error("row/recall profiles cannot mix with --extraction-atomic")
+    if args.extraction_atomic and not args.extraction_source_ids:
+        parser.error("--extraction-atomic requires --extraction-source-ids")
+    if args.extraction_atomic_v3 and not (args.extraction_atomic or args.extraction_table_rows):
+        parser.error("--extraction-atomic-v3 requires --extraction-atomic")
+    if args.extraction_failure_diagnostics and not args.extraction_source_ids:
+        parser.error("--extraction-failure-diagnostics requires --extraction-source-ids")
+    if args.extraction_sentence_prefix and (
+        not args.extraction_context or not args.extraction_linewrap_join or args.extraction_atomic
+    ):
+        parser.error(
+            "--extraction-sentence-prefix requires --extraction-context and "
+            "--extraction-linewrap-join without atomic"
+        )
+    if args.extraction_linewrap_join and (not args.extraction_source_ids or args.extraction_atomic):
+        parser.error(
+            "--extraction-linewrap-join requires --extraction-source-ids and no atomic mode"
+        )
+    if args.extraction_content_bounds and not args.extraction_source_ids:
+        parser.error("--extraction-content-bounds requires --extraction-source-ids")
+    if args.extraction_assertion_prompt and not args.extraction_source_ids:
+        parser.error("--extraction-assertion-prompt requires --extraction-source-ids")
+    if args.extraction_complete_selection and not args.extraction_assertion_prompt:
+        parser.error("--extraction-complete-selection requires --extraction-assertion-prompt")
+    if args.raster_ocr and not args.verify_paragraphs:
+        parser.error("--raster-ocr requires --verify-paragraphs")
+    if args.native_quote_typography and (not args.verify_paragraphs or args.raster_ocr):
+        parser.error("--native-quote-typography requires --verify-paragraphs without --raster-ocr")
+    raster = (
+        raster_settings(max_pages=args.raster_max_pages, max_calls=args.raster_max_calls)
+        if args.raster_ocr
+        else {}
+    )
+    if not 0 <= args.mixed_ocr_max_pages <= 30 or (
+        args.mixed_ocr_max_pages and args.parser != "mixed-v1"
+    ):
+        parser.error("mixed OCR allowance requires mixed-v1 and 0..30 pages")
+    if args.parser == "mixed-v1" and not args.claim_pages:
+        parser.error("mixed-v1 requires explicit --claim-pages")
+    pages = sorted(set(int(p) for p in args.pages.split(",")))
+    from proofops.application.claim_scope import MAX_EXTRACTION_BATCH_CALLS
+
+    if not 1 <= args.max_calls <= MAX_EXTRACTION_BATCH_CALLS or not pages or min(pages) < 1:
+        parser.error("invalid declared pages/call limit")
+    try:
+        extraction_budget = extraction_budget_settings(args.max_calls, args.extraction_total_calls)
+    except ValueError as exc:
+        parser.error(str(exc))
+    claim_pages: list[int] | None = None
+    if args.claim_pages is not None:
+        claim_pages = sorted(set(int(p) for p in args.claim_pages.split(",")))
+        if not claim_pages or not set(claim_pages) <= set(pages):
+            parser.error("--claim-pages must be a non-empty subset of --pages")
+    from evaluation.scope_input import MAX_UPLOAD_BYTES
+
+    limit = MAX_UPLOAD_BYTES
+    try:
+        source_size = args.pdf.stat().st_size
+    except OSError as exc:
+        parser.error(f"Cannot read --pdf: {exc}")
+    if source_size > limit:
+        parser.error(f"--pdf exceeds the supported upload limit of {limit} bytes (150 MiB)")
+    state = args.state.resolve()
+    state.mkdir(parents=True, exist_ok=True, mode=0o700)
+    manifest_path = state / "pilot.json"
+    source = args.pdf.resolve().read_bytes()
+    digest = sha256(source).hexdigest()
+    origin = f"http://localhost:{args.port}"
+    settings, extraction_profile = _prepare_run_settings(
+        args,
+        parser,
+        state=state,
+        manifest_path=manifest_path,
+        pages=pages,
+        claim_pages=claim_pages,
+        extraction_budget=extraction_budget,
+        raster=raster,
+    )
     os.environ.update(
         APP_ENV="local",
         MODEL_ADAPTER="synthetic",
@@ -2406,159 +2701,9 @@ def main():
             json.dump(manifest, stream, ensure_ascii=False, indent=2)
     else:
         manifest = json.loads(manifest_path.read_text())
-        if manifest.get("vision_parse", "off") != args.vision_parse:
-            raise ValueError("pilot vision parse policy changed; create a new state directory")
-        if manifest.get("mixed_ocr_max_pages", 0) != args.mixed_ocr_max_pages:
-            raise ValueError("existing pilot mixed OCR allowance changed; create a new run")
-        if manifest.get("parser_mode", "local") != args.parser:
-            raise ValueError("pilot parser mode changed; create a new state directory")
-        if manifest.get("capacity_refresh", False) != getattr(args, "capacity_refresh", False):
-            raise ValueError("pilot capacity refresh policy changed; create a new state directory")
-        if args.extraction_total_calls is not None and (
-            manifest.get("extraction_total_calls") != args.extraction_total_calls
-        ):
-            raise ValueError("pilot extraction total changed; create a new state directory")
-        if manifest.get("raster_ocr", False) != args.raster_ocr or (
-            args.raster_ocr and manifest.get("raster_policy") != raster["raster_policy"]
-        ):
-            raise ValueError("pilot raster policy changed; create a new state directory")
-        if manifest.get("preliminary_profile") != args.preliminary_profile:
-            raise ValueError("existing pilot preliminary profile changed; create a new run")
-        if manifest.get("relation_profile", "source-quotes-v1") != args.relation_profile:
-            raise ValueError("pilot relation profile changed; create a new state directory")
-        if manifest.get("display_text_profile") != args.display_text_profile:
-            raise ValueError("pilot display text profile changed; create a new state directory")
-        if manifest.get("claim_source_profile") != args.claim_source_profile:
-            raise ValueError("pilot claim source profile changed; create a new state directory")
-        if manifest.get("live_relations", False) != args.live_relations:
-            raise ValueError("pilot relation policy changed; create a new state directory")
-        if manifest.get("preliminary_context", False) != args.preliminary_context:
-            raise ValueError(
-                "pilot preliminary context policy changed; create a new state directory"
-            )
-        if manifest.get("preliminary_table_context", False) != args.preliminary_table_context:
-            raise ValueError("pilot preliminary table policy changed; create a new state directory")
-        if manifest.get("preliminary_table_role", False) != args.preliminary_table_role:
-            raise ValueError("pilot preliminary table role policy changed; create a new state dir")
-        if manifest.get("preliminary_goal_role", False) != args.preliminary_goal_role:
-            raise ValueError("pilot preliminary goal role policy changed; create a new state dir")
-        if (
-            manifest.get("preliminary_sentence_fallback", False)
-            != args.preliminary_sentence_fallback
-        ):
-            raise ValueError("pilot sentence fallback policy changed; create a new state dir")
-        if manifest.get("preliminary_sentence_context", False) != args.preliminary_sentence_context:
-            raise ValueError("pilot sentence context policy changed; create a new state dir")
-        if manifest.get("preliminary_p2", False) != args.preliminary_p2:
-            raise ValueError("pilot preliminary P2 policy changed; create a new state dir")
-        if manifest.get("element_consistency", False) != args.element_consistency:
-            raise ValueError("pilot element consistency changed; create a new state dir")
-        if manifest.get("compact_element_wire", False) != args.compact_element_wire:
-            raise ValueError("pilot element wire policy changed; create a new state dir")
-        if args.position_context_order:
-            from proofops.application.tagging.preliminary import CONTEXT_POSITION_ORDER
-
-            if manifest.get("position_context_order") != CONTEXT_POSITION_ORDER:
-                raise ValueError("pilot context order policy changed; create a new state dir")
-        elif manifest.get("position_context_order") is not None:
-            raise ValueError("pilot context order policy changed; create a new state dir")
-        if manifest.get("live_tagging", False) != args.live_tagging or (
-            args.live_tagging and manifest.get("tagging_max_calls") != args.tagging_max_calls
-        ):
-            raise ValueError("pilot tagging policy changed; create a new state directory")
-        if manifest.get("repair_table_headers", False) != args.repair_table_headers:
-            raise ValueError("pilot table repair changed; create a new state directory")
-        if manifest.get("verify_merged_tables", False) != args.verify_merged_tables:
-            raise ValueError(
-                "pilot merged table verification changed; create a new state directory"
-            )
-        if manifest.get("verify_tables", False) != args.verify_tables:
-            raise ValueError("pilot table verification changed; create a new state directory")
-        if manifest.get("verify_selected_cells", False) != args.verify_selected_cells:
-            raise ValueError("pilot selected cell policy changed; create a new state directory")
-        if manifest.get("native_quote_typography", False) != args.native_quote_typography:
-            raise ValueError("pilot quote typography policy changed; create a new state directory")
-        if manifest.get("extraction_year_notation", False) != args.extraction_year_notation:
-            raise ValueError(
-                "pilot extraction year-notation policy changed; create a new state directory"
-            )
-        if manifest.get("extraction_context", False) != args.extraction_context:
-            raise ValueError(
-                "pilot extraction context policy changed; create a new state directory"
-            )
-        if manifest.get("extraction_table_context", False) != args.extraction_table_context:
-            raise ValueError(
-                "pilot extraction table context policy changed; create a new state directory"
-            )
-        for name in (
-            "extraction_sentence_prefix",
-            "extraction_k1",
-            "extraction_table_rows",
-            "extraction_recall_prompt",
-            "extraction_fragment_guard",
-            "extraction_pb1",
-            "extraction_w9",
-            "extraction_j3",
-            "extraction_k3",
-            "extraction_j7",
-            "extraction_j8",
-            "extraction_i3_wire",
-            "extraction_i4_identity",
-            "extraction_qc_native_figures",
-            "extraction_fxg_split",
-            "extraction_qt1_goal_split",
-            "extraction_h1",
-            "extraction_i5_tables",
-            "extraction_k6",
-            "extraction_q1",
-            "extraction_qt1",
-            "extraction_pb1_context_guard",
-            "extraction_table_footnotes",
-            "extraction_located_table_context",
-        ):
-            if manifest.get(name, False) != getattr(args, name, False):
-                raise ValueError(name + " policy changed; create a new state directory")
-        if manifest.get("extraction_atomic", False) != args.extraction_atomic:
-            raise ValueError("pilot extraction atomic policy changed; create a new state directory")
-        if manifest.get("extraction_atomic_v3", False) != args.extraction_atomic_v3:
-            raise ValueError(
-                "pilot extraction atomic v3 policy changed; create a new state directory"
-            )
-        if (
-            manifest.get("extraction_failure_diagnostics", False)
-            != args.extraction_failure_diagnostics
-        ):
-            raise ValueError(
-                "pilot extraction failure diagnostics changed; create a new state directory"
-            )
-        if manifest.get("extraction_linewrap_join", False) != args.extraction_linewrap_join:
-            raise ValueError(
-                "pilot extraction linewrap join policy changed; create a new state directory"
-            )
-        if manifest.get("extraction_source_ids", False) != args.extraction_source_ids:
-            raise ValueError(
-                "pilot extraction source-id policy changed; create a new state directory"
-            )
-        if manifest.get("extraction_content_bounds", False) != args.extraction_content_bounds:
-            raise ValueError(
-                "pilot extraction content-bounds policy changed; create a new state directory"
-            )
-        if manifest["source_sha256"] != digest:
-            raise ValueError("pilot source changed")
-        if manifest.get("claim_pages") != claim_pages:
-            raise ValueError("pilot claim-page scope changed; create a new state directory")
-        if manifest.get("verify_claim_spans", False) != args.verify_claim_spans:
-            parser.error("Existing state has a different claim span policy")
-        if manifest.get("claim_span_render_resolution", False) != args.claim_span_render_resolution:
-            parser.error("Existing state has a different claim span render-resolution policy")
-        if manifest.get("claim_span_bullet_spacing", False) != args.claim_span_bullet_spacing:
-            parser.error("Existing state has a different claim span bullet-spacing policy")
-        if manifest.get("claim_span_typography", False) != args.claim_span_typography:
-            parser.error("Existing state has a different claim span typography policy")
-        if manifest.get("verify_paragraphs", False) != args.verify_paragraphs:
-            raise ValueError("pilot verification policy changed; create a new state directory")
-        if manifest.get("model", "solar-pro3") != args.model:
-            raise ValueError("pilot model changed; create a new state directory")
+        _validate_existing_pilot(
+            args, parser, manifest, raster=raster, digest=digest, claim_pages=claim_pages
+        )
     run_id = manifest["run_id"]
     pipeline_outcome = dict(stage=None, status="not_run", exit_code=0)
     if args.invoke:
@@ -2641,125 +2786,18 @@ def main():
         flush=True,
     )
     if args.serve:
-        # A fresh worker session has no published claims yet. Serve its upload
-        # entry without invoking the initial queued run or weakening read-only replays.
-        fresh_worker = (
-            args.serve_worker
-            and response.status_code == 409
-            and c.runs.store.jobs.get_run(tenant, run_id).get("status") == "queued"
+        _serve_pilot(
+            args,
+            response=response,
+            app=app,
+            c=c,
+            user=user,
+            tenant=tenant,
+            run_id=run_id,
+            manifest=manifest,
+            state=state,
+            origin=origin,
         )
-        if response.status_code != 200 and not fresh_worker:
-            raise SystemExit(
-                f"Cannot serve this run: claims HTTP {response.status_code}; "
-                "inspect the saved inspection JSON"
-            )
-        import uvicorn
-        from fastapi import HTTPException
-        from fastapi.responses import FileResponse
-        from fastapi.staticfiles import StaticFiles
-
-        login_token = secrets.token_urlsafe(24)
-
-        @app.get("/__local/" + login_token, include_in_schema=False)
-        def login():
-            return local_login_response(
-                c.auth_store.sessions, user, tenant, run_id, new_analysis=fresh_worker
-            )
-
-        app.mount("/assets", StaticFiles(directory=ROOT / "apps/web/dist/assets"))
-
-        # Authoritative candidate rule pack comes from the created run's frozen
-        # META, never fabricated: the pilot registers only a draft pack, so this
-        # id is a tagging-only reference the frontend labels as such. It is never
-        # an approval and does not activate anything.
-        run_meta = c.runs.store.jobs.get_run(tenant, run_id)
-        candidate_rule_pack_id = run_meta.get("rule_pack_id")
-        served_pages = list(manifest.get("selected_pages", []))
-
-        @app.get("/local/submission", include_in_schema=False)
-        def local_submission(request: Request):
-            from fastapi.responses import JSONResponse
-            from proofops_api.auth import _authorize
-            from starlette.responses import Response as _Response
-
-            # Reuse the shared tenant authorization + HTTP error mapping.
-            result = _authorize(request, c.auth_store, time.time(), "viewer")
-            if isinstance(result, _Response):
-                return result
-            if result.tenant_id != tenant:
-                return JSONResponse(
-                    {"error": {"code": "RESOURCE_NOT_FOUND", "message": "tenant not found"}},
-                    status_code=404,
-                )
-            return JSONResponse(
-                dict(
-                    worker_enabled=bool(worker_thread and worker_thread.is_alive()),
-                    candidate_rule_pack_id=candidate_rule_pack_id,
-                    selected_pages=served_pages,
-                ),
-                headers={"Cache-Control": "no-store"},
-            )
-
-        @app.get("/{path:path}", include_in_schema=False)
-        def web(path: str):
-            if path.startswith(("v1/", "local/", "__local/")):
-                raise HTTPException(404)
-            return FileResponse(ROOT / "apps/web/dist/index.html")
-
-        worker_thread = worker_stop = None
-        if args.serve_worker:
-            # Paid consent: reuse the same Upstage key + shared USD20 ledger the
-            # one-shot --invoke path uses; the loop mints no new allowance.
-            key_lines = args.key_file.read_text().splitlines()
-            key_name = {
-                "openai": "OPENAI_API_KEY",
-                "openrouter": "OPENROUTER_API_KEY",
-                "upstage": "UPSTAGE_API_KEY",
-            }[args.llm_provider]
-            os.environ[key_name] = next(
-                line.split("=", 1)[1].strip().strip('"').strip("'")
-                for line in key_lines
-                if line.startswith(key_name + "=")
-            )
-            if args.parser in ("upstage", "mixed-v1") and key_name != "UPSTAGE_API_KEY":
-                os.environ["UPSTAGE_API_KEY"] = next(
-                    line.split("=", 1)[1].strip().strip('"').strip("'")
-                    for line in (ROOT / ".env.upstage.local").read_text().splitlines()
-                    if line.startswith("UPSTAGE_API_KEY=")
-                )
-            if args.vision_parse != "off" and key_name != "OPENROUTER_API_KEY":
-                os.environ["OPENROUTER_API_KEY"] = next(
-                    line.split("=", 1)[1].strip().strip('"').strip("'")
-                    for line in (ROOT / ".env.openrouter.local").read_text().splitlines()
-                    if line.startswith("OPENROUTER_API_KEY=")
-                )
-            from proofops_worker.composition import build_composition
-
-            from evaluation.serve_worker import start_background
-
-            def build_stage(*, stage):
-                return build_composition(
-                    stage=stage,
-                    verify_paragraphs=args.verify_paragraphs and stage == "parse",
-                    native_typography_tolerance=args.native_quote_typography and stage == "parse",
-                    raster_ocr=args.raster_ocr and stage == "parse",
-                )
-
-            worker_thread, worker_stop = start_background(build_stage, c.runs, tenant)
-            print("Local serve-worker enabled: driving new web-queued runs", flush=True)
-
-        (state / "browser.json").write_text(
-            json.dumps(dict(login_url=origin + "/__local/" + login_token, run_id=run_id))
-        )
-        (state / "browser.json").chmod(0o600)
-        print("Open review: " + origin + "/__local/" + login_token, flush=True)
-        try:
-            uvicorn.run(app, host="127.0.0.1", port=args.port, access_log=False)
-        finally:
-            if worker_stop is not None:
-                worker_stop.set()
-                worker_thread.join(timeout=10)
-                os.environ.pop(key_name, None)
 
     return pipeline_outcome["exit_code"]
 
