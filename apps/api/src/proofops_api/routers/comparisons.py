@@ -12,6 +12,7 @@ from fastapi import APIRouter, Request, Security
 from fastapi.responses import JSONResponse
 from fastapi.security import APIKeyCookie
 from proofops.adapters.local.comparison_store import ComparisonRejected
+from proofops.application.authorization import Capability
 from proofops.domain.errors import DomainValidationError
 from proofops_api.auth import (
     SESSION_COOKIE_NAME,
@@ -57,7 +58,7 @@ def build_comparisons_router(store, auth_store, *, allowed_origin: str, clock=ti
         ],
     )
 
-    def authorize(request: Request, operation: str, role: str, requests: int):
+    def authorize(request: Request, operation: str, role: Capability, requests: int):
         now = clock()
         auth = _authorize(request, auth_store, now, role)
         if isinstance(auth, JSONResponse):

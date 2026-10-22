@@ -5,6 +5,7 @@ import time
 from contextlib import contextmanager
 from decimal import Decimal
 from pathlib import Path
+from typing import Any, cast
 
 from proofops.adapters.local.openai import OpenAIProbe
 from proofops.application.analysis_profile import FINALS_I4_POLICY
@@ -64,7 +65,7 @@ if __name__ == "__main__":
                 stream.write(json.dumps(record) + "\n")
             raise
 
-    LocalSQLiteJobStore.heartbeat = diagnostic_heartbeat
+    cast(Any, LocalSQLiteJobStore).heartbeat = diagnostic_heartbeat
     budget = I4Budget(
         root / "outputs/agent-results/R108-redesign/lab/sprint3/E2E/r108-spend.json",
         out.parent / "paid-calls.jsonl",
@@ -77,7 +78,7 @@ if __name__ == "__main__":
         child.ledgers = {"openai": probe.ledger.resolve()}
         return child.guarded(original, "openai", lambda *a: Decimal(".02"))(probe, *args, **kwargs)
 
-    OpenAIProbe.complete = guarded
+    cast(Any, OpenAIProbe).complete = guarded
     result = main(
         claim_pages=dict(naver=[88], kia=[106]),
         workers=16,

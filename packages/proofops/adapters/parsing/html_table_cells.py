@@ -126,7 +126,7 @@ class _TableParser(HTMLParser):
             self.parts.append(data)
 
 
-def parse_table_cells(html: str) -> tuple[dict, ...]:
+def parse_table_cells(html: object) -> tuple[dict, ...]:
     if not isinstance(html, str) or not html.strip():
         raise ValueError("invalid html")
     if len(html) > MAX_HTML_CHARS:

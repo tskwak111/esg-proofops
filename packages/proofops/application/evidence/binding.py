@@ -10,7 +10,7 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Literal
+from typing import Literal, cast
 from unicodedata import normalize
 
 from proofops.application.claims import Claim
@@ -284,7 +284,7 @@ def accept_binding(
 
     def selected(source: SourceRef):
         block = blocks[source.source_id]
-        return block.candidates[block.winner]  # checked above before coordinate access
+        return block.candidates[cast(int, block.winner)]  # checked above before coordinate access
 
     def contains(outer: SourceRef, inner: SourceRef) -> bool:
         return outer.source_id == inner.source_id and (

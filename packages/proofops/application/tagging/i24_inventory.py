@@ -1,5 +1,7 @@
 """V24 inventory dispatch limits. Existing grants and dollar ceilings still apply."""
 
+from typing import Any, cast
+
 from proofops.application.tagging.element_inventory import POLICY as INVENTORY_POLICY
 from proofops.application.tagging.element_inventory import (
     POLICY_HASH,
@@ -35,7 +37,9 @@ SCHEMA = dict(
                 additionalProperties=False,
                 required=["element_id", "state", "evidence", "attributes"],
                 properties=dict(
-                    element_id=dict(type="string", enum=sorted(INVENTORY_POLICY["terms"])),
+                    element_id=dict(
+                        type="string", enum=sorted(cast(dict[str, Any], INVENTORY_POLICY["terms"]))
+                    ),
                     state=dict(type="string", enum=sorted(STATES)),
                     evidence=SPAN,
                     attributes=dict(

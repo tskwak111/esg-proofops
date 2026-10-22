@@ -128,8 +128,8 @@ def _entry_from_dict(value: object) -> _TimelineEntry:
     if not isinstance(condition_ids, list | tuple | frozenset):
         raise DomainValidationError("condition_ids must be an iterable of strings")
     return _TimelineEntry(
-        entry_id=entry_id,  # type: ignore[arg-type]
-        outcome=outcome,  # type: ignore[arg-type]
+        entry_id=entry_id,
+        outcome=outcome,
         condition_ids=_condition_ids(cast(Iterable[str], condition_ids)),
         starts_on=start_date,
         ends_before=end_date,

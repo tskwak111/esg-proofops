@@ -13,6 +13,7 @@ from dataclasses import asdict, replace
 from pathlib import Path
 from threading import Lock
 from time import monotonic_ns
+from typing import Any
 
 from proofops.adapters.local.openrouter import OpenRouterProbe
 from proofops.adapters.local.upstage import UPSTAGE_TRANSPORT_STOP_CODES, UpstageProbe
@@ -757,6 +758,7 @@ class UpstageTaggingTransport:
 
             validate_policy(data.pop("qt2_contextual_elements_policy"))
             wire_system += "\n" + GUIDANCE
+        POLICY: dict[str, Any]
         if "qt1_tuple_policy" in data:
             from proofops.application.tagging.qt1_tuples import GUIDANCE, POLICY
 

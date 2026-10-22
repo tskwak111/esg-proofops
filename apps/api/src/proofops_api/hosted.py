@@ -20,6 +20,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from proofops.application.authorization import (
     AuthContext,
+    Capability,
     CapabilityDeniedError,
     SessionExpiredError,
     TenantNotFoundError,
@@ -276,7 +277,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
         try:
             sid = request.cookies.get(SESSION_COOKIE_NAME, "")
             now = time.time()
-            capability = "viewer" if request.method == "GET" else "editor"
+            capability: Capability = "viewer" if request.method == "GET" else "editor"
             if request.url.path.endswith("/deletion-requests"):
                 capability = "viewer"
             if request.url.path.endswith("/resolve"):

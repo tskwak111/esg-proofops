@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
-from typing import Annotated, Literal
+from typing import Annotated, Literal, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Request, Security
@@ -111,7 +111,7 @@ def build_evaluations_router(
                         "value": metric["value"],
                         "denominator": metric["denominator"],
                     }
-                    for metric in report["metrics"]
+                    for metric in cast(list[dict[str, object]], report["metrics"])
                 ],
                 "report_sha256": report["report_sha256"],
             }

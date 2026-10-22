@@ -194,6 +194,7 @@ def evaluate(lab_root: Path, output: Path, *, baseline: Path | None = None) -> d
         "native_legacy_catalog": [],
         "native_atomic_v2": [],
     }
+    deferred: list[dict[str, str | int]]
     inputs, deferred, rejected = [], [], []
     gate_diagnostics = []
     extractor = UpstageClaimExtractor(

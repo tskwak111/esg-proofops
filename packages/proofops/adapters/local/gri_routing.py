@@ -4,12 +4,16 @@ import re
 from dataclasses import replace
 from hashlib import sha256
 from io import BytesIO
+from typing import TYPE_CHECKING, cast
 
 import pdfplumber
 from pypdf import PdfReader
 
 from proofops.adapters.local.evidence_search import LocalEvidenceSearch
 from proofops.application.ingest.gri import _validate_graph, build_gri_index
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 
 class LocalGRIRouting:
@@ -64,7 +68,9 @@ class LocalGRIRouting:
                 page_map = {}
         self.entries = tuple(
             entry
-            for entry in build_gri_index(graph, page_map, tenant_id=tenant_id)
+            for entry in build_gri_index(
+                graph, cast("Mapping[object, object]", page_map), tenant_id=tenant_id
+            )
             if entry.source_ref.page_num in selected
         )
         row_ids = {entry.source_ref.source_id for entry in self.entries}

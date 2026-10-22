@@ -523,7 +523,7 @@ def _review_safe_harbor(inputs: ReviewInputs, review: Any):
         )
     if seen != set(expected):
         raise ReviewRejected("SAFE_HARBOR_REVIEW_INVALID")
-    receipt = {
+    receipt: dict[str, Any] = {
         "request": review,
         "identity": {
             "tenant_id": inputs.context.claim.tenant_id,
@@ -629,7 +629,7 @@ def _review_category(inputs: ReviewInputs, track: str, review: Any):
         if checked.verification_state != "verified":
             raise ReviewRejected("CATEGORY_SOURCE_REJECTED")
         basis_refs.append(asdict(checked))
-    receipt = {
+    receipt: dict[str, Any] = {
         "request": review,
         "identity": {
             "tenant_id": claim.tenant_id,

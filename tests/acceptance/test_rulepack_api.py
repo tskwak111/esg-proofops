@@ -6,18 +6,19 @@ import sqlite3
 import time
 from dataclasses import replace
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from proofops.adapters.local.auth_store import InMemoryMembershipStore, InMemorySessionStore
-from proofops.application.authorization import MembershipRecord, SessionRecord
+from proofops.application.authorization import MembershipRecord, Role, SessionRecord
 from proofops.application.rulepacks import (
     RulePackRecord,
     RunSnapshot,
     compute_pack_sha256,
 )
+from proofops.domain.values import ElementState
 from proofops_api.auth import AuthStore
 
 if TYPE_CHECKING:
@@ -75,7 +76,7 @@ def _pack(
     return RulePackRecord.from_dict(data)
 
 
-def _client(tmp_path: Path, *, role: str = "admin") -> tuple[TestClient, RulePackSqliteStore, str]:
+def _client(tmp_path: Path, *, role: Role = "admin") -> tuple[TestClient, RulePackSqliteStore, str]:
     try:
         from proofops.adapters.local.rulepack_store import RulePackSqliteStore
         from proofops_api.rulepacks import build_rulepack_router
@@ -101,9 +102,9 @@ def _client(tmp_path: Path, *, role: str = "admin") -> tuple[TestClient, RulePac
     return client, rulepacks, csrf_token
 
 
-def _seed_auth(auth_store: AuthStore, *, role: str = "admin") -> str:
+def _seed_auth(auth_store: AuthStore, *, role: Role = "admin") -> str:
     far_future = time.time() + 10_000
-    auth_store.sessions.put_with_token(
+    cast(InMemorySessionStore, auth_store.sessions).put_with_token(
         SessionRecord(
             "admin-session",
             "admin-user",
@@ -115,7 +116,9 @@ def _seed_auth(auth_store: AuthStore, *, role: str = "admin") -> str:
         ),
         "csrf-token",
     )
-    auth_store.memberships.put(MembershipRecord(TENANT_A, "admin-user", role, "active"))
+    cast(InMemoryMembershipStore, auth_store.memberships).put(
+        MembershipRecord(TENANT_A, "admin-user", role, "active")
+    )
     csrf_token = auth_store.sessions.csrf_token_for("admin-session")
     assert csrf_token is not None
     return csrf_token
@@ -380,7 +383,7 @@ def test_activation_audit_is_atomic_and_idempotent_replay_adds_no_event(tmp_path
 
     store = RulePackSqliteStore(tmp_path / "state.sqlite3", id_factory=lambda: "activation-1")
     store.add_pack(_pack(), _files())
-    arguments = {
+    arguments: dict[str, Any] = {
         "tenant_id": TENANT_A,
         "rule_pack_id": PACK_A,
         "expected_revision": 1,
@@ -713,7 +716,7 @@ def test_review_rulepack_cli_promotes_draft_and_real_evaluate_decides_with_local
         "verified",
     )
 
-    def fixture_fact(name: str, state: str = "present") -> ConfirmedFact:
+    def fixture_fact(name: str, state: ElementState = "present") -> ConfirmedFact:
         return ConfirmedFact(
             name=name,
             state=state,

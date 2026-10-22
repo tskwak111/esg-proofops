@@ -67,34 +67,327 @@ python_version = "3.12"
 strict = false
 ignore_missing_imports = true
 explicit_package_bases = true
-mypy_path = ["packages/proofops", "apps/api/src", "apps/worker/src", "apps/agent/src"]
+# Global-only strict flags; all other strict flags are scoped below.
+warn_redundant_casts = true
+strict_bytes = true
+# numeric.py's byte-pinned writable Protocols reject the existing frozen records.
+# TB §5.2/§6 permit a skipped import boundary; preserve its bytes until a separate
+# external stub/interface migration can model those records without replay changes.
+exclude = ['^packages/proofops/domain/numeric\.py$']
+mypy_path = ["packages", "apps/api/src", "apps/worker/src", "apps/agent/src"]
 
-# These archived readers dynamically compose _wrapper.Reader. Their bytes are
-# pinned in persisted source policies; editing them would break historical replay.
-# Suppress only that name-resolution code in these two modules, retaining all
-# other checks and normal name-defined checks for newer readers (including v10).
-# CI file targets use these names under explicit_package_bases and mypy_path.
+# TB_report §6: explicit protected Python modules (128 of 131 paths; 3 are Swift).
+# Persisted source hashes, frozen loaders, and legacy compatibility forbid even
+# annotation edits. Each entry records the source/line or preservation reason.
+# Keep imports visible so callers retain the annotations these modules expose.
 [[tool.mypy.overrides]]
 module = [
-  "adapters.local.upstage_ocr_profile_v7",
-  "adapters.local.upstage_ocr_profile_v8",
-    # HX4 also uses an instance-private, byte-pinned Reader class at runtime.
-    "adapters.local.upstage_ocr_profile_v16",
-    "adapters.local.upstage_ocr_profile_v17",
+  # packages/proofops/adapters/local/historical_claim_replay.py:14 (literal)
+  "proofops.adapters.local._frozen_upstage_ocr_profile_v21_20261015",
+  # 보존 디렉터리
+  "proofops.adapters.local._frozen_verifiers",
+  # packages/proofops/adapters/local/_frozen_verifiers/claim_source_v4_pre_visibility.py:45
+  "proofops.adapters.local._frozen_verifiers.claim_source_v4_pre_visibility",
+  # packages/proofops/adapters/local/historical_claim_replay.py:35 (literal)
+  "proofops.adapters.local._frozen_verifiers.claim_span_typography_v1",
+  # packages/proofops/adapters/local/historical_claim_replay.py:19 (literal)
+  "proofops.adapters.local._frozen_verifiers.claims_pre_continuations",
+  # 보존 디렉터리
+  "proofops.adapters.local._frozen_verifiers.native_paragraph_glyph_v2",
+  # packages/proofops/adapters/local/_frozen_verifiers/native_paragraph_glyph_v2/source_verification.py:211 (literal)
+  "proofops.adapters.local._frozen_verifiers.native_paragraph_glyph_v2.native_glyph_geometry",
+  # packages/proofops/adapters/local/_frozen_verifiers/native_paragraph_glyph_v2/source_verification.py:194
+  "proofops.adapters.local._frozen_verifiers.native_paragraph_glyph_v2.source_verification",
+  # packages/proofops/adapters/local/_frozen_verifiers/native_paragraph_glyph_v2_cpu_swift/source_verification.py:229 (literal)
+  "proofops.adapters.local._frozen_verifiers.native_paragraph_glyph_v2_cpu_swift.native_glyph_geometry",
+  # packages/proofops/adapters/local/_frozen_verifiers/native_paragraph_glyph_v2_cpu_swift/source_verification.py:212
+  "proofops.adapters.local._frozen_verifiers.native_paragraph_glyph_v2_cpu_swift.source_verification",
+  # packages/proofops/adapters/local/_frozen_verifiers/upstage_ocr_v21_pre_d2.py:29
+  "proofops.adapters.local._frozen_verifiers.upstage_ocr_v21_pre_d2",
+  # packages/proofops/adapters/local/_frozen_verifiers/upstage_ocr_v21_pre_visibility.py:29
+  "proofops.adapters.local._frozen_verifiers.upstage_ocr_v21_pre_visibility",
+  # packages/proofops/adapters/local/authorized_ocr_execution.py:13
+  "proofops.adapters.local.authorized_ocr_execution",
+  # packages/proofops/adapters/local/c2_selected_sources.py:30
+  "proofops.adapters.local.c2_selected_sources",
+  # packages/proofops/adapters/local/c3_source.py:24
+  "proofops.adapters.local.c3_source",
+  # packages/proofops/adapters/local/c4_selected_sources.py:28
+  "proofops.adapters.local.c4_selected_sources",
+  # packages/proofops/adapters/local/cf4_claim_source.py:27
+  "proofops.adapters.local.cf4_claim_source",
+  # packages/proofops/adapters/local/cf4_source_region.py:40
+  "proofops.adapters.local.cf4_source_region",
+  # packages/proofops/adapters/local/ch1_charts.py:43
+  "proofops.adapters.local.ch1_charts",
+  # packages/proofops/adapters/local/claim_source_fxe.py:27
+  "proofops.adapters.local.claim_source_fxe",
+  # packages/proofops/adapters/local/cf4_source_region.py:38
+  "proofops.adapters.local.claim_source_fxf",
+  # packages/proofops/adapters/local/claim_source_glyph_region.py:20
+  "proofops.adapters.local.claim_source_glyph_region",
+  # packages/proofops/adapters/local/claim_source_verification.py:26
+  "proofops.adapters.local.claim_source_verification",
+  # packages/proofops/adapters/local/claim_source_verification_v1.py:24
+  "proofops.adapters.local.claim_source_verification_v1",
+  # packages/proofops/adapters/local/claim_source_verification_v2.py:26
+  "proofops.adapters.local.claim_source_verification_v2",
+  # packages/proofops/adapters/local/upstage_ocr_profile_v4.py:108 (literal)
+  "proofops.adapters.local.claim_source_verification_v3",
+  # packages/proofops/adapters/local/claim_source_verification_v4.py:45
+  "proofops.adapters.local.claim_source_verification_v4",
+  # packages/proofops/adapters/local/claim_span_bullet_alignment.py:113
+  "proofops.adapters.local.claim_span_bullet_alignment",
+  # packages/proofops/adapters/local/claim_span_render_resolution.py:115
+  "proofops.adapters.local.claim_span_render_resolution",
+  # packages/proofops/adapters/local/claim_span_typography.py:116
+  "proofops.adapters.local.claim_span_typography",
+  # packages/proofops/adapters/local/evidence_source_h6.py:23
+  "proofops.adapters.local.evidence_source_h6",
+  # packages/proofops/adapters/local/evidence_source_h7.py:26
+  "proofops.adapters.local.evidence_source_h7",
+  # packages/proofops/adapters/local/evidence_source_hx3.py:21
+  "proofops.adapters.local.evidence_source_hx3",
+  # packages/proofops/adapters/local/evidence_source_hx4.py:21
+  "proofops.adapters.local.evidence_source_hx4",
+  # packages/proofops/adapters/local/evidence_source_hx5.py:21
+  "proofops.adapters.local.evidence_source_hx5",
+  # packages/proofops/adapters/local/evidence_source_i17.py:37
+  "proofops.adapters.local.evidence_source_i17",
+  # packages/proofops/adapters/local/evidence_source_ocr_v1.py:24
+  "proofops.adapters.local.evidence_source_ocr_v1",
+  # packages/proofops/adapters/local/evidence_source_ocr_v1.py:33 (literal)
+  "proofops.adapters.local.evidence_source_verification_v1",
+  # packages/proofops/adapters/local/fxg_claim_source.py:35
+  "proofops.adapters.local.fxg_claim_source",
+  # packages/proofops/adapters/local/fxh_claim_source.py:114
+  "proofops.adapters.local.fxh_claim_source",
+  # packages/proofops/adapters/local/glyph_alignment_verification.py:34
+  "proofops.adapters.local.glyph_alignment_verification",
+  # packages/proofops/adapters/local/h1_native_title.py:383
+  "proofops.adapters.local.h1_native_title",
+  # packages/proofops/adapters/local/i21_reader_execution.py:66
+  "proofops.adapters.local.i21_reader_execution",
+  # packages/proofops/adapters/local/i21_table_replay.py:20
+  "proofops.adapters.local.i21_table_replay",
+  # packages/proofops/adapters/local/i24_claim_source.py:33
+  "proofops.adapters.local.i24_claim_source",
+  # packages/proofops/adapters/local/i31_claim_source.py:33
+  "proofops.adapters.local.i31_claim_source",
+  # packages/proofops/adapters/local/local_raster_reader.py:65
+  "proofops.adapters.local.local_raster_reader",
+  # packages/proofops/adapters/local/merged_table_verification.py:69 (literal)
+  "proofops.adapters.local.merged_table_verification",
+  # packages/proofops/adapters/local/source_verification.py:229 (literal)
+  "proofops.adapters.local.native_glyph_geometry",
+  # packages/proofops/adapters/local/source_condition_review.py:376
+  "proofops.adapters.local.native_note_ownership",
+  # packages/proofops/adapters/local/native_paragraph_typography.py:86
+  "proofops.adapters.local.native_paragraph_typography",
+  # packages/proofops/adapters/local/note_review_batch.py:50 (literal)
+  "proofops.adapters.local.note_extraction",
+  # packages/proofops/adapters/local/note_review_batch.py:53 (literal)
+  "proofops.adapters.local.note_review_batch",
+  # packages/proofops/adapters/local/pa7_raster_cache.py:77
+  "proofops.adapters.local.pa7_raster_cache",
+  # packages/proofops/adapters/local/parse_table_cache.py:136
+  "proofops.adapters.local.parse_table_cache",
+  # packages/proofops/adapters/local/raster_visibility.py:30 (literal)
+  "proofops.adapters.local.raster_checkpoint",
+  # packages/proofops/adapters/local/raster_visibility.py:27
+  "proofops.adapters.local.raster_ocr",
+  # packages/proofops/adapters/local/raster_visibility.py:28
+  "proofops.adapters.local.raster_visibility",
+  # packages/proofops/adapters/local/rb3_claim_source.py:31
+  "proofops.adapters.local.rb3_claim_source",
+  # packages/proofops/adapters/local/rb3_claim_source.py:32
+  "proofops.adapters.local.rb3_policy_evaluation",
+  # packages/proofops/adapters/local/requested_table_verification.py:58
+  "proofops.adapters.local.requested_table_verification",
+  # packages/proofops/adapters/local/reviewed_context_verification.py:122
+  "proofops.adapters.local.reviewed_context_verification",
+  # packages/proofops/adapters/local/s2_reader_execution.py:65
+  "proofops.adapters.local.s2_reader_execution",
+  # packages/proofops/adapters/local/s2_table_replay.py:20
+  "proofops.adapters.local.s2_table_replay",
+  # packages/proofops/adapters/local/s3_table_replay.py:20
+  "proofops.adapters.local.s3_table_replay",
+  # packages/proofops/adapters/local/s5_claim_source.py:50
+  "proofops.adapters.local.s5_claim_source",
+  # packages/proofops/adapters/local/s5_claim_source.py:51
+  "proofops.adapters.local.s5_policy_evaluation",
+  # packages/proofops/adapters/local/parse_table_cache.py:53
+  "proofops.adapters.local.selected_cell_table_verification",
+  # packages/proofops/adapters/local/upstage_ocr_profile_d2_v21.py:61
+  "proofops.adapters.local.source_attestation_errors",
+  # packages/proofops/adapters/local/source_condition_review.py:373
+  "proofops.adapters.local.source_condition_review",
+  # packages/proofops/adapters/local/source_condition_view.py:298
+  "proofops.adapters.local.source_condition_view",
+  # packages/proofops/adapters/local/source_fxe.py:23
+  "proofops.adapters.local.source_fxe",
+  # packages/proofops/adapters/local/source_fxf.py:23
+  "proofops.adapters.local.source_fxf",
+  # packages/proofops/adapters/local/source_h7.py:41
+  "proofops.adapters.local.source_h7",
+  # packages/proofops/adapters/local/source_hx3.py:20
+  "proofops.adapters.local.source_hx3",
+  # packages/proofops/adapters/local/table_source_verification.py:34 (literal)
+  "proofops.adapters.local.source_verification",
+  # packages/proofops/adapters/local/spe_claim_source.py:23
+  "proofops.adapters.local.spe_claim_source",
+  # packages/proofops/adapters/local/spe_claim_source.py:24
+  "proofops.adapters.local.spe_source_execution",
+  # packages/proofops/adapters/local/table_claim_source_verification.py:39
+  "proofops.adapters.local.table_claim_source_verification",
+  # packages/proofops/adapters/local/note_extraction.py:249 (literal)
+  "proofops.adapters.local.table_layout_context",
+  # packages/proofops/adapters/local/note_extraction.py:246 (literal)
+  "proofops.adapters.local.table_notes",
+  # packages/proofops/adapters/local/table_source_verification.py:33 (literal)
+  "proofops.adapters.local.table_source_verification",
+  # packages/proofops/adapters/local/table_claim_source_verification.py:38
+  "proofops.adapters.local.table_span_source_verification",
+  # packages/proofops/adapters/local/tb1_claim_source.py:32
+  "proofops.adapters.local.tb1_claim_source",
+  # packages/proofops/adapters/local/ch1_charts.py:44
+  "proofops.adapters.local.upstage_ocr_mapping_v2",
+  # packages/proofops/adapters/local/upstage_ocr_profile_d2_v21.py:49 (literal)
+  "proofops.adapters.local.upstage_ocr_page",
+  # packages/proofops/adapters/local/upstage_ocr_profile_v4.py:69 (literal)
+  "proofops.adapters.local.upstage_ocr_profile",
+  # packages/proofops/adapters/local/upstage_ocr_profile_d2_v21.py:65
+  "proofops.adapters.local.upstage_ocr_profile_d2_v21",
+  # packages/proofops/adapters/local/upstage_ocr_profile_fxe.py:28
+  "proofops.adapters.local.upstage_ocr_profile_fxe",
+  # packages/proofops/adapters/local/upstage_ocr_profile_fxf.py:28
+  "proofops.adapters.local.upstage_ocr_profile_fxf",
+  # packages/proofops/adapters/local/upstage_ocr_profile_hx4_v16.py:21
+  "proofops.adapters.local.upstage_ocr_profile_hx4_v16",
+  # packages/proofops/adapters/local/upstage_ocr_profile_d2_v21.py:214 (literal)
+  "proofops.adapters.local.upstage_ocr_profile_hx5_v16",
+  # packages/proofops/adapters/local/upstage_ocr_profile_rg1_v17.py:23
+  "proofops.adapters.local.upstage_ocr_profile_rg1_v17",
+  # packages/proofops/adapters/local/upstage_ocr_profile_v10.py:48
+  "proofops.adapters.local.upstage_ocr_profile_v10",
+  # packages/proofops/adapters/local/upstage_ocr_profile_hx5_v16.py:196 (literal)
+  "proofops.adapters.local.upstage_ocr_profile_v11",
+  # packages/proofops/adapters/local/upstage_ocr_profile_v12.py:36
+  "proofops.adapters.local.upstage_ocr_profile_v12",
+  # packages/proofops/adapters/local/verified_read_cache.py:332
+  "proofops.adapters.local.upstage_ocr_profile_v13",
+  # packages/proofops/adapters/local/upstage_ocr_profile_v14.py:22
+  "proofops.adapters.local.upstage_ocr_profile_v14",
+  # packages/proofops/adapters/local/upstage_ocr_profile_v16.py:40 (literal)
+  "proofops.adapters.local.upstage_ocr_profile_v15",
+  # packages/proofops/adapters/local/upstage_ocr_profile_v16.py:22
+  "proofops.adapters.local.upstage_ocr_profile_v16",
+  # packages/proofops/adapters/local/upstage_ocr_profile_v18.py:41 (literal)
+  "proofops.adapters.local.upstage_ocr_profile_v17",
+  # packages/proofops/adapters/local/upstage_ocr_profile_v18.py:24
+  "proofops.adapters.local.upstage_ocr_profile_v18",
+  # packages/proofops/adapters/local/upstage_ocr_profile_v19.py:27
+  "proofops.adapters.local.upstage_ocr_profile_v19",
+  # packages/proofops/adapters/local/upstage_ocr_profile_v2.py:37
+  "proofops.adapters.local.upstage_ocr_profile_v2",
+  # packages/proofops/adapters/local/upstage_ocr_profile_d2_v21.py:58
+  "proofops.adapters.local.upstage_ocr_profile_v20",
+  # packages/proofops/adapters/local/upstage_ocr_profile_v21.py:31
+  "proofops.adapters.local.upstage_ocr_profile_v21",
+  # packages/proofops/adapters/local/upstage_ocr_profile_v3.py:33
+  "proofops.adapters.local.upstage_ocr_profile_v3",
+  # packages/proofops/adapters/local/upstage_ocr_profile_v4.py:44
+  "proofops.adapters.local.upstage_ocr_profile_v4",
+  # packages/proofops/adapters/local/upstage_ocr_profile_v5.py:55
+  "proofops.adapters.local.upstage_ocr_profile_v5",
+  # packages/proofops/adapters/local/upstage_ocr_profile_v8.py:55 (literal)
+  "proofops.adapters.local.upstage_ocr_profile_v6",
+  # packages/proofops/adapters/local/upstage_ocr_profile_v7.py:36
+  "proofops.adapters.local.upstage_ocr_profile_v7",
+  # packages/proofops/adapters/local/upstage_ocr_profile_v8.py:36
+  "proofops.adapters.local.upstage_ocr_profile_v8",
+  # packages/proofops/adapters/local/upstage_ocr_profile_v10.py:38
+  "proofops.adapters.local.upstage_ocr_profile_v9",
+  # packages/proofops/adapters/parsing/k8_source_recovery.py:55
+  "proofops.adapters.parsing.k8_source_recovery",
+  # packages/proofops/adapters/local/source_condition_view.py:297
+  "proofops.adapters.parsing.source_preview",
+  # packages/proofops/adapters/parsing/source_recovery.py:195
+  "proofops.adapters.parsing.source_recovery",
+  # packages/proofops/adapters/local/claim_source_verification.py:25
+  "proofops.application.claims",
+  # packages/proofops/adapters/local/claim_source_verification_v4.py:46
+  "proofops.application.evidence.citations",
+  # packages/proofops/adapters/local/source_condition_review.py:370
+  "proofops.application.evidence.source_condition_interpretation",
+  # packages/proofops/adapters/local/source_condition_review.py:367
+  "proofops.application.evidence.source_condition_ownership",
+  # packages/proofops/adapters/local/claim_source_verification_v4.py:47
+  "proofops.application.evidence.span_citations",
+  # packages/proofops/adapters/local/ch1_charts.py:42
+  "proofops.application.ingest.ch1_layout",
+  # packages/proofops/adapters/local/source_condition_review.py:194
+  "proofops.application.ingest.normalize",
+  # 보존 디렉터리
+  "proofops.application.policies.legacy",
+  # 보존 디렉터리
+  "proofops.application.policies.legacy.analysis_profiles",
+  # 보존 정책: fact_assembly_c3_v2.py:225
+  "proofops.application.tagging.fact_assembly_c3_v2_legacy",
+  # packages/proofops/adapters/local/i31_claim_source.py:34
+  "proofops.application.tagging.tb1_table_bundles",
+  # packages/proofops/adapters/local/source_condition_review.py:195
+  "proofops.domain.numeric",
 ]
-disable_error_code = ["name-defined"]
+ignore_errors = true
 
-# HX3 privately executes the byte-pinned v15 module before subclassing Reader.
-# Mypy cannot resolve that runtime-created base; retain all other type checks.
+# WP-B2: mypy 1.20 --strict equivalent. `strict = true` in an override
+# enables flags globally, so list its per-module flags explicitly instead.
+# Next stages: add "proofops_agent.*", "proofops.application.*",
+# "proofops_worker.*", "proofops.adapters.*", "proofops_api.*" to module
+# only after their own gates pass. They remain on the baseline for now.
 [[tool.mypy.overrides]]
-module = ["adapters.local.upstage_ocr_profile_v16", "adapters.local.upstage_ocr_profile_hx4_v16", "adapters.local.upstage_ocr_profile_v18"]
-disable_error_code = ["name-defined"]
+module = ["proofops.domain.*"]
+disallow_any_generics = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+warn_unused_ignores = true
+warn_return_any = true
+implicit_reexport = false
+strict_equality = true
+extra_checks = true
 
-# D2's byte-pinned modules subclass Reader returned by private execution. Mypy
-# cannot type that runtime base; retain every other diagnostic in these modules.
+# Reconciliation/DART is owned by another team (common.md / TB_report §7).
+# Do not introduce its strict migration or edit its source in WP-B0/B2.
 [[tool.mypy.overrides]]
-module = [
-  "adapters.local.upstage_ocr_profile_d2_v21",
-  "adapters.local._frozen_upstage_ocr_profile_v21_20261015",
-]
-disable_error_code = ["valid-type", "misc"]
+module = ["proofops.domain.reconciliation.*"]
+disallow_any_generics = false
+disallow_subclassing_any = false
+disallow_untyped_calls = false
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = false
+disallow_untyped_decorators = false
+warn_unused_ignores = false
+warn_return_any = false
+implicit_reexport = true
+strict_equality = false
+extra_checks = false
+
+[[tool.mypy.overrides]]
+module = ["proofops.domain.numeric"]
+follow_imports = "skip"
+
+# Path alignment exposes two diagnostics in the explicitly excluded DART work.
+# Keep every other check and hand these exact cases to its owning team.
+[[tool.mypy.overrides]]
+module = ["proofops.adapters.local.reconciliation_store"]
+disable_error_code = ["assignment"]
+
+[[tool.mypy.overrides]]
+module = ["proofops_api.routers.reconciliation"]
+disable_error_code = ["arg-type"]

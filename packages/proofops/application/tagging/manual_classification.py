@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import asdict
+from typing import cast
 
 from proofops.application.claims import Claim
 from proofops.application.evidence.binding import ClaimContext
@@ -30,10 +31,10 @@ from proofops.application.tagging.preliminary import (
     _literal_dimension_ref,
     _sources,
 )
-from proofops.application.tagging.tracks import validate_track_candidates
+from proofops.application.tagging.tracks import TrackCandidate, validate_track_candidates
 from proofops.domain.errors import DomainValidationError
 from proofops.domain.provenance import canonical_hash
-from proofops.domain.values import SAFE_HARBOR_CATEGORIES, TRACKS, _require_uuid
+from proofops.domain.values import SAFE_HARBOR_CATEGORIES, TRACKS, SourceRef, _require_uuid
 
 SCHEMA = "manual-preliminary-classification-v1"
 HUMAN_ORIGIN = "human_classification"
@@ -109,7 +110,7 @@ def validate_manual_classification(
         )[0]
     except DomainValidationError as error:
         raise ClassificationRejected("VALIDATION_ERROR") from error
-    dimensions: dict[str, object] = {}
+    dimensions: dict[str, SourceRef | None] = {}
     for name, span in body["dimensions"].items():
         if span is None:
             dimensions[name] = None
@@ -199,7 +200,7 @@ def classification_snapshot(
         "graph_sha256": canonical_hash(asdict(graph)),
         "claim_sha256": canonical_hash(asdict(claim)),
         "lineage_checkpoint_sha256": lineage_checkpoint_sha256,
-        "track": classification.track.track,
+        "track": cast(TrackCandidate, classification.track).track,
         "safe_harbor_category": classification.safe_harbor_category,
         "track_confidence": None,
         "dimensions": dimensions,

@@ -14,6 +14,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from hashlib import sha256
 from pathlib import Path
 from time import monotonic
+from typing import cast
 from urllib.request import Request, urlopen
 from uuid import uuid4
 
@@ -234,7 +235,10 @@ def parse_pages(
             page = document.pages[number - 1]
             words = page.extract_words()
             geometry = PageGeometry(
-                page.width, page.height, page.rotation, tuple(map(float, page.cropbox))
+                page.width,
+                page.height,
+                page.rotation,
+                cast(tuple[float, float, float, float], tuple(map(float, page.cropbox))),
             )
             response, hit, seconds = results[number]
             counts: Counter[str] = Counter()
