@@ -17,7 +17,7 @@ GRAPH_ARTIFACT = "rb2-graph.json.gz"
 
 
 def compact(work, profile, *, manifest_bytes):
-    from proofops.adapters.parsing.opendataloader import _output_bytes
+    from proofops.adapters.parsing.odl_parts.common import _output_bytes
 
     if _output_bytes(work) + manifest_bytes <= profile.max_output_bytes:
         return None
@@ -36,7 +36,7 @@ def compact(work, profile, *, manifest_bytes):
 
 
 def _compress(source, target, profile):
-    from proofops.adapters.parsing.opendataloader import ParseFailure
+    from proofops.adapters.parsing.odl_parts.common import ParseFailure
 
     size = source.stat().st_size
     if size > profile.max_output_bytes:

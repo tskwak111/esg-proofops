@@ -61,7 +61,7 @@ def remap(raw, pages, count, prefix):
 
 def execute(command, work, env, profile, run):
     """Each batch gets fresh Python/JVM heaps and the same aggregate deadline."""
-    from proofops.adapters.parsing.opendataloader import ParseFailure, _json, _output_bytes
+    from proofops.adapters.parsing.odl_parts.common import ParseFailure, _json, _output_bytes
 
     request = json.loads((work / "request.json").read_bytes())
     selected = request["selected"]
