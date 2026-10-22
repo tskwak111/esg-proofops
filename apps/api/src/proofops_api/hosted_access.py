@@ -18,7 +18,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
-from proofops_api.hosted_store import HostedError, digest, identifier
+from proofops_api.hosted_contracts import HostedError, digest, identifier
 
 ROLES = ("admin", "organizer")
 PREFIX = "access-password:"

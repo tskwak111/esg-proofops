@@ -233,7 +233,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
 
     @app.exception_handler(HostedError)
     async def hosted_error(request: Request, exc: HostedError):
-        from proofops_api.hosted_store import CONTROL_MESSAGES
+        from proofops_api.hosted_contracts import CONTROL_MESSAGES
 
         return JSONResponse(
             {

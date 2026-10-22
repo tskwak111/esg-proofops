@@ -21,14 +21,15 @@ from proofops.adapters.local.job_store import LocalSQLiteJobStore
 from proofops.domain.documents import PageGeometry
 from proofops.domain.provenance import canonical_hash
 
-from proofops_api.hosted_page_render import render
-from proofops_api.hosted_store import (
+from proofops_api.hosted_contracts import (
     HostedError,
     copy_verified_file,
     digest,
     file_sha256,
     identifier,
 )
+from proofops_api.hosted_page_render import render
+from proofops_api.hosted_snapshots import pilot_bytes, pilot_text, tenant_snapshot
 
 _CACHE_LIMIT = 32 * 1024 * 1024
 _cache: OrderedDict[tuple, tuple[float, bytes, dict]] = OrderedDict()
@@ -265,7 +266,7 @@ class HostedReads:
 
     def _anchor(self, path, row, prepared_page):
         """Read old immutable publications directly, without initializing/mutating local stores."""
-        pilot = json.loads((path / "pilot.json").read_bytes())
+        pilot = pilot_bytes(path)
         tenant = row["tenant_id"]
         local_run = identifier(pilot["run_id"])
         if pilot["tenant_id"] != tenant:
@@ -320,12 +321,7 @@ class HostedReads:
             )
         with closing(sqlite3.connect(database.as_uri() + "?mode=ro", uri=True)) as db:
             db.execute("BEGIN")
-            snapshot = json.loads(
-                db.execute(
-                    "SELECT payload FROM run_snapshots WHERE tenant_id=? AND run_id=?",
-                    (tenant, local_run),
-                ).fetchone()[0]
-            )
+            snapshot = tenant_snapshot(db, tenant, local_run)
             if (snapshot["tenant_id"], snapshot["run_id"], snapshot["input_hash"]) != (
                 tenant,
                 local_run,
@@ -459,7 +455,7 @@ class HostedReads:
                 )
                 from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
 
-                pilot = json.loads((path / "pilot.json").read_text())
+                pilot = pilot_text(path)
                 c4 = pilot.get("publication_profile") == C4_PROFILE
                 if c4:
                     if selected != pilot["selected_pages"]:

@@ -8,7 +8,7 @@ from contextlib import closing
 from pathlib import Path
 from uuid import uuid4
 
-from proofops_api.hosted_store import RUN_LEASE_SECONDS
+from proofops_api.hosted_contracts import RUN_LEASE_SECONDS
 
 HEARTBEAT_MAX_AGE_SECONDS = 30
 LEASE_HEARTBEAT_MAX_AGE_SECONDS = 90

@@ -1,15 +1,21 @@
 """Bounded public trial admission; no analysis/provider policy changes."""
 
+from __future__ import annotations
+
 import math
 import secrets
 import sqlite3
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from proofops.application.authorization import AuthContext, SessionRecord
 from starlette.requests import Request
 
-from proofops_api.hosted_store import HostedError, HostedSettings, HostedStore, day, digest
+from proofops_api.hosted_contracts import HostedError, HostedSettings, day, digest
+
+if TYPE_CHECKING:
+    from proofops_api.hosted_store import HostedStore
 
 
 def is_guest(auth: AuthContext | SessionRecord) -> bool:

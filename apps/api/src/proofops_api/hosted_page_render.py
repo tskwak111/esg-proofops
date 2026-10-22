@@ -23,7 +23,7 @@ MEMORY_BYTES = 512 * 1024 * 1024
 def render(source: Path, page: int, geometry, root: Path, *, fit_page=False) -> tuple[bytes, dict]:
     from proofops.adapters.parsing.opendataloader import OpenDataLoaderParser, ParseFailure
 
-    from proofops_api.hosted_store import HostedError
+    from proofops_api.hosted_contracts import HostedError
 
     profile = SimpleNamespace(
         timeout_seconds=TIMEOUT_SECONDS, memory_bytes=MEMORY_BYTES, max_output_bytes=MAX_PNG_BYTES
