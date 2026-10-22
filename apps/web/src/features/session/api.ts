@@ -1,10 +1,4 @@
-export type Session = {
-  user_id: string;
-  tenant_id: string | null;
-  role: "viewer" | "editor" | "reviewer" | "admin" | null;
-  csrf_token: string;
-  expires_at: string;
-};
+export type { Session } from "../shared/wireTypes";
 
 type ErrorBody = {
   error?: { code?: string; message?: string; retryable?: boolean };

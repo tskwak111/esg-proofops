@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:web": "../../scripts/test_web.sh"
   },
   "dependencies": {
     "pdf-lib": "1.17.1",

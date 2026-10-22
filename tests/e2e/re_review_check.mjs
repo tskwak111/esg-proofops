@@ -59,11 +59,21 @@ export async function check() {
     history.pushState({}, '', `/runs/${run}/reviews`);
     root.render(React.createElement(App));
     await click('재검토 시작');
+    const form = host.querySelector('textarea').closest('form');
+    const trackSelect = form.querySelector('select');
+    for (const [track, count] of [['goal', 8], ['performance', 6], ['management', 6]]) {
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(trackSelect, track);
+      trackSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      await waitFor(() => form.querySelectorAll('select').length === count + 1 && trackSelect.value === track);
+      assert([...form.querySelectorAll('select')].slice(1).every(select => select.value === 'unknown'),
+        'Changing track must reset every required element to unknown');
+      assert(!form.querySelector('input[type="checkbox"]:checked'), 'Track changes must not carry evidence into new elements');
+    }
     await enterReason('원문을 다시 확인한 검토 사유');
     await submit();
     await waitFor(() => host.querySelector('section[aria-label="충돌 비교"]'));
     assert(host.querySelector('textarea').value === '원문을 다시 확인한 검토 사유', '412 must preserve the draft');
-    await click('차이를 확인했습니다. 내 초안을 새 기준에서 다시 검토');
+    await click('차이를 확인했습니다. 내 변경 내용을 새 기준에서 다시 검토');
     await submit();
     await waitFor(() => posts.length === 2 && button('재검토 시작'));
     assert(posts[0].key !== posts[1].key, 'Rebased request needs a new idempotency key');
@@ -72,7 +82,7 @@ export async function check() {
     await submit();
     await waitFor(() => posts.length === 3 && button('재검토 시작'));
     assert(head === 13 && revision === 5, 'Repeated review must reload the new current head');
-    return { explicit_re_review: true, stale_draft_preserved: true, fresh_head_rebase: true,
+    return { track_reset_unknown: true, explicit_re_review: true, stale_draft_preserved: true, fresh_head_rebase: true,
       repeated_review: true, submitted_tag_revisions: posts.map(p => p.body.base_tag_revision) };
   } finally { root.unmount(); host.remove(); window.fetch = originalFetch; history.pushState({}, '', originalPath); }
 }
