@@ -25,18 +25,17 @@ class RelationPacket:
     envelope: dict | None
 
 
-def build_relation_packet(
-    claim, packet, *, graph, tenant_id, snapshot, settings, attribution_policy, preliminary_records
-):
+def build_relation_packet(self, claim, packet):
+    # Read runtime attributes at their original guard/branch, not at the call site.
     data = packet.to_dict()
     expected = dict(
-        tenant_id=tenant_id,
-        run_id=snapshot["run_id"],
+        tenant_id=self.auth.tenant_id,
+        run_id=self.snapshot["run_id"],
         claim_id=claim.claim_id,
-        document_version_id=graph.document_version_id,
-        parse_manifest_id=graph.parse_manifest_id,
-        source_sha256=graph.source_sha256,
-        graph_sha256=canonical_hash(asdict(graph)),
+        document_version_id=self.graph.document_version_id,
+        parse_manifest_id=self.graph.parse_manifest_id,
+        source_sha256=self.graph.source_sha256,
+        graph_sha256=canonical_hash(asdict(self.graph)),
         status="candidate",
     )
     if any(data.get(key) != value for key, value in expected.items()):
@@ -47,28 +46,30 @@ def build_relation_packet(
         claim.parse_manifest_id,
         claim.source_sha256,
     ) != (
-        tenant_id,
-        graph.document_version_id,
-        graph.parse_manifest_id,
-        graph.source_sha256,
+        self.auth.tenant_id,
+        self.graph.document_version_id,
+        self.graph.parse_manifest_id,
+        self.graph.source_sha256,
     ):
         raise ValueError("RELATION_CLAIM_MISMATCH")
     local = {ref.source_id for ref in claim.source_refs}
     if (
-        snapshot.get("analysis_profile_policy", {}).get("table_cell_relations")
+        self.snapshot.get("analysis_profile_policy", {}).get("table_cell_relations")
         == "attested-p1-p2-cells-pb2-v1"
     ):
         from proofops.application.tagging.pb2_table_evidence import structural_relation_ids
 
-        local.update(structural_relation_ids(data, claim, graph, tenant_id=tenant_id))
-    blocks = {block.source_id: block for block in graph.blocks}
+        local.update(
+            structural_relation_ids(data, claim, self.graph, tenant_id=self.auth.tenant_id)
+        )
+    blocks = {block.source_id: block for block in self.graph.blocks}
     selected = {}
     global_elements = {}
     rulepack = None
-    if attribution_policy is not None and snapshot.get("rulepack"):
+    if self.attribution_policy is not None and self.snapshot.get("rulepack"):
         from proofops.domain.rulepacks import RulePackSnapshot
 
-        rulepack = RulePackSnapshot(**snapshot["rulepack"])
+        rulepack = RulePackSnapshot(**self.snapshot["rulepack"])
     refused = {}
     refusals = []
     for candidate in data["evidence_candidates"]:
@@ -80,14 +81,16 @@ def build_relation_packet(
             ref = _source_ref_from_dict(raw)
             if ref.source_id in local:
                 continue
-            source = verify_source_ref(ref, graph, tenant_id=tenant_id)
+            source = verify_source_ref(ref, self.graph, tenant_id=self.auth.tenant_id)
             block = blocks.get(ref.source_id)
             if source.verification_state != "verified" or block is None:
                 continue
-            canonical = verify_source_ref(block.source_ref(), graph, tenant_id=tenant_id)
+            canonical = verify_source_ref(
+                block.source_ref(), self.graph, tenant_id=self.auth.tenant_id
+            )
             if source != canonical or source.quote != ref.quote:
                 continue  # Never widen a selected substring to its parent paragraph.
-            if attribution_policy is not None:
+            if self.attribution_policy is not None:
                 from proofops.application.evidence.relation_attribution import (
                     relation_source_rejection,
                 )
@@ -95,9 +98,9 @@ def build_relation_packet(
                 reason = relation_source_rejection(
                     claim,
                     source,
-                    graph,
-                    tenant_id=tenant_id,
-                    policy=attribution_policy,
+                    self.graph,
+                    tenant_id=self.auth.tenant_id,
+                    policy=self.attribution_policy,
                     rulepack=rulepack,
                     global_elements=global_elements.get(ref.source_id, ()),
                 )
@@ -109,7 +112,7 @@ def build_relation_packet(
                                 source_id=ref.source_id,
                                 status="attribution_rejected",
                                 state="unknown",
-                                attribution_policy_sha256=canonical_hash(attribution_policy),
+                                attribution_policy_sha256=canonical_hash(self.attribution_policy),
                                 stable_reason=dict(category="attribution_guard", error_code=reason),
                             )
                         )
@@ -121,29 +124,30 @@ def build_relation_packet(
             sources, selected, global_elements, rulepack, refused, refusals, {}, {}, None
         )
     anchors = {}
-    if settings.model_profile in (
+    if self.relation_settings.model_profile in (
         OCCURRENCE_V3_PROFILE,
         "relation-decision-gate-v1",
     ):
         values = [
             r["values"]["dimensions"]
-            for r in preliminary_records.get(claim.claim_id, [])
+            for r in self.preliminary_records.get(claim.claim_id, [])
             if r.get("status") == "validated_candidate"
         ]
         if len(values) == 3 and all(v == values[0] for v in values):
             anchors = {k: v["quote"] if v else None for k, v in values[0].items()}
     selection_args = (
         {"claim_text": claim.quote, "dimensions": anchors}
-        if settings.model_profile in (OCCURRENCE_V3_PROFILE, "relation-decision-gate-v1")
+        if self.relation_settings.model_profile
+        in (OCCURRENCE_V3_PROFILE, "relation-decision-gate-v1")
         else {}
     )
-    if attribution_policy is not None:
+    if self.attribution_policy is not None:
         selection_args["attribution_guard"] = True
     envelope = relation_request(
         sources,
-        graph,
-        tenant_id=tenant_id,
-        profile=settings.model_profile,
+        self.graph,
+        tenant_id=self.auth.tenant_id,
+        profile=self.relation_settings.model_profile,
         **selection_args,
     ) | {
         "claim_id": claim.claim_id,
@@ -162,18 +166,18 @@ def build_relation_packet(
     )
 
 
-def validate_relation_response(raw, *, claim, graph, tenant_id, settings, attribution_policy, plan):
+def validate_relation_response(self, raw, *, claim, plan):
     sources, selection_args = plan.sources, plan.selection_args
     selected, rulepack, global_elements = plan.selected, plan.rulepack, plan.global_elements
     roles = validate_relations(
         sources,
-        graph,
+        self.graph,
         raw,
-        tenant_id=tenant_id,
-        profile=settings.model_profile,
+        tenant_id=self.auth.tenant_id,
+        profile=self.relation_settings.model_profile,
         **selection_args,
     )
-    if attribution_policy is not None:
+    if self.attribution_policy is not None:
         from proofops.application.evidence.relation_attribution import (
             filter_evidence_dimensions,
         )
@@ -183,9 +187,9 @@ def validate_relation_response(raw, *, claim, graph, tenant_id, settings, attrib
                 claim,
                 selected[sid],
                 values,
-                graph,
-                tenant_id=tenant_id,
-                policy=attribution_policy,
+                self.graph,
+                tenant_id=self.auth.tenant_id,
+                policy=self.attribution_policy,
                 rulepack=rulepack,
                 global_elements=global_elements.get(sid, ()),
             )[0]
