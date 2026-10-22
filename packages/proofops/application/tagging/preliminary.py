@@ -7,7 +7,7 @@ must retain raw responses and model/prompt/rule/replica pins before publication.
 
 import re
 from collections.abc import Mapping
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, replace
 from math import isfinite
 from typing import Any
 
@@ -19,11 +19,14 @@ from proofops.application.ingest.source_continuations import (
     canonical_source_refs,
     claim_quote_matches_sources,
 )
+from proofops.application.tagging.contracts import (
+    PreliminaryClassification as PreliminaryClassification,
+)
 from proofops.application.tagging.table_sources import (
     TABLE_SOURCE_POLICY,
     table_structural_sources,
 )
-from proofops.application.tagging.tracks import TrackCandidate, validate_track_candidates
+from proofops.application.tagging.tracks import validate_track_candidates
 from proofops.domain.errors import DomainValidationError
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.values import SAFE_HARBOR_CATEGORIES, SourceRef, _require_uuid
@@ -301,14 +304,6 @@ P2_SYSTEM_PROMPT = (
     "when no literal measured quantity is named."
 )
 _FIELDS = frozenset(("claim_id", "track", "safe_harbor_category", "track_confidence", "dimensions"))
-
-
-@dataclass(frozen=True, slots=True)
-class PreliminaryClassification:
-    track: TrackCandidate | None
-    context: ClaimContext
-    track_confidence: float | None
-    safe_harbor_category: str | None
 
 
 def _sources(

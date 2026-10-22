@@ -8,17 +8,11 @@ invented. Raw recovery is restricted to the exact request, never another vote.
 import json
 from collections.abc import Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, replace
 from typing import Any
 from unicodedata import normalize
 from uuid import UUID, uuid5
 
-from proofops.adapters.cache.aws import (
-    CacheNamespace,
-    CacheRequest,
-    ImmutableResponseCache,
-    cache_request,
-)
 from proofops.application.budget import (
     BudgetCall,
     BudgetExceeded,
@@ -39,13 +33,29 @@ from proofops.application.evidence.retrieval import (
 )
 from proofops.application.evidence.span_citations import verify_source_ref
 from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
-from proofops.application.ports.models import ModelBinding
+from proofops.application.ports.cache import (
+    CacheNamespace,
+    TaggingCache,
+    cache_request,
+)
+from proofops.application.tagging.contracts import (
+    RawTagResponse as RawTagResponse,
+)
+from proofops.application.tagging.contracts import (
+    TaggingSettings as TaggingSettings,
+)
+from proofops.application.tagging.contracts import (
+    TagRun as TagRun,
+)
+from proofops.application.tagging.contracts import (
+    output_reservation_tokens as output_reservation_tokens,
+)
 from proofops.application.tagging.tracks import TrackCandidate
 from proofops.domain.errors import DomainValidationError
 from proofops.domain.numeric import unassigned_note_ids
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import RulePackSnapshot, canonical_json
-from proofops.domain.values import LlmTags, SourceRef, _require_uuid, llm_tags_from_dict
+from proofops.domain.values import SourceRef, _require_uuid, llm_tags_from_dict
 
 _SAFE_INPUT_COUNT_CODES = frozenset(
     {
@@ -69,133 +79,6 @@ _SAFE_INPUT_COUNT_CODES = frozenset(
 )
 
 
-@dataclass(frozen=True, slots=True)
-class TaggingSettings:
-    binding: ModelBinding
-    model_id: str
-    model_profile: str
-    region: str
-    system_prompt: str
-    schema_json: str
-    max_tokens: int = 4096
-    temperature: float = 0.0
-    extraction_epoch: int = 1
-    max_response_bytes: int = 1_048_576
-    wire_policy_version: int = 1
-
-    def __post_init__(self):
-        if not isinstance(self.binding, ModelBinding) or self.binding.role != "tagger":
-            raise DomainValidationError("tagger binding required")
-        if type(self.binding.synthetic) is not bool:
-            raise DomainValidationError("synthetic marker required")
-        for value in (
-            self.binding.binding_id,
-            self.model_id,
-            self.model_profile,
-            self.region,
-            self.system_prompt,
-        ):
-            if not isinstance(value, str) or not value.strip():
-                raise DomainValidationError("explicit model and prompt settings required")
-        if not isinstance(json.loads(self.schema_json), dict):
-            raise DomainValidationError("JSON output schema required")
-        if type(self.max_response_bytes) is not int or self.max_response_bytes <= 0:
-            raise DomainValidationError("positive response byte limit required")
-        if self.wire_policy_version not in (1, 2):
-            raise DomainValidationError("invalid wire policy version")
-
-    @property
-    def rendered_system(self) -> str:
-        return self.system_prompt + "\nOutput JSON schema:\n" + self.schema_json
-
-    def system_for_track(self, track: str, safe_harbor_category: str | None) -> str:
-        return (
-            self.rendered_system
-            + "\nValidated classification; tag only its elements: "
-            + canonical_json(dict(track=track, safe_harbor_category=safe_harbor_category))
-        )
-
-    @property
-    def model_sha256(self) -> str:
-        identity: dict[str, Any] = dict(
-            binding=asdict(self.binding),
-            model_id=self.model_id,
-            model_profile=self.model_profile,
-            region=self.region,
-        )
-        if self.wire_policy_version == 2:
-            identity["wire_policy_version"] = 2
-        return canonical_hash(identity)
-
-    @property
-    def prompt_sha256(self) -> str:
-        return canonical_hash(self.rendered_system)
-
-
-@dataclass(frozen=True, slots=True)
-class RawTagResponse:
-    raw_response_json: str | None
-    usage: TokenUsage
-    synthetic: bool
-    provider_response_json: str | None = None
-
-    def __post_init__(self):
-        if type(self.synthetic) is not bool or not isinstance(self.usage, TokenUsage):
-            raise DomainValidationError("typed usage and synthetic provenance required")
-        if any(
-            value is not None and not isinstance(value, str)
-            for value in (self.raw_response_json, self.provider_response_json)
-        ):
-            raise DomainValidationError("raw responses must be strings or null")
-
-
-@dataclass(frozen=True, slots=True)
-class TagRun:
-    request: CacheRequest
-    tenant_id: str
-    run_id: str
-    claim_id: str
-    packet_sha256: str
-    graph_sha256: str
-    rule_sha256: str
-    model_sha256: str
-    prompt_sha256: str
-    raw_response_json: str | None
-    usage: TokenUsage | None
-    guarded: LlmTags | None
-    status: str
-    errors: tuple[str, ...]
-    source_scopes: tuple[tuple[str, str], ...]
-    binding_hashes: tuple[tuple[str, str], ...]
-    synthetic: bool
-    product_variant: bool = False
-    recovered: bool = False
-    provider_response_json: str | None = None
-    diagnostic_detail: str | None = None
-
-    @property
-    def replicate_id(self) -> int:
-        return self.request.replicate_id
-
-    @property
-    def semantic_hash(self) -> str:
-        data = asdict(self)
-        data.pop("recovered")
-        if data["diagnostic_detail"] is None:
-            data.pop("diagnostic_detail")
-        return canonical_hash(data)
-
-
-def output_reservation_tokens(*, model_id: str, max_tokens: int, synthetic: bool) -> int:
-    """Luna transports aggregate at most two schema responses per logical call.
-
-    Reserve both outputs before dispatch; wire max_tokens stays per response.
-    Synthetic and single-response transports retain their existing allowance.
-    """
-    attempts = 2 if not synthetic and model_id in ("gpt-6-luna", "openai/gpt-6-luna") else 1
-    return max_tokens * attempts
-
-
 def tag_replicates(
     packet: EvidencePacket,
     *,
@@ -205,7 +88,7 @@ def tag_replicates(
     relation_tags: Mapping[str, Mapping[str, SourceRef | None]],
     rulepack: RulePackSnapshot,
     settings: TaggingSettings,
-    cache: ImmutableResponseCache,
+    cache: TaggingCache,
     usage_store: UsageRepository,
     invoke: Callable[[dict[str, Any]], RawTagResponse],
     tenant_id: str,
