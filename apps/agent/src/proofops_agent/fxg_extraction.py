@@ -168,7 +168,7 @@ def extract_parts(extractor, packet, system, user, parts, *, context_graph):
                 extractor._fail(
                     directory, canonical_hash(packet), part["request_id"], code, transport=True
                 )
-            from proofops_agent.upstage_extraction import _PROVIDER_METADATA_KEYS
+            from proofops_agent.extraction_parts.contracts import _PROVIDER_METADATA_KEYS
 
             response = (
                 {k: response[k] for k in (*_PROVIDER_METADATA_KEYS, "content") if k in response}

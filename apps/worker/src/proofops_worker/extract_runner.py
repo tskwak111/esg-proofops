@@ -7,7 +7,6 @@ import os
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, replace
-from datetime import UTC, datetime
 from threading import Lock
 from uuid import UUID, uuid4, uuid5
 
@@ -35,7 +34,6 @@ from proofops.adapters.local.source_attestation_errors import (
 from proofops.adapters.local.upstage import UPSTAGE_TRANSPORT_STOP_CODES
 from proofops.adapters.local.verified_read_cache import fresh_execution_enabled
 from proofops.adapters.parsing.opendataloader import ParseFailure
-from proofops.application.authorization import AuthContext
 from proofops.application.claim_scope import MAX_EXTRACTION_BATCH_CALLS, validate_extraction_limits
 from proofops.application.claims import (
     ClaimExtractorPort,
@@ -54,6 +52,7 @@ from proofops.domain.rulepacks import canonical_json
 from pypdf.errors import PdfReadError
 
 from proofops_worker.consumer import StageFailure, consume_job, with_lease_heartbeat
+from proofops_worker.extraction_parts.attempt import ExtractionAttemptContext, authorize_attempt
 from proofops_worker.telemetry import observe_job
 
 
@@ -225,18 +224,15 @@ def fxg_dispatch_guard(runner, lease, usage, snapshot, graph, profile, limit):
             if remaining <= 0:
                 raise ValueError("BUDGET_EXHAUSTED")
             fence_provider_call(runner, lease, usage)
-            authorization = check_local_upstage_binding(
-                binding=snapshot["runtime"],
-                consent=snapshot["consent"],
-                auth=AuthContext(
-                    "local-worker", graph.tenant_id, "viewer", frozenset(), snapshot["run_id"]
-                ),
-                checked_at=datetime.fromtimestamp(runner.clock(), UTC).isoformat(),
-                source_sha256=graph.source_sha256,
-                model_sha256=profile.model_sha256,
+            authorize_attempt(
+                runner,
+                snapshot,
+                graph,
+                profile,
+                tenant_id=graph.tenant_id,
+                run_id=snapshot["run_id"],
+                check_binding=check_local_upstage_binding,
             )
-            if not authorization.ready:
-                raise ValueError("LOCAL_TEST_AUTHORIZATION_INVALID")
             remaining -= 1
 
     return guard
@@ -778,16 +774,16 @@ class LocalExtractRunner:
 
         def operation(lease):
             since = 0 if profile.synthetic else self.extractor.usage_checkpoint()
-            usage_lock = Lock()
-
-            def sync_usage():
-                if not profile.synthetic:
-                    with usage_lock:
-                        usage.update(
-                            self.extractor.cumulative_usage(
-                                since=since, parse_manifest_id=graph.parse_manifest_id
-                            )
-                        )
+            attempt = ExtractionAttemptContext(
+                self,
+                snapshot,
+                usage,
+                is_real=not profile.synthetic,
+                since=since,
+                manifest_id=graph.parse_manifest_id,
+            )
+            usage_lock = attempt.lock
+            sync_usage = attempt.sync_usage
 
             runner = self
             source = (
@@ -813,23 +809,17 @@ class LocalExtractRunner:
 
                 def extract(self, packet):
                     fence_provider_call(runner, lease, usage)
-                    if not rb3_admit(runner, snapshot, "extract"):
+                    if not attempt.admit(
+                        graph,
+                        profile,
+                        tenant_id=tenant_id,
+                        run_id=run_id,
+                        admit=rb3_admit,
+                        check_binding=check_local_upstage_binding,
+                    ):
                         return deferred_payload(
                             packet["untrusted_document_data"]["text"], "TIME_BUDGET"
                         )
-                    if not profile.synthetic:
-                        authorization = check_local_upstage_binding(
-                            binding=snapshot["runtime"],
-                            consent=snapshot["consent"],
-                            auth=AuthContext(
-                                "local-worker", tenant_id, "viewer", frozenset(), run_id
-                            ),
-                            checked_at=datetime.fromtimestamp(runner.clock(), UTC).isoformat(),
-                            source_sha256=graph.source_sha256,
-                            model_sha256=profile.model_sha256,
-                        )
-                        if not authorization.ready:
-                            raise ValueError("LOCAL_TEST_AUTHORIZATION_INVALID")
                     with usage_lock:
                         usage["extractor_calls"] += 1
                     try:
@@ -987,21 +977,13 @@ class LocalExtractRunner:
 
             def operation(lease):
                 usage = {"model_calls": 0, "extractor_calls": 0}
-                is_real, since, manifest_id = False, 0, None
-                usage_lock = Lock()
-
-                def sync_usage():
-                    if is_real:
-                        with usage_lock:
-                            usage.update(
-                                self.extractor.cumulative_usage(
-                                    since=since, parse_manifest_id=manifest_id
-                                )
-                            )
+                attempt = ExtractionAttemptContext(self, snapshot, usage)
+                usage_lock = attempt.lock
+                sync_usage = attempt.sync_usage
 
                 try:
                     profile = extraction_profile(snapshot)
-                    is_real = not profile.synthetic
+                    is_real = attempt.is_real = not profile.synthetic
                     if is_real:
                         limits = snapshot.get("extraction_limits")
                         try:
@@ -1016,7 +998,7 @@ class LocalExtractRunner:
                             != limits["max_output_tokens"]
                         ):
                             raise ValueError("EXTRACTION_PROFILE_MISMATCH")
-                        since = self.extractor.usage_checkpoint()
+                        attempt.since = self.extractor.usage_checkpoint()
                     if profile != self.extractor.profile or (
                         message.document_version_id != snapshot["document"]["version_id"]
                         or message.input_hash != snapshot["input_hash"]
@@ -1111,22 +1093,15 @@ class LocalExtractRunner:
                                             )
                                         ]
                                     }
-                                if not rb3_admit(runner, snapshot, "extract"):
+                                if not attempt.admit(
+                                    graph,
+                                    profile,
+                                    tenant_id=tenant_id,
+                                    run_id=run_id,
+                                    admit=rb3_admit,
+                                    check_binding=check_local_upstage_binding,
+                                ):
                                     return deferred_payload(data["text"], "TIME_BUDGET")
-                                authorization = check_local_upstage_binding(
-                                    binding=snapshot["runtime"],
-                                    consent=snapshot["consent"],
-                                    auth=AuthContext(
-                                        "local-worker", tenant_id, "viewer", frozenset(), run_id
-                                    ),
-                                    checked_at=datetime.fromtimestamp(
-                                        runner.clock(), UTC
-                                    ).isoformat(),
-                                    source_sha256=graph.source_sha256,
-                                    model_sha256=profile.model_sha256,
-                                )
-                                if not authorization.ready:
-                                    raise ValueError("LOCAL_TEST_AUTHORIZATION_INVALID")
                             with usage_lock:
                                 self.calls += 1
                                 usage["extractor_calls"] += 1
