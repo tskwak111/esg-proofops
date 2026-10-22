@@ -2,8 +2,6 @@
 
 import json
 from dataclasses import asdict, replace
-from datetime import UTC as _UTC
-from datetime import datetime as _RealDatetime
 from uuid import UUID
 
 import pytest
@@ -20,16 +18,7 @@ from proofops_agent.upstage_relations import (
 
 from tests.acceptance.test_binding import corpus
 from tests.acceptance.test_citations import TENANT
-
-
-@pytest.fixture(autouse=True)
-def _freeze_upstage_price_clock(monkeypatch):
-    class FixedDateTime(_RealDatetime):
-        @classmethod
-        def now(cls, tz=None):
-            return _RealDatetime(2026, 9, 10, tzinfo=_UTC).astimezone(tz)
-
-    monkeypatch.setattr("proofops.adapters.local.upstage.datetime", FixedDateTime)
+from tests.helpers.upstage_clock import _freeze_upstage_price_clock as _freeze_upstage_price_clock
 
 
 def configured(tmp_path, monkeypatch):

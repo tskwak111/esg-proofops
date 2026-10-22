@@ -92,12 +92,21 @@ def test_lookup_failure_before_providers(monkeypatch, module):
 
 
 @pytest.mark.parametrize("module", [claim, report])
-def test_kill_switch_and_wrong_key(monkeypatch, module):
-    monkeypatch.setenv("LIVE_DISABLED", "1")
+@pytest.mark.parametrize("value", ["1", "true"])
+def test_kill_switch_and_wrong_key(monkeypatch, module, value):
+    monkeypatch.setenv("LIVE_DISABLED", value)
+    usage(monkeypatch, 0.0)
     for access, status, code in [("wrong", 403, "ACCESS_DENIED"), ("secret", 503, "LIVE_DISABLED")]:
         with pytest.raises(limits.LiveError) as error:
             invoke(module, access=access)
         assert (error.value.status, error.value.code) == (status, code)
+
+
+@pytest.mark.parametrize("value", [None, "", "0", "false", "TRUE", " true", "true "])
+def test_kill_switch_requires_exact_value(monkeypatch, value):
+    if value is not None:
+        monkeypatch.setenv("LIVE_DISABLED", value)
+    limits.check_enabled()
 
 
 def test_rate_limits_and_expiry(monkeypatch):

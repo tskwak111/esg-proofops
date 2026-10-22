@@ -23,6 +23,7 @@ coverage/
 
 # Team data stays out of source control
 기업보고서/
+/outputs/
 outputs/handoff-packages/
 
 # Local dependency directories and worktree symlinks
@@ -38,6 +39,15 @@ outputs/handoff-packages/
 **/page-images/
 *.sqlite
 *.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite-journal
+*.sqlite3-wal
+*.sqlite3-shm
+*.sqlite3-journal
+*.db-wal
+*.db-shm
+*.db-journal
 *.pem
 *.key
 .vercel
