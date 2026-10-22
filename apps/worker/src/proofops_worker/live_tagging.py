@@ -4,7 +4,6 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
 from dataclasses import asdict
 from datetime import UTC, datetime
-from functools import partial
 from pathlib import Path
 from threading import Lock
 
@@ -496,15 +495,10 @@ class LiveTaggingRuntime:
     def preliminary(self, claim, graph):
         from proofops.application.tagging import cf5_context
 
-        display_catalog = getattr(self, "display_catalog", None)
         plan = build_preliminary_packet(
+            self,
             claim,
             graph,
-            snapshot=self.snapshot,
-            settings=self.preliminary_settings,
-            tenant_id=self.auth.tenant_id,
-            bound_context=lambda packet: self.preliminary_transport.bound_context(packet),
-            display_catalog=display_catalog,
             preliminary_request=preliminary_request,
             preliminary_table_request=preliminary_table_request,
         )
@@ -516,13 +510,10 @@ class LiveTaggingRuntime:
 
         def validate(raw):
             return validate_preliminary_response(
+                self,
                 raw,
                 claim=claim,
                 graph=graph,
-                tenant_id=self.auth.tenant_id,
-                snapshot=self.snapshot,
-                attribution_policy=self.attribution_policy,
-                display_catalog=display_catalog,
                 plan=plan,
             )
 
@@ -584,16 +575,7 @@ class LiveTaggingRuntime:
         if self.relation_settings is None:
             return {}
         try:
-            plan = build_relation_packet(
-                claim,
-                packet,
-                graph=self.graph,
-                tenant_id=self.auth.tenant_id,
-                snapshot=self.snapshot,
-                settings=self.relation_settings,
-                attribution_policy=self.attribution_policy,
-                preliminary_records=self.preliminary_records,
-            )
+            plan = build_relation_packet(self, claim, packet)
             if not plan.sources:
                 self.relation_records[claim.claim_id] = plan.refusals
                 return plan.refused
@@ -616,15 +598,10 @@ class LiveTaggingRuntime:
 
         sources, envelope, anchors = plan.sources, plan.envelope, plan.anchors
         refused, refusals = plan.refused, plan.refusals
-        validate = partial(
-            validate_relation_response,
-            claim=claim,
-            graph=self.graph,
-            tenant_id=self.auth.tenant_id,
-            settings=self.relation_settings,
-            attribution_policy=self.attribution_policy,
-            plan=plan,
-        )
+
+        def validate(raw):
+            return validate_relation_response(self, raw, claim=claim, plan=plan)
+
         results = self._source_replicas(
             "relation",
             claim,

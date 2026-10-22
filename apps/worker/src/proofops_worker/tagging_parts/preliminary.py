@@ -24,21 +24,12 @@ class PreliminaryPacket:
     pb1: bool
     decision: bool
     cf5: bool
+    display_catalog: object
 
 
-def build_preliminary_packet(
-    claim,
-    graph,
-    *,
-    snapshot,
-    settings,
-    tenant_id,
-    bound_context,
-    display_catalog,
-    preliminary_request,
-    preliminary_table_request,
-):
-    unattended = snapshot.get("pipeline_profile") in (
+def build_preliminary_packet(self, claim, graph, *, preliminary_request, preliminary_table_request):
+    # Preserve conditional runtime reads while keeping packet construction separate.
+    unattended = self.snapshot.get("pipeline_profile") in (
         "unattended-v1",
         "finals-unattended-v1",
         "finals-unattended-v2",
@@ -48,17 +39,17 @@ def build_preliminary_packet(
     )
     from proofops.application.tagging import cf5_context
 
-    cf5 = cf5_context.enabled(snapshot.get("analysis_profile_policy", {}))
-    if cf5 and settings.system_prompt != cf5_context.PRELIMINARY:
+    cf5 = cf5_context.enabled(self.snapshot.get("analysis_profile_policy", {}))
+    if cf5 and self.preliminary_settings.system_prompt != cf5_context.PRELIMINARY:
         raise ValueError("CF5_CONTEXT_PROMPT_MISMATCH")
-    profile = settings.model_profile
+    profile = self.preliminary_settings.model_profile
     from proofops.application.tagging.preliminary import CONTEXT_POSITION_ORDER
 
     position_order = profile in (
         "upstage-preliminary-source-quotes-table-role-v1-position-v1",
         "upstage-preliminary-source-quotes-table-role-v2-p2-position-v1",
     )
-    if position_order and snapshot.get("position_context_order") != CONTEXT_POSITION_ORDER:
+    if position_order and self.snapshot.get("position_context_order") != CONTEXT_POSITION_ORDER:
         raise ValueError("PRELIMINARY_CONTEXT_ORDER_MISMATCH")
     p2 = profile in (
         "upstage-preliminary-source-quotes-table-role-v2-p2",
@@ -88,7 +79,7 @@ def build_preliminary_packet(
         packet = preliminary_table_request(
             claim,
             graph,
-            tenant_id=tenant_id,
+            tenant_id=self.auth.tenant_id,
             sentence_context=sentence_context,
             role_resolution=role_table,
             goal_role=goal_role,
@@ -102,7 +93,7 @@ def build_preliminary_packet(
         packet = preliminary_request(
             claim,
             graph,
-            tenant_id=tenant_id,
+            tenant_id=self.auth.tenant_id,
             include_context=profile == "upstage-preliminary-source-quotes-context-v1",
             allow_unverified=unattended,
         )
@@ -120,7 +111,7 @@ def build_preliminary_packet(
             from proofops.application.tagging.q1_contract import PRELIMINARY as Q1_PRELIMINARY
             from proofops.application.tagging.v3_dec92 import PRELIMINARY as V3_PRELIMINARY
 
-            if settings.system_prompt in (
+            if self.preliminary_settings.system_prompt in (
                 COMPACT_PROMPT + "\n" + GUIDANCE,
                 K4_PRELIMINARY,
                 K9_PRELIMINARY,
@@ -128,7 +119,7 @@ def build_preliminary_packet(
                 V3_PRELIMINARY,
                 cf5_context.PRELIMINARY,
             ):
-                packet["prompt_sha256"] = canonical_hash(settings.system_prompt)
+                packet["prompt_sha256"] = canonical_hash(self.preliminary_settings.system_prompt)
         else:
             packet["prompt_sha256"] = canonical_hash(PB1_SYSTEM_PROMPT)
     if fallback:
@@ -144,15 +135,17 @@ def build_preliminary_packet(
             elif entry["source_id"] not in data["omitted_source_ids"]:
                 data["omitted_source_ids"].append(entry["source_id"])
         data["context_blocks"] = verified_context
-    if snapshot.get("analysis_profile_policy", {}).get("sentence_context_policy"):
+    if self.snapshot.get("analysis_profile_policy", {}).get("sentence_context_policy"):
         from proofops.application.ingest.k5_context import (
             configured_context,
             preliminary_context,
         )
 
-        complete = configured_context(claim, graph, snapshot["analysis_profile_policy"])
+        complete = configured_context(claim, graph, self.snapshot["analysis_profile_policy"])
         packet = preliminary_context(packet, complete)
-    response_policy = snapshot.get("analysis_profile_policy", {}).get("preliminary_response_policy")
+    response_policy = self.snapshot.get("analysis_profile_policy", {}).get(
+        "preliminary_response_policy"
+    )
     if response_policy is not None:
         from proofops.application.tagging.k4_contract import RESPONSE_POLICY
 
@@ -162,8 +155,8 @@ def build_preliminary_packet(
     context_receipt = {}
     if cf5:
         packet = cf5_context.preserve_context(packet, claim, graph, receipt=context_receipt)
-    packet = bound_context(packet)
-    if not cf5 and snapshot.get("analysis_profile_policy", {}).get("sentence_context_policy"):
+    packet = self.preliminary_transport.bound_context(packet)
+    if not cf5 and self.snapshot.get("analysis_profile_policy", {}).get("sentence_context_policy"):
         from copy import deepcopy
 
         from proofops.application.ingest.k5_context import POLICY as K5_POLICY
@@ -180,28 +173,31 @@ def build_preliminary_packet(
             return None
         # Retain E2E3's verified numbered table sources and classifier.
         # Omit all sentence interpretation input when the guard fails.
-        packet = preliminary_table_request(claim, graph, tenant_id=tenant_id, role_resolution=True)
+        packet = preliminary_table_request(
+            claim, graph, tenant_id=self.auth.tenant_id, role_resolution=True
+        )
         data = packet["untrusted_document_data"]
         for entry in data["context_blocks"]:
             if entry["source_id"] not in data["omitted_source_ids"]:
                 data["omitted_source_ids"].append(entry["source_id"])
         data["context_blocks"] = []
         packet["prompt_sha256"] = canonical_hash(SENTENCE_FALLBACK_BASE_PROMPT)
+    display_catalog = getattr(self, "display_catalog", None)
     if display_catalog is not None:
         from proofops.application.tagging.preliminary import _sources
         from proofops.application.tagging.table_sources import table_structural_sources
 
-        sources = _sources(claim, graph, tenant_id, allow_unverified=unattended)
+        sources = _sources(claim, graph, self.auth.tenant_id, allow_unverified=unattended)
         if table:
-            structural = table_structural_sources(graph, sources, tenant_id=tenant_id)
+            structural = table_structural_sources(graph, sources, tenant_id=self.auth.tenant_id)
             sources = (*sources, *(item.ref for item in structural.verified))
         packet["display_text"] = display_catalog.preliminary_pins(packet, sources)
-        recovery = snapshot.get("analysis_profile_policy", {}).get("hold_recovery_policy")
+        recovery = self.snapshot.get("analysis_profile_policy", {}).get("hold_recovery_policy")
         if recovery is not None:
             from proofops.application.tagging.k2_recovery import validate_policy
 
             validate_policy(recovery)
-            if snapshot["analysis_profile_policy"].get(
+            if self.snapshot["analysis_profile_policy"].get(
                 "hold_recovery_policy_sha256"
             ) != canonical_hash(recovery):
                 raise ValueError("K2_RECOVERY_POLICY_PIN_MISMATCH")
@@ -209,27 +205,28 @@ def build_preliminary_packet(
 
     from proofops.application.tagging.k9_contract import BINDING_POLICY, BINDING_V4_POLICY
 
-    if snapshot.get("analysis_profile_policy", {}).get("local_implementation_binding_policy") in (
-        BINDING_POLICY,
-        BINDING_V4_POLICY,
-    ):
-        packet["k9_targeted_wire_policy"] = snapshot["analysis_profile_policy"][
+    if self.snapshot.get("analysis_profile_policy", {}).get(
+        "local_implementation_binding_policy"
+    ) in (BINDING_POLICY, BINDING_V4_POLICY):
+        packet["k9_targeted_wire_policy"] = self.snapshot["analysis_profile_policy"][
             "local_implementation_binding_policy"
         ]
 
-    quality_policy = snapshot.get("analysis_profile_policy", {}).get("structural_quality_policy")
+    quality_policy = self.snapshot.get("analysis_profile_policy", {}).get(
+        "structural_quality_policy"
+    )
     from proofops.application.tagging.q1_contract import QUALITY_POLICIES
 
     if quality_policy in QUALITY_POLICIES:
         packet["structural_quality_policy"] = quality_policy
+    return PreliminaryPacket(
+        packet, context_receipt, unattended, table, pb1, decision, cf5, display_catalog
+    )
 
-    return PreliminaryPacket(packet, context_receipt, unattended, table, pb1, decision, cf5)
 
-
-def validate_preliminary_response(
-    raw, *, claim, graph, tenant_id, snapshot, attribution_policy, display_catalog, plan
-):
+def validate_preliminary_response(self, raw, *, claim, graph, plan):
     packet, unattended, table, pb1 = plan.packet, plan.unattended, plan.table, plan.pb1
+    display_catalog = plan.display_catalog
     restoration = {}
     if display_catalog is not None:
         raw = display_catalog.restore_preliminary(raw, packet)
@@ -237,13 +234,13 @@ def validate_preliminary_response(
     auxiliary = None
     from proofops.application.tagging.pb2_preliminary import enabled as pb2_enabled
 
-    if pb2_enabled(claim, graph, snapshot.get("analysis_profile_policy", {})):
+    if pb2_enabled(claim, graph, self.snapshot.get("analysis_profile_policy", {})):
         from proofops.application.tagging.pb2_preliminary import (
             validate_preliminary as validate_pb2,
         )
 
         result, auxiliary = validate_pb2(
-            claim, graph, raw, tenant_id=tenant_id, allow_unverified=unattended
+            claim, graph, raw, tenant_id=self.auth.tenant_id, allow_unverified=unattended
         )
     # The table profile recomputes its own quotable source tuple from
     # claim+graph; the legacy validator stays the only path for the two
@@ -259,7 +256,7 @@ def validate_preliminary_response(
                 claim,
                 graph,
                 raw,
-                tenant_id=tenant_id,
+                tenant_id=self.auth.tenant_id,
                 allow_unverified=unattended,
             )
             if table
@@ -267,7 +264,7 @@ def validate_preliminary_response(
                 claim,
                 graph,
                 raw,
-                tenant_id=tenant_id,
+                tenant_id=self.auth.tenant_id,
                 allow_unverified=unattended,
             )
         )
@@ -276,20 +273,20 @@ def validate_preliminary_response(
     from proofops.application.tagging.k1_semantics import track_requires_review
     from proofops.application.tagging.k4_contract import SEMANTIC_POLICY, estimate_evidence
 
-    semantic = snapshot.get("analysis_profile_policy", {}).get("semantic_admission")
+    semantic = self.snapshot.get("analysis_profile_policy", {}).get("semantic_admission")
     from proofops.application.tagging.k10_contract import SEMANTIC_POLICY as K10_POLICY
     from proofops.application.tagging.k10_contract import (
         SEMANTIC_V2_POLICY as K10_V2_POLICY,
     )
     from proofops.application.tagging.q1_contract import SEMANTIC_POLICY as Q1_POLICY
 
-    v3_policy = snapshot.get("analysis_profile_policy", {}).get("v3_dec92_policy")
+    v3_policy = self.snapshot.get("analysis_profile_policy", {}).get("v3_dec92_policy")
     if v3_policy is not None:
         from proofops.application.tagging.v3_dec92 import validate_classification
         from proofops.application.tagging.v3_dec92 import validate_policy as validate_v3
 
         validate_v3(v3_policy)
-        if snapshot["analysis_profile_policy"].get("v3_dec92_policy_sha256") != canonical_hash(
+        if self.snapshot["analysis_profile_policy"].get("v3_dec92_policy_sha256") != canonical_hash(
             v3_policy
         ):
             raise ValueError("V3_DEC92_POLICY_PIN_MISMATCH")
@@ -299,14 +296,14 @@ def validate_preliminary_response(
 
         if forecast_quote(claim.quote) and result.safe_harbor_category != "forward_looking":
             raise ValueError("Q1_FORWARD_LOOKING_CATEGORY_REVIEW")
-    risk_policy = snapshot.get("analysis_profile_policy", {}).get("risk_classification_policy")
+    risk_policy = self.snapshot.get("analysis_profile_policy", {}).get("risk_classification_policy")
     if risk_policy is not None:
         from proofops.application.tagging.k6_citations import (
             RISK_POLICY,
             risk_without_commitment,
         )
 
-        if risk_policy != RISK_POLICY or snapshot["analysis_profile_policy"].get(
+        if risk_policy != RISK_POLICY or self.snapshot["analysis_profile_policy"].get(
             "risk_classification_policy_sha256"
         ) != canonical_hash(RISK_POLICY):
             raise ValueError("K6_RISK_POLICY_MISMATCH")
@@ -357,17 +354,17 @@ def validate_preliminary_response(
             raise ValueError("PB1_FORECAST_CONTEXT_REQUIRES_REVIEW")
         result = replace(result, safe_harbor_category=category)
     attribution = {}
-    if attribution_policy is not None:
+    if self.attribution_policy is not None:
         from proofops.application.evidence.binding import ClaimContext
         from proofops.application.evidence.relation_attribution import filter_dimensions
 
         dimensions, rejected = filter_dimensions(
-            claim, result.context.dimensions, graph, tenant_id=tenant_id
+            claim, result.context.dimensions, graph, tenant_id=self.auth.tenant_id
         )
         result = replace(result, context=ClaimContext(claim, dimensions))
         attribution = dict(
             attribution_rejections=rejected,
-            attribution_policy_sha256=canonical_hash(attribution_policy),
+            attribution_policy_sha256=canonical_hash(self.attribution_policy),
         )
     return result, dict(
         **({"auxiliary_fact_selections": auxiliary} if auxiliary is not None else {}),
