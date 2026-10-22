@@ -2,19 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { ApiError, requestJson, type Session } from "../session/api";
 import { getElementLabel, getReasonLabel } from "../labels";
 
-type Track = "goal" | "performance" | "management";
-export type SourceRef = {
-  source_id: string; document_version_id: string; parse_manifest_id: string;
-  page_num: number; printed_page_label: string | null; bbox: number[] | null;
-  raw_text_sha256: string; quote: string; char_start: number; char_end: number;
-  location_quality: "located" | "unlocated" | "unreadable";
-  verification_state: "candidate" | "verified" | "rejected";
-};
-export type ReviewElement = {
-  element_id: string; state: "present" | "absent" | "unknown" | "conflict" | "not_applicable";
-  evidence_refs: SourceRef[]; normalized_value: string | null;
-  credited_from: string | null; reason_code: string | null;
-};
+import { completeElements } from "../shared/reviewElements";
+import type { ReviewElement, SourceRef, Track } from "../shared/wireTypes";
+export type { ReviewElement, SourceRef } from "../shared/wireTypes";
+
 export type Review = {
   review_id: string; run_id: string; claim_id: string; status: "open" | "resolved" | "superseded";
   revision: number; base_tag_revision: number; reason_codes: string[];
@@ -38,16 +29,6 @@ type Props = ReviewSnapshot & {
   onSourceOpen?: (source: SourceRef) => void;
   localSynthetic?: boolean;
 };
-const trackElements: Record<Track, string[]> = {
-  goal: Array.from({ length: 8 }, (_, i) => `G${i + 1}`),
-  performance: Array.from({ length: 6 }, (_, i) => `P${i + 1}`),
-  management: Array.from({ length: 6 }, (_, i) => `M${i + 1}`),
-};
-const completeElements = (track: Track, elements: ReviewElement[]): ReviewElement[] =>
-  trackElements[track].map(element_id => elements.find(element => element.element_id === element_id) ?? {
-    element_id, state: "unknown", evidence_refs: [], normalized_value: null,
-    credited_from: null, reason_code: null,
-  });
 const states: ReviewElement["state"][] = ["present", "absent", "unknown", "conflict", "not_applicable"];
 const stateText: Record<ReviewElement["state"], string> = {
   present: "충족(present)",
@@ -192,8 +173,7 @@ function Editor(props: Props) {
         <label>트랙 <select disabled={editDisabled} value={track} onChange={event => {
           const next = event.target.value as Track;
           setTrack(next);
-          setElements(trackElements[next].map(element_id => ({ element_id, state: "unknown", evidence_refs: [],
-            normalized_value: null, credited_from: null, reason_code: null })));
+          setElements(completeElements(next, []));
         }}><option value="goal">목표형</option><option value="performance">성과형</option><option value="management">관리체계형</option></select></label>
         {elements.map((element, index) => <fieldset key={element.element_id}>
           <legend>{getElementLabel(element.element_id)}</legend>
