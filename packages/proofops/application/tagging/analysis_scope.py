@@ -6,6 +6,7 @@ from dataclasses import asdict, replace
 
 from proofops.application.evidence.span_citations import verify_source_ref
 from proofops.application.tagging.consensus import form_consensus
+from proofops.application.tagging.contracts import read_runs as read_runs
 from proofops.application.tagging.element_inventory import POLICY_HASH as INVENTORY_HASH
 from proofops.application.tagging.element_inventory import replay_inventory
 from proofops.domain.provenance import canonical_hash
@@ -682,35 +683,6 @@ def replay_scope(receipt, **inputs):
     if canonical_hash(expected) != canonical_hash(receipt):
         raise ValueError("SC1_REPLAY_MISMATCH")
     return expected
-
-
-def read_runs(values):
-    """Decode retained TagRuns without relabeling responses or request identities."""
-    from proofops.adapters.cache.aws import CacheNamespace, CacheRequest
-    from proofops.application.budget import TokenUsage
-    from proofops.application.tagging.service import TagRun
-
-    return tuple(
-        TagRun(
-            **(
-                r
-                | dict(
-                    request=CacheRequest(
-                        **(
-                            r["request"]
-                            | dict(namespace=CacheNamespace(**r["request"]["namespace"]))
-                        )
-                    ),
-                    usage=TokenUsage(**r["usage"]) if r["usage"] else None,
-                    guarded=llm_tags_from_dict(r["guarded"]) if r["guarded"] else None,
-                    errors=tuple(r["errors"]),
-                    source_scopes=tuple(map(tuple, r["source_scopes"])),
-                    binding_hashes=tuple(map(tuple, r["binding_hashes"])),
-                )
-            )
-        )
-        for r in values
-    )
 
 
 def analyze_record(
