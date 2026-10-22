@@ -4,7 +4,7 @@ import argparse
 import json
 from collections import Counter
 from dataclasses import asdict
-from hashlib import file_digest
+from hashlib import file_digest, sha256
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from time import monotonic
@@ -18,6 +18,16 @@ def digest(path):
         return file_digest(stream, "sha256").hexdigest()
 
 
+def implementation_digest(root):
+    paths = [
+        root / "packages/proofops/application/uploads_security.py",
+        root / "packages/proofops/application/upload_contracts.py",
+        *(root / "packages/proofops/adapters/upload_security").glob("*.py"),
+    ]
+    manifest = sorted((path.relative_to(root).as_posix(), digest(path)) for path in paths)
+    return sha256(json.dumps(manifest, separators=(",", ":")).encode("utf-8")).hexdigest()
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("corpus", type=Path)
@@ -27,8 +37,10 @@ def main():
     files = sorted(args.corpus.rglob("*.pdf"))
     assert len(files) == 50, len(files)
     limits = PdfLimits(max_bytes=150 * 1024**2, max_decoded_bytes=512 * 1024**2)
-    code = Path(__file__).resolve().parents[1] / "packages/proofops/application/uploads_security.py"
+    root = Path(__file__).resolve().parents[1]
+    code = root / "packages/proofops/application/uploads_security.py"
     code_sha = digest(code)
+    implementation_sha = implementation_digest(root)
     rows = []
     for number, path in enumerate(files, 1):
         source_sha, size = digest(path), path.stat().st_size
@@ -70,6 +82,7 @@ def main():
             "no network/model calls; macOS child ru_maxrss in bytes",
             limits=asdict(limits),
             validator_sha256=code_sha,
+            validator_implementation_sha256=implementation_sha,
             files=rows,
             counts=dict(Counter(r["code"] for r in rows)),
         )
@@ -78,6 +91,9 @@ def main():
         )
         print(number, row["file"], status, row["seconds"], row["peak_rss_bytes"], flush=True)
     assert digest(code) == code_sha, "Validator changed during corpus check"
+    assert (
+        implementation_digest(root) == implementation_sha
+    ), "Validator implementation changed during corpus check"
     table = [
         "# FX6b · 50개 원본 업로드 검증",
         "",
