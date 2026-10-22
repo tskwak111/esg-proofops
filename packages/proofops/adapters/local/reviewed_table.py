@@ -39,7 +39,11 @@ from proofops.application.ingest.graph_fusion import (
     CanonicalDocumentGraph,
     fuse_candidates,
 )
-from proofops.application.ingest.normalize import NormalizationResult, normalize_table_bindings
+from proofops.application.ingest.normalize import (
+    NormalizationResult,
+    Observation,
+    normalize_table_bindings,
+)
 from proofops.domain.documents import NativeSource, PageGeometry
 from proofops.domain.numeric import observation_source_holds
 from proofops.domain.provenance import canonical_hash
@@ -486,6 +490,7 @@ def normalize_reviewed_layout(review: dict, source: bytes, *, tenant_id: str = _
         for candidate in block.candidates
     }
     table_id = canonical_ids["reviewed-table"]
+    observations: list[Observation]
     observations, issues, role_bindings = [], list(graph.issues), []
     for index, item in enumerate(review["candidates"]):
         refs = item.get("source_cells")

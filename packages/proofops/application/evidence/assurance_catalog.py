@@ -11,6 +11,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from dataclasses import asdict
+from typing import Any
 
 from proofops.application.assurance import ClaimContext, extract_assurance, match_assurance
 from proofops.application.evidence.span_citations import verify_source_ref
@@ -82,7 +83,7 @@ def discover_bundles(page_texts: Mapping[int, str], *, page_count: int, source_s
             tail = text[title.end() : stop]
             if _SCOPE.search(tail) and _STANDARD.search(tail):
                 starts.append((page, title.start(), title.group().strip()))
-    bundles = []
+    bundles: list[dict[str, Any]] = []
     for index, (page, offset, title_text) in enumerate(starts):
         next_start = starts[index + 1] if index + 1 < len(starts) else None
         last = next_start[0] if next_start else page_count

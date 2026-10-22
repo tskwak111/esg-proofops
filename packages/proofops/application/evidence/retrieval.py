@@ -11,7 +11,7 @@ import json
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass, replace
 from hashlib import sha256
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from proofops.application.claims import Claim
 from proofops.application.evidence.span_citations import SpanVerifiedGraph, verify_source_ref
@@ -346,7 +346,7 @@ def retrieve_evidence(
         rows = {sid for sid in structural if blocks[sid].kind == "table_row"}
         cells = structural - rows
         positioned = {
-            sid: blocks[sid].candidates[blocks[sid].winner]
+            sid: blocks[sid].candidates[cast(int, blocks[sid].winner)]
             for sid in structural
             if blocks[sid].winner is not None and blocks[sid].quality == "verified"
         }
@@ -376,7 +376,11 @@ def retrieve_evidence(
             and all(any(row in ancestors(cell) for cell in cells) for row in rows)
         ):
             last_row = positioned[target].row_number
-            context_members = {sid for sid in structural if positioned[sid].row_number <= last_row}
+            context_members = {
+                sid
+                for sid in structural
+                if cast(int, positioned[sid].row_number) <= cast(int, last_row)
+            }
             # Exclude later rows and their descendants. For kept cells, only
             # exact duplicate prose is context-only; distinct nearby prose stays.
             later = structural - context_members

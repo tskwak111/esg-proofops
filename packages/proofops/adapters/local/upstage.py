@@ -18,6 +18,7 @@ import sqlite3
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
+from typing import Any, cast
 
 from proofops.adapters.local.sqlite_busy import connection
 from proofops.application.budget import PricingSnapshot, TokenUsage, usage_cost
@@ -61,7 +62,7 @@ PRICE_PRO4 = PricingSnapshot(
     Decimal("1.20"),
 )
 _PRICES = {MODEL: PRICE, MODEL_PRO4: PRICE_PRO4}
-POLICY = {
+POLICY: dict[str, Any] = {
     "limit_usd": "10.00",
     "reservation_usd": "1.00",
     "price": PRICE.to_dict(),
@@ -502,7 +503,7 @@ class UpstageProbe:
             )
             if usage.input_tokens is None or usage.output_tokens is None:
                 return False
-            cost = Decimal(usage_cost(usage, self._price.to_dict())) * Decimal("1.10")
+            cost = Decimal(cast(str, usage_cost(usage, self._price.to_dict()))) * Decimal("1.10")
             allowed = (
                 (MODEL, "solar-pro3-260323")
                 if self.model == MODEL
@@ -688,7 +689,7 @@ class UpstageProbe:
             )
             if usage.input_tokens is None or usage.output_tokens is None:
                 raise ValueError("unknown token usage")
-            cost = Decimal(usage_cost(usage, self._price.to_dict())) * Decimal("1.10")
+            cost = Decimal(cast(str, usage_cost(usage, self._price.to_dict()))) * Decimal("1.10")
             choice = data["choices"][0]
             content = choice["message"]["content"]
             allowed_models = (

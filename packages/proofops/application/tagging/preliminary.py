@@ -9,6 +9,7 @@ import re
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, replace
 from math import isfinite
+from typing import Any
 
 from proofops.application.claims import Claim
 from proofops.application.evidence.binding import ClaimContext
@@ -653,7 +654,7 @@ def preliminary_request(
     if type(position_order) is not bool or (position_order and not include_context):
         raise DomainValidationError("preliminary context order requires context")
     sources = _sources(claim, graph, tenant_id, allow_unverified=allow_unverified)
-    envelope = dict(
+    envelope: dict[str, Any] = dict(
         schema=SCHEMA,
         tenant_id=tenant_id,
         claim_id=claim.claim_id,

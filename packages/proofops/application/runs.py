@@ -6,8 +6,8 @@ import time
 from collections.abc import Mapping
 from dataclasses import asdict
 from datetime import UTC, datetime
-from types import MappingProxyType
-from typing import Any
+from types import MappingProxyType, ModuleType
+from typing import Any, cast
 
 from proofops.application.budget import BudgetLimits, cost_summary
 from proofops.application.claim_scope import validate_extraction_limits
@@ -446,13 +446,13 @@ class RunService:
             # ``pages`` is the validated broad declared subset; claim_pages must be
             # a subset of it and never widens the parse/evidence scope.
             try:
-                validate_extraction_limits(limits, pages)
+                validate_extraction_limits(limits, cast(list[int], pages))
                 if self.parser_profile.get("parser_mode") == "mixed-v1":
                     from proofops.application.claim_scope import claim_pages_for
 
                     if (
                         self.parser_profile["claim_physical_pages"]
-                        != claim_pages_for(limits, pages)
+                        != claim_pages_for(limits, cast(list[int], pages))
                         or pages is None
                         or len(pages) > 30
                     ):
@@ -682,6 +682,7 @@ class RunService:
                 )
                 snapshot["analysis_profile_policy"] = _detach(analysis_policy)
                 snapshot["analysis_profile_policy_sha256"] = canonical_hash(analysis_policy)
+                evidence: ModuleType
                 from proofops.adapters.local import evidence_source_verification_v1 as evidence
 
                 if (self.claim_source_policy or {}).get("profile") in {
@@ -806,7 +807,9 @@ class RunService:
                     relation_settings=asdict(relation),
                     relation_settings_hash=canonical_hash(asdict(relation)),
                     relation_runtime=relation_runtime,
-                    relation_runtime_artifact_hash=artifact_sha256(relation_runtime),
+                    relation_runtime_artifact_hash=artifact_sha256(
+                        cast(Mapping[str, object], relation_runtime)
+                    ),
                 )
         snapshot.update(raster_snapshot)
         if self.position_context_order is not None:

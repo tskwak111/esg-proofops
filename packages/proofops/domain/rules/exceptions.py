@@ -30,7 +30,11 @@ class ExceptionEffect:
 
 
 def apply_source_exceptions(
-    tags: ConfirmedTags, context: RuleContext, pack: RulePackSnapshot, *, analysis_scope=False
+    tags: ConfirmedTags,
+    context: RuleContext,
+    pack: RulePackSnapshot,
+    *,
+    analysis_scope: bool = False,
 ) -> ExceptionEffect:
     """Return an override/cap/gap without assigning a label or mutating inputs."""
     from proofops.domain.rules.engine import _validate_inputs

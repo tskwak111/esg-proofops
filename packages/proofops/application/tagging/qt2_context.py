@@ -7,6 +7,7 @@ Cross-page sources keep the existing explicit-link/attribution review path.
 
 import re
 from dataclasses import asdict, replace
+from typing import Any
 
 from proofops.application.evidence.span_citations import verify_source_ref
 from proofops.application.ingest.k5_context import BULLET, TERMINAL
@@ -32,7 +33,7 @@ Do not infer missing actors/dates, present from metadata, or absent from unknown
 Conflict/unreadable stay held. Only Python computes grades; new votes require
 three independent replicas over the same frozen packet.
 """.strip()
-POLICY = dict(
+POLICY: dict[str, Any] = dict(
     profile="qt2-contextual-elements-v1",
     guidance_sha256=canonical_hash(GUIDANCE),
     elements=["P2", "M2", "M4"],

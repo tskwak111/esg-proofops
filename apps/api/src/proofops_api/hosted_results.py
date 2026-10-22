@@ -6,6 +6,7 @@ import os
 from contextlib import contextmanager
 from dataclasses import asdict
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from proofops.adapters.local.review_store import LocalSQLiteReviewStore
 from proofops.adapters.local.run_store import LocalSQLiteRunStore
@@ -18,6 +19,10 @@ from proofops.application.uploads import UploadService
 from proofops_api.hosted_ocr import ReplayOCRStore, reader_scope
 from proofops_api.hosted_store import HostedError
 
+if TYPE_CHECKING:
+    from proofops.adapters.local.c3_publication import LocalC3Publication as C3Publication
+    from proofops.adapters.local.c4_publication import LocalC4Publication as C4Publication
+
 
 @contextmanager
 def services(path: Path, tenant: str):
@@ -28,6 +33,7 @@ def services(path: Path, tenant: str):
     from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
     from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
 
+    publication: C3Publication | C4Publication
     if manifest.get("publication_profile") == C4_PROFILE:
         from proofops.adapters.local.c4_publication import LocalC4Publication
 

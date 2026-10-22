@@ -406,6 +406,7 @@ def _check_local_upstage_binding(
         )
         accepted = {expected} if expected is not None else set()
         if expected is not None and (openrouter or openai):
+            WIRE_POLICY: Mapping[str, object]
             if openai:
                 from proofops.adapters.local.openai import WIRE_POLICY
             else:

@@ -21,7 +21,7 @@ CHECKLIST_POLICY_V1 = "project_checklist_completeness_v1"
 @dataclass(frozen=True, slots=True)
 class SafeHarborChecklistItem:
     element_id: str
-    state: ElementState
+    state: ElementState | Literal["absent_in_scope"]
     evidence_refs: tuple[SourceRef, ...]
     normalized_value: str | None
     credited_from: str | None = None

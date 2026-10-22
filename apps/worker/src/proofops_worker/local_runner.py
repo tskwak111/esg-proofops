@@ -10,11 +10,13 @@ import json
 import math
 import sys
 import time
+from collections.abc import Callable
 from dataclasses import asdict, replace
 from hashlib import sha256
 from importlib.resources import files
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 from uuid import UUID, uuid4, uuid5
 
 from proofops.adapters.local.run_artifacts import (
@@ -330,6 +332,7 @@ class LocalParserRunner:
                     native_receipt = None
                     evidence_receipt = None
                     if native_policy is not None:
+                        attest_native_sources: Callable[..., Any]
                         from proofops.adapters.local.source_verification import (
                             attest_native_sources,
                             replay_native_sources,

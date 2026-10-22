@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Callable
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -816,7 +817,7 @@ def _profile_with_options(
         descriptor.append(CONTEXT_POSITION_ORDER)
     if model in (LUNA_MODEL, "gpt-6-luna") and wire_policy_version == 2 and extraction_context:
         descriptor.append("luna-extraction-context-512-chars-v2")
-    model_identity = {
+    model_identity: dict[str, Any] = {
         "model": model,
         "provider": "openai"
         if model == "gpt-6-luna"
@@ -1275,7 +1276,7 @@ class UpstageClaimExtractor:
                     for r in rows
                 ]
             }
-            boundary_records = []
+            boundary_records: list[dict[str, Any]] = []
             if self._k1:
                 from proofops.application.ingest.k1_boundaries import trim_table_labels
 
@@ -1411,6 +1412,7 @@ class UpstageClaimExtractor:
         from proofops.adapters.local.openrouter import OpenRouterProbe
 
         if isinstance(self._probe, OpenRouterProbe):
+            WIRE_POLICY: dict[str, Any]
             from proofops.adapters.local.openrouter import WIRE_POLICY
 
             if self._probe.model == "gpt-6-luna":
@@ -1909,6 +1911,7 @@ class UpstageClaimExtractor:
                     for span in excluded
                 ]
                 spans = tuple(span for span in spans if span not in excluded)
+            refine_selected: Callable[..., Any]
             if self._j3 and packet is not None:
                 if self._j7:
                     from proofops.application.ingest.j7_split import refine_selected
@@ -2108,7 +2111,7 @@ class UpstageClaimExtractor:
                 span_dicts.append(span)
         if selected and not span_dicts:
             raise ValueError("no usable selected sentences")
-        prefix_records = []
+        prefix_records: list[dict[str, Any]] = []
         if self._sentence_prefix and join_lines:
             from proofops.application.ingest.sentence_prefix import expand_sentence_prefixes
 

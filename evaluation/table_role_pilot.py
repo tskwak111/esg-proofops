@@ -3,6 +3,7 @@
 import argparse
 import json
 from pathlib import Path
+from typing import Any
 from uuid import uuid4
 
 from proofops.adapters.local.upstage import MODEL, UpstageProbe
@@ -232,7 +233,7 @@ if __name__ == "__main__":
         client = UpstageProbe(key, root / ".local/upstage/budget.sqlite3")
         request_id = str(uuid4())
         wire = {k: v for k, v in packet.items() if k not in ("sources", "layout_sources")}
-        record = dict(
+        record: dict[str, Any] = dict(
             request_id=request_id,
             packet_sha256=canonical_hash(packet),
             wire_sha256=canonical_hash(wire),

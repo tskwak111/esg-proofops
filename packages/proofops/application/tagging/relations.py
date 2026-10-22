@@ -273,7 +273,7 @@ def relation_occurrence_catalog(identity: SourceIdentity, text: str) -> tuple[Sp
             quote = text[token.start() : last.end()]
             if len(quote) <= 96 and not re.search(r"[|;.!?\r\n]", quote):
                 quotes.add(quote)
-    catalog = []
+    catalog: list[SpanCandidate] = []
     for quote in sorted(quotes):
         catalog.extend(occurrence_candidates(identity, text, quote))
         if len(catalog) > 4096:
