@@ -19,7 +19,8 @@ from proofops.domain.documents import PageGeometry
 from proofops.domain.provenance import canonical_hash
 from starlette.responses import FileResponse
 
-from proofops_api.hosted_store import HostedError, copy_verified_file
+from proofops_api.hosted_contracts import HostedError, copy_verified_file
+from proofops_api.hosted_snapshots import pilot_bytes, tenant_snapshot
 
 
 class _OriginalPdfResponse(FileResponse):
@@ -335,19 +336,14 @@ def _publication_anchor(path, row, doc, page):
     immutable local snapshot, evidence hash, original SHA and graph identity here.
     This does not re-verify or promote any stored source/evidence state.
     """
-    pilot = json.loads((path / "pilot.json").read_bytes())
+    pilot = pilot_bytes(path)
     if pilot["tenant_id"] != row["tenant_id"] or path.is_symlink():
         raise ValueError("publication scope")
     database = path / "state.sqlite3"
     if database.is_symlink():
         raise ValueError("unsafe database")
     with closing(sqlite3.connect(database.as_uri() + "?mode=ro", uri=True)) as db:
-        frozen = json.loads(
-            db.execute(
-                "SELECT payload FROM run_snapshots WHERE tenant_id=? AND run_id=?",
-                (row["tenant_id"], pilot["run_id"]),
-            ).fetchone()[0]
-        )
+        frozen = tenant_snapshot(db, row["tenant_id"], pilot["run_id"])
     if (
         frozen["tenant_id"] != row["tenant_id"]
         or frozen["run_id"] != pilot["run_id"]

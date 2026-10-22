@@ -16,8 +16,9 @@ from proofops.application.registry import Registry
 from proofops.application.reviews import ReviewRejected, ReviewService
 from proofops.application.uploads import UploadService
 
+from proofops_api.hosted_contracts import HostedError
 from proofops_api.hosted_ocr import ReplayOCRStore, reader_scope
-from proofops_api.hosted_store import HostedError
+from proofops_api.hosted_snapshots import pilot_text
 
 if TYPE_CHECKING:
     from proofops.adapters.local.c3_publication import LocalC3Publication as C3Publication
@@ -26,7 +27,7 @@ if TYPE_CHECKING:
 
 @contextmanager
 def services(path: Path, tenant: str):
-    manifest = json.loads((path / "pilot.json").read_text())
+    manifest = pilot_text(path)
     if manifest["tenant_id"] != tenant:
         raise HostedError("RESOURCE_NOT_FOUND", 404)
     from proofops.application.tagging.fact_assembly_c3 import PROFILE as C3_PROFILE
@@ -100,7 +101,7 @@ def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict:
     from proofops.application.tagging.fact_assembly_c4 import PROFILE as C4_PROFILE
 
     if (path / "pilot.json").is_file():
-        manifest = json.loads((path / "pilot.json").read_text())
+        manifest = pilot_text(path)
         if manifest.get("publication_profile") == C4_PROFILE:
             if manifest["tenant_id"] != tenant:
                 raise HostedError("RESOURCE_NOT_FOUND", 404)

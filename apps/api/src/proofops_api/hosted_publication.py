@@ -1,17 +1,18 @@
-"""Private child result transfer; persisted files can never seed this handoff.
+"""Private child handoff and fenced immutable hosted publication."""
 
-The parent receives these JSON bytes only from its inherited anonymous FD after
-successful child exit, while retaining analysis.lock. All workspace bytes and
-reader/runtime identities are rechecked before using the child's verified result.
-No pickle, source-quality projection or stored cache is imported.
-"""
+from __future__ import annotations
 
+import fcntl
 import hashlib
 import json
 import os
+import shutil
 import sqlite3
 import sys
+import time
 from pathlib import Path
+from tempfile import TemporaryDirectory
+from typing import TYPE_CHECKING, Any
 
 from proofops.application.analysis_profile import (
     I18_PUBLICATION_POLICY,
@@ -27,6 +28,16 @@ from proofops.application.analysis_profile import (
 from proofops.application.rb4_memory import PUBLICATION_POLICY as RB4_PUBLICATION_POLICY
 from proofops.application.rb4_memory import publication_enabled as rb4_publication_enabled
 from proofops.domain.provenance import canonical_hash
+
+from proofops_api.hosted_contracts import (
+    HostedError,
+    digest,
+)
+from proofops_api.hosted_snapshots import pilot_bytes
+
+if TYPE_CHECKING:
+    from proofops_api.hosted_store import HostedStore
+
 
 MAX_BYTES = S4_PUBLICATION_POLICY["max_bytes"]
 
@@ -57,7 +68,7 @@ def runtime_identity(profile="upstage-ocr-page-v13", policy=None):
 
 
 def _context(path, job, pages):
-    manifest = json.loads((path / "pilot.json").read_bytes())
+    manifest = pilot_bytes(path)
     if manifest["tenant_id"] != job["tenant_id"]:
         raise ValueError("PUBLICATION_TENANT_MISMATCH")
     with sqlite3.connect((path / "state.sqlite3").resolve().as_uri() + "?mode=ro", uri=True) as db:
@@ -231,3 +242,158 @@ def reuse_handoff(packet, path, job, pages):
         return content
     except (OSError, ValueError, KeyError, TypeError, IndexError, AttributeError, sqlite3.Error):
         return None
+
+
+def publish_analysis(
+    store: HostedStore,
+    job: dict,
+    source: Path,
+    status: str,
+    error: str | None,
+    *,
+    publication_handoff=None,
+) -> None:
+    from proofops_api.hosted_results import result_snapshot
+
+    if status not in {"completed", "partial_blocked"}:
+        raise HostedError("ANALYSIS_RESULT_UNAVAILABLE")
+    store.update_progress(job, "result", 95)
+    # The worker owns analysis.lock while validating its private workspace.
+    # Replay must never hold the control writer or run on a GET request.
+    from proofops_api.hosted_publication import reuse_handoff
+
+    pages = json.loads(job["pages"])
+    content = reuse_handoff(publication_handoff, source, job, pages)
+    if content is None:
+        content = result_snapshot(source, job["tenant_id"], pages)
+    # Stage potentially large receipts outside the writer; the final fence
+    # and same-filesystem rename publish them together with the DB anchor.
+    with TemporaryDirectory(prefix="proofops-publication-", dir=store.root) as scratch:
+        staged = Path(scratch) / "artifacts"
+        shutil.copytree(source, staged)
+        # Initial publication is create-only. Flush the snapshot with the
+        # receipts before acquiring either DB writer; install its anchor
+        # only after rechecking the current run/document/fence.
+        snapshot = staged / "result-1.json"
+        store._write(snapshot, content)
+        snapshot.chmod(0o400)
+        snapshot_hash = digest(content)
+        with store.transaction(operation="publish") as db:
+            store._fenced(db, job, time.time())
+            if db.execute(
+                "SELECT 1 FROM result_snapshots WHERE run_id=?", (job["run_id"],)
+            ).fetchone():
+                raise HostedError("ANALYSIS_RESULT_UNAVAILABLE")
+            target = (
+                store.document_dir(job["tenant_id"], job["document_id"])
+                / "analysis"
+                / job["run_id"]
+            )
+            target.parent.mkdir(mode=0o700, exist_ok=True)
+            os.rename(staged, target)
+            db.execute(
+                "INSERT INTO result_snapshots VALUES (?,1,?)", (job["run_id"], snapshot_hash)
+            )
+            db.execute(
+                "INSERT OR REPLACE INTO run_progress VALUES (?, 'result',100,1)",
+                (job["run_id"],),
+            )
+            db.execute(
+                "UPDATE runs SET status=?,error_code=?,lease_until=0 WHERE run_id=?",
+                (status, error, job["run_id"]),
+            )
+            store._settle_envelope(db, job["run_id"])
+
+
+def _publish_snapshot(
+    store: HostedStore, db: sqlite3.Connection, run: str, path: Path, content: bytes
+):
+    revision = db.execute(
+        "SELECT coalesce(max(revision),0)+1 FROM result_snapshots WHERE run_id=?", (run,)
+    ).fetchone()[0]
+    target = path / f"result-{revision}.json"
+    store._write(target, content)
+    target.chmod(0o400)
+    db.execute("INSERT INTO result_snapshots VALUES (?,?,?)", (run, revision, digest(content)))
+
+
+def _result(store: HostedStore, db: sqlite3.Connection | None, row: sqlite3.Row) -> dict:
+    path = store.document_dir(row["tenant_id"], row["document_id"]) / "analysis" / row["run_id"]
+    if db is None:
+        with store.transaction(readonly=True) as connection:
+            anchor = connection.execute(
+                "SELECT revision,sha256 FROM result_snapshots WHERE run_id=? "
+                "ORDER BY revision DESC LIMIT 1",
+                (row["run_id"],),
+            ).fetchone()
+    else:
+        anchor = db.execute(
+            "SELECT revision,sha256 FROM result_snapshots WHERE run_id=? "
+            "ORDER BY revision DESC LIMIT 1",
+            (row["run_id"],),
+        ).fetchone()
+    try:
+        if anchor is None:
+            raise ValueError("snapshot not published")
+        content = (path / f"result-{anchor['revision']}.json").read_bytes()
+        if digest(content) != anchor["sha256"]:
+            raise ValueError("snapshot hash mismatch")
+        snapshot = json.loads(content)
+        if snapshot["tenant_id"] != row["tenant_id"] or snapshot["page_map"] != json.loads(
+            row["pages"]
+        ):
+            raise ValueError("snapshot scope mismatch")
+        for relative, expected in snapshot["source_hashes"].items():
+            if digest((path / relative).read_bytes()) != expected:
+                raise ValueError("source hash mismatch")
+        from proofops.application.pipeline_failures import public_reason_details
+
+        result = snapshot["result"]
+        if result.get("reuse", {}).get("reused"):
+            from proofops_api.hosted_reuse import verify_copy
+
+            verify_copy(store, row, result)
+        if result.get("hold_reasons"):
+            return result | dict(hold_reason_details=public_reason_details(result["hold_reasons"]))
+        return result
+    except (OSError, ValueError, KeyError, TypeError):
+        raise HostedError("RESULT_INTEGRITY_UNAVAILABLE", 409) from None
+
+
+def get_result(store: HostedStore, tenant: str, run: str) -> dict:
+    result = store.get_run(tenant, run)
+    if result["result_url"] is None:
+        raise HostedError("ANALYSIS_RESULT_UNAVAILABLE")
+    return result["result"]
+
+
+def resolve_review(
+    store: HostedStore, auth: Any, run: str, review: str, body: dict, if_match: str | None, key: str
+) -> dict:
+    from proofops_api.hosted_results import resolve_review, result_snapshot
+
+    if not auth.has_capability("reviewer"):
+        raise HostedError("FORBIDDEN", 403)
+    with store.transaction() as db:
+        row = store._run(db, auth.tenant_id, run)
+        if row["status"] not in {"completed", "partial_blocked"}:
+            raise HostedError("ANALYSIS_RESULT_UNAVAILABLE")
+        if db.execute("SELECT 1 FROM rc1_reuse_audit WHERE run_id=?", (run,)).fetchone():
+            raise HostedError("REUSED_RESULT_READ_ONLY", 409)
+        path = store.document_dir(auth.tenant_id, row["document_id"]) / "analysis" / run
+        # Shared payload lease lets GETs continue reading the prior immutable
+        # snapshot while one review at a time publishes a validated revision.
+        lock = (path.parent.parent / "analysis.lock").open("a+b")
+        fcntl.flock(lock, fcntl.LOCK_SH | fcntl.LOCK_NB)
+    try:
+        with (path / "review.lock").open("a+b") as review_lock:
+            os.fchmod(review_lock.fileno(), 0o600)
+            fcntl.flock(review_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            resolved = resolve_review(path, auth, review, body, if_match, key)
+            content = result_snapshot(path, auth.tenant_id, json.loads(row["pages"]))
+            with store.transaction() as db:
+                store._run(db, auth.tenant_id, run)
+                store._publish_snapshot(db, run, path, content)
+            return resolved
+    finally:
+        lock.close()

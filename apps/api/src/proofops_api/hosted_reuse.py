@@ -15,7 +15,7 @@ from uuid import UUID, uuid4, uuid5
 
 from proofops.domain.provenance import canonical_hash
 
-from proofops_api.hosted_store import HostedError, day, digest, file_sha256
+from proofops_api.hosted_contracts import HostedError, day, digest, file_sha256
 
 PROFILE = "rc1_published_result_v1"
 POLICY = dict(

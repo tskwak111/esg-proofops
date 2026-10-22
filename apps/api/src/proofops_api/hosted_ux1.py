@@ -7,7 +7,7 @@ import json
 import sqlite3
 from urllib.parse import unquote
 
-from proofops_api.hosted_store import HostedError
+from proofops_api.hosted_contracts import HostedError
 
 UX1_POLICY_SHA256 = "bf9c32d96dde26ab8575bedc8cbbce157e74c1a1dd9c0b57634f4cdd9fcf50b3"
 
