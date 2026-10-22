@@ -70,7 +70,7 @@ class PageRequests:
         self.prefetched = {}
 
     def _path(self, pages, mode):
-        from proofops.adapters.parsing.opendataloader import _json
+        from proofops.adapters.parsing.odl_parts.common import _json
         from proofops.adapters.parsing.upstage_document import MODEL
 
         key = sha256(
@@ -98,7 +98,7 @@ class PageRequests:
         return result, True
 
     def _send(self, path, payload, mode):
-        from proofops.adapters.parsing.opendataloader import _json
+        from proofops.adapters.parsing.odl_parts.common import _json
 
         result = self.probe.parse_async(payload, request_id=str(uuid4()), mode=mode)
         temporary = path.with_name(path.name + "." + uuid4().hex + ".tmp")
