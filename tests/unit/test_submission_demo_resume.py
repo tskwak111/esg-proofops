@@ -238,3 +238,128 @@ def test_resume_retains_frozen_parser_output_limit():
     args.parser_max_output_bytes = 20000000
     with pytest.raises(ValueError, match="cannot change parser-max-output-bytes"):
         apply_resume_metadata(args, saved)
+
+
+@pytest.mark.parametrize(
+    ("options", "message"),
+    [
+        ([], "--pdf, --report-year, --period-start and --period-end are required"),
+        (["--resume"], "--resume requires an existing pilot.json under"),
+        (["--resume", "--invoke"], "--resume is read-only for model calls; omit --invoke"),
+        (["--serve-worker"], "--serve-worker requires --serve"),
+        (
+            ["--parser-max-output-bytes", "0"],
+            "--parser-max-output-bytes must be an integer in 1..134217728",
+        ),
+        (
+            ["--parser-memory-bytes", "0"],
+            "--parser-memory-bytes must be an integer in 1..4294967296",
+        ),
+        (["--vision-parse", "all"], "--vision-parse all requires --parser local"),
+        (["--model", "solar-pro3"], "--model requires --llm-provider upstage"),
+    ],
+)
+def test_pilot_cli_error_equivalence(options, message, tmp_path, monkeypatch, capsys):
+    from evaluation.local_upstage_pilot import main
+
+    state = tmp_path / "new-state"
+    monkeypatch.setattr("sys.argv", ["pilot", "--state", str(state), *options])
+    with pytest.raises(SystemExit) as error:
+        main()
+    assert error.value.code == 2
+    if options == ["--resume"]:
+        message += " " + str(state.resolve())
+    assert capsys.readouterr().err.splitlines()[-1] == "pilot: error: " + message
+    assert not state.exists()
+
+
+def test_pilot_cli_help_equivalence(monkeypatch, capsys):
+    import hashlib
+
+    from evaluation.local_upstage_pilot import main
+
+    monkeypatch.setenv("COLUMNS", "80")
+    monkeypatch.setattr("sys.argv", ["pilot", "--help"])
+    with pytest.raises(SystemExit) as error:
+        main()
+    assert error.value.code == 0
+    output = capsys.readouterr()
+    assert output.err == ""
+    assert (
+        hashlib.sha256(output.out.encode()).hexdigest()
+        == "bc394b13d0d866652dc6fc35d35e2eafa97d2bc7088c0605b23515b28c219e59"
+    )
+
+
+@pytest.mark.parametrize("current", [False, True])
+def test_resume_metadata_equivalence(current):
+    import hashlib
+    import json
+
+    saved = dict(source_path="/synthetic/report.pdf", selected_pages=[2, 5])
+    if current:
+        saved.update(
+            model="gpt-6-luna",
+            report_year=2025,
+            period_start="2024-01-01",
+            period_end="2024-12-31",
+            claim_pages=[2],
+            parser_mode="mixed-v1",
+            vision_parse="auto",
+            mixed_ocr_max_pages=3,
+            extraction_batch_calls=4,
+            extraction_total_calls=40,
+            parser_memory_bytes=1024**3,
+            parser_max_output_bytes=64 * 1024**2,
+            live_tagging=True,
+            live_relations=True,
+            tagging_max_calls=18,
+            extraction_source_ids=True,
+            extraction_context=True,
+            preliminary_context=True,
+            preliminary_table_context=True,
+            preliminary_table_role=True,
+            compact_element_wire=True,
+            claim_span_render_resolution=True,
+            claim_span_bullet_spacing=True,
+            claim_span_typography=True,
+            verify_claim_spans=True,
+        )
+    args = _fresh_args()
+    apply_resume_metadata(args, saved)
+    expected = {
+        False: "1b30ef4ec76fb377808ebcd203f793e891b2809407bb9bbb1f76994437dc17dd",
+        True: "0154eb748f9b21927a826c0e3d34aadad3c2d337e610598fc035edeb7b9717b7",
+    }
+    result = json.dumps(vars(args), sort_keys=True, default=str)
+    assert hashlib.sha256(result.encode()).hexdigest() == expected[current]
+
+
+def test_pilot_module_entrypoint_error_equivalence(tmp_path):
+    import subprocess
+    import sys
+
+    from evaluation.local_upstage_pilot import ROOT
+
+    state = tmp_path / "new-state"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "evaluation.local_upstage_pilot",
+            "--state",
+            str(state),
+            "--resume",
+            "--invoke",
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        timeout=30,
+    )
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr.splitlines()[-1] == (
+        "local_upstage_pilot.py: error: --resume is read-only for model calls; omit --invoke"
+    )
+    assert not state.exists()
