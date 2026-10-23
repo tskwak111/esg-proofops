@@ -5,18 +5,36 @@ Only an otherwise oversized artifact set uses this representation. The parser's
 All candidate nodes and original references survive; this is not evidence repair.
 """
 
+from __future__ import annotations
+
 import gzip
 import io
 import json
 import zlib
 from hashlib import sha256
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Protocol
+
+if TYPE_CHECKING:
+    from proofops.application.ingest.graph_fusion import (
+        ParserProfile,
+    )
+
+
+class OutputProfile(Protocol):
+    @property
+    def max_output_bytes(self) -> int: ...
+
+    @property
+    def output_policy(self) -> str | None: ...
+
 
 PROFILE = "rb2-output-v1"
 ARTIFACT = "rb2-candidates.json.gz"
 GRAPH_ARTIFACT = "rb2-graph.json.gz"
 
 
-def compact(work, profile, *, manifest_bytes):
+def compact(work: Path, profile: ParserProfile, *, manifest_bytes: int) -> dict[str, Any] | None:
     from proofops.adapters.parsing.odl_parts.common import _output_bytes
 
     if _output_bytes(work) + manifest_bytes <= profile.max_output_bytes:
@@ -35,7 +53,7 @@ def compact(work, profile, *, manifest_bytes):
     return receipt
 
 
-def _compress(source, target, profile):
+def _compress(source: Path, target: Path, profile: ParserProfile) -> dict[str, Any] | None:
     from proofops.adapters.parsing.odl_parts.common import ParseFailure
 
     size = source.stat().st_size
@@ -55,7 +73,7 @@ def _compress(source, target, profile):
     return dict(profile=PROFILE, original_bytes=size, sha256=digest.hexdigest())
 
 
-def read_candidates(data, profile, receipt):
+def read_candidates(data: bytes, profile: OutputProfile, receipt: dict[str, Any]) -> Any:
     """Never trust a compressed length or decompress an unbounded provider blob."""
     limit = profile.max_output_bytes
     if not isinstance(receipt, dict):

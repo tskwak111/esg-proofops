@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from hashlib import sha256
 from pathlib import Path
+from typing import Any
 
 from proofops.application.upload_contracts import (
     PdfLimits,
@@ -67,7 +68,7 @@ _ACTION_SUBTYPES = {
 }
 
 
-def _display_reader(path: str, limits: PdfLimits, output: Path, *, strict: bool) -> dict:
+def _display_reader(path: str, limits: PdfLimits, output: Path, *, strict: bool) -> dict[str, Any]:
     from pypdf import PdfReader, PdfWriter
     from pypdf.generic import (
         ArrayObject,
@@ -221,7 +222,7 @@ def _display_reader(path: str, limits: PdfLimits, output: Path, *, strict: bool)
     )
 
 
-def _inspect_display(path: str, limits: PdfLimits, output: Path) -> dict:
+def _inspect_display(path: str, limits: PdfLimits, output: Path) -> dict[str, Any]:
     # All retries share ONE process, CPU/memory/deadline budget. No action execution,
     # viewer form environment, shell, network callbacks, or external stream resolution.
     apply_basic_limits(limits)

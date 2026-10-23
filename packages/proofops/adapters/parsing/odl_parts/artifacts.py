@@ -7,10 +7,13 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Callable, Sequence
 from dataclasses import asdict
 from hashlib import sha256
 from importlib.metadata import version
 from pathlib import Path
+from types import ModuleType
+from typing import Any, cast
 
 from proofops.adapters.local.claim_source_policies import PAGE_OCR_PROFILES
 from proofops.adapters.parsing.odl_parts.candidates import _with_quality_issues
@@ -36,13 +39,13 @@ def publish(
     tenant_id: str,
     profile_hash: str,
     runtime: str,
-    selected,
+    selected: Sequence[int],
     fusion_version: int,
-    vision_metrics,
-    upstage_output,
-    routing,
-    page_reader,
-    table_verifier,
+    vision_metrics: dict[str, Any] | None,
+    upstage_output: dict[str, Any] | None,
+    routing: dict[str, Any] | None,
+    page_reader: object | None,
+    table_verifier: Callable[[ParserProfile], ModuleType],
 ) -> CanonicalDocumentGraph:
     """Write fresh evidence and atomically publish its original manifest format."""
     if routing is not None:
@@ -56,7 +59,7 @@ def publish(
         (work / "upstage.json").write_bytes(_json(upstage_output))
     returned_graph = graph
     if profile.table_source_policy_sha256 is not None:
-        verifier = table_verifier(profile)
+        verifier: object = table_verifier(profile)
         if getattr(verifier, "PROFILE", None) in PAGE_OCR_PROFILES:
             if page_reader is None:
                 raise ParseFailure("OCR_RUN_REQUIRED")
@@ -184,7 +187,7 @@ def load_verified(
     *,
     tenant_id: str,
     manifest_sha256: str | None = None,
-    table_verifier,
+    table_verifier: Callable[[ParserProfile], ModuleType],
 ) -> CanonicalDocumentGraph:
     """Reuse immutable output only after identity, config and every artifact hash agree."""
     if source.tenant_id != tenant_id:
@@ -586,7 +589,9 @@ def load_verified(
                 tenant_id=tenant_id,
                 compatible=True,
             )
-            record_table_read(values["table-source.json"], restored)
+            cast(Callable[[dict[str, Any], CanonicalDocumentGraph], None], record_table_read)(
+                values["table-source.json"], restored
+            )
         return restored
     except (OSError, ValueError, KeyError, TypeError):
         raise ParseFailure("PARSER_ARTIFACT_INTEGRITY_MISMATCH") from None

@@ -10,17 +10,25 @@ import re
 import unicodedata
 from bisect import bisect_right
 from collections import Counter
+from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from hashlib import sha256
 from pathlib import Path
 from time import monotonic
-from typing import cast
+from typing import Any, cast
 from urllib.request import Request, urlopen
 from uuid import uuid4
 
 import pdfplumber
 import pypdfium2 as pdfium
-from proofops.application.ingest.graph_fusion import CandidateBatch, CandidateBlock, CandidateEdge
+from proofops.application.ingest.graph_fusion import (
+    CandidateBatch,
+    CandidateBlock,
+    CandidateEdge,
+    CanonicalDocumentGraph,
+    ParserProfile,
+    SourceArtifact,
+)
 from proofops.domain.documents import NativeSource, PageGeometry
 
 MODEL = "google/gemini-3.8-flash"
@@ -64,14 +72,16 @@ def fragment(text: str) -> bool:
     )
 
 
-def native_coverage(blocks, native: str) -> float:
+def native_coverage(blocks: Sequence[str], native: str) -> float:
     reference = Counter(compact(native))
     return sum((reference & Counter(compact(" ".join(blocks)))).values()) / max(
         1, sum(reference.values())
     )
 
 
-def weak_pages(graph, selected: tuple[int, ...], pages) -> list[int]:
+def weak_pages(
+    graph: CanonicalDocumentGraph, selected: tuple[int, ...], pages: Sequence[pdfplumber.page.Page]
+) -> list[int]:
     routed = []
     for number in selected:
         local = [b for b in graph.blocks if b.page_num == number]
@@ -88,8 +98,8 @@ def weak_pages(graph, selected: tuple[int, ...], pages) -> list[int]:
 
 
 def _ground(
-    text: str, words: list[dict], bounds=None
-) -> tuple[tuple[float, ...] | None, int | None]:
+    text: str, words: list[dict[str, Any]], bounds: Sequence[float] | None = None
+) -> tuple[tuple[float, float, float, float] | None, int | None]:
     target = compact(text)
     if not target:
         return None, None
@@ -127,7 +137,7 @@ def _ground(
     return matches[0] if matches else (None, None)
 
 
-def _request(image: bytes, key: str) -> dict:
+def _request(image: bytes, key: str) -> dict[str, Any]:
     payload = {
         "model": MODEL,
         "temperature": 0,
@@ -172,16 +182,16 @@ def _render(source: bytes, number: int) -> bytes:
 
 
 def parse_pages(
-    source,
-    profile,
-    graph,
-    selected,
+    source: SourceArtifact,
+    profile: ParserProfile,
+    graph: CanonicalDocumentGraph,
+    selected: tuple[int, ...],
     cache_root: Path,
     *,
     key: str | None = None,
     concurrency: int = 8,
-    request=_request,
-):
+    request: Callable[[bytes, str], dict[str, Any]] = _request,
+) -> tuple[CandidateBatch | None, dict[str, Any]]:
     """Return candidate batch and replayable metrics; caller stores both in manifest."""
     mode = profile.vision_parse
     if mode == "off":
@@ -193,7 +203,7 @@ def parse_pages(
     run_id = str(uuid4())
     started = monotonic()
 
-    def cache_path(number):
+    def cache_path(number: int) -> Path:
         return cache_root / (
             f"{source.sha256}-{number}-{MODEL.replace('/', '_')}-{PROMPT_HASH}.json"
         )
@@ -205,7 +215,7 @@ def parse_pages(
         if not cache_path(number).exists()
     }
 
-    def one(number):
+    def one(number: int) -> tuple[int, dict[str, Any], bool, float]:
         cache = cache_path(number)
         if cache.exists():
             result = json.loads(cache.read_text())
@@ -244,16 +254,16 @@ def parse_pages(
             counts: Counter[str] = Counter()
 
             def add(
-                kind,
-                text,
-                section,
-                native_id,
-                parent=None,
-                row=None,
-                column=None,
-                table_id=None,
-                derived_box=None,
-            ):
+                kind: str,
+                text: str,
+                section: str,
+                native_id: str,
+                parent: str | None = None,
+                row: int | None = None,
+                column: int | None = None,
+                table_id: str | None = None,
+                derived_box: tuple[float, float, float, float] | None = None,
+            ) -> tuple[float, float, float, float] | None:
                 if not isinstance(text, str):
                     raise ValueError("VISION_SCHEMA_INVALID")
                 # Native box conversion below is valid only for an unrotated full page.
@@ -315,7 +325,9 @@ def parse_pages(
                     edges.append(CandidateEdge(native_id, parent, "table_parent"))
                 return box
 
-            def union(boxes):
+            def union(
+                boxes: Sequence[tuple[float, float, float, float]],
+            ) -> tuple[float, float, float, float]:
                 return (
                     min(box[0] for box in boxes),
                     min(box[1] for box in boxes),
@@ -360,7 +372,11 @@ def parse_pages(
                                     table_id=identifier,
                                 )
                             )
-                        row_box = union(row_boxes) if row_boxes and all(row_boxes) else None
+                        row_box = (
+                            union(cast(list[tuple[float, float, float, float]], row_boxes))
+                            if row_boxes and all(row_boxes)
+                            else None
+                        )
                         table_boxes.append(row_box)
                         add(
                             "table_row",
@@ -377,7 +393,9 @@ def parse_pages(
                         "\n".join("\t".join(map(str, row)) for row in rows),
                         section,
                         identifier,
-                        derived_box=union(table_boxes)
+                        derived_box=union(
+                            cast(list[tuple[float, float, float, float]], table_boxes)
+                        )
                         if table_boxes and all(table_boxes)
                         else None,
                     )

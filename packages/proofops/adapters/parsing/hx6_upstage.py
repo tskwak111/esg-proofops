@@ -4,20 +4,33 @@ Readability only selects candidates. Existing original-byte source readers must
 still attest every claim/table; a route never grants verified or present.
 """
 
+from __future__ import annotations
+
 import io
-from concurrent.futures import ThreadPoolExecutor, wait
+from collections.abc import Callable, Iterator, Sequence
+from concurrent.futures import Future, ThreadPoolExecutor, wait
 from contextvars import copy_context
 from time import sleep
+from typing import TYPE_CHECKING, Any
 
 import pdfplumber
 import pypdfium2 as pdfium
 from proofops.adapters.parsing.mixed_routing import keep, readable
+from proofops.adapters.parsing.odl_parts.common import PageCall, PageResult
 from proofops.adapters.parsing.upstage_document import candidate_batch
 from proofops.application.ingest.page_recovery_policy import (
     CLAIM_LAYOUT_POLICY,
     POLICY,
     S3_CLAIM_LAYOUT_POLICY,
 )
+
+if TYPE_CHECKING:
+    from proofops.application.ingest.graph_fusion import (
+        CandidateBatch,
+        ParserProfile,
+        SourceArtifact,
+    )
+
 
 TRANSIENT = {f"UPSTAGE_HTTP_{s}" for s in (429, 500, 502, 503, 504)}
 STOP = {
@@ -29,7 +42,9 @@ STOP = {
 }
 
 
-def native_pages(source, selected, candidates):
+def native_pages(
+    source: SourceArtifact, selected: Sequence[int], candidates: Sequence[CandidateBatch]
+) -> list[int]:
     # PDFminer may reject a broken document trailer while PDFium can read the
     # unchanged original. This supplies a routing hint, never a repaired proof.
     result = []
@@ -69,7 +84,9 @@ def native_pages(source, selected, candidates):
     return result
 
 
-def _page_calls(paid, call, stopped, workers):
+def _page_calls(
+    paid: Sequence[int], call: PageCall, stopped: Callable[[], bool], workers: int
+) -> Iterator[tuple[int, Future[PageResult] | None, str | None]]:
     if workers == 1:
         for number in paid:
             yield number, None, None
@@ -102,8 +119,16 @@ def _page_calls(paid, call, stopped, workers):
 
 
 def recover(
-    source, profile, selected, candidates, call, *, config_hash, claim_layout=False, page_workers=1
-):
+    source: SourceArtifact,
+    profile: ParserProfile,
+    selected: Sequence[int],
+    candidates: Sequence[CandidateBatch],
+    call: PageCall,
+    *,
+    config_hash: str,
+    claim_layout: bool = False,
+    page_workers: int = 1,
+) -> tuple[list[CandidateBatch], dict[str, Any], dict[str, Any]]:
     if page_workers not in (1, 4) or (page_workers != 1 and not claim_layout):
         raise ValueError("UPSTAGE_PAGE_WORKERS_INVALID")
     readable_local = native_pages(source, selected, candidates)
@@ -198,7 +223,9 @@ def recover(
     return batches, routing, output
 
 
-def provenance(routing, candidates, selected):
+def provenance(
+    routing: dict[str, Any], candidates: Sequence[CandidateBatch], selected: Sequence[int]
+) -> list[dict[str, Any]]:
     records = []
     for number in selected:
         batches = [b for b in candidates if any(x.source.physical_page == number for x in b.blocks)]

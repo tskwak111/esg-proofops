@@ -12,11 +12,13 @@ import re
 import shutil
 import subprocess
 import sys
+from collections.abc import Sequence
 from dataclasses import replace
 from hashlib import sha256
 from importlib.metadata import version
 from pathlib import Path
-from typing import Any
+from types import ModuleType
+from typing import TYPE_CHECKING, Any, cast
 from uuid import uuid4
 
 from proofops.adapters.parsing.odl_parts import artifacts, candidates, child, runtime
@@ -32,6 +34,7 @@ from proofops.adapters.parsing.odl_parts.candidates import (
 from proofops.adapters.parsing.odl_parts.candidates import (
     _with_quality_issues as _with_quality_issues,
 )
+from proofops.adapters.parsing.odl_parts.common import PageResult, ProcessLimits, UpstageProbe
 from proofops.adapters.parsing.odl_parts.common import (
     ParseFailure as ParseFailure,
 )
@@ -80,15 +83,18 @@ from proofops.application.ports.parsing import ParserPort
 from proofops.application.uploads_security import PdfLimits, QuarantinedPdf, verify_quarantined_pdf
 from proofops.domain.errors import DomainValidationError
 
+if TYPE_CHECKING:
+    from proofops.adapters.parsing.spp_execution import LocalPageCache
+
 
 def _batch(
-    raw: dict,
-    geometries: dict,
+    raw: dict[str, Any],
+    geometries: dict[str, Any],
     source: SourceArtifact,
     profile: ParserProfile,
     config_hash: str,
     *,
-    auxiliary=False,
+    auxiliary: bool = False,
 ) -> CandidateBatch:
     # Retain the run-ID hook used by existing deterministic replay tools.
     return candidates._batch(
@@ -102,7 +108,7 @@ def _batch(
     )
 
 
-def _profile_table_verifier(profile):
+def _profile_table_verifier(profile: ParserProfile) -> ModuleType:
     from proofops.adapters.parsing import spp_execution
 
     if spp_execution.enabled(profile):
@@ -111,12 +117,17 @@ def _profile_table_verifier(profile):
 
 
 class OpenDataLoaderParser(ParserPort):
-    def __init__(self, artifact_root: Path, *, upstage_probe=None):
+    def __init__(self, artifact_root: Path, *, upstage_probe: UpstageProbe | None = None) -> None:
         self.artifact_root = Path(artifact_root)
         self.upstage_probe = upstage_probe
 
     def parse(
-        self, source: SourceArtifact, profile: ParserProfile, *, tenant_id: str, page_reader=None
+        self,
+        source: SourceArtifact,
+        profile: ParserProfile,
+        *,
+        tenant_id: str,
+        page_reader: object | None = None,
     ) -> CanonicalDocumentGraph:
         if source.tenant_id != tenant_id:
             raise ParseFailure("NOT_FOUND")
@@ -251,7 +262,7 @@ class OpenDataLoaderParser(ParserPort):
 
                     subset_lock = Lock()
 
-                    def upstage_call(pages, mode):
+                    def upstage_call(pages: Sequence[int], mode: str) -> PageResult:
                         h6 = profile.local_resource_policy in {
                             "selected-pdf-h6-v1",
                             "selected-pdf-h6-v2",
@@ -304,7 +315,7 @@ class OpenDataLoaderParser(ParserPort):
                                 if h6
                                 else selected_pdf(source.content, pages)
                             )
-                        result = self.upstage_probe.parse_async(
+                        result = cast(UpstageProbe, self.upstage_probe).parse_async(
                             payload,
                             request_id=str(uuid4()),
                             mode=mode,
@@ -693,7 +704,9 @@ class OpenDataLoaderParser(ParserPort):
         )
 
     @staticmethod
-    def _execute(command, work, env, profile):
+    def _execute(
+        command: list[str], work: Path, env: dict[str, str], profile: ProcessLimits
+    ) -> None:
         return runtime.execute(
             command,
             work,
@@ -709,7 +722,7 @@ def _child(work: Path) -> None:
     child.run(work, child_body=_child_body)
 
 
-def _child_body(work: Path, page_cache=None) -> None:
+def _child_body(work: Path, page_cache: LocalPageCache | None = None) -> None:
     child.run_body(
         work,
         page_cache,

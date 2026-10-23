@@ -61,15 +61,15 @@ class LocalSQLiteUsageStore:
             yield db
 
     @staticmethod
-    def _json(value) -> str:
+    def _json(value: object) -> str:
         return json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False)
 
     @staticmethod
-    def _scope(tenant, run) -> None:
+    def _scope(tenant: str, run: str) -> None:
         _require_uuid("tenant_id", tenant)
         _require_uuid("run_id", run)
 
-    def _run(self, db, tenant, run):
+    def _run(self, db: sqlite3.Connection, tenant: str, run: str) -> tuple[str, dict[str, Any]]:
         self._scope(tenant, run)
         row = db.execute(
             "SELECT document_version_id, limits_json FROM usage_runs "
@@ -86,7 +86,14 @@ class LocalSQLiteUsageStore:
         with self._transaction() as db:
             self.create_budget_transaction(db, tenant_id, run_id, document_version_id, limits)
 
-    def create_budget_transaction(self, db, tenant_id, run_id, document_version_id, limits):
+    def create_budget_transaction(
+        self,
+        db: sqlite3.Connection,
+        tenant_id: str,
+        run_id: str,
+        document_version_id: str,
+        limits: BudgetLimits,
+    ) -> None:
         """Join atomic run creation; never begin or commit a nested transaction."""
         if not db.in_transaction:
             raise ValueError("active transaction required")
@@ -110,10 +117,12 @@ class LocalSQLiteUsageStore:
         )
 
     @staticmethod
-    def _key(call) -> tuple:
+    def _key(call: BudgetCall) -> tuple[str, str, str, int]:
         return call.tenant_id, call.run_id, call.request_id, call.attempt
 
-    def _attempt(self, db, call):
+    def _attempt(
+        self, db: sqlite3.Connection, call: BudgetCall
+    ) -> tuple[dict[str, Any], str, dict[str, Any] | None]:
         row = db.execute(
             "SELECT reservation, state, ledger FROM usage_attempts "
             "WHERE tenant_id=? AND run_id=? AND request_id=? AND attempt=?",
@@ -127,7 +136,7 @@ class LocalSQLiteUsageStore:
         return reservation, row[1], None if row[2] is None else json.loads(row[2])
 
     @staticmethod
-    def _records(db, tenant, run) -> list[dict[str, Any]]:
+    def _records(db: sqlite3.Connection, tenant: str, run: str) -> list[dict[str, Any]]:
         return [
             {
                 "reservation": json.loads(row[0]),
@@ -291,7 +300,7 @@ class LocalSQLiteUsageStore:
             return True
 
     @staticmethod
-    def _check_provider_overrun(rows) -> None:
+    def _check_provider_overrun(rows: list[dict[str, Any]]) -> None:
         # Retain actual usage; a broken count/output bound stops further spend.
         for row in rows:
             if row["ledger"] is None:

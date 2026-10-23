@@ -6,20 +6,28 @@ import io
 import math
 from bisect import bisect_right
 from collections import Counter
+from collections.abc import Sequence
 from hashlib import sha256
+from typing import Any, cast
 from uuid import uuid4
 
 import pdfplumber
 from proofops.adapters.parsing.gemini_vision import _ground, compact, fragment
 from proofops.adapters.parsing.html_table_cells import parse_table_cells
-from proofops.application.ingest.graph_fusion import CandidateBatch, CandidateBlock, CandidateEdge
+from proofops.application.ingest.graph_fusion import (
+    CandidateBatch,
+    CandidateBlock,
+    CandidateEdge,
+    ParserProfile,
+    SourceArtifact,
+)
 from proofops.domain.documents import NativeSource, PageGeometry
 from pypdf import PdfReader, PdfWriter
 
 MODEL = "document-parse-260128"
 
 
-def selected_pdf(content: bytes, pages: tuple[int, ...]) -> bytes:
+def selected_pdf(content: bytes, pages: Sequence[int]) -> bytes:
     reader = PdfReader(io.BytesIO(content), strict=True)
     if reader.is_encrypted or not pages or max(pages) > len(reader.pages):
         raise ValueError("UPSTAGE_PAGE_SELECTION_INVALID")
@@ -31,7 +39,9 @@ def selected_pdf(content: bytes, pages: tuple[int, ...]) -> bytes:
     return stream.getvalue()
 
 
-def _element_box(element, page):
+def _element_box(
+    element: dict[str, Any], page: pdfplumber.page.Page
+) -> tuple[float, float, float, float] | None:
     coords = element.get("coordinates")
     if (
         not isinstance(coords, list)
@@ -54,7 +64,7 @@ def _element_box(element, page):
     return (x0 * page.width, y0 * page.height, x1 * page.width, y1 * page.height)
 
 
-def _union(boxes):
+def _union(boxes: Sequence[Sequence[float]]) -> tuple[float, float, float, float]:
     return (
         min(b[0] for b in boxes),
         min(b[1] for b in boxes),
@@ -63,7 +73,15 @@ def _union(boxes):
     )
 
 
-def candidate_batch(source, profile, selected, batches, *, mode: str, config_hash: str):
+def candidate_batch(
+    source: SourceArtifact,
+    profile: ParserProfile,
+    selected: Sequence[int],
+    batches: list[dict[str, Any]],
+    *,
+    mode: str,
+    config_hash: str,
+) -> tuple[CandidateBatch, dict[str, Any]]:
     if not isinstance(batches, list) or not batches or mode not in {"standard", "enhanced"}:
         raise ValueError("UPSTAGE_RESPONSE_INVALID")
     if sha256(source.content).hexdigest() != source.sha256:
@@ -81,21 +99,21 @@ def candidate_batch(source, profile, selected, batches, *, mode: str, config_has
         cell_counts = {p: [0, 0] for p in selected}
 
         def add(
-            kind,
-            text,
-            page_num,
-            identifier,
-            provider_box,
+            kind: str,
+            text: str,
+            page_num: int,
+            identifier: str,
+            provider_box: tuple[float, float, float, float] | None,
             *,
-            parent=None,
-            row=None,
-            column=None,
-            row_span=None,
-            column_span=None,
-            derived_box=None,
-            cell_grounding=False,
-            provider_region=False,
-        ):
+            parent: str | None = None,
+            row: int | None = None,
+            column: int | None = None,
+            row_span: int | None = None,
+            column_span: int | None = None,
+            derived_box: tuple[float, float, float, float] | None = None,
+            cell_grounding: bool = False,
+            provider_region: bool = False,
+        ) -> tuple[float, float, float, float] | None:
             if not isinstance(text, str):
                 raise ValueError("UPSTAGE_ELEMENT_INVALID")
             page = document.pages[page_num - 1]
@@ -142,11 +160,11 @@ def candidate_batch(source, profile, selected, batches, *, mode: str, config_has
                 for word in words:
                     size += len(compact(word["text"]))
                     ends.append(size)
-                first = bisect_right(ends, offset)
-                last = bisect_right(ends, offset + len(compact(text)) - 1)
+                first = bisect_right(ends, cast(int, offset))
+                last = bisect_right(ends, cast(int, offset) + len(compact(text)) - 1)
                 if (
                     (first == 0 or ends[first - 1] == offset)
-                    and ends[last] == offset + len(compact(text))
+                    and ends[last] == cast(int, offset) + len(compact(text))
                     and all(stream[k][0] in page_ink[page_num] for k in range(first, last + 1))
                 ):
                     ink = [page_ink[page_num][stream[k][0]] for k in range(first, last + 1)]
@@ -177,9 +195,12 @@ def candidate_batch(source, profile, selected, batches, *, mode: str, config_has
                 (box[0], page.height - box[3], box[2], page.height - box[1]) if box else None
             )
             geometry = PageGeometry(
-                page.width, page.height, page.rotation, tuple(map(float, page.cropbox))
+                page.width,
+                page.height,
+                page.rotation,
+                cast(tuple[float, float, float, float], tuple(map(float, page.cropbox))),
             )
-            context = (
+            context: tuple[str, ...] = (
                 (
                     "section=" + headings[page_num],
                     "provider_bbox=" + ",".join(f"{n:.3f}" for n in provider_box),
@@ -327,7 +348,7 @@ def candidate_batch(source, profile, selected, batches, *, mode: str, config_has
                             and not all(cell_boxes)
                         ),
                         derived_box=(
-                            _union(cell_boxes)
+                            _union(cast(list[tuple[float, float, float, float]], cell_boxes))
                             if all(cell_boxes)
                             else provider_box
                             if profile.table_claims_profile in ("pb1-v1", "pb1-w9-v1")
@@ -362,7 +383,7 @@ def candidate_batch(source, profile, selected, batches, *, mode: str, config_has
             if p not in pages_with_output
             or not (document.pages[p - 1].extract_text() or "").strip()
         )
-    batch = CandidateBatch(
+    candidate = CandidateBatch(
         source.tenant_id,
         source.document_version_id,
         profile.parse_manifest_id,
@@ -390,4 +411,4 @@ def candidate_batch(source, profile, selected, batches, *, mode: str, config_has
         gemini_pages=gemini_pages,
         fragment_rate=stats["fragments"] / max(1, stats["prose"]),
     )
-    return batch, metrics
+    return candidate, metrics

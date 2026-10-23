@@ -5,10 +5,14 @@ stored artifact hash and RB2's bounded original-byte commitment, without
 rewriting artifacts or treating decompression as source verification.
 """
 
+from __future__ import annotations
+
 import json
+from collections.abc import Iterator
 from hashlib import sha256
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 from proofops.adapters.parsing.rb2_output import ARTIFACT, GRAPH_ARTIFACT, read_candidates
 
@@ -17,13 +21,13 @@ _LOGICAL = {v: k for k, v in _COMPRESSED.items()}
 _LIMIT = 20_000_000
 
 
-def _managed(path, manifest):
+def _managed(path: Path, manifest: dict[str, Any] | None) -> bool:
     return manifest is not None or (
         path.name in _COMPRESSED | _LOGICAL and path.with_name("manifest.json").exists()
     )
 
 
-def _bytes(path, limit):
+def _bytes(path: Path, limit: int) -> bytes:
     if path.is_symlink() or path.parent.is_symlink() or path.stat().st_size > limit:
         raise ValueError("PARSER_ARTIFACT_UNSAFE")
     with path.open("rb") as stream:
@@ -33,7 +37,7 @@ def _bytes(path, limit):
     return data
 
 
-def _manifest(path, manifest):
+def _manifest(path: Path, manifest: dict[str, Any] | None) -> dict[str, Any]:
     if manifest is None:
         manifest = json.loads(_bytes(path.with_name("manifest.json"), _LIMIT))
     if not isinstance(manifest, dict):
@@ -41,7 +45,7 @@ def _manifest(path, manifest):
     return manifest
 
 
-def parser_artifact_path(path, *, manifest=None):
+def parser_artifact_path(path: str | Path, *, manifest: dict[str, Any] | None = None) -> Path:
     """Resolve a logical name; returned names are the manifest's physical files."""
     path = Path(path)
     if not _managed(path, manifest):
@@ -65,7 +69,7 @@ def parser_artifact_path(path, *, manifest=None):
     return path.with_name(name)
 
 
-def read_parser_json(path, *, manifest=None):
+def read_parser_json(path: str | Path, *, manifest: dict[str, Any] | None = None) -> Any:
     """Plain fixture catalogs remain plain JSON; parser artifacts are checked.
 
     A caller with an anchored manifest must supply it. Compacted artifacts never
@@ -96,7 +100,7 @@ def read_parser_json(path, *, manifest=None):
     return json.loads(data)
 
 
-def iter_parser_artifacts(root, name):
+def iter_parser_artifacts(root: str | Path, name: str) -> Iterator[Path]:
     """Discover raw or compacted artifacts without silently dropping either."""
     yield from Path(root).rglob(name)
     if name in _COMPRESSED:

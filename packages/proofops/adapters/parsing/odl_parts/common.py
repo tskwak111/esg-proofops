@@ -6,7 +6,30 @@ This leaf module is also used by H6/SPP/RB2 without importing orchestration.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable, Sequence
 from pathlib import Path
+from typing import Any, Protocol
+
+
+class UpstageProbe(Protocol):
+    def parse_async(self, payload: bytes, *, request_id: str, mode: str) -> dict[str, Any]: ...
+
+
+PageResult = tuple[dict[str, Any], bool]
+PageCall = Callable[[Sequence[int], str], PageResult]
+
+
+class ProcessLimits(Protocol):
+    """Resource ceilings shared by parser and source-preview subprocesses."""
+
+    @property
+    def timeout_seconds(self) -> float: ...
+
+    @property
+    def memory_bytes(self) -> int: ...
+
+    @property
+    def max_output_bytes(self) -> int: ...
 
 
 class ParseFailure(ValueError):

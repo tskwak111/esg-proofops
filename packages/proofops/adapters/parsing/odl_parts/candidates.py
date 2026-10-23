@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from dataclasses import replace
 from importlib.metadata import version
 from typing import Any
@@ -14,6 +15,7 @@ from proofops.application.ingest.graph_fusion import (
     CandidateBatch,
     CandidateBlock,
     CandidateEdge,
+    CanonicalDocumentGraph,
     ParserProfile,
     QualityIssue,
     SourceArtifact,
@@ -27,7 +29,9 @@ from proofops.domain.documents import (
 from proofops.domain.errors import DomainValidationError
 
 
-def _transform_box(box, matrix):
+def _transform_box(
+    box: Sequence[float] | None, matrix: tuple[float, float, float, float, float, float]
+) -> tuple[float, float, float, float] | None:
     if box is None:
         return None
     if (
@@ -50,13 +54,13 @@ def _transform_box(box, matrix):
     )
 
 
-def _geometry(value: dict) -> PageGeometry:
+def _geometry(value: dict[str, Any]) -> PageGeometry:
     return PageGeometry(
         value["width_pt"], value["height_pt"], value["rotation"], tuple(value["crop_box"])
     )
 
 
-def _node_text(node: dict, depth=0) -> str:
+def _node_text(node: dict[str, Any], depth: int = 0) -> str:
     if depth > 100:
         raise ParseFailure("PARSER_OUTPUT_LIMIT")
     if "content" in node:
@@ -73,13 +77,13 @@ def _node_text(node: dict, depth=0) -> str:
 
 
 def _batch(
-    raw: dict,
-    geometries: dict,
+    raw: dict[str, Any],
+    geometries: dict[str, Any],
     source: SourceArtifact,
     profile: ParserProfile,
     config_hash: str,
     *,
-    auxiliary=False,
+    auxiliary: bool = False,
     run_id: str,
 ) -> CandidateBatch:
     blocks: list[CandidateBlock] = []
@@ -222,7 +226,12 @@ def _batch(
     )
 
 
-def _with_quality_issues(graph, selected, profile, vision_pages=()):
+def _with_quality_issues(
+    graph: CanonicalDocumentGraph,
+    selected: Sequence[int],
+    profile: ParserProfile,
+    vision_pages: Sequence[int] = (),
+) -> CanonicalDocumentGraph:
     issues = list(graph.issues)
     for page in selected:
         if not any(

@@ -23,7 +23,7 @@ def _inspect_legacy(
     *,
     recover_xref: bool = False,
     derived_output: Path | None = None,
-    security: dict | None = None,
+    security: dict[str, Any] | None = None,
 ) -> int:
     # Only the resource-limited child imports/parses untrusted PDF structures.
     apply_basic_limits(limits)
@@ -79,7 +79,9 @@ def _inspect_legacy(
             assert encryption is not None
             decrypt = encryption.decrypt_object
 
-            def decrypt_object(obj, idnum, generation, *, strict=True):
+            def decrypt_object(
+                obj: PdfObject, idnum: int, generation: int, *, strict: bool = True
+            ) -> PdfObject:
                 if isinstance(obj, StreamObject) and obj.get("/Type") == "/Metadata":
                     return obj
                 return decrypt(obj, idnum, generation, strict=strict)
@@ -535,7 +537,7 @@ def _inspect_legacy(
         return pages
 
 
-def _inspect_strict(path: str, limits: PdfLimits, output: Path | None = None) -> dict:
+def _inspect_strict(path: str, limits: PdfLimits, output: Path | None = None) -> dict[str, Any]:
     from hashlib import file_digest
 
     from pypdf.errors import PdfReadError
