@@ -1,5 +1,8 @@
 """Versioned partial processing contract; no grading or evidence admission."""
 
+from collections.abc import Mapping
+from typing import Any
+
 POLICY = dict(
     profile="provider-partial-f1-v1",
     failure_scope="request-only",
@@ -58,7 +61,7 @@ PROJECTION_POLICY = INITIAL_PROJECTION_POLICY | dict(
 )
 
 
-def claim_hold_reason(projection):
+def claim_hold_reason(projection: Mapping[str, Any]) -> str | None:
     """Read trusted transport outcomes, never search model/source text for codes."""
     codes = {
         (run.get("usage") or {}).get("error_code")

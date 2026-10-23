@@ -4,12 +4,20 @@ Selection is Python only; the LLM still classifies/tags and never assigns grades
 No text is synthesized: quotes are complete contiguous rows of the parser grid.
 """
 
+from __future__ import annotations
+
 import re
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, Any, cast
 
 from proofops.domain.provenance import canonical_hash
 
+if TYPE_CHECKING:
+    from proofops.application.claims import Claim
+
+
 PROFILE = "pb1-v1"
-POLICY = dict(
+POLICY: dict[str, Any] = dict(
     profile=PROFILE,
     year="latest-explicit-observed-year-column; no deadline columns",
     quote="literal-whole-row; primary=current-year; older-values=comparison-context",
@@ -30,20 +38,20 @@ HEADER = re.compile(r"^(?:지표명|구분|단위|항목|연도|지표)$")
 FOOTNOTE = re.compile(r"^\s*(?:\d+[.)]|[※*])")
 
 
-def observations(text, *, context="", limit=24):
+def observations(text: str, *, context: str = "", limit: int = 24) -> list[dict[str, Any]]:
     """Read explicit column years, one observation per data row; never infer years."""
     if "pb1-w9-v1" in context.split():
         from proofops.application.ingest.w9_tables import observations as w9
 
         return w9(text, limit=limit)
     lines = text.split("\n")
-    years = {}
+    years: dict[int, dict[str, Any]] = {}
     header_end = -1
     for r, line in enumerate(lines[:4]):
         for col, cell in enumerate(line.split("\t")):
             value = cell.strip()
             if YEAR.fullmatch(value):
-                year = re.search(r"\d{4}", value)[0]
+                year = cast(re.Match[str], re.search(r"\d{4}", value))[0]
                 if col in years and years[col]["year"] != year:
                     return []  # ambiguous multi-level year columns
                 years[col] = dict(year=year, row=r, column=col, quote=cell)
@@ -94,9 +102,9 @@ def observations(text, *, context="", limit=24):
     return results[: min(limit, POLICY["max_rows_per_table"])]
 
 
-def occurrence_groups(claims):
+def occurrence_groups(claims: Iterable[Claim]) -> dict[str, list[str]]:
     """Display grouping only; each original occurrence/receipt remains immutable."""
-    groups = {}
+    groups: dict[str, list[str]] = {}
     for claim in claims:
         groups.setdefault(canonical_hash(" ".join(claim.quote.split())), []).append(claim.claim_id)
     return {key: ids for key, ids in groups.items() if len(ids) > 1}

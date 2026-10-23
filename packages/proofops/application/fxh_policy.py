@@ -1,5 +1,8 @@
 """Opt-in fresh-run execution repair; no rule or evidence-admission changes."""
 
+from collections.abc import Mapping
+from typing import Any
+
 POLICY = dict(
     profile="fxh_fresh_execution_v1",
     max_request_bytes=32768,
@@ -14,7 +17,7 @@ POLICY = dict(
 )
 
 
-def enabled(policy):
+def enabled(policy: Mapping[str, Any]) -> bool:
     value = policy.get("fxh_runtime")
     if value is not None and value != POLICY:
         raise ValueError("FXH_EXECUTION_POLICY_MISMATCH")

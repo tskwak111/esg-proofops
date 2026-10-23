@@ -1,8 +1,17 @@
 """Opt-in candidate-local grid failures; no relaxed validation or absence credit."""
 
+from __future__ import annotations
+
+from collections.abc import Callable, Mapping
+from typing import TYPE_CHECKING, Any, cast
+
 from proofops.application.claims import ExtractionOutputError
 from proofops.application.input_failures import TABLE_ERRORS
 from proofops.domain.provenance import canonical_hash
+
+if TYPE_CHECKING:
+    from proofops.application.claims import Claim
+
 
 POLICY = dict(
     profile="rb1_input_isolation_v1",
@@ -16,7 +25,7 @@ POLICY = dict(
 class InputIsolation:
     """Run-local state shared by routing, prefetch and the extraction adapter."""
 
-    def __init__(self, policy):
+    def __init__(self, policy: Mapping[str, Any]) -> None:
         value = policy.get("rb1_input_isolation")
         pin = policy.get("rb1_input_isolation_sha256")
         if (value is not None or pin is not None) and (
@@ -26,19 +35,19 @@ class InputIsolation:
         self.active = value == POLICY
         self.failures: dict[str, str] = {}
 
-    def capture(self, source_id, error):
+    def capture(self, source_id: str, error: Exception) -> bool:
         if not self.active or str(error) not in TABLE_ERRORS:
             return False
         self.failures[source_id] = "TABLE_RB1_" + str(error)
         return True
 
-    def check(self, source_id):
+    def check(self, source_id: str) -> None:
         code = self.failures.get(source_id)
         if code:
             raise ExtractionOutputError(code, failure_code=code)
 
 
-def tag_input_code(error):
+def tag_input_code(error: Exception) -> str | None:
     """Only identified content/structure errors, never arbitrary exception text."""
     if isinstance(error, KeyError | TypeError):
         return "TAG_INPUT_INVALID"
@@ -53,7 +62,7 @@ def tag_input_code(error):
     )
 
 
-def held_claim(claim, error):
+def held_claim(claim: Claim, error: Exception) -> dict[str, Any]:
     from proofops.application.tagging.unattended import empty_provisional, source_status
 
     return dict(
@@ -62,11 +71,13 @@ def held_claim(claim, error):
         stage="input_validation",
         reason="TAG_INPUT_INVALID",
         reason_display="입력 검증 실패 — 해당 주장 보류",
-        source_status=source_status(claim),
+        source_status=cast("Callable[..., dict[str, Any]]", source_status)(claim),
         tag_runs=[],
         decision=None,
         review_inputs=None,
-        provisional_grade=empty_provisional("TAG_INPUT_INVALID")
+        provisional_grade=cast("Callable[..., dict[str, Any]]", empty_provisional)(
+            "TAG_INPUT_INVALID"
+        )
         | dict(display="판정 보류", display_type="hold", hold_reasons=["입력 검증 실패"]),
         rb1_input_hold=dict(
             code="TAG_INPUT_INVALID",

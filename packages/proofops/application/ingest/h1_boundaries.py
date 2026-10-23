@@ -13,9 +13,9 @@ POLICY = dict(
 )
 
 
-def scope_note(quote):
+def scope_note(quote: str) -> bool:
     return bool(re.fullmatch(POLICY["scope_note"], quote))
 
 
-def strategy_title(quote):
+def strategy_title(quote: str) -> bool:
     return bool(re.fullmatch(POLICY["strategy_title"], quote.strip()))

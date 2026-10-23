@@ -14,15 +14,16 @@ from proofops.domain.rules.engine import (
 )
 from proofops.domain.rules.safe_harbor import CHECKLIST_POLICY_V1
 from proofops.domain.values import (
+    LlmElement,
     _element_from_dict,
     _source_ref_from_dict,
 )
 
-from .contracts import CATEGORY_POLICY_V1, ReviewRejected
+from .contracts import CATEGORY_POLICY_V1, ReviewRejected, SourceVerifier
 from .inputs import ReviewInputs
 
 
-def parse_resolution(body: Any):
+def parse_resolution(body: Any) -> tuple[LlmElement, ...]:
     if not isinstance(body, dict) or set(body) != {
         "base_tag_revision",
         "track",
@@ -50,8 +51,12 @@ def parse_resolution(body: Any):
 
 
 def _review_applicability(
-    inputs: ReviewInputs, track: str, review: Any, *, verify_source_ref=verify_source_ref
-):
+    inputs: ReviewInputs,
+    track: str,
+    review: Any,
+    *,
+    verify_source_ref: SourceVerifier = verify_source_ref,
+) -> tuple[list[ConfirmedFact], dict[str, Any]]:
     """Verify complete atomic-claim coverage, never report-wide search absence."""
     if not isinstance(review, dict) or set(review) != {
         "policy",
@@ -152,7 +157,9 @@ def _review_applicability(
     return facts, receipt
 
 
-def _review_safe_harbor(inputs: ReviewInputs, review: Any, *, verify_source_ref=verify_source_ref):
+def _review_safe_harbor(
+    inputs: ReviewInputs, review: Any, *, verify_source_ref: SourceVerifier = verify_source_ref
+) -> tuple[list[ConfirmedFact], dict[str, Any]]:
     """Create only explicit checklist facts from replayed packet references."""
     if not isinstance(review, dict) or set(review) != {
         "policy",
@@ -261,9 +268,9 @@ def _review_safe_harbor(inputs: ReviewInputs, review: Any, *, verify_source_ref=
     return facts, receipt
 
 
-def _packet_ref_index(packet: Mapping[str, Any]) -> dict[str, tuple[dict, str]]:
+def _packet_ref_index(packet: Mapping[str, Any]) -> dict[str, tuple[dict[str, Any], str]]:
     """Index the immutable packet's own references by canonical hash and scope."""
-    packet_refs: dict[str, tuple[dict, str]] = {}
+    packet_refs: dict[str, tuple[dict[str, Any], str]] = {}
     for raw in packet.get("claim_source_refs", []):
         packet_refs[canonical_hash(raw)] = (raw, "local_claim")
     for candidate in packet.get("evidence_candidates", []):
@@ -274,8 +281,12 @@ def _packet_ref_index(packet: Mapping[str, Any]) -> dict[str, tuple[dict, str]]:
 
 
 def _review_category(
-    inputs: ReviewInputs, track: str, review: Any, *, verify_source_ref=verify_source_ref
-):
+    inputs: ReviewInputs,
+    track: str,
+    review: Any,
+    *,
+    verify_source_ref: SourceVerifier = verify_source_ref,
+) -> tuple[None, dict[str, Any], tuple[str, ...]]:
     """Validate an explicit removal of a wrong safe-harbor category; create no fact.
 
     The request must PIN what the models and the frozen packet actually said:

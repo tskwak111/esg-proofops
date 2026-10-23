@@ -13,7 +13,7 @@ STRICT_PROFILES = frozenset({"strict-v1", HOSTED_NULL_NAVIGATION_PROFILE})
 class UploadRejected(ValueError):
     """Code-only failure with optional structured inspection status; no source/parser text."""
 
-    def __init__(self, code: str, *, security_metadata: dict | None = None):
+    def __init__(self, code: str, *, security_metadata: dict[str, Any] | None = None):
         super().__init__(code)
         self.security_metadata = security_metadata or {}
 
@@ -47,7 +47,7 @@ class PdfLimits:
                 raise ValueError("Positive finite resource limits required")
 
     @classmethod
-    def display(cls, **overrides) -> PdfLimits:
+    def display(cls, **overrides: Any) -> PdfLimits:
         """New-upload profile; legacy defaults remain byte-for-byte strict in behavior."""
         values: dict[str, Any] = dict(
             policy_profile="display-v2",
@@ -76,5 +76,5 @@ class VerifiedPdf:
     source: QuarantinedPdf
     page_count: int
     display_content: bytes | None = field(default=None, repr=False)
-    security_metadata: dict = field(default_factory=dict)
+    security_metadata: dict[str, Any] = field(default_factory=dict)
     analysis_content: bytes | None = field(default=None, repr=False)

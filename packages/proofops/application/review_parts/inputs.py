@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass
+from typing import Any, cast
 from uuid import NAMESPACE_URL, uuid5
 
 from proofops.application.evidence.binding import ClaimContext
@@ -21,6 +22,7 @@ from proofops.application.tagging.service import TagRun
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import RulePackSnapshot
 from proofops.domain.rules.engine import (
+    ConfirmedTags,
     Decision,
     RuleContext,
 )
@@ -55,11 +57,11 @@ class ReviewInputs:
     tag_revision: int = 1
     decision: Decision | None = None
     fact_assembly_profile: str = "strict-v1"
-    report_level_link: dict | None = None
-    report_level_review: tuple[dict, ...] = ()
+    report_level_link: dict[str, Any] | None = None
+    report_level_review: tuple[dict[str, Any], ...] = ()
     fact_assembly_receipt: FactAssemblyReceiptV1 | None = None
 
-    def snapshot(self) -> dict:
+    def snapshot(self) -> dict[str, Any]:
         snapshot = dict(
             schema="review_inputs_v1",
             run_id=self.run_id,
@@ -99,7 +101,9 @@ class ReviewInputs:
             snapshot["report_level_link"] = self.report_level_link
             snapshot["report_level_review"] = list(self.report_level_review)
         if self.fact_assembly_receipt is not None:
-            snapshot["fact_assembly_receipt"] = self.fact_assembly_receipt.to_dict()
+            snapshot["fact_assembly_receipt"] = cast(
+                "Callable[[], dict[str, Any]]", self.fact_assembly_receipt.to_dict
+            )()
             from proofops.application.tagging.fact_assembly_c3 import POLICY_HASH, PROFILE
 
             if self.fact_assembly_profile == PROFILE:
@@ -111,7 +115,9 @@ class ReviewInputs:
         if self.fact_assembly_profile == C3_V2_PROFILE and self.fact_assembly_receipt is not None:
             snapshot["fact_assembly"] = dict(
                 profile=C3_V2_PROFILE,
-                sha256=self.fact_assembly_receipt.to_dict()["policy_sha256"],
+                sha256=cast("Callable[[], dict[str, Any]]", self.fact_assembly_receipt.to_dict)()[
+                    "policy_sha256"
+                ],
             )
         return snapshot
 
@@ -125,13 +131,13 @@ class ReviewInputs:
             )
 
             try:
-                c4_validate(self)
+                cast("Callable[..., object]", c4_validate)(self)
             except (ValueError, KeyError, TypeError) as exc:
                 raise ReviewRejected("C4_PUBLICATION_REPLAY_MISMATCH", 409) from exc
             return
         if self.fact_assembly_profile == PROFILE:
             try:
-                validate_publication(self)
+                cast("Callable[..., object]", validate_publication)(self)
             except (ValueError, KeyError, TypeError) as exc:
                 raise ReviewRejected("C3_PUBLICATION_REPLAY_MISMATCH", 409) from exc
             return
@@ -141,7 +147,7 @@ class ReviewInputs:
             )
 
             try:
-                c3_v2_validate(self)
+                cast("Callable[..., object]", c3_v2_validate)(self)
             except (ValueError, KeyError, TypeError) as exc:
                 raise ReviewRejected("C3_V2_PUBLICATION_REPLAY_MISMATCH", 409) from exc
             return
@@ -149,8 +155,8 @@ class ReviewInputs:
             from proofops.application.tagging.fact_assembly_c2 import replay
 
             try:
-                replay(
-                    self.fact_assembly_receipt.to_dict(),
+                cast("Callable[..., object]", replay)(
+                    cast("Callable[[], dict[str, Any]]", self.fact_assembly_receipt.to_dict)(),
                     context=self.context,
                     graph=self.original,
                     packet=self.packet,
@@ -191,13 +197,13 @@ class ReviewInputs:
         )
         if self.report_level_link is not None:
             try:
-                result = replay_report_level_link(
+                result = cast("Callable[..., ConsensusResult]", replay_report_level_link)(
                     result,
                     config=self.report_level_link,
                     context=self.context,
                     graph=self.original,
                     receipts=self.report_level_review,
-                    fallback_tags=strict_fallback(
+                    fallback_tags=cast("Callable[..., ConfirmedTags | None]", strict_fallback)(
                         self.tag_runs,
                         self.packet,
                         self.rulepack,
@@ -240,7 +246,7 @@ class ReviewInputs:
             raise ReviewRejected("REVIEW_DECISION_MISMATCH", 409)
 
 
-def build_open_review(inputs: ReviewInputs, review_id: str | None = None) -> dict:
+def build_open_review(inputs: ReviewInputs, review_id: str | None = None) -> dict[str, Any]:
     inputs.validate()
     claim = inputs.context.claim
     review_id = review_id or str(uuid5(NAMESPACE_URL, canonical_hash(inputs.snapshot())))

@@ -7,7 +7,7 @@ END = re.compile(r"(?:하고|하며|통해|대한|위한|및|또는|의|을|를)
 FOOTNOTE = re.compile(r"^\s*(?:[※*]|\d+\))\s*(?:산정|산출|기준|포함|제외|주:|참고)")
 
 
-def incomplete_fragment(quote):
+def incomplete_fragment(quote: str) -> bool:
     return bool(START.search(quote.strip()) or END.search(quote.strip()) or FOOTNOTE.search(quote))
 
 
@@ -21,5 +21,5 @@ TABLE_CONTEXT_POLICY = dict(
 )
 
 
-def table_context_row(quote):
+def table_context_row(quote: str) -> bool:
     return bool(TABLE_CONTEXT_LABEL.match(quote))

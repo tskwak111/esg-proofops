@@ -5,6 +5,7 @@ the result and obtain a fresh character/geometry attestation before tagging.
 """
 
 import re
+from typing import Any
 
 PROFILE = "same-paragraph-sentence-prefix-w7-v1"
 TERMINAL = r"[.!?。！？;:](?=\s|$)"
@@ -32,7 +33,9 @@ POLICY = dict(
 )
 
 
-def expand_sentence_prefixes(spans: list[dict], text: str, *, kind: str) -> tuple[list, list]:
+def expand_sentence_prefixes(
+    spans: list[dict[str, Any]], text: str, *, kind: str
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Extend only backwards; preserve the selected predicate/end and source order."""
     if kind != "paragraph" or "\t" in text or "|" in text:
         return spans, []

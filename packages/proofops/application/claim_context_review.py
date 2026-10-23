@@ -1,19 +1,29 @@
 """Explicit source-backed facility section review; never a numeric pass from itself."""
 
+from __future__ import annotations
+
 from dataclasses import asdict
 from decimal import Decimal, InvalidOperation
+from typing import TYPE_CHECKING, Any, cast
 
 from proofops.application.evidence.span_citations import verify_source_ref
 from proofops.application.numeric_analysis import analyze_numeric_consistency
+from proofops.application.review_parts.contracts import ContextSourceVerifier
 from proofops.domain.numeric import unit_note_literal
 from proofops.domain.periods import is_supported_period
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.values import _source_ref_from_dict
 
+if TYPE_CHECKING:
+    from proofops.application.review_parts.inputs import ReviewInputs
+
+
 POLICY = "facility_section_context_v1"
 
 
-def review_facility_context(inputs, request, verify_sources):
+def review_facility_context(
+    inputs: ReviewInputs, request: dict[str, Any], verify_sources: ContextSourceVerifier | None
+) -> dict[str, Any]:
     """Review only a bounded paragraph section, with explicit literal role tags.
 
     No observation/binding is manufactured from a narrative claim. The existing
@@ -65,8 +75,20 @@ def review_facility_context(inputs, request, verify_sources):
     if any(r.bbox is None or r.page_num != own.page_num for r in (own, facility, end)):
         raise ValueError("CONTEXT_SECTION_UNLOCATED")
     if not (
-        facility.bbox[3] <= own.bbox[1] < own.bbox[3] <= end.bbox[1]
-        and all(own.bbox[0] <= (r.bbox[0] + r.bbox[2]) / 2 <= own.bbox[2] for r in (facility, end))
+        cast(tuple[float, float, float, float], facility.bbox)[3]
+        <= cast(tuple[float, float, float, float], own.bbox)[1]
+        < cast(tuple[float, float, float, float], own.bbox)[3]
+        <= cast(tuple[float, float, float, float], end.bbox)[1]
+        and all(
+            cast(tuple[float, float, float, float], own.bbox)[0]
+            <= (
+                cast(tuple[float, float, float, float], r.bbox)[0]
+                + cast(tuple[float, float, float, float], r.bbox)[2]
+            )
+            / 2
+            <= cast(tuple[float, float, float, float], own.bbox)[2]
+            for r in (facility, end)
+        )
         and facility.source_id != end.source_id
     ):
         raise ValueError("CONTEXT_SECTION_MISMATCH")
@@ -89,10 +111,10 @@ def review_facility_context(inputs, request, verify_sources):
                 ref.page_num == own.page_num
                 and ref.bbox
                 and (
-                    ref.bbox[3] <= facility.bbox[3]
-                    or ref.bbox[1] >= end.bbox[1]
-                    or ref.bbox[2] <= own.bbox[0]
-                    or ref.bbox[0] >= own.bbox[2]
+                    ref.bbox[3] <= cast(tuple[float, float, float, float], facility.bbox)[3]
+                    or ref.bbox[1] >= cast(tuple[float, float, float, float], end.bbox)[1]
+                    or ref.bbox[2] <= cast(tuple[float, float, float, float], own.bbox)[0]
+                    or ref.bbox[0] >= cast(tuple[float, float, float, float], own.bbox)[2]
                 )
             ):
                 status = "outside_reviewed_section"

@@ -15,7 +15,7 @@ import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any, TextIO
+from typing import TYPE_CHECKING, Any, TextIO
 from uuid import UUID, uuid4
 
 from proofops.application.pipeline_failures import PUBLIC_CODES
@@ -98,7 +98,13 @@ def queue_trace(context: TraceContext) -> dict[str, str]:
     return {"traceparent": traceparent(context), "run_id": context.run_id}
 
 
-class _QuietHandler(logging.StreamHandler):
+if TYPE_CHECKING:
+    _StreamHandler = logging.StreamHandler[TextIO]
+else:
+    _StreamHandler = logging.StreamHandler
+
+
+class _QuietHandler(_StreamHandler):
     """Default logging error handling prints exception text; never use it here."""
 
     dropped_events = 0

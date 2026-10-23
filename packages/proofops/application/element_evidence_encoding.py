@@ -1,5 +1,8 @@
 """Lossless, scoped export-only sharing; stored search artifacts remain untouched."""
 
+from collections.abc import Iterator, Mapping, Sequence
+from typing import Any, cast
+
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
 
@@ -18,14 +21,14 @@ class ElementEvidenceExpansionLimit(ValueError):
     """Restored evidence exceeds the per-claim export byte limit."""
 
 
-def _scope(identity):
+def _scope(identity: Mapping[str, Any]) -> dict[str, Any]:
     scope = {key: identity.get(key) for key in SCOPE_KEYS}
     if any(not isinstance(value, str) or not value for value in scope.values()):
         raise ValueError("element evidence scope is incomplete")
     return scope
 
 
-def _search_scope(search, scope):
+def _search_scope(search: Mapping[str, Any], scope: dict[str, Any]) -> dict[str, Any]:
     pins = {key: search.get(key) for key in SEARCH_KEYS}
     if any(
         not isinstance(value, str)
@@ -37,7 +40,9 @@ def _search_scope(search, scope):
     return scope | pins
 
 
-def _binding(record, claim_id, scope):
+def _binding(
+    record: Mapping[str, Any], claim_id: object, scope: Mapping[str, Any]
+) -> dict[str, Any]:
     if record.get("claim_id") != claim_id or any(
         record.get(key) != scope[key] for key in SCOPE_KEYS if key != "run_id"
     ):
@@ -50,7 +55,7 @@ def _binding(record, claim_id, scope):
     return {"scope": scope, "claim_id": claim_id, **revisions}
 
 
-def _put(table, scope, original, compact):
+def _put(table: dict[str, Any], scope: Mapping[str, Any], original: object, compact: object) -> str:
     digest = canonical_hash({"scope": scope, "value": original})
     entry = {"scope": dict(scope), "value": compact}
     if digest in table and canonical_json(table[digest]) != canonical_json(entry):
@@ -59,14 +64,16 @@ def _put(table, scope, original, compact):
     return "sha256:" + digest
 
 
-def _envelope(value, name, refs):
-    envelope = {"refs": refs}
+def _envelope(value: Mapping[str, Any], name: str, refs: dict[str, str]) -> dict[str, Any]:
+    envelope: dict[str, Any] = {"refs": refs}
     if name in value:
         envelope["original_value"] = value[name]
     return envelope
 
 
-def _unpack(value, name, fields):
+def _unpack(
+    value: Mapping[str, Any], name: str, fields: Sequence[str]
+) -> tuple[dict[str, Any], dict[str, Any]]:
     compact = dict(value)
     envelope = compact.pop(name, None)
     if (
@@ -82,7 +89,7 @@ def _unpack(value, name, fields):
     return compact, envelope["refs"]
 
 
-def encode_element_evidence(record, manifest):
+def encode_element_evidence(record: dict[str, Any], manifest: dict[str, Any]) -> dict[str, Any]:
     """Encode a single captured claim and add only unique entries to the manifest."""
     scope = _scope(manifest)
     claim_id = record.get("claim_id")
@@ -130,7 +137,9 @@ def encode_element_evidence(record, manifest):
     return record | {"element_evidence": encoded}
 
 
-def _resolve(reference, table, scope, used):
+def _resolve(
+    reference: object, table: Mapping[str, Any], scope: Mapping[str, Any], used: set[str]
+) -> tuple[str, Any]:
     if (
         not isinstance(reference, str)
         or len(reference) != 71
@@ -148,11 +157,18 @@ def _resolve(reference, table, scope, used):
     return digest, entry["value"]
 
 
-def _restore_list(reference, scope, tables, used, byte_limit):
+def _restore_list(
+    reference: object,
+    scope: Mapping[str, Any],
+    tables: tuple[Mapping[str, Any], ...],
+    used: tuple[set[str], ...],
+    byte_limit: int,
+) -> tuple[list[dict[str, Any]], int]:
     digest, items = _resolve(reference, tables[0], scope, used[0])
     if not isinstance(items, list):
         raise ValueError("element evidence table must contain an array")
-    restored, size = [], 2
+    restored: list[dict[str, Any]] = []
+    size = 2
     for item in items:
         if not isinstance(item, dict):
             raise ValueError("element evidence search item is invalid")
@@ -176,7 +192,9 @@ def _restore_list(reference, scope, tables, used, byte_limit):
     return restored, size
 
 
-def iter_element_evidence(manifest, decisions):
+def iter_element_evidence(
+    manifest: Mapping[str, Any], decisions: Mapping[str, Mapping[str, Any] | None]
+) -> Iterator[tuple[str, list[dict[str, Any]]]]:
     """Validate and restore one claim at a time; never expand the whole export."""
     encoding = manifest.get("element_evidence_encoding")
     if encoding not in (None, ELEMENT_EVIDENCE_V1):
@@ -198,7 +216,7 @@ def iter_element_evidence(manifest, decisions):
                         isinstance(envelope, dict)
                         and isinstance(envelope.get("refs"), dict)
                         and set(envelope["refs"]) & set(LIST_FIELDS)
-                        and not set(search) & set(LIST_FIELDS)
+                        and not set(cast(dict[str, Any], search)) & set(LIST_FIELDS)
                     ):
                         raise ValueError("element evidence reference has no encoding")
                 yield claim_id, evidence
@@ -207,7 +225,8 @@ def iter_element_evidence(manifest, decisions):
     tables = tuple(manifest.get(key) for key in TABLE_KEYS)
     if any(not isinstance(table, dict) for table in tables):
         raise ValueError("element evidence tables are missing")
-    used = (set(), set(), set())
+    tables = cast(tuple[Mapping[str, Any], ...], tables)
+    used: tuple[set[str], ...] = (set(), set(), set())
     refs = {ref["claim_id"]: ref for ref in manifest["claim_revision_refs"]}
     for claim_id, record in decisions.items():
         if not isinstance(record, dict) or "element_evidence" not in record:
@@ -226,7 +245,8 @@ def iter_element_evidence(manifest, decisions):
         evidence = record["element_evidence"]
         if not isinstance(evidence, list):
             raise ValueError("element evidence must be an array")
-        restored, expanded_bytes = [], 2
+        restored: list[dict[str, Any]] = []
+        expanded_bytes = 2
         for element in evidence:
             if not isinstance(element, dict) or not isinstance(element.get("search"), dict):
                 raise ValueError("element evidence search is missing")

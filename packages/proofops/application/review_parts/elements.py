@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, replace
 from functools import partial
+from inspect import Parameter
+from typing import Any, cast
 from unicodedata import normalize
 
+from proofops.application.authorization import AuthContext
 from proofops.application.evidence.binding import accept_binding, relation_tags_for
 from proofops.application.evidence.report_level import POLICIES as REPORT_LEVEL_POLICIES
 from proofops.application.evidence.report_level import check_report_level, scope_rejection_reason
@@ -15,23 +19,26 @@ from proofops.domain.rules.engine import (
     ConfirmedFact,
 )
 from proofops.domain.values import (
+    LlmElement,
+    SourceRef,
     _source_ref_from_dict,
 )
 
-from .contracts import ReviewRejected
+from .contracts import ContextSourceVerifier, ReviewRejected, SourceVerifier
+from .inputs import ReviewInputs
 
 
 def validate_context_review(
-    inputs,
-    body,
-    initial,
+    inputs: ReviewInputs,
+    body: dict[str, Any],
+    initial: dict[str, Any],
     *,
-    context_review,
-    reopen,
-    prior_provenance,
-    verify_context_sources,
-    pinned_run_snapshot,
-):
+    context_review: dict[str, Any] | None,
+    reopen: bool,
+    prior_provenance: dict[str, Any],
+    verify_context_sources: ContextSourceVerifier | None,
+    pinned_run_snapshot: dict[str, Any] | None,
+) -> tuple[dict[str, Any] | None, dict[str, SourceRef]]:
     """Revalidate a supplied or carried context without replacing a numeric result."""
     original_refs = {}
     prior_context = initial.get("claim_context_review") if reopen else None
@@ -62,7 +69,10 @@ def validate_context_review(
             context_receipt = review_facility_context(
                 inputs,
                 context_request,
-                partial(verify_context_sources, pinned_run_snapshot=pinned_run_snapshot)
+                partial(
+                    cast(ContextSourceVerifier, verify_context_sources),
+                    pinned_run_snapshot=pinned_run_snapshot,
+                )
                 if pinned_run_snapshot is not None
                 else verify_context_sources,
             )
@@ -90,23 +100,23 @@ def validate_context_review(
 
 
 def validate_elements(
-    inputs,
-    actor,
-    body,
-    elements,
-    initial,
+    inputs: ReviewInputs,
+    actor: AuthContext,
+    body: dict[str, Any],
+    elements: Sequence[LlmElement],
+    initial: dict[str, Any],
     *,
-    facts,
-    definitions,
-    context_receipt,
-    original_refs,
-    verify_context_sources,
-    verifier_parameters,
-    pinned_run_snapshot,
-    verify_source_ref,
-):
+    facts: dict[str, ConfirmedFact],
+    definitions: dict[str, Any],
+    context_receipt: dict[str, Any] | None,
+    original_refs: dict[str, SourceRef],
+    verify_context_sources: ContextSourceVerifier | None,
+    verifier_parameters: Mapping[str, Parameter],
+    pinned_run_snapshot: dict[str, Any] | None,
+    verify_source_ref: SourceVerifier,
+) -> tuple[list[ConfirmedFact], list[dict[str, Any]], list[dict[str, Any]]]:
     """Validate sources/bindings and retain report-level replay receipts."""
-    new_facts = []
+    new_facts: list[ConfirmedFact] = []
     checked_elements = []
     report_level_receipts = []
     prior_report_level = {
@@ -169,12 +179,14 @@ def validate_elements(
             )
             if carried:
                 try:
-                    prior_refs = tuple(_source_ref_from_dict(ref) for ref in prior["refs"])
+                    prior_refs = tuple(
+                        _source_ref_from_dict(ref) for ref in cast(dict[str, Any], prior)["refs"]
+                    )
                 except (KeyError, TypeError, ValueError) as exc:
                     raise ReviewRejected("REPORT_LEVEL_SOURCE_REPLAY_MISMATCH", 409) from exc
                 if (
-                    prior.get("policy") != element.reason_code
-                    or prior.get("credited_from") != element.credited_from
+                    cast(dict[str, Any], prior).get("policy") != element.reason_code
+                    or cast(dict[str, Any], prior).get("credited_from") != element.credited_from
                     or tuple(replace(ref, verification_state="candidate") for ref in prior_refs)
                     != tuple(
                         replace(ref, verification_state="candidate")
@@ -186,7 +198,7 @@ def validate_elements(
             try:
                 replay = {}
                 if carried and "replay_receipt" in verifier_parameters:
-                    replay["replay_receipt"] = prior["source_receipt"]
+                    replay["replay_receipt"] = cast(dict[str, Any], prior)["source_receipt"]
                 if carried and "published_tag" in verifier_parameters:
                     replay["published_tag"] = initial
                 if pinned_run_snapshot is not None:
@@ -208,9 +220,9 @@ def validate_elements(
                 credited_from=element.credited_from,
                 source_receipt=source_receipt,
             )
-            if carried and canonical_hash(prior.get("source_receipt")) != canonical_hash(
-                source_receipt
-            ):
+            if carried and canonical_hash(
+                cast(dict[str, Any], prior).get("source_receipt")
+            ) != canonical_hash(source_receipt):
                 raise ReviewRejected("REPORT_LEVEL_SOURCE_REPLAY_MISMATCH", 409)
             report_level_receipts.append(receipt)
         if element.state in ("absent", "not_applicable"):
@@ -233,7 +245,7 @@ def validate_elements(
                     for f in previous
                 ):
                     raise ReviewRejected("DETERMINISTIC_CHECK_REQUIRED")
-                scope = previous[0].source_scope
+                scope = cast(ConfirmedFact, previous[0]).source_scope
             elif (
                 element.reason_code is not None
                 and REPORT_LEVEL_POLICIES.get(element.element_id) == element.reason_code

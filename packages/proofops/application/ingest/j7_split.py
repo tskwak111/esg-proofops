@@ -1,10 +1,18 @@
 """Conservative independent clauses inside already selected J3 source spans."""
 
+from __future__ import annotations
+
 import re
+from typing import TYPE_CHECKING, Any
 
 from proofops.application.ingest.j3_recall import ACTION
 from proofops.application.ingest.j3_recall import POLICY as J3_POLICY
 from proofops.application.ingest.j3_recall import refine_selected as refine_j3
+
+if TYPE_CHECKING:
+    from proofops.application.claims import Claim
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+
 
 PROFILE = "j7-independent-clauses-v1"
 PREDICATE = ACTION + r"|도입|투자|검토|검증|달성|구체화|선언|수행"
@@ -17,7 +25,7 @@ FORECAST = r"\d[\d,.]*\s*(?:%|퍼센트|톤|tCO2|kWh|MWh|GWh).*?(?:예상|기대
 DEPENDENT = r"(?:이를|이로|이에|그에|이러한|그러한|이를\s*통해)"
 CONDITION = r"(?:\s시\s|경우|조건|(?:한다면|하면|되면|된다면))"
 COMPARISON = r"^이는\s.+?\d+\s*년\s*앞선\s*목표"
-POLICY = dict(
+POLICY: dict[str, Any] = dict(
     profile=PROFILE,
     parent=J3_POLICY,
     boundary=BOUNDARY,
@@ -34,7 +42,7 @@ POLICY = dict(
     fallback="keep-parent-on-incomplete-child-or-validation-failure; no-truncation",
     max_candidates=64,
 )
-CONTEXT_POLICY = dict(
+CONTEXT_POLICY: dict[str, Any] = dict(
     profile="j7-connected-sentence-context-k4-v1",
     atomic="unchanged-J7-focal-spans-and-identities",
     interpretation="same-block-complete-bullet-or-sentence; no-cross-bullet-or-paragraph",
@@ -43,7 +51,7 @@ CONTEXT_POLICY = dict(
 )
 
 
-def sentence_context(claim, graph):
+def sentence_context(claim: Claim, graph: CanonicalDocumentGraph) -> dict[str, Any] | None:
     """Retain the whole literal sentence behind a connective atomic clause."""
     from dataclasses import asdict
 
@@ -87,7 +95,7 @@ def sentence_context(claim, graph):
     )
 
 
-def goal_requires_retag(claim, graph):
+def goal_requires_retag(claim: Claim, graph: CanonicalDocumentGraph) -> bool:
     context = sentence_context(claim, graph)
     return bool(
         context
@@ -97,7 +105,7 @@ def goal_requires_retag(claim, graph):
     )
 
 
-def _top_level(text):
+def _top_level(text: str) -> set[int]:
     """Allowed cut positions; unclosed or nested quotations stay conservative."""
     pairs = {"(": ")", "[": "]", "{": "}", "‘": "’", "“": "”", "'": "'", '"': '"'}
     stack: list[str] = []
@@ -112,7 +120,7 @@ def _top_level(text):
     return allowed
 
 
-def clause_bounds(text, start, end):
+def clause_bounds(text: str, start: int, end: int) -> list[tuple[int, int]]:
     value = text[start:end]
     allowed = _top_level(value)
     cuts = []
@@ -151,7 +159,9 @@ def clause_bounds(text, start, end):
     return parts
 
 
-def refine_selected(spans, text, *, kind, cells=None):
+def refine_selected(
+    spans: list[dict[str, Any]], text: str, *, kind: str, cells: list[dict[str, Any]] | None = None
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     output, changes = [], []
     for original in spans:
         if original.get("kind", "claim") != "claim":

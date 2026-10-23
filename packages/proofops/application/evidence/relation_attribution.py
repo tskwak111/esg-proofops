@@ -4,14 +4,21 @@ New runs pin this policy separately from the immutable model/prompt/rule hashes.
 Snapshots without the pin retain their original reader and behavior.
 """
 
+from __future__ import annotations
+
 import re
-from collections.abc import Mapping
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import replace
+from typing import Any, cast
 
+from proofops.application.claims import Claim
 from proofops.application.evidence.span_citations import verify_source_ref
+from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
 from proofops.domain.provenance import canonical_hash
+from proofops.domain.rulepacks import RulePackSnapshot
+from proofops.domain.values import SourceRef
 
-LEGACY_POLICY = {
+LEGACY_POLICY: dict[str, Any] = {
     "version": "relation-attribution-v1",
     "ownership": "same-page;same-canonical-paragraph-or-verified-literal-block-group",
     "table": "existing-verified-same-row-or-column-sources-only",
@@ -25,7 +32,7 @@ LEGACY_POLICY = {
 }
 
 
-POLICY = {
+POLICY: dict[str, Any] = {
     **LEGACY_POLICY,
     "version": "relation-attribution-v2",
     "external_roles": "global-bound-elements-only;evidence-own-paragraph;existing-binding-required",
@@ -34,7 +41,7 @@ POLICY = {
 GLOBAL_ELEMENTS = frozenset(POLICY["global_elements"])
 
 
-def snapshot_policy(snapshot):
+def snapshot_policy(snapshot: Mapping[str, Any]) -> dict[str, Any] | None:
     keys = {"relation_attribution_policy", "relation_attribution_policy_sha256"}
     if not keys & snapshot.keys():
         return None
@@ -45,10 +52,10 @@ def snapshot_policy(snapshot):
         != canonical_hash(snapshot["relation_attribution_policy"])
     ):
         raise ValueError("RELATION_ATTRIBUTION_POLICY_MISMATCH")
-    return snapshot["relation_attribution_policy"]
+    return cast(dict[str, Any], snapshot["relation_attribution_policy"])
 
 
-def role_rejection(text, start, end, role):
+def role_rejection(text: str, start: int, end: int, role: str) -> str | None:
     """Refuse token fragments and known name/role contradictions, never award roles."""
     if (
         not isinstance(text, str)
@@ -80,7 +87,7 @@ def role_rejection(text, start, end, role):
     return None
 
 
-def _paragraphs(text):
+def _paragraphs(text: str) -> Iterator[tuple[int, int]]:
     start = 0
     for match in re.finditer(POLICY["paragraph_breaks"], text):
         if text[start : match.start()].strip():
@@ -90,7 +97,9 @@ def _paragraphs(text):
         yield start, len(text)
 
 
-def literal_scope_rejection(targets, ref, text):
+def literal_scope_rejection(
+    targets: Sequence[SourceRef], ref: SourceRef, text: str | None
+) -> str | None:
     """Candidate veto core, also replayable offline; never authenticates a source."""
     if not targets or any(
         (r.document_version_id, r.parse_manifest_id)
@@ -115,7 +124,7 @@ def literal_scope_rejection(targets, ref, text):
     return "RELATION_OTHER_PARAGRAPH"
 
 
-def _same_group(left, right, graph):
+def _same_group(left: SourceRef, right: SourceRef, graph: CanonicalDocumentGraph) -> bool:
     """Only explicit, verified literal paragraph joins; headings are not groups."""
     blocks = {b.source_id: b for b in graph.blocks}
     for parent in graph.blocks:
@@ -143,7 +152,12 @@ def _same_group(left, right, graph):
             for p in parts
         ):
             continue
-        parts.sort(key=lambda b: (b.bbox[1], b.bbox[0]))
+        parts.sort(
+            key=lambda b: (
+                cast(tuple[float, float, float, float], b.bbox)[1],
+                cast(tuple[float, float, float, float], b.bbox)[0],
+            )
+        )
         if (
             "\n".join(p.raw_text for p in parts) == parent.raw_text
             and len(list(_paragraphs(parent.raw_text))) == 1
@@ -152,7 +166,9 @@ def _same_group(left, right, graph):
     return False
 
 
-def source_rejection(claim, ref, graph, *, tenant_id):
+def source_rejection(
+    claim: Claim, ref: SourceRef, graph: CanonicalDocumentGraph, *, tenant_id: str
+) -> str | None:
     """Check real provenance and paragraph ownership before proposing any axes."""
     if (claim.tenant_id, graph.tenant_id) != (tenant_id, tenant_id) or (
         claim.document_version_id,
@@ -191,7 +207,9 @@ def source_rejection(claim, ref, graph, *, tenant_id):
     return reason
 
 
-def filter_dimensions(claim, dimensions: Mapping, graph, *, tenant_id):
+def filter_dimensions(
+    claim: Claim, dimensions: Mapping[str, Any], graph: CanonicalDocumentGraph, *, tenant_id: str
+) -> tuple[dict[str, SourceRef | None], dict[str, str]]:
     """Return a new map and safe rejection codes; explicit null stays unresolved."""
     filtered, rejected = dict(dimensions), {}
     blocks = {b.source_id: b for b in graph.blocks}
@@ -210,8 +228,15 @@ def filter_dimensions(claim, dimensions: Mapping, graph, *, tenant_id):
 
 
 def relation_source_rejection(
-    claim, ref, graph, *, tenant_id, policy, global_elements=(), rulepack=None
-):
+    claim: Claim,
+    ref: SourceRef,
+    graph: CanonicalDocumentGraph,
+    *,
+    tenant_id: str,
+    policy: Mapping[str, Any],
+    global_elements: Iterable[str] = (),
+    rulepack: RulePackSnapshot | None = None,
+) -> str | None:
     """Permit evaluating global evidence; never grant a claim axis or present.
 
     The caller supplies only global_bound elements from the frozen packet. The
@@ -236,8 +261,16 @@ def relation_source_rejection(
 
 
 def filter_evidence_dimensions(
-    claim, evidence, dimensions, graph, *, tenant_id, policy, global_elements=(), rulepack=None
-):
+    claim: Claim,
+    evidence: SourceRef,
+    dimensions: Mapping[str, SourceRef | None],
+    graph: CanonicalDocumentGraph,
+    *,
+    tenant_id: str,
+    policy: Mapping[str, Any],
+    global_elements: Iterable[str] = (),
+    rulepack: RulePackSnapshot | None = None,
+) -> tuple[dict[str, SourceRef | None], dict[str, str]]:
     """Claim anchors stay local; external roles must belong to their own source.
 
     Existing binding still compares literal entity/metric/period and all explicit
