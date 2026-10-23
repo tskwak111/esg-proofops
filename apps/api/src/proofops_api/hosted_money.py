@@ -146,8 +146,7 @@ def dispatch(
         ops2_failure = (
             allow_ops2_fallback is True and provider == "openai" and bool(fallback_trigger(exc))
         )
-        # External API is untyped and outside this work package.
-        cause = provider_error_code(provider, limit_code)  # type: ignore[no-untyped-call]
+        cause = provider_error_code(provider, limit_code)
         if cause:
             logging.getLogger("proofops_api.hosted_store").warning(
                 "hosted provider failure run=%s provider=%s cause=%s raw=%s",

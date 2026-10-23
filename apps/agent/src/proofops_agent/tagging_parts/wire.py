@@ -414,24 +414,20 @@ def build_wire_request(
             if k11:
                 from proofops.application.tagging.k11_contract import elements as k11_elements
 
-                # External package helper is untyped; its annotations are outside this scope.
-                wire_system = k11_elements(  # type: ignore[no-untyped-call]
+                wire_system = k11_elements(
                     schema,
                     classification,
                     policy=data["tagging_wire_policy"],
                     quality_policy=quality_policy,
                 )
             else:
-                # External package helper is untyped; its annotations are outside this scope.
-                wire_system = elements(schema, classification, quality_policy=quality_policy)  # type: ignore[no-untyped-call]
+                wire_system = elements(schema, classification, quality_policy=quality_policy)
         else:
-            # External package helper is untyped; its annotations are outside this scope.
-            wire_system = elements_k4(schema, classification, quality_policy=quality_policy)  # type: ignore[no-untyped-call]
+            wire_system = elements_k4(schema, classification, quality_policy=quality_policy)
         if k9 and not k10:
             from proofops.application.tagging.k9_contract import element_guidance_for
 
-            # External package helper is untyped; its annotations are outside this scope.
-            wire_system += element_guidance_for(k9_binding, data.get("atomic_quote", ""))  # type: ignore[no-untyped-call]
+            wire_system += element_guidance_for(k9_binding, data.get("atomic_quote", ""))
         # Authorization above covered these server policies before projection.
         data.pop("tagging_response_policy", None)
         data.pop("selected_quantity_policy", None)
@@ -441,21 +437,17 @@ def build_wire_request(
             validate_policy,
         )
 
-        # External package helper is untyped; its annotations are outside this scope.
-        validate_policy(data.pop("structural_quality_policy"))  # type: ignore[no-untyped-call]
-        # External package helper is untyped; its annotations are outside this scope.
-        wire_system += element_guidance(data.get("atomic_quote", ""))  # type: ignore[no-untyped-call]
+        validate_policy(data.pop("structural_quality_policy"))
+        wire_system += element_guidance(data.get("atomic_quote", ""))
     if "v3_dec92_policy" in data:
         from proofops.application.tagging.v3_dec92 import ELEMENT_GUIDANCE, validate_policy
 
-        # External package helper is untyped; its annotations are outside this scope.
-        validate_policy(data.pop("v3_dec92_policy"))  # type: ignore[no-untyped-call]
+        validate_policy(data.pop("v3_dec92_policy"))
         wire_system += "\n" + ELEMENT_GUIDANCE
     if "qt2_contextual_elements_policy" in data:
         from proofops.application.tagging.qt2_context import GUIDANCE, validate_policy
 
-        # External package helper is untyped; its annotations are outside this scope.
-        validate_policy(data.pop("qt2_contextual_elements_policy"))  # type: ignore[no-untyped-call]
+        validate_policy(data.pop("qt2_contextual_elements_policy"))
         wire_system += "\n" + GUIDANCE
     POLICY: dict[str, Any]
     if "qt1_tuple_policy" in data:
@@ -517,8 +509,7 @@ def build_wire_request(
         ):
             wire_system += NAMED_MEANS_GUIDANCE
         wire_system += INSTRUCTIONS
-        # External package helper is untyped; its annotations are outside this scope.
-        wire_user = fit_context(  # type: ignore[no-untyped-call]
+        wire_user = fit_context(
             wire_system,
             user,
             lambda system, value: request_body(
@@ -614,8 +605,7 @@ def restore_payload(
             if policy is not None and policy == K6_POLICY:
                 from proofops.application.tagging.k6_citations import anchor_units
 
-                # External package helper is untyped; its annotations are outside this scope.
-                selected = anchor_units(selected, refs)  # type: ignore[no-untyped-call]
+                selected = anchor_units(selected, refs)
             element["evidence_refs"] = [restore_ref(key, refs, policy=policy) for key in selected]
             if display_catalog is not None:
                 value = element.get("normalized_value")
@@ -637,8 +627,7 @@ def restore_payload(
                     refine_selected_value,
                 )
 
-                # External package helper is untyped; its annotations are outside this scope.
-                refine_selected_value(element)  # type: ignore[no-untyped-call]
+                refine_selected_value(element)
         except (ValueError, KeyError, TypeError, AttributeError):
             if policy is None:
                 raise

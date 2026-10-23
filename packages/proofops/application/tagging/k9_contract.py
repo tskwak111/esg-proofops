@@ -149,7 +149,7 @@ def local_implementation_identity(
     from proofops.application.ingest.k5_context import _bounds
 
     entity_start = entity.char_start - ref.char_start
-    left, right = _bounds(ref.quote, entity_start, entity.char_end - ref.char_start)  # type: ignore[no-untyped-call]  # External untyped helper.
+    left, right = _bounds(ref.quote, entity_start, entity.char_end - ref.char_start)
     return any(left <= match.start() < match.end() <= right for match in _DATE.finditer(ref.quote))
 
 
@@ -177,7 +177,7 @@ def scope_definition_refs(claim: Claim, graph: CanonicalDocumentGraph) -> tuple[
         ref = replace(
             block.source_ref(), char_start=match.start(), char_end=match.end(), quote=match[0]
         )
-        if literal_scope_rejection(claim.source_refs, ref, block.raw_text) is None:  # type: ignore[no-untyped-call]  # External untyped helper.
+        if literal_scope_rejection(claim.source_refs, ref, block.raw_text) is None:
             refs.append(ref)
     return tuple(refs) if len(refs) == 1 else ()
 

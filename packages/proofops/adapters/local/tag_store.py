@@ -46,10 +46,9 @@ if TYPE_CHECKING:
     from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
     from proofops.application.tagging.fact_assembly_c2 import FactAssemblyReceiptV1
     from proofops.application.uploads import UploadService
-    from proofops.domain.rules.engine import Decision
 
 
-reviewable_decision: Callable[..., tuple[Decision | None, int | None]] = _reviewable_decision
+reviewable_decision = _reviewable_decision
 
 replay_report_level_link: Callable[..., ConsensusResult] = _replay_report_level_link
 strict_fallback: Callable[..., ConfirmedTags | None] = _strict_fallback
@@ -132,7 +131,7 @@ def tag_pins(
         snapshot_policy as _snapshot_policy,
     )
 
-    snapshot_policy: Callable[..., dict[str, Any]] = _snapshot_policy
+    snapshot_policy = _snapshot_policy
 
     attribution = snapshot_policy(snapshot)
     pins = dict(

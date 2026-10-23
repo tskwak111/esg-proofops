@@ -12,7 +12,7 @@ from proofops_worker.extraction_parts.attempt import PaidClaimExtractor
 
 
 def run_once(self: runtime.LocalExtractRunner, *, tenant_id: str, run_id: str) -> str:
-    snapshot = self.store.snapshot(tenant_id, run_id)  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+    snapshot = self.store.snapshot(tenant_id, run_id)
     probe = getattr(self.extractor, "_probe", None)
     if probe is not None and hasattr(probe, "configure_response_policy"):
         probe.configure_response_policy(snapshot, role="extract")
@@ -34,10 +34,10 @@ def run_once(self: runtime.LocalExtractRunner, *, tenant_id: str, run_id: str) -
             sync_usage = attempt.sync_usage
 
             try:
-                profile = runtime.extraction_profile(snapshot)  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+                profile = runtime.extraction_profile(snapshot)
                 is_real = attempt.is_real = not profile.synthetic
                 if is_real:
-                    limits = snapshot.get("extraction_limits")
+                    limits = cast(dict[str, Any], snapshot.get("extraction_limits"))
                     try:
                         runtime.validate_extraction_limits(limits, snapshot["selected_pages"])
                         valid_limits = True
@@ -60,7 +60,7 @@ def run_once(self: runtime.LocalExtractRunner, *, tenant_id: str, run_id: str) -
                     self.store, self.uploads, self.parser, tenant_id=tenant_id, run_id=run_id
                 )
                 runner = self
-                rb1 = runtime.InputIsolation(snapshot.get("analysis_profile_policy", {}))  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+                rb1 = runtime.InputIsolation(snapshot.get("analysis_profile_policy", {}))
                 display_profile = getattr(runner.extractor, "_display_text_profile", None)
                 if display_profile:
                     from proofops.application.ingest.display_text import POLICY, PROFILE
@@ -92,7 +92,7 @@ def run_once(self: runtime.LocalExtractRunner, *, tenant_id: str, run_id: str) -
                 if is_real:
                     eligible_sources = runtime.select_stable_paragraph_sources(
                         graph,
-                        runtime.claim_scope(snapshot, graph),  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+                        runtime.claim_scope(snapshot, graph),
                         effective_max,
                         extraction_table_rows=getattr(runner.extractor, "_table_rows", False),
                         extraction_k3=getattr(runner.extractor, "_k3", False),
@@ -106,7 +106,7 @@ def run_once(self: runtime.LocalExtractRunner, *, tenant_id: str, run_id: str) -
                         self.calls = 0
 
                     def extract(self, packet: dict[str, Any]) -> dict[str, Any]:
-                        rb1.check(packet["untrusted_document_data"]["source_id"])  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+                        rb1.check(packet["untrusted_document_data"]["source_id"])
                         runtime.fence_provider_call(runner, lease, usage)
                         if is_real:
                             data = packet["untrusted_document_data"]
@@ -167,7 +167,7 @@ def run_once(self: runtime.LocalExtractRunner, *, tenant_id: str, run_id: str) -
                     "openai/gpt-6-luna",
                     "gpt-6-luna",
                 ):
-                    scope = runtime.claim_scope(snapshot, graph)  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+                    scope = runtime.claim_scope(snapshot, graph)
                     candidates = sorted(
                         (
                             block
@@ -194,7 +194,7 @@ def run_once(self: runtime.LocalExtractRunner, *, tenant_id: str, run_id: str) -
                     ]
                     base_extractor = selected_extractor
                     prepare = getattr(live_extractor, "prefetch", None)
-                    if prepare and not runtime.fresh_execution_enabled():  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+                    if prepare and not runtime.fresh_execution_enabled():
                         prepare(packets)
                     if snapshot.get("pipeline_profile") == "finals-unattended-v1":
                         from proofops_worker.unattended_pipeline import PageTagPipeline
@@ -212,7 +212,7 @@ def run_once(self: runtime.LocalExtractRunner, *, tenant_id: str, run_id: str) -
                         max_workers=self.max_workers,
                         on_page=page_pipeline.ready if page_pipeline else None,
                         **(
-                            dict(prepare_pages=prepare) if runtime.fresh_execution_enabled() else {}  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+                            dict(prepare_pages=prepare) if runtime.fresh_execution_enabled() else {}
                         ),
                     )
 
@@ -231,7 +231,7 @@ def run_once(self: runtime.LocalExtractRunner, *, tenant_id: str, run_id: str) -
                     selected_extractor = PrefetchedExtractor()
                 discovery = runtime.discover_atomic_claims(
                     graph,
-                    runtime.claim_scope(snapshot, graph),  # type: ignore[no-untyped-call]  # External claim-store boundary remains untyped.
+                    runtime.claim_scope(snapshot, graph),
                     extractor=selected_extractor,
                 )
                 current = self.store.jobs.get_run(tenant_id, run_id)
@@ -240,8 +240,8 @@ def run_once(self: runtime.LocalExtractRunner, *, tenant_id: str, run_id: str) -
                 )
                 if checkpoint is None:
                     raise ValueError("PARSE_NOT_PUBLISHED")
-                payload = runtime.snapshot_pins(snapshot, graph, profile, checkpoint)  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
-                coverage = runtime.discovery_coverage(  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+                payload = runtime.snapshot_pins(snapshot, graph, profile, checkpoint)
+                coverage = runtime.discovery_coverage(
                     runtime.json.loads(checkpoint)["coverage"], graph, discovery
                 )
                 if page_pipeline is not None:
@@ -249,7 +249,7 @@ def run_once(self: runtime.LocalExtractRunner, *, tenant_id: str, run_id: str) -
                 payload.update(
                     discovery=runtime.asdict(discovery),
                     synthetic=discovery.synthetic,
-                    extraction_outcome=runtime.extraction_outcome(  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+                    extraction_outcome=runtime.extraction_outcome(
                         graph,
                         discovery,
                         claim_pages=snapshot.get("extraction_limits", {}).get("claim_pages")
@@ -265,7 +265,7 @@ def run_once(self: runtime.LocalExtractRunner, *, tenant_id: str, run_id: str) -
                 if snapshot.get("analysis_profile_policy", {}).get("extraction_pb1") == "pb1-v1":
                     from proofops.application.ingest.pb1_tables import occurrence_groups
 
-                    payload["occurrence_groups"] = occurrence_groups(discovery.claims)  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+                    payload["occurrence_groups"] = occurrence_groups(discovery.claims)
                 if "claim_source_policy" in snapshot:
                     from proofops.adapters.local.claim_source_policies import (
                         attest_claims,
@@ -276,15 +276,15 @@ def run_once(self: runtime.LocalExtractRunner, *, tenant_id: str, run_id: str) -
                     )
                     from proofops.adapters.local.run_artifacts import load_run_inputs
 
-                    reader = publication_reader(snapshot["claim_source_policy"])  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
-                    _, source, _ = load_run_inputs(
+                    reader = publication_reader(snapshot["claim_source_policy"])
+                    _, source_artifact, _ = load_run_inputs(
                         self.store, self.uploads, tenant_id=tenant_id, run_id=run_id
                     )
                     self.store.jobs.heartbeat(lease, now=int(self.clock()), lease_seconds=300)
-                    payload["claim_source_attestation"] = attest_claims(  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+                    payload["claim_source_attestation"] = attest_claims(
                         reader=reader,
                         graph=graph,
-                        source=source.content,
+                        source=source_artifact.content,
                         refs=discovery_refs(discovery),
                         tenant_id=tenant_id,
                         cache=snapshot.get("pipeline_profile")

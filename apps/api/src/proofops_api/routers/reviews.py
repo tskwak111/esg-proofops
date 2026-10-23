@@ -131,8 +131,7 @@ def build_reviews_router(
                 409, "REVIEW_QUEUE_UNAVAILABLE", "Review queue is not configured."
             )
         try:
-            # External API is untyped and outside this work package.
-            result = cast(LocalSQLiteReviewStore, service.store).page(  # type: ignore[no-untyped-call]
+            result = cast(LocalSQLiteReviewStore, service.store).page(
                 auth.tenant_id,
                 str(run_id),
                 cursor=cursor,

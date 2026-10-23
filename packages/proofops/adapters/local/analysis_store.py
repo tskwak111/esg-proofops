@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from proofops.adapters.local.catalog_pages import initialize, page
 from proofops.adapters.local.run_artifacts import load_run_graph
@@ -34,7 +34,7 @@ if TYPE_CHECKING:
     from proofops.application.uploads import UploadService
 
 
-claim_context_from_review_inputs: Callable[..., ClaimContext] = _claim_context_from_review_inputs
+claim_context_from_review_inputs = _claim_context_from_review_inputs
 
 
 class SafeHarborPending(ValueError):
@@ -164,7 +164,7 @@ class LocalAnalysisStore:
             else None
         )
 
-        def _claim_context(claim: Claim) -> ClaimContext:
+        def _claim_context(claim: Claim) -> ClaimContext | None:
             try:
                 review_inputs = (
                     self.tags.load_inputs(tenant_id, run_id, claim.claim_id)
@@ -191,7 +191,11 @@ class LocalAnalysisStore:
                     (),
                 )
 
-        matches = [match_assurance(statement, _claim_context(claim)).to_dict() for claim in claims]
+        # Invalid claim identity may yield None; retain the existing matcher failure.
+        matches = [
+            match_assurance(statement, cast(ClaimContext, _claim_context(claim))).to_dict()
+            for claim in claims
+        ]
         return self._first_page(
             tenant_id,
             run_id,

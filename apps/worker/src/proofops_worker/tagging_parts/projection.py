@@ -25,7 +25,7 @@ def project_claim(
     if snapshot.get("analysis_profile_policy", {}).get("sentence_context_policy"):
         from proofops.application.ingest.k5_context import configured_context
 
-        record["sentence_context"] = configured_context(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+        record["sentence_context"] = configured_context(
             claim, graph, snapshot["analysis_profile_policy"]
         )
     if sc1_policy is not None:
@@ -35,7 +35,7 @@ def project_claim(
             from proofops.application.tagging.analysis_scope import analyze_record
             from proofops.application.tagging.v1_activity_links import policy_from_profile
 
-            receipt = analyze_record(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+            receipt = analyze_record(
                 record,
                 claim,
                 graph,
@@ -46,7 +46,7 @@ def project_claim(
                 grade_agreement_policy=snapshot.get("analysis_profile_policy", {}).get(
                     "grade_required_agreement_policy"
                 ),
-                v1_activity_policy=policy_from_profile(snapshot.get("analysis_profile_policy", {})),  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+                v1_activity_policy=policy_from_profile(snapshot.get("analysis_profile_policy", {})),
             )
             record["sc1_scope_receipt"] = receipt
             record["sc1_confirmation"] = receipt["sc1_confirmation"]
@@ -59,7 +59,7 @@ def project_claim(
                 analyze_record as analyze_cf6_record,
             )
 
-            receipt = analyze_cf6_record(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+            receipt = analyze_cf6_record(
                 record,
                 claim,
                 graph,

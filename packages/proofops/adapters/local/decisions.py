@@ -282,8 +282,7 @@ class DecisionProbe:
                     or receipt.get("questions_sha256") != canonical_hash(questions)
                 ):
                     raise ValueError("DECISION_RECEIPT_MISMATCH")
-                # Untyped dependency is outside S_ADB ownership.
-                return dict(answers=validate_answers(response, questions), receipt=receipt)  # type: ignore[no-untyped-call]
+                return dict(answers=validate_answers(response, questions), receipt=receipt)
             if authorize is not None:
                 authorize()
             if self._total(db) + Decimal("0.02") > Decimal(self.policy["limit_usd"]):
@@ -362,5 +361,4 @@ class DecisionProbe:
             if changed != 1:
                 raise ValueError("DECISION_PENDING_CALL")
         self._shared(request_id, signature, cost, settle=True)
-        # Untyped dependency is outside S_ADB ownership.
-        return dict(answers=validate_answers(response, questions), receipt=receipt)  # type: ignore[no-untyped-call]
+        return dict(answers=validate_answers(response, questions), receipt=receipt)

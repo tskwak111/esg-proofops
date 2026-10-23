@@ -147,7 +147,7 @@ class LocalSQLiteRunStore:
                         validate_config as _validate_config,
                     )
 
-                    validate_config: Callable[..., None] = _validate_config
+                    validate_config = _validate_config
 
                     validate_config(snapshot["report_level_link"])
                     if any(

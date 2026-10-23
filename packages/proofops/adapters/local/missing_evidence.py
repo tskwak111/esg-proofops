@@ -286,8 +286,7 @@ def validated_present_refs(
             continue
         eid = element["element_id"]
         policy = element.get("reason_code")
-        # Untyped dependency is outside S_ADB ownership.
-        if scope_rejection_reason(  # type: ignore[no-untyped-call]
+        if scope_rejection_reason(
             eid, refs, rulepack=inputs.rulepack, original=graph, policy=policy
         ):
             continue
@@ -342,8 +341,7 @@ def missing_evidence(
     elif original_graph is not None:
         graph = original_graph
     else:
-        # Untyped dependency is outside S_ADB ownership.
-        _, _, graph = claims.load_evidence(tenant, run_id)  # type: ignore[no-untyped-call]
+        _, _, graph = claims.load_evidence(tenant, run_id)
     if (
         claim.tenant_id != tenant
         or graph.tenant_id != tenant
@@ -404,8 +402,7 @@ def missing_evidence(
         # New display artifact only; published tags and historical decisions are immutable.
         checked = []
         for element in elements:
-            # Untyped dependency is outside S_ADB ownership.
-            reason = scope_rejection_reason(  # type: ignore[no-untyped-call]
+            reason = scope_rejection_reason(
                 element["element_id"],
                 [SourceRef(**r) for r in element.get("evidence_refs", ())],
                 rulepack=inputs.rulepack,

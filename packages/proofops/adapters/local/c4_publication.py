@@ -46,8 +46,7 @@ class LocalC4Publication:
             for name in ("state.sqlite3", "original.pdf", "c4-evidence.json", "pilot.json")
         ):
             raise ValueError("C4_UNSAFE_ARTIFACT_PATH")
-        # Untyped dependency is outside S_ADB ownership.
-        self.runs = LocalSQLiteRunStore(self.path / "state.sqlite3")  # type: ignore[no-untyped-call]
+        self.runs = LocalSQLiteRunStore(self.path / "state.sqlite3")
         self.store = LocalSQLiteReviewStore(self.runs.jobs)
         self.service = ReviewService(self.store, load_inputs=self.load_inputs)
 
@@ -67,10 +66,8 @@ class LocalC4Publication:
         admitted = replay_source(case["source_receipt"], base, source, tenant_id=claim.tenant_id)
         if canonical_hash(asdict(admitted)) != canonical_hash(asdict(graph)):
             raise ValueError("C4_SOURCE_ADMISSION_REPLAY_MISMATCH")
-        # Untyped dependency is outside S_ADB ownership.
-        consensus, decision = publication_values(  # type: ignore[no-untyped-call]
-            # Untyped dependency is outside S_ADB ownership.
-            receipt.to_dict(),  # type: ignore[no-untyped-call]
+        consensus, decision = publication_values(
+            receipt.to_dict(),
             rulepack=case["rulepack"],
             tag_revision=1,
         )
@@ -153,8 +150,7 @@ class LocalC4Publication:
         return self.service.publish(inputs)
 
     def load_inputs(self, tenant: str, run: str, claim_id: str) -> ReviewInputs:
-        # Untyped dependency is outside S_ADB ownership.
-        frozen = self.runs.snapshot(tenant, run)  # type: ignore[no-untyped-call]
+        frozen = self.runs.snapshot(tenant, run)
         if (self.path / "original.pdf").is_symlink() or (
             self.path / "c4-evidence.json"
         ).is_symlink():
@@ -166,8 +162,7 @@ class LocalC4Publication:
             != canonical_hash({k: v for k, v in frozen.items() if k != "input_hash"})
         ):
             raise ValueError("C4_FROZEN_POLICY_MISMATCH")
-        # Untyped dependency is outside S_ADB ownership.
-        history = self.store.history(tenant, run, claim_id)  # type: ignore[no-untyped-call]
+        history = self.store.history(tenant, run, claim_id)
         raw = history["tags"][0]["inputs"]
         evidence = json.loads((self.path / "c4-evidence.json").read_text())
         if canonical_hash(evidence) != frozen["c4_evidence_sha256"]:
@@ -208,11 +203,12 @@ class LocalC4Publication:
             {k: v for k, v in raw["original_packet"].items() if k != "packet_sha256"}
         )
         pack = RulePackSnapshot(**frozen["rulepack"])
-        # Untyped dependency is outside S_ADB ownership.
-        receipt = _fact_assembly_reader(raw["fact_assembly_receipt"])  # type: ignore[no-untyped-call]
-        # Untyped dependency is outside S_ADB ownership.
-        consensus, decision = publication_values(  # type: ignore[no-untyped-call]
-            receipt.to_dict(), rulepack=pack, tag_revision=raw["tag_revision"]
+        # Legacy null receipts still fail at to_dict; preserve that failure (S_INT report).
+        receipt = _fact_assembly_reader(raw["fact_assembly_receipt"])
+        consensus, decision = publication_values(
+            receipt.to_dict(),  # type: ignore[union-attr]  # Null legacy receipt still fails here.
+            rulepack=pack,
+            tag_revision=raw["tag_revision"],
         )
         inputs = ReviewInputs(
             run,
@@ -237,8 +233,7 @@ class LocalC4Publication:
 
     def result(self, tenant: str, run: str, claim_id: str) -> dict[str, Any]:
         inputs = self.load_inputs(tenant, run, claim_id)
-        # Untyped dependency is outside S_ADB ownership.
-        history = self.store.history(tenant, run, claim_id)  # type: ignore[no-untyped-call]
+        history = self.store.history(tenant, run, claim_id)
         tag, record = history["tags"][-1], history["decisions"][-1]
         decision = record["api"] | dict(excluded_elements=record["decision"]["excluded_elements"])
         auto = tag["origin"] == "consensus"
@@ -248,8 +243,7 @@ class LocalC4Publication:
             page_map=sorted({r.page_num for r in claim.source_refs}),
             hold_reasons=[],
             pipeline=dict(status="completed"),
-            # Untyped dependency is outside S_ADB ownership.
-            reviews=[self.store.get(tenant, self.service._review(inputs)["review_id"])],  # type: ignore[no-untyped-call]
+            reviews=[self.store.get(tenant, self.service._review(inputs)["review_id"])],
             claims=[
                 claim.to_summary()
                 | dict(
@@ -272,17 +266,13 @@ class LocalC4Publication:
                     if auto
                     else "human_review",
                     confirmation_policy_sha256=POLICY_HASH,
-                    # Untyped dependency is outside S_ADB ownership.
-                    confirmation_display=confirmation_display(  # type: ignore[no-untyped-call]
-                        # Untyped dependency is outside S_ADB ownership.
-                        cast(FactAssemblyReceiptV1, inputs.fact_assembly_receipt).to_dict()  # type: ignore[no-untyped-call]
+                    confirmation_display=confirmation_display(
+                        cast("FactAssemblyReceiptV1", inputs.fact_assembly_receipt).to_dict()
                     )
                     if auto
                     else "사람 태깅 검토 후 Python 재판정",
-                    # Untyped dependency is outside S_ADB ownership.
-                    confirmation_basis=confirmation_display(  # type: ignore[no-untyped-call]
-                        # Untyped dependency is outside S_ADB ownership.
-                        cast(FactAssemblyReceiptV1, inputs.fact_assembly_receipt).to_dict()  # type: ignore[no-untyped-call]
+                    confirmation_basis=confirmation_display(
+                        cast("FactAssemblyReceiptV1", inputs.fact_assembly_receipt).to_dict()
                     ).split(" — ", 1)[1]
                     if auto
                     else None,
@@ -293,12 +283,7 @@ class LocalC4Publication:
 
     def export(self, tenant: str, run: str, claim_id: str) -> dict[str, Any]:
         inputs = self.load_inputs(tenant, run, claim_id)
-        # Untyped dependency is outside S_ADB ownership.
-        history = self.store.history(tenant, run, claim_id)  # type: ignore[no-untyped-call]
-        return cast(
-            "dict[str, Any]",
-            # Untyped dependency is outside S_ADB ownership.
-            encode_revision_record(  # type: ignore[no-untyped-call]
-                history["tags"][-1], history["decisions"][-1], inputs.snapshot()
-            ),
+        history = self.store.history(tenant, run, claim_id)
+        return encode_revision_record(
+            history["tags"][-1], history["decisions"][-1], inputs.snapshot()
         )

@@ -1,6 +1,7 @@
 """Literal activity/effect matrix recovery; no evidence or semantic tag credit."""
 
 import re
+from collections.abc import Sequence
 from typing import Any
 
 from proofops.application.ingest import j8_cells
@@ -23,7 +24,7 @@ POLICY = dict(
 
 
 def _matrix(
-    text: str, cells: list[dict[str, Any]] | None
+    text: str, cells: Sequence[dict[str, Any]] | None
 ) -> tuple[list[dict[str, Any]], set[int], set[int]]:
     rows = j8_cells.checked_grid(text, cells)
     if not rows:
@@ -37,7 +38,7 @@ def _matrix(
     return rows, means, effects
 
 
-def activity_spans(text: str, cells: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+def activity_spans(text: str, cells: Sequence[dict[str, Any]] | None) -> list[dict[str, Any]]:
     rows, means, effects = _matrix(text, cells)
     if not means or not effects:
         return []
@@ -77,7 +78,7 @@ def activity_spans(text: str, cells: list[dict[str, Any]] | None) -> list[dict[s
 
 
 def cell_entries(
-    text: str, cells: list[dict[str, Any]] | None, *, source_id: str
+    text: str, cells: Sequence[dict[str, Any]] | None, *, source_id: str
 ) -> list[dict[str, Any]]:
     old = j8_cells.cell_entries(text, cells, source_id=source_id)
     rows, means, effects = _matrix(text, cells)
@@ -110,7 +111,7 @@ def cell_entries(
 
 
 def retain_activities(
-    spans: list[dict[str, Any]], text: str, cells: list[dict[str, Any]] | None
+    spans: list[dict[str, Any]], text: str, cells: Sequence[dict[str, Any]] | None
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     added = [
         s

@@ -936,7 +936,7 @@ class RunStore(Protocol):
         body: dict[str, Any],
         key: str,
         snapshot: dict[str, Any],
-        limits: BudgetLimits | None,
+        limits: BudgetLimits,
         *,
         now: int,
     ) -> dict[str, Any]: ...

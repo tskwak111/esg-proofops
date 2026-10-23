@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from proofops.adapters.local.openai import OpenAIProbe
+    from proofops.adapters.local.openrouter import OpenRouterProbe
     from proofops.adapters.local.upstage import UpstageProbe
     from proofops.application.tagging.contracts import RawTagResponse, TaggingSettings
 import json
@@ -18,7 +19,7 @@ from proofops.domain.provenance import canonical_hash
 def authenticate(
     request: dict[str, Any],
     response: RawTagResponse,
-    probe: OpenAIProbe | UpstageProbe,
+    probe: OpenAIProbe | UpstageProbe | OpenRouterProbe,
     *,
     settings: TaggingSettings,
     wire_system: str,
@@ -30,8 +31,7 @@ def authenticate(
         return response
     from proofops.application.tagging.cf6_confirmation import policy
 
-    # Untyped dependency is outside S_ADB ownership.
-    if selected != policy(selected.get("required_votes")):  # type: ignore[no-untyped-call]
+    if selected != policy(selected.get("required_votes")):
         raise ValueError("CF6_POLICY_MISMATCH")
     provider = json.loads(response.provider_response_json or "{}")
     if response.synthetic or any(
@@ -65,8 +65,7 @@ def authenticate(
         or any(cache.get(k) != v for k, v in expected.items())
     ):
         raise ValueError("CF6_TRANSPORT_REQUEST_MISMATCH")
-    # Untyped dependency is outside S_ADB ownership.
-    _, digest = ModelResponseCache._verified(  # type: ignore[no-untyped-call]
+    _, digest = ModelResponseCache._verified(
         canonical_hash(cache),
         (str(probe.ledger), request["request_id"], json.dumps(provider), canonical_hash(provider)),
     )

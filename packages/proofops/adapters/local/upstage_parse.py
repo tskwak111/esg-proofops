@@ -213,8 +213,7 @@ class UpstageParseProbe(UpstageProbe):
             if response.status != 200:
                 from proofops.adapters.local.provider_errors import upstage_http_error
 
-                # Untyped dependency is outside S_ADB ownership.
-                raise upstage_http_error(response)  # type: ignore[no-untyped-call]
+                raise upstage_http_error(response)
             raw = response.read(MAX_RESPONSE_BYTES + 1)
             if len(raw) > MAX_RESPONSE_BYTES:
                 raise ValueError("UPSTAGE_RESPONSE_TOO_LARGE")
@@ -234,8 +233,7 @@ class UpstageParseProbe(UpstageProbe):
             if response.status != 200:
                 from proofops.adapters.local.provider_errors import upstage_http_error
 
-                # Untyped dependency is outside S_ADB ownership.
-                raise upstage_http_error(response)  # type: ignore[no-untyped-call]
+                raise upstage_http_error(response)
             raw = response.read(MAX_RESPONSE_BYTES + 1)
             if len(raw) > MAX_RESPONSE_BYTES:
                 raise ValueError("UPSTAGE_RESPONSE_TOO_LARGE")

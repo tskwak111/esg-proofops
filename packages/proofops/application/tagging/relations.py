@@ -219,9 +219,7 @@ def bounded_occurrence_sources(
         ranked = [
             {
                 role: tuple(
-                    c
-                    for c in values
-                    if role_rejection(text, c.raw_start, c.raw_end, role) is None  # type: ignore[no-untyped-call]  # External untyped helper.
+                    c for c in values if role_rejection(text, c.raw_start, c.raw_end, role) is None
                 )
                 for role, values in roles.items()
             }

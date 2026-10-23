@@ -8,7 +8,7 @@ After a stop, already admitted work settles; new windows are never dispatched.
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
@@ -33,8 +33,7 @@ def build_inventory(
 ) -> dict[str, Any]:
     if type(max_workers) is not int or not 1 <= max_workers <= 24:
         raise ValueError("S5_INVENTORY_WORKERS_INVALID")
-    # Untyped dependency is outside S_ADB ownership.
-    plan = plan_inventory(graph, selection)  # type: ignore[no-untyped-call]
+    plan = plan_inventory(graph, selection)
     responses = {}
 
     def run(chunk: dict[str, Any]) -> dict[str, dict[str, Any] | None]:
@@ -42,8 +41,7 @@ def build_inventory(
         # Preserve SC1's max_replica_workers=1: parallelism is across chunks,
         # while every chunk still obtains its three distinct votes in order.
         for replica in (1, 2, 3):
-            # Untyped dependency is outside S_ADB ownership.
-            request = inventory_request(chunk, replica, model_sha256)  # type: ignore[no-untyped-call]
+            request = inventory_request(chunk, replica, model_sha256)
             value = None
             if not stopped():
                 try:
@@ -59,8 +57,4 @@ def build_inventory(
             pending = [pool.submit(copy_context().run, run, chunk) for chunk in window]
             for future in pending:
                 responses.update(future.result())
-    return cast(
-        "dict[str, Any]",
-        # Untyped dependency is outside S_ADB ownership.
-        assemble_inventory(plan, responses, graph=graph, model_sha256=model_sha256),  # type: ignore[no-untyped-call]
-    )
+    return assemble_inventory(plan, responses, graph=graph, model_sha256=model_sha256)

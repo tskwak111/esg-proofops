@@ -43,8 +43,7 @@ def prepare_authorized_raster(
     snapshot, source, profile = load_run_inputs(
         runner.store, runner.uploads, tenant_id=message.tenant_id, run_id=message.run_id
     )
-    # External adapter/application boundary is not yet annotated.
-    validate_raster_snapshot(snapshot)  # type: ignore[no-untyped-call]
+    validate_raster_snapshot(snapshot)
     if "raster_ocr_policy" not in snapshot or (
         message.document_version_id,
         message.input_hash,

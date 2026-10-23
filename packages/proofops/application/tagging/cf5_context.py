@@ -106,7 +106,7 @@ def preserve_context(
     entries: list[dict[str, Any]] = []
     for source_id in dict.fromkeys(r.source_id for r in claim.source_refs):
         block = by_id[source_id]
-        checked = _check(block.source_ref(), graph)  # type: ignore[no-untyped-call]  # External untyped helper.
+        checked = _check(block.source_ref(), graph)
         if checked.verification_state == "rejected":
             raise ValueError("CF5_CONTEXT_SOURCE_REJECTED")
         entries.append(

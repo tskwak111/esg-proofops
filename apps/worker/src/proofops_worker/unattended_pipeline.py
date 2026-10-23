@@ -52,7 +52,7 @@ class PageTagPipeline:
         )
         self.snapshot, self.graph, self.profile = snapshot, graph, profile
         self.lease, self.checkpoint = lease, checkpoint
-        self.scope = claim_scope(snapshot, graph)  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+        self.scope = claim_scope(snapshot, graph)
         self.pool = ThreadPoolExecutor(max_workers=1)
         self.pending: list[Future[dict[str, Any]]] = []
         self.started = time.monotonic()
@@ -95,7 +95,7 @@ class PageTagPipeline:
         )
         if not discovery.claims:
             return dict(page=page, claims=[], started_seconds=time.monotonic() - self.started)
-        payload = snapshot_pins(self.snapshot, self.graph, self.profile, self.checkpoint)  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+        payload = snapshot_pins(self.snapshot, self.graph, self.profile, self.checkpoint)
         payload["coverage"] = json.loads(self.checkpoint)["coverage"]
         payload["discovery"] = asdict(discovery)
         payload["synthetic"] = False

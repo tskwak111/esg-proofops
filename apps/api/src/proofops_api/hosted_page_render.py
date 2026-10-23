@@ -50,8 +50,7 @@ def render(
             json.dumps(dict(page=page, geometry=asdict(geometry), dpi=dpi))
         )
         try:
-            # External API is untyped and outside this work package.
-            OpenDataLoaderParser._execute(  # type: ignore[no-untyped-call]
+            OpenDataLoaderParser._execute(
                 [sys.executable, "-I", str(Path(__file__).resolve()), str(work)],
                 work,
                 {"PATH": "/usr/bin:/bin", "PYTHONDONTWRITEBYTECODE": "1"},

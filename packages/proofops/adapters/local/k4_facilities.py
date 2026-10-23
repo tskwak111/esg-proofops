@@ -54,8 +54,7 @@ def restore_facilities(
             if table is None or table.kind != "table" or table.winner is None:
                 continue
             try:
-                # Untyped dependency is outside S_ADB ownership.
-                rows = grid(table.raw_text, graph_cells(table, graph))  # type: ignore[no-untyped-call]
+                rows = grid(table.raw_text, graph_cells(table, graph))
                 entries = [
                     e
                     for row in rows

@@ -159,9 +159,9 @@ def _sources(
                 raise DomainValidationError("candidate literal source mismatch")
     # Validate all input locations before eliminating parser copies, so a bad
     # duplicate cannot conceal a foreign artifact or altered literal span.
-    if not claim_quote_matches_sources(claim.quote, verified, graph):  # type: ignore[no-untyped-call]  # External untyped helper.
+    if not claim_quote_matches_sources(claim.quote, verified, graph):
         raise DomainValidationError("preliminary source identity or quality mismatch")
-    return cast("tuple[SourceRef, ...]", canonical_source_refs(verified))  # type: ignore[no-untyped-call]  # External source-continuation helper.
+    return canonical_source_refs(verified)
 
 
 def _sentence_window(text: str, start: int, end: int) -> tuple[int, int] | None:

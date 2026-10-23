@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from proofops.adapters.local.classification_reprocess import (  # re-exported for callers/tests
     CLAIM_REQUEST_BUDGET,
@@ -120,8 +120,7 @@ class TagReprocess:
         )
         return cls(
             plan,
-            # External adapter/application boundary is not yet annotated.
-            tags.load_snapshot(message.tenant_id, message.run_id),  # type: ignore[no-untyped-call]
+            tags.load_snapshot(message.tenant_id, message.run_id),
             classification,
             len(already),
         )
@@ -138,11 +137,7 @@ class TagReprocess:
         item = self._items.get(claim_id)
         if item is None:
             raise ReprocessRejected("TAG_REPROCESS_CLAIM_NOT_IN_LINEAGE")
-        return cast(
-            dict[str, Any],
-            # External adapter/application boundary is not yet annotated.
-            reviewable_checkpoint(json.loads(canonical_json(item)), pinned_profile=self._profile),  # type: ignore[no-untyped-call]
-        )
+        return reviewable_checkpoint(json.loads(canonical_json(item)), pinned_profile=self._profile)
 
     def verify_published(
         self, store: LocalSQLiteRunStore, *, db: sqlite3.Connection | None = None

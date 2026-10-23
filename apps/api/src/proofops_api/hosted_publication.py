@@ -48,8 +48,7 @@ def runtime_identity(
     import proofops
     from proofops.adapters.local.claim_source_policies import page_ocr_profile
 
-    # External API is untyped and outside this work package.
-    reader = page_ocr_profile(profile, policy=policy)  # type: ignore[no-untyped-call]
+    reader = page_ocr_profile(profile, policy=policy)
     from proofops.adapters.local.local_raster_reader import runtime_policy
     from proofops.adapters.local.receipt_environment_compat import read_profile
 
@@ -58,8 +57,7 @@ def runtime_identity(
     return dict(
         reader=reader.claim_source_policy(),
         runtime=runtime_policy(),
-        # External API is untyped and outside this work package.
-        read_profile=read_profile(),  # type: ignore[no-untyped-call]
+        read_profile=read_profile(),
         python=sys.version,
         platform=sys.platform,
         toolchain=os.environ.get("DEVELOPER_DIR"),
@@ -98,10 +96,8 @@ def _context(path: Path, job: dict[str, Any], pages: list[int]) -> dict[str, Any
         from proofops.application.analysis_profile import V2_PROFILE, policy_for
 
         try:
-            # External API is untyped and outside this work package.
-            registered = policy_for(V2_PROFILE, pinned_hash=canonical_hash(policy)) == policy  # type: ignore[no-untyped-call]
-            # External API is untyped and outside this work package.
-            reader = page_ocr_profile(policy["source"], policy=snapshot["claim_source_policy"])  # type: ignore[no-untyped-call]
+            registered = policy_for(V2_PROFILE, pinned_hash=canonical_hash(policy)) == policy
+            reader = page_ocr_profile(policy["source"], policy=snapshot["claim_source_policy"])
             registered = registered and reader.PROFILE == policy["source"]
         except (ValueError, KeyError):
             registered = False
@@ -121,8 +117,7 @@ def _context(path: Path, job: dict[str, Any], pages: list[int]) -> dict[str, Any
         execution=policy["publication_handoff"],
         reader_runtime=runtime_identity(policy["source"], snapshot.get("claim_source_policy")),
     )
-    # External API is untyped and outside this work package.
-    if rb4_publication_enabled(policy):  # type: ignore[no-untyped-call]
+    if rb4_publication_enabled(policy):
         context["rb4_publication_digest"] = RB4_PUBLICATION_POLICY
     return context
 
@@ -363,8 +358,7 @@ def _result(store: HostedStore, db: sqlite3.Connection | None, row: sqlite3.Row)
 
             verify_copy(store, row, result)
         if result.get("hold_reasons"):
-            # External API is untyped and outside this work package.
-            return result | dict(hold_reason_details=public_reason_details(result["hold_reasons"]))  # type: ignore[no-untyped-call]
+            return result | dict(hold_reason_details=public_reason_details(result["hold_reasons"]))
         return result
     except (OSError, ValueError, KeyError, TypeError):
         raise HostedError("RESULT_INTEGRITY_UNAVAILABLE", 409) from None

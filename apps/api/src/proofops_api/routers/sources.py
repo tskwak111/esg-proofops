@@ -8,7 +8,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import asdict
 from datetime import UTC, datetime
 from itertools import chain
-from typing import Annotated, Any, Literal, cast
+from typing import Annotated, Any, Literal
 from urllib.parse import urlencode
 from uuid import UUID, uuid5
 
@@ -139,10 +139,7 @@ def build_sources_router(
         auth = authorize(request, operation_id)
         if isinstance(auth, JSONResponse):
             return auth
-        return cast(
-            CanonicalDocumentGraph,
-            load_run_graph(store, uploads, parser, tenant_id=auth.tenant_id, run_id=run_id),
-        )
+        return load_run_graph(store, uploads, parser, tenant_id=auth.tenant_id, run_id=run_id)
 
     @router.get(
         "/v1/runs/{run_id}/sources/{source_id}",
@@ -193,8 +190,7 @@ def build_sources_router(
             if block is None:
                 raise RunRejected("RESOURCE_NOT_FOUND", 404)
             expires = int(clock()) + 300
-            # External API is untyped and outside this work package.
-            ticket = store._encode_cursor(  # type: ignore[no-untyped-call]
+            ticket = store._encode_cursor(
                 dict(
                     scope=[auth.tenant_id, str(run_id), "source_view", 0],
                     user=auth.user_sub,
@@ -235,8 +231,7 @@ def build_sources_router(
         if isinstance(auth, JSONResponse):
             return auth
         try:
-            # External API is untyped and outside this work package.
-            grant = store._decode_cursor(  # type: ignore[no-untyped-call]
+            grant = store._decode_cursor(
                 ticket, auth.tenant_id, str(run_id), 0, int(clock()), endpoint="source_view"
             )
             if grant["user"] != auth.user_sub or grant["source"] != str(source_id):
@@ -274,8 +269,7 @@ def build_sources_router(
                         # A verified claim span does not promote its whole paragraph.
                         # Replay the pinned receipt before using the stored span/box;
                         # client offsets select a span but never supply coordinates.
-                        # External API is untyped and outside this work package.
-                        _, discovery, checked = LocalClaimStore(  # type: ignore[no-untyped-call]
+                        _, discovery, checked = LocalClaimStore(
                             store, uploads, parser
                         ).load_evidence(auth.tenant_id, str(run_id))
                         ref = next(
@@ -352,8 +346,7 @@ def build_sources_router(
                 return graph
             now = int(clock())
             page = (
-                # External API is untyped and outside this work package.
-                store._decode_cursor(  # type: ignore[no-untyped-call]
+                store._decode_cursor(
                     cursor, graph.tenant_id, str(run_id), limit, now, endpoint="quality"
                 )
                 if cursor
@@ -362,16 +355,14 @@ def build_sources_router(
                     expires=now + 900,
                     after=0,
                     manifest=graph.parse_manifest_id,
-                    # External API is untyped and outside this work package.
-                    epoch=store.get(graph.tenant_id, str(run_id))["mutation_epoch"],  # type: ignore[no-untyped-call]
+                    epoch=store.get(graph.tenant_id, str(run_id))["mutation_epoch"],
                 )
             )
             if page["manifest"] != graph.parse_manifest_id:
                 raise RunRejected("INVALID_CURSOR", 400)
             discovery = None
             if store.jobs.get_run(graph.tenant_id, str(run_id)).get("claim_snapshot_sha256"):
-                # External API is untyped and outside this work package.
-                _, discovery, graph = LocalClaimStore(store, uploads, parser).load_evidence(  # type: ignore[no-untyped-call]
+                _, discovery, graph = LocalClaimStore(store, uploads, parser).load_evidence(
                     graph.tenant_id, str(run_id)
                 )
             issues = _quality_items(graph, discovery)
@@ -379,8 +370,7 @@ def build_sources_router(
             return JSONResponse(
                 dict(
                     items=issues[page["after"] : after],
-                    # External API is untyped and outside this work package.
-                    next_cursor=store._encode_cursor(dict(page, after=after))  # type: ignore[no-untyped-call]
+                    next_cursor=store._encode_cursor(dict(page, after=after))
                     if after < len(issues)
                     else None,
                     snapshot_epoch=page["epoch"],

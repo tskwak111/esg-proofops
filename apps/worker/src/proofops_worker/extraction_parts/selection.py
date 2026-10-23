@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Collection, Sequence
-from typing import Any
+from typing import Any, cast
 
 from proofops.application.claims import ClaimScope
 from proofops.application.ingest.graph_fusion import CanonicalBlock, CanonicalDocumentGraph
@@ -32,7 +32,7 @@ def _is_text_candidate(
                 from proofops.application.ingest.qt1_tables import candidates_for
 
                 table = next((b for b in graph.blocks if b.source_id == source_id), None)
-                if table is not None and candidates_for(table, graph):  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+                if table is not None and candidates_for(table, graph):
                     return True
             return runtime._is_text_candidate(
                 kind,
@@ -45,7 +45,7 @@ def _is_text_candidate(
                 cells=cells,
             )
         except ValueError as error:
-            if not rb1.capture(source_id, error):  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+            if not rb1.capture(cast(str, source_id), error):
                 raise
             return False
     if extraction_qt1 and kind == "table" and graph is not None:
@@ -54,7 +54,7 @@ def _is_text_candidate(
         table = next((b for b in graph.blocks if b.source_id == source_id), None)
         if table is not None:
             try:
-                if candidates_for(table, graph):  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+                if candidates_for(table, graph):
                     return True
             except ValueError as error:
                 from proofops.application.input_failures import TABLE_ERRORS
@@ -70,14 +70,16 @@ def _is_text_candidate(
 
         table = next((b for b in graph.blocks if b.source_id == source_id), None)
         if table is not None and table.kind == kind and table.normalized_text == text:
-            owned = graph_cells(table, graph) if cells is None else cells  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
-            if observations(text, cells=owned) or cell_entries(text, owned, source_id=source_id):  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+            owned = graph_cells(table, graph) if cells is None else cells
+            if observations(text, cells=owned) or cell_entries(
+                text, owned, source_id=cast(str, source_id)
+            ):
                 return True
     # ponytail: length is a routing heuristic, not a claim/absence classifier.
     if extraction_table_rows and kind in ("table", "table_row", "table_cell", "figure"):
         from proofops.application.ingest.table_row_candidates import row_candidates
 
-        return bool(row_candidates(text, kind=kind))  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+        return bool(row_candidates(text, kind=kind))
     return kind == "paragraph" or (kind == "heading" and len(text.strip()) >= 60)
 
 
@@ -118,7 +120,7 @@ def select_batch_paragraph_sources(
         raise ValueError("EXTRACTION_INPUT_INVALID")
     from proofops.application.ingest.source_continuations import continuations
 
-    fragments = {p.source_id for parts in continuations(graph).values() for p in parts}  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+    fragments = {p.source_id for parts in continuations(graph).values() for p in parts}
     eligible = (
         block
         for block in graph.blocks

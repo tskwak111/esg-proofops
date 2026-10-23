@@ -47,26 +47,22 @@ def services(
     if manifest.get("publication_profile") == C4_PROFILE:
         from proofops.adapters.local.c4_publication import LocalC4Publication
 
-        # External API is untyped and outside this work package.
-        publication = LocalC4Publication(path)  # type: ignore[no-untyped-call]
+        publication = LocalC4Publication(path)
         yield manifest["run_id"], None, publication, publication.service
         return
 
     if manifest.get("publication_profile") in (C3_PROFILE, C3_V2_PROFILE):
         from proofops.adapters.local.c3_publication import LocalC3Publication
 
-        # External API is untyped and outside this work package.
-        publication = LocalC3Publication(path)  # type: ignore[no-untyped-call]
+        publication = LocalC3Publication(path)
         yield manifest["run_id"], None, publication, publication.service
         return
     database = path / "state.sqlite3"
     registry = Registry.sqlite(database)
     uploads = UploadService(database, path / "objects", registry)
-    # External API is untyped and outside this work package.
-    runs = LocalSQLiteRunStore(database)  # type: ignore[no-untyped-call]
+    runs = LocalSQLiteRunStore(database)
     parser = OpenDataLoaderParser(path / "parser-prepared")
-    # External API is untyped and outside this work package.
-    tags = LocalTagStore(runs, uploads, parser)  # type: ignore[no-untyped-call]
+    tags = LocalTagStore(runs, uploads, parser)
     claims = tags.claims
     reviews = ReviewService(
         LocalSQLiteReviewStore(runs.jobs),
@@ -78,8 +74,7 @@ def services(
         with reader_scope(ReplayOCRStore(path / "upstage.sqlite3")):
             previous_cache = os.environ.get("PROOFOPS_VERIFIED_READ_CACHE")
             try:
-                # External API is untyped and outside this work package.
-                snapshot = runs.snapshot(tenant, manifest["run_id"])  # type: ignore[no-untyped-call]
+                snapshot = runs.snapshot(tenant, manifest["run_id"])
                 policy = snapshot.get("analysis_profile_policy", {})
                 os.environ["PROOFOPS_VERIFIED_READ_CACHE"] = policy.get(
                     "verified_read_cache", {}
@@ -123,11 +118,7 @@ def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict[str
                 raise HostedError("C4_SOURCE_PAGE_MISMATCH", 409)
             from proofops.adapters.local.c4_publication import LocalC4Publication
 
-            return cast(
-                dict[str, Any],
-                # External API is untyped and outside this work package.
-                LocalC4Publication(path).result(tenant, manifest["run_id"], manifest["claim_id"]),  # type: ignore[no-untyped-call]
-            )
+            return LocalC4Publication(path).result(tenant, manifest["run_id"], manifest["claim_id"])
         if manifest.get("publication_profile") in (C3_PROFILE, C3_V2_PROFILE):
             if manifest["tenant_id"] != tenant:
                 raise HostedError("RESOURCE_NOT_FOUND", 404)
@@ -135,11 +126,7 @@ def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict[str
                 raise HostedError("C3_SOURCE_PAGE_MISMATCH", 409)
             from proofops.adapters.local.c3_publication import LocalC3Publication
 
-            return cast(
-                dict[str, Any],
-                # External API is untyped and outside this work package.
-                LocalC3Publication(path).result(tenant, manifest["run_id"], manifest["claim_id"]),  # type: ignore[no-untyped-call]
-            )
+            return LocalC3Publication(path).result(tenant, manifest["run_id"], manifest["claim_id"])
     outcome = json.loads((path / "outcome.json").read_text())
     if not (path / "pilot.json").is_file():
         return dict(
@@ -174,11 +161,9 @@ def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict[str
             # This existing reader verifies both the tag checkpoint pins and
             # the complete source/claim evidence. Reuse its evidence under the
             # publisher's analysis.lock instead of repeating the same replay.
-            # External API is untyped and outside this work package.
-            tag_snapshot, evidence = tags._load_snapshot_with_evidence(tenant, run)  # type: ignore[no-untyped-call]
+            tag_snapshot, evidence = tags._load_snapshot_with_evidence(tenant, run)
         else:
-            # External API is untyped and outside this work package.
-            tag_snapshot, evidence = {}, claims.load_evidence(tenant, run)  # type: ignore[no-untyped-call]
+            tag_snapshot, evidence = {}, claims.load_evidence(tenant, run)
         projections = {r["claim_id"]: r for r in tag_snapshot.get("claims", [])}
         reasons = {cid: r.get("reason") for cid, r in projections.items()}
         from proofops.application.analysis_profile import (
@@ -223,8 +208,7 @@ def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict[str
         }
         if f1:
             for cid, projection in projections.items():
-                # External API is untyped and outside this work package.
-                if reason := claim_hold_reason(projection):  # type: ignore[no-untyped-call]
+                if reason := claim_hold_reason(projection):
                     reasons[cid] = reason
             # Each newly published result identifies its display contract. Old
             # result snapshots continue to be served by their immutable bytes.
@@ -243,8 +227,7 @@ def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict[str
             )
             from proofops.application.rb4_memory import enabled as rb4_memory_enabled
 
-            # External API is untyped and outside this work package.
-            if rb4_memory_enabled(claims.store.snapshot(tenant, run)):  # type: ignore[no-untyped-call]
+            if rb4_memory_enabled(claims.store.snapshot(tenant, run)):
                 # Source replay, tag pins and outcome admission are complete.
                 # Legacy facades without outcome admission keep their contract.
                 del evidence, extraction_checkpoint
@@ -358,15 +341,13 @@ def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict[str
             canonical_hash(V2_PB1_COMPACT_POLICY),
             canonical_hash(V2_PB1_INITIAL_POLICY),
         }
-        # External API is untyped and outside this work package.
-        groups = occurrence_groups(discovery.claims) if pb1 else {}  # type: ignore[no-untyped-call]
+        groups = occurrence_groups(discovery.claims) if pb1 else {}
         blocks = {b.source_id: b for b in original_graph.blocks}
         from proofops.adapters.local.spg_search_projection import begin as spg_projection
         from proofops.application.evidence.span_citations import verify_source_ref
 
         search_projection = (
-            # External API is untyped and outside this work package.
-            spg_projection(claims, tenant, run, original_graph)  # type: ignore[no-untyped-call]
+            spg_projection(claims, tenant, run, original_graph)
             if hasattr(claims.store, "snapshot")
             else None
         )
@@ -384,8 +365,7 @@ def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict[str
                 if current_tags is not None
                 else claims.current_tag(tenant, run, claim.claim_id)
             )
-            # External API is untyped and outside this work package.
-            summary = claims.summary(claim, current)  # type: ignore[no-untyped-call]
+            summary = claims.summary(claim, current)
             if tag_snapshot.get("analysis_profile_policy_sha256") == canonical_hash(QT1_POLICY):
                 from proofops.application.ingest.qt1_tables import candidates_for
 
@@ -393,8 +373,7 @@ def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict[str
                 table = blocks[ref.source_id]
                 summary["qt1_table_recovery"] = [
                     r
-                    # External API is untyped and outside this work package.
-                    for r in candidates_for(table, original_graph)  # type: ignore[no-untyped-call]
+                    for r in candidates_for(table, original_graph)
                     if r["start"] <= ref.char_start < ref.char_end <= r["end"]
                 ]
             if pb1:
@@ -407,8 +386,7 @@ def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict[str
                     row = next(
                         (
                             r
-                            # External API is untyped and outside this work package.
-                            for r in observations_for(block, original_graph)  # type: ignore[no-untyped-call]
+                            for r in observations_for(block, original_graph)
                             if r["start"] <= ref.char_start < ref.char_end <= r["end"]
                         ),
                         None,
@@ -476,8 +454,7 @@ def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict[str
                                 observation_sources,
                             )
 
-                            # External API is untyped and outside this work package.
-                            sources = observation_sources(claim, original_graph, tenant_id=tenant)  # type: ignore[no-untyped-call]
+                            sources = observation_sources(claim, original_graph, tenant_id=tenant)
                             summary["table_observation"] = row | dict(
                                 verification_state="verified" if sources else "unresolved",
                                 cell_source_refs={
@@ -558,8 +535,7 @@ def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict[str
                     hold_reason=reasons.get(claim.claim_id),
                     possible_grade_range=(decision or {}).get("grade_range"),
                     confirmed_grade=(decision or {}).get("evidence_grade"),
-                    # External API is untyped and outside this work package.
-                    missing_evidence=claims.missing_evidence(  # type: ignore[no-untyped-call]
+                    missing_evidence=claims.missing_evidence(
                         tenant,
                         run,
                         claim,
@@ -571,8 +547,7 @@ def _read_result(path: Path, tenant: str, selected_pages: list[int]) -> dict[str
             )
         if search_projection is not None:
             search_projection.finish()
-        # External API is untyped and outside this work package.
-        page = cast(LocalSQLiteReviewStore, reviews.store).page(  # type: ignore[no-untyped-call]
+        page = cast(LocalSQLiteReviewStore, reviews.store).page(
             tenant, run, cursor=None, limit=100, now=0, cursors=claims.store
         )
         return dict(
@@ -633,8 +608,7 @@ def resolve_review(
             record = reviews.store.get(auth.tenant_id, review)
             if record["run_id"] != run:
                 raise HostedError("RESOURCE_NOT_FOUND", 404)
-            # External API is untyped and outside this work package.
-            return cast(dict[str, Any], reviews.resolve_review(auth, review, body, if_match, key))  # type: ignore[no-untyped-call]
+            return reviews.resolve_review(auth, review, body, if_match, key)
         except ReviewRejected as exc:
             raise HostedError(exc.code, exc.status) from None
         except (ValueError, KeyError, TypeError):

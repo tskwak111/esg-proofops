@@ -32,9 +32,7 @@ from proofops.application.evidence.retrieval import (
     retrieve_evidence,
 )
 from proofops.application.evidence.span_citations import verify_source_ref
-
-# Existing re-export belongs to a protected or separately owned module.
-from proofops.application.tagging.fact_assembly_c4 import (  # type: ignore[attr-defined]
+from proofops.application.tagging.fact_assembly_c4 import (
     POLICY,
     POLICY_HASH,
     assemble,
@@ -192,8 +190,7 @@ def process_report(
 
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
-    # Untyped dependency is outside S_ADB ownership.
-    candidates, rows = discover(graph), []  # type: ignore[no-untyped-call]
+    candidates, rows = discover(graph), []
     start, calls = monotonic(), 0
     for candidate in candidates:
         case = prepare_candidate(graph, source, candidate, rulepack, run_id=run_id)
@@ -226,10 +223,8 @@ def process_report(
             request = dict(
                 identity=identity,
                 replica=replica,
-                # Untyped dependency is outside S_ADB ownership.
-                system=SYSTEM + "\nOutput JSON schema:\n" + json.dumps(vote_schema()),  # type: ignore[no-untyped-call]
-                # Untyped dependency is outside S_ADB ownership.
-                schema_json=json.dumps(vote_schema()),  # type: ignore[no-untyped-call]
+                system=SYSTEM + "\nOutput JSON schema:\n" + json.dumps(vote_schema()),
+                schema_json=json.dumps(vote_schema()),
                 max_tokens=1800,
                 snapshot=dict(
                     tenant_id=graph.tenant_id,
@@ -266,15 +261,13 @@ def process_report(
                 provider=response["provider"],
                 simulated=response["simulated"],
                 model_sha256=response["model_binding_sha256"],
-                # Untyped dependency is outside S_ADB ownership.
-                prompt_sha256=canonical_hash([SYSTEM, vote_schema()]),  # type: ignore[no-untyped-call]
+                prompt_sha256=canonical_hash([SYSTEM, vote_schema()]),
                 raw=json.loads(response["content"]),
             )
             vote["raw_sha256"] = canonical_hash(vote["raw"])
             vote["vote_sha256"] = canonical_hash(vote)
             votes.append(vote)
-        # Untyped dependency is outside S_ADB ownership.
-        receipt = assemble(  # type: ignore[no-untyped-call]
+        receipt = assemble(
             votes, **{k: case[k] for k in ("context", "graph", "packet", "rulepack")}
         )
         row.update(

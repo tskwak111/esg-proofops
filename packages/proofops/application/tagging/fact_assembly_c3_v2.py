@@ -200,7 +200,7 @@ def assemble(
 
         try:
             current_policy = (
-                policy_for(V2_PROFILE, pinned_hash=canonical_hash(analysis_policy))  # type: ignore[no-untyped-call]  # External untyped helper.
+                policy_for(V2_PROFILE, pinned_hash=canonical_hash(analysis_policy))
                 == analysis_policy
             )
         except ValueError:

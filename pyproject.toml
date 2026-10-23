@@ -475,11 +475,10 @@ ignore_errors = true
 
 # WP-B2: mypy 1.20 --strict equivalent. `strict = true` in an override
 # enables flags globally, so list its per-module flags explicitly instead.
-# Next stages: add "proofops_agent.*", "proofops.application.*",
-# "proofops_worker.*", "proofops.adapters.*", "proofops_api.*" to module
-# only after their own gates pass. They remain on the baseline for now.
+# Strict is active across all four packages after cross-package type integration.
+# Protected-module and DART overrides retain their existing exclusions.
 [[tool.mypy.overrides]]
-module = ["proofops.domain.*"]
+module = ["proofops.*", "proofops_api.*", "proofops_worker.*", "proofops_agent.*"]
 disallow_any_generics = true
 disallow_subclassing_any = true
 disallow_untyped_calls = true

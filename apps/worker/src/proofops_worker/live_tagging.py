@@ -138,7 +138,7 @@ class LiveTaggingRuntime:
     ) -> None:
         from proofops.application.evidence.relation_attribution import snapshot_policy
 
-        self.attribution_policy = snapshot_policy(snapshot)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+        self.attribution_policy = snapshot_policy(snapshot)
         if (
             snapshot.get("tagging_mode") != "upstage_local"
             or snapshot["input_hash"]
@@ -176,8 +176,8 @@ class LiveTaggingRuntime:
                 # An authorization is bound to the exact receipt tree it was proven
                 # against; it can never be applied to a different local state.
                 raise ValueError("LIVE_TAGGING_RESUME_ROOT_MISMATCH")
-        self.settings: TaggingSettings = tagging_settings(snapshot)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
-        self.preliminary_settings: TaggingSettings = tagging_settings(snapshot, preliminary=True)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+        self.settings: TaggingSettings = tagging_settings(snapshot)
+        self.preliminary_settings: TaggingSettings = tagging_settings(snapshot, preliminary=True)
         self.registry = Registry.sqlite(runner.store.path)
         self.auth = AuthContext(
             "local-worker", graph.tenant_id, "viewer", frozenset(), snapshot["run_id"]
@@ -190,7 +190,7 @@ class LiveTaggingRuntime:
             p: set() for p in ("openai", "openrouter")
         }
         self.relation_settings: TaggingSettings | None = (
-            tagging_settings(snapshot, relation=True) if "relation_settings" in snapshot else None  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+            tagging_settings(snapshot, relation=True) if "relation_settings" in snapshot else None
         )
         self.request_ids: set[str] = set()
         accounting = snapshot.get("analysis_profile_policy", {}).get("s5_usage_accounting")
@@ -258,20 +258,14 @@ class LiveTaggingRuntime:
         if model_id == "gpt-6-luna":
             from proofops.adapters.local.openai import validate_capacity_policy as validate_openai
 
-            return cast(
-                int,
-                validate_openai(self.snapshot["input_reservation_policy"], model_id=model_id),  # type: ignore[no-untyped-call]  # External API is not annotated yet.
-            )
+            return validate_openai(self.snapshot["input_reservation_policy"], model_id=model_id)
         if model_id == "openai/gpt-6-luna":
             from proofops.adapters.local.openrouter import (
                 validate_capacity_policy as validate_luna_capacity,
             )
 
-            return cast(
-                int,
-                validate_luna_capacity(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
-                    self.snapshot["input_reservation_policy"], model_id=model_id
-                ),
+            return validate_luna_capacity(
+                self.snapshot["input_reservation_policy"], model_id=model_id
             )
         return validate_capacity_policy(
             self.snapshot["input_reservation_policy"],
@@ -284,7 +278,7 @@ class LiveTaggingRuntime:
 
         self._check_heartbeat()
         now = int(self.runner.clock())
-        if not _parse_enabled() and not self.runner.store.jobs.can_call(self.lease, now=now):  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+        if not _parse_enabled() and not self.runner.store.jobs.can_call(self.lease, now=now):
             raise LeaseLost("LEASE_LOST")
         try:
             point_heartbeat(
@@ -374,7 +368,7 @@ class LiveTaggingRuntime:
         if k5:
             if claim is None or claim.claim_id != data["claim_id"]:
                 raise ValueError("SENTENCE_CONTEXT_CLAIM_REQUIRED")
-            data["sentence_context"] = configured_context(claim, self.graph, policy)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+            data["sentence_context"] = configured_context(claim, self.graph, policy)
         if "tagging_wire_policy" in policy:
             from proofops.application.tagging.k7_wire import POLICY as K7_WIRE
             from proofops.application.tagging.k7_wire import POLICY_K8 as K8_WIRE
@@ -411,7 +405,7 @@ class LiveTaggingRuntime:
 
             if claim is None or claim.claim_id != data["claim_id"]:
                 raise ValueError("TABLE_EVIDENCE_CLAIM_REQUIRED")
-            data = augment_packet(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+            data = augment_packet(
                 data,
                 claim,
                 self.graph,
@@ -456,17 +450,19 @@ class LiveTaggingRuntime:
             from proofops.application.tagging.qt2_context import validate_policy
 
             contextual = policy["qt2_contextual_elements_policy"]
-            validate_policy(contextual)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+            validate_policy(contextual)
             if policy.get("qt2_contextual_elements_policy_sha256") != canonical_hash(contextual):
                 raise ValueError("QT2_CONTEXT_POLICY_PIN_MISMATCH")
-            data = qt2_augment(data, claim, self.graph, tenant_id=self.graph.tenant_id)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+            # Missing claim on this configured path retains its existing failure (S_INT report).
+            data = qt2_augment(data, cast(Claim, claim), self.graph, tenant_id=self.graph.tenant_id)
         if "qt1_tuple_policy" in policy:
             from proofops.application.tagging.qt1_tuples import POLICY as qt1_policy
             from proofops.application.tagging.qt1_tuples import augment_packet as qt1_augment
 
             if policy["qt1_tuple_policy"] != qt1_policy:
                 raise ValueError("QT1_TUPLE_POLICY_MISMATCH")
-            data = qt1_augment(data, claim, self.graph, tenant_id=self.graph.tenant_id)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+            # Missing claim on this configured path retains its existing failure (S_INT report).
+            data = qt1_augment(data, cast(Claim, claim), self.graph, tenant_id=self.graph.tenant_id)
         if "tb1_table_policy" in policy:
             from proofops.application.tagging.tb1_table_bundles import POLICY as tb1_policy
             from proofops.application.tagging.tb1_table_bundles import augment_packet as tb1_augment
@@ -480,16 +476,17 @@ class LiveTaggingRuntime:
             from proofops.application.tagging.v3_context import augment_packet as v3_augment
             from proofops.application.tagging.v3_dec92 import validate_policy as validate_v3
 
-            validate_v3(policy["v3_dec92_policy"])  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+            validate_v3(policy["v3_dec92_policy"])
             if policy.get("v3_dec92_policy_sha256") != canonical_hash(policy["v3_dec92_policy"]):
                 raise ValueError("V3_DEC92_POLICY_PIN_MISMATCH")
-            data = v3_augment(data, claim, self.graph, tenant_id=self.graph.tenant_id)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+            # Missing claim on this configured path retains its existing failure (S_INT report).
+            data = v3_augment(data, cast(Claim, claim), self.graph, tenant_id=self.graph.tenant_id)
         if display_catalog is not None:
             data["display_text"] = display_catalog.element_pins(data)
         if policy.get("hold_recovery_policy") is not None:
             from proofops.application.tagging.k2_recovery import validate_policy
 
-            validate_policy(policy["hold_recovery_policy"])  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+            validate_policy(policy["hold_recovery_policy"])
             if policy.get("hold_recovery_policy_sha256") != canonical_hash(
                 policy["hold_recovery_policy"]
             ):
@@ -612,7 +609,7 @@ class LiveTaggingRuntime:
                 (r.track.track if r.track else None, r.safe_harbor_category) for r in results
             )
             header, count = votes.most_common(1)[0]
-            if cf5 and not cf5_context.header_agreed(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+            if cf5 and not cf5_context.header_agreed(
                 [(r.track.track if r.track else None, r.safe_harbor_category) for r in results]
             ):
                 return None
@@ -713,7 +710,7 @@ class LiveTaggingRuntime:
                 pair, receipts = self._decision_pair(
                     claim,
                     state,
-                    relation_questions(),  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+                    relation_questions(),
                     "relation:" + source.source_id,
                     packet_sha256=canonical_hash(envelope),
                     retrieval_packet_sha256=packet.packet_sha256,
@@ -722,7 +719,7 @@ class LiveTaggingRuntime:
                     a.get("relation", {}).get("choice") if a.get("relation") else "unknown"
                     for a in pair
                 ]
-                support = resolve_relation(*choices)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+                support = resolve_relation(*choices)
                 self.relation_records[claim.claim_id].append(
                     dict(
                         source_id=source.source_id,
@@ -741,7 +738,7 @@ class LiveTaggingRuntime:
         self,
         claim: Claim,
         state: dict[str, Any],
-        questions: list[dict[str, Any]],
+        questions: dict[str, Any],
         purpose: str,
         *,
         packet_sha256: str,

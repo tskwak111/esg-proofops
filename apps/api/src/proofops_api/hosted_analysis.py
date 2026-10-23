@@ -77,8 +77,7 @@ def operator_profiles(config: dict[str, Any]) -> dict[str, Any]:
 
     analysis = config.get("analysis_profile", default_analysis_profile())
     policy = (
-        # External API is untyped and outside this work package.
-        publication_policy_for(analysis, pinned_hash=config.get("analysis_policy_sha256"))  # type: ignore[no-untyped-call]
+        publication_policy_for(analysis, pinned_hash=config.get("analysis_policy_sha256"))
         if analysis in FINALS_PROFILES
         else {}
     )
@@ -120,8 +119,7 @@ def operator_profiles(config: dict[str, Any]) -> dict[str, Any]:
     if config.get("analysis_policy_sha256") is not None:
         from proofops.application.analysis_profile import publication_policy_for
 
-        # External API is untyped and outside this work package.
-        publication_policy_for(analysis, pinned_hash=config["analysis_policy_sha256"])  # type: ignore[no-untyped-call]
+        publication_policy_for(analysis, pinned_hash=config["analysis_policy_sha256"])
     requested = config.get("rendered_reader_profile")
     if requested is not None and requested not in KNOWN_RENDERED_READERS:
         raise ValueError("HOSTED_RENDERED_READER_PROFILE_INVALID")
@@ -189,8 +187,7 @@ def read_operator_config(path: Path | None) -> dict[str, Any]:
     from proofops.application.analysis_profile import policy_for
 
     selected = (
-        # External API is untyped and outside this work package.
-        policy_for(profiles["analysis_profile"], pinned_hash=config.get("analysis_policy_sha256"))  # type: ignore[no-untyped-call]
+        policy_for(profiles["analysis_profile"], pinned_hash=config.get("analysis_policy_sha256"))
         if profiles["analysis_profile"] in FINALS_PROFILES
         else {}
     )

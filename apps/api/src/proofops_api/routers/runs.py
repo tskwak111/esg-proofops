@@ -206,8 +206,7 @@ def build_runs_router(
             return auth
         try:
             return JSONResponse(
-                # External API is untyped and outside this work package.
-                service.list(auth.tenant_id, cursor=cursor, limit=limit),  # type: ignore[no-untyped-call]
+                service.list(auth.tenant_id, cursor=cursor, limit=limit),
                 headers={"Cache-Control": "no-store"},
             )
         except (ValueError, DomainValidationError, sqlite3.DatabaseError) as exc:
@@ -221,8 +220,7 @@ def build_runs_router(
         if isinstance(auth, JSONResponse):
             return auth
         try:
-            # External API is untyped and outside this work package.
-            result = service.get(auth.tenant_id, str(run_id))  # type: ignore[no-untyped-call]
+            result = service.get(auth.tenant_id, str(run_id))
             return JSONResponse(result, headers={"ETag": f'"{result["revision"]}"'})
         except (ValueError, DomainValidationError, sqlite3.DatabaseError) as exc:
             return failure(exc)
@@ -287,8 +285,7 @@ def build_runs_router(
         if isinstance(auth, JSONResponse):
             return auth
         try:
-            # External API is untyped and outside this work package.
-            return JSONResponse(service.cost(auth.tenant_id, str(run_id)))  # type: ignore[no-untyped-call]
+            return JSONResponse(service.cost(auth.tenant_id, str(run_id)))
         except (ValueError, DomainValidationError, sqlite3.DatabaseError) as exc:
             return failure(exc)
 
@@ -309,8 +306,7 @@ def build_runs_router(
             return auth
         try:
             return JSONResponse(
-                # External API is untyped and outside this work package.
-                service.audit(auth.tenant_id, str(run_id), cursor=cursor, limit=limit)  # type: ignore[no-untyped-call]
+                service.audit(auth.tenant_id, str(run_id), cursor=cursor, limit=limit)
             )
         except (ValueError, DomainValidationError, sqlite3.DatabaseError) as exc:
             return failure(exc)

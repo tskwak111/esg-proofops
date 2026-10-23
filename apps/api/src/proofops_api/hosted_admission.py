@@ -9,6 +9,7 @@ import sqlite3
 import subprocess
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING, Any
@@ -103,28 +104,35 @@ def generate_scope(store: HostedStore, auth: AuthContext, document: str) -> dict
                 )
                 plan = json.loads(output.read_text())
             except (subprocess.SubprocessError, OSError, ValueError):
-                from evaluation.hosted_scope_plan import failed_plan
+                from evaluation.hosted_scope_plan import failed_plan as _failed_plan
 
-                # External API is untyped and outside this work package.
-                plan = failed_plan(doc["sha256"], doc["page_count"], "SCOPE_INSPECTION_FAILED")  # type: ignore[no-untyped-call]
+                # Typed boundary for the unchanged evaluation implementation.
+                failed_plan: Callable[[str, int, str], dict[str, Any]] = _failed_plan
+
+                plan = failed_plan(doc["sha256"], doc["page_count"], "SCOPE_INSPECTION_FAILED")
     from proofops.domain.provenance import canonical_hash
 
-    from evaluation.reporting_period import (
-        detect_reporting_period,
-        resolve_reporting_scope,
-        validate_detection,
+    from evaluation.reporting_period import detect_reporting_period as _detect_reporting_period
+    from evaluation.reporting_period import resolve_reporting_scope as _resolve_reporting_scope
+    from evaluation.reporting_period import validate_detection as _validate_detection
+
+    # Typed boundary for the unchanged evaluation implementation.
+    detect_reporting_period: Callable[[dict[int, str], int, str], dict[str, Any]] = (
+        _detect_reporting_period
     )
+    resolve_reporting_scope: Callable[[dict[str, Any], dict[str, Any] | None], dict[str, Any]] = (
+        _resolve_reporting_scope
+    )
+    validate_detection: Callable[[dict[str, Any], str], None] = _validate_detection
     from proofops_api.hosted_scope import scope_selection
 
     if "reporting_period_detection" not in plan:
-        # External API is untyped and outside this work package.
-        plan["reporting_period_detection"] = detect_reporting_period(  # type: ignore[no-untyped-call]
+        plan["reporting_period_detection"] = detect_reporting_period(
             {}, doc["page_count"], doc["sha256"]
         )
 
     detection = plan["reporting_period_detection"]
-    # External API is untyped and outside this work package.
-    validate_detection(detection, doc["sha256"])  # type: ignore[no-untyped-call]
+    validate_detection(detection, doc["sha256"])
     for item in detection["candidates"] + detection["exceptions"]:
         item["source_ref"].update(
             tenant_id=auth.tenant_id, document_id=document, document_version_id=document
@@ -136,8 +144,7 @@ def generate_scope(store: HostedStore, auth: AuthContext, document: str) -> dict
             defaults = json.loads(store.settings.live_config.read_text())
         except (OSError, ValueError):
             pass  # No invented default when operator configuration is unavailable.
-    # External API is untyped and outside this work package.
-    period = resolve_reporting_scope(plan["reporting_period_detection"], defaults)  # type: ignore[no-untyped-call]
+    period = resolve_reporting_scope(plan["reporting_period_detection"], defaults)
     selection = (
         None
         if plan["status"] == "failed"
@@ -177,14 +184,16 @@ def edit_scope(
             raise HostedError("SCOPE_CONFLICT", 412)
         doc = store._document(db, auth.tenant_id, document)
         plan = scope["plan"] | dict(selected_claim_pages=claims, selected_evidence_pages=evidence)
-        from evaluation.reporting_period import validate_period
+        from evaluation.reporting_period import validate_period as _validate_period
+
+        # Typed boundary for the unchanged evaluation implementation.
+        validate_period: Callable[[object], dict[str, Any]] = _validate_period
         from proofops_api.hosted_scope import scope_selection
 
         period = scope.get("reporting_scope")
         if reporting_scope is not None:
             try:
-                # External API is untyped and outside this work package.
-                value = validate_period(reporting_scope)  # type: ignore[no-untyped-call]
+                value = validate_period(reporting_scope)
             except ValueError:
                 raise HostedError("REPORTING_SCOPE_INVALID", 422) from None
             period = (period or {}) | value | dict(origin="manual", warning=None)
@@ -258,11 +267,13 @@ def create_run(
             if scope_selection_sha256 and scope_selection_sha256 != selection["selection_sha256"]:
                 raise HostedError("SCOPE_CONFLICT", 412)
             if "reporting_scope" in selection:
-                from evaluation.reporting_period import validate_period
+                from evaluation.reporting_period import validate_period as _validate_period
+
+                # Typed boundary for the unchanged evaluation implementation.
+                validate_period: Callable[[object], dict[str, Any]] = _validate_period
 
                 try:
-                    # External API is untyped and outside this work package.
-                    validate_period(selection["reporting_scope"])  # type: ignore[no-untyped-call]
+                    validate_period(selection["reporting_scope"])
                 except ValueError:
                     raise HostedError("REPORTING_SCOPE_REQUIRED", 422) from None
             selected = selection["pages"]
@@ -309,14 +320,12 @@ def create_run(
                 pipeline_profile=pipeline_profile,
                 analysis_profile=pipeline_profile,
                 analysis_profile_sha256=canonical_hash(
-                    # External API is untyped and outside this work package.
-                    publication_policy_for(pipeline_profile, pinned_hash=operator_pin)  # type: ignore[no-untyped-call]
+                    publication_policy_for(pipeline_profile, pinned_hash=operator_pin)
                 ),
             )
             from proofops_api.hosted_analysis import operator_profiles
 
-            # External API is untyped and outside this work package.
-            execution = publication_policy_for(pipeline_profile, pinned_hash=operator_pin)  # type: ignore[no-untyped-call]
+            execution = publication_policy_for(pipeline_profile, pinned_hash=operator_pin)
             if execution.get("provider_scheduler"):
                 profiles = operator_profiles(config | dict(analysis_profile=pipeline_profile))
                 frozen = {k: profiles[k] for k in ("llm_max_workers", "llm_requests_per_second")}
@@ -324,11 +333,13 @@ def create_run(
                     provider_execution=frozen, provider_execution_sha256=canonical_hash(frozen)
                 )
             if store.settings.rc1_reuse_enabled and "reporting_scope" not in options:
-                from evaluation.reporting_period import validate_period
+                from evaluation.reporting_period import validate_period as _validate_period
+
+                # Typed boundary for the unchanged evaluation implementation.
+                validate_reuse_period: Callable[[object], dict[str, Any]] = _validate_period
 
                 try:
-                    # External API is untyped and outside this work package.
-                    options["reporting_scope"] = validate_period(config)  # type: ignore[no-untyped-call]
+                    options["reporting_scope"] = validate_reuse_period(config)
                 except ValueError:
                     pass  # Unknown period cannot match a reusable publication.
         body_hash = digest(json.dumps([document, selected, options]))

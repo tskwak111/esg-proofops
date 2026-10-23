@@ -38,10 +38,10 @@ def load_inventory(
         raise ValueError("I27_SC1_FAILURE_POLICY_MISMATCH")
     failures = getattr(live.probe, "i27_inventory_failures", None)
     if optional and failures is None:
-        failures = Failures()  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+        failures = Failures()
         setattr(live.probe, "i27_inventory_failures", failures)
     live._fence()
-    plan = plan_inventory(graph, selection)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+    plan = plan_inventory(graph, selection)
     calls = 3 * len(plan["chunks"])
     # Use the existing conservative capacity price, including two bounded outputs
     # and the most expensive input token category. This is a reservation, not spend.
@@ -102,10 +102,10 @@ def load_inventory(
         live._fence()
         from proofops.application.rb3_deadline import admit
 
-        if not admit(live.runner, live.snapshot, "tag"):  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+        if not admit(live.runner, live.snapshot, "tag"):
             stopped = True
             raise ValueError("TIME_BUDGET")
-        request = transport_request(original, live.settings)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+        request = transport_request(original, live.settings)
         live.allow_packet(request["claim_id"], request["packet_sha256"])
         call = BudgetCall(
             graph.tenant_id,
@@ -162,7 +162,9 @@ def load_inventory(
                 )
                 with (
                     context,
-                    request_scope(optional, original, failures) if optional else nullcontext(),
+                    request_scope(optional, original, cast(Failures, failures))
+                    if optional
+                    else nullcontext(),
                 ):
                     response = transport.invoke(request)
             live.runner.store.usage.record_usage(call, response.usage, now=int(live.runner.clock()))
@@ -171,7 +173,7 @@ def load_inventory(
             if failure is not None:
                 if failure["request_id"] != request["request_id"]:
                     raise ValueError("I27_SC1_FAILURE_REQUEST_MISMATCH")
-                cast(Failures, failures).record(failure)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+                cast(Failures, failures).record(failure)
             if response.usage.status != "succeeded" or not response.raw_response_json:
                 if failure is not None and failure["degraded"]:
                     # Preserve a failed vote and its reason in the immutable
@@ -229,7 +231,7 @@ def load_inventory(
         build_options["build"] = partial(
             build_inventory, max_workers=live.runner.max_workers, stopped=stop_event.is_set
         )
-    provider = SC1InventoryProvider(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+    provider = SC1InventoryProvider(
         live.receipts / "sc1-inventory-artifacts",
         model_sha256=live.settings.model_sha256,
         invoke=invoke,
@@ -243,7 +245,7 @@ def load_inventory(
     if optional:
         for value in result["raw_responses"].values():
             if isinstance(value, dict) and value.get("i27_sc1_failure"):
-                cast(Failures, failures).record(value["i27_sc1_failure"])  # type: ignore[no-untyped-call]  # External API is not annotated yet.
-        live.usage["i27_sc1_failures"] = cast(Failures, failures).summary()  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+                cast(Failures, failures).record(value["i27_sc1_failure"])
+        live.usage["i27_sc1_failures"] = cast(Failures, failures).summary()
     live.usage["sc1_inventory_plan"]["completed_calls"] = result["completed_calls"]
     return result

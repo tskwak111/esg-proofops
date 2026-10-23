@@ -108,7 +108,7 @@ def native_figure_context_blocks(
             )
         ):
             raise ValueError("QC_NATIVE_FIGURE_CONTEXT_INVALID")
-    result = cast(tuple[CanonicalBlock, ...], result)
+    result = cast("tuple[CanonicalBlock, ...]", result)
     if sum(len(b.raw_text) + 1 for b in result) > FIGURE_POLICY["max_chars"]:
         raise ValueError("QC_NATIVE_FIGURE_CONTEXT_TOO_LARGE")
     return result

@@ -111,7 +111,7 @@ def _notes(
 def tuples_for(table: CanonicalBlock, graph: CanonicalDocumentGraph) -> list[dict[str, Any]]:
     result = []
     try:
-        rows = candidates_for(table, graph)  # type: ignore[no-untyped-call]  # External untyped helper.
+        rows = candidates_for(table, graph)
     except ValueError as error:
         if not str(error).startswith("J8_GRID_"):
             raise

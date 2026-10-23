@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import sys
 from collections import OrderedDict
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from copy import deepcopy
 from dataclasses import asdict, replace
 from hashlib import sha256
@@ -137,7 +137,7 @@ def attest_claims_cached(
     reader: ModuleType,
     graph: CanonicalDocumentGraph,
     source: bytes,
-    refs: tuple[SourceRef, ...],
+    refs: Iterable[SourceRef],
     tenant_id: str,
 ) -> dict[str, Any]:
     """Compose unchanged reader records; re-read new refs, never infer verification."""

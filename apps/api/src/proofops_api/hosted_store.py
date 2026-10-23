@@ -237,6 +237,7 @@ class HostedStore:
 
     def invite(self, tenant: str, user: str, role: str, *, now: float) -> str:
         identifier(tenant)
+        # MembershipRecord validates the caller-provided role before any invite is stored.
         MembershipRecord(tenant, user, role, "active")  # type: ignore[arg-type]
         if not user or len(user) > 200 or user.startswith(("access-password:", "guest:")):
             raise ValueError("invalid user")
@@ -557,8 +558,7 @@ class HostedStore:
         result = self._result(db, row) if ready and inline_result else None
         raw_error = row["error_code"] or ""
         provider = "openai" if raw_error.startswith("OPENAI_") else "openrouter"
-        # External API is untyped and outside this work package.
-        cause = provider_error_code(provider, raw_error)  # type: ignore[no-untyped-call]
+        cause = provider_error_code(provider, raw_error)
         user_counts = db.execute(
             "SELECT count(*),coalesce(sum(status='running'),0) FROM runs WHERE user_hash=? "
             "AND status IN ('queued','running','accounting_pending')",

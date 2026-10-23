@@ -23,7 +23,7 @@ def fence_provider_call(
     heartbeat uses the same _owned guard as can_call, inside its own writer
     transaction. Cost reservations and settlement still happen per attempt.
     """
-    if not runtime.fresh_execution_enabled() and not runner.store.jobs.can_call(  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+    if not runtime.fresh_execution_enabled() and not runner.store.jobs.can_call(
         lease, now=int(runner.clock())
     ):
         raise runtime.StageFailure("LEASE_LOST", usage=usage)

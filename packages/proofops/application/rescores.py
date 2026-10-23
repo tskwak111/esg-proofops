@@ -171,7 +171,7 @@ class RescoreService:
         actor: AuthContext,
         run_id: str,
         body: dict[str, Any],
-        idempotency_key: str,
+        idempotency_key: str | None,
         if_match: str | None = None,
     ) -> dict[str, Any]:
         import re
@@ -374,6 +374,8 @@ class RescoreService:
 
 
 class RescoreStore(Protocol):
+    def get(self, tenant_id: str, run_id: str, rescore_id: str) -> dict[str, Any]: ...
+
     def capture(
         self, actor: AuthContext, run_id: str, body: dict[str, Any], key: str, expected: int | None
     ) -> dict[str, Any]: ...

@@ -124,7 +124,7 @@ class LocalExportStore:
         return return_value
 
     def reserve(
-        self, actor: AuthContext, run_id: str, body: dict[str, Any], key: str, *, now: int
+        self, actor: AuthContext, run_id: str, body: dict[str, Any], key: str, *, now: float
     ) -> str:
         tenant = actor.tenant_id
         request_key = canonical_hash([actor.user_sub, "export_create", key])
@@ -642,7 +642,7 @@ class LocalExportStore:
             return_value = state["response"]
             return return_value
 
-    def defer(self, tenant: str, export_id: str, code: str, *, now: int) -> None:
+    def defer(self, tenant: str, export_id: str, code: str, *, now: float) -> None:
         with self.jobs._transaction() as db:
             state = self._state(db, tenant, export_id)
             if state["response"]["state"] == "ready":
@@ -665,7 +665,9 @@ class LocalExportStore:
             raise ExportRejected("EXPORT_INTEGRITY_FAILED")
         return content
 
-    def authorize_download(self, actor: AuthContext, export_id: str, *, now: int) -> dict[str, Any]:
+    def authorize_download(
+        self, actor: AuthContext, export_id: str, *, now: float
+    ) -> dict[str, Any]:
         with self.jobs._transaction() as db:
             state = self._state(db, actor.tenant_id, export_id)
             self._content(db, actor.tenant_id, export_id, state)
@@ -691,7 +693,7 @@ class LocalExportStore:
                 sha256=ticket["sha256"],
             )
 
-    def content(self, actor: AuthContext, export_id: str, token: str, *, now: int) -> bytes:
+    def content(self, actor: AuthContext, export_id: str, token: str, *, now: float) -> bytes:
         with self.jobs._transaction() as db:
             state = self._state(db, actor.tenant_id, export_id)
             raw = self.jobs._raw(

@@ -509,13 +509,11 @@ class UpstageTaggingTransport:
                 if response_policy is not None:
                     from proofops.application.tagging.k4_contract import bind_response
 
-                    # External package helper is untyped; its annotations are outside this scope.
-                    payload = bind_response(payload, request, policy=response_policy)  # type: ignore[no-untyped-call]
+                    payload = bind_response(payload, request, policy=response_policy)
                 if preliminary_policy is not None:
                     from proofops.application.tagging.k4_contract import bind_response
 
-                    # External package helper is untyped; its annotations are outside this scope.
-                    payload = bind_response(payload, request, policy=preliminary_policy)  # type: ignore[no-untyped-call]
+                    payload = bind_response(payload, request, policy=preliminary_policy)
                     payload.pop("packet_sha256")
                     payload.pop("replicate_id")
                 restore_policy = json.loads(request["user_json"])["untrusted_document_data"].get(
@@ -544,8 +542,7 @@ class UpstageTaggingTransport:
             from proofops.adapters.local.cf6_transport import authenticate
 
             try:
-                # External package helper is untyped; its annotations are outside this scope.
-                response = authenticate(  # type: ignore[no-untyped-call]
+                response = authenticate(
                     request,
                     response,
                     self._probe,

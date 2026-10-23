@@ -311,7 +311,7 @@ def tag_replicates(
         raise DomainValidationError("verified packet evidence required")
     source_ids = {ref.source_id for ref in approved_refs}
     source_ids.update(ref.source_id for ref in claim.source_refs)
-    if not unattended and evidence_issue_ids(  # type: ignore[no-untyped-call]  # External untyped helper.
+    if not unattended and evidence_issue_ids(
         original, source_ids, [*approved_refs, *claim.source_refs]
     ):
         raise DomainValidationError("open source issue requires review")
@@ -380,7 +380,7 @@ def tag_replicates(
     if "sentence_context" in data:
         from proofops.application.ingest.k5_context import sentence_context
 
-        sentence_interpretation = sentence_context(claim, original)  # type: ignore[no-untyped-call]  # External untyped helper.
+        sentence_interpretation = sentence_context(claim, original)
         if data["sentence_context"] != sentence_interpretation:
             raise DomainValidationError("SENTENCE_CONTEXT_SOURCE_MISMATCH")
         # Interpretation references do not enter approved_refs/source_candidates.

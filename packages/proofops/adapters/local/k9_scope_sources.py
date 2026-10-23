@@ -51,8 +51,7 @@ def scope_graph(
         for c in claims
     ):
         raise ValueError("K9_SCOPE_SOURCE_MISMATCH")
-    # Untyped dependency is outside S_ADB ownership.
-    candidates = {c.claim_id: scope_definition_refs(c, graph) for c in claims}  # type: ignore[no-untyped-call]
+    candidates = {c.claim_id: scope_definition_refs(c, graph) for c in claims}
     refs = tuple(dict.fromkeys(r for values in candidates.values() for r in values))
     if not refs:
         return graph, {}

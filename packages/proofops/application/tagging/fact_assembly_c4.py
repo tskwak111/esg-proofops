@@ -19,7 +19,9 @@ from proofops.application.tagging.fact_assembly_c2 import (
     SCHEMA,
     TRIGGERS,
     _receipt,
-    vote_schema,
+)
+from proofops.application.tagging.fact_assembly_c2 import (
+    vote_schema as vote_schema,
 )
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rules.engine import ConfirmedFact, ConfirmedTags, RuleContext, evaluate

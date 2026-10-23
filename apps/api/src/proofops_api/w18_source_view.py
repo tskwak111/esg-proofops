@@ -31,7 +31,7 @@ from threading import Lock, Thread
 from types import SimpleNamespace
 
 from proofops.adapters.parsing.parser_artifacts import read_parser_json
-from proofops.application.ingest.geometry import project_native_bbox
+from proofops.application.ingest.geometry import project_native_bbox as project_native_bbox
 from proofops.domain.provenance import canonical_hash
 
 W18_TIMEOUT_SECONDS = 6
@@ -91,8 +91,7 @@ def _graph(
         manifest, digest = _read_json(directory / "manifest.json")
         if digest != expected or manifest["tenant_id"] != row["tenant_id"]:
             raise ValueError("manifest hash")
-        # External API is untyped and outside this work package.
-        graph = read_parser_json(directory / "graph.json", manifest=manifest)  # type: ignore[no-untyped-call]
+        graph = read_parser_json(directory / "graph.json", manifest=manifest)
         blocks = graph["blocks"]
         source_sha = row["prepared_sha256"]
     if (graph["document_version_id"], graph["parse_manifest_id"], graph["source_sha256"]) != (
@@ -339,8 +338,7 @@ def _inventories(
         )
         failure = "page_inventory_unavailable"
         try:
-            # External API is untyped and outside this work package.
-            OpenDataLoaderParser._execute(  # type: ignore[no-untyped-call]
+            OpenDataLoaderParser._execute(
                 [
                     sys.executable,
                     "-I",

@@ -388,8 +388,7 @@ def plan_recovery(
     if type(claim_limit) is not int or not 1 <= claim_limit <= MAX_CLAIMS:
         raise RecoveryRejected("TAG_RECOVERY_CLAIM_BOUND_INVALID")
     lineage, run = _lineage(store, tenant_id, run_id)
-    # External adapter/application boundary is not yet annotated.
-    envelope = tags.load_snapshot(tenant_id, run_id)  # type: ignore[no-untyped-call]
+    envelope = tags.load_snapshot(tenant_id, run_id)
     if "decision_settings" in envelope:
         # v1 authorizes nine Luna requests, not additional provider judgments.
         # Ordinary immutable replay remains available; paid recovery needs a new contract.
@@ -586,8 +585,7 @@ class TagRecovery:
             Path(plan.receipts_root),
             proof["baseline_request_ids"],
         )
-        # External adapter/application boundary is not yet annotated.
-        return cls(plan, tags.load_snapshot(message.tenant_id, message.run_id), len(issued))  # type: ignore[no-untyped-call]
+        return cls(plan, tags.load_snapshot(message.tenant_id, message.run_id), len(issued))
 
     def can_attempt_claim(self) -> bool:
         """Is a whole claim still affordable, replicas at every stage included?"""
@@ -603,11 +601,7 @@ class TagRecovery:
         item = self._items.get(claim_id)
         if item is None:
             raise RecoveryRejected("TAG_RECOVERY_CLAIM_NOT_IN_LINEAGE")
-        return cast(
-            dict[str, Any],
-            # External adapter/application boundary is not yet annotated.
-            reviewable_checkpoint(json.loads(canonical_json(item)), pinned_profile=self._profile),  # type: ignore[no-untyped-call]
-        )
+        return reviewable_checkpoint(json.loads(canonical_json(item)), pinned_profile=self._profile)
 
     def verify_published(self, store: LocalSQLiteRunStore) -> int:
         """Check every carried published item still matches its immutable revision.

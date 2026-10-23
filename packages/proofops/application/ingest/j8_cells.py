@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, cast
 
 from proofops.application.ingest import w9_tables as w9
@@ -44,7 +45,7 @@ POLICY: dict[str, Any] = dict(
 )
 
 
-def checked_grid(text: str, cells: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+def checked_grid(text: str, cells: Sequence[dict[str, Any]] | None) -> list[dict[str, Any]]:
     if not cells:
         if text.strip():
             raise ValueError("J8_GRID_MISSING")
@@ -117,7 +118,7 @@ def graph_cells(table: CanonicalBlock, graph: CanonicalDocumentGraph) -> list[di
 
 
 def observations(
-    text: str, *, cells: list[dict[str, Any]] | None = None, context: str = "", limit: int = 24
+    text: str, *, cells: Sequence[dict[str, Any]] | None = None, context: str = "", limit: int = 24
 ) -> list[dict[str, Any]]:
     # Numeric observations keep the existing literal whole row, value/unit/year
     # source guard, and comparison metadata. Generic cell candidates never fill
@@ -138,7 +139,7 @@ def _context(e: dict[str, Any], source_id: str, role: str) -> dict[str, Any]:
 
 
 def cell_entries(
-    text: str, cells: list[dict[str, Any]] | None, *, source_id: str
+    text: str, cells: Sequence[dict[str, Any]] | None, *, source_id: str
 ) -> list[dict[str, Any]]:
     rows = checked_grid(text, cells)
     if not rows:

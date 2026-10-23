@@ -285,7 +285,7 @@ class LocalClaimStore:
         claim: Claim,
         *,
         track: str | None,
-        elements: Sequence[str],
+        elements: builtins.list[dict[str, Any]],
         inputs: ReviewInputs | None = None,
         original_graph: CanonicalDocumentGraph | None = None,
     ) -> builtins.list[dict[str, Any]]:

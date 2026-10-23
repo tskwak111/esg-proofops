@@ -77,8 +77,7 @@ class HostedLunaProbe(OpenRouterProbe):
             raise ValueError("HOSTED_WIRE_POLICY_REQUIRED")
 
         def transport(request: dict[str, Any]) -> dict[str, Any]:
-            # External API is untyped and outside this work package.
-            data = self.post(body) if self.post else super(HostedLunaProbe, self)._post(body)  # type: ignore[no-untyped-call]
+            data = self.post(body) if self.post else super(HostedLunaProbe, self)._post(body)
             if data.get("model") != MODEL:
                 raise ValueError("HOSTED_MODEL_MISMATCH")
             return request | dict(actual_usd=rounded_cost(data["usage"]["cost"]), payload=data)
@@ -140,8 +139,7 @@ class HostedOpenAILunaProbe(OpenAIProbe):
                 data = (
                     self.post(body)
                     if self.post
-                    # External API is untyped and outside this work package.
-                    else super(HostedOpenAILunaProbe, self)._post(  # type: ignore[no-untyped-call]
+                    else super(HostedOpenAILunaProbe, self)._post(
                         body, client_request_id=request["request_id"]
                     )
                 )
@@ -151,8 +149,7 @@ class HostedOpenAILunaProbe(OpenAIProbe):
                 raise
             if data.get("model") != OPENAI_MODEL:
                 raise ValueError("HOSTED_MODEL_MISMATCH")
-            # External API is untyped and outside this work package.
-            return request | dict(actual_usd=rounded_cost(token_cost(data["usage"])), payload=data)  # type: ignore[no-untyped-call]
+            return request | dict(actual_usd=rounded_cost(token_cost(data["usage"])), payload=data)
 
         from proofops.adapters.local.i27_inventory_execution import current, transient_code
         from proofops.adapters.local.openai_connections import (
@@ -165,7 +162,9 @@ class HostedOpenAILunaProbe(OpenAIProbe):
         from proofops.application.i27_inventory import POLICY as I27_POLICY
 
         inventory = current.get()
-        scope = self._dispatch_context.get()
+        # Transport-enabled direct _post without dispatch scope already fails below.
+        # Preserve that latent path; public probe calls establish the scope (S_INT report).
+        scope = cast(dict[str, Any], self._dispatch_context.get())
         diagnostic_context = dict(
             state=self.ledger.parent,
             role=(self._response_context.get() or (getattr(self, "response_role", None), 0))[0],
@@ -194,8 +193,7 @@ class HostedOpenAILunaProbe(OpenAIProbe):
                     admission = getattr(self, "http_dispatch_admission", None)
                     if admission is not None:
                         admission()
-                # External API is untyped and outside this work package.
-                with self.physical_attempt_scope():  # type: ignore[no-untyped-call]
+                with self.physical_attempt_scope():
                     response = broker_dispatch(
                         self.store,
                         self.job,
@@ -258,7 +256,7 @@ class HostedOpenAILunaProbe(OpenAIProbe):
                     )
                     + random.uniform(0, cast(float, T1_RETRY_POLICY["jitter_seconds"])),
                 )
-                cast(dict[str, Any], scope)["transport_retries"].append(
+                scope["transport_retries"].append(
                     dict(
                         policy_sha256=T1_RETRY_POLICY_HASH,
                         failed_call_id=call_id,
@@ -270,8 +268,7 @@ class HostedOpenAILunaProbe(OpenAIProbe):
                 time.sleep(delay)
                 from proofops.adapters.local.openai import now as price_now
 
-                # External API is untyped and outside this work package.
-                if price_now() >= PRICE_RECHECK_AT:  # type: ignore[no-untyped-call]
+                if price_now() >= PRICE_RECHECK_AT:
                     raise ValueError("PRICE_RECHECK_REQUIRED")
                 self._authorize_response_request()
             except (ProviderCircuitOpen, ProviderAdmissionDeferred):
@@ -306,6 +303,8 @@ class HostedOpenAILunaProbe(OpenAIProbe):
                 if inventory is not None:
                     inventory["terminal_code"] = code
                 if code is not None:
+                    # code is assigned only while inventory is present.
+                    inventory = cast(dict[str, Any], inventory)
                     inventory["attempts"].append(dict(call_id=call_id, code=code))
                     if (
                         code.startswith("OPENAI_HTTP_5")
@@ -359,11 +358,10 @@ class HostedParseProbe(UpstageParseProbe):
             # parse_async owns the single hosted reservation around POST + GET collection.
             if path != "/v1/document-digitization/async":
                 raise ValueError("HOSTED_PARSE_TRANSPORT_INVALID")
-            return cast(
-                dict[str, Any],
+            return (
                 self.post(pdf_bytes, mode)
                 if self.post
-                else super()._post_parse(pdf_bytes, mode, path),
+                else super()._post_parse(pdf_bytes, mode, path)
             )
         pages = len(PdfReader(io.BytesIO(pdf_bytes)).pages)
         if path != "/v1/document-digitization" or not 1 <= pages <= 2:

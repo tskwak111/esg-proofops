@@ -30,7 +30,7 @@ def decision_pair(
     self: LiveTaggingRuntime,
     claim: Claim,
     state: dict[str, Any],
-    questions: list[dict[str, Any]],
+    questions: dict[str, Any],
     purpose: str,
     *,
     packet_sha256: str,
@@ -84,7 +84,7 @@ def decision_pair(
                 current = self.registry.resolve_profile(self.auth, kind, frozen[identifier])
                 if artifact_sha256(current) != artifact_sha256(frozen):
                     raise ValueError("DECISION_APPROVAL_CHANGED")
-            if not check_local_decision_binding(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+            if not check_local_decision_binding(
                 binding=self.snapshot["decision_runtimes"][provider],
                 consent=self.snapshot["consent"],
                 auth=self.auth,
@@ -114,7 +114,7 @@ def decision_pair(
 
         try:
             self._check_heartbeat()
-            result = probe.decide(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+            result = probe.decide(
                 state,
                 questions,
                 request_id=request_id,
@@ -204,8 +204,8 @@ def decision_preliminary(
                 quotes[axis] = values[0]
     pair, receipts = self._decision_pair(
         claim,
-        preliminary_state(packet),  # type: ignore[no-untyped-call]  # External API is not annotated yet.
-        preliminary_questions(),  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+        preliminary_state(packet),
+        preliminary_questions(),
         "preliminary",
         packet_sha256=canonical_hash(packet),
     )
@@ -237,7 +237,7 @@ def decision_preliminary(
     )[0]
     context = ClaimContext(
         claim,
-        preliminary_dimensions(fields, [r.context.dimensions for r in results]),  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+        preliminary_dimensions(fields, [r.context.dimensions for r in results]),
     )
     return track, context, local_relation_tags(context)
 
@@ -252,7 +252,7 @@ def configure_decisions(
         from proofops.adapters.local.decisions import DecisionProbe, load_key
         from proofops.application.tagging.decisions import validate_decision_snapshot
 
-        validate_decision_snapshot(snapshot)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+        validate_decision_snapshot(snapshot)
         injected = getattr(runner, "decision_probes", None)
         if injected is not None:
             self.decision_probes = injected
@@ -266,11 +266,15 @@ def configure_decisions(
                 project / ".local" / p / "budget.sqlite3" for p in ("openrouter", "upstage")
             ]
             for provider in ("openai", "openrouter"):
-                self.decision_probes[provider] = DecisionProbe(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+
+                def key_loader(p: str = provider) -> str:
+                    return load_key(p, project)
+
+                self.decision_probes[provider] = DecisionProbe(
                     provider,
                     project / ".local" / provider / "budget.sqlite3",
                     r108_spend=project
                     / "outputs/agent-results/R108-redesign/lab/sprint3/E2E/r108-spend.json",
-                    key_loader=lambda p=provider: load_key(p, project),  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+                    key_loader=key_loader,
                     historical_ledgers=historical,
                 )

@@ -298,8 +298,7 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
         bounded input. An oversized sources-only packet still fails normally.
         """
         if self._settings.system_prompt == CF5_PRELIMINARY:
-            # External package helper is untyped; its annotations are outside this scope.
-            validate_cf5_packet(packet)  # type: ignore[no-untyped-call]
+            validate_cf5_packet(packet)
             return deepcopy(packet)
         bounded = deepcopy(packet)
         data = bounded["untrusted_document_data"]
@@ -442,8 +441,7 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
         except (TypeError, ValueError, KeyError):
             raise ValueError("UPSTAGE_PRELIMINARY_PACKET_INVALID") from None
         if settings.system_prompt == CF5_PRELIMINARY:
-            # External package helper is untyped; its annotations are outside this scope.
-            validate_cf5_packet(user)  # type: ignore[no-untyped-call]
+            validate_cf5_packet(user)
             expected_keys = expected_keys | {"cf5_context_policy", "cf5_context_sha256"}
         if fallback_sources:
             system = replace(settings, system_prompt=SENTENCE_FALLBACK_BASE_PROMPT).rendered_system
@@ -467,16 +465,14 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
         if quality_policy is not None:
             from proofops.application.tagging.q1_contract import validate_policy
 
-            # External package helper is untyped; its annotations are outside this scope.
-            validate_policy(quality_policy)  # type: ignore[no-untyped-call]
+            validate_policy(quality_policy)
             expected_keys = expected_keys | {"structural_quality_policy"}
         if catalog is not None:
             expected_keys = expected_keys | {"display_text"}
             if isinstance(user, dict) and "preliminary_recovery_policy" in user:
                 from proofops.application.tagging.k2_recovery import validate_policy
 
-                # External package helper is untyped; its annotations are outside this scope.
-                validate_policy(user["preliminary_recovery_policy"])  # type: ignore[no-untyped-call]
+                validate_policy(user["preliminary_recovery_policy"])
                 expected_keys = expected_keys | {"preliminary_recovery_policy"}
         if not isinstance(user, dict) or set(user) != expected_keys:
             raise ValueError("UPSTAGE_PRELIMINARY_PACKET_INVALID")
@@ -664,15 +660,13 @@ class UpstagePreliminaryTransport(UpstageTaggingTransport):
                     if settings.system_prompt == Q1_PRELIMINARY
                     else preliminary_k9
                 )
-                # External package helper is untyped; its annotations are outside this scope.
-                system = renderer(json.loads(schema_json), quote=quote)  # type: ignore[no-untyped-call]
+                system = renderer(json.loads(schema_json), quote=quote)
             else:
                 system = renderer(json.loads(schema_json))
         if quality_policy is not None:
             from proofops.application.tagging.finals_i4 import _quality_guidance
 
-            # External package helper is untyped; its annotations are outside this scope.
-            system += _quality_guidance(quality_policy, preliminary=True)  # type: ignore[no-untyped-call]
+            system += _quality_guidance(quality_policy, preliminary=True)
             user.pop("structural_quality_policy")
         wire_user = json.dumps(user, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         return system, wire_user, {}, authorization, schema_json

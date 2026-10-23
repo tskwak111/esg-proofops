@@ -79,8 +79,7 @@ def raster_policy_requires_pinned_native(snapshot: object) -> bool:
         return False
     if policy == live:
         return False  # live-matching: let the unmodified path handle it.
-    # Untyped dependency is outside S_ADB ownership.
-    return cast("bool", raster_policy_matches_accepted(policy, raster_ocr_policy))  # type: ignore[no-untyped-call]
+    return raster_policy_matches_accepted(policy, raster_ocr_policy)
 
 
 def _exec_private(path: Path, module_name: str) -> ModuleType:
@@ -164,8 +163,7 @@ def replay_raster_records_frozen(
     policy = snapshot["raster_ocr_policy"]
     if (
         not isinstance(policy, dict)
-        # Untyped dependency is outside S_ADB ownership.
-        or policy.get("native_policy_sha256") not in accepted_native_policy_digests()  # type: ignore[no-untyped-call]
+        or policy.get("native_policy_sha256") not in accepted_native_policy_digests()
     ):
         raise ValueError("RASTER_CHECKPOINT_POLICY_CHANGED")
     checkpoint = _load_private_raster_modules(native_policy)

@@ -322,7 +322,7 @@ class _ContinuingExtractor:
         data = packet["untrusted_document_data"]
         source_id, text = data["source_id"], data["text"]
         if self._rb1 is not None:
-            self._rb1.check(source_id)  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+            self._rb1.check(source_id)
         receipt = self._prior.get(source_id)
         if receipt is not None and receipt["packet_sha256"] == canonical_hash(packet):
             self.replayed.add(source_id)
@@ -369,7 +369,7 @@ class _ContinuingExtractor:
             self.stop_code, self.stop_source = code, source_id
             self.deferred[source_id] = DEFERRED_BUDGET_REASON
             return deferred_payload(text, DEFERRED_BUDGET_REASON)
-        deferred = _deferred_reason(canonical_json(payload))  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+        deferred = _deferred_reason(canonical_json(payload))
         if deferred:
             self.deferred[source_id] = deferred
         else:
@@ -398,7 +398,7 @@ class LocalExtractRunner:
         self.extractor, self.telemetry, self.clock = extractor, telemetry, clock
         self.max_workers = max_workers
         self.tag_composition = tag_composition
-        self.claims = LocalClaimStore(store, uploads, parser)  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+        self.claims = LocalClaimStore(store, uploads, parser)
 
     def _publication_payload(
         self,
@@ -416,12 +416,12 @@ class LocalExtractRunner:
         checkpoint = self.store.jobs.read_checkpoint(JobMessage(**current["parse_job"]))
         if checkpoint is None:
             raise ValueError("PARSE_NOT_PUBLISHED")
-        payload: dict[str, Any] = snapshot_pins(snapshot, graph, profile, checkpoint)  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+        payload: dict[str, Any] = snapshot_pins(snapshot, graph, profile, checkpoint)
         payload.update(
             discovery=asdict(discovery),
             synthetic=discovery.synthetic,
-            coverage=discovery_coverage(json.loads(checkpoint)["coverage"], graph, discovery),  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
-            extraction_outcome=extraction_outcome(  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+            coverage=discovery_coverage(json.loads(checkpoint)["coverage"], graph, discovery),
+            extraction_outcome=extraction_outcome(
                 graph,
                 discovery,
                 claim_pages=snapshot.get("extraction_limits", {}).get("claim_pages")
@@ -441,12 +441,12 @@ class LocalExtractRunner:
             from proofops.adapters.local.claim_source_verification import discovery_refs
             from proofops.adapters.local.run_artifacts import load_run_inputs
 
-            reader = publication_reader(snapshot["claim_source_policy"])  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+            reader = publication_reader(snapshot["claim_source_policy"])
             _, source, _ = load_run_inputs(
                 self.store, self.uploads, tenant_id=tenant_id, run_id=run_id
             )
             self.store.jobs.heartbeat(lease, now=int(self.clock()), lease_seconds=300)
-            payload["claim_source_attestation"] = attest_claims(  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+            payload["claim_source_attestation"] = attest_claims(
                 reader=reader,
                 graph=graph,
                 source=source.content,
@@ -458,7 +458,7 @@ class LocalExtractRunner:
         if snapshot.get("analysis_profile_policy", {}).get("extraction_pb1") == "pb1-v1":
             from proofops.application.ingest.pb1_tables import occurrence_groups
 
-            payload["occurrence_groups"] = occurrence_groups(discovery.claims)  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+            payload["occurrence_groups"] = occurrence_groups(discovery.claims)
         return payload
 
     def run_batch(
@@ -473,7 +473,7 @@ class LocalExtractRunner:
         and no claim is duplicated. Returns an honest per-batch summary; it never
         reports a source as absent.
         """
-        snapshot = self.store.snapshot(tenant_id, run_id)  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+        snapshot = self.store.snapshot(tenant_id, run_id)
         probe = getattr(self.extractor, "_probe", None)
         if probe is not None and hasattr(probe, "configure_response_policy"):
             probe.configure_response_policy(snapshot, role="extract")
@@ -487,7 +487,7 @@ class LocalExtractRunner:
         try:
             with self.store.jobs._transaction() as db:
                 current = self.store.jobs._get(db, tenant_id, run_id, "run", "META")
-                guard_extract_continuation(db, self.store.jobs, current, now=int(self.clock()))  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+                guard_extract_continuation(db, self.store.jobs, current, now=int(self.clock()))
         except ValueError as error:
             return dict(
                 status="blocked",
@@ -500,7 +500,7 @@ class LocalExtractRunner:
         # Strict verification of the prior revision before any receipt is reused:
         # this replays every stored receipt against the frozen pins and graph.
         try:
-            prior_envelope, _, graph = self.claims.load_evidence(  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+            prior_envelope, _, graph = self.claims.load_evidence(
                 tenant_id, run_id, for_extraction=True
             )
         except ValueError as error:
@@ -526,7 +526,7 @@ class LocalExtractRunner:
             if current["cancellation_requested"]:
                 return dict(status="cancelled")
             try:
-                guard_extract_continuation(db, self.store.jobs, current, now=int(self.clock()))  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+                guard_extract_continuation(db, self.store.jobs, current, now=int(self.clock()))
             except ValueError as error:
                 if str(error) not in {"TAG_LEASE_CONFLICT", "TAG_PUBLICATION_CONFLICT"}:
                     raise
@@ -541,9 +541,9 @@ class LocalExtractRunner:
                         )
                     ),
                 )
-        state = extraction_batch_state(prior_envelope)  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
-        profile = extraction_profile(snapshot)  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
-        limits = snapshot.get("extraction_limits")
+        state = extraction_batch_state(prior_envelope)
+        profile = extraction_profile(snapshot)
+        limits = cast(dict[str, Any], snapshot.get("extraction_limits"))
         if not profile.synthetic:
             validate_extraction_limits(limits, snapshot["selected_pages"])
             if (
@@ -563,7 +563,7 @@ class LocalExtractRunner:
         else:
             batch_calls = frozen_calls
         total_budget = _extractor_role_budget(snapshot)
-        scope = claim_scope(snapshot, graph)  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+        scope = claim_scope(snapshot, graph)
         prior_charged = len(state["model_processed"]) + len(state["failed"])
         usage_records = self.store.jobs.list_usage(tenant_id, run_id)
         charged_from_usage = sum(
@@ -571,13 +571,13 @@ class LocalExtractRunner:
         )
         prior_calls = max(prior_charged, charged_from_usage)
         completed = set(state["model_processed"]) | set(state["failed"])
-        rb1 = InputIsolation(snapshot.get("analysis_profile_policy", {}))  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+        rb1 = InputIsolation(snapshot.get("analysis_profile_policy", {}))
         if rb1.active:
             for excluded in prior_envelope["discovery"]["exclusions"]:
                 code = excluded["reason"]
                 if code.startswith("TABLE_RB1_"):
-                    rb1.capture(excluded["source_id"], ValueError(code.removeprefix("TABLE_RB1_")))  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
-        if rb4_memory_enabled(snapshot):  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+                    rb1.capture(excluded["source_id"], ValueError(code.removeprefix("TABLE_RB1_")))
+        if rb4_memory_enabled(snapshot):
             # Replay and both head/fence checks above are complete. Continuation
             # needs only the source response receipts in state, not the large
             # nested source-proof tree from the previous checkpoint.
@@ -721,13 +721,13 @@ class LocalExtractRunner:
                     ]
 
                     prepare = getattr(live_extractor, "prefetch", None)
-                    if prepare and not fresh_execution_enabled():  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+                    if prepare and not fresh_execution_enabled():
                         prepare(packets)
                     paid = prefetch_packets(
                         packets,
                         live.extract,
                         max_workers=self.max_workers,
-                        **(dict(prepare_pages=prepare) if fresh_execution_enabled() else {}),  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+                        **(dict(prepare_pages=prepare) if fresh_execution_enabled() else {}),
                     )
                     sync_usage()
 
@@ -811,7 +811,7 @@ class LocalExtractRunner:
         )
         summary.update(status=result, usage=usage, **outcome)
         if result == "committed":
-            published = extraction_batch_state(self.claims.load_evidence(tenant_id, run_id)[0])  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+            published = extraction_batch_state(self.claims.load_evidence(tenant_id, run_id)[0])
             summary.update(
                 revision_job_id=message.job_id,
                 model_processed_after=len(published["model_processed"]),

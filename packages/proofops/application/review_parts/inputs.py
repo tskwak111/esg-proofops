@@ -101,9 +101,7 @@ class ReviewInputs:
             snapshot["report_level_link"] = self.report_level_link
             snapshot["report_level_review"] = list(self.report_level_review)
         if self.fact_assembly_receipt is not None:
-            snapshot["fact_assembly_receipt"] = cast(
-                "Callable[[], dict[str, Any]]", self.fact_assembly_receipt.to_dict
-            )()
+            snapshot["fact_assembly_receipt"] = (self.fact_assembly_receipt.to_dict)()
             from proofops.application.tagging.fact_assembly_c3 import POLICY_HASH, PROFILE
 
             if self.fact_assembly_profile == PROFILE:
@@ -115,9 +113,7 @@ class ReviewInputs:
         if self.fact_assembly_profile == C3_V2_PROFILE and self.fact_assembly_receipt is not None:
             snapshot["fact_assembly"] = dict(
                 profile=C3_V2_PROFILE,
-                sha256=cast("Callable[[], dict[str, Any]]", self.fact_assembly_receipt.to_dict)()[
-                    "policy_sha256"
-                ],
+                sha256=(self.fact_assembly_receipt.to_dict)()["policy_sha256"],
             )
         return snapshot
 
@@ -156,7 +152,7 @@ class ReviewInputs:
 
             try:
                 cast("Callable[..., object]", replay)(
-                    cast("Callable[[], dict[str, Any]]", self.fact_assembly_receipt.to_dict)(),
+                    (self.fact_assembly_receipt.to_dict)(),
                     context=self.context,
                     graph=self.original,
                     packet=self.packet,

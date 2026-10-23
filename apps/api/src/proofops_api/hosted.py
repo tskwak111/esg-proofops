@@ -42,7 +42,9 @@ from proofops_api.hosted_guest import (
     showcase_reader,
     showcase_resource,
 )
-from proofops_api.hosted_store import HostedError, HostedSettings, HostedStore
+from proofops_api.hosted_store import HostedError
+from proofops_api.hosted_store import HostedSettings as HostedSettings
+from proofops_api.hosted_store import HostedStore as HostedStore
 from proofops_api.middleware import BrowserSecurityHeadersMiddleware, verify_csrf
 
 UPLOAD_NOTICE = (

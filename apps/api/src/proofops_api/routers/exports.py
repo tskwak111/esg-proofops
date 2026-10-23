@@ -140,8 +140,7 @@ def build_exports_router(
             return auth
         try:
             return JSONResponse(
-                # External API is untyped and outside this work package.
-                service.get(auth, str(export_id), now=clock()),  # type: ignore[no-untyped-call]
+                service.get(auth, str(export_id), now=clock()),
                 headers={"Cache-Control": "no-store"},
             )
         except (ValueError, KeyError, TypeError, OSError, sqlite3.DatabaseError) as exc:
@@ -159,8 +158,7 @@ def build_exports_router(
             return auth
         try:
             return JSONResponse(
-                # External API is untyped and outside this work package.
-                service.authorize_download(auth, str(export_id), now=clock()),  # type: ignore[no-untyped-call]
+                service.authorize_download(auth, str(export_id), now=clock()),
                 headers={"Cache-Control": "no-store"},
             )
         except (ValueError, KeyError, TypeError, OSError, sqlite3.DatabaseError) as exc:

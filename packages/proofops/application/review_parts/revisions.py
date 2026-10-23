@@ -247,7 +247,7 @@ def build_revision(
         receipt = cast(FactAssemblyReceiptV1, inputs.fact_assembly_receipt)
         headers = {
             (r["raw"]["safe_harbor_category"], r["raw"]["superlative_quote"])
-            for r in cast("Callable[[], dict[str, Any]]", receipt.to_dict)()["raw_receipts"]
+            for r in (receipt.to_dict)()["raw_receipts"]
         }
     if len(headers) != 1:
         raise ReviewRejected("CATEGORY_REVIEW_REQUIRED", 409)

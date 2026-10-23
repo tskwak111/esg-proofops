@@ -28,8 +28,7 @@ def enabled_for(options: dict[str, Any]) -> bool:
     if pin is None:
         return False
     try:
-        # External API is untyped and outside this work package.
-        policy: dict[str, Any] = policy_for(options.get("analysis_profile"), pinned_hash=pin)  # type: ignore[no-untyped-call]
+        policy: dict[str, Any] = policy_for(options.get("analysis_profile"), pinned_hash=pin)
     except ValueError:
         return False
     return policy.get("ux1_data_policy_sha256") == UX1_POLICY_SHA256
@@ -85,8 +84,7 @@ def project_data(reads: HostedReads, row: sqlite3.Row, result: dict[str, Any]) -
             manifest = json.loads(raw)
             if manifest["tenant_id"] != row["tenant_id"]:
                 raise ValueError("manifest tenant")
-            # External API is untyped and outside this work package.
-            graph = read_parser_json(directory / "graph.json", manifest=manifest)  # type: ignore[no-untyped-call]
+            graph = read_parser_json(directory / "graph.json", manifest=manifest)
             if (
                 graph["document_version_id"],
                 graph["parse_manifest_id"],

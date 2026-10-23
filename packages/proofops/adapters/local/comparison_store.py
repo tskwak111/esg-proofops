@@ -75,7 +75,7 @@ class LocalComparisonStore:
                 BEGIN SELECT RAISE(ABORT, 'comparison receipt exists'); END""")
 
     @staticmethod
-    def _validate_body(body: dict[str, Any], key: str) -> str:
+    def _validate_body(body: dict[str, Any], key: str | None) -> str:
         if not isinstance(key, str) or not 16 <= len(key) <= 128:
             raise ComparisonRejected("IDEMPOTENCY_KEY_INVALID", 400)
         if not isinstance(body, dict) or set(body) != {"prior_document_version_id"}:
@@ -306,7 +306,7 @@ class LocalComparisonStore:
         return response
 
     def create(
-        self, actor: AuthContext, run_id: str, body: dict[str, Any], key: str
+        self, actor: AuthContext, run_id: str, body: dict[str, Any], key: str | None
     ) -> dict[str, Any]:
         if not self.enabled:
             raise ComparisonRejected("YEAR_COMPARISON_DISABLED")

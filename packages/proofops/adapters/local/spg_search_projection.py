@@ -72,8 +72,7 @@ def begin(
     from proofops.application.spg_publication import enabled
 
     snapshot = claims.store.snapshot(tenant, run_id)
-    # Untyped dependency is outside S_ADB ownership.
-    if not enabled(snapshot.get("analysis_profile_policy", {})):  # type: ignore[no-untyped-call]
+    if not enabled(snapshot.get("analysis_profile_policy", {})):
         return None
     projection = Projection(claims, tenant, run_id, graph, snapshot)
     setattr(claims, "_spg_projection", projection)

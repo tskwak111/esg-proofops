@@ -179,8 +179,7 @@ class OpenAIProbe(OpenRouterProbe):
         from proofops.application.fxh_policy import POLICY as FXH_POLICY
         from proofops.application.fxh_policy import enabled as fxh_enabled
 
-        # Untyped dependency is outside S_ADB ownership.
-        fxh = fxh_enabled(policy)  # type: ignore[no-untyped-call]
+        fxh = fxh_enabled(policy)
         self.max_request_bytes = WIRE_POLICY["max_request_bytes"]
         self.http_retry_policy = None
         self.provider_resilience = None
@@ -528,12 +527,10 @@ class OpenAIProbe(OpenRouterProbe):
             if db.execute("SELECT 1 FROM probe_calls WHERE request_id=?", (request_id,)).fetchone():
                 raise ValueError("DUPLICATE_PROBE_REQUEST")
         self._authorize_response_request()
-        # Untyped dependency is outside S_ADB ownership.
-        cache = ModelResponseCache(  # type: ignore[no-untyped-call]
+        cache = ModelResponseCache(
             self.response_cache_path or self.ledger.parent / "model-responses.sqlite3"
         )
-        # Untyped dependency is outside S_ADB ownership.
-        hit = cache.claim(key, self.ledger, request_id)  # type: ignore[no-untyped-call]
+        hit = cache.claim(key, self.ledger, request_id)
         if hit is not None:
             self._authorize_response_request()  # A single-flight wait may outlive its owner.
             source, source_hash = hit
@@ -571,7 +568,7 @@ class OpenAIProbe(OpenRouterProbe):
                     )
                 except sqlite3.IntegrityError:
                     raise ValueError("DUPLICATE_PROBE_REQUEST") from None
-            return cast("dict[str, Any]", result)
+            return result
         context_token = self._cache_request_context.set(response_request)
         try:
             result = self._complete_uncached(
@@ -583,15 +580,12 @@ class OpenAIProbe(OpenRouterProbe):
                 schema_json=schema_json,
             )
             if result["schema_valid"] is True:
-                # Untyped dependency is outside S_ADB ownership.
-                cache.publish(key, result)  # type: ignore[no-untyped-call]
+                cache.publish(key, result)
             else:
-                # Untyped dependency is outside S_ADB ownership.
-                cache.release_unsent_or_invalid(key, self.ledger, request_id)  # type: ignore[no-untyped-call]
+                cache.release_unsent_or_invalid(key, self.ledger, request_id)
             return result
         except Exception:
-            # Untyped dependency is outside S_ADB ownership.
-            cache.release_unsent_or_invalid(key, self.ledger, request_id)  # type: ignore[no-untyped-call]
+            cache.release_unsent_or_invalid(key, self.ledger, request_id)
             raise
         finally:
             self._cache_request_context.reset(context_token)

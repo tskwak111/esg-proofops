@@ -60,13 +60,11 @@ def _spend_session(run_id: str) -> Iterator[SpendGuard]:
     from proofops.adapters.local.upstage_parse import COST_PER_PAGE, UpstageParseProbe
 
     root = Path(__file__).resolve().parents[4]
-    # Untyped dependency is outside S_ADB ownership.
-    guard = SpendGuard(  # type: ignore[no-untyped-call]
+    guard = SpendGuard(
         Path(os.environ.get("PROOFOPS_SPEND_LEDGER", root / ".local/finals-spend.sqlite3")),
         event_id=os.environ.get("PROOFOPS_SPEND_EVENT", "finals-v1"),
     )
-    # Untyped dependency is outside S_ADB ownership.
-    guard.configure_run(  # type: ignore[no-untyped-call]
+    guard.configure_run(
         run_id,
         day=datetime.now(UTC).date().isoformat(),
         group_id=os.environ.get("PROOFOPS_SPEND_GROUP"),
@@ -84,11 +82,11 @@ def _spend_session(run_id: str) -> Iterator[SpendGuard]:
         return COST_PER_PAGE[kwargs.get("mode", "standard")] * pages
 
     # Preserve the existing scoped method binding and restoration.
-    OpenAIProbe.complete = guard.guarded(  # type: ignore[method-assign, no-untyped-call]
+    OpenAIProbe.complete = guard.guarded(  # type: ignore[method-assign]
         old_complete, run_id=run_id, provider="openai", bound=lambda *a: Decimal(".02"), slots=slots
     )
     # Preserve the existing scoped method binding and restoration.
-    UpstageParseProbe.parse_async = guard.guarded(  # type: ignore[method-assign, no-untyped-call]
+    UpstageParseProbe.parse_async = guard.guarded(  # type: ignore[method-assign]
         old_parse, run_id=run_id, provider="upstage", bound=parse_bound
     )
     try:

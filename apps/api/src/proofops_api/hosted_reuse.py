@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 import json
 import re
 import sqlite3
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID, uuid4, uuid5
@@ -58,13 +59,15 @@ def cache_key(
     by the existing scope reader before this function. Their effective output,
     scope policy and period form the portable selection hash instead.
     """
-    from evaluation.reporting_period import validate_period
+    from evaluation.reporting_period import validate_period as _validate_period
+
+    # Typed boundary for the unchanged evaluation implementation.
+    validate_period: Callable[[object], dict[str, Any]] = _validate_period
 
     if not options or not re.fullmatch(r"[0-9a-f]{64}", options.get("analysis_profile_sha256", "")):
         return None
     try:
-        # External API is untyped and outside this work package.
-        reporting = validate_period(period or options.get("reporting_scope"))  # type: ignore[no-untyped-call]
+        reporting = validate_period(period or options.get("reporting_scope"))
     except ValueError:
         return None
     scope = {

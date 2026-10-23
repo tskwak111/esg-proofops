@@ -20,7 +20,7 @@ from proofops.domain.provenance import canonical_hash
 from proofops.domain.values import SourceRef, _require_sha256
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator
+    from collections.abc import Callable, Iterator, Mapping
     from typing import Any
 
     from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
@@ -79,7 +79,7 @@ def selection_from_snapshot(
     from proofops.application.fxh_policy import POLICY as FXH_POLICY
     from proofops.application.fxh_policy import enabled as fxh_enabled
 
-    if fxh_enabled(snapshot.get("analysis_profile_policy", {})):  # type: ignore[no-untyped-call]  # External untyped helper.
+    if fxh_enabled(snapshot.get("analysis_profile_policy", {})):
         result["fxh_inventory_execution"] = FXH_POLICY
     from proofops.application.tagging.cf1_inventory import enabled as cf1_enabled
 
@@ -326,7 +326,7 @@ def _cues(chunk: dict[str, Any]) -> list[dict[str, Any]]:
 
 def assemble_inventory(
     plan: dict[str, Any],
-    responses: dict[str, dict[str, Any] | None],
+    responses: Mapping[str, dict[str, Any] | str | None],
     *,
     graph: CanonicalDocumentGraph,
     model_sha256: str,
@@ -521,11 +521,11 @@ def build_inventory(
     selection: dict[str, Any],
     *,
     model_sha256: str,
-    invoke: Callable[[dict[str, Any]], dict[str, Any]],
+    invoke: Callable[[dict[str, Any]], dict[str, Any] | str | None],
 ) -> dict[str, Any]:
     """One serial batch per page/chunk, exactly three independent invocations."""
     plan = plan_inventory(graph, selection)
-    responses: dict[str, dict[str, Any] | None] = {}
+    responses: dict[str, dict[str, Any] | str | None] = {}
     for chunk in plan["chunks"]:
         for replica in (1, 2, 3):
             request = inventory_request(chunk, replica, model_sha256)

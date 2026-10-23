@@ -317,7 +317,7 @@ def build_claims_router(
         )
         if limited is not None:
             return limited
-        return cast(ClaimDiscovery, claims.load(auth.tenant_id, run_id))
+        return claims.load(auth.tenant_id, run_id)
 
     def rulepack_approved_by(tenant_id: str, run_id: str) -> str | None:
         # Best-effort, read-only projection of the run's pinned rulepack
@@ -341,8 +341,7 @@ def build_claims_router(
         if tags is None:
             return None
         try:
-            # External API is untyped and outside this work package.
-            envelope = tags.load_snapshot(tenant_id, run_id)  # type: ignore[no-untyped-call]
+            envelope = tags.load_snapshot(tenant_id, run_id)
         except KeyError as exc:
             if exc.args == ("tag_job",):
                 return None
@@ -493,8 +492,7 @@ def build_claims_router(
                 return discovery
             if tags is not None:
                 return JSONResponse(
-                    # External API is untyped and outside this work package.
-                    claims.page(  # type: ignore[no-untyped-call]
+                    claims.page(
                         discovery,
                         str(run_id),
                         cursor=cursor,
@@ -604,8 +602,7 @@ def build_claims_router(
             # Reuse one verified read; only untagged context is best-effort.
             try:
                 review_inputs = (
-                    # External API is untyped and outside this work package.
-                    tags.load_inputs(claim.tenant_id, str(run_id), claim.claim_id)  # type: ignore[no-untyped-call]
+                    tags.load_inputs(claim.tenant_id, str(run_id), claim.claim_id)
                     if tags is not None
                     else None
                 )
@@ -618,8 +615,7 @@ def build_claims_router(
                 try:
                     return cast(
                         AssuranceContext,
-                        # External API is untyped and outside this work package.
-                        claim_context_from_review_inputs(  # type: ignore[no-untyped-call]
+                        claim_context_from_review_inputs(
                             review_inputs,
                             tenant_id=claim.tenant_id,
                             document_version_id=claim.document_version_id,
@@ -645,14 +641,12 @@ def build_claims_router(
                 # ETag, so no tag edits can be conditioned until a tag exists.
                 # Assurance reflects the run's published statement when present;
                 # otherwise the matcher preserves the absence as undetermined.
-                # External API is untyped and outside this work package.
-                summary = claims.summary(claim, None)  # type: ignore[no-untyped-call]
-                body = dict(
+                summary = claims.summary(claim, None)
+                body: dict[str, Any] = dict(
                     claim=summary,
                     source_refs=[asdict(ref) for ref in claim.source_refs],
                     elements=[],
-                    # External API is untyped and outside this work package.
-                    submitted_reviews=claims.submitted_reviews(  # type: ignore[no-untyped-call]
+                    submitted_reviews=claims.submitted_reviews(
                         claim.tenant_id, str(run_id), claim.claim_id
                     ),
                     assurance=match.to_dict(),
@@ -666,8 +660,7 @@ def build_claims_router(
                         claim.tenant_id, str(run_id), claim.claim_id
                     ),
                 )
-                # External API is untyped and outside this work package.
-                body["element_evidence"] = claims.missing_evidence(  # type: ignore[no-untyped-call]
+                body["element_evidence"] = claims.missing_evidence(
                     claim.tenant_id, str(run_id), claim, track=summary["track"], elements=[]
                 )
                 return JSONResponse(
@@ -679,8 +672,7 @@ def build_claims_router(
             assert review_inputs is not None
             inputs = review_inputs
             tag = current["tag"]
-            # External API is untyped and outside this work package.
-            summary = claims.summary(claim, current)  # type: ignore[no-untyped-call]
+            summary = claims.summary(claim, current)
             # Assurance reflects the run's published statement when present;
             # otherwise the matcher preserves the absence as undetermined.
             body = dict(
@@ -706,8 +698,7 @@ def build_claims_router(
                 ]
                 if summary["track"]
                 else tag["elements"],
-                # External API is untyped and outside this work package.
-                submitted_reviews=claims.submitted_reviews(  # type: ignore[no-untyped-call]
+                submitted_reviews=claims.submitted_reviews(
                     claim.tenant_id, str(run_id), claim.claim_id
                 ),
                 reviewed_context=(tag.get("claim_context_review") or {}).get("projection"),
@@ -720,8 +711,7 @@ def build_claims_router(
                 rulepack_approved_by=rulepack_approved_by(claim.tenant_id, str(run_id)),
                 review_projection=review_projection(claim.tenant_id, str(run_id), claim.claim_id),
             )
-            # External API is untyped and outside this work package.
-            body["element_evidence"] = claims.missing_evidence(  # type: ignore[no-untyped-call]
+            body["element_evidence"] = claims.missing_evidence(
                 claim.tenant_id,
                 str(run_id),
                 claim,

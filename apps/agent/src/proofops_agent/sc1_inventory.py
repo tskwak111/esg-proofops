@@ -26,16 +26,13 @@ class SC1InventoryTransport(UpstageTaggingTransport):
     ) -> tuple[str, str, dict[str, Any], Preflight, str]:
         authorization = self._authorize_request(request)
         original = json.loads(request["user_json"])
-        # External package helper is untyped; its annotations are outside this scope.
-        if request != transport_request(original, self._settings):  # type: ignore[no-untyped-call]
+        if request != transport_request(original, self._settings):
             raise ValueError("SC1_TRANSPORT_REQUEST_MISMATCH")
         from proofops.application.tagging.cf1_inventory import enabled as cf1_enabled
         from proofops.application.tagging.cf1_inventory import wire_request
 
-        # External package helper is untyped; its annotations are outside this scope.
-        if cf1_enabled(original["untrusted_document_data"]["selection"]):  # type: ignore[no-untyped-call]
-            # External package helper is untyped; its annotations are outside this scope.
-            system, user, schema = wire_request(original)  # type: ignore[no-untyped-call]
+        if cf1_enabled(original["untrusted_document_data"]["selection"]):
+            system, user, schema = wire_request(original)
             return system, user, {"cf1": True}, authorization, schema
         # Send only the exact text offsets and IDs; full original geometry and
         # provenance stay in the authenticated request receipt, not token overhead.

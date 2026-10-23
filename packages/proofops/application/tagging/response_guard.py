@@ -53,7 +53,7 @@ def guard_response(
         from proofops.application.ingest.k5_context import superlative_errors
 
         errors.extend(
-            superlative_errors(raw_tags.superlative_quote, claim.quote, sentence_interpretation)  # type: ignore[no-untyped-call]  # External untyped helper.
+            superlative_errors(raw_tags.superlative_quote, claim.quote, sentence_interpretation)
         )
     elif raw_tags.superlative_quote and raw_tags.superlative_quote not in claim.quote:
         errors.append("SUPERLATIVE_SOURCE_INVALID")
@@ -134,7 +134,7 @@ def guard_response(
 
             if not g4_complete(element, context, original, policy=implementation_binding):
                 state = "unknown"
-        scope_reason = service.scope_rejection_reason(  # type: ignore[no-untyped-call]  # External untyped helper.
+        scope_reason = service.scope_rejection_reason(
             element.element_id,
             element.evidence_refs,
             rulepack=rulepack,

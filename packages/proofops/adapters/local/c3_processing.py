@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
@@ -54,7 +54,7 @@ def prepare_case(
             )
         return None
 
-    approved = c3.REVIEWED_SOURCE_IDENTITY
+    approved = cast("dict[str, Any]", c3.REVIEWED_SOURCE_IDENTITY)
     if (
         graph.tenant_id != approved["tenant_id"]
         or graph.source_sha256 != approved["original_sha256"]
@@ -175,8 +175,7 @@ def process_case(
     )
     votes = []
     for replica in (1, 2, 3):
-        # Untyped dependency is outside S_ADB ownership.
-        request = current_request(  # type: ignore[no-untyped-call]
+        request = current_request(
             identity, claim.quote, packet.to_dict()["c2_sources"], analysis_policy, replica
         )
         response = transport(request)
@@ -204,8 +203,7 @@ def process_case(
             provider=response["provider"],
             simulated=response["simulated"],
             model_sha256=response["model_binding_sha256"],
-            # Untyped dependency is outside S_ADB ownership.
-            prompt_sha256=request_binding(request)["prompt_sha256"],  # type: ignore[no-untyped-call]
+            prompt_sha256=request_binding(request)["prompt_sha256"],
             raw=json.loads(response["content"]),
         )
         if "saved_response_origin" in response:
@@ -213,15 +211,13 @@ def process_case(
         vote["raw_sha256"] = canonical_hash(vote["raw"])
         vote["vote_sha256"] = canonical_hash(vote)
         votes.append(vote)
-    # Untyped dependency is outside S_ADB ownership.
-    receipt = c3.assemble(  # type: ignore[no-untyped-call]
+    receipt = c3.assemble(
         votes,
         analysis_policy=analysis_policy,
         **{k: case[k] for k in ("context", "graph", "packet", "rulepack")},
     )
     result = dict(receipt=receipt.to_dict(), published=False)
-    # Untyped dependency is outside S_ADB ownership.
-    if response_binding_policy(analysis_policy) == CF2_POLICY:  # type: ignore[no-untyped-call]
+    if response_binding_policy(analysis_policy) == CF2_POLICY:
         # A diagnostic receipt is not a published revision. Save both accepted
         # and rejected assemblies before either the review return or DB writes.
         output = Path(output)

@@ -120,7 +120,7 @@ def build_comparisons_router(
                 auth,
                 str(run_id),
                 body,
-                request.headers.get("Idempotency-Key"),  # type: ignore[arg-type]  # Adapter rejects missing headers at runtime.
+                request.headers.get("Idempotency-Key"),
             )
             return JSONResponse(result, status_code=202, headers={"Cache-Control": "no-store"})
         except (

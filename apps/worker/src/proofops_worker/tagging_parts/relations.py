@@ -72,7 +72,7 @@ def build_relation_packet(
         from proofops.application.tagging.pb2_table_evidence import structural_relation_ids
 
         local.update(
-            structural_relation_ids(data, claim, self.graph, tenant_id=self.auth.tenant_id)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+            structural_relation_ids(data, claim, self.graph, tenant_id=self.auth.tenant_id)
         )
     blocks = {block.source_id: block for block in self.graph.blocks}
     selected = {}
@@ -107,7 +107,7 @@ def build_relation_packet(
                     relation_source_rejection,
                 )
 
-                reason = relation_source_rejection(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+                reason = relation_source_rejection(
                     claim,
                     source,
                     self.graph,
@@ -197,7 +197,7 @@ def validate_relation_response(
         )
 
         roles = {
-            sid: filter_evidence_dimensions(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+            sid: filter_evidence_dimensions(
                 claim,
                 selected[sid],
                 values,

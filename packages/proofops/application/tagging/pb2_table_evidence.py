@@ -73,7 +73,7 @@ def observation_sources(
     obs = next(
         (
             o
-            for o in read_observations(table, graph)  # type: ignore[no-untyped-call]  # External untyped helper.
+            for o in read_observations(table, graph)
             if o["start"] == ref.char_start and o["end"] == ref.char_end
         ),
         None,

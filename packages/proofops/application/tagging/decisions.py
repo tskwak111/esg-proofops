@@ -22,7 +22,7 @@ from proofops.application.tagging.preliminary import (
     TABLE_SYSTEM_SUFFIX,
 )
 from proofops.domain.provenance import canonical_hash
-from proofops.domain.values import _require_uuid
+from proofops.domain.values import SourceRef, _require_uuid
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -250,7 +250,7 @@ def resolve_preliminary(
 
 
 def preliminary_dimensions(
-    fields: dict[str, Any], replica_dimensions: Sequence[dict[str, Any]]
+    fields: dict[str, Any], replica_dimensions: Sequence[Mapping[str, SourceRef | None]]
 ) -> dict[str, Any]:
     """Preserve Luna's optional-axis applicability keys, including explicit nulls.
 

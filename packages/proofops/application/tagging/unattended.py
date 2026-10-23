@@ -332,7 +332,7 @@ def provisional_result(
                 tenant_id=data["tenant_id"],
                 source_refs=tuple(SourceRef(**r) for r in data["claim_source_refs"]),
             )
-            if goal_requires_retag(claim_view, original):  # type: ignore[no-untyped-call]  # External untyped helper.
+            if goal_requires_retag(claim_view, original):
                 result.update(
                     evidence_grade=None,
                     label=None,

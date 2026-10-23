@@ -47,6 +47,7 @@ def _yaml(path: Path) -> object:
 def _inventory(root: Path) -> set[tuple[str, str, str]]:
     """Read exact (ecosystem, name, version) identities from both lockfiles."""
     inventory: set[tuple[str, str, str]] = set()
+    data: object
     for name in ("uv.lock", "pnpm-lock.yaml"):
         path = root / name
         if not path.is_file():
@@ -68,7 +69,7 @@ def _inventory(root: Path) -> set[tuple[str, str, str]]:
                         raise ValueError
                     inventory.add(("pypi", re.sub(r"[-_.]+", "-", package_name.lower()), version))
             else:
-                data = _yaml(path)  # type: ignore[assignment]
+                data = _yaml(path)
                 if not isinstance(data, dict) or str(data.get("lockfileVersion")) != "9.0":
                     raise ValueError
                 if not isinstance(data.get("importers"), dict):

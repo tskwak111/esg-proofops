@@ -297,6 +297,7 @@ class WindowsJobIsolation:
                 creationflags=_CREATE_SUSPENDED | _CREATE_NO_WINDOW | _CREATE_NEW_PROCESS_GROUP,
             )
         try:
+            # CPython exposes this native handle on Windows; POSIX typing omits it.
             handle = int(process._handle)  # type: ignore[attr-defined]
             if not self._kernel.AssignProcessToJobObject(self._job, handle):
                 raise IsolationUnavailable("assign_to_job_failed")

@@ -166,9 +166,9 @@ class LocalTagRunner:
         self.claim_progress = claim_progress
         self.claim_stage_progress = claim_stage_progress
         self.sc1_inventory_provider = sc1_inventory_provider
-        self.claims = LocalClaimStore(store, uploads, parser)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+        self.claims = LocalClaimStore(store, uploads, parser)
         self.live_factory = live_factory
-        self.tags = LocalTagStore(store, uploads, parser)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+        self.tags = LocalTagStore(store, uploads, parser)
         self.cache = ImmutableResponseCache(SQLiteImmutableCacheClient(store.path))
         self.reviews = ReviewService(
             LocalSQLiteReviewStore(store.jobs), load_inputs=self.tags.load_inputs
@@ -208,12 +208,12 @@ class LocalTagRunner:
             # lost in-flight. The fenced usage wrapper below stops BEFORE reservation.
             if heartbeat_state is not None:
                 heartbeat_state.check()
-            if not _parse_enabled() and not self.store.jobs.can_call(lease, now=int(self.clock())):  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+            if not _parse_enabled() and not self.store.jobs.can_call(lease, now=int(self.clock())):
                 raise _TagFenceLost()
             try:
                 point_heartbeat(self.store.jobs, lease, self.clock, state=heartbeat_state)
             except LeaseLost as error:
-                if _parse_enabled():  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+                if _parse_enabled():
                     raise _TagFenceLost() from None
                 if heartbeat_state is not None:
                     heartbeat_state.fail(error)
@@ -239,14 +239,14 @@ class LocalTagRunner:
             ) -> bool:
                 if heartbeat_state is not None:
                     heartbeat_state.check()
-                if not _parse_enabled() and not runner.store.jobs.can_call(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+                if not _parse_enabled() and not runner.store.jobs.can_call(
                     lease, now=int(runner.clock())
                 ):
                     raise LeaseLost("LEASE_LOST")
                 try:
                     point_heartbeat(runner.store.jobs, lease, runner.clock, state=heartbeat_state)
                 except LeaseLost as error:
-                    if _parse_enabled():  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+                    if _parse_enabled():
                         raise
                     if heartbeat_state is not None:
                         heartbeat_state.fail(error)
@@ -298,23 +298,23 @@ class LocalTagRunner:
         evidence: tuple[dict[str, Any], ClaimDiscovery, CanonicalDocumentGraph] | None = None,
         accounting_flushers: list[Callable[[], None]] | None = None,
     ) -> bytes:
-        rb1 = InputIsolation(snapshot.get("analysis_profile_policy", {}))  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+        rb1 = InputIsolation(snapshot.get("analysis_profile_policy", {}))
         message = lease.message
         tenant, run_id = message.tenant_id, message.run_id
-        extraction, discovery, graph = evidence or self.claims.load_evidence(tenant, run_id)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+        extraction, discovery, graph = evidence or self.claims.load_evidence(tenant, run_id)
         run = self.store.jobs.get_run(tenant, run_id)
         if (message.input_hash, message.document_version_id) != (
             snapshot["input_hash"],
             graph.document_version_id,
         ):
             raise ValueError("TAG_INPUT_MISMATCH")
-        if rb4_memory_enabled(snapshot):  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+        if rb4_memory_enabled(snapshot):
             checkpoint_hash = (
                 run["claim_snapshot_sha256"]
                 if "claim_snapshot_sha256" in run
                 else canonical_hash(extraction)
             )
-            envelope = tag_pins(snapshot, extraction, checkpoint_hash)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+            envelope = tag_pins(snapshot, extraction, checkpoint_hash)
             # load_evidence has fully replayed the source proof. The tag stage
             # uses its verified graph and these metadata/coverage fields; it
             # never needs to retain the decoded proof tree as well.
@@ -322,30 +322,30 @@ class LocalTagRunner:
                 key: value for key, value in extraction.items() if key != "claim_source_attestation"
             }
         else:
-            envelope = tag_pins(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+            envelope = tag_pins(
                 snapshot, extraction, run.get("claim_snapshot_sha256", canonical_hash(extraction))
             )
         rulepack = RulePackSnapshot(**snapshot["rulepack"])
-        settings = tagging_settings(snapshot) if snapshot.get("tagging_settings") else None  # type: ignore[no-untyped-call]  # External API is not annotated yet.
-        facility_dimensions = {}
+        settings = tagging_settings(snapshot) if snapshot.get("tagging_settings") else None
+        facility_dimensions: dict[str, Any] = {}
         facility_candidates = snapshot.get("analysis_profile_policy", {}).get(
             "facility_tagging_candidates"
         )
         if facility_candidates is not None:
             from proofops.adapters.local.k6_facilities import facility_graph
 
-            graph, facility_dimensions = facility_graph(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+            graph, facility_dimensions = facility_graph(
                 graph,
                 self.uploads.read_original(tenant, graph.document_version_id),
                 discovery.claims,
                 tenant_id=tenant,
                 policy=snapshot["analysis_profile_policy"],
             )
-        scope_records = {}
+        scope_records: dict[str, Any] = {}
         if snapshot.get("analysis_profile_policy", {}).get("local_implementation_binding_policy"):
             from proofops.adapters.local.k9_scope_sources import scope_graph
 
-            graph, scope_records = scope_graph(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+            graph, scope_records = scope_graph(
                 graph,
                 self.uploads.read_original(tenant, graph.document_version_id),
                 discovery.claims,
@@ -363,7 +363,7 @@ class LocalTagRunner:
             from proofops.application.tagging.element_inventory import selection_from_snapshot
 
             required = sc1_policy.get("agreement", {}).get("required_present_votes")
-            if sc1_policy != confirmation_policy(required):  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+            if sc1_policy != confirmation_policy(required):
                 raise ValueError("SC1_POLICY_MISMATCH")
         semantic_policy = snapshot.get("analysis_profile_policy", {}).get("semantic_admission")
         if semantic_policy is not None:
@@ -445,17 +445,17 @@ class LocalTagRunner:
             and recovery is None
             and reprocess is None
         )
-        scheduled_claims = discovery.claims
+        scheduled_claims: tuple[Claim, ...] | list[Claim] = discovery.claims
         from proofops.application.tagging.spt_pipeline import configured as spt_configured
 
-        spt_pipeline = spt_configured(snapshot.get("analysis_profile_policy", {}))  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+        spt_pipeline = spt_configured(snapshot.get("analysis_profile_policy", {}))
         s2_budget = snapshot.get("analysis_profile_policy", {}).get("tagging_budget")
         if s2_budget is not None:
             from proofops.application.tagging.s2_budget import POLICY, call_allowance, priority
 
             if s2_budget != POLICY:
                 raise ValueError("S2_TAGGING_BUDGET_POLICY_MISMATCH")
-            allowance = call_allowance(len(discovery.claims))  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+            allowance = call_allowance(len(discovery.claims))
             envelope["tagging_budget_plan"] = dict(
                 policy=s2_budget, claim_count=len(discovery.claims), call_allowance=allowance
             )
@@ -471,7 +471,7 @@ class LocalTagRunner:
         if sc1_policy is not None:
             if evidence is not None:
                 raise ValueError("SC1_FINAL_GRAPH_REQUIRED")
-            selection = selection_from_snapshot(snapshot, graph, run_id)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+            selection = selection_from_snapshot(snapshot, graph, run_id)
             inventory = None
             if self.sc1_inventory_provider is not None:
                 inventory = self.sc1_inventory_provider(graph, selection)
@@ -487,7 +487,7 @@ class LocalTagRunner:
                 except InventoryBudgetExceeded:
                     envelope["sc1_inventory_hold_reason"] = "SC1_INVENTORY_BUDGET_EXHAUSTED"
             if inventory is not None:
-                sc1_index = InventoryIndex(inventory, graph)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+                sc1_index = InventoryIndex(inventory, graph)
                 if sc1_index.inventory["selection"] != selection:
                     raise ValueError("SC1_INVENTORY_SELECTION_MISMATCH")
                 envelope["sc1_inventory"] = sc1_index.inventory
@@ -520,15 +520,15 @@ class LocalTagRunner:
             from proofops.application.rb3_deadline import admit
             from proofops.application.rb3_deadline import held_claim as deadline_held_claim
 
-            if not admit(self, snapshot, "tag"):  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+            if not admit(self, snapshot, "tag"):
                 if heartbeat_state is not None:
                     heartbeat_state.check()
                 if not self.store.jobs.can_call(lease, now=int(self.clock())):
                     raise LeaseLost("LEASE_LOST")
-                return cast(dict[str, Any], deadline_held_claim(claim))  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+                return deadline_held_claim(claim)
             if claim.claim_id in pipelined:
                 record = dict(pipelined[claim.claim_id])
-                record["source_status"] = source_status(claim)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+                record["source_status"] = source_status(claim)
                 return record
             if not unattended:
                 return process_claim(claim_context, claim)
@@ -538,11 +538,11 @@ class LocalTagRunner:
                 stage="preliminary",
                 reason="BUDGET_EXHAUSTED",
                 reason_display="예산 상한으로 미분석",
-                source_status=source_status(claim),  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+                source_status=source_status(claim),
                 tag_runs=[],
                 decision=None,
                 review_inputs=None,
-                provisional_grade=empty_provisional("BUDGET_EXHAUSTED"),  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+                provisional_grade=empty_provisional("BUDGET_EXHAUSTED"),
             )
             if budget_stopped:
                 if snapshot.get("pipeline_profile") in (
@@ -554,7 +554,7 @@ class LocalTagRunner:
                 ):
                     from proofops.application.tagging.unattended import ensure_range
 
-                    item["provisional_grade"] = ensure_range(item["provisional_grade"], rulepack)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+                    item["provisional_grade"] = ensure_range(item["provisional_grade"], rulepack)
                     if snapshot.get("pipeline_profile") in (
                         "finals-unattended-v2",
                         "finals-unattended-j3-v1",
@@ -563,7 +563,7 @@ class LocalTagRunner:
                     ):
                         from proofops.application.tagging.quality import hold_projection
 
-                        item["provisional_grade"] = hold_projection(item, profile=hold_profile)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+                        item["provisional_grade"] = hold_projection(item, profile=hold_profile)
                 return item
             try:
                 result = process_claim(claim_context, claim)
@@ -575,8 +575,8 @@ class LocalTagRunner:
             except Exception as error:
                 from proofops.application.budget import BudgetExceeded
 
-                if rb1.active and tag_input_code(error):  # type: ignore[no-untyped-call]  # External API is not annotated yet.
-                    return cast(dict[str, Any], held_claim(claim, error))  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+                if rb1.active and tag_input_code(error):
+                    return held_claim(claim, error)
                 result = progress.get(claim.claim_id, item)
                 budget_error = isinstance(error, BudgetExceeded) or str(error) in {
                     "BUDGET_EXHAUSTED",
@@ -584,7 +584,7 @@ class LocalTagRunner:
                     "R108_FINALS_CUMULATIVE_BUDGET_EXHAUSTED",
                 }
                 if isinstance(error, sqlite3.OperationalError):
-                    result["sqlite_error"] = error_summary(error)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+                    result["sqlite_error"] = error_summary(error)
                 result.update(
                     status="budget_unanalyzed" if budget_error else "failed",
                     reason="BUDGET_EXHAUSTED"
@@ -603,7 +603,7 @@ class LocalTagRunner:
                     reason="PROCESSING_UNCERTAIN",
                     reason_display="처리 불확실 — 해당 주장 보류",
                     decision=None,
-                    provisional_grade=empty_provisional("PROCESSING_UNCERTAIN"),  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+                    provisional_grade=empty_provisional("PROCESSING_UNCERTAIN"),
                 )
             if "BUDGET_EXHAUSTED" in encoded:
                 budget_stopped = True
@@ -613,8 +613,8 @@ class LocalTagRunner:
                     reason_display="예산 상한으로 미분석",
                 )
             if not result.get("tag_runs"):
-                result["provisional_grade"] = empty_provisional(result.get("reason"))  # type: ignore[no-untyped-call]  # External API is not annotated yet.
-            result.setdefault("provisional_grade", empty_provisional(result.get("reason")))  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+                result["provisional_grade"] = empty_provisional(result.get("reason"))
+            result.setdefault("provisional_grade", empty_provisional(result.get("reason")))
             if snapshot.get("pipeline_profile") in (
                 "finals-unattended-v1",
                 "finals-unattended-v2",
@@ -624,7 +624,7 @@ class LocalTagRunner:
             ):
                 from proofops.application.tagging.unattended import ensure_range
 
-                result["provisional_grade"] = ensure_range(result["provisional_grade"], rulepack)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+                result["provisional_grade"] = ensure_range(result["provisional_grade"], rulepack)
                 if snapshot.get("pipeline_profile") in (
                     "finals-unattended-v2",
                     "finals-unattended-j3-v1",
@@ -633,7 +633,7 @@ class LocalTagRunner:
                 ):
                     from proofops.application.tagging.quality import hold_projection
 
-                    result["provisional_grade"] = hold_projection(result, profile=hold_profile)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+                    result["provisional_grade"] = hold_projection(result, profile=hold_profile)
             return result
 
         if not facility_candidates and snapshot.get("analysis_profile_policy", {}).get(
@@ -648,7 +648,7 @@ class LocalTagRunner:
             ):
                 raise ValueError("K4_FACILITY_POLICY_MISMATCH")
 
-            facility_dimensions = restore_facilities(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+            facility_dimensions = restore_facilities(
                 graph,
                 self.uploads.read_original(tenant, graph.document_version_id),
                 discovery.claims,
@@ -697,9 +697,9 @@ class LocalTagRunner:
             try:
                 record = project_claim(claim_context, claim, isolated_claim(claim))
             except (ValueError, KeyError, TypeError) as error:
-                if not rb1.active or not tag_input_code(error):  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+                if not rb1.active or not tag_input_code(error):
                     raise
-                record = held_claim(claim, error)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+                record = held_claim(claim, error)
             callback = getattr(self, "claim_progress", None)
             if callback is not None:
                 callback(claim.claim_id, len(discovery.claims))
@@ -768,7 +768,7 @@ class LocalTagRunner:
         return canonical_json(envelope).encode()
 
     def run_once(self, *, tenant_id: str, run_id: str) -> str:
-        snapshot = self.store.snapshot(tenant_id, run_id)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+        snapshot = self.store.snapshot(tenant_id, run_id)
         jobs = self.store.jobs
         run = jobs.get_run(tenant_id, run_id)
         if run["cancellation_requested"]:
@@ -961,5 +961,5 @@ class LocalTagRunner:
                 return "discarded"
             return cast(str, json.loads(payload)["stage_status"])
         if "tag_job" in run:
-            return cast(str, self.tags.load_snapshot(tenant_id, run_id)["stage_status"])  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+            return cast(str, self.tags.load_snapshot(tenant_id, run_id)["stage_status"])
         return "idle"

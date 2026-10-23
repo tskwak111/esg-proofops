@@ -220,8 +220,8 @@ def build_classification_router(
                 str(run_id),
                 str(claim_id),
                 body,
-                request.headers.get("If-Match"),  # type: ignore[arg-type]  # Adapter rejects missing headers at runtime.
-                request.headers.get("Idempotency-Key"),  # type: ignore[arg-type]  # Adapter rejects missing headers at runtime.
+                request.headers.get("If-Match"),
+                request.headers.get("Idempotency-Key"),
                 origin=HUMAN_ORIGIN,
                 classified_by=auth.user_sub,
                 delegation_authority=None,

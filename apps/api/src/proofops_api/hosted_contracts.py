@@ -6,7 +6,7 @@ import hashlib
 import os
 import shutil
 import sqlite3
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from datetime import datetime
@@ -19,6 +19,30 @@ from zoneinfo import ZoneInfo
 
 from proofops.application.authorization import AuthContext, MembershipPort, SessionPort
 from proofops.domain.documents import PageGeometry
+
+
+class ScopeSelectionValidator(Protocol):
+    def __call__(
+        self,
+        plan: dict[str, Any],
+        source_sha256: str,
+        page_count: int,
+        *,
+        manual_override: bool = False,
+        manual_selection: bool = False,
+    ) -> dict[str, Any]: ...
+
+
+class DiscoveryReaderFactory(Protocol):
+    def __call__(
+        self,
+        pdf: Path,
+        *,
+        tenant_id: str,
+        cache_dir: Path,
+        source_sha256: str | None = None,
+    ) -> Callable[[int], dict[str, Any]]: ...
+
 
 MICRO = Decimal(1_000_000)
 RUN_LEASE_SECONDS = 1900

@@ -514,14 +514,14 @@ class Registry:
                 return
             begun = False
             try:
-                cast(_RetryBusy, retry_busy)(
+                (retry_busy)(
                     lambda: cast(sqlite3.Connection, self._database).execute("BEGIN IMMEDIATE")
                 )
                 begun = True
                 self._load()
                 yield
                 self._persist()
-                cast(_RetryBusy, retry_busy)(self._database.commit)
+                (retry_busy)(self._database.commit)
             except BaseException:
                 if begun:
                     self._database.execute("ROLLBACK")
@@ -538,7 +538,7 @@ class Registry:
 
     def _load(self) -> None:
         assert self._database is not None
-        row = cast(_RetryBusy, retry_busy)(
+        row = (retry_busy)(
             lambda: cast(sqlite3.Connection, self._database)
             .execute("SELECT value FROM registry_state WHERE key = 'state'")
             .fetchone()
@@ -672,6 +672,7 @@ class Registry:
 
 
 def create_company(registry: Registry, **kwargs: object) -> tuple[Registry, Company]:
+    # Compatibility facade forwards keyword arguments; create_company validates them.
     return registry, registry.create_company(**kwargs)  # type: ignore[arg-type]
 
 

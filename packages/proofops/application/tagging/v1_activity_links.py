@@ -188,7 +188,7 @@ def _candidate(
         for name, value in roles.items()
     ):
         return None
-    if scope_rejection_reason(eid, (evidence,), rulepack=rulepack, original=graph):  # type: ignore[no-untyped-call]  # External untyped helper.
+    if scope_rejection_reason(eid, (evidence,), rulepack=rulepack, original=graph):
         return None
     # Context qualifiers are never silently discarded, including unresolved axes.
     for axis, value in context.dimensions.items():

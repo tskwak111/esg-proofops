@@ -173,8 +173,7 @@ def attach_submission(
                 ),
                 expected_head=read_audit_head(db, tenant_id, run_id),
                 event_id=str(uuid4()),
-                # Untyped dependency is outside S_ADB ownership.
-                timestamp=timestamp(time.time()),  # type: ignore[no-untyped-call]
+                timestamp=timestamp(time.time()),
             )
     return [r | {"reference_sha256": canonical_hash(r)} for r in references]
 

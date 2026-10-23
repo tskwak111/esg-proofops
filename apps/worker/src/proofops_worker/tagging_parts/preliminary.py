@@ -58,7 +58,7 @@ def build_preliminary_packet(
     )
     from proofops.application.tagging import cf5_context
 
-    cf5 = cf5_context.enabled(self.snapshot.get("analysis_profile_policy", {}))  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+    cf5 = cf5_context.enabled(self.snapshot.get("analysis_profile_policy", {}))
     if cf5 and self.preliminary_settings.system_prompt != cf5_context.PRELIMINARY:
         raise ValueError("CF5_CONTEXT_PROMPT_MISMATCH")
     profile = self.preliminary_settings.model_profile
@@ -160,8 +160,8 @@ def build_preliminary_packet(
             preliminary_context,
         )
 
-        complete = configured_context(claim, graph, self.snapshot["analysis_profile_policy"])  # type: ignore[no-untyped-call]  # External API is not annotated yet.
-        packet = preliminary_context(packet, complete)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+        complete = configured_context(claim, graph, self.snapshot["analysis_profile_policy"])
+        packet = preliminary_context(packet, complete)
     response_policy = self.snapshot.get("analysis_profile_policy", {}).get(
         "preliminary_response_policy"
     )
@@ -173,7 +173,7 @@ def build_preliminary_packet(
         packet["preliminary_response_policy"] = response_policy
     context_receipt: dict[str, Any] = {}
     if cf5:
-        packet = cf5_context.preserve_context(packet, claim, graph, receipt=context_receipt)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+        packet = cf5_context.preserve_context(packet, claim, graph, receipt=context_receipt)
     packet = self.preliminary_transport.bound_context(packet)
     if not cf5 and self.snapshot.get("analysis_profile_policy", {}).get("sentence_context_policy"):
         from copy import deepcopy
@@ -181,7 +181,7 @@ def build_preliminary_packet(
         from proofops.application.ingest.k5_context import POLICY as K5_POLICY
 
         if complete and complete["policy"] == K5_POLICY:
-            expected = preliminary_context(deepcopy(packet), complete)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+            expected = preliminary_context(deepcopy(packet), complete)
             if (
                 packet["untrusted_document_data"]["context_blocks"]
                 != expected["untrusted_document_data"]["context_blocks"]
@@ -215,7 +215,7 @@ def build_preliminary_packet(
         if recovery is not None:
             from proofops.application.tagging.k2_recovery import validate_policy
 
-            validate_policy(recovery)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+            validate_policy(recovery)
             if self.snapshot["analysis_profile_policy"].get(
                 "hold_recovery_policy_sha256"
             ) != canonical_hash(recovery):
@@ -255,17 +255,17 @@ def validate_preliminary_response(
     display_catalog = plan.display_catalog
     restoration = {}
     if display_catalog is not None:
-        raw = display_catalog.restore_preliminary(raw, packet)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+        raw = display_catalog.restore_preliminary(raw, packet)
         restoration = raw.pop("dimension_restore_errors", {})
     auxiliary = None
     from proofops.application.tagging.pb2_preliminary import enabled as pb2_enabled
 
-    if pb2_enabled(claim, graph, self.snapshot.get("analysis_profile_policy", {})):  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+    if pb2_enabled(claim, graph, self.snapshot.get("analysis_profile_policy", {})):
         from proofops.application.tagging.pb2_preliminary import (
             validate_preliminary as validate_pb2,
         )
 
-        result, auxiliary = validate_pb2(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+        result, auxiliary = validate_pb2(
             claim, graph, raw, tenant_id=self.auth.tenant_id, allow_unverified=unattended
         )
     # The table profile recomputes its own quotable source tuple from
@@ -311,16 +311,16 @@ def validate_preliminary_response(
         from proofops.application.tagging.v3_dec92 import validate_classification
         from proofops.application.tagging.v3_dec92 import validate_policy as validate_v3
 
-        validate_v3(v3_policy)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+        validate_v3(v3_policy)
         if self.snapshot["analysis_profile_policy"].get("v3_dec92_policy_sha256") != canonical_hash(
             v3_policy
         ):
             raise ValueError("V3_DEC92_POLICY_PIN_MISMATCH")
-        result = validate_classification(result, claim, graph)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+        result = validate_classification(result, claim, graph)
     if v3_policy is None and semantic in (Q1_POLICY, K10_POLICY, K10_V2_POLICY):
         from proofops.application.tagging.q1_contract import forecast_quote
 
-        if forecast_quote(claim.quote) and result.safe_harbor_category != "forward_looking":  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+        if forecast_quote(claim.quote) and result.safe_harbor_category != "forward_looking":
             raise ValueError("Q1_FORWARD_LOOKING_CATEGORY_REVIEW")
     risk_policy = self.snapshot.get("analysis_profile_policy", {}).get("risk_classification_policy")
     if risk_policy is not None:
@@ -333,7 +333,7 @@ def validate_preliminary_response(
             "risk_classification_policy_sha256"
         ) != canonical_hash(RISK_POLICY):
             raise ValueError("K6_RISK_POLICY_MISMATCH")
-        if result.track and result.track.track == "goal" and risk_without_commitment(claim.quote):  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+        if result.track and result.track.track == "goal" and risk_without_commitment(claim.quote):
             raise ValueError("K6_RISK_WITHOUT_COMPANY_COMMITMENT")
     if (
         semantic in (SEMANTIC_POLICY, Q1_POLICY, K10_POLICY, K10_V2_POLICY)
@@ -342,7 +342,7 @@ def validate_preliminary_response(
     ):
         from proofops.application.ingest.j7_split import goal_requires_retag
 
-        if goal_requires_retag(claim, graph):  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+        if goal_requires_retag(claim, graph):
             raise ValueError("K4_CONNECTIVE_GOAL_RETAG_REQUIRED")
     if (
         semantic in (SEMANTIC_POLICY, Q1_POLICY, K10_POLICY, K10_V2_POLICY)
@@ -354,7 +354,7 @@ def validate_preliminary_response(
             claim_source_refs=[asdict(r) for r in claim.source_refs],
             safe_harbor_category=result.safe_harbor_category,
         )
-        if not estimate_evidence(sources, graph):  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+        if not estimate_evidence(sources, graph):
             result = replace(
                 result,
                 safe_harbor_category=None,
@@ -371,11 +371,11 @@ def validate_preliminary_response(
         pb1
         and v3_policy is None
         and result.safe_harbor_category == "forward_looking"
-        and not (semantic in (Q1_POLICY, K10_POLICY, K10_V2_POLICY) and forecast_quote(claim.quote))  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+        and not (semantic in (Q1_POLICY, K10_POLICY, K10_V2_POLICY) and forecast_quote(claim.quote))
     ):
         from proofops.application.tagging.pb1_classification import forward_candidate
 
-        category, reason = forward_candidate(claim.quote)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+        category, reason = forward_candidate(claim.quote)
         if reason == "forecast_context_requires_review":
             raise ValueError("PB1_FORECAST_CONTEXT_REQUIRES_REVIEW")
         result = replace(result, safe_harbor_category=category)

@@ -430,10 +430,8 @@ class UpstageClaimExtractor:
 
         data = packet["untrusted_document_data"]
         block = next(b for b in context_graph.blocks if b.source_id == data["source_id"])
-        # External package helper is untyped; its annotations are outside this scope.
-        candidates = candidates_for(block, context_graph)  # type: ignore[no-untyped-call]
-        # External package helper is untyped; its annotations are outside this scope.
-        spans, coverage = reconcile(data["text"], candidates, result["spans"])  # type: ignore[no-untyped-call]
+        candidates = candidates_for(block, context_graph)
+        spans, coverage = reconcile(data["text"], candidates, result["spans"])
         try:
             self._validate_spans({"spans": spans}, data["text"])
         except ValueError:
@@ -530,17 +528,14 @@ class UpstageClaimExtractor:
                 if self._k6:
                     from proofops.application.ingest.k6_coverage import observations_for
 
-                # External package helper is untyped; its annotations are outside this scope.
-                raw_rows = observations_for(block, context_graph)  # type: ignore[no-untyped-call]
+                raw_rows = observations_for(block, context_graph)
             else:
-                # External package helper is untyped; its annotations are outside this scope.
-                raw_rows = observations(text, context=context)  # type: ignore[no-untyped-call]
+                raw_rows = observations(text, context=context)
             rows = raw_rows
             if self._table_footnotes:
                 from proofops.application.tagging.dec24 import table_footnote
 
-                # External package helper is untyped; its annotations are outside this scope.
-                rows = [r for r in raw_rows if not table_footnote(r["quote"], kind="table")]  # type: ignore[no-untyped-call]
+                rows = [r for r in raw_rows if not table_footnote(r["quote"], kind="table")]
             result: dict[str, Any] = {
                 "spans": [
                     dict(
@@ -672,8 +667,7 @@ class UpstageClaimExtractor:
         ):
             from proofops.application.ingest.fxg_wire import before_dispatch
 
-            # External package helper is untyped; its annotations are outside this scope.
-            before_dispatch()  # type: ignore[no-untyped-call]
+            before_dispatch()
         try:
             directory.mkdir(mode=0o700)
         except FileExistsError:
@@ -1223,8 +1217,7 @@ class GraphBoundExtractor:
                 try:
                     context, _ = self._inner._context_for(packet, self._graph)
                 except ValueError as error:
-                    # External package helper is untyped; its annotations are outside this scope.
-                    if self._rb1 is None or not self._rb1.capture(sid, error):  # type: ignore[no-untyped-call]
+                    if self._rb1 is None or not self._rb1.capture(sid, error):
                         raise
                     continue
                 selected.update(b["source_id"] for b in context)
@@ -1253,8 +1246,7 @@ class GraphBoundExtractor:
             if sid in self._rb1.failures:
                 self._inner._packet_text(packet)
                 self._inner._validate_context_graph(packet, self._graph)
-                # External package helper is untyped; its annotations are outside this scope.
-                self._rb1.check(sid)  # type: ignore[no-untyped-call]
+                self._rb1.check(sid)
         if getattr(self._inner, "_display_text_profile", None) and self._display_catalog is None:
             raise ExtractionOutputError("DISPLAY_SOURCE_UNAVAILABLE")
         try:
@@ -1279,12 +1271,10 @@ class GraphBoundExtractor:
                 ),
             )
         except ValueError as error:
-            # External package helper is untyped; its annotations are outside this scope.
-            if self._rb1 is not None and self._rb1.capture(  # type: ignore[no-untyped-call]
+            if self._rb1 is not None and self._rb1.capture(
                 packet["untrusted_document_data"]["source_id"], error
             ):
-                # External package helper is untyped; its annotations are outside this scope.
-                self._rb1.check(packet["untrusted_document_data"]["source_id"])  # type: ignore[no-untyped-call]
+                self._rb1.check(packet["untrusted_document_data"]["source_id"])
             if (
                 getattr(self._inner, "_i5_tables", False)
                 and getattr(self._inner, "_j8", False)

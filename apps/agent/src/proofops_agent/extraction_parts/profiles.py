@@ -274,8 +274,7 @@ def join_selected_linewraps(
     if fragment_guard == "pb1-v1":
         from proofops.application.ingest.pb1_fragments import incomplete_fragment
 
-        # External package helper is untyped; its annotations are outside this scope.
-        joined = [span for span in joined if not incomplete_fragment(span["quote"])]  # type: ignore[no-untyped-call]
+        joined = [span for span in joined if not incomplete_fragment(span["quote"])]
     return joined
 
 

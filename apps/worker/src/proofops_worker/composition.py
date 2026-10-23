@@ -134,7 +134,7 @@ def build_composition(
             else UpstageParseProbe(os.environ.get("UPSTAGE_API_KEY", ""), note_ledger)
         )
     runner = LocalParserRunner(
-        LocalSQLiteRunStore(database),  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+        LocalSQLiteRunStore(database),
         uploads,
         OpenDataLoaderParser(database.parent / "parser-prepared", upstage_probe=upstage_probe),
         profile=profile,

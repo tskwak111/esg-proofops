@@ -133,21 +133,18 @@ def build_composition() -> ApiComposition:
         for region in os.environ.get("MODEL_ALLOWED_PROCESSING_REGIONS", "").split(",")
         if region.strip()
     )
+    run_store = LocalSQLiteRunStore(database_path, rulepacks=rulepack_store)
     runs = RunService(
-        # External API is untyped and outside this work package.
-        LocalSQLiteRunStore(database_path, rulepacks=rulepack_store),  # type: ignore[no-untyped-call]
+        run_store,
         uploads,
         registry,
         allowed_regions=allowed_regions,
         **load_local_runtime(os.environ),
     )
     parser = OpenDataLoaderParser(database_path.parent / "parser-prepared")
-    # External API is untyped and outside this work package.
-    tags = LocalTagStore(runs.store, uploads, parser)  # type: ignore[no-untyped-call]
-    # External API is untyped and outside this work package.
-    claims = LocalClaimStore(runs.store, uploads, parser)  # type: ignore[no-untyped-call]
-    # External API is untyped and outside this work package.
-    assurance = LocalAssuranceStore(runs.store, uploads, parser)  # type: ignore[no-untyped-call]
+    tags = LocalTagStore(run_store, uploads, parser)
+    claims = LocalClaimStore(run_store, uploads, parser)
+    assurance = LocalAssuranceStore(run_store, uploads, parser)
     return ApiComposition(
         proofops=proofops_composition,
         auth_store=auth_store,
@@ -158,42 +155,35 @@ def build_composition() -> ApiComposition:
         parser=parser,
         claims=claims,
         tags=tags,
-        # External API is untyped and outside this work package.
-        classifications=LocalSQLiteClassificationStore(runs.store, uploads, parser, tags, claims),  # type: ignore[no-untyped-call]
+        classifications=LocalSQLiteClassificationStore(run_store, uploads, parser, tags, claims),
         reviews=ReviewService(
-            LocalSQLiteReviewStore(runs.store.jobs),
+            LocalSQLiteReviewStore(run_store.jobs),
             load_inputs=tags.load_inputs,
             verify_context_sources=tags.verify_context_sources,
-            load_run_snapshot=runs.store.snapshot,
+            load_run_snapshot=run_store.snapshot,
         ),
-        source_conditions=LocalSourceConditionReview(runs.store, uploads, parser),
-        # External API is untyped and outside this work package.
-        rescores=RescoreService(  # type: ignore[no-untyped-call]
-            # External API is untyped and outside this work package.
-            LocalSQLiteRescoreStore(runs.store),  # type: ignore[no-untyped-call]
+        source_conditions=LocalSourceConditionReview(run_store, uploads, parser),
+        rescores=RescoreService(
+            LocalSQLiteRescoreStore(run_store),
             load_inputs=tags.load_inputs,
             verify_context_sources=tags.verify_context_sources,
         ),
-        summaries=LocalSummaryStore(runs.store, claims),
+        summaries=LocalSummaryStore(run_store, claims),
         evaluations=LocalEvaluationStore(database_path),
-        # External API is untyped and outside this work package.
-        analysis=LocalAnalysisStore(runs.store, uploads, parser, claims, tags, assurance=assurance),  # type: ignore[no-untyped-call]
+        analysis=LocalAnalysisStore(run_store, uploads, parser, claims, tags, assurance=assurance),
         assurance=assurance,
-        # External API is untyped and outside this work package.
-        exports=ExportService(  # type: ignore[no-untyped-call]
-            # External API is untyped and outside this work package.
-            LocalExportStore(  # type: ignore[no-untyped-call]
-                runs.store,
+        exports=ExportService(
+            LocalExportStore(
+                run_store,
                 claims,
                 element_evidence_encoding=os.environ.get(
                     "PROOFOPS_EXPORT_ELEMENT_EVIDENCE_ENCODING", ELEMENT_EVIDENCE_V1
                 ),
             )
         ),
-        # External API is untyped and outside this work package.
-        retention=LocalRetentionStore(uploads),  # type: ignore[no-untyped-call]
+        retention=LocalRetentionStore(uploads),
         comparisons=LocalComparisonStore(
-            runs.store,
+            run_store,
             uploads,
             claims,
             enabled=os.environ.get("ENABLE_YEAR_COMPARISON", "false") == "true",
@@ -202,7 +192,7 @@ def build_composition() -> ApiComposition:
         reconciliation=LocalReconciliationStore(
             database_path,
             database_path.parent / "reconciliation-artifacts",
-            run_store=runs.store,
+            run_store=run_store,
             claims=claims,
             tags=tags,
         ),

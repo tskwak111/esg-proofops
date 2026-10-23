@@ -574,7 +574,7 @@ class ExportService:
         self.store = store
 
     def create(
-        self, actor: AuthContext, run_id: str, body: dict[str, Any], key: str, *, now: float
+        self, actor: AuthContext, run_id: str, body: dict[str, Any], key: str | None, *, now: float
     ) -> dict[str, Any]:
         if not isinstance(body, dict) or set(body) != {"formats", "allow_partial"}:
             raise ExportRejected("VALIDATION_ERROR", 422)
@@ -617,6 +617,8 @@ class ExportService:
 
 class ExportStore(Protocol):
     """Immutable capture/render persistence used by the export service."""
+
+    def content(self, actor: AuthContext, export_id: str, token: str, *, now: float) -> bytes: ...
 
     def frozen(self, tenant: str, export_id: str) -> dict[str, Any] | None: ...
     def capture(self, tenant: str, export_id: str) -> dict[str, Any]: ...

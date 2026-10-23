@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import hashlib
 import unicodedata
+from typing import Literal
 from uuid import uuid4
 
 from proofops.domain.documents import NativeSource, PageGeometry
@@ -231,7 +232,9 @@ def canonicalize_source_ref(
         )
 
     canonical_bbox = canonical_bbox_from_native(source.native_bbox, geometry)
-    location_quality = "located" if canonical_bbox is not None else "unlocated"
+    location_quality: Literal["located", "unlocated"] = (
+        "located" if canonical_bbox is not None else "unlocated"
+    )
 
     quote = source.raw_text[char_start:char_end]
     raw_text_sha256 = _sha256_hex(source.raw_text)
@@ -247,6 +250,7 @@ def canonicalize_source_ref(
         quote=quote,
         char_start=char_start,
         char_end=char_end,
-        location_quality=location_quality,  # type: ignore[arg-type]
+        location_quality=location_quality,
+        # SourceRef validates this external string against the existing literal states.
         verification_state=verification_state,  # type: ignore[arg-type]
     )

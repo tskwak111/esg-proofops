@@ -4,8 +4,11 @@ import json
 import os
 import resource
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
+
+from proofops_api.hosted_contracts import DiscoveryReaderFactory, ScopeSelectionValidator
 
 
 def main() -> None:
@@ -16,27 +19,31 @@ def main() -> None:
     from proofops.application.analysis_profile import V2_PROFILE, policy_for
 
     from evaluation.hosted_scope_plan import inspect_streaming
-    from evaluation.rb2_reporting_period import configured_profile
+    from evaluation.rb2_reporting_period import configured_profile as _configured_profile
+
+    # Typed boundary for the unchanged evaluation implementation.
+    configured_profile: Callable[[str | None], dict[str, Any] | None] = _configured_profile
 
     pdf = Path(sys.argv[1])
     source_sha = sys.argv[3] if len(sys.argv) > 3 else None
-    # External API is untyped and outside this work package.
-    policy = policy_for(V2_PROFILE)  # type: ignore[no-untyped-call]
+    policy = policy_for(V2_PROFILE)
     reader = None
 
     def discovery(page: int) -> dict[str, Any]:
         nonlocal reader
         if reader is None:
-            from evaluation.scope_discovery_ocr import CPUDiscoveryReader
+            from evaluation.scope_discovery_ocr import CPUDiscoveryReader as _CPUDiscoveryReader
 
-            # External API is untyped and outside this work package.
-            reader = CPUDiscoveryReader(  # type: ignore[no-untyped-call]
+            # Typed boundary for the unchanged evaluation implementation.
+            CPUDiscoveryReader: DiscoveryReaderFactory = _CPUDiscoveryReader
+
+            reader = CPUDiscoveryReader(
                 pdf,
                 tenant_id=sys.argv[4],
                 cache_dir=Path(sys.argv[2]).parent / "discovery-cache",
                 source_sha256=source_sha,
             )
-        return cast(dict[str, Any], reader(page))
+        return reader(page)
 
     plan = inspect_streaming(
         pdf,
@@ -46,8 +53,7 @@ def main() -> None:
         if policy.get("scope_ranking") == "W5-v1"
         else "W4-v2",
         discovery_reader=discovery if len(sys.argv) > 4 else None,
-        # External API is untyped and outside this work package.
-        reporting_period_policy=configured_profile(os.environ.get("HOSTED_LIVE_CONFIG")),  # type: ignore[no-untyped-call]
+        reporting_period_policy=configured_profile(os.environ.get("HOSTED_LIVE_CONFIG")),
     )
     plan["source_path"] = "original.pdf"
     # Path is private operational metadata; hash the sanitized proposal actually stored.
@@ -68,20 +74,24 @@ def scope_selection(
     """Keep AS1 immutable proposal checks; bind the effective period to selection."""
     from proofops.domain.provenance import canonical_hash
 
-    from evaluation.report_scope import validate_selection
-    from evaluation.reporting_period import validate_period
+    from evaluation.report_scope import validate_selection as _validate_selection
 
-    # External API is untyped and outside this work package.
-    selection = validate_selection(plan, source_sha256, page_count, **kwargs)  # type: ignore[no-untyped-call]
+    # Typed boundary for the unchanged evaluation implementation.
+    validate_selection: ScopeSelectionValidator = _validate_selection
+    from evaluation.reporting_period import validate_period as _validate_period
+
+    # Typed boundary for the unchanged evaluation implementation.
+    validate_period: Callable[[object], dict[str, Any]] = _validate_period
+
+    selection = validate_selection(plan, source_sha256, page_count, **kwargs)
     if reporting_scope is not None:
         if reporting_scope.get("report_year") is not None:
-            # External API is untyped and outside this work package.
-            validate_period(reporting_scope)  # type: ignore[no-untyped-call]
+            validate_period(reporting_scope)
         selection["reporting_scope"] = reporting_scope
         selection["selection_sha256"] = canonical_hash(
             {k: v for k, v in selection.items() if k != "selection_sha256"}
         )
-    return cast(dict[str, Any], selection)
+    return selection
 
 
 if __name__ == "__main__":

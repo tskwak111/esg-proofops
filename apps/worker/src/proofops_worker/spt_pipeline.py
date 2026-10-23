@@ -31,7 +31,7 @@ def run_claims(
 
     def order(index: int) -> tuple[Any, ...]:
         item = claims[index]
-        base = priority(item)  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+        base = priority(item)
         # Quote length is an input-only cost proxy, never a track/grade decision.
         # Preserve S2's verified/important classes before ordering the long tail.
         return (*base[:2], -len(item.quote), *base[2:])

@@ -71,8 +71,7 @@ def post_png(png: bytes) -> tuple[bytes, str | None]:
         )
         response = connection.getresponse()
         if response.status != 200:
-            # External API is untyped and outside this work package.
-            raise upstage_http_error(response)  # type: ignore[no-untyped-call]
+            raise upstage_http_error(response)
         raw = response.read(MAX_RESPONSE_BYTES + 1)
         if len(raw) > MAX_RESPONSE_BYTES:
             raise ValueError("OCR_RESPONSE_TOO_LARGE")
@@ -133,7 +132,7 @@ class HostedOCRStore(PageOCRStore):
     ) -> tuple[str, bool]:
         if tenant_id != self.job["tenant_id"] or run_id != self.local_run_id:
             raise ValueError("OCR_SOURCE_SCOPE_INVALID")
-        # External API is untyped and outside this work package.
+        # The inherited implementation is byte-pinned in upstage_ocr_page.
         return cast(tuple[str, bool], super()._reserve(image, tenant_id, run_id, force))  # type: ignore[no-untyped-call]
 
     @contextmanager
@@ -214,5 +213,5 @@ class ReplayOCRStore(PageOCRStore):
             raise ValueError("OCR_COLLECTION_UNTRUSTED") from None
         if not row:
             raise ValueError("OCR_COLLECTION_UNTRUSTED")
-        # External API is untyped and outside this work package.
+        # The inherited validation method is byte-pinned in upstage_ocr_page.
         return cast(dict[str, Any], self.validate(json.loads(row[0]), image, tenant_id=tenant_id))  # type: ignore[no-untyped-call]

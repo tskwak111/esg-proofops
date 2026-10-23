@@ -132,7 +132,7 @@ def source_replicas(
                 request["retrieval_packet_sha256"] = retrieval_packet_sha256
             from proofops.application.tagging.pb2_preliminary import enabled as pb2_enabled
 
-            if prefix == "preliminary" and pb2_enabled(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+            if prefix == "preliminary" and pb2_enabled(
                 claim, self.graph, self.snapshot.get("analysis_profile_policy", {})
             ):
                 request["preliminary_fact_fields"] = "preliminary-fact-fields-pb2-v1"

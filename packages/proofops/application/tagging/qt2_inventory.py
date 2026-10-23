@@ -87,7 +87,7 @@ def _candidate_element(
         if any(k not in _AXES.values() for k in context.dimensions):
             return None
     element_id = candidate["element_id"]
-    if scope_rejection_reason(element_id, (evidence,), rulepack=rulepack, original=graph):  # type: ignore[no-untyped-call]  # External untyped helper.
+    if scope_rejection_reason(element_id, (evidence,), rulepack=rulepack, original=graph):
         return None
     element = LlmElement(element_id, "present", (evidence,), None, None, None)
     if element_id == "P2":

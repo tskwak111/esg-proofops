@@ -237,15 +237,10 @@ def replay_native_with_policy(
                 receipt, graph, source, tenant_id=tenant_id
             ),
         )
-    # Untyped dependency is outside S_ADB ownership.
-    live_hash = canonical_hash(native_paragraph_policy())  # type: ignore[no-untyped-call]
+    live_hash = canonical_hash(native_paragraph_policy())
     stored_hash = canonical_hash(stored_policy)
     if stored_hash == live_hash:
-        return cast(
-            "CanonicalDocumentGraph",
-            # Untyped cache implementation is outside S_ADB ownership.
-            replay_cached(receipt, graph, source, tenant_id=tenant_id),  # type: ignore[no-untyped-call]
-        )
+        return replay_cached(receipt, graph, source, tenant_id=tenant_id)
     bundle = find_pinned_verifier(stored_hash)
     if bundle is None:
         # Unknown/tampered policy: no verifier reproduces it. Reject.

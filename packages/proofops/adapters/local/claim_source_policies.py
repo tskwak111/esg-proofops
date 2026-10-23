@@ -265,8 +265,7 @@ def attest_claims(
             VERIFIED_READ_V12_POLICY,
         )
 
-        # Untyped dependency is outside S_ADB ownership.
-        if _execution_policy() in (  # type: ignore[no-untyped-call]
+        if _execution_policy() in (
             VERIFIED_READ_V12_POLICY,
             S3_VERIFIED_READ_V13_POLICY,
         ) and reader.PROFILE in {
@@ -280,8 +279,7 @@ def attest_claims(
                 receipt = instance.attest_claim_spans(graph, source, refs, tenant_id=tenant_id)
         elif (
             reader.PROFILE == "upstage-ocr-page-v19"
-            # Untyped dependency is outside S_ADB ownership.
-            and _execution_policy() == VERIFIED_READ_V11_POLICY  # type: ignore[no-untyped-call]
+            and _execution_policy() == VERIFIED_READ_V11_POLICY
         ):
             from proofops.adapters.local.s2_reader_execution import reader_scope
 
@@ -291,28 +289,23 @@ def attest_claims(
             (resources_enabled() and reader.PROFILE == "upstage-ocr-page-v13")
             or (
                 reader.PROFILE == "upstage-ocr-page-v9"
-                # Untyped dependency is outside S_ADB ownership.
-                and _execution_policy() == VERIFIED_READ_V4_POLICY  # type: ignore[no-untyped-call]
+                and _execution_policy() == VERIFIED_READ_V4_POLICY
             )
             or (
                 reader.PROFILE in cast("list[str]", VERIFIED_READ_V5_POLICY["raw_ocr_profiles"])
-                # Untyped dependency is outside S_ADB ownership.
-                and _execution_policy() == VERIFIED_READ_V5_POLICY  # type: ignore[no-untyped-call]
+                and _execution_policy() == VERIFIED_READ_V5_POLICY
             )
             or (
                 reader.PROFILE in cast("list[str]", VERIFIED_READ_V6_POLICY["raw_ocr_profiles"])
-                # Untyped dependency is outside S_ADB ownership.
-                and _execution_policy() == VERIFIED_READ_V6_POLICY  # type: ignore[no-untyped-call]
+                and _execution_policy() == VERIFIED_READ_V6_POLICY
             )
             or (
                 reader.PROFILE in cast("list[str]", VERIFIED_READ_V7_POLICY["raw_ocr_profiles"])
-                # Untyped dependency is outside S_ADB ownership.
-                and _execution_policy() == VERIFIED_READ_V7_POLICY  # type: ignore[no-untyped-call]
+                and _execution_policy() == VERIFIED_READ_V7_POLICY
             )
             or (
                 reader.PROFILE in cast("list[str]", VERIFIED_READ_V8_POLICY["raw_ocr_profiles"])
-                # Untyped dependency is outside S_ADB ownership.
-                and _execution_policy() == VERIFIED_READ_V8_POLICY  # type: ignore[no-untyped-call]
+                and _execution_policy() == VERIFIED_READ_V8_POLICY
             )
         ):
             from proofops.adapters.local.pa7_raster_cache import attest
@@ -324,8 +317,7 @@ def attest_claims(
             )
         from proofops.adapters.local.verified_read_cache import remember_fresh_attestation
 
-        # Untyped dependency is outside S_ADB ownership.
-        remember_fresh_attestation(  # type: ignore[no-untyped-call]
+        remember_fresh_attestation(
             reader=reader,
             policy=reader.claim_source_policy(),
             receipt=receipt,
@@ -338,19 +330,14 @@ def attest_claims(
     if cache and reader not in _wrappers():
         from proofops.adapters.local.native_replay_cache import attest_claims_cached
 
-        return cast(
-            "dict[str, Any]",
-            # Untyped cache implementation is outside S_ADB ownership.
-            attest_claims_cached(  # type: ignore[no-untyped-call]
-                reader=reader, graph=graph, source=source, refs=refs, tenant_id=tenant_id
-            ),
+        return attest_claims_cached(
+            reader=reader, graph=graph, source=source, refs=refs, tenant_id=tenant_id
         )
     receipt = reader.attest_claim_spans(graph, source, tuple(refs), tenant_id=tenant_id)
     if cache:
         from proofops.adapters.local.native_replay_cache import remember_wrapper_attestation
 
-        # Untyped dependency is outside S_ADB ownership.
-        remember_wrapper_attestation(  # type: ignore[no-untyped-call]
+        remember_wrapper_attestation(
             reader=reader,
             policy=reader.claim_source_policy(),
             graph=graph,

@@ -102,7 +102,7 @@ def run_batches(
         )
 
         if (
-            _execution_policy()  # type: ignore[no-untyped-call]  # External package boundary; annotations owned by another workstream.
+            _execution_policy()
             in (VERIFIED_READ_V11_POLICY, VERIFIED_READ_V12_POLICY, S3_VERIFIED_READ_V13_POLICY)
             and summary["status"] == "committed"
             and summary.get("pending_after") == []

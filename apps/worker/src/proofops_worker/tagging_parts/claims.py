@@ -87,7 +87,7 @@ def _prior_claim_record(
     *,
     pinned_profile: str | None = None,
 ) -> dict[str, Any]:
-    decision, candidate_grade = _review_decision(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+    decision, candidate_grade = _review_decision(
         prior.decision, prior.fact_assembly_profile, prior.consensus.review_status
     )
     if rulepack_unapproved:
@@ -98,7 +98,7 @@ def _prior_claim_record(
         reason = decision.decision_status
     else:
         reason = None
-    result: dict[str, Any] = reviewable_checkpoint(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+    result: dict[str, Any] = reviewable_checkpoint(
         dict(
             claim_id=claim_id,
             status=(
@@ -261,7 +261,7 @@ def process_claim(execution: ClaimProcessingContext, claim: Claim) -> dict[str, 
                     f"{claim.claim_id}:{1:010}",
                 )
             if prior_revision is not None:
-                prior = self.tags.load_inputs(tenant, run_id, claim.claim_id)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+                prior = self.tags.load_inputs(tenant, run_id, claim.claim_id)
                 records.append(
                     _prior_claim_record(
                         claim.claim_id,
@@ -281,7 +281,7 @@ def process_claim(execution: ClaimProcessingContext, claim: Claim) -> dict[str, 
             claim.claim_id not in recovery.claim_ids or not recovery.can_attempt_claim()
         ):
             records.append(
-                reviewable_checkpoint(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+                reviewable_checkpoint(
                     recovery.carry_forward(claim.claim_id),
                     pinned_profile=snapshot.get("fact_assembly_profile", "strict-v1"),
                 )
@@ -297,7 +297,7 @@ def process_claim(execution: ClaimProcessingContext, claim: Claim) -> dict[str, 
             claim.claim_id not in reprocess.claim_ids or not reprocess.can_attempt_claim()
         ):
             records.append(
-                reviewable_checkpoint(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+                reviewable_checkpoint(
                     reprocess.carry_forward(claim.claim_id),
                     pinned_profile=snapshot.get("fact_assembly_profile", "strict-v1"),
                 )
@@ -326,8 +326,8 @@ def process_claim(execution: ClaimProcessingContext, claim: Claim) -> dict[str, 
         )
         if unattended:
             item.update(
-                source_status=source_status(claim),  # type: ignore[no-untyped-call]  # External API is not annotated yet.
-                provisional_grade=empty_provisional(reason),  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+                source_status=source_status(claim),
+                provisional_grade=empty_provisional(reason),
                 stage="preliminary",
             )
             progress[claim.claim_id] = item
@@ -361,7 +361,7 @@ def process_claim(execution: ClaimProcessingContext, claim: Claim) -> dict[str, 
                     )
                 except ClassificationRejected as error:
                     raise ValueError("REPROCESS_CLASSIFICATION_INVALID") from error
-                track, context = classified.track, classified.context
+                track, context = cast(TrackCandidate, classified.track), classified.context
                 relation_tags = local_relation_tags(context)
                 # Preserve the prior blocked stage's original preliminary provenance
                 # for this claim; the reviewed classification is additive, never a
@@ -461,7 +461,7 @@ def process_claim(execution: ClaimProcessingContext, claim: Claim) -> dict[str, 
         ):
             from proofops.application.tagging.qt2_inventory import link_inventory
 
-            item["qt2_inventory_links"] = link_inventory(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+            item["qt2_inventory_links"] = link_inventory(
                 context,
                 sc1_index,
                 graph,
@@ -473,7 +473,7 @@ def process_claim(execution: ClaimProcessingContext, claim: Claim) -> dict[str, 
         if facility_candidates:
             from proofops.application.tagging.k6_facilities import augment_packet
 
-            packet = augment_packet(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+            packet = augment_packet(
                 packet, facility_dimensions.get(claim.claim_id, {}), graph, tenant_id=tenant
             )
         cf6_policy = snapshot.get("analysis_profile_policy", {}).get("cf6_confirmation")
@@ -506,14 +506,14 @@ def process_claim(execution: ClaimProcessingContext, claim: Claim) -> dict[str, 
                 if snapshot["analysis_profile_policy"]["qt1_baseline_policy"] != POLICY:
                     raise ValueError("QT1_BASELINE_POLICY_MISMATCH")
                 if sc1_index is not None and track.track == "goal":
-                    receipt = baseline_links(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+                    receipt = baseline_links(
                         context, sc1_index, graph, run_id=run_id, tenant_id=tenant
                     )
                     data = packet.to_dict()
                     data.pop("packet_sha256")
-                    data = augment_baseline_packet(data, receipt)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+                    data = augment_baseline_packet(data, receipt)
                     if live.display_catalog is not None:
-                        data["display_text"] = live.display_catalog.element_pins(data)  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+                        data["display_text"] = live.display_catalog.element_pins(data)
                     packet = freeze_packet(data)
                     item["qt1_baseline_receipt"] = receipt
             live.allow_packet(claim.claim_id, packet.packet_sha256)
@@ -598,7 +598,7 @@ def process_claim(execution: ClaimProcessingContext, claim: Claim) -> dict[str, 
             item.update(
                 status="processed",
                 stage="grade",
-                provisional_grade=provisional_result(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+                provisional_grade=provisional_result(
                     tag_runs,
                     packet,
                     rulepack,
@@ -635,7 +635,7 @@ def process_claim(execution: ClaimProcessingContext, claim: Claim) -> dict[str, 
             local_synthetic=live is None,
         )
         link_config = snapshot.get("report_level_link")
-        link_receipts = ()
+        link_receipts: tuple[dict[str, Any], ...] = ()
         if link_config is not None:
 
             def attest_report_sources(
@@ -643,7 +643,7 @@ def process_claim(execution: ClaimProcessingContext, claim: Claim) -> dict[str, 
             ) -> tuple[CanonicalDocumentGraph, dict[str, Any]]:
                 with report_source_lock:
                     if refs not in report_source_cache:
-                        report_source_cache[refs] = self.tags.verify_context_sources(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+                        report_source_cache[refs] = self.tags.verify_context_sources(
                             base_inputs,
                             refs,
                             pinned_run_snapshot=snapshot,
@@ -663,12 +663,12 @@ def process_claim(execution: ClaimProcessingContext, claim: Claim) -> dict[str, 
                 relation_tags,
                 fact_assembly_profile=snapshot.get("fact_assembly_profile", "strict-v1"),
             )
-            consensus, link_receipts = apply_report_level_link(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+            consensus, link_receipts = apply_report_level_link(
                 consensus,
                 config=link_config,
                 context=context,
                 graph=graph,
-                fallback_tags=strict_fallback(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+                fallback_tags=strict_fallback(
                     tag_runs,
                     packet,
                     rulepack,
@@ -684,7 +684,7 @@ def process_claim(execution: ClaimProcessingContext, claim: Claim) -> dict[str, 
             if consensus.confirmed_tags and not rulepack_unapproved
             else None
         )
-        decision, candidate_grade = _review_decision(  # type: ignore[no-untyped-call]  # External API is not annotated yet.
+        decision, candidate_grade = _review_decision(
             decision,
             snapshot.get("fact_assembly_profile", "strict-v1"),
             consensus.review_status,

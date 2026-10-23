@@ -119,8 +119,7 @@ class OPS2Probe(HostedOpenAILunaProbe):
                 None
                 if current.get() is not None
                 and (
-                    # External API is untyped and outside this work package.
-                    transient_code(error)  # type: ignore[no-untyped-call]
+                    transient_code(error)
                     or cast(dict[str, Any], current.get())["terminal_code"]
                     == "SC1_PROVIDER_TIMEOUT"
                 )
@@ -128,9 +127,7 @@ class OPS2Probe(HostedOpenAILunaProbe):
             )
             # The scheduler has already closed each physical attempt. Retain
             # only this logical request's failures; other requests remain blocked.
-            attempts = cast(dict[str, Any], self._dispatch_context.get() or {}).get(
-                "physical_attempts", []
-            )
+            attempts = (self._dispatch_context.get() or {}).get("physical_attempts", [])
             self.ops2_failure.set(
                 dict(
                     trigger=trigger,
@@ -157,11 +154,7 @@ class OPS2Probe(HostedOpenAILunaProbe):
         if self.ops2_state.reason is None:
             token = self.ops2_failure.set(None)
             try:
-                return cast(
-                    dict[str, Any],
-                    # External API is untyped and outside this work package.
-                    super().complete(system, user_json, request_id=request_id, **kwargs),  # type: ignore[no-untyped-call]
-                )
+                return super().complete(system, user_json, request_id=request_id, **kwargs)
             except Exception:
                 if self.ops2_failure.get() is None or self.ops2_state.reason is None:
                     raise
@@ -184,8 +177,7 @@ class OPS2Probe(HostedOpenAILunaProbe):
             post=self.ops2_post,
             fallback_state=self.ops2_state,
         )
-        # External API is untyped and outside this work package.
-        result = probe.complete(system, user_json, request_id=request_id, **kwargs)  # type: ignore[no-untyped-call]
+        result = probe.complete(system, user_json, request_id=request_id, **kwargs)
         with self.ops2_state.lock:
             self.ops2_state.receipts.append(
                 dict(
@@ -200,4 +192,4 @@ class OPS2Probe(HostedOpenAILunaProbe):
                     recovered_primary_failures=recovered if result["schema_valid"] is True else 0,
                 )
             )
-        return cast(dict[str, Any], result)
+        return result

@@ -57,8 +57,7 @@ class LocalC3Publication:
             for name in ("state.sqlite3", "original.pdf", "c3-evidence.json", "pilot.json")
         ):
             raise ValueError("C3_UNSAFE_ARTIFACT_PATH")
-        # Untyped dependency is outside S_ADB ownership.
-        self.runs = LocalSQLiteRunStore(self.path / "state.sqlite3")  # type: ignore[no-untyped-call]
+        self.runs = LocalSQLiteRunStore(self.path / "state.sqlite3")
         self.store = LocalSQLiteReviewStore(self.runs.jobs)
         self.service = ReviewService(self.store, load_inputs=self.load_inputs)
 
@@ -72,8 +71,7 @@ class LocalC3Publication:
         profile: str | None = None,
     ) -> dict[str, Any]:
         claim, graph = case["context"].claim, case["graph"]
-        # Untyped dependency is outside S_ADB ownership.
-        receipt_data = receipt.to_dict()  # type: ignore[no-untyped-call]
+        receipt_data = receipt.to_dict()
         profile = profile or receipt_data.get("policy", {}).get("profile", PROFILE)
         module = _profile_module(profile)
         if receipt_data.get("policy_sha256") != module.POLICY_HASH:
@@ -145,8 +143,7 @@ class LocalC3Publication:
         return self.service.publish(inputs)
 
     def load_inputs(self, tenant: str, run: str, claim_id: str) -> ReviewInputs:
-        # Untyped dependency is outside S_ADB ownership.
-        frozen = self.runs.snapshot(tenant, run)  # type: ignore[no-untyped-call]
+        frozen = self.runs.snapshot(tenant, run)
         profile = frozen.get("analysis_profile_policy", {}).get("profile")
         module = _profile_module(profile, pinned_hash=frozen.get("analysis_profile_policy_sha256"))
         policy = module.publication_policy_for(
@@ -163,8 +160,7 @@ class LocalC3Publication:
             != canonical_hash({k: v for k, v in frozen.items() if k != "input_hash"})
         ):
             raise ValueError("C3_FROZEN_POLICY_MISMATCH")
-        # Untyped dependency is outside S_ADB ownership.
-        history = self.store.history(tenant, run, claim_id)  # type: ignore[no-untyped-call]
+        history = self.store.history(tenant, run, claim_id)
         raw = history["tags"][0]["inputs"]
         evidence = json.loads((self.path / "c3-evidence.json").read_text())
         if canonical_hash(evidence) != frozen["c3_evidence_sha256"]:
@@ -206,10 +202,12 @@ class LocalC3Publication:
             {k: v for k, v in raw["original_packet"].items() if k != "packet_sha256"}
         )
         pack = RulePackSnapshot(**frozen["rulepack"])
-        # Untyped dependency is outside S_ADB ownership.
-        receipt = _fact_assembly_reader(raw["fact_assembly_receipt"])  # type: ignore[no-untyped-call]
+        # Legacy null receipts still fail at to_dict; preserve that failure (S_INT report).
+        receipt = _fact_assembly_reader(raw["fact_assembly_receipt"])
         consensus, decision = module.publication_values(
-            receipt.to_dict(), rulepack=pack, tag_revision=raw["tag_revision"]
+            receipt.to_dict(),  # type: ignore[union-attr]  # Null legacy receipt still fails here.
+            rulepack=pack,
+            tag_revision=raw["tag_revision"],
         )
         inputs = ReviewInputs(
             run,
@@ -234,16 +232,14 @@ class LocalC3Publication:
 
     def result(self, tenant: str, run: str, claim_id: str) -> dict[str, Any]:
         inputs = self.load_inputs(tenant, run, claim_id)
-        # Untyped dependency is outside S_ADB ownership.
-        history = self.store.history(tenant, run, claim_id)  # type: ignore[no-untyped-call]
+        history = self.store.history(tenant, run, claim_id)
         tag, record = history["tags"][-1], history["decisions"][-1]
         decision = record["api"] | dict(excluded_elements=record["decision"]["excluded_elements"])
         auto = tag["origin"] == "consensus"
         claim = inputs.context.claim
         module = _profile_module(
             inputs.fact_assembly_profile,
-            # Untyped dependency is outside S_ADB ownership.
-            pinned_hash=cast(FactAssemblyReceiptV1, inputs.fact_assembly_receipt).to_dict()[  # type: ignore[no-untyped-call]
+            pinned_hash=cast("FactAssemblyReceiptV1", inputs.fact_assembly_receipt).to_dict()[
                 "policy_sha256"
             ],
         )
@@ -253,8 +249,7 @@ class LocalC3Publication:
             page_map=[36],
             hold_reasons=[],
             pipeline=dict(status="completed"),
-            # Untyped dependency is outside S_ADB ownership.
-            reviews=[self.store.get(tenant, self.service._review(inputs)["review_id"])],  # type: ignore[no-untyped-call]
+            reviews=[self.store.get(tenant, self.service._review(inputs)["review_id"])],
             claims=[
                 claim.to_summary()
                 | dict(
@@ -286,12 +281,7 @@ class LocalC3Publication:
 
     def export(self, tenant: str, run: str, claim_id: str) -> dict[str, Any]:
         inputs = self.load_inputs(tenant, run, claim_id)
-        # Untyped dependency is outside S_ADB ownership.
-        history = self.store.history(tenant, run, claim_id)  # type: ignore[no-untyped-call]
-        return cast(
-            "dict[str, Any]",
-            # Untyped dependency is outside S_ADB ownership.
-            encode_revision_record(  # type: ignore[no-untyped-call]
-                history["tags"][-1], history["decisions"][-1], inputs.snapshot()
-            ),
+        history = self.store.history(tenant, run, claim_id)
+        return encode_revision_record(
+            history["tags"][-1], history["decisions"][-1], inputs.snapshot()
         )

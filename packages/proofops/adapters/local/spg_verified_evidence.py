@@ -153,12 +153,10 @@ class Session:
             claims.store, claims.uploads, tenant_id=tenant, run_id=run_id
         )
         policy = snapshot.get("analysis_profile_policy", {})
-        # Untyped dependency is outside S_ADB ownership.
-        if not enabled(policy):  # type: ignore[no-untyped-call]
+        if not enabled(policy):
             return None
         if (
-            # Untyped dependency is outside S_ADB ownership.
-            publication_policy_for(  # type: ignore[no-untyped-call]
+            publication_policy_for(
                 snapshot["pipeline_profile"], pinned_hash=snapshot["analysis_profile_policy_sha256"]
             )
             != policy

@@ -21,8 +21,7 @@ def authenticate_response(
     # Cache hits and saved projections remain usable candidates, never fresh calls.
     if "response_reuse" in response or "saved_response_origin" in response:
         return response
-    # Untyped dependency is outside S_ADB ownership.
-    binding = request_binding(request)  # type: ignore[no-untyped-call]
+    binding = request_binding(request)
     body = probe.request_body(
         request["system"],
         request["user_json"],
@@ -63,8 +62,7 @@ def authenticate_response(
         ).fetchone()
     if row is None or row[1] is None or row[2] != binding["wire_sha256"]:
         raise ValueError("C3_TRANSPORT_ORIGIN_MISMATCH")
-    # Untyped dependency is outside S_ADB ownership.
-    _, digest = ModelResponseCache._verified(  # type: ignore[no-untyped-call]
+    _, digest = ModelResponseCache._verified(
         canonical_hash(cache),
         (str(probe.ledger), request["id"], json.dumps(response), canonical_hash(response)),
     )

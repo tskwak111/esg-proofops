@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol
 
 from proofops.application.ingest.j3_recall import ACTION
 from proofops.application.ingest.j3_recall import POLICY as J3_POLICY
 from proofops.application.ingest.j3_recall import refine_selected as refine_j3
 
 if TYPE_CHECKING:
-    from proofops.application.claims import Claim
     from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+    from proofops.domain.values import SourceRef
 
 
 PROFILE = "j7-independent-clauses-v1"
@@ -51,7 +51,17 @@ CONTEXT_POLICY: dict[str, Any] = dict(
 )
 
 
-def sentence_context(claim: Claim, graph: CanonicalDocumentGraph) -> dict[str, Any] | None:
+class _ClaimSourceView(Protocol):
+    @property
+    def tenant_id(self) -> str: ...
+
+    @property
+    def source_refs(self) -> tuple[SourceRef, ...]: ...
+
+
+def sentence_context(
+    claim: _ClaimSourceView, graph: CanonicalDocumentGraph
+) -> dict[str, Any] | None:
     """Retain the whole literal sentence behind a connective atomic clause."""
     from dataclasses import asdict
 
@@ -95,7 +105,7 @@ def sentence_context(claim: Claim, graph: CanonicalDocumentGraph) -> dict[str, A
     )
 
 
-def goal_requires_retag(claim: Claim, graph: CanonicalDocumentGraph) -> bool:
+def goal_requires_retag(claim: _ClaimSourceView, graph: CanonicalDocumentGraph) -> bool:
     context = sentence_context(claim, graph)
     return bool(
         context

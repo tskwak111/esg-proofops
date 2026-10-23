@@ -193,8 +193,7 @@ def plan_reprocess(
     _require_uuid("classification_id", classification_id)
     _require_sha256("classification_sha256", classification_sha256)
     lineage, run = _lineage(store, tenant_id, run_id)
-    # Untyped dependency is outside S_ADB ownership.
-    envelope = tags.load_snapshot(tenant_id, run_id)  # type: ignore[no-untyped-call]
+    envelope = tags.load_snapshot(tenant_id, run_id)
     item = next((c for c in envelope["claims"] if c["claim_id"] == claim_id), None)
     if item is None:
         raise ReprocessRejected("TAG_REPROCESS_CLAIM_NOT_IN_LINEAGE")

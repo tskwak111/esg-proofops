@@ -88,7 +88,13 @@ class LocalRetentionStore:
         return dict(deletion_id=row[0], status="blocked_retention", requested_at=row[1])
 
     def request(
-        self, actor: AuthContext, document_id: str, body: dict[str, Any], key: str, *, now: float
+        self,
+        actor: AuthContext,
+        document_id: str,
+        body: dict[str, Any],
+        key: str | None,
+        *,
+        now: float,
     ) -> dict[str, Any]:
         if not actor.has_capability("admin"):
             raise RetentionRejected("FORBIDDEN", 403)

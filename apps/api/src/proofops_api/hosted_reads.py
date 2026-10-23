@@ -55,8 +55,7 @@ def _ops2_fit_page(options: dict[str, Any]) -> bool:
     if pin is None:
         return False
     try:
-        # External API is untyped and outside this work package.
-        policy: dict[str, Any] = policy_for(options.get("analysis_profile"), pinned_hash=pin)  # type: ignore[no-untyped-call]
+        policy: dict[str, Any] = policy_for(options.get("analysis_profile"), pinned_hash=pin)
     except ValueError:
         return False
     return policy.get("ops2_page_render") == "ops2_fit_page_v1"
@@ -316,10 +315,8 @@ class HostedReads:
         if pilot.get("publication_profile") == C4_PROFILE:
             from proofops.adapters.local.c4_publication import LocalC4Publication
 
-            # External API is untyped and outside this work package.
-            publication = LocalC4Publication(path)  # type: ignore[no-untyped-call]
-            # External API is untyped and outside this work package.
-            inputs = publication.load_inputs(tenant, local_run, pilot["claim_id"])  # type: ignore[no-untyped-call]
+            publication = LocalC4Publication(path)
+            inputs = publication.load_inputs(tenant, local_run, pilot["claim_id"])
             graph = inputs.original
             if prepared_page not in pilot["selected_pages"] or row["prepared_sha256"] not in (
                 None,
@@ -332,18 +329,15 @@ class HostedReads:
             return (
                 graph.document_version_id,
                 graph.parse_manifest_id,
-                # External API is untyped and outside this work package.
-                publication.runs.snapshot(tenant, local_run)["c4_evidence_sha256"],  # type: ignore[no-untyped-call]
-                block.candidates[block.winner].geometry,
+                publication.runs.snapshot(tenant, local_run)["c4_evidence_sha256"],
+                block.candidates[cast(int, block.winner)].geometry,
             )
 
         if pilot.get("publication_profile") in (C3_PROFILE, C3_V2_PROFILE):
             from proofops.adapters.local.c3_publication import LocalC3Publication
 
-            # External API is untyped and outside this work package.
-            publication = LocalC3Publication(path)  # type: ignore[no-untyped-call]
-            # External API is untyped and outside this work package.
-            inputs = publication.load_inputs(tenant, local_run, pilot["claim_id"])  # type: ignore[no-untyped-call]
+            publication = LocalC3Publication(path)
+            inputs = publication.load_inputs(tenant, local_run, pilot["claim_id"])
             graph = inputs.original
             if prepared_page != 36 or (
                 pilot.get("publication_profile") == C3_PROFILE
@@ -356,9 +350,8 @@ class HostedReads:
             return (
                 graph.document_version_id,
                 graph.parse_manifest_id,
-                # External API is untyped and outside this work package.
-                publication.runs.snapshot(tenant, local_run)["c3_evidence_sha256"],  # type: ignore[no-untyped-call]
-                block.candidates[block.winner].geometry,
+                publication.runs.snapshot(tenant, local_run)["c3_evidence_sha256"],
+                block.candidates[cast(int, block.winner)].geometry,
             )
         with closing(sqlite3.connect(database.as_uri() + "?mode=ro", uri=True)) as db:
             db.execute("BEGIN")
@@ -558,10 +551,8 @@ class HostedReads:
                         from proofops.adapters.local.c3_publication import LocalC3Publication
                         from proofops.adapters.local.c4_publication import LocalC4Publication
 
-                        # External API is untyped and outside this work package.
-                        publication = LocalC4Publication(path) if c4 else LocalC3Publication(path)  # type: ignore[no-untyped-call]
-                        # External API is untyped and outside this work package.
-                        frozen = publication.runs.snapshot(auth.tenant_id, pilot["run_id"])  # type: ignore[no-untyped-call]
+                        publication = LocalC4Publication(path) if c4 else LocalC3Publication(path)
+                        frozen = publication.runs.snapshot(auth.tenant_id, pilot["run_id"])
                         expected_original = frozen["document"]["sha256"]
                     else:
                         expected_original = REVIEWED_IDENTITY["original_sha256"]

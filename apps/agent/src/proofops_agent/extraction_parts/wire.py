@@ -153,23 +153,19 @@ def _resolve_payload(
             diagnostics["table_context_excluded"] = [
                 dict(char_start=span.char_start, char_end=span.char_end)
                 for span in spans
-                # External package helper is untyped; its annotations are outside this scope.
-                if table_context_row(span.quote)  # type: ignore[no-untyped-call]
+                if table_context_row(span.quote)
             ]
-            # External package helper is untyped; its annotations are outside this scope.
-            spans = tuple(span for span in spans if not table_context_row(span.quote))  # type: ignore[no-untyped-call]
+            spans = tuple(span for span in spans if not table_context_row(span.quote))
         if self._table_footnotes and packet is not None:
             from proofops.application.tagging.dec24 import adjacent_table, table_footnote
 
-            # External package helper is untyped; its annotations are outside this scope.
-            table_context = adjacent_table(  # type: ignore[no-untyped-call]
+            table_context = adjacent_table(
                 packet, context_graph, located_only=self._located_table_context
             )
             excluded = [
                 span
                 for span in spans
-                # External package helper is untyped; its annotations are outside this scope.
-                if table_footnote(  # type: ignore[no-untyped-call]
+                if table_footnote(
                     span.quote,
                     kind=packet["untrusted_document_data"]["kind"],
                     table_context=table_context,
@@ -198,10 +194,8 @@ def _resolve_payload(
                 self._validate_context_graph(packet, context_graph)
                 table = next(b for b in context_graph.blocks if b.source_id == source_id)
                 # PB1 time-series observations keep value/unit/year together.
-                # External package helper is untyped; its annotations are outside this scope.
-                if not observations_for(table, context_graph):  # type: ignore[no-untyped-call]
-                    # External package helper is untyped; its annotations are outside this scope.
-                    cells = graph_cells(table, context_graph)  # type: ignore[no-untyped-call]
+                if not observations_for(table, context_graph):
+                    cells = graph_cells(table, context_graph)
             refined, changes = refine_selected(
                 [dict(asdict(span), topic_ids=list(span.topic_ids)) for span in spans],
                 text,
@@ -238,8 +232,7 @@ def _resolve_payload(
         if self._h1:
             from proofops.application.ingest.h1_boundaries import scope_note, strategy_title
 
-            # External package helper is untyped; its annotations are outside this scope.
-            notes = [span for span in spans if scope_note(span.quote)]  # type: ignore[no-untyped-call]
+            notes = [span for span in spans if scope_note(span.quote)]
             diagnostics["h1_scope_notes"] = [
                 dict(
                     char_start=span.char_start,
@@ -250,8 +243,7 @@ def _resolve_payload(
             ]
             spans = tuple(span for span in spans if span not in notes)
             title = packet.get("h1_native_title", {}) if packet else {}
-            # External package helper is untyped; its annotations are outside this scope.
-            if title.get("is_title") is True and strategy_title(text):  # type: ignore[no-untyped-call]
+            if title.get("is_title") is True and strategy_title(text):
                 from proofops.application.ingest.h1_boundaries import POLICY as H1_POLICY
 
                 if (
@@ -267,8 +259,7 @@ def _resolve_payload(
         if self._k6 and packet is not None:
             from proofops.application.ingest.k6_coverage import rescue_targets
 
-            # External package helper is untyped; its annotations are outside this scope.
-            selected, diagnostics["k6_target_rescue"] = rescue_targets(  # type: ignore[no-untyped-call]
+            selected, diagnostics["k6_target_rescue"] = rescue_targets(
                 [asdict(s) | dict(topic_ids=list(s.topic_ids)) for s in spans],
                 text,
                 kind=packet["untrusted_document_data"]["kind"],
@@ -280,12 +271,10 @@ def _resolve_payload(
 
             self._validate_context_graph(packet, context_graph)
             block = next(b for b in context_graph.blocks if b.source_id == source_id)
-            # External package helper is untyped; its annotations are outside this scope.
-            selected, diagnostics["q1_activity_rescue"] = retain_activities(  # type: ignore[no-untyped-call]
+            selected, diagnostics["q1_activity_rescue"] = retain_activities(
                 [asdict(s) | dict(topic_ids=list(s.topic_ids)) for s in spans],
                 text,
-                # External package helper is untyped; its annotations are outside this scope.
-                graph_cells(block, context_graph),  # type: ignore[no-untyped-call]
+                graph_cells(block, context_graph),
             )
             spans = self._validate_spans({"spans": selected}, text)
         return spans, diagnostics
@@ -538,24 +527,20 @@ def _row_entries(
 
         self._validate_context_graph(packet, context_graph)
         block = next(b for b in context_graph.blocks if b.source_id == data["source_id"])
-        # External package helper is untyped; its annotations are outside this scope.
-        cells = graph_cells(block, context_graph)  # type: ignore[no-untyped-call]
+        cells = graph_cells(block, context_graph)
         if self._j8:
             from proofops.application.ingest.j8_cells import cell_entries, graph_cells
 
-            # External package helper is untyped; its annotations are outside this scope.
-            cells = graph_cells(block, context_graph)  # type: ignore[no-untyped-call]
+            cells = graph_cells(block, context_graph)
         if self._q1:
             from proofops.application.ingest.q1_tables import cell_entries
         if self._j8 or any("\n" in c["text"] for c in cells):
-            # External package helper is untyped; its annotations are outside this scope.
-            entries: list[dict[str, Any]] = cell_entries(text, cells, source_id=data["source_id"])  # type: ignore[no-untyped-call]
+            entries: list[dict[str, Any]] = cell_entries(text, cells, source_id=data["source_id"])
             if len(entries) > cast(int, ROW_POLICY["max_candidates"]):
                 raise ExtractionOutputError("EXTRACTION_SOURCE_SENTENCES_UNBOUNDED")
             return entries
     axes = [b for b in context_blocks if b["role"].startswith("table_")]
-    # External package helper is untyped; its annotations are outside this scope.
-    candidates = row_candidates(text, kind=kind, table_context=tuple(b["text"] for b in axes))  # type: ignore[no-untyped-call]
+    candidates = row_candidates(text, kind=kind, table_context=tuple(b["text"] for b in axes))
     if len(candidates) > cast(int, ROW_POLICY["max_candidates"]):
         raise ExtractionOutputError("EXTRACTION_SOURCE_SENTENCES_UNBOUNDED")
     entries = []
@@ -663,8 +648,7 @@ def _source_id_wire(
     if self._i3_wire:
         from proofops.application.ingest.i3_wire import compact
 
-        # External package helper is untyped; its annotations are outside this scope.
-        user_data["untrusted_document_data"] = compact(user_data["untrusted_document_data"])  # type: ignore[no-untyped-call]
+        user_data["untrusted_document_data"] = compact(user_data["untrusted_document_data"])
         system_prompt += _i3_wire_suffix()
     if self._i4_identity:
         for i, entry in enumerate(user_data["untrusted_document_data"]["source_sentences"]):
@@ -893,8 +877,7 @@ def _context_for(
     if self._qc_native_figures:
         from proofops.application.ingest.k6_coverage import native_figure_context_blocks
 
-        # External package helper is untyped; its annotations are outside this scope.
-        native_context = native_figure_context_blocks(focal, context_graph)  # type: ignore[no-untyped-call]
+        native_context = native_figure_context_blocks(focal, context_graph)
         if native_context:
             if sum(len(b.raw_text) + 1 for b in native_context) > self._context_chars:
                 raise ExtractionOutputError("QC_NATIVE_FIGURE_CONTEXT_TOO_LARGE")

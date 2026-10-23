@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, cast
 
 from proofops.application.ingest import pb1_tables as _legacy
@@ -45,7 +46,7 @@ POLICY: dict[str, Any] = dict(
 )
 
 
-def grid(text: str, cells: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+def grid(text: str, cells: Sequence[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
     """Reconstruct the exact sparse origin grid, retaining literal raw offsets."""
     if cells is None:
         cells = [
@@ -146,7 +147,7 @@ def _parents(rows: list[dict[str, Any]], row: int, first_year: int) -> list[dict
 
 
 def observations(
-    text: str, *, cells: list[dict[str, Any]] | None = None, context: str = "", limit: int = 24
+    text: str, *, cells: Sequence[dict[str, Any]] | None = None, context: str = "", limit: int = 24
 ) -> list[dict[str, Any]]:
     # Legacy native readers ask whether a generic span is a numeric observation
     # without passing its grid. A multiline non-year table is not a year grid;
@@ -248,7 +249,7 @@ def observations_for(table: CanonicalBlock, graph: CanonicalDocumentGraph) -> li
 
 
 def cell_entries(
-    text: str, cells: list[dict[str, Any]] | None, *, source_id: str
+    text: str, cells: Sequence[dict[str, Any]] | None, *, source_id: str
 ) -> list[dict[str, Any]]:
     """Generic non-time-series candidates stay inside one explicit parser cell."""
     from proofops.application.ingest.table_row_candidates import row_candidates

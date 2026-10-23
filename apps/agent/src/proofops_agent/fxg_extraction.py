@@ -118,8 +118,7 @@ def extract_parts(
         if not directory.exists():
             if (root / "result.json").exists():
                 raise ValueError("EXTRACTION_FXG_RECEIPT_MISMATCH")
-            # External package helper is untyped; its annotations are outside this scope.
-            before_dispatch()  # type: ignore[no-untyped-call]
+            before_dispatch()
         try:
             directory.mkdir(mode=0o700)
         except FileExistsError:

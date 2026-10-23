@@ -242,8 +242,7 @@ class GlyphDisplayCatalog:
                 if policy in (TABLE_POLICY, VALUE_POLICY, K6_POLICY)
                 else restore_whitespace
             )
-            # Untyped dependency is outside S_ADB ownership.
-            selected = restore(selection, dict(quote=mapping.text, char_start=0))  # type: ignore[no-untyped-call]
+            selected = restore(selection, dict(quote=mapping.text, char_start=0))
             start, end = mapping.raw_span(selected["char_start"], selected["char_end"])
             quote = mapping.raw[start:end]
         return original | dict(
@@ -290,8 +289,7 @@ class GlyphDisplayCatalog:
         if recovery is not None:
             from proofops.application.tagging.k2_recovery import validate_policy
 
-            # Untyped dependency is outside S_ADB ownership.
-            validate_policy(recovery)  # type: ignore[no-untyped-call]
+            validate_policy(recovery)
         for role, span in restored.get("dimensions", {}).items():
             if span is None:
                 continue
@@ -310,8 +308,7 @@ class GlyphDisplayCatalog:
                 from proofops.application.tagging.citation_restore import restore_whitespace
 
                 try:
-                    # Untyped dependency is outside S_ADB ownership.
-                    selected = restore_whitespace(  # type: ignore[no-untyped-call]
+                    selected = restore_whitespace(
                         span["quote"], dict(quote=mapping.text, char_start=0)
                     )
                     start, end = mapping.raw_span(selected["char_start"], selected["char_end"])
