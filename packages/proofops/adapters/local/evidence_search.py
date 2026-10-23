@@ -14,6 +14,7 @@ from collections.abc import Iterable
 from dataclasses import asdict, replace
 from hashlib import sha256
 from math import log1p
+from typing import Any
 
 from proofops.application.evidence.retrieval import SearchHit, SearchResult, SearchScope
 from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
@@ -94,7 +95,14 @@ class LocalEvidenceSearch:
         """Exhaustive lexical routing for missing-evidence search, never absence proof."""
         return self._search(scope, query, limit=None)
 
-    def _search(self, scope, query, *, vector=None, limit=20) -> SearchResult:
+    def _search(
+        self,
+        scope: SearchScope,
+        query: str,
+        *,
+        vector: tuple[float, ...] | None = None,
+        limit: int | None = 20,
+    ) -> SearchResult:
         if scope != self.scope:
             raise ValueError("local evidence search scope mismatch")
         if vector is not None:
@@ -126,7 +134,7 @@ class LocalEvidenceSearch:
 
 
 def validate_raw_candidate(
-    cand: dict,
+    cand: dict[str, Any],
     graph: CanonicalDocumentGraph,
     *,
     tenant_id: str,
@@ -243,7 +251,7 @@ def collect_raw_candidate_review(
     *,
     max_candidates: int = 20,
     max_excerpt_chars: int = 4000,
-) -> dict:
+) -> dict[str, Any]:
     """Collect bounded, validated raw candidates for a query from BM25 search.
 
     Uses shared validate_raw_candidate to guarantee identical security and integrity gates.

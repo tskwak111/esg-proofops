@@ -1,5 +1,13 @@
 """Local GRI candidate routing; index matches never establish evidence or applicability."""
 
+from __future__ import annotations
+
+from collections.abc import Iterable
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+    from proofops.application.ingest.gri import IndexEntry
 import re
 from dataclasses import replace
 from hashlib import sha256
@@ -17,7 +25,14 @@ if TYPE_CHECKING:
 
 
 class LocalGRIRouting:
-    def __init__(self, graph, original_pdf: bytes, *, tenant_id: str, pages):
+    def __init__(
+        self,
+        graph: CanonicalDocumentGraph,
+        original_pdf: bytes,
+        *,
+        tenant_id: str,
+        pages: Iterable[int],
+    ) -> None:
         _validate_graph(graph, tenant_id)
         if sha256(original_pdf).hexdigest() != graph.source_sha256:
             raise ValueError("SOURCE_INTEGRITY_MISMATCH")
@@ -82,7 +97,7 @@ class LocalGRIRouting:
             index_generation="local-gri-index-v1:" + graph.parse_manifest_id,
         )
 
-    def for_claim(self, quote: str):
+    def for_claim(self, quote: str) -> tuple[tuple[IndexEntry, ...], tuple[str, ...]]:
         hits = self.search.search(self.search.scope, quote).hits
         by_source = {entry.source_ref.source_id: entry for entry in self.entries}
         codes = tuple(dict.fromkeys(by_source[hit.source_id].indicator_code for hit in hits))

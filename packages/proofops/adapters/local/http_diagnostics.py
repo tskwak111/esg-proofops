@@ -1,5 +1,13 @@
 """Safe E05 error metadata. No raw body, URL, socket, key or cookie storage."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from http.client import HTTPResponse
+
+    from proofops.adapters.local.openai import OpenAIProbe
 import re
 
 from proofops.application.provider_resilience import HTTP_DIAGNOSTIC_POLICY
@@ -15,7 +23,7 @@ RESPONSE_HEADERS = (
 )
 
 
-def safe_header(value, secret):
+def safe_header(value: object, secret: str) -> str | None:
     return (
         value
         if isinstance(value, str)
@@ -27,7 +35,7 @@ def safe_header(value, secret):
     )
 
 
-def safe_id(value, secret):
+def safe_id(value: object, secret: str) -> str | None:
     return (
         value
         if isinstance(value, str)
@@ -38,7 +46,12 @@ def safe_id(value, secret):
     )
 
 
-def error_context(probe, trace, response, client_request_id):
+def error_context(
+    probe: OpenAIProbe,
+    trace: dict[str, Any],
+    response: HTTPResponse | None,
+    client_request_id: str | None,
+) -> dict[str, Any]:
     secret = probe._key
     context = probe._response_context.get() or (probe.response_role, None)
     job = getattr(probe, "job", {})
@@ -54,7 +67,9 @@ def error_context(probe, trace, response, client_request_id):
         source_sha256=(probe.response_policy or {}).get("source_sha256"),
         analysis_policy_sha256=(probe.response_policy or {}).get("analysis_policy_sha256"),
         physical_attempt=len(dispatch.get("physical_attempts", [])) or None,
-        http_version={10: "HTTP/1.0", 11: "HTTP/1.1"}.get(getattr(response, "version", None)),
+        http_version=cast(dict[int | None, str], {10: "HTTP/1.0", 11: "HTTP/1.1"}).get(
+            getattr(response, "version", None)
+        ),
         response_received=response is not None,
         headers={
             name: value

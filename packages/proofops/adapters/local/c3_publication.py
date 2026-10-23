@@ -1,5 +1,12 @@
 """Bounded C3 local lifecycle on the existing immutable SQLite revision store."""
 
+from __future__ import annotations
+
+from types import ModuleType
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from proofops.application.tagging.fact_assembly_c2 import FactAssemblyReceiptV1
 import json
 from dataclasses import asdict, replace
 from hashlib import sha256
@@ -26,7 +33,7 @@ from proofops.domain.rules.engine import RuleContext
 from proofops.domain.values import SourceRef
 
 
-def _profile_module(profile, *, pinned_hash=None):
+def _profile_module(profile: str | None, *, pinned_hash: str | None = None) -> ModuleType:
     if profile == PROFILE:
         from proofops.application.tagging import fact_assembly_c3 as module
 
@@ -34,29 +41,39 @@ def _profile_module(profile, *, pinned_hash=None):
     from proofops.application.tagging.fact_assembly_c3_v2 import PROFILE as C3_V2_PROFILE
 
     if profile == C3_V2_PROFILE:
-        from proofops.application.tagging import fact_assembly_c3_v2 as module
+        from proofops.application.tagging import fact_assembly_c3_v2 as current_module
 
-        if pinned_hash == module.legacy.POLICY_HASH:
-            return module.legacy
-        return module
+        if pinned_hash == getattr(current_module, "legacy").POLICY_HASH:
+            return cast(ModuleType, getattr(current_module, "legacy"))
+        return current_module
     raise ValueError("C3_PUBLICATION_PROFILE_UNKNOWN")
 
 
 class LocalC3Publication:
-    def __init__(self, path):
+    def __init__(self, path: str | Path) -> None:
         self.path = Path(path)
         if self.path.is_symlink() or any(
             (self.path / name).is_symlink()
             for name in ("state.sqlite3", "original.pdf", "c3-evidence.json", "pilot.json")
         ):
             raise ValueError("C3_UNSAFE_ARTIFACT_PATH")
-        self.runs = LocalSQLiteRunStore(self.path / "state.sqlite3")
+        # Untyped dependency is outside S_ADB ownership.
+        self.runs = LocalSQLiteRunStore(self.path / "state.sqlite3")  # type: ignore[no-untyped-call]
         self.store = LocalSQLiteReviewStore(self.runs.jobs)
         self.service = ReviewService(self.store, load_inputs=self.load_inputs)
 
-    def initialize(self, case, receipt, *, source, parser_artifact, profile=None):
+    def initialize(
+        self,
+        case: dict[str, Any],
+        receipt: FactAssemblyReceiptV1,
+        *,
+        source: bytes,
+        parser_artifact: dict[str, Any],
+        profile: str | None = None,
+    ) -> dict[str, Any]:
         claim, graph = case["context"].claim, case["graph"]
-        receipt_data = receipt.to_dict()
+        # Untyped dependency is outside S_ADB ownership.
+        receipt_data = receipt.to_dict()  # type: ignore[no-untyped-call]
         profile = profile or receipt_data.get("policy", {}).get("profile", PROFILE)
         module = _profile_module(profile)
         if receipt_data.get("policy_sha256") != module.POLICY_HASH:
@@ -127,8 +144,9 @@ class LocalC3Publication:
             self.runs.jobs.create_run(claim.tenant_id, run_id, claim.document_version_id)
         return self.service.publish(inputs)
 
-    def load_inputs(self, tenant, run, claim_id):
-        frozen = self.runs.snapshot(tenant, run)
+    def load_inputs(self, tenant: str, run: str, claim_id: str) -> ReviewInputs:
+        # Untyped dependency is outside S_ADB ownership.
+        frozen = self.runs.snapshot(tenant, run)  # type: ignore[no-untyped-call]
         profile = frozen.get("analysis_profile_policy", {}).get("profile")
         module = _profile_module(profile, pinned_hash=frozen.get("analysis_profile_policy_sha256"))
         policy = module.publication_policy_for(
@@ -145,7 +163,8 @@ class LocalC3Publication:
             != canonical_hash({k: v for k, v in frozen.items() if k != "input_hash"})
         ):
             raise ValueError("C3_FROZEN_POLICY_MISMATCH")
-        history = self.store.history(tenant, run, claim_id)
+        # Untyped dependency is outside S_ADB ownership.
+        history = self.store.history(tenant, run, claim_id)  # type: ignore[no-untyped-call]
         raw = history["tags"][0]["inputs"]
         evidence = json.loads((self.path / "c3-evidence.json").read_text())
         if canonical_hash(evidence) != frozen["c3_evidence_sha256"]:
@@ -187,7 +206,8 @@ class LocalC3Publication:
             {k: v for k, v in raw["original_packet"].items() if k != "packet_sha256"}
         )
         pack = RulePackSnapshot(**frozen["rulepack"])
-        receipt = _fact_assembly_reader(raw["fact_assembly_receipt"])
+        # Untyped dependency is outside S_ADB ownership.
+        receipt = _fact_assembly_reader(raw["fact_assembly_receipt"])  # type: ignore[no-untyped-call]
         consensus, decision = module.publication_values(
             receipt.to_dict(), rulepack=pack, tag_revision=raw["tag_revision"]
         )
@@ -212,16 +232,20 @@ class LocalC3Publication:
             raise ValueError("C3_STORED_INPUT_REPLAY_MISMATCH")
         return inputs
 
-    def result(self, tenant, run, claim_id):
+    def result(self, tenant: str, run: str, claim_id: str) -> dict[str, Any]:
         inputs = self.load_inputs(tenant, run, claim_id)
-        history = self.store.history(tenant, run, claim_id)
+        # Untyped dependency is outside S_ADB ownership.
+        history = self.store.history(tenant, run, claim_id)  # type: ignore[no-untyped-call]
         tag, record = history["tags"][-1], history["decisions"][-1]
         decision = record["api"] | dict(excluded_elements=record["decision"]["excluded_elements"])
         auto = tag["origin"] == "consensus"
         claim = inputs.context.claim
         module = _profile_module(
             inputs.fact_assembly_profile,
-            pinned_hash=inputs.fact_assembly_receipt.to_dict()["policy_sha256"],
+            # Untyped dependency is outside S_ADB ownership.
+            pinned_hash=cast(FactAssemblyReceiptV1, inputs.fact_assembly_receipt).to_dict()[  # type: ignore[no-untyped-call]
+                "policy_sha256"
+            ],
         )
         version = "c3_v1" if inputs.fact_assembly_profile == PROFILE else "c3_v2"
         return dict(
@@ -229,7 +253,8 @@ class LocalC3Publication:
             page_map=[36],
             hold_reasons=[],
             pipeline=dict(status="completed"),
-            reviews=[self.store.get(tenant, self.service._review(inputs)["review_id"])],
+            # Untyped dependency is outside S_ADB ownership.
+            reviews=[self.store.get(tenant, self.service._review(inputs)["review_id"])],  # type: ignore[no-untyped-call]
             claims=[
                 claim.to_summary()
                 | dict(
@@ -259,9 +284,14 @@ class LocalC3Publication:
             ],
         )
 
-    def export(self, tenant, run, claim_id):
+    def export(self, tenant: str, run: str, claim_id: str) -> dict[str, Any]:
         inputs = self.load_inputs(tenant, run, claim_id)
-        history = self.store.history(tenant, run, claim_id)
-        return encode_revision_record(
-            history["tags"][-1], history["decisions"][-1], inputs.snapshot()
+        # Untyped dependency is outside S_ADB ownership.
+        history = self.store.history(tenant, run, claim_id)  # type: ignore[no-untyped-call]
+        return cast(
+            "dict[str, Any]",
+            # Untyped dependency is outside S_ADB ownership.
+            encode_revision_record(  # type: ignore[no-untyped-call]
+                history["tags"][-1], history["decisions"][-1], inputs.snapshot()
+            ),
         )

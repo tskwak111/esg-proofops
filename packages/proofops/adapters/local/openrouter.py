@@ -9,13 +9,14 @@ import sqlite3
 import time
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
+from typing import Any, cast
 
 from jsonschema import Draft202012Validator, FormatChecker, ValidationError
 
 from proofops.domain.provenance import canonical_hash
 
 MODEL = "openai/gpt-6-luna"
-WIRE_POLICY = {
+WIRE_POLICY: dict[str, Any] = {
     "provider": {
         "sort": "throughput",
         "max_price": {"prompt": 0.2, "completion": 1.0},
@@ -23,7 +24,7 @@ WIRE_POLICY = {
     "prompt_cache": "openai_automatic_v1",
 }
 ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
-POLICY = {
+POLICY: dict[str, Any] = {
     "provider": "openrouter",
     "model": MODEL,
     "limit_usd": "5.00",
@@ -32,7 +33,7 @@ POLICY = {
     "reservation_usd": "0.02",
     "max_request_bytes": 16384,
 }
-CAPACITY_POLICY = {
+CAPACITY_POLICY: dict[str, Any] = {
     "schema": "openrouter-luna-input-reservation-v1",
     "model_id": MODEL,
     "reservation_input_tokens": 32768,
@@ -40,14 +41,16 @@ CAPACITY_POLICY = {
 }
 
 
-def validate_capacity_policy(policy, *, model_id):
+def validate_capacity_policy(policy: object, *, model_id: str) -> int:
     if model_id != MODEL or policy != CAPACITY_POLICY:
         raise ValueError("OPENROUTER_CAPACITY_POLICY_MISMATCH")
-    return CAPACITY_POLICY["reservation_input_tokens"]
+    return cast(int, CAPACITY_POLICY["reservation_input_tokens"])
 
 
 class OpenRouterProbe:
-    def __init__(self, api_key: str, ledger: Path, *, model: str = MODEL, wire_policy_version=2):
+    def __init__(
+        self, api_key: str, ledger: Path, *, model: str = MODEL, wire_policy_version: int = 2
+    ) -> None:
         if model != MODEL:
             raise ValueError("UNSUPPORTED_MODEL")
         if not api_key or any(c.isspace() for c in api_key):
@@ -83,7 +86,7 @@ class OpenRouterProbe:
         self._responses.mkdir(mode=0o700, exist_ok=True)
         self._responses.chmod(0o700)
 
-    def _total(self, db):
+    def _total(self, db: sqlite3.Connection) -> Decimal:
         if db.execute("SELECT body FROM probe_policy WHERE id=1").fetchone() != (
             json.dumps(POLICY, sort_keys=True),
         ):
@@ -110,7 +113,7 @@ class OpenRouterProbe:
             total += amount
         return total
 
-    def summary(self):
+    def summary(self) -> dict[str, Any]:
         with sqlite3.connect(self.ledger) as db:
             total = self._total(db)
             calls, unsettled = db.execute(
@@ -123,7 +126,15 @@ class OpenRouterProbe:
             "committed_usd": str(total),
         }
 
-    def request_body(self, system, user_json, *, request_id, max_tokens=1024, json_mode=False):
+    def request_body(
+        self,
+        system: str,
+        user_json: str,
+        *,
+        request_id: str,
+        max_tokens: int = 1024,
+        json_mode: bool = False,
+    ) -> dict[str, Any]:
         if (
             not isinstance(system, str)
             or not isinstance(user_json, str)
@@ -156,7 +167,7 @@ class OpenRouterProbe:
             raise ValueError("PROBE_REQUEST_TOO_LARGE")
         return body
 
-    def _post(self, body):
+    def _post(self, body: dict[str, Any]) -> dict[str, Any]:
         connection = http.client.HTTPSConnection("openrouter.ai", timeout=90)
         try:
             connection.request(
@@ -174,13 +185,20 @@ class OpenRouterProbe:
             raw = response.read(1_048_577)
             if len(raw) > 1_048_576:
                 raise ValueError("OPENROUTER_RESPONSE_TOO_LARGE")
-            return json.loads(raw)
+            return cast("dict[str, Any]", json.loads(raw))
         finally:
             connection.close()
 
     def complete(
-        self, system, user_json, *, request_id, max_tokens=1024, json_mode=False, schema_json=None
-    ):
+        self,
+        system: str,
+        user_json: str,
+        *,
+        request_id: str,
+        max_tokens: int = 1024,
+        json_mode: bool = False,
+        schema_json: str | None = None,
+    ) -> dict[str, Any]:
         body = self.request_body(
             system, user_json, request_id=request_id, max_tokens=max_tokens, json_mode=json_mode
         )

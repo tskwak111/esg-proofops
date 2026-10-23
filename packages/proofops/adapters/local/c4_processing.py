@@ -5,6 +5,16 @@ transport must return independently authenticated receipts; source/packet/engine
 admission and immutable publication occur here, never inside the LLM transport.
 """
 
+from __future__ import annotations
+
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+    from proofops.domain.rulepacks import RulePackSnapshot
 import json
 import re
 from dataclasses import asdict
@@ -22,7 +32,9 @@ from proofops.application.evidence.retrieval import (
     retrieve_evidence,
 )
 from proofops.application.evidence.span_citations import verify_source_ref
-from proofops.application.tagging.fact_assembly_c4 import (
+
+# Existing re-export belongs to a protected or separately owned module.
+from proofops.application.tagging.fact_assembly_c4 import (  # type: ignore[attr-defined]
     POLICY,
     POLICY_HASH,
     assemble,
@@ -49,7 +61,14 @@ activity는 해당 시스템 명칭이며 boundary는 M2 전체 문장이다. pe
 반복된 짧은 인용 대신 해당 source에서 유일한 전체 문장을 인용하라. Output JSON only."""
 
 
-def prepare_candidate(graph, source, candidate, rulepack, *, run_id):
+def prepare_candidate(
+    graph: CanonicalDocumentGraph,
+    source: bytes,
+    candidate: dict[str, Any],
+    rulepack: RulePackSnapshot,
+    *,
+    run_id: str,
+) -> dict[str, Any]:
     """New source receipt and packet for each discovered activity; no old votes."""
     block = next(b for b in graph.blocks if b.source_id == candidate["source_id"])
     refs = [
@@ -77,7 +96,7 @@ def prepare_candidate(graph, source, candidate, rulepack, *, run_id):
                     break
     source_receipt = attest(graph, source, refs, tenant_id=graph.tenant_id)
     verified = replay(source_receipt, graph, source, tenant_id=graph.tenant_id)
-    refs = tuple(verify_source_ref(r, verified, tenant_id=graph.tenant_id) for r in refs)
+    verified_refs = tuple(verify_source_ref(r, verified, tenant_id=graph.tenant_id) for r in refs)
     claim_id = str(
         uuid5(
             NAMESPACE_URL,
@@ -102,13 +121,13 @@ def prepare_candidate(graph, source, candidate, rulepack, *, run_id):
         graph.document_version_id,
         graph.parse_manifest_id,
         graph.source_sha256,
-        refs[0].quote,
-        (refs[0],),
-        "verified" if refs[0].verification_state == "verified" else "unverified",
+        verified_refs[0].quote,
+        (verified_refs[0],),
+        "verified" if verified_refs[0].verification_state == "verified" else "unverified",
         (),
         ExtractionReceipt(
-            refs[0].source_id,
-            canonical_hash(asdict(refs[0])),
+            verified_refs[0].source_id,
+            canonical_hash(asdict(verified_refs[0])),
             None,
             None,
             profile,
@@ -141,7 +160,7 @@ def prepare_candidate(graph, source, candidate, rulepack, *, run_id):
     )
     packet = freeze_packet(
         {k: v for k, v in packet.to_dict().items() if k != "packet_sha256"}
-        | dict(c4_sources=[asdict(r) for r in refs], c4_candidate=candidate)
+        | dict(c4_sources=[asdict(r) for r in verified_refs], c4_candidate=candidate)
     )
     return dict(
         candidate=candidate,
@@ -155,7 +174,15 @@ def prepare_candidate(graph, source, candidate, rulepack, *, run_id):
     )
 
 
-def process_report(graph, source, rulepack, *, run_id, output, transport):
+def process_report(
+    graph: CanonicalDocumentGraph,
+    source: bytes,
+    rulepack: RulePackSnapshot,
+    *,
+    run_id: str,
+    output: str | Path,
+    transport: Callable[[dict[str, Any]], dict[str, Any]],
+) -> dict[str, Any]:
     """Report processing entry: discover → attest → freeze → 3 calls → decide → publish.
 
     transport(request) returns an origin-authenticated provider envelope. Paid
@@ -165,7 +192,8 @@ def process_report(graph, source, rulepack, *, run_id, output, transport):
 
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
-    candidates, rows = discover(graph), []
+    # Untyped dependency is outside S_ADB ownership.
+    candidates, rows = discover(graph), []  # type: ignore[no-untyped-call]
     start, calls = monotonic(), 0
     for candidate in candidates:
         case = prepare_candidate(graph, source, candidate, rulepack, run_id=run_id)
@@ -198,8 +226,10 @@ def process_report(graph, source, rulepack, *, run_id, output, transport):
             request = dict(
                 identity=identity,
                 replica=replica,
-                system=SYSTEM + "\nOutput JSON schema:\n" + json.dumps(vote_schema()),
-                schema_json=json.dumps(vote_schema()),
+                # Untyped dependency is outside S_ADB ownership.
+                system=SYSTEM + "\nOutput JSON schema:\n" + json.dumps(vote_schema()),  # type: ignore[no-untyped-call]
+                # Untyped dependency is outside S_ADB ownership.
+                schema_json=json.dumps(vote_schema()),  # type: ignore[no-untyped-call]
                 max_tokens=1800,
                 snapshot=dict(
                     tenant_id=graph.tenant_id,
@@ -236,13 +266,15 @@ def process_report(graph, source, rulepack, *, run_id, output, transport):
                 provider=response["provider"],
                 simulated=response["simulated"],
                 model_sha256=response["model_binding_sha256"],
-                prompt_sha256=canonical_hash([SYSTEM, vote_schema()]),
+                # Untyped dependency is outside S_ADB ownership.
+                prompt_sha256=canonical_hash([SYSTEM, vote_schema()]),  # type: ignore[no-untyped-call]
                 raw=json.loads(response["content"]),
             )
             vote["raw_sha256"] = canonical_hash(vote["raw"])
             vote["vote_sha256"] = canonical_hash(vote)
             votes.append(vote)
-        receipt = assemble(
+        # Untyped dependency is outside S_ADB ownership.
+        receipt = assemble(  # type: ignore[no-untyped-call]
             votes, **{k: case[k] for k in ("context", "graph", "packet", "rulepack")}
         )
         row.update(

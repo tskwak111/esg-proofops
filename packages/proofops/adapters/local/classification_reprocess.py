@@ -17,6 +17,14 @@ immutable revision.
 
 from __future__ import annotations
 
+import sqlite3
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    from proofops.adapters.local.job_store import LocalSQLiteJobStore
+    from proofops.adapters.local.run_store import LocalSQLiteRunStore
+    from proofops.adapters.local.tag_store import LocalTagStore
 import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -95,10 +103,10 @@ class ClassificationReprocessPlan:
             raise ReprocessRejected("TAG_REPROCESS_TIME_INVALID")
 
     def to_dict(self) -> dict[str, Any]:
-        return json.loads(canonical_json(asdict(self)))
+        return cast("dict[str, Any]", json.loads(canonical_json(asdict(self))))
 
     @classmethod
-    def from_dict(cls, data) -> ClassificationReprocessPlan:
+    def from_dict(cls, data: dict[str, Any]) -> ClassificationReprocessPlan:
         try:
             return cls(
                 **(dict(data) | {"baseline_request_ids": tuple(data["baseline_request_ids"])})
@@ -118,7 +126,9 @@ class ClassificationReprocessPlan:
         )
 
 
-def baseline_request_ids(store, tenant_id: str, run_id: str, receipts: Path) -> list[str]:
+def baseline_request_ids(
+    store: LocalSQLiteRunStore, tenant_id: str, run_id: str, receipts: Path
+) -> list[str]:
     """Every request_id that already exists, from the ledger and the receipt tree."""
     present: set[str] = {
         row["reservation"]["call"]["request_id"] for row in store.usage.cost_data(tenant_id, run_id)
@@ -130,7 +140,9 @@ def baseline_request_ids(store, tenant_id: str, run_id: str, receipts: Path) -> 
     return sorted(present)
 
 
-def issued_since_baseline(store, tenant_id, run_id, receipts: Path, baseline) -> list[str]:
+def issued_since_baseline(
+    store: LocalSQLiteRunStore, tenant_id: str, run_id: str, receipts: Path, baseline: Iterable[str]
+) -> list[str]:
     """Which request_ids exist now that the pinned baseline did not contain?
 
     Both the reservation ledger and the receipt directories are durable and written
@@ -142,7 +154,9 @@ def issued_since_baseline(store, tenant_id, run_id, receipts: Path, baseline) ->
     return sorted(present - known)
 
 
-def outstanding_tag_jobs(jobs, db, tenant_id: str, run_id: str) -> list[str]:
+def outstanding_tag_jobs(
+    jobs: LocalSQLiteJobStore, db: sqlite3.Connection, tenant_id: str, run_id: str
+) -> list[str]:
     """Every unsettled tag job for this run, so two callbacks can never race."""
     outstanding = []
     for record in jobs._all(db, tenant_id, run_id, "job"):
@@ -152,7 +166,9 @@ def outstanding_tag_jobs(jobs, db, tenant_id: str, run_id: str) -> list[str]:
     return sorted(outstanding)
 
 
-def _lineage(store, tenant_id: str, run_id: str) -> tuple[JobMessage, dict[str, Any]]:
+def _lineage(
+    store: LocalSQLiteRunStore, tenant_id: str, run_id: str
+) -> tuple[JobMessage, dict[str, Any]]:
     run = store.jobs.get_run(tenant_id, run_id)
     if "tag_job" not in run or "tag_snapshot_sha256" not in run:
         raise ReprocessRejected("TAG_REPROCESS_LINEAGE_REQUIRED")
@@ -160,8 +176,8 @@ def _lineage(store, tenant_id: str, run_id: str) -> tuple[JobMessage, dict[str, 
 
 
 def plan_reprocess(
-    store,
-    tags,
+    store: LocalSQLiteRunStore,
+    tags: LocalTagStore,
     *,
     tenant_id: str,
     run_id: str,
@@ -177,7 +193,8 @@ def plan_reprocess(
     _require_uuid("classification_id", classification_id)
     _require_sha256("classification_sha256", classification_sha256)
     lineage, run = _lineage(store, tenant_id, run_id)
-    envelope = tags.load_snapshot(tenant_id, run_id)
+    # Untyped dependency is outside S_ADB ownership.
+    envelope = tags.load_snapshot(tenant_id, run_id)  # type: ignore[no-untyped-call]
     item = next((c for c in envelope["claims"] if c["claim_id"] == claim_id), None)
     if item is None:
         raise ReprocessRejected("TAG_REPROCESS_CLAIM_NOT_IN_LINEAGE")
@@ -208,7 +225,12 @@ def plan_reprocess(
 
 
 def authorize_reprocess(
-    store, plan: ClassificationReprocessPlan, run, *, db, now: int
+    store: LocalSQLiteRunStore,
+    plan: ClassificationReprocessPlan,
+    run: dict[str, Any],
+    *,
+    db: sqlite3.Connection,
+    now: int,
 ) -> JobMessage:
     """Record the authorization and enqueue its job inside one transaction.
 
@@ -249,7 +271,9 @@ def authorize_reprocess(
     return message
 
 
-def load_plan(store, message: JobMessage) -> ClassificationReprocessPlan | None:
+def load_plan(
+    store: LocalSQLiteRunStore, message: JobMessage
+) -> ClassificationReprocessPlan | None:
     with store.jobs._transaction() as db:
         raw = store.jobs._raw(db, message.tenant_id, message.run_id, REPROCESS_KIND, message.job_id)
     if raw is None:

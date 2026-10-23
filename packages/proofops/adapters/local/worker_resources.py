@@ -1,5 +1,7 @@
 """Validated runtime caps; native reader bytes and all evidence policies stay fixed."""
 
+from __future__ import annotations
+
 import atexit
 import os
 import re
@@ -8,13 +10,24 @@ from decimal import Decimal, InvalidOperation
 from multiprocessing import get_context
 from pathlib import Path
 from threading import Lock
+from typing import Any, TypedDict, cast
+
+
+class ResourceSettings(TypedDict):
+    profile: str
+    worker_cpus: str
+    worker_memory: str
+    ocr_processes: int
+    pdfium_workers: int
+    omp_threads: int
+
 
 PROFILE = "worker-resources-s5-v1"
 _pool = None
 _pool_lock = Lock()
 
 
-def close_ocr_pool():
+def close_ocr_pool() -> None:
     global _pool
     with _pool_lock:
         if _pool is not None:
@@ -25,7 +38,7 @@ def close_ocr_pool():
 atexit.register(close_ocr_pool)
 
 
-def shared_ocr_pool():
+def shared_ocr_pool() -> ProcessPoolExecutor:
     """One pool per isolated S5 worker process, shared across reader contexts."""
     global _pool
     workers = ocr_workers()
@@ -37,12 +50,12 @@ def shared_ocr_pool():
         return _pool
 
 
-def enabled():
+def enabled() -> bool:
     return os.environ.get("PROOFOPS_RESOURCE_PROFILE") == PROFILE
 
 
-def resource_settings():
-    def integer(name, default, maximum):
+def resource_settings() -> ResourceSettings:
+    def integer(name: str, default: int, maximum: int) -> int:
         raw = os.environ.get(name, str(default))
         if not re.fullmatch(r"[1-9][0-9]*", raw) or not 1 <= int(raw) <= maximum:
             raise ValueError("WORKER_RESOURCE_SETTING_INVALID")
@@ -67,8 +80,8 @@ def resource_settings():
     )
 
 
-def resource_snapshot():
-    result = resource_settings()
+def resource_snapshot() -> dict[str, Any]:
+    result = cast(dict[str, Any], resource_settings())
     # Requested configuration and actual cgroup ceilings are separate evidence.
     result["cgroup"] = {}
     for name in ("cpu.max", "memory.max"):
@@ -78,13 +91,13 @@ def resource_snapshot():
     return result
 
 
-def ocr_workers():
+def ocr_workers() -> int:
     if enabled():
         return resource_settings()["ocr_processes"]
     return 2
 
 
-def apply_resources():
+def apply_resources() -> dict[str, Any]:
     settings = resource_settings()
     os.environ.update(
         PROOFOPS_RESOURCE_PROFILE=PROFILE,

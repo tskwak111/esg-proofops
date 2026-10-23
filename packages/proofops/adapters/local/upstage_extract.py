@@ -7,12 +7,15 @@ plus 10% VAT. Settlement uses the submitted one-page count at the requested mode
 rate, not token pricing or a claimed provider invoice. No production activation.
 """
 
+from __future__ import annotations
+
 import base64
 import http.client
 import io
 import json
 from datetime import UTC, datetime
 from hashlib import sha256
+from typing import Any, cast
 
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError
@@ -27,10 +30,10 @@ PRICE = dict(snapshot_id="upstage-extract-2026-09-13", enhanced_per_page="0.06",
 
 class UpstageExtractProbe(UpstageParseProbe):
     @property
-    def model(self):
+    def model(self) -> str:
         return EXTRACT_MODEL
 
-    def _post_extract(self, body):
+    def _post_extract(self, body: dict[str, Any]) -> dict[str, Any]:
         connection = http.client.HTTPSConnection("api.upstage.ai", timeout=60)
         try:
             connection.request(
@@ -48,11 +51,13 @@ class UpstageExtractProbe(UpstageParseProbe):
             raw = response.read(1_048_577)
             if len(raw) > 1_048_576:
                 raise ValueError("UPSTAGE_RESPONSE_TOO_LARGE")
-            return json.loads(raw)
+            return cast("dict[str, Any]", json.loads(raw))
         finally:
             connection.close()
 
-    def extract(self, pdf_bytes, schema, *, request_id):
+    def extract(
+        self, pdf_bytes: bytes, schema: dict[str, Any], *, request_id: str
+    ) -> dict[str, Any]:
         # ponytail: one PDF page or one PNG only; no multi-file/image batch billing.
         media_type = "application/pdf"
         if isinstance(pdf_bytes, bytes) and pdf_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
@@ -64,7 +69,7 @@ class UpstageExtractProbe(UpstageParseProbe):
                 with Image.open(io.BytesIO(pdf_bytes)) as img:
                     if (
                         img.format != "PNG"
-                        or img.n_frames != 1
+                        or getattr(img, "n_frames") != 1
                         or img.width * img.height > 16_000_000
                     ):
                         raise ValueError("invalid image")

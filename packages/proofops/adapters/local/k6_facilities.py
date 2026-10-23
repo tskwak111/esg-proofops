@@ -1,5 +1,13 @@
 """Rebuild K6's supplemental header attestations from the immutable PDF."""
 
+from __future__ import annotations
+
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from proofops.application.claims import Claim
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
 from pdfplumber.utils.exceptions import PdfminerException
 
 from proofops.adapters.local.k4_facilities import restore_facilities
@@ -9,7 +17,14 @@ from proofops.domain.provenance import canonical_hash
 from proofops.domain.values import SourceRef
 
 
-def facility_graph(graph, source, claims, *, tenant_id, policy):
+def facility_graph(
+    graph: CanonicalDocumentGraph,
+    source: bytes,
+    claims: Iterable[Claim],
+    *,
+    tenant_id: str,
+    policy: dict[str, Any],
+) -> tuple[CanonicalDocumentGraph, dict[str, Any]]:
     profile = policy.get("facility_tagging_candidates")
     if profile is None:
         return graph, {}

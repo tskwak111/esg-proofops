@@ -1,10 +1,14 @@
 """Exact policy dispatch; historical EV1 never gains a different pixel reader."""
 
+from __future__ import annotations
+
+from types import ModuleType
+
 from proofops.adapters.local import evidence_source_ocr_v1 as ocr
 from proofops.adapters.local import evidence_source_verification_v1 as apple
 
 
-def evidence_source_reader(policy):
+def evidence_source_reader(policy: object) -> ModuleType:
     from proofops.adapters.local import evidence_source_i17
 
     if policy == evidence_source_i17.policy():
