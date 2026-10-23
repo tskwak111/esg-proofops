@@ -5,6 +5,20 @@ No source verifier, tags or immutable result snapshots are changed here.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from proofops_api.hosted_store import HostedStore
+from collections.abc import Iterator
+
+from proofops.application.authorization import AuthContext
+from starlette.types import Receive, Scope, Send
+
+from proofops_api.hosted_contracts import HostedRow, SourceAnchor
+
+if TYPE_CHECKING:
+    from proofops_api.hosted_reads import HostedReads
+
 import fcntl
 import json
 import math
@@ -24,11 +38,11 @@ from proofops_api.hosted_snapshots import pilot_bytes, tenant_snapshot
 
 
 class _OriginalPdfResponse(FileResponse):
-    def __init__(self, path, *, scratch, **kwargs):
+    def __init__(self, path: Path, *, scratch: TemporaryDirectory[str], **kwargs: Any) -> None:
         super().__init__(path, **kwargs)
         self._scratch = scratch
 
-    async def __call__(self, scope, receive, send):
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         try:
             await super().__call__(scope, receive, send)
         finally:
@@ -37,7 +51,9 @@ class _OriginalPdfResponse(FileResponse):
             self._scratch.cleanup()
 
 
-def original_pdf(store, auth, document_id, expected_sha=None):
+def original_pdf(
+    store: HostedStore, auth: AuthContext, document_id: str, expected_sha: str | None = None
+) -> FileResponse:
     """Serve only a private, hash-checked copy, never a mutable pathname or derivative."""
     scratch = TemporaryDirectory(prefix=".original-read-", dir=store.root)
     try:
@@ -105,7 +121,7 @@ def original_pdf(store, auth, document_id, expected_sha=None):
         raise
 
 
-def _references(claim):
+def _references(claim: dict[str, Any]) -> Iterator[tuple[str, str, str | None, dict[str, Any]]]:
     for i, ref in enumerate(claim.get("source_refs", [])):
         yield f"source_refs/{i}", "claim", None, ref
     for field, ref in (claim.get("table_observation") or {}).get("cell_source_refs", {}).items():
@@ -119,7 +135,14 @@ def _references(claim):
                 yield f"{key}/{i}/evidence_refs/{j}", "evidence", element["element_id"], ref
 
 
-def _stored_glyphs(path, evidence_hash, ref, physical, source_sha, geometry):
+def _stored_glyphs(
+    path: Path,
+    evidence_hash: str,
+    ref: dict[str, Any],
+    physical: int | None,
+    source_sha: str,
+    geometry: PageGeometry,
+) -> list[list[float]] | None:
     # C3/C4 receipts already contain exact glyph rectangles. Copy them verbatim;
     # do not estimate lines or search/re-parse the PDF to manufacture coordinates.
     for name in ("c3-evidence.json", "c4-evidence.json"):
@@ -160,7 +183,7 @@ def _stored_glyphs(path, evidence_hash, ref, physical, source_sha, geometry):
                     offsets = normalization.get("canonical_nonspace_offsets", [])
                     if (
                         not all(type(n) is int for n in (start, end, parent_start, parent_end))
-                        or not parent_start <= start < end <= parent_end
+                        or not parent_start <= cast(int, start) < cast(int, end) <= parent_end
                         or parent_end - parent_start != len(quote)
                         or quote[start - parent_start : end - parent_start] != ref.get("quote")
                         or normalization.get("canonical_quote") != quote
@@ -174,7 +197,9 @@ def _stored_glyphs(path, evidence_hash, ref, physical, source_sha, geometry):
                     glyphs = [
                         glyph
                         for offset, glyph in zip(offsets, glyphs, strict=True)
-                        if start - parent_start <= offset < end - parent_start
+                        if cast(int, start) - cast(int, parent_start)
+                        <= offset
+                        < cast(int, end) - cast(int, parent_start)
                     ]
                 boxes = [g["bbox"] for g in glyphs]
                 if boxes and all(
@@ -191,7 +216,9 @@ def _stored_glyphs(path, evidence_hash, ref, physical, source_sha, geometry):
     return None
 
 
-def project_source_view(reads, row, doc, result, *, w18=False):
+def project_source_view(
+    reads: HostedReads, row: HostedRow, doc: HostedRow, result: dict[str, Any], *, w18: bool = False
+) -> dict[str, Any]:
     """Add nullable locations using only the existing pinned snapshot/geometry reader."""
     if result.get("reuse", {}).get("reused"):
         from proofops_api.hosted_reuse import source_document, verify_copy
@@ -202,7 +229,7 @@ def project_source_view(reads, row, doc, result, *, w18=False):
         reads.store.document_dir(row["tenant_id"], row["document_id"]) / "analysis" / row["run_id"]
     )
     pages = result["page_map"]
-    anchors = {}
+    anchors: dict[tuple[Path, int | None], SourceAnchor | None] = {}
     claims = []
     w18_requests = []
     for claim in result.get("claims", []):
@@ -225,9 +252,9 @@ def project_source_view(reads, row, doc, result, *, w18=False):
             if physical is not None and key not in anchors:
                 try:
                     anchors[key] = (
-                        _publication_anchor(path, row, doc, number)
+                        _publication_anchor(path, row, doc, cast(int, number))
                         if original
-                        else reads._anchor(path, row, number)
+                        else reads._anchor(path, row, cast(int, number))
                     )
                 except (
                     OSError,
@@ -306,16 +333,21 @@ def project_source_view(reads, row, doc, result, *, w18=False):
     )
 
 
-def _glyph_lines(boxes):
+def _glyph_lines(boxes: list[list[float]]) -> list[list[float]]:
     """Display unions of sequential, vertically overlapping stored glyphs only.
 
     A leftward jump or disjoint vertical extent starts a new rectangle. Every
     edge is a min/max of receipt coordinates; no new text or location is inferred.
     """
-    lines = []
+    lines: list[list[float]] = []
     previous_x = None
     for box in boxes:
-        if not lines or box[0] < previous_x or box[1] >= lines[-1][3] or box[3] <= lines[-1][1]:
+        if (
+            not lines
+            or box[0] < cast(float, previous_x)
+            or box[1] >= lines[-1][3]
+            or box[3] <= lines[-1][1]
+        ):
             lines.append(list(box))
         else:
             prior = lines[-1]
@@ -329,7 +361,7 @@ def _glyph_lines(boxes):
     return lines
 
 
-def _publication_anchor(path, row, doc, page):
+def _publication_anchor(path: Path, row: HostedRow, doc: HostedRow, page: int) -> SourceAnchor:
     """Read C3/C4 frozen display geometry without replaying current rule policies.
 
     The result reader has checked publication source_hashes. Additionally bind the

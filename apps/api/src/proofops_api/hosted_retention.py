@@ -20,7 +20,9 @@ if TYPE_CHECKING:
     from proofops_api.hosted_store import HostedStore
 
 
-def delete_document(store: HostedStore, auth: Any, document: str, key: str, *, now: float) -> dict:
+def delete_document(
+    store: HostedStore, auth: Any, document: str, key: str, *, now: float
+) -> dict[str, Any]:
     if not isinstance(key, str) or not 16 <= len(key) <= 128:
         raise HostedError("IDEMPOTENCY_KEY_INVALID", 400)
     with store.transaction() as db:
@@ -53,7 +55,7 @@ def delete_document(store: HostedStore, auth: Any, document: str, key: str, *, n
     return store._purge(auth.tenant_id, document, now)
 
 
-def _purge(store: HostedStore, tenant: str, document: str, now: float) -> dict:
+def _purge(store: HostedStore, tenant: str, document: str, now: float) -> dict[str, Any]:
     status = "completed"
     try:
         with store.transaction(readonly=True) as db:

@@ -5,6 +5,12 @@ provider accounting tables are copied: sessions, registry/cursor secrets, live
 configuration, environment, subprocess output and uploaded files are excluded.
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from proofops_api.hosted_store import HostedStore
 import fcntl
 import json
 import logging
@@ -13,6 +19,7 @@ import re
 import shutil
 import sqlite3
 import time
+from collections.abc import Iterator
 from contextlib import closing, contextmanager
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -33,7 +40,7 @@ RECEIPTS = (
 
 
 @contextmanager
-def analysis_workspace(store, job, directory):
+def analysis_workspace(store: HostedStore, job: dict[str, Any], directory: Path) -> Iterator[Path]:
     with TemporaryDirectory(prefix="analysis-work-", dir=directory) as scratch:
         workspace = Path(scratch)
         try:
@@ -53,7 +60,7 @@ def analysis_workspace(store, job, directory):
                 retain_failure(store, job, workspace)
 
 
-def failure_record(error):
+def failure_record(error: BaseException) -> dict[str, Any]:
     """Retain the original category and code, never arbitrary exception text."""
     from proofops.adapters.local.source_hx3 import failure_location
 
@@ -65,7 +72,7 @@ def failure_record(error):
     )
 
 
-def write_child_failure(state, error):
+def write_child_failure(state: str | Path, error: BaseException) -> None:
     # Parent collects this only after reaping the child and its process group.
     try:
         path = Path(state) / "failure.json"
@@ -75,7 +82,7 @@ def write_child_failure(state, error):
         pass
 
 
-def _database(source, target, tables, limit):
+def _database(source: Path, target: Path, tables: tuple[str, ...], limit: int) -> None:
     # CTAS deliberately omits executable triggers, identity/auth tables and free
     # pages containing deleted data. The read-only source is never modified.
     target.touch(mode=0o600, exist_ok=False)
@@ -92,7 +99,9 @@ def _database(source, target, tables, limit):
     target.chmod(0o600)
 
 
-def retain_failure(store, job, workspace, error=None):
+def retain_failure(
+    store: HostedStore, job: dict[str, Any], workspace: Path, error: BaseException | None = None
+) -> None:
     """Best effort, no change to accounting, fences, publication or failure flow."""
     if not store.settings.retain_failed_analysis:
         return
@@ -122,7 +131,7 @@ def retain_failure(store, job, workspace, error=None):
             target = root / f'{job["run_id"]}-{job["fence"]}'
             target.mkdir(mode=0o700)  # create only; never overwrite prior evidence
             state = workspace / "state"
-            manifest = dict(
+            manifest: dict[str, Any] = dict(
                 schema="hosted-failure-diagnostics-v1",
                 run_id=job["run_id"],
                 fence=job["fence"],
@@ -192,7 +201,16 @@ def retain_failure(store, job, workspace, error=None):
         )
 
 
-def record_dispatch_failure(store, job, call_id, provider, input_sha, phase, error, context):
+def record_dispatch_failure(
+    store: HostedStore,
+    job: dict[str, Any],
+    call_id: str,
+    provider: str,
+    input_sha: str,
+    phase: str,
+    error: BaseException,
+    context: dict[str, Any] | None,
+) -> None:
     """Finite metadata at the boundary before an exception changes run state."""
     # Kept in the same capped failure capture; no prompts, responses, or keys.
     settings = getattr(store, "settings", None)
@@ -203,6 +221,8 @@ def record_dispatch_failure(store, job, call_id, provider, input_sha, phase, err
     )
     if state is None:
         return
+    # A non-None state above can only come from a present context.
+    context = cast(dict[str, Any], context)
     record = failure_record(error) | dict(
         run_id=job["run_id"],
         fence=job["fence"],

@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import secrets
 import sys
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -46,7 +47,7 @@ def create_app() -> FastAPI:
     composition = build_composition()
 
     @asynccontextmanager
-    async def lifespan(app: FastAPI):
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         try:
             yield
         finally:

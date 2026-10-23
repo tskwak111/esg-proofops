@@ -7,6 +7,7 @@ import logging
 import os
 import sqlite3
 import time
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -31,6 +32,7 @@ from proofops.application.authorization import (
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware.cors import CORSMiddleware
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from proofops_api.auth import SESSION_COOKIE_NAME, AuthStore, _epoch_to_rfc3339
 from proofops_api.hosted_guest import (
@@ -114,11 +116,11 @@ class DeletionReason(BaseModel):
 class BodyLimitMiddleware:
     """Enforce actual receive bytes even for chunked or misleading declared lengths."""
 
-    def __init__(self, app: Any, maximum: int, data_dir: Any):
+    def __init__(self, app: ASGIApp, maximum: int, data_dir: Path) -> None:
         self.app, self.maximum, self.data_dir = app, maximum, data_dir
-        self.inflight: set = set()
+        self.inflight: set[asyncio.Task[None]] = set()
 
-    async def __call__(self, scope: dict, receive: Any, send: Any) -> None:
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
@@ -134,7 +136,7 @@ class BodyLimitMiddleware:
             return
         received = 0
 
-        async def bounded_receive():
+        async def bounded_receive() -> Message:
             nonlocal received
             message = await receive()
             if message["type"] == "http.request":
@@ -160,13 +162,13 @@ class BodyLimitMiddleware:
             await response(scope, receive, send)
             return
 
-        async def admitted():
+        async def admitted() -> None:
             try:
                 await self.app(scope, bounded_receive, send)
             finally:
                 lease.close()
 
-        def finished(task):
+        def finished(task: asyncio.Task[None]) -> None:
             self.inflight.discard(task)
             if not task.cancelled():
                 task.exception()
@@ -188,10 +190,10 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
     auth_store = AuthStore(sessions=store.sessions, memberships=store.memberships)
 
     @asynccontextmanager
-    async def lifespan(app: FastAPI):
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await run_in_threadpool(store.maintain, now=time.time())
 
-        async def maintenance():
+        async def maintenance() -> None:
             while True:
                 await asyncio.sleep(60)
                 await run_in_threadpool(store.maintain, now=time.time())
@@ -232,7 +234,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
     app.add_middleware(BrowserSecurityHeadersMiddleware)
 
     @app.exception_handler(HostedError)
-    async def hosted_error(request: Request, exc: HostedError):
+    async def hosted_error(request: Request, exc: HostedError) -> JSONResponse:
         from proofops_api.hosted_contracts import CONTROL_MESSAGES
 
         return JSONResponse(
@@ -254,7 +256,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
         )
 
     @app.exception_handler(RequestValidationError)
-    async def validation_error(request: Request, exc: RequestValidationError):
+    async def validation_error(request: Request, exc: RequestValidationError) -> Response:
         # Pydantic's default errors echo submitted passwords/codes in `input`.
         if request.url.path in {"/v1/auth/access-password", "/v1/auth/invitation"}:
             return JSONResponse({"error": {"code": "VALIDATION_ERROR"}}, status_code=422)
@@ -262,7 +264,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
 
     @app.exception_handler(sqlite3.DatabaseError)
     @app.exception_handler(OSError)
-    async def storage_error(request: Request, exc: Exception):
+    async def storage_error(request: Request, exc: Exception) -> JSONResponse:
         from traceback import extract_tb
 
         logging.getLogger(__name__).warning(
@@ -290,7 +292,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
                 session_port=store.sessions,
                 membership_port=store.memberships,
                 required_capability=capability,
-            )  # type: ignore[arg-type]
+            )
             session = store.sessions.get(sid)
             if request.method != "GET" and (
                 session is None
@@ -330,7 +332,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
         except TenantNotFoundError:
             raise HostedError("RESOURCE_NOT_FOUND", 404) from None
 
-    def session_body(sid: str) -> dict:
+    def session_body(sid: str) -> dict[str, Any]:
         try:
             record = get_live_session(session_id=sid, now=time.time(), session_port=store.sessions)
         except SessionExpiredError:
@@ -361,7 +363,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
         )
 
     @app.post("/v1/auth/invitation")
-    def redeem(body: Invitation, request: Request, response: Response) -> dict:
+    def redeem(body: Invitation, request: Request, response: Response) -> dict[str, Any]:
         if request.headers.get("Origin") != settings.origin:
             raise HostedError("CSRF_INVALID", 403)
         store.consume("invitation-login", 10, time.time())
@@ -370,7 +372,9 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
         return session_body(sid)
 
     @app.post("/v1/auth/access-password")
-    def password_login(body: AccessPassword, request: Request, response: Response) -> dict:
+    def password_login(
+        body: AccessPassword, request: Request, response: Response
+    ) -> dict[str, Any]:
         if request.headers.get("Origin") != settings.origin:
             raise HostedError("CSRF_INVALID", 403)
         sid = store.access.login(
@@ -381,12 +385,12 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
         return session_body(sid)
 
     @app.get("/v1/guest")
-    def guest_info(response: Response) -> dict:
+    def guest_info(response: Response) -> dict[str, Any]:
         response.headers["Cache-Control"] = "private, no-store"
         return store.guest.discovery(time.time())
 
     @app.post("/v1/guest/session")
-    def guest_login(request: Request, response: Response) -> dict:
+    def guest_login(request: Request, response: Response) -> dict[str, Any]:
         # As with password/invitation login, no pre-existing session/CSRF token is
         # required. Exact Origin validation protects the session-creating POST.
         if request.headers.get("Origin") != settings.origin:
@@ -401,7 +405,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
         auth: Annotated[AuthContext, Depends(current)],
         limit: Annotated[int, Query(ge=1, le=100)] = 20,
         cursor: Annotated[str | None, Query(max_length=1024)] = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         if not settings.showcase_tenant:
             return dict(items=[], next_cursor=None)
         return reads.collection(
@@ -414,7 +418,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
         limit: Annotated[int, Query(ge=1, le=100)] = 20,
         cursor: Annotated[str | None, Query(max_length=1024)] = None,
         document_id: UUID | None = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         if not settings.showcase_tenant:
             return dict(items=[], next_cursor=None)
         return reads.collection(
@@ -426,7 +430,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
         )
 
     @app.get("/v1/session")
-    def session(request: Request, auth: Annotated[AuthContext, Depends(current)]) -> dict:
+    def session(request: Request, auth: Annotated[AuthContext, Depends(current)]) -> dict[str, Any]:
         return session_body(auth.session_id)
 
     @app.post("/v1/auth/logout", status_code=204)
@@ -439,7 +443,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
     @app.post("/v1/session/tenant")
     def switch(
         body: TenantSelect, response: Response, auth: Annotated[AuthContext, Depends(current)]
-    ) -> dict:
+    ) -> dict[str, Any]:
         try:
             selected = select_tenant(
                 session_id=auth.session_id,
@@ -454,7 +458,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
         return session_body(selected.session_id)
 
     @app.get("/v1/runtime")
-    def runtime() -> dict:
+    def runtime() -> dict[str, Any]:
         from proofops_api.hosted_analysis import runtime_profiles
 
         profiles = runtime_profiles(settings)
@@ -516,11 +520,11 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
         }
 
     @app.get("/v1/health/live")
-    def live() -> dict:
+    def live() -> dict[str, Any]:
         return {"status": "ok", "app_env": "hosted"}
 
     @app.get("/v1/health/ready")
-    def ready() -> dict:
+    def ready() -> dict[str, Any]:
         from proofops_api.hosted_analysis import runtime_profiles
 
         with store.transaction(readonly=True) as db:
@@ -535,7 +539,9 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
         }
 
     @app.post("/v1/documents", status_code=201)
-    async def upload(request: Request, auth: Annotated[AuthContext, Depends(current)]) -> dict:
+    async def upload(
+        request: Request, auth: Annotated[AuthContext, Depends(current)]
+    ) -> dict[str, Any]:
         if not settings.accept_uploads:
             raise HostedError("UPLOAD_DISABLED", 503)
         if request.headers.get("Content-Type", "").split(";")[0] != "application/pdf":
@@ -567,11 +573,13 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
         auth: Annotated[AuthContext, Depends(current)],
         limit: Annotated[int, Query(ge=1, le=100)] = 20,
         cursor: Annotated[str | None, Query(max_length=1024)] = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         return reads.collection(auth, "documents", limit=limit, cursor=cursor)
 
     @app.get("/v1/documents/{document_id}")
-    def document(document_id: UUID, auth: Annotated[AuthContext, Depends(current)]) -> dict:
+    def document(
+        document_id: UUID, auth: Annotated[AuthContext, Depends(current)]
+    ) -> dict[str, Any]:
         return store.get_document(auth.tenant_id, str(document_id))
 
     @app.get("/v1/documents/{document_id}/original", response_class=Response)
@@ -579,7 +587,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
         document_id: UUID,
         auth: Annotated[AuthContext, Depends(current)],
         sha256: Annotated[str | None, Query(pattern=r"^[0-9a-f]{64}$")] = None,
-    ):
+    ) -> Response:
         from proofops_api.hosted_source_view import original_pdf
 
         return original_pdf(store, auth, str(document_id), sha256)
@@ -587,7 +595,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
     @app.get("/v1/documents/{document_id}/scope-plan")
     def scope_get(
         document_id: UUID, response: Response, auth: Annotated[AuthContext, Depends(current)]
-    ) -> dict:
+    ) -> dict[str, Any]:
         scope = store.get_scope(auth.tenant_id, str(document_id))
         response.headers["ETag"] = f'"{scope["revision"]}"'
         return scope
@@ -595,7 +603,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
     @app.post("/v1/documents/{document_id}/scope-plan")
     def scope_create(
         document_id: UUID, response: Response, auth: Annotated[AuthContext, Depends(current)]
-    ) -> dict:
+    ) -> dict[str, Any]:
         scope = store.generate_scope(auth, str(document_id))
         response.headers["ETag"] = f'"{scope["revision"]}"'
         return scope
@@ -607,7 +615,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
         request: Request,
         response: Response,
         auth: Annotated[AuthContext, Depends(current)],
-    ) -> dict:
+    ) -> dict[str, Any]:
         scope = store.edit_scope(
             auth,
             str(document_id),
@@ -623,7 +631,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
     @app.post("/v1/runs", status_code=202)
     def run_create(
         body: RunCreate, request: Request, auth: Annotated[AuthContext, Depends(current)]
-    ) -> dict:
+    ) -> dict[str, Any]:
         from proofops_api.hosted_analysis import runtime_profiles
 
         profile = runtime_profiles(settings)["analysis_profile"]
@@ -646,7 +654,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
         limit: Annotated[int, Query(ge=1, le=100)] = 20,
         cursor: Annotated[str | None, Query(max_length=1024)] = None,
         document_id: UUID | None = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         return reads.collection(
             auth,
             "runs",
@@ -664,7 +672,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
         source_id: UUID | None = None,
         claim_id: UUID | None = None,
         document_version_id: UUID | None = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         from proofops.domain.provenance import canonical_hash
 
         manifest, _ = reads.page(
@@ -710,7 +718,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
         )
 
     @app.get("/v1/runs/{run_id}")
-    def run_get(run_id: UUID, auth: Annotated[AuthContext, Depends(current)]) -> dict:
+    def run_get(run_id: UUID, auth: Annotated[AuthContext, Depends(current)]) -> dict[str, Any]:
         return store.get_run(auth.tenant_id, str(run_id))
 
     @app.get("/v1/runs/{run_id}/result")
@@ -720,7 +728,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
         auth: Annotated[AuthContext, Depends(current)],
         w18: bool = False,
         ux1: Annotated[str | None, Query(max_length=64)] = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         from proofops_api.hosted_source_view import project_source_view
 
         stored = store.get_result(auth.tenant_id, str(run_id))
@@ -739,10 +747,10 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
     def resolve_review(
         run_id: UUID,
         review_id: UUID,
-        body: dict,
+        body: dict[str, Any],
         request: Request,
         auth: Annotated[AuthContext, Depends(current)],
-    ) -> dict:
+    ) -> dict[str, Any]:
         from pydantic import ValidationError
 
         from proofops_api.routers.reviews import ReviewResolve
@@ -761,7 +769,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
         )
 
     @app.post("/v1/runs/{run_id}/cancel")
-    def cancel(run_id: UUID, auth: Annotated[AuthContext, Depends(current)]) -> dict:
+    def cancel(run_id: UUID, auth: Annotated[AuthContext, Depends(current)]) -> dict[str, Any]:
         return store.cancel(auth, str(run_id), now=time.time())
 
     @app.post("/v1/documents/{document_id}/deletion-requests", status_code=202)
@@ -770,7 +778,7 @@ def create_hosted_app(settings: HostedSettings | None = None) -> FastAPI:
         body: DeletionReason,
         request: Request,
         auth: Annotated[AuthContext, Depends(current)],
-    ) -> dict:
+    ) -> dict[str, Any]:
         return store.delete_document(
             auth, str(document_id), request.headers.get("Idempotency-Key", ""), now=time.time()
         )

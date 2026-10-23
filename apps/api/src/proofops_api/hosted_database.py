@@ -136,7 +136,7 @@ def transaction(
 ) -> Iterator[sqlite3.Connection]:
     # Keep rollback journals: WAL loses cross-file atomicity for the attached
     # money/tombstone ledger. Reads need a snapshot, not a reserved writer.
-    def acquire():
+    def acquire() -> sqlite3.Connection:
         db = sqlite3.connect(store.path, timeout=BUSY_TIMEOUT_MS / 1000, isolation_level=None)
         db.row_factory = sqlite3.Row
         db.create_function(

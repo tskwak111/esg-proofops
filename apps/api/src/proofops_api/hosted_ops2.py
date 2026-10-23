@@ -2,10 +2,12 @@
 
 import sqlite3
 import time
+from collections.abc import Callable
 from contextvars import ContextVar
 from http.client import HTTPException
 from pathlib import Path
 from threading import Lock
+from typing import Any, cast
 
 from proofops.adapters.local.provider_concurrency import ProviderCircuitOpen
 from proofops.adapters.local.provider_scheduler import ProviderAdmissionDeferred
@@ -14,7 +16,7 @@ from proofops.domain.provenance import canonical_hash
 from proofops_api.hosted_analysis import HostedLunaProbe, HostedOpenAILunaProbe
 
 
-def fallback_trigger(error):
+def fallback_trigger(error: BaseException) -> str | None:
     # Admission rejection is not an observed provider/network failure.
     if isinstance(error, ProviderCircuitOpen | ProviderAdmissionDeferred):
         return None
@@ -33,15 +35,15 @@ def fallback_trigger(error):
 class FallbackState:
     """Shared by all model roles/replicas within one run, never across tenants."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.lock = Lock()
         self.http_lock = Lock()
         self.consecutive = 0
-        self.reason = None
-        self.receipts = []
+        self.reason: str | None = None
+        self.receipts: list[dict[str, Any]] = []
         self.last_dispatch = 0.0
 
-    def observe(self, trigger):
+    def observe(self, trigger: str | None) -> None:
         with self.lock:
             if trigger == "http_429_403_k3":
                 self.consecutive += 1
@@ -52,7 +54,7 @@ class FallbackState:
             else:
                 self.consecutive = 0
 
-    def summary(self):
+    def summary(self) -> dict[str, Any]:
         with self.lock:
             return dict(
                 profile="ops2_openrouter_fallback_v1",
@@ -72,11 +74,11 @@ class FallbackState:
 
 
 class PacedFallbackProbe(HostedLunaProbe):
-    def __init__(self, *args, fallback_state, **kwargs):
+    def __init__(self, *args: Any, fallback_state: FallbackState, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.fallback_state = fallback_state
 
-    def _post(self, body):
+    def _post(self, body: dict[str, Any]) -> dict[str, Any]:
         state = self.fallback_state
         # Conservative serial fallback: every physical attempt remains brokered.
         with state.http_lock:
@@ -88,14 +90,24 @@ class PacedFallbackProbe(HostedLunaProbe):
 class OPS2Probe(HostedOpenAILunaProbe):
     ops2_enabled = True
 
-    def __init__(self, *args, fallback_state, fallback_key, fallback_post=None, **kwargs):
+    def __init__(
+        self,
+        *args: Any,
+        fallback_state: FallbackState,
+        fallback_key: Callable[[], str],
+        fallback_post: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(*args, **kwargs)
         self.ops2_state = fallback_state
         self.ops2_key = fallback_key
         self.ops2_post = fallback_post
-        self.ops2_failure = ContextVar("ops2_failure", default=None)
+        self.ops2_failure: ContextVar[dict[str, Any] | None] = ContextVar(
+            "ops2_failure", default=None
+        )
 
-    def _post(self, body):
+    # Existing broker override intentionally omits the base transport-only keyword.
+    def _post(self, body: dict[str, Any]) -> dict[str, Any]:  # type: ignore[override]
         try:
             response = super()._post(body)
         except Exception as error:
@@ -107,14 +119,18 @@ class OPS2Probe(HostedOpenAILunaProbe):
                 None
                 if current.get() is not None
                 and (
-                    transient_code(error)
-                    or current.get()["terminal_code"] == "SC1_PROVIDER_TIMEOUT"
+                    # External API is untyped and outside this work package.
+                    transient_code(error)  # type: ignore[no-untyped-call]
+                    or cast(dict[str, Any], current.get())["terminal_code"]
+                    == "SC1_PROVIDER_TIMEOUT"
                 )
                 else fallback_trigger(error)
             )
             # The scheduler has already closed each physical attempt. Retain
             # only this logical request's failures; other requests remain blocked.
-            attempts = (self._dispatch_context.get() or {}).get("physical_attempts", [])
+            attempts = cast(dict[str, Any], self._dispatch_context.get() or {}).get(
+                "physical_attempts", []
+            )
             self.ops2_failure.set(
                 dict(
                     trigger=trigger,
@@ -128,7 +144,9 @@ class OPS2Probe(HostedOpenAILunaProbe):
         self.ops2_state.observe(None)
         return response
 
-    def complete(self, system, user_json, *, request_id, **kwargs):
+    def complete(
+        self, system: str, user_json: str, *, request_id: str, **kwargs: Any
+    ) -> dict[str, Any]:
         recovered = 0
         if self.ops2_state.reason is not None:
             with sqlite3.connect(self.ledger) as db:
@@ -139,11 +157,15 @@ class OPS2Probe(HostedOpenAILunaProbe):
         if self.ops2_state.reason is None:
             token = self.ops2_failure.set(None)
             try:
-                return super().complete(system, user_json, request_id=request_id, **kwargs)
+                return cast(
+                    dict[str, Any],
+                    # External API is untyped and outside this work package.
+                    super().complete(system, user_json, request_id=request_id, **kwargs),  # type: ignore[no-untyped-call]
+                )
             except Exception:
                 if self.ops2_failure.get() is None or self.ops2_state.reason is None:
                     raise
-                recovered = self.ops2_failure.get()["failed_calls"]
+                recovered = cast(dict[str, Any], self.ops2_failure.get())["failed_calls"]
             finally:
                 self.ops2_failure.reset(token)
         self._authorize_response_request()
@@ -162,7 +184,8 @@ class OPS2Probe(HostedOpenAILunaProbe):
             post=self.ops2_post,
             fallback_state=self.ops2_state,
         )
-        result = probe.complete(system, user_json, request_id=request_id, **kwargs)
+        # External API is untyped and outside this work package.
+        result = probe.complete(system, user_json, request_id=request_id, **kwargs)  # type: ignore[no-untyped-call]
         with self.ops2_state.lock:
             self.ops2_state.receipts.append(
                 dict(
@@ -177,4 +200,4 @@ class OPS2Probe(HostedOpenAILunaProbe):
                     recovered_primary_failures=recovered if result["schema_valid"] is True else 0,
                 )
             )
-        return result
+        return cast(dict[str, Any], result)

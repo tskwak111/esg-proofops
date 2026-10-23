@@ -5,14 +5,20 @@ from __future__ import annotations
 import hashlib
 import os
 import shutil
+import sqlite3
+from collections.abc import Mapping
+from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Any
+from typing import Any, Protocol
 from uuid import UUID
 from zoneinfo import ZoneInfo
+
+from proofops.application.authorization import AuthContext, MembershipPort, SessionPort
+from proofops.domain.documents import PageGeometry
 
 MICRO = Decimal(1_000_000)
 RUN_LEASE_SECONDS = 1900
@@ -41,7 +47,7 @@ CONTROL_MESSAGES = {
 
 
 class HostedError(ValueError):
-    def __init__(self, code: str, status: int = 409, *, retry_after: int | None = None):
+    def __init__(self, code: str, status: int = 409, *, retry_after: int | None = None) -> None:
         super().__init__(code)
         self.code, self.status = code, status
         self.retry_after = retry_after
@@ -213,7 +219,7 @@ class HostedSettings:
             raise ValueError("budget exceeds DEC-22 ceilings")
 
     @classmethod
-    def from_env(cls, env: Any) -> HostedSettings:
+    def from_env(cls, env: Mapping[str, str]) -> HostedSettings:
         def flag(name: str, default: str) -> bool:
             value = env.get(name, default)
             if value not in {"true", "false"}:
@@ -264,3 +270,58 @@ class HostedSettings:
             guest_uploads_per_day=int(env.get("HOSTED_GUEST_UPLOADS_PER_DAY", "60")),
             showcase_tenant=env.get("HOSTED_SHOWCASE_TENANT", ""),
         )
+
+
+# Read-only SQLite rows and JSON copies carry the same persisted hosted records.
+type HostedRow = sqlite3.Row | dict[str, Any]
+type SourceAnchor = tuple[str, str, str, PageGeometry]
+type CoordinateRequest = tuple[dict[str, Any], dict[str, Any], Path, SourceAnchor | None, bool]
+type ProjectedGlyph = tuple[str, int, tuple[float, float, float, float]]
+
+
+class SourceInventoryStore(Protocol):
+    @property
+    def root(self) -> Path: ...
+
+    def document_dir(self, tenant: str, document: str) -> Path: ...
+
+
+class HostedReadStore(SourceInventoryStore, Protocol):
+    """Store operations used by API reads, including duck-typed offline readers."""
+
+    @property
+    def settings(self) -> HostedSettings: ...
+
+    @property
+    def sessions(self) -> SessionPort: ...
+
+    @property
+    def memberships(self) -> MembershipPort: ...
+
+    def transaction(
+        self, *, readonly: bool = False
+    ) -> AbstractContextManager[sqlite3.Connection]: ...
+
+    def _document(self, db: sqlite3.Connection, tenant: str, document: str) -> sqlite3.Row: ...
+
+    def _require_document_owner(
+        self, db: sqlite3.Connection, auth: AuthContext, document: str
+    ) -> None: ...
+
+    def user_hash(self, user: str) -> str: ...
+
+    def ux1_document_metadata(self, tenant: str, document: str) -> dict[str, Any]: ...
+
+    def _project_run(
+        self, row: sqlite3.Row, db: sqlite3.Connection, *, inline_result: bool = True
+    ) -> dict[str, Any]: ...
+
+    def get_run(self, tenant: str, run: str) -> dict[str, Any]: ...
+
+    def _run(self, db: sqlite3.Connection, tenant: str, run: str) -> sqlite3.Row: ...
+
+    def _result(self, db: sqlite3.Connection | None, row: sqlite3.Row) -> dict[str, Any]: ...
+
+    def analysis_source(self, directory: Path, document: dict[str, Any]) -> Path: ...
+
+    def run_options(self, job: HostedRow) -> dict[str, Any]: ...

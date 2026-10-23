@@ -6,6 +6,10 @@ the existing SQLite writer fence, bounding KDF memory and concurrent attempts.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from proofops_api.hosted_store import HostedStore
 import fcntl
 import hashlib
 import hmac
@@ -13,10 +17,15 @@ import json
 import math
 import os
 import secrets
+import sqlite3
 import stat
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+from typing import BinaryIO
+
+from proofops.application.authorization import AuthContext
 
 from proofops_api.hosted_contracts import HostedError, digest, identifier
 
@@ -31,7 +40,7 @@ def user_for(role: str) -> str:
     return PREFIX + role
 
 
-def is_organizer(auth) -> bool:
+def is_organizer(auth: AuthContext) -> bool:
     return auth.user_sub == user_for("organizer")
 
 
@@ -50,7 +59,7 @@ def read_password(path: Path) -> str:
 
 
 @contextmanager
-def _private_open(path: Path):
+def _private_open(path: Path) -> Iterator[BinaryIO]:
     fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
     with os.fdopen(fd, "rb") as stream:
         info = os.fstat(stream.fileno())
@@ -60,12 +69,12 @@ def _private_open(path: Path):
 
 
 class AccessPasswords:
-    def __init__(self, store):
+    def __init__(self, store: HostedStore) -> None:
         self.store = store
         self.path = store.settings.access_config
 
     @staticmethod
-    def migrate(db):
+    def migrate(db: sqlite3.Connection) -> None:
         db.execute("CREATE TABLE IF NOT EXISTS access_auth_schema (version INTEGER PRIMARY KEY)")
         db.execute("INSERT OR IGNORE INTO access_auth_schema VALUES (1)")
         if [r[0] for r in db.execute("SELECT version FROM access_auth_schema")] != [1]:
@@ -91,7 +100,7 @@ class AccessPasswords:
             "(created REAL NOT NULL,event TEXT NOT NULL,role TEXT NOT NULL,ip_hash TEXT)"
         )
 
-    def _read(self):
+    def _read(self) -> dict[str, Any]:
         if self.path is None:
             return {"version": 1, "accounts": {}}
         try:
@@ -104,7 +113,7 @@ class AccessPasswords:
         try:
             if len(data) > 16384:
                 raise ValueError()
-            config = json.loads(data)
+            config: dict[str, Any] = json.loads(data)
             if set(config) != {"version", "accounts"} or config["version"] != 1:
                 raise ValueError()
             for role, account in config["accounts"].items():
@@ -137,7 +146,7 @@ class AccessPasswords:
             raise HostedError("ACCESS_CONFIG_INVALID", 503) from None
 
     @contextmanager
-    def _edit(self):
+    def _edit(self) -> Iterator[tuple[sqlite3.Connection, dict[str, Any]]]:
         if self.path is None:
             raise ValueError("HOSTED_ACCESS_CONFIG_REQUIRED")
         self.path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -154,16 +163,18 @@ class AccessPasswords:
             with self.store.transaction() as db:
                 yield db, self._read()
 
-    def _write(self, config):
-        with NamedTemporaryFile(dir=self.path.parent, delete=False) as stream:
+    def _write(self, config: dict[str, Any]) -> None:
+        # _edit has already required a configured path before every _write call.
+        path = cast(Path, self.path)
+        with NamedTemporaryFile(dir=path.parent, delete=False) as stream:
             staged = Path(stream.name)
             try:
                 os.fchmod(stream.fileno(), 0o600)
                 stream.write(json.dumps(config, sort_keys=True).encode())
                 stream.flush()
                 os.fsync(stream.fileno())
-                os.replace(staged, self.path)
-                fd = os.open(self.path.parent, os.O_RDONLY)
+                os.replace(staged, path)
+                fd = os.open(path.parent, os.O_RDONLY)
                 try:
                     os.fsync(fd)
                 finally:
@@ -171,7 +182,16 @@ class AccessPasswords:
             finally:
                 staged.unlink(missing_ok=True)
 
-    def set_password(self, role, password, *, tenant=None, expires, now, revoke_sessions=True):
+    def set_password(
+        self,
+        role: str,
+        password: str,
+        *,
+        tenant: str | None = None,
+        expires: float,
+        now: float,
+        revoke_sessions: bool = True,
+    ) -> None:
         user = user_for(role)
         if not isinstance(password, str) or not 16 <= len(password) <= 128:
             raise ValueError("ACCESS_PASSWORD_LENGTH_INVALID")
@@ -182,7 +202,7 @@ class AccessPasswords:
         with self._edit() as (db, config):
             previous = config["accounts"].get(role)
             tenant = tenant or (previous["tenant"] if previous else None)
-            identifier(tenant)
+            identifier(cast(str, tenant))
             # Changing scope always invalidates sessions, even with keep-sessions.
             revoke = revoke_sessions or previous is None or previous["tenant"] != tenant
             epoch = secrets.token_hex(16) if revoke else previous["session_epoch"]
@@ -207,7 +227,7 @@ class AccessPasswords:
             self._audit(db, "password_set", role, None, now)
             self._write(config)
 
-    def disable(self, role, *, now):
+    def disable(self, role: str, *, now: float) -> None:
         user = user_for(role)
         with self._edit() as (db, config):
             if role in config["accounts"]:
@@ -217,13 +237,15 @@ class AccessPasswords:
             self._audit(db, "password_disabled", role, None, now)
             self._write(config)
 
-    def _audit(self, db, event, role, ip, now):
+    def _audit(
+        self, db: sqlite3.Connection, event: str, role: str, ip: str | None, now: float
+    ) -> None:
         db.execute(
             "INSERT INTO access_auth_audit VALUES (?,?,?,?)",
             (now, event, role, self.store.user_hash("access-ip:" + ip) if ip else None),
         )
 
-    def session_valid(self, db, row, now):
+    def session_valid(self, db: sqlite3.Connection, row: sqlite3.Row, now: float) -> bool:
         if not row["user_id"].startswith(PREFIX):
             return True
         linked = db.execute(
@@ -241,7 +263,7 @@ class AccessPasswords:
             and hmac.compare_digest(account["session_epoch"], linked["session_epoch"])
         )
 
-    def login(self, role, password, *, ip, now):
+    def login(self, role: str, password: str, *, ip: str, now: float) -> str:
         user = user_for(role)
         subjects = [
             self.store.user_hash("access-ip:" + ip),
@@ -325,7 +347,7 @@ class AccessPasswords:
         return sid
 
     @staticmethod
-    def maintain(db, now, audit_days):
+    def maintain(db: sqlite3.Connection, now: float, audit_days: int) -> None:
         db.execute(
             "DELETE FROM access_sessions WHERE sid_hash NOT IN (SELECT sid_hash FROM sessions)"
         )

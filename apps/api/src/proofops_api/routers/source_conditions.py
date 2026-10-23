@@ -3,16 +3,20 @@
 import json
 import sqlite3
 import time
-from typing import Annotated, Literal
+from collections.abc import Callable
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Query, Request, Security
 from fastapi.responses import JSONResponse, Response
 from fastapi.security import APIKeyCookie
+from proofops.adapters.local.source_condition_review import LocalSourceConditionReview
+from proofops.application.authorization import AuthContext
 from proofops.application.reviews import ReviewRejected
 from proofops.application.runs import RunRejected
 from proofops_api.auth import (
     SESSION_COOKIE_NAME,
+    AuthStore,
     _authorize,
     _error_response,
     _request_limit_response,
@@ -55,11 +59,11 @@ class SourceConditionFragment(StrictDTO):
 
 
 class SourceConditionState(StrictDTO):
-    classifications: dict[str, dict]
-    citations: dict[str, dict]
-    ownership: dict[str, dict]
-    conditions: dict[str, dict]
-    claim_bindings: dict[str, dict]
+    classifications: dict[str, dict[str, Any]]
+    citations: dict[str, dict[str, Any]]
+    ownership: dict[str, dict[str, Any]]
+    conditions: dict[str, dict[str, Any]]
+    claim_bindings: dict[str, dict[str, Any]]
 
 
 class SourceConditionRevision(StrictDTO):
@@ -89,7 +93,7 @@ class SourceConditionDisplay(StrictDTO):
     review_sha256: Digest
     source_snapshot_sha256: Digest
     fragment_id: Digest
-    display: dict
+    display: dict[str, Any]
     image_url: str
 
 
@@ -146,13 +150,13 @@ class SourceAnnotationWrite(StrictDTO):
     citations: Annotated[list[SourceCitation], Field(max_length=16)]
     ownership: Annotated[list[SourceOwnership], Field(max_length=16)]
     conditions: Annotated[list[SourceCondition], Field(max_length=16)]
-    claim_bindings: Annotated[list[dict], Field(max_length=0)]
+    claim_bindings: Annotated[list[dict[str, Any]], Field(max_length=0)]
     reason: Annotated[str, Field(min_length=5, max_length=1000)]
 
 
 class SourceAnnotationResult(StrictDTO):
     review: SourceConditionRevision
-    numeric_receipts: Annotated[list[dict], Field(max_length=0)]
+    numeric_receipts: Annotated[list[dict[str, Any]], Field(max_length=0)]
     coverage_status: Literal["unknown"]
 
 
@@ -204,7 +208,13 @@ class SourceObservationPreviewResponse(StrictDTO):
     preview_sha256: Digest
 
 
-def build_source_conditions_router(service, auth_store, *, allowed_origin, clock=time.time):
+def build_source_conditions_router(
+    service: LocalSourceConditionReview,
+    auth_store: AuthStore,
+    *,
+    allowed_origin: str,
+    clock: Callable[[], float] = time.time,
+) -> APIRouter:
     router = APIRouter(
         responses=_ERROR_RESPONSES,
         dependencies=[
@@ -222,7 +232,9 @@ def build_source_conditions_router(service, auth_store, *, allowed_origin, clock
     }
     path = "/v1/runs/{run_id}/source-condition-review"
 
-    def authorize(request, operation, write=False):
+    def authorize(
+        request: Request, operation: str, write: bool = False
+    ) -> AuthContext | JSONResponse:
         now = clock()
         actor = _authorize(request, auth_store, now, "reviewer")
         if isinstance(actor, JSONResponse):
@@ -242,7 +254,7 @@ def build_source_conditions_router(service, auth_store, *, allowed_origin, clock
         )
         return limited if limited is not None else actor
 
-    def failure(error):
+    def failure(error: Exception) -> JSONResponse:
         if isinstance(error, ReviewRejected | RunRejected):
             return _error_response(error.status, error.code, "Source review request rejected.")
         return _error_response(
@@ -251,7 +263,7 @@ def build_source_conditions_router(service, auth_store, *, allowed_origin, clock
             "Source review artifacts are unavailable or inconsistent.",
         )
 
-    def response(value):
+    def response(value: dict[str, Any]) -> JSONResponse:
         parsed = SourceConditionEnvelope.model_validate_json(json.dumps(value))
         return JSONResponse(
             parsed.model_dump(mode="json", by_alias=True, exclude_unset=True),
@@ -281,7 +293,7 @@ def build_source_conditions_router(service, auth_store, *, allowed_origin, clock
             },
         },
     )
-    async def publish(request: Request, run_id: UUID):
+    async def publish(request: Request, run_id: UUID) -> Response:
         actor = authorize(request, "source_condition_publish", True)
         if isinstance(actor, JSONResponse):
             return actor
@@ -304,7 +316,9 @@ def build_source_conditions_router(service, auth_store, *, allowed_origin, clock
         response_model=SourceConditionEnvelope,
         openapi_extra=read_contract,
     )
-    def get(request: Request, run_id: UUID, revision: Annotated[int | None, Query(ge=1)] = None):
+    def get(
+        request: Request, run_id: UUID, revision: Annotated[int | None, Query(ge=1)] = None
+    ) -> Response:
         actor = authorize(request, "source_condition_get")
         if isinstance(actor, JSONResponse):
             return actor
@@ -328,7 +342,7 @@ def build_source_conditions_router(service, auth_store, *, allowed_origin, clock
         revision: Annotated[int, Query(ge=1)],
         fragment_id: Annotated[str, Query(pattern="^[0-9a-f]{64}$")],
         format: Literal["receipt", "image"] = "receipt",
-    ):
+    ) -> Response:
         actor = authorize(request, "source_condition_view")
         if isinstance(actor, JSONResponse):
             return actor
@@ -363,7 +377,7 @@ def build_source_conditions_router(service, auth_store, *, allowed_origin, clock
         response_model=SourceObservationPreviewResponse,
         openapi_extra=preview_contract,
     )
-    async def preview_observations(request: Request, run_id: UUID):
+    async def preview_observations(request: Request, run_id: UUID) -> Response:
         actor = authorize(request, "source_observations_preview", True)
         if isinstance(actor, JSONResponse):
             return actor
@@ -404,7 +418,7 @@ def build_source_conditions_router(service, auth_store, *, allowed_origin, clock
         response_model=SourceAnnotationResult,
         openapi_extra=write_contract,
     )
-    async def resolve(request: Request, run_id: UUID):
+    async def resolve(request: Request, run_id: UUID) -> Response:
         actor = authorize(request, "source_condition_resolve", True)
         if isinstance(actor, JSONResponse):
             return actor

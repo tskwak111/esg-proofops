@@ -6,6 +6,14 @@ the only place that retains the originating run ID. No provider or spend row is
 created. Unpinned legacy runs cannot seed reuse.
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, cast
+
+from proofops_api.hosted_contracts import SourceInventoryStore
+
+if TYPE_CHECKING:
+    from proofops_api.hosted_store import HostedStore
 import json
 import re
 import sqlite3
@@ -13,9 +21,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID, uuid4, uuid5
 
+from proofops.application.authorization import AuthContext
 from proofops.domain.provenance import canonical_hash
 
-from proofops_api.hosted_contracts import HostedError, day, digest, file_sha256
+from proofops_api.hosted_contracts import HostedError, HostedRow, day, digest, file_sha256
 
 PROFILE = "rc1_published_result_v1"
 POLICY = dict(
@@ -29,7 +38,7 @@ POLICY = dict(
 POLICY_SHA256 = canonical_hash(POLICY)
 
 
-def migrate(db):
+def migrate(db: sqlite3.Connection) -> None:
     db.execute("CREATE INDEX IF NOT EXISTS rc1_document_sha ON documents(sha256)")
     db.execute("""CREATE TABLE IF NOT EXISTS rc1_reuse_audit (
         run_id TEXT PRIMARY KEY, source_run_id TEXT NOT NULL, analyzed_at TEXT NOT NULL,
@@ -40,7 +49,9 @@ def migrate(db):
         BEGIN SELECT RAISE(ABORT,'immutable reuse provenance'); END""")
 
 
-def cache_key(sha, options, period=None):
+def cache_key(
+    sha: str, options: dict[str, Any] | None, period: dict[str, Any] | None = None
+) -> str | None:
     """Ignore account-bound proposal hashes, retain every effective scope field.
 
     proposal/selection/detection hashes embed upload UUIDs. They are validated
@@ -52,7 +63,8 @@ def cache_key(sha, options, period=None):
     if not options or not re.fullmatch(r"[0-9a-f]{64}", options.get("analysis_profile_sha256", "")):
         return None
     try:
-        reporting = validate_period(period or options.get("reporting_scope"))
+        # External API is untyped and outside this work package.
+        reporting = validate_period(period or options.get("reporting_scope"))  # type: ignore[no-untyped-call]
     except ValueError:
         return None
     scope = {
@@ -82,7 +94,9 @@ def cache_key(sha, options, period=None):
     )
 
 
-def _snapshot(store, db, row):
+def _snapshot(
+    store: HostedStore, db: sqlite3.Connection, row: HostedRow
+) -> tuple[dict[str, Any], str, str]:
     anchor = db.execute(
         "SELECT sha256 FROM result_snapshots WHERE run_id=? AND revision=1", (row["run_id"],)
     ).fetchone()
@@ -114,7 +128,9 @@ def _snapshot(store, db, row):
     return snapshot["result"], anchor[0], analyzed_at
 
 
-def _private_copy(result, row, auth, document, run):
+def _private_copy(
+    result: dict[str, Any], row: HostedRow, auth: AuthContext, document: str, run: str
+) -> dict[str, Any]:
     """Rebind identifiers consistently, and exclude human/account metadata.
 
     Only revision 1 is eligible, so later tenant-specific human decisions never
@@ -156,12 +172,12 @@ def _private_copy(result, row, auth, document, run):
         "request_id",
     }
 
-    def identity(value):
+    def identity(value: str) -> str:
         if value not in identities:
             identities[value] = str(uuid5(UUID(run), value))
         return identities[value]
 
-    def copy(value, key=""):
+    def copy(value: Any, key: str = "") -> Any:
         if isinstance(value, dict):
             return {k: copy(v, k) for k, v in value.items() if k not in private_keys}
         if isinstance(value, list):
@@ -215,13 +231,25 @@ def _private_copy(result, row, auth, document, run):
             "provider_failure_projection_sha256",
         }
     }
-    return copy(public)
+    return cast(dict[str, Any], copy(public))
 
 
-def try_reuse(store, db, auth, doc, options, *, key, body_hash, now):
+def try_reuse(
+    store: HostedStore,
+    db: sqlite3.Connection,
+    auth: AuthContext,
+    doc: HostedRow,
+    options: dict[str, Any] | None,
+    *,
+    key: str,
+    body_hash: str,
+    now: float,
+) -> dict[str, Any] | None:
     wanted = cache_key(doc["sha256"], options)
     if wanted is None:
         return None
+    # cache_key returns None for missing options; the branch above excluded them.
+    options = cast(dict[str, Any], options)
     candidates = db.execute(
         "SELECT r.* FROM documents d JOIN runs r USING(tenant_id,document_id) "
         "JOIN run_progress p USING(run_id) WHERE d.sha256=? AND d.expires>? "
@@ -338,7 +366,7 @@ def try_reuse(store, db, auth, doc, options, *, key, body_hash, now):
     return None
 
 
-def source_document(doc):
+def source_document(doc: HostedRow) -> dict[str, Any]:
     return dict(
         document_id=doc["document_id"],
         sha256=doc["sha256"],
@@ -347,7 +375,7 @@ def source_document(doc):
     )
 
 
-def verify_copy(store, row, result):
+def verify_copy(store: SourceInventoryStore, row: HostedRow, result: dict[str, Any]) -> None:
     """A new result remains usable without its originating tenant or workspace."""
     document = result["w16_source_document"]
     if document["document_id"] != row["document_id"]:

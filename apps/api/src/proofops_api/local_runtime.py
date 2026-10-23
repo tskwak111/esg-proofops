@@ -248,7 +248,7 @@ def _reservation_policy(value: object) -> dict[str, Any]:
     return frozen
 
 
-def _extraction(value: object, *, synthetic=True) -> ExtractionProfile:
+def _extraction(value: object, *, synthetic: bool = True) -> ExtractionProfile:
     if (
         not isinstance(value, dict)
         or set(value) != _EXTRACTION_FIELDS
@@ -275,7 +275,8 @@ def _raster(settings: Mapping[str, Any], extraction_mode: str) -> dict[str, Any]
             or str(UUID(binding_id)) != binding_id.lower()
         ):
             raise ValueError
-        policy = validate_raster_policy(settings["raster_policy"])
+        # External API is untyped and outside this work package.
+        policy = validate_raster_policy(settings["raster_policy"])  # type: ignore[no-untyped-call]
     except (TypeError, ValueError):
         raise _invalid() from None
     return {"raster_runtime_binding_id": binding_id, "raster_policy": policy}
@@ -336,7 +337,8 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         if not tagging_mode:
             raise _invalid()
         try:
-            runtime["report_level_link"] = validate_config(settings["report_level_link"])
+            # External API is untyped and outside this work package.
+            runtime["report_level_link"] = validate_config(settings["report_level_link"])  # type: ignore[no-untyped-call]
         except ValueError as exc:
             if str(exc) == "REPORT_LEVEL_LINK_M3_ONLY":
                 raise ValueError(
@@ -365,7 +367,8 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         if not isinstance(pin, str) or len(pin) != 64:
             raise _invalid()
         try:
-            selected_policy = publication_policy_for(
+            # External API is untyped and outside this work package.
+            selected_policy = publication_policy_for(  # type: ignore[no-untyped-call]
                 settings.get("pipeline_profile"), pinned_hash=pin
             )
             if selected_policy.get("extraction_selection_ids") and (
@@ -446,7 +449,8 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
         if extraction_mode != "upstage_probe":
             raise _invalid()
         try:
-            claim_source_reader(settings["claim_source_policy"])
+            # External API is untyped and outside this work package.
+            claim_source_reader(settings["claim_source_policy"])  # type: ignore[no-untyped-call]
         except ValueError:
             raise _invalid() from None
         runtime["claim_source_policy"] = settings["claim_source_policy"]
@@ -510,7 +514,8 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
     if settings.get("extraction_i4_identity"):
         from proofops.application.analysis_profile import policy_for
 
-        selected = policy_for(
+        # External API is untyped and outside this work package.
+        selected = policy_for(  # type: ignore[no-untyped-call]
             settings.get("pipeline_profile"), pinned_hash=settings.get("analysis_policy_sha256")
         )
         if selected.get(
@@ -522,7 +527,8 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
     if settings.get("extraction_h1"):
         from proofops.application.analysis_profile import policy_for
 
-        selected = policy_for(
+        # External API is untyped and outside this work package.
+        selected = policy_for(  # type: ignore[no-untyped-call]
             settings.get("pipeline_profile"), pinned_hash=settings.get("analysis_policy_sha256")
         )
         if (
@@ -533,7 +539,8 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
     if settings.get("extraction_i3_wire"):
         from proofops.application.analysis_profile import policy_for
 
-        selected = policy_for(
+        # External API is untyped and outside this work package.
+        selected = policy_for(  # type: ignore[no-untyped-call]
             settings.get("pipeline_profile"), pinned_hash=settings.get("analysis_policy_sha256")
         )
         if (
@@ -550,7 +557,8 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
     if settings.get("extraction_j8") and settings.get("pipeline_profile") == "finals-unattended-v2":
         from proofops.application.analysis_profile import policy_for
 
-        selected = policy_for(
+        # External API is untyped and outside this work package.
+        selected = policy_for(  # type: ignore[no-untyped-call]
             "finals-unattended-v2", pinned_hash=settings.get("analysis_policy_sha256")
         )
         if selected.get("table_cells") != "j8-owned-cell-candidates-v1":
@@ -716,7 +724,8 @@ def load_local_runtime(env: Mapping[str, str]) -> dict[str, Any]:
                 from proofops.application.tagging.decisions import validate_decision_settings
 
                 runtime["decision_settings"] = dict(
-                    validate_decision_settings(settings["decision_settings"])
+                    # External API is untyped and outside this work package.
+                    validate_decision_settings(settings["decision_settings"])  # type: ignore[no-untyped-call]
                 )
             runtime["tagging_mode"] = tagging_mode
     elif "extraction_limits" in settings:

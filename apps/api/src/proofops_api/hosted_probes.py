@@ -1,9 +1,16 @@
 """Provider probes with one durable hosted reservation per physical attempt."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from proofops_api.hosted_store import HostedStore
 import io
 import json
 import random
 import time
+from collections.abc import Callable
 from decimal import ROUND_CEILING, Decimal
 from uuid import uuid4
 
@@ -19,7 +26,8 @@ from proofops.adapters.local.openai import (
 from proofops.adapters.local.openai import (
     WIRE_POLICY as OPENAI_WIRE_POLICY,
 )
-from proofops.adapters.local.openrouter import MODEL, WIRE_POLICY, OpenRouterProbe
+from proofops.adapters.local.openrouter import MODEL, OpenRouterProbe
+from proofops.adapters.local.openrouter import WIRE_POLICY as WIRE_POLICY
 from proofops.adapters.local.upstage_parse import (
     ALLOWED_MODELS,
     COST_PER_PAGE,
@@ -31,14 +39,14 @@ from proofops.domain.provenance import canonical_hash
 from pypdf import PdfReader, PdfWriter
 
 
-def rounded_cost(value) -> str:
+def rounded_cost(value: object) -> str:
     amount = Decimal(str(value))
     if not amount.is_finite() or amount < 0:
         raise ValueError("PROVIDER_COST_INVALID")
     return str(amount.quantize(Decimal("0.000001"), rounding=ROUND_CEILING))
 
 
-def broker_dispatch(store, *args, **kwargs):
+def broker_dispatch(store: HostedStore, *args: Any, **kwargs: Any) -> dict[str, Any]:
     from proofops.application.budget import BudgetExceeded
 
     from proofops_api.hosted_contracts import HostedError
@@ -52,17 +60,25 @@ def broker_dispatch(store, *args, **kwargs):
 
 
 class HostedLunaProbe(OpenRouterProbe):
-    def __init__(self, *args, store, job, post=None, **kwargs):
+    def __init__(
+        self,
+        *args: Any,
+        store: HostedStore,
+        job: dict[str, Any],
+        post: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(*args, **kwargs)
         self.store, self.job, self.post = store, job, post
 
-    def _post(self, body):
+    def _post(self, body: dict[str, Any]) -> dict[str, Any]:
         # Includes every schema retry: each attempt gets a separate reservation.
         if body.get("model") != MODEL or body.get("provider") != WIRE_POLICY["provider"]:
             raise ValueError("HOSTED_WIRE_POLICY_REQUIRED")
 
-        def transport(request):
-            data = self.post(body) if self.post else super(HostedLunaProbe, self)._post(body)
+        def transport(request: dict[str, Any]) -> dict[str, Any]:
+            # External API is untyped and outside this work package.
+            data = self.post(body) if self.post else super(HostedLunaProbe, self)._post(body)  # type: ignore[no-untyped-call]
             if data.get("model") != MODEL:
                 raise ValueError("HOSTED_MODEL_MISMATCH")
             return request | dict(actual_usd=rounded_cost(data["usage"]["cost"]), payload=data)
@@ -77,11 +93,21 @@ class HostedLunaProbe(OpenRouterProbe):
             transport,
             now=time.time(),
         )
-        return response["payload"]
+        return cast(dict[str, Any], response["payload"])
 
 
 class HostedOpenAILunaProbe(OpenAIProbe):
-    def __init__(self, *args, store, job, post=None, **kwargs):
+    # Installed by ProviderScheduler.bind before its pacing branch is enabled.
+    http_transport_pacing: Callable[[], None]
+
+    def __init__(
+        self,
+        *args: Any,
+        store: HostedStore,
+        job: dict[str, Any],
+        post: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(*args, **kwargs)
         self.store, self.job, self.post = store, job, post
         # Sanitized errors survive scratch cleanup, under the document's purge ownership.
@@ -89,7 +115,7 @@ class HostedOpenAILunaProbe(OpenAIProbe):
             store.document_dir(job["tenant_id"], job["document_id"]) / "provider-http-errors"
         )
 
-    def _authorize_response_request(self):
+    def _authorize_response_request(self) -> None:
         from proofops_api.hosted_contracts import HostedError
 
         with self.store.transaction(readonly=True, operation="response_authorize") as db:
@@ -99,13 +125,14 @@ class HostedOpenAILunaProbe(OpenAIProbe):
             if now >= doc["expires"]:
                 raise HostedError("SOURCE_EXPIRED")
 
-    def _post(self, body):
+    # Existing broker override intentionally omits the base transport-only keyword.
+    def _post(self, body: dict[str, Any]) -> dict[str, Any]:  # type: ignore[override]
         if body.get("model") != OPENAI_MODEL or OPENAI_WIRE_POLICY["endpoint"] != (
             "https://api.openai.com/v1/chat/completions"
         ):
             raise ValueError("HOSTED_WIRE_POLICY_REQUIRED")
 
-        def transport(request):
+        def transport(request: dict[str, Any]) -> dict[str, Any]:
             with control_before_send():
                 if self.post and getattr(self, "provider_scheduler", None):
                     self.http_transport_pacing()
@@ -113,7 +140,8 @@ class HostedOpenAILunaProbe(OpenAIProbe):
                 data = (
                     self.post(body)
                     if self.post
-                    else super(HostedOpenAILunaProbe, self)._post(
+                    # External API is untyped and outside this work package.
+                    else super(HostedOpenAILunaProbe, self)._post(  # type: ignore[no-untyped-call]
                         body, client_request_id=request["request_id"]
                     )
                 )
@@ -123,7 +151,8 @@ class HostedOpenAILunaProbe(OpenAIProbe):
                 raise
             if data.get("model") != OPENAI_MODEL:
                 raise ValueError("HOSTED_MODEL_MISMATCH")
-            return request | dict(actual_usd=rounded_cost(token_cost(data["usage"])), payload=data)
+            # External API is untyped and outside this work package.
+            return request | dict(actual_usd=rounded_cost(token_cost(data["usage"])), payload=data)  # type: ignore[no-untyped-call]
 
         from proofops.adapters.local.i27_inventory_execution import current, transient_code
         from proofops.adapters.local.openai_connections import (
@@ -165,7 +194,8 @@ class HostedOpenAILunaProbe(OpenAIProbe):
                     admission = getattr(self, "http_dispatch_admission", None)
                     if admission is not None:
                         admission()
-                with self.physical_attempt_scope():
+                # External API is untyped and outside this work package.
+                with self.physical_attempt_scope():  # type: ignore[no-untyped-call]
                     response = broker_dispatch(
                         self.store,
                         self.job,
@@ -186,7 +216,7 @@ class HostedOpenAILunaProbe(OpenAIProbe):
                     self._finish_transport_attempt(call_id, "response_received", None)
                 if inventory is not None:
                     inventory["terminal_code"] = None
-                return response["payload"]
+                return cast(dict[str, Any], response["payload"])
             except OpenAIControlNotSent as error:
                 if self.transport_policy:
                     self._finish_transport_attempt(call_id, "never_sent", None)
@@ -222,11 +252,13 @@ class HostedOpenAILunaProbe(OpenAIProbe):
                 if not allow:
                     raise
                 delay = min(
-                    T1_RETRY_POLICY["max_delay_seconds"],
-                    max(T1_RETRY_POLICY["min_delay_seconds"], error.retry_after_seconds)
-                    + random.uniform(0, T1_RETRY_POLICY["jitter_seconds"]),
+                    cast(float, T1_RETRY_POLICY["max_delay_seconds"]),
+                    max(
+                        cast(float, T1_RETRY_POLICY["min_delay_seconds"]), error.retry_after_seconds
+                    )
+                    + random.uniform(0, cast(float, T1_RETRY_POLICY["jitter_seconds"])),
                 )
-                scope["transport_retries"].append(
+                cast(dict[str, Any], scope)["transport_retries"].append(
                     dict(
                         policy_sha256=T1_RETRY_POLICY_HASH,
                         failed_call_id=call_id,
@@ -238,7 +270,8 @@ class HostedOpenAILunaProbe(OpenAIProbe):
                 time.sleep(delay)
                 from proofops.adapters.local.openai import now as price_now
 
-                if price_now() >= PRICE_RECHECK_AT:
+                # External API is untyped and outside this work package.
+                if price_now() >= PRICE_RECHECK_AT:  # type: ignore[no-untyped-call]
                     raise ValueError("PRICE_RECHECK_REQUIRED")
                 self._authorize_response_request()
             except (ProviderCircuitOpen, ProviderAdmissionDeferred):
@@ -306,27 +339,38 @@ class HostedOpenAILunaProbe(OpenAIProbe):
 
 
 class HostedParseProbe(UpstageParseProbe):
-    def __init__(self, *args, store, job, post=None, integrated=False, **kwargs):
+    def __init__(
+        self,
+        *args: Any,
+        store: HostedStore,
+        job: dict[str, Any],
+        post: Callable[[bytes, str], dict[str, Any]] | None = None,
+        integrated: bool = False,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(*args, **kwargs)
         self.store, self.job, self.post = store, job, post
         self.integrated = integrated
 
-    def _post_parse(self, pdf_bytes, mode, path="/v1/document-digitization"):
+    def _post_parse(
+        self, pdf_bytes: bytes, mode: str, path: str = "/v1/document-digitization"
+    ) -> dict[str, Any]:
         if self.integrated:
             # parse_async owns the single hosted reservation around POST + GET collection.
             if path != "/v1/document-digitization/async":
                 raise ValueError("HOSTED_PARSE_TRANSPORT_INVALID")
-            return (
+            return cast(
+                dict[str, Any],
                 self.post(pdf_bytes, mode)
                 if self.post
-                else super()._post_parse(pdf_bytes, mode, path)
+                else super()._post_parse(pdf_bytes, mode, path),
             )
         pages = len(PdfReader(io.BytesIO(pdf_bytes)).pages)
         if path != "/v1/document-digitization" or not 1 <= pages <= 2:
             raise ValueError("HOSTED_PARSE_SCOPE_INVALID")
         cost = COST_PER_PAGE[mode] * pages
 
-        def transport(request):
+        def transport(request: dict[str, Any]) -> dict[str, Any]:
             data = (
                 self.post(pdf_bytes, mode)
                 if self.post
@@ -342,40 +386,52 @@ class HostedParseProbe(UpstageParseProbe):
                 raise ValueError("HOSTED_PARSE_RECEIPT_INVALID")
             return request | dict(actual_usd=str(cost), payload=data)
 
-        return broker_dispatch(
-            self.store,
-            self.job,
-            "upstage-parse",
-            str(uuid4()),
-            canonical_hash(dict(sha256=canonical_hash(pdf_bytes.hex()), mode=mode, pages=pages)),
-            cost,
-            transport,
-            now=time.time(),
-        )["payload"]
+        return cast(
+            dict[str, Any],
+            broker_dispatch(
+                self.store,
+                self.job,
+                "upstage-parse",
+                str(uuid4()),
+                canonical_hash(
+                    dict(sha256=canonical_hash(pdf_bytes.hex()), mode=mode, pages=pages)
+                ),
+                cost,
+                transport,
+                now=time.time(),
+            )["payload"],
+        )
 
-    def parse_async(self, pdf_bytes, *, request_id, mode="standard"):
+    def parse_async(
+        self, pdf_bytes: bytes, *, request_id: str, mode: str = "standard"
+    ) -> dict[str, Any]:
         if self.integrated:
             pages = len(PdfReader(io.BytesIO(pdf_bytes), strict=True).pages)
             if mode not in COST_PER_PAGE or not 1 <= pages <= 30:
                 raise ValueError("HOSTED_PARSE_SCOPE_INVALID")
             bound = COST_PER_PAGE[mode] * pages
 
-            def transport(request):
+            def transport(request: dict[str, Any]) -> dict[str, Any]:
                 result = super(HostedParseProbe, self).parse_async(
                     pdf_bytes, request_id=request_id, mode=mode
                 )
                 return request | dict(actual_usd=str(bound), payload=result)
 
-            return broker_dispatch(
-                self.store,
-                self.job,
-                "upstage-parse",
-                request_id,
-                canonical_hash(dict(pdf=canonical_hash(pdf_bytes.hex()), mode=mode, pages=pages)),
-                bound,
-                transport,
-                now=time.time(),
-            )["payload"]
+            return cast(
+                dict[str, Any],
+                broker_dispatch(
+                    self.store,
+                    self.job,
+                    "upstage-parse",
+                    request_id,
+                    canonical_hash(
+                        dict(pdf=canonical_hash(pdf_bytes.hex()), mode=mode, pages=pages)
+                    ),
+                    bound,
+                    transport,
+                    now=time.time(),
+                )["payload"],
+            )
         # Keep synchronous, brokered <=2-page calls; map each receipt to the
         # prepared subset before canonical graph conversion. MP1 can replace this
         # factory later using the same pinned claim/evidence selection.

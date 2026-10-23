@@ -2,6 +2,7 @@
 
 import sqlite3
 import time
+from collections.abc import Callable
 from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
@@ -9,9 +10,11 @@ from uuid import UUID
 from fastapi import APIRouter, Query, Request, Security
 from fastapi.responses import JSONResponse, Response
 from fastapi.security import APIKeyCookie
-from proofops.application.exports import ExportRejected
+from proofops.application.authorization import AuthContext
+from proofops.application.exports import ExportRejected, ExportService
 from proofops_api.auth import (
     SESSION_COOKIE_NAME,
+    AuthStore,
     _authorize,
     _error_response,
     _request_limit_response,
@@ -43,7 +46,13 @@ class Export(StrictDTO):
     created_at: datetime
 
 
-def build_exports_router(service, auth_store, *, allowed_origin: str, clock=time.time):
+def build_exports_router(
+    service: ExportService,
+    auth_store: AuthStore,
+    *,
+    allowed_origin: str,
+    clock: Callable[[], float] = time.time,
+) -> APIRouter:
     router = APIRouter(
         responses=_ERROR_RESPONSES,
         dependencies=[
@@ -60,7 +69,9 @@ def build_exports_router(service, auth_store, *, allowed_origin: str, clock=time
         "x-rate-limit": "120/min/user",
     }
 
-    def authorize(request, operation, *, mutation=False, limit=120):
+    def authorize(
+        request: Request, operation: str, *, mutation: bool = False, limit: int = 120
+    ) -> AuthContext | JSONResponse:
         auth = _authorize(request, auth_store, clock(), "viewer")
         if isinstance(auth, JSONResponse):
             return auth
@@ -75,7 +86,7 @@ def build_exports_router(service, auth_store, *, allowed_origin: str, clock=time
         )
         return limited if limited is not None else auth
 
-    def failure(exc):
+    def failure(exc: Exception) -> JSONResponse:
         if isinstance(exc, ExportRejected):
             return _error_response(exc.status, exc.code, "Export request could not be completed.")
         if isinstance(exc, RequestBodyTooLarge):
@@ -94,7 +105,7 @@ def build_exports_router(service, auth_store, *, allowed_origin: str, clock=time
             "x-rate-limit": "10/min/user",
         },
     )
-    async def create(request: Request, run_id: UUID):
+    async def create(request: Request, run_id: UUID) -> Response:
         auth = authorize(request, "export_create", mutation=True, limit=10)
         if isinstance(auth, JSONResponse):
             return auth
@@ -123,13 +134,14 @@ def build_exports_router(service, auth_store, *, allowed_origin: str, clock=time
         response_model=Export,
         openapi_extra=read_contract,
     )
-    def get(request: Request, export_id: UUID):
+    def get(request: Request, export_id: UUID) -> Response:
         auth = authorize(request, "export_get")
         if isinstance(auth, JSONResponse):
             return auth
         try:
             return JSONResponse(
-                service.get(auth, str(export_id), now=clock()),
+                # External API is untyped and outside this work package.
+                service.get(auth, str(export_id), now=clock()),  # type: ignore[no-untyped-call]
                 headers={"Cache-Control": "no-store"},
             )
         except (ValueError, KeyError, TypeError, OSError, sqlite3.DatabaseError) as exc:
@@ -141,13 +153,14 @@ def build_exports_router(service, auth_store, *, allowed_origin: str, clock=time
         response_model=Download,
         openapi_extra=read_contract | {"x-rate-limit": "60/min/user"},
     )
-    def download(request: Request, export_id: UUID):
+    def download(request: Request, export_id: UUID) -> Response:
         auth = authorize(request, "export_download", mutation=True, limit=60)
         if isinstance(auth, JSONResponse):
             return auth
         try:
             return JSONResponse(
-                service.authorize_download(auth, str(export_id), now=clock()),
+                # External API is untyped and outside this work package.
+                service.authorize_download(auth, str(export_id), now=clock()),  # type: ignore[no-untyped-call]
                 headers={"Cache-Control": "no-store"},
             )
         except (ValueError, KeyError, TypeError, OSError, sqlite3.DatabaseError) as exc:
@@ -158,7 +171,7 @@ def build_exports_router(service, auth_store, *, allowed_origin: str, clock=time
         request: Request,
         export_id: UUID,
         ticket: Annotated[str, Query(min_length=40, max_length=64)],
-    ):
+    ) -> Response:
         auth = authorize(request, "export_content")
         if isinstance(auth, JSONResponse):
             return auth

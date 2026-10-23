@@ -22,12 +22,17 @@ from contextlib import ExitStack, contextmanager
 from decimal import Decimal
 from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 from proofops.adapters.local.provider_errors import MESSAGES, provider_error_code
 from proofops.adapters.local.source_hx3 import failure_location
-from proofops.application.authorization import MembershipRecord, SessionExpiredError, SessionRecord
+from proofops.application.authorization import (
+    AuthContext,
+    MembershipRecord,
+    SessionExpiredError,
+    SessionRecord,
+)
 from proofops.application.pipeline_failures import MESSAGES as PIPELINE_MESSAGES
 from proofops.application.pipeline_failures import PUBLIC_CODES
 from proofops.application.uploads_security import (
@@ -74,6 +79,7 @@ from proofops_api.hosted_contracts import (
 from proofops_api.hosted_contracts import (
     HostedError as HostedError,
 )
+from proofops_api.hosted_contracts import HostedRow
 from proofops_api.hosted_contracts import (
     HostedSettings as HostedSettings,
 )
@@ -101,7 +107,7 @@ from proofops_api.hosted_contracts import (
 
 
 class SQLiteSessions:
-    def __init__(self, store: HostedStore):
+    def __init__(self, store: HostedStore) -> None:
         self.store = store
 
     def csrf_token_for(self, sid: str) -> str:
@@ -168,7 +174,7 @@ class SQLiteSessions:
 
 
 class SQLiteMemberships:
-    def __init__(self, store: HostedStore):
+    def __init__(self, store: HostedStore) -> None:
         self.store = store
 
     def get(self, tenant_id: str, user_sub: str) -> MembershipRecord | None:
@@ -190,7 +196,7 @@ class SQLiteMemberships:
 class HostedStore:
     app_env = "hosted"
 
-    def __init__(self, settings: HostedSettings):
+    def __init__(self, settings: HostedSettings) -> None:
         self.settings = settings
         self.root = settings.root
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -311,15 +317,15 @@ class HostedStore:
         ).fetchone()
         if row is None or self._deleted(db, tenant, document):
             raise HostedError("RESOURCE_NOT_FOUND", 404)
-        return row
+        return cast(sqlite3.Row, row)
 
-    def get_document(self, tenant: str, document: str) -> dict:
+    def get_document(self, tenant: str, document: str) -> dict[str, Any]:
         with self.transaction(readonly=True) as db:
             return dict(self._document(db, tenant, document)) | self.ux1_document_metadata(
                 tenant, document
             )
 
-    def ux1_document_metadata(self, tenant: str, document: str) -> dict:
+    def ux1_document_metadata(self, tenant: str, document: str) -> dict[str, Any]:
         # Caller must first enforce document visibility/tombstones using _document or collection.
         path = self.document_dir(tenant, document) / "ux1-metadata.json"
         try:
@@ -369,7 +375,7 @@ class HostedStore:
         if row["request_hash"] != body_hash:
             raise HostedError("IDEMPOTENCY_CONFLICT")
         self._document(db, auth.tenant_id, row["document_id"])
-        return row["resource_id"]
+        return cast(str | None, row["resource_id"])
 
     def _remember(
         self,
@@ -397,7 +403,7 @@ class HostedStore:
         )
         self.guest.audit(db, auth, route, resource, now)
 
-    def upload(self, auth: Any, content: bytes, key: str, *, now: float) -> dict:
+    def upload(self, auth: Any, content: bytes, key: str, *, now: float) -> dict[str, Any]:
         """Compatibility for bounded local callers; HTTP uses upload_file directly."""
         with NamedTemporaryFile(dir=self.settings.root) as staged:
             staged.write(content)
@@ -405,8 +411,14 @@ class HostedStore:
             return self.upload_file(auth, Path(staged.name), key, now=now)
 
     def upload_file(
-        self, auth: Any, source: Path, key: str, *, now: float, ux1_metadata: dict | None = None
-    ) -> dict:
+        self,
+        auth: Any,
+        source: Path,
+        key: str,
+        *,
+        now: float,
+        ux1_metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         if not auth.has_capability("editor"):
             raise HostedError("FORBIDDEN", 403)
         if not self.settings.accept_uploads or not self.settings.consent_version:
@@ -478,7 +490,7 @@ class HostedStore:
                     auth.tenant_id, doc
                 )
 
-    def analysis_source(self, directory: Path, document: dict) -> Path:
+    def analysis_source(self, directory: Path, document: dict[str, Any]) -> Path:
         """Tenant-owned immutable original plus verified, byte-bound plaintext derivative."""
         original = directory / "original.pdf"
         if original.is_symlink() or file_sha256(original) != document["sha256"]:
@@ -525,7 +537,7 @@ class HostedStore:
 
     def _project_run(
         self, row: sqlite3.Row, db: sqlite3.Connection, *, inline_result: bool = True
-    ) -> dict:
+    ) -> dict[str, Any]:
         progress = db.execute(
             "SELECT * FROM run_progress WHERE run_id=?", (row["run_id"],)
         ).fetchone()
@@ -545,7 +557,8 @@ class HostedStore:
         result = self._result(db, row) if ready and inline_result else None
         raw_error = row["error_code"] or ""
         provider = "openai" if raw_error.startswith("OPENAI_") else "openrouter"
-        cause = provider_error_code(provider, raw_error)
+        # External API is untyped and outside this work package.
+        cause = provider_error_code(provider, raw_error)  # type: ignore[no-untyped-call]
         user_counts = db.execute(
             "SELECT count(*),coalesce(sum(status='running'),0) FROM runs WHERE user_hash=? "
             "AND status IN ('queued','running','accounting_pending')",
@@ -588,7 +601,7 @@ class HostedStore:
             "prepared_sha256": row["prepared_sha256"],
         }
 
-    def provider_limits(self) -> dict:
+    def provider_limits(self) -> dict[str, Any]:
         return hosted_money.provider_limits(self)
 
     def _run(self, db: sqlite3.Connection, tenant: str, run: str) -> sqlite3.Row:
@@ -599,9 +612,9 @@ class HostedStore:
         if row is None:
             raise HostedError("RESOURCE_NOT_FOUND", 404)
         self._document(db, tenant, row["document_id"])
-        return row
+        return cast(sqlite3.Row, row)
 
-    def get_run(self, tenant: str, run: str) -> dict:
+    def get_run(self, tenant: str, run: str) -> dict[str, Any]:
         lock = None
         try:
             with self.transaction(readonly=True) as db:
@@ -624,26 +637,26 @@ class HostedStore:
             if lock is not None:
                 lock.close()
 
-    def _scope(self, db, tenant: str, document: str) -> dict:
+    def _scope(self, db: sqlite3.Connection, tenant: str, document: str) -> dict[str, Any]:
         return hosted_admission._scope(self, db, tenant, document)
 
-    def get_scope(self, tenant: str, document: str) -> dict:
+    def get_scope(self, tenant: str, document: str) -> dict[str, Any]:
         return hosted_admission.get_scope(self, tenant, document)
 
-    def generate_scope(self, auth, document: str) -> dict:
+    def generate_scope(self, auth: AuthContext, document: str) -> dict[str, Any]:
         return hosted_admission.generate_scope(self, auth, document)
 
     def edit_scope(
         self,
-        auth,
-        document,
-        claims,
-        evidence,
-        if_match,
+        auth: AuthContext,
+        document: str,
+        claims: list[int],
+        evidence: list[int],
+        if_match: str | None,
         *,
-        manual_selection=False,
-        reporting_scope=None,
-    ):
+        manual_selection: bool = False,
+        reporting_scope: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         return hosted_admission.edit_scope(
             self,
             auth,
@@ -655,7 +668,7 @@ class HostedStore:
             reporting_scope=reporting_scope,
         )
 
-    def run_options(self, job) -> dict:
+    def run_options(self, job: HostedRow) -> dict[str, Any]:
         return hosted_admission.run_options(self, job)
 
     def create_run(
@@ -670,7 +683,7 @@ class HostedStore:
         scope_selection_sha256: str | None = None,
         pipeline_profile: str = "unattended-v1",
         force_fresh: bool = False,
-    ) -> dict:
+    ) -> dict[str, Any]:
         return hosted_admission.create_run(
             self,
             auth,
@@ -688,31 +701,31 @@ class HostedStore:
     def _maintenance(db: sqlite3.Connection) -> bool:
         return hosted_admission._maintenance(db)
 
-    def _control_state(self, db: sqlite3.Connection) -> dict:
+    def _control_state(self, db: sqlite3.Connection) -> dict[str, Any]:
         return hosted_admission._control_state(self, db)
 
-    def drain(self, *, now: float) -> dict:
+    def drain(self, *, now: float) -> dict[str, Any]:
         return hosted_admission.drain(self, now=now)
 
-    def resume(self, *, now: float) -> dict:
+    def resume(self, *, now: float) -> dict[str, Any]:
         return hosted_admission.resume(self, now=now)
 
-    def control_state(self, *, now: float) -> dict:
+    def control_state(self, *, now: float) -> dict[str, Any]:
         return hosted_admission.control_state(self, now=now)
 
     def _expire_running(self, db: sqlite3.Connection, now: float) -> None:
         return hosted_admission._expire_running(self, db, now)
 
-    def claim(self, *, now: float) -> dict | None:
+    def claim(self, *, now: float) -> dict[str, Any] | None:
         return hosted_admission.claim(self, now=now)
 
-    def _fenced(self, db: sqlite3.Connection, job: dict, now: float) -> sqlite3.Row:
+    def _fenced(self, db: sqlite3.Connection, job: dict[str, Any], now: float) -> sqlite3.Row:
         return hosted_admission._fenced(self, db, job, now)
 
-    def renew_lease(self, job: dict, *, now: float) -> None:
+    def renew_lease(self, job: dict[str, Any], *, now: float) -> None:
         return hosted_admission.renew_lease(self, job, now=now)
 
-    def prepare(self, job: dict, *, now: float) -> Path:
+    def prepare(self, job: dict[str, Any], *, now: float) -> Path:
         # Lease source bytes separately from the DB snapshot; deletion remains
         # fenced throughout copying and the actual prepare subprocess.
         with (
@@ -763,12 +776,12 @@ class HostedStore:
 
     def dispatch(
         self,
-        job: dict,
+        job: dict[str, Any],
         provider: str,
         call_id: str,
         input_sha: str,
         bound: Decimal,
-        transport: Callable[[dict], dict],
+        transport: Callable[[dict[str, Any]], dict[str, Any]],
         *,
         now: float,
         allow_transient_403: bool = False,
@@ -776,8 +789,8 @@ class HostedStore:
         allow_response_uncertainty: bool = False,
         allow_connect_not_sent: bool = False,
         allow_ops2_fallback: bool = False,
-        diagnostic_context: dict | None = None,
-    ) -> dict:
+        diagnostic_context: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         return hosted_money.dispatch(
             self,
             job,
@@ -798,10 +811,15 @@ class HostedStore:
     def _settle_envelope(self, db: sqlite3.Connection, run: str) -> None:
         return hosted_money._settle_envelope(self, db, run)
 
-    def finish(self, job: dict, status: str, *, now: float) -> None:
+    def finish(self, job: dict[str, Any], status: str, *, now: float) -> None:
         return hosted_money.finish(self, job, status, now=now)
 
-    def tick(self, *, now: float, analysis=None) -> dict | None:
+    def tick(
+        self,
+        *,
+        now: float,
+        analysis: Callable[[HostedStore, dict[str, Any], Path], None] | None = None,
+    ) -> dict[str, Any] | None:
         job = self.claim(now=now)
         if job is None:
             return None
@@ -879,7 +897,7 @@ class HostedStore:
 
     def update_progress(
         self,
-        job: dict,
+        job: dict[str, Any],
         stage: str,
         progress: int,
         *,
@@ -923,36 +941,44 @@ class HostedStore:
                 )
 
     def publish_analysis(
-        self, job: dict, source: Path, status: str, error: str | None, *, publication_handoff=None
+        self,
+        job: dict[str, Any],
+        source: Path,
+        status: str,
+        error: str | None,
+        *,
+        publication_handoff: bytes | None = None,
     ) -> None:
         return hosted_publication.publish_analysis(
             self, job, source, status, error, publication_handoff=publication_handoff
         )
 
-    def _publish_snapshot(self, db: sqlite3.Connection, run: str, path: Path, content: bytes):
+    def _publish_snapshot(
+        self, db: sqlite3.Connection, run: str, path: Path, content: bytes
+    ) -> None:
         return hosted_publication._publish_snapshot(self, db, run, path, content)
 
-    def _result(self, db: sqlite3.Connection | None, row: sqlite3.Row) -> dict:
+    def _result(self, db: sqlite3.Connection | None, row: sqlite3.Row) -> dict[str, Any]:
         return hosted_publication._result(self, db, row)
 
-    def get_result(self, tenant: str, run: str) -> dict:
+    def get_result(self, tenant: str, run: str) -> dict[str, Any]:
         return hosted_publication.get_result(self, tenant, run)
 
     def resolve_review(
-        self, auth: Any, run: str, review: str, body: dict, if_match: str | None, key: str
-    ) -> dict:
+        self, auth: Any, run: str, review: str, body: dict[str, Any], if_match: str | None, key: str
+    ) -> dict[str, Any]:
         return hosted_publication.resolve_review(self, auth, run, review, body, if_match, key)
 
-    def cancel(self, auth: Any, run: str, *, now: float) -> dict:
+    def cancel(self, auth: Any, run: str, *, now: float) -> dict[str, Any]:
         return hosted_admission.cancel(self, auth, run, now=now)
 
-    def budget_totals(self) -> dict:
+    def budget_totals(self) -> dict[str, Any]:
         return hosted_money.budget_totals(self)
 
-    def delete_document(self, auth: Any, document: str, key: str, *, now: float) -> dict:
+    def delete_document(self, auth: Any, document: str, key: str, *, now: float) -> dict[str, Any]:
         return hosted_retention.delete_document(self, auth, document, key, now=now)
 
-    def _purge(self, tenant: str, document: str, now: float) -> dict:
+    def _purge(self, tenant: str, document: str, now: float) -> dict[str, Any]:
         return hosted_retention._purge(self, tenant, document, now)
 
     def replay_deletions(self, *, now: float) -> None:

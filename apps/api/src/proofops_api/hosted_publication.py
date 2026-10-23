@@ -12,7 +12,7 @@ import sys
 import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from proofops.application.analysis_profile import (
     I18_PUBLICATION_POLICY,
@@ -39,14 +39,17 @@ if TYPE_CHECKING:
     from proofops_api.hosted_store import HostedStore
 
 
-MAX_BYTES = S4_PUBLICATION_POLICY["max_bytes"]
+MAX_BYTES = cast(int, S4_PUBLICATION_POLICY["max_bytes"])
 
 
-def runtime_identity(profile="upstage-ocr-page-v13", policy=None):
+def runtime_identity(
+    profile: str = "upstage-ocr-page-v13", policy: dict[str, Any] | None = None
+) -> dict[str, Any]:
     import proofops
     from proofops.adapters.local.claim_source_policies import page_ocr_profile
 
-    reader = page_ocr_profile(profile, policy=policy)
+    # External API is untyped and outside this work package.
+    reader = page_ocr_profile(profile, policy=policy)  # type: ignore[no-untyped-call]
     from proofops.adapters.local.local_raster_reader import runtime_policy
     from proofops.adapters.local.receipt_environment_compat import read_profile
 
@@ -55,7 +58,8 @@ def runtime_identity(profile="upstage-ocr-page-v13", policy=None):
     return dict(
         reader=reader.claim_source_policy(),
         runtime=runtime_policy(),
-        read_profile=read_profile(),
+        # External API is untyped and outside this work package.
+        read_profile=read_profile(),  # type: ignore[no-untyped-call]
         python=sys.version,
         platform=sys.platform,
         toolchain=os.environ.get("DEVELOPER_DIR"),
@@ -67,7 +71,7 @@ def runtime_identity(profile="upstage-ocr-page-v13", policy=None):
     )
 
 
-def _context(path, job, pages):
+def _context(path: Path, job: dict[str, Any], pages: list[int]) -> dict[str, Any]:
     manifest = pilot_bytes(path)
     if manifest["tenant_id"] != job["tenant_id"]:
         raise ValueError("PUBLICATION_TENANT_MISMATCH")
@@ -94,8 +98,10 @@ def _context(path, job, pages):
         from proofops.application.analysis_profile import V2_PROFILE, policy_for
 
         try:
-            registered = policy_for(V2_PROFILE, pinned_hash=canonical_hash(policy)) == policy
-            reader = page_ocr_profile(policy["source"], policy=snapshot["claim_source_policy"])
+            # External API is untyped and outside this work package.
+            registered = policy_for(V2_PROFILE, pinned_hash=canonical_hash(policy)) == policy  # type: ignore[no-untyped-call]
+            # External API is untyped and outside this work package.
+            reader = page_ocr_profile(policy["source"], policy=snapshot["claim_source_policy"])  # type: ignore[no-untyped-call]
             registered = registered and reader.PROFILE == policy["source"]
         except (ValueError, KeyError):
             registered = False
@@ -115,17 +121,18 @@ def _context(path, job, pages):
         execution=policy["publication_handoff"],
         reader_runtime=runtime_identity(policy["source"], snapshot.get("claim_source_policy")),
     )
-    if rb4_publication_enabled(policy):
+    # External API is untyped and outside this work package.
+    if rb4_publication_enabled(policy):  # type: ignore[no-untyped-call]
         context["rb4_publication_digest"] = RB4_PUBLICATION_POLICY
     return context
 
 
-def _file_hash(path):
+def _file_hash(path: Path) -> str:
     with path.open("rb") as stream:
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def _pins(path):
+def _pins(path: Path) -> dict[str, str]:
     pins = {}
     for file in sorted(path.rglob("*")):
         if file.is_symlink():
@@ -135,12 +142,12 @@ def _pins(path):
     return pins
 
 
-def _authoritative_state(path, *, stream_records=False):
+def _authoritative_state(path: Path, *, stream_records: bool = False) -> str:
     # Result reads may populate only derived evidence-search caches. Pin all
     # durable run/checkpoint/tag/review records around the actual verification.
     digest = hashlib.sha256()
 
-    def row_hash(row):
+    def row_hash(row: tuple[object, ...]) -> bytes:
         return canonical_hash(
             [
                 dict(sqlite_type="blob", sha256=hashlib.sha256(value).hexdigest())
@@ -180,7 +187,7 @@ def _authoritative_state(path, *, stream_records=False):
     return digest.hexdigest()
 
 
-def make_handoff(path, job, pages):
+def make_handoff(path: Path, job: dict[str, Any], pages: list[int]) -> bytes | None:
     """Called inside the trusted child, after durable analysis and before exit."""
     from proofops_api.hosted_results import result_snapshot
 
@@ -194,7 +201,7 @@ def make_handoff(path, job, pages):
 
         # SQLite readers can add derived searches, but source/graph/receipt
         # files and every authoritative record must remain byte-identical.
-        def without_db(pins):
+        def without_db(pins: dict[str, str]) -> dict[str, str]:
             return {
                 k: v
                 for k, v in pins.items()
@@ -225,7 +232,9 @@ def make_handoff(path, job, pages):
         return None  # The parent retains the original guarded cold replay.
 
 
-def reuse_handoff(packet, path, job, pages):
+def reuse_handoff(
+    packet: bytes | None, path: Path, job: dict[str, Any], pages: list[int]
+) -> bytes | None:
     """Only the parent's private FD supplies packet; never read it from disk."""
     if not isinstance(packet, bytes) or not packet or len(packet) > MAX_BYTES:
         return None
@@ -233,7 +242,7 @@ def reuse_handoff(packet, path, job, pages):
         record = json.loads(packet)
         if record["context"] != _context(path, job, pages) or record["pins"] != _pins(path):
             return None
-        content = record["content"].encode()
+        content: bytes = record["content"].encode()
         if hashlib.sha256(content).hexdigest() != record["content_sha256"]:
             return None
         snapshot = json.loads(content)
@@ -246,12 +255,12 @@ def reuse_handoff(packet, path, job, pages):
 
 def publish_analysis(
     store: HostedStore,
-    job: dict,
+    job: dict[str, Any],
     source: Path,
     status: str,
     error: str | None,
     *,
-    publication_handoff=None,
+    publication_handoff: bytes | None = None,
 ) -> None:
     from proofops_api.hosted_results import result_snapshot
 
@@ -307,7 +316,7 @@ def publish_analysis(
 
 def _publish_snapshot(
     store: HostedStore, db: sqlite3.Connection, run: str, path: Path, content: bytes
-):
+) -> None:
     revision = db.execute(
         "SELECT coalesce(max(revision),0)+1 FROM result_snapshots WHERE run_id=?", (run,)
     ).fetchone()[0]
@@ -317,7 +326,7 @@ def _publish_snapshot(
     db.execute("INSERT INTO result_snapshots VALUES (?,?,?)", (run, revision, digest(content)))
 
 
-def _result(store: HostedStore, db: sqlite3.Connection | None, row: sqlite3.Row) -> dict:
+def _result(store: HostedStore, db: sqlite3.Connection | None, row: sqlite3.Row) -> dict[str, Any]:
     path = store.document_dir(row["tenant_id"], row["document_id"]) / "analysis" / row["run_id"]
     if db is None:
         with store.transaction(readonly=True) as connection:
@@ -348,28 +357,35 @@ def _result(store: HostedStore, db: sqlite3.Connection | None, row: sqlite3.Row)
                 raise ValueError("source hash mismatch")
         from proofops.application.pipeline_failures import public_reason_details
 
-        result = snapshot["result"]
+        result: dict[str, Any] = snapshot["result"]
         if result.get("reuse", {}).get("reused"):
             from proofops_api.hosted_reuse import verify_copy
 
             verify_copy(store, row, result)
         if result.get("hold_reasons"):
-            return result | dict(hold_reason_details=public_reason_details(result["hold_reasons"]))
+            # External API is untyped and outside this work package.
+            return result | dict(hold_reason_details=public_reason_details(result["hold_reasons"]))  # type: ignore[no-untyped-call]
         return result
     except (OSError, ValueError, KeyError, TypeError):
         raise HostedError("RESULT_INTEGRITY_UNAVAILABLE", 409) from None
 
 
-def get_result(store: HostedStore, tenant: str, run: str) -> dict:
+def get_result(store: HostedStore, tenant: str, run: str) -> dict[str, Any]:
     result = store.get_run(tenant, run)
     if result["result_url"] is None:
         raise HostedError("ANALYSIS_RESULT_UNAVAILABLE")
-    return result["result"]
+    return cast(dict[str, Any], result["result"])
 
 
 def resolve_review(
-    store: HostedStore, auth: Any, run: str, review: str, body: dict, if_match: str | None, key: str
-) -> dict:
+    store: HostedStore,
+    auth: Any,
+    run: str,
+    review: str,
+    body: dict[str, Any],
+    if_match: str | None,
+    key: str,
+) -> dict[str, Any]:
     from proofops_api.hosted_results import resolve_review, result_snapshot
 
     if not auth.has_capability("reviewer"):

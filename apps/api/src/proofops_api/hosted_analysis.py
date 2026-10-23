@@ -1,5 +1,11 @@
 """Explicit operator opt-in and brokered R108 provider adapters."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from proofops_api.hosted_store import HostedStore
 import fcntl
 import json
 import os
@@ -10,11 +16,13 @@ import time
 from datetime import date
 from pathlib import Path
 from tempfile import TemporaryFile
+from typing import BinaryIO
 
 from proofops.adapters.local.openrouter import MODEL
 from proofops.application.openai_retry import POLICY as T1_RETRY_POLICY
 from proofops.domain.provenance import canonical_hash
 
+from proofops_api.hosted_contracts import HostedSettings
 from proofops_api.hosted_probes import WIRE_POLICY as WIRE_POLICY
 from proofops_api.hosted_probes import (
     HostedLunaProbe as HostedLunaProbe,
@@ -58,18 +66,19 @@ FINALS_PROFILES = (
 )
 
 
-def default_analysis_profile():
+def default_analysis_profile() -> str:
     # HS3 temporary choice. Coordinator finalizes it after QI2.
     return os.environ.get("HOSTED_ANALYSIS_PROFILE", "finals-unattended-v2")
 
 
-def operator_profiles(config: dict) -> dict:
+def operator_profiles(config: dict[str, Any]) -> dict[str, Any]:
     from proofops.application.analysis_profile import publication_policy_for
     from proofops.application.claim_scope import MAX_EXTRACTION_BATCH_CALLS
 
     analysis = config.get("analysis_profile", default_analysis_profile())
     policy = (
-        publication_policy_for(analysis, pinned_hash=config.get("analysis_policy_sha256"))
+        # External API is untyped and outside this work package.
+        publication_policy_for(analysis, pinned_hash=config.get("analysis_policy_sha256"))  # type: ignore[no-untyped-call]
         if analysis in FINALS_PROFILES
         else {}
     )
@@ -111,7 +120,8 @@ def operator_profiles(config: dict) -> dict:
     if config.get("analysis_policy_sha256") is not None:
         from proofops.application.analysis_profile import publication_policy_for
 
-        publication_policy_for(analysis, pinned_hash=config["analysis_policy_sha256"])
+        # External API is untyped and outside this work package.
+        publication_policy_for(analysis, pinned_hash=config["analysis_policy_sha256"])  # type: ignore[no-untyped-call]
     requested = config.get("rendered_reader_profile")
     if requested is not None and requested not in KNOWN_RENDERED_READERS:
         raise ValueError("HOSTED_RENDERED_READER_PROFILE_INVALID")
@@ -161,15 +171,15 @@ def operator_profiles(config: dict) -> dict:
     )
 
 
-def runtime_profiles(settings):
+def runtime_profiles(settings: HostedSettings) -> dict[str, Any]:
     config = {} if settings.live_disabled else read_operator_config(settings.live_config)
     return operator_profiles(config)
 
 
-def read_operator_config(path: Path | None) -> dict:
+def read_operator_config(path: Path | None) -> dict[str, Any]:
     if path is None or not path.is_absolute() or not path.is_file():
         raise ValueError("HOSTED_LIVE_CONFIG_REQUIRED")
-    config = json.loads(path.read_text())
+    config: dict[str, Any] = json.loads(path.read_text())
     if config.get("enabled") is not True:
         raise ValueError("HOSTED_OPERATOR_OPT_IN_REQUIRED")
     profiles = operator_profiles(config)
@@ -179,7 +189,8 @@ def read_operator_config(path: Path | None) -> dict:
     from proofops.application.analysis_profile import policy_for
 
     selected = (
-        policy_for(profiles["analysis_profile"], pinned_hash=config.get("analysis_policy_sha256"))
+        # External API is untyped and outside this work package.
+        policy_for(profiles["analysis_profile"], pinned_hash=config.get("analysis_policy_sha256"))  # type: ignore[no-untyped-call]
         if profiles["analysis_profile"] in FINALS_PROFILES
         else {}
     )
@@ -212,7 +223,7 @@ HEARTBEAT_SECONDS = 30
 TWO_SLOT_MEMORY_BYTES = 1100 * 1024 * 1024
 
 
-def process_tree_bytes(pid):
+def process_tree_bytes(pid: int) -> int:
     """RSS of the isolated analysis and its parser/OCR descendants."""
     output = subprocess.check_output(["ps", "-eo", "pid=,ppid=,rss="], text=True, timeout=5)
     rows = [tuple(map(int, line.split())) for line in output.splitlines()]
@@ -224,7 +235,7 @@ def process_tree_bytes(pid):
         descendants = expanded
 
 
-def acquire_analysis_lock(lock, *, timeout=2):
+def acquire_analysis_lock(lock: BinaryIO, *, timeout: float = 2) -> None:
     from proofops_api.hosted_contracts import HostedError
 
     deadline = time.monotonic() + timeout
@@ -238,7 +249,14 @@ def acquire_analysis_lock(lock, *, timeout=2):
             time.sleep(min(0.1, max(0, deadline - time.monotonic())))
 
 
-def run_analysis_process(command, store, job, lock, *, publication_fd=None):
+def run_analysis_process(
+    command: list[str],
+    store: HostedStore,
+    job: dict[str, Any],
+    lock: BinaryIO,
+    *,
+    publication_fd: int | None = None,
+) -> None:
     from proofops_api.hosted_contracts import HostedError
 
     deadline = time.monotonic() + ANALYSIS_TIMEOUT_SECONDS
@@ -300,7 +318,7 @@ def run_analysis_process(command, store, job, lock, *, publication_fd=None):
         process.wait()
 
 
-def execute_analysis(store, job, prepared):
+def execute_analysis(store: HostedStore, job: dict[str, Any], prepared: Path) -> None:
     from proofops_api.hosted_diagnostics import analysis_workspace
 
     config = read_operator_config(store.settings.live_config)

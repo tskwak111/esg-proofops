@@ -9,7 +9,7 @@ import time
 from collections.abc import Callable
 from decimal import Decimal
 from http.client import HTTPException
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from proofops.adapters.local.provider_errors import provider_error_code
@@ -29,12 +29,12 @@ if TYPE_CHECKING:
 
 def dispatch(
     store: HostedStore,
-    job: dict,
+    job: dict[str, Any],
     provider: str,
     call_id: str,
     input_sha: str,
     bound: Decimal,
-    transport: Callable[[dict], dict],
+    transport: Callable[[dict[str, Any]], dict[str, Any]],
     *,
     now: float,
     allow_transient_403: bool = False,
@@ -42,8 +42,8 @@ def dispatch(
     allow_response_uncertainty: bool = False,
     allow_connect_not_sent: bool = False,
     allow_ops2_fallback: bool = False,
-    diagnostic_context: dict | None = None,
-) -> dict:
+    diagnostic_context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Broker boundary for a future approved adapter. No HTTP/provider implementation here."""
     if (
         not provider
@@ -146,7 +146,8 @@ def dispatch(
         ops2_failure = (
             allow_ops2_fallback is True and provider == "openai" and bool(fallback_trigger(exc))
         )
-        cause = provider_error_code(provider, limit_code)
+        # External API is untyped and outside this work package.
+        cause = provider_error_code(provider, limit_code)  # type: ignore[no-untyped-call]
         if cause:
             logging.getLogger("proofops_api.hosted_store").warning(
                 "hosted provider failure run=%s provider=%s cause=%s raw=%s",
@@ -259,7 +260,7 @@ def _settle_envelope(store: HostedStore, db: sqlite3.Connection, run: str) -> No
         )
 
 
-def finish(store: HostedStore, job: dict, status: str, *, now: float) -> None:
+def finish(store: HostedStore, job: dict[str, Any], status: str, *, now: float) -> None:
     if status not in TERMINAL or status == "completed":
         # Completion is available only through fenced analysis artifact publication.
         raise HostedError("ANALYSIS_RESULT_UNAVAILABLE")
@@ -276,7 +277,7 @@ def finish(store: HostedStore, job: dict, status: str, *, now: float) -> None:
         store._settle_envelope(db, job["run_id"])
 
 
-def budget_totals(store: HostedStore) -> dict:
+def budget_totals(store: HostedStore) -> dict[str, Any]:
     with store.transaction(readonly=True) as db:
         total = db.execute(
             "SELECT coalesce(sum(amount),0) FROM deletion.spend WHERE event_id=?",
@@ -290,7 +291,7 @@ def budget_totals(store: HostedStore) -> dict:
     return {"event_reserved_usd": usd(total)}
 
 
-def provider_limits(store: HostedStore) -> dict:
+def provider_limits(store: HostedStore) -> dict[str, Any]:
     """Observed service availability only; never probe providers on public GETs."""
     limits = {}
     with store.transaction(readonly=True) as db:
