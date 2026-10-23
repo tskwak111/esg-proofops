@@ -5,18 +5,24 @@ It is never a model result. Only complete, schema-valid settled responses are
 published. Cache files belong to the document payload and are purged with it.
 """
 
+from __future__ import annotations
+
 import json
 import os
 import sqlite3
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from proofops.adapters.local.sqlite_busy import connection
 from proofops.domain.provenance import canonical_hash
 
+if TYPE_CHECKING:
+    from typing import Any
+
 
 class ModelResponseCache:
-    def __init__(self, path):
+    def __init__(self, path: str | Path) -> None:
         self.path = Path(path)
         self.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         with connection(self.path) as db:
@@ -37,7 +43,9 @@ class ModelResponseCache:
             )
         self.path.chmod(0o600)
 
-    def claim(self, key, ledger, request_id):
+    def claim(
+        self, key: str, ledger: str | Path, request_id: str
+    ) -> tuple[dict[str, Any], str] | None:
         deadline = time.monotonic() + 30
         while True:
             with connection(self.path) as db:
@@ -58,7 +66,7 @@ class ModelResponseCache:
             time.sleep(0.05)
 
     @staticmethod
-    def _verified(key, row):
+    def _verified(key: str, row: tuple[str, str, str, str]) -> tuple[dict[str, Any], str]:
         try:
             ledger, request_id, raw, digest = row
             result = json.loads(raw)
@@ -108,7 +116,7 @@ class ModelResponseCache:
         except (ValueError, TypeError, KeyError, IndexError, OSError, sqlite3.Error):
             raise ValueError("MODEL_RESPONSE_CACHE_INVALID") from None
 
-    def publish(self, key, result):
+    def publish(self, key: str, result: dict[str, Any]) -> None:
         with connection(self.path, readonly=True) as db:
             row = db.execute(
                 "SELECT ledger,request_id FROM model_responses_v1 WHERE key=? AND payload IS NULL",
@@ -153,7 +161,7 @@ class ModelResponseCache:
             if changed != 1:
                 raise ValueError("MODEL_RESPONSE_CACHE_INVALID")
 
-    def release_unsent_or_invalid(self, key, ledger, request_id):
+    def release_unsent_or_invalid(self, key: str, ledger: str | Path, request_id: str) -> None:
         with connection(ledger, readonly=True) as db:
             row = db.execute(
                 "SELECT receipt FROM probe_calls WHERE request_id=?", (request_id,)

@@ -18,6 +18,7 @@ import re
 from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from proofops.application.authorization import AuthContext
 from proofops.application.tagging.manual_classification import (
@@ -30,6 +31,17 @@ from proofops.application.tagging.manual_classification import (
 from proofops.application.tagging.preliminary import _sources
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.values import _require_uuid
+
+if TYPE_CHECKING:
+    import sqlite3
+    from typing import Any
+
+    from proofops.adapters.local.claim_store import LocalClaimStore
+    from proofops.adapters.local.run_store import LocalSQLiteRunStore
+    from proofops.adapters.local.tag_store import LocalTagStore
+    from proofops.adapters.parsing.opendataloader import OpenDataLoaderParser
+    from proofops.application.uploads import UploadService
+
 
 RECORD_KIND = "preliminary_classification"
 HEAD_KIND = "preliminary_classification_head"
@@ -53,7 +65,14 @@ class ClassificationStoreError(ClassificationRejected):
 class LocalSQLiteClassificationStore:
     """Immutable classification records + one atomic bounded reprocess enqueue."""
 
-    def __init__(self, store, uploads, parser, tags, claims):
+    def __init__(
+        self,
+        store: LocalSQLiteRunStore,
+        uploads: UploadService,
+        parser: OpenDataLoaderParser,
+        tags: LocalTagStore,
+        claims: LocalClaimStore,
+    ) -> None:
         self.store = store
         self.uploads = uploads
         self.parser = parser
@@ -93,11 +112,15 @@ class LocalSQLiteClassificationStore:
             return None
         return canonical_hash([tag_snapshot_sha256, current_record_sha256])
 
-    def _current_record(self, db, tenant_id, run_id, claim_id):
+    def _current_record(
+        self, db: sqlite3.Connection, tenant_id: str, run_id: str, claim_id: str
+    ) -> dict[str, Any] | None:
         raw = self.jobs._raw(db, tenant_id, run_id, HEAD_KIND, claim_id)
         return None if raw is None else json.loads(raw)
 
-    def _outstanding_tag_jobs(self, db, tenant_id, run_id) -> list[str]:
+    def _outstanding_tag_jobs(
+        self, db: sqlite3.Connection, tenant_id: str, run_id: str
+    ) -> list[str]:
         outstanding = []
         for record in self.jobs._all(db, tenant_id, run_id, "job"):
             message = record["message"]
@@ -105,7 +128,7 @@ class LocalSQLiteClassificationStore:
                 outstanding.append(message["job_id"] + ":" + record["status"])
         return sorted(outstanding)
 
-    def view(self, actor: AuthContext, run_id: str, claim_id: str) -> dict:
+    def view(self, actor: AuthContext, run_id: str, claim_id: str) -> dict[str, Any]:
         """Read-only eligibility + numbered sources + current classification state.
 
         Foreign-tenant or unknown claim -> RESOURCE_NOT_FOUND (404) via the tenant-
@@ -130,7 +153,7 @@ class LocalSQLiteClassificationStore:
         # Numbered sources exactly as the preliminary validator will accept them.
         sources = []
         blocked_reason = None
-        preliminary_agreement: dict = {}
+        preliminary_agreement: dict[str, Any] = {}
         try:
             envelope = self.tags.load_snapshot(tenant_id, run_id)
         except (KeyError, ValueError):
@@ -216,7 +239,7 @@ class LocalSQLiteClassificationStore:
         actor: AuthContext,
         run_id: str,
         claim_id: str,
-        body: dict,
+        body: dict[str, Any],
         if_match: str,
         idempotency_key: str,
         *,
@@ -224,7 +247,7 @@ class LocalSQLiteClassificationStore:
         classified_by: str,
         delegation_authority: str | None,
         now: int,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Atomic: CAS on lineage token, immutable record, one bounded reprocess enqueue.
 
         Idempotent by ``idempotency_key``: a replay with the same bytes returns the same
@@ -298,7 +321,8 @@ class LocalSQLiteClassificationStore:
                 replay = json.loads(replay_raw)
                 if replay["request_hash"] != request_hash:
                     raise ClassificationStoreError("IDEMPOTENCY_CONFLICT", 409)
-                return replay["response"]
+                return_value: dict[str, Any] = replay["response"]
+                return return_value
         try:
             plan, plan_run = plan_reprocess(
                 self.store,
@@ -330,7 +354,8 @@ class LocalSQLiteClassificationStore:
                     replay = json.loads(replay_raw)
                     if replay["request_hash"] != request_hash:
                         raise ClassificationStoreError("IDEMPOTENCY_CONFLICT", 409)
-                    return replay["response"]
+                    return_value = replay["response"]
+                    return return_value
                 current = self._current_record(db, tenant_id, run_id, claim_id)
                 current_run = self.jobs._get(db, tenant_id, run_id, "run", "META")
                 expected_token = self._lineage_token(
@@ -381,14 +406,14 @@ class LocalSQLiteClassificationStore:
         actor: AuthContext,
         run_id: str,
         claim_id: str,
-        body: dict,
+        body: dict[str, Any],
         if_match: str,
         idempotency_key: str,
         *,
         delegated_reviewer: str,
         delegation_authority: str,
         now: int,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Trusted local-only AI-delegated classification (never reachable over HTTP).
 
         Records distinct ``ai_delegated_classification`` provenance
@@ -422,7 +447,7 @@ class LocalSQLiteClassificationStore:
         )
 
 
-def record_id_from(record: dict) -> str:
+def record_id_from(record: dict[str, Any]) -> str:
     """Content-addressed classification id (uuid5 over the pinned record body)."""
     from uuid import NAMESPACE_URL, uuid5
 

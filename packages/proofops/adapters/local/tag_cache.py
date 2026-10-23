@@ -19,13 +19,14 @@ class SQLiteImmutableCacheClient:
 
     def put_if_absent(self, key: str, value: StoredCacheObject) -> bool:
         with connection(self.path) as db:
-            return (
+            return_value: bool = (
                 db.execute(
                     "INSERT OR IGNORE INTO local_tag_cache_v1 VALUES (?, ?, ?)",
                     (key, value.payload, value.payload_sha256),
                 ).rowcount
                 == 1
             )
+            return return_value
 
     def get(self, key: str) -> StoredCacheObject | None:
         with connection(self.path, readonly=True) as db:

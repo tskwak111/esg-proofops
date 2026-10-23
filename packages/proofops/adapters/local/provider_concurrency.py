@@ -1,29 +1,46 @@
 """One run's bounded HTTP admission; reservations remain owned by the providers."""
 
+from __future__ import annotations
+
 import json
 import os
 import time
+from collections.abc import Callable
 from pathlib import Path
 from threading import Condition
+from typing import Any, ParamSpec, Protocol, TypeVar, cast
+
+P = ParamSpec("P")
+T = TypeVar("T")
+
+
+class ProviderProbe(Protocol):
+    _post: Callable[..., dict[str, Any]]
+    _complete_uncached: Callable[..., dict[str, Any]]
+    http_admission_snapshot: Callable[[], dict[str, Any]]
+    http_dispatch_admission: Callable[[], None]
+
+
+ProbeT = TypeVar("ProbeT")
 
 
 class ProviderCircuitOpen(ValueError):
     """Admission rejected before the provider transport/broker reservation."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("PROVIDER_CIRCUIT_OPEN")
 
 
 class ProviderConcurrency:
     def __init__(
         self,
-        workers,
+        workers: int,
         *,
-        clock=time.monotonic,
-        cooldown_seconds=1,
-        max_cooldown_seconds=30,
-        resilience_directory=None,
-    ):
+        clock: Callable[[], float] = time.monotonic,
+        cooldown_seconds: float = 1,
+        max_cooldown_seconds: float = 30,
+        resilience_directory: str | Path | None = None,
+    ) -> None:
         if type(workers) is not int or not 1 <= workers <= 24:
             raise ValueError("PROVIDER_CONCURRENCY_INVALID")
         self.limit = workers
@@ -47,21 +64,21 @@ class ProviderConcurrency:
                 self._observe(event["code"], uncertain=event.get("uncertain") is True)
                 self.events += 1
 
-    def _observe(self, code, *, uncertain=False):
+    def _observe(self, code: str | None, *, uncertain: bool = False) -> None:
         from proofops.application.provider_resilience import POLICY
 
         if code is not None:
             self.failed_calls += 1
             self.uncertain_calls += int(uncertain)
         self.consecutive_denials = self.consecutive_denials + 1 if code == "OPENAI_HTTP_403" else 0
-        self.circuit_open |= self.consecutive_denials >= POLICY["consecutive_denials"]
+        self.circuit_open |= self.consecutive_denials >= cast("int", POLICY["consecutive_denials"])
 
-    def observe(self, code, *, uncertain=False):
+    def observe(self, code: str | None, *, uncertain: bool = False) -> None:
         with self.condition:
             event = dict(code=code, observed_at_ns=time.time_ns())
             if uncertain:
                 event["uncertain"] = True
-            path = self.resilience_directory / f"{self.events + 1:08}.json"
+            path = cast("Path", self.resilience_directory) / f"{self.events + 1:08}.json"
             with path.open("x") as stream:
                 json.dump(event, stream)
                 stream.flush()
@@ -71,7 +88,7 @@ class ProviderConcurrency:
             self._observe(code, uncertain=uncertain)
             self.condition.notify_all()
 
-    def pace_http(self):
+    def pace_http(self) -> None:
         from proofops.application.provider_resilience import POLICY
 
         with self.condition:
@@ -83,9 +100,9 @@ class ProviderConcurrency:
             if self.circuit_open:
                 self.circuit_deferred += 1
                 raise ProviderCircuitOpen()
-            self.http_not_before = self.clock() + 1 / POLICY["requests_per_second"]
+            self.http_not_before = self.clock() + 1 / cast("int", POLICY["requests_per_second"])
 
-    def call(self, operation, *args, **kwargs):
+    def call(self, operation: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -> T:
         with self.condition:
             while self.active >= self.limit or self.clock() < self.not_before:
                 if self.circuit_open:
@@ -102,7 +119,7 @@ class ProviderConcurrency:
             if self.resilience_directory is not None:
                 from proofops.application.provider_resilience import POLICY
 
-                self.not_before = self.clock() + 1 / POLICY["requests_per_second"]
+                self.not_before = self.clock() + 1 / cast("int", POLICY["requests_per_second"])
             self.active += 1
             self.peak = max(self.peak, self.active)
         try:
@@ -126,19 +143,20 @@ class ProviderConcurrency:
                 self.active -= 1
                 self.condition.notify_all()
 
-    def bind(self, probe):
-        original = probe._post
-        probe.http_admission_snapshot = self.snapshot
+    def bind(self, probe: ProbeT) -> ProbeT:
+        transport = cast("ProviderProbe", probe)
+        original = transport._post
+        transport.http_admission_snapshot = self.snapshot
         if self.resilience_directory is None:
-            probe._post = lambda *a, **k: self.call(original, *a, **k)
+            transport._post = lambda *a, **k: self.call(original, *a, **k)
         else:
             # Admit before the local reservation, including queued circuit checks.
             # T1's single retry stays inside this admission and remains brokered.
-            complete = probe._complete_uncached
-            probe._complete_uncached = lambda *a, **k: self.call(complete, *a, **k)
-            probe.http_dispatch_admission = self.pace_http
+            complete = transport._complete_uncached
+            transport._complete_uncached = lambda *a, **k: self.call(complete, *a, **k)
+            transport.http_dispatch_admission = self.pace_http
 
-            def observed_post(*a, **k):
+            def observed_post(*a: Any, **k: Any) -> dict[str, Any]:
                 from proofops.adapters.local.openai import OpenAITransient403
                 from proofops.adapters.local.openai_connections import OpenAIConnectNotSent
                 from proofops.application.provider_resilience import POLICY
@@ -147,7 +165,9 @@ class ProviderConcurrency:
                     with self.condition:
                         while self.clock() < self.http_not_before:
                             self.condition.wait(timeout=0.05)
-                        self.http_not_before = self.clock() + 1 / POLICY["requests_per_second"]
+                        self.http_not_before = self.clock() + 1 / cast(
+                            "int", POLICY["requests_per_second"]
+                        )
 
                 try:
                     result = original(*a, **k)
@@ -168,10 +188,10 @@ class ProviderConcurrency:
                 self.observe(None)
                 return result
 
-            probe._post = observed_post
+            transport._post = observed_post
         return probe
 
-    def snapshot(self):
+    def snapshot(self) -> dict[str, Any]:
         with self.condition:
             result = dict(
                 limit=self.limit,

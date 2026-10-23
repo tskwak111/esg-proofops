@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from dataclasses import asdict
+from typing import TYPE_CHECKING
 
 from proofops.adapters.local.run_artifacts import load_run_graph
 from proofops.application.assurance import AssuranceStatement, extract_assurance
@@ -30,6 +31,16 @@ from proofops.application.ports.models import ModelBinding
 from proofops.domain.errors import DomainValidationError
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.values import SourceRef, _require_uuid, _source_ref_from_dict
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+    from typing import Any
+
+    from proofops.adapters.local.run_store import LocalSQLiteRunStore
+    from proofops.adapters.parsing.opendataloader import OpenDataLoaderParser
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+    from proofops.application.uploads import UploadService
+
 
 _KIND = "assurance_statement"
 _KEY = "STATEMENT"
@@ -39,18 +50,18 @@ class AssurancePublicationConflict(ValueError):
     """A different immutable statement is already published for this run."""
 
 
-def _statement_to_payload(statement: AssuranceStatement) -> dict:
+def _statement_to_payload(statement: AssuranceStatement) -> dict[str, Any]:
     """Serialize the full frozen envelope; no field is dropped or summarized."""
     data = asdict(statement)
     data["semantic_hash"] = statement.semantic_hash
     return data
 
 
-def _refs(items) -> tuple[SourceRef, ...]:
+def _refs(items: Iterable[dict[str, Any]]) -> tuple[SourceRef, ...]:
     return tuple(_source_ref_from_dict(item) for item in items)
 
 
-def _tagged_fields_from_payload(data: dict) -> dict[str, tuple[SourceRef, ...]]:
+def _tagged_fields_from_payload(data: dict[str, Any]) -> dict[str, tuple[SourceRef, ...]]:
     """Rebuild the name->SourceRefs tagging map used to re-extract the statement."""
     fields: dict[str, tuple[SourceRef, ...]] = {}
     for name, refs in data["tagged_fields"]:
@@ -67,10 +78,15 @@ class LocalAssuranceStore:
     are optional only for narrow store-level tests that pass a graph directly.
     """
 
-    def __init__(self, runs, uploads=None, parser=None):
+    def __init__(
+        self,
+        runs: LocalSQLiteRunStore,
+        uploads: UploadService | None = None,
+        parser: OpenDataLoaderParser | None = None,
+    ) -> None:
         self.runs, self.uploads, self.parser = runs, uploads, parser
 
-    def _trusted_graph(self, tenant_id, run_id):
+    def _trusted_graph(self, tenant_id: str, run_id: str) -> CanonicalDocumentGraph:
         if self.uploads is None or self.parser is None:
             raise DomainValidationError("assurance replay requires uploads and parser")
         return load_run_graph(
@@ -78,7 +94,9 @@ class LocalAssuranceStore:
         )
 
     @staticmethod
-    def _reextract(statement: AssuranceStatement, graph) -> AssuranceStatement:
+    def _reextract(
+        statement: AssuranceStatement, graph: CanonicalDocumentGraph
+    ) -> AssuranceStatement:
         """Re-run the trusted extractor with the statement's own tagged refs.
 
         This is the original-source verification: `extract_assurance` re-checks
@@ -100,7 +118,9 @@ class LocalAssuranceStore:
         )
 
     @staticmethod
-    def _assert_graph_identity(statement: AssuranceStatement, graph) -> None:
+    def _assert_graph_identity(
+        statement: AssuranceStatement, graph: CanonicalDocumentGraph
+    ) -> None:
         if (
             statement.document_version_id != graph.document_version_id
             or statement.parse_manifest_id != graph.parse_manifest_id
