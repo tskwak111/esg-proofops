@@ -1,4 +1,7 @@
-"""Offline observable contract for analysis-profile relocation (no model I/O)."""
+"""Offline runtime contract for analysis-profile relocation (no model I/O).
+
+Signatures and executable AST stay fixed; annotations are checked by mypy strict.
+"""
 
 import ast
 import hashlib
@@ -8,6 +11,43 @@ import json
 import sys
 from argparse import Namespace
 from dataclasses import asdict, is_dataclass
+
+
+def runtime_signature(function):
+    signature = inspect.signature(function)
+    return str(
+        signature.replace(
+            parameters=[
+                parameter.replace(annotation=inspect.Parameter.empty)
+                for parameter in signature.parameters.values()
+            ],
+            return_annotation=inspect.Signature.empty,
+        )
+    )
+
+
+class _WithoutAnnotations(ast.NodeTransformer):
+    def visit_arg(self, node):
+        node.annotation = None
+        return node
+
+    def visit_FunctionDef(self, node):
+        node.returns = None
+        return self.generic_visit(node)
+
+    visit_AsyncFunctionDef = visit_FunctionDef
+
+    def visit_AnnAssign(self, node):
+        if node.value is None:
+            return None
+        self.generic_visit(node)
+        return ast.copy_location(
+            ast.Assign(targets=[node.target], value=node.value, type_comment=None), node
+        )
+
+
+def runtime_ast_dump(source):
+    return ast.dump(_WithoutAnnotations().visit(ast.parse(source)))
 
 
 def fingerprint(value):
@@ -157,7 +197,7 @@ def snapshot():
     return {
         "public_names": sorted(exports),
         "api_signatures": {
-            name: str(inspect.signature(getattr(profiles, name)))
+            name: runtime_signature(getattr(profiles, name))
             for name in (
                 "policy_for",
                 "publication_policy_for",
@@ -166,7 +206,7 @@ def snapshot():
             )
         },
         "unchanged_api_ast": {
-            name: fingerprint(ast.dump(ast.parse(inspect.getsource(getattr(profiles, name)))))
+            name: fingerprint(runtime_ast_dump(inspect.getsource(getattr(profiles, name))))
             for name in ("apply_pilot_profile", "certification_profile_for")
         },
         "exports": values,

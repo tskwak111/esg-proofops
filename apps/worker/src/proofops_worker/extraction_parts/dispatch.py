@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from concurrent.futures import Future
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from proofops.application.claims import ExtractionProfile
 from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
 from proofops.application.ports.jobs import JobLease
 
-from proofops_worker import extract_runner as runtime
+if TYPE_CHECKING:
+    from proofops_worker import extract_runner as runtime
 
 PacketResult = dict[str, Any] | Exception
 
@@ -23,6 +24,8 @@ def fence_provider_call(
     heartbeat uses the same _owned guard as can_call, inside its own writer
     transaction. Cost reservations and settlement still happen per attempt.
     """
+    from proofops_worker import extract_runner as runtime
+
     if not runtime.fresh_execution_enabled() and not runner.store.jobs.can_call(
         lease, now=int(runner.clock())
     ):
@@ -43,6 +46,8 @@ def fxg_dispatch_guard(
     limit: int,
 ) -> Callable[[], None] | None:
     """Additional FXG requests retain the original per-attempt authority and caps."""
+    from proofops_worker import extract_runner as runtime
+
     if not getattr(runner.extractor, "_fxg_split", False):
         return None
     remaining, lock = limit, runtime.Lock()
@@ -76,6 +81,7 @@ def prefetch_packets(
     prepare_pages: Callable[[list[dict[str, Any]]], None] | None = None,
 ) -> dict[str, PacketResult]:
     """Run paid packets concurrently; replay their outcomes in source order."""
+    from proofops_worker import extract_runner as runtime
 
     def settle(packet: dict[str, Any]) -> PacketResult:
         try:

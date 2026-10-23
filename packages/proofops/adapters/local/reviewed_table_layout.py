@@ -482,7 +482,9 @@ def normalize_reviewed_layout(
     review: dict[str, Any], source: bytes, *, tenant_id: str = _TENANT
 ) -> tuple[CanonicalDocumentGraph, NormalizationResult, str, list[dict[str, Any]]]:
     """Run existing explicit-role normalization and retain the review's raw lineage."""
-    graph, native_ids = graph_from_review(review, source, tenant_id=tenant_id)
+    from proofops.adapters.local import reviewed_table
+
+    graph, native_ids = reviewed_table.graph_from_review(review, source, tenant_id=tenant_id)
     canonical_ids = {
         candidate.source.source_native_id: block.source_id
         for block in graph.blocks
