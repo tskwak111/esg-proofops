@@ -1,12 +1,23 @@
 """Q1 literal vetoes and local guidance; never generate semantic present votes."""
 
+from __future__ import annotations
+
 import re
+from collections.abc import Mapping
 from dataclasses import asdict, replace
 from datetime import date
+from typing import TYPE_CHECKING
 
 from proofops.application.tagging.k4_contract import SEMANTIC_POLICY as BASE
 from proofops.application.tagging.k9_contract import PRELIMINARY as K9_PRELIMINARY
 from proofops.domain.provenance import canonical_hash
+
+if TYPE_CHECKING:
+    from typing import Any
+
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+    from proofops.domain.values import LlmElement
+
 
 PROFILE = "finals-q1-structural-v1"
 CLASSIFICATION_GUIDANCE = (
@@ -132,12 +143,14 @@ QA2_POLICY = R12_POLICY | dict(
 QUALITY_POLICIES = (R12_POLICY, QA2_POLICY)
 
 
-def validate_policy(policy):
+def validate_policy(policy: Mapping[str, Any]) -> None:
     if policy not in (SEMANTIC_POLICY, *QUALITY_POLICIES):
         raise ValueError("Q1_STRUCTURAL_POLICY_MISMATCH")
 
 
-def guard(element, *, policy=None, claim_quote=""):
+def guard(
+    element: LlmElement, *, policy: dict[str, Any] | None = None, claim_quote: str = ""
+) -> LlmElement:
     if policy is not None:
         validate_policy(policy)
     if policy == QA2_POLICY:
@@ -171,7 +184,7 @@ def guard(element, *, policy=None, claim_quote=""):
     )
 
 
-def future_implementation_guard(element, *, claim_quote=""):
+def future_implementation_guard(element: LlmElement, *, claim_quote: str = "") -> LlmElement:
     """QA2's sole added veto; do not reapply unrelated historical Q1 rules."""
     if element.state != "present" or element.element_id not in ("M3", "M4"):
         return element
@@ -187,7 +200,7 @@ def future_implementation_guard(element, *, claim_quote=""):
     return element
 
 
-def _future_support(quote, claim_quote):
+def _future_support(quote: str, claim_quote: str) -> bool:
     # Source/binding validation precedes this veto in the service. Use only the
     # selected literal or its containing atomic sentence, never nearby sources.
     sentences = re.split(r"[。!?;\n]|(?<=\.)\s", claim_quote)
@@ -197,12 +210,14 @@ def _future_support(quote, claim_quote):
     )
 
 
-def forecast_quote(quote):
+def forecast_quote(quote: str) -> bool:
     text = " ".join(quote.split())
     return bool(re.search(FUTURE, text) and re.search(FORECAST, text))
 
 
-def forecast_evidence(data, graph):
+def forecast_evidence(
+    data: dict[str, Any], graph: CanonicalDocumentGraph | None
+) -> list[dict[str, Any]]:
     from proofops.application.evidence.span_citations import verify_source_ref
     from proofops.domain.values import SourceRef
 
@@ -222,7 +237,7 @@ def forecast_evidence(data, graph):
     )
 
 
-def observed_period(value, *, policy=None):
+def observed_period(value: str, *, policy: Mapping[str, Any] | None = None) -> bool:
     """Accept only a literal annual observation with a Korean case suffix."""
     if policy is not None:
         validate_policy(policy)
@@ -240,7 +255,7 @@ def observed_period(value, *, policy=None):
     return True
 
 
-def guidance_target(quote):
+def guidance_target(quote: str) -> bool:
     return bool(
         forecast_quote(quote)
         or re.search(
@@ -251,7 +266,9 @@ def guidance_target(quote):
     )
 
 
-def preliminary(schema, *, quote=None, policy=None):
+def preliminary(
+    schema: dict[str, Any], *, quote: str | None = None, policy: dict[str, Any] | None = None
+) -> str:
     from proofops.application.tagging.k9_contract import preliminary as old
 
     if policy is not None:
@@ -263,7 +280,7 @@ def preliminary(schema, *, quote=None, policy=None):
     )
 
 
-def element_guidance(quote):
+def element_guidance(quote: str) -> str:
     """Only relevant clauses consume the unchanged 16KiB provider limit."""
     parts = []
     if re.search(r"목표로\s*설정", quote):

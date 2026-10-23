@@ -1,19 +1,37 @@
 """DEC-85 scope confirmation from a single replayed run inventory; no model calls."""
 
+from __future__ import annotations
+
 import json
 import unicodedata
 from dataclasses import asdict, replace
+from typing import TYPE_CHECKING, Unpack, cast
 
+from proofops.application.budget import TokenUsage
 from proofops.application.evidence.span_citations import verify_source_ref
 from proofops.application.tagging.consensus import form_consensus
+from proofops.application.tagging.contracts import ScopeInputs
 from proofops.application.tagging.contracts import read_runs as read_runs
 from proofops.application.tagging.element_inventory import POLICY_HASH as INVENTORY_HASH
 from proofops.application.tagging.element_inventory import replay_inventory
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rules.analysis_scope import POLICY_HASH as RULE_HASH
 from proofops.domain.rules.analysis_scope import evaluate_scope
-from proofops.domain.rules.engine import MAPPINGS, ConfirmedFact, ConfirmedTags, evaluate
-from proofops.domain.values import SourceRef, llm_tags_from_dict
+from proofops.domain.rules.engine import MAPPINGS, ConfirmedFact, ConfirmedTags, Decision, evaluate
+from proofops.domain.values import ElementState, LlmTags, SourceRef, llm_tags_from_dict
+
+if TYPE_CHECKING:
+    from typing import Any
+
+    from proofops.application.claims import Claim
+    from proofops.application.evidence.binding import ClaimContext
+    from proofops.application.evidence.retrieval import EvidencePacket
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+    from proofops.application.tagging.consensus import ConsensusResult
+    from proofops.application.tagging.contracts import FactState, TagRun
+    from proofops.domain.rulepacks import RulePackSnapshot
+    from proofops.domain.rules.engine import RuleContext
+
 
 SCHEMA = "sc1-scope-confirmation-v1"
 ATTRIBUTE_ROLES = dict(
@@ -21,7 +39,7 @@ ATTRIBUTE_ROLES = dict(
 )
 
 
-def agreement_policy(required=3):
+def agreement_policy(required: int = 3) -> dict[str, Any]:
     if type(required) is not int or required not in (1, 2, 3):
         raise ValueError("SC1_AGREEMENT_THRESHOLD_INVALID")
     return dict(
@@ -34,7 +52,14 @@ def agreement_policy(required=3):
     )
 
 
-def _consensus(runs, packet, pack, revision, required=3, grade_agreement_policy=None):
+def _consensus(
+    runs: tuple[TagRun, ...],
+    packet: EvidencePacket,
+    pack: RulePackSnapshot,
+    revision: int,
+    required: int = 3,
+    grade_agreement_policy: dict[str, Any] | None = None,
+) -> ConsensusResult:
     # Reuse the existing independent request/model/packet/tenant contract first.
     result = form_consensus(
         runs,
@@ -64,7 +89,7 @@ def _consensus(runs, packet, pack, revision, required=3, grade_agreement_policy=
                 dict(
                     replicate_id=run.replicate_id,
                     request_id=run.request.request_id,
-                    provider_request_id=run.usage.provider_request_id,
+                    provider_request_id=cast("TokenUsage", run.usage).provider_request_id,
                     context_sha256=canonical_hash(
                         dict(
                             packet=run.packet_sha256,
@@ -92,7 +117,7 @@ def _consensus(runs, packet, pack, revision, required=3, grade_agreement_policy=
                             source_refs=[asdict(r) for r in e.evidence_refs],
                             normalized_value=e.normalized_value,
                         )
-                        for e in run.guarded.elements
+                        for e in cast("LlmTags", run.guarded).elements
                     },
                 )
             )
@@ -105,7 +130,10 @@ def _consensus(runs, packet, pack, revision, required=3, grade_agreement_policy=
     data = packet.to_dict()
     elements, facts = [], []
     for eid, names in MAPPINGS[data["track"]].items():
-        votes = [next((e for e in r.guarded.elements if e.element_id == eid), None) for r in runs]
+        votes = [
+            next((e for e in cast("LlmTags", r.guarded).elements if e.element_id == eid), None)
+            for r in runs
+        ]
         positives = [(e, r) for e, r in zip(votes, runs, strict=True) if e and e.state == "present"]
         keys = {
             (e.normalized_value, dict(r.binding_hashes).get(eid), dict(r.source_scopes).get(eid))
@@ -113,7 +141,7 @@ def _consensus(runs, packet, pack, revision, required=3, grade_agreement_policy=
         }
         contrary = any(e and e.state in ("absent", "conflict") for e in votes)
         if contrary or len(keys) > 1:
-            state = "conflict"
+            state: ElementState = "conflict"
         elif (
             (
                 r18 is None
@@ -184,13 +212,13 @@ def _consensus(runs, packet, pack, revision, required=3, grade_agreement_policy=
         tuple(r.semantic_hash for r in ordered),
         pack.ontology_version,
         data.get("safe_harbor_category"),
-        first.guarded.superlative_quote,
+        cast("LlmTags", first.guarded).superlative_quote,
         first.product_variant,
     )
     return replace(result, candidate_elements=tuple(elements), confirmed_tags=tags)
 
 
-def _healthy(runs):
+def _healthy(runs: tuple[TagRun, ...]) -> bool:
     return (
         len(runs) == 3
         and all(
@@ -204,11 +232,11 @@ def _healthy(runs):
             )
             for r in runs
         )
-        and len({r.usage.provider_request_id for r in runs}) == 3
+        and len({cast("TokenUsage", r.usage).provider_request_id for r in runs}) == 3
     )
 
 
-def confirmation_policy(required=3):
+def confirmation_policy(required: int = 3) -> dict[str, Any]:
     return dict(
         profile="sc1_inventory_scope_v1",
         inventory_policy_sha256=INVENTORY_HASH,
@@ -217,11 +245,11 @@ def confirmation_policy(required=3):
     )
 
 
-def _normalize(value):
+def _normalize(value: str) -> str:
     return " ".join(unicodedata.normalize("NFC", value).casefold().split())
 
 
-def claim_key(context, graph):
+def claim_key(context: ClaimContext, graph: CanonicalDocumentGraph) -> tuple[str, ...] | None:
     values = []
     for role in ATTRIBUTE_ROLES.values():
         ref = context.dimensions.get(role)
@@ -242,7 +270,7 @@ def claim_key(context, graph):
     return tuple(values)
 
 
-def _candidate_key(vote):
+def _candidate_key(vote: dict[str, Any]) -> tuple[str, ...] | None:
     attrs = vote["attributes"]
     if any(attrs.get(k) is None for k in ATTRIBUTE_ROLES):
         return None
@@ -252,20 +280,22 @@ def _candidate_key(vote):
 class InventoryIndex:
     """Replayed once per run; deterministic exact attributes only (QT2 contract)."""
 
-    def __init__(self, inventory, graph):
+    def __init__(self, inventory: dict[str, Any], graph: CanonicalDocumentGraph) -> None:
         self.inventory = replay_inventory(inventory, graph)
         self.graph = graph
         from proofops.application.tagging.cf1_inventory import absence_policy
 
         self.absence_agreement = absence_policy(self.inventory["selection"])
-        self.by_element = {}
+        self.by_element: dict[str, list[dict[str, Any]]] = {}
         for candidate in inventory["candidates"]:
             self.by_element.setdefault(candidate["element_id"], []).append(candidate)
         self.uncovered = {
             cue["element_id"] for c in inventory["chunks"] for cue in c["uncovered_cues"]
         }
 
-    def state(self, element_id, key, required):
+    def state(
+        self, element_id: str, key: tuple[str, ...] | None, required: int
+    ) -> tuple[FactState, tuple[dict[str, Any], ...], list[str]]:
         original = self._unanimous_state(element_id, key, required)
         if self.absence_agreement is None or key is None:
             return original
@@ -305,7 +335,9 @@ class InventoryIndex:
             return "absent_in_scope", (), sorted(ids)
         return "unknown", (), sorted(ids)
 
-    def _unanimous_state(self, element_id, key, required):
+    def _unanimous_state(
+        self, element_id: str, key: tuple[str, ...] | None, required: int
+    ) -> tuple[FactState, tuple[dict[str, Any], ...], list[str]]:
         if key is None:
             return "unknown", (), []
         positives, states, ids = [], [], []
@@ -345,19 +377,19 @@ class InventoryIndex:
 
 def analyze_scope(
     *,
-    runs,
-    packet,
-    context,
-    graph,
-    rulepack,
-    rule_context,
-    inventory,
-    prior_projection=None,
-    tag_revision=1,
-    required_present_votes=3,
-    grade_agreement_policy=None,
-    v1_activity_policy=None,
-):
+    runs: tuple[TagRun, ...],
+    packet: EvidencePacket,
+    context: ClaimContext,
+    graph: CanonicalDocumentGraph,
+    rulepack: RulePackSnapshot,
+    rule_context: RuleContext,
+    inventory: InventoryIndex | dict[str, Any],
+    prior_projection: dict[str, Any] | None = None,
+    tag_revision: int = 1,
+    required_present_votes: int = 3,
+    grade_agreement_policy: dict[str, Any] | None = None,
+    v1_activity_policy: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     policy = confirmation_policy(required_present_votes)
     if v1_activity_policy is not None:
         from proofops.application.tagging.v1_activity_links import validate_policy
@@ -443,7 +475,7 @@ def analyze_scope(
     raw_contrary = False
     for run in runs:
         try:
-            raw = llm_tags_from_dict(json.loads(run.raw_response_json))
+            raw = llm_tags_from_dict(json.loads(cast(str, run.raw_response_json)))
             raw_contrary |= any(e.state in ("absent", "conflict") for e in raw.elements)
         except (ValueError, TypeError):
             raw_contrary = True
@@ -506,10 +538,10 @@ def analyze_scope(
     facts = {f.name: f for f in tags.facts} if tags else {}
     if base and base.grade_floor and base.grade_floor > "E0" and not reasons:
         for eid in base.grade_open_elements:
-            names = MAPPINGS[tags.track][eid]
+            names = MAPPINGS[cast("ConfirmedTags", tags).track][eid]
             if any(facts[n].state != "unknown" for n in names):
                 continue
-            state, refs, ids = index.state(eid, key, required_present_votes)
+            state, inventory_refs, ids = index.state(eid, key, required_present_votes)
             reason = None
             if state == "absent_in_scope" and any(
                 e.element_id == eid and e.state == "present"
@@ -525,7 +557,7 @@ def analyze_scope(
 
                 accepted = []
                 scopes = set()
-                for ref_dict in refs:
+                for ref_dict in inventory_refs:
                     ref = SourceRef(**ref_dict)
                     candidate = next(
                         c for c in index.by_element[eid] if c["evidence_ref"] == ref_dict
@@ -569,7 +601,7 @@ def analyze_scope(
                         )
                         else "global_bound"
                     )
-                if len(accepted) != len(refs) or len(scopes) != 1:
+                if len(accepted) != len(inventory_refs) or len(scopes) != 1:
                     state, reason = "unknown", "SC1_POSITIVE_BINDING_REQUIRED"
                 else:
                     for name in names:
@@ -633,7 +665,7 @@ def analyze_scope(
     receipt_hash = canonical_hash(body)
     absent = [f.name for f in facts.values() if f.state == "absent_in_scope"]
     if absent and not reasons and not any(f.state == "conflict" for f in facts.values()):
-        scoped = replace(tags, facts=tuple(facts.values()))
+        scoped = replace(cast("ConfirmedTags", tags), facts=tuple(facts.values()))
         decision = evaluate_scope(
             scoped,
             rule_context,
@@ -647,7 +679,7 @@ def analyze_scope(
     elif fully_linked:
         from proofops.application.tagging.v1_activity_links import confirmed_decision
 
-        decision = confirmed_decision(base, scope, receipt_hash)
+        decision = confirmed_decision(cast("Decision", base), scope, receipt_hash)
     return body | dict(
         receipt_sha256=receipt_hash,
         sc1_confirmation=decision.to_api_dict() if decision else None,
@@ -672,7 +704,7 @@ def analyze_scope(
     )
 
 
-def replay_scope(receipt, **inputs):
+def replay_scope(receipt: dict[str, Any], **inputs: Unpack[ScopeInputs]) -> dict[str, Any]:
     expected = analyze_scope(
         **inputs,
         tag_revision=receipt["tag_revision"],
@@ -686,17 +718,17 @@ def replay_scope(receipt, **inputs):
 
 
 def analyze_record(
-    record,
-    claim,
-    graph,
-    rulepack,
-    inventory,
+    record: dict[str, Any],
+    claim: Claim,
+    graph: CanonicalDocumentGraph,
+    rulepack: RulePackSnapshot,
+    inventory: InventoryIndex | dict[str, Any],
     *,
-    required_present_votes,
-    local_synthetic,
-    grade_agreement_policy=None,
-    v1_activity_policy=None,
-):
+    required_present_votes: int,
+    local_synthetic: bool,
+    grade_agreement_policy: dict[str, Any] | None = None,
+    v1_activity_policy: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     from proofops.application.evidence.binding import ClaimContext
     from proofops.application.evidence.retrieval import freeze_packet
     from proofops.domain.rules.engine import RuleContext

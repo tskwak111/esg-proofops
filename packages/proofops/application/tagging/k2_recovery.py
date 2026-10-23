@@ -1,10 +1,22 @@
 """Opt-in literal recovery. No new roles, source attestations or model votes."""
 
+from __future__ import annotations
+
 import re
+from collections.abc import Mapping
 from dataclasses import replace
+from typing import TYPE_CHECKING
 
 from proofops.application.evidence.span_citations import verify_source_ref
 from proofops.domain.provenance import canonical_hash
+
+if TYPE_CHECKING:
+    from typing import Any
+
+    from proofops.application.claims import Claim
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+    from proofops.domain.values import LlmElement, SourceRef
+
 
 POLICY = dict(
     profile="local-hold-recovery-k2-v1",
@@ -17,12 +29,12 @@ POLICY = dict(
 POLICY_HASH = canonical_hash(POLICY)
 
 
-def validate_policy(policy):
+def validate_policy(policy: Mapping[str, Any]) -> None:
     if policy != POLICY:
         raise ValueError("K2_RECOVERY_POLICY_MISMATCH")
 
 
-def local_intrinsic(claim, ref, element_id):
+def local_intrinsic(claim: Claim, ref: SourceRef, element_id: str) -> bool:
     return (
         element_id in POLICY["intrinsic_elements"]
         and claim.source_quality == "verified"
@@ -44,7 +56,14 @@ _VALUE = re.compile(r"(?<![\w.,])" + _NUMBER + r"\s*" + _UNITS + r"(?![A-Za-z0-9
 _YEAR = re.compile(r"(?<![0-9])(?:19|20)[0-9]{2}년(?:까지)?")
 
 
-def recover_value(element, refs, claim, graph, *, tenant_id):
+def recover_value(
+    element: LlmElement,
+    refs: list[SourceRef],
+    claim: Claim,
+    graph: CanonicalDocumentGraph,
+    *,
+    tenant_id: str,
+) -> tuple[LlmElement, list[SourceRef]]:
     """Normalize only an already verified, uniquely quoted local scalar/year."""
     if element.normalized_value is not None or element.element_id not in {"G1", "G2", "P1"}:
         return element, refs

@@ -4,15 +4,29 @@ The catalog only proposes sources. Model selection, source verification,
 relation binding and three independent replicas still precede publication.
 """
 
+from __future__ import annotations
+
 import re
 from dataclasses import asdict
+from typing import TYPE_CHECKING
 
 from proofops.application.evidence.span_citations import verify_source_ref
 from proofops.application.tagging.qt2_context import _contains, context_refs
 from proofops.application.tagging.v3_dec92 import EXISTING, NAMED_REVIEW, POLICY
 
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+    from typing import Any
 
-def preceding_means(claim, graph, *, tenant_id):
+    from proofops.application.claims import Claim
+    from proofops.application.evidence.binding import ClaimContext
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+    from proofops.domain.values import SourceRef
+
+
+def preceding_means(
+    claim: Claim, graph: CanonicalDocumentGraph, *, tenant_id: str
+) -> tuple[SourceRef, ...]:
     if len(claim.source_refs) != 1:
         return ()
     focal = claim.source_refs[0]
@@ -32,7 +46,9 @@ def preceding_means(claim, graph, *, tenant_id):
     return ()
 
 
-def augment_packet(data, claim, graph, *, tenant_id):
+def augment_packet(
+    data: dict[str, Any], claim: Claim, graph: CanonicalDocumentGraph, *, tenant_id: str
+) -> dict[str, Any]:
     data["v3_dec92_policy"] = POLICY
     if "M1" not in data["allowed_elements"]:
         return data  # Never add M1 or change a future promise's goal track.
@@ -55,7 +71,15 @@ def augment_packet(data, claim, graph, *, tenant_id):
     return data
 
 
-def accepts_context(context, ref, graph, *, tenant_id, element_id, relation_tags=None):
+def accepts_context(
+    context: ClaimContext,
+    ref: SourceRef,
+    graph: CanonicalDocumentGraph,
+    *,
+    tenant_id: str,
+    element_id: str,
+    relation_tags: Mapping[str, SourceRef | None] | None = None,
+) -> bool:
     if element_id != "M1":
         return False
     claim = context.claim

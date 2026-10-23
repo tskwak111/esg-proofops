@@ -1,10 +1,19 @@
 """DEC-24 user interpretation; tagging guidance and table-context filtering only."""
 
+from __future__ import annotations
+
 import re
+from typing import TYPE_CHECKING
 
 from proofops.application.tagging.quality import ELEMENT_DEFINITIONS
 from proofops.application.tagging.semantic_admission import DEFINITIONS as W8_DEFINITIONS
 from proofops.domain.provenance import canonical_hash
+
+if TYPE_CHECKING:
+    from typing import Any
+
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+
 
 DEFINITIONS = (
     ELEMENT_DEFINITIONS
@@ -84,13 +93,18 @@ LOCATED_TABLE_CONTEXT_POLICY = dict(
 )
 
 
-def table_footnote(quote, *, kind, table_context=False):
+def table_footnote(quote: str, *, kind: str, table_context: bool = False) -> bool:
     if kind not in {"table", "table_row", "table_cell"} and not table_context:
         return False
     return bool(_SUPERSCRIPT.match(quote) or (_NUMBERED.match(quote) and _NOTE.search(quote)))
 
 
-def adjacent_table(packet, graph, *, located_only=False):
+def adjacent_table(
+    packet: dict[str, Any] | None,
+    graph: CanonicalDocumentGraph | None,
+    *,
+    located_only: bool = False,
+) -> bool:
     """Geometry supplies note context only, never semantic evidence attribution."""
     if packet is None or graph is None:
         return False

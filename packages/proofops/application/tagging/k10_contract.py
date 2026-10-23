@@ -1,10 +1,19 @@
 """K10 literal vetoes and compact instructions; never synthesize present votes."""
 
+from __future__ import annotations
+
 import re
 from dataclasses import replace
+from typing import TYPE_CHECKING
 
 from proofops.application.tagging.q1_contract import SEMANTIC_POLICY as BASE
 from proofops.domain.provenance import canonical_hash
+
+if TYPE_CHECKING:
+    from typing import Any
+
+    from proofops.domain.values import LlmElement
+
 
 GUIDANCE = (
     "\nK10 / v2 §4.4–4.5: M1은 명명된 수단 또는 구체 운영이다. 정기 보고체계와 "
@@ -38,7 +47,7 @@ SEMANTIC_V2_POLICY = SEMANTIC_POLICY | dict(
 )
 
 
-def guard(element, *, policy=SEMANTIC_POLICY):
+def guard(element: LlmElement, *, policy: dict[str, Any] = SEMANTIC_POLICY) -> LlmElement:
     if element.state != "present":
         return element
     quotes = [" ".join(r.quote.split()) for r in element.evidence_refs]
@@ -67,7 +76,12 @@ def guard(element, *, policy=SEMANTIC_POLICY):
     )
 
 
-def elements(schema, classification, *, quality_policy=None):
+def elements(
+    schema: dict[str, Any],
+    classification: dict[str, Any],
+    *,
+    quality_policy: dict[str, Any] | None = None,
+) -> str:
     """Short common contract with the unchanged track-specific rule cards and tail."""
     from proofops.application.tagging.finals_i4 import elements_k4
 

@@ -1,12 +1,24 @@
 """V25: literal QT1 value/unit/period bundles. No extraction pass or new votes."""
 
+from __future__ import annotations
+
 import re
 from dataclasses import asdict, replace
+from typing import TYPE_CHECKING, cast
 
 from proofops.application.evidence.span_citations import verify_source_ref
 from proofops.application.ingest.qt1_tables import NOTE, UNIT, candidates_for
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.values import SourceRef
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from typing import Any
+
+    from proofops.application.claims import Claim
+    from proofops.application.ingest.graph_fusion import CanonicalBlock, CanonicalDocumentGraph
+    from proofops.domain.values import LlmElement
+
 
 GUIDANCE = (
     "QT1 V25: table tuples preserve value, actual unit and period as separate sources. "
@@ -28,31 +40,38 @@ _DATE = re.compile(r"(?:19|20)\d{2}[./-]\d{1,2}[./-]\d{1,2}")
 _SUPERSCRIPTS = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹", "0123456789")
 
 
-def contains(outer, inner):
-    return (
+def contains(outer: dict[str, Any], inner: dict[str, Any]) -> bool:
+    return cast(
+        bool,
         outer["source_id"] == inner["source_id"]
-        and outer["char_start"] <= inner["char_start"] < inner["char_end"] <= outer["char_end"]
+        and outer["char_start"] <= inner["char_start"] < inner["char_end"] <= outer["char_end"],
     )
 
 
-def _ref(value):
+def _ref(value: dict[str, Any]) -> dict[str, Any] | None:
     return value.get("source_ref") if value else None
 
 
-def _literal_unit(value):
+def _literal_unit(value: dict[str, Any]) -> dict[str, Any] | None:
     ref = value["source_ref"]
     match = re.fullmatch(r"[+−-]?\d[\d,.]*\s*([^\d\s].*)", ref["quote"])
     if match and UNIT.fullmatch(match[1].strip()):
         start = match.start(1)
-        return ref | dict(
-            char_start=ref["char_start"] + start,
-            char_end=ref["char_start"] + match.end(1),
-            quote=match[1],
+        return cast(
+            "dict[str, Any] | None",
+            ref
+            | dict(
+                char_start=ref["char_start"] + start,
+                char_end=ref["char_start"] + match.end(1),
+                quote=match[1],
+            ),
         )
     return None
 
 
-def _notes(row, value, table, graph):
+def _notes(
+    row: dict[str, Any], value: dict[str, Any], table: CanonicalBlock, graph: CanonicalDocumentGraph
+) -> tuple[list[dict[str, Any]], bool]:
     texts = [c["quote"] for c in row["cells"] if c["column"] < value["column"]]
     texts += [c["quote"] for c in value["column_headers"]]
     markers = set()
@@ -89,17 +108,17 @@ def _notes(row, value, table, graph):
     return [c["source_ref"] for c in selected], resolved
 
 
-def tuples_for(table, graph):
+def tuples_for(table: CanonicalBlock, graph: CanonicalDocumentGraph) -> list[dict[str, Any]]:
     result = []
     try:
-        rows = candidates_for(table, graph)
+        rows = candidates_for(table, graph)  # type: ignore[no-untyped-call]  # External untyped helper.
     except ValueError as error:
         if not str(error).startswith("J8_GRID_"):
             raise
         return []  # no owned grid means unknown, never fabricated cells or absence
     for row in rows:
 
-        def owned_ref(ref):
+        def owned_ref(ref: dict[str, Any] | None) -> dict[str, Any] | None:
             if ref is None:
                 return None
             checked = verify_source_ref(SourceRef(**ref), graph, tenant_id=graph.tenant_id)
@@ -165,7 +184,9 @@ def tuples_for(table, graph):
     return result
 
 
-def tuple_evidence(claim, graph, *, tenant_id):
+def tuple_evidence(
+    claim: Claim, graph: CanonicalDocumentGraph, *, tenant_id: str
+) -> list[dict[str, Any]]:
     if (
         (claim.tenant_id, graph.tenant_id) != (tenant_id, tenant_id)
         or len(claim.source_refs) != 1
@@ -188,7 +209,9 @@ def tuple_evidence(claim, graph, *, tenant_id):
     ]
 
 
-def add_sources(data, refs, elements, *, scope):
+def add_sources(
+    data: dict[str, Any], refs: list[dict[str, Any]], elements: Sequence[str], *, scope: str
+) -> None:
     for ref in refs:
         candidate = next(
             (c for c in data["evidence_candidates"] if c["source_id"] == ref["source_id"]), None
@@ -208,7 +231,9 @@ def add_sources(data, refs, elements, *, scope):
             candidate["source_refs"].append(ref)
 
 
-def augment_packet(data, claim, graph, *, tenant_id):
+def augment_packet(
+    data: dict[str, Any], claim: Claim, graph: CanonicalDocumentGraph, *, tenant_id: str
+) -> dict[str, Any]:
     data["qt1_tuple_policy"] = POLICY
     elements = [e for e in ("P1", "P2") if e in data["allowed_elements"]]
     items = tuple_evidence(claim, graph, tenant_id=tenant_id) if elements else []
@@ -221,7 +246,9 @@ def augment_packet(data, claim, graph, *, tenant_id):
     return data
 
 
-def validate_packet(data, claim, graph, *, tenant_id):
+def validate_packet(
+    data: dict[str, Any], claim: Claim, graph: CanonicalDocumentGraph, *, tenant_id: str
+) -> list[dict[str, Any]]:
     expected = (
         tuple_evidence(claim, graph, tenant_id=tenant_id)
         if any(e in data["allowed_elements"] for e in ("P1", "P2"))
@@ -231,10 +258,10 @@ def validate_packet(data, claim, graph, *, tenant_id):
         data.get("qt1_table_tuples")
     ) != canonical_hash(expected):
         raise ValueError("QT1_TUPLE_REPLAY_MISMATCH")
-    return data["qt1_table_tuples"]
+    return cast("list[dict[str, Any]]", data["qt1_table_tuples"])
 
 
-def prepare_element(element, items):
+def prepare_element(element: LlmElement, items: list[dict[str, Any]]) -> tuple[LlmElement, bool]:
     if element.state != "present" or element.element_id not in ("P1", "P2"):
         return element, False
     refs = [asdict(r) for r in element.evidence_refs]

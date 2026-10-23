@@ -1,9 +1,16 @@
 """Versioned whitespace-only selection recovery; never source admission or tagging."""
 
+from __future__ import annotations
+
 import re
+from typing import TYPE_CHECKING
 
 from proofops.application.ingest.display_text import join_allowed
 from proofops.domain.provenance import canonical_hash
+
+if TYPE_CHECKING:
+    from typing import Any
+
 
 POLICY = dict(
     profile="citation-whitespace-partial-v1",
@@ -14,7 +21,7 @@ POLICY = dict(
 POLICY_HASH = canonical_hash(POLICY)
 
 
-def restore_whitespace(selection, original):
+def restore_whitespace(selection: str, original: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(selection, str) or not selection.strip():
         raise ValueError("non-empty source quote required")
     raw = original["quote"]

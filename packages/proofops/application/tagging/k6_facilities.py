@@ -1,13 +1,27 @@
 """Pass attested facility headers as boundary candidates, never element votes."""
 
-from dataclasses import asdict
+from __future__ import annotations
 
-from proofops.application.evidence.retrieval import freeze_packet
+from dataclasses import asdict
+from typing import TYPE_CHECKING
+
+from proofops.application.evidence.retrieval import EvidencePacket, freeze_packet
 from proofops.application.evidence.span_citations import verify_source_ref
 from proofops.domain.values import SourceRef
 
+if TYPE_CHECKING:
+    from typing import Any
 
-def augment_packet(packet, dimensions, graph, *, tenant_id):
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+
+
+def augment_packet(
+    packet: EvidencePacket,
+    dimensions: dict[str, Any],
+    graph: CanonicalDocumentGraph,
+    *,
+    tenant_id: str,
+) -> EvidencePacket:
     data = packet.to_dict()
     facility = dimensions.get("facility", {})
     allowed = [e for e in data["allowed_elements"] if e in ("M2", "P3", "G4")]

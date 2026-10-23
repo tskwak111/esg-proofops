@@ -4,19 +4,35 @@ Inputs are source/binding guarded TagRuns, never public or model-owned receipts.
 The adapter authenticates current responses; stored checkpoints replay this gate.
 """
 
+from __future__ import annotations
+
 import json
 from dataclasses import asdict, replace
+from typing import TYPE_CHECKING, cast
 
+from proofops.application.budget import TokenUsage
 from proofops.application.evidence.span_citations import verify_source_ref
 from proofops.application.tagging.consensus import form_consensus
+from proofops.application.tagging.contracts import FactState
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rules.cf6_scope import POLICY as SCOPE_POLICY
 from proofops.domain.rules.cf6_scope import POLICY_V1 as SCOPE_POLICY_V1
 from proofops.domain.rules.cf6_scope import evaluate_scope, gap_details, resolve_exception_facts
 from proofops.domain.rules.engine import MAPPINGS, ConfirmedFact, ConfirmedTags, evaluate
 
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from typing import Any
 
-def policy(required=2, *, version=2):
+    from proofops.application.claims import Claim
+    from proofops.application.evidence.retrieval import EvidencePacket
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+    from proofops.application.tagging.contracts import TagRun
+    from proofops.domain.rulepacks import RulePackSnapshot
+    from proofops.domain.rules.engine import RuleContext
+
+
+def policy(required: int = 2, *, version: int = 2) -> dict[str, Any]:
     if type(required) is not int or required not in (2, 3):
         raise ValueError("CF6_THRESHOLD_INVALID")
     if type(version) is not int or version not in (1, 2):
@@ -46,7 +62,7 @@ LADDER = dict(
 )
 
 
-def selected_policy(analysis_policy):
+def selected_policy(analysis_policy: dict[str, Any]) -> dict[str, Any] | None:
     selected = analysis_policy.get("cf6_confirmation")
     if selected is not None and selected not in (
         policy(selected.get("required_votes"), version=1),
@@ -56,7 +72,9 @@ def selected_policy(analysis_policy):
     return selected
 
 
-def resolve_votes(votes, required=2):
+def resolve_votes(
+    votes: Sequence[dict[str, Any]], required: int = 2
+) -> tuple[str, list[dict[str, Any]]]:
     """Trusted guarded agreement; DEC-127 non-observation is a separate scoped step."""
     policy(required)
     states = [v["state"] for v in votes]
@@ -73,7 +91,7 @@ def resolve_votes(votes, required=2):
     return "unknown", []
 
 
-def response_bound(run, analysis_policy):
+def response_bound(run: TagRun, analysis_policy: dict[str, Any]) -> bool:
     """Replay the adapter-owned receipt; a digest alone is not transport authority."""
     try:
         response = json.loads(run.provider_response_json or "{}")
@@ -87,8 +105,10 @@ def response_bound(run, analysis_policy):
             and receipt.get("replay") is False
             and receipt.get("response_sha256") == canonical_hash(response)
             and receipt.get("expanded_sha256") == canonical_hash(run.raw_response_json)
-            and receipt.get("provider_request_id") == run.usage.provider_request_id
-            and response.get("provider_request_id") == run.usage.provider_request_id
+            and receipt.get("provider_request_id")
+            == cast("TokenUsage", run.usage).provider_request_id
+            and response.get("provider_request_id")
+            == cast("TokenUsage", run.usage).provider_request_id
             and response.get("request_id") == run.request.request_id
             and response.get("simulated", False) is False
             and "response_reuse" not in response
@@ -110,17 +130,17 @@ def response_bound(run, analysis_policy):
 
 
 def confirmation_result(
-    runs,
-    packet,
-    rulepack,
-    rule_context,
+    runs: tuple[TagRun, ...],
+    packet: EvidencePacket,
+    rulepack: RulePackSnapshot,
+    rule_context: RuleContext,
     *,
-    claim,
-    graph,
-    analysis_policy,
-    prior_projection,
-    hold_reason=None,
-):
+    claim: Claim,
+    graph: CanonicalDocumentGraph,
+    analysis_policy: dict[str, Any],
+    prior_projection: dict[str, Any],
+    hold_reason: str | None = None,
+) -> dict[str, Any]:
     selected = selected_policy(analysis_policy)
     if selected is None:
         raise ValueError("CF6_POLICY_REQUIRED")
@@ -241,14 +261,14 @@ def confirmation_result(
                     for r in refs
                 )
             )
-            state = element.state if element else "missing"
+            state: str = element.state if element else "missing"
             negative_source = False
             # Raw opposite evidence survives guard downgrades; it can veto but never
             # establish a positive/negative fact on its own.
             try:
                 raw = next(
                     e
-                    for e in json.loads(run.raw_response_json)["elements"]
+                    for e in json.loads(cast(str, run.raw_response_json))["elements"]
                     if e["element_id"] == eid
                 )
                 if raw["state"] == "conflict":
@@ -322,7 +342,7 @@ def confirmation_result(
             facts.append(
                 ConfirmedFact(
                     name,
-                    state,
+                    cast("FactState", state),
                     refs,
                     claim.tenant_id if refs else None,
                     bool(refs),
@@ -434,7 +454,13 @@ def confirmation_result(
     return body | dict(receipt_sha256=receipt_hash, cf6_confirmation=confirmed)
 
 
-def analyze_record(record, claim, graph, rulepack, analysis_policy):
+def analyze_record(
+    record: dict[str, Any],
+    claim: Claim,
+    graph: CanonicalDocumentGraph,
+    rulepack: RulePackSnapshot,
+    analysis_policy: dict[str, Any],
+) -> dict[str, Any]:
     from proofops.application.evidence.retrieval import freeze_packet
     from proofops.application.tagging.analysis_scope import read_runs
     from proofops.domain.rules.engine import RuleContext

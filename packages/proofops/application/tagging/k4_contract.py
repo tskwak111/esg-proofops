@@ -1,12 +1,23 @@
 """Opt-in R2 repairs: dispatch identity and literal selections, never new votes."""
 
+from __future__ import annotations
+
 import re
 from dataclasses import replace
+from typing import TYPE_CHECKING, cast
 
 from proofops.application.evidence.span_citations import verify_source_ref
 from proofops.application.tagging.k1_semantics import POLICY as K1_POLICY
 from proofops.application.tagging.k2_recovery import _NUMBER
 from proofops.domain.values import SourceRef
+
+if TYPE_CHECKING:
+    from typing import Any
+
+    from proofops.application.claims import Claim
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+    from proofops.domain.values import LlmElement
+
 
 RESPONSE_POLICY = dict(
     profile="dispatch-owned-tag-identity-k4-v1",
@@ -38,7 +49,9 @@ FACILITY_POLICY = dict(
 )
 
 
-def bind_response(payload, request, *, policy):
+def bind_response(
+    payload: dict[str, Any], request: dict[str, Any], *, policy: dict[str, Any]
+) -> dict[str, Any]:
     if policy != RESPONSE_POLICY:
         raise ValueError("K4_RESPONSE_POLICY_MISMATCH")
     if not isinstance(payload, dict):
@@ -50,7 +63,14 @@ def bind_response(payload, request, *, policy):
     return payload | {k: request[k] for k in ("claim_id", "packet_sha256", "replicate_id")}
 
 
-def recover_selected_quantities(element, refs, claim, graph, *, tenant_id):
+def recover_selected_quantities(
+    element: LlmElement,
+    refs: list[SourceRef],
+    claim: Claim,
+    graph: CanonicalDocumentGraph,
+    *,
+    tenant_id: str,
+) -> tuple[LlmElement, list[SourceRef]]:
     if (
         element.state != "present"
         or element.element_id != "P1"
@@ -90,7 +110,9 @@ def recover_selected_quantities(element, refs, claim, graph, *, tenant_id):
     return replace(element, normalized_value=checked.quote), [*refs, checked]
 
 
-def estimate_evidence(data, graph):
+def estimate_evidence(
+    data: dict[str, Any], graph: CanonicalDocumentGraph | None
+) -> list[dict[str, Any]]:
     if data.get("safe_harbor_category") != "emissions_estimate":
         return []
     if graph is None or (data.get("tenant_id"), data.get("document_version_id")) != (
@@ -103,7 +125,7 @@ def estimate_evidence(data, graph):
     if not checked or any(r.verification_state != "verified" for r in checked):
         return []
     if any(re.search(MARKER, r.quote, re.I) for r in checked):
-        return refs
+        return cast("list[dict[str, Any]]", refs)
     blocks = {b.source_id: b for b in graph.blocks}
     # A whole-table marker needs its own verified literal citation; a table's
     # unverified text or another table/page never establishes this category.
@@ -125,7 +147,9 @@ def estimate_evidence(data, graph):
     return []
 
 
-def scope3_evidence(data, graph):
+def scope3_evidence(
+    data: dict[str, Any], graph: CanonicalDocumentGraph | None
+) -> list[dict[str, Any]]:
     from proofops.application.tagging.k1_semantics import estimate_evidence as old
 
     return old(data | dict(safe_harbor_category=None), graph)

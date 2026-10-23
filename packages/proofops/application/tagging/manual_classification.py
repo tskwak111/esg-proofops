@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import asdict
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from proofops.application.claims import Claim
 from proofops.application.evidence.binding import ClaimContext
@@ -35,6 +35,10 @@ from proofops.application.tagging.tracks import TrackCandidate, validate_track_c
 from proofops.domain.errors import DomainValidationError
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.values import SAFE_HARBOR_CATEGORIES, TRACKS, SourceRef, _require_uuid
+
+if TYPE_CHECKING:
+    from typing import Any
+
 
 SCHEMA = "manual-preliminary-classification-v1"
 HUMAN_ORIGIN = "human_classification"
@@ -51,12 +55,12 @@ _BODY_KEYS = frozenset({"track", "safe_harbor_category", "dimensions", "reason"}
 
 
 class ClassificationRejected(ValueError):
-    def __init__(self, code: str, status: int = 422):
+    def __init__(self, code: str, status: int = 422) -> None:
         super().__init__(code)
         self.code, self.status = code, status
 
 
-def _validate_body_shape(body: Mapping) -> None:
+def _validate_body_shape(body: Mapping[str, Any]) -> None:
     if not isinstance(body, Mapping) or set(body) != _BODY_KEYS:
         raise ClassificationRejected("VALIDATION_ERROR")
     track, category, dims, reason = (
@@ -88,7 +92,7 @@ def _validate_body_shape(body: Mapping) -> None:
 
 
 def validate_manual_classification(
-    claim: Claim, graph: CanonicalDocumentGraph, body: Mapping, *, tenant_id: str
+    claim: Claim, graph: CanonicalDocumentGraph, body: Mapping[str, Any], *, tenant_id: str
 ) -> PreliminaryClassification:
     """Validate a reviewer's manual classification into a PreliminaryClassification."""
     _require_uuid("tenant_id", tenant_id)
@@ -126,7 +130,7 @@ def validate_manual_classification(
     )
 
 
-def _record_body(record: Mapping) -> dict:
+def _record_body(record: Mapping[str, Any]) -> dict[str, Any]:
     """The reviewer's original selection body, reconstructed from the stored record."""
     return {
         "track": record["track"],
@@ -136,7 +140,7 @@ def _record_body(record: Mapping) -> dict:
     }
 
 
-def _selection_from_ref(ref, sources) -> dict:
+def _selection_from_ref(ref: SourceRef, sources: tuple[SourceRef, ...]) -> dict[str, Any]:
     """Invert a resolved dimension ref back to its ``{source_index, start, end, quote}``.
 
     The numbered source it belongs to is the claim source with the same ``source_id``;
@@ -168,7 +172,7 @@ def classification_snapshot(
     classified_by: str,
     reason: str,
     delegation_authority: str | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Content-addressable manual-classification record pinned to its full lineage.
 
     Each non-null dimension is stored as the reviewer's *selection*
@@ -200,7 +204,7 @@ def classification_snapshot(
         "graph_sha256": canonical_hash(asdict(graph)),
         "claim_sha256": canonical_hash(asdict(claim)),
         "lineage_checkpoint_sha256": lineage_checkpoint_sha256,
-        "track": cast(TrackCandidate, classification.track).track,
+        "track": cast("TrackCandidate", classification.track).track,
         "safe_harbor_category": classification.safe_harbor_category,
         "track_confidence": None,
         "dimensions": dimensions,
@@ -222,8 +226,8 @@ def classification_snapshot(
 
 
 def classification_override(
-    record: Mapping, claim: Claim, graph: CanonicalDocumentGraph, *, tenant_id: str
-):
+    record: Mapping[str, Any], claim: Claim, graph: CanonicalDocumentGraph, *, tenant_id: str
+) -> PreliminaryClassification:
     """Rebuild the reviewer's classification from a stored record, re-checking everything.
 
     Validates the content-address (``record_sha256``), the full lineage pins

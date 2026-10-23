@@ -4,11 +4,18 @@ COMMON/track/TAIL renderer and strict K4 schema guard adapted from P2 80942eb.
 The reconstructed P2 extraction and full rubric systems are not selected.
 """
 
+from __future__ import annotations
+
 import re
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
+
+if TYPE_CHECKING:
+    from typing import Any
+
 
 PROFILE = "finals-20261012-v4-partial"
 _ASSETS = Path(__file__).with_name("finals_i4_assets")
@@ -24,7 +31,7 @@ POLICY = dict(
 )
 
 
-def _require_k4_schema(schema):
+def _require_k4_schema(schema: dict[str, Any]) -> None:
     fields = {"claim_id", "packet_sha256", "replicate_id"}
     if fields & (set(schema.get("properties", {})) | set(schema.get("required", []))):
         raise ValueError("K4_WIRE_SCHEMA_IDENTITY_PROHIBITED")
@@ -32,14 +39,19 @@ def _require_k4_schema(schema):
         raise ValueError("K4_WIRE_SCHEMA_EXTRA_PROPERTIES_PROHIBITED")
 
 
-def preliminary_k4(schema, *, quality_policy=None):
+def preliminary_k4(schema: dict[str, Any], *, quality_policy: dict[str, Any] | None = None) -> str:
     _require_k4_schema(schema)
     return K4_PRELIMINARY.replace(
         "{{OUTPUT_SCHEMA_JSON}}", canonical_json(schema)
     ) + _quality_guidance(quality_policy, preliminary=True)
 
 
-def elements_k4(schema, classification, *, quality_policy=None):
+def elements_k4(
+    schema: dict[str, Any],
+    classification: dict[str, Any],
+    *,
+    quality_policy: dict[str, Any] | None = None,
+) -> str:
     _require_k4_schema(schema)
     track = classification.get("track")
     if track not in ("goal", "performance", "management"):
@@ -59,7 +71,7 @@ def elements_k4(schema, classification, *, quality_policy=None):
     ) + _quality_guidance(quality_policy)
 
 
-def _quality_guidance(policy, *, preliminary=False):
+def _quality_guidance(policy: dict[str, Any] | None, *, preliminary: bool = False) -> str:
     from proofops.application.tagging.q1_contract import (
         QA2_ELEMENT_GUIDANCE,
         QA2_POLICY,
