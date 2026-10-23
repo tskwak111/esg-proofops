@@ -13,13 +13,18 @@ import unicodedata
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 from hashlib import sha256
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
 from proofops.application.ports.models import ModelBinding
 from proofops.domain.errors import DomainValidationError
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.values import SourceRef, _require_sha256, _require_uuid
+
+if TYPE_CHECKING:
+    from proofops.application.claims import Claim
+    from proofops.application.review_parts.inputs import ReviewInputs
+
 
 SCALARS = ("provider", "standard_raw", "level", "reporting_period")
 LISTS = (
@@ -64,7 +69,7 @@ class ClaimContext:
     entities: tuple[str, ...]
     facilities: tuple[str, ...]
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         for name in ("tenant_id", "document_version_id", "claim_id"):
             _require_uuid(name, getattr(self, name))
         for name in ("metric", "reporting_period"):
@@ -111,7 +116,7 @@ class AssuranceStatement:
     tagged_fields: tuple[tuple[str, tuple[SourceRef, ...]], ...]
     unresolved_fields: tuple[str, ...]
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         refs = tuple(self.source_refs)
         if not refs or any(not isinstance(ref, SourceRef) for ref in refs):
             raise DomainValidationError("assurance requires original source_refs")
@@ -351,7 +356,9 @@ def _normalize_year(value: str | None) -> str | None:
     return None
 
 
-def _validated_dimension_text(ref, *, claim, original, tenant_id: str) -> str | None:
+def _validated_dimension_text(
+    ref: SourceRef | None, *, claim: Claim, original: CanonicalDocumentGraph, tenant_id: str
+) -> str | None:
     """Return the literal dimension quote when it is source-bound to this claim.
 
     Accepts only a SourceRef that (a) carries this claim's document/manifest
@@ -410,7 +417,9 @@ def _normalize_reporting_period(text: str | None) -> str | None:
     return year if year is not None else text
 
 
-def claim_context_from_review_inputs(review_inputs, *, tenant_id, document_version_id, claim_id):
+def claim_context_from_review_inputs(
+    review_inputs: ReviewInputs | None, *, tenant_id: str, document_version_id: str, claim_id: str
+) -> ClaimContext | None:
     """Build an assurance ClaimContext from validated preliminary dimensions.
 
     Reads only `review_inputs.context.dimensions` (entity/metric/

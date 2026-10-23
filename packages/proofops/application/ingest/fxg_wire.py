@@ -1,5 +1,6 @@
 """Opt-in FXG extraction wire contract; historical profiles remain frozen."""
 
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 
@@ -14,11 +15,11 @@ POLICY = dict(
     max_parts=64,
 )
 
-_GUARD = ContextVar("fxg_dispatch_guard", default=None)
+_GUARD: ContextVar[Callable[[], None] | None] = ContextVar("fxg_dispatch_guard", default=None)
 
 
 @contextmanager
-def dispatch_scope(guard):
+def dispatch_scope(guard: Callable[[], None] | None) -> Iterator[None]:
     token = _GUARD.set(guard)
     try:
         yield
@@ -26,7 +27,7 @@ def dispatch_scope(guard):
         _GUARD.reset(token)
 
 
-def before_dispatch():
+def before_dispatch() -> None:
     guard = _GUARD.get()
     if guard is not None:
         guard()

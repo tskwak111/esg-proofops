@@ -11,16 +11,19 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass
 from datetime import datetime
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol, cast
 from uuid import UUID
 
 from proofops.application.authorization import AuthContext, TenantNotFoundError
 from proofops.application.supply_chain import SupplyChainResult
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rulepacks import canonical_json
+
+if TYPE_CHECKING:
+    from proofops.application.tagging.service import TaggingSettings
 
 
 @dataclass(frozen=True)
@@ -87,7 +90,7 @@ def _model_target(value: Any, region: Any, account: Any, *, profile_only: bool =
         return False
     if match[3] == "foundation-model":
         return not profile_only and match[2] == ""
-    return match[2] == account
+    return cast(bool, match[2] == account)
 
 
 def _timestamp(value: Any) -> datetime | None:
@@ -338,7 +341,7 @@ def _check_local_upstage_binding(
         raise ValueError("invalid model_sha256")
     checks = []
 
-    def add(name, passed):
+    def add(name: str, passed: bool) -> None:
         checks.append(
             Check(
                 name,
@@ -526,7 +529,7 @@ def check_local_upstage_raster(
     return Preflight(common.ready and valid, checks, common.binding_sha256, checked_at)
 
 
-def relation_settings_contract_valid(settings) -> bool:
+def relation_settings_contract_valid(settings: TaggingSettings) -> bool:
     """Read-old/write-new relation contracts, independent of permission or budget."""
     from proofops.application.tagging.relations import (
         LEGACY_PROFILE,
@@ -563,7 +566,7 @@ def check_local_upstage_tagger(
     checked_at: str,
     source_sha256: str,
     document_rights: str,
-    settings,
+    settings: TaggingSettings,
 ) -> Preflight:
     """Separate local tagger approval, not worker activation or token authorization.
 
@@ -799,12 +802,20 @@ def check_local_upstage_tagger(
 
 
 def check_local_decision_binding(
-    *, binding, consent, auth, checked_at, source_sha256, document_rights, provider, settings
-):
+    *,
+    binding: Mapping[str, Any],
+    consent: Mapping[str, Any],
+    auth: AuthContext,
+    checked_at: str,
+    source_sha256: str,
+    document_rights: str,
+    provider: str,
+    settings: Mapping[str, Any],
+) -> Preflight:
     """Explicit text-only DEC-15 grant, independent of the Luna quote grant."""
     from proofops.application.tagging.decisions import MODELS, POLICY, validate_decision_settings
 
-    validate_decision_settings(settings)
+    cast("Callable[..., dict[str, Any]]", validate_decision_settings)(settings)
     if binding.get("tenant_id") != auth.tenant_id or consent.get("tenant_id") != auth.tenant_id:
         raise TenantNotFoundError("profile not found")
     now = _timestamp(checked_at)

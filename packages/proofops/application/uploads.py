@@ -12,7 +12,7 @@ import re
 import secrets
 import sqlite3
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import asdict
 from datetime import UTC, date, datetime
@@ -20,7 +20,7 @@ from hashlib import sha256
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from threading import RLock
-from typing import Any
+from typing import Any, cast
 from uuid import UUID, uuid4
 
 from proofops.adapters.local.catalog_pages import (
@@ -84,7 +84,7 @@ def validate_payload(kind: str, body: Mapping[str, Any]) -> dict[str, Any]:
         or body.keys() - required - optional
     ):
         raise UploadRejected("VALIDATION_ERROR")
-    result = json.loads(_json(dict(body)))
+    result: dict[str, Any] = json.loads(_json(dict(body)))
     if kind == "document":
         _uuid(result["company_id"])
         _text(result["title"])
@@ -189,7 +189,7 @@ class UploadService:
         self._db.close()
 
     @contextmanager
-    def _transaction(self):
+    def _transaction(self) -> Iterator[None]:
         # ponytail: local global writer lock; per-record cloud transactions for deployment.
         with self._lock:
             self._db.execute("BEGIN IMMEDIATE")
@@ -210,16 +210,28 @@ class UploadService:
             ).fetchone()
         if row is None:
             raise UploadRejected("NOT_FOUND")
-        record = json.loads(row[0])
+        record: dict[str, Any] = json.loads(row[0])
         if record.get("schema_version") != 1:
             raise UploadRejected("SCHEMA_VERSION_UNSUPPORTED")
         with self._lock:
-            if document_is_deleted(self._db, tenant, record.get("document_id")):
+            if cast("Callable[[sqlite3.Connection, str, str | None], bool]", document_is_deleted)(
+                self._db, tenant, record.get("document_id")
+            ):
                 raise UploadRejected("NOT_FOUND")
         return record
 
-    def _put(self, tenant: str, kind: str, identifier: str, value: dict, *, update=False):
-        if document_is_deleted(self._db, tenant, value.get("document_id")):
+    def _put(
+        self,
+        tenant: str,
+        kind: str,
+        identifier: str,
+        value: dict[str, Any],
+        *,
+        update: bool = False,
+    ) -> None:
+        if cast("Callable[[sqlite3.Connection, str, str | None], bool]", document_is_deleted)(
+            self._db, tenant, value.get("document_id")
+        ):
             raise UploadRejected("NOT_FOUND")
         if update:
             self._db.execute(
@@ -232,7 +244,9 @@ class UploadService:
                 (tenant, kind, identifier, _json(value)),
             )
 
-    def _replay(self, tenant: str, route: str, key: str, body: dict) -> dict | None:
+    def _replay(
+        self, tenant: str, route: str, key: str, body: dict[str, Any]
+    ) -> dict[str, Any] | None:
         _uuid(tenant)
         _text(key, 128)
         if len(key) < 16:
@@ -245,7 +259,7 @@ class UploadService:
         if row and row[2] > self.clock():
             if row[0] != sha256(_json(body).encode()).hexdigest():
                 raise UploadRejected("IDEMPOTENCY_CONFLICT")
-            response = json.loads(row[1])
+            response: dict[str, Any] = json.loads(row[1])
             for kind, field in (
                 ("document", "document_id"),
                 ("version", "version_id"),
@@ -256,7 +270,9 @@ class UploadService:
             return response
         return None
 
-    def _remember(self, tenant: str, route: str, key: str, body: dict, response: dict):
+    def _remember(
+        self, tenant: str, route: str, key: str, body: dict[str, Any], response: dict[str, Any]
+    ) -> None:
         self._db.execute(
             "INSERT OR REPLACE INTO upload_idempotency VALUES (?,?,?,?,?,?)",
             (
@@ -269,7 +285,7 @@ class UploadService:
             ),
         )
 
-    def _company(self, tenant: str, company_id: str) -> dict:
+    def _company(self, tenant: str, company_id: str) -> dict[str, Any]:
         try:
             return asdict(self.registry.get_company(tenant_id=tenant, company_id=company_id))
         except RegistryNotFound:
@@ -282,7 +298,7 @@ class UploadService:
         key: str,
         *,
         actor_sub: str = "local-synthetic-service",
-    ) -> dict:
+    ) -> dict[str, Any]:
         _text(actor_sub)
         payload = validate_payload("document", body)
         company = self._company(tenant, payload["company_id"])
@@ -309,7 +325,7 @@ class UploadService:
             self._remember(tenant, "documents", key, payload, document)
             return document
 
-    def get_document(self, tenant: str, document_id: str) -> dict:
+    def get_document(self, tenant: str, document_id: str) -> dict[str, Any]:
         stored = self._get(tenant, "document", document_id)
         return {
             key: value for key, value in stored.items() if key not in ("company", "schema_version")
@@ -317,7 +333,7 @@ class UploadService:
 
     def list_documents(
         self, tenant: str, *, cursor: str | None = None, limit: int = 50, now: float | None = None
-    ) -> dict:
+    ) -> dict[str, Any]:
         return self._catalog_page(
             tenant,
             "documents",
@@ -335,9 +351,9 @@ class UploadService:
                         "SELECT data FROM upload_records WHERE tenant=? AND kind='document'",
                         (tenant,),
                     )
-                    if not document_is_deleted(
-                        self._db, tenant, (document := json.loads(row[0]))["document_id"]
-                    )
+                    if not cast(
+                        "Callable[[sqlite3.Connection, str, str | None], bool]", document_is_deleted
+                    )(self._db, tenant, (document := json.loads(row[0]))["document_id"])
                 ),
                 key=lambda item: (item["created_at"], item["document_id"]),
             ),
@@ -352,7 +368,7 @@ class UploadService:
         cursor: str | None = None,
         limit: int = 50,
         now: float | None = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         self._get(tenant, "document", document_id)
         return self._catalog_page(
             tenant,
@@ -374,7 +390,16 @@ class UploadService:
             self.clock() if now is None else now,
         )
 
-    def _catalog_page(self, tenant, endpoint, query, cursor, limit, load_items, now):
+    def _catalog_page(
+        self,
+        tenant: str,
+        endpoint: str,
+        query: dict[str, Any],
+        cursor: str | None,
+        limit: int,
+        load_items: Callable[[], list[dict[str, Any]]],
+        now: float,
+    ) -> dict[str, Any]:
         _uuid(tenant)
         if type(limit) is not int or not 1 <= limit <= 100:
             raise UploadRejected("VALIDATION_ERROR")
@@ -403,7 +428,7 @@ class UploadService:
         key: str,
         *,
         actor_sub: str = "local-synthetic-service",
-    ) -> dict:
+    ) -> dict[str, Any]:
         _text(actor_sub)
         payload = validate_payload("version", body)
         document = self._get(tenant, "document", document_id)
@@ -460,12 +485,12 @@ class UploadService:
             self._remember(tenant, route, key, payload, ticket)
             return ticket
 
-    def check_receipt(self, tenant: str, upload_id: str) -> dict:
+    def check_receipt(self, tenant: str, upload_id: str) -> dict[str, Any]:
         item = self._get(tenant, "upload", upload_id)
         self._pending(item)
         if item["received"]:
             raise UploadRejected("VERSION_CONFLICT")
-        return item["ticket"]
+        return cast(dict[str, Any], item["ticket"])
 
     def receipt_limits(self, tenant: str, upload_id: str) -> PdfLimits:
         """Resolve the immutable receipt policy, including explicit unpinned legacy limits."""
@@ -473,7 +498,7 @@ class UploadService:
         self._pending(item)
         return PdfLimits(**item.get("upload_security_limits", {}))
 
-    def _pending(self, item: dict):
+    def _pending(self, item: dict[str, Any]) -> None:
         if item["status"] != "pending":
             raise UploadRejected("VERSION_CONFLICT")
         if self.clock() >= item["expires"]:
@@ -510,15 +535,15 @@ class UploadService:
             item["received"] = True
             self._put(tenant, "upload", upload_id, item, update=True)
 
-    def validation_job(self, tenant: str, upload_id: str) -> dict:
+    def validation_job(self, tenant: str, upload_id: str) -> dict[str, Any]:
         item = self._get(tenant, "upload", upload_id)
         if "validation_job" not in item:
             raise UploadRejected("UPLOAD_NOT_READY")
-        return item["validation_job"]
+        return cast(dict[str, Any], item["validation_job"])
 
     def enqueue_validation(
         self, tenant: str, upload_id: str, body: Mapping[str, Any], key: str
-    ) -> dict:
+    ) -> dict[str, Any]:
         payload = validate_payload("complete", body)
         with self._transaction():
             item = self._get(tenant, "upload", upload_id)
@@ -526,7 +551,7 @@ class UploadService:
             if any(payload[field] != item["metadata"][field] for field in ("sha256", "size_bytes")):
                 raise UploadRejected("UPLOAD_INTEGRITY_MISMATCH")
             if item["status"] == "accepted":
-                return item["validation_job"]
+                return cast(dict[str, Any], item["validation_job"])
             self._pending(item)
             if not item["received"]:
                 raise UploadRejected("UPLOAD_NOT_READY")
@@ -544,7 +569,7 @@ class UploadService:
                     created_at=self._timestamp(),
                 )
                 self._put(tenant, "upload", upload_id, item, update=True)
-            return item["validation_job"]
+            return cast(dict[str, Any], item["validation_job"])
 
     def complete_upload(
         self,
@@ -554,7 +579,7 @@ class UploadService:
         key: str,
         *,
         actor_sub: str = "local-synthetic-service",
-    ) -> dict:
+    ) -> dict[str, Any]:
         _text(actor_sub)
         payload = validate_payload("complete", body)
         route = f"uploads/{upload_id}/complete"
@@ -676,8 +701,8 @@ class UploadService:
         action: str,
         actor_sub: str,
         *,
-        after: dict,
-        before: dict | None = None,
+        after: dict[str, Any],
+        before: dict[str, Any] | None = None,
         upload_id: str | None = None,
         version_id: str | None = None,
         job_id: str | None = None,
@@ -712,7 +737,7 @@ class UploadService:
             (tenant, document_id, event["sequence"], _json(event)),
         )
 
-    def read_upload_audit(self, tenant: str, document_id: str) -> tuple[dict, ...]:
+    def read_upload_audit(self, tenant: str, document_id: str) -> tuple[dict[str, Any], ...]:
         self.get_document(tenant, document_id)
         with self._lock:
             rows = self._db.execute(
@@ -722,15 +747,15 @@ class UploadService:
             ).fetchall()
         return tuple(json.loads(row[0]) for row in rows)
 
-    def version_snapshot(self, tenant: str, version_id: str) -> dict:
+    def version_snapshot(self, tenant: str, version_id: str) -> dict[str, Any]:
         return self._get(tenant, "version", version_id)
 
-    def get_version(self, tenant: str, version_id: str) -> dict:
+    def get_version(self, tenant: str, version_id: str) -> dict[str, Any]:
         snapshot = self.version_snapshot(tenant, version_id)
         return self._project_version(snapshot)
 
     @staticmethod
-    def _project_version(snapshot: dict) -> dict:
+    def _project_version(snapshot: dict[str, Any]) -> dict[str, Any]:
         return {
             key: snapshot[key]
             for key in (
@@ -760,7 +785,7 @@ class UploadService:
             raise UploadRejected("UPLOAD_INTEGRITY_MISMATCH")
         return content
 
-    def read_display(self, tenant: str, version_id: str) -> tuple[bytes, dict]:
+    def read_display(self, tenant: str, version_id: str) -> tuple[bytes, dict[str, Any]]:
         """Source-view bytes only; analysis continues to use read_original."""
         snapshot = self.version_snapshot(tenant, version_id)
         metadata = snapshot.get("upload_security", {})

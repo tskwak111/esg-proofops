@@ -8,7 +8,7 @@ are rechecked here. No candidate is a present fact or an accepted binding.
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import asdict, dataclass, replace
 from hashlib import sha256
 from typing import Any, Protocol, cast
@@ -26,7 +26,7 @@ from proofops.domain.rules.engine import MAPPINGS
 from proofops.domain.values import SourceRef, _require_sha256, _require_uuid
 
 
-def attested_prose_ids(original, refs):
+def attested_prose_ids(original: CanonicalDocumentGraph, refs: Sequence[SourceRef]) -> set[str]:
     if not isinstance(original, SpanVerifiedGraph):
         return set()
     blocks = {b.source_id: b for b in original.blocks}
@@ -41,7 +41,9 @@ def attested_prose_ids(original, refs):
     }
 
 
-def independently_attested_span_refs(original, source_id, *, tenant_id):
+def independently_attested_span_refs(
+    original: CanonicalDocumentGraph, source_id: str, *, tenant_id: str
+) -> tuple[SourceRef, ...]:
     """Verified external paragraph spans for one unverified atomic prose block.
 
     Admits only the exact independently replayed spans recorded in the trusted
@@ -70,7 +72,9 @@ def independently_attested_span_refs(original, source_id, *, tenant_id):
     return tuple(admitted)
 
 
-def evidence_issue_ids(original, source_ids, refs):
+def evidence_issue_ids(
+    original: CanonicalDocumentGraph, source_ids: Iterable[str], refs: Sequence[SourceRef]
+) -> tuple[str, ...]:
     # Only atomic prose skips layout ancestry. Direct issues and table evidence
     # retain the numeric guard; the original graph and its issues stay intact.
     atomic_ids = attested_prose_ids(original, refs)
@@ -86,7 +90,7 @@ def evidence_issue_ids(original, source_ids, refs):
         if atomic_ids
         else original
     )
-    return unresolved_source_issue_ids(scoped, source_ids)
+    return cast(tuple[str, ...], unresolved_source_issue_ids(scoped, source_ids))
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,7 +100,7 @@ class SearchScope:
     parse_manifest_id: str
     index_generation: str
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         for name in ("tenant_id", "document_version_id", "parse_manifest_id"):
             _require_uuid(name, getattr(self, name))
         if not isinstance(self.index_generation, str) or not self.index_generation.strip():
@@ -109,7 +113,7 @@ class SearchHit:
     source_id: str
     raw_text_sha256: str
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         _require_uuid("source_id", self.source_id)
         _require_sha256("raw_text_sha256", self.raw_text_sha256)
 
@@ -135,12 +139,14 @@ class EvidencePacket:
     payload_json: str
     packet_sha256: str
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if canonical_hash(json.loads(self.payload_json)) != self.packet_sha256:
             raise DomainValidationError("packet hash mismatch")
 
     def to_dict(self) -> dict[str, Any]:
-        return json.loads(self.payload_json) | {"packet_sha256": self.packet_sha256}
+        return cast(dict[str, Any], json.loads(self.payload_json)) | {
+            "packet_sha256": self.packet_sha256
+        }
 
 
 def freeze_packet(packet: Mapping[str, Any]) -> EvidencePacket:
@@ -153,7 +159,7 @@ def freeze_packet(packet: Mapping[str, Any]) -> EvidencePacket:
     return EvidencePacket(payload, canonical_hash(json.loads(payload)))
 
 
-def unattended_packet(packet: EvidencePacket, *, profile="unattended-v1") -> EvidencePacket:
+def unattended_packet(packet: EvidencePacket, *, profile: str = "unattended-v1") -> EvidencePacket:
     data = packet.to_dict()
     data["unattended_retrieval_sha256"] = packet.packet_sha256
     data["pipeline_profile"] = profile

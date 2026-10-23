@@ -1,17 +1,24 @@
 """Explicit observed headers and literal target rescue; no source/grade credit."""
 
+from __future__ import annotations
+
 import json
 import re
+from typing import TYPE_CHECKING, Any, cast
 
 from proofops.application.ingest import w9_tables as w9
 from proofops.application.ingest.j8_cells import graph_cells
 from proofops.domain.provenance import canonical_hash
 
+if TYPE_CHECKING:
+    from proofops.application.ingest.graph_fusion import CanonicalBlock, CanonicalDocumentGraph
+
+
 YEAR = re.compile(r"(?:19|20)\d{2}(?:\s*년)?(?:\s+(?:실적|성과|actuals?))?", re.I)
 UNIT = re.compile(w9.UNIT.pattern.replace("(?:eq|e)?", "(?:-?(?:eq|e))?"), re.I)
 TARGET = r"목표로\s*(?:설정|수립|정했)|목표를\s*(?:설정|수립)|목표로\s*하고"
 ENV = r"온실가스|재생에너지|탄소중립|넷\s*제로|net\s*zero|RE100|배출량"
-POLICY = dict(
+POLICY: dict[str, Any] = dict(
     profile="literal-coverage-k6-v1",
     observed_year=YEAR.pattern,
     unit=UNIT.pattern,
@@ -30,7 +37,7 @@ FIGURE_END = (
     r"(?:운영|이행|수행|추진|수립|관리|지원|설치|감축|전환|실시|취소|제외|보류)"
     r"(?:합니다|했습니다|하고 있습니다|한다|함)?[.!。]?\s*$"
 )
-FIGURE_V1_POLICY = dict(
+FIGURE_V1_POLICY: dict[str, Any] = dict(
     profile=FIGURE_V1_MARKER,
     text="contiguous-original-PDFium-codepoints; located-glyphs-in-own-figure-region",
     bullets=FIGURE_BULLET,
@@ -52,7 +59,9 @@ FIGURE_POLICY = FIGURE_V1_POLICY | dict(
 )
 
 
-def native_figure_context_blocks(block, graph):
+def native_figure_context_blocks(
+    block: CanonicalBlock, graph: CanonicalDocumentGraph
+) -> tuple[CanonicalBlock, ...]:
     """Resolve mandatory native context only for the new opt-in candidate graph."""
     if block.winner is None:
         return ()
@@ -99,12 +108,13 @@ def native_figure_context_blocks(block, graph):
             )
         ):
             raise ValueError("QC_NATIVE_FIGURE_CONTEXT_INVALID")
+    result = cast(tuple[CanonicalBlock, ...], result)
     if sum(len(b.raw_text) + 1 for b in result) > FIGURE_POLICY["max_chars"]:
         raise ValueError("QC_NATIVE_FIGURE_CONTEXT_TOO_LARGE")
     return result
 
 
-def native_figure_bullets(text):
+def native_figure_bullets(text: str) -> list[tuple[int, int, str]]:
     """Offer complete literal bullets, retaining trailing conditions and exclusions."""
     starts = [m.start() for m in re.finditer(FIGURE_BULLET, text)]
     if not starts:
@@ -128,18 +138,20 @@ def native_figure_bullets(text):
     return result[: FIGURE_POLICY["max_bullets"]]
 
 
-def observations(text, *, cells=None, context="", limit=24):
+def observations(
+    text: str, *, cells: list[dict[str, Any]] | None = None, context: str = "", limit: int = 24
+) -> list[dict[str, Any]]:
     # Preserve historical W9 code bytes and outputs. Only newly supported
     # observed-header layouts enter this fallback; no parser text is rewritten.
     old = w9.observations(text, cells=cells, context=context, limit=limit)
     if old:
         return old
     rows = w9.grid(text, cells)
-    years = {}
+    years: dict[int, dict[str, Any]] = {}
     for row in rows[:4]:
         for e in row["entries"]:
             if YEAR.fullmatch(e["text"].strip()):
-                year = re.search(r"\d{4}", e["text"])[0]
+                year = cast(re.Match[str], re.search(r"\d{4}", e["text"]))[0]
                 col = e["column"]
                 if col in years and years[col]["year"] != year:
                     return []
@@ -220,11 +232,11 @@ def observations(text, *, cells=None, context="", limit=24):
     return result[: min(limit, w9.POLICY["max_rows_per_table"])]
 
 
-def observations_for(table, graph):
+def observations_for(table: CanonicalBlock, graph: CanonicalDocumentGraph) -> list[dict[str, Any]]:
     return observations(table.normalized_text, cells=graph_cells(table, graph))
 
 
-def target_spans(text, *, kind):
+def target_spans(text: str, *, kind: str) -> list[dict[str, Any]]:
     if (
         kind != "paragraph"
         or len(text) > 2000
@@ -247,7 +259,9 @@ def target_spans(text, *, kind):
     ]
 
 
-def rescue_targets(spans, text, *, kind):
+def rescue_targets(
+    spans: list[dict[str, Any]], text: str, *, kind: str
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     targets = target_spans(text, kind=kind)
     if not targets or any(
         s["char_start"] <= targets[0]["char_start"] and s["char_end"] >= targets[0]["char_end"]

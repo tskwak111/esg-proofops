@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass, replace
-from typing import cast
+from inspect import Parameter
+from typing import Any, cast
 
 from proofops.application.authorization import AuthContext
 from proofops.application.tagging.consensus import (
@@ -19,10 +21,12 @@ from proofops.domain.rules.engine import (
     MAPPINGS,
     ConfirmedFact,
     ConfirmedTags,
+    Decision,
     evaluate,
 )
+from proofops.domain.values import LlmElement
 
-from .contracts import ReviewRejected
+from .contracts import ContextSourceVerifier, ReviewRejected, SourceVerifier
 from .corrections import _review_applicability, _review_category, _review_safe_harbor
 from .elements import validate_context_review, validate_elements
 from .inputs import ReviewInputs
@@ -34,27 +38,27 @@ class PreparedRevision:
 
     input_snapshot_sha256: str
     facts: tuple[ConfirmedFact, ...]
-    elements: list[dict]
+    elements: list[dict[str, Any]]
     corrected_category: str | None
-    receipts: dict
+    receipts: dict[str, Any]
 
 
 def prepare_revision(
     inputs: ReviewInputs,
     actor: AuthContext,
-    body: dict,
-    elements,
-    initial: dict,
+    body: dict[str, Any],
+    elements: Sequence[LlmElement],
+    initial: dict[str, Any],
     *,
-    applicability_review=None,
-    safe_harbor_review=None,
-    category_review=None,
-    context_review=None,
-    reopen=False,
-    verify_context_sources=None,
-    verifier_parameters,
-    pinned_run_snapshot,
-    verify_source_ref,
+    applicability_review: dict[str, Any] | None = None,
+    safe_harbor_review: dict[str, Any] | None = None,
+    category_review: dict[str, Any] | None = None,
+    context_review: dict[str, Any] | None = None,
+    reopen: bool = False,
+    verify_context_sources: ContextSourceVerifier | None = None,
+    verifier_parameters: Mapping[str, Parameter],
+    pinned_run_snapshot: dict[str, Any] | None,
+    verify_source_ref: SourceVerifier,
 ) -> PreparedRevision:
     """Revalidate the current head and its correction ancestry inside the transaction."""
     inputs.validate()
@@ -148,13 +152,15 @@ def prepare_revision(
         # Exclude only the removed category's checklist names from the NEW
         # fact basis. The prior revision keeps them verbatim and immutable.
         previous_names |= set(superseded_items)
-    reviewed_facts, applicability_receipt = ([], None)
+    reviewed_facts: list[ConfirmedFact] = []
+    applicability_receipt: dict[str, Any] | None = None
     if effective_applicability is not None:
         reviewed_facts, applicability_receipt = _review_applicability(
             inputs, body["track"], effective_applicability, verify_source_ref=verify_source_ref
         )
         previous_names |= {f.name for f in reviewed_facts}
-    safe_harbor_facts, safe_harbor_receipt = ([], None)
+    safe_harbor_facts: list[ConfirmedFact] = []
+    safe_harbor_receipt: dict[str, Any] | None = None
     if effective_safe_harbor is not None:
         safe_harbor_facts, safe_harbor_receipt = _review_safe_harbor(
             inputs, effective_safe_harbor, verify_source_ref=verify_source_ref
@@ -188,7 +194,7 @@ def prepare_revision(
         verify_source_ref=verify_source_ref,
     )
     new_facts.extend(element_facts)
-    receipts = {}
+    receipts: dict[str, Any] = {}
     if applicability_receipt is not None:
         if applicability_carried and applicability_ancestry:
             applicability_receipt = {
@@ -219,17 +225,17 @@ def prepare_revision(
 def build_revision(
     inputs: ReviewInputs,
     actor: AuthContext,
-    body: dict,
-    review: dict,
+    body: dict[str, Any],
+    review: dict[str, Any],
     decision_revision: int,
     prepared: PreparedRevision,
     *,
     origin: str,
     review_status: str,
     reviewer_sub: str | None,
-    extra_tag: dict | None,
-    evaluate=evaluate,
-) -> tuple[dict, dict]:
+    extra_tag: dict[str, Any] | None,
+    evaluate: Callable[..., Decision] = evaluate,
+) -> tuple[dict[str, Any], dict[str, Any]]:
     """Pure tag/decision builder; semantic grading remains exclusively in the rule engine."""
     headers = {
         (r.guarded.safe_harbor_category, r.guarded.superlative_quote)
@@ -241,7 +247,7 @@ def build_revision(
         receipt = cast(FactAssemblyReceiptV1, inputs.fact_assembly_receipt)
         headers = {
             (r["raw"]["safe_harbor_category"], r["raw"]["superlative_quote"])
-            for r in receipt.to_dict()["raw_receipts"]
+            for r in cast("Callable[[], dict[str, Any]]", receipt.to_dict)()["raw_receipts"]
         }
     if len(headers) != 1:
         raise ReviewRejected("CATEGORY_REVIEW_REQUIRED", 409)

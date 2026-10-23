@@ -27,7 +27,7 @@ class RetentionPolicy:
     legal_hold: bool = False
     retain_until: int | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         _require_uuid("tenant_id", self.tenant_id)
         _require_uuid("document_id", self.document_id)
         if not isinstance(self.policy_id, str) or not self.policy_id.strip():
@@ -52,7 +52,7 @@ class DeletionTarget:
     resource_id: str
     sha256: str
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.kind not in RESOURCE_KINDS:
             raise ValueError("untracked resource kind")
         if not self.document_version or not self.resource_id:
@@ -70,7 +70,7 @@ class DeletionManifest:
     requested_at: int
     targets: tuple[DeletionTarget, ...]
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         for name in ("tenant_id", "document_id", "deletion_id"):
             _require_uuid(name, getattr(self, name))
         valid_time(self.requested_at)

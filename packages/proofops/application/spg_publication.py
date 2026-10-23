@@ -1,5 +1,8 @@
 """Opt-in execution only; the v29b source and decision contracts are unchanged."""
 
+from collections.abc import Mapping
+from typing import Any
+
 POLICY = dict(
     profile="spg_publication_v1",
     evidence="same-process-full-replay-with-exact-input-digests",
@@ -12,7 +15,7 @@ POLICY = dict(
 )
 
 
-def enabled(policy):
+def enabled(policy: Mapping[str, Any]) -> bool:
     value = policy.get("spg_publication")
     if value is None:
         return False

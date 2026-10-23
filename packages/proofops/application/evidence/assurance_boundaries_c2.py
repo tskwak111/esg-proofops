@@ -5,6 +5,9 @@ E02 discovery; an empty trailing page is never automatically a back cover.
 Offsets address the immutable native-discovery text, not graph character spans.
 """
 
+from collections.abc import Mapping
+from typing import Any
+
 from proofops.application.evidence.assurance_catalog import discover_bundles
 from proofops.domain.provenance import canonical_hash
 
@@ -20,7 +23,9 @@ KAKAO = "43804a2d5eccfc6aa9c5b5480ec6714c7d07bea13ed68729c0af7a3b622ce76d"
 LG = "c6395dd2be7948d85fa2b52c6edb61367fa6610c6f389c2478b44cb4cfcb5bde"
 
 
-def discover_segments(page_texts, *, page_count, source_sha256):
+def discover_segments(
+    page_texts: Mapping[int, str], *, page_count: int, source_sha256: str
+) -> dict[str, Any]:
     baseline = discover_bundles(page_texts, page_count=page_count, source_sha256=source_sha256)
     exclusions = []
     if source_sha256 == KAKAO:
@@ -120,5 +125,5 @@ def discover_segments(page_texts, *, page_count, source_sha256):
     )
 
 
-def _seal(value):
+def _seal(value: dict[str, Any]) -> dict[str, Any]:
     return value | dict(discovery_sha256=canonical_hash(value))

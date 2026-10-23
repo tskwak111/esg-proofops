@@ -1,5 +1,21 @@
 """Stable review errors and honest provenance labels."""
 
+from __future__ import annotations
+
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
+    from proofops.domain.values import SourceRef
+
+
+SourceVerifier = Callable[..., "SourceRef"]
+ContextSourceVerifier = Callable[..., tuple["CanonicalDocumentGraph", dict[str, Any]]]
+RevisionBuilder = Callable[
+    [dict[str, Any], dict[str, Any], int], tuple[dict[str, Any], dict[str, Any]]
+]
+
 
 class ReviewRejected(ValueError):
     def __init__(self, code: str, status: int = 422):

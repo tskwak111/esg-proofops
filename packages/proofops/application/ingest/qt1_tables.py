@@ -5,11 +5,19 @@ Missing values remain literal; years come only from headers or uniquely linked
 numbered notes. Provider chart transcriptions without an owned grid stay unknown.
 """
 
+from __future__ import annotations
+
 import re
+from collections.abc import Sequence
 from dataclasses import asdict
+from typing import TYPE_CHECKING, Any, cast
 
 from proofops.application.ingest import j8_cells, w9_tables
 from proofops.domain.provenance import canonical_hash
+
+if TYPE_CHECKING:
+    from proofops.application.ingest.graph_fusion import CanonicalBlock, CanonicalDocumentGraph
+
 
 YEAR = re.compile(r"((?:19|20)\d{2})(?:\s*년)?(?:\s*(?:실적|성과))?(?:\d{1,2}\))?")
 UNIT = re.compile(
@@ -32,7 +40,7 @@ FINANCIAL = re.compile(
 )
 NOTE = re.compile(r"(?<![0-9A-Za-z(])(\d{1,2})\)")
 CAPTION_YEAR = re.compile(r"^(?:19|20)\d{2}년|\((?:19|20)\d{2}년\s*기준\)")
-POLICY = dict(
+POLICY: dict[str, Any] = dict(
     profile="selected-table-coverage-qt1-v1",
     base=j8_cells.POLICY,
     year=YEAR.pattern,
@@ -53,7 +61,7 @@ POLICY = dict(
 )
 
 
-def _cell(e):
+def _cell(e: dict[str, Any]) -> dict[str, Any]:
     c = e["cell"]
     return dict(
         start=e["start"],
@@ -68,13 +76,15 @@ def _cell(e):
     )
 
 
-def _covers(c, row=None, column=None):
+def _covers(c: dict[str, Any], row: int | None = None, column: int | None = None) -> bool:
     return (row is None or c["row"] <= row < c["row"] + c["row_span"]) and (
         column is None or c["column"] <= column < c["column"] + c["column_span"]
     )
 
 
-def inventory(text, cells, *, context=()):
+def inventory(
+    text: str, cells: list[dict[str, Any]] | None, *, context: Sequence[str] = ()
+) -> list[dict[str, Any]]:
     """Inventory independently meaningful rows/cells without assigning a track."""
     rows = j8_cells.checked_grid(text, cells)
     if not rows or len(rows[0]["entries"]) < 2:
@@ -165,7 +175,9 @@ def inventory(text, cells, *, context=()):
             values.append(
                 c
                 | dict(
-                    year=YEAR.fullmatch(year_source["quote"].strip())[1] if year_source else None,
+                    year=cast(re.Match[str], YEAR.fullmatch(year_source["quote"].strip()))[1]
+                    if year_source
+                    else None,
                     year_source=year_source,
                     column_headers=heads,
                 )
@@ -238,7 +250,9 @@ def inventory(text, cells, *, context=()):
     return result
 
 
-def reconcile(text, candidates, spans):
+def reconcile(
+    text: str, candidates: list[dict[str, Any]], spans: list[dict[str, Any]]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Keep selections unchanged and add only complete, nonoverlapping missing units."""
     result, coverage = list(spans), []
     for candidate in candidates:
@@ -292,7 +306,7 @@ def reconcile(text, candidates, spans):
     return sorted(result, key=lambda s: s["char_start"]), coverage
 
 
-def _reference(block, start=0, end=None):
+def _reference(block: CanonicalBlock, start: int = 0, end: int | None = None) -> dict[str, Any]:
     return asdict(
         block.source_ref(
             normalized_char_start=start,
@@ -301,7 +315,7 @@ def _reference(block, start=0, end=None):
     )
 
 
-def table_context(table, graph):
+def table_context(table: CanonicalBlock, graph: CanonicalDocumentGraph) -> list[dict[str, Any]]:
     """Local captions and explicitly numbered notes; source location is never fabricated."""
     if table.bbox is None:
         return []
@@ -320,21 +334,23 @@ def table_context(table, graph):
     captions = [
         b
         for b in nearby
-        if 0 <= ty0 - b.bbox[3] <= width * 0.12
-        and tx0 <= b.bbox[0] < tx1
+        if 0 <= ty0 - cast(tuple[float, float, float, float], b.bbox)[3] <= width * 0.12
+        and tx0 <= cast(tuple[float, float, float, float], b.bbox)[0] < tx1
         and len(b.normalized_text) < 160
         and not NOTE.match(b.normalized_text)
         and not b.normalized_text.endswith("다.")
     ]
     result = []
     if captions:
-        best = min(captions, key=lambda b: ty0 - b.bbox[3])
+        best = min(captions, key=lambda b: ty0 - cast(tuple[float, float, float, float], b.bbox)[3])
         owners = [
             t
             for t in peers
             if t.bbox is not None
-            and t.bbox[0] <= best.bbox[0] < t.bbox[2]
-            and 0 <= t.bbox[1] - best.bbox[3] <= width * 0.12
+            and t.bbox[0] <= cast(tuple[float, float, float, float], best.bbox)[0] < t.bbox[2]
+            and 0
+            <= t.bbox[1] - cast(tuple[float, float, float, float], best.bbox)[3]
+            <= width * 0.12
         ]
         if len(owners) == 1:
             result.append(dict(role="table_caption", source_ref=_reference(best)))
@@ -350,9 +366,11 @@ def table_context(table, graph):
                 else len(b.normalized_text)
             )
             marker = match[1]
-            below = 0 <= b.bbox[1] - ty1 <= width * 0.25 and max(tx0, b.bbox[0]) < min(
-                tx1, b.bbox[2]
-            )
+            below = 0 <= cast(tuple[float, float, float, float], b.bbox)[
+                1
+            ] - ty1 <= width * 0.25 and max(
+                tx0, cast(tuple[float, float, float, float], b.bbox)[0]
+            ) < min(tx1, cast(tuple[float, float, float, float], b.bbox)[2])
             owners = [t for t in peers if marker in set(NOTE.findall(t.normalized_text))]
             # A header's unique marker also supports notes placed in the other column.
             explicit = marker in markers and len(owners) == 1
@@ -367,7 +385,7 @@ def table_context(table, graph):
     return result
 
 
-def candidates_for(table, graph):
+def candidates_for(table: CanonicalBlock, graph: CanonicalDocumentGraph) -> list[dict[str, Any]]:
     if (
         table.kind != "table"
         or table.winner is None
@@ -394,8 +412,9 @@ def candidates_for(table, graph):
         if len(captions) == 1:
             for value in row["values"]:
                 if value["year"] is None:
-                    value["year"] = re.search(
-                        r"(?:19|20)\d{2}", captions[0]["source_ref"]["quote"]
+                    value["year"] = cast(
+                        re.Match[str],
+                        re.search(r"(?:19|20)\d{2}", captions[0]["source_ref"]["quote"]),
                     )[0]
                     value["year_source"] = captions[0]
         for cell in row["cells"] + row["headers"] + row["row_headers"] + row["values"]:
@@ -414,6 +433,8 @@ def candidates_for(table, graph):
                     note["marker"] in NOTE.findall(h["quote"]) for h in value["column_headers"]
                 )
                 if header_marked and value["year"] is None:
-                    value["year"] = re.search(r"(?:19|20)\d{2}", note["source_ref"]["quote"])[0]
+                    value["year"] = cast(
+                        re.Match[str], re.search(r"(?:19|20)\d{2}", note["source_ref"]["quote"])
+                    )[0]
                     value["year_source"] = note
     return rows

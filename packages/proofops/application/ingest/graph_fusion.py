@@ -12,6 +12,7 @@ import re
 import unicodedata
 from dataclasses import asdict, dataclass, field
 from hashlib import sha256
+from typing import Any, cast
 from uuid import UUID, uuid5
 
 from proofops.application.ingest.geometry import (
@@ -66,9 +67,9 @@ class SourceArtifact:
     object_version_id: str
     content: bytes = field(repr=False)
     synthetic: bool = False
-    upload_security_limits: dict | None = field(default=None, repr=False)
+    upload_security_limits: dict[str, Any] | None = field(default=None, repr=False)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         for name in ("tenant_id", "document_id", "document_version_id"):
             _require_uuid(name, getattr(self, name))
         _hash(self.sha256)
@@ -107,7 +108,7 @@ class ParserProfile:
     output_policy: str | None = None
     execution_policy: str | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.execution_policy not in (None, "spp-parse-v1"):
             raise ValueError("unsupported parser execution policy")
         if (
@@ -213,7 +214,7 @@ class ParserProfile:
         ):
             raise ValueError("table text tolerance must be finite and nonnegative")
 
-    def invocation_snapshot(self) -> dict:
+    def invocation_snapshot(self) -> dict[str, Any]:
         """Keep historical invocation hashes when optional tuning is absent."""
         values = asdict(self)
         if self.execution_policy is None:
@@ -249,7 +250,7 @@ class ParserProfile:
             values.pop("upstage_region_words")
         return values
 
-    def config_snapshot(self) -> dict:
+    def config_snapshot(self) -> dict[str, Any]:
         """Executable configuration independent of invocation identity/page selection."""
         return {
             key: value
@@ -276,7 +277,7 @@ class CandidateBlock:
     row_span: int | None = None
     column_span: int | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.kind not in KINDS or any(not isinstance(item, str) for item in self.context):
             raise ValueError("invalid candidate kind/context")
         object.__setattr__(self, "context", tuple(self.context))
@@ -290,7 +291,7 @@ class CandidateBlock:
                 for x in matrix
             ):
                 raise ValueError("invalid parser affine")
-            matrix = tuple(matrix)
+            matrix = cast(tuple[float, float, float, float, float, float], tuple(matrix))
             invert_affine(matrix)
             object.__setattr__(self, "parser_to_canonical", matrix)
         if not isinstance(self.parser_coordinate_system, str) or not self.parser_coordinate_system:
@@ -313,7 +314,7 @@ class CandidateBlock:
                 raise ValueError("parser geometry disagrees with canonical geometry")
 
     @property
-    def bbox(self):
+    def bbox(self) -> tuple[float, float, float, float] | None:
         try:
             return canonical_bbox_from_native(self.source.native_bbox, self.geometry)
         except DomainValidationError:
@@ -330,7 +331,7 @@ class CandidateEdge:
     target_native_id: str
     relation: str
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.relation not in RELATIONS:
             raise ValueError("invalid edge relation")
 
@@ -350,7 +351,7 @@ class CandidateBatch:
     edges: tuple[CandidateEdge, ...] = ()
     synthetic: bool = False
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         for name in ("tenant_id", "document_version_id", "parse_manifest_id", "parser_run_id"):
             _require_uuid(name, getattr(self, name))
         _hash(self.source_sha256)
@@ -392,7 +393,7 @@ class QualityIssue:
     state: str
     reason: str
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return dict(asdict(self), source_ids=list(self.source_ids))
 
 
@@ -414,7 +415,10 @@ class CanonicalBlock:
         return self.sources[0].physical_page
 
     @property
-    def bbox(self):
+    def bbox(self) -> Any:
+        # Preserve the dynamic public projection until callers can carry the
+        # located-block refinement across their filtered/sorted collections.
+        # CandidateBlock.bbox retains the precise nullable coordinate contract.
         return self.candidates[0].bbox
 
     @property
@@ -439,7 +443,7 @@ class CanonicalBlock:
             normalized_char_end=normalized_char_end,
         )
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return dict(
             source_id=self.source_id,
             page_num=self.page_num,
@@ -484,7 +488,7 @@ class CanonicalDocumentGraph:
     candidates: tuple[CandidateBatch, ...]
     validation_profile: str = "fast_preview"
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """Fixed v1 projection; rich provenance/conflicts remain in the manifest envelope."""
         return dict(
             schema_version="1",
@@ -574,14 +578,19 @@ def fuse_candidates(
             raise ValueError("duplicate parser run")
         seen_runs.add(batch.parser_run_id)
     ordered = sorted(candidates, key=lambda batch: (batch.parser_name, batch.parser_run_id))
-    table_lookup = {
+    table_lookup: dict[tuple[str, str | None], CandidateBlock] = {
         (batch.parser_run_id, block.source.source_native_id): block
         for batch in candidates
         for block in batch.blocks
         if block.kind == "table"
     }
 
-    def compatible_tables(left_batch, left, right_batch, right):
+    def compatible_tables(
+        left_batch: CandidateBatch,
+        left: CandidateBlock,
+        right_batch: CandidateBatch,
+        right: CandidateBlock,
+    ) -> bool:
         if fusion_version < 4 or left.kind == "table":
             return True
         if left.table_native_id is None and right.table_native_id is None:
@@ -680,7 +689,7 @@ def fuse_candidates(
     )
 
 
-def candidates_from_snapshot(values: list[dict]) -> tuple[CandidateBatch, ...]:
+def candidates_from_snapshot(values: list[dict[str, Any]]) -> tuple[CandidateBatch, ...]:
     """Restore validated native candidates; never promote the bare v1 projection."""
     return tuple(
         CandidateBatch(

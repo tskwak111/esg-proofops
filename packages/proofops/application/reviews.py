@@ -12,9 +12,10 @@ supplied by backend constructor arguments, never by caller JSON.
 from __future__ import annotations
 
 import re
+import sqlite3
 from collections.abc import Callable
 from inspect import signature
-from typing import Protocol
+from typing import Any, Protocol
 
 from proofops.application.authorization import AuthContext
 from proofops.application.evidence.span_citations import verify_source_ref
@@ -39,6 +40,7 @@ from proofops.application.review_parts.contracts import (
 from proofops.application.review_parts.contracts import (
     HUMAN_REVIEW_STATUS as HUMAN_REVIEW_STATUS,
 )
+from proofops.application.review_parts.contracts import ContextSourceVerifier, RevisionBuilder
 from proofops.application.review_parts.contracts import (
     ReviewRejected as ReviewRejected,
 )
@@ -72,20 +74,22 @@ from proofops.domain.values import (
 
 
 class ReviewStore(Protocol):
-    def publish(self, inputs: ReviewInputs, review: dict) -> dict: ...
-    def publish_transaction(self, db, inputs: ReviewInputs, review: dict) -> dict: ...
-    def get(self, tenant_id: str, review_id: str) -> dict: ...
+    def publish(self, inputs: ReviewInputs, review: dict[str, Any]) -> dict[str, Any]: ...
+    def publish_transaction(
+        self, db: sqlite3.Connection, inputs: ReviewInputs, review: dict[str, Any]
+    ) -> dict[str, Any]: ...
+    def get(self, tenant_id: str, review_id: str) -> dict[str, Any]: ...
     def resolve(
         self,
         actor: AuthContext,
         review_id: str,
-        body: dict,
+        body: dict[str, Any],
         expected: int,
         key: str,
-        build: Callable,
+        build: RevisionBuilder,
         *,
         reopen: bool = False,
-    ) -> dict: ...
+    ) -> dict[str, Any]: ...
 
 
 class ReviewService:
@@ -94,33 +98,35 @@ class ReviewService:
         store: ReviewStore,
         *,
         load_inputs: Callable[[str, str, str], ReviewInputs],
-        verify_context_sources=None,
-        load_run_snapshot=None,
-    ):
+        verify_context_sources: ContextSourceVerifier | None = None,
+        load_run_snapshot: Callable[[str, str], dict[str, Any]] | None = None,
+    ) -> None:
         self.store, self.load_inputs = store, load_inputs
         self.verify_context_sources = verify_context_sources
         self.load_run_snapshot = load_run_snapshot
 
-    def _review(self, inputs: ReviewInputs, review_id: str | None = None) -> dict:
+    def _review(self, inputs: ReviewInputs, review_id: str | None = None) -> dict[str, Any]:
         return build_open_review(inputs, review_id)
 
-    def publish(self, inputs: ReviewInputs, review_id: str | None = None) -> dict:
+    def publish(self, inputs: ReviewInputs, review_id: str | None = None) -> dict[str, Any]:
         return self.store.publish(inputs, self._review(inputs, review_id))
 
-    def publish_transaction(self, connection, inputs: ReviewInputs, review_id: str | None = None):
+    def publish_transaction(
+        self, connection: sqlite3.Connection, inputs: ReviewInputs, review_id: str | None = None
+    ) -> dict[str, Any]:
         return self.store.publish_transaction(connection, inputs, self._review(inputs, review_id))
 
     def resolve_review(
         self,
-        actor,
-        review_id,
-        body,
-        if_match,
-        idempotency_key,
+        actor: AuthContext,
+        review_id: str,
+        body: dict[str, Any],
+        if_match: str | None,
+        idempotency_key: str,
         *,
-        category_review=None,
-        reopen=False,
-    ):
+        category_review: dict[str, Any] | None = None,
+        reopen: bool = False,
+    ) -> dict[str, Any]:
         """Default human route: provenance is always human, never caller-chosen.
 
         ``reopen=True`` is the explicit human re-review action for a review that
@@ -149,20 +155,20 @@ class ReviewService:
 
     def resolve_ai_delegated_review(
         self,
-        actor,
-        review_id,
-        body,
-        if_match,
-        idempotency_key,
+        actor: AuthContext,
+        review_id: str,
+        body: dict[str, Any],
+        if_match: str | None,
+        idempotency_key: str,
         *,
         delegated_reviewer: str,
         delegation_authority: str,
-        applicability_review: dict | None = None,
-        safe_harbor_review: dict | None = None,
-        category_review: dict | None = None,
-        context_review: dict | None = None,
+        applicability_review: dict[str, Any] | None = None,
+        safe_harbor_review: dict[str, Any] | None = None,
+        category_review: dict[str, Any] | None = None,
+        context_review: dict[str, Any] | None = None,
         reopen: bool = False,
-    ):
+    ) -> dict[str, Any]:
         """Trusted backend-only operation for explicit user-delegated AI review.
 
         Not reachable from HTTP: ``delegated_reviewer`` and
@@ -208,22 +214,22 @@ class ReviewService:
 
     def _resolve_with_provenance(
         self,
-        actor,
-        review_id,
-        body,
-        if_match,
-        idempotency_key,
+        actor: AuthContext,
+        review_id: str,
+        body: dict[str, Any],
+        if_match: str | None,
+        idempotency_key: str,
         *,
-        origin,
-        review_status,
-        reviewer_sub,
-        extra_tag,
-        applicability_review=None,
-        safe_harbor_review=None,
-        category_review=None,
-        context_review=None,
-        reopen=False,
-    ):
+        origin: str,
+        review_status: str,
+        reviewer_sub: str | None,
+        extra_tag: dict[str, Any] | None,
+        applicability_review: dict[str, Any] | None = None,
+        safe_harbor_review: dict[str, Any] | None = None,
+        category_review: dict[str, Any] | None = None,
+        context_review: dict[str, Any] | None = None,
+        reopen: bool = False,
+    ) -> dict[str, Any]:
         if not isinstance(actor, AuthContext) or not actor.has_capability("reviewer"):
             raise ReviewRejected("FORBIDDEN", 403)
         _require_uuid("review_id", review_id)
@@ -258,7 +264,9 @@ class ReviewService:
         ):
             raise ReviewRejected("RULEPACK_APPROVAL_REQUIRED", 409)
 
-        def build(review, initial, decision_revision):
+        def build(
+            review: dict[str, Any], initial: dict[str, Any], decision_revision: int
+        ) -> tuple[dict[str, Any], dict[str, Any]]:
             prepared = prepare_revision(
                 inputs,
                 actor,

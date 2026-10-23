@@ -1,11 +1,18 @@
 """Opt-in literal cell candidates. Structure is checked; evidence stays unapproved."""
 
+from __future__ import annotations
+
 import re
 import unicodedata
+from typing import TYPE_CHECKING, Any, cast
 
 from proofops.application.ingest import w9_tables as w9
 from proofops.application.ingest.j3_recall import ACTION, BULLET, _trim
 from proofops.application.ingest.table_row_candidates import row_candidates
+
+if TYPE_CHECKING:
+    from proofops.application.ingest.graph_fusion import CanonicalBlock, CanonicalDocumentGraph
+
 
 PROFILE = "j8-owned-cell-candidates-v1"
 APPLIED = r"(?:19|20)\d{2}\s*년\s*적용"
@@ -15,7 +22,7 @@ ACTION_PATTERN = ACTION + r"|확대|사용|활용|발전"
 ENVIRONMENT = w9.ENV.pattern + r"|데이터센터|냉각|냉방|공조|서버.*폐열|제설"
 PLAN_HEADER = r"^(?:세부\s*)?개선\s*과제$|^추진\s*과제$|^계획$"
 STATUS_HEADER = r"^달성\s*현황$|^이행\s*현황$|^성과$"
-POLICY = dict(
+POLICY: dict[str, Any] = dict(
     profile=PROFILE,
     action=ACTION_PATTERN,
     environment_pattern=ENVIRONMENT,
@@ -37,7 +44,7 @@ POLICY = dict(
 )
 
 
-def checked_grid(text, cells):
+def checked_grid(text: str, cells: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
     if not cells:
         if text.strip():
             raise ValueError("J8_GRID_MISSING")
@@ -60,9 +67,9 @@ def checked_grid(text, cells):
     return w9.grid(text, cells)
 
 
-def graph_cells(table, graph):
+def graph_cells(table: CanonicalBlock, graph: CanonicalDocumentGraph) -> list[dict[str, Any]]:
     cells = w9.graph_cells(table, graph)
-    origin = table.candidates[table.winner]
+    origin = table.candidates[cast(int, table.winner)]
     blocks = {b.source_id: b for b in graph.blocks}
     for cell in cells:
         block = blocks[cell["source_id"]]
@@ -109,7 +116,9 @@ def graph_cells(table, graph):
     return cells
 
 
-def observations(text, *, cells=None, context="", limit=24):
+def observations(
+    text: str, *, cells: list[dict[str, Any]] | None = None, context: str = "", limit: int = 24
+) -> list[dict[str, Any]]:
     # Numeric observations keep the existing literal whole row, value/unit/year
     # source guard, and comparison metadata. Generic cell candidates never fill
     # gaps in a year grid that failed to yield a usable observation.
@@ -118,17 +127,19 @@ def observations(text, *, cells=None, context="", limit=24):
     return w9.observations(text, cells=cells, context=context, limit=limit)
 
 
-def observations_for(table, graph):
+def observations_for(table: CanonicalBlock, graph: CanonicalDocumentGraph) -> list[dict[str, Any]]:
     return observations(table.normalized_text, cells=graph_cells(table, graph))
 
 
-def _context(e, source_id, role):
+def _context(e: dict[str, Any], source_id: str, role: str) -> dict[str, Any]:
     return dict(
         role=role, source_id=source_id, char_start=e["start"], char_end=e["end"], text=e["text"]
     )
 
 
-def cell_entries(text, cells, *, source_id):
+def cell_entries(
+    text: str, cells: list[dict[str, Any]] | None, *, source_id: str
+) -> list[dict[str, Any]]:
     rows = checked_grid(text, cells)
     if not rows:
         return []

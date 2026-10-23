@@ -5,11 +5,16 @@ loads the original source/packet and current immutable tag head before calling;
 the existing pure engine remains the sole producer of grades and labels.
 """
 
+from __future__ import annotations
+
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from inspect import signature
-from typing import Literal
+from typing import TYPE_CHECKING, Any, Literal, Protocol, cast
 
+from proofops.application.authorization import AuthContext
 from proofops.application.evidence.report_level import POLICIES as REPORT_LEVEL_POLICIES
+from proofops.application.review_parts.contracts import ContextSourceVerifier
 from proofops.application.tagging.consensus import PARTIAL_FACTS_PROFILES
 from proofops.domain.audit import AuditConflict
 from proofops.domain.errors import DomainValidationError
@@ -23,6 +28,10 @@ from proofops.domain.rules.engine import (
     _validate_inputs,
     evaluate,
 )
+
+if TYPE_CHECKING:
+    from proofops.application.review_parts.inputs import ReviewInputs
+
 
 REVIEWED_TAG_ORIGINS = ("human", "ai_delegated")
 
@@ -147,11 +156,24 @@ class RescoreRejected(Exception):
 class RescoreService:
     """Prepare with verified original inputs, then atomically CAS every decision."""
 
-    def __init__(self, store, *, load_inputs, verify_context_sources=None):
+    def __init__(
+        self,
+        store: RescoreStore,
+        *,
+        load_inputs: Callable[[str, str, str], ReviewInputs],
+        verify_context_sources: ContextSourceVerifier | None = None,
+    ) -> None:
         self.store, self.load_inputs = store, load_inputs
         self.verify_context_sources = verify_context_sources
 
-    def create_rescore(self, actor, run_id, body, idempotency_key, if_match=None):
+    def create_rescore(
+        self,
+        actor: AuthContext,
+        run_id: str,
+        body: dict[str, Any],
+        idempotency_key: str,
+        if_match: str | None = None,
+    ) -> dict[str, Any]:
         import re
         from dataclasses import replace
 
@@ -177,7 +199,7 @@ class RescoreService:
             expected = int(if_match[1:-1])
         captured = self.store.capture(actor, run_id, body, idempotency_key, expected)
         if "response" in captured:
-            return captured["response"]
+            return cast(dict[str, Any], captured["response"])
         target = RulePackSnapshot(**captured["target_pack"])
         # Real (non-synthetic) runs may be rescored only into an active pack with a
         # recorded approver; synthetic runs keep the original local-only behaviour.
@@ -349,3 +371,17 @@ class RescoreService:
             return self.store.commit(actor, run_id, body, captured, prepared)
         except AuditConflict:
             raise RescoreRejected("RESCORE_CONFLICT") from None
+
+
+class RescoreStore(Protocol):
+    def capture(
+        self, actor: AuthContext, run_id: str, body: dict[str, Any], key: str, expected: int | None
+    ) -> dict[str, Any]: ...
+    def commit(
+        self,
+        actor: AuthContext,
+        run_id: str,
+        body: dict[str, Any],
+        captured: dict[str, Any],
+        prepared: dict[str, Any],
+    ) -> dict[str, Any]: ...
