@@ -8,6 +8,11 @@ No reader output, OS string, canonical hash function or shared module is changed
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterator
+from typing import TYPE_CHECKING, Any, TypeVar, cast
+
+if TYPE_CHECKING:
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
 import json
 import logging
 import os
@@ -19,6 +24,9 @@ from threading import Lock
 from types import FunctionType
 
 from proofops.domain.provenance import canonical_hash
+
+T = TypeVar("T")
+
 
 PROFILE = "receipt-env-drift-v1"
 STRICT = "strict-v1"
@@ -45,9 +53,11 @@ _DERIVED_FIELDS = frozenset(
         "bullet_alignment_attestation_sha256",
     }
 )
-_meta: OrderedDict[tuple[str, str], dict] = OrderedDict()
+_meta: OrderedDict[tuple[str, str], dict[str, Any]] = OrderedDict()
 _lock = Lock()
-_table_read: ContextVar[tuple | None] = ContextVar("receipt_table_read", default=None)
+_table_read: ContextVar[tuple[tuple[str, str, str], dict[str, Any] | None] | None] = ContextVar(
+    "receipt_table_read", default=None
+)
 _logger = logging.getLogger(__name__)
 # Dedicated, metadata-only audit output survives the API's runtime formatter,
 # which deliberately discards arbitrary logger messages. Never log OCR text.
@@ -58,14 +68,16 @@ _logger.setLevel(logging.INFO)
 _logger.propagate = False
 
 
-def read_profile():
+def read_profile() -> str:
     profile = os.environ.get(PROFILE_ENV, STRICT)
     if profile not in {STRICT, PROFILE}:
         raise ValueError("RECEIPT_READ_PROFILE_UNKNOWN")
     return profile
 
 
-def receipt_read_metadata(receipt, *, profile=None):
+def receipt_read_metadata(
+    receipt: dict[str, Any], *, profile: str | None = None
+) -> dict[str, Any] | None:
     """Process-local receipt sidecar, separate from the immutable artifact."""
     profile = read_profile() if profile is None else profile
     with _lock:
@@ -73,7 +85,7 @@ def receipt_read_metadata(receipt, *, profile=None):
         return deepcopy(value) if value is not None else None
 
 
-def _layers(receipt):
+def _layers(receipt: dict[str, Any]) -> Iterator[tuple[str, dict[str, Any]]]:
     """Rebuild exact lower-layer preimages embedded by the existing wrappers."""
     common = {
         key: receipt[key]
@@ -127,11 +139,11 @@ def _layers(receipt):
         )
 
 
-def _pointer(path, key):
+def _pointer(path: str, key: object) -> str:
     return path + "/" + str(key).replace("~", "~0").replace("/", "~1")
 
 
-def _derived_hashes(receipt):
+def _derived_hashes(receipt: object) -> dict[str, str]:
     """Validate each digest against its own schema-bound preimage, even if equal.
 
     Paths, rather than a global set of digest values, bind the two receipts'
@@ -139,13 +151,13 @@ def _derived_hashes(receipt):
     """
     hashes = {}
 
-    def bind(value, field, preimage, path):
+    def bind(value: dict[str, Any], field: str, preimage: object, path: str) -> None:
         digest = canonical_hash(preimage)
         if value[field] != digest:
             raise ValueError("RECEIPT_DERIVED_HASH_MISMATCH")
         hashes[_pointer(path, field)] = digest
 
-    def walk(value, path=""):
+    def walk(value: object, path: str = "") -> None:
         if isinstance(value, dict):
             if "artifact_sha256" in value:
                 bind(
@@ -225,7 +237,7 @@ def _derived_hashes(receipt):
     return hashes
 
 
-def compare_receipts(saved, current, *, profile=STRICT):
+def compare_receipts(saved: object, current: object, *, profile: str = STRICT) -> dict[str, Any]:
     """Accept exact receipts, or ONLY same-shaped Apple Vision OS value changes."""
     if profile not in {STRICT, PROFILE}:
         raise ValueError("RECEIPT_READ_PROFILE_UNKNOWN")
@@ -237,7 +249,7 @@ def compare_receipts(saved, current, *, profile=STRICT):
         if profile == STRICT:
             raise ValueError("RECEIPT_CONTENT_MISMATCH")
 
-        def compare(old, new, path=""):
+        def compare(old: object, new: object, path: str = "") -> None:
             if isinstance(old, dict) and isinstance(new, dict):
                 if old.keys() != new.keys():
                     raise ValueError("RECEIPT_CONTENT_MISMATCH")
@@ -297,7 +309,13 @@ def compare_receipts(saved, current, *, profile=STRICT):
     return deepcopy(metadata)
 
 
-def replay_receipt(function, receipt, *args, profile=None, **kwargs):
+def replay_receipt(
+    function: Callable[..., T],
+    receipt: dict[str, Any],
+    *args: Any,
+    profile: str | None = None,
+    **kwargs: Any,
+) -> T:
     """Private replay binding; execute existing admission and promotion unchanged.
 
     The original attester recomputes from actual source bytes. Only AFTER the
@@ -311,7 +329,7 @@ def replay_receipt(function, receipt, *args, profile=None, **kwargs):
         return result
     if profile != PROFILE:
         raise ValueError("RECEIPT_READ_PROFILE_UNKNOWN")
-    namespace = function.__globals__.copy()
+    namespace = cast(FunctionType, function).__globals__.copy()
     bindings = {
         name: namespace[attester]
         for name, attester in _ATTESTERS.items()
@@ -322,7 +340,10 @@ def replay_receipt(function, receipt, *args, profile=None, **kwargs):
     # Clone only this module's functions. Imported readers keep their real policy
     # and __file__ bytes; no shared globals or frozen source files are rewritten.
     for name, value in list(namespace.items()):
-        if isinstance(value, FunctionType) and value.__globals__ is function.__globals__:
+        if (
+            isinstance(value, FunctionType)
+            and value.__globals__ is cast(FunctionType, function).__globals__
+        ):
             cloned = FunctionType(
                 value.__code__, namespace, value.__name__, value.__defaults__, value.__closure__
             )
@@ -332,7 +353,9 @@ def replay_receipt(function, receipt, *args, profile=None, **kwargs):
         if _ATTESTERS[name] == "attest_context_cells":
             attester = _context_attester(attester, profile)
 
-        def adjudicate(*a, _attester=attester, **kw):
+        def adjudicate(
+            *a: Any, _attester: Callable[..., Any] = attester, **kw: Any
+        ) -> dict[str, Any] | tuple[dict[str, Any], object]:
             recomputed = _attester(*a, **kw)
             expected = recomputed[0] if isinstance(recomputed, tuple) else recomputed
             compare_receipts(receipt, expected, profile=profile)
@@ -343,38 +366,43 @@ def replay_receipt(function, receipt, *args, profile=None, **kwargs):
             return deepcopy(receipt)
 
         namespace[_ATTESTERS[name]] = adjudicate
-    return namespace[function.__name__](receipt, *args, **kwargs)
+    return cast(T, namespace[function.__name__](receipt, *args, **kwargs))
 
 
-def replay_raster_with_profile(function, *args, **kwargs):
+def replay_raster_with_profile(function: Callable[..., T], *args: Any, **kwargs: Any) -> T:
     """Bind native replay in a private raster composition, retaining its policy bytes."""
     if read_profile() == STRICT:
         return function(*args, **kwargs)
-    namespace = function.__globals__.copy()
+    namespace = cast(FunctionType, function).__globals__.copy()
     for name, value in list(namespace.items()):
-        if isinstance(value, FunctionType) and value.__globals__ is function.__globals__:
+        if (
+            isinstance(value, FunctionType)
+            and value.__globals__ is cast(FunctionType, function).__globals__
+        ):
             cloned = FunctionType(
                 value.__code__, namespace, value.__name__, value.__defaults__, value.__closure__
             )
             cloned.__kwdefaults__ = value.__kwdefaults__
             namespace[name] = cloned
-    native = function.__globals__["replay_native_sources"]
+    native = cast(FunctionType, function).__globals__["replay_native_sources"]
     namespace["replay_native_sources"] = lambda *a, **kw: replay_receipt(native, *a, **kw)
     visibility = namespace.get("corroborate_native_visibility")
     if visibility is not None:
         namespace["corroborate_native_visibility"] = lambda *a, **kw: replay_raster_with_profile(
             visibility, *a, **kw
         )
-    return namespace[function.__name__](*args, **kwargs)
+    return cast(T, namespace[function.__name__](*args, **kwargs))
 
 
-def _context_attester(function, profile):
+def _context_attester(function: FunctionType, profile: str) -> FunctionType:
     """Revalidate the embedded header before preserving its historical identity."""
     namespace = function.__globals__.copy()
-    original = namespace["_column_head_literals"]
+    original: Callable[..., tuple[frozenset[str], str | None]] = namespace["_column_head_literals"]
     reader = namespace["v3"]
 
-    def headers(receipt, graph, source, tenant_id):
+    def headers(
+        receipt: dict[str, Any] | None, graph: CanonicalDocumentGraph, source: bytes, tenant_id: str
+    ) -> tuple[frozenset[str], str | None]:
         if receipt is None:
             return original(receipt, graph, source, tenant_id)
         current = reader.attest_tables(graph, source, tenant_id=tenant_id)
@@ -390,7 +418,7 @@ def _context_attester(function, profile):
     return cloned
 
 
-def record_table_read(receipt, graph):
+def record_table_read(receipt: dict[str, Any], graph: CanonicalDocumentGraph) -> None:
     """Keep table read metadata request-local and bind it to this graph identity."""
     _table_read.set(
         (
@@ -400,7 +428,7 @@ def record_table_read(receipt, graph):
     )
 
 
-def table_read_metadata(graph):
+def table_read_metadata(graph: CanonicalDocumentGraph) -> dict[str, Any] | None:
     value = _table_read.get()
     identity = graph.tenant_id, graph.document_version_id, graph.parse_manifest_id
     return deepcopy(value[1]) if value is not None and value[0] == identity else None

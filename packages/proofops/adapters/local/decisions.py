@@ -13,15 +13,17 @@ import json
 import os
 import sqlite3
 import time
+from collections.abc import Callable, Iterable
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
+from typing import Any, cast
 
 from proofops.adapters.local.openrouter import POLICY as OR_POLICY
 from proofops.adapters.local.openrouter import OpenRouterProbe
 from proofops.application.tagging.decisions import MODELS, POLICY, validate_answers
 from proofops.domain.provenance import canonical_hash
 
-OPENAI_POLICY = dict(
+OPENAI_POLICY: dict[str, Any] = dict(
     provider="openai",
     model="gpt-6-luna",
     limit_usd="3.00",
@@ -35,14 +37,14 @@ OPENAI_POLICY = dict(
 )
 
 
-def _write_private(path, data):
+def _write_private(path: str | Path, data: dict[str, Any]) -> None:
     with os.fdopen(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w") as stream:
         json.dump(data, stream, ensure_ascii=False, sort_keys=True, allow_nan=False)
         stream.flush()
         os.fsync(stream.fileno())
 
 
-def load_key(provider, project):
+def load_key(provider: str, project: str | Path) -> str:
     name = "OPENAI_API_KEY" if provider == "openai" else "OPENROUTER_API_KEY"
     try:
         lines = (Path(project) / f".env.{provider}.local").read_text().splitlines()
@@ -57,7 +59,15 @@ def load_key(provider, project):
 
 
 class DecisionProbe:
-    def __init__(self, provider, ledger, *, r108_spend, key_loader, historical_ledgers=()):
+    def __init__(
+        self,
+        provider: str,
+        ledger: str | Path,
+        *,
+        r108_spend: str | Path,
+        key_loader: Callable[[], str],
+        historical_ledgers: Iterable[str | Path] = (),
+    ) -> None:
         if provider not in MODELS or not callable(key_loader):
             raise ValueError("DECISION_PROVIDER_INVALID")
         self.provider, self.model = provider, MODELS[provider]["model"]
@@ -87,7 +97,7 @@ class DecisionProbe:
         self.responses.mkdir(mode=0o700, exist_ok=True)
         self.responses.chmod(0o700)
 
-    def _total(self, db):
+    def _total(self, db: sqlite3.Connection) -> Decimal:
         if self.provider == "openrouter":
             return self._openrouter._total(db)
         if db.execute("SELECT body FROM probe_policy WHERE id=1").fetchone() != (
@@ -110,7 +120,9 @@ class DecisionProbe:
             total += amount
         return total
 
-    def _shared(self, request_id, signature, amount, *, settle=False):
+    def _shared(
+        self, request_id: str, signature: str, amount: Decimal, *, settle: bool = False
+    ) -> None:
         # Crash ordering is conservative: shared reservation first, provider second;
         # provider settlement first, shared release second. Orphans retain money.
         self.spend.parent.mkdir(parents=True, exist_ok=True)
@@ -173,11 +185,11 @@ class DecisionProbe:
             finally:
                 fcntl.flock(lock, fcntl.LOCK_UN)
 
-    def request_body(self, state, questions):
+    def request_body(self, state: dict[str, Any], questions: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(state, dict) or not isinstance(questions, dict) or not questions:
             raise ValueError("DECISION_REQUEST_INVALID")
         if self.provider == "openai":
-            body = dict(
+            body: dict[str, Any] = dict(
                 model=self.model,
                 input=json.dumps(state, ensure_ascii=False, sort_keys=True),
                 questions=[
@@ -199,7 +211,7 @@ class DecisionProbe:
             raise ValueError("PROBE_REQUEST_TOO_LARGE")
         return body
 
-    def _post(self, body):
+    def _post(self, body: dict[str, Any]) -> dict[str, Any]:
         host, path = (
             ("api.openai.com", "/v1/decisions")
             if self.provider == "openai"
@@ -220,13 +232,20 @@ class DecisionProbe:
             raw = response.read(1_048_577)
             if len(raw) > 1_048_576:
                 raise ValueError("DECISION_RESPONSE_TOO_LARGE")
-            return json.loads(raw.decode().replace(secret, "[REDACTED]"))
+            return cast("dict[str, Any]", json.loads(raw.decode().replace(secret, "[REDACTED]")))
         finally:
             connection.close()
 
     def decide(
-        self, state, questions, *, request_id, pins=None, authorize=None, before_dispatch=None
-    ):
+        self,
+        state: dict[str, Any],
+        questions: dict[str, Any],
+        *,
+        request_id: str,
+        pins: dict[str, Any] | None = None,
+        authorize: Callable[[], object] | None = None,
+        before_dispatch: Callable[[], object] | None = None,
+    ) -> dict[str, Any]:
         body = self.request_body(state, questions)
         if not isinstance(request_id, str) or not 1 <= len(request_id) <= 128:
             raise ValueError("DECISION_REQUEST_INVALID")
@@ -263,7 +282,8 @@ class DecisionProbe:
                     or receipt.get("questions_sha256") != canonical_hash(questions)
                 ):
                     raise ValueError("DECISION_RECEIPT_MISMATCH")
-                return dict(answers=validate_answers(response, questions), receipt=receipt)
+                # Untyped dependency is outside S_ADB ownership.
+                return dict(answers=validate_answers(response, questions), receipt=receipt)  # type: ignore[no-untyped-call]
             if authorize is not None:
                 authorize()
             if self._total(db) + Decimal("0.02") > Decimal(self.policy["limit_usd"]):
@@ -342,4 +362,5 @@ class DecisionProbe:
             if changed != 1:
                 raise ValueError("DECISION_PENDING_CALL")
         self._shared(request_id, signature, cost, settle=True)
-        return dict(answers=validate_answers(response, questions), receipt=receipt)
+        # Untyped dependency is outside S_ADB ownership.
+        return dict(answers=validate_answers(response, questions), receipt=receipt)  # type: ignore[no-untyped-call]

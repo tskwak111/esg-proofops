@@ -1,5 +1,13 @@
 """Native-proof facility dimensions for display/review; no element/grade credit."""
 
+from __future__ import annotations
+
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from proofops.application.claims import Claim
+    from proofops.application.ingest.graph_fusion import CanonicalDocumentGraph
 import io
 import re
 from dataclasses import asdict, replace
@@ -23,7 +31,9 @@ from proofops.domain.provenance import canonical_hash
 PROFILE = POLICY["profile"]
 
 
-def restore_facilities(graph, source, claims, *, tenant_id):
+def restore_facilities(
+    graph: CanonicalDocumentGraph, source: bytes, claims: Iterable[Claim], *, tenant_id: str
+) -> dict[str, dict[str, Any]]:
     if tenant_id != graph.tenant_id or sha256(source).hexdigest() != graph.source_sha256:
         raise ValueError("K4_FACILITY_SOURCE_MISMATCH")
     if not claims:
@@ -44,7 +54,8 @@ def restore_facilities(graph, source, claims, *, tenant_id):
             if table is None or table.kind != "table" or table.winner is None:
                 continue
             try:
-                rows = grid(table.raw_text, graph_cells(table, graph))
+                # Untyped dependency is outside S_ADB ownership.
+                rows = grid(table.raw_text, graph_cells(table, graph))  # type: ignore[no-untyped-call]
                 entries = [
                     e
                     for row in rows
@@ -101,7 +112,8 @@ def restore_facilities(graph, source, claims, *, tenant_id):
                 label = table.raw_text[a:b]
                 heading_box = native._literal(page, regions[col], label)
                 value_box = native._literal(page, regions[col], ref.quote)
-                if heading_box[3] >= value_box[1] or native.strict._appearance_overlaps(
+                # Existing re-export belongs to a protected or separately owned module.
+                if heading_box[3] >= value_box[1] or native.strict._appearance_overlaps(  # type: ignore[attr-defined]
                     page, heading_box
                 ):
                     continue

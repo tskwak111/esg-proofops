@@ -2,37 +2,48 @@
 
 from __future__ import annotations
 
-import hashlib
+from collections.abc import Iterator
+from contextlib import AbstractContextManager
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from proofops.adapters.local.openai_connections import OpenAIConnections
+import hashlib as hashlib
+import http as http
 import http.client
-import json
+import json as json
 import math
-import os
-import re
+import os as os
+import re as re
 import sqlite3
-import time
+import time as time
 from contextlib import contextmanager, nullcontext
 from contextvars import ContextVar
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from email.utils import parsedate_to_datetime
 from pathlib import Path
-from uuid import uuid4
+from uuid import uuid4 as uuid4
 
 from jsonschema import Draft202012Validator, FormatChecker, ValidationError
 
-# Ledger policy remains byte-identical to existing Decisions policy: never reset spend.
+from proofops.adapters.local import openai_http
 from proofops.adapters.local.decisions import OPENAI_POLICY as POLICY
 from proofops.adapters.local.openrouter import OpenRouterProbe
 from proofops.adapters.local.sqlite_busy import connection
-from proofops.application.openai_retry import POLICY as HTTP_RETRY_POLICY
+from proofops.application.openai_retry import POLICY as _HTTP_RETRY_POLICY
 from proofops.application.openai_retry import POLICY_HASH as HTTP_RETRY_POLICY_HASH
-from proofops.domain.provenance import canonical_hash
+from proofops.domain.provenance import canonical_hash as canonical_hash
+
+# Ledger policy remains byte-identical to existing Decisions policy: never reset spend.
+
+HTTP_RETRY_POLICY: dict[str, Any] = _HTTP_RETRY_POLICY
 
 MODEL = "gpt-6-luna"
 ENDPOINT = "https://api.openai.com/v1/chat/completions"
 PRICE_RECHECK_AT = datetime(2026, 10, 21, tzinfo=UTC)
 PRICE = {"input": "0.10", "cached_input": "0.01", "cache_write": "0.125", "output": "0.50"}
-HTTP_ERROR_POLICY = {
+HTTP_ERROR_POLICY: dict[str, Any] = {
     "schema": "openai-http-error-diagnostic-t1-v2",
     "body": "bounded-sha256-only",
     "identifiers": "bounded-snake-case-no-key",
@@ -40,7 +51,7 @@ HTTP_ERROR_POLICY = {
     "context": "utc-wire-bytes-model-local-request-admission-latency",
     "storage": "private-immutable-sidecar-best-effort",
 }
-WIRE_POLICY = {
+WIRE_POLICY: dict[str, Any] = {
     "provider": "openai",
     "endpoint": ENDPOINT,
     "model": MODEL,
@@ -57,7 +68,7 @@ WIRE_POLICY = {
     "max_attempts": 2,
     "vat_reserve": "1.10",
 }
-CAPACITY_POLICY = {
+CAPACITY_POLICY: dict[str, Any] = {
     "schema": "openai-luna-input-reservation-v1",
     "model_id": MODEL,
     "reservation_input_tokens": 32768,
@@ -66,21 +77,21 @@ CAPACITY_POLICY = {
 }
 
 
-def now():
+def now() -> datetime:
     return datetime.now(UTC)
 
 
 class OpenAITransient403(ValueError):
     """Explicit overload evidence, never created for an opaque denial."""
 
-    def __init__(self, *, delay, diagnostic):
+    def __init__(self, *, delay: float, diagnostic: dict[str, Any]) -> None:
         super().__init__("OPENAI_HTTP_403")
         self.retry_after_seconds = delay
         self.diagnostic = diagnostic
         self.policy_sha256 = HTTP_RETRY_POLICY_HASH
 
 
-def _retry_after(value):
+def _retry_after(value: object) -> float | None:
     if not isinstance(value, str) or len(value) > 100:
         return None
     try:
@@ -96,15 +107,15 @@ def _retry_after(value):
     return max(0.0, seconds) if math.isfinite(seconds) and seconds >= 0 else None
 
 
-def validate_capacity_policy(policy, *, model_id):
+def validate_capacity_policy(policy: object, *, model_id: str) -> int:
     if model_id != MODEL or policy != CAPACITY_POLICY:
         raise ValueError("OPENAI_CAPACITY_POLICY_MISMATCH")
     if now() >= PRICE_RECHECK_AT:
         raise ValueError("PRICE_RECHECK_REQUIRED")
-    return CAPACITY_POLICY["reservation_input_tokens"]
+    return cast(int, CAPACITY_POLICY["reservation_input_tokens"])
 
 
-def token_cost(usage):
+def token_cost(usage: dict[str, Any]) -> Decimal:
     incoming, outgoing = usage["prompt_tokens"], usage["completion_tokens"]
     details = usage.get("prompt_tokens_details") or {}
     cached = details.get("cached_tokens", 0)
@@ -113,7 +124,7 @@ def token_cost(usage):
         raise ValueError("INVALID_USAGE")
     if incoming > 32768 or cached + written > incoming:
         raise ValueError("INVALID_USAGE")
-    return (
+    cost: Decimal = (
         (
             (incoming - cached - written) * Decimal(PRICE["input"])
             + cached * Decimal(PRICE["cached_input"])
@@ -124,34 +135,52 @@ def token_cost(usage):
         * Decimal("1.10")
     )
 
+    return cost
+
 
 class OpenAIProbe(OpenRouterProbe):
-    _response_context = ContextVar("openai_response_context", default=None)
-    _cache_request_context = ContextVar("openai_cache_request_context", default=None)
-    _dispatch_context = ContextVar("openai_dispatch_context", default=None)
-    response_cache_path = None
-    response_policy = None
+    _response_context: ContextVar[tuple[str, int] | None] = ContextVar(
+        "openai_response_context", default=None
+    )
+    _cache_request_context: ContextVar[dict[str, Any] | None] = ContextVar(
+        "openai_cache_request_context", default=None
+    )
+    _dispatch_context: ContextVar[dict[str, Any] | None] = ContextVar(
+        "openai_dispatch_context", default=None
+    )
+    response_cache_path: Path | None = None
+    response_policy: dict[str, Any] | None = None
     wire_policy = WIRE_POLICY
-    http_retry_policy = None
-    provider_resilience = None
+    http_retry_policy: dict[str, Any] | None = None
+    provider_resilience: dict[str, Any] | None = None
     http_dispatch_guard = False
-    response_uncertainty_policy = None
-    http_diagnostic_policy = None
-    transport_policy = None
-    connection_pool = None
+    response_uncertainty_policy: dict[str, Any] | None = None
+    http_diagnostic_policy: dict[str, Any] | None = None
+    transport_policy: dict[str, Any] | None = None
+    connection_pool: OpenAIConnections | None = None
     max_request_bytes = WIRE_POLICY["max_request_bytes"]
+    rate_limit_headers: dict[str, str | None]
+    provider_scheduler: dict[str, Any] | None
 
-    def _authorize_response_request(self):
+    if TYPE_CHECKING:
+        # Supplied by hosted subclasses only; keep optional runtime hooks absent here.
+        def http_attempt_scope(self) -> AbstractContextManager[object]: ...
+        def http_transport_pacing(self) -> None: ...
+        def http_admission_snapshot(self) -> dict[str, Any]: ...
+        def http_recent_request_counts(self) -> dict[str, Any]: ...
+
+    def _authorize_response_request(self) -> None:
         """Hosted adapters recheck their live owner/source before cache access."""
 
-    def configure_response_policy(self, snapshot, *, role):
+    def configure_response_policy(self, snapshot: dict[str, Any], *, role: str) -> None:
         from proofops.application.analysis_profile import MODEL_RESPONSE_POLICY
 
         policy = snapshot.get("analysis_profile_policy", {})
         from proofops.application.fxh_policy import POLICY as FXH_POLICY
         from proofops.application.fxh_policy import enabled as fxh_enabled
 
-        fxh = fxh_enabled(policy)
+        # Untyped dependency is outside S_ADB ownership.
+        fxh = fxh_enabled(policy)  # type: ignore[no-untyped-call]
         self.max_request_bytes = WIRE_POLICY["max_request_bytes"]
         self.http_retry_policy = None
         self.provider_resilience = None
@@ -251,7 +280,7 @@ class OpenAIProbe(OpenRouterProbe):
             self.max_request_bytes = FXH_POLICY["max_request_bytes"]
 
     @contextmanager
-    def response_context(self, *, role, replica):
+    def response_context(self, *, role: str, replica: int) -> Iterator[None]:
         if (
             role not in {"extract", "elements", "preliminary", "relation"}
             or type(replica) is not int
@@ -264,7 +293,9 @@ class OpenAIProbe(OpenRouterProbe):
         finally:
             self._response_context.reset(token)
 
-    def __init__(self, api_key: str, ledger: Path, *, model: str = MODEL, wire_policy_version=2):
+    def __init__(
+        self, api_key: str, ledger: Path, *, model: str = MODEL, wire_policy_version: int = 2
+    ) -> None:
         if model != MODEL:
             raise ValueError("UNSUPPORTED_MODEL")
         if not api_key or any(c.isspace() for c in api_key):
@@ -292,7 +323,7 @@ class OpenAIProbe(OpenRouterProbe):
         self._responses.mkdir(mode=0o700, exist_ok=True)
         self._responses.chmod(0o700)
 
-    def _total(self, db):
+    def _total(self, db: sqlite3.Connection) -> Decimal:
         if db.execute("SELECT body FROM probe_policy WHERE id=1").fetchone() != (
             json.dumps(POLICY, sort_keys=True),
         ):
@@ -319,7 +350,7 @@ class OpenAIProbe(OpenRouterProbe):
             total += amount
         return total
 
-    def summary(self):
+    def summary(self) -> dict[str, Any]:
         with connection(self.ledger, readonly=True) as db:
             total = self._total(db)
             calls, unsettled = db.execute(
@@ -332,164 +363,20 @@ class OpenAIProbe(OpenRouterProbe):
             "committed_usd": str(total),
         }
 
-    def request_body(self, system, user_json, *, request_id, max_tokens=1024, json_mode=False):
-        if (
-            not isinstance(system, str)
-            or not isinstance(user_json, str)
-            or not isinstance(request_id, str)
-            or not 1 <= len(request_id) <= 128
-            or type(max_tokens) is not int
-            or not 1 <= max_tokens <= 4096
-            or type(json_mode) is not bool
-        ):
-            raise ValueError("INVALID_PROBE_REQUEST")
-        body = {
-            "model": MODEL,
-            "messages": [
-                {"role": "system", "content": system},
-                {"role": "user", "content": user_json},
-            ],
-            "max_completion_tokens": max_tokens,
-            "temperature": 0,
-            "stream": False,
-            "reasoning_effort": "none",
-            "store": False,
-            "service_tier": "default",
-        }
-        if json_mode:
-            body["response_format"] = {"type": "json_object"}
-        if self.response_policy is not None:
-            body["top_p"] = 1
-        if (
-            len(json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode())
-            > self.max_request_bytes
-        ):
-            raise ValueError("PROBE_REQUEST_TOO_LARGE")
-        return body
+    request_body = openai_http.request_body
 
-    def _record_http_error(
-        self,
-        body,
-        status,
-        raw,
-        error,
-        request_id,
-        retry_after,
-        *,
-        client_request_id=None,
-        headers=None,
-        latency_ms=None,
-        response_failure=None,
-        transport_context=None,
-    ):
-        """Keep denial identifiers without persisting messages, inputs or cookies."""
+    _record_http_error = openai_http._record_http_error
 
-        def identifier(value):
-            return (
-                value
-                if isinstance(value, str)
-                and re.fullmatch(r"[a-z][a-z0-9_]{0,63}", value)
-                and not value.startswith("sk_")
-                and self._key not in value
-                else None
-            )
-
-        error = error if isinstance(error, dict) else {}
-        local_request_id = (self._dispatch_context.get() or {}).get("request_id")
-        if not (
-            isinstance(local_request_id, str)
-            and re.fullmatch(r"[a-zA-Z0-9_-]{1,128}", local_request_id)
-            and self._key not in local_request_id
-            and not local_request_id.startswith("sk-")
-        ):
-            local_request_id = None
-        diagnostic = {
-            "diagnostic_policy_sha256": canonical_hash(HTTP_ERROR_POLICY),
-            "request_sha256": canonical_hash(body),
-            "http_status": status,
-            "http_request_id": (
-                request_id
-                if isinstance(request_id, str)
-                and re.fullmatch(r"req_[a-zA-Z0-9]{1,128}", request_id)
-                and self._key not in request_id
-                else None
-            ),
-            "retry_after": (
-                retry_after
-                if isinstance(retry_after, str) and re.fullmatch(r"[0-9]{1,8}", retry_after)
-                else None
-            ),
-            "error_code": identifier(error.get("code")),
-            "error_type": identifier(error.get("type")),
-            "response_body_sha256": hashlib.sha256(raw).hexdigest(),
-            "response_body_bytes_read": len(raw),
-            "response_body_truncated": len(raw) > 1_048_576,
-        }
-        diagnostic.update(
-            observed_at=now().isoformat(),
-            model=MODEL,
-            request_bytes=len(json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode()),
-            client_request_id=(
-                client_request_id
-                if isinstance(client_request_id, str)
-                and re.fullmatch(r"[a-zA-Z0-9_-]{1,128}", client_request_id)
-                and self._key not in client_request_id
-                and not client_request_id.startswith("sk-")
-                else None
-            ),
-            latency_ms=latency_ms,
-            local_request_id=local_request_id,
-            headers={
-                name: value
-                for name, value in (headers or {}).items()
-                if name in {"server", "content-type", "cf-ray"}
-                and isinstance(value, str)
-                and len(value) <= 160
-                and re.fullmatch(r"[a-zA-Z0-9 .,;:=/+_-]+", value)
-                and self._key not in value
-                and "sk-" not in value
-            },
-            admission=(
-                self.http_admission_snapshot() if hasattr(self, "http_admission_snapshot") else None
-            ),
-        )
-        if response_failure is not None:
-            from proofops.application.provider_resilience import RESPONSE_ERROR_DIAGNOSTIC_POLICY
-
-            diagnostic.update(
-                diagnostic_policy_sha256=canonical_hash(RESPONSE_ERROR_DIAGNOSTIC_POLICY),
-                **response_failure,
-            )
-            if not response_failure["body_received"]:
-                diagnostic.update(
-                    response_body_sha256=None,
-                    response_body_bytes_read=None,
-                    response_body_truncated=None,
-                )
-        if transport_context is not None:
-            diagnostic.update(transport_context)
-        try:
-            directory = getattr(self, "http_error_directory", self._responses)
-            directory.mkdir(mode=0o700, parents=True, exist_ok=True)
-            path = directory / (canonical_hash(diagnostic) + ".http-error.json")
-            with os.fdopen(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w") as f:
-                json.dump(diagnostic, f, sort_keys=True)
-                f.flush()
-                os.fsync(f.fileno())
-        except OSError:
-            # A duplicate or unwritable sidecar must not change the HTTP failure,
-            # release uncertain spend, or trigger another provider dispatch.
-            pass
-        return diagnostic
-
-    def physical_attempt_scope(self):
+    def physical_attempt_scope(self) -> AbstractContextManager[object]:
         if getattr(self, "provider_scheduler", None) is None:
             return nullcontext()
         if not hasattr(self, "http_attempt_scope"):
             raise ValueError("PROVIDER_SCHEDULER_BINDING_REQUIRED")
         return self.http_attempt_scope()
 
-    def _post(self, body, *, client_request_id=None):
+    def _post(
+        self, body: dict[str, Any], *, client_request_id: str | None = None
+    ) -> dict[str, Any]:
         from proofops.adapters.local.openai_connections import (
             OpenAIConnectNotSent,
             OpenAIControlNotSent,
@@ -508,7 +395,7 @@ class OpenAIProbe(OpenRouterProbe):
         from proofops.adapters.local.provider_concurrency import ProviderCircuitOpen
         from proofops.adapters.local.provider_scheduler import ProviderAdmissionDeferred
 
-        dispatch = self._dispatch_context.get()
+        dispatch = cast(dict[str, Any], self._dispatch_context.get())
         for attempt in range(2):
             attempt_id = str(uuid4())
             # A distinct physical reservation is bounded by the still-reserved
@@ -562,7 +449,9 @@ class OpenAIProbe(OpenRouterProbe):
             return data
         raise ValueError("PROVIDER_PROCESSING_FAILED")
 
-    def _finish_transport_attempt(self, attempt_id, state, diagnostic):
+    def _finish_transport_attempt(
+        self, attempt_id: str, state: str, diagnostic: str | None
+    ) -> None:
         with connection(self.ledger) as db:
             db.execute(
                 "UPDATE probe_transport_attempts SET state=?,diagnostic=? "
@@ -570,7 +459,7 @@ class OpenAIProbe(OpenRouterProbe):
                 (state, diagnostic, attempt_id),
             )
 
-    def _settle_never_sent(self, request_id):
+    def _settle_never_sent(self, request_id: str) -> None:
         with connection(self.ledger) as db:
             states = [
                 r[0]
@@ -593,243 +482,18 @@ class OpenAIProbe(OpenRouterProbe):
                 (json.dumps(receipt), request_id),
             )
 
-    def _post_admitted(self, body, *, client_request_id=None):
-        from proofops.adapters.local.openai_connections import (
-            OpenAIControlNotSent,
-            control_before_send,
-        )
-        from proofops.application.ports.jobs import JobControlSignal, LeaseLost
-
-        # Hosted adapters admit each physical attempt before broker reservation.
-        with control_before_send():
-            if (
-                self.http_dispatch_guard
-                and client_request_id is None
-                and not getattr(self, "provider_scheduler", None)
-            ):
-                admission = getattr(self, "http_dispatch_admission", None)
-                if admission is not None:
-                    admission()
-            pool = self.connection_pool if self.transport_policy else None
-            if pool:
-                connection, connection_id, reused = pool.take()
-            else:
-                connection = http.client.HTTPSConnection("api.openai.com", timeout=90)
-                connection_id, reused = str(uuid4()), False
-        reusable = False
-        request_started = False
-        started = time.monotonic()
-        response = raw = None
-        trace = None
-        if self.http_diagnostic_policy:
-            trace = dict(
-                started_at=now().isoformat(),
-                started_monotonic=started,
-                connection_id=connection_id,
-                connection_new=not reused,
-                connection_reused=reused,
-                dns_ms=None,
-                connect_ms=None,
-                tls_ms=None,
-                connect_tls_ms=None,
-                ttfb_ms=None,
-            )
-
-        def transport_context():
-            if trace is None:
-                return None
-            from proofops.adapters.local.http_diagnostics import error_context
-
-            finished = time.monotonic()
-            return error_context(
-                self,
-                trace
-                | dict(
-                    finished_at=now().isoformat(),
-                    finished_monotonic=finished,
-                    total_ms=round((finished - started) * 1000, 2),
-                ),
-                response,
-                client_request_id,
-            )
-
-        try:
-            encoded = json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode()
-            headers = {
-                "Authorization": "Bearer " + self._key,
-                "Content-Type": "application/json",
-                **({"X-Client-Request-Id": client_request_id} if client_request_id else {}),
-            }
-            if getattr(self, "provider_scheduler", None):
-                self.http_transport_pacing()
-            if trace is not None:
-                trace.update(
-                    wire_sha256=hashlib.sha256(encoded).hexdigest(),
-                    transport_started_monotonic=time.monotonic(),
-                    request_header_names=sorted(
-                        set(headers) | {"Host", "Accept-Encoding", "Content-Length"}
-                    ),
-                    request_header_settings={
-                        "content-type": "application/json",
-                        "host": "api.openai.com",
-                        "accept-encoding": "identity",
-                        "content-length": str(len(encoded)),
-                    },
-                )
-                # The regular request() also calls connect(). This separates the
-                # combined DNS/TCP/TLS stage without changing Host/SNI/TLS/wire.
-                if not reused and hasattr(connection, "connect"):
-                    connecting = time.monotonic()
-                    connection.connect()
-                    trace["connect_tls_ms"] = round((time.monotonic() - connecting) * 1000, 2)
-                    trace["tls_session_reused"] = getattr(connection.sock, "session_reused", None)
-                if reused:
-                    connection.auto_open = 0  # Never reconnect implicitly after request starts.
-            request_started = True
-            connection.request(
-                "POST",
-                "/v1/chat/completions",
-                body=encoded,
-                headers=headers,
-            )
-            response = connection.getresponse()
-            if trace is not None:
-                trace["ttfb_ms"] = round(
-                    (time.monotonic() - trace["transport_started_monotonic"]) * 1000, 2
-                )
-            self.rate_limit_headers = {
-                name: response.getheader(name)
-                for name in (
-                    "x-ratelimit-limit-requests",
-                    "x-ratelimit-limit-tokens",
-                    "x-ratelimit-remaining-requests",
-                    "x-ratelimit-remaining-tokens",
-                    "x-ratelimit-reset-requests",
-                    "x-ratelimit-reset-tokens",
-                )
-            }
-            if response.status != 200:
-                raw = response.read(1_048_577)
-                error = {}
-                if len(raw) <= 1_048_576:
-                    try:
-                        error = json.loads(raw).get("error", {})
-                    except (AttributeError, json.JSONDecodeError, TypeError):
-                        error = {}
-                diagnostic = self._record_http_error(
-                    body,
-                    response.status,
-                    raw,
-                    error,
-                    response.getheader("x-request-id"),
-                    response.getheader("retry-after"),
-                    client_request_id=client_request_id,
-                    headers={
-                        name: response.getheader(name)
-                        for name in ("server", "content-type", "cf-ray")
-                    },
-                    latency_ms=round((time.monotonic() - started) * 1000, 2),
-                    transport_context=transport_context(),
-                )
-                if isinstance(error, dict) and error.get("code") in {
-                    "insufficient_quota",
-                    "organization_spend_limit_exceeded",
-                    "project_spend_limit_exceeded",
-                }:
-                    raise ValueError("OPENAI_INSUFFICIENT_QUOTA")
-                delay = _retry_after(response.getheader("retry-after"))
-                if (
-                    self.http_retry_policy == HTTP_RETRY_POLICY
-                    and response.status == 403
-                    and 0 < len(raw) <= 1_048_576
-                    and isinstance(error, dict)
-                    and error.get("code") == HTTP_RETRY_POLICY["error_code"]
-                    and error.get("type") == HTTP_RETRY_POLICY["error_type"]
-                    and diagnostic["http_request_id"] is not None
-                    and delay is not None
-                    and delay <= HTTP_RETRY_POLICY["max_delay_seconds"]
-                ):
-                    raise OpenAITransient403(delay=delay, diagnostic=diagnostic)
-                problem = ValueError(f"OPENAI_HTTP_{response.status}")
-                if isinstance(error, dict) and error.get("code") == "billing_not_active":
-                    problem.provider_error_code = "billing_not_active"
-                if response.status == 429:
-                    # Preserve the finite code; never expose the response body.
-                    setattr(
-                        problem,
-                        "retry_after_seconds",
-                        _retry_after(response.getheader("Retry-After")),
-                    )
-                raise problem
-            raw = response.read(1_048_577)
-            if len(raw) > 1_048_576:
-                raise ValueError("OPENAI_RESPONSE_TOO_LARGE")
-            data = json.loads(raw)
-            data["openai_request_id"] = response.getheader("x-request-id")
-            reusable = pool is not None and not response.will_close
-            if self.transport_policy and self._dispatch_context.get() is not None:
-                self._dispatch_context.get().setdefault("connection_attempts", []).append(
-                    dict(
-                        connection_id=connection_id,
-                        connection_reused=reused,
-                        connect_tls_ms=trace.get("connect_tls_ms") if trace else None,
-                        tls_session_reused=trace.get("tls_session_reused") if trace else None,
-                        total_ms=round((time.monotonic() - started) * 1000, 2),
-                    )
-                )
-            return data
-        except (JobControlSignal, LeaseLost) as error:
-            if not request_started:
-                raise OpenAIControlNotSent(error) from None
-            raise
-        except (OSError, http.client.HTTPException, json.JSONDecodeError, UnicodeError) as error:
-            diagnostic = None
-            if self.response_uncertainty_policy:
-                diagnostic = self._record_http_error(
-                    body,
-                    response.status if response is not None else None,
-                    raw or b"",
-                    {},
-                    response.getheader("x-request-id") if response is not None else None,
-                    response.getheader("retry-after") if response is not None else None,
-                    client_request_id=client_request_id,
-                    headers={
-                        name: response.getheader(name)
-                        for name in ("server", "content-type", "cf-ray")
-                    }
-                    if response is not None
-                    else {},
-                    latency_ms=round((time.monotonic() - started) * 1000, 2),
-                    response_failure=dict(
-                        exception_type=type(error).__name__,
-                        response_received=response is not None,
-                        body_received=raw is not None,
-                        **(
-                            dict(
-                                request_started=request_started,
-                                delivery_state="unknown" if request_started else "never_sent",
-                                transport_policy_sha256=canonical_hash(self.transport_policy),
-                            )
-                            if self.transport_policy
-                            else {}
-                        ),
-                    ),
-                    transport_context=transport_context(),
-                )
-            if self.transport_policy and not request_started:
-                from proofops.adapters.local.openai_connections import OpenAIConnectNotSent
-
-                raise OpenAIConnectNotSent(diagnostic) from None
-            raise
-        finally:
-            if reusable:
-                pool.release(connection, connection_id)
-            else:
-                connection.close()
+    _post_admitted = openai_http._post_admitted
 
     def complete(
-        self, system, user_json, *, request_id, max_tokens=1024, json_mode=False, schema_json=None
-    ):
+        self,
+        system: str,
+        user_json: str,
+        *,
+        request_id: str,
+        max_tokens: int = 1024,
+        json_mode: bool = False,
+        schema_json: str | None = None,
+    ) -> dict[str, Any]:
         if self.response_policy is None:
             return self._complete_uncached(
                 system,
@@ -864,10 +528,12 @@ class OpenAIProbe(OpenRouterProbe):
             if db.execute("SELECT 1 FROM probe_calls WHERE request_id=?", (request_id,)).fetchone():
                 raise ValueError("DUPLICATE_PROBE_REQUEST")
         self._authorize_response_request()
-        cache = ModelResponseCache(
+        # Untyped dependency is outside S_ADB ownership.
+        cache = ModelResponseCache(  # type: ignore[no-untyped-call]
             self.response_cache_path or self.ledger.parent / "model-responses.sqlite3"
         )
-        hit = cache.claim(key, self.ledger, request_id)
+        # Untyped dependency is outside S_ADB ownership.
+        hit = cache.claim(key, self.ledger, request_id)  # type: ignore[no-untyped-call]
         if hit is not None:
             self._authorize_response_request()  # A single-flight wait may outlive its owner.
             source, source_hash = hit
@@ -905,7 +571,7 @@ class OpenAIProbe(OpenRouterProbe):
                     )
                 except sqlite3.IntegrityError:
                     raise ValueError("DUPLICATE_PROBE_REQUEST") from None
-            return result
+            return cast("dict[str, Any]", result)
         context_token = self._cache_request_context.set(response_request)
         try:
             result = self._complete_uncached(
@@ -917,19 +583,29 @@ class OpenAIProbe(OpenRouterProbe):
                 schema_json=schema_json,
             )
             if result["schema_valid"] is True:
-                cache.publish(key, result)
+                # Untyped dependency is outside S_ADB ownership.
+                cache.publish(key, result)  # type: ignore[no-untyped-call]
             else:
-                cache.release_unsent_or_invalid(key, self.ledger, request_id)
+                # Untyped dependency is outside S_ADB ownership.
+                cache.release_unsent_or_invalid(key, self.ledger, request_id)  # type: ignore[no-untyped-call]
             return result
         except Exception:
-            cache.release_unsent_or_invalid(key, self.ledger, request_id)
+            # Untyped dependency is outside S_ADB ownership.
+            cache.release_unsent_or_invalid(key, self.ledger, request_id)  # type: ignore[no-untyped-call]
             raise
         finally:
             self._cache_request_context.reset(context_token)
 
     def _complete_uncached(
-        self, system, user_json, *, request_id, max_tokens=1024, json_mode=False, schema_json=None
-    ):
+        self,
+        system: str,
+        user_json: str,
+        *,
+        request_id: str,
+        max_tokens: int = 1024,
+        json_mode: bool = False,
+        schema_json: str | None = None,
+    ) -> dict[str, Any]:
         token = self._dispatch_context.set({"transport_retries": [], "request_id": request_id})
         try:
             return self._complete_reserved(
@@ -944,8 +620,15 @@ class OpenAIProbe(OpenRouterProbe):
             self._dispatch_context.reset(token)
 
     def _complete_reserved(
-        self, system, user_json, *, request_id, max_tokens=1024, json_mode=False, schema_json=None
-    ):
+        self,
+        system: str,
+        user_json: str,
+        *,
+        request_id: str,
+        max_tokens: int = 1024,
+        json_mode: bool = False,
+        schema_json: str | None = None,
+    ) -> dict[str, Any]:
         if now() >= PRICE_RECHECK_AT:
             raise ValueError("PRICE_RECHECK_REQUIRED")
         body = self.request_body(
@@ -966,7 +649,9 @@ class OpenAIProbe(OpenRouterProbe):
                 (request_id, canonical_hash(body), POLICY["reservation_usd"]),
             )
         if getattr(self, "provider_scheduler", None):
-            self._dispatch_context.get()["local_reserved_monotonic"] = time.monotonic()
+            cast(dict[str, Any], self._dispatch_context.get())["local_reserved_monotonic"] = (
+                time.monotonic()
+            )
         attempts, total_cost, input_tokens, output_tokens = [], Decimal(0), 0, 0
         for attempt in range(2):
             if now() >= PRICE_RECHECK_AT:
@@ -1008,7 +693,12 @@ class OpenAIProbe(OpenRouterProbe):
                         dispatch_state="never_sent",
                         cost_source="physical_admission_denied",
                     )
-                    if attempt == 0 and not self._dispatch_context.get()["transport_retries"]:
+                    if (
+                        attempt == 0
+                        and not cast(dict[str, Any], self._dispatch_context.get())[
+                            "transport_retries"
+                        ]
+                    ):
                         with connection(self.ledger) as db:
                             db.execute(
                                 "UPDATE probe_calls SET committed='0',receipt=? "
@@ -1107,7 +797,7 @@ class OpenAIProbe(OpenRouterProbe):
             receipt["cache_write_tokens"] = details.get("cache_write_tokens")
         if self.response_policy is not None:
             receipt["response_request"] = self._cache_request_context.get()
-        scope = self._dispatch_context.get()
+        scope = cast(dict[str, Any], self._dispatch_context.get())
         if scope and scope["transport_retries"]:
             receipt["transport_retries"] = scope["transport_retries"]
         if self.transport_policy:

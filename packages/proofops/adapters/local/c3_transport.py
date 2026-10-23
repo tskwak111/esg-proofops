@@ -1,5 +1,11 @@
 """Authenticate current C3 responses against the broker ledger and raw sidecar."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from proofops.adapters.local.openai import OpenAIProbe
 import json
 import sqlite3
 from pathlib import Path
@@ -9,11 +15,14 @@ from proofops.application.tagging.c3_request_binding import request_binding
 from proofops.domain.provenance import canonical_hash
 
 
-def authenticate_response(request, response, probe):
+def authenticate_response(
+    request: dict[str, Any], response: dict[str, Any], probe: OpenAIProbe
+) -> dict[str, Any]:
     # Cache hits and saved projections remain usable candidates, never fresh calls.
     if "response_reuse" in response or "saved_response_origin" in response:
         return response
-    binding = request_binding(request)
+    # Untyped dependency is outside S_ADB ownership.
+    binding = request_binding(request)  # type: ignore[no-untyped-call]
     body = probe.request_body(
         request["system"],
         request["user_json"],
@@ -54,7 +63,8 @@ def authenticate_response(request, response, probe):
         ).fetchone()
     if row is None or row[1] is None or row[2] != binding["wire_sha256"]:
         raise ValueError("C3_TRANSPORT_ORIGIN_MISMATCH")
-    _, digest = ModelResponseCache._verified(
+    # Untyped dependency is outside S_ADB ownership.
+    _, digest = ModelResponseCache._verified(  # type: ignore[no-untyped-call]
         canonical_hash(cache),
         (str(probe.ledger), request["id"], json.dumps(response), canonical_hash(response)),
     )

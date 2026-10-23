@@ -29,6 +29,10 @@ missing file, unsupported locator, or oversized read.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from proofops.application.uploads import UploadService
 import re
 from dataclasses import dataclass
 from hashlib import sha256
@@ -184,7 +188,7 @@ def verify_financial_source(
 
 def verify_sustainability_source(
     *,
-    uploads,
+    uploads: UploadService,
     tenant_id: str,
     document_version_id: str,
     expected_sha256: str,
@@ -224,12 +228,12 @@ def verify_sustainability_source(
 
 
 def verify_packet_sources(
-    packet: dict,
+    packet: dict[str, Any],
     *,
-    uploads,
+    uploads: UploadService,
     tenant_id: str,
     financial_local_paths: dict[str, str | Path],
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Verify every `sources[]` entry in a built packet against real bytes.
 
     `financial_local_paths` maps each non-sustainability `source_id` to the

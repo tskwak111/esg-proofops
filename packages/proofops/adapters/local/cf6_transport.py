@@ -1,5 +1,13 @@
 """CF6 current-response attestation at the authenticated broker boundary."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from proofops.adapters.local.openai import OpenAIProbe
+    from proofops.adapters.local.upstage import UpstageProbe
+    from proofops.application.tagging.contracts import RawTagResponse, TaggingSettings
 import json
 from dataclasses import replace
 
@@ -7,13 +15,23 @@ from proofops.adapters.local.model_response_cache import ModelResponseCache
 from proofops.domain.provenance import canonical_hash
 
 
-def authenticate(request, response, probe, *, settings, wire_system, wire_user, wire_schema):
+def authenticate(
+    request: dict[str, Any],
+    response: RawTagResponse,
+    probe: OpenAIProbe | UpstageProbe,
+    *,
+    settings: TaggingSettings,
+    wire_system: str,
+    wire_user: str,
+    wire_schema: str,
+) -> RawTagResponse:
     selected = request.get("cf6_confirmation")
     if selected is None or response.raw_response_json is None:
         return response
     from proofops.application.tagging.cf6_confirmation import policy
 
-    if selected != policy(selected.get("required_votes")):
+    # Untyped dependency is outside S_ADB ownership.
+    if selected != policy(selected.get("required_votes")):  # type: ignore[no-untyped-call]
         raise ValueError("CF6_POLICY_MISMATCH")
     provider = json.loads(response.provider_response_json or "{}")
     if response.synthetic or any(
@@ -43,11 +61,12 @@ def authenticate(request, response, probe, *, settings, wire_system, wire_user, 
         or provider.get("schema_valid") is not True
         or provider.get("model") != body["model"]
         or provider.get("provider_model") != body["model"]
-        or provider.get("model_binding_sha256") != canonical_hash(probe.wire_policy)
+        or provider.get("model_binding_sha256") != canonical_hash(getattr(probe, "wire_policy"))
         or any(cache.get(k) != v for k, v in expected.items())
     ):
         raise ValueError("CF6_TRANSPORT_REQUEST_MISMATCH")
-    _, digest = ModelResponseCache._verified(
+    # Untyped dependency is outside S_ADB ownership.
+    _, digest = ModelResponseCache._verified(  # type: ignore[no-untyped-call]
         canonical_hash(cache),
         (str(probe.ledger), request["request_id"], json.dumps(provider), canonical_hash(provider)),
     )

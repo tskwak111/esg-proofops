@@ -5,6 +5,13 @@ Tag checkpoints, replicas and decisions are still checked by LocalTagStore.
 The hosted parent's private-FD handoff and final publication fence are unchanged.
 """
 
+from __future__ import annotations
+
+from collections.abc import Callable, Iterator
+from typing import TYPE_CHECKING, Any, TypeVar, cast
+
+if TYPE_CHECKING:
+    from proofops.adapters.local.claim_store import LocalClaimStore
 import hashlib
 import json
 import os
@@ -20,11 +27,14 @@ from proofops.application.ports.jobs import JobMessage
 from proofops.application.spg_publication import enabled
 from proofops.domain.provenance import canonical_hash
 
-_session: ContextVar["Session | None"] = ContextVar("spg_publication", default=None)
+T = TypeVar("T")
+
+
+_session: ContextVar[Session | None] = ContextVar("spg_publication", default=None)
 MAX_BYTES = 64 * 1024 * 1024
 
 
-def _files(root):
+def _files(root: Path) -> dict[str, str]:
     result = {}
     if root.is_symlink():
         raise ValueError("SPG_SYMLINK")
@@ -39,7 +49,7 @@ def _files(root):
     return result
 
 
-def _ocr(ledger, source_sha256):
+def _ocr(ledger: Path, source_sha256: str) -> str | None:
     # Include all original response bytes and bindings for this exact PDF.
     # C3 reads the full original, whereas the regular run reads a prepared PDF.
     # A correctly bound collection for that other SHA cannot affect this proof.
@@ -93,7 +103,7 @@ def _ocr(ledger, source_sha256):
     return digest.hexdigest()
 
 
-def _runtime(snapshot):
+def _runtime(snapshot: dict[str, Any]) -> dict[str, Any]:
     import proofops
     from proofops.adapters.local.claim_source_policies import claim_source_reader
     from proofops.adapters.local.local_raster_reader import runtime_policy
@@ -116,13 +126,21 @@ def _runtime(snapshot):
 
 
 class Session:
-    def __init__(self, path, tenant, lease, check_lease):
+    def __init__(
+        self,
+        path: str | Path,
+        tenant: str,
+        lease: object,
+        check_lease: Callable[[], object],
+    ) -> None:
         self.path, self.tenant, self.lease = Path(path).resolve(), tenant, lease
         self.check_lease = check_lease
-        self.key = self.encoded = self.digest = None
+        self.key: str | None = None
+        self.encoded: bytes | None = None
+        self.digest: str | None = None
         self.hits = self.misses = 0
 
-    def fingerprint(self, claims, tenant, run_id):
+    def fingerprint(self, claims: LocalClaimStore, tenant: str, run_id: str) -> str | None:
         from proofops.adapters.local.run_artifacts import load_run_inputs
         from proofops.application.analysis_profile import publication_policy_for
 
@@ -135,10 +153,12 @@ class Session:
             claims.store, claims.uploads, tenant_id=tenant, run_id=run_id
         )
         policy = snapshot.get("analysis_profile_policy", {})
-        if not enabled(policy):
+        # Untyped dependency is outside S_ADB ownership.
+        if not enabled(policy):  # type: ignore[no-untyped-call]
             return None
         if (
-            publication_policy_for(
+            # Untyped dependency is outside S_ADB ownership.
+            publication_policy_for(  # type: ignore[no-untyped-call]
                 snapshot["pipeline_profile"], pinned_hash=snapshot["analysis_profile_policy_sha256"]
             )
             != policy
@@ -149,7 +169,7 @@ class Session:
             return None
         run = claims.store.jobs.get_run(tenant, run_id)
         jobs = claims.store.jobs
-        proofs = {}
+        proofs: dict[str, object] = {}
         with jobs._transaction() as db:
             for stage in ("parse", "extract"):
                 message = JobMessage(**run[stage + "_job"])
@@ -199,18 +219,20 @@ class Session:
             )
         )
 
-    def _key(self, claims, tenant, run_id):
+    def _key(self, claims: LocalClaimStore, tenant: str, run_id: str) -> str | None:
         try:
             return self.fingerprint(claims, tenant, run_id)
         except (OSError, ValueError, KeyError, TypeError, AttributeError, sqlite3.Error):
             return None
 
-    def read(self, claims, tenant, run_id, cold):
+    def read(self, claims: LocalClaimStore, tenant: str, run_id: str, cold: Callable[[], T]) -> T:
         self.check_lease()  # Never swallow an expired/replaced hosted lease.
         before = self._key(claims, tenant, run_id)
         if before is not None and before == self.key and self.encoded is not None:
             if hashlib.sha256(self.encoded).hexdigest() == self.digest:
-                result, compatibility = pickle.loads(decompress(self.encoded))
+                result, compatibility = cast(
+                    tuple[T, list[Any]], pickle.loads(decompress(self.encoded))
+                )
                 self.check_lease()
                 if self._key(claims, tenant, run_id) == before:
                     claims._read_compatibility.set(compatibility)
@@ -235,7 +257,9 @@ class Session:
 
 
 @contextmanager
-def publication_session(path, tenant, lease, check_lease):
+def publication_session(
+    path: str | Path, tenant: str, lease: object, check_lease: Callable[[], object]
+) -> Iterator[Session]:
     session = Session(path, tenant, lease, check_lease)
     token = _session.set(session)
     try:
@@ -245,7 +269,14 @@ def publication_session(path, tenant, lease, check_lease):
         session.key = session.encoded = session.digest = None
 
 
-def read_evidence(claims, tenant, run_id, *, for_extraction, cold):
+def read_evidence(
+    claims: LocalClaimStore,
+    tenant: str,
+    run_id: str,
+    *,
+    for_extraction: bool,
+    cold: Callable[[], T],
+) -> T:
     session = _session.get()
     if session is None or for_extraction:
         return cold()

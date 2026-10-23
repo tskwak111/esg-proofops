@@ -8,6 +8,13 @@ ignores the additive field/kind; retain stored references and frozen exports.
 Only a trusted local operator can attach; there is no HTTP write endpoint.
 """
 
+from __future__ import annotations
+
+import sqlite3
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from proofops.adapters.local.claim_store import LocalClaimStore
 import csv
 import json
 import time
@@ -25,7 +32,7 @@ TABLES = ("claims", "elements", "numeric", "assurance")
 ORIGINS = ("data_manager_submission", "ai_corrected_submission")
 
 
-def _read_tables(directory):
+def _read_tables(directory: str | Path) -> tuple[dict[str, list[dict[str, Any]]], dict[str, str]]:
     tables, hashes = {}, {}
     for name in TABLES:
         path = Path(directory) / f"{name}.csv"
@@ -54,8 +61,16 @@ def _read_tables(directory):
 
 
 def attach_submission(
-    claims, *, tenant_id, run_id, directory, document_id, source_sha256, origin, operator
-):
+    claims: LocalClaimStore,
+    *,
+    tenant_id: str,
+    run_id: str,
+    directory: str | Path,
+    document_id: str,
+    source_sha256: str,
+    origin: str,
+    operator: str,
+) -> list[dict[str, Any]]:
     """Append an all-or-nothing reference batch after unique literal/page matching.
 
     Matching identifies the existing candidate; it does not verify its source or
@@ -158,12 +173,20 @@ def attach_submission(
                 ),
                 expected_head=read_audit_head(db, tenant_id, run_id),
                 event_id=str(uuid4()),
-                timestamp=timestamp(time.time()),
+                # Untyped dependency is outside S_ADB ownership.
+                timestamp=timestamp(time.time()),  # type: ignore[no-untyped-call]
             )
     return [r | {"reference_sha256": canonical_hash(r)} for r in references]
 
 
-def read_submissions(claims, tenant_id, run_id, claim_id=None, *, connection=None):
+def read_submissions(
+    claims: LocalClaimStore,
+    tenant_id: str,
+    run_id: str,
+    claim_id: str | None = None,
+    *,
+    connection: sqlite3.Connection | None = None,
+) -> list[dict[str, Any]]:
     if connection is None:
         with claims.store.jobs._transaction() as db:
             return read_submissions(claims, tenant_id, run_id, claim_id, connection=db)
