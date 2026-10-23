@@ -9,8 +9,6 @@ from proofops.application.claims import ClaimScope
 from proofops.application.ingest.graph_fusion import CanonicalBlock, CanonicalDocumentGraph
 from proofops.application.rb1_input_isolation import InputIsolation
 
-from proofops_worker import extract_runner as runtime
-
 
 def _is_text_candidate(
     kind: str,
@@ -24,6 +22,8 @@ def _is_text_candidate(
     cells: Sequence[dict[str, Any]] | None = None,
     rb1: InputIsolation | None = None,
 ) -> bool:
+    from proofops_worker import extract_runner as runtime
+
     if rb1 is not None and rb1.active:
         try:
             # Validate before I26's legacy routing fallback can consume the error.
@@ -116,6 +116,8 @@ def select_batch_paragraph_sources(
     exact source identifiers, so a source is never processed twice and a source
     that was merely deferred stays eligible.
     """
+    from proofops_worker import extract_runner as runtime
+
     if type(max_calls) is not int or not 1 <= max_calls <= runtime.MAX_EXTRACTION_BATCH_CALLS:
         raise ValueError("EXTRACTION_INPUT_INVALID")
     from proofops.application.ingest.source_continuations import continuations
@@ -156,6 +158,8 @@ def select_stable_paragraph_sources(
     rb1: InputIsolation | None = None,
 ) -> set[str]:
     """Prioritize prose within a bounded preview; retain short candidates after it."""
+    from proofops_worker import extract_runner as runtime
+
     return runtime.select_batch_paragraph_sources(
         graph,
         scope,
