@@ -6,13 +6,13 @@ import math
 import secrets
 import sqlite3
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 from uuid import uuid4
 
 from proofops.application.authorization import AuthContext, SessionRecord
 from starlette.requests import Request
 
-from proofops_api.hosted_contracts import HostedError, HostedSettings, day, digest
+from proofops_api.hosted_contracts import HostedError, HostedReadStore, HostedSettings, day, digest
 
 if TYPE_CHECKING:
     from proofops_api.hosted_store import HostedStore
@@ -37,7 +37,7 @@ def peer_ip(request: Request, settings: HostedSettings) -> str:
 
 
 class GuestAccess:
-    def __init__(self, store: HostedStore):
+    def __init__(self, store: HostedStore) -> None:
         self.store = store
 
     @staticmethod
@@ -60,7 +60,7 @@ class GuestAccess:
         until = self.store.settings.guest_access_until
         return until is not None and now < until.timestamp()
 
-    def discovery(self, now: float) -> dict:
+    def discovery(self, now: float) -> dict[str, Any]:
         settings = self.store.settings
         return dict(
             available=self.available(now),
@@ -110,12 +110,15 @@ class GuestAccess:
 
     def fresh_runs(self, db: sqlite3.Connection, user: str, now: float) -> int:
         # Reuse has no spend reservation; purge/cancellation cannot reset admission counts.
-        return db.execute(
-            "SELECT count(*) FROM deletion.spend WHERE user_hash=? AND day=?",
-            (self.store.user_hash(user), day(now)),
-        ).fetchone()[0]
+        return cast(
+            int,
+            db.execute(
+                "SELECT count(*) FROM deletion.spend WHERE user_hash=? AND day=?",
+                (self.store.user_hash(user), day(now)),
+            ).fetchone()[0],
+        )
 
-    def session_info(self, user: str, now: float) -> dict:
+    def session_info(self, user: str, now: float) -> dict[str, Any]:
         with self.store.transaction(readonly=True) as db:
             return dict(
                 until=self.discovery(now)["until"],
@@ -188,7 +191,7 @@ class ShowcaseReader(AuthContext):
     caller_tenant_id: str
 
 
-def showcase_reader(store: HostedStore, auth: AuthContext) -> ShowcaseReader:
+def showcase_reader(store: HostedReadStore, auth: AuthContext) -> ShowcaseReader:
     return ShowcaseReader(
         user_sub=auth.user_sub,
         tenant_id=store.settings.showcase_tenant,
@@ -200,7 +203,12 @@ def showcase_reader(store: HostedStore, auth: AuthContext) -> ShowcaseReader:
 
 
 def recheck_read_auth(
-    store: HostedStore, auth: AuthContext, fresh: AuthContext, kind: str, resource: str, now: float
+    store: HostedReadStore,
+    auth: AuthContext,
+    fresh: AuthContext,
+    kind: str,
+    resource: str,
+    now: float,
 ) -> AuthContext:
     """Preserve post-IO session/membership revocation and showcase visibility checks."""
     tenant = auth.caller_tenant_id if isinstance(auth, ShowcaseReader) else auth.tenant_id
@@ -215,7 +223,7 @@ def recheck_read_auth(
     return fresh
 
 
-def showcase_resource(store: HostedStore, kind: str, resource: str, now: float) -> bool:
+def showcase_resource(store: HostedReadStore, kind: str, resource: str, now: float) -> bool:
     tenant = store.settings.showcase_tenant
     if not tenant:
         return False

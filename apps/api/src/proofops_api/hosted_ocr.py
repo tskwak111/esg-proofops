@@ -1,11 +1,18 @@
 """Hosted OCR money boundary and document-scoped replay over unchanged reader bytes."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from proofops_api.hosted_store import HostedStore
 import http.client
 import json
 import os
 import sqlite3
 import threading
 import time
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from hashlib import sha256
 from pathlib import Path
@@ -25,12 +32,16 @@ from proofops.domain.provenance import canonical_hash
 _binding_lock = threading.RLock()
 
 
-def post_png(png):
+def post_png(png: bytes) -> tuple[bytes, str | None]:
     """Hosted error decoding without changing the byte-pinned historical OCR reader."""
     from datetime import UTC, datetime
 
     from proofops.adapters.local.provider_errors import upstage_http_error
-    from proofops.adapters.local.upstage_ocr_page import PRICE_RECHECK_AT
+
+    # Byte-pinned OCR factory/export; retain the existing locked binding and restoration.
+    from proofops.adapters.local.upstage_ocr_page import (  # type: ignore[attr-defined]
+        PRICE_RECHECK_AT,
+    )
 
     if datetime.now(UTC) >= PRICE_RECHECK_AT:
         raise ValueError("PRICE_RECHECK_REQUIRED")
@@ -60,7 +71,8 @@ def post_png(png):
         )
         response = connection.getresponse()
         if response.status != 200:
-            raise upstage_http_error(response)
+            # External API is untyped and outside this work package.
+            raise upstage_http_error(response)  # type: ignore[no-untyped-call]
         raw = response.read(MAX_RESPONSE_BYTES + 1)
         if len(raw) > MAX_RESPONSE_BYTES:
             raise ValueError("OCR_RESPONSE_TOO_LARGE")
@@ -72,23 +84,34 @@ def post_png(png):
 
 
 @contextmanager
-def reader_scope(store):
+def reader_scope(store: PageOCRStore) -> Iterator[None]:
     # Frozen version compositions all reuse this factory. Serialize hosted reads
     # and restore it, so concurrent tenants never share a document's ledger.
     with _binding_lock:
         previous = PageOCRStore.__dict__["from_env"]
-        PageOCRStore.from_env = classmethod(lambda cls: store)
+        # Byte-pinned OCR factory/export; retain the existing locked binding and restoration.
+        PageOCRStore.from_env = classmethod(lambda cls: store)  # type: ignore[assignment, method-assign]
         try:
             yield
         finally:
-            PageOCRStore.from_env = previous
+            # Byte-pinned OCR factory/export; retain the existing locked binding and restoration.
+            PageOCRStore.from_env = previous  # type: ignore[method-assign]
 
 
 class HostedOCRStore(PageOCRStore):
-    def __init__(self, ledger, spend, *, store, job, local_run_id, post=None):
+    def __init__(
+        self,
+        ledger: Path,
+        spend: Path,
+        *,
+        store: HostedStore,
+        job: dict[str, Any],
+        local_run_id: str,
+        post: Callable[[bytes], tuple[bytes, str | None]] | None = None,
+    ) -> None:
         self.hosted, self.job, self.local_run_id, self.post = store, job, local_run_id, post
         self._fallback = threading.local()
-        self._fallback_pages = set()
+        self._fallback_pages: set[int] = set()
         self._fallback_lock = threading.Lock()
         options = store.run_options(job)
         pages = json.loads(job["pages"])
@@ -105,13 +128,16 @@ class HostedOCRStore(PageOCRStore):
             raise ValueError("OCR_SOURCE_SCOPE_INVALID")
         super().__init__(ledger, spend, transport=self._post, max_calls=max(2, len(pages)))
 
-    def _reserve(self, image, tenant_id, run_id, force):
+    def _reserve(
+        self, image: dict[str, Any], tenant_id: str, run_id: str, force: bool
+    ) -> tuple[str, bool]:
         if tenant_id != self.job["tenant_id"] or run_id != self.local_run_id:
             raise ValueError("OCR_SOURCE_SCOPE_INVALID")
-        return super()._reserve(image, tenant_id, run_id, force)
+        # External API is untyped and outside this work package.
+        return cast(tuple[str, bool], super()._reserve(image, tenant_id, run_id, force))  # type: ignore[no-untyped-call]
 
     @contextmanager
-    def original_page_scope(self):
+    def original_page_scope(self) -> Iterator[None]:
         """C3 parses the original; keep fallback admission in prepared-page space."""
         previous = getattr(self._fallback, "original_pages", None)
         self._fallback.original_pages = {
@@ -123,7 +149,7 @@ class HostedOCRStore(PageOCRStore):
             self._fallback.original_pages = previous
 
     @contextmanager
-    def claim_fallback_scope(self, page):
+    def claim_fallback_scope(self, page: int) -> Iterator[None]:
         # The prepared PDF's original-page map identifies claim pages. Evidence
         # pages never enter the new paid fallback, even when selected for parsing.
         original_pages = getattr(self._fallback, "original_pages", None)
@@ -144,28 +170,33 @@ class HostedOCRStore(PageOCRStore):
         finally:
             self._fallback.active = previous
 
-    def _post(self, png):
-        def transport(request):
+    def _post(self, png: bytes) -> tuple[bytes, str | None]:
+        def transport(request: dict[str, Any]) -> dict[str, Any]:
             raw, provider_id = self.post(png) if self.post else post_png(png)
             parse_response(raw)  # model/API1.1/exactly one billed page, bounded response
             return request | dict(actual_usd=str(COST), payload=(raw, provider_id))
 
-        return self.hosted.dispatch(
-            self.job,
-            "upstage-ocr",
-            str(uuid4()),
-            canonical_hash(dict(model=MODEL, png_sha256=sha256(png).hexdigest())),
-            COST_PER_PAGE["standard"] if getattr(self._fallback, "active", False) else COST,
-            transport,
-            now=time.time(),
-        )["payload"]
+        return cast(
+            tuple[bytes, str | None],
+            self.hosted.dispatch(
+                self.job,
+                "upstage-ocr",
+                str(uuid4()),
+                canonical_hash(dict(model=MODEL, png_sha256=sha256(png).hexdigest())),
+                COST_PER_PAGE["standard"] if getattr(self._fallback, "active", False) else COST,
+                transport,
+                now=time.time(),
+            )["payload"],
+        )
 
 
 class ReplayOCRStore(PageOCRStore):
-    def __init__(self, ledger):
+    def __init__(self, ledger: Path) -> None:
         self.ledger = Path(ledger)
 
-    def fetch(self, image, *, tenant_id, run_id, force=False):
+    def fetch(
+        self, image: dict[str, Any], *, tenant_id: str, run_id: str, force: bool = False
+    ) -> dict[str, Any]:
         # API results and supplementary human reads may reuse a trusted page;
         # they cannot reserve, fetch a new page, or call a provider.
         if force:
@@ -183,4 +214,5 @@ class ReplayOCRStore(PageOCRStore):
             raise ValueError("OCR_COLLECTION_UNTRUSTED") from None
         if not row:
             raise ValueError("OCR_COLLECTION_UNTRUSTED")
-        return self.validate(json.loads(row[0]), image, tenant_id=tenant_id)
+        # External API is untyped and outside this work package.
+        return cast(dict[str, Any], self.validate(json.loads(row[0]), image, tenant_id=tenant_id))  # type: ignore[no-untyped-call]

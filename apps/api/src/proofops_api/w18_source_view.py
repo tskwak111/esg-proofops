@@ -2,6 +2,21 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any, cast
+
+from proofops.domain.documents import PageGeometry
+
+from proofops_api.hosted_contracts import (
+    CoordinateRequest,
+    HostedRow,
+    ProjectedGlyph,
+    SourceAnchor,
+    SourceInventoryStore,
+)
+
+if TYPE_CHECKING:
+    from proofops_api.hosted_reads import HostedReads
+
 import fcntl
 import json
 import math
@@ -25,18 +40,20 @@ W18_CACHE_BYTES = 32 * 1024 * 1024
 W19_DISK_BYTES = 32 * 1024 * 1024  # Per document; removed with its retention purge.
 W19_WARM_SECONDS = 120
 _warm_lock = Lock()
-_cache: OrderedDict[tuple, tuple[float, bytes]] = OrderedDict()
+_cache: OrderedDict[tuple[object, ...], tuple[float, bytes]] = OrderedDict()
 _lock = Lock()
 
 
-def _read_json(path):
+def _read_json(path: Path) -> tuple[dict[str, Any], str]:
     if path.is_symlink() or path.stat().st_size > 64 * 1024 * 1024:
         raise ValueError("unsafe artifact")
     content = path.read_bytes()
     return json.loads(content), sha256(content).hexdigest()
 
 
-def _graph(path, row, doc, anchor, original):
+def _graph(
+    path: Path, row: HostedRow, doc: HostedRow, anchor: SourceAnchor, original: bool
+) -> dict[str, dict[str, Any]]:
     version, manifest_id, expected, _ = anchor
     if original:
         for name in ("c3-evidence.json", "c4-evidence.json"):
@@ -74,7 +91,8 @@ def _graph(path, row, doc, anchor, original):
         manifest, digest = _read_json(directory / "manifest.json")
         if digest != expected or manifest["tenant_id"] != row["tenant_id"]:
             raise ValueError("manifest hash")
-        graph = read_parser_json(directory / "graph.json", manifest=manifest)
+        # External API is untyped and outside this work package.
+        graph = read_parser_json(directory / "graph.json", manifest=manifest)  # type: ignore[no-untyped-call]
         blocks = graph["blocks"]
         source_sha = row["prepared_sha256"]
     if (graph["document_version_id"], graph["parse_manifest_id"], graph["source_sha256"]) != (
@@ -86,7 +104,7 @@ def _graph(path, row, doc, anchor, original):
     return {block["source_id"]: block for block in blocks}
 
 
-def _box_valid(box, page):
+def _box_valid(box: object, page: dict[str, Any]) -> bool:
     return (
         isinstance(box, list | tuple)
         and len(box) == 4
@@ -96,10 +114,10 @@ def _box_valid(box, page):
     )
 
 
-def _source(ref, block):
+def _source(ref: dict[str, Any], block: dict[str, Any] | None) -> str:
     if block is None or any(ref.get(k) != block.get(k) for k in ("source_id", "page_num", "bbox")):
         raise ValueError("source_binding_mismatch")
-    text = block["raw_text"]
+    text: str = block["raw_text"]
     start, end = ref.get("char_start"), ref.get("char_end")
     if (
         sha256(text.encode()).hexdigest() != ref.get("raw_text_sha256")
@@ -112,7 +130,7 @@ def _source(ref, block):
     return text
 
 
-def _lines(boxes):
+def _lines(boxes: list[tuple[float, float, float, float]]) -> list[list[float]]:
     # Union only adjacent glyphs on the same row; never bridge a column gap.
     lines = []
     previous = None
@@ -136,7 +154,9 @@ def _lines(boxes):
     return lines
 
 
-def _project_inventory(inventory, geometry, *, deadline=None):
+def _project_inventory(
+    inventory: dict[str, Any], geometry: PageGeometry, *, deadline: float | None = None
+) -> list[ProjectedGlyph]:
     """Project each glyph once; keep the same affine arithmetic as W18."""
     chars = []
     for offset, (char, index, native) in enumerate(inventory["chars"]):
@@ -148,9 +168,18 @@ def _project_inventory(inventory, geometry, *, deadline=None):
     return chars
 
 
-def locate(ref, block, inventory, geometry, *, deadline=None, projected=None):
+def locate(
+    ref: dict[str, Any],
+    block: dict[str, Any] | None,
+    inventory: dict[str, Any],
+    geometry: PageGeometry,
+    *,
+    deadline: float | None = None,
+    projected: list[ProjectedGlyph] | None = None,
+) -> tuple[list[list[float]] | None, list[list[float]] | None]:
     """Bind exact parser offsets through a literal, unique full-source character map."""
     text = _source(ref, block)
+    block = cast(dict[str, Any], block)  # _source rejects None before returning.
     page = inventory["page"]
     if any(
         abs(page[k] - getattr(geometry, k)) > 0.01 for k in ("width_pt", "height_pt", "rotation")
@@ -191,7 +220,13 @@ def locate(ref, block, inventory, geometry, *, deadline=None, projected=None):
     return _lines([c[2] for c in selected]), None
 
 
-def _disk_inventory(directory, scope, page, doc, data=None):
+def _disk_inventory(
+    directory: Path,
+    scope: tuple[str, str, str, str],
+    page: int,
+    doc: HostedRow,
+    data: bytes | None = None,
+) -> bytes | None:
     """Private, bounded, disposable pages; never an alternate source authority."""
     cache = directory / "w19-inventory"
     if cache.is_symlink():
@@ -207,7 +242,7 @@ def _disk_inventory(directory, scope, page, doc, data=None):
         envelope, _ = _read_json(file)
         if not isinstance(envelope, dict) or not isinstance(envelope.get("payload"), str):
             raise ValueError("inventory cache format")
-        payload = envelope["payload"].encode()
+        payload: bytes = envelope["payload"].encode()
         if (
             envelope["schema"] != 1
             or envelope["binding"] != binding
@@ -251,7 +286,14 @@ def _disk_inventory(directory, scope, page, doc, data=None):
     return data
 
 
-def _inventories(store, row, doc, pages, *, deadline=None):
+def _inventories(
+    store: SourceInventoryStore,
+    row: HostedRow,
+    doc: HostedRow,
+    pages: set[int],
+    *,
+    deadline: float | None = None,
+) -> tuple[dict[int, dict[str, Any]], str]:
     """Bounded child, durable tenant/SHA pages, exact original hash on every read."""
     from proofops.adapters.parsing.opendataloader import OpenDataLoaderParser, ParseFailure
 
@@ -297,7 +339,8 @@ def _inventories(store, row, doc, pages, *, deadline=None):
         )
         failure = "page_inventory_unavailable"
         try:
-            OpenDataLoaderParser._execute(
+            # External API is untyped and outside this work package.
+            OpenDataLoaderParser._execute(  # type: ignore[no-untyped-call]
                 [
                     sys.executable,
                     "-I",
@@ -341,7 +384,9 @@ def _inventories(store, row, doc, pages, *, deadline=None):
     return found, failure
 
 
-def _warm_pages(store, row, doc, pages):
+def _warm_pages(
+    store: SourceInventoryStore, row: HostedRow, doc: HostedRow, pages: set[int]
+) -> None:
     """One bounded background warmer; page-sized batches make durable progress."""
     stop = time.monotonic() + W19_WARM_SECONDS
     try:
@@ -358,7 +403,9 @@ def _warm_pages(store, row, doc, pages):
         _warm_lock.release()
 
 
-def _schedule_warm(store, row, doc, pages):
+def _schedule_warm(
+    store: SourceInventoryStore, row: HostedRow, doc: HostedRow, pages: set[int]
+) -> None:
     if not pages or not _warm_lock.acquire(blocking=False):
         return
     try:
@@ -367,7 +414,9 @@ def _schedule_warm(store, row, doc, pages):
         _warm_lock.release()
 
 
-def enrich(reads, row, doc, requests):
+def enrich(
+    reads: HostedReads, row: HostedRow, doc: HostedRow, requests: list[CoordinateRequest]
+) -> None:
     """Only add w18_* keys to newly created view refs; input snapshots are untouched."""
     deadline = time.monotonic() + W18_TOTAL_SECONDS
     pending = []
@@ -396,7 +445,7 @@ def enrich(reads, row, doc, requests):
                 graphs[key] = _graph(path, row, doc, anchor, original)
             block = graphs[key].get(ref["source_id"])
             _source(ref, block)
-            pending.append((view, ref, block, anchor[3]))
+            pending.append((view, ref, cast(dict[str, Any], block), anchor[3]))
         except (OSError, ValueError, KeyError, TypeError, IndexError):
             view["w18_reason"] = "source_offset_or_graph_mismatch"
     if not pending:
@@ -406,7 +455,7 @@ def enrich(reads, row, doc, requests):
         for view, *_ in pending:
             view["w18_reason"] = "coordinate_busy"
         return
-    pages = {}
+    pages: dict[int, dict[str, Any]] = {}
     try:
         with (reads.store.root / "w18-coordinates.lock").open("a+b") as lease:
             fcntl.flock(lease, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -423,15 +472,15 @@ def enrich(reads, row, doc, requests):
                     raise ValueError(reason)
                 # Geometry is part of the key: one anchor must never lend its transform
                 # to a different parser page, even if both name the same physical page.
-                key = (
+                geometry_key = (
                     view["physical_page"],
                     geometry.width_pt,
                     geometry.height_pt,
                     geometry.rotation,
                     tuple(geometry.crop_box),
                 )
-                if block["kind"] != "table_cell" and key not in projected_pages:
-                    projected_pages[key] = _project_inventory(
+                if block["kind"] != "table_cell" and geometry_key not in projected_pages:
+                    projected_pages[geometry_key] = _project_inventory(
                         inventory, geometry, deadline=deadline
                     )
                 lines, cells = locate(
@@ -440,7 +489,7 @@ def enrich(reads, row, doc, requests):
                     inventory,
                     geometry,
                     deadline=deadline,
-                    projected=projected_pages.get(key),
+                    projected=projected_pages.get(geometry_key),
                 )
                 view.update(
                     w18_line_rects=lines,

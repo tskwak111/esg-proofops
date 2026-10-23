@@ -14,10 +14,13 @@ from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
+from proofops.application.authorization import AuthContext
+
 from proofops_api.hosted_contracts import (
     CONTROL_MESSAGES,
     RUN_LEASE_SECONDS,
     HostedError,
+    HostedRow,
     day,
     digest,
     micros,
@@ -27,14 +30,16 @@ if TYPE_CHECKING:
     from proofops_api.hosted_store import HostedStore
 
 
-def _scope(store: HostedStore, db, tenant: str, document: str) -> dict:
+def _scope(
+    store: HostedStore, db: sqlite3.Connection, tenant: str, document: str
+) -> dict[str, Any]:
     doc = store._document(db, tenant, document)
     if time.time() >= doc["expires"]:
         raise HostedError("SOURCE_EXPIRED")
     paths = sorted(store.document_dir(tenant, document).glob("scope-*.json"))
     if not paths:
         raise HostedError("SCOPE_PLAN_REQUIRED")
-    scope = json.loads(paths[-1].read_text())
+    scope: dict[str, Any] = json.loads(paths[-1].read_text())
     from proofops_api.hosted_scope import scope_selection
 
     if scope["plan"]["source_sha256"] != doc["sha256"]:
@@ -56,12 +61,12 @@ def _scope(store: HostedStore, db, tenant: str, document: str) -> dict:
     return scope
 
 
-def get_scope(store: HostedStore, tenant: str, document: str) -> dict:
+def get_scope(store: HostedStore, tenant: str, document: str) -> dict[str, Any]:
     with store.transaction(readonly=True) as db:
         return store._scope(db, tenant, document)
 
 
-def generate_scope(store: HostedStore, auth, document: str) -> dict:
+def generate_scope(store: HostedStore, auth: AuthContext, document: str) -> dict[str, Any]:
     if not auth.has_capability("editor"):
         raise HostedError("FORBIDDEN", 403)
     with store.transaction() as db:
@@ -100,7 +105,8 @@ def generate_scope(store: HostedStore, auth, document: str) -> dict:
             except (subprocess.SubprocessError, OSError, ValueError):
                 from evaluation.hosted_scope_plan import failed_plan
 
-                plan = failed_plan(doc["sha256"], doc["page_count"], "SCOPE_INSPECTION_FAILED")
+                # External API is untyped and outside this work package.
+                plan = failed_plan(doc["sha256"], doc["page_count"], "SCOPE_INSPECTION_FAILED")  # type: ignore[no-untyped-call]
     from proofops.domain.provenance import canonical_hash
 
     from evaluation.reporting_period import (
@@ -111,12 +117,14 @@ def generate_scope(store: HostedStore, auth, document: str) -> dict:
     from proofops_api.hosted_scope import scope_selection
 
     if "reporting_period_detection" not in plan:
-        plan["reporting_period_detection"] = detect_reporting_period(
+        # External API is untyped and outside this work package.
+        plan["reporting_period_detection"] = detect_reporting_period(  # type: ignore[no-untyped-call]
             {}, doc["page_count"], doc["sha256"]
         )
 
     detection = plan["reporting_period_detection"]
-    validate_detection(detection, doc["sha256"])
+    # External API is untyped and outside this work package.
+    validate_detection(detection, doc["sha256"])  # type: ignore[no-untyped-call]
     for item in detection["candidates"] + detection["exceptions"]:
         item["source_ref"].update(
             tenant_id=auth.tenant_id, document_id=document, document_version_id=document
@@ -128,7 +136,8 @@ def generate_scope(store: HostedStore, auth, document: str) -> dict:
             defaults = json.loads(store.settings.live_config.read_text())
         except (OSError, ValueError):
             pass  # No invented default when operator configuration is unavailable.
-    period = resolve_reporting_scope(plan["reporting_period_detection"], defaults)
+    # External API is untyped and outside this work package.
+    period = resolve_reporting_scope(plan["reporting_period_detection"], defaults)  # type: ignore[no-untyped-call]
     selection = (
         None
         if plan["status"] == "failed"
@@ -149,15 +158,15 @@ def generate_scope(store: HostedStore, auth, document: str) -> dict:
 
 def edit_scope(
     store: HostedStore,
-    auth,
-    document,
-    claims,
-    evidence,
-    if_match,
+    auth: AuthContext,
+    document: str,
+    claims: list[int],
+    evidence: list[int],
+    if_match: str | None,
     *,
-    manual_selection=False,
-    reporting_scope=None,
-):
+    manual_selection: bool = False,
+    reporting_scope: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     if not auth.has_capability("editor"):
         raise HostedError("FORBIDDEN", 403)
     with store.transaction() as db:
@@ -174,7 +183,8 @@ def edit_scope(
         period = scope.get("reporting_scope")
         if reporting_scope is not None:
             try:
-                value = validate_period(reporting_scope)
+                # External API is untyped and outside this work package.
+                value = validate_period(reporting_scope)  # type: ignore[no-untyped-call]
             except ValueError:
                 raise HostedError("REPORTING_SCOPE_INVALID", 422) from None
             period = (period or {}) | value | dict(origin="manual", warning=None)
@@ -200,13 +210,13 @@ def edit_scope(
         return updated
 
 
-def run_options(store: HostedStore, job) -> dict:
+def run_options(store: HostedStore, job: HostedRow) -> dict[str, Any]:
     path = (
         store.document_dir(job["tenant_id"], job["document_id"]) / f'{job["run_id"]}.options.json'
     )
     if not path.is_file():
         return {}  # Previous <=2-page runs retain their frozen profile.
-    options = json.loads(path.read_text())
+    options: dict[str, Any] = json.loads(path.read_text())
     from proofops.domain.provenance import canonical_hash
 
     expected = options.pop("sha256")
@@ -227,7 +237,7 @@ def create_run(
     scope_selection_sha256: str | None = None,
     pipeline_profile: str = "unattended-v1",
     force_fresh: bool = False,
-) -> dict:
+) -> dict[str, Any]:
     if not auth.has_capability("editor"):
         raise HostedError("FORBIDDEN", 403)
     if force_fresh and not auth.has_capability("admin"):
@@ -251,7 +261,8 @@ def create_run(
                 from evaluation.reporting_period import validate_period
 
                 try:
-                    validate_period(selection["reporting_scope"])
+                    # External API is untyped and outside this work package.
+                    validate_period(selection["reporting_scope"])  # type: ignore[no-untyped-call]
                 except ValueError:
                     raise HostedError("REPORTING_SCOPE_REQUIRED", 422) from None
             selected = selection["pages"]
@@ -298,12 +309,14 @@ def create_run(
                 pipeline_profile=pipeline_profile,
                 analysis_profile=pipeline_profile,
                 analysis_profile_sha256=canonical_hash(
-                    publication_policy_for(pipeline_profile, pinned_hash=operator_pin)
+                    # External API is untyped and outside this work package.
+                    publication_policy_for(pipeline_profile, pinned_hash=operator_pin)  # type: ignore[no-untyped-call]
                 ),
             )
             from proofops_api.hosted_analysis import operator_profiles
 
-            execution = publication_policy_for(pipeline_profile, pinned_hash=operator_pin)
+            # External API is untyped and outside this work package.
+            execution = publication_policy_for(pipeline_profile, pinned_hash=operator_pin)  # type: ignore[no-untyped-call]
             if execution.get("provider_scheduler"):
                 profiles = operator_profiles(config | dict(analysis_profile=pipeline_profile))
                 frozen = {k: profiles[k] for k in ("llm_max_workers", "llm_requests_per_second")}
@@ -314,7 +327,8 @@ def create_run(
                 from evaluation.reporting_period import validate_period
 
                 try:
-                    options["reporting_scope"] = validate_period(config)
+                    # External API is untyped and outside this work package.
+                    options["reporting_scope"] = validate_period(config)  # type: ignore[no-untyped-call]
                 except ValueError:
                     pass  # Unknown period cannot match a reusable publication.
         body_hash = digest(json.dumps([document, selected, options]))
@@ -349,7 +363,7 @@ def create_run(
             (None, store.settings.daily_runs),
         ):
             query = "SELECT count(*) FROM deletion.spend WHERE day=?"
-            params: tuple = (today,)
+            params: tuple[str, ...] = (today,)
             if subject is not None:
                 query += " AND user_hash=?"
                 params += (subject,)
@@ -409,7 +423,7 @@ def _maintenance(db: sqlite3.Connection) -> bool:
     return bool(db.execute("SELECT draining FROM admission_control WHERE id=1").fetchone()[0])
 
 
-def _control_state(store: HostedStore, db: sqlite3.Connection) -> dict:
+def _control_state(store: HostedStore, db: sqlite3.Connection) -> dict[str, Any]:
     maintenance = store._maintenance(db)
     counts = db.execute(
         "SELECT coalesce(sum(status='running'),0),coalesce(sum(status='queued'),0) FROM runs"
@@ -422,19 +436,19 @@ def _control_state(store: HostedStore, db: sqlite3.Connection) -> dict:
     )
 
 
-def drain(store: HostedStore, *, now: float) -> dict:
+def drain(store: HostedStore, *, now: float) -> dict[str, Any]:
     with store.transaction() as db:
         db.execute("UPDATE admission_control SET draining=1,updated=? WHERE id=1", (now,))
         return store._control_state(db)
 
 
-def resume(store: HostedStore, *, now: float) -> dict:
+def resume(store: HostedStore, *, now: float) -> dict[str, Any]:
     with store.transaction() as db:
         db.execute("UPDATE admission_control SET draining=0,updated=? WHERE id=1", (now,))
         return store._control_state(db)
 
 
-def control_state(store: HostedStore, *, now: float) -> dict:
+def control_state(store: HostedStore, *, now: float) -> dict[str, Any]:
     with store.transaction() as db:
         store._expire_running(db, now)
         return store._control_state(db)
@@ -474,7 +488,7 @@ def _expire_running(store: HostedStore, db: sqlite3.Connection, now: float) -> N
         )
 
 
-def claim(store: HostedStore, *, now: float) -> dict | None:
+def claim(store: HostedStore, *, now: float) -> dict[str, Any] | None:
     with store.transaction() as db:
         store._expire_running(db, now)
         if store._maintenance(db):
@@ -503,14 +517,16 @@ def claim(store: HostedStore, *, now: float) -> dict | None:
         return dict(db.execute("SELECT * FROM runs WHERE run_id=?", (row["run_id"],)).fetchone())
 
 
-def _fenced(store: HostedStore, db: sqlite3.Connection, job: dict, now: float) -> sqlite3.Row:
+def _fenced(
+    store: HostedStore, db: sqlite3.Connection, job: dict[str, Any], now: float
+) -> sqlite3.Row:
     row = store._run(db, job["tenant_id"], job["run_id"])
     if row["status"] != "running" or row["fence"] != job["fence"] or row["lease_until"] <= now:
         raise HostedError("LEASE_LOST")
     return row
 
 
-def renew_lease(store: HostedStore, job: dict, *, now: float) -> None:
+def renew_lease(store: HostedStore, job: dict[str, Any], *, now: float) -> None:
     started = time.monotonic()
     # Like the inner job heartbeat, only renewal gets a longer BUSY budget.
     # Acquisition/COMMIT may retry; the fenced body is never replayed.
@@ -525,7 +541,7 @@ def renew_lease(store: HostedStore, job: dict, *, now: float) -> None:
     job["lease_until"] = lease_until
 
 
-def cancel(store: HostedStore, auth: Any, run: str, *, now: float) -> dict:
+def cancel(store: HostedStore, auth: Any, run: str, *, now: float) -> dict[str, Any]:
     with store.transaction() as db:
         row = store._run(db, auth.tenant_id, run)
         if row["user_hash"] != store.user_hash(auth.user_sub) and not auth.has_capability("admin"):

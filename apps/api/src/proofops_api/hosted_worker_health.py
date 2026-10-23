@@ -6,6 +6,7 @@ import sqlite3
 import time
 from contextlib import closing
 from pathlib import Path
+from typing import Any
 from uuid import uuid4
 
 from proofops_api.hosted_contracts import RUN_LEASE_SECONDS
@@ -15,9 +16,9 @@ LEASE_HEARTBEAT_MAX_AGE_SECONDS = 90
 
 
 class WorkerHeartbeat:
-    def __init__(self, root):
+    def __init__(self, root: str | Path) -> None:
         self.path = Path(root) / "worker-heartbeat.json"
-        self.record = dict(
+        self.record: dict[str, Any] = dict(
             worker_instance=str(uuid4()),
             pid=os.getpid(),
             started_at=time.time(),
@@ -27,7 +28,7 @@ class WorkerHeartbeat:
             last_error_type=None,
         )
 
-    def write(self, *, state, active=0, error=None):
+    def write(self, *, state: str, active: int = 0, error: BaseException | None = None) -> None:
         from proofops_api.hosted_sqlite import is_busy
 
         if error is not None:
@@ -42,7 +43,9 @@ class WorkerHeartbeat:
         os.replace(staged, self.path)
 
 
-def worker_health(root, *, now=None, previous=None):
+def worker_health(
+    root: str | Path, *, now: float | None = None, previous: dict[str, Any] | None = None
+) -> dict[str, Any]:
     now = time.time() if now is None else now
     try:
         record = json.loads((Path(root) / "worker-heartbeat.json").read_text())
@@ -107,7 +110,7 @@ def worker_health(root, *, now=None, previous=None):
     return result
 
 
-def main():
+def main() -> None:
     result = worker_health(Path(os.environ["HOSTED_DATA_DIR"]))
     print(json.dumps(result))
     raise SystemExit(0 if result["status"] == "running" else 1)

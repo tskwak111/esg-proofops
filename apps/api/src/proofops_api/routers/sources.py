@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import sqlite3
 import time
+from collections.abc import Callable, Iterable
 from dataclasses import asdict
 from datetime import UTC, datetime
 from itertools import chain
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal, cast
 from urllib.parse import urlencode
 from uuid import UUID, uuid5
 
@@ -16,11 +17,20 @@ from fastapi.responses import JSONResponse, Response
 from fastapi.security import APIKeyCookie
 from proofops.adapters.local.claim_store import LocalClaimStore
 from proofops.adapters.local.run_artifacts import load_run_graph
+from proofops.adapters.local.run_store import LocalSQLiteRunStore
+from proofops.adapters.parsing.opendataloader import OpenDataLoaderParser
 from proofops.adapters.parsing.source_preview import SourcePreviewFailure, render_page_preview
+from proofops.application.authorization import AuthContext
+from proofops.application.claims import ClaimDiscovery
 from proofops.application.evidence.span_citations import verify_source_ref
+from proofops.application.ingest.graph_fusion import CanonicalBlock, CanonicalDocumentGraph
+from proofops.application.ingest.graph_fusion import QualityIssue as QualityIssueRecord
 from proofops.application.runs import RunRejected
+from proofops.application.uploads import UploadService
+from proofops.domain.values import SourceRef as SourceRefRecord
 from proofops_api.auth import (
     SESSION_COOKIE_NAME,
+    AuthStore,
     _error_response,
     _request_limit_response,
     _verify_csrf,
@@ -69,8 +79,14 @@ class Download(StrictDTO):
 
 
 def build_sources_router(
-    store, uploads, parser, auth_store, *, allowed_origin=None, clock=time.time
-):
+    store: LocalSQLiteRunStore,
+    uploads: UploadService,
+    parser: OpenDataLoaderParser,
+    auth_store: AuthStore,
+    *,
+    allowed_origin: str | None = None,
+    clock: Callable[[], float] = time.time,
+) -> APIRouter:
     router = APIRouter(
         responses=_ERROR_RESPONSES,
         dependencies=[
@@ -87,14 +103,16 @@ def build_sources_router(
         "x-rate-limit": "120/min/user",
     }
 
-    def failure(exc):
+    def failure(exc: Exception) -> JSONResponse:
         if isinstance(exc, RunRejected):
             return _error_response(exc.status, exc.code, "Evidence request could not be processed.")
         return _error_response(
             409, "ARTIFACT_UNAVAILABLE", "Evidence is pending or failed integrity checks."
         )
 
-    def authorize(request, operation_id, *, issue_ticket=False):
+    def authorize(
+        request: Request, operation_id: str, *, issue_ticket: bool = False
+    ) -> AuthContext | JSONResponse:
         auth = _authorize(request, auth_store, time.time(), "viewer")
         if isinstance(auth, JSONResponse):
             return auth
@@ -115,11 +133,16 @@ def build_sources_router(
             return limited
         return auth
 
-    def load(request, run_id, operation_id):
+    def load(
+        request: Request, run_id: str, operation_id: str
+    ) -> CanonicalDocumentGraph | JSONResponse:
         auth = authorize(request, operation_id)
         if isinstance(auth, JSONResponse):
             return auth
-        return load_run_graph(store, uploads, parser, tenant_id=auth.tenant_id, run_id=run_id)
+        return cast(
+            CanonicalDocumentGraph,
+            load_run_graph(store, uploads, parser, tenant_id=auth.tenant_id, run_id=run_id),
+        )
 
     @router.get(
         "/v1/runs/{run_id}/sources/{source_id}",
@@ -127,7 +150,7 @@ def build_sources_router(
         operation_id="source_get",
         openapi_extra=read_contract,
     )
-    def source(request: Request, run_id: UUID, source_id: UUID):
+    def source(request: Request, run_id: UUID, source_id: UUID) -> Response:
         try:
             graph = load(request, str(run_id), "source_get")
             if isinstance(graph, JSONResponse):
@@ -158,7 +181,7 @@ def build_sources_router(
             ],
         },
     )
-    def source_view(request: Request, run_id: UUID, source_id: UUID):
+    def source_view(request: Request, run_id: UUID, source_id: UUID) -> Response:
         auth = authorize(request, "source_view", issue_ticket=True)
         if isinstance(auth, JSONResponse):
             return auth
@@ -170,7 +193,8 @@ def build_sources_router(
             if block is None:
                 raise RunRejected("RESOURCE_NOT_FOUND", 404)
             expires = int(clock()) + 300
-            ticket = store._encode_cursor(
+            # External API is untyped and outside this work package.
+            ticket = store._encode_cursor(  # type: ignore[no-untyped-call]
                 dict(
                     scope=[auth.tenant_id, str(run_id), "source_view", 0],
                     user=auth.user_sub,
@@ -206,12 +230,13 @@ def build_sources_router(
         preview: Literal["page"] | None = None,
         char_start: Annotated[int | None, Query(ge=0)] = None,
         char_end: Annotated[int | None, Query(ge=0)] = None,
-    ):
+    ) -> Response:
         auth = authorize(request, "source_pdf")
         if isinstance(auth, JSONResponse):
             return auth
         try:
-            grant = store._decode_cursor(
+            # External API is untyped and outside this work package.
+            grant = store._decode_cursor(  # type: ignore[no-untyped-call]
                 ticket, auth.tenant_id, str(run_id), 0, int(clock()), endpoint="source_view"
             )
             if grant["user"] != auth.user_sub or grant["source"] != str(source_id):
@@ -249,7 +274,8 @@ def build_sources_router(
                         # A verified claim span does not promote its whole paragraph.
                         # Replay the pinned receipt before using the stored span/box;
                         # client offsets select a span but never supply coordinates.
-                        _, discovery, checked = LocalClaimStore(
+                        # External API is untyped and outside this work package.
+                        _, discovery, checked = LocalClaimStore(  # type: ignore[no-untyped-call]
                             store, uploads, parser
                         ).load_evidence(auth.tenant_id, str(run_id))
                         ref = next(
@@ -319,14 +345,15 @@ def build_sources_router(
         run_id: UUID,
         cursor: str | None = None,
         limit: Annotated[int, Query(ge=1, le=100)] = 50,
-    ):
+    ) -> Response:
         try:
             graph = load(request, str(run_id), "quality_get")
             if isinstance(graph, JSONResponse):
                 return graph
             now = int(clock())
             page = (
-                store._decode_cursor(
+                # External API is untyped and outside this work package.
+                store._decode_cursor(  # type: ignore[no-untyped-call]
                     cursor, graph.tenant_id, str(run_id), limit, now, endpoint="quality"
                 )
                 if cursor
@@ -335,14 +362,16 @@ def build_sources_router(
                     expires=now + 900,
                     after=0,
                     manifest=graph.parse_manifest_id,
-                    epoch=store.get(graph.tenant_id, str(run_id))["mutation_epoch"],
+                    # External API is untyped and outside this work package.
+                    epoch=store.get(graph.tenant_id, str(run_id))["mutation_epoch"],  # type: ignore[no-untyped-call]
                 )
             )
             if page["manifest"] != graph.parse_manifest_id:
                 raise RunRejected("INVALID_CURSOR", 400)
             discovery = None
             if store.jobs.get_run(graph.tenant_id, str(run_id)).get("claim_snapshot_sha256"):
-                _, discovery, graph = LocalClaimStore(store, uploads, parser).load_evidence(
+                # External API is untyped and outside this work package.
+                _, discovery, graph = LocalClaimStore(store, uploads, parser).load_evidence(  # type: ignore[no-untyped-call]
                     graph.tenant_id, str(run_id)
                 )
             issues = _quality_items(graph, discovery)
@@ -350,7 +379,8 @@ def build_sources_router(
             return JSONResponse(
                 dict(
                     items=issues[page["after"] : after],
-                    next_cursor=store._encode_cursor(dict(page, after=after))
+                    # External API is untyped and outside this work package.
+                    next_cursor=store._encode_cursor(dict(page, after=after))  # type: ignore[no-untyped-call]
                     if after < len(issues)
                     else None,
                     snapshot_epoch=page["epoch"],
@@ -362,7 +392,12 @@ def build_sources_router(
     return router
 
 
-def _highlight_allowed(block, issues, *, source_ref=None) -> bool:
+def _highlight_allowed(
+    block: CanonicalBlock,
+    issues: Iterable[QualityIssueRecord],
+    *,
+    source_ref: SourceRefRecord | None = None,
+) -> bool:
     """Do not turn a readable image into a verified source highlight."""
     if (
         block.bbox is None
@@ -385,7 +420,9 @@ def _highlight_allowed(block, issues, *, source_ref=None) -> bool:
     )
 
 
-def _quality_items(graph, discovery=None):
+def _quality_items(
+    graph: CanonicalDocumentGraph, discovery: ClaimDiscovery | None = None
+) -> list[dict[str, Any]]:
     """Read-time warnings; never rewrite the pinned graph or its coverage."""
     items = {issue.issue_id: issue.to_dict() for issue in graph.issues}
     for block in graph.blocks:

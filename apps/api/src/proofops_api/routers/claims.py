@@ -5,21 +5,27 @@ from __future__ import annotations
 import json
 import sqlite3
 import time
+from collections.abc import Callable
 from dataclasses import asdict
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Query, Request, Security
 from fastapi.responses import JSONResponse
 from fastapi.security import APIKeyCookie
+from proofops.adapters.local.assurance_store import LocalAssuranceStore
 from proofops.adapters.local.catalog_pages import CatalogCapacityExceeded, InvalidCatalogCursor
+from proofops.adapters.local.claim_store import LocalClaimStore
+from proofops.adapters.local.tag_store import LocalTagStore
 from proofops.application.assurance import ClaimContext as AssuranceContext
 from proofops.application.assurance import claim_context_from_review_inputs, match_assurance
+from proofops.application.claims import ClaimDiscovery
 from proofops.application.runs import RunRejected
 from proofops.domain.provenance import canonical_hash
 from proofops.domain.rules.engine import MAPPINGS
 from proofops_api.auth import (
     SESSION_COOKIE_NAME,
+    AuthStore,
     _authorize,
     _error_response,
     _request_limit_response,
@@ -81,7 +87,7 @@ _PRELIMINARY_UNRESOLVED_ACTION = {
 }
 
 
-def _preliminary_unresolved_action(agreement):
+def _preliminary_unresolved_action(agreement: object) -> str:
     """Explain stored agreement without changing the blocked state or decision."""
     if not isinstance(agreement, dict):
         return _PRELIMINARY_UNRESOLVED_ACTION["unknown"]
@@ -127,8 +133,8 @@ class ClaimSummary(StrictDTO):
     topic_ids: list[str]
     decision: Decision | None
     revision: Annotated[int, Field(ge=1)]
-    source_status: dict | None = None
-    provisional_grade: dict | None = None
+    source_status: dict[str, Any] | None = None
+    provisional_grade: dict[str, Any] | None = None
     pipeline_stage: str | None = None
 
 
@@ -169,7 +175,7 @@ class RawCandidate(StrictDTO):
 
 
 class SentenceContext(StrictDTO):
-    policy: dict
+    policy: dict[str, Any]
     text: str
     source_refs: list[SourceRef]
     verification_state: Literal["verified", "candidate"]
@@ -198,8 +204,8 @@ class ReviewProjection(StrictDTO):
     field_agreements: list[FieldAgreement]
     raw_candidates: list[RawCandidate] = Field(default_factory=list)
     sentence_context: SentenceContext | None = None
-    source_status: dict | None = None
-    provisional_grade: dict | None = None
+    source_status: dict[str, Any] | None = None
+    provisional_grade: dict[str, Any] | None = None
     pipeline_stage: str | None = None
 
 
@@ -276,7 +282,14 @@ class ClaimDetail(StrictDTO):
     submitted_reviews: list[SubmittedReview] = Field(default_factory=list)
 
 
-def build_claims_router(claims, auth_store, *, tags=None, assurance=None, clock=time.time):
+def build_claims_router(
+    claims: LocalClaimStore,
+    auth_store: AuthStore,
+    *,
+    tags: LocalTagStore | None = None,
+    assurance: LocalAssuranceStore | None = None,
+    clock: Callable[[], float] = time.time,
+) -> APIRouter:
     router = APIRouter(
         responses=_ERROR_RESPONSES,
         dependencies=[
@@ -294,7 +307,7 @@ def build_claims_router(claims, auth_store, *, tags=None, assurance=None, clock=
     }
     store = claims.store
 
-    def load(request, run_id, operation):
+    def load(request: Request, run_id: str, operation: str) -> ClaimDiscovery | JSONResponse:
         now = time.time()
         auth = _authorize(request, auth_store, now, "viewer")
         if isinstance(auth, JSONResponse):
@@ -304,18 +317,20 @@ def build_claims_router(claims, auth_store, *, tags=None, assurance=None, clock=
         )
         if limited is not None:
             return limited
-        return claims.load(auth.tenant_id, run_id)
+        return cast(ClaimDiscovery, claims.load(auth.tenant_id, run_id))
 
-    def rulepack_approved_by(tenant_id, run_id):
+    def rulepack_approved_by(tenant_id: str, run_id: str) -> str | None:
         # Best-effort, read-only projection of the run's pinned rulepack
         # approver so the UI can label AI-delegated review distinctly from a
         # human approval. Absence of a snapshot/field must not raise.
         try:
-            return store.snapshot(tenant_id, run_id)["rulepack"].get("approved_by")
+            return cast(
+                str | None, store.snapshot(tenant_id, run_id)["rulepack"].get("approved_by")
+            )
         except (ValueError, KeyError, sqlite3.DatabaseError):
             return None
 
-    def review_projection(tenant_id, run_id, claim_id):
+    def review_projection(tenant_id: str, run_id: str, claim_id: str) -> dict[str, Any] | None:
         # Read-only projection of a blocked/in-progress tagging attempt from
         # LocalTagStore.load_snapshot(...)["claims"][i]. A tag stage that
         # never started (no "tag_job" on the run) has nothing to project, so
@@ -326,7 +341,8 @@ def build_claims_router(claims, auth_store, *, tags=None, assurance=None, clock=
         if tags is None:
             return None
         try:
-            envelope = tags.load_snapshot(tenant_id, run_id)
+            # External API is untyped and outside this work package.
+            envelope = tags.load_snapshot(tenant_id, run_id)  # type: ignore[no-untyped-call]
         except KeyError as exc:
             if exc.args == ("tag_job",):
                 return None
@@ -432,7 +448,7 @@ def build_claims_router(claims, auth_store, *, tags=None, assurance=None, clock=
             ),
         )
 
-    def detail_payload(body):
+    def detail_payload(body: dict[str, Any]) -> dict[str, Any]:
         result = ClaimDetail.model_validate_json(json.dumps(body)).model_dump(mode="json")
         for key in ("source_status", "provisional_grade", "pipeline_stage", "sentence_context"):
             if result["claim"].get(key) is None:
@@ -441,7 +457,7 @@ def build_claims_router(claims, auth_store, *, tags=None, assurance=None, clock=
                 result["review_projection"].pop(key, None)
         return result
 
-    def failure(exc):
+    def failure(exc: Exception) -> JSONResponse:
         if isinstance(exc, InvalidCatalogCursor):
             return _error_response(
                 400, "INVALID_CURSOR", "Pagination cursor is invalid or expired."
@@ -470,14 +486,15 @@ def build_claims_router(claims, auth_store, *, tags=None, assurance=None, clock=
         track: Track | None = None,
         grade: Grade | None = None,
         review_status: ReviewStatus | None = None,
-    ):
+    ) -> JSONResponse:
         try:
             discovery = load(request, str(run_id), "claims_list")
             if isinstance(discovery, JSONResponse):
                 return discovery
             if tags is not None:
                 return JSONResponse(
-                    claims.page(
+                    # External API is untyped and outside this work package.
+                    claims.page(  # type: ignore[no-untyped-call]
                         discovery,
                         str(run_id),
                         cursor=cursor,
@@ -566,7 +583,7 @@ def build_claims_router(claims, auth_store, *, tags=None, assurance=None, clock=
         openapi_extra=contract,
         response_model=ClaimDetail,
     )
-    def detail(request: Request, run_id: UUID, claim_id: UUID):
+    def detail(request: Request, run_id: UUID, claim_id: UUID) -> JSONResponse:
         try:
             discovery = load(request, str(run_id), "claim_get")
             if isinstance(discovery, JSONResponse):
@@ -587,7 +604,8 @@ def build_claims_router(claims, auth_store, *, tags=None, assurance=None, clock=
             # Reuse one verified read; only untagged context is best-effort.
             try:
                 review_inputs = (
-                    tags.load_inputs(claim.tenant_id, str(run_id), claim.claim_id)
+                    # External API is untyped and outside this work package.
+                    tags.load_inputs(claim.tenant_id, str(run_id), claim.claim_id)  # type: ignore[no-untyped-call]
                     if tags is not None
                     else None
                 )
@@ -596,13 +614,17 @@ def build_claims_router(claims, auth_store, *, tags=None, assurance=None, clock=
                     raise
                 review_inputs = None
 
-            def _assurance_context():
+            def _assurance_context() -> AssuranceContext:
                 try:
-                    return claim_context_from_review_inputs(
-                        review_inputs,
-                        tenant_id=claim.tenant_id,
-                        document_version_id=claim.document_version_id,
-                        claim_id=claim.claim_id,
+                    return cast(
+                        AssuranceContext,
+                        # External API is untyped and outside this work package.
+                        claim_context_from_review_inputs(  # type: ignore[no-untyped-call]
+                            review_inputs,
+                            tenant_id=claim.tenant_id,
+                            document_version_id=claim.document_version_id,
+                            claim_id=claim.claim_id,
+                        ),
                     )
                 except Exception:
                     return AssuranceContext(
@@ -623,12 +645,14 @@ def build_claims_router(claims, auth_store, *, tags=None, assurance=None, clock=
                 # ETag, so no tag edits can be conditioned until a tag exists.
                 # Assurance reflects the run's published statement when present;
                 # otherwise the matcher preserves the absence as undetermined.
-                summary = claims.summary(claim, None)
+                # External API is untyped and outside this work package.
+                summary = claims.summary(claim, None)  # type: ignore[no-untyped-call]
                 body = dict(
                     claim=summary,
                     source_refs=[asdict(ref) for ref in claim.source_refs],
                     elements=[],
-                    submitted_reviews=claims.submitted_reviews(
+                    # External API is untyped and outside this work package.
+                    submitted_reviews=claims.submitted_reviews(  # type: ignore[no-untyped-call]
                         claim.tenant_id, str(run_id), claim.claim_id
                     ),
                     assurance=match.to_dict(),
@@ -642,7 +666,8 @@ def build_claims_router(claims, auth_store, *, tags=None, assurance=None, clock=
                         claim.tenant_id, str(run_id), claim.claim_id
                     ),
                 )
-                body["element_evidence"] = claims.missing_evidence(
+                # External API is untyped and outside this work package.
+                body["element_evidence"] = claims.missing_evidence(  # type: ignore[no-untyped-call]
                     claim.tenant_id, str(run_id), claim, track=summary["track"], elements=[]
                 )
                 return JSONResponse(
@@ -654,7 +679,8 @@ def build_claims_router(claims, auth_store, *, tags=None, assurance=None, clock=
             assert review_inputs is not None
             inputs = review_inputs
             tag = current["tag"]
-            summary = claims.summary(claim, current)
+            # External API is untyped and outside this work package.
+            summary = claims.summary(claim, current)  # type: ignore[no-untyped-call]
             # Assurance reflects the run's published statement when present;
             # otherwise the matcher preserves the absence as undetermined.
             body = dict(
@@ -680,7 +706,8 @@ def build_claims_router(claims, auth_store, *, tags=None, assurance=None, clock=
                 ]
                 if summary["track"]
                 else tag["elements"],
-                submitted_reviews=claims.submitted_reviews(
+                # External API is untyped and outside this work package.
+                submitted_reviews=claims.submitted_reviews(  # type: ignore[no-untyped-call]
                     claim.tenant_id, str(run_id), claim.claim_id
                 ),
                 reviewed_context=(tag.get("claim_context_review") or {}).get("projection"),
@@ -693,7 +720,8 @@ def build_claims_router(claims, auth_store, *, tags=None, assurance=None, clock=
                 rulepack_approved_by=rulepack_approved_by(claim.tenant_id, str(run_id)),
                 review_projection=review_projection(claim.tenant_id, str(run_id), claim.claim_id),
             )
-            body["element_evidence"] = claims.missing_evidence(
+            # External API is untyped and outside this work package.
+            body["element_evidence"] = claims.missing_evidence(  # type: ignore[no-untyped-call]
                 claim.tenant_id,
                 str(run_id),
                 claim,
